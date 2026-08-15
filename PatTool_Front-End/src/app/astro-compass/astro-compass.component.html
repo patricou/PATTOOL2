@@ -88,6 +88,24 @@
               <video #cam class="ac-finder__video" playsinline muted autoplay webkit-playsinline></video>
               <div class="ac-finder__empty" *ngIf="!camLive">{{ 'ASTRO_COMPASS.CAM_PLACEHOLDER' | translate }}</div>
               <div class="ac-finder__reticle" aria-hidden="true"></div>
+              <svg
+                *ngIf="finderTrailEnabled && finderTrailPolylines.length"
+                class="ac-finder__trail"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                aria-hidden="true">
+                <polyline
+                  *ngFor="let pts of finderTrailPolylines"
+                  class="ac-finder__trail-line"
+                  [attr.points]="pts"
+                  [attr.stroke]="bodyColor"></polyline>
+              </svg>
+              <span
+                *ngFor="let tick of finderTrailTicks"
+                class="ac-finder__trail-tick"
+                [ngStyle]="{ left: tick.xPct + '%', top: tick.yPct + '%' }">
+                {{ 'ASTRO_COMPASS.FINDER_TRAIL_MIN' | translate : { min: tick.min } }}
+              </span>
               <div
                 class="ac-finder__guide"
                 *ngIf="finderGuide && headingActive && !finderPoseFrozen"
@@ -207,6 +225,20 @@
                   <i class="fa" [ngClass]="finderPoseFrozen ? 'fa-play' : 'fa-pause'" aria-hidden="true"></i>
                   {{ (finderPoseFrozen ? 'ASTRO_COMPASS.FINDER_RESUME' : 'ASTRO_COMPASS.FINDER_PAUSE') | translate }}
                 </button>
+                <label
+                  class="ac-finder__trail-sw"
+                  [class.ac-finder__trail-sw--on]="finderTrailEnabled"
+                  [attr.title]="'ASTRO_COMPASS.FINDER_TRAIL_HINT' | translate">
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    [(ngModel)]="finderTrailEnabled"
+                    (ngModelChange)="onFinderTrailChange()"
+                    [attr.aria-label]="'ASTRO_COMPASS.FINDER_TRAIL' | translate" />
+                  <span class="ac-finder__trail-sw-ui" aria-hidden="true"></span>
+                  <i class="fa fa-long-arrow-right" aria-hidden="true"></i>
+                  {{ 'ASTRO_COMPASS.FINDER_TRAIL' | translate }}
+                </label>
               </div>
               <button
                 type="button"
@@ -261,6 +293,7 @@
             <p class="ac-finder__north-hint">{{ 'ASTRO_COMPASS.MARK_NORTH_HINT' | translate }}</p>
             <p class="ac-finder__north-hint">{{ 'ASTRO_COMPASS.EXACT_POS_HINT' | translate }}</p>
             <p class="ac-finder__north-hint">{{ 'ASTRO_COMPASS.FINDER_PAUSE_HINT' | translate }}</p>
+            <p class="ac-finder__north-hint">{{ 'ASTRO_COMPASS.FINDER_TRAIL_HINT' | translate }}</p>
             <p class="ac-finder__lock" *ngIf="finderPoseFrozen">
               <i class="fa fa-pause me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.FINDER_PAUSED' | translate }}
             </p>

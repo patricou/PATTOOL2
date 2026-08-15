@@ -170,16 +170,23 @@ public class GlobeProxyService {
             40376, // GPM Core
             28485, // Swift
             33053  // Fermi
+            // Astra 19.2°E uses a fixed GEO slot (no TLE). Starlink uses the group endpoint.
     );
+
+    private static final String CELESTRAK_TLE_STARLINK =
+            "https://celestrak.org/NORAD/elements/gp.php?GROUP=starlink&FORMAT=TLE";
 
     private static final long ISS_NOW_MEMORY_CACHE_MS = 3_000L;
     private static final long SAT_TLE_MEMORY_CACHE_MS = 3_600_000L; // 1 h
+    private static final long SAT_TLE_GROUP_CACHE_MS = 3_600_000L;
     private static final int MAX_BYTES_SAT_TLE = 16_384;
+    private static final int MAX_BYTES_SAT_TLE_GROUP = 3 * 1024 * 1024;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final IssTraceService issTraceService;
     private volatile IssNowMemoryCache issNowMemoryCache;
+    private volatile SatTleMemoryCache starlinkTleCache;
     private final ConcurrentHashMap<Integer, SatTleMemoryCache> satTleMemoryCache = new ConcurrentHashMap<>();
 
     public GlobeProxyService(
@@ -529,7 +536,31 @@ public class GlobeProxyService {
     }
 
     public int cacheEntryCount() {
-        return (issNowMemoryCache != null ? 1 : 0) + satTleMemoryCache.size();
+        return (issNowMemoryCache != null ? 1 : 0)
+                + (starlinkTleCache != null ? 1 : 0)
+                + satTleMemoryCache.size();
+    }
+
+    /**
+     * CelesTrak STARLINK group TLE (name + line1 + line2 repeating). Cached ~1 h.
+     */
+    public byte[] fetchStarlinkTleGroup() {
+        SatTleMemoryCache cached = starlinkTleCache;
+        if (cached != null && cached.isFresh(SAT_TLE_GROUP_CACHE_MS)) {
+            return cached.payload();
+        }
+        byte[] raw = fetchBytes(
+                CELESTRAK_TLE_STARLINK,
+                MAX_BYTES_SAT_TLE_GROUP,
+                false,
+                TLE_CLIENT_UA,
+                "text/plain");
+        String text = new String(raw, java.nio.charset.StandardCharsets.UTF_8);
+        if (!text.contains("1 ") || !text.toUpperCase(Locale.ROOT).contains("STARLINK")) {
+            throw new IllegalStateException("Unexpected Starlink TLE group payload");
+        }
+        starlinkTleCache = new SatTleMemoryCache(raw, System.currentTimeMillis());
+        return raw;
     }
 
     /** Allowlisted NORAD catalog IDs exposable via the TLE proxy. */

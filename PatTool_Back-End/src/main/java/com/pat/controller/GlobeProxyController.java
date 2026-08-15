@@ -329,6 +329,20 @@ public class GlobeProxyController {
      * Classic TLE (CelesTrak) for an allowlisted NORAD spacecraft — used by the astro compass
      * for Hubble, Tiangong, JWST, Earth-obs sats, etc. (SGP4 runs client-side).
      */
+    @GetMapping(value = "/satellites/groups/starlink/tle", produces = MediaType.TEXT_PLAIN_VALUE)
+    public ResponseEntity<byte[]> starlinkTleGroup() {
+        try {
+            byte[] body = globeProxyService.fetchStarlinkTleGroup();
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(30, TimeUnit.MINUTES).cachePublic())
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(body);
+        } catch (Exception e) {
+            log.debug("Starlink TLE group proxy failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+    }
+
     @GetMapping(value = "/satellites/{noradId}/tle", produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<byte[]> satelliteTle(@PathVariable("noradId") int noradId) {
         try {

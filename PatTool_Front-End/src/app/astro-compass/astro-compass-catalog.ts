@@ -37,6 +37,15 @@ export interface AstroSatelliteOption {
    * When true, skip TLE / SGP4 (e.g. JWST at L2 — no useful two-line elements).
    */
   skipLiveTle?: boolean;
+  /** Geostationary slot: fixed sub-satellite point, no TLE. */
+  fixedGeo?: { lat: number; lon: number; altKm: number };
+  /** Dynamic constellation (live TLE group, e.g. next visible Starlink train). */
+  constellation?: 'starlink';
+}
+
+/** True when the satellite is aimed via the single-NORAD TLE proxy. */
+export function satelliteUsesNetworkTle(sat: AstroSatelliteOption): boolean {
+  return !sat.skipLiveTle && !sat.fixedGeo && !sat.constellation && !sat.useIssLiveFeed;
 }
 
 /** Human-made spacecraft with public TLEs (CelesTrak). */
@@ -276,6 +285,26 @@ export const ASTRO_SATELLITES: ReadonlyArray<AstroSatelliteOption> = [
     iconClass: 'fa fa-star-o',
     color: '#c084fc',
     defaultAltKm: 535
+  },
+  {
+    id: 'astra192',
+    kind: 'iss',
+    noradId: 37775,
+    labelKey: 'ASTRO_COMPASS.BODY_ASTRA192',
+    iconClass: 'fa fa-dot-circle-o',
+    color: '#facc15',
+    defaultAltKm: 35_786,
+    fixedGeo: { lat: 0, lon: 19.2, altKm: 35_786 }
+  },
+  {
+    id: 'starlink',
+    kind: 'iss',
+    noradId: 0,
+    labelKey: 'ASTRO_COMPASS.BODY_STARLINK',
+    iconClass: 'fa fa-rss',
+    color: '#38bdf8',
+    defaultAltKm: 550,
+    constellation: 'starlink'
   }
 ];
 

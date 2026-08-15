@@ -923,6 +923,14 @@ body:has(.wg-fs-root--viewport-locked) {
   min-width: 1.75ch;
 }
 
+/* Unité à côté du stepper (évite text-muted illisible sur fond sombre). */
+.wg-opt-row--tools .wg-opt-unit {
+  color: #d5e2f6;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
 .wg-root .btn.wg-opt-icon-btn,
 .wg-opt-icon-btn {
   display: inline-flex;

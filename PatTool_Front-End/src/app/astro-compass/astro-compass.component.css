@@ -4292,6 +4292,100 @@ a.ac-compass-cal__btn--direction {
   box-shadow: 0 0 14px rgba(126, 200, 255, 0.55);
 }
 
+.ac-finder__trail {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.ac-finder__trail-line {
+  fill: none;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 7 5;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.92;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+.ac-finder__trail-tick {
+  position: absolute;
+  z-index: 2;
+  transform: translate(-50%, -130%);
+  pointer-events: none;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 4px #000;
+  background: rgba(6, 10, 20, 0.55);
+  padding: 0.08rem 0.28rem;
+  border-radius: 0.3rem;
+  white-space: nowrap;
+}
+
+.ac-finder__trail-sw {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 0.45rem;
+  background: rgba(8, 12, 24, 0.72);
+  color: #eaf1ff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ac-finder__trail-sw input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ac-finder__trail-sw-ui {
+  width: 1.7rem;
+  height: 0.95rem;
+  border-radius: 999px;
+  background: rgba(120, 140, 180, 0.4);
+  position: relative;
+  flex: 0 0 auto;
+  transition: background 0.15s ease;
+}
+
+.ac-finder__trail-sw-ui::after {
+  content: '';
+  position: absolute;
+  top: 0.12rem;
+  left: 0.12rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: #e8eefc;
+  transition: transform 0.15s ease;
+}
+
+.ac-finder__trail-sw--on {
+  background: rgba(94, 234, 212, 0.92);
+  color: #062018;
+  border-color: transparent;
+  box-shadow: 0 0 14px rgba(94, 234, 212, 0.45);
+}
+
+.ac-finder__trail-sw--on .ac-finder__trail-sw-ui {
+  background: rgba(6, 32, 24, 0.45);
+}
+
+.ac-finder__trail-sw--on .ac-finder__trail-sw-ui::after {
+  transform: translateX(0.72rem);
+}
+
 
 .ac-finder__north-hint {
   margin: 0.35rem 0 0;

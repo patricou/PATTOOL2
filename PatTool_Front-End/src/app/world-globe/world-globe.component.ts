@@ -22,7 +22,7 @@ import { ApiService, GlobeIssGlobalPrefs, GlobeSatelliteOverlayPrefs, IssAlertAd
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { GlobeIssNowService, GlobeIssNowSnapshot } from '../services/globe-iss-now.service';
 import { GlobeSatelliteNowService } from '../services/globe-satellite-now.service';
-import { ASTRO_SATELLITES, type AstroSatelliteOption } from '../astro-compass/astro-compass-catalog';
+import { ASTRO_SATELLITES, satelliteUsesNetworkTle, type AstroSatelliteOption } from '../astro-compass/astro-compass-catalog';
 import { AirportIcaoEntry, AirportLookupService } from '../services/airport-lookup.service';
 import { PositionService } from '../services/position.service';
 import * as THREE from 'three';
@@ -259,7 +259,7 @@ const GLOBE_SAT_ICON_WORLD_SIZE = 0.026;
 const GLOBE_SAT_LABEL_SPRITE_WORLD_H = 0.018;
 const GLOBE_SAT_OVERLAY_STORAGE_KEY = 'pat.world-globe.satellite-overlays';
 const GLOBE_SAT_MIN_ALT_KM = 80;
-const GLOBE_SAT_MAX_ALT_KM = 2000;
+const GLOBE_SAT_MAX_ALT_KM = 40_000;
 const GLOBE_SAT_PASS_LOOKBACK_MS = 45 * 60_000;
 const GLOBE_SAT_PASS_HORIZON_MS = 18 * 60 * 60_000;
 const GLOBE_SAT_PASS_STEP_MS = 30_000;
@@ -463,7 +463,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   );
   /** Interrupteurs d’affichage : tous activés par défaut. */
   satelliteOverlayEnabled: Record<string, boolean> = Object.fromEntries(
-    ASTRO_SATELLITES.filter((s) => s.id !== 'iss' && !s.skipLiveTle).map((s) => [s.id, true])
+    ASTRO_SATELLITES.filter((s) => s.id !== 'iss' && !s.skipLiveTle).map((s) => [
+      s.id,
+      s.constellation !== 'starlink'
+    ])
   );
   /** Trajectoire future (SGP4) : interrupteur maître (tous les satellites). */
   satelliteFutureTraceEnabled = false;
@@ -477,6 +480,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly satelliteFutureTraceMinutesStep = GLOBE_SAT_FORECAST_MINUTES_STEP;
   /** Satellite dont les données remplissent le bandeau ; `null` = ISS. */
   tickerFocusSatId: string | null = null;
+  private readonly starlinkCompanionIds = new Set<string>();
   satTickerLat: number | null = null;
   satTickerLon: number | null = null;
   satTickerAltKm: number | null = null;
@@ -2239,7 +2243,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       const sat = this.globeSatelliteOptions.find((s) => s.id === satId);
       if (sat) {
-        void this.satNowService.ensureTle(sat.noradId);
+        this.satNowService.setObserver(this.userObserverLat, this.userObserverLon);
+        void this.satNowService.ensureOption(sat);
       }
       this.updateGlobeSatelliteOverlays();
     }
@@ -8699,7 +8704,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private prefetchGlobeSatelliteTles(): void {
-    this.satNowService.prefetch(this.globeSatelliteOptions.map((s) => s.noradId));
+    this.satNowService.prefetch(
+      this.globeSatelliteOptions.filter(satelliteUsesNetworkTle).map((s) => s.noradId)
+    );
   }
 
   private loadGlobeSatelliteOverlayPrefs(): void {
@@ -8852,6 +8859,32 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  private updateStarlinkTrainCompanions(enabled: boolean): void {
+    const keep = new Set<string>();
+    const sat = this.globeSatelliteOptions.find((s) => s.constellation === 'starlink');
+    const pass = enabled ? this.satNowService.starlinkPass() : null;
+    if (sat && pass) {
+      for (const member of pass.members) {
+        if (member.noradId === pass.lead.noradId) {
+          continue;
+        }
+        const id = `starlink-m-${member.noradId}`;
+        keep.add(id);
+        this.ensureGlobeSatelliteVisual({ ...sat, id });
+        this.positionGlobeSatelliteVisual(id, member.lat, member.lon, member.altKm, sat.defaultAltKm);
+      }
+    }
+    for (const id of [...this.starlinkCompanionIds]) {
+      if (!keep.has(id)) {
+        this.disposeGlobeSatelliteVisual(id);
+        this.starlinkCompanionIds.delete(id);
+      }
+    }
+    for (const id of keep) {
+      this.starlinkCompanionIds.add(id);
+    }
+  }
+
   private globeSatelliteOrbitRadius(altKm: number | null, fallbackKm: number): number {
     const alt = altKm != null && Number.isFinite(altKm) ? altKm : fallbackKm;
     const clamped = Math.min(GLOBE_SAT_MAX_ALT_KM, Math.max(GLOBE_SAT_MIN_ALT_KM, alt));
@@ -8866,15 +8899,22 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     for (const sat of this.globeSatelliteOptions) {
       if (this.satelliteOverlayEnabled[sat.id] === false) {
         this.disposeGlobeSatelliteVisual(sat.id);
+        if (sat.constellation === 'starlink') {
+          this.updateStarlinkTrainCompanions(false);
+        }
         continue;
       }
-      const snap = this.satNowService.snapshotForDisplay(sat.noradId, now);
+      this.satNowService.setObserver(this.userObserverLat, this.userObserverLon);
+      const snap = this.satNowService.snapshotForOption(sat, now);
       if (!snap) {
-        void this.satNowService.ensureTle(sat.noradId);
+        void this.satNowService.ensureOption(sat);
         continue;
       }
       this.ensureGlobeSatelliteVisual(sat);
       this.positionGlobeSatelliteVisual(sat.id, snap.lat, snap.lon, snap.altKm, sat.defaultAltKm);
+      if (sat.constellation === 'starlink') {
+        this.updateStarlinkTrainCompanions(true);
+      }
       if (this.pendingCenterSatelliteId === sat.id) {
         this.tryCenterGlobeOnSatellite(sat.id);
       }
@@ -8894,9 +8934,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!sat) {
       return;
     }
-    const snap = this.satNowService.snapshotForDisplay(sat.noradId);
+    this.satNowService.setObserver(this.userObserverLat, this.userObserverLon);
+    const snap = this.satNowService.snapshotForOption(sat);
     if (!snap) {
-      void this.satNowService.ensureTle(sat.noradId);
+      void this.satNowService.ensureOption(sat);
       return;
     }
     this.applySatelliteTickerSnapshot(sat, snap);
@@ -8966,9 +9007,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const now = Date.now();
     let changed = false;
     for (const sat of this.globeSatelliteOptions) {
-      const snap = this.satNowService.snapshotForDisplay(sat.noradId, now);
+      this.satNowService.setObserver(obsLat, obsLon);
+      const snap = this.satNowService.snapshotForOption(sat, now);
       if (!snap) {
-        void this.satNowService.ensureTle(sat.noradId);
+        void this.satNowService.ensureOption(sat);
       }
       const visible =
         snap != null &&
@@ -8997,9 +9039,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!sat || !camera || !controls) {
       return;
     }
-    const snap = this.satNowService.snapshotForDisplay(sat.noradId);
+    this.satNowService.setObserver(this.userObserverLat, this.userObserverLon);
+    const snap = this.satNowService.snapshotForOption(sat);
     if (!snap) {
-      void this.satNowService.ensureTle(sat.noradId);
+      void this.satNowService.ensureOption(sat);
       return;
     }
     this.pendingCenterSatelliteId = null;
@@ -9025,7 +9068,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         })
         .catch(() => undefined);
     }
-    await this.satNowService.ensureTle(sat.noradId);
+    this.satNowService.setObserver(this.userObserverLat, this.userObserverLon);
+    await this.satNowService.ensureOption(sat);
     if (this.satelliteInfoSat?.id !== sat.id) {
       return;
     }
@@ -9040,7 +9084,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!sat) {
       return;
     }
-    const snap = this.satNowService.snapshotForDisplay(sat.noradId);
+    this.satNowService.setObserver(this.userObserverLat, this.userObserverLon);
+    const snap = this.satNowService.snapshotForOption(sat);
     if (!snap) {
       this.satelliteInfoSnapshot = null;
       return;
@@ -9136,7 +9181,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     obsLon: number,
     atMs: number
   ): number | null {
-    const snap = this.satNowService.snapshotForDisplay(sat.noradId, atMs);
+    const snap = this.satNowService.snapshotForOption(sat, atMs);
     if (!snap) {
       return null;
     }
@@ -9303,15 +9348,16 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     const now = Date.now();
-    const current = this.satNowService.snapshotForDisplay(sat.noradId, now);
+    this.satNowService.setObserver(this.userObserverLat, this.userObserverLon);
+    const current = this.satNowService.snapshotForOption(sat, now);
     if (!current) {
-      void this.satNowService.ensureTle(sat.noradId);
+      void this.satNowService.ensureOption(sat);
       return;
     }
     const endMs = now + this.satelliteFutureTraceMinutes * 60_000;
     const pts: { lat: number; lon: number }[] = [{ lat: current.lat, lon: current.lon }];
     for (let t = now + GLOBE_SAT_FORECAST_STEP_MS; t <= endMs; t += GLOBE_SAT_FORECAST_STEP_MS) {
-      const snap = this.satNowService.snapshotForDisplay(sat.noradId, t);
+      const snap = this.satNowService.snapshotForOption(sat, t);
       if (!snap) {
         continue;
       }

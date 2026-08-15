@@ -11,6 +11,8 @@ import {
   type SatRec
 } from 'satellite.js';
 import { environment } from '../../environments/environment';
+import { satelliteUsesNetworkTle, type AstroSatelliteOption } from '../astro-compass/astro-compass-catalog';
+import { GlobeStarlinkService } from './globe-starlink.service';
 
 export interface GlobeSatelliteNowSnapshot {
   noradId: number;
@@ -39,9 +41,48 @@ const TLE_FAIL_RETRY_MS = 120_000;
 @Injectable({ providedIn: 'root' })
 export class GlobeSatelliteNowService {
   private readonly http = inject(HttpClient);
+  private readonly starlink = inject(GlobeStarlinkService);
   private readonly tleByNorad = new Map<number, CachedTle>();
   private readonly inflight = new Map<number, Promise<CachedTle | null>>();
   private readonly failUntilMs = new Map<number, number>();
+
+  setObserver(lat: number | null, lon: number | null): void {
+    this.starlink.setObserver(lat, lon);
+  }
+
+  async ensureOption(sat: AstroSatelliteOption, forceNetwork = false): Promise<void> {
+    if (sat.constellation === 'starlink') {
+      await this.starlink.ensureCatalog(forceNetwork);
+      this.starlink.refreshPass();
+      return;
+    }
+    if (sat.skipLiveTle || sat.fixedGeo) {
+      return;
+    }
+    await this.ensureTle(sat.noradId, forceNetwork);
+  }
+
+  starlinkPass() {
+    return this.starlink.lastComputedPass();
+  }
+
+  snapshotForOption(sat: AstroSatelliteOption, nowMs = Date.now()): GlobeSatelliteNowSnapshot | null {
+    if (sat.fixedGeo) {
+      return {
+        noradId: sat.noradId,
+        name: sat.id,
+        lat: sat.fixedGeo.lat,
+        lon: sat.fixedGeo.lon,
+        altKm: sat.fixedGeo.altKm,
+        velocityKmh: 0,
+        computedAtMs: nowMs
+      };
+    }
+    if (sat.constellation === 'starlink') {
+      return this.starlink.leadSnapshot(nowMs);
+    }
+    return this.snapshotForDisplay(sat.noradId, nowMs);
+  }
 
   /** Prefetch TLEs for a set of NORAD ids (fire-and-forget). */
   prefetch(noradIds: ReadonlyArray<number>): void {
