@@ -650,7 +650,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {
     this.onStarQueryChange();
     this.loadAlignCuePref();
-    if (!this.hasIssQueryTarget()) {
+    if (!this.hasSatelliteQueryTarget()) {
       this.restoreLastTarget();
     }
     this.hydrateLastTargetFromDb();
@@ -5170,22 +5170,30 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.applyLastTarget(data);
   }
 
-  /** Lien globe (et autres) : `?target=iss` force l’ISS, au-dessus du dernier astre mémorisé. */
-  private hasIssQueryTarget(): boolean {
-    const raw = (this.route.snapshot.queryParamMap.get('target') || '').trim().toLowerCase();
-    return raw === 'iss';
+  /** Lien globe (et autres) : `?target=hubble` force ce satellite, au-dessus du dernier astre mémorisé. */
+  private readQueryTargetId(): string {
+    return (this.route.snapshot.queryParamMap.get('target') || '').trim().toLowerCase();
+  }
+
+  private hasSatelliteQueryTarget(): boolean {
+    const raw = this.readQueryTargetId();
+    return !!raw && !!findSatelliteById(raw);
   }
 
   private applyQueryTarget(): boolean {
-    if (!this.hasIssQueryTarget()) {
+    const raw = this.readQueryTargetId();
+    if (!raw || !findSatelliteById(raw)) {
       return false;
     }
-    this.selectSatellite('iss');
+    this.selectSatellite(raw);
     return true;
   }
 
   /** Compte connecté : la base gagne ; sinon on pousse le choix local vers Mongo. */
   private hydrateLastTargetFromDb(): void {
+    if (this.hasSatelliteQueryTarget()) {
+      return;
+    }
     const gen = ++this.lastTargetLoadGen;
     const local = this.readLastTargetLocal();
     this.api.getAstroLastTarget().subscribe({

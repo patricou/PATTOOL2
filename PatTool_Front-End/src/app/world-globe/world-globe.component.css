@@ -763,6 +763,28 @@ body:has(.wg-fs-root--viewport-locked) {
   font-weight: 600;
 }
 
+.wg-sat-visible-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  width: 4.4rem;
+  min-width: 4.4rem;
+  height: 1.35rem;
+  flex-shrink: 0;
+}
+
+.wg-sat-viseur-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 1.35rem;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  flex-shrink: 0;
+}
+
 .wg-sat-visible {
   display: inline-flex;
   align-items: center;
@@ -864,6 +886,11 @@ body:has(.wg-fs-root--viewport-locked) {
   flex-shrink: 0;
   float: none;
   position: static;
+}
+
+.wg-opt-switch--trace .form-check-input:checked {
+  background-color: #4aa3d8;
+  border-color: #4aa3d8;
 }
 
 .wg-opt-row--tools .wg-opt-row__tools {

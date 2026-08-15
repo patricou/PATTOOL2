@@ -117,9 +117,31 @@ public class GlobeSatelliteOverlayPrefsService {
                 out.put(id, e.getValue());
             }
         }
-        Boolean futureTrace = dto != null && dto.futureTraceEnabled() != null
-                ? dto.futureTraceEnabled()
-                : Boolean.FALSE;
-        return new GlobeSatelliteOverlayPrefsDto(out, futureTrace);
+        Map<String, Boolean> incomingTraces = dto != null && dto.futureTraceEnabledById() != null
+                ? dto.futureTraceEnabledById()
+                : Map.of();
+        boolean hasPerSatTraces = !incomingTraces.isEmpty();
+        boolean legacyAllOn = !hasPerSatTraces
+                && dto != null
+                && Boolean.TRUE.equals(dto.futureTraceEnabled());
+        Map<String, Boolean> traces = new LinkedHashMap<>();
+        for (String id : KNOWN_SATELLITE_IDS) {
+            traces.put(id, legacyAllOn);
+        }
+        for (Map.Entry<String, Boolean> e : incomingTraces.entrySet()) {
+            if (e.getKey() == null || e.getValue() == null) {
+                continue;
+            }
+            String id = e.getKey().trim().toLowerCase(Locale.ROOT);
+            if (KNOWN_SATELLITE_IDS.contains(id)) {
+                traces.put(id, e.getValue());
+            }
+        }
+        boolean anyTrace = traces.values().stream().anyMatch(Boolean.TRUE::equals);
+        int minutes = 90;
+        if (dto != null && dto.futureTraceMinutes() != null) {
+            minutes = Math.min(180, Math.max(15, dto.futureTraceMinutes()));
+        }
+        return new GlobeSatelliteOverlayPrefsDto(out, anyTrace, minutes, traces);
     }
 }

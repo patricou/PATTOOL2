@@ -120,6 +120,8 @@ export interface FlightState {
 export interface GlobeSatelliteOverlayPrefs {
   enabled?: Record<string, boolean> | null;
   futureTraceEnabled?: boolean | null;
+  futureTraceMinutes?: number | null;
+  futureTraceEnabledById?: Record<string, boolean> | null;
 }
 
 /** Per-user last tracked flight (GET/PUT /external/globe/flight/tracking). */

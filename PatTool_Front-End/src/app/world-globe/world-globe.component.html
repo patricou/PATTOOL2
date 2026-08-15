@@ -608,7 +608,7 @@
             <div class="wg-opt-section__body">
               <p class="wg-opt-iss-meta text-muted small mb-1">{{ 'WORLD_GLOBE.SATELLITE_LAYER_HINT' | translate }}</p>
               <div class="wg-opt-row">
-                <label class="wg-opt-row__label" for="wgSatFutureTrace" [attr.title]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_HINT' | translate">{{ 'WORLD_GLOBE.SATELLITE_FUTURE_TRACE' | translate }}</label>
+                <label class="wg-opt-row__label" for="wgSatFutureTrace" [attr.title]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_HINT' | translate : { minutes: satelliteFutureTraceMinutes }">{{ 'WORLD_GLOBE.SATELLITE_FUTURE_TRACE' | translate }}</label>
                 <div class="form-check form-switch wg-opt-switch mb-0">
                   <input
                     class="form-check-input"
@@ -618,6 +618,47 @@
                     [(ngModel)]="satelliteFutureTraceEnabled"
                     (ngModelChange)="onGlobeSatelliteFutureTraceToggle()"
                     [disabled]="!globeSurfaceReady" />
+                </div>
+              </div>
+              <div class="wg-opt-row wg-opt-row--tools">
+                <label
+                  class="wg-opt-row__label"
+                  for="wgSatFutureTraceMin"
+                  [attr.title]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_DURATION_HINT' | translate : { min: satelliteFutureTraceMinutesMin, max: satelliteFutureTraceMinutesMax }">
+                  {{ 'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_DURATION' | translate }}
+                </label>
+                <div class="wg-opt-row__tools">
+                  <button
+                    type="button"
+                    class="btn btn-sm wg-opt-icon-btn"
+                    (click)="onGlobeSatelliteFutureTraceMinutesDelta(-satelliteFutureTraceMinutesStep)"
+                    [disabled]="!globeSurfaceReady || satelliteFutureTraceMinutes <= satelliteFutureTraceMinutesMin"
+                    [attr.title]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_MINUS' | translate"
+                    [attr.aria-label]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_MINUS' | translate">
+                    <i class="fa fa-minus" aria-hidden="true"></i>
+                  </button>
+                  <input
+                    id="wgSatFutureTraceMin"
+                    type="number"
+                    class="form-control form-control-sm wg-iss-interval-input"
+                    [(ngModel)]="satelliteFutureTraceMinutes"
+                    (blur)="onGlobeSatelliteFutureTraceMinutesCommitted()"
+                    (change)="onGlobeSatelliteFutureTraceMinutesCommitted()"
+                    [min]="satelliteFutureTraceMinutesMin"
+                    [max]="satelliteFutureTraceMinutesMax"
+                    [step]="satelliteFutureTraceMinutesStep"
+                    [disabled]="!globeSurfaceReady"
+                    [attr.aria-label]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_DURATION' | translate" />
+                  <span class="wg-opt-inline__cd text-muted">{{ 'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_MINUTES_ABBR' | translate }}</span>
+                  <button
+                    type="button"
+                    class="btn btn-sm wg-opt-icon-btn"
+                    (click)="onGlobeSatelliteFutureTraceMinutesDelta(satelliteFutureTraceMinutesStep)"
+                    [disabled]="!globeSurfaceReady || satelliteFutureTraceMinutes >= satelliteFutureTraceMinutesMax"
+                    [attr.title]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_PLUS' | translate"
+                    [attr.aria-label]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_PLUS' | translate">
+                    <i class="fa fa-plus" aria-hidden="true"></i>
+                  </button>
                 </div>
               </div>
               <div
@@ -635,6 +676,26 @@
                   {{ sat.labelKey | translate }}
                 </label>
                 <div class="wg-opt-row__tools">
+                  <span class="wg-sat-visible-slot">
+                    <span
+                      class="wg-sat-visible"
+                      *ngIf="satelliteVisibleFromUser[sat.id]"
+                      [attr.title]="'WORLD_GLOBE.SATELLITE_VISIBLE_HINT' | translate">
+                      <i class="fa fa-eye" aria-hidden="true"></i>
+                      {{ 'WORLD_GLOBE.SATELLITE_VISIBLE' | translate }}
+                    </span>
+                  </span>
+                  <span class="wg-sat-viseur-slot">
+                    <button
+                      type="button"
+                      class="btn btn-sm wg-opt-icon-btn"
+                      *ngIf="satelliteVisibleFromUser[sat.id]"
+                      (click)="openAstroCompassSatellite(sat.id)"
+                      [attr.title]="'WORLD_GLOBE.SATELLITE_OPEN_VISEUR_HINT' | translate : { name: (sat.labelKey | translate) }"
+                      [attr.aria-label]="'WORLD_GLOBE.SATELLITE_OPEN_VISEUR' | translate : { name: (sat.labelKey | translate) }">
+                      <i class="fa fa-video-camera" aria-hidden="true"></i>
+                    </button>
+                  </span>
                   <div class="form-check form-switch wg-opt-switch mb-0">
                     <input
                       class="form-check-input"
@@ -644,6 +705,19 @@
                       [ngModel]="satelliteOverlayEnabled[sat.id]"
                       (ngModelChange)="onGlobeSatelliteToggle(sat.id, $event)"
                       [disabled]="!globeSurfaceReady" />
+                  </div>
+                  <div
+                    class="form-check form-switch wg-opt-switch wg-opt-switch--trace mb-0"
+                    [attr.title]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_ONE_HINT' | translate : { name: (sat.labelKey | translate), minutes: satelliteFutureTraceMinutes }">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      [id]="'wgSatTrace-' + sat.id"
+                      [name]="'wgSatTrace-' + sat.id"
+                      [ngModel]="satelliteFutureTraceById[sat.id]"
+                      (ngModelChange)="onGlobeSatelliteFutureTraceOneToggle(sat.id, $event)"
+                      [disabled]="!globeSurfaceReady || satelliteOverlayEnabled[sat.id] === false"
+                      [attr.aria-label]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_ONE' | translate : { name: (sat.labelKey | translate) }" />
                   </div>
                   <button
                     type="button"
@@ -662,13 +736,6 @@
                     [attr.aria-label]="'WORLD_GLOBE.SATELLITE_INFO' | translate : { name: (sat.labelKey | translate) }">
                     <i class="fa fa-info-circle" aria-hidden="true"></i>
                   </button>
-                  <span
-                    class="wg-sat-visible"
-                    *ngIf="satelliteVisibleFromUser[sat.id]"
-                    [attr.title]="'WORLD_GLOBE.SATELLITE_VISIBLE_HINT' | translate">
-                    <i class="fa fa-eye" aria-hidden="true"></i>
-                    {{ 'WORLD_GLOBE.SATELLITE_VISIBLE' | translate }}
-                  </span>
                 </div>
               </div>
             </div>

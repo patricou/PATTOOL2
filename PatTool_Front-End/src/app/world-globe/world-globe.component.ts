@@ -265,7 +265,10 @@ const GLOBE_SAT_PASS_HORIZON_MS = 18 * 60 * 60_000;
 const GLOBE_SAT_PASS_STEP_MS = 30_000;
 const GLOBE_SAT_PASS_MAX = 6;
 /** Trajectoire future SGP4 : ~1 orbite LEO, dans la couleur du satellite. */
-const GLOBE_SAT_FORECAST_MINUTES = 90;
+const GLOBE_SAT_FORECAST_MINUTES_DEFAULT = 90;
+const GLOBE_SAT_FORECAST_MINUTES_MIN = 15;
+const GLOBE_SAT_FORECAST_MINUTES_MAX = 180;
+const GLOBE_SAT_FORECAST_MINUTES_STEP = 15;
 const GLOBE_SAT_FORECAST_STEP_MS = 60_000;
 const GLOBE_SAT_FORECAST_TRAIL_OPACITY = 0.78;
 const GLOBE_SAT_FORECAST_TRAIL_ARC_SEGMENTS = 8;
@@ -462,8 +465,16 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   satelliteOverlayEnabled: Record<string, boolean> = Object.fromEntries(
     ASTRO_SATELLITES.filter((s) => s.id !== 'iss' && !s.skipLiveTle).map((s) => [s.id, true])
   );
-  /** Trajectoire future (SGP4) des satellites activés, dans leur couleur. */
+  /** Trajectoire future (SGP4) : interrupteur maître (tous les satellites). */
   satelliteFutureTraceEnabled = false;
+  /** Trajectoire future par satellite (désactivée par défaut). */
+  satelliteFutureTraceById: Record<string, boolean> = Object.fromEntries(
+    ASTRO_SATELLITES.filter((s) => s.id !== 'iss' && !s.skipLiveTle).map((s) => [s.id, false])
+  );
+  satelliteFutureTraceMinutes = GLOBE_SAT_FORECAST_MINUTES_DEFAULT;
+  readonly satelliteFutureTraceMinutesMin = GLOBE_SAT_FORECAST_MINUTES_MIN;
+  readonly satelliteFutureTraceMinutesMax = GLOBE_SAT_FORECAST_MINUTES_MAX;
+  readonly satelliteFutureTraceMinutesStep = GLOBE_SAT_FORECAST_MINUTES_STEP;
   /** Satellite dont les données remplissent le bandeau ; `null` = ISS. */
   tickerFocusSatId: string | null = null;
   satTickerLat: number | null = null;
@@ -2236,11 +2247,77 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onGlobeSatelliteFutureTraceToggle(): void {
+    for (const sat of this.globeSatelliteOptions) {
+      this.satelliteFutureTraceById[sat.id] = this.satelliteFutureTraceEnabled;
+      if (!this.satelliteFutureTraceEnabled) {
+        this.disposeGlobeSatelliteForecastTrail(sat.id);
+      }
+    }
     this.satelliteOverlayPrefsTouched = true;
     this.schedulePersistGlobeSatelliteOverlayPrefs();
     this.satelliteForecastLastRebuildMs = 0;
     this.updateGlobeSatelliteForecastTrails(true);
     this.cdr.markForCheck();
+  }
+
+  onGlobeSatelliteFutureTraceOneToggle(satId: string, enabled: boolean): void {
+    this.satelliteFutureTraceById[satId] = enabled;
+    this.syncGlobeSatelliteFutureTraceMaster();
+    this.satelliteOverlayPrefsTouched = true;
+    this.schedulePersistGlobeSatelliteOverlayPrefs();
+    if (!enabled) {
+      this.disposeGlobeSatelliteForecastTrail(satId);
+    }
+    this.satelliteForecastLastRebuildMs = 0;
+    this.updateGlobeSatelliteForecastTrails(true);
+    this.cdr.markForCheck();
+  }
+
+  private syncGlobeSatelliteFutureTraceMaster(): void {
+    this.satelliteFutureTraceEnabled =
+      this.globeSatelliteOptions.length > 0 &&
+      this.globeSatelliteOptions.every((s) => this.satelliteFutureTraceById[s.id] === true);
+  }
+
+  private isGlobeSatelliteFutureTraceOn(satId: string): boolean {
+    return (
+      this.satelliteFutureTraceById[satId] === true &&
+      this.satelliteOverlayEnabled[satId] !== false
+    );
+  }
+
+  onGlobeSatelliteFutureTraceMinutesDelta(delta: number): void {
+    this.setGlobeSatelliteFutureTraceMinutes(this.satelliteFutureTraceMinutes + delta);
+  }
+
+  onGlobeSatelliteFutureTraceMinutesCommitted(): void {
+    this.setGlobeSatelliteFutureTraceMinutes(this.satelliteFutureTraceMinutes);
+  }
+
+  private setGlobeSatelliteFutureTraceMinutes(raw: number): void {
+    const next = WorldGlobeComponent.clampSatelliteFutureTraceMinutes(raw);
+    if (next === this.satelliteFutureTraceMinutes) {
+      this.satelliteFutureTraceMinutes = next;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.satelliteFutureTraceMinutes = next;
+    this.satelliteOverlayPrefsTouched = true;
+    this.schedulePersistGlobeSatelliteOverlayPrefs();
+    this.satelliteForecastLastRebuildMs = 0;
+    this.updateGlobeSatelliteForecastTrails(true);
+    this.cdr.markForCheck();
+  }
+
+  private static clampSatelliteFutureTraceMinutes(raw: number): number {
+    if (!Number.isFinite(raw)) {
+      return GLOBE_SAT_FORECAST_MINUTES_DEFAULT;
+    }
+    const stepped = Math.round(raw / GLOBE_SAT_FORECAST_MINUTES_STEP) * GLOBE_SAT_FORECAST_MINUTES_STEP;
+    return Math.min(
+      GLOBE_SAT_FORECAST_MINUTES_MAX,
+      Math.max(GLOBE_SAT_FORECAST_MINUTES_MIN, stepped)
+    );
   }
 
   onIssTickerToggle(): void {
@@ -4543,7 +4620,16 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Ouvre le viseur d’astres avec l’ISS déjà sélectionnée. */
   openAstroCompassIss(): void {
-    void this.router.navigate(['/tools/astro-compass'], { queryParams: { target: 'iss' } });
+    this.openAstroCompassSatellite('iss');
+  }
+
+  /** Ouvre le viseur d’astres avec le satellite indiqué déjà sélectionné. */
+  openAstroCompassSatellite(satId: string): void {
+    const id = (satId || '').trim().toLowerCase();
+    if (!id) {
+      return;
+    }
+    void this.router.navigate(['/tools/astro-compass'], { queryParams: { target: id } });
   }
 
   /** Direct ISS HD (Destination Orbite) dans un nouvel onglet. */
@@ -8646,17 +8732,43 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       }
     }
-    if (typeof prefs.futureTraceEnabled === 'boolean') {
-      this.satelliteFutureTraceEnabled = prefs.futureTraceEnabled;
+    const byId = prefs.futureTraceEnabledById;
+    const hasById = !!byId && typeof byId === 'object' && Object.keys(byId).length > 0;
+    if (hasById) {
+      for (const sat of this.globeSatelliteOptions) {
+        if (typeof byId[sat.id] === 'boolean') {
+          this.satelliteFutureTraceById[sat.id] = byId[sat.id];
+        }
+      }
+    } else if (typeof prefs.futureTraceEnabled === 'boolean') {
+      for (const sat of this.globeSatelliteOptions) {
+        this.satelliteFutureTraceById[sat.id] = prefs.futureTraceEnabled;
+      }
+    }
+    this.syncGlobeSatelliteFutureTraceMaster();
+    if (typeof prefs.futureTraceMinutes === 'number') {
+      this.satelliteFutureTraceMinutes = WorldGlobeComponent.clampSatelliteFutureTraceMinutes(
+        prefs.futureTraceMinutes
+      );
     }
   }
 
   private buildGlobeSatelliteOverlayPrefsPayload(): GlobeSatelliteOverlayPrefs {
     const enabled: Record<string, boolean> = {};
+    const futureTraceEnabledById: Record<string, boolean> = {};
+    let anyTrace = false;
     for (const sat of this.globeSatelliteOptions) {
       enabled[sat.id] = this.satelliteOverlayEnabled[sat.id] !== false;
+      const traceOn = this.satelliteFutureTraceById[sat.id] === true;
+      futureTraceEnabledById[sat.id] = traceOn;
+      anyTrace = anyTrace || traceOn;
     }
-    return { enabled, futureTraceEnabled: this.satelliteFutureTraceEnabled };
+    return {
+      enabled,
+      futureTraceEnabled: anyTrace,
+      futureTraceMinutes: this.satelliteFutureTraceMinutes,
+      futureTraceEnabledById
+    };
   }
 
   private schedulePersistGlobeSatelliteOverlayPrefs(): void {
@@ -8693,11 +8805,32 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
           enabled[sat.id] = source[sat.id] as boolean;
         }
       }
+      const tracesRaw = parsed['futureTraceEnabledById'];
+      const tracesSource =
+        tracesRaw && typeof tracesRaw === 'object'
+          ? (tracesRaw as Record<string, unknown>)
+          : null;
+      const futureTraceEnabledById: Record<string, boolean> = {};
+      if (tracesSource) {
+        for (const sat of this.globeSatelliteOptions) {
+          if (typeof tracesSource[sat.id] === 'boolean') {
+            futureTraceEnabledById[sat.id] = tracesSource[sat.id] as boolean;
+          }
+        }
+      }
       return {
         enabled,
         futureTraceEnabled:
           typeof parsed['futureTraceEnabled'] === 'boolean'
             ? (parsed['futureTraceEnabled'] as boolean)
+            : undefined,
+        futureTraceMinutes:
+          typeof parsed['futureTraceMinutes'] === 'number'
+            ? (parsed['futureTraceMinutes'] as number)
+            : undefined,
+        futureTraceEnabledById:
+          tracesSource && Object.keys(futureTraceEnabledById).length > 0
+            ? futureTraceEnabledById
             : undefined
       };
     } catch {
@@ -9128,7 +9261,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.earthMesh || !this.globeSurfaceReady) {
       return;
     }
-    if (!this.satelliteFutureTraceEnabled) {
+    const anyOn = this.globeSatelliteOptions.some((s) => this.satelliteFutureTraceById[s.id] === true);
+    if (!anyOn) {
       this.setAllGlobeSatelliteForecastTrailsVisible(false);
       return;
     }
@@ -9139,7 +9273,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.satelliteForecastLastRebuildMs = now;
     for (const sat of this.globeSatelliteOptions) {
-      if (this.satelliteOverlayEnabled[sat.id] === false) {
+      if (!this.isGlobeSatelliteFutureTraceOn(sat.id)) {
         this.disposeGlobeSatelliteForecastTrail(sat.id);
         continue;
       }
@@ -9153,8 +9287,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (!line) {
         continue;
       }
-      line.visible =
-        this.satelliteFutureTraceEnabled && this.satelliteOverlayEnabled[sat.id] !== false;
+      line.visible = this.isGlobeSatelliteFutureTraceOn(sat.id);
     }
   }
 
@@ -9175,7 +9308,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       void this.satNowService.ensureTle(sat.noradId);
       return;
     }
-    const endMs = now + GLOBE_SAT_FORECAST_MINUTES * 60_000;
+    const endMs = now + this.satelliteFutureTraceMinutes * 60_000;
     const pts: { lat: number; lon: number }[] = [{ lat: current.lat, lon: current.lon }];
     for (let t = now + GLOBE_SAT_FORECAST_STEP_MS; t <= endMs; t += GLOBE_SAT_FORECAST_STEP_MS) {
       const snap = this.satNowService.snapshotForDisplay(sat.noradId, t);
