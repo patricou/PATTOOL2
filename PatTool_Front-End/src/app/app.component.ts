@@ -225,7 +225,8 @@ export class AppComponent implements OnInit {
         { routerLink: ['tools/book-watcher'], icon: 'fa fa-book', labelKey: 'MENU.BOOK' },
         { routerLink: ['tools/archive-watcher'], icon: 'fa fa-archive', labelKey: 'MENU.ARCHIVE' },
         { routerLink: ['tools/webcam'], icon: 'fa fa-video-camera', labelKey: 'MENU.WEBCAM' },
-        { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' }
+        { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' },
+        { routerLink: ['api/wiki'], icon: 'fa fa-graduation-cap', labelKey: 'MENU.WIKI' }
     ];
     readonly navFinanceRaw: NavRouteMenuItem[] = [
         { routerLink: ['api/currency-converter'], icon: 'fa fa-money', labelKey: 'MENU.CURRENCY_CONVERTER' },

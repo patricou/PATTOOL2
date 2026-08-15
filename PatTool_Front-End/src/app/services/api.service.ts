@@ -2237,6 +2237,25 @@ export class ApiService {
     );
   }
 
+  searchWikipedia(query: string, lang = 'fr', limit = 10): Observable<WikipediaSearchResponse> {
+    let params = new HttpParams().set('q', query);
+    if (lang) {
+      params = params.set('lang', lang);
+    }
+    if (limit) {
+      params = params.set('limit', String(limit));
+    }
+    return this._http.get<WikipediaSearchResponse>(this.API_URL + 'external/wiki/search', { params });
+  }
+
+  getWikipediaSummary(title: string, lang = 'fr'): Observable<WikipediaSummary> {
+    let params = new HttpParams().set('title', title);
+    if (lang) {
+      params = params.set('lang', lang);
+    }
+    return this._http.get<WikipediaSummary>(this.API_URL + 'external/wiki/summary', { params });
+  }
+
   // ===================================================================
   // Eclipse — USNO + OPALE/IMCCE proxy
   // Backend: /api/external/eclipse/* (no auth required — public data)
@@ -4706,6 +4725,35 @@ export interface EclipseVisibilityResponse {
   next?: EclipseVisibilityEvent | null;
   upcoming?: EclipseVisibilityEvent[];
   nextLunar?: EclipseVisibilityEvent | null;
+}
+
+/** Wikipedia search hit (via backend proxy). */
+export interface WikipediaSearchPage {
+  id?: number;
+  key?: string;
+  title?: string;
+  excerpt?: string;
+  description?: string;
+  thumbnailUrl?: string;
+}
+
+export interface WikipediaSearchResponse {
+  query?: string;
+  lang?: string;
+  pages?: WikipediaSearchPage[];
+}
+
+/** Wikipedia REST summary (via backend proxy). */
+export interface WikipediaSummary {
+  type?: string;
+  title?: string;
+  displaytitle?: string;
+  description?: string;
+  extract?: string;
+  lang?: string;
+  thumbnail?: { source?: string; width?: number; height?: number };
+  originalimage?: { source?: string; width?: number; height?: number };
+  content_urls?: { desktop?: { page?: string }; mobile?: { page?: string } };
 }
 
 /** Noctua Sky catalogue entry (Stellarium Web API). */

@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
@@ -360,6 +361,20 @@ public class GlobalExceptionHandler {
                     .body(html);
         }
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<String> handleResponseStatusException(ResponseStatusException exc, HttpServletRequest request) {
+        String clientIp = getClientIpAddress(request);
+        String reason = exc.getReason() != null ? exc.getReason() : exc.getStatusCode().toString();
+        String logMessage = "Request failed from IP [" + clientIp + "]: " + exc.getStatusCode().value() + " " + reason;
+        if (exc.getStatusCode().is4xxClientError()) {
+            log.debug(logMessage);
+        } else {
+            log.warn(logMessage);
+        }
+        exceptionTrackingService.addLog(clientIp, logMessage);
+        return ResponseEntity.status(exc.getStatusCode()).body(reason);
     }
 
     @ExceptionHandler(Exception.class)

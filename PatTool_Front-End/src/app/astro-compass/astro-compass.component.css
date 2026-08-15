@@ -165,6 +165,38 @@
   color: #d6e8ff;
 }
 
+.ac-compass-info-btn {
+  color: #ffe08a;
+}
+
+.ac-params-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+}
+
+.ac-params-info-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  min-height: 1.85rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(255, 213, 74, 0.4);
+  background: rgba(255, 196, 60, 0.12);
+  color: #ffe08a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ac-params-info-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .ac-compass-autodetect {
   display: inline-flex;
   align-items: center;
@@ -3469,6 +3501,94 @@ a.ac-compass-cal__btn--direction {
   color: #ffb3a8;
 }
 
+.ac-live-info__cell--wide {
+  grid-column: 1 / -1;
+}
+
+.ac-live-dossier {
+  margin-top: 0.15rem;
+  padding: 0.55rem 0.55rem 0.6rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 213, 74, 0.35);
+  background: rgba(18, 16, 8, 0.45);
+}
+
+.ac-live-dossier__head {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffe08a;
+  margin-bottom: 0.35rem;
+}
+
+.ac-live-dossier__travel,
+.ac-live-dossier__busy,
+.ac-live-dossier__empty {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  color: #cfe0ff;
+}
+
+.ac-live-dossier__empty {
+  color: #9fb2d8;
+}
+
+.ac-live-dossier__body {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+}
+
+.ac-live-dossier__thumb {
+  flex: 0 0 auto;
+  width: 4.6rem;
+  height: 4.6rem;
+  object-fit: cover;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #0b1220;
+}
+
+.ac-live-dossier__text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ac-live-dossier__desc {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #ffe9a8;
+}
+
+.ac-live-dossier__extract {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: #dce7fb;
+}
+
+.ac-live-info--dossier {
+  margin-top: 0.45rem;
+}
+
+.ac-live-dossier__link {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #9ed4ff;
+  text-decoration: none;
+}
+
+.ac-live-dossier__link:hover,
+.ac-live-dossier__link:focus {
+  color: #cbebff;
+  text-decoration: underline;
+}
+
 .ac-live-others {
   list-style: none;
   margin: 0;
@@ -4102,10 +4222,10 @@ a.ac-compass-cal__btn--direction {
   position: fixed;
   z-index: 1301;
   left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  top: max(5.75rem, calc(env(safe-area-inset-top, 0px) + 5.25rem));
+  transform: translateX(-50%);
   width: min(36rem, calc(100vw - 1.25rem));
-  max-height: min(92vh, 44rem);
+  max-height: calc(100dvh - max(5.75rem, calc(env(safe-area-inset-top, 0px) + 5.25rem)) - 0.85rem);
   display: flex;
   flex-direction: column;
   background: linear-gradient(165deg, #121a2e 0%, #0b1220 100%);
@@ -4124,6 +4244,7 @@ a.ac-compass-cal__btn--direction {
   padding: 0.75rem 0.9rem;
   border-bottom: 1px solid rgba(120, 170, 255, 0.2);
   background: linear-gradient(90deg, rgba(30, 58, 120, 0.55), rgba(20, 35, 70, 0.4));
+  flex: 0 0 auto;
 }
 
 .ac-help-modal__title {
@@ -4133,25 +4254,43 @@ a.ac-compass-cal__btn--direction {
 }
 
 .ac-help-modal__close {
-  border: 0;
-  background: transparent;
-  color: #cfe0ff;
-  font-size: 1.1rem;
+  flex: 0 0 auto;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid rgba(255, 140, 130, 0.45);
+  border-radius: 0.45rem;
+  background: rgba(160, 40, 40, 0.35);
+  color: #ffd0c8;
+  font-size: 1.15rem;
   line-height: 1;
-  padding: 0.2rem 0.35rem;
+  padding: 0;
   cursor: pointer;
 }
 
 .ac-help-modal__filter {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.4rem;
   padding: 0.75rem 0.9rem 0.55rem;
+  flex: 0 0 auto;
 }
 
 .ac-help-modal__filter-label {
   font-size: 0.78rem;
   color: #9fb2d8;
+}
+
+.ac-help-modal__search-wrap {
+  position: relative;
+}
+
+.ac-help-modal__search-icon {
+  position: absolute;
+  left: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #8aa0c8;
+  pointer-events: none;
 }
 
 .ac-help-modal__search {
@@ -4160,13 +4299,55 @@ a.ac-compass-cal__btn--direction {
   border-radius: 0.45rem;
   background: rgba(8, 14, 28, 0.7);
   color: #eaf1ff;
-  padding: 0.5rem 0.65rem;
+  padding: 0.5rem 0.65rem 0.5rem 2rem;
   font: inherit;
+}
+
+.ac-help-modal__letters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+}
+
+.ac-help-modal__letter {
+  min-width: 1.7rem;
+  height: 1.7rem;
+  padding: 0 0.4rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(140, 180, 255, 0.28);
+  background: rgba(8, 14, 28, 0.45);
+  color: #cfe0ff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ac-help-modal__letter--on {
+  border-color: rgba(255, 213, 74, 0.7);
+  background: rgba(255, 213, 74, 0.2);
+  color: #ffe9a8;
 }
 
 .ac-help-modal__count {
   font-size: 0.75rem;
   color: #8aa0c8;
+}
+
+.ac-help-modal__footer {
+  flex: 0 0 auto;
+  padding: 0.55rem 0.9rem 0.7rem;
+  border-top: 1px solid rgba(120, 170, 255, 0.18);
+}
+
+.ac-help-modal__exit {
+  width: 100%;
+  min-height: 2.4rem;
+  border: 1px solid rgba(255, 120, 110, 0.5);
+  border-radius: 0.5rem;
+  background: rgba(160, 40, 40, 0.28);
+  color: #ffd0c8;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .ac-help-modal__body {
@@ -4204,6 +4385,25 @@ a.ac-compass-cal__btn--direction {
   font-size: 0.88rem;
   line-height: 1.45;
   color: #d5e2f7;
+}
+
+.ac-object-modal {
+  width: min(40rem, calc(100vw - 1.25rem));
+}
+
+.ac-object-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding-top: 0.85rem;
+}
+
+.ac-object-modal .ac-live-hero {
+  margin: 0;
+}
+
+.ac-object-modal .ac-live-hero__orb {
+  animation: none;
 }
 
 

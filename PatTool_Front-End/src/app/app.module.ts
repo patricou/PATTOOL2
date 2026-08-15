@@ -156,6 +156,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./news/news.component').then(m => m.NewsComponent)
 			},
 			{
+				path: 'api/wiki',
+				loadComponent: () => import('./wiki/wiki.component').then(m => m.WikiComponent)
+			},
+			{
 				path: 'api/currency-converter',
 				loadComponent: () => import('./currency-converter/currency-converter.component').then(m => m.CurrencyConverterComponent)
 			},

@@ -1,0 +1,140 @@
+<div class="pat-title">
+  <h2>
+    <span class="wiki-mark" aria-hidden="true">W</span>
+    {{ 'WIKI.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="wiki-page">
+  <p class="wiki-lead">{{ 'WIKI.SUBTITLE' | translate }}</p>
+
+  <form class="wiki-search-bar" (submit)="$event.preventDefault(); submitSearch()">
+    <label class="visually-hidden" for="wiki-query">{{ 'WIKI.SEARCH' | translate }}</label>
+    <input
+      id="wiki-query"
+      type="search"
+      class="form-control wiki-query"
+      name="wikiQuery"
+      [(ngModel)]="query"
+      (ngModelChange)="onQueryChanged()"
+      [placeholder]="'WIKI.SEARCH_PLACEHOLDER' | translate"
+      autocomplete="off"
+      autofocus />
+
+    <label class="visually-hidden" for="wiki-lang">{{ 'WIKI.LANGUAGE' | translate }}</label>
+    <select
+      id="wiki-lang"
+      class="form-select wiki-lang"
+      name="wikiLang"
+      [(ngModel)]="lang"
+      (ngModelChange)="onLangChanged()">
+      <option *ngFor="let opt of langs" [value]="opt.code">{{ opt.label }}</option>
+    </select>
+
+    <button type="submit" class="btn btn-primary wiki-search-btn" [disabled]="!query.trim() || searching">
+      <i class="fa fa-search" aria-hidden="true"></i>
+      <span>{{ 'WIKI.SEARCH' | translate }}</span>
+    </button>
+
+    <button
+      type="button"
+      class="btn btn-outline-secondary wiki-clear-btn"
+      *ngIf="query || results.length || article"
+      (click)="clearSearch()">
+      <i class="fa fa-times" aria-hidden="true"></i>
+      <span>{{ 'WIKI.CLEAR' | translate }}</span>
+    </button>
+  </form>
+
+  <div class="alert alert-warning py-2 wiki-alert" *ngIf="errorMessage && !searching && !loadingArticle" role="alert">
+    <i class="fa fa-exclamation-triangle me-2"></i>
+    {{ errorMessage | translate }}
+  </div>
+
+  <div class="wiki-empty" *ngIf="!searched && !searching">
+    <div class="wiki-empty-mark" aria-hidden="true">W</div>
+    <p>{{ 'WIKI.EMPTY_HINT' | translate }}</p>
+  </div>
+
+  <div class="wiki-layout" *ngIf="searched || searching">
+    <aside class="wiki-results" [attr.aria-label]="'WIKI.RESULTS' | translate">
+      <div class="wiki-results-head">
+        <span>{{ 'WIKI.RESULTS' | translate }}</span>
+        <span class="wiki-results-count" *ngIf="!searching">
+          {{ 'WIKI.RESULT_COUNT' | translate:{ count: results.length } }}
+        </span>
+      </div>
+
+      <div class="wiki-busy" *ngIf="searching">
+        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+        {{ 'WIKI.LOADING' | translate }}
+      </div>
+
+      <p class="wiki-no-results" *ngIf="!searching && !results.length">
+        {{ 'WIKI.NO_RESULTS' | translate }}
+      </p>
+
+      <button
+        type="button"
+        class="wiki-hit"
+        *ngFor="let page of results"
+        [class.active]="selectedKey === (page.key || page.title)"
+        (click)="selectResult(page)">
+        <img
+          *ngIf="resultThumb(page)"
+          class="wiki-hit-thumb"
+          [src]="resultThumb(page)"
+          [alt]="page.title || ''" />
+        <span class="wiki-hit-fallback" *ngIf="!resultThumb(page)" aria-hidden="true">W</span>
+        <span class="wiki-hit-body">
+          <span class="wiki-hit-title">{{ page.title }}</span>
+          <span class="wiki-hit-desc" *ngIf="page.description">{{ page.description }}</span>
+          <span class="wiki-hit-excerpt" *ngIf="page.excerpt">{{ page.excerpt }}</span>
+        </span>
+      </button>
+    </aside>
+
+    <article class="wiki-article" [attr.dir]="isRtl() ? 'rtl' : 'ltr'">
+      <div class="wiki-busy wiki-busy-article" *ngIf="loadingArticle">
+        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+        {{ 'WIKI.LOADING' | translate }}
+      </div>
+
+      <ng-container *ngIf="!loadingArticle && article">
+        <div class="wiki-article-head">
+          <div>
+            <p class="wiki-kicker" *ngIf="article.description">{{ article.description }}</p>
+            <h3 class="wiki-article-title">{{ articleTitle() }}</h3>
+          </div>
+          <a
+            *ngIf="articleUrl()"
+            class="btn btn-outline-primary btn-sm wiki-open"
+            [href]="articleUrl()"
+            target="_blank"
+            rel="noopener noreferrer">
+            <i class="fa fa-external-link" aria-hidden="true"></i>
+            {{ 'WIKI.OPEN_WIKIPEDIA' | translate }}
+          </a>
+        </div>
+
+        <div class="wiki-disambig" *ngIf="isDisambiguation()">
+          <i class="fa fa-sitemap me-1" aria-hidden="true"></i>
+          {{ 'WIKI.DISAMBIGUATION' | translate }}
+        </div>
+
+        <div class="wiki-article-body">
+          <img
+            *ngIf="articleImage()"
+            class="wiki-article-image"
+            [src]="articleImage()"
+            [alt]="articleTitle()" />
+          <p class="wiki-extract" *ngIf="article.extract">{{ article.extract }}</p>
+        </div>
+
+        <p class="wiki-attribution">
+          {{ 'WIKI.ATTRIBUTION' | translate }}
+        </p>
+      </ng-container>
+    </article>
+  </div>
+</div>
