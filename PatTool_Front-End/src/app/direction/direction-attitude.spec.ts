@@ -1,6 +1,12 @@
-import { cameraFromEarthToDeviceQuat, circularDiff, projectCelestialToScreen } from './direction-attitude';
+import {
+  cameraFromEarthToDeviceQuat,
+  circularDiff,
+  computeFinderTurnGuide,
+  projectCelestialToScreen
+} from './direction-attitude';
 import {
   derivePattoolCal,
+  sightingOffsetsFromLook,
   snapshotFromPayload,
   type PattoolCalSnapshot
 } from './direction-pattool-cal';
@@ -105,5 +111,42 @@ describe('projectCelestialToScreen', () => {
     const p = projectCelestialToScreen(0, 20, 0, 180, 20);
     expect(p.inView).toBeFalse();
     expect(p.inFront).toBeFalse();
+  });
+});
+
+describe('computeFinderTurnGuide', () => {
+  it('asks to turn right and tilt up when the target is off-screen that way', () => {
+    const g = computeFinderTurnGuide(0, 10, 40, 35, null);
+    expect(g).toBeTruthy();
+    expect(g!.right).toBeTrue();
+    expect(g!.left).toBeFalse();
+    expect(g!.up).toBeTrue();
+    expect(g!.down).toBeFalse();
+    expect(g!.ok).toBeFalse();
+    expect(g!.yawDeg).toBe(40);
+    expect(g!.pitchDeg).toBe(25);
+  });
+
+  it('uses screen position when the object is in view', () => {
+    const proj = projectCelestialToScreen(0, 20, 0, 12, 8);
+    expect(proj.inView).toBeTrue();
+    const g = computeFinderTurnGuide(0, 20, 12, 8, proj);
+    expect(g!.right).toBeTrue();
+    expect(g!.down).toBeTrue();
+  });
+
+  it('is ok when the object is centered', () => {
+    const proj = projectCelestialToScreen(40, 30, 0, 40, 30);
+    const g = computeFinderTurnGuide(40, 30, 40, 30, proj);
+    expect(g!.ok).toBeTrue();
+    expect(g!.left || g!.right || g!.up || g!.down).toBeFalse();
+  });
+});
+
+describe('sightingOffsetsFromLook', () => {
+  it('zeros the residual so published look matches the target', () => {
+    const off = sightingOffsetsFromLook(80, 20, 95, 28, 5);
+    expect(off.azOffsetDeg).toBe(10);
+    expect(off.elOffsetDeg).toBe(8);
   });
 });

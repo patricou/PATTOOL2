@@ -10,7 +10,16 @@ import {
   normalizeDeg,
   wrapSignedDeg
 } from './direction-attitude';
-import { clearManualAzOffset, loadManualAzOffset, loadPattoolCal, saveManualAzOffset } from './direction-pattool-cal';
+import {
+  clearManualAzOffset,
+  clearManualElOffset,
+  loadManualAzOffset,
+  loadManualElOffset,
+  loadPattoolCal,
+  saveManualAzOffset,
+  saveManualElOffset,
+  sightingOffsetsFromLook
+} from './direction-pattool-cal';
 
 interface GenericSensor {
   start(): void;
@@ -42,8 +51,10 @@ export class CameraLookTracker {
   denied = false;
   needTap = false;
   source: HeadingSource | null = null;
-  /** Décalage manuel (0 = pas de calage Nord à la main). */
+  /** Décalage manuel azimut (0 = pas de calage Nord / visée à la main). */
   manualOffsetDeg = 0;
+  /** Décalage manuel élévation (calage « position exacte »). */
+  manualElOffsetDeg = 0;
 
   private mag: Vec3 = { x: 0, y: 0, z: 0 };
   private accel: Vec3 = { x: 0, y: 0, z: 9.81 };
@@ -56,6 +67,7 @@ export class CameraLookTracker {
   private accelFromGeneric = false;
   private gyroFromGeneric = false;
   private magAzimuthDeg: number | null = null;
+  private rawElevationDeg: number | null = null;
   private generics: GenericSensor[] = [];
   private orientName: 'deviceorientationabsolute' | 'deviceorientation' | null = null;
   private fusion = new GyroMagComplementary();
@@ -119,13 +131,45 @@ export class CameraLookTracker {
     }
     const calOff = loadPattoolCal()?.derived.azOffsetDeg ?? 0;
     saveManualAzOffset(wrapSignedDeg(-(this.magAzimuthDeg + calOff)));
+    clearManualElOffset();
     this.lastPaint = 0;
     this.publish();
     return true;
   }
 
+  /**
+   * La visée caméra actuelle devient la direction de l’astre (azimut + élévation).
+   * L’utilisateur a placé l’objet réel sur le pointeur du viseur.
+   */
+  markCameraAsTarget(targetAzDeg: number, targetElDeg: number): boolean {
+    if (this.magAzimuthDeg == null || this.rawElevationDeg == null) {
+      return false;
+    }
+    if (!Number.isFinite(targetAzDeg) || !Number.isFinite(targetElDeg)) {
+      return false;
+    }
+    const calOff = loadPattoolCal()?.derived.azOffsetDeg ?? 0;
+    const off = sightingOffsetsFromLook(
+      this.magAzimuthDeg,
+      this.rawElevationDeg,
+      targetAzDeg,
+      targetElDeg,
+      calOff
+    );
+    saveManualAzOffset(off.azOffsetDeg);
+    saveManualElOffset(off.elOffsetDeg);
+    this.lastPaint = 0;
+    this.publish();
+    return true;
+  }
+
+  hasManualAlign(): boolean {
+    return this.manualOffsetDeg !== 0 || this.manualElOffsetDeg !== 0;
+  }
+
   clearManualNorth(): void {
     clearManualAzOffset();
+    clearManualElOffset();
     this.lastPaint = 0;
     this.publish();
   }
@@ -338,7 +382,7 @@ export class CameraLookTracker {
       return;
     }
     this.source = src;
-    this.elevationDeg = att.elevationDeg * (loadPattoolCal()?.derived.elSign ?? 1);
+    this.rawElevationDeg = att.elevationDeg * (loadPattoolCal()?.derived.elSign ?? 1);
     this.rollDeg = att.rollDeg;
     this.magAzimuthDeg = att.azimuthDeg;
     this.publish();
@@ -351,7 +395,11 @@ export class CameraLookTracker {
     }
     const d = loadPattoolCal()?.derived;
     this.manualOffsetDeg = loadManualAzOffset();
+    this.manualElOffsetDeg = loadManualElOffset();
     this.azimuthDeg = normalizeDeg(az + (d?.azOffsetDeg ?? 0) + this.manualOffsetDeg);
+    if (this.rawElevationDeg != null) {
+      this.elevationDeg = this.rawElevationDeg + this.manualElOffsetDeg;
+    }
     const now = performance.now();
     if (now - this.lastPaint < 40) {
       return;

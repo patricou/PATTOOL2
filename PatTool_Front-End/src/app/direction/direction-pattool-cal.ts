@@ -13,6 +13,8 @@ import {
 export const PATTOOL_CAL_KEY = 'pat.direction.pattool-cal.v2';
 /** Décalage azimut manuel (page Calibrage + bouton « C’est le Nord » du viseur). */
 export const MANUAL_AZ_OFFSET_KEY = 'pat.direction.az-offset.v1';
+/** Décalage élévation manuel (bouton « Position exacte » du viseur). */
+export const MANUAL_EL_OFFSET_KEY = 'pat.direction.el-offset.v1';
 
 export interface PattoolCalPose {
   id: string;
@@ -351,6 +353,41 @@ export function saveManualAzOffset(deg: number): void {
 
 export function clearManualAzOffset(): void {
   localStorage.removeItem(MANUAL_AZ_OFFSET_KEY);
+}
+
+export function loadManualElOffset(): number {
+  try {
+    const raw = localStorage.getItem(MANUAL_EL_OFFSET_KEY);
+    if (raw == null || raw === '') {
+      return 0;
+    }
+    const n = Number(raw);
+    return Number.isFinite(n) ? Math.round(wrapSignedDeg(n)) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function saveManualElOffset(deg: number): void {
+  localStorage.setItem(MANUAL_EL_OFFSET_KEY, String(Math.round(wrapSignedDeg(deg))));
+}
+
+export function clearManualElOffset(): void {
+  localStorage.removeItem(MANUAL_EL_OFFSET_KEY);
+}
+
+/** Offsets pour que la visée capteur courante coïncide avec l’astre réel au pointeur. */
+export function sightingOffsetsFromLook(
+  magAzimuthDeg: number,
+  rawElevationDeg: number,
+  targetAzDeg: number,
+  targetElDeg: number,
+  pattoolAzOffsetDeg = 0
+): { azOffsetDeg: number; elOffsetDeg: number } {
+  return {
+    azOffsetDeg: wrapSignedDeg(targetAzDeg - (magAzimuthDeg + pattoolAzOffsetDeg)),
+    elOffsetDeg: wrapSignedDeg(targetElDeg - rawElevationDeg)
+  };
 }
 
 export function averageVec(items: Vec3[]): Vec3 | null {

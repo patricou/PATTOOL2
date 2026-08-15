@@ -50,7 +50,12 @@ import { GlobeSatelliteNowService } from '../services/globe-satellite-now.servic
 import { CompassNorthEngine } from '../shared/compass-north.engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { CameraLookTracker } from '../direction/camera-look-tracker';
-import { projectCelestialToScreen, type ScreenProjection } from '../direction/direction-attitude';
+import {
+  computeFinderTurnGuide,
+  projectCelestialToScreen,
+  type FinderTurnGuide,
+  type ScreenProjection
+} from '../direction/direction-attitude';
 
 /** Seuil (degrés) pour considérer que l'utilisateur vise la cible (azimut / inclinaison). */
 const FACING_THRESHOLD_DEG = 8;
@@ -195,7 +200,8 @@ const ASTRO_HELP_TERMS: ReadonlyArray<HelpTerm> = [
   { id: 'zenith', termKey: 'ASTRO_COMPASS.HELP_ZENITH', defKey: 'ASTRO_COMPASS.HELP_ZENITH_DEF', aliases: 'zenith 90' },
   { id: 'nadir', termKey: 'ASTRO_COMPASS.HELP_NADIR', defKey: 'ASTRO_COMPASS.HELP_NADIR_DEF', aliases: 'nadir -90' },
   { id: 'card', termKey: 'ASTRO_COMPASS.HELP_CARD', defKey: 'ASTRO_COMPASS.HELP_CARD_DEF', aliases: 'cardinal n e s o ne no' },
-  { id: 'obs', termKey: 'ASTRO_COMPASS.HELP_OBS', defKey: 'ASTRO_COMPASS.HELP_OBS_DEF', aliases: 'observateur position gps adresse' }
+  { id: 'obs', termKey: 'ASTRO_COMPASS.HELP_OBS', defKey: 'ASTRO_COMPASS.HELP_OBS_DEF', aliases: 'observateur position gps adresse' },
+  { id: 'sight', termKey: 'ASTRO_COMPASS.HELP_SIGHT', defKey: 'ASTRO_COMPASS.HELP_SIGHT_DEF', aliases: 'position exacte calage visee pointeur reticle sighting' }
 ];
 
 @Component({
@@ -432,11 +438,14 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   camDenied = false;
   isFullscreen = false;
   finderProj: ScreenProjection | null = null;
+  finderGuide: FinderTurnGuide | null = null;
   northMarked = false;
+  sightingMarked = false;
   helpModalOpen = false;
   helpFilter = '';
   readonly helpTerms = ASTRO_HELP_TERMS;
   private northMarkTimer: ReturnType<typeof setTimeout> | null = null;
+  private sightingMarkTimer: ReturnType<typeof setTimeout> | null = null;
   private camStream: MediaStream | null = null;
   sensorAlpha: number | null = null;
   sensorBeta: number | null = null;
@@ -548,6 +557,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       clearTimeout(this.northMarkTimer);
       this.northMarkTimer = null;
     }
+    if (this.sightingMarkTimer != null) {
+      clearTimeout(this.sightingMarkTimer);
+      this.sightingMarkTimer = null;
+    }
     this.stopAutoDetectLive();
     this.stopSensors();
     this.stopSkyTick();
@@ -622,6 +635,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.northMarked = true;
+    this.sightingMarked = false;
     if (this.northMarkTimer != null) {
       clearTimeout(this.northMarkTimer);
     }
@@ -633,13 +647,49 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  markExactPosition(): void {
+    if (this.azimuthDeg == null || this.elevationDeg == null) {
+      return;
+    }
+    if (!this.lookTracker.markCameraAsTarget(this.azimuthDeg, this.elevationDeg)) {
+      return;
+    }
+    this.sightingMarked = true;
+    this.northMarked = false;
+    if (this.sightingMarkTimer != null) {
+      clearTimeout(this.sightingMarkTimer);
+    }
+    this.sightingMarkTimer = setTimeout(() => {
+      this.sightingMarked = false;
+      this.sightingMarkTimer = null;
+      this.cdr.markForCheck();
+    }, 2500);
+    this.updateFinderProjection();
+    this.cdr.markForCheck();
+  }
+
+  canMarkExactPosition(): boolean {
+    return (
+      this.lookTracker.azimuthDeg != null &&
+      this.lookTracker.elevationDeg != null &&
+      this.azimuthDeg != null &&
+      this.elevationDeg != null
+    );
+  }
+
   clearFinderNorth(): void {
     this.lookTracker.clearManualNorth();
     this.northMarked = false;
+    this.sightingMarked = false;
     if (this.northMarkTimer != null) {
       clearTimeout(this.northMarkTimer);
       this.northMarkTimer = null;
     }
+    if (this.sightingMarkTimer != null) {
+      clearTimeout(this.sightingMarkTimer);
+      this.sightingMarkTimer = null;
+    }
+    this.updateFinderProjection();
     this.cdr.markForCheck();
   }
 
@@ -753,6 +803,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const camRl = this.lookTracker.rollDeg ?? 0;
     if (camAz == null || camEl == null || this.azimuthDeg == null || this.elevationDeg == null) {
       this.finderProj = null;
+      this.finderGuide = null;
       return;
     }
     const video = this.camEl?.nativeElement;
@@ -769,6 +820,13 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.elevationDeg,
       62,
       vfov
+    );
+    this.finderGuide = computeFinderTurnGuide(
+      camAz,
+      camEl,
+      this.azimuthDeg,
+      this.elevationDeg,
+      this.finderProj
     );
   }
 

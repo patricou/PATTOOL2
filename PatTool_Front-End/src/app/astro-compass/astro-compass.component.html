@@ -78,6 +78,42 @@
               <video #cam class="ac-finder__video" playsinline muted autoplay webkit-playsinline></video>
               <div class="ac-finder__empty" *ngIf="!camLive">{{ 'ASTRO_COMPASS.CAM_PLACEHOLDER' | translate }}</div>
               <div class="ac-finder__reticle" aria-hidden="true"></div>
+              <div
+                class="ac-finder__guide"
+                *ngIf="finderGuide && headingActive"
+                [attr.aria-label]="'ASTRO_COMPASS.GUIDE_LABEL' | translate">
+                <div
+                  *ngIf="finderGuide.left"
+                  class="ac-finder__guide-arrow ac-finder__guide-arrow--left ac-finder__guide-arrow--on"
+                  [attr.title]="'ASTRO_COMPASS.GUIDE_LEFT' | translate">
+                  <i class="fa fa-chevron-left" aria-hidden="true"></i>
+                  <span>{{ finderGuide.yawDeg }}°</span>
+                </div>
+                <div
+                  *ngIf="finderGuide.right"
+                  class="ac-finder__guide-arrow ac-finder__guide-arrow--right ac-finder__guide-arrow--on"
+                  [attr.title]="'ASTRO_COMPASS.GUIDE_RIGHT' | translate">
+                  <i class="fa fa-chevron-right" aria-hidden="true"></i>
+                  <span>{{ finderGuide.yawDeg }}°</span>
+                </div>
+                <div
+                  *ngIf="finderGuide.up"
+                  class="ac-finder__guide-arrow ac-finder__guide-arrow--up ac-finder__guide-arrow--on"
+                  [attr.title]="'ASTRO_COMPASS.GUIDE_UP' | translate">
+                  <i class="fa fa-chevron-up" aria-hidden="true"></i>
+                  <span>{{ finderGuide.pitchDeg }}°</span>
+                </div>
+                <div
+                  *ngIf="finderGuide.down"
+                  class="ac-finder__guide-arrow ac-finder__guide-arrow--down ac-finder__guide-arrow--on"
+                  [attr.title]="'ASTRO_COMPASS.GUIDE_DOWN' | translate">
+                  <i class="fa fa-chevron-down" aria-hidden="true"></i>
+                  <span>{{ finderGuide.pitchDeg }}°</span>
+                </div>
+                <div class="ac-finder__guide-ok" *ngIf="finderGuide.ok" aria-hidden="true">
+                  <i class="fa fa-check"></i>
+                </div>
+              </div>
               <button
                 *ngIf="finderProj?.inView"
                 type="button"
@@ -97,6 +133,7 @@
                 <span *ngIf="headingDeg != null">{{ 'ASTRO_COMPASS.LOOK_DIRECTION' | translate }} {{ headingDeg | number : '1.0-0' }}°</span>
                 <span *ngIf="lookTracker.elevationDeg != null">{{ 'ASTRO_COMPASS.LOOK_ELEVATION' | translate }} {{ lookTracker.elevationDeg | number : '1.0-0' }}°</span>
                 <span *ngIf="lookTracker.manualOffsetDeg" class="ac-finder__hud-north">N {{ lookTracker.manualOffsetDeg > 0 ? '+' : '' }}{{ lookTracker.manualOffsetDeg }}°</span>
+                <span *ngIf="lookTracker.manualElOffsetDeg" class="ac-finder__hud-sight">Él {{ lookTracker.manualElOffsetDeg > 0 ? '+' : '' }}{{ lookTracker.manualElOffsetDeg }}°</span>
               </div>
               <div class="ac-finder__lookfs" *ngIf="isFullscreen">
                 <div class="ac-finder__lookfs-item">
@@ -119,6 +156,16 @@
                 [attr.title]="'ASTRO_COMPASS.MARK_NORTH_HINT' | translate">
                 <i class="fa" [ngClass]="northMarked ? 'fa-check' : 'fa-location-arrow'" aria-hidden="true"></i>
                 {{ (northMarked ? 'ASTRO_COMPASS.MARK_NORTH_DONE' : 'ASTRO_COMPASS.MARK_NORTH') | translate }}
+              </button>
+              <button
+                type="button"
+                class="ac-finder__exact"
+                [class.ac-finder__exact--ok]="sightingMarked"
+                [disabled]="!canMarkExactPosition()"
+                (click)="markExactPosition()"
+                [attr.title]="'ASTRO_COMPASS.EXACT_POS_HINT' | translate">
+                <i class="fa" [ngClass]="sightingMarked ? 'fa-check' : 'fa-bullseye'" aria-hidden="true"></i>
+                {{ (sightingMarked ? 'ASTRO_COMPASS.EXACT_POS_DONE' : 'ASTRO_COMPASS.EXACT_POS') | translate : { name: bodyLabel || ('ASTRO_COMPASS.LOOK_THE_OBJECT' | translate) } }}
               </button>
               <div class="ac-finder__cue" role="group" [attr.aria-label]="'ASTRO_COMPASS.CUE_LABEL' | translate">
                 <button type="button" class="ac-look__cue-btn" [class.ac-look__cue-btn--on]="alignCue === 'off'" (click)="setAlignCue('off')">{{ 'ASTRO_COMPASS.CUE_OFF' | translate }}</button>
@@ -155,12 +202,13 @@
               <button
                 type="button"
                 class="ac-compass-cal__btn ac-finder__north-reset"
-                *ngIf="lookTracker.manualOffsetDeg"
+                *ngIf="lookTracker.hasManualAlign()"
                 (click)="clearFinderNorth()">
-                {{ 'ASTRO_COMPASS.MARK_NORTH_RESET' | translate }}
+                {{ (lookTracker.manualElOffsetDeg ? 'ASTRO_COMPASS.EXACT_POS_RESET' : 'ASTRO_COMPASS.MARK_NORTH_RESET') | translate }}
               </button>
             </div>
             <p class="ac-finder__north-hint">{{ 'ASTRO_COMPASS.MARK_NORTH_HINT' | translate }}</p>
+            <p class="ac-finder__north-hint">{{ 'ASTRO_COMPASS.EXACT_POS_HINT' | translate }}</p>
             <p class="ac-finder__lock" *ngIf="finderProj?.centered">
               <i class="fa fa-bullseye me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.LOCKED' | translate }}
             </p>

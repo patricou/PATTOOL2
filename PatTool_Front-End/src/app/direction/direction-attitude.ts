@@ -328,6 +328,80 @@ export interface ScreenProjection {
   centered: boolean;
 }
 
+export interface FinderTurnGuide {
+  left: boolean;
+  right: boolean;
+  up: boolean;
+  down: boolean;
+  ok: boolean;
+  yawDeg: number;
+  pitchDeg: number;
+}
+
+const GUIDE_DEAD_DEG = 8;
+const GUIDE_SCREEN_DEAD_PCT = 5;
+
+/**
+ * Flèches de guidage : à l’écran si l’objet est dans le champ (compense le roulis),
+ * sinon plus court chemin azimut / élévation.
+ */
+export function computeFinderTurnGuide(
+  camAz: number | null,
+  camEl: number | null,
+  tgtAz: number | null,
+  tgtEl: number | null,
+  proj: ScreenProjection | null
+): FinderTurnGuide | null {
+  if (camAz == null || camEl == null || tgtAz == null || tgtEl == null) {
+    return null;
+  }
+  const yawDeg = Math.round(circularDiff(tgtAz, camAz));
+  const pitchDeg = Math.round(tgtEl - camEl);
+  if (proj?.centered) {
+    return { left: false, right: false, up: false, down: false, ok: true, yawDeg: 0, pitchDeg: 0 };
+  }
+  let left = false;
+  let right = false;
+  let up = false;
+  let down = false;
+  if (proj?.inView) {
+    if (proj.xPct < 50 - GUIDE_SCREEN_DEAD_PCT) {
+      left = true;
+    } else if (proj.xPct > 50 + GUIDE_SCREEN_DEAD_PCT) {
+      right = true;
+    }
+    if (proj.yPct < 50 - GUIDE_SCREEN_DEAD_PCT) {
+      up = true;
+    } else if (proj.yPct > 50 + GUIDE_SCREEN_DEAD_PCT) {
+      down = true;
+    }
+  } else {
+    if (Math.abs(yawDeg) > GUIDE_DEAD_DEG) {
+      if (yawDeg > 0) {
+        right = true;
+      } else {
+        left = true;
+      }
+    }
+    if (Math.abs(pitchDeg) > GUIDE_DEAD_DEG) {
+      if (pitchDeg > 0) {
+        up = true;
+      } else {
+        down = true;
+      }
+    }
+  }
+  return {
+    left,
+    right,
+    up,
+    down,
+    ok: !left && !right && !up && !down,
+    yawDeg: Math.abs(yawDeg),
+    pitchDeg: Math.abs(pitchDeg)
+  };
+}
+
 const DEFAULT_HFOV_DEG = 62;
 const CENTER_SEP_DEG = 2.8;
 

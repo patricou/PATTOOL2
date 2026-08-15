@@ -5068,6 +5068,15 @@
     "TURN_LEFT": "Turn {{deg}}° left",
     "TURN_OK": "Heading aligned",
     "TURN_RIGHT": "Turn {{deg}}° right",
+    "EXACT_POS": "Genaue Position von {{name}}",
+    "EXACT_POS_DONE": "Position gespeichert",
+    "EXACT_POS_HINT": "Setzen Sie das echte Gestirn auf das Fadenkreuz, dann tippen Sie zum Ausrichten.",
+    "EXACT_POS_RESET": "Visierausrichtung löschen",
+    "GUIDE_LABEL": "Drehrichtung des Telefons",
+    "GUIDE_LEFT": "Nach links drehen",
+    "GUIDE_RIGHT": "Nach rechts drehen",
+    "GUIDE_UP": "Telefon anheben",
+    "GUIDE_DOWN": "Telefon senken",
     "UPDATED": "Updated",
     "UPDATED_AGO_M": "{{m}} min ago",
     "UPDATED_AGO_S": "{{s}} s ago",
@@ -5188,7 +5197,9 @@
     "HELP_CARD": "Cardinal points",
     "HELP_CARD_DEF": "North, East, South, West (and combinations: NE, SSW…). They summarize azimuth as a readable direction.",
     "HELP_OBS": "Observation point",
-    "HELP_OBS_DEF": "Your position (GPS, address or map). All azimuth, elevation and visibility calculations start from this point."
+    "HELP_OBS_DEF": "Your position (GPS, address or map). All azimuth, elevation and visibility calculations start from this point.",
+    "HELP_SIGHT": "Exact position",
+    "HELP_SIGHT_DEF": "Finder button: place the real object on the pointer (reticle), then tap. The app locks camera azimuth and elevation to that direction, to correct sensor error."
   },
   "NORD": {
     "TITLE": "Kompass",

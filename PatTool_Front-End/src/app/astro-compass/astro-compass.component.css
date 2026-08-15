@@ -3567,6 +3567,126 @@ a.ac-compass-cal__btn--direction {
   transform: translateY(-50%);
 }
 
+.ac-finder__guide {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.ac-finder__guide-arrow {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  min-width: 2.6rem;
+  min-height: 2.6rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 0.65rem;
+  color: rgba(220, 230, 255, 0.28);
+  background: rgba(6, 10, 20, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 1.35rem;
+  text-shadow: 0 1px 4px #000;
+}
+
+.ac-finder__guide-arrow span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.ac-finder__guide-arrow--left {
+  left: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.ac-finder__guide-arrow--right {
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.ac-finder__guide-arrow--up {
+  top: 3.15rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ac-finder__guide-arrow--down {
+  bottom: 5.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ac-finder__guide-arrow--on {
+  color: #0b1220;
+  background: #ffd54a;
+  border-color: #ffe08a;
+  box-shadow: 0 0 18px rgba(255, 213, 74, 0.55);
+  animation: ac-look-pulse 0.9s ease-in-out infinite;
+}
+
+.ac-finder__guide-ok {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 2.55rem);
+  transform: translateX(-50%);
+  width: 1.7rem;
+  height: 1.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(61, 255, 154, 0.92);
+  color: #062414;
+  font-size: 0.85rem;
+}
+
+.ac-finder__exact {
+  position: absolute;
+  left: 50%;
+  bottom: 2.85rem;
+  z-index: 5;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  max-width: calc(100% - 6.4rem);
+  padding: 0.42rem 0.7rem;
+  border: 0;
+  border-radius: 0.45rem;
+  background: rgba(62, 224, 192, 0.94);
+  color: #062018;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ac-finder__exact:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ac-finder__exact--ok {
+  background: #3dff9a;
+  color: #062414;
+}
+
+.ac-finder__hud-sight {
+  color: #7ef0d4;
+  font-weight: 700;
+}
+
 .ac-finder__obj {
   position: absolute;
   z-index: 3;
@@ -3686,6 +3806,12 @@ a.ac-compass-cal__btn--direction {
 .ac-finder:fullscreen .ac-finder__hud,
 .ac-finder:-webkit-full-screen .ac-finder__hud {
   display: none;
+}
+
+.ac-finder--fs .ac-finder__guide-arrow--up,
+.ac-finder:fullscreen .ac-finder__guide-arrow--up,
+.ac-finder:-webkit-full-screen .ac-finder__guide-arrow--up {
+  top: 5.2rem;
 }
 
 .ac-finder__north {

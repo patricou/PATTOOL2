@@ -6436,6 +6436,15 @@
     "MARK_NORTH_DONE": "Nord enregistré",
     "MARK_NORTH_HINT": "Pointez la caméra vers le Nord réel, puis appuyez pour caler l’azimut.",
     "MARK_NORTH_RESET": "Annuler le Nord manuel",
+    "EXACT_POS": "Position exacte de {{name}}",
+    "EXACT_POS_DONE": "Position enregistrée",
+    "EXACT_POS_HINT": "Placez l’astre réel sur le pointeur, puis appuyez pour caler la visée.",
+    "EXACT_POS_RESET": "Annuler le calage visée",
+    "GUIDE_LABEL": "Sens de rotation du téléphone",
+    "GUIDE_LEFT": "Tournez à gauche",
+    "GUIDE_RIGHT": "Tournez à droite",
+    "GUIDE_UP": "Levez le téléphone",
+    "GUIDE_DOWN": "Baissez le téléphone",
     "FACING": "Vous pointez la cible",
     "GALAXIES_NONE_VISIBLE": "Aucune galaxie du catalogue visible maintenant.",
     "GALAXIES_TITLE": "Galaxies",
@@ -6700,7 +6709,9 @@
     "HELP_CARD": "Points cardinaux",
     "HELP_CARD_DEF": "Nord, Est, Sud, Ouest (et combinaisons : NE, SSO…). Ils résument l'azimut en direction lisible.",
     "HELP_OBS": "Point d'observation",
-    "HELP_OBS_DEF": "Votre position (GPS, adresse ou carte). Tous les calculs d'azimut, d'élévation et de visibilité partent de ce point."
+    "HELP_OBS_DEF": "Votre position (GPS, adresse ou carte). Tous les calculs d'azimut, d'élévation et de visibilité partent de ce point.",
+    "HELP_SIGHT": "Position exacte",
+    "HELP_SIGHT_DEF": "Bouton du viseur : placez l’astre réel pile sur le pointeur (réticule), puis appuyez. L’application cale azimut et élévation de la visée sur cette direction, pour corriger l’erreur des capteurs."
   },
   "NORD": {
     "TITLE": "Boussole",

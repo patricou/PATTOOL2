@@ -4941,6 +4941,15 @@
     "TURN_LEFT": "Turn {{deg}}° left",
     "TURN_OK": "Heading aligned",
     "TURN_RIGHT": "Turn {{deg}}° right",
+    "EXACT_POS": "Posizione esatta di {{name}}",
+    "EXACT_POS_DONE": "Posizione salvata",
+    "EXACT_POS_HINT": "Metti l’astro reale sul puntatore, poi tocca per calibrare la mira.",
+    "EXACT_POS_RESET": "Annulla la calibrazione della mira",
+    "GUIDE_LABEL": "Senso di rotazione del telefono",
+    "GUIDE_LEFT": "Gira a sinistra",
+    "GUIDE_RIGHT": "Gira a destra",
+    "GUIDE_UP": "Alza il telefono",
+    "GUIDE_DOWN": "Abbassa il telefono",
     "UPDATED": "Updated",
     "UPDATED_AGO_M": "{{m}} min ago",
     "UPDATED_AGO_S": "{{s}} s ago",
@@ -5061,7 +5070,9 @@
     "HELP_CARD": "Cardinal points",
     "HELP_CARD_DEF": "North, East, South, West (and combinations: NE, SSW…). They summarize azimuth as a readable direction.",
     "HELP_OBS": "Observation point",
-    "HELP_OBS_DEF": "Your position (GPS, address or map). All azimuth, elevation and visibility calculations start from this point."
+    "HELP_OBS_DEF": "Your position (GPS, address or map). All azimuth, elevation and visibility calculations start from this point.",
+    "HELP_SIGHT": "Exact position",
+    "HELP_SIGHT_DEF": "Finder button: place the real object on the pointer (reticle), then tap. The app locks camera azimuth and elevation to that direction, to correct sensor error."
   },
   "NORD": {
     "TITLE": "Bussola",

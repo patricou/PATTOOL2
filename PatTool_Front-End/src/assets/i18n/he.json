@@ -4927,6 +4927,15 @@
     "TURN_LEFT": "Turn {{deg}}° left",
     "TURN_OK": "Heading aligned",
     "TURN_RIGHT": "Turn {{deg}}° right",
+    "EXACT_POS": "Exact position of {{name}}",
+    "EXACT_POS_DONE": "Position saved",
+    "EXACT_POS_HINT": "Put the real object on the pointer, then tap to lock the aim.",
+    "EXACT_POS_RESET": "Clear sighting lock",
+    "GUIDE_LABEL": "Phone turn direction",
+    "GUIDE_LEFT": "Turn left",
+    "GUIDE_RIGHT": "Turn right",
+    "GUIDE_UP": "Tilt the phone up",
+    "GUIDE_DOWN": "Tilt the phone down",
     "UPDATED": "Updated",
     "UPDATED_AGO_M": "{{m}} min ago",
     "UPDATED_AGO_S": "{{s}} s ago",
@@ -5047,7 +5056,9 @@
     "HELP_CARD": "Cardinal points",
     "HELP_CARD_DEF": "North, East, South, West (and combinations: NE, SSW…). They summarize azimuth as a readable direction.",
     "HELP_OBS": "Observation point",
-    "HELP_OBS_DEF": "Your position (GPS, address or map). All azimuth, elevation and visibility calculations start from this point."
+    "HELP_OBS_DEF": "Your position (GPS, address or map). All azimuth, elevation and visibility calculations start from this point.",
+    "HELP_SIGHT": "Exact position",
+    "HELP_SIGHT_DEF": "Finder button: place the real object on the pointer (reticle), then tap. The app locks camera azimuth and elevation to that direction, to correct sensor error."
   },
   "NORD": {
     "TITLE": "מצפן",
