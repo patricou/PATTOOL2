@@ -401,11 +401,14 @@
                 </div>
               </div>
               <div class="wg-opt-chips" role="group" [attr.aria-label]="'WORLD_GLOBE.OPT_SECTION_ISS' | translate">
+                <button type="button" class="btn btn-sm wg-opt-chip" (click)="openAstroCompassIss()" [attr.title]="'WORLD_GLOBE.OPEN_ASTRO_ISS_HINT' | translate">
+                  <i class="fa fa-video-camera" aria-hidden="true"></i>{{ 'WORLD_GLOBE.OPEN_ASTRO_ISS' | translate }}
+                </button>
                 <button type="button" class="btn btn-sm wg-opt-chip" (click)="openIssLiveFromDestinationOrbite()" [attr.title]="'WORLD_GLOBE.ISS_LIVE_STANDARD_HINT' | translate">
-                  <i class="fa fa-video-camera" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_LIVE_STANDARD' | translate }}
+                  <i class="fa fa-youtube-play" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_LIVE_STANDARD' | translate }}
                 </button>
                 <button type="button" class="btn btn-sm wg-opt-chip wg-opt-chip--hd" (click)="openIssLiveHdFromDestinationOrbite()" [attr.title]="'WORLD_GLOBE.ISS_LIVE_HD_HINT' | translate">
-                  <i class="fa fa-video-camera" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_LIVE_HD' | translate }}
+                  <i class="fa fa-youtube-play" aria-hidden="true"></i>{{ 'WORLD_GLOBE.ISS_LIVE_HD' | translate }}
                 </button>
               </div>
 
@@ -858,6 +861,16 @@
           [attr.title]="'WORLD_GLOBE.DETAIL_MAP_OPEN' | translate"
           [attr.aria-label]="'WORLD_GLOBE.DETAIL_MAP_OPEN' | translate">
           {{ 'WORLD_GLOBE.DETAIL_MAP_OPEN_SHORT' | translate }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-info btn-sm py-0 wg-btn"
+          (click)="openAstroCompassIss()"
+          [attr.title]="'WORLD_GLOBE.OPEN_ASTRO_ISS_HINT' | translate"
+          [attr.aria-label]="'WORLD_GLOBE.OPEN_ASTRO_ISS' | translate">
+          <i class="fa fa-video-camera me-1" aria-hidden="true"></i>
+          <span class="d-none d-md-inline">{{ 'WORLD_GLOBE.OPEN_ASTRO_ISS' | translate }}</span>
+          <span class="d-md-none">{{ 'WORLD_GLOBE.OPEN_ASTRO_ISS_SHORT' | translate }}</span>
         </button>
         <button
           type="button"

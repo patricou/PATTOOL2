@@ -78,6 +78,7 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     'globe.flight.tracking': 'USERINFO.PARAM_LABELS.GLOBE_FLIGHT_TRACKING',
     'globe.iss.alert': 'USERINFO.PARAM_LABELS.GLOBE_ISS_ALERT',
     'globe.iss.compass.calibration': 'USERINFO.PARAM_LABELS.GLOBE_ISS_COMPASS',
+    'globe.astro.last-target': 'USERINFO.PARAM_LABELS.GLOBE_ASTRO_LAST_TARGET',
     'meteofrance.forecast.horizon': 'USERINFO.PARAM_LABELS.METEO_FORECAST_HORIZON',
     'meteofrance.forecast.step': 'USERINFO.PARAM_LABELS.METEO_FORECAST_STEP',
     'meteofrance.forecast.cache': 'USERINFO.PARAM_LABELS.METEO_FORECAST_CACHE',

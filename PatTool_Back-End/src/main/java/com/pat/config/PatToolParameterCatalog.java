@@ -38,6 +38,7 @@ public final class PatToolParameterCatalog {
             "globe.iss.alert.",
             "globe.iss.compass.calibration.",
             "globe.iss.compass.heading-mode.",
+            "globe.astro.last-target.",
             "meteofrance.forecast.horizon.",
             "meteofrance.forecast.step.",
             "meteofrance.forecast.cache.",

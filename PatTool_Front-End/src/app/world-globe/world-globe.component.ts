@@ -4225,6 +4225,11 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     window.open(ISS_LIVE_DESTINATION_ORBITE_URL, '_blank', 'noopener,noreferrer');
   }
 
+  /** Ouvre le viseur d’astres avec l’ISS déjà sélectionnée. */
+  openAstroCompassIss(): void {
+    void this.router.navigate(['/tools/astro-compass'], { queryParams: { target: 'iss' } });
+  }
+
   /** Direct ISS HD (Destination Orbite) dans un nouvel onglet. */
   openIssLiveHdFromDestinationOrbite(): void {
     window.open(ISS_LIVE_HD_DESTINATION_ORBITE_URL, '_blank', 'noopener,noreferrer');

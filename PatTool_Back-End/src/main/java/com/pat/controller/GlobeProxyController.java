@@ -1,5 +1,6 @@
 package com.pat.controller;
 
+import com.pat.controller.dto.AstroLastTargetDto;
 import com.pat.controller.dto.CompassCalibrationDto;
 import com.pat.controller.dto.CompassHeadingModeDto;
 import com.pat.controller.dto.FlightStateDto;
@@ -8,6 +9,7 @@ import com.pat.controller.dto.FlightTrackingPreferenceDto;
 import com.pat.controller.dto.GlobeIssGlobalPrefsDto;
 import com.pat.controller.dto.IssAlertAdminEntryDto;
 import com.pat.controller.dto.IssTraceResponseDto;
+import com.pat.service.AstroLastTargetService;
 import com.pat.service.CompassCalibrationService;
 import com.pat.service.FlightTrackingPreferenceService;
 import com.pat.service.GlobeIssGlobalPrefsService;
@@ -64,6 +66,7 @@ public class GlobeProxyController {
     private final IssPassAlertService issPassAlertService;
     private final GlobeIssGlobalPrefsService globeIssGlobalPrefsService;
     private final CompassCalibrationService compassCalibrationService;
+    private final AstroLastTargetService astroLastTargetService;
     private final OpenSkyService openSkyService;
     private final FlightTrackingPreferenceService flightTrackingPreferenceService;
 
@@ -75,6 +78,7 @@ public class GlobeProxyController {
             IssPassAlertService issPassAlertService,
             GlobeIssGlobalPrefsService globeIssGlobalPrefsService,
             CompassCalibrationService compassCalibrationService,
+            AstroLastTargetService astroLastTargetService,
             OpenSkyService openSkyService,
             FlightTrackingPreferenceService flightTrackingPreferenceService) {
         this.globeProxyService = globeProxyService;
@@ -84,6 +88,7 @@ public class GlobeProxyController {
         this.issPassAlertService = issPassAlertService;
         this.globeIssGlobalPrefsService = globeIssGlobalPrefsService;
         this.compassCalibrationService = compassCalibrationService;
+        this.astroLastTargetService = astroLastTargetService;
         this.openSkyService = openSkyService;
         this.flightTrackingPreferenceService = flightTrackingPreferenceService;
     }
@@ -661,6 +666,38 @@ public class GlobeProxyController {
             return ResponseEntity.badRequest().build();
         } catch (Exception e) {
             log.warn("Compass heading mode save failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /** Dernier astre du viseur mémorisé pour l'utilisateur courant. */
+    @GetMapping("/astro/last-target")
+    public ResponseEntity<AstroLastTargetDto> getAstroLastTarget() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return astroLastTargetService.findForSubject(sub)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    /** Mémorise le dernier astre choisi dans le viseur. */
+    @PutMapping("/astro/last-target")
+    public ResponseEntity<AstroLastTargetDto> setAstroLastTarget(@RequestBody AstroLastTargetDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            return ResponseEntity.ok(astroLastTargetService.saveForSubject(sub, body));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            log.warn("Astro last-target save failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

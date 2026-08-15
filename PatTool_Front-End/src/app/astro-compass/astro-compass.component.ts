@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { RouterModule, ActivatedRoute } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subscription, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -123,6 +123,9 @@ const AUTO_DETECT_TICK_MS = 400;
 const EARTH_RADIUS_KM = 6371;
 /** IAU : 1 année-lumière = 63 241,077 unités astronomiques. */
 const AU_PER_LY = 63241.07708426628;
+/** Année julienne : 365,25 j — cohérent avec le passage al → secondes-lumière. */
+const SECONDS_PER_LY = 365.25 * 24 * 3600;
+const SECONDS_PER_DAY = 24 * 3600;
 const ISS_DEFAULT_ALT_KM = 420;
 const ISS_REFRESH_MIN_MS = 20_000;
 
@@ -130,6 +133,14 @@ interface AddressSearchResult {
   lat: number;
   lon: number;
   displayName: string;
+}
+
+interface LastAstroTarget {
+  kind: 'planet' | 'star' | 'galaxy' | 'custom' | 'iss';
+  id?: string;
+  customRaHours?: number;
+  customDecDeg?: number;
+  customName?: string;
 }
 
 interface VisibilityDay {
@@ -582,6 +593,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private alignCuePrevBoth = false;
   private alignAudioCtx: AudioContext | null = null;
   private static readonly ALIGN_CUE_KEY = 'pat.astro-compass.align-cue';
+  private static readonly LAST_TARGET_KEY = 'pat.astro-compass.last-target.v1';
+  /** false pendant un apply auto (défaut visible / live) pour ne pas écraser le choix user. */
+  private persistUserTarget = true;
+  private lastTargetLoadGen = 0;
 
   private skyTickTimer: ReturnType<typeof setInterval> | null = null;
   private ipFallbackAttempted = false;
@@ -592,7 +607,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly satNow: GlobeSatelliteNowService,
     private readonly translate: TranslateService,
     private readonly cdr: ChangeDetectorRef,
-    private readonly zone: NgZone
+    private readonly zone: NgZone,
+    private readonly route: ActivatedRoute
   ) {
     this.lookTracker = new CameraLookTracker(this.zone, () => this.onLookUpdate());
   }
@@ -600,6 +616,11 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {
     this.onStarQueryChange();
     this.loadAlignCuePref();
+    if (!this.hasIssQueryTarget()) {
+      this.restoreLastTarget();
+    }
+    this.hydrateLastTargetFromDb();
+    this.applyQueryTarget();
     this.startGeolocation();
     this.hydratePattoolCalFromDb();
     void this.lookTracker.start(false).then(() => {
@@ -645,6 +666,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.issPassSub?.unsubscribe();
     this.altitudeSub?.unsubscribe();
     this.objectDossierSub?.unsubscribe();
+    this.persistLastTarget();
   }
 
   get finderNeedTap(): boolean {
@@ -1364,7 +1386,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         const key = best.kind + ':' + best.id;
         if (forceSelect || key !== this.autoDetectLastAppliedKey) {
           this.autoDetectLastAppliedKey = key;
-          this.applyAutoDetectHit(best);
+          this.persistUserTarget = false;
+          try {
+            this.applyAutoDetectHit(best);
+          } finally {
+            this.persistUserTarget = true;
+          }
         }
       }
     } catch {
@@ -1670,9 +1697,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     let list = this.visibleOnly
       ? base.filter((s) => this.visibleStarIds.has(s.id))
       : base;
-    // Hors filtre « visibles » : garder la sélection courante visible même hors filtre texte.
+    // Garder la sélection courante dans la liste (revisit viseur / filtre visibles).
     if (
-      !this.visibleOnly &&
       this.selectedKind === 'star' &&
       this.selectedStarId &&
       !list.some((s) => s.id === this.selectedStarId)
@@ -1693,7 +1719,6 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       ? base.filter((g) => this.visibleGalaxyIds.has(g.id))
       : base;
     if (
-      !this.visibleOnly &&
       this.selectedKind === 'galaxy' &&
       this.selectedGalaxyId &&
       !list.some((g) => g.id === this.selectedGalaxyId)
@@ -1749,6 +1774,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       if (this.finderPoseFrozen) {
         this.clearFinderPose(false);
       }
+      this.persistLastTarget();
     }
   }
 
@@ -1830,14 +1856,49 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.visibleOnly) {
       return this.planets;
     }
-    return this.planets.filter((p) => this.visiblePlanetIds.has(p.id));
+    const list = this.planets.filter((p) => this.visiblePlanetIds.has(p.id));
+    if (this.selectedKind === 'planet') {
+      const cur = this.planets.find((p) => p.id === this.selectedPlanetId);
+      if (cur && !list.some((p) => p.id === cur.id)) {
+        return [...list, cur];
+      }
+    }
+    return list;
   }
 
   get displayedSatellites(): ReadonlyArray<AstroSatelliteOption> {
     if (!this.visibleOnly) {
       return this.satellites;
     }
-    return this.satellites.filter((s) => this.visibleSatelliteIds.has(s.id));
+    const list = this.satellites.filter((s) => this.visibleSatelliteIds.has(s.id));
+    if (this.selectedKind === 'iss') {
+      const cur = this.satellites.find((s) => s.id === this.selectedSatelliteId);
+      if (cur && !list.some((s) => s.id === cur.id)) {
+        return [...list, cur];
+      }
+    }
+    return list;
+  }
+
+  /** Filtre « visibles seulement » : pas de titre / chips / switch s’il n’y a rien à choisir. */
+  get showSatelliteSection(): boolean {
+    return !this.visibleOnly || this.displayedSatellites.length > 0;
+  }
+
+  get showPlanetSection(): boolean {
+    return !this.visibleOnly || this.displayedPlanets.length > 0;
+  }
+
+  get showAutoDetectSatelliteFilter(): boolean {
+    return this.visibleSatelliteIds.size > 0;
+  }
+
+  get showAutoDetectPlanetFilter(): boolean {
+    return this.visiblePlanetIds.size > 0;
+  }
+
+  get showAutoDetectStarFilter(): boolean {
+    return this.visibleStarIds.size > 0 || this.visibleGalaxyIds.size > 0;
   }
 
   /** @deprecated Prefer {@link displayedSatellites}. */
@@ -2677,45 +2738,181 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!Number.isFinite(ly) || ly < 0) {
       return '—';
     }
-    if (ly >= 1_000_000) {
-      return (ly / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' M';
-    }
-    if (ly >= 10_000) {
-      return Math.round(ly).toLocaleString();
-    }
-    if (ly >= 1) {
-      return ly.toLocaleString(undefined, { maximumFractionDigits: ly < 10 ? 2 : 1 });
-    }
-    if (ly >= 0.01) {
-      return ly.toLocaleString(undefined, { maximumFractionDigits: 3 });
-    }
     if (ly === 0) {
       return '0';
     }
-    const seconds = ly * 365.25 * 24 * 3600;
-    if (seconds < 90) {
-      return seconds.toLocaleString(undefined, { maximumFractionDigits: seconds < 10 ? 2 : 1 });
-    }
-    const minutes = seconds / 60;
-    if (minutes < 90) {
-      return minutes.toLocaleString(undefined, { maximumFractionDigits: minutes < 10 ? 2 : 1 });
-    }
-    const hours = minutes / 60;
-    return hours.toLocaleString(undefined, { maximumFractionDigits: hours < 10 ? 2 : 1 });
+    return this.lightDistanceParts(ly).value;
   }
 
   formatLightYearUnit(ly: number): string {
-    if (!Number.isFinite(ly) || ly < 0 || ly >= 0.01 || ly === 0) {
+    if (!Number.isFinite(ly) || ly < 0 || ly === 0) {
       return this.translate.instant('ASTRO_COMPASS.DIST_LY_UNIT');
     }
-    const seconds = ly * 365.25 * 24 * 3600;
-    if (seconds < 90) {
-      return this.translate.instant('ASTRO_COMPASS.DIST_LS_UNIT');
+    const key = this.lightDistanceParts(ly).unitKey;
+    if (!key) {
+      return '';
     }
-    if (seconds / 60 < 90) {
-      return this.translate.instant('ASTRO_COMPASS.DIST_LM_UNIT');
+    return this.translate.instant('ASTRO_COMPASS.' + key);
+  }
+
+  /**
+   * Unités entières + reste : s → min+s → h+min → j+h → années+jours → siècles+années.
+   */
+  private lightDistanceParts(ly: number): { value: string; unitKey: string; travelKey: string } {
+    if (ly >= 1_000_000) {
+      return {
+        value: this.formatLightCount(ly),
+        unitKey: 'DIST_LY_UNIT',
+        travelKey: 'LIGHT_TRAVEL_Y'
+      };
     }
-    return this.translate.instant('ASTRO_COMPASS.DIST_LH_UNIT');
+    const totalSeconds = ly * SECONDS_PER_LY;
+    if (totalSeconds < 60) {
+      return {
+        value: this.formatLightCount(totalSeconds),
+        unitKey: 'DIST_LS_UNIT',
+        travelKey: 'LIGHT_TRAVEL_S'
+      };
+    }
+    const sec = Math.round(totalSeconds);
+    const secPerCentury = 100 * SECONDS_PER_LY;
+    let rem = sec;
+    const centuries = Math.floor(rem / secPerCentury);
+    rem %= secPerCentury;
+    const years = Math.floor(rem / SECONDS_PER_LY);
+    rem %= SECONDS_PER_LY;
+    const days = Math.floor(rem / SECONDS_PER_DAY);
+    rem %= SECONDS_PER_DAY;
+    const hours = Math.floor(rem / 3600);
+    rem %= 3600;
+    const minutes = Math.floor(rem / 60);
+    const seconds = rem % 60;
+    if (centuries > 0) {
+      return this.formatLightPairLong(centuries, years, 'c');
+    }
+    if (years > 0) {
+      return this.formatLightPairLong(years, days, 'y');
+    }
+    if (days > 0) {
+      return this.formatLightPairCompact(days, hours, 'd');
+    }
+    if (hours > 0) {
+      return this.formatLightPairCompact(hours, minutes, 'h');
+    }
+    return this.formatLightPairCompact(minutes, seconds, 'm');
+  }
+
+  /** 1 siècle et 50 années / 4 années et 88 jours. */
+  private formatLightPairLong(
+    major: number,
+    minor: number,
+    kind: 'c' | 'y'
+  ): { value: string; unitKey: string; travelKey: string } {
+    if (minor === 0) {
+      if (kind === 'c') {
+        return {
+          value: this.formatLightCount(major),
+          unitKey: 'DIST_LC_UNIT',
+          travelKey: 'LIGHT_TRAVEL_C'
+        };
+      }
+      return {
+        value: this.formatLightCount(major),
+        unitKey: 'DIST_LY_UNIT',
+        travelKey: 'LIGHT_TRAVEL_Y'
+      };
+    }
+    if (kind === 'c') {
+      const century = this.translate.instant(
+        major > 1 ? 'ASTRO_COMPASS.DIST_C_MANY' : 'ASTRO_COMPASS.DIST_C_ONE'
+      );
+      const year = this.translate.instant(
+        minor > 1 ? 'ASTRO_COMPASS.DIST_Y_MANY' : 'ASTRO_COMPASS.DIST_Y_ONE'
+      );
+      return {
+        value: this.translate.instant('ASTRO_COMPASS.DIST_CY_VALUE', {
+          c: major,
+          y: minor,
+          century,
+          year
+        }),
+        unitKey: '',
+        travelKey: 'LIGHT_TRAVEL_CY'
+      };
+    }
+    const year = this.translate.instant(
+      major > 1 ? 'ASTRO_COMPASS.DIST_Y_MANY' : 'ASTRO_COMPASS.DIST_Y_ONE'
+    );
+    const day = this.translate.instant(
+      minor > 1 ? 'ASTRO_COMPASS.DIST_D_MANY' : 'ASTRO_COMPASS.DIST_D_ONE'
+    );
+    return {
+      value: this.translate.instant('ASTRO_COMPASS.DIST_YD_VALUE', {
+        y: major,
+        d: minor,
+        year,
+        day
+      }),
+      unitKey: '',
+      travelKey: 'LIGHT_TRAVEL_CY'
+    };
+  }
+
+  /** 8 min 19 s lum. / 1 h 30 min lum. / 1 j 12 h lum. */
+  private formatLightPairCompact(
+    major: number,
+    minor: number,
+    kind: 'd' | 'h' | 'm'
+  ): { value: string; unitKey: string; travelKey: string } {
+    if (minor === 0) {
+      if (kind === 'd') {
+        return {
+          value: this.formatLightCount(major),
+          unitKey: 'DIST_DJ_UNIT',
+          travelKey: 'LIGHT_TRAVEL_D'
+        };
+      }
+      if (kind === 'h') {
+        return {
+          value: this.formatLightCount(major),
+          unitKey: 'DIST_LH_UNIT',
+          travelKey: 'LIGHT_TRAVEL_H'
+        };
+      }
+      return {
+        value: this.formatLightCount(major),
+        unitKey: 'DIST_LM_UNIT',
+        travelKey: 'LIGHT_TRAVEL_M'
+      };
+    }
+    const key =
+      kind === 'd' ? 'DIST_DH_VALUE' : kind === 'h' ? 'DIST_HM_VALUE' : 'DIST_MS_VALUE';
+    const params =
+      kind === 'd' ? { d: major, h: minor } : kind === 'h' ? { h: major, m: minor } : { m: major, s: minor };
+    return {
+      value: this.translate.instant('ASTRO_COMPASS.' + key, params),
+      unitKey: 'DIST_LUM_SUFFIX',
+      travelKey: 'LIGHT_TRAVEL_HM'
+    };
+  }
+
+  private formatLightCount(n: number): string {
+    if (n >= 1_000_000) {
+      return (n / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' M';
+    }
+    if (n >= 10_000) {
+      return Math.round(n).toLocaleString();
+    }
+    if (n >= 1 && Math.abs(n - Math.round(n)) < 0.05) {
+      return Math.round(n).toLocaleString();
+    }
+    if (n >= 10) {
+      return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
+    }
+    if (n >= 1) {
+      return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+    return n.toLocaleString(undefined, { maximumFractionDigits: n >= 0.01 ? 3 : 2 });
   }
 
   formatAu(au: number): string {
@@ -2744,27 +2941,19 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   lightTravelLabel(): string | null {
-    if (this.distLy != null && this.distLy >= 1) {
-      return this.translate.instant('ASTRO_COMPASS.LIGHT_TRAVEL_Y', {
-        n: this.formatLightYears(this.distLy)
-      });
+    let ly = this.distLy;
+    if ((ly == null || ly <= 0) && this.geoDistKm != null && this.geoDistKm > 0) {
+      ly = this.geoDistKm / (KM_PER_AU * AU_PER_LY);
     }
-    if (this.geoDistKm != null && this.geoDistKm > 0) {
-      const seconds = (this.geoDistKm * 1000) / 299_792.458;
-      if (seconds < 0.05) {
-        return null;
-      }
-      if (seconds < 90) {
-        return this.translate.instant('ASTRO_COMPASS.LIGHT_TRAVEL_S', {
-          n: seconds.toLocaleString(undefined, { maximumFractionDigits: 1 })
-        });
-      }
-      const minutes = seconds / 60;
-      return this.translate.instant('ASTRO_COMPASS.LIGHT_TRAVEL_M', {
-        n: minutes.toLocaleString(undefined, { maximumFractionDigits: 1 })
-      });
+    if (ly == null || !Number.isFinite(ly) || ly <= 0) {
+      return null;
     }
-    return null;
+    const seconds = ly * SECONDS_PER_LY;
+    if (seconds < 0.05) {
+      return null;
+    }
+    const parts = this.lightDistanceParts(ly);
+    return this.translate.instant('ASTRO_COMPASS.' + parts.travelKey, { n: parts.value });
   }
 
   private loadObjectDossier(): void {
@@ -4779,6 +4968,161 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     } catch {
       /* ignore */
+    }
+  }
+
+  private persistLastTarget(): void {
+    if (!this.persistUserTarget || this.applyingAutoTarget || !this.userChoseTarget) {
+      return;
+    }
+    const payload = this.currentLastTargetPayload();
+    if (!payload) {
+      return;
+    }
+    this.writeLastTargetLocal(payload);
+    this.lastTargetLoadGen++;
+    this.api.setAstroLastTarget(payload).subscribe({
+      error: () => {
+        /* hors connexion / anonyme : le localStorage suffit */
+      }
+    });
+  }
+
+  private currentLastTargetPayload(): LastAstroTarget | null {
+    const payload: LastAstroTarget = { kind: this.selectedKind };
+    if (this.selectedKind === 'planet') {
+      payload.id = this.selectedPlanetId;
+    } else if (this.selectedKind === 'star') {
+      payload.id = this.selectedStarId;
+    } else if (this.selectedKind === 'galaxy') {
+      payload.id = this.selectedGalaxyId;
+    } else if (this.selectedKind === 'iss') {
+      payload.id = this.selectedSatelliteId;
+    } else {
+      payload.customRaHours = this.customRaHours;
+      payload.customDecDeg = this.customDecDeg;
+      payload.customName = this.customName;
+    }
+    if (this.selectedKind !== 'custom' && !payload.id) {
+      return null;
+    }
+    return payload;
+  }
+
+  private writeLastTargetLocal(payload: LastAstroTarget): void {
+    try {
+      localStorage.setItem(AstroCompassComponent.LAST_TARGET_KEY, JSON.stringify(payload));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private readLastTargetLocal(): LastAstroTarget | null {
+    try {
+      const raw = localStorage.getItem(AstroCompassComponent.LAST_TARGET_KEY);
+      if (!raw) {
+        return null;
+      }
+      const data = JSON.parse(raw) as LastAstroTarget;
+      return data?.kind ? data : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Dernier astre choisi à la main : revient tel quel à l’ouverture du viseur. */
+  private restoreLastTarget(): boolean {
+    const data = this.readLastTargetLocal();
+    if (!data) {
+      return false;
+    }
+    return this.applyLastTarget(data);
+  }
+
+  /** Lien globe (et autres) : `?target=iss` force l’ISS, au-dessus du dernier astre mémorisé. */
+  private hasIssQueryTarget(): boolean {
+    const raw = (this.route.snapshot.queryParamMap.get('target') || '').trim().toLowerCase();
+    return raw === 'iss';
+  }
+
+  private applyQueryTarget(): boolean {
+    if (!this.hasIssQueryTarget()) {
+      return false;
+    }
+    this.selectSatellite('iss');
+    return true;
+  }
+
+  /** Compte connecté : la base gagne ; sinon on pousse le choix local vers Mongo. */
+  private hydrateLastTargetFromDb(): void {
+    const gen = ++this.lastTargetLoadGen;
+    const local = this.readLastTargetLocal();
+    this.api.getAstroLastTarget().subscribe({
+      next: (remote) => {
+        if (gen !== this.lastTargetLoadGen) {
+          return;
+        }
+        if (remote?.kind) {
+          this.applyLastTarget(remote);
+          this.writeLastTargetLocal(remote);
+          this.cdr.markForCheck();
+          return;
+        }
+        if (local) {
+          this.api.setAstroLastTarget(local).subscribe({ error: () => undefined });
+        }
+      },
+      error: () => {
+        /* anonyme / hors-ligne : le localStorage reste */
+      }
+    });
+  }
+
+  private applyLastTarget(data: LastAstroTarget): boolean {
+    if (!data?.kind) {
+      return false;
+    }
+    this.persistUserTarget = false;
+    try {
+      if (data.kind === 'planet' && data.id && findPlanetById(data.id)) {
+        this.selectPlanet(data.id);
+        return true;
+      }
+      if (data.kind === 'star' && data.id) {
+        const star = findStarById(data.id);
+        if (!star) {
+          return false;
+        }
+        this.selectStar(star);
+        return true;
+      }
+      if (data.kind === 'galaxy' && data.id) {
+        const galaxy = findGalaxyById(data.id);
+        if (!galaxy) {
+          return false;
+        }
+        this.selectGalaxy(galaxy);
+        return true;
+      }
+      if (data.kind === 'iss' && data.id && findSatelliteById(data.id)) {
+        this.selectSatellite(data.id);
+        return true;
+      }
+      if (data.kind === 'custom') {
+        const ra = Number(data.customRaHours);
+        const dec = Number(data.customDecDeg);
+        if (!Number.isFinite(ra) || !Number.isFinite(dec) || ra < 0 || ra >= 24 || dec < -90 || dec > 90) {
+          return false;
+        }
+        this.customRaHours = ra;
+        this.customDecDeg = dec;
+        this.customName = typeof data.customName === 'string' ? data.customName : '';
+        this.applyCustomCoords();
+        return this.selectedKind === 'custom';
+      }
+      return false;
+    } finally {
+      this.persistUserTarget = true;
     }
   }
 

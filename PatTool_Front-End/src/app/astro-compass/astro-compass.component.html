@@ -486,6 +486,7 @@
         </div>
       </div>
 
+      <ng-container *ngIf="showSatelliteSection">
       <h3>
         <i class="fa fa-space-shuttle me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.SATELLITES_TITLE' | translate }}
         <span class="ac-count">({{ displayedSatellites.length }})</span>
@@ -503,16 +504,15 @@
           <span>{{ sat.labelKey | translate }}</span>
         </button>
       </div>
-      <p class="ac-place ac-place--section-gap" *ngIf="visibleOnly && !displayedSatellites.length">
-        {{ 'ASTRO_COMPASS.SATELLITES_NONE_VISIBLE' | translate }}
-      </p>
       <p class="ac-place" *ngIf="selectedKind === 'iss' && issStatus === 'loading'">
         <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.ISS_WAITING' | translate }}
       </p>
       <p class="ac-place" *ngIf="selectedKind === 'iss' && issStatus === 'error'">
         <i class="fa fa-exclamation-triangle me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.ISS_ERROR' | translate }}
       </p>
+      </ng-container>
 
+      <ng-container *ngIf="showPlanetSection">
       <h3>
         <i class="fa fa-globe me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.PLANETS_TITLE' | translate }}
         <span class="ac-count">({{ displayedPlanets.length }})</span>
@@ -529,9 +529,7 @@
           <span>{{ p.labelKey | translate }}</span>
         </button>
       </div>
-      <p class="ac-place" *ngIf="visibleOnly && !displayedPlanets.length">
-        {{ 'ASTRO_COMPASS.PLANETS_NONE_VISIBLE' | translate }}
-      </p>
+      </ng-container>
 
       <h3>
         <i class="fa fa-star me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.STARS_TITLE' | translate }}
@@ -901,17 +899,17 @@
   </header>
 
   <div class="ac-live-modal__controls">
-    <label class="ac-live-switch">
+    <label class="ac-live-switch" *ngIf="showAutoDetectPlanetFilter">
       <input type="checkbox" [(ngModel)]="autoDetectIncludePlanets" (ngModelChange)="onAutoDetectFiltersChange()" />
       <span class="ac-live-switch__ui"></span>
       <span class="ac-live-switch__label"><i class="fa fa-globe me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.AUTO_FILTER_PLANETS' | translate }}</span>
     </label>
-    <label class="ac-live-switch">
+    <label class="ac-live-switch" *ngIf="showAutoDetectStarFilter">
       <input type="checkbox" [(ngModel)]="autoDetectIncludeStars" (ngModelChange)="onAutoDetectFiltersChange()" />
       <span class="ac-live-switch__ui"></span>
       <span class="ac-live-switch__label"><i class="fa fa-star me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.AUTO_FILTER_STARS' | translate }}</span>
     </label>
-    <label class="ac-live-switch">
+    <label class="ac-live-switch" *ngIf="showAutoDetectSatelliteFilter">
       <input type="checkbox" [(ngModel)]="autoDetectIncludeIss" (ngModelChange)="onAutoDetectFiltersChange()" />
       <span class="ac-live-switch__ui"></span>
       <span class="ac-live-switch__label"><i class="fa fa-space-shuttle me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.AUTO_FILTER_ISS' | translate }}</span>

@@ -24,6 +24,14 @@ export interface CompassHeadingModePref {
   headingMode: string;
 }
 
+export interface AstroLastTarget {
+  kind: 'planet' | 'star' | 'galaxy' | 'custom' | 'iss';
+  id?: string;
+  customRaHours?: number;
+  customDecDeg?: number;
+  customName?: string;
+}
+
 export interface DirectionPattoolSamplePayload {
   sessionId: string;
   poseId: string;
@@ -1512,6 +1520,23 @@ export class ApiService {
           { headingMode },
           { headers }
         )
+      )
+    );
+  }
+
+  getAstroLastTarget(): Observable<AstroLastTarget | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<AstroLastTarget | null>(this.API_URL + 'external/globe/astro/last-target', { headers })
+      ),
+      catchError(() => of(null))
+    );
+  }
+
+  setAstroLastTarget(body: AstroLastTarget): Observable<AstroLastTarget> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<AstroLastTarget>(this.API_URL + 'external/globe/astro/last-target', body, { headers })
       )
     );
   }
