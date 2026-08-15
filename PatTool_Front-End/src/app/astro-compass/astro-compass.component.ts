@@ -76,6 +76,7 @@ import {
   type FinderTurnGuide,
   type ScreenProjection
 } from '../direction/direction-attitude';
+import { applyMultiplicativeWheelScale, normalizeWheelDeltaPixels } from '../shared/wheel-zoom.util';
 
 /** Seuil (degrés) pour considérer que l'utilisateur vise la cible (azimut / inclinaison). */
 const FACING_THRESHOLD_DEG = 8;
@@ -141,6 +142,10 @@ const FINDER_TRAIL_SAT_STEP_MS = 8_000;
 const FINDER_TRAIL_SKY_MS = 90 * 60 * 1000;
 const FINDER_TRAIL_SKY_STEP_MS = 90_000;
 const FINDER_TRAIL_SKY_MAX_AGE_MS = 2_000;
+const FINDER_ZOOM_MIN = 1;
+const FINDER_ZOOM_MAX = 8;
+const FINDER_ZOOM_STEP = 0.25;
+const FINDER_CENTER_SEP_DEG = 2.8;
 
 interface AddressSearchResult {
   lat: number;
@@ -343,10 +348,19 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('slideshowModalComponent') slideshowModalComponent?: SlideshowModalComponent;
   @ViewChild('camStage') camStage?: ElementRef<HTMLElement>;
   private camEl?: ElementRef<HTMLVideoElement>;
+  private camLiveEl?: ElementRef<HTMLVideoElement>;
 
   @ViewChild('cam')
   set camRef(el: ElementRef<HTMLVideoElement> | undefined) {
     this.camEl = el;
+    queueMicrotask(() => {
+      void this.attachCameraStream();
+    });
+  }
+
+  @ViewChild('camLive')
+  set camLiveRef(el: ElementRef<HTMLVideoElement> | undefined) {
+    this.camLiveEl = el;
     queueMicrotask(() => {
       void this.attachCameraStream();
     });
@@ -405,9 +419,13 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private objectDossierSub: Subscription | null = null;
   private objectDossierKey: string | null = null;
   autoDetectIncludePlanets = true;
-  /** Étoiles + galaxies. */
   autoDetectIncludeStars = true;
+  autoDetectIncludeGalaxies = true;
   autoDetectIncludeIss = true;
+  /** Étoiles assez brillantes pour l’œil nu (mag ≤ 6). */
+  autoDetectStarsNakedEye = true;
+  /** Galaxies assez brillantes pour l’œil nu (mag ≤ 6). */
+  autoDetectGalaxiesNakedEye = true;
   /** Intervalle de rafraîchissement live (200–3000 ms, pas 200). */
   autoDetectIntervalMs = 400;
   readonly autoDetectIntervalMinMs = 200;
@@ -582,6 +600,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   sightingMarked = false;
   /** Pause viseur : fige l’objet à l’écran même si le téléphone bouge. */
   finderPoseFrozen = false;
+  /** Zoom viseur (1×–8×) : optique si le téléphone le permet, sinon numérique. */
+  readonly finderZoomMin = FINDER_ZOOM_MIN;
+  readonly finderZoomMax = FINDER_ZOOM_MAX;
+  readonly finderZoomStep = FINDER_ZOOM_STEP;
+  finderZoom = FINDER_ZOOM_MIN;
+  finderDigitalZoom = 1;
   /** True si la pause viseur a elle-même mis l’auto-détection en pause. */
   private finderPosePausedAuto = false;
   helpModalOpen = false;
@@ -655,6 +679,15 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private alignAudioCtx: AudioContext | null = null;
   private static readonly ALIGN_CUE_KEY = 'pat.astro-compass.align-cue';
   private static readonly FINDER_TRAIL_KEY = 'pat.astro-compass.finder-trail';
+  private static readonly FINDER_ZOOM_KEY = 'pat.astro-compass.finder-zoom';
+  private camZoomCaps: { min: number; max: number } | null = null;
+  private finderPinchStartDist = 0;
+  private finderPinchStartZoom = FINDER_ZOOM_MIN;
+  private finderZoomGesturesBound = false;
+  private readonly onFinderWheelNative = (ev: WheelEvent) => this.onFinderWheel(ev);
+  private readonly onFinderTouchStartNative = (ev: TouchEvent) => this.onFinderTouchStart(ev);
+  private readonly onFinderTouchMoveNative = (ev: TouchEvent) => this.onFinderTouchMove(ev);
+  private readonly onFinderTouchEndNative = () => this.onFinderTouchEnd();
   private static readonly LAST_TARGET_KEY = 'pat.astro-compass.last-target.v1';
   private finderTrailSky: FinderTrailSkyPt[] = [];
   private finderTrailSkyAtMs = 0;
@@ -682,6 +715,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.onStarQueryChange();
     this.loadAlignCuePref();
     this.loadFinderTrailPref();
+    this.loadFinderZoomPref();
     if (!this.hasSatelliteQueryTarget()) {
       this.restoreLastTarget();
     }
@@ -707,6 +741,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
+    this.bindFinderZoomGestures();
     if (this.lookTracker.sensorsOn) {
       void this.startCamera();
     }
@@ -730,6 +765,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.issPassSub?.unsubscribe();
     this.altitudeSub?.unsubscribe();
     this.objectDossierSub?.unsubscribe();
+    this.unbindFinderZoomGestures();
     this.persistLastTarget();
   }
 
@@ -785,17 +821,31 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  private cameraVideoEls(): HTMLVideoElement[] {
+    return [this.camEl?.nativeElement, this.camLiveEl?.nativeElement].filter(
+      (video): video is HTMLVideoElement => !!video
+    );
+  }
+
   private async attachCameraStream(): Promise<void> {
-    const video = this.camEl?.nativeElement;
-    if (!video || !this.camStream) {
+    const videos = this.cameraVideoEls();
+    if (!this.camStream || !videos.length) {
       return;
     }
-    if (video.srcObject !== this.camStream) {
-      video.srcObject = this.camStream;
-    }
     try {
-      await video.play();
+      for (const video of videos) {
+        if (video.srcObject !== this.camStream) {
+          video.srcObject = this.camStream;
+        }
+        try {
+          await video.play();
+        } catch {
+          /* un des deux viseurs peut être hors écran */
+        }
+      }
       this.camLive = true;
+      this.refreshCameraZoomCaps();
+      this.syncFinderZoomOutputs();
     } catch {
       this.camLive = false;
     }
@@ -806,8 +856,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.camStream?.getTracks().forEach((t) => t.stop());
     this.camStream = null;
     this.camLive = false;
-    const video = this.camEl?.nativeElement;
-    if (video) {
+    for (const video of this.cameraVideoEls()) {
       video.srcObject = null;
     }
   }
@@ -835,6 +884,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     if (!this.lookTracker.markCameraAsTarget(this.azimuthDeg, this.elevationDeg)) {
       return;
+    }
+    if (this.finderPoseFrozen) {
+      this.clearFinderPose(false);
     }
     this.sightingMarked = true;
     this.northMarked = false;
@@ -1127,7 +1179,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.azimuthDeg,
       this.elevationDeg,
       fov.hfov,
-      fov.vfov
+      fov.vfov,
+      FINDER_CENTER_SEP_DEG / this.finderZoom
     );
     this.finderGuide = computeFinderTurnGuide(
       camAz,
@@ -1168,6 +1221,171 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private persistFinderTrailPref(): void {
     try {
       localStorage.setItem(AstroCompassComponent.FINDER_TRAIL_KEY, this.finderTrailEnabled ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }
+
+  get finderZoomLabel(): string {
+    const z = this.finderZoom;
+    const txt = Math.abs(z - Math.round(z)) < 0.05 ? String(Math.round(z)) : z.toFixed(1);
+    return `${txt}×`;
+  }
+
+  finderZoomIn(): void {
+    this.setFinderZoom(this.finderZoom + FINDER_ZOOM_STEP, true);
+  }
+
+  finderZoomOut(): void {
+    this.setFinderZoom(this.finderZoom - FINDER_ZOOM_STEP, true);
+  }
+
+  resetFinderZoom(): void {
+    this.setFinderZoom(FINDER_ZOOM_MIN, true);
+  }
+
+  onFinderZoomSlider(value: number | string): void {
+    const n = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(n)) {
+      return;
+    }
+    this.setFinderZoom(n, true);
+  }
+
+  onFinderWheel(ev: WheelEvent): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const next = applyMultiplicativeWheelScale(
+      this.finderZoom,
+      normalizeWheelDeltaPixels(ev),
+      FINDER_ZOOM_MIN,
+      FINDER_ZOOM_MAX
+    );
+    this.setFinderZoom(next, false);
+  }
+
+  private onFinderTouchStart(ev: TouchEvent): void {
+    if (ev.touches.length !== 2) {
+      this.finderPinchStartDist = 0;
+      return;
+    }
+    this.finderPinchStartDist = this.touchDistance(ev.touches[0], ev.touches[1]);
+    this.finderPinchStartZoom = this.finderZoom;
+  }
+
+  private onFinderTouchMove(ev: TouchEvent): void {
+    if (ev.touches.length !== 2 || this.finderPinchStartDist < 8) {
+      return;
+    }
+    ev.preventDefault();
+    const dist = this.touchDistance(ev.touches[0], ev.touches[1]);
+    this.setFinderZoom((this.finderPinchStartZoom * dist) / this.finderPinchStartDist, false, false);
+  }
+
+  private onFinderTouchEnd(): void {
+    if (this.finderPinchStartDist > 0) {
+      this.setFinderZoom(this.finderZoom, true);
+    }
+    this.finderPinchStartDist = 0;
+  }
+
+  private touchDistance(a: Touch, b: Touch): number {
+    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  }
+
+  private setFinderZoom(next: number, snap: boolean, persist = true): void {
+    let z = Math.min(FINDER_ZOOM_MAX, Math.max(FINDER_ZOOM_MIN, next));
+    if (snap) {
+      z = Math.round(z / FINDER_ZOOM_STEP) * FINDER_ZOOM_STEP;
+    }
+    z = parseFloat(z.toFixed(2));
+    if (z === this.finderZoom && persist) {
+      this.persistFinderZoomPref();
+      return;
+    }
+    this.finderZoom = z;
+    this.syncFinderZoomOutputs();
+    this.updateFinderProjection();
+    if (persist) {
+      this.persistFinderZoomPref();
+    }
+    this.cdr.markForCheck();
+  }
+
+  private syncFinderZoomOutputs(): void {
+    const caps = this.camZoomCaps;
+    const track = this.camStream?.getVideoTracks()[0];
+    if (caps && track) {
+      const hw = Math.min(caps.max, Math.max(caps.min, this.finderZoom));
+      this.finderDigitalZoom = this.finderZoom / hw;
+      void track
+        .applyConstraints({ advanced: [{ zoom: hw }] } as unknown as MediaTrackConstraints)
+        .catch(() => {
+          this.finderDigitalZoom = this.finderZoom;
+        });
+      return;
+    }
+    this.finderDigitalZoom = this.finderZoom;
+  }
+
+  private refreshCameraZoomCaps(): void {
+    try {
+      const track = this.camStream?.getVideoTracks()[0];
+      const caps = track?.getCapabilities?.() as (MediaTrackCapabilities & {
+        zoom?: number | { min?: number; max?: number };
+      }) | undefined;
+      const z = caps?.zoom;
+      if (z && typeof z === 'object' && Number.isFinite(z.max) && (z.max ?? 0) > (z.min ?? 1)) {
+        this.camZoomCaps = { min: z.min ?? 1, max: z.max as number };
+        return;
+      }
+    } catch {
+      /* iOS / navigateurs sans zoom capteur */
+    }
+    this.camZoomCaps = null;
+  }
+
+  private bindFinderZoomGestures(): void {
+    const el = this.camStage?.nativeElement;
+    if (!el || this.finderZoomGesturesBound) {
+      return;
+    }
+    el.addEventListener('wheel', this.onFinderWheelNative, { passive: false });
+    el.addEventListener('touchstart', this.onFinderTouchStartNative, { passive: true });
+    el.addEventListener('touchmove', this.onFinderTouchMoveNative, { passive: false });
+    el.addEventListener('touchend', this.onFinderTouchEndNative, { passive: true });
+    el.addEventListener('touchcancel', this.onFinderTouchEndNative, { passive: true });
+    this.finderZoomGesturesBound = true;
+  }
+
+  private unbindFinderZoomGestures(): void {
+    const el = this.camStage?.nativeElement;
+    if (!el || !this.finderZoomGesturesBound) {
+      return;
+    }
+    el.removeEventListener('wheel', this.onFinderWheelNative);
+    el.removeEventListener('touchstart', this.onFinderTouchStartNative);
+    el.removeEventListener('touchmove', this.onFinderTouchMoveNative);
+    el.removeEventListener('touchend', this.onFinderTouchEndNative);
+    el.removeEventListener('touchcancel', this.onFinderTouchEndNative);
+    this.finderZoomGesturesBound = false;
+  }
+
+  private loadFinderZoomPref(): void {
+    try {
+      const raw = Number(localStorage.getItem(AstroCompassComponent.FINDER_ZOOM_KEY));
+      if (Number.isFinite(raw)) {
+        this.finderZoom = Math.min(FINDER_ZOOM_MAX, Math.max(FINDER_ZOOM_MIN, raw));
+      }
+    } catch {
+      this.finderZoom = FINDER_ZOOM_MIN;
+    }
+    this.syncFinderZoomOutputs();
+  }
+
+  private persistFinderZoomPref(): void {
+    try {
+      localStorage.setItem(AstroCompassComponent.FINDER_ZOOM_KEY, String(this.finderZoom));
     } catch {
       /* ignore */
     }
@@ -1461,12 +1679,14 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private finderFovDeg(): { hfov: number; vfov: number } {
     const video = this.camEl?.nativeElement;
     const stage = this.camStage?.nativeElement;
-    return displayedCameraFovDeg(
+    const base = displayedCameraFovDeg(
       video?.videoWidth || 0,
       video?.videoHeight || 0,
       stage?.clientWidth || video?.clientWidth || 0,
       stage?.clientHeight || video?.clientHeight || 0
     );
+    const z = Math.max(FINDER_ZOOM_MIN, this.finderZoom);
+    return { hfov: base.hfov / z, vfov: base.vfov / z };
   }
 
   /* ------------------------------------------------------------------ */
@@ -1605,8 +1825,17 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.autoDetectCacheAtMs = 0;
     this.cdr.markForCheck();
 
+    void this.ensureCameraForAutoDetect();
     this.runAutoDetectPass(true);
     this.restartAutoDetectTimer();
+  }
+
+  private async ensureCameraForAutoDetect(): Promise<void> {
+    if (this.camLive && this.camStream) {
+      await this.attachCameraStream();
+      return;
+    }
+    await this.startCamera();
   }
 
   /** Alias bouton : bascule le mode live. */
@@ -1931,6 +2160,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (this.autoDetectIncludeStars) {
     for (const star of ASTRO_BRIGHT_STARS) {
+      if (this.autoDetectStarsNakedEye && !AstroCompassComponent.isNakedEyeAtNight(star.mag)) {
+        continue;
+      }
       try {
         DefineStar(Body.Star1, star.raHours, star.decDeg, Math.max(1, star.distLy));
         const eq = Equator(Body.Star1, date, observer, true, true);
@@ -1952,8 +2184,13 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         /* ignore star */
       }
     }
+    }
 
+    if (this.autoDetectIncludeGalaxies) {
     for (const galaxy of ASTRO_GALAXIES) {
+      if (this.autoDetectGalaxiesNakedEye && !AstroCompassComponent.isNakedEyeAtNight(galaxy.mag)) {
+        continue;
+      }
       try {
         DefineStar(Body.Star1, galaxy.raHours, galaxy.decDeg, Math.max(1, galaxy.distLy));
         const eq = Equator(Body.Star1, date, observer, true, true);
@@ -2295,7 +2532,15 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get showAutoDetectStarFilter(): boolean {
-    return this.visibleStarIds.size > 0 || this.visibleGalaxyIds.size > 0;
+    return this.visibleStarIds.size > 0;
+  }
+
+  get showAutoDetectGalaxyFilter(): boolean {
+    return this.visibleGalaxyIds.size > 0;
+  }
+
+  private static isNakedEyeAtNight(mag: number | null | undefined): boolean {
+    return mag != null && Number.isFinite(mag) && mag <= 6;
   }
 
   /** @deprecated Prefer {@link displayedSatellites}. */

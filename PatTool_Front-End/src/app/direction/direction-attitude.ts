@@ -515,7 +515,7 @@ export function projectCelestialToScreen(
   vfovDeg?: number,
   centerSepDeg = CENTER_SEP_DEG
 ): ScreenProjection {
-  const vfov = vfovDeg != null && vfovDeg > 5 ? vfovDeg : hfovDeg * 0.75;
+  const vfov = vfovDeg != null && Number.isFinite(vfovDeg) && vfovDeg > 0.25 ? vfovDeg : hfovDeg * 0.75;
   const dAz = circularDiff(tgtAzDeg, camAzDeg);
   const dEl = tgtElDeg - camElDeg;
   const cosEl = Math.cos((camElDeg * Math.PI) / 180);

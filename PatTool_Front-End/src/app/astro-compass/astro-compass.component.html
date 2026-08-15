@@ -84,8 +84,16 @@
               [class.ac-finder--fs]="isFullscreen"
               [class.ac-finder--locked]="finderProj?.centered && !finderPoseFrozen"
               [class.ac-finder--posed]="finderPoseFrozen"
-              [class.ac-finder--inview]="finderProj?.inView && !finderProj?.centered && !finderPoseFrozen">
-              <video #cam class="ac-finder__video" playsinline muted autoplay webkit-playsinline></video>
+              [class.ac-finder--inview]="finderProj?.inView && !finderProj?.centered && !finderPoseFrozen"
+              [class.ac-finder--zoomed]="finderZoom > 1">
+              <video
+                #cam
+                class="ac-finder__video"
+                [style.transform]="'scale(' + finderDigitalZoom + ')'"
+                playsinline
+                muted
+                autoplay
+                webkit-playsinline></video>
               <div class="ac-finder__empty" *ngIf="!camLive">{{ 'ASTRO_COMPASS.CAM_PLACEHOLDER' | translate }}</div>
               <div class="ac-finder__reticle" aria-hidden="true"></div>
               <svg
@@ -205,6 +213,16 @@
               <div class="ac-finder__right-btns">
                 <button
                   type="button"
+                  class="ac-finder__exact"
+                  [class.ac-finder__exact--ok]="sightingMarked"
+                  [disabled]="!canMarkExactPosition()"
+                  (click)="markExactPosition()"
+                  [attr.title]="'ASTRO_COMPASS.EXACT_POS_HINT' | translate">
+                  <i class="fa" [ngClass]="sightingMarked ? 'fa-check' : 'fa-crosshairs'" aria-hidden="true"></i>
+                  {{ (sightingMarked ? 'ASTRO_COMPASS.EXACT_POS_DONE' : 'ASTRO_COMPASS.EXACT_POS') | translate }}
+                </button>
+                <button
+                  type="button"
                   class="ac-finder__north"
                   [class.ac-finder__north--ok]="northMarked"
                   [disabled]="lookTracker.azimuthDeg == null"
@@ -240,16 +258,49 @@
                   {{ 'ASTRO_COMPASS.FINDER_TRAIL' | translate }}
                 </label>
               </div>
-              <button
-                type="button"
-                class="ac-finder__exact"
-                [class.ac-finder__exact--ok]="sightingMarked"
-                [disabled]="!canMarkExactPosition()"
-                (click)="markExactPosition()"
-                [attr.title]="'ASTRO_COMPASS.EXACT_POS_HINT' | translate">
-                <i class="fa" [ngClass]="sightingMarked ? 'fa-check' : 'fa-bullseye'" aria-hidden="true"></i>
-                {{ (sightingMarked ? 'ASTRO_COMPASS.EXACT_POS_DONE' : 'ASTRO_COMPASS.EXACT_POS') | translate : { name: bodyLabel || ('ASTRO_COMPASS.LOOK_THE_OBJECT' | translate) } }}
-              </button>
+              <div
+                class="ac-finder__zoom"
+                *ngIf="camLive"
+                role="group"
+                [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM' | translate">
+                <button
+                  type="button"
+                  class="ac-finder__zoom-btn"
+                  (click)="finderZoomOut()"
+                  [disabled]="finderZoom <= finderZoomMin"
+                  [attr.title]="'ASTRO_COMPASS.FINDER_ZOOM_OUT' | translate"
+                  [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM_OUT' | translate">
+                  <i class="fa fa-minus" aria-hidden="true"></i>
+                </button>
+                <input
+                  type="range"
+                  class="ac-finder__zoom-range"
+                  [min]="finderZoomMin"
+                  [max]="finderZoomMax"
+                  [step]="finderZoomStep"
+                  [ngModel]="finderZoom"
+                  (ngModelChange)="onFinderZoomSlider($event)"
+                  [attr.aria-valuetext]="finderZoomLabel"
+                  [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM' | translate" />
+                <button
+                  type="button"
+                  class="ac-finder__zoom-btn"
+                  (click)="finderZoomIn()"
+                  [disabled]="finderZoom >= finderZoomMax"
+                  [attr.title]="'ASTRO_COMPASS.FINDER_ZOOM_IN' | translate"
+                  [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM_IN' | translate">
+                  <i class="fa fa-plus" aria-hidden="true"></i>
+                </button>
+                <button
+                  type="button"
+                  class="ac-finder__zoom-val"
+                  (click)="resetFinderZoom()"
+                  [disabled]="finderZoom <= finderZoomMin"
+                  [attr.title]="'ASTRO_COMPASS.FINDER_ZOOM_RESET' | translate"
+                  [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM_RESET' | translate">
+                  {{ finderZoomLabel }}
+                </button>
+              </div>
               <div class="ac-finder__cue" role="group" [attr.aria-label]="'ASTRO_COMPASS.CUE_LABEL' | translate">
                 <button type="button" class="ac-look__cue-btn" [class.ac-look__cue-btn--on]="alignCue === 'off'" (click)="setAlignCue('off')">{{ 'ASTRO_COMPASS.CUE_OFF' | translate }}</button>
                 <button type="button" class="ac-look__cue-btn" [class.ac-look__cue-btn--on]="alignCue === 'beep'" (click)="setAlignCue('beep')"><i class="fa fa-volume-up" aria-hidden="true"></i> {{ 'ASTRO_COMPASS.CUE_BEEP' | translate }}</button>
@@ -294,6 +345,7 @@
             <p class="ac-finder__north-hint">{{ 'ASTRO_COMPASS.EXACT_POS_HINT' | translate }}</p>
             <p class="ac-finder__north-hint">{{ 'ASTRO_COMPASS.FINDER_PAUSE_HINT' | translate }}</p>
             <p class="ac-finder__north-hint">{{ 'ASTRO_COMPASS.FINDER_TRAIL_HINT' | translate }}</p>
+            <p class="ac-finder__north-hint">{{ 'ASTRO_COMPASS.FINDER_ZOOM_HINT' | translate }}</p>
             <p class="ac-finder__lock" *ngIf="finderPoseFrozen">
               <i class="fa fa-pause me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.FINDER_PAUSED' | translate }}
             </p>
@@ -901,8 +953,19 @@
   role="dialog"
   aria-modal="true"
   [class.ac-live-modal--paused]="autoDetectPaused"
+  [class.ac-live-modal--cam]="camLive"
   [attr.aria-label]="'ASTRO_COMPASS.AUTO_MODAL_TITLE' | translate"
   (click)="$event.stopPropagation()">
+  <video
+    #camLive
+    class="ac-live-modal__cam"
+    playsinline
+    muted
+    autoplay
+    webkit-playsinline></video>
+  <div class="ac-live-modal__cam-empty" *ngIf="!camLive">
+    {{ (camDenied ? 'ASTRO_COMPASS.CAM_DENIED' : 'ASTRO_COMPASS.CAM_PLACEHOLDER') | translate }}
+  </div>
   <div class="ac-live-modal__stars" aria-hidden="true"></div>
   <div class="ac-live-modal__aurora" aria-hidden="true"></div>
 
@@ -939,11 +1002,44 @@
       <span class="ac-live-switch__ui"></span>
       <span class="ac-live-switch__label"><i class="fa fa-globe me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.AUTO_FILTER_PLANETS' | translate }}</span>
     </label>
-    <label class="ac-live-switch" *ngIf="showAutoDetectStarFilter">
-      <input type="checkbox" [(ngModel)]="autoDetectIncludeStars" (ngModelChange)="onAutoDetectFiltersChange()" />
-      <span class="ac-live-switch__ui"></span>
-      <span class="ac-live-switch__label"><i class="fa fa-star me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.AUTO_FILTER_STARS' | translate }}</span>
-    </label>
+    <div class="ac-live-filter-row" *ngIf="showAutoDetectStarFilter">
+      <label class="ac-live-switch">
+        <input type="checkbox" [(ngModel)]="autoDetectIncludeStars" (ngModelChange)="onAutoDetectFiltersChange()" />
+        <span class="ac-live-switch__ui"></span>
+        <span class="ac-live-switch__label"><i class="fa fa-star me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.AUTO_FILTER_STARS' | translate }}</span>
+      </label>
+      <label
+        class="ac-live-switch ac-live-switch--eye"
+        [class.ac-live-switch--disabled]="!autoDetectIncludeStars"
+        [attr.title]="'ASTRO_COMPASS.AUTO_FILTER_NAKED_EYE_HINT' | translate">
+        <input
+          type="checkbox"
+          [(ngModel)]="autoDetectStarsNakedEye"
+          (ngModelChange)="onAutoDetectFiltersChange()"
+          [disabled]="!autoDetectIncludeStars" />
+        <span class="ac-live-switch__ui"></span>
+        <span class="ac-live-switch__label"><i class="fa fa-eye me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.AUTO_FILTER_NAKED_EYE' | translate }}</span>
+      </label>
+    </div>
+    <div class="ac-live-filter-row" *ngIf="showAutoDetectGalaxyFilter">
+      <label class="ac-live-switch">
+        <input type="checkbox" [(ngModel)]="autoDetectIncludeGalaxies" (ngModelChange)="onAutoDetectFiltersChange()" />
+        <span class="ac-live-switch__ui"></span>
+        <span class="ac-live-switch__label"><i class="fa fa-circle-o me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.AUTO_FILTER_GALAXIES' | translate }}</span>
+      </label>
+      <label
+        class="ac-live-switch ac-live-switch--eye"
+        [class.ac-live-switch--disabled]="!autoDetectIncludeGalaxies"
+        [attr.title]="'ASTRO_COMPASS.AUTO_FILTER_NAKED_EYE_HINT' | translate">
+        <input
+          type="checkbox"
+          [(ngModel)]="autoDetectGalaxiesNakedEye"
+          (ngModelChange)="onAutoDetectFiltersChange()"
+          [disabled]="!autoDetectIncludeGalaxies" />
+        <span class="ac-live-switch__ui"></span>
+        <span class="ac-live-switch__label"><i class="fa fa-eye me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.AUTO_FILTER_NAKED_EYE' | translate }}</span>
+      </label>
+    </div>
     <label class="ac-live-switch" *ngIf="showAutoDetectSatelliteFilter">
       <input type="checkbox" [(ngModel)]="autoDetectIncludeIss" (ngModelChange)="onAutoDetectFiltersChange()" />
       <span class="ac-live-switch__ui"></span>
