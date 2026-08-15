@@ -141,6 +141,141 @@ export const ASTRO_SATELLITES: ReadonlyArray<AstroSatelliteOption> = [
     iconClass: 'fa fa-cloud',
     color: '#93c5fd',
     defaultAltKm: 825
+  },
+  {
+    id: 'noaa21',
+    kind: 'iss',
+    noradId: 54226,
+    labelKey: 'ASTRO_COMPASS.BODY_NOAA21',
+    iconClass: 'fa fa-cloud',
+    color: '#60a5fa',
+    defaultAltKm: 833
+  },
+  {
+    id: 'suominpp',
+    kind: 'iss',
+    noradId: 37849,
+    labelKey: 'ASTRO_COMPASS.BODY_SUOMINPP',
+    iconClass: 'fa fa-cloud',
+    color: '#818cf8',
+    defaultAltKm: 833
+  },
+  {
+    id: 'aura',
+    kind: 'iss',
+    noradId: 28376,
+    labelKey: 'ASTRO_COMPASS.BODY_AURA',
+    iconClass: 'fa fa-circle',
+    color: '#f472b6',
+    defaultAltKm: 705
+  },
+  {
+    id: 'sentinel1a',
+    kind: 'iss',
+    noradId: 39634,
+    labelKey: 'ASTRO_COMPASS.BODY_SENTINEL1A',
+    iconClass: 'fa fa-crosshairs',
+    color: '#fb7185',
+    defaultAltKm: 693
+  },
+  {
+    id: 'sentinel1c',
+    kind: 'iss',
+    noradId: 62261,
+    labelKey: 'ASTRO_COMPASS.BODY_SENTINEL1C',
+    iconClass: 'fa fa-crosshairs',
+    color: '#f43f5e',
+    defaultAltKm: 693
+  },
+  {
+    id: 'sentinel2c',
+    kind: 'iss',
+    noradId: 60989,
+    labelKey: 'ASTRO_COMPASS.BODY_SENTINEL2C',
+    iconClass: 'fa fa-leaf',
+    color: '#16a34a',
+    defaultAltKm: 786
+  },
+  {
+    id: 'sentinel3a',
+    kind: 'iss',
+    noradId: 41335,
+    labelKey: 'ASTRO_COMPASS.BODY_SENTINEL3A',
+    iconClass: 'fa fa-globe',
+    color: '#38bdf8',
+    defaultAltKm: 814
+  },
+  {
+    id: 'sentinel3b',
+    kind: 'iss',
+    noradId: 43437,
+    labelKey: 'ASTRO_COMPASS.BODY_SENTINEL3B',
+    iconClass: 'fa fa-globe',
+    color: '#0ea5e9',
+    defaultAltKm: 814
+  },
+  {
+    id: 'sentinel5p',
+    kind: 'iss',
+    noradId: 42969,
+    labelKey: 'ASTRO_COMPASS.BODY_SENTINEL5P',
+    iconClass: 'fa fa-cloud',
+    color: '#a78bfa',
+    defaultAltKm: 824
+  },
+  {
+    id: 'sentinel6',
+    kind: 'iss',
+    noradId: 46984,
+    labelKey: 'ASTRO_COMPASS.BODY_SENTINEL6',
+    iconClass: 'fa fa-arrows-v',
+    color: '#6366f1',
+    defaultAltKm: 1336
+  },
+  {
+    id: 'metopb',
+    kind: 'iss',
+    noradId: 38771,
+    labelKey: 'ASTRO_COMPASS.BODY_METOPB',
+    iconClass: 'fa fa-cloud',
+    color: '#34d399',
+    defaultAltKm: 817
+  },
+  {
+    id: 'metopc',
+    kind: 'iss',
+    noradId: 43689,
+    labelKey: 'ASTRO_COMPASS.BODY_METOPC',
+    iconClass: 'fa fa-cloud',
+    color: '#2dd4bf',
+    defaultAltKm: 817
+  },
+  {
+    id: 'gpm',
+    kind: 'iss',
+    noradId: 40376,
+    labelKey: 'ASTRO_COMPASS.BODY_GPM',
+    iconClass: 'fa fa-tint',
+    color: '#f97316',
+    defaultAltKm: 407
+  },
+  {
+    id: 'swift',
+    kind: 'iss',
+    noradId: 28485,
+    labelKey: 'ASTRO_COMPASS.BODY_SWIFT',
+    iconClass: 'fa fa-bolt',
+    color: '#e879f9',
+    defaultAltKm: 550
+  },
+  {
+    id: 'fermi',
+    kind: 'iss',
+    noradId: 33053,
+    labelKey: 'ASTRO_COMPASS.BODY_FERMI',
+    iconClass: 'fa fa-star-o',
+    color: '#c084fc',
+    defaultAltKm: 535
   }
 ];
 

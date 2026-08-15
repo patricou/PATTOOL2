@@ -264,6 +264,14 @@ const GLOBE_SAT_PASS_LOOKBACK_MS = 45 * 60_000;
 const GLOBE_SAT_PASS_HORIZON_MS = 18 * 60 * 60_000;
 const GLOBE_SAT_PASS_STEP_MS = 30_000;
 const GLOBE_SAT_PASS_MAX = 6;
+/** Trajectoire future SGP4 : ~1 orbite LEO, dans la couleur du satellite. */
+const GLOBE_SAT_FORECAST_MINUTES = 90;
+const GLOBE_SAT_FORECAST_STEP_MS = 60_000;
+const GLOBE_SAT_FORECAST_TRAIL_OPACITY = 0.78;
+const GLOBE_SAT_FORECAST_TRAIL_ARC_SEGMENTS = 8;
+const GLOBE_SAT_FORECAST_REBUILD_MIN_MS = 12_000;
+/** Rayon de clic (px) pour sélectionner un satellite / l’ISS sur le globe. */
+const GLOBE_SAT_PICK_RADIUS_PX = 36;
 
 /* --- Flight tracking (OpenSky Network) --- */
 /** Fallback globe radius for the aircraft marker when altitude is unknown (just above the surface). */
@@ -454,6 +462,21 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   satelliteOverlayEnabled: Record<string, boolean> = Object.fromEntries(
     ASTRO_SATELLITES.filter((s) => s.id !== 'iss' && !s.skipLiveTle).map((s) => [s.id, true])
   );
+  /** Trajectoire future (SGP4) des satellites activés, dans leur couleur. */
+  satelliteFutureTraceEnabled = false;
+  /** Satellite dont les données remplissent le bandeau ; `null` = ISS. */
+  tickerFocusSatId: string | null = null;
+  satTickerLat: number | null = null;
+  satTickerLon: number | null = null;
+  satTickerAltKm: number | null = null;
+  satTickerSpeedKmh: number | null = null;
+  satTickerStepKm: number | null = null;
+  satTickerOverPlaceLabel: string | null = null;
+  satTickerOverPlaceCountryCode: string | null = null;
+  private satTickerSampleLat: number | null = null;
+  private satTickerSampleLon: number | null = null;
+  private satTickerSampleAtMs = 0;
+  private satTickerCdrAtMs = 0;
   /** Satellite au-dessus de l’horizon depuis la position GPS de l’utilisateur. */
   satelliteVisibleFromUser: Record<string, boolean> = {};
   satelliteInfoOpen = false;
@@ -819,6 +842,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     string,
     { group: THREE.Group; marker: THREE.Mesh; label: THREE.Sprite; labelText: string }
   >();
+  private readonly globeSatelliteForecastLines = new Map<string, THREE.LineSegments>();
+  private satelliteForecastLastRebuildMs = 0;
   /** Petit cercle + calotte au sol : zone depuis laquelle l’ISS est visible. */
   private issVisibilityCircleLine?: THREE.LineLoop;
   private issVisibilityFillMesh?: THREE.Mesh;
@@ -1041,6 +1066,12 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const dx = ev.clientX - start.x;
     const dy = ev.clientY - start.y;
     if (dx * dx + dy * dy > WorldGlobeComponent.GLOBE_PICK_DRAG_THRESHOLD_PX ** 2) {
+      return;
+    }
+    const satPick = this.pickGlobeSatelliteAtClient(ev.clientX, ev.clientY);
+    if (satPick) {
+      this.onSelectSatelliteForTicker(satPick === 'iss' ? null : satPick);
+      this.cdr.markForCheck();
       return;
     }
     const pick = this.pickGlobeAtClient(ev.clientX, ev.clientY);
@@ -1290,6 +1321,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.disposeTimeZonesMesh();
     this.disposeIssMarkerMesh();
     this.disposeAllGlobeSatelliteVisuals();
+    this.disposeAllGlobeSatelliteForecastTrails();
     this.disposeIssVisibilityCircle();
     this.clearIssTrail();
     this.disposeIssForecastTrail();
@@ -1548,6 +1580,53 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.ndcPointer.set(nx, ny);
     this.raycasterNd.setFromCamera(this.ndcPointer, this.camera);
     return this.pickFromRayEarthIntersections(this.raycasterNd.intersectObject(this.earthMesh, false));
+  }
+
+  /** Clic proche d’un marqueur satellite (ou ISS) → id, sinon `null`. */
+  private pickGlobeSatelliteAtClient(clientX: number, clientY: number): string | null {
+    if (!this.camera || !this.renderer) {
+      return null;
+    }
+    const canvasEl = this.renderer.domElement;
+    const rect = canvasEl.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) {
+      return null;
+    }
+    const camera = this.camera;
+    const scratch = this.issTraceLoupeScreenScratch;
+    let bestId: string | null = null;
+    let bestDistSq = GLOBE_SAT_PICK_RADIUS_PX * GLOBE_SAT_PICK_RADIUS_PX;
+    const consider = (id: string, obj: THREE.Object3D | undefined): void => {
+      if (!obj?.visible) {
+        return;
+      }
+      obj.getWorldPosition(scratch);
+      const distCam = camera.position.distanceTo(scratch);
+      if (distCam < 0.2) {
+        return;
+      }
+      scratch.project(camera);
+      if (scratch.z > 1) {
+        return;
+      }
+      const sx = rect.left + ((scratch.x + 1) / 2) * rect.width;
+      const sy = rect.top + ((-scratch.y + 1) / 2) * rect.height;
+      const distSq = (clientX - sx) ** 2 + (clientY - sy) ** 2;
+      if (distSq <= bestDistSq) {
+        bestDistSq = distSq;
+        bestId = id;
+      }
+    };
+    if (this.issOverlayEnabled) {
+      consider('iss', this.issMarkerMesh);
+    }
+    for (const sat of this.globeSatelliteOptions) {
+      if (this.satelliteOverlayEnabled[sat.id] === false) {
+        continue;
+      }
+      consider(sat.id, this.globeSatelliteVisuals.get(sat.id)?.marker);
+    }
+    return bestId;
   }
 
   /** Survol souris → pastille date/heure le long de la trace ISS historique (projection écran). */
@@ -2132,6 +2211,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.onGlobeSatelliteToggle(satId, true);
     }
     this.pendingCenterSatelliteId = satId;
+    this.onSelectSatelliteForTicker(satId);
     this.tryCenterGlobeOnSatellite(satId);
   }
 
@@ -2141,6 +2221,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.schedulePersistGlobeSatelliteOverlayPrefs();
     if (!enabled) {
       this.disposeGlobeSatelliteVisual(satId);
+      this.disposeGlobeSatelliteForecastTrail(satId);
+      if (this.tickerFocusSatId === satId) {
+        this.onSelectSatelliteForTicker(null);
+      }
     } else {
       const sat = this.globeSatelliteOptions.find((s) => s.id === satId);
       if (sat) {
@@ -2148,6 +2232,14 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       this.updateGlobeSatelliteOverlays();
     }
+    this.cdr.markForCheck();
+  }
+
+  onGlobeSatelliteFutureTraceToggle(): void {
+    this.satelliteOverlayPrefsTouched = true;
+    this.schedulePersistGlobeSatelliteOverlayPrefs();
+    this.satelliteForecastLastRebuildMs = 0;
+    this.updateGlobeSatelliteForecastTrails(true);
     this.cdr.markForCheck();
   }
 
@@ -2993,7 +3085,85 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   issTickerHasLiveData(): boolean {
+    if (this.tickerFocusSatId) {
+      return this.satTickerLat != null && this.satTickerLon != null;
+    }
     return this.globeIssLat != null && this.globeIssLon != null;
+  }
+
+  tickerFocusSat(): AstroSatelliteOption | null {
+    if (!this.tickerFocusSatId) {
+      return null;
+    }
+    return this.globeSatelliteOptions.find((s) => s.id === this.tickerFocusSatId) ?? null;
+  }
+
+  tickerLabelName(): string {
+    const sat = this.tickerFocusSat();
+    return sat ? this.translate.instant(sat.labelKey) : this.translate.instant('WORLD_GLOBE.ISS_TICKER_LABEL');
+  }
+
+  tickerLat(): number | null {
+    return this.tickerFocusSatId ? this.satTickerLat : this.globeIssLat;
+  }
+
+  tickerLon(): number | null {
+    return this.tickerFocusSatId ? this.satTickerLon : this.globeIssLon;
+  }
+
+  tickerAltKm(): number | null {
+    return this.tickerFocusSatId ? this.satTickerAltKm : this.globeIssAltKm;
+  }
+
+  tickerSpeedKmh(): number | null {
+    return this.tickerFocusSatId ? this.satTickerSpeedKmh : this.issGroundSpeedKmh;
+  }
+
+  tickerStepKm(): number | null {
+    return this.tickerFocusSatId ? this.satTickerStepKm : this.issLastStepGroundKm;
+  }
+
+  tickerOverPlaceLabel(): string | null {
+    return this.tickerFocusSatId ? this.satTickerOverPlaceLabel : this.issOverPlaceLabel;
+  }
+
+  tickerOverFlagEmoji(): string {
+    const code = this.tickerFocusSatId ? this.satTickerOverPlaceCountryCode : this.issOverPlaceCountryCode;
+    return this.flagEmojiFromCountryCode(code);
+  }
+
+  onSelectSatelliteForTicker(satId: string | null): void {
+    const next = satId && this.globeSatelliteOptions.some((s) => s.id === satId) ? satId : null;
+    if (next && this.satelliteOverlayEnabled[next] === false) {
+      this.onGlobeSatelliteToggle(next, true);
+    }
+    if (!this.issTickerEnabled) {
+      this.issTickerEnabled = true;
+      this.startIssPolling();
+      this.schedulePersistIssGlobalPrefs();
+    }
+    if (this.tickerFocusSatId === next) {
+      if (next) {
+        this.refreshTickerFromSatellite(next);
+      }
+      return;
+    }
+    this.tickerFocusSatId = next;
+    this.issOverLookupLat = null;
+    this.issOverLookupLon = null;
+    this.issOverLookupAtMs = 0;
+    if (next) {
+      this.satTickerSampleLat = null;
+      this.satTickerSampleLon = null;
+      this.satTickerSampleAtMs = 0;
+      this.satTickerStepKm = null;
+      this.satTickerOverPlaceLabel = null;
+      this.satTickerOverPlaceCountryCode = null;
+      this.refreshTickerFromSatellite(next);
+    } else if (this.globeIssLat != null && this.globeIssLon != null) {
+      this.maybeUpdateIssOverPlace(this.globeIssLat, this.globeIssLon);
+    }
+    this.cdr.markForCheck();
   }
 
   private issPositionFeedActive(): boolean {
@@ -8247,7 +8417,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
           this.issOverlayFailed = overlayFailed;
         }
       });
-      this.maybeUpdateIssOverPlace(lat, lon);
+      if (!this.tickerFocusSatId) {
+        this.maybeUpdateIssOverPlace(lat, lon);
+      }
     } catch {
       if (seq !== this.issRefreshRequestSeq) {
         return;
@@ -8300,12 +8472,14 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
               ? addr.country_code.trim().toLowerCase()
               : null;
           this.scheduleWorldGlobeCdr(() => {
-            if (country) {
-              this.issOverPlaceLabel = country;
-              this.issOverPlaceCountryCode = code;
+            const label = country || this.translate.instant('WORLD_GLOBE.ISS_OVER_OCEAN');
+            const countryCode = country ? code : null;
+            if (this.tickerFocusSatId) {
+              this.satTickerOverPlaceLabel = label;
+              this.satTickerOverPlaceCountryCode = countryCode;
             } else {
-              this.issOverPlaceLabel = this.translate.instant('WORLD_GLOBE.ISS_OVER_OCEAN');
-              this.issOverPlaceCountryCode = null;
+              this.issOverPlaceLabel = label;
+              this.issOverPlaceCountryCode = countryCode;
             }
           });
           this.issOverLookupInFlight = false;
@@ -8318,7 +8492,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Emoji drapeau (regional indicators) à partir d’un code pays ISO 3166-1 alpha-2. */
   issOverFlagEmoji(): string {
-    const code = this.issOverPlaceCountryCode;
+    return this.flagEmojiFromCountryCode(this.issOverPlaceCountryCode);
+  }
+
+  private flagEmojiFromCountryCode(code: string | null | undefined): string {
     if (!code || code.length !== 2) {
       return '';
     }
@@ -8440,11 +8617,11 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private loadGlobeSatelliteOverlayPrefs(): void {
-    this.applyGlobeSatelliteOverlayPrefsMap(this.readGlobeSatelliteOverlayLocalCache());
+    this.applyGlobeSatelliteOverlayPrefs(this.readGlobeSatelliteOverlayLocalCache());
     this.apiService.getSatelliteOverlays().subscribe({
       next: (prefs) => {
-        if (!this.satelliteOverlayPrefsTouched && prefs?.enabled) {
-          this.applyGlobeSatelliteOverlayPrefsMap(prefs.enabled);
+        if (!this.satelliteOverlayPrefsTouched && prefs) {
+          this.applyGlobeSatelliteOverlayPrefs(prefs);
           this.writeGlobeSatelliteOverlayLocalCache();
         }
         this.satelliteOverlayPrefsLoaded = true;
@@ -8458,14 +8635,19 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  private applyGlobeSatelliteOverlayPrefsMap(enabled: Record<string, boolean> | null | undefined): void {
-    if (!enabled) {
+  private applyGlobeSatelliteOverlayPrefs(prefs: GlobeSatelliteOverlayPrefs | null | undefined): void {
+    if (!prefs) {
       return;
     }
-    for (const sat of this.globeSatelliteOptions) {
-      if (typeof enabled[sat.id] === 'boolean') {
-        this.satelliteOverlayEnabled[sat.id] = enabled[sat.id];
+    if (prefs.enabled) {
+      for (const sat of this.globeSatelliteOptions) {
+        if (typeof prefs.enabled[sat.id] === 'boolean') {
+          this.satelliteOverlayEnabled[sat.id] = prefs.enabled[sat.id];
+        }
       }
+    }
+    if (typeof prefs.futureTraceEnabled === 'boolean') {
+      this.satelliteFutureTraceEnabled = prefs.futureTraceEnabled;
     }
   }
 
@@ -8474,7 +8656,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     for (const sat of this.globeSatelliteOptions) {
       enabled[sat.id] = this.satelliteOverlayEnabled[sat.id] !== false;
     }
-    return { enabled };
+    return { enabled, futureTraceEnabled: this.satelliteFutureTraceEnabled };
   }
 
   private schedulePersistGlobeSatelliteOverlayPrefs(): void {
@@ -8490,7 +8672,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }, 400);
   }
 
-  private readGlobeSatelliteOverlayLocalCache(): Record<string, boolean> | null {
+  private readGlobeSatelliteOverlayLocalCache(): GlobeSatelliteOverlayPrefs | null {
     if (typeof localStorage === 'undefined') {
       return null;
     }
@@ -8500,13 +8682,24 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         return null;
       }
       const parsed = JSON.parse(raw) as Record<string, unknown>;
-      const out: Record<string, boolean> = {};
+      const enabledRaw = parsed['enabled'];
+      const source =
+        enabledRaw && typeof enabledRaw === 'object'
+          ? (enabledRaw as Record<string, unknown>)
+          : parsed;
+      const enabled: Record<string, boolean> = {};
       for (const sat of this.globeSatelliteOptions) {
-        if (typeof parsed[sat.id] === 'boolean') {
-          out[sat.id] = parsed[sat.id] as boolean;
+        if (typeof source[sat.id] === 'boolean') {
+          enabled[sat.id] = source[sat.id] as boolean;
         }
       }
-      return out;
+      return {
+        enabled,
+        futureTraceEnabled:
+          typeof parsed['futureTraceEnabled'] === 'boolean'
+            ? (parsed['futureTraceEnabled'] as boolean)
+            : undefined
+      };
     } catch {
       return null;
     }
@@ -8519,7 +8712,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       localStorage.setItem(
         GLOBE_SAT_OVERLAY_STORAGE_KEY,
-        JSON.stringify(this.buildGlobeSatelliteOverlayPrefsPayload().enabled)
+        JSON.stringify(this.buildGlobeSatelliteOverlayPrefsPayload())
       );
     } catch {
       /* quota / mode privé */
@@ -8552,10 +8745,67 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (this.pendingCenterSatelliteId === sat.id) {
         this.tryCenterGlobeOnSatellite(sat.id);
       }
+      if (this.tickerFocusSatId === sat.id) {
+        this.applySatelliteTickerSnapshot(sat, snap);
+      }
     }
     this.refreshSatelliteVisibilityFromUser();
     if (this.satelliteInfoOpen) {
       this.refreshSatelliteInfoSnapshot();
+    }
+    this.updateGlobeSatelliteForecastTrails(false);
+  }
+
+  private refreshTickerFromSatellite(satId: string): void {
+    const sat = this.globeSatelliteOptions.find((s) => s.id === satId);
+    if (!sat) {
+      return;
+    }
+    const snap = this.satNowService.snapshotForDisplay(sat.noradId);
+    if (!snap) {
+      void this.satNowService.ensureTle(sat.noradId);
+      return;
+    }
+    this.applySatelliteTickerSnapshot(sat, snap);
+  }
+
+  private applySatelliteTickerSnapshot(
+    sat: AstroSatelliteOption,
+    snap: { lat: number; lon: number; altKm: number | null; velocityKmh: number | null }
+  ): void {
+    const now = Date.now();
+    let stepKm: number | null = this.satTickerStepKm;
+    if (
+      this.satTickerSampleLat != null &&
+      this.satTickerSampleLon != null &&
+      now - this.satTickerSampleAtMs >= 2000
+    ) {
+      const d = WorldGlobeComponent.haversineGreatCircleKm(
+        this.satTickerSampleLat,
+        this.satTickerSampleLon,
+        snap.lat,
+        snap.lon
+      );
+      if (Number.isFinite(d) && d > 0.05) {
+        stepKm = d;
+      }
+      this.satTickerSampleLat = snap.lat;
+      this.satTickerSampleLon = snap.lon;
+      this.satTickerSampleAtMs = now;
+    } else if (this.satTickerSampleLat == null) {
+      this.satTickerSampleLat = snap.lat;
+      this.satTickerSampleLon = snap.lon;
+      this.satTickerSampleAtMs = now;
+    }
+    this.satTickerLat = snap.lat;
+    this.satTickerLon = snap.lon;
+    this.satTickerAltKm = snap.altKm ?? sat.defaultAltKm;
+    this.satTickerSpeedKmh = snap.velocityKmh;
+    this.satTickerStepKm = stepKm;
+    this.maybeUpdateIssOverPlace(snap.lat, snap.lon);
+    if (now - this.satTickerCdrAtMs >= 400) {
+      this.satTickerCdrAtMs = now;
+      this.scheduleWorldGlobeCdr();
     }
   }
 
@@ -8871,6 +9121,134 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private disposeAllGlobeSatelliteVisuals(): void {
     for (const id of [...this.globeSatelliteVisuals.keys()]) {
       this.disposeGlobeSatelliteVisual(id);
+    }
+  }
+
+  private updateGlobeSatelliteForecastTrails(force: boolean): void {
+    if (!this.earthMesh || !this.globeSurfaceReady) {
+      return;
+    }
+    if (!this.satelliteFutureTraceEnabled) {
+      this.setAllGlobeSatelliteForecastTrailsVisible(false);
+      return;
+    }
+    const now = Date.now();
+    if (!force && now - this.satelliteForecastLastRebuildMs < GLOBE_SAT_FORECAST_REBUILD_MIN_MS) {
+      this.syncGlobeSatelliteForecastTrailVisibility();
+      return;
+    }
+    this.satelliteForecastLastRebuildMs = now;
+    for (const sat of this.globeSatelliteOptions) {
+      if (this.satelliteOverlayEnabled[sat.id] === false) {
+        this.disposeGlobeSatelliteForecastTrail(sat.id);
+        continue;
+      }
+      this.rebuildGlobeSatelliteForecastTrail(sat);
+    }
+  }
+
+  private syncGlobeSatelliteForecastTrailVisibility(): void {
+    for (const sat of this.globeSatelliteOptions) {
+      const line = this.globeSatelliteForecastLines.get(sat.id);
+      if (!line) {
+        continue;
+      }
+      line.visible =
+        this.satelliteFutureTraceEnabled && this.satelliteOverlayEnabled[sat.id] !== false;
+    }
+  }
+
+  private setAllGlobeSatelliteForecastTrailsVisible(visible: boolean): void {
+    for (const line of this.globeSatelliteForecastLines.values()) {
+      line.visible = visible;
+    }
+  }
+
+  private rebuildGlobeSatelliteForecastTrail(sat: AstroSatelliteOption): void {
+    const earth = this.earthMesh;
+    if (!earth) {
+      return;
+    }
+    const now = Date.now();
+    const current = this.satNowService.snapshotForDisplay(sat.noradId, now);
+    if (!current) {
+      void this.satNowService.ensureTle(sat.noradId);
+      return;
+    }
+    const endMs = now + GLOBE_SAT_FORECAST_MINUTES * 60_000;
+    const pts: { lat: number; lon: number }[] = [{ lat: current.lat, lon: current.lon }];
+    for (let t = now + GLOBE_SAT_FORECAST_STEP_MS; t <= endMs; t += GLOBE_SAT_FORECAST_STEP_MS) {
+      const snap = this.satNowService.snapshotForDisplay(sat.noradId, t);
+      if (!snap) {
+        continue;
+      }
+      pts.push({ lat: snap.lat, lon: snap.lon });
+    }
+    if (pts.length < 2) {
+      const existing = this.globeSatelliteForecastLines.get(sat.id);
+      if (existing) {
+        existing.visible = false;
+      }
+      return;
+    }
+    const radius = this.globeSatelliteOrbitRadius(current.altKm, sat.defaultAltKm) * 0.997;
+    const vertices: number[] = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = WorldGlobeComponent.latLonToVector3(pts[i].lat, pts[i].lon, radius);
+      const b = WorldGlobeComponent.latLonToVector3(pts[i + 1].lat, pts[i + 1].lon, radius);
+      const arc = WorldGlobeComponent.greatCircleArc(a, b, radius, GLOBE_SAT_FORECAST_TRAIL_ARC_SEGMENTS);
+      for (let j = 0; j < arc.length - 1; j++) {
+        vertices.push(arc[j].x, arc[j].y, arc[j].z, arc[j + 1].x, arc[j + 1].y, arc[j + 1].z);
+      }
+    }
+    if (vertices.length === 0) {
+      return;
+    }
+    let line = this.globeSatelliteForecastLines.get(sat.id);
+    if (!line) {
+      const mat = new THREE.LineBasicMaterial({
+        color: sat.color,
+        transparent: true,
+        opacity: GLOBE_SAT_FORECAST_TRAIL_OPACITY,
+        depthWrite: false
+      });
+      mat.toneMapped = false;
+      line = new THREE.LineSegments(new THREE.BufferGeometry(), mat);
+      line.name = `GlobeSatelliteForecast:${sat.id}`;
+      line.renderOrder = 5;
+      earth.add(line);
+      this.globeSatelliteForecastLines.set(sat.id, line);
+    } else {
+      const mat = line.material;
+      if (!Array.isArray(mat) && mat instanceof THREE.LineBasicMaterial) {
+        mat.color.set(sat.color);
+        mat.opacity = GLOBE_SAT_FORECAST_TRAIL_OPACITY;
+      }
+    }
+    const oldGeo = line.geometry;
+    line.geometry = new THREE.BufferGeometry();
+    oldGeo.dispose();
+    line.geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    line.visible = true;
+  }
+
+  private disposeGlobeSatelliteForecastTrail(satId: string): void {
+    const line = this.globeSatelliteForecastLines.get(satId);
+    if (!line) {
+      return;
+    }
+    this.earthMesh?.remove(line);
+    line.geometry.dispose();
+    const m = line.material;
+    if (!Array.isArray(m) && m instanceof THREE.Material) {
+      m.dispose();
+    }
+    this.globeSatelliteForecastLines.delete(satId);
+  }
+
+  private disposeAllGlobeSatelliteForecastTrails(): void {
+    for (const id of [...this.globeSatelliteForecastLines.keys()]) {
+      this.disposeGlobeSatelliteForecastTrail(id);
     }
   }
 

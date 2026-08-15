@@ -8,15 +8,30 @@
     <h2>{{ 'WORLD_GLOBE.TITLE' | translate }}</h2>
   </div>
 
-  <div class="wg-iss-ticker" *ngIf="issTickerEnabled" role="marquee" [attr.aria-label]="'WORLD_GLOBE.ISS_TICKER_ARIA' | translate">
-    <div class="wg-iss-ticker__label" aria-hidden="true">
-      <i class="fa fa-globe"></i>
-      <span>{{ 'WORLD_GLOBE.ISS_TICKER_LABEL' | translate }}</span>
+  <div
+    class="wg-iss-ticker"
+    *ngIf="issTickerEnabled"
+    role="marquee"
+    [attr.aria-label]="
+      tickerFocusSatId
+        ? ('WORLD_GLOBE.SATELLITE_TICKER_ARIA' | translate : { name: tickerLabelName() })
+        : ('WORLD_GLOBE.ISS_TICKER_ARIA' | translate)
+    ">
+    <div
+      class="wg-iss-ticker__label"
+      aria-hidden="true"
+      [style.background]="tickerFocusSat()?.color || null">
+      <i class="fa" [ngClass]="tickerFocusSat() ? tickerFocusSat()!.iconClass : 'fa-globe'"></i>
+      <span>{{ tickerFocusSatId ? tickerLabelName() : ('WORLD_GLOBE.ISS_TICKER_LABEL' | translate) }}</span>
     </div>
     <div class="wg-iss-ticker__rows">
       <div class="wg-iss-ticker__loading" *ngIf="!issTickerHasLiveData()">
         <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
-        <span>{{ 'WORLD_GLOBE.ISS_TICKER_LOADING' | translate }}</span>
+        <span>{{
+          tickerFocusSatId
+            ? ('WORLD_GLOBE.SATELLITE_TICKER_LOADING' | translate : { name: tickerLabelName() })
+            : ('WORLD_GLOBE.ISS_TICKER_LOADING' | translate)
+        }}</span>
       </div>
       <div class="wg-iss-ticker__row" *ngIf="issTickerHasLiveData()">
         <div class="wg-iss-ticker__track" [style.animationDuration.s]="issTickerDurationSec">
@@ -36,9 +51,9 @@
   </div>
 
   <ng-template #issTickerItemsTpl>
-    <span class="wg-iss-ticker__item wg-iss-ticker__item--over" *ngIf="issOverPlaceLabel">
+    <span class="wg-iss-ticker__item wg-iss-ticker__item--over" *ngIf="tickerOverPlaceLabel()">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_OVER' | translate }}</span>
-      <span class="wg-iss-ticker__val">{{ issOverFlagEmoji() }} {{ issOverPlaceLabel }}</span>
+      <span class="wg-iss-ticker__val">{{ tickerOverFlagEmoji() }} {{ tickerOverPlaceLabel() }}</span>
     </span>
     <span class="wg-iss-ticker__item">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_NOW' | translate }}</span>
@@ -46,23 +61,23 @@
     </span>
     <span class="wg-iss-ticker__item">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_LAT' | translate }}</span>
-      <span class="wg-iss-ticker__val">{{ globeIssLat | number : '1.4-4' }}°</span>
+      <span class="wg-iss-ticker__val">{{ tickerLat() | number : '1.4-4' }}°</span>
     </span>
     <span class="wg-iss-ticker__item">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_LON' | translate }}</span>
-      <span class="wg-iss-ticker__val">{{ globeIssLon | number : '1.4-4' }}°</span>
+      <span class="wg-iss-ticker__val">{{ tickerLon() | number : '1.4-4' }}°</span>
     </span>
-    <span class="wg-iss-ticker__item" *ngIf="globeIssAltKm != null">
+    <span class="wg-iss-ticker__item" *ngIf="tickerAltKm() != null">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_ALT' | translate }}</span>
-      <span class="wg-iss-ticker__val">{{ globeIssAltKm | number : '1.0-1' }} km</span>
+      <span class="wg-iss-ticker__val">{{ tickerAltKm() | number : '1.0-1' }} km</span>
     </span>
-    <span class="wg-iss-ticker__item" *ngIf="issGroundSpeedKmh != null">
+    <span class="wg-iss-ticker__item" *ngIf="tickerSpeedKmh() != null">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_SPEED' | translate }}</span>
-      <span class="wg-iss-ticker__val">{{ issGroundSpeedKmh | number : '1.0-0' }} km/h</span>
+      <span class="wg-iss-ticker__val">{{ tickerSpeedKmh() | number : '1.0-0' }} km/h</span>
     </span>
-    <span class="wg-iss-ticker__item" *ngIf="issLastStepGroundKm != null">
+    <span class="wg-iss-ticker__item" *ngIf="tickerStepKm() != null">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_STEP' | translate }}</span>
-      <span class="wg-iss-ticker__val">{{ issLastStepGroundKm | number : '1.0-1' }} km</span>
+      <span class="wg-iss-ticker__val">{{ tickerStepKm() | number : '1.0-1' }} km</span>
     </span>
   </ng-template>
 
@@ -592,9 +607,31 @@
             </summary>
             <div class="wg-opt-section__body">
               <p class="wg-opt-iss-meta text-muted small mb-1">{{ 'WORLD_GLOBE.SATELLITE_LAYER_HINT' | translate }}</p>
-              <div class="wg-opt-row wg-opt-row--tools" *ngFor="let sat of globeSatelliteOptions">
+              <div class="wg-opt-row">
+                <label class="wg-opt-row__label" for="wgSatFutureTrace" [attr.title]="'WORLD_GLOBE.SATELLITE_FUTURE_TRACE_HINT' | translate">{{ 'WORLD_GLOBE.SATELLITE_FUTURE_TRACE' | translate }}</label>
+                <div class="form-check form-switch wg-opt-switch mb-0">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="wgSatFutureTrace"
+                    name="wgSatFutureTrace"
+                    [(ngModel)]="satelliteFutureTraceEnabled"
+                    (ngModelChange)="onGlobeSatelliteFutureTraceToggle()"
+                    [disabled]="!globeSurfaceReady" />
+                </div>
+              </div>
+              <div
+                class="wg-opt-row wg-opt-row--tools"
+                *ngFor="let sat of globeSatelliteOptions"
+                [class.wg-sat-opt-row--ticker]="tickerFocusSatId === sat.id">
                 <label class="wg-opt-row__label" [attr.for]="'wgSat-' + sat.id">
-                  <i class="wg-sat-opt-icon" [ngClass]="sat.iconClass" [style.color]="sat.color" aria-hidden="true"></i>
+                  <i
+                    class="wg-sat-opt-icon"
+                    [ngClass]="sat.iconClass"
+                    [style.color]="sat.color"
+                    (click)="onSelectSatelliteForTicker(sat.id); $event.preventDefault(); $event.stopPropagation()"
+                    [attr.title]="'WORLD_GLOBE.SATELLITE_TICKER_HINT' | translate : { name: (sat.labelKey | translate) }"
+                    role="button"></i>
                   {{ sat.labelKey | translate }}
                 </label>
                 <div class="wg-opt-row__tools">

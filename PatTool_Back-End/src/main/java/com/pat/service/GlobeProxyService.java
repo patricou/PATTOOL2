@@ -154,7 +154,22 @@ public class GlobeProxyService {
             49260, // Landsat 9
             40697, // Sentinel-2A
             42063, // Sentinel-2B
-            43013  // NOAA-20
+            43013, // NOAA-20
+            54226, // NOAA-21
+            37849, // Suomi NPP
+            28376, // Aura
+            39634, // Sentinel-1A
+            62261, // Sentinel-1C
+            60989, // Sentinel-2C
+            41335, // Sentinel-3A
+            43437, // Sentinel-3B
+            42969, // Sentinel-5P
+            46984, // Sentinel-6 Michael Freilich
+            38771, // MetOp-B
+            43689, // MetOp-C
+            40376, // GPM Core
+            28485, // Swift
+            33053  // Fermi
     );
 
     private static final long ISS_NOW_MEMORY_CACHE_MS = 3_000L;

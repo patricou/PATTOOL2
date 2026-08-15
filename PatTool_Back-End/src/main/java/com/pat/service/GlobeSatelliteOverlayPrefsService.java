@@ -35,7 +35,22 @@ public class GlobeSatelliteOverlayPrefsService {
             "landsat9",
             "sentinel2a",
             "sentinel2b",
-            "noaa20"
+            "noaa20",
+            "noaa21",
+            "suominpp",
+            "aura",
+            "sentinel1a",
+            "sentinel1c",
+            "sentinel2c",
+            "sentinel3a",
+            "sentinel3b",
+            "sentinel5p",
+            "sentinel6",
+            "metopb",
+            "metopc",
+            "gpm",
+            "swift",
+            "fermi"
     );
 
     private final AppParameterService appParameterService;
@@ -102,6 +117,9 @@ public class GlobeSatelliteOverlayPrefsService {
                 out.put(id, e.getValue());
             }
         }
-        return new GlobeSatelliteOverlayPrefsDto(out);
+        Boolean futureTrace = dto != null && dto.futureTraceEnabled() != null
+                ? dto.futureTraceEnabled()
+                : Boolean.FALSE;
+        return new GlobeSatelliteOverlayPrefsDto(out, futureTrace);
     }
 }

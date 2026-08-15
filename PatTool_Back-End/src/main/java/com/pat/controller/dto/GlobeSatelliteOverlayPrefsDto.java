@@ -7,8 +7,10 @@ import java.util.Map;
 /**
  * Per-user globe satellite overlay switches (astro-compass satellites, except ISS).
  * Keys are satellite ids ({@code tiangong}, {@code hubble}, …); missing keys default to enabled.
+ * {@code futureTraceEnabled} shows the upcoming orbit of each enabled satellite.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record GlobeSatelliteOverlayPrefsDto(
-        Map<String, Boolean> enabled
+        Map<String, Boolean> enabled,
+        Boolean futureTraceEnabled
 ) {}

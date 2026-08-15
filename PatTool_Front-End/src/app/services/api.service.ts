@@ -119,6 +119,7 @@ export interface FlightState {
 /** Per-user satellite overlay switches (GET/PUT /external/globe/satellites/overlays). */
 export interface GlobeSatelliteOverlayPrefs {
   enabled?: Record<string, boolean> | null;
+  futureTraceEnabled?: boolean | null;
 }
 
 /** Per-user last tracked flight (GET/PUT /external/globe/flight/tracking). */

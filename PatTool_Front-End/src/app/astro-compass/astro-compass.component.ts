@@ -233,7 +233,22 @@ const OBJECT_WIKI_LOOKUP: Record<string, WikiLookup> = {
   'iss:landsat9': { fr: 'Landsat_9', en: 'Landsat_9', sky: 'Landsat 9' },
   'iss:sentinel2a': { fr: 'Sentinel-2', en: 'Sentinel-2', sky: 'Sentinel-2' },
   'iss:sentinel2b': { fr: 'Sentinel-2', en: 'Sentinel-2', sky: 'Sentinel-2' },
-  'iss:noaa20': { fr: 'NOAA-20', en: 'NOAA-20', sky: 'NOAA-20' }
+  'iss:sentinel2c': { fr: 'Sentinel-2', en: 'Sentinel-2', sky: 'Sentinel-2' },
+  'iss:noaa20': { fr: 'NOAA-20', en: 'NOAA-20', sky: 'NOAA-20' },
+  'iss:noaa21': { fr: 'NOAA-21', en: 'NOAA-21', sky: 'NOAA-21' },
+  'iss:suominpp': { fr: 'Suomi_NPP', en: 'Suomi_NPP', sky: 'Suomi NPP' },
+  'iss:aura': { fr: 'Aura_(satellite)', en: 'Aura_(satellite)', sky: 'Aura' },
+  'iss:sentinel1a': { fr: 'Sentinel-1', en: 'Sentinel-1', sky: 'Sentinel-1' },
+  'iss:sentinel1c': { fr: 'Sentinel-1', en: 'Sentinel-1', sky: 'Sentinel-1' },
+  'iss:sentinel3a': { fr: 'Sentinel-3', en: 'Sentinel-3', sky: 'Sentinel-3' },
+  'iss:sentinel3b': { fr: 'Sentinel-3', en: 'Sentinel-3', sky: 'Sentinel-3' },
+  'iss:sentinel5p': { fr: 'Sentinel-5_Precursor', en: 'Sentinel-5_Precursor', sky: 'Sentinel-5P' },
+  'iss:sentinel6': { fr: 'Sentinel-6', en: 'Sentinel-6_Michael_Freilich', sky: 'Sentinel-6' },
+  'iss:metopb': { fr: 'MetOp', en: 'MetOp', sky: 'MetOp-B' },
+  'iss:metopc': { fr: 'MetOp', en: 'MetOp', sky: 'MetOp-C' },
+  'iss:gpm': { fr: 'Global_Precipitation_Measurement', en: 'Global_Precipitation_Measurement', sky: 'GPM' },
+  'iss:swift': { fr: 'Swift_(satellite)', en: 'Neil_Gehrels_Swift_Observatory', sky: 'Swift' },
+  'iss:fermi': { fr: 'Fermi_(télescope_spatial)', en: 'Fermi_Gamma-ray_Space_Telescope', sky: 'Fermi' }
 };
 
 const ASTRO_HELP_TERMS: ReadonlyArray<HelpTerm> = [
