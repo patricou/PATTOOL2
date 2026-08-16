@@ -838,14 +838,14 @@ body > .tooltip {
     z-index: 99999 !important;
 }
 
-/* Mode mobile : ne pas afficher les tooltips */
+/* Mode mobile : ne pas afficher les tooltips (sauf définitions de la fiche astre) */
 @media (max-width: 768px) {
-    body .tooltip,
-    body > .tooltip,
-    .tooltip,
-    .tooltip.show,
-    ::ng-deep .tooltip,
-    ::ng-deep .tooltip.show {
+    body .tooltip:not(.ac-fact-tooltip),
+    body > .tooltip:not(.ac-fact-tooltip),
+    .tooltip:not(.ac-fact-tooltip),
+    .tooltip.show:not(.ac-fact-tooltip),
+    ::ng-deep .tooltip:not(.ac-fact-tooltip),
+    ::ng-deep .tooltip.show:not(.ac-fact-tooltip) {
         display: none !important;
         visibility: hidden !important;
         opacity: 0 !important;

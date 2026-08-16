@@ -52,6 +52,7 @@ import {
   ApiService,
   IssCompassCalibration,
   StellariumSkySource,
+  WikipediaSearchPage,
   WikipediaSummary
 } from '../services/api.service';
 import { GlobeIssNowService } from '../services/globe-iss-now.service';
@@ -235,6 +236,8 @@ interface WikiLookup {
   fr: string;
   en: string;
   sky: string;
+  /** Extra Wikipedia search query when the exact title misses or is a disambiguation. */
+  search?: string;
 }
 
 const OBJECT_WIKI_LOOKUP: Record<string, WikiLookup> = {
@@ -248,34 +251,34 @@ const OBJECT_WIKI_LOOKUP: Record<string, WikiLookup> = {
   'planet:uranus': { fr: 'Uranus_(planète)', en: 'Uranus', sky: 'Uranus' },
   'planet:neptune': { fr: 'Neptune_(planète)', en: 'Neptune', sky: 'Neptune' },
   'planet:pluto': { fr: 'Pluton_(planète naine)', en: 'Pluto', sky: 'Pluto' },
-  'iss:iss': { fr: 'Station_spatiale_internationale', en: 'International_Space_Station', sky: 'ISS' },
-  'iss:tiangong': { fr: 'Station_spatiale_chinoise', en: 'Tiangong_space_station', sky: 'Tiangong' },
-  'iss:hubble': { fr: 'Hubble_(télescope_spatial)', en: 'Hubble_Space_Telescope', sky: 'Hubble' },
-  'iss:jwst': { fr: 'James_Webb', en: 'James_Webb_Space_Telescope', sky: 'JWST' },
-  'iss:terra': { fr: 'Terra_(satellite)', en: 'Terra_(satellite)', sky: 'Terra' },
-  'iss:aqua': { fr: 'Aqua_(satellite)', en: 'Aqua_(satellite)', sky: 'Aqua' },
-  'iss:landsat8': { fr: 'Landsat_8', en: 'Landsat_8', sky: 'Landsat 8' },
-  'iss:landsat9': { fr: 'Landsat_9', en: 'Landsat_9', sky: 'Landsat 9' },
-  'iss:sentinel2a': { fr: 'Sentinel-2', en: 'Sentinel-2', sky: 'Sentinel-2' },
-  'iss:sentinel2b': { fr: 'Sentinel-2', en: 'Sentinel-2', sky: 'Sentinel-2' },
-  'iss:sentinel2c': { fr: 'Sentinel-2', en: 'Sentinel-2', sky: 'Sentinel-2' },
-  'iss:noaa20': { fr: 'NOAA-20', en: 'NOAA-20', sky: 'NOAA-20' },
-  'iss:noaa21': { fr: 'NOAA-21', en: 'NOAA-21', sky: 'NOAA-21' },
-  'iss:suominpp': { fr: 'Suomi_NPP', en: 'Suomi_NPP', sky: 'Suomi NPP' },
-  'iss:aura': { fr: 'Aura_(satellite)', en: 'Aura_(satellite)', sky: 'Aura' },
-  'iss:sentinel1a': { fr: 'Sentinel-1', en: 'Sentinel-1', sky: 'Sentinel-1' },
-  'iss:sentinel1c': { fr: 'Sentinel-1', en: 'Sentinel-1', sky: 'Sentinel-1' },
-  'iss:sentinel3a': { fr: 'Sentinel-3', en: 'Sentinel-3', sky: 'Sentinel-3' },
-  'iss:sentinel3b': { fr: 'Sentinel-3', en: 'Sentinel-3', sky: 'Sentinel-3' },
-  'iss:sentinel5p': { fr: 'Sentinel-5_Precursor', en: 'Sentinel-5_Precursor', sky: 'Sentinel-5P' },
-  'iss:sentinel6': { fr: 'Sentinel-6', en: 'Sentinel-6_Michael_Freilich', sky: 'Sentinel-6' },
-  'iss:metopb': { fr: 'MetOp', en: 'MetOp', sky: 'MetOp-B' },
-  'iss:metopc': { fr: 'MetOp', en: 'MetOp', sky: 'MetOp-C' },
-  'iss:gpm': { fr: 'Global_Precipitation_Measurement', en: 'Global_Precipitation_Measurement', sky: 'GPM' },
-  'iss:swift': { fr: 'Swift_(satellite)', en: 'Neil_Gehrels_Swift_Observatory', sky: 'Swift' },
-  'iss:fermi': { fr: 'Fermi_(télescope_spatial)', en: 'Fermi_Gamma-ray_Space_Telescope', sky: 'Fermi' },
-  'iss:astra192': { fr: 'Astra_19.2°E', en: 'Astra_19.2°E', sky: 'Astra' },
-  'iss:starlink': { fr: 'Starlink', en: 'Starlink', sky: 'Starlink' }
+  'iss:iss': { fr: 'Station_spatiale_internationale', en: 'International_Space_Station', sky: 'ISS', search: 'ISS station spatiale internationale' },
+  'iss:tiangong': { fr: 'Station_spatiale_chinoise', en: 'Tiangong_space_station', sky: 'Tiangong', search: 'Tiangong station spatiale chinoise' },
+  'iss:hubble': { fr: 'Hubble_(télescope_spatial)', en: 'Hubble_Space_Telescope', sky: 'HST', search: 'Hubble télescope spatial' },
+  'iss:jwst': { fr: 'James_Webb_(télescope_spatial)', en: 'James_Webb_Space_Telescope', sky: 'JWST', search: 'James Webb télescope spatial JWST' },
+  'iss:terra': { fr: 'Terra_(satellite)', en: 'Terra_(satellite)', sky: 'Terra', search: 'Terra satellite NASA EOS' },
+  'iss:aqua': { fr: 'Aqua_(satellite)', en: 'Aqua_(satellite)', sky: 'Aqua', search: 'Aqua satellite NASA EOS' },
+  'iss:landsat8': { fr: 'Landsat_8', en: 'Landsat_8', sky: 'Landsat8', search: 'Landsat 8 satellite' },
+  'iss:landsat9': { fr: 'Landsat_9', en: 'Landsat_9', sky: 'Landsat9', search: 'Landsat 9 satellite' },
+  'iss:sentinel2a': { fr: 'Sentinel-2', en: 'Sentinel-2', sky: 'Sentinel-2A', search: 'Sentinel-2 satellite' },
+  'iss:sentinel2b': { fr: 'Sentinel-2', en: 'Sentinel-2', sky: 'Sentinel-2B', search: 'Sentinel-2 satellite' },
+  'iss:sentinel2c': { fr: 'Sentinel-2', en: 'Sentinel-2', sky: 'Sentinel-2C', search: 'Sentinel-2 satellite' },
+  'iss:noaa20': { fr: 'NOAA-20', en: 'NOAA-20', sky: 'NOAA-20', search: 'NOAA-20 satellite' },
+  'iss:noaa21': { fr: 'NOAA-21', en: 'NOAA-21', sky: 'NOAA-21', search: 'NOAA-21 satellite' },
+  'iss:suominpp': { fr: 'Suomi_NPP', en: 'Suomi_NPP', sky: 'Suomi NPP', search: 'Suomi NPP satellite' },
+  'iss:aura': { fr: 'Aura_(satellite)', en: 'Aura_(satellite)', sky: 'Aura', search: 'Aura satellite NASA EOS' },
+  'iss:sentinel1a': { fr: 'Sentinel-1', en: 'Sentinel-1', sky: 'Sentinel-1A', search: 'Sentinel-1 satellite' },
+  'iss:sentinel1c': { fr: 'Sentinel-1', en: 'Sentinel-1', sky: 'Sentinel-1C', search: 'Sentinel-1 satellite' },
+  'iss:sentinel3a': { fr: 'Sentinel-3', en: 'Sentinel-3', sky: 'Sentinel-3A', search: 'Sentinel-3 satellite' },
+  'iss:sentinel3b': { fr: 'Sentinel-3', en: 'Sentinel-3', sky: 'Sentinel-3B', search: 'Sentinel-3 satellite' },
+  'iss:sentinel5p': { fr: 'Sentinel-5_Precursor', en: 'Sentinel-5_Precursor', sky: 'Sentinel-5P', search: 'Sentinel-5P satellite' },
+  'iss:sentinel6': { fr: 'Sentinel-6', en: 'Sentinel-6_Michael_Freilich', sky: 'Sentinel-6', search: 'Sentinel-6 Michael Freilich satellite' },
+  'iss:metopb': { fr: 'MetOp', en: 'MetOp', sky: 'MetOp-B', search: 'MetOp satellite météorologique' },
+  'iss:metopc': { fr: 'MetOp', en: 'MetOp', sky: 'MetOp-C', search: 'MetOp satellite météorologique' },
+  'iss:gpm': { fr: 'Global_Precipitation_Measurement', en: 'Global_Precipitation_Measurement', sky: 'GPM', search: 'GPM Global Precipitation Measurement satellite' },
+  'iss:swift': { fr: 'Swift_(télescope_spatial)', en: 'Neil_Gehrels_Swift_Observatory', sky: 'Swift', search: 'Swift télescope spatial NASA' },
+  'iss:fermi': { fr: 'Fermi_Gamma-ray_Space_Telescope', en: 'Fermi_Gamma-ray_Space_Telescope', sky: 'Fermi', search: 'Fermi Gamma-ray Space Telescope' },
+  'iss:astra192': { fr: 'Astra 19.2E', en: 'Astra 19.2E', sky: 'Astra', search: 'Astra 19.2E satellite SES' },
+  'iss:starlink': { fr: 'Starlink', en: 'Starlink', sky: 'Starlink', search: 'Starlink constellation satellite SpaceX' }
 };
 
 const ASTRO_HELP_TERMS: ReadonlyArray<HelpTerm> = [
@@ -398,6 +401,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Si true : n'affiche que satellites / planètes actuellement au-dessus de l'horizon. */
   visibleOnly = true;
+  visibleRefreshing = false;
   issVisibleNow = false;
   /** L'utilisateur a choisi une cible (ne plus forcer ISS / astre visible). */
   private userChoseTarget = false;
@@ -423,6 +427,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   autoDetectModalOpen = false;
   /** Pause : fige l'objet détecté même si le téléphone change de direction. */
   autoDetectPaused = false;
+  /** Panneau rafraîchissement (masqué par défaut pour laisser le viseur). */
+  autoDetectSettingsOpen = false;
   objectDossierBusy = false;
   objectDossier: ObjectDossier | null = null;
   private objectDossierSub: Subscription | null = null;
@@ -435,6 +441,14 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   autoDetectStarsNakedEye = true;
   /** Galaxies assez brillantes pour l’œil nu (mag ≤ 6). */
   autoDetectGalaxiesNakedEye = true;
+  /** Limite de magnitude à l’œil nu la nuit (plus le nombre est petit, plus c’est brillant). */
+  static readonly NAKED_EYE_MAGNITUDE = 6;
+  readonly nakedEyeMagnitude = AstroCompassComponent.NAKED_EYE_MAGNITUDE;
+  /** Ne garder que les astres de magnitude ≤ cette valeur (plus le nombre est petit, plus c’est brillant). */
+  maxMagnitude = 8;
+  readonly maxMagnitudeMin = 0;
+  readonly maxMagnitudeMax = 8;
+  readonly maxMagnitudeStep = 1;
   /** Intervalle de rafraîchissement live (200–3000 ms, pas 200). */
   autoDetectIntervalMs = 400;
   readonly autoDetectIntervalMinMs = 200;
@@ -620,10 +634,21 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private finderPosePausedAuto = false;
   helpModalOpen = false;
   objectInfoModalOpen = false;
+  finderInfoModalOpen = false;
+  /** Clé i18n de l’aide ouverte au tap (mode tactile / mobile). */
+  openFactHelpKey: string | null = null;
   dossierSlideshowOpen = false;
   helpFilter = '';
   helpLetterFilter = '';
   readonly helpTerms = ASTRO_HELP_TERMS;
+  readonly finderInfoTips: ReadonlyArray<{ icon: string; titleKey: string; hintKey: string }> = [
+    { icon: 'fa fa-location-arrow', titleKey: 'ASTRO_COMPASS.MARK_NORTH', hintKey: 'ASTRO_COMPASS.MARK_NORTH_HINT' },
+    { icon: 'fa fa-crosshairs', titleKey: 'ASTRO_COMPASS.EXACT_POS', hintKey: 'ASTRO_COMPASS.EXACT_POS_HINT' },
+    { icon: 'fa fa-pause', titleKey: 'ASTRO_COMPASS.FINDER_PAUSE', hintKey: 'ASTRO_COMPASS.FINDER_PAUSE_HINT' },
+    { icon: 'fa fa-long-arrow-right', titleKey: 'ASTRO_COMPASS.FINDER_TRAIL', hintKey: 'ASTRO_COMPASS.FINDER_TRAIL_HINT' },
+    { icon: 'fa fa-search-plus', titleKey: 'ASTRO_COMPASS.FINDER_ZOOM', hintKey: 'ASTRO_COMPASS.FINDER_ZOOM_HINT' },
+    { icon: 'fa fa-video-camera', titleKey: 'ASTRO_COMPASS.FINDER_INFO_AIM', hintKey: 'ASTRO_COMPASS.EXPLAIN' }
+  ];
   private northMarkTimer: ReturnType<typeof setTimeout> | null = null;
   private sightingMarkTimer: ReturnType<typeof setTimeout> | null = null;
   private camStream: MediaStream | null = null;
@@ -1034,6 +1059,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onFinderEscape(): void {
+    if (this.openFactHelpKey) {
+      this.closeFactHelp();
+      return;
+    }
     if (this.helpModalOpen) {
       this.closeHelpModal();
       return;
@@ -1067,6 +1096,16 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  openFinderInfoModal(): void {
+    this.finderInfoModalOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closeFinderInfoModal(): void {
+    this.finderInfoModalOpen = false;
+    this.cdr.markForCheck();
+  }
+
   openObjectInfoModal(): void {
     this.objectInfoModalOpen = true;
     this.loadObjectDossier();
@@ -1075,9 +1114,38 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   closeObjectInfoModal(): void {
     this.objectInfoModalOpen = false;
+    this.closeFactHelp();
     if (!this.autoDetectPaused) {
       this.clearObjectDossier();
     }
+    this.cdr.markForCheck();
+  }
+
+  prefersFactTapHelp(): boolean {
+    if (typeof window === 'undefined') {
+      return this.isMobileDevice();
+    }
+    const coarse =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(hover: none)').matches;
+    return coarse || window.innerWidth <= 768 || this.isMobileDevice();
+  }
+
+  onFactTipActivate(helpKey: string, event?: Event): void {
+    if (!this.prefersFactTapHelp()) {
+      return;
+    }
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.openFactHelpKey = this.openFactHelpKey === helpKey ? null : helpKey;
+    this.cdr.markForCheck();
+  }
+
+  closeFactHelp(): void {
+    if (!this.openFactHelpKey) {
+      return;
+    }
+    this.openFactHelpKey = null;
     this.cdr.markForCheck();
   }
 
@@ -1931,6 +1999,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.autoDetectLive = true;
     this.autoDetectModalOpen = true;
     this.autoDetectPaused = false;
+    this.autoDetectSettingsOpen = false;
     this.autoDetectBusy = true;
     this.autoDetectLastAppliedKey = null;
     this.autoDetectCache = [];
@@ -1987,6 +2056,60 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  toggleAutoDetectSettings(): void {
+    this.autoDetectSettingsOpen = !this.autoDetectSettingsOpen;
+    this.cdr.markForCheck();
+  }
+
+  toggleAutoDetectInclude(which: 'planets' | 'stars' | 'galaxies' | 'iss'): void {
+    if (which === 'planets') {
+      this.autoDetectIncludePlanets = !this.autoDetectIncludePlanets;
+    } else if (which === 'stars') {
+      this.autoDetectIncludeStars = !this.autoDetectIncludeStars;
+    } else if (which === 'galaxies') {
+      this.autoDetectIncludeGalaxies = !this.autoDetectIncludeGalaxies;
+    } else {
+      this.autoDetectIncludeIss = !this.autoDetectIncludeIss;
+    }
+    this.onAutoDetectFiltersChange();
+  }
+
+  onMaxMagnitudeChange(raw: number | string): void {
+    const n = typeof raw === 'string' ? Number(raw) : raw;
+    if (!Number.isFinite(n)) {
+      return;
+    }
+    this.maxMagnitude = Math.max(
+      this.maxMagnitudeMin,
+      Math.min(this.maxMagnitudeMax, Math.round(n / this.maxMagnitudeStep) * this.maxMagnitudeStep)
+    );
+    this.onStarQueryChange();
+    this.onGalaxyQueryChange();
+    this.onAutoDetectFiltersChange();
+  }
+
+  private passesMaxMagnitude(mag: number | null | undefined): boolean {
+    if (mag == null || !Number.isFinite(mag)) {
+      return true;
+    }
+    return mag <= this.maxMagnitude;
+  }
+
+  toggleAutoDetectNakedEye(which: 'stars' | 'galaxies'): void {
+    if (which === 'stars') {
+      if (!this.autoDetectIncludeStars) {
+        return;
+      }
+      this.autoDetectStarsNakedEye = !this.autoDetectStarsNakedEye;
+    } else {
+      if (!this.autoDetectIncludeGalaxies) {
+        return;
+      }
+      this.autoDetectGalaxiesNakedEye = !this.autoDetectGalaxiesNakedEye;
+    }
+    this.onAutoDetectFiltersChange();
+  }
+
   onAutoDetectIntervalChange(raw: number | string): void {
     const n = typeof raw === 'string' ? Number(raw) : raw;
     if (!Number.isFinite(n)) {
@@ -2008,9 +2131,33 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.autoDetectHits.length ? this.autoDetectHits[0] : null;
   }
 
+  get autoDetectOtherHits(): AutoDetectHit[] {
+    return this.autoDetectHits.length > 1 ? this.autoDetectHits.slice(1) : [];
+  }
+
+  trackAutoDetectHit(_index: number, hit: AutoDetectHit): string {
+    return hit.kind + ':' + hit.id;
+  }
+
+  get autoDetectIntervalLabel(): string {
+    const ms = this.autoDetectIntervalMs;
+    if (ms >= 1000) {
+      const sec = ms / 1000;
+      return Number.isInteger(sec) ? `${sec} s` : `${sec.toFixed(1)} s`;
+    }
+    return `${ms} ms`;
+  }
+
   /** Position du point cible dans le radar (0–100 %, centre = 50). */
   autoDetectRadarXPercent(): number {
-    const hit = this.autoDetectBestHit;
+    return this.autoDetectRadarXPercentFor(this.autoDetectBestHit);
+  }
+
+  autoDetectRadarYPercent(): number {
+    return this.autoDetectRadarYPercentFor(this.autoDetectBestHit);
+  }
+
+  autoDetectRadarXPercentFor(hit: AutoDetectHit | null): number {
     if (!hit || this.autoDetectLookAz == null) {
       return 50;
     }
@@ -2019,8 +2166,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return 50 + (clamped / AUTO_DETECT_MAX_SEP_DEG) * 42;
   }
 
-  autoDetectRadarYPercent(): number {
-    const hit = this.autoDetectBestHit;
+  autoDetectRadarYPercentFor(hit: AutoDetectHit | null): number {
     if (!hit || this.autoDetectLookEl == null) {
       return 50;
     }
@@ -2081,6 +2227,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.autoDetectLive = false;
     this.autoDetectBusy = false;
     this.autoDetectPaused = false;
+    this.autoDetectSettingsOpen = false;
     this.autoDetectModalOpen = false;
     this.stopAutoDetectTimerOnly();
     this.cdr.markForCheck();
@@ -2278,6 +2425,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         } catch {
           mag = null;
         }
+        if (!this.passesMaxMagnitude(mag)) {
+          continue;
+        }
         cache.push({
           kind: 'planet',
           id: planet.id,
@@ -2297,6 +2447,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.autoDetectIncludeStars) {
     for (const star of ASTRO_BRIGHT_STARS) {
       if (this.autoDetectStarsNakedEye && !AstroCompassComponent.isNakedEyeAtNight(star.mag)) {
+        continue;
+      }
+      if (!this.passesMaxMagnitude(star.mag)) {
         continue;
       }
       try {
@@ -2325,6 +2478,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.autoDetectIncludeGalaxies) {
     for (const galaxy of ASTRO_GALAXIES) {
       if (this.autoDetectGalaxiesNakedEye && !AstroCompassComponent.isNakedEyeAtNight(galaxy.mag)) {
+        continue;
+      }
+      if (!this.passesMaxMagnitude(galaxy.mag)) {
         continue;
       }
       try {
@@ -2467,6 +2623,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     let list = this.visibleOnly
       ? base.filter((s) => this.visibleStarIds.has(s.id))
       : base;
+    list = list.filter((s) => this.passesMaxMagnitude(s.mag));
     // Garder la sélection courante dans la liste (revisit viseur / filtre visibles).
     if (
       this.selectedKind === 'star' &&
@@ -2488,6 +2645,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     let list = this.visibleOnly
       ? base.filter((g) => this.visibleGalaxyIds.has(g.id))
       : base;
+    list = list.filter((g) => this.passesMaxMagnitude(g.mag));
     if (
       this.selectedKind === 'galaxy' &&
       this.selectedGalaxyId &&
@@ -2513,6 +2671,28 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.onGalaxyQueryChange();
     }
     this.cdr.markForCheck();
+  }
+
+  /** Recalcule tout de suite les cibles au-dessus de l’horizon (ISS comprise). */
+  refreshVisibleTargets(): void {
+    if (this.visibleRefreshing) {
+      return;
+    }
+    this.visibleRefreshing = true;
+    this.refreshVisibleSkyNow(false);
+    if (this.visibleOnly) {
+      this.ensureSelectionStillVisible();
+    }
+    this.cdr.markForCheck();
+    void this.issNow.refresh(false).then(() => {
+      this.refreshVisibleCatalog();
+      if (this.visibleOnly) {
+        this.ensureSelectionStillVisible();
+      }
+    }).finally(() => {
+      this.visibleRefreshing = false;
+      this.cdr.markForCheck();
+    });
   }
 
   /** Si la cible courante n'est plus au-dessus de l'horizon, bascule vers une cible visible. */
@@ -2675,8 +2855,16 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.visibleGalaxyIds.size > 0;
   }
 
+  get nakedEyeMarkPercent(): number {
+    const span = this.maxMagnitudeMax - this.maxMagnitudeMin;
+    if (span <= 0) {
+      return 0;
+    }
+    return ((this.nakedEyeMagnitude - this.maxMagnitudeMin) / span) * 100;
+  }
+
   private static isNakedEyeAtNight(mag: number | null | undefined): boolean {
-    return mag != null && Number.isFinite(mag) && mag <= 6;
+    return mag != null && Number.isFinite(mag) && mag <= AstroCompassComponent.NAKED_EYE_MAGNITUDE;
   }
 
   /** @deprecated Prefer {@link displayedSatellites}. */
@@ -3799,11 +3987,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const fallbackLang = preferFr ? 'en' : 'fr';
 
     this.objectDossierSub = forkJoin({
-      wiki: this.fetchWikiSummary(firstTitle, firstLang, fallbackTitle, fallbackLang),
+      wiki: this.fetchWikiSummary(firstTitle, firstLang, fallbackTitle, fallbackLang, lookup.search || lookup.sky),
       sky: this.api.searchStellariumSkySources(lookup.sky).pipe(catchError(() => of([] as StellariumSkySource[])))
     }).subscribe({
       next: ({ wiki, sky }) => {
-        this.objectDossier = this.buildObjectDossier(wiki, Array.isArray(sky) ? sky[0] : sky);
+        const hits = Array.isArray(sky) ? sky : sky ? [sky] : [];
+        this.objectDossier = this.buildObjectDossier(wiki, this.pickSkySource(hits, lookup.sky));
         this.objectDossierBusy = false;
         this.cdr.markForCheck();
       },
@@ -3819,24 +4008,114 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     firstTitle: string,
     firstLang: string,
     fallbackTitle: string,
-    fallbackLang: string
+    fallbackLang: string,
+    searchQuery?: string
   ): Observable<WikipediaSummary | null> {
+    const query = (searchQuery || firstTitle || fallbackTitle || '').trim();
     return this.api.getWikipediaSummary(firstTitle, firstLang).pipe(
       switchMap((wiki) => {
-        if (this.wikiSummaryUsable(wiki) || firstTitle === fallbackTitle) {
+        if (this.wikiSummaryUsable(wiki)) {
           return of(wiki);
         }
+        const sameRequest = firstTitle === fallbackTitle && firstLang === fallbackLang;
+        if (sameRequest) {
+          return this.searchWikiThenSummary(query, firstLang, fallbackLang);
+        }
         return this.api.getWikipediaSummary(fallbackTitle, fallbackLang).pipe(
-          map((fallback) => this.wikiSummaryUsable(fallback) ? fallback : wiki),
-          catchError(() => of(wiki))
+          switchMap((fallback) =>
+            this.wikiSummaryUsable(fallback)
+              ? of(fallback)
+              : this.searchWikiThenSummary(query, firstLang, fallbackLang)
+          ),
+          catchError(() => this.searchWikiThenSummary(query, firstLang, fallbackLang))
         );
       }),
+      catchError(() => {
+        const sameRequest = firstTitle === fallbackTitle && firstLang === fallbackLang;
+        if (sameRequest) {
+          return this.searchWikiThenSummary(query, firstLang, fallbackLang);
+        }
+        return this.api.getWikipediaSummary(fallbackTitle, fallbackLang).pipe(
+          switchMap((fallback) =>
+            this.wikiSummaryUsable(fallback)
+              ? of(fallback)
+              : this.searchWikiThenSummary(query, firstLang, fallbackLang)
+          ),
+          catchError(() => this.searchWikiThenSummary(query, firstLang, fallbackLang))
+        );
+      })
+    );
+  }
+
+  private searchWikiThenSummary(
+    query: string,
+    firstLang: string,
+    fallbackLang: string
+  ): Observable<WikipediaSummary | null> {
+    if (!query) {
+      return of(null);
+    }
+    return this.wikiSummaryFromSearch(query, firstLang).pipe(
+      switchMap((wiki) => {
+        if (this.wikiSummaryUsable(wiki) || firstLang === fallbackLang) {
+          return of(this.wikiSummaryUsable(wiki) ? wiki : null);
+        }
+        return this.wikiSummaryFromSearch(query, fallbackLang);
+      }),
       catchError(() =>
-        firstTitle === fallbackTitle
-          ? of(null)
-          : this.api.getWikipediaSummary(fallbackTitle, fallbackLang).pipe(catchError(() => of(null)))
+        firstLang === fallbackLang ? of(null) : this.wikiSummaryFromSearch(query, fallbackLang)
       )
     );
+  }
+
+  private wikiSummaryFromSearch(query: string, lang: string): Observable<WikipediaSummary | null> {
+    return this.api.searchWikipedia(query, lang, 8).pipe(
+      switchMap((res) => {
+        const title = this.pickWikiSearchTitle(res?.pages, query);
+        if (!title) {
+          return of(null);
+        }
+        return this.api.getWikipediaSummary(title, lang).pipe(
+          map((wiki) => this.wikiSummaryUsable(wiki) ? wiki : null),
+          catchError(() => of(null))
+        );
+      }),
+      catchError(() => of(null))
+    );
+  }
+
+  private pickWikiSearchTitle(pages: WikipediaSearchPage[] | undefined, query: string): string | null {
+    if (!pages?.length) {
+      return null;
+    }
+    const astroHint = /galax|n[eé]buleuse|nebula|messier|cluster|amas|étoile|star\b|planète|planet|constellation|satellite|station spatiale|space station|télescope spatial|space telescope|observatoire|observatory|dwarf|naine|quasar|spirale|spiral/i;
+    const disambig = /disambiguation|homonymie|topics referred/i;
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const queryRe = escaped ? new RegExp(escaped, 'i') : null;
+    let bestTitle: string | null = null;
+    let bestScore = -1;
+    for (const page of pages) {
+      const title = (page.title || page.key || '').replace(/_/g, ' ').trim();
+      if (!title) {
+        continue;
+      }
+      const blob = `${title} ${page.description || ''} ${page.excerpt || ''}`;
+      if (disambig.test(blob)) {
+        continue;
+      }
+      let score = 1;
+      if (astroHint.test(blob)) {
+        score += 6;
+      }
+      if (queryRe && queryRe.test(title)) {
+        score += 3;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestTitle = title;
+      }
+    }
+    return bestTitle || pages[0]?.title || null;
   }
 
   private wikiSummaryUsable(wiki: WikipediaSummary | null | undefined): boolean {
@@ -3878,20 +4157,107 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       if (!star) {
         return null;
       }
-      return { fr: star.name, en: star.name, sky: star.name };
+      return { fr: star.name, en: star.name, sky: star.name, search: star.name };
     }
     if (this.selectedKind === 'galaxy' && this.selectedGalaxyId) {
       const galaxy = findGalaxyById(this.selectedGalaxyId);
       if (!galaxy) {
         return null;
       }
-      const catalog = galaxy.aliases.find((a) => /^(m|ngc|ic)\s*\d+/i.test(a)) || galaxy.name;
-      return { fr: galaxy.name, en: galaxy.name, sky: catalog };
+      const catalog = this.catalogWikiAndSky(galaxy.aliases, galaxy.name);
+      const wiki = catalog?.wikiTitle || galaxy.name;
+      const sky = catalog?.skyQuery || galaxy.name;
+      const search = [wiki, galaxy.name, catalog?.skyQuery].filter((v, i, a) => !!v && a.indexOf(v) === i).join(' ');
+      return { fr: wiki, en: wiki, sky, search };
+    }
+    if (this.selectedKind === 'iss') {
+      const sat = findSatelliteById(this.selectedSatelliteId);
+      const label = sat ? this.translate.instant(sat.labelKey) : this.bodyLabel;
+      if (!label) {
+        return null;
+      }
+      return { fr: label, en: label, sky: label, search: label + ' satellite' };
     }
     if (this.bodyLabel) {
       return { fr: this.bodyLabel, en: this.bodyLabel, sky: this.bodyLabel };
     }
     return null;
+  }
+
+  /**
+   * Wikipedia titles like "Andromeda (M31)" 404, and "M31" is a disambiguation page.
+   * "Messier 31" / "NGC 224" redirect to the galaxy article. Stellarium needs compact
+   * tokens ("M31", "NGC224") — lowercase "m31" or spaced "NGC 224" return nothing.
+   */
+  private catalogWikiAndSky(
+    aliases: string[],
+    name: string
+  ): { wikiTitle: string; skyQuery: string } | null {
+    const tokens = [name, ...aliases];
+    for (const raw of tokens) {
+      const text = (raw || '').trim();
+      const messier = text.match(/^(messier|m)\s*(\d+)$/i);
+      if (messier) {
+        return { wikiTitle: 'Messier ' + messier[2], skyQuery: 'M' + messier[2] };
+      }
+      const cat = text.match(/^(ngc|ic|ugc|pgc|ugca)\s*(\d+[a-z]?)$/i);
+      if (cat) {
+        const prefix = cat[1].toUpperCase();
+        return { wikiTitle: prefix + ' ' + cat[2], skyQuery: prefix + cat[2] };
+      }
+      const special = text.match(/^(lmc|smc|wlm)$/i);
+      if (special) {
+        const code = special[1].toUpperCase();
+        const wiki =
+          code === 'LMC' ? 'Large Magellanic Cloud'
+            : code === 'SMC' ? 'Small Magellanic Cloud'
+              : 'Wolf–Lundmark–Melotte';
+        return { wikiTitle: wiki, skyQuery: code };
+      }
+    }
+    return null;
+  }
+
+  private pickSkySource(results: StellariumSkySource[], query: string): StellariumSkySource | undefined {
+    if (!results.length) {
+      return undefined;
+    }
+    const compact = query.replace(/\s+/g, '').toUpperCase();
+    const namesOf = (source: StellariumSkySource): string[] => [
+      source.short_name,
+      source.match,
+      ...(source.names || [])
+    ].filter((n): n is string => !!n);
+    const matchesQuery = (source: StellariumSkySource): boolean =>
+      namesOf(source).some((n) => n.replace(/\s+/g, '').toUpperCase() === compact
+        || n.replace(/^(NAME|NORAD|COSPAR)\s+/i, '').replace(/\s+/g, '').toUpperCase() === compact);
+    const isSatellite = (source: StellariumSkySource): boolean =>
+      source.model === 'tle_satellite' || (source.types || []).includes('Asa');
+    if (this.selectedKind === 'iss') {
+      const norad = this.selectedSatellite?.noradId;
+      const byNorad = norad
+        ? results.find((s) => isSatellite(s) && this.asFiniteNumber(s.model_data?.['norad_number']) === norad)
+        : undefined;
+      if (byNorad) {
+        return byNorad;
+      }
+      const exactSat = results.find((s) => isSatellite(s) && matchesQuery(s));
+      if (exactSat) {
+        return exactSat;
+      }
+      return results.find(isSatellite);
+    }
+    const exact = results.find(matchesQuery);
+    if (exact) {
+      return exact;
+    }
+    if (this.selectedKind === 'galaxy') {
+      const galaxy = results.find((s) => (s.types || []).includes('G') || s.model === 'dso');
+      if (galaxy) {
+        return galaxy;
+      }
+    }
+    return results[0];
   }
 
   private buildObjectDossier(
@@ -3905,14 +4271,41 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const imageUrl = wiki?.originalimage?.source || wiki?.thumbnail?.source || null;
     const wikiUrl = wiki?.content_urls?.desktop?.page || wiki?.content_urls?.mobile?.page || null;
     const wikiTitle = wiki?.title || wiki?.displaytitle || null;
-    const skyNames = (sky?.names || []).filter((n) => !!n).slice(0, 6);
-    const skyTypes = (sky?.types || []).filter((n) => !!n).slice(0, 4);
-    const vMag = this.asFiniteNumber(sky?.model_data?.Vmag);
+    const skyNames = this.dossierSkyNames(sky);
+    const skyTypes = this.dossierSkyTypes(sky);
+    const vMag = this.asFiniteNumber(sky?.model_data?.Vmag) ?? this.asFiniteNumber(sky?.model_data?.['mag']);
     const bMag = this.asFiniteNumber(sky?.model_data?.Bmag);
-    if (!extract && !description && !thumbUrl && !skyNames.length && vMag == null && bMag == null) {
+    if (!extract && !description && !thumbUrl && !skyNames.length && !skyTypes.length && vMag == null && bMag == null) {
       return null;
     }
     return { extract, description, thumbUrl, imageUrl, wikiUrl, wikiTitle, skyNames, skyTypes, vMag, bMag };
+  }
+
+  private dossierSkyNames(sky: StellariumSkySource | undefined): string[] {
+    const names = (sky?.names || [])
+      .map((n) => (n || '').replace(/^NAME\s+/i, '').trim())
+      .filter((n) => !!n);
+    if (this.selectedKind === 'iss') {
+      const norad = this.selectedSatellite?.noradId;
+      if (norad) {
+        const label = 'NORAD ' + norad;
+        if (!names.some((n) => n.replace(/\s+/g, '').toUpperCase() === label.replace(/\s+/g, '').toUpperCase())) {
+          names.unshift(label);
+        }
+      }
+    }
+    return names.slice(0, 6);
+  }
+
+  private dossierSkyTypes(sky: StellariumSkySource | undefined): string[] {
+    const types = (sky?.types || []).filter((n) => !!n && n !== 'Asa');
+    if (this.selectedKind === 'iss') {
+      const satLabel = this.translate.instant('ASTRO_COMPASS.KIND_SATELLITE');
+      if (satLabel && !types.includes(satLabel)) {
+        types.unshift(satLabel);
+      }
+    }
+    return types.slice(0, 4);
   }
 
   openDossierImage(): void {

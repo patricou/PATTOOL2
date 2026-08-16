@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
 public class WikiProxyService {
 
     private static final Logger log = LoggerFactory.getLogger(WikiProxyService.class);
-    private static final Pattern SAFE_TITLE = Pattern.compile("^[\\p{L}\\p{N}\\p{P}\\p{Z}_]{1,160}$");
+    private static final Pattern SAFE_TITLE = Pattern.compile("^[\\p{L}\\p{N}\\p{P}\\p{S}\\p{Z}_]{1,160}$");
     private static final Pattern HTML_TAG = Pattern.compile("<[^>]+>");
     private static final Set<String> SAFE_LANGS = Set.of(
             "fr", "en", "de", "es", "it", "ru", "ja", "zh", "ar", "he", "el", "hi"
