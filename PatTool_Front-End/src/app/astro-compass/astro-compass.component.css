@@ -2285,6 +2285,12 @@ a.ac-compass-cal__btn--direction {
   border-bottom: none !important;
 }
 
+/* Le bandeau titre global (z-index 1 + isolation) recouvrait le modal live. */
+:host.ac-live-open > .pat-title {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .astro-compass-shell {
   position: relative;
   isolation: isolate;
@@ -3319,6 +3325,9 @@ a.ac-compass-cal__btn--direction {
   justify-content: space-between;
   gap: 0.45rem;
   flex: 0 0 auto;
+  z-index: 3;
+  padding: 0.12rem 0.08rem 0.2rem;
+  border-radius: 0.55rem;
 }
 
 .ac-live-modal__header-main {
@@ -3420,8 +3429,11 @@ a.ac-compass-cal__btn--direction {
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  padding: 0.08rem 0.05rem 0.18rem;
+  padding: 0.28rem 0.2rem 0.32rem;
+  margin-top: 0.05rem;
+  border-radius: 0.55rem;
   flex: 0 0 auto;
+  z-index: 3;
 }
 
 .ac-live-modal__filters::-webkit-scrollbar {
@@ -4159,6 +4171,14 @@ a.ac-compass-cal__btn--direction {
   border: 1px solid rgba(255, 120, 110, 0.5);
   background: rgba(160, 40, 40, 0.28);
   color: #ffd0c8;
+}
+
+.ac-live-modal__action--fs {
+  min-width: 1.85rem;
+  padding: 0.22rem 0.48rem;
+  border: 1px solid rgba(140, 200, 255, 0.55);
+  background: rgba(40, 90, 160, 0.32);
+  color: #cfe8ff;
 }
 
 .ac-live-modal__zoom {

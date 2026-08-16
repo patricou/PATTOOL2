@@ -342,7 +342,8 @@ const ASTRO_HELP_TERMS: ReadonlyArray<HelpTerm> = [
   templateUrl: './astro-compass.component.html',
   styleUrls: ['./astro-compass.component.css'],
   host: {
-    '[class.ac-dossier-slideshow-open]': 'dossierSlideshowOpen'
+    '[class.ac-dossier-slideshow-open]': 'dossierSlideshowOpen',
+    '[class.ac-live-open]': 'autoDetectModalOpen'
   }
 })
 export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {

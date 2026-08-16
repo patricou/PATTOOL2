@@ -972,6 +972,9 @@
       </div>
     </div>
   </section>
+  </div><!-- ac-layout -->
+</div><!-- astro-compass-page -->
+</div><!-- astro-compass-shell -->
 
 <!-- Auto-detect live immersive modal -->
 <div class="ac-live-backdrop" *ngIf="autoDetectModalOpen" (click)="closeAutoDetectModal()" aria-hidden="true"></div>
@@ -1283,6 +1286,14 @@
       </button>
     </div>
     <div class="ac-live-modal__actions">
+      <button
+        type="button"
+        class="ac-live-modal__action ac-live-modal__action--fs"
+        (click)="toggleAutoDetectFullscreen()"
+        [attr.title]="(isAutoDetectFullscreen ? 'ASTRO_COMPASS.EXIT_FULLSCREEN' : 'ASTRO_COMPASS.FULLSCREEN') | translate"
+        [attr.aria-label]="(isAutoDetectFullscreen ? 'ASTRO_COMPASS.EXIT_FULLSCREEN' : 'ASTRO_COMPASS.FULLSCREEN') | translate">
+        <i class="fa" [ngClass]="isAutoDetectFullscreen ? 'fa-compress' : 'fa-expand'" aria-hidden="true"></i>
+      </button>
       <button
         type="button"
         class="ac-live-modal__action ac-live-modal__action--pause"
