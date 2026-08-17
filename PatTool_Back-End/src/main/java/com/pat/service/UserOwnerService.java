@@ -15,6 +15,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Identity for per-user persistence: writes use Member {@code userName} (surnom).
@@ -22,6 +23,10 @@ import java.util.Set;
  */
 @Service
 public class UserOwnerService {
+
+    private static final Pattern UUID_ID = Pattern.compile(
+            "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            Pattern.CASE_INSENSITIVE);
 
     public record Owner(String username, List<String> aliases) {
         public boolean owns(String stored) {
@@ -103,6 +108,13 @@ public class UserOwnerService {
         }
         if (username == null && jwt != null) {
             username = trimToNull(jwt.getSubject());
+        }
+        add(aliases, username);
+        if (looksLikeUuid(username)) {
+            String named = firstNonUuid(aliases);
+            if (named != null) {
+                username = named;
+            }
         }
         add(aliases, username);
         return new Owner(username, List.copyOf(aliases));
@@ -224,5 +236,18 @@ public class UserOwnerService {
             return null;
         }
         return value.trim();
+    }
+
+    private static boolean looksLikeUuid(String value) {
+        return value != null && UUID_ID.matcher(value).matches();
+    }
+
+    private static String firstNonUuid(Set<String> aliases) {
+        for (String a : aliases) {
+            if (!looksLikeUuid(a)) {
+                return a;
+            }
+        }
+        return null;
     }
 }

@@ -66,6 +66,15 @@ export class NordComponent implements OnInit, OnDestroy {
   trueNorth = true;
   declinationDeg: number | null = null;
 
+  /** GPS + déclinaison : sans ça, le Nord géographique n’est pas calculable. */
+  get trueNorthAvailable(): boolean {
+    return this.declinationDeg != null && Number.isFinite(this.declinationDeg);
+  }
+
+  get trueNorthActive(): boolean {
+    return this.trueNorth && this.trueNorthAvailable;
+  }
+
   readonly northEngine = new CompassNorthEngine();
 
   get calPhase(): CalPhase {
@@ -181,6 +190,9 @@ export class NordComponent implements OnInit, OnDestroy {
   }
 
   toggleTrueNorth(): void {
+    if (!this.trueNorthAvailable) {
+      return;
+    }
     this.trueNorth = !this.trueNorth;
     this.persist();
     this.applyDeclination();
@@ -191,7 +203,7 @@ export class NordComponent implements OnInit, OnDestroy {
   }
 
   displayedHeading(): number | null {
-    return this.trueNorth ? this.headingTrueDeg : this.headingMagDeg;
+    return this.trueNorthActive ? this.headingTrueDeg : this.headingMagDeg;
   }
 
   cardinalLabel(): string {
@@ -888,12 +900,12 @@ export class NordComponent implements OnInit, OnDestroy {
   }
 
   private applyDeclination(): void {
-    if (this.headingMagDeg == null) {
+    if (this.headingMagDeg == null || this.declinationDeg == null) {
       this.headingTrueDeg = null;
+      this.syncRose();
       return;
     }
-    const d = this.declinationDeg ?? 0;
-    this.headingTrueDeg = this.normalizeDeg(this.headingMagDeg + d);
+    this.headingTrueDeg = this.normalizeDeg(this.headingMagDeg + this.declinationDeg);
     this.syncRose();
   }
 

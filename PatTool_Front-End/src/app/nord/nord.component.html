@@ -19,10 +19,20 @@
     <p class="nord-warn" *ngIf="permissionDenied">{{ 'NORD.PERMISSION_DENIED' | translate }}</p>
     <p class="nord-hint" *ngIf="permissionNeeded && !permissionDenied">{{ 'NORD.PERMISSION_NEEDED' | translate }}</p>
 
-    <label class="nord-switch" *ngIf="sensorsEnabled">
-      <input type="checkbox" [checked]="trueNorth" (change)="toggleTrueNorth()" />
+    <label
+      class="nord-switch"
+      [class.nord-switch--disabled]="!trueNorthAvailable"
+      *ngIf="sensorsEnabled">
+      <input
+        type="checkbox"
+        [checked]="trueNorthActive"
+        [disabled]="!trueNorthAvailable"
+        (change)="toggleTrueNorth()" />
       <span>{{ 'NORD.TRUE_NORTH' | translate }}</span>
     </label>
+    <p class="nord-hint" *ngIf="sensorsEnabled && !trueNorthAvailable">
+      {{ 'NORD.TRUE_NORTH_UNAVAILABLE' | translate }}
+    </p>
   </div>
 
   <div class="nord-stage">
@@ -47,7 +57,7 @@
         <div class="nord-hub">
           <span class="nord-hub__deg">{{ headingText() }}°</span>
           <span class="nord-hub__card">{{ cardinalLabel() }}</span>
-          <span class="nord-hub__kind">{{ (trueNorth ? 'NORD.TRUE' : 'NORD.MAGNETIC') | translate }}</span>
+          <span class="nord-hub__kind">{{ (trueNorthActive ? 'NORD.TRUE' : 'NORD.MAGNETIC') | translate }}</span>
         </div>
       </div>
 

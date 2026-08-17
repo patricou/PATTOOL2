@@ -46,7 +46,7 @@ public class TvRecordingService {
     @Value("${app.tv.recording.enabled:true}")
     private boolean recordingEnabled;
 
-    @Value("${app.tv.recording.max-duration-sec:1800}")
+    @Value("${app.tv.recording.max-duration-sec:7200}")
     private int maxDurationSec;
 
     @Autowired

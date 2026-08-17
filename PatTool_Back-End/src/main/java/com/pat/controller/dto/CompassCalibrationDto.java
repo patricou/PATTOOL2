@@ -3,8 +3,8 @@ package com.pat.controller.dto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
- * Calage du Nord de la boussole ISS, persisté par utilisateur Keycloak dans la
- * collection {@code appParameters} (clé {@code globe.iss.compass.calibration.<sub JWT>}).
+ * Calage du Nord de la boussole ISS, persisté par username (surnom Member) dans la
+ * collection {@code appParameters} (clé {@code globe.iss.compass.calibration.<username>}).
  *
  * <ul>
  *   <li>{@code method} : {@code sensor}, {@code manual}, {@code gps}, {@code sun}

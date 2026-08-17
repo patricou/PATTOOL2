@@ -25,11 +25,23 @@ export interface CompassHeadingModePref {
 }
 
 export interface AstroLastTarget {
-  kind: 'planet' | 'star' | 'galaxy' | 'custom' | 'iss';
+  kind: 'planet' | 'star' | 'galaxy' | 'constellation' | 'custom' | 'iss';
   id?: string;
   customRaHours?: number;
   customDecDeg?: number;
   customName?: string;
+}
+
+export interface AstroFinderTrailPref {
+  enabled: boolean;
+}
+
+export interface AstroMaxMagnitudePref {
+  maxMagnitude: number;
+}
+
+export interface AstroAlignCuePref {
+  mode: 'off' | 'beep' | 'vibrate';
 }
 
 export interface DirectionPattoolSamplePayload {
@@ -1545,6 +1557,78 @@ export class ApiService {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
         this._http.put<AstroLastTarget>(this.API_URL + 'external/globe/astro/last-target', body, { headers })
+      )
+    );
+  }
+
+  getAstroFinderTrail(): Observable<AstroFinderTrailPref | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<AstroFinderTrailPref | null>(
+          this.API_URL + 'external/globe/astro/finder-trail',
+          { headers }
+        )
+      ),
+      catchError(() => of(null))
+    );
+  }
+
+  setAstroFinderTrail(enabled: boolean): Observable<AstroFinderTrailPref> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<AstroFinderTrailPref>(
+          this.API_URL + 'external/globe/astro/finder-trail',
+          { enabled },
+          { headers }
+        )
+      )
+    );
+  }
+
+  getAstroMaxMagnitude(): Observable<AstroMaxMagnitudePref | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<AstroMaxMagnitudePref | null>(
+          this.API_URL + 'external/globe/astro/max-magnitude',
+          { headers }
+        )
+      ),
+      catchError(() => of(null))
+    );
+  }
+
+  setAstroMaxMagnitude(maxMagnitude: number): Observable<AstroMaxMagnitudePref> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<AstroMaxMagnitudePref>(
+          this.API_URL + 'external/globe/astro/max-magnitude',
+          { maxMagnitude },
+          { headers }
+        )
+      )
+    );
+  }
+
+  getAstroAlignCue(): Observable<AstroAlignCuePref | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<AstroAlignCuePref | null>(
+          this.API_URL + 'external/globe/astro/align-cue',
+          { headers }
+        )
+      ),
+      catchError(() => of(null))
+    );
+  }
+
+  setAstroAlignCue(mode: 'off' | 'beep' | 'vibrate'): Observable<AstroAlignCuePref> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<AstroAlignCuePref>(
+          this.API_URL + 'external/globe/astro/align-cue',
+          { mode },
+          { headers }
+        )
       )
     );
   }

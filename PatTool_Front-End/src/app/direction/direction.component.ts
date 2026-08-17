@@ -61,6 +61,7 @@ import {
   mergeCalSamples,
   persistPattoolCalFromSamples
 } from './direction-pattool-cal';
+import { clampCamHeightPx, loadCamHeightPx, saveCamHeightPx } from '../shared/preview-cam-size';
 
 type SensorStatus = 'off' | 'live' | 'missing' | 'denied';
 type HeadingSource = 'rotation-vector' | 'mag-accel' | 'deviceorientation' | 'gyro-lock';
@@ -113,6 +114,7 @@ const PARAM_GROUPS: { id: string; labelKey: string; keys: string[] }[] = [
 ];
 const CAL_KEY = DIRECTION_HARDIRON_KEY;
 const FS_PARAMS_KEY = 'pat.direction.fs-params.v1';
+const CAM_HEIGHT_KEY = 'pat.direction.cam-height-px';
 const PAINT_MS = 50;
 
 @Component({
@@ -133,6 +135,11 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   camDenied = false;
   camLive = false;
   isFullscreen = false;
+  camHeightPx: number | null = null;
+  private camResizing = false;
+  private camResizePointerId: number | null = null;
+  private camResizeStartY = 0;
+  private camResizeStartH = 0;
   fsShowParams = true;
   trueNorth = true;
   calibrating = false;
@@ -143,6 +150,9 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   readonly offsetMin = -180;
   readonly offsetMax = 180;
   offsetDeg = 0;
+  showSensors = false;
+  showPatExtra = false;
+  showQuickHint = false;
   source: HeadingSource | null = null;
   patWizard = false;
   patPhase: 'north' | 'poses' = 'poses';
@@ -155,6 +165,19 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   patDbLoading = false;
   patSaving = false;
   patSeriesDone = false;
+  private hideTitleTimer: ReturnType<typeof setTimeout> | null = null;
+  private hideTitleTries = 0;
+  private titleScrollPadPx = 0;
+  private hideTitleGuardUntil = 0;
+  private readonly hideTitleOnScroll = (): void => {
+    if (Date.now() > this.hideTitleGuardUntil) {
+      this.unbindTitleHideGuard();
+      return;
+    }
+    if (!this.pageTitleIsOffscreen()) {
+      this.scrollPastPageTitle();
+    }
+  };
   patMixMode: PattoolCalMixMode = 'latest';
   readonly patPoses = PATTOOL_POSES;
 
@@ -179,6 +202,15 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   dashSections: DashSection[] = [];
   magKnown = false;
   gpsKnown = false;
+
+  /** GPS + déclinaison : sans ça, le Nord géographique n’est pas calculable. */
+  get trueNorthAvailable(): boolean {
+    return this.gpsKnown && this.declinationDeg != null && Number.isFinite(this.declinationDeg);
+  }
+
+  get trueNorthActive(): boolean {
+    return this.trueNorth && this.trueNorthAvailable;
+  }
 
   private mag: Vec3 = { x: 0, y: 0, z: 0 };
   private accel: Vec3 = { x: 0, y: 0, z: 9.81 };
@@ -233,7 +265,8 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     private readonly zone: NgZone,
     private readonly cdr: ChangeDetectorRef,
     private readonly api: ApiService,
-    private readonly translate: TranslateService
+    private readonly translate: TranslateService,
+    private readonly hostEl: ElementRef<HTMLElement>
   ) {}
 
   ngAfterViewInit(): void {
@@ -243,11 +276,118 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     setTimeout(() => this.refreshPatDbCount(), 800);
     setTimeout(() => this.refreshPatDbCount(), 2500);
     this.loadFsParams();
+    this.camHeightPx = loadCamHeightPx(CAM_HEIGHT_KEY);
     void this.boot(false);
+    this.queueHidePageTitle();
+  }
+
+  private queueHidePageTitle(): void {
+    this.hideTitleTries = 0;
+    this.bindTitleHideGuard();
+    this.zone.runOutsideAngular(() => {
+      const run = (): void => {
+        this.scrollPastPageTitle();
+        this.hideTitleTries += 1;
+        // Toujours réessayer : un hashchange (#/tools/direction) peut ramener le scroll à 0
+        // après un premier masquage (cas « depuis astro-compass »).
+        if (this.hideTitleTries < 22) {
+          this.hideTitleTimer = setTimeout(run, this.hideTitleTries < 8 ? 50 : 120);
+        } else {
+          this.unbindTitleHideGuard();
+        }
+      };
+      requestAnimationFrame(() => requestAnimationFrame(run));
+    });
+  }
+
+  private bindTitleHideGuard(): void {
+    this.unbindTitleHideGuard();
+    this.hideTitleGuardUntil = Date.now() + 2400;
+    window.addEventListener('scroll', this.hideTitleOnScroll, { passive: true });
+    window.addEventListener('hashchange', this.hideTitleOnScroll);
+  }
+
+  private unbindTitleHideGuard(): void {
+    window.removeEventListener('scroll', this.hideTitleOnScroll);
+    window.removeEventListener('hashchange', this.hideTitleOnScroll);
+    this.hideTitleGuardUntil = 0;
+  }
+
+  private pageTitleIsOffscreen(): boolean {
+    const title = this.hostEl.nativeElement.querySelector('.pat-title') as HTMLElement | null;
+    if (!title) {
+      return true;
+    }
+    return title.getBoundingClientRect().bottom <= this.fixedChromeBottom() + 2;
+  }
+
+  private pageScroller(): HTMLElement {
+    let el: HTMLElement | null = this.hostEl.nativeElement.parentElement;
+    while (el && el !== document.body && el !== document.documentElement) {
+      const oy = getComputedStyle(el).overflowY;
+      if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && el.scrollHeight > el.clientHeight + 1) {
+        return el;
+      }
+      el = el.parentElement;
+    }
+    return (document.scrollingElement as HTMLElement) || document.documentElement;
+  }
+
+  private ensureTitleScrollRoom(need: number): void {
+    const scroller = this.pageScroller();
+    const available = Math.max(0, scroller.scrollHeight - scroller.clientHeight - (scroller.scrollTop || 0));
+    if (available >= need) {
+      return;
+    }
+    const extra = need - available + 12;
+    const currentPad = parseFloat(getComputedStyle(this.hostEl.nativeElement).paddingBottom) || 0;
+    this.titleScrollPadPx = currentPad + extra;
+    this.hostEl.nativeElement.style.paddingBottom = `${this.titleScrollPadPx}px`;
+  }
+
+  private scrollPastPageTitle(): void {
+    const title = this.hostEl.nativeElement.querySelector('.pat-title') as HTMLElement | null;
+    if (!title) {
+      return;
+    }
+    const chromeBottom = this.fixedChromeBottom();
+    const need = Math.ceil(title.getBoundingClientRect().bottom - chromeBottom + 6);
+    if (need <= 0) {
+      return;
+    }
+    this.ensureTitleScrollRoom(need);
+    const scroller = this.pageScroller();
+    const y = scroller.scrollTop || window.scrollY || 0;
+    const next = Math.max(0, y + need);
+    scroller.scrollTop = next;
+    document.documentElement.scrollTop = next;
+    document.body.scrollTop = next;
+    window.scrollTo(0, next);
+  }
+
+  private fixedChromeBottom(): number {
+    let bottom = 0;
+    document.querySelectorAll('.navbar.fixed-top, .news-ticker, .currency-ticker, .stock-ticker').forEach((el) => {
+      const style = getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden') {
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      if (r.height > 1) {
+        bottom = Math.max(bottom, r.bottom);
+      }
+    });
+    return bottom;
   }
 
   ngOnDestroy(): void {
+    if (this.hideTitleTimer != null) {
+      clearTimeout(this.hideTitleTimer);
+      this.hideTitleTimer = null;
+    }
+    this.unbindTitleHideGuard();
     this.clearPatHold();
+    this.endCamResize();
     this.leaveFullscreen();
     this.stopEverything();
   }
@@ -258,6 +398,64 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     const stage = this.camStage?.nativeElement;
     const fs = this.fullscreenElement();
     this.isFullscreen = !!stage && fs === stage;
+    this.cdr.markForCheck();
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.closeQuickHint();
+  }
+
+  public startCamResize(ev: PointerEvent): void {
+    if (this.isFullscreen) {
+      return;
+    }
+    ev.preventDefault();
+    ev.stopPropagation();
+    const el = this.camStage?.nativeElement;
+    if (!el) {
+      return;
+    }
+    this.camResizing = true;
+    this.camResizePointerId = ev.pointerId;
+    this.camResizeStartY = ev.clientY;
+    this.camResizeStartH = el.getBoundingClientRect().height;
+    try {
+      (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  public onCamResizeMove(ev: PointerEvent): void {
+    if (!this.camResizing || ev.pointerId !== this.camResizePointerId) {
+      return;
+    }
+    ev.preventDefault();
+    this.camHeightPx = clampCamHeightPx(this.camResizeStartH + (ev.clientY - this.camResizeStartY));
+    this.cdr.markForCheck();
+  }
+
+  public endCamResize(ev?: PointerEvent): void {
+    if (!this.camResizing) {
+      return;
+    }
+    if (ev && this.camResizePointerId != null && ev.pointerId !== this.camResizePointerId) {
+      return;
+    }
+    this.camResizing = false;
+    this.camResizePointerId = null;
+    saveCamHeightPx(CAM_HEIGHT_KEY, this.camHeightPx);
+    this.cdr.markForCheck();
+  }
+
+  public resetCamSize(ev: Event): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.camResizing = false;
+    this.camResizePointerId = null;
+    this.camHeightPx = null;
+    saveCamHeightPx(CAM_HEIGHT_KEY, null);
     this.cdr.markForCheck();
   }
 
@@ -320,23 +518,23 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  startCal(): void {
-    this.chooseCal('figure8');
-  }
-
   chooseCal(method: NorthCalMethod): void {
     this.calMethod = method;
     this.calAccum = [];
     this.calSamples = 0;
-    if (method === 'figure8') {
-      this.hardIron.reset();
-      this.calibrating = true;
-      this.calPct = 0;
-      this.fusion.reset();
-    } else {
-      this.calibrating = false;
-      this.calPct = 0;
-    }
+    this.calibrating = false;
+    this.calPct = 0;
+    this.cdr.markForCheck();
+  }
+
+  startCal(): void {
+    this.calMethod = 'figure8';
+    this.calAccum = [];
+    this.calSamples = 0;
+    this.hardIron.reset();
+    this.calibrating = true;
+    this.calPct = 0;
+    this.fusion.reset();
     this.cdr.markForCheck();
   }
 
@@ -689,8 +887,39 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.setOffset(this.offsetDeg + delta);
   }
 
+  resetOffset(): void {
+    this.setOffset(0);
+  }
+
+  toggleSensors(): void {
+    this.showSensors = !this.showSensors;
+    this.cdr.markForCheck();
+  }
+
+  toggleQuickHint(): void {
+    this.showQuickHint = !this.showQuickHint;
+    this.cdr.markForCheck();
+  }
+
+  closeQuickHint(): void {
+    if (!this.showQuickHint) {
+      return;
+    }
+    this.showQuickHint = false;
+    this.cdr.markForCheck();
+  }
+
+  togglePatExtra(): void {
+    this.showPatExtra = !this.showPatExtra;
+    this.cdr.markForCheck();
+  }
+
   toggleTrueNorth(): void {
+    if (!this.trueNorthAvailable) {
+      return;
+    }
     this.trueNorth = !this.trueNorth;
+    this.syncSharedNordCal();
     this.publish();
   }
 
@@ -1196,7 +1425,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
         {
           id: 'kind',
           labelKey: 'DIRECTION.NORTH_KIND',
-          value: this.trueNorth ? 'DIRECTION.TRUE' : 'DIRECTION.MAGNETIC'
+          value: this.trueNorthActive ? 'DIRECTION.TRUE' : 'DIRECTION.MAGNETIC'
         }
       );
     }
@@ -1669,7 +1898,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
       bias: this.hardIron.ready ? this.hardIron.bias : prev.bias ?? { x: 0, y: 0, z: 0 },
       scale: this.hardIron.ready ? this.hardIron.scale : prev.scale ?? { x: 1, y: 1, z: 1 },
       northOffsetDeg: this.offsetDeg,
-      trueNorth: prev.trueNorth !== false,
+      trueNorth: this.trueNorth,
       calibratedAt: this.hardIron.ready
         ? prev.calibratedAt || new Date().toISOString()
         : prev.calibratedAt ?? ''

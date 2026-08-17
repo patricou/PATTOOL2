@@ -18,7 +18,7 @@ public final class PatToolParameterCatalog {
     public record SectionDef(String id, String labelKey, List<ParameterDef> parameters) {}
 
     /**
-     * Per-user {@code appParameters} keys: {@code <prefix><JWT sub|username>}.
+     * Per-user {@code appParameters} keys: {@code <prefix><username>}.
      * Source of truth for services that call {@code AppParameterService.set*} with a user id.
      * Keep in sync with those services (LastRoute, TV, Météo-France, Globe, Assistant, Trace).
      */
@@ -40,6 +40,9 @@ public final class PatToolParameterCatalog {
             "globe.iss.compass.calibration.",
             "globe.iss.compass.heading-mode.",
             "globe.astro.last-target.",
+            "globe.astro.finder-trail.",
+            "globe.astro.max-magnitude.",
+            "globe.astro.align-cue.",
             "meteofrance.forecast.horizon.",
             "meteofrance.forecast.step.",
             "meteofrance.forecast.cache.",

@@ -20,8 +20,11 @@ spring.data.mongodb.database=rando
 # Alternative: spring.data.mongodb.uri=mongodb://user:pass@host:27017/rando
 
 # --- Files / multipart ---
-spring.servlet.multipart.max-file-size=100MB
-spring.servlet.multipart.max-request-size=350MB
+spring.servlet.multipart.max-file-size=800MB
+spring.servlet.multipart.max-request-size=810MB
+spring.servlet.multipart.file-size-threshold=10MB
+server.tomcat.max-swallow-size=810MB
+server.tomcat.max-http-form-post-size=810MB
 app.uploaddir=C:\\temp
 file.storage.base-path=C:\\temp\\pattool-disk-images
 
@@ -96,7 +99,7 @@ globe.proxy.http.read-timeout-seconds=90
 # app.tv.rts.netplus-proxy=http://127.0.0.1:8888
 # On-demand TV recording — browser MediaRecorder upload → MongoDB GridFS.
 # app.tv.recording.enabled=true
-# app.tv.recording.max-duration-sec=1800
+# app.tv.recording.max-duration-sec=7200
 
 # World radio watcher (/api/external/radio) — radio-browser.info catalog + stream proxy.
 # Preferred mirror (tried first). Additional built-in fallbacks: de2, all.api.radio-browser.info

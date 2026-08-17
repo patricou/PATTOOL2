@@ -14,8 +14,8 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Calage du Nord de la boussole ISS par utilisateur Keycloak, stocké dans
- * {@code appParameters} sous la clé {@code globe.iss.compass.calibration.<sub JWT>}.
+ * Calage du Nord de la boussole ISS par utilisateur, stocké dans
+ * {@code appParameters} sous la clé {@code globe.iss.compass.calibration.<username>}.
  *
  * <p>Objectif : éviter que les utilisateurs ne recalent le Nord à chaque ouverture de
  * la boussole. La valeur survit aux redémarrages backend (MongoDB) et n'est écrasée

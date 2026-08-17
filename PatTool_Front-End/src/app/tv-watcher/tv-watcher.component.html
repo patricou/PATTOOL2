@@ -712,7 +712,10 @@
               <strong class="tv-record-hud-value">
                 {{ formatRecordingClock(recordingElapsedSec) }}
                 <span class="tv-record-hud-sep">/</span>
-                {{ formatRecordingClock(recordDurationSec) }}
+                <ng-container *ngIf="recordDurationSec > 0; else recordUntilMax">
+                  {{ formatRecordingClock(recordDurationSec) }}
+                </ng-container>
+                <ng-template #recordUntilMax>{{ 'TV.RECORD_DUR_MAX' | translate }}</ng-template>
               </strong>
             </div>
             <div class="tv-record-hud-row" [class.tv-record-hud-row--warn]="recordingNearSizeLimit">

@@ -6,46 +6,15 @@
 </div>
 
 <div class="dir-page">
-  <p class="dir-lede">{{ 'DIRECTION.SUBTITLE' | translate }}</p>
-
-  <div class="dir-bar">
-    <button type="button" class="dir-btn dir-btn--go" *ngIf="!sensorsOn || needTap" (click)="enable()">
-      {{ 'DIRECTION.START' | translate }}
-    </button>
-    <p class="dir-msg" *ngIf="needTap && !denied">{{ 'DIRECTION.NEED_TAP' | translate }}</p>
-    <p class="dir-msg dir-msg--bad" *ngIf="denied">{{ 'DIRECTION.DENIED' | translate }}</p>
-    <button type="button" class="dir-btn" *ngIf="sensorsOn && !camLive" (click)="startCamera()">
-      {{ 'DIRECTION.CAM_START' | translate }}
-    </button>
-    <button type="button" class="dir-btn" *ngIf="camLive" (click)="stopCamera()">
-      {{ 'DIRECTION.CAM_STOP' | translate }}
-    </button>
-    <p class="dir-msg dir-msg--bad" *ngIf="camDenied">{{ 'DIRECTION.CAM_DENIED' | translate }}</p>
-    <label class="dir-toggle" *ngIf="sensorsOn && gpsKnown && !patWizard">
-      <input type="checkbox" [checked]="trueNorth" (change)="toggleTrueNorth()" />
-      {{ 'DIRECTION.TRUE_NORTH' | translate }}
-    </label>
-    <button
-      type="button"
-      class="dir-btn"
-      (click)="toggleFullscreen()"
-      [attr.title]="(isFullscreen ? 'DIRECTION.EXIT_FULLSCREEN' : 'DIRECTION.FULLSCREEN') | translate"
-      [attr.aria-label]="(isFullscreen ? 'DIRECTION.EXIT_FULLSCREEN' : 'DIRECTION.FULLSCREEN') | translate">
-      <i class="fa me-1" [class.fa-compress]="isFullscreen" [class.fa-expand]="!isFullscreen" aria-hidden="true"></i>
-      {{ (isFullscreen ? 'DIRECTION.EXIT_FULLSCREEN' : 'DIRECTION.FULLSCREEN') | translate }}
-    </button>
-    <a
-      class="dir-btn dir-btn--link dir-btn--astro"
-      routerLink="/tools/astro-compass"
-      [attr.title]="'DIRECTION.OPEN_ASTRO_HINT' | translate"
-      [attr.aria-label]="'DIRECTION.OPEN_ASTRO' | translate">
-      <i class="fa fa-video-camera me-1" aria-hidden="true"></i>
-      {{ 'DIRECTION.OPEN_ASTRO' | translate }}
-    </a>
-  </div>
-
-  <div class="dir-stage" [class.dir-stage--pat]="patWizard" [attr.aria-label]="'DIRECTION.STAGE_ARIA' | translate">
-    <div class="dir-cam" #camStage [class.dir-cam--fs]="isFullscreen">
+  <div class="dir-panel">
+  <section class="dir-card dir-card--stage" [attr.aria-label]="'DIRECTION.STAGE_ARIA' | translate">
+  <div class="dir-stage" [class.dir-stage--pat]="patWizard">
+    <div
+      class="dir-cam"
+      #camStage
+      [class.dir-cam--fs]="isFullscreen"
+      [class.dir-cam--resized]="!isFullscreen && camHeightPx != null"
+      [style.height.px]="!isFullscreen && camHeightPx != null ? camHeightPx : null">
       <video #cam playsinline muted autoplay></video>
       <div class="dir-cam__empty" *ngIf="!camLive">{{ 'DIRECTION.CAM_PLACEHOLDER' | translate }}</div>
       <div class="dir-horizon" [style.transform]="horizonTilt()" aria-hidden="true"></div>
@@ -54,6 +23,25 @@
         <span class="dir-reticle__v"></span>
         <span class="dir-reticle__c"></span>
       </div>
+      <div class="dir-rose dir-rose--overlay" *ngIf="!patWizard" [attr.aria-label]="'DIRECTION.ROSE_ARIA' | translate">
+        <div class="dir-rose__disk" [style.transform]="'rotate(' + roseDeg() + 'deg)'">
+          <span class="dir-rose__n">N</span>
+          <span class="dir-rose__e">E</span>
+          <span class="dir-rose__s">S</span>
+          <span class="dir-rose__w">O</span>
+        </div>
+        <span class="dir-rose__aim" aria-hidden="true"></span>
+      </div>
+      <button
+        type="button"
+        class="dir-fs dir-fs--info"
+        (click)="toggleQuickHint()"
+        [class.dir-fs--on]="showQuickHint"
+        [attr.title]="'DIRECTION.INFO_OPEN_HINT' | translate"
+        [attr.aria-label]="'DIRECTION.INFO_OPEN' | translate"
+        [attr.aria-expanded]="showQuickHint">
+        <i class="fa fa-info-circle" aria-hidden="true"></i>
+      </button>
       <button
         type="button"
         class="dir-fs"
@@ -61,6 +49,38 @@
         [attr.title]="(isFullscreen ? 'DIRECTION.EXIT_FULLSCREEN' : 'DIRECTION.FULLSCREEN') | translate"
         [attr.aria-label]="(isFullscreen ? 'DIRECTION.EXIT_FULLSCREEN' : 'DIRECTION.FULLSCREEN') | translate">
         <i class="fa" [class.fa-compress]="isFullscreen" [class.fa-expand]="!isFullscreen" aria-hidden="true"></i>
+      </button>
+      <div class="dir-cam-info" *ngIf="showQuickHint" role="note">
+        <p>{{ 'DIRECTION.QUICK_HINT' | translate }}</p>
+        <button
+          type="button"
+          class="dir-cam-info__close"
+          (click)="closeQuickHint()"
+          [attr.aria-label]="'DIRECTION.INFO_CLOSE' | translate">
+          <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+      <button
+        type="button"
+        class="dir-cam-resize"
+        *ngIf="!isFullscreen"
+        (pointerdown)="startCamResize($event)"
+        (pointermove)="onCamResizeMove($event)"
+        (pointerup)="endCamResize($event)"
+        (pointercancel)="endCamResize($event)"
+        (dblclick)="resetCamSize($event)"
+        [attr.title]="'DIRECTION.CAM_RESIZE_HINT' | translate"
+        [attr.aria-label]="'DIRECTION.CAM_RESIZE' | translate">
+        <span aria-hidden="true"></span>
+      </button>
+      <button
+        type="button"
+        class="dir-btn dir-btn--go dir-fs-north"
+        *ngIf="isFullscreen && !patWizard"
+        [disabled]="magAzimuthDeg == null"
+        (click)="confirmManualNorth()">
+        <i class="fa fa-location-arrow" aria-hidden="true"></i>
+        {{ 'DIRECTION.CAL_MANUAL_CONFIRM' | translate }}
       </button>
       <div class="dir-hud">
         <div class="dir-hud__pair">
@@ -79,27 +99,12 @@
             </div>
           </div>
         </div>
-        <div class="dir-hud__row">
-          <span>{{ 'DIRECTION.ROLL' | translate }} {{ rollText() }}</span>
-        </div>
-        <div class="dir-hud__src">{{ sourceKey() | translate }}</div>
       </div>
     </div>
 
-    <aside class="dir-side">
-      <div class="dir-rose" *ngIf="!patWizard" [attr.aria-label]="'DIRECTION.ROSE_ARIA' | translate">
-        <div class="dir-rose__disk" [style.transform]="'rotate(' + roseDeg() + 'deg)'">
-          <span class="dir-rose__n">N</span>
-          <span class="dir-rose__e">E</span>
-          <span class="dir-rose__s">S</span>
-          <span class="dir-rose__w">O</span>
-        </div>
-        <span class="dir-rose__aim" aria-hidden="true"></span>
-      </div>
-
+    <aside class="dir-side" *ngIf="patWizard">
       <div
         class="dir-pat-card"
-        *ngIf="patWizard"
         [class.dir-pat-card--ok]="patPhase === 'poses' && patAligned() && !patCapturing && !patSaving">
         <p class="dir-pat-card__step">
           {{ 'DIRECTION.PAT_STEP' | translate : { n: patProgressN(), total: patProgressTotal() } }}
@@ -147,44 +152,140 @@
           </button>
         </div>
       </div>
+    </aside>
+  </div>
+  </section>
 
-      <label class="dir-offset" *ngIf="!patWizard">
-        <span>{{ 'DIRECTION.OFFSET' | translate }} ({{ offsetDeg }}°)</span>
+  <p class="dir-msg" *ngIf="needTap && !denied">{{ 'DIRECTION.NEED_TAP' | translate }}</p>
+  <p class="dir-msg dir-msg--bad" *ngIf="denied">{{ 'DIRECTION.DENIED' | translate }}</p>
+
+  <section class="dir-card" *ngIf="!patWizard" [attr.aria-label]="'DIRECTION.STEP_NORTH' | translate">
+    <h3 class="dir-card__title">
+      <span class="dir-card__n">1</span>
+      {{ 'DIRECTION.STEP_NORTH' | translate }}
+      <button
+        type="button"
+        class="dir-info-btn"
+        (click)="toggleQuickHint()"
+        [class.dir-info-btn--on]="showQuickHint"
+        [attr.title]="'DIRECTION.INFO_OPEN_HINT' | translate"
+        [attr.aria-label]="'DIRECTION.INFO_OPEN' | translate"
+        [attr.aria-expanded]="showQuickHint">
+        <i class="fa fa-info-circle" aria-hidden="true"></i>
+      </button>
+    </h3>
+    <div class="dir-info-box" *ngIf="showQuickHint" role="note">
+      <p>{{ 'DIRECTION.QUICK_HINT' | translate }}</p>
+    </div>
+    <div class="dir-hero-deg" [class.dir-hero-deg--on]="offsetDeg">
+      {{ offsetDeg > 0 ? '+' : '' }}{{ offsetDeg }}°
+    </div>
+    <p class="dir-card__help dir-card__help--center">{{ 'DIRECTION.OFFSET' | translate }}</p>
+    <div class="dir-actions">
+      <button
+        type="button"
+        class="dir-btn dir-btn--go"
+        [disabled]="magAzimuthDeg == null"
+        (click)="confirmManualNorth()">
+        <i class="fa fa-location-arrow" aria-hidden="true"></i>
+        {{ 'DIRECTION.CAL_MANUAL_CONFIRM' | translate }}
+      </button>
+      <button type="button" class="dir-btn" [disabled]="offsetDeg === 0" (click)="resetOffset()">
+        {{ 'DIRECTION.RESET_ZERO' | translate }}
+      </button>
+    </div>
+    <label class="dir-offset">
+      <input
+        type="range"
+        [min]="offsetMin"
+        [max]="offsetMax"
+        step="1"
+        [value]="offsetDeg"
+        (input)="onOffsetInput($event)" />
+      <div class="dir-offset__row">
+        <button type="button" class="dir-btn dir-btn--tiny" (click)="nudgeOffset(-15)">−15°</button>
         <input
-          type="range"
+          class="dir-offset__num"
+          type="number"
           [min]="offsetMin"
           [max]="offsetMax"
           step="1"
           [value]="offsetDeg"
-          (input)="onOffsetInput($event)" />
-        <div class="dir-offset__row">
-          <button type="button" class="dir-btn dir-btn--tiny" (click)="nudgeOffset(-15)">−15°</button>
-          <input
-            class="dir-offset__num"
-            type="number"
-            [min]="offsetMin"
-            [max]="offsetMax"
-            step="1"
-            [value]="offsetDeg"
-            (change)="onOffsetInput($event)" />
-          <button type="button" class="dir-btn dir-btn--tiny" (click)="nudgeOffset(15)">+15°</button>
-        </div>
-      </label>
-    </aside>
-  </div>
+          (change)="onOffsetInput($event)" />
+        <button type="button" class="dir-btn dir-btn--tiny" (click)="nudgeOffset(15)">+15°</button>
+      </div>
+    </label>
+    <label
+      class="dir-toggle"
+      [class.dir-toggle--disabled]="!trueNorthAvailable"
+      *ngIf="sensorsOn">
+      <input
+        type="checkbox"
+        [checked]="trueNorthActive"
+        [disabled]="!trueNorthAvailable"
+        (change)="toggleTrueNorth()" />
+      {{ 'DIRECTION.TRUE_NORTH' | translate }}
+    </label>
+    <p class="dir-toggle-hint" *ngIf="sensorsOn && !trueNorthAvailable">
+      {{ 'DIRECTION.TRUE_NORTH_UNAVAILABLE' | translate }}
+    </p>
+  </section>
 
-  <section class="dir-cal" *ngIf="!patWizard" [attr.aria-label]="'DIRECTION.CAL_CHOOSE' | translate">
-    <p class="dir-cal__title">{{ 'DIRECTION.CAL_CHOOSE' | translate }}</p>
-    <p class="dir-cal__help">{{ 'DIRECTION.CAL_NORTH_HELP' | translate }}</p>
-    <div class="dir-cal__methods">
-      <button type="button" class="dir-btn" [class.dir-btn--on]="calMethod === 'figure8'" [disabled]="!magKnown" (click)="chooseCal('figure8')" [attr.title]="'DIRECTION.CAL_METHOD_AUTO_HINT' | translate">
-        <i class="fa fa-magnet me-1" aria-hidden="true"></i>{{ 'DIRECTION.CAL_METHOD_AUTO' | translate }}
+  <section
+    class="dir-card dir-card--cam"
+    *ngIf="!patWizard && (!camLive || camDenied)"
+    [attr.aria-label]="'DIRECTION.CAM_START' | translate">
+    <p class="dir-msg dir-msg--bad" *ngIf="camDenied">{{ 'DIRECTION.CAM_DENIED' | translate }}</p>
+    <div class="dir-actions">
+      <button
+        type="button"
+        class="dir-btn dir-btn--go"
+        *ngIf="!camLive"
+        (click)="!sensorsOn || needTap ? enable() : startCamera()">
+        {{ 'DIRECTION.CAM_START' | translate }}
       </button>
-      <button type="button" class="dir-btn" [class.dir-btn--on]="calMethod === 'manual'" (click)="chooseCal('manual')" [attr.title]="'DIRECTION.CAL_METHOD_MANUAL_HINT' | translate">
-        <i class="fa fa-compass me-1" aria-hidden="true"></i>{{ 'DIRECTION.CAL_METHOD_MANUAL' | translate }}
+    </div>
+  </section>
+
+  <section
+    class="dir-card dir-card--astro"
+    *ngIf="!patWizard"
+    [attr.aria-label]="'DIRECTION.OPEN_ASTRO' | translate">
+    <a
+      class="dir-btn dir-btn--link dir-btn--astro"
+      routerLink="/tools/astro-compass"
+      [attr.title]="'DIRECTION.OPEN_ASTRO_HINT' | translate">
+      <i class="fa fa-video-camera" aria-hidden="true"></i>
+      {{ 'DIRECTION.OPEN_ASTRO' | translate }}
+    </a>
+  </section>
+
+  <section class="dir-card" *ngIf="!patWizard" [attr.aria-label]="'DIRECTION.STEP_OTHER' | translate">
+    <h3 class="dir-card__title">
+      <span class="dir-card__n">2</span>
+      {{ 'DIRECTION.STEP_OTHER' | translate }}
+    </h3>
+    <p class="dir-card__help">{{ 'DIRECTION.STEP_OTHER_HELP' | translate }}</p>
+    <div class="dir-methods">
+      <button
+        type="button"
+        class="dir-btn"
+        [class.dir-btn--on]="calMethod === 'figure8'"
+        [disabled]="!magKnown"
+        (click)="chooseCal('figure8')"
+        [attr.title]="'DIRECTION.CAL_METHOD_AUTO_HINT' | translate">
+        <i class="fa fa-magnet" aria-hidden="true"></i>
+        {{ 'DIRECTION.CAL_METHOD_AUTO' | translate }}
       </button>
-      <button type="button" class="dir-btn" [class.dir-btn--on]="calMethod === 'gps'" [disabled]="!gpsKnown" (click)="chooseCal('gps')" [attr.title]="'DIRECTION.CAL_METHOD_GPS_HINT' | translate">
-        <i class="fa fa-location-arrow me-1" aria-hidden="true"></i>{{ 'DIRECTION.CAL_METHOD_GPS' | translate }}
+      <button
+        type="button"
+        class="dir-btn"
+        [class.dir-btn--on]="calMethod === 'gps'"
+        [disabled]="!gpsKnown"
+        (click)="chooseCal('gps')"
+        [attr.title]="'DIRECTION.CAL_METHOD_GPS_HINT' | translate">
+        <i class="fa fa-location-arrow" aria-hidden="true"></i>
+        {{ 'DIRECTION.CAL_METHOD_GPS' | translate }}
       </button>
       <button
         type="button"
@@ -193,35 +294,23 @@
         [disabled]="sunAzimuthDeg() == null"
         [attr.title]="sunBelowHorizon() ? ('DIRECTION.CAL_SUN_NIGHT' | translate) : ('DIRECTION.CAL_METHOD_SUN_HINT' | translate)"
         (click)="chooseCal('sun')">
-        <i class="fa fa-sun-o me-1" aria-hidden="true"></i>{{ 'DIRECTION.CAL_METHOD_SUN' | translate }}
+        <i class="fa fa-sun-o" aria-hidden="true"></i>
+        {{ 'DIRECTION.CAL_METHOD_SUN' | translate }}
       </button>
     </div>
     <p class="dir-msg" *ngIf="sunBelowHorizon()">{{ 'DIRECTION.CAL_SUN_NIGHT' | translate }}</p>
 
-    <ng-container *ngIf="calMethod === 'figure8' || (!calMethod && magKnown)">
+    <div class="dir-cal__panel" *ngIf="calMethod === 'figure8'">
       <p *ngIf="!calibrating && !hardIronReady()">{{ 'DIRECTION.CAL_HINT' | translate }}</p>
       <p *ngIf="calibrating">{{ 'DIRECTION.CAL_MOVE' | translate }} — {{ calPct }}%</p>
       <p *ngIf="!calibrating && hardIronReady()">{{ 'DIRECTION.CAL_OK' | translate }}</p>
       <div class="dir-cal__bar" *ngIf="calibrating"><i [style.width.%]="calPct"></i></div>
-      <div class="dir-cal__btns">
+      <div class="dir-actions">
         <button type="button" class="dir-btn dir-btn--go" [disabled]="!magKnown" (click)="startCal()">
           {{ 'DIRECTION.CAL_START' | translate }}
         </button>
         <button type="button" class="dir-btn" [disabled]="!hardIronReady()" (click)="forgetCal()">
           {{ 'DIRECTION.CAL_RESET' | translate }}
-        </button>
-      </div>
-    </ng-container>
-
-    <div class="dir-cal__panel" *ngIf="calMethod === 'manual'">
-      <ol>
-        <li>{{ 'DIRECTION.CAL_MANUAL_STEP1' | translate }}</li>
-        <li>{{ 'DIRECTION.CAL_MANUAL_STEP2' | translate }}</li>
-        <li>{{ 'DIRECTION.CAL_MANUAL_STEP3' | translate }}</li>
-      </ol>
-      <div class="dir-cal__btns">
-        <button type="button" class="dir-btn dir-btn--go" [disabled]="magAzimuthDeg == null" (click)="confirmManualNorth()">
-          {{ 'DIRECTION.CAL_MANUAL_CONFIRM' | translate }}
         </button>
         <button type="button" class="dir-btn" (click)="cancelCalMethod()">{{ 'DIRECTION.CAL_CANCEL' | translate }}</button>
       </div>
@@ -252,44 +341,28 @@
           · {{ 'DIRECTION.CAL_SUN_ELEVATION' | translate }} : {{ sunElevationDeg() | number : '1.0-0' }}°
         </span>
       </p>
-      <div class="dir-cal__btns">
+      <div class="dir-actions">
         <button type="button" class="dir-btn dir-btn--go" [disabled]="sunAzimuthDeg() == null || magAzimuthDeg == null" (click)="confirmSunNorth()">
           {{ 'DIRECTION.CAL_SUN_CONFIRM' | translate }}
         </button>
         <button type="button" class="dir-btn" (click)="cancelCalMethod()">{{ 'DIRECTION.CAL_CANCEL' | translate }}</button>
       </div>
     </div>
+  </section>
 
-    <p class="dir-cal__title dir-cal__title--gap">{{ 'DIRECTION.PAT_TITLE' | translate }}</p>
-    <p class="dir-cal__help">{{ 'DIRECTION.PAT_VISOR_HELP' | translate }}</p>
+  <section class="dir-card" *ngIf="!patWizard" [attr.aria-label]="'DIRECTION.STEP_VISOR' | translate">
+    <h3 class="dir-card__title">
+      <span class="dir-card__n">3</span>
+      {{ 'DIRECTION.STEP_VISOR' | translate }}
+    </h3>
+    <p class="dir-card__help">{{ 'DIRECTION.STEP_VISOR_HELP' | translate }}</p>
     <p class="dir-pat__status">
       {{ 'DIRECTION.PAT_DB' | translate : { count: patDbCount, name: patDbUser || '—' } }}
     </p>
-    <div class="dir-pat__mix" *ngIf="patSeriesCount() > 1">
-      <p class="dir-pat__status">{{ 'DIRECTION.PAT_MIX' | translate : { n: patSeriesCount() } }}</p>
-      <div class="dir-cal__methods">
-        <button
-          type="button"
-          class="dir-btn"
-          [class.dir-btn--on]="patMixMode === 'latest'"
-          (click)="setPatMixMode('latest')"
-          [attr.title]="'DIRECTION.PAT_MIX_LATEST_HINT' | translate">
-          {{ 'DIRECTION.PAT_MIX_LATEST' | translate }}
-        </button>
-        <button
-          type="button"
-          class="dir-btn"
-          [class.dir-btn--on]="patMixMode === 'average'"
-          (click)="setPatMixMode('average')"
-          [attr.title]="'DIRECTION.PAT_MIX_AVG_HINT' | translate : { n: patSeriesCount() }">
-          {{ 'DIRECTION.PAT_MIX_AVG' | translate : { n: patSeriesCount() } }}
-        </button>
-      </div>
-    </div>
     <p class="dir-pat__status" *ngIf="patDbLoading">{{ 'DIRECTION.PAT_LOADING' | translate }}</p>
     <p class="dir-msg dir-msg--ok" *ngIf="patSeriesDone">{{ 'DIRECTION.PAT_DONE' | translate }}</p>
     <p class="dir-msg dir-msg--bad" *ngIf="patError">{{ patError | translate }}</p>
-    <div class="dir-cal__methods">
+    <div class="dir-actions">
       <button
         type="button"
         class="dir-btn dir-btn--go"
@@ -298,75 +371,96 @@
         [attr.title]="'DIRECTION.PAT_START_HINT' | translate">
         {{ (patDbCount > 0 ? 'DIRECTION.PAT_RECAL' : 'DIRECTION.PAT_START') | translate }}
       </button>
-      <button
-        type="button"
-        class="dir-btn"
-        (click)="exportPatDb()"
-        [disabled]="patDbLoading"
-        [attr.title]="'DIRECTION.PAT_EXPORT_HINT' | translate">
-        {{ 'DIRECTION.PAT_EXPORT' | translate }}
-      </button>
-      <label class="dir-btn" [attr.title]="'DIRECTION.PAT_IMPORT_HINT' | translate">
-        {{ 'DIRECTION.PAT_IMPORT' | translate }}
-        <input type="file" accept="application/json,.json" (change)="importPatFile($event)" />
-      </label>
-      <button
-        type="button"
-        class="dir-btn dir-btn--danger"
-        (click)="clearPatDb()"
-        [disabled]="patDbLoading"
-        [attr.title]="'DIRECTION.PAT_FORGET_HINT' | translate">
-        {{ 'DIRECTION.PAT_FORGET' | translate }}
+      <button type="button" class="dir-btn" (click)="togglePatExtra()">
+        {{ (showPatExtra ? 'DIRECTION.HIDE_MORE' : 'DIRECTION.SHOW_MORE') | translate }}
       </button>
     </div>
-    <ol class="dir-pat__list">
-      <li>
-        <span class="dir-pat__n">1</span>
-        <span><strong>{{ 'DIRECTION.PAT_NORTH_TITLE' | translate }}</strong></span>
-      </li>
-      <li *ngFor="let pose of patPoses; let i = index" [class.dir-pat__li--done]="patPoseDone(pose.id)">
-        <span class="dir-pat__n">{{ i + 2 }}</span>
-        <span>
-          <strong>{{ pose.titleKey | translate }}</strong>
-        </span>
-      </li>
-    </ol>
+    <div class="dir-pat-extra" *ngIf="showPatExtra">
+      <div class="dir-pat__mix" *ngIf="patSeriesCount() > 1">
+        <p class="dir-pat__status">{{ 'DIRECTION.PAT_MIX' | translate : { n: patSeriesCount() } }}</p>
+        <div class="dir-methods">
+          <button
+            type="button"
+            class="dir-btn"
+            [class.dir-btn--on]="patMixMode === 'latest'"
+            (click)="setPatMixMode('latest')">
+            {{ 'DIRECTION.PAT_MIX_LATEST' | translate }}
+          </button>
+          <button
+            type="button"
+            class="dir-btn"
+            [class.dir-btn--on]="patMixMode === 'average'"
+            (click)="setPatMixMode('average')">
+            {{ 'DIRECTION.PAT_MIX_AVG' | translate : { n: patSeriesCount() } }}
+          </button>
+        </div>
+      </div>
+      <div class="dir-actions">
+        <button type="button" class="dir-btn" (click)="exportPatDb()" [disabled]="patDbLoading">
+          {{ 'DIRECTION.PAT_EXPORT' | translate }}
+        </button>
+        <label class="dir-btn" [attr.title]="'DIRECTION.PAT_IMPORT_HINT' | translate">
+          {{ 'DIRECTION.PAT_IMPORT' | translate }}
+          <input type="file" accept="application/json,.json" (change)="importPatFile($event)" />
+        </label>
+        <button type="button" class="dir-btn dir-btn--danger" (click)="clearPatDb()" [disabled]="patDbLoading">
+          {{ 'DIRECTION.PAT_FORGET' | translate }}
+        </button>
+      </div>
+      <ol class="dir-pat__list">
+        <li>
+          <span class="dir-pat__n">1</span>
+          <span><strong>{{ 'DIRECTION.PAT_NORTH_TITLE' | translate }}</strong></span>
+        </li>
+        <li *ngFor="let pose of patPoses; let i = index" [class.dir-pat__li--done]="patPoseDone(pose.id)">
+          <span class="dir-pat__n">{{ i + 2 }}</span>
+          <span><strong>{{ pose.titleKey | translate }}</strong></span>
+        </li>
+      </ol>
+    </div>
   </section>
 
   <section
-    class="dir-dash"
-    *ngIf="dashSections.length || liveCardList.length || unavailableCardList.length"
+    class="dir-card dir-card--muted"
+    *ngIf="!patWizard && (dashSections.length || liveCardList.length || unavailableCardList.length)"
     [attr.aria-label]="'DIRECTION.PARAMS' | translate">
-    <article class="dir-dash__sec" *ngFor="let sec of dashSections; trackBy: trackDash">
-      <h3 class="dir-dash__h">{{ sec.labelKey | translate }}</h3>
-      <div class="dir-dash__grid">
-        <div class="dir-dash__cell" *ngFor="let p of sec.rows; trackBy: trackParam" [class.dir-dash__cell--warn]="p.warn">
-          <span class="dir-dash__k">{{ p.labelKey | translate }}</span>
-          <span class="dir-dash__v">{{ isI18nValue(p) ? (p.value | translate) : p.value }}</span>
+    <button type="button" class="dir-card__toggle" (click)="toggleSensors()">
+      <i class="fa" [ngClass]="showSensors ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
+      {{ (showSensors ? 'DIRECTION.HIDE_SENSORS' : 'DIRECTION.SHOW_SENSORS') | translate }}
+    </button>
+    <div class="dir-dash" *ngIf="showSensors">
+      <article class="dir-dash__sec" *ngFor="let sec of dashSections; trackBy: trackDash">
+        <h3 class="dir-dash__h">{{ sec.labelKey | translate }}</h3>
+        <div class="dir-dash__grid">
+          <div class="dir-dash__cell" *ngFor="let p of sec.rows; trackBy: trackParam" [class.dir-dash__cell--warn]="p.warn">
+            <span class="dir-dash__k">{{ p.labelKey | translate }}</span>
+            <span class="dir-dash__v">{{ isI18nValue(p) ? (p.value | translate) : p.value }}</span>
+          </div>
         </div>
-      </div>
-    </article>
-    <article class="dir-dash__sec" *ngFor="let s of liveCardList; trackBy: trackCard">
-      <h3 class="dir-dash__h">
-        <span class="dir-dash__dot" aria-hidden="true"></span>
-        {{ s.labelKey | translate }}
-        <em>{{ 'DIRECTION.ST_live' | translate }}</em>
-      </h3>
-      <div class="dir-dash__grid dir-dash__grid--xyz" *ngIf="s.lines.length">
-        <div class="dir-dash__cell" *ngFor="let ln of s.lines; trackBy: trackLine">
-          <span class="dir-dash__k">{{ ln.k }}</span>
-          <span class="dir-dash__v">{{ ln.v }}</span>
+      </article>
+      <article class="dir-dash__sec" *ngFor="let s of liveCardList; trackBy: trackCard">
+        <h3 class="dir-dash__h">
+          <span class="dir-dash__dot" aria-hidden="true"></span>
+          {{ s.labelKey | translate }}
+          <em>{{ 'DIRECTION.ST_live' | translate }}</em>
+        </h3>
+        <div class="dir-dash__grid dir-dash__grid--xyz" *ngIf="s.lines.length">
+          <div class="dir-dash__cell" *ngFor="let ln of s.lines; trackBy: trackLine">
+            <span class="dir-dash__k">{{ ln.k }}</span>
+            <span class="dir-dash__v">{{ ln.v }}</span>
+          </div>
         </div>
-      </div>
-    </article>
-    <article class="dir-dash__sec dir-dash__sec--muted" *ngIf="unavailableCardList.length">
-      <h3 class="dir-dash__h">{{ 'DIRECTION.UNAVAILABLE' | translate }}</h3>
-      <div class="dir-dash__chips">
-        <span class="dir-dash__chip" *ngFor="let c of unavailableCardList; trackBy: trackCard" [attr.data-st]="c.status">
-          {{ c.labelKey | translate }}
-          <em>{{ ('DIRECTION.ST_' + c.status) | translate }}</em>
-        </span>
-      </div>
-    </article>
+      </article>
+      <article class="dir-dash__sec dir-dash__sec--muted" *ngIf="unavailableCardList.length">
+        <h3 class="dir-dash__h">{{ 'DIRECTION.UNAVAILABLE' | translate }}</h3>
+        <div class="dir-dash__chips">
+          <span class="dir-dash__chip" *ngFor="let c of unavailableCardList; trackBy: trackCard" [attr.data-st]="c.status">
+            {{ c.labelKey | translate }}
+            <em>{{ ('DIRECTION.ST_' + c.status) | translate }}</em>
+          </span>
+        </div>
+      </article>
+    </div>
   </section>
+  </div>
 </div>

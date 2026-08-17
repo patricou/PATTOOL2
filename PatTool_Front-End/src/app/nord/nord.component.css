@@ -66,6 +66,15 @@
   cursor: pointer;
 }
 
+.nord-switch--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nord-switch--disabled input {
+  cursor: not-allowed;
+}
+
 .nord-warn,
 .nord-hint,
 .nord-field-warn {

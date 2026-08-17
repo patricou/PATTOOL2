@@ -1745,7 +1745,7 @@ export class AssistantDrawerComponent
     }
     const url = this.router.url || '';
     const alignLeft = /\/tools\/(?:tv-watcher|webcam)(?:\/|$|\?)/.test(url);
-    const hideFab = /\/tools\/astro-compass(?:\/|$|\?)/.test(url);
+    const hideFab = /\/tools\/(?:astro-compass|direction)(?:\/|$|\?)/.test(url);
     let changed = false;
     if (next !== this.fabTopPx) {
       this.fabTopPx = next;

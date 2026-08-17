@@ -110,7 +110,7 @@ public class GlobalExceptionHandler {
         );
         
         String errorMessage = "File size exceeds the maximum allowed limit. " +
-                             "Maximum file size: 100MB, Maximum request size: 350MB. " +
+                             "Maximum file size: 800MB, Maximum request size: 810MB. " +
                              "Please reduce the file size and try again.";
         
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)

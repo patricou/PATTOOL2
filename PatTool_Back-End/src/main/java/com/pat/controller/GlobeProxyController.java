@@ -1,6 +1,9 @@
 package com.pat.controller;
 
+import com.pat.controller.dto.AstroAlignCueDto;
+import com.pat.controller.dto.AstroFinderTrailDto;
 import com.pat.controller.dto.AstroLastTargetDto;
+import com.pat.controller.dto.AstroMaxMagnitudeDto;
 import com.pat.controller.dto.CompassCalibrationDto;
 import com.pat.controller.dto.CompassHeadingModeDto;
 import com.pat.controller.dto.FlightStateDto;
@@ -10,7 +13,10 @@ import com.pat.controller.dto.GlobeIssGlobalPrefsDto;
 import com.pat.controller.dto.GlobeSatelliteOverlayPrefsDto;
 import com.pat.controller.dto.IssAlertAdminEntryDto;
 import com.pat.controller.dto.IssTraceResponseDto;
+import com.pat.service.AstroAlignCueService;
+import com.pat.service.AstroFinderTrailService;
 import com.pat.service.AstroLastTargetService;
+import com.pat.service.AstroMaxMagnitudeService;
 import com.pat.service.CompassCalibrationService;
 import com.pat.service.FlightTrackingPreferenceService;
 import com.pat.service.GlobeIssGlobalPrefsService;
@@ -69,6 +75,9 @@ public class GlobeProxyController {
     private final GlobeIssGlobalPrefsService globeIssGlobalPrefsService;
     private final CompassCalibrationService compassCalibrationService;
     private final AstroLastTargetService astroLastTargetService;
+    private final AstroFinderTrailService astroFinderTrailService;
+    private final AstroMaxMagnitudeService astroMaxMagnitudeService;
+    private final AstroAlignCueService astroAlignCueService;
     private final OpenSkyService openSkyService;
     private final FlightTrackingPreferenceService flightTrackingPreferenceService;
     private final GlobeSatelliteOverlayPrefsService globeSatelliteOverlayPrefsService;
@@ -82,6 +91,9 @@ public class GlobeProxyController {
             GlobeIssGlobalPrefsService globeIssGlobalPrefsService,
             CompassCalibrationService compassCalibrationService,
             AstroLastTargetService astroLastTargetService,
+            AstroFinderTrailService astroFinderTrailService,
+            AstroMaxMagnitudeService astroMaxMagnitudeService,
+            AstroAlignCueService astroAlignCueService,
             OpenSkyService openSkyService,
             FlightTrackingPreferenceService flightTrackingPreferenceService,
             GlobeSatelliteOverlayPrefsService globeSatelliteOverlayPrefsService) {
@@ -93,6 +105,9 @@ public class GlobeProxyController {
         this.globeIssGlobalPrefsService = globeIssGlobalPrefsService;
         this.compassCalibrationService = compassCalibrationService;
         this.astroLastTargetService = astroLastTargetService;
+        this.astroFinderTrailService = astroFinderTrailService;
+        this.astroMaxMagnitudeService = astroMaxMagnitudeService;
+        this.astroAlignCueService = astroAlignCueService;
         this.openSkyService = openSkyService;
         this.flightTrackingPreferenceService = flightTrackingPreferenceService;
         this.globeSatelliteOverlayPrefsService = globeSatelliteOverlayPrefsService;
@@ -606,7 +621,7 @@ public class GlobeProxyController {
     }
 
     /**
-     * Calage du Nord de la boussole ISS de l'utilisateur courant (par {@code sub} JWT).
+     * Calage du Nord de la boussole ISS de l'utilisateur courant (clé Mongo = username).
      * Renvoie 204 (No Content) si aucun calage n'est mémorisé ou si l'appel est anonyme :
      * la boussole repart alors « non calée ».
      */
@@ -717,6 +732,101 @@ public class GlobeProxyController {
             return ResponseEntity.badRequest().build();
         } catch (Exception e) {
             log.warn("Astro last-target save failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /** Switch Trajectoire du viseur, mémorisé pour l'utilisateur courant (username). */
+    @GetMapping("/astro/finder-trail")
+    public ResponseEntity<AstroFinderTrailDto> getAstroFinderTrail() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return astroFinderTrailService.findForSubject(sub)
+                .map(enabled -> ResponseEntity.ok(new AstroFinderTrailDto(enabled)))
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    /** Mémorise le switch Trajectoire du viseur dès que l'utilisateur le change. */
+    @PutMapping("/astro/finder-trail")
+    public ResponseEntity<AstroFinderTrailDto> setAstroFinderTrail(@RequestBody AstroFinderTrailDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null || body.enabled() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            boolean saved = astroFinderTrailService.saveForSubject(sub, body.enabled());
+            return ResponseEntity.ok(new AstroFinderTrailDto(saved));
+        } catch (Exception e) {
+            log.warn("Astro finder-trail save failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /** Magnitude max du viseur, mémorisée pour l'utilisateur courant (username). Défaut : 5. */
+    @GetMapping("/astro/max-magnitude")
+    public ResponseEntity<AstroMaxMagnitudeDto> getAstroMaxMagnitude() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return astroMaxMagnitudeService.findForSubject(sub)
+                .map(value -> ResponseEntity.ok(new AstroMaxMagnitudeDto(value)))
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    /** Mémorise la magnitude max du viseur dès que l'utilisateur la change. */
+    @PutMapping("/astro/max-magnitude")
+    public ResponseEntity<AstroMaxMagnitudeDto> setAstroMaxMagnitude(@RequestBody AstroMaxMagnitudeDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null || body.maxMagnitude() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            int saved = astroMaxMagnitudeService.saveForSubject(sub, body.maxMagnitude());
+            return ResponseEntity.ok(new AstroMaxMagnitudeDto(saved));
+        } catch (Exception e) {
+            log.warn("Astro max-magnitude save failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /** Signal de visée (Rien / Bip / Vibration) mémorisé pour l'utilisateur courant (username). */
+    @GetMapping("/astro/align-cue")
+    public ResponseEntity<AstroAlignCueDto> getAstroAlignCue() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return astroAlignCueService.findForSubject(sub)
+                .map(mode -> ResponseEntity.ok(new AstroAlignCueDto(mode)))
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    /** Mémorise le signal de visée dès que l'utilisateur le change. */
+    @PutMapping("/astro/align-cue")
+    public ResponseEntity<AstroAlignCueDto> setAstroAlignCue(@RequestBody AstroAlignCueDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null || body.mode() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            String saved = astroAlignCueService.saveForSubject(sub, body.mode());
+            return ResponseEntity.ok(new AstroAlignCueDto(saved));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            log.warn("Astro align-cue save failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

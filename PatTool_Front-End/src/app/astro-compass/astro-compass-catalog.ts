@@ -1,7 +1,7 @@
 import { Body } from 'astronomy-engine';
 
 /** Target kind for the celestial compass. */
-export type AstroTargetKind = 'planet' | 'star' | 'galaxy' | 'custom' | 'iss';
+export type AstroTargetKind = 'planet' | 'star' | 'galaxy' | 'constellation' | 'custom' | 'iss';
 
 export interface AstroBodyOption {
   id: string;

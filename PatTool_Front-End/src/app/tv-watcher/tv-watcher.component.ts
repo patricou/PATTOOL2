@@ -178,14 +178,24 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private clientRecordChannel: TvChannel | null = null;
   private recordAutoStopTimer: ReturnType<typeof setTimeout> | null = null;
   private recordStatsTimer: ReturnType<typeof setInterval> | null = null;
-  /** Requested max duration when starting a recording (seconds). */
+  private recordDrawTimer: ReturnType<typeof setInterval> | null = null;
+  private recordCanvas: HTMLCanvasElement | null = null;
+  private recordAudioCtx: AudioContext | null = null;
+  private recordAudioSource: MediaElementAudioSourceNode | null = null;
+  private recordAudioDest: MediaStreamAudioDestinationNode | null = null;
+  private recordAudioSpeakersConnected = false;
+  private recordFinalizing = false;
+  private recordDidFinalize = false;
+  private lastRecordTokenRefreshAt = 0;
+  /** Requested max duration when starting a recording (seconds). 0 = until max upload size. */
   recordDurationSec = 300;
   readonly recordDurationOptions = [
     { sec: 60, labelKey: 'TV.RECORD_DUR_1M' },
     { sec: 300, labelKey: 'TV.RECORD_DUR_5M' },
     { sec: 600, labelKey: 'TV.RECORD_DUR_10M' },
     { sec: 900, labelKey: 'TV.RECORD_DUR_15M' },
-    { sec: 1800, labelKey: 'TV.RECORD_DUR_30M' }
+    { sec: 1800, labelKey: 'TV.RECORD_DUR_30M' },
+    { sec: 0, labelKey: 'TV.RECORD_DUR_MAX' }
   ];
   /** Share dialog for a recording (owner only). */
   shareRecordingOpen = false;
@@ -832,6 +842,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.clearChannelStatusFeedbackTimer();
     this.stopRecordingsPoll();
     this.abortClientRecording(false);
+    this.closeRecordingAudioGraph();
     if (this.epgRefreshTimer != null) {
       clearInterval(this.epgRefreshTimer);
       this.epgRefreshTimer = null;
@@ -2757,10 +2768,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           this.composeStatusMessage('TV.STATUS_LAYER_CLIENT', detailParts)
         );
         // Manifest OK but MSE poisoned — rebuild the player once automatically.
-        if (this.virtualLiveHardRestarts < TvWatcherComponent.MAX_VIRTUAL_LIVE_HARD_RESTARTS) {
+        if (
+          this.virtualLiveHardRestarts < TvWatcherComponent.MAX_VIRTUAL_LIVE_HARD_RESTARTS
+          && !this.clientRecordingActive
+        ) {
           this.virtualLiveHardRestarts += 1;
           window.setTimeout(() => {
-            if (this.selectedChannel?.id === channel.id) {
+            if (this.selectedChannel?.id === channel.id && !this.clientRecordingActive) {
               this.restartStream();
             }
           }, 350);
@@ -3669,15 +3683,15 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
     let stream: MediaStream;
     try {
-      const capturable = video as HTMLVideoElement & { captureStream: () => MediaStream };
-      stream = capturable.captureStream();
-    } catch (e) {
+      stream = this.buildRecordingCaptureStream(video);
+    } catch {
       this.playError = 'TV.ERR_RECORD_UNAVAILABLE';
       this.showChrome(true);
       this.cdr.markForCheck();
       return;
     }
     if (!stream || stream.getTracks().length === 0) {
+      this.releaseRecordingCapture();
       this.playError = 'TV.ERR_RECORD_UNAVAILABLE';
       this.showChrome(true);
       this.cdr.markForCheck();
@@ -3691,6 +3705,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         ? new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_500_000 })
         : new MediaRecorder(stream, { videoBitsPerSecond: 2_500_000 });
     } catch {
+      this.releaseRecordingCapture();
       this.playError = 'TV.ERR_RECORD_UNAVAILABLE';
       this.showChrome(true);
       this.cdr.markForCheck();
@@ -3707,14 +3722,17 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       }
     };
     this.mediaRecorder.onerror = () => {
-      this.playError = 'TV.ERR_RECORD_START';
-      this.abortClientRecording(false);
-      this.cdr.markForCheck();
+      if (this.clientRecordingActive && !this.recordFinalizing) {
+        this.stopActiveRecording();
+      }
     };
+    this.mediaRecorder.onstop = () => this.finalizeClientRecording();
 
     this.clientRecordChannel = channel;
     this.clientRecordStartedAt = Date.now();
     this.clientRecordingActive = true;
+    this.recordFinalizing = false;
+    this.recordDidFinalize = false;
     this.recordingElapsedSec = 0;
     this.recordingBytes = 0;
     this.recordingSessionExpiresAt = this.keycloak.getSessionExpiresAt();
@@ -3724,114 +3742,203 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
     if (this.recordAutoStopTimer != null) {
       clearTimeout(this.recordAutoStopTimer);
-    }
-    this.recordAutoStopTimer = setTimeout(() => {
       this.recordAutoStopTimer = null;
-      if (this.clientRecordingActive) {
-        this.stopActiveRecording();
-      }
-    }, Math.max(5, this.recordDurationSec) * 1000);
+    }
+    if (this.recordDurationSec > 0) {
+      this.recordAutoStopTimer = setTimeout(() => {
+        this.recordAutoStopTimer = null;
+        if (this.clientRecordingActive) {
+          this.stopActiveRecording();
+        }
+      }, Math.max(5, this.recordDurationSec) * 1000);
+    }
 
     this.showChrome(false);
     this.cdr.markForCheck();
   }
 
+  /**
+   * Capture via canvas + element audio so france.tv / HLS MediaSource swaps
+   * (token renew) do not end MediaRecorder tracks.
+   */
+  private buildRecordingCaptureStream(video: HTMLVideoElement): MediaStream {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(2, video.videoWidth || 1280);
+    canvas.height = Math.max(2, video.videoHeight || 720);
+    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+    if (!ctx) {
+      const capturable = video as HTMLVideoElement & { captureStream: () => MediaStream };
+      return capturable.captureStream();
+    }
+    this.recordCanvas = canvas;
+    const fps = 25;
+    const draw = () => {
+      if (!this.clientRecordingActive || !this.recordCanvas) {
+        return;
+      }
+      try {
+        if (video.readyState >= 2 && video.videoWidth > 0) {
+          if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+          }
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        }
+      } catch {
+        /* empty / tainted frame */
+      }
+    };
+    draw();
+    if (this.recordDrawTimer != null) {
+      clearInterval(this.recordDrawTimer);
+    }
+    this.recordDrawTimer = setInterval(draw, Math.round(1000 / fps));
+    const mixed = new MediaStream(canvas.captureStream(fps).getVideoTracks());
+    for (const track of this.ensureRecordingAudioTracks(video)) {
+      mixed.addTrack(track);
+    }
+    return mixed;
+  }
+
+  private ensureRecordingAudioTracks(video: HTMLVideoElement): MediaStreamTrack[] {
+    try {
+      const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AC) {
+        throw new Error('no AudioContext');
+      }
+      if (!this.recordAudioCtx || this.recordAudioCtx.state === 'closed') {
+        this.recordAudioCtx = new AC();
+        this.recordAudioSource = null;
+        this.recordAudioSpeakersConnected = false;
+      }
+      void this.recordAudioCtx.resume();
+      if (!this.recordAudioSource) {
+        this.recordAudioSource = this.recordAudioCtx.createMediaElementSource(video);
+      }
+      if (!this.recordAudioSpeakersConnected) {
+        this.recordAudioSource.connect(this.recordAudioCtx.destination);
+        this.recordAudioSpeakersConnected = true;
+      }
+      try {
+        this.recordAudioDest?.disconnect();
+      } catch {
+        /* ignore */
+      }
+      this.recordAudioDest = this.recordAudioCtx.createMediaStreamDestination();
+      this.recordAudioSource.connect(this.recordAudioDest);
+      return this.recordAudioDest.stream.getAudioTracks();
+    } catch {
+      try {
+        const capturable = video as HTMLVideoElement & { captureStream: () => MediaStream };
+        return capturable.captureStream().getAudioTracks();
+      } catch {
+        return [];
+      }
+    }
+  }
+
   stopActiveRecording(event?: Event): void {
     event?.stopPropagation();
     event?.preventDefault();
-    if (!this.clientRecordingActive || !this.mediaRecorder) {
+    if (!this.clientRecordingActive || !this.mediaRecorder || this.recordFinalizing) {
       return;
     }
     if (this.recordingBusy) {
       return;
     }
-    const recorder = this.mediaRecorder;
-    const channel = this.clientRecordChannel;
-    const startedAt = this.clientRecordStartedAt;
-    const mimeType = recorder.mimeType || this.pickRecorderMimeType() || 'video/webm';
-
+    this.recordFinalizing = true;
     this.recordingBusy = true;
     this.stopRecordStatsTick();
     if (this.recordAutoStopTimer != null) {
       clearTimeout(this.recordAutoStopTimer);
       this.recordAutoStopTimer = null;
     }
-
-    recorder.onstop = () => {
-      const durationSec = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
-      const blob = new Blob(this.recordedChunks, { type: mimeType.split(';')[0] || 'video/webm' });
-      this.recordedChunks = [];
-      this.mediaRecorder = null;
-      this.clientRecordingActive = false;
-      this.clientRecordChannel = null;
-      this.recordingElapsedSec = durationSec;
-      this.recordingBytes = blob.size;
-
-      if (!blob.size || blob.size < 1024) {
-        this.recordingBusy = false;
-        this.playError = 'TV.ERR_RECORD_START';
-        this.cdr.markForCheck();
-        return;
-      }
-      if (!channel) {
-        this.recordingBusy = false;
-        this.cdr.markForCheck();
-        return;
-      }
-
-      const ext = mimeType.includes('mp4') ? '.mp4' : '.webm';
-      this.api
-        .uploadTvRecording(
-          blob,
-          {
-            channelId: channel.id,
-            channelName: channel.name,
-            channelLogo: channel.logo,
-            country: channel.country,
-            streamUrl: resolveTvStreamUrl(channel),
-            durationSec,
-            visibility: 'private'
-          },
-          `tv-${(channel.name || 'rec').replace(/[^\w.-]+/g, '_').slice(0, 40)}${ext}`
-        )
-        .subscribe({
-          next: (rec) => {
-            this.recordingBusy = false;
-            if (rec) {
-              this.recordings = [rec, ...this.recordings.filter((r) => r.id !== rec.id)];
-            }
-            this.setListMode('recordings');
-            this.showChrome(true);
-            this.cdr.markForCheck();
-          },
-          error: (err) => {
-            this.recordingBusy = false;
-            const code = err?.error?.error || '';
-            if (code === 'file_too_large') {
-              this.playError = 'TV.ERR_RECORD_TOO_LARGE';
-            } else if (code === 'tv_recording_disabled') {
-              this.playError = 'TV.ERR_RECORD_UNAVAILABLE';
-            } else {
-              this.playError = 'TV.ERR_RECORD_START';
-            }
-            this.showChrome(true);
-            this.cdr.markForCheck();
-          }
-        });
-    };
-
+    const recorder = this.mediaRecorder;
     try {
       if (recorder.state !== 'inactive') {
         recorder.stop();
       } else {
-        recorder.onstop(new Event('stop') as BlobEvent);
+        this.finalizeClientRecording();
       }
     } catch {
-      this.recordingBusy = false;
-      this.abortClientRecording(false);
-      this.playError = 'TV.ERR_RECORD_STOP';
-      this.cdr.markForCheck();
+      this.finalizeClientRecording();
     }
+  }
+
+  private finalizeClientRecording(): void {
+    if (this.recordDidFinalize) {
+      return;
+    }
+    this.recordDidFinalize = true;
+    const channel = this.clientRecordChannel;
+    const startedAt = this.clientRecordStartedAt;
+    const recorder = this.mediaRecorder;
+    const mimeType = recorder?.mimeType || this.pickRecorderMimeType() || 'video/webm';
+    const durationSec = Math.max(1, Math.round((Date.now() - (startedAt || Date.now())) / 1000));
+    const blob = new Blob(this.recordedChunks, { type: mimeType.split(';')[0] || 'video/webm' });
+    this.recordedChunks = [];
+    this.mediaRecorder = null;
+    this.clientRecordingActive = false;
+    this.clientRecordChannel = null;
+    this.recordingElapsedSec = durationSec;
+    this.recordingBytes = blob.size;
+    this.releaseRecordingCapture();
+
+    if (!blob.size || blob.size < 1024) {
+      this.recordingBusy = false;
+      this.recordFinalizing = false;
+      this.playError = 'TV.ERR_RECORD_START';
+      this.cdr.markForCheck();
+      return;
+    }
+    if (!channel) {
+      this.recordingBusy = false;
+      this.recordFinalizing = false;
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const ext = mimeType.includes('mp4') ? '.mp4' : '.webm';
+    this.api
+      .uploadTvRecording(
+        blob,
+        {
+          channelId: channel.id,
+          channelName: channel.name,
+          channelLogo: channel.logo,
+          country: channel.country,
+          streamUrl: resolveTvStreamUrl(channel),
+          durationSec,
+          visibility: 'private'
+        },
+        `tv-${(channel.name || 'rec').replace(/[^\w.-]+/g, '_').slice(0, 40)}${ext}`
+      )
+      .subscribe({
+        next: (rec) => {
+          this.recordingBusy = false;
+          this.recordFinalizing = false;
+          if (rec) {
+            this.recordings = [rec, ...this.recordings.filter((r) => r.id !== rec.id)];
+          }
+          this.setListMode('recordings');
+          this.showChrome(true);
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          this.recordingBusy = false;
+          this.recordFinalizing = false;
+          const code = err?.error?.error || '';
+          if (code === 'file_too_large' || err?.status === 413) {
+            this.playError = 'TV.ERR_RECORD_TOO_LARGE';
+          } else if (code === 'tv_recording_disabled') {
+            this.playError = 'TV.ERR_RECORD_UNAVAILABLE';
+          } else {
+            this.playError = 'TV.ERR_RECORD_START';
+          }
+          this.showChrome(true);
+          this.cdr.markForCheck();
+        }
+      });
   }
 
   private abortClientRecording(upload: boolean): void {
@@ -3843,6 +3950,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     try {
       if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
         this.mediaRecorder.onstop = null;
+        this.mediaRecorder.onerror = null;
         this.mediaRecorder.stop();
       }
     } catch {
@@ -3855,9 +3963,40 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.recordingElapsedSec = 0;
     this.recordingBytes = 0;
     this.recordingSessionExpiresAt = null;
+    this.recordFinalizing = false;
+    this.releaseRecordingCapture();
     if (!upload) {
       this.recordingBusy = false;
     }
+  }
+
+  private releaseRecordingCapture(): void {
+    if (this.recordDrawTimer != null) {
+      clearInterval(this.recordDrawTimer);
+      this.recordDrawTimer = null;
+    }
+    this.recordCanvas = null;
+    try {
+      this.recordAudioDest?.disconnect();
+    } catch {
+      /* ignore */
+    }
+    this.recordAudioDest = null;
+  }
+
+  private closeRecordingAudioGraph(): void {
+    this.releaseRecordingCapture();
+    try {
+      this.recordAudioSource?.disconnect();
+    } catch {
+      /* ignore */
+    }
+    this.recordAudioSource = null;
+    this.recordAudioSpeakersConnected = false;
+    if (this.recordAudioCtx && this.recordAudioCtx.state !== 'closed') {
+      void this.recordAudioCtx.close();
+    }
+    this.recordAudioCtx = null;
   }
 
   private startRecordStatsTick(): void {
@@ -3877,9 +4016,31 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (!this.clientRecordingActive || !this.clientRecordStartedAt) {
       return;
     }
+    if (this.mediaRecorder && this.mediaRecorder.state === 'inactive' && !this.recordFinalizing) {
+      this.stopActiveRecording();
+      return;
+    }
     this.recordingElapsedSec = Math.max(0, Math.floor((Date.now() - this.clientRecordStartedAt) / 1000));
     this.recordingSessionExpiresAt = this.keycloak.getSessionExpiresAt();
+    this.maybeRefreshRecordingSession();
     this.cdr.markForCheck();
+  }
+
+  private maybeRefreshRecordingSession(): void {
+    const exp = this.keycloak.getAccessTokenExpiresAt();
+    if (exp == null) {
+      return;
+    }
+    const remainingMs = exp * 1000 - Date.now();
+    if (remainingMs > 90_000) {
+      return;
+    }
+    const now = Date.now();
+    if (now - this.lastRecordTokenRefreshAt < 30_000) {
+      return;
+    }
+    this.lastRecordTokenRefreshAt = now;
+    void this.keycloak.getToken().catch(() => undefined);
   }
 
   formatRecordingClock(totalSec: number | undefined | null): string {
@@ -4343,7 +4504,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.playingRecording = null;
 
     if (this.clientRecordingActive) {
-      this.abortClientRecording(false);
+      this.stopActiveRecording();
     }
 
     if (this.tvPlayer.isOsPipActive()) {
@@ -4591,7 +4752,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       const canHardRestart =
         playGen === this.playGeneration &&
         isKeepAliveVirtualLive(streamUrl) &&
-        this.virtualLiveHardRestarts < TvWatcherComponent.MAX_VIRTUAL_LIVE_HARD_RESTARTS;
+        this.virtualLiveHardRestarts < TvWatcherComponent.MAX_VIRTUAL_LIVE_HARD_RESTARTS &&
+        !this.clientRecordingActive;
 
       tvPlayLog('erreur HLS fatale détectée', {
         channel: channel.name,
