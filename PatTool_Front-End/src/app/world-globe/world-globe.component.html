@@ -12,28 +12,20 @@
     class="wg-iss-ticker"
     *ngIf="issTickerEnabled"
     role="marquee"
-    [attr.aria-label]="
-      tickerFocusSatId
-        ? ('WORLD_GLOBE.SATELLITE_TICKER_ARIA' | translate : { name: tickerLabelName() })
-        : ('WORLD_GLOBE.ISS_TICKER_ARIA' | translate)
-    ">
+    [attr.aria-label]="tickerUiAriaLabel">
     <div
       class="wg-iss-ticker__label"
       aria-hidden="true"
-      [style.background]="tickerFocusSat()?.color || null">
-      <i class="fa" [ngClass]="tickerFocusSat() ? tickerFocusSat()!.iconClass : 'fa-globe'"></i>
-      <span>{{ tickerFocusSatId ? tickerLabelName() : ('WORLD_GLOBE.ISS_TICKER_LABEL' | translate) }}</span>
+      [style.background]="tickerUiColor">
+      <i class="fa" [ngClass]="tickerUiIconClass"></i>
+      <span>{{ tickerUiLabelName }}</span>
     </div>
     <div class="wg-iss-ticker__rows">
-      <div class="wg-iss-ticker__loading" *ngIf="!issTickerHasLiveData()">
+      <div class="wg-iss-ticker__loading" *ngIf="!tickerUiHasLiveData">
         <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
-        <span>{{
-          tickerFocusSatId
-            ? ('WORLD_GLOBE.SATELLITE_TICKER_LOADING' | translate : { name: tickerLabelName() })
-            : ('WORLD_GLOBE.ISS_TICKER_LOADING' | translate)
-        }}</span>
+        <span>{{ tickerUiLoadingLabel }}</span>
       </div>
-      <div class="wg-iss-ticker__row" *ngIf="issTickerHasLiveData()">
+      <div class="wg-iss-ticker__row" *ngIf="tickerUiHasLiveData">
         <div class="wg-iss-ticker__track" [style.animationDuration.s]="issTickerDurationSec">
           <div class="wg-iss-ticker__loop-half" #issTickerHalf>
             <ng-container *ngFor="let _ of issTickerMarqueeRepeats">
@@ -51,9 +43,9 @@
   </div>
 
   <ng-template #issTickerItemsTpl>
-    <span class="wg-iss-ticker__item wg-iss-ticker__item--over" *ngIf="tickerOverPlaceLabel()">
+    <span class="wg-iss-ticker__item wg-iss-ticker__item--over" *ngIf="tickerUiOverPlaceLabel">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_OVER' | translate }}</span>
-      <span class="wg-iss-ticker__val">{{ tickerOverFlagEmoji() }} {{ tickerOverPlaceLabel() }}</span>
+      <span class="wg-iss-ticker__val">{{ tickerUiOverFlagEmoji }} {{ tickerUiOverPlaceLabel }}</span>
     </span>
     <span class="wg-iss-ticker__item">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_NOW' | translate }}</span>
@@ -61,23 +53,23 @@
     </span>
     <span class="wg-iss-ticker__item">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_LAT' | translate }}</span>
-      <span class="wg-iss-ticker__val">{{ tickerLat() | number : '1.4-4' }}°</span>
+      <span class="wg-iss-ticker__val">{{ tickerUiLat | number : '1.4-4' }}°</span>
     </span>
     <span class="wg-iss-ticker__item">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_LON' | translate }}</span>
-      <span class="wg-iss-ticker__val">{{ tickerLon() | number : '1.4-4' }}°</span>
+      <span class="wg-iss-ticker__val">{{ tickerUiLon | number : '1.4-4' }}°</span>
     </span>
-    <span class="wg-iss-ticker__item" *ngIf="tickerAltKm() != null">
+    <span class="wg-iss-ticker__item" *ngIf="tickerUiAltKm != null">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_ALT' | translate }}</span>
-      <span class="wg-iss-ticker__val">{{ tickerAltKm() | number : '1.0-1' }} km</span>
+      <span class="wg-iss-ticker__val">{{ tickerUiAltKm | number : '1.0-1' }} km</span>
     </span>
-    <span class="wg-iss-ticker__item" *ngIf="tickerSpeedKmh() != null">
+    <span class="wg-iss-ticker__item" *ngIf="tickerUiSpeedKmh != null">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_SPEED' | translate }}</span>
-      <span class="wg-iss-ticker__val">{{ tickerSpeedKmh() | number : '1.0-0' }} km/h</span>
+      <span class="wg-iss-ticker__val">{{ tickerUiSpeedKmh | number : '1.0-0' }} km/h</span>
     </span>
-    <span class="wg-iss-ticker__item" *ngIf="tickerStepKm() != null">
+    <span class="wg-iss-ticker__item" *ngIf="tickerUiStepKm != null">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_STEP' | translate }}</span>
-      <span class="wg-iss-ticker__val">{{ tickerStepKm() | number : '1.0-1' }} km</span>
+      <span class="wg-iss-ticker__val">{{ tickerUiStepKm | number : '1.0-1' }} km</span>
     </span>
   </ng-template>
 
@@ -692,7 +684,7 @@
                   <span class="wg-sat-visible-slot">
                     <span
                       class="wg-sat-visible"
-                      *ngIf="isSatVisibleFromUser(sat.id)"
+                      *ngIf="hasUserObserverPosition() && isSatVisibleFromUser(sat.id)"
                       [attr.title]="'WORLD_GLOBE.SATELLITE_VISIBLE_HINT' | translate">
                       <i class="fa fa-eye" aria-hidden="true"></i>
                       {{ 'WORLD_GLOBE.SATELLITE_VISIBLE' | translate }}
@@ -991,7 +983,7 @@
       [class.wg-stage--fs-iss-split]="issFsSplitLayout"
       [class.wg-stage--fs-iss-split-dragging]="issFsSplitDragging"
       [ngStyle]="issFsSplitStageStyle">
-      <div class="wg-globe-stage-toolbar d-flex align-items-center gap-2 flex-wrap">
+      <div class="wg-globe-stage-toolbar d-flex align-items-center gap-2 flex-nowrap">
         <button
           type="button"
           class="btn btn-outline-secondary wg-btn"
@@ -1000,14 +992,6 @@
           [attr.aria-label]="'WORLD_GLOBE.PANEL_TOGGLE' | translate">
           <ng-container *ngIf="!showOptionsPanel">{{ 'WORLD_GLOBE.SHOW_PANEL' | translate }}</ng-container>
           <ng-container *ngIf="showOptionsPanel">{{ 'WORLD_GLOBE.HIDE_PANEL' | translate }}</ng-container>
-        </button>
-        <button
-          type="button"
-          class="btn btn-outline-secondary wg-btn"
-          (click)="resetCamera()"
-          [attr.title]="'WORLD_GLOBE.RESET_VIEW_TITLE' | translate"
-          [attr.aria-label]="'WORLD_GLOBE.RESET_VIEW_TITLE' | translate">
-          {{ 'WORLD_GLOBE.RESET_VIEW' | translate }}
         </button>
         <button
           type="button"
@@ -1033,13 +1017,22 @@
         </button>
         <button
           type="button"
-          class="btn btn-outline-info wg-btn"
+          class="btn btn-outline-info wg-btn wg-btn--viseur"
           (click)="openAstroCompassIss()"
           [attr.title]="'WORLD_GLOBE.OPEN_ASTRO_ISS_HINT' | translate : { name: astroViseurSatName() }"
           [attr.aria-label]="'WORLD_GLOBE.OPEN_ASTRO_ISS' | translate : { name: astroViseurSatName() }">
-          <i class="fa fa-video-camera me-1" aria-hidden="true"></i>
-          <span class="d-none d-md-inline">{{ 'WORLD_GLOBE.OPEN_ASTRO_ISS' | translate : { name: astroViseurSatName() } }}</span>
-          <span class="d-md-none">{{ 'WORLD_GLOBE.OPEN_ASTRO_ISS_SHORT' | translate : { name: astroViseurSatName() } }}</span>
+          <i class="fa fa-video-camera" aria-hidden="true"></i>
+          <span class="wg-btn--viseur-label d-none d-md-block">{{ 'WORLD_GLOBE.OPEN_ASTRO_ISS' | translate : { name: astroViseurSatName() } }}</span>
+          <span class="wg-btn--viseur-label d-md-none">{{ 'WORLD_GLOBE.OPEN_ASTRO_ISS_SHORT' | translate : { name: astroViseurSatName() } }}</span>
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-secondary wg-btn"
+          (click)="onOpenSatelliteInfo(astroViseurSatId())"
+          [attr.title]="'WORLD_GLOBE.SATELLITE_INFO_HINT' | translate : { name: astroViseurSatName() }"
+          [attr.aria-label]="'WORLD_GLOBE.SATELLITE_INFO' | translate : { name: astroViseurSatName() }">
+          <i class="fa fa-info-circle me-1" aria-hidden="true"></i>
+          {{ 'WORLD_GLOBE.TOOLBAR_INFO' | translate }}
         </button>
       </div>
 
@@ -1390,154 +1383,228 @@
   *ngIf="satelliteInfoOpen && satelliteInfoSat"
   role="dialog"
   aria-modal="true"
-  [attr.aria-label]="'WORLD_GLOBE.SATELLITE_INFO_TITLE' | translate : { name: (satelliteInfoSat.labelKey | translate) }"
+  [attr.aria-label]="'ASTRO_COMPASS.OBJECT_INFO_TITLE' | translate"
   (click)="closeSatelliteInfo()">
   <div class="wg-share-preview-card wg-sat-info-modal" (click)="$event.stopPropagation()">
-    <div class="wg-share-preview-head">
-      <h3 class="wg-share-preview-title wg-sat-info-title mb-0">
-        <button
-          *ngIf="satelliteInfoDossier?.thumbUrl as thumbUrl"
-          type="button"
-          class="wg-sat-info-title-photo"
-          (click)="openSatelliteInfoPhoto(); $event.stopPropagation()"
-          [attr.title]="'ASTRO_COMPASS.DOSSIER_IMAGE_OPEN' | translate"
-          [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_IMAGE_OPEN' | translate">
-          <img [src]="thumbUrl" [alt]="satelliteInfoDossier?.wikiTitle || (satelliteInfoSat.labelKey | translate)" />
-        </button>
-        <i
-          class="wg-sat-opt-icon"
-          *ngIf="!satelliteInfoDossier?.thumbUrl"
-          [ngClass]="satelliteInfoSat.iconClass"
-          [style.color]="satelliteInfoSat.color"
-          aria-hidden="true"></i>
-        {{ satelliteInfoSat.labelKey | translate }}
+    <header class="wg-sat-info-head">
+      <h3 class="wg-sat-info-head__title">
+        <i class="fa fa-info-circle me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.OBJECT_INFO_TITLE' | translate }}
       </h3>
       <button
         type="button"
-        class="wg-share-preview-close btn btn-sm btn-dark border-secondary"
+        class="wg-sat-info-head__close"
         (click)="closeSatelliteInfo()"
-        [attr.aria-label]="'COMMUN.CLOSE' | translate">
+        [attr.aria-label]="'ASTRO_COMPASS.OBJECT_INFO_CLOSE' | translate">
         <i class="fa fa-times" aria-hidden="true"></i>
       </button>
-    </div>
+    </header>
 
-    <p class="wg-sat-visible mb-2" *ngIf="satelliteInfoSnapshot?.visible">
-      <i class="fa fa-eye" aria-hidden="true"></i>
-      {{ 'ASTRO_COMPASS.VIS_NOW_VISIBLE' | translate }}
-    </p>
-    <p class="text-muted small mb-2" *ngIf="satelliteInfoSnapshot && !satelliteInfoSnapshot.visible && userObserverLat != null">
-      {{ 'ASTRO_COMPASS.VIS_BELOW' | translate }}
-    </p>
-    <p class="text-warning small mb-2" *ngIf="!satelliteInfoLoading && userObserverLat == null">
-      {{ 'WORLD_GLOBE.SATELLITE_INFO_NO_GPS' | translate }}
-    </p>
-
-    <div class="text-muted small py-2" *ngIf="satelliteInfoLoading">
-      <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-      {{ 'WORLD_GLOBE.SATELLITE_INFO_LOADING' | translate }}
-    </div>
-
-    <div class="wg-sat-info-grid" *ngIf="!satelliteInfoLoading && satelliteInfoSnapshot as snap">
-      <div class="wg-sat-info-row">
-        <span>{{ 'ASTRO_COMPASS.AZIMUTH' | translate }}</span>
-        <strong>{{ snap.azimuthDeg != null ? (snap.azimuthDeg | number : '1.0-0') + '°' : '—' }}</strong>
-      </div>
-      <div class="wg-sat-info-row">
-        <span>{{ 'ASTRO_COMPASS.ELEVATION' | translate }}</span>
-        <strong>{{ snap.elevationDeg != null ? (snap.elevationDeg | number : '1.1-1') + '°' : '—' }}</strong>
-      </div>
-      <div class="wg-sat-info-row">
-        <span>{{ 'ASTRO_COMPASS.ISS_ALTITUDE' | translate }}</span>
-        <strong>{{ snap.altKm != null ? (snap.altKm | number : '1.0-0') + ' km' : '—' }}</strong>
-      </div>
-      <div class="wg-sat-info-row">
-        <span>{{ 'ASTRO_COMPASS.ISS_VELOCITY' | translate }}</span>
-        <strong>{{ snap.velocityKmh != null ? (snap.velocityKmh | number : '1.0-0') + ' km/h' : '—' }}</strong>
-      </div>
-      <div class="wg-sat-info-row">
-        <span>{{ 'ASTRO_COMPASS.ISS_SLANT' | translate }}</span>
-        <strong>{{ snap.slantKm != null ? (snap.slantKm | number : '1.0-0') + ' km' : '—' }}</strong>
-      </div>
-      <div class="wg-sat-info-row">
-        <span>{{ 'ASTRO_COMPASS.ISS_GROUND' | translate }}</span>
-        <strong>{{ snap.groundKm != null ? (snap.groundKm | number : '1.0-0') + ' km' : '—' }}</strong>
-      </div>
-      <div class="wg-sat-info-row">
-        <span>{{ 'WORLD_GLOBE.ISS_TICKER_LAT' | translate }}</span>
-        <strong>{{ snap.lat | number : '1.2-4' }}°</strong>
-      </div>
-      <div class="wg-sat-info-row">
-        <span>{{ 'WORLD_GLOBE.ISS_TICKER_LON' | translate }}</span>
-        <strong>{{ snap.lon | number : '1.2-4' }}°</strong>
-      </div>
-    </div>
-
-    <div class="wg-sat-info-passes" *ngIf="!satelliteInfoLoading && userObserverLat != null">
-      <h4 class="wg-sat-info-passes__title">{{ 'WORLD_GLOBE.SATELLITE_INFO_PASSES' | translate }}</h4>
-      <p class="text-muted small mb-1" *ngIf="satelliteInfoPasses.length === 0">
-        {{ 'ASTRO_COMPASS.ISS_NO_PASS' | translate }}
-      </p>
-      <ul class="list-unstyled mb-0" *ngIf="satelliteInfoPasses.length">
-        <li class="wg-sat-info-pass" *ngFor="let pass of satelliteInfoPasses; let i = index">
-          <div class="wg-sat-info-pass__when">
-            <span class="wg-sat-info-pass__k">{{ i === 0 && satelliteInfoSnapshot?.visible ? ('ASTRO_COMPASS.ISS_PASS_END' | translate) : ('ASTRO_COMPASS.VIS_NEXT_RISE' | translate) }}</span>
-            <strong>{{ formatSatelliteInfoTime(i === 0 && satelliteInfoSnapshot?.visible ? pass.setAt : pass.riseAt) }}</strong>
-          </div>
-          <div class="wg-sat-info-pass__meta">
-            <span>{{ 'ASTRO_COMPASS.ISS_PASS_START' | translate }} : {{ formatSatelliteInfoTime(pass.riseAt) }}</span>
-            <span>{{ 'ASTRO_COMPASS.ISS_PASS_END' | translate }} : {{ formatSatelliteInfoTime(pass.setAt) }}</span>
-            <span>{{ 'ASTRO_COMPASS.VIS_CULMINATION' | translate }} : {{ formatSatelliteInfoTime(pass.maxAt) }} · {{ pass.maxElevationDeg | number : '1.0-0' }}°</span>
-            <span>{{ 'WORLD_GLOBE.SATELLITE_INFO_DURATION' | translate }} : {{ formatSatelliteInfoDuration(pass) }}</span>
-          </div>
-        </li>
-      </ul>
-    </div>
-
-    <div class="wg-sat-info-dossier">
-      <div class="wg-sat-info-dossier__head">
-        <i class="fa fa-book me-1" aria-hidden="true"></i>
-        {{ 'ASTRO_COMPASS.DOSSIER_TITLE' | translate }}
-      </div>
-      <p class="wg-sat-info-dossier__busy text-muted small mb-0" *ngIf="satelliteInfoDossierBusy">
-        <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.DOSSIER_LOADING' | translate }}
-      </p>
-      <ng-container *ngIf="!satelliteInfoDossierBusy && satelliteInfoDossier as dossier">
-        <p class="wg-sat-info-dossier__desc mb-1" *ngIf="dossier.description">{{ dossier.description }}</p>
-        <p class="wg-sat-info-dossier__extract mb-2" *ngIf="dossier.extract">{{ dossier.extract }}</p>
-        <div class="wg-sat-info-grid wg-sat-info-grid--dossier" *ngIf="dossier.skyNames.length || dossier.skyTypes.length || dossier.vMag != null || dossier.bMag != null">
-          <div class="wg-sat-info-row" *ngIf="dossier.skyTypes.length">
-            <span>{{ 'ASTRO_COMPASS.DOSSIER_TYPE' | translate }}</span>
-            <strong>{{ dossier.skyTypes.join(', ') }}</strong>
-          </div>
-          <div class="wg-sat-info-row" *ngIf="dossier.vMag != null">
-            <span>{{ 'ASTRO_COMPASS.DOSSIER_VMAG' | translate }}</span>
-            <strong>{{ dossier.vMag | number : '1.2-2' }}</strong>
-          </div>
-          <div class="wg-sat-info-row" *ngIf="dossier.bMag != null">
-            <span>{{ 'ASTRO_COMPASS.DOSSIER_BMAG' | translate }}</span>
-            <strong>{{ dossier.bMag | number : '1.2-2' }}</strong>
-          </div>
-          <div class="wg-sat-info-row wg-sat-info-row--stack" *ngIf="dossier.skyNames.length">
-            <span>{{ 'ASTRO_COMPASS.DOSSIER_NAMES' | translate }}</span>
-            <strong>{{ dossier.skyNames.join(' · ') }}</strong>
-          </div>
+    <div class="wg-sat-info-body">
+      <div class="wg-sat-hero">
+        <div
+          class="wg-sat-hero__orb"
+          [class.wg-sat-hero__orb--photo]="!!satelliteInfoDossier?.thumbUrl"
+          [style.--wg-sat-accent]="satelliteInfoSat.color">
+          <button
+            *ngIf="satelliteInfoDossier?.thumbUrl as thumbUrl"
+            type="button"
+            class="wg-sat-hero__photo"
+            (click)="openSatelliteInfoPhoto(); $event.stopPropagation()"
+            [attr.title]="'ASTRO_COMPASS.DOSSIER_IMAGE_OPEN' | translate"
+            [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_IMAGE_OPEN' | translate">
+            <img [src]="thumbUrl" [alt]="satelliteInfoDossier?.wikiTitle || (satelliteInfoSat.labelKey | translate)" />
+          </button>
+          <i
+            *ngIf="!satelliteInfoDossier?.thumbUrl"
+            [ngClass]="satelliteInfoSat.iconClass"
+            aria-hidden="true"></i>
         </div>
-        <a
-          *ngIf="dossier.wikiUrl"
-          class="wg-sat-info-dossier__link"
-          [href]="dossier.wikiUrl"
-          target="_blank"
-          rel="noopener noreferrer">
-          <i class="fa fa-external-link me-1" aria-hidden="true"></i>
-          {{ 'ASTRO_COMPASS.DOSSIER_WIKI' | translate }}
-        </a>
-      </ng-container>
-      <p class="text-muted small mb-0" *ngIf="!satelliteInfoDossierBusy && !satelliteInfoDossier">
-        {{ 'ASTRO_COMPASS.DOSSIER_EMPTY' | translate }}
+        <div class="wg-sat-hero__meta">
+          <span class="wg-sat-hero__kind">{{ 'ASTRO_COMPASS.KIND_SATELLITE' | translate }}</span>
+          <h2 class="wg-sat-hero__name">{{ satelliteInfoSat.labelKey | translate }}</h2>
+        </div>
+      </div>
+
+      <p
+        class="wg-horizon-badge"
+        *ngIf="satelliteInfoSnapshot && hasUserObserverPosition()"
+        [class.wg-horizon-badge--on]="satelliteInfoSnapshot.visible"
+        [class.wg-horizon-badge--off]="!satelliteInfoSnapshot.visible"
+        role="status">
+        <i
+          class="fa"
+          [class.fa-eye]="satelliteInfoSnapshot.visible"
+          [class.fa-eye-slash]="!satelliteInfoSnapshot.visible"
+          aria-hidden="true"></i>
+        {{ (satelliteInfoSnapshot.visible ? 'ASTRO_COMPASS.VIS_NOW_VISIBLE' : 'ASTRO_COMPASS.VIS_BELOW') | translate }}
       </p>
+      <p class="wg-sat-info-gps" *ngIf="!satelliteInfoLoading && !hasUserObserverPosition()">
+        {{ 'WORLD_GLOBE.SATELLITE_INFO_NO_GPS' | translate }}
+      </p>
+
+      <div class="wg-sat-dist" *ngIf="satelliteInfoObserverDistance() as dist">
+        <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.DIST_FROM_YOU', helpKey: 'ASTRO_COMPASS.HELP_GEO_DEF', css: 'wg-sat-dist__k' }"></ng-container>
+        <span class="wg-sat-dist__v">{{ dist }}</span>
+      </div>
+
+      <div class="wg-sat-info-busy" *ngIf="satelliteInfoLoading">
+        <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+        {{ 'WORLD_GLOBE.SATELLITE_INFO_LOADING' | translate }}
+      </div>
+
+      <div class="wg-sat-facts" *ngIf="!satelliteInfoLoading && satelliteInfoSnapshot as snap">
+        <div class="wg-sat-facts__cell" *ngIf="snap.azimuthDeg != null">
+          <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.AZIMUTH', helpKey: 'ASTRO_COMPASS.HELP_AZIMUTH_DEF' }"></ng-container>
+          <span class="wg-sat-facts__v">{{ snap.azimuthDeg | number : '1.0-1' }}° · {{ satelliteInfoCardinal(snap.azimuthDeg) }}</span>
+        </div>
+        <div class="wg-sat-facts__cell" *ngIf="snap.elevationDeg != null">
+          <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.ELEVATION', helpKey: 'ASTRO_COMPASS.HELP_ELEVATION_DEF' }"></ng-container>
+          <span class="wg-sat-facts__v" [class.wg-sat-facts__v--warn]="!snap.visible">{{ snap.elevationDeg | number : '1.0-1' }}°</span>
+        </div>
+        <div class="wg-sat-facts__cell" *ngIf="satelliteInfoObserverDistance() as dist">
+          <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.DIST_FROM_YOU', helpKey: 'ASTRO_COMPASS.HELP_GEO_DEF' }"></ng-container>
+          <span class="wg-sat-facts__v">{{ dist }}</span>
+        </div>
+        <div class="wg-sat-facts__cell" *ngIf="snap.altKm != null">
+          <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.ISS_ALTITUDE', helpKey: 'ASTRO_COMPASS.HELP_ALT_DEF' }"></ng-container>
+          <span class="wg-sat-facts__v">{{ snap.altKm | number : '1.0-0' }} km</span>
+        </div>
+        <div class="wg-sat-facts__cell">
+          <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.ISS_SLANT', helpKey: 'ASTRO_COMPASS.HELP_SLANT_DEF' }"></ng-container>
+          <span class="wg-sat-facts__v">{{ snap.slantKm != null ? (snap.slantKm | number : '1.0-0') + ' km' : '—' }}</span>
+        </div>
+        <div class="wg-sat-facts__cell">
+          <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.ISS_GROUND', helpKey: 'ASTRO_COMPASS.HELP_GROUND_DEF' }"></ng-container>
+          <span class="wg-sat-facts__v">{{ snap.groundKm != null ? (snap.groundKm | number : '1.0-0') + ' km' : '—' }}</span>
+        </div>
+        <div class="wg-sat-facts__cell">
+          <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.ISS_VELOCITY', helpKey: 'ASTRO_COMPASS.HELP_VEL_DEF' }"></ng-container>
+          <span class="wg-sat-facts__v">{{ snap.velocityKmh != null ? (snap.velocityKmh | number : '1.0-0') + ' km/h' : '—' }}</span>
+        </div>
+        <div class="wg-sat-facts__cell">
+          <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'WORLD_GLOBE.ISS_TICKER_LAT', helpKey: 'ASTRO_COMPASS.HELP_LAT_DEF' }"></ng-container>
+          <span class="wg-sat-facts__v">{{ snap.lat | number : '1.2-4' }}°</span>
+        </div>
+        <div class="wg-sat-facts__cell">
+          <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'WORLD_GLOBE.ISS_TICKER_LON', helpKey: 'ASTRO_COMPASS.HELP_LON_DEF' }"></ng-container>
+          <span class="wg-sat-facts__v">{{ snap.lon | number : '1.2-4' }}°</span>
+        </div>
+      </div>
+
+      <div class="wg-sat-info-passes" *ngIf="!satelliteInfoLoading && hasUserObserverPosition()">
+        <h4 class="wg-sat-info-passes__title">{{ 'WORLD_GLOBE.SATELLITE_INFO_PASSES' | translate }}</h4>
+        <p class="wg-sat-info-passes__empty" *ngIf="satelliteInfoPasses.length === 0">
+          {{ 'ASTRO_COMPASS.ISS_NO_PASS' | translate }}
+        </p>
+        <ul class="list-unstyled mb-0" *ngIf="satelliteInfoPasses.length">
+          <li class="wg-sat-info-pass" *ngFor="let pass of satelliteInfoPasses; let i = index">
+            <div class="wg-sat-info-pass__when">
+              <span class="wg-sat-info-pass__k">{{ i === 0 && satelliteInfoSnapshot?.visible ? ('ASTRO_COMPASS.ISS_PASS_END' | translate) : ('ASTRO_COMPASS.VIS_NEXT_RISE' | translate) }}</span>
+              <strong>{{ formatSatelliteInfoTime(i === 0 && satelliteInfoSnapshot?.visible ? pass.setAt : pass.riseAt) }}</strong>
+            </div>
+            <div class="wg-sat-info-pass__meta">
+              <span>{{ 'ASTRO_COMPASS.ISS_PASS_START' | translate }} : {{ formatSatelliteInfoTime(pass.riseAt) }}</span>
+              <span>{{ 'ASTRO_COMPASS.ISS_PASS_END' | translate }} : {{ formatSatelliteInfoTime(pass.setAt) }}</span>
+              <span>{{ 'ASTRO_COMPASS.VIS_CULMINATION' | translate }} : {{ formatSatelliteInfoTime(pass.maxAt) }} · {{ pass.maxElevationDeg | number : '1.0-0' }}°</span>
+              <span>{{ 'WORLD_GLOBE.SATELLITE_INFO_DURATION' | translate }} : {{ formatSatelliteInfoDuration(pass) }}</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="wg-sat-info-dossier">
+        <div class="wg-sat-info-dossier__head">
+          <i class="fa fa-book me-1" aria-hidden="true"></i>
+          {{ 'ASTRO_COMPASS.DOSSIER_TITLE' | translate }}
+        </div>
+        <p class="wg-sat-info-dossier__travel" *ngIf="satelliteInfoLightTravel() as travel">{{ travel }}</p>
+        <p class="wg-sat-info-dossier__busy" *ngIf="satelliteInfoDossierBusy">
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.DOSSIER_LOADING' | translate }}
+        </p>
+        <ng-container *ngIf="!satelliteInfoDossierBusy && satelliteInfoDossier as dossier">
+          <div class="wg-sat-info-dossier__body">
+            <button
+              *ngIf="dossier.thumbUrl"
+              type="button"
+              class="wg-sat-info-dossier__thumb-btn"
+              (click)="openSatelliteInfoPhoto(); $event.stopPropagation()"
+              [attr.title]="'ASTRO_COMPASS.DOSSIER_IMAGE_OPEN' | translate"
+              [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_IMAGE_OPEN' | translate">
+              <img
+                class="wg-sat-info-dossier__thumb"
+                [src]="dossier.thumbUrl"
+                [alt]="dossier.wikiTitle || (satelliteInfoSat.labelKey | translate)" />
+              <i class="fa fa-search-plus wg-sat-info-dossier__thumb-zoom" aria-hidden="true"></i>
+            </button>
+            <div class="wg-sat-info-dossier__text">
+              <p class="wg-sat-info-dossier__desc" *ngIf="dossier.description">{{ dossier.description }}</p>
+              <p class="wg-sat-info-dossier__extract" *ngIf="dossier.extract">{{ dossier.extract }}</p>
+            </div>
+          </div>
+          <div class="wg-sat-facts wg-sat-facts--dossier" *ngIf="dossier.skyNames.length || dossier.skyTypes.length || dossier.vMag != null || dossier.bMag != null || dossier.wikiUrl">
+            <div class="wg-sat-facts__cell" *ngIf="dossier.skyTypes.length">
+              <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.DOSSIER_TYPE', helpKey: 'ASTRO_COMPASS.DOSSIER_TYPE_TIP' }"></ng-container>
+              <span class="wg-sat-facts__v">{{ dossier.skyTypes.join(', ') }}</span>
+            </div>
+            <div class="wg-sat-facts__cell" *ngIf="dossier.vMag != null">
+              <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.DOSSIER_VMAG', helpKey: 'ASTRO_COMPASS.DOSSIER_VMAG_TIP' }"></ng-container>
+              <span class="wg-sat-facts__v">{{ dossier.vMag | number : '1.2-2' }}</span>
+            </div>
+            <div class="wg-sat-facts__cell" *ngIf="dossier.bMag != null">
+              <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.DOSSIER_BMAG', helpKey: 'ASTRO_COMPASS.DOSSIER_BMAG_TIP' }"></ng-container>
+              <span class="wg-sat-facts__v">{{ dossier.bMag | number : '1.2-2' }}</span>
+            </div>
+            <div class="wg-sat-facts__cell wg-sat-facts__cell--wide" *ngIf="dossier.skyNames.length">
+              <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.DOSSIER_NAMES', helpKey: 'ASTRO_COMPASS.DOSSIER_NAMES_TIP' }"></ng-container>
+              <span class="wg-sat-facts__v">{{ dossier.skyNames.join(' · ') }}</span>
+            </div>
+            <div class="wg-sat-facts__cell wg-sat-facts__cell--wide" *ngIf="dossier.wikiUrl">
+              <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.DOSSIER_WIKI', helpKey: 'ASTRO_COMPASS.DOSSIER_WIKI_TIP' }"></ng-container>
+              <a
+                class="wg-sat-info-dossier__link"
+                [href]="dossier.wikiUrl"
+                target="_blank"
+                rel="noopener noreferrer">
+                <i class="fa fa-external-link me-1" aria-hidden="true"></i>
+                {{ dossier.wikiTitle || ('ASTRO_COMPASS.DOSSIER_WIKI' | translate) }}
+              </a>
+            </div>
+          </div>
+        </ng-container>
+        <p class="wg-sat-info-dossier__empty" *ngIf="!satelliteInfoDossierBusy && !satelliteInfoDossier">
+          {{ 'ASTRO_COMPASS.DOSSIER_EMPTY' | translate }}
+        </p>
+      </div>
     </div>
+
+    <footer class="wg-sat-info-foot">
+      <button type="button" class="wg-sat-info-foot__exit" (click)="closeSatelliteInfo()">
+        <i class="fa fa-times me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.OBJECT_INFO_CLOSE' | translate }}
+      </button>
+    </footer>
   </div>
 </div>
+
+<ng-template #wgFactTip let-labelKey="labelKey" let-helpKey="helpKey" let-css="css">
+  <button
+    type="button"
+    class="wg-fact-tip"
+    [class.wg-fact-tip--open]="satelliteInfoFactHelpKey === helpKey"
+    [ngClass]="css || 'wg-sat-facts__k'"
+    [ngbTooltip]="helpKey | translate"
+    [disableTooltip]="prefersSatelliteFactTapHelp()"
+    placement="top"
+    container="body"
+    triggers="hover focus"
+    tooltipClass="ac-fact-tooltip"
+    [attr.aria-expanded]="satelliteInfoFactHelpKey === helpKey"
+    (click)="onSatelliteFactTipActivate(helpKey, $event)">
+    {{ labelKey | translate }}
+  </button>
+  <p class="wg-fact-help" *ngIf="prefersSatelliteFactTapHelp() && satelliteInfoFactHelpKey === helpKey">
+    {{ helpKey | translate }}
+  </p>
+</ng-template>
 
 <app-slideshow-modal
   #slideshowModalComponent

@@ -14,6 +14,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Subscription, firstValueFrom, timeout } from 'rxjs';
@@ -22,14 +23,14 @@ import { ApiService, GlobeIssGlobalPrefs, GlobeSatelliteOverlayPrefs, IssAlertAd
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { GlobeIssNowService, GlobeIssNowSnapshot } from '../services/globe-iss-now.service';
 import { GlobeSatelliteNowService } from '../services/globe-satellite-now.service';
-import { ASTRO_ISS, ASTRO_SATELLITES, findSatelliteById, satelliteUsesNetworkTle, type AstroSatelliteOption } from '../astro-compass/astro-compass-catalog';
+import { ASTRO_ISS, ASTRO_SATELLITES, findSatelliteById, satelliteListedOnGlobe, satelliteUsesNetworkTle, type AstroSatelliteOption } from '../astro-compass/astro-compass-catalog';
 import { AstroObjectDossierService, type ObjectDossier } from '../astro-compass/astro-object-dossier.service';
 import { AirportIcaoEntry, AirportLookupService } from '../services/airport-lookup.service';
 import { PositionService } from '../services/position.service';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { environment } from '../../environments/environment';
-import { Body, Equator, Observer, SiderealTime } from 'astronomy-engine';
+import { Body, Equator, Observer, SiderealTime, KM_PER_AU } from 'astronomy-engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import {
   SlideshowModalComponent,
@@ -167,6 +168,8 @@ const ISS_LIVE_HD_DESTINATION_ORBITE_URL =
 const ISS_LIVE_YOUTUBE_VIDEO_ID = 'M3HKLzjvKPc';
 /** Page HD Destination Orbite → lite-youtube `awQzjn72bI0` (màj 06-11-2025 ; ancien `FuuC4dpSQ1M` hors ligne). */
 const ISS_LIVE_HD_YOUTUBE_VIDEO_ID = 'awQzjn72bI0';
+/** Vitesse de la lumière pour la distance observateur → satellite (s lum.). */
+const C_KM_PER_S = 299792.458;
 
 /** Sphère repère géocodage : rayon monde, légèrement au-dessus du maillage Terre (rayon 1). */
 const GLOBE_GEOCODE_MARKER_SURFACE_OFFSET = 1.003;
@@ -277,6 +280,8 @@ const GLOBE_SAT_MIN_ALT_KM = 80;
 const GLOBE_SAT_MAX_ALT_KM = 40_000;
 /** GEO réel (~6,6 rayons) sort de la vue : on le plaque sur un anneau visible. */
 const GLOBE_SAT_DISPLAY_RADIUS_MAX = 1.22;
+/** L2 (JWST, ~1.5e6 km) : un peu plus loin que l’anneau GEO compressé. */
+const GLOBE_SAT_L2_DISPLAY_RADIUS = 1.48;
 const GLOBE_SAT_PASS_LOOKBACK_MS = 45 * 60_000;
 const GLOBE_SAT_PASS_HORIZON_MS = 18 * 60 * 60_000;
 const GLOBE_SAT_PASS_STEP_MS = 30_000;
@@ -371,7 +376,7 @@ function globePixelRatioCap(): number {
 @Component({
   selector: 'app-world-globe',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent, SlideshowModalComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, TraceViewerModalComponent, SlideshowModalComponent],
   templateUrl: './world-globe.component.html',
   styleUrls: ['./world-globe.component.css'],
   host: {
@@ -414,7 +419,12 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.issTickerHalfEl = el;
-    this.attachIssTickerSpeedObserver();
+    // AfterViewChecked : ne pas toucher au DOM / ResizeObserver dans le même tour que CD (NG0100 / removeChild).
+    queueMicrotask(() => {
+      if (this.issTickerHalfEl === el) {
+        this.attachIssTickerSpeedObserver();
+      }
+    });
   }
 
   /** Mini-fenêtre ISS en direct (embed YouTube, même source que Destination Orbite). Affichée par défaut. */
@@ -430,7 +440,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   issPiPCopyFlash: { variant: 'standard' | 'hd'; ok: boolean } | null = null;
   private issPiPCopyFlashTimer: ReturnType<typeof setTimeout> | null = null;
 
-  showOptionsPanel = true;
+  showOptionsPanel = false;
   /** Section ouverte dans le panneau options (accordéon). */
   openGlobeOptSectionId: string | null = null;
   cloudsEnabled = false;
@@ -464,17 +474,18 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Fuseaux horaires remplis (NE 10m). */
   timeZonesEnabled = false;
   /**
-   * Satellites visibles dans astro-compass, hors ISS (déjà gérée à part) et hors JWST (pas de TLE utile).
+   * Satellites visibles dans astro-compass, hors ISS (déjà gérée à part).
+   * JWST (L2) est inclus : position anti-soleil, pas de TLE.
    */
   readonly globeSatelliteOptions: ReadonlyArray<AstroSatelliteOption> = ASTRO_SATELLITES.filter(
-    (s) => s.id !== 'iss' && !s.skipLiveTle
+    satelliteListedOnGlobe
   );
   readonly issGlobeOption: AstroSatelliteOption = ASTRO_ISS;
   /** Liste satellites (ISS incluse) triée selon le nom affiché. */
   globeSatelliteOptionsSorted: AstroSatelliteOption[] = [];
   /** Interrupteurs d’affichage : tous activés par défaut. */
   satelliteOverlayEnabled: Record<string, boolean> = Object.fromEntries(
-    ASTRO_SATELLITES.filter((s) => s.id !== 'iss' && !s.skipLiveTle).map((s) => [
+    ASTRO_SATELLITES.filter(satelliteListedOnGlobe).map((s) => [
       s.id,
       s.constellation !== 'starlink'
     ])
@@ -485,7 +496,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   satelliteFutureTraceEnabled = false;
   /** Trajectoire future par satellite (désactivée par défaut). */
   satelliteFutureTraceById: Record<string, boolean> = Object.fromEntries(
-    ASTRO_SATELLITES.filter((s) => s.id !== 'iss' && !s.skipLiveTle).map((s) => [s.id, false])
+    ASTRO_SATELLITES.filter(satelliteListedOnGlobe).map((s) => [s.id, false])
   );
   satelliteFutureTraceMinutes = GLOBE_SAT_FORECAST_MINUTES_DEFAULT;
   satelliteFutureTraceHours = WorldGlobeComponent.hoursFromTraceMinutes(GLOBE_SAT_FORECAST_MINUTES_DEFAULT);
@@ -524,6 +535,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   satelliteInfoDossier: ObjectDossier | null = null;
   satelliteInfoDossierBusy = false;
   satelliteInfoSlideshowOpen = false;
+  satelliteInfoFactHelpKey: string | null = null;
   private satelliteInfoDossierSub: Subscription | null = null;
   issOverlayEnabled = true;
   /**
@@ -544,12 +556,35 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   issTickerDurationSec = 90;
   /** Horodatage affiché dans le bandeau (mis à jour au plus 1×/s pour limiter les reflows). */
   issTickerNowLabel = '';
+  /**
+   * Copie « vue » du bandeau : figée hors CD puis poussée via {@link scheduleWorldGlobeCdr}.
+   * Évite NG0100 quand lat/lieu/satellite changent pendant la détection (ngTemplateOutlet + poll ISS).
+   */
+  tickerUiHasLiveData = false;
+  tickerUiLat: number | null = null;
+  tickerUiLon: number | null = null;
+  tickerUiAltKm: number | null = null;
+  tickerUiSpeedKmh: number | null = null;
+  tickerUiStepKm: number | null = null;
+  tickerUiOverPlaceLabel: string | null = null;
+  tickerUiOverFlagEmoji = '';
+  tickerUiLabelName = '';
+  tickerUiLoadingLabel = '';
+  tickerUiAriaLabel = '';
+  tickerUiColor: string | null = null;
+  tickerUiIconClass = 'fa-globe';
   /** Date/heure agrandie (loupe) au survol d’une pastille trace ISS. */
   issTraceDateLoupeLabel: string | null = null;
   /** Nom de pays agrandi (loupe) au survol d’une étiquette pays. */
   countryLabelLoupeLabel: string | null = null;
   /** Vitesse de défilement cible du bandeau ISS, en pixels par seconde. */
   private static readonly ISS_TICKER_SPEED_PX_PER_SEC = 90;
+  private static readonly COMPASS_POINTS: ReadonlyArray<ReadonlyArray<'N' | 'E' | 'S' | 'W'>> = [
+    ['N'], ['N', 'N', 'E'], ['N', 'E'], ['E', 'N', 'E'],
+    ['E'], ['E', 'S', 'E'], ['S', 'E'], ['S', 'S', 'E'],
+    ['S'], ['S', 'S', 'W'], ['S', 'W'], ['W', 'S', 'W'],
+    ['W'], ['W', 'N', 'W'], ['N', 'W'], ['N', 'N', 'W']
+  ];
   private issTickerHalfEl?: HTMLElement;
   private issTickerResizeObs?: ResizeObserver;
   private issTickerDurationRaf: number | null = null;
@@ -1201,6 +1236,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loadGlobeSatelliteOverlayPrefs();
     this.prefetchGlobeSatelliteTles();
     this.requestUserObserverPosition();
+    this.pushTickerUiSnapshot();
   }
 
   ngAfterViewInit(): void {
@@ -1212,35 +1248,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     });
     this.routeQuerySub = this.route.queryParamMap.subscribe((params) => {
-      this.applyDeepLinkAutoRotatePreference(params);
-      const satId = (params.get('sat') ?? params.get('satellite') ?? '').trim().toLowerCase();
-      if (satId) {
-        this.clearAstroReturnSat();
-        this.queueOrApplySatelliteDeepLink(satId);
-        return;
-      }
-      const latStr = params.get('lat');
-      const lonStr = params.get('lon') ?? params.get('lng');
-      if (latStr && lonStr) {
-        const lat = parseFloat(latStr);
-        const lon = parseFloat(lonStr);
-        if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
-          let mapZoom: number | undefined;
-          const zStr = params.get('z') ?? params.get('zoom');
-          if (zStr != null && zStr !== '') {
-            const z = parseFloat(zStr);
-            if (Number.isFinite(z) && z >= 1 && z <= 22) {
-              mapZoom = z;
-            }
-          }
-          this.queueOrApplyGlobeDeepLink({ lat, lon, mapZoom });
-          return;
-        }
-      }
-      const returnSat = this.consumeAstroReturnSatId();
-      if (returnSat && returnSat !== 'iss') {
-        this.queueOrApplySatelliteDeepLink(returnSat);
-      }
+      // queryParamMap émet souvent de façon synchrone dans AfterViewInit : différer pour ne pas
+      // créer le bandeau / ngTemplateOutlet après le dirty-check du parent (NG0100).
+      this.scheduleWorldGlobeCdr(() => this.applyGlobeRouteParams(params));
     });
     this.translateLangSub = this.translate.onLangChange.subscribe(() => {
       this.invalidateDateTimeLabelFormatter();
@@ -1269,12 +1279,14 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.issGlobalPrefsLoaded = true;
         this.applyPendingSatelliteDeepLink();
         this.bootstrapIssUiAfterGlobalPrefs();
+        this.pushTickerUiSnapshot();
         this.cdr.markForCheck();
       },
       error: () => {
         this.issGlobalPrefsLoaded = true;
         this.applyPendingSatelliteDeepLink();
         this.bootstrapIssUiAfterGlobalPrefs();
+        this.pushTickerUiSnapshot();
         this.cdr.markForCheck();
       }
     });
@@ -2075,14 +2087,49 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.globeCdrTimer = setTimeout(() => {
       this.globeCdrTimer = null;
-      if (this.globeViewSyncQueue.length) {
-        for (const sync of this.globeViewSyncQueue) {
-          sync();
+      this.zone.run(() => {
+        if (this.globeViewSyncQueue.length) {
+          for (const sync of this.globeViewSyncQueue) {
+            sync();
+          }
+          this.globeViewSyncQueue.length = 0;
         }
-        this.globeViewSyncQueue.length = 0;
-      }
-      this.cdr.markForCheck();
+        this.pushTickerUiSnapshot();
+        this.cdr.markForCheck();
+      });
     }, 0);
+  }
+
+  private applyGlobeRouteParams(params: ParamMap): void {
+    this.applyDeepLinkAutoRotatePreference(params);
+    const satId = (params.get('sat') ?? params.get('satellite') ?? '').trim().toLowerCase();
+    if (satId) {
+      this.clearAstroReturnSat();
+      this.queueOrApplySatelliteDeepLink(satId);
+      return;
+    }
+    const latStr = params.get('lat');
+    const lonStr = params.get('lon') ?? params.get('lng');
+    if (latStr && lonStr) {
+      const lat = parseFloat(latStr);
+      const lon = parseFloat(lonStr);
+      if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+        let mapZoom: number | undefined;
+        const zStr = params.get('z') ?? params.get('zoom');
+        if (zStr != null && zStr !== '') {
+          const z = parseFloat(zStr);
+          if (Number.isFinite(z) && z >= 1 && z <= 22) {
+            mapZoom = z;
+          }
+        }
+        this.queueOrApplyGlobeDeepLink({ lat, lon, mapZoom });
+        return;
+      }
+    }
+    const returnSat = this.consumeAstroReturnSatId();
+    if (returnSat && returnSat !== 'iss') {
+      this.queueOrApplySatelliteDeepLink(returnSat);
+    }
   }
 
   /** Accordéon panneau options : une seule section ouverte ; clic sur l’en-tête ouvre ou replie. */
@@ -2202,6 +2249,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     return satId === 'iss' ? this.issVisibleFromUser : this.satelliteVisibleFromUser[satId] === true;
   }
 
+  hasUserObserverPosition(): boolean {
+    return this.userObserverLat != null && this.userObserverLon != null;
+  }
+
   isSatOverlayOn(satId: string): boolean {
     return satId === 'iss' ? this.issOverlayEnabled : this.satelliteOverlayEnabled[satId] !== false;
   }
@@ -2246,6 +2297,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.satelliteInfoDossier = null;
     this.satelliteInfoDossierBusy = true;
     this.satelliteInfoSlideshowOpen = false;
+    this.satelliteInfoFactHelpKey = null;
     this.cdr.markForCheck();
     void this.loadSatelliteInfoDetails(sat);
     this.loadSatelliteInfoDossier(sat);
@@ -2262,7 +2314,28 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.satelliteInfoDossier = null;
     this.satelliteInfoDossierBusy = false;
     this.satelliteInfoSlideshowOpen = false;
+    this.satelliteInfoFactHelpKey = null;
     this.slideshowModalComponent?.onSlideshowClose();
+    this.cdr.markForCheck();
+  }
+
+  prefersSatelliteFactTapHelp(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    const coarse =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(hover: none)').matches;
+    return coarse || window.innerWidth <= 768;
+  }
+
+  onSatelliteFactTipActivate(helpKey: string, event?: Event): void {
+    if (!this.prefersSatelliteFactTapHelp()) {
+      return;
+    }
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.satelliteInfoFactHelpKey = this.satelliteInfoFactHelpKey === helpKey ? null : helpKey;
     this.cdr.markForCheck();
   }
 
@@ -2343,6 +2416,118 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       hour: '2-digit',
       minute: '2-digit'
     });
+  }
+
+  satelliteInfoCardinal(deg: number | null | undefined): string {
+    if (deg == null || !Number.isFinite(deg)) {
+      return '';
+    }
+    const idx = ((Math.round(deg / 22.5) % 16) + 16) % 16;
+    return WorldGlobeComponent.COMPASS_POINTS[idx]
+      .map((letter) => this.translate.instant('ASTRO_COMPASS.DIR_' + letter))
+      .join('');
+  }
+
+  satelliteInfoObserverDistance(): string | null {
+    const km = this.satelliteInfoSnapshot?.slantKm;
+    if (km == null || !Number.isFinite(km) || km <= 0) {
+      return null;
+    }
+    const parts: string[] = [];
+    const lightS = km / C_KM_PER_S;
+    if (lightS >= 0.05) {
+      parts.push(
+        this.formatSatelliteInfoLightCount(lightS) +
+          ' ' +
+          this.translate.instant('ASTRO_COMPASS.DIST_LS_UNIT')
+      );
+    }
+    parts.push(
+      this.formatSatelliteInfoAu(km / KM_PER_AU) +
+        ' ' +
+        this.translate.instant('ASTRO_COMPASS.DIST_AU_UNIT')
+    );
+    parts.push(this.formatSatelliteInfoKm(km));
+    return parts.join(' · ');
+  }
+
+  satelliteInfoLightTravel(): string | null {
+    const km = this.satelliteInfoSnapshot?.slantKm;
+    if (km == null || !Number.isFinite(km) || km <= 0) {
+      return null;
+    }
+    const lightS = km / C_KM_PER_S;
+    if (lightS < 0.05) {
+      return null;
+    }
+    return this.translate.instant('ASTRO_COMPASS.LIGHT_TRAVEL_S', {
+      n: this.formatSatelliteInfoLightCount(lightS)
+    });
+  }
+
+  private formatSatelliteInfoKm(km: number): string {
+    if (!Number.isFinite(km) || km < 0) {
+      return '—';
+    }
+    const unit = this.translate.instant('ASTRO_COMPASS.DIST_KM_UNIT');
+    const scaled = (value: number, suffix: string, digits: number): string =>
+      value.toLocaleString(undefined, { maximumFractionDigits: digits }) + ' ' + suffix + unit;
+    if (km >= 1e15) {
+      return scaled(km / 1e15, 'P ', 2);
+    }
+    if (km >= 1e12) {
+      return scaled(km / 1e12, 'T ', 2);
+    }
+    if (km >= 1e9) {
+      const g = km / 1e9;
+      return scaled(g, 'G ', g >= 100 ? 0 : g >= 10 ? 1 : 2);
+    }
+    if (km >= 1e6) {
+      const m = km / 1e6;
+      return scaled(m, 'M ', m >= 100 ? 0 : m >= 10 ? 1 : 2);
+    }
+    if (km >= 10_000) {
+      return Math.round(km).toLocaleString() + ' ' + unit;
+    }
+    if (km >= 100) {
+      return km.toLocaleString(undefined, { maximumFractionDigits: 0 }) + ' ' + unit;
+    }
+    if (km >= 1) {
+      return km.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ' + unit;
+    }
+    if (km === 0) {
+      return '0 ' + unit;
+    }
+    return km.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' ' + unit;
+  }
+
+  private formatSatelliteInfoAu(au: number): string {
+    if (!Number.isFinite(au) || au < 0) {
+      return '—';
+    }
+    if (au >= 1) {
+      return au.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+    if (au >= 0.001) {
+      return au.toLocaleString(undefined, { maximumFractionDigits: 4 });
+    }
+    if (au === 0) {
+      return '0';
+    }
+    return au.toExponential(2);
+  }
+
+  private formatSatelliteInfoLightCount(n: number): string {
+    if (n >= 1 && Math.abs(n - Math.round(n)) < 0.05) {
+      return Math.round(n).toLocaleString();
+    }
+    if (n >= 10) {
+      return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
+    }
+    if (n >= 1) {
+      return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+    return n.toLocaleString(undefined, { maximumFractionDigits: n >= 0.01 ? 3 : 2 });
   }
 
   formatSatelliteInfoDuration(pass: GlobeSatellitePass): string {
@@ -2611,6 +2796,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.stopIssPolling();
       this.clearIssPositionFeedState();
     }
+    this.pushTickerUiSnapshot();
     this.cdr.markForCheck();
     this.schedulePersistIssGlobalPrefs();
   }
@@ -3562,6 +3748,32 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.flagEmojiFromCountryCode(code);
   }
 
+  /**
+   * Fige les bindings du bandeau pour le prochain CD. Les positions live (ISS / SGP4) peuvent
+   * bouger à chaque frame ou pendant un await HTTP ; le template ne doit lire que cette copie.
+   */
+  private pushTickerUiSnapshot(): void {
+    const sat = this.tickerFocusSat();
+    const name = this.tickerLabelName();
+    this.tickerUiHasLiveData = this.issTickerHasLiveData();
+    this.tickerUiLat = this.tickerLat();
+    this.tickerUiLon = this.tickerLon();
+    this.tickerUiAltKm = this.tickerAltKm();
+    this.tickerUiSpeedKmh = this.tickerSpeedKmh();
+    this.tickerUiStepKm = this.tickerStepKm();
+    this.tickerUiOverPlaceLabel = this.tickerOverPlaceLabel();
+    this.tickerUiOverFlagEmoji = this.tickerOverFlagEmoji();
+    this.tickerUiLabelName = name;
+    this.tickerUiColor = sat?.color ?? null;
+    this.tickerUiIconClass = sat?.iconClass ?? 'fa-globe';
+    this.tickerUiAriaLabel = this.tickerFocusSatId
+      ? this.translate.instant('WORLD_GLOBE.SATELLITE_TICKER_ARIA', { name })
+      : this.translate.instant('WORLD_GLOBE.ISS_TICKER_ARIA');
+    this.tickerUiLoadingLabel = this.tickerFocusSatId
+      ? this.translate.instant('WORLD_GLOBE.SATELLITE_TICKER_LOADING', { name })
+      : this.translate.instant('WORLD_GLOBE.ISS_TICKER_LOADING');
+  }
+
   onSelectSatelliteForTicker(satId: string | null, persistViseur = false): void {
     const next = satId && this.globeSatelliteOptions.some((s) => s.id === satId) ? satId : null;
     if (next && this.satelliteOverlayEnabled[next] === false) {
@@ -3579,6 +3791,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (persistViseur) {
         this.rememberAstroViseurSat(next ?? 'iss');
       }
+      this.pushTickerUiSnapshot();
+      this.scheduleWorldGlobeCdr();
       return;
     }
     this.tickerFocusSatId = next;
@@ -3599,7 +3813,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     } else if (this.globeIssLat != null && this.globeIssLon != null) {
       this.maybeUpdateIssOverPlace(this.globeIssLat, this.globeIssLon);
     }
-    this.cdr.markForCheck();
+    this.pushTickerUiSnapshot();
+    this.scheduleWorldGlobeCdr();
   }
 
   private issPositionFeedActive(): boolean {
@@ -4530,13 +4745,15 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       queueMicrotask(() => this.updateIssTickerDuration(el.getBoundingClientRect().width));
       return;
     }
-    this.issTickerResizeObs = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width;
-      if (width != null && width > 0) {
-        this.scheduleIssTickerDurationUpdate(width);
-      }
+    this.zone.runOutsideAngular(() => {
+      this.issTickerResizeObs = new ResizeObserver((entries) => {
+        const width = entries[0]?.contentRect.width;
+        if (width != null && width > 0) {
+          this.scheduleIssTickerDurationUpdate(width);
+        }
+      });
+      this.issTickerResizeObs.observe(el);
     });
-    this.issTickerResizeObs.observe(el);
   }
 
   private scheduleIssTickerDurationUpdate(halfWidthPx: number): void {
@@ -4557,8 +4774,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const sec = Math.max(30, halfWidthPx / WorldGlobeComponent.ISS_TICKER_SPEED_PX_PER_SEC);
     const rounded = Math.round(sec);
     if (rounded !== this.issTickerDurationSec) {
-      this.issTickerDurationSec = rounded;
-      this.cdr.markForCheck();
+      this.scheduleWorldGlobeCdr(() => {
+        this.issTickerDurationSec = rounded;
+      });
     }
   }
 
@@ -6646,7 +6864,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (this.satelliteDeepLinkPrefsReady()) {
         this.pendingDeepLinkSatId = null;
       }
-      this.cdr.markForCheck();
+      this.pushTickerUiSnapshot();
+      this.scheduleWorldGlobeCdr();
       return;
     }
     const sat = this.globeSatelliteOptions.find((s) => s.id === id);
@@ -6672,7 +6891,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.satelliteDeepLinkPrefsReady()) {
       this.pendingDeepLinkSatId = null;
     }
-    this.cdr.markForCheck();
+    this.pushTickerUiSnapshot();
+    this.scheduleWorldGlobeCdr();
   }
 
   private satelliteDeepLinkPrefsReady(): boolean {
@@ -6998,7 +7218,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private bootstrapThree(): void {
     const host = this.globeCanvasHost?.nativeElement;
     if (!host || host.clientWidth < 2 || host.clientHeight < 2) {
-      requestAnimationFrame(() => this.bootstrapThree());
+      this.zone.runOutsideAngular(() => {
+        requestAnimationFrame(() => this.zone.run(() => this.bootstrapThree()));
+      });
       return;
     }
 
@@ -7607,42 +7829,43 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private startLoop(): void {
-    const loop = (): void => {
+    this.zone.runOutsideAngular(() => {
+      const loop = (): void => {
+        this.rafId = requestAnimationFrame(loop);
+        const controls = this.controls;
+        const renderer = this.renderer;
+        const scene = this.scene;
+        const camera = this.camera;
+        if (!controls || !renderer || !scene || !camera) {
+          return;
+        }
+        if (this.cloudsMesh) {
+          this.cloudsDriftRad += 0.00012;
+          this.cloudsMesh.rotation.y = Math.PI + this.cloudsDriftRad;
+        }
+        if (this.realTimeTerminator) {
+          this.updateSunDirectionFromTime(new Date());
+        }
+        if (this.globeGeocodeMarkerLat != null && this.globeGeocodeMarkerLon != null) {
+          this.updateGeocodeMarkerWorldPosition();
+        }
+        this.syncGlobeControlsSensitivity();
+        this.syncGlobeOrbitAutoRotate(controls);
+        const flightEarthCentered = this.isFlightEarthCenteredTrackingActive();
+        const issEarthCentered = this.isIssEarthCenteredTrackingActive();
+        controls.update();
+        if (flightEarthCentered && !this.flightGlobeFreeOrbit) {
+          this.applyFlightEarthCenteredCameraIfNeeded();
+        } else if (issEarthCentered && !this.issGlobeFreeOrbit) {
+          this.applyIssEarthCenteredCameraIfNeeded();
+        }
+        this.syncIssForecastTrailGeometryIfDirty();
+        this.updateGlobeSatelliteOverlays();
+        this.updateCountryLabelsScaleForZoom();
+        renderer.render(scene, camera);
+      };
       this.rafId = requestAnimationFrame(loop);
-      const controls = this.controls;
-      const renderer = this.renderer;
-      const scene = this.scene;
-      const camera = this.camera;
-      if (!controls || !renderer || !scene || !camera) {
-        return;
-      }
-      const nowMs = performance.now();
-      if (this.cloudsMesh) {
-        this.cloudsDriftRad += 0.00012;
-        this.cloudsMesh.rotation.y = Math.PI + this.cloudsDriftRad;
-      }
-      if (this.realTimeTerminator) {
-        this.updateSunDirectionFromTime(new Date());
-      }
-      if (this.globeGeocodeMarkerLat != null && this.globeGeocodeMarkerLon != null) {
-        this.updateGeocodeMarkerWorldPosition();
-      }
-      this.syncGlobeControlsSensitivity();
-      this.syncGlobeOrbitAutoRotate(controls);
-      const flightEarthCentered = this.isFlightEarthCenteredTrackingActive();
-      const issEarthCentered = this.isIssEarthCenteredTrackingActive();
-      controls.update();
-      if (flightEarthCentered && !this.flightGlobeFreeOrbit) {
-        this.applyFlightEarthCenteredCameraIfNeeded();
-      } else if (issEarthCentered && !this.issGlobeFreeOrbit) {
-        this.applyIssEarthCenteredCameraIfNeeded();
-      }
-      this.syncIssForecastTrailGeometryIfDirty();
-      this.updateGlobeSatelliteOverlays();
-      this.updateCountryLabelsScaleForZoom();
-      renderer.render(scene, camera);
-    };
-    this.rafId = requestAnimationFrame(loop);
+    });
   }
 
   private stopLoop(): void {
@@ -8280,6 +8503,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private globeSatelliteOrbitRadius(altKm: number | null, fallbackKm: number): number {
     const alt = altKm != null && Number.isFinite(altKm) ? altKm : fallbackKm;
+    if (alt >= 100_000) {
+      return GLOBE_SAT_L2_DISPLAY_RADIUS;
+    }
     const clamped = Math.min(GLOBE_SAT_MAX_ALT_KM, Math.max(GLOBE_SAT_MIN_ALT_KM, alt));
     const trueR = 1 + clamped / GLOBE_EARTH_RADIUS_KM;
     return Math.min(trueR, GLOBE_SAT_DISPLAY_RADIUS_MAX);

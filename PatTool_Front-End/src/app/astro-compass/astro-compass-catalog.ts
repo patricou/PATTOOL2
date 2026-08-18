@@ -37,6 +37,11 @@ export interface AstroSatelliteOption {
    * When true, skip TLE / SGP4 (e.g. JWST at L2 — no useful two-line elements).
    */
   skipLiveTle?: boolean;
+  /**
+   * Sun–Earth L2 halo (JWST): live lat/lon from the anti-sun direction, ~1.5e6 km.
+   * TLE/SGP4 is not usable; pair with {@link skipLiveTle}.
+   */
+  sunEarthL2?: boolean;
   /** Geostationary slot: fixed sub-satellite point, no TLE. */
   fixedGeo?: { lat: number; lon: number; altKm: number };
   /** Dynamic constellation (live TLE group, e.g. next visible Starlink train). */
@@ -45,7 +50,17 @@ export interface AstroSatelliteOption {
 
 /** True when the satellite is aimed via the single-NORAD TLE proxy. */
 export function satelliteUsesNetworkTle(sat: AstroSatelliteOption): boolean {
-  return !sat.skipLiveTle && !sat.fixedGeo && !sat.constellation && !sat.useIssLiveFeed;
+  return !sat.skipLiveTle && !sat.sunEarthL2 && !sat.fixedGeo && !sat.constellation && !sat.useIssLiveFeed;
+}
+
+/** True when a live lat/lon can be computed (TLE, GEO, constellation, ISS feed, or L2). */
+export function satelliteHasLivePosition(sat: AstroSatelliteOption): boolean {
+  return !sat.skipLiveTle || !!sat.sunEarthL2 || !!sat.fixedGeo || !!sat.constellation || !!sat.useIssLiveFeed;
+}
+
+/** Compass satellites shown as globe overlays (ISS is managed separately). */
+export function satelliteListedOnGlobe(sat: AstroSatelliteOption): boolean {
+  return sat.id !== 'iss' && satelliteHasLivePosition(sat);
 }
 
 /** Human-made spacecraft with public TLEs (CelesTrak). */
@@ -86,7 +101,8 @@ export const ASTRO_SATELLITES: ReadonlyArray<AstroSatelliteOption> = [
     iconClass: 'fa fa-star',
     color: '#f9a8d4',
     defaultAltKm: 1_500_000,
-    skipLiveTle: true
+    skipLiveTle: true,
+    sunEarthL2: true
   },
   {
     id: 'terra',

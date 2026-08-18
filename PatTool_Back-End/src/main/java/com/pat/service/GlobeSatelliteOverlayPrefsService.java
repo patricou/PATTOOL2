@@ -25,10 +25,11 @@ public class GlobeSatelliteOverlayPrefsService {
 
     static final String PARAM_KEY_PREFIX = "globe.satellite.overlays.";
 
-    /** Same ids as astro-compass / world-globe (ISS and JWST are not overlay switches). */
+    /** Same ids as astro-compass / world-globe (ISS is not an overlay switch). */
     static final Set<String> KNOWN_SATELLITE_IDS = Set.of(
             "tiangong",
             "hubble",
+            "jwst",
             "terra",
             "aqua",
             "landsat8",

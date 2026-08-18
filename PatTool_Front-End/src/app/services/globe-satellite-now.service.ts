@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { Body, Equator, Observer, SiderealTime } from 'astronomy-engine';
 import {
   degreesLat,
   degreesLong,
@@ -11,8 +12,12 @@ import {
   type SatRec
 } from 'satellite.js';
 import { environment } from '../../environments/environment';
-import { satelliteUsesNetworkTle, type AstroSatelliteOption } from '../astro-compass/astro-compass-catalog';
+import { type AstroSatelliteOption } from '../astro-compass/astro-compass-catalog';
 import { GlobeStarlinkService } from './globe-starlink.service';
+
+/** Approximate Earth→L2 distance (JWST halo around Sun–Earth L2). */
+const SUN_EARTH_L2_KM = 1_507_000;
+const L2_EQUATOR_OBSERVER = new Observer(0, 0, 0);
 
 export interface GlobeSatelliteNowSnapshot {
   noradId: number;
@@ -56,7 +61,7 @@ export class GlobeSatelliteNowService {
       this.starlink.refreshPass();
       return;
     }
-    if (sat.skipLiveTle || sat.fixedGeo) {
+    if (sat.skipLiveTle || sat.sunEarthL2 || sat.fixedGeo) {
       return;
     }
     await this.ensureTle(sat.noradId, forceNetwork);
@@ -67,6 +72,9 @@ export class GlobeSatelliteNowService {
   }
 
   snapshotForOption(sat: AstroSatelliteOption, nowMs = Date.now()): GlobeSatelliteNowSnapshot | null {
+    if (sat.sunEarthL2) {
+      return GlobeSatelliteNowService.sunEarthL2Snapshot(sat, nowMs);
+    }
     if (sat.fixedGeo) {
       return {
         noradId: sat.noradId,
@@ -81,7 +89,49 @@ export class GlobeSatelliteNowService {
     if (sat.constellation === 'starlink') {
       return this.starlink.leadSnapshot(nowMs);
     }
+    if (sat.skipLiveTle) {
+      return null;
+    }
     return this.snapshotForDisplay(sat.noradId, nowMs);
+  }
+
+  /**
+   * JWST-class objects sit near Sun–Earth L2 (night side, ~1.5 million km).
+   * Sub-satellite point = anti-sun; TLE/SGP4 is not usable.
+   */
+  private static sunEarthL2Snapshot(
+    sat: AstroSatelliteOption,
+    nowMs: number
+  ): GlobeSatelliteNowSnapshot | null {
+    try {
+      const date = new Date(nowMs);
+      const eq = Equator(Body.Sun, date, L2_EQUATOR_OBSERVER, true, true);
+      const gst = SiderealTime(date);
+      let sunLon = (eq.ra - gst) * 15;
+      sunLon = GlobeSatelliteNowService.wrapLon180(sunLon);
+      return {
+        noradId: sat.noradId,
+        name: sat.id,
+        lat: -eq.dec,
+        lon: GlobeSatelliteNowService.wrapLon180(sunLon + 180),
+        altKm: sat.defaultAltKm > 0 ? sat.defaultAltKm : SUN_EARTH_L2_KM,
+        velocityKmh: null,
+        computedAtMs: nowMs
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private static wrapLon180(lonDeg: number): number {
+    let lon = lonDeg;
+    while (lon <= -180) {
+      lon += 360;
+    }
+    while (lon > 180) {
+      lon -= 360;
+    }
+    return lon;
   }
 
   /** Prefetch TLEs for a set of NORAD ids (fire-and-forget). */

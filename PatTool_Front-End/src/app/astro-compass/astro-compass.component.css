@@ -2861,6 +2861,10 @@ a.ac-compass-cal__btn--direction {
   padding: 0 0.6rem 0.55rem;
 }
 
+.ac-acc__body .ac-horizon-badge {
+  margin: 0 0 0.55rem;
+}
+
 .ac-acc__body .ac-chips,
 .ac-acc__body .ac-search,
 .ac-acc__body .ac-custom,
@@ -4144,6 +4148,14 @@ a.ac-compass-cal__btn--direction {
   color: #9ed4ff;
 }
 
+.ac-live-hero__meta {
+  min-width: 0;
+}
+
+.ac-live-hero__meta .ac-horizon-badge {
+  margin: 0.2rem 0 0.28rem;
+}
+
 .ac-live-hero__name {
   margin: 0.1rem 0 0.15rem;
   font-size: 1.45rem;
@@ -4151,6 +4163,42 @@ a.ac-compass-cal__btn--direction {
   line-height: 1.1;
   color: #fff8d8;
   text-shadow: 0 0 18px rgba(255, 220, 120, 0.25);
+}
+
+.ac-horizon-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0.15rem 0 0;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.ac-horizon-badge .fa {
+  font-size: 0.78rem;
+}
+
+.ac-horizon-badge--on {
+  color: #e8fff2;
+  background: rgba(46, 160, 90, 0.42);
+  border: 1px solid rgba(110, 220, 150, 0.55);
+}
+
+.ac-horizon-badge--off {
+  color: #ffe8e0;
+  background: rgba(160, 50, 40, 0.38);
+  border: 1px solid rgba(255, 140, 120, 0.45);
+}
+
+.ac-live-id .ac-horizon-badge {
+  margin-top: 0.2rem;
+  font-size: 0.64rem;
+  padding: 0.18rem 0.5rem;
 }
 
 .ac-live-hero__sep,
@@ -4410,8 +4458,8 @@ a.ac-compass-cal__btn--direction {
 .ac-live-dossier__link {
   display: inline-flex;
   align-items: center;
-  margin-top: 0.45rem;
-  font-size: 0.72rem;
+  margin-top: 0.08rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: #9ed4ff;
   text-decoration: none;
@@ -6115,6 +6163,10 @@ a.ac-compass-cal__btn--direction {
 }
 
 .ac-object-modal .ac-live-hero {
+  margin: 0;
+}
+
+.ac-object-modal .ac-horizon-badge {
   margin: 0;
 }
 

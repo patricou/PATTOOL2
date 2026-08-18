@@ -43,6 +43,7 @@ import {
   findGalaxyById,
   findSatelliteById,
   satelliteUsesNetworkTle,
+  satelliteHasLivePosition,
   AstroBodyOption,
   AstroStarOption,
   AstroGalaxyOption,
@@ -157,7 +158,7 @@ const FINDER_TRAIL_SAT_STEP = 5;
 const FINDER_TRAIL_SAT_STEP_MS = 8_000;
 const FINDER_TRAIL_SKY_DEFAULT_MIN = 90;
 const FINDER_TRAIL_SKY_MIN = 15;
-const FINDER_TRAIL_SKY_MAX = 360;
+const FINDER_TRAIL_SKY_MAX = 720;
 const FINDER_TRAIL_SKY_STEP = 15;
 const FINDER_TRAIL_SKY_STEP_MS = 90_000;
 const FINDER_TRAIL_SKY_MAX_AGE_MS = 2_000;
@@ -2515,7 +2516,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const sat = this.selectedSatellite;
     const durationMs = this.finderTrailDurationMs();
     const stepMs = this.finderTrailStepMs();
-    if (sat.skipLiveTle) {
+    if (sat.skipLiveTle && !sat.sunEarthL2) {
       return this.computeFixedSkyTrailFromCurrent(nowMs, durationMs, stepMs);
     }
     this.satNow.setObserver(this.lat, this.lon);
@@ -2763,12 +2764,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return findSatelliteById(this.selectedSatelliteId) ?? this.issOption;
   }
 
-  /** Globe 3D : satellites avec position (ISS, TLE, GEO) — pas JWST. */
+  /** Globe 3D : satellites avec position (ISS, TLE, GEO, L2). */
   canOpenWorldGlobeOnSatellite(): boolean {
     if (this.selectedKind !== 'iss') {
       return false;
     }
-    return !this.selectedSatellite.skipLiveTle;
+    return satelliteHasLivePosition(this.selectedSatellite);
   }
 
   /** Ouvre le globe terrestre centré sur le satellite (ou l’ISS) courant. */
@@ -3471,7 +3472,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
           if (snap.altKm != null && snap.altKm > 0) {
             altKm = snap.altKm;
           }
-        } else if (sat.skipLiveTle) {
+        } else if (sat.skipLiveTle && !sat.sunEarthL2) {
           continue;
         } else {
           this.satNow.setObserver(this.lat, this.lon);
@@ -5727,7 +5728,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
       return false;
     }
-    if (sat.skipLiveTle) {
+    if (sat.skipLiveTle && !sat.sunEarthL2) {
       return false;
     }
     let snapLat: number | null = null;

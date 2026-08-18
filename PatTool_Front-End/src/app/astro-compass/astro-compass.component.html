@@ -1111,6 +1111,7 @@
         </div>
       </div>
       <div class="ac-acc__body">
+      <ng-container *ngTemplateOutlet="acHorizonBadge"></ng-container>
       <div class="ac-compass-readout" *ngIf="azimuthDeg != null">
         <div class="ac-compass-readout__item">
           <span class="ac-compass-readout__key">{{ 'ASTRO_COMPASS.AZIMUTH' | translate }}</span>
@@ -1683,6 +1684,7 @@
       <div class="ac-live-hero__meta">
         <span class="ac-live-hero__kind">{{ autoDetectKindLabelKey(hit.kind) | translate }}</span>
         <h2 class="ac-live-hero__name">{{ bodyLabel || hit.name }}</h2>
+        <ng-container *ngTemplateOutlet="acHorizonBadge"></ng-container>
         <p class="ac-live-hero__sep">
           {{ 'ASTRO_COMPASS.AUTO_SEP' | translate : { deg: (hit.separationDeg | number : '1.0-1') } }}
         </p>
@@ -1840,6 +1842,18 @@
   </div>
 </ng-template>
 
+<ng-template #acHorizonBadge>
+  <p
+    class="ac-horizon-badge"
+    *ngIf="elevationDeg != null"
+    [class.ac-horizon-badge--on]="aboveHorizon()"
+    [class.ac-horizon-badge--off]="!aboveHorizon()"
+    role="status">
+    <i class="fa" [class.fa-eye]="aboveHorizon()" [class.fa-eye-slash]="!aboveHorizon()" aria-hidden="true"></i>
+    {{ (aboveHorizon() ? 'ASTRO_COMPASS.VIS_NOW_VISIBLE' : 'ASTRO_COMPASS.VIS_BELOW') | translate }}
+  </p>
+</ng-template>
+
 <ng-template #acFactTip let-labelKey="labelKey" let-helpKey="helpKey" let-css="css">
   <button
     type="button"
@@ -1994,7 +2008,7 @@
           <p class="ac-live-dossier__extract" *ngIf="dossier.extract">{{ dossier.extract }}</p>
         </div>
       </div>
-      <div class="ac-live-info ac-live-info--dossier" *ngIf="dossier.skyNames.length || dossier.skyTypes.length || dossier.vMag != null || dossier.bMag != null">
+      <div class="ac-live-info ac-live-info--dossier" *ngIf="dossier.skyNames.length || dossier.skyTypes.length || dossier.vMag != null || dossier.bMag != null || dossier.wikiUrl">
         <div class="ac-live-info__cell" *ngIf="dossier.skyTypes.length">
           <ng-container *ngTemplateOutlet="acFactTip; context: { labelKey: 'ASTRO_COMPASS.DOSSIER_TYPE', helpKey: 'ASTRO_COMPASS.DOSSIER_TYPE_TIP' }"></ng-container>
           <span class="ac-live-info__v">{{ dossier.skyTypes.join(', ') }}</span>
@@ -2011,16 +2025,18 @@
           <ng-container *ngTemplateOutlet="acFactTip; context: { labelKey: 'ASTRO_COMPASS.DOSSIER_NAMES', helpKey: 'ASTRO_COMPASS.DOSSIER_NAMES_TIP' }"></ng-container>
           <span class="ac-live-info__v">{{ dossier.skyNames.join(' · ') }}</span>
         </div>
+        <div class="ac-live-info__cell ac-live-info__cell--wide" *ngIf="dossier.wikiUrl">
+          <ng-container *ngTemplateOutlet="acFactTip; context: { labelKey: 'ASTRO_COMPASS.DOSSIER_WIKI', helpKey: 'ASTRO_COMPASS.DOSSIER_WIKI_TIP' }"></ng-container>
+          <a
+            class="ac-live-dossier__link"
+            [href]="dossier.wikiUrl"
+            target="_blank"
+            rel="noopener noreferrer">
+            <i class="fa fa-external-link me-1" aria-hidden="true"></i>
+            {{ dossier.wikiTitle || ('ASTRO_COMPASS.DOSSIER_WIKI' | translate) }}
+          </a>
+        </div>
       </div>
-      <a
-        *ngIf="dossier.wikiUrl"
-        class="ac-live-dossier__link"
-        [href]="dossier.wikiUrl"
-        target="_blank"
-        rel="noopener noreferrer">
-        <i class="fa fa-external-link me-1" aria-hidden="true"></i>
-        {{ 'ASTRO_COMPASS.DOSSIER_WIKI' | translate }}
-      </a>
     </ng-container>
     <p class="ac-live-dossier__empty" *ngIf="!objectDossierBusy && !objectDossier">
       {{ 'ASTRO_COMPASS.DOSSIER_EMPTY' | translate }}
@@ -2070,6 +2086,7 @@
         <h2 class="ac-live-hero__name">{{ bodyLabel || ('ASTRO_COMPASS.LOOK_THE_OBJECT' | translate) }}</h2>
       </div>
     </div>
+    <ng-container *ngTemplateOutlet="acHorizonBadge"></ng-container>
     <div class="ac-live-dist" *ngIf="observerDistanceAvailable()">
       <ng-container *ngTemplateOutlet="acFactTip; context: { labelKey: 'ASTRO_COMPASS.DIST_FROM_YOU', helpKey: 'ASTRO_COMPASS.HELP_GEO_DEF', css: 'ac-live-dist__k' }"></ng-container>
       <span class="ac-live-dist__v">

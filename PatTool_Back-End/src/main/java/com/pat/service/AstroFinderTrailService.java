@@ -24,7 +24,7 @@ public class AstroFinderTrailService {
     static final int SAT_MAX = 60;
     static final int SAT_STEP = 5;
     static final int SKY_MIN = 15;
-    static final int SKY_MAX = 360;
+    static final int SKY_MAX = 720;
     static final int SKY_STEP = 15;
 
     private final AppParameterService appParameterService;
