@@ -323,7 +323,7 @@ export class AssistantDrawerComponent
   fabTopPx = 72;
   /** Sur TV watcher : bouton à gauche pour ne pas masquer l’antenne / le centre de l’écran. */
   fabAlignLeft = false;
-  /** Viseur d’astres : le FAB recouvre la caméra — on le masque. */
+  /** Viseur d’astres / boussole / globe : le FAB recouvre la vue — on le masque. */
   fabHidden = false;
 
   isOpen = false;
@@ -1745,7 +1745,7 @@ export class AssistantDrawerComponent
     }
     const url = this.router.url || '';
     const alignLeft = /\/tools\/(?:tv-watcher|webcam)(?:\/|$|\?)/.test(url);
-    const hideFab = /\/tools\/(?:astro-compass|direction)(?:\/|$|\?)/.test(url);
+    const hideFab = /\/tools\/(?:astro-compass|direction|world-globe)(?:\/|$|\?)/.test(url);
     let changed = false;
     if (next !== this.fabTopPx) {
       this.fabTopPx = next;

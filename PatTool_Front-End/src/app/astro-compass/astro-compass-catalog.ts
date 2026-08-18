@@ -686,7 +686,8 @@ function matchesFixedSkyQuery(obj: AstroFixedSkyOption, q: string): boolean {
 }
 
 function sortFixedSkyByName<T extends AstroFixedSkyOption>(items: T[]): T[] {
-  return [...items].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  return [...items].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
 }
 
 export function findStarsByQuery(query: string): AstroStarOption[] {

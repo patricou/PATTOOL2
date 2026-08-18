@@ -808,9 +808,35 @@ body:has(.wg-fs-root--viewport-locked) {
 }
 
 .wg-sat-info-modal {
-  width: min(96vw, 28rem);
-  max-height: min(88vh, 40rem);
+  width: min(96vw, 36rem);
+  max-height: min(88vh, 48rem);
   overflow: auto;
+}
+
+.wg-sat-info-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.wg-sat-info-title-photo {
+  flex-shrink: 0;
+  width: 2.45rem;
+  height: 2.45rem;
+  padding: 0;
+  border: 1px solid rgba(120, 150, 220, 0.4);
+  border-radius: 0.4rem;
+  overflow: hidden;
+  background: #020510;
+  cursor: zoom-in;
+}
+
+.wg-sat-info-title-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .wg-sat-info-grid {
@@ -863,6 +889,51 @@ body:has(.wg-fs-root--viewport-locked) {
   gap: 0.12rem;
   font-size: 0.7rem;
   color: #9fb0d4;
+}
+
+.wg-sat-info-row--stack {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+
+.wg-sat-info-row--stack strong {
+  text-align: left;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.wg-sat-info-dossier {
+  margin-top: 0.85rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgba(120, 150, 220, 0.22);
+}
+
+.wg-sat-info-dossier__head {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #e8eef8;
+  margin-bottom: 0.45rem;
+}
+
+.wg-sat-info-dossier__desc {
+  font-size: 0.72rem;
+  color: #9eeaf9;
+  margin: 0;
+}
+
+.wg-sat-info-dossier__extract {
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: #c5d0ea;
+}
+
+.wg-sat-info-dossier__link {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.35rem;
+  font-size: 0.76rem;
+  color: #7ec8ff;
 }
 
 .wg-opt-switch {
@@ -1181,10 +1252,10 @@ body:has(.wg-fs-root--viewport-locked) {
   top: max(0.45rem, env(safe-area-inset-top, 0px));
   left: max(0.45rem, env(safe-area-inset-left, 0px));
   z-index: 5;
-  max-width: min(96vw, 42rem);
+  max-width: min(96vw, 46rem);
   margin: 0 !important;
-  padding: 0.2rem 0.35rem;
-  border-radius: 0.35rem;
+  padding: 0.24rem 0.4rem;
+  border-radius: 0.4rem;
   background: rgba(8, 12, 22, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(8px);
@@ -1555,19 +1626,6 @@ body:has(.wg-fs-root--viewport-locked) {
   color: #f87171;
 }
 
-.wg-iss-live-pip__btn-wa .fa-whatsapp,
-.wg-globe-stage-toolbar .wg-btn-wa .fa-whatsapp {
-  color: #25d366;
-}
-
-.wg-globe-stage-toolbar .wg-btn-wa .fa-check {
-  color: #5dd879;
-}
-
-.wg-globe-stage-toolbar .wg-btn-wa .fa-times {
-  color: #f87171;
-}
-
 .wg-iss-live-pip__btn-close:hover,
 .wg-iss-live-pip__btn-close:focus-visible {
   color: #f87171;
@@ -1622,6 +1680,16 @@ body:has(.wg-fs-root--viewport-locked) {
 .wg-globe-stage-toolbar .wg-btn {
   white-space: nowrap;
   line-height: 1.2;
+  --bs-btn-font-size: 0.76rem;
+  --bs-btn-padding-y: 0.26rem;
+  --bs-btn-padding-x: 0.55rem;
+  font-size: 0.76rem;
+  padding: 0.26rem 0.55rem;
+  border-radius: 999px;
+}
+
+.wg-globe-stage-toolbar .wg-btn .fa {
+  font-size: 0.88rem;
 }
 
 .wg-picker {
@@ -2218,9 +2286,19 @@ body:has(.wg-fs-root--viewport-locked) {
   .wg-globe-stage-toolbar {
     top: max(0.32rem, env(safe-area-inset-top, 0px));
     left: max(0.32rem, env(safe-area-inset-left, 0px));
-    max-width: min(96vw, 36rem);
+    max-width: min(96vw, 38rem);
     gap: 0.35rem !important;
-    padding: 0.18rem 0.3rem;
+    padding: 0.2rem 0.32rem;
+  }
+
+  .wg-globe-stage-toolbar .wg-btn {
+    --bs-btn-font-size: 0.7rem;
+    font-size: 0.7rem;
+    padding: 0.22rem 0.48rem;
+  }
+
+  .wg-globe-stage-toolbar .wg-btn .fa {
+    font-size: 0.82rem;
   }
 
   /* Hors plein écran : flux ISS sous le globe (plus de PiP en bas à droite). */
@@ -2381,7 +2459,7 @@ body:has(.wg-fs-root--viewport-locked) {
   word-break: break-word;
 }
 
-/* Aperçu capture avant partage WhatsApp — au-dessus du mode présentation (z-index 10000). */
+/* Aperçu / dialogues (z-index au-dessus du mode présentation). */
 .wg-share-preview-overlay {
   position: fixed;
   inset: 0;
@@ -2393,6 +2471,18 @@ body:has(.wg-fs-root--viewport-locked) {
   background: rgba(2, 5, 12, 0.82);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
+}
+
+:host.wg-sat-slideshow-open .wg-share-preview-overlay {
+  z-index: 1040;
+}
+
+::ng-deep body:has(app-world-globe.wg-sat-slideshow-open) ngb-modal-backdrop.modal-backdrop {
+  z-index: 10060 !important;
+}
+
+::ng-deep body:has(app-world-globe.wg-sat-slideshow-open) ngb-modal-window.modal.slideshow-modal-wide {
+  z-index: 10070 !important;
 }
 
 .wg-share-preview-card {
@@ -2420,30 +2510,9 @@ body:has(.wg-fs-root--viewport-locked) {
   color: #e8eef8;
 }
 
-.wg-share-preview-img {
-  display: block;
-  width: 100%;
-  max-height: min(58vh, 36rem);
-  object-fit: contain;
-  border-radius: 0.45rem;
-  border: 1px solid rgba(120, 150, 220, 0.25);
-  background: #020510;
-  margin-bottom: 0.75rem;
-}
-
 .wg-share-preview-hint {
   color: #9fb0d4 !important;
   line-height: 1.45;
-}
-
-.wg-share-preview-hint--ok {
-  color: #7dcea0 !important;
-}
-
-.wg-share-preview-card .alert-info {
-  background: rgba(13, 110, 253, 0.12);
-  border-color: rgba(120, 150, 220, 0.35);
-  color: #b9c7e8;
 }
 
 .wg-iss-alert-admin-open-btn {

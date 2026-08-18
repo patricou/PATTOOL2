@@ -513,7 +513,8 @@ export function projectCelestialToScreen(
   tgtElDeg: number,
   hfovDeg = DEFAULT_HFOV_DEG,
   vfovDeg?: number,
-  centerSepDeg = CENTER_SEP_DEG
+  centerSepDeg = CENTER_SEP_DEG,
+  clampScreen = true
 ): ScreenProjection {
   const vfov = vfovDeg != null && Number.isFinite(vfovDeg) && vfovDeg > 0.25 ? vfovDeg : hfovDeg * 0.75;
   const dAz = circularDiff(tgtAzDeg, camAzDeg);
@@ -531,13 +532,82 @@ export function projectCelestialToScreen(
   const inView =
     inFront && xPct >= 4 && xPct <= 96 && yPct >= 4 && yPct <= 96 && sepDeg < Math.max(hfovDeg, vfov) * 0.7;
   return {
-    xPct: Math.max(-8, Math.min(108, xPct)),
-    yPct: Math.max(-8, Math.min(108, yPct)),
+    xPct: clampScreen ? Math.max(-8, Math.min(108, xPct)) : xPct,
+    yPct: clampScreen ? Math.max(-8, Math.min(108, yPct)) : yPct,
     inView,
     inFront,
     sepDeg,
     centered: inView && sepDeg <= centerSepDeg
   };
+}
+
+/** Cohen–Sutherland clip of a segment to an axis-aligned rectangle. */
+export function clipLineToRect(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  minX = 0,
+  minY = 0,
+  maxX = 100,
+  maxY = 100
+): { x0: number; y0: number; x1: number; y1: number } | null {
+  const LEFT = 1;
+  const RIGHT = 2;
+  const BOTTOM = 4;
+  const TOP = 8;
+  const code = (x: number, y: number): number => {
+    let c = 0;
+    if (x < minX) {
+      c |= LEFT;
+    } else if (x > maxX) {
+      c |= RIGHT;
+    }
+    if (y < minY) {
+      c |= TOP;
+    } else if (y > maxY) {
+      c |= BOTTOM;
+    }
+    return c;
+  };
+  let c0 = code(x0, y0);
+  let c1 = code(x1, y1);
+  for (let i = 0; i < 12; i++) {
+    if (!(c0 | c1)) {
+      return { x0, y0, x1, y1 };
+    }
+    if (c0 & c1) {
+      return null;
+    }
+    const c = c0 || c1;
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    let x = x0;
+    let y = y0;
+    if (c & TOP) {
+      x = x0 + (dx * (minY - y0)) / (dy || 1e-9);
+      y = minY;
+    } else if (c & BOTTOM) {
+      x = x0 + (dx * (maxY - y0)) / (dy || 1e-9);
+      y = maxY;
+    } else if (c & RIGHT) {
+      y = y0 + (dy * (maxX - x0)) / (dx || 1e-9);
+      x = maxX;
+    } else {
+      y = y0 + (dy * (minX - x0)) / (dx || 1e-9);
+      x = minX;
+    }
+    if (c === c0) {
+      x0 = x;
+      y0 = y;
+      c0 = code(x0, y0);
+    } else {
+      x1 = x;
+      y1 = y;
+      c1 = code(x1, y1);
+    }
+  }
+  return null;
 }
 
 export function circularMeanDeg(degrees: ReadonlyArray<number>): number {

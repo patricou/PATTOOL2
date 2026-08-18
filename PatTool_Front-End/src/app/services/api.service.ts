@@ -33,7 +33,9 @@ export interface AstroLastTarget {
 }
 
 export interface AstroFinderTrailPref {
-  enabled: boolean;
+  enabled?: boolean;
+  satMinutes?: number;
+  skyMinutes?: number;
 }
 
 export interface AstroMaxMagnitudePref {
@@ -1573,12 +1575,12 @@ export class ApiService {
     );
   }
 
-  setAstroFinderTrail(enabled: boolean): Observable<AstroFinderTrailPref> {
+  setAstroFinderTrail(pref: AstroFinderTrailPref): Observable<AstroFinderTrailPref> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
         this._http.put<AstroFinderTrailPref>(
           this.API_URL + 'external/globe/astro/finder-trail',
-          { enabled },
+          pref,
           { headers }
         )
       )

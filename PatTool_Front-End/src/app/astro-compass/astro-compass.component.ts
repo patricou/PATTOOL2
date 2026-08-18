@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule, ActivatedRoute } from '@angular/router';
+import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { Observable, Subscription, forkJoin, of } from 'rxjs';
@@ -54,9 +54,9 @@ import {
   findConstellationsByQuery,
   findConstellationById,
   constellationMemberStars,
-  constellationStickLines,
   AstroConstellationOption
 } from './astro-compass-constellations';
+import { constellationFigureStrokes } from './astro-compass-constellation-figures';
 import {
   ApiService,
   IssCompassCalibration,
@@ -82,6 +82,7 @@ import {
   snapshotFromPayload
 } from '../direction/direction-pattool-cal';
 import {
+  clipLineToRect,
   computeFinderTurnGuide,
   displayedCameraFovDeg,
   projectCelestialToScreen,
@@ -149,9 +150,15 @@ const SECONDS_PER_DAY = 24 * 3600;
 const ISS_DEFAULT_ALT_KM = 420;
 const ISS_REFRESH_MIN_MS = 20_000;
 /** Trajectoire future dans le viseur : satellites (SGP4) vs astres (éphémérides). */
-const FINDER_TRAIL_SAT_MS = 10 * 60 * 1000;
+const FINDER_TRAIL_SAT_DEFAULT_MIN = 10;
+const FINDER_TRAIL_SAT_MIN = 5;
+const FINDER_TRAIL_SAT_MAX = 60;
+const FINDER_TRAIL_SAT_STEP = 5;
 const FINDER_TRAIL_SAT_STEP_MS = 8_000;
-const FINDER_TRAIL_SKY_MS = 90 * 60 * 1000;
+const FINDER_TRAIL_SKY_DEFAULT_MIN = 90;
+const FINDER_TRAIL_SKY_MIN = 15;
+const FINDER_TRAIL_SKY_MAX = 360;
+const FINDER_TRAIL_SKY_STEP = 15;
 const FINDER_TRAIL_SKY_STEP_MS = 90_000;
 const FINDER_TRAIL_SKY_MAX_AGE_MS = 2_000;
 const FINDER_ZOOM_MIN = 1;
@@ -214,6 +221,16 @@ interface ConstellationMemberSky {
   el: number;
 }
 
+interface ConstellationFigureSkyPt {
+  az: number;
+  el: number;
+}
+
+interface ConstellationSchemaDot {
+  xPct: number;
+  yPct: number;
+}
+
 interface GenericSensorLike {
   start(): void;
   stop(): void;
@@ -245,6 +262,7 @@ interface HelpTerm {
 }
 
 type TargetAccordionId = 'iss' | 'planet' | 'star' | 'galaxy' | 'constellation' | 'custom';
+type CatalogPickerId = 'star' | 'galaxy' | 'constellation';
 
 interface TypeHelpCopy {
   titleFr: string;
@@ -291,9 +309,9 @@ const TARGET_TYPE_HELP: Record<TargetAccordionId, TypeHelpCopy> = {
     titleFr: 'Constellation',
     titleEn: 'Constellation',
     bodyFr:
-      'Découpage officiel du ciel en 88 régions (UAI). Ce n’est pas un objet physique : les étoiles d’une constellation sont à des distances très différentes. Le viseur vise le centre et peut tracer la figure.',
+      'Découpage officiel du ciel en 88 régions (UAI). Ce n’est pas un objet physique : les étoiles d’une constellation sont à des distances très différentes. Le viseur vise le centre et affiche le schéma (figure) dans le viseur.',
     bodyEn:
-      'Official division of the sky into 88 regions (IAU). It is not a physical object: stars in a constellation lie at very different distances. The finder aims at the centre and can draw the stick figure.'
+      'Official division of the sky into 88 regions (IAU). It is not a physical object: stars in a constellation lie at very different distances. The finder aims at the centre and draws the stick figure in the viewfinder.'
   },
   custom: {
     titleFr: 'Coordonnées libres',
@@ -410,7 +428,7 @@ const ASTRO_HELP_TERMS: ReadonlyArray<HelpTerm> = [
   { id: 'obs', termKey: 'ASTRO_COMPASS.HELP_OBS', defKey: 'ASTRO_COMPASS.HELP_OBS_DEF', aliases: 'observateur position gps adresse' },
   { id: 'sight', termKey: 'ASTRO_COMPASS.HELP_SIGHT', defKey: 'ASTRO_COMPASS.HELP_SIGHT_DEF', aliases: 'position exacte calage visee pointeur reticle sighting' },
   { id: 'pose', termKey: 'ASTRO_COMPASS.HELP_POSE', defKey: 'ASTRO_COMPASS.HELP_POSE_DEF', aliases: 'pause pose figer freeze hold viseur objet' },
-  { id: 'trail', termKey: 'ASTRO_COMPASS.HELP_TRAIL', defKey: 'ASTRO_COMPASS.HELP_TRAIL_DEF', aliases: 'trajectoire trajectory trace orbite futur path viseur' }
+  { id: 'trail', termKey: 'ASTRO_COMPASS.HELP_TRAIL', defKey: 'ASTRO_COMPASS.HELP_TRAIL_DEF', aliases: 'trajectoire trajectory trace orbite futur path viseur duree duration minutes' }
 ];
 
 @Component({
@@ -491,6 +509,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   constellationResults: AstroConstellationOption[] = findConstellationsByQuery('');
   /** Accordéon exclusif du choix de cible (une section ouverte à la fois). */
   targetAccordionOpen: TargetAccordionId | null = 'planet';
+  /** Liste custom (évite le sélecteur natif : fond blanc / grosse police sur mobile). */
+  catalogPickerOpen: CatalogPickerId | null = null;
   /** Aide bilingue FR/EN ouverte depuis le « i » d’un type de cible. */
   typeHelpOpen: TargetAccordionId | null = null;
 
@@ -717,10 +737,21 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   finderTrailEnabled = false;
   finderTrailPolylines: string[] = [];
   finderTrailTicks: FinderTrailTick[] = [];
+  /** Durée de la trajectoire (min) : satellites vs astres. */
+  finderTrailSatMinutes = FINDER_TRAIL_SAT_DEFAULT_MIN;
+  finderTrailSkyMinutes = FINDER_TRAIL_SKY_DEFAULT_MIN;
   /** Figure de la constellation sélectionnée (étoiles + traits) dans le viseur. */
   finderConstellationStars: FinderConstellationStar[] = [];
   finderConstellationPolylines: string[] = [];
+  finderConstellationJoints: ConstellationSchemaDot[] = [];
+  /** Schéma compact toujours visible dans le viseur (figure IAU). */
+  finderConstellationSchemaPolylines: string[] = [];
+  finderConstellationSchemaDots: ConstellationSchemaDot[] = [];
+  finderSchemaBigOpen = false;
   private constellationMemberSky: ConstellationMemberSky[] = [];
+  private constellationFigureSky: ConstellationFigureSkyPt[][] = [];
+  private constellationSchemaEquatorialPolylines: string[] = [];
+  private constellationSchemaEquatorialDots: ConstellationSchemaDot[] = [];
   northMarked = false;
   sightingMarked = false;
   /** Pause viseur : fige l’objet à l’écran même si le téléphone bouge. */
@@ -855,6 +886,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private alignAudioCtx: AudioContext | null = null;
   private static readonly ALIGN_CUE_KEY = 'pat.astro-compass.align-cue';
   private static readonly FINDER_TRAIL_KEY = 'pat.astro-compass.finder-trail';
+  private static readonly FINDER_TRAIL_MINUTES_KEY = 'pat.astro-compass.finder-trail-minutes';
   private static readonly FINDER_ZOOM_KEY = 'pat.astro-compass.finder-zoom';
   private static readonly CAM_HEIGHT_KEY = 'pat.astro-compass.cam-height-px';
   private static readonly VISIBLE_ONLY_KEY = 'pat.astro-compass.visible-only';
@@ -874,6 +906,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly onLiveModalTouchMoveNative = (ev: TouchEvent) => this.onFinderTouchMove(ev);
   private readonly onLiveModalTouchEndNative = () => this.onFinderTouchEnd();
   private static readonly LAST_TARGET_KEY = 'pat.astro-compass.last-target.v1';
+  private static readonly GLOBE_ASTRO_RETURN_SAT_KEY = 'pat.world-globe.astro-return-sat';
   private finderTrailSky: FinderTrailSkyPt[] = [];
   private finderTrailSkyAtMs = 0;
   private finderTrailSkyKey = '';
@@ -888,6 +921,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private maxMagnitudeSaveSub: Subscription | null = null;
   private alignCueLoadGen = 0;
   private alignCueSaveSub: Subscription | null = null;
+  private langChangeSub: Subscription | null = null;
 
   private skyTickTimer: ReturnType<typeof setInterval> | null = null;
   private ipFallbackAttempted = false;
@@ -901,6 +935,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly zone: NgZone,
     private readonly hostEl: ElementRef<HTMLElement>,
     private readonly route: ActivatedRoute,
+    private readonly router: Router,
     private readonly keycloak: KeycloakService
   ) {
     this.lookTracker = new CameraLookTracker(this.zone, () => this.onLookUpdate());
@@ -908,6 +943,14 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     this.onStarQueryChange();
+    this.onGalaxyQueryChange();
+    this.onConstellationQueryChange();
+    this.langChangeSub = this.translate.onLangChange.subscribe(() => {
+      this.onStarQueryChange();
+      this.onGalaxyQueryChange();
+      this.onConstellationQueryChange();
+      this.cdr.markForCheck();
+    });
     this.loadAlignCuePref();
     this.loadFinderTrailPref();
     this.loadFinderZoomPref();
@@ -1024,9 +1067,11 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.issPassSub?.unsubscribe();
     this.altitudeSub?.unsubscribe();
     this.objectDossierSub?.unsubscribe();
+    this.langChangeSub?.unsubscribe();
     this.unbindFinderZoomGestures();
     this.unbindLiveModalZoomGestures();
     this.endCamResize();
+    this.writeGlobeReturnSat();
     this.persistLastTarget();
   }
 
@@ -1275,8 +1320,28 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  @HostListener('document:click', ['$event'])
+  onCatalogPickerDocumentClick(ev: MouseEvent): void {
+    if (!this.catalogPickerOpen) {
+      return;
+    }
+    const t = ev.target as HTMLElement | null;
+    if (t?.closest?.('.ac-search')) {
+      return;
+    }
+    this.closeCatalogPicker();
+  }
+
   @HostListener('document:keydown.escape')
   onFinderEscape(): void {
+    if (this.finderSchemaBigOpen) {
+      this.closeFinderSchemaBig();
+      return;
+    }
+    if (this.catalogPickerOpen) {
+      this.closeCatalogPicker();
+      return;
+    }
     if (this.openFactHelpKey) {
       this.closeFactHelp();
       return;
@@ -1337,7 +1402,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   closeObjectInfoModal(): void {
     this.objectInfoModalOpen = false;
     this.closeFactHelp();
-    if (!this.autoDetectPaused) {
+    if (this.autoDetectLive && !this.autoDetectPaused) {
       this.clearObjectDossier();
     }
     this.cdr.markForCheck();
@@ -1382,9 +1447,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private maybeReloadObjectDossier(): void {
-    if (this.objectInfoModalOpen || this.autoDetectPaused || this.finderPoseFrozen) {
-      this.loadObjectDossier();
+    if (this.autoDetectLive && !this.autoDetectPaused) {
+      return;
     }
+    this.loadObjectDossier();
   }
 
   setHelpLetterFilter(letter: string): void {
@@ -1538,7 +1604,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.finderProj = null;
       this.finderGuide = null;
       this.clearFinderTrailScreen();
-      this.clearFinderConstellationOverlay();
+      this.clearFinderConstellationSkyOverlay();
+      this.restoreEquatorialConstellationSchema();
       return;
     }
     const fov = this.finderFovDeg();
@@ -1563,9 +1630,41 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.projectFinderConstellation(camAz, camEl, fov.hfov, fov.vfov);
   }
 
-  private clearFinderConstellationOverlay(): void {
+  private clearFinderConstellationSkyOverlay(): void {
     this.finderConstellationStars = [];
     this.finderConstellationPolylines = [];
+    this.finderConstellationJoints = [];
+  }
+
+  private clearFinderConstellationOverlay(): void {
+    this.clearFinderConstellationSkyOverlay();
+    this.clearFinderConstellationSchema();
+  }
+
+  private clearFinderConstellationSchema(): void {
+    this.finderConstellationSchemaPolylines = [];
+    this.finderConstellationSchemaDots = [];
+    this.constellationSchemaEquatorialPolylines = [];
+    this.constellationSchemaEquatorialDots = [];
+    this.finderSchemaBigOpen = false;
+  }
+
+  openFinderSchemaBig(): void {
+    if (this.selectedKind !== 'constellation' || !this.finderConstellationSchemaPolylines.length) {
+      return;
+    }
+    this.finderSchemaBigOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closeFinderSchemaBig(): void {
+    this.finderSchemaBigOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  private restoreEquatorialConstellationSchema(): void {
+    this.finderConstellationSchemaPolylines = this.constellationSchemaEquatorialPolylines;
+    this.finderConstellationSchemaDots = this.constellationSchemaEquatorialDots;
   }
 
   private projectFinderConstellation(
@@ -1574,37 +1673,164 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     hfov: number,
     vfov: number
   ): void {
-    if (this.selectedKind !== 'constellation' || !this.constellationMemberSky.length) {
+    if (this.selectedKind !== 'constellation') {
       this.clearFinderConstellationOverlay();
       return;
     }
     const stars: FinderConstellationStar[] = [];
-    const byId = new Map<string, FinderConstellationStar>();
     for (const member of this.constellationMemberSky) {
       const proj = projectCelestialToScreen(camAz, camEl, 0, member.az, member.el, hfov, vfov);
-      if (!proj.inFront || proj.xPct < -8 || proj.xPct > 108 || proj.yPct < -8 || proj.yPct > 108) {
+      if (!proj.inFront || proj.xPct < -5 || proj.xPct > 105 || proj.yPct < -5 || proj.yPct > 105) {
         continue;
       }
-      const star: FinderConstellationStar = {
+      stars.push({
         id: member.id,
         name: member.name,
         xPct: proj.xPct,
         yPct: proj.yPct
-      };
-      stars.push(star);
-      byId.set(member.id, star);
+      });
     }
     const polylines: string[] = [];
-    for (const [a, b] of constellationStickLines(this.selectedConstellationId || '')) {
-      const sa = byId.get(a);
-      const sb = byId.get(b);
-      if (!sa || !sb) {
-        continue;
+    const joints: ConstellationSchemaDot[] = [];
+    const screenStrokes: Array<Array<{ x: number; y: number }>> = [];
+    for (const stroke of this.constellationFigureSky) {
+      const raw: Array<{ x: number; y: number; inFront: boolean }> = [];
+      for (const pt of stroke) {
+        const proj = projectCelestialToScreen(
+          camAz,
+          camEl,
+          0,
+          pt.az,
+          pt.el,
+          hfov,
+          vfov,
+          undefined,
+          false
+        );
+        raw.push({ x: proj.xPct, y: proj.yPct, inFront: proj.inFront });
       }
-      polylines.push(`${sa.xPct.toFixed(2)},${sa.yPct.toFixed(2)} ${sb.xPct.toFixed(2)},${sb.yPct.toFixed(2)}`);
+      const screenStroke: Array<{ x: number; y: number }> = [];
+      for (let i = 1; i < raw.length; i++) {
+        const a = raw[i - 1];
+        const b = raw[i];
+        if (!a.inFront || !b.inFront) {
+          continue;
+        }
+        const clipped = clipLineToRect(a.x, a.y, b.x, b.y);
+        if (!clipped) {
+          continue;
+        }
+        polylines.push(
+          `${clipped.x0.toFixed(2)},${clipped.y0.toFixed(2)} ${clipped.x1.toFixed(2)},${clipped.y1.toFixed(2)}`
+        );
+      }
+      for (const p of raw) {
+        if (!p.inFront) {
+          continue;
+        }
+        screenStroke.push({ x: p.x, y: p.y });
+        if (p.x >= 0 && p.x <= 100 && p.y >= 0 && p.y <= 100) {
+          joints.push({ xPct: p.x, yPct: p.y });
+        }
+      }
+      if (screenStroke.length) {
+        screenStrokes.push(screenStroke);
+      }
     }
     this.finderConstellationStars = stars;
     this.finderConstellationPolylines = polylines;
+    this.finderConstellationJoints = joints;
+    const hudPts = screenStrokes.reduce((n, s) => n + s.length, 0);
+    if (hudPts >= 2) {
+      const fitted = this.fitXyStrokesToBox(screenStrokes, false);
+      this.finderConstellationSchemaPolylines = fitted.polylines;
+      this.finderConstellationSchemaDots = fitted.dots;
+    } else {
+      this.restoreEquatorialConstellationSchema();
+    }
+  }
+
+  private fitXyStrokesToBox(
+    strokes: ReadonlyArray<ReadonlyArray<{ x: number; y: number }>>,
+    flipY: boolean
+  ): { polylines: string[]; dots: ConstellationSchemaDot[] } {
+    const pad = 16;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const stroke of strokes) {
+      for (const p of stroke) {
+        const y = flipY ? -p.y : p.y;
+        if (p.x < minX) minX = p.x;
+        if (y < minY) minY = y;
+        if (p.x > maxX) maxX = p.x;
+        if (y > maxY) maxY = y;
+      }
+    }
+    if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+      return { polylines: [], dots: [] };
+    }
+    const spanX = Math.max(0.4, maxX - minX);
+    const spanY = Math.max(0.4, maxY - minY);
+    const inner = 100 - pad * 2;
+    const scale = Math.min(inner / spanX, inner / spanY);
+    const ox = 50 - ((minX + maxX) / 2) * scale;
+    const oy = 50 - ((minY + maxY) / 2) * scale;
+    const map = (x: number, y: number): { x: number; y: number } => ({
+      x: ox + x * scale,
+      y: oy + (flipY ? -y : y) * scale
+    });
+    const polylines: string[] = [];
+    const dots: ConstellationSchemaDot[] = [];
+    const seen = new Set<string>();
+    for (const stroke of strokes) {
+      if (stroke.length < 2) {
+        continue;
+      }
+      polylines.push(
+        stroke
+          .map((p) => {
+            const m = map(p.x, p.y);
+            return `${m.x.toFixed(2)},${m.y.toFixed(2)}`;
+          })
+          .join(' ')
+      );
+      for (const p of stroke) {
+        const m = map(p.x, p.y);
+        const key = `${m.x.toFixed(1)},${m.y.toFixed(1)}`;
+        if (seen.has(key)) {
+          continue;
+        }
+        seen.add(key);
+        dots.push({ xPct: m.x, yPct: m.y });
+      }
+    }
+    return { polylines, dots };
+  }
+
+  get finderTrailMinutes(): number {
+    return this.selectedKind === 'iss' ? this.finderTrailSatMinutes : this.finderTrailSkyMinutes;
+  }
+
+  get finderTrailMinutesMin(): number {
+    return this.selectedKind === 'iss' ? FINDER_TRAIL_SAT_MIN : FINDER_TRAIL_SKY_MIN;
+  }
+
+  get finderTrailMinutesMax(): number {
+    return this.selectedKind === 'iss' ? FINDER_TRAIL_SAT_MAX : FINDER_TRAIL_SKY_MAX;
+  }
+
+  get finderTrailMinutesStep(): number {
+    return this.selectedKind === 'iss' ? FINDER_TRAIL_SAT_STEP : FINDER_TRAIL_SKY_STEP;
+  }
+
+  get finderTrailShowMaxAsHours(): boolean {
+    return this.finderTrailMinutesMax >= 60 && this.finderTrailMinutesMax % 60 === 0;
+  }
+
+  get finderTrailMinutesMaxHours(): number {
+    return Math.round(this.finderTrailMinutesMax / 60);
   }
 
   onFinderTrailChange(): void {
@@ -1622,7 +1848,27 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  onFinderTrailMinutesChange(raw: number | string): void {
+    const n = typeof raw === 'string' ? Number(raw) : raw;
+    if (!Number.isFinite(n)) {
+      return;
+    }
+    if (this.selectedKind === 'iss') {
+      this.finderTrailSatMinutes = this.clampFinderTrailSatMinutes(n);
+    } else {
+      this.finderTrailSkyMinutes = this.clampFinderTrailSkyMinutes(n);
+    }
+    this.persistFinderTrailMinutesPref();
+    this.finderTrailSkyAtMs = 0;
+    this.finderTrailSkyKey = '';
+    if (this.finderTrailEnabled) {
+      this.updateFinderProjection();
+    }
+    this.cdr.markForCheck();
+  }
+
   private loadFinderTrailPref(): void {
+    this.loadFinderTrailMinutesPref();
     this.finderTrailEnabled = this.readUserLocal(AstroCompassComponent.FINDER_TRAIL_KEY) === '1';
     if (this.finderTrailEnabled) {
       this.ensureFinderTrailTle();
@@ -1633,10 +1879,25 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         if (gen !== this.finderTrailLoadGen) {
           return;
         }
+        let applied = false;
         if (dto && typeof dto.enabled === 'boolean') {
           this.applyFinderTrailEnabled(dto.enabled, false);
-        } else if (this.finderTrailEnabled) {
-          this.saveFinderTrailRemote(true);
+          applied = true;
+        }
+        const hasRemoteSat = typeof dto?.satMinutes === 'number' && Number.isFinite(dto.satMinutes);
+        const hasRemoteSky = typeof dto?.skyMinutes === 'number' && Number.isFinite(dto.skyMinutes);
+        if (hasRemoteSat || hasRemoteSky) {
+          this.applyFinderTrailMinutes(
+            hasRemoteSat ? dto!.satMinutes : undefined,
+            hasRemoteSky ? dto!.skyMinutes : undefined,
+            false
+          );
+          applied = true;
+        }
+        const missingRemoteMinutes = !hasRemoteSat || !hasRemoteSky;
+        const hasLocalMinutes = this.readUserLocal(AstroCompassComponent.FINDER_TRAIL_MINUTES_KEY);
+        if ((applied && missingRemoteMinutes) || (!applied && (this.finderTrailEnabled || hasLocalMinutes))) {
+          this.saveFinderTrailRemote();
         }
       },
       error: () => {
@@ -1647,7 +1908,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private persistFinderTrailPref(): void {
     this.writeUserLocal(AstroCompassComponent.FINDER_TRAIL_KEY, this.finderTrailEnabled ? '1' : '0');
-    this.saveFinderTrailRemote(this.finderTrailEnabled);
+    this.persistFinderTrailMinutesLocal();
+    this.saveFinderTrailRemote();
   }
 
   private applyFinderTrailEnabled(enabled: boolean, persistRemote: boolean): void {
@@ -1667,18 +1929,124 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.cdr.markForCheck();
     }
     if (persistRemote) {
-      this.saveFinderTrailRemote(enabled);
+      this.saveFinderTrailRemote();
     }
   }
 
-  private saveFinderTrailRemote(enabled: boolean): void {
+  private saveFinderTrailRemote(): void {
     this.finderTrailLoadGen++;
     this.finderTrailSaveSub?.unsubscribe();
-    this.finderTrailSaveSub = this.api.setAstroFinderTrail(enabled).subscribe({
+    this.finderTrailSaveSub = this.api.setAstroFinderTrail({
+      enabled: this.finderTrailEnabled,
+      satMinutes: this.finderTrailSatMinutes,
+      skyMinutes: this.finderTrailSkyMinutes
+    }).subscribe({
       error: () => {
         /* hors connexion / anonyme : le localStorage suffit */
       }
     });
+  }
+
+  private clampFinderTrailSatMinutes(raw: number): number {
+    return Math.max(
+      FINDER_TRAIL_SAT_MIN,
+      Math.min(FINDER_TRAIL_SAT_MAX, Math.round(raw / FINDER_TRAIL_SAT_STEP) * FINDER_TRAIL_SAT_STEP)
+    );
+  }
+
+  private clampFinderTrailSkyMinutes(raw: number): number {
+    return Math.max(
+      FINDER_TRAIL_SKY_MIN,
+      Math.min(FINDER_TRAIL_SKY_MAX, Math.round(raw / FINDER_TRAIL_SKY_STEP) * FINDER_TRAIL_SKY_STEP)
+    );
+  }
+
+  private loadFinderTrailMinutesPref(): void {
+    const raw = this.readUserLocal(AstroCompassComponent.FINDER_TRAIL_MINUTES_KEY);
+    if (raw == null || raw === '') {
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw) as { sat?: unknown; sky?: unknown };
+      if (typeof parsed?.sat === 'number' && Number.isFinite(parsed.sat)) {
+        this.finderTrailSatMinutes = this.clampFinderTrailSatMinutes(parsed.sat);
+      }
+      if (typeof parsed?.sky === 'number' && Number.isFinite(parsed.sky)) {
+        this.finderTrailSkyMinutes = this.clampFinderTrailSkyMinutes(parsed.sky);
+      }
+    } catch {
+      const n = Number(raw);
+      if (Number.isFinite(n)) {
+        this.finderTrailSatMinutes = this.clampFinderTrailSatMinutes(n);
+        this.finderTrailSkyMinutes = this.clampFinderTrailSkyMinutes(n);
+      }
+    }
+  }
+
+  private persistFinderTrailMinutesPref(): void {
+    this.persistFinderTrailMinutesLocal();
+    this.saveFinderTrailRemote();
+  }
+
+  private persistFinderTrailMinutesLocal(): void {
+    this.writeUserLocal(
+      AstroCompassComponent.FINDER_TRAIL_MINUTES_KEY,
+      JSON.stringify({ sat: this.finderTrailSatMinutes, sky: this.finderTrailSkyMinutes })
+    );
+  }
+
+  private applyFinderTrailMinutes(
+    sat: number | undefined,
+    sky: number | undefined,
+    persistRemote: boolean
+  ): void {
+    let changed = false;
+    if (typeof sat === 'number' && Number.isFinite(sat)) {
+      const next = this.clampFinderTrailSatMinutes(sat);
+      if (next !== this.finderTrailSatMinutes) {
+        this.finderTrailSatMinutes = next;
+        changed = true;
+      }
+    }
+    if (typeof sky === 'number' && Number.isFinite(sky)) {
+      const next = this.clampFinderTrailSkyMinutes(sky);
+      if (next !== this.finderTrailSkyMinutes) {
+        this.finderTrailSkyMinutes = next;
+        changed = true;
+      }
+    }
+    this.persistFinderTrailMinutesLocal();
+    if (changed) {
+      this.finderTrailSkyAtMs = 0;
+      this.finderTrailSkyKey = '';
+      if (this.finderTrailEnabled) {
+        this.updateFinderProjection();
+      }
+      this.cdr.markForCheck();
+    }
+    if (persistRemote) {
+      this.saveFinderTrailRemote();
+    }
+  }
+
+  private finderTrailDurationMs(): number {
+    return this.finderTrailMinutes * 60_000;
+  }
+
+  private finderTrailStepMs(): number {
+    const durationMs = this.finderTrailDurationMs();
+    if (this.selectedKind === 'iss') {
+      return Math.max(FINDER_TRAIL_SAT_STEP_MS, Math.round(durationMs / 75));
+    }
+    return Math.max(FINDER_TRAIL_SKY_STEP_MS, Math.round(durationMs / 60));
+  }
+
+  private finderTrailTickEveryMin(): number {
+    const mins = this.finderTrailMinutes;
+    if (this.selectedKind === 'iss') {
+      return Math.max(2, Math.round(mins / 5));
+    }
+    return Math.max(15, Math.round(mins / 6));
   }
 
   private clampMaxMagnitude(raw: number): number {
@@ -2056,7 +2424,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.clearFinderTrailScreen();
       return;
     }
-    const tickEveryMin = this.selectedKind === 'iss' ? 2 : 15;
+    const tickEveryMin = this.finderTrailTickEveryMin();
     const polylines: string[] = [];
     const ticks: FinderTrailTick[] = [];
     let segment: string[] = [];
@@ -2113,22 +2481,23 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private finderTrailTargetKey(): string {
+    const dur = this.finderTrailMinutes;
     if (this.selectedKind === 'iss') {
-      return `iss:${this.selectedSatelliteId}`;
+      return `iss:${this.selectedSatelliteId}:${dur}`;
     }
     if (this.selectedKind === 'planet') {
-      return `planet:${this.selectedPlanetId}`;
+      return `planet:${this.selectedPlanetId}:${dur}`;
     }
     if (this.selectedKind === 'star') {
-      return `star:${this.selectedStarId ?? ''}`;
+      return `star:${this.selectedStarId ?? ''}:${dur}`;
     }
     if (this.selectedKind === 'galaxy') {
-      return `galaxy:${this.selectedGalaxyId ?? ''}`;
+      return `galaxy:${this.selectedGalaxyId ?? ''}:${dur}`;
     }
     if (this.selectedKind === 'constellation') {
-      return `constellation:${this.selectedConstellationId ?? ''}`;
+      return `constellation:${this.selectedConstellationId ?? ''}:${dur}`;
     }
-    return `custom:${this.customRaHours}:${this.customDecDeg}`;
+    return `custom:${this.customRaHours}:${this.customDecDeg}:${dur}`;
   }
 
   private computeFinderTrailSky(nowMs: number): FinderTrailSkyPt[] {
@@ -2144,18 +2513,20 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private computeSatelliteTrailSky(nowMs: number): FinderTrailSkyPt[] {
     const sat = this.selectedSatellite;
+    const durationMs = this.finderTrailDurationMs();
+    const stepMs = this.finderTrailStepMs();
     if (sat.skipLiveTle) {
-      return this.computeFixedSkyTrailFromCurrent(nowMs, FINDER_TRAIL_SAT_MS, FINDER_TRAIL_SAT_STEP_MS);
+      return this.computeFixedSkyTrailFromCurrent(nowMs, durationMs, stepMs);
     }
     this.satNow.setObserver(this.lat, this.lon);
-    const probe = this.satNow.snapshotForOption(sat, nowMs + FINDER_TRAIL_SAT_STEP_MS);
+    const probe = this.satNow.snapshotForOption(sat, nowMs + stepMs);
     if (!probe) {
       this.ensureFinderTrailTle();
       return [];
     }
     const pts: FinderTrailSkyPt[] = [];
-    const end = nowMs + FINDER_TRAIL_SAT_MS;
-    for (let t = nowMs + FINDER_TRAIL_SAT_STEP_MS; t <= end; t += FINDER_TRAIL_SAT_STEP_MS) {
+    const end = nowMs + durationMs;
+    for (let t = nowMs + stepMs; t <= end; t += stepMs) {
       const azEl = this.satelliteAzElAt(t);
       if (!azEl || azEl.el < -8) {
         if (azEl && azEl.el < -8 && pts.length > 4) {
@@ -2193,11 +2564,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     let ra = this.raHours;
     let dec = this.decDeg;
     if (planet == null && (ra == null || dec == null)) {
-      return this.computeFixedSkyTrailFromCurrent(nowMs, FINDER_TRAIL_SKY_MS, FINDER_TRAIL_SKY_STEP_MS);
+      return this.computeFixedSkyTrailFromCurrent(nowMs, this.finderTrailDurationMs(), this.finderTrailStepMs());
     }
     const pts: FinderTrailSkyPt[] = [];
-    const end = nowMs + FINDER_TRAIL_SKY_MS;
-    for (let t = nowMs + FINDER_TRAIL_SKY_STEP_MS; t <= end; t += FINDER_TRAIL_SKY_STEP_MS) {
+    const stepMs = this.finderTrailStepMs();
+    const end = nowMs + this.finderTrailDurationMs();
+    for (let t = nowMs + stepMs; t <= end; t += stepMs) {
       const date = new Date(t);
       try {
         if (planet) {
@@ -2391,6 +2763,26 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return findSatelliteById(this.selectedSatelliteId) ?? this.issOption;
   }
 
+  /** Globe 3D : satellites avec position (ISS, TLE, GEO) — pas JWST. */
+  canOpenWorldGlobeOnSatellite(): boolean {
+    if (this.selectedKind !== 'iss') {
+      return false;
+    }
+    return !this.selectedSatellite.skipLiveTle;
+  }
+
+  /** Ouvre le globe terrestre centré sur le satellite (ou l’ISS) courant. */
+  openWorldGlobeOnSatellite(): void {
+    if (!this.canOpenWorldGlobeOnSatellite()) {
+      return;
+    }
+    const id = (this.selectedSatelliteId || 'iss').trim().toLowerCase();
+    this.writeGlobeReturnSat(id);
+    void this.router.navigate(['/tools/world-globe'], {
+      queryParams: { sat: id, autoRotate: '0' }
+    });
+  }
+
   selectStar(star: AstroStarOption): void {
     if (!star) {
       return;
@@ -2438,7 +2830,54 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   toggleTargetAccordion(id: TargetAccordionId): void {
     this.targetAccordionOpen = this.targetAccordionOpen === id ? null : id;
+    this.closeCatalogPicker();
     this.cdr.markForCheck();
+  }
+
+  toggleCatalogPicker(id: CatalogPickerId, ev?: Event): void {
+    ev?.stopPropagation();
+    this.catalogPickerOpen = this.catalogPickerOpen === id ? null : id;
+    this.cdr.markForCheck();
+    if (this.catalogPickerOpen) {
+      queueMicrotask(() => this.scrollCatalogPickerSelection());
+    }
+  }
+
+  closeCatalogPicker(): void {
+    if (!this.catalogPickerOpen) {
+      return;
+    }
+    this.catalogPickerOpen = null;
+    this.cdr.markForCheck();
+  }
+
+  get selectedStarForPicker(): AstroStarOption | undefined {
+    if (this.selectedKind !== 'star' || !this.selectedStarId) {
+      return undefined;
+    }
+    return this.starResults.find((s) => s.id === this.selectedStarId) || findStarById(this.selectedStarId);
+  }
+
+  get selectedGalaxyForPicker(): AstroGalaxyOption | undefined {
+    if (this.selectedKind !== 'galaxy' || !this.selectedGalaxyId) {
+      return undefined;
+    }
+    return this.galaxyResults.find((g) => g.id === this.selectedGalaxyId) || findGalaxyById(this.selectedGalaxyId);
+  }
+
+  get selectedConstellationForPicker(): AstroConstellationOption | undefined {
+    if (this.selectedKind !== 'constellation' || !this.selectedConstellationId) {
+      return undefined;
+    }
+    return (
+      this.constellationResults.find((c) => c.id === this.selectedConstellationId) ||
+      findConstellationById(this.selectedConstellationId)
+    );
+  }
+
+  private scrollCatalogPickerSelection(): void {
+    const active = this.hostEl.nativeElement.querySelector('.ac-picker__opt--active') as HTMLElement | null;
+    active?.scrollIntoView({ block: 'nearest' });
   }
 
   get typeHelp(): TypeHelpCopy | null {
@@ -2474,6 +2913,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedStarId = undefined;
     this.selectedGalaxyId = undefined;
     this.applyBodyDisplayFromConstellation(item);
+    this.buildEquatorialConstellationSchema(item);
     this.syncTargetAccordionFromSelection();
     this.recomputeSky();
     this.onConstellationQueryChange();
@@ -3097,6 +3537,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onGalaxySelectChange(id: string): void {
     const galaxyId = (id || '').trim();
+    this.closeCatalogPicker();
     if (!galaxyId) {
       if (this.selectedKind === 'galaxy') {
         this.selectedGalaxyId = undefined;
@@ -3113,6 +3554,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onStarSelectChange(id: string): void {
     const starId = (id || '').trim();
+    this.closeCatalogPicker();
     if (!starId) {
       if (this.selectedKind === 'star') {
         this.selectedStarId = undefined;
@@ -3141,11 +3583,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     ) {
       const current = findStarById(this.selectedStarId);
       if (current) {
-        list = [...list, current].sort((a, b) =>
-          a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+        list = [...list, current];
       }
     }
-    this.starResults = list;
+    this.starResults = this.sortCatalogByLabel(list, (s) => s.name);
     this.cdr.markForCheck();
   }
 
@@ -3163,16 +3604,16 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     ) {
       const current = findGalaxyById(this.selectedGalaxyId);
       if (current) {
-        list = [...list, current].sort((a, b) =>
-          a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+        list = [...list, current];
       }
     }
-    this.galaxyResults = list;
+    this.galaxyResults = this.sortCatalogByLabel(list, (g) => g.name);
     this.cdr.markForCheck();
   }
 
   onConstellationSelectChange(id: string): void {
     const constellationId = (id || '').trim();
+    this.closeCatalogPicker();
     if (!constellationId) {
       if (this.selectedKind === 'constellation') {
         this.selectedConstellationId = undefined;
@@ -3190,7 +3631,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onConstellationQueryChange(): void {
-    const base = findConstellationsByQuery(this.constellationQuery);
+    const base = findConstellationsByQuery(
+      this.constellationQuery,
+      this.translate.currentLang || 'fr'
+    );
     let list = this.visibleOnly
       ? base.filter((c) => this.visibleConstellationIds.has(c.id))
       : base;
@@ -3203,11 +3647,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     ) {
       const current = findConstellationById(this.selectedConstellationId);
       if (current) {
-        list = [...list, current].sort((a, b) =>
-          a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+        list = [...list, current];
       }
     }
-    this.constellationResults = list;
+    this.constellationResults = this.sortCatalogByLabel(list, (c) => this.constellationDisplayName(c));
     this.cdr.markForCheck();
   }
 
@@ -3368,31 +3811,49 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get displayedPlanets(): ReadonlyArray<AstroBodyOption> {
+    let list: AstroBodyOption[];
     if (!this.visibleOnly) {
-      return this.planets;
-    }
-    const list = this.planets.filter((p) => this.visiblePlanetIds.has(p.id));
-    if (this.selectedKind === 'planet') {
-      const cur = this.planets.find((p) => p.id === this.selectedPlanetId);
-      if (cur && !list.some((p) => p.id === cur.id)) {
-        return [...list, cur];
+      list = [...this.planets];
+    } else {
+      list = this.planets.filter((p) => this.visiblePlanetIds.has(p.id));
+      if (this.selectedKind === 'planet') {
+        const cur = this.planets.find((p) => p.id === this.selectedPlanetId);
+        if (cur && !list.some((p) => p.id === cur.id)) {
+          list = [...list, cur];
+        }
       }
     }
-    return list;
+    return this.sortByTranslatedLabel(list);
   }
 
   get displayedSatellites(): ReadonlyArray<AstroSatelliteOption> {
+    let list: AstroSatelliteOption[];
     if (!this.visibleOnly) {
-      return this.satellites;
-    }
-    const list = this.satellites.filter((s) => this.visibleSatelliteIds.has(s.id));
-    if (this.selectedKind === 'iss') {
-      const cur = this.satellites.find((s) => s.id === this.selectedSatelliteId);
-      if (cur && !list.some((s) => s.id === cur.id)) {
-        return [...list, cur];
+      list = [...this.satellites];
+    } else {
+      list = this.satellites.filter((s) => this.visibleSatelliteIds.has(s.id));
+      if (this.selectedKind === 'iss') {
+        const cur = this.satellites.find((s) => s.id === this.selectedSatelliteId);
+        if (cur && !list.some((s) => s.id === cur.id)) {
+          list = [...list, cur];
+        }
       }
     }
-    return list;
+    return this.sortByTranslatedLabel(list);
+  }
+
+  private catalogLocale(): string {
+    return this.translate.currentLang || 'fr';
+  }
+
+  private sortCatalogByLabel<T>(items: readonly T[], labelOf: (item: T) => string): T[] {
+    const locale = this.catalogLocale();
+    return [...items].sort((a, b) =>
+      labelOf(a).localeCompare(labelOf(b), locale, { sensitivity: 'base', numeric: true }));
+  }
+
+  private sortByTranslatedLabel<T extends { labelKey: string }>(items: readonly T[]): T[] {
+    return this.sortCatalogByLabel(items, (item) => this.translate.instant(item.labelKey));
   }
 
   /** Filtre « visibles seulement » : pas de titre / chips / switch s’il n’y a rien à choisir. */
@@ -3709,6 +4170,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (this.selectedKind === 'iss') {
       this.constellationMemberSky = [];
+      this.constellationFigureSky = [];
+      this.clearFinderConstellationOverlay();
       this.recomputeIssSky();
       return;
     }
@@ -3765,6 +4228,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       if (!item) {
         this.clearSkySnapshot();
         this.constellationMemberSky = [];
+        this.constellationFigureSky = [];
         this.clearFinderConstellationOverlay();
         return;
       }
@@ -5050,6 +5514,42 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.bodyLabel = this.constellationDisplayName(item);
   }
 
+  private skyPointFromRaDec(
+    date: Date,
+    observer: Observer,
+    raHours: number,
+    decDeg: number,
+    distLy = 100
+  ): { az: number; el: number } | null {
+    try {
+      DefineStar(Body.Star1, raHours, decDeg, Math.max(1, distLy));
+      const eq = Equator(Body.Star1, date, observer, true, true);
+      const hor = Horizon(date, observer, eq.ra, eq.dec, 'normal');
+      return { az: hor.azimuth, el: hor.altitude };
+    } catch {
+      return null;
+    }
+  }
+
+  private buildEquatorialConstellationSchema(item: AstroConstellationOption): void {
+    const strokes = constellationFigureStrokes(item.id);
+    const mapped: Array<Array<{ x: number; y: number }>> = [];
+    const cosDec = Math.max(0.15, Math.cos((item.decDeg * Math.PI) / 180));
+    for (const stroke of strokes) {
+      const pts = stroke.map(([ra, dec]) => ({
+        x: this.circularDiffDeg(ra * 15, item.raHours * 15) * cosDec,
+        y: dec - item.decDeg
+      }));
+      if (pts.length >= 2) {
+        mapped.push(pts);
+      }
+    }
+    const fitted = this.fitXyStrokesToBox(mapped, true);
+    this.constellationSchemaEquatorialPolylines = fitted.polylines;
+    this.constellationSchemaEquatorialDots = fitted.dots;
+    this.restoreEquatorialConstellationSchema();
+  }
+
   private refreshConstellationMemberSky(
     date: Date,
     observer: Observer,
@@ -5057,21 +5557,46 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   ): void {
     const members: ConstellationMemberSky[] = [];
     for (const star of constellationMemberStars(item.iau)) {
-      try {
-        DefineStar(Body.Star1, star.raHours, star.decDeg, Math.max(1, star.distLy));
-        const eq = Equator(Body.Star1, date, observer, true, true);
-        const hor = Horizon(date, observer, eq.ra, eq.dec, 'normal');
-        members.push({
-          id: star.id,
-          name: star.name,
-          az: hor.azimuth,
-          el: hor.altitude
-        });
-      } catch {
-        /* ignore star */
+      const hor = this.skyPointFromRaDec(date, observer, star.raHours, star.decDeg, star.distLy);
+      if (!hor) {
+        continue;
       }
+      members.push({
+        id: star.id,
+        name: star.name,
+        az: hor.az,
+        el: hor.el
+      });
     }
     this.constellationMemberSky = members;
+    const figure: ConstellationFigureSkyPt[][] = [];
+    const cache = new Map<string, ConstellationFigureSkyPt>();
+    for (const stroke of constellationFigureStrokes(item.id)) {
+      const pts: ConstellationFigureSkyPt[] = [];
+      for (const [raHours, decDeg] of stroke) {
+        const key = `${raHours.toFixed(4)},${decDeg.toFixed(4)}`;
+        let pt = cache.get(key);
+        if (!pt) {
+          const hor = this.skyPointFromRaDec(date, observer, raHours, decDeg);
+          if (!hor) {
+            continue;
+          }
+          pt = hor;
+          cache.set(key, pt);
+        }
+        pts.push(pt);
+      }
+      if (pts.length >= 2) {
+        figure.push(pts);
+      }
+    }
+    this.constellationFigureSky = figure;
+    this.buildEquatorialConstellationSchema(item);
+    try {
+      DefineStar(Body.Star1, item.raHours, item.decDeg, 100);
+    } catch {
+      /* ignore */
+    }
   }
 
   private applyBodyDisplayFromSatellite(sat: AstroSatelliteOption): void {
@@ -7038,6 +7563,21 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private writeLastTargetLocal(payload: LastAstroTarget): void {
     this.writeUserLocal(AstroCompassComponent.LAST_TARGET_KEY, JSON.stringify(payload));
+  }
+
+  /** Mémorise le satellite du viseur pour que le globe le recadre au retour. */
+  private writeGlobeReturnSat(satId?: string): void {
+    const id = (satId || (this.selectedKind === 'iss' ? this.selectedSatelliteId : '') || '')
+      .trim()
+      .toLowerCase();
+    if (!id || !findSatelliteById(id)) {
+      return;
+    }
+    try {
+      sessionStorage.setItem(AstroCompassComponent.GLOBE_ASTRO_RETURN_SAT_KEY, id);
+    } catch {
+      /* ignore */
+    }
   }
 
   private readLastTargetLocal(): LastAstroTarget | null {

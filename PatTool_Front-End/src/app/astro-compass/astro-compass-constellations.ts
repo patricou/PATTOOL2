@@ -230,10 +230,19 @@ function matchesConstellationQuery(obj: AstroConstellationOption, q: string): bo
   return obj.aliases.some((a) => a.toLowerCase().includes(q));
 }
 
-export function findConstellationsByQuery(query: string): AstroConstellationOption[] {
+export function findConstellationsByQuery(
+  query: string,
+  lang = 'fr'
+): AstroConstellationOption[] {
   const q = query.trim().toLowerCase();
   const list = !q
     ? [...ASTRO_CONSTELLATIONS]
     : ASTRO_CONSTELLATIONS.filter((item) => matchesConstellationQuery(item, q));
-  return list.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  const locale = (lang || 'fr').toLowerCase();
+  const useFr = locale.startsWith('fr');
+  return list.sort((a, b) => {
+    const na = useFr ? a.nameFr : a.name;
+    const nb = useFr ? b.nameFr : b.name;
+    return na.localeCompare(nb, locale, { sensitivity: 'base' });
+  });
 }

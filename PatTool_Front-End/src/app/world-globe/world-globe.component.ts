@@ -22,7 +22,8 @@ import { ApiService, GlobeIssGlobalPrefs, GlobeSatelliteOverlayPrefs, IssAlertAd
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { GlobeIssNowService, GlobeIssNowSnapshot } from '../services/globe-iss-now.service';
 import { GlobeSatelliteNowService } from '../services/globe-satellite-now.service';
-import { ASTRO_SATELLITES, satelliteUsesNetworkTle, type AstroSatelliteOption } from '../astro-compass/astro-compass-catalog';
+import { ASTRO_ISS, ASTRO_SATELLITES, findSatelliteById, satelliteUsesNetworkTle, type AstroSatelliteOption } from '../astro-compass/astro-compass-catalog';
+import { AstroObjectDossierService, type ObjectDossier } from '../astro-compass/astro-object-dossier.service';
 import { AirportIcaoEntry, AirportLookupService } from '../services/airport-lookup.service';
 import { PositionService } from '../services/position.service';
 import * as THREE from 'three';
@@ -30,6 +31,10 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { environment } from '../../environments/environment';
 import { Body, Equator, Observer, SiderealTime } from 'astronomy-engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
+import {
+  SlideshowModalComponent,
+  SlideshowImageSource
+} from '../shared/slideshow-modal/slideshow-modal.component';
 import { drawIssTopViewIcon } from '../shared/globe-iss-icon.util';
 import earcut from 'earcut';
 
@@ -144,6 +149,9 @@ const GLOBE_GEOCODE_ANIM_MS = 1700;
 const GLOBE_RESET_VIEW_ANIM_MS = 1500;
 /** Durée du vol caméra initial vers l’ISS à l’ouverture du globe (réseau sans cache). */
 const GLOBE_INITIAL_ISS_ANIM_MS = 1200;
+/** Retour viseur → globe : départ un peu zoomé, puis dézoom fluide jusqu’à la Terre entière. */
+const GLOBE_ASTRO_RETURN_START_DISTANCE = 1.48;
+const GLOBE_ASTRO_RETURN_ANIM_MS = 2100;
 
 /** Flux ISS en direct (Destination Orbite) — nouvel onglet navigateur. */
 const ISS_LIVE_DESTINATION_ORBITE_URL =
@@ -207,6 +215,9 @@ const GLOBE_ISS_MARKER_COLOR = 0xffea00;
  * Le rayon au sol = Re × γ avec γ résolu sur la courbure (pas de modèle plan).
  */
 const GLOBE_ISS_VISIBILITY_MIN_ELEVATION_DEG = 10;
+/** Recadrage satellite : cercle plus petit que la zone ISS (fraction + plafond d’angle). */
+const GLOBE_SAT_VISIBILITY_CIRCLE_SCALE = 0.22;
+const GLOBE_SAT_VISIBILITY_CIRCLE_MAX_GAMMA = 0.07;
 const GLOBE_EARTH_RADIUS_KM = 6371;
 const GLOBE_ISS_VISIBILITY_FILL_RADIUS = 1.007;
 const GLOBE_ISS_VISIBILITY_CIRCLE_RADIUS = 1.0078;
@@ -258,6 +269,10 @@ const GLOBE_SAT_ICON_WORLD_SIZE = 0.026;
 const GLOBE_SAT_GEO_ICON_WORLD_SIZE = 0.045;
 const GLOBE_SAT_LABEL_SPRITE_WORLD_H = 0.018;
 const GLOBE_SAT_OVERLAY_STORAGE_KEY = 'pat.world-globe.satellite-overlays';
+const GLOBE_ASTRO_VISEUR_SAT_KEY = 'pat.world-globe.astro-viseur-sat';
+/** Retour viseur → globe (onglet) : satellite à recadrer si l’URL n’a pas `?sat=`. */
+const GLOBE_ASTRO_RETURN_SAT_KEY = 'pat.world-globe.astro-return-sat';
+const ASTRO_LAST_TARGET_KEY = 'pat.astro-compass.last-target.v1';
 const GLOBE_SAT_MIN_ALT_KM = 80;
 const GLOBE_SAT_MAX_ALT_KM = 40_000;
 /** GEO réel (~6,6 rayons) sort de la vue : on le plaque sur un anneau visible. */
@@ -356,15 +371,19 @@ function globePixelRatioCap(): number {
 @Component({
   selector: 'app-world-globe',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent, SlideshowModalComponent],
   templateUrl: './world-globe.component.html',
-  styleUrls: ['./world-globe.component.css']
+  styleUrls: ['./world-globe.component.css'],
+  host: {
+    '[class.wg-sat-slideshow-open]': 'satelliteInfoSlideshowOpen'
+  }
 })
 export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly apiService = inject(ApiService);
   private readonly keycloakService = inject(KeycloakService);
   private readonly issNowService = inject(GlobeIssNowService);
   private readonly satNowService = inject(GlobeSatelliteNowService);
+  private readonly astroObjectDossier = inject(AstroObjectDossierService);
   private readonly positionService = inject(PositionService);
   private readonly airportLookup = inject(AirportLookupService);
   private readonly http = inject(HttpClient);
@@ -383,6 +402,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('globeFsRoot') globeFsRoot?: ElementRef<HTMLElement>;
   @ViewChild('globeTraceMount') globeTraceMount?: ElementRef<HTMLElement>;
   @ViewChild('globeTraceViewer') globeTraceViewer?: TraceViewerModalComponent;
+  @ViewChild('slideshowModalComponent') slideshowModalComponent?: SlideshowModalComponent;
   @ViewChild('issLivePiP') issLivePiP?: ElementRef<HTMLElement>;
   @ViewChild('issLiveHdPiP') issLiveHdPiP?: ElementRef<HTMLElement>;
 
@@ -405,24 +425,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   issLiveHdEmbedEnabled = true;
   issLiveHdPiPFullscreen = false;
   readonly issLiveHdEmbedSafeUrl: SafeResourceUrl = this.buildIssLiveEmbedSafeUrl(ISS_LIVE_HD_YOUTUBE_VIDEO_ID);
-  /** Capture image ISS en cours (copie ou partage WhatsApp, une fenêtre à la fois). */
-  issPiPImageBusy: { variant: 'standard' | 'hd'; action: 'copy' | 'whatsapp' } | null = null;
+  /** Capture image ISS en cours (copie, une fenêtre à la fois). */
+  issPiPImageBusy: { variant: 'standard' | 'hd'; action: 'copy' } | null = null;
   issPiPCopyFlash: { variant: 'standard' | 'hd'; ok: boolean } | null = null;
-  issPiPWhatsAppFlash: { variant: 'standard' | 'hd'; ok: boolean } | null = null;
   private issPiPCopyFlashTimer: ReturnType<typeof setTimeout> | null = null;
-  private issPiPWhatsAppFlashTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Capture / partage WhatsApp du globe 3D (barre d’outils). */
-  globeImageBusy: 'whatsapp' | null = null;
-  globeWhatsAppFlash: boolean | null = null;
-  private globeWhatsAppFlashTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Aperçu capture avant partage (2e clic = activation utilisateur pour WhatsApp). */
-  globeSharePreviewOpen = false;
-  globeSharePreviewUrl: string | null = null;
-  globeSharePreviewBusy = false;
-  globeSharePreviewPasteHint = false;
-  private globeSharePreviewBlob: Blob | null = null;
-  globeShareErrorOpen = false;
-  globeShareErrorMessage = '';
 
   showOptionsPanel = true;
   /** Section ouverte dans le panneau options (accordéon). */
@@ -463,6 +469,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly globeSatelliteOptions: ReadonlyArray<AstroSatelliteOption> = ASTRO_SATELLITES.filter(
     (s) => s.id !== 'iss' && !s.skipLiveTle
   );
+  readonly issGlobeOption: AstroSatelliteOption = ASTRO_ISS;
+  /** Liste satellites (ISS incluse) triée selon le nom affiché. */
+  globeSatelliteOptionsSorted: AstroSatelliteOption[] = [];
   /** Interrupteurs d’affichage : tous activés par défaut. */
   satelliteOverlayEnabled: Record<string, boolean> = Object.fromEntries(
     ASTRO_SATELLITES.filter((s) => s.id !== 'iss' && !s.skipLiveTle).map((s) => [
@@ -489,6 +498,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly satelliteFutureTraceHoursStep = GLOBE_SAT_FORECAST_HOURS_STEP;
   /** Satellite dont les données remplissent le bandeau ; `null` = ISS. */
   tickerFocusSatId: string | null = null;
+  /** Dernier satellite (ou ISS) choisi pour le viseur d’astres. */
+  lastAstroViseurSatId = 'iss';
   private lastSoleEnabledSatId: string | null = null;
   private readonly starlinkCompanionIds = new Set<string>();
   satTickerLat: number | null = null;
@@ -504,11 +515,16 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private satTickerCdrAtMs = 0;
   /** Satellite au-dessus de l’horizon depuis la position GPS de l’utilisateur. */
   satelliteVisibleFromUser: Record<string, boolean> = {};
+  issVisibleFromUser = false;
   satelliteInfoOpen = false;
   satelliteInfoSat: AstroSatelliteOption | null = null;
   satelliteInfoLoading = false;
   satelliteInfoSnapshot: GlobeSatelliteInfoSnapshot | null = null;
   satelliteInfoPasses: GlobeSatellitePass[] = [];
+  satelliteInfoDossier: ObjectDossier | null = null;
+  satelliteInfoDossierBusy = false;
+  satelliteInfoSlideshowOpen = false;
+  private satelliteInfoDossierSub: Subscription | null = null;
   issOverlayEnabled = true;
   /**
    * Interrupteur maître d’affichage de la trace ISS live : masque/affiche la traînée temps réel
@@ -762,8 +778,6 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   /** Repli si l’API Fullscreen refuse l’élément : occupe tout le viewport en position fixe. */
   globeViewportLocked = false;
-  /** Pendant un partage WhatsApp : ne pas quitter le mode présentation si le navigateur sort du FS. */
-  private globeSharePreservePresentation = false;
   textureLoadError = false;
 
   /** Recherche de lieu (Nominatim via backend), comme la page Adresse / GPS. */
@@ -824,6 +838,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private satelliteOverlayPrefsSaveTimer: ReturnType<typeof setTimeout> | null = null;
   /** Recentrage demandé avant que le TLE / la position soit disponible. */
   private pendingCenterSatelliteId: string | null = null;
+  /** Lien profond viseur → globe : `?sat=iss` / `?sat=hubble` (réappliqué après les prefs). */
+  private pendingDeepLinkSatId: string | null = null;
+  /** Recentrage viseur → globe : garder la Terre entière dans le champ (pas le zoom courant). */
+  private pendingCenterFitWholeGlobe = false;
   userObserverLat: number | null = null;
   userObserverLon: number | null = null;
 
@@ -872,6 +890,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Petit cercle + calotte au sol : zone depuis laquelle l’ISS est visible. */
   private issVisibilityCircleLine?: THREE.LineLoop;
   private issVisibilityFillMesh?: THREE.Mesh;
+  /** Cercle de visibilité du satellite recadré (hors ISS). */
+  private globeSatVisibilityCircleSatId: string | null = null;
+  private satVisibilityCircleLine?: THREE.LineLoop;
+  private satVisibilityFillMesh?: THREE.Mesh;
   /** Rayon au sol (km) de la zone de visibilité ISS affichée. */
   globeIssVisibilityRadiusKm: number | null = null;
   /** Positions successives (lat/lon) pour la traînée ; enfant du maillage Terre. */
@@ -1095,7 +1117,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     const satPick = this.pickGlobeSatelliteAtClient(ev.clientX, ev.clientY);
     if (satPick) {
-      this.onSelectSatelliteForTicker(satPick === 'iss' ? null : satPick);
+      this.onSelectSatelliteForTicker(satPick === 'iss' ? null : satPick, true);
       this.cdr.markForCheck();
       return;
     }
@@ -1168,6 +1190,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   };
 
   ngOnInit(): void {
+    this.lastAstroViseurSatId = this.readLastAstroViseurSatId();
+    this.refreshGlobeSatelliteOptionsSort();
     this.issNowService.setForecastMinutes(this.satelliteFutureTraceMinutes);
     const cached = this.issNowService.getSnapshot();
     if (cached) {
@@ -1189,25 +1213,34 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     });
     this.routeQuerySub = this.route.queryParamMap.subscribe((params) => {
       this.applyDeepLinkAutoRotatePreference(params);
+      const satId = (params.get('sat') ?? params.get('satellite') ?? '').trim().toLowerCase();
+      if (satId) {
+        this.clearAstroReturnSat();
+        this.queueOrApplySatelliteDeepLink(satId);
+        return;
+      }
       const latStr = params.get('lat');
       const lonStr = params.get('lon') ?? params.get('lng');
-      if (!latStr || !lonStr) {
-        return;
-      }
-      const lat = parseFloat(latStr);
-      const lon = parseFloat(lonStr);
-      if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
-        return;
-      }
-      let mapZoom: number | undefined;
-      const zStr = params.get('z') ?? params.get('zoom');
-      if (zStr != null && zStr !== '') {
-        const z = parseFloat(zStr);
-        if (Number.isFinite(z) && z >= 1 && z <= 22) {
-          mapZoom = z;
+      if (latStr && lonStr) {
+        const lat = parseFloat(latStr);
+        const lon = parseFloat(lonStr);
+        if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+          let mapZoom: number | undefined;
+          const zStr = params.get('z') ?? params.get('zoom');
+          if (zStr != null && zStr !== '') {
+            const z = parseFloat(zStr);
+            if (Number.isFinite(z) && z >= 1 && z <= 22) {
+              mapZoom = z;
+            }
+          }
+          this.queueOrApplyGlobeDeepLink({ lat, lon, mapZoom });
+          return;
         }
       }
-      this.queueOrApplyGlobeDeepLink({ lat, lon, mapZoom });
+      const returnSat = this.consumeAstroReturnSatId();
+      if (returnSat && returnSat !== 'iss') {
+        this.queueOrApplySatelliteDeepLink(returnSat);
+      }
     });
     this.translateLangSub = this.translate.onLangChange.subscribe(() => {
       this.invalidateDateTimeLabelFormatter();
@@ -1217,6 +1250,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       this.onTranslateLangChangedForGlobeCountryLabels();
       this.rebuildGlobeSatelliteLabels();
+      this.refreshGlobeSatelliteOptionsSort();
     });
     queueMicrotask(() => this.bootstrapThree());
     this.loadIssFsPipStackTopFromStorage();
@@ -1233,10 +1267,13 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       next: (prefs) => {
         this.applyIssGlobalPrefs(prefs);
         this.issGlobalPrefsLoaded = true;
+        this.applyPendingSatelliteDeepLink();
         this.bootstrapIssUiAfterGlobalPrefs();
         this.cdr.markForCheck();
       },
       error: () => {
+        this.issGlobalPrefsLoaded = true;
+        this.applyPendingSatelliteDeepLink();
         this.bootstrapIssUiAfterGlobalPrefs();
         this.cdr.markForCheck();
       }
@@ -1260,7 +1297,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.issTraceVisible = prefs.traceVisible;
     }
     if (typeof prefs.keepEarthCentered === 'boolean') {
-      this.issKeepEarthCentered = prefs.keepEarthCentered;
+      const viseurSat = this.pendingDeepLinkSatId || this.tickerFocusSatId;
+      if (!viseurSat || viseurSat === 'iss') {
+        this.issKeepEarthCentered = prefs.keepEarthCentered;
+      }
     }
     if (typeof prefs.tickerEnabled === 'boolean') {
       this.issTickerEnabled = prefs.tickerEnabled;
@@ -1349,11 +1389,14 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.disposeAllGlobeSatelliteVisuals();
     this.disposeAllGlobeSatelliteForecastTrails();
     this.disposeIssVisibilityCircle();
+    this.disposeSatelliteVisibilityCircle();
     this.clearIssTrail();
     this.disposeIssForecastTrail();
     this.disposeIssHistoricalTrail();
     this.routeQuerySub?.unsubscribe();
     this.routeQuerySub = undefined;
+    this.satelliteInfoDossierSub?.unsubscribe();
+    this.satelliteInfoDossierSub = null;
     this.translateLangSub?.unsubscribe();
     this.translateLangSub = undefined;
     this.globeTraceViewer?.close();
@@ -1379,16 +1422,6 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       clearTimeout(this.issPiPCopyFlashTimer);
       this.issPiPCopyFlashTimer = null;
     }
-    if (this.issPiPWhatsAppFlashTimer != null) {
-      clearTimeout(this.issPiPWhatsAppFlashTimer);
-      this.issPiPWhatsAppFlashTimer = null;
-    }
-    if (this.globeWhatsAppFlashTimer != null) {
-      clearTimeout(this.globeWhatsAppFlashTimer);
-      this.globeWhatsAppFlashTimer = null;
-    }
-    this.closeGlobeSharePreview();
-    this.closeGlobeShareError();
     if (this.globeCdrTimer != null) {
       clearTimeout(this.globeCdrTimer);
       this.globeCdrTimer = null;
@@ -1437,27 +1470,6 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const wasPresentation = this.globePresentationMode;
     this.syncFullscreenFromDocument();
     this.syncIssLivePiPFullscreenFromDocument();
-    if (this.globeSharePreservePresentation && wasPresentation) {
-      this.globeViewportLocked = true;
-      this.syncFullscreenFromDocument();
-      this.cdr.markForCheck();
-      requestAnimationFrame(() => {
-        this.resizeRendererToHost();
-        this.refreshIssLivePiPPanelsLayout();
-        if (this.issFsSplitLayout) {
-          this.syncIssFsSplitIssColumnWidth();
-          if (this.issFsSplitIssWidthManual) {
-            this.issFsSplitIssWidthPx = this.clampIssFsSplitIssWidth(this.issFsSplitIssWidthPx);
-          }
-          this.syncIssFsPipStackTop();
-          if (this.issFsPipStackTopManual) {
-            this.issFsPipStackTopPx = this.clampIssFsPipStackTop(this.issFsPipStackTopPx);
-          }
-          this.cdr.markForCheck();
-        }
-      });
-      return;
-    }
     this.applyIssEmbedPanelsOnPresentationChange(wasPresentation);
     this.cdr.markForCheck();
     requestAnimationFrame(() => {
@@ -2182,8 +2194,47 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.schedulePersistIssGlobalPrefs();
   }
 
+  isSatTickerFocused(satId: string): boolean {
+    return satId === 'iss' ? !this.tickerFocusSatId : this.tickerFocusSatId === satId;
+  }
+
+  isSatVisibleFromUser(satId: string): boolean {
+    return satId === 'iss' ? this.issVisibleFromUser : this.satelliteVisibleFromUser[satId] === true;
+  }
+
+  isSatOverlayOn(satId: string): boolean {
+    return satId === 'iss' ? this.issOverlayEnabled : this.satelliteOverlayEnabled[satId] !== false;
+  }
+
+  onSatOverlayToggle(satId: string, enabled: boolean): void {
+    if (satId === 'iss') {
+      this.issOverlayEnabled = enabled;
+      this.onIssOverlayToggle();
+      return;
+    }
+    this.onGlobeSatelliteToggle(satId, enabled);
+  }
+
+  isSatTraceOn(satId: string): boolean {
+    return satId === 'iss' ? this.issTraceVisible : this.satelliteFutureTraceById[satId] === true;
+  }
+
+  onSatTraceToggle(satId: string, enabled: boolean): void {
+    if (satId === 'iss') {
+      this.issTraceVisible = enabled;
+      this.onIssTraceToggle();
+      return;
+    }
+    this.onGlobeSatelliteFutureTraceOneToggle(satId, enabled);
+  }
+
+  onSelectSatForTicker(satId: string): void {
+    this.onSelectSatelliteForTicker(satId === 'iss' ? null : satId, true);
+  }
+
   onOpenSatelliteInfo(satId: string): void {
-    const sat = this.globeSatelliteOptions.find((s) => s.id === satId);
+    const sat =
+      satId === 'iss' ? this.issGlobeOption : this.globeSatelliteOptions.find((s) => s.id === satId);
     if (!sat) {
       return;
     }
@@ -2192,17 +2243,93 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.satelliteInfoLoading = true;
     this.satelliteInfoSnapshot = null;
     this.satelliteInfoPasses = [];
+    this.satelliteInfoDossier = null;
+    this.satelliteInfoDossierBusy = true;
+    this.satelliteInfoSlideshowOpen = false;
     this.cdr.markForCheck();
     void this.loadSatelliteInfoDetails(sat);
+    this.loadSatelliteInfoDossier(sat);
   }
 
   closeSatelliteInfo(): void {
+    this.satelliteInfoDossierSub?.unsubscribe();
+    this.satelliteInfoDossierSub = null;
     this.satelliteInfoOpen = false;
     this.satelliteInfoSat = null;
     this.satelliteInfoLoading = false;
     this.satelliteInfoSnapshot = null;
     this.satelliteInfoPasses = [];
+    this.satelliteInfoDossier = null;
+    this.satelliteInfoDossierBusy = false;
+    this.satelliteInfoSlideshowOpen = false;
+    this.slideshowModalComponent?.onSlideshowClose();
     this.cdr.markForCheck();
+  }
+
+  openSatelliteInfoPhoto(): void {
+    const dossier = this.satelliteInfoDossier;
+    const url = dossier?.imageUrl || dossier?.thumbUrl;
+    if (!url) {
+      return;
+    }
+    if (!this.slideshowModalComponent) {
+      setTimeout(() => this.openSatelliteInfoPhoto(), 0);
+      return;
+    }
+    const title =
+      dossier?.wikiTitle ||
+      (this.satelliteInfoSat
+        ? this.translate.instant(this.satelliteInfoSat.labelKey)
+        : this.translate.instant('ASTRO_COMPASS.OBJECT_INFO_TITLE'));
+    const source: SlideshowImageSource = {
+      blobUrl: url,
+      fileName: this.satelliteInfoImageFileName(url, title)
+    };
+    this.satelliteInfoSlideshowOpen = true;
+    this.cdr.detectChanges();
+    this.slideshowModalComponent.open([source], title, false);
+  }
+
+  onSatelliteInfoSlideshowClosed(): void {
+    this.satelliteInfoSlideshowOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  private satelliteInfoImageFileName(url: string, title: string): string {
+    try {
+      const last = decodeURIComponent(new URL(url).pathname.split('/').pop() || '');
+      if (last && /\.(jpe?g|png|gif|webp|svg|tif{1,2})$/i.test(last)) {
+        return last;
+      }
+    } catch {
+      /* ignore */
+    }
+    const base = title.replace(/[^\p{L}\p{N}._-]+/gu, '_').replace(/^_+|_+$/g, '') || 'satellite';
+    return base + '.jpg';
+  }
+
+  private loadSatelliteInfoDossier(sat: AstroSatelliteOption): void {
+    this.satelliteInfoDossierSub?.unsubscribe();
+    this.satelliteInfoDossier = null;
+    this.satelliteInfoDossierBusy = true;
+    this.satelliteInfoDossierSub = this.astroObjectDossier.loadForSatellite(sat).subscribe({
+      next: (dossier) => {
+        if (this.satelliteInfoSat?.id !== sat.id) {
+          return;
+        }
+        this.satelliteInfoDossier = dossier;
+        this.satelliteInfoDossierBusy = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        if (this.satelliteInfoSat?.id !== sat.id) {
+          return;
+        }
+        this.satelliteInfoDossier = null;
+        this.satelliteInfoDossierBusy = false;
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   formatSatelliteInfoTime(d: Date | null | undefined): string {
@@ -2233,12 +2360,48 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.globeSurfaceReady) {
       return;
     }
+    if (satId === 'iss') {
+      this.disposeSatelliteVisibilityCircle();
+      this.onCenterGlobeOnIss();
+      return;
+    }
     if (this.satelliteOverlayEnabled[satId] === false) {
       this.onGlobeSatelliteToggle(satId, true);
     }
+    this.globeSatVisibilityCircleSatId = satId;
     this.pendingCenterSatelliteId = satId;
-    this.onSelectSatelliteForTicker(satId);
+    this.onSelectSatelliteForTicker(satId, true);
     this.tryCenterGlobeOnSatellite(satId);
+  }
+
+  /** Revient sur l’ISS : overlay, bandeau, suivi caméra et cadrage. */
+  onCenterGlobeOnIss(): void {
+    if (!this.globeSurfaceReady) {
+      return;
+    }
+    if (!this.issOverlayEnabled) {
+      this.issOverlayEnabled = true;
+      this.onIssOverlayToggle();
+    }
+    this.clearGeocodeMarker();
+    this.issKeepEarthCentered = true;
+    this.issGlobeFreeOrbit = false;
+    this.issCameraCenterSmoothPrevMs = 0;
+    this.onSelectSatelliteForTicker(null, true);
+    const lat = this.globeIssLat;
+    const lon = this.globeIssLon;
+    const camera = this.camera;
+    const controls = this.controls;
+    if (lat != null && lon != null && camera && controls) {
+      const dist = THREE.MathUtils.clamp(
+        this.globeOrbitDistance(),
+        controls.minDistance,
+        controls.maxDistance
+      );
+      this.animateCameraToLatLon(lat, lon, dist, GLOBE_RESET_VIEW_ANIM_MS, 0);
+    }
+    this.cdr.markForCheck();
+    this.schedulePersistIssGlobalPrefs();
   }
 
   onGlobeSatelliteOverlayMasterToggle(): void {
@@ -2262,6 +2425,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.satelliteForecastLastRebuildMs = 0;
       this.updateGlobeSatelliteOverlays();
       this.updateGlobeSatelliteForecastTrails(true);
+    } else {
+      this.disposeSatelliteVisibilityCircle();
     }
     this.syncTickerFocusToEnabledSatellites();
     this.cdr.markForCheck();
@@ -2275,6 +2440,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!enabled) {
       this.disposeGlobeSatelliteVisual(satId);
       this.disposeGlobeSatelliteForecastTrail(satId);
+      if (this.globeSatVisibilityCircleSatId === satId) {
+        this.disposeSatelliteVisibilityCircle();
+      }
     } else {
       const sat = this.globeSatelliteOptions.find((s) => s.id === satId);
       if (sat) {
@@ -3295,6 +3463,76 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     return sat ? this.translate.instant(sat.labelKey) : this.translate.instant('WORLD_GLOBE.ISS_TICKER_LABEL');
   }
 
+  /** Satellite (ou ISS) pour le bouton viseur : sélection globe, sinon dernier choix mémorisé. */
+  astroViseurSatId(): string {
+    const live = (this.tickerFocusSatId || '').trim().toLowerCase();
+    if (live && findSatelliteById(live)) {
+      return live;
+    }
+    const last = (this.lastAstroViseurSatId || '').trim().toLowerCase();
+    if (last && findSatelliteById(last)) {
+      return last;
+    }
+    return 'iss';
+  }
+
+  astroViseurSatName(): string {
+    const sat = findSatelliteById(this.astroViseurSatId());
+    return this.translate.instant(sat?.labelKey ?? 'ASTRO_COMPASS.BODY_ISS');
+  }
+
+  private rememberAstroViseurSat(satId: string): void {
+    const id = findSatelliteById((satId || '').trim().toLowerCase())?.id;
+    if (!id) {
+      return;
+    }
+    this.lastAstroViseurSatId = id;
+    try {
+      localStorage.setItem(GLOBE_ASTRO_VISEUR_SAT_KEY, id);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private readLastAstroViseurSatId(): string {
+    try {
+      const stored = localStorage.getItem(GLOBE_ASTRO_VISEUR_SAT_KEY);
+      const fromGlobe = findSatelliteById((stored || '').trim().toLowerCase())?.id;
+      if (fromGlobe) {
+        return fromGlobe;
+      }
+    } catch {
+      /* ignore */
+    }
+    return this.readLastAstroCompassSatelliteId() ?? 'iss';
+  }
+
+  private readLastAstroCompassSatelliteId(): string | null {
+    try {
+      const user = this.keycloakService.getPreferredUsername();
+      const keys = user
+        ? [`${ASTRO_LAST_TARGET_KEY}:${user}`, ASTRO_LAST_TARGET_KEY]
+        : [ASTRO_LAST_TARGET_KEY];
+      for (const key of keys) {
+        const raw = localStorage.getItem(key);
+        if (!raw) {
+          continue;
+        }
+        const data = JSON.parse(raw) as { kind?: string; id?: string };
+        if (data?.kind !== 'iss' || !data.id) {
+          continue;
+        }
+        const id = findSatelliteById(data.id.trim().toLowerCase())?.id;
+        if (id) {
+          return id;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    return null;
+  }
+
   tickerLat(): number | null {
     return this.tickerFocusSatId ? this.satTickerLat : this.globeIssLat;
   }
@@ -3324,7 +3562,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.flagEmojiFromCountryCode(code);
   }
 
-  onSelectSatelliteForTicker(satId: string | null): void {
+  onSelectSatelliteForTicker(satId: string | null, persistViseur = false): void {
     const next = satId && this.globeSatelliteOptions.some((s) => s.id === satId) ? satId : null;
     if (next && this.satelliteOverlayEnabled[next] === false) {
       this.onGlobeSatelliteToggle(next, true);
@@ -3338,9 +3576,15 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (next) {
         this.refreshTickerFromSatellite(next);
       }
+      if (persistViseur) {
+        this.rememberAstroViseurSat(next ?? 'iss');
+      }
       return;
     }
     this.tickerFocusSatId = next;
+    if (persistViseur) {
+      this.rememberAstroViseurSat(next ?? 'iss');
+    }
     this.issOverLookupLat = null;
     this.issOverLookupLon = null;
     this.issOverLookupAtMs = 0;
@@ -4733,9 +4977,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     window.open(ISS_LIVE_DESTINATION_ORBITE_URL, '_blank', 'noopener,noreferrer');
   }
 
-  /** Ouvre le viseur d’astres avec l’ISS déjà sélectionnée. */
+  /** Ouvre le viseur d’astres avec le dernier satellite (ou l’ISS) déjà sélectionné. */
   openAstroCompassIss(): void {
-    this.openAstroCompassSatellite('iss');
+    this.openAstroCompassSatellite(this.astroViseurSatId());
   }
 
   /** Ouvre le viseur d’astres avec le satellite indiqué déjà sélectionné. */
@@ -4744,6 +4988,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!id) {
       return;
     }
+    this.rememberAstroViseurSat(id);
+    this.writeAstroReturnSat(id);
     void this.router.navigate(['/tools/astro-compass'], { queryParams: { target: id } });
   }
 
@@ -4784,1175 +5030,6 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  /** Capture d'écran du globe puis envoi manuel sur WhatsApp (téléchargement + WhatsApp Web). */
-  async shareGlobeOnWhatsApp(): Promise<void> {
-    if (this.globeImageBusy != null || !this.globeSurfaceReady) {
-      return;
-    }
-    this.globeImageBusy = 'whatsapp';
-    if (this.globePresentationMode) {
-      this.globeSharePreservePresentation = true;
-    }
-    this.cdr.markForCheck();
-    const restoreCaptureLayout = await this.prepareGlobeShareCaptureLayout();
-    try {
-      const host = this.globeCanvasHost?.nativeElement;
-      let blob: Blob | null = null;
-      const mobileIss =
-        host != null &&
-        this.globeShareUseMobileCaptureFlow() &&
-        this.isGlobeShareIssVisible() &&
-        typeof navigator.mediaDevices?.getDisplayMedia === 'function';
-
-      if (mobileIss) {
-        blob = await this.captureGlobeShareMobileWithStream(host);
-      }
-      if (!blob) {
-        blob = await this.captureGlobeShareToPngBlob(mobileIss);
-      }
-      if (!blob) {
-        this.showGlobeShareError(this.translate.instant('WORLD_GLOBE.SHARE_WHATSAPP_ERROR'));
-        this.flashGlobeWhatsAppFeedback(false);
-        return;
-      }
-      this.openGlobeSharePreview(blob);
-    } catch (err: unknown) {
-      if (WorldGlobeComponent.isGlobeShareUserCancel(err)) {
-        return;
-      }
-      this.showGlobeShareError(this.translate.instant('WORLD_GLOBE.SHARE_WHATSAPP_ERROR'));
-      this.flashGlobeWhatsAppFeedback(false);
-    } finally {
-      restoreCaptureLayout();
-      this.globeImageBusy = null;
-      this.globeSharePreservePresentation = false;
-      this.cdr.markForCheck();
-    }
-  }
-
-  /**
-   * Avant capture partage : réactive les deux flux ISS, déplie le dock mobile et réduit la scène
-   * pour que globe + vues ISS tiennent dans le viewport (évite les zones hors écran).
-   */
-  private async prepareGlobeShareCaptureLayout(): Promise<() => void> {
-    const restores: Array<() => void> = [];
-    let issPanelsToggled = false;
-    if (!this.issLiveEmbedEnabled) {
-      this.issLiveEmbedEnabled = true;
-      issPanelsToggled = true;
-    }
-    if (!this.issLiveHdEmbedEnabled) {
-      this.issLiveHdEmbedEnabled = true;
-      issPanelsToggled = true;
-    }
-    if (issPanelsToggled) {
-      this.cdr.markForCheck();
-      this.cdr.detectChanges();
-      queueMicrotask(() => this.refreshIssLivePiPPanelsLayout());
-    }
-
-    const stage = this.getGlobeStageElement();
-    if (stage && this.isGlobeShareIssVisible()) {
-      const dock = stage.querySelector<HTMLElement>('.wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split)');
-      if (dock) {
-        dock.scrollTop = 0;
-        restores.push(this.applyGlobeShareExpandedIssDockStyles(dock));
-      }
-      window.scrollTo(0, 0);
-      stage.scrollIntoView({ block: 'start', inline: 'nearest' });
-      if (this.globeShareUseMobileCaptureFlow()) {
-        restores.push(this.hideGlobeShareCaptureUi(stage));
-        restores.push(this.applyGlobeShareViewportFitScale(stage));
-      }
-    }
-
-    await this.waitForGlobeShareCaptureSettle(this.globeShareUseMobileCaptureFlow() ? 280 : 120);
-    return () => {
-      for (let i = restores.length - 1; i >= 0; i--) {
-        restores[i]();
-      }
-    };
-  }
-
-  private openGlobeSharePreview(blob: Blob): void {
-    this.closeGlobeSharePreview();
-    this.globeShareErrorOpen = false;
-    this.globeShareErrorMessage = '';
-    this.globeSharePreviewBlob = blob;
-    this.globeSharePreviewUrl = URL.createObjectURL(blob);
-    this.globeSharePreviewPasteHint = false;
-    this.globeSharePreviewOpen = true;
-    this.cdr.markForCheck();
-  }
-
-  closeGlobeShareError(): void {
-    this.globeShareErrorOpen = false;
-    this.globeShareErrorMessage = '';
-    this.cdr.markForCheck();
-  }
-
-  private showGlobeShareError(message: string): void {
-    this.globeShareErrorMessage = message;
-    this.globeShareErrorOpen = true;
-    this.cdr.markForCheck();
-  }
-
-  closeGlobeSharePreview(): void {
-    if (this.globeSharePreviewUrl) {
-      URL.revokeObjectURL(this.globeSharePreviewUrl);
-    }
-    this.globeSharePreviewUrl = null;
-    this.globeSharePreviewBlob = null;
-    this.globeSharePreviewOpen = false;
-    this.globeSharePreviewBusy = false;
-    this.globeSharePreviewPasteHint = false;
-    this.cdr.markForCheck();
-  }
-
-  /**
-   * Comme l’assistant / PiP ISS : Web Share ({@code files}) sur mobile sans timeout,
-   * presse-papiers image sur bureau (Windows : {@link navigator.share} avec fichiers souvent bloqué).
-   */
-  async confirmGlobeWhatsAppShare(): Promise<void> {
-    const blob = this.globeSharePreviewBlob;
-    if (!blob || this.globeSharePreviewBusy) {
-      return;
-    }
-    this.globeSharePreviewBusy = true;
-    this.globeSharePreviewPasteHint = false;
-    this.cdr.markForCheck();
-    try {
-      const title = this.translate.instant('WORLD_GLOBE.TITLE');
-      const file = new File([blob], 'world-globe.png', { type: 'image/png', lastModified: Date.now() });
-
-      if (this.globeSharePreferNativeFileShare()) {
-        const result = await this.shareGlobePngViaNativeShare(file, title);
-        if (result === 'ok') {
-          this.flashGlobeWhatsAppFeedback(true);
-          this.closeGlobeSharePreview();
-          return;
-        }
-        if (result === 'abort') {
-          this.closeGlobeShareError();
-          return;
-        }
-        this.flashGlobeWhatsAppFeedback(false);
-        this.showGlobeShareError(this.translate.instant('WORLD_GLOBE.SHARE_WHATSAPP_ERROR'));
-        return;
-      }
-
-      const copied = await this.writeIssPiPPngToClipboard(blob);
-      if (copied) {
-        this.closeGlobeShareError();
-        this.globeSharePreviewPasteHint = true;
-        this.flashGlobeWhatsAppFeedback(true);
-        return;
-      }
-
-      this.flashGlobeWhatsAppFeedback(false);
-      this.showGlobeShareError(this.translate.instant('WORLD_GLOBE.SHARE_WHATSAPP_ERROR'));
-    } catch (err: unknown) {
-      if (WorldGlobeComponent.isGlobeShareUserCancel(err)) {
-        this.closeGlobeShareError();
-        return;
-      }
-      this.flashGlobeWhatsAppFeedback(false);
-      this.showGlobeShareError(this.translate.instant('WORLD_GLOBE.SHARE_WHATSAPP_ERROR'));
-    } finally {
-      this.globeSharePreviewBusy = false;
-      this.cdr.markForCheck();
-    }
-  }
-
-  /** Mobile / tablette : menu Partager fiable ; bureau : presse-papiers. */
-  private globeSharePreferNativeFileShare(): boolean {
-    const ua = navigator.userAgent;
-    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)) {
-      return true;
-    }
-    // iPadOS 13+ se présente parfois comme MacIntel.
-    return navigator.maxTouchPoints > 1 && /Macintosh|MacIntel/i.test(ua);
-  }
-
-  /** Flux capture empilé (CSS) ou appareil tactile : composition ISS par calques. */
-  private globeShareUseMobileCaptureFlow(): boolean {
-    return this.globeSharePreferNativeFileShare() || this.isIssMobileStackLayout();
-  }
-
-  /** Même logique que {@link shareIssPiPPngOnWhatsApp} : pas de timeout, canShare contourné sur mobile. */
-  private async shareGlobePngViaNativeShare(
-    file: File,
-    title: string
-  ): Promise<'ok' | 'abort' | 'fail'> {
-    if (typeof navigator.share !== 'function') {
-      return 'fail';
-    }
-    const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
-    const isMobile = this.globeSharePreferNativeFileShare();
-    const attempts: ShareData[] = isMobile
-      ? [{ files: [file] }, { title, files: [file] }, { title, text: title, files: [file] }]
-      : [{ title, text: title, files: [file] }, { title, files: [file] }];
-
-    for (const data of attempts) {
-      try {
-        if (nav.canShare && !isMobile && !nav.canShare(data)) {
-          continue;
-        }
-        await nav.share(data);
-        return 'ok';
-      } catch (err: unknown) {
-        if (WorldGlobeComponent.isGlobeShareUserCancel(err)) {
-          return 'abort';
-        }
-      }
-    }
-    return 'fail';
-  }
-
-  private static isGlobeShareUserCancel(err: unknown): boolean {
-    const name = err instanceof DOMException || err instanceof Error ? err.name : '';
-    return name === 'AbortError' || name === 'NotAllowedError';
-  }
-
-  /** Capture d'écran réelle (onglet) : globe + colonne / fenêtres ISS live visibles. */
-  private async captureGlobeShareToPngBlob(skipDisplayMedia = false): Promise<Blob | null> {
-    const host = this.globeCanvasHost?.nativeElement;
-    if (!host || host.clientWidth < 2 || host.clientHeight < 2) {
-      return null;
-    }
-
-    if (!skipDisplayMedia && typeof navigator.mediaDevices?.getDisplayMedia === 'function') {
-      try {
-        const captured = await this.withTimeout(this.captureGlobeDisplayScreenshot(host), 30_000);
-        if (captured) {
-          return captured;
-        }
-      } catch (err: unknown) {
-        if (WorldGlobeComponent.isGlobeShareUserCancel(err)) {
-          throw err;
-        }
-      }
-    }
-
-    if (this.globeShareUseMobileCaptureFlow()) {
-      return this.captureGlobeShareCanvasComposite(host);
-    }
-    return null;
-  }
-
-  /**
-   * Mobile + ISS : {@link getDisplayMedia} immédiatement (geste utilisateur), puis composition
-   * globe WebGL + captures ISS depuis le même flux vidéo.
-   */
-  private async captureGlobeShareMobileWithStream(host: HTMLElement): Promise<Blob | null> {
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia(
-        this.buildGlobeShareDisplayMediaOptions(true)
-      );
-      try {
-        const [track] = stream.getVideoTracks();
-        if (!track) {
-          return null;
-        }
-        return await this.captureGlobeShareMobileTrackComposite(host, track);
-      } finally {
-        stream.getTracks().forEach((t) => t.stop());
-      }
-    } catch (err: unknown) {
-      if (WorldGlobeComponent.isGlobeShareUserCancel(err)) {
-        throw err;
-      }
-      return null;
-    }
-  }
-
-  private applyGlobeShareExpandedIssDockStyles(dock: HTMLElement): () => void {
-    const prevMaxHeight = dock.style.maxHeight;
-    const prevOverflow = dock.style.overflow;
-    const prevOverflowY = dock.style.overflowY;
-    dock.style.maxHeight = 'none';
-    dock.style.overflow = 'visible';
-    dock.style.overflowY = 'visible';
-    return () => {
-      dock.style.maxHeight = prevMaxHeight;
-      dock.style.overflow = prevOverflow;
-      dock.style.overflowY = prevOverflowY;
-    };
-  }
-
-  private async captureGlobeShareMobileTrackComposite(
-    host: HTMLElement,
-    track: MediaStreamTrack
-  ): Promise<Blob | null> {
-    const grabMs = 14_000;
-    const stage = this.getGlobeStageElement();
-    const dock = stage?.querySelector<HTMLElement>('.wg-iss-pip-dock');
-    if (dock) {
-      dock.scrollTop = 0;
-    }
-    window.scrollTo(0, 0);
-    stage?.scrollIntoView({ block: 'start', inline: 'nearest' });
-
-    await this.waitForGlobeShareCaptureSettle(900);
-
-    const layout = this.resolveGlobeShareLayerLayout(host);
-    if (!layout || layout.issFrames.length === 0) {
-      return null;
-    }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = layout.width;
-    canvas.height = layout.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      return null;
-    }
-    ctx.fillStyle = '#020508';
-    ctx.fillRect(0, 0, layout.width, layout.height);
-
-    if (this.renderer && this.scene && this.camera) {
-      this.renderer.render(this.scene, this.camera);
-      ctx.drawImage(
-        this.renderer.domElement,
-        layout.globe.x,
-        layout.globe.y,
-        layout.globe.w,
-        layout.globe.h
-      );
-    }
-
-    const restoreScroll = this.saveGlobeShareScrollState();
-    let issCaptured = 0;
-    try {
-      for (const issLayer of layout.issFrames) {
-        this.scrollIssVideoFrameForCapture(issLayer.frame);
-        await this.waitForGlobeShareCaptureSettle(900);
-
-        if (await this.paintIssShareFrameOntoCanvas(ctx, issLayer, track, grabMs)) {
-          issCaptured += 1;
-        }
-      }
-    } finally {
-      restoreScroll();
-    }
-
-    if (issCaptured === 0 && layout.issFrames.length > 0) {
-      for (const issLayer of layout.issFrames) {
-        if (await this.paintIssShareFrameOntoCanvas(ctx, issLayer)) {
-          issCaptured += 1;
-        }
-      }
-    }
-
-    if (issCaptured === 0) {
-      return null;
-    }
-
-    return new Promise<Blob | null>((resolve) => {
-      canvas.toBlob((b) => resolve(b), 'image/png');
-    });
-  }
-
-  private async withGlobeShareExpandedIssDock<T>(fn: () => Promise<T>): Promise<T> {
-    const stage = this.getGlobeStageElement();
-    const dock = stage?.querySelector<HTMLElement>('.wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split)');
-    if (!dock) {
-      return fn();
-    }
-    const prevMaxHeight = dock.style.maxHeight;
-    const prevOverflow = dock.style.overflow;
-    const prevOverflowY = dock.style.overflowY;
-    dock.style.maxHeight = 'none';
-    dock.style.overflow = 'visible';
-    dock.style.overflowY = 'visible';
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-    });
-    try {
-      return await fn();
-    } finally {
-      dock.style.maxHeight = prevMaxHeight;
-      dock.style.overflow = prevOverflow;
-      dock.style.overflowY = prevOverflowY;
-    }
-  }
-
-  private domOffsetInStage(el: HTMLElement, stage: HTMLElement): { x: number; y: number; w: number; h: number } {
-    const elRect = el.getBoundingClientRect();
-    const stageRect = stage.getBoundingClientRect();
-    return {
-      x: elRect.left - stageRect.left,
-      y: elRect.top - stageRect.top,
-      w: elRect.width,
-      h: elRect.height
-    };
-  }
-
-  private scrollIssVideoFrameForCapture(frame: HTMLElement): void {
-    const panel = frame.closest<HTMLElement>('.wg-iss-live-pip');
-    const dock = frame.closest<HTMLElement>('.wg-iss-pip-dock');
-    if (panel && dock) {
-      dock.scrollTop = Math.max(0, panel.offsetTop - 4);
-    }
-    panel?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    frame.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }
-
-  private isGlobeShareIssVisible(): boolean {
-    if (!this.issLiveEmbedEnabled && !this.issLiveHdEmbedEnabled) {
-      return false;
-    }
-    return this.listIssSharePanels().length > 0;
-  }
-
-  /**
-   * Repli mobile : globe WebGL + vignettes des flux ISS (iframes souvent non capturables).
-   */
-  private async captureGlobeShareCanvasComposite(host: HTMLElement): Promise<Blob | null> {
-    const layout = this.resolveGlobeShareLayerLayout(host);
-    if (!layout) {
-      const cropRect = this.resolveGlobeShareCaptureRect(host);
-      if (cropRect.width < 2 || cropRect.height < 2) {
-        return null;
-      }
-      const w = Math.max(1, Math.round(cropRect.width));
-      const h = Math.max(1, Math.round(cropRect.height));
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        return null;
-      }
-      ctx.fillStyle = '#020508';
-      ctx.fillRect(0, 0, w, h);
-      if (this.renderer && this.scene && this.camera) {
-        this.renderer.render(this.scene, this.camera);
-        const globeCanvas = this.renderer.domElement;
-        const globeRect = globeCanvas.getBoundingClientRect();
-        if (globeRect.width >= 1 && globeRect.height >= 1) {
-          ctx.drawImage(
-            globeCanvas,
-            globeRect.left - cropRect.left,
-            globeRect.top - cropRect.top,
-            globeRect.width,
-            globeRect.height
-          );
-        }
-      }
-      return new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((b) => resolve(b), 'image/png');
-      });
-    }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = layout.width;
-    canvas.height = layout.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      return null;
-    }
-    ctx.fillStyle = '#020508';
-    ctx.fillRect(0, 0, layout.width, layout.height);
-
-    if (this.renderer && this.scene && this.camera) {
-      this.renderer.render(this.scene, this.camera);
-      ctx.drawImage(
-        this.renderer.domElement,
-        layout.globe.x,
-        layout.globe.y,
-        layout.globe.w,
-        layout.globe.h
-      );
-    }
-
-    for (const issLayer of layout.issFrames) {
-      await this.paintIssShareFrameOntoCanvas(ctx, issLayer);
-    }
-
-    return new Promise<Blob | null>((resolve) => {
-      canvas.toBlob((b) => resolve(b), 'image/png');
-    });
-  }
-
-  private buildGlobeShareDisplayMediaOptions(isMobile: boolean): DisplayMediaStreamOptions {
-    if (isMobile) {
-      return {
-        video: true,
-        audio: false,
-        preferCurrentTab: true,
-        selfBrowserSurface: 'include'
-      } as DisplayMediaStreamOptions;
-    }
-    return {
-      video: true,
-      audio: false,
-      preferCurrentTab: true,
-      selfBrowserSurface: 'include'
-    } as DisplayMediaStreamOptions;
-  }
-
-  private async waitForGlobeShareCaptureSettle(ms: number): Promise<void> {
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-    });
-    await new Promise<void>((resolve) => setTimeout(resolve, ms));
-  }
-
-  private withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-    return new Promise((resolve, reject) => {
-      const timer = window.setTimeout(() => resolve(null), ms);
-      promise
-        .then((value) => {
-          clearTimeout(timer);
-          resolve(value);
-        })
-        .catch((err: unknown) => {
-          clearTimeout(timer);
-          if (WorldGlobeComponent.isGlobeShareUserCancel(err)) {
-            reject(err);
-          } else {
-            resolve(null);
-          }
-        });
-    });
-  }
-
-  /** Capture onglet puis recadrage globe + ISS ; mobile + ISS : rétrécissement puis une capture. */
-  private async captureGlobeDisplayScreenshot(host: HTMLElement): Promise<Blob | null> {
-    if (typeof navigator.mediaDevices?.getDisplayMedia !== 'function') {
-      return null;
-    }
-
-    const mobileFlow = this.globeShareUseMobileCaptureFlow();
-    const issVisible = this.isGlobeShareIssVisible();
-    const settleMs = issVisible ? (mobileFlow ? 1200 : 400) : mobileFlow ? 600 : 250;
-    const grabMs = mobileFlow ? 14_000 : 8000;
-
-    return this.withGlobeShareExpandedIssDock(async () => {
-      const stage = this.getGlobeStageElement();
-      const mobileIssFit = mobileFlow && issVisible && stage != null;
-      let restoreUi: () => void = () => undefined;
-      let restoreFit: () => void = () => undefined;
-
-      if (mobileIssFit && stage) {
-        restoreUi = this.hideGlobeShareCaptureUi(stage);
-        const dock = stage.querySelector<HTMLElement>('.wg-iss-pip-dock');
-        if (dock) {
-          dock.scrollTop = 0;
-        }
-        window.scrollTo(0, 0);
-        stage.scrollIntoView({ block: 'start', inline: 'nearest' });
-        await this.waitForGlobeShareCaptureSettle(250);
-        restoreFit = this.applyGlobeShareViewportFitScale(stage);
-        await this.waitForGlobeShareCaptureSettle(200);
-        this.cdr.markForCheck();
-      }
-
-      try {
-        const stream = await navigator.mediaDevices.getDisplayMedia(
-          this.buildGlobeShareDisplayMediaOptions(mobileFlow)
-        );
-        try {
-          const [track] = stream.getVideoTracks();
-          if (!track) {
-            return null;
-          }
-
-          await this.waitForGlobeShareCaptureSettle(settleMs);
-
-          if (mobileIssFit && stage) {
-            const stageRect = stage.getBoundingClientRect();
-            if (stageRect.width >= 8 && stageRect.height >= 8) {
-              const fitBlob = await this.captureMediaTrackRegion(track, stageRect, grabMs);
-              if (fitBlob) {
-                return fitBlob;
-              }
-            }
-            const stitched = await this.captureGlobeShareMobileStitch(host, track, grabMs);
-            if (stitched) {
-              return stitched;
-            }
-          } else if (mobileFlow && issVisible) {
-            const stitched = await this.captureGlobeShareMobileStitch(host, track, grabMs);
-            if (stitched) {
-              return stitched;
-            }
-          }
-
-          let elementCropApplied = false;
-          if (!mobileFlow) {
-            const cropTargetEl = stage ?? host;
-            const win = window as Window & {
-              CropTarget?: { fromElement: (el: Element) => Promise<unknown> };
-            };
-            if (cropTargetEl && typeof win.CropTarget?.fromElement === 'function') {
-              try {
-                const cropTarget = await win.CropTarget.fromElement(cropTargetEl);
-                const browserTrack = track as MediaStreamTrack & { cropTo?: (target: unknown) => Promise<void> };
-                if (typeof browserTrack.cropTo === 'function') {
-                  await browserTrack.cropTo(cropTarget);
-                  elementCropApplied = true;
-                }
-              } catch {
-                elementCropApplied = false;
-              }
-            }
-          }
-
-          const cropRect = this.resolveGlobeShareCaptureRect(host);
-
-          if (elementCropApplied) {
-            const cropped = await this.grabPngBlobFromMediaTrack(track, undefined, grabMs);
-            if (cropped) {
-              return cropped;
-            }
-          }
-
-          if (cropRect.width >= 2 && cropRect.height >= 2) {
-            const blob = await this.captureMediaTrackRegion(track, cropRect, grabMs);
-            if (blob) {
-              return blob;
-            }
-          }
-
-          if (mobileFlow && !issVisible) {
-            return this.grabPngBlobFromMediaTrack(track, undefined, grabMs);
-          }
-          return null;
-        } finally {
-          stream.getTracks().forEach((t) => t.stop());
-        }
-      } finally {
-        restoreFit();
-        restoreUi();
-      }
-    });
-  }
-
-  private hideGlobeShareCaptureUi(stage: HTMLElement): () => void {
-    const toggled: Array<{ el: HTMLElement; visibility: string }> = [];
-    for (const selector of ['.wg-globe-stage-toolbar', '.wg-coords']) {
-      const el = stage.querySelector<HTMLElement>(selector);
-      if (!el) {
-        continue;
-      }
-      toggled.push({ el, visibility: el.style.visibility });
-      el.style.visibility = 'hidden';
-    }
-    return () => {
-      for (const item of toggled) {
-        item.el.style.visibility = item.visibility;
-      }
-    };
-  }
-
-  /**
-   * Réduit temporairement la scène pour que globe + flux ISS tiennent dans le viewport
-   * (une seule capture d'onglet suffit, sans scroll ni collage).
-   */
-  private applyGlobeShareViewportFitScale(stage: HTMLElement): () => void {
-    const host = this.globeCanvasHost?.nativeElement;
-    if (!host) {
-      return () => undefined;
-    }
-    const margin = 12;
-    const vp = window.visualViewport;
-    const viewW = Math.max(160, (vp?.width ?? window.innerWidth) - margin * 2);
-    const viewH = Math.max(160, (vp?.height ?? window.innerHeight) - margin * 2);
-
-    const canvasHost = stage.querySelector<HTMLElement>('.wg-canvas-host');
-    const prevCanvasMinHeight = canvasHost?.style.minHeight ?? '';
-    const prevCanvasFlex = canvasHost?.style.flex ?? '';
-    if (canvasHost && this.isIssMobileStackLayout()) {
-      canvasHost.style.minHeight = '0';
-      canvasHost.style.flex = '0 0 auto';
-    }
-
-    const naturalW = Math.max(stage.offsetWidth, stage.getBoundingClientRect().width);
-    const naturalH = Math.max(stage.scrollHeight, this.measureGlobeShareStageContentHeight(stage, host));
-    const prevTransform = stage.style.transform;
-    const prevTransformOrigin = stage.style.transformOrigin;
-    const prevTransition = stage.style.transition;
-    const prevWidth = stage.style.width;
-    const prevMaxHeight = stage.style.maxHeight;
-    const prevOverflow = stage.style.overflow;
-
-    stage.style.transition = 'none';
-    stage.style.width = `${naturalW}px`;
-    stage.style.maxHeight = 'none';
-    stage.style.overflow = 'visible';
-
-    const scale =
-      naturalW >= 2 && naturalH >= 2 ? Math.min(viewW / naturalW, viewH / naturalH, 1) : 1;
-    if (scale < 0.995) {
-      stage.style.transformOrigin = 'top center';
-      stage.style.transform = `scale(${scale})`;
-    }
-
-    return () => {
-      stage.style.transform = prevTransform;
-      stage.style.transformOrigin = prevTransformOrigin;
-      stage.style.transition = prevTransition;
-      stage.style.width = prevWidth;
-      stage.style.maxHeight = prevMaxHeight;
-      stage.style.overflow = prevOverflow;
-      if (canvasHost) {
-        canvasHost.style.minHeight = prevCanvasMinHeight;
-        canvasHost.style.flex = prevCanvasFlex;
-      }
-    };
-  }
-
-  private measureGlobeShareStageContentHeight(stage: HTMLElement, host: HTMLElement): number {
-    const stageTop = stage.getBoundingClientRect().top;
-    let bottom = host.getBoundingClientRect().bottom - stageTop;
-    for (const panel of this.listIssSharePanels()) {
-      bottom = Math.max(bottom, panel.el.getBoundingClientRect().bottom - stageTop);
-    }
-    return Math.ceil(bottom + 6);
-  }
-
-  private async captureMediaTrackRegion(
-    track: MediaStreamTrack,
-    region: DOMRect,
-    grabMs: number
-  ): Promise<Blob | null> {
-    let blob = await this.grabPngBlobFromMediaTrack(track, region, grabMs);
-    if (blob) {
-      return blob;
-    }
-    const full = await this.grabPngBlobFromMediaTrack(track, undefined, grabMs);
-    if (!full) {
-      return null;
-    }
-    return this.cropPngBlobToRect(full, region);
-  }
-
-  /**
-   * Mobile + ISS : repli — composition par calques si la capture « fit » échoue.
-   */
-  private async captureGlobeShareMobileStitch(
-    host: HTMLElement,
-    track: MediaStreamTrack,
-    grabMs: number
-  ): Promise<Blob | null> {
-    const stage = this.getGlobeStageElement();
-    const dock = stage?.querySelector<HTMLElement>('.wg-iss-pip-dock');
-    if (dock) {
-      dock.scrollTop = 0;
-    }
-    window.scrollTo(0, 0);
-    await this.waitForGlobeShareCaptureSettle(200);
-
-    const layout = this.resolveGlobeShareLayerLayout(host);
-    if (!layout || layout.issFrames.length === 0) {
-      return null;
-    }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = layout.width;
-    canvas.height = layout.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      return null;
-    }
-    ctx.fillStyle = '#020508';
-    ctx.fillRect(0, 0, layout.width, layout.height);
-
-    if (this.renderer && this.scene && this.camera) {
-      this.renderer.render(this.scene, this.camera);
-      ctx.drawImage(
-        this.renderer.domElement,
-        layout.globe.x,
-        layout.globe.y,
-        layout.globe.w,
-        layout.globe.h
-      );
-    }
-
-    const restoreScroll = this.saveGlobeShareScrollState();
-    let capturedIss = 0;
-    try {
-      await this.waitForGlobeShareCaptureSettle(400);
-      for (const iss of layout.issFrames) {
-        this.scrollIssVideoFrameForCapture(iss.frame);
-        await this.waitForGlobeShareCaptureSettle(1100);
-
-        if (await this.paintIssShareFrameOntoCanvas(ctx, iss, track, grabMs)) {
-          capturedIss += 1;
-        }
-      }
-    } finally {
-      restoreScroll();
-    }
-
-    if (capturedIss === 0 && layout.issFrames.length > 0) {
-      for (const iss of layout.issFrames) {
-        if (await this.paintIssShareFrameOntoCanvas(ctx, iss)) {
-          capturedIss += 1;
-        }
-      }
-    }
-
-    if (capturedIss === 0) {
-      return null;
-    }
-    return new Promise<Blob | null>((resolve) => {
-      canvas.toBlob((b) => resolve(b), 'image/png');
-    });
-  }
-
-  /** Extrait une zone du viewport capturé et la pose sur le canvas composite. */
-  private async paintGlobeShareViewportRegion(
-    ctx: CanvasRenderingContext2D,
-    track: MediaStreamTrack,
-    viewportRect: DOMRect,
-    destX: number,
-    destY: number,
-    destW: number,
-    destH: number,
-    grabMs: number
-  ): Promise<boolean> {
-    const full = await this.grabPngBlobFromMediaTrack(track, undefined, grabMs);
-    if (!full) {
-      return false;
-    }
-    const img = await this.loadGlobeShareCaptureImage(full);
-    if (!img) {
-      return false;
-    }
-
-    const mapped = this.mapGlobeShareCropToCapture(viewportRect, img.naturalWidth, img.naturalHeight);
-    if (mapped) {
-      ctx.drawImage(
-        img,
-        mapped.sx0,
-        mapped.sy0,
-        mapped.sw,
-        mapped.sh,
-        destX,
-        destY,
-        destW,
-        destH
-      );
-      return true;
-    }
-
-    const cropped = await this.cropPngBlobToRect(full, viewportRect);
-    if (!cropped) {
-      return false;
-    }
-    const cropImg = await this.loadGlobeShareCaptureImage(cropped);
-    if (!cropImg) {
-      return false;
-    }
-    ctx.drawImage(cropImg, destX, destY, destW, destH);
-    return true;
-  }
-
-  private async paintIssShareFrameOntoCanvas(
-    ctx: CanvasRenderingContext2D,
-    iss: {
-      frame: HTMLElement;
-      variant: 'standard' | 'hd';
-      x: number;
-      y: number;
-      w: number;
-      h: number;
-    },
-    track?: MediaStreamTrack,
-    grabMs = 14_000
-  ): Promise<boolean> {
-    if (track) {
-      const liveRect = iss.frame.getBoundingClientRect();
-      if (liveRect.width >= 8 && liveRect.height >= 8) {
-        const painted = await this.paintGlobeShareViewportRegion(
-          ctx,
-          track,
-          liveRect,
-          iss.x,
-          iss.y,
-          iss.w,
-          iss.h,
-          grabMs
-        );
-        if (painted) {
-          return true;
-        }
-      }
-    }
-    const videoId =
-      iss.variant === 'standard' ? ISS_LIVE_YOUTUBE_VIDEO_ID : ISS_LIVE_HD_YOUTUBE_VIDEO_ID;
-    return this.paintIssPiPThumbnailOntoCanvas(ctx, iss.x, iss.y, iss.w, iss.h, videoId);
-  }
-
-  /** Vignette YouTube du flux ISS (repli quand l’iframe n’apparaît pas dans la capture d’écran mobile). */
-  private async paintIssPiPThumbnailOntoCanvas(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    videoId: string
-  ): Promise<boolean> {
-    const thumbUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-    let thumb = await this.loadIssPiPCaptureImage(thumbUrl);
-    if (!thumb) {
-      thumb = await this.loadIssPiPCaptureImage(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`);
-    }
-    if (!thumb) {
-      return false;
-    }
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(x, y, w, h);
-    ctx.clip();
-    ctx.fillStyle = '#000';
-    ctx.fillRect(x, y, w, h);
-    this.drawIssPiPImageCoverInRect(ctx, thumb, x, y, w, h);
-    ctx.restore();
-    return true;
-  }
-
-  private drawIssPiPImageCoverInRect(
-    ctx: CanvasRenderingContext2D,
-    img: HTMLImageElement,
-    x: number,
-    y: number,
-    w: number,
-    h: number
-  ): void {
-    const iw = img.naturalWidth || img.width;
-    const ih = img.naturalHeight || img.height;
-    if (iw < 1 || ih < 1) {
-      return;
-    }
-    const scale = Math.max(w / iw, h / ih);
-    const dw = iw * scale;
-    const dh = ih * scale;
-    const dx = x + (w - dw) / 2;
-    const dy = y + (h - dh) / 2;
-    ctx.drawImage(img, dx, dy, dw, dh);
-  }
-
-  private resolveGlobeShareLayerLayout(host: HTMLElement): {
-    width: number;
-    height: number;
-    globe: { x: number; y: number; w: number; h: number };
-    issFrames: Array<{
-      frame: HTMLElement;
-      variant: 'standard' | 'hd';
-      x: number;
-      y: number;
-      w: number;
-      h: number;
-    }>;
-  } | null {
-    const stage = this.getGlobeStageElement();
-    if (!stage) {
-      return null;
-    }
-
-    const globe = this.domOffsetInStage(host, stage);
-    if (globe.w < 2 || globe.h < 2) {
-      return null;
-    }
-
-    const issFrames: Array<{
-      frame: HTMLElement;
-      variant: 'standard' | 'hd';
-      x: number;
-      y: number;
-      w: number;
-      h: number;
-    }> = [];
-    for (const panel of this.listIssSharePanels()) {
-      const capture = this.resolveIssPiPCapture(panel.variant);
-      if (!capture) {
-        continue;
-      }
-      const rel = this.domOffsetInStage(capture.frame, stage);
-      if (rel.w < 8 || rel.h < 8) {
-        continue;
-      }
-      issFrames.push({ frame: capture.frame, variant: panel.variant, ...rel });
-    }
-    if (issFrames.length === 0) {
-      return null;
-    }
-
-    let width = globe.x + globe.w;
-    let height = globe.y + globe.h;
-    for (const iss of issFrames) {
-      width = Math.max(width, iss.x + iss.w);
-      height = Math.max(height, iss.y + iss.h);
-    }
-
-    return {
-      width: Math.max(1, Math.round(width)),
-      height: Math.max(1, Math.round(height)),
-      globe,
-      issFrames
-    };
-  }
-
-  private saveGlobeShareScrollState(): () => void {
-    const stage = this.getGlobeStageElement();
-    const dock = stage?.querySelector<HTMLElement>('.wg-iss-pip-dock');
-    const dockScrollTop = dock?.scrollTop ?? 0;
-    const windowScrollX = window.scrollX;
-    const windowScrollY = window.scrollY;
-
-    return () => {
-      if (dock) {
-        dock.scrollTop = dockScrollTop;
-      }
-      window.scrollTo(windowScrollX, windowScrollY);
-    };
-  }
-
-  private loadGlobeShareCaptureImage(blob: Blob): Promise<HTMLImageElement | null> {
-    return new Promise((resolve) => {
-      const url = URL.createObjectURL(blob);
-      const img = new Image();
-      const done = (result: HTMLImageElement | null): void => {
-        URL.revokeObjectURL(url);
-        resolve(result);
-      };
-      img.onload = () => done(img);
-      img.onerror = () => done(null);
-      img.src = url;
-    });
-  }
-
-  private cropPngBlobToRect(sourceBlob: Blob, cropRect: DOMRect): Promise<Blob | null> {
-    return new Promise((resolve) => {
-      const url = URL.createObjectURL(sourceBlob);
-      const img = new Image();
-      const cleanup = (): void => URL.revokeObjectURL(url);
-      img.onload = () => {
-        cleanup();
-        void this.pngBlobFromVideoFrame(img, img.naturalWidth, img.naturalHeight, cropRect).then(resolve);
-      };
-      img.onerror = () => {
-        cleanup();
-        resolve(null);
-      };
-      img.src = url;
-    });
-  }
-
-  private resolveGlobeShareCaptureRect(host: HTMLElement): DOMRect {
-    let rect = host.getBoundingClientRect();
-    const stage = this.getGlobeStageElement();
-    if (!stage) {
-      return rect;
-    }
-
-    if (this.issFsSplitLayout) {
-      const dock = stage.querySelector<HTMLElement>('.wg-iss-pip-dock--fs-split');
-      if (dock && this.isIssPiPVisibleForCapture(dock)) {
-        rect = WorldGlobeComponent.unionDomRects(rect, dock.getBoundingClientRect());
-      }
-      return rect;
-    }
-
-    if (!this.issLiveEmbedEnabled && !this.issLiveHdEmbedEnabled) {
-      return rect;
-    }
-
-    const panels = this.listIssSharePanels();
-    if (panels.length === 0) {
-      return rect;
-    }
-
-    // Mobile empilé : union des fenêtres ISS (pas le dock scrollable entier).
-    if (this.isIssMobileStackLayout()) {
-      for (const panel of panels) {
-        rect = WorldGlobeComponent.unionDomRects(rect, panel.el.getBoundingClientRect());
-      }
-      return rect;
-    }
-
-    const dock = stage.querySelector<HTMLElement>('.wg-iss-pip-dock:not(.wg-iss-pip-dock--fs-split)');
-    if (dock && this.isIssPiPVisibleForCapture(dock)) {
-      rect = WorldGlobeComponent.unionDomRects(rect, dock.getBoundingClientRect());
-    } else {
-      for (const panel of panels) {
-        rect = WorldGlobeComponent.unionDomRects(rect, panel.el.getBoundingClientRect());
-      }
-    }
-    return rect;
-  }
-
-  private listIssSharePanels(): { el: HTMLElement; variant: 'standard' | 'hd' }[] {
-    const panels: { el: HTMLElement; variant: 'standard' | 'hd' }[] = [];
-    const standard = this.issLivePiP?.nativeElement;
-    if (this.issLiveEmbedEnabled && standard && this.isIssPiPVisibleForCapture(standard)) {
-      panels.push({ el: standard, variant: 'standard' });
-    }
-    const hd = this.issLiveHdPiP?.nativeElement;
-    if (this.issLiveHdEmbedEnabled && hd && this.isIssPiPVisibleForCapture(hd)) {
-      panels.push({ el: hd, variant: 'hd' });
-    }
-    return panels;
-  }
-
-  private static unionDomRects(a: DOMRect, b: DOMRect): DOMRect {
-    const left = Math.min(a.left, b.left);
-    const top = Math.min(a.top, b.top);
-    const right = Math.max(a.right, b.right);
-    const bottom = Math.max(a.bottom, b.bottom);
-    return new DOMRect(left, top, right - left, bottom - top);
-  }
-
-
-  private flashGlobeWhatsAppFeedback(ok: boolean): void {
-    if (this.globeWhatsAppFlashTimer != null) {
-      clearTimeout(this.globeWhatsAppFlashTimer);
-    }
-    this.globeWhatsAppFlash = ok;
-    this.cdr.markForCheck();
-    this.globeWhatsAppFlashTimer = setTimeout(() => {
-      this.globeWhatsAppFlash = null;
-      this.globeWhatsAppFlashTimer = null;
-      this.cdr.markForCheck();
-    }, 2200);
-  }
-
-  /** Partage une capture de la mini-fenêtre ISS sur WhatsApp (Web Share ou wa.me). */
-  async shareIssPiPScreenshotOnWhatsApp(variant: 'standard' | 'hd'): Promise<void> {
-    if (this.issPiPImageBusy != null) {
-      return;
-    }
-    const capture = this.resolveIssPiPCapture(variant);
-    if (!capture) {
-      this.flashIssPiPWhatsAppFeedback(variant, false);
-      return;
-    }
-    this.issPiPImageBusy = { variant, action: 'whatsapp' };
-    this.cdr.markForCheck();
-    try {
-      const blob = await this.captureIssPiPFrameToPngBlob(capture.frame, capture.videoId);
-      if (!blob) {
-        this.flashIssPiPWhatsAppFeedback(variant, false);
-        return;
-      }
-      const ok = await this.shareIssPiPPngOnWhatsApp(blob, variant);
-      this.flashIssPiPWhatsAppFeedback(variant, ok);
-    } catch (err: unknown) {
-      const name = err instanceof DOMException || err instanceof Error ? err.name : '';
-      if (name === 'NotAllowedError' || name === 'AbortError') {
-        return;
-      }
-      this.flashIssPiPWhatsAppFeedback(variant, false);
-    } finally {
-      this.issPiPImageBusy = null;
-      this.cdr.markForCheck();
-    }
-  }
-
   private resolveIssPiPCapture(
     variant: 'standard' | 'hd'
   ): { frame: HTMLElement; videoId: string } | null {
@@ -5967,62 +5044,6 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     const videoId = variant === 'standard' ? ISS_LIVE_YOUTUBE_VIDEO_ID : ISS_LIVE_HD_YOUTUBE_VIDEO_ID;
     return { frame, videoId };
-  }
-
-  private buildIssPiPWhatsAppMessage(variant: 'standard' | 'hd'): string {
-    const titleKey =
-      variant === 'standard' ? 'WORLD_GLOBE.ISS_LIVE_PIP_TITLE' : 'WORLD_GLOBE.ISS_LIVE_PIP_HD_TITLE';
-    const url =
-      variant === 'standard' ? ISS_LIVE_DESTINATION_ORBITE_URL : ISS_LIVE_HD_DESTINATION_ORBITE_URL;
-    const title = this.translate.instant(titleKey);
-    return this.translate.instant('WORLD_GLOBE.ISS_LIVE_PIP_WHATSAPP_MESSAGE', { title, url });
-  }
-
-  private async shareIssPiPPngOnWhatsApp(blob: Blob, variant: 'standard' | 'hd'): Promise<boolean> {
-    const titleKey =
-      variant === 'standard' ? 'WORLD_GLOBE.ISS_LIVE_PIP_TITLE' : 'WORLD_GLOBE.ISS_LIVE_PIP_HD_TITLE';
-    const title = this.translate.instant(titleKey);
-    const message = this.buildIssPiPWhatsAppMessage(variant);
-    const file = new File([blob], `iss-live-${variant}.png`, { type: 'image/png' });
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-      navigator.userAgent
-    );
-
-    if (navigator.share) {
-      const fileShare: ShareData = { title, text: message, files: [file] };
-      try {
-        if (isMobile || !navigator.canShare || navigator.canShare({ files: [file], text: message })) {
-          await navigator.share(fileShare);
-          return true;
-        }
-      } catch (err: unknown) {
-        const name = err instanceof DOMException || err instanceof Error ? err.name : '';
-        if (name === 'AbortError') {
-          throw err;
-        }
-      }
-      try {
-        const textShare: ShareData = { title, text: message };
-        if (!navigator.canShare || navigator.canShare(textShare)) {
-          await navigator.share(textShare);
-          return true;
-        }
-      } catch (err: unknown) {
-        const name = err instanceof DOMException || err instanceof Error ? err.name : '';
-        if (name === 'AbortError') {
-          throw err;
-        }
-      }
-    }
-
-    const copied = await this.writeIssPiPPngToClipboard(blob);
-    let waText = message;
-    if (copied) {
-      waText += `\n\n${this.translate.instant('WORLD_GLOBE.ISS_LIVE_PIP_WHATSAPP_PASTE_IMAGE')}`;
-    }
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(waText)}`;
-    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-    return true;
   }
 
   private isIssPiPVisibleForCapture(panel: HTMLElement): boolean {
@@ -6156,12 +5177,62 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.captureDomRegionViaDisplayMedia(frame, frame.getBoundingClientRect());
   }
 
+  /** Mobile / tablette : ImageCapture souvent absent ou instable. */
+  private globeSharePreferNativeFileShare(): boolean {
+    const ua = navigator.userAgent;
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)) {
+      return true;
+    }
+    return navigator.maxTouchPoints > 1 && /Macintosh|MacIntel/i.test(ua);
+  }
+
+  private globeShareUseMobileCaptureFlow(): boolean {
+    return this.globeSharePreferNativeFileShare() || this.isIssMobileStackLayout();
+  }
+
   private grabPngBlobFromMediaTrack(
     track: MediaStreamTrack,
     cropRect?: DOMRect,
     timeoutMs = 8000
   ): Promise<Blob | null> {
     return this.withTimeout(this.grabPngBlobFromMediaTrackInner(track, cropRect), timeoutMs);
+  }
+
+  private withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+    return new Promise((resolve, reject) => {
+      const timer = window.setTimeout(() => resolve(null), ms);
+      promise
+        .then((value) => {
+          clearTimeout(timer);
+          resolve(value);
+        })
+        .catch((err: unknown) => {
+          clearTimeout(timer);
+          const cancelName = err instanceof DOMException || err instanceof Error ? err.name : '';
+          if (cancelName === 'AbortError' || cancelName === 'NotAllowedError') {
+            reject(err);
+          } else {
+            resolve(null);
+          }
+        });
+    });
+  }
+
+  private cropPngBlobToRect(sourceBlob: Blob, cropRect: DOMRect): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(sourceBlob);
+      const img = new Image();
+      const cleanup = (): void => URL.revokeObjectURL(url);
+      img.onload = () => {
+        cleanup();
+        void this.pngBlobFromVideoFrame(img, img.naturalWidth, img.naturalHeight, cropRect).then(resolve);
+      };
+      img.onerror = () => {
+        cleanup();
+        resolve(null);
+      };
+      img.src = url;
+    });
   }
 
   private grabPngBlobFromMediaTrackInner(track: MediaStreamTrack, cropRect?: DOMRect): Promise<Blob | null> {
@@ -6370,7 +5441,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       await navigator.clipboard.write([new win.ClipboardItem!({ 'image/png': pngBlob })]);
       return true;
     } catch (err: unknown) {
-      if (WorldGlobeComponent.isGlobeShareUserCancel(err)) {
+      const cancelName = err instanceof DOMException || err instanceof Error ? err.name : '';
+      if (cancelName === 'AbortError' || cancelName === 'NotAllowedError') {
         throw err;
       }
       return false;
@@ -6420,19 +5492,6 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.issPiPCopyFlashTimer = setTimeout(() => {
       this.issPiPCopyFlash = null;
       this.issPiPCopyFlashTimer = null;
-      this.cdr.markForCheck();
-    }, 2200);
-  }
-
-  private flashIssPiPWhatsAppFeedback(variant: 'standard' | 'hd', ok: boolean): void {
-    if (this.issPiPWhatsAppFlashTimer != null) {
-      clearTimeout(this.issPiPWhatsAppFlashTimer);
-    }
-    this.issPiPWhatsAppFlash = { variant, ok };
-    this.cdr.markForCheck();
-    this.issPiPWhatsAppFlashTimer = setTimeout(() => {
-      this.issPiPWhatsAppFlash = null;
-      this.issPiPWhatsAppFlashTimer = null;
       this.cdr.markForCheck();
     }, 2200);
   }
@@ -6600,9 +5659,74 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const controls = this.controls;
     const camera = this.camera;
     if (!controls || !camera) {
-      return 3;
+      return GLOBE_INITIAL_ORBIT_DISTANCE;
     }
     return camera.position.distanceTo(controls.target);
+  }
+
+  /**
+   * Distance pour voir la Terre entière (diamètre) dans la fenêtre, y compris en portrait.
+   * Le FOV Three.js est vertical : un aspect étroit impose un recul plus grand.
+   */
+  private wholeGlobeOrbitDistance(): number {
+    const camera = this.camera;
+    const controls = this.controls;
+    const minD = controls?.minDistance ?? 1.02;
+    const maxD = controls?.maxDistance ?? 7;
+    const fovDeg = camera instanceof THREE.PerspectiveCamera ? camera.fov : 45;
+    const aspect =
+      camera instanceof THREE.PerspectiveCamera && Number.isFinite(camera.aspect) && camera.aspect > 0.05
+        ? camera.aspect
+        : 1;
+    const tanHalf = Math.tan(THREE.MathUtils.degToRad(fovDeg) * 0.5);
+    if (!(tanHalf > 1e-6)) {
+      return GLOBE_INITIAL_ORBIT_DISTANCE;
+    }
+    const fitRadius = 1.18;
+    const vDist = fitRadius / tanHalf;
+    const hDist = fitRadius / (tanHalf * aspect);
+    return THREE.MathUtils.clamp(Math.max(vDist, hDist, GLOBE_INITIAL_ORBIT_DISTANCE), minD + 0.08, maxD * 0.95);
+  }
+
+  /** Distance de départ (plus proche) pour le dézoom fluide viseur → globe. */
+  private astroReturnCameraStartDistance(endDist: number): number {
+    const minD = this.controls?.minDistance ?? 1.02;
+    const start = Math.min(GLOBE_ASTRO_RETURN_START_DISTANCE, endDist * 0.55);
+    return THREE.MathUtils.clamp(start, minD + 0.1, Math.max(minD + 0.12, endDist - 0.2));
+  }
+
+  /**
+   * Recentre sur l’objet en dézoomant en douceur jusqu’à voir la Terre entière
+   * (retour depuis le viseur d’astres).
+   */
+  private flyCameraToAstroReturn(lat: number, lon: number): void {
+    const camera = this.camera;
+    const controls = this.controls;
+    if (!camera || !controls) {
+      return;
+    }
+    const endDist = this.wholeGlobeOrbitDistance();
+    const startDist = this.astroReturnCameraStartDistance(endDist);
+    if (camera.position.lengthSq() < 1e-4) {
+      camera.position.set(0, 0, startDist);
+      camera.up.set(0, 1, 0);
+      controls.target.set(0, 0, 0);
+      controls.update();
+    } else {
+      const current = camera.position.distanceTo(controls.target);
+      if (current > (startDist + endDist) * 0.5) {
+        camera.position.setLength(startDist);
+        controls.target.set(0, 0, 0);
+        controls.update();
+      }
+    }
+    this.issGlobeFreeOrbit = true;
+    this.animateCameraToLatLon(lat, lon, endDist, GLOBE_ASTRO_RETURN_ANIM_MS, 0, () => {
+      if (this.issKeepEarthCentered && !this.tickerFocusSatId) {
+        this.issGlobeFreeOrbit = false;
+        this.issCameraCenterSmoothPrevMs = 0;
+      }
+    });
   }
 
   /** OrbitControls : NONE = -1 (pas de geste en cours). */
@@ -6703,7 +5827,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     distance: number,
     durationMs = GLOBE_GEOCODE_ANIM_MS,
     /** 0 = lieu exactement au centre de la fenêtre (axe caméra → centre du globe). */
-    verticalLift = 0
+    verticalLift = 0,
+    onComplete?: () => void
   ): void {
     const camera = this.camera;
     const controls = this.controls;
@@ -6728,6 +5853,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       controls.enableDamping = this.globeCameraAnimPrevEnableDamping ?? true;
       this.globeCameraAnimPrevEnableDamping = null;
       controls.update();
+      onComplete?.();
       return;
     }
     const startN = startPos.clone().divideScalar(startLen);
@@ -6756,6 +5882,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         controls.enableDamping = this.globeCameraAnimPrevEnableDamping ?? true;
         this.globeCameraAnimPrevEnableDamping = null;
         controls.update();
+        onComplete?.();
       }
     };
 
@@ -6887,20 +6014,31 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.pendingGlobeDeepLink) {
       return;
     }
+    const homeDist = this.pendingCenterFitWholeGlobe
+      ? this.astroReturnCameraStartDistance(this.wholeGlobeOrbitDistance())
+      : GLOBE_INITIAL_ORBIT_DISTANCE;
+    if (this.pendingDeepLinkSatId && this.pendingDeepLinkSatId !== 'iss') {
+      this.applyPendingSatelliteDeepLink();
+      return;
+    }
     if (this.isGlobeIssPositionKnown()) {
-      this.applyInitialIssCameraCenterIfNeeded(this.globeIssLat!, this.globeIssLon!, true);
+      this.applyInitialIssCameraCenterIfNeeded(
+        this.globeIssLat!,
+        this.globeIssLon!,
+        !this.pendingCenterFitWholeGlobe
+      );
       return;
     }
     if (this.issPositionFeedActive() && this.issKeepEarthCentered) {
       if (this.camera && this.controls) {
-        this.camera.position.set(0, 0, GLOBE_INITIAL_ORBIT_DISTANCE);
+        this.camera.position.set(0, 0, homeDist);
         this.camera.up.set(0, 1, 0);
         this.controls.target.set(0, 0, 0);
         this.controls.update();
       }
       return;
     }
-    this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, GLOBE_INITIAL_ORBIT_DISTANCE);
+    this.frameCameraOnLatLon(GLOBE_INITIAL_FRANCE_LAT, GLOBE_INITIAL_FRANCE_LON, homeDist);
     this.globeInitialIssCameraPending = false;
   }
 
@@ -6917,11 +6055,17 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.issCameraCenterSmoothPrevMs = 0;
     this.globeInitialIssCameraPending = false;
-    if (instant) {
-      this.frameCameraOnLatLon(lat, lon, GLOBE_INITIAL_ORBIT_DISTANCE, 0);
+    if (this.pendingCenterFitWholeGlobe) {
+      this.pendingCenterFitWholeGlobe = false;
+      this.flyCameraToAstroReturn(lat, lon);
       return;
     }
-    this.animateCameraToLatLon(lat, lon, GLOBE_INITIAL_ORBIT_DISTANCE, GLOBE_INITIAL_ISS_ANIM_MS, 0);
+    const dist = GLOBE_INITIAL_ORBIT_DISTANCE;
+    if (instant) {
+      this.frameCameraOnLatLon(lat, lon, dist, 0);
+      return;
+    }
+    this.animateCameraToLatLon(lat, lon, dist, GLOBE_INITIAL_ISS_ANIM_MS, 0);
   }
 
   /** Applique lat/lon ISS (cache prefetch, session ou réseau) et centre la vue si besoin. */
@@ -7414,6 +6558,16 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  @HostListener('document:keydown.escape')
+  onSatelliteInfoEscape(): void {
+    if (this.satelliteInfoSlideshowOpen) {
+      return;
+    }
+    if (this.satelliteInfoOpen) {
+      this.closeSatelliteInfo();
+    }
+  }
+
   @HostListener('document:keydown', ['$event'])
   onGlobeGeocodeDocumentKeydown(ev: KeyboardEvent): void {
     const t = ev.target;
@@ -7440,6 +6594,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private tryFlushPendingGlobeDeepLink(): void {
+    if (this.pendingDeepLinkSatId && !this.pendingGlobeDeepLink) {
+      this.applyPendingSatelliteDeepLink();
+    }
     if (!this.pendingGlobeDeepLink || !this.globeSurfaceReady || !this.camera || !this.controls || !this.earthMesh) {
       return;
     }
@@ -7447,6 +6604,115 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.pendingGlobeDeepLink = null;
     this.executeGlobeDeepLinkFly(p);
     this.clearGlobeDeepLinkQueryParams();
+  }
+
+  /** Viseur d’astres → globe : `?sat=iss` ou `?sat=hubble`. */
+  private queueOrApplySatelliteDeepLink(satId: string): void {
+    const id = satId.trim().toLowerCase();
+    if (!id) {
+      return;
+    }
+    if (id !== 'iss' && !this.globeSatelliteOptions.some((s) => s.id === id)) {
+      return;
+    }
+    this.pendingDeepLinkSatId = id;
+    this.pendingCenterFitWholeGlobe = true;
+    this.applyPendingSatelliteDeepLink();
+    this.clearGlobeDeepLinkQueryParams();
+  }
+
+  private applyPendingSatelliteDeepLink(): void {
+    const id = this.pendingDeepLinkSatId;
+    if (!id) {
+      return;
+    }
+    this.autoRotate = false;
+    if (id === 'iss') {
+      this.issOverlayEnabled = true;
+      this.issKeepEarthCentered = true;
+      this.issTickerEnabled = true;
+      this.tickerFocusSatId = null;
+      this.pendingCenterSatelliteId = null;
+      this.rememberAstroViseurSat('iss');
+      this.clearGeocodeMarker();
+      const alreadyFramed = this.globeSurfaceReady && !this.globeInitialIssCameraPending;
+      if (!alreadyFramed) {
+        this.issGlobeFreeOrbit = false;
+        this.globeInitialIssCameraPending = true;
+        if (this.globeSurfaceReady && this.globeIssLat != null && this.globeIssLon != null) {
+          this.applyInitialIssCameraCenterIfNeeded(this.globeIssLat, this.globeIssLon, false);
+        }
+      }
+      if (this.satelliteDeepLinkPrefsReady()) {
+        this.pendingDeepLinkSatId = null;
+      }
+      this.cdr.markForCheck();
+      return;
+    }
+    const sat = this.globeSatelliteOptions.find((s) => s.id === id);
+    if (!sat) {
+      this.pendingDeepLinkSatId = null;
+      return;
+    }
+    this.issKeepEarthCentered = false;
+    this.issGlobeFreeOrbit = true;
+    this.globeInitialIssCameraPending = false;
+    this.globeSatVisibilityCircleSatId = id;
+    if (this.satelliteOverlayEnabled[id] === false) {
+      this.satelliteOverlayEnabled[id] = true;
+      this.syncGlobeSatelliteOverlayMaster();
+      this.satNowService.setObserver(this.userObserverLat, this.userObserverLon);
+      void this.satNowService.ensureOption(sat);
+    }
+    this.onSelectSatelliteForTicker(id, true);
+    this.pendingCenterSatelliteId = id;
+    if (this.globeSurfaceReady) {
+      this.tryCenterGlobeOnSatellite(id);
+    }
+    if (this.satelliteDeepLinkPrefsReady()) {
+      this.pendingDeepLinkSatId = null;
+    }
+    this.cdr.markForCheck();
+  }
+
+  private satelliteDeepLinkPrefsReady(): boolean {
+    return this.issGlobalPrefsLoaded && this.satelliteOverlayPrefsLoaded;
+  }
+
+  private writeAstroReturnSat(satId: string): void {
+    const id = (satId || '').trim().toLowerCase();
+    if (!id) {
+      return;
+    }
+    try {
+      sessionStorage.setItem(GLOBE_ASTRO_RETURN_SAT_KEY, id);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private clearAstroReturnSat(): void {
+    try {
+      sessionStorage.removeItem(GLOBE_ASTRO_RETURN_SAT_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private consumeAstroReturnSatId(): string | null {
+    try {
+      const raw = (sessionStorage.getItem(GLOBE_ASTRO_RETURN_SAT_KEY) || '').trim().toLowerCase();
+      sessionStorage.removeItem(GLOBE_ASTRO_RETURN_SAT_KEY);
+      if (!raw) {
+        return null;
+      }
+      if (raw === 'iss' || this.globeSatelliteOptions.some((s) => s.id === raw)) {
+        return raw;
+      }
+    } catch {
+      /* ignore */
+    }
+    return null;
   }
 
   private executeGlobeDeepLinkFly(p: { lat: number; lon: number; mapZoom?: number }): void {
@@ -7477,7 +6743,16 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private clearGlobeDeepLinkQueryParams(): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { lat: null, lon: null, lng: null, z: null, zoom: null, autoRotate: null },
+      queryParams: {
+        lat: null,
+        lon: null,
+        lng: null,
+        z: null,
+        zoom: null,
+        autoRotate: null,
+        sat: null,
+        satellite: null
+      },
       replaceUrl: true
     });
   }
@@ -8828,11 +8103,13 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
           this.writeGlobeSatelliteOverlayLocalCache();
         }
         this.satelliteOverlayPrefsLoaded = true;
+        this.applyPendingSatelliteDeepLink();
         this.updateGlobeSatelliteOverlays();
         this.cdr.markForCheck();
       },
       error: () => {
         this.satelliteOverlayPrefsLoaded = true;
+        this.applyPendingSatelliteDeepLink();
         this.cdr.markForCheck();
       }
     });
@@ -9029,6 +8306,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       this.ensureGlobeSatelliteVisual(sat);
       this.positionGlobeSatelliteVisual(sat.id, snap.lat, snap.lon, snap.altKm, sat.defaultAltKm);
+      if (this.globeSatVisibilityCircleSatId === sat.id) {
+        this.updateSatelliteVisibilityCircle(sat, snap.lat, snap.lon, snap.altKm ?? sat.defaultAltKm);
+      }
       if (sat.constellation === 'starlink') {
         this.updateStarlinkTrainCompanions(true);
       }
@@ -9147,6 +8427,33 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (changed) {
       this.scheduleWorldGlobeCdr();
     }
+    this.refreshIssVisibilityFromUser();
+  }
+
+  private refreshIssVisibilityFromUser(): void {
+    const obsLat = this.userObserverLat;
+    const obsLon = this.userObserverLon;
+    const issLat = this.globeIssLat;
+    const issLon = this.globeIssLon;
+    if (obsLat == null || obsLon == null || issLat == null || issLon == null) {
+      if (this.issVisibleFromUser) {
+        this.issVisibleFromUser = false;
+        this.scheduleWorldGlobeCdr();
+      }
+      return;
+    }
+    const visible =
+      WorldGlobeComponent.satelliteElevationRadFromLatLon(
+        obsLat,
+        obsLon,
+        issLat,
+        issLon,
+        this.globeIssAltKm ?? this.issGlobeOption.defaultAltKm
+      ) > 0;
+    if (this.issVisibleFromUser !== visible) {
+      this.issVisibleFromUser = visible;
+      this.scheduleWorldGlobeCdr();
+    }
   }
 
   private tryCenterGlobeOnSatellite(satId: string): void {
@@ -9165,6 +8472,15 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.pendingCenterSatelliteId = null;
     this.issGlobeFreeOrbit = true;
     this.flightGlobeFreeOrbit = true;
+    if (this.globeSatVisibilityCircleSatId === sat.id) {
+      this.updateSatelliteVisibilityCircle(sat, snap.lat, snap.lon, snap.altKm ?? sat.defaultAltKm);
+    }
+    if (this.pendingCenterFitWholeGlobe) {
+      this.pendingCenterFitWholeGlobe = false;
+      this.flyCameraToAstroReturn(snap.lat, snap.lon);
+      this.cdr.markForCheck();
+      return;
+    }
     const dist = THREE.MathUtils.clamp(
       this.globeOrbitDistance(),
       controls.minDistance,
@@ -9202,7 +8518,18 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.satNowService.setObserver(this.userObserverLat, this.userObserverLon);
-    const snap = this.satNowService.snapshotForOption(sat);
+    let snap = this.satNowService.snapshotForOption(sat);
+    if (sat.id === 'iss' && this.globeIssLat != null && this.globeIssLon != null) {
+      snap = {
+        noradId: sat.noradId,
+        name: sat.id,
+        lat: this.globeIssLat,
+        lon: this.globeIssLon,
+        altKm: this.globeIssAltKm ?? sat.defaultAltKm,
+        velocityKmh: this.issGroundSpeedKmh,
+        computedAtMs: Date.now()
+      };
+    }
     if (!snap) {
       this.satelliteInfoSnapshot = null;
       return;
@@ -9375,6 +8702,16 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     WorldGlobeComponent.orientGlobeIconMesh(visual.marker, lat, lon, radius, null);
     const labelPos = WorldGlobeComponent.latLonToVector3(lat, lon, radius * 1.012);
     visual.label.position.copy(labelPos);
+  }
+
+  private refreshGlobeSatelliteOptionsSort(): void {
+    const locale = this.translate.currentLang || undefined;
+    this.globeSatelliteOptionsSorted = [this.issGlobeOption, ...this.globeSatelliteOptions].sort((a, b) => {
+      const na = String(this.translate.instant(a.labelKey) || a.id);
+      const nb = String(this.translate.instant(b.labelKey) || b.id);
+      return na.localeCompare(nb, locale, { sensitivity: 'base' });
+    });
+    this.cdr.markForCheck();
   }
 
   private rebuildGlobeSatelliteLabels(): void {
@@ -9889,9 +9226,12 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /** Matériau calotte ISS : dégradé radial calculé en fragment (angle depuis le sous-point). */
-  private static createIssVisibilityFillMaterial(): THREE.ShaderMaterial {
-    const inner = new THREE.Color(GLOBE_ISS_VISIBILITY_FILL_INNER_COLOR);
-    const outer = new THREE.Color(GLOBE_ISS_VISIBILITY_FILL_OUTER_COLOR);
+  private static createIssVisibilityFillMaterial(
+    innerColor: THREE.ColorRepresentation = GLOBE_ISS_VISIBILITY_FILL_INNER_COLOR,
+    outerColor: THREE.ColorRepresentation = GLOBE_ISS_VISIBILITY_FILL_OUTER_COLOR
+  ): THREE.ShaderMaterial {
+    const inner = new THREE.Color(innerColor);
+    const outer = new THREE.Color(outerColor);
     const mat = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
@@ -10033,6 +9373,136 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const fill = this.issVisibilityFillMesh;
     this.issVisibilityFillMesh = undefined;
     this.globeIssVisibilityRadiusKm = null;
+    if (fill) {
+      this.earthMesh?.remove(fill);
+      fill.geometry.dispose();
+      const fm = fill.material;
+      if (!Array.isArray(fm) && fm instanceof THREE.Material) {
+        fm.dispose();
+      }
+    }
+  }
+
+  private static satelliteVisibilityFillColors(hex: string): { inner: THREE.Color; outer: THREE.Color } {
+    const inner = new THREE.Color(hex);
+    const outer = inner.clone();
+    outer.offsetHSL(0.03, 0.08, -0.22);
+    return { inner, outer };
+  }
+
+  private updateSatelliteVisibilityCircle(
+    sat: AstroSatelliteOption,
+    lat: number,
+    lon: number,
+    altKm: number
+  ): void {
+    const earth = this.earthMesh;
+    if (!earth || this.satelliteOverlayEnabled[sat.id] === false) {
+      return;
+    }
+    const h = altKm > 0 ? altKm : sat.defaultAltKm;
+    const gamma = Math.min(
+      WorldGlobeComponent.issVisibilityCentralAngleRad(h, GLOBE_ISS_VISIBILITY_MIN_ELEVATION_DEG) *
+        GLOBE_SAT_VISIBILITY_CIRCLE_SCALE,
+      GLOBE_SAT_VISIBILITY_CIRCLE_MAX_GAMMA
+    );
+    const pts = WorldGlobeComponent.sphereSmallCirclePoints(
+      lat,
+      lon,
+      gamma,
+      GLOBE_ISS_VISIBILITY_CIRCLE_RADIUS,
+      GLOBE_ISS_VISIBILITY_CIRCLE_SEGMENTS
+    );
+    const { inner, outer } = WorldGlobeComponent.satelliteVisibilityFillColors(sat.color);
+    if (!this.satVisibilityCircleLine) {
+      const lineMat = new THREE.LineBasicMaterial({
+        color: inner,
+        transparent: true,
+        opacity: GLOBE_ISS_VISIBILITY_CIRCLE_OPACITY,
+        depthWrite: false
+      });
+      lineMat.toneMapped = false;
+      const line = new THREE.LineLoop(new THREE.BufferGeometry(), lineMat);
+      line.renderOrder = 4;
+      earth.add(line);
+      this.satVisibilityCircleLine = line;
+    } else {
+      const lm = this.satVisibilityCircleLine.material;
+      if (!Array.isArray(lm) && lm instanceof THREE.LineBasicMaterial) {
+        lm.color.copy(inner);
+      }
+    }
+    if (!this.satVisibilityFillMesh) {
+      const fill = new THREE.Mesh(
+        new THREE.BufferGeometry(),
+        WorldGlobeComponent.createIssVisibilityFillMaterial(inner, outer)
+      );
+      fill.renderOrder = 3;
+      earth.add(fill);
+      this.satVisibilityFillMesh = fill;
+    }
+    const line = this.satVisibilityCircleLine;
+    const oldLineGeo = line.geometry;
+    line.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+    oldLineGeo.dispose();
+    line.visible = true;
+
+    const fill = this.satVisibilityFillMesh;
+    const oldFillGeo = fill.geometry;
+    fill.geometry = WorldGlobeComponent.buildIssVisibilityCapGeometry(
+      lat,
+      lon,
+      gamma,
+      GLOBE_ISS_VISIBILITY_FILL_RADIUS,
+      GLOBE_ISS_VISIBILITY_CIRCLE_SEGMENTS
+    );
+    oldFillGeo.dispose();
+    this.syncSatelliteVisibilityFillShaderUniforms(lat, lon, gamma, inner, outer);
+    fill.visible = true;
+  }
+
+  private syncSatelliteVisibilityFillShaderUniforms(
+    lat: number,
+    lon: number,
+    gammaRad: number,
+    inner: THREE.Color,
+    outer: THREE.Color
+  ): void {
+    const fill = this.satVisibilityFillMesh;
+    if (!fill) {
+      return;
+    }
+    let mat = fill.material;
+    if (!(mat instanceof THREE.ShaderMaterial)) {
+      if (!Array.isArray(mat)) {
+        mat.dispose();
+      }
+      fill.material = WorldGlobeComponent.createIssVisibilityFillMaterial(inner, outer);
+      mat = fill.material;
+    }
+    const shader = mat as THREE.ShaderMaterial;
+    shader.uniforms['uColorInner'].value.copy(inner);
+    shader.uniforms['uColorOuter'].value.copy(outer);
+    shader.uniforms['uNadirDir'].value
+      .copy(WorldGlobeComponent.latLonToVector3(lat, lon, 1))
+      .normalize();
+    shader.uniforms['uGammaMax'].value = Math.max(gammaRad, 1e-5);
+  }
+
+  private disposeSatelliteVisibilityCircle(): void {
+    this.globeSatVisibilityCircleSatId = null;
+    const line = this.satVisibilityCircleLine;
+    this.satVisibilityCircleLine = undefined;
+    if (line) {
+      this.earthMesh?.remove(line);
+      line.geometry.dispose();
+      const m = line.material;
+      if (!Array.isArray(m) && m instanceof THREE.Material) {
+        m.dispose();
+      }
+    }
+    const fill = this.satVisibilityFillMesh;
+    this.satVisibilityFillMesh = undefined;
     if (fill) {
       this.earthMesh?.remove(fill);
       fill.geometry.dispose();

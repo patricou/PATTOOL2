@@ -736,7 +736,7 @@ public class GlobeProxyController {
         }
     }
 
-    /** Switch Trajectoire du viseur, mémorisé pour l'utilisateur courant (username). */
+    /** Trajectoire du viseur (switch + durée), mémorisée pour l'utilisateur courant (username). */
     @GetMapping("/astro/finder-trail")
     public ResponseEntity<AstroFinderTrailDto> getAstroFinderTrail() {
         String sub = currentJwtSubject();
@@ -744,23 +744,23 @@ public class GlobeProxyController {
             return ResponseEntity.noContent().build();
         }
         return astroFinderTrailService.findForSubject(sub)
-                .map(enabled -> ResponseEntity.ok(new AstroFinderTrailDto(enabled)))
+                .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
-    /** Mémorise le switch Trajectoire du viseur dès que l'utilisateur le change. */
+    /** Mémorise le switch et/ou la durée de la Trajectoire du viseur. */
     @PutMapping("/astro/finder-trail")
     public ResponseEntity<AstroFinderTrailDto> setAstroFinderTrail(@RequestBody AstroFinderTrailDto body) {
         String sub = currentJwtSubject();
         if (sub == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        if (body == null || body.enabled() == null) {
+        if (body == null
+                || (body.enabled() == null && body.satMinutes() == null && body.skyMinutes() == null)) {
             return ResponseEntity.badRequest().build();
         }
         try {
-            boolean saved = astroFinderTrailService.saveForSubject(sub, body.enabled());
-            return ResponseEntity.ok(new AstroFinderTrailDto(saved));
+            return ResponseEntity.ok(astroFinderTrailService.saveForSubject(sub, body));
         } catch (Exception e) {
             log.warn("Astro finder-trail save failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
