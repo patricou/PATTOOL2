@@ -90,13 +90,15 @@
             <figure *ngIf="skyMapEmbedUrl || skyMapImageUrl" class="ciel-skymap mt-2 mb-0">
               <div class="ciel-skymap-toolbar">
                 <span>{{ 'CIEL.SKYMAP_PHOTO' | translate }}</span>
-                <button *ngIf="skyMapPreview"
-                        type="button"
+                <a *ngIf="skyMapPreview"
                         class="btn btn-sm btn-outline-secondary"
-                        (click)="openSkyMapApp()"
+                        [href]="skyMapAppHref()"
+                        [attr.target]="skyMapAppTarget()"
+                        rel="noopener noreferrer"
+                        (click)="onSkyMapAppClick($event)"
                         [attr.title]="'CIEL.SKYMAP_APP' | translate">
                   <i class="fa fa-mobile me-1"></i>{{ 'CIEL.SKYMAP_APP' | translate }}
-                </button>
+                </a>
               </div>
               <div id="ciel-skymap-wrap" class="ciel-skymap-wrap">
                 <iframe

@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browser';
 import { TranslateModule } from '@ngx-translate/core';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { of, Subject, Subscription } from 'rxjs';
@@ -9,6 +9,7 @@ import { catchError, debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 import { ApiService, SkyMapPreview, StellariumConfig, StellariumSkySource } from '../services/api.service';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
+import { isAndroidUserAgent, skyMapAndroidSearchIntent, openSkyMapAndroidApp } from '../shared/sky-map-app.util';
 
 @Component({
   selector: 'app-ciel',
@@ -134,23 +135,38 @@ export class CielComponent implements OnInit, OnDestroy {
     this.requestElementFullscreen(wrap);
   }
 
-  openSkyMapApp(): void {
-    const query = (this.skyMapPreview?.name || this.skyMapPreview?.catalogId
+  skyMapAppHref(): string | SafeUrl {
+    const query = this.skyMapAppQuery();
+    if (isAndroidUserAgent()) {
+      return this.sanitizer.bypassSecurityTrustUrl(skyMapAndroidSearchIntent(query));
+    }
+    return this.skyMapWebFallback(query);
+  }
+
+  skyMapAppTarget(): '_blank' | '_self' {
+    return isAndroidUserAgent() ? '_self' : '_blank';
+  }
+
+  onSkyMapAppClick(event: MouseEvent): void {
+    if (!isAndroidUserAgent()) {
+      return;
+    }
+    event.preventDefault();
+    openSkyMapAndroidApp(this.skyMapAppQuery());
+  }
+
+  private skyMapAppQuery(): string {
+    return (this.skyMapPreview?.name || this.skyMapPreview?.catalogId
       || this.selectedSource?.short_name || this.selectedSource?.match || '').trim();
-    const fallback = this.skyMapPreview?.atlasUrl
+  }
+
+  private skyMapWebFallback(query: string): string {
+    return this.skyMapPreview?.atlasUrl
       || ('https://www.sky-map.org/?' + new URLSearchParams({
         ...(query ? { object: query } : {}),
         zoom: '4',
         img_source: 'DSS2'
       }).toString());
-    const android = /Android/i.test(navigator.userAgent || '');
-    if (android && query) {
-      window.location.href = 'intent://search#Intent;scheme=http;action=android.intent.action.SEARCH;'
-        + 'package=com.google.android.stardroid;S.query=' + encodeURIComponent(query)
-        + ';S.browser_fallback_url=' + encodeURIComponent(fallback) + ';end';
-      return;
-    }
-    window.open(fallback, '_blank', 'noopener,noreferrer');
   }
 
   private requestElementFullscreen(el: HTMLElement | null): void {

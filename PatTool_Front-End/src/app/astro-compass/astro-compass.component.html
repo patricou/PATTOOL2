@@ -1,8 +1,18 @@
-<div class="pat-title">
+<div class="pat-title ac-page-title">
+  <span class="ac-page-title__spacer" aria-hidden="true"></span>
   <h2>
     <i class="fa fa-video-camera me-2" aria-hidden="true"></i>
     {{ 'ASTRO_COMPASS.TITLE' | translate }}
   </h2>
+  <button
+    type="button"
+    class="ac-glossary-btn"
+    (click)="openHelpModal()"
+    [attr.title]="'ASTRO_COMPASS.HELP_OPEN_HINT' | translate"
+    [attr.aria-label]="'ASTRO_COMPASS.HELP_OPEN' | translate">
+    <i class="fa fa-book" aria-hidden="true"></i>
+    <span>{{ 'ASTRO_COMPASS.HELP_OPEN' | translate }}</span>
+  </button>
 </div>
 
 <div
@@ -188,14 +198,18 @@
               [attr.aria-label]="'ASTRO_COMPASS.OBJECT_INFO_OPEN' | translate">
               <i class="fa fa-info-circle" aria-hidden="true"></i>
             </button>
-            <button
-              type="button"
-              class="ac-compass-refresh ac-compass-help-btn"
-              (click)="openHelpModal()"
-              [attr.title]="'ASTRO_COMPASS.HELP_OPEN_HINT' | translate"
-              [attr.aria-label]="'ASTRO_COMPASS.HELP_OPEN' | translate">
-              <i class="fa fa-question-circle" aria-hidden="true"></i>
-            </button>
+            <a
+              *ngIf="canOpenSkyMapApp()"
+              class="ac-compass-refresh ac-compass-skymap-app"
+              [href]="skyMapAppHref()"
+              [attr.target]="skyMapAppTarget()"
+              rel="noopener noreferrer"
+              (click)="onSkyMapAppClick($event)"
+              [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate"
+              [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate">
+              <i class="fa fa-mobile" aria-hidden="true"></i>
+              <span>Sky Map</span>
+            </a>
           </div>
         </div>
 
@@ -223,14 +237,16 @@
               [class.ac-finder--fs]="isFullscreen"
               [class.ac-finder--locked]="finderProj?.centered && !finderPoseFrozen"
               [class.ac-finder--posed]="finderPoseFrozen"
+              [class.ac-finder--panning]="finderPanning"
               [class.ac-finder--inview]="finderProj?.inView && !finderProj?.centered && !finderPoseFrozen"
               [class.ac-finder--zoomed]="finderZoom > 1"
               [class.ac-finder--resized]="!isFullscreen && camHeightPx != null"
+              [style.--ac-finder-label-scale]="finderLabelScale"
               [style.height.px]="!isFullscreen && camHeightPx != null ? camHeightPx : null">
               <video
                 #cam
                 class="ac-finder__video"
-                [style.transform]="'scale(' + finderDigitalZoom + ')'"
+                [style.transform]="finderVideoTransform"
                 playsinline
                 muted
                 autoplay
@@ -265,7 +281,7 @@
                   class="ac-finder__constellation-joint"
                   [attr.cx]="jt.xPct"
                   [attr.cy]="jt.yPct"
-                  r="1.15"
+                  [attr.r]="1.15 * finderLabelScale"
                   [attr.fill]="bodyColor"></circle>
               </svg>
               <span
@@ -2174,16 +2190,18 @@
             <i class="fa fa-globe me-1" aria-hidden="true"></i>
             {{ 'ASTRO_COMPASS.DOSSIER_SKYMAP' | translate }}
           </span>
-          <button
+          <a
             *ngIf="canOpenSkyMapApp()"
-            type="button"
             class="ac-live-dossier__skymap-app"
-            (click)="openSkyMapApp()"
+            [href]="skyMapAppHref()"
+            [attr.target]="skyMapAppTarget()"
+            rel="noopener noreferrer"
+            (click)="onSkyMapAppClick($event)"
             [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate"
             [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate">
             <i class="fa fa-mobile me-1" aria-hidden="true"></i>
             {{ 'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate }}
-          </button>
+          </a>
         </div>
         <div id="astro-skymap-wrap" class="ac-live-dossier__skymap-wrap">
           <iframe

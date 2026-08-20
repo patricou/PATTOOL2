@@ -1261,6 +1261,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.onTranslateLangChangedForGlobeCountryLabels();
       this.rebuildGlobeSatelliteLabels();
       this.refreshGlobeSatelliteOptionsSort();
+      if (this.satelliteInfoOpen && this.satelliteInfoSat) {
+        this.loadSatelliteInfoDossier(this.satelliteInfoSat);
+      }
     });
     queueMicrotask(() => this.bootstrapThree());
     this.loadIssFsPipStackTopFromStorage();

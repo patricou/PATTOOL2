@@ -23,11 +23,49 @@ export interface ObjectDossier {
   bMag: number | null;
 }
 
+export type WikiContentLang = 'fr' | 'en';
+
 interface WikiLookup {
   fr: string;
   en: string;
   sky: string;
   search?: string;
+}
+
+/** Wikipedia profile text: French if the UI is French, English for every other language. */
+export function wikiContentLang(translate: TranslateService): WikiContentLang {
+  const raw = String(translate.currentLang || '').trim().toLowerCase();
+  return raw.startsWith('fr') ? 'fr' : 'en';
+}
+
+export function wikiLookupRequest(
+  lookup: Pick<WikiLookup, 'fr' | 'en' | 'sky' | 'search'>,
+  lang: WikiContentLang
+): {
+  title: string;
+  fallbackTitle: string;
+  lang: WikiContentLang;
+  fallbackLang: WikiContentLang;
+  search: string;
+} {
+  const frSearch = (lookup.search || lookup.fr || lookup.sky).replace(/_/g, ' ').trim();
+  const enSearch = (lookup.en || lookup.sky).replace(/_/g, ' ').trim();
+  if (lang === 'fr') {
+    return {
+      title: lookup.fr,
+      fallbackTitle: lookup.en,
+      lang: 'fr',
+      fallbackLang: 'en',
+      search: frSearch
+    };
+  }
+  return {
+    title: lookup.en,
+    fallbackTitle: lookup.en,
+    lang: 'en',
+    fallbackLang: 'en',
+    search: enSearch
+  };
 }
 
 /** Same satellite Wikipedia titles as the astro-compass object fiche. */
@@ -114,14 +152,9 @@ export class AstroObjectDossierService {
 
   loadForSatellite(sat: AstroSatelliteOption): Observable<ObjectDossier | null> {
     const lookup = this.lookupForSatellite(sat);
-    const lang = (this.translate.currentLang || 'fr').toLowerCase();
-    const preferFr = lang.startsWith('fr');
-    const firstTitle = preferFr ? lookup.fr : lookup.en;
-    const fallbackTitle = preferFr ? lookup.en : lookup.fr;
-    const firstLang = preferFr ? 'fr' : 'en';
-    const fallbackLang = preferFr ? 'en' : 'fr';
+    const req = wikiLookupRequest(lookup, wikiContentLang(this.translate));
     return forkJoin({
-      wiki: this.fetchWikiSummary(firstTitle, firstLang, fallbackTitle, fallbackLang, lookup.search || lookup.sky),
+      wiki: this.fetchWikiSummary(req.title, req.lang, req.fallbackTitle, req.fallbackLang, req.search),
       sky: this.api.searchStellariumSkySources(lookup.sky).pipe(catchError(() => of([] as StellariumSkySource[])))
     }).pipe(
       map(({ wiki, sky }) => {

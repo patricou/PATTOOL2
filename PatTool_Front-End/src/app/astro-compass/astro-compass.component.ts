@@ -12,7 +12,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browser';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { Observable, Subscription, forkJoin, of } from 'rxjs';
@@ -74,6 +74,8 @@ import { GlobeIssNowService } from '../services/globe-iss-now.service';
 import { GlobeSatelliteNowService } from '../services/globe-satellite-now.service';
 import { CompassNorthEngine } from '../shared/compass-north.engine';
 import { clampCamHeightPx, loadCamHeightPx, saveCamHeightPx } from '../shared/preview-cam-size';
+import { isAndroidUserAgent, skyMapAndroidSearchIntent, openSkyMapAndroidApp } from '../shared/sky-map-app.util';
+import { wikiContentLang, wikiLookupRequest } from './astro-object-dossier.service';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import {
   SlideshowModalComponent,
@@ -172,6 +174,9 @@ const FINDER_ZOOM_MIN = 1;
 const FINDER_ZOOM_MAX = 8;
 const FINDER_ZOOM_STEP = 0.25;
 const FINDER_CENTER_SEP_DEG = 2.8;
+const FINDER_PAN_EL_MIN = -20;
+const FINDER_PAN_EL_MAX = 90;
+const FINDER_LABEL_SCALE_MAX = 2.5;
 
 interface AddressSearchResult {
   lat: number;
@@ -814,6 +819,17 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly finderZoomStep = FINDER_ZOOM_STEP;
   finderZoom = FINDER_ZOOM_MIN;
   finderDigitalZoom = 1;
+  finderVideoTransform = 'scale(1)';
+  /** Noms / icônes du viseur : grandissent avec le zoom. */
+  finderLabelScale = 1;
+  finderPanning = false;
+  /** Décalage de visée (°) en pause, pour glisser la vue. */
+  private finderPanAz = 0;
+  private finderPanEl = 0;
+  private finderPanPointerId: number | null = null;
+  private finderPanLastX = 0;
+  private finderPanLastY = 0;
+  private finderPanMoved = false;
   /** Hauteur caméra (px) si l’utilisateur a redimensionné le viseur. */
   camHeightPx: number | null = null;
   private camResizing = false;
@@ -956,11 +972,14 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly onFinderWheelNative = (ev: WheelEvent) => this.onFinderWheel(ev);
   private readonly onFinderTouchStartNative = (ev: TouchEvent) => this.onFinderTouchStart(ev);
   private readonly onFinderTouchMoveNative = (ev: TouchEvent) => this.onFinderTouchMove(ev);
-  private readonly onFinderTouchEndNative = () => this.onFinderTouchEnd();
+  private readonly onFinderTouchEndNative = (ev: TouchEvent) => this.onFinderTouchEnd(ev);
+  private readonly onFinderPointerDownNative = (ev: PointerEvent) => this.onFinderPointerDown(ev);
+  private readonly onFinderPointerMoveNative = (ev: PointerEvent) => this.onFinderPointerMove(ev);
+  private readonly onFinderPointerUpNative = (ev: PointerEvent) => this.onFinderPointerUp(ev);
   private readonly onLiveModalWheelNative = (ev: WheelEvent) => this.onLiveModalWheel(ev);
   private readonly onLiveModalTouchStartNative = (ev: TouchEvent) => this.onFinderTouchStart(ev);
   private readonly onLiveModalTouchMoveNative = (ev: TouchEvent) => this.onFinderTouchMove(ev);
-  private readonly onLiveModalTouchEndNative = () => this.onFinderTouchEnd();
+  private readonly onLiveModalTouchEndNative = (ev: TouchEvent) => this.onFinderTouchEnd(ev);
   private static readonly LAST_TARGET_KEY = 'pat.astro-compass.last-target.v1';
   private static readonly GLOBE_ASTRO_RETURN_SAT_KEY = 'pat.world-globe.astro-return-sat';
   private finderTrailSky: FinderTrailSkyPt[] = [];
@@ -1018,6 +1037,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.tickerNowFormatter = undefined;
       this.tickerNowFormatterLang = '';
       this.refreshTickerNowLabel();
+      this.objectDossierKey = null;
+      if (this.objectInfoModalOpen || this.objectDossier || this.objectDossierBusy) {
+        this.loadObjectDossier();
+      }
       this.cdr.markForCheck();
     });
     this.loadAlignCuePref();
@@ -1664,6 +1687,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.finderPoseCamEl = liveEl;
     }
     this.finderGuide = null;
+    this.resetFinderPan();
   }
 
   private clearFinderPose(resumeTracking: boolean): void {
@@ -1671,6 +1695,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.finderPoseFrozen = false;
     this.finderPoseCamAz = null;
     this.finderPoseCamEl = null;
+    this.resetFinderPan();
     this.finderPosePausedAuto = false;
     if (resumeAuto && this.autoDetectModalOpen) {
       this.autoDetectPaused = false;
@@ -1686,19 +1711,26 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private updateFinderProjection(): void {
-    const frozen =
-      this.finderPoseFrozen && this.finderPoseCamAz != null && this.finderPoseCamEl != null;
-    const camAz = frozen ? this.finderPoseCamAz : this.lookTracker.azimuthDeg;
-    const camEl = frozen ? this.finderPoseCamEl : this.lookTracker.elevationDeg;
+    const poseAz = this.finderPoseCamAz;
+    const poseEl = this.finderPoseCamEl;
+    const frozen = this.finderPoseFrozen && poseAz != null && poseEl != null;
+    let camAz = this.lookTracker.azimuthDeg;
+    let camEl = this.lookTracker.elevationDeg;
+    if (frozen) {
+      camAz = this.normalizeDeg(poseAz + this.finderPanAz);
+      camEl = this.clampFinderElevation(poseEl + this.finderPanEl);
+    }
     if (camAz == null || camEl == null || this.azimuthDeg == null || this.elevationDeg == null) {
       if (this.finderPoseFrozen && this.finderProj) {
         this.finderGuide = null;
+        this.syncFinderVideoTransform();
         return;
       }
       this.finderProj = null;
       this.finderGuide = null;
       this.clearFinderTrailScreen();
       this.clearFinderConstellationSkyOverlay();
+      this.syncFinderVideoTransform();
       return;
     }
     const fov = this.finderFovDeg();
@@ -1723,6 +1755,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         );
     this.projectFinderTrail(camAz, camEl, fov.hfov, fov.vfov, frozen);
     this.projectFinderConstellation(camAz, camEl, fov.hfov, fov.vfov);
+    this.syncFinderVideoTransform();
   }
 
   private clearFinderConstellationSkyOverlay(): void {
@@ -2192,6 +2225,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   resetFinderZoom(): void {
+    this.resetFinderPan();
     this.setFinderZoom(FINDER_ZOOM_MIN, true);
   }
 
@@ -2204,6 +2238,26 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onFinderWheel(ev: WheelEvent): void {
+    if (this.canPanFinderView() && this.isFinderStageEvent(ev) && !ev.ctrlKey && !ev.metaKey) {
+      if (this.isFinderPanIgnoreTarget(ev.target)) {
+        return;
+      }
+      ev.preventDefault();
+      ev.stopPropagation();
+      const dy = normalizeWheelDeltaPixels(ev);
+      let dx = ev.deltaX;
+      if (ev.deltaMode === 1) {
+        dx *= 16;
+      } else if (ev.deltaMode === 2) {
+        dx *= typeof window !== 'undefined' ? window.innerHeight : 800;
+      }
+      if (ev.shiftKey && Math.abs(dx) < 0.5) {
+        this.applyFinderPanPixels(-dy, 0);
+      } else {
+        this.applyFinderPanPixels(dx, dy);
+      }
+      return;
+    }
     if (!ev.ctrlKey && !ev.metaKey) {
       return;
     }
@@ -2227,32 +2281,207 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private onFinderTouchStart(ev: TouchEvent): void {
-    if (ev.touches.length !== 2) {
-      this.finderPinchStartDist = 0;
+    if (ev.touches.length === 2) {
+      this.endFinderPan();
+      this.finderPinchStartDist = this.touchDistance(ev.touches[0], ev.touches[1]);
+      this.finderPinchStartZoom = this.finderZoom;
       return;
     }
-    this.finderPinchStartDist = this.touchDistance(ev.touches[0], ev.touches[1]);
-    this.finderPinchStartZoom = this.finderZoom;
+    this.finderPinchStartDist = 0;
+    if (ev.touches.length === 1) {
+      const t = ev.touches[0];
+      this.beginFinderPan(t.clientX, t.clientY, ev.target, ev.currentTarget);
+    }
   }
 
   private onFinderTouchMove(ev: TouchEvent): void {
-    if (ev.touches.length !== 2 || this.finderPinchStartDist < 8) {
+    if (ev.touches.length === 2 && this.finderPinchStartDist >= 8) {
+      ev.preventDefault();
+      const dist = this.touchDistance(ev.touches[0], ev.touches[1]);
+      this.setFinderZoom((this.finderPinchStartZoom * dist) / this.finderPinchStartDist, false, false);
+      return;
+    }
+    if (ev.touches.length === 1 && this.finderPanning) {
+      ev.preventDefault();
+      this.moveFinderPan(ev.touches[0].clientX, ev.touches[0].clientY);
+    }
+  }
+
+  private onFinderTouchEnd(ev?: TouchEvent): void {
+    if (this.finderPinchStartDist > 0 && (!ev || ev.touches.length < 2)) {
+      this.setFinderZoom(this.finderZoom, true);
+      this.finderPinchStartDist = 0;
+    }
+    if (!ev || ev.touches.length === 0) {
+      this.endFinderPan();
+    }
+  }
+
+  private onFinderPointerDown(ev: PointerEvent): void {
+    if (ev.pointerType === 'touch' || ev.button !== 0) {
+      return;
+    }
+    if (!this.beginFinderPan(ev.clientX, ev.clientY, ev.target, ev.currentTarget)) {
+      return;
+    }
+    this.finderPanPointerId = ev.pointerId;
+    try {
+      (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
+    } catch {
+      /* ignore */
+    }
+    ev.preventDefault();
+  }
+
+  private onFinderPointerMove(ev: PointerEvent): void {
+    if (!this.finderPanning || ev.pointerId !== this.finderPanPointerId) {
       return;
     }
     ev.preventDefault();
-    const dist = this.touchDistance(ev.touches[0], ev.touches[1]);
-    this.setFinderZoom((this.finderPinchStartZoom * dist) / this.finderPinchStartDist, false, false);
+    this.moveFinderPan(ev.clientX, ev.clientY);
   }
 
-  private onFinderTouchEnd(): void {
-    if (this.finderPinchStartDist > 0) {
-      this.setFinderZoom(this.finderZoom, true);
+  private onFinderPointerUp(ev: PointerEvent): void {
+    if (this.finderPanPointerId == null || ev.pointerId !== this.finderPanPointerId) {
+      return;
     }
-    this.finderPinchStartDist = 0;
+    this.endFinderPan();
   }
 
   private touchDistance(a: Touch, b: Touch): number {
     return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  }
+
+  private canPanFinderView(): boolean {
+    return this.finderPoseFrozen && this.finderPoseCamAz != null && this.finderPoseCamEl != null;
+  }
+
+  private isFinderStageEvent(ev: Event): boolean {
+    const stage = this.camStage?.nativeElement;
+    if (!stage) {
+      return false;
+    }
+    if (ev.currentTarget === stage) {
+      return true;
+    }
+    const t = ev.target;
+    return t instanceof Node && stage.contains(t);
+  }
+
+  private isFinderPanIgnoreTarget(target: EventTarget | null): boolean {
+    const el = target instanceof Element ? target : null;
+    if (!el) {
+      return false;
+    }
+    if (el.closest('.ac-finder__obj, .ac-finder__const-star, .ac-finder__trail, .ac-finder__constellation')) {
+      return false;
+    }
+    return !!el.closest(
+      'button, input, label, a, select, textarea, .ac-finder__zoom, .ac-finder__cue, .ac-cam-resize'
+    );
+  }
+
+  private beginFinderPan(
+    x: number,
+    y: number,
+    target: EventTarget | null,
+    currentTarget: EventTarget | null
+  ): boolean {
+    if (!this.canPanFinderView() || this.isFinderPanIgnoreTarget(target)) {
+      return false;
+    }
+    const stage = this.camStage?.nativeElement;
+    if (
+      !stage ||
+      (currentTarget !== stage && !(target instanceof Node && stage.contains(target)))
+    ) {
+      return false;
+    }
+    this.finderPanning = true;
+    this.finderPanMoved = false;
+    this.finderPanLastX = x;
+    this.finderPanLastY = y;
+    return true;
+  }
+
+  private moveFinderPan(x: number, y: number): void {
+    if (!this.finderPanning) {
+      return;
+    }
+    const dx = x - this.finderPanLastX;
+    const dy = y - this.finderPanLastY;
+    if (!this.finderPanMoved && Math.hypot(dx, dy) < 3) {
+      return;
+    }
+    this.finderPanMoved = true;
+    this.finderPanLastX = x;
+    this.finderPanLastY = y;
+    this.applyFinderPanPixels(dx, dy);
+  }
+
+  private endFinderPan(): void {
+    if (!this.finderPanning && this.finderPanPointerId == null) {
+      return;
+    }
+    this.finderPanning = false;
+    this.finderPanPointerId = null;
+    this.finderPanMoved = false;
+    this.cdr.markForCheck();
+  }
+
+  private applyFinderPanPixels(dx: number, dy: number): void {
+    if (!this.canPanFinderView() || (!dx && !dy)) {
+      return;
+    }
+    const stage = this.camStage?.nativeElement;
+    const w = stage?.clientWidth || 1;
+    const h = stage?.clientHeight || 1;
+    const fov = this.finderFovDeg();
+    const cosEl = Math.max(0.15, Math.cos(((this.finderPoseCamEl ?? 0) * Math.PI) / 180));
+    this.finderPanAz += ((-dx / w) * fov.hfov) / cosEl;
+    this.finderPanEl += (dy / h) * fov.vfov;
+    this.clampFinderPanEl();
+    this.updateFinderProjection();
+    this.cdr.markForCheck();
+  }
+
+  private resetFinderPan(): void {
+    this.endFinderPan();
+    this.finderPanAz = 0;
+    this.finderPanEl = 0;
+    this.syncFinderVideoTransform();
+  }
+
+  private clampFinderElevation(el: number): number {
+    return Math.min(FINDER_PAN_EL_MAX, Math.max(FINDER_PAN_EL_MIN, el));
+  }
+
+  private clampFinderPanEl(): void {
+    const base = this.finderPoseCamEl ?? 0;
+    const min = FINDER_PAN_EL_MIN - base;
+    const max = FINDER_PAN_EL_MAX - base;
+    this.finderPanEl = Math.min(max, Math.max(min, this.finderPanEl));
+  }
+
+  private refreshFinderLabelScale(): void {
+    const z = Math.max(FINDER_ZOOM_MIN, this.finderZoom);
+    this.finderLabelScale = parseFloat(Math.min(FINDER_LABEL_SCALE_MAX, z).toFixed(3));
+  }
+
+  private syncFinderVideoTransform(): void {
+    const z = this.finderDigitalZoom;
+    if (
+      !this.finderPoseFrozen ||
+      (Math.abs(this.finderPanAz) < 1e-4 && Math.abs(this.finderPanEl) < 1e-4)
+    ) {
+      this.finderVideoTransform = `scale(${z})`;
+      return;
+    }
+    const fov = this.finderFovDeg();
+    const cosEl = Math.max(0.15, Math.cos(((this.finderPoseCamEl ?? 0) * Math.PI) / 180));
+    const tx = ((-this.finderPanAz * cosEl) / Math.max(0.25, fov.hfov)) * 100;
+    const ty = (this.finderPanEl / Math.max(0.25, fov.vfov)) * 100;
+    this.finderVideoTransform = `translate(${tx.toFixed(2)}%, ${ty.toFixed(2)}%) scale(${z})`;
   }
 
   private setFinderZoom(next: number, snap: boolean, persist = true): void {
@@ -2266,6 +2495,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.finderZoom = z;
+    this.refreshFinderLabelScale();
     this.syncFinderZoomOutputs();
     this.updateFinderProjection();
     if (persist) {
@@ -2284,6 +2514,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         .applyConstraints({ advanced: [{ zoom: hw }] } as unknown as MediaTrackConstraints)
         .catch(() => {
           this.finderDigitalZoom = this.finderZoom;
+          this.syncFinderVideoTransform();
+          this.cdr.markForCheck();
         });
       return;
     }
@@ -2318,6 +2550,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     el.addEventListener('touchmove', this.onFinderTouchMoveNative, { passive: false, capture: true });
     el.addEventListener('touchend', this.onFinderTouchEndNative, { passive: true, capture: true });
     el.addEventListener('touchcancel', this.onFinderTouchEndNative, { passive: true, capture: true });
+    el.addEventListener('pointerdown', this.onFinderPointerDownNative, { capture: true });
+    el.addEventListener('pointermove', this.onFinderPointerMoveNative, { capture: true });
+    el.addEventListener('pointerup', this.onFinderPointerUpNative, { capture: true });
+    el.addEventListener('pointercancel', this.onFinderPointerUpNative, { capture: true });
     this.finderZoomGesturesBound = true;
   }
 
@@ -2331,6 +2567,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     el.removeEventListener('touchmove', this.onFinderTouchMoveNative, true);
     el.removeEventListener('touchend', this.onFinderTouchEndNative, true);
     el.removeEventListener('touchcancel', this.onFinderTouchEndNative, true);
+    el.removeEventListener('pointerdown', this.onFinderPointerDownNative, true);
+    el.removeEventListener('pointermove', this.onFinderPointerMoveNative, true);
+    el.removeEventListener('pointerup', this.onFinderPointerUpNative, true);
+    el.removeEventListener('pointercancel', this.onFinderPointerUpNative, true);
     this.finderZoomGesturesBound = false;
   }
 
@@ -2393,7 +2633,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.finderZoom = FINDER_ZOOM_MIN;
     }
+    this.refreshFinderLabelScale();
     this.syncFinderZoomOutputs();
+    this.syncFinderVideoTransform();
   }
 
   private persistFinderZoomPref(): void {
@@ -5461,7 +5703,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private loadObjectDossier(): void {
-    const key = this.selectedKind + ':' + this.selectedObjectId();
+    const wikiLang = wikiContentLang(this.translate);
+    const key = this.selectedKind + ':' + this.selectedObjectId() + ':' + wikiLang;
     if (this.objectDossierKey === key && (this.objectDossier || this.objectDossierBusy)) {
       return;
     }
@@ -5475,15 +5718,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.objectDossierBusy = true;
-    const lang = (this.translate.currentLang || 'fr').toLowerCase();
-    const preferFr = lang.startsWith('fr');
-    const firstTitle = preferFr ? lookup.fr : lookup.en;
-    const fallbackTitle = preferFr ? lookup.en : lookup.fr;
-    const firstLang = preferFr ? 'fr' : 'en';
-    const fallbackLang = preferFr ? 'en' : 'fr';
+    const req = wikiLookupRequest(lookup, wikiLang);
 
     this.objectDossierSub = forkJoin({
-      wiki: this.fetchWikiSummary(firstTitle, firstLang, fallbackTitle, fallbackLang, lookup.search || lookup.sky),
+      wiki: this.fetchWikiSummary(req.title, req.lang, req.fallbackTitle, req.fallbackLang, req.search),
       sky: this.api.searchStellariumSkySources(lookup.sky).pipe(catchError(() => of([] as StellariumSkySource[]))),
       skyMap: this.fetchSkyMapPreview(lookup)
     }).subscribe({
@@ -5905,17 +6143,24 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return !!(this.objectDossier?.skyMapAtlasUrl || this.skyMapAppQuery());
   }
 
-  openSkyMapApp(): void {
+  skyMapAppHref(): string | SafeUrl {
     const query = this.skyMapAppQuery();
-    const fallback = this.objectDossier?.skyMapAtlasUrl || this.skyMapWebFallback(query);
-    if (!query && !fallback) {
+    if (isAndroidUserAgent()) {
+      return this.sanitizer.bypassSecurityTrustUrl(skyMapAndroidSearchIntent(query));
+    }
+    return this.objectDossier?.skyMapAtlasUrl || this.skyMapWebFallback(query) || '#';
+  }
+
+  skyMapAppTarget(): '_blank' | '_self' {
+    return isAndroidUserAgent() ? '_self' : '_blank';
+  }
+
+  onSkyMapAppClick(event: MouseEvent): void {
+    if (!isAndroidUserAgent()) {
       return;
     }
-    if (this.isAndroidDevice() && query) {
-      window.location.href = this.skyMapAndroidIntent(query, fallback);
-      return;
-    }
-    window.open(fallback, '_blank', 'noopener,noreferrer');
+    event.preventDefault();
+    openSkyMapAndroidApp(this.skyMapAppQuery());
   }
 
   private skyMapAppQuery(): string {
@@ -5940,14 +6185,6 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     params.set('zoom', '4');
     params.set('img_source', 'DSS2');
     return 'https://www.sky-map.org/?' + params.toString();
-  }
-
-  private skyMapAndroidIntent(query: string, fallbackUrl: string): string {
-    const q = encodeURIComponent(query);
-    const fallback = encodeURIComponent(fallbackUrl);
-    return 'intent://search#Intent;scheme=http;action=android.intent.action.SEARCH;'
-      + 'package=com.google.android.stardroid;S.query=' + q
-      + ';S.browser_fallback_url=' + fallback + ';end';
   }
 
   openConstellationSchemaSlideshow(): void {

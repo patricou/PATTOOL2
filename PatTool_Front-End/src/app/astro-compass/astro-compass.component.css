@@ -210,16 +210,32 @@
   opacity: 0.7;
 }
 
-.ac-compass-help-btn {
-  color: #d6e8ff;
-}
-
 .ac-compass-info-btn {
   color: #ffe08a;
 }
 
 .ac-compass-globe-btn {
   color: #9ee7c8;
+}
+
+.ac-compass-skymap-app {
+  width: auto;
+  min-width: 4rem;
+  padding: 0 0.55rem;
+  gap: 0.35rem;
+  color: #cfe0ff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ac-compass-skymap-app:hover,
+.ac-compass-skymap-app:focus-visible,
+.ac-compass-skymap-app:visited {
+  color: #eaf4ff;
+  text-decoration: none;
 }
 
 .ac-params-title {
@@ -2395,6 +2411,48 @@ a.ac-compass-cal__btn--direction {
   :host::after {
     animation: none;
   }
+}
+
+:host .pat-title.ac-page-title {
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.ac-page-title__spacer,
+.ac-glossary-btn {
+  flex: 0 0 auto;
+  min-width: 5.5rem;
+}
+
+.ac-page-title h2 {
+  flex: 1 1 auto;
+  text-align: center;
+}
+
+.ac-glossary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.ac-glossary-btn:hover,
+.ac-glossary-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.22);
+  outline: none;
 }
 
 /* Supprime le filet / marge blanche sous le bandeau titre global */
@@ -4823,6 +4881,8 @@ a.ac-compass-cal__btn--direction {
 
 .ac-live-dossier__skymap-app {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
   padding: 0.15rem 0.45rem;
   border: 1px solid rgba(158, 212, 255, 0.35);
   border-radius: 0.3rem;
@@ -4832,7 +4892,15 @@ a.ac-compass-cal__btn--direction {
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
+  text-decoration: none;
   cursor: pointer;
+}
+
+.ac-live-dossier__skymap-app:hover,
+.ac-live-dossier__skymap-app:focus,
+.ac-live-dossier__skymap-app:visited {
+  color: #e8f3ff;
+  text-decoration: none;
 }
 
 .ac-live-dossier__skymap-wrap {
@@ -5215,6 +5283,7 @@ a.ac-compass-cal__btn--direction {
 }
 
 .ac-finder {
+  --ac-finder-label-scale: 1;
   position: relative;
   width: 100%;
   aspect-ratio: 3 / 4;
@@ -5255,6 +5324,17 @@ a.ac-compass-cal__btn--direction {
 
 .ac-finder--posed {
   box-shadow: 0 0 0 3px #7ec8ff, 0 0 28px rgba(126, 200, 255, 0.4);
+  cursor: grab;
+  user-select: none;
+}
+
+.ac-finder--panning {
+  cursor: grabbing;
+}
+
+.ac-finder--posed button,
+.ac-finder--posed input {
+  cursor: pointer;
 }
 
 .ac-finder__video {
@@ -5456,22 +5536,22 @@ a.ac-compass-cal__btn--direction {
 
 .ac-finder__obj i,
 .ac-finder__dot {
-  font-size: 1.65rem;
+  font-size: calc(1.65rem * var(--ac-finder-label-scale, 1));
 }
 
 .ac-finder__dot {
   display: block;
-  width: 1.15rem;
-  height: 1.15rem;
+  width: calc(1.15rem * var(--ac-finder-label-scale, 1));
+  height: calc(1.15rem * var(--ac-finder-label-scale, 1));
   border-radius: 50%;
 }
 
 .ac-finder__name {
   position: absolute;
   left: 0;
-  top: 0.85rem;
+  top: calc(0.85rem * var(--ac-finder-label-scale, 1));
   transform: translateX(-50%);
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--ac-finder-label-scale, 1));
   font-weight: 700;
   color: #fff;
   text-shadow: 0 1px 4px #000;
@@ -5481,12 +5561,12 @@ a.ac-compass-cal__btn--direction {
 .ac-finder__obj-cam {
   position: absolute;
   left: 0;
-  top: 1.85rem;
+  top: calc(1.85rem * var(--ac-finder-label-scale, 1));
   transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
   gap: 0.22rem;
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--ac-finder-label-scale, 1));
   font-weight: 700;
   color: #7ef0d4;
   text-shadow: 0 1px 4px #000;
@@ -5494,7 +5574,7 @@ a.ac-compass-cal__btn--direction {
 }
 
 .ac-finder__obj-cam .fa {
-  font-size: 0.62rem;
+  font-size: calc(0.62rem * var(--ac-finder-label-scale, 1));
 }
 
 .ac-finder__obj--locked {
@@ -5830,14 +5910,14 @@ a.ac-compass-cal__btn--direction {
 }
 
 .ac-finder__const-star-dot {
-  width: 0.42rem;
-  height: 0.42rem;
+  width: calc(0.42rem * var(--ac-finder-label-scale, 1));
+  height: calc(0.42rem * var(--ac-finder-label-scale, 1));
   border-radius: 50%;
   box-shadow: 0 0 6px currentColor, 0 0 2px #fff;
 }
 
 .ac-finder__const-star-name {
-  font-size: 0.58rem;
+  font-size: calc(0.58rem * var(--ac-finder-label-scale, 1));
   font-weight: 700;
   color: #fff;
   text-shadow: 0 1px 3px #000;
@@ -5850,7 +5930,7 @@ a.ac-compass-cal__btn--direction {
   z-index: 2;
   transform: translate(-50%, -130%);
   pointer-events: none;
-  font-size: 0.62rem;
+  font-size: calc(0.62rem * var(--ac-finder-label-scale, 1));
   font-weight: 800;
   color: #fff;
   text-shadow: 0 1px 4px #000;
