@@ -4,6 +4,7 @@ import com.pat.controller.dto.AstroAlignCueDto;
 import com.pat.controller.dto.AstroFinderTrailDto;
 import com.pat.controller.dto.AstroLastTargetDto;
 import com.pat.controller.dto.AstroMaxMagnitudeDto;
+import com.pat.controller.dto.AstroTickerDto;
 import com.pat.controller.dto.CompassCalibrationDto;
 import com.pat.controller.dto.CompassHeadingModeDto;
 import com.pat.controller.dto.FlightStateDto;
@@ -17,6 +18,7 @@ import com.pat.service.AstroAlignCueService;
 import com.pat.service.AstroFinderTrailService;
 import com.pat.service.AstroLastTargetService;
 import com.pat.service.AstroMaxMagnitudeService;
+import com.pat.service.AstroTickerService;
 import com.pat.service.CompassCalibrationService;
 import com.pat.service.FlightTrackingPreferenceService;
 import com.pat.service.GlobeIssGlobalPrefsService;
@@ -78,6 +80,7 @@ public class GlobeProxyController {
     private final AstroFinderTrailService astroFinderTrailService;
     private final AstroMaxMagnitudeService astroMaxMagnitudeService;
     private final AstroAlignCueService astroAlignCueService;
+    private final AstroTickerService astroTickerService;
     private final OpenSkyService openSkyService;
     private final FlightTrackingPreferenceService flightTrackingPreferenceService;
     private final GlobeSatelliteOverlayPrefsService globeSatelliteOverlayPrefsService;
@@ -94,6 +97,7 @@ public class GlobeProxyController {
             AstroFinderTrailService astroFinderTrailService,
             AstroMaxMagnitudeService astroMaxMagnitudeService,
             AstroAlignCueService astroAlignCueService,
+            AstroTickerService astroTickerService,
             OpenSkyService openSkyService,
             FlightTrackingPreferenceService flightTrackingPreferenceService,
             GlobeSatelliteOverlayPrefsService globeSatelliteOverlayPrefsService) {
@@ -108,6 +112,7 @@ public class GlobeProxyController {
         this.astroFinderTrailService = astroFinderTrailService;
         this.astroMaxMagnitudeService = astroMaxMagnitudeService;
         this.astroAlignCueService = astroAlignCueService;
+        this.astroTickerService = astroTickerService;
         this.openSkyService = openSkyService;
         this.flightTrackingPreferenceService = flightTrackingPreferenceService;
         this.globeSatelliteOverlayPrefsService = globeSatelliteOverlayPrefsService;
@@ -827,6 +832,37 @@ public class GlobeProxyController {
             return ResponseEntity.badRequest().build();
         } catch (Exception e) {
             log.warn("Astro align-cue save failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /** Bandeau défilant du viseur, mémorisé pour l'utilisateur courant (username). Défaut : activé. */
+    @GetMapping("/astro/ticker")
+    public ResponseEntity<AstroTickerDto> getAstroTicker() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return astroTickerService.findForSubject(sub)
+                .map(enabled -> ResponseEntity.ok(new AstroTickerDto(enabled)))
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    /** Mémorise le switch du bandeau défilant dès que l'utilisateur le change. */
+    @PutMapping("/astro/ticker")
+    public ResponseEntity<AstroTickerDto> setAstroTicker(@RequestBody AstroTickerDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null || body.enabled() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            boolean saved = astroTickerService.saveForSubject(sub, body.enabled());
+            return ResponseEntity.ok(new AstroTickerDto(saved));
+        } catch (Exception e) {
+            log.warn("Astro ticker save failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

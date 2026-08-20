@@ -6,9 +6,11 @@ import {
   circularMeanDeg,
   computeFinderTurnGuide,
   displayedCameraFovDeg,
+  GyroMagComplementary,
   projectCelestialToScreen,
   uprightRollDeg,
-  wrapSignedDeg
+  wrapSignedDeg,
+  type CameraAttitude
 } from './direction-attitude';
 import {
   MANUAL_AZ_OFFSET_KEY,
@@ -225,6 +227,37 @@ describe('derivePattoolCalMixed', () => {
     const mixed = derivePattoolCalMixed([...seriesA, ...seriesB, stray], 'average')!;
     const expectAvg = Math.round(wrapSignedDeg(circularMeanDeg([a.azOffsetDeg, b.azOffsetDeg])));
     expect(mixed.azOffsetDeg).toBe(expectAvg);
+  });
+});
+
+function dummyAtt(azimuthDeg: number, elevationDeg = 0): CameraAttitude {
+  return {
+    azimuthDeg,
+    elevationDeg,
+    rollDeg: 0,
+    lookEast: 0,
+    lookNorth: 1,
+    lookUp: 0
+  };
+}
+
+describe('GyroMagComplementary', () => {
+  const up = { x: 0, y: 9.81, z: 0 };
+  const gyro = { x: 0, y: 0, z: 0 };
+
+  it('relocks to magnetometer North after an OS quaternion drift', () => {
+    const fusion = new GyroMagComplementary();
+    const mag = dummyAtt(0);
+    let t = 1_000;
+    expect(fusion.tick(gyro, up, mag, dummyAtt(0), t).azimuthDeg).toBeCloseTo(0, 0);
+    t += 20;
+    fusion.tick(gyro, up, mag, dummyAtt(35), t);
+    let az = 35;
+    for (let i = 0; i < 4; i++) {
+      t += 80;
+      az = fusion.tick(gyro, up, mag, dummyAtt(35), t).azimuthDeg;
+    }
+    expect(az).toBeCloseTo(0, 0);
   });
 });
 

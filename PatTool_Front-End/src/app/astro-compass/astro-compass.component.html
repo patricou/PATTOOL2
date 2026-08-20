@@ -5,6 +5,134 @@
   </h2>
 </div>
 
+<div
+  class="ac-ticker"
+  *ngIf="tickerEnabled"
+  role="marquee"
+  [attr.aria-label]="'ASTRO_COMPASS.TICKER_ARIA' | translate : { name: bodyLabel }">
+  <div
+    class="ac-ticker__label"
+    aria-hidden="true"
+    [style.background]="bodyColor">
+    <i [ngClass]="bodyIconClass" aria-hidden="true"></i>
+    <span>{{ bodyLabel || ('ASTRO_COMPASS.TITLE' | translate) }}</span>
+  </div>
+  <div class="ac-ticker__rows">
+    <div class="ac-ticker__loading" *ngIf="!tickerHasLiveData()">
+      <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+      <span>{{ 'ASTRO_COMPASS.TICKER_LOADING' | translate }}</span>
+    </div>
+    <div class="ac-ticker__row" *ngIf="tickerHasLiveData()">
+      <div class="ac-ticker__track" [style.--ac-ticker-dur]="tickerDurationSec + 's'">
+        <div class="ac-ticker__loop-half" #tickerHalf>
+          <ng-container *ngFor="let _ of tickerMarqueeRepeats">
+            <ng-container *ngTemplateOutlet="acTickerItemsTpl"></ng-container>
+          </ng-container>
+        </div>
+        <div class="ac-ticker__loop-half" aria-hidden="true">
+          <ng-container *ngFor="let _ of tickerMarqueeRepeats">
+            <ng-container *ngTemplateOutlet="acTickerItemsTpl"></ng-container>
+          </ng-container>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<ng-template #acTickerItemsTpl>
+  <span class="ac-ticker__item">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.TICKER_NOW' | translate }}</span>
+    <span class="ac-ticker__val">{{ tickerNowLabel }}</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="selectedKindLabelKey() as kindKey">
+    <span class="ac-ticker__key">{{ kindKey | translate }}</span>
+    <span class="ac-ticker__val">{{ bodyLabel }}</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="azimuthDeg != null">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.AZIMUTH' | translate }}</span>
+    <span class="ac-ticker__val">{{ azimuthDeg | number : '1.0-1' }}° · {{ cardinalLabel() }}</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="elevationDeg != null">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.ELEVATION' | translate }}</span>
+    <span class="ac-ticker__val" [class.ac-ticker__val--warn]="!aboveHorizon()">{{ elevationDeg | number : '1.0-1' }}°</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="mag != null">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.MAGNITUDE' | translate }}</span>
+    <span class="ac-ticker__val">{{ mag | number : '1.2-2' }}</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="constellationName">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.CONSTELLATION' | translate }}</span>
+    <span class="ac-ticker__val">{{ constellationName }}</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="raHours != null">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.RA' | translate }}</span>
+    <span class="ac-ticker__val">{{ raHours | number : '1.3-3' }} h</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="decDeg != null">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.DEC' | translate }}</span>
+    <span class="ac-ticker__val">{{ decDeg | number : '1.2-2' }}°</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="observerDistanceAvailable()">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.DIST_FROM_YOU' | translate }}</span>
+    <span class="ac-ticker__val">
+      <ng-container *ngIf="distLy != null">{{ formatLightYears(distLy) }} {{ formatLightYearUnit(distLy) }}</ng-container>
+      <ng-container *ngIf="distLy != null && geoDistAu != null"> · </ng-container>
+      <ng-container *ngIf="geoDistAu != null">{{ formatAu(geoDistAu) }} {{ 'ASTRO_COMPASS.DIST_AU_UNIT' | translate }}</ng-container>
+      <ng-container *ngIf="geoDistKm != null"> · {{ formatKm(geoDistKm) }}</ng-container>
+    </span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="helioDistAu != null">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.HELIO_DIST' | translate }}</span>
+    <span class="ac-ticker__val">{{ formatAu(helioDistAu) }} {{ 'ASTRO_COMPASS.DIST_AU_UNIT' | translate }} · {{ formatKmFromAu(helioDistAu) }}</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="phaseFraction != null">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.PHASE' | translate }}</span>
+    <span class="ac-ticker__val">
+      {{ phaseFraction * 100 | number : '1.0-0' }}%
+      <span *ngIf="phaseAngleDeg != null">· {{ phaseAngleDeg | number : '1.0-0' }}°</span>
+    </span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="elongationDeg != null">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.ELONGATION' | translate }}</span>
+    <span class="ac-ticker__val">{{ elongationDeg | number : '1.1-1' }}°</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="selectedKind === 'iss' && issAltKm != null">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.ISS_ALTITUDE' | translate }}</span>
+    <span class="ac-ticker__val">{{ issAltKm | number : '1.0-0' }} km</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="selectedKind === 'iss' && issVelocityKmh != null">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.ISS_VELOCITY' | translate }}</span>
+    <span class="ac-ticker__val">{{ issVelocityKmh | number : '1.0-0' }} km/h</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="selectedKind === 'iss' && issSlantKm != null">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.ISS_SLANT' | translate }}</span>
+    <span class="ac-ticker__val">{{ issSlantKm | number : '1.0-0' }} km</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="selectedKind === 'iss' && issGroundKm != null">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.ISS_GROUND' | translate }}</span>
+    <span class="ac-ticker__val">{{ issGroundKm | number : '1.0-0' }} km</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="riseAt">
+    <span class="ac-ticker__key">{{ selectedKind === 'iss' ? ('ASTRO_COMPASS.ISS_PASS_START' | translate) : ('ASTRO_COMPASS.RISE' | translate) }}</span>
+    <span class="ac-ticker__val">{{ riseAt | date : 'HH:mm' }}</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="setAt">
+    <span class="ac-ticker__key">{{ selectedKind === 'iss' ? ('ASTRO_COMPASS.ISS_PASS_END' | translate) : ('ASTRO_COMPASS.SET' | translate) }}</span>
+    <span class="ac-ticker__val">{{ setAt | date : 'HH:mm' }}</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="culminationAt">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.VIS_CULMINATION' | translate }}</span>
+    <span class="ac-ticker__val">
+      {{ formatVisTime(culminationAt) }}
+      <span *ngIf="culminationAltDeg != null"> · {{ culminationAltDeg | number:'1.0-0' }}°</span>
+    </span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="visibilityDurationLabel() as dur">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.VIS_DURATION' | translate }}</span>
+    <span class="ac-ticker__val">{{ dur }}</span>
+  </span>
+</ng-template>
+
 <div class="astro-compass-shell">
 <div class="astro-compass-page">
   <p class="ac-subtitle">{{ 'ASTRO_COMPASS.SUBTITLE' | translate }}</p>
@@ -17,7 +145,7 @@
         <div class="ac-compass-head">
           <h3 class="ac-compass-title mb-0">
             <button
-              *ngIf="objectDossier?.thumbUrl as thumbUrl"
+              *ngIf="dossierHeroPhotoUrl() as thumbUrl"
               type="button"
               class="ac-compass-title__thumb"
               (click)="openDossierImage()"
@@ -26,7 +154,7 @@
               <img [src]="thumbUrl" [alt]="objectDossier?.wikiTitle || bodyLabel" loading="lazy" />
             </button>
             <i
-              *ngIf="!objectDossier?.thumbUrl"
+              *ngIf="!dossierHeroPhotoUrl()"
               [ngClass]="bodyIconClass"
               [style.color]="bodyColor"
               aria-hidden="true"></i>
@@ -147,72 +275,6 @@
                 <span class="ac-finder__const-star-dot" [style.background]="bodyColor"></span>
                 <span class="ac-finder__const-star-name">{{ st.name }}</span>
               </span>
-              <div
-                class="ac-finder__schema"
-                *ngIf="selectedKind === 'constellation' && finderConstellationSchemaPolylines.length"
-                [attr.aria-label]="'ASTRO_COMPASS.FINDER_CONSTELLATION_SCHEMA' | translate">
-                <div class="ac-finder__schema-frame">
-                  <svg class="ac-finder__schema-svg" viewBox="0 0 100 100" aria-hidden="true">
-                    <polyline
-                      *ngFor="let pts of finderConstellationSchemaPolylines"
-                      class="ac-finder__schema-line"
-                      [attr.points]="pts"
-                      [attr.stroke]="bodyColor"></polyline>
-                    <circle
-                      *ngFor="let d of finderConstellationSchemaDots"
-                      class="ac-finder__schema-dot"
-                      [attr.cx]="d.xPct"
-                      [attr.cy]="d.yPct"
-                      r="2.3"
-                      [attr.fill]="bodyColor"></circle>
-                  </svg>
-                  <button
-                    type="button"
-                    class="ac-finder__schema-btn"
-                    (click)="openFinderSchemaBig()"
-                    [attr.title]="'ASTRO_COMPASS.FINDER_CONSTELLATION_SCHEMA_EXPAND' | translate"
-                    [attr.aria-label]="'ASTRO_COMPASS.FINDER_CONSTELLATION_SCHEMA_EXPAND' | translate">
-                    <i class="fa fa-expand" aria-hidden="true"></i>
-                  </button>
-                </div>
-                <span class="ac-finder__schema-lab">{{ 'ASTRO_COMPASS.FINDER_CONSTELLATION_SCHEMA' | translate }}</span>
-              </div>
-              <div
-                class="ac-finder__schema-big"
-                *ngIf="finderSchemaBigOpen && selectedKind === 'constellation' && finderConstellationSchemaPolylines.length"
-                (click)="closeFinderSchemaBig()"
-                role="dialog"
-                aria-modal="true"
-                [attr.aria-label]="'ASTRO_COMPASS.FINDER_CONSTELLATION_SCHEMA' | translate">
-                <div class="ac-finder__schema-big-card" (click)="$event.stopPropagation()">
-                  <header class="ac-finder__schema-big-head">
-                    <h3 class="ac-finder__schema-big-title">{{ bodyLabel }}</h3>
-                    <button
-                      type="button"
-                      class="ac-finder__schema-big-close"
-                      (click)="closeFinderSchemaBig()"
-                      [attr.title]="'ASTRO_COMPASS.FINDER_CONSTELLATION_SCHEMA_CLOSE' | translate"
-                      [attr.aria-label]="'ASTRO_COMPASS.FINDER_CONSTELLATION_SCHEMA_CLOSE' | translate">
-                      <i class="fa fa-times" aria-hidden="true"></i>
-                    </button>
-                  </header>
-                  <svg class="ac-finder__schema-big-svg" viewBox="0 0 100 100" aria-hidden="true">
-                    <polyline
-                      *ngFor="let pts of finderConstellationSchemaPolylines"
-                      class="ac-finder__schema-line"
-                      [attr.points]="pts"
-                      [attr.stroke]="bodyColor"></polyline>
-                    <circle
-                      *ngFor="let d of finderConstellationSchemaDots"
-                      class="ac-finder__schema-dot"
-                      [attr.cx]="d.xPct"
-                      [attr.cy]="d.yPct"
-                      r="2.6"
-                      [attr.fill]="bodyColor"></circle>
-                  </svg>
-                  <span class="ac-finder__schema-lab">{{ 'ASTRO_COMPASS.FINDER_CONSTELLATION_SCHEMA' | translate }}</span>
-                </div>
-              </div>
               <span
                 *ngFor="let tick of finderTrailTicks"
                 class="ac-finder__trail-tick"
@@ -468,6 +530,16 @@
                   </button>
                   <button
                     type="button"
+                    class="ac-finder__north-box-btn ac-finder__north-box-btn--south"
+                    [class.ac-finder__north-box-btn--ok]="southMarked"
+                    [disabled]="lookTracker.azimuthDeg == null"
+                    (click)="markFinderSouth()"
+                    [attr.title]="'ASTRO_COMPASS.MARK_SOUTH_HINT' | translate">
+                    <i class="fa" [ngClass]="southMarked ? 'fa-check' : 'fa-compass'" aria-hidden="true"></i>
+                    {{ (southMarked ? 'ASTRO_COMPASS.MARK_SOUTH_DONE' : 'ASTRO_COMPASS.MARK_SOUTH') | translate }}
+                  </button>
+                  <button
+                    type="button"
                     class="ac-finder__north-box-btn ac-finder__north-box-btn--reset"
                     [disabled]="!lookTracker.hasManualAlign()"
                     (click)="clearFinderNorth()"
@@ -567,10 +639,7 @@
                   <div class="ac-autodetect__winner-text">
                     <div class="ac-autodetect__winner-name">{{ bodyLabel || autoDetectHits[0].name }}</div>
                     <div class="ac-autodetect__winner-kind">
-                      {{ autoDetectHits[0].kind === 'planet' ? ('ASTRO_COMPASS.KIND_PLANET' | translate)
-                        : autoDetectHits[0].kind === 'star' ? ('ASTRO_COMPASS.KIND_STAR' | translate)
-                        : autoDetectHits[0].kind === 'galaxy' ? ('ASTRO_COMPASS.KIND_GALAXY' | translate)
-                        : ('ASTRO_COMPASS.KIND_SATELLITE' | translate) }}
+                      {{ autoDetectKindLabelKey(autoDetectHits[0].kind) | translate }}
                       · {{ 'ASTRO_COMPASS.AUTO_SEP' | translate : { deg: (autoDetectHits[0].separationDeg | number : '1.0-1') } }}
                     </div>
                   </div>
@@ -650,10 +719,7 @@
                     <span class="ac-autodetect__hit-main">
                       <span class="ac-autodetect__hit-name">{{ hit.name }}</span>
                       <span class="ac-autodetect__hit-meta">
-                        {{ hit.kind === 'planet' ? ('ASTRO_COMPASS.KIND_PLANET' | translate)
-                          : hit.kind === 'star' ? ('ASTRO_COMPASS.KIND_STAR' | translate)
-                          : hit.kind === 'galaxy' ? ('ASTRO_COMPASS.KIND_GALAXY' | translate)
-                          : ('ASTRO_COMPASS.KIND_SATELLITE' | translate) }}
+                        {{ autoDetectKindLabelKey(hit.kind) | translate }}
                         · {{ hit.azimuthDeg | number : '1.0-0' }}° / {{ hit.elevationDeg | number : '1.0-0' }}°
                         <span *ngIf="hit.mag != null"> · mag {{ hit.mag | number : '1.1-1' }}</span>
                       </span>
@@ -704,7 +770,13 @@
           (click)="selectSatellite(sat.id)"
           [style.color]="sat.color">
           <i [ngClass]="sat.iconClass" aria-hidden="true"></i>
-          <span>{{ sat.labelKey | translate }}</span>
+          <span class="ac-chip__text">
+            <span class="ac-chip__name">{{ sat.labelKey | translate }}</span>
+            <span
+              class="ac-chip__dir"
+              *ngIf="catalogSkyDir('iss', sat.id) as dir"
+              [class.ac-chip__dir--below]="dir.elevationDeg <= 0">{{ dir.label }}</span>
+          </span>
         </button>
       </div>
       <p class="ac-place" *ngIf="selectedKind === 'iss' && issStatus === 'loading'">
@@ -750,7 +822,13 @@
           (click)="selectPlanet(p.id)"
           [style.color]="p.color">
           <i [ngClass]="p.iconClass" aria-hidden="true"></i>
-          <span>{{ p.labelKey | translate }}</span>
+          <span class="ac-chip__text">
+            <span class="ac-chip__name">{{ p.labelKey | translate }}</span>
+            <span
+              class="ac-chip__dir"
+              *ngIf="catalogSkyDir('planet', p.id) as dir"
+              [class.ac-chip__dir--below]="dir.elevationDeg <= 0">{{ dir.label }}</span>
+          </span>
         </button>
       </div>
       </div>
@@ -804,7 +882,7 @@
             [attr.aria-controls]="'acStarPickerList'"
             (click)="toggleCatalogPicker('star', $event)">
             <span class="ac-picker__value" *ngIf="selectedStarForPicker as s; else starPickerPlaceholder">
-              {{ s.name }}<ng-container *ngIf="s.constellation"> · {{ s.constellation }}</ng-container> · mag {{ s.mag | number : '1.1-2' }}
+              {{ s.name }}<ng-container *ngIf="s.constellation"> · {{ s.constellation }}</ng-container> · mag {{ s.mag | number : '1.1-2' }}<ng-container *ngIf="catalogSkyDir('star', s.id) as dir"> · {{ dir.label }}</ng-container>
             </span>
             <ng-template #starPickerPlaceholder>
               <span class="ac-picker__value ac-picker__value--placeholder">{{ 'ASTRO_COMPASS.STAR_SELECT_PLACEHOLDER' | translate }}</span>
@@ -836,7 +914,13 @@
                 role="option"
                 [attr.aria-selected]="selectedKind === 'star' && selectedStarId === s.id"
                 (click)="onStarSelectChange(s.id)">
-                {{ s.name }}<ng-container *ngIf="s.constellation"> · {{ s.constellation }}</ng-container> · mag {{ s.mag | number : '1.1-2' }}
+                <span class="ac-picker__opt-main">
+                  {{ s.name }}<ng-container *ngIf="s.constellation"> · {{ s.constellation }}</ng-container> · mag {{ s.mag | number : '1.1-2' }}
+                </span>
+                <span
+                  class="ac-picker__opt-dir"
+                  *ngIf="catalogSkyDir('star', s.id) as dir"
+                  [class.ac-picker__opt-dir--below]="dir.elevationDeg <= 0">{{ dir.label }}</span>
               </button>
             </li>
           </ul>
@@ -901,7 +985,7 @@
             [attr.aria-controls]="'acGalaxyPickerList'"
             (click)="toggleCatalogPicker('galaxy', $event)">
             <span class="ac-picker__value" *ngIf="selectedGalaxyForPicker as g; else galaxyPickerPlaceholder">
-              {{ g.name }}<ng-container *ngIf="g.constellation"> · {{ g.constellation }}</ng-container> · mag {{ g.mag | number : '1.1-2' }}
+              {{ g.name }}<ng-container *ngIf="g.constellation"> · {{ g.constellation }}</ng-container> · mag {{ g.mag | number : '1.1-2' }}<ng-container *ngIf="catalogSkyDir('galaxy', g.id) as dir"> · {{ dir.label }}</ng-container>
             </span>
             <ng-template #galaxyPickerPlaceholder>
               <span class="ac-picker__value ac-picker__value--placeholder">{{ 'ASTRO_COMPASS.GALAXY_SELECT_PLACEHOLDER' | translate }}</span>
@@ -933,7 +1017,13 @@
                 role="option"
                 [attr.aria-selected]="selectedKind === 'galaxy' && selectedGalaxyId === g.id"
                 (click)="onGalaxySelectChange(g.id)">
-                {{ g.name }}<ng-container *ngIf="g.constellation"> · {{ g.constellation }}</ng-container> · mag {{ g.mag | number : '1.1-2' }}
+                <span class="ac-picker__opt-main">
+                  {{ g.name }}<ng-container *ngIf="g.constellation"> · {{ g.constellation }}</ng-container> · mag {{ g.mag | number : '1.1-2' }}
+                </span>
+                <span
+                  class="ac-picker__opt-dir"
+                  *ngIf="catalogSkyDir('galaxy', g.id) as dir"
+                  [class.ac-picker__opt-dir--below]="dir.elevationDeg <= 0">{{ dir.label }}</span>
               </button>
             </li>
           </ul>
@@ -998,7 +1088,7 @@
             [attr.aria-controls]="'acConstellationPickerList'"
             (click)="toggleCatalogPicker('constellation', $event)">
             <span class="ac-picker__value" *ngIf="selectedConstellationForPicker as c; else constellationPickerPlaceholder">
-              {{ constellationDisplayName(c) }} · {{ c.iau }} · mag {{ c.mag | number : '1.1-2' }}
+              {{ constellationDisplayName(c) }} · {{ c.iau }} · mag {{ c.mag | number : '1.1-2' }}<ng-container *ngIf="catalogSkyDir('constellation', c.id) as dir"> · {{ dir.label }}</ng-container>
             </span>
             <ng-template #constellationPickerPlaceholder>
               <span class="ac-picker__value ac-picker__value--placeholder">{{ 'ASTRO_COMPASS.CONSTELLATION_SELECT_PLACEHOLDER' | translate }}</span>
@@ -1030,7 +1120,13 @@
                 role="option"
                 [attr.aria-selected]="selectedKind === 'constellation' && selectedConstellationId === c.id"
                 (click)="onConstellationSelectChange(c.id)">
-                {{ constellationDisplayName(c) }} · {{ c.iau }} · mag {{ c.mag | number : '1.1-2' }}
+                <span class="ac-picker__opt-main">
+                  {{ constellationDisplayName(c) }} · {{ c.iau }} · mag {{ c.mag | number : '1.1-2' }}
+                </span>
+                <span
+                  class="ac-picker__opt-dir"
+                  *ngIf="catalogSkyDir('constellation', c.id) as dir"
+                  [class.ac-picker__opt-dir--below]="dir.elevationDeg <= 0">{{ dir.label }}</span>
               </button>
             </li>
           </ul>
@@ -1383,6 +1479,23 @@
         <span class="ac-visible-switch__hint">{{ 'ASTRO_COMPASS.VISIBLE_ONLY_HINT' | translate }}</span>
       </label>
     </div>
+    <div class="ac-visible-switch__row">
+      <div class="ac-visible-switch__controls">
+        <input
+          class="ac-visible-switch__input"
+          type="checkbox"
+          role="switch"
+          id="acTickerEnabled"
+          [(ngModel)]="tickerEnabled"
+          (ngModelChange)="onTickerChange()" />
+      </div>
+      <label class="ac-visible-switch__label" for="acTickerEnabled">
+        <span class="ac-visible-switch__title">
+          <i class="fa fa-exchange" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.TICKER_ENABLED' | translate }}
+        </span>
+        <span class="ac-visible-switch__hint">{{ 'ASTRO_COMPASS.TICKER_ENABLED_HINT' | translate }}</span>
+      </label>
+    </div>
     <ng-container *ngTemplateOutlet="acMagFilter; context: { css: 'ac-mag-filter--panel' }"></ng-container>
   </section>
 
@@ -1530,75 +1643,75 @@
     </div>
   </header>
 
-  <div
-    class="ac-live-modal__filters"
-    role="toolbar"
-    [attr.aria-label]="'ASTRO_COMPASS.AUTO_FILTERS' | translate">
-    <button
-      type="button"
-      class="ac-live-chip"
-      *ngIf="showAutoDetectPlanetFilter"
-      [class.ac-live-chip--on]="autoDetectIncludePlanets"
-      (click)="toggleAutoDetectInclude('planets')"
-      [attr.aria-pressed]="autoDetectIncludePlanets">
-      <i class="fa fa-globe" aria-hidden="true"></i>
-      {{ 'ASTRO_COMPASS.AUTO_FILTER_PLANETS' | translate }}
-    </button>
-    <button
-      type="button"
-      class="ac-live-chip"
-      *ngIf="showAutoDetectStarFilter"
-      [class.ac-live-chip--on]="autoDetectIncludeStars"
-      (click)="toggleAutoDetectInclude('stars')"
-      [attr.aria-pressed]="autoDetectIncludeStars">
-      <i class="fa fa-star" aria-hidden="true"></i>
-      {{ 'ASTRO_COMPASS.AUTO_FILTER_STARS' | translate }}
-    </button>
-    <button
-      type="button"
-      class="ac-live-chip ac-live-chip--eye"
-      *ngIf="showAutoDetectStarFilter && autoDetectIncludeStars"
-      [class.ac-live-chip--on]="autoDetectStarsNakedEye"
-      (click)="toggleAutoDetectNakedEye('stars')"
-      [attr.title]="'ASTRO_COMPASS.AUTO_FILTER_NAKED_EYE_HINT' | translate"
-      [attr.aria-pressed]="autoDetectStarsNakedEye">
-      <i class="fa fa-eye" aria-hidden="true"></i>
-      {{ 'ASTRO_COMPASS.AUTO_FILTER_NAKED_EYE' | translate }}
-    </button>
-    <button
-      type="button"
-      class="ac-live-chip"
-      *ngIf="showAutoDetectGalaxyFilter"
-      [class.ac-live-chip--on]="autoDetectIncludeGalaxies"
-      (click)="toggleAutoDetectInclude('galaxies')"
-      [attr.aria-pressed]="autoDetectIncludeGalaxies">
-      <i class="fa fa-circle-o" aria-hidden="true"></i>
-      {{ 'ASTRO_COMPASS.AUTO_FILTER_GALAXIES' | translate }}
-    </button>
-    <button
-      type="button"
-      class="ac-live-chip ac-live-chip--eye"
-      *ngIf="showAutoDetectGalaxyFilter && autoDetectIncludeGalaxies"
-      [class.ac-live-chip--on]="autoDetectGalaxiesNakedEye"
-      (click)="toggleAutoDetectNakedEye('galaxies')"
-      [attr.title]="'ASTRO_COMPASS.AUTO_FILTER_NAKED_EYE_HINT' | translate"
-      [attr.aria-pressed]="autoDetectGalaxiesNakedEye">
-      <i class="fa fa-eye" aria-hidden="true"></i>
-      {{ 'ASTRO_COMPASS.AUTO_FILTER_NAKED_EYE' | translate }}
-    </button>
-    <button
-      type="button"
-      class="ac-live-chip"
-      *ngIf="showAutoDetectSatelliteFilter"
-      [class.ac-live-chip--on]="autoDetectIncludeIss"
-      (click)="toggleAutoDetectInclude('iss')"
-      [attr.aria-pressed]="autoDetectIncludeIss">
-      <i class="fa fa-space-shuttle" aria-hidden="true"></i>
-      {{ 'ASTRO_COMPASS.AUTO_FILTER_ISS' | translate }}
-    </button>
+  <div class="ac-live-modal__tools">
+    <div
+      class="ac-live-modal__filters"
+      role="toolbar"
+      [attr.aria-label]="'ASTRO_COMPASS.AUTO_FILTERS' | translate">
+      <button
+        type="button"
+        class="ac-live-chip ac-live-chip--planet"
+        *ngIf="showAutoDetectPlanetFilter"
+        [class.ac-live-chip--on]="autoDetectIncludePlanets"
+        (click)="toggleAutoDetectInclude('planets')"
+        [attr.aria-pressed]="autoDetectIncludePlanets">
+        <i class="fa fa-globe" aria-hidden="true"></i>
+        {{ 'ASTRO_COMPASS.AUTO_FILTER_PLANETS' | translate }}
+      </button>
+      <button
+        type="button"
+        class="ac-live-chip ac-live-chip--star"
+        *ngIf="showAutoDetectStarFilter"
+        [class.ac-live-chip--on]="autoDetectIncludeStars"
+        (click)="toggleAutoDetectInclude('stars')"
+        [attr.aria-pressed]="autoDetectIncludeStars">
+        <i class="fa fa-star" aria-hidden="true"></i>
+        {{ 'ASTRO_COMPASS.AUTO_FILTER_STARS' | translate }}
+      </button>
+      <button
+        type="button"
+        class="ac-live-chip ac-live-chip--const"
+        *ngIf="showAutoDetectConstellationFilter"
+        [class.ac-live-chip--on]="autoDetectIncludeConstellations"
+        (click)="toggleAutoDetectInclude('constellations')"
+        [attr.aria-pressed]="autoDetectIncludeConstellations">
+        <i class="fa fa-star-o" aria-hidden="true"></i>
+        {{ 'ASTRO_COMPASS.AUTO_FILTER_CONSTELLATIONS' | translate }}
+      </button>
+      <button
+        type="button"
+        class="ac-live-chip ac-live-chip--galaxy"
+        *ngIf="showAutoDetectGalaxyFilter"
+        [class.ac-live-chip--on]="autoDetectIncludeGalaxies"
+        (click)="toggleAutoDetectInclude('galaxies')"
+        [attr.aria-pressed]="autoDetectIncludeGalaxies">
+        <i class="fa fa-circle-o" aria-hidden="true"></i>
+        {{ 'ASTRO_COMPASS.AUTO_FILTER_GALAXIES' | translate }}
+      </button>
+      <button
+        type="button"
+        class="ac-live-chip ac-live-chip--sat"
+        *ngIf="showAutoDetectSatelliteFilter"
+        [class.ac-live-chip--on]="autoDetectIncludeIss"
+        (click)="toggleAutoDetectInclude('iss')"
+        [attr.aria-pressed]="autoDetectIncludeIss">
+        <i class="fa fa-space-shuttle" aria-hidden="true"></i>
+        {{ 'ASTRO_COMPASS.AUTO_FILTER_ISS' | translate }}
+      </button>
+      <button
+        type="button"
+        class="ac-live-chip ac-live-chip--eye"
+        *ngIf="showAutoDetectNakedEyeFilter"
+        [class.ac-live-chip--on]="autoDetectNakedEye"
+        (click)="toggleAutoDetectNakedEye()"
+        [attr.title]="'ASTRO_COMPASS.AUTO_FILTER_NAKED_EYE_HINT' | translate"
+        [attr.aria-pressed]="autoDetectNakedEye">
+        <i class="fa fa-eye" aria-hidden="true"></i>
+        {{ 'ASTRO_COMPASS.AUTO_FILTER_NAKED_EYE' | translate }}
+      </button>
+    </div>
+    <ng-container *ngTemplateOutlet="acMagFilter; context: { css: 'ac-mag-filter--live' }"></ng-container>
   </div>
-
-  <ng-container *ngTemplateOutlet="acMagFilter; context: { css: 'ac-mag-filter--live' }"></ng-container>
 
   <div class="ac-live-modal__rate" *ngIf="autoDetectSettingsOpen">
     <div class="ac-live-modal__rate-head">
@@ -1622,7 +1735,7 @@
 
   <div class="ac-live-modal__stage">
     <ng-container *ngIf="autoDetectBestHit as hit; else acLiveEmpty">
-      <div class="ac-live-radar">
+      <div class="ac-live-radar" [class.ac-live-radar--const]="hit.kind === 'constellation'">
         <span class="ac-live-radar__ticks" aria-hidden="true"></span>
         <span class="ac-live-radar__ring ac-live-radar__ring--1"></span>
         <span class="ac-live-radar__ring ac-live-radar__ring--2"></span>
@@ -1630,6 +1743,25 @@
         <span class="ac-live-radar__ring ac-live-radar__ring--fov"></span>
         <span class="ac-live-radar__cross-h"></span>
         <span class="ac-live-radar__cross-v"></span>
+        <svg
+          class="ac-live-radar__figure"
+          *ngIf="hit.kind === 'constellation' && autoDetectRadarFigureStrokes.length"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="xMidYMid meet"
+          aria-hidden="true">
+          <polyline
+            *ngFor="let pts of autoDetectRadarFigureStrokes"
+            class="ac-live-radar__figure-line"
+            [attr.points]="pts"
+            [attr.stroke]="hit.color"></polyline>
+          <circle
+            *ngFor="let d of autoDetectRadarFigureDots"
+            class="ac-live-radar__figure-dot"
+            [attr.cx]="d.x"
+            [attr.cy]="d.y"
+            r="1.6"
+            [attr.fill]="hit.color"></circle>
+        </svg>
         <span class="ac-live-radar__center" aria-hidden="true"></span>
         <button
           type="button"
@@ -1664,14 +1796,15 @@
     </div>
   </ng-template>
 
-  <div class="ac-live-id" *ngIf="autoDetectBestHit as hit">
+  <div class="ac-live-id" *ngIf="autoDetectBestHit as hit" [attr.data-kind]="hit.kind">
     <div class="ac-live-hero">
       <div
         class="ac-live-hero__orb"
-        [class.ac-live-hero__orb--photo]="!!objectDossier?.thumbUrl"
+        [class.ac-live-hero__orb--photo]="!!dossierHeroPhotoUrl()"
+        [class.ac-live-hero__orb--schema]="!dossierHeroPhotoUrl() && hit.kind === 'constellation' && hasConstellationSchema"
         [style.--ac-live-accent]="hit.color">
         <button
-          *ngIf="objectDossier?.thumbUrl as thumbUrl"
+          *ngIf="dossierHeroPhotoUrl() as thumbUrl"
           type="button"
           class="ac-live-hero__photo"
           (click)="openDossierImage()"
@@ -1679,14 +1812,40 @@
           [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_IMAGE_OPEN' | translate">
           <img [src]="thumbUrl" [alt]="objectDossier?.wikiTitle || bodyLabel || hit.name" loading="lazy" />
         </button>
-        <i *ngIf="!objectDossier?.thumbUrl" [ngClass]="bodyIconClass || hit.iconClass" aria-hidden="true"></i>
+        <svg
+          *ngIf="!dossierHeroPhotoUrl() && hit.kind === 'constellation' && hasConstellationSchema"
+          class="ac-live-hero__schema"
+          viewBox="0 0 100 100"
+          aria-hidden="true">
+          <polyline
+            *ngFor="let pts of constellationSchemaPolylines"
+            [attr.points]="pts"
+            [attr.stroke]="hit.color"
+            fill="none"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"></polyline>
+          <circle
+            *ngFor="let d of constellationSchemaDots"
+            [attr.cx]="d.xPct"
+            [attr.cy]="d.yPct"
+            r="2.2"
+            [attr.fill]="hit.color"></circle>
+        </svg>
+        <i
+          *ngIf="!dossierHeroPhotoUrl() && !(hit.kind === 'constellation' && hasConstellationSchema)"
+          [ngClass]="bodyIconClass || hit.iconClass"
+          aria-hidden="true"></i>
       </div>
       <div class="ac-live-hero__meta">
         <span class="ac-live-hero__kind">{{ autoDetectKindLabelKey(hit.kind) | translate }}</span>
         <h2 class="ac-live-hero__name">{{ bodyLabel || hit.name }}</h2>
         <ng-container *ngTemplateOutlet="acHorizonBadge"></ng-container>
-        <p class="ac-live-hero__sep">
+        <p class="ac-live-hero__sep" *ngIf="!hit.fromRegion">
           {{ 'ASTRO_COMPASS.AUTO_SEP' | translate : { deg: (hit.separationDeg | number : '1.0-1') } }}
+        </p>
+        <p class="ac-live-hero__sep" *ngIf="hit.fromRegion">
+          {{ 'ASTRO_COMPASS.AUTO_CONSTELLATION_IN' | translate }}
         </p>
         <p class="ac-live-hero__aim" *ngIf="autoDetectLookAz != null && autoDetectLookEl != null && !autoDetectPaused">
           {{ 'ASTRO_COMPASS.AUTO_AIM' | translate : {
@@ -1721,7 +1880,8 @@
       <button type="button" class="ac-live-others__btn" (click)="applyAutoDetectHit(other)">
         <i [ngClass]="other.iconClass" [style.color]="other.color" aria-hidden="true"></i>
         <span>{{ other.name }}</span>
-        <em>{{ other.separationDeg | number : '1.0-1' }}°</em>
+        <em *ngIf="!other.fromRegion">{{ other.separationDeg | number : '1.0-1' }}°</em>
+        <em *ngIf="other.fromRegion">{{ 'ASTRO_COMPASS.AUTO_CONSTELLATION_IN_SHORT' | translate }}</em>
       </button>
     </li>
   </ul>
@@ -2008,6 +2168,67 @@
           <p class="ac-live-dossier__extract" *ngIf="dossier.extract">{{ dossier.extract }}</p>
         </div>
       </div>
+      <figure *ngIf="skyMapViewerSrc || dossier.skyMapCutoutUrl" class="ac-live-dossier__skymap">
+        <div class="ac-live-dossier__skymap-label">
+          <span>
+            <i class="fa fa-globe me-1" aria-hidden="true"></i>
+            {{ 'ASTRO_COMPASS.DOSSIER_SKYMAP' | translate }}
+          </span>
+          <button
+            *ngIf="canOpenSkyMapApp()"
+            type="button"
+            class="ac-live-dossier__skymap-app"
+            (click)="openSkyMapApp()"
+            [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate"
+            [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate">
+            <i class="fa fa-mobile me-1" aria-hidden="true"></i>
+            {{ 'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate }}
+          </button>
+        </div>
+        <div id="astro-skymap-wrap" class="ac-live-dossier__skymap-wrap">
+          <iframe
+            *ngIf="skyMapViewerSrc"
+            id="astro-skymap-frame"
+            class="ac-live-dossier__skymap-frame"
+            [src]="skyMapViewerSrc"
+            title="Sky-Map.org"
+            allow="fullscreen"
+            loading="lazy"
+            referrerpolicy="no-referrer"></iframe>
+        </div>
+        <button
+          *ngIf="!skyMapViewerSrc && dossier.skyMapCutoutUrl"
+          type="button"
+          class="ac-live-dossier__skymap-btn"
+          (click)="openSkyMapImage()"
+          [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYMAP_OPEN' | translate"
+          [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYMAP_OPEN' | translate">
+          <img
+            class="ac-live-dossier__skymap-img"
+            [src]="dossier.skyMapCutoutUrl"
+            [alt]="dossier.skyMapName || bodyLabel"
+            loading="lazy" />
+        </button>
+        <figcaption class="ac-live-dossier__skymap-cap">
+          <ng-container *ngIf="selectedKind === 'planet'; else skyMapNotPlanet">
+            {{ 'ASTRO_COMPASS.DOSSIER_SKYMAP_PLANET' | translate }}
+          </ng-container>
+          <ng-template #skyMapNotPlanet>
+            <ng-container *ngIf="selectedKind === 'constellation' && dossier.skyMapName; else skyMapDefaultTip">
+              {{ 'ASTRO_COMPASS.DOSSIER_SKYMAP_CENTER_STAR' | translate : { name: dossier.skyMapName } }}
+            </ng-container>
+          </ng-template>
+          <ng-template #skyMapDefaultTip>{{ 'ASTRO_COMPASS.DOSSIER_SKYMAP_TIP' | translate }}</ng-template>
+          <a
+            *ngIf="dossier.skyMapAtlasUrl"
+            class="ac-live-dossier__skymap-link"
+            [href]="dossier.skyMapAtlasUrl"
+            target="_blank"
+            rel="noopener noreferrer">
+            {{ 'ASTRO_COMPASS.DOSSIER_SKYMAP_ATLAS' | translate }}
+          </a>
+        </figcaption>
+      </figure>
       <div class="ac-live-info ac-live-info--dossier" *ngIf="dossier.skyNames.length || dossier.skyTypes.length || dossier.vMag != null || dossier.bMag != null || dossier.wikiUrl">
         <div class="ac-live-info__cell" *ngIf="dossier.skyTypes.length">
           <ng-container *ngTemplateOutlet="acFactTip; context: { labelKey: 'ASTRO_COMPASS.DOSSIER_TYPE', helpKey: 'ASTRO_COMPASS.DOSSIER_TYPE_TIP' }"></ng-container>
@@ -2038,7 +2259,34 @@
         </div>
       </div>
     </ng-container>
-    <p class="ac-live-dossier__empty" *ngIf="!objectDossierBusy && !objectDossier">
+    <div class="ac-live-dossier__schema" *ngIf="hasConstellationSchema">
+      <button
+        type="button"
+        class="ac-live-dossier__schema-btn"
+        (click)="openConstellationSchemaSlideshow()"
+        [attr.title]="'ASTRO_COMPASS.DOSSIER_IMAGE_OPEN' | translate"
+        [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_IMAGE_OPEN' | translate">
+        <span class="ac-live-dossier__schema-frame">
+          <svg class="ac-live-dossier__schema-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <polyline
+              *ngFor="let pts of constellationSchemaPolylines"
+              class="ac-live-dossier__schema-line"
+              [attr.points]="pts"
+              [attr.stroke]="bodyColor"></polyline>
+            <circle
+              *ngFor="let d of constellationSchemaDots"
+              class="ac-live-dossier__schema-dot"
+              [attr.cx]="d.xPct"
+              [attr.cy]="d.yPct"
+              r="2.3"
+              [attr.fill]="bodyColor"></circle>
+          </svg>
+          <i class="fa fa-expand ac-live-dossier__schema-zoom" aria-hidden="true"></i>
+        </span>
+        <span class="ac-live-dossier__schema-lab">{{ 'ASTRO_COMPASS.FINDER_CONSTELLATION_SCHEMA' | translate }}</span>
+      </button>
+    </div>
+    <p class="ac-live-dossier__empty" *ngIf="!objectDossierBusy && !objectDossier && !hasConstellationSchema">
       {{ 'ASTRO_COMPASS.DOSSIER_EMPTY' | translate }}
     </p>
   </div>
@@ -2068,10 +2316,10 @@
     <div class="ac-live-hero">
       <div
         class="ac-live-hero__orb"
-        [class.ac-live-hero__orb--photo]="!!objectDossier?.thumbUrl"
+        [class.ac-live-hero__orb--photo]="!!dossierHeroPhotoUrl()"
         [style.--ac-live-accent]="bodyColor">
         <button
-          *ngIf="objectDossier?.thumbUrl as thumbUrl"
+          *ngIf="dossierHeroPhotoUrl() as thumbUrl"
           type="button"
           class="ac-live-hero__photo"
           (click)="openDossierImage()"
@@ -2079,7 +2327,7 @@
           [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_IMAGE_OPEN' | translate">
           <img [src]="thumbUrl" [alt]="objectDossier?.wikiTitle || bodyLabel" loading="lazy" />
         </button>
-        <i *ngIf="!objectDossier?.thumbUrl" [ngClass]="bodyIconClass" aria-hidden="true"></i>
+        <i *ngIf="!dossierHeroPhotoUrl()" [ngClass]="bodyIconClass" aria-hidden="true"></i>
       </div>
       <div class="ac-live-hero__meta">
         <span class="ac-live-hero__kind">{{ selectedKindLabelKey() | translate }}</span>

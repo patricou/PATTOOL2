@@ -216,6 +216,33 @@ export function constellationMemberStars(iau: string): AstroStarOption[] {
   return ASTRO_BRIGHT_STARS.filter((s) => (s.constellation || '').toLowerCase() === code);
 }
 
+/** Bright catalog star closest to the constellation geometric centre (J2000). */
+export function constellationCenterStar(item: AstroConstellationOption): AstroStarOption | undefined {
+  const members = constellationMemberStars(item.iau);
+  if (!members.length) {
+    return undefined;
+  }
+  let best: AstroStarOption | undefined;
+  let bestSep = Infinity;
+  for (const star of members) {
+    const sep = angularSepDeg(item.raHours, item.decDeg, star.raHours, star.decDeg);
+    if (sep < bestSep) {
+      bestSep = sep;
+      best = star;
+    }
+  }
+  return best;
+}
+
+function angularSepDeg(raHours1: number, decDeg1: number, raHours2: number, decDeg2: number): number {
+  const ra1 = (raHours1 * 15 * Math.PI) / 180;
+  const ra2 = (raHours2 * 15 * Math.PI) / 180;
+  const d1 = (decDeg1 * Math.PI) / 180;
+  const d2 = (decDeg2 * Math.PI) / 180;
+  const cos = Math.sin(d1) * Math.sin(d2) + Math.cos(d1) * Math.cos(d2) * Math.cos(ra1 - ra2);
+  return (Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI;
+}
+
 export function constellationStickLines(id: string): ReadonlyArray<readonly [string, string]> {
   return CONSTELLATION_STICK_LINES[id] || [];
 }

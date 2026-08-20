@@ -248,6 +248,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   private calAccum: number[] = [];
   private readonly calMinSpeedMps = 0.6;
   private lastQuat: number[] | null = null;
+  private lastQuatAtt: CameraAttitude | null = null;
   private lastOrient: PattoolCalSnapshot['orient'] = null;
   private gpsHeading: number | null = null;
   private patSamples: PattoolCalSnapshot[] = [];
@@ -1238,8 +1239,9 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.pushPatBurst();
     const att = cameraFromEarthToDeviceQuat({ x: q[0], y: q[1], z: q[2], w: q[3] }, this.attitudeOpt());
     if (att) {
-      this.applyAtt(att, 'rotation-vector');
+      this.lastQuatAtt = att;
     }
+    this.fuse();
   }
 
   private onMag(raw: Vec3): void {
@@ -1359,13 +1361,16 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   }
 
   private fuse(): void {
-    if (this.hasRotationVector) {
+    const magAtt =
+      this.hasMag && this.hasAccel ? cameraFromMagAccel(this.mag, this.accel, this.attitudeOpt()) : null;
+    if (this.lastQuatAtt && magAtt) {
+      this.applyAtt(this.fusion.tick(this.gyro, this.accel, magAtt, this.lastQuatAtt), 'rotation-vector');
       return;
     }
-    if (!this.hasMag || !this.hasAccel) {
+    if (this.lastQuatAtt) {
+      this.applyAtt(this.lastQuatAtt, 'rotation-vector');
       return;
     }
-    const magAtt = cameraFromMagAccel(this.mag, this.accel, this.attitudeOpt());
     if (!magAtt) {
       return;
     }

@@ -810,41 +810,85 @@ export class HardIronCal {
 }
 
 /**
- * Gyro pour lisser l’azimut seulement. Inclinaison / roulis = accéléro+mag (absolus).
+ * Gyro / quaternion pour lisser pendant le mouvement.
+ * À l’arrêt, l’azimut = magnétomètre (même pose → même Nord).
  */
 export class GyroMagComplementary {
   private azimuth: number | null = null;
   private lastTs: number | null = null;
   private gyroBias = 0;
+  private stillMs = 0;
+  private prevSmoothAz: number | null = null;
 
   reset(): void {
     this.azimuth = null;
     this.lastTs = null;
     this.gyroBias = 0;
+    this.stillMs = 0;
+    this.prevSmoothAz = null;
   }
 
   /**
    * @param gyroRadS vitesses en rad/s, axes appareil
    * @param accel vecteur « haut » (gravité / accéléro au repos)
+   * @param magRef attitude magnétomètre + accéléro (référence absolue)
+   * @param smoothAtt quaternion OS optionnel : on n’en prend que le delta, pas le zéro
+   * @param nowMs horloge injectée (tests)
    */
-  tick(gyroRadS: Vec3, accel: Vec3, magRef: CameraAttitude): CameraAttitude {
-    const now = performance.now();
-    const dt = this.lastTs == null ? 0.02 : Math.min(0.08, (now - this.lastTs) / 1000);
+  tick(
+    gyroRadS: Vec3,
+    accel: Vec3,
+    magRef: CameraAttitude,
+    smoothAtt?: CameraAttitude | null,
+    nowMs?: number
+  ): CameraAttitude {
+    const now = nowMs ?? (typeof performance !== 'undefined' ? performance.now() : 0);
+    const dt = this.lastTs == null ? 0.02 : Math.min(0.08, Math.max(0, (now - this.lastTs) / 1000));
     this.lastTs = now;
+    const live = smoothAtt ?? magRef;
     if (this.azimuth == null) {
       this.azimuth = magRef.azimuthDeg;
-      return magRef;
+      if (smoothAtt) {
+        this.prevSmoothAz = smoothAtt.azimuthDeg;
+      }
+      return { ...live, azimuthDeg: this.azimuth };
     }
+
+    let relDeg = 0;
+    if (smoothAtt != null && this.prevSmoothAz != null) {
+      relDeg = circularDiff(smoothAtt.azimuthDeg, this.prevSmoothAz);
+      this.azimuth = normalizeDeg(this.azimuth + relDeg);
+      this.prevSmoothAz = smoothAtt.azimuthDeg;
+    } else if (smoothAtt != null) {
+      this.prevSmoothAz = smoothAtt.azimuthDeg;
+    }
+
     const up = normalizeVec(accel);
+    let yawRate = 0;
     if (up) {
-      const yawRate = -(gyroRadS.x * up.x + gyroRadS.y * up.y + gyroRadS.z * up.z);
+      yawRate = -(gyroRadS.x * up.x + gyroRadS.y * up.y + gyroRadS.z * up.z);
       if (Math.abs(yawRate) < 0.04) {
         this.gyroBias = this.gyroBias * 0.99 + yawRate * 0.01;
       }
-      this.azimuth = normalizeDeg(this.azimuth + ((yawRate - this.gyroBias) * 180 * dt) / Math.PI);
+      if (smoothAtt == null) {
+        this.azimuth = normalizeDeg(this.azimuth + ((yawRate - this.gyroBias) * 180 * dt) / Math.PI);
+      }
     }
-    const a = 1 - Math.exp(-dt / 0.55);
-    this.azimuth = circularLerp(this.azimuth, magRef.azimuthDeg, a);
-    return { ...magRef, azimuthDeg: this.azimuth };
+
+    const still = Math.abs(yawRate) < 0.045 && Math.abs(relDeg) < 0.4;
+    if (still) {
+      this.stillMs += dt * 1000;
+    } else {
+      this.stillMs = 0;
+    }
+
+    if (this.stillMs >= 180) {
+      this.azimuth = magRef.azimuthDeg;
+    } else {
+      const tau = still ? 0.12 : 0.4;
+      const a = dt <= 0 ? 0 : 1 - Math.exp(-dt / tau);
+      this.azimuth = circularLerp(this.azimuth, magRef.azimuthDeg, a);
+    }
+    return { ...live, azimuthDeg: this.azimuth };
   }
 }

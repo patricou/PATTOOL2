@@ -82,6 +82,7 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     'globe.astro.finder-trail': 'USERINFO.PARAM_LABELS.GLOBE_ASTRO_FINDER_TRAIL',
     'globe.astro.max-magnitude': 'USERINFO.PARAM_LABELS.GLOBE_ASTRO_MAX_MAGNITUDE',
     'globe.astro.align-cue': 'USERINFO.PARAM_LABELS.GLOBE_ASTRO_ALIGN_CUE',
+    'globe.astro.ticker': 'USERINFO.PARAM_LABELS.GLOBE_ASTRO_TICKER',
     'meteofrance.forecast.horizon': 'USERINFO.PARAM_LABELS.METEO_FORECAST_HORIZON',
     'meteofrance.forecast.step': 'USERINFO.PARAM_LABELS.METEO_FORECAST_STEP',
     'meteofrance.forecast.cache': 'USERINFO.PARAM_LABELS.METEO_FORECAST_CACHE',

@@ -30,6 +30,9 @@ public class RestTemplateConfig {
     /** USNO + OPALE eclipses — OPALE year payloads can be multi-MB JSON. */
     public static final String ECLIPSE_REST_TEMPLATE = "eclipseRestTemplate";
 
+    /** Sky-Map.org XML search + DSS2 cutouts — image generation can be slow. */
+    public static final String SKYMAP_REST_TEMPLATE = "skyMapRestTemplate";
+
 
     /**
      * Client HTTP court pour proxies et API externes (échec rapide si indisponible).
@@ -94,6 +97,14 @@ public class RestTemplateConfig {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(5))
                 .setReadTimeout(Duration.ofSeconds(60))
+                .build();
+    }
+
+    @Bean(SKYMAP_REST_TEMPLATE)
+    public RestTemplate skyMapRestTemplate(RestTemplateBuilder builder) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(5))
+                .setReadTimeout(Duration.ofSeconds(20))
                 .build();
     }
 

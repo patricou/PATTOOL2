@@ -46,6 +46,10 @@ export interface AstroAlignCuePref {
   mode: 'off' | 'beep' | 'vibrate';
 }
 
+export interface AstroTickerPref {
+  enabled: boolean;
+}
+
 export interface DirectionPattoolSamplePayload {
   sessionId: string;
   poseId: string;
@@ -1635,6 +1639,30 @@ export class ApiService {
     );
   }
 
+  getAstroTicker(): Observable<AstroTickerPref | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<AstroTickerPref | null>(
+          this.API_URL + 'external/globe/astro/ticker',
+          { headers }
+        )
+      ),
+      catchError(() => of(null))
+    );
+  }
+
+  setAstroTicker(enabled: boolean): Observable<AstroTickerPref> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<AstroTickerPref>(
+          this.API_URL + 'external/globe/astro/ticker',
+          { enabled },
+          { headers }
+        )
+      )
+    );
+  }
+
   saveDirectionPattoolSample(body: DirectionPattoolSamplePayload): Observable<DirectionPattoolSaveResult> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
@@ -2380,6 +2408,64 @@ export class ApiService {
     return this._http.get<StellariumSkySource>(
       this.API_URL + 'external/stellarium/skysources/name/' + encoded
     );
+  }
+
+  // ===================================================================
+  // Sky-Map.org — DSS2 survey cutout proxy
+  // Backend: /api/external/skymap/* (no auth required — public data)
+  // ===================================================================
+
+  getSkyMapPreview(opts: {
+    q?: string;
+    raHours?: number;
+    deDeg?: number;
+    angle?: number;
+    width?: number;
+    height?: number;
+    survey?: string;
+  }): Observable<SkyMapPreview> {
+    let params = new HttpParams();
+    if (opts.q) {
+      params = params.set('q', opts.q);
+    }
+    if (opts.raHours != null && Number.isFinite(opts.raHours)) {
+      params = params.set('ra', opts.raHours.toString()).set('raUnit', 'hours');
+    }
+    if (opts.deDeg != null && Number.isFinite(opts.deDeg)) {
+      params = params.set('de', opts.deDeg.toString());
+    }
+    if (opts.angle != null && Number.isFinite(opts.angle)) {
+      params = params.set('angle', opts.angle.toString());
+    }
+    if (opts.width != null) {
+      params = params.set('w', String(opts.width));
+    }
+    if (opts.height != null) {
+      params = params.set('h', String(opts.height));
+    }
+    if (opts.survey) {
+      params = params.set('survey', opts.survey);
+    }
+    return this._http.get<SkyMapPreview>(this.API_URL + 'external/skymap/preview', { params });
+  }
+
+  skyMapImageSrc(preview: SkyMapPreview | null | undefined): string | null {
+    return this.skyMapApiUrl(preview?.cutoutUrl);
+  }
+
+  skyMapEmbedSrc(preview: SkyMapPreview | null | undefined): string | null {
+    return this.skyMapApiUrl(preview?.embedUrl);
+  }
+
+  private skyMapApiUrl(pathOrUrl: string | null | undefined): string | null {
+    const raw = pathOrUrl?.trim();
+    if (!raw) {
+      return null;
+    }
+    if (/^https?:\/\//i.test(raw)) {
+      return raw;
+    }
+    return this.API_URL + raw.replace(/^\//, '');
   }
 
   searchWikipedia(query: string, lang = 'fr', limit = 10): Observable<WikipediaSearchResponse> {
@@ -4771,6 +4857,23 @@ export interface ChemMolecule {
 export interface ChemAutocomplete {
   query: string;
   suggestions: string[];
+}
+
+/** Sky-Map.org DSS2 survey preview (backend-built cutout path). */
+export interface SkyMapPreview {
+  query?: string;
+  name?: string;
+  catalogId?: string;
+  type?: string;
+  constellation?: string;
+  raHours?: number;
+  deDeg?: number;
+  magnitude?: number;
+  angleDeg?: number;
+  survey?: string;
+  atlasUrl?: string;
+  cutoutUrl?: string;
+  embedUrl?: string;
 }
 
 /** Stellarium Web viewer config (backend-built embed URLs). */

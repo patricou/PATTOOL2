@@ -84,6 +84,42 @@
                 Dec {{ md.de | number:'1.4-4' }}°
               </ng-container>
             </div>
+            <div *ngIf="isLoadingSkyMap" class="ciel-skymap-loading mt-2 text-muted">
+              <i class="fa fa-spinner fa-spin me-1"></i>{{ 'CIEL.SKYMAP_LOADING' | translate }}
+            </div>
+            <figure *ngIf="skyMapEmbedUrl || skyMapImageUrl" class="ciel-skymap mt-2 mb-0">
+              <div class="ciel-skymap-toolbar">
+                <span>{{ 'CIEL.SKYMAP_PHOTO' | translate }}</span>
+                <button *ngIf="skyMapPreview"
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary"
+                        (click)="openSkyMapApp()"
+                        [attr.title]="'CIEL.SKYMAP_APP' | translate">
+                  <i class="fa fa-mobile me-1"></i>{{ 'CIEL.SKYMAP_APP' | translate }}
+                </button>
+              </div>
+              <div id="ciel-skymap-wrap" class="ciel-skymap-wrap">
+                <iframe
+                  *ngIf="skyMapEmbedUrl"
+                  id="ciel-skymap-frame"
+                  class="ciel-skymap-frame"
+                  [src]="skyMapEmbedUrl"
+                  title="Sky-Map.org"
+                  allow="fullscreen"
+                  loading="lazy"
+                  referrerpolicy="no-referrer"></iframe>
+              </div>
+              <img *ngIf="!skyMapEmbedUrl && skyMapImageUrl"
+                   class="ciel-skymap-photo"
+                   [src]="skyMapImageUrl"
+                   [alt]="skyMapPreview?.name || selectedSource.short_name || selectedSource.match" />
+              <figcaption class="ciel-skymap-caption">
+                <a *ngIf="skyMapPreview?.atlasUrl as atlasUrl"
+                   [href]="atlasUrl"
+                   target="_blank"
+                   rel="noopener noreferrer">{{ 'CIEL.SKYMAP_OPEN' | translate }}</a>
+              </figcaption>
+            </figure>
           </div>
         </div>
       </div>

@@ -23,6 +23,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.Ordered;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 
@@ -104,7 +105,41 @@ public class SecurityConfig {
         }
     }
 
+    /**
+     * Sky Window HTML is framed by Angular. It must allow Sky-Map scripts/CSS
+     * (loaded via {@code <base href>}) without loosening CSP for the rest of the API.
+     */
     @Bean
+    @Order(1)
+    public SecurityFilterChain skyMapWindowChain(HttpSecurity http) throws Exception {
+        String frameAncestors = buildFrameAncestorsDirective();
+        http
+            .securityMatcher("/api/external/skymap/skywindow")
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .headers(headers -> headers
+                .frameOptions(frame -> frame.disable())
+                .contentSecurityPolicy(csp -> csp.policyDirectives(
+                        "default-src 'none'; " +
+                        "base-uri https://*.sky-map.org https://sky-map.org; " +
+                        "script-src 'unsafe-inline' 'unsafe-eval' https://*.sky-map.org https://sky-map.org; " +
+                        "style-src 'unsafe-inline' https://*.sky-map.org https://sky-map.org; " +
+                        "img-src 'self' https: data:; " +
+                        "font-src https://*.sky-map.org https://sky-map.org; " +
+                        "connect-src 'self'; " +
+                        "frame-ancestors 'self' " + frameAncestors + "; " +
+                        "upgrade-insecure-requests"
+                ))
+                .contentTypeOptions(contentType -> {})
+                .referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+            )
+            .authorizeHttpRequests(authz -> authz.anyRequest().permitAll());
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         String jwkSetUri = keycloakAuthServerUrl + "/realms/" + keycloakRealm + "/protocol/openid-connect/certs";
         String frameAncestors = buildFrameAncestorsDirective();
@@ -116,7 +151,7 @@ public class SecurityConfig {
             .headers(headers -> headers
                 // Content Security Policy - restrict resource loading
                 // frame-ancestors: allow Angular dev/prod origins to embed backend pages (e.g. Stellarium viewer)
-                // frame-src: Keycloak, cartes.gouv.fr, ISS live YouTube embeds, Stellarium Web sky map, Windy webcam players
+                // frame-src: Keycloak, cartes.gouv.fr, ISS live YouTube embeds, Stellarium Web, Sky-Map.org, Windy webcam players
                 // script-src: Allow Bootstrap CDN and inline scripts
                 // style-src: Allow Google Fonts, Bootstrap CDN, Font Awesome, Flag Icons
                 // font-src: Allow Google Fonts (fonts.gstatic.com) and Font Awesome (maxcdn.bootstrapcdn.com)
@@ -134,7 +169,7 @@ public class SecurityConfig {
                         "media-src 'self' data: https: blob:; " +
                         "font-src 'self' data: https://fonts.gstatic.com https://maxcdn.bootstrapcdn.com; " +
                         "connect-src 'self' blob: http://localhost:8080 http://localhost:8000 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com https://nominatim.openstreetmap.org https://api.open-elevation.com ws://localhost:8000 http://localhost:8000/ws; " +
-                        "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://www.google.com https://maps.google.com https://*.google.com https://cartes.gouv.fr https://www.youtube.com https://www.youtube-nocookie.com https://stellarium-web.org https://*.stellarium-web.org https://d3ufh70wg9uzo4.cloudfront.net https://webcams.windy.com https://embed.windy.com https://*.windy.com;")
+                        "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://www.google.com https://maps.google.com https://*.google.com https://cartes.gouv.fr https://www.youtube.com https://www.youtube-nocookie.com https://stellarium-web.org https://*.stellarium-web.org https://www.wikisky.org https://*.wikisky.org https://sky-map.org https://*.sky-map.org https://d3ufh70wg9uzo4.cloudfront.net https://webcams.windy.com https://embed.windy.com https://*.windy.com;")
                 )
                 // Disable X-Frame-Options (defaults to DENY in Spring Security); framing is governed by CSP frame-ancestors.
                 .frameOptions(frame -> frame.disable())
@@ -327,6 +362,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/external/media/catalog-cache/**").permitAll()
                 // Stellarium Web — sky map viewer + Noctua Sky catalogue proxy (read-only)
                 .requestMatchers(HttpMethod.GET, "/api/external/stellarium/**").permitAll()
+                // Sky-Map.org — DSS2 survey cutouts (img src has no Authorization header)
+                .requestMatchers(HttpMethod.GET, "/api/external/skymap/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/wiki/**").permitAll()
                 // Éclipses — USNO + OPALE/IMCCE (lecture seule, données publiques)
                 .requestMatchers(HttpMethod.GET, "/api/external/eclipse/**").permitAll()

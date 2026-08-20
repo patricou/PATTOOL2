@@ -1767,13 +1767,13 @@ export class AssistantDrawerComponent
     }
   }
 
-  /** Bandeau ISS du globe (sous `.pat-title`) : le FAB doit s’ancrer en dessous, pas sur le ticker. */
+  /** Bandeau défilant sous `.pat-title` (globe ISS ou viseur) : le FAB s’ancre en dessous. */
   private static resolveIssTickerBelowTitle(title: HTMLElement): HTMLElement | null {
     const host = title.parentElement;
     if (!host) {
       return null;
     }
-    const ticker = host.querySelector<HTMLElement>('.wg-iss-ticker');
+    const ticker = host.querySelector<HTMLElement>('.wg-iss-ticker, .ac-ticker');
     if (!ticker) {
       return null;
     }

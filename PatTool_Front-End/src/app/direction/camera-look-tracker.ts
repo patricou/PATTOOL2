@@ -74,6 +74,7 @@ export class CameraLookTracker {
   private generics: GenericSensor[] = [];
   private orientName: 'deviceorientationabsolute' | 'deviceorientation' | null = null;
   private fusion = new GyroMagComplementary();
+  private lastQuatAtt: CameraAttitude | null = null;
   private lastPaint = 0;
   private readonly onOrient = (e: DeviceOrientationEvent): void => this.handleOrient(e);
   private readonly onMotion = (e: DeviceMotionEvent): void => this.handleMotion(e);
@@ -130,10 +131,22 @@ export class CameraLookTracker {
    * Remplace le décalage d’azimut (ne s’empile pas sur les 7 poses).
    */
   markCameraAsNorth(): boolean {
+    return this.markCameraAsAzimuth(0);
+  }
+
+  /**
+   * La visée caméra actuelle devient le Sud géographique (azimut 180°),
+   * ce qui cale le Nord comme N = S − 180°.
+   */
+  markCameraAsSouth(): boolean {
+    return this.markCameraAsAzimuth(180);
+  }
+
+  private markCameraAsAzimuth(targetAzDeg: number): boolean {
     if (this.magAzimuthDeg == null) {
       return false;
     }
-    setLookFromRawToTarget(this.magAzimuthDeg, 0);
+    setLookFromRawToTarget(this.magAzimuthDeg, targetAzDeg);
     this.lastPaint = 0;
     this.publish();
     return true;
@@ -183,6 +196,7 @@ export class CameraLookTracker {
     this.fusion.reset();
     this.smoothedElevationDeg = null;
     this.hasRotationVector = false;
+    this.lastQuatAtt = null;
     this.source = null;
   }
 
@@ -282,8 +296,9 @@ export class CameraLookTracker {
     this.hasRotationVector = true;
     const att = cameraFromEarthToDeviceQuat({ x: q[0], y: q[1], z: q[2], w: q[3] }, this.attitudeOpt());
     if (att) {
-      this.applyAtt(att, 'rotation-vector');
+      this.lastQuatAtt = att;
     }
+    this.fuse();
   }
 
   private onMag(raw: Vec3): void {
@@ -369,13 +384,16 @@ export class CameraLookTracker {
   }
 
   private fuse(): void {
-    if (this.hasRotationVector) {
+    const magAtt =
+      this.hasMag && this.hasAccel ? cameraFromMagAccel(this.mag, this.accel, this.attitudeOpt()) : null;
+    if (this.lastQuatAtt && magAtt) {
+      this.applyAtt(this.fusion.tick(this.gyro, this.accel, magAtt, this.lastQuatAtt), 'rotation-vector');
       return;
     }
-    if (!this.hasMag || !this.hasAccel) {
+    if (this.lastQuatAtt) {
+      this.applyAtt(this.lastQuatAtt, 'rotation-vector');
       return;
     }
-    const magAtt = cameraFromMagAccel(this.mag, this.accel, this.attitudeOpt());
     if (!magAtt) {
       return;
     }
