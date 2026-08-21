@@ -258,7 +258,7 @@ describe('attitudeFromLookAndTop pitch (flat → vertical)', () => {
   }
 
   it('keeps North while pitching with rear camera −Z', () => {
-    for (const theta of [0, 30, 45, 60, 90]) {
+    for (const theta of [0, 7, 8, 15, 30, 45, 60, 75, 82, 83, 90]) {
       const a = pitch(-1, theta)!;
       expect(Math.abs(circularDiff(a.azimuthDeg, 0)))
         .withContext(`θ=${theta}`)
@@ -267,12 +267,20 @@ describe('attitudeFromLookAndTop pitch (flat → vertical)', () => {
   });
 
   it('keeps North while pitching even if look is +Z (screen), the astro-compass bug', () => {
-    for (const theta of [0, 30, 45, 60, 90]) {
+    for (const theta of [0, 7, 8, 15, 30, 45, 60, 75, 82, 83, 90]) {
       const a = pitch(1, theta)!;
       expect(Math.abs(circularDiff(a.azimuthDeg, 0)))
         .withContext(`θ=${theta}`)
         .toBeLessThan(8);
     }
+  });
+
+  it('does not flip North→South ~8° before vertical when top horizontal is noisy', () => {
+    const t = (82 * Math.PI) / 180;
+    const look = { x: 0, y: Math.sin(t), z: -Math.cos(t) };
+    const topNoisy = { x: 0.02, y: -0.12, z: Math.sin(t) };
+    const a = attitudeFromLookAndTop(look, topNoisy, rightEast)!;
+    expect(Math.abs(circularDiff(a.azimuthDeg, 0))).toBeLessThan(8);
   });
 });
 

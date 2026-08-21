@@ -366,8 +366,9 @@ export function attitudeFromLookAndTop(look: Vec3, top: Vec3, right: Vec3): Came
 
 /**
  * Haut monde × droite appareil = avant horizontal, stable en tangage.
- * Si l’écran est vers le sol, ce produit s’inverse : on le recale sur le haut du téléphone.
- * À la verticale (haut vers le ciel) on ne recale PAS sur la visée : +Z écran = Sud.
+ * Recalage sur le haut du téléphone seulement à plat (écran ciel/sol).
+ * Vers 8° avant la verticale, topH ≈ 0.15 : le haut n’a presque plus d’horizontale
+ * et le signe sautait (N↔S). On ne recale donc plus près de la verticale.
  */
 function tiltStableYawEastNorth(
   look: Vec3,
@@ -382,7 +383,8 @@ function tiltStableYawEastNorth(
   if (rightH > 0.28) {
     east = -right.y;
     north = right.x;
-    if (topH > 0.15 && east * top.x + north * top.y < 0) {
+    const lyingFlat = lookH < 0.5 && topH > 0.55;
+    if (lyingFlat && east * top.x + north * top.y < 0) {
       east = -east;
       north = -north;
     }
