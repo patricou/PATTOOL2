@@ -52,6 +52,8 @@ public class GlobeSatelliteOverlayPrefsService {
             "gpm",
             "swift",
             "fermi",
+            "astra192",
+            "starlink",
             "tess",
             "chandra",
             "xmm",
@@ -73,6 +75,9 @@ public class GlobeSatelliteOverlayPrefsService {
             "eutelsat5w",
             "hotbird13"
     );
+
+    /** Starlink train is opt-in (heavy group TLE). */
+    private static final Set<String> DEFAULT_OFF_SATELLITE_IDS = Set.of("starlink");
 
     private final AppParameterService appParameterService;
     private final ObjectMapper objectMapper;
@@ -127,7 +132,7 @@ public class GlobeSatelliteOverlayPrefsService {
                 : Map.of();
         Map<String, Boolean> out = new LinkedHashMap<>();
         for (String id : KNOWN_SATELLITE_IDS) {
-            out.put(id, true);
+            out.put(id, !DEFAULT_OFF_SATELLITE_IDS.contains(id));
         }
         for (Map.Entry<String, Boolean> e : incoming.entrySet()) {
             if (e.getKey() == null || e.getValue() == null) {

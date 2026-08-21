@@ -63,6 +63,14 @@ export function satelliteListedOnGlobe(sat: AstroSatelliteOption): boolean {
   return sat.id !== 'iss' && satelliteHasLivePosition(sat);
 }
 
+/**
+ * Included in the globe “all satellites” switch and enabled by default.
+ * Starlink stays opt-in (heavy group TLE / train).
+ */
+export function satelliteInGlobeMasterToggle(sat: AstroSatelliteOption): boolean {
+  return satelliteListedOnGlobe(sat) && !sat.constellation;
+}
+
 /** Human-made spacecraft with public TLEs (CelesTrak). */
 export const ASTRO_SATELLITES: ReadonlyArray<AstroSatelliteOption> = [
   {
@@ -507,6 +515,10 @@ export const ASTRO_SATELLITES: ReadonlyArray<AstroSatelliteOption> = [
     defaultAltKm: 35_786
   }
 ];
+
+/** Astro-compass catalog minus ISS — the world-globe overlay list. */
+export const GLOBE_OVERLAY_SATELLITES: ReadonlyArray<AstroSatelliteOption> =
+  ASTRO_SATELLITES.filter(satelliteListedOnGlobe);
 
 /** @deprecated Prefer {@link ASTRO_SATELLITES}[0] / {@link findSatelliteById}('iss'). */
 export const ASTRO_ISS: AstroSatelliteOption = ASTRO_SATELLITES[0];

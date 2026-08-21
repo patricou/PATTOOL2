@@ -23,7 +23,7 @@ import { ApiService, GlobeIssGlobalPrefs, GlobeSatelliteOverlayPrefs, IssAlertAd
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { GlobeIssNowService, GlobeIssNowSnapshot } from '../services/globe-iss-now.service';
 import { GlobeSatelliteNowService } from '../services/globe-satellite-now.service';
-import { ASTRO_ISS, ASTRO_SATELLITES, findSatelliteById, satelliteListedOnGlobe, satelliteUsesNetworkTle, type AstroSatelliteOption } from '../astro-compass/astro-compass-catalog';
+import { ASTRO_ISS, GLOBE_OVERLAY_SATELLITES, findSatelliteById, satelliteInGlobeMasterToggle, satelliteUsesNetworkTle, type AstroSatelliteOption } from '../astro-compass/astro-compass-catalog';
 import { AstroObjectDossierService, type ObjectDossier } from '../astro-compass/astro-object-dossier.service';
 import { AirportIcaoEntry, AirportLookupService } from '../services/airport-lookup.service';
 import { PositionService } from '../services/position.service';
@@ -474,29 +474,25 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Fuseaux horaires remplis (NE 10m). */
   timeZonesEnabled = false;
   /**
-   * Satellites visibles dans astro-compass, hors ISS (déjà gérée à part).
-   * JWST (L2) est inclus : position anti-soleil, pas de TLE.
+   * Satellites du viseur d’astres, hors ISS (gérée à part).
+   * Même catalogue que astro-compass ({@link GLOBE_OVERLAY_SATELLITES}).
    */
-  readonly globeSatelliteOptions: ReadonlyArray<AstroSatelliteOption> = ASTRO_SATELLITES.filter(
-    satelliteListedOnGlobe
-  );
+  readonly globeSatelliteOptions: ReadonlyArray<AstroSatelliteOption> = GLOBE_OVERLAY_SATELLITES;
   readonly issGlobeOption: AstroSatelliteOption = ASTRO_ISS;
   /** Liste satellites (ISS incluse) triée selon le nom affiché. */
   globeSatelliteOptionsSorted: AstroSatelliteOption[] = [];
-  /** Interrupteurs d’affichage : tous activés par défaut. */
+  /** Interrupteurs d’affichage : tous activés par défaut (Starlink à la demande). */
   satelliteOverlayEnabled: Record<string, boolean> = Object.fromEntries(
-    ASTRO_SATELLITES.filter(satelliteListedOnGlobe).map((s) => [
-      s.id,
-      s.constellation !== 'starlink'
-    ])
+    GLOBE_OVERLAY_SATELLITES.map((s) => [s.id, satelliteInGlobeMasterToggle(s)])
   );
-  /** Interrupteur maître : afficher ou masquer tous les satellites. */
-  satelliteOverlayMasterEnabled = false;
+  /** Interrupteur maître : tous les satellites du viseur, hors constellations. */
+  satelliteOverlayMasterEnabled =
+    GLOBE_OVERLAY_SATELLITES.filter(satelliteInGlobeMasterToggle).length > 0;
   /** Trajectoire future (SGP4) : interrupteur maître (tous les satellites). */
   satelliteFutureTraceEnabled = false;
   /** Trajectoire future par satellite (désactivée par défaut). */
   satelliteFutureTraceById: Record<string, boolean> = Object.fromEntries(
-    ASTRO_SATELLITES.filter(satelliteListedOnGlobe).map((s) => [s.id, false])
+    GLOBE_OVERLAY_SATELLITES.map((s) => [s.id, false])
   );
   satelliteFutureTraceMinutes = GLOBE_SAT_FORECAST_MINUTES_DEFAULT;
   satelliteFutureTraceHours = WorldGlobeComponent.hoursFromTraceMinutes(GLOBE_SAT_FORECAST_MINUTES_DEFAULT);
@@ -1227,6 +1223,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {
     this.lastAstroViseurSatId = this.readLastAstroViseurSatId();
     this.refreshGlobeSatelliteOptionsSort();
+    this.syncGlobeSatelliteOverlayMaster();
     this.issNowService.setForecastMinutes(this.satelliteFutureTraceMinutes);
     const cached = this.issNowService.getSnapshot();
     if (cached) {
@@ -2594,14 +2591,11 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onGlobeSatelliteOverlayMasterToggle(): void {
     const enabled = this.satelliteOverlayMasterEnabled;
-    for (const sat of this.globeSatelliteOptions) {
+    for (const sat of this.globeMasterOverlaySatellites()) {
       this.satelliteOverlayEnabled[sat.id] = enabled;
       if (!enabled) {
         this.disposeGlobeSatelliteVisual(sat.id);
         this.disposeGlobeSatelliteForecastTrail(sat.id);
-        if (sat.constellation === 'starlink') {
-          this.updateStarlinkTrainCompanions(false);
-        }
       } else {
         this.satNowService.setObserver(this.userObserverLat, this.userObserverLon);
         void this.satNowService.ensureOption(sat);
@@ -2697,10 +2691,14 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  private globeMasterOverlaySatellites(): AstroSatelliteOption[] {
+    return this.globeSatelliteOptions.filter(satelliteInGlobeMasterToggle);
+  }
+
   private syncGlobeSatelliteOverlayMaster(): void {
+    const group = this.globeMasterOverlaySatellites();
     this.satelliteOverlayMasterEnabled =
-      this.globeSatelliteOptions.length > 0 &&
-      this.globeSatelliteOptions.every((s) => this.satelliteOverlayEnabled[s.id] !== false);
+      group.length > 0 && group.every((s) => this.satelliteOverlayEnabled[s.id] !== false);
   }
 
   private syncGlobeSatelliteFutureTraceMaster(): void {

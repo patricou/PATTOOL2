@@ -242,8 +242,9 @@ function dummyAtt(azimuthDeg: number, elevationDeg = 0): CameraAttitude {
   };
 }
 
-describe('attitudeFromLookAndTop pitch (flat → vertical)', () => {
+describe('attitudeFromLookAndTop pitch (flat → vertical → zenith)', () => {
   const rightEast = { x: 1, y: 0, z: 0 };
+  const pitchAngles = [0, 7, 8, 15, 30, 45, 58, 59, 60, 75, 82, 83, 90, 120, 148, 180];
 
   function pitch(lookSign: 1 | -1, thetaDeg: number) {
     const t = (thetaDeg * Math.PI) / 180;
@@ -258,7 +259,7 @@ describe('attitudeFromLookAndTop pitch (flat → vertical)', () => {
   }
 
   it('keeps North while pitching with rear camera −Z', () => {
-    for (const theta of [0, 7, 8, 15, 30, 45, 60, 75, 82, 83, 90]) {
+    for (const theta of pitchAngles) {
       const a = pitch(-1, theta)!;
       expect(Math.abs(circularDiff(a.azimuthDeg, 0)))
         .withContext(`θ=${theta}`)
@@ -267,7 +268,7 @@ describe('attitudeFromLookAndTop pitch (flat → vertical)', () => {
   });
 
   it('keeps North while pitching even if look is +Z (screen), the astro-compass bug', () => {
-    for (const theta of [0, 7, 8, 15, 30, 45, 60, 75, 82, 83, 90]) {
+    for (const theta of pitchAngles) {
       const a = pitch(1, theta)!;
       expect(Math.abs(circularDiff(a.azimuthDeg, 0)))
         .withContext(`θ=${theta}`)
@@ -280,6 +281,12 @@ describe('attitudeFromLookAndTop pitch (flat → vertical)', () => {
     const look = { x: 0, y: Math.sin(t), z: -Math.cos(t) };
     const topNoisy = { x: 0.02, y: -0.12, z: Math.sin(t) };
     const a = attitudeFromLookAndTop(look, topNoisy, rightEast)!;
+    expect(Math.abs(circularDiff(a.azimuthDeg, 0))).toBeLessThan(8);
+  });
+
+  it('does not flip North→South when the camera is raised ~58° toward the zenith', () => {
+    const a = pitch(-1, 148)!;
+    expect(a.elevationDeg).toBeGreaterThan(50);
     expect(Math.abs(circularDiff(a.azimuthDeg, 0))).toBeLessThan(8);
   });
 });
