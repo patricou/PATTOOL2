@@ -306,7 +306,15 @@ export class NordComponent implements OnInit, OnDestroy {
   }
 
   pitchText(): string {
-    return this.pitchDeg == null ? '—' : `${this.pitchDeg.toFixed(0)}°`;
+    if (this.pitchDeg == null) {
+      return '—';
+    }
+    const p = this.pitchDeg;
+    if (Math.abs(p) < 0.5) {
+      return '0°';
+    }
+    const abs = Math.abs(p).toFixed(0);
+    return p > 0 ? `+${abs}°` : `−${abs}°`;
   }
 
   rollText(): string {
@@ -319,6 +327,17 @@ export class NordComponent implements OnInit, OnDestroy {
       return '0°';
     }
     return r > 0 ? `${abs}° D` : `${abs}° G`;
+  }
+
+  altitudeText(): string {
+    if (this.gpsAltitudeM == null || !Number.isFinite(this.gpsAltitudeM)) {
+      return '—';
+    }
+    const m = `${this.gpsAltitudeM.toFixed(0)} m`;
+    if (this.gpsAltitudeAccuracyM != null && Number.isFinite(this.gpsAltitudeAccuracyM)) {
+      return `${m} ±${Math.max(0, this.gpsAltitudeAccuracyM).toFixed(0)}`;
+    }
+    return m;
   }
 
   pitchGaugePercent(): number {
@@ -355,8 +374,8 @@ export class NordComponent implements OnInit, OnDestroy {
       return '—';
     }
     const d = this.declinationDeg;
-    const abs = Math.abs(d).toFixed(1);
-    return d >= 0 ? `${abs}° E` : `${abs}° W`;
+    const abs = Math.abs(d).toFixed(2);
+    return d >= 0 ? `${abs}° E` : `${abs}° O`;
   }
 
   private static readonly CARDINALS = [
@@ -369,13 +388,13 @@ export class NordComponent implements OnInit, OnDestroy {
     'SE',
     'SSE',
     'S',
-    'SSW',
-    'SW',
-    'WSW',
-    'W',
-    'WNW',
-    'NW',
-    'NNW'
+    'SSO',
+    'SO',
+    'OSO',
+    'O',
+    'ONO',
+    'NO',
+    'NNO'
   ];
 
   private static initialTiles(): SensorTile[] {

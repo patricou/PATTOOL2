@@ -187,29 +187,36 @@ function roseKiteList(): { points: string; kind: RoseKiteKind }[] {
   return [...quarter, ...half, ...inter, ...cardinal, ...north];
 }
 
-const ROSE_DEGREES = Array.from({ length: 36 }, (_, i) => i * 10).filter(
-  (d) => d !== 0 && d !== 90 && d !== 180 && d !== 270
-);
-const ROSE_CARDINALS: { deg: number; label: string; kind: 'n' | 'card' | 'inter' }[] = [
-  { deg: 0, label: 'N', kind: 'n' },
-  { deg: 45, label: 'NE', kind: 'inter' },
-  { deg: 90, label: 'E', kind: 'card' },
-  { deg: 135, label: 'SE', kind: 'inter' },
-  { deg: 180, label: 'S', kind: 'card' },
-  { deg: 225, label: 'SO', kind: 'inter' },
-  { deg: 270, label: 'O', kind: 'card' },
-  { deg: 315, label: 'NO', kind: 'inter' }
+type RoseLblKind = 'n' | 'card' | 'inter' | 'deg' | 'deg-major';
+
+interface RoseLbl {
+  x: number;
+  y: number;
+  deg: number;
+  label: string;
+  kind: RoseLblKind;
+  font: number;
+}
+
+function roseLbl(deg: number, r: number, label: string, kind: RoseLblKind, font: number): RoseLbl {
+  const [x, y] = rosePolar(r, deg);
+  return { x: +x.toFixed(2), y: +y.toFixed(2), deg, label, kind, font };
+}
+
+/** N/E/S/O on the outer ring; NE/SE/SO/NO slightly inward. */
+const ROSE_CARD_LABELS: RoseLbl[] = [
+  roseLbl(0, 71.2, 'N', 'n', 16.5),
+  roseLbl(90, 71.2, 'E', 'card', 14.5),
+  roseLbl(180, 71.2, 'S', 'card', 14.5),
+  roseLbl(270, 71.2, 'O', 'card', 14.5),
+  roseLbl(45, 66.4, 'NE', 'inter', 7.4),
+  roseLbl(135, 66.4, 'SE', 'inter', 7.4),
+  roseLbl(225, 66.4, 'SO', 'inter', 7.4),
+  roseLbl(315, 66.4, 'NO', 'inter', 7.4)
 ];
-const ROSE_FINE: { deg: number; label: string }[] = [
-  { deg: 22.5, label: 'NNE' },
-  { deg: 67.5, label: 'ENE' },
-  { deg: 112.5, label: 'ESE' },
-  { deg: 157.5, label: 'SSE' },
-  { deg: 202.5, label: 'SSO' },
-  { deg: 247.5, label: 'OSO' },
-  { deg: 292.5, label: 'ONO' },
-  { deg: 337.5, label: 'NNO' }
-];
+const ROSE_DEG_LABELS: RoseLbl[] = Array.from({ length: 36 }, (_, i) => i * 10)
+  .filter((d) => d !== 0 && d !== 90 && d !== 180 && d !== 270)
+  .map((d) => roseLbl(d, 80.6, String(d), d % 30 === 0 ? 'deg-major' : 'deg', d % 30 === 0 ? 6.6 : 5.6));
 const ROSE_DOTS = Array.from({ length: 24 }, (_, i) => {
   const [x, y] = rosePolar(63.5, i * 15);
   return { x, y };
@@ -287,9 +294,8 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   readonly roseTickInner = roseTickPath(5, 57.4, 61.4);
   readonly roseTickInnerMajor = roseTickPath(30, 55.6, 61.8);
   readonly roseKites = roseKiteList();
-  readonly roseDegrees = ROSE_DEGREES;
-  readonly roseCardinals = ROSE_CARDINALS;
-  readonly roseFinePoints = ROSE_FINE;
+  readonly roseCardLabels = ROSE_CARD_LABELS;
+  readonly roseDegLabels = ROSE_DEG_LABELS;
   readonly roseDots = ROSE_DOTS;
 
   azimuthDeg: number | null = null;
@@ -1146,6 +1152,11 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
 
   roseDeg(): number {
     return this.azInited ? -this.displayedAz : 0;
+  }
+
+  /** Keep dial letters upright while the card rotates. */
+  roseUpright(): number {
+    return -this.roseDeg();
   }
 
   horizonTilt(): string {

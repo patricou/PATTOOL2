@@ -1135,70 +1135,39 @@ a.dir-btn--astro .fa {
   stroke-width: 0.35;
 }
 
-.dir-rose__deg,
-.dir-rose__pt,
-.dir-rose__fine {
-  position: absolute;
-  inset: 8.6%;
-  display: flex;
-  justify-content: center;
+.dir-rose__lbl {
+  font-family: system-ui, Segoe UI, sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  fill: #e8fff8;
+  stroke: rgba(0, 0, 0, 0.82);
+  stroke-width: 0.9;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
   pointer-events: none;
 }
 
-.dir-rose__pt {
-  inset: 14.5%;
+.dir-rose__lbl--n {
+  fill: #ff6a4a;
+  stroke-width: 1.15;
+  filter: drop-shadow(0 0 1.6px rgba(255, 80, 50, 0.55));
 }
 
-.dir-rose__pt--inter {
-  inset: 21%;
-}
-
-.dir-rose__fine {
-  inset: 27.5%;
-}
-
-.dir-rose__deg-txt,
-.dir-rose__pt-txt,
-.dir-rose__fine-txt {
-  font-variant-numeric: tabular-nums;
+.dir-rose__lbl--inter {
   font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1;
-  text-shadow: 0 1px 3px #000;
+  fill: rgba(236, 214, 150, 0.95);
+  stroke-width: 0.7;
 }
 
-.dir-rose__deg-txt {
-  font-size: 0.48rem;
-  color: rgba(214, 244, 236, 0.82);
+.dir-rose__lbl--deg {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  fill: rgba(226, 255, 246, 0.9);
+  stroke-width: 0.55;
 }
 
-.dir-rose__deg--major .dir-rose__deg-txt {
-  font-size: 0.58rem;
-  color: #eafff8;
-}
-
-.dir-rose__pt-txt {
-  font-size: 0.78rem;
-  color: #e8fff8;
-}
-
-.dir-rose__pt--n .dir-rose__pt-txt {
-  color: #ff6a4a;
-  font-size: 0.92rem;
-  text-shadow: 0 0 8px rgba(255, 70, 40, 0.45), 0 1px 3px #000;
-}
-
-.dir-rose__pt--inter .dir-rose__pt-txt {
-  font-size: 0.52rem;
-  font-weight: 650;
-  color: rgba(236, 214, 150, 0.92);
-}
-
-.dir-rose__fine-txt {
-  font-size: 0.38rem;
-  font-weight: 650;
-  letter-spacing: 0.02em;
-  color: rgba(170, 220, 208, 0.78);
+.dir-rose__lbl--deg-major {
+  fill: #f3fffb;
 }
 
 .dir-offset {
@@ -1674,51 +1643,6 @@ section.dir-cal {
   box-shadow:
     inset 0 0 0 1px rgba(120, 230, 210, 0.12),
     0 0 28px rgba(62, 224, 192, 0.12);
-}
-
-.dir-rose--overlay .dir-rose__deg {
-  inset: 6.8%;
-}
-
-.dir-rose--overlay .dir-rose__pt {
-  inset: 12.2%;
-}
-
-.dir-rose--overlay .dir-rose__pt--inter {
-  inset: 19.4%;
-}
-
-.dir-rose--overlay .dir-rose__fine {
-  inset: 26.2%;
-}
-
-.dir-rose--overlay .dir-rose__deg-txt {
-  font-size: clamp(0.5rem, 2.7cqi, 0.82rem);
-  color: rgba(226, 255, 246, 0.9);
-  text-shadow: 0 1px 4px #000, 0 0 8px rgba(0, 0, 0, 0.65);
-}
-
-.dir-rose--overlay .dir-rose__deg--major .dir-rose__deg-txt {
-  font-size: clamp(0.58rem, 3.1cqi, 0.95rem);
-  color: #f3fffb;
-}
-
-.dir-rose--overlay .dir-rose__pt-txt {
-  font-size: clamp(0.92rem, 5.1cqi, 1.7rem);
-  text-shadow: 0 1px 5px #000, 0 0 12px #000;
-}
-
-.dir-rose--overlay .dir-rose__pt--n .dir-rose__pt-txt {
-  font-size: clamp(1.15rem, 6.1cqi, 2.05rem);
-}
-
-.dir-rose--overlay .dir-rose__pt--inter .dir-rose__pt-txt {
-  font-size: clamp(0.52rem, 2.85cqi, 0.88rem);
-}
-
-.dir-rose--overlay .dir-rose__fine-txt {
-  font-size: clamp(0.38rem, 2.05cqi, 0.62rem);
-  text-shadow: 0 1px 3px #000;
 }
 
 .dir-msg {

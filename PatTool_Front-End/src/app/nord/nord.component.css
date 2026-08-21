@@ -371,9 +371,51 @@
   color: #cbb89a;
 }
 
+.nord-live {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  width: min(86vw, 22.5rem);
+  margin: 1.85rem 0 0;
+}
+
+.nord-live__cell {
+  padding: 0.55rem 0.7rem 0.65rem;
+  border: 1px solid rgba(196, 163, 90, 0.38);
+  border-radius: 0.45rem;
+  background: rgba(26, 18, 12, 0.78);
+}
+
+.nord-live__cell span {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #cbb89a;
+}
+
+.nord-live__cell strong {
+  display: block;
+  margin-top: 0.12rem;
+  font-size: 1.7rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: #fff4dc;
+}
+
+.nord-live__cell em {
+  display: block;
+  margin-top: 0.12rem;
+  font-style: normal;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #d94a4a;
+}
+
 .nord-readout {
   list-style: none;
-  margin: 1rem 0 0;
+  margin: 0.85rem 0 0;
   padding: 0;
   width: min(86vw, 22.5rem);
   display: grid;
@@ -387,6 +429,14 @@
   display: block;
   color: #efe6d4;
   font-weight: 600;
+}
+
+.nord-readout small {
+  display: block;
+  margin-top: 0.12rem;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  color: #9a8868;
 }
 
 /* Toujours 2 lignes : OS / orientation ne font plus sauter la grille. */
@@ -507,9 +557,10 @@
 }
 
 .nord-pitch__val {
-  font-size: 0.78rem;
+  font-size: 1rem;
   font-weight: 700;
-  color: #efe6d4;
+  font-variant-numeric: tabular-nums;
+  color: #fff4dc;
 }
 
 .nord-pitch__cap {

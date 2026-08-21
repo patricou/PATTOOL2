@@ -1,4 +1,5 @@
 import {
+  attitudeFromLookAndTop,
   cameraFromEarthToDeviceQuat,
   cameraElevationFromBetaGamma,
   cameraElevationFromGravity,
@@ -240,6 +241,40 @@ function dummyAtt(azimuthDeg: number, elevationDeg = 0): CameraAttitude {
     lookUp: 0
   };
 }
+
+describe('attitudeFromLookAndTop pitch (flat → vertical)', () => {
+  const rightEast = { x: 1, y: 0, z: 0 };
+
+  function pitch(lookSign: 1 | -1, thetaDeg: number) {
+    const t = (thetaDeg * Math.PI) / 180;
+    const top = { x: 0, y: Math.cos(t), z: Math.sin(t) };
+    const zScreen = { x: 0, y: -Math.sin(t), z: Math.cos(t) };
+    const look = {
+      x: lookSign * zScreen.x,
+      y: lookSign * zScreen.y,
+      z: lookSign * zScreen.z
+    };
+    return attitudeFromLookAndTop(look, top, rightEast);
+  }
+
+  it('keeps North while pitching with rear camera −Z', () => {
+    for (const theta of [0, 30, 45, 60, 90]) {
+      const a = pitch(-1, theta)!;
+      expect(Math.abs(circularDiff(a.azimuthDeg, 0)))
+        .withContext(`θ=${theta}`)
+        .toBeLessThan(8);
+    }
+  });
+
+  it('keeps North while pitching even if look is +Z (screen), the astro-compass bug', () => {
+    for (const theta of [0, 30, 45, 60, 90]) {
+      const a = pitch(1, theta)!;
+      expect(Math.abs(circularDiff(a.azimuthDeg, 0)))
+        .withContext(`θ=${theta}`)
+        .toBeLessThan(8);
+    }
+  });
+});
 
 describe('GyroMagComplementary', () => {
   const up = { x: 0, y: 9.81, z: 0 };

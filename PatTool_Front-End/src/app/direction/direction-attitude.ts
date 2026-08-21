@@ -337,24 +337,19 @@ export function cameraFromMagAccel(mag: Vec3, accel: Vec3, opt?: AttitudeOptions
 }
 
 /**
- * Azimut 0° = Nord, horaire.
- * Horizon : direction de la caméra. Zénith / nadir : haut du téléphone.
+ * Azimut = lacet autour de la gravité (comme la page Nord), pas la visée ±Z.
+ * Incliner à plat → vertical sans tourner ne doit pas envoyer le Nord au Sud :
+ * l’ancien mélange visée/haut d’écran suivait +Z (écran) et se retournait.
+ * Élévation = visée caméra (look).
  */
 export function attitudeFromLookAndTop(look: Vec3, top: Vec3, right: Vec3): CameraAttitude | null {
   const lookH = Math.hypot(look.x, look.y);
   const topH = Math.hypot(top.x, top.y);
-  const wLook = lookH * lookH;
-  const wTop = Math.max(0.05, 1 - wLook);
-  let he = look.x * wLook;
-  let hn = look.y * wLook;
-  if (topH > 0.04) {
-    he += top.x * wTop;
-    hn += top.y * wTop;
-  }
-  if (he * he + hn * hn < 1e-10) {
+  const yaw = tiltStableYawEastNorth(look, top, right);
+  if (!yaw) {
     return null;
   }
-  const azimuthDeg = normalizeDeg((Math.atan2(he, hn) * 180) / Math.PI);
+  const azimuthDeg = normalizeDeg((Math.atan2(yaw.east, yaw.north) * 180) / Math.PI);
   const elevationDeg = (Math.atan2(look.z, Math.max(lookH, 1e-6)) * 180) / Math.PI;
   const horizonRight: Vec3 =
     lookH < 1e-4 ? { x: 1, y: 0, z: 0 } : { x: look.y / lookH, y: -look.x / lookH, z: 0 };
@@ -367,6 +362,43 @@ export function attitudeFromLookAndTop(look: Vec3, top: Vec3, right: Vec3): Came
     lookNorth: look.y,
     lookUp: look.z
   };
+}
+
+/**
+ * Haut monde × droite appareil = avant horizontal, stable en tangage.
+ * Si l’écran est vers le sol, ce produit s’inverse : on le recale sur le haut du téléphone.
+ * À la verticale (haut vers le ciel) on ne recale PAS sur la visée : +Z écran = Sud.
+ */
+function tiltStableYawEastNorth(
+  look: Vec3,
+  top: Vec3,
+  right: Vec3
+): { east: number; north: number } | null {
+  const lookH = Math.hypot(look.x, look.y);
+  const topH = Math.hypot(top.x, top.y);
+  const rightH = Math.hypot(right.x, right.y);
+  let east: number;
+  let north: number;
+  if (rightH > 0.28) {
+    east = -right.y;
+    north = right.x;
+    if (topH > 0.15 && east * top.x + north * top.y < 0) {
+      east = -east;
+      north = -north;
+    }
+  } else if (lookH >= 0.2) {
+    east = look.x;
+    north = look.y;
+  } else if (topH > 0.04) {
+    east = top.x;
+    north = top.y;
+  } else {
+    return null;
+  }
+  if (east * east + north * north < 1e-10) {
+    return null;
+  }
+  return { east, north };
 }
 
 export interface ScreenProjection {

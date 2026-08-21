@@ -55,7 +55,7 @@
           <span class="nord-needle" aria-hidden="true"></span>
         </div>
         <div class="nord-hub">
-          <span class="nord-hub__deg">{{ headingText() }}°</span>
+          <span class="nord-hub__deg">{{ displayedHeading() == null ? '—' : headingText() + '°' }}</span>
           <span class="nord-hub__card">{{ cardinalLabel() }}</span>
           <span class="nord-hub__kind">{{ (trueNorthActive ? 'NORD.TRUE' : 'NORD.MAGNETIC') | translate }}</span>
         </div>
@@ -85,6 +85,18 @@
       </div>
       </div>
 
+      <div class="nord-live" [attr.aria-label]="'NORD.LIVE_ARIA' | translate">
+        <div class="nord-live__cell">
+          <span>{{ 'NORD.AZIMUTH' | translate }}</span>
+          <strong>{{ displayedHeading() == null ? '—' : headingText() + '°' }}</strong>
+          <em>{{ cardinalLabel() }}</em>
+        </div>
+        <div class="nord-live__cell">
+          <span>{{ 'NORD.PITCH' | translate }}</span>
+          <strong>{{ pitchText() }}</strong>
+        </div>
+      </div>
+
       <ul class="nord-readout">
         <li>
           <span>{{ 'NORD.SOURCE' | translate }}</span>
@@ -93,6 +105,7 @@
         <li>
           <span>{{ 'NORD.DECLINATION' | translate }}</span>
           <strong>{{ declinationText() }}</strong>
+          <small *ngIf="declinationDeg != null">{{ 'NORD.DECLINATION_HINT' | translate }}</small>
         </li>
         <li>
           <span>{{ 'NORD.FIELD' | translate }}</span>
@@ -107,16 +120,16 @@
           </strong>
         </li>
         <li>
-          <span>{{ 'NORD.PITCH' | translate }}</span>
-          <strong>{{ pitchText() }}</strong>
-        </li>
-        <li>
           <span>{{ 'NORD.ROLL' | translate }}</span>
           <strong>{{ rollText() }}</strong>
         </li>
         <li *ngIf="gpsLat != null">
           <span>{{ 'NORD.GPS' | translate }}</span>
           <strong>{{ gpsLat | number : '1.4-4' }} / {{ gpsLon | number : '1.4-4' }}</strong>
+        </li>
+        <li *ngIf="gpsLat != null">
+          <span>{{ 'NORD.ALTITUDE' | translate }}</span>
+          <strong>{{ altitudeText() }}</strong>
         </li>
       </ul>
 

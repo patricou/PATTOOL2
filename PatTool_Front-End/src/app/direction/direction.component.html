@@ -78,28 +78,29 @@
             <circle class="dir-rose__hub" cx="100" cy="100" r="8.2"/>
             <circle class="dir-rose__hub dir-rose__hub--2" cx="100" cy="100" r="4.4"/>
             <circle class="dir-rose__hub-core" cx="100" cy="100" r="1.55"/>
+            <text
+              *ngFor="let p of roseDegLabels"
+              class="dir-rose__lbl dir-rose__lbl--deg"
+              [class.dir-rose__lbl--deg-major]="p.kind === 'deg-major'"
+              [attr.x]="p.x"
+              [attr.y]="p.y"
+              [attr.font-size]="p.font"
+              [attr.transform]="'rotate(' + roseUpright() + ' ' + p.x + ' ' + p.y + ')'"
+              text-anchor="middle"
+              dominant-baseline="middle">{{ p.label }}</text>
+            <text
+              *ngFor="let p of roseCardLabels"
+              class="dir-rose__lbl"
+              [class.dir-rose__lbl--n]="p.kind === 'n'"
+              [class.dir-rose__lbl--card]="p.kind === 'card'"
+              [class.dir-rose__lbl--inter]="p.kind === 'inter'"
+              [attr.x]="p.x"
+              [attr.y]="p.y"
+              [attr.font-size]="p.font"
+              [attr.transform]="'rotate(' + roseUpright() + ' ' + p.x + ' ' + p.y + ')'"
+              text-anchor="middle"
+              dominant-baseline="middle">{{ p.label }}</text>
           </svg>
-          <span
-            class="dir-rose__deg"
-            *ngFor="let d of roseDegrees"
-            [class.dir-rose__deg--major]="d % 30 === 0"
-            [style.transform]="'rotate(' + d + 'deg)'">
-            <span class="dir-rose__deg-txt" [style.transform]="'rotate(' + (-d) + 'deg)'">{{ d }}</span>
-          </span>
-          <span
-            class="dir-rose__pt"
-            *ngFor="let p of roseCardinals"
-            [class.dir-rose__pt--n]="p.kind === 'n'"
-            [class.dir-rose__pt--inter]="p.kind === 'inter'"
-            [style.transform]="'rotate(' + p.deg + 'deg)'">
-            <span class="dir-rose__pt-txt" [style.transform]="'rotate(' + (-p.deg) + 'deg)'">{{ p.label }}</span>
-          </span>
-          <span
-            class="dir-rose__fine"
-            *ngFor="let p of roseFinePoints"
-            [style.transform]="'rotate(' + p.deg + 'deg)'">
-            <span class="dir-rose__fine-txt" [style.transform]="'rotate(' + (-p.deg) + 'deg)'">{{ p.label }}</span>
-          </span>
         </div>
       </div>
       <button
