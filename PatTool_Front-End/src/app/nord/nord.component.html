@@ -35,6 +35,23 @@
     </p>
   </div>
 
+  <div class="nord-links" role="navigation" [attr.aria-label]="'NORD.OPEN_DIRECTION' | translate">
+    <a
+      class="nord-link nord-link--cal"
+      routerLink="/tools/direction"
+      [attr.title]="'NORD.OPEN_DIRECTION_HINT' | translate">
+      <i class="fa fa-crosshairs" aria-hidden="true"></i>
+      {{ 'NORD.OPEN_DIRECTION' | translate }}
+    </a>
+    <a
+      class="nord-link nord-link--astro"
+      routerLink="/tools/astro-compass"
+      [attr.title]="'NORD.OPEN_ASTRO_HINT' | translate">
+      <i class="fa fa-video-camera" aria-hidden="true"></i>
+      {{ 'NORD.OPEN_ASTRO' | translate }}
+    </a>
+  </div>
+
   <div class="nord-stage">
     <section class="nord-instrument" [attr.aria-label]="'NORD.COMPASS_ARIA' | translate">
       <div class="nord-instrument-row">

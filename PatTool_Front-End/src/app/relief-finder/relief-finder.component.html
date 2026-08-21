@@ -1,0 +1,155 @@
+<div class="pat-title rf-title">
+  <h2>
+    <i class="fa fa-area-chart me-2" aria-hidden="true"></i>
+    {{ 'RELIEF_FINDER.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="rf-page">
+  <p class="rf-lede">{{ 'RELIEF_FINDER.SUBTITLE' | translate }}</p>
+
+  <div class="rf-toolbar">
+    <button type="button" class="rf-btn rf-btn--primary" (click)="locateGps()" [disabled]="geoStatus === 'pending'">
+      <i class="fa fa-location-arrow" aria-hidden="true"></i>
+      {{ 'RELIEF_FINDER.GPS' | translate }}
+    </button>
+    <button
+      type="button"
+      class="rf-btn"
+      *ngIf="lookTracker.needTap || !lookTracker.sensorsOn"
+      (click)="enableSensors()">
+      <i class="fa fa-compass" aria-hidden="true"></i>
+      {{ 'RELIEF_FINDER.SENSORS' | translate }}
+    </button>
+    <button type="button" class="rf-btn" *ngIf="!camLive" (click)="startCamera()">
+      <i class="fa fa-video-camera" aria-hidden="true"></i>
+      {{ 'RELIEF_FINDER.CAM_START' | translate }}
+    </button>
+    <button type="button" class="rf-btn" *ngIf="camLive" (click)="stopCamera()">
+      {{ 'RELIEF_FINDER.CAM_STOP' | translate }}
+    </button>
+    <a class="rf-btn rf-btn--link" routerLink="/tools/direction">
+      <i class="fa fa-crosshairs" aria-hidden="true"></i>
+      {{ 'RELIEF_FINDER.CALIBRATE' | translate }}
+    </a>
+    <span class="rf-geo" *ngIf="lat != null && lon != null">
+      {{ lat | number : '1.4-4' }}°, {{ lon | number : '1.4-4' }}°
+    </span>
+    <span class="rf-warn" *ngIf="geoStatus === 'denied'">{{ 'RELIEF_FINDER.GPS_DENIED' | translate }}</span>
+    <span class="rf-warn" *ngIf="lookTracker.denied">{{ 'RELIEF_FINDER.SENSORS_DENIED' | translate }}</span>
+    <span class="rf-hint" *ngIf="lookTracker.needTap">{{ 'RELIEF_FINDER.NEED_TAP' | translate }}</span>
+  </div>
+
+  <div class="rf-radius" role="group" [attr.aria-label]="'RELIEF_FINDER.RADIUS' | translate">
+    <span>{{ 'RELIEF_FINDER.RADIUS' | translate }}</span>
+    <button
+      type="button"
+      class="rf-chip"
+      *ngFor="let km of radiusOptions"
+      [class.rf-chip--on]="radiusKm === km"
+      (click)="setRadius(km)">
+      {{ km }} km
+    </button>
+  </div>
+
+  <section
+    class="rf-stage"
+    [attr.aria-label]="'RELIEF_FINDER.STAGE_ARIA' | translate">
+    <div
+      class="rf-cam"
+      #camStage
+      [class.rf-cam--fs]="isFullscreen"
+      [class.rf-cam--resized]="!isFullscreen && camHeightPx != null"
+      [style.height.px]="!isFullscreen && camHeightPx != null ? camHeightPx : null">
+      <video #cam playsinline muted autoplay></video>
+      <div class="rf-cam__empty" *ngIf="!camLive">{{ 'RELIEF_FINDER.CAM_PLACEHOLDER' | translate }}</div>
+      <svg class="rf-sil" viewBox="0 0 100 100" preserveAspectRatio="none" [style.transform]="horizonTilt()" aria-hidden="true">
+        <path class="rf-sil__fill" [attr.d]="silhouetteFill"></path>
+        <path class="rf-sil__stroke" [attr.d]="silhouetteStroke"></path>
+      </svg>
+      <div class="rf-reticle" aria-hidden="true"></div>
+      <button
+        type="button"
+        class="rf-label"
+        *ngFor="let lab of peakLabels"
+        [class.rf-label--on]="selected?.name === lab.peak.name"
+        [class.rf-label--dim]="!lab.inView"
+        [style.left.%]="lab.xPct"
+        [style.top.%]="lab.yPct"
+        (click)="selectPeak(lab.peak)">
+        <span class="rf-label__name">{{ lab.peak.name }}</span>
+        <span class="rf-label__meta">{{ lab.peak.eleM | number : '1.0-0' }} m · {{ distLabel(lab.peak) }}</span>
+      </button>
+      <div class="rf-hud">
+        <div class="rf-hud__metric">
+          <span>{{ 'RELIEF_FINDER.AZIMUTH' | translate }}</span>
+          <strong>{{ azText() }}</strong>
+          <em>{{ cardinal() }}</em>
+        </div>
+        <div class="rf-hud__metric">
+          <span>{{ 'RELIEF_FINDER.ELEVATION' | translate }}</span>
+          <strong>{{ elText() }}</strong>
+        </div>
+        <div class="rf-hud__metric" *ngIf="horizon">
+          <span>{{ 'RELIEF_FINDER.ALTITUDE' | translate }}</span>
+          <strong>{{ horizon.observerAltM | number : '1.0-0' }} m</strong>
+        </div>
+      </div>
+      <div class="rf-guide" *ngIf="finderGuide && selected">
+        <i class="fa fa-chevron-left" *ngIf="finderGuide.left"></i>
+        <i class="fa fa-chevron-right" *ngIf="finderGuide.right"></i>
+        <i class="fa fa-chevron-up" *ngIf="finderGuide.up"></i>
+        <i class="fa fa-chevron-down" *ngIf="finderGuide.down"></i>
+        <span *ngIf="finderGuide.ok">{{ selected.name }}</span>
+      </div>
+      <div class="rf-cam__busy" *ngIf="loading">
+        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+        {{ 'RELIEF_FINDER.LOADING' | translate }}
+      </div>
+      <div class="rf-cam__btns">
+        <button type="button" class="rf-icon" (click)="toggleFullscreen()" [attr.title]="'RELIEF_FINDER.FULLSCREEN' | translate">
+          <i class="fa" [ngClass]="isFullscreen ? 'fa-compress' : 'fa-expand'"></i>
+        </button>
+      </div>
+      <div
+        class="rf-resize"
+        *ngIf="!isFullscreen"
+        (pointerdown)="onCamResizePointer($event)"
+        (dblclick)="resetCamHeight()"
+        [attr.title]="'RELIEF_FINDER.CAM_RESIZE' | translate"></div>
+    </div>
+
+    <div class="rf-pano" *ngIf="horizon" [attr.aria-label]="'RELIEF_FINDER.PANO_ARIA' | translate">
+      <svg class="rf-pano__svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path class="rf-pano__fill" [attr.d]="panoramaFill"></path>
+      </svg>
+      <span class="rf-pano__tick" style="left:0">N</span>
+      <span class="rf-pano__tick" style="left:25%">E</span>
+      <span class="rf-pano__tick" style="left:50%">S</span>
+      <span class="rf-pano__tick" style="left:75%">W</span>
+      <span class="rf-pano__fov" *ngFor="let win of fovWindows" [ngStyle]="fovWindowStyle(win)"></span>
+    </div>
+  </section>
+
+  <p class="rf-warn" *ngIf="loadError">{{ 'RELIEF_FINDER.LOAD_ERROR' | translate }}</p>
+  <p class="rf-warn" *ngIf="camDenied">{{ 'RELIEF_FINDER.CAM_DENIED' | translate }}</p>
+
+  <section class="rf-peaks" *ngIf="horizon">
+    <h3>
+      {{ 'RELIEF_FINDER.PEAKS' | translate }}
+      <small *ngIf="visiblePeaks().length">{{ visiblePeaks().length }}</small>
+    </h3>
+    <p class="rf-hint" *ngIf="!visiblePeaks().length && !loading">{{ 'RELIEF_FINDER.NO_PEAKS' | translate }}</p>
+    <p class="rf-hint" *ngIf="hiddenCount()">{{ 'RELIEF_FINDER.HIDDEN' | translate : { count: hiddenCount() } }}</p>
+    <ul>
+      <li *ngFor="let p of visiblePeaks()">
+        <button type="button" class="rf-peak" [class.rf-peak--on]="selected?.name === p.name" (click)="selectPeak(p)">
+          <span class="rf-peak__name">{{ p.name }}</span>
+          <span class="rf-peak__meta">
+            {{ p.eleM | number : '1.0-0' }} m · {{ distLabel(p) }} · {{ p.azDeg | number : '1.0-0' }}°
+          </span>
+        </button>
+      </li>
+    </ul>
+  </section>
+</div>

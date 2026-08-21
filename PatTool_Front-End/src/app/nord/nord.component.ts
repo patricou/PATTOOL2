@@ -7,6 +7,7 @@ import {
   OnInit
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../services/api.service';
@@ -60,7 +61,7 @@ const HARDWARE_TILE_IDS = [
 @Component({
   selector: 'app-nord',
   standalone: true,
-  imports: [CommonModule, TranslateModule],
+  imports: [CommonModule, RouterModule, TranslateModule],
   templateUrl: './nord.component.html',
   styleUrls: ['./nord.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush

@@ -158,6 +158,10 @@ const SECONDS_PER_LY = 365.25 * 24 * 3600;
 const SECONDS_PER_DAY = 24 * 3600;
 const ISS_DEFAULT_ALT_KM = 420;
 const ISS_REFRESH_MIN_MS = 20_000;
+const SAT_PASS_LOOKBACK_MS = 45 * 60_000;
+const SAT_PASS_HORIZON_MS = 18 * 60 * 60_000;
+const SAT_PASS_STEP_MS = 30_000;
+const SAT_PASS_MAX = 6;
 /** Trajectoire future dans le viseur : satellites (SGP4) vs astres (éphémérides). */
 const FINDER_TRAIL_SAT_DEFAULT_MIN = 10;
 const FINDER_TRAIL_SAT_MIN = 5;
@@ -205,6 +209,7 @@ interface IssPassItem {
   setAt: Date;
   durationSec: number;
   maxElevationDeg: number | null;
+  maxAt?: Date;
 }
 
 interface FinderTrailSkyPt {
@@ -285,7 +290,6 @@ interface HelpTerm {
 }
 
 type TargetAccordionId = 'iss' | 'planet' | 'star' | 'galaxy' | 'constellation' | 'custom';
-type CatalogPickerId = 'star' | 'galaxy' | 'constellation';
 
 interface TypeHelpCopy {
   titleFr: string;
@@ -735,8 +739,6 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   constellationResults: AstroConstellationOption[] = findConstellationsByQuery('');
   /** Accordéon exclusif du choix de cible (une section ouverte à la fois). */
   targetAccordionOpen: TargetAccordionId | null = 'planet';
-  /** Liste custom (évite le sélecteur natif : fond blanc / grosse police sur mobile). */
-  catalogPickerOpen: CatalogPickerId | null = null;
   /** Aide bilingue FR/EN ouverte depuis le « i » d’un type de cible. */
   typeHelpOpen: TargetAccordionId | null = null;
 
@@ -1625,24 +1627,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  @HostListener('document:click', ['$event'])
-  onCatalogPickerDocumentClick(ev: MouseEvent): void {
-    if (!this.catalogPickerOpen) {
-      return;
-    }
-    const t = ev.target as HTMLElement | null;
-    if (t?.closest?.('.ac-search')) {
-      return;
-    }
-    this.closeCatalogPicker();
-  }
-
   @HostListener('document:keydown.escape')
   onFinderEscape(): void {
-    if (this.catalogPickerOpen) {
-      this.closeCatalogPicker();
-      return;
-    }
     if (this.openFactHelpKey) {
       this.closeFactHelp();
       return;
@@ -1709,6 +1695,37 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.clearObjectDossier();
     }
     this.cdr.markForCheck();
+  }
+
+  objectInfoPasses(): IssPassItem[] {
+    return this.issPasses;
+  }
+
+  objectInfoShowPasses(): boolean {
+    return this.selectedKind === 'iss';
+  }
+
+  objectInfoMissingGps(): boolean {
+    return this.selectedKind === 'iss' && this.geoStatus === 'no-geo';
+  }
+
+  formatObjectInfoPassDuration(pass: IssPassItem): string {
+    const sec = Math.max(0, Math.round(pass.durationSec || (pass.setAt.getTime() - pass.riseAt.getTime()) / 1000));
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    if (m >= 60) {
+      const h = Math.floor(m / 60);
+      return `${h} h ${m % 60} min`;
+    }
+    return s > 0 ? `${m} min ${s} s` : `${m} min`;
+  }
+
+  objectInfoPassCulmination(pass: IssPassItem): Date | null {
+    if (pass.maxAt) {
+      return pass.maxAt;
+    }
+    const mid = pass.riseAt.getTime() + (pass.durationSec * 1000) / 2;
+    return Number.isFinite(mid) ? new Date(mid) : null;
   }
 
   prefersFactTapHelp(): boolean {
@@ -3409,10 +3426,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       });
       this.issPasses = [];
+      this.issPassesLoadedAtMs = 0;
       this.riseAt = null;
       this.setAt = null;
     } else {
       this.issPasses = [];
+      this.issPassesLoadedAtMs = 0;
       this.riseAt = null;
       this.setAt = null;
     }
@@ -3497,52 +3516,17 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   toggleTargetAccordion(id: TargetAccordionId): void {
     this.targetAccordionOpen = this.targetAccordionOpen === id ? null : id;
-    this.closeCatalogPicker();
     this.cdr.markForCheck();
-  }
-
-  toggleCatalogPicker(id: CatalogPickerId, ev?: Event): void {
-    ev?.stopPropagation();
-    this.catalogPickerOpen = this.catalogPickerOpen === id ? null : id;
-    this.cdr.markForCheck();
-    if (this.catalogPickerOpen) {
-      queueMicrotask(() => this.scrollCatalogPickerSelection());
+    if (
+      this.targetAccordionOpen === 'star' ||
+      this.targetAccordionOpen === 'galaxy' ||
+      this.targetAccordionOpen === 'constellation'
+    ) {
+      queueMicrotask(() => this.scrollCatalogSelectionIntoView());
     }
   }
 
-  closeCatalogPicker(): void {
-    if (!this.catalogPickerOpen) {
-      return;
-    }
-    this.catalogPickerOpen = null;
-    this.cdr.markForCheck();
-  }
-
-  get selectedStarForPicker(): AstroStarOption | undefined {
-    if (this.selectedKind !== 'star' || !this.selectedStarId) {
-      return undefined;
-    }
-    return this.starResults.find((s) => s.id === this.selectedStarId) || findStarById(this.selectedStarId);
-  }
-
-  get selectedGalaxyForPicker(): AstroGalaxyOption | undefined {
-    if (this.selectedKind !== 'galaxy' || !this.selectedGalaxyId) {
-      return undefined;
-    }
-    return this.galaxyResults.find((g) => g.id === this.selectedGalaxyId) || findGalaxyById(this.selectedGalaxyId);
-  }
-
-  get selectedConstellationForPicker(): AstroConstellationOption | undefined {
-    if (this.selectedKind !== 'constellation' || !this.selectedConstellationId) {
-      return undefined;
-    }
-    return (
-      this.constellationResults.find((c) => c.id === this.selectedConstellationId) ||
-      findConstellationById(this.selectedConstellationId)
-    );
-  }
-
-  private scrollCatalogPickerSelection(): void {
+  private scrollCatalogSelectionIntoView(): void {
     const active = this.hostEl.nativeElement.querySelector('.ac-picker__opt--active') as HTMLElement | null;
     active?.scrollIntoView({ block: 'nearest' });
   }
@@ -4379,7 +4363,6 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onGalaxySelectChange(id: string): void {
     const galaxyId = (id || '').trim();
-    this.closeCatalogPicker();
     if (!galaxyId) {
       if (this.selectedKind === 'galaxy') {
         this.selectedGalaxyId = undefined;
@@ -4396,7 +4379,6 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onStarSelectChange(id: string): void {
     const starId = (id || '').trim();
-    this.closeCatalogPicker();
     if (!starId) {
       if (this.selectedKind === 'star') {
         this.selectedStarId = undefined;
@@ -4455,7 +4437,6 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onConstellationSelectChange(id: string): void {
     const constellationId = (id || '').trim();
-    this.closeCatalogPicker();
     if (!constellationId) {
       if (this.selectedKind === 'constellation') {
         this.selectedConstellationId = undefined;
@@ -5312,6 +5293,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.geoDistKm = slantKm;
     this.geoDistAu = slantKm / KM_PER_AU;
     this.distLy = this.geoDistAu / AU_PER_LY;
+    this.applySatelliteEquatorial(this.azimuthDeg, this.elevationDeg, new Date(now));
     this.updatedAtMs = now;
     this.nowMs = now;
     this.updateFinderProjection();
@@ -5319,9 +5301,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (sat.useIssLiveFeed) {
       this.refreshIssPasses(false);
     } else {
-      this.issPasses = [];
-      this.riseAt = null;
-      this.setAt = null;
+      this.refreshPredictedPasses(sat);
     }
     this.recomputeIssVisibility();
   }
@@ -5347,16 +5327,6 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.visibilityHint = 'ASTRO_COMPASS.ISS_ERROR';
       this.riseAt = null;
       this.setAt = null;
-      return;
-    }
-
-    // Autres engins (TLE) : pas de prévision de passages ISS — visibilité instantanée seulement.
-    if (!this.selectedSatellite.useIssLiveFeed) {
-      this.riseAt = null;
-      this.setAt = null;
-      this.visibilityHint = this.currentlyVisible
-        ? 'ASTRO_COMPASS.VIS_NOW_VISIBLE'
-        : 'ASTRO_COMPASS.VIS_BELOW';
       return;
     }
 
@@ -5507,10 +5477,114 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       const maxElevRaw = item['maxElevation'] ?? item['max_elevation'] ?? item['altitude'];
       const maxElevationDeg =
         typeof maxElevRaw === 'number' && Number.isFinite(maxElevRaw) ? maxElevRaw : null;
-      out.push({ riseAt, setAt, durationSec, maxElevationDeg });
+      out.push({
+        riseAt,
+        setAt,
+        durationSec,
+        maxElevationDeg,
+        maxAt: new Date(riseAt.getTime() + (durationSec * 1000) / 2)
+      });
     }
     out.sort((a, b) => a.riseAt.getTime() - b.riseAt.getTime());
     return out;
+  }
+
+  private refreshPredictedPasses(sat: AstroSatelliteOption): void {
+    this.satNow.setObserver(this.lat, this.lon);
+    if (!this.satNow.snapshotForOption(sat, Date.now())) {
+      return;
+    }
+    const now = Date.now();
+    const samePlace =
+      this.issPassesLat != null &&
+      this.issPassesLon != null &&
+      Math.abs(this.issPassesLat - this.lat) < 0.02 &&
+      Math.abs(this.issPassesLon - this.lon) < 0.02;
+    if (samePlace && now - this.issPassesLoadedAtMs < 5 * 60_000) {
+      return;
+    }
+    this.issPasses = this.predictSatellitePasses(sat);
+    this.issPassesLat = this.lat;
+    this.issPassesLon = this.lon;
+    this.issPassesLoadedAtMs = now;
+  }
+
+  private applySatelliteEquatorial(azDeg: number, elDeg: number, date: Date): void {
+    const eq = AstroCompassComponent.horizontalToEquatorial(azDeg, elDeg, date, this.lat, this.lon);
+    if (!eq) {
+      this.raHours = null;
+      this.decDeg = null;
+      this.constellationName = null;
+      return;
+    }
+    this.raHours = eq.raHours;
+    this.decDeg = eq.decDeg;
+    try {
+      this.constellationName = Constellation(eq.raHours, eq.decDeg).name;
+    } catch {
+      this.constellationName = null;
+    }
+  }
+
+  private predictSatellitePasses(sat: AstroSatelliteOption): IssPassItem[] {
+    if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+      return [];
+    }
+    this.satNow.setObserver(this.lat, this.lon);
+    const startMs = Date.now() - SAT_PASS_LOOKBACK_MS;
+    const endMs = Date.now() + SAT_PASS_HORIZON_MS;
+    const passes: IssPassItem[] = [];
+    let riseMs: number | null = null;
+    let maxEl = -90;
+    let maxAtMs = startMs;
+    let prevEl: number | null = null;
+    let prevMs = startMs;
+    for (let t = startMs; t <= endMs; t += SAT_PASS_STEP_MS) {
+      const snap = this.satNow.snapshotForOption(sat, t);
+      if (!snap) {
+        continue;
+      }
+      const h = snap.altKm != null && snap.altKm > 0 ? snap.altKm : sat.defaultAltKm;
+      const groundKm = AstroCompassComponent.haversineGreatCircleKm(this.lat, this.lon, snap.lat, snap.lon);
+      const el = (AstroCompassComponent.satelliteElevationRad(groundKm / EARTH_RADIUS_KM, h) * 180) / Math.PI;
+      if (prevEl != null && prevEl <= 0 && el > 0) {
+        riseMs = AstroCompassComponent.interpolateHorizonCrossing(prevMs, prevEl, t, el);
+        maxEl = el;
+        maxAtMs = t;
+      } else if (riseMs != null && el > maxEl) {
+        maxEl = el;
+        maxAtMs = t;
+      }
+      if (prevEl != null && prevEl > 0 && el <= 0 && riseMs != null) {
+        const setMs = AstroCompassComponent.interpolateHorizonCrossing(prevMs, prevEl, t, el);
+        if (setMs > Date.now() - 15_000) {
+          passes.push({
+            riseAt: new Date(riseMs),
+            setAt: new Date(setMs),
+            durationSec: Math.max(0, Math.round((setMs - riseMs) / 1000)),
+            maxElevationDeg: maxEl,
+            maxAt: new Date(maxAtMs)
+          });
+          if (passes.length >= SAT_PASS_MAX) {
+            break;
+          }
+        }
+        riseMs = null;
+        maxEl = -90;
+      }
+      prevEl = el;
+      prevMs = t;
+    }
+    return passes;
+  }
+
+  private static interpolateHorizonCrossing(t0: number, el0: number, t1: number, el1: number): number {
+    const den = el1 - el0;
+    if (Math.abs(den) < 1e-9) {
+      return t1;
+    }
+    const u = Math.min(1, Math.max(0, (0 - el0) / den));
+    return t0 + (t1 - t0) * u;
   }
 
   /**

@@ -33,6 +33,9 @@ public class RestTemplateConfig {
     /** Sky-Map.org XML search + DSS2 cutouts — image generation can be slow. */
     public static final String SKYMAP_REST_TEMPLATE = "skyMapRestTemplate";
 
+    /** Terrarium DEM tiles + Overpass peaks for Relief Finder. */
+    public static final String RELIEF_FINDER_REST_TEMPLATE = "reliefFinderRestTemplate";
+
 
     /**
      * Client HTTP court pour proxies et API externes (échec rapide si indisponible).
@@ -105,6 +108,14 @@ public class RestTemplateConfig {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(5))
                 .setReadTimeout(Duration.ofSeconds(20))
+                .build();
+    }
+
+    @Bean(RELIEF_FINDER_REST_TEMPLATE)
+    public RestTemplate reliefFinderRestTemplate(RestTemplateBuilder builder) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(8))
+                .setReadTimeout(Duration.ofSeconds(30))
                 .build();
     }
 

@@ -1,0 +1,160 @@
+<div class="pat-title uf-page-title px-3">
+  <h2>
+    <i class="fa fa-hourglass-half me-2"></i>
+    {{ 'UNIVERS_FUTUR.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="uf-root container-fluid px-3 px-lg-4 pb-4">
+  <p class="text-secondary small mb-2">{{ 'UNIVERS_FUTUR.SUBTITLE' | translate }}</p>
+
+  <div class="uf-verdict mb-3" [class.uf-verdict-crunch]="cosmo.recollapsed" [class.uf-verdict-hypo]="scenario === 'crunch'">
+    <div class="fw-semibold">{{ verdictTitleKey | translate }}</div>
+    <div class="small mt-1">{{ verdictBodyKey | translate }}</div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-4">
+      <div class="card shadow-sm border-0 uf-panel">
+        <div class="card-body">
+          <label class="form-label fw-semibold small mb-1" for="ufYears">{{ 'UNIVERS_FUTUR.TIME_LABEL' | translate }}</label>
+          <div class="d-flex gap-2 mb-2">
+            <input
+              id="ufYears"
+              type="number"
+              class="form-control form-control-sm"
+              min="0"
+              step="any"
+              [ngModel]="unitValue"
+              (ngModelChange)="onUnitValueChange($event)" />
+            <select class="form-select form-select-sm uf-unit" [ngModel]="unit" (ngModelChange)="onUnitChange($event)">
+              <option value="a">{{ 'UNIVERS_FUTUR.UNIT_A' | translate }}</option>
+              <option value="ka">{{ 'UNIVERS_FUTUR.UNIT_KA' | translate }}</option>
+              <option value="Ma">{{ 'UNIVERS_FUTUR.UNIT_MA' | translate }}</option>
+              <option value="Ga">{{ 'UNIVERS_FUTUR.UNIT_GA' | translate }}</option>
+            </select>
+          </div>
+
+          <input
+            type="range"
+            class="form-range"
+            min="0"
+            max="100"
+            step="0.05"
+            [ngModel]="logSlider"
+            (ngModelChange)="onLogSlider($event)" />
+          <div class="d-flex justify-content-between small text-secondary mb-2">
+            <span>{{ 'UNIVERS_FUTUR.NOW_BTN' | translate }}</span>
+            <span>{{ formattedYears }}</span>
+            <span>100 {{ 'UNIVERS_FUTUR.UNIT_GA' | translate }}</span>
+          </div>
+
+          <div class="d-flex flex-wrap gap-1 mb-3">
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="setYears(0)">
+              {{ 'UNIVERS_FUTUR.NOW_BTN' | translate }}
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="setYears(1e4)">10 ka</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="setYears(5e4)">50 ka</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="setYears(1e6)">1 Ma</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="setYears(4.5e9)">4.5 Ga</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="setYears(5e9)">5 Ga</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="setYears(1e11)">100 Ga</button>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+            <button type="button" class="btn btn-primary btn-sm" (click)="togglePlay()">
+              <i class="fa" [ngClass]="playing ? 'fa-pause' : 'fa-play'"></i>
+              {{ (playing ? 'UNIVERS_FUTUR.PAUSE' : 'UNIVERS_FUTUR.PLAY') | translate }}
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="resetView()">
+              {{ 'UNIVERS_FUTUR.RESET_VIEW' | translate }}
+            </button>
+          </div>
+
+          <label class="form-label fw-semibold small mb-1">{{ 'UNIVERS_FUTUR.SCENARIO' | translate }}</label>
+          <div class="btn-group w-100 mb-2" role="group">
+            <button
+              type="button"
+              class="btn btn-sm"
+              [class.btn-info]="scenario === 'lcdm'"
+              [class.btn-outline-secondary]="scenario !== 'lcdm'"
+              (click)="setScenario('lcdm')">
+              {{ 'UNIVERS_FUTUR.SCENARIO_LCDM' | translate }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm"
+              [class.btn-warning]="scenario === 'crunch'"
+              [class.btn-outline-secondary]="scenario !== 'crunch'"
+              (click)="setScenario('crunch')">
+              {{ 'UNIVERS_FUTUR.SCENARIO_CRUNCH' | translate }}
+            </button>
+          </div>
+          <p class="small text-secondary mb-3">{{ 'UNIVERS_FUTUR.SCENARIO_HINT' | translate }}</p>
+
+          <div class="uf-stats small">
+            <div><span class="text-secondary">a(t)</span> {{ cosmo.a | number: '1.3-3' }}</div>
+            <div><span class="text-secondary">H</span> {{ cosmo.H | number: '1.1-1' }} km/s/Mpc</div>
+            <div><span class="text-secondary">{{ 'UNIVERS_FUTUR.AGE' | translate }}</span> {{ cosmo.ageGyr | number: '1.2-2' }} Ga</div>
+            <div *ngIf="cosmo.yearsToCrunch !== null">
+              <span class="text-secondary">{{ 'UNIVERS_FUTUR.TO_CRUNCH' | translate }}</span>
+              {{ formatYearsAbs(cosmo.yearsToCrunch) }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <div #fsRoot class="card shadow-sm border-0 uf-canvas-card uf-fs-root">
+        <div class="card-body p-2 uf-fs-body">
+          <div class="d-flex flex-wrap gap-1 mb-2 align-items-center">
+            <button
+              type="button"
+              class="btn btn-sm"
+              *ngFor="let v of views"
+              [class.btn-info]="view === v.id"
+              [class.btn-outline-secondary]="view !== v.id"
+              (click)="setView(v.id)">
+              <i class="fa me-1" [ngClass]="v.icon"></i>{{ v.labelKey | translate }}
+            </button>
+            <div class="ms-auto d-flex flex-wrap gap-1">
+              <button type="button" class="btn btn-primary btn-sm" (click)="togglePlay()">
+                <i class="fa" [ngClass]="playing ? 'fa-pause' : 'fa-play'"></i>
+                <span class="d-none d-sm-inline ms-1">{{
+                  (playing ? 'UNIVERS_FUTUR.PAUSE' : 'UNIVERS_FUTUR.PLAY') | translate
+                }}</span>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-light"
+                (click)="toggleFullscreen()"
+                [attr.aria-pressed]="fullscreen"
+                [attr.title]="
+                  (fullscreen ? 'UNIVERS_FUTUR.FULLSCREEN_EXIT' : 'UNIVERS_FUTUR.FULLSCREEN_ENTER') | translate
+                ">
+                <i class="fa" [class.fa-expand]="!fullscreen" [class.fa-compress]="fullscreen"></i>
+                <span class="d-none d-md-inline ms-1">{{
+                  (fullscreen ? 'UNIVERS_FUTUR.FULLSCREEN_EXIT' : 'UNIVERS_FUTUR.FULLSCREEN_ENTER') | translate
+                }}</span>
+              </button>
+            </div>
+          </div>
+          <p class="small text-secondary mb-2 uf-view-hint">{{ viewHintKey | translate }}</p>
+          <div class="uf-canvas-wrap" #canvasWrap>
+            <canvas
+              #skyCanvas
+              (wheel)="onWheel($event)"
+              (pointerdown)="onPointerDown($event)"
+              (pointermove)="onPointerMove($event)"
+              (pointerup)="onPointerUp($event)"
+              (pointerleave)="onPointerUp($event)"
+              (click)="onCanvasClick($event)"></canvas>
+            <div class="uf-fs-time" *ngIf="fullscreen">{{ formattedYears }}</div>
+          </div>
+          <div class="uf-hover small mt-2" *ngIf="hoverLabel">{{ hoverLabel }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

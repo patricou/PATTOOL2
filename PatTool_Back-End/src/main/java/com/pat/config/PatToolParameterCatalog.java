@@ -285,7 +285,9 @@ public final class PatToolParameterCatalog {
                     defSensitive("app.webcam.road511-api-key"),
                     def("app.webcam.napspan-api-base", false),
                     defSensitive("app.webcam.napspan-api-key"),
-                    def("app.webcam.search-cache-minutes", false)
+                    def("app.webcam.search-cache-minutes", false),
+                    def("app.youtube.api-base", false),
+                    defSensitive("app.youtube.api-key")
             ),
             section("electricity", "PATTOOL_PARAMS.SECTION.ELECTRICITY",
                     defSensitive("app.electricity.entsoe-token"),

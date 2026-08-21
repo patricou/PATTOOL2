@@ -230,6 +230,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 					import('./webcam-watcher/webcam-watcher.component').then(m => m.WebcamWatcherComponent)
 			},
 			{
+				path: 'tools/youtube',
+				loadComponent: () =>
+					import('./youtube-watcher/youtube-watcher.component').then(m => m.YoutubeWatcherComponent)
+			},
+			{
 				path: 'tools/tv-popout',
 				loadComponent: () => import('./tv-watcher/tv-popout.component').then(m => m.TvPopoutComponent)
 			},
@@ -240,6 +245,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{
 				path: 'tools/ciel',
 				loadComponent: () => import('./ciel/ciel.component').then(m => m.CielComponent)
+			},
+			{
+				path: 'tools/univers-futur',
+				loadComponent: () =>
+					import('./univers-futur/univers-futur.component').then(m => m.UniversFuturComponent)
 			},
 			{
 				path: 'tools/eclipse',
@@ -257,6 +267,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{
 				path: 'tools/direction',
 				loadComponent: () => import('./direction/direction.component').then(m => m.DirectionComponent)
+			},
+			{
+				path: 'tools/relief-finder',
+				loadComponent: () =>
+					import('./relief-finder/relief-finder.component').then(m => m.ReliefFinderComponent)
 			},
 			{
 				path: 'tools/world-globe',

@@ -211,7 +211,15 @@
 }
 
 .ac-compass-info-btn {
+  width: auto;
+  min-width: 4rem;
+  padding: 0 0.55rem;
+  gap: 0.35rem;
   color: #ffe08a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 .ac-compass-globe-btn {
@@ -3441,13 +3449,6 @@ a.ac-compass-cal__btn--direction {
   margin-bottom: 0.2rem;
 }
 
-.ac-search__select-label {
-  display: block;
-  font-size: 0.72rem;
-  color: #9fb2d8;
-  margin: 0.45rem 0 0.2rem;
-}
-
 .ac-search input,
 .ac-custom input {
   width: 100%;
@@ -3459,55 +3460,9 @@ a.ac-compass-cal__btn--direction {
   color: #eaf1ff;
 }
 
-.ac-picker {
-  position: relative;
-}
-
-.ac-picker__btn {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.45rem;
-  width: 100%;
-  font-family: inherit;
-  font-size: 0.78rem;
-  line-height: 1.25;
-  padding: 0.35rem 0.5rem;
-  border-radius: 0.4rem;
-  border: 1px solid rgba(120, 160, 230, 0.35);
-  background: rgba(8, 16, 36, 0.85);
-  color: #eaf1ff;
-  cursor: pointer;
-  text-align: left;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.ac-picker__btn .fa {
-  flex: 0 0 auto;
-  font-size: 0.62rem;
-  opacity: 0.75;
-  transition: transform 0.15s ease;
-}
-
-.ac-picker--open .ac-picker__btn .fa {
-  transform: rotate(180deg);
-}
-
-.ac-picker__value {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ac-picker__value--placeholder {
-  color: #9fb2d8;
-}
-
 .ac-picker__list {
   list-style: none;
-  margin: 0.28rem 0 0;
+  margin: 0.45rem 0 0;
   padding: 0.15rem 0;
   max-height: min(48vh, 22rem);
   overflow-x: hidden;
@@ -5509,6 +5464,43 @@ a.ac-compass-cal__btn--direction {
   color: #d8ffe8;
 }
 
+.ac-finder__exact--hud {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  white-space: normal;
+  text-align: center;
+}
+
+.ac-finder__skymap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.26rem;
+  box-sizing: border-box;
+  padding: 0.28rem 0.52rem;
+  border: 1px solid rgba(140, 180, 255, 0.45);
+  border-radius: 0.4rem;
+  background: rgba(90, 140, 255, 0.38);
+  color: #e6f2ff;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  white-space: nowrap;
+}
+
+.ac-finder__skymap:hover,
+.ac-finder__skymap:focus-visible,
+.ac-finder__skymap:visited {
+  color: #eaf4ff;
+  text-decoration: none;
+}
+
 .ac-finder__hud-sight {
   color: #7ef0d4;
   font-weight: 700;
@@ -5753,7 +5745,7 @@ a.ac-compass-cal__btn--direction {
 .ac-finder:-webkit-full-screen .ac-finder__hud {
   top: max(0.55rem, env(safe-area-inset-top, 0px));
   left: max(0.55rem, env(safe-area-inset-left, 0px));
-  right: 5.2rem;
+  right: 14.2rem;
 }
 
 .ac-finder--fs .ac-finder__aim-val strong,
@@ -5792,6 +5784,7 @@ a.ac-compass-cal__btn--direction {
 .ac-finder:-webkit-full-screen .ac-finder__right-btns {
   top: max(0.4rem, env(safe-area-inset-top, 0px));
   right: max(0.4rem, env(safe-area-inset-right, 0px));
+  max-width: min(13.5rem, calc(100vw - 1.4rem));
 }
 
 .ac-finder__north {
@@ -6218,7 +6211,7 @@ a.ac-compass-cal__btn--direction {
 }
 
 .ac-finder__north-box-row--more {
-  justify-content: center;
+  justify-content: stretch;
   padding-top: 0.2rem;
   border-top: 1px solid rgba(255, 196, 60, 0.18);
 }
@@ -6323,8 +6316,9 @@ a.ac-compass-cal__btn--direction {
 }
 
 .ac-finder__north-box-btn--more {
-  flex: 1 1 100%;
-  width: 100%;
+  flex: 1 1 8rem;
+  width: auto;
+  min-width: 0;
   min-height: 2.45rem;
   padding: 0.52rem 0.75rem;
   font-size: 0.84rem;
@@ -6334,6 +6328,13 @@ a.ac-compass-cal__btn--direction {
   background: linear-gradient(90deg, #ffd54a, #ffb347);
   color: #2a1e02;
   box-sizing: border-box;
+  gap: 0.35rem;
+}
+
+.ac-finder__north-box-btn--nord {
+  border-color: #1d8f78;
+  background: linear-gradient(90deg, #5ee8c8, #2ab89a);
+  color: #04110e;
 }
 
 .ac-finder__actions {
@@ -6623,6 +6624,60 @@ a.ac-compass-cal__btn--direction {
 
 .ac-object-modal .ac-live-hero__orb {
   animation: none;
+}
+
+.ac-object-modal__gps {
+  margin: 0;
+  font-size: 0.76rem;
+  color: #ffd39a;
+}
+
+.ac-object-passes {
+  margin: 0;
+}
+
+.ac-object-passes__title {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffe08a;
+}
+
+.ac-object-passes__empty {
+  margin: 0;
+  font-size: 0.76rem;
+  color: #9fb0d4;
+}
+
+.ac-object-pass {
+  padding: 0.45rem 0.5rem;
+  margin-bottom: 0.4rem;
+  border: 1px solid rgba(120, 150, 220, 0.28);
+  border-radius: 0.4rem;
+  background: rgba(8, 14, 28, 0.55);
+}
+
+.ac-object-pass__when {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+  color: #9ef0c2;
+  margin-bottom: 0.25rem;
+}
+
+.ac-object-pass__k {
+  font-weight: 700;
+}
+
+.ac-object-pass__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  font-size: 0.7rem;
+  color: #9fb0d4;
 }
 
 .ac-help-backdrop--finder-info {

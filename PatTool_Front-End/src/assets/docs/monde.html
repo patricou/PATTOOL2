@@ -49,6 +49,7 @@
                     <li><a href="#geo-fr">Géolocalisation &amp; météo</a></li>
                     <li><a href="#news-fr">Actualités</a></li>
                     <li><a href="#wiki-fr">Wikipédia</a></li>
+                    <li><a href="#youtube-fr">YouTube</a></li>
                     <li><a href="#finance-fr">Devises, bourse, cryptos</a></li>
                     <li><a href="#terre-fr">Espace</a></li>
                     <li><a href="#viseur-fr">Viseur, boussole et calibrage</a></li>
@@ -72,6 +73,7 @@
                     <tr><td><strong>Adresse / GPS → carte</strong></td><td><code class="doc-code">#/api/address-geocode</code></td><td>Géocodage d'une adresse ou coordonnées → carte Leaflet</td></tr>
                     <tr><td><strong>GPS / Itinéraire</strong></td><td><code class="doc-code">#/api/gps-routing</code></td><td>Itinéraire A→B (voiture, vélo, à pied) via OpenRouteService ; carte Leaflet + instructions</td></tr>
                     <tr><td><strong>Trace GPX</strong></td><td><code class="doc-code">#/api/gpx-trace</code></td><td>Chargement d'un fichier GPX : carte, profil altimétrique, distance, dénivelé, vitesse, waypoints et métadonnées</td></tr>
+                    <tr><td><strong>Relief finder</strong></td><td><code class="doc-code">#/tools/relief-finder</code></td><td>Viseur de sommets : silhouette DEM 360° (tuiles Terrarium) et noms OSM collés sur la caméra, avec le nord et l’élévation du viseur</td></tr>
                     <tr><td><strong>Fuseaux horaires</strong></td><td><code class="doc-code">#/api/timezone-converter</code></td><td>Conversion date/heure entre fuseaux, référence UTC</td></tr>
                 </table>
             </section>
@@ -98,6 +100,17 @@
                 </ul>
             </section>
 
+            <section class="doc-section" id="youtube-fr">
+                <h2>YouTube</h2>
+                <p>Route : <code class="doc-code">#/tools/youtube</code> (menu Média)</p>
+                <ul>
+                    <li>Recherche de vidéos, playlists et chaînes via le proxy <code class="doc-code">/api/external/youtube/search</code></li>
+                    <li>Tendances du pays via <code class="doc-code">/api/external/youtube/popular</code></li>
+                    <li>Lecture dans un lecteur embarqué (youtube-nocookie) ; la clé API reste dans <code class="doc-code">app.youtube.api-key</code></li>
+                    <li>Clé gratuite : Google Cloud Console → activer YouTube Data API v3 → créer une clé API</li>
+                </ul>
+            </section>
+
             <section class="doc-section" id="finance-fr">
                 <h2>Devises, bourse, cryptos</h2>
                 <table class="doc-table">
@@ -116,6 +129,7 @@
                     <tr><td><strong>Globe / ISS</strong></td><td><code class="doc-code">#/tools/world-globe</code></td><td>Globe 3D, ISS en direct, boussole « où regarder », alertes de passage, suivi de vols</td></tr>
                     <tr><td><strong>Système solaire</strong></td><td><code class="doc-code">#/tools/solar-system</code></td><td>Carte des planètes, orbites, informations par corps céleste</td></tr>
                     <tr><td><strong>Ciel</strong></td><td><code class="doc-code">#/tools/ciel</code></td><td>Carte du ciel, constellations, visibilité selon position et date</td></tr>
+                    <tr><td><strong>Univers futur</strong></td><td><code class="doc-code">#/tools/univers-futur</code></td><td>Positions réelles (sans délai de lumière) des planètes, étoiles, constellations et galaxies dans X ka/Ma/Ga ; expansion ΛCDM vs Big Crunch hypothétique</td></tr>
                     <tr><td><strong>Éclipses</strong></td><td><code class="doc-code">#/tools/eclipse</code></td><td>Éclipses solaires/lunaires via USNO et OPALE (IMCCE)</td></tr>
                     <tr><td><strong>Viseur d'Astres</strong></td><td><code class="doc-code">#/tools/astro-compass</code></td><td>Caméra arrière : l’astre ou satellite choisi s’affiche dans l’image ; auto-détection ; dernier astre mémorisé ; fiche Wikipédia</td></tr>
                     <tr><td><strong>Boussole</strong></td><td><code class="doc-code">#/tools/nord</code></td><td>Nord géographique, calage figure-8 du magnétomètre, lecture en direct des capteurs</td></tr>
@@ -164,6 +178,7 @@
                     <li><a href="#geo-en">Geolocation &amp; weather</a></li>
                     <li><a href="#news-en">News</a></li>
                     <li><a href="#wiki-en">Wikipedia</a></li>
+                    <li><a href="#youtube-en">YouTube</a></li>
                     <li><a href="#finance-en">Currency, stocks, crypto</a></li>
                     <li><a href="#earth-en">Space</a></li>
                     <li><a href="#finder-en">Sky finder, compass and calibration</a></li>
@@ -177,7 +192,7 @@
 
             <section class="doc-section" id="geo-en">
                 <h2>Geolocation &amp; weather</h2>
-                <p>Weather (<code class="doc-code">#/api/openweathermap</code>), geocoding map (<code class="doc-code">#/api/address-geocode</code>), GPS routing (<code class="doc-code">#/api/gps-routing</code>), GPX track analyzer (<code class="doc-code">#/api/gpx-trace</code>), time zones (<code class="doc-code">#/api/timezone-converter</code>).</p>
+                <p>Weather (<code class="doc-code">#/api/openweathermap</code>), geocoding map (<code class="doc-code">#/api/address-geocode</code>), GPS routing (<code class="doc-code">#/api/gps-routing</code>), GPX track analyzer (<code class="doc-code">#/api/gpx-trace</code>), Relief finder (<code class="doc-code">#/tools/relief-finder</code> — DEM silhouette + named peaks on the rear camera), time zones (<code class="doc-code">#/api/timezone-converter</code>).</p>
             </section>
 
             <section class="doc-section" id="news-en">
@@ -188,6 +203,11 @@
             <section class="doc-section" id="wiki-en">
                 <h2>Wikipedia</h2>
                 <p><code class="doc-code">#/api/wiki</code> (Media menu) — free-text search through the PatTool Wikipedia proxy, article summary, image and link. Encyclopedia language can be changed independently of the UI language. The sky finder also opens a Wikipedia card for the selected object.</p>
+            </section>
+
+            <section class="doc-section" id="youtube-en">
+                <h2>YouTube</h2>
+                <p><code class="doc-code">#/tools/youtube</code> (Media menu) — search videos, playlists and channels through <code class="doc-code">/api/external/youtube</code>. Trending videos load by country. Playback uses a youtube-nocookie embed; the Data API key stays in <code class="doc-code">app.youtube.api-key</code>.</p>
             </section>
 
             <section class="doc-section" id="finance-en">
@@ -202,6 +222,7 @@
                     <tr><td><strong>Globe / ISS</strong></td><td><code class="doc-code">#/tools/world-globe</code></td><td>3D globe, live ISS, look-up compass, pass alerts, flight tracking</td></tr>
                     <tr><td><strong>Solar system</strong></td><td><code class="doc-code">#/tools/solar-system</code></td><td>Planets, orbits, per-body information</td></tr>
                     <tr><td><strong>Sky</strong></td><td><code class="doc-code">#/tools/ciel</code></td><td>Sky chart, constellations, visibility by location and date</td></tr>
+                    <tr><td><strong>Future universe</strong></td><td><code class="doc-code">#/tools/univers-futur</code></td><td>True positions (no light delay) of planets, stars, constellations and galaxies in X ka/Ma/Ga; ΛCDM expansion vs hypothetical Big Crunch</td></tr>
                     <tr><td><strong>Eclipses</strong></td><td><code class="doc-code">#/tools/eclipse</code></td><td>Solar/lunar eclipses via USNO and OPALE (IMCCE)</td></tr>
                     <tr><td><strong>Sky finder</strong></td><td><code class="doc-code">#/tools/astro-compass</code></td><td>Rear camera overlay; auto-detect; last target saved; Wikipedia card</td></tr>
                     <tr><td><strong>Compass</strong></td><td><code class="doc-code">#/tools/nord</code></td><td>True north, figure-8 magnetometer calibration, live phone sensors</td></tr>

@@ -227,13 +227,11 @@ a.dir-btn--link {
   text-decoration: none;
 }
 
-a.dir-btn--astro {
+a.dir-btn--astro,
+a.dir-btn--nord {
   display: flex;
   width: 100%;
   box-sizing: border-box;
-  background: linear-gradient(90deg, #ffd54a, #ffb347);
-  border-color: #e0a020;
-  color: #2a1e02;
   font-weight: 800;
   padding: 0.52rem 0.75rem;
   min-height: 2.45rem;
@@ -244,7 +242,20 @@ a.dir-btn--astro {
   gap: 0.35rem;
 }
 
-a.dir-btn--astro .fa {
+a.dir-btn--astro {
+  background: linear-gradient(90deg, #ffd54a, #ffb347);
+  border-color: #e0a020;
+  color: #2a1e02;
+}
+
+a.dir-btn--nord {
+  background: linear-gradient(90deg, #5ee8c8, #2ab89a);
+  border-color: #1d8f78;
+  color: #04110e;
+}
+
+a.dir-btn--astro .fa,
+a.dir-btn--nord .fa {
   font-size: 0.9rem;
 }
 
@@ -1590,11 +1601,24 @@ section.dir-cal {
   }
 }
 
-.dir-card--astro {
+.dir-card--links {
   padding: 0.65rem 0.7rem;
 }
 
-.dir-card--astro .dir-btn--astro {
+.dir-links {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+}
+
+@media (min-width: 480px) {
+  .dir-links {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.dir-card--links .dir-btn--astro,
+.dir-card--links .dir-btn--nord {
   width: 100%;
 }
 

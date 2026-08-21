@@ -1,0 +1,193 @@
+<div class="pat-title">
+  <h2>
+    <span class="yt-mark" aria-hidden="true">
+      <i class="fa fa-youtube-play"></i>
+    </span>
+    {{ 'YOUTUBE.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="yt-page">
+  <p class="yt-lead">{{ 'YOUTUBE.SUBTITLE' | translate }}</p>
+
+  <form class="yt-search-bar" (submit)="$event.preventDefault(); submitSearch()">
+    <label class="visually-hidden" for="yt-query">{{ 'YOUTUBE.SEARCH' | translate }}</label>
+    <input
+      id="yt-query"
+      type="search"
+      class="form-control yt-query"
+      name="ytQuery"
+      [(ngModel)]="query"
+      (ngModelChange)="onQueryChanged()"
+      [placeholder]="'YOUTUBE.SEARCH_PLACEHOLDER' | translate"
+      autocomplete="off"
+      autofocus />
+
+    <label class="visually-hidden" for="yt-type">{{ 'YOUTUBE.TYPE' | translate }}</label>
+    <select
+      id="yt-type"
+      class="form-select yt-type"
+      name="ytType"
+      [(ngModel)]="type"
+      (ngModelChange)="onFilterChanged()">
+      <option *ngFor="let t of types" [value]="t">{{ ('YOUTUBE.TYPE_' + t.toUpperCase()) | translate }}</option>
+    </select>
+
+    <label class="visually-hidden" for="yt-region">{{ 'YOUTUBE.REGION' | translate }}</label>
+    <select
+      id="yt-region"
+      class="form-select yt-region"
+      name="ytRegion"
+      [(ngModel)]="regionCode"
+      (ngModelChange)="onFilterChanged()">
+      <option *ngFor="let opt of regions" [value]="opt.code">{{ opt.label }}</option>
+    </select>
+
+    <button type="submit" class="btn btn-primary yt-search-btn" [disabled]="(!query.trim() && !channelId) || searching">
+      <i class="fa fa-search" aria-hidden="true"></i>
+      <span>{{ 'YOUTUBE.SEARCH' | translate }}</span>
+    </button>
+
+    <button
+      type="button"
+      class="btn btn-outline-secondary yt-clear-btn"
+      *ngIf="query || channelId || items.length || selected"
+      (click)="clearSearch()">
+      <i class="fa fa-times" aria-hidden="true"></i>
+      <span>{{ 'YOUTUBE.CLEAR' | translate }}</span>
+    </button>
+  </form>
+
+  <p class="yt-channel-filter" *ngIf="channelId">
+    <i class="fa fa-user-circle" aria-hidden="true"></i>
+    {{ 'YOUTUBE.CHANNEL_FILTER' | translate }}
+    <button type="button" class="btn btn-link btn-sm p-0" (click)="clearSearch()">{{ 'YOUTUBE.CLEAR' | translate }}</button>
+  </p>
+
+  <div class="alert alert-warning py-2 yt-alert" *ngIf="errorMessage && !searching" role="alert">
+    <i class="fa fa-exclamation-triangle me-2"></i>
+    {{ errorMessage | translate }}
+    <span class="yt-key-help" *ngIf="missingKey">
+      {{ 'YOUTUBE.KEY_HELP' | translate }}
+    </span>
+  </div>
+
+  <div class="yt-player" *ngIf="selected && embedUrl && !playerOpen">
+    <div class="yt-player-frame">
+      <iframe
+        [src]="embedUrl"
+        [title]="selected.title || ''"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowfullscreen
+        referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    </div>
+    <div class="yt-player-meta">
+      <h3 class="yt-player-title">{{ selected.title }}</h3>
+      <p class="yt-player-sub">
+        <span *ngIf="isLive(selected)" class="yt-live">LIVE</span>
+        <span *ngIf="selected.channelTitle">{{ selected.channelTitle }}</span>
+        <span *ngIf="durationLabel(selected.duration)"> · {{ durationLabel(selected.duration) }}</span>
+        <span *ngIf="viewsLabel(selected.viewCount)"> · {{ 'YOUTUBE.VIEWS' | translate:{ count: viewsLabel(selected.viewCount) } }}</span>
+        <span *ngIf="publishedLabel(selected.publishedAt)"> · {{ publishedLabel(selected.publishedAt) }}</span>
+      </p>
+      <p class="yt-player-desc" *ngIf="selected.description">{{ selected.description }}</p>
+      <div class="yt-now-playing-actions">
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openInFloatingWindow()">
+          <i class="fa fa-clone" aria-hidden="true"></i>
+          {{ 'YOUTUBE.FLOAT_OPEN' | translate }}
+        </button>
+        <a
+          *ngIf="youtubeUrl(selected)"
+          class="btn btn-outline-danger btn-sm"
+          [href]="youtubeUrl(selected)"
+          target="_blank"
+          rel="noopener noreferrer">
+          <i class="fa fa-external-link" aria-hidden="true"></i>
+          {{ 'YOUTUBE.OPEN_YOUTUBE' | translate }}
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="yt-now-playing" *ngIf="playerOpen && selected">
+    <div class="yt-now-playing-copy">
+      <span class="yt-now-playing-kicker">{{ 'YOUTUBE.FLOAT_ACTIVE_BANNER' | translate }}</span>
+      <h3 class="yt-player-title">{{ selected.title }}</h3>
+      <p class="yt-player-sub">
+        <span *ngIf="isLive(selected)" class="yt-live">LIVE</span>
+        <span *ngIf="selected.channelTitle">{{ selected.channelTitle }}</span>
+        <span *ngIf="durationLabel(selected.duration)"> · {{ durationLabel(selected.duration) }}</span>
+        <span *ngIf="viewsLabel(selected.viewCount)"> · {{ 'YOUTUBE.VIEWS' | translate:{ count: viewsLabel(selected.viewCount) } }}</span>
+      </p>
+    </div>
+    <div class="yt-now-playing-actions">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="restorePlayer()">
+        <i class="fa fa-window-restore" aria-hidden="true"></i>
+        {{ 'YOUTUBE.FLOAT_RESTORE' | translate }}
+      </button>
+      <a
+        *ngIf="youtubeUrl(selected)"
+        class="btn btn-outline-danger btn-sm"
+        [href]="youtubeUrl(selected)"
+        target="_blank"
+        rel="noopener noreferrer">
+        <i class="fa fa-external-link" aria-hidden="true"></i>
+        {{ 'YOUTUBE.OPEN_YOUTUBE' | translate }}
+      </a>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closePlayer()">
+        <i class="fa fa-times" aria-hidden="true"></i>
+        {{ 'YOUTUBE.FLOAT_CLOSE' | translate }}
+      </button>
+    </div>
+  </div>
+
+  <div class="yt-results-head" *ngIf="searched || searching">
+    <span>{{ (resultKind === 'popular' ? 'YOUTUBE.POPULAR' : 'YOUTUBE.RESULTS') | translate }}</span>
+    <span class="yt-results-count" *ngIf="!searching">
+      {{ 'YOUTUBE.RESULT_COUNT' | translate:{ count: items.length } }}
+    </span>
+  </div>
+
+  <div class="yt-busy" *ngIf="searching">
+    <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+    {{ 'YOUTUBE.LOADING' | translate }}
+  </div>
+
+  <p class="yt-no-results" *ngIf="!searching && searched && !items.length && !missingKey">
+    {{ 'YOUTUBE.NO_RESULTS' | translate }}
+  </p>
+
+  <div class="yt-grid" *ngIf="!searching && items.length">
+    <button
+      type="button"
+      class="yt-card"
+      *ngFor="let item of items"
+      [class.active]="selected?.id === item.id && selected?.kind === item.kind"
+      (click)="selectItem(item)">
+      <span class="yt-card-thumb">
+        <img *ngIf="thumbUrl(item)" [src]="thumbUrl(item)" [alt]="item.title || ''" />
+        <span class="yt-card-fallback" *ngIf="!thumbUrl(item)" aria-hidden="true">
+          <i class="fa fa-youtube-play"></i>
+        </span>
+        <span class="yt-card-duration" *ngIf="durationLabel(item.duration)">{{ durationLabel(item.duration) }}</span>
+        <span class="yt-live yt-card-live" *ngIf="isLive(item)">LIVE</span>
+      </span>
+      <span class="yt-card-body">
+        <span class="yt-card-title">{{ item.title }}</span>
+        <span class="yt-card-channel" *ngIf="item.channelTitle">{{ item.channelTitle }}</span>
+        <span class="yt-card-meta">
+          <span *ngIf="item.kind !== 'video'">{{ ('YOUTUBE.TYPE_' + (item.kind || 'video').toUpperCase()) | translate }}</span>
+          <span *ngIf="viewsLabel(item.viewCount)">{{ 'YOUTUBE.VIEWS' | translate:{ count: viewsLabel(item.viewCount) } }}</span>
+          <span *ngIf="publishedLabel(item.publishedAt)">{{ publishedLabel(item.publishedAt) }}</span>
+        </span>
+      </span>
+    </button>
+  </div>
+
+  <div class="yt-more" *ngIf="nextPageToken && !searching">
+    <button type="button" class="btn btn-outline-secondary" [disabled]="loadingMore" (click)="loadMore()">
+      <i class="fa" [class.fa-spinner]="loadingMore" [class.fa-spin]="loadingMore" [class.fa-chevron-down]="!loadingMore" aria-hidden="true"></i>
+      {{ 'YOUTUBE.LOAD_MORE' | translate }}
+    </button>
+  </div>
+</div>

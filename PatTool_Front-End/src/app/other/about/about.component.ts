@@ -110,10 +110,12 @@ export class AboutComponent {
     { route: ['tools/world-globe'], icon: 'fa-globe', labelKey: 'MENU.WORLD_GLOBE', descKey: 'ABOUT.FEAT_GLOBE' },
     { route: ['tools/solar-system'], icon: 'fa-sun-o', labelKey: 'MENU.SOLAR_SYSTEM', descKey: 'ABOUT.FEAT_SOLAR' },
     { route: ['tools/ciel'], icon: 'fa-star', labelKey: 'MENU.SKY', descKey: 'ABOUT.FEAT_SKY' },
+    { route: ['tools/univers-futur'], icon: 'fa-hourglass-half', labelKey: 'MENU.FUTURE_UNIVERSE', descKey: 'ABOUT.FEAT_FUTURE_UNIVERSE' },
     { route: ['tools/eclipse'], icon: 'fa-moon-o', labelKey: 'MENU.ECLIPSE', descKey: 'ABOUT.FEAT_ECLIPSE' },
     { route: ['tools/astro-compass'], icon: 'fa-video-camera', labelKey: 'MENU.ASTRO_COMPASS', descKey: 'ABOUT.FEAT_ASTRO' },
     { route: ['tools/nord'], icon: 'fa-location-arrow', labelKey: 'MENU.NORD', descKey: 'ABOUT.FEAT_COMPASS' },
     { route: ['tools/direction'], icon: 'fa-crosshairs', labelKey: 'MENU.DIRECTION', descKey: 'ABOUT.FEAT_DIRECTION' },
+    { route: ['tools/relief-finder'], icon: 'fa-area-chart', labelKey: 'MENU.RELIEF_FINDER', descKey: 'ABOUT.FEAT_RELIEF' },
     { route: ['api/wiki'], icon: 'fa-graduation-cap', labelKey: 'MENU.WIKI', descKey: 'ABOUT.FEAT_WIKI' },
     { route: ['tools/archive-watcher'], icon: 'fa-archive', labelKey: 'MENU.ARCHIVE', descKey: 'ABOUT.FEAT_MEDIA' },
     { route: ['system'], icon: 'fa-cog', labelKey: 'MENU.SYSTEM', descKey: 'ABOUT.FEAT_SYSTEM' }

@@ -319,16 +319,25 @@
   </section>
 
   <section
-    class="dir-card dir-card--astro"
+    class="dir-card dir-card--links"
     *ngIf="!patWizard"
-    [attr.aria-label]="'DIRECTION.OPEN_ASTRO' | translate">
-    <a
-      class="dir-btn dir-btn--link dir-btn--astro"
-      routerLink="/tools/astro-compass"
-      [attr.title]="'DIRECTION.OPEN_ASTRO_HINT' | translate">
-      <i class="fa fa-video-camera" aria-hidden="true"></i>
-      {{ 'DIRECTION.OPEN_ASTRO' | translate }}
-    </a>
+    [attr.aria-label]="'DIRECTION.OPEN_NORD' | translate">
+    <div class="dir-links">
+      <a
+        class="dir-btn dir-btn--link dir-btn--nord"
+        routerLink="/tools/nord"
+        [attr.title]="'DIRECTION.OPEN_NORD_HINT' | translate">
+        <i class="fa fa-compass" aria-hidden="true"></i>
+        {{ 'DIRECTION.OPEN_NORD' | translate }}
+      </a>
+      <a
+        class="dir-btn dir-btn--link dir-btn--astro"
+        routerLink="/tools/astro-compass"
+        [attr.title]="'DIRECTION.OPEN_ASTRO_HINT' | translate">
+        <i class="fa fa-video-camera" aria-hidden="true"></i>
+        {{ 'DIRECTION.OPEN_ASTRO' | translate }}
+      </a>
+    </div>
   </section>
 
   <section class="dir-card" *ngIf="!patWizard" [attr.aria-label]="'DIRECTION.STEP_OTHER' | translate">

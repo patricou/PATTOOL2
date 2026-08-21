@@ -1489,6 +1489,30 @@
           <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'WORLD_GLOBE.ISS_TICKER_LON', helpKey: 'ASTRO_COMPASS.HELP_LON_DEF' }"></ng-container>
           <span class="wg-sat-facts__v">{{ snap.lon | number : '1.2-4' }}°</span>
         </div>
+        <div class="wg-sat-facts__cell" *ngIf="satelliteInfoOverPlaceLabel() as overPlace">
+          <span class="wg-sat-facts__k">{{ 'WORLD_GLOBE.ISS_TICKER_OVER' | translate }}</span>
+          <span class="wg-sat-facts__v">{{ satelliteInfoOverFlag() }} {{ overPlace }}</span>
+        </div>
+        <div class="wg-sat-facts__cell" *ngIf="satelliteInfoStepKm() as stepKm">
+          <span class="wg-sat-facts__k">{{ 'WORLD_GLOBE.ISS_TICKER_STEP' | translate }}</span>
+          <span class="wg-sat-facts__v">{{ stepKm | number : '1.0-1' }} km</span>
+        </div>
+        <div class="wg-sat-facts__cell" *ngIf="snap.raHours != null">
+          <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.RA', helpKey: 'ASTRO_COMPASS.HELP_RA_DEF' }"></ng-container>
+          <span class="wg-sat-facts__v">{{ snap.raHours | number : '1.3-3' }} h</span>
+        </div>
+        <div class="wg-sat-facts__cell" *ngIf="snap.decDeg != null">
+          <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.DEC', helpKey: 'ASTRO_COMPASS.HELP_DEC_DEF' }"></ng-container>
+          <span class="wg-sat-facts__v">{{ snap.decDeg | number : '1.2-2' }}°</span>
+        </div>
+        <div class="wg-sat-facts__cell" *ngIf="snap.constellationName">
+          <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.CONSTELLATION', helpKey: 'ASTRO_COMPASS.HELP_CONST_DEF' }"></ng-container>
+          <span class="wg-sat-facts__v">{{ snap.constellationName }}</span>
+        </div>
+        <div class="wg-sat-facts__cell" *ngIf="satelliteInfoDossier?.vMag != null">
+          <ng-container *ngTemplateOutlet="wgFactTip; context: { labelKey: 'ASTRO_COMPASS.MAGNITUDE', helpKey: 'ASTRO_COMPASS.HELP_MAG_DEF' }"></ng-container>
+          <span class="wg-sat-facts__v">{{ satelliteInfoDossier?.vMag | number : '1.2-2' }}</span>
+        </div>
       </div>
 
       <div class="wg-sat-info-passes" *ngIf="!satelliteInfoLoading && hasUserObserverPosition()">

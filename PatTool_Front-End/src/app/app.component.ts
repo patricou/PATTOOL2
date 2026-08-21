@@ -24,6 +24,7 @@ import { AssistantDrawerComponent } from './shared/assistant-drawer/assistant-dr
 import { TvFloatingPlayerComponent } from './tv-watcher/tv-floating-player.component';
 import { RadioFloatingPlayerComponent } from './radio-watcher/radio-floating-player.component';
 import { ArchiveFloatingPlayerComponent } from './archive-watcher/archive-floating-player.component';
+import { YoutubeFloatingPlayerComponent } from './youtube-watcher/youtube-floating-player.component';
 import { GlobeIssNowService } from './services/globe-iss-now.service';
 import { MongoHealthService, MongoHealthStatus } from './services/mongodb-health.service';
 import { LastRouteService } from './services/last-route.service';
@@ -97,7 +98,7 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.css'],
     standalone: true,
-    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent, AssistantDrawerComponent, TvFloatingPlayerComponent, RadioFloatingPlayerComponent, ArchiveFloatingPlayerComponent]
+    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent, AssistantDrawerComponent, TvFloatingPlayerComponent, RadioFloatingPlayerComponent, ArchiveFloatingPlayerComponent, YoutubeFloatingPlayerComponent]
 })
 export class AppComponent implements OnInit {
 
@@ -221,6 +222,7 @@ export class AppComponent implements OnInit {
         { routerLink: ['api/address-geocode'], icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP' },
         { routerLink: ['api/gps-routing'], icon: 'fa fa-road', labelKey: 'MENU.GPS_ROUTING' },
         { routerLink: ['api/gpx-trace'], icon: 'fa fa-map-signs', labelKey: 'MENU.GPX_TRACE' },
+        { routerLink: ['tools/relief-finder'], icon: 'fa fa-area-chart', labelKey: 'MENU.RELIEF_FINDER' },
         { routerLink: ['api/timezone-converter'], icon: 'fa fa-clock-o', labelKey: 'MENU.TIME_ZONES' },
         { routerLink: ['api/electricite'], icon: 'fa fa-bolt', labelKey: 'MENU.ELECTRICITE' }
     ];
@@ -230,6 +232,7 @@ export class AppComponent implements OnInit {
         { routerLink: ['tools/book-watcher'], icon: 'fa fa-book', labelKey: 'MENU.BOOK' },
         { routerLink: ['tools/archive-watcher'], icon: 'fa fa-archive', labelKey: 'MENU.ARCHIVE' },
         { routerLink: ['tools/webcam'], icon: 'fa fa-video-camera', labelKey: 'MENU.WEBCAM' },
+        { routerLink: ['tools/youtube'], icon: 'fa fa-youtube-play', labelKey: 'MENU.YOUTUBE' },
         { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' },
         { routerLink: ['api/wiki'], icon: 'fa fa-graduation-cap', labelKey: 'MENU.WIKI' }
     ];
@@ -238,11 +241,12 @@ export class AppComponent implements OnInit {
         { routerLink: ['api/stock-exchange'], icon: 'fa fa-line-chart', labelKey: 'MENU.STOCK_EXCHANGE' },
         { routerLink: ['api/cryptos'], icon: 'fa fa-bitcoin', labelKey: 'MENU.CRYPTOS' }
     ];
-    /** Globe 3D et carte du système solaire (sous-section du menu Monde). */
+    /** Globe 3D, carte du système solaire et univers futur (sous-section du menu Monde). */
     readonly navGeoWorldRaw: NavRouteMenuItem[] = [
         { routerLink: ['tools/world-globe'], icon: 'fa fa-map', labelKey: 'MENU.WORLD_GLOBE' },
         { routerLink: ['tools/solar-system'], icon: 'fa fa-globe', labelKey: 'MENU.SOLAR_SYSTEM' },
         { routerLink: ['tools/ciel'], icon: 'fa fa-star', labelKey: 'MENU.SKY' },
+        { routerLink: ['tools/univers-futur'], icon: 'fa fa-hourglass-half', labelKey: 'MENU.FUTURE_UNIVERSE' },
         { routerLink: ['tools/eclipse'], icon: 'fa fa-moon-o', labelKey: 'MENU.ECLIPSE' },
         { routerLink: ['tools/astro-compass'], icon: 'fa fa-video-camera', labelKey: 'MENU.ASTRO_COMPASS' },
         { routerLink: ['tools/nord'], icon: 'fa fa-location-arrow', labelKey: 'MENU.NORD' },
@@ -350,7 +354,7 @@ export class AppComponent implements OnInit {
     /** Fond canvas html/body = ciel nocturne (évite le blanc au overscroll). */
     private updateStarrySkyPage(): void {
         const url = this.router.url || '';
-        const on = /\/tools\/(?:astro-compass|nord|direction)(?:\/|$|\?|#)/.test(url);
+        const on = /\/tools\/(?:astro-compass|nord|direction|relief-finder|univers-futur)(?:\/|$|\?|#)/.test(url);
         try {
             document.documentElement.classList.toggle('pat-starry-sky', on);
             document.body.classList.toggle('pat-starry-sky', on);

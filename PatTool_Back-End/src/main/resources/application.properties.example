@@ -280,6 +280,17 @@ app.cache.persistence.restore-on-startup=true
 # app.webcam.napspan-api-key=
 # app.webcam.search-cache-minutes=2
 
+# --- YouTube (Media page) — YouTube Data API v3 ---
+# 1) https://console.cloud.google.com/ → create/select a project
+# 2) Enable API « YouTube Data API v3 »
+#    https://console.cloud.google.com/apis/library/youtube.googleapis.com
+# 3) Credentials → Create credentials → API key
+# 4) Restrict the key to YouTube Data API v3 (and optionally your server IP)
+# 5) Paste the key below and restart the backend. Never put this key in the frontend.
+# Default quota is 10 000 units/day (search.list costs 100 units).
+# app.youtube.api-base=https://www.googleapis.com/youtube/v3
+# app.youtube.api-key=
+
 # Électricité (page Monde) — clés gratuites optionnelles pour Europe (ENTSO-E) et USA (EIA)
 # ENTSO-E : https://transparency.entsoe.eu (inscription gratuite)
 # app.electricity.entsoe-token=

@@ -4,6 +4,7 @@ import { KeycloakService } from '../keycloak/keycloak.service';
 import { Observable, Subject, Subscription, from, of, throwError } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
+import type { ReliefHorizon } from '../relief-finder/relief-horizon';
 
 /**
  * Per-user North calibration of the ISS compass (GET/PUT /external/globe/iss/compass/calibration).
@@ -1316,9 +1317,35 @@ export class ApiService {
    */
   getApiStatus(): Observable<any> {
     return this.getHeaderWithToken().pipe(
-      switchMap(headers =>
-        this._http.get(this.API_URL + 'external/weather/status', { headers: headers })
-      )
+      switchMap(headers => this._http.get(this.API_URL + 'external/weather/status', { headers: headers }))
+    );
+  }
+
+  /**
+   * DEM horizon silhouette + OSM named peaks (Relief Finder).
+   */
+  getReliefHorizon(
+    lat: number,
+    lon: number,
+    radiusKm: number,
+    observerAltM?: number | null
+  ): Observable<ReliefHorizon> {
+    const url = this.API_URL + 'external/relief-finder/horizon';
+    let params = new HttpParams()
+      .set('lat', lat.toString())
+      .set('lon', lon.toString())
+      .set('radiusKm', radiusKm.toString());
+    if (observerAltM != null && Number.isFinite(observerAltM)) {
+      params = params.set('observerAltM', observerAltM.toString());
+    }
+    const requestNoAuth = () =>
+      this._http.get<ReliefHorizon>(url, {
+        headers: new HttpHeaders({ Accept: 'application/json' }),
+        params
+      });
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) => this._http.get<ReliefHorizon>(url, { headers, params })),
+      catchError(() => requestNoAuth())
     );
   }
 
@@ -2485,6 +2512,58 @@ export class ApiService {
       params = params.set('lang', lang);
     }
     return this._http.get<WikipediaSummary>(this.API_URL + 'external/wiki/summary', { params });
+  }
+
+  searchYoutube(options: YoutubeSearchOptions): Observable<YoutubeSearchPage> {
+    let params = new HttpParams();
+    if (options.q) {
+      params = params.set('q', options.q);
+    }
+    if (options.type) {
+      params = params.set('type', options.type);
+    }
+    if (options.regionCode) {
+      params = params.set('regionCode', options.regionCode);
+    }
+    if (options.relevanceLanguage) {
+      params = params.set('relevanceLanguage', options.relevanceLanguage);
+    }
+    if (options.channelId) {
+      params = params.set('channelId', options.channelId);
+    }
+    if (options.pageToken) {
+      params = params.set('pageToken', options.pageToken);
+    }
+    if (options.maxResults) {
+      params = params.set('maxResults', String(options.maxResults));
+    }
+    return this._http.get<YoutubeSearchPage>(this.API_URL + 'external/youtube/search', { params });
+  }
+
+  getYoutubePopular(options: YoutubePopularOptions = {}): Observable<YoutubeSearchPage> {
+    let params = new HttpParams();
+    if (options.regionCode) {
+      params = params.set('regionCode', options.regionCode);
+    }
+    if (options.pageToken) {
+      params = params.set('pageToken', options.pageToken);
+    }
+    if (options.maxResults) {
+      params = params.set('maxResults', String(options.maxResults));
+    }
+    return this._http.get<YoutubeSearchPage>(this.API_URL + 'external/youtube/popular', { params });
+  }
+
+  /** Resolve a YouTube thumbnail through the PatTool proxy (never i.ytimg.com). */
+  youtubeThumbUrl(item: YoutubeItem | null | undefined): string | null {
+    const raw = item?.thumbnailUrl?.trim();
+    if (!raw) {
+      return null;
+    }
+    if (/^https?:\/\//i.test(raw)) {
+      return this.API_URL + 'external/youtube/image?u=' + encodeURIComponent(raw);
+    }
+    return this.API_URL + raw.replace(/^\//, '');
   }
 
   // ===================================================================
@@ -5002,6 +5081,52 @@ export interface WikipediaSummary {
   thumbnail?: { source?: string; width?: number; height?: number };
   originalimage?: { source?: string; width?: number; height?: number };
   content_urls?: { desktop?: { page?: string }; mobile?: { page?: string } };
+}
+
+export type YoutubeItemKind = 'video' | 'playlist' | 'channel';
+
+export interface YoutubeSearchOptions {
+  q?: string;
+  type?: YoutubeItemKind;
+  regionCode?: string;
+  relevanceLanguage?: string;
+  channelId?: string;
+  pageToken?: string;
+  maxResults?: number;
+}
+
+export interface YoutubePopularOptions {
+  regionCode?: string;
+  pageToken?: string;
+  maxResults?: number;
+}
+
+export interface YoutubeItem {
+  id?: string;
+  kind?: YoutubeItemKind | string;
+  title?: string;
+  description?: string;
+  channelTitle?: string;
+  channelId?: string;
+  publishedAt?: string;
+  thumbnailUrl?: string;
+  duration?: string;
+  viewCount?: number;
+  liveBroadcast?: string;
+}
+
+export interface YoutubeSearchPage {
+  configured?: boolean;
+  error?: string;
+  message?: string;
+  kind?: 'search' | 'popular' | string;
+  query?: string;
+  type?: string;
+  regionCode?: string;
+  nextPageToken?: string;
+  prevPageToken?: string;
+  total?: number;
+  items?: YoutubeItem[];
 }
 
 /** Noctua Sky catalogue entry (Stellarium Web API). */

@@ -30,7 +30,7 @@ import { PositionService } from '../services/position.service';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { environment } from '../../environments/environment';
-import { Body, Equator, Observer, SiderealTime, KM_PER_AU } from 'astronomy-engine';
+import { Body, Equator, Observer, SiderealTime, KM_PER_AU, Constellation } from 'astronomy-engine';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import {
   SlideshowModalComponent,
@@ -123,6 +123,9 @@ interface GlobeSatelliteInfoSnapshot {
   groundKm: number | null;
   slantKm: number | null;
   visible: boolean;
+  raHours: number | null;
+  decDeg: number | null;
+  constellationName: string | null;
 }
 
 /** Plus de subdivisions pour des courbes lisibles très zoomées (sans tuiles HR). */
@@ -2426,6 +2429,42 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     return WorldGlobeComponent.COMPASS_POINTS[idx]
       .map((letter) => this.translate.instant('ASTRO_COMPASS.DIR_' + letter))
       .join('');
+  }
+
+  satelliteInfoOverPlaceLabel(): string | null {
+    const sat = this.satelliteInfoSat;
+    if (!sat) {
+      return null;
+    }
+    if (sat.id === 'iss') {
+      return this.issOverPlaceLabel;
+    }
+    return this.tickerFocusSatId === sat.id ? this.satTickerOverPlaceLabel : null;
+  }
+
+  satelliteInfoOverFlag(): string {
+    const sat = this.satelliteInfoSat;
+    if (!sat) {
+      return '';
+    }
+    const code =
+      sat.id === 'iss'
+        ? this.issOverPlaceCountryCode
+        : this.tickerFocusSatId === sat.id
+          ? this.satTickerOverPlaceCountryCode
+          : null;
+    return this.flagEmojiFromCountryCode(code);
+  }
+
+  satelliteInfoStepKm(): number | null {
+    const sat = this.satelliteInfoSat;
+    if (!sat) {
+      return null;
+    }
+    if (sat.id === 'iss') {
+      return this.issLastStepGroundKm;
+    }
+    return this.tickerFocusSatId === sat.id ? this.satTickerStepKm : null;
   }
 
   satelliteInfoObserverDistance(): string | null {
@@ -8784,6 +8823,27 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       slantKm = WorldGlobeComponent.satelliteSlantRangeKmFromNadirCentralAngle(gamma, altKm);
       visible = elevationDeg > 0;
     }
+    let raHours: number | null = null;
+    let decDeg: number | null = null;
+    let constellationName: string | null = null;
+    if (obsLat != null && obsLon != null && azimuthDeg != null && elevationDeg != null) {
+      const eq = WorldGlobeComponent.horizontalToEquatorial(
+        azimuthDeg,
+        elevationDeg,
+        new Date(),
+        obsLat,
+        obsLon
+      );
+      if (eq) {
+        raHours = eq.raHours;
+        decDeg = eq.decDeg;
+        try {
+          constellationName = Constellation(eq.raHours, eq.decDeg).name;
+        } catch {
+          constellationName = null;
+        }
+      }
+    }
     this.satelliteInfoSnapshot = {
       lat: snap.lat,
       lon: snap.lon,
@@ -8793,7 +8853,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       elevationDeg,
       groundKm,
       slantKm,
-      visible
+      visible,
+      raHours,
+      decDeg,
+      constellationName
     };
   }
 
@@ -8878,6 +8941,36 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     const u = Math.min(1, Math.max(0, (0 - el0) / den));
     return t0 + (t1 - t0) * u;
+  }
+
+  private static horizontalToEquatorial(
+    azDeg: number,
+    elDeg: number,
+    date: Date,
+    latDeg: number,
+    lonDeg: number
+  ): { raHours: number; decDeg: number } | null {
+    const az = (azDeg * Math.PI) / 180;
+    const el = (elDeg * Math.PI) / 180;
+    const lat = (latDeg * Math.PI) / 180;
+    const sinDec = Math.sin(lat) * Math.sin(el) + Math.cos(lat) * Math.cos(el) * Math.cos(az);
+    const dec = Math.asin(Math.max(-1, Math.min(1, sinDec)));
+    const cosDec = Math.cos(dec);
+    if (Math.abs(cosDec) < 1e-8) {
+      return { raHours: 0, decDeg: (dec * 180) / Math.PI };
+    }
+    const sinH = (-Math.sin(az) * Math.cos(el)) / cosDec;
+    const cosH = (Math.sin(el) - Math.sin(lat) * Math.sin(dec)) / (Math.cos(lat) * cosDec);
+    const hourAngleHours = (Math.atan2(sinH, cosH) * 12) / Math.PI;
+    let gst: number;
+    try {
+      gst = SiderealTime(date);
+    } catch {
+      return null;
+    }
+    let raHours = gst + lonDeg / 15 - hourAngleHours;
+    raHours = ((raHours % 24) + 24) % 24;
+    return { raHours, decDeg: (dec * 180) / Math.PI };
   }
 
   private static initialBearingDeg(lat1: number, lon1: number, lat2: number, lon2: number): number {

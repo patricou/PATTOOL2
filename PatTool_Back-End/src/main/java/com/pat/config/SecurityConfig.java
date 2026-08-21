@@ -376,8 +376,10 @@ public class SecurityConfig {
                 // Sky-Map.org — DSS2 survey cutouts (img src has no Authorization header)
                 .requestMatchers(HttpMethod.GET, "/api/external/skymap/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/wiki/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/youtube/**").permitAll()
                 // Éclipses — USNO + OPALE/IMCCE (lecture seule, données publiques)
                 .requestMatchers(HttpMethod.GET, "/api/external/eclipse/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/relief-finder/**").permitAll()
                 // Tirages Loto importés (lecture seule, données publiques d'archive)
                 .requestMatchers(HttpMethod.GET, "/api/loto/**").permitAll()
                 // Sync Loto (scraping) — réservé aux administrateurs
