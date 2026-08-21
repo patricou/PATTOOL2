@@ -75,7 +75,7 @@ import { GlobeSatelliteNowService } from '../services/globe-satellite-now.servic
 import { CompassNorthEngine } from '../shared/compass-north.engine';
 import { clampCamHeightPx, loadCamHeightPx, saveCamHeightPx } from '../shared/preview-cam-size';
 import { isAndroidUserAgent, skyMapAndroidSearchIntent, openSkyMapAndroidApp } from '../shared/sky-map-app.util';
-import { wikiContentLang, wikiLookupRequest } from './astro-object-dossier.service';
+import { wikiContentLang, wikiLookupRequest, wikiSourceDir, wikiSourceLang } from './astro-object-dossier.service';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import {
   SlideshowModalComponent,
@@ -353,6 +353,8 @@ interface ObjectDossier {
   imageUrl: string | null;
   wikiUrl: string | null;
   wikiTitle: string | null;
+  wikiLang: string | null;
+  wikiDir: 'rtl' | null;
   skyNames: string[];
   skyTypes: string[];
   vMag: number | null;
@@ -6007,7 +6009,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return null;
     }
     const astroHint = /galax|n[eé]buleuse|nebula|messier|cluster|amas|étoile|star\b|planète|planet|constellation|satellite|station spatiale|space station|télescope spatial|space telescope|observatoire|observatory|dwarf|naine|quasar|spirale|spiral/i;
-    const disambig = /disambiguation|homonymie|topics referred/i;
+    const disambig = /disambiguation|homonymie|topics referred|desambiguaci[oó]n|begriffsklärung|disambigua|неоднозначн|曖昧さ回避|消歧义|توضيح|פירושונים|αποσαφήνιση|बहुविकल्पी/i;
     const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const queryRe = escaped ? new RegExp(escaped, 'i') : null;
     let bestTitle: string | null = null;
@@ -6259,6 +6261,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const imageUrl = wiki?.originalimage?.source || wiki?.thumbnail?.source || null;
     const wikiUrl = wiki?.content_urls?.desktop?.page || wiki?.content_urls?.mobile?.page || null;
     const wikiTitle = wiki?.title || wiki?.displaytitle || null;
+    const wikiLang = wikiOk ? wikiSourceLang(wiki) : null;
+    const wikiDir = wikiSourceDir(wikiLang);
     const skyNames = this.dossierSkyNames(sky);
     const skyTypes = this.dossierSkyTypes(sky);
     const vMag = this.asFiniteNumber(sky?.model_data?.Vmag) ?? this.asFiniteNumber(sky?.model_data?.['mag']);
@@ -6272,7 +6276,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return null;
     }
     return {
-      extract, description, thumbUrl, imageUrl, wikiUrl, wikiTitle,
+      extract, description, thumbUrl, imageUrl, wikiUrl, wikiTitle, wikiLang, wikiDir,
       skyNames, skyTypes, vMag, bMag, skyMapCutoutUrl, skyMapAtlasUrl, skyMapEmbedUrl, skyMapName
     };
   }

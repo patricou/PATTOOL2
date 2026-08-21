@@ -2179,7 +2179,7 @@
             loading="lazy" />
           <i class="fa fa-search-plus ac-live-dossier__thumb-zoom" aria-hidden="true"></i>
         </button>
-        <div class="ac-live-dossier__text">
+        <div class="ac-live-dossier__text" [attr.lang]="dossier.wikiLang" [attr.dir]="dossier.wikiDir">
           <p class="ac-live-dossier__desc" *ngIf="dossier.description">{{ dossier.description }}</p>
           <p class="ac-live-dossier__extract" *ngIf="dossier.extract">{{ dossier.extract }}</p>
         </div>

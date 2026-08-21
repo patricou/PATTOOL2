@@ -1536,7 +1536,7 @@
                 [alt]="dossier.wikiTitle || (satelliteInfoSat.labelKey | translate)" />
               <i class="fa fa-search-plus wg-sat-info-dossier__thumb-zoom" aria-hidden="true"></i>
             </button>
-            <div class="wg-sat-info-dossier__text">
+            <div class="wg-sat-info-dossier__text" [attr.lang]="dossier.wikiLang" [attr.dir]="dossier.wikiDir">
               <p class="wg-sat-info-dossier__desc" *ngIf="dossier.description">{{ dossier.description }}</p>
               <p class="wg-sat-info-dossier__extract" *ngIf="dossier.extract">{{ dossier.extract }}</p>
             </div>

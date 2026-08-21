@@ -10,8 +10,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Wikipedia search and page summary proxy (read-only).
- * {@code GET /api/external/wiki/search?q=Sirius&lang=fr}
- * {@code GET /api/external/wiki/summary?title=Sirius&lang=fr}
+ * {@code GET /api/external/wiki/search?q=Sirius&lang=es}
+ * {@code GET /api/external/wiki/summary?title=Sirius&lang=es}
+ * Summary {@code lang} follows the UI language when that Wikipedia edition
+ * exists; otherwise the proxy returns the article in the source language.
  */
 @RestController
 @RequestMapping("/api/external/wiki")

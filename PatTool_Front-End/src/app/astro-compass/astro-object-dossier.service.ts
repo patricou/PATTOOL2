@@ -17,13 +17,18 @@ export interface ObjectDossier {
   imageUrl: string | null;
   wikiUrl: string | null;
   wikiTitle: string | null;
+  /** Wikipedia edition that actually supplied the extract (may differ from the UI language). */
+  wikiLang: string | null;
+  wikiDir: 'rtl' | null;
   skyNames: string[];
   skyTypes: string[];
   vMag: number | null;
   bMag: number | null;
 }
 
-export type WikiContentLang = 'fr' | 'en';
+const WIKI_SAFE_LANGS = new Set(['fr', 'en', 'de', 'es', 'it', 'ru', 'ja', 'zh', 'ar', 'he', 'el', 'hi']);
+
+export type WikiContentLang = string;
 
 interface WikiLookup {
   fr: string;
@@ -32,39 +37,86 @@ interface WikiLookup {
   search?: string;
 }
 
-/** Wikipedia profile text: French if the UI is French, English for every other language. */
+/** Map the UI language to a Wikipedia edition (jp→ja, cn→zh, in→hi). */
+export function normalizeWikiLang(lang: string | null | undefined): string {
+  const raw = String(lang || '').trim().toLowerCase().replace(/_/g, '-');
+  if (!raw) {
+    return 'en';
+  }
+  let code = raw;
+  if (code.startsWith('jp')) {
+    code = 'ja';
+  } else if (code.startsWith('cn')) {
+    code = 'zh';
+  } else if (code.startsWith('in')) {
+    code = 'hi';
+  }
+  if (code.length > 2) {
+    code = code.slice(0, 2);
+  }
+  return WIKI_SAFE_LANGS.has(code) ? code : 'en';
+}
+
+/** Wikipedia edition to request for the object fiche: the user's UI language. */
 export function wikiContentLang(translate: TranslateService): WikiContentLang {
-  const raw = String(translate.currentLang || '').trim().toLowerCase();
-  return raw.startsWith('fr') ? 'fr' : 'en';
+  return normalizeWikiLang(translate.currentLang || translate.getDefaultLang());
+}
+
+/** Language Wikipedia actually returned (REST `lang`, else host of the article URL). */
+export function wikiSourceLang(wiki: WikipediaSummary | null | undefined): string | null {
+  const direct = String(wiki?.lang || '').trim().toLowerCase();
+  if (direct) {
+    return direct.length > 2 ? direct.slice(0, 2) : direct;
+  }
+  const url = wiki?.content_urls?.desktop?.page || wiki?.content_urls?.mobile?.page || '';
+  const host = url.match(/^https?:\/\/([a-z]{2,3})\.wikipedia\.org/i);
+  return host ? host[1].toLowerCase() : null;
+}
+
+export function wikiSourceDir(lang: string | null | undefined): 'rtl' | null {
+  const code = String(lang || '').toLowerCase();
+  return code === 'ar' || code === 'he' ? 'rtl' : null;
 }
 
 export function wikiLookupRequest(
   lookup: Pick<WikiLookup, 'fr' | 'en' | 'sky' | 'search'>,
-  lang: WikiContentLang
+  lang: string
 ): {
   title: string;
   fallbackTitle: string;
-  lang: WikiContentLang;
-  fallbackLang: WikiContentLang;
+  lang: string;
+  fallbackLang: string;
   search: string;
 } {
+  const want = normalizeWikiLang(lang);
+  const frTitle = (lookup.fr || lookup.en || lookup.sky || '').trim();
+  const enTitle = (lookup.en || lookup.fr || lookup.sky || '').trim();
   const frSearch = (lookup.search || lookup.fr || lookup.sky).replace(/_/g, ' ').trim();
-  const enSearch = (lookup.en || lookup.sky).replace(/_/g, ' ').trim();
-  if (lang === 'fr') {
+  const enSearch = (lookup.en || lookup.sky || lookup.fr).replace(/_/g, ' ').trim();
+  if (want === 'fr') {
     return {
-      title: lookup.fr,
-      fallbackTitle: lookup.en,
+      title: frTitle,
+      fallbackTitle: enTitle,
       lang: 'fr',
       fallbackLang: 'en',
       search: frSearch
     };
   }
+  if (want === 'en') {
+    return {
+      title: enTitle,
+      fallbackTitle: frTitle,
+      lang: 'en',
+      fallbackLang: 'fr',
+      search: enSearch
+    };
+  }
   return {
-    title: lookup.en,
-    fallbackTitle: lookup.en,
-    lang: 'en',
+    title: enTitle,
+    fallbackTitle: enTitle,
+    lang: want,
     fallbackLang: 'en',
-    search: enSearch
+    search: enSearch || frSearch
   };
 }
 
@@ -280,7 +332,7 @@ export class AstroObjectDossierService {
     }
     const astroHint =
       /galax|n[eé]buleuse|nebula|messier|cluster|amas|étoile|star\b|planète|planet|constellation|satellite|station spatiale|space station|télescope spatial|space telescope|observatoire|observatory|dwarf|naine|quasar|spirale|spiral/i;
-    const disambig = /disambiguation|homonymie|topics referred/i;
+    const disambig = /disambiguation|homonymie|topics referred|desambiguaci[oó]n|begriffsklärung|disambigua|неоднозначн|曖昧さ回避|消歧义|توضيح|פירושונים|αποσαφήνιση|बहुविकल्पी/i;
     const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const queryRe = escaped ? new RegExp(escaped, 'i') : null;
     let bestTitle: string | null = null;
@@ -360,6 +412,8 @@ export class AstroObjectDossierService {
     const imageUrl = wiki?.originalimage?.source || wiki?.thumbnail?.source || null;
     const wikiUrl = wiki?.content_urls?.desktop?.page || wiki?.content_urls?.mobile?.page || null;
     const wikiTitle = wiki?.title || wiki?.displaytitle || null;
+    const wikiLang = wikiOk ? wikiSourceLang(wiki) : null;
+    const wikiDir = wikiSourceDir(wikiLang);
     const skyNames = this.dossierSkyNames(sky, noradId);
     const skyTypes = this.dossierSkyTypes(sky);
     const vMag = this.asFiniteNumber(sky?.model_data?.Vmag) ?? this.asFiniteNumber(sky?.model_data?.['mag']);
@@ -367,7 +421,10 @@ export class AstroObjectDossierService {
     if (!extract && !description && !thumbUrl && !skyNames.length && !skyTypes.length && vMag == null && bMag == null) {
       return null;
     }
-    return { extract, description, thumbUrl, imageUrl, wikiUrl, wikiTitle, skyNames, skyTypes, vMag, bMag };
+    return {
+      extract, description, thumbUrl, imageUrl, wikiUrl, wikiTitle, wikiLang, wikiDir,
+      skyNames, skyTypes, vMag, bMag
+    };
   }
 
   private dossierSkyNames(sky: StellariumSkySource | undefined, noradId: number): string[] {

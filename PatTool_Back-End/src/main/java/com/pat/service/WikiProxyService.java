@@ -66,25 +66,61 @@ public class WikiProxyService {
         return mapSearch(trimmed, code, raw);
     }
 
+    /**
+     * Summary in {@code lang} when Wikipedia has that edition, otherwise the
+     * article in the language the source actually provides (English, then French).
+     */
     public JsonNode fetchSummary(String title, String lang) {
         String trimmed = title == null ? "" : title.trim();
         if (!SAFE_TITLE.matcher(trimmed).matches()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid_title");
         }
-        String code = normalizeLang(lang);
-        JsonNode first = fetchOne(trimmed, code);
-        if (isUsable(first)) {
-            return first;
-        }
-        if (!"en".equals(code)) {
-            String englishTitle = resolveEnglishTitle(trimmed, code);
-            if (StringUtils.hasText(englishTitle)) {
-                JsonNode fallback = fetchOne(englishTitle, "en");
-                if (isUsable(fallback)) {
-                    return fallback;
-                }
+        String want = normalizeLang(lang);
+
+        // Prefer the user's language via EN interlanguage links: English titles
+        // like "Mars" collide on other wikis (disambiguation / unrelated pages).
+        // French uses catalogue titles already disambiguated (Mars_(planète)).
+        if (!"en".equals(want) && !"fr".equals(want)) {
+            JsonNode localized = fetchViaLanglink(trimmed, "en", want);
+            if (isUsable(localized)) {
+                return localized;
             }
         }
+
+        JsonNode direct = fetchOne(trimmed, want);
+        if (isUsable(direct)) {
+            return direct;
+        }
+
+        if (!"fr".equals(want)) {
+            JsonNode fromFrench = fetchViaLanglink(trimmed, "fr", want);
+            if (isUsable(fromFrench)) {
+                return fromFrench;
+            }
+        }
+
+        if (!"en".equals(want)) {
+            JsonNode english = fetchOne(trimmed, "en");
+            if (isUsable(english)) {
+                return english;
+            }
+            JsonNode englishFromFr = fetchViaLanglink(trimmed, "fr", "en");
+            if (isUsable(englishFromFr)) {
+                return englishFromFr;
+            }
+        }
+
+        if (!"fr".equals(want)) {
+            JsonNode french = fetchOne(trimmed, "fr");
+            if (isUsable(french)) {
+                return french;
+            }
+            JsonNode frenchFromEn = fetchViaLanglink(trimmed, "en", "fr");
+            if (isUsable(frenchFromEn)) {
+                return frenchFromEn;
+            }
+        }
+
         return objectMapper.createObjectNode();
     }
 
@@ -132,9 +168,21 @@ public class WikiProxyService {
         }
     }
 
-    private String resolveEnglishTitle(String title, String fromLang) {
+    private JsonNode fetchViaLanglink(String title, String fromLang, String toLang) {
+        String resolved = resolveLangTitle(title, fromLang, toLang);
+        if (!StringUtils.hasText(resolved)) {
+            return objectMapper.nullNode();
+        }
+        return fetchOne(resolved, toLang);
+    }
+
+    private String resolveLangTitle(String title, String fromLang, String toLang) {
+        if (!StringUtils.hasText(title) || !StringUtils.hasText(fromLang) || !StringUtils.hasText(toLang)
+                || fromLang.equals(toLang)) {
+            return "";
+        }
         String url = "https://" + fromLang + ".wikipedia.org/w/api.php?action=query&format=json&formatversion=2"
-                + "&redirects=1&prop=langlinks&lllang=en&titles=" + encodeTitle(title);
+                + "&redirects=1&prop=langlinks&lllang=" + toLang + "&titles=" + encodeTitle(title);
         JsonNode raw = fetchJson(url, "langlinks " + title, fromLang);
         if (raw == null || !raw.isObject()) {
             return "";
@@ -152,10 +200,10 @@ public class WikiProxyService {
             return "";
         }
         for (JsonNode link : links) {
-            if (link != null && "en".equals(textOrEmpty(link.get("lang")))) {
-                String english = textOrEmpty(link.get("title")).replace(' ', '_');
-                if (StringUtils.hasText(english) && !sameTitle(english, title)) {
-                    return english;
+            if (link != null && toLang.equals(textOrEmpty(link.get("lang")))) {
+                String resolved = textOrEmpty(link.get("title")).replace(' ', '_');
+                if (StringUtils.hasText(resolved)) {
+                    return resolved;
                 }
             }
         }
@@ -257,10 +305,6 @@ public class WikiProxyService {
         return URLEncoder.encode(title.replace(' ', '_'), StandardCharsets.UTF_8).replace("+", "%20");
     }
 
-    private static boolean sameTitle(String left, String right) {
-        return left.replace(' ', '_').equalsIgnoreCase(right.replace(' ', '_'));
-    }
-
     private static boolean isExpectedMiss(HttpStatusCodeException e) {
         if (e.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND)) {
             return true;
@@ -273,7 +317,10 @@ public class WikiProxyService {
     }
 
     private static boolean isUsable(JsonNode node) {
-        if (node == null || node.isNull() || node.isMissingNode() || !node.isObject()) {
+        if (node == null || node.isNull() || node.isMissingNode() || !node.isObject() || node.isEmpty()) {
+            return false;
+        }
+        if ("disambiguation".equalsIgnoreCase(textOrEmpty(node.get("type")))) {
             return false;
         }
         JsonNode extract = node.get("extract");
