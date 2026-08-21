@@ -51,7 +51,27 @@ public class GlobeSatelliteOverlayPrefsService {
             "metopc",
             "gpm",
             "swift",
-            "fermi"
+            "fermi",
+            "tess",
+            "chandra",
+            "xmm",
+            "xrism",
+            "euclid",
+            "gaia",
+            "noaa19",
+            "goes16",
+            "meteosat11",
+            "mtgi1",
+            "himawari9",
+            "pleiades1a",
+            "spot6",
+            "swot",
+            "smap",
+            "icesat2",
+            "oco2",
+            "bluewalker3",
+            "eutelsat5w",
+            "hotbird13"
     );
 
     private final AppParameterService appParameterService;

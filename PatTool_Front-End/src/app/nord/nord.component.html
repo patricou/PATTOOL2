@@ -88,7 +88,7 @@
       <ul class="nord-readout">
         <li>
           <span>{{ 'NORD.SOURCE' | translate }}</span>
-          <strong>{{ headingSource ? (headingSourceKey() | translate) : '—' }}</strong>
+          <strong class="nord-readout__source">{{ headingSource ? (headingSourceKey() | translate) : '—' }}</strong>
         </li>
         <li>
           <span>{{ 'NORD.DECLINATION' | translate }}</span>
@@ -142,9 +142,40 @@
         </p>
         <p class="nord-warn" *ngIf="addressError">{{ addressError | translate }}</p>
       </div>
+      <p class="nord-ok nord-mag-source" *ngIf="usesMagneticNorth">
+        {{ 'NORD.NORTH_FROM_MAG' | translate }}
+      </p>
       <p class="nord-field-warn" *ngIf="fieldStatus() === 'interference'">{{ 'NORD.FIELD_INTERFERENCE' | translate }}</p>
     </section>
   </div>
+
+  <section class="nord-sensors" [attr.aria-label]="'NORD.SENSORS_HW_TITLE' | translate">
+    <h3>{{ 'NORD.SENSORS_HW_TITLE' | translate }}</h3>
+    <p class="nord-sensors__hint">{{ 'NORD.SENSORS_HW_HINT' | translate }}</p>
+    <div class="nord-grid">
+      <article
+        class="nord-tile"
+        *ngFor="let t of hardwareTiles"
+        [class.nord-tile--north]="t.drivesNorth"
+        [attr.data-status]="t.status">
+        <header>
+          <h4>{{ t.labelKey | translate }}</h4>
+          <span class="nord-tile__pills">
+            <span class="nord-pill" *ngIf="t.drivesNorth">{{ 'NORD.NORTH_BADGE' | translate }}</span>
+            <span class="nord-pill">{{ ('NORD.ST_' + t.status) | translate }}</span>
+          </span>
+        </header>
+        <dl *ngIf="t.rows.length">
+          <div *ngFor="let r of t.rows">
+            <dt>{{ r.label }}</dt>
+            <dd>{{ r.value }}</dd>
+          </div>
+        </dl>
+        <p class="nord-tile__empty" *ngIf="!t.rows.length">—</p>
+        <p class="nord-tile__note" *ngIf="t.noteKey">{{ t.noteKey | translate }}</p>
+      </article>
+    </div>
+  </section>
 
   <section class="nord-sensors" [attr.aria-label]="'NORD.SENSORS_TITLE' | translate">
     <h3>{{ 'NORD.SENSORS_TITLE' | translate }}</h3>
@@ -152,7 +183,7 @@
     <div class="nord-grid">
       <article
         class="nord-tile"
-        *ngFor="let t of tiles"
+        *ngFor="let t of extraTiles"
         [attr.data-status]="t.status">
         <header>
           <h4>{{ t.labelKey | translate }}</h4>
@@ -165,6 +196,7 @@
           </div>
         </dl>
         <p class="nord-tile__empty" *ngIf="!t.rows.length">—</p>
+        <p class="nord-tile__note" *ngIf="t.noteKey">{{ t.noteKey | translate }}</p>
       </article>
     </div>
   </section>

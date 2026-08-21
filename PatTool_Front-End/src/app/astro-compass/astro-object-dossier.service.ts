@@ -142,7 +142,27 @@ const SATELLITE_WIKI_LOOKUP: Record<string, WikiLookup> = {
     search: 'Fermi Gamma-ray Space Telescope'
   },
   'iss:astra192': { fr: 'Astra 19.2E', en: 'Astra 19.2E', sky: 'Astra', search: 'Astra 19.2E satellite SES' },
-  'iss:starlink': { fr: 'Starlink', en: 'Starlink', sky: 'Starlink', search: 'Starlink constellation satellite SpaceX' }
+  'iss:starlink': { fr: 'Starlink', en: 'Starlink', sky: 'Starlink', search: 'Starlink constellation satellite SpaceX' },
+  'iss:tess': { fr: 'Transiting_Exoplanet_Survey_Satellite', en: 'Transiting_Exoplanet_Survey_Satellite', sky: 'TESS', search: 'TESS satellite NASA' },
+  'iss:chandra': { fr: 'Chandra_(télescope_spatial)', en: 'Chandra_X-ray_Observatory', sky: 'Chandra', search: 'Chandra télescope X NASA' },
+  'iss:xmm': { fr: 'XMM-Newton', en: 'XMM-Newton', sky: 'XMM-Newton', search: 'XMM-Newton satellite ESA' },
+  'iss:xrism': { fr: 'XRISM', en: 'XRISM', sky: 'XRISM', search: 'XRISM satellite JAXA NASA' },
+  'iss:euclid': { fr: 'Euclid_(télescope_spatial)', en: 'Euclid_(spacecraft)', sky: 'Euclid', search: 'Euclid télescope spatial ESA' },
+  'iss:gaia': { fr: 'Gaia_(satellite)', en: 'Gaia_(spacecraft)', sky: 'Gaia', search: 'Gaia satellite ESA' },
+  'iss:noaa19': { fr: 'NOAA-19', en: 'NOAA-19', sky: 'NOAA-19', search: 'NOAA-19 satellite' },
+  'iss:goes16': { fr: 'GOES-16', en: 'GOES-16', sky: 'GOES-16', search: 'GOES-16 satellite NOAA' },
+  'iss:meteosat11': { fr: 'Meteosat', en: 'Meteosat', sky: 'Meteosat-11', search: 'Meteosat-11 satellite EUMETSAT' },
+  'iss:mtgi1': { fr: 'Meteosat_Third_Generation', en: 'Meteosat_Third_Generation', sky: 'MTG-I1', search: 'MTG-I1 Meteosat-12' },
+  'iss:himawari9': { fr: 'Himawari_9', en: 'Himawari_9', sky: 'Himawari-9', search: 'Himawari-9 satellite' },
+  'iss:pleiades1a': { fr: 'Pléiades_(satellite)', en: 'Pleiades_(satellite)', sky: 'Pleiades-1A', search: 'Pléiades 1A satellite CNES' },
+  'iss:spot6': { fr: 'SPOT_6', en: 'SPOT_(satellite)', sky: 'SPOT-6', search: 'SPOT-6 satellite' },
+  'iss:swot': { fr: 'Surface_Water_and_Ocean_Topography', en: 'Surface_Water_and_Ocean_Topography', sky: 'SWOT', search: 'SWOT satellite NASA CNES' },
+  'iss:smap': { fr: 'Soil_Moisture_Active_Passive', en: 'Soil_Moisture_Active_Passive', sky: 'SMAP', search: 'SMAP satellite NASA' },
+  'iss:icesat2': { fr: 'ICESat-2', en: 'ICESat-2', sky: 'ICESat-2', search: 'ICESat-2 satellite NASA' },
+  'iss:oco2': { fr: 'Orbiting_Carbon_Observatory_2', en: 'Orbiting_Carbon_Observatory_2', sky: 'OCO-2', search: 'OCO-2 satellite NASA' },
+  'iss:bluewalker3': { fr: 'BlueWalker_3', en: 'BlueWalker_3', sky: 'BlueWalker 3', search: 'BlueWalker 3 satellite AST SpaceMobile' },
+  'iss:eutelsat5w': { fr: 'Eutelsat_5_West_A', en: 'Eutelsat_5_West_B', sky: 'Eutelsat 5 West', search: 'Eutelsat 5 West B Fransat' },
+  'iss:hotbird13': { fr: 'Hot_Bird', en: 'Hot_Bird', sky: 'Hotbird 13', search: 'Hotbird 13E Eutelsat' }
 };
 
 @Injectable({ providedIn: 'root' })

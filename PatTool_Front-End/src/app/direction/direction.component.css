@@ -1,22 +1,144 @@
 :host {
   display: block;
+  position: relative;
+  isolation: isolate;
   overflow: visible;
+  min-height: calc(100vh - 80px);
   /* Place pour glisser le bandeau bleu .pat-title sous la navbar (comme astro-compass). */
   padding-bottom: 6.5rem;
+  color: #d7f4ee;
+  background-color: #02040c;
+  box-shadow: 0 -100vh 0 0 #02040c;
+}
+
+:host::before,
+:host::after {
+  content: "";
+  position: absolute;
+  top: -100vh;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+:host::before {
+  background-image:
+    radial-gradient(1px 1px at 6% 10%, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 18% 34%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 31% 6%, rgba(210, 230, 255, 0.9), transparent),
+    radial-gradient(1.4px 1.4px at 44% 48%, #fff, transparent),
+    radial-gradient(1px 1px at 57% 16%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.1px 1.1px at 69% 38%, rgba(200, 220, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 82% 8%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.3px 1.3px at 93% 28%, #fff, transparent),
+    radial-gradient(1px 1px at 9% 58%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1.2px 1.2px at 24% 76%, rgba(230, 240, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 38% 92%, rgba(255, 255, 255, 0.65), transparent),
+    radial-gradient(1.5px 1.5px at 52% 68%, #fff, transparent),
+    radial-gradient(1px 1px at 66% 88%, rgba(200, 220, 255, 0.8), transparent),
+    radial-gradient(1.2px 1.2px at 78% 62%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 91% 84%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 3% 86%, rgba(255, 255, 255, 0.55), transparent),
+    radial-gradient(1.3px 1.3px at 47% 22%, rgba(255, 255, 255, 0.9), transparent);
+  background-size: 220px 220px;
+  opacity: 0.9;
+}
+
+:host::after {
+  background-image:
+    radial-gradient(1.7px 1.7px at 14% 22%, #fff, transparent),
+    radial-gradient(2.1px 2.1px at 36% 58%, rgba(255, 232, 180, 0.95), transparent),
+    radial-gradient(1.5px 1.5px at 58% 12%, rgba(180, 210, 255, 0.95), transparent),
+    radial-gradient(1.9px 1.9px at 76% 44%, #fff, transparent),
+    radial-gradient(1.4px 1.4px at 22% 78%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(2.3px 2.3px at 88% 86%, rgba(255, 214, 120, 0.92), transparent),
+    radial-gradient(1.6px 1.6px at 48% 34%, rgba(210, 230, 255, 0.9), transparent),
+    radial-gradient(1.3px 1.3px at 8% 48%, rgba(255, 255, 255, 0.75), transparent);
+  background-size: 360px 360px;
+  opacity: 0.88;
+  animation: dir-star-twinkle 5.5s ease-in-out infinite;
+}
+
+@keyframes dir-star-twinkle {
+  0%,
+  100% { opacity: 0.62; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host::after,
+  .dir-page::after {
+    animation: none;
+  }
 }
 
 :host .pat-title {
+  position: relative;
+  z-index: 1;
   margin-bottom: 0 !important;
   border-bottom: none !important;
 }
 
 .dir-page {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
   margin: 0 -0.75rem;
   padding: 0.7rem 0.85rem max(2.2rem, env(safe-area-inset-bottom, 0px));
-  background: #071014;
   color: #d7f4ee;
   min-height: calc(100vh - 150px);
   overflow: visible;
+  background-color: #02040c;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(40, 60, 120, 0.28), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(30, 40, 90, 0.22), transparent 50%);
+}
+
+.dir-page::before,
+.dir-page::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.dir-page::before {
+  background-image:
+    radial-gradient(1px 1px at 10% 14%, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 26% 42%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 43% 9%, rgba(210, 230, 255, 0.9), transparent),
+    radial-gradient(1.4px 1.4px at 61% 33%, #fff, transparent),
+    radial-gradient(1px 1px at 77% 21%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.1px 1.1px at 89% 51%, rgba(200, 220, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 7% 63%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1.3px 1.3px at 34% 81%, #fff, transparent),
+    radial-gradient(1px 1px at 52% 71%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1.2px 1.2px at 71% 93%, rgba(230, 240, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 86% 69%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 16% 91%, #fff, transparent);
+  background-size: 200px 200px;
+  opacity: 0.9;
+}
+
+.dir-page::after {
+  background-image:
+    radial-gradient(1.8px 1.8px at 19% 27%, #fff, transparent),
+    radial-gradient(2.2px 2.2px at 41% 64%, rgba(255, 232, 180, 0.95), transparent),
+    radial-gradient(1.5px 1.5px at 63% 16%, rgba(180, 210, 255, 0.95), transparent),
+    radial-gradient(2px 2px at 81% 49%, #fff, transparent),
+    radial-gradient(1.4px 1.4px at 11% 84%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(2.4px 2.4px at 92% 91%, rgba(255, 214, 120, 0.92), transparent);
+  background-size: 320px 320px;
+  opacity: 0.88;
+  animation: dir-star-twinkle 6.5s ease-in-out infinite;
+}
+
+.dir-page > * {
+  position: relative;
+  z-index: 1;
 }
 
 .dir-panel {
@@ -127,7 +249,7 @@ a.dir-btn--astro .fa {
 }
 
 .dir-toggle {
-  display: inline-flex;
+  display: flex;
   gap: 0.4rem;
   align-items: center;
   font-size: 0.86rem;
@@ -468,9 +590,10 @@ a.dir-btn--astro .fa {
   right: -20%;
   top: 50%;
   height: 0;
-  border-top: 1px dashed rgba(62, 224, 192, 0.75);
+  border-top: 1px dashed rgba(62, 224, 192, 0.38);
   transform-origin: 50% 0;
   pointer-events: none;
+  z-index: 2;
 }
 
 .dir-reticle {
@@ -483,32 +606,53 @@ a.dir-btn--astro .fa {
 .dir-reticle__h,
 .dir-reticle__v {
   position: absolute;
-  background: rgba(62, 224, 192, 0.85);
+  background: rgba(190, 255, 236, 0.88);
+  box-shadow: 0 0 6px rgba(62, 224, 192, 0.45);
 }
 
 .dir-reticle__h {
-  left: 18%;
-  right: 18%;
+  left: 34%;
+  right: 34%;
   top: 50%;
   height: 1px;
+  -webkit-mask: linear-gradient(90deg, #000 0 38%, transparent 38% 62%, #000 62% 100%);
+  mask: linear-gradient(90deg, #000 0 38%, transparent 38% 62%, #000 62% 100%);
 }
 
 .dir-reticle__v {
-  top: 18%;
-  bottom: 18%;
+  top: 34%;
+  bottom: 34%;
   left: 50%;
   width: 1px;
+  -webkit-mask: linear-gradient(180deg, #000 0 38%, transparent 38% 62%, #000 62% 100%);
+  mask: linear-gradient(180deg, #000 0 38%, transparent 38% 62%, #000 62% 100%);
 }
 
 .dir-reticle__c {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 14px;
-  height: 14px;
-  margin: -7px 0 0 -7px;
-  border: 2px solid #3ee0c0;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: -0.575rem 0 0 -0.575rem;
+  border: 1.5px solid rgba(94, 240, 208, 0.95);
   border-radius: 50%;
+  box-shadow:
+    0 0 10px rgba(62, 224, 192, 0.45),
+    inset 0 0 8px rgba(62, 224, 192, 0.18);
+}
+
+.dir-reticle__c::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: #5ff0d0;
+  box-shadow: 0 0 8px #3ee0c0;
 }
 
 .dir-hud {
@@ -863,59 +1007,204 @@ a.dir-btn--astro .fa {
   margin: 0 auto;
 }
 
-.dir-rose__disk {
+.dir-rose__bezel,
+.dir-rose__disk,
+.dir-rose__card {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  pointer-events: none;
+}
+
+.dir-rose__bezel {
+  z-index: 4;
+  overflow: visible;
+  filter: drop-shadow(0 0 10px rgba(62, 224, 192, 0.35));
+}
+
+.dir-rose__disk {
+  z-index: 3;
   border-radius: 50%;
-  border: 2px solid #3ee0c0;
-  background: radial-gradient(circle at 50% 40%, #123833, #071614);
-  position: relative;
+  will-change: transform;
 }
 
-.dir-rose__n,
-.dir-rose__e,
-.dir-rose__s,
-.dir-rose__w {
+.dir-rose__card {
+  overflow: visible;
+}
+
+.dir-rose__tick {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.dir-rose__tick--1 {
+  stroke: rgba(200, 255, 240, 0.32);
+  stroke-width: 0.28;
+}
+
+.dir-rose__tick--5 {
+  stroke: rgba(220, 255, 246, 0.62);
+  stroke-width: 0.42;
+}
+
+.dir-rose__tick--10 {
+  stroke: rgba(236, 255, 250, 0.88);
+  stroke-width: 0.62;
+}
+
+.dir-rose__tick--30 {
+  stroke: #e7fff8;
+  stroke-width: 1.05;
+}
+
+.dir-rose__tick--in {
+  stroke: rgba(120, 220, 200, 0.38);
+  stroke-width: 0.38;
+}
+
+.dir-rose__tick--in-major {
+  stroke: rgba(180, 245, 226, 0.7);
+  stroke-width: 0.7;
+}
+
+.dir-rose__scale {
+  fill: none;
+  stroke: rgba(90, 210, 188, 0.32);
+  stroke-width: 0.55;
+}
+
+.dir-rose__scale--2 {
+  stroke: rgba(255, 214, 150, 0.28);
+  stroke-width: 0.45;
+}
+
+.dir-rose__dot {
+  fill: rgba(200, 255, 236, 0.7);
+}
+
+.dir-rose__kite {
+  stroke-linejoin: round;
+}
+
+.dir-rose__kite--quarter {
+  fill: rgba(170, 230, 215, 0.16);
+  stroke: rgba(190, 245, 230, 0.28);
+  stroke-width: 0.25;
+}
+
+.dir-rose__kite--half {
+  fill: rgba(62, 224, 192, 0.26);
+  stroke: rgba(170, 255, 230, 0.42);
+  stroke-width: 0.3;
+}
+
+.dir-rose__kite--inter {
+  fill: rgba(236, 208, 128, 0.5);
+  stroke: rgba(255, 236, 180, 0.72);
+  stroke-width: 0.35;
+}
+
+.dir-rose__kite--cardinal {
+  fill: rgba(236, 250, 255, 0.5);
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 0.38;
+}
+
+.dir-rose__kite--n {
+  fill: rgba(255, 78, 58, 0.82);
+  stroke: rgba(255, 190, 170, 0.9);
+  stroke-width: 0.45;
+  filter: drop-shadow(0 0 1.6px rgba(255, 80, 50, 0.55));
+}
+
+.dir-rose__hub {
+  fill: none;
+  stroke: rgba(200, 255, 236, 0.7);
+  stroke-width: 0.7;
+}
+
+.dir-rose__hub--2 {
+  stroke: rgba(255, 214, 150, 0.55);
+  stroke-width: 0.5;
+}
+
+.dir-rose__hub-core {
+  fill: #7ff8d8;
+  stroke: #d9fff4;
+  stroke-width: 0.35;
+}
+
+.dir-rose__deg,
+.dir-rose__pt,
+.dir-rose__fine {
   position: absolute;
+  inset: 8.6%;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.dir-rose__pt {
+  inset: 14.5%;
+}
+
+.dir-rose__pt--inter {
+  inset: 21%;
+}
+
+.dir-rose__fine {
+  inset: 27.5%;
+}
+
+.dir-rose__deg-txt,
+.dir-rose__pt-txt,
+.dir-rose__fine-txt {
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
-  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-shadow: 0 1px 3px #000;
 }
 
-.dir-rose__n {
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: #ff6b4a;
+.dir-rose__deg-txt {
+  font-size: 0.48rem;
+  color: rgba(214, 244, 236, 0.82);
 }
 
-.dir-rose__s {
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
+.dir-rose__deg--major .dir-rose__deg-txt {
+  font-size: 0.58rem;
+  color: #eafff8;
 }
 
-.dir-rose__e {
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
+.dir-rose__pt-txt {
+  font-size: 0.78rem;
+  color: #e8fff8;
 }
 
-.dir-rose__w {
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
+.dir-rose__pt--n .dir-rose__pt-txt {
+  color: #ff6a4a;
+  font-size: 0.92rem;
+  text-shadow: 0 0 8px rgba(255, 70, 40, 0.45), 0 1px 3px #000;
 }
 
-.dir-rose__aim {
-  position: absolute;
-  top: -2px;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-top: 12px solid #3ee0c0;
-  transform: translateX(-50%);
+.dir-rose__pt--inter .dir-rose__pt-txt {
+  font-size: 0.52rem;
+  font-weight: 650;
+  color: rgba(236, 214, 150, 0.92);
+}
+
+.dir-rose__fine-txt {
+  font-size: 0.38rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: rgba(170, 220, 208, 0.78);
+}
+
+.dir-offset {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .dir-offset span,
@@ -927,24 +1216,34 @@ a.dir-btn--astro .fa {
 }
 
 .dir-offset input[type='range'] {
+  display: block;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 1.15rem 0 1.25rem;
+  box-sizing: border-box;
 }
 
 .dir-offset__row {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
+  width: 100%;
   margin-top: 0.35rem;
+  box-sizing: border-box;
 }
 
 .dir-offset__num {
-  flex: 1;
+  flex: 0 0 4.1rem;
+  width: 4.1rem;
+  max-width: 4.1rem;
   min-width: 0;
   background: #0d2a28;
   border: 1px solid #1f6f62;
   color: #d7f4ee;
   border-radius: 0.35rem;
-  padding: 0.28rem 0.4rem;
+  padding: 0.28rem 0.25rem;
   text-align: center;
 }
 
@@ -1353,48 +1652,73 @@ section.dir-cal {
   z-index: 3;
   top: 50%;
   left: 50%;
-  width: min(92cqi, 92cqb);
-  height: min(92cqi, 92cqb);
+  width: min(94cqi, 94cqb);
+  height: min(94cqi, 94cqb);
   margin: 0;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
 
 .dir-rose--overlay .dir-rose__disk {
-  border-width: 3px;
-  background: radial-gradient(circle at 50% 40%, rgba(18, 56, 51, 0.22), rgba(7, 22, 20, 0.08));
+  inset: 1.4%;
+  width: auto;
+  height: auto;
+  background: radial-gradient(
+    circle at 50% 50%,
+    transparent 0 38%,
+    rgba(8, 28, 24, 0.12) 46%,
+    rgba(6, 26, 22, 0.28) 68%,
+    rgba(4, 22, 20, 0.52) 86%,
+    rgba(6, 32, 28, 0.18) 100%
+  );
+  box-shadow:
+    inset 0 0 0 1px rgba(120, 230, 210, 0.12),
+    0 0 28px rgba(62, 224, 192, 0.12);
 }
 
-.dir-rose--overlay .dir-rose__n,
-.dir-rose--overlay .dir-rose__e,
-.dir-rose--overlay .dir-rose__s,
-.dir-rose--overlay .dir-rose__w {
-  font-size: clamp(1.2rem, 6.5cqi, 2.4rem);
-  text-shadow: 0 1px 4px #000, 0 0 10px #000;
+.dir-rose--overlay .dir-rose__deg {
+  inset: 6.8%;
 }
 
-.dir-rose--overlay .dir-rose__n {
-  top: 3.5%;
+.dir-rose--overlay .dir-rose__pt {
+  inset: 12.2%;
 }
 
-.dir-rose--overlay .dir-rose__s {
-  bottom: 3.5%;
+.dir-rose--overlay .dir-rose__pt--inter {
+  inset: 19.4%;
 }
 
-.dir-rose--overlay .dir-rose__e {
-  right: 4%;
+.dir-rose--overlay .dir-rose__fine {
+  inset: 26.2%;
 }
 
-.dir-rose--overlay .dir-rose__w {
-  left: 4%;
+.dir-rose--overlay .dir-rose__deg-txt {
+  font-size: clamp(0.5rem, 2.7cqi, 0.82rem);
+  color: rgba(226, 255, 246, 0.9);
+  text-shadow: 0 1px 4px #000, 0 0 8px rgba(0, 0, 0, 0.65);
 }
 
-.dir-rose--overlay .dir-rose__aim {
-  top: -0.12rem;
-  border-left-width: 0.65rem;
-  border-right-width: 0.65rem;
-  border-top-width: 1.05rem;
-  filter: drop-shadow(0 1px 3px #000);
+.dir-rose--overlay .dir-rose__deg--major .dir-rose__deg-txt {
+  font-size: clamp(0.58rem, 3.1cqi, 0.95rem);
+  color: #f3fffb;
+}
+
+.dir-rose--overlay .dir-rose__pt-txt {
+  font-size: clamp(0.92rem, 5.1cqi, 1.7rem);
+  text-shadow: 0 1px 5px #000, 0 0 12px #000;
+}
+
+.dir-rose--overlay .dir-rose__pt--n .dir-rose__pt-txt {
+  font-size: clamp(1.15rem, 6.1cqi, 2.05rem);
+}
+
+.dir-rose--overlay .dir-rose__pt--inter .dir-rose__pt-txt {
+  font-size: clamp(0.52rem, 2.85cqi, 0.88rem);
+}
+
+.dir-rose--overlay .dir-rose__fine-txt {
+  font-size: clamp(0.38rem, 2.05cqi, 0.62rem);
+  text-shadow: 0 1px 3px #000;
 }
 
 .dir-msg {
@@ -1556,7 +1880,11 @@ section.dir-cal {
 }
 
 .dir-card .dir-toggle {
-  margin-top: 0.35rem;
+  display: flex;
+  width: 100%;
+  margin-top: 0.65rem;
+  margin-left: 0;
+  box-sizing: border-box;
 }
 
 .dir-card__toggle {
@@ -1584,6 +1912,88 @@ section.dir-cal {
 
 .dir-card .dir-dash {
   margin-top: 0.55rem;
+}
+
+.dir-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.dir-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 10, 18, 0.72);
+}
+
+.dir-modal__box {
+  position: relative;
+  z-index: 1;
+  width: min(26rem, 100%);
+  max-height: min(86vh, 40rem);
+  overflow: auto;
+  padding: 1.1rem 1.15rem 1.15rem;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(62, 224, 192, 0.28);
+  background: #0d1824;
+  color: #d7ecf4;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.dir-modal__box h3 {
+  margin: 0 0 0.45rem;
+  font-size: 1.05rem;
+  color: #9ef0d8;
+}
+
+.dir-modal__intro,
+.dir-modal__hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  color: #9bb8c6;
+}
+
+.dir-modal__hint {
+  margin-top: 0.65rem;
+}
+
+.dir-modal__dl {
+  margin: 0;
+}
+
+.dir-modal__dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding: 0.38rem 0;
+  border-bottom: 1px solid rgba(62, 224, 192, 0.12);
+  font-size: 0.84rem;
+}
+
+.dir-modal__dl dt {
+  color: #7f9eae;
+}
+
+.dir-modal__dl dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dir-modal__dl small {
+  display: block;
+  color: #3ee0c0;
+  font-size: 0.75rem;
+}
+
+.dir-modal__box .dir-btn {
+  width: 100%;
+  margin-top: 0.9rem;
 }
 
 @media (min-width: 640px) {

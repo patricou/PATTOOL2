@@ -1,22 +1,140 @@
 :host {
   display: block;
+  position: relative;
+  isolation: isolate;
+  min-height: calc(100vh - 80px);
   color: #efe6d4;
+  background-color: #02040c;
+  box-shadow: 0 -100vh 0 0 #02040c;
+}
+
+:host::before,
+:host::after {
+  content: "";
+  position: absolute;
+  top: -100vh;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+:host::before {
+  background-image:
+    radial-gradient(1px 1px at 6% 10%, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 18% 34%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 31% 6%, rgba(210, 230, 255, 0.9), transparent),
+    radial-gradient(1.4px 1.4px at 44% 48%, #fff, transparent),
+    radial-gradient(1px 1px at 57% 16%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.1px 1.1px at 69% 38%, rgba(200, 220, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 82% 8%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.3px 1.3px at 93% 28%, #fff, transparent),
+    radial-gradient(1px 1px at 9% 58%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1.2px 1.2px at 24% 76%, rgba(230, 240, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 38% 92%, rgba(255, 255, 255, 0.65), transparent),
+    radial-gradient(1.5px 1.5px at 52% 68%, #fff, transparent),
+    radial-gradient(1px 1px at 66% 88%, rgba(200, 220, 255, 0.8), transparent),
+    radial-gradient(1.2px 1.2px at 78% 62%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 91% 84%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 3% 86%, rgba(255, 255, 255, 0.55), transparent),
+    radial-gradient(1.3px 1.3px at 47% 22%, rgba(255, 255, 255, 0.9), transparent);
+  background-size: 220px 220px;
+  opacity: 0.9;
+}
+
+:host::after {
+  background-image:
+    radial-gradient(1.7px 1.7px at 14% 22%, #fff, transparent),
+    radial-gradient(2.1px 2.1px at 36% 58%, rgba(255, 232, 180, 0.95), transparent),
+    radial-gradient(1.5px 1.5px at 58% 12%, rgba(180, 210, 255, 0.95), transparent),
+    radial-gradient(1.9px 1.9px at 76% 44%, #fff, transparent),
+    radial-gradient(1.4px 1.4px at 22% 78%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(2.3px 2.3px at 88% 86%, rgba(255, 214, 120, 0.92), transparent),
+    radial-gradient(1.6px 1.6px at 48% 34%, rgba(210, 230, 255, 0.9), transparent),
+    radial-gradient(1.3px 1.3px at 8% 48%, rgba(255, 255, 255, 0.75), transparent);
+  background-size: 360px 360px;
+  opacity: 0.88;
+  animation: nord-star-twinkle 5.5s ease-in-out infinite;
+}
+
+@keyframes nord-star-twinkle {
+  0%,
+  100% { opacity: 0.62; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host::after,
+  .nord-shell::after {
+    animation: none;
+  }
 }
 
 :host .pat-title.nord-title {
+  position: relative;
+  z-index: 1;
   margin-bottom: 0 !important;
   border-bottom: none !important;
 }
 
 .nord-shell {
+  position: relative;
+  z-index: 1;
   isolation: isolate;
   min-height: calc(100vh - 160px);
   margin: 0 -0.75rem;
   padding: 0.75rem 0.9rem 2.4rem;
-  background:
-    radial-gradient(ellipse 70% 40% at 50% -8%, rgba(196, 149, 74, 0.18), transparent 55%),
-    radial-gradient(ellipse 50% 35% at 100% 100%, rgba(80, 40, 20, 0.35), transparent 50%),
-    linear-gradient(180deg, #1c1610 0%, #120e0b 55%, #0c0907 100%);
+  color: #efe6d4;
+  background-color: #02040c;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(40, 60, 120, 0.28), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(30, 40, 90, 0.22), transparent 50%);
+}
+
+.nord-shell::before,
+.nord-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.nord-shell::before {
+  background-image:
+    radial-gradient(1px 1px at 10% 14%, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 26% 42%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 43% 9%, rgba(210, 230, 255, 0.9), transparent),
+    radial-gradient(1.4px 1.4px at 61% 33%, #fff, transparent),
+    radial-gradient(1px 1px at 77% 21%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.1px 1.1px at 89% 51%, rgba(200, 220, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 7% 63%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1.3px 1.3px at 34% 81%, #fff, transparent),
+    radial-gradient(1px 1px at 52% 71%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1.2px 1.2px at 71% 93%, rgba(230, 240, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 86% 69%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 16% 91%, #fff, transparent);
+  background-size: 200px 200px;
+  opacity: 0.9;
+}
+
+.nord-shell::after {
+  background-image:
+    radial-gradient(1.8px 1.8px at 19% 27%, #fff, transparent),
+    radial-gradient(2.2px 2.2px at 41% 64%, rgba(255, 232, 180, 0.95), transparent),
+    radial-gradient(1.5px 1.5px at 63% 16%, rgba(180, 210, 255, 0.95), transparent),
+    radial-gradient(2px 2px at 81% 49%, #fff, transparent),
+    radial-gradient(1.4px 1.4px at 11% 84%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(2.4px 2.4px at 92% 91%, rgba(255, 214, 120, 0.92), transparent);
+  background-size: 320px 320px;
+  opacity: 0.88;
+  animation: nord-star-twinkle 6.5s ease-in-out infinite;
+}
+
+.nord-shell > * {
+  position: relative;
+  z-index: 1;
 }
 
 .nord-lede {
@@ -271,6 +389,13 @@
   font-weight: 600;
 }
 
+/* Toujours 2 lignes : OS / orientation ne font plus sauter la grille. */
+.nord-readout__source {
+  min-height: 2.5em;
+  line-height: 1.25;
+  white-space: pre-line;
+}
+
 .nord-btn--icon {
   display: inline-flex;
   align-items: center;
@@ -436,6 +561,13 @@
   margin-bottom: 0.4rem;
 }
 
+.nord-tile__pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
 .nord-tile h4 {
   margin: 0;
   font-size: 0.82rem;
@@ -493,5 +625,31 @@
   margin: 0;
   color: #6d5e48;
   font-size: 0.8rem;
+}
+
+.nord-tile__note {
+  margin: 0.45rem 0 0;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: #9a8a70;
+}
+
+.nord-tile--north {
+  border-color: rgba(217, 74, 74, 0.55);
+  box-shadow: 0 0 0 1px rgba(217, 74, 74, 0.25);
+}
+
+.nord-tile--north h4 {
+  color: #f2c4c4;
+}
+
+.nord-mag-source {
+  margin: 0.55rem 0 0;
+  width: min(86vw, 22.5rem);
+  font-size: 0.82rem;
+}
+
+.nord-sensors + .nord-sensors {
+  margin-top: 1.4rem;
 }
 

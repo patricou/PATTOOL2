@@ -120,7 +120,12 @@
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
-          "options": {},
+          "options": {
+            "headers": {
+              "Permissions-Policy": "accelerometer=(self), gyroscope=(self), magnetometer=(self), ambient-light-sensor=(self)",
+              "Feature-Policy": "accelerometer 'self'; gyroscope 'self'; magnetometer 'self'; ambient-light-sensor 'self'"
+            }
+          },
           "configurations": {
             "production": {
               "buildTarget": "PatTool_Front-End:build:production"

@@ -329,9 +329,11 @@ export class AppComponent implements OnInit {
         });
         this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe((e) => {
             this.updateTvPopoutMode();
+            this.updateStarrySkyPage();
             this.lastRoute.remember(e.urlAfterRedirects || e.url);
         });
         this.updateTvPopoutMode();
+        this.updateStarrySkyPage();
     }
 
     private updateTvPopoutMode(): void {
@@ -343,6 +345,18 @@ export class AppComponent implements OnInit {
             /* ignore */
         }
         this.cdr.markForCheck();
+    }
+
+    /** Fond canvas html/body = ciel nocturne (évite le blanc au overscroll). */
+    private updateStarrySkyPage(): void {
+        const url = this.router.url || '';
+        const on = /\/tools\/(?:astro-compass|nord|direction)(?:\/|$|\?|#)/.test(url);
+        try {
+            document.documentElement.classList.toggle('pat-starry-sky', on);
+            document.body.classList.toggle('pat-starry-sky', on);
+        } catch {
+            /* ignore */
+        }
     }
 
     /**

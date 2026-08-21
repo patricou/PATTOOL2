@@ -24,13 +24,83 @@
         <span class="dir-reticle__c"></span>
       </div>
       <div class="dir-rose dir-rose--overlay" *ngIf="!patWizard" [attr.aria-label]="'DIRECTION.ROSE_ARIA' | translate">
+        <svg class="dir-rose__bezel" viewBox="0 0 200 200" aria-hidden="true">
+          <defs>
+            <linearGradient id="dirRoseBezel" x1="18%" y1="8%" x2="86%" y2="92%">
+              <stop offset="0%" stop-color="#d8fff4"/>
+              <stop offset="22%" stop-color="#5ee8c8"/>
+              <stop offset="48%" stop-color="#1d6f62"/>
+              <stop offset="72%" stop-color="#b6ffe8"/>
+              <stop offset="100%" stop-color="#0b3d36"/>
+            </linearGradient>
+            <linearGradient id="dirRoseBezel2" x1="80%" y1="0%" x2="10%" y2="100%">
+              <stop offset="0%" stop-color="#8af0d4"/>
+              <stop offset="50%" stop-color="#163d38"/>
+              <stop offset="100%" stop-color="#e7fff8"/>
+            </linearGradient>
+          </defs>
+          <circle cx="100" cy="100" r="98.6" fill="none" stroke="url(#dirRoseBezel)" stroke-width="2.8"/>
+          <circle cx="100" cy="100" r="95.8" fill="none" stroke="url(#dirRoseBezel2)" stroke-width="1.2"/>
+          <circle cx="100" cy="100" r="93.8" fill="none" stroke="rgba(180,255,236,0.32)" stroke-width="0.55"/>
+          <circle cx="100" cy="5.2" r="2.35" fill="#7ff8d8" stroke="#d9fff4" stroke-width="0.45"/>
+          <circle cx="194.8" cy="100" r="2.05" fill="#3ee0c0" stroke="#b8ffe8" stroke-width="0.4"/>
+          <circle cx="100" cy="194.8" r="2.05" fill="#3ee0c0" stroke="#b8ffe8" stroke-width="0.4"/>
+          <circle cx="5.2" cy="100" r="2.05" fill="#3ee0c0" stroke="#b8ffe8" stroke-width="0.4"/>
+          <path fill="#b8ffe8" d="M100 0.6 L107.8 16.2 L100 12.2 L92.2 16.2 Z"/>
+          <path fill="none" stroke="#7ff8d8" stroke-width="1.1" stroke-linecap="round" d="M100 12.4 V22.5"/>
+          <path fill="none" stroke="#7ff8d8" stroke-width="1.05" stroke-linecap="round" d="M88 7.2 H94.2M105.8 7.2 H112"/>
+        </svg>
         <div class="dir-rose__disk" [style.transform]="'rotate(' + roseDeg() + 'deg)'">
-          <span class="dir-rose__n">N</span>
-          <span class="dir-rose__e">E</span>
-          <span class="dir-rose__s">S</span>
-          <span class="dir-rose__w">O</span>
+          <svg class="dir-rose__card" viewBox="0 0 200 200" aria-hidden="true">
+            <path class="dir-rose__tick dir-rose__tick--1" [attr.d]="roseTick1"/>
+            <path class="dir-rose__tick dir-rose__tick--5" [attr.d]="roseTick5"/>
+            <path class="dir-rose__tick dir-rose__tick--10" [attr.d]="roseTick10"/>
+            <path class="dir-rose__tick dir-rose__tick--30" [attr.d]="roseTick30"/>
+            <path class="dir-rose__tick dir-rose__tick--in" [attr.d]="roseTickInner"/>
+            <path class="dir-rose__tick dir-rose__tick--in-major" [attr.d]="roseTickInnerMajor"/>
+            <circle class="dir-rose__scale" cx="100" cy="100" r="62.2"/>
+            <circle class="dir-rose__scale dir-rose__scale--2" cx="100" cy="100" r="46.8"/>
+            <circle
+              class="dir-rose__dot"
+              *ngFor="let p of roseDots"
+              [attr.cx]="p.x"
+              [attr.cy]="p.y"
+              r="1.05"/>
+            <polygon
+              *ngFor="let k of roseKites"
+              class="dir-rose__kite"
+              [class.dir-rose__kite--n]="k.kind === 'n'"
+              [class.dir-rose__kite--cardinal]="k.kind === 'cardinal'"
+              [class.dir-rose__kite--inter]="k.kind === 'inter'"
+              [class.dir-rose__kite--half]="k.kind === 'half'"
+              [class.dir-rose__kite--quarter]="k.kind === 'quarter'"
+              [attr.points]="k.points"/>
+            <circle class="dir-rose__hub" cx="100" cy="100" r="8.2"/>
+            <circle class="dir-rose__hub dir-rose__hub--2" cx="100" cy="100" r="4.4"/>
+            <circle class="dir-rose__hub-core" cx="100" cy="100" r="1.55"/>
+          </svg>
+          <span
+            class="dir-rose__deg"
+            *ngFor="let d of roseDegrees"
+            [class.dir-rose__deg--major]="d % 30 === 0"
+            [style.transform]="'rotate(' + d + 'deg)'">
+            <span class="dir-rose__deg-txt" [style.transform]="'rotate(' + (-d) + 'deg)'">{{ d }}</span>
+          </span>
+          <span
+            class="dir-rose__pt"
+            *ngFor="let p of roseCardinals"
+            [class.dir-rose__pt--n]="p.kind === 'n'"
+            [class.dir-rose__pt--inter]="p.kind === 'inter'"
+            [style.transform]="'rotate(' + p.deg + 'deg)'">
+            <span class="dir-rose__pt-txt" [style.transform]="'rotate(' + (-p.deg) + 'deg)'">{{ p.label }}</span>
+          </span>
+          <span
+            class="dir-rose__fine"
+            *ngFor="let p of roseFinePoints"
+            [style.transform]="'rotate(' + p.deg + 'deg)'">
+            <span class="dir-rose__fine-txt" [style.transform]="'rotate(' + (-p.deg) + 'deg)'">{{ p.label }}</span>
+          </span>
         </div>
-        <span class="dir-rose__aim" aria-hidden="true"></span>
       </div>
       <button
         type="button"
@@ -271,7 +341,7 @@
         type="button"
         class="dir-btn"
         [class.dir-btn--on]="calMethod === 'figure8'"
-        [disabled]="!magKnown"
+        [disabled]="!sensorsOn"
         (click)="chooseCal('figure8')"
         [attr.title]="'DIRECTION.CAL_METHOD_AUTO_HINT' | translate">
         <i class="fa fa-magnet" aria-hidden="true"></i>
@@ -301,16 +371,12 @@
     <p class="dir-msg" *ngIf="sunBelowHorizon()">{{ 'DIRECTION.CAL_SUN_NIGHT' | translate }}</p>
 
     <div class="dir-cal__panel" *ngIf="calMethod === 'figure8'">
-      <p *ngIf="!calibrating && !hardIronReady()">{{ 'DIRECTION.CAL_HINT' | translate }}</p>
       <p *ngIf="calibrating">{{ 'DIRECTION.CAL_MOVE' | translate }} — {{ calPct }}%</p>
-      <p *ngIf="!calibrating && hardIronReady()">{{ 'DIRECTION.CAL_OK' | translate }}</p>
+      <p *ngIf="!calibrating">{{ 'DIRECTION.CAL_HINT' | translate }}</p>
       <div class="dir-cal__bar" *ngIf="calibrating"><i [style.width.%]="calPct"></i></div>
       <div class="dir-actions">
-        <button type="button" class="dir-btn dir-btn--go" [disabled]="!magKnown" (click)="startCal()">
+        <button type="button" class="dir-btn dir-btn--go" [disabled]="!sensorsOn" (click)="startCal()">
           {{ 'DIRECTION.CAL_START' | translate }}
-        </button>
-        <button type="button" class="dir-btn" [disabled]="!hardIronReady()" (click)="forgetCal()">
-          {{ 'DIRECTION.CAL_RESET' | translate }}
         </button>
         <button type="button" class="dir-btn" (click)="cancelCalMethod()">{{ 'DIRECTION.CAL_CANCEL' | translate }}</button>
       </div>
@@ -419,48 +485,61 @@
       </ol>
     </div>
   </section>
+</div>
+</div>
 
-  <section
-    class="dir-card dir-card--muted"
-    *ngIf="!patWizard && (dashSections.length || liveCardList.length || unavailableCardList.length)"
-    [attr.aria-label]="'DIRECTION.PARAMS' | translate">
-    <button type="button" class="dir-card__toggle" (click)="toggleSensors()">
-      <i class="fa" [ngClass]="showSensors ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
-      {{ (showSensors ? 'DIRECTION.HIDE_SENSORS' : 'DIRECTION.SHOW_SENSORS') | translate }}
+<div
+  class="dir-modal"
+  *ngIf="figure8ModalOpen && figure8Report"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-labelledby]="'dir-fig8-title'">
+  <div class="dir-modal__backdrop" (click)="closeFigure8Modal()"></div>
+  <div class="dir-modal__box">
+    <h3 id="dir-fig8-title">{{ 'DIRECTION.FIG8_TITLE' | translate }}</h3>
+    <p class="dir-modal__intro">{{ (figure8Report.usedRawMag ? 'DIRECTION.FIG8_INTRO_MAG' : 'DIRECTION.FIG8_INTRO_OS') | translate }}</p>
+    <dl class="dir-modal__dl">
+      <div>
+        <dt>{{ 'DIRECTION.OFFSET' | translate }}</dt>
+        <dd>
+          {{ figure8Report.offsetBefore }}° → {{ figure8Report.offsetAfter }}°
+          <small>({{ fig8Delta(figure8Report.offsetBefore, figure8Report.offsetAfter) }})</small>
+        </dd>
+      </div>
+      <div>
+        <dt>{{ 'DIRECTION.AZIMUTH' | translate }}</dt>
+        <dd>
+          <ng-container *ngIf="figure8Report.headingBefore != null && figure8Report.headingAfter != null; else fig8HeadEmpty">
+            {{ figure8Report.headingBefore | number : '1.0-0' }}° → {{ figure8Report.headingAfter | number : '1.0-0' }}°
+            <small>({{ fig8Delta(figure8Report.headingBefore, figure8Report.headingAfter) }})</small>
+          </ng-container>
+          <ng-template #fig8HeadEmpty>—</ng-template>
+        </dd>
+      </div>
+      <div>
+        <dt>{{ 'DIRECTION.FIELD' | translate }}</dt>
+        <dd>
+          <ng-container *ngIf="figure8Report.fieldBefore != null || figure8Report.fieldAfter != null; else fig8FieldEmpty">
+            {{ figure8Report.fieldBefore == null ? '—' : (figure8Report.fieldBefore | number : '1.0-1') }}
+            →
+            {{ figure8Report.fieldAfter == null ? '—' : (figure8Report.fieldAfter | number : '1.0-1') }}
+            µT
+          </ng-container>
+          <ng-template #fig8FieldEmpty>—</ng-template>
+        </dd>
+      </div>
+      <div *ngIf="figure8Report.usedRawMag">
+        <dt>{{ 'DIRECTION.FIG8_BIAS' | translate }}</dt>
+        <dd>
+          x {{ figure8Report.bias.x | number : '1.1-1' }}
+          · y {{ figure8Report.bias.y | number : '1.1-1' }}
+          · z {{ figure8Report.bias.z | number : '1.1-1' }} µT
+        </dd>
+      </div>
+    </dl>
+    <p class="dir-modal__hint">{{ 'DIRECTION.FIG8_OFFSET_HINT' | translate }}</p>
+    <button type="button" class="dir-btn dir-btn--go" (click)="closeFigure8Modal()">
+      {{ 'DIRECTION.FIG8_CLOSE' | translate }}
     </button>
-    <div class="dir-dash" *ngIf="showSensors">
-      <article class="dir-dash__sec" *ngFor="let sec of dashSections; trackBy: trackDash">
-        <h3 class="dir-dash__h">{{ sec.labelKey | translate }}</h3>
-        <div class="dir-dash__grid">
-          <div class="dir-dash__cell" *ngFor="let p of sec.rows; trackBy: trackParam" [class.dir-dash__cell--warn]="p.warn">
-            <span class="dir-dash__k">{{ p.labelKey | translate }}</span>
-            <span class="dir-dash__v">{{ isI18nValue(p) ? (p.value | translate) : p.value }}</span>
-          </div>
-        </div>
-      </article>
-      <article class="dir-dash__sec" *ngFor="let s of liveCardList; trackBy: trackCard">
-        <h3 class="dir-dash__h">
-          <span class="dir-dash__dot" aria-hidden="true"></span>
-          {{ s.labelKey | translate }}
-          <em>{{ 'DIRECTION.ST_live' | translate }}</em>
-        </h3>
-        <div class="dir-dash__grid dir-dash__grid--xyz" *ngIf="s.lines.length">
-          <div class="dir-dash__cell" *ngFor="let ln of s.lines; trackBy: trackLine">
-            <span class="dir-dash__k">{{ ln.k }}</span>
-            <span class="dir-dash__v">{{ ln.v }}</span>
-          </div>
-        </div>
-      </article>
-      <article class="dir-dash__sec dir-dash__sec--muted" *ngIf="unavailableCardList.length">
-        <h3 class="dir-dash__h">{{ 'DIRECTION.UNAVAILABLE' | translate }}</h3>
-        <div class="dir-dash__chips">
-          <span class="dir-dash__chip" *ngFor="let c of unavailableCardList; trackBy: trackCard" [attr.data-st]="c.status">
-            {{ c.labelKey | translate }}
-            <em>{{ ('DIRECTION.ST_' + c.status) | translate }}</em>
-          </span>
-        </div>
-      </article>
-    </div>
-  </section>
   </div>
 </div>

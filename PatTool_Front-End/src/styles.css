@@ -1356,6 +1356,14 @@ body {
     font-family: "Open Sans", sans-serif;
 }
 
+/* Viseur / boussole / calibrage : le rubber-band (scroll vers le haut) doit rester noir, pas blanc. */
+html.pat-starry-sky,
+html.pat-starry-sky body,
+body.pat-starry-sky {
+    background-color: #02040c;
+    --bs-body-bg: #02040c;
+}
+
 /* Global fix for any dropdown arrows appearing in modal titles */
 .pat-upload-modal .modal-title::after,
 .pat-upload-modal h5::after,

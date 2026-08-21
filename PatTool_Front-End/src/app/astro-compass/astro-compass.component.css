@@ -2352,13 +2352,17 @@ a.ac-compass-cal__btn--direction {
   min-height: calc(100vh - 80px);
   color: #dce7fb;
   background-color: #02040c;
+  box-shadow: 0 -100vh 0 0 #02040c;
 }
 
 :host::before,
 :host::after {
   content: "";
   position: absolute;
-  inset: 0;
+  top: -100vh;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 0;
   pointer-events: none;
 }

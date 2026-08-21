@@ -18,6 +18,7 @@ import org.springframework.security.oauth2.server.resource.web.BearerTokenResolv
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -148,43 +149,53 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .headers(headers -> headers
-                // Content Security Policy - restrict resource loading
-                // frame-ancestors: allow Angular dev/prod origins to embed backend pages (e.g. Stellarium viewer)
-                // frame-src: Keycloak, cartes.gouv.fr, ISS live YouTube embeds, Stellarium Web, Sky-Map.org, Windy webcam players
-                // script-src: Allow Bootstrap CDN and inline scripts
-                // style-src: Allow Google Fonts, Bootstrap CDN, Font Awesome, Flag Icons
-                // font-src: Allow Google Fonts (fonts.gstatic.com) and Font Awesome (maxcdn.bootstrapcdn.com)
-                // img-src: Allow blob: for Angular image handling
-                // media-src: Allow blob: for video compression and playback
-                // connect-src: Allow source maps, Keycloak, Nominatim (OpenStreetMap), and OpenElevation API connections
-                // worker-src: MapLibre GL JS GeoJSON tiling (same-origin worker + blob fallback)
-                .contentSecurityPolicy(csp -> csp
-                    .policyDirectives("default-src 'self'; " +
-                        "frame-ancestors 'self' " + frameAncestors + "; " +
-                        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://apis.google.com https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com https://www.googleapis.com; " +
-                        "worker-src 'self' blob:; " +
-                        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://maxcdn.bootstrapcdn.com https://cdn.jsdelivr.net; " +
-                        "img-src 'self' data: https: blob:; " +
-                        "media-src 'self' data: https: blob:; " +
-                        "font-src 'self' data: https://fonts.gstatic.com https://maxcdn.bootstrapcdn.com; " +
-                        "connect-src 'self' blob: http://localhost:8080 http://localhost:8000 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com https://nominatim.openstreetmap.org https://api.open-elevation.com ws://localhost:8000 http://localhost:8000/ws; " +
-                        "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://www.google.com https://maps.google.com https://*.google.com https://cartes.gouv.fr https://www.youtube.com https://www.youtube-nocookie.com https://stellarium-web.org https://*.stellarium-web.org https://www.wikisky.org https://*.wikisky.org https://sky-map.org https://*.sky-map.org https://d3ufh70wg9uzo4.cloudfront.net https://webcams.windy.com https://embed.windy.com https://*.windy.com;")
-                )
-                // Disable X-Frame-Options (defaults to DENY in Spring Security); framing is governed by CSP frame-ancestors.
-                .frameOptions(frame -> frame.disable())
-                // Prevent MIME type sniffing - enables nosniff header
-                .contentTypeOptions(contentType -> {})
-                // HTTP Strict Transport Security (HSTS) - only in production with HTTPS
-                .httpStrictTransportSecurity(hsts -> hsts
-                    .maxAgeInSeconds(31536000) // 1 year
-                    .includeSubDomains(true)
-                )
-                // XSS Protection - enabled with default settings
-                .xssProtection(xss -> {})
-                // Referrer: limit cross-origin URL leakage (explicit header for scanners / legacy browsers)
-                .referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
-            )
+            .headers(headers -> {
+                headers
+                    // Content Security Policy - restrict resource loading
+                    // frame-ancestors: allow Angular dev/prod origins to embed backend pages (e.g. Stellarium viewer)
+                    // frame-src: Keycloak, cartes.gouv.fr, ISS live YouTube embeds, Stellarium Web, Sky-Map.org, Windy webcam players
+                    // script-src: Allow Bootstrap CDN and inline scripts
+                    // style-src: Allow Google Fonts, Bootstrap CDN, Font Awesome, Flag Icons
+                    // font-src: Allow Google Fonts (fonts.gstatic.com) and Font Awesome (maxcdn.bootstrapcdn.com)
+                    // img-src: Allow blob: for Angular image handling
+                    // media-src: Allow blob: for video compression and playback
+                    // connect-src: Allow source maps, Keycloak, Nominatim (OpenStreetMap), and OpenElevation API connections
+                    // worker-src: MapLibre GL JS GeoJSON tiling (same-origin worker + blob fallback)
+                    .contentSecurityPolicy(csp -> csp
+                        .policyDirectives("default-src 'self'; " +
+                            "frame-ancestors 'self' " + frameAncestors + "; " +
+                            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://apis.google.com https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com https://www.googleapis.com; " +
+                            "worker-src 'self' blob:; " +
+                            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://maxcdn.bootstrapcdn.com https://cdn.jsdelivr.net; " +
+                            "img-src 'self' data: https: blob:; " +
+                            "media-src 'self' data: https: blob:; " +
+                            "font-src 'self' data: https://fonts.gstatic.com https://maxcdn.bootstrapcdn.com; " +
+                            "connect-src 'self' blob: http://localhost:8080 http://localhost:8000 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com https://nominatim.openstreetmap.org https://api.open-elevation.com ws://localhost:8000 http://localhost:8000/ws; " +
+                            "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://www.google.com https://maps.google.com https://*.google.com https://cartes.gouv.fr https://www.youtube.com https://www.youtube-nocookie.com https://stellarium-web.org https://*.stellarium-web.org https://www.wikisky.org https://*.wikisky.org https://sky-map.org https://*.sky-map.org https://d3ufh70wg9uzo4.cloudfront.net https://webcams.windy.com https://embed.windy.com https://*.windy.com;")
+                    )
+                    // Disable X-Frame-Options (defaults to DENY in Spring Security); framing is governed by CSP frame-ancestors.
+                    .frameOptions(frame -> frame.disable())
+                    // Prevent MIME type sniffing - enables nosniff header
+                    .contentTypeOptions(contentType -> {})
+                    // HTTP Strict Transport Security (HSTS) - only in production with HTTPS
+                    .httpStrictTransportSecurity(hsts -> hsts
+                        .maxAgeInSeconds(31536000) // 1 year
+                        .includeSubDomains(true)
+                    )
+                    // XSS Protection - enabled with default settings
+                    .xssProtection(xss -> {})
+                    // Referrer: limit cross-origin URL leakage (explicit header for scanners / legacy browsers)
+                    .referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                    // Generic Sensor API (boussole Nord) : Chrome bloque Magnetometer sans cette policy.
+                    .permissionsPolicy(policy -> policy.policy(
+                        "accelerometer=(self), gyroscope=(self), magnetometer=(self), ambient-light-sensor=(self)"
+                    ));
+                // Feature-Policy (ancien nom) : addHeaderWriter n'existe pas sur PermissionsPolicyConfig.
+                headers.addHeaderWriter(new StaticHeadersWriter(
+                    "Feature-Policy",
+                    "accelerometer 'self'; gyroscope 'self'; magnetometer 'self'; ambient-light-sensor 'self'"
+                ));
+            })
             .oauth2ResourceServer(oauth2 -> oauth2
                 // <video>/<audio src> cannot send Authorization; allow access_token on GET /api/video/**
                 .bearerTokenResolver(videoAwareBearerTokenResolver())

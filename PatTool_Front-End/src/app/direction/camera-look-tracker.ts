@@ -34,10 +34,10 @@ interface GenericSensor {
 type HeadingSource = 'rotation-vector' | 'mag-accel' | 'deviceorientation' | 'gyro-lock';
 
 const SOURCE_RANK: Record<HeadingSource, number> = {
-  'rotation-vector': 3,
-  'gyro-lock': 2,
-  'mag-accel': 1,
-  deviceorientation: 0
+  'mag-accel': 4,
+  'gyro-lock': 3,
+  deviceorientation: 2,
+  'rotation-vector': 1
 };
 
 /**
@@ -323,10 +323,6 @@ export class CameraLookTracker {
     if (Number.isFinite(e.gamma as number)) {
       this.lastGammaDeg = e.gamma as number;
     }
-    if (this.hasRotationVector) {
-      this.applyTiltElevation();
-      return;
-    }
     if (this.hasMag) {
       this.applyTiltElevation();
       return;
@@ -376,6 +372,10 @@ export class CameraLookTracker {
       z: this.accel.z * (1 - a) + v.z * a
     };
     this.hasAccel = true;
+    if (this.hasMag) {
+      this.fuse();
+      return;
+    }
     if (this.hasRotationVector) {
       this.applyTiltElevation();
       return;
@@ -386,22 +386,20 @@ export class CameraLookTracker {
   private fuse(): void {
     const magAtt =
       this.hasMag && this.hasAccel ? cameraFromMagAccel(this.mag, this.accel, this.attitudeOpt()) : null;
-    if (this.lastQuatAtt && magAtt) {
-      this.applyAtt(this.fusion.tick(this.gyro, this.accel, magAtt, this.lastQuatAtt), 'rotation-vector');
+    if (magAtt) {
+      if (this.hasGyro || this.lastQuatAtt) {
+        this.applyAtt(
+          this.fusion.tick(this.gyro, this.accel, magAtt, this.lastQuatAtt),
+          this.hasGyro ? 'gyro-lock' : 'mag-accel'
+        );
+        return;
+      }
+      this.applyAtt(magAtt, 'mag-accel');
       return;
     }
     if (this.lastQuatAtt) {
       this.applyAtt(this.lastQuatAtt, 'rotation-vector');
-      return;
     }
-    if (!magAtt) {
-      return;
-    }
-    if (this.hasGyro) {
-      this.applyAtt(this.fusion.tick(this.gyro, this.accel, magAtt), 'gyro-lock');
-      return;
-    }
-    this.applyAtt(magAtt, 'mag-accel');
   }
 
   private applyAtt(att: CameraAttitude, src: HeadingSource): void {

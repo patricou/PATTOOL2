@@ -38,6 +38,7 @@ import { magneticFieldAt } from '../nord/magnetic-declination';
 import {
   DIRECTION_HARDIRON_KEY,
   NORD_CAL_STORAGE_KEY,
+  CompassNorthEngine,
   writeSharedNordCal,
   type PersistedNordCal
 } from '../shared/compass-north.engine';
@@ -68,10 +69,10 @@ type HeadingSource = 'rotation-vector' | 'mag-accel' | 'deviceorientation' | 'gy
 type NorthCalMethod = 'figure8' | 'manual' | 'gps' | 'sun';
 
 const SOURCE_RANK: Record<HeadingSource, number> = {
-  'rotation-vector': 3,
-  'gyro-lock': 2,
-  'mag-accel': 1,
-  deviceorientation: 0
+  'mag-accel': 4,
+  'gyro-lock': 3,
+  deviceorientation: 2,
+  'rotation-vector': 1
 };
 
 interface ParamRow {
@@ -92,6 +93,17 @@ interface SensorCard {
   labelKey: string;
   status: SensorStatus;
   lines: { k: string; v: string }[];
+}
+
+interface Figure8Report {
+  usedRawMag: boolean;
+  offsetBefore: number;
+  offsetAfter: number;
+  headingBefore: number | null;
+  headingAfter: number | null;
+  fieldBefore: number | null;
+  fieldAfter: number | null;
+  bias: Vec3;
 }
 
 interface GenericSensor {
@@ -116,6 +128,92 @@ const CAL_KEY = DIRECTION_HARDIRON_KEY;
 const FS_PARAMS_KEY = 'pat.direction.fs-params.v1';
 const CAM_HEIGHT_KEY = 'pat.direction.cam-height-px';
 const PAINT_MS = 50;
+const ROSE_CX = 100;
+const ROSE_CY = 100;
+
+function rosePolar(r: number, deg: number): [number, number] {
+  const a = ((deg - 90) * Math.PI) / 180;
+  return [ROSE_CX + Math.cos(a) * r, ROSE_CY + Math.sin(a) * r];
+}
+
+function roseTickPath(step: number, r0: number, r1: number): string {
+  let d = '';
+  for (let deg = 0; deg < 360; deg += step) {
+    const [x0, y0] = rosePolar(r0, deg);
+    const [x1, y1] = rosePolar(r1, deg);
+    d += `M${x0.toFixed(2)} ${y0.toFixed(2)}L${x1.toFixed(2)} ${y1.toFixed(2)}`;
+  }
+  return d;
+}
+
+function roseKite(deg: number, outer: number, waist: number, tail: number, halfW: number): string {
+  const a = ((deg - 90) * Math.PI) / 180;
+  const p = a + Math.PI / 2;
+  const [tx, ty] = rosePolar(outer, deg);
+  const [bx, by] = rosePolar(tail, deg);
+  const wx = ROSE_CX + Math.cos(a) * waist;
+  const wy = ROSE_CY + Math.sin(a) * waist;
+  const lx = wx + Math.cos(p) * halfW;
+  const ly = wy + Math.sin(p) * halfW;
+  const rx = wx - Math.cos(p) * halfW;
+  const ry = wy - Math.sin(p) * halfW;
+  return `${tx.toFixed(2)},${ty.toFixed(2)} ${lx.toFixed(2)},${ly.toFixed(2)} ${bx.toFixed(2)},${by.toFixed(2)} ${rx.toFixed(2)},${ry.toFixed(2)}`;
+}
+
+type RoseKiteKind = 'n' | 'cardinal' | 'inter' | 'half' | 'quarter';
+
+function roseKiteList(): { points: string; kind: RoseKiteKind }[] {
+  const quarter: { points: string; kind: RoseKiteKind }[] = [];
+  const half: { points: string; kind: RoseKiteKind }[] = [];
+  const inter: { points: string; kind: RoseKiteKind }[] = [];
+  const cardinal: { points: string; kind: RoseKiteKind }[] = [];
+  const north: { points: string; kind: RoseKiteKind }[] = [];
+  for (let i = 0; i < 32; i++) {
+    const deg = i * 11.25;
+    if (i % 8 === 0) {
+      const kite = {
+        points: roseKite(deg, 40.5, 15.5, 3.8, 6.1),
+        kind: (deg === 0 ? 'n' : 'cardinal') as RoseKiteKind
+      };
+      (deg === 0 ? north : cardinal).push(kite);
+    } else if (i % 4 === 0) {
+      inter.push({ points: roseKite(deg, 34.5, 14.5, 5, 4.3), kind: 'inter' });
+    } else if (i % 2 === 0) {
+      half.push({ points: roseKite(deg, 26.5, 13, 6, 2.7), kind: 'half' });
+    } else {
+      quarter.push({ points: roseKite(deg, 20.5, 12, 7, 1.7), kind: 'quarter' });
+    }
+  }
+  return [...quarter, ...half, ...inter, ...cardinal, ...north];
+}
+
+const ROSE_DEGREES = Array.from({ length: 36 }, (_, i) => i * 10).filter(
+  (d) => d !== 0 && d !== 90 && d !== 180 && d !== 270
+);
+const ROSE_CARDINALS: { deg: number; label: string; kind: 'n' | 'card' | 'inter' }[] = [
+  { deg: 0, label: 'N', kind: 'n' },
+  { deg: 45, label: 'NE', kind: 'inter' },
+  { deg: 90, label: 'E', kind: 'card' },
+  { deg: 135, label: 'SE', kind: 'inter' },
+  { deg: 180, label: 'S', kind: 'card' },
+  { deg: 225, label: 'SO', kind: 'inter' },
+  { deg: 270, label: 'O', kind: 'card' },
+  { deg: 315, label: 'NO', kind: 'inter' }
+];
+const ROSE_FINE: { deg: number; label: string }[] = [
+  { deg: 22.5, label: 'NNE' },
+  { deg: 67.5, label: 'ENE' },
+  { deg: 112.5, label: 'ESE' },
+  { deg: 157.5, label: 'SSE' },
+  { deg: 202.5, label: 'SSO' },
+  { deg: 247.5, label: 'OSO' },
+  { deg: 292.5, label: 'ONO' },
+  { deg: 337.5, label: 'NNO' }
+];
+const ROSE_DOTS = Array.from({ length: 24 }, (_, i) => {
+  const [x, y] = rosePolar(63.5, i * 15);
+  return { x, y };
+});
 
 @Component({
   selector: 'app-direction',
@@ -153,6 +251,8 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   showSensors = false;
   showPatExtra = false;
   showQuickHint = false;
+  figure8ModalOpen = false;
+  figure8Report: Figure8Report | null = null;
   source: HeadingSource | null = null;
   patWizard = false;
   patPhase: 'north' | 'poses' = 'poses';
@@ -180,6 +280,17 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   };
   patMixMode: PattoolCalMixMode = 'latest';
   readonly patPoses = PATTOOL_POSES;
+  readonly roseTick1 = roseTickPath(1, 90.1, 93.7);
+  readonly roseTick5 = roseTickPath(5, 88.0, 93.9);
+  readonly roseTick10 = roseTickPath(10, 85.4, 94.3);
+  readonly roseTick30 = roseTickPath(30, 82.2, 95.1);
+  readonly roseTickInner = roseTickPath(5, 57.4, 61.4);
+  readonly roseTickInnerMajor = roseTickPath(30, 55.6, 61.8);
+  readonly roseKites = roseKiteList();
+  readonly roseDegrees = ROSE_DEGREES;
+  readonly roseCardinals = ROSE_CARDINALS;
+  readonly roseFinePoints = ROSE_FINE;
+  readonly roseDots = ROSE_DOTS;
 
   azimuthDeg: number | null = null;
   elevationDeg: number | null = null;
@@ -231,7 +342,14 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   private geoId: number | null = null;
   private orientName: 'deviceorientationabsolute' | 'deviceorientation' | null = null;
   private fusion = new GyroMagComplementary();
+  private readonly northEngine = new CompassNorthEngine();
   private hardIron = new HardIronCal();
+  private figure8Snap: {
+    offset: number;
+    heading: number | null;
+    field: number | null;
+  } | null = null;
+  private figure8HardIronFresh = false;
   private readonly azFilter = new CircularLowPass(0.15);
   private readonly rlFilter = new CircularLowPass(0.15);
   private lastPaint = 0;
@@ -391,6 +509,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.endCamResize();
     this.leaveFullscreen();
     this.stopEverything();
+    this.northEngine.destroy();
   }
 
   @HostListener('document:fullscreenchange')
@@ -404,6 +523,10 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    if (this.figure8ModalOpen) {
+      this.closeFigure8Modal();
+      return;
+    }
     this.closeQuickHint();
   }
 
@@ -520,6 +643,10 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   }
 
   chooseCal(method: NorthCalMethod): void {
+    if (method === 'figure8') {
+      this.startCal();
+      return;
+    }
     this.calMethod = method;
     this.calAccum = [];
     this.calSamples = 0;
@@ -532,7 +659,18 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.calMethod = 'figure8';
     this.calAccum = [];
     this.calSamples = 0;
-    this.hardIron.reset();
+    this.figure8Snap = {
+      offset: this.offsetDeg,
+      heading: this.headingBeforeOffset(),
+      field: this.magUt
+    };
+    this.figure8HardIronFresh = false;
+    if (this.hasMag) {
+      this.hardIron.reset();
+      this.figure8HardIronFresh = true;
+    }
+    this.northEngine.startFigure8();
+    this.northEngine.hasMag = this.hasMag;
     this.calibrating = true;
     this.calPct = 0;
     this.fusion.reset();
@@ -544,7 +682,25 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.calibrating = false;
     this.calAccum = [];
     this.calSamples = 0;
+    this.northEngine.cancelCal();
     this.cdr.markForCheck();
+  }
+
+  closeFigure8Modal(): void {
+    this.figure8ModalOpen = false;
+    this.cdr.markForCheck();
+  }
+
+  fig8Delta(before: number | null, after: number | null): string {
+    if (before == null || after == null) {
+      return '—';
+    }
+    const d = circularDiff(after, before);
+    const abs = Math.abs(d).toFixed(1);
+    if (Math.abs(d) < 0.05) {
+      return '0°';
+    }
+    return d > 0 ? `+${abs}°` : `−${abs}°`;
   }
 
   confirmManualNorth(): void {
@@ -1245,11 +1401,22 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   }
 
   private onMag(raw: Vec3): void {
-    if (this.calibrating) {
+    if (this.calibrating && this.calMethod === 'figure8') {
+      this.northEngine.hasMag = true;
+      if (!this.figure8HardIronFresh) {
+        this.hardIron.reset();
+        this.figure8HardIronFresh = true;
+      }
       this.calPct = this.hardIron.ingest(raw);
       if (this.hardIron.finish()) {
-        this.calibrating = false;
-        this.saveCal();
+        const corrected = this.hardIron.correct(raw);
+        this.mag = corrected;
+        this.hasMag = true;
+        this.magKnown = true;
+        this.magUt = hypot3(this.mag);
+        this.fuse();
+        this.finishFigure8();
+        return;
       }
     }
     const corrected = this.hardIron.ready ? this.hardIron.correct(raw) : raw;
@@ -1289,7 +1456,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
       webkit: typeof anyE.webkitCompassHeading === 'number' ? anyE.webkitCompassHeading : null
     };
     this.pushPatBurst();
-    if (this.hasRotationVector || this.hasMag) {
+    if (this.hasMag) {
       this.schedule();
       return;
     }
@@ -1356,6 +1523,17 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
       z: this.accel.z * (1 - a) + v.z * a
     };
     this.hasAccel = true;
+    if (this.calibrating && this.calMethod === 'figure8') {
+      this.northEngine.hasAccel = true;
+      if (!this.hasMag && this.northEngine.ingestFigure8Accel(v.x, v.y, v.z)) {
+        this.calPct = this.northEngine.calProgressPct;
+        this.pushPatBurst();
+        this.fuse();
+        this.finishFigure8();
+        return;
+      }
+      this.calPct = Math.max(this.calPct, this.northEngine.calProgressPct);
+    }
     this.pushPatBurst();
     this.fuse();
   }
@@ -1363,22 +1541,20 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   private fuse(): void {
     const magAtt =
       this.hasMag && this.hasAccel ? cameraFromMagAccel(this.mag, this.accel, this.attitudeOpt()) : null;
-    if (this.lastQuatAtt && magAtt) {
-      this.applyAtt(this.fusion.tick(this.gyro, this.accel, magAtt, this.lastQuatAtt), 'rotation-vector');
+    if (magAtt) {
+      if (this.hasGyro || this.lastQuatAtt) {
+        this.applyAtt(
+          this.fusion.tick(this.gyro, this.accel, magAtt, this.lastQuatAtt),
+          this.hasGyro ? 'gyro-lock' : 'mag-accel'
+        );
+        return;
+      }
+      this.applyAtt(magAtt, 'mag-accel');
       return;
     }
     if (this.lastQuatAtt) {
       this.applyAtt(this.lastQuatAtt, 'rotation-vector');
-      return;
     }
-    if (!magAtt) {
-      return;
-    }
-    if (this.hasGyro) {
-      this.applyAtt(this.fusion.tick(this.gyro, this.accel, magAtt), 'gyro-lock');
-      return;
-    }
-    this.applyAtt(magAtt, 'mag-accel');
   }
 
   private applyAtt(att: CameraAttitude, src: HeadingSource): void {
@@ -1402,17 +1578,70 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.elevationDeg = composeLookElevation(raw, cal ?? null);
     this.rollDeg = att.rollDeg;
     this.magAzimuthDeg = att.azimuthDeg;
+    if (this.calibrating && this.calMethod === 'figure8' && !this.hasMag) {
+      if (this.northEngine.ingestFigure8Heading(att.azimuthDeg)) {
+        this.finishFigure8();
+        return;
+      }
+      this.calPct = Math.max(this.calPct, this.northEngine.calProgressPct);
+    }
     this.publish();
   }
 
   private publish(): void {
-    let az = this.magAzimuthDeg;
+    const az = this.headingBeforeOffset();
     if (az == null) {
       this.schedule();
       return;
     }
     this.azimuthDeg = composeLookAzimuth(az, this.patFile?.derived ?? null);
     this.schedule();
+  }
+
+  /** Cap caméra avant correction manuelle : magnétomètre, + déclinaison si Nord géographique. */
+  private headingBeforeOffset(): number | null {
+    if (this.magAzimuthDeg == null) {
+      return null;
+    }
+    if (this.trueNorthActive && this.declinationDeg != null) {
+      return normalizeDeg(this.magAzimuthDeg + this.declinationDeg);
+    }
+    return this.magAzimuthDeg;
+  }
+
+  private finishFigure8(): void {
+    if (!this.calibrating) {
+      return;
+    }
+    this.calibrating = false;
+    this.northEngine.cancelCal();
+    if (this.hardIron.ready && this.figure8HardIronFresh) {
+      this.saveCal();
+    } else {
+      this.syncSharedNordCal();
+    }
+    this.fusion.reset();
+    this.fuse();
+    const headingAfter = this.headingBeforeOffset();
+    const headingBefore = this.figure8Snap?.heading ?? null;
+    const offsetBefore = this.figure8Snap?.offset ?? this.offsetDeg;
+    if (headingBefore != null && headingAfter != null) {
+      const jump = circularDiff(headingAfter, headingBefore);
+      this.setOffset(offsetBefore - jump);
+    }
+    this.figure8Report = {
+      usedRawMag: this.hasMag && this.hardIron.ready,
+      offsetBefore,
+      offsetAfter: this.offsetDeg,
+      headingBefore,
+      headingAfter,
+      fieldBefore: this.figure8Snap?.field ?? null,
+      fieldAfter: this.magUt,
+      bias: { ...this.hardIron.bias }
+    };
+    this.figure8ModalOpen = true;
+    this.calMethod = null;
+    this.cdr.markForCheck();
   }
 
   private rebuildParams(): void {
@@ -1584,10 +1813,11 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
    * Un seul offset : on remplace, on n’empile pas sur les 7 poses.
    */
   private calibrateToTrueAzimuth(targetTrueDeg: number): void {
-    if (this.magAzimuthDeg == null) {
+    const raw = this.headingBeforeOffset();
+    if (raw == null) {
       return;
     }
-    this.setOffset(circularDiff(targetTrueDeg, this.magAzimuthDeg));
+    this.setOffset(circularDiff(targetTrueDeg, raw));
   }
 
   /** iOS DeviceMotion : accélération y compris gravité = vecteur gravité (vers le bas). W3C / Android = vers le haut. */

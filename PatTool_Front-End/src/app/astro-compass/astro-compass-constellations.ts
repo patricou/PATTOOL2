@@ -147,7 +147,21 @@ export const ASTRO_CONSTELLATIONS: ReadonlyArray<AstroConstellationOption> = [
   c('vel', 'Vel', 'Vela', 'Voiles', ['sails', 'vela'], 9.512, -47.17, 1.78, 'Voiles_(constellation)', 'Vela_(constellation)'),
   c('vir', 'Vir', 'Virgo', 'Vierge', ['virgin', 'virgo'], 13.406, -4.16, 0.97, 'Vierge_(constellation)', 'Virgo_(constellation)'),
   c('vol', 'Vol', 'Volans', 'Poisson volant', ['flying fish'], 7.795, -68.80, 3.62, 'Poisson_volant', 'Volans'),
-  c('vul', 'Vul', 'Vulpecula', 'Petit Renard', ['little fox', 'fox'], 20.231, 24.44, 4.44, 'Petit_Renard', 'Vulpecula')
+  c('vul', 'Vul', 'Vulpecula', 'Petit Renard', ['little fox', 'fox'], 20.231, 24.44, 4.44, 'Petit_Renard', 'Vulpecula'),
+  c('big-dipper', 'Bdp', 'Big Dipper', 'Grande Casserole', ['casserole', 'big dipper', 'plough', 'chariot'], 12.50, 56.00, 1.76, 'Grande_Casserole', 'Big_Dipper'),
+  c('little-dipper', 'Ldp', 'Little Dipper', 'Petite Casserole', ['little dipper', 'petite casserole'], 15.50, 80.00, 1.98, 'Petite_Ourse', 'Little_Dipper'),
+  c('summer-triangle', 'STr', 'Summer Triangle', 'Triangle d’été', ['triangle ete', 'summer triangle', 'vega deneb altair'], 19.72, 31.00, 0.03, "Triangle_d'été", 'Summer_Triangle'),
+  c('winter-hexagon', 'WHx', 'Winter Hexagon', 'Hexagone d’hiver', ['winter hexagon', 'winter circle', 'hexagone hiver'], 6.20, 12.00, -1.46, "Hexagone_d'hiver", 'Winter_Hexagon'),
+  c('northern-cross', 'NCr', 'Northern Cross', 'Croix du Nord', ['northern cross', 'croix du nord'], 20.30, 40.00, 1.25, 'Croix_du_Nord', 'Northern_Cross_(asterism)'),
+  c('teapot', 'Tpt', 'Teapot', 'Théière', ['teapot', 'theiere', 'sagittaire theiere'], 18.55, -30.00, 1.79, 'Sagittaire_(constellation)', 'Teapot_(asterism)'),
+  c('pegasus-square', 'SqP', 'Great Square', 'Grand Carré de Pégase', ['great square', 'carre pegase', 'square of pegasus'], 23.50, 22.00, 2.06, 'Grand_Carré_de_Pégase', 'Great_Square_of_Pegasus'),
+  c('orion-belt', 'Blt', "Orion's Belt", 'Ceinture d’Orion', ['orion belt', 'ceinture', 'three kings', 'trois rois'], 5.60, -1.50, 1.69, "Ceinture_d'Orion", "Orion's_Belt"),
+  c('leo-sickle', 'Sck', 'Sickle of Leo', 'Faucille du Lion', ['sickle', 'faucille', 'lion sickle'], 10.30, 20.00, 1.35, 'Lion_(constellation)', 'Sickle_(asterism)'),
+  c('false-cross', 'FCr', 'False Cross', 'Fausse Croix', ['false cross', 'fausse croix'], 8.90, -57.00, 1.86, 'Fausse_Croix', 'False_Cross'),
+  c('southern-pointers', 'Ptr', 'Southern Pointers', 'Pointeurs australs', ['southern pointers', 'pointeurs', 'pointers to the cross'], 14.36, -60.60, -0.27, 'Centaure_(constellation)', 'Pointer_stars'),
+  c('hercules-keystone', 'Key', 'Keystone', 'Clé de voûte d’Hercule', ['keystone', 'cle de voute', 'hercules keystone'], 16.91, 34.60, 2.81, 'Hercule_(constellation)', 'Keystone_(asterism)'),
+  c('hyades', 'Hyd', 'Hyades', 'Hyades', ['hyades', 'v of taurus'], 4.50, 16.00, 0.86, 'Hyades_(amas_ouvert)', 'Hyades'),
+  c('pisces-circlet', 'Crc', 'Circlet of Pisces', 'Cercle des Poissons', ['circlet', 'cercle poissons'], 23.50, 3.50, 3.70, 'Poissons_(constellation)', 'Circlet')
 ];
 
 /** Stick-figure segments (catalog star ids) for well-known asterisms. */
@@ -200,7 +214,93 @@ export const CONSTELLATION_STICK_LINES: Readonly<Record<string, ReadonlyArray<re
   per: [['mirfak', 'algol']],
   lyr: [],
   aql: [],
-  crb: []
+  crb: [],
+  'big-dipper': [
+    ['dubhe', 'merak'],
+    ['merak', 'phecda'],
+    ['phecda', 'megrez'],
+    ['megrez', 'alioth'],
+    ['alioth', 'mizar'],
+    ['mizar', 'alkaid'],
+    ['megrez', 'dubhe']
+  ],
+  'little-dipper': [
+    ['polaris', 'yildun'],
+    ['yildun', 'epsilon-umi'],
+    ['epsilon-umi', 'zeta-umi'],
+    ['zeta-umi', 'pherkad'],
+    ['pherkad', 'kochab'],
+    ['kochab', 'zeta-umi']
+  ],
+  'summer-triangle': [
+    ['vega', 'deneb'],
+    ['deneb', 'altair'],
+    ['altair', 'vega']
+  ],
+  'winter-hexagon': [
+    ['rigel', 'aldebaran'],
+    ['aldebaran', 'capella'],
+    ['capella', 'pollux'],
+    ['pollux', 'procyon'],
+    ['procyon', 'sirius'],
+    ['sirius', 'rigel']
+  ],
+  'northern-cross': [
+    ['deneb', 'sadr'],
+    ['sadr', 'albireo'],
+    ['aljanah', 'sadr'],
+    ['sadr', 'fawaris']
+  ],
+  teapot: [
+    ['alnasl', 'kaus-media'],
+    ['kaus-media', 'kaus-australis'],
+    ['kaus-media', 'kaus-borealis'],
+    ['kaus-australis', 'nanto'],
+    ['nanto', 'nunki'],
+    ['nunki', 'ascella'],
+    ['ascella', 'kaus-australis']
+  ],
+  'pegasus-square': [
+    ['markab', 'scheat'],
+    ['scheat', 'alpheratz'],
+    ['alpheratz', 'algenib'],
+    ['algenib', 'markab']
+  ],
+  'orion-belt': [
+    ['mintaka', 'alnilam'],
+    ['alnilam', 'alnitak']
+  ],
+  'leo-sickle': [
+    ['regulus', 'eta-leo'],
+    ['eta-leo', 'algieba'],
+    ['algieba', 'adhafera'],
+    ['adhafera', 'rasalas']
+  ],
+  'false-cross': [
+    ['avior', 'aspidiske'],
+    ['aspidiske', 'alsephina'],
+    ['alsephina', 'markeb'],
+    ['markeb', 'avior']
+  ],
+  'southern-pointers': [['rigil-kentaurus', 'hadar']],
+  'hercules-keystone': [
+    ['pi-her', 'eta-her'],
+    ['eta-her', 'rutilicus'],
+    ['rutilicus', 'epsilon-her'],
+    ['epsilon-her', 'pi-her']
+  ],
+  hyades: [
+    ['aldebaran', 'ain'],
+    ['ain', 'hyadum1'],
+    ['hyadum1', 'hyadum2']
+  ],
+  'pisces-circlet': [
+    ['gamma-psc', 'theta-psc'],
+    ['theta-psc', 'iota-psc'],
+    ['iota-psc', 'lambda-psc'],
+    ['lambda-psc', 'kappa-psc'],
+    ['kappa-psc', 'gamma-psc']
+  ]
 };
 
 export function findConstellationById(id: string): AstroConstellationOption | undefined {
@@ -208,17 +308,35 @@ export function findConstellationById(id: string): AstroConstellationOption | un
   return ASTRO_CONSTELLATIONS.find((c) => c.id === key);
 }
 
-export function constellationMemberStars(iau: string): AstroStarOption[] {
+export function constellationMemberStars(iau: string, constellationId?: string): AstroStarOption[] {
   const code = (iau || '').trim().toLowerCase();
-  if (!code) {
-    return [];
+  const byId = new Map<string, AstroStarOption>();
+  if (code) {
+    for (const star of ASTRO_BRIGHT_STARS) {
+      if ((star.constellation || '').toLowerCase() === code) {
+        byId.set(star.id, star);
+      }
+    }
   }
-  return ASTRO_BRIGHT_STARS.filter((s) => (s.constellation || '').toLowerCase() === code);
+  if (constellationId) {
+    for (const [a, b] of constellationStickLines(constellationId)) {
+      for (const id of [a, b]) {
+        if (byId.has(id)) {
+          continue;
+        }
+        const star = ASTRO_BRIGHT_STARS.find((s) => s.id === id);
+        if (star) {
+          byId.set(star.id, star);
+        }
+      }
+    }
+  }
+  return [...byId.values()];
 }
 
 /** Bright catalog star closest to the constellation geometric centre (J2000). */
 export function constellationCenterStar(item: AstroConstellationOption): AstroStarOption | undefined {
-  const members = constellationMemberStars(item.iau);
+  const members = constellationMemberStars(item.iau, item.id);
   if (!members.length) {
     return undefined;
   }

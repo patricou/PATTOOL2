@@ -28,6 +28,8 @@ export interface SensorTile {
   labelKey: string;
   status: SensorStatus;
   rows: { label: string; value: string }[];
+  noteKey?: string;
+  drivesNorth?: boolean;
 }
 
 interface GenericSensorLike {
@@ -40,7 +42,20 @@ interface GenericSensorLike {
   z?: number;
   illuminance?: number;
   quaternion?: number[];
+  distance?: number;
+  max?: number;
+  near?: boolean;
 }
+
+/** Même ordre que l’écran diagnostic Samsung (*#0*#). */
+const HARDWARE_TILE_IDS = [
+  'accelerometer',
+  'barometer',
+  'proxy-light',
+  'gyroscope',
+  'magnetometer',
+  'fingerprint'
+] as const;
 
 @Component({
   selector: 'app-nord',
@@ -89,8 +104,28 @@ export class NordComponent implements OnInit, OnDestroy {
   gpsLat: number | null = null;
   gpsLon: number | null = null;
   gpsAccuracyM: number | null = null;
+  gpsAltitudeM: number | null = null;
+  gpsAltitudeAccuracyM: number | null = null;
   gpsHeadingDeg: number | null = null;
   gpsSpeedMs: number | null = null;
+
+  get hardwareTiles(): SensorTile[] {
+    return HARDWARE_TILE_IDS.map((id) => this.tile(id));
+  }
+
+  get extraTiles(): SensorTile[] {
+    return this.tiles.filter((t) => !(HARDWARE_TILE_IDS as readonly string[]).includes(t.id));
+  }
+
+  /** Capteur magnétique (API brute, azimut OS ou iOS) — pas le cap GPS. */
+  get usesMagneticNorth(): boolean {
+    return (
+      this.headingSource === 'magnetometer' ||
+      this.headingSource === 'webkit' ||
+      this.headingSource === 'absolute-event' ||
+      this.headingSource === 'abs-sensor'
+    );
+  }
   addressLabel: string | null = null;
   addressBusy = false;
   addressError: string | null = null;
@@ -105,10 +140,16 @@ export class NordComponent implements OnInit, OnDestroy {
 
   private accel = { x: 0, y: 0, z: 9.81 };
   private gyro = { x: 0, y: 0, z: 0 };
+  private magRaw: { x: number; y: number; z: number } | null = null;
+  private baroHpa: number | null = null;
+  private lightLux: number | null = null;
+  private proxDistance: number | null = null;
+  private proxNear: boolean | null = null;
   private hasAccel = false;
   private accelFromGeneric = false;
   private hasGyro = false;
   private hasMag = false;
+  private gyroFromGeneric = false;
 
   private liveSensors: GenericSensorLike[] = [];
   private orientationEventName: 'deviceorientationabsolute' | 'deviceorientation' | null = null;
@@ -127,6 +168,25 @@ export class NordComponent implements OnInit, OnDestroy {
   private lastAddressAtMs = 0;
   private handleOrientation = (e: DeviceOrientationEvent): void => this.onDeviceOrientation(e);
   private handleMotion = (e: DeviceMotionEvent): void => this.onDeviceMotion(e);
+  private handleDeviceLight = (e: Event): void => {
+    const v = (e as Event & { value?: number }).value;
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      this.lightLux = v;
+      this.paintProxyLight();
+      this.schedulePaint();
+    }
+  };
+  private handleDeviceProximity = (e: Event): void => {
+    const ev = e as Event & { value?: number; near?: boolean };
+    if (typeof ev.value === 'number' && Number.isFinite(ev.value)) {
+      this.proxDistance = ev.value;
+    }
+    if (typeof ev.near === 'boolean') {
+      this.proxNear = ev.near;
+    }
+    this.paintProxyLight();
+    this.schedulePaint();
+  };
   private handleBattery = (): void => {
     /* bound later */
   };
@@ -174,6 +234,11 @@ export class NordComponent implements OnInit, OnDestroy {
         this.gpsAccuracyM = pos.coords.accuracy;
         this.declinationDeg = magneticDeclinationDeg(this.gpsLat, this.gpsLon);
         this.applyDeclination();
+        this.gpsAltitudeM =
+          typeof pos.coords.altitude === 'number' && Number.isFinite(pos.coords.altitude)
+            ? pos.coords.altitude
+            : this.gpsAltitudeM;
+        this.paintBarometer();
         this.resolveAddress(this.gpsLat, this.gpsLon);
       },
       () => {
@@ -315,21 +380,22 @@ export class NordComponent implements OnInit, OnDestroy {
 
   private static initialTiles(): SensorTile[] {
     const ids: { id: string; labelKey: string }[] = [
-      { id: 'magnetometer', labelKey: 'NORD.S_MAG' },
       { id: 'accelerometer', labelKey: 'NORD.S_ACCEL' },
+      { id: 'barometer', labelKey: 'NORD.S_BARO' },
+      { id: 'proxy-light', labelKey: 'NORD.S_PROXY_LIGHT' },
+      { id: 'gyroscope', labelKey: 'NORD.S_GYRO' },
+      { id: 'magnetometer', labelKey: 'NORD.S_MAG' },
+      { id: 'fingerprint', labelKey: 'NORD.S_FINGER' },
       { id: 'gravity', labelKey: 'NORD.S_GRAVITY' },
       { id: 'linear-accel', labelKey: 'NORD.S_LINEAR' },
-      { id: 'gyroscope', labelKey: 'NORD.S_GYRO' },
       { id: 'abs-orient', labelKey: 'NORD.S_ABS' },
       { id: 'rel-orient', labelKey: 'NORD.S_REL' },
-      { id: 'ambient-light', labelKey: 'NORD.S_LIGHT' },
       { id: 'device-orientation', labelKey: 'NORD.S_DO' },
       { id: 'device-motion', labelKey: 'NORD.S_DM' },
       { id: 'geolocation', labelKey: 'NORD.S_GPS' },
       { id: 'battery', labelKey: 'NORD.S_BATTERY' },
       { id: 'network', labelKey: 'NORD.S_NET' },
-      { id: 'screen', labelKey: 'NORD.S_SCREEN' },
-      { id: 'proximity', labelKey: 'NORD.S_PROX' }
+      { id: 'screen', labelKey: 'NORD.S_SCREEN' }
     ];
     return ids.map((s) => ({ ...s, status: 'idle', rows: [] }));
   }
@@ -341,24 +407,26 @@ export class NordComponent implements OnInit, OnDestroy {
   private setTile(
     id: string,
     status: SensorStatus,
-    rows: { label: string; value: string }[]
+    rows: { label: string; value: string }[],
+    noteKey?: string
   ): void {
     const t = this.tile(id);
     t.status = status;
     t.rows = rows;
+    if (noteKey !== undefined) {
+      t.noteKey = noteKey;
+    }
   }
 
   private probeUnsupported(): void {
     const w = window as unknown as Record<string, unknown>;
     const map: { id: string; ctor: string }[] = [
-      { id: 'magnetometer', ctor: 'Magnetometer' },
       { id: 'accelerometer', ctor: 'Accelerometer' },
       { id: 'gravity', ctor: 'GravitySensor' },
       { id: 'linear-accel', ctor: 'LinearAccelerationSensor' },
       { id: 'gyroscope', ctor: 'Gyroscope' },
       { id: 'abs-orient', ctor: 'AbsoluteOrientationSensor' },
-      { id: 'rel-orient', ctor: 'RelativeOrientationSensor' },
-      { id: 'ambient-light', ctor: 'AmbientLightSensor' }
+      { id: 'rel-orient', ctor: 'RelativeOrientationSensor' }
     ];
     for (const m of map) {
       if (typeof w[m.ctor] !== 'function') {
@@ -380,7 +448,10 @@ export class NordComponent implements OnInit, OnDestroy {
     if (!('connection' in navigator || 'mozConnection' in navigator)) {
       this.setTile('network', 'unsupported', []);
     }
-    this.setTile('proximity', 'unsupported', []);
+    this.setTile('magnetometer', 'idle', [], 'NORD.S_MAG_NOTE');
+    this.setTile('barometer', 'idle', [], 'NORD.S_BARO_NOTE');
+    this.setTile('proxy-light', 'idle', [], 'NORD.S_PROXY_LIGHT_NOTE');
+    this.setTile('fingerprint', 'idle', [], 'NORD.S_FINGER_NOTE');
   }
 
   private async startAll(fromUserGesture: boolean): Promise<void> {
@@ -418,13 +489,19 @@ export class NordComponent implements OnInit, OnDestroy {
     }
 
     this.sensorsEnabled = true;
+    await this.requestSensorPermissions();
     this.startGenericSensors();
     this.startOrientation();
     this.startMotion();
+    this.startLegacyLightProximity();
     this.startGeo();
     this.startBattery();
     this.startNetwork();
     this.startScreen();
+    void this.startFingerprint();
+    this.paintBarometer();
+    this.paintProxyLight();
+    this.paintMagneticTile();
     this.cdr.markForCheck();
   }
 
@@ -440,7 +517,20 @@ export class NordComponent implements OnInit, OnDestroy {
         this.hasMag = true;
         this.northEngine.hasMag = true;
         this.onMagSample(x, y, z);
-        this.setTile('magnetometer', 'live', this.xyzRows(x, y, z, 'µT'));
+      }
+    );
+    this.tryGeneric(
+      'barometer',
+      (w['Barometer'] ?? w['AmbientPressureSensor'] ?? w['PressureSensor']) as
+        | (new (opts: { frequency: number }) => GenericSensorLike)
+        | undefined,
+      (s) => {
+        const anyS = s as GenericSensorLike & { reading?: number; pressure?: number };
+        const hPa = anyS.reading ?? anyS.pressure ?? anyS.x;
+        if (typeof hPa === 'number' && Number.isFinite(hPa)) {
+          this.baroHpa = hPa;
+          this.paintBarometer();
+        }
       }
     );
     this.tryGeneric(
@@ -459,7 +549,7 @@ export class NordComponent implements OnInit, OnDestroy {
           this.beginSettle();
         }
         this.updateAttitudeFromAccel();
-        this.setTile('accelerometer', 'live', this.xyzRows(x, y, z, 'm/s²'));
+        this.setTile('accelerometer', 'live', this.accelRows(x, y, z));
         this.schedulePaint();
       }
     );
@@ -505,9 +595,10 @@ export class NordComponent implements OnInit, OnDestroy {
         const z = s.z ?? 0;
         this.gyro = { x, y, z };
         this.hasGyro = true;
+        this.gyroFromGeneric = true;
         this.northEngine.gyro = this.gyro;
         this.northEngine.hasGyro = true;
-        this.setTile('gyroscope', 'live', this.xyzRows(x, y, z, 'rad/s'));
+        this.setTile('gyroscope', 'live', this.gyroRows(x, y, z), 'NORD.S_OIS_NOTE');
         this.tickFusion();
       }
     );
@@ -548,14 +639,43 @@ export class NordComponent implements OnInit, OnDestroy {
       }
     );
     this.tryGeneric(
-      'ambient-light',
+      'proxy-light',
       w['AmbientLightSensor'] as (new (opts: { frequency: number }) => GenericSensorLike) | undefined,
       (s) => {
-        this.setTile('ambient-light', 'live', [
-          { label: 'lux', value: this.fmt(s.illuminance, 0) }
-        ]);
+        if (typeof s.illuminance === 'number' && Number.isFinite(s.illuminance)) {
+          this.lightLux = s.illuminance;
+          this.paintProxyLight();
+        }
       }
     );
+    this.tryGeneric(
+      'proxy-light',
+      w['ProximitySensor'] as (new (opts: { frequency: number }) => GenericSensorLike) | undefined,
+      (s) => {
+        if (typeof s.distance === 'number' && Number.isFinite(s.distance)) {
+          this.proxDistance = s.distance;
+        }
+        if (typeof s.near === 'boolean') {
+          this.proxNear = s.near;
+        }
+        this.paintProxyLight();
+      }
+    );
+  }
+
+  private async requestSensorPermissions(): Promise<void> {
+    const names = ['accelerometer', 'gyroscope', 'magnetometer', 'ambient-light-sensor'] as const;
+    const perms = navigator.permissions;
+    if (!perms?.query) {
+      return;
+    }
+    for (const name of names) {
+      try {
+        await perms.query({ name: name as PermissionName });
+      } catch {
+        /* PermissionName non reconnu */
+      }
+    }
   }
 
   private tryGeneric(
@@ -574,8 +694,14 @@ export class NordComponent implements OnInit, OnDestroy {
         ? new Ctor({ frequency: MAG_HZ, referenceFrame: extra.referenceFrame })
         : new Ctor({ frequency: MAG_HZ });
       const reading = (): void => onReading(sensor);
-      const error = (): void => {
-        this.setTile(id, 'error', []);
+      const error = (ev: Event): void => {
+        const t = this.tile(id);
+        if (t.status === 'live') {
+          return;
+        }
+        const err = (ev as Event & { error?: { name?: string; message?: string } }).error;
+        const cause = err?.name || err?.message || 'error';
+        this.setTile(id, 'error', [...t.rows, { label: 'cause', value: String(cause) }]);
       };
       sensor.addEventListener('reading', reading);
       sensor.addEventListener('error', error);
@@ -598,6 +724,29 @@ export class NordComponent implements OnInit, OnDestroy {
     this.orientationListening = true;
   }
 
+  private startLegacyLightProximity(): void {
+    window.addEventListener('devicelight', this.handleDeviceLight);
+    window.addEventListener('deviceproximity', this.handleDeviceProximity);
+    window.addEventListener('userproximity', this.handleDeviceProximity);
+  }
+
+  private async startFingerprint(): Promise<void> {
+    const rows: { label: string; value: string }[] = [{ label: '*#0*#', value: 'web: non' }];
+    try {
+      const pk = window.PublicKeyCredential;
+      if (pk && typeof pk.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
+        const uv = await pk.isUserVerifyingPlatformAuthenticatorAvailable();
+        rows.push({ label: 'WebAuthn', value: uv ? 'oui' : 'non' });
+      } else {
+        rows.push({ label: 'WebAuthn', value: '—' });
+      }
+    } catch {
+      rows.push({ label: 'WebAuthn', value: '—' });
+    }
+    this.setTile('fingerprint', 'unsupported', rows, 'NORD.S_FINGER_NOTE');
+    this.schedulePaint();
+  }
+
   private startMotion(): void {
     if (this.motionListening || !('DeviceMotionEvent' in window)) {
       return;
@@ -617,6 +766,14 @@ export class NordComponent implements OnInit, OnDestroy {
         this.gpsLat = pos.coords.latitude;
         this.gpsLon = pos.coords.longitude;
         this.gpsAccuracyM = pos.coords.accuracy;
+        this.gpsAltitudeM =
+          typeof pos.coords.altitude === 'number' && Number.isFinite(pos.coords.altitude)
+            ? pos.coords.altitude
+            : null;
+        this.gpsAltitudeAccuracyM =
+          typeof pos.coords.altitudeAccuracy === 'number' && Number.isFinite(pos.coords.altitudeAccuracy)
+            ? pos.coords.altitudeAccuracy
+            : null;
         this.gpsHeadingDeg =
           typeof pos.coords.heading === 'number' && Number.isFinite(pos.coords.heading)
             ? this.normalizeDeg(pos.coords.heading)
@@ -634,6 +791,7 @@ export class NordComponent implements OnInit, OnDestroy {
           { label: 'cap', value: this.gpsHeadingDeg == null ? '—' : `${this.gpsHeadingDeg.toFixed(0)}°` },
           { label: 'm/s', value: this.fmt(this.gpsSpeedMs, 1) }
         ]);
+        this.paintBarometer();
         if (
           !this.hasMag &&
           this.headingSource !== 'webkit' &&
@@ -772,6 +930,7 @@ export class NordComponent implements OnInit, OnDestroy {
     if (!this.hasAccel && beta != null && gamma != null) {
       this.updateAttitudeFromBetaGamma(beta, gamma);
     }
+    this.paintMagneticTile();
     if (this.hasMag) {
       this.schedulePaint();
       return;
@@ -818,6 +977,7 @@ export class NordComponent implements OnInit, OnDestroy {
         this.northEngine.accel = this.accel;
         this.northEngine.hasAccel = true;
         this.updateAttitudeFromAccel();
+        this.setTile('accelerometer', 'live', this.accelRows(a.x, a.y, a.z));
       }
     }
     if (lin) {
@@ -839,6 +999,9 @@ export class NordComponent implements OnInit, OnDestroy {
         this.hasGyro = true;
         this.northEngine.gyro = this.gyro;
         this.northEngine.hasGyro = true;
+        if (!this.gyroFromGeneric) {
+          this.setTile('gyroscope', 'live', this.gyroRows(r.beta * k, r.gamma * k, r.alpha * k), 'NORD.S_OIS_NOTE');
+        }
         this.tickFusion();
       }
     }
@@ -847,15 +1010,20 @@ export class NordComponent implements OnInit, OnDestroy {
   }
 
   private onMagSample(x: number, y: number, z: number): void {
+    this.magRaw = { x, y, z };
     this.northEngine.accel = this.accel;
     const c = this.northEngine.correctMag(x, y, z);
     this.magFieldUt = Math.hypot(c.x, c.y, c.z);
     if (this.calPhase === 'figure8' && this.northEngine.ingestFigure8Mag(x, y, z)) {
       this.beginSettle();
     }
-    const heading = this.northEngine.headingFromMagAccel(c.x, c.y, c.z, this.screenAngle());
+    const heading =
+      this.northEngine.headingFromMagAccel(c.x, c.y, c.z, this.screenAngle()) ??
+      this.headingFromMagFlat(c.x, c.y);
     if (heading != null) {
       this.publishMagHeading(heading, 'magnetometer');
+    } else {
+      this.paintMagneticTile();
     }
   }
 
@@ -878,6 +1046,7 @@ export class NordComponent implements OnInit, OnDestroy {
     this.headingMagDeg = this.northEngine.fuseMagHeading(corrected, this.calibrated);
     this.pushStability(this.headingMagDeg);
     this.applyDeclination();
+    this.paintMagneticTile();
     if (this.calPhase === 'figure8' && !this.hasMag) {
       if (this.northEngine.ingestFigure8Heading(this.headingMagDeg)) {
         this.beginSettle();
@@ -1137,6 +1306,9 @@ export class NordComponent implements OnInit, OnDestroy {
       this.networkRef = null;
       this.networkHandler = null;
     }
+    window.removeEventListener('devicelight', this.handleDeviceLight);
+    window.removeEventListener('deviceproximity', this.handleDeviceProximity);
+    window.removeEventListener('userproximity', this.handleDeviceProximity);
   }
 
   private schedulePaint(): void {
@@ -1155,6 +1327,90 @@ export class NordComponent implements OnInit, OnDestroy {
       { label: 'z', value: `${this.fmt(z)} ${unit}` },
       { label: '|v|', value: `${Math.hypot(x, y, z).toFixed(1)} ${unit}` }
     ];
+  }
+
+  private accelRows(x: number, y: number, z: number): { label: string; value: string }[] {
+    const xAng = (Math.atan2(x, Math.hypot(y, z)) * 180) / Math.PI;
+    const yAng = (Math.atan2(y, Math.hypot(x, z)) * 180) / Math.PI;
+    const zAng = (Math.atan2(z, Math.hypot(x, y)) * 180) / Math.PI;
+    return [
+      ...this.xyzRows(x, y, z, 'm/s²'),
+      { label: 'x-angle', value: `${xAng.toFixed(0)}°` },
+      { label: 'y-angle', value: `${yAng.toFixed(0)}°` },
+      { label: 'z-angle', value: `${zAng.toFixed(0)}°` }
+    ];
+  }
+
+  private gyroRows(x: number, y: number, z: number): { label: string; value: string }[] {
+    return [
+      { label: 'Y', value: `${this.fmt(z)} rad/s` },
+      { label: 'P', value: `${this.fmt(x)} rad/s` },
+      { label: 'R', value: `${this.fmt(y)} rad/s` },
+      { label: 'ωx', value: `${this.fmt(x)} rad/s` },
+      { label: 'ωy', value: `${this.fmt(y)} rad/s` },
+      { label: 'ωz', value: `${this.fmt(z)} rad/s` },
+      { label: 'OIS', value: '—' }
+    ];
+  }
+
+  private headingFromMagFlat(mx: number, my: number): number | null {
+    if (mx * mx + my * my < 16) {
+      return null;
+    }
+    return this.normalizeDeg((Math.atan2(-mx, my) * 180) / Math.PI - this.screenAngle());
+  }
+
+  private paintMagneticTile(): void {
+    const t = this.tile('magnetometer');
+    const rows: { label: string; value: string }[] = this.magRaw
+      ? this.xyzRows(this.magRaw.x, this.magRaw.y, this.magRaw.z, 'µT')
+      : [
+          { label: 'x', value: '—' },
+          { label: 'y', value: '—' },
+          { label: 'z', value: '—' }
+        ];
+    const az = this.headingMagDeg;
+    rows.push(
+      { label: 'azimut', value: az == null ? '—' : `${az.toFixed(2)}°` },
+      { label: 'pitch', value: this.pitchDeg == null ? '—' : `${this.pitchDeg.toFixed(2)}°` },
+      { label: 'roll', value: this.rollDeg == null ? '—' : `${this.rollDeg.toFixed(2)}°` }
+    );
+    const live = this.hasMag || az != null;
+    t.drivesNorth = this.usesMagneticNorth;
+    this.setTile(
+      'magnetometer',
+      live ? 'live' : t.status,
+      rows,
+      this.hasMag ? 'NORD.S_MAG_NOTE' : 'NORD.S_MAG_NOTE_OS'
+    );
+  }
+
+  private paintBarometer(): void {
+    const rows: { label: string; value: string }[] = [
+      { label: 'hPa', value: this.baroHpa == null ? '—' : this.baroHpa.toFixed(2) },
+      {
+        label: 'altitude',
+        value: this.gpsAltitudeM == null ? '—' : `${this.gpsAltitudeM.toFixed(1)} m`
+      }
+    ];
+    if (this.gpsAltitudeAccuracyM != null) {
+      rows.push({ label: '±m', value: this.fmt(this.gpsAltitudeAccuracyM, 0) });
+    }
+    const live = this.baroHpa != null || this.gpsAltitudeM != null;
+    this.setTile('barometer', live ? 'live' : 'idle', rows, 'NORD.S_BARO_NOTE');
+  }
+
+  private paintProxyLight(): void {
+    const rows: { label: string; value: string }[] = [
+      { label: 'prox', value: this.proxNear == null ? '—' : this.proxNear ? 'près' : 'loin' },
+      {
+        label: 'dist',
+        value: this.proxDistance == null ? '—' : `${this.fmt(this.proxDistance, 2)} m`
+      },
+      { label: 'lux', value: this.lightLux == null ? '—' : this.fmt(this.lightLux, 0) }
+    ];
+    const live = this.proxNear != null || this.proxDistance != null || this.lightLux != null;
+    this.setTile('proxy-light', live ? 'live' : 'idle', rows, 'NORD.S_PROXY_LIGHT_NOTE');
   }
 
   private fmt(n: number | null | undefined, digits = 2): string {

@@ -171,8 +171,27 @@ public class GlobeProxyService {
             43689, // MetOp-C
             40376, // GPM Core
             28485, // Swift
-            33053  // Fermi
+            33053, // Fermi
+            43435, // TESS
+            25867, // Chandra
+            25989, // XMM-Newton
+            57800, // XRISM
+            33591, // NOAA-19
+            41866, // GOES-16
+            40732, // Meteosat-11
+            54743, // MTG-I1 / Meteosat-12
+            41836, // Himawari-9
+            38012, // Pléiades 1A
+            38755, // SPOT-6
+            54754, // SWOT
+            40609, // SMAP
+            43613, // ICESat-2
+            40002, // OCO-2
+            53807, // BlueWalker 3
+            44624, // Eutelsat 5 West B
+            54048  // Hotbird 13F
             // Astra 19.2°E uses a fixed GEO slot (no TLE). Starlink uses the group endpoint.
+            // Euclid / Gaia are Sun–Earth L2 (no useful TLE).
     );
 
     private static final String CELESTRAK_TLE_STARLINK =

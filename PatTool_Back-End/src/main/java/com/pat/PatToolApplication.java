@@ -30,44 +30,14 @@ import java.time.format.DateTimeFormatter;
 @EnableAsync
 @EnableScheduling
 @EnableMongoRepositories(basePackages = "com.pat.repo")
-// Exclude MongoDB repository interfaces from JPA scanning (they live under the same base package).
+// Tous les repos sous com.pat.repo sont Mongo : les exclure de JPA par type
+// (pas par liste de .class, sinon un .class manquant après un compile raté
+// déclenche TypeNotPresentException au démarrage).
 @EnableJpaRepositories(
     basePackages = "com.pat.repo",
     excludeFilters = @ComponentScan.Filter(
         type = FilterType.ASSIGNABLE_TYPE,
-        classes = {
-            com.pat.repo.AppParameterRepository.class,
-            com.pat.repo.ArchiveAudioCollectionRepository.class,
-            com.pat.repo.AssistantConversationAssetRepository.class,
-            com.pat.repo.AssistantConversationRepository.class,
-            com.pat.repo.CalendarAppointmentRepository.class,
-            com.pat.repo.CameraRepository.class,
-            com.pat.repo.CategoryLinkRepository.class,
-            com.pat.repo.DiscussionRepository.class,
-            com.pat.repo.DirectionPattoolSampleRepository.class,
-            com.pat.repo.EvenementsRepository.class,
-            com.pat.repo.FriendGroupRepository.class,
-            com.pat.repo.FriendRepository.class,
-            com.pat.repo.FriendRequestRepository.class,
-            com.pat.repo.GpsItineraryRepository.class,
-            com.pat.repo.GoveeThermometerHistoryRepository.class,
-            com.pat.repo.IssTracePointRepository.class,
-            com.pat.repo.IotProxyTargetRepository.class,
-            com.pat.repo.EuromillionsDrawRepository.class,
-            com.pat.repo.EuromillionsMethodAnalyticsRepository.class,
-            com.pat.repo.LotoDrawRepository.class,
-            com.pat.repo.MacVendorMappingRepository.class,
-            com.pat.repo.MembersRepository.class,
-            com.pat.repo.NetworkDeviceMappingRepository.class,
-            com.pat.repo.NewDeviceHistoryRepository.class,
-            com.pat.repo.NoteRepository.class,
-            com.pat.repo.OdsEditorDocumentRepository.class,
-            com.pat.repo.PdfConverterDocumentRepository.class,
-            com.pat.repo.TodoListRepository.class,
-            com.pat.repo.TvRecordingRepository.class,
-            com.pat.repo.UrlLinkRepository.class,
-            com.pat.repo.UserConnectionLogRepository.class
-        }
+        classes = org.springframework.data.mongodb.repository.MongoRepository.class
     )
 )
 public class PatToolApplication implements CommandLineRunner {
