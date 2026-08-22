@@ -2727,8 +2727,20 @@ a.ac-compass-cal__btn--direction {
   min-width: 0;
 }
 
-.ac-panel--visibility {
+.ac-vis-column {
   grid-area: visibility;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.ac-vis-column .ac-acc--box {
+  margin-top: 0;
+}
+
+.ac-panel--visibility {
+  width: 100%;
 }
 
 .ac-panel--filters {
@@ -2766,7 +2778,7 @@ a.ac-compass-cal__btn--direction {
     grid-area: controls;
   }
 
-  .ac-panel--visibility {
+  .ac-vis-column {
     grid-area: visibility;
   }
 
@@ -3794,6 +3806,14 @@ a.ac-compass-cal__btn--direction {
   object-fit: cover;
   transform-origin: center center;
   touch-action: none;
+}
+
+.ac-live-modal__cam--hidden {
+  visibility: hidden;
+}
+
+.ac-live-modal__freeze {
+  z-index: 1;
 }
 
 .ac-live-modal__cam-empty {
@@ -5307,6 +5327,14 @@ a.ac-compass-cal__btn--direction {
   pointer-events: none;
 }
 
+.ac-finder__video--hidden {
+  visibility: hidden;
+}
+
+.ac-finder__freeze {
+  z-index: 0;
+}
+
 .ac-finder__empty {
   position: absolute;
   inset: 0;
@@ -6233,6 +6261,11 @@ a.ac-compass-cal__btn--direction {
   max-width: none;
   min-width: 0;
   margin: 0.1rem -0.55rem 0;
+  box-sizing: border-box;
+}
+
+.ac-finder__north-box--page {
+  margin: 0;
   box-sizing: border-box;
 }
 

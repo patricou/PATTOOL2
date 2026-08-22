@@ -1001,6 +1001,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   sightingMarked = false;
   /** Pause viseur : fige l’objet à l’écran même si le téléphone bouge. */
   finderPoseFrozen = false;
+  /** Dernière image caméra (data URL) tant que le viseur ou l’auto-détection est en pause. */
+  camFreezeUrl: string | null = null;
+  /** Zoom optique réellement appliqué au moment du snapshot. */
+  private finderFreezeHwZoom = 1;
   /** Cap / élévation caméra au moment de la pause (le zoom reste actif). */
   private finderPoseCamAz: number | null = null;
   private finderPoseCamEl: number | null = null;
@@ -1443,28 +1447,100 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         if (video.srcObject !== this.camStream) {
           video.srcObject = this.camStream;
         }
-        try {
-          await video.play();
-        } catch {
-          /* un des deux viseurs peut être hors écran */
-        }
       }
       this.camLive = true;
       this.refreshCameraZoomCaps();
-      this.syncFinderZoomOutputs();
+      if (this.cameraShouldBeFrozen()) {
+        this.syncCameraFreeze();
+      } else {
+        await this.playAttachedCameraVideos();
+        this.syncFinderZoomOutputs();
+      }
     } catch {
       this.camLive = false;
     }
     this.cdr.markForCheck();
   }
 
+  private async playAttachedCameraVideos(): Promise<void> {
+    if (this.cameraShouldBeFrozen()) {
+      return;
+    }
+    for (const video of this.cameraVideoEls()) {
+      try {
+        await video.play();
+      } catch {
+        /* un des deux viseurs peut être hors écran */
+      }
+    }
+  }
+
   stopCamera(): void {
+    this.clearFrozenCameraFrame();
     this.camStream?.getTracks().forEach((t) => t.stop());
     this.camStream = null;
     this.camLive = false;
     for (const video of this.cameraVideoEls()) {
       video.srcObject = null;
     }
+  }
+
+  private cameraShouldBeFrozen(): boolean {
+    return this.finderPoseFrozen || this.autoDetectPaused;
+  }
+
+  private currentHardwareZoom(): number {
+    const caps = this.camZoomCaps;
+    if (!caps) {
+      return 1;
+    }
+    return Math.min(caps.max, Math.max(caps.min, this.finderZoom));
+  }
+
+  private captureFrozenCameraFrame(): void {
+    const videos = this.cameraVideoEls()
+      .filter((video) => video.videoWidth >= 2 && video.readyState >= 2)
+      .sort((a, b) => b.videoWidth - a.videoWidth);
+    const video = videos[0];
+    if (!video) {
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+    ctx.drawImage(video, 0, 0);
+    try {
+      this.camFreezeUrl = canvas.toDataURL('image/jpeg', 0.92);
+    } catch {
+      this.camFreezeUrl = null;
+    }
+    this.finderFreezeHwZoom = this.currentHardwareZoom();
+  }
+
+  private clearFrozenCameraFrame(): void {
+    this.camFreezeUrl = null;
+    this.finderFreezeHwZoom = 1;
+  }
+
+  private syncCameraFreeze(): void {
+    if (this.cameraShouldBeFrozen()) {
+      if (!this.camFreezeUrl) {
+        this.captureFrozenCameraFrame();
+      }
+      for (const video of this.cameraVideoEls()) {
+        video.pause();
+      }
+      this.syncFinderZoomOutputs();
+      this.syncFinderVideoTransform();
+      return;
+    }
+    this.clearFrozenCameraFrame();
+    this.syncFinderZoomOutputs();
+    void this.playAttachedCameraVideos();
   }
 
   markFinderNorth(): void {
@@ -1941,6 +2017,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.snapshotFinderPose();
     this.finderPoseFrozen = true;
+    this.syncCameraFreeze();
     this.updateFinderProjection();
     if (this.autoDetectLive && !this.autoDetectPaused) {
       this.autoDetectPaused = true;
@@ -1983,6 +2060,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.runAutoDetectPass(false);
       this.restartAutoDetectTimer();
     }
+    this.syncCameraFreeze();
     if (resumeTracking) {
       this.updateFinderProjection();
     }
@@ -2537,7 +2615,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       return;
     }
-    if (!ev.ctrlKey && !ev.metaKey) {
+    if (this.isFinderPanIgnoreTarget(ev.target)) {
       return;
     }
     ev.preventDefault();
@@ -2784,6 +2862,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private syncFinderZoomOutputs(): void {
+    if (this.cameraShouldBeFrozen()) {
+      const hw = Math.max(1, this.finderFreezeHwZoom);
+      this.finderDigitalZoom = this.finderZoom / hw;
+      this.syncFinderVideoTransform();
+      return;
+    }
     const caps = this.camZoomCaps;
     const track = this.camStream?.getVideoTracks()[0];
     if (caps && track) {
@@ -3679,6 +3763,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.autoDetectLive = true;
     this.autoDetectModalOpen = true;
     this.autoDetectPaused = false;
+    this.syncCameraFreeze();
     this.autoDetectSettingsOpen = false;
     this.autoDetectBusy = true;
     this.autoDetectLastAppliedKey = null;
@@ -3715,11 +3800,13 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.autoDetectPaused) {
       this.autoDetectPaused = false;
       this.autoDetectLive = true;
+      this.syncCameraFreeze();
       this.clearObjectDossier();
       this.runAutoDetectPass(false);
       this.restartAutoDetectTimer();
     } else {
       this.autoDetectPaused = true;
+      this.syncCameraFreeze();
       this.stopAutoDetectTimerOnly();
       this.loadObjectDossier();
     }
@@ -3939,6 +4026,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.autoDetectLive = false;
     this.autoDetectBusy = false;
     this.autoDetectPaused = false;
+    this.syncCameraFreeze();
     this.autoDetectSettingsOpen = false;
     this.autoDetectModalOpen = false;
     this.stopAutoDetectTimerOnly();
