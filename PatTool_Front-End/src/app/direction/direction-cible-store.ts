@@ -58,6 +58,27 @@ export function cibleImpliedGeoHeadingDeg(
   return normalizeDeg(rawHeadingDeg - lockedHeadingDeg + refAzimuthDeg);
 }
 
+/**
+ * Cap magnétomètre attendu quand on vise le repère.
+ * Même référentiel que le disque de la rose (pas l’azimut GPS).
+ * Si le GPS du repère a changé depuis le calage, on décale h0 d’autant.
+ */
+export function cibleSensorHeadingFacingMark(
+  lockedMagHeadingDeg: number,
+  lockedRefAzimuthDeg: number | null | undefined,
+  liveMarkBearingDeg: number | null | undefined
+): number {
+  if (
+    lockedRefAzimuthDeg == null ||
+    liveMarkBearingDeg == null ||
+    !Number.isFinite(lockedRefAzimuthDeg) ||
+    !Number.isFinite(liveMarkBearingDeg)
+  ) {
+    return normalizeDeg(lockedMagHeadingDeg);
+  }
+  return normalizeDeg(lockedMagHeadingDeg + (liveMarkBearingDeg - lockedRefAzimuthDeg));
+}
+
 /** Cap relatif à la cible : 0° = téléphone pointé comme au dernier calage. */
 export function headingRelativeToCible(phoneHeadingDeg: number, lockedHeadingDeg: number): number {
   const d = ((phoneHeadingDeg - lockedHeadingDeg) % 360) + 360;

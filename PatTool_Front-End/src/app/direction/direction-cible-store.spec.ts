@@ -4,6 +4,7 @@ import {
   cibleImpliedGeoHeadingDeg,
   cibleMarkBearingDeg,
   cibleMarkDistanceM,
+  cibleSensorHeadingFacingMark,
   hasCibleMark
 } from './direction-cible-store';
 
@@ -30,5 +31,11 @@ describe('cible mark GPS', () => {
     const ref = 120;
     expect(cibleImpliedGeoHeadingDeg(rawAtLock, rawAtLock, ref)).toBe(120);
     expect(cibleImpliedGeoHeadingDeg(70, rawAtLock, ref)).toBe(150);
+  });
+
+  it('keeps the rose needle on the sensor heading when facing the mark', () => {
+    expect(cibleSensorHeadingFacingMark(40, 120, null)).toBe(40);
+    expect(cibleSensorHeadingFacingMark(40, 120, 120)).toBe(40);
+    expect(cibleSensorHeadingFacingMark(40, 120, 150)).toBe(70);
   });
 });

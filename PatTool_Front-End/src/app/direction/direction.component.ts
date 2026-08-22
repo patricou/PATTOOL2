@@ -71,6 +71,7 @@ import {
   cibleImpliedGeoHeadingDeg,
   cibleMarkBearingDeg,
   cibleMarkDistanceM,
+  cibleSensorHeadingFacingMark,
   geocodeDisplayName,
   hasCibleMark,
   loadActiveCibleId,
@@ -1724,12 +1725,28 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     return this.azInited ? -this.displayedAz : 0;
   }
 
-  /** Azimut du repère sur la rose (onglet Cible). GPS toi→repère, sinon azimut enregistré. */
+  /**
+   * Angle du R sur la rose : même cadran que displayedAz (capteurs + calage).
+   * Viser le repère → le R est sous le cran du haut.
+   */
   cibleRoseAzimuthDeg(): number | null {
     if (this.activeTab !== 'cible') {
       return null;
     }
-    return this.markBearingDeg() ?? this.selectedCible()?.refAzimuthDeg ?? null;
+    const locked = this.selectedCible()?.phoneHeadingDeg;
+    if (locked == null || !Number.isFinite(locked)) {
+      return null;
+    }
+    const facingMag = cibleSensorHeadingFacingMark(
+      locked,
+      this.selectedCible()?.refAzimuthDeg,
+      this.markBearingDeg()
+    );
+    const before =
+      this.trueNorthActive && this.declinationDeg != null
+        ? normalizeDeg(facingMag + this.declinationDeg)
+        : facingMag;
+    return composeLookAzimuth(before, this.patFile?.derived ?? null);
   }
 
   horizonTilt(): string {

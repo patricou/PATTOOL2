@@ -2104,8 +2104,16 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  /** Cap caméra du viseur : même cadran que la boussole (Cible après recaler, ou Nord). */
+  private finderLookAzimuthDeg(): number | null {
+    if (this.headingDeg != null && Number.isFinite(this.headingDeg)) {
+      return this.headingDeg;
+    }
+    return this.lookTracker?.azimuthDeg ?? null;
+  }
+
   private snapshotFinderPose(): void {
-    const liveAz = this.lookTracker.azimuthDeg;
+    const liveAz = this.finderLookAzimuthDeg();
     const liveEl = this.lookTracker.elevationDeg;
     const inView = !!this.finderProj?.inView;
     if (inView && liveAz != null && liveEl != null) {
@@ -2147,7 +2155,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const poseAz = this.finderPoseCamAz;
     const poseEl = this.finderPoseCamEl;
     const frozen = this.finderPoseFrozen && poseAz != null && poseEl != null;
-    let camAz = this.lookTracker.azimuthDeg;
+    let camAz = this.finderLookAzimuthDeg();
     let camEl = this.lookTracker.elevationDeg;
     if (frozen) {
       camAz = this.normalizeDeg(poseAz + this.finderPanAz);
