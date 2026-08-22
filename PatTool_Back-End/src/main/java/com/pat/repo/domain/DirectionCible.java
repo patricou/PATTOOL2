@@ -35,6 +35,13 @@ public class DirectionCible {
     /** Inclinaison téléphone (degrés) au calage. */
     private Double phoneElevationDeg;
 
+    /** GPS du repère visé (tour, antenne…) — pas la position de l’utilisateur. */
+    private Double markLat;
+    private Double markLon;
+    private Double markAltM;
+    /** Adresse inversée (Nominatim) du GPS du repère. */
+    private String markAddress;
+
     /** JPEG compressé {@code data:image/jpeg;base64,...}. */
     private String photoDataUrl;
 
@@ -121,6 +128,38 @@ public class DirectionCible {
 
     public void setPhoneElevationDeg(Double phoneElevationDeg) {
         this.phoneElevationDeg = phoneElevationDeg;
+    }
+
+    public Double getMarkLat() {
+        return markLat;
+    }
+
+    public void setMarkLat(Double markLat) {
+        this.markLat = markLat;
+    }
+
+    public Double getMarkLon() {
+        return markLon;
+    }
+
+    public void setMarkLon(Double markLon) {
+        this.markLon = markLon;
+    }
+
+    public Double getMarkAltM() {
+        return markAltM;
+    }
+
+    public void setMarkAltM(Double markAltM) {
+        this.markAltM = markAltM;
+    }
+
+    public String getMarkAddress() {
+        return markAddress;
+    }
+
+    public void setMarkAddress(String markAddress) {
+        this.markAddress = markAddress;
     }
 
     public String getPhotoDataUrl() {

@@ -111,6 +111,11 @@ export interface DirectionCible {
   phoneHeadingDeg?: number | null;
   refAzimuthDeg?: number | null;
   phoneElevationDeg?: number | null;
+  markLat?: number | null;
+  markLon?: number | null;
+  markAltM?: number | null;
+  markAddress?: string | null;
+  clearMark?: boolean | null;
   photoDataUrl?: string | null;
   active?: boolean;
   ownerUsername?: string;

@@ -65,7 +65,17 @@ import {
 } from './direction-pattool-cal';
 import { clampCamHeightPx, loadCamHeightPx, saveCamHeightPx } from '../shared/preview-cam-size';
 import { CompassRoseComponent } from '../shared/compass-rose/compass-rose.component';
-import { loadActiveCibleId, saveActiveCibleId } from './direction-cible-store';
+import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
+import {
+  CIBLE_MARK_MIN_DIST_M,
+  cibleImpliedGeoHeadingDeg,
+  cibleMarkBearingDeg,
+  cibleMarkDistanceM,
+  geocodeDisplayName,
+  hasCibleMark,
+  loadActiveCibleId,
+  saveActiveCibleId
+} from './direction-cible-store';
 
 type SensorStatus = 'off' | 'live' | 'missing' | 'denied';
 type HeadingSource = 'rotation-vector' | 'mag-accel' | 'deviceorientation' | 'gyro-lock';
@@ -136,7 +146,7 @@ const PAINT_MS = 50;
 @Component({
   selector: 'app-direction',
   standalone: true,
-  imports: [CommonModule, RouterModule, TranslateModule, CompassRoseComponent],
+  imports: [CommonModule, RouterModule, TranslateModule, CompassRoseComponent, TraceViewerModalComponent],
   templateUrl: './direction.component.html',
   styleUrls: ['./direction.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -144,6 +154,7 @@ const PAINT_MS = 50;
 export class DirectionComponent implements AfterViewInit, OnDestroy {
   @ViewChild('cam') camEl?: ElementRef<HTMLVideoElement>;
   @ViewChild('camStage') camStage?: ElementRef<HTMLElement>;
+  @ViewChild(TraceViewerModalComponent) traceViewerModal?: TraceViewerModalComponent;
 
   activeTab: DirPageTab = 'calibrage';
   cibles: DirectionCible[] = [];
@@ -157,12 +168,25 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   cibleJsonModal: DirectionCible | null = null;
   cibleJsonCopied = false;
   private cibleJsonCopyTimer: ReturnType<typeof setTimeout> | null = null;
+  markLat: number | null = null;
+  markLon: number | null = null;
+  markAltM: number | null = null;
+  markAddress: string | null = null;
+  markAddressBusy = false;
+  private markAddressSub: Subscription | null = null;
+  userAddress: string | null = null;
+  userAddressBusy = false;
+  private userAddressSub: Subscription | null = null;
+  private lastUserAddressLat: number | null = null;
+  private lastUserAddressLon: number | null = null;
   cibleCheck: {
     status: 'ok' | 'warn' | 'need';
     movedM: number | null;
     headingAbs: number | null;
     gpsChanged: boolean;
     headingChanged: boolean;
+    markTooClose: boolean;
+    markDistM: number | null;
   } | null = null;
   sensorsOn = false;
   needTap = false;
@@ -435,6 +459,10 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.tabQuerySub?.unsubscribe();
     this.tabQuerySub = null;
+    this.markAddressSub?.unsubscribe();
+    this.markAddressSub = null;
+    this.userAddressSub?.unsubscribe();
+    this.userAddressSub = null;
     if (this.cibleJsonCopyTimer != null) {
       clearTimeout(this.cibleJsonCopyTimer);
       this.cibleJsonCopyTimer = null;
@@ -898,28 +926,61 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   checkCibleDrift(): void {
     const c = this.selectedCible();
     if (!c) {
-      this.cibleCheck = { status: 'need', movedM: null, headingAbs: null, gpsChanged: false, headingChanged: false };
+      this.cibleCheck = {
+        status: 'need',
+        movedM: null,
+        headingAbs: null,
+        gpsChanged: false,
+        headingChanged: false,
+        markTooClose: false,
+        markDistM: null
+      };
       this.cdr.markForCheck();
       return;
     }
     const heading = this.cibleLockDelta();
     if (heading == null) {
-      this.cibleCheck = { status: 'need', movedM: this.cibleMovedM(), headingAbs: null, gpsChanged: false, headingChanged: false };
+      this.cibleCheck = {
+        status: 'need',
+        movedM: this.cibleMovedM(),
+        headingAbs: null,
+        gpsChanged: false,
+        headingChanged: false,
+        markTooClose: this.markTooClose(),
+        markDistM: this.markDistanceM()
+      };
       this.cdr.markForCheck();
       return;
     }
     const movedM = this.cibleMovedM();
     const acc = Math.max(this.gpsAccM ?? 0, c.userAccM ?? 0);
     const gpsLimit = Math.max(20, acc * 2);
-    const headingAbs = Math.abs(heading);
-    const gpsChanged = movedM != null && movedM > gpsLimit;
-    const headingChanged = headingAbs > 8;
+    const markDistM = this.markDistanceM();
+    const markTooClose = this.markTooClose();
+    const expectedAz = this.markBearingDeg();
+    const implied =
+      c.phoneHeadingDeg != null &&
+      c.refAzimuthDeg != null &&
+      this.magAzimuthDeg != null &&
+      expectedAz != null
+        ? cibleImpliedGeoHeadingDeg(this.magAzimuthDeg, c.phoneHeadingDeg, c.refAzimuthDeg)
+        : null;
+    let headingAbs = Math.abs(heading);
+    let headingChanged = headingAbs > 8;
+    let gpsChanged = movedM != null && movedM > gpsLimit;
+    if (expectedAz != null && implied != null) {
+      headingAbs = Math.abs(circularDiff(implied, expectedAz));
+      headingChanged = headingAbs > 8;
+      gpsChanged = false;
+    }
     this.cibleCheck = {
-      status: gpsChanged || headingChanged ? 'warn' : 'ok',
+      status: gpsChanged || headingChanged || markTooClose ? 'warn' : 'ok',
       movedM,
       headingAbs,
       gpsChanged,
-      headingChanged
+      headingChanged,
+      markTooClose,
+      markDistM
     };
     this.cdr.markForCheck();
   }
@@ -935,6 +996,197 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     }
     const acc = this.gpsAccM != null ? ` ±${this.gpsAccM.toFixed(0)} m` : '';
     return `${this.gpsLat.toFixed(5)}, ${this.gpsLon.toFixed(5)}${acc}`;
+  }
+
+  userAddressText(): string {
+    if (this.userAddressBusy) {
+      return '…';
+    }
+    return this.userAddress?.trim() || '—';
+  }
+
+  private maybeResolveUserAddress(): void {
+    const lat = this.gpsLat;
+    const lon = this.gpsLon;
+    if (lat == null || lon == null || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return;
+    }
+    if (this.lastUserAddressLat != null && this.lastUserAddressLon != null && this.userAddress) {
+      if (haversineM(this.lastUserAddressLat, this.lastUserAddressLon, lat, lon) < 40) {
+        return;
+      }
+    }
+    this.lastUserAddressLat = lat;
+    this.lastUserAddressLon = lon;
+    this.userAddressBusy = true;
+    this.userAddressSub?.unsubscribe();
+    this.userAddressSub = this.api.geocodeReverse(lat, lon).subscribe({
+      next: (res) => {
+        this.userAddress = geocodeDisplayName(res);
+        this.userAddressBusy = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.userAddressBusy = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  hasMark(): boolean {
+    return hasCibleMark(this.markLat, this.markLon);
+  }
+
+  markGpsText(): string {
+    if (!hasCibleMark(this.markLat, this.markLon)) {
+      return '—';
+    }
+    const alt =
+      this.markAltM != null && Number.isFinite(this.markAltM) ? ` · ${Math.round(this.markAltM)} m` : '';
+    return `${this.markLat!.toFixed(5)}, ${this.markLon!.toFixed(5)}${alt}`;
+  }
+
+  markAddressText(): string {
+    if (this.markAddressBusy) {
+      return '…';
+    }
+    return this.markAddress?.trim() || '—';
+  }
+
+  markDistanceM(): number | null {
+    return cibleMarkDistanceM(this.gpsLat, this.gpsLon, this.markLat, this.markLon);
+  }
+
+  markBearingDeg(): number | null {
+    return cibleMarkBearingDeg(this.gpsLat, this.gpsLon, this.markLat, this.markLon);
+  }
+
+  markBearingText(): string {
+    const az = this.markBearingDeg();
+    if (az == null) {
+      return '—';
+    }
+    return `${az.toFixed(0)}°`;
+  }
+
+  markDistanceText(): string {
+    const m = this.markDistanceM();
+    if (m == null) {
+      return '—';
+    }
+    if (m >= 1000) {
+      return `${(m / 1000).toFixed(m >= 10000 ? 0 : 1)} km`;
+    }
+    return `${m.toFixed(0)} m`;
+  }
+
+  markTooClose(): boolean {
+    const m = this.markDistanceM();
+    return m != null && m < CIBLE_MARK_MIN_DIST_M;
+  }
+
+  openTraceViewerForMark(): void {
+    if (!this.traceViewerModal) {
+      return;
+    }
+    const lat = this.markLat ?? this.gpsLat ?? 46.2;
+    const lon = this.markLon ?? this.gpsLon ?? 6.15;
+    const label = this.cibleName.trim() || this.translate.instant('DIRECTION.TARGET_MARK');
+    this.traceViewerModal.openAtLocation(lat, lon, label, undefined, true, true);
+  }
+
+  onMarkLocationSelected(location: { lat: number; lng: number; alt?: number | null }): void {
+    if (!Number.isFinite(location.lat) || !Number.isFinite(location.lng)) {
+      return;
+    }
+    this.markLat = location.lat;
+    this.markLon = location.lng;
+    this.markAltM = location.alt != null && Number.isFinite(location.alt) ? location.alt : null;
+    this.markAddress = null;
+    this.cibleError = null;
+    this.cibleCheck = null;
+    this.resolveMarkAddress(true);
+    this.cdr.markForCheck();
+  }
+
+  clearCibleMark(): void {
+    this.markAddressSub?.unsubscribe();
+    this.markAddressSub = null;
+    this.markAddressBusy = false;
+    this.markLat = null;
+    this.markLon = null;
+    this.markAltM = null;
+    this.markAddress = null;
+    const id = this.selectedCibleId;
+    if (id) {
+      this.api
+        .updateDirectionCible(id, {
+          name: this.cibleName.trim() || this.selectedCible()?.name || 'cible',
+          clearMark: true
+        })
+        .subscribe({
+          next: (saved) => this.replaceCible(saved),
+          error: () => this.cdr.markForCheck()
+        });
+    }
+    this.cdr.markForCheck();
+  }
+
+  private applyMarkFromCible(cible: DirectionCible): void {
+    this.markLat = cible.markLat ?? null;
+    this.markLon = cible.markLon ?? null;
+    this.markAltM = cible.markAltM ?? null;
+    this.markAddress = cible.markAddress?.trim() || null;
+    if (hasCibleMark(this.markLat, this.markLon) && !this.markAddress) {
+      this.resolveMarkAddress(true);
+    }
+  }
+
+  private resolveMarkAddress(persist: boolean): void {
+    if (!hasCibleMark(this.markLat, this.markLon)) {
+      return;
+    }
+    const lat = this.markLat!;
+    const lon = this.markLon!;
+    this.markAddressBusy = true;
+    this.markAddressSub?.unsubscribe();
+    this.markAddressSub = this.api.geocodeReverse(lat, lon).subscribe({
+      next: (res) => {
+        this.markAddress = geocodeDisplayName(res);
+        this.markAddressBusy = false;
+        if (persist && this.markAddress) {
+          this.persistMarkDraft();
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.markAddressBusy = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private persistMarkDraft(): void {
+    const id = this.selectedCibleId;
+    if (!id || !hasCibleMark(this.markLat, this.markLon)) {
+      return;
+    }
+    this.api
+      .updateDirectionCible(id, {
+        name: this.cibleName.trim() || this.selectedCible()?.name || 'cible',
+        markLat: this.markLat,
+        markLon: this.markLon,
+        markAltM: this.markAltM,
+        markAddress: this.markAddress
+      })
+      .subscribe({
+        next: (saved) => this.replaceCible(saved),
+        error: () => this.cdr.markForCheck()
+      });
+  }
+
+  private resolveCibleRefAzimuth(fallback?: number | null): number {
+    return this.markBearingDeg() ?? fallback ?? this.azimuthDeg ?? 0;
   }
 
   captureCiblePhoto(): void {
@@ -987,6 +1239,13 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.cibleStageView = 'camera';
     this.cibleError = null;
     this.cibleCheck = null;
+    this.markAddressSub?.unsubscribe();
+    this.markAddressSub = null;
+    this.markLat = null;
+    this.markLon = null;
+    this.markAltM = null;
+    this.markAddress = null;
+    this.markAddressBusy = false;
     this.cdr.markForCheck();
   }
 
@@ -997,6 +1256,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.selectedCibleId = cible.id;
     this.cibleName = cible.name;
     this.ciblePhoto = cible.photoDataUrl ?? null;
+    this.applyMarkFromCible(cible);
     if (!this.ciblePhoto) {
       this.cibleStageView = 'camera';
     }
@@ -1032,8 +1292,12 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
         userLon: this.gpsLon,
         userAccM: this.gpsAccM,
         phoneHeadingDeg: heading,
-        refAzimuthDeg: this.azimuthDeg,
+        refAzimuthDeg: this.resolveCibleRefAzimuth(),
         phoneElevationDeg: this.elevationDeg,
+        markLat: this.markLat,
+        markLon: this.markLon,
+        markAltM: this.markAltM,
+        markAddress: this.markAddress,
         photoDataUrl: this.ciblePhoto,
         active: true
       })
@@ -1070,8 +1334,12 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
         userLon: this.gpsLon,
         userAccM: this.gpsAccM,
         phoneHeadingDeg: heading,
-        refAzimuthDeg: this.selectedCible()?.refAzimuthDeg ?? this.azimuthDeg,
+        refAzimuthDeg: this.resolveCibleRefAzimuth(this.selectedCible()?.refAzimuthDeg),
         phoneElevationDeg: this.elevationDeg,
+        markLat: this.markLat,
+        markLon: this.markLon,
+        markAltM: this.markAltM,
+        markAddress: this.markAddress,
         photoDataUrl: this.ciblePhoto
       })
       .subscribe({
@@ -1173,6 +1441,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
           this.selectedCibleId = active.id;
           this.cibleName = active.name;
           this.ciblePhoto = active.photoDataUrl ?? null;
+          this.applyMarkFromCible(active);
           saveActiveCibleId(active.id);
         }
         this.cdr.markForCheck();
@@ -1193,6 +1462,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.selectedCibleId = saved.id;
     this.cibleName = saved.name;
     this.ciblePhoto = saved.photoDataUrl ?? this.ciblePhoto;
+    this.applyMarkFromCible(saved);
     if (!this.ciblePhoto) {
       this.cibleStageView = 'camera';
     }
@@ -1454,6 +1724,14 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     return this.azInited ? -this.displayedAz : 0;
   }
 
+  /** Azimut du repère sur la rose (onglet Cible). GPS toi→repère, sinon azimut enregistré. */
+  cibleRoseAzimuthDeg(): number | null {
+    if (this.activeTab !== 'cible') {
+      return null;
+    }
+    return this.markBearingDeg() ?? this.selectedCible()?.refAzimuthDeg ?? null;
+  }
+
   horizonTilt(): string {
     return `rotate(${-(this.rlInited ? this.displayedRl : 0)}deg) translateY(${-((this.elInited ? this.displayedEl : 0) / 90) * 42}%)`;
   }
@@ -1677,6 +1955,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
           gpsLines.push({ k: 'v', v: `${(p.coords.speed as number).toFixed(1)} m/s` });
         }
         this.setCard('gps', 'live', gpsLines);
+        this.maybeResolveUserAddress();
         this.ingestGpsFix(p);
         this.publish();
       },

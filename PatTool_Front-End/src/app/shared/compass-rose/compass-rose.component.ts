@@ -114,6 +114,8 @@ export class CompassRoseComponent {
   @Input() rotationDeg = 0;
   /** overlay: camera visor; stage: standalone instrument (page Nord). */
   @Input() variant: 'overlay' | 'stage' = 'overlay';
+  /** Azimut géographique du repère (0 = Nord). Affiche une 2ᵉ flèche. */
+  @Input() markAzimuthDeg: number | null = null;
 
   readonly uid = `cr${++roseUid}`;
   readonly roseTick1 = roseTickPath(1, 90.1, 93.7);
@@ -129,5 +131,17 @@ export class CompassRoseComponent {
 
   uprightDeg(): number {
     return -this.rotationDeg;
+  }
+
+  hasMarkNeedle(): boolean {
+    return this.markAzimuthDeg != null && Number.isFinite(this.markAzimuthDeg);
+  }
+
+  markKitePoints(): string {
+    return roseKite(this.markAzimuthDeg ?? 0, 46.5, 16.2, 3.2, 5.6);
+  }
+
+  markLabel(): RoseLbl {
+    return roseLbl(this.markAzimuthDeg ?? 0, 54.2, 'R', 'n', 9.2);
   }
 }

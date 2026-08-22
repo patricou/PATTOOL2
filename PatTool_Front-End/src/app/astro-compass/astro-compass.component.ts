@@ -70,7 +70,15 @@ import {
   WikipediaSearchPage,
   WikipediaSummary
 } from '../services/api.service';
-import { loadActiveCibleId, saveActiveCibleId } from '../direction/direction-cible-store';
+import {
+  CIBLE_MARK_MIN_DIST_M,
+  cibleMarkBearingDeg,
+  cibleMarkDistanceM,
+  geocodeDisplayName,
+  hasCibleMark,
+  loadActiveCibleId,
+  saveActiveCibleId
+} from '../direction/direction-cible-store';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { GlobeIssNowService } from '../services/globe-iss-now.service';
 import { GlobeSatelliteNowService } from '../services/globe-satellite-now.service';
@@ -912,6 +920,15 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   headingRawDeg: number | null = null;
   headingRef: 'north' | 'cible' = 'north';
   activeCible: DirectionCible | null = null;
+  cibleSaving = false;
+  cibleError: string | null = null;
+  markAddressBusy = false;
+  cibleUserAddress: string | null = null;
+  cibleUserAddressBusy = false;
+  private tracePickMode: 'observer' | 'mark' = 'observer';
+  private markAddressSub: Subscription | null = null;
+  private userAddressSub: Subscription | null = null;
+  private lastCibleUserAddrKey = '';
   northOffsetDeg: number | null = null;
   /**
    * Inclinaison du téléphone (angle du haut de l'appareil depuis l'horizontale).
@@ -1355,6 +1372,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.closeAlignAudio();
     this.addressSearchSub?.unsubscribe();
     this.reverseGeocodeSub?.unsubscribe();
+    this.markAddressSub?.unsubscribe();
+    this.userAddressSub?.unsubscribe();
     this.issPassSub?.unsubscribe();
     this.altitudeSub?.unsubscribe();
     this.objectDossierSub?.unsubscribe();
@@ -1938,6 +1957,61 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return `${c.userLat.toFixed(5)}, ${c.userLon.toFixed(5)}${acc}`;
   }
 
+  cibleUserAddressText(): string {
+    if (this.cibleUserAddressBusy) {
+      return '…';
+    }
+    return this.cibleUserAddress?.trim() || '—';
+  }
+
+  cibleHasMark(): boolean {
+    return hasCibleMark(this.activeCible?.markLat, this.activeCible?.markLon);
+  }
+
+  cibleMarkGpsText(): string {
+    const c = this.activeCible;
+    if (!hasCibleMark(c?.markLat, c?.markLon)) {
+      return '—';
+    }
+    const alt = c?.markAltM != null && Number.isFinite(c.markAltM) ? ` · ${Math.round(c.markAltM)} m` : '';
+    return `${c!.markLat!.toFixed(5)}, ${c!.markLon!.toFixed(5)}${alt}`;
+  }
+
+  cibleMarkAddressText(): string {
+    if (this.markAddressBusy) {
+      return '…';
+    }
+    return this.activeCible?.markAddress?.trim() || '—';
+  }
+
+  cibleMarkBearingDeg(): number | null {
+    const c = this.activeCible;
+    return cibleMarkBearingDeg(this.lat, this.lon, c?.markLat, c?.markLon);
+  }
+
+  cibleMarkDistanceM(): number | null {
+    const c = this.activeCible;
+    return cibleMarkDistanceM(this.lat, this.lon, c?.markLat, c?.markLon);
+  }
+
+  cibleMarkBearingText(): string {
+    const az = this.cibleMarkBearingDeg();
+    const dist = this.cibleMarkDistanceM();
+    if (az == null) {
+      return '—';
+    }
+    if (dist == null) {
+      return `${az.toFixed(0)}°`;
+    }
+    const distTxt = dist >= 1000 ? `${(dist / 1000).toFixed(dist >= 10000 ? 0 : 1)} km` : `${dist.toFixed(0)} m`;
+    return `${az.toFixed(0)}° · ${distTxt}`;
+  }
+
+  cibleMarkTooClose(): boolean {
+    const m = this.cibleMarkDistanceM();
+    return m != null && m < CIBLE_MARK_MIN_DIST_M;
+  }
+
   formatCibleDeg(v: number | null | undefined, signed = false): string {
     if (v == null || !Number.isFinite(v)) {
       return '—';
@@ -1992,6 +2066,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         this.applyHeadingReference();
         this.updateFinderProjection();
+        this.fillMissingCibleMarkAddress();
+        this.resolveCibleUserAddress();
         this.cdr.markForCheck();
       },
       error: () => {
@@ -5032,11 +5108,200 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.traceViewerModalComponent || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
       return;
     }
+    this.tracePickMode = 'observer';
     const label = this.placeLabel || `${this.lat.toFixed(5)}, ${this.lon.toFixed(5)}`;
     this.traceViewerModalComponent.openAtLocation(this.lat, this.lon, label, undefined, true, true);
   }
 
+  openTraceViewerForCibleMark(): void {
+    if (!this.traceViewerModalComponent || !this.activeCible) {
+      return;
+    }
+    this.tracePickMode = 'mark';
+    const c = this.activeCible;
+    const lat = c.markLat ?? this.lat;
+    const lon = c.markLon ?? this.lon;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return;
+    }
+    this.traceViewerModalComponent.openAtLocation(lat, lon, c.name, undefined, true, true);
+  }
+
+  recalerCibleFromHere(): void {
+    const c = this.activeCible;
+    const id = c?.id;
+    const raw = this.lookTracker?.rawAzimuthDeg ?? this.headingRawDeg;
+    if (!id || raw == null || !Number.isFinite(raw)) {
+      this.cibleError = 'DIRECTION.TARGET_NEED_SENSORS';
+      this.cdr.markForCheck();
+      return;
+    }
+    const ref = this.cibleMarkBearingDeg() ?? c?.refAzimuthDeg ?? this.headingDeg ?? raw;
+    this.cibleSaving = true;
+    this.cibleError = null;
+    this.api
+      .recalibrateDirectionCible(id, {
+        name: c?.name,
+        userLat: this.lat,
+        userLon: this.lon,
+        phoneHeadingDeg: raw,
+        refAzimuthDeg: ref,
+        phoneElevationDeg: this.lookTracker?.elevationDeg ?? null,
+        markLat: c?.markLat,
+        markLon: c?.markLon,
+        markAltM: c?.markAltM,
+        markAddress: c?.markAddress
+      })
+      .subscribe({
+        next: (saved) => {
+          this.cibleSaving = false;
+          this.activeCible = saved;
+          if (saved.id) {
+            saveActiveCibleId(saved.id);
+          }
+          this.applyHeadingReference();
+          this.updateFinderProjection();
+          this.resolveCibleUserAddress();
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.cibleSaving = false;
+          this.cibleError = 'DIRECTION.TARGET_SAVE_FAIL';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  private resolveCibleUserAddress(): void {
+    const c = this.activeCible;
+    const lat = c?.userLat;
+    const lon = c?.userLon;
+    if (lat == null || lon == null || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+      this.cibleUserAddress = null;
+      this.lastCibleUserAddrKey = '';
+      return;
+    }
+    const key = `${lat.toFixed(5)},${lon.toFixed(5)}`;
+    if (key === this.lastCibleUserAddrKey && this.cibleUserAddress) {
+      return;
+    }
+    this.lastCibleUserAddrKey = key;
+    this.cibleUserAddressBusy = true;
+    this.userAddressSub?.unsubscribe();
+    this.userAddressSub = this.api.geocodeReverse(lat, lon).subscribe({
+      next: (res) => {
+        this.cibleUserAddress = geocodeDisplayName(res);
+        this.cibleUserAddressBusy = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.cibleUserAddressBusy = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private onCibleMarkSelected(location: { lat: number; lng: number; alt?: number | null }): void {
+    const c = this.activeCible;
+    const id = c?.id;
+    if (!id || !Number.isFinite(location.lat) || !Number.isFinite(location.lng)) {
+      return;
+    }
+    this.cibleSaving = true;
+    this.cibleError = null;
+    this.markAddressBusy = true;
+    this.markAddressSub?.unsubscribe();
+    this.markAddressSub = this.api.geocodeReverse(location.lat, location.lng).subscribe({
+      next: (res) => {
+        this.saveCibleMarkLocation(
+          id,
+          location,
+          geocodeDisplayName(res),
+          c?.name || 'cible'
+        );
+      },
+      error: () => {
+        this.saveCibleMarkLocation(id, location, null, c?.name || 'cible');
+      }
+    });
+  }
+
+  private saveCibleMarkLocation(
+    id: string,
+    location: { lat: number; lng: number; alt?: number | null },
+    address: string | null,
+    name: string
+  ): void {
+    this.api
+      .updateDirectionCible(id, {
+        name,
+        markLat: location.lat,
+        markLon: location.lng,
+        markAltM: location.alt != null && Number.isFinite(location.alt) ? location.alt : null,
+        markAddress: address
+      })
+      .subscribe({
+        next: (saved) => {
+          this.cibleSaving = false;
+          this.markAddressBusy = false;
+          this.activeCible = saved;
+          this.applyHeadingReference();
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.cibleSaving = false;
+          this.markAddressBusy = false;
+          this.cibleError = 'DIRECTION.TARGET_SAVE_FAIL';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  private fillMissingCibleMarkAddress(): void {
+    const c = this.activeCible;
+    const id = c?.id;
+    if (!id || !hasCibleMark(c?.markLat, c?.markLon) || c?.markAddress?.trim()) {
+      return;
+    }
+    this.markAddressBusy = true;
+    this.markAddressSub?.unsubscribe();
+    this.markAddressSub = this.api.geocodeReverse(c.markLat!, c.markLon!).subscribe({
+      next: (res) => {
+        const address = geocodeDisplayName(res);
+        this.markAddressBusy = false;
+        if (!address) {
+          this.cdr.markForCheck();
+          return;
+        }
+        this.api
+          .updateDirectionCible(id, {
+            name: c.name,
+            markLat: c.markLat,
+            markLon: c.markLon,
+            markAltM: c.markAltM,
+            markAddress: address
+          })
+          .subscribe({
+            next: (saved) => {
+              this.activeCible = saved;
+              this.cdr.markForCheck();
+            },
+            error: () => this.cdr.markForCheck()
+          });
+      },
+      error: () => {
+        this.markAddressBusy = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
   onLocationSelected(location: { lat: number; lng: number; alt?: number | null }): void {
+    if (this.tracePickMode === 'mark') {
+      this.tracePickMode = 'observer';
+      this.onCibleMarkSelected(location);
+      return;
+    }
     this.userSource = 'map';
     const hasAlt = location.alt != null && Number.isFinite(location.alt);
     if (hasAlt) {

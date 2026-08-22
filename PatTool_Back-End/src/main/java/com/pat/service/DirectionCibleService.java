@@ -17,6 +17,7 @@ public class DirectionCibleService {
 
     static final int MAX_CIBLES_PER_USER = 40;
     static final int MAX_NAME_LENGTH = 80;
+    static final int MAX_ADDRESS_LENGTH = 240;
     static final int MAX_PHOTO_LENGTH = 800_000;
 
     private final DirectionCibleRepository repository;
@@ -65,7 +66,8 @@ public class DirectionCibleService {
         if (incoming.phoneHeadingDeg() != null) {
             row.setPhoneHeadingDeg(normalizeDeg(incoming.phoneHeadingDeg()));
         }
-        if (incoming.refAzimuthDeg() != null && row.getRefAzimuthDeg() == null) {
+        applyMark(row, incoming);
+        if (incoming.refAzimuthDeg() != null && (row.getRefAzimuthDeg() == null || hasMark(row))) {
             row.setRefAzimuthDeg(normalizeDeg(incoming.refAzimuthDeg()));
         }
         if (incoming.phoneElevationDeg() != null) {
@@ -151,7 +153,9 @@ public class DirectionCibleService {
         if (incoming.phoneHeadingDeg() != null) {
             row.setPhoneHeadingDeg(normalizeDeg(incoming.phoneHeadingDeg()));
         }
-        if (incoming.refAzimuthDeg() != null && row.getRefAzimuthDeg() == null) {
+        applyMark(row, incoming);
+        if (incoming.refAzimuthDeg() != null
+                && (creating || row.getRefAzimuthDeg() == null || hasMark(row))) {
             row.setRefAzimuthDeg(normalizeDeg(incoming.refAzimuthDeg()));
         }
         if (incoming.phoneElevationDeg() != null) {
@@ -234,11 +238,49 @@ public class DirectionCibleService {
                 c.getPhoneHeadingDeg(),
                 c.getRefAzimuthDeg(),
                 c.getPhoneElevationDeg(),
+                c.getMarkLat(),
+                c.getMarkLon(),
+                c.getMarkAltM(),
+                c.getMarkAddress(),
+                null,
                 c.getPhotoDataUrl(),
                 c.isActive(),
                 c.getOwnerUsername(),
                 c.getCreatedAt(),
                 c.getUpdatedAt());
+    }
+
+    private static void applyMark(DirectionCible row, DirectionCibleDto incoming) {
+        if (Boolean.TRUE.equals(incoming.clearMark())) {
+            row.setMarkLat(null);
+            row.setMarkLon(null);
+            row.setMarkAltM(null);
+            row.setMarkAddress(null);
+            return;
+        }
+        if (incoming.markLat() != null && incoming.markLon() != null) {
+            boolean moved =
+                    row.getMarkLat() == null
+                            || row.getMarkLon() == null
+                            || !incoming.markLat().equals(row.getMarkLat())
+                            || !incoming.markLon().equals(row.getMarkLon());
+            row.setMarkLat(incoming.markLat());
+            row.setMarkLon(incoming.markLon());
+            if (incoming.markAltM() != null) {
+                row.setMarkAltM(incoming.markAltM());
+            }
+            if (incoming.markAddress() != null) {
+                row.setMarkAddress(normalizeAddress(incoming.markAddress()));
+            } else if (moved) {
+                row.setMarkAddress(null);
+            }
+        } else if (incoming.markAddress() != null) {
+            row.setMarkAddress(normalizeAddress(incoming.markAddress()));
+        }
+    }
+
+    private static boolean hasMark(DirectionCible row) {
+        return row.getMarkLat() != null && row.getMarkLon() != null;
     }
 
     private static String normalizeName(String name) {
@@ -248,6 +290,17 @@ public class DirectionCibleService {
         String trimmed = name.trim();
         if (trimmed.length() > MAX_NAME_LENGTH) {
             return trimmed.substring(0, MAX_NAME_LENGTH);
+        }
+        return trimmed;
+    }
+
+    private static String normalizeAddress(String address) {
+        if (!StringUtils.hasText(address)) {
+            return null;
+        }
+        String trimmed = address.trim();
+        if (trimmed.length() > MAX_ADDRESS_LENGTH) {
+            return trimmed.substring(0, MAX_ADDRESS_LENGTH);
         }
         return trimmed;
     }

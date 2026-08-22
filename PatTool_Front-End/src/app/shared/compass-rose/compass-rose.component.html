@@ -49,6 +49,19 @@
       [class.compass-rose__kite--half]="k.kind === 'half'"
       [class.compass-rose__kite--quarter]="k.kind === 'quarter'"
       [attr.points]="k.points"/>
+    <polygon
+      *ngIf="hasMarkNeedle()"
+      class="compass-rose__kite compass-rose__kite--mark"
+      [attr.points]="markKitePoints()"/>
+    <text
+      *ngIf="hasMarkNeedle()"
+      class="compass-rose__lbl compass-rose__lbl--mark"
+      [attr.x]="markLabel().x"
+      [attr.y]="markLabel().y"
+      [attr.font-size]="markLabel().font"
+      [attr.transform]="'rotate(' + uprightDeg() + ' ' + markLabel().x + ' ' + markLabel().y + ')'"
+      text-anchor="middle"
+      dominant-baseline="middle">{{ markLabel().label }}</text>
     <circle class="compass-rose__hub" cx="100" cy="100" r="8.2"/>
     <circle class="compass-rose__hub compass-rose__hub--2" cx="100" cy="100" r="4.4"/>
     <circle class="compass-rose__hub-core" cx="100" cy="100" r="1.55"/>

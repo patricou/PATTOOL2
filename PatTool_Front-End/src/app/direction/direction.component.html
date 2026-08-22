@@ -88,6 +88,7 @@
         *ngIf="!patWizard"
         variant="overlay"
         [rotationDeg]="roseDeg()"
+        [markAzimuthDeg]="cibleRoseAzimuthDeg()"
         [attr.aria-label]="'DIRECTION.ROSE_ARIA' | translate">
       </app-compass-rose>
       <button
@@ -95,7 +96,7 @@
         class="dir-fs dir-fs--info"
         (click)="toggleQuickHint()"
         [class.dir-fs--on]="showQuickHint"
-        [attr.title]="'DIRECTION.INFO_OPEN_HINT' | translate"
+        [attr.title]="(activeTab === 'cible' ? 'DIRECTION.INFO_OPEN_HINT_CIBLE' : 'DIRECTION.INFO_OPEN_HINT') | translate"
         [attr.aria-label]="'DIRECTION.INFO_OPEN' | translate"
         [attr.aria-expanded]="showQuickHint">
         <i class="fa fa-info-circle" aria-hidden="true"></i>
@@ -109,7 +110,9 @@
         <i class="fa" [class.fa-compress]="isFullscreen" [class.fa-expand]="!isFullscreen" aria-hidden="true"></i>
       </button>
       <div class="dir-cam-info" *ngIf="showQuickHint" role="note">
-        <p>{{ 'DIRECTION.QUICK_HINT' | translate }}</p>
+        <div class="dir-help">
+          <ng-container *ngTemplateOutlet="dirTabHelp"></ng-container>
+        </div>
         <button
           type="button"
           class="dir-cam-info__close"
@@ -261,7 +264,7 @@
       </button>
     </h3>
     <div class="dir-info-box" *ngIf="showQuickHint" role="note">
-      <p>{{ 'DIRECTION.QUICK_HINT' | translate }}</p>
+      <ng-container *ngTemplateOutlet="dirTabHelp"></ng-container>
     </div>
     <div class="dir-hero-deg" [class.dir-hero-deg--on]="offsetDeg">
       {{ offsetDeg > 0 ? '+' : '' }}{{ offsetDeg }}°
@@ -479,7 +482,20 @@
     <h3 class="dir-card__title">
       <span class="dir-card__n"><i class="fa fa-bullseye" aria-hidden="true"></i></span>
       {{ 'DIRECTION.TARGET_TITLE' | translate }}
+      <button
+        type="button"
+        class="dir-info-btn"
+        (click)="toggleQuickHint()"
+        [class.dir-info-btn--on]="showQuickHint"
+        [attr.title]="'DIRECTION.INFO_OPEN_HINT_CIBLE' | translate"
+        [attr.aria-label]="'DIRECTION.INFO_OPEN' | translate"
+        [attr.aria-expanded]="showQuickHint">
+        <i class="fa fa-info-circle" aria-hidden="true"></i>
+      </button>
     </h3>
+    <div class="dir-info-box" *ngIf="showQuickHint" role="note">
+      <ng-container *ngTemplateOutlet="dirTabHelp"></ng-container>
+    </div>
     <p class="dir-card__help">{{ 'DIRECTION.TARGET_HELP' | translate }}</p>
     <p class="dir-msg" *ngIf="!sensorsOn">{{ 'DIRECTION.TARGET_NEED_SENSORS' | translate }}</p>
     <p
@@ -498,6 +514,9 @@
       </p>
       <p class="dir-msg dir-msg--bad" *ngIf="cibleCheck?.headingChanged">
         {{ 'DIRECTION.TARGET_CHECK_HEAD' | translate : { deg: (cibleCheck?.headingAbs ?? 0) | number : '1.0-0' } }}
+      </p>
+      <p class="dir-msg dir-msg--bad" *ngIf="cibleCheck?.markTooClose">
+        {{ 'DIRECTION.TARGET_MARK_NEAR' | translate : { m: (cibleCheck?.markDistM ?? 0) | number : '1.0-0' } }}
       </p>
       <p class="dir-card__help">{{ 'DIRECTION.TARGET_CHECK_ADVICE' | translate }}</p>
     </div>
@@ -519,11 +538,39 @@
         <dt>{{ 'DIRECTION.GPS' | translate }}</dt>
         <dd>{{ gpsText() }}</dd>
       </div>
+      <div class="dir-target__addr" *ngIf="gpsLat != null">
+        <dt>{{ 'DIRECTION.GPS_ADDR' | translate }}</dt>
+        <dd>{{ userAddressText() }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'DIRECTION.TARGET_MARK' | translate }}</dt>
+        <dd>{{ markGpsText() }}</dd>
+      </div>
+      <div class="dir-target__addr" *ngIf="hasMark()">
+        <dt>{{ 'DIRECTION.TARGET_MARK_ADDR' | translate }}</dt>
+        <dd>{{ markAddressText() }}</dd>
+      </div>
+      <div *ngIf="hasMark()">
+        <dt>{{ 'DIRECTION.TARGET_MARK_AZ' | translate }}</dt>
+        <dd>{{ markBearingText() }} · {{ markDistanceText() }}</dd>
+      </div>
       <div *ngIf="selectedCible()">
         <dt>{{ 'DIRECTION.TARGET_LOCK_DELTA' | translate }}</dt>
         <dd>{{ cibleLockDeltaText() }}</dd>
       </div>
     </dl>
+    <p class="dir-msg dir-msg--bad" *ngIf="markTooClose() && !cibleCheck">
+      {{ 'DIRECTION.TARGET_MARK_NEAR' | translate : { m: (markDistanceM() ?? 0) | number : '1.0-0' } }}
+    </p>
+    <div class="dir-actions">
+      <button type="button" class="dir-btn dir-btn--go" (click)="openTraceViewerForMark()">
+        <i class="fa fa-map-marker" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_MARK_PICK' | translate }}
+      </button>
+      <button type="button" class="dir-btn" *ngIf="hasMark()" (click)="clearCibleMark()">
+        {{ 'DIRECTION.TARGET_MARK_CLEAR' | translate }}
+      </button>
+    </div>
     <div class="dir-actions">
       <button
         type="button"
@@ -690,3 +737,54 @@
     </div>
   </div>
 </div>
+
+<ng-template #dirTabHelp>
+  <ng-container *ngIf="activeTab === 'calibrage'; else dirCibleHelp">
+    <p class="dir-help__lead">{{ 'DIRECTION.INFO_NORTH_LEAD' | translate }}</p>
+    <p>{{ 'DIRECTION.INFO_NORTH_P1' | translate }}</p>
+    <p>{{ 'DIRECTION.INFO_NORTH_P2' | translate }}</p>
+    <figure class="dir-schema" aria-hidden="true">
+      <svg viewBox="0 0 320 92" role="presentation">
+        <text x="28" y="22" class="dir-schema__lab">{{ 'DIRECTION.INFO_SCHEMA_PHONE' | translate }}</text>
+        <text x="160" y="22" class="dir-schema__lab dir-schema__lab--hi">{{ 'DIRECTION.INFO_SCHEMA_NORTH' | translate }}</text>
+        <text x="268" y="22" class="dir-schema__lab">{{ 'DIRECTION.INFO_SCHEMA_SKY' | translate }}</text>
+        <circle cx="40" cy="56" r="14" class="dir-schema__node" />
+        <text x="40" y="60" text-anchor="middle" class="dir-schema__ico">N</text>
+        <path d="M58 56 H118" class="dir-schema__line" />
+        <path d="M110 51 L122 56 L110 61 Z" class="dir-schema__head" />
+        <circle cx="148" cy="56" r="16" class="dir-schema__node dir-schema__node--hi" />
+        <text x="148" y="60" text-anchor="middle" class="dir-schema__ico">↑</text>
+        <path d="M168 56 H228" class="dir-schema__line" />
+        <path d="M220 51 L232 56 L220 61 Z" class="dir-schema__head" />
+        <circle cx="256" cy="56" r="14" class="dir-schema__node" />
+        <text x="256" y="61" text-anchor="middle" class="dir-schema__ico">★</text>
+      </svg>
+    </figure>
+    <p class="dir-help__note">{{ 'DIRECTION.INFO_NORTH_DRIFT' | translate }}</p>
+  </ng-container>
+  <ng-template #dirCibleHelp>
+    <p class="dir-help__lead">{{ 'DIRECTION.INFO_CIBLE_LEAD' | translate }}</p>
+    <p>{{ 'DIRECTION.INFO_CIBLE_P1' | translate }}</p>
+    <p>{{ 'DIRECTION.INFO_CIBLE_ANYWHERE' | translate }}</p>
+    <figure class="dir-schema" [attr.aria-label]="'DIRECTION.INFO_SCHEMA_CAPTION' | translate">
+      <svg viewBox="0 0 320 148" role="presentation">
+        <text x="160" y="18" text-anchor="middle" class="dir-schema__lab dir-schema__lab--hi">{{ 'DIRECTION.INFO_SCHEMA_TOWER' | translate }}</text>
+        <rect x="148" y="26" width="24" height="36" rx="3" class="dir-schema__tower" />
+        <path d="M148 26 L160 12 L172 26 Z" class="dir-schema__tower" />
+        <path d="M72 128 L160 62" class="dir-schema__ray" />
+        <path d="M248 128 L160 62" class="dir-schema__ray" />
+        <circle cx="72" cy="128" r="11" class="dir-schema__you" />
+        <circle cx="248" cy="128" r="11" class="dir-schema__you" />
+        <text x="72" y="146" text-anchor="middle" class="dir-schema__lab">{{ 'DIRECTION.INFO_SCHEMA_YOU_A' | translate }}</text>
+        <text x="248" y="146" text-anchor="middle" class="dir-schema__lab">{{ 'DIRECTION.INFO_SCHEMA_YOU_B' | translate }}</text>
+        <text x="96" y="88" class="dir-schema__az">40°</text>
+        <text x="204" y="88" class="dir-schema__az">70°</text>
+      </svg>
+      <figcaption>{{ 'DIRECTION.INFO_SCHEMA_CAPTION' | translate }}</figcaption>
+    </figure>
+    <p>{{ 'DIRECTION.INFO_CIBLE_DRIFT' | translate }}</p>
+    <p class="dir-help__note">{{ 'DIRECTION.INFO_CIBLE_DIST' | translate }}</p>
+  </ng-template>
+</ng-template>
+
+<app-trace-viewer-modal (locationSelected)="onMarkLocationSelected($event)"></app-trace-viewer-modal>

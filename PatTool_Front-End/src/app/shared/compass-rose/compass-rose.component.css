@@ -168,6 +168,13 @@
   filter: drop-shadow(0 0 1.6px rgba(255, 80, 50, 0.55));
 }
 
+.compass-rose__kite--mark {
+  fill: rgba(255, 196, 60, 0.94);
+  stroke: rgba(255, 244, 196, 0.95);
+  stroke-width: 0.5;
+  filter: drop-shadow(0 0 2px rgba(255, 196, 60, 0.7));
+}
+
 .compass-rose__hub {
   fill: none;
   stroke: rgba(200, 255, 236, 0.7);
@@ -201,6 +208,13 @@
   fill: #ff6a4a;
   stroke-width: 1.15;
   filter: drop-shadow(0 0 1.6px rgba(255, 80, 50, 0.55));
+}
+
+.compass-rose__lbl--mark {
+  fill: #ffe08a;
+  stroke: rgba(20, 12, 0, 0.88);
+  stroke-width: 1.05;
+  filter: drop-shadow(0 0 1.6px rgba(255, 196, 60, 0.65));
 }
 
 .compass-rose__lbl--inter {

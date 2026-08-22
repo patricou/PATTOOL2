@@ -1223,6 +1223,22 @@
               <dt>{{ 'DIRECTION.GPS' | translate }}</dt>
               <dd>{{ cibleGpsText() }}</dd>
             </div>
+            <div class="ac-finder__cible-addr" *ngIf="activeCible.userLat != null">
+              <dt>{{ 'DIRECTION.GPS_ADDR' | translate }}</dt>
+              <dd>{{ cibleUserAddressText() }}</dd>
+            </div>
+            <div>
+              <dt>{{ 'DIRECTION.TARGET_MARK' | translate }}</dt>
+              <dd>{{ cibleMarkGpsText() }}</dd>
+            </div>
+            <div class="ac-finder__cible-addr" *ngIf="cibleHasMark()">
+              <dt>{{ 'DIRECTION.TARGET_MARK_ADDR' | translate }}</dt>
+              <dd>{{ cibleMarkAddressText() }}</dd>
+            </div>
+            <div *ngIf="cibleHasMark()">
+              <dt>{{ 'DIRECTION.TARGET_MARK_AZ' | translate }}</dt>
+              <dd>{{ cibleMarkBearingText() }}</dd>
+            </div>
             <div>
               <dt>{{ 'ASTRO_COMPASS.HEADING_REF_H0' | translate }}</dt>
               <dd>{{ formatCibleDeg(activeCible.phoneHeadingDeg) }}</dd>
@@ -1248,6 +1264,33 @@
               <dd>{{ activeCible.updatedAt | date : 'short' }}</dd>
             </div>
           </dl>
+          <p class="ac-finder__north-box-hint">{{ 'DIRECTION.TARGET_MARK_HINT' | translate }}</p>
+          <p class="ac-finder__north-box-hint ac-finder__cible-warn" *ngIf="cibleMarkTooClose()">
+            {{ 'DIRECTION.TARGET_MARK_NEAR' | translate : { m: (cibleMarkDistanceM() ?? 0) | number : '1.0-0' } }}
+          </p>
+          <p class="ac-finder__north-box-hint ac-finder__cible-warn" *ngIf="cibleError">
+            {{ cibleError | translate }}
+          </p>
+          <div class="ac-finder__north-box-row">
+            <button
+              type="button"
+              class="ac-finder__north-box-btn ac-finder__north-box-btn--mark"
+              [disabled]="cibleSaving"
+              (click)="openTraceViewerForCibleMark()"
+              [attr.title]="'DIRECTION.TARGET_MARK_HINT' | translate">
+              <i class="fa fa-map-marker" aria-hidden="true"></i>
+              {{ 'DIRECTION.TARGET_MARK_PICK' | translate }}
+            </button>
+            <button
+              type="button"
+              class="ac-finder__north-box-btn ac-finder__north-box-btn--ok"
+              [disabled]="cibleSaving || lookTracker.rawAzimuthDeg == null"
+              (click)="recalerCibleFromHere()"
+              [attr.title]="'ASTRO_COMPASS.HEADING_REF_RECAL_HINT' | translate">
+              <i class="fa fa-crosshairs" aria-hidden="true"></i>
+              {{ 'DIRECTION.TARGET_RECAL' | translate }}
+            </button>
+          </div>
         </div>
         <ng-container *ngIf="headingRef === 'north'">
         <div class="ac-finder__north-box-head">
