@@ -42,9 +42,10 @@ public class YoutubeRestController {
             @RequestParam(value = "relevanceLanguage", required = false) String relevanceLanguage,
             @RequestParam(value = "channelId", required = false) String channelId,
             @RequestParam(value = "pageToken", required = false) String pageToken,
-            @RequestParam(value = "maxResults", required = false) Integer maxResults) {
+            @RequestParam(value = "maxResults", required = false) Integer maxResults,
+            @RequestParam(value = "order", required = false) String order) {
         return youtubeProxyService.search(
-                query, type, regionCode, relevanceLanguage, channelId, pageToken, maxResults);
+                query, type, regionCode, relevanceLanguage, channelId, pageToken, maxResults, order);
     }
 
     @GetMapping(value = "/popular", produces = MediaType.APPLICATION_JSON_VALUE)

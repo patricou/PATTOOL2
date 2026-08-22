@@ -1,4 +1,12 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  HostBinding,
+  HostListener,
+  OnDestroy,
+  OnInit,
+  ViewChild
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -20,6 +28,9 @@ interface YoutubeRegionOption {
   label: string;
 }
 
+type YoutubeSortKey = 'relevance' | 'date' | 'views' | 'duration' | 'title' | 'channel';
+type YoutubeSortDir = 'asc' | 'desc';
+
 @Component({
   selector: 'app-youtube-watcher',
   standalone: true,
@@ -29,6 +40,7 @@ interface YoutubeRegionOption {
 })
 export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   readonly types: YoutubeItemKind[] = ['video', 'playlist', 'channel'];
+  readonly sortKeys: YoutubeSortKey[] = ['relevance', 'date', 'views', 'duration', 'title', 'channel'];
   readonly regions: YoutubeRegionOption[] = [
     { code: 'FR', label: 'France' },
     { code: 'BE', label: 'Belgique' },
@@ -70,9 +82,36 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   errorMessage = '';
   missingKey = false;
 
+  tickerEnabled = true;
+  readonly tickerRepeats = [0, 1, 2, 3, 4, 5];
+  tickerDurationSec = 40;
+  sortKey: YoutubeSortKey = 'relevance';
+  sortDir: YoutubeSortDir = 'asc';
+
+  /**
+   * Mobile landscape: immersive player (CSS + best-effort native fullscreen).
+   * HostBinding keeps the iframe covering the viewport if Fullscreen API is blocked.
+   */
+  @HostBinding('class.yt-landscape-fs') landscapeFullscreen = false;
+  @ViewChild('playerFrame') playerFrame?: ElementRef<HTMLElement>;
+
   private readonly query$ = new Subject<string>();
   private searchSub?: Subscription;
   private readonly subs: Subscription[] = [];
+  private readonly itemSourceOrder = new WeakMap<YoutubeItem, number>();
+  private itemSourceSeq = 0;
+
+  private static readonly LANDSCAPE_FS_BODY_CLASS = 'yt-landscape-fs';
+  private static readonly PAGE_THEME_BODY_CLASS = 'yt-page-theme';
+  private static readonly TICKER_STORAGE_KEY = 'pattool.youtube.ticker-enabled';
+
+  private landscapeFsUserDismissed = false;
+  private landscapeFsNativeRequested = false;
+  private landscapeFsNativeActive = false;
+  private landscapeFsSuppressDismiss = false;
+  private landscapeOrientationMql: MediaQueryList | null = null;
+  private readonly onLandscapeOrientationMedia = (): void => this.syncLandscapeFullscreen();
+  private readonly onLandscapeFsChange = (): void => this.onLandscapeNativeFullscreenChange();
 
   constructor(
     private api: ApiService,
@@ -91,6 +130,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.type = this.normalizeType(params.get('type'));
     this.query = (params.get('q') || '').trim();
     this.channelId = (params.get('channel') || '').trim();
+    this.tickerEnabled = this.readTickerPreference();
+    this.sortKey = this.normalizeSort(params.get('sort'));
+    this.sortDir = this.normalizeSortDir(params.get('dir'), this.sortKey);
 
     this.subs.push(
       this.query$.pipe(debounceTime(450), distinctUntilChanged()).subscribe((value) => {
@@ -106,8 +148,13 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
         if (s.item) {
           this.selected = s.item;
         }
+        this.syncLandscapeFullscreen();
       })
     );
+
+    document.body.classList.add(YoutubeWatcherComponent.PAGE_THEME_BODY_CLASS);
+    this.setupLandscapeFullscreenWatchers();
+    this.syncLandscapeFullscreen();
 
     if (this.query || this.channelId) {
       this.runSearch(params.get('id'));
@@ -119,9 +166,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.searchSub?.unsubscribe();
     this.subs.forEach((s) => s.unsubscribe());
-    if (this.embedUrl && this.selected && !this.youtubePlayer.snapshot.open) {
-      this.youtubePlayer.open(this.selected);
-    }
+    this.teardownLandscapeFullscreenWatchers();
+    this.exitLandscapeFullscreen(false);
+    document.body.classList.remove(YoutubeWatcherComponent.PAGE_THEME_BODY_CLASS);
   }
 
   onQueryChanged(): void {
@@ -176,15 +223,18 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       this.embedUrl = null;
       this.youtubePlayer.open(item);
     } else {
-      this.embedUrl = this.buildEmbedUrl(item);
+      this.embedUrl = this.buildEmbedUrl(item, true);
     }
     this.syncUrl();
+    this.scrollPageToTop();
+    setTimeout(() => this.syncLandscapeFullscreen(), 0);
   }
 
   openInFloatingWindow(): void {
     if (!this.selected) {
       return;
     }
+    this.exitLandscapeFullscreen(false);
     this.embedUrl = null;
     this.youtubePlayer.open(this.selected);
   }
@@ -193,14 +243,71 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.youtubePlayer.restore();
   }
 
+  onTickerToggle(): void {
+    this.writeTickerPreference(this.tickerEnabled);
+  }
+
+  onSortKeyChanged(): void {
+    this.sortDir = this.defaultSortDir(this.sortKey);
+    if (this.query.trim() || this.channelId) {
+      this.runSearch();
+      return;
+    }
+    this.sortItems();
+    this.syncUrl();
+  }
+
+  toggleSortDir(): void {
+    this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+    this.sortItems();
+    this.syncUrl();
+  }
+
+  get tickerItem(): YoutubeItem | null {
+    return this.selected;
+  }
+
+  tickerModeLabelKey(): string {
+    return this.playerOpen ? 'YOUTUBE.TICKER_MODE_PIP' : 'YOUTUBE.TICKER_MODE_PAGE';
+  }
+
   closePlayer(): void {
     const item = this.selected || this.youtubePlayer.currentItem;
     this.youtubePlayer.close();
     this.playerOpen = false;
     if (item) {
       this.selected = item;
-      this.embedUrl = this.buildEmbedUrl(item);
+      this.embedUrl = this.buildEmbedUrl(item, true);
     }
+    setTimeout(() => this.syncLandscapeFullscreen(), 0);
+  }
+
+  exitLandscapeFullscreen(markDismissed = true): void {
+    if (markDismissed && this.landscapeFullscreen) {
+      this.landscapeFsUserDismissed = true;
+    }
+    if (
+      !this.landscapeFullscreen &&
+      !document.body.classList.contains(YoutubeWatcherComponent.LANDSCAPE_FS_BODY_CLASS)
+    ) {
+      this.landscapeFsSuppressDismiss = true;
+      this.exitOwnedNativeFullscreen();
+      this.landscapeFsSuppressDismiss = false;
+      return;
+    }
+    this.landscapeFullscreen = false;
+    document.body.classList.remove(YoutubeWatcherComponent.LANDSCAPE_FS_BODY_CLASS);
+    this.landscapeFsSuppressDismiss = true;
+    this.exitOwnedNativeFullscreen();
+    setTimeout(() => {
+      this.landscapeFsSuppressDismiss = false;
+    }, 0);
+  }
+
+  @HostListener('window:orientationchange')
+  @HostListener('window:resize')
+  onViewportOrientationMaybeChanged(): void {
+    this.syncLandscapeFullscreen();
   }
 
   loadMore(): void {
@@ -223,7 +330,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
             relevanceLanguage: this.relevanceLang(),
             channelId: this.channelId || undefined,
             pageToken: token,
-            maxResults: 12
+            maxResults: 12,
+            order: this.youtubeApiOrder()
           });
     this.searchSub?.unsubscribe();
     this.searchSub = req$.subscribe({
@@ -346,7 +454,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
         regionCode: this.regionCode,
         relevanceLanguage: this.relevanceLang(),
         channelId: this.channelId || undefined,
-        maxResults: 12
+        maxResults: 12,
+        order: this.youtubeApiOrder()
       })
       .subscribe({
         next: (page) => {
@@ -381,7 +490,14 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     }
     this.missingKey = false;
     const incoming = page?.items || [];
+    if (!append) {
+      this.itemSourceSeq = 0;
+    }
+    incoming.forEach((item) => {
+      this.itemSourceOrder.set(item, this.itemSourceSeq++);
+    });
     this.items = append ? [...this.items, ...incoming] : incoming;
+    this.sortItems();
     this.nextPageToken = page?.nextPageToken || null;
     this.total = page?.total || this.items.length;
     this.resultKind = page?.kind || this.resultKind;
@@ -395,19 +511,212 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
-  private buildEmbedUrl(item: YoutubeItem): SafeResourceUrl | null {
+  private buildEmbedUrl(item: YoutubeItem, autoplay = false): SafeResourceUrl | null {
     const id = item.id || '';
+    const extra = autoplay ? '&autoplay=1&playsinline=1' : '&playsinline=1';
     if (item.kind === 'playlist' && /^[a-zA-Z0-9_-]{10,64}$/.test(id)) {
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0`
+        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0${extra}`
       );
     }
     if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/${id}?rel=0`
+        `https://www.youtube-nocookie.com/embed/${id}?rel=0${extra}`
       );
     }
     return null;
+  }
+
+  private readTickerPreference(): boolean {
+    try {
+      const raw = localStorage.getItem(YoutubeWatcherComponent.TICKER_STORAGE_KEY);
+      if (raw == null) {
+        return true;
+      }
+      return raw !== '0' && raw !== 'false';
+    } catch {
+      return true;
+    }
+  }
+
+  private writeTickerPreference(enabled: boolean): void {
+    try {
+      localStorage.setItem(YoutubeWatcherComponent.TICKER_STORAGE_KEY, enabled ? '1' : '0');
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }
+
+  private scrollPageToTop(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    window.scrollTo({ top: 0, left: 0, behavior: reduce ? 'auto' : 'smooth' });
+  }
+
+  private setupLandscapeFullscreenWatchers(): void {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+    this.landscapeOrientationMql = window.matchMedia('(orientation: landscape)');
+    if (typeof this.landscapeOrientationMql.addEventListener === 'function') {
+      this.landscapeOrientationMql.addEventListener('change', this.onLandscapeOrientationMedia);
+    } else {
+      (
+        this.landscapeOrientationMql as MediaQueryList & {
+          addListener?: (cb: () => void) => void;
+        }
+      ).addListener?.(this.onLandscapeOrientationMedia);
+    }
+    document.addEventListener('fullscreenchange', this.onLandscapeFsChange);
+    document.addEventListener('webkitfullscreenchange', this.onLandscapeFsChange);
+  }
+
+  private teardownLandscapeFullscreenWatchers(): void {
+    if (this.landscapeOrientationMql) {
+      if (typeof this.landscapeOrientationMql.removeEventListener === 'function') {
+        this.landscapeOrientationMql.removeEventListener('change', this.onLandscapeOrientationMedia);
+      } else {
+        (
+          this.landscapeOrientationMql as MediaQueryList & {
+            removeListener?: (cb: () => void) => void;
+          }
+        ).removeListener?.(this.onLandscapeOrientationMedia);
+      }
+      this.landscapeOrientationMql = null;
+    }
+    document.removeEventListener('fullscreenchange', this.onLandscapeFsChange);
+    document.removeEventListener('webkitfullscreenchange', this.onLandscapeFsChange);
+  }
+
+  private isMobileLikeViewport(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    const coarse = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    const narrow = window.matchMedia('(max-width: 900px)').matches;
+    const touch = (navigator.maxTouchPoints || 0) > 0;
+    return coarse || (narrow && touch);
+  }
+
+  private isLandscapeOrientation(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    if (this.landscapeOrientationMql) {
+      return this.landscapeOrientationMql.matches;
+    }
+    return window.matchMedia('(orientation: landscape)').matches;
+  }
+
+  private canEnterLandscapeFullscreen(): boolean {
+    return (
+      this.isMobileLikeViewport() &&
+      this.isLandscapeOrientation() &&
+      !!this.selected &&
+      !!this.embedUrl &&
+      !this.playerOpen &&
+      !this.landscapeFsUserDismissed
+    );
+  }
+
+  private syncLandscapeFullscreen(): void {
+    if (!this.isLandscapeOrientation()) {
+      this.landscapeFsUserDismissed = false;
+      this.exitLandscapeFullscreen(false);
+      return;
+    }
+    if (this.canEnterLandscapeFullscreen()) {
+      this.enterLandscapeFullscreen();
+      return;
+    }
+    if (this.landscapeFullscreen && (!this.selected || !this.embedUrl || this.playerOpen)) {
+      this.exitLandscapeFullscreen(false);
+    }
+  }
+
+  private enterLandscapeFullscreen(): void {
+    if (!this.landscapeFullscreen) {
+      this.landscapeFullscreen = true;
+      document.body.classList.add(YoutubeWatcherComponent.LANDSCAPE_FS_BODY_CLASS);
+    } else {
+      document.body.classList.add(YoutubeWatcherComponent.LANDSCAPE_FS_BODY_CLASS);
+    }
+    void this.requestLandscapeNativeFullscreen();
+  }
+
+  private async requestLandscapeNativeFullscreen(): Promise<void> {
+    const doc = document as Document & { webkitFullscreenElement?: Element | null };
+    if (document.fullscreenElement || doc.webkitFullscreenElement) {
+      return;
+    }
+    const wrap = this.playerFrame?.nativeElement || null;
+    if (!wrap) {
+      return;
+    }
+    this.landscapeFsNativeRequested = true;
+    try {
+      const req =
+        wrap.requestFullscreen?.bind(wrap) ||
+        (
+          wrap as HTMLElement & {
+            webkitRequestFullscreen?: () => Promise<void> | void;
+          }
+        ).webkitRequestFullscreen?.bind(wrap);
+      if (req) {
+        await Promise.resolve(req());
+      }
+    } catch {
+      // CSS immersive mode remains active.
+    }
+  }
+
+  private exitOwnedNativeFullscreen(): void {
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element | null;
+      webkitExitFullscreen?: () => Promise<void> | void;
+    };
+    const fsEl = document.fullscreenElement || doc.webkitFullscreenElement;
+    if (!fsEl) {
+      this.landscapeFsNativeRequested = false;
+      return;
+    }
+    const wrap = this.playerFrame?.nativeElement || null;
+    const owned = this.landscapeFsNativeRequested || (!!wrap && (fsEl === wrap || wrap.contains(fsEl)));
+    if (!owned) {
+      return;
+    }
+    try {
+      if (document.exitFullscreen) {
+        void document.exitFullscreen().catch(() => undefined);
+      } else {
+        doc.webkitExitFullscreen?.();
+      }
+    } catch {
+      /* ignore */
+    }
+    this.landscapeFsNativeRequested = false;
+  }
+
+  private onLandscapeNativeFullscreenChange(): void {
+    const doc = document as Document & { webkitFullscreenElement?: Element | null };
+    const fsEl = document.fullscreenElement || doc.webkitFullscreenElement || null;
+    const wrap = this.playerFrame?.nativeElement || null;
+    const ours = !!(fsEl && wrap && (fsEl === wrap || wrap.contains(fsEl)));
+    if (ours) {
+      this.landscapeFsNativeActive = true;
+      return;
+    }
+    const hadNative = this.landscapeFsNativeActive || this.landscapeFsNativeRequested;
+    this.landscapeFsNativeActive = false;
+    this.landscapeFsNativeRequested = false;
+    if (this.landscapeFsSuppressDismiss || !hadNative) {
+      return;
+    }
+    if (this.isLandscapeOrientation() && this.landscapeFullscreen) {
+      this.exitLandscapeFullscreen(true);
+    }
   }
 
   private relevanceLang(): string {
@@ -455,12 +764,104 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     return 'video';
   }
 
+  private normalizeSort(value: string | null): YoutubeSortKey {
+    if (
+      value === 'date' ||
+      value === 'views' ||
+      value === 'duration' ||
+      value === 'title' ||
+      value === 'channel' ||
+      value === 'relevance'
+    ) {
+      return value;
+    }
+    return 'relevance';
+  }
+
+  private defaultSortDir(key: YoutubeSortKey): YoutubeSortDir {
+    return key === 'title' || key === 'channel' || key === 'relevance' ? 'asc' : 'desc';
+  }
+
+  private normalizeSortDir(value: string | null, key: YoutubeSortKey): YoutubeSortDir {
+    if (value === 'asc' || value === 'desc') {
+      return value;
+    }
+    return this.defaultSortDir(key);
+  }
+
+  private youtubeApiOrder(): string | undefined {
+    switch (this.sortKey) {
+      case 'date':
+        return 'date';
+      case 'views':
+        return 'viewCount';
+      case 'title':
+        return 'title';
+      default:
+        return undefined;
+    }
+  }
+
+  private sortItems(): void {
+    const dir = this.sortDir === 'asc' ? 1 : -1;
+    const key = this.sortKey;
+    this.items = [...this.items].sort((a, b) => {
+      const cmp = this.compareItems(a, b, key);
+      if (cmp !== 0) {
+        return cmp * dir;
+      }
+      return (this.itemSourceOrder.get(a) || 0) - (this.itemSourceOrder.get(b) || 0);
+    });
+  }
+
+  private compareItems(a: YoutubeItem, b: YoutubeItem, key: YoutubeSortKey): number {
+    switch (key) {
+      case 'date':
+        return this.publishedTime(a) - this.publishedTime(b);
+      case 'views':
+        return (a.viewCount || 0) - (b.viewCount || 0);
+      case 'duration':
+        return this.durationSeconds(a.duration) - this.durationSeconds(b.duration);
+      case 'title':
+        return this.compareText(a.title, b.title);
+      case 'channel':
+        return this.compareText(a.channelTitle, b.channelTitle);
+      default:
+        return (this.itemSourceOrder.get(a) || 0) - (this.itemSourceOrder.get(b) || 0);
+    }
+  }
+
+  private compareText(a: string | null | undefined, b: string | null | undefined): number {
+    return (a || '').localeCompare(b || '', this.translate.currentLang || 'fr', {
+      sensitivity: 'base',
+      numeric: true
+    });
+  }
+
+  private publishedTime(item: YoutubeItem): number {
+    const time = item.publishedAt ? Date.parse(item.publishedAt) : NaN;
+    return Number.isFinite(time) ? time : 0;
+  }
+
+  private durationSeconds(iso: string | null | undefined): number {
+    if (!iso) {
+      return 0;
+    }
+    const match = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso);
+    if (!match) {
+      return 0;
+    }
+    return Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0);
+  }
+
   private syncUrl(preferId?: string | null): void {
     const queryParams: Record<string, string | null> = {
       q: this.query.trim() || null,
       type: this.type !== 'video' ? this.type : null,
       region: this.regionCode !== this.regionFromUiLang(this.translate.currentLang) ? this.regionCode : null,
       channel: this.channelId || null,
+      sort: this.sortKey !== 'relevance' ? this.sortKey : null,
+      dir: this.sortDir !== this.defaultSortDir(this.sortKey) ? this.sortDir : null,
       id: preferId || this.selected?.id || null
     };
     this.router.navigate([], {

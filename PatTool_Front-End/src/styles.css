@@ -1886,6 +1886,39 @@ body.wc-landscape-fs app-webcam-watcher {
   background: #000 !important;
 }
 
+/* YouTube page: dark cinema backdrop (avoids white rubber-band / page chrome). */
+body.yt-page-theme {
+  background-color: #0f0f0f;
+}
+
+/* Mobile landscape YouTube: hide app chrome, lock scroll */
+body.yt-landscape-fs {
+  overflow: hidden !important;
+}
+
+body.yt-landscape-fs app-root > nav.navbar,
+body.yt-landscape-fs app-root > app-news-ticker,
+body.yt-landscape-fs app-root > app-currency-ticker,
+body.yt-landscape-fs app-root > app-stock-ticker,
+body.yt-landscape-fs app-root > .pat-div,
+body.yt-landscape-fs app-root > .friend-requests-app-banner {
+  display: none !important;
+}
+
+body.yt-landscape-fs app-youtube-watcher {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2000 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: #000 !important;
+}
+
 /* Detached TV pop-out window: no app chrome / no page scroll */
 body.tv-popout-mode {
   overflow: hidden !important;

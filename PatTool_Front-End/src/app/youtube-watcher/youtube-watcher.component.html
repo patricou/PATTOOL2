@@ -1,11 +1,84 @@
-<div class="pat-title">
+<div class="pat-title yt-title" [class.yt-title--ticker]="tickerEnabled">
   <h2>
     <span class="yt-mark" aria-hidden="true">
       <i class="fa fa-youtube-play"></i>
     </span>
     {{ 'YOUTUBE.TITLE' | translate }}
   </h2>
+  <label
+    class="yt-ticker-switch"
+    for="ytTickerSwitch"
+    [attr.title]="'YOUTUBE.TICKER_ENABLED_HINT' | translate">
+    <span class="yt-ticker-switch-label">{{ 'YOUTUBE.TICKER_ENABLED' | translate }}</span>
+    <span class="form-check form-switch mb-0">
+      <input
+        class="form-check-input"
+        type="checkbox"
+        id="ytTickerSwitch"
+        name="ytTickerEnabled"
+        [(ngModel)]="tickerEnabled"
+        (ngModelChange)="onTickerToggle()" />
+    </span>
+  </label>
 </div>
+
+<div
+  class="yt-ticker"
+  *ngIf="tickerEnabled"
+  role="marquee"
+  [attr.aria-label]="'YOUTUBE.TICKER_ARIA' | translate">
+  <div class="yt-ticker__label" aria-hidden="true">
+    <i class="fa fa-youtube-play"></i>
+    <span>{{ 'YOUTUBE.TICKER_LABEL' | translate }}</span>
+  </div>
+  <div class="yt-ticker__rows">
+    <div class="yt-ticker__idle" *ngIf="!tickerItem">
+      {{ 'YOUTUBE.TICKER_IDLE' | translate }}
+    </div>
+    <div class="yt-ticker__row" *ngIf="tickerItem">
+      <div class="yt-ticker__track" [style.animationDuration.s]="tickerDurationSec">
+        <div class="yt-ticker__loop-half">
+          <ng-container *ngFor="let _ of tickerRepeats">
+            <ng-container *ngTemplateOutlet="ytTickerItemsTpl"></ng-container>
+          </ng-container>
+        </div>
+        <div class="yt-ticker__loop-half" aria-hidden="true">
+          <ng-container *ngFor="let _ of tickerRepeats">
+            <ng-container *ngTemplateOutlet="ytTickerItemsTpl"></ng-container>
+          </ng-container>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<ng-template #ytTickerItemsTpl>
+  <span class="yt-ticker__item" *ngIf="isLive(tickerItem)">
+    <span class="yt-ticker__key">{{ 'YOUTUBE.TICKER_LIVE' | translate }}</span>
+  </span>
+  <span class="yt-ticker__item">
+    <span class="yt-ticker__key">{{ 'YOUTUBE.TICKER_NOW' | translate }}</span>
+    <span class="yt-ticker__val">{{ tickerItem?.title }}</span>
+  </span>
+  <span class="yt-ticker__item" *ngIf="tickerItem?.channelTitle">
+    <span class="yt-ticker__key">{{ 'YOUTUBE.TICKER_CHANNEL' | translate }}</span>
+    <span class="yt-ticker__val">{{ tickerItem?.channelTitle }}</span>
+  </span>
+  <span class="yt-ticker__item" *ngIf="durationLabel(tickerItem?.duration)">
+    <span class="yt-ticker__key">{{ 'YOUTUBE.TICKER_DURATION' | translate }}</span>
+    <span class="yt-ticker__val">{{ durationLabel(tickerItem?.duration) }}</span>
+  </span>
+  <span class="yt-ticker__item" *ngIf="viewsLabel(tickerItem?.viewCount)">
+    <span class="yt-ticker__val">{{ 'YOUTUBE.VIEWS' | translate:{ count: viewsLabel(tickerItem?.viewCount) } }}</span>
+  </span>
+  <span class="yt-ticker__item" *ngIf="publishedLabel(tickerItem?.publishedAt)">
+    <span class="yt-ticker__val">{{ publishedLabel(tickerItem?.publishedAt) }}</span>
+  </span>
+  <span class="yt-ticker__item">
+    <span class="yt-ticker__key">{{ 'YOUTUBE.TICKER_MODE' | translate }}</span>
+    <span class="yt-ticker__val">{{ tickerModeLabelKey() | translate }}</span>
+  </span>
+</ng-template>
 
 <div class="yt-page">
   <p class="yt-lead">{{ 'YOUTUBE.SUBTITLE' | translate }}</p>
@@ -73,13 +146,22 @@
   </div>
 
   <div class="yt-player" *ngIf="selected && embedUrl && !playerOpen">
-    <div class="yt-player-frame">
+    <div class="yt-player-frame" #playerFrame>
       <iframe
         [src]="embedUrl"
         [title]="selected.title || ''"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowfullscreen
         referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      <button
+        *ngIf="landscapeFullscreen"
+        type="button"
+        class="yt-landscape-fs-exit"
+        (click)="exitLandscapeFullscreen(true)"
+        [attr.title]="'YOUTUBE.LANDSCAPE_FS_EXIT' | translate"
+        [attr.aria-label]="'YOUTUBE.LANDSCAPE_FS_EXIT' | translate">
+        <i class="fa fa-compress" aria-hidden="true"></i>
+      </button>
     </div>
     <div class="yt-player-meta">
       <h3 class="yt-player-title">{{ selected.title }}</h3>
@@ -92,13 +174,13 @@
       </p>
       <p class="yt-player-desc" *ngIf="selected.description">{{ selected.description }}</p>
       <div class="yt-now-playing-actions">
-        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openInFloatingWindow()">
+        <button type="button" class="btn btn-danger btn-sm yt-pip-open" (click)="openInFloatingWindow()">
           <i class="fa fa-clone" aria-hidden="true"></i>
           {{ 'YOUTUBE.FLOAT_OPEN' | translate }}
         </button>
         <a
           *ngIf="youtubeUrl(selected)"
-          class="btn btn-outline-danger btn-sm"
+          class="btn btn-outline-light btn-sm"
           [href]="youtubeUrl(selected)"
           target="_blank"
           rel="noopener noreferrer">
@@ -121,20 +203,20 @@
       </p>
     </div>
     <div class="yt-now-playing-actions">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="restorePlayer()">
+      <button type="button" class="btn btn-outline-light btn-sm" (click)="restorePlayer()">
         <i class="fa fa-window-restore" aria-hidden="true"></i>
         {{ 'YOUTUBE.FLOAT_RESTORE' | translate }}
       </button>
       <a
         *ngIf="youtubeUrl(selected)"
-        class="btn btn-outline-danger btn-sm"
+        class="btn btn-outline-light btn-sm"
         [href]="youtubeUrl(selected)"
         target="_blank"
         rel="noopener noreferrer">
         <i class="fa fa-external-link" aria-hidden="true"></i>
         {{ 'YOUTUBE.OPEN_YOUTUBE' | translate }}
       </a>
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="closePlayer()">
+      <button type="button" class="btn btn-outline-light btn-sm" (click)="closePlayer()">
         <i class="fa fa-times" aria-hidden="true"></i>
         {{ 'YOUTUBE.FLOAT_CLOSE' | translate }}
       </button>
@@ -143,6 +225,25 @@
 
   <div class="yt-results-head" *ngIf="searched || searching">
     <span>{{ (resultKind === 'popular' ? 'YOUTUBE.POPULAR' : 'YOUTUBE.RESULTS') | translate }}</span>
+    <div class="yt-sort" *ngIf="!searching && items.length">
+      <label class="visually-hidden" for="yt-sort">{{ 'YOUTUBE.SORT' | translate }}</label>
+      <select
+        id="yt-sort"
+        class="form-select form-select-sm yt-sort-select"
+        name="ytSort"
+        [(ngModel)]="sortKey"
+        (ngModelChange)="onSortKeyChanged()">
+        <option *ngFor="let key of sortKeys" [value]="key">{{ ('YOUTUBE.SORT_' + key.toUpperCase()) | translate }}</option>
+      </select>
+      <button
+        type="button"
+        class="btn btn-outline-light btn-sm yt-sort-dir"
+        (click)="toggleSortDir()"
+        [attr.title]="(sortDir === 'desc' ? 'YOUTUBE.SORT_DIR_DESC' : 'YOUTUBE.SORT_DIR_ASC') | translate"
+        [attr.aria-label]="(sortDir === 'desc' ? 'YOUTUBE.SORT_DIR_DESC' : 'YOUTUBE.SORT_DIR_ASC') | translate">
+        <i class="fa" [class.fa-sort-amount-desc]="sortDir === 'desc'" [class.fa-sort-amount-asc]="sortDir === 'asc'" aria-hidden="true"></i>
+      </button>
+    </div>
     <span class="yt-results-count" *ngIf="!searching">
       {{ 'YOUTUBE.RESULT_COUNT' | translate:{ count: items.length } }}
     </span>

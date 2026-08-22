@@ -59,6 +59,9 @@ public class YoutubeProxyService {
     private static final Pattern SAFE_TOKEN = Pattern.compile("^[A-Za-z0-9_-]{1,200}$");
     private static final Pattern SAFE_CHANNEL = Pattern.compile("^[A-Za-z0-9_-]{1,64}$");
     private static final Set<String> SAFE_TYPES = Set.of("video", "playlist", "channel");
+    private static final Set<String> SAFE_ORDERS = Set.of(
+            "date", "rating", "relevance", "title", "videoCount", "viewCount"
+    );
     private static final Set<String> SAFE_REGIONS = Set.of(
             "FR", "US", "GB", "DE", "ES", "IT", "BE", "CH", "CA", "BR", "JP", "IN",
             "RU", "NL", "PT", "PL", "MX", "AR", "AU", "KR", "TW", "HK", "IL", "SA",
@@ -170,7 +173,8 @@ public class YoutubeProxyService {
             String relevanceLanguage,
             String channelId,
             String pageToken,
-            Integer maxResults) {
+            Integer maxResults,
+            String order) {
         if (!isConfigured()) {
             return YoutubeSearchPageDto.missingKey();
         }
@@ -180,6 +184,7 @@ public class YoutubeProxyService {
         String lang = normalizeLang(relevanceLanguage);
         String channel = normalizeChannel(channelId);
         String token = normalizeToken(pageToken);
+        String sort = normalizeOrder(order);
         int limit = clampLimit(maxResults);
         if (!StringUtils.hasText(q) && !StringUtils.hasText(channel)) {
             return emptyPage("search", q, kind, region);
@@ -187,7 +192,7 @@ public class YoutubeProxyService {
         if (StringUtils.hasText(q) && !SAFE_QUERY.matcher(q).matches()) {
             return YoutubeSearchPageDto.failure("invalid_query", "invalid_query");
         }
-        String cacheKey = "search|" + q + "|" + kind + "|" + region + "|" + lang + "|" + channel + "|" + token + "|" + limit;
+        String cacheKey = "search|" + q + "|" + kind + "|" + region + "|" + lang + "|" + channel + "|" + sort + "|" + token + "|" + limit;
         YoutubeSearchPageDto cached = fromCache(cacheKey);
         if (cached != null) {
             return cached;
@@ -208,6 +213,9 @@ public class YoutubeProxyService {
         }
         if (StringUtils.hasText(channel) && "video".equals(kind)) {
             builder.queryParam("channelId", channel);
+        }
+        if (StringUtils.hasText(sort) && !"relevance".equals(sort)) {
+            builder.queryParam("order", sort);
         }
         if (StringUtils.hasText(token)) {
             builder.queryParam("pageToken", token);
@@ -535,6 +543,17 @@ public class YoutubeProxyService {
     private static String normalizeType(String type) {
         String value = type == null ? "video" : type.trim().toLowerCase(Locale.ROOT);
         return SAFE_TYPES.contains(value) ? value : "video";
+    }
+
+    private static String normalizeOrder(String order) {
+        if (!StringUtils.hasText(order)) {
+            return "";
+        }
+        String value = order.trim();
+        if ("views".equalsIgnoreCase(value)) {
+            value = "viewCount";
+        }
+        return SAFE_ORDERS.contains(value) ? value : "";
     }
 
     private static String normalizeRegion(String region) {

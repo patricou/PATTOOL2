@@ -2537,6 +2537,9 @@ export class ApiService {
     if (options.maxResults) {
       params = params.set('maxResults', String(options.maxResults));
     }
+    if (options.order) {
+      params = params.set('order', options.order);
+    }
     return this._http.get<YoutubeSearchPage>(this.API_URL + 'external/youtube/search', { params });
   }
 
@@ -5093,6 +5096,7 @@ export interface YoutubeSearchOptions {
   channelId?: string;
   pageToken?: string;
   maxResults?: number;
+  order?: string;
 }
 
 export interface YoutubePopularOptions {
