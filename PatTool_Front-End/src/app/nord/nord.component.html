@@ -55,28 +55,10 @@
   <div class="nord-stage">
     <section class="nord-instrument" [attr.aria-label]="'NORD.COMPASS_ARIA' | translate">
       <div class="nord-instrument-row">
-      <div class="nord-bezel">
-        <div class="nord-lubber" aria-hidden="true"></div>
-        <div class="nord-card" [style.transform]="'rotate(' + roseRotationDeg() + 'deg)'">
-          <span class="nord-ticks" aria-hidden="true"></span>
-          <span
-            class="nord-deg"
-            *ngFor="let d of bezelDegrees"
-            [style.transform]="'rotate(' + d + 'deg)'">
-            <span class="nord-deg__txt" [style.transform]="'rotate(' + (-d) + 'deg)'">{{ d }}</span>
-          </span>
-          <span class="nord-letter nord-letter--n">{{ 'NORD.DIR_N' | translate }}</span>
-          <span class="nord-letter nord-letter--e">{{ 'NORD.DIR_E' | translate }}</span>
-          <span class="nord-letter nord-letter--s">{{ 'NORD.DIR_S' | translate }}</span>
-          <span class="nord-letter nord-letter--w">{{ 'NORD.DIR_W' | translate }}</span>
-          <span class="nord-needle" aria-hidden="true"></span>
-        </div>
-        <div class="nord-hub">
-          <span class="nord-hub__deg">{{ displayedHeading() == null ? '—' : headingText() + '°' }}</span>
-          <span class="nord-hub__card">{{ cardinalLabel() }}</span>
-          <span class="nord-hub__kind">{{ (trueNorthActive ? 'NORD.TRUE' : 'NORD.MAGNETIC') | translate }}</span>
-        </div>
-      </div>
+        <app-compass-rose
+          variant="stage"
+          [rotationDeg]="roseRotationDeg()">
+        </app-compass-rose>
 
       <div
         class="nord-pitch"

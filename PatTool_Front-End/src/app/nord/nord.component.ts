@@ -1,7 +1,9 @@
 import {
+  AfterViewInit,
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  ElementRef,
   NgZone,
   OnDestroy,
   OnInit
@@ -12,6 +14,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../services/api.service';
 import { CompassNorthEngine } from '../shared/compass-north.engine';
+import { CompassRoseComponent } from '../shared/compass-rose/compass-rose.component';
 import { magneticDeclinationDeg } from './magnetic-declination';
 
 const PAINT_MIN_MS = 50;
@@ -61,12 +64,12 @@ const HARDWARE_TILE_IDS = [
 @Component({
   selector: 'app-nord',
   standalone: true,
-  imports: [CommonModule, RouterModule, TranslateModule],
+  imports: [CommonModule, RouterModule, TranslateModule, CompassRoseComponent],
   templateUrl: './nord.component.html',
   styleUrls: ['./nord.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class NordComponent implements OnInit, OnDestroy {
+export class NordComponent implements OnInit, AfterViewInit, OnDestroy {
   sensorsEnabled = false;
   permissionDenied = false;
   permissionNeeded = false;
@@ -133,9 +136,6 @@ export class NordComponent implements OnInit, OnDestroy {
 
   tiles: SensorTile[] = NordComponent.initialTiles();
 
-  /** Pas de 0/90/180/270 : les lettres N/E/S/O occupent déjà ces positions. */
-  readonly bezelDegrees = [30, 60, 120, 150, 210, 240, 300, 330];
-
   private headingSamples: number[] = [];
   private lastPaintMs = 0;
 
@@ -192,10 +192,25 @@ export class NordComponent implements OnInit, OnDestroy {
     /* bound later */
   };
 
+  private hideTitleTimer: ReturnType<typeof setTimeout> | null = null;
+  private hideTitleTries = 0;
+  private titleScrollPadPx = 0;
+  private hideTitleGuardUntil = 0;
+  private readonly hideTitleOnScroll = (): void => {
+    if (Date.now() > this.hideTitleGuardUntil) {
+      this.unbindTitleHideGuard();
+      return;
+    }
+    if (!this.pageTitleIsOffscreen()) {
+      this.scrollPastPageTitle();
+    }
+  };
+
   constructor(
     private readonly zone: NgZone,
     private readonly cdr: ChangeDetectorRef,
-    private readonly api: ApiService
+    private readonly api: ApiService,
+    private readonly hostEl: ElementRef<HTMLElement>
   ) {}
 
   ngOnInit(): void {
@@ -204,8 +219,114 @@ export class NordComponent implements OnInit, OnDestroy {
     void this.startAll(false);
   }
 
+  ngAfterViewInit(): void {
+    this.queueHidePageTitle();
+  }
+
   ngOnDestroy(): void {
+    if (this.hideTitleTimer != null) {
+      clearTimeout(this.hideTitleTimer);
+      this.hideTitleTimer = null;
+    }
+    this.unbindTitleHideGuard();
     this.stopAll();
+  }
+
+  private queueHidePageTitle(): void {
+    this.hideTitleTries = 0;
+    this.bindTitleHideGuard();
+    this.zone.runOutsideAngular(() => {
+      const run = (): void => {
+        this.scrollPastPageTitle();
+        this.hideTitleTries += 1;
+        if (this.hideTitleTries < 22) {
+          this.hideTitleTimer = setTimeout(run, this.hideTitleTries < 8 ? 50 : 120);
+        } else {
+          this.unbindTitleHideGuard();
+        }
+      };
+      requestAnimationFrame(() => requestAnimationFrame(run));
+    });
+  }
+
+  private bindTitleHideGuard(): void {
+    this.unbindTitleHideGuard();
+    this.hideTitleGuardUntil = Date.now() + 2400;
+    window.addEventListener('scroll', this.hideTitleOnScroll, { passive: true });
+    window.addEventListener('hashchange', this.hideTitleOnScroll);
+  }
+
+  private unbindTitleHideGuard(): void {
+    window.removeEventListener('scroll', this.hideTitleOnScroll);
+    window.removeEventListener('hashchange', this.hideTitleOnScroll);
+    this.hideTitleGuardUntil = 0;
+  }
+
+  private pageTitleIsOffscreen(): boolean {
+    const title = this.hostEl.nativeElement.querySelector('.pat-title') as HTMLElement | null;
+    if (!title) {
+      return true;
+    }
+    return title.getBoundingClientRect().bottom <= this.fixedChromeBottom() + 2;
+  }
+
+  private pageScroller(): HTMLElement {
+    let el: HTMLElement | null = this.hostEl.nativeElement.parentElement;
+    while (el && el !== document.body && el !== document.documentElement) {
+      const oy = getComputedStyle(el).overflowY;
+      if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && el.scrollHeight > el.clientHeight + 1) {
+        return el;
+      }
+      el = el.parentElement;
+    }
+    return (document.scrollingElement as HTMLElement) || document.documentElement;
+  }
+
+  private ensureTitleScrollRoom(need: number): void {
+    const scroller = this.pageScroller();
+    const available = Math.max(0, scroller.scrollHeight - scroller.clientHeight - (scroller.scrollTop || 0));
+    if (available >= need) {
+      return;
+    }
+    const extra = need - available + 12;
+    const currentPad = parseFloat(getComputedStyle(this.hostEl.nativeElement).paddingBottom) || 0;
+    this.titleScrollPadPx = currentPad + extra;
+    this.hostEl.nativeElement.style.paddingBottom = `${this.titleScrollPadPx}px`;
+  }
+
+  private scrollPastPageTitle(): void {
+    const title = this.hostEl.nativeElement.querySelector('.pat-title') as HTMLElement | null;
+    if (!title) {
+      return;
+    }
+    const chromeBottom = this.fixedChromeBottom();
+    const need = Math.ceil(title.getBoundingClientRect().bottom - chromeBottom + 6);
+    if (need <= 0) {
+      return;
+    }
+    this.ensureTitleScrollRoom(need);
+    const scroller = this.pageScroller();
+    const y = scroller.scrollTop || window.scrollY || 0;
+    const next = Math.max(0, y + need);
+    scroller.scrollTop = next;
+    document.documentElement.scrollTop = next;
+    document.body.scrollTop = next;
+    window.scrollTo(0, next);
+  }
+
+  private fixedChromeBottom(): number {
+    let bottom = 0;
+    document.querySelectorAll('.navbar.fixed-top, .news-ticker, .currency-ticker, .stock-ticker').forEach((el) => {
+      const style = getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden') {
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      if (r.height > 1) {
+        bottom = Math.max(bottom, r.bottom);
+      }
+    });
+    return bottom;
   }
 
   async enableSensors(): Promise<void> {

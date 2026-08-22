@@ -6177,6 +6177,35 @@ a.ac-compass-cal__btn--direction {
   box-sizing: border-box;
 }
 
+.ac-finder__ref-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.28rem;
+}
+
+.ac-finder__ref-switch-btn {
+  min-height: 2.1rem;
+  padding: 0.28rem 0.4rem;
+  border: 1px solid rgba(255, 196, 60, 0.35);
+  border-radius: 0.4rem;
+  background: rgba(8, 12, 22, 0.55);
+  color: #dce6fb;
+  font-size: 0.74rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.ac-finder__ref-switch-btn--on {
+  background: linear-gradient(180deg, #ffe08a 0%, #ffc24a 100%);
+  border-color: #ffd54a;
+  color: #2a1e02;
+}
+
+.ac-finder__ref-switch-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .ac-finder__north-box-head {
   display: flex;
   align-items: baseline;

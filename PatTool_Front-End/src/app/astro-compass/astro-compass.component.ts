@@ -63,12 +63,14 @@ import {
 import { constellationFigureStrokes } from './astro-compass-constellation-figures';
 import {
   ApiService,
+  DirectionCible,
   IssCompassCalibration,
   SkyMapPreview,
   StellariumSkySource,
   WikipediaSearchPage,
   WikipediaSummary
 } from '../services/api.service';
+import { loadActiveCibleId, saveActiveCibleId } from '../direction/direction-cible-store';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { GlobeIssNowService } from '../services/globe-iss-now.service';
 import { GlobeSatelliteNowService } from '../services/globe-satellite-now.service';
@@ -908,6 +910,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   headingAccuracyDeg: number | null = null;
   headingActive = false;
   headingRawDeg: number | null = null;
+  headingRef: 'north' | 'cible' = 'north';
+  activeCible: DirectionCible | null = null;
   northOffsetDeg: number | null = null;
   /**
    * Inclinaison du téléphone (angle du haut de l'appareil depuis l'horizontale).
@@ -1244,6 +1248,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.applyQueryTarget();
     this.startGeolocation();
     this.hydratePattoolCalFromDb();
+    this.loadHeadingRef();
+    this.loadActiveCible();
     void this.lookTracker.start(false).then(() => {
       if (this.lookTracker.sensorsOn) {
         void this.startCamera();
@@ -1840,14 +1846,67 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private onLookUpdate(): void {
-    const az = this.lookTracker.azimuthDeg;
     const el = this.lookTracker.elevationDeg;
-    this.headingDeg = az;
-    this.headingActive = az != null;
     this.devicePitchDeg = el != null ? 90 - el : null;
+    this.applyHeadingReference();
     this.updateFinderProjection();
-    this.tickAlignCue();
     this.cdr.markForCheck();
+  }
+
+  setHeadingRef(ref: 'north' | 'cible'): void {
+    if (ref === 'cible' && !this.activeCible) {
+      return;
+    }
+    if (this.headingRef === ref) {
+      return;
+    }
+    this.headingRef = ref;
+    this.saveHeadingRef();
+    this.applyHeadingReference();
+    this.updateFinderProjection();
+    this.cdr.markForCheck();
+  }
+
+  private loadHeadingRef(): void {
+    try {
+      const raw = localStorage.getItem('pat.astro.heading-ref.v1');
+      this.headingRef = raw === 'cible' ? 'cible' : 'north';
+    } catch {
+      this.headingRef = 'north';
+    }
+  }
+
+  private saveHeadingRef(): void {
+    try {
+      localStorage.setItem('pat.astro.heading-ref.v1', this.headingRef);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private loadActiveCible(): void {
+    this.api.listDirectionCibles().subscribe({
+      next: (res) => {
+        const list = res.cibles ?? [];
+        const wanted = list.find((c) => c.active) ?? list.find((c) => c.id === loadActiveCibleId()) ?? list[0] ?? null;
+        this.activeCible = wanted;
+        if (wanted?.id) {
+          saveActiveCibleId(wanted.id);
+        }
+        if (this.headingRef === 'cible' && !this.activeCible) {
+          this.headingRef = 'north';
+        }
+        this.applyHeadingReference();
+        this.updateFinderProjection();
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        if (this.headingRef === 'cible') {
+          this.headingRef = 'north';
+        }
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   canFreezeFinderPose(): boolean {
@@ -8531,8 +8590,22 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private applyNorthOffset(): void {
-    if (this.lookTracker?.azimuthDeg != null) {
-      this.headingDeg = this.lookTracker.azimuthDeg;
+    this.applyHeadingReference();
+  }
+
+  private applyHeadingReference(): void {
+    const lookAz = this.lookTracker?.azimuthDeg ?? null;
+    const raw = this.lookTracker?.rawAzimuthDeg ?? this.headingRawDeg;
+    if (this.headingRef === 'cible' && this.activeCible?.phoneHeadingDeg != null && raw != null) {
+      const h0 = this.activeCible.phoneHeadingDeg;
+      const ref = this.activeCible.refAzimuthDeg ?? 0;
+      this.headingDeg = this.normalizeDeg(raw - h0 + ref);
+      this.headingActive = true;
+      this.tickAlignCue();
+      return;
+    }
+    if (lookAz != null) {
+      this.headingDeg = lookAz;
       this.headingActive = true;
       this.tickAlignCue();
       return;
@@ -8541,7 +8614,6 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.headingDeg = null;
       return;
     }
-    // Mode capteurs : Cap appareil = raw (pas d'offset) → c'est le Nord de la rose.
     const offset =
       this.calMethod === 'sensor' || this.calMethod == null ? 0 : (this.northOffsetDeg ?? 0);
     this.headingDeg = this.normalizeDeg(this.headingRawDeg + offset);

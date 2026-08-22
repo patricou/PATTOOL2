@@ -45,6 +45,8 @@ const SOURCE_RANK: Record<HeadingSource, number> = {
  */
 export class CameraLookTracker {
   azimuthDeg: number | null = null;
+  /** Cap magnétomètre brut, avant décalage Nord / poses. */
+  rawAzimuthDeg: number | null = null;
   elevationDeg: number | null = null;
   rollDeg: number | null = null;
   sensorsOn = false;
@@ -469,6 +471,7 @@ export class CameraLookTracker {
     const d = loadPattoolCal()?.derived ?? null;
     this.manualOffsetDeg = d?.azOffsetDeg ?? 0;
     this.manualElOffsetDeg = d?.elOffsetDeg ?? 0;
+    this.rawAzimuthDeg = az;
     this.azimuthDeg = composeLookAzimuth(az, d);
     if (this.rawElevationDeg != null) {
       this.elevationDeg = composeLookElevation(this.rawElevationDeg, d);

@@ -7,6 +7,33 @@
 
 <div class="dir-page">
   <div class="dir-panel">
+  <ul class="nav nav-tabs nav-fill dir-tabs" role="tablist" *ngIf="!patWizard">
+    <li class="nav-item" role="presentation">
+      <button
+        type="button"
+        class="nav-link"
+        [class.active]="activeTab === 'calibrage'"
+        (click)="setTab('calibrage')"
+        role="tab"
+        [attr.aria-selected]="activeTab === 'calibrage'">
+        <i class="fa fa-crosshairs" aria-hidden="true"></i>
+        {{ 'DIRECTION.TAB_CAL' | translate }}
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button
+        type="button"
+        class="nav-link"
+        [class.active]="activeTab === 'cible'"
+        (click)="setTab('cible')"
+        role="tab"
+        [attr.aria-selected]="activeTab === 'cible'">
+        <i class="fa fa-bullseye" aria-hidden="true"></i>
+        {{ 'DIRECTION.TAB_TARGET' | translate }}
+      </button>
+    </li>
+  </ul>
+
   <section class="dir-card dir-card--stage" [attr.aria-label]="'DIRECTION.STAGE_ARIA' | translate">
   <div class="dir-stage" [class.dir-stage--pat]="patWizard">
     <div
@@ -23,86 +50,12 @@
         <span class="dir-reticle__v"></span>
         <span class="dir-reticle__c"></span>
       </div>
-      <div class="dir-rose dir-rose--overlay" *ngIf="!patWizard" [attr.aria-label]="'DIRECTION.ROSE_ARIA' | translate">
-        <svg class="dir-rose__bezel" viewBox="0 0 200 200" aria-hidden="true">
-          <defs>
-            <linearGradient id="dirRoseBezel" x1="18%" y1="8%" x2="86%" y2="92%">
-              <stop offset="0%" stop-color="#d8fff4"/>
-              <stop offset="22%" stop-color="#5ee8c8"/>
-              <stop offset="48%" stop-color="#1d6f62"/>
-              <stop offset="72%" stop-color="#b6ffe8"/>
-              <stop offset="100%" stop-color="#0b3d36"/>
-            </linearGradient>
-            <linearGradient id="dirRoseBezel2" x1="80%" y1="0%" x2="10%" y2="100%">
-              <stop offset="0%" stop-color="#8af0d4"/>
-              <stop offset="50%" stop-color="#163d38"/>
-              <stop offset="100%" stop-color="#e7fff8"/>
-            </linearGradient>
-          </defs>
-          <circle cx="100" cy="100" r="98.6" fill="none" stroke="url(#dirRoseBezel)" stroke-width="2.8"/>
-          <circle cx="100" cy="100" r="95.8" fill="none" stroke="url(#dirRoseBezel2)" stroke-width="1.2"/>
-          <circle cx="100" cy="100" r="93.8" fill="none" stroke="rgba(180,255,236,0.32)" stroke-width="0.55"/>
-          <circle cx="100" cy="5.2" r="2.35" fill="#7ff8d8" stroke="#d9fff4" stroke-width="0.45"/>
-          <circle cx="194.8" cy="100" r="2.05" fill="#3ee0c0" stroke="#b8ffe8" stroke-width="0.4"/>
-          <circle cx="100" cy="194.8" r="2.05" fill="#3ee0c0" stroke="#b8ffe8" stroke-width="0.4"/>
-          <circle cx="5.2" cy="100" r="2.05" fill="#3ee0c0" stroke="#b8ffe8" stroke-width="0.4"/>
-          <path fill="#b8ffe8" d="M100 0.6 L107.8 16.2 L100 12.2 L92.2 16.2 Z"/>
-          <path fill="none" stroke="#7ff8d8" stroke-width="1.1" stroke-linecap="round" d="M100 12.4 V22.5"/>
-          <path fill="none" stroke="#7ff8d8" stroke-width="1.05" stroke-linecap="round" d="M88 7.2 H94.2M105.8 7.2 H112"/>
-        </svg>
-        <div class="dir-rose__disk" [style.transform]="'rotate(' + roseDeg() + 'deg)'">
-          <svg class="dir-rose__card" viewBox="0 0 200 200" aria-hidden="true">
-            <path class="dir-rose__tick dir-rose__tick--1" [attr.d]="roseTick1"/>
-            <path class="dir-rose__tick dir-rose__tick--5" [attr.d]="roseTick5"/>
-            <path class="dir-rose__tick dir-rose__tick--10" [attr.d]="roseTick10"/>
-            <path class="dir-rose__tick dir-rose__tick--30" [attr.d]="roseTick30"/>
-            <path class="dir-rose__tick dir-rose__tick--in" [attr.d]="roseTickInner"/>
-            <path class="dir-rose__tick dir-rose__tick--in-major" [attr.d]="roseTickInnerMajor"/>
-            <circle class="dir-rose__scale" cx="100" cy="100" r="62.2"/>
-            <circle class="dir-rose__scale dir-rose__scale--2" cx="100" cy="100" r="46.8"/>
-            <circle
-              class="dir-rose__dot"
-              *ngFor="let p of roseDots"
-              [attr.cx]="p.x"
-              [attr.cy]="p.y"
-              r="1.05"/>
-            <polygon
-              *ngFor="let k of roseKites"
-              class="dir-rose__kite"
-              [class.dir-rose__kite--n]="k.kind === 'n'"
-              [class.dir-rose__kite--cardinal]="k.kind === 'cardinal'"
-              [class.dir-rose__kite--inter]="k.kind === 'inter'"
-              [class.dir-rose__kite--half]="k.kind === 'half'"
-              [class.dir-rose__kite--quarter]="k.kind === 'quarter'"
-              [attr.points]="k.points"/>
-            <circle class="dir-rose__hub" cx="100" cy="100" r="8.2"/>
-            <circle class="dir-rose__hub dir-rose__hub--2" cx="100" cy="100" r="4.4"/>
-            <circle class="dir-rose__hub-core" cx="100" cy="100" r="1.55"/>
-            <text
-              *ngFor="let p of roseDegLabels"
-              class="dir-rose__lbl dir-rose__lbl--deg"
-              [class.dir-rose__lbl--deg-major]="p.kind === 'deg-major'"
-              [attr.x]="p.x"
-              [attr.y]="p.y"
-              [attr.font-size]="p.font"
-              [attr.transform]="'rotate(' + roseUpright() + ' ' + p.x + ' ' + p.y + ')'"
-              text-anchor="middle"
-              dominant-baseline="middle">{{ p.label }}</text>
-            <text
-              *ngFor="let p of roseCardLabels"
-              class="dir-rose__lbl"
-              [class.dir-rose__lbl--n]="p.kind === 'n'"
-              [class.dir-rose__lbl--card]="p.kind === 'card'"
-              [class.dir-rose__lbl--inter]="p.kind === 'inter'"
-              [attr.x]="p.x"
-              [attr.y]="p.y"
-              [attr.font-size]="p.font"
-              [attr.transform]="'rotate(' + roseUpright() + ' ' + p.x + ' ' + p.y + ')'"
-              text-anchor="middle"
-              dominant-baseline="middle">{{ p.label }}</text>
-          </svg>
-        </div>
-      </div>
+      <app-compass-rose
+        *ngIf="!patWizard"
+        variant="overlay"
+        [rotationDeg]="roseDeg()"
+        [attr.aria-label]="'DIRECTION.ROSE_ARIA' | translate">
+      </app-compass-rose>
       <button
         type="button"
         class="dir-fs dir-fs--info"
@@ -170,6 +123,11 @@
             </div>
           </div>
         </div>
+        <p class="dir-hud__pat" *ngIf="activeTab === 'cible' && !patWizard && selectedCible()">
+          {{ selectedCible()?.name }}
+          · {{ 'DIRECTION.TARGET_LOCK_DELTA' | translate }}
+          {{ cibleLockDeltaText() }}
+        </p>
       </div>
     </div>
 
@@ -230,7 +188,8 @@
   <p class="dir-msg" *ngIf="needTap && !denied">{{ 'DIRECTION.NEED_TAP' | translate }}</p>
   <p class="dir-msg dir-msg--bad" *ngIf="denied">{{ 'DIRECTION.DENIED' | translate }}</p>
 
-  <section class="dir-card" *ngIf="!patWizard" [attr.aria-label]="'DIRECTION.STEP_NORTH' | translate">
+  <ng-container *ngIf="activeTab === 'calibrage' && !patWizard">
+  <section class="dir-card" [attr.aria-label]="'DIRECTION.STEP_NORTH' | translate">
     <h3 class="dir-card__title">
       <span class="dir-card__n">1</span>
       {{ 'DIRECTION.STEP_NORTH' | translate }}
@@ -303,24 +262,7 @@
   </section>
 
   <section
-    class="dir-card dir-card--cam"
-    *ngIf="!patWizard && (!camLive || camDenied)"
-    [attr.aria-label]="'DIRECTION.CAM_START' | translate">
-    <p class="dir-msg dir-msg--bad" *ngIf="camDenied">{{ 'DIRECTION.CAM_DENIED' | translate }}</p>
-    <div class="dir-actions">
-      <button
-        type="button"
-        class="dir-btn dir-btn--go"
-        *ngIf="!camLive"
-        (click)="!sensorsOn || needTap ? enable() : startCamera()">
-        {{ 'DIRECTION.CAM_START' | translate }}
-      </button>
-    </div>
-  </section>
-
-  <section
     class="dir-card dir-card--links"
-    *ngIf="!patWizard"
     [attr.aria-label]="'DIRECTION.OPEN_NORD' | translate">
     <div class="dir-links">
       <a
@@ -340,7 +282,7 @@
     </div>
   </section>
 
-  <section class="dir-card" *ngIf="!patWizard" [attr.aria-label]="'DIRECTION.STEP_OTHER' | translate">
+  <section class="dir-card" [attr.aria-label]="'DIRECTION.STEP_OTHER' | translate">
     <h3 class="dir-card__title">
       <span class="dir-card__n">2</span>
       {{ 'DIRECTION.STEP_OTHER' | translate }}
@@ -426,7 +368,7 @@
     </div>
   </section>
 
-  <section class="dir-card" *ngIf="!patWizard" [attr.aria-label]="'DIRECTION.STEP_VISOR' | translate">
+  <section class="dir-card" [attr.aria-label]="'DIRECTION.STEP_VISOR' | translate">
     <h3 class="dir-card__title">
       <span class="dir-card__n">3</span>
       {{ 'DIRECTION.STEP_VISOR' | translate }}
@@ -495,6 +437,130 @@
       </ol>
     </div>
   </section>
+  </ng-container>
+
+  <ng-container *ngIf="activeTab === 'cible' && !patWizard">
+  <section class="dir-card dir-card--photo" [attr.aria-label]="'DIRECTION.TARGET_PHOTO' | translate">
+    <h3 class="dir-card__title">{{ 'DIRECTION.TARGET_PHOTO' | translate }}</h3>
+    <div class="dir-cible-photo" *ngIf="ciblePhoto">
+      <img [src]="ciblePhoto" alt="" />
+    </div>
+    <p class="dir-card__help" *ngIf="!ciblePhoto">{{ 'DIRECTION.TARGET_PHOTO_EMPTY' | translate }}</p>
+    <div class="dir-actions">
+      <button type="button" class="dir-btn dir-btn--go" [disabled]="!camLive" (click)="captureCiblePhoto()">
+        <i class="fa fa-camera" aria-hidden="true"></i>
+        {{ (ciblePhoto ? 'DIRECTION.TARGET_PHOTO_RETAKE' : 'DIRECTION.TARGET_PHOTO_TAKE') | translate }}
+      </button>
+      <button type="button" class="dir-btn" *ngIf="ciblePhoto" (click)="clearCiblePhoto()">
+        {{ 'DIRECTION.TARGET_PHOTO_CLEAR' | translate }}
+      </button>
+    </div>
+  </section>
+
+  <section class="dir-card" [attr.aria-label]="'DIRECTION.TARGET_TITLE' | translate">
+    <h3 class="dir-card__title">
+      <span class="dir-card__n"><i class="fa fa-bullseye" aria-hidden="true"></i></span>
+      {{ 'DIRECTION.TARGET_TITLE' | translate }}
+    </h3>
+    <p class="dir-card__help">{{ 'DIRECTION.TARGET_HELP' | translate }}</p>
+    <p class="dir-msg" *ngIf="!sensorsOn">{{ 'DIRECTION.TARGET_NEED_SENSORS' | translate }}</p>
+    <p class="dir-msg dir-msg--ok" *ngIf="cibleOnLock() && !cibleCheck">{{ 'DIRECTION.TARGET_ALIGNED' | translate }}</p>
+    <p class="dir-msg dir-msg--bad" *ngIf="cibleError">{{ cibleError | translate }}</p>
+    <p class="dir-msg dir-msg--ok" *ngIf="cibleCheck?.status === 'ok'">{{ 'DIRECTION.TARGET_CHECK_OK' | translate }}</p>
+    <p class="dir-msg" *ngIf="cibleCheck?.status === 'need'">{{ 'DIRECTION.TARGET_CHECK_NEED' | translate }}</p>
+    <div class="dir-cible-alert" *ngIf="cibleCheck?.status === 'warn'" role="alert">
+      <p class="dir-msg dir-msg--bad">{{ 'DIRECTION.TARGET_CHECK_WARN' | translate }}</p>
+      <p class="dir-msg dir-msg--bad" *ngIf="cibleCheck?.gpsChanged">
+        {{ 'DIRECTION.TARGET_CHECK_GPS' | translate : { m: (cibleCheck?.movedM ?? 0) | number : '1.0-0' } }}
+      </p>
+      <p class="dir-msg dir-msg--bad" *ngIf="cibleCheck?.headingChanged">
+        {{ 'DIRECTION.TARGET_CHECK_HEAD' | translate : { deg: (cibleCheck?.headingAbs ?? 0) | number : '1.0-0' } }}
+      </p>
+      <p class="dir-card__help">{{ 'DIRECTION.TARGET_CHECK_ADVICE' | translate }}</p>
+    </div>
+    <label class="dir-cible-name">
+      <span>{{ 'DIRECTION.TARGET_NAME' | translate }}</span>
+      <input
+        type="text"
+        maxlength="80"
+        [value]="cibleName"
+        (input)="onCibleNameInput($event)"
+        [attr.placeholder]="'DIRECTION.TARGET_NAME_PH' | translate" />
+    </label>
+    <dl class="dir-target__dl">
+      <div>
+        <dt>{{ 'DIRECTION.TARGET_LIVE' | translate }}</dt>
+        <dd>{{ azText() }}° {{ cardinal() }} · {{ elText() }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'DIRECTION.GPS' | translate }}</dt>
+        <dd>{{ gpsText() }}</dd>
+      </div>
+      <div *ngIf="selectedCible()">
+        <dt>{{ 'DIRECTION.TARGET_LOCK_DELTA' | translate }}</dt>
+        <dd>{{ cibleLockDeltaText() }}</dd>
+      </div>
+    </dl>
+    <div class="dir-actions">
+      <button
+        type="button"
+        class="dir-btn dir-btn--go"
+        *ngIf="!selectedCibleId"
+        [disabled]="cibleSaving || magAzimuthDeg == null"
+        (click)="saveNewCible()">
+        {{ 'DIRECTION.TARGET_SAVE' | translate }}
+      </button>
+      <button
+        type="button"
+        class="dir-btn dir-btn--go"
+        *ngIf="selectedCibleId"
+        [disabled]="cibleSaving || magAzimuthDeg == null"
+        (click)="recalibrateCible()">
+        {{ 'DIRECTION.TARGET_RECAL' | translate }}
+      </button>
+      <button
+        type="button"
+        class="dir-btn"
+        *ngIf="selectedCibleId"
+        [disabled]="cibleSaving"
+        (click)="checkCibleDrift()"
+        [attr.title]="'DIRECTION.TARGET_CHECK_HINT' | translate">
+        <i class="fa fa-stethoscope" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_CHECK' | translate }}
+      </button>
+      <button type="button" class="dir-btn" *ngIf="selectedCibleId" [disabled]="cibleSaving" (click)="startNewCible()">
+        {{ 'DIRECTION.TARGET_NEW' | translate }}
+      </button>
+    </div>
+  </section>
+
+  <section class="dir-card" [attr.aria-label]="'DIRECTION.TARGET_LIST' | translate">
+    <h3 class="dir-card__title">{{ 'DIRECTION.TARGET_LIST' | translate }}</h3>
+    <p class="dir-pat__status" *ngIf="cibleLoading">{{ 'DIRECTION.TARGET_LOADING' | translate }}</p>
+    <p class="dir-card__help" *ngIf="!cibleLoading && !cibles.length">{{ 'DIRECTION.TARGET_LIST_EMPTY' | translate }}</p>
+    <ul class="dir-cible-list" *ngIf="cibles.length">
+      <li
+        *ngFor="let c of cibles"
+        class="dir-cible-list__item"
+        [class.dir-cible-list__item--on]="c.id === selectedCibleId">
+        <button type="button" class="dir-cible-list__pick" (click)="selectCible(c)">
+          <img *ngIf="c.photoDataUrl" [src]="c.photoDataUrl" alt="" />
+          <span class="dir-cible-list__meta">
+            <strong>{{ c.name }}</strong>
+            <small *ngIf="c.updatedAt">{{ c.updatedAt | date : 'short' }}</small>
+          </span>
+        </button>
+        <button
+          type="button"
+          class="dir-btn dir-btn--tiny dir-btn--danger"
+          (click)="deleteCible(c, $event)"
+          [attr.aria-label]="'DIRECTION.TARGET_DELETE' | translate">
+          <i class="fa fa-trash" aria-hidden="true"></i>
+        </button>
+      </li>
+    </ul>
+  </section>
+  </ng-container>
 </div>
 </div>
 

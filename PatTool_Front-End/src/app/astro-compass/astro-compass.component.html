@@ -547,6 +547,34 @@
                 class="ac-finder__north-box"
                 role="group"
                 [attr.aria-label]="'ASTRO_COMPASS.NORTH_BOX_TITLE' | translate">
+                <div class="ac-finder__ref-switch" role="tablist">
+                  <button
+                    type="button"
+                    class="ac-finder__ref-switch-btn"
+                    [class.ac-finder__ref-switch-btn--on]="headingRef === 'north'"
+                    (click)="setHeadingRef('north')"
+                    role="tab"
+                    [attr.aria-selected]="headingRef === 'north'">
+                    {{ 'ASTRO_COMPASS.HEADING_REF_NORTH' | translate }}
+                  </button>
+                  <button
+                    type="button"
+                    class="ac-finder__ref-switch-btn"
+                    [class.ac-finder__ref-switch-btn--on]="headingRef === 'cible'"
+                    [disabled]="!activeCible"
+                    (click)="setHeadingRef('cible')"
+                    role="tab"
+                    [attr.aria-selected]="headingRef === 'cible'"
+                    [attr.title]="activeCible ? activeCible.name : ('ASTRO_COMPASS.HEADING_REF_NONE' | translate)">
+                    {{ 'ASTRO_COMPASS.HEADING_REF_CIBLE' | translate }}
+                  </button>
+                </div>
+                <p class="ac-finder__north-box-hint" *ngIf="headingRef === 'cible' && activeCible">
+                  {{ 'ASTRO_COMPASS.HEADING_REF_HINT' | translate : { name: activeCible.name } }}
+                </p>
+                <p class="ac-finder__north-box-hint" *ngIf="!activeCible">
+                  {{ 'ASTRO_COMPASS.HEADING_REF_NONE' | translate }}
+                </p>
                 <div class="ac-finder__north-box-head">
                   <strong>{{ 'ASTRO_COMPASS.NORTH_BOX_TITLE' | translate }}</strong>
                   <span

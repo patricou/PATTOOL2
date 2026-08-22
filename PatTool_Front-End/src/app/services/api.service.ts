@@ -101,6 +101,23 @@ export interface DirectionPattoolExport {
   samples: DirectionPattoolSamplePayload[];
 }
 
+/** Couple position GPS / cible visuelle (GET/POST /direction/cibles). */
+export interface DirectionCible {
+  id?: string;
+  name: string;
+  userLat?: number | null;
+  userLon?: number | null;
+  userAccM?: number | null;
+  phoneHeadingDeg?: number | null;
+  refAzimuthDeg?: number | null;
+  phoneElevationDeg?: number | null;
+  photoDataUrl?: string | null;
+  active?: boolean;
+  ownerUsername?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 /** Current state of a tracked flight (proxy GET /external/globe/flight/state, OpenSky Network). */
 export interface FlightState {
   icao24?: string | null;
@@ -1725,6 +1742,57 @@ export class ApiService {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
         this._http.delete<void>(this.API_URL + 'direction/pattool-cal/samples', { headers })
+      )
+    );
+  }
+
+  listDirectionCibles(): Observable<{ ownerUsername?: string; cibles: DirectionCible[] }> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<{ ownerUsername?: string; cibles: DirectionCible[] }>(
+          this.API_URL + 'direction/cibles',
+          { headers }
+        )
+      )
+    );
+  }
+
+  createDirectionCible(body: DirectionCible): Observable<DirectionCible> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post<DirectionCible>(this.API_URL + 'direction/cibles', body, { headers })
+      )
+    );
+  }
+
+  updateDirectionCible(id: string, body: DirectionCible): Observable<DirectionCible> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<DirectionCible>(this.API_URL + 'direction/cibles/' + id, body, { headers })
+      )
+    );
+  }
+
+  recalibrateDirectionCible(id: string, body: Partial<DirectionCible>): Observable<DirectionCible> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<DirectionCible>(this.API_URL + 'direction/cibles/' + id + '/recalibrate', body, { headers })
+      )
+    );
+  }
+
+  setActiveDirectionCible(id: string): Observable<DirectionCible> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<DirectionCible>(this.API_URL + 'direction/cibles/' + id + '/active', {}, { headers })
+      )
+    );
+  }
+
+  deleteDirectionCible(id: string): Observable<void> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.delete<void>(this.API_URL + 'direction/cibles/' + id, { headers })
       )
     );
   }

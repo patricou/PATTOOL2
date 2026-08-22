@@ -1,0 +1,78 @@
+<svg class="compass-rose__bezel" viewBox="0 0 200 200" aria-hidden="true">
+  <defs>
+    <linearGradient [attr.id]="uid + 'Bezel'" x1="18%" y1="8%" x2="86%" y2="92%">
+      <stop offset="0%" stop-color="#d8fff4"/>
+      <stop offset="22%" stop-color="#5ee8c8"/>
+      <stop offset="48%" stop-color="#1d6f62"/>
+      <stop offset="72%" stop-color="#b6ffe8"/>
+      <stop offset="100%" stop-color="#0b3d36"/>
+    </linearGradient>
+    <linearGradient [attr.id]="uid + 'Bezel2'" x1="80%" y1="0%" x2="10%" y2="100%">
+      <stop offset="0%" stop-color="#8af0d4"/>
+      <stop offset="50%" stop-color="#163d38"/>
+      <stop offset="100%" stop-color="#e7fff8"/>
+    </linearGradient>
+  </defs>
+  <circle cx="100" cy="100" r="98.6" fill="none" [attr.stroke]="'url(#' + uid + 'Bezel)'" stroke-width="2.8"/>
+  <circle cx="100" cy="100" r="95.8" fill="none" [attr.stroke]="'url(#' + uid + 'Bezel2)'" stroke-width="1.2"/>
+  <circle cx="100" cy="100" r="93.8" fill="none" stroke="rgba(180,255,236,0.32)" stroke-width="0.55"/>
+  <circle cx="100" cy="5.2" r="2.35" fill="#7ff8d8" stroke="#d9fff4" stroke-width="0.45"/>
+  <circle cx="194.8" cy="100" r="2.05" fill="#3ee0c0" stroke="#b8ffe8" stroke-width="0.4"/>
+  <circle cx="100" cy="194.8" r="2.05" fill="#3ee0c0" stroke="#b8ffe8" stroke-width="0.4"/>
+  <circle cx="5.2" cy="100" r="2.05" fill="#3ee0c0" stroke="#b8ffe8" stroke-width="0.4"/>
+  <path fill="#b8ffe8" d="M100 0.6 L107.8 16.2 L100 12.2 L92.2 16.2 Z"/>
+  <path fill="none" stroke="#7ff8d8" stroke-width="1.1" stroke-linecap="round" d="M100 12.4 V22.5"/>
+  <path fill="none" stroke="#7ff8d8" stroke-width="1.05" stroke-linecap="round" d="M88 7.2 H94.2M105.8 7.2 H112"/>
+</svg>
+<div class="compass-rose__disk" [style.transform]="'rotate(' + rotationDeg + 'deg)'">
+  <svg class="compass-rose__card" viewBox="0 0 200 200" aria-hidden="true">
+    <path class="compass-rose__tick compass-rose__tick--1" [attr.d]="roseTick1"/>
+    <path class="compass-rose__tick compass-rose__tick--5" [attr.d]="roseTick5"/>
+    <path class="compass-rose__tick compass-rose__tick--10" [attr.d]="roseTick10"/>
+    <path class="compass-rose__tick compass-rose__tick--30" [attr.d]="roseTick30"/>
+    <path class="compass-rose__tick compass-rose__tick--in" [attr.d]="roseTickInner"/>
+    <path class="compass-rose__tick compass-rose__tick--in-major" [attr.d]="roseTickInnerMajor"/>
+    <circle class="compass-rose__scale" cx="100" cy="100" r="62.2"/>
+    <circle class="compass-rose__scale compass-rose__scale--2" cx="100" cy="100" r="46.8"/>
+    <circle
+      class="compass-rose__dot"
+      *ngFor="let p of roseDots"
+      [attr.cx]="p.x"
+      [attr.cy]="p.y"
+      r="1.05"/>
+    <polygon
+      *ngFor="let k of roseKites"
+      class="compass-rose__kite"
+      [class.compass-rose__kite--n]="k.kind === 'n'"
+      [class.compass-rose__kite--cardinal]="k.kind === 'cardinal'"
+      [class.compass-rose__kite--inter]="k.kind === 'inter'"
+      [class.compass-rose__kite--half]="k.kind === 'half'"
+      [class.compass-rose__kite--quarter]="k.kind === 'quarter'"
+      [attr.points]="k.points"/>
+    <circle class="compass-rose__hub" cx="100" cy="100" r="8.2"/>
+    <circle class="compass-rose__hub compass-rose__hub--2" cx="100" cy="100" r="4.4"/>
+    <circle class="compass-rose__hub-core" cx="100" cy="100" r="1.55"/>
+    <text
+      *ngFor="let p of roseDegLabels"
+      class="compass-rose__lbl compass-rose__lbl--deg"
+      [class.compass-rose__lbl--deg-major]="p.kind === 'deg-major'"
+      [attr.x]="p.x"
+      [attr.y]="p.y"
+      [attr.font-size]="p.font"
+      [attr.transform]="'rotate(' + uprightDeg() + ' ' + p.x + ' ' + p.y + ')'"
+      text-anchor="middle"
+      dominant-baseline="middle">{{ p.label }}</text>
+    <text
+      *ngFor="let p of roseCardLabels"
+      class="compass-rose__lbl"
+      [class.compass-rose__lbl--n]="p.kind === 'n'"
+      [class.compass-rose__lbl--card]="p.kind === 'card'"
+      [class.compass-rose__lbl--inter]="p.kind === 'inter'"
+      [attr.x]="p.x"
+      [attr.y]="p.y"
+      [attr.font-size]="p.font"
+      [attr.transform]="'rotate(' + uprightDeg() + ' ' + p.x + ' ' + p.y + ')'"
+      text-anchor="middle"
+      dominant-baseline="middle">{{ p.label }}</text>
+  </svg>
+</div>

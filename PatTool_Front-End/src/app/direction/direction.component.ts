@@ -12,7 +12,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { ApiService } from '../services/api.service';
+import { ApiService, DirectionCible } from '../services/api.service';
 import {
   AttitudeOptions,
   CameraAttitude,
@@ -63,10 +63,13 @@ import {
   persistPattoolCalFromSamples
 } from './direction-pattool-cal';
 import { clampCamHeightPx, loadCamHeightPx, saveCamHeightPx } from '../shared/preview-cam-size';
+import { CompassRoseComponent } from '../shared/compass-rose/compass-rose.component';
+import { loadActiveCibleId, saveActiveCibleId } from './direction-cible-store';
 
 type SensorStatus = 'off' | 'live' | 'missing' | 'denied';
 type HeadingSource = 'rotation-vector' | 'mag-accel' | 'deviceorientation' | 'gyro-lock';
 type NorthCalMethod = 'figure8' | 'manual' | 'gps' | 'sun';
+type DirPageTab = 'calibrage' | 'cible';
 
 const SOURCE_RANK: Record<HeadingSource, number> = {
   'mag-accel': 4,
@@ -128,104 +131,11 @@ const CAL_KEY = DIRECTION_HARDIRON_KEY;
 const FS_PARAMS_KEY = 'pat.direction.fs-params.v1';
 const CAM_HEIGHT_KEY = 'pat.direction.cam-height-px';
 const PAINT_MS = 50;
-const ROSE_CX = 100;
-const ROSE_CY = 100;
-
-function rosePolar(r: number, deg: number): [number, number] {
-  const a = ((deg - 90) * Math.PI) / 180;
-  return [ROSE_CX + Math.cos(a) * r, ROSE_CY + Math.sin(a) * r];
-}
-
-function roseTickPath(step: number, r0: number, r1: number): string {
-  let d = '';
-  for (let deg = 0; deg < 360; deg += step) {
-    const [x0, y0] = rosePolar(r0, deg);
-    const [x1, y1] = rosePolar(r1, deg);
-    d += `M${x0.toFixed(2)} ${y0.toFixed(2)}L${x1.toFixed(2)} ${y1.toFixed(2)}`;
-  }
-  return d;
-}
-
-function roseKite(deg: number, outer: number, waist: number, tail: number, halfW: number): string {
-  const a = ((deg - 90) * Math.PI) / 180;
-  const p = a + Math.PI / 2;
-  const [tx, ty] = rosePolar(outer, deg);
-  const [bx, by] = rosePolar(tail, deg);
-  const wx = ROSE_CX + Math.cos(a) * waist;
-  const wy = ROSE_CY + Math.sin(a) * waist;
-  const lx = wx + Math.cos(p) * halfW;
-  const ly = wy + Math.sin(p) * halfW;
-  const rx = wx - Math.cos(p) * halfW;
-  const ry = wy - Math.sin(p) * halfW;
-  return `${tx.toFixed(2)},${ty.toFixed(2)} ${lx.toFixed(2)},${ly.toFixed(2)} ${bx.toFixed(2)},${by.toFixed(2)} ${rx.toFixed(2)},${ry.toFixed(2)}`;
-}
-
-type RoseKiteKind = 'n' | 'cardinal' | 'inter' | 'half' | 'quarter';
-
-function roseKiteList(): { points: string; kind: RoseKiteKind }[] {
-  const quarter: { points: string; kind: RoseKiteKind }[] = [];
-  const half: { points: string; kind: RoseKiteKind }[] = [];
-  const inter: { points: string; kind: RoseKiteKind }[] = [];
-  const cardinal: { points: string; kind: RoseKiteKind }[] = [];
-  const north: { points: string; kind: RoseKiteKind }[] = [];
-  for (let i = 0; i < 32; i++) {
-    const deg = i * 11.25;
-    if (i % 8 === 0) {
-      const kite = {
-        points: roseKite(deg, 40.5, 15.5, 3.8, 6.1),
-        kind: (deg === 0 ? 'n' : 'cardinal') as RoseKiteKind
-      };
-      (deg === 0 ? north : cardinal).push(kite);
-    } else if (i % 4 === 0) {
-      inter.push({ points: roseKite(deg, 34.5, 14.5, 5, 4.3), kind: 'inter' });
-    } else if (i % 2 === 0) {
-      half.push({ points: roseKite(deg, 26.5, 13, 6, 2.7), kind: 'half' });
-    } else {
-      quarter.push({ points: roseKite(deg, 20.5, 12, 7, 1.7), kind: 'quarter' });
-    }
-  }
-  return [...quarter, ...half, ...inter, ...cardinal, ...north];
-}
-
-type RoseLblKind = 'n' | 'card' | 'inter' | 'deg' | 'deg-major';
-
-interface RoseLbl {
-  x: number;
-  y: number;
-  deg: number;
-  label: string;
-  kind: RoseLblKind;
-  font: number;
-}
-
-function roseLbl(deg: number, r: number, label: string, kind: RoseLblKind, font: number): RoseLbl {
-  const [x, y] = rosePolar(r, deg);
-  return { x: +x.toFixed(2), y: +y.toFixed(2), deg, label, kind, font };
-}
-
-/** N/E/S/O on the outer ring; NE/SE/SO/NO slightly inward. */
-const ROSE_CARD_LABELS: RoseLbl[] = [
-  roseLbl(0, 71.2, 'N', 'n', 16.5),
-  roseLbl(90, 71.2, 'E', 'card', 14.5),
-  roseLbl(180, 71.2, 'S', 'card', 14.5),
-  roseLbl(270, 71.2, 'O', 'card', 14.5),
-  roseLbl(45, 66.4, 'NE', 'inter', 7.4),
-  roseLbl(135, 66.4, 'SE', 'inter', 7.4),
-  roseLbl(225, 66.4, 'SO', 'inter', 7.4),
-  roseLbl(315, 66.4, 'NO', 'inter', 7.4)
-];
-const ROSE_DEG_LABELS: RoseLbl[] = Array.from({ length: 36 }, (_, i) => i * 10)
-  .filter((d) => d !== 0 && d !== 90 && d !== 180 && d !== 270)
-  .map((d) => roseLbl(d, 80.6, String(d), d % 30 === 0 ? 'deg-major' : 'deg', d % 30 === 0 ? 6.6 : 5.6));
-const ROSE_DOTS = Array.from({ length: 24 }, (_, i) => {
-  const [x, y] = rosePolar(63.5, i * 15);
-  return { x, y };
-});
 
 @Component({
   selector: 'app-direction',
   standalone: true,
-  imports: [CommonModule, RouterModule, TranslateModule],
+  imports: [CommonModule, RouterModule, TranslateModule, CompassRoseComponent],
   templateUrl: './direction.component.html',
   styleUrls: ['./direction.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -234,6 +144,21 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   @ViewChild('cam') camEl?: ElementRef<HTMLVideoElement>;
   @ViewChild('camStage') camStage?: ElementRef<HTMLElement>;
 
+  activeTab: DirPageTab = 'calibrage';
+  cibles: DirectionCible[] = [];
+  selectedCibleId: string | null = null;
+  cibleName = '';
+  ciblePhoto: string | null = null;
+  cibleLoading = false;
+  cibleSaving = false;
+  cibleError: string | null = null;
+  cibleCheck: {
+    status: 'ok' | 'warn' | 'need';
+    movedM: number | null;
+    headingAbs: number | null;
+    gpsChanged: boolean;
+    headingChanged: boolean;
+  } | null = null;
   sensorsOn = false;
   needTap = false;
   denied = false;
@@ -287,16 +212,6 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   };
   patMixMode: PattoolCalMixMode = 'latest';
   readonly patPoses = PATTOOL_POSES;
-  readonly roseTick1 = roseTickPath(1, 90.1, 93.7);
-  readonly roseTick5 = roseTickPath(5, 88.0, 93.9);
-  readonly roseTick10 = roseTickPath(10, 85.4, 94.3);
-  readonly roseTick30 = roseTickPath(30, 82.2, 95.1);
-  readonly roseTickInner = roseTickPath(5, 57.4, 61.4);
-  readonly roseTickInnerMajor = roseTickPath(30, 55.6, 61.8);
-  readonly roseKites = roseKiteList();
-  readonly roseCardLabels = ROSE_CARD_LABELS;
-  readonly roseDegLabels = ROSE_DEG_LABELS;
-  readonly roseDots = ROSE_DOTS;
 
   azimuthDeg: number | null = null;
   elevationDeg: number | null = null;
@@ -397,6 +312,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     this.loadCal();
     this.loadPatCal();
+    this.loadCibles();
     this.refreshPatDbCount();
     setTimeout(() => this.refreshPatDbCount(), 800);
     setTimeout(() => this.refreshPatDbCount(), 2500);
@@ -899,7 +815,291 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     };
   }
 
+  setTab(tab: DirPageTab): void {
+    if (this.patWizard || this.activeTab === tab) {
+      return;
+    }
+    this.activeTab = tab;
+    if (tab === 'cible' && !this.camLive && !this.camDenied) {
+      void this.startCamera();
+    }
+    this.cdr.markForCheck();
+  }
+
+  selectedCible(): DirectionCible | null {
+    return this.cibles.find((c) => c.id === this.selectedCibleId) ?? null;
+  }
+
+  cibleLockDelta(): number | null {
+    const locked = this.selectedCible()?.phoneHeadingDeg;
+    const live = this.magAzimuthDeg;
+    if (locked == null || live == null) {
+      return null;
+    }
+    return circularDiff(live, locked);
+  }
+
+  cibleLockDeltaText(): string {
+    const d = this.cibleLockDelta();
+    if (d == null) {
+      return '—';
+    }
+    const abs = Math.abs(d).toFixed(0);
+    if (Math.abs(d) < 0.5) {
+      return '0°';
+    }
+    return d > 0 ? `+${abs}°` : `−${abs}°`;
+  }
+
+  cibleOnLock(): boolean {
+    const d = this.cibleLockDelta();
+    return d != null && Math.abs(d) < 3;
+  }
+
+  cibleMovedM(): number | null {
+    const c = this.selectedCible();
+    if (c?.userLat == null || c.userLon == null || this.gpsLat == null || this.gpsLon == null) {
+      return null;
+    }
+    return haversineM(c.userLat, c.userLon, this.gpsLat, this.gpsLon);
+  }
+
+  checkCibleDrift(): void {
+    const c = this.selectedCible();
+    if (!c) {
+      this.cibleCheck = { status: 'need', movedM: null, headingAbs: null, gpsChanged: false, headingChanged: false };
+      this.cdr.markForCheck();
+      return;
+    }
+    const heading = this.cibleLockDelta();
+    if (heading == null) {
+      this.cibleCheck = { status: 'need', movedM: this.cibleMovedM(), headingAbs: null, gpsChanged: false, headingChanged: false };
+      this.cdr.markForCheck();
+      return;
+    }
+    const movedM = this.cibleMovedM();
+    const acc = Math.max(this.gpsAccM ?? 0, c.userAccM ?? 0);
+    const gpsLimit = Math.max(20, acc * 2);
+    const headingAbs = Math.abs(heading);
+    const gpsChanged = movedM != null && movedM > gpsLimit;
+    const headingChanged = headingAbs > 8;
+    this.cibleCheck = {
+      status: gpsChanged || headingChanged ? 'warn' : 'ok',
+      movedM,
+      headingAbs,
+      gpsChanged,
+      headingChanged
+    };
+    this.cdr.markForCheck();
+  }
+
+  onCibleNameInput(ev: Event): void {
+    this.cibleName = ((ev.target as HTMLInputElement | null)?.value ?? '').slice(0, 80);
+    this.cdr.markForCheck();
+  }
+
+  gpsText(): string {
+    if (this.gpsLat == null || this.gpsLon == null) {
+      return '—';
+    }
+    const acc = this.gpsAccM != null ? ` ±${this.gpsAccM.toFixed(0)} m` : '';
+    return `${this.gpsLat.toFixed(5)}, ${this.gpsLon.toFixed(5)}${acc}`;
+  }
+
+  captureCiblePhoto(): void {
+    const video = this.camEl?.nativeElement;
+    if (!video || !this.camLive || video.videoWidth < 8) {
+      this.cibleError = 'DIRECTION.TARGET_PHOTO_NEED_CAM';
+      this.cdr.markForCheck();
+      return;
+    }
+    const maxW = 720;
+    const ratio = Math.min(1, maxW / video.videoWidth);
+    const w = Math.round(video.videoWidth * ratio);
+    const h = Math.round(video.videoHeight * ratio);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+    ctx.drawImage(video, 0, 0, w, h);
+    this.ciblePhoto = canvas.toDataURL('image/jpeg', 0.72);
+    this.cibleError = null;
+    this.cdr.markForCheck();
+  }
+
+  clearCiblePhoto(): void {
+    this.ciblePhoto = null;
+    this.cdr.markForCheck();
+  }
+
+  startNewCible(): void {
+    this.selectedCibleId = null;
+    this.cibleName = '';
+    this.ciblePhoto = null;
+    this.cibleError = null;
+    this.cibleCheck = null;
+    this.cdr.markForCheck();
+  }
+
+  selectCible(cible: DirectionCible): void {
+    if (!cible.id) {
+      return;
+    }
+    this.selectedCibleId = cible.id;
+    this.cibleName = cible.name;
+    this.ciblePhoto = cible.photoDataUrl ?? null;
+    this.cibleError = null;
+    this.cibleCheck = null;
+    saveActiveCibleId(cible.id);
+    this.api.setActiveDirectionCible(cible.id).subscribe({
+      next: (saved) => this.replaceCible(saved),
+      error: () => this.cdr.markForCheck()
+    });
+    this.cdr.markForCheck();
+  }
+
+  saveNewCible(): void {
+    const name = this.cibleName.trim();
+    const heading = this.magAzimuthDeg;
+    if (!name) {
+      this.cibleError = 'DIRECTION.TARGET_NAME_REQUIRED';
+      this.cdr.markForCheck();
+      return;
+    }
+    if (heading == null) {
+      this.cibleError = 'DIRECTION.TARGET_NEED_SENSORS';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.cibleSaving = true;
+    this.cibleError = null;
+    this.api
+      .createDirectionCible({
+        name,
+        userLat: this.gpsLat,
+        userLon: this.gpsLon,
+        userAccM: this.gpsAccM,
+        phoneHeadingDeg: heading,
+        refAzimuthDeg: this.azimuthDeg,
+        phoneElevationDeg: this.elevationDeg,
+        photoDataUrl: this.ciblePhoto,
+        active: true
+      })
+      .subscribe({
+        next: (saved) => {
+          this.cibleSaving = false;
+          this.replaceCible(saved);
+          this.selectedCibleId = saved.id ?? null;
+          saveActiveCibleId(saved.id ?? null);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.cibleSaving = false;
+          this.cibleError = 'DIRECTION.TARGET_SAVE_FAIL';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  recalibrateCible(): void {
+    const id = this.selectedCibleId;
+    const heading = this.magAzimuthDeg;
+    if (!id || heading == null) {
+      this.cibleError = 'DIRECTION.TARGET_NEED_SENSORS';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.cibleSaving = true;
+    this.cibleError = null;
+    this.api
+      .recalibrateDirectionCible(id, {
+        name: this.cibleName.trim() || undefined,
+        userLat: this.gpsLat,
+        userLon: this.gpsLon,
+        userAccM: this.gpsAccM,
+        phoneHeadingDeg: heading,
+        refAzimuthDeg: this.selectedCible()?.refAzimuthDeg ?? this.azimuthDeg,
+        phoneElevationDeg: this.elevationDeg,
+        photoDataUrl: this.ciblePhoto
+      })
+      .subscribe({
+        next: (saved) => {
+          this.cibleSaving = false;
+          this.cibleCheck = null;
+          this.replaceCible(saved);
+          saveActiveCibleId(saved.id ?? id);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.cibleSaving = false;
+          this.cibleError = 'DIRECTION.TARGET_SAVE_FAIL';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  deleteCible(cible: DirectionCible, ev?: Event): void {
+    ev?.stopPropagation();
+    if (!cible.id) {
+      return;
+    }
+    if (!window.confirm(this.translate.instant('DIRECTION.TARGET_DELETE_CONFIRM'))) {
+      return;
+    }
+    this.api.deleteDirectionCible(cible.id).subscribe({
+      next: () => {
+        this.cibles = this.cibles.filter((c) => c.id !== cible.id);
+        if (this.selectedCibleId === cible.id) {
+          this.startNewCible();
+          saveActiveCibleId(null);
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.cibleError = 'DIRECTION.TARGET_SAVE_FAIL';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private loadCibles(): void {
+    this.cibleLoading = true;
+    this.api.listDirectionCibles().subscribe({
+      next: (res) => {
+        this.cibleLoading = false;
+        this.cibles = res.cibles ?? [];
+        const active = this.cibles.find((c) => c.active) ?? this.cibles.find((c) => c.id === loadActiveCibleId());
+        if (active?.id) {
+          this.selectedCibleId = active.id;
+          this.cibleName = active.name;
+          this.ciblePhoto = active.photoDataUrl ?? null;
+          saveActiveCibleId(active.id);
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.cibleLoading = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private replaceCible(saved: DirectionCible): void {
+    if (!saved.id) {
+      return;
+    }
+    const next = this.cibles.filter((c) => c.id !== saved.id).map((c) => ({ ...c, active: false }));
+    this.cibles = [saved, ...next];
+    this.selectedCibleId = saved.id;
+    this.cibleName = saved.name;
+    this.ciblePhoto = saved.photoDataUrl ?? this.ciblePhoto;
+  }
+
   startPatWizard(): void {
+    this.activeTab = 'calibrage';
     if (!this.sensorsOn) {
       void this.enable();
     }
@@ -1152,11 +1352,6 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
 
   roseDeg(): number {
     return this.azInited ? -this.displayedAz : 0;
-  }
-
-  /** Keep dial letters upright while the card rotates. */
-  roseUpright(): number {
-    return -this.roseDeg();
   }
 
   horizonTilt(): string {
