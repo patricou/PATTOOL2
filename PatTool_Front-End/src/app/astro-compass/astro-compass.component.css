@@ -2942,7 +2942,7 @@ a.ac-compass-cal__btn--direction {
 .ac-panel--compass {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 0.75rem;
 }
 
@@ -6226,11 +6226,77 @@ a.ac-compass-cal__btn--direction {
   color: #c5d0e8;
 }
 
+.ac-finder__cible-details {
+  display: block;
+  align-self: stretch;
+  width: calc(100% + 1.1rem);
+  max-width: none;
+  min-width: 0;
+  margin: 0.1rem -0.55rem 0;
+  box-sizing: border-box;
+}
+
+.ac-finder__cible-photo-wrap {
+  display: block;
+  width: 100%;
+  height: 10rem;
+  overflow: hidden;
+  background: #070b12;
+  border-top: 1px solid rgba(255, 196, 60, 0.22);
+  border-bottom: 1px solid rgba(255, 196, 60, 0.22);
+}
+
+.ac-finder__cible-photo {
+  display: block;
+  width: 100% !important;
+  max-width: none !important;
+  height: 100% !important;
+  object-fit: cover;
+  object-position: center;
+}
+
+.ac-finder__cible-dl {
+  display: block;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0.35rem 0.55rem 0.15rem;
+  box-sizing: border-box;
+}
+
+.ac-finder__cible-dl > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.55rem;
+  padding: 0.22rem 0;
+  border-bottom: 1px solid rgba(255, 196, 60, 0.14);
+  font-size: 0.7rem;
+}
+
+.ac-finder__cible-dl > div:last-child {
+  border-bottom: 0;
+}
+
+.ac-finder__cible-dl dt {
+  color: #c5b48a;
+  flex: 0 0 auto;
+}
+
+.ac-finder__cible-dl dd {
+  margin: 0;
+  text-align: right;
+  color: #f4efe2;
+  word-break: break-word;
+}
+
 .ac-finder__north-box-row {
   display: flex;
   flex-wrap: wrap;
   justify-content: stretch;
   align-items: stretch;
+  align-self: stretch;
+  width: 100%;
   gap: 0.28rem;
 }
 
@@ -6371,6 +6437,8 @@ a.ac-compass-cal__btn--direction {
   flex-direction: column;
   flex-wrap: nowrap;
   align-items: stretch;
+  width: 100%;
+  max-width: none;
   gap: 0.4rem;
   margin-top: 0.5rem;
 }

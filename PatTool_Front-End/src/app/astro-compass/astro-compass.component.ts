@@ -1853,6 +1853,24 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  cibleGpsText(): string {
+    const c = this.activeCible;
+    if (c?.userLat == null || c.userLon == null) {
+      return '—';
+    }
+    const acc = c.userAccM != null && Number.isFinite(c.userAccM) ? ` ±${c.userAccM.toFixed(0)} m` : '';
+    return `${c.userLat.toFixed(5)}, ${c.userLon.toFixed(5)}${acc}`;
+  }
+
+  formatCibleDeg(v: number | null | undefined, signed = false): string {
+    if (v == null || !Number.isFinite(v)) {
+      return '—';
+    }
+    const n = Math.round(v * 10) / 10;
+    const sign = signed && n > 0 ? '+' : '';
+    return `${sign}${n.toFixed(n % 1 === 0 ? 0 : 1)}°`;
+  }
+
   setHeadingRef(ref: 'north' | 'cible'): void {
     if (ref === 'cible' && !this.activeCible) {
       return;

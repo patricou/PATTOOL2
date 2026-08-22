@@ -546,7 +546,7 @@
               <div
                 class="ac-finder__north-box"
                 role="group"
-                [attr.aria-label]="'ASTRO_COMPASS.NORTH_BOX_TITLE' | translate">
+                [attr.aria-label]="(headingRef === 'cible' ? 'ASTRO_COMPASS.OPEN_DIRECTION_CIBLE' : 'ASTRO_COMPASS.NORTH_BOX_TITLE') | translate">
                 <div class="ac-finder__ref-switch" role="tablist">
                   <button
                     type="button"
@@ -575,6 +575,49 @@
                 <p class="ac-finder__north-box-hint" *ngIf="!activeCible">
                   {{ 'ASTRO_COMPASS.HEADING_REF_NONE' | translate }}
                 </p>
+                <div class="ac-finder__cible-details" *ngIf="headingRef === 'cible' && activeCible">
+                  <div class="ac-finder__cible-photo-wrap" *ngIf="activeCible.photoDataUrl">
+                    <img
+                      class="ac-finder__cible-photo"
+                      [src]="activeCible.photoDataUrl"
+                      [alt]="activeCible.name" />
+                  </div>
+                  <dl class="ac-finder__cible-dl">
+                    <div>
+                      <dt>{{ 'DIRECTION.TARGET_NAME' | translate }}</dt>
+                      <dd>{{ activeCible.name }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ 'DIRECTION.GPS' | translate }}</dt>
+                      <dd>{{ cibleGpsText() }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ 'ASTRO_COMPASS.HEADING_REF_H0' | translate }}</dt>
+                      <dd>{{ formatCibleDeg(activeCible.phoneHeadingDeg) }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ 'ASTRO_COMPASS.HEADING_REF_REF_AZ' | translate }}</dt>
+                      <dd>{{ formatCibleDeg(activeCible.refAzimuthDeg) }}</dd>
+                    </div>
+                    <div>
+                      <dt>{{ 'ASTRO_COMPASS.ELEVATION' | translate }}</dt>
+                      <dd>{{ formatCibleDeg(activeCible.phoneElevationDeg, true) }}</dd>
+                    </div>
+                    <div *ngIf="activeCible.ownerUsername">
+                      <dt>{{ 'ASTRO_COMPASS.HEADING_REF_OWNER' | translate }}</dt>
+                      <dd>{{ activeCible.ownerUsername }}</dd>
+                    </div>
+                    <div *ngIf="activeCible.createdAt">
+                      <dt>{{ 'ASTRO_COMPASS.HEADING_REF_CREATED' | translate }}</dt>
+                      <dd>{{ activeCible.createdAt | date : 'short' }}</dd>
+                    </div>
+                    <div *ngIf="activeCible.updatedAt">
+                      <dt>{{ 'ASTRO_COMPASS.HEADING_REF_UPDATED' | translate }}</dt>
+                      <dd>{{ activeCible.updatedAt | date : 'short' }}</dd>
+                    </div>
+                  </dl>
+                </div>
+                <ng-container *ngIf="headingRef === 'north'">
                 <div class="ac-finder__north-box-head">
                   <strong>{{ 'ASTRO_COMPASS.NORTH_BOX_TITLE' | translate }}</strong>
                   <span
@@ -615,6 +658,7 @@
                     {{ 'ASTRO_COMPASS.MARK_NORTH_RESET' | translate }}
                   </button>
                 </div>
+                </ng-container>
                 <div
                   class="ac-finder__north-box-row ac-finder__north-box-row--tools"
                   *ngIf="finderNeedTap || !lookTracker.sensorsOn">
@@ -626,9 +670,10 @@
                   <a
                     class="ac-finder__north-box-btn ac-finder__north-box-btn--more"
                     routerLink="/tools/direction"
-                    [attr.title]="'ASTRO_COMPASS.OPEN_DIRECTION_CAL_HINT' | translate">
-                    <i class="fa fa-crosshairs" aria-hidden="true"></i>
-                    {{ 'ASTRO_COMPASS.OPEN_DIRECTION_CAL' | translate }}
+                    [queryParams]="{ tab: headingRef === 'cible' ? 'cible' : 'calibrage' }"
+                    [attr.title]="(headingRef === 'cible' ? 'ASTRO_COMPASS.OPEN_DIRECTION_CIBLE_HINT' : 'ASTRO_COMPASS.OPEN_DIRECTION_CAL_HINT') | translate">
+                    <i class="fa" [ngClass]="headingRef === 'cible' ? 'fa-bullseye' : 'fa-crosshairs'" aria-hidden="true"></i>
+                    {{ (headingRef === 'cible' ? 'ASTRO_COMPASS.OPEN_DIRECTION_CIBLE' : 'ASTRO_COMPASS.OPEN_DIRECTION_CAL') | translate }}
                   </a>
                   <a
                     class="ac-finder__north-box-btn ac-finder__north-box-btn--more ac-finder__north-box-btn--nord"
@@ -638,20 +683,6 @@
                     {{ 'ASTRO_COMPASS.OPEN_NORD' | translate }}
                   </a>
                 </div>
-              </div>
-              <div
-                class="ac-finder__cam-box"
-                *ngIf="camDenied || !camLive"
-                role="group"
-                [attr.aria-label]="'ASTRO_COMPASS.CAM_START' | translate">
-                <p class="ac-msg ac-msg--bad" *ngIf="camDenied">{{ 'ASTRO_COMPASS.CAM_DENIED' | translate }}</p>
-                <button
-                  type="button"
-                  class="ac-compass-cal__btn"
-                  *ngIf="!camLive"
-                  (click)="lookTracker.sensorsOn ? startCamera() : enableFinder()">
-                  {{ 'ASTRO_COMPASS.CAM_START' | translate }}
-                </button>
               </div>
             </div>
             <p class="ac-finder__lock" *ngIf="finderPoseFrozen">

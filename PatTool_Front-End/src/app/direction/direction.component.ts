@@ -10,8 +10,9 @@ import {
   ViewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { Subscription } from 'rxjs';
 import { ApiService, DirectionCible } from '../services/api.service';
 import {
   AttitudeOptions,
@@ -149,9 +150,13 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   selectedCibleId: string | null = null;
   cibleName = '';
   ciblePhoto: string | null = null;
+  cibleStageView: 'camera' | 'photo' = 'camera';
   cibleLoading = false;
   cibleSaving = false;
   cibleError: string | null = null;
+  cibleJsonModal: DirectionCible | null = null;
+  cibleJsonCopied = false;
+  private cibleJsonCopyTimer: ReturnType<typeof setTimeout> | null = null;
   cibleCheck: {
     status: 'ok' | 'warn' | 'need';
     movedM: number | null;
@@ -301,15 +306,21 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     orients: NonNullable<PattoolCalSnapshot['orient']>[];
   } | null = null;
 
+  private tabQuerySub: Subscription | null = null;
+
   constructor(
     private readonly zone: NgZone,
     private readonly cdr: ChangeDetectorRef,
     private readonly api: ApiService,
     private readonly translate: TranslateService,
-    private readonly hostEl: ElementRef<HTMLElement>
+    private readonly hostEl: ElementRef<HTMLElement>,
+    private readonly route: ActivatedRoute
   ) {}
 
   ngAfterViewInit(): void {
+    this.tabQuerySub = this.route.queryParamMap.subscribe((params) => {
+      this.applyTabFromQuery(params.get('tab'));
+    });
     this.loadCal();
     this.loadPatCal();
     this.loadCibles();
@@ -422,6 +433,12 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.tabQuerySub?.unsubscribe();
+    this.tabQuerySub = null;
+    if (this.cibleJsonCopyTimer != null) {
+      clearTimeout(this.cibleJsonCopyTimer);
+      this.cibleJsonCopyTimer = null;
+    }
     if (this.hideTitleTimer != null) {
       clearTimeout(this.hideTitleTimer);
       this.hideTitleTimer = null;
@@ -445,6 +462,10 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    if (this.cibleJsonModal) {
+      this.closeCibleJson();
+      return;
+    }
     if (this.figure8ModalOpen) {
       this.closeFigure8Modal();
       return;
@@ -815,6 +836,16 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     };
   }
 
+  private applyTabFromQuery(raw: string | null): void {
+    if (raw === 'cible') {
+      this.setTab('cible');
+      return;
+    }
+    if (raw === 'calibrage' || raw === 'nord') {
+      this.setTab('calibrage');
+    }
+  }
+
   setTab(tab: DirPageTab): void {
     if (this.patWizard || this.activeTab === tab) {
       return;
@@ -926,12 +957,26 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     }
     ctx.drawImage(video, 0, 0, w, h);
     this.ciblePhoto = canvas.toDataURL('image/jpeg', 0.72);
+    this.cibleStageView = 'photo';
     this.cibleError = null;
     this.cdr.markForCheck();
   }
 
+  setCibleStageView(view: 'camera' | 'photo'): void {
+    if (view === 'photo' && !this.ciblePhoto) {
+      return;
+    }
+    this.cibleStageView = view;
+    this.cdr.markForCheck();
+  }
+
+  showCiblePhotoOnStage(): boolean {
+    return this.activeTab === 'cible' && !this.patWizard && this.cibleStageView === 'photo' && !!this.ciblePhoto;
+  }
+
   clearCiblePhoto(): void {
     this.ciblePhoto = null;
+    this.cibleStageView = 'camera';
     this.cdr.markForCheck();
   }
 
@@ -939,6 +984,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.selectedCibleId = null;
     this.cibleName = '';
     this.ciblePhoto = null;
+    this.cibleStageView = 'camera';
     this.cibleError = null;
     this.cibleCheck = null;
     this.cdr.markForCheck();
@@ -951,6 +997,9 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.selectedCibleId = cible.id;
     this.cibleName = cible.name;
     this.ciblePhoto = cible.photoDataUrl ?? null;
+    if (!this.ciblePhoto) {
+      this.cibleStageView = 'camera';
+    }
     this.cibleError = null;
     this.cibleCheck = null;
     saveActiveCibleId(cible.id);
@@ -1065,6 +1114,54 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  openCibleJson(cible: DirectionCible, ev?: Event): void {
+    ev?.stopPropagation();
+    this.cibleJsonCopied = false;
+    this.cibleJsonModal = cible;
+    this.cdr.markForCheck();
+  }
+
+  closeCibleJson(): void {
+    this.cibleJsonModal = null;
+    this.cibleJsonCopied = false;
+    if (this.cibleJsonCopyTimer != null) {
+      clearTimeout(this.cibleJsonCopyTimer);
+      this.cibleJsonCopyTimer = null;
+    }
+    this.cdr.markForCheck();
+  }
+
+  cibleJsonText(): string {
+    if (!this.cibleJsonModal) {
+      return '';
+    }
+    return JSON.stringify(this.cibleJsonModal, null, 2);
+  }
+
+  copyCibleJson(): void {
+    const text = this.cibleJsonText();
+    if (!text) {
+      return;
+    }
+    const done = (): void => {
+      this.cibleJsonCopied = true;
+      if (this.cibleJsonCopyTimer != null) {
+        clearTimeout(this.cibleJsonCopyTimer);
+      }
+      this.cibleJsonCopyTimer = setTimeout(() => {
+        this.cibleJsonCopied = false;
+        this.cibleJsonCopyTimer = null;
+        this.cdr.markForCheck();
+      }, 1600);
+      this.cdr.markForCheck();
+    };
+    if (navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(text).then(done).catch(() => undefined);
+      return;
+    }
+    done();
+  }
+
   private loadCibles(): void {
     this.cibleLoading = true;
     this.api.listDirectionCibles().subscribe({
@@ -1096,6 +1193,9 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.selectedCibleId = saved.id;
     this.cibleName = saved.name;
     this.ciblePhoto = saved.photoDataUrl ?? this.ciblePhoto;
+    if (!this.ciblePhoto) {
+      this.cibleStageView = 'camera';
+    }
   }
 
   startPatWizard(): void {

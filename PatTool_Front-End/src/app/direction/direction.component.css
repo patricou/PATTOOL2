@@ -189,7 +189,6 @@
 }
 
 .dir-cible-photo {
-  overflow: hidden;
   margin: 0 0 0.65rem;
   border-radius: 0.55rem;
   border: 1px solid rgba(62, 224, 192, 0.22);
@@ -199,8 +198,20 @@
 .dir-cible-photo img {
   display: block;
   width: 100%;
-  max-height: 14rem;
-  object-fit: cover;
+  height: auto;
+  max-height: none;
+  object-fit: contain;
+}
+
+.dir-cible-lock {
+  min-height: 1.3em;
+  margin: 0 0 0.45rem;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dir-cible-lock--on {
+  opacity: 1;
 }
 
 .dir-cible-alert {
@@ -757,6 +768,66 @@ a.dir-btn--nord .fa {
   object-fit: cover;
   transform: scaleX(1);
   touch-action: pan-y;
+}
+
+.dir-cam__cible {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.dir-cam--photo video,
+.dir-cam--photo .dir-cam__empty {
+  visibility: hidden;
+}
+
+.dir-cam__view-switch {
+  position: absolute;
+  z-index: 8;
+  top: 0.55rem;
+  left: 0.55rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.22rem;
+  width: min(11.8rem, calc(100% - 6.6rem));
+}
+
+.dir-cam__view-btn {
+  min-height: 2.05rem;
+  padding: 0.22rem 0.35rem;
+  border: 1px solid rgba(62, 224, 192, 0.42);
+  border-radius: 0.4rem;
+  background: rgba(2, 10, 12, 0.62);
+  color: #d7f4ee;
+  font-size: 0.72rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.dir-cam__view-btn .fa {
+  margin-right: 0.22rem;
+}
+
+.dir-cam__view-btn--on {
+  background: linear-gradient(180deg, #3ee0c0 0%, #127a68 100%);
+  border-color: #7ff3dc;
+  color: #04110e;
+}
+
+.dir-cam__view-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.dir-cam--fs .dir-cam__view-switch,
+.dir-cam:fullscreen .dir-cam__view-switch,
+.dir-cam:-webkit-full-screen .dir-cam__view-switch {
+  top: 0.75rem;
+  left: 0.75rem;
 }
 
 .dir-cam__empty {
@@ -1614,6 +1685,10 @@ section.dir-cal {
   padding: 0.65rem 0.7rem;
 }
 
+.dir-card--stage + .dir-card--links {
+  margin-top: -0.15rem;
+}
+
 .dir-links {
   display: grid;
   grid-template-columns: 1fr;
@@ -1922,6 +1997,34 @@ section.dir-cal {
 .dir-modal__box .dir-btn {
   width: 100%;
   margin-top: 0.9rem;
+}
+
+.dir-modal__box--json {
+  width: min(40rem, 100%);
+}
+
+.dir-modal__json {
+  margin: 0;
+  padding: 0.65rem 0.7rem;
+  max-height: min(58vh, 28rem);
+  overflow: auto;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(62, 224, 192, 0.18);
+  background: #071014;
+  color: #c8f0e4;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.dir-modal__btns {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.dir-modal__btns .dir-btn {
+  margin-top: 0.75rem;
 }
 
 @media (min-width: 640px) {

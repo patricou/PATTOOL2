@@ -41,9 +41,43 @@
       #camStage
       [class.dir-cam--fs]="isFullscreen"
       [class.dir-cam--resized]="!isFullscreen && camHeightPx != null"
+      [class.dir-cam--photo]="showCiblePhotoOnStage()"
       [style.height.px]="!isFullscreen && camHeightPx != null ? camHeightPx : null">
       <video #cam playsinline muted autoplay></video>
-      <div class="dir-cam__empty" *ngIf="!camLive">{{ 'DIRECTION.CAM_PLACEHOLDER' | translate }}</div>
+      <img
+        class="dir-cam__cible"
+        *ngIf="showCiblePhotoOnStage()"
+        [src]="ciblePhoto"
+        alt="" />
+      <div class="dir-cam__empty" *ngIf="!camLive && !showCiblePhotoOnStage()">{{ 'DIRECTION.CAM_PLACEHOLDER' | translate }}</div>
+      <div
+        class="dir-cam__view-switch"
+        *ngIf="activeTab === 'cible' && !patWizard"
+        role="tablist"
+        [attr.aria-label]="'DIRECTION.TARGET_VIEW_ARIA' | translate">
+        <button
+          type="button"
+          class="dir-cam__view-btn"
+          [class.dir-cam__view-btn--on]="!showCiblePhotoOnStage()"
+          (click)="setCibleStageView('camera')"
+          role="tab"
+          [attr.aria-selected]="!showCiblePhotoOnStage()">
+          <i class="fa fa-video-camera" aria-hidden="true"></i>
+          {{ 'DIRECTION.TARGET_VIEW_CAM' | translate }}
+        </button>
+        <button
+          type="button"
+          class="dir-cam__view-btn"
+          [class.dir-cam__view-btn--on]="showCiblePhotoOnStage()"
+          [disabled]="!ciblePhoto"
+          (click)="setCibleStageView('photo')"
+          role="tab"
+          [attr.aria-selected]="showCiblePhotoOnStage()"
+          [attr.title]="(!ciblePhoto ? 'DIRECTION.TARGET_PHOTO_EMPTY' : 'DIRECTION.TARGET_VIEW_PHOTO') | translate">
+          <i class="fa fa-picture-o" aria-hidden="true"></i>
+          {{ 'DIRECTION.TARGET_VIEW_PHOTO' | translate }}
+        </button>
+      </div>
       <div class="dir-horizon" [style.transform]="horizonTilt()" aria-hidden="true"></div>
       <div class="dir-reticle" aria-hidden="true">
         <span class="dir-reticle__h"></span>
@@ -185,6 +219,28 @@
   </div>
   </section>
 
+  <section
+    class="dir-card dir-card--links"
+    *ngIf="!patWizard"
+    [attr.aria-label]="'DIRECTION.OPEN_NORD' | translate">
+    <div class="dir-links">
+      <a
+        class="dir-btn dir-btn--link dir-btn--nord"
+        routerLink="/tools/nord"
+        [attr.title]="'DIRECTION.OPEN_NORD_HINT' | translate">
+        <i class="fa fa-compass" aria-hidden="true"></i>
+        {{ 'DIRECTION.OPEN_NORD' | translate }}
+      </a>
+      <a
+        class="dir-btn dir-btn--link dir-btn--astro"
+        routerLink="/tools/astro-compass"
+        [attr.title]="'DIRECTION.OPEN_ASTRO_HINT' | translate">
+        <i class="fa fa-video-camera" aria-hidden="true"></i>
+        {{ 'DIRECTION.OPEN_ASTRO' | translate }}
+      </a>
+    </div>
+  </section>
+
   <p class="dir-msg" *ngIf="needTap && !denied">{{ 'DIRECTION.NEED_TAP' | translate }}</p>
   <p class="dir-msg dir-msg--bad" *ngIf="denied">{{ 'DIRECTION.DENIED' | translate }}</p>
 
@@ -259,27 +315,6 @@
     <p class="dir-toggle-hint" *ngIf="sensorsOn && !trueNorthAvailable">
       {{ 'DIRECTION.TRUE_NORTH_UNAVAILABLE' | translate }}
     </p>
-  </section>
-
-  <section
-    class="dir-card dir-card--links"
-    [attr.aria-label]="'DIRECTION.OPEN_NORD' | translate">
-    <div class="dir-links">
-      <a
-        class="dir-btn dir-btn--link dir-btn--nord"
-        routerLink="/tools/nord"
-        [attr.title]="'DIRECTION.OPEN_NORD_HINT' | translate">
-        <i class="fa fa-compass" aria-hidden="true"></i>
-        {{ 'DIRECTION.OPEN_NORD' | translate }}
-      </a>
-      <a
-        class="dir-btn dir-btn--link dir-btn--astro"
-        routerLink="/tools/astro-compass"
-        [attr.title]="'DIRECTION.OPEN_ASTRO_HINT' | translate">
-        <i class="fa fa-video-camera" aria-hidden="true"></i>
-        {{ 'DIRECTION.OPEN_ASTRO' | translate }}
-      </a>
-    </div>
   </section>
 
   <section class="dir-card" [attr.aria-label]="'DIRECTION.STEP_OTHER' | translate">
@@ -440,23 +475,6 @@
   </ng-container>
 
   <ng-container *ngIf="activeTab === 'cible' && !patWizard">
-  <section class="dir-card dir-card--photo" [attr.aria-label]="'DIRECTION.TARGET_PHOTO' | translate">
-    <h3 class="dir-card__title">{{ 'DIRECTION.TARGET_PHOTO' | translate }}</h3>
-    <div class="dir-cible-photo" *ngIf="ciblePhoto">
-      <img [src]="ciblePhoto" alt="" />
-    </div>
-    <p class="dir-card__help" *ngIf="!ciblePhoto">{{ 'DIRECTION.TARGET_PHOTO_EMPTY' | translate }}</p>
-    <div class="dir-actions">
-      <button type="button" class="dir-btn dir-btn--go" [disabled]="!camLive" (click)="captureCiblePhoto()">
-        <i class="fa fa-camera" aria-hidden="true"></i>
-        {{ (ciblePhoto ? 'DIRECTION.TARGET_PHOTO_RETAKE' : 'DIRECTION.TARGET_PHOTO_TAKE') | translate }}
-      </button>
-      <button type="button" class="dir-btn" *ngIf="ciblePhoto" (click)="clearCiblePhoto()">
-        {{ 'DIRECTION.TARGET_PHOTO_CLEAR' | translate }}
-      </button>
-    </div>
-  </section>
-
   <section class="dir-card" [attr.aria-label]="'DIRECTION.TARGET_TITLE' | translate">
     <h3 class="dir-card__title">
       <span class="dir-card__n"><i class="fa fa-bullseye" aria-hidden="true"></i></span>
@@ -464,7 +482,12 @@
     </h3>
     <p class="dir-card__help">{{ 'DIRECTION.TARGET_HELP' | translate }}</p>
     <p class="dir-msg" *ngIf="!sensorsOn">{{ 'DIRECTION.TARGET_NEED_SENSORS' | translate }}</p>
-    <p class="dir-msg dir-msg--ok" *ngIf="cibleOnLock() && !cibleCheck">{{ 'DIRECTION.TARGET_ALIGNED' | translate }}</p>
+    <p
+      class="dir-msg dir-msg--ok dir-cible-lock"
+      [class.dir-cible-lock--on]="cibleOnLock() && !cibleCheck"
+      aria-live="polite">
+      {{ 'DIRECTION.TARGET_ALIGNED' | translate }}
+    </p>
     <p class="dir-msg dir-msg--bad" *ngIf="cibleError">{{ cibleError | translate }}</p>
     <p class="dir-msg dir-msg--ok" *ngIf="cibleCheck?.status === 'ok'">{{ 'DIRECTION.TARGET_CHECK_OK' | translate }}</p>
     <p class="dir-msg" *ngIf="cibleCheck?.status === 'need'">{{ 'DIRECTION.TARGET_CHECK_NEED' | translate }}</p>
@@ -552,6 +575,14 @@
         </button>
         <button
           type="button"
+          class="dir-btn dir-btn--tiny"
+          (click)="openCibleJson(c, $event)"
+          [attr.title]="'DIRECTION.TARGET_JSON' | translate"
+          [attr.aria-label]="'DIRECTION.TARGET_JSON' | translate">
+          <i class="fa fa-code" aria-hidden="true"></i>
+        </button>
+        <button
+          type="button"
           class="dir-btn dir-btn--tiny dir-btn--danger"
           (click)="deleteCible(c, $event)"
           [attr.aria-label]="'DIRECTION.TARGET_DELETE' | translate">
@@ -559,6 +590,23 @@
         </button>
       </li>
     </ul>
+  </section>
+
+  <section class="dir-card dir-card--photo" [attr.aria-label]="'DIRECTION.TARGET_PHOTO' | translate">
+    <h3 class="dir-card__title">{{ 'DIRECTION.TARGET_PHOTO' | translate }}</h3>
+    <div class="dir-cible-photo" *ngIf="ciblePhoto">
+      <img [src]="ciblePhoto" alt="" />
+    </div>
+    <p class="dir-card__help" *ngIf="!ciblePhoto">{{ 'DIRECTION.TARGET_PHOTO_EMPTY' | translate }}</p>
+    <div class="dir-actions">
+      <button type="button" class="dir-btn dir-btn--go" [disabled]="!camLive || showCiblePhotoOnStage()" (click)="captureCiblePhoto()">
+        <i class="fa fa-camera" aria-hidden="true"></i>
+        {{ (ciblePhoto ? 'DIRECTION.TARGET_PHOTO_RETAKE' : 'DIRECTION.TARGET_PHOTO_TAKE') | translate }}
+      </button>
+      <button type="button" class="dir-btn" *ngIf="ciblePhoto" (click)="clearCiblePhoto()">
+        {{ 'DIRECTION.TARGET_PHOTO_CLEAR' | translate }}
+      </button>
+    </div>
   </section>
   </ng-container>
 </div>
@@ -617,5 +665,28 @@
     <button type="button" class="dir-btn dir-btn--go" (click)="closeFigure8Modal()">
       {{ 'DIRECTION.FIG8_CLOSE' | translate }}
     </button>
+  </div>
+</div>
+
+<div
+  class="dir-modal"
+  *ngIf="cibleJsonModal"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-labelledby]="'dir-cible-json-title'">
+  <div class="dir-modal__backdrop" (click)="closeCibleJson()"></div>
+  <div class="dir-modal__box dir-modal__box--json">
+    <h3 id="dir-cible-json-title">
+      {{ 'DIRECTION.TARGET_JSON_TITLE' | translate : { name: cibleJsonModal.name } }}
+    </h3>
+    <pre class="dir-modal__json">{{ cibleJsonText() }}</pre>
+    <div class="dir-modal__btns">
+      <button type="button" class="dir-btn" (click)="copyCibleJson()">
+        {{ (cibleJsonCopied ? 'DIRECTION.TARGET_JSON_COPIED' : 'DIRECTION.TARGET_JSON_COPY') | translate }}
+      </button>
+      <button type="button" class="dir-btn dir-btn--go" (click)="closeCibleJson()">
+        {{ 'DIRECTION.FIG8_CLOSE' | translate }}
+      </button>
+    </div>
   </div>
 </div>
