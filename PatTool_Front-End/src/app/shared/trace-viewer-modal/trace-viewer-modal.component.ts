@@ -114,6 +114,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@ViewChild('mapContainer', { static: false }) mapContainerRef?: ElementRef<HTMLDivElement>;
 	@Output() closed = new EventEmitter<void>();
 	@Output() locationSelected = new EventEmitter<{ lat: number; lng: number; alt?: number | null }>();
+	@Output() pairSelected = new EventEmitter<{
+		user: { lat: number; lng: number } | null;
+		mark: { lat: number; lng: number; alt?: number | null } | null;
+	}>();
 
 	// Expose Math to template
 	Math = Math;
@@ -286,6 +290,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private lastRenderedPosition: { lat: number; lng: number } | null = null; // Store the most recent position after rendering
 	private selectionMode: boolean = false;
 	private simpleShareMode: boolean = false;
+	private pairEditMode = false;
+	private pairUser: { lat: number; lng: number } | null = null;
+	private pairMark: { lat: number; lng: number; alt?: number | null } | null = null;
+	private pairUserMarker?: L.Marker;
+	private pairMarkMarker?: L.Marker;
+	private pairLine?: L.Polyline;
+	private pairClickHandler?: (e: L.LeafletMouseEvent) => void;
 	private selectionMarker?: L.Marker;
 	private clickMarker?: L.Marker;
 	private locationSelectionClickHandler?: (e: L.LeafletMouseEvent) => void;
@@ -758,6 +769,30 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Restore selectionMode and simpleShareMode AFTER open() has reset it
 		this.selectionMode = enableSelection;
 		this.simpleShareMode = simpleShare;
+	}
+
+	public openCiblePair(
+		user: { lat: number; lng: number } | null,
+		mark: { lat: number; lng: number; alt?: number | null } | null,
+		fileName: string
+	): void {
+		const center = mark && isValidGeoCoordinate(mark.lat, mark.lng)
+			? mark
+			: user && isValidGeoCoordinate(user.lat, user.lng)
+				? user
+				: { lat: 46.2, lng: 6.15 };
+		this.pairEditMode = true;
+		this.pairUser = user && isValidGeoCoordinate(user.lat, user.lng) ? { ...user } : null;
+		this.pairMark = mark && isValidGeoCoordinate(mark.lat, mark.lng) ? { ...mark } : null;
+		this.simpleShareMode = true;
+		this.open({
+			fileName,
+			location: { lat: center.lat, lng: center.lng, label: fileName }
+		});
+		this.pairEditMode = true;
+		this.pairUser = user && isValidGeoCoordinate(user.lat, user.lng) ? { ...user } : null;
+		this.pairMark = mark && isValidGeoCoordinate(mark.lat, mark.lng) ? { ...mark } : null;
+		this.simpleShareMode = true;
 	}
 
 	/**
@@ -1589,6 +1624,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.registerLocationSelection();
 			}, 500);
 		}
+		if (this.pairEditMode) {
+			setTimeout(() => {
+				this.renderPairMarkers();
+			}, 500);
+		}
 
 		if (this.eventColor) {
 			setTimeout(() => {
@@ -2350,6 +2390,132 @@ export class TraceViewerModalComponent implements OnDestroy {
 		});
 	}
 
+	private snapshotPair(): {
+		user: { lat: number; lng: number } | null;
+		mark: { lat: number; lng: number; alt?: number | null } | null;
+	} {
+		if (this.pairUserMarker) {
+			const pos = this.pairUserMarker.getLatLng();
+			this.pairUser = { lat: pos.lat, lng: pos.lng };
+		}
+		if (this.pairMarkMarker) {
+			const pos = this.pairMarkMarker.getLatLng();
+			this.pairMark = {
+				lat: pos.lat,
+				lng: pos.lng,
+				alt: this.pairMark?.alt ?? null
+			};
+		}
+		return { user: this.pairUser, mark: this.pairMark };
+	}
+
+	private clearPairMarkers(): void {
+		if (this.map && this.pairClickHandler) {
+			this.map.off('dblclick', this.pairClickHandler);
+			this.map.doubleClickZoom.enable();
+		}
+		this.pairClickHandler = undefined;
+		if (this.pairUserMarker) {
+			this.pairUserMarker.remove();
+			this.pairUserMarker = undefined;
+		}
+		if (this.pairMarkMarker) {
+			this.pairMarkMarker.remove();
+			this.pairMarkMarker = undefined;
+		}
+		if (this.pairLine) {
+			this.pairLine.remove();
+			this.pairLine = undefined;
+		}
+	}
+
+	private renderPairMarkers(): void {
+		if (!this.map || !this.pairEditMode) {
+			return;
+		}
+		this.clearPairMarkers();
+		const map = this.map;
+		const pts: L.LatLngExpression[] = [];
+		if (this.pairUser && isValidGeoCoordinate(this.pairUser.lat, this.pairUser.lng)) {
+			this.pairUserMarker = L.marker([this.pairUser.lat, this.pairUser.lng], {
+				draggable: true,
+				icon: this.createPinDivIcon('#0066FF', 'custom-blue-marker'),
+				zIndexOffset: 1000,
+				riseOnHover: true
+			}).addTo(map);
+			this.pairUserMarker.on('dragend', () => {
+				const pos = this.pairUserMarker!.getLatLng();
+				this.pairUser = { lat: pos.lat, lng: pos.lng };
+				this.updatePairLine();
+				this.updateSwitchesForPoint(pos.lat, pos.lng);
+			});
+			pts.push([this.pairUser.lat, this.pairUser.lng]);
+		}
+		if (this.pairMark && isValidGeoCoordinate(this.pairMark.lat, this.pairMark.lng)) {
+			this.pairMarkMarker = L.marker([this.pairMark.lat, this.pairMark.lng], {
+				draggable: true,
+				icon: this.createPinDivIcon('#FF0000', 'custom-red-marker'),
+				zIndexOffset: 1100,
+				riseOnHover: true
+			}).addTo(map);
+			this.pairMarkMarker.on('dragend', () => {
+				const pos = this.pairMarkMarker!.getLatLng();
+				this.pairMark = { lat: pos.lat, lng: pos.lng, alt: this.pairMark?.alt ?? null };
+				this.updatePairLine();
+				this.updateSwitchesForPoint(pos.lat, pos.lng);
+			});
+			pts.push([this.pairMark.lat, this.pairMark.lng]);
+		}
+		this.updatePairLine();
+		if (pts.length === 2) {
+			this.trackBounds = L.latLngBounds(pts);
+			map.fitBounds(this.trackBounds, { padding: [48, 48], maxZoom: 16, animate: false });
+		} else if (pts.length === 1) {
+			map.setView(pts[0] as L.LatLngExpression, 14, { animate: false });
+		}
+		map.doubleClickZoom.disable();
+		this.pairClickHandler = (e: L.LeafletMouseEvent) => {
+			L.DomEvent.stop(e);
+			const lat = e.latlng.lat;
+			const lng = e.latlng.lng;
+			if (!this.pairMark) {
+				this.pairMark = { lat, lng };
+			} else if (!this.pairUser) {
+				this.pairUser = { lat, lng };
+			} else {
+				this.pairMark = { lat, lng, alt: this.pairMark.alt ?? null };
+			}
+			this.renderPairMarkers();
+			this.updateSwitchesForPoint(lat, lng);
+		};
+		map.on('dblclick', this.pairClickHandler);
+		this.refreshMapLayout();
+		this.cdr.detectChanges();
+	}
+
+	private updatePairLine(): void {
+		if (!this.map || !this.pairUser || !this.pairMark) {
+			if (this.pairLine) {
+				this.pairLine.remove();
+				this.pairLine = undefined;
+			}
+			return;
+		}
+		const pts: L.LatLngExpression[] = [
+			[this.pairUser.lat, this.pairUser.lng],
+			[this.pairMark.lat, this.pairMark.lng]
+		];
+		if (this.pairLine) {
+			this.pairLine.setLatLngs(pts);
+			return;
+		}
+		this.pairLine = L.polyline(pts, {
+			color: '#0066FF',
+			weight: 2,
+			opacity: 0.9
+		}).addTo(this.map);
+	}
+
 	private resolveLocationPinColor(): string {
 		if (this.eventColor) {
 			const { r, g, b } = this.eventColor;
@@ -2380,6 +2546,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		// Store the location for share functionality
 		this.lastRenderedPosition = { lat, lng };
+
+		if (this.pairEditMode) {
+			this.lastRenderedPosition = { lat, lng };
+			this.renderPairMarkers();
+			return;
+		}
 
 		// In selection mode, don't create the standard marker (will be created by registerLocationSelection)
 		// and keep pendingLocation so registerLocationSelection can use it
@@ -2620,6 +2792,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.lastRenderedPosition = null;
 		this.selectionMode = false;
 		this.simpleShareMode = false;
+		this.pairEditMode = false;
+		this.pairUser = null;
+		this.pairMark = null;
+		this.clearPairMarkers();
 		this.currentLat = 0;
 		this.currentLng = 0;
 		this.currentAlt = null;
@@ -2671,6 +2847,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.selectionMarker = undefined;
 		this.clickMarker = undefined;
 		this.locationSelectionClickHandler = undefined;
+		this.pairUserMarker = undefined;
+		this.pairMarkMarker = undefined;
+		this.pairLine = undefined;
+		this.pairClickHandler = undefined;
 	}
 
 	private translate(key: string, params?: Record<string, any>): string {
@@ -4548,7 +4728,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.document.exitFullscreen().catch(() => { });
 		}
 		// Emit coordinates to parent component when closing (if coordinates were selected)
-		if (this.finalSelectedCoordinates) {
+		if (this.pairEditMode) {
+			this.pairSelected.emit(this.snapshotPair());
+		} else if (this.finalSelectedCoordinates) {
 			const alt =
 				this.isFiniteAltitude(this.clickedAlt)
 					? this.clickedAlt

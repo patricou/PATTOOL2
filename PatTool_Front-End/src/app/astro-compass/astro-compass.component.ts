@@ -82,7 +82,8 @@ import {
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { GlobeIssNowService } from '../services/globe-iss-now.service';
 import { GlobeSatelliteNowService } from '../services/globe-satellite-now.service';
-import { CompassNorthEngine } from '../shared/compass-north.engine';
+import { CompassNorthEngine, loadSharedTrueNorth } from '../shared/compass-north.engine';
+import { magneticDeclinationDeg } from '../nord/magnetic-declination';
 import { clampCamHeightPx, loadCamHeightPx, saveCamHeightPx } from '../shared/preview-cam-size';
 import { isAndroidUserAgent, skyMapAndroidSearchIntent, openSkyMapAndroidApp } from '../shared/sky-map-app.util';
 import { wikiContentLang, wikiLookupRequest, wikiSourceDir, wikiSourceLang } from './astro-object-dossier.service';
@@ -1016,6 +1017,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   northMarked = false;
   southMarked = false;
   sightingMarked = false;
+  /** « Ajuster Pos » : le viseur suit le calage astre, y compris en mode Cible. */
+  exactPositionActive = false;
   /** Pause viseur : fige l’objet à l’écran même si le téléphone bouge. */
   finderPoseFrozen = false;
   /** Dernière image caméra (data URL) tant que le viseur ou l’auto-détection est en pause. */
@@ -1192,6 +1195,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly onLiveModalTouchStartNative = (ev: TouchEvent) => this.onFinderTouchStart(ev);
   private readonly onLiveModalTouchMoveNative = (ev: TouchEvent) => this.onFinderTouchMove(ev);
   private readonly onLiveModalTouchEndNative = (ev: TouchEvent) => this.onFinderTouchEnd(ev);
+  private static readonly EXACT_POS_KEY = 'pat.astro-compass.exact-pos.v1';
   private static readonly LAST_TARGET_KEY = 'pat.astro-compass.last-target.v1';
   private static readonly GLOBE_ASTRO_RETURN_SAT_KEY = 'pat.world-globe.astro-return-sat';
   private finderTrailSky: FinderTrailSkyPt[] = [];
@@ -1270,8 +1274,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.startGeolocation();
     this.hydratePattoolCalFromDb();
     this.loadHeadingRef();
+    this.loadExactPositionActive();
     this.loadActiveCible();
     void this.lookTracker.start(false).then(() => {
+      this.syncLookDeclination();
       if (this.lookTracker.sensorsOn) {
         void this.startCamera();
       }
@@ -1428,6 +1434,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   async enableFinder(): Promise<void> {
     await this.lookTracker.start(true);
+    this.syncLookDeclination();
     if (this.lookTracker.sensorsOn) {
       await this.startCamera();
     }
@@ -1580,6 +1587,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.northMarked = kind === 'n';
     this.southMarked = kind === 's';
     this.sightingMarked = false;
+    this.setExactPositionActive(false);
     if (this.northMarkTimer != null) {
       clearTimeout(this.northMarkTimer);
     }
@@ -1600,9 +1608,11 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.lookTracker.markCameraAsTarget(this.azimuthDeg, this.elevationDeg)) {
       return;
     }
+    this.setExactPositionActive(true);
     if (this.finderPoseFrozen) {
       this.clearFinderPose(false);
     }
+    this.applyHeadingReference();
     this.sightingMarked = true;
     this.northMarked = false;
     this.southMarked = false;
@@ -1632,6 +1642,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.northMarked = false;
     this.southMarked = false;
     this.sightingMarked = false;
+    this.setExactPositionActive(false);
     if (this.northMarkTimer != null) {
       clearTimeout(this.northMarkTimer);
       this.northMarkTimer = null;
@@ -2029,6 +2040,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.headingRef = ref;
+    if (ref === 'cible') {
+      this.setExactPositionActive(false);
+    }
     this.saveHeadingRef();
     this.applyHeadingReference();
     this.updateFinderProjection();
@@ -2050,6 +2064,21 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     } catch {
       /* ignore */
     }
+  }
+
+  private loadExactPositionActive(): void {
+    this.exactPositionActive = false;
+    try {
+      localStorage.removeItem(AstroCompassComponent.EXACT_POS_KEY);
+    } catch {
+      /* ignore */
+    }
+    this.writeUserLocal(AstroCompassComponent.EXACT_POS_KEY, '0');
+  }
+
+  private setExactPositionActive(on: boolean): void {
+    this.exactPositionActive = on;
+    this.writeUserLocal(AstroCompassComponent.EXACT_POS_KEY, '0');
   }
 
   private loadActiveCible(): void {
@@ -5167,6 +5196,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
           if (saved.id) {
             saveActiveCibleId(saved.id);
           }
+          this.setExactPositionActive(false);
           this.applyHeadingReference();
           this.updateFinderProjection();
           this.resolveCibleUserAddress();
@@ -5340,6 +5370,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.placeLabel = label.trim();
     }
     this.recomputeSky();
+    this.syncLookDeclination();
     this.cdr.markForCheck();
     if (this.selectedKind === 'iss') {
       this.refreshIssPasses(true);
@@ -7607,6 +7638,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
             }
             this.ingestGpsCourse(pos.coords, pos.timestamp);
             this.recomputeSky();
+            this.syncLookDeclination();
             this.maybeResolveAddressFromGps(pos.coords.latitude, pos.coords.longitude);
             if (!this.heightUserLocked) {
               this.resolveObserverAltitude(pos.coords.latitude, pos.coords.longitude);
@@ -7983,7 +8015,17 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   isCalibrated(): boolean {
-    return this.calStatus === 'calibrated';
+    if (this.headingRef === 'cible' && this.activeCible?.phoneHeadingDeg != null) {
+      return true;
+    }
+    if (this.exactPositionActive && this.lookTracker?.azimuthDeg != null) {
+      return true;
+    }
+    if (this.lookTracker?.hasManualAlign()) {
+      return true;
+    }
+    const file = loadPattoolCal();
+    return !!file?.samples && file.samples.length >= 4;
   }
 
   isAutoSensorMode(): boolean {
@@ -8968,6 +9010,17 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.normalizeDeg(ref + mid);
   }
 
+  private syncLookDeclination(): void {
+    if (!this.lookTracker) {
+      return;
+    }
+    const dec =
+      Number.isFinite(this.lat) && Number.isFinite(this.lon)
+        ? magneticDeclinationDeg(this.lat, this.lon)
+        : null;
+    this.lookTracker.setTrueNorthCorrection(loadSharedTrueNorth(), dec);
+  }
+
   private applyNorthOffset(): void {
     this.applyHeadingReference();
   }
@@ -8975,6 +9028,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private applyHeadingReference(): void {
     const lookAz = this.lookTracker?.azimuthDeg ?? null;
     const raw = this.lookTracker?.rawAzimuthDeg ?? this.headingRawDeg;
+    if (this.exactPositionActive && lookAz != null) {
+      this.headingDeg = lookAz;
+      this.headingActive = true;
+      this.tickAlignCue();
+      return;
+    }
     if (this.headingRef === 'cible' && this.activeCible?.phoneHeadingDeg != null && raw != null) {
       const h0 = this.activeCible.phoneHeadingDeg;
       const ref = this.activeCible.refAzimuthDeg ?? 0;

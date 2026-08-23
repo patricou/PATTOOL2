@@ -518,7 +518,22 @@ export function lookElOffsetDeg(cal?: PattoolCalDerived | null): number {
   return d?.elOffsetDeg ?? 0;
 }
 
-/** Un seul décalage d’azimut : capteur brut + calibrage. */
+/**
+ * Nord vrai : on ajoute la déclinaison au cap magnétique *avant* l’offset de calage.
+ * Direction et le viseur doivent passer par ici, sinon « C’est le Nord » décale le viseur.
+ */
+export function applyLookDeclination(
+  rawAzDeg: number,
+  trueNorth: boolean,
+  declinationDeg?: number | null
+): number {
+  if (trueNorth && declinationDeg != null && Number.isFinite(declinationDeg)) {
+    return normalizeDeg(rawAzDeg + declinationDeg);
+  }
+  return normalizeDeg(rawAzDeg);
+}
+
+/** Un seul décalage d’azimut : capteur (évent. + déclinaison) + calibrage. */
 export function composeLookAzimuth(rawAzDeg: number, cal?: PattoolCalDerived | null): number {
   return normalizeDeg(rawAzDeg + lookAzOffsetDeg(cal));
 }

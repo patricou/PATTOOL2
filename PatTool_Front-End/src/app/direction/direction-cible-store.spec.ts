@@ -2,6 +2,7 @@ import { circularDiff } from './direction-attitude';
 import {
   CIBLE_MARK_MIN_DIST_M,
   cibleImpliedGeoHeadingDeg,
+  cibleLockDeltaDeg,
   cibleMarkBearingDeg,
   cibleMarkDistanceM,
   cibleSensorHeadingFacingMark,
@@ -37,5 +38,11 @@ describe('cible mark GPS', () => {
     expect(cibleSensorHeadingFacingMark(40, 120, null)).toBe(40);
     expect(cibleSensorHeadingFacingMark(40, 120, 120)).toBe(40);
     expect(cibleSensorHeadingFacingMark(40, 120, 150)).toBe(70);
+  });
+
+  it('treats the live GPS bearing as the aligned heading after a walk', () => {
+    expect(cibleLockDeltaDeg(40, 40, 120, 120)).toBe(0);
+    expect(cibleLockDeltaDeg(70, 40, 120, 150)).toBe(0);
+    expect(cibleLockDeltaDeg(40, 40, 120, 150)).not.toBe(0);
   });
 });

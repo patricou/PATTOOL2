@@ -50,6 +50,7 @@ import {
   PattoolCalSnapshot,
   averageQuat,
   averageVec,
+  applyLookDeclination,
   canonicalizeLookCal,
   clearPattoolCal,
   composeLookAzimuth,
@@ -64,11 +65,15 @@ import {
   persistPattoolCalFromSamples
 } from './direction-pattool-cal';
 import { clampCamHeightPx, loadCamHeightPx, saveCamHeightPx } from '../shared/preview-cam-size';
+import { applyMultiplicativeWheelScale, normalizeWheelDeltaPixels } from '../shared/wheel-zoom.util';
+import * as L from 'leaflet';
 import { CompassRoseComponent } from '../shared/compass-rose/compass-rose.component';
+import { LeafletBasemapService } from '../shared/leaflet-basemap.service';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import {
   CIBLE_MARK_MIN_DIST_M,
   cibleImpliedGeoHeadingDeg,
+  cibleLockDeltaDeg,
   cibleMarkBearingDeg,
   cibleMarkDistanceM,
   cibleSensorHeadingFacingMark,
@@ -142,6 +147,10 @@ const PARAM_GROUPS: { id: string; labelKey: string; keys: string[] }[] = [
 const CAL_KEY = DIRECTION_HARDIRON_KEY;
 const FS_PARAMS_KEY = 'pat.direction.fs-params.v1';
 const CAM_HEIGHT_KEY = 'pat.direction.cam-height-px';
+const CAM_ZOOM_KEY = 'pat.direction.cam-zoom';
+const CAM_ZOOM_MIN = 1;
+const CAM_ZOOM_MAX = 8;
+const CAM_ZOOM_STEP = 0.25;
 const PAINT_MS = 50;
 
 @Component({
@@ -155,6 +164,9 @@ const PAINT_MS = 50;
 export class DirectionComponent implements AfterViewInit, OnDestroy {
   @ViewChild('cam') camEl?: ElementRef<HTMLVideoElement>;
   @ViewChild('camStage') camStage?: ElementRef<HTMLElement>;
+  @ViewChild('cibleEditMap') cibleEditMapEl?: ElementRef<HTMLDivElement>;
+  @ViewChild('cibleEditDialog') cibleEditDialogEl?: ElementRef<HTMLElement>;
+  @ViewChild('cibleEditName') cibleEditNameEl?: ElementRef<HTMLInputElement>;
   @ViewChild(TraceViewerModalComponent) traceViewerModal?: TraceViewerModalComponent;
 
   activeTab: DirPageTab = 'calibrage';
@@ -166,6 +178,30 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   cibleLoading = false;
   cibleSaving = false;
   cibleError: string | null = null;
+  cibleUpdatedOk = false;
+  cibleEditOpen = false;
+  editName = '';
+  editPhoto: string | null = null;
+  editUserLat: number | null = null;
+  editUserLon: number | null = null;
+  editMarkLat: number | null = null;
+  editMarkLon: number | null = null;
+  editMarkAltM: number | null = null;
+  editMarkAddress: string | null = null;
+  editUserAddress: string | null = null;
+  editMapFocus: 'user' | 'mark' = 'mark';
+  editError: string | null = null;
+  editMarkAddressBusy = false;
+  editUserAddressBusy = false;
+  private editMarkAddressSub: Subscription | null = null;
+  private editUserAddressSub: Subscription | null = null;
+  private editMap?: L.Map;
+  private editUserMarker?: L.Marker;
+  private editMarkMarker?: L.Marker;
+  private editLine?: L.Polyline;
+  private editLineHalo?: L.Polyline;
+  private editLineLabel?: L.Marker;
+  private editMapIgnoreClick = false;
   cibleJsonModal: DirectionCible | null = null;
   cibleJsonCopied = false;
   private cibleJsonCopyTimer: ReturnType<typeof setTimeout> | null = null;
@@ -196,6 +232,20 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   camLive = false;
   isFullscreen = false;
   camHeightPx: number | null = null;
+  readonly camZoomMin = CAM_ZOOM_MIN;
+  readonly camZoomMax = CAM_ZOOM_MAX;
+  readonly camZoomStep = CAM_ZOOM_STEP;
+  camZoom = CAM_ZOOM_MIN;
+  camDigitalZoom = 1;
+  camVideoTransform = 'scale(1)';
+  private camZoomCaps: { min: number; max: number } | null = null;
+  private camZoomGesturesBound = false;
+  private camPinchStartDist = 0;
+  private camPinchStartZoom = CAM_ZOOM_MIN;
+  private readonly onCamWheelNative = (ev: WheelEvent): void => this.onCamWheel(ev);
+  private readonly onCamTouchStartNative = (ev: TouchEvent): void => this.onCamTouchStart(ev);
+  private readonly onCamTouchMoveNative = (ev: TouchEvent): void => this.onCamTouchMove(ev);
+  private readonly onCamTouchEndNative = (ev: TouchEvent): void => this.onCamTouchEnd(ev);
   private camResizing = false;
   private camResizePointerId: number | null = null;
   private camResizeStartY = 0;
@@ -339,7 +389,8 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     private readonly api: ApiService,
     private readonly translate: TranslateService,
     private readonly hostEl: ElementRef<HTMLElement>,
-    private readonly route: ActivatedRoute
+    private readonly route: ActivatedRoute,
+    private readonly basemaps: LeafletBasemapService
   ) {}
 
   ngAfterViewInit(): void {
@@ -354,7 +405,9 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     setTimeout(() => this.refreshPatDbCount(), 2500);
     this.loadFsParams();
     this.camHeightPx = loadCamHeightPx(CAM_HEIGHT_KEY);
+    this.loadCamZoomPref();
     void this.boot(false);
+    this.bindCamZoomGestures();
     this.queueHidePageTitle();
   }
 
@@ -464,6 +517,11 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.markAddressSub = null;
     this.userAddressSub?.unsubscribe();
     this.userAddressSub = null;
+    this.editMarkAddressSub?.unsubscribe();
+    this.editMarkAddressSub = null;
+    this.editUserAddressSub?.unsubscribe();
+    this.editUserAddressSub = null;
+    this.destroyCibleEditMap();
     if (this.cibleJsonCopyTimer != null) {
       clearTimeout(this.cibleJsonCopyTimer);
       this.cibleJsonCopyTimer = null;
@@ -475,6 +533,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.unbindTitleHideGuard();
     this.clearPatHold();
     this.endCamResize();
+    this.unbindCamZoomGestures();
     this.leaveFullscreen();
     this.stopEverything();
     this.northEngine.destroy();
@@ -491,6 +550,10 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    if (this.cibleEditOpen) {
+      this.closeCibleEdit();
+      return;
+    }
     if (this.cibleJsonModal) {
       this.closeCibleJson();
       return;
@@ -595,6 +658,9 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
         video.srcObject = this.stream;
         await video.play();
         this.camLive = true;
+        this.refreshCameraZoomCaps();
+        this.syncCamZoomOutputs();
+        this.bindCamZoomGestures();
       }
     } catch {
       this.camDenied = true;
@@ -607,11 +673,204 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.stream?.getTracks().forEach((t) => t.stop());
     this.stream = null;
     this.camLive = false;
+    this.camZoomCaps = null;
     const video = this.camEl?.nativeElement;
     if (video) {
       video.srcObject = null;
     }
     this.cdr.markForCheck();
+  }
+
+  showCamZoom(): boolean {
+    if (this.patWizard) {
+      return false;
+    }
+    return this.showCiblePhotoOnStage() || this.camLive;
+  }
+
+  get camZoomLabel(): string {
+    const z = this.camZoom;
+    const txt = Math.abs(z - Math.round(z)) < 0.05 ? String(Math.round(z)) : z.toFixed(1);
+    return `${txt}×`;
+  }
+
+  camZoomIn(): void {
+    this.setCamZoom(this.camZoom + CAM_ZOOM_STEP, true);
+  }
+
+  camZoomOut(): void {
+    this.setCamZoom(this.camZoom - CAM_ZOOM_STEP, true);
+  }
+
+  resetCamZoom(): void {
+    this.setCamZoom(CAM_ZOOM_MIN, true);
+  }
+
+  onCamZoomInput(ev: Event): void {
+    const n = Number((ev.target as HTMLInputElement).value);
+    if (!Number.isFinite(n)) {
+      return;
+    }
+    this.setCamZoom(n, true);
+  }
+
+  private onCamWheel(ev: WheelEvent): void {
+    if (!this.showCamZoom() || this.isCamZoomIgnoreTarget(ev.target)) {
+      return;
+    }
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.setCamZoom(
+      applyMultiplicativeWheelScale(
+        this.camZoom,
+        normalizeWheelDeltaPixels(ev),
+        CAM_ZOOM_MIN,
+        CAM_ZOOM_MAX
+      ),
+      false
+    );
+  }
+
+  private onCamTouchStart(ev: TouchEvent): void {
+    if (!this.showCamZoom() || ev.touches.length !== 2) {
+      this.camPinchStartDist = 0;
+      return;
+    }
+    this.camPinchStartDist = this.touchDistance(ev.touches[0], ev.touches[1]);
+    this.camPinchStartZoom = this.camZoom;
+  }
+
+  private onCamTouchMove(ev: TouchEvent): void {
+    if (!this.showCamZoom() || ev.touches.length !== 2 || this.camPinchStartDist < 8) {
+      return;
+    }
+    ev.preventDefault();
+    const dist = this.touchDistance(ev.touches[0], ev.touches[1]);
+    this.setCamZoom((this.camPinchStartZoom * dist) / this.camPinchStartDist, false, false);
+  }
+
+  private onCamTouchEnd(ev?: TouchEvent): void {
+    if (this.camPinchStartDist > 0 && (!ev || ev.touches.length < 2)) {
+      this.setCamZoom(this.camZoom, true);
+      this.camPinchStartDist = 0;
+    }
+  }
+
+  private touchDistance(a: Touch, b: Touch): number {
+    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  }
+
+  private isCamZoomIgnoreTarget(target: EventTarget | null): boolean {
+    const el = target instanceof Element ? target : null;
+    return !!el?.closest(
+      'button, input, label, a, select, textarea, .dir-cam__zoom, .dir-cam-resize, .dir-cam__view-switch'
+    );
+  }
+
+  private setCamZoom(next: number, snap: boolean, persist = true): void {
+    let z = Math.min(CAM_ZOOM_MAX, Math.max(CAM_ZOOM_MIN, next));
+    if (snap) {
+      z = Math.round(z / CAM_ZOOM_STEP) * CAM_ZOOM_STEP;
+    }
+    z = parseFloat(z.toFixed(2));
+    if (z === this.camZoom && persist) {
+      this.persistCamZoomPref();
+      return;
+    }
+    this.camZoom = z;
+    this.syncCamZoomOutputs();
+    if (persist) {
+      this.persistCamZoomPref();
+    }
+    this.cdr.markForCheck();
+  }
+
+  private syncCamZoomOutputs(): void {
+    const caps = this.camZoomCaps;
+    const track = this.stream?.getVideoTracks()[0];
+    if (caps && track) {
+      const hw = Math.min(caps.max, Math.max(caps.min, this.camZoom));
+      this.camDigitalZoom = this.camZoom / hw;
+      this.camVideoTransform = `scale(${this.camDigitalZoom})`;
+      void track
+        .applyConstraints({ advanced: [{ zoom: hw }] } as unknown as MediaTrackConstraints)
+        .catch(() => {
+          this.camDigitalZoom = this.camZoom;
+          this.camVideoTransform = `scale(${this.camDigitalZoom})`;
+          this.cdr.markForCheck();
+        });
+      return;
+    }
+    this.camDigitalZoom = this.camZoom;
+    this.camVideoTransform = `scale(${this.camDigitalZoom})`;
+  }
+
+  private refreshCameraZoomCaps(): void {
+    try {
+      const track = this.stream?.getVideoTracks()[0];
+      const caps = track?.getCapabilities?.() as
+        | (MediaTrackCapabilities & { zoom?: number | { min?: number; max?: number } })
+        | undefined;
+      const z = caps?.zoom;
+      if (z && typeof z === 'object' && Number.isFinite(z.max) && (z.max ?? 0) > (z.min ?? 1)) {
+        this.camZoomCaps = { min: z.min ?? 1, max: z.max as number };
+        return;
+      }
+    } catch {
+      /* iOS / navigateurs sans zoom capteur */
+    }
+    this.camZoomCaps = null;
+  }
+
+  private bindCamZoomGestures(): void {
+    const el = this.camStage?.nativeElement;
+    if (!el || this.camZoomGesturesBound) {
+      return;
+    }
+    el.addEventListener('wheel', this.onCamWheelNative, { passive: false, capture: true });
+    el.addEventListener('touchstart', this.onCamTouchStartNative, { passive: true, capture: true });
+    el.addEventListener('touchmove', this.onCamTouchMoveNative, { passive: false, capture: true });
+    el.addEventListener('touchend', this.onCamTouchEndNative, { passive: true, capture: true });
+    el.addEventListener('touchcancel', this.onCamTouchEndNative, { passive: true, capture: true });
+    this.camZoomGesturesBound = true;
+  }
+
+  private unbindCamZoomGestures(): void {
+    const el = this.camStage?.nativeElement;
+    if (!el || !this.camZoomGesturesBound) {
+      return;
+    }
+    el.removeEventListener('wheel', this.onCamWheelNative, true);
+    el.removeEventListener('touchstart', this.onCamTouchStartNative, true);
+    el.removeEventListener('touchmove', this.onCamTouchMoveNative, true);
+    el.removeEventListener('touchend', this.onCamTouchEndNative, true);
+    el.removeEventListener('touchcancel', this.onCamTouchEndNative, true);
+    this.camZoomGesturesBound = false;
+  }
+
+  private loadCamZoomPref(): void {
+    try {
+      const raw = Number(localStorage.getItem(CAM_ZOOM_KEY));
+      if (Number.isFinite(raw)) {
+        this.camZoom = Math.min(CAM_ZOOM_MAX, Math.max(CAM_ZOOM_MIN, raw));
+        this.camDigitalZoom = this.camZoom;
+        this.camVideoTransform = `scale(${this.camDigitalZoom})`;
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    this.camZoom = CAM_ZOOM_MIN;
+    this.camDigitalZoom = CAM_ZOOM_MIN;
+    this.camVideoTransform = 'scale(1)';
+  }
+
+  private persistCamZoomPref(): void {
+    try {
+      localStorage.setItem(CAM_ZOOM_KEY, String(this.camZoom));
+    } catch {
+      /* ignore */
+    }
   }
 
   chooseCal(method: NorthCalMethod): void {
@@ -891,12 +1150,13 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   }
 
   cibleLockDelta(): number | null {
-    const locked = this.selectedCible()?.phoneHeadingDeg;
-    const live = this.magAzimuthDeg;
-    if (locked == null || live == null) {
-      return null;
-    }
-    return circularDiff(live, locked);
+    const c = this.selectedCible();
+    return cibleLockDeltaDeg(
+      this.magAzimuthDeg,
+      c?.phoneHeadingDeg,
+      c?.refAzimuthDeg,
+      this.markBearingDeg()
+    );
   }
 
   cibleLockDeltaText(): string {
@@ -988,7 +1248,33 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
 
   onCibleNameInput(ev: Event): void {
     this.cibleName = ((ev.target as HTMLInputElement | null)?.value ?? '').slice(0, 80);
+    this.cibleUpdatedOk = false;
     this.cdr.markForCheck();
+  }
+
+  cibleDraftDirty(): boolean {
+    const saved = this.selectedCible();
+    if (!saved) {
+      return false;
+    }
+    if ((this.cibleName.trim() || '') !== (saved.name || '').trim()) {
+      return true;
+    }
+    if ((this.ciblePhoto || '') !== (saved.photoDataUrl || '')) {
+      return true;
+    }
+    const savedHasMark = hasCibleMark(saved.markLat, saved.markLon);
+    const liveHasMark = hasCibleMark(this.markLat, this.markLon);
+    if (savedHasMark !== liveHasMark) {
+      return true;
+    }
+    if (liveHasMark && (this.markLat !== saved.markLat || this.markLon !== saved.markLon)) {
+      return true;
+    }
+    if ((this.markAddress || '') !== (saved.markAddress || '')) {
+      return true;
+    }
+    return false;
   }
 
   gpsText(): string {
@@ -1106,6 +1392,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.markAddress = null;
     this.cibleError = null;
     this.cibleCheck = null;
+    this.cibleUpdatedOk = false;
     this.resolveMarkAddress(true);
     this.cdr.markForCheck();
   }
@@ -1197,10 +1484,15 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
       this.cdr.markForCheck();
       return;
     }
+    const crop = Math.max(1, this.camDigitalZoom);
+    const srcW = video.videoWidth / crop;
+    const srcH = video.videoHeight / crop;
+    const sx = (video.videoWidth - srcW) / 2;
+    const sy = (video.videoHeight - srcH) / 2;
     const maxW = 720;
-    const ratio = Math.min(1, maxW / video.videoWidth);
-    const w = Math.round(video.videoWidth * ratio);
-    const h = Math.round(video.videoHeight * ratio);
+    const ratio = Math.min(1, maxW / srcW);
+    const w = Math.round(srcW * ratio);
+    const h = Math.round(srcH * ratio);
     const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
@@ -1208,10 +1500,11 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     if (!ctx) {
       return;
     }
-    ctx.drawImage(video, 0, 0, w, h);
+    ctx.drawImage(video, sx, sy, srcW, srcH, 0, 0, w, h);
     this.ciblePhoto = canvas.toDataURL('image/jpeg', 0.72);
     this.cibleStageView = 'photo';
     this.cibleError = null;
+    this.cibleUpdatedOk = false;
     this.cdr.markForCheck();
   }
 
@@ -1230,6 +1523,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   clearCiblePhoto(): void {
     this.ciblePhoto = null;
     this.cibleStageView = 'camera';
+    this.cibleUpdatedOk = false;
     this.cdr.markForCheck();
   }
 
@@ -1240,6 +1534,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.cibleStageView = 'camera';
     this.cibleError = null;
     this.cibleCheck = null;
+    this.cibleUpdatedOk = false;
     this.markAddressSub?.unsubscribe();
     this.markAddressSub = null;
     this.markLat = null;
@@ -1263,12 +1558,710 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     }
     this.cibleError = null;
     this.cibleCheck = null;
+    this.cibleUpdatedOk = false;
     saveActiveCibleId(cible.id);
     this.api.setActiveDirectionCible(cible.id).subscribe({
       next: (saved) => this.replaceCible(saved),
       error: () => this.cdr.markForCheck()
     });
     this.cdr.markForCheck();
+  }
+
+  saveCibleEdits(): void {
+    const id = this.selectedCibleId;
+    const name = this.cibleName.trim();
+    if (!id) {
+      return;
+    }
+    if (!name) {
+      this.cibleError = 'DIRECTION.TARGET_NAME_REQUIRED';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.cibleSaving = true;
+    this.cibleError = null;
+    this.cibleUpdatedOk = false;
+    const hasMark = hasCibleMark(this.markLat, this.markLon);
+    this.api
+      .updateDirectionCible(id, {
+        name,
+        photoDataUrl: this.ciblePhoto || '',
+        markLat: hasMark ? this.markLat : null,
+        markLon: hasMark ? this.markLon : null,
+        markAltM: hasMark ? this.markAltM : null,
+        markAddress: hasMark ? this.markAddress : null,
+        clearMark: !hasMark
+      })
+      .subscribe({
+        next: (saved) => {
+          this.cibleSaving = false;
+          this.cibleUpdatedOk = true;
+          const keptPhoto = this.ciblePhoto;
+          this.replaceCible(saved);
+          this.ciblePhoto = keptPhoto;
+          saveActiveCibleId(saved.id ?? id);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.cibleSaving = false;
+          this.cibleError = 'DIRECTION.TARGET_SAVE_FAIL';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  openCibleEditSelected(): void {
+    const cible = this.selectedCible();
+    if (cible) {
+      this.openCibleEdit(cible);
+    }
+  }
+
+  openCibleEdit(cible: DirectionCible, ev?: Event): void {
+    ev?.preventDefault();
+    ev?.stopPropagation();
+    if (!cible.id) {
+      return;
+    }
+    if (this.selectedCibleId !== cible.id) {
+      this.selectCible(cible);
+    }
+    this.editName = (cible.name || '').slice(0, 80);
+    this.editPhoto = cible.photoDataUrl ?? null;
+    this.editUserLat = cible.userLat != null && Number.isFinite(cible.userLat) ? cible.userLat : this.gpsLat;
+    this.editUserLon = cible.userLon != null && Number.isFinite(cible.userLon) ? cible.userLon : this.gpsLon;
+    this.editMarkLat = cible.markLat != null && Number.isFinite(cible.markLat) ? cible.markLat : null;
+    this.editMarkLon = cible.markLon != null && Number.isFinite(cible.markLon) ? cible.markLon : null;
+    this.editMarkAltM = cible.markAltM != null && Number.isFinite(cible.markAltM) ? cible.markAltM : null;
+    this.editMarkAddress = cible.markAddress?.trim() || null;
+    this.editUserAddress = null;
+    this.editMapFocus = hasCibleMark(this.editMarkLat, this.editMarkLon) ? 'user' : 'mark';
+    this.editError = null;
+    this.editMarkAddressBusy = false;
+    this.editUserAddressBusy = false;
+    this.cibleEditOpen = true;
+    this.cdr.detectChanges();
+    this.initCibleEditMap();
+    this.focusCibleEditDialog();
+    this.resolveEditUserAddress();
+    if (this.editHasMark() && !this.editMarkAddress) {
+      this.resolveEditMarkAddress();
+    }
+  }
+
+  closeCibleEdit(): void {
+    this.cibleEditOpen = false;
+    this.editError = null;
+    this.editMarkAddressSub?.unsubscribe();
+    this.editMarkAddressSub = null;
+    this.editUserAddressSub?.unsubscribe();
+    this.editUserAddressSub = null;
+    this.editMarkAddressBusy = false;
+    this.editUserAddressBusy = false;
+    this.destroyCibleEditMap();
+    this.cdr.markForCheck();
+  }
+
+  private focusCibleEditDialog(): void {
+    const dialog = this.cibleEditDialogEl?.nativeElement;
+    const name = this.cibleEditNameEl?.nativeElement;
+    const target = name ?? dialog;
+    if (!target) {
+      return;
+    }
+    const apply = (): void => {
+      target.focus({ preventScroll: true });
+    };
+    apply();
+    requestAnimationFrame(apply);
+    setTimeout(apply, 80);
+    setTimeout(apply, 200);
+  }
+
+  setEditMapFocus(focus: 'user' | 'mark'): void {
+    this.editMapFocus = focus;
+    this.cdr.markForCheck();
+  }
+
+  onEditNameInput(ev: Event): void {
+    this.editName = ((ev.target as HTMLInputElement | null)?.value ?? '').slice(0, 80);
+    this.editError = null;
+    this.cdr.markForCheck();
+  }
+
+  recenterCibleEditMap(): void {
+    if (!this.editMap || (!this.editHasUser() && !this.editHasMark())) {
+      return;
+    }
+    this.syncEditMarkersToDraft(true);
+    requestAnimationFrame(() => this.editMap?.invalidateSize());
+  }
+
+  openCibleEditInTraceViewer(): void {
+    if (!this.traceViewerModal) {
+      return;
+    }
+    const user = this.editHasUser() ? { lat: this.editUserLat!, lng: this.editUserLon! } : null;
+    const mark = this.editHasMark()
+      ? { lat: this.editMarkLat!, lng: this.editMarkLon!, alt: this.editMarkAltM }
+      : null;
+    const label = this.editName.trim() || this.translate.instant('DIRECTION.TARGET_EDIT_TITLE');
+    this.traceViewerModal.openCiblePair(user, mark, label);
+  }
+
+  onCiblePairSelected(pair: {
+    user: { lat: number; lng: number } | null;
+    mark: { lat: number; lng: number; alt?: number | null } | null;
+  }): void {
+    if (pair.user && Number.isFinite(pair.user.lat) && Number.isFinite(pair.user.lng)) {
+      this.editUserLat = pair.user.lat;
+      this.editUserLon = pair.user.lng;
+      this.editUserAddress = null;
+      this.resolveEditUserAddress();
+    }
+    if (pair.mark && Number.isFinite(pair.mark.lat) && Number.isFinite(pair.mark.lng)) {
+      this.editMarkLat = pair.mark.lat;
+      this.editMarkLon = pair.mark.lng;
+      this.editMarkAltM =
+        pair.mark.alt != null && Number.isFinite(pair.mark.alt) ? pair.mark.alt : this.editMarkAltM;
+      this.editMarkAddress = null;
+      this.resolveEditMarkAddress();
+    }
+    this.cdr.detectChanges();
+    this.syncEditMarkersToDraft(true);
+    requestAnimationFrame(() => this.editMap?.invalidateSize());
+    setTimeout(() => this.editMap?.invalidateSize(), 120);
+    this.cdr.markForCheck();
+  }
+
+  useCurrentGpsForEdit(): void {
+    if (this.gpsLat == null || this.gpsLon == null || !Number.isFinite(this.gpsLat) || !Number.isFinite(this.gpsLon)) {
+      this.editError = 'DIRECTION.TARGET_EDIT_NEED_GPS';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.editUserLat = this.gpsLat;
+    this.editUserLon = this.gpsLon;
+    this.editUserAddress = null;
+    this.editError = null;
+    this.syncEditMarkersToDraft(true);
+    this.resolveEditUserAddress();
+    this.cdr.markForCheck();
+  }
+
+  clearEditMark(): void {
+    this.editMarkLat = null;
+    this.editMarkLon = null;
+    this.editMarkAltM = null;
+    this.editMarkAddress = null;
+    this.editMapFocus = 'mark';
+    this.syncEditMarkersToDraft(false);
+    this.cdr.markForCheck();
+  }
+
+  clearEditPhoto(): void {
+    this.editPhoto = null;
+    this.cdr.markForCheck();
+  }
+
+  captureCibleEditPhoto(): void {
+    const dataUrl = this.snapCameraJpeg();
+    if (!dataUrl) {
+      this.editError = 'DIRECTION.TARGET_PHOTO_NEED_CAM';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.editPhoto = dataUrl;
+    this.editError = null;
+    this.cdr.markForCheck();
+  }
+
+  onCibleEditPhotoFile(ev: Event): void {
+    const input = ev.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+    if (input) {
+      input.value = '';
+    }
+    if (!file) {
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        this.editPhoto = this.imageToJpeg(img);
+        this.editError = null;
+        this.cdr.markForCheck();
+      };
+      img.onerror = () => {
+        this.editError = 'DIRECTION.TARGET_EDIT_PHOTO_FAIL';
+        this.cdr.markForCheck();
+      };
+      img.src = String(reader.result || '');
+    };
+    reader.onerror = () => {
+      this.editError = 'DIRECTION.TARGET_EDIT_PHOTO_FAIL';
+      this.cdr.markForCheck();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  editHasUser(): boolean {
+    return this.editUserLat != null && this.editUserLon != null
+      && Number.isFinite(this.editUserLat) && Number.isFinite(this.editUserLon);
+  }
+
+  editHasMark(): boolean {
+    return hasCibleMark(this.editMarkLat, this.editMarkLon);
+  }
+
+  editUserGpsText(): string {
+    if (!this.editHasUser()) {
+      return '—';
+    }
+    return `${this.editUserLat!.toFixed(5)}, ${this.editUserLon!.toFixed(5)}`;
+  }
+
+  editMarkGpsText(): string {
+    if (!this.editHasMark()) {
+      return '—';
+    }
+    const alt = this.editMarkAltM != null && Number.isFinite(this.editMarkAltM)
+      ? ` · ${this.editMarkAltM.toFixed(0)} m`
+      : '';
+    return `${this.editMarkLat!.toFixed(5)}, ${this.editMarkLon!.toFixed(5)}${alt}`;
+  }
+
+  editMarkAddressText(): string {
+    if (this.editMarkAddressBusy) {
+      return '…';
+    }
+    return this.editMarkAddress?.trim() || '—';
+  }
+
+  editUserAddressText(): string {
+    if (this.editUserAddressBusy) {
+      return '…';
+    }
+    return this.editUserAddress?.trim() || '—';
+  }
+
+  editBearingText(): string {
+    const az = cibleMarkBearingDeg(this.editUserLat, this.editUserLon, this.editMarkLat, this.editMarkLon);
+    const m = cibleMarkDistanceM(this.editUserLat, this.editUserLon, this.editMarkLat, this.editMarkLon);
+    if (az == null || m == null) {
+      return '—';
+    }
+    const dist = m >= 1000 ? `${(m / 1000).toFixed(m >= 10000 ? 0 : 1)} km` : `${m.toFixed(0)} m`;
+    return `${az.toFixed(2)}° · ${dist}`;
+  }
+
+  editDistanceM(): number | null {
+    return cibleMarkDistanceM(this.editUserLat, this.editUserLon, this.editMarkLat, this.editMarkLon);
+  }
+
+  editMarkTooClose(): boolean {
+    const m = this.editDistanceM();
+    return m != null && m < CIBLE_MARK_MIN_DIST_M;
+  }
+
+  saveCibleEditModal(): void {
+    const id = this.selectedCibleId;
+    const name = this.editName.trim();
+    if (!id) {
+      return;
+    }
+    if (!name) {
+      this.editError = 'DIRECTION.TARGET_NAME_REQUIRED';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.cibleSaving = true;
+    this.editError = null;
+    this.cibleUpdatedOk = false;
+    const hasMark = this.editHasMark();
+    const hasUser = this.editHasUser();
+    const refAzimuthDeg = hasUser && hasMark
+      ? cibleMarkBearingDeg(this.editUserLat, this.editUserLon, this.editMarkLat, this.editMarkLon)
+      : null;
+    this.api
+      .updateDirectionCible(id, {
+        name,
+        photoDataUrl: this.editPhoto || '',
+        userLat: hasUser ? this.editUserLat : undefined,
+        userLon: hasUser ? this.editUserLon : undefined,
+        userAccM: hasUser ? null : undefined,
+        markLat: hasMark ? this.editMarkLat : null,
+        markLon: hasMark ? this.editMarkLon : null,
+        markAltM: hasMark ? this.editMarkAltM : null,
+        markAddress: hasMark ? this.editMarkAddress : null,
+        clearMark: !hasMark,
+        refAzimuthDeg
+      })
+      .subscribe({
+        next: (saved) => {
+          this.cibleSaving = false;
+          this.cibleUpdatedOk = true;
+          this.cibleName = name;
+          this.ciblePhoto = this.editPhoto;
+          this.markLat = this.editMarkLat;
+          this.markLon = this.editMarkLon;
+          this.markAltM = this.editMarkAltM;
+          this.markAddress = this.editMarkAddress;
+          this.replaceCible(saved);
+          this.ciblePhoto = this.editPhoto;
+          saveActiveCibleId(saved.id ?? id);
+          this.closeCibleEdit();
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.cibleSaving = false;
+          this.editError = 'DIRECTION.TARGET_SAVE_FAIL';
+          this.cdr.markForCheck();
+        }
+      });
+  }
+
+  private initCibleEditMap(): void {
+    const el = this.cibleEditMapEl?.nativeElement;
+    if (!el) {
+      return;
+    }
+    this.destroyCibleEditMap();
+    const center = this.editMapCenter();
+    this.zone.runOutsideAngular(() => {
+      this.editMap = L.map(el, {
+        zoomControl: true,
+        attributionControl: true,
+        scrollWheelZoom: true,
+        keyboard: false
+      });
+      this.basemaps.applyBaseLayer(this.editMap, 'osm-standard', null);
+      this.editMap.setView(center, 14);
+      this.editMap.on('click', (e: L.LeafletMouseEvent) => {
+        this.zone.run(() => this.onEditMapClick(e.latlng.lat, e.latlng.lng));
+      });
+      this.syncEditMarkersToDraft(true);
+      requestAnimationFrame(() => this.editMap?.invalidateSize());
+      setTimeout(() => this.editMap?.invalidateSize(), 120);
+    });
+  }
+
+  private editMapCenter(): [number, number] {
+    if (this.editHasMark()) {
+      return [this.editMarkLat!, this.editMarkLon!];
+    }
+    if (this.editHasUser()) {
+      return [this.editUserLat!, this.editUserLon!];
+    }
+    return [46.2, 6.15];
+  }
+
+  private onEditMapClick(lat: number, lon: number): void {
+    if (this.editMapIgnoreClick) {
+      return;
+    }
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return;
+    }
+    if (this.editMapFocus === 'user') {
+      this.editUserLat = lat;
+      this.editUserLon = lon;
+      this.editUserAddress = null;
+      this.resolveEditUserAddress();
+    } else {
+      this.editMarkLat = lat;
+      this.editMarkLon = lon;
+      this.editMarkAddress = null;
+      this.resolveEditMarkAddress();
+    }
+    this.editError = null;
+    this.syncEditMarkersToDraft(false);
+    this.cdr.markForCheck();
+  }
+
+  private syncEditMarkersToDraft(fit: boolean): void {
+    const map = this.editMap;
+    if (!map) {
+      return;
+    }
+    if (this.editHasUser()) {
+      if (this.editUserMarker) {
+        this.editUserMarker.setLatLng([this.editUserLat!, this.editUserLon!]);
+      } else {
+        this.editUserMarker = this.createEditPin(
+          this.editUserLat!,
+          this.editUserLon!,
+          '#0066FF',
+          'user'
+        );
+        this.editUserMarker.addTo(map);
+      }
+    } else if (this.editUserMarker) {
+      map.removeLayer(this.editUserMarker);
+      this.editUserMarker = undefined;
+    }
+    if (this.editHasMark()) {
+      if (this.editMarkMarker) {
+        this.editMarkMarker.setLatLng([this.editMarkLat!, this.editMarkLon!]);
+      } else {
+        this.editMarkMarker = this.createEditPin(
+          this.editMarkLat!,
+          this.editMarkLon!,
+          '#FF0000',
+          'mark'
+        );
+        this.editMarkMarker.addTo(map);
+      }
+    } else if (this.editMarkMarker) {
+      map.removeLayer(this.editMarkMarker);
+      this.editMarkMarker = undefined;
+    }
+    this.updateEditLine();
+    const pts: L.LatLngExpression[] = [];
+    if (this.editHasUser()) {
+      pts.push([this.editUserLat!, this.editUserLon!]);
+    }
+    if (this.editHasMark()) {
+      pts.push([this.editMarkLat!, this.editMarkLon!]);
+    }
+    if (fit && pts.length) {
+      if (pts.length === 2) {
+        map.fitBounds(L.latLngBounds(pts), { padding: [36, 36], maxZoom: 16 });
+      } else {
+        map.setView(pts[0] as L.LatLngExpression, 14);
+      }
+    }
+  }
+
+  private createEditPin(lat: number, lon: number, color: string, kind: 'user' | 'mark'): L.Marker {
+    const icon = L.divIcon({
+      className: kind === 'user' ? 'dir-edit-pin dir-edit-pin--user' : 'dir-edit-pin dir-edit-pin--mark',
+      html: `<div style="width:25px;height:41px;position:relative">
+        <svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg" style="display:block">
+          <path d="M12.5 0C5.596 0 0 5.596 0 12.5c0 12.5 12.5 28.5 12.5 28.5s12.5-16 12.5-28.5C25 5.596 19.404 0 12.5 0z" fill="${color}" stroke="#FFFFFF" stroke-width="1"/>
+          <circle cx="12.5" cy="12.5" r="5" fill="#FFFFFF"/>
+        </svg>
+      </div>`,
+      iconSize: [25, 41],
+      iconAnchor: [12.5, 41]
+    });
+    const marker = L.marker([lat, lon], { draggable: true, icon, zIndexOffset: kind === 'mark' ? 1100 : 1000 });
+    marker.on('drag', () => this.applyEditMarkerDrag(kind, marker, false));
+    marker.on('dragend', () => {
+      this.editMapIgnoreClick = true;
+      setTimeout(() => {
+        this.editMapIgnoreClick = false;
+      }, 250);
+      this.applyEditMarkerDrag(kind, marker, true);
+    });
+    marker.on('click', (e: L.LeafletMouseEvent) => {
+      L.DomEvent.stopPropagation(e);
+      this.zone.run(() => {
+        this.editMapFocus = kind;
+        this.cdr.markForCheck();
+      });
+    });
+    return marker;
+  }
+
+  private applyEditMarkerDrag(kind: 'user' | 'mark', marker: L.Marker, geocode: boolean): void {
+    const pos = marker.getLatLng();
+    this.zone.run(() => {
+      if (kind === 'user') {
+        this.editUserLat = pos.lat;
+        this.editUserLon = pos.lng;
+        if (geocode) {
+          this.editUserAddress = null;
+          this.resolveEditUserAddress();
+        }
+      } else {
+        this.editMarkLat = pos.lat;
+        this.editMarkLon = pos.lng;
+        if (geocode) {
+          this.editMarkAddress = null;
+          this.resolveEditMarkAddress();
+        }
+      }
+      this.updateEditLine();
+      this.cdr.markForCheck();
+    });
+  }
+
+  private updateEditLine(): void {
+    const map = this.editMap;
+    if (!map) {
+      return;
+    }
+    const pts: L.LatLngExpression[] = [];
+    if (this.editHasUser()) {
+      pts.push([this.editUserLat!, this.editUserLon!]);
+    }
+    if (this.editHasMark()) {
+      pts.push([this.editMarkLat!, this.editMarkLon!]);
+    }
+    if (pts.length !== 2) {
+      this.clearEditLine();
+      return;
+    }
+    if (this.editLineHalo) {
+      this.editLineHalo.setLatLngs(pts);
+      this.editLineHalo.setStyle({ color: '#ffffff', weight: 3, opacity: 0.85 });
+    } else {
+      this.editLineHalo = L.polyline(pts, {
+        color: '#ffffff',
+        weight: 3,
+        opacity: 0.85,
+        lineCap: 'round',
+        interactive: false
+      }).addTo(map);
+    }
+    if (this.editLine) {
+      this.editLine.setLatLngs(pts);
+      this.editLine.setStyle({ color: '#0066FF', weight: 1.5, opacity: 1 });
+    } else {
+      this.editLine = L.polyline(pts, {
+        color: '#0066FF',
+        weight: 1.5,
+        opacity: 1,
+        lineCap: 'round',
+        interactive: false
+      }).addTo(map);
+    }
+    const az = cibleMarkBearingDeg(this.editUserLat, this.editUserLon, this.editMarkLat, this.editMarkLon);
+    const mid: L.LatLngExpression = [
+      (this.editUserLat! + this.editMarkLat!) / 2,
+      (this.editUserLon! + this.editMarkLon!) / 2
+    ];
+    const names = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+    const card = az != null ? names[Math.round(normalizeDeg(az) / 45) % 8] : '';
+    const text = az == null ? '—' : `${az.toFixed(2)}° ${card}`;
+    const icon = L.divIcon({
+      className: 'dir-edit-bearing-wrap',
+      html: `<div class="dir-edit-bearing">${text}</div>`,
+      iconSize: [168, 32],
+      iconAnchor: [84, 16]
+    });
+    if (this.editLineLabel) {
+      this.editLineLabel.setLatLng(mid);
+      this.editLineLabel.setIcon(icon);
+    } else {
+      this.editLineLabel = L.marker(mid, {
+        icon,
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: 1400
+      }).addTo(map);
+    }
+  }
+
+  private clearEditLine(): void {
+    const map = this.editMap;
+    if (this.editLineLabel) {
+      map?.removeLayer(this.editLineLabel);
+      this.editLineLabel = undefined;
+    }
+    if (this.editLine) {
+      map?.removeLayer(this.editLine);
+      this.editLine = undefined;
+    }
+    if (this.editLineHalo) {
+      map?.removeLayer(this.editLineHalo);
+      this.editLineHalo = undefined;
+    }
+  }
+
+  private resolveEditUserAddress(): void {
+    if (!this.editHasUser()) {
+      return;
+    }
+    const lat = this.editUserLat!;
+    const lon = this.editUserLon!;
+    this.editUserAddressBusy = true;
+    this.editUserAddressSub?.unsubscribe();
+    this.editUserAddressSub = this.api.geocodeReverse(lat, lon).subscribe({
+      next: (res) => {
+        this.editUserAddress = geocodeDisplayName(res);
+        this.editUserAddressBusy = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.editUserAddressBusy = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private resolveEditMarkAddress(): void {
+    if (!this.editHasMark()) {
+      return;
+    }
+    const lat = this.editMarkLat!;
+    const lon = this.editMarkLon!;
+    this.editMarkAddressBusy = true;
+    this.editMarkAddressSub?.unsubscribe();
+    this.editMarkAddressSub = this.api.geocodeReverse(lat, lon).subscribe({
+      next: (res) => {
+        this.editMarkAddress = geocodeDisplayName(res);
+        this.editMarkAddressBusy = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.editMarkAddressBusy = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private destroyCibleEditMap(): void {
+    this.editUserMarker = undefined;
+    this.editMarkMarker = undefined;
+    this.editLine = undefined;
+    this.editLineHalo = undefined;
+    this.editLineLabel = undefined;
+    if (this.editMap) {
+      this.editMap.remove();
+      this.editMap = undefined;
+    }
+  }
+
+  private snapCameraJpeg(): string | null {
+    const video = this.camEl?.nativeElement;
+    if (!video || !this.camLive || video.videoWidth < 8) {
+      return null;
+    }
+    const crop = Math.max(1, this.camDigitalZoom);
+    const srcW = video.videoWidth / crop;
+    const srcH = video.videoHeight / crop;
+    const sx = (video.videoWidth - srcW) / 2;
+    const sy = (video.videoHeight - srcH) / 2;
+    return this.drawToJpeg(video, sx, sy, srcW, srcH);
+  }
+
+  private imageToJpeg(img: HTMLImageElement): string {
+    return this.drawToJpeg(img, 0, 0, img.naturalWidth || img.width, img.naturalHeight || img.height);
+  }
+
+  private drawToJpeg(
+    source: CanvasImageSource,
+    sx: number,
+    sy: number,
+    sw: number,
+    sh: number
+  ): string {
+    const maxW = 720;
+    const ratio = Math.min(1, maxW / Math.max(1, sw));
+    const w = Math.round(sw * ratio);
+    const h = Math.round(sh * ratio);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, w);
+    canvas.height = Math.max(1, h);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return '';
+    }
+    ctx.drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.72);
   }
 
   saveNewCible(): void {
@@ -1742,11 +2735,10 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
       this.selectedCible()?.refAzimuthDeg,
       this.markBearingDeg()
     );
-    const before =
-      this.trueNorthActive && this.declinationDeg != null
-        ? normalizeDeg(facingMag + this.declinationDeg)
-        : facingMag;
-    return composeLookAzimuth(before, this.patFile?.derived ?? null);
+    return composeLookAzimuth(
+      applyLookDeclination(facingMag, this.trueNorthActive, this.declinationDeg),
+      this.patFile?.derived ?? null
+    );
   }
 
   horizonTilt(): string {
@@ -2205,10 +3197,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     if (this.magAzimuthDeg == null) {
       return null;
     }
-    if (this.trueNorthActive && this.declinationDeg != null) {
-      return normalizeDeg(this.magAzimuthDeg + this.declinationDeg);
-    }
-    return this.magAzimuthDeg;
+    return applyLookDeclination(this.magAzimuthDeg, this.trueNorthActive, this.declinationDeg);
   }
 
   private finishFigure8(): void {
@@ -2453,13 +3442,14 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     if (Number.isFinite(lat) && Number.isFinite(lon)) {
       this.gpsPrev = { lat, lon, tMs };
     }
-    if (this.calMethod !== 'gps' || this.magAzimuthDeg == null) {
+    const before = this.headingBeforeOffset();
+    if (this.calMethod !== 'gps' || before == null) {
       return;
     }
     if (course == null || this.walkSpeedMps == null || this.walkSpeedMps < this.calMinSpeedMps) {
       return;
     }
-    this.calAccum.push(circularDiff(course, this.magAzimuthDeg));
+    this.calAccum.push(circularDiff(course, before));
     this.calSamples = this.calAccum.length;
     if (this.calSamples >= this.calNeededSamples) {
       this.setOffset(circularMeanDeg(this.calAccum));

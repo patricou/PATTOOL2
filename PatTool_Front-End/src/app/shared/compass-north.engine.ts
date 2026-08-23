@@ -61,6 +61,20 @@ export function clearDirectionHardIron(): void {
   }
 }
 
+/** Nord vrai mémorisé (Direction / page Nord). Défaut true, comme l’interrupteur. */
+export function loadSharedTrueNorth(fallback = true): boolean {
+  try {
+    const raw = localStorage.getItem(NORD_CAL_STORAGE_KEY);
+    if (!raw) {
+      return fallback;
+    }
+    const data = JSON.parse(raw) as PersistedNordCal;
+    return data?.trueNorth !== false;
+  } catch {
+    return fallback;
+  }
+}
+
 /** Écrit le hard-iron partagé (Nord / astro-compass / Direction). */
 export function writeSharedNordCal(payload: PersistedNordCal): void {
   try {

@@ -188,18 +188,54 @@
   border-color: #3ee0c0;
 }
 
+.dir-tabs .nav-link.active::after,
+.dir-cam__view-btn--on::after,
+.dir-btn--on::after,
+.dir-cible-list__item--on .dir-cible-list__pick::after {
+  content: "\f00c";
+  font-family: FontAwesome, "FontAwesome";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #06240f;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 1.5px rgba(4, 17, 14, 0.28);
+}
+
+.dir-cam__view-btn--on::after {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin-left: 0.12rem;
+  font-size: 0.52rem;
+}
+
 .dir-cible-photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin: 0 0 0.65rem;
   border-radius: 0.55rem;
   border: 1px solid rgba(62, 224, 192, 0.22);
   background: #020607;
+  container-type: inline-size;
+  aspect-ratio: 4 / 3;
+  max-height: min(18rem, 42dvh);
+  overflow: hidden;
 }
 
 .dir-cible-photo img {
   display: block;
-  width: 100%;
+  width: auto;
   height: auto;
-  max-height: none;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
 }
 
@@ -398,6 +434,13 @@
   font-weight: 650;
 }
 
+.dir-btn--save {
+  background: linear-gradient(90deg, #ffd54a, #ffb347);
+  border-color: #e0a020;
+  color: #2a1e02;
+  font-weight: 800;
+}
+
 .dir-btn--danger {
   background: #5a221c;
   border-color: #ff8a78;
@@ -507,19 +550,48 @@ a.dir-btn--nord .fa {
 
 .dir-cam {
   position: relative;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   min-width: 0;
   width: 100%;
   border-radius: 0.85rem;
   background: #020607;
-  aspect-ratio: 1 / 1;
-  max-height: min(62vh, 520px);
-  container-type: size;
-  touch-action: pan-y;
+  touch-action: none;
 }
 
-.dir-cam--resized {
-  aspect-ratio: auto;
+.dir-cam__stage {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: min(56vh, 480px);
+  overflow: hidden;
+  container-type: size;
+}
+
+.dir-cam__aim {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  width: min(94cqi, 94cqb);
+  height: min(94cqi, 94cqb);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.dir-cam__aim > app-compass-rose.compass-rose--overlay {
+  position: absolute;
+  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+}
+
+.dir-cam--resized .dir-cam__stage {
   max-height: none;
 }
 
@@ -533,6 +605,15 @@ a.dir-btn--nord .fa {
   aspect-ratio: auto;
   border-radius: 0;
   background: #000;
+}
+
+.dir-cam--fs .dir-cam__stage,
+.dir-cam:fullscreen .dir-cam__stage,
+.dir-cam:-webkit-full-screen .dir-cam__stage {
+  flex: 1 1 auto;
+  max-height: none;
+  aspect-ratio: auto;
+  min-height: 0;
 }
 
 .dir-fs {
@@ -778,12 +859,76 @@ a.dir-btn--nord .fa {
 }
 
 .dir-cam video {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: scaleX(1);
-  touch-action: pan-y;
+  transform-origin: center center;
+  touch-action: none;
+  pointer-events: none;
+}
+
+.dir-cam__zoom {
+  position: absolute;
+  left: 0.4rem;
+  bottom: 0.45rem;
+  z-index: 8;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.22rem;
+  padding: 0.22rem 0.28rem;
+  border-radius: 0.55rem;
+  background: rgba(8, 12, 24, 0.62);
+  touch-action: manipulation;
+}
+
+.dir-cam--fs .dir-cam__zoom,
+.dir-cam:fullscreen .dir-cam__zoom,
+.dir-cam:-webkit-full-screen .dir-cam__zoom {
+  left: max(0.4rem, env(safe-area-inset-left, 0px));
+  bottom: 0.55rem;
+}
+
+.dir-cam__zoom-btn,
+.dir-cam__zoom-val {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.28rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: rgba(62, 224, 192, 0.92);
+  color: #062018;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.dir-cam__zoom-btn:disabled,
+.dir-cam__zoom-val:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.dir-cam__zoom-val {
+  min-width: 2.2rem;
+  background: rgba(234, 241, 255, 0.92);
+  color: #0b1220;
+  font-variant-numeric: tabular-nums;
+}
+
+.dir-cam__zoom-range {
+  width: 4.8rem;
+  height: 1.35rem;
+  margin: 0;
+  accent-color: #3ee0c0;
+  cursor: pointer;
 }
 
 .dir-cam__cible {
@@ -793,6 +938,7 @@ a.dir-btn--nord .fa {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transform-origin: center center;
   pointer-events: none;
 }
 
@@ -801,18 +947,49 @@ a.dir-btn--nord .fa {
   visibility: hidden;
 }
 
+.dir-cam-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.3rem 0.35rem 0.5rem;
+}
+
+.dir-cam-bar__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  min-height: 2.3rem;
+}
+
+.dir-cam-bar__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+}
+
+.dir-cam-bar .dir-cam__hold {
+  max-width: none;
+}
+
+.dir-cam-bar .dir-fs {
+  position: static;
+  top: auto;
+  right: auto;
+}
+
 .dir-cam__view-switch {
-  position: absolute;
-  z-index: 8;
-  top: 0.55rem;
-  left: 0.55rem;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.22rem;
-  width: min(11.8rem, calc(100% - 6.6rem));
+  width: min(13.4rem, calc(100% - 5.4rem));
 }
 
 .dir-cam__view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 2.05rem;
   padding: 0.22rem 0.35rem;
   border: 1px solid rgba(62, 224, 192, 0.42);
@@ -839,22 +1016,34 @@ a.dir-btn--nord .fa {
   cursor: not-allowed;
 }
 
-.dir-cam--fs .dir-cam__view-switch,
-.dir-cam:fullscreen .dir-cam__view-switch,
-.dir-cam:-webkit-full-screen .dir-cam__view-switch {
-  top: 0.75rem;
-  left: 0.75rem;
+.dir-cam__hold {
+  margin: 0;
+  max-width: 22rem;
+  padding: 0.28rem 0.5rem;
+  border-radius: 0.35rem;
+  background: rgba(2, 10, 12, 0.62);
+  color: #ffe9a8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  text-shadow: 0 1px 3px #000;
+}
+
+.dir-cam--fs .dir-cam-bar,
+.dir-cam:fullscreen .dir-cam-bar,
+.dir-cam:-webkit-full-screen .dir-cam-bar {
+  display: none;
 }
 
 .dir-cam__empty {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #5e8880;
-  font-size: 0.92rem;
-  pointer-events: none;
+  margin: 0;
+  max-width: 22rem;
+  color: #c5d4ce;
+  font-size: 0.74rem;
+  line-height: 1.3;
+  text-align: center;
+  text-shadow: 0 1px 3px #000;
 }
 
 .dir-horizon {
@@ -929,22 +1118,20 @@ a.dir-btn--nord .fa {
 }
 
 .dir-hud {
-  position: absolute;
-  left: 0.7rem;
-  right: 0.7rem;
-  bottom: 0.7rem;
+  position: relative;
+  flex: 0 0 auto;
   z-index: 5;
+  margin: 0;
+  padding: 0.2rem 0.7rem 1rem;
   pointer-events: none;
+  background: #020607;
   text-shadow: 0 1px 4px #000;
 }
 
 .dir-cam--fs .dir-hud,
 .dir-cam:fullscreen .dir-hud,
 .dir-cam:-webkit-full-screen .dir-hud {
-  top: max(0.7rem, env(safe-area-inset-top, 0px));
-  bottom: auto;
-  left: max(0.7rem, env(safe-area-inset-left, 0px));
-  right: 4.2rem;
+  padding-bottom: max(1.2rem, env(safe-area-inset-bottom, 0px));
 }
 
 .dir-hud__pair {
@@ -973,7 +1160,7 @@ a.dir-btn--nord .fa {
 .dir-cam--fs .dir-hud__num,
 .dir-cam:fullscreen .dir-hud__num,
 .dir-cam:-webkit-full-screen .dir-hud__num {
-  font-size: 3.5rem;
+  font-size: 2.2rem;
 }
 
 .dir-hud__az {
@@ -984,7 +1171,7 @@ a.dir-btn--nord .fa {
 }
 
 .dir-hud__num {
-  font-size: 3rem;
+  font-size: 1.85rem;
   font-weight: 700;
   line-height: 1;
   color: #3ee0c0;
@@ -1679,11 +1866,16 @@ section.dir-cal {
   }
 
   .dir-cam {
-    max-height: 42vh;
+    max-height: none;
+  }
+
+  .dir-cam__stage {
+    max-height: none;
+    min-height: 0;
   }
 
   .dir-hud__num {
-    font-size: 1.85rem;
+    font-size: 1.55rem;
   }
 
   .dir-hud__card {
@@ -1718,8 +1910,20 @@ section.dir-cal {
 }
 
 .dir-card--links .dir-btn--astro,
-.dir-card--links .dir-btn--nord {
+.dir-card--links .dir-btn--nord,
+.dir-card--links .dir-btn--check,
+.dir-card--links .dir-btn--go {
   width: 100%;
+}
+
+.dir-card--links .dir-btn--check,
+.dir-card--links .dir-btn--go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.45rem;
+  font-weight: 800;
 }
 
 .dir-cam__cta {
@@ -1971,6 +2175,15 @@ section.dir-cal {
   width: 100%;
 }
 
+.dir-actions__rule {
+  flex: 1 1 100%;
+  width: 100%;
+  height: 0;
+  margin: 0.2rem 0;
+  border: 0;
+  border-top: 1px solid rgba(62, 224, 192, 0.35);
+}
+
 .dir-methods {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2020,12 +2233,15 @@ section.dir-cal {
 
 .dir-modal {
   position: fixed;
-  inset: 0;
-  z-index: 80;
+  top: var(--navbar-height, 60px);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2000;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 1rem;
+  padding: 0.6rem 1rem 1rem;
 }
 
 .dir-modal__backdrop {
@@ -2102,6 +2318,137 @@ section.dir-cal {
 
 .dir-modal__box--json {
   width: min(40rem, 100%);
+}
+
+.dir-modal__box--edit {
+  width: min(42rem, 100%);
+  max-height: calc(100dvh - var(--navbar-height, 60px) - 1.4rem);
+}
+
+.dir-modal__box--edit:focus {
+  outline: none;
+}
+
+.dir-modal__box--edit:focus-visible {
+  outline: 2px solid rgba(62, 224, 192, 0.55);
+  outline-offset: 2px;
+}
+
+.dir-modal__box--edit .dir-btn {
+  width: auto;
+  margin-top: 0;
+}
+
+.dir-modal__box--edit .dir-cible-name {
+  margin-bottom: 0.55rem;
+}
+
+.dir-edit-photo {
+  margin: 0 0 0.65rem;
+}
+
+.dir-edit-photo__preview {
+  margin: 0 0 0.45rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(62, 224, 192, 0.22);
+  background: #020607;
+  overflow: hidden;
+}
+
+.dir-edit-photo__preview img {
+  display: block;
+  width: 100%;
+  max-height: 8.5rem;
+  object-fit: contain;
+}
+
+.dir-edit-photo__acts,
+.dir-edit-map-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.dir-edit-photo__acts .dir-btn,
+.dir-edit-map-tools .dir-btn {
+  width: auto;
+  margin-top: 0;
+  flex: 1 1 auto;
+}
+
+.dir-edit-map-hint {
+  margin: 0.45rem 0 0.4rem;
+}
+
+.dir-edit-map {
+  width: 100%;
+  height: min(42vh, 18rem);
+  margin: 0 0 0.55rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(62, 224, 192, 0.28);
+  background: #071018;
+  overflow: hidden;
+}
+
+.dir-edit-map .leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #071018;
+}
+
+.dir-edit-pin,
+.dir-edit-bearing-wrap {
+  background: none !important;
+  border: none !important;
+}
+
+.dir-edit-map .leaflet-div-icon.dir-edit-bearing-wrap {
+  background: transparent !important;
+  border: none !important;
+  overflow: visible !important;
+}
+
+.dir-edit-bearing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 168px;
+  height: 32px;
+  white-space: nowrap;
+  color: #e10600;
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  text-shadow:
+    -1px -1px 0 #fff,
+    1px -1px 0 #fff,
+    -1px 1px 0 #fff,
+    1px 1px 0 #fff,
+    0 0 5px #fff;
+  pointer-events: none;
+}
+
+.dir-edit-dl {
+  margin-bottom: 0.2rem;
+}
+
+.dir-edit-dl > div.dir-edit-dl__addr {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+
+.dir-edit-dl > div.dir-edit-dl__addr dd {
+  text-align: left;
+  font-variant-numeric: normal;
+  word-break: break-word;
+}
+
+.dir-modal__box--edit .dir-modal__btns .dir-btn {
+  width: auto;
+  flex: 1 1 8rem;
+  margin-top: 0.75rem;
 }
 
 .dir-modal__json {

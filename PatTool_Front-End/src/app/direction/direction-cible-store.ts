@@ -1,4 +1,4 @@
-import { haversineM, initialBearingDeg, normalizeDeg } from './direction-attitude';
+import { circularDiff, haversineM, initialBearingDeg, normalizeDeg } from './direction-attitude';
 
 const ACTIVE_KEY = 'pat.direction.cible.active-id.v1';
 
@@ -77,6 +77,27 @@ export function cibleSensorHeadingFacingMark(
     return normalizeDeg(lockedMagHeadingDeg);
   }
   return normalizeDeg(lockedMagHeadingDeg + (liveMarkBearingDeg - lockedRefAzimuthDeg));
+}
+
+/** Écart live ↔ orientation attendue face au repère (gisement GPS à jour). */
+export function cibleLockDeltaDeg(
+  liveRawDeg?: number | null,
+  lockedMagHeadingDeg?: number | null,
+  lockedRefAzimuthDeg?: number | null,
+  liveMarkBearingDeg?: number | null
+): number | null {
+  if (liveRawDeg == null || lockedMagHeadingDeg == null) {
+    return null;
+  }
+  if (!Number.isFinite(liveRawDeg) || !Number.isFinite(lockedMagHeadingDeg)) {
+    return null;
+  }
+  const facing = cibleSensorHeadingFacingMark(
+    lockedMagHeadingDeg,
+    lockedRefAzimuthDeg,
+    liveMarkBearingDeg
+  );
+  return circularDiff(liveRawDeg, facing);
 }
 
 /** Cap relatif à la cible : 0° = téléphone pointé comme au dernier calage. */

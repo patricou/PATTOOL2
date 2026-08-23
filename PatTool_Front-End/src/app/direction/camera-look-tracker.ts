@@ -11,8 +11,14 @@ import {
   cameraFromMagAccel,
   normalizeDeg
 } from './direction-attitude';
-import { NORD_CAL_STORAGE_KEY, type PersistedNordCal } from '../shared/compass-north.engine';
 import {
+  DIRECTION_HARDIRON_KEY,
+  NORD_CAL_STORAGE_KEY,
+  loadSharedTrueNorth,
+  type PersistedNordCal
+} from '../shared/compass-north.engine';
+import {
+  applyLookDeclination,
   canonicalizeLookCal,
   composeLookAzimuth,
   composeLookElevation,
@@ -57,6 +63,9 @@ export class CameraLookTracker {
   manualOffsetDeg = 0;
   /** Décalage manuel élévation (calage « position exacte »). */
   manualElOffsetDeg = 0;
+  /** Même interrupteur que la page Direction (Nord vrai). */
+  trueNorth = true;
+  declinationDeg: number | null = null;
 
   private mag: Vec3 = { x: 0, y: 0, z: 0 };
   private accel: Vec3 = { x: 0, y: 0, z: 9.81 };
@@ -88,6 +97,7 @@ export class CameraLookTracker {
 
   async start(fromTap: boolean): Promise<void> {
     canonicalizeLookCal();
+    this.trueNorth = loadSharedTrueNorth(this.trueNorth);
     this.needTap = false;
     this.denied = false;
     const doe = window.DeviceOrientationEvent as unknown as {
@@ -168,6 +178,22 @@ export class CameraLookTracker {
     this.lastPaint = 0;
     this.publish();
     return true;
+  }
+
+  setTrueNorthCorrection(trueNorth: boolean, declinationDeg: number | null): void {
+    const nextDec =
+      declinationDeg != null && Number.isFinite(declinationDeg) ? declinationDeg : null;
+    if (this.trueNorth === trueNorth && this.declinationDeg === nextDec) {
+      return;
+    }
+    this.trueNorth = trueNorth;
+    this.declinationDeg = nextDec;
+    this.lastPaint = 0;
+    this.publish();
+  }
+
+  private trueNorthActive(): boolean {
+    return this.trueNorth && this.declinationDeg != null && Number.isFinite(this.declinationDeg);
   }
 
   hasManualAlign(): boolean {
@@ -472,7 +498,10 @@ export class CameraLookTracker {
     this.manualOffsetDeg = d?.azOffsetDeg ?? 0;
     this.manualElOffsetDeg = d?.elOffsetDeg ?? 0;
     this.rawAzimuthDeg = az;
-    this.azimuthDeg = composeLookAzimuth(az, d);
+    this.azimuthDeg = composeLookAzimuth(
+      applyLookDeclination(az, this.trueNorthActive(), this.declinationDeg),
+      d
+    );
     if (this.rawElevationDeg != null) {
       this.elevationDeg = composeLookElevation(this.rawElevationDeg, d);
     }
@@ -486,22 +515,32 @@ export class CameraLookTracker {
 }
 
 function applyStoredHardIron(v: Vec3): Vec3 {
-  try {
-    const raw = localStorage.getItem(NORD_CAL_STORAGE_KEY);
-    if (!raw) {
-      return v;
-    }
-    const d = JSON.parse(raw) as PersistedNordCal;
-    if (!d?.bias) {
-      return v;
-    }
-    const s = d.scale ?? { x: 1, y: 1, z: 1 };
-    return {
-      x: (v.x - d.bias.x) * (s.x ?? 1),
-      y: (v.y - d.bias.y) * (s.y ?? 1),
-      z: (v.z - d.bias.z) * (s.z ?? 1)
-    };
-  } catch {
+  const cal = loadStoredHardIron();
+  if (!cal) {
     return v;
   }
+  const s = cal.scale ?? { x: 1, y: 1, z: 1 };
+  return {
+    x: (v.x - cal.bias.x) * (s.x ?? 1),
+    y: (v.y - cal.bias.y) * (s.y ?? 1),
+    z: (v.z - cal.bias.z) * (s.z ?? 1)
+  };
+}
+
+function loadStoredHardIron(): { bias: { x: number; y: number; z: number }; scale?: { x?: number; y?: number; z?: number } } | null {
+  for (const key of [NORD_CAL_STORAGE_KEY, DIRECTION_HARDIRON_KEY]) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) {
+        continue;
+      }
+      const d = JSON.parse(raw) as PersistedNordCal;
+      if (d?.bias) {
+        return d;
+      }
+    } catch {
+      /* try next key */
+    }
+  }
+  return null;
 }

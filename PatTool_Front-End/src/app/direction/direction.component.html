@@ -35,62 +35,37 @@
   </ul>
 
   <section class="dir-card dir-card--stage" [attr.aria-label]="'DIRECTION.STAGE_ARIA' | translate">
-  <div class="dir-stage" [class.dir-stage--pat]="patWizard">
+  <div class="dir-cam-bar" *ngIf="!patWizard">
+    <div class="dir-cam-bar__row">
     <div
-      class="dir-cam"
-      #camStage
-      [class.dir-cam--fs]="isFullscreen"
-      [class.dir-cam--resized]="!isFullscreen && camHeightPx != null"
-      [class.dir-cam--photo]="showCiblePhotoOnStage()"
-      [style.height.px]="!isFullscreen && camHeightPx != null ? camHeightPx : null">
-      <video #cam playsinline muted autoplay></video>
-      <img
-        class="dir-cam__cible"
-        *ngIf="showCiblePhotoOnStage()"
-        [src]="ciblePhoto"
-        alt="" />
-      <div class="dir-cam__empty" *ngIf="!camLive && !showCiblePhotoOnStage()">{{ 'DIRECTION.CAM_PLACEHOLDER' | translate }}</div>
-      <div
-        class="dir-cam__view-switch"
-        *ngIf="activeTab === 'cible' && !patWizard"
-        role="tablist"
-        [attr.aria-label]="'DIRECTION.TARGET_VIEW_ARIA' | translate">
-        <button
-          type="button"
-          class="dir-cam__view-btn"
-          [class.dir-cam__view-btn--on]="!showCiblePhotoOnStage()"
-          (click)="setCibleStageView('camera')"
-          role="tab"
-          [attr.aria-selected]="!showCiblePhotoOnStage()">
-          <i class="fa fa-video-camera" aria-hidden="true"></i>
-          {{ 'DIRECTION.TARGET_VIEW_CAM' | translate }}
-        </button>
-        <button
-          type="button"
-          class="dir-cam__view-btn"
-          [class.dir-cam__view-btn--on]="showCiblePhotoOnStage()"
-          [disabled]="!ciblePhoto"
-          (click)="setCibleStageView('photo')"
-          role="tab"
-          [attr.aria-selected]="showCiblePhotoOnStage()"
-          [attr.title]="(!ciblePhoto ? 'DIRECTION.TARGET_PHOTO_EMPTY' : 'DIRECTION.TARGET_VIEW_PHOTO') | translate">
-          <i class="fa fa-picture-o" aria-hidden="true"></i>
-          {{ 'DIRECTION.TARGET_VIEW_PHOTO' | translate }}
-        </button>
-      </div>
-      <div class="dir-horizon" [style.transform]="horizonTilt()" aria-hidden="true"></div>
-      <div class="dir-reticle" aria-hidden="true">
-        <span class="dir-reticle__h"></span>
-        <span class="dir-reticle__v"></span>
-        <span class="dir-reticle__c"></span>
-      </div>
-      <app-compass-rose
-        *ngIf="!patWizard"
-        variant="overlay"
-        [rotationDeg]="roseDeg()"
-        [markAzimuthDeg]="cibleRoseAzimuthDeg()"
-        [attr.aria-label]="'DIRECTION.ROSE_ARIA' | translate">
-      </app-compass-rose>
+      class="dir-cam__view-switch"
+      *ngIf="activeTab === 'cible'"
+      role="tablist"
+      [attr.aria-label]="'DIRECTION.TARGET_VIEW_ARIA' | translate">
+      <button
+        type="button"
+        class="dir-cam__view-btn"
+        [class.dir-cam__view-btn--on]="!showCiblePhotoOnStage()"
+        (click)="setCibleStageView('camera')"
+        role="tab"
+        [attr.aria-selected]="!showCiblePhotoOnStage()">
+        <i class="fa fa-video-camera" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_VIEW_CAM' | translate }}
+      </button>
+      <button
+        type="button"
+        class="dir-cam__view-btn"
+        [class.dir-cam__view-btn--on]="showCiblePhotoOnStage()"
+        [disabled]="!ciblePhoto"
+        (click)="setCibleStageView('photo')"
+        role="tab"
+        [attr.aria-selected]="showCiblePhotoOnStage()"
+        [attr.title]="(!ciblePhoto ? 'DIRECTION.TARGET_PHOTO_EMPTY' : 'DIRECTION.TARGET_VIEW_PHOTO') | translate">
+        <i class="fa fa-picture-o" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_VIEW_PHOTO' | translate }}
+      </button>
+    </div>
+    <div class="dir-cam-bar__tools">
       <button
         type="button"
         class="dir-fs dir-fs--info"
@@ -109,6 +84,117 @@
         [attr.aria-label]="(isFullscreen ? 'DIRECTION.EXIT_FULLSCREEN' : 'DIRECTION.FULLSCREEN') | translate">
         <i class="fa" [class.fa-compress]="isFullscreen" [class.fa-expand]="!isFullscreen" aria-hidden="true"></i>
       </button>
+    </div>
+    </div>
+    <p
+      class="dir-cam__hold"
+      *ngIf="activeTab === 'calibrage' || (activeTab === 'cible' && !showCiblePhotoOnStage())">
+      {{ (activeTab === 'cible' ? 'DIRECTION.HOLD_VERTICAL' : 'DIRECTION.HOLD_FLAT') | translate }}
+    </p>
+  </div>
+  <div class="dir-stage" [class.dir-stage--pat]="patWizard">
+    <div
+      class="dir-cam"
+      #camStage
+      [class.dir-cam--fs]="isFullscreen"
+      [class.dir-cam--resized]="!isFullscreen && camHeightPx != null"
+      [class.dir-cam--photo]="showCiblePhotoOnStage()"
+      [class.dir-cam--cible]="activeTab === 'cible' && !patWizard"
+      [class.dir-cam--zoomed]="showCamZoom() && camZoom > 1">
+      <div
+        class="dir-cam__stage"
+        [style.max-height.px]="!isFullscreen && camHeightPx != null ? camHeightPx : null">
+      <video
+        #cam
+        playsinline
+        muted
+        autoplay
+        webkit-playsinline
+        [style.transform]="showCamZoom() ? camVideoTransform : null"></video>
+      <img
+        class="dir-cam__cible"
+        *ngIf="showCiblePhotoOnStage()"
+        [src]="ciblePhoto"
+        [style.transform]="camVideoTransform"
+        alt="" />
+      <div class="dir-cam__aim">
+        <div class="dir-horizon" [style.transform]="horizonTilt()" aria-hidden="true"></div>
+        <div class="dir-reticle" aria-hidden="true">
+          <span class="dir-reticle__h"></span>
+          <span class="dir-reticle__v"></span>
+          <span class="dir-reticle__c"></span>
+        </div>
+        <app-compass-rose
+          *ngIf="!patWizard"
+          variant="overlay"
+          [rotationDeg]="roseDeg()"
+          [markAzimuthDeg]="cibleRoseAzimuthDeg()"
+          [attr.aria-label]="'DIRECTION.ROSE_ARIA' | translate">
+        </app-compass-rose>
+      </div>
+      <div
+        class="dir-cam__zoom"
+        *ngIf="showCamZoom()"
+        role="group"
+        [attr.aria-label]="'DIRECTION.CAM_ZOOM' | translate">
+        <button
+          type="button"
+          class="dir-cam__zoom-btn"
+          (click)="camZoomOut()"
+          [disabled]="camZoom <= camZoomMin"
+          [attr.title]="'DIRECTION.CAM_ZOOM_OUT' | translate"
+          [attr.aria-label]="'DIRECTION.CAM_ZOOM_OUT' | translate">
+          <i class="fa fa-minus" aria-hidden="true"></i>
+        </button>
+        <input
+          type="range"
+          class="dir-cam__zoom-range"
+          [min]="camZoomMin"
+          [max]="camZoomMax"
+          [step]="camZoomStep"
+          [value]="camZoom"
+          (input)="onCamZoomInput($event)"
+          [attr.aria-valuetext]="camZoomLabel"
+          [attr.aria-label]="'DIRECTION.CAM_ZOOM' | translate" />
+        <button
+          type="button"
+          class="dir-cam__zoom-btn"
+          (click)="camZoomIn()"
+          [disabled]="camZoom >= camZoomMax"
+          [attr.title]="'DIRECTION.CAM_ZOOM_IN' | translate"
+          [attr.aria-label]="'DIRECTION.CAM_ZOOM_IN' | translate">
+          <i class="fa fa-plus" aria-hidden="true"></i>
+        </button>
+        <button
+          type="button"
+          class="dir-cam__zoom-val"
+          (click)="resetCamZoom()"
+          [disabled]="camZoom <= camZoomMin"
+          [attr.title]="'DIRECTION.CAM_ZOOM_RESET' | translate"
+          [attr.aria-label]="'DIRECTION.CAM_ZOOM_RESET' | translate">
+          {{ camZoomLabel }}
+        </button>
+      </div>
+      <button
+        type="button"
+        class="dir-fs dir-fs--info"
+        *ngIf="isFullscreen"
+        (click)="toggleQuickHint()"
+        [class.dir-fs--on]="showQuickHint"
+        [attr.title]="(activeTab === 'cible' ? 'DIRECTION.INFO_OPEN_HINT_CIBLE' : 'DIRECTION.INFO_OPEN_HINT') | translate"
+        [attr.aria-label]="'DIRECTION.INFO_OPEN' | translate"
+        [attr.aria-expanded]="showQuickHint">
+        <i class="fa fa-info-circle" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="dir-fs"
+        *ngIf="isFullscreen"
+        (click)="toggleFullscreen()"
+        [attr.title]="'DIRECTION.EXIT_FULLSCREEN' | translate"
+        [attr.aria-label]="'DIRECTION.EXIT_FULLSCREEN' | translate">
+        <i class="fa fa-compress" aria-hidden="true"></i>
+      </button>
       <div class="dir-cam-info" *ngIf="showQuickHint" role="note">
         <div class="dir-help">
           <ng-container *ngTemplateOutlet="dirTabHelp"></ng-container>
@@ -123,19 +209,6 @@
       </div>
       <button
         type="button"
-        class="dir-cam-resize"
-        *ngIf="!isFullscreen"
-        (pointerdown)="startCamResize($event)"
-        (pointermove)="onCamResizeMove($event)"
-        (pointerup)="endCamResize($event)"
-        (pointercancel)="endCamResize($event)"
-        (dblclick)="resetCamSize($event)"
-        [attr.title]="'DIRECTION.CAM_RESIZE_HINT' | translate"
-        [attr.aria-label]="'DIRECTION.CAM_RESIZE' | translate">
-        <span aria-hidden="true"></span>
-      </button>
-      <button
-        type="button"
         class="dir-btn dir-btn--go dir-fs-north"
         *ngIf="isFullscreen && !patWizard"
         [disabled]="magAzimuthDeg == null"
@@ -143,6 +216,7 @@
         <i class="fa fa-location-arrow" aria-hidden="true"></i>
         {{ 'DIRECTION.CAL_MANUAL_CONFIRM' | translate }}
       </button>
+      </div>
       <div class="dir-hud">
         <div class="dir-hud__pair">
           <div class="dir-hud__metric">
@@ -160,12 +234,20 @@
             </div>
           </div>
         </div>
-        <p class="dir-hud__pat" *ngIf="activeTab === 'cible' && !patWizard && selectedCible()">
-          {{ selectedCible()?.name }}
-          · {{ 'DIRECTION.TARGET_LOCK_DELTA' | translate }}
-          {{ cibleLockDeltaText() }}
-        </p>
       </div>
+      <button
+        type="button"
+        class="dir-cam-resize"
+        *ngIf="!isFullscreen"
+        (pointerdown)="startCamResize($event)"
+        (pointermove)="onCamResizeMove($event)"
+        (pointerup)="endCamResize($event)"
+        (pointercancel)="endCamResize($event)"
+        (dblclick)="resetCamSize($event)"
+        [attr.title]="'DIRECTION.CAM_RESIZE_HINT' | translate"
+        [attr.aria-label]="'DIRECTION.CAM_RESIZE' | translate">
+        <span aria-hidden="true"></span>
+      </button>
     </div>
 
     <aside class="dir-side" *ngIf="patWizard">
@@ -203,6 +285,7 @@
             *ngIf="patPhase === 'north'"
             [disabled]="magAzimuthDeg == null"
             (click)="confirmPatNorth()">
+            <i class="fa fa-location-arrow" aria-hidden="true"></i>
             {{ 'DIRECTION.PAT_NORTH_SAVE' | translate }}
           </button>
           <button
@@ -211,9 +294,11 @@
             *ngIf="patPhase === 'poses'"
             [disabled]="patCapturing || patSaving"
             (click)="capturePatPose()">
+            <i class="fa fa-camera" aria-hidden="true"></i>
             {{ 'DIRECTION.PAT_SAVE' | translate }}
           </button>
           <button type="button" class="dir-btn" [disabled]="patCapturing || patSaving" (click)="cancelPatWizard()">
+            <i class="fa fa-times" aria-hidden="true"></i>
             {{ 'DIRECTION.CAL_CANCEL' | translate }}
           </button>
         </div>
@@ -227,19 +312,38 @@
     *ngIf="!patWizard"
     [attr.aria-label]="'DIRECTION.OPEN_NORD' | translate">
     <div class="dir-links">
-      <a
-        class="dir-btn dir-btn--link dir-btn--nord"
-        routerLink="/tools/nord"
-        [attr.title]="'DIRECTION.OPEN_NORD_HINT' | translate">
-        <i class="fa fa-compass" aria-hidden="true"></i>
-        {{ 'DIRECTION.OPEN_NORD' | translate }}
-      </a>
+      <button
+        type="button"
+        class="dir-btn dir-btn--check"
+        *ngIf="activeTab === 'cible' && selectedCibleId"
+        [disabled]="cibleSaving"
+        (click)="checkCibleDrift()"
+        [attr.title]="'DIRECTION.TARGET_CHECK_HINT' | translate">
+        <i class="fa fa-stethoscope" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_CHECK' | translate }}
+      </button>
+      <button
+        type="button"
+        class="dir-btn dir-btn--go"
+        *ngIf="activeTab === 'cible' && selectedCibleId"
+        [disabled]="cibleSaving || magAzimuthDeg == null"
+        (click)="recalibrateCible()">
+        <i class="fa fa-refresh" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_RECAL' | translate }}
+      </button>
       <a
         class="dir-btn dir-btn--link dir-btn--astro"
         routerLink="/tools/astro-compass"
         [attr.title]="'DIRECTION.OPEN_ASTRO_HINT' | translate">
         <i class="fa fa-video-camera" aria-hidden="true"></i>
         {{ 'DIRECTION.OPEN_ASTRO' | translate }}
+      </a>
+      <a
+        class="dir-btn dir-btn--link dir-btn--nord"
+        routerLink="/tools/nord"
+        [attr.title]="'DIRECTION.OPEN_NORD_HINT' | translate">
+        <i class="fa fa-compass" aria-hidden="true"></i>
+        {{ 'DIRECTION.OPEN_NORD' | translate }}
       </a>
     </div>
   </section>
@@ -280,6 +384,7 @@
         {{ 'DIRECTION.CAL_MANUAL_CONFIRM' | translate }}
       </button>
       <button type="button" class="dir-btn" [disabled]="offsetDeg === 0" (click)="resetOffset()">
+        <i class="fa fa-undo" aria-hidden="true"></i>
         {{ 'DIRECTION.RESET_ZERO' | translate }}
       </button>
     </div>
@@ -366,9 +471,13 @@
       <div class="dir-cal__bar" *ngIf="calibrating"><i [style.width.%]="calPct"></i></div>
       <div class="dir-actions">
         <button type="button" class="dir-btn dir-btn--go" [disabled]="!sensorsOn" (click)="startCal()">
+          <i class="fa fa-play" aria-hidden="true"></i>
           {{ 'DIRECTION.CAL_START' | translate }}
         </button>
-        <button type="button" class="dir-btn" (click)="cancelCalMethod()">{{ 'DIRECTION.CAL_CANCEL' | translate }}</button>
+        <button type="button" class="dir-btn" (click)="cancelCalMethod()">
+          <i class="fa fa-times" aria-hidden="true"></i>
+          {{ 'DIRECTION.CAL_CANCEL' | translate }}
+        </button>
       </div>
     </div>
 
@@ -382,7 +491,10 @@
       <p *ngIf="!walkingFastEnough()">{{ 'DIRECTION.CAL_MOVE_MORE' | translate }}</p>
       <div class="dir-cal__bar"><i [style.width.%]="(calSamples / calNeededSamples) * 100"></i></div>
       <p>{{ calSamples }} / {{ calNeededSamples }}</p>
-      <button type="button" class="dir-btn" (click)="cancelCalMethod()">{{ 'DIRECTION.CAL_CANCEL' | translate }}</button>
+      <button type="button" class="dir-btn" (click)="cancelCalMethod()">
+        <i class="fa fa-times" aria-hidden="true"></i>
+        {{ 'DIRECTION.CAL_CANCEL' | translate }}
+      </button>
     </div>
 
     <div class="dir-cal__panel" *ngIf="calMethod === 'sun'">
@@ -399,9 +511,13 @@
       </p>
       <div class="dir-actions">
         <button type="button" class="dir-btn dir-btn--go" [disabled]="sunAzimuthDeg() == null || magAzimuthDeg == null" (click)="confirmSunNorth()">
+          <i class="fa fa-sun-o" aria-hidden="true"></i>
           {{ 'DIRECTION.CAL_SUN_CONFIRM' | translate }}
         </button>
-        <button type="button" class="dir-btn" (click)="cancelCalMethod()">{{ 'DIRECTION.CAL_CANCEL' | translate }}</button>
+        <button type="button" class="dir-btn" (click)="cancelCalMethod()">
+          <i class="fa fa-times" aria-hidden="true"></i>
+          {{ 'DIRECTION.CAL_CANCEL' | translate }}
+        </button>
       </div>
     </div>
   </section>
@@ -425,9 +541,11 @@
         [disabled]="!sensorsOn"
         (click)="startPatWizard()"
         [attr.title]="'DIRECTION.PAT_START_HINT' | translate">
+        <i class="fa" [class.fa-refresh]="patDbCount > 0" [class.fa-play]="patDbCount <= 0" aria-hidden="true"></i>
         {{ (patDbCount > 0 ? 'DIRECTION.PAT_RECAL' : 'DIRECTION.PAT_START') | translate }}
       </button>
       <button type="button" class="dir-btn" (click)="togglePatExtra()">
+        <i class="fa" [class.fa-chevron-up]="showPatExtra" [class.fa-chevron-down]="!showPatExtra" aria-hidden="true"></i>
         {{ (showPatExtra ? 'DIRECTION.HIDE_MORE' : 'DIRECTION.SHOW_MORE') | translate }}
       </button>
     </div>
@@ -440,6 +558,7 @@
             class="dir-btn"
             [class.dir-btn--on]="patMixMode === 'latest'"
             (click)="setPatMixMode('latest')">
+            <i class="fa fa-clock-o" aria-hidden="true"></i>
             {{ 'DIRECTION.PAT_MIX_LATEST' | translate }}
           </button>
           <button
@@ -447,19 +566,23 @@
             class="dir-btn"
             [class.dir-btn--on]="patMixMode === 'average'"
             (click)="setPatMixMode('average')">
+            <i class="fa fa-balance-scale" aria-hidden="true"></i>
             {{ 'DIRECTION.PAT_MIX_AVG' | translate : { n: patSeriesCount() } }}
           </button>
         </div>
       </div>
       <div class="dir-actions">
         <button type="button" class="dir-btn" (click)="exportPatDb()" [disabled]="patDbLoading">
+          <i class="fa fa-download" aria-hidden="true"></i>
           {{ 'DIRECTION.PAT_EXPORT' | translate }}
         </button>
         <label class="dir-btn" [attr.title]="'DIRECTION.PAT_IMPORT_HINT' | translate">
+          <i class="fa fa-upload" aria-hidden="true"></i>
           {{ 'DIRECTION.PAT_IMPORT' | translate }}
           <input type="file" accept="application/json,.json" (change)="importPatFile($event)" />
         </label>
         <button type="button" class="dir-btn dir-btn--danger" (click)="clearPatDb()" [disabled]="patDbLoading">
+          <i class="fa fa-trash" aria-hidden="true"></i>
           {{ 'DIRECTION.PAT_FORGET' | translate }}
         </button>
       </div>
@@ -497,6 +620,7 @@
       <ng-container *ngTemplateOutlet="dirTabHelp"></ng-container>
     </div>
     <p class="dir-card__help">{{ 'DIRECTION.TARGET_HELP' | translate }}</p>
+    <p class="dir-msg dir-msg--ok" *ngIf="cibleUpdatedOk">{{ 'DIRECTION.TARGET_UPDATE_OK' | translate }}</p>
     <p class="dir-msg" *ngIf="!sensorsOn">{{ 'DIRECTION.TARGET_NEED_SENSORS' | translate }}</p>
     <p
       class="dir-msg dir-msg--ok dir-cible-lock"
@@ -563,42 +687,27 @@
       {{ 'DIRECTION.TARGET_MARK_NEAR' | translate : { m: (markDistanceM() ?? 0) | number : '1.0-0' } }}
     </p>
     <div class="dir-actions">
-      <button type="button" class="dir-btn dir-btn--go" (click)="openTraceViewerForMark()">
-        <i class="fa fa-map-marker" aria-hidden="true"></i>
-        {{ 'DIRECTION.TARGET_MARK_PICK' | translate }}
+      <button
+        type="button"
+        class="dir-btn"
+        *ngIf="selectedCibleId"
+        [disabled]="cibleSaving"
+        (click)="openCibleEditSelected()">
+        <i class="fa fa-pencil" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_EDIT' | translate }}
       </button>
-      <button type="button" class="dir-btn" *ngIf="hasMark()" (click)="clearCibleMark()">
-        {{ 'DIRECTION.TARGET_MARK_CLEAR' | translate }}
-      </button>
-    </div>
-    <div class="dir-actions">
       <button
         type="button"
         class="dir-btn dir-btn--go"
         *ngIf="!selectedCibleId"
         [disabled]="cibleSaving || magAzimuthDeg == null"
         (click)="saveNewCible()">
+        <i class="fa fa-floppy-o" aria-hidden="true"></i>
         {{ 'DIRECTION.TARGET_SAVE' | translate }}
       </button>
-      <button
-        type="button"
-        class="dir-btn dir-btn--go"
-        *ngIf="selectedCibleId"
-        [disabled]="cibleSaving || magAzimuthDeg == null"
-        (click)="recalibrateCible()">
-        {{ 'DIRECTION.TARGET_RECAL' | translate }}
-      </button>
-      <button
-        type="button"
-        class="dir-btn"
-        *ngIf="selectedCibleId"
-        [disabled]="cibleSaving"
-        (click)="checkCibleDrift()"
-        [attr.title]="'DIRECTION.TARGET_CHECK_HINT' | translate">
-        <i class="fa fa-stethoscope" aria-hidden="true"></i>
-        {{ 'DIRECTION.TARGET_CHECK' | translate }}
-      </button>
+      <hr class="dir-actions__rule" *ngIf="selectedCibleId" aria-hidden="true" />
       <button type="button" class="dir-btn" *ngIf="selectedCibleId" [disabled]="cibleSaving" (click)="startNewCible()">
+        <i class="fa fa-plus" aria-hidden="true"></i>
         {{ 'DIRECTION.TARGET_NEW' | translate }}
       </button>
     </div>
@@ -619,6 +728,14 @@
             <strong>{{ c.name }}</strong>
             <small *ngIf="c.updatedAt">{{ c.updatedAt | date : 'short' }}</small>
           </span>
+        </button>
+        <button
+          type="button"
+          class="dir-btn dir-btn--tiny"
+          (click)="openCibleEdit(c, $event)"
+          [attr.title]="'DIRECTION.TARGET_EDIT' | translate"
+          [attr.aria-label]="'DIRECTION.TARGET_EDIT' | translate">
+          <i class="fa fa-pencil" aria-hidden="true"></i>
         </button>
         <button
           type="button"
@@ -651,6 +768,7 @@
         {{ (ciblePhoto ? 'DIRECTION.TARGET_PHOTO_RETAKE' : 'DIRECTION.TARGET_PHOTO_TAKE') | translate }}
       </button>
       <button type="button" class="dir-btn" *ngIf="ciblePhoto" (click)="clearCiblePhoto()">
+        <i class="fa fa-times" aria-hidden="true"></i>
         {{ 'DIRECTION.TARGET_PHOTO_CLEAR' | translate }}
       </button>
     </div>
@@ -710,6 +828,7 @@
     </dl>
     <p class="dir-modal__hint">{{ 'DIRECTION.FIG8_OFFSET_HINT' | translate }}</p>
     <button type="button" class="dir-btn dir-btn--go" (click)="closeFigure8Modal()">
+      <i class="fa fa-check" aria-hidden="true"></i>
       {{ 'DIRECTION.FIG8_CLOSE' | translate }}
     </button>
   </div>
@@ -729,10 +848,135 @@
     <pre class="dir-modal__json">{{ cibleJsonText() }}</pre>
     <div class="dir-modal__btns">
       <button type="button" class="dir-btn" (click)="copyCibleJson()">
+        <i class="fa fa-clipboard" aria-hidden="true"></i>
         {{ (cibleJsonCopied ? 'DIRECTION.TARGET_JSON_COPIED' : 'DIRECTION.TARGET_JSON_COPY') | translate }}
       </button>
       <button type="button" class="dir-btn dir-btn--go" (click)="closeCibleJson()">
+        <i class="fa fa-times" aria-hidden="true"></i>
         {{ 'DIRECTION.FIG8_CLOSE' | translate }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<div
+  class="dir-modal"
+  *ngIf="cibleEditOpen"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-labelledby]="'dir-cible-edit-title'">
+  <div class="dir-modal__backdrop" (click)="closeCibleEdit()"></div>
+  <div
+    class="dir-modal__box dir-modal__box--edit"
+    #cibleEditDialog
+    tabindex="-1">
+    <h3 id="dir-cible-edit-title">{{ 'DIRECTION.TARGET_EDIT_TITLE' | translate }}</h3>
+    <p class="dir-modal__intro">{{ 'DIRECTION.TARGET_EDIT_HELP' | translate }}</p>
+    <p class="dir-msg dir-msg--bad" *ngIf="editError">{{ editError | translate }}</p>
+    <label class="dir-cible-name">
+      <span>{{ 'DIRECTION.TARGET_NAME' | translate }}</span>
+      <input
+        #cibleEditName
+        type="text"
+        maxlength="80"
+        [value]="editName"
+        (input)="onEditNameInput($event)"
+        [attr.placeholder]="'DIRECTION.TARGET_NAME_PH' | translate" />
+    </label>
+    <div class="dir-edit-photo">
+      <div class="dir-edit-photo__preview" *ngIf="editPhoto">
+        <img [src]="editPhoto" alt="" />
+      </div>
+      <p class="dir-card__help" *ngIf="!editPhoto">{{ 'DIRECTION.TARGET_PHOTO_EMPTY' | translate }}</p>
+      <div class="dir-edit-photo__acts">
+        <button type="button" class="dir-btn dir-btn--tiny" [disabled]="!camLive" (click)="captureCibleEditPhoto()">
+          <i class="fa fa-camera" aria-hidden="true"></i>
+          {{ (editPhoto ? 'DIRECTION.TARGET_PHOTO_RETAKE' : 'DIRECTION.TARGET_PHOTO_TAKE') | translate }}
+        </button>
+        <label class="dir-btn dir-btn--tiny">
+          <i class="fa fa-picture-o" aria-hidden="true"></i>
+          {{ 'DIRECTION.TARGET_EDIT_PHOTO_FILE' | translate }}
+          <input type="file" accept="image/*" (change)="onCibleEditPhotoFile($event)" />
+        </label>
+        <button type="button" class="dir-btn dir-btn--tiny" *ngIf="editPhoto" (click)="clearEditPhoto()">
+          <i class="fa fa-times" aria-hidden="true"></i>
+          {{ 'DIRECTION.TARGET_PHOTO_CLEAR' | translate }}
+        </button>
+      </div>
+    </div>
+    <div class="dir-edit-map-tools">
+      <button
+        type="button"
+        class="dir-btn dir-btn--tiny"
+        [class.dir-btn--on]="editMapFocus === 'user'"
+        (click)="setEditMapFocus('user')">
+        <i class="fa fa-user" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_EDIT_PLACE_USER' | translate }}
+      </button>
+      <button
+        type="button"
+        class="dir-btn dir-btn--tiny"
+        [class.dir-btn--on]="editMapFocus === 'mark'"
+        (click)="setEditMapFocus('mark')">
+        <i class="fa fa-bullseye" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_EDIT_PLACE_MARK' | translate }}
+      </button>
+      <button type="button" class="dir-btn dir-btn--tiny" [disabled]="gpsLat == null" (click)="useCurrentGpsForEdit()">
+        <i class="fa fa-location-arrow" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_EDIT_USE_GPS' | translate }}
+      </button>
+      <button type="button" class="dir-btn dir-btn--tiny" *ngIf="editHasMark()" (click)="clearEditMark()">
+        <i class="fa fa-times" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_MARK_CLEAR' | translate }}
+      </button>
+      <button
+        type="button"
+        class="dir-btn dir-btn--tiny"
+        [disabled]="!editHasUser() && !editHasMark()"
+        (click)="recenterCibleEditMap()">
+        <i class="fa fa-crosshairs" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_EDIT_RECENTER' | translate }}
+      </button>
+      <button type="button" class="dir-btn dir-btn--tiny" (click)="openCibleEditInTraceViewer()">
+        <i class="fa fa-globe" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_EDIT_TRACE' | translate }}
+      </button>
+    </div>
+    <p class="dir-modal__hint dir-edit-map-hint">{{ 'DIRECTION.TARGET_EDIT_MAP_HINT' | translate }}</p>
+    <div class="dir-edit-map" #cibleEditMap></div>
+    <dl class="dir-modal__dl dir-edit-dl">
+      <div>
+        <dt>{{ 'DIRECTION.TARGET_EDIT_USER' | translate }}</dt>
+        <dd>{{ editUserGpsText() }}</dd>
+      </div>
+      <div class="dir-edit-dl__addr" *ngIf="editHasUser()">
+        <dt>{{ 'DIRECTION.GPS_ADDR' | translate }}</dt>
+        <dd>{{ editUserAddressText() }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'DIRECTION.TARGET_EDIT_MARK' | translate }}</dt>
+        <dd>{{ editMarkGpsText() }}</dd>
+      </div>
+      <div class="dir-edit-dl__addr" *ngIf="editHasMark()">
+        <dt>{{ 'DIRECTION.TARGET_MARK_ADDR' | translate }}</dt>
+        <dd>{{ editMarkAddressText() }}</dd>
+      </div>
+      <div *ngIf="editHasUser() && editHasMark()">
+        <dt>{{ 'DIRECTION.TARGET_MARK_AZ' | translate }}</dt>
+        <dd>{{ editBearingText() }}</dd>
+      </div>
+    </dl>
+    <p class="dir-msg dir-msg--bad" *ngIf="editMarkTooClose()">
+      {{ 'DIRECTION.TARGET_MARK_NEAR' | translate : { m: (editDistanceM() ?? 0) | number : '1.0-0' } }}
+    </p>
+    <div class="dir-modal__btns">
+      <button type="button" class="dir-btn" (click)="closeCibleEdit()">
+        <i class="fa fa-times" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_EDIT_CANCEL' | translate }}
+      </button>
+      <button type="button" class="dir-btn dir-btn--save" [disabled]="cibleSaving" (click)="saveCibleEditModal()">
+        <i class="fa fa-floppy-o" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_UPDATE' | translate }}
       </button>
     </div>
   </div>
@@ -787,4 +1031,6 @@
   </ng-template>
 </ng-template>
 
-<app-trace-viewer-modal (locationSelected)="onMarkLocationSelected($event)"></app-trace-viewer-modal>
+<app-trace-viewer-modal
+  (locationSelected)="onMarkLocationSelected($event)"
+  (pairSelected)="onCiblePairSelected($event)"></app-trace-viewer-modal>

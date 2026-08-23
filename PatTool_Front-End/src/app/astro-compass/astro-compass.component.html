@@ -49,6 +49,64 @@
   </div>
 </div>
 
+<ng-template #headingNavLinks>
+  <div class="ac-finder__north-box-row ac-finder__north-box-row--more ac-finder__heading-nav">
+    <a
+      class="ac-finder__north-box-btn ac-finder__north-box-btn--more ac-finder__north-box-btn--nord"
+      routerLink="/tools/nord"
+      [attr.title]="'ASTRO_COMPASS.OPEN_NORD_HINT' | translate">
+      <i class="fa fa-compass" aria-hidden="true"></i>
+      {{ 'ASTRO_COMPASS.OPEN_NORD' | translate }}
+    </a>
+    <a
+      class="ac-finder__north-box-btn ac-finder__north-box-btn--more"
+      routerLink="/tools/direction"
+      [queryParams]="{ tab: headingRef === 'cible' ? 'cible' : 'calibrage' }"
+      [attr.title]="(headingRef === 'cible' ? 'ASTRO_COMPASS.OPEN_DIRECTION_CIBLE_HINT' : 'ASTRO_COMPASS.OPEN_DIRECTION_CAL_HINT') | translate">
+      <i class="fa" [ngClass]="headingRef === 'cible' ? 'fa-bullseye' : 'fa-crosshairs'" aria-hidden="true"></i>
+      {{ (headingRef === 'cible' ? 'ASTRO_COMPASS.OPEN_DIRECTION_CIBLE' : 'ASTRO_COMPASS.OPEN_DIRECTION_CAL') | translate }}
+    </a>
+  </div>
+</ng-template>
+
+<ng-template #headingRefSwitch>
+  <div
+    class="ac-finder__ref-switch-wrap"
+    [class.ac-finder__ref-switch-wrap--north]="headingRef === 'north'"
+    [class.ac-finder__ref-switch-wrap--cible]="headingRef === 'cible'">
+    <p class="ac-finder__ref-switch-label">
+      {{ 'ASTRO_COMPASS.HEADING_REF_USAGE' | translate }}
+      <span class="ac-finder__ref-switch-now">
+        {{ (headingRef === 'cible' ? 'ASTRO_COMPASS.HEADING_REF_USING_CIBLE' : 'ASTRO_COMPASS.HEADING_REF_USING_NORTH') | translate }}
+      </span>
+    </p>
+    <div class="ac-finder__ref-switch" role="tablist" [attr.aria-label]="'ASTRO_COMPASS.HEADING_REF_USAGE' | translate">
+      <button
+        type="button"
+        class="ac-finder__ref-switch-btn ac-finder__ref-switch-btn--north"
+        [class.ac-finder__ref-switch-btn--on]="headingRef === 'north'"
+        (click)="setHeadingRef('north')"
+        role="tab"
+        [attr.aria-selected]="headingRef === 'north'">
+        <i class="fa fa-compass" aria-hidden="true"></i>
+        {{ 'ASTRO_COMPASS.HEADING_REF_NORTH' | translate }}
+      </button>
+      <button
+        type="button"
+        class="ac-finder__ref-switch-btn ac-finder__ref-switch-btn--cible"
+        [class.ac-finder__ref-switch-btn--on]="headingRef === 'cible'"
+        [disabled]="!activeCible"
+        (click)="setHeadingRef('cible')"
+        role="tab"
+        [attr.aria-selected]="headingRef === 'cible'"
+        [attr.title]="activeCible ? activeCible.name : ('ASTRO_COMPASS.HEADING_REF_NONE' | translate)">
+        <i class="fa fa-bullseye" aria-hidden="true"></i>
+        {{ 'ASTRO_COMPASS.HEADING_REF_CIBLE' | translate }}
+      </button>
+    </div>
+  </div>
+</ng-template>
+
 <ng-template #acTickerItemsTpl>
   <span class="ac-ticker__item">
     <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.TICKER_NOW' | translate }}</span>
@@ -528,29 +586,47 @@
             <p class="ac-finder__hint" *ngIf="finderNeedTap">{{ 'ASTRO_COMPASS.NEED_TAP' | translate }}</p>
             <p class="ac-msg ac-msg--bad" *ngIf="finderDenied">{{ 'ASTRO_COMPASS.DENIED' | translate }}</p>
             <div class="ac-finder__actions">
-              <div class="ac-finder__aim-tools" role="group">
-                <button
-                  type="button"
-                  class="ac-compass-autodetect ac-finder__auto"
-                  [class.ac-compass-autodetect--live]="autoDetectLive"
-                  (click)="toggleAutoDetectLive()"
-                  [attr.title]="(autoDetectLive ? 'ASTRO_COMPASS.AUTO_LIVE_STOP' : 'ASTRO_COMPASS.AUTO_LIVE_START') | translate"
-                  [attr.aria-label]="(autoDetectLive ? 'ASTRO_COMPASS.AUTO_LIVE_STOP' : 'ASTRO_COMPASS.AUTO_LIVE_START') | translate"
-                  [attr.aria-pressed]="autoDetectLive">
-                  <i class="fa" [ngClass]="autoDetectBusy && !autoDetectLive ? 'fa-spinner fa-spin' : (autoDetectLive ? 'fa-pause' : 'fa-crosshairs')" aria-hidden="true"></i>
-                  <span class="ac-compass-autodetect__txt">{{ (autoDetectLive ? 'ASTRO_COMPASS.AUTO_LIVE_ON' : 'ASTRO_COMPASS.AUTO_DETECT_SHORT') | translate }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="ac-finder__exact"
-                  [class.ac-finder__exact--ok]="sightingMarked"
-                  [disabled]="!canMarkExactPosition()"
-                  (click)="markExactPosition()"
-                  [attr.title]="'ASTRO_COMPASS.EXACT_POS_HINT' | translate">
-                  <i class="fa" [ngClass]="sightingMarked ? 'fa-check' : 'fa-crosshairs'" aria-hidden="true"></i>
-                  {{ (sightingMarked ? 'ASTRO_COMPASS.EXACT_POS_DONE' : 'ASTRO_COMPASS.EXACT_POS') | translate : { name: bodyLabel } }}
-                </button>
+              <div class="ac-finder__actions-top">
+                <div class="ac-finder__ref-switch-host">
+                  <ng-container *ngTemplateOutlet="headingRefSwitch"></ng-container>
+                </div>
+                <div class="ac-finder__quad" role="group">
+                  <button
+                    type="button"
+                    class="ac-finder__exact"
+                    [class.ac-finder__exact--ok]="sightingMarked"
+                    [disabled]="!canMarkExactPosition()"
+                    (click)="markExactPosition()"
+                    [attr.title]="'ASTRO_COMPASS.EXACT_POS_HINT' | translate">
+                    <i class="fa" [ngClass]="sightingMarked ? 'fa-check' : 'fa-crosshairs'" aria-hidden="true"></i>
+                    {{ (sightingMarked ? 'ASTRO_COMPASS.EXACT_POS_DONE' : 'ASTRO_COMPASS.EXACT_POS') | translate : { name: bodyLabel } }}
+                  </button>
+                  <button
+                    type="button"
+                    class="ac-finder__north-box-btn ac-finder__north-box-btn--ok ac-finder__recal"
+                    [disabled]="headingRef !== 'cible' || !activeCible || cibleSaving || lookTracker.rawAzimuthDeg == null"
+                    (click)="recalerCibleFromHere()"
+                    [attr.title]="'ASTRO_COMPASS.HEADING_REF_RECAL_HINT' | translate">
+                    <i class="fa fa-refresh" aria-hidden="true"></i>
+                    {{ 'DIRECTION.TARGET_RECAL' | translate }}
+                  </button>
+                </div>
               </div>
+              <div class="ac-finder__actions-rule" aria-hidden="true"></div>
+              <div class="ac-finder__quad" role="group">
+                <ng-container *ngTemplateOutlet="headingNavLinks"></ng-container>
+              </div>
+              <button
+                type="button"
+                class="ac-compass-autodetect ac-finder__auto"
+                [class.ac-compass-autodetect--live]="autoDetectLive"
+                (click)="toggleAutoDetectLive()"
+                [attr.title]="(autoDetectLive ? 'ASTRO_COMPASS.AUTO_LIVE_STOP' : 'ASTRO_COMPASS.AUTO_LIVE_START') | translate"
+                [attr.aria-label]="(autoDetectLive ? 'ASTRO_COMPASS.AUTO_LIVE_STOP' : 'ASTRO_COMPASS.AUTO_LIVE_START') | translate"
+                [attr.aria-pressed]="autoDetectLive">
+                <i class="fa" [ngClass]="autoDetectBusy && !autoDetectLive ? 'fa-spinner fa-spin' : (autoDetectLive ? 'fa-pause' : 'fa-crosshairs')" aria-hidden="true"></i>
+                <span class="ac-compass-autodetect__txt">{{ (autoDetectLive ? 'ASTRO_COMPASS.AUTO_LIVE_ON' : 'ASTRO_COMPASS.AUTO_DETECT_SHORT') | translate }}</span>
+              </button>
             </div>
             <p class="ac-finder__lock" *ngIf="finderPoseFrozen">
               <i class="fa fa-pause me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.FINDER_PAUSED' | translate }}
@@ -1179,30 +1255,14 @@
         class="ac-finder__north-box ac-finder__north-box--page"
         role="group"
         [attr.aria-label]="(headingRef === 'cible' ? 'ASTRO_COMPASS.OPEN_DIRECTION_CIBLE' : 'ASTRO_COMPASS.NORTH_BOX_TITLE') | translate">
-        <div class="ac-finder__ref-switch" role="tablist">
-          <button
-            type="button"
-            class="ac-finder__ref-switch-btn"
-            [class.ac-finder__ref-switch-btn--on]="headingRef === 'north'"
-            (click)="setHeadingRef('north')"
-            role="tab"
-            [attr.aria-selected]="headingRef === 'north'">
-            {{ 'ASTRO_COMPASS.HEADING_REF_NORTH' | translate }}
-          </button>
-          <button
-            type="button"
-            class="ac-finder__ref-switch-btn"
-            [class.ac-finder__ref-switch-btn--on]="headingRef === 'cible'"
-            [disabled]="!activeCible"
-            (click)="setHeadingRef('cible')"
-            role="tab"
-            [attr.aria-selected]="headingRef === 'cible'"
-            [attr.title]="activeCible ? activeCible.name : ('ASTRO_COMPASS.HEADING_REF_NONE' | translate)">
-            {{ 'ASTRO_COMPASS.HEADING_REF_CIBLE' | translate }}
-          </button>
+        <div class="ac-finder__north-box-head" *ngIf="headingRef === 'cible'">
+          <strong>{{ 'ASTRO_COMPASS.OPEN_DIRECTION_CIBLE' | translate }}</strong>
         </div>
         <p class="ac-finder__north-box-hint" *ngIf="headingRef === 'cible' && activeCible">
           {{ 'ASTRO_COMPASS.HEADING_REF_HINT' | translate : { name: activeCible.name } }}
+        </p>
+        <p class="ac-finder__north-box-hint ac-finder__north-box-hint--hold" *ngIf="headingRef === 'cible' && activeCible">
+          {{ 'DIRECTION.HOLD_VERTICAL' | translate }}
         </p>
         <p class="ac-finder__north-box-hint" *ngIf="!activeCible">
           {{ 'ASTRO_COMPASS.HEADING_REF_NONE' | translate }}
@@ -1271,7 +1331,7 @@
           <p class="ac-finder__north-box-hint ac-finder__cible-warn" *ngIf="cibleError">
             {{ cibleError | translate }}
           </p>
-          <div class="ac-finder__north-box-row">
+          <div class="ac-finder__north-box-row ac-finder__north-box-row--cible-actions">
             <button
               type="button"
               class="ac-finder__north-box-btn ac-finder__north-box-btn--mark"
@@ -1282,13 +1342,12 @@
               {{ 'DIRECTION.TARGET_MARK_PICK' | translate }}
             </button>
             <button
+              *ngIf="exactPositionActive"
               type="button"
-              class="ac-finder__north-box-btn ac-finder__north-box-btn--ok"
-              [disabled]="cibleSaving || lookTracker.rawAzimuthDeg == null"
-              (click)="recalerCibleFromHere()"
-              [attr.title]="'ASTRO_COMPASS.HEADING_REF_RECAL_HINT' | translate">
-              <i class="fa fa-crosshairs" aria-hidden="true"></i>
-              {{ 'DIRECTION.TARGET_RECAL' | translate }}
+              class="ac-finder__north-box-btn ac-finder__north-box-btn--reset"
+              (click)="clearFinderNorth()"
+              [attr.title]="'ASTRO_COMPASS.EXACT_POS_RESET' | translate">
+              {{ 'ASTRO_COMPASS.EXACT_POS_RESET' | translate }}
             </button>
           </div>
         </div>
@@ -1340,23 +1399,6 @@
           <button type="button" class="ac-compass-cal__btn" (click)="enableFinder()">
             {{ 'ASTRO_COMPASS.START_SENSORS' | translate }}
           </button>
-        </div>
-        <div class="ac-finder__north-box-row ac-finder__north-box-row--more">
-          <a
-            class="ac-finder__north-box-btn ac-finder__north-box-btn--more"
-            routerLink="/tools/direction"
-            [queryParams]="{ tab: headingRef === 'cible' ? 'cible' : 'calibrage' }"
-            [attr.title]="(headingRef === 'cible' ? 'ASTRO_COMPASS.OPEN_DIRECTION_CIBLE_HINT' : 'ASTRO_COMPASS.OPEN_DIRECTION_CAL_HINT') | translate">
-            <i class="fa" [ngClass]="headingRef === 'cible' ? 'fa-bullseye' : 'fa-crosshairs'" aria-hidden="true"></i>
-            {{ (headingRef === 'cible' ? 'ASTRO_COMPASS.OPEN_DIRECTION_CIBLE' : 'ASTRO_COMPASS.OPEN_DIRECTION_CAL') | translate }}
-          </a>
-          <a
-            class="ac-finder__north-box-btn ac-finder__north-box-btn--more ac-finder__north-box-btn--nord"
-            routerLink="/tools/nord"
-            [attr.title]="'ASTRO_COMPASS.OPEN_NORD_HINT' | translate">
-            <i class="fa fa-compass" aria-hidden="true"></i>
-            {{ 'ASTRO_COMPASS.OPEN_NORD' | translate }}
-          </a>
         </div>
       </div>
 

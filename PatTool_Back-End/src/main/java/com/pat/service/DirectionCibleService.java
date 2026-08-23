@@ -141,14 +141,20 @@ public class DirectionCibleService {
         if (creating && !StringUtils.hasText(row.getName())) {
             throw new IllegalArgumentException("name required");
         }
-        if (incoming.userLat() != null) {
+        if (incoming.userLat() != null && incoming.userLon() != null) {
             row.setUserLat(incoming.userLat());
-        }
-        if (incoming.userLon() != null) {
             row.setUserLon(incoming.userLon());
-        }
-        if (incoming.userAccM() != null) {
             row.setUserAccM(incoming.userAccM());
+        } else {
+            if (incoming.userLat() != null) {
+                row.setUserLat(incoming.userLat());
+            }
+            if (incoming.userLon() != null) {
+                row.setUserLon(incoming.userLon());
+            }
+            if (incoming.userAccM() != null) {
+                row.setUserAccM(incoming.userAccM());
+            }
         }
         if (incoming.phoneHeadingDeg() != null) {
             row.setPhoneHeadingDeg(normalizeDeg(incoming.phoneHeadingDeg()));

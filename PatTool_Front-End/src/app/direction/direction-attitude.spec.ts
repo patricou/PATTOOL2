@@ -17,6 +17,7 @@ import {
   MANUAL_AZ_OFFSET_KEY,
   PATTOOL_CAL_KEY,
   canonicalizeLookCal,
+  applyLookDeclination,
   composeLookAzimuth,
   composeLookElevation,
   derivePattoolCal,
@@ -496,6 +497,13 @@ describe('composeLookAzimuth / composeLookElevation', () => {
   it('wraps past 360 with a single offset', () => {
     expect(composeLookAzimuth(350, LOOK_CAL)).toBe(10);
     expect(composeLookElevation(12, LOOK_CAL)).toBe(17);
+  });
+
+  it('adds declination before the look offset so Direction and the finder match', () => {
+    const withDec = applyLookDeclination(40, true, 2);
+    expect(withDec).toBe(42);
+    expect(composeLookAzimuth(withDec, LOOK_CAL)).toBe(62);
+    expect(applyLookDeclination(40, false, 2)).toBe(40);
   });
 
   it('does not stack a second offset on an already composed heading', () => {
