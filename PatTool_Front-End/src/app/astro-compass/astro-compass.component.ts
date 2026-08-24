@@ -1017,6 +1017,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   northMarked = false;
   southMarked = false;
   sightingMarked = false;
+  /** Overlay viseur : viser le repère pour contrôler le calage Cible. */
+  cibleVerifyActive = false;
   /** « Ajuster Pos » : le viseur suit le calage astre, y compris en mode Cible. */
   exactPositionActive = false;
   /** Pause viseur : fige l’objet à l’écran même si le téléphone bouge. */
@@ -1152,6 +1154,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private liveNorthSensors: GenericSensorLike[] = [];
   private needleUnwrappedDeg = 0;
   private needleInited = false;
+  private northArrowUnwrappedDeg = 0;
+  private northArrowInited = false;
+  private cibleArrowUnwrappedDeg = 0;
+  private cibleArrowInited = false;
   private headingLastPaintMs = 0;
   private calPaintLastMs = 0;
   private pitchLastPaintMs = 0;
@@ -2040,8 +2046,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.headingRef = ref;
+    this.northArrowInited = false;
+    this.cibleArrowInited = false;
     if (ref === 'cible') {
       this.setExactPositionActive(false);
+    } else {
+      this.cibleVerifyActive = false;
     }
     this.saveHeadingRef();
     this.applyHeadingReference();
@@ -5162,6 +5172,54 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.traceViewerModalComponent.openAtLocation(lat, lon, c.name, undefined, true, true);
+  }
+
+  toggleCibleVerify(): void {
+    if (this.headingRef !== 'cible' || !this.activeCible) {
+      return;
+    }
+    this.cibleVerifyActive = !this.cibleVerifyActive;
+    this.cdr.markForCheck();
+  }
+
+  cibleVerifyAimAzDeg(): number | null {
+    if (this.headingRef !== 'cible' || !this.activeCible) {
+      return null;
+    }
+    const live = this.cibleMarkBearingDeg();
+    if (live != null && Number.isFinite(live)) {
+      return live;
+    }
+    const ref = this.activeCible.refAzimuthDeg;
+    return ref != null && Number.isFinite(ref) ? ref : null;
+  }
+
+  cibleVerifyOffsetDeg(): number | null {
+    const aim = this.cibleVerifyAimAzDeg();
+    if (aim == null || this.headingDeg == null) {
+      return null;
+    }
+    return this.circularDiffDeg(aim, this.headingDeg);
+  }
+
+  cibleVerifyOk(): boolean {
+    const off = this.cibleVerifyOffsetDeg();
+    return off != null && Math.abs(off) < FACING_THRESHOLD_DEG;
+  }
+
+  cibleVerifyTurn(): { key: string; deg: number } | null {
+    const off = this.cibleVerifyOffsetDeg();
+    if (off == null) {
+      return null;
+    }
+    const mag = Math.abs(off);
+    if (mag < FACING_THRESHOLD_DEG) {
+      return { key: 'ASTRO_COMPASS.CIBLE_VERIFY_OK', deg: 0 };
+    }
+    return {
+      key: off > 0 ? 'ASTRO_COMPASS.TURN_RIGHT' : 'ASTRO_COMPASS.TURN_LEFT',
+      deg: Math.round(mag)
+    };
   }
 
   recalerCibleFromHere(): void {
@@ -9098,6 +9156,49 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.needleUnwrappedDeg;
   }
 
+  /** Flèche rouge : 0° = haut = Nord. */
+  northArrowRotationDeg(): number {
+    return this.unwrapFinderArrow(0, 'north');
+  }
+
+  /** Flèche verte : pointe vers l’azimut géographique de la cible. */
+  cibleArrowRotationDeg(): number {
+    return this.unwrapFinderArrow(this.cibleArrowAimAzDeg(), 'cible');
+  }
+
+  cibleArrowCardinal(): string {
+    return this.cardinalLabel(this.cibleArrowAimAzDeg());
+  }
+
+  private cibleArrowAimAzDeg(): number {
+    return this.cibleVerifyAimAzDeg() ?? this.activeCible?.refAzimuthDeg ?? 0;
+  }
+
+  private unwrapFinderArrow(aimAz: number, kind: 'north' | 'cible'): number {
+    if (!this.headingActive || this.headingDeg == null) {
+      return 0;
+    }
+    const target = this.normalizeDeg(aimAz - this.headingDeg);
+    if (kind === 'cible') {
+      const r = this.northEngine.unwrapAngle(
+        this.cibleArrowUnwrappedDeg,
+        target,
+        this.cibleArrowInited
+      );
+      this.cibleArrowUnwrappedDeg = r.value;
+      this.cibleArrowInited = r.inited;
+      return this.cibleArrowUnwrappedDeg;
+    }
+    const r = this.northEngine.unwrapAngle(
+      this.northArrowUnwrappedDeg,
+      target,
+      this.northArrowInited
+    );
+    this.northArrowUnwrappedDeg = r.value;
+    this.northArrowInited = r.inited;
+    return this.northArrowUnwrappedDeg;
+  }
+
   cardinalLabel(deg: number | null = this.azimuthDeg): string {
     if (deg == null) {
       return '';
@@ -9741,6 +9842,16 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   sunBelowHorizon(): boolean {
     const el = this.sunElevationDeg();
     return el != null && el < -1;
+  }
+
+  /** Réticule du viseur : blanc la nuit, noir le jour. */
+  finderReticleIsNight(): boolean {
+    const el = this.sunElevationDeg();
+    if (el != null) {
+      return el < -1;
+    }
+    const hour = new Date(this.nowMs).getHours();
+    return hour < 6 || hour >= 20;
   }
 
   /* ------------------------------------------------------------------ */

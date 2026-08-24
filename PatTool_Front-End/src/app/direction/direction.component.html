@@ -133,6 +133,29 @@
         </app-compass-rose>
       </div>
       <div
+        class="dir-cam__check"
+        *ngIf="!patWizard && activeTab === 'cible' && cibleCheck"
+        [class.dir-cam__check--ok]="cibleCheck.status === 'ok'"
+        [class.dir-cam__check--need]="cibleCheck.status === 'need'"
+        [class.dir-cam__check--warn]="cibleCheck.status === 'warn'"
+        aria-live="polite">
+        <p *ngIf="cibleCheck.status === 'ok'">{{ 'DIRECTION.TARGET_CHECK_OK' | translate }}</p>
+        <p *ngIf="cibleCheck.status === 'need'">{{ 'DIRECTION.TARGET_CHECK_NEED' | translate }}</p>
+        <ng-container *ngIf="cibleCheck.status === 'warn'">
+          <p>{{ 'DIRECTION.TARGET_CHECK_WARN' | translate }}</p>
+          <p *ngIf="cibleCheck.gpsChanged">
+            {{ 'DIRECTION.TARGET_CHECK_GPS' | translate : { m: (cibleCheck.movedM ?? 0) | number : '1.0-0' } }}
+          </p>
+          <p *ngIf="cibleCheck.headingChanged">
+            {{ 'DIRECTION.TARGET_CHECK_HEAD' | translate : { deg: (cibleCheck.headingAbs ?? 0) | number : '1.0-0' } }}
+          </p>
+          <p *ngIf="cibleCheck.markTooClose">
+            {{ 'DIRECTION.TARGET_MARK_NEAR' | translate : { m: (cibleCheck.markDistM ?? 0) | number : '1.0-0' } }}
+          </p>
+          <p>{{ 'DIRECTION.TARGET_CHECK_ADVICE' | translate }}</p>
+        </ng-container>
+      </div>
+      <div
         class="dir-cam__zoom"
         *ngIf="showCamZoom()"
         role="group"
@@ -629,21 +652,6 @@
       {{ 'DIRECTION.TARGET_ALIGNED' | translate }}
     </p>
     <p class="dir-msg dir-msg--bad" *ngIf="cibleError">{{ cibleError | translate }}</p>
-    <p class="dir-msg dir-msg--ok" *ngIf="cibleCheck?.status === 'ok'">{{ 'DIRECTION.TARGET_CHECK_OK' | translate }}</p>
-    <p class="dir-msg" *ngIf="cibleCheck?.status === 'need'">{{ 'DIRECTION.TARGET_CHECK_NEED' | translate }}</p>
-    <div class="dir-cible-alert" *ngIf="cibleCheck?.status === 'warn'" role="alert">
-      <p class="dir-msg dir-msg--bad">{{ 'DIRECTION.TARGET_CHECK_WARN' | translate }}</p>
-      <p class="dir-msg dir-msg--bad" *ngIf="cibleCheck?.gpsChanged">
-        {{ 'DIRECTION.TARGET_CHECK_GPS' | translate : { m: (cibleCheck?.movedM ?? 0) | number : '1.0-0' } }}
-      </p>
-      <p class="dir-msg dir-msg--bad" *ngIf="cibleCheck?.headingChanged">
-        {{ 'DIRECTION.TARGET_CHECK_HEAD' | translate : { deg: (cibleCheck?.headingAbs ?? 0) | number : '1.0-0' } }}
-      </p>
-      <p class="dir-msg dir-msg--bad" *ngIf="cibleCheck?.markTooClose">
-        {{ 'DIRECTION.TARGET_MARK_NEAR' | translate : { m: (cibleCheck?.markDistM ?? 0) | number : '1.0-0' } }}
-      </p>
-      <p class="dir-card__help">{{ 'DIRECTION.TARGET_CHECK_ADVICE' | translate }}</p>
-    </div>
     <label class="dir-cible-name">
       <span>{{ 'DIRECTION.TARGET_NAME' | translate }}</span>
       <input

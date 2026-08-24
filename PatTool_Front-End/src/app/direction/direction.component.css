@@ -591,6 +591,65 @@ a.dir-btn--nord .fa {
   transform: none;
 }
 
+.dir-cam__check {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 2.7rem);
+  z-index: 6;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.12rem;
+  max-width: calc(100% - 1.2rem);
+  padding: 0.28rem 0.55rem;
+  border-radius: 0.5rem;
+  background: rgba(6, 18, 12, 0.72);
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  color: #d8ffe8;
+  text-align: center;
+  pointer-events: none;
+  text-shadow: 0 1px 3px #000;
+}
+
+.dir-cam__check--ok {
+  background: rgba(8, 48, 24, 0.82);
+  border-color: rgba(61, 255, 154, 0.7);
+  box-shadow: 0 0 16px rgba(61, 255, 154, 0.35);
+}
+
+.dir-cam__check--need {
+  background: rgba(32, 24, 8, 0.82);
+  border-color: rgba(232, 184, 106, 0.55);
+  color: #ffe8c0;
+}
+
+.dir-cam__check--warn {
+  background: rgba(40, 12, 10, 0.86);
+  border-color: rgba(255, 140, 120, 0.65);
+  color: #ffd4c8;
+}
+
+.dir-cam__check p {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.dir-cam--fs .dir-cam__check,
+.dir-cam:fullscreen .dir-cam__check,
+.dir-cam:-webkit-full-screen .dir-cam__check {
+  top: calc(50% + 3.2rem);
+  max-width: min(28rem, calc(100% - 1.6rem));
+}
+
+.dir-cam--fs .dir-cam__check p,
+.dir-cam:fullscreen .dir-cam__check p,
+.dir-cam:-webkit-full-screen .dir-cam__check p {
+  font-size: 0.82rem;
+}
+
 .dir-cam--resized .dir-cam__stage {
   max-height: none;
 }
