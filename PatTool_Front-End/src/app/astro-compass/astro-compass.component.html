@@ -1883,7 +1883,6 @@
   [class.ac-live-modal--cam]="camLive || !!camFreezeUrl"
   [class.ac-live-modal--fs]="isAutoDetectFullscreen"
   [class.ac-live-modal--zoomed]="finderZoom > 1"
-  [class.ac-live-modal--sheet]="autoDetectPaused"
   [attr.aria-label]="'ASTRO_COMPASS.AUTO_MODAL_TITLE' | translate"
   (click)="$event.stopPropagation()">
   <video
@@ -2124,85 +2123,6 @@
     </div>
   </ng-template>
 
-  <div class="ac-live-id" *ngIf="autoDetectBestHit as hit" [attr.data-kind]="hit.kind">
-    <div class="ac-live-hero">
-      <div
-        class="ac-live-hero__orb"
-        [class.ac-live-hero__orb--photo]="!!dossierHeroPhotoUrl()"
-        [class.ac-live-hero__orb--schema]="!dossierHeroPhotoUrl() && hit.kind === 'constellation' && hasConstellationSchema"
-        [style.--ac-live-accent]="hit.color">
-        <button
-          *ngIf="dossierHeroPhotoUrl() as thumbUrl"
-          type="button"
-          class="ac-live-hero__photo"
-          (click)="openDossierImage()"
-          [attr.title]="'ASTRO_COMPASS.DOSSIER_IMAGE_OPEN' | translate"
-          [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_IMAGE_OPEN' | translate">
-          <img [src]="thumbUrl" [alt]="objectDossier?.wikiTitle || bodyLabel || hit.name" loading="lazy" />
-        </button>
-        <svg
-          *ngIf="!dossierHeroPhotoUrl() && hit.kind === 'constellation' && hasConstellationSchema"
-          class="ac-live-hero__schema"
-          viewBox="0 0 100 100"
-          aria-hidden="true">
-          <polyline
-            *ngFor="let pts of constellationSchemaPolylines"
-            [attr.points]="pts"
-            [attr.stroke]="hit.color"
-            fill="none"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"></polyline>
-          <circle
-            *ngFor="let d of constellationSchemaDots"
-            [attr.cx]="d.xPct"
-            [attr.cy]="d.yPct"
-            r="2.2"
-            [attr.fill]="hit.color"></circle>
-        </svg>
-        <i
-          *ngIf="!dossierHeroPhotoUrl() && !(hit.kind === 'constellation' && hasConstellationSchema)"
-          [ngClass]="bodyIconClass || hit.iconClass"
-          aria-hidden="true"></i>
-      </div>
-      <div class="ac-live-hero__meta">
-        <span class="ac-live-hero__kind">{{ autoDetectKindLabelKey(hit.kind, hit.subtype) | translate }}</span>
-        <h2 class="ac-live-hero__name">{{ bodyLabel || hit.name }}</h2>
-        <ng-container *ngTemplateOutlet="acHorizonBadge"></ng-container>
-        <p class="ac-live-hero__sep" *ngIf="!hit.fromRegion">
-          {{ 'ASTRO_COMPASS.AUTO_SEP' | translate : { deg: (hit.separationDeg | number : '1.0-1') } }}
-        </p>
-        <p class="ac-live-hero__sep" *ngIf="hit.fromRegion">
-          {{ 'ASTRO_COMPASS.AUTO_CONSTELLATION_IN' | translate }}
-        </p>
-        <p class="ac-live-hero__aim" *ngIf="autoDetectLookAz != null && autoDetectLookEl != null && !autoDetectPaused">
-          {{ 'ASTRO_COMPASS.AUTO_AIM' | translate : {
-            az: (autoDetectLookAz | number : '1.0-0'),
-            el: (autoDetectLookEl | number : '1.0-0')
-          } }}
-        </p>
-        <p class="ac-live-hero__paused" *ngIf="autoDetectPaused">
-          {{ 'ASTRO_COMPASS.AUTO_PAUSE_HINT' | translate }}
-        </p>
-      </div>
-    </div>
-    <div class="ac-live-dist" *ngIf="observerDistanceAvailable()">
-      <ng-container *ngTemplateOutlet="acFactTip; context: { labelKey: 'ASTRO_COMPASS.DIST_FROM_YOU', helpKey: 'ASTRO_COMPASS.HELP_GEO_DEF', css: 'ac-live-dist__k' }"></ng-container>
-      <span class="ac-live-dist__v">
-        <ng-container *ngIf="distLy != null">{{ formatLightYears(distLy) }} {{ formatLightYearUnit(distLy) }}</ng-container>
-        <ng-container *ngIf="distLy != null && geoDistAu != null"> · </ng-container>
-        <ng-container *ngIf="geoDistAu != null">{{ formatAu(geoDistAu) }} {{ 'ASTRO_COMPASS.DIST_AU_UNIT' | translate }}</ng-container>
-        <ng-container *ngIf="geoDistKm != null"> · {{ formatKm(geoDistKm) }}</ng-container>
-      </span>
-    </div>
-  </div>
-
-  <div class="ac-live-sheet" *ngIf="autoDetectPaused && autoDetectBestHit">
-    <ng-container *ngTemplateOutlet="acObjectFacts"></ng-container>
-    <ng-container *ngTemplateOutlet="acObjectPasses"></ng-container>
-    <ng-container [ngTemplateOutlet]="acObjectDossier"></ng-container>
-  </div>
-
   <ul class="ac-live-others" *ngIf="!autoDetectPaused && autoDetectOtherHits.length">
     <li class="ac-live-others__label">{{ 'ASTRO_COMPASS.AUTO_OTHERS' | translate }}</li>
     <li *ngFor="let other of autoDetectOtherHits; trackBy: trackAutoDetectHit">
@@ -2214,6 +2134,20 @@
       </button>
     </li>
   </ul>
+  </div>
+
+  <div class="ac-live-id" *ngIf="autoDetectBestHit as hit" [attr.data-kind]="hit.kind">
+    <h2 class="ac-live-id__name">{{ bodyLabel || hit.name }}</h2>
+    <button
+      type="button"
+      class="ac-live-id__info"
+      (click)="openObjectInfoModal()"
+      [disabled]="!(bodyLabel || hit.name)"
+      [attr.title]="'ASTRO_COMPASS.OBJECT_INFO_OPEN_HINT' | translate"
+      [attr.aria-label]="'ASTRO_COMPASS.OBJECT_INFO_OPEN' | translate">
+      <i class="fa fa-info-circle" aria-hidden="true"></i>
+      {{ 'ASTRO_COMPASS.OBJECT_INFO_OPEN' | translate }}
+    </button>
   </div>
 
   <div class="ac-live-modal__dock">

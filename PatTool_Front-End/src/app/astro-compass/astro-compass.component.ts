@@ -1994,6 +1994,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   openObjectInfoModal(): void {
     this.objectInfoModalOpen = true;
     this.loadObjectDossier();
+    const live = this.liveModalEl?.nativeElement;
+    if (live && this.currentFullscreenElement() === live) {
+      void this.exitAnyFullscreen();
+    }
     this.cdr.markForCheck();
   }
 
@@ -2076,7 +2080,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private maybeReloadObjectDossier(): void {
-    if (this.autoDetectLive && !this.autoDetectPaused) {
+    if (this.autoDetectLive && !this.objectInfoModalOpen) {
       return;
     }
     this.loadObjectDossier();
@@ -2329,7 +2333,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.autoDetectPaused = true;
       this.finderPosePausedAuto = true;
       this.stopAutoDetectTimerOnly();
-      this.loadObjectDossier();
+      if (this.objectInfoModalOpen) {
+        this.loadObjectDossier();
+      }
     }
     this.cdr.markForCheck();
   }
@@ -4312,14 +4318,18 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.autoDetectPaused = false;
       this.autoDetectLive = true;
       this.syncCameraFreeze();
-      this.clearObjectDossier();
+      if (!this.objectInfoModalOpen) {
+        this.clearObjectDossier();
+      }
       this.runAutoDetectPass(false);
       this.restartAutoDetectTimer();
     } else {
       this.autoDetectPaused = true;
       this.syncCameraFreeze();
       this.stopAutoDetectTimerOnly();
-      this.loadObjectDossier();
+      if (this.objectInfoModalOpen) {
+        this.loadObjectDossier();
+      }
     }
     this.cdr.markForCheck();
   }
@@ -4660,7 +4670,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const key = hit.kind + ':' + hit.id;
     if (this.isAutoDetectSelected(hit)) {
       this.autoDetectLastAppliedKey = key;
-      if (this.autoDetectPaused) {
+      if (this.objectInfoModalOpen) {
         this.loadObjectDossier();
       }
       return;
@@ -4691,7 +4701,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     } else if (hit.kind === 'iss') {
       this.selectSatellite(hit.id);
     }
-    if (this.autoDetectPaused) {
+    if (this.objectInfoModalOpen) {
       this.loadObjectDossier();
     }
   }
