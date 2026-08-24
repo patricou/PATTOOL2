@@ -26,7 +26,7 @@ export interface CompassHeadingModePref {
 }
 
 export interface AstroLastTarget {
-  kind: 'planet' | 'star' | 'galaxy' | 'constellation' | 'custom' | 'iss';
+  kind: 'planet' | 'star' | 'galaxy' | 'deepsky' | 'constellation' | 'custom' | 'iss';
   id?: string;
   customRaHours?: number;
   customDecDeg?: number;

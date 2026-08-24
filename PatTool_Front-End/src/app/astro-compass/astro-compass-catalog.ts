@@ -1,7 +1,10 @@
 import { Body } from 'astronomy-engine';
 
 /** Target kind for the celestial compass. */
-export type AstroTargetKind = 'planet' | 'star' | 'galaxy' | 'constellation' | 'custom' | 'iss';
+export type AstroTargetKind = 'planet' | 'star' | 'galaxy' | 'deepsky' | 'constellation' | 'custom' | 'iss';
+
+/** Deep-sky subtypes shown in the “other objects” catalogue. */
+export type AstroDeepSkySubtype = 'blackhole' | 'nebula' | 'cluster' | 'quasar' | 'pulsar' | 'remnant';
 
 export interface AstroBodyOption {
   id: string;
@@ -534,7 +537,7 @@ export function findSatelliteByNoradId(noradId: number): AstroSatelliteOption | 
 /** Fixed-sky object (star or deep-sky) aimed via RA/Dec + DefineStar. */
 export interface AstroFixedSkyOption {
   id: string;
-  kind: 'star' | 'galaxy';
+  kind: 'star' | 'galaxy' | 'deepsky';
   /** Common name (English). */
   name: string;
   /** Alternate search tokens (lowercase). */
@@ -554,6 +557,10 @@ export interface AstroFixedSkyOption {
 
 export type AstroStarOption = AstroFixedSkyOption & { kind: 'star' };
 export type AstroGalaxyOption = AstroFixedSkyOption & { kind: 'galaxy' };
+export type AstroDeepSkyOption = AstroFixedSkyOption & {
+  kind: 'deepsky';
+  subtype: AstroDeepSkySubtype;
+};
 
 /** Solar-system bodies (observer is on Earth → Earth itself is omitted). */
 export const ASTRO_PLANETS: ReadonlyArray<AstroBodyOption> = [
@@ -998,6 +1005,92 @@ export const ASTRO_GALAXIES: ReadonlyArray<AstroGalaxyOption> = [
   { id: 'sextans-b', kind: 'galaxy', name: 'Sextans B', aliases: ['sextans b', 'ugc 5373'], raHours: 10.0000, decDeg: 5.3306, distLy: 4_400_000, mag: 11.30, constellation: 'Sex', iconClass: 'fa fa-circle-o', color: '#d8c8b0' }
 ];
 
+/**
+ * Famous objects that are neither planets, stars, galaxies nor constellations:
+ * black holes, nebulae, clusters, quasars, pulsars, supernova remnants (J2000).
+ * Aimed like galaxies via RA/Dec + DefineStar.
+ */
+export const ASTRO_DEEPSKY: ReadonlyArray<AstroDeepSkyOption> = [
+  // Black holes
+  { id: 'sgr-a', kind: 'deepsky', subtype: 'blackhole', name: 'Sagittarius A*', aliases: ['sgr a*', 'sgra', 'sagittarius a*', 'trou noir galactique', 'galactic center', 'centre galactique'], raHours: 17.7611, decDeg: -29.0078, distLy: 26_700, mag: 15.0, constellation: 'Sgr', iconClass: 'fa fa-dot-circle-o', color: '#c4b5fd' },
+  { id: 'm87-bh', kind: 'deepsky', subtype: 'blackhole', name: 'M87*', aliases: ['m87*', 'm87 black hole', 'trou noir m87', 'event horizon telescope', 'eht'], raHours: 12.5137, decDeg: 12.3911, distLy: 53_500_000, mag: 8.63, constellation: 'Vir', iconClass: 'fa fa-dot-circle-o', color: '#a78bfa' },
+  { id: 'cyg-x1', kind: 'deepsky', subtype: 'blackhole', name: 'Cygnus X-1', aliases: ['cygnus x-1', 'cyg x-1', 'hde 226868', 'trou noir cygne'], raHours: 19.9727, decDeg: 35.2016, distLy: 7_200, mag: 8.95, constellation: 'Cyg', iconClass: 'fa fa-dot-circle-o', color: '#818cf8' },
+  { id: 'v404-cyg', kind: 'deepsky', subtype: 'blackhole', name: 'V404 Cygni', aliases: ['v404 cygni', 'v404 cyg', 'gs 2023+338'], raHours: 20.4011, decDeg: 33.8673, distLy: 7_800, mag: 18.0, constellation: 'Cyg', iconClass: 'fa fa-dot-circle-o', color: '#6366f1' },
+  { id: 'a0620', kind: 'deepsky', subtype: 'blackhole', name: 'A0620-00', aliases: ['a0620-00', 'v616 mon', 'nova monto 1975'], raHours: 6.3790, decDeg: -0.3458, distLy: 3_300, mag: 18.3, constellation: 'Mon', iconClass: 'fa fa-dot-circle-o', color: '#7c3aed' },
+  { id: 'gro-j1655', kind: 'deepsky', subtype: 'blackhole', name: 'GRO J1655-40', aliases: ['gro j1655-40', 'v1033 sco', 'nova sco 1994'], raHours: 16.9000, decDeg: -39.8458, distLy: 5_500, mag: 17.0, constellation: 'Sco', iconClass: 'fa fa-dot-circle-o', color: '#8b5cf6' },
+  { id: 'ss433', kind: 'deepsky', subtype: 'blackhole', name: 'SS 433', aliases: ['ss 433', 'v1343 aql'], raHours: 19.1971, decDeg: 4.9828, distLy: 18_000, mag: 13.0, constellation: 'Aql', iconClass: 'fa fa-dot-circle-o', color: '#6d28d9' },
+  { id: 'cyg-x3', kind: 'deepsky', subtype: 'blackhole', name: 'Cygnus X-3', aliases: ['cygnus x-3', 'cyg x-3'], raHours: 20.5405, decDeg: 40.9578, distLy: 24_000, mag: 19.0, constellation: 'Cyg', iconClass: 'fa fa-dot-circle-o', color: '#5b21b6' },
+  { id: 'grs1915', kind: 'deepsky', subtype: 'blackhole', name: 'GRS 1915+105', aliases: ['grs 1915+105', 'v1487 aql', 'microquasar'], raHours: 19.2532, decDeg: 10.9458, distLy: 28_000, mag: 19.0, constellation: 'Aql', iconClass: 'fa fa-dot-circle-o', color: '#4c1d95' },
+  // Nebulae
+  { id: 'm42', kind: 'deepsky', subtype: 'nebula', name: 'Orion Nebula (M42)', aliases: ['m42', 'ngc 1976', 'orion nebula', 'nebuleuse d orion', 'nébuleuse d\'orion'], raHours: 5.5881, decDeg: -5.3911, distLy: 1_344, mag: 4.0, constellation: 'Ori', iconClass: 'fa fa-cloud', color: '#fda4af' },
+  { id: 'horsehead', kind: 'deepsky', subtype: 'nebula', name: 'Horsehead Nebula', aliases: ['barnard 33', 'ic 434', 'horsehead', 'tete de cheval', 'tête de cheval'], raHours: 5.6831, decDeg: -2.4583, distLy: 1_375, mag: 6.8, constellation: 'Ori', iconClass: 'fa fa-cloud', color: '#fb7185' },
+  { id: 'm57', kind: 'deepsky', subtype: 'nebula', name: 'Ring Nebula (M57)', aliases: ['m57', 'ngc 6720', 'ring nebula', 'nebuleuse de la lyre', 'anneau'], raHours: 18.8931, decDeg: 33.0292, distLy: 2_300, mag: 8.8, constellation: 'Lyr', iconClass: 'fa fa-cloud', color: '#f9a8d4' },
+  { id: 'helix', kind: 'deepsky', subtype: 'nebula', name: 'Helix Nebula (NGC 7293)', aliases: ['ngc 7293', 'helix', 'helice', 'œil de dieu', 'eye of god'], raHours: 22.4940, decDeg: -20.8371, distLy: 650, mag: 7.6, constellation: 'Aqr', iconClass: 'fa fa-cloud', color: '#f472b6' },
+  { id: 'm16', kind: 'deepsky', subtype: 'nebula', name: 'Eagle Nebula (M16)', aliases: ['m16', 'ngc 6611', 'eagle', 'aigle', 'pillars of creation', 'piliers de la creation'], raHours: 18.3133, decDeg: -13.8167, distLy: 7_000, mag: 6.4, constellation: 'Ser', iconClass: 'fa fa-cloud', color: '#fb7185' },
+  { id: 'm8', kind: 'deepsky', subtype: 'nebula', name: 'Lagoon Nebula (M8)', aliases: ['m8', 'ngc 6523', 'lagoon', 'lagune'], raHours: 18.0603, decDeg: -24.3867, distLy: 4_100, mag: 6.0, constellation: 'Sgr', iconClass: 'fa fa-cloud', color: '#fda4af' },
+  { id: 'm20', kind: 'deepsky', subtype: 'nebula', name: 'Trifid Nebula (M20)', aliases: ['m20', 'ngc 6514', 'trifid', 'trifide'], raHours: 18.0397, decDeg: -23.0300, distLy: 5_200, mag: 6.3, constellation: 'Sgr', iconClass: 'fa fa-cloud', color: '#f9a8d4' },
+  { id: 'm17', kind: 'deepsky', subtype: 'nebula', name: 'Omega Nebula (M17)', aliases: ['m17', 'ngc 6618', 'omega', 'swan nebula', 'cygne', 'checkmark'], raHours: 18.3406, decDeg: -16.1767, distLy: 5_500, mag: 6.0, constellation: 'Sgr', iconClass: 'fa fa-cloud', color: '#fb7185' },
+  { id: 'm27', kind: 'deepsky', subtype: 'nebula', name: 'Dumbbell Nebula (M27)', aliases: ['m27', 'ngc 6853', 'dumbbell', 'halteres', 'haltères'], raHours: 19.9934, decDeg: 22.7211, distLy: 1_360, mag: 7.5, constellation: 'Vul', iconClass: 'fa fa-cloud', color: '#e879f9' },
+  { id: 'carina-neb', kind: 'deepsky', subtype: 'nebula', name: 'Carina Nebula (NGC 3372)', aliases: ['ngc 3372', 'carina nebula', 'eta carinae', 'keyhole', 'nebuleuse de la carene'], raHours: 10.7524, decDeg: -59.8678, distLy: 8_500, mag: 1.0, constellation: 'Car', iconClass: 'fa fa-cloud', color: '#f472b6' },
+  { id: 'tarantula', kind: 'deepsky', subtype: 'nebula', name: 'Tarantula Nebula (NGC 2070)', aliases: ['ngc 2070', '30 doradus', 'tarantula', 'tarentule'], raHours: 5.6439, decDeg: -69.0950, distLy: 160_000, mag: 8.0, constellation: 'Dor', iconClass: 'fa fa-cloud', color: '#fb7185' },
+  { id: 'north-america', kind: 'deepsky', subtype: 'nebula', name: 'North America Nebula', aliases: ['ngc 7000', 'caldwell 20', 'north america', 'amerique du nord'], raHours: 20.9883, decDeg: 44.5167, distLy: 2_200, mag: 4.0, constellation: 'Cyg', iconClass: 'fa fa-cloud', color: '#fda4af' },
+  { id: 'california', kind: 'deepsky', subtype: 'nebula', name: 'California Nebula (NGC 1499)', aliases: ['ngc 1499', 'california', 'californie'], raHours: 4.0550, decDeg: 36.4167, distLy: 1_000, mag: 6.0, constellation: 'Per', iconClass: 'fa fa-cloud', color: '#f9a8d4' },
+  { id: 'rosette', kind: 'deepsky', subtype: 'nebula', name: 'Rosette Nebula', aliases: ['ngc 2237', 'caldwell 49', 'rosette'], raHours: 6.5625, decDeg: 4.9983, distLy: 5_200, mag: 9.0, constellation: 'Mon', iconClass: 'fa fa-cloud', color: '#fb7185' },
+  { id: 'cats-eye', kind: 'deepsky', subtype: 'nebula', name: "Cat's Eye Nebula (NGC 6543)", aliases: ['ngc 6543', 'caldwell 6', 'cats eye', 'oeil de chat'], raHours: 17.9759, decDeg: 66.6331, distLy: 3_300, mag: 8.1, constellation: 'Dra', iconClass: 'fa fa-cloud', color: '#e879f9' },
+  { id: 'eskimo', kind: 'deepsky', subtype: 'nebula', name: 'Eskimo Nebula (NGC 2392)', aliases: ['ngc 2392', 'caldwell 39', 'eskimo', 'clown face', 'esquimau'], raHours: 7.4863, decDeg: 20.9118, distLy: 2_900, mag: 9.2, constellation: 'Gem', iconClass: 'fa fa-cloud', color: '#f9a8d4' },
+  { id: 'm97', kind: 'deepsky', subtype: 'nebula', name: 'Owl Nebula (M97)', aliases: ['m97', 'ngc 3587', 'owl', 'hibou'], raHours: 11.2466, decDeg: 55.0190, distLy: 2_030, mag: 9.9, constellation: 'UMa', iconClass: 'fa fa-cloud', color: '#c4b5fd' },
+  { id: 'saturn-neb', kind: 'deepsky', subtype: 'nebula', name: 'Saturn Nebula (NGC 7009)', aliases: ['ngc 7009', 'caldwell 55', 'saturn nebula', 'saturne'], raHours: 21.0697, decDeg: -11.3634, distLy: 2_000, mag: 8.0, constellation: 'Aqr', iconClass: 'fa fa-cloud', color: '#e9d5ff' },
+  { id: 'm76', kind: 'deepsky', subtype: 'nebula', name: 'Little Dumbbell (M76)', aliases: ['m76', 'ngc 650', 'little dumbbell', 'petit haltere'], raHours: 1.7055, decDeg: 51.5753, distLy: 2_500, mag: 10.1, constellation: 'Per', iconClass: 'fa fa-cloud', color: '#d8b4fe' },
+  { id: 'ngc3242', kind: 'deepsky', subtype: 'nebula', name: 'Ghost of Jupiter (NGC 3242)', aliases: ['ngc 3242', 'caldwell 59', 'ghost of jupiter', 'fantome de jupiter'], raHours: 10.4128, decDeg: -18.6422, distLy: 4_500, mag: 8.6, constellation: 'Hya', iconClass: 'fa fa-cloud', color: '#67e8f9' },
+  { id: 'coalsack', kind: 'deepsky', subtype: 'nebula', name: 'Coalsack Nebula', aliases: ['coalsack', 'sac de charbon', 'caldwell 99'], raHours: 12.8333, decDeg: -63.0000, distLy: 600, mag: 5.0, constellation: 'Cru', iconClass: 'fa fa-cloud', color: '#6b7280' },
+  { id: 'flame', kind: 'deepsky', subtype: 'nebula', name: 'Flame Nebula (NGC 2024)', aliases: ['ngc 2024', 'flame', 'flamme'], raHours: 5.6983, decDeg: -1.8500, distLy: 1_350, mag: 10.0, constellation: 'Ori', iconClass: 'fa fa-cloud', color: '#fb923c' },
+  { id: 'bubble', kind: 'deepsky', subtype: 'nebula', name: 'Bubble Nebula (NGC 7635)', aliases: ['ngc 7635', 'caldwell 11', 'bubble', 'bulle'], raHours: 23.3467, decDeg: 61.2017, distLy: 7_100, mag: 10.0, constellation: 'Cas', iconClass: 'fa fa-cloud', color: '#7dd3fc' },
+  { id: 'crescent', kind: 'deepsky', subtype: 'nebula', name: 'Crescent Nebula (NGC 6888)', aliases: ['ngc 6888', 'caldwell 27', 'crescent', 'croissant'], raHours: 20.2019, decDeg: 38.3550, distLy: 5_000, mag: 7.4, constellation: 'Cyg', iconClass: 'fa fa-cloud', color: '#86efac' },
+  { id: 'pacman', kind: 'deepsky', subtype: 'nebula', name: 'Pacman Nebula (NGC 281)', aliases: ['ngc 281', 'ic 11', 'pacman', 'pac-man'], raHours: 0.8831, decDeg: 56.6219, distLy: 9_200, mag: 7.4, constellation: 'Cas', iconClass: 'fa fa-cloud', color: '#fda4af' },
+  // Supernova remnants
+  { id: 'm1', kind: 'deepsky', subtype: 'remnant', name: 'Crab Nebula (M1)', aliases: ['m1', 'ngc 1952', 'crab', 'crabe', 'sn 1054'], raHours: 5.5755, decDeg: 22.0145, distLy: 6_500, mag: 8.4, constellation: 'Tau', iconClass: 'fa fa-certificate', color: '#fdba74' },
+  { id: 'veil', kind: 'deepsky', subtype: 'remnant', name: 'Veil Nebula', aliases: ['ngc 6992', 'ngc 6960', 'caldwell 33', 'veil', 'cygne loop', 'dentelle'], raHours: 20.7606, decDeg: 30.7083, distLy: 2_400, mag: 7.0, constellation: 'Cyg', iconClass: 'fa fa-certificate', color: '#fb923c' },
+  { id: 'cas-a', kind: 'deepsky', subtype: 'remnant', name: 'Cassiopeia A', aliases: ['cassiopeia a', 'cas a', '3c 461'], raHours: 23.3908, decDeg: 58.8117, distLy: 11_000, mag: 18.0, constellation: 'Cas', iconClass: 'fa fa-certificate', color: '#f97316' },
+  { id: 'sn1987a', kind: 'deepsky', subtype: 'remnant', name: 'SN 1987A', aliases: ['sn 1987a', 'supernova 1987a'], raHours: 5.5911, decDeg: -69.2699, distLy: 168_000, mag: 16.5, constellation: 'Dor', iconClass: 'fa fa-certificate', color: '#ea580c' },
+  { id: 'tycho-snr', kind: 'deepsky', subtype: 'remnant', name: "Tycho's SNR", aliases: ['tycho', 'sn 1572', '3c 10', 'b cassiopeiae'], raHours: 0.4225, decDeg: 64.1372, distLy: 9_000, mag: 16.0, constellation: 'Cas', iconClass: 'fa fa-certificate', color: '#f59e0b' },
+  { id: 'kepler-snr', kind: 'deepsky', subtype: 'remnant', name: "Kepler's SNR", aliases: ['kepler', 'sn 1604', '3c 358'], raHours: 17.5117, decDeg: -21.4833, distLy: 20_000, mag: 18.0, constellation: 'Oph', iconClass: 'fa fa-certificate', color: '#d97706' },
+  { id: 'vela-snr', kind: 'deepsky', subtype: 'remnant', name: 'Vela SNR', aliases: ['vela supernova remnant', 'gum 16', 'remanent des voiles'], raHours: 8.5891, decDeg: -45.1764, distLy: 800, mag: 12.0, constellation: 'Vel', iconClass: 'fa fa-certificate', color: '#fb923c' },
+  // Star clusters
+  { id: 'm45', kind: 'deepsky', subtype: 'cluster', name: 'Pleiades (M45)', aliases: ['m45', 'pleiades', 'seven sisters', 'messier 45', 'pleiades cluster'], raHours: 3.7900, decDeg: 24.1167, distLy: 444, mag: 1.6, constellation: 'Tau', iconClass: 'fa fa-asterisk', color: '#fde047' },
+  { id: 'hyades', kind: 'deepsky', subtype: 'cluster', name: 'Hyades', aliases: ['hyades', 'melotte 25', 'caldwell 41', 'hyades cluster'], raHours: 4.4500, decDeg: 15.8667, distLy: 153, mag: 0.5, constellation: 'Tau', iconClass: 'fa fa-asterisk', color: '#facc15' },
+  { id: 'm44', kind: 'deepsky', subtype: 'cluster', name: 'Beehive (M44)', aliases: ['m44', 'ngc 2632', 'praesepe', 'beehive', 'ruche', 'crèche'], raHours: 8.6733, decDeg: 19.6667, distLy: 577, mag: 3.7, constellation: 'Cnc', iconClass: 'fa fa-asterisk', color: '#fde047' },
+  { id: 'double-cluster', kind: 'deepsky', subtype: 'cluster', name: 'Double Cluster (NGC 869/884)', aliases: ['ngc 869', 'ngc 884', 'h persei', 'chi persei', 'double cluster', 'double amas', 'caldwell 14'], raHours: 2.3167, decDeg: 57.1283, distLy: 7_500, mag: 3.7, constellation: 'Per', iconClass: 'fa fa-asterisk', color: '#fef08a' },
+  { id: 'omega-cen', kind: 'deepsky', subtype: 'cluster', name: 'Omega Centauri (NGC 5139)', aliases: ['ngc 5139', 'omega centauri', 'ω cen', 'caldwell 80'], raHours: 13.4465, decDeg: -47.4795, distLy: 15_800, mag: 3.9, constellation: 'Cen', iconClass: 'fa fa-asterisk', color: '#fbbf24' },
+  { id: '47-tuc', kind: 'deepsky', subtype: 'cluster', name: '47 Tucanae (NGC 104)', aliases: ['ngc 104', '47 tuc', '47 tucanae', 'caldwell 106'], raHours: 0.4016, decDeg: -72.0813, distLy: 13_000, mag: 4.09, constellation: 'Tuc', iconClass: 'fa fa-asterisk', color: '#facc15' },
+  { id: 'm13', kind: 'deepsky', subtype: 'cluster', name: 'Hercules Cluster (M13)', aliases: ['m13', 'ngc 6205', 'hercules', 'amas d hercule', 'great globular'], raHours: 16.6948, decDeg: 36.4599, distLy: 22_200, mag: 5.8, constellation: 'Her', iconClass: 'fa fa-asterisk', color: '#fde047' },
+  { id: 'm3', kind: 'deepsky', subtype: 'cluster', name: 'M3', aliases: ['m3', 'ngc 5272'], raHours: 13.7032, decDeg: 28.3773, distLy: 33_900, mag: 6.2, constellation: 'CVn', iconClass: 'fa fa-asterisk', color: '#fef08a' },
+  { id: 'm5', kind: 'deepsky', subtype: 'cluster', name: 'M5', aliases: ['m5', 'ngc 5904'], raHours: 15.3092, decDeg: 2.0810, distLy: 24_500, mag: 5.6, constellation: 'Ser', iconClass: 'fa fa-asterisk', color: '#fde047' },
+  { id: 'm15', kind: 'deepsky', subtype: 'cluster', name: 'M15', aliases: ['m15', 'ngc 7078'], raHours: 21.4995, decDeg: 12.1670, distLy: 33_600, mag: 6.2, constellation: 'Peg', iconClass: 'fa fa-asterisk', color: '#facc15' },
+  { id: 'm22', kind: 'deepsky', subtype: 'cluster', name: 'M22', aliases: ['m22', 'ngc 6656'], raHours: 18.6067, decDeg: -23.9048, distLy: 10_600, mag: 5.1, constellation: 'Sgr', iconClass: 'fa fa-asterisk', color: '#fbbf24' },
+  { id: 'm4', kind: 'deepsky', subtype: 'cluster', name: 'M4', aliases: ['m4', 'ngc 6121'], raHours: 16.3931, decDeg: -26.5258, distLy: 7_200, mag: 5.6, constellation: 'Sco', iconClass: 'fa fa-asterisk', color: '#fde047' },
+  { id: 'jewel-box', kind: 'deepsky', subtype: 'cluster', name: 'Jewel Box (NGC 4755)', aliases: ['ngc 4755', 'kappa crucis', 'jewel box', 'boite a bijoux', 'caldwell 94'], raHours: 12.8942, decDeg: -60.3667, distLy: 6_440, mag: 4.2, constellation: 'Cru', iconClass: 'fa fa-asterisk', color: '#fef08a' },
+  { id: 'm6', kind: 'deepsky', subtype: 'cluster', name: 'Butterfly Cluster (M6)', aliases: ['m6', 'ngc 6405', 'butterfly', 'papillon'], raHours: 17.6722, decDeg: -32.2533, distLy: 1_600, mag: 4.2, constellation: 'Sco', iconClass: 'fa fa-asterisk', color: '#facc15' },
+  { id: 'm7', kind: 'deepsky', subtype: 'cluster', name: "Ptolemy's Cluster (M7)", aliases: ['m7', 'ngc 6475', 'ptolemy', 'ptolemee'], raHours: 17.8808, decDeg: -34.7928, distLy: 980, mag: 3.3, constellation: 'Sco', iconClass: 'fa fa-asterisk', color: '#fde047' },
+  { id: 'm11', kind: 'deepsky', subtype: 'cluster', name: 'Wild Duck (M11)', aliases: ['m11', 'ngc 6705', 'wild duck', 'canard sauvage'], raHours: 18.8514, decDeg: -6.2700, distLy: 6_200, mag: 5.8, constellation: 'Sct', iconClass: 'fa fa-asterisk', color: '#fbbf24' },
+  { id: 'm92', kind: 'deepsky', subtype: 'cluster', name: 'M92', aliases: ['m92', 'ngc 6341'], raHours: 17.2854, decDeg: 43.1359, distLy: 26_700, mag: 6.4, constellation: 'Her', iconClass: 'fa fa-asterisk', color: '#fef08a' },
+  { id: 'm2', kind: 'deepsky', subtype: 'cluster', name: 'M2', aliases: ['m2', 'ngc 7089'], raHours: 21.5575, decDeg: -0.8233, distLy: 37_500, mag: 6.3, constellation: 'Aqr', iconClass: 'fa fa-asterisk', color: '#fde047' },
+  // Quasars / blazars
+  { id: '3c273', kind: 'deepsky', subtype: 'quasar', name: '3C 273', aliases: ['3c 273', '3c273', 'first quasar'], raHours: 12.4852, decDeg: 2.0524, distLy: 2_400_000_000, mag: 12.9, constellation: 'Vir', iconClass: 'fa fa-bullseye', color: '#67e8f9' },
+  { id: '3c48', kind: 'deepsky', subtype: 'quasar', name: '3C 48', aliases: ['3c 48', '3c48'], raHours: 1.6281, decDeg: 33.1598, distLy: 4_500_000_000, mag: 16.2, constellation: 'Tri', iconClass: 'fa fa-bullseye', color: '#22d3ee' },
+  { id: '3c279', kind: 'deepsky', subtype: 'quasar', name: '3C 279', aliases: ['3c 279', '3c279'], raHours: 12.9364, decDeg: -5.7893, distLy: 5_000_000_000, mag: 17.8, constellation: 'Vir', iconClass: 'fa fa-bullseye', color: '#06b6d4' },
+  { id: 'ton618', kind: 'deepsky', subtype: 'quasar', name: 'TON 618', aliases: ['ton 618', 'ton618', 'ultramassive black hole'], raHours: 12.4736, decDeg: 31.4771, distLy: 10_400_000_000, mag: 15.9, constellation: 'CVn', iconClass: 'fa fa-bullseye', color: '#0891b2' },
+  { id: 'mrk421', kind: 'deepsky', subtype: 'quasar', name: 'Markarian 421', aliases: ['markarian 421', 'mrk 421', 'blazar'], raHours: 11.0743, decDeg: 38.2088, distLy: 400_000_000, mag: 13.3, constellation: 'UMa', iconClass: 'fa fa-bullseye', color: '#67e8f9' },
+  { id: 'mrk501', kind: 'deepsky', subtype: 'quasar', name: 'Markarian 501', aliases: ['markarian 501', 'mrk 501'], raHours: 16.8978, decDeg: 39.7602, distLy: 456_000_000, mag: 13.8, constellation: 'Her', iconClass: 'fa fa-bullseye', color: '#22d3ee' },
+  { id: 'bl-lac', kind: 'deepsky', subtype: 'quasar', name: 'BL Lacertae', aliases: ['bl lacertae', 'bl lac', 'blazar prototype'], raHours: 22.0454, decDeg: 42.2778, distLy: 900_000_000, mag: 14.7, constellation: 'Lac', iconClass: 'fa fa-bullseye', color: '#06b6d4' },
+  { id: 'oj287', kind: 'deepsky', subtype: 'quasar', name: 'OJ 287', aliases: ['oj 287', 'binary supermassive'], raHours: 8.9136, decDeg: 20.1085, distLy: 3_500_000_000, mag: 14.5, constellation: 'Cnc', iconClass: 'fa fa-bullseye', color: '#0891b2' },
+  // Pulsars
+  { id: 'crab-pulsar', kind: 'deepsky', subtype: 'pulsar', name: 'Crab Pulsar', aliases: ['psr b0531+21', 'crab pulsar', 'np 0532'], raHours: 5.5755, decDeg: 22.0145, distLy: 6_500, mag: 16.5, constellation: 'Tau', iconClass: 'fa fa-rss', color: '#86efac' },
+  { id: 'vela-pulsar', kind: 'deepsky', subtype: 'pulsar', name: 'Vela Pulsar', aliases: ['psr b0833-45', 'vela pulsar', 'psr j0835-4510'], raHours: 8.5891, decDeg: -45.1764, distLy: 960, mag: 23.6, constellation: 'Vel', iconClass: 'fa fa-rss', color: '#4ade80' },
+  { id: 'psr-b1919', kind: 'deepsky', subtype: 'pulsar', name: 'PSR B1919+21', aliases: ['psr b1919+21', 'cp 1919', 'first pulsar', 'lgm-1'], raHours: 19.3624, decDeg: 21.8840, distLy: 2_000, mag: 22.0, constellation: 'Vul', iconClass: 'fa fa-rss', color: '#22c55e' },
+  { id: 'geminga', kind: 'deepsky', subtype: 'pulsar', name: 'Geminga', aliases: ['geminga', 'psr j0633+1746'], raHours: 6.5650, decDeg: 17.7703, distLy: 815, mag: 25.0, constellation: 'Gem', iconClass: 'fa fa-rss', color: '#16a34a' },
+  { id: 'psr-j0437', kind: 'deepsky', subtype: 'pulsar', name: 'PSR J0437−4715', aliases: ['psr j0437-4715', 'millisecond pulsar'], raHours: 4.6211, decDeg: -47.2525, distLy: 510, mag: 20.9, constellation: 'Pic', iconClass: 'fa fa-rss', color: '#86efac' }
+];
+
 function matchesFixedSkyQuery(obj: AstroFixedSkyOption, q: string): boolean {
   if (obj.name.toLowerCase().includes(q) || obj.id.includes(q)) {
     return true;
@@ -1029,6 +1122,35 @@ export function findGalaxiesByQuery(query: string): AstroGalaxyOption[] {
   return sortFixedSkyByName(list);
 }
 
+const DEEPSKY_SUBTYPE_ALIASES: Record<AstroDeepSkySubtype, string[]> = {
+  blackhole: ['black hole', 'blackhole', 'trou noir', 'trous noirs'],
+  nebula: ['nebula', 'nebulae', 'nebuleuse', 'nébuleuse', 'nebuleuses'],
+  cluster: ['cluster', 'amas', 'globular', 'open cluster'],
+  quasar: ['quasar', 'blazar', 'agn'],
+  pulsar: ['pulsar', 'neutron star', 'etoile a neutrons', 'étoile à neutrons'],
+  remnant: ['remnant', 'remanent', 'rémanent', 'supernova remnant', 'snr']
+};
+
+function matchesDeepSkyQuery(obj: AstroDeepSkyOption, q: string): boolean {
+  if (matchesFixedSkyQuery(obj, q)) {
+    return true;
+  }
+  if (obj.subtype === q || obj.subtype.startsWith(q)) {
+    return true;
+  }
+  return DEEPSKY_SUBTYPE_ALIASES[obj.subtype].some(
+    (a) => a === q || a.startsWith(q) || (q.length >= 4 && (a.includes(q) || q.includes(a)))
+  );
+}
+
+export function findDeepSkyByQuery(query: string): AstroDeepSkyOption[] {
+  const q = query.trim().toLowerCase();
+  const list = !q
+    ? [...ASTRO_DEEPSKY]
+    : ASTRO_DEEPSKY.filter((o) => matchesDeepSkyQuery(o, q));
+  return sortFixedSkyByName(list);
+}
+
 export function findPlanetById(id: string): AstroBodyOption | undefined {
   return ASTRO_PLANETS.find((p) => p.id === id);
 }
@@ -1039,4 +1161,8 @@ export function findStarById(id: string): AstroStarOption | undefined {
 
 export function findGalaxyById(id: string): AstroGalaxyOption | undefined {
   return ASTRO_GALAXIES.find((g) => g.id === id);
+}
+
+export function findDeepSkyById(id: string): AstroDeepSkyOption | undefined {
+  return ASTRO_DEEPSKY.find((o) => o.id === id);
 }

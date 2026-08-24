@@ -269,6 +269,17 @@
               <i class="fa fa-mobile" aria-hidden="true"></i>
               <span>Sky Map</span>
             </a>
+            <a
+              class="ac-compass-refresh ac-compass-skymap-app ac-compass-skyview-app"
+              [href]="skyViewAppHref()"
+              [attr.target]="skyViewAppTarget()"
+              rel="noopener noreferrer"
+              (click)="onSkyViewAppClick($event)"
+              [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate"
+              [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate">
+              <i class="fa fa-eye" aria-hidden="true"></i>
+              <span>SkyView</span>
+            </a>
           </div>
         </div>
 
@@ -564,6 +575,18 @@
                   <i class="fa fa-mobile" aria-hidden="true"></i>
                   <span>Sky Map</span>
                 </a>
+                <a
+                  *ngIf="isFullscreen"
+                  class="ac-finder__skymap ac-finder__skyview"
+                  [href]="skyViewAppHref()"
+                  [attr.target]="skyViewAppTarget()"
+                  rel="noopener noreferrer"
+                  (click)="onSkyViewAppClick($event)"
+                  [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate"
+                  [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate">
+                  <i class="fa fa-eye" aria-hidden="true"></i>
+                  <span>SkyView</span>
+                </a>
               </div>
               <div
                 class="ac-finder__zoom"
@@ -760,7 +783,7 @@
                   <div class="ac-autodetect__winner-text">
                     <div class="ac-autodetect__winner-name">{{ bodyLabel || autoDetectHits[0].name }}</div>
                     <div class="ac-autodetect__winner-kind">
-                      {{ autoDetectKindLabelKey(autoDetectHits[0].kind) | translate }}
+                      {{ autoDetectKindLabelKey(autoDetectHits[0].kind, autoDetectHits[0].subtype) | translate }}
                       · {{ 'ASTRO_COMPASS.AUTO_SEP' | translate : { deg: (autoDetectHits[0].separationDeg | number : '1.0-1') } }}
                     </div>
                   </div>
@@ -840,7 +863,7 @@
                     <span class="ac-autodetect__hit-main">
                       <span class="ac-autodetect__hit-name">{{ hit.name }}</span>
                       <span class="ac-autodetect__hit-meta">
-                        {{ autoDetectKindLabelKey(hit.kind) | translate }}
+                        {{ autoDetectKindLabelKey(hit.kind, hit.subtype) | translate }}
                         · {{ hit.azimuthDeg | number : '1.0-0' }}° / {{ hit.elevationDeg | number : '1.0-0' }}°
                         <span *ngIf="hit.mag != null"> · mag {{ hit.mag | number : '1.1-1' }}</span>
                       </span>
@@ -855,8 +878,28 @@
     </section>
     </div>
 
-    <!-- Cibles (satellites / planètes / étoiles / galaxies / constellations) -->
+    <!-- Cibles (satellites / planètes / étoiles / galaxies / autres / constellations) -->
     <section class="ac-panel ac-panel--controls" [attr.aria-label]="'ASTRO_COMPASS.TARGET_SECTION' | translate">
+      <ng-template #catalogSortBar let-kind="kind">
+        <div class="ac-sort" role="group" [attr.aria-label]="'ASTRO_COMPASS.SORT' | translate">
+          <span class="ac-sort__label">{{ 'ASTRO_COMPASS.SORT' | translate }}</span>
+          <button
+            type="button"
+            class="ac-sort__btn"
+            *ngFor="let mode of catalogSortModes(kind)"
+            [class.ac-sort__btn--on]="catalogSortOf(kind) === mode"
+            [attr.aria-pressed]="catalogSortOf(kind) === mode"
+            [attr.title]="catalogSortOf(kind) === mode ? catalogSortDirTitle(kind) : null"
+            (click)="setCatalogSort(kind, mode)">
+            {{ catalogSortLabelKey(mode) | translate }}
+            <i
+              *ngIf="catalogSortOf(kind) === mode"
+              class="fa ac-sort__dir"
+              [ngClass]="catalogSortDirOf(kind) === 1 ? 'fa-caret-up' : 'fa-caret-down'"
+              aria-hidden="true"></i>
+          </button>
+        </div>
+      </ng-template>
       <ng-container *ngIf="showSatelliteSection">
       <div class="ac-acc" [class.ac-acc--open]="isTargetAccordionOpen('iss')" [class.ac-acc--current]="selectedKind === 'iss'">
       <div class="ac-acc__bar">
@@ -881,6 +924,7 @@
       </button>
       </div>
       <div class="ac-acc__body" *ngIf="isTargetAccordionOpen('iss')">
+      <ng-container [ngTemplateOutlet]="catalogSortBar" [ngTemplateOutletContext]="{ kind: 'iss' }"></ng-container>
       <div class="ac-chips" role="group" *ngIf="displayedSatellites.length">
         <button
           type="button"
@@ -934,6 +978,7 @@
       </button>
       </div>
       <div class="ac-acc__body" *ngIf="isTargetAccordionOpen('planet')">
+      <ng-container [ngTemplateOutlet]="catalogSortBar" [ngTemplateOutletContext]="{ kind: 'planet' }"></ng-container>
       <div class="ac-chips" role="group" *ngIf="displayedPlanets.length">
         <button
           type="button"
@@ -979,6 +1024,7 @@
       </button>
       </div>
       <div class="ac-acc__body" *ngIf="isTargetAccordionOpen('star')">
+      <ng-container [ngTemplateOutlet]="catalogSortBar" [ngTemplateOutletContext]="{ kind: 'star' }"></ng-container>
       <div class="ac-search">
         <label for="acStarQuery">{{ 'ASTRO_COMPASS.STAR_FILTER' | translate }}</label>
         <input
@@ -1050,6 +1096,7 @@
       </button>
       </div>
       <div class="ac-acc__body" *ngIf="isTargetAccordionOpen('galaxy')">
+      <ng-container [ngTemplateOutlet]="catalogSortBar" [ngTemplateOutletContext]="{ kind: 'galaxy' }"></ng-container>
       <div class="ac-search">
         <label for="acGalaxyQuery">{{ 'ASTRO_COMPASS.GALAXY_FILTER' | translate }}</label>
         <input
@@ -1098,6 +1145,78 @@
       </div>
       </div>
 
+      <div class="ac-acc" [class.ac-acc--open]="isTargetAccordionOpen('deepsky')" [class.ac-acc--current]="selectedKind === 'deepsky'">
+      <div class="ac-acc__bar">
+      <button
+        type="button"
+        class="ac-acc__head"
+        (click)="toggleTargetAccordion('deepsky')"
+        [attr.aria-expanded]="isTargetAccordionOpen('deepsky')">
+        <h3>
+          <i class="fa fa-dot-circle-o me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.DEEPSKY_TITLE' | translate }}
+          <span class="ac-count">({{ deepSkyResults.length }})</span>
+        </h3>
+        <span class="ac-acc__pick" *ngIf="selectedKind === 'deepsky' && !isTargetAccordionOpen('deepsky')">{{ bodyLabel }}</span>
+        <i class="fa fa-chevron-down ac-acc__chevron" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="ac-acc__info"
+        (click)="openTypeHelp('deepsky', $event)"
+        aria-label="Aide / Help">
+        <span aria-hidden="true">i</span>
+      </button>
+      </div>
+      <div class="ac-acc__body" *ngIf="isTargetAccordionOpen('deepsky')">
+      <ng-container [ngTemplateOutlet]="catalogSortBar" [ngTemplateOutletContext]="{ kind: 'deepsky' }"></ng-container>
+      <div class="ac-search">
+        <label for="acDeepSkyQuery">{{ 'ASTRO_COMPASS.DEEPSKY_FILTER' | translate }}</label>
+        <input
+          id="acDeepSkyQuery"
+          type="search"
+          [(ngModel)]="deepSkyQuery"
+          (ngModelChange)="onDeepSkyQueryChange()"
+          [placeholder]="'ASTRO_COMPASS.DEEPSKY_SEARCH_PLACEHOLDER' | translate"
+          autocomplete="off"
+          spellcheck="false"
+          [attr.aria-controls]="'acDeepSkyPickerList'" />
+        <ul
+          *ngIf="deepSkyResults.length"
+          id="acDeepSkyPickerList"
+          class="ac-picker__list"
+          role="listbox"
+          [attr.aria-label]="'ASTRO_COMPASS.DEEPSKY_SELECT' | translate">
+          <li *ngFor="let o of deepSkyResults">
+            <button
+              type="button"
+              class="ac-picker__opt"
+              [class.ac-picker__opt--active]="selectedKind === 'deepsky' && selectedDeepSkyId === o.id"
+              role="option"
+              [attr.aria-selected]="selectedKind === 'deepsky' && selectedDeepSkyId === o.id"
+              (click)="onDeepSkySelectChange(o.id)">
+              <span class="ac-picker__opt-main">
+                {{ o.name }} · {{ deepSkySubtypeLabelKey(o.subtype) | translate }}<ng-container *ngIf="o.constellation"> · {{ o.constellation }}</ng-container> · mag {{ o.mag | number : '1.1-2' }}
+              </span>
+              <span
+                class="ac-picker__opt-dir"
+                *ngIf="catalogSkyDir('deepsky', o.id) as dir"
+                [class.ac-picker__opt-dir--below]="dir.elevationDeg <= 0">{{ dir.label }}</span>
+            </button>
+          </li>
+        </ul>
+        <p class="ac-place" *ngIf="deepSkyQuery.trim() && !deepSkyResults.length">
+          {{ 'ASTRO_COMPASS.DEEPSKY_FILTER_EMPTY' | translate }}
+        </p>
+        <p class="ac-place" *ngIf="visibleOnly && !deepSkyQuery.trim() && !deepSkyResults.length">
+          {{ 'ASTRO_COMPASS.DEEPSKY_NONE_VISIBLE' | translate }}
+        </p>
+        <p class="ac-place" *ngIf="!visibleOnly && !deepSkyQuery.trim() && !deepSkyResults.length">
+          {{ 'ASTRO_COMPASS.MAG_FILTER_EMPTY' | translate }}
+        </p>
+      </div>
+      </div>
+      </div>
+
       <div class="ac-acc" [class.ac-acc--open]="isTargetAccordionOpen('constellation')" [class.ac-acc--current]="selectedKind === 'constellation'">
       <div class="ac-acc__bar">
       <button
@@ -1121,6 +1240,7 @@
       </button>
       </div>
       <div class="ac-acc__body" *ngIf="isTargetAccordionOpen('constellation')">
+      <ng-container [ngTemplateOutlet]="catalogSortBar" [ngTemplateOutletContext]="{ kind: 'constellation' }"></ng-container>
       <div class="ac-search">
         <label for="acConstellationQuery">{{ 'ASTRO_COMPASS.CONSTELLATION_FILTER' | translate }}</label>
         <input
@@ -1887,6 +2007,16 @@
       </button>
       <button
         type="button"
+        class="ac-live-chip ac-live-chip--deepsky"
+        *ngIf="showAutoDetectDeepSkyFilter"
+        [class.ac-live-chip--on]="autoDetectIncludeDeepSky"
+        (click)="toggleAutoDetectInclude('deepsky')"
+        [attr.aria-pressed]="autoDetectIncludeDeepSky">
+        <i class="fa fa-dot-circle-o" aria-hidden="true"></i>
+        {{ 'ASTRO_COMPASS.AUTO_FILTER_DEEPSKY' | translate }}
+      </button>
+      <button
+        type="button"
         class="ac-live-chip ac-live-chip--sat"
         *ngIf="showAutoDetectSatelliteFilter"
         [class.ac-live-chip--on]="autoDetectIncludeIss"
@@ -1930,6 +2060,7 @@
     </div>
   </div>
 
+  <div class="ac-live-modal__scroll">
   <div class="ac-live-modal__stage">
     <ng-container *ngIf="autoDetectBestHit as hit; else acLiveEmpty">
       <div class="ac-live-radar" [class.ac-live-radar--const]="hit.kind === 'constellation'">
@@ -2035,7 +2166,7 @@
           aria-hidden="true"></i>
       </div>
       <div class="ac-live-hero__meta">
-        <span class="ac-live-hero__kind">{{ autoDetectKindLabelKey(hit.kind) | translate }}</span>
+        <span class="ac-live-hero__kind">{{ autoDetectKindLabelKey(hit.kind, hit.subtype) | translate }}</span>
         <h2 class="ac-live-hero__name">{{ bodyLabel || hit.name }}</h2>
         <ng-container *ngTemplateOutlet="acHorizonBadge"></ng-container>
         <p class="ac-live-hero__sep" *ngIf="!hit.fromRegion">
@@ -2083,6 +2214,7 @@
       </button>
     </li>
   </ul>
+  </div>
 
   <div class="ac-live-modal__dock">
     <div
@@ -2424,18 +2556,31 @@
             <i class="fa fa-globe me-1" aria-hidden="true"></i>
             {{ 'ASTRO_COMPASS.DOSSIER_SKYMAP' | translate }}
           </span>
-          <a
-            *ngIf="canOpenSkyMapApp()"
-            class="ac-live-dossier__skymap-app"
-            [href]="skyMapAppHref()"
-            [attr.target]="skyMapAppTarget()"
-            rel="noopener noreferrer"
-            (click)="onSkyMapAppClick($event)"
-            [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate"
-            [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate">
-            <i class="fa fa-mobile me-1" aria-hidden="true"></i>
-            {{ 'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate }}
-          </a>
+          <span class="ac-live-dossier__skymap-apps">
+            <a
+              *ngIf="canOpenSkyMapApp()"
+              class="ac-live-dossier__skymap-app"
+              [href]="skyMapAppHref()"
+              [attr.target]="skyMapAppTarget()"
+              rel="noopener noreferrer"
+              (click)="onSkyMapAppClick($event)"
+              [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate"
+              [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate">
+              <i class="fa fa-mobile me-1" aria-hidden="true"></i>
+              {{ 'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate }}
+            </a>
+            <a
+              class="ac-live-dossier__skymap-app"
+              [href]="skyViewAppHref()"
+              [attr.target]="skyViewAppTarget()"
+              rel="noopener noreferrer"
+              (click)="onSkyViewAppClick($event)"
+              [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate"
+              [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate">
+              <i class="fa fa-eye me-1" aria-hidden="true"></i>
+              {{ 'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate }}
+            </a>
+          </span>
         </div>
         <div id="astro-skymap-wrap" class="ac-live-dossier__skymap-wrap">
           <iframe
@@ -2725,36 +2870,33 @@
 <div class="ac-help-backdrop" *ngIf="typeHelp" (click)="closeTypeHelp()" aria-hidden="true"></div>
 <div
   class="ac-help-modal ac-type-help-modal"
-  *ngIf="typeHelp as help"
+  *ngIf="typeHelp"
   role="dialog"
   aria-modal="true"
-  [attr.aria-label]="help.titleFr + ' / ' + help.titleEn"
+  [attr.lang]="typeHelpLangAttr()"
+  [attr.aria-label]="typeHelpTitle()"
   (click)="$event.stopPropagation()">
   <header class="ac-help-modal__header">
     <h3 class="ac-help-modal__title">
-      <i class="fa fa-info-circle me-2" aria-hidden="true"></i>{{ help.titleFr }} / {{ help.titleEn }}
+      <i class="fa fa-info-circle me-2" aria-hidden="true"></i>{{ typeHelpTitle() }}
     </h3>
     <button
       type="button"
       class="ac-help-modal__close"
       (click)="closeTypeHelp()"
-      aria-label="Fermer / Close">
+      [attr.aria-label]="'ASTRO_COMPASS.HELP_CLOSE' | translate">
       <i class="fa fa-times" aria-hidden="true"></i>
     </button>
   </header>
   <div class="ac-help-modal__body ac-type-help-modal__body">
-    <section class="ac-type-help-lang" lang="fr">
-      <h4>Français</h4>
-      <p>{{ help.bodyFr }}</p>
-    </section>
-    <section class="ac-type-help-lang" lang="en">
-      <h4>English</h4>
-      <p>{{ help.bodyEn }}</p>
+    <section class="ac-type-help-block" *ngFor="let block of typeHelpSections()">
+      <h4 *ngIf="block.heading">{{ block.heading }}</h4>
+      <p>{{ block.text }}</p>
     </section>
   </div>
   <footer class="ac-help-modal__footer">
     <button type="button" class="ac-help-modal__exit" (click)="closeTypeHelp()">
-      <i class="fa fa-times me-1" aria-hidden="true"></i>Fermer / Close
+      <i class="fa fa-times me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.HELP_CLOSE' | translate }}
     </button>
   </footer>
 </div>
