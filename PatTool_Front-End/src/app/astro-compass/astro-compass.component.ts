@@ -981,7 +981,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   autoDetectModalOpen = false;
   /** Pause : fige l'objet détecté même si le téléphone change de direction. */
   autoDetectPaused = false;
-  /** Panneau rafraîchissement (masqué par défaut pour laisser le viseur). */
+  /** Panneau filtres / magnitude / rafraîchissement (masqué par défaut pour laisser le viseur). */
   autoDetectSettingsOpen = false;
   /** Si true : l’objet identifié reste la cible du viseur en quittant l’auto-détection. */
   autoDetectKeepTarget = false;
@@ -5662,39 +5662,6 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get showPlanetSection(): boolean {
     return !this.visibleOnly || this.displayedPlanets.length > 0;
-  }
-
-  get showAutoDetectSatelliteFilter(): boolean {
-    return this.visibleSatelliteIds.size > 0;
-  }
-
-  get showAutoDetectPlanetFilter(): boolean {
-    return this.visiblePlanetIds.size > 0;
-  }
-
-  get showAutoDetectStarFilter(): boolean {
-    return this.visibleStarIds.size > 0;
-  }
-
-  get showAutoDetectGalaxyFilter(): boolean {
-    return this.visibleGalaxyIds.size > 0;
-  }
-
-  get showAutoDetectDeepSkyFilter(): boolean {
-    return this.visibleDeepSkyIds.size > 0;
-  }
-
-  get showAutoDetectConstellationFilter(): boolean {
-    return true;
-  }
-
-  get showAutoDetectNakedEyeFilter(): boolean {
-    return (
-      this.showAutoDetectStarFilter ||
-      this.showAutoDetectGalaxyFilter ||
-      this.showAutoDetectDeepSkyFilter ||
-      this.showAutoDetectConstellationFilter
-    );
   }
 
   get nakedEyeMarkPercent(): number {

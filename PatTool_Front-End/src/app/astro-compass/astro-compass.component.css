@@ -4105,6 +4105,10 @@ a.ac-compass-cal__btn--direction {
   padding: 0;
 }
 
+.ac-live-modal__icon-btn--settings {
+  width: 3.7rem;
+}
+
 .ac-live-modal__icon-btn--on {
   border-color: rgba(255, 213, 74, 0.7);
   background: rgba(255, 213, 74, 0.18);
@@ -4146,8 +4150,20 @@ a.ac-compass-cal__btn--direction {
   border-radius: 0.7rem;
   border: 1px solid rgba(140, 180, 255, 0.18);
   background: rgba(6, 12, 26, 0.42);
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: min(52vh, 24rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   z-index: 3;
+}
+
+.ac-live-modal__tools .ac-live-modal__rate {
+  padding: 0.12rem 0.08rem 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .ac-live-modal__tools .ac-mag-filter--live {
@@ -4177,6 +4193,7 @@ a.ac-compass-cal__btn--direction {
 }
 
 .ac-live-modal--cam .ac-live-modal__tools .ac-mag-filter--live,
+.ac-live-modal--cam .ac-live-modal__tools .ac-live-modal__rate,
 .ac-live-modal--cam .ac-live-modal__filters {
   background: transparent;
   backdrop-filter: none;

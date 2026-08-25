@@ -1954,12 +1954,14 @@
     <div class="ac-live-modal__header-actions">
       <button
         type="button"
-        class="ac-live-modal__icon-btn"
+        class="ac-live-modal__icon-btn ac-live-modal__icon-btn--settings"
         [class.ac-live-modal__icon-btn--on]="autoDetectSettingsOpen"
         (click)="toggleAutoDetectSettings()"
         [attr.title]="'ASTRO_COMPASS.AUTO_SETTINGS' | translate"
         [attr.aria-label]="'ASTRO_COMPASS.AUTO_SETTINGS' | translate"
-        [attr.aria-pressed]="autoDetectSettingsOpen">
+        [attr.aria-pressed]="autoDetectSettingsOpen"
+        [attr.aria-expanded]="autoDetectSettingsOpen"
+        aria-controls="ac-live-modal-tools">
         <i class="fa fa-cog" aria-hidden="true"></i>
       </button>
       <button
@@ -1980,14 +1982,6 @@
       </button>
       <button
         type="button"
-        class="ac-live-modal__icon-btn"
-        (click)="openHelpModal()"
-        [attr.title]="'ASTRO_COMPASS.HELP_OPEN_HINT' | translate"
-        [attr.aria-label]="'ASTRO_COMPASS.HELP_OPEN' | translate">
-        <i class="fa fa-question-circle" aria-hidden="true"></i>
-      </button>
-      <button
-        type="button"
         class="ac-live-modal__icon-btn ac-live-modal__icon-btn--close"
         (click)="closeAutoDetectModal()"
         [attr.aria-label]="'ASTRO_COMPASS.AUTO_EXIT' | translate">
@@ -1996,7 +1990,10 @@
     </div>
   </header>
 
-  <div class="ac-live-modal__tools">
+  <div
+    class="ac-live-modal__tools"
+    id="ac-live-modal-tools"
+    *ngIf="autoDetectSettingsOpen">
     <div
       class="ac-live-modal__filters"
       role="toolbar"
@@ -2004,7 +2001,6 @@
       <button
         type="button"
         class="ac-live-chip ac-live-chip--planet"
-        *ngIf="showAutoDetectPlanetFilter"
         [class.ac-live-chip--on]="autoDetectIncludePlanets"
         (click)="toggleAutoDetectInclude('planets')"
         [attr.aria-pressed]="autoDetectIncludePlanets">
@@ -2014,7 +2010,6 @@
       <button
         type="button"
         class="ac-live-chip ac-live-chip--star"
-        *ngIf="showAutoDetectStarFilter"
         [class.ac-live-chip--on]="autoDetectIncludeStars"
         (click)="toggleAutoDetectInclude('stars')"
         [attr.aria-pressed]="autoDetectIncludeStars">
@@ -2024,7 +2019,6 @@
       <button
         type="button"
         class="ac-live-chip ac-live-chip--const"
-        *ngIf="showAutoDetectConstellationFilter"
         [class.ac-live-chip--on]="autoDetectIncludeConstellations"
         (click)="toggleAutoDetectInclude('constellations')"
         [attr.aria-pressed]="autoDetectIncludeConstellations">
@@ -2034,7 +2028,6 @@
       <button
         type="button"
         class="ac-live-chip ac-live-chip--galaxy"
-        *ngIf="showAutoDetectGalaxyFilter"
         [class.ac-live-chip--on]="autoDetectIncludeGalaxies"
         (click)="toggleAutoDetectInclude('galaxies')"
         [attr.aria-pressed]="autoDetectIncludeGalaxies">
@@ -2044,7 +2037,6 @@
       <button
         type="button"
         class="ac-live-chip ac-live-chip--deepsky"
-        *ngIf="showAutoDetectDeepSkyFilter"
         [class.ac-live-chip--on]="autoDetectIncludeDeepSky"
         (click)="toggleAutoDetectInclude('deepsky')"
         [attr.aria-pressed]="autoDetectIncludeDeepSky">
@@ -2054,7 +2046,6 @@
       <button
         type="button"
         class="ac-live-chip ac-live-chip--sat"
-        *ngIf="showAutoDetectSatelliteFilter"
         [class.ac-live-chip--on]="autoDetectIncludeIss"
         (click)="toggleAutoDetectInclude('iss')"
         [attr.aria-pressed]="autoDetectIncludeIss">
@@ -2064,7 +2055,6 @@
       <button
         type="button"
         class="ac-live-chip ac-live-chip--eye"
-        *ngIf="showAutoDetectNakedEyeFilter"
         [class.ac-live-chip--on]="autoDetectNakedEye"
         (click)="toggleAutoDetectNakedEye()"
         [attr.title]="'ASTRO_COMPASS.AUTO_FILTER_NAKED_EYE_HINT' | translate"
@@ -2088,25 +2078,24 @@
       {{ 'ASTRO_COMPASS.AUTO_KEEP_TARGET' | translate }}
     </label>
     <ng-container *ngTemplateOutlet="acMagFilter; context: { css: 'ac-mag-filter--live' }"></ng-container>
-  </div>
-
-  <div class="ac-live-modal__rate" *ngIf="autoDetectSettingsOpen">
-    <div class="ac-live-modal__rate-head">
-      <span>{{ 'ASTRO_COMPASS.AUTO_RATE' | translate }}</span>
-      <strong>{{ autoDetectIntervalLabel }}</strong>
-    </div>
-    <input
-      class="ac-live-modal__slider"
-      type="range"
-      [min]="autoDetectIntervalMinMs"
-      [max]="autoDetectIntervalMaxMs"
-      [step]="autoDetectIntervalStepMs"
-      [ngModel]="autoDetectIntervalMs"
-      (ngModelChange)="onAutoDetectIntervalChange($event)"
-      [attr.aria-label]="'ASTRO_COMPASS.AUTO_RATE' | translate" />
-    <div class="ac-live-modal__rate-ends">
-      <span>200 ms</span>
-      <span>3 s</span>
+    <div class="ac-live-modal__rate">
+      <div class="ac-live-modal__rate-head">
+        <span>{{ 'ASTRO_COMPASS.AUTO_RATE' | translate }}</span>
+        <strong>{{ autoDetectIntervalLabel }}</strong>
+      </div>
+      <input
+        class="ac-live-modal__slider"
+        type="range"
+        [min]="autoDetectIntervalMinMs"
+        [max]="autoDetectIntervalMaxMs"
+        [step]="autoDetectIntervalStepMs"
+        [ngModel]="autoDetectIntervalMs"
+        (ngModelChange)="onAutoDetectIntervalChange($event)"
+        [attr.aria-label]="'ASTRO_COMPASS.AUTO_RATE' | translate" />
+      <div class="ac-live-modal__rate-ends">
+        <span>200 ms</span>
+        <span>3 s</span>
+      </div>
     </div>
   </div>
 
