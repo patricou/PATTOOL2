@@ -39,7 +39,8 @@ import { ElementEvenementComponent } from '../../evenements/element-evenement/el
                         [friendGroups]="friendGroups"
                         [titleOnly]="false"
                         (addMember)="onOverlayAddMember($event)"
-                        (delMember)="onOverlayDelMember($event)">
+                        (delMember)="onOverlayDelMember($event)"
+                        (openPhotoWall)="close()">
                     </element-evenement>
                 </div>
             </div>

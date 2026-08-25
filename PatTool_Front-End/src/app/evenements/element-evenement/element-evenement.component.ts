@@ -21,6 +21,7 @@ import { UploadedFile } from '../../model/uploadedfile';
 import { Member } from '../../model/member';
 import { Evenement } from '../../model/evenement';
 import { UrlEvent } from '../../model/url-event';
+import { parseYoutubeVideoId } from '../../shared/youtube-video-id.util';
 import { Commentary } from '../../model/commentary';
 import { environment } from '../../../environments/environment';
 import { WindowRefService } from '../../services/window-ref.service';
@@ -368,6 +369,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	
 	@Output()
 	storeEventForReturn: EventEmitter<string> = new EventEmitter<string>();
+
+	/** Emitted when the photo-wall button is clicked (fiche overlay uses this to close). */
+	@Output()
+	openPhotoWall: EventEmitter<string> = new EventEmitter<string>();
 	
 	@Output()
 	cardReady: EventEmitter<string> = new EventEmitter<string>();
@@ -377,6 +382,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		if (this.evenement && this.evenement.id) {
 			// Emit to parent so it can calculate page number
 			this.storeEventForReturn.emit(this.evenement.id);
+		}
+	}
+
+	public onPhotoWallClick(): void {
+		this.storeEventIdForReturn();
+		if (this.evenement?.id) {
+			this.openPhotoWall.emit(this.evenement.id);
 		}
 	}
 
@@ -6442,6 +6454,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			{id: "FICHE", label: "EVENTHOME.URL_TYPE_FICHE", aliases: ["FICHE", "SHEET", "FICHA", "BLATT", "シート", "表格", "نشرة"]},
 			{id: "OTHER", label: "EVENTHOME.URL_TYPE_OTHER", aliases: ["AUTRE", "OTRO", "ANDERE", "其他", "أخرى"]},
 			{id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS", aliases: ["PHOTO", "PHOTOS", "IMAGES", "PICTURES", "照片", "صور"]},
+			{id: "VIDEO", label: "EVENTHOME.URL_TYPE_VIDEO", aliases: ["VIDEO", "VIDÉO", "VIMEO"]},
+			{id: "YOUTUBE", label: "EVENTHOME.URL_TYPE_YOUTUBE", aliases: ["YOUTUBE"]},
 			{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]}
 		];
 		
@@ -6504,7 +6518,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}
 		
 		// Check for VIDEO
-		if (normalizedType === 'VIDEO' || normalizedType === 'VIDÉO' || normalizedType === 'YOUTUBE' || normalizedType === 'VIMEO') {
+		if (normalizedType === 'YOUTUBE') {
+			return 'fa fa-youtube-play';
+		}
+
+		if (normalizedType === 'VIDEO' || normalizedType === 'VIDÉO' || normalizedType === 'VIMEO') {
 			return 'fa fa-video-camera';
 		}
 		
@@ -6550,6 +6568,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			{id: "FICHE", aliases: ["FICHE", "SHEET", "FICHA", "BLATT", "シート", "表格", "نشرة"]},
 			{id: "OTHER", aliases: ["AUTRE", "OTRO", "ANDERE", "其他", "أخرى"]},
 			{id: "PHOTOS", aliases: ["PHOTO", "PHOTOS", "IMAGES", "PICTURES", "照片", "صور"]},
+			{id: "VIDEO", aliases: ["VIDEO", "VIDÉO", "VIMEO"]},
+			{id: "YOUTUBE", aliases: ["YOUTUBE"]},
 			{id: "WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]}
 		];
 		
@@ -6581,8 +6601,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Get sorted type keys for consistent display order
 	public getSortedTypeKeys(): string[] {
 		const grouped = this.getGroupedUrlEvents();
-		const typeOrder = ['MAP', 'DOCUMENTATION', 'FICHE', 'WEBSITE', 'PHOTOS', 'Photos', 'OTHER'];
-		return typeOrder.filter(type => grouped[type] && grouped[type].length > 0);
+		const typeOrder = ['MAP', 'DOCUMENTATION', 'FICHE', 'WEBSITE', 'YOUTUBE', 'VIDEO', 'PHOTOS', 'WHATSAPP', 'OTHER'];
+		const ordered = typeOrder.filter(type => grouped[type] && grouped[type].length > 0);
+		const rest = Object.keys(grouped).filter(
+			key => !typeOrder.includes(key) && grouped[key]?.length
+		);
+		return [...ordered, ...rest];
 	}
 
 	// File grouping methods
@@ -8257,6 +8281,56 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		} else {
 			console.error('Slideshow modal component not available');
 		}
+	}
+
+	public isYoutubeUrlEvent(urlEvent: UrlEvent | null | undefined): boolean {
+		return !!parseYoutubeVideoId(urlEvent?.link);
+	}
+
+	public onUrlEventLinkClick(event: MouseEvent, urlEvent: UrlEvent): void {
+		if (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) {
+			return;
+		}
+		if (!this.isYoutubeUrlEvent(urlEvent)) {
+			return;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		this.openUrlEventInVideoshow(urlEvent);
+	}
+
+	public openUrlEventInVideoshow(urlEvent: UrlEvent): void {
+		const clickedId = parseYoutubeVideoId(urlEvent?.link);
+		if (!clickedId || !this.videoshowModalComponent) {
+			return;
+		}
+		this.forceCloseTooltips();
+		const sources = this.buildEventVideoshowSources();
+		let startIndex = sources.findIndex((source) => source.youtubeVideoId === clickedId);
+		if (startIndex < 0) {
+			sources.unshift({
+				youtubeVideoId: clickedId,
+				fileName: (urlEvent.urlDescription || '').trim() || undefined
+			});
+			startIndex = 0;
+		}
+		this.videoshowModalComponent.open(sources, this.evenement.evenementName, true, 0, startIndex);
+	}
+
+	private buildEventVideoshowSources(): VideoshowVideoSource[] {
+		const youtubeSources: VideoshowVideoSource[] = (this.evenement?.urlEvents || [])
+			.map((item) => ({
+				youtubeVideoId: parseYoutubeVideoId(item.link) || undefined,
+				fileName: (item.urlDescription || '').trim() || undefined
+			}))
+			.filter((item) => !!item.youtubeVideoId);
+		const fileSources: VideoshowVideoSource[] = (this.evenement?.fileUploadeds || [])
+			.filter((file) => file?.fieldId && this.isVideoFile(file.fileName))
+			.map((file) => ({
+				fileId: file.fieldId,
+				fileName: file.fileName
+			}));
+		return [...youtubeSources, ...fileSources];
 	}
 
 	// Open videoshow modal with all videos from this card

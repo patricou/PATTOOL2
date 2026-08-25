@@ -789,6 +789,14 @@
                       {{ urlEvent.urlDescription || getWebsiteTitle(urlEvent.link) }}
                     </a>
                     <button type="button"
+                            class="btn-compact btn-primary-compact btn-open-link-compact youtube-pip-btn"
+                            *ngIf="isYoutubeUrlEvent(urlEvent)"
+                            (click)="openYoutubeUrlEventPlayer(urlEvent, $event)"
+                            [title]="'YOUTUBE.FLOAT_OPEN' | translate">
+                      <i class="fa fa-clone" aria-hidden="true"></i>
+                      <span>{{ 'YOUTUBE.FLOAT_OPEN' | translate }}</span>
+                    </button>
+                    <button type="button"
                             class="btn-compact btn-primary-compact btn-open-link-compact"
                             *ngIf="!isPhotoFromFs(urlEvent) && urlEvent.link"
                             (click)="openUrlInNewWindow(urlEvent.link); $event.preventDefault(); $event.stopPropagation()"
@@ -1007,6 +1015,65 @@
         </div>
       </div>
 
+      <!-- YouTube urlEvents : lecteur embarqué, comme les vidéos GridFS -->
+      <div class="dynamic-card card-medium card-vertical video-card youtube-video-card"
+           *ngFor="let ytEvent of getYoutubeUrlEvents(); let i = index"
+           [ngClass]="getCardLayoutClasses('upload')"
+           [style.order]="getCardOrder('upload')">
+        <div class="card-header-compact video-header-compact">
+          <div class="video-header-left">
+            <i class="fa fa-youtube-play" aria-hidden="true"></i>
+            <span class="youtube-card-badge">{{ 'PHOTO_TIMELINE.YOUTUBE_BADGE' | translate }}</span>
+            <span>{{ ytEvent.urlDescription || ('EVENTELEM.YOUTUBE_VIDEO' | translate) }}</span>
+          </div>
+          <div class="youtube-card-header-actions ms-auto">
+            <button type="button"
+                    class="btn-compact btn-primary-compact youtube-pip-btn"
+                    (click)="openYoutubeUrlEventPlayer(ytEvent, $event)"
+                    [title]="'YOUTUBE.FLOAT_OPEN' | translate">
+              <i class="fa fa-clone" aria-hidden="true"></i>
+              <span>{{ 'YOUTUBE.FLOAT_OPEN' | translate }}</span>
+            </button>
+            <button type="button"
+                    class="btn-compact btn-primary-compact"
+                    *ngIf="ytEvent.link"
+                    (click)="openUrlInNewWindow(ytEvent.link); $event.preventDefault(); $event.stopPropagation()"
+                    [title]="'YOUTUBE.OPEN_YOUTUBE' | translate">
+              <i class="fa fa-external-link" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <div class="video-meta-compact" *ngIf="ytEvent.owner || ytEvent.dateCreation">
+          <ng-container *ngIf="ytEvent.owner">
+            <i class="fa fa-user"></i>
+            <span class="video-owner-compact">{{ ytEvent.owner }}</span>
+          </ng-container>
+          <span class="video-sep-compact" *ngIf="ytEvent.owner && ytEvent.dateCreation">•</span>
+          <span class="video-date-compact" *ngIf="ytEvent.dateCreation">
+            <i class="fa fa-calendar"></i>
+            {{ ytEvent.dateCreation | date:'short' }}
+          </span>
+        </div>
+        <div class="video-container-compact">
+          <div *ngIf="getYoutubeEmbedUrl(ytEvent) as ytEmbed" class="youtube-embed-compact">
+            <iframe
+              [src]="ytEmbed"
+              [title]="ytEvent.urlDescription || ('EVENTELEM.YOUTUBE_VIDEO' | translate)"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen
+              referrerpolicy="strict-origin-when-cross-origin"></iframe>
+          </div>
+          <div class="youtube-pip-actions">
+            <button type="button"
+                    class="btn-compact btn-primary-compact youtube-pip-btn"
+                    (click)="openYoutubeUrlEventPlayer(ytEvent, $event)">
+              <i class="fa fa-clone" aria-hidden="true"></i>
+              {{ 'YOUTUBE.FLOAT_OPEN' | translate }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Video Cards - One card per video -->
       <div class="dynamic-card card-medium card-vertical video-card" 
            *ngFor="let videoFile of getVideoFiles(); let i = index"
@@ -1040,22 +1107,32 @@
             <i class="fa fa-spinner fa-spin"></i>
             <span>{{ 'COMMUN.LOADING' | translate }}</span>
           </div>
-          <video 
-            *ngIf="hasVideoUrl(videoFile)"
-            [src]="getVideoUrl(videoFile)"
-            controls
-            autoplay
-            muted
-            loop
-            playsinline
-            preload="auto"
-            class="video-player-compact"
-            style="max-width: 100%; height: auto;"
-            (error)="onVideoError($event, videoFile)"
-            (loadeddata)="onVideoLoaded($event, videoFile)"
-            (canplay)="onVideoLoaded($event, videoFile)">
-            {{ 'EVENTELEM.VIDEO_NOT_SUPPORTED' | translate }}
-          </video>
+          <ng-container *ngIf="hasVideoUrl(videoFile)">
+            <video
+              #eventUploadedVideo
+              [src]="getVideoUrl(videoFile)"
+              controls
+              autoplay
+              muted
+              loop
+              playsinline
+              preload="auto"
+              class="video-player-compact"
+              style="max-width: 100%; height: auto;"
+              (error)="onVideoError($event, videoFile)"
+              (loadeddata)="onVideoLoaded($event, videoFile)"
+              (canplay)="onVideoLoaded($event, videoFile)">
+              {{ 'EVENTELEM.VIDEO_NOT_SUPPORTED' | translate }}
+            </video>
+            <div class="youtube-pip-actions" *ngIf="isPictureInPictureSupported()">
+              <button type="button"
+                      class="btn-compact btn-primary-compact youtube-pip-btn"
+                      (click)="toggleEventVideoPip(eventUploadedVideo, $event)">
+                <i class="fa fa-clone" aria-hidden="true"></i>
+                {{ 'EVENTELEM.VIDEO_PIP' | translate }}
+              </button>
+            </div>
+          </ng-container>
         </div>
       </div>
 

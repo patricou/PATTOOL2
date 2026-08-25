@@ -148,11 +148,13 @@
   <div class="yt-player" *ngIf="selected && embedUrl && !playerOpen">
     <div class="yt-player-frame" #playerFrame>
       <iframe
+        class="yt-page-embed"
         [src]="embedUrl"
         [title]="selected.title || ''"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowfullscreen
-        referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        referrerpolicy="strict-origin-when-cross-origin"
+        (load)="onYoutubeEmbedLoad()"></iframe>
       <button
         *ngIf="landscapeFullscreen"
         type="button"
@@ -174,9 +176,25 @@
       </p>
       <p class="yt-player-desc" *ngIf="selected.description">{{ selected.description }}</p>
       <div class="yt-now-playing-actions">
-        <button type="button" class="btn btn-danger btn-sm yt-pip-open" (click)="openInFloatingWindow()">
+        <button type="button" class="btn btn-outline-light btn-sm yt-pip-open" (click)="openInFloatingWindow()">
           <i class="fa fa-clone" aria-hidden="true"></i>
           {{ 'YOUTUBE.FLOAT_OPEN' | translate }}
+        </button>
+        <button
+          *ngIf="canLinkVideo(selected)"
+          type="button"
+          class="btn btn-outline-light btn-sm"
+          (click)="openInVideoshow()">
+          <i class="fa fa-expand" aria-hidden="true"></i>
+          {{ 'YOUTUBE.OPEN_VIDEOSHOW' | translate }}
+        </button>
+        <button
+          *ngIf="canLinkVideo(selected)"
+          type="button"
+          class="btn btn-outline-light btn-sm"
+          (click)="openLinkToEventModal()">
+          <i class="fa fa-link" aria-hidden="true"></i>
+          {{ 'YOUTUBE.LINK_TO_EVENT' | translate }}
         </button>
         <a
           *ngIf="youtubeUrl(selected)"
@@ -188,6 +206,37 @@
           {{ 'YOUTUBE.OPEN_YOUTUBE' | translate }}
         </a>
       </div>
+      <footer
+        class="yt-player-progress"
+        *ngIf="showPlaybackFooter()"
+        [attr.aria-label]="playbackAriaLabel()">
+        <ng-container *ngIf="!isLive(selected); else ytLiveProgress">
+          <div
+            class="yt-player-progress-track"
+            role="progressbar"
+            [attr.aria-valuemin]="0"
+            [attr.aria-valuemax]="playbackDurationSec || 0"
+            [attr.aria-valuenow]="playbackCurrentSec"
+            (click)="onPlaybackSeek($event)">
+            <div class="yt-player-progress-fill" [style.width.%]="playbackPercent()"></div>
+          </div>
+          <div class="yt-player-progress-meta">
+            <span class="yt-player-progress-elapsed">{{ playbackClock(playbackCurrentSec) }}</span>
+            <span class="yt-player-progress-total">
+              {{ 'YOUTUBE.DURATION' | translate }} {{ playbackClock(playbackDurationSec) }}
+            </span>
+            <span class="yt-player-progress-remain" [attr.title]="'YOUTUBE.REMAINING' | translate">−{{ playbackClock(playbackRemainingSec()) }}</span>
+          </div>
+        </ng-container>
+        <ng-template #ytLiveProgress>
+          <div class="yt-player-progress-track yt-player-progress-track--live" aria-hidden="true">
+            <div class="yt-player-progress-fill yt-player-progress-fill--live"></div>
+          </div>
+          <div class="yt-player-progress-meta">
+            <span class="yt-live">LIVE</span>
+          </div>
+        </ng-template>
+      </footer>
     </div>
   </div>
 
@@ -206,6 +255,22 @@
       <button type="button" class="btn btn-outline-light btn-sm" (click)="restorePlayer()">
         <i class="fa fa-window-restore" aria-hidden="true"></i>
         {{ 'YOUTUBE.FLOAT_RESTORE' | translate }}
+      </button>
+      <button
+        *ngIf="canLinkVideo(selected)"
+        type="button"
+        class="btn btn-outline-light btn-sm"
+        (click)="openInVideoshow()">
+        <i class="fa fa-expand" aria-hidden="true"></i>
+        {{ 'YOUTUBE.OPEN_VIDEOSHOW' | translate }}
+      </button>
+      <button
+        *ngIf="canLinkVideo(selected)"
+        type="button"
+        class="btn btn-outline-light btn-sm"
+        (click)="openLinkToEventModal()">
+        <i class="fa fa-link" aria-hidden="true"></i>
+        {{ 'YOUTUBE.LINK_TO_EVENT' | translate }}
       </button>
       <a
         *ngIf="youtubeUrl(selected)"
@@ -292,3 +357,120 @@
     </button>
   </div>
 </div>
+
+<ng-template #linkToEventModal let-modal>
+  <div class="modal-header bg-primary text-white">
+    <h5 class="modal-title">
+      <i class="fa fa-youtube-play me-2" aria-hidden="true"></i>
+      {{ 'YOUTUBE.LINK_MODAL_TITLE' | translate }}
+    </h5>
+    <button
+      type="button"
+      class="btn-close btn-close-white"
+      (click)="cancelLinkToEventModal()"
+      [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+  <div class="modal-body">
+    <p class="text-muted small mb-2">{{ 'YOUTUBE.LINK_MODAL_DESC' | translate }}</p>
+    <p class="small fw-semibold mb-3" *ngIf="linkTarget?.title">{{ linkTarget?.title }}</p>
+
+    <div class="yt-link-evt-filters mb-3">
+      <div class="input-group yt-link-evt-filter-search">
+        <span class="input-group-text"><i class="fa fa-search" aria-hidden="true"></i></span>
+        <input
+          type="text"
+          class="form-control form-control-sm"
+          [(ngModel)]="linkEventsFilter"
+          [disabled]="linkSavingEventId != null"
+          [placeholder]="'ASSISTANT.INSERT_IMG_IN_EVENT_SEARCH_PLACEHOLDER' | translate"
+          [attr.aria-label]="'ASSISTANT.INSERT_IMG_IN_EVENT_SEARCH_PLACEHOLDER' | translate" />
+      </div>
+      <div class="input-group yt-link-evt-filter-type">
+        <span class="input-group-text"><i class="fa fa-filter" aria-hidden="true"></i></span>
+        <select
+          class="form-select form-select-sm"
+          [(ngModel)]="linkEventsTypeFilter"
+          [disabled]="linkSavingEventId != null"
+          [attr.aria-label]="'ASSISTANT.INSERT_IMG_IN_EVENT_TYPE_FILTER_LABEL' | translate">
+          <option value="">{{ 'ASSISTANT.INSERT_IMG_IN_EVENT_TYPE_FILTER_ALL' | translate }}</option>
+          <option *ngFor="let opt of linkEventTypeOptions" [value]="opt.value">
+            {{ opt.labelKey | translate }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <div *ngIf="linkEventsLoading && linkEventsList.length === 0" class="text-center py-4">
+      <img src="assets/images/sablier.gif" alt="" width="32" height="32" />
+      <p class="text-muted small mt-2 mb-0">{{ 'ASSISTANT.INSERT_IMG_IN_EVENT_LOADING' | translate }}</p>
+    </div>
+
+    <div *ngIf="!linkEventsLoading && linkEventsError" class="alert alert-danger small mb-3">
+      <i class="fa fa-exclamation-triangle me-2"></i>
+      {{ 'ASSISTANT.INSERT_IMG_IN_EVENT_LOAD_ERROR' | translate }}
+    </div>
+
+    <div
+      *ngIf="!linkEventsLoading && !linkEventsError && filteredLinkEvents().length === 0"
+      class="alert alert-secondary small mb-3">
+      <i class="fa fa-info-circle me-2"></i>
+      {{ 'ASSISTANT.INSERT_IMG_IN_EVENT_NO_EVENTS' | translate }}
+    </div>
+
+    <ul
+      *ngIf="filteredLinkEvents().length > 0"
+      class="list-group yt-link-evt-list"
+      role="listbox">
+      <li
+        *ngFor="let ev of filteredLinkEvents()"
+        class="list-group-item list-group-item-action d-flex align-items-center justify-content-between yt-link-evt-item"
+        [class.yt-link-evt-item--saving]="linkSavingEventId === ev.id"
+        role="option">
+        <div class="yt-link-evt-info">
+          <div class="yt-link-evt-name">{{ ev.evenementName }}</div>
+          <div class="yt-link-evt-meta text-muted small">
+            <span *ngIf="ev.type">{{ linkEventTypeLabelKey(ev.type) | translate }}</span>
+            <span *ngIf="ev.type && linkEventDateLabel(ev)"> · </span>
+            <span *ngIf="linkEventDateLabel(ev)">{{ linkEventDateLabel(ev) }}</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="btn btn-sm btn-primary yt-link-evt-pick"
+          [disabled]="!canSubmitLinkForEvent(ev)"
+          (click)="onSelectEventForLink(ev)">
+          <i
+            *ngIf="linkSavingEventId === ev.id"
+            class="fa fa-spinner fa-spin me-1"
+            aria-hidden="true"></i>
+          <i
+            *ngIf="linkSavingEventId !== ev.id"
+            class="fa fa-link me-1"
+            aria-hidden="true"></i>
+          <span>{{ 'YOUTUBE.LINK_PICK' | translate }}</span>
+        </button>
+      </li>
+    </ul>
+
+    <div
+      *ngIf="linkFeedbackKey"
+      class="alert small mt-3 mb-0"
+      [ngClass]="{
+        'alert-success': linkFeedbackKind === 'success',
+        'alert-danger': linkFeedbackKind === 'error'
+      }"
+      role="status"
+      aria-live="polite">
+      <i
+        class="fa me-2"
+        [ngClass]="{
+          'fa-check-circle': linkFeedbackKind === 'success',
+          'fa-exclamation-triangle': linkFeedbackKind === 'error'
+        }"
+        aria-hidden="true"></i>
+      {{ linkFeedbackKey | translate : linkFeedbackParams }}
+    </div>
+  </div>
+</ng-template>
+
+<app-videoshow-modal #videoshowModalComponent (closed)="onVideoshowClosed()"></app-videoshow-modal>

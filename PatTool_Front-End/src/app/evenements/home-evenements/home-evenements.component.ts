@@ -2226,6 +2226,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			{id: "DOCUMENTATION", label: "EVENTHOME.URL_TYPE_DOCUMENTATION", aliases: ["DOC", "DOCUMENT", "DOCS", "文档", "وثائق"]},
 			{id: "OTHER", label: "EVENTHOME.URL_TYPE_OTHER", aliases: ["AUTRE", "OTRO", "ANDERE", "其他", "أخرى"]},
 			{id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS", aliases: ["PHOTO", "PHOTOS", "IMAGES", "PICTURES", "照片", "صور"]},
+			{id: "VIDEO", label: "EVENTHOME.URL_TYPE_VIDEO", aliases: ["VIDEO", "VIDÉO", "VIMEO"]},
+			{id: "YOUTUBE", label: "EVENTHOME.URL_TYPE_YOUTUBE", aliases: ["YOUTUBE"]},
 			{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]}
 		];
 		
@@ -2288,7 +2290,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 		
 		// Check for VIDEO
-		if (normalizedType === 'VIDEO' || normalizedType === 'VIDÉO' || normalizedType === 'YOUTUBE' || normalizedType === 'VIMEO') {
+		if (normalizedType === 'YOUTUBE') {
+			return 'fa fa-youtube-play';
+		}
+
+		if (normalizedType === 'VIDEO' || normalizedType === 'VIDÉO' || normalizedType === 'VIMEO') {
 			return 'fa fa-video-camera';
 		}
 		
@@ -2333,6 +2339,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			{id: "DOCUMENTATION", aliases: ["DOC", "DOCUMENT", "DOCS", "文档", "وثائق"]},
 			{id: "OTHER", aliases: ["AUTRE", "OTRO", "ANDERE", "其他", "أخرى"]},
 			{id: "PHOTOS", aliases: ["PHOTO", "PHOTOS", "IMAGES", "PICTURES", "照片", "صور"]},
+			{id: "VIDEO", aliases: ["VIDEO", "VIDÉO", "VIMEO"]},
+			{id: "YOUTUBE", aliases: ["YOUTUBE"]},
 			{id: "WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]}
 		];
 		
@@ -2364,8 +2372,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	// Get sorted type keys for consistent display order
 	public getSortedTypeKeys(evenement: Evenement): string[] {
 		const grouped = this.getGroupedUrlEvents(evenement);
-		const typeOrder = ['MAP', 'DOCUMENTATION', 'WEBSITE', 'PHOTOS', 'Photos', 'OTHER'];
-		return typeOrder.filter(type => grouped[type] && grouped[type].length > 0);
+		const typeOrder = ['MAP', 'DOCUMENTATION', 'FICHE', 'WEBSITE', 'YOUTUBE', 'VIDEO', 'PHOTOS', 'WHATSAPP', 'OTHER'];
+		const ordered = typeOrder.filter(type => grouped[type] && grouped[type].length > 0);
+		const rest = Object.keys(grouped).filter(
+			key => !typeOrder.includes(key) && grouped[key]?.length
+		);
+		return [...ordered, ...rest];
 	}
 
 	public updateFileUploadedInEvent(evenement: Evenement) {

@@ -2096,6 +2096,56 @@ select.compact-input:focus {
   outline-offset: 2px;
 }
 
+.youtube-video-card .youtube-card-badge {
+  display: inline-block;
+  padding: 0.08rem 0.4rem;
+  border-radius: 0.25rem;
+  background: #cc0000;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.youtube-card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.youtube-embed-compact {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.youtube-embed-compact iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.youtube-pip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.youtube-pip-btn {
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
 /* ============================================
    PDFS COMPACT
    ============================================ */

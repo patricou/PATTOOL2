@@ -382,7 +382,7 @@
        container="body"
        ngbTooltip="{{ 'EVENTELEM.WALL_PHOTOS_EVENT' | translate }}"
        (mouseleave)="onTooltipMouseLeave($event)"
-       (click)="storeEventIdForReturn()">
+       (click)="onPhotoWallClick()">
         <svg class="photo-wall-icon-4c" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
             <rect x="1" y="1" width="8" height="8" rx="1.75" fill="#5c6bc0"/>
             <rect x="11" y="1" width="8" height="8" rx="1.75" fill="#ec407a"/>
@@ -622,14 +622,24 @@
                                     </div>
                                 </div>
                                 <div class="card-body">
-                                    <div class="url-event-content d-flex align-items-start gap-3">
-                                        <div class="url-event-link">
+                                    <div class="url-event-content d-flex align-items-start gap-3 flex-wrap">
+                                        <div class="url-event-link d-flex flex-wrap align-items-center gap-2">
                                             <a [href]="urlEvent.link"
                                                target="_blank"
+                                               rel="noopener noreferrer"
                                                class="btn btn-outline-primary btn-sm"
-                                               [title]="urlEvent.link">
+                                               [title]="urlEvent.link"
+                                               (click)="onUrlEventLinkClick($event, urlEvent)">
                                                 <i class="fa {{ getUrlEventIcon(urlEvent) }}"></i> {{ getTruncatedUrl(urlEvent.link) }}
                                             </a>
+                                            <button type="button"
+                                                    class="btn btn-outline-danger btn-sm"
+                                                    *ngIf="isYoutubeUrlEvent(urlEvent)"
+                                                    (click)="openUrlEventInVideoshow(urlEvent); $event.preventDefault(); $event.stopPropagation()"
+                                                    [attr.title]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate">
+                                                <i class="fa fa-expand" aria-hidden="true"></i>
+                                                {{ 'EVENTELEM.VIDEOSHOW_TITLE' | translate }}
+                                            </button>
                                         </div>
                                         <div class="url-event-description flex-grow-1" *ngIf="urlEvent.urlDescription">
                                             <p class="text-muted mb-0">{{ urlEvent.urlDescription }}</p>

@@ -124,6 +124,7 @@
 
 :host .pat-title.yt-title {
   position: relative;
+  border-bottom: none;
 }
 
 :host .pat-title.yt-title h2 {
@@ -133,6 +134,7 @@
 
 :host .pat-title.yt-title--ticker {
   margin-bottom: 0;
+  box-shadow: none;
 }
 
 .yt-ticker-switch {
@@ -390,6 +392,9 @@
 }
 
 .yt-player-meta {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   background: rgba(33, 33, 33, 0.92);
   border: 1px solid #3f3f3f;
   border-radius: 0.7rem;
@@ -421,9 +426,97 @@
 }
 
 .yt-now-playing-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.yt-now-playing .yt-now-playing-actions {
+  flex: 1 1 20rem;
+  width: min(100%, 24rem);
+}
+
+.yt-now-playing-actions > .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
   gap: 0.4rem;
+  width: 100%;
+  min-height: 2.3rem;
+  margin: 0;
+  padding: 0.38rem 0.65rem;
+  box-sizing: border-box;
+  border-width: 1px;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.25;
+}
+
+.yt-now-playing-actions > .btn > .fa {
+  flex: 0 0 1em;
+  width: 1em;
+  text-align: center;
+}
+
+.yt-player-progress {
+  margin-top: auto;
+  padding-top: 0.85rem;
+  border-top: 1px solid #3f3f3f;
+  flex-shrink: 0;
+}
+
+.yt-player-progress-track {
+  height: 0.38rem;
+  border-radius: 999px;
+  background: #2a2a2a;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.yt-player-progress-fill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #b80000, #ff2d2d);
+  transition: width 0.28s linear;
+}
+
+.yt-player-progress-track--live {
+  cursor: default;
+}
+
+.yt-player-progress-fill--live {
+  width: 35%;
+  animation: yt-progress-live 1.6s ease-in-out infinite;
+}
+
+@keyframes yt-progress-live {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+
+.yt-player-progress-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.45rem;
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  color: #c4c4c4;
+  font-variant-numeric: tabular-nums;
+}
+
+.yt-player-progress-total {
+  flex: 1 1 auto;
+  text-align: center;
+}
+
+.yt-player-progress-remain {
+  color: #f1f1f1;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .yt-player-title {
@@ -628,6 +721,17 @@
   border-color: #5a5a5a;
 }
 
+:host .yt-now-playing-actions .btn-outline-light {
+  color: #f1f1f1;
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+:host .yt-now-playing-actions .btn-outline-light:hover {
+  color: #111;
+  background: #f1f1f1;
+  border-color: #f1f1f1;
+}
+
 :host .yt-channel-filter .btn-link {
   color: #ff8a80;
 }
@@ -642,3 +746,85 @@
     flex: 1 1 8rem;
   }
 }
+
+::ng-deep .modal.yt-link-event-modal {
+  z-index: 1600 !important;
+}
+
+::ng-deep .modal.yt-link-event-modal .modal-content,
+::ng-deep .modal.show.yt-link-event-modal .modal-dialog .modal-content,
+::ng-deep .modal.yt-link-event-modal.show .modal-dialog .modal-content,
+::ng-deep .yt-link-event-modal-dialog .modal-content {
+  border: 4px solid #ffffff !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+::ng-deep .modal.yt-link-event-modal .modal-header,
+::ng-deep .yt-link-event-modal-dialog .modal-header {
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+::ng-deep .yt-link-event-modal-backdrop {
+  z-index: 1590 !important;
+}
+
+::ng-deep .yt-link-event-modal .yt-link-evt-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+::ng-deep .yt-link-event-modal .yt-link-evt-filter-search {
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+
+::ng-deep .yt-link-event-modal .yt-link-evt-filter-type {
+  flex: 0 0 240px;
+  min-width: 200px;
+}
+
+::ng-deep .yt-link-event-modal .yt-link-evt-filter-type select.form-select {
+  background-color: #fff;
+}
+
+@media (max-width: 576px) {
+  ::ng-deep .yt-link-event-modal .yt-link-evt-filter-search,
+  ::ng-deep .yt-link-event-modal .yt-link-evt-filter-type {
+    flex: 1 1 100%;
+  }
+}
+
+::ng-deep .yt-link-event-modal .yt-link-evt-list {
+  max-height: 50vh;
+  overflow-y: auto;
+  border-radius: 8px;
+}
+
+::ng-deep .yt-link-event-modal .yt-link-evt-item--saving {
+  opacity: 0.85;
+}
+
+::ng-deep .yt-link-event-modal .yt-link-evt-info {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+::ng-deep .yt-link-event-modal .yt-link-evt-name {
+  font-weight: 600;
+  word-break: break-word;
+}
+
+::ng-deep .yt-link-event-modal .yt-link-evt-meta {
+  margin-top: 0.15rem;
+}
+
+::ng-deep .yt-link-event-modal .yt-link-evt-pick {
+  flex: 0 0 auto;
+  margin-left: 0.75rem;
+}
+

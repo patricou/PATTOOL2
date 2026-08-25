@@ -31,6 +31,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Locale;
 
@@ -50,6 +51,10 @@ public class PhotoTimelineRestController {
      * so a fixed skip/limit on events would return empty pages and hide activities.
      */
     private static final int WALL_MAX_EVENTS_SCANNED_PER_REQUEST = 250;
+    /** Matches {@link com.pat.config.MongoIndexConfig} name for {@code evenementName}. */
+    private static final String EVENEMENT_NAME_INDEX = "evenementName_idx";
+    /** Unanchored name regex + date sort: only hint the name index when the term is selective enough. */
+    private static final int SEARCH_NAME_INDEX_HINT_MIN_LENGTH = 3;
 
     /** Mongo regex (flag i) + Java {@link #looksLikeImageFileName}: image files when {@code fileType} is absent or incorrect. */
     private static final String IMAGE_FILENAME_MONGO_REGEX =
@@ -98,6 +103,16 @@ public class PhotoTimelineRestController {
                 Criteria.where("fileUploadeds.fileName").regex(".*\\.kml$", "i"),
                 Criteria.where("fileUploadeds.fileName").regex(".*\\.geojson$", "i"),
                 Criteria.where("fileUploadeds.fileName").regex(".*\\.tcx$", "i"));
+    }
+
+    /**
+     * Video-type {@code urlEvents} whose link points to YouTube (watch / shorts / youtu.be).
+     * Used so YouTube-only activities appear on the video timeline.
+     */
+    private static Criteria criteriaYoutubeUrlEvent() {
+        return Criteria.where("urlEvents").elemMatch(new Criteria().andOperator(
+                Criteria.where("typeUrl").regex("^(YOUTUBE|VIDEO|VIDÉO|VIMEO)$", "i"),
+                Criteria.where("link").regex(".*(youtube\\.com|youtu\\.be|youtube-nocookie\\.com).*", "i")));
     }
 
     /**
@@ -163,6 +178,10 @@ public class PhotoTimelineRestController {
         private String eventName;
         private String eventType;
         private Date eventDate;
+        /** YouTube video id when this wall item is an external YouTube link (not GridFS). */
+        private String youtubeVideoId;
+        /** Original YouTube URL (watch / shorts / youtu.be). */
+        private String externalUrl;
 
         public TimelinePhoto() {}
 
@@ -194,6 +213,10 @@ public class PhotoTimelineRestController {
         public void setEventType(String eventType) { this.eventType = eventType; }
         public Date getEventDate() { return eventDate; }
         public void setEventDate(Date eventDate) { this.eventDate = eventDate; }
+        public String getYoutubeVideoId() { return youtubeVideoId; }
+        public void setYoutubeVideoId(String youtubeVideoId) { this.youtubeVideoId = youtubeVideoId; }
+        public String getExternalUrl() { return externalUrl; }
+        public void setExternalUrl(String externalUrl) { this.externalUrl = externalUrl; }
     }
 
     public static class FsPhotoLink {
@@ -479,6 +502,18 @@ public class PhotoTimelineRestController {
             boolean singleEventWall,
             String userId,
             TimelineGroupBuilder groupBuilder) {
+        return loadTimelineGroupsPage(mainCriteria, targetGroupCount, startEventOffset,
+                singleEventWall, userId, groupBuilder, false);
+    }
+
+    private TimelinePageScanResult loadTimelineGroupsPage(
+            Criteria mainCriteria,
+            int targetGroupCount,
+            long startEventOffset,
+            boolean singleEventWall,
+            String userId,
+            TimelineGroupBuilder groupBuilder,
+            boolean hintEvenementNameIndex) {
         List<TimelineGroup> groups = new ArrayList<>();
         long eventOffset = startEventOffset;
         int totalMediaInPage = 0;
@@ -492,13 +527,8 @@ public class PhotoTimelineRestController {
             int remainingBudget = WALL_MAX_EVENTS_SCANNED_PER_REQUEST - eventsScannedThisRequest;
             int batchLimit = Math.min(Math.max(targetGroupCount * 4, targetGroupCount + 1), remainingBudget);
 
-            Query batchQuery = new Query(mainCriteria);
-            batchQuery.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
-            batchQuery.skip(eventOffset);
-            batchQuery.limit(batchLimit + 1);
-            applyTimelinePagedEventFields(batchQuery);
-
-            List<Evenement> batch = mongoTemplate.find(batchQuery, Evenement.class);
+            List<Evenement> batch = findTimelineEventBatch(
+                    mainCriteria, eventOffset, batchLimit + 1, hintEvenementNameIndex);
             if (batch.isEmpty()) {
                 exhaustedDb = true;
                 hasMore = false;
@@ -548,6 +578,44 @@ public class PhotoTimelineRestController {
         }
 
         return new TimelinePageScanResult(groups, eventOffset, hasMore, totalMediaInPage);
+    }
+
+    /**
+     * Name search must scan {@code evenementName} index keys (short strings) instead of walking
+     * {@code beginEventDate} and fetching every recent event (comments + file arrays) until a match.
+     */
+    private List<Evenement> findTimelineEventBatch(
+            Criteria mainCriteria, long skip, int limit, boolean hintEvenementNameIndex) {
+        Query query = new Query(mainCriteria);
+        query.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
+        query.skip(skip);
+        query.limit(limit);
+        applyTimelinePagedEventFields(query);
+        if (hintEvenementNameIndex) {
+            query.withHint(EVENEMENT_NAME_INDEX);
+            query.allowDiskUse(true);
+            try {
+                return mongoTemplate.find(query, Evenement.class);
+            } catch (Exception e) {
+                log.warn("[PhotoTimeline] {} hint failed, retrying without hint: {}",
+                        EVENEMENT_NAME_INDEX, e.getMessage());
+                return findTimelineEventBatch(mainCriteria, skip, limit, false);
+            }
+        }
+        return mongoTemplate.find(query, Evenement.class);
+    }
+
+    private static TimelineResponse emptyTimelineResponse(int page, int size) {
+        TimelineResponse response = new TimelineResponse();
+        response.setGroups(Collections.emptyList());
+        response.setTotalPhotos(0);
+        response.setTotalGroups(-1);
+        response.setPage(page);
+        response.setPageSize(size);
+        response.setHasMore(false);
+        response.setNextEventOffset(0L);
+        response.setOnThisDay(Collections.emptyList());
+        return response;
     }
 
     private TimelineGroup buildPhotoTimelineGroup(Evenement e, boolean singleEventWall, Map<String, Member> authorCache) {
@@ -607,6 +675,10 @@ public class PhotoTimelineRestController {
 
             Criteria accessCriteria = getAccessCriteria(userId, visibility);
             boolean singleEventWall = eventId != null && !eventId.trim().isEmpty();
+            String trimmedSearch = search != null ? search.trim() : "";
+            if (!trimmedSearch.isEmpty() && trimmedSearch.length() < 2) {
+                return ResponseEntity.ok(emptyTimelineResponse(page, size));
+            }
             Criteria mainCriteria;
             if (singleEventWall) {
                 // Single-event wall: load by id + access only, then filter by photos in Java.
@@ -616,8 +688,11 @@ public class PhotoTimelineRestController {
                 Criteria hasAnyPhotoContent = criteriaTimelineHasAnyPhotoContent();
                 mainCriteria = new Criteria().andOperator(accessCriteria, hasAnyPhotoContent);
             }
-            if (search != null && !search.trim().isEmpty()) {
-                mainCriteria = new Criteria().andOperator(mainCriteria, buildSearchCriteria(search.trim()));
+            boolean hintNameIndex = false;
+            if (!trimmedSearch.isEmpty()) {
+                mainCriteria = new Criteria().andOperator(mainCriteria, buildSearchCriteria(trimmedSearch));
+                hintNameIndex = normalizeForSearch(trimmedSearch).length() >= SEARCH_NAME_INDEX_HINT_MIN_LENGTH
+                        && !singleEventWall;
             }
 
             long startEventOffset = offset != null ? Math.max(0L, offset) : (long) page * size;
@@ -630,7 +705,8 @@ public class PhotoTimelineRestController {
                     startEventOffset,
                     singleEventWall,
                     userId,
-                    this::buildPhotoTimelineGroup);
+                    this::buildPhotoTimelineGroup,
+                    hintNameIndex);
 
             TimelineResponse response = new TimelineResponse();
             response.setGroups(scan.groups);
@@ -709,10 +785,15 @@ public class PhotoTimelineRestController {
             long start = System.currentTimeMillis();
             Criteria accessCriteria = getAccessCriteria(userId, visibility);
             boolean singleEventWall = eventId != null && !eventId.trim().isEmpty();
+            String trimmedSearch = search != null ? search.trim() : "";
+            if (!trimmedSearch.isEmpty() && trimmedSearch.length() < 2) {
+                return ResponseEntity.ok(emptyTimelineResponse(page, size));
+            }
 
             Criteria hasVideo = new Criteria().orOperator(
                     Criteria.where("fileUploadeds.fileType").regex("^video/"),
-                    Criteria.where("fileUploadeds.fileName").regex(".*\\.(mp4|webm|ogg|ogv|mov|avi|mkv|m4v|3gp)$", "i"));
+                    Criteria.where("fileUploadeds.fileName").regex(".*\\.(mp4|webm|ogg|ogv|mov|avi|mkv|m4v|3gp)$", "i"),
+                    criteriaYoutubeUrlEvent());
             // Exclude events that would already appear on the photo timeline (same signals as criteriaTimelineHasAnyPhotoContent)
             Criteria hasNoUploadedImage = new Criteria().andOperator(
                     new Criteria().norOperator(Criteria.where("fileUploadeds.fileType").regex("^image/")),
@@ -731,8 +812,11 @@ public class PhotoTimelineRestController {
             } else {
                 combined = new Criteria().andOperator(accessCriteria, hasVideo, hasNoPhotos);
             }
-            if (search != null && !search.trim().isEmpty()) {
-                combined = new Criteria().andOperator(combined, buildSearchCriteria(search.trim()));
+            boolean hintNameIndex = false;
+            if (!trimmedSearch.isEmpty()) {
+                combined = new Criteria().andOperator(combined, buildSearchCriteria(trimmedSearch));
+                hintNameIndex = normalizeForSearch(trimmedSearch).length() >= SEARCH_NAME_INDEX_HINT_MIN_LENGTH
+                        && !singleEventWall;
             }
 
             long startEventOffset = offset != null ? Math.max(0L, offset) : (long) page * size;
@@ -742,7 +826,8 @@ public class PhotoTimelineRestController {
                     startEventOffset,
                     singleEventWall,
                     userId,
-                    this::buildVideoTimelineGroup);
+                    this::buildVideoTimelineGroup,
+                    hintNameIndex);
 
             TimelineResponse response = new TimelineResponse();
             response.setGroups(scan.groups);
@@ -810,6 +895,10 @@ public class PhotoTimelineRestController {
                 }
                 String rawType = urlEvent.getTypeUrl() != null ? urlEvent.getTypeUrl().trim() : "";
                 String canonical = normalizeUrlEventTypeForTimeline(rawType);
+                // YouTube watch links of type VIDEO/YOUTUBE are rendered as masonry videos, not footer badges.
+                if ("VIDEO".equals(canonical) && extractYoutubeVideoId(raw) != null) {
+                    continue;
+                }
                 FsPhotoLink f = new FsPhotoLink(raw, urlEvent.getUrlDescription());
                 f.setTypeUrl(canonical);
                 if (urlEvent.getOwner() != null && !urlEvent.getOwner().trim().isEmpty()) {
@@ -1102,37 +1191,125 @@ public class PhotoTimelineRestController {
     /** @param maxVideos 0 = no limit. */
     private List<TimelinePhoto> extractVideos(Evenement e, int maxVideos) {
         List<TimelinePhoto> videos = new ArrayList<>();
-        if (e.getFileUploadeds() == null) return videos;
-        for (FileUploaded file : e.getFileUploadeds()) {
-            if (isVideoFile(file)) {
-                String type = file.getFileType() != null ? file.getFileType() : "video/mp4";
-                videos.add(new TimelinePhoto(
-                        file.getFieldId(),
-                        file.getFileName(),
-                        type,
-                        null,
-                        e.getId(),
-                        e.getEvenementName(),
-                        e.getType(),
-                        e.getBeginEventDate()
-                ));
-                if (maxVideos > 0 && videos.size() >= maxVideos) {
-                    return videos;
+        if (e.getFileUploadeds() != null) {
+            for (FileUploaded file : e.getFileUploadeds()) {
+                if (isVideoFile(file)) {
+                    String type = file.getFileType() != null ? file.getFileType() : "video/mp4";
+                    videos.add(new TimelinePhoto(
+                            file.getFieldId(),
+                            file.getFileName(),
+                            type,
+                            null,
+                            e.getId(),
+                            e.getEvenementName(),
+                            e.getType(),
+                            e.getBeginEventDate()
+                    ));
+                    if (maxVideos > 0 && videos.size() >= maxVideos) {
+                        return videos;
+                    }
                 }
             }
         }
+        appendYoutubeVideos(e, videos, maxVideos);
         return videos;
     }
 
     private int countTimelineVideos(Evenement e) {
-        if (e.getFileUploadeds() == null) return 0;
         int n = 0;
-        for (FileUploaded file : e.getFileUploadeds()) {
-            if (file != null && isVideoFile(file)) {
-                n++;
+        if (e.getFileUploadeds() != null) {
+            for (FileUploaded file : e.getFileUploadeds()) {
+                if (file != null && isVideoFile(file)) {
+                    n++;
+                }
             }
         }
+        n += countYoutubeVideos(e);
         return n;
+    }
+
+    private static final Pattern YOUTUBE_VIDEO_ID_PATTERN = Pattern.compile(
+            "(?:youtube(?:-nocookie)?\\.com/(?:watch\\?.*?v=|embed/|shorts/|live/|v/)|youtu\\.be/)([a-zA-Z0-9_-]{11})",
+            Pattern.CASE_INSENSITIVE);
+
+    /**
+     * Extract a YouTube video id from a watch / shorts / embed / youtu.be URL.
+     * Playlists without {@code v=} return null.
+     */
+    static String extractYoutubeVideoId(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        Matcher m = YOUTUBE_VIDEO_ID_PATTERN.matcher(url.trim());
+        return m.find() ? m.group(1) : null;
+    }
+
+    private static boolean isVideoUrlEventType(String rawType) {
+        if (rawType == null || rawType.isBlank()) {
+            return false;
+        }
+        return "VIDEO".equals(normalizeUrlEventTypeForTimeline(rawType));
+    }
+
+    private void appendYoutubeVideos(Evenement e, List<TimelinePhoto> videos, int maxVideos) {
+        if (e.getUrlEvents() == null) {
+            return;
+        }
+        Set<String> seenIds = new LinkedHashSet<>();
+        for (TimelinePhoto existing : videos) {
+            if (existing.getYoutubeVideoId() != null && !existing.getYoutubeVideoId().isBlank()) {
+                seenIds.add(existing.getYoutubeVideoId());
+            }
+        }
+        for (var urlEvent : e.getUrlEvents()) {
+            if (maxVideos > 0 && videos.size() >= maxVideos) {
+                return;
+            }
+            if (urlEvent == null || !isVideoUrlEventType(urlEvent.getTypeUrl())) {
+                continue;
+            }
+            String link = urlEvent.getLink();
+            String youtubeId = extractYoutubeVideoId(link);
+            if (youtubeId == null || !seenIds.add(youtubeId)) {
+                continue;
+            }
+            String title = urlEvent.getUrlDescription() != null && !urlEvent.getUrlDescription().trim().isEmpty()
+                    ? urlEvent.getUrlDescription().trim()
+                    : "YouTube";
+            String owner = urlEvent.getOwner() != null && !urlEvent.getOwner().trim().isEmpty()
+                    ? urlEvent.getOwner().trim()
+                    : null;
+            TimelinePhoto photo = new TimelinePhoto(
+                    "yt:" + youtubeId,
+                    title,
+                    "video/youtube",
+                    owner,
+                    e.getId(),
+                    e.getEvenementName(),
+                    e.getType(),
+                    e.getBeginEventDate()
+            );
+            photo.setYoutubeVideoId(youtubeId);
+            photo.setExternalUrl(link != null ? link.trim() : null);
+            videos.add(photo);
+        }
+    }
+
+    private int countYoutubeVideos(Evenement e) {
+        if (e.getUrlEvents() == null) {
+            return 0;
+        }
+        Set<String> seenIds = new LinkedHashSet<>();
+        for (var urlEvent : e.getUrlEvents()) {
+            if (urlEvent == null || !isVideoUrlEventType(urlEvent.getTypeUrl())) {
+                continue;
+            }
+            String youtubeId = extractYoutubeVideoId(urlEvent.getLink());
+            if (youtubeId != null) {
+                seenIds.add(youtubeId);
+            }
+        }
+        return seenIds.size();
     }
 
     /**
@@ -1155,8 +1332,9 @@ public class PhotoTimelineRestController {
     }
 
     /**
-     * Text search criteria (name, description, type) — same as home-evenements.
-     * Case-insensitive and accent-insensitive (NFD normalization), word at any position.
+     * Photo-wall name search: {@code evenementName} only.
+     * Avoids regex on {@code comments} (large field → collection-wide FETCH) and {@code type}.
+     * Unanchored (substring) + accent/case-insensitive character classes.
      */
     private Criteria buildSearchCriteria(String search) {
         if (search == null || search.trim().isEmpty()) {
@@ -1166,11 +1344,8 @@ public class PhotoTimelineRestController {
         if (normalized.isEmpty()) {
             return new Criteria();
         }
-        String regexPattern = ".*" + buildAccentInsensitiveRegex(normalized) + ".*";
-        Criteria nameMatch = Criteria.where("evenementName").regex(regexPattern);
-        Criteria commentsMatch = Criteria.where("comments").regex(regexPattern);
-        Criteria typeMatch = Criteria.where("type").regex(regexPattern);
-        return new Criteria().orOperator(nameMatch, commentsMatch, typeMatch);
+        String regexPattern = buildAccentInsensitiveRegex(normalized);
+        return Criteria.where("evenementName").regex(regexPattern);
     }
 
     /** Normalization matching EvenementsRepositoryImpl: lowercase + NFD without accents. */

@@ -983,57 +983,61 @@
       [class.wg-stage--fs-iss-split]="issFsSplitLayout"
       [class.wg-stage--fs-iss-split-dragging]="issFsSplitDragging"
       [ngStyle]="issFsSplitStageStyle">
-      <div class="wg-globe-stage-toolbar d-flex align-items-center gap-2 flex-nowrap">
-        <button
-          type="button"
-          class="btn btn-outline-secondary wg-btn"
-          (click)="toggleOptionsPanel()"
-          [attr.title]="'WORLD_GLOBE.PANEL_TOGGLE' | translate"
-          [attr.aria-label]="'WORLD_GLOBE.PANEL_TOGGLE' | translate">
-          <ng-container *ngIf="!showOptionsPanel">{{ 'WORLD_GLOBE.SHOW_PANEL' | translate }}</ng-container>
-          <ng-container *ngIf="showOptionsPanel">{{ 'WORLD_GLOBE.HIDE_PANEL' | translate }}</ng-container>
-        </button>
-        <button
-          type="button"
-          class="btn btn-outline-primary wg-btn"
-          (click)="toggleFullscreen()"
-          [attr.title]="
-            (fullscreen ? 'WORLD_GLOBE.FULLSCREEN_EXIT_TITLE' : 'WORLD_GLOBE.FULLSCREEN_ENTER_TITLE') | translate
-          "
-          [attr.aria-label]="
-            (fullscreen ? 'WORLD_GLOBE.FULLSCREEN_EXIT_TITLE' : 'WORLD_GLOBE.FULLSCREEN_ENTER_TITLE') | translate
-          ">
-          <ng-container *ngIf="!fullscreen">{{ 'WORLD_GLOBE.FULLSCREEN_ENTER' | translate }}</ng-container>
-          <ng-container *ngIf="fullscreen">{{ 'WORLD_GLOBE.FULLSCREEN_EXIT' | translate }}</ng-container>
-        </button>
-        <button
-          type="button"
-          class="btn btn-outline-info wg-btn"
-          (click)="openDetailMapOverlay()"
-          [disabled]="!globeSurfaceReady || detailMapOpen"
-          [attr.title]="'WORLD_GLOBE.DETAIL_MAP_OPEN' | translate"
-          [attr.aria-label]="'WORLD_GLOBE.DETAIL_MAP_OPEN' | translate">
-          {{ 'WORLD_GLOBE.DETAIL_MAP_OPEN_SHORT' | translate }}
-        </button>
-        <button
-          type="button"
-          class="btn btn-outline-info wg-btn wg-btn--viseur"
-          (click)="openAstroCompassIss()"
-          [attr.title]="'WORLD_GLOBE.OPEN_ASTRO_ISS_HINT' | translate : { name: astroViseurSatName() }"
-          [attr.aria-label]="'WORLD_GLOBE.OPEN_ASTRO_ISS' | translate : { name: astroViseurSatName() }">
-          <i class="fa fa-video-camera" aria-hidden="true"></i>
-          <span class="wg-btn--viseur-label d-none d-md-block">{{ 'WORLD_GLOBE.OPEN_ASTRO_ISS' | translate : { name: astroViseurSatName() } }}</span>
-          <span class="wg-btn--viseur-label d-md-none">{{ 'WORLD_GLOBE.OPEN_ASTRO_ISS_SHORT' | translate : { name: astroViseurSatName() } }}</span>
-        </button>
-        <button
-          type="button"
-          class="btn btn-outline-secondary wg-btn"
-          (click)="onOpenSatelliteInfo(astroViseurSatId())"
-          [attr.title]="'WORLD_GLOBE.SATELLITE_INFO_HINT' | translate : { name: astroViseurSatName() }"
-          [attr.aria-label]="'WORLD_GLOBE.SATELLITE_INFO' | translate : { name: astroViseurSatName() }">
-          <i class="fa fa-info-circle me-1" aria-hidden="true"></i>
-          {{ 'WORLD_GLOBE.TOOLBAR_INFO' | translate }}
-        </button>
+      <div class="wg-globe-stage-toolbar">
+        <div class="wg-globe-stage-toolbar__row wg-globe-stage-toolbar__row--main">
+          <button
+            type="button"
+            class="btn btn-outline-secondary wg-btn"
+            (click)="toggleOptionsPanel()"
+            [attr.title]="'WORLD_GLOBE.PANEL_TOGGLE' | translate"
+            [attr.aria-label]="'WORLD_GLOBE.PANEL_TOGGLE' | translate">
+            <ng-container *ngIf="!showOptionsPanel">{{ 'WORLD_GLOBE.SHOW_PANEL' | translate }}</ng-container>
+            <ng-container *ngIf="showOptionsPanel">{{ 'WORLD_GLOBE.HIDE_PANEL' | translate }}</ng-container>
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-primary wg-btn"
+            (click)="toggleFullscreen()"
+            [attr.title]="
+              (fullscreen ? 'WORLD_GLOBE.FULLSCREEN_EXIT_TITLE' : 'WORLD_GLOBE.FULLSCREEN_ENTER_TITLE') | translate
+            "
+            [attr.aria-label]="
+              (fullscreen ? 'WORLD_GLOBE.FULLSCREEN_EXIT_TITLE' : 'WORLD_GLOBE.FULLSCREEN_ENTER_TITLE') | translate
+            ">
+            <ng-container *ngIf="!fullscreen">{{ 'WORLD_GLOBE.FULLSCREEN_ENTER' | translate }}</ng-container>
+            <ng-container *ngIf="fullscreen">{{ 'WORLD_GLOBE.FULLSCREEN_EXIT' | translate }}</ng-container>
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-info wg-btn"
+            (click)="openDetailMapOverlay()"
+            [disabled]="!globeSurfaceReady || detailMapOpen"
+            [attr.title]="'WORLD_GLOBE.DETAIL_MAP_OPEN' | translate"
+            [attr.aria-label]="'WORLD_GLOBE.DETAIL_MAP_OPEN' | translate">
+            {{ 'WORLD_GLOBE.DETAIL_MAP_OPEN_SHORT' | translate }}
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-secondary wg-btn"
+            (click)="onOpenSatelliteInfo(astroViseurSatId())"
+            [attr.title]="'WORLD_GLOBE.SATELLITE_INFO_HINT' | translate : { name: astroViseurSatName() }"
+            [attr.aria-label]="'WORLD_GLOBE.SATELLITE_INFO' | translate : { name: astroViseurSatName() }">
+            <i class="fa fa-info-circle me-1" aria-hidden="true"></i>
+            {{ 'WORLD_GLOBE.TOOLBAR_INFO' | translate }}
+          </button>
+        </div>
+        <div class="wg-globe-stage-toolbar__row">
+          <button
+            type="button"
+            class="btn btn-outline-info wg-btn wg-btn--viseur"
+            (click)="openAstroCompassIss()"
+            [attr.title]="'WORLD_GLOBE.OPEN_ASTRO_ISS_HINT' | translate : { name: astroViseurSatName() }"
+            [attr.aria-label]="'WORLD_GLOBE.OPEN_ASTRO_ISS' | translate : { name: astroViseurSatName() }">
+            <i class="fa fa-video-camera" aria-hidden="true"></i>
+            <span class="wg-btn--viseur-label d-none d-md-block">{{ 'WORLD_GLOBE.OPEN_ASTRO_ISS' | translate : { name: astroViseurSatName() } }}</span>
+            <span class="wg-btn--viseur-label d-md-none">{{ 'WORLD_GLOBE.OPEN_ASTRO_ISS_SHORT' | translate : { name: astroViseurSatName() } }}</span>
+          </button>
+        </div>
       </div>
 
       <div class="wg-coords font-monospace" *ngIf="globePickedLat != null && globePickedLon != null">

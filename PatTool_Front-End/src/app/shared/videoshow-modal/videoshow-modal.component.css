@@ -1,3 +1,8 @@
+/* Above event-card overlay (1050) and the Liens modal when stacked. */
+::ng-deep ngb-modal-window.modal.videoshow-modal-wide {
+    z-index: 1060 !important;
+}
+
 /* Videoshow modal dialog - Proper sizing and centering */
 ::ng-deep .modal.show:has(.videoshow-header) .modal-dialog,
 ::ng-deep .modal.show:has(.videoshow-body) .modal-dialog,
@@ -64,12 +69,103 @@
     overflow: hidden;
 }
 
+/* Whole visionneuse in browser fullscreen (P) — beat the 65vw rules */
+::ng-deep body.videoshow-fullscreen-active .modal.show:has(.videoshow-header) .modal-dialog,
+::ng-deep body.videoshow-fullscreen-active .modal.show:has(.videoshow-body) .modal-dialog,
+::ng-deep body.videoshow-fullscreen-active .modal.show .modal-dialog:has(.videoshow-header),
+::ng-deep body.videoshow-fullscreen-active .modal.show .modal-dialog:has(.videoshow-body),
+::ng-deep body.videoshow-fullscreen-active .modal.show .modal-xl.modal-dialog:has(.videoshow-header),
+::ng-deep body.videoshow-fullscreen-active .modal.show .modal-xl.modal-dialog:has(.videoshow-body),
+::ng-deep body.videoshow-fullscreen-active .videoshow-modal-wide .modal-dialog,
+::ng-deep body.videoshow-fullscreen-active ngb-modal-window.modal.videoshow-modal-wide .modal-dialog,
+::ng-deep body.videoshow-fullscreen-active .modal.show:has(.videoshow-header) .modal-content,
+::ng-deep body.videoshow-fullscreen-active .modal.show:has(.videoshow-body) .modal-content,
+::ng-deep body.videoshow-fullscreen-active .modal.show .modal-content:has(.videoshow-header),
+::ng-deep body.videoshow-fullscreen-active .modal.show .modal-content:has(.videoshow-body),
+::ng-deep body.videoshow-fullscreen-active .modal.show .modal-xl .modal-content:has(.videoshow-header),
+::ng-deep body.videoshow-fullscreen-active .modal.show .modal-xl .modal-content:has(.videoshow-body),
+::ng-deep body.videoshow-fullscreen-active .videoshow-modal-wide .modal-content,
+::ng-deep body.videoshow-fullscreen-active ngb-modal-window.modal.videoshow-modal-wide .modal-content,
+::ng-deep .modal.show:has(.videoshow-header) .modal-content:fullscreen,
+::ng-deep .modal.show:has(.videoshow-body) .modal-content:fullscreen,
+::ng-deep .modal.show .modal-content:has(.videoshow-header):fullscreen,
+::ng-deep .modal.show .modal-content:has(.videoshow-body):fullscreen,
+::ng-deep .modal.show.videoshow-modal-wide .modal-content:fullscreen,
+::ng-deep ngb-modal-window.modal.videoshow-modal-wide:fullscreen,
+::ng-deep ngb-modal-window.modal.videoshow-modal-wide:fullscreen .modal-dialog,
+::ng-deep ngb-modal-window.modal.videoshow-modal-wide:fullscreen .modal-content {
+    max-width: 100vw !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    min-width: 100vw !important;
+    min-height: 100vh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+}
+
+::ng-deep body.videoshow-fullscreen-active .videoshow-header,
+::ng-deep body.videoshow-fullscreen-active .videoshow-footer,
+::ng-deep :fullscreen .videoshow-header,
+::ng-deep :-webkit-full-screen .videoshow-header,
+::ng-deep :fullscreen .videoshow-footer,
+::ng-deep :-webkit-full-screen .videoshow-footer {
+    display: none !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+}
+
+::ng-deep body.videoshow-fullscreen-active .modal.show:has(.videoshow-header) .videoshow-body,
+::ng-deep body.videoshow-fullscreen-active .videoshow-modal-wide .videoshow-body,
+::ng-deep body.videoshow-fullscreen-active .videoshow-body {
+    flex: 1 1 auto !important;
+    min-height: 100vh !important;
+    max-height: 100vh !important;
+    height: 100vh !important;
+    padding: 0 !important;
+}
+
+::ng-deep body.videoshow-fullscreen-active .videoshow-container,
+::ng-deep body.videoshow-fullscreen-active .videoshow-video-wrapper {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: none !important;
+}
+
+::ng-deep body.videoshow-fullscreen-active iframe.videoshow-youtube,
+.videoshow-container:fullscreen iframe.videoshow-youtube,
+.videoshow-container:-webkit-full-screen iframe.videoshow-youtube {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    position: absolute !important;
+    inset: 0 !important;
+}
+
+::ng-deep body.videoshow-fullscreen-active .modal.show .modal-dialog .modal-content:has(.videoshow-header),
+::ng-deep body.videoshow-fullscreen-active .modal.show:has(.videoshow-header) .modal-content,
+::ng-deep body.videoshow-fullscreen-active .videoshow-modal-wide .modal-content {
+    border: none !important;
+    border-radius: 0 !important;
+    background: #000 !important;
+}
+
 .videoshow-header {
     background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
     color: white;
     border: none;
     position: relative;
     z-index: 20000;
+    pointer-events: auto;
+    flex-shrink: 0;
+}
+
+.videoshow-header .btn {
+    position: relative;
+    z-index: 20001;
     pointer-events: auto;
 }
 
@@ -137,7 +233,7 @@
     margin: 0 !important;
     padding: 0 !important;
     background: #000 !important;
-    overflow: visible !important;
+    overflow: hidden !important;
 }
 
 :fullscreen .videoshow-body,
@@ -268,6 +364,19 @@
     animation: fadeIn 0.5s ease-in-out;
     margin: auto;
     display: block;
+}
+
+iframe.videoshow-youtube {
+    width: 100%;
+    height: 100%;
+    min-height: 360px;
+    max-height: 100%;
+    border: 0;
+    background: #000;
+    object-fit: unset;
+    position: relative;
+    z-index: 0;
+    pointer-events: auto;
 }
 
 /* When video element itself is in fullscreen (native button or our button) */
@@ -516,31 +625,16 @@ video:-ms-fullscreen,
     display: flex;
     justify-content: center;
     align-items: center;
+    flex-shrink: 0;
+    pointer-events: auto;
 }
 
-body.videoshow-fullscreen-active .videoshow-footer {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100vw !important;
-    max-width: 100vw !important;
-    z-index: 999999 !important;
-    background: #2c3e50 !important;
-}
-
+body.videoshow-fullscreen-active .videoshow-footer,
 .videoshow-container:fullscreen ~ .videoshow-footer,
 .videoshow-container:-webkit-full-screen ~ .videoshow-footer,
 .videoshow-container:-moz-full-screen ~ .videoshow-footer,
 .videoshow-container:-ms-fullscreen ~ .videoshow-footer {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100vw !important;
-    max-width: 100vw !important;
-    z-index: 999999 !important;
-    background: #2c3e50 !important;
+    display: none !important;
 }
 
 .videoshow-footer .d-flex {

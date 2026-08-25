@@ -753,6 +753,101 @@ body ngb-modal-window.modal.assistant-insert-image-modal.show .pat-assistant-ins
     overflow: hidden !important;
 }
 
+/* Visionneuse vidéo — plein écran (P) : écrase les 65vw de la modale */
+body.videoshow-fullscreen-active ngb-modal-window.modal.videoshow-modal-wide,
+body.videoshow-fullscreen-active ngb-modal-window.modal.videoshow-modal-wide .modal-dialog,
+body.videoshow-fullscreen-active ngb-modal-window.modal.videoshow-modal-wide .modal-content,
+body.videoshow-fullscreen-active .modal.show:has(.videoshow-header) .modal-dialog,
+body.videoshow-fullscreen-active .modal.show:has(.videoshow-body) .modal-dialog,
+body.videoshow-fullscreen-active .modal.show .modal-dialog:has(.videoshow-header),
+body.videoshow-fullscreen-active .modal.show .modal-dialog:has(.videoshow-body),
+body.videoshow-fullscreen-active .modal.show .modal-xl.modal-dialog:has(.videoshow-header),
+body.videoshow-fullscreen-active .modal.show .modal-xl.modal-dialog:has(.videoshow-body),
+body.videoshow-fullscreen-active .modal.show:has(.videoshow-header) .modal-content,
+body.videoshow-fullscreen-active .modal.show:has(.videoshow-body) .modal-content,
+body.videoshow-fullscreen-active .modal.show .modal-content:has(.videoshow-header),
+body.videoshow-fullscreen-active .modal.show .modal-content:has(.videoshow-body),
+body.videoshow-fullscreen-active .modal.show .modal-xl .modal-content:has(.videoshow-header),
+body.videoshow-fullscreen-active .modal.show .modal-xl .modal-content:has(.videoshow-body) {
+    max-width: 100vw !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    min-width: 100vw !important;
+    min-height: 100vh !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: #000 !important;
+}
+
+body.videoshow-fullscreen-active .videoshow-header,
+body.videoshow-fullscreen-active .videoshow-footer,
+:fullscreen .videoshow-header,
+:-webkit-full-screen .videoshow-header,
+:fullscreen .videoshow-footer,
+:-webkit-full-screen .videoshow-footer {
+    display: none !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+}
+
+body.videoshow-fullscreen-active .videoshow-body {
+    flex: 1 1 auto !important;
+    min-height: 100vh !important;
+    max-height: 100vh !important;
+    height: 100vh !important;
+    padding: 0 !important;
+}
+
+body.videoshow-fullscreen-active .videoshow-container,
+body.videoshow-fullscreen-active .videoshow-video-wrapper,
+.videoshow-container:fullscreen,
+.videoshow-container:-webkit-full-screen,
+.videoshow-container:fullscreen .videoshow-video-wrapper,
+.videoshow-container:-webkit-full-screen .videoshow-video-wrapper {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    min-height: 100% !important;
+}
+
+body.videoshow-fullscreen-active iframe.videoshow-youtube,
+.videoshow-container:fullscreen iframe.videoshow-youtube,
+.videoshow-container:-webkit-full-screen iframe.videoshow-youtube {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    position: absolute !important;
+    inset: 0 !important;
+}
+
+/* YouTube — lier la vidéo à une activité (même bordure blanche que les autres modales) */
+body .modal.show.yt-link-event-modal .modal-dialog > .modal-content,
+body .modal.yt-link-event-modal.show .modal-dialog > .modal-content,
+body ngb-modal-window.modal.show.yt-link-event-modal .modal-dialog > .modal-content,
+body ngb-modal-window.modal.yt-link-event-modal.show .modal-dialog > .modal-content,
+body .modal.show .modal-dialog.yt-link-event-modal-dialog > .modal-content,
+::ng-deep .modal.yt-link-event-modal .modal-content,
+::ng-deep .yt-link-event-modal-dialog .modal-content {
+    border: 4px solid #ffffff !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+}
+
+body .modal.show.yt-link-event-modal .modal-header,
+body .modal.yt-link-event-modal.show .modal-header,
+body ngb-modal-window.modal.show.yt-link-event-modal .modal-header,
+body .modal.show .modal-dialog.yt-link-event-modal-dialog .modal-header {
+    border: none !important;
+    border-radius: 0 !important;
+}
+
 /* Global style for comments modal with white border (used in element-evenement) */
 ::ng-deep .modal.comments-modal .modal-content,
 ::ng-deep .modal.comments-modal.show .modal-content,

@@ -30,7 +30,8 @@ import { ElementEvenementComponent } from '../../evenements/element-evenement/el
                 <element-evenement class="card"
                     [evenement]="evenement"
                     [user]="user"
-                    [titleOnly]="false">
+                    [titleOnly]="false"
+                    (openPhotoWall)="closeModal()">
                 </element-evenement>
             </div>
         </div>

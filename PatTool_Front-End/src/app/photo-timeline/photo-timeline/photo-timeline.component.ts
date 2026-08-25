@@ -10,7 +10,7 @@ import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace
 import { isValidGeoCoordinate } from '../../shared/geo-coordinates.util';
 import { hasValidDepartureLocation } from '../../shared/start-location.util';
 import { VideoshowModalModule } from '../../shared/videoshow-modal/videoshow-modal.module';
-import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
+import { VideoshowModalComponent, VideoshowVideoSource, VIDEOSHOW_OPEN_EVENT, VIDEOSHOW_CLOSE_EVENT } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotoTimelineService, TimelineResponse, TimelineGroup, TimelinePhoto, FsPhotoLink } from '../../services/photo-timeline.service';
 import { EventCardOverlayComponent } from '../../shared/event-card-modal/event-card-overlay.component';
 import { MembersService } from '../../services/members.service';
@@ -23,7 +23,7 @@ import { VideoCompressionService } from '../../services/video-compression.servic
 import { VideoUploadProcessingService } from '../../services/video-upload-processing.service';
 import { asyncScheduler, forkJoin, of, Subscription } from 'rxjs';
 import { map, distinctUntilChanged, catchError, take, switchMap, finalize, observeOn, timeout } from 'rxjs/operators';
-import { DomSanitizer, SafeUrl, SafeStyle } from '@angular/platform-browser';
+import { DomSanitizer, SafeUrl, SafeStyle, SafeResourceUrl } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { buildPhotosShareLink } from '../../shared/share-deep-link.util';
 import { preferNativeFileShare } from '../../shared/clipboard-copy';
@@ -33,6 +33,8 @@ import {
     whatsappShareOutcomeHintKey
 } from '../../shared/share-whatsapp-image.util';
 import { EvenementsService } from '../../services/evenements.service';
+import { parseYoutubeVideoId, resolveUrlEventTypeForLink } from '../../shared/youtube-video-id.util';
+import { YoutubePlayerService } from '../../services/youtube-player.service';
 import { ApiService } from '../../services/api.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { DiscussionService } from '../../services/discussion.service';
@@ -58,6 +60,9 @@ const BUFFER_AHEAD = 3;
 const FIRST_PAGE_SIZE = 4;
 /** Number of groups (activities) to load per API request after the first page. */
 const PAGE_SIZE = 12;
+/** Name search: wait for 2 characters so a single letter never scans the whole wall. */
+const SEARCH_MIN_CHARS = 2;
+const SEARCH_DEBOUNCE_MS = 500;
 /** Activities revealed on first paint before scroll loads more. */
 const INITIAL_VISIBLE_GROUPS = 1;
 /** Thumbnails eagerly queued per group after first paint (0 = viewport IO only at open). */
@@ -212,11 +217,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         { id: 'PHOTOS', label: 'EVENTHOME.URL_TYPE_PHOTOS' },
         { id: 'PHOTOFROMFS', label: 'EVENTHOME.URL_TYPE_PHOTOFROMFS' },
         { id: 'VIDEO', label: 'EVENTHOME.URL_TYPE_VIDEO' },
+        { id: 'YOUTUBE', label: 'EVENTHOME.URL_TYPE_YOUTUBE' },
         { id: 'WEBSITE', label: 'EVENTHOME.URL_TYPE_WEBSITE' },
         { id: 'WHATSAPP', label: 'EVENTHOME.URL_TYPE_WHATSAPP' }
     ];
     /** Masonry wall videos: playback only when visible in the viewport. */
     @ViewChildren('wallTimelineVideo', { read: ElementRef }) wallTimelineVideos!: QueryList<ElementRef<HTMLVideoElement>>;
+    @ViewChildren('wallYoutubeEmbed', { read: ElementRef }) wallYoutubeEmbeds!: QueryList<ElementRef<HTMLIFrameElement>>;
 
     visibleGroups: TimelineGroup[] = [];
     /** True while revealInitialBatch runs — skips per-item observer setup (avoids NG0100 on count). */
@@ -310,6 +317,11 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     videoUrlCache: Map<string, string> = new Map();
     videoSafeUrlCache: Map<string, SafeUrl> = new Map(); // same SafeUrl instance to avoid reloads
     loadingVideos: Set<string> = new Set();
+    /** YouTube masonry tiles: iframe is created only after the tile is near the viewport. */
+    private youtubeEmbedReadyIds = new Set<string>();
+    private youtubeEmbedSafeCache = new Map<string, SafeResourceUrl>();
+    /** Ids held while videoshow is open so wall embeds cannot keep playing in the background. */
+    private wallYoutubeIdsHeldWhileVideoshow: string[] = [];
     /** Compteur d'échecs réseau / timeout par fichier ; réinitialisé après succès ou reload timeline. */
     private wallVideoFetchAttemptCount = new Map<string, number>();
     /** Après {@link WALL_VIDEO_FETCH_MAX_AUTO_RETRIES} échecs : spinner remplacé par un bouton réessayer. */
@@ -333,6 +345,22 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (document.hidden) {
             this.pauseAllWallTimelineVideos();
         }
+    };
+    private readonly onGlobalVideoshowOpen = (): void => {
+        if (this.destroyed) {
+            return;
+        }
+        this.ngZone.run(() => {
+            this.pauseAllWallTimelineVideos();
+            this.suspendWallYoutubeEmbedsForVideoshow();
+            this.youtubePlayer.close();
+        });
+    };
+    private readonly onGlobalVideoshowClose = (): void => {
+        if (this.destroyed) {
+            return;
+        }
+        this.ngZone.run(() => this.onWallVideoshowClosed());
     };
     /** Loads masonry photos / videos only when near the viewport. */
     private wallMediaObserver: IntersectionObserver | null = null;
@@ -438,7 +466,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         private noteOverlay: NoteDetailOverlayService,
         private assistantLaunch: AssistantLaunchService,
         private odsEditorLaunch: OdsEditorLaunchService,
-        private apiService: ApiService
+        private apiService: ApiService,
+        private youtubePlayer: YoutubePlayerService
     ) {
         // Pré-charge `app.imagemaxsizekb` côté backend pour pouvoir adapter
         // le modal de compression dès la première sélection / "Ajouter dans
@@ -462,6 +491,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             this.cdr.markForCheck();
         });
         this.subscriptions.push(paramSub);
+        if (typeof window !== 'undefined') {
+            window.addEventListener(VIDEOSHOW_OPEN_EVENT, this.onGlobalVideoshowOpen);
+            window.addEventListener(VIDEOSHOW_CLOSE_EVENT, this.onGlobalVideoshowClose);
+        }
     }
 
     ngOnDestroy(): void {
@@ -536,6 +569,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         });
         this.videoUrlCache.clear();
         this.videoSafeUrlCache.clear();
+        this.youtubeEmbedReadyIds.clear();
+        this.youtubeEmbedSafeCache.clear();
         this.loadingVideos.clear();
         if (this.wallVideoIntersectionObserver) {
             this.wallVideoIntersectionObserver.disconnect();
@@ -547,6 +582,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
         if (typeof document !== 'undefined') {
             document.removeEventListener('visibilitychange', this.onDocumentVisibilityChange);
+        }
+        if (typeof window !== 'undefined') {
+            window.removeEventListener(VIDEOSHOW_OPEN_EVENT, this.onGlobalVideoshowOpen);
+            window.removeEventListener(VIDEOSHOW_CLOSE_EVENT, this.onGlobalVideoshowClose);
         }
         if (this.wallMediaObserver) {
             this.wallMediaObserver.disconnect();
@@ -617,23 +656,74 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     private pauseAllWallTimelineVideos(): void {
-        if (!this.wallTimelineVideos?.length) {
-            return;
-        }
-        for (const ref of this.wallTimelineVideos) {
-            const v = ref?.nativeElement;
-            if (!v) {
-                continue;
+        if (this.wallTimelineVideos?.length) {
+            for (const ref of this.wallTimelineVideos) {
+                const v = ref?.nativeElement;
+                if (!v) {
+                    continue;
+                }
+                if (document.fullscreenElement === v || document.pictureInPictureElement === v) {
+                    continue;
+                }
+                try {
+                    v.pause();
+                } catch {
+                    /* ignore */
+                }
             }
-            if (document.fullscreenElement === v || document.pictureInPictureElement === v) {
-                continue;
+        }
+        this.pauseAllWallYoutubeEmbeds();
+    }
+
+    private pauseAllWallYoutubeEmbeds(): void {
+        const sendPause = (iframe: HTMLIFrameElement | null | undefined): void => {
+            if (!iframe?.contentWindow) {
+                return;
             }
             try {
-                v.pause();
+                iframe.contentWindow.postMessage(
+                    JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }),
+                    '*'
+                );
             } catch {
                 /* ignore */
             }
+        };
+        if (this.wallYoutubeEmbeds?.length) {
+            for (const ref of this.wallYoutubeEmbeds) {
+                sendPause(ref?.nativeElement);
+            }
         }
+        if (typeof document !== 'undefined') {
+            document.querySelectorAll('.wall-youtube-embed iframe').forEach((node) => {
+                sendPause(node as HTMLIFrameElement);
+            });
+        }
+    }
+
+    /** Tear down wall YouTube iframes so audio cannot continue behind the videoshow. */
+    private suspendWallYoutubeEmbedsForVideoshow(): void {
+        this.pauseAllWallYoutubeEmbeds();
+        if (this.youtubeEmbedReadyIds.size === 0) {
+            return;
+        }
+        this.wallYoutubeIdsHeldWhileVideoshow = [
+            ...new Set([...this.wallYoutubeIdsHeldWhileVideoshow, ...this.youtubeEmbedReadyIds])
+        ];
+        this.youtubeEmbedReadyIds.clear();
+        this.youtubeEmbedSafeCache.clear();
+        this.cdr.detectChanges();
+    }
+
+    onWallVideoshowClosed(): void {
+        if (!this.wallYoutubeIdsHeldWhileVideoshow.length) {
+            return;
+        }
+        for (const id of this.wallYoutubeIdsHeldWhileVideoshow) {
+            this.youtubeEmbedReadyIds.add(id);
+        }
+        this.wallYoutubeIdsHeldWhileVideoshow = [];
+        this.scheduleCdr();
     }
 
     /** Drops decoded video buffers when leaving the wall (blob URLs are revoked separately). */
@@ -877,6 +967,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.wallBufferDrainScheduled = false;
         this.videoUrlCache.clear();
         this.videoSafeUrlCache.clear();
+        this.youtubeEmbedReadyIds.clear();
+        this.youtubeEmbedSafeCache.clear();
         this.loadingThumbnails.clear();
         this.loadingVideos.clear();
         this.wallVideoFetchAttemptCount.clear();
@@ -920,10 +1012,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             return;
         }
         this.videoTimelineFetchStarted = true;
+        const delay = this.searchFilter.trim().length >= SEARCH_MIN_CHARS
+            ? 250
+            : VIDEO_TIMELINE_START_DELAY_MS;
         setTimeout(() => {
             if (this.destroyed) return;
             this.fetchNextVideos();
-        }, VIDEO_TIMELINE_START_DELAY_MS);
+        }, delay);
     }
 
     private loadOnThisDay(): void {
@@ -959,7 +1054,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const search = this.searchFilter.trim() || undefined;
         const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
         const gen = this.timelineLoadGeneration;
-        const pageSize = this.filterEventId
+        const searching = (this.searchFilter.trim().length >= SEARCH_MIN_CHARS);
+        const pageSize = this.filterEventId || searching
             ? PAGE_SIZE
             : (this.nextPage === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE);
         const sub = this.photoTimelineService.getTimeline(
@@ -987,7 +1083,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 }
 
                 this.scheduleTimelinePrefetchAfterInitialPaint();
-                if (!this.filterEventId && !this.onThisDayApiScheduled) {
+                if (!this.filterEventId && !this.onThisDayApiScheduled && !search) {
                     this.onThisDayApiScheduled = true;
                     setTimeout(() => {
                         if (this.destroyed || gen !== this.timelineLoadGeneration) return;
@@ -1020,7 +1116,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const search = this.searchFilter.trim() || undefined;
         const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
         const gen = this.timelineLoadGeneration;
-        const pageSize = this.nextPageVideos === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE;
+        const searching = (this.searchFilter.trim().length >= SEARCH_MIN_CHARS);
+        const pageSize = searching || this.filterEventId
+            ? PAGE_SIZE
+            : (this.nextPageVideos === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE);
         const sub = this.photoTimelineService.getVideoTimeline(
             this.userId, this.nextPageVideos, pageSize, search, visibility, this.filterEventId, this.nextVideoEventOffset
         ).subscribe({
@@ -1258,13 +1357,18 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     onFilterChange(): void {
         if (this.searchDebounceId != null) {
             clearTimeout(this.searchDebounceId);
+            this.searchDebounceId = null;
+        }
+        const q = this.searchFilter.trim();
+        if (q.length > 0 && q.length < SEARCH_MIN_CHARS) {
+            return;
         }
         this.searchDebounceId = setTimeout(() => {
             this.searchDebounceId = null;
             if (!this.destroyed) {
                 this.loadTimeline();
             }
-        }, 400);
+        }, SEARCH_DEBOUNCE_MS);
     }
 
     clearFilter(): void {
@@ -1521,7 +1625,86 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     /** Read-only: safe URL is always written with blob URL in {@link loadVideoUrl} (no lazy fill here — avoids NG0100). */
     getVideoUrl(video: TimelinePhoto): SafeUrl | null {
+        if (this.isYoutubeTimelineVideo(video)) {
+            return null;
+        }
         return this.videoSafeUrlCache.get(video.fileId) ?? null;
+    }
+
+    isYoutubeTimelineVideo(video: TimelinePhoto | null | undefined): boolean {
+        if (!video) {
+            return false;
+        }
+        if ((video.youtubeVideoId || '').trim()) {
+            return true;
+        }
+        if ((video.fileType || '').toLowerCase() === 'video/youtube') {
+            return true;
+        }
+        return (video.fileId || '').startsWith('yt:');
+    }
+
+    youtubeVideoIdOf(video: TimelinePhoto | null | undefined): string | null {
+        if (!video) {
+            return null;
+        }
+        const explicit = (video.youtubeVideoId || '').trim();
+        if (explicit) {
+            return explicit;
+        }
+        const fromFile = (video.fileId || '').trim();
+        if (fromFile.startsWith('yt:') && fromFile.length > 3) {
+            return fromFile.slice(3);
+        }
+        return parseYoutubeVideoId(video.externalUrl);
+    }
+
+    getYoutubeEmbedUrl(video: TimelinePhoto): SafeResourceUrl | null {
+        const id = this.youtubeVideoIdOf(video);
+        if (!id || !this.youtubeEmbedReadyIds.has(id)) {
+            return null;
+        }
+        const cached = this.youtubeEmbedSafeCache.get(id);
+        if (cached) {
+            return cached;
+        }
+        const origin = encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '');
+        const safe = this.sanitizer.bypassSecurityTrustResourceUrl(
+            `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0&playsinline=1&enablejsapi=1&origin=${origin}`
+        );
+        this.youtubeEmbedSafeCache.set(id, safe);
+        return safe;
+    }
+
+    private markYoutubeEmbedReady(videoId: string): void {
+        const id = videoId?.trim();
+        if (!id || this.youtubeEmbedReadyIds.has(id)) {
+            return;
+        }
+        this.youtubeEmbedReadyIds.add(id);
+        this.scheduleCdr();
+    }
+
+    openWallYoutubeFloatingPlayer(video: TimelinePhoto, event?: Event): void {
+        event?.preventDefault();
+        event?.stopPropagation();
+        const id = this.youtubeVideoIdOf(video);
+        if (!id) {
+            return;
+        }
+        this.youtubePlayer.open({
+            id,
+            kind: 'video',
+            title: (video.fileName || '').trim() || undefined
+        });
+    }
+
+    private isYoutubeVideoFooterLink(link: FsPhotoLink): boolean {
+        const t = (link.typeUrl || '').trim().toUpperCase();
+        if (t !== 'VIDEO' && t !== 'YOUTUBE' && t !== 'VIDÉO' && t !== 'VIMEO') {
+            return false;
+        }
+        return !!parseYoutubeVideoId(link.path);
     }
 
     isWallVideoHardFailed(video: TimelinePhoto): boolean {
@@ -1592,6 +1775,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     private loadVideoUrl(video: TimelinePhoto): void {
+        if (this.isYoutubeTimelineVideo(video)) {
+            return;
+        }
         const id = video.fileId;
         if (!id || this.wallVideoHardFailedIds.has(id) || this.videoUrlCache.has(id) || this.loadingVideos.has(id)) {
             return;
@@ -1695,6 +1881,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                         const fid = el.dataset['fileId']?.trim();
                         const ft = el.dataset['fileType']?.trim();
                         this.wallMediaObserver?.unobserve(el);
+                        if (el.classList.contains('wall-youtube-host')) {
+                            const yid = el.dataset['youtubeId']?.trim();
+                            if (yid) {
+                                this.markYoutubeEmbedReady(yid);
+                            }
+                            continue;
+                        }
                         if (!fid) continue;
                         if (el.classList.contains('wall-video-file-host')) {
                             this.loadWallVideo(fid, ft || 'video/mp4');
@@ -1714,7 +1907,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (!this.wallMediaObserver) return;
         const sel =
             '.wall-photo-thumb-host[data-file-id]:not([data-wall-media-observed]),' +
-            '.wall-video-file-host[data-file-id]:not([data-wall-media-observed])';
+            '.wall-video-file-host[data-file-id]:not([data-wall-media-observed]),' +
+            '.wall-youtube-host[data-youtube-id]:not([data-wall-media-observed])';
         document.querySelectorAll(sel).forEach((el) => {
             el.setAttribute('data-wall-media-observed', '1');
             this.wallMediaObserver!.observe(el);
@@ -1739,7 +1933,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     private loadWallVideo(fileId: string, fileType: string): void {
-        if (!fileId || this.videoUrlCache.has(fileId) || this.loadingVideos.has(fileId)) {
+        if (!fileId || fileId.startsWith('yt:') || fileType === 'video/youtube') {
+            return;
+        }
+        if (this.videoUrlCache.has(fileId) || this.loadingVideos.has(fileId)) {
             return;
         }
         const video = {
@@ -1840,8 +2037,39 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     /** Opens the video in the player modal (photo wall). */
     openVideoInVideoshow(fileId: string, fileName: string, eventName: string): void {
         if (!this.videoshowModalComponent) return;
+        this.pauseAllWallTimelineVideos();
+        this.suspendWallYoutubeEmbedsForVideoshow();
         const source: VideoshowVideoSource = { fileId, fileName };
         this.videoshowModalComponent.open([source], eventName || '', true);
+    }
+
+    openWallVideoInVideoshow(group: TimelineGroup, video: TimelinePhoto, event?: Event): void {
+        event?.preventDefault();
+        event?.stopPropagation();
+        if (!this.videoshowModalComponent || !video) {
+            return;
+        }
+        this.pauseAllWallTimelineVideos();
+        this.suspendWallYoutubeEmbedsForVideoshow();
+        const list = group?.videos || [];
+        const sources: VideoshowVideoSource[] = list.map((item) => this.toVideoshowSource(item));
+        const startIndex = Math.max(0, list.findIndex((item) => item.fileId === video.fileId));
+        const fallback = sources.length ? sources : [this.toVideoshowSource(video)];
+        const start = sources.length ? startIndex : 0;
+        this.videoshowModalComponent.open(fallback, group?.eventName || '', true, 0, start);
+    }
+
+    private toVideoshowSource(video: TimelinePhoto): VideoshowVideoSource {
+        if (this.isYoutubeTimelineVideo(video)) {
+            return {
+                youtubeVideoId: this.youtubeVideoIdOf(video) || undefined,
+                fileName: video.fileName
+            };
+        }
+        return {
+            fileId: video.fileId,
+            fileName: video.fileName
+        };
     }
 
     openOnThisDaySlideshow(index: number): void {
@@ -2255,7 +2483,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             return [];
         }
         return group.fsPhotoLinks.filter(
-            l => !this.isMongoTrackLink(l) && !this.isMongoWallPdfLink(l) && !this.isMongoWallOdsLink(l)
+            l => !this.isMongoTrackLink(l)
+                && !this.isMongoWallPdfLink(l)
+                && !this.isMongoWallOdsLink(l)
+                && !this.isYoutubeVideoFooterLink(l)
         );
     }
 
@@ -4274,6 +4505,89 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return (urlEvent.typeUrl || '').toUpperCase().trim() === 'PHOTOFROMFS';
     }
 
+    isWallYoutubeUrlEvent(urlEvent: UrlEvent | null | undefined): boolean {
+        return !!parseYoutubeVideoId(urlEvent?.link);
+    }
+
+    onWallUrlEventLinkClick(event: MouseEvent, urlEvent: UrlEvent): void {
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) {
+            return;
+        }
+        if (!this.isWallYoutubeUrlEvent(urlEvent)) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        this.openWallUrlEventInVideoshow(urlEvent);
+    }
+
+    openWallUrlEventInVideoshow(urlEvent: UrlEvent): void {
+        const clickedId = parseYoutubeVideoId(urlEvent?.link);
+        if (!clickedId || !this.videoshowModalComponent) {
+            return;
+        }
+        this.pauseAllWallTimelineVideos();
+        this.suspendWallYoutubeEmbedsForVideoshow();
+        const sources = this.buildWallEventVideoshowSources();
+        let startIndex = sources.findIndex((source) => source.youtubeVideoId === clickedId);
+        if (startIndex < 0) {
+            sources.unshift({
+                youtubeVideoId: clickedId,
+                fileName: (urlEvent.urlDescription || '').trim() || undefined
+            });
+            startIndex = 0;
+        }
+        this.videoshowModalComponent.open(
+            sources,
+            this.wallLinksEvent?.evenementName || this.wallLinksGroup?.eventName || '',
+            true,
+            0,
+            startIndex
+        );
+    }
+
+    private buildWallEventVideoshowSources(): VideoshowVideoSource[] {
+        const youtubeSources: VideoshowVideoSource[] = (this.wallLinksEvent?.urlEvents || [])
+            .map((item) => ({
+                youtubeVideoId: parseYoutubeVideoId(item.link) || undefined,
+                fileName: (item.urlDescription || '').trim() || undefined
+            }))
+            .filter((item) => !!item.youtubeVideoId);
+        const seenYoutube = new Set(youtubeSources.map((item) => item.youtubeVideoId));
+        const seenFiles = new Set<string>();
+        const fileSources: VideoshowVideoSource[] = (this.wallLinksEvent?.fileUploadeds || [])
+            .filter((file) => file?.fieldId && this.isVideoFile(file.fileName))
+            .map((file) => ({
+                fileId: file.fieldId,
+                fileName: file.fileName
+            }));
+        fileSources.forEach((item) => {
+            if (item.fileId) {
+                seenFiles.add(item.fileId);
+            }
+        });
+        const groupSources: VideoshowVideoSource[] = (this.wallLinksGroup?.videos || [])
+            .map((video) => this.toVideoshowSource(video))
+            .filter((source) => {
+                if (source.youtubeVideoId) {
+                    if (seenYoutube.has(source.youtubeVideoId)) {
+                        return false;
+                    }
+                    seenYoutube.add(source.youtubeVideoId);
+                    return true;
+                }
+                if (source.fileId) {
+                    if (seenFiles.has(source.fileId)) {
+                        return false;
+                    }
+                    seenFiles.add(source.fileId);
+                    return true;
+                }
+                return true;
+            });
+        return [...youtubeSources, ...fileSources, ...groupSources];
+    }
+
     openWallLinks(group: TimelineGroup): void {
         if (!group?.eventId || !this.userId) {
             return;
@@ -4356,7 +4670,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (!ev?.id) {
             return;
         }
-        const typeUrl = (this.newWallUrlEvent.typeUrl || '').trim();
+        const typeUrl = resolveUrlEventTypeForLink(this.newWallUrlEvent.typeUrl, this.newWallUrlEvent.link);
+        this.newWallUrlEvent.typeUrl = typeUrl;
         const link = (this.newWallUrlEvent.link || '').trim();
         if (!typeUrl || !link) {
             return;
@@ -4423,7 +4738,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (index < 0 || index >= ev.urlEvents.length) {
             return;
         }
-        const typeUrl = (this.editingWallUrlEvent.typeUrl || '').trim();
+        const typeUrl = resolveUrlEventTypeForLink(this.editingWallUrlEvent.typeUrl, this.editingWallUrlEvent.link);
+        this.editingWallUrlEvent.typeUrl = typeUrl;
         const link = (this.editingWallUrlEvent.link || '').trim();
         if (!typeUrl || !link) {
             return;

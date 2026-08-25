@@ -3,8 +3,10 @@ import {
   ElementRef,
   HostBinding,
   HostListener,
+  NgZone,
   OnDestroy,
   OnInit,
+  TemplateRef,
   ViewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -12,6 +14,7 @@ import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
@@ -22,6 +25,15 @@ import {
   YoutubeSearchPage
 } from '../services/api.service';
 import { YoutubePlayerService } from '../services/youtube-player.service';
+import { EvenementsService, StreamedEvent } from '../services/evenements.service';
+import { MembersService } from '../services/members.service';
+import { Evenement } from '../model/evenement';
+import { UrlEvent } from '../model/url-event';
+import { isYoutubeVideoId, parseYoutubeVideoId, youtubeWatchUrl } from '../shared/youtube-video-id.util';
+import {
+  VideoshowModalComponent,
+  VideoshowVideoSource
+} from '../shared/videoshow-modal/videoshow-modal.component';
 
 interface YoutubeRegionOption {
   code: string;
@@ -34,7 +46,8 @@ type YoutubeSortDir = 'asc' | 'desc';
 @Component({
   selector: 'app-youtube-watcher',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule],
+  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, VideoshowModalComponent],
+  providers: [EvenementsService],
   templateUrl: './youtube-watcher.component.html',
   styleUrls: ['./youtube-watcher.component.css']
 })
@@ -94,6 +107,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
    */
   @HostBinding('class.yt-landscape-fs') landscapeFullscreen = false;
   @ViewChild('playerFrame') playerFrame?: ElementRef<HTMLElement>;
+  @ViewChild('linkToEventModal') linkToEventModal?: TemplateRef<unknown>;
+  @ViewChild('videoshowModalComponent') videoshowModalComponent?: VideoshowModalComponent;
 
   private readonly query$ = new Subject<string>();
   private searchSub?: Subscription;
@@ -113,13 +128,60 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private readonly onLandscapeOrientationMedia = (): void => this.syncLandscapeFullscreen();
   private readonly onLandscapeFsChange = (): void => this.onLandscapeNativeFullscreenChange();
 
+  linkEventsList: Evenement[] = [];
+  linkEventsFilter = '';
+  linkEventsTypeFilter = '';
+  linkEventsLoading = false;
+  linkEventsError = false;
+  linkSavingEventId: string | null = null;
+  linkFeedbackKey: string | null = null;
+  linkFeedbackParams: { name?: string } = {};
+  linkFeedbackKind: 'success' | 'error' | null = null;
+  readonly linkEventTypeOptions: ReadonlyArray<{ value: string; labelKey: string }> = [
+    { value: '11', labelKey: 'EVENTCREATION.TYPE.DOCUMENTS' },
+    { value: '12', labelKey: 'EVENTCREATION.TYPE.FICHE' },
+    { value: '3', labelKey: 'EVENTCREATION.TYPE.RUN' },
+    { value: '6', labelKey: 'EVENTCREATION.TYPE.PARTY' },
+    { value: '4', labelKey: 'EVENTCREATION.TYPE.WALK' },
+    { value: '10', labelKey: 'EVENTCREATION.TYPE.PHOTOS' },
+    { value: '9', labelKey: 'EVENTCREATION.TYPE.RANDO' },
+    { value: '2', labelKey: 'EVENTCREATION.TYPE.SKI' },
+    { value: '7', labelKey: 'EVENTCREATION.TYPE.VACATION' },
+    { value: '5', labelKey: 'EVENTCREATION.TYPE.BIKE' },
+    { value: '8', labelKey: 'EVENTCREATION.TYPE.TRAVEL' },
+    { value: '1', labelKey: 'EVENTCREATION.TYPE.VTT' },
+    { value: '13', labelKey: 'EVENTCREATION.TYPE.WINE' },
+    { value: '14', labelKey: 'EVENTCREATION.TYPE.OTHER' },
+    { value: '15', labelKey: 'EVENTCREATION.TYPE.VISIT' },
+    { value: '16', labelKey: 'EVENTCREATION.TYPE.WORK' },
+    { value: '17', labelKey: 'EVENTCREATION.TYPE.FAMILY' },
+    { value: '18', labelKey: 'EVENTCREATION.TYPE.CINEMA' },
+    { value: '19', labelKey: 'EVENTCREATION.TYPE.MUSIQUE' },
+    { value: '20', labelKey: 'EVENTCREATION.TYPE.CUISINE' }
+  ];
+  linkTarget: YoutubeItem | null = null;
+  private linkModalRef: NgbModalRef | null = null;
+  private linkEventsStreamSub?: Subscription;
+  private linkSaveSub?: Subscription;
+  private linkFeedbackTimer?: ReturnType<typeof setTimeout>;
+  private static readonly LINK_FEEDBACK_AUTO_CLOSE_MS = 1800;
+  private videoshowRestorePip = false;
+
+  playbackCurrentSec = 0;
+  playbackDurationSec = 0;
+  private ytProgressTimer?: ReturnType<typeof setInterval>;
+
   constructor(
     private api: ApiService,
     private youtubePlayer: YoutubePlayerService,
     private translate: TranslateService,
     private sanitizer: DomSanitizer,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private evenementsService: EvenementsService,
+    private membersService: MembersService,
+    private modalService: NgbModal,
+    private ngZone: NgZone
   ) {}
 
   ngOnInit(): void {
@@ -145,6 +207,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.subs.push(
       this.youtubePlayer.state$.subscribe((s) => {
         this.playerOpen = s.open;
+        if (s.open) {
+          this.stopYoutubeProgressWatch();
+        }
         if (s.item) {
           this.selected = s.item;
         }
@@ -169,6 +234,13 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.teardownLandscapeFullscreenWatchers();
     this.exitLandscapeFullscreen(false);
     document.body.classList.remove(YoutubeWatcherComponent.PAGE_THEME_BODY_CLASS);
+    this.closeLinkToEventModal();
+    this.linkEventsStreamSub?.unsubscribe();
+    this.linkSaveSub?.unsubscribe();
+    if (this.linkFeedbackTimer !== undefined) {
+      clearTimeout(this.linkFeedbackTimer);
+    }
+    this.stopYoutubeProgressWatch();
   }
 
   onQueryChanged(): void {
@@ -219,8 +291,10 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.selected = item;
+    this.resetPlaybackClock(item);
     if (this.playerOpen) {
       this.embedUrl = null;
+      this.stopYoutubeProgressWatch();
       this.youtubePlayer.open(item);
     } else {
       this.embedUrl = this.buildEmbedUrl(item, true);
@@ -236,6 +310,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     }
     this.exitLandscapeFullscreen(false);
     this.embedUrl = null;
+    this.stopYoutubeProgressWatch();
     this.youtubePlayer.open(this.selected);
   }
 
@@ -308,6 +383,11 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   @HostListener('window:resize')
   onViewportOrientationMaybeChanged(): void {
     this.syncLandscapeFullscreen();
+  }
+
+  @HostListener('window:message', ['$event'])
+  onWindowMessage(event: MessageEvent): void {
+    this.onYoutubeProgressMessage(event);
   }
 
   loadMore(): void {
@@ -514,14 +594,18 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private buildEmbedUrl(item: YoutubeItem, autoplay = false): SafeResourceUrl | null {
     const id = item.id || '';
     const extra = autoplay ? '&autoplay=1&playsinline=1' : '&playsinline=1';
+    const origin =
+      typeof window !== 'undefined'
+        ? `&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+        : '';
     if (item.kind === 'playlist' && /^[a-zA-Z0-9_-]{10,64}$/.test(id)) {
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0${extra}`
+        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0${extra}${origin}`
       );
     }
     if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/${id}?rel=0${extra}`
+        `https://www.youtube-nocookie.com/embed/${id}?rel=0${extra}${origin}`
       );
     }
     return null;
@@ -852,6 +936,407 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       return 0;
     }
     return Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0);
+  }
+
+  showPlaybackFooter(): boolean {
+    return !!this.selected && (!!this.embedUrl || this.playbackDurationSec > 0 || this.isLive(this.selected));
+  }
+
+  playbackPercent(): number {
+    if (this.playbackDurationSec <= 0) {
+      return 0;
+    }
+    return Math.max(0, Math.min(100, (this.playbackCurrentSec / this.playbackDurationSec) * 100));
+  }
+
+  playbackRemainingSec(): number {
+    return Math.max(0, this.playbackDurationSec - this.playbackCurrentSec);
+  }
+
+  playbackClock(totalSec: number): string {
+    const sec = Math.max(0, Math.floor(Number.isFinite(totalSec) ? totalSec : 0));
+    const hours = Math.floor(sec / 3600);
+    const minutes = Math.floor((sec % 3600) / 60);
+    const seconds = sec % 60;
+    const ss = String(seconds).padStart(2, '0');
+    if (hours > 0) {
+      return `${hours}:${String(minutes).padStart(2, '0')}:${ss}`;
+    }
+    return `${minutes}:${ss}`;
+  }
+
+  playbackAriaLabel(): string {
+    return this.translate.instant('YOUTUBE.PROGRESS_ARIA', {
+      elapsed: this.playbackClock(this.playbackCurrentSec),
+      duration: this.playbackClock(this.playbackDurationSec),
+      remaining: this.playbackClock(this.playbackRemainingSec())
+    });
+  }
+
+  onYoutubeEmbedLoad(): void {
+    this.startYoutubeProgressWatch();
+  }
+
+  onPlaybackSeek(event: MouseEvent): void {
+    if (this.playbackDurationSec <= 0) {
+      return;
+    }
+    const track = event.currentTarget as HTMLElement | null;
+    if (!track) {
+      return;
+    }
+    const rect = track.getBoundingClientRect();
+    if (rect.width <= 0) {
+      return;
+    }
+    const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    const time = ratio * this.playbackDurationSec;
+    this.playbackCurrentSec = time;
+    this.sendYoutubeCommand('seekTo', [time, true]);
+  }
+
+  private resetPlaybackClock(item: YoutubeItem | null): void {
+    this.playbackCurrentSec = 0;
+    this.playbackDurationSec = this.durationSeconds(item?.duration);
+  }
+
+  private startYoutubeProgressWatch(): void {
+    this.stopYoutubeProgressWatch();
+    if (this.playerOpen || !this.embedUrl) {
+      return;
+    }
+    this.handshakeYoutubePlayer();
+    this.ytProgressTimer = setInterval(() => {
+      this.handshakeYoutubePlayer();
+      this.sendYoutubeCommand('getCurrentTime');
+      this.sendYoutubeCommand('getDuration');
+    }, 400);
+  }
+
+  private stopYoutubeProgressWatch(): void {
+    if (this.ytProgressTimer !== undefined) {
+      clearInterval(this.ytProgressTimer);
+      this.ytProgressTimer = undefined;
+    }
+  }
+
+  private handshakeYoutubePlayer(): void {
+    this.postToYoutube({ event: 'listening', id: 'yt-page-embed' });
+    this.sendYoutubeCommand('addEventListener', ['onStateChange']);
+  }
+
+  private getYoutubeIframe(): HTMLIFrameElement | null {
+    const wrap = this.playerFrame?.nativeElement;
+    const fromWrap = wrap?.querySelector('iframe.yt-page-embed') as HTMLIFrameElement | null;
+    if (fromWrap) {
+      return fromWrap;
+    }
+    if (typeof document === 'undefined') {
+      return null;
+    }
+    return document.querySelector('iframe.yt-page-embed');
+  }
+
+  private postToYoutube(payload: object): void {
+    const iframe = this.getYoutubeIframe();
+    if (!iframe?.contentWindow) {
+      return;
+    }
+    try {
+      iframe.contentWindow.postMessage(JSON.stringify(payload), '*');
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private sendYoutubeCommand(func: string, args: unknown[] = []): void {
+    this.postToYoutube({ event: 'command', func, args, id: 'yt-page-embed' });
+  }
+
+  private onYoutubeProgressMessage(event: MessageEvent): void {
+    if (this.playerOpen || !this.embedUrl) {
+      return;
+    }
+    const origin = (event.origin || '').toLowerCase();
+    if (!origin.includes('youtube.com') && !origin.includes('youtube-nocookie.com')) {
+      return;
+    }
+    let data: unknown = event.data;
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch {
+        return;
+      }
+    }
+    if (!data || typeof data !== 'object') {
+      return;
+    }
+    const payload = data as {
+      event?: string;
+      info?: number | Record<string, unknown>;
+    };
+    if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
+      if (payload.info === 0 && this.playbackDurationSec > 0) {
+        this.playbackCurrentSec = this.playbackDurationSec;
+      }
+      return;
+    }
+    const info = payload.info;
+    if (!info || typeof info !== 'object' || Array.isArray(info)) {
+      return;
+    }
+    const currentTime = info['currentTime'];
+    const duration = info['duration'];
+    if (typeof currentTime === 'number' && Number.isFinite(currentTime)) {
+      this.playbackCurrentSec = Math.max(0, currentTime);
+    }
+    if (typeof duration === 'number' && Number.isFinite(duration) && duration > 0) {
+      this.playbackDurationSec = duration;
+    }
+  }
+
+  canLinkVideo(item: YoutubeItem | null | undefined): boolean {
+    return item?.kind === 'video' && isYoutubeVideoId(item.id);
+  }
+
+  openInVideoshow(): void {
+    const item = this.selected;
+    if (!this.canLinkVideo(item) || !this.videoshowModalComponent) {
+      return;
+    }
+    this.exitLandscapeFullscreen(false);
+    this.videoshowRestorePip = this.playerOpen;
+    this.embedUrl = null;
+    this.stopYoutubeProgressWatch();
+    if (this.playerOpen) {
+      this.youtubePlayer.close();
+    }
+    const sources: VideoshowVideoSource[] = [];
+    const seen = new Set<string>();
+    for (const it of this.items) {
+      const id = (it.id || '').trim();
+      if (it.kind !== 'video' || !isYoutubeVideoId(id) || seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      sources.push({ youtubeVideoId: id, fileName: it.title });
+    }
+    const selectedId = (item!.id || '').trim();
+    let startIndex = sources.findIndex((source) => source.youtubeVideoId === selectedId);
+    if (startIndex < 0) {
+      sources.unshift({ youtubeVideoId: selectedId, fileName: item!.title });
+      startIndex = 0;
+    }
+    this.videoshowModalComponent.open(sources, item!.title || '', false, 0, startIndex);
+  }
+
+  onVideoshowClosed(): void {
+    const item = this.selected;
+    const restorePip = this.videoshowRestorePip;
+    this.videoshowRestorePip = false;
+    if (!item) {
+      return;
+    }
+    if (restorePip) {
+      this.youtubePlayer.open(item);
+      return;
+    }
+    this.embedUrl = this.buildEmbedUrl(item, true);
+    setTimeout(() => this.syncLandscapeFullscreen(), 0);
+  }
+
+  openLinkToEventModal(): void {
+    if (!this.canLinkVideo(this.selected) || !this.linkToEventModal) {
+      return;
+    }
+    this.linkTarget = this.selected;
+    this.linkEventsList = [];
+    this.linkEventsFilter = '';
+    this.linkEventsTypeFilter = '';
+    this.linkEventsLoading = true;
+    this.linkEventsError = false;
+    this.linkSavingEventId = null;
+    this.linkFeedbackKey = null;
+    this.linkFeedbackParams = {};
+    this.linkFeedbackKind = null;
+    if (this.linkFeedbackTimer !== undefined) {
+      clearTimeout(this.linkFeedbackTimer);
+      this.linkFeedbackTimer = undefined;
+    }
+    this.linkModalRef = this.modalService.open(this.linkToEventModal, {
+      size: 'lg',
+      centered: true,
+      windowClass: 'yt-link-event-modal',
+      backdropClass: 'yt-link-event-modal-backdrop',
+      modalDialogClass: 'yt-link-event-modal-dialog'
+    });
+    this.linkModalRef.dismissed.subscribe(() => this.onLinkModalClosed());
+    this.linkModalRef.closed.subscribe(() => this.onLinkModalClosed());
+    this.streamEventsForLink();
+  }
+
+  cancelLinkToEventModal(): void {
+    this.linkModalRef?.dismiss();
+  }
+
+  private closeLinkToEventModal(): void {
+    try {
+      this.linkModalRef?.dismiss();
+    } catch {
+      /* already closed */
+    }
+    this.onLinkModalClosed();
+  }
+
+  private onLinkModalClosed(): void {
+    this.linkEventsStreamSub?.unsubscribe();
+    this.linkEventsStreamSub = undefined;
+    this.linkModalRef = null;
+    this.linkSavingEventId = null;
+    this.linkTarget = null;
+  }
+
+  filteredLinkEvents(): Evenement[] {
+    const term = (this.linkEventsFilter ?? '').trim().toLowerCase();
+    const typeFilter = (this.linkEventsTypeFilter ?? '').trim();
+    const list = this.linkEventsList;
+    let out = !term
+      ? list
+      : list.filter((e) => (e.evenementName ?? '').toLowerCase().includes(term));
+    if (typeFilter) {
+      out = out.filter((e) => (e.type ?? '') === typeFilter);
+    }
+    return [...out].sort((a, b) => {
+      const dA = a?.beginEventDate ? new Date(a.beginEventDate).getTime() : 0;
+      const dB = b?.beginEventDate ? new Date(b.beginEventDate).getTime() : 0;
+      return dB - dA;
+    });
+  }
+
+  linkEventTypeLabelKey(typeId: string | undefined | null): string {
+    const id = (typeId ?? '').trim();
+    if (!id) {
+      return '';
+    }
+    const found = this.linkEventTypeOptions.find((o) => o.value === id);
+    return found ? found.labelKey : id;
+  }
+
+  linkEventDateLabel(ev: Evenement): string {
+    const d = ev?.beginEventDate ? new Date(ev.beginEventDate) : null;
+    if (!d || Number.isNaN(d.getTime())) {
+      return '';
+    }
+    try {
+      return d.toLocaleDateString(this.translate.currentLang || 'fr', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return d.toISOString().slice(0, 10);
+    }
+  }
+
+  canSubmitLinkForEvent(ev: Evenement): boolean {
+    return !!ev?.id && this.linkSavingEventId == null && this.canLinkVideo(this.linkTarget);
+  }
+
+  onSelectEventForLink(ev: Evenement): void {
+    const item = this.linkTarget;
+    const eventId = ev?.id?.trim();
+    if (!eventId || !this.canLinkVideo(item) || this.linkSavingEventId) {
+      return;
+    }
+    const videoId = (item!.id || '').trim();
+    if (this.eventAlreadyHasYoutube(ev, videoId)) {
+      this.linkFeedbackKey = 'YOUTUBE.LINK_ALREADY';
+      this.linkFeedbackParams = { name: ev.evenementName };
+      this.linkFeedbackKind = 'error';
+      return;
+    }
+    const user = this.membersService.getUser();
+    const description = (item!.title || '').trim().slice(0, 200);
+    const urlEvent = new UrlEvent(
+      'YOUTUBE',
+      new Date(),
+      user?.userName || '',
+      youtubeWatchUrl(videoId),
+      description
+    );
+    this.linkSavingEventId = eventId;
+    this.linkFeedbackKey = null;
+    this.linkSaveSub?.unsubscribe();
+    this.linkSaveSub = this.evenementsService.addUrlEvent(eventId, urlEvent).subscribe({
+      next: (updated) => {
+        this.ngZone.run(() => {
+          this.linkSavingEventId = null;
+          if (updated) {
+            const idx = this.linkEventsList.findIndex((e) => e.id === eventId);
+            if (idx >= 0) {
+              this.linkEventsList = [
+                ...this.linkEventsList.slice(0, idx),
+                updated,
+                ...this.linkEventsList.slice(idx + 1)
+              ];
+            }
+          }
+          this.linkFeedbackKey = 'YOUTUBE.LINK_SUCCESS';
+          this.linkFeedbackParams = { name: ev.evenementName };
+          this.linkFeedbackKind = 'success';
+          if (this.linkFeedbackTimer !== undefined) {
+            clearTimeout(this.linkFeedbackTimer);
+          }
+          this.linkFeedbackTimer = setTimeout(() => {
+            this.linkModalRef?.close();
+          }, YoutubeWatcherComponent.LINK_FEEDBACK_AUTO_CLOSE_MS);
+        });
+      },
+      error: () => {
+        this.ngZone.run(() => {
+          this.linkSavingEventId = null;
+          this.linkFeedbackKey = 'YOUTUBE.LINK_ERROR';
+          this.linkFeedbackParams = { name: ev.evenementName };
+          this.linkFeedbackKind = 'error';
+        });
+      }
+    });
+  }
+
+  private eventAlreadyHasYoutube(ev: Evenement, videoId: string): boolean {
+    return (ev.urlEvents || []).some((u) => parseYoutubeVideoId(u?.link) === videoId);
+  }
+
+  private streamEventsForLink(): void {
+    this.linkEventsStreamSub?.unsubscribe();
+    const userId = this.membersService.getUser()?.id ?? '';
+    this.linkEventsStreamSub = this.evenementsService.streamEvents('*', userId).subscribe({
+      next: (s: StreamedEvent) => {
+        this.ngZone.run(() => {
+          if (s.type === 'event' && s.data && typeof s.data === 'object' && 'id' in s.data) {
+            const incoming = s.data as Evenement;
+            const existsIdx = this.linkEventsList.findIndex((e) => e.id === incoming.id);
+            if (existsIdx === -1) {
+              this.linkEventsList = [...this.linkEventsList, incoming];
+            }
+          } else if (s.type === 'complete') {
+            this.linkEventsLoading = false;
+          }
+        });
+      },
+      error: () => {
+        this.ngZone.run(() => {
+          this.linkEventsLoading = false;
+          this.linkEventsError = true;
+        });
+      },
+      complete: () => {
+        this.ngZone.run(() => {
+          this.linkEventsLoading = false;
+        });
+      }
+    });
   }
 
   private syncUrl(preferId?: string | null): void {

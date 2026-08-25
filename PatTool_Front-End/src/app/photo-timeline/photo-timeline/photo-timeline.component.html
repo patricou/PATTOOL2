@@ -406,9 +406,10 @@
                     </div>
                     <!-- Vidéo : lecture seulement lorsque la tuile est nettement visible (viewport) -->
                     <div class="masonry-item video-card-inline wall-video-file-host"
-                         *ngIf="media.type === 'video'"
+                         *ngIf="media.type === 'video' && !isYoutubeTimelineVideo(media.item)"
                          [attr.data-file-id]="media.item.fileId"
-                         [attr.data-file-type]="media.item.fileType || 'video/mp4'">
+                         [attr.data-file-type]="media.item.fileType || 'video/mp4'"
+                         (click)="openWallVideoInVideoshow(group, media.item)">
                         <div class="photo-card video-card-inner">
                             <div *ngIf="!getVideoUrl(media.item)" class="video-placeholder">
                                 <i *ngIf="!isWallVideoHardFailed(media.item)" class="fa fa-spinner fa-spin fa-2x" aria-hidden="true"></i>
@@ -431,11 +432,52 @@
                                        preload="none"
                                        class="photo-img timeline-video"
                                        [attr.alt]="media.item.fileName"
+                                       (click)="$event.stopPropagation()"
                                        (loadeddata)="onWallVideoLoadedData($event)"
                                        (canplay)="onWallVideoLoadedData($event)">
                                     {{ 'EVENTELEM.VIDEO_NOT_SUPPORTED' | translate }}
                                 </video>
                             </ng-container>
+                            <button type="button"
+                                    class="wall-youtube-popout"
+                                    (click)="openWallVideoInVideoshow(group, media.item, $event)"
+                                    [attr.title]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate"
+                                    [attr.aria-label]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate">
+                                <i class="fa fa-expand" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Vidéo YouTube liée à l'activité : même tuile que les vidéos GridFS -->
+                    <div class="masonry-item video-card-inline wall-youtube-host"
+                         *ngIf="media.type === 'video' && isYoutubeTimelineVideo(media.item)"
+                         [attr.data-youtube-id]="youtubeVideoIdOf(media.item)"
+                         (click)="openWallVideoInVideoshow(group, media.item)">
+                        <div class="photo-card video-card-inner wall-youtube-card">
+                            <div *ngIf="!getYoutubeEmbedUrl(media.item)" class="video-placeholder wall-youtube-placeholder">
+                                <i class="fa fa-youtube-play fa-2x" aria-hidden="true"></i>
+                            </div>
+                            <div *ngIf="getYoutubeEmbedUrl(media.item) as ytEmbed"
+                                 class="wall-youtube-embed"
+                                 (click)="$event.stopPropagation()">
+                                <iframe
+                                    #wallYoutubeEmbed
+                                    [src]="ytEmbed"
+                                    [title]="media.item.fileName || ('PHOTO_TIMELINE.YOUTUBE_VIDEO' | translate)"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                    allowfullscreen
+                                    referrerpolicy="strict-origin-when-cross-origin"></iframe>
+                            </div>
+                            <div class="photo-overlay wall-youtube-overlay">
+                                <span class="wall-youtube-badge">{{ 'PHOTO_TIMELINE.YOUTUBE_BADGE' | translate }}</span>
+                                <span class="photo-name" *ngIf="media.item.fileName">{{ media.item.fileName }}</span>
+                            </div>
+                            <button type="button"
+                                    class="wall-youtube-popout"
+                                    (click)="openWallVideoInVideoshow(group, media.item, $event)"
+                                    [attr.title]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate"
+                                    [attr.aria-label]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate">
+                                <i class="fa fa-expand" aria-hidden="true"></i>
+                            </button>
                         </div>
                     </div>
                 </ng-container>
@@ -1352,7 +1394,7 @@
                 <div class="wall-link-item card mb-2" *ngFor="let urlEvent of wallLinksEvent.urlEvents; let idx = index">
                     <ng-container *ngIf="editingWallUrlEventIndex !== idx; else wallEditUrlTpl">
                         <div class="card-body py-2 px-3">
-                            <div class="d-flex flex-wrap align-items-start gap-2">
+                            <div class="d-flex align-items-start gap-2">
                                 <div class="flex-grow-1 min-w-0">
                                     <div class="small text-muted mb-1">
                                         <i class="fa fa-tag"></i> {{ getWallUrlTypeLabel(urlEvent.typeUrl) | translate }}
@@ -1361,7 +1403,8 @@
                                        [href]="urlEvent.link"
                                        target="_blank"
                                        rel="noopener noreferrer"
-                                       class="text-break">
+                                       class="text-break"
+                                       (click)="onWallUrlEventLinkClick($event, urlEvent)">
                                         {{ urlEvent.urlDescription || urlEvent.link }}
                                     </a>
                                     <span *ngIf="urlEvent.link && isWallPhotoFromFs(urlEvent)" class="text-break">
@@ -1374,17 +1417,28 @@
                                         <span *ngIf="urlEvent.dateCreation"> • {{ formatWallLinkDate(urlEvent.dateCreation) }}</span>
                                     </p>
                                 </div>
-                                <div class="d-flex gap-1 flex-shrink-0" *ngIf="canModifyWallLinksEvent()">
-                                    <button type="button" class="btn btn-outline-primary btn-sm"
-                                            (click)="startEditWallUrlEvent(idx)"
-                                            [title]="'EVENTHOME.EDIT_LINK' | translate">
-                                        <i class="fa fa-edit"></i>
+                                <div class="d-flex gap-1 flex-shrink-0 align-items-center"
+                                     *ngIf="canModifyWallLinksEvent() || isWallYoutubeUrlEvent(urlEvent)">
+                                    <button type="button"
+                                            class="btn btn-outline-danger btn-sm"
+                                            *ngIf="isWallYoutubeUrlEvent(urlEvent)"
+                                            (click)="openWallUrlEventInVideoshow(urlEvent); $event.preventDefault(); $event.stopPropagation()"
+                                            [attr.title]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate">
+                                        <i class="fa fa-expand" aria-hidden="true"></i>
+                                        {{ 'EVENTELEM.VIDEOSHOW_TITLE' | translate }}
                                     </button>
-                                    <button type="button" class="btn btn-outline-danger btn-sm"
-                                            (click)="removeWallUrlEvent(idx)"
-                                            [title]="'EVENTHOME.REMOVE_URL_EVENT' | translate">
-                                        <i class="fa fa-trash"></i>
-                                    </button>
+                                    <ng-container *ngIf="canModifyWallLinksEvent()">
+                                        <button type="button" class="btn btn-outline-primary btn-sm"
+                                                (click)="startEditWallUrlEvent(idx)"
+                                                [title]="'EVENTHOME.EDIT_LINK' | translate">
+                                            <i class="fa fa-edit"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                                (click)="removeWallUrlEvent(idx)"
+                                                [title]="'EVENTHOME.REMOVE_URL_EVENT' | translate">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </ng-container>
                                 </div>
                             </div>
                         </div>
@@ -1449,4 +1503,4 @@
 <app-trace-viewer-modal #traceViewerModalComponent (closed)="onTraceViewerClosed()"></app-trace-viewer-modal>
 
 <!-- Videoshow Modal (lecteur vidéo au clic sur une carte vidéo du mur) -->
-<app-videoshow-modal #videoshowModalComponent></app-videoshow-modal>
+<app-videoshow-modal #videoshowModalComponent (closed)="onWallVideoshowClosed()"></app-videoshow-modal>

@@ -33,6 +33,7 @@ import { isOdsFile as isOdsSpreadsheetFile } from '../../shared/uploaded-file-ty
 import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.service';
 import { normalizeStartLocation } from '../../shared/start-location.util';
 import { StartLocationFieldComponent } from '../../shared/start-location-field/start-location-field.component';
+import { resolveUrlEventTypeForLink } from '../../shared/youtube-video-id.util';
 
 @Component({
 	selector: 'update-evenement',
@@ -80,6 +81,7 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		{id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS"},
 		{id: "PHOTOFROMFS", label: "EVENTHOME.URL_TYPE_PHOTOFROMFS"},
 		{id: "VIDEO", label: "EVENTHOME.URL_TYPE_VIDEO"},
+		{id: "YOUTUBE", label: "EVENTHOME.URL_TYPE_YOUTUBE"},
 		{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE"},
 		{id: "WHATSAPP", label: "EVENTHOME.URL_TYPE_WHATSAPP"}
 	];
@@ -383,6 +385,9 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	
 	// Methods to manage URL Events
 	addUrlEvent() {
+		if (this.newUrlEvent.link && this.newUrlEvent.link.trim() !== '') {
+			this.newUrlEvent.typeUrl = resolveUrlEventTypeForLink(this.newUrlEvent.typeUrl, this.newUrlEvent.link);
+		}
 		if (this.newUrlEvent.link && this.newUrlEvent.link.trim() !== '' && 
 			this.newUrlEvent.typeUrl && this.newUrlEvent.typeUrl.trim() !== '') {
 			
@@ -562,6 +567,9 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	}
 	
 	saveUrlEventEdit(index: number) {
+		if (this.editingUrlEvent.link && this.editingUrlEvent.link.trim() !== '') {
+			this.editingUrlEvent.typeUrl = resolveUrlEventTypeForLink(this.editingUrlEvent.typeUrl, this.editingUrlEvent.link);
+		}
 		if (this.editingUrlEvent.link && this.editingUrlEvent.link.trim() !== '' && 
 			this.editingUrlEvent.typeUrl && this.editingUrlEvent.typeUrl.trim() !== '') {
 			
@@ -666,6 +674,12 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	
 	// Handle link blur event
 	onLinkBlur() {
+		if (this.editingUrlEvent) {
+			this.editingUrlEvent.typeUrl = resolveUrlEventTypeForLink(
+				this.editingUrlEvent.typeUrl,
+				this.editingUrlEvent.link
+			);
+		}
 		// Check if this is a PHOTOFROMFS type
 		const isPhotoFromFs = this.editingUrlEvent?.typeUrl && 
 		                      this.editingUrlEvent.typeUrl.trim().toUpperCase() === 'PHOTOFROMFS';
@@ -708,6 +722,12 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	
 	// Handle new link blur event
 	onNewLinkBlur() {
+		if (this.newUrlEvent) {
+			this.newUrlEvent.typeUrl = resolveUrlEventTypeForLink(
+				this.newUrlEvent.typeUrl,
+				this.newUrlEvent.link
+			);
+		}
 		// Check if this is a PHOTOFROMFS type
 		const isPhotoFromFs = this.newUrlEvent?.typeUrl && 
 		                      this.newUrlEvent.typeUrl.trim().toUpperCase() === 'PHOTOFROMFS';
@@ -726,8 +746,9 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	}
 
 	getUrlTypeLabel(typeId: string): string {
-		const type = this.urlEventTypes.find(t => t.id === typeId);
-		return type ? type.label : typeId;
+		const normalized = (typeId || '').trim().toUpperCase();
+		const type = this.urlEventTypes.find(t => t.id.toUpperCase() === normalized);
+		return type ? type.label : (normalized || typeId);
 	}
 
 	// Get URL event icon based on type
@@ -763,8 +784,12 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 			return 'fa fa-image';
 		}
 		
+		if (normalizedType === 'YOUTUBE') {
+			return 'fa fa-youtube-play';
+		}
+
 		// Check for VIDEO
-		if (normalizedType === 'VIDEO' || normalizedType === 'VIDÉO' || normalizedType === 'YOUTUBE' || normalizedType === 'VIMEO') {
+		if (normalizedType === 'VIDEO' || normalizedType === 'VIDÉO' || normalizedType === 'VIMEO') {
 			return 'fa fa-video-camera';
 		}
 		

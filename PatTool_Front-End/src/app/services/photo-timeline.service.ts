@@ -14,6 +14,10 @@ export interface TimelinePhoto {
     eventName: string;
     eventType: string;
     eventDate: string;
+    /** YouTube video id when this wall item is an external YouTube link (not GridFS). */
+    youtubeVideoId?: string;
+    /** Original YouTube URL (watch / shorts / youtu.be). */
+    externalUrl?: string;
 }
 
 export interface FsPhotoLink {

@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, TemplateRef, El
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
-import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
+import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browser';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { Observable, Subscription, of, EMPTY } from 'rxjs';
@@ -19,6 +19,8 @@ import { Evenement, PdfConverterDocumentLink } from '../../model/evenement';
 import { Member } from '../../model/member';
 import { UploadedFile } from '../../model/uploadedfile';
 import { UrlEvent } from '../../model/url-event';
+import { parseYoutubeVideoId, resolveUrlEventTypeForLink } from '../../shared/youtube-video-id.util';
+import { YoutubePlayerService } from '../../services/youtube-player.service';
 import { Commentary } from '../../model/commentary';
 import { DiscussionService, DiscussionMessage } from '../../services/discussion.service';
 import { EvenementsService } from '../../services/evenements.service';
@@ -159,6 +161,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   private discussionImageErrors: Map<string, string> = new Map();
   // Cache for video URLs (blob URLs)
   private videoUrlCache: Map<string, SafeUrl> = new Map();
+  private youtubeEmbedSafeCache = new Map<string, SafeResourceUrl>();
   // Track videos that have successfully loaded to avoid false error logs
   private videoLoadSuccess: Set<string> = new Set();
   
@@ -339,6 +342,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     {id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS"},
     {id: "PHOTOFROMFS", label: "EVENTHOME.URL_TYPE_PHOTOFROMFS"},
     {id: "VIDEO", label: "EVENTHOME.URL_TYPE_VIDEO"},
+    {id: "YOUTUBE", label: "EVENTHOME.URL_TYPE_YOUTUBE"},
     {id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE"},
     {id: "WHATSAPP", label: "EVENTHOME.URL_TYPE_WHATSAPP"}
   ];
@@ -381,7 +385,8 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     private assistantLaunch: AssistantLaunchService,
     private todoListOverlay: TodoListDetailOverlayService,
     private noteOverlay: NoteDetailOverlayService,
-    private odsEditorLaunch: OdsEditorLaunchService
+    private odsEditorLaunch: OdsEditorLaunchService,
+    private youtubePlayer: YoutubePlayerService
   ) {
     this.nativeWindow = winRef.getNativeWindow();
     // Pré-charge `app.imagemaxsizekb` côté backend pour pouvoir adapter le
@@ -915,6 +920,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     this.videoUrls.clear();
     this.videoFileSizes.clear();
     this.videoLoadSuccess.clear();
+    this.youtubeEmbedSafeCache.clear();
     
     // Stop all autoplay intervals
     this.stopPhotoGalleryAutoplay();
@@ -1374,7 +1380,8 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   public addUrlEvent(): void {
     if (!this.evenement?.id) return;
 
-    const typeUrl = (this.newUrlEvent.typeUrl || '').trim();
+    const typeUrl = resolveUrlEventTypeForLink(this.newUrlEvent.typeUrl, this.newUrlEvent.link);
+    this.newUrlEvent.typeUrl = typeUrl;
     const link = (this.newUrlEvent.link || '').trim();
     if (!typeUrl || !link) return;
 
@@ -1447,7 +1454,8 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     }
     if (this.editingUrlEventIndex < 0 || this.editingUrlEventIndex >= this.evenement.urlEvents.length) return;
 
-    const typeUrl = (this.editingUrlEvent.typeUrl || '').trim();
+    const typeUrl = resolveUrlEventTypeForLink(this.editingUrlEvent.typeUrl, this.editingUrlEvent.link);
+    this.editingUrlEvent.typeUrl = typeUrl;
     const link = (this.editingUrlEvent.link || '').trim();
     if (!typeUrl || !link) return;
 
@@ -1546,6 +1554,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   public onNewLinkBlur(): void {
+    this.newUrlEvent.typeUrl = resolveUrlEventTypeForLink(this.newUrlEvent.typeUrl, this.newUrlEvent.link);
     const isPhotoFromFs = (this.newUrlEvent.typeUrl || '').trim().toUpperCase() === 'PHOTOFROMFS';
     if (isPhotoFromFs && this.newUrlEvent.link) {
       this.newUrlEvent.link = this.addYearPrefixIfNeeded(this.newUrlEvent.link);
@@ -1566,6 +1575,10 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   public onEditLinkBlur(): void {
+    this.editingUrlEvent.typeUrl = resolveUrlEventTypeForLink(
+      this.editingUrlEvent.typeUrl,
+      this.editingUrlEvent.link
+    );
     const isPhotoFromFs = (this.editingUrlEvent.typeUrl || '').trim().toUpperCase() === 'PHOTOFROMFS';
     if (isPhotoFromFs && this.editingUrlEvent.link) {
       this.editingUrlEvent.link = this.addYearPrefixIfNeeded(this.editingUrlEvent.link);
@@ -4375,7 +4388,8 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       {id: "OTHER", label: "EVENTHOME.URL_TYPE_OTHER", aliases: ["AUTRE", "OTRO", "ANDERE", "其他", "أخرى"]},
       {id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS", aliases: ["PHOTO", "PHOTOS", "IMAGES", "PICTURES", "照片", "صور"]},
       {id: "PHOTOFROMFS", label: "EVENTHOME.URL_TYPE_PHOTOFROMFS", aliases: ["PHOTO FS", "PHOTO FROM FS", "DISK PHOTO", "FICHIER"]},
-      {id: "VIDEO", label: "EVENTHOME.URL_TYPE_VIDEO", aliases: ["VIDEO", "VIDÉO", "YOUTUBE", "VIMEO"]},
+      {id: "VIDEO", label: "EVENTHOME.URL_TYPE_VIDEO", aliases: ["VIDEO", "VIDÉO", "VIMEO"]},
+      {id: "YOUTUBE", label: "EVENTHOME.URL_TYPE_YOUTUBE", aliases: ["YOUTUBE"]},
       {id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]},
       {id: "WHATSAPP", label: "EVENTHOME.URL_TYPE_WHATSAPP", aliases: ["WA", "WHATS", "واتساب"]}
     ];
@@ -4442,8 +4456,12 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       return 'fa fa-image';
     }
 
+    if (normalizedType === 'YOUTUBE') {
+      return 'fa fa-youtube-play';
+    }
+
     // Check for VIDEO
-    if (normalizedType === 'VIDEO' || normalizedType === 'VIDÉO' || normalizedType === 'YOUTUBE' || normalizedType === 'VIMEO') {
+    if (normalizedType === 'VIDEO' || normalizedType === 'VIDÉO' || normalizedType === 'VIMEO') {
       return 'fa fa-video-camera';
     }
     
@@ -4482,7 +4500,8 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       {id: "MAP", aliases: ["CARTE", "CARTA", "KARTE", "MAPA", "地图", "خريطة"]},
       {id: "DOCUMENTATION", aliases: ["DOC", "DOCUMENT", "DOCS", "文档", "وثائق"]},
       {id: "PHOTOS", aliases: ["PHOTO", "PHOTOS", "IMAGES", "PICTURES", "照片", "صور"]},
-      {id: "VIDEO", aliases: ["VIDEO", "VIDÉO", "YOUTUBE", "VIMEO"]},
+      {id: "YOUTUBE", aliases: ["YOUTUBE"]},
+      {id: "VIDEO", aliases: ["VIDEO", "VIDÉO", "VIMEO"]},
       {id: "WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]},
       {id: "OTHER", aliases: ["AUTRE", "OTRO", "ANDERE", "其他", "أخرى"]}
     ];
@@ -4523,8 +4542,12 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   // Get sorted type keys for consistent display order (excluding PHOTOFROMFS)
   public getSortedTypeKeys(): string[] {
     const grouped = this.getGroupedUrlEvents();
-    const typeOrder = ['MAP', 'DOCUMENTATION', 'WEBSITE', 'VIDEO', 'PHOTOS', 'OTHER'];
-    return typeOrder.filter(type => grouped[type] && grouped[type].length > 0);
+    const typeOrder = ['MAP', 'DOCUMENTATION', 'WEBSITE', 'YOUTUBE', 'VIDEO', 'PHOTOS', 'WHATSAPP', 'OTHER'];
+    const ordered = typeOrder.filter(type => grouped[type] && grouped[type].length > 0);
+    const rest = Object.keys(grouped).filter(
+      key => key !== 'PHOTOFROMFS' && !typeOrder.includes(key) && grouped[key]?.length
+    );
+    return [...ordered, ...rest];
   }
 
   // Get PHOTOFROMFS links only
@@ -5624,6 +5647,72 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       return [];
     }
     return this.evenement.fileUploadeds.filter(file => this.isVideoFile(file.fileName));
+  }
+
+  public isYoutubeUrlEvent(urlEvent: UrlEvent | null | undefined): boolean {
+    return !!parseYoutubeVideoId(urlEvent?.link);
+  }
+
+  public getYoutubeUrlEvents(): UrlEvent[] {
+    if (!this.evenement?.urlEvents) {
+      return [];
+    }
+    return this.evenement.urlEvents.filter(urlEvent => this.isYoutubeUrlEvent(urlEvent));
+  }
+
+  public getYoutubeEmbedUrl(urlEvent: UrlEvent): SafeResourceUrl | null {
+    const id = parseYoutubeVideoId(urlEvent?.link);
+    if (!id) {
+      return null;
+    }
+    const cached = this.youtubeEmbedSafeCache.get(id);
+    if (cached) {
+      return cached;
+    }
+    const safe = this.sanitizer.bypassSecurityTrustResourceUrl(
+      `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0&playsinline=1`
+    );
+    this.youtubeEmbedSafeCache.set(id, safe);
+    return safe;
+  }
+
+  public openYoutubeUrlEventPlayer(urlEvent: UrlEvent, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const id = parseYoutubeVideoId(urlEvent?.link);
+    if (!id) {
+      return;
+    }
+    this.youtubePlayer.open({
+      id,
+      kind: 'video',
+      title: (urlEvent.urlDescription || '').trim() || undefined
+    });
+  }
+
+  public isPictureInPictureSupported(): boolean {
+    return typeof document !== 'undefined'
+      && !!(document as Document & { pictureInPictureEnabled?: boolean }).pictureInPictureEnabled;
+  }
+
+  public async toggleEventVideoPip(video: HTMLVideoElement, event?: Event): Promise<void> {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!video || !this.isPictureInPictureSupported()) {
+      return;
+    }
+    try {
+      if (document.pictureInPictureElement === video) {
+        await document.exitPictureInPicture();
+      } else {
+        if (video.paused) {
+          await video.play().catch(() => undefined);
+        }
+        await video.requestPictureInPicture();
+      }
+    } catch {
+      /* navigateur / politique autoplay */
+    }
   }
 
   // Get track files (GPX, KML, etc.)
