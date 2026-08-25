@@ -134,7 +134,29 @@
   animation: nord-star-twinkle 6.5s ease-in-out infinite;
 }
 
-.nord-shell > * {
+.nord-page {
+  position: relative;
+  z-index: 1;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 0.5rem 1.5rem;
+}
+
+.nord-panel {
+  padding: 0.9rem 1rem 1.25rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(196, 163, 90, 0.35);
+  background: radial-gradient(
+    120% 90% at 50% -10%,
+    rgba(42, 32, 22, 0.92) 0%,
+    rgba(26, 18, 12, 0.9) 60%,
+    rgba(8, 6, 4, 0.88) 100%
+  );
+  backdrop-filter: blur(2px);
+  box-sizing: border-box;
+}
+
+.nord-panel > * {
   position: relative;
   z-index: 1;
 }
@@ -152,8 +174,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem 1.1rem;
-  max-width: 1100px;
-  margin: 0 auto 1.1rem;
+  margin: 0 0 1.1rem;
 }
 
 .nord-btn {
@@ -181,8 +202,7 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.5rem;
-  max-width: 1100px;
-  margin: 0 auto 1.15rem;
+  margin: 0 0 1.15rem;
 }
 
 @media (min-width: 480px) {
@@ -255,8 +275,7 @@
 
 .nord-stage {
   display: block;
-  max-width: 1100px;
-  margin: 0 auto 1.6rem;
+  margin: 0 0 1.6rem;
 }
 
 .nord-instrument {
@@ -273,11 +292,17 @@
   width: 100%;
 }
 
+.nord-instrument-row app-compass-rose.compass-rose--stage {
+  width: min(calc(100% - 3.5rem), 22.5rem);
+  height: auto;
+  aspect-ratio: 1 / 1;
+}
+
 .nord-live {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.55rem;
-  width: min(86vw, 22.5rem);
+  width: min(100%, 22.5rem);
   margin: 1.85rem 0 0;
 }
 
@@ -319,7 +344,7 @@
   list-style: none;
   margin: 0.85rem 0 0;
   padding: 0;
-  width: min(86vw, 22.5rem);
+  width: min(100%, 22.5rem);
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.45rem 0.8rem;
@@ -358,7 +383,7 @@
 }
 
 .nord-address {
-  width: min(86vw, 22.5rem);
+  width: min(100%, 22.5rem);
   margin-top: 0.85rem;
   padding-top: 0.7rem;
   border-top: 1px solid rgba(196, 163, 90, 0.22);
@@ -488,8 +513,7 @@
 }
 
 .nord-sensors {
-  max-width: 1100px;
-  margin: 0 auto;
+  margin: 0;
 }
 
 .nord-grid {
@@ -598,7 +622,7 @@
 
 .nord-mag-source {
   margin: 0.55rem 0 0;
-  width: min(86vw, 22.5rem);
+  width: min(100%, 22.5rem);
   font-size: 0.82rem;
 }
 

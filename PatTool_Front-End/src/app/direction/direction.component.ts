@@ -76,7 +76,6 @@ import {
   cibleLockDeltaDeg,
   cibleMarkBearingDeg,
   cibleMarkDistanceM,
-  cibleSensorHeadingFacingMark,
   geocodeDisplayName,
   hasCibleMark,
   loadActiveCibleId,
@@ -153,6 +152,58 @@ const CAM_ZOOM_MAX = 8;
 const CAM_ZOOM_STEP = 0.25;
 const PAINT_MS = 50;
 
+function viseurPolar(r: number, deg: number): [number, number] {
+  const a = ((deg - 90) * Math.PI) / 180;
+  return [100 + Math.cos(a) * r, 100 + Math.sin(a) * r];
+}
+
+function viseurArrowPoints(deg: number): string {
+  const a = ((deg - 90) * Math.PI) / 180;
+  const p = a + Math.PI / 2;
+  const [tx, ty] = viseurPolar(73, deg);
+  const [bx, by] = viseurPolar(52, deg);
+  const wx = 100 + Math.cos(a) * 62;
+  const wy = 100 + Math.sin(a) * 62;
+  const hw = 7.2;
+  return [
+    `${tx.toFixed(1)},${ty.toFixed(1)}`,
+    `${(wx + Math.cos(p) * hw).toFixed(1)},${(wy + Math.sin(p) * hw).toFixed(1)}`,
+    `${bx.toFixed(1)},${by.toFixed(1)}`,
+    `${(wx - Math.cos(p) * hw).toFixed(1)},${(wy - Math.sin(p) * hw).toFixed(1)}`
+  ].join(' ');
+}
+
+function viseurCard(label: string, deg: number, kind: 'n' | 'card'): {
+  label: string;
+  kind: 'n' | 'card';
+  x: number;
+  y: number;
+  points: string;
+} {
+  const [x, y] = viseurPolar(83, deg);
+  return { label, kind, x: +x.toFixed(1), y: +y.toFixed(1), points: viseurArrowPoints(deg) };
+}
+
+const VISEUR_CARDS = [
+  viseurCard('N', 0, 'n'),
+  viseurCard('E', 90, 'card'),
+  viseurCard('S', 180, 'card'),
+  viseurCard('O', 270, 'card')
+];
+
+const VISEUR_BEZEL_TICKS = (() => {
+  let d = '';
+  for (let deg = 0; deg < 360; deg += 15) {
+    const major = deg % 90 === 0;
+    const mid = deg % 45 === 0;
+    const r0 = major ? 89.4 : mid ? 91 : 92.4;
+    const [x0, y0] = viseurPolar(r0, deg);
+    const [x1, y1] = viseurPolar(94.8, deg);
+    d += `M${x0.toFixed(1)} ${y0.toFixed(1)}L${x1.toFixed(1)} ${y1.toFixed(1)}`;
+  }
+  return d;
+})();
+
 @Component({
   selector: 'app-direction',
   standalone: true,
@@ -202,6 +253,8 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   private editLineHalo?: L.Polyline;
   private editLineLabel?: L.Marker;
   private editMapIgnoreClick = false;
+  readonly viseurCards = VISEUR_CARDS;
+  readonly viseurBezelTicks = VISEUR_BEZEL_TICKS;
   cibleJsonModal: DirectionCible | null = null;
   cibleJsonCopied = false;
   private cibleJsonCopyTimer: ReturnType<typeof setTimeout> | null = null;
@@ -969,6 +1022,16 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   sunBelowHorizon(): boolean {
     const el = this.sunElevationDeg();
     return el != null && el < -1;
+  }
+
+  /** Traits du viseur : blancs la nuit, noirs en plein jour. */
+  viseurIsNight(): boolean {
+    const el = this.sunElevationDeg();
+    if (el != null) {
+      return el < -1;
+    }
+    const hour = new Date().getHours();
+    return hour < 6 || hour >= 20;
   }
 
   walkingFastEnough(): boolean {
@@ -2718,27 +2781,8 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     return this.azInited ? -this.displayedAz : 0;
   }
 
-  /**
-   * Angle du R sur la rose : même cadran que displayedAz (capteurs + calage).
-   * Viser le repère → le R est sous le cran du haut.
-   */
-  cibleRoseAzimuthDeg(): number | null {
-    if (this.activeTab !== 'cible') {
-      return null;
-    }
-    const locked = this.selectedCible()?.phoneHeadingDeg;
-    if (locked == null || !Number.isFinite(locked)) {
-      return null;
-    }
-    const facingMag = cibleSensorHeadingFacingMark(
-      locked,
-      this.selectedCible()?.refAzimuthDeg,
-      this.markBearingDeg()
-    );
-    return composeLookAzimuth(
-      applyLookDeclination(facingMag, this.trueNorthActive, this.declinationDeg),
-      this.patFile?.derived ?? null
-    );
+  viseurUprightDeg(): number {
+    return -this.roseDeg();
   }
 
   horizonTilt(): string {

@@ -6466,6 +6466,8 @@
     "AUTO_FILTER_NAKED_EYE": "Œil nu",
     "AUTO_FILTER_NAKED_EYE_HINT": "Uniquement les objets visibles à l’œil nu la nuit (magnitude ≤ 6).",
     "AUTO_FOUND": "Objet identifié",
+    "AUTO_KEEP_TARGET": "Garder dans le viseur",
+    "AUTO_KEEP_TARGET_HINT": "Si un objet est identifié, il reste sélectionné dans le viseur d’astre en quittant l’auto-détection. Désactivé : le viseur reprend la cible précédente.",
     "AUTO_LIVE_HINT": "Suit en continu l’astre pointé — bougez le téléphone pour changer de cible.",
     "AUTO_LIVE_ON": "Live",
     "AUTO_LIVE_START": "Démarrer l’auto-détection live",
@@ -7422,7 +7424,7 @@
     "FINDER_INFO_FS": "Plein écran",
     "FINDER_INFO_FS_HINT": "Agrandit le viseur. En pause, zoom et déplacement de la vue restent disponibles, ainsi que les signaux et ce mode d’emploi.",
     "FINDER_INFO_AUTO": "Auto-détection",
-    "FINDER_INFO_AUTO_HINT": "Suit en continu l’astre pointé. Filtrez planètes, étoiles, galaxies et satellites. « Œil nu » et « Magnitude max » ne gardent que les objets assez brillants. Pause fige la détection ; le zoom et le plein écran marchent aussi dans cette vue.",
+    "FINDER_INFO_AUTO_HINT": "Suit en continu l’astre pointé. Filtrez planètes, étoiles, galaxies et satellites. « Œil nu » et « Magnitude max » ne gardent que les objets assez brillants. Pause fige la détection ; le zoom et le plein écran marchent aussi dans cette vue. « Garder dans le viseur » (désactivé par défaut) conserve l’objet identifié comme cible du viseur en quittant.",
     "FINDER_INFO_FICHE": "Fiche de l’objet",
     "FINDER_INFO_FICHE_HINT": "Le bouton Objet (i) affiche type, magnitudes, distances, visibilité, le schéma des constellations (agrandissable dans le diaporama) et un lien Wikipédia.",
     "KIND_CUSTOM": "Objet libre"

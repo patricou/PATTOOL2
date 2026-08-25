@@ -1111,10 +1111,14 @@ a.dir-btn--nord .fa {
   right: -20%;
   top: 50%;
   height: 0;
-  border-top: 1px dashed rgba(62, 224, 192, 0.38);
+  border-top: 1px dashed rgba(255, 255, 255, 0.55);
   transform-origin: 50% 0;
   pointer-events: none;
   z-index: 2;
+}
+
+.dir-horizon--day {
+  border-top-color: rgba(10, 10, 12, 0.72);
 }
 
 .dir-reticle {
@@ -1127,8 +1131,14 @@ a.dir-btn--nord .fa {
 .dir-reticle__h,
 .dir-reticle__v {
   position: absolute;
-  background: rgba(190, 255, 236, 0.88);
-  box-shadow: 0 0 6px rgba(62, 224, 192, 0.45);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.55);
+}
+
+.dir-reticle--day .dir-reticle__h,
+.dir-reticle--day .dir-reticle__v {
+  background: rgba(10, 10, 12, 0.88);
+  box-shadow: 0 0 2px rgba(255, 255, 255, 0.9);
 }
 
 .dir-reticle__h {
@@ -1156,11 +1166,18 @@ a.dir-btn--nord .fa {
   width: 1.15rem;
   height: 1.15rem;
   margin: -0.575rem 0 0 -0.575rem;
-  border: 1.5px solid rgba(94, 240, 208, 0.95);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
   border-radius: 50%;
   box-shadow:
-    0 0 10px rgba(62, 224, 192, 0.45),
-    inset 0 0 8px rgba(62, 224, 192, 0.18);
+    0 0 6px rgba(0, 0, 0, 0.55),
+    inset 0 0 6px rgba(255, 255, 255, 0.18);
+}
+
+.dir-reticle--day .dir-reticle__c {
+  border-color: rgba(10, 10, 12, 0.9);
+  box-shadow:
+    0 0 2px rgba(255, 255, 255, 0.9),
+    inset 0 0 5px rgba(10, 10, 12, 0.12);
 }
 
 .dir-reticle__c::after {
@@ -1172,8 +1189,152 @@ a.dir-btn--nord .fa {
   height: 5px;
   margin: -2.5px 0 0 -2.5px;
   border-radius: 50%;
-  background: #5ff0d0;
-  box-shadow: 0 0 8px #3ee0c0;
+  background: #fff;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.55);
+}
+
+.dir-reticle--day .dir-reticle__c::after {
+  background: #0a0a0c;
+  box-shadow: 0 0 2px rgba(255, 255, 255, 0.9);
+}
+
+.dir-viseur {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  color: rgba(255, 255, 255, 0.94);
+  filter: drop-shadow(0 0 0.6px rgba(0, 0, 0, 0.75));
+}
+
+.dir-viseur--day {
+  color: rgba(10, 10, 12, 0.9);
+  filter: drop-shadow(0 0 0.55px rgba(255, 255, 255, 0.88));
+}
+
+.dir-viseur__ring {
+  fill: none;
+  stroke: currentColor;
+}
+
+.dir-viseur__ring--outer {
+  stroke-width: 0.85;
+}
+
+.dir-viseur__ring--outer2 {
+  stroke-width: 0.4;
+  stroke-opacity: 0.48;
+}
+
+.dir-viseur__ring--sight {
+  stroke-width: 0.6;
+}
+
+.dir-viseur__ring--mid {
+  stroke-width: 0.4;
+  stroke-opacity: 0.5;
+}
+
+.dir-viseur__ring--hub {
+  stroke-width: 0.7;
+}
+
+.dir-viseur__ticks {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 0.42;
+  stroke-linecap: round;
+}
+
+.dir-viseur__index {
+  fill: currentColor;
+}
+
+.dir-viseur__index-stem {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 0.55;
+  stroke-linecap: round;
+}
+
+.dir-viseur__cross,
+.dir-viseur__stadia,
+.dir-viseur__corners {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: square;
+}
+
+.dir-viseur__cross {
+  stroke-width: 0.55;
+}
+
+.dir-viseur__stadia {
+  stroke-width: 0.45;
+}
+
+.dir-viseur__corners {
+  stroke-width: 0.7;
+  stroke-linejoin: miter;
+}
+
+.dir-viseur__core {
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 0.25;
+}
+
+.dir-viseur__arrow {
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 0.45;
+  stroke-linejoin: round;
+  fill-opacity: 0.82;
+  stroke-opacity: 0.7;
+}
+
+.dir-viseur__arrow--n {
+  fill: rgba(255, 78, 58, 0.9);
+  stroke: rgba(255, 190, 170, 0.92);
+  fill-opacity: 1;
+  stroke-opacity: 1;
+  stroke-width: 0.5;
+  filter: drop-shadow(0 0 1.6px rgba(255, 80, 50, 0.55));
+}
+
+.dir-viseur--day .dir-viseur__arrow--n {
+  fill: #c41e0a;
+  stroke: rgba(40, 0, 0, 0.55);
+}
+
+.dir-viseur__lbl {
+  font-family: system-ui, "Segoe UI", sans-serif;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  fill: currentColor;
+  stroke: rgba(0, 0, 0, 0.82);
+  stroke-width: 0.9;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
+}
+
+.dir-viseur--day .dir-viseur__lbl {
+  stroke: rgba(255, 255, 255, 0.92);
+}
+
+.dir-viseur__lbl--n {
+  fill: #ff6a4a;
+  font-size: 13.5px;
+  stroke-width: 1.15;
+  filter: drop-shadow(0 0 1.6px rgba(255, 80, 50, 0.55));
+}
+
+.dir-viseur--day .dir-viseur__lbl--n {
+  fill: #c41e0a;
 }
 
 .dir-hud {

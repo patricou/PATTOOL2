@@ -118,17 +118,65 @@
         [style.transform]="camVideoTransform"
         alt="" />
       <div class="dir-cam__aim">
-        <div class="dir-horizon" [style.transform]="horizonTilt()" aria-hidden="true"></div>
-        <div class="dir-reticle" aria-hidden="true">
+        <div
+          class="dir-horizon"
+          [class.dir-horizon--day]="!viseurIsNight()"
+          [style.transform]="horizonTilt()"
+          aria-hidden="true"></div>
+        <div
+          class="dir-reticle"
+          *ngIf="activeTab !== 'cible'"
+          [class.dir-reticle--day]="!viseurIsNight()"
+          aria-hidden="true">
           <span class="dir-reticle__h"></span>
           <span class="dir-reticle__v"></span>
           <span class="dir-reticle__c"></span>
         </div>
+        <svg
+          *ngIf="activeTab === 'cible'"
+          class="dir-viseur"
+          [class.dir-viseur--day]="!viseurIsNight()"
+          viewBox="0 0 200 200"
+          aria-hidden="true">
+          <g [attr.transform]="'rotate(' + roseDeg() + ' 100 100)'">
+            <polygon
+              *ngFor="let c of viseurCards"
+              class="dir-viseur__arrow"
+              [class.dir-viseur__arrow--n]="c.kind === 'n'"
+              [attr.points]="c.points"/>
+            <text
+              *ngFor="let c of viseurCards"
+              class="dir-viseur__lbl"
+              [class.dir-viseur__lbl--n]="c.kind === 'n'"
+              [attr.x]="c.x"
+              [attr.y]="c.y"
+              [attr.transform]="'rotate(' + viseurUprightDeg() + ' ' + c.x + ' ' + c.y + ')'"
+              text-anchor="middle"
+              dominant-baseline="middle">{{ c.label }}</text>
+          </g>
+          <circle class="dir-viseur__ring dir-viseur__ring--outer" cx="100" cy="100" r="95.2"/>
+          <circle class="dir-viseur__ring dir-viseur__ring--outer2" cx="100" cy="100" r="92.4"/>
+          <path class="dir-viseur__ticks" [attr.d]="viseurBezelTicks"/>
+          <path class="dir-viseur__index" d="M100 1.6 L107.4 16.8 L100 13 L92.6 16.8 Z"/>
+          <path class="dir-viseur__index-stem" d="M100 13.2 V22"/>
+          <circle class="dir-viseur__ring dir-viseur__ring--sight" cx="100" cy="100" r="49"/>
+          <circle class="dir-viseur__ring dir-viseur__ring--mid" cx="100" cy="100" r="28"/>
+          <circle class="dir-viseur__ring dir-viseur__ring--hub" cx="100" cy="100" r="11.2"/>
+          <path
+            class="dir-viseur__cross"
+            d="M100 53 V89 M100 111 V147 M53 100 H89 M111 100 H147"/>
+          <path
+            class="dir-viseur__stadia"
+            d="M96 63 H104 M96.6 75 H103.4 M96 137 H104 M96.6 125 H103.4 M63 96 V104 M75 96.6 V103.4 M137 96 V104 M125 96.6 V103.4"/>
+          <circle class="dir-viseur__core" cx="100" cy="100" r="2.15"/>
+          <path
+            class="dir-viseur__corners"
+            d="M32 52 V32 H52 M148 32 H168 V52 M168 148 V168 H148 M52 168 H32 V148"/>
+        </svg>
         <app-compass-rose
-          *ngIf="!patWizard"
+          *ngIf="!patWizard && activeTab === 'calibrage'"
           variant="overlay"
           [rotationDeg]="roseDeg()"
-          [markAzimuthDeg]="cibleRoseAzimuthDeg()"
           [attr.aria-label]="'DIRECTION.ROSE_ARIA' | translate">
         </app-compass-rose>
       </div>

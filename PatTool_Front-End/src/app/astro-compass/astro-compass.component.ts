@@ -983,6 +983,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   autoDetectPaused = false;
   /** Panneau rafraîchissement (masqué par défaut pour laisser le viseur). */
   autoDetectSettingsOpen = false;
+  /** Si true : l’objet identifié reste la cible du viseur en quittant l’auto-détection. */
+  autoDetectKeepTarget = false;
+  private autoDetectPreviousTarget: LastAstroTarget | null = null;
+  private autoDetectPreviousChoseTarget = false;
   objectDossierBusy = false;
   objectDossier: ObjectDossier | null = null;
   /** Cached iframe src — must not be rebuilt on each CD cycle or the Sky Window reloads forever. */
@@ -1369,6 +1373,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private static readonly CATALOG_SORT_KEY = 'pat.astro-compass.catalog-sort.v1';
   private static readonly TICKER_KEY = 'pat.astro-compass.ticker';
   private static readonly MAX_MAGNITUDE_KEY = 'pat.astro-compass.max-magnitude';
+  private static readonly AUTO_KEEP_TARGET_KEY = 'pat.astro-compass.auto-keep-target';
   private static readonly TICKER_SPEED_PX_PER_SEC = 80;
   private camZoomCaps: { min: number; max: number } | null = null;
   private finderPinchStartDist = 0;
@@ -1463,6 +1468,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loadCatalogSortPref();
     this.loadTickerPref();
     this.loadMaxMagnitudePref();
+    this.loadAutoDetectKeepTargetPref();
     if (!this.hasSatelliteQueryTarget()) {
       this.restoreLastTarget();
     }
@@ -4260,23 +4266,26 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.stopAutoDetectLive();
       return;
     }
-    this.autoDetectErrorKey = null;
-    if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
-      this.autoDetectErrorKey = 'ASTRO_COMPASS.AUTO_NEED_LOCATION';
-      this.cdr.markForCheck();
-      return;
-    }
-    if (!this.headingActive || this.headingDeg == null) {
-      this.autoDetectErrorKey = 'ASTRO_COMPASS.AUTO_NEED_HEADING';
-      this.cdr.markForCheck();
-      return;
-    }
-    if (this.devicePitchDeg == null) {
-      this.autoDetectErrorKey = 'ASTRO_COMPASS.AUTO_NEED_PITCH';
-      this.cdr.markForCheck();
-      return;
-    }
+    this.startAutoDetectLive();
+  }
 
+  /** Ouvre la vue live même si GPS / cap / inclinaison ne sont pas encore prêts. */
+  openAutoDetectModal(): void {
+    if (this.autoDetectModalOpen) {
+      return;
+    }
+    if (this.autoDetectLive) {
+      this.autoDetectModalOpen = true;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.startAutoDetectLive();
+  }
+
+  private startAutoDetectLive(): void {
+    this.autoDetectPreviousTarget = this.currentLastTargetPayload();
+    this.autoDetectPreviousChoseTarget = this.userChoseTarget;
+    this.autoDetectErrorKey = null;
     this.autoDetectLive = true;
     this.autoDetectModalOpen = true;
     this.autoDetectPaused = false;
@@ -4553,6 +4562,32 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  onAutoDetectKeepTargetChange(): void {
+    this.writeUserLocal(
+      AstroCompassComponent.AUTO_KEEP_TARGET_KEY,
+      this.autoDetectKeepTarget ? '1' : '0'
+    );
+    this.cdr.markForCheck();
+  }
+
+  private loadAutoDetectKeepTargetPref(): void {
+    this.autoDetectKeepTarget = this.readUserLocal(AstroCompassComponent.AUTO_KEEP_TARGET_KEY) === '1';
+  }
+
+  /**
+   * En quittant l’auto-détection : ne transmet l’objet au viseur que si
+   * le switch est activé et qu’un objet a bien été identifié.
+   */
+  private finishAutoDetectSelection(): void {
+    const hit = this.autoDetectBestHit;
+    if (this.autoDetectKeepTarget && hit) {
+      this.commitAutoDetectSelection();
+    } else {
+      this.restoreAutoDetectPreviousTarget();
+    }
+    this.autoDetectPreviousTarget = null;
+  }
+
   /** Figé le dernier astre vu en auto-détection comme cible du viseur. */
   private commitAutoDetectSelection(): void {
     const hit = this.autoDetectBestHit;
@@ -4572,8 +4607,27 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.refreshVisibleSkyNow(false);
   }
 
+  private restoreAutoDetectPreviousTarget(): void {
+    const prev = this.autoDetectPreviousTarget;
+    const chose = this.autoDetectPreviousChoseTarget;
+    this.applyingAutoTarget = true;
+    try {
+      if (prev && this.applyLastTarget(prev)) {
+        this.onStarQueryChange();
+        this.onGalaxyQueryChange();
+        this.onDeepSkyQueryChange();
+        this.refreshVisibleSkyNow(false);
+      } else {
+        this.restoreLastTarget();
+      }
+    } finally {
+      this.applyingAutoTarget = false;
+      this.userChoseTarget = chose;
+    }
+  }
+
   private stopAutoDetectLive(): void {
-    this.commitAutoDetectSelection();
+    this.finishAutoDetectSelection();
     if (this.isAutoDetectFullscreen) {
       void this.exitAnyFullscreen();
     }
@@ -4606,16 +4660,19 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
       this.autoDetectErrorKey = 'ASTRO_COMPASS.AUTO_NEED_LOCATION';
       this.autoDetectBusy = false;
+      this.cdr.markForCheck();
       return;
     }
     if (!this.headingActive || this.headingDeg == null) {
       this.autoDetectErrorKey = 'ASTRO_COMPASS.AUTO_NEED_HEADING';
       this.autoDetectBusy = false;
+      this.cdr.markForCheck();
       return;
     }
     if (this.devicePitchDeg == null) {
       this.autoDetectErrorKey = 'ASTRO_COMPASS.AUTO_NEED_PITCH';
       this.autoDetectBusy = false;
+      this.cdr.markForCheck();
       return;
     }
 
@@ -4624,6 +4681,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (lookEl == null) {
       this.autoDetectErrorKey = 'ASTRO_COMPASS.AUTO_NEED_PITCH';
       this.autoDetectBusy = false;
+      this.cdr.markForCheck();
       return;
     }
     const now = Date.now();
@@ -9860,6 +9918,11 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Flèche rouge : 0° = haut = Nord. */
   northArrowRotationDeg(): number {
     return this.unwrapFinderArrow(0, 'north');
+  }
+
+  /** Est / Sud / Ouest : même rose que le Nord, décalés de 90° / 180° / 270°. */
+  cardinalArrowRotationDeg(azDeg: number): number {
+    return this.northArrowRotationDeg() + azDeg;
   }
 
   /** Flèche verte : pointe vers l’azimut géographique de la cible. */

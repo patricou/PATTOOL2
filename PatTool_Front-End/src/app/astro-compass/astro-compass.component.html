@@ -331,7 +331,6 @@
                 [src]="camFreezeUrl"
                 [style.transform]="finderVideoTransform"
                 alt="" />
-              <div class="ac-finder__empty" *ngIf="!camLive">{{ 'ASTRO_COMPASS.CAM_PLACEHOLDER' | translate }}</div>
               <img
                 *ngIf="cibleVerifyActive && headingRef === 'cible' && activeCible?.photoDataUrl"
                 class="ac-finder__cible-ghost"
@@ -350,7 +349,43 @@
                 <span class="ac-finder__ref-arrow-tip">
                   <span
                     class="ac-finder__ref-arrow-letter"
-                    [style.transform]="'rotate(' + (-northArrowRotationDeg()) + 'deg)'">N</span>
+                    [style.transform]="'rotate(' + (-northArrowRotationDeg()) + 'deg)'">{{ 'ASTRO_COMPASS.DIR_N' | translate }}</span>
+                </span>
+              </div>
+              <div
+                class="ac-finder__ref-arrow ac-finder__ref-arrow--east"
+                [style.transform]="'rotate(' + cardinalArrowRotationDeg(90) + 'deg)'"
+                aria-hidden="true">
+                <span class="ac-finder__ref-arrow-shaft"></span>
+                <span class="ac-finder__ref-arrow-head"></span>
+                <span class="ac-finder__ref-arrow-tip">
+                  <span
+                    class="ac-finder__ref-arrow-letter"
+                    [style.transform]="'rotate(' + (-cardinalArrowRotationDeg(90)) + 'deg)'">{{ 'ASTRO_COMPASS.DIR_E' | translate }}</span>
+                </span>
+              </div>
+              <div
+                class="ac-finder__ref-arrow ac-finder__ref-arrow--south"
+                [style.transform]="'rotate(' + cardinalArrowRotationDeg(180) + 'deg)'"
+                aria-hidden="true">
+                <span class="ac-finder__ref-arrow-shaft"></span>
+                <span class="ac-finder__ref-arrow-head"></span>
+                <span class="ac-finder__ref-arrow-tip">
+                  <span
+                    class="ac-finder__ref-arrow-letter"
+                    [style.transform]="'rotate(' + (-cardinalArrowRotationDeg(180)) + 'deg)'">{{ 'ASTRO_COMPASS.DIR_S' | translate }}</span>
+                </span>
+              </div>
+              <div
+                class="ac-finder__ref-arrow ac-finder__ref-arrow--west"
+                [style.transform]="'rotate(' + cardinalArrowRotationDeg(270) + 'deg)'"
+                aria-hidden="true">
+                <span class="ac-finder__ref-arrow-shaft"></span>
+                <span class="ac-finder__ref-arrow-head"></span>
+                <span class="ac-finder__ref-arrow-tip">
+                  <span
+                    class="ac-finder__ref-arrow-letter"
+                    [style.transform]="'rotate(' + (-cardinalArrowRotationDeg(270)) + 'deg)'">{{ 'ASTRO_COMPASS.DIR_W' | translate }}</span>
                 </span>
               </div>
               <div
@@ -737,7 +772,9 @@
               *ngIf="!autoDetectModalOpen && (autoDetectLive || autoDetectBusy || autoDetectErrorKey || autoDetectHits.length)"
               id="acAutoDetectPanel"
               [class.ac-autodetect--live]="autoDetectLive"
-              [attr.aria-live]="'polite'">
+              [class.ac-autodetect--openable]="!!autoDetectErrorKey || autoDetectLive"
+              [attr.aria-live]="'polite'"
+              (click)="openAutoDetectModal()">
               <div class="ac-autodetect__head">
                 <i class="fa fa-crosshairs me-2" aria-hidden="true"></i>
                 <span>{{ 'ASTRO_COMPASS.AUTO_DETECT' | translate }}</span>
@@ -749,7 +786,7 @@
                   type="button"
                   class="ac-autodetect__close"
                   *ngIf="!autoDetectBusy"
-                  (click)="clearAutoDetect()"
+                  (click)="clearAutoDetect(); $event.stopPropagation()"
                   [attr.aria-label]="'ASTRO_COMPASS.AUTO_CLEAR' | translate">
                   <i class="fa fa-times" aria-hidden="true"></i>
                 </button>
@@ -856,7 +893,7 @@
                     type="button"
                     class="ac-autodetect__hit"
                     [class.ac-autodetect__hit--active]="isAutoDetectSelected(hit)"
-                    (click)="applyAutoDetectHit(hit)">
+                    (click)="applyAutoDetectHit(hit); $event.stopPropagation()">
                     <span class="ac-autodetect__hit-icon" [style.color]="hit.color">
                       <i [ngClass]="hit.iconClass" aria-hidden="true"></i>
                     </span>
@@ -2036,6 +2073,20 @@
         {{ 'ASTRO_COMPASS.AUTO_FILTER_NAKED_EYE' | translate }}
       </button>
     </div>
+    <label
+      class="ac-finder__trail-sw ac-live-keep"
+      [class.ac-finder__trail-sw--on]="autoDetectKeepTarget"
+      [attr.title]="'ASTRO_COMPASS.AUTO_KEEP_TARGET_HINT' | translate">
+      <input
+        type="checkbox"
+        role="switch"
+        [(ngModel)]="autoDetectKeepTarget"
+        (ngModelChange)="onAutoDetectKeepTargetChange()"
+        [attr.aria-label]="'ASTRO_COMPASS.AUTO_KEEP_TARGET' | translate" />
+      <span class="ac-finder__trail-sw-ui" aria-hidden="true"></span>
+      <i class="fa fa-thumb-tack" aria-hidden="true"></i>
+      {{ 'ASTRO_COMPASS.AUTO_KEEP_TARGET' | translate }}
+    </label>
     <ng-container *ngTemplateOutlet="acMagFilter; context: { css: 'ac-mag-filter--live' }"></ng-container>
   </div>
 
@@ -2136,65 +2187,70 @@
   </ul>
   </div>
 
-  <div class="ac-live-id" *ngIf="autoDetectBestHit as hit" [attr.data-kind]="hit.kind">
-    <h2 class="ac-live-id__name">{{ bodyLabel || hit.name }}</h2>
-    <button
-      type="button"
-      class="ac-live-id__info"
-      (click)="openObjectInfoModal()"
-      [disabled]="!(bodyLabel || hit.name)"
-      [attr.title]="'ASTRO_COMPASS.OBJECT_INFO_OPEN_HINT' | translate"
-      [attr.aria-label]="'ASTRO_COMPASS.OBJECT_INFO_OPEN' | translate">
-      <i class="fa fa-info-circle" aria-hidden="true"></i>
-      {{ 'ASTRO_COMPASS.OBJECT_INFO_OPEN' | translate }}
-    </button>
-  </div>
-
   <div class="ac-live-modal__dock">
-    <div
-      class="ac-live-modal__zoom"
-      *ngIf="camLive || camFreezeUrl"
-      role="group"
-      [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM' | translate">
+    <div class="ac-live-id" *ngIf="autoDetectBestHit as hit" [attr.data-kind]="hit.kind">
+      <div class="ac-live-id__text">
+        <h2 class="ac-live-id__name">{{ bodyLabel || hit.name }}</h2>
+        <p class="ac-live-id__dist" *ngIf="distLy != null">
+          {{ formatLightYears(distLy) }}
+          {{ formatLightYearUnit(distLy) }}
+        </p>
+      </div>
       <button
         type="button"
-        class="ac-finder__zoom-btn"
-        (click)="finderZoomOut()"
-        [disabled]="finderZoom <= finderZoomMin"
-        [attr.title]="'ASTRO_COMPASS.FINDER_ZOOM_OUT' | translate"
-        [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM_OUT' | translate">
-        <i class="fa fa-minus" aria-hidden="true"></i>
-      </button>
-      <input
-        type="range"
-        class="ac-finder__zoom-range"
-        [min]="finderZoomMin"
-        [max]="finderZoomMax"
-        [step]="finderZoomStep"
-        [ngModel]="finderZoom"
-        (ngModelChange)="onFinderZoomSlider($event)"
-        [attr.aria-valuetext]="finderZoomLabel"
-        [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM' | translate" />
-      <button
-        type="button"
-        class="ac-finder__zoom-btn"
-        (click)="finderZoomIn()"
-        [disabled]="finderZoom >= finderZoomMax"
-        [attr.title]="'ASTRO_COMPASS.FINDER_ZOOM_IN' | translate"
-        [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM_IN' | translate">
-        <i class="fa fa-plus" aria-hidden="true"></i>
-      </button>
-      <button
-        type="button"
-        class="ac-finder__zoom-val"
-        (click)="resetFinderZoom()"
-        [disabled]="finderZoom <= finderZoomMin"
-        [attr.title]="'ASTRO_COMPASS.FINDER_ZOOM_RESET' | translate"
-        [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM_RESET' | translate">
-        {{ finderZoomLabel }}
+        class="ac-live-id__info"
+        (click)="openObjectInfoModal()"
+        [disabled]="!(bodyLabel || hit.name)"
+        [attr.title]="'ASTRO_COMPASS.OBJECT_INFO_OPEN_HINT' | translate"
+        [attr.aria-label]="'ASTRO_COMPASS.OBJECT_INFO_OPEN' | translate">
+        <i class="fa fa-info-circle" aria-hidden="true"></i>
+        {{ 'ASTRO_COMPASS.OBJECT_INFO_OPEN' | translate }}
       </button>
     </div>
-    <div class="ac-live-modal__actions">
+    <div class="ac-live-modal__zoom-row">
+      <div
+        class="ac-live-modal__zoom"
+        *ngIf="camLive || camFreezeUrl"
+        role="group"
+        [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM' | translate">
+        <button
+          type="button"
+          class="ac-finder__zoom-btn"
+          (click)="finderZoomOut()"
+          [disabled]="finderZoom <= finderZoomMin"
+          [attr.title]="'ASTRO_COMPASS.FINDER_ZOOM_OUT' | translate"
+          [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM_OUT' | translate">
+          <i class="fa fa-minus" aria-hidden="true"></i>
+        </button>
+        <input
+          type="range"
+          class="ac-finder__zoom-range"
+          [min]="finderZoomMin"
+          [max]="finderZoomMax"
+          [step]="finderZoomStep"
+          [ngModel]="finderZoom"
+          (ngModelChange)="onFinderZoomSlider($event)"
+          [attr.aria-valuetext]="finderZoomLabel"
+          [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM' | translate" />
+        <button
+          type="button"
+          class="ac-finder__zoom-btn"
+          (click)="finderZoomIn()"
+          [disabled]="finderZoom >= finderZoomMax"
+          [attr.title]="'ASTRO_COMPASS.FINDER_ZOOM_IN' | translate"
+          [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM_IN' | translate">
+          <i class="fa fa-plus" aria-hidden="true"></i>
+        </button>
+        <button
+          type="button"
+          class="ac-finder__zoom-val"
+          (click)="resetFinderZoom()"
+          [disabled]="finderZoom <= finderZoomMin"
+          [attr.title]="'ASTRO_COMPASS.FINDER_ZOOM_RESET' | translate"
+          [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM_RESET' | translate">
+          {{ finderZoomLabel }}
+        </button>
+      </div>
       <button
         type="button"
         class="ac-live-modal__action ac-live-modal__action--fs"
@@ -2203,6 +2259,8 @@
         [attr.aria-label]="(isAutoDetectFullscreen ? 'ASTRO_COMPASS.EXIT_FULLSCREEN' : 'ASTRO_COMPASS.FULLSCREEN') | translate">
         <i class="fa" [ngClass]="isAutoDetectFullscreen ? 'fa-compress' : 'fa-expand'" aria-hidden="true"></i>
       </button>
+    </div>
+    <div class="ac-live-modal__actions">
       <button
         type="button"
         class="ac-live-modal__action ac-live-modal__action--pause"

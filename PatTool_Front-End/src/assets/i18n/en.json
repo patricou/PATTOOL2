@@ -6462,6 +6462,8 @@
     "AUTO_FILTER_NAKED_EYE": "Naked eye",
     "AUTO_FILTER_NAKED_EYE_HINT": "Only objects visible to the naked eye at night (magnitude ≤ 6).",
     "AUTO_FOUND": "Object identified",
+    "AUTO_KEEP_TARGET": "Keep in finder",
+    "AUTO_KEEP_TARGET_HINT": "If an object is identified, it stays selected in the star finder when you leave auto-detect. Off: the finder restores the previous target.",
     "AUTO_LIVE_HINT": "Continuously tracks what you point at — move the phone to change target.",
     "AUTO_LIVE_ON": "Live",
     "AUTO_LIVE_START": "Start live auto-detect",
@@ -7418,7 +7420,7 @@
     "FINDER_INFO_FS": "Fullscreen",
     "FINDER_INFO_FS_HINT": "Enlarges the finder. While paused, zoom and pan stay available, along with cues and this how-to.",
     "FINDER_INFO_AUTO": "Auto-detect",
-    "FINDER_INFO_AUTO_HINT": "Continuously tracks the object you are pointing at. Filter planets, stars, galaxies and satellites. “Naked eye” and “Max magnitude” keep only bright enough objects. Pause freezes detection; zoom and fullscreen work in this view too.",
+    "FINDER_INFO_AUTO_HINT": "Continuously tracks the object you are pointing at. Filter planets, stars, galaxies and satellites. “Naked eye” and “Max magnitude” keep only bright enough objects. Pause freezes detection; zoom and fullscreen work in this view too. “Keep in finder” (off by default) keeps the identified object as the finder target when you leave.",
     "FINDER_INFO_FICHE": "Object profile",
     "FINDER_INFO_FICHE_HINT": "The Object (i) button shows type, magnitudes, distances, visibility, the constellation stick figure (enlargeable in the slideshow) and a Wikipedia link.",
     "KIND_CUSTOM": "Custom object"
