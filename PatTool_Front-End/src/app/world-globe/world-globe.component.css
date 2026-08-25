@@ -1563,12 +1563,13 @@ body:has(.wg-fs-root--viewport-locked) {
 .wg-globe-stage-toolbar {
   position: absolute;
   top: max(0.45rem, env(safe-area-inset-top, 0px));
-  left: 50%;
-  transform: translateX(-50%);
+  left: max(0.45rem, env(safe-area-inset-left, 0px));
+  transform: none;
   z-index: 5;
   box-sizing: border-box;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
   width: max-content;
   max-width: calc(100% - max(0.45rem, env(safe-area-inset-left, 0px)) - max(0.45rem, env(safe-area-inset-right, 0px)));
@@ -1580,16 +1581,16 @@ body:has(.wg-fs-root--viewport-locked) {
   backdrop-filter: blur(8px);
   pointer-events: auto;
   overflow: visible;
+  column-gap: 0.45rem;
   row-gap: 0.4rem;
 }
 
 .wg-globe-stage-toolbar__row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   column-gap: 0.45rem;
-  row-gap: 0.35rem;
 }
 
 .wg-globe-stage-toolbar__row--main {
@@ -2104,8 +2105,8 @@ body:has(.wg-fs-root--viewport-locked) {
 
 .wg-shell--fs .wg-globe-stage-toolbar {
   top: max(0.45rem, env(safe-area-inset-top, 0px));
-  left: 50%;
-  transform: translateX(-50%);
+  left: max(0.45rem, env(safe-area-inset-left, 0px));
+  transform: none;
 }
 
 .wg-coords {
@@ -2651,10 +2652,23 @@ body:has(.wg-fs-root--viewport-locked) {
     top: max(0.32rem, env(safe-area-inset-top, 0px));
     left: 50%;
     transform: translateX(-50%);
+    flex-direction: column;
+    flex-wrap: wrap;
+    align-items: center;
     max-width: calc(100% - max(0.32rem, env(safe-area-inset-left, 0px)) - max(0.32rem, env(safe-area-inset-right, 0px)));
     gap: 0.35rem !important;
     row-gap: 0.35rem;
     padding: 0.32rem 0.38rem;
+  }
+
+  .wg-shell--fs .wg-globe-stage-toolbar {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .wg-globe-stage-toolbar__row {
+    justify-content: center;
+    flex-wrap: wrap;
   }
 
   .wg-globe-stage-toolbar .wg-btn {
