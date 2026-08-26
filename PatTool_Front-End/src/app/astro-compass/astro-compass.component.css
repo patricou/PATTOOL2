@@ -2513,6 +2513,11 @@ a.ac-compass-cal__btn--direction {
   pointer-events: none;
 }
 
+:host.ac-object-info-open .ac-live-modal,
+:host.ac-object-info-open .ac-live-backdrop {
+  pointer-events: none;
+}
+
 .ac-ticker {
   display: flex;
   align-items: stretch;

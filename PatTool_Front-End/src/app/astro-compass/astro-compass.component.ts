@@ -853,7 +853,8 @@ const ASTRO_HELP_TERMS: ReadonlyArray<HelpTerm> = [
   styleUrls: ['./astro-compass.component.css'],
   host: {
     '[class.ac-dossier-slideshow-open]': 'dossierSlideshowOpen',
-    '[class.ac-live-open]': 'autoDetectModalOpen'
+    '[class.ac-live-open]': 'autoDetectModalOpen',
+    '[class.ac-object-info-open]': 'objectInfoModalOpen'
   }
 })
 export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -993,6 +994,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private autoDetectPreviousChoseTarget = false;
   /** Objet figé tant que la fiche est ouverte (l’auto-detect ne le remplace pas). */
   private autoDetectPinnedHit: AutoDetectHit | null = null;
+  /** Pause réelle avant d’ouvrir la fiche (`null` = fiche pas ouverte depuis l’auto-detect). */
+  private autoDetectPausedBeforeObjectInfo: boolean | null = null;
+  private objectInfoCloseTimer: ReturnType<typeof setTimeout> | null = null;
   objectDossierBusy = false;
   objectDossier: ObjectDossier | null = null;
   /** Cached iframe src — must not be rebuilt on each CD cycle or the Sky Window reloads forever. */
@@ -1569,6 +1573,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.objectInfoCloseTimer != null) {
+      clearTimeout(this.objectInfoCloseTimer);
+      this.objectInfoCloseTimer = null;
+    }
     if (this.hideTitleTimer != null) {
       clearTimeout(this.hideTitleTimer);
       this.hideTitleTimer = null;
@@ -2006,6 +2014,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   openObjectInfoModal(): void {
     if (this.autoDetectModalOpen) {
       this.autoDetectPinnedHit = this.autoDetectBestHit;
+      if (this.autoDetectPausedBeforeObjectInfo == null) {
+        this.autoDetectPausedBeforeObjectInfo = this.autoDetectPaused;
+      }
+      this.pauseAutoDetectForObjectInfo();
     }
     this.objectInfoModalOpen = true;
     this.loadObjectDossier();
@@ -2017,12 +2029,45 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   closeObjectInfoModal(): void {
+    if (!this.objectInfoModalOpen || this.objectInfoCloseTimer != null) {
+      return;
+    }
+    /* Garde la fiche le temps que le tap/clic se termine, sinon il tombe
+       sur Pause / Sortie du live modal qui est juste derrière. */
+    this.objectInfoCloseTimer = setTimeout(() => {
+      this.objectInfoCloseTimer = null;
+      this.finishCloseObjectInfoModal();
+    }, 80);
+  }
+
+  private pauseAutoDetectForObjectInfo(): void {
+    if (!this.autoDetectModalOpen || this.autoDetectPaused) {
+      return;
+    }
+    this.autoDetectPaused = true;
+    this.syncCameraFreeze();
+    this.stopAutoDetectTimerOnly();
+  }
+
+  private finishCloseObjectInfoModal(): void {
     this.objectInfoModalOpen = false;
     this.autoDetectPinnedHit = null;
     this.closeFactHelp();
-    if (this.autoDetectLive && !this.autoDetectPaused) {
-      this.clearObjectDossier();
-      this.runAutoDetectPass(false);
+    const wasPaused = this.autoDetectPausedBeforeObjectInfo;
+    this.autoDetectPausedBeforeObjectInfo = null;
+    if (this.autoDetectModalOpen) {
+      if (wasPaused) {
+        this.autoDetectPaused = true;
+        this.syncCameraFreeze();
+        this.stopAutoDetectTimerOnly();
+      } else if (wasPaused === false) {
+        this.autoDetectPaused = false;
+        this.autoDetectLive = true;
+        this.syncCameraFreeze();
+        this.clearObjectDossier();
+        this.runAutoDetectPass(false);
+        this.restartAutoDetectTimer();
+      }
     }
     this.cdr.markForCheck();
   }
@@ -2174,6 +2219,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.devicePitchDeg = el != null ? 90 - el : null;
     this.applyHeadingReference();
     this.updateFinderProjection();
+    if (this.objectInfoModalOpen) {
+      return;
+    }
     this.cdr.markForCheck();
   }
 
@@ -4357,25 +4405,20 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   toggleAutoDetectPause(): void {
-    if (!this.autoDetectModalOpen) {
+    if (!this.autoDetectModalOpen || this.objectInfoModalOpen) {
       return;
     }
     if (this.autoDetectPaused) {
       this.autoDetectPaused = false;
       this.autoDetectLive = true;
       this.syncCameraFreeze();
-      if (!this.objectInfoModalOpen) {
-        this.clearObjectDossier();
-      }
+      this.clearObjectDossier();
       this.runAutoDetectPass(false);
       this.restartAutoDetectTimer();
     } else {
       this.autoDetectPaused = true;
       this.syncCameraFreeze();
       this.stopAutoDetectTimerOnly();
-      if (this.objectInfoModalOpen) {
-        this.loadObjectDossier();
-      }
     }
     this.cdr.markForCheck();
   }
@@ -4693,6 +4736,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.syncCameraFreeze();
     this.autoDetectSettingsOpen = false;
     this.autoDetectModalOpen = false;
+    this.autoDetectPausedBeforeObjectInfo = null;
     this.stopAutoDetectTimerOnly();
     this.cdr.markForCheck();
   }
@@ -4705,6 +4749,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private runAutoDetectPass(forceSelect: boolean): void {
+    if (this.objectInfoModalOpen) {
+      return;
+    }
     if ((this.autoDetectPaused || this.finderPoseFrozen) && !forceSelect) {
       return;
     }
@@ -4828,6 +4875,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.autoDetectCacheAtMs = 0;
     this.autoDetectLastAppliedKey = null;
     this.autoDetectPinnedHit = null;
+    this.autoDetectPausedBeforeObjectInfo = null;
     this.clearObjectDossier();
     this.cdr.markForCheck();
   }
@@ -8373,9 +8421,13 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
           this.nowMs = Date.now();
           this.recomputeSky();
           this.refreshVisibleCatalog();
-          this.selectDefaultVisibleTarget();
+          if (!this.objectInfoModalOpen) {
+            this.selectDefaultVisibleTarget();
+          }
           this.refreshTickerNowLabel();
-          this.cdr.markForCheck();
+          if (!this.objectInfoModalOpen) {
+            this.cdr.markForCheck();
+          }
         });
       }, 1000);
     });
