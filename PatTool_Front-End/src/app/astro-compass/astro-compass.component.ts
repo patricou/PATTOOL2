@@ -341,6 +341,7 @@ interface HelpTerm {
 }
 
 type TargetAccordionId = 'iss' | 'planet' | 'star' | 'galaxy' | 'deepsky' | 'constellation' | 'custom';
+type SidePanelId = 'location' | 'visibility' | 'cible' | 'nord' | 'options';
 
 interface TypeHelpSection {
   headingFr?: string;
@@ -860,6 +861,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild(TraceViewerModalComponent) traceViewerModalComponent?: TraceViewerModalComponent;
   @ViewChild('slideshowModalComponent') slideshowModalComponent?: SlideshowModalComponent;
   @ViewChild('camStage') camStage?: ElementRef<HTMLElement>;
+  @ViewChild('liveStage') liveStage?: ElementRef<HTMLElement>;
   private camEl?: ElementRef<HTMLVideoElement>;
   private camLiveEl?: ElementRef<HTMLVideoElement>;
 
@@ -932,6 +934,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   constellationResults: AstroConstellationOption[] = findConstellationsByQuery('');
   /** Accordéon exclusif du choix de cible (une section ouverte à la fois). */
   targetAccordionOpen: TargetAccordionId | null = 'planet';
+  /** Accordéon exclusif des panneaux latéraux (position, visibilité, calages). */
+  sidePanelOpen: SidePanelId | null = null;
   /** Aide bilingue FR/EN ouverte depuis le « i » d’un type de cible. */
   typeHelpOpen: TargetAccordionId | null = null;
 
@@ -987,6 +991,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   autoDetectKeepTarget = false;
   private autoDetectPreviousTarget: LastAstroTarget | null = null;
   private autoDetectPreviousChoseTarget = false;
+  /** Objet figé tant que la fiche est ouverte (l’auto-detect ne le remplace pas). */
+  private autoDetectPinnedHit: AutoDetectHit | null = null;
   objectDossierBusy = false;
   objectDossier: ObjectDossier | null = null;
   /** Cached iframe src — must not be rebuilt on each CD cycle or the Sky Window reloads forever. */
@@ -1998,6 +2004,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   openObjectInfoModal(): void {
+    if (this.autoDetectModalOpen) {
+      this.autoDetectPinnedHit = this.autoDetectBestHit;
+    }
     this.objectInfoModalOpen = true;
     this.loadObjectDossier();
     const live = this.liveModalEl?.nativeElement;
@@ -2009,9 +2018,11 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   closeObjectInfoModal(): void {
     this.objectInfoModalOpen = false;
+    this.autoDetectPinnedHit = null;
     this.closeFactHelp();
     if (this.autoDetectLive && !this.autoDetectPaused) {
       this.clearObjectDossier();
+      this.runAutoDetectPass(false);
     }
     this.cdr.markForCheck();
   }
@@ -2249,6 +2260,11 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.headingRef = ref;
     this.northArrowInited = false;
     this.cibleArrowInited = false;
+    if (ref === 'cible' && this.sidePanelOpen === 'nord') {
+      this.sidePanelOpen = null;
+    } else if (ref === 'north' && this.sidePanelOpen === 'cible') {
+      this.sidePanelOpen = null;
+    }
     if (ref === 'cible') {
       this.setExactPositionActive(false);
     } else {
@@ -2303,6 +2319,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         if (this.headingRef === 'cible' && !this.activeCible) {
           this.headingRef = 'north';
+          if (this.sidePanelOpen === 'cible') {
+            this.sidePanelOpen = null;
+          }
         }
         this.applyHeadingReference();
         this.updateFinderProjection();
@@ -2313,6 +2332,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       error: () => {
         if (this.headingRef === 'cible') {
           this.headingRef = 'north';
+          if (this.sidePanelOpen === 'cible') {
+            this.sidePanelOpen = null;
+          }
         }
         this.cdr.markForCheck();
       }
@@ -3962,10 +3984,16 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * Portrait + flux 16:9 en `cover` : le vertical affiché est le petit côté
    * de la vidéo (~38°), pas 64°. Sinon l’astre stagne sous le réticule.
+   * En auto-detect, on mesure la boîte live (même ratio 3:4 que le viseur).
    */
   private finderFovDeg(): { hfov: number; vfov: number } {
-    const video = this.camEl?.nativeElement;
-    const stage = this.camStage?.nativeElement;
+    const live = this.autoDetectModalOpen;
+    const video = (
+      live ? this.camLiveEl?.nativeElement : this.camEl?.nativeElement
+    ) ?? this.camLiveEl?.nativeElement ?? this.camEl?.nativeElement;
+    const stage = (
+      live ? this.liveStage?.nativeElement : this.camStage?.nativeElement
+    ) ?? this.camStage?.nativeElement ?? this.liveStage?.nativeElement;
     const base = displayedCameraFovDeg(
       video?.videoWidth || 0,
       video?.videoHeight || 0,
@@ -4156,6 +4184,15 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     ) {
       queueMicrotask(() => this.scrollCatalogSelectionIntoView());
     }
+  }
+
+  isSidePanelOpen(id: SidePanelId): boolean {
+    return this.sidePanelOpen === id;
+  }
+
+  toggleSidePanel(id: SidePanelId): void {
+    this.sidePanelOpen = this.sidePanelOpen === id ? null : id;
+    this.cdr.markForCheck();
   }
 
   private scrollCatalogSelectionIntoView(): void {
@@ -4418,11 +4455,24 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get autoDetectBestHit(): AutoDetectHit | null {
+    if (this.objectInfoModalOpen) {
+      const pinned = this.autoDetectPinnedHit;
+      if (pinned) {
+        return (
+          this.autoDetectHits.find((h) => h.kind === pinned.kind && h.id === pinned.id) ?? pinned
+        );
+      }
+      return this.autoDetectHits.find((h) => this.isAutoDetectSelected(h)) ?? null;
+    }
     return this.autoDetectHits.length ? this.autoDetectHits[0] : null;
   }
 
   get autoDetectOtherHits(): AutoDetectHit[] {
-    return this.autoDetectHits.length > 1 ? this.autoDetectHits.slice(1) : [];
+    const best = this.autoDetectBestHit;
+    if (!best) {
+      return this.autoDetectHits.slice();
+    }
+    return this.autoDetectHits.filter((h) => h.kind !== best.kind || h.id !== best.id);
   }
 
   trackAutoDetectHit(_index: number, hit: AutoDetectHit): string {
@@ -4438,7 +4488,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return `${ms} ms`;
   }
 
-  /** Position du point cible dans le radar (0–100 %, centre = 50). */
+  /** Position du point cible dans le viseur live (0–100 %, centre = 50). */
   autoDetectRadarXPercent(): number {
     return this.autoDetectRadarXPercentFor(this.autoDetectBestHit);
   }
@@ -4451,32 +4501,37 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!hit) {
       return 50;
     }
-    return this.autoDetectRadarXForAz(hit.azimuthDeg);
+    return this.autoDetectSkyScreenPct(hit.azimuthDeg, hit.elevationDeg).xPct;
   }
 
   autoDetectRadarYPercentFor(hit: AutoDetectHit | null): number {
     if (!hit) {
       return 50;
     }
-    return this.autoDetectRadarYForEl(hit.elevationDeg);
+    return this.autoDetectSkyScreenPct(hit.azimuthDeg, hit.elevationDeg).yPct;
   }
 
-  private autoDetectRadarXForAz(azimuthDeg: number): number {
-    if (this.autoDetectLookAz == null) {
-      return 50;
+  /** Même projection ciel → image que le viseur astro-compass. */
+  private autoDetectSkyScreenPct(
+    azimuthDeg: number,
+    elevationDeg: number
+  ): { xPct: number; yPct: number } {
+    const camAz = this.autoDetectLookAz ?? this.finderLookAzimuthDeg();
+    const camEl = this.lookTracker.elevationDeg ?? this.autoDetectLookEl;
+    if (camAz == null || camEl == null) {
+      return { xPct: 50, yPct: 50 };
     }
-    const dAz = this.circularDiffDeg(azimuthDeg, this.autoDetectLookAz);
-    const clamped = Math.max(-AUTO_DETECT_MAX_SEP_DEG, Math.min(AUTO_DETECT_MAX_SEP_DEG, dAz));
-    return 50 + (clamped / AUTO_DETECT_MAX_SEP_DEG) * 42;
-  }
-
-  private autoDetectRadarYForEl(elevationDeg: number): number {
-    if (this.autoDetectLookEl == null) {
-      return 50;
-    }
-    const dEl = elevationDeg - this.autoDetectLookEl;
-    const clamped = Math.max(-AUTO_DETECT_MAX_SEP_DEG, Math.min(AUTO_DETECT_MAX_SEP_DEG, dEl));
-    return 50 + (clamped / AUTO_DETECT_MAX_SEP_DEG) * 42;
+    const fov = this.finderFovDeg();
+    const proj = projectCelestialToScreen(
+      camAz,
+      camEl,
+      0,
+      azimuthDeg,
+      elevationDeg,
+      fov.hfov,
+      fov.vfov
+    );
+    return { xPct: proj.xPct, yPct: proj.yPct };
   }
 
   get autoDetectRadarFigureStrokes(): string[] {
@@ -4486,9 +4541,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.constellationFigureSky.map((stroke) =>
       stroke
         .map((p) => {
-          const x = this.autoDetectRadarXForAz(p.az);
-          const y = 100 - this.autoDetectRadarYForEl(p.el);
-          return `${x.toFixed(2)},${y.toFixed(2)}`;
+          const s = this.autoDetectSkyScreenPct(p.az, p.el);
+          return `${s.xPct.toFixed(2)},${s.yPct.toFixed(2)}`;
         })
         .join(' ')
     );
@@ -4498,10 +4552,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.autoDetectBestHit?.kind !== 'constellation') {
       return [];
     }
-    return this.constellationMemberSky.map((m) => ({
-      x: this.autoDetectRadarXForAz(m.az),
-      y: 100 - this.autoDetectRadarYForEl(m.el)
-    }));
+    return this.constellationMemberSky.map((m) => {
+      const s = this.autoDetectSkyScreenPct(m.az, m.el);
+      return { x: s.xPct, y: s.yPct };
+    });
   }
 
   autoDetectKindLabelKey(kind: AutoDetectHit['kind'], subtype?: AstroDeepSkySubtype): string {
@@ -4669,15 +4723,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.cdr.markForCheck();
       return;
     }
-    if (this.devicePitchDeg == null) {
-      this.autoDetectErrorKey = 'ASTRO_COMPASS.AUTO_NEED_PITCH';
-      this.autoDetectBusy = false;
-      this.cdr.markForCheck();
-      return;
-    }
 
     const lookAz = this.headingDeg;
-    const lookEl = this.deviceSkyElevationDeg();
+    const lookEl = this.lookTracker.elevationDeg ?? this.deviceSkyElevationDeg();
     if (lookEl == null) {
       this.autoDetectErrorKey = 'ASTRO_COMPASS.AUTO_NEED_PITCH';
       this.autoDetectBusy = false;
@@ -4701,12 +4749,17 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
       if (!hits.length) {
         this.autoDetectErrorKey = 'ASTRO_COMPASS.AUTO_NONE';
-        this.autoDetectLastAppliedKey = null;
+        if (!this.objectInfoModalOpen) {
+          this.autoDetectLastAppliedKey = null;
+        }
       } else {
         this.autoDetectErrorKey = null;
         const best = hits[0];
         const key = best.kind + ':' + best.id;
-        if (forceSelect || key !== this.autoDetectLastAppliedKey) {
+        if (
+          !this.objectInfoModalOpen &&
+          (forceSelect || key !== this.autoDetectLastAppliedKey)
+        ) {
           this.autoDetectLastAppliedKey = key;
           this.persistUserTarget = false;
           try {
@@ -4726,11 +4779,11 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   applyAutoDetectHit(hit: AutoDetectHit): void {
     const key = hit.kind + ':' + hit.id;
+    if (this.objectInfoModalOpen && this.autoDetectModalOpen) {
+      this.autoDetectPinnedHit = hit;
+    }
     if (this.isAutoDetectSelected(hit)) {
       this.autoDetectLastAppliedKey = key;
-      if (this.objectInfoModalOpen) {
-        this.loadObjectDossier();
-      }
       return;
     }
     this.autoDetectLastAppliedKey = key;
@@ -4774,6 +4827,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.autoDetectCache = [];
     this.autoDetectCacheAtMs = 0;
     this.autoDetectLastAppliedKey = null;
+    this.autoDetectPinnedHit = null;
     this.clearObjectDossier();
     this.cdr.markForCheck();
   }
@@ -5812,20 +5866,6 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.tracePickMode = 'observer';
     const label = this.placeLabel || `${this.lat.toFixed(5)}, ${this.lon.toFixed(5)}`;
     this.traceViewerModalComponent.openAtLocation(this.lat, this.lon, label, undefined, true, true);
-  }
-
-  openTraceViewerForCibleMark(): void {
-    if (!this.traceViewerModalComponent || !this.activeCible) {
-      return;
-    }
-    this.tracePickMode = 'mark';
-    const c = this.activeCible;
-    const lat = c.markLat ?? this.lat;
-    const lon = c.markLon ?? this.lon;
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      return;
-    }
-    this.traceViewerModalComponent.openAtLocation(lat, lon, c.name, undefined, true, true);
   }
 
   toggleCibleVerify(): void {

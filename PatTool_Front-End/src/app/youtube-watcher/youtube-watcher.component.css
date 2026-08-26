@@ -372,6 +372,7 @@
   grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.9fr);
   gap: 0.85rem;
   margin-bottom: 1rem;
+  overflow-anchor: none;
 }
 
 .yt-player-frame {
@@ -608,6 +609,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
   gap: 0.75rem;
+  overflow-anchor: none;
 }
 
 .yt-card {

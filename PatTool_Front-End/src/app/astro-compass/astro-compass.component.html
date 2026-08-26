@@ -283,19 +283,6 @@
           </div>
         </div>
 
-        <div class="ac-compass-notvis" *ngIf="azimuthDeg != null && !aboveHorizon()" role="status">
-          <i class="fa fa-eye-slash" aria-hidden="true"></i>
-          <div class="ac-compass-notvis__text">
-            <strong>{{ 'ASTRO_COMPASS.LOOK_NOT_VISIBLE' | translate }}</strong>
-            <span>
-              {{ 'ASTRO_COMPASS.LOOK_NOT_VISIBLE_HINT' | translate : {
-                name: notVisibleName(),
-                deg: (elevationDeg | number : '1.0-0')
-              } }}
-            </span>
-          </div>
-        </div>
-
         <div class="ac-compass-body">
           <div class="ac-compass-status" *ngIf="geoStatus === 'locating' && azimuthDeg == null">
             <i class="fa fa-spinner fa-spin me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.LOCATING' | translate }}
@@ -700,6 +687,18 @@
                 [attr.aria-label]="'ASTRO_COMPASS.CAM_RESIZE' | translate">
                 <span aria-hidden="true"></span>
               </button>
+            </div>
+            <div class="ac-compass-notvis" *ngIf="azimuthDeg != null && !aboveHorizon()" role="status">
+              <i class="fa fa-eye-slash" aria-hidden="true"></i>
+              <div class="ac-compass-notvis__text">
+                <strong>{{ 'ASTRO_COMPASS.LOOK_NOT_VISIBLE' | translate }}</strong>
+                <span>
+                  {{ 'ASTRO_COMPASS.LOOK_NOT_VISIBLE_HINT' | translate : {
+                    name: notVisibleName(),
+                    deg: (elevationDeg | number : '1.0-0')
+                  } }}
+                </span>
+              </div>
             </div>
             <p class="ac-finder__hint" *ngIf="finderNeedTap">{{ 'ASTRO_COMPASS.NEED_TAP' | translate }}</p>
             <p class="ac-msg ac-msg--bad" *ngIf="finderDenied">{{ 'ASTRO_COMPASS.DENIED' | translate }}</p>
@@ -1480,22 +1479,34 @@
 
   <div class="ac-vis-column">
       <div
-        class="ac-finder__north-box ac-finder__north-box--page"
-        role="group"
-        [attr.aria-label]="(headingRef === 'cible' ? 'ASTRO_COMPASS.OPEN_DIRECTION_CIBLE' : 'ASTRO_COMPASS.NORTH_BOX_TITLE') | translate">
-        <div class="ac-finder__north-box-head" *ngIf="headingRef === 'cible'">
-          <strong>{{ 'ASTRO_COMPASS.OPEN_DIRECTION_CIBLE' | translate }}</strong>
+        *ngIf="headingRef === 'cible'"
+        class="ac-acc ac-acc--box ac-finder__north-box ac-finder__north-box--page"
+        [class.ac-acc--open]="isSidePanelOpen('cible')"
+        [attr.aria-label]="'ASTRO_COMPASS.OPEN_DIRECTION_CIBLE' | translate">
+        <div class="ac-acc__bar">
+          <button
+            type="button"
+            class="ac-acc__head"
+            (click)="toggleSidePanel('cible')"
+            [attr.aria-expanded]="isSidePanelOpen('cible')">
+            <h3>
+              <i class="fa fa-bullseye me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.OPEN_DIRECTION_CIBLE' | translate }}
+            </h3>
+            <span class="ac-acc__pick" *ngIf="!isSidePanelOpen('cible') && activeCible">{{ activeCible.name }}</span>
+            <i class="fa fa-chevron-down ac-acc__chevron" aria-hidden="true"></i>
+          </button>
         </div>
-        <p class="ac-finder__north-box-hint" *ngIf="headingRef === 'cible' && activeCible">
+        <div class="ac-acc__body" *ngIf="isSidePanelOpen('cible')">
+        <p class="ac-finder__north-box-hint" *ngIf="activeCible">
           {{ 'ASTRO_COMPASS.HEADING_REF_HINT' | translate : { name: activeCible.name } }}
         </p>
-        <p class="ac-finder__north-box-hint ac-finder__north-box-hint--hold" *ngIf="headingRef === 'cible' && activeCible">
+        <p class="ac-finder__north-box-hint ac-finder__north-box-hint--hold" *ngIf="activeCible">
           {{ 'DIRECTION.HOLD_VERTICAL' | translate }}
         </p>
         <p class="ac-finder__north-box-hint" *ngIf="!activeCible">
           {{ 'ASTRO_COMPASS.HEADING_REF_NONE' | translate }}
         </p>
-        <div class="ac-finder__cible-details" *ngIf="headingRef === 'cible' && activeCible">
+        <div class="ac-finder__cible-details" *ngIf="activeCible">
           <div class="ac-finder__cible-photo-wrap" *ngIf="activeCible.photoDataUrl">
             <img
               class="ac-finder__cible-photo"
@@ -1571,18 +1582,8 @@
               {{ (cibleVerifyActive ? 'ASTRO_COMPASS.CIBLE_VERIFY_STOP' : 'DIRECTION.TARGET_CHECK') | translate }}
             </button>
           </div>
-          <div class="ac-finder__north-box-row ac-finder__north-box-row--cible-actions">
+          <div class="ac-finder__north-box-row ac-finder__north-box-row--cible-actions" *ngIf="exactPositionActive">
             <button
-              type="button"
-              class="ac-finder__north-box-btn ac-finder__north-box-btn--mark"
-              [disabled]="cibleSaving"
-              (click)="openTraceViewerForCibleMark()"
-              [attr.title]="'DIRECTION.TARGET_MARK_HINT' | translate">
-              <i class="fa fa-map-marker" aria-hidden="true"></i>
-              {{ 'DIRECTION.TARGET_MARK_PICK' | translate }}
-            </button>
-            <button
-              *ngIf="exactPositionActive"
               type="button"
               class="ac-finder__north-box-btn ac-finder__north-box-btn--reset"
               (click)="clearFinderNorth()"
@@ -1591,16 +1592,33 @@
             </button>
           </div>
         </div>
-        <ng-container *ngIf="headingRef === 'north'">
-        <div class="ac-finder__north-box-head">
-          <strong>{{ 'ASTRO_COMPASS.NORTH_BOX_TITLE' | translate }}</strong>
-          <span
-            class="ac-finder__north-box-val"
-            [class.ac-finder__north-box-val--on]="lookTracker.manualOffsetDeg"
-            [attr.title]="'ASTRO_COMPASS.MARK_NORTH_OFFSET' | translate">
-            {{ lookTracker.manualOffsetDeg > 0 ? '+' : '' }}{{ lookTracker.manualOffsetDeg }}°
-          </span>
         </div>
+      </div>
+
+      <div
+        *ngIf="headingRef === 'north'"
+        class="ac-acc ac-acc--box ac-finder__north-box ac-finder__north-box--page"
+        [class.ac-acc--open]="isSidePanelOpen('nord')"
+        [attr.aria-label]="'ASTRO_COMPASS.NORTH_BOX_TITLE' | translate">
+        <div class="ac-acc__bar">
+          <button
+            type="button"
+            class="ac-acc__head"
+            (click)="toggleSidePanel('nord')"
+            [attr.aria-expanded]="isSidePanelOpen('nord')">
+            <h3>
+              <i class="fa fa-compass me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.NORTH_BOX_TITLE' | translate }}
+            </h3>
+            <span
+              class="ac-acc__pick"
+              *ngIf="!isSidePanelOpen('nord')"
+              [class.ac-finder__north-box-val--on]="lookTracker.manualOffsetDeg">
+              {{ lookTracker.manualOffsetDeg > 0 ? '+' : '' }}{{ lookTracker.manualOffsetDeg }}°
+            </span>
+            <i class="fa fa-chevron-down ac-acc__chevron" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="ac-acc__body" *ngIf="isSidePanelOpen('nord')">
         <p class="ac-finder__north-box-hint">{{ 'ASTRO_COMPASS.NORTH_BOX_HINT' | translate }}</p>
         <div class="ac-finder__north-box-row">
           <button
@@ -1632,7 +1650,6 @@
             {{ 'ASTRO_COMPASS.MARK_NORTH_RESET' | translate }}
           </button>
         </div>
-        </ng-container>
         <div
           class="ac-finder__north-box-row ac-finder__north-box-row--tools"
           *ngIf="finderNeedTap || !lookTracker.sensorsOn">
@@ -1640,17 +1657,27 @@
             {{ 'ASTRO_COMPASS.START_SENSORS' | translate }}
           </button>
         </div>
+        </div>
       </div>
 
-      <div class="ac-acc ac-acc--box ac-loc-panel" [attr.aria-label]="'ASTRO_COMPASS.LOCATION_TITLE' | translate">
+      <div
+        class="ac-acc ac-acc--box ac-loc-panel"
+        [class.ac-acc--open]="isSidePanelOpen('location')"
+        [attr.aria-label]="'ASTRO_COMPASS.LOCATION_TITLE' | translate">
       <div class="ac-acc__bar">
-        <div class="ac-acc__head ac-acc__head--static">
+        <button
+          type="button"
+          class="ac-acc__head"
+          (click)="toggleSidePanel('location')"
+          [attr.aria-expanded]="isSidePanelOpen('location')">
           <h3>
             <i class="fa fa-map-marker me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.LOCATION_TITLE' | translate }}
           </h3>
-        </div>
+          <span class="ac-acc__pick" *ngIf="!isSidePanelOpen('location') && placeLabel">{{ placeLabel }}</span>
+          <i class="fa fa-chevron-down ac-acc__chevron" aria-hidden="true"></i>
+        </button>
       </div>
-      <div class="ac-acc__body">
+      <div class="ac-acc__body" *ngIf="isSidePanelOpen('location')">
       <div class="ac-search">
         <label for="acAddressQuery">{{ 'ASTRO_COMPASS.ADDRESS_SEARCH' | translate }}</label>
         <div class="ac-address-row">
@@ -1734,12 +1761,24 @@
       </div>
       </div>
 
-  <!-- Visibility schedule for chosen body at observer position -->
-  <section class="ac-panel ac-panel--visibility" [attr.aria-label]="'ASTRO_COMPASS.VISIBILITY_TITLE' | translate">
-    <h3>
-      <i class="fa fa-eye me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.VISIBILITY_TITLE' | translate }}
-      <span *ngIf="bodyLabel"> — {{ bodyLabel }}</span>
-    </h3>
+  <div
+    class="ac-acc ac-acc--box ac-panel--visibility"
+    [class.ac-acc--open]="isSidePanelOpen('visibility')"
+    [attr.aria-label]="'ASTRO_COMPASS.VISIBILITY_TITLE' | translate">
+    <div class="ac-acc__bar">
+      <button
+        type="button"
+        class="ac-acc__head"
+        (click)="toggleSidePanel('visibility')"
+        [attr.aria-expanded]="isSidePanelOpen('visibility')">
+        <h3>
+          <i class="fa fa-eye me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.VISIBILITY_TITLE' | translate }}
+          <span *ngIf="bodyLabel"> — {{ bodyLabel }}</span>
+        </h3>
+        <i class="fa fa-chevron-down ac-acc__chevron" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="ac-acc__body" *ngIf="isSidePanelOpen('visibility')">
     <p class="ac-place" *ngIf="placeLabel">
       <i class="fa fa-map-marker me-1" aria-hidden="true"></i>{{ placeLabel }}
       <span class="text-muted"> ({{ lat | number:'1.4-4' }}, {{ lon | number:'1.4-4' }})</span>
@@ -1794,12 +1833,27 @@
         </div>
       </div>
     </div>
-  </section>
+    </div>
   </div>
 
-  <section
-    class="ac-visible-switch ac-panel--filters"
-    [attr.aria-label]="'ASTRO_COMPASS.VISIBLE_ONLY' | translate">
+  <div
+    class="ac-acc ac-acc--box ac-panel--options"
+    [class.ac-acc--open]="isSidePanelOpen('options')"
+    [attr.aria-label]="'COMMUN.OPTIONS' | translate">
+    <div class="ac-acc__bar">
+      <button
+        type="button"
+        class="ac-acc__head"
+        (click)="toggleSidePanel('options')"
+        [attr.aria-expanded]="isSidePanelOpen('options')">
+        <h3>
+          <i class="fa fa-sliders me-2" aria-hidden="true"></i>{{ 'COMMUN.OPTIONS' | translate }}
+        </h3>
+        <i class="fa fa-chevron-down ac-acc__chevron" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="ac-acc__body" *ngIf="isSidePanelOpen('options')">
+    <div class="ac-visible-switch">
     <div class="ac-visible-switch__row">
       <div class="ac-visible-switch__controls">
         <input
@@ -1844,19 +1898,8 @@
       </label>
     </div>
     <ng-container *ngTemplateOutlet="acMagFilter; context: { css: 'ac-mag-filter--panel' }"></ng-container>
-  </section>
-
-  <section
-    class="ac-acc ac-acc--box ac-panel--trail"
-    [attr.aria-label]="'ASTRO_COMPASS.FINDER_TRAIL' | translate">
-    <div class="ac-acc__bar">
-      <div class="ac-acc__head ac-acc__head--static">
-        <h3>
-          <i class="fa fa-long-arrow-right me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.FINDER_TRAIL' | translate }}
-        </h3>
-      </div>
     </div>
-    <div class="ac-acc__body">
+    <div class="ac-options-trail">
       <label
         class="ac-finder__trail-sw"
         [class.ac-finder__trail-sw--on]="finderTrailEnabled"
@@ -1903,7 +1946,9 @@
         <p class="ac-trail-duration__hint">{{ 'ASTRO_COMPASS.FINDER_TRAIL_DURATION_HINT' | translate }}</p>
       </div>
     </div>
-  </section>
+    </div>
+  </div>
+  </div><!-- ac-vis-column -->
   </div><!-- ac-layout -->
 </div><!-- astro-compass-page -->
 </div><!-- astro-compass-shell -->
@@ -1922,24 +1967,6 @@
   [class.ac-live-modal--zoomed]="finderZoom > 1"
   [attr.aria-label]="'ASTRO_COMPASS.AUTO_MODAL_TITLE' | translate"
   (click)="$event.stopPropagation()">
-  <video
-    #camLive
-    class="ac-live-modal__cam"
-    [class.ac-live-modal__cam--hidden]="!!camFreezeUrl"
-    [style.transform]="finderVideoTransform"
-    playsinline
-    muted
-    autoplay
-    webkit-playsinline></video>
-  <img
-    *ngIf="camFreezeUrl"
-    class="ac-live-modal__cam ac-live-modal__freeze"
-    [src]="camFreezeUrl"
-    [style.transform]="finderVideoTransform"
-    alt="" />
-  <div class="ac-live-modal__cam-empty" *ngIf="!camLive">
-    {{ (camDenied ? 'ASTRO_COMPASS.CAM_DENIED' : 'ASTRO_COMPASS.CAM_PLACEHOLDER') | translate }}
-  </div>
   <div class="ac-live-modal__stars" aria-hidden="true"></div>
   <div class="ac-live-modal__aurora" aria-hidden="true"></div>
 
@@ -2100,7 +2127,65 @@
   </div>
 
   <div class="ac-live-modal__scroll">
-  <div class="ac-live-modal__stage">
+  <div class="ac-live-modal__stage" #liveStage>
+    <video
+      #camLive
+      class="ac-live-modal__cam"
+      [class.ac-live-modal__cam--hidden]="!!camFreezeUrl"
+      [style.transform]="finderVideoTransform"
+      playsinline
+      muted
+      autoplay
+      webkit-playsinline></video>
+    <img
+      *ngIf="camFreezeUrl"
+      class="ac-live-modal__cam ac-live-modal__freeze"
+      [src]="camFreezeUrl"
+      [style.transform]="finderVideoTransform"
+      alt="" />
+    <div class="ac-live-modal__cam-empty" *ngIf="!camLive && !camFreezeUrl">
+      {{ (camDenied ? 'ASTRO_COMPASS.CAM_DENIED' : 'ASTRO_COMPASS.CAM_PLACEHOLDER') | translate }}
+    </div>
+    <div
+      class="ac-live-hud"
+      *ngIf="azimuthDeg != null || elevationDeg != null">
+      <div class="ac-finder__target">
+        <span class="ac-finder__target-tag">
+          <i [ngClass]="bodyIconClass" [style.color]="bodyColor" aria-hidden="true"></i>
+          {{ 'ASTRO_COMPASS.HUD_TARGET' | translate }}
+          <ng-container *ngIf="bodyLabel"> · {{ bodyLabel }}</ng-container>
+        </span>
+        <div class="ac-finder__target-pair">
+          <span *ngIf="azimuthDeg != null">{{ azimuthDeg | number : '1.0-0' }}° {{ cardinalLabel() }}</span>
+          <span *ngIf="elevationDeg != null">{{ elevationDeg | number : '1.0-0' }}°</span>
+        </div>
+      </div>
+    </div>
+    <div
+      class="ac-finder__ref-arrow ac-finder__ref-arrow--north"
+      [style.transform]="'rotate(' + northArrowRotationDeg() + 'deg)'"
+      aria-hidden="true">
+      <span class="ac-finder__ref-arrow-shaft"></span>
+      <span class="ac-finder__ref-arrow-head"></span>
+      <span class="ac-finder__ref-arrow-tip">
+        <span
+          class="ac-finder__ref-arrow-letter"
+          [style.transform]="'rotate(' + (-northArrowRotationDeg()) + 'deg)'">{{ 'ASTRO_COMPASS.DIR_N' | translate }}</span>
+      </span>
+    </div>
+    <div
+      *ngIf="headingRef === 'cible'"
+      class="ac-finder__ref-arrow ac-finder__ref-arrow--cible"
+      [style.transform]="'rotate(' + cibleArrowRotationDeg() + 'deg)'"
+      aria-hidden="true">
+      <span class="ac-finder__ref-arrow-shaft"></span>
+      <span class="ac-finder__ref-arrow-head"></span>
+      <span class="ac-finder__ref-arrow-tip">
+        <span
+          class="ac-finder__ref-arrow-letter"
+          [style.transform]="'rotate(' + (-cibleArrowRotationDeg()) + 'deg)'">{{ cibleArrowCardinal() }}</span>
+      </span>
+    </div>
     <ng-container *ngIf="autoDetectBestHit as hit; else acLiveEmpty">
       <div class="ac-live-radar" [class.ac-live-radar--const]="hit.kind === 'constellation'">
         <span class="ac-live-radar__ticks" aria-hidden="true"></span>
@@ -2114,7 +2199,7 @@
           class="ac-live-radar__figure"
           *ngIf="hit.kind === 'constellation' && autoDetectRadarFigureStrokes.length"
           viewBox="0 0 100 100"
-          preserveAspectRatio="xMidYMid meet"
+          preserveAspectRatio="none"
           aria-hidden="true">
           <polyline
             *ngFor="let pts of autoDetectRadarFigureStrokes"
@@ -2135,7 +2220,7 @@
           class="ac-live-radar__dot"
           *ngFor="let sky of autoDetectOtherHits; trackBy: trackAutoDetectHit"
           [style.left.%]="autoDetectRadarXPercentFor(sky)"
-          [style.bottom.%]="autoDetectRadarYPercentFor(sky)"
+          [style.top.%]="autoDetectRadarYPercentFor(sky)"
           [style.color]="sky.color"
           (click)="applyAutoDetectHit(sky)"
           [attr.title]="sky.name">
@@ -2145,7 +2230,7 @@
           type="button"
           class="ac-live-radar__target"
           [style.left.%]="autoDetectRadarXPercent()"
-          [style.bottom.%]="autoDetectRadarYPercent()"
+          [style.top.%]="autoDetectRadarYPercent()"
           [style.color]="hit.color"
           [attr.title]="hit.name">
           <i [ngClass]="hit.iconClass" aria-hidden="true"></i>

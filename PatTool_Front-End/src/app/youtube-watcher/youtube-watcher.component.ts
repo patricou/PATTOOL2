@@ -164,6 +164,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private linkEventsStreamSub?: Subscription;
   private linkSaveSub?: Subscription;
   private linkFeedbackTimer?: ReturnType<typeof setTimeout>;
+  private scrollTopTimer?: ReturnType<typeof setTimeout>;
   private static readonly LINK_FEEDBACK_AUTO_CLOSE_MS = 1800;
   private videoshowRestorePip = false;
 
@@ -181,7 +182,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     private evenementsService: EvenementsService,
     private membersService: MembersService,
     private modalService: NgbModal,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private host: ElementRef<HTMLElement>
   ) {}
 
   ngOnInit(): void {
@@ -241,6 +243,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       clearTimeout(this.linkFeedbackTimer);
     }
     this.stopYoutubeProgressWatch();
+    if (this.scrollTopTimer !== undefined) {
+      clearTimeout(this.scrollTopTimer);
+    }
   }
 
   onQueryChanged(): void {
@@ -299,8 +304,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     } else {
       this.embedUrl = this.buildEmbedUrl(item, true);
     }
-    this.syncUrl();
     this.scrollPageToTop();
+    void this.syncUrl().then(() => this.scrollPageToTop());
     setTimeout(() => this.syncLandscapeFullscreen(), 0);
   }
 
@@ -632,11 +637,41 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   }
 
   private scrollPageToTop(): void {
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
       return;
     }
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-    window.scrollTo({ top: 0, left: 0, behavior: reduce ? 'auto' : 'smooth' });
+    const active = document.activeElement as HTMLElement | null;
+    if (active && this.host.nativeElement.contains(active) && typeof active.blur === 'function') {
+      active.blur();
+    }
+    const jump = (): void => {
+      window.scrollTo(0, 0);
+      const se = document.scrollingElement as HTMLElement | null;
+      if (se) {
+        se.scrollTop = 0;
+        se.scrollLeft = 0;
+      }
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      let node: HTMLElement | null = this.host.nativeElement;
+      while (node && node !== document.documentElement) {
+        if (node.scrollTop) {
+          node.scrollTop = 0;
+        }
+        node = node.parentElement;
+      }
+    };
+    jump();
+    if (this.scrollTopTimer !== undefined) {
+      clearTimeout(this.scrollTopTimer);
+    }
+    this.scrollTopTimer = setTimeout(() => {
+      jump();
+      requestAnimationFrame(() => {
+        jump();
+        this.scrollTopTimer = setTimeout(jump, 80);
+      });
+    }, 0);
   }
 
   private setupLandscapeFullscreenWatchers(): void {
@@ -1339,7 +1374,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     });
   }
 
-  private syncUrl(preferId?: string | null): void {
+  private syncUrl(preferId?: string | null): Promise<boolean> {
     const queryParams: Record<string, string | null> = {
       q: this.query.trim() || null,
       type: this.type !== 'video' ? this.type : null,
@@ -1349,7 +1384,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       dir: this.sortDir !== this.defaultSortDir(this.sortKey) ? this.sortDir : null,
       id: preferId || this.selected?.id || null
     };
-    this.router.navigate([], {
+    return this.router.navigate([], {
       relativeTo: this.route,
       queryParams,
       queryParamsHandling: '',
