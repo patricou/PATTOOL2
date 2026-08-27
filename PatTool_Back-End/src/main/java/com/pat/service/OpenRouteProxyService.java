@@ -46,6 +46,9 @@ public class OpenRouteProxyService {
             "de", "en", "es", "fr", "he", "hu", "id", "it", "ja", "ne", "nl", "pl", "pt", "ru", "zh"
     );
 
+    /** Intermediate stops between start and end (ORS public API allows many more). */
+    static final int MAX_VIA_POINTS = 8;
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
@@ -85,6 +88,20 @@ public class OpenRouteProxyService {
             double endLat,
             double endLon,
             String language) {
+        return directions(profile, startLat, startLon, endLat, endLon, List.of(), language);
+    }
+
+    /**
+     * Calculate a route from start to end, optionally via intermediate stops (lat, lon).
+     */
+    public OpenRouteDirectionsDto directions(
+            String profile,
+            double startLat,
+            double startLon,
+            double endLat,
+            double endLon,
+            List<double[]> viaLatLon,
+            String language) {
 
         if (!isConfigured()) {
             throw new IllegalStateException("OpenRouteService API key is not configured");
@@ -98,14 +115,26 @@ public class OpenRouteProxyService {
             throw new IllegalArgumentException("Invalid coordinates");
         }
 
+        List<List<Double>> coordinates = new ArrayList<>();
+        coordinates.add(List.of(startLon, startLat));
+        if (viaLatLon != null) {
+            if (viaLatLon.size() > MAX_VIA_POINTS) {
+                throw new IllegalArgumentException("Too many via points");
+            }
+            for (double[] via : viaLatLon) {
+                if (via == null || via.length < 2 || !isValidLatLon(via[0], via[1])) {
+                    throw new IllegalArgumentException("Invalid via coordinates");
+                }
+                coordinates.add(List.of(via[1], via[0]));
+            }
+        }
+        coordinates.add(List.of(endLon, endLat));
+
         String lang = normalizeLanguage(language);
         String url = normalizeBase(apiBase) + "/v2/directions/" + resolvedProfile + "/geojson";
 
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("coordinates", List.of(
-                List.of(startLon, startLat),
-                List.of(endLon, endLat)
-        ));
+        body.put("coordinates", coordinates);
         body.put("instructions", true);
         body.put("language", lang);
         body.put("units", "m");

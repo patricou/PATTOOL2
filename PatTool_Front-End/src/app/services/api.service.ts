@@ -2058,12 +2058,13 @@ export class ApiService {
    * will fall back to country=us if none is provided to avoid a 400.
    */
   getTopHeadlines(options: {
-    provider?: 'newsapi' | 'newsdata';
+    provider?: 'newsapi' | 'newsdata' | 'rss';
     country?: string;
     category?: string;
     q?: string;
     pageSize?: number;
     page?: number;
+    feeds?: string[];
   }): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {
@@ -2074,6 +2075,11 @@ export class ApiService {
         if (options.q)        params = params.set('q', options.q);
         if (options.pageSize) params = params.set('pageSize', options.pageSize.toString());
         if (options.page)     params = params.set('page', options.page.toString());
+        if (options.feeds) {
+          for (const feed of options.feeds) {
+            if (feed) params = params.append('feed', feed);
+          }
+        }
         return this._http.get(this.API_URL + 'external/news/top-headlines', { headers, params });
       })
     );
@@ -2084,18 +2090,20 @@ export class ApiService {
    * Requires {@code q}.
    */
   getEverything(options: {
-    provider?: 'newsapi' | 'newsdata';
-    q: string;
+    provider?: 'newsapi' | 'newsdata' | 'rss';
+    q?: string;
     language?: string;
     from?: string;
     to?: string;
     sortBy?: 'publishedAt' | 'relevancy' | 'popularity';
     pageSize?: number;
     page?: number;
+    feeds?: string[];
   }): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {
-        let params = new HttpParams().set('q', options.q);
+        let params = new HttpParams();
+        if (options.q) params = params.set('q', options.q);
         if (options.provider) params = params.set('provider', options.provider);
         if (options.language) params = params.set('language', options.language);
         if (options.from)     params = params.set('from', options.from);
@@ -2103,6 +2111,11 @@ export class ApiService {
         if (options.sortBy)   params = params.set('sortBy', options.sortBy);
         if (options.pageSize) params = params.set('pageSize', options.pageSize.toString());
         if (options.page)     params = params.set('page', options.page.toString());
+        if (options.feeds) {
+          for (const feed of options.feeds) {
+            if (feed) params = params.append('feed', feed);
+          }
+        }
         return this._http.get(this.API_URL + 'external/news/everything', { headers, params });
       })
     );
@@ -2110,7 +2123,7 @@ export class ApiService {
 
   /** Available news sources, optionally filtered. */
   getNewsSources(options: {
-    provider?: 'newsapi' | 'newsdata';
+    provider?: 'newsapi' | 'newsdata' | 'rss';
     country?: string;
     category?: string;
     language?: string;
@@ -2128,7 +2141,7 @@ export class ApiService {
   }
 
   /** Status probe for the selected News provider, used by the status panel. */
-  getNewsApiStatus(provider?: 'newsapi' | 'newsdata'): Observable<any> {
+  getNewsApiStatus(provider?: 'newsapi' | 'newsdata' | 'rss'): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {
         let params = new HttpParams();
@@ -2143,12 +2156,25 @@ export class ApiService {
    * (bypasses the 30-min TTL). The next call will hit the network and
    * burn one quota slot. Used by the "force refresh" button.
    */
-  clearNewsApiCache(provider?: 'newsapi' | 'newsdata'): Observable<any> {
+  clearNewsApiCache(provider?: 'newsapi' | 'newsdata' | 'rss'): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {
         let params = new HttpParams();
         if (provider) params = params.set('provider', provider);
         return this._http.post(this.API_URL + 'external/news/cache/clear', {}, { headers, params });
+      })
+    );
+  }
+
+  /**
+   * Discover RSS/Atom feeds from a keyword or a site/feed URL.
+   * Backend: GET /api/external/news/rss/search?q=
+   */
+  searchRssFeeds(query: string): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        const params = new HttpParams().set('q', query);
+        return this._http.get(this.API_URL + 'external/news/rss/search', { headers, params });
       })
     );
   }
@@ -2269,7 +2295,8 @@ export class ApiService {
     startLon: number,
     endLat: number,
     endLon: number,
-    lang?: string
+    lang?: string,
+    vias?: { lat: number; lon: number }[]
   ): Observable<OpenRouteDirections> {
     let params = new HttpParams()
       .set('profile', profile)
@@ -2279,6 +2306,12 @@ export class ApiService {
       .set('endLon', String(endLon));
     if (lang) {
       params = params.set('lang', lang);
+    }
+    for (const via of vias || []) {
+      if (!Number.isFinite(via?.lat) || !Number.isFinite(via?.lon)) {
+        continue;
+      }
+      params = params.append('viaLat', String(via.lat)).append('viaLon', String(via.lon));
     }
     return this._http.get<OpenRouteDirections>(
       this.API_URL + 'external/openroute/directions',
@@ -4623,6 +4656,7 @@ export interface GpsItineraryWrite {
   profile: OpenRouteProfile;
   from: GpsItineraryPlace;
   to: GpsItineraryPlace;
+  vias?: GpsItineraryPlace[];
   distanceMeters?: number;
   durationSeconds?: number;
   ascentMeters?: number;
@@ -4638,6 +4672,7 @@ export interface GpsItinerary {
   profile: OpenRouteProfile;
   from: GpsItineraryPlace;
   to: GpsItineraryPlace;
+  vias?: GpsItineraryPlace[];
   distanceMeters?: number;
   durationSeconds?: number;
   ascentMeters?: number;

@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 public class GpsItineraryService {
 
     private static final int MAX_COORDINATES = 8_000;
+    private static final int MAX_VIA_POINTS = OpenRouteProxyService.MAX_VIA_POINTS;
     private static final Set<String> ALLOWED_PROFILES = Set.of(
             "driving-car", "cycling-regular", "foot-walking");
 
@@ -158,11 +159,21 @@ public class GpsItineraryService {
                 || !isValidLatLon(body.getTo().getLat(), body.getTo().getLon())) {
             throw new IllegalArgumentException("invalid_coordinates");
         }
+        List<GpsPlacePointDto> vias = body.getVias() != null ? body.getVias() : List.of();
+        if (vias.size() > MAX_VIA_POINTS) {
+            throw new IllegalArgumentException("too_many_vias");
+        }
+        for (GpsPlacePointDto via : vias) {
+            if (via == null || !isValidLatLon(via.getLat(), via.getLon())) {
+                throw new IllegalArgumentException("invalid_via");
+            }
+        }
     }
 
     private void applyWritableFields(GpsItinerary entity, GpsItineraryDto body) {
         entity.setProfile(body.getProfile().trim());
         entity.setFrom(toPlace(body.getFrom()));
+        entity.setVias(toPlaces(body.getVias()));
         entity.setTo(toPlace(body.getTo()));
         entity.setDistanceMeters(body.getDistanceMeters());
         entity.setDurationSeconds(body.getDurationSeconds());
@@ -196,6 +207,7 @@ public class GpsItineraryService {
         dto.setOwnerUsername(entity.getOwnerUsername());
         dto.setProfile(entity.getProfile());
         dto.setFrom(toPlaceDto(entity.getFrom()));
+        dto.setVias(toPlaceDtos(entity.getVias()));
         dto.setTo(toPlaceDto(entity.getTo()));
         dto.setDistanceMeters(entity.getDistanceMeters());
         dto.setDurationSeconds(entity.getDurationSeconds());
@@ -246,6 +258,33 @@ public class GpsItineraryService {
         p.setLon(dto.getLon());
         p.setLabel(dto.getLabel() != null ? dto.getLabel() : "");
         return p;
+    }
+
+    private static List<GpsPlacePoint> toPlaces(List<GpsPlacePointDto> dtos) {
+        List<GpsPlacePoint> out = new ArrayList<>();
+        if (dtos == null) {
+            return out;
+        }
+        for (GpsPlacePointDto dto : dtos) {
+            if (dto != null) {
+                out.add(toPlace(dto));
+            }
+        }
+        return out;
+    }
+
+    private static List<GpsPlacePointDto> toPlaceDtos(List<GpsPlacePoint> points) {
+        List<GpsPlacePointDto> out = new ArrayList<>();
+        if (points == null) {
+            return out;
+        }
+        for (GpsPlacePoint p : points) {
+            GpsPlacePointDto dto = toPlaceDto(p);
+            if (dto != null) {
+                out.add(dto);
+            }
+        }
+        return out;
     }
 
     private static GpsPlacePointDto toPlaceDto(GpsPlacePoint p) {

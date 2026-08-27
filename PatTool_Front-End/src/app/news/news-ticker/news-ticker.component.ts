@@ -7,13 +7,13 @@ import { environment } from '../../../environments/environment';
 import { NewsTickerService, TickerArticle } from '../../services/news-ticker.service';
 
 /**
- * Global scrolling news banner. Mounted once by <app-root> so it appears on
- * every route when enabled. Visibility and content are driven entirely by
- * {@link NewsTickerService}; this component only handles presentation.
+ * Scrolling news banner. Mounted by <app-root> on most routes (fixed under
+ * the navbar) and by the News page under its title. Visibility and content
+ * are driven entirely by {@link NewsTickerService}; this component only
+ * handles presentation.
  *
- * Layout: two rows of articles that scroll horizontally (marquee-style) in
- * opposite directions for a livelier effect. Each row duplicates its items
- * so the animation loops seamlessly.
+ * Layout: two rows of articles that scroll horizontally (marquee-style).
+ * Each row duplicates its items so the animation loops seamlessly.
  */
 @Component({
   selector: 'app-news-ticker',

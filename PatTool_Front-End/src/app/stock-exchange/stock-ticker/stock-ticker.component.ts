@@ -12,7 +12,7 @@ import { StockTickerItem, StockTickerService } from '../../services/stock-ticker
  * presentation.
  *
  * Stacking order under the navbar (top to bottom):
- *   1. news-ticker (56px, two rows)
+ *   1. news-ticker (64px, two rows)
  *   2. currency-ticker (40px)
  *   3. stock-ticker (40px)   &lt;-- this component
  *

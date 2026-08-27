@@ -2,6 +2,7 @@ package com.pat.controller;
 
 import com.pat.service.news.NewsImageProxyService;
 import com.pat.service.news.NewsProvider;
+import com.pat.service.news.RssNewsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -25,7 +27,8 @@ import java.util.Map;
  *  - {@code newsApiService}   → https://newsapi.org  (fallback, 100 req/day)
  *
  * The active provider is chosen per-request via the {@code ?provider=...}
- * query parameter. Values: {@code newsdata} (default) or {@code newsapi}.
+ * query parameter. Values: {@code newsdata} (default), {@code newsapi},
+ * or {@code rss} (curated RSS/Atom reader, no API key).
  * The frontend persists the selection in localStorage so users keep the
  * provider they picked across page reloads.
  */
@@ -47,6 +50,10 @@ public class NewsApiController {
     private NewsProvider newsApiService;
 
     @Autowired
+    @Qualifier("rssNewsService")
+    private RssNewsService rssNewsService;
+
+    @Autowired
     private NewsImageProxyService imageProxyService;
 
     /**
@@ -59,6 +66,7 @@ public class NewsApiController {
         switch (p) {
             case "newsapi":  return newsApiService;
             case "newsdata": return newsDataService;
+            case "rss":      return rssNewsService;
             default:
                 log.debug("Unknown news provider '{}', falling back to '{}'.", provider, DEFAULT_PROVIDER);
                 return newsDataService;
@@ -77,26 +85,28 @@ public class NewsApiController {
             @RequestParam(value = "category", required = false) String category,
             @RequestParam(value = "q", required = false) String query,
             @RequestParam(value = "pageSize", required = false) Integer pageSize,
-            @RequestParam(value = "page", required = false) Integer page) {
-        log.debug("News /top-headlines provider={} country={} category={} q={} pageSize={} page={}",
-                provider, country, category, query, pageSize, page);
-        return pickProvider(provider).getTopHeadlines(country, category, query, pageSize, page);
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "feed", required = false) List<String> feedUrls) {
+        log.debug("News /top-headlines provider={} country={} category={} q={} pageSize={} page={} feeds={}",
+                provider, country, category, query, pageSize, page, feedUrls == null ? 0 : feedUrls.size());
+        return pickProvider(provider).getTopHeadlines(country, category, query, pageSize, page, feedUrls);
     }
 
     /** Full-text article search. {@code q} is required by the provider. */
     @GetMapping(value = "/everything", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> getEverything(
             @RequestParam(value = "provider", required = false) String provider,
-            @RequestParam("q") String query,
+            @RequestParam(value = "q", required = false) String query,
             @RequestParam(value = "language", required = false) String language,
             @RequestParam(value = "from", required = false) String from,
             @RequestParam(value = "to", required = false) String to,
             @RequestParam(value = "sortBy", required = false) String sortBy,
             @RequestParam(value = "pageSize", required = false) Integer pageSize,
-            @RequestParam(value = "page", required = false) Integer page) {
-        log.debug("News /everything provider={} q={} language={} from={} to={} sortBy={} pageSize={} page={}",
-                provider, query, language, from, to, sortBy, pageSize, page);
-        return pickProvider(provider).getEverything(query, language, from, to, sortBy, pageSize, page);
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "feed", required = false) List<String> feedUrls) {
+        log.debug("News /everything provider={} q={} language={} from={} to={} sortBy={} pageSize={} page={} feeds={}",
+                provider, query, language, from, to, sortBy, pageSize, page, feedUrls == null ? 0 : feedUrls.size());
+        return pickProvider(provider).getEverything(query, language, from, to, sortBy, pageSize, page, feedUrls);
     }
 
     /** List of available sources filtered by country / category / language. */
@@ -141,6 +151,15 @@ public class NewsApiController {
             @RequestParam(value = "provider", required = false) String provider) {
         log.info("News /cache/clear requested for provider={}", provider);
         return pickProvider(provider).clearCache();
+    }
+
+    /**
+     * Discover RSS/Atom feeds from a keyword (local catalogue + Feedly) or
+     * from a site / feed URL (HTML {@code rel=alternate} + common paths).
+     */
+    @GetMapping(value = "/rss/search", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> searchRssFeeds(@RequestParam("q") String query) {
+        return rssNewsService.searchFeeds(query);
     }
 
     /**

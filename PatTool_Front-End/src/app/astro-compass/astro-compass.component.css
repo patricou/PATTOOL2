@@ -3933,12 +3933,14 @@ a.ac-compass-cal__btn--direction {
 
 .ac-live-modal--cam {
   background:
-    linear-gradient(180deg, rgba(5, 9, 20, 0.58) 0%, rgba(5, 9, 20, 0.28) 42%, rgba(5, 9, 20, 0.62) 100%);
+    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(60, 100, 200, 0.22), transparent 60%),
+    linear-gradient(165deg, #070d1c 0%, #050914 55%, #02040c 100%);
 }
 
 .ac-live-modal--cam .ac-live-modal__stars,
 .ac-live-modal--cam .ac-live-modal__aurora {
-  opacity: 0.22;
+  animation: none;
+  opacity: 0.14;
 }
 
 .ac-live-modal__stars,
@@ -3986,6 +3988,13 @@ a.ac-compass-cal__btn--direction {
   to {
     opacity: 1;
     transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ac-live-modal__stars,
+  .ac-live-modal__aurora {
+    animation: none;
   }
 }
 
@@ -5541,11 +5550,71 @@ a.ac-compass-cal__btn--direction {
   max-width: none;
   max-height: none;
   border-radius: 0;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(60, 100, 200, 0.22), transparent 60%),
+    linear-gradient(165deg, #070d1c 0%, #050914 55%, #02040c 100%);
   padding:
     max(0.45rem, env(safe-area-inset-top, 0px))
     max(0.55rem, env(safe-area-inset-right, 0px))
     max(0.55rem, env(safe-area-inset-bottom, 0px))
     max(0.55rem, env(safe-area-inset-left, 0px));
+}
+
+.ac-live-modal--fs .ac-live-modal__stars,
+.ac-live-modal--fs .ac-live-modal__aurora,
+.ac-live-modal:fullscreen .ac-live-modal__stars,
+.ac-live-modal:fullscreen .ac-live-modal__aurora,
+.ac-live-modal:-webkit-full-screen .ac-live-modal__stars,
+.ac-live-modal:-webkit-full-screen .ac-live-modal__aurora {
+  display: none;
+}
+
+.ac-live-modal--fs.ac-live-modal--cam :is(
+  .ac-live-modal__header,
+  .ac-live-modal__tools,
+  .ac-live-modal__filters,
+  .ac-live-modal__rate,
+  .ac-mag-filter--live,
+  .ac-live-empty,
+  .ac-live-id,
+  .ac-live-sheet,
+  .ac-live-info__cell,
+  .ac-live-dossier,
+  .ac-live-others__btn,
+  .ac-live-modal__dock
+),
+.ac-live-modal:fullscreen.ac-live-modal--cam :is(
+  .ac-live-modal__header,
+  .ac-live-modal__tools,
+  .ac-live-modal__filters,
+  .ac-live-modal__rate,
+  .ac-mag-filter--live,
+  .ac-live-empty,
+  .ac-live-id,
+  .ac-live-sheet,
+  .ac-live-info__cell,
+  .ac-live-dossier,
+  .ac-live-others__btn,
+  .ac-live-modal__dock
+),
+.ac-live-modal:-webkit-full-screen.ac-live-modal--cam :is(
+  .ac-live-modal__header,
+  .ac-live-modal__tools,
+  .ac-live-modal__filters,
+  .ac-live-modal__rate,
+  .ac-mag-filter--live,
+  .ac-live-empty,
+  .ac-live-id,
+  .ac-live-sheet,
+  .ac-live-info__cell,
+  .ac-live-dossier,
+  .ac-live-others__btn,
+  .ac-live-modal__dock
+) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(8, 14, 28, 0.88);
 }
 
 @media (max-width: 640px) {

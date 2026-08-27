@@ -24,14 +24,15 @@ interface UserPrefs {
   language: string;
   category: string;
   query: string;
-  provider: 'newsdata' | 'newsapi';
+  provider: 'newsdata' | 'newsapi' | 'rss';
   userTab: 'headlines' | 'search' | 'sources';
+  feeds?: string[];
 }
 
 /**
- * Global state for the "News ticker" feature. Toggled from the News page,
- * but rendered by the <app-news-ticker> component injected in AppComponent
- * so the scrolling banner appears on every route.
+ * Global state for the "News ticker" feature. Toggled from the News page.
+ * Rendered under the page title on Actualités, and as a fixed banner under
+ * the navbar on every other route.
  *
  * Persistence policy: the ticker is DELIBERATELY NOT persisted across page
  * reloads. It always starts OFF so that a fresh page load never triggers an
@@ -269,7 +270,8 @@ export class NewsTickerService implements OnDestroy {
       category: prefs.category || undefined,
       pageSize: NewsTickerService.PAGE_SIZE,
       page: 1,
-      provider: prefs.provider
+      provider: prefs.provider,
+      feeds: prefs.provider === 'rss' ? prefs.feeds : undefined
     }).subscribe({
       next: (resp) => {
         const articles = this.extractArticles(resp);
@@ -305,7 +307,8 @@ export class NewsTickerService implements OnDestroy {
       sortBy: 'publishedAt',
       pageSize: NewsTickerService.PAGE_SIZE,
       page: 1,
-      provider: prefs.provider
+      provider: prefs.provider,
+      feeds: prefs.provider === 'rss' ? prefs.feeds : undefined
     }).subscribe({
       next: (resp) => {
         this._articles$.next(this.extractArticles(resp));
@@ -350,21 +353,28 @@ export class NewsTickerService implements OnDestroy {
       category: '',
       query: '',
       provider: 'newsdata',
-      userTab: 'headlines'
+      userTab: 'headlines',
+      feeds: []
     };
     try {
-      const raw = localStorage.getItem('pat.news.filters.v5');
+      const raw = localStorage.getItem('pat.news.filters.v6')
+        || localStorage.getItem('pat.news.filters.v5');
       if (!raw) return defaults;
       const saved = JSON.parse(raw) || {};
+      const provider: UserPrefs['provider'] =
+        saved.provider === 'newsapi' || saved.provider === 'rss' ? saved.provider : 'newsdata';
       return {
         country: typeof saved.country === 'string' && saved.country ? saved.country : defaults.country,
         language: typeof saved.language === 'string' && saved.language ? saved.language : defaults.language,
         category: typeof saved.category === 'string' ? saved.category : '',
         query: typeof saved.query === 'string' ? saved.query : '',
-        provider: saved.provider === 'newsapi' ? 'newsapi' : 'newsdata',
+        provider,
         userTab: (saved.userTab === 'search' || saved.userTab === 'sources' || saved.userTab === 'headlines')
           ? saved.userTab
-          : 'headlines'
+          : 'headlines',
+        feeds: Array.isArray(saved.rssFeedUrls)
+          ? saved.rssFeedUrls.filter((u: unknown) => typeof u === 'string' && u)
+          : []
       };
     } catch {
       // ignore corrupted payloads; fall through to defaults

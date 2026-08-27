@@ -32,6 +32,7 @@ import {
 
 const CAM_HEIGHT_KEY = 'pat.relief-finder.cam-height-px';
 const RADIUS_KEY = 'pat.relief-finder.radius-km';
+const CAM_IMAGE_KEY = 'pat.relief-finder.cam-image';
 
 @Component({
   selector: 'app-relief-finder',
@@ -56,6 +57,7 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
   lookTracker!: CameraLookTracker;
   camLive = false;
   camDenied = false;
+  camImageOn = true;
   isFullscreen = false;
   camHeightPx: number | null = null;
   stream: MediaStream | null = null;
@@ -89,6 +91,7 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {
     this.lookTracker = new CameraLookTracker(this.zone, () => this.onLookUpdate());
     this.camHeightPx = loadCamHeightPx(CAM_HEIGHT_KEY);
+    this.camImageOn = loadCamImageOn();
     try {
       const stored = Number(localStorage.getItem(RADIUS_KEY));
       if (this.radiusOptions.includes(stored)) {
@@ -98,7 +101,9 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
       /* ignore */
     }
     void this.lookTracker.start(false);
-    void this.startCamera();
+    if (this.camImageOn) {
+      void this.startCamera();
+    }
     this.locateGps();
   }
 
@@ -126,6 +131,26 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  onCamImageToggle(ev: Event): void {
+    const on = (ev.target as HTMLInputElement).checked;
+    this.setCamImageOn(on);
+  }
+
+  setCamImageOn(on: boolean): void {
+    this.camImageOn = on;
+    try {
+      localStorage.setItem(CAM_IMAGE_KEY, on ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+    if (on) {
+      void this.startCamera();
+    } else {
+      this.stopCamera();
+    }
+    this.cdr.markForCheck();
+  }
+
   async startCamera(): Promise<void> {
     this.camDenied = false;
     try {
@@ -134,6 +159,10 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false
       });
+      if (!this.camImageOn) {
+        this.stopCamera();
+        return;
+      }
       await this.attachCameraStream();
     } catch {
       this.camDenied = true;
@@ -378,5 +407,13 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
 
   distLabel(peak: ReliefPeak): string {
     return peak.distKm >= 10 ? `${Math.round(peak.distKm)} km` : `${peak.distKm.toFixed(1)} km`;
+  }
+}
+
+function loadCamImageOn(): boolean {
+  try {
+    return localStorage.getItem(CAM_IMAGE_KEY) !== '0';
+  } catch {
+    return true;
   }
 }

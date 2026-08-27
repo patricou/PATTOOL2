@@ -4,12 +4,13 @@
      The subtitle was also removed by user request; the page title alone
      (country + category + provider, rebuilt by updateTitle()) is enough
      context. -->
-<div class="pat-title">
+<div class="pat-title" [class.news-title--ticker]="tickerEnabled">
     <h2>
         <i class="fa fa-newspaper-o me-2"></i>
         {{ newsTitle || ('NEWS.PAGE_TITLE' | translate) }}
     </h2>
 </div>
+<app-news-ticker *ngIf="tickerEnabled"></app-news-ticker>
 
 <!-- Main Content -->
 <div class="container mt-0 news-container">
@@ -44,7 +45,7 @@
                 <i class="fa" [class.fa-chevron-down]="!filtersCollapsed" [class.fa-chevron-right]="filtersCollapsed"></i>
                 <span>{{ 'NEWS.FILTERS_SECTION' | translate }}</span>
                 <span class="news-filters-collapse-summary" *ngIf="filtersCollapsed">
-                    · {{ (provider === 'newsdata' ? 'NEWS.PROVIDER_NEWSDATA' : 'NEWS.PROVIDER_NEWSAPI') | translate }}
+                    · {{ providerLabelKey() | translate }}
                     · {{ ('NEWS.TAB_' + userTab.toUpperCase()) | translate }}
                     <ng-container *ngIf="userTab === 'search' && query"> · "{{ query }}"</ng-container>
                     <ng-container *ngIf="country"> · {{ getCountryFlag(country) }} {{ getCountryName(country) }}</ng-container>
@@ -97,6 +98,25 @@
                             (click)="openProviderHelp('newsapi')"
                             [title]="isFrenchUi ? 'Comment marchent les filtres ?' : 'How do the filters work?'"
                             [attr.aria-label]="isFrenchUi ? 'Aide NewsAPI' : 'NewsAPI help'">
+                        <i class="fa fa-question-circle"></i>
+                    </button>
+                </div>
+                <div class="news-provider-group">
+                    <button type="button"
+                            class="news-provider"
+                            [class.news-provider-active]="provider === 'rss'"
+                            (click)="setProvider('rss')"
+                            role="tab"
+                            [attr.aria-selected]="provider === 'rss'"
+                            [title]="'NEWS.PROVIDER_RSS_HINT' | translate">
+                        <i class="fa fa-rss"></i>
+                        <span>{{ 'NEWS.PROVIDER_RSS' | translate }}</span>
+                    </button>
+                    <button type="button"
+                            class="news-provider-help"
+                            (click)="openProviderHelp('rss')"
+                            [title]="isFrenchUi ? 'Comment marchent les flux RSS ?' : 'How do RSS feeds work?'"
+                            [attr.aria-label]="isFrenchUi ? 'Aide RSS' : 'RSS help'">
                         <i class="fa fa-question-circle"></i>
                     </button>
                 </div>
@@ -220,6 +240,63 @@
                         <i class="fa fa-undo"></i>
                         <span>{{ 'NEWS.FILTERS_RESET' | translate }}</span>
                     </button>
+                </div>
+
+                <div class="rss-toolbar" *ngIf="provider === 'rss'">
+                    <div class="filter-item rss-feed-select">
+                        <label for="news-rss-feed">
+                            <i class="fa fa-rss"></i> {{ 'NEWS.RSS_FEED' | translate }}
+                        </label>
+                        <select id="news-rss-feed"
+                                class="form-control"
+                                [(ngModel)]="rssFeedId"
+                                (ngModelChange)="onRssFeedChange()">
+                            <option value="">{{ 'NEWS.RSS_FEED_ALL' | translate }}</option>
+                            <optgroup *ngFor="let group of rssFeedsGrouped" [label]="rssGroupLabel(group.category)">
+                                <option *ngFor="let feed of group.feeds" [value]="feed.id">
+                                    {{ feed.name }}
+                                </option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="rss-add">
+                        <label for="news-rss-add">{{ 'NEWS.RSS_ADD_LABEL' | translate }}</label>
+                        <div class="rss-add-row">
+                            <input id="news-rss-add"
+                                   type="text"
+                                   class="form-control"
+                                   [(ngModel)]="rssAddQuery"
+                                   (keyup.enter)="searchRssToAdd()"
+                                   [placeholder]="'NEWS.RSS_ADD_PLACEHOLDER' | translate">
+                            <button type="button"
+                                    class="btn btn-sm btn-primary"
+                                    (click)="searchRssToAdd()"
+                                    [disabled]="rssSearching || rssAddQuery.trim().length < 2">
+                                <i class="fa" [class.fa-search]="!rssSearching" [class.fa-spinner]="rssSearching" [class.fa-spin]="rssSearching"></i>
+                                {{ 'NEWS.RSS_ADD_SEARCH' | translate }}
+                            </button>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-secondary"
+                                    (click)="refreshRssCatalog()"
+                                    [disabled]="rssRefreshingCatalog"
+                                    [title]="'NEWS.RSS_REFRESH_LIST_HINT' | translate">
+                                <i class="fa" [class.fa-refresh]="!rssRefreshingCatalog" [class.fa-spinner]="rssRefreshingCatalog" [class.fa-spin]="rssRefreshingCatalog"></i>
+                                {{ 'NEWS.RSS_REFRESH_LIST' | translate }}
+                            </button>
+                        </div>
+                    </div>
+                    <ul class="rss-search-results" *ngIf="rssSearchResults.length">
+                        <li *ngFor="let hit of rssSearchResults">
+                            <div class="rss-search-meta">
+                                <strong>{{ hit.name }}</strong>
+                                <span *ngIf="hit.origin" class="badge bg-light text-dark">{{ hit.origin }}</span>
+                                <small *ngIf="hit.feedUrl">{{ hit.feedUrl }}</small>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" (click)="addRssFeed(hit)">
+                                {{ 'NEWS.RSS_ADD_CONFIRM' | translate }}
+                            </button>
+                        </li>
+                    </ul>
                 </div>
 
                 <!-- =================================================
@@ -432,6 +509,15 @@
                         <i class="fa fa-book"></i>
                         {{ 'NEWS.PAGE' | translate }} {{ page }} / {{ totalPages }}
                     </span>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary news-slideshow-btn"
+                            *ngIf="slideshowArticles().length"
+                            (click)="openNewsSlideshow()"
+                            [title]="'NEWS.SLIDESHOW_HINT' | translate">
+                        <i class="fa fa-picture-o"></i>
+                        {{ 'NEWS.SLIDESHOW' | translate }}
+                        <span *ngIf="slideshowArticles().length > 1">({{ slideshowArticles().length }})</span>
+                    </button>
                 </div>
 
                 <!-- Empty state -->
@@ -456,12 +542,20 @@
                              (keyup.enter)="openArticle(article)"
                              tabindex="0">
 
-                        <div class="news-card-media">
+                        <div class="news-card-media"
+                             [class.news-card-media-clickable]="canOpenNewsSlideshow(article)"
+                             (click)="onArticleImageClick(article, $event)">
                             <img *ngIf="shouldShowImage(article); else placeholder"
                                  [src]="getProxiedImageUrl(article.urlToImage!)"
                                  [alt]="article.title || ''"
                                  loading="lazy"
                                  (error)="onImgError(article)">
+                            <span class="news-card-media-zoom"
+                                  *ngIf="canOpenNewsSlideshow(article)"
+                                  [title]="'NEWS.OPEN_SLIDESHOW' | translate"
+                                  aria-hidden="true">
+                                <i class="fa fa-search-plus"></i>
+                            </span>
                             <ng-template #placeholder>
                                 <div class="news-card-placeholder"
                                      [style.background]="getPlaceholderGradient(article)">
@@ -492,6 +586,14 @@
                                     <i class="fa fa-user-o"></i> {{ article.author }}
                                 </span>
                                 <div class="news-card-actions">
+                                    <button type="button"
+                                            class="icon-btn"
+                                            *ngIf="canOpenNewsSlideshow(article)"
+                                            (click)="openNewsSlideshow(article, $event)"
+                                            [title]="'NEWS.OPEN_SLIDESHOW' | translate"
+                                            [attr.aria-label]="'NEWS.OPEN_SLIDESHOW' | translate">
+                                        <i class="fa fa-picture-o"></i>
+                                    </button>
                                     <button type="button"
                                             class="icon-btn icon-btn-ai"
                                             *ngIf="isAssistantUser()"
@@ -529,8 +631,10 @@
 
                 <!-- Sources grid -->
                 <div class="news-sources-grid" *ngIf="mode === 'sources' && sources.length > 0">
-                    <div class="source-card" *ngFor="let src of sources">
-                        <h4><i class="fa fa-rss"></i> {{ src.name }}</h4>
+                    <div class="source-card" *ngFor="let src of sources" [class.source-card-clickable]="provider === 'rss'">
+                        <h4 (click)="provider === 'rss' ? openRssSource(src) : null">
+                            <i class="fa fa-rss"></i> {{ src.name }}
+                        </h4>
                         <p *ngIf="src.description">{{ src.description }}</p>
                         <div class="source-meta">
                             <span class="badge bg-light text-dark" *ngIf="src.category">
@@ -542,14 +646,32 @@
                             <span class="badge bg-light text-dark" *ngIf="src.country">
                                 {{ getCountryFlag(src.country) }} {{ src.country | uppercase }}
                             </span>
+                            <span class="badge bg-info text-dark" *ngIf="src.custom">
+                                {{ 'NEWS.RSS_CUSTOM' | translate }}
+                            </span>
                         </div>
-                        <a *ngIf="src.url"
-                           [href]="src.url"
-                           target="_blank"
-                           rel="noopener noreferrer"
-                           class="source-link">
-                            <i class="fa fa-external-link"></i> {{ 'NEWS.VISIT_SOURCE' | translate }}
-                        </a>
+                        <div class="source-card-actions">
+                            <a *ngIf="src.url"
+                               [href]="src.url"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="source-link"
+                               (click)="$event.stopPropagation()">
+                                <i class="fa fa-external-link"></i> {{ 'NEWS.VISIT_SOURCE' | translate }}
+                            </a>
+                            <button *ngIf="provider === 'rss'"
+                                    type="button"
+                                    class="btn btn-sm btn-outline-primary"
+                                    (click)="openRssSource(src)">
+                                {{ 'NEWS.RSS_OPEN_FEED' | translate }}
+                            </button>
+                            <button *ngIf="provider === 'rss'"
+                                    type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    (click)="removeRssFeed(src, $event)">
+                                {{ 'NEWS.RSS_REMOVE' | translate }}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -589,12 +711,13 @@
     <div class="modal-header news-help-header">
         <h5 class="modal-title" id="news-help-title">
             <i class="fa" [class.fa-bolt]="helpProvider === 'newsdata'"
-                          [class.fa-newspaper-o]="helpProvider === 'newsapi'"></i>
+                          [class.fa-newspaper-o]="helpProvider === 'newsapi'"
+                          [class.fa-rss]="helpProvider === 'rss'"></i>
             <ng-container *ngIf="isFrenchUi; else titleEn">
-                Aide — {{ helpProvider === 'newsdata' ? 'NewsData.io' : 'NewsAPI' }}
+                Aide — {{ helpProvider === 'newsdata' ? 'NewsData.io' : helpProvider === 'rss' ? 'RSS' : 'NewsAPI' }}
             </ng-container>
             <ng-template #titleEn>
-                Help — {{ helpProvider === 'newsdata' ? 'NewsData.io' : 'NewsAPI' }}
+                Help — {{ helpProvider === 'newsdata' ? 'NewsData.io' : helpProvider === 'rss' ? 'RSS' : 'NewsAPI' }}
             </ng-template>
         </h5>
         <button type="button" class="btn-close" (click)="closeProviderHelp()"
@@ -605,6 +728,23 @@
 
         <!-- =================== FRENCH ================= -->
         <ng-container *ngIf="isFrenchUi">
+            <ng-container *ngIf="helpProvider === 'rss'">
+                <p class="news-help-lead">
+                    <strong>RSS</strong> lit des flux publics (titre + lien, parfois un extrait),
+                    sans clé API ni quota. Un catalogue de journaux est fourni par défaut
+                    (Courrier International, Le Monde, BBC…).
+                </p>
+                <ul>
+                    <li><strong>Flux</strong> : un journal précis, ou « Tous les flux visibles » (mélange jusqu'à 8 flux).</li>
+                    <li><strong>Ajouter</strong> : tape un mot-clé (<em>Courrier International</em>) ou colle l'URL
+                        d'un flux (<code>…/rss.xml</code>) ou d'un site — PatTool cherche le flux.</li>
+                    <li><strong>Rafraîchir la liste</strong> : recharge le catalogue par défaut. Tes ajouts manuels restent.</li>
+                    <li><strong>Sources</strong> : toute la liste ; « Lire ce flux » l'ouvre, « Retirer » le cache.</li>
+                    <li><strong>Images</strong> : un clic sur la photo (ou le bouton Diaporama) l'ouvre dans le diaporama, avec les autres images du résultat.</li>
+                    <li>Le texte intégral payant n'est pas dans le RSS : le clic ouvre l'article chez l'éditeur.</li>
+                </ul>
+            </ng-container>
+            <ng-container *ngIf="helpProvider !== 'rss'">
             <p class="news-help-lead">
                 <strong>En bref</strong> : tu choisis une <em>source</em> (NewsData.io ou NewsAPI),
                 tu choisis un <em>mode</em> (À la une ou Rechercher), puis tu affines avec les filtres.
@@ -666,7 +806,8 @@
                     pas le texte intégral. Clique sur le titre pour ouvrir l'article complet chez la
                     source.</li>
                 <li><strong>Images</strong> : certains articles n'ont pas d'image de couverture (selon
-                    la source). Une image par défaut est affichée le cas échéant.</li>
+                    la source). Une image par défaut est affichée le cas échéant.
+                    Un clic sur la photo (ou le bouton Diaporama) l'ouvre dans le diaporama.</li>
                 <li><strong>Doublons</strong> : quand plusieurs sites d'un même groupe (ex. groupe EBRA :
                     Le Journal, DNA, L'Alsace) republient la même dépêche AFP, on les supprime automatiquement
                     (côté NewsData + déduplication post-traitement locale).</li>
@@ -707,6 +848,8 @@
                 <li><strong>Contenu tronqué</strong> : la description et le contenu renvoyés par NewsAPI
                     sont coupés à environ 200 caractères (mention <em>[+1234 chars]</em> à la fin).
                     Pour lire l'article complet, il faut cliquer sur le titre pour ouvrir le site source.</li>
+                <li><strong>Images</strong> : un clic sur la photo (ou le bouton Diaporama) l'ouvre dans
+                    le diaporama, avec les autres images du résultat.</li>
                 <li><strong>Sources</strong> : environ 150 sources indexées dans le monde, surtout
                     anglophones et européennes. Des médias exotiques ou régionaux peuvent manquer.</li>
                 <li><strong>Combinaisons croisées non garanties</strong> : toutes les combinaisons
@@ -722,10 +865,28 @@
                 (dates, catégorie, langue) et vois ce qui revient. Le bouton <em>Réinitialiser</em> remet
                 tout à zéro.
             </div>
+            </ng-container>
         </ng-container>
 
         <!-- =================== ENGLISH ================ -->
         <ng-container *ngIf="!isFrenchUi">
+            <ng-container *ngIf="helpProvider === 'rss'">
+                <p class="news-help-lead">
+                    <strong>RSS</strong> reads public feeds (title + link, sometimes an excerpt)
+                    with no API key and no quota. A default catalogue of newspapers is included
+                    (Courrier International, Le Monde, BBC…).
+                </p>
+                <ul>
+                    <li><strong>Feed</strong>: one outlet, or “All visible feeds” (mix of up to 8 feeds).</li>
+                    <li><strong>Add</strong>: type a keyword (<em>Courrier International</em>) or paste a feed URL
+                        (<code>…/rss.xml</code>) or a site — PatTool looks up the feed.</li>
+                    <li><strong>Refresh list</strong>: reloads the default catalogue. Feeds you added are kept.</li>
+                    <li><strong>Sources</strong>: the full list; “Read this feed” opens it, “Remove” hides it.</li>
+                    <li><strong>Images</strong>: click the photo (or Slideshow) to open it in the slideshow, with the other images from this result.</li>
+                    <li>Paywalled full text is not in RSS: the click opens the publisher’s article.</li>
+                </ul>
+            </ng-container>
+            <ng-container *ngIf="helpProvider !== 'rss'">
             <p class="news-help-lead">
                 <strong>In a nutshell</strong>: pick a <em>source</em> (NewsData.io or NewsAPI),
                 pick a <em>mode</em> (Headlines or Search), then refine with the filters.
@@ -786,7 +947,8 @@
                 <li><strong>Partial content</strong>: articles only include a short summary, not the
                     full text. Click the title to open the full story on the source site.</li>
                 <li><strong>Images</strong>: some articles don't ship with a cover image (depends on
-                    the source). A fallback is shown when missing.</li>
+                    the source). A fallback is shown when missing.
+                    Click the photo (or Slideshow) to open it in the slideshow.</li>
                 <li><strong>Duplicates</strong>: when several sites of the same press group (e.g.
                     France's EBRA group: Le Journal, DNA, L'Alsace) repost the exact same AFP wire,
                     we automatically keep only one copy (NewsData-side + local post-dedup).</li>
@@ -826,6 +988,8 @@
                 <li><strong>Truncated content</strong>: NewsAPI only returns ~200 characters of
                     description/content (ending in <em>[+1234 chars]</em>). To read the full
                     article, click the title to open the source site.</li>
+                <li><strong>Images</strong>: click the photo (or Slideshow) to open it in the
+                    slideshow, with the other images from this result.</li>
                 <li><strong>Sources</strong>: about 150 indexed outlets worldwide, mostly
                     English-speaking and European. Niche or regional media may be missing.</li>
                 <li><strong>Cross-filter combinations are not guaranteed</strong>: not every
@@ -841,6 +1005,7 @@
                 (dates, category, language) and see what comes back. The <em>Reset</em> button clears
                 everything.
             </div>
+            </ng-container>
         </ng-container>
     </div>
 
@@ -851,3 +1016,5 @@
         </button>
     </div>
 </ng-template>
+
+<app-slideshow-modal #slideshowModalComponent></app-slideshow-modal>

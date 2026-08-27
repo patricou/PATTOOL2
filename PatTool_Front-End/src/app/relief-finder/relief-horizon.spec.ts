@@ -2,9 +2,10 @@ import {
   sampleHorizonEl,
   silhouetteFillPath,
   silhouetteScreenPoints,
-  silhouetteStrokePath
+  silhouetteStrokePath,
+  projectVisiblePeaks
 } from './relief-horizon';
-import type { ReliefHorizon } from './relief-horizon';
+import type { ReliefHorizon, ReliefPeak } from './relief-horizon';
 
 function dummyHorizon(els: number[], step = 1): ReliefHorizon {
   return {
@@ -43,5 +44,42 @@ describe('relief-horizon', () => {
     expect(fill.endsWith('Z')).toBeTrue();
     expect(stroke.startsWith('M')).toBeTrue();
     expect(stroke.includes('Z')).toBeFalse();
+  });
+
+  it('keeps one vertical label when two peaks share nearly the same azimuth', () => {
+    const high: ReliefPeak = {
+      name: 'Mont Blanc',
+      lat: 45.83,
+      lon: 6.86,
+      eleM: 4808,
+      azDeg: 90,
+      elDeg: 8,
+      distKm: 40,
+      visible: true
+    };
+    const low: ReliefPeak = {
+      ...high,
+      name: 'Hill',
+      eleM: 1200,
+      azDeg: 91,
+      elDeg: 4
+    };
+    const labels = projectVisiblePeaks([high, low], 90, 0, 60, 40);
+    expect(labels.length).toBe(1);
+    expect(labels[0].peak.name).toBe('Mont Blanc');
+  });
+
+  it('omits peaks hidden behind the DEM horizon', () => {
+    const hidden: ReliefPeak = {
+      name: 'Hidden',
+      lat: 46,
+      lon: 7,
+      eleM: 3000,
+      azDeg: 10,
+      elDeg: 5,
+      distKm: 20,
+      visible: false
+    };
+    expect(projectVisiblePeaks([hidden], 10, 0, 60, 40).length).toBe(0);
   });
 });

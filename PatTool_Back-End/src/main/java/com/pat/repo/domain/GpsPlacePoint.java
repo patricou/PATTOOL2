@@ -1,7 +1,7 @@
 package com.pat.repo.domain;
 
 /**
- * Named place used as GPS route start/end.
+ * Named place used as GPS route start, intermediate stop, or end.
  */
 public class GpsPlacePoint {
 

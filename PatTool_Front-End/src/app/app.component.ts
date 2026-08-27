@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild, HostListener, TemplateRef, ChangeDetectorRef, ApplicationRef } from '@angular/core';
+import { Component, ElementRef, OnInit, AfterViewInit, ViewChild, HostListener, TemplateRef, ChangeDetectorRef, ApplicationRef } from '@angular/core';
 import { of, Subscription } from 'rxjs';
 import { take, catchError, filter } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
@@ -102,7 +102,7 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     standalone: true,
     imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent, AssistantDrawerComponent, TvFloatingPlayerComponent, RadioFloatingPlayerComponent, ArchiveFloatingPlayerComponent, YoutubeFloatingPlayerComponent]
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, AfterViewInit {
 
     @ViewChild('usercontent') usercontent!: TemplateRef<any>;
 
@@ -188,6 +188,9 @@ export class AppComponent implements OnInit {
 
     /** True while the global news ticker banner is visible (pushed by NewsTickerService). */
     public newsTickerEnabled: boolean = false;
+    /** News page hosts the ticker under the title, so the global fixed banner is hidden. */
+    public isNewsRoute = false;
+    private navbarOffsetRaf = 0;
     /** True while the global currency-rate ticker banner is visible (pushed by CurrencyTickerService). */
     public currencyTickerEnabled: boolean = false;
     /** True while the global stock-quote ticker banner is visible (pushed by StockTickerService). */
@@ -337,10 +340,65 @@ export class AppComponent implements OnInit {
         this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe((e) => {
             this.updateTvPopoutMode();
             this.updateStarrySkyPage();
+            this.updateNewsRoute(e.urlAfterRedirects || e.url);
             this.lastRoute.remember(e.urlAfterRedirects || e.url);
         });
         this.updateTvPopoutMode();
         this.updateStarrySkyPage();
+        this.updateNewsRoute();
+    }
+
+    ngAfterViewInit(): void {
+        this.syncNavbarOffset();
+    }
+
+    @HostListener('window:resize')
+    onWindowResizeNavbarOffset(): void {
+        this.scheduleNavbarOffsetSync();
+    }
+
+    /**
+     * The menu bar is taller than --navbar-height (60px) because of Bootstrap
+     * padding and the calculator FAB. Tickers use --navbar-offset so the first
+     * scrolling line is not hidden under the navbar.
+     */
+    private scheduleNavbarOffsetSync(): void {
+        if (this.navbarOffsetRaf) {
+            cancelAnimationFrame(this.navbarOffsetRaf);
+        }
+        this.navbarOffsetRaf = requestAnimationFrame(() => {
+            this.navbarOffsetRaf = 0;
+            this.syncNavbarOffset();
+        });
+    }
+
+    private syncNavbarOffset(): void {
+        try {
+            const nav = document.querySelector('nav.navbar.fixed-top') as HTMLElement | null;
+            if (!nav) {
+                return;
+            }
+            const collapse = nav.querySelector('.navbar-collapse');
+            const expanded = !!collapse && collapse.classList.contains('show');
+            let h: number;
+            if (expanded) {
+                const navTop = nav.getBoundingClientRect().top;
+                const brand = nav.querySelector('.navbar-brand') as HTMLElement | null;
+                const toggler = nav.querySelector('.navbar-toggler') as HTMLElement | null;
+                const bottom = Math.max(
+                    brand?.getBoundingClientRect().bottom ?? navTop,
+                    toggler?.getBoundingClientRect().bottom ?? navTop
+                );
+                h = Math.round(bottom - navTop);
+            } else {
+                h = Math.round(nav.getBoundingClientRect().height);
+            }
+            if (h >= 48 && h <= 140) {
+                document.documentElement.style.setProperty('--navbar-offset', `${h}px`);
+            }
+        } catch {
+            /* SSR / missing nav */
+        }
     }
 
     private updateTvPopoutMode(): void {
@@ -351,6 +409,14 @@ export class AppComponent implements OnInit {
         } catch {
             /* ignore */
         }
+        this.cdr.markForCheck();
+    }
+
+    /** Page Actualités : le bandeau ACTU est rendu sous le titre, pas sous la navbar. */
+    private updateNewsRoute(url?: string): void {
+        const u = url ?? this.router.url ?? '';
+        this.isNewsRoute = /(?:^|\/)api\/news(?:\/|$|\?|#)/.test(u);
+        this.updateTickerBodyClasses();
         this.cdr.markForCheck();
     }
 
@@ -375,7 +441,7 @@ export class AppComponent implements OnInit {
     private updateTickerBodyClasses(): void {
         try {
             const body = document.body;
-            body.classList.toggle('pat-has-news-ticker', this.newsTickerEnabled);
+            body.classList.toggle('pat-has-news-ticker', this.newsTickerEnabled && !this.isNewsRoute);
             body.classList.toggle('pat-has-currency-ticker', this.currencyTickerEnabled);
             body.classList.toggle('pat-has-stock-ticker', this.stockTickerEnabled);
         } catch {
@@ -2162,6 +2228,7 @@ export class AppComponent implements OnInit {
 
     toggleMobileMenu(): void {
         this.isMenuCollapsed = !this.isMenuCollapsed;
+        this.scheduleNavbarOffsetSync();
         // Close dropdowns when toggling mobile menu
         this.showEventsDropdown = false;
         this.showToolsDropdown = false;

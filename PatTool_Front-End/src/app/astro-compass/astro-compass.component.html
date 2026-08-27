@@ -2202,12 +2202,12 @@
           preserveAspectRatio="none"
           aria-hidden="true">
           <polyline
-            *ngFor="let pts of autoDetectRadarFigureStrokes"
+            *ngFor="let pts of autoDetectRadarFigureStrokes; trackBy: trackAutoDetectRadarStroke"
             class="ac-live-radar__figure-line"
             [attr.points]="pts"
             [attr.stroke]="hit.color"></polyline>
           <circle
-            *ngFor="let d of autoDetectRadarFigureDots"
+            *ngFor="let d of autoDetectRadarFigureDots; trackBy: trackAutoDetectRadarDot"
             class="ac-live-radar__figure-dot"
             [attr.cx]="d.x"
             [attr.cy]="d.y"

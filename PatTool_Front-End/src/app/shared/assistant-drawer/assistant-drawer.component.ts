@@ -1793,7 +1793,7 @@ export class AssistantDrawerComponent
     return ticker;
   }
 
-  /** Même empilement que les CSS news/currency/stock ticker (anchors à 56px). */
+  /** Même empilement que les CSS news/currency/stock ticker (navbar 60, news 64). */
   private static computeFabTopBelowNavAndTickers(
     news: boolean,
     currency: boolean,
@@ -1801,18 +1801,18 @@ export class AssistantDrawerComponent
   ): number {
     let stackBottom = AssistantDrawerComponent.NAV_BOTTOM_PX;
     if (news) {
-      stackBottom = Math.max(stackBottom, 112);
+      stackBottom = Math.max(stackBottom, 124);
     }
     if (currency) {
-      const currencyTop = news ? 112 : 56;
+      const currencyTop = news ? 124 : 56;
       stackBottom = Math.max(stackBottom, currencyTop + 40);
     }
     if (stock) {
       let stockTop = 56;
       if (news && currency) {
-        stockTop = 152;
+        stockTop = 164;
       } else if (news) {
-        stockTop = 112;
+        stockTop = 124;
       } else if (currency) {
         stockTop = 96;
       }

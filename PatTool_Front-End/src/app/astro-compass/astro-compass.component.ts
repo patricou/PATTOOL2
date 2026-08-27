@@ -161,6 +161,8 @@ const OS_MAG_PULL = 0.05;
 const PITCH_SMOOTH_ALPHA = 0.22;
 /** Cône d'auto-détection autour de la direction du téléphone. */
 const AUTO_DETECT_MAX_SEP_DEG = 15;
+/** Marge pour ne pas alterner entre deux astres proches (bruit cap / constellation). */
+const AUTO_DETECT_STICK_DEG = 2.8;
 const AUTO_DETECT_TOP_N = 8;
 /** Séparation attribuée à la constellation qui contient la visée (les astres plus proches gagnent). */
 const AUTO_DETECT_CONSTELLATION_REGION_SEP_DEG = 7;
@@ -1540,21 +1542,55 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private scrollPastPageTitle(): void {
-    const title = this.hostEl.nativeElement.querySelector('.pat-title') as HTMLElement | null;
-    if (!title) {
-      return;
-    }
-    const chromeBottom = this.fixedChromeBottom();
-    const need = Math.ceil(title.getBoundingClientRect().bottom - chromeBottom + 6);
-    if (need <= 0) {
+    const next = this.pageTitleHideScrollTop();
+    if (next == null) {
       return;
     }
     const se = document.scrollingElement || document.documentElement;
-    const next = Math.max(0, (se.scrollTop || window.scrollY || 0) + need);
+    const current = se.scrollTop || window.scrollY || 0;
+    if (next <= current) {
+      return;
+    }
     se.scrollTop = next;
     document.documentElement.scrollTop = next;
     document.body.scrollTop = next;
     window.scrollTo(0, next);
+  }
+
+  /**
+   * Après un choix dans une rubrique : remonte vers le viseur, en laissant
+   * le bandeau titre hors écran (même position qu’à l’ouverture de la page).
+   */
+  private scrollToCompassHidingTitle(): void {
+    this.zone.runOutsideAngular(() => {
+      requestAnimationFrame(() => {
+        const target = this.pageTitleHideScrollTop();
+        if (target == null) {
+          return;
+        }
+        const se = document.scrollingElement || document.documentElement;
+        const current = se.scrollTop || window.scrollY || 0;
+        if (Math.abs(current - target) < 2) {
+          return;
+        }
+        const reduce =
+          typeof matchMedia === 'function' &&
+          matchMedia('(prefers-reduced-motion: reduce)').matches;
+        window.scrollTo({ top: target, behavior: reduce ? 'auto' : 'smooth' });
+      });
+    });
+  }
+
+  /** ScrollY où le bandeau .pat-title est juste sous la navbar / les tickers. */
+  private pageTitleHideScrollTop(): number | null {
+    const title = this.hostEl.nativeElement.querySelector('.pat-title') as HTMLElement | null;
+    if (!title) {
+      return null;
+    }
+    const se = document.scrollingElement || document.documentElement;
+    const current = se.scrollTop || window.scrollY || 0;
+    const titleBottomDoc = current + title.getBoundingClientRect().bottom;
+    return Math.max(0, Math.ceil(titleBottomDoc - this.fixedChromeBottom() + 6));
   }
 
   private fixedChromeBottom(): number {
@@ -1685,6 +1721,13 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.camStream || !videos.length) {
       return;
     }
+    const alreadyBound = videos.every((video) => video.srcObject === this.camStream);
+    const livePlaying = videos.some(
+      (video) => !video.paused && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+    );
+    if (alreadyBound && this.camLive && livePlaying && !this.cameraShouldBeFrozen()) {
+      return;
+    }
     try {
       for (const video of videos) {
         if (video.srcObject !== this.camStream) {
@@ -1710,6 +1753,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     for (const video of this.cameraVideoEls()) {
+      if (!video.paused && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        continue;
+      }
       try {
         await video.play();
       } catch {
@@ -4616,7 +4662,18 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       fov.hfov,
       fov.vfov
     );
-    return { xPct: proj.xPct, yPct: proj.yPct };
+    return {
+      xPct: Math.round(proj.xPct * 5) / 5,
+      yPct: Math.round(proj.yPct * 5) / 5
+    };
+  }
+
+  trackAutoDetectRadarStroke(index: number): number {
+    return index;
+  }
+
+  trackAutoDetectRadarDot(index: number): number {
+    return index;
   }
 
   get autoDetectRadarFigureStrokes(): string[] {
@@ -4830,7 +4887,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         this.autoDetectCacheAtMs = now;
       }
 
-      const hits = this.rankCachedSkyHits(lookAz, lookEl);
+      const hits = this.stickAutoDetectHits(this.rankCachedSkyHits(lookAz, lookEl));
       this.autoDetectHits = hits;
       this.autoDetectLookAz = lookAz;
       this.autoDetectLookEl = lookEl;
@@ -4953,6 +5010,28 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return this.selectedKind === 'constellation' && this.selectedConstellationId === hit.id;
     }
     return this.selectedKind === 'iss' && this.selectedSatelliteId === hit.id;
+  }
+
+  /** Garde l’astre courant tant qu’un concurrent n’est pas franchement plus proche. */
+  private stickAutoDetectHits(hits: AutoDetectHit[]): AutoDetectHit[] {
+    if (hits.length < 2) {
+      return hits;
+    }
+    const lastKey = this.autoDetectLastAppliedKey;
+    if (!lastKey) {
+      return hits;
+    }
+    const currentIdx = hits.findIndex((h) => h.kind + ':' + h.id === lastKey);
+    if (currentIdx <= 0) {
+      return hits;
+    }
+    const current = hits[currentIdx];
+    const best = hits[0];
+    if (best.separationDeg + AUTO_DETECT_STICK_DEG < current.separationDeg) {
+      return hits;
+    }
+    const rest = hits.filter((_, i) => i !== currentIdx);
+    return [current, ...rest];
   }
 
   private rankCachedSkyHits(lookAz: number, lookEl: number): AutoDetectHit[] {
@@ -5572,6 +5651,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.userChoseTarget = true;
       if (this.finderPoseFrozen) {
         this.clearFinderPose(false);
+      }
+      if (this.persistUserTarget && !this.autoDetectLive && !this.autoDetectModalOpen) {
+        this.scrollToCompassHidingTitle();
       }
     }
   }

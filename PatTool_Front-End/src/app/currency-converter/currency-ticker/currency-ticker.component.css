@@ -3,13 +3,13 @@
  * items are duplicated in the template so translating by -50% loops.
  *
  * Stacking:
- *   - Default `top` = navbar height (56px).
+ *   - Default `top` = measured navbar (`--navbar-offset`).
  *   - When the news ticker is also visible, AppComponent adds
- *     `body.pat-has-news-ticker` which bumps the top to 56 + 56 = 112px.
+ *     `body.pat-has-news-ticker` which stacks this banner underneath.
  */
 .currency-ticker {
     position: fixed;
-    top: 56px;
+    top: var(--navbar-offset, var(--navbar-height, 60px));
     left: 0;
     right: 0;
     z-index: 1019;
@@ -26,7 +26,7 @@
 }
 
 :host-context(body.pat-has-news-ticker) .currency-ticker {
-    top: 112px;
+    top: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px));
 }
 
 .currency-ticker-label {

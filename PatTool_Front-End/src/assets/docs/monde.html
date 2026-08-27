@@ -72,7 +72,7 @@
                     <tr><th>Outil</th><th>Route</th><th>Usage</th></tr>
                     <tr><td><strong>Position / Météo</strong></td><td><code class="doc-code">#/api/openweathermap</code></td><td>Géolocalisation ou ville saisie ; météo actuelle et prévisions ; carte ; baguette → assistant avec « ville, pays »</td></tr>
                     <tr><td><strong>Adresse / GPS → carte</strong></td><td><code class="doc-code">#/api/address-geocode</code></td><td>Géocodage d'une adresse ou coordonnées → carte Leaflet</td></tr>
-                    <tr><td><strong>GPS / Itinéraire</strong></td><td><code class="doc-code">#/api/gps-routing</code></td><td>Itinéraire A→B (voiture, vélo, à pied) via OpenRouteService ; carte Leaflet + instructions</td></tr>
+                    <tr><td><strong>GPS / Itinéraire</strong></td><td><code class="doc-code">#/api/gps-routing</code></td><td>Itinéraire A→B avec étapes intermédiaires (voiture, vélo, à pied) via OpenRouteService ; carte Leaflet + instructions</td></tr>
                     <tr><td><strong>Trace GPX</strong></td><td><code class="doc-code">#/api/gpx-trace</code></td><td>Chargement d'un fichier GPX : carte, profil altimétrique, distance, dénivelé, vitesse, waypoints et métadonnées</td></tr>
                     <tr><td><strong>Relief finder</strong></td><td><code class="doc-code">#/tools/relief-finder</code></td><td>Viseur de sommets : silhouette DEM 360° (tuiles Terrarium) et noms OSM collés sur la caméra, avec le nord et l’élévation du viseur</td></tr>
                     <tr><td><strong>Fuseaux horaires</strong></td><td><code class="doc-code">#/api/timezone-converter</code></td><td>Conversion date/heure entre fuseaux, référence UTC</td></tr>
@@ -83,7 +83,8 @@
                 <h2>Actualités</h2>
                 <p>Route : <code class="doc-code">#/api/news</code></p>
                 <ul>
-                    <li>Flux multi-fournisseurs (quota, délai et pays documentés par source)</li>
+                    <li>Trois fournisseurs : NewsData.io, NewsAPI, et <strong>RSS</strong> (catalogue de flux publics, sans clé ni quota)</li>
+                    <li>RSS : liste par défaut (Courrier International, Le Monde, BBC…) ; ajout par mot-clé ou URL ; rafraîchissement du catalogue</li>
                     <li>Filtres : pays, langue, catégorie, recherche texte</li>
                     <li><strong>Bandeau défilant</strong> optionnel en haut de l'application (ticker)</li>
                     <li>Bouton <strong>Assistant</strong> sur chaque article → titre + Gemini 3.1 Pro + recherche web</li>
@@ -210,7 +211,7 @@
 
             <section class="doc-section" id="news-en">
                 <h2>News</h2>
-                <p><code class="doc-code">#/api/news</code> — multi-provider feeds, filters, optional ticker, assistant per article.</p>
+                <p><code class="doc-code">#/api/news</code> — NewsData.io, NewsAPI and a curated <strong>RSS</strong> reader (default catalogue + keyword/URL add, no API key). Filters, optional ticker, assistant per article.</p>
             </section>
 
             <section class="doc-section" id="wiki-en">

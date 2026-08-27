@@ -26,6 +26,8 @@ public class GpsItinerary {
     private String profile;
 
     private GpsPlacePoint from;
+    /** Intermediate stops between from and to (may be empty). */
+    private List<GpsPlacePoint> vias = new ArrayList<>();
     private GpsPlacePoint to;
 
     private Double distanceMeters;
@@ -80,6 +82,14 @@ public class GpsItinerary {
 
     public void setFrom(GpsPlacePoint from) {
         this.from = from;
+    }
+
+    public List<GpsPlacePoint> getVias() {
+        return vias;
+    }
+
+    public void setVias(List<GpsPlacePoint> vias) {
+        this.vias = vias != null ? vias : new ArrayList<>();
     }
 
     public GpsPlacePoint getTo() {

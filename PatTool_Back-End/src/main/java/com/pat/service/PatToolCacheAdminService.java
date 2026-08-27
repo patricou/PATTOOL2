@@ -2,6 +2,7 @@ package com.pat.service;
 
 import com.pat.service.news.NewsApiService;
 import com.pat.service.news.NewsDataService;
+import com.pat.service.news.RssNewsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,7 @@ public class PatToolCacheAdminService {
     private final MeteoFranceRadarService meteoFranceRadarService;
     private final NewsApiService newsApiService;
     private final NewsDataService newsDataService;
+    private final RssNewsService rssNewsService;
     private final TwelveDataProxyService twelveDataProxyService;
     private final FrankfurterProxyService frankfurterProxyService;
     private final CoinGeckoProxyService coinGeckoProxyService;
@@ -81,6 +83,7 @@ public class PatToolCacheAdminService {
             MeteoFranceRadarService meteoFranceRadarService,
             NewsApiService newsApiService,
             NewsDataService newsDataService,
+            RssNewsService rssNewsService,
             TwelveDataProxyService twelveDataProxyService,
             FrankfurterProxyService frankfurterProxyService,
             CoinGeckoProxyService coinGeckoProxyService,
@@ -115,6 +118,7 @@ public class PatToolCacheAdminService {
         this.meteoFranceRadarService = meteoFranceRadarService;
         this.newsApiService = newsApiService;
         this.newsDataService = newsDataService;
+        this.rssNewsService = rssNewsService;
         this.twelveDataProxyService = twelveDataProxyService;
         this.frankfurterProxyService = frankfurterProxyService;
         this.coinGeckoProxyService = coinGeckoProxyService;
@@ -674,6 +678,16 @@ public class PatToolCacheAdminService {
                 },
                 () -> {
                     Object n = newsDataService.clearCache().get("cleared");
+                    return n instanceof Number ? ((Number) n).intValue() : 0;
+                },
+                unit("responses")));
+
+        list.add(def("news-rss", "news",
+                "SYSTEM.CACHE_REGISTRY.NEWS_RSS", "SYSTEM.CACHE_REGISTRY.NEWS_RSS_DESC",
+                true, false,
+                () -> (long) rssNewsService.cacheEntryCount(),
+                () -> {
+                    Object n = rssNewsService.clearCache().get("cleared");
                     return n instanceof Number ? ((Number) n).intValue() : 0;
                 },
                 unit("responses")));

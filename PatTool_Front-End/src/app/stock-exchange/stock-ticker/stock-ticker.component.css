@@ -12,7 +12,7 @@
  */
 .stock-ticker {
     position: fixed;
-    top: 56px;
+    top: var(--navbar-offset, var(--navbar-height, 60px));
     left: 0;
     right: 0;
     z-index: 1018; /* below currency (1019) so overlap feels natural during transitions */
@@ -29,15 +29,15 @@
 }
 
 :host-context(body.pat-has-currency-ticker) .stock-ticker {
-    top: 96px;
+    top: calc(var(--navbar-offset, 60px) + var(--currency-ticker-height, 40px));
 }
 
 :host-context(body.pat-has-news-ticker) .stock-ticker {
-    top: 112px;
+    top: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px));
 }
 
 :host-context(body.pat-has-news-ticker.pat-has-currency-ticker) .stock-ticker {
-    top: 152px;
+    top: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px));
 }
 
 .stock-ticker-label {

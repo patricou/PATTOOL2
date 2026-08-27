@@ -353,10 +353,10 @@
     </div>
 </nav>
 
-<!-- Global news ticker (toggle from the News page). Sits between the top
-     navbar and the per-page title so it's visible on every route. -->
+<!-- Global news ticker (toggle from the News page). On other routes it sits
+     under the navbar; on the News page it is mounted under the title instead. -->
 <ng-container *ngIf="!tvPopoutMode">
-<app-news-ticker></app-news-ticker>
+<app-news-ticker *ngIf="!isNewsRoute"></app-news-ticker>
 <app-currency-ticker></app-currency-ticker>
 <app-stock-ticker></app-stock-ticker>
 
@@ -394,7 +394,7 @@
 <!-- Sans bannière : marge sous la navbar ; avec bannière : la bannière occupe déjà le dégagement → évite ~80px de vide avant le contenu -->
 <div class="pat-div"
      [class.pat-div--with-friend-requests-banner]="showFriendRequestsPromptBanner()"
-     [class.pat-div--with-news-ticker]="newsTickerEnabled"
+     [class.pat-div--with-news-ticker]="newsTickerEnabled && !isNewsRoute"
      [class.pat-div--with-currency-ticker]="currencyTickerEnabled"
      [class.pat-div--with-stock-ticker]="stockTickerEnabled"></div>
 </ng-container>

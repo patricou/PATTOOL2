@@ -14,6 +14,7 @@ public class GpsItineraryDto {
     private String ownerUsername;
     private String profile;
     private GpsPlacePointDto from;
+    private List<GpsPlacePointDto> vias = new ArrayList<>();
     private GpsPlacePointDto to;
     private Double distanceMeters;
     private Double durationSeconds;
@@ -66,6 +67,14 @@ public class GpsItineraryDto {
 
     public void setFrom(GpsPlacePointDto from) {
         this.from = from;
+    }
+
+    public List<GpsPlacePointDto> getVias() {
+        return vias;
+    }
+
+    public void setVias(List<GpsPlacePointDto> vias) {
+        this.vias = vias != null ? vias : new ArrayList<>();
     }
 
     public GpsPlacePointDto getTo() {

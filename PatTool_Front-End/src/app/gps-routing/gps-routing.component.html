@@ -81,6 +81,89 @@
             </button>
           </div>
 
+          <div class="gps-via" *ngFor="let via of vias; let i = index; trackBy: trackByViaId">
+            <div class="gps-via-head">
+              <label class="form-label fw-semibold mb-0" [attr.for]="'gpsVia' + via.id">
+                {{ 'GPS_ROUTING.VIA' | translate:{ n: i + 1 } }}
+              </label>
+              <span class="gps-via-tools">
+                <button type="button"
+                        class="btn btn-sm btn-link p-0"
+                        (click)="moveVia(i, -1)"
+                        [disabled]="i === 0"
+                        [title]="'GPS_ROUTING.MOVE_VIA_UP' | translate"
+                        [attr.aria-label]="'GPS_ROUTING.MOVE_VIA_UP' | translate">
+                  <i class="fa fa-chevron-up" aria-hidden="true"></i>
+                </button>
+                <button type="button"
+                        class="btn btn-sm btn-link p-0"
+                        (click)="moveVia(i, 1)"
+                        [disabled]="i === vias.length - 1"
+                        [title]="'GPS_ROUTING.MOVE_VIA_DOWN' | translate"
+                        [attr.aria-label]="'GPS_ROUTING.MOVE_VIA_DOWN' | translate">
+                  <i class="fa fa-chevron-down" aria-hidden="true"></i>
+                </button>
+                <button type="button"
+                        class="btn btn-sm btn-link text-danger p-0"
+                        (click)="removeVia(i)"
+                        [title]="'GPS_ROUTING.REMOVE_VIA' | translate"
+                        [attr.aria-label]="'GPS_ROUTING.REMOVE_VIA' | translate">
+                  <i class="fa fa-times" aria-hidden="true"></i>
+                </button>
+              </span>
+            </div>
+            <div class="input-group input-group-sm mb-1">
+              <input [id]="'gpsVia' + via.id"
+                     type="search"
+                     class="form-control"
+                     role="combobox"
+                     aria-autocomplete="list"
+                     [attr.aria-controls]="'gpsViaResults' + via.id"
+                     [attr.aria-expanded]="via.results.length > 0"
+                     [attr.aria-activedescendant]="via.activeIndex >= 0 ? ('gpsViaOpt' + via.id + '-' + via.activeIndex) : null"
+                     [(ngModel)]="via.query"
+                     (ngModelChange)="onViaQueryChange(via)"
+                     (keydown)="onViaKeydown($event, via)"
+                     [placeholder]="'GPS_ROUTING.PLACE_PLACEHOLDER' | translate"
+                     autocomplete="off" />
+              <button type="button"
+                      class="btn"
+                      [class.btn-warning]="isPickVia(via)"
+                      [class.btn-outline-warning]="!isPickVia(via)"
+                      (click)="setPickVia(via)"
+                      [title]="'GPS_ROUTING.PICK_ON_MAP' | translate">
+                <i class="fa fa-map-marker"></i>
+              </button>
+            </div>
+            <div [id]="'gpsViaResults' + via.id"
+                 class="gps-results mb-2"
+                 role="listbox"
+                 *ngIf="via.results.length || via.searching">
+              <div class="small text-muted px-1 py-1" *ngIf="via.searching">
+                <i class="fa fa-spinner fa-spin me-1"></i>{{ 'GPS_ROUTING.SEARCHING' | translate }}
+              </div>
+              <button type="button"
+                      class="gps-result-row"
+                      *ngFor="let hit of via.results; let j = index"
+                      [id]="'gpsViaOpt' + via.id + '-' + j"
+                      role="option"
+                      [attr.aria-selected]="via.activeIndex === j"
+                      [class.gps-result-row--active]="via.activeIndex === j"
+                      (mouseenter)="via.activeIndex = j"
+                      (click)="selectVia(via, hit)">
+                {{ hit.displayName }}
+              </button>
+            </div>
+          </div>
+
+          <button type="button"
+                  class="btn btn-sm btn-outline-primary w-100 mb-2"
+                  (click)="addVia()"
+                  [disabled]="!canAddVia"
+                  [title]="(canAddVia ? 'GPS_ROUTING.ADD_VIA' : 'GPS_ROUTING.VIA_MAX') | translate">
+            <i class="fa fa-plus me-1" aria-hidden="true"></i>{{ 'GPS_ROUTING.ADD_VIA' | translate }}
+          </button>
+
           <div class="d-flex justify-content-center mb-2">
             <button type="button"
                     class="btn btn-sm btn-outline-secondary"
@@ -173,7 +256,7 @@
             <button type="button"
                     class="btn btn-outline-secondary btn-sm"
                     (click)="clearRoute()"
-                    [disabled]="!route && !fromPoint && !toPoint">
+                    [disabled]="!route && !hasAnyPlace">
               {{ 'GPS_ROUTING.CLEAR' | translate }}
             </button>
             <button type="button"
@@ -233,9 +316,10 @@
                     <i class="fa fa-users me-1" aria-hidden="true"></i>{{ entry.sharedWithUsernames!.length }}
                   </span>
                   <span class="gps-history-route">
-                    <span class="gps-history-line">{{ shortLabel(entry.from.label) }}</span>
-                    <span class="gps-history-arrow text-muted">→</span>
-                    <span class="gps-history-line">{{ shortLabel(entry.to.label) }}</span>
+                    <ng-container *ngFor="let label of historyRouteLabels(entry); let last = last">
+                      <span class="gps-history-line">{{ shortLabel(label, 28) }}</span>
+                      <span class="gps-history-arrow text-muted" *ngIf="!last">→</span>
+                    </ng-container>
                   </span>
                   <span class="gps-history-meta text-muted" *ngIf="entry.distanceMeters != null">
                     {{ formatDistance(entry.distanceMeters) }}
@@ -434,6 +518,10 @@
         <span class="fw-semibold">{{ 'GPS_ROUTING.FROM' | translate }}:</span>
         {{ fromPoint.label }}
       </div>
+      <div *ngFor="let via of resolvedViaPoints(); let i = index">
+        <span class="fw-semibold">{{ 'GPS_ROUTING.VIA' | translate:{ n: i + 1 } }}:</span>
+        {{ via.label }}
+      </div>
       <div *ngIf="toPoint">
         <span class="fw-semibold">{{ 'GPS_ROUTING.TO' | translate }}:</span>
         {{ toPoint.label }}
@@ -560,7 +648,7 @@
   <div class="modal-body">
     <p class="small text-muted mb-2">{{ 'GPS_ROUTING.SHARE_FRIENDS_ONLY' | translate }}</p>
     <p class="small text-muted" *ngIf="shareTarget as entry">
-      {{ shortLabel(entry.from.label, 36) }} → {{ shortLabel(entry.to.label, 36) }}
+      {{ historyRouteText(entry, 24) }}
     </p>
     <div class="alert alert-danger py-2" *ngIf="shareError">{{ shareError | translate }}</div>
     <div class="text-muted small" *ngIf="shareBusy && !shareFriends.length">

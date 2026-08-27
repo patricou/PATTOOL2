@@ -45,11 +45,21 @@ interface GeocodeHit {
   displayName: string;
 }
 
+interface ViaStop {
+  id: string;
+  query: string;
+  point: PlacePoint | null;
+  results: GeocodeHit[];
+  activeIndex: number;
+  searching: boolean;
+}
+
 interface GpsHistoryEntry {
   id: string;
   profile: OpenRouteProfile;
   from: PlacePoint;
   to: PlacePoint;
+  vias?: PlacePoint[];
   distanceMeters?: number;
   durationSeconds?: number;
   savedAt: number;
@@ -63,7 +73,7 @@ interface GpsHistoryEntry {
   coordinates?: number[][];
 }
 
-type PickTarget = 'from' | 'to' | null;
+type PickTarget = 'from' | 'to' | `via:${string}` | null;
 
 type RotatableMap = L.Map & {
   setBearing?: (bearing: number) => void;
@@ -88,6 +98,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   private static readonly FOLLOW_STORAGE_KEY = 'pattool.gps.followUser.v1';
   private static readonly HISTORY_MAX = 12;
   private static readonly FOLLOW_INTERVAL_MS = 5000;
+  static readonly MAX_VIA_POINTS = 8;
 
   @ViewChild('mapHost') mapHost?: ElementRef<HTMLDivElement>;
   @ViewChild('mapShell') mapShell?: ElementRef<HTMLElement>;
@@ -117,8 +128,10 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   toActiveIndex = -1;
   fromPoint: PlacePoint | null = null;
   toPoint: PlacePoint | null = null;
+  vias: ViaStop[] = [];
   pickTarget: PickTarget = null;
   recentSearches: GpsHistoryEntry[] = [];
+  readonly maxViaPoints = GpsRoutingComponent.MAX_VIA_POINTS;
 
   route: OpenRouteDirections | null = null;
   steps: OpenRouteStep[] = [];
@@ -145,6 +158,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   private routeLayer?: L.FeatureGroup;
   private fromSearch$ = new Subject<string>();
   private toSearch$ = new Subject<string>();
+  private viaSearch$ = new Subject<{ id: string; query: string }>();
   private subs: Subscription[] = [];
   private detailsModalRef?: NgbModalRef;
   private shareModalRef?: NgbModalRef;
@@ -195,13 +209,14 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.subs.push(
       this.fromSearch$.pipe(debounceTime(350)).subscribe((q) => this.runGeocode('from', q)),
-      this.toSearch$.pipe(debounceTime(350)).subscribe((q) => this.runGeocode('to', q))
+      this.toSearch$.pipe(debounceTime(350)).subscribe((q) => this.runGeocode('to', q)),
+      this.viaSearch$.pipe(debounceTime(350)).subscribe(({ id, query }) => this.runGeocodeVia(id, query))
     );
   }
 
   ngAfterViewInit(): void {
     this.ensureMap();
-    if (this.fromPoint || this.toPoint) {
+    if (this.fromPoint || this.toPoint || this.resolvedViaPoints().length) {
       setTimeout(() => this.refreshMarkers(true), 60);
     }
   }
@@ -237,6 +252,16 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.handleResultsKeydown(event, 'to');
   }
 
+  onViaQueryChange(via: ViaStop): void {
+    via.point = null;
+    via.activeIndex = -1;
+    this.viaSearch$.next({ id: via.id, query: via.query });
+  }
+
+  onViaKeydown(event: KeyboardEvent, via: ViaStop): void {
+    this.handleViaResultsKeydown(event, via);
+  }
+
   selectFrom(hit: GeocodeHit): void {
     this.fromPoint = { lat: hit.lat, lon: hit.lon, label: hit.displayName };
     this.fromQuery = hit.displayName;
@@ -255,6 +280,77 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.persistDraft();
     this.refreshMarkers();
     this.cdr.detectChanges();
+  }
+
+  selectVia(via: ViaStop, hit: GeocodeHit): void {
+    via.point = { lat: hit.lat, lon: hit.lon, label: hit.displayName };
+    via.query = hit.displayName;
+    via.results = [];
+    via.activeIndex = -1;
+    via.searching = false;
+    this.persistDraft();
+    this.refreshMarkers();
+    this.cdr.detectChanges();
+  }
+
+  get canAddVia(): boolean {
+    return this.vias.length < this.maxViaPoints;
+  }
+
+  get hasAnyPlace(): boolean {
+    return !!(this.fromPoint || this.toPoint || this.vias.some((v) => v.point || v.query));
+  }
+
+  trackByViaId(_index: number, via: ViaStop): string {
+    return via.id;
+  }
+
+  addVia(): void {
+    if (!this.canAddVia) {
+      return;
+    }
+    const via = this.newViaStop();
+    this.vias = [...this.vias, via];
+    this.pickTarget = `via:${via.id}`;
+    this.persistDraft();
+    this.cdr.detectChanges();
+  }
+
+  removeVia(index: number): void {
+    const removed = this.vias[index];
+    if (!removed) {
+      return;
+    }
+    if (this.pickTarget === `via:${removed.id}`) {
+      this.pickTarget = null;
+    }
+    this.vias = this.vias.filter((_, i) => i !== index);
+    this.persistDraft();
+    this.refreshMarkers();
+    this.cdr.detectChanges();
+  }
+
+  moveVia(index: number, delta: number): void {
+    const next = index + delta;
+    if (next < 0 || next >= this.vias.length) {
+      return;
+    }
+    const copy = this.vias.slice();
+    const [item] = copy.splice(index, 1);
+    copy.splice(next, 0, item);
+    this.vias = copy;
+    this.persistDraft();
+    this.refreshMarkers();
+    this.cdr.detectChanges();
+  }
+
+  isPickVia(via: ViaStop): boolean {
+    return this.pickTarget === `via:${via.id}`;
+  }
+
+  setPickVia(via: ViaStop): void {
+    const key: PickTarget = `via:${via.id}`;
+    this.pickTarget = this.pickTarget === key ? null : key;
   }
 
   useMyPositionAsFrom(): void {
@@ -306,12 +402,16 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   swapEnds(): void {
-    const tmpPoint = this.fromPoint;
-    const tmpQuery = this.fromQuery;
-    this.fromPoint = this.toPoint;
-    this.fromQuery = this.toQuery;
-    this.toPoint = tmpPoint;
-    this.toQuery = tmpQuery;
+    const chain: { point: PlacePoint | null; query: string }[] = [
+      { point: this.fromPoint, query: this.fromQuery },
+      ...this.vias.map((v) => ({ point: v.point, query: v.query })),
+      { point: this.toPoint, query: this.toQuery }
+    ].reverse();
+    this.fromPoint = chain[0].point;
+    this.fromQuery = chain[0].query;
+    this.toPoint = chain[chain.length - 1].point;
+    this.toQuery = chain[chain.length - 1].query;
+    this.vias = chain.slice(1, -1).map((item) => this.newViaStop(item.point, item.query));
     this.fromResults = [];
     this.toResults = [];
     this.persistDraft();
@@ -366,13 +466,15 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.persistDraft();
 
     const lang = this.translate.currentLang || this.translate.defaultLang || 'en';
+    const vias = this.resolvedViaPoints();
     this.api.getOpenRouteDirections(
       this.profile,
       this.fromPoint.lat,
       this.fromPoint.lon,
       this.toPoint.lat,
       this.toPoint.lon,
-      lang
+      lang,
+      vias
     ).subscribe({
       next: (data) => {
         this.route = data;
@@ -415,6 +517,8 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.toQuery = '';
     this.fromResults = [];
     this.toResults = [];
+    this.vias = [];
+    this.pickTarget = null;
     this.closeRouteDetails();
     this.persistDraft();
     this.clearRouteLine();
@@ -459,6 +563,11 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.toQuery = entry.to.label || '';
     this.fromResults = [];
     this.toResults = [];
+    this.vias = (entry.vias || []).filter((p) => this.isValidPoint(p)).map((p) => this.newViaStop({
+      lat: Number(p.lat),
+      lon: Number(p.lon),
+      label: String(p.label || '')
+    }));
     this.persistDraft();
     this.refreshMarkers();
     this.calculateRoute(openDetails);
@@ -624,6 +733,19 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
+  historyRouteLabels(entry: GpsHistoryEntry): string[] {
+    const vias = entry.vias || [];
+    return [
+      entry.from?.label || '',
+      ...vias.map((v) => v.label || ''),
+      entry.to?.label || ''
+    ];
+  }
+
+  historyRouteText(entry: GpsHistoryEntry, max = 24): string {
+    return this.historyRouteLabels(entry).map((label) => this.shortLabel(label, max)).join(' → ');
+  }
+
   shortLabel(label: string | undefined, max = 42): string {
     const text = (label || '').trim();
     if (text.length <= max) {
@@ -752,7 +874,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     const fromLabel = this.fromPoint?.label || this.translate.instant('GPS_ROUTING.FROM');
     const toLabel = this.toPoint?.label || this.translate.instant('GPS_ROUTING.TO');
-    const title = `${fromLabel} → ${toLabel}`;
+    const title = this.routeTitle(fromLabel, toLabel);
     this.traceViewerModal.openWithTrackPoints(points, title, {
       initialBaseLayerId: this.mapBaseLayerId
     });
@@ -772,7 +894,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const fromLabel = this.fromPoint?.label || this.translate.instant('GPS_ROUTING.FROM');
     const toLabel = this.toPoint?.label || this.translate.instant('GPS_ROUTING.TO');
-    const name = `${fromLabel} → ${toLabel}`;
+    const name = this.routeTitle(fromLabel, toLabel);
     const profileLabel = this.translate.instant(
       this.profiles.find((p) => p.id === this.profile)?.labelKey || 'GPS_ROUTING.TITLE'
     );
@@ -885,6 +1007,51 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     return `${total} s`;
   }
 
+  private handleViaResultsKeydown(event: KeyboardEvent, via: ViaStop): void {
+    const results = via.results;
+    if (!results.length) {
+      return;
+    }
+    const setActive = (index: number) => {
+      via.activeIndex = index;
+      this.cdr.detectChanges();
+      this.scrollActiveResultIntoView(`gpsViaResults${via.id}`, index);
+    };
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        setActive(via.activeIndex < results.length - 1 ? via.activeIndex + 1 : 0);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        setActive(via.activeIndex > 0 ? via.activeIndex - 1 : results.length - 1);
+        break;
+      case 'Enter':
+        if (via.activeIndex >= 0 && via.activeIndex < results.length) {
+          event.preventDefault();
+          this.selectVia(via, results[via.activeIndex]);
+        }
+        break;
+      case 'Escape':
+        event.preventDefault();
+        via.results = [];
+        via.activeIndex = -1;
+        this.cdr.detectChanges();
+        break;
+      case 'Home':
+        event.preventDefault();
+        setActive(0);
+        break;
+      case 'End':
+        event.preventDefault();
+        setActive(results.length - 1);
+        break;
+      default:
+        break;
+    }
+  }
+
   private handleResultsKeydown(event: KeyboardEvent, side: 'from' | 'to'): void {
     const results = side === 'from' ? this.fromResults : this.toResults;
     if (!results.length) {
@@ -898,7 +1065,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
         this.toActiveIndex = index;
       }
       this.cdr.detectChanges();
-      this.scrollActiveResultIntoView(side, index);
+      this.scrollActiveResultIntoView(side === 'from' ? 'gpsFromResults' : 'gpsToResults', index);
     };
 
     switch (event.key) {
@@ -944,8 +1111,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private scrollActiveResultIntoView(side: 'from' | 'to', index: number): void {
-    const listId = side === 'from' ? 'gpsFromResults' : 'gpsToResults';
+  private scrollActiveResultIntoView(listId: string, index: number): void {
     const list = document.getElementById(listId);
     const item = list?.querySelectorAll('.gps-result-row')[index] as HTMLElement | undefined;
     item?.scrollIntoView({ block: 'nearest' });
@@ -988,11 +1154,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.api.geocodeSearch(q).subscribe({
       next: (data: any[]) => {
-        const hits = (data || []).map((item: any) => ({
-          lat: typeof item.lat === 'number' ? item.lat : parseFloat(item.lat) || 0,
-          lon: typeof item.lon === 'number' ? item.lon : parseFloat(item.lon) || 0,
-          displayName: item.displayName || item.display_name || ''
-        })).filter((h: GeocodeHit) => h.displayName && Number.isFinite(h.lat) && Number.isFinite(h.lon));
+        const hits = this.mapGeocodeHits(data);
         if (side === 'from') {
           this.fromResults = hits.slice(0, 6);
           this.fromActiveIndex = this.fromResults.length ? 0 : -1;
@@ -1017,6 +1179,64 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  private runGeocodeVia(id: string, query: string): void {
+    const via = this.vias.find((v) => v.id === id);
+    if (!via) {
+      return;
+    }
+    const q = query?.trim();
+    if (!q || q.length < 3) {
+      via.results = [];
+      via.activeIndex = -1;
+      via.searching = false;
+      this.cdr.detectChanges();
+      return;
+    }
+
+    const coords = this.parseCoordinates(q);
+    if (coords) {
+      this.selectVia(via, {
+        lat: coords.lat,
+        lon: coords.lon,
+        displayName: `${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}`
+      });
+      return;
+    }
+
+    via.searching = true;
+    this.api.geocodeSearch(q).subscribe({
+      next: (data: any[]) => {
+        const current = this.vias.find((v) => v.id === id);
+        if (!current) {
+          return;
+        }
+        const hits = this.mapGeocodeHits(data);
+        current.results = hits.slice(0, 6);
+        current.activeIndex = current.results.length ? 0 : -1;
+        current.searching = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        const current = this.vias.find((v) => v.id === id);
+        if (!current) {
+          return;
+        }
+        current.results = [];
+        current.activeIndex = -1;
+        current.searching = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private mapGeocodeHits(data: any[]): GeocodeHit[] {
+    return (data || []).map((item: any) => ({
+      lat: typeof item.lat === 'number' ? item.lat : parseFloat(item.lat) || 0,
+      lon: typeof item.lon === 'number' ? item.lon : parseFloat(item.lon) || 0,
+      displayName: item.displayName || item.display_name || ''
+    })).filter((h: GeocodeHit) => h.displayName && Number.isFinite(h.lat) && Number.isFinite(h.lon));
   }
 
   private parseCoordinates(raw: string): { lat: number; lon: number } | null {
@@ -1329,10 +1549,19 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
       this.fromPoint = point;
       this.fromQuery = label;
       this.fromResults = [];
-    } else {
+    } else if (this.pickTarget === 'to') {
       this.toPoint = point;
       this.toQuery = label;
       this.toResults = [];
+    } else if (this.pickTarget.startsWith('via:')) {
+      const id = this.pickTarget.slice(4);
+      const via = this.vias.find((v) => v.id === id);
+      if (via) {
+        via.point = point;
+        via.query = label;
+        via.results = [];
+        via.activeIndex = -1;
+      }
     }
     this.pickTarget = null;
     this.persistDraft();
@@ -1344,7 +1573,8 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.map || !this.routeLayer) {
       return;
     }
-    this.routeLayer.clearLayers();
+    const layer = this.routeLayer;
+    layer.clearLayers();
     if (this.fromPoint) {
       L.circleMarker([this.fromPoint.lat, this.fromPoint.lon], {
         radius: 9,
@@ -1353,8 +1583,22 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
         fillColor: '#198754',
         fillOpacity: 0.95
       }).bindTooltip(this.translate.instant('GPS_ROUTING.FROM'), { permanent: false })
-        .addTo(this.routeLayer);
+        .addTo(layer);
     }
+    this.resolvedViaPoints().forEach((via, index) => {
+      L.marker([via.lat, via.lon], {
+        icon: L.divIcon({
+          className: 'gps-via-marker',
+          html: `<span>${index + 1}</span>`,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11]
+        }),
+        keyboard: false
+      }).bindTooltip(
+        this.translate.instant('GPS_ROUTING.VIA', { n: index + 1 }),
+        { permanent: false }
+      ).addTo(layer);
+    });
     if (this.toPoint) {
       L.circleMarker([this.toPoint.lat, this.toPoint.lon], {
         radius: 9,
@@ -1363,7 +1607,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
         fillColor: '#dc3545',
         fillOpacity: 0.95
       }).bindTooltip(this.translate.instant('GPS_ROUTING.TO'), { permanent: false })
-        .addTo(this.routeLayer);
+        .addTo(layer);
     }
     if (this.route?.coordinates?.length) {
       this.drawRoutePolyline(fitRoute);
@@ -1506,6 +1750,20 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
         };
         this.toQuery = this.toPoint.label || `${this.toPoint.lat.toFixed(5)}, ${this.toPoint.lon.toFixed(5)}`;
       }
+      if (Array.isArray(draft?.vias)) {
+        this.vias = draft.vias
+          .slice(0, GpsRoutingComponent.MAX_VIA_POINTS)
+          .map((p: any) => {
+            if (this.isValidPoint(p)) {
+              return this.newViaStop({
+                lat: Number(p.lat),
+                lon: Number(p.lon),
+                label: String(p.label || '')
+              });
+            }
+            return this.newViaStop(null, String(p.label || p.query || ''));
+          });
+      }
     } catch {
       // ignore corrupt draft
     }
@@ -1517,6 +1775,9 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
         profile: this.profile,
         from: this.fromPoint,
         to: this.toPoint,
+        vias: this.vias.map((v) => v.point && this.isValidPoint(v.point)
+          ? { ...v.point }
+          : { label: v.query || '' }),
         savedAt: Date.now()
       };
       localStorage.setItem(GpsRoutingComponent.DRAFT_STORAGE_KEY, JSON.stringify(payload));
@@ -1529,24 +1790,20 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.fromPoint || !this.toPoint) {
       return;
     }
+    const vias = this.resolvedViaPoints();
     const entry: GpsHistoryEntry = {
       id: `${Date.now()}-${Math.round(this.fromPoint.lat * 1e5)}-${Math.round(this.toPoint.lon * 1e5)}`,
       profile: this.profile,
       from: { ...this.fromPoint },
       to: { ...this.toPoint },
+      vias: vias.map((p) => ({ ...p })),
       distanceMeters: data?.distanceMeters,
       durationSeconds: data?.durationSeconds,
       savedAt: Date.now(),
       ownerUsername: this.currentOwnerUsername(),
       coordinates: data?.coordinates?.length ? data.coordinates : undefined
     };
-    const sameKey = (a: GpsHistoryEntry, b: GpsHistoryEntry) =>
-      a.profile === b.profile
-      && Math.abs(a.from.lat - b.from.lat) < 1e-5
-      && Math.abs(a.from.lon - b.from.lon) < 1e-5
-      && Math.abs(a.to.lat - b.to.lat) < 1e-5
-      && Math.abs(a.to.lon - b.to.lon) < 1e-5;
-    const next = [entry, ...this.recentSearches.filter((e) => !sameKey(e, entry))]
+    const next = [entry, ...this.recentSearches.filter((e) => !this.sameRoute(e, entry))]
       .slice(0, GpsRoutingComponent.HISTORY_MAX);
     this.recentSearches = next;
     this.persistLocalOnlyHistory();
@@ -1564,6 +1821,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
       profile: entry.profile,
       from: entry.from,
       to: entry.to,
+      vias: entry.vias || [],
       distanceMeters: entry.distanceMeters,
       durationSeconds: entry.durationSeconds,
       coordinates: entry.coordinates || this.route?.coordinates
@@ -1602,12 +1860,6 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private mergeServerItinerary(it: GpsItinerary, replaceLocalId?: string): GpsHistoryEntry {
     const mapped = this.mapServerItinerary(it);
-    const sameKey = (a: GpsHistoryEntry, b: GpsHistoryEntry) =>
-      a.profile === b.profile
-      && Math.abs(a.from.lat - b.from.lat) < 1e-5
-      && Math.abs(a.from.lon - b.from.lon) < 1e-5
-      && Math.abs(a.to.lat - b.to.lat) < 1e-5
-      && Math.abs(a.to.lon - b.to.lon) < 1e-5;
     this.recentSearches = [
       mapped,
       ...this.recentSearches.filter((e) => {
@@ -1617,7 +1869,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
         if (e.serverId && e.serverId === mapped.serverId) {
           return false;
         }
-        return !sameKey(e, mapped);
+        return !this.sameRoute(e, mapped);
       })
     ].slice(0, GpsRoutingComponent.HISTORY_MAX);
     this.persistLocalOnlyHistory();
@@ -1639,6 +1891,13 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
         lon: Number(it.to?.lon),
         label: String(it.to?.label || '')
       },
+      vias: (it.vias || [])
+        .filter((p) => this.isValidPoint(p))
+        .map((p) => ({
+          lat: Number(p.lat),
+          lon: Number(p.lon),
+          label: String(p.label || '')
+        })),
       distanceMeters: typeof it.distanceMeters === 'number' ? it.distanceMeters : undefined,
       durationSeconds: typeof it.durationSeconds === 'number' ? it.durationSeconds : undefined,
       savedAt: it.updatedAt ? Date.parse(it.updatedAt) || Date.now() : Date.now(),
@@ -1681,6 +1940,13 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
             lon: Number(e.to.lon),
             label: String(e.to.label || '')
           },
+          vias: Array.isArray(e.vias)
+            ? e.vias.filter((p: any) => this.isValidPoint(p)).map((p: any) => ({
+                lat: Number(p.lat),
+                lon: Number(p.lon),
+                label: String(p.label || '')
+              }))
+            : [],
           distanceMeters: typeof e.distanceMeters === 'number' ? e.distanceMeters : undefined,
           durationSeconds: typeof e.durationSeconds === 'number' ? e.durationSeconds : undefined,
           savedAt: Number(e.savedAt) || 0,
@@ -1710,5 +1976,53 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     return !!point
       && Number.isFinite(Number(point.lat))
       && Number.isFinite(Number(point.lon));
+  }
+
+  resolvedViaPoints(): PlacePoint[] {
+    return this.vias
+      .filter((v) => v.point && this.isValidPoint(v.point))
+      .map((v) => ({ ...v.point! }));
+  }
+
+  private newViaStop(point?: PlacePoint | null, query = ''): ViaStop {
+    const resolved = point && this.isValidPoint(point)
+      ? { lat: Number(point.lat), lon: Number(point.lon), label: String(point.label || '') }
+      : null;
+    return {
+      id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      query: query || resolved?.label || '',
+      point: resolved,
+      results: [],
+      activeIndex: -1,
+      searching: false
+    };
+  }
+
+  private routeTitle(fromLabel: string, toLabel: string): string {
+    const vias = this.resolvedViaPoints();
+    if (!vias.length) {
+      return `${fromLabel} → ${toLabel}`;
+    }
+    const viaPart = vias.map((v, i) => this.shortLabel(v.label || String(i + 1), 22)).join(' → ');
+    return `${fromLabel} → ${viaPart} → ${toLabel}`;
+  }
+
+  private sameRoute(a: GpsHistoryEntry, b: GpsHistoryEntry): boolean {
+    if (a.profile !== b.profile || !this.sameCoord(a.from, b.from) || !this.sameCoord(a.to, b.to)) {
+      return false;
+    }
+    const av = a.vias || [];
+    const bv = b.vias || [];
+    if (av.length !== bv.length) {
+      return false;
+    }
+    return av.every((p, i) => this.sameCoord(p, bv[i]));
+  }
+
+  private sameCoord(a: PlacePoint | undefined, b: PlacePoint | undefined): boolean {
+    if (!a || !b) {
+      return false;
+    }
+    return Math.abs(a.lat - b.lat) < 1e-5 && Math.abs(a.lon - b.lon) < 1e-5;
   }
 }

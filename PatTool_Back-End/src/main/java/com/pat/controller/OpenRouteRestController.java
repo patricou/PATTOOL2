@@ -10,7 +10,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -19,7 +21,8 @@ import java.util.Map;
  * Endpoints:
  * <ul>
  *   <li>{@code GET /api/external/openroute/status} — whether the API key is configured</li>
- *   <li>{@code GET /api/external/openroute/directions?profile=&startLat=&startLon=&endLat=&endLon=&lang=}</li>
+ *   <li>{@code GET /api/external/openroute/directions?profile=&startLat=&startLon=&endLat=&endLon=&viaLat=&viaLon=&lang=}
+ *       — optional repeated {@code viaLat}/{@code viaLon} pairs for intermediate stops</li>
  * </ul>
  */
 @RestController
@@ -46,15 +49,24 @@ public class OpenRouteRestController {
             @RequestParam double startLon,
             @RequestParam double endLat,
             @RequestParam double endLon,
+            @RequestParam(required = false) List<Double> viaLat,
+            @RequestParam(required = false) List<Double> viaLon,
             @RequestParam(required = false) String lang) {
 
         if (!StringUtils.hasText(profile)) {
             return ResponseEntity.badRequest().body(Map.of("error", "profile_required"));
         }
 
+        List<double[]> vias;
+        try {
+            vias = zipViaPoints(viaLat, viaLon);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", "invalid_via"));
+        }
+
         try {
             OpenRouteDirectionsDto dto = openRouteProxyService.directions(
-                    profile, startLat, startLon, endLat, endLon, lang);
+                    profile, startLat, startLon, endLat, endLon, vias, lang);
             if (dto == null) {
                 return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                         .body(Map.of("error", "upstream_failed"));
@@ -70,5 +82,26 @@ public class OpenRouteRestController {
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(Map.of("error", "invalid_request"));
         }
+    }
+
+    private static List<double[]> zipViaPoints(List<Double> viaLat, List<Double> viaLon) {
+        int latCount = viaLat == null ? 0 : viaLat.size();
+        int lonCount = viaLon == null ? 0 : viaLon.size();
+        if (latCount != lonCount) {
+            throw new IllegalArgumentException("via_mismatch");
+        }
+        if (latCount == 0) {
+            return List.of();
+        }
+        List<double[]> vias = new ArrayList<>(latCount);
+        for (int i = 0; i < latCount; i++) {
+            Double lat = viaLat.get(i);
+            Double lon = viaLon.get(i);
+            if (lat == null || lon == null) {
+                throw new IllegalArgumentException("via_null");
+            }
+            vias.add(new double[] { lat, lon });
+        }
+        return vias;
     }
 }

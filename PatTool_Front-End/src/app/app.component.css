@@ -611,7 +611,7 @@
 
 /* Basic spacing (dégagement navbar fixe pour le router-outlet) */
 .pat-div {
-    margin-bottom: 80px;
+    margin-bottom: calc(var(--navbar-offset, 60px) + 20px);
     margin-top: 0px;
 }
 
@@ -620,47 +620,33 @@
     margin-bottom: 0;
 }
 
-/* When the global news ticker is enabled it adds ~56px under the navbar
- * (two scrolling rows + borders). navbar(56) + ticker(56) = 112px of fixed
- * chrome; add a small breathing gap before the page title so the two
- * sections don't visually collide. */
+/* Tickers are position:fixed; --navbar-offset is the measured bar height. */
 .pat-div.pat-div--with-news-ticker {
-    margin-bottom: 124px;
+    margin-bottom: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + 12px);
 }
 
-/* Currency ticker is a single 40px row. Alone: navbar(56) + ticker(40) = 96px.
- * Stacked under news-ticker: navbar(56) + news(56) + currency(40) = 152px. */
 .pat-div.pat-div--with-currency-ticker {
-    margin-bottom: 108px;
+    margin-bottom: calc(var(--navbar-offset, 60px) + var(--currency-ticker-height, 40px) + 12px);
 }
 
 .pat-div.pat-div--with-news-ticker.pat-div--with-currency-ticker {
-    margin-bottom: 164px;
+    margin-bottom: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px) + 12px);
 }
 
-/* Stock ticker is also a single 40px row, always rendered below the currency
- * ticker (and below news when both are on). Heights accumulate linearly:
- *   stock alone:                     navbar(56) + stock(40)                 +68 = 164 → 108
- *   news + stock:                    navbar(56) + news(56) + stock(40)      +68 = 220 → 164
- *   currency + stock:                navbar(56) + currency(40) + stock(40)  +68 = 204 → 148
- *   news + currency + stock:         navbar(56) + news(56) + currency(40) + stock(40) +68 = 260 → 204
- * (The "+68" matches the breathing gap used by the other ticker rules so the
- * page title doesn't collide with the bottom of the fixed chrome.)
- */
 .pat-div.pat-div--with-stock-ticker {
-    margin-bottom: 108px;
+    margin-bottom: calc(var(--navbar-offset, 60px) + var(--stock-ticker-height, 40px) + 12px);
 }
 
 .pat-div.pat-div--with-news-ticker.pat-div--with-stock-ticker {
-    margin-bottom: 164px;
+    margin-bottom: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--stock-ticker-height, 40px) + 12px);
 }
 
 .pat-div.pat-div--with-currency-ticker.pat-div--with-stock-ticker {
-    margin-bottom: 148px;
+    margin-bottom: calc(var(--navbar-offset, 60px) + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px) + 12px);
 }
 
 .pat-div.pat-div--with-news-ticker.pat-div--with-currency-ticker.pat-div--with-stock-ticker {
-    margin-bottom: 204px;
+    margin-bottom: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px) + 12px);
 }
 
 .pat-lang-selector {

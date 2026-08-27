@@ -8,9 +8,11 @@ import { debounceTime } from 'rxjs/operators';
 
 import { ApiService } from '../services/api.service';
 import { NewsTickerService } from '../services/news-ticker.service';
+import { NewsTickerComponent } from './news-ticker/news-ticker.component';
 import { AssistantLaunchService, ASSISTANT_NEWS_LAUNCH_ROUTING } from '../services/assistant-launch.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
+import { SlideshowModalComponent, SlideshowImageSource } from '../shared/slideshow-modal/slideshow-modal.component';
 import { environment } from '../../environments/environment';
 
 interface NewsSource {
@@ -19,9 +21,12 @@ interface NewsSource {
   // Extra fields populated by the /sources endpoint (absent on /top-headlines & /everything article.source)
   description?: string;
   url?: string;
+  feedUrl?: string;
   category?: string;
   language?: string;
   country?: string;
+  custom?: boolean;
+  origin?: string;
 }
 
 interface NewsArticle {
@@ -62,12 +67,12 @@ type NewsMode = 'headlines' | 'search' | 'sources';
  * differ — so the rest of the code never branches on this value except
  * to include it in persisted state and the backend query string.
  */
-type NewsProviderId = 'newsdata' | 'newsapi';
+type NewsProviderId = 'newsdata' | 'newsapi' | 'rss';
 
 @Component({
   selector: 'app-news',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, NavigationButtonsModule],
+  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, NavigationButtonsModule, NewsTickerComponent, SlideshowModalComponent],
   templateUrl: './news.component.html',
   styleUrls: ['./news.component.css']
 })
@@ -150,10 +155,10 @@ export class NewsComponent implements OnInit, OnDestroy {
   // discreet Sources link). Old v3 payloads are ignored rather than
   // migrated, so the user gets the new defaults instead of inheriting a
   // mode that no longer maps cleanly to a tab.
-  // v5 adds the `provider` field (NewsData.io vs NewsAPI). Older keys
-  // are ignored on load so returning users transparently pick up the
-  // new default provider without carrying a stale field.
-  private readonly STORAGE_KEY = 'pat.news.filters.v5';
+  // v6 adds the RSS provider + selected feed id.
+  private readonly STORAGE_KEY = 'pat.news.filters.v6';
+  private readonly LEGACY_STORAGE_KEY = 'pat.news.filters.v5';
+  private readonly RSS_CATALOG_KEY = 'pat.news.rss.catalog.v1';
   private readonly IMAGE_PROXY_BASE = environment.API_URL + 'external/news/image?u=';
   private langChangeSub?: Subscription;
   private search$ = new Subject<void>();
@@ -468,6 +473,7 @@ export class NewsComponent implements OnInit, OnDestroy {
    * body is inlined in news.component.html as an <ng-template>.
    */
   @ViewChild('providerHelpModal') private providerHelpModalTpl?: TemplateRef<unknown>;
+  @ViewChild('slideshowModalComponent') private slideshowModalComponent?: SlideshowModalComponent;
   private providerHelpModalRef?: NgbModalRef;
 
   /**
@@ -475,6 +481,20 @@ export class NewsComponent implements OnInit, OnDestroy {
    * conditional sections inside the modal body.
    */
   helpProvider: NewsProviderId = 'newsdata';
+
+  /**
+   * Selected RSS feed id (`''` = aggregate of visible feeds). Only used
+   * when {@link provider} is {@code rss}.
+   */
+  rssFeedId = '';
+  rssCatalog: NewsSource[] = [];
+  rssAddQuery = '';
+  rssSearchResults: NewsSource[] = [];
+  rssSearching = false;
+  rssRefreshingCatalog = false;
+  private rssHiddenIds = new Set<string>();
+  private rssCustom: NewsSource[] = [];
+  private rssDefaults: NewsSource[] = [];
 
   constructor(
     private apiService: ApiService,
@@ -547,6 +567,8 @@ export class NewsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.restoreFilters();
+    this.restoreRssCatalog();
+    this.rebuildRssCatalog();
     // Ensure {@link mode} is consistent with {@link userTab} + current
     // country right after restore (a stale saved mode or an unseen-before
     // virtual country could otherwise produce a wrong endpoint call).
@@ -573,7 +595,11 @@ export class NewsComponent implements OnInit, OnDestroy {
     // Returning users have their prefs restored synchronously so we can
     // kick the fetch off immediately.
     if (this.userHasFilterPrefs) {
-      this.runQuery();
+      if (this.provider === 'rss') {
+        this.loadRssCatalog(false, true);
+      } else {
+        this.runQuery();
+      }
     }
   }
 
@@ -586,7 +612,7 @@ export class NewsComponent implements OnInit, OnDestroy {
 
   // ---------------- Ticker toggle ----------------
 
-  /** Flip the global news-ticker banner on/off (visible on every page). */
+  /** Flip the news-ticker banner on/off (under the title here, under the navbar elsewhere). */
   onToggleTicker(enabled: boolean): void {
     this.newsTicker.setEnabled(enabled);
   }
@@ -617,6 +643,9 @@ export class NewsComponent implements OnInit, OnDestroy {
     this.fallbackInfo = null;
     this.errorMessage = '';
     this.successMessage = '';
+    this.rssFeedId = '';
+    this.rssSearchResults = [];
+    this.rssAddQuery = '';
     this.persistFilters();
     this.updateTitle();
     this.runQuery();
@@ -674,6 +703,10 @@ export class NewsComponent implements OnInit, OnDestroy {
     this.persistFilters();
     this.updateTitle();
     this.loadStatus();
+    if (provider === 'rss') {
+      this.loadRssCatalog(false, true);
+      return;
+    }
     // {@link buildQuerySignature} already includes the provider, so
     // force=true is not strictly needed, but we keep it explicit: a
     // user clicking the provider tab always expects a fresh fetch.
@@ -796,7 +829,7 @@ export class NewsComponent implements OnInit, OnDestroy {
     if (this.mode === 'search') {
       const hasQuery = this.query.trim().length >= 2;
       const hasCountry = !!this.country;
-      if (!hasQuery && !hasCountry) {
+      if (!hasQuery && !hasCountry && this.provider !== 'rss') {
         this.articles = [];
         this.totalResults = 0;
         this.errorMessage = '';
@@ -835,7 +868,9 @@ export class NewsComponent implements OnInit, OnDestroy {
     //    deep navigation. The true result count is still shown in the
     //    banner (e.g. "16,613 results") so users understand the data
     //    exists, just beyond a sensible browsing depth.
-    const maxReachable = this.provider === 'newsdata' ? 1000 : 100;
+    const maxReachable = this.provider === 'newsdata' ? 1000
+      : this.provider === 'rss' ? 400
+      : 100;
     const capped = Math.min(this.totalResults, maxReachable);
     return Math.ceil(capped / effective);
   }
@@ -856,11 +891,91 @@ export class NewsComponent implements OnInit, OnDestroy {
     return this.pageSize;
   }
 
+  providerLabelKey(provider: NewsProviderId = this.provider): string {
+    if (provider === 'newsapi') return 'NEWS.PROVIDER_NEWSAPI';
+    if (provider === 'rss') return 'NEWS.PROVIDER_RSS';
+    return 'NEWS.PROVIDER_NEWSDATA';
+  }
+
   openArticle(article: NewsArticle, event?: MouseEvent): void {
     if (event) event.preventDefault();
     if (article?.url) {
       window.open(article.url, '_blank', 'noopener,noreferrer');
     }
+  }
+
+  /**
+   * Articles of the current page that still have a displayable image
+   * (RSS, NewsData.io and NewsAPI). Used to open the shared slideshow
+   * and to show the Diaporama button.
+   */
+  slideshowArticles(): NewsArticle[] {
+    return this.articles.filter(a => this.shouldShowImage(a));
+  }
+
+  canOpenNewsSlideshow(article: NewsArticle): boolean {
+    return this.shouldShowImage(article);
+  }
+
+  onArticleImageClick(article: NewsArticle, event: MouseEvent): void {
+    if (!this.canOpenNewsSlideshow(article)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.openNewsSlideshow(article);
+  }
+
+  openNewsSlideshow(startArticle?: NewsArticle, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const withImages = this.slideshowArticles();
+    if (!withImages.length) return;
+    if (!this.slideshowModalComponent) {
+      setTimeout(() => this.openNewsSlideshow(startArticle), 0);
+      return;
+    }
+    const sources: SlideshowImageSource[] = withImages.map(a => ({
+      blobUrl: this.getProxiedImageUrl(a.urlToImage!),
+      fileName: this.newsSlideshowFileName(a)
+    }));
+    let startIndex = 0;
+    if (startArticle) {
+      const key = this.articleKey(startArticle);
+      const idx = withImages.findIndex(a => this.articleKey(a) === key);
+      if (idx >= 0) startIndex = idx;
+    }
+    this.slideshowModalComponent.open(
+      sources,
+      this.newsSlideshowTitle(),
+      false,
+      0,
+      undefined,
+      startIndex
+    );
+  }
+
+  private newsSlideshowTitle(): string {
+    if (this.provider === 'rss' && this.rssFeedId) {
+      const feed = this.rssCatalog.find(f => f.id === this.rssFeedId);
+      if (feed?.name) return feed.name;
+    }
+    return this.translate.instant('NEWS.SLIDESHOW');
+  }
+
+  private newsSlideshowFileName(article: NewsArticle): string {
+    const raw = (article.urlToImage || '').trim();
+    try {
+      const last = decodeURIComponent(new URL(raw).pathname.split('/').pop() || '');
+      if (last && /\.(jpe?g|png|gif|webp|svg)$/i.test(last)) {
+        return last;
+      }
+    } catch {
+      /* ignore */
+    }
+    const base = (article.title || 'news')
+      .replace(/[^\p{L}\p{N}._-]+/gu, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 80) || 'news';
+    return base + '.jpg';
   }
 
   async shareArticle(article: NewsArticle, event?: MouseEvent): Promise<void> {
@@ -1087,6 +1202,218 @@ export class NewsComponent implements OnInit, OnDestroy {
     return Math.abs(h);
   }
 
+  // ---------------- RSS catalogue ----------------
+
+  get rssFeedsGrouped(): { category: string; feeds: NewsSource[] }[] {
+    const groups = new Map<string, NewsSource[]>();
+    for (const feed of this.rssCatalog) {
+      const cat = feed.custom ? '_custom' : (feed.category || 'general');
+      const list = groups.get(cat) || [];
+      list.push(feed);
+      groups.set(cat, list);
+    }
+    const order = ['_custom', 'general', 'business', 'technology', 'science', 'sports', 'health', 'entertainment'];
+    const out: { category: string; feeds: NewsSource[] }[] = [];
+    for (const key of order) {
+      const feeds = groups.get(key);
+      if (feeds?.length) out.push({ category: key, feeds });
+    }
+    for (const [key, feeds] of groups) {
+      if (!order.includes(key)) out.push({ category: key, feeds });
+    }
+    return out;
+  }
+
+  rssGroupLabel(category: string): string {
+    if (category === '_custom') return this.translate.instant('NEWS.RSS_CUSTOM');
+    const cat = this.categories.find(c => c.code === category);
+    return cat ? this.translate.instant(cat.labelKey) : category;
+  }
+
+  selectedRssFeedUrls(): string[] {
+    if (this.rssFeedId) {
+      const one = this.rssCatalog.find(f => f.id === this.rssFeedId);
+      if (one?.feedUrl) return [one.feedUrl];
+    }
+    const lang = (this.language || '').toLowerCase();
+    const cat = this.category || '';
+    const matching = this.rssCatalog.filter(f => {
+      if (lang && f.language && f.language.toLowerCase() !== lang) return false;
+      if (cat && f.category && f.category !== cat) return false;
+      return !!f.feedUrl;
+    });
+    const pool = matching.length ? matching : this.rssCatalog.filter(f => !!f.feedUrl);
+    return pool.slice(0, 8).map(f => f.feedUrl!);
+  }
+
+  onRssFeedChange(): void {
+    this.page = 1;
+    this.persistFilters();
+    this.updateTitle();
+    this.runQuery(true);
+  }
+
+  refreshRssCatalog(): void {
+    this.loadRssCatalog(true, this.provider === 'rss');
+  }
+
+  searchRssToAdd(): void {
+    const q = (this.rssAddQuery || '').trim();
+    if (q.length < 2) return;
+    this.rssSearching = true;
+    this.rssSearchResults = [];
+    this.apiService.searchRssFeeds(q).subscribe({
+      next: (resp) => {
+        this.rssSearching = false;
+        const rows = Array.isArray(resp?.results) ? resp.results : [];
+        this.rssSearchResults = rows.map((r: any) => this.normalizeRssSource(r));
+        if (!this.rssSearchResults.length) {
+          this.errorMessage = this.translate.instant('NEWS.RSS_SEARCH_EMPTY');
+        } else {
+          this.errorMessage = '';
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.rssSearching = false;
+        this.errorMessage = this.translate.instant('NEWS.RSS_SEARCH_ERROR');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  addRssFeed(feed: NewsSource): void {
+    const url = (feed.feedUrl || '').trim();
+    if (!url) return;
+    const existing = this.rssCatalog.find(f =>
+      (f.feedUrl && f.feedUrl.toLowerCase() === url.toLowerCase()) || f.id === feed.id);
+    if (existing) {
+      if (existing.id) this.rssHiddenIds.delete(existing.id);
+      this.rssFeedId = existing.id || '';
+      this.rssSearchResults = [];
+      this.rssAddQuery = '';
+      this.rebuildRssCatalog();
+      this.flashSuccess(this.translate.instant('NEWS.RSS_ALREADY'));
+      this.onRssFeedChange();
+      return;
+    }
+    const custom: NewsSource = {
+      ...feed,
+      id: feed.id || ('custom-' + url),
+      custom: true,
+      feedUrl: url
+    };
+    this.rssCustom = [custom, ...this.rssCustom.filter(c => c.feedUrl !== url)];
+    this.rssFeedId = custom.id || '';
+    this.rssSearchResults = [];
+    this.rssAddQuery = '';
+    this.rebuildRssCatalog();
+    this.persistRssCatalog();
+    this.flashSuccess(this.translate.instant('NEWS.RSS_ADDED', { name: custom.name }));
+    this.onRssFeedChange();
+  }
+
+  removeRssFeed(feed: NewsSource, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!feed?.id) return;
+    if (feed.custom) {
+      this.rssCustom = this.rssCustom.filter(c => c.id !== feed.id);
+    } else {
+      this.rssHiddenIds.add(feed.id);
+    }
+    if (this.rssFeedId === feed.id) this.rssFeedId = '';
+    this.rebuildRssCatalog();
+    this.persistRssCatalog();
+    this.flashSuccess(this.translate.instant('NEWS.RSS_REMOVED'));
+    this.onRssFeedChange();
+  }
+
+  openRssSource(src: NewsSource): void {
+    if (src.id) this.rssFeedId = src.id;
+    this.setTab('headlines');
+  }
+
+  private loadRssCatalog(force: boolean, thenQuery: boolean = false): void {
+    if (this.rssRefreshingCatalog) return;
+    this.rssRefreshingCatalog = true;
+    this.apiService.getNewsSources({ provider: 'rss' }).subscribe({
+      next: (resp) => {
+        this.rssRefreshingCatalog = false;
+        const defaults: NewsSource[] = Array.isArray(resp?.sources)
+          ? resp.sources.map((s: any) => this.normalizeRssSource(s))
+          : [];
+        this.rssDefaults = defaults;
+        this.rebuildRssCatalog();
+        if (force) {
+          this.flashSuccess(this.translate.instant('NEWS.RSS_CATALOG_REFRESHED', {
+            count: defaults.length
+          }));
+        }
+        if (thenQuery) this.runQuery(true);
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.rssRefreshingCatalog = false;
+        this.rebuildRssCatalog();
+        if (thenQuery) this.runQuery(true);
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private rebuildRssCatalog(): void {
+    const visibleDefaults = this.rssDefaults.filter(d => d.id && !this.rssHiddenIds.has(d.id));
+    const custom = this.rssCustom.map(c => ({ ...c, custom: true }));
+    const seen = new Set<string>();
+    const merged: NewsSource[] = [];
+    for (const f of [...custom, ...visibleDefaults]) {
+      const key = (f.feedUrl || f.id || f.name).toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(f);
+    }
+    this.rssCatalog = merged;
+    this.persistRssCatalog();
+  }
+
+  private normalizeRssSource(raw: any): NewsSource {
+    return {
+      id: raw?.id || null,
+      name: raw?.name || raw?.feedUrl || 'RSS',
+      description: raw?.description || undefined,
+      url: raw?.url || undefined,
+      feedUrl: raw?.feedUrl || raw?.url || undefined,
+      category: raw?.category || undefined,
+      language: raw?.language || undefined,
+      country: raw?.country || undefined,
+      origin: raw?.origin || undefined
+    };
+  }
+
+  private persistRssCatalog(): void {
+    try {
+      localStorage.setItem(this.RSS_CATALOG_KEY, JSON.stringify({
+        hiddenIds: Array.from(this.rssHiddenIds),
+        custom: this.rssCustom
+      }));
+    } catch { /* ignore */ }
+  }
+
+  private restoreRssCatalog(): void {
+    try {
+      const raw = localStorage.getItem(this.RSS_CATALOG_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (Array.isArray(saved?.hiddenIds)) {
+        this.rssHiddenIds = new Set(saved.hiddenIds.filter((id: unknown) => typeof id === 'string'));
+      }
+      if (Array.isArray(saved?.custom)) {
+        this.rssCustom = saved.custom.map((s: any) => ({ ...this.normalizeRssSource(s), custom: true }));
+      }
+    } catch { /* ignore */ }
+  }
+
   // ---------------- Data fetching ----------------
 
   /**
@@ -1099,6 +1426,7 @@ export class NewsComponent implements OnInit, OnDestroy {
     // The provider prefix is part of the signature so that switching
     // between NewsData.io and NewsAPI always triggers a fresh fetch,
     // even when every other filter value stays the same.
+    const rssBit = this.provider === 'rss' ? `|${this.rssFeedId}|${this.selectedRssFeedUrls().join(',')}` : '';
     const base = this.provider + ':';
     if (this.mode === 'sources') {
       return base + [
@@ -1106,7 +1434,7 @@ export class NewsComponent implements OnInit, OnDestroy {
         this.country || '',
         this.category || '',
         this.language || ''
-      ].join('|');
+      ].join('|') + rssBit;
     }
     if (this.mode === 'search') {
       return base + [
@@ -1120,7 +1448,7 @@ export class NewsComponent implements OnInit, OnDestroy {
         this.dateTo || '',
         this.pageSize,
         this.page
-      ].join('|');
+      ].join('|') + rssBit;
     }
     // headlines
     return base + [
@@ -1130,7 +1458,7 @@ export class NewsComponent implements OnInit, OnDestroy {
       (this.query || '').trim().toLowerCase(),
       this.pageSize,
       this.page
-    ].join('|');
+    ].join('|') + rssBit;
   }
 
   /**
@@ -1181,7 +1509,8 @@ export class NewsComponent implements OnInit, OnDestroy {
       category: this.category || undefined,
       q: this.query || undefined,
       pageSize: this.effectivePageSize,
-      page: this.page
+      page: this.page,
+      feeds: this.provider === 'rss' ? this.selectedRssFeedUrls() : undefined
     }).subscribe({
       next: (resp) => this.handleArticleResponse(resp),
       error: (err) => this.handleError(err)
@@ -1221,11 +1550,15 @@ export class NewsComponent implements OnInit, OnDestroy {
     }
 
     if (!effectiveQ) {
-      this.articles = [];
-      this.totalResults = 0;
-      this.isLoading = false;
-      this.cdr.detectChanges();
-      return;
+      if (this.provider === 'rss') {
+        effectiveQ = '';
+      } else {
+        this.articles = [];
+        this.totalResults = 0;
+        this.isLoading = false;
+        this.cdr.detectChanges();
+        return;
+      }
     }
 
     // Clamp date range to NewsAPI's free-tier window (~1 month) and
@@ -1242,7 +1575,8 @@ export class NewsComponent implements OnInit, OnDestroy {
       to,
       sortBy: this.sortBy,
       pageSize: this.effectivePageSize,
-      page: this.page
+      page: this.page,
+      feeds: this.provider === 'rss' ? this.selectedRssFeedUrls() : undefined
     }).subscribe({
       next: (resp) => this.handleArticleResponse(resp),
       error: (err) => this.handleError(err)
@@ -1281,6 +1615,20 @@ export class NewsComponent implements OnInit, OnDestroy {
   }
 
   private fetchSources(): void {
+    if (this.provider === 'rss') {
+      this.isLoading = false;
+      const lang = (this.language || '').toLowerCase();
+      const cat = this.category || '';
+      const country = (this.country || '').toLowerCase();
+      this.sources = this.rssCatalog.filter(f => {
+        if (lang && f.language && f.language.toLowerCase() !== lang) return false;
+        if (cat && f.category && f.category !== cat) return false;
+        if (country && f.country && f.country.toLowerCase() !== country) return false;
+        return true;
+      });
+      this.cdr.detectChanges();
+      return;
+    }
     this.currentQuerySub = this.apiService.getNewsSources({
       provider: this.provider,
       country: this.country || undefined,
@@ -1329,7 +1677,8 @@ export class NewsComponent implements OnInit, OnDestroy {
     // Deferring to a queueMicrotask lets the current CD cycle finish on a
     // consistent {fallbackInfo=null, isLoading=true} snapshot, then the
     // fallback reshapes state in a fresh tick.
-    if (this.mode === 'headlines'
+    if (this.provider !== 'rss'
+        && this.mode === 'headlines'
         && articles.length === 0
         && !!this.country
         && !this.fallbackUsed) {
@@ -1460,7 +1809,8 @@ export class NewsComponent implements OnInit, OnDestroy {
         //    only re-fire it when defaults actually changed.
         const needInitialFetch = !this.initialQueryFired;
         if (countryChanged || languageChanged) this.updateTitle();
-        if (needInitialFetch || countryChanged || languageChanged) {
+        // RSS waits for the catalogue merge before the first article fetch.
+        if (this.provider !== 'rss' && (needInitialFetch || countryChanged || languageChanged)) {
           this.runQuery();
         }
         this.cdr.detectChanges();
@@ -1542,6 +1892,11 @@ export class NewsComponent implements OnInit, OnDestroy {
 
     parts.push(this.translate.instant('NEWS.TAB_' + this.userTab.toUpperCase()));
 
+    if (this.provider === 'rss') {
+      const selected = this.rssCatalog.find(f => f.id === this.rssFeedId);
+      parts.push(selected?.name || this.translate.instant('NEWS.PROVIDER_RSS'));
+    }
+
     if (this.userTab === 'search' && this.query) {
       parts.push(`"${this.query}"`);
     }
@@ -1592,7 +1947,9 @@ export class NewsComponent implements OnInit, OnDestroy {
         userTab: this.userTab, mode: this.mode,
         country: this.country, category: this.category,
         language: this.language, query: this.query, sortBy: this.sortBy,
-        dateFrom: this.dateFrom, dateTo: this.dateTo, pageSize: this.pageSize
+        dateFrom: this.dateFrom, dateTo: this.dateTo, pageSize: this.pageSize,
+        rssFeedId: this.rssFeedId,
+        rssFeedUrls: this.provider === 'rss' ? this.selectedRssFeedUrls() : []
       };
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(payload));
     } catch (_) { /* localStorage may be unavailable (private mode) */ }
@@ -1617,11 +1974,12 @@ export class NewsComponent implements OnInit, OnDestroy {
 
   private restoreFilters(): void {
     try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
+      const raw = localStorage.getItem(this.STORAGE_KEY)
+        || localStorage.getItem(this.LEGACY_STORAGE_KEY);
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (!saved || typeof saved !== 'object') return;
-      if (saved.provider === 'newsdata' || saved.provider === 'newsapi') {
+      if (saved.provider === 'newsdata' || saved.provider === 'newsapi' || saved.provider === 'rss') {
         this.provider = saved.provider;
       }
       if (saved.userTab === 'headlines' || saved.userTab === 'search' || saved.userTab === 'sources') {
@@ -1636,6 +1994,7 @@ export class NewsComponent implements OnInit, OnDestroy {
       if (typeof saved.dateFrom === 'string') this.dateFrom = this.normalizeDateTimeLocal(saved.dateFrom);
       if (typeof saved.dateTo === 'string') this.dateTo = this.normalizeDateTimeLocal(saved.dateTo);
       if (typeof saved.pageSize === 'number' && saved.pageSize > 0 && saved.pageSize <= 100) this.pageSize = saved.pageSize;
+      if (typeof saved.rssFeedId === 'string') this.rssFeedId = saved.rssFeedId;
       this.userHasFilterPrefs = true;
     } catch (_) { /* corrupted; ignore */ }
   }

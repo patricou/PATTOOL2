@@ -21,13 +21,16 @@
       <i class="fa fa-compass" aria-hidden="true"></i>
       {{ 'RELIEF_FINDER.SENSORS' | translate }}
     </button>
-    <button type="button" class="rf-btn" *ngIf="!camLive" (click)="startCamera()">
-      <i class="fa fa-video-camera" aria-hidden="true"></i>
-      {{ 'RELIEF_FINDER.CAM_START' | translate }}
-    </button>
-    <button type="button" class="rf-btn" *ngIf="camLive" (click)="stopCamera()">
-      {{ 'RELIEF_FINDER.CAM_STOP' | translate }}
-    </button>
+    <label class="rf-switch">
+      <input
+        type="checkbox"
+        role="switch"
+        [checked]="camImageOn"
+        (change)="onCamImageToggle($event)"
+        [attr.aria-label]="'RELIEF_FINDER.CAM_IMAGE' | translate" />
+      <span class="rf-switch__track" aria-hidden="true"></span>
+      {{ 'RELIEF_FINDER.CAM_IMAGE' | translate }}
+    </label>
     <a class="rf-btn rf-btn--link" routerLink="/tools/direction">
       <i class="fa fa-crosshairs" aria-hidden="true"></i>
       {{ 'RELIEF_FINDER.CALIBRATE' | translate }}
@@ -60,26 +63,32 @@
       #camStage
       [class.rf-cam--fs]="isFullscreen"
       [class.rf-cam--resized]="!isFullscreen && camHeightPx != null"
+      [class.rf-cam--nocam]="!camImageOn || !camLive"
       [style.height.px]="!isFullscreen && camHeightPx != null ? camHeightPx : null">
-      <video #cam playsinline muted autoplay></video>
-      <div class="rf-cam__empty" *ngIf="!camLive">{{ 'RELIEF_FINDER.CAM_PLACEHOLDER' | translate }}</div>
+      <video #cam playsinline muted autoplay [hidden]="!camImageOn"></video>
+      <div class="rf-cam__empty" *ngIf="camImageOn && !camLive">{{ 'RELIEF_FINDER.CAM_PLACEHOLDER' | translate }}</div>
       <svg class="rf-sil" viewBox="0 0 100 100" preserveAspectRatio="none" [style.transform]="horizonTilt()" aria-hidden="true">
         <path class="rf-sil__fill" [attr.d]="silhouetteFill"></path>
         <path class="rf-sil__stroke" [attr.d]="silhouetteStroke"></path>
       </svg>
       <div class="rf-reticle" aria-hidden="true"></div>
-      <button
-        type="button"
-        class="rf-label"
-        *ngFor="let lab of peakLabels"
-        [class.rf-label--on]="selected?.name === lab.peak.name"
-        [class.rf-label--dim]="!lab.inView"
-        [style.left.%]="lab.xPct"
-        [style.top.%]="lab.yPct"
-        (click)="selectPeak(lab.peak)">
-        <span class="rf-label__name">{{ lab.peak.name }}</span>
-        <span class="rf-label__meta">{{ lab.peak.eleM | number : '1.0-0' }} m · {{ distLabel(lab.peak) }}</span>
-      </button>
+      <div class="rf-labels" [style.transform]="horizonTilt()">
+        <button
+          type="button"
+          class="rf-label"
+          *ngFor="let lab of peakLabels"
+          [class.rf-label--on]="selected?.name === lab.peak.name"
+          [class.rf-label--dim]="!lab.inView"
+          [style.left.%]="lab.xPct"
+          [style.top.%]="lab.yPct"
+          (click)="selectPeak(lab.peak)">
+          <span class="rf-label__col">
+            <span class="rf-label__name">{{ lab.peak.name }}</span>
+            <span class="rf-label__meta">{{ lab.peak.eleM | number : '1.0-0' }} m</span>
+          </span>
+          <span class="rf-label__stem" aria-hidden="true"></span>
+        </button>
+      </div>
       <div class="rf-hud">
         <div class="rf-hud__metric">
           <span>{{ 'RELIEF_FINDER.AZIMUTH' | translate }}</span>
@@ -132,7 +141,7 @@
   </section>
 
   <p class="rf-warn" *ngIf="loadError">{{ 'RELIEF_FINDER.LOAD_ERROR' | translate }}</p>
-  <p class="rf-warn" *ngIf="camDenied">{{ 'RELIEF_FINDER.CAM_DENIED' | translate }}</p>
+  <p class="rf-warn" *ngIf="camDenied && camImageOn">{{ 'RELIEF_FINDER.CAM_DENIED' | translate }}</p>
 
   <section class="rf-peaks" *ngIf="horizon">
     <h3>

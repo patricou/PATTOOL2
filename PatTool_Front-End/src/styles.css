@@ -1441,6 +1441,11 @@ html.modal-open[class*=""]:has(.upload-logs-modal) {
 
 :root {
     --navbar-height: 60px;
+    /* Actual measured bar height (AppComponent). Tickers sit just under this. */
+    --navbar-offset: var(--navbar-height);
+    --news-ticker-height: 64px;
+    --currency-ticker-height: 40px;
+    --stock-ticker-height: 40px;
 }
 
 html,
@@ -1736,7 +1741,7 @@ body app-euromillions {
 }
 
 body app-euromillions .pat-title.eurom-title-plain {
-  --eurom-pat-div-gap: 80px;
+  --eurom-pat-div-gap: calc(var(--navbar-offset, 60px) + 20px);
   margin-top: calc(-1 * var(--eurom-pat-div-gap)) !important;
   padding-top: calc(1rem + var(--eurom-pat-div-gap)) !important;
 }
@@ -1744,43 +1749,43 @@ body app-euromillions .pat-title.eurom-title-plain {
 body.pat-has-news-ticker:not(.pat-has-currency-ticker):not(.pat-has-stock-ticker)
   app-euromillions
   .pat-title.eurom-title-plain {
-  --eurom-pat-div-gap: 124px;
+  --eurom-pat-div-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + 12px);
 }
 
 body:not(.pat-has-news-ticker).pat-has-currency-ticker:not(.pat-has-stock-ticker)
   app-euromillions
   .pat-title.eurom-title-plain {
-  --eurom-pat-div-gap: 108px;
+  --eurom-pat-div-gap: calc(var(--navbar-offset, 60px) + var(--currency-ticker-height, 40px) + 12px);
 }
 
 body:not(.pat-has-news-ticker):not(.pat-has-currency-ticker).pat-has-stock-ticker
   app-euromillions
   .pat-title.eurom-title-plain {
-  --eurom-pat-div-gap: 108px;
+  --eurom-pat-div-gap: calc(var(--navbar-offset, 60px) + var(--stock-ticker-height, 40px) + 12px);
 }
 
 body.pat-has-news-ticker.pat-has-currency-ticker:not(.pat-has-stock-ticker)
   app-euromillions
   .pat-title.eurom-title-plain {
-  --eurom-pat-div-gap: 164px;
+  --eurom-pat-div-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px) + 12px);
 }
 
 body.pat-has-news-ticker:not(.pat-has-currency-ticker).pat-has-stock-ticker
   app-euromillions
   .pat-title.eurom-title-plain {
-  --eurom-pat-div-gap: 164px;
+  --eurom-pat-div-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--stock-ticker-height, 40px) + 12px);
 }
 
 body:not(.pat-has-news-ticker).pat-has-currency-ticker.pat-has-stock-ticker
   app-euromillions
   .pat-title.eurom-title-plain {
-  --eurom-pat-div-gap: 148px;
+  --eurom-pat-div-gap: calc(var(--navbar-offset, 60px) + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px) + 12px);
 }
 
 body.pat-has-news-ticker.pat-has-currency-ticker.pat-has-stock-ticker
   app-euromillions
   .pat-title.eurom-title-plain {
-  --eurom-pat-div-gap: 204px;
+  --eurom-pat-div-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px) + 12px);
 }
 
 body:has(.friend-requests-app-banner) app-euromillions .pat-title.eurom-title-plain {
@@ -1798,7 +1803,7 @@ body app-world-globe {
 }
 
 body app-world-globe .pat-title.wg-title-plain {
-  --wg-pat-div-gap: 80px;
+  --wg-pat-div-gap: calc(var(--navbar-offset, 60px) + 20px);
   margin-top: calc(-1 * var(--wg-pat-div-gap)) !important;
   margin-bottom: 0 !important;
   margin-left: calc(50% - 50vw) !important;
@@ -1817,43 +1822,43 @@ body app-world-globe .pat-title.wg-title-plain::before {
 body.pat-has-news-ticker:not(.pat-has-currency-ticker):not(.pat-has-stock-ticker)
   app-world-globe
   .pat-title.wg-title-plain {
-  --wg-pat-div-gap: 124px;
+  --wg-pat-div-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + 12px);
 }
 
 body:not(.pat-has-news-ticker).pat-has-currency-ticker:not(.pat-has-stock-ticker)
   app-world-globe
   .pat-title.wg-title-plain {
-  --wg-pat-div-gap: 108px;
+  --wg-pat-div-gap: calc(var(--navbar-offset, 60px) + var(--currency-ticker-height, 40px) + 12px);
 }
 
 body:not(.pat-has-news-ticker):not(.pat-has-currency-ticker).pat-has-stock-ticker
   app-world-globe
   .pat-title.wg-title-plain {
-  --wg-pat-div-gap: 108px;
+  --wg-pat-div-gap: calc(var(--navbar-offset, 60px) + var(--stock-ticker-height, 40px) + 12px);
 }
 
 body.pat-has-news-ticker.pat-has-currency-ticker:not(.pat-has-stock-ticker)
   app-world-globe
   .pat-title.wg-title-plain {
-  --wg-pat-div-gap: 164px;
+  --wg-pat-div-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px) + 12px);
 }
 
 body.pat-has-news-ticker:not(.pat-has-currency-ticker).pat-has-stock-ticker
   app-world-globe
   .pat-title.wg-title-plain {
-  --wg-pat-div-gap: 164px;
+  --wg-pat-div-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--stock-ticker-height, 40px) + 12px);
 }
 
 body:not(.pat-has-news-ticker).pat-has-currency-ticker.pat-has-stock-ticker
   app-world-globe
   .pat-title.wg-title-plain {
-  --wg-pat-div-gap: 148px;
+  --wg-pat-div-gap: calc(var(--navbar-offset, 60px) + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px) + 12px);
 }
 
 body.pat-has-news-ticker.pat-has-currency-ticker.pat-has-stock-ticker
   app-world-globe
   .pat-title.wg-title-plain {
-  --wg-pat-div-gap: 204px;
+  --wg-pat-div-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px) + 12px);
 }
 
 body:has(.friend-requests-app-banner) app-world-globe .pat-title.wg-title-plain {

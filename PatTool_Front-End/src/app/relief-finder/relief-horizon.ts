@@ -115,13 +115,16 @@ export interface PeakLabel {
   inView: boolean;
 }
 
+/** Min horizontal gap (%) so vertical PeakFinder-style names do not overlap. */
+const VERTICAL_LABEL_GAP_X = 3.4;
+
 export function projectVisiblePeaks(
   peaks: ReliefPeak[],
   camAz: number,
   camEl: number,
   hfov: number,
   vfov: number,
-  maxLabels = 16
+  maxLabels = 18
 ): PeakLabel[] {
   const vis = peaks.filter((p) => p.visible);
   const ranked = vis.slice().sort((a, b) => {
@@ -140,7 +143,10 @@ export function projectVisiblePeaks(
     if (!p.inFront) {
       continue;
     }
-    if (out.some((o) => Math.hypot(o.xPct - p.xPct, o.yPct - p.yPct) < 7)) {
+    if (p.xPct < 1.2 || p.xPct > 98.8) {
+      continue;
+    }
+    if (out.some((o) => Math.abs(o.xPct - p.xPct) < VERTICAL_LABEL_GAP_X)) {
       continue;
     }
     out.push({ peak, xPct: p.xPct, yPct: p.yPct, inView: p.inView });

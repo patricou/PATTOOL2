@@ -9,6 +9,16 @@
     padding-bottom: 40px;
 }
 
+/* Titre collé au bandeau ACTU (même schéma que YouTube / globe). */
+:host .pat-title.news-title--ticker {
+    margin-bottom: 0;
+    box-shadow: none;
+}
+
+:host app-news-ticker {
+    display: block;
+}
+
 /* ---------- Global news-ticker toggle ---------- */
 .news-ticker-toggle {
     display: inline-flex;
@@ -851,6 +861,14 @@
     color: #007bff;
 }
 
+.news-slideshow-btn {
+    margin-left: auto;
+}
+
+.news-slideshow-btn i {
+    margin-right: 4px;
+}
+
 /* ---------- Empty state ---------- */
 .news-empty {
     text-align: center;
@@ -908,6 +926,33 @@
     background: linear-gradient(135deg, #e7f1ff 0%, #f8f9fa 100%);
     overflow: hidden;
     position: relative;
+}
+
+.news-card-media-clickable {
+    cursor: zoom-in;
+}
+
+.news-card-media-zoom {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.news-card-media-clickable:hover .news-card-media-zoom,
+.news-card:focus-within .news-card-media-zoom {
+    opacity: 1;
 }
 
 .news-card-media img {
@@ -1180,6 +1225,72 @@
 
 .source-card h4 i {
     color: #007bff;
+}
+
+.source-card-clickable h4 {
+    cursor: pointer;
+}
+
+.source-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.rss-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 8px 0 10px;
+    padding: 10px 12px;
+    background: #f8f9fb;
+    border: 1px solid #e3e6ec;
+    border-radius: 6px;
+}
+
+.rss-add-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.rss-add-row .form-control {
+    flex: 1 1 220px;
+    min-width: 160px;
+}
+
+.rss-search-results {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.rss-search-results li {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 6px 8px;
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+}
+
+.rss-search-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.rss-search-meta small {
+    color: #6c757d;
+    word-break: break-all;
 }
 
 .source-card p {

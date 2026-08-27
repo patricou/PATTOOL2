@@ -1,5 +1,6 @@
 package com.pat.service.news;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -25,6 +26,15 @@ public interface NewsProvider {
     Map<String, Object> getTopHeadlines(String country, String category, String query, Integer pageSize, Integer page);
 
     /**
+     * Same as {@link #getTopHeadlines} with optional explicit RSS feed URLs
+     * (used only by {@link RssNewsService}; other providers ignore {@code feedUrls}).
+     */
+    default Map<String, Object> getTopHeadlines(String country, String category, String query,
+                                                Integer pageSize, Integer page, List<String> feedUrls) {
+        return getTopHeadlines(country, category, query, pageSize, page);
+    }
+
+    /**
      * Full search across all articles indexed by the provider.
      *
      * @param query     Free-text query (required by NewsAPI /everything)
@@ -37,6 +47,13 @@ public interface NewsProvider {
      */
     Map<String, Object> getEverything(String query, String language, String from, String to,
                                       String sortBy, Integer pageSize, Integer page);
+
+    /** RSS-only overload; other providers ignore {@code feedUrls}. */
+    default Map<String, Object> getEverything(String query, String language, String from, String to,
+                                              String sortBy, Integer pageSize, Integer page,
+                                              List<String> feedUrls) {
+        return getEverything(query, language, from, to, sortBy, pageSize, page);
+    }
 
     /**
      * Available news sources filtered by country / category / language (any may be null).
