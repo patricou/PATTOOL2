@@ -521,7 +521,8 @@
     "ASTRO_COMPASS": "आकाशीय निशाना",
     "NORD": "कम्पास",
     "DIRECTION": "अंशांकन",
-    "RELIEF_FINDER": "रिलीफ फाइंडर"
+    "RELIEF_FINDER": "रिलीफ फाइंडर",
+    "TELEGRAM": "Telegram"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",
@@ -2122,7 +2123,9 @@
       "TRACE_VIEWER": "Penampil jejak",
       "WEBCAM_FAVORITES": "Favorite webcams",
       "ARCHIVE_RECENT": "Archive हालिया आइटम",
-      "ARCHIVE_AUDIO_PLAYLIST": "Archive ऑडियो प्लेलिस्ट"
+      "ARCHIVE_AUDIO_PLAYLIST": "Archive ऑडियो प्लेलिस्ट",
+      "TELEGRAM_CONNECTION": "Telegram कनेक्शन (व्यक्तिगत टोकन)",
+      "TELEGRAM_INBOX": "Telegram इनबॉक्स"
     }
   },
   "UPLOADFILE": {
@@ -5860,5 +5863,44 @@
     "MW": "Milky Way",
     "ANDROMEDA": "Andromeda",
     "TRIANGULUM": "Triangulum"
+  },
+  "TELEGRAM": {
+    "TITLE": "Telegram",
+    "SUBTITLE": "व्यक्तिगत कनेक्शन: प्रत्येक PatTool उपयोगकर्ता अपना Telegram बॉट (BotFather टोकन) इस्तेमाल करता है। खातों के बीच कुछ साझा नहीं होता।",
+    "CONNECT_TITLE": "अपना Telegram जोड़ें",
+    "CONNECT_HELP": "BotFather से बॉट बनाएँ और टोकन यहाँ चिपकाएँ। यह केवल आपके PatTool खाते में सहेजा जाता है; ब्राउज़र इसे फिर नहीं देखता।",
+    "CONNECT_TOKEN": "बॉट टोकन",
+    "CONNECT_TOKEN_PLACEHOLDER": "123456789:AAH… (BotFather टोकन)",
+    "CONNECT_SUBMIT": "जोड़ें",
+    "CONNECTING": "जाँच हो रही है…",
+    "DISCONNECT": "डिस्कनेक्ट",
+    "BOTFATHER_HINT": "टोकन प्राप्त करें:",
+    "OPEN_TELEGRAM": "Telegram में खोलें",
+    "INVITE_TITLE": "किसी को आमंत्रित करें",
+    "INVITE_HELP": "यह लिंक भेजें (SMS, ईमेल, WhatsApp…)। व्यक्ति Telegram खोले, Start दबाए, फिर आपकी चैट में दिखेगा।",
+    "INVITE_COPY": "लिंक कॉपी करें",
+    "INVITE_COPIED": "लिंक कॉपी हो गया",
+    "INVITE_SHARE": "Telegram से साझा करें",
+    "INVITE_SHARE_TEXT": "Telegram में {{bot}} खोलें और चैट के लिए Start दबाएँ।",
+    "CHATS": "चैट",
+    "MESSAGES": "संदेश",
+    "EMPTY_INBOX": "अभी कोई चैट नहीं। ऊपर का आमंत्रण लिंक कॉपी करके व्यक्ति को भेजें।",
+    "EMPTY_CHAT": "एक चैट चुनें या संदेश का इंतज़ार करें।",
+    "SEND": "भेजें",
+    "SEND_PLACEHOLDER": "संदेश लिखें…",
+    "ERROR": "Telegram अस्थायी रूप से उपलब्ध नहीं है।",
+    "ERROR_INVALID_TOKEN": "अमान्य टोकन। @BotFather का टोकन जाँचें।",
+    "ERROR_NOT_CONNECTED": "आपके खाते से कोई Telegram बॉट जुड़ा नहीं है।",
+    "ERROR_SEND": "संदेश नहीं भेजा जा सका।",
+    "MEDIA_DOCUMENT": "फ़ाइल",
+    "TYPE_PRIVATE": "निजी",
+    "TYPE_GROUP": "समूह",
+    "TYPE_SUPERGROUP": "सुपरग्रुप",
+    "TYPE_CHANNEL": "चैनल",
+    "EMBED_TITLE": "सार्वजनिक पोस्ट एम्बेड करें",
+    "EMBED_HELP": "सार्वजनिक संदेश (चैनल या समूह) का t.me लिंक चिपकाएँ; आधिकारिक Telegram विजेट से दिखेगा।",
+    "EMBED_PLACEHOLDER": "https://t.me/चैनल_नाम/123",
+    "EMBED_OPEN": "दिखाएँ",
+    "EMBED_INVALID": "अमान्य t.me लिंक। उदाहरण: https://t.me/durov/43"
   }
 }

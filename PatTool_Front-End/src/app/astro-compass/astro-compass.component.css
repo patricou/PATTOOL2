@@ -2516,6 +2516,7 @@ a.ac-compass-cal__btn--direction {
 :host.ac-object-info-open .ac-live-modal,
 :host.ac-object-info-open .ac-live-backdrop {
   pointer-events: none;
+  visibility: hidden;
 }
 
 .ac-ticker {
@@ -4108,6 +4109,12 @@ a.ac-compass-cal__btn--direction {
   border-color: rgba(255, 213, 74, 0.45);
 }
 
+.ac-live-modal--paused .ac-live-radar__target,
+.ac-live-modal--paused .ac-live-radar__dot,
+.ac-live-modal--paused .ac-live-radar__figure {
+  pointer-events: none;
+}
+
 .ac-live-modal--sheet {
   touch-action: pan-y pinch-zoom;
 }
@@ -4610,7 +4617,6 @@ a.ac-compass-cal__btn--direction {
   cursor: default;
   z-index: 3;
   box-shadow: 0 0 16px currentColor;
-  transition: left 0.2s ease, top 0.2s ease;
 }
 
 .ac-live-radar__figure {

@@ -92,7 +92,8 @@
     "ASTRO_COMPASS": "天体瞄准器",
     "NORD": "罗盘",
     "DIRECTION": "校准",
-    "RELIEF_FINDER": "地貌识别"
+    "RELIEF_FINDER": "地貌识别",
+    "TELEGRAM": "Telegram"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",
@@ -2151,7 +2152,9 @@
       "TRACE_VIEWER": "轨迹查看器",
       "WEBCAM_FAVORITES": "收藏的网络摄像头",
       "ARCHIVE_RECENT": "Archive 最近项目",
-      "ARCHIVE_AUDIO_PLAYLIST": "Archive 音频播放列表"
+      "ARCHIVE_AUDIO_PLAYLIST": "Archive 音频播放列表",
+      "TELEGRAM_CONNECTION": "Telegram 连接（个人令牌）",
+      "TELEGRAM_INBOX": "Telegram 收件箱"
     }
   },
   "UPLOADFILE": {
@@ -5869,5 +5872,44 @@
     "MW": "Milky Way",
     "ANDROMEDA": "Andromeda",
     "TRIANGULUM": "Triangulum"
+  },
+  "TELEGRAM": {
+    "TITLE": "Telegram",
+    "SUBTITLE": "个人连接：每位 PatTool 用户使用自己的 Telegram 机器人（BotFather 令牌）。账号之间互不共享。",
+    "CONNECT_TITLE": "连接你的 Telegram",
+    "CONNECT_HELP": "用 BotFather 创建机器人，然后将令牌粘贴到此处。令牌只保存在你的 PatTool 账户中，浏览器之后看不到。",
+    "CONNECT_TOKEN": "机器人令牌",
+    "CONNECT_TOKEN_PLACEHOLDER": "123456789:AAH…（BotFather 令牌）",
+    "CONNECT_SUBMIT": "连接",
+    "CONNECTING": "正在验证…",
+    "DISCONNECT": "断开",
+    "BOTFATHER_HINT": "获取令牌：",
+    "OPEN_TELEGRAM": "在 Telegram 中打开",
+    "INVITE_TITLE": "邀请某人",
+    "INVITE_HELP": "发送此链接（短信、邮件、WhatsApp…）。对方打开 Telegram，点“开始”，就会出现在你的会话中。",
+    "INVITE_COPY": "复制链接",
+    "INVITE_COPIED": "已复制链接",
+    "INVITE_SHARE": "通过 Telegram 分享",
+    "INVITE_SHARE_TEXT": "在 Telegram 中打开 {{bot}} 并点“开始”开始聊天。",
+    "CHATS": "会话",
+    "MESSAGES": "消息",
+    "EMPTY_INBOX": "暂无会话。复制上方邀请链接并发送给对方。",
+    "EMPTY_CHAT": "选择一个会话或等待消息。",
+    "SEND": "发送",
+    "SEND_PLACEHOLDER": "输入消息…",
+    "ERROR": "Telegram 暂时不可用。",
+    "ERROR_INVALID_TOKEN": "令牌无效。请检查 @BotFather 提供的令牌。",
+    "ERROR_NOT_CONNECTED": "你的账户尚未连接 Telegram 机器人。",
+    "ERROR_SEND": "无法发送消息。",
+    "MEDIA_DOCUMENT": "文件",
+    "TYPE_PRIVATE": "私聊",
+    "TYPE_GROUP": "群组",
+    "TYPE_SUPERGROUP": "超级群组",
+    "TYPE_CHANNEL": "频道",
+    "EMBED_TITLE": "嵌入公开帖子",
+    "EMBED_HELP": "粘贴公开消息的 t.me 链接（频道或群组），即可通过官方 Telegram 小组件显示。",
+    "EMBED_PLACEHOLDER": "https://t.me/频道名/123",
+    "EMBED_OPEN": "显示",
+    "EMBED_INVALID": "t.me 链接无效。例如：https://t.me/durov/43"
   }
 }

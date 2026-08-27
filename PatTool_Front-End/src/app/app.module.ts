@@ -235,6 +235,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 					import('./youtube-watcher/youtube-watcher.component').then(m => m.YoutubeWatcherComponent)
 			},
 			{
+				path: 'tools/telegram',
+				loadComponent: () =>
+					import('./telegram-watcher/telegram-watcher.component').then(m => m.TelegramWatcherComponent)
+			},
+			{
 				path: 'tools/tv-popout',
 				loadComponent: () => import('./tv-watcher/tv-popout.component').then(m => m.TvPopoutComponent)
 			},

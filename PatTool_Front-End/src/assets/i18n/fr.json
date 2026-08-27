@@ -89,6 +89,7 @@
     "WEBCAM": "WebCams",
     "WIKI": "Wikipédia",
     "YOUTUBE": "YouTube",
+    "TELEGRAM": "Telegram",
     "ASTRO_COMPASS": "Viseur d'Astres",
     "NORD": "Boussole",
     "DIRECTION": "Calibrage",
@@ -376,6 +377,7 @@
       "app_webcam_search_cache_minutes": "Durée (minutes) du cache serveur pour les listes de webcams Windy.",
       "app_youtube_api_base": "URL de base de l’API YouTube Data v3 utilisée par la page Média YouTube.",
       "app_youtube_api_key": "Clé API YouTube Data v3 (jamais exposée au navigateur). Gratuite sur console.cloud.google.com, API YouTube Data API v3.",
+      "app_telegram_api_base": "URL de base de l’API Bot Telegram (chaque utilisateur PatTool connecte son propre jeton BotFather).",
       "app_openroute_api_key": "Clé API OpenRouteService pour le calcul d’itinéraires GPS (jamais exposée au navigateur).",
       "app_openroute_api_base": "URL de base de l’API OpenRouteService (proxy /api/external/openroute/*)."
     }
@@ -2779,7 +2781,9 @@
       "METEO_TEMPERATURE_CACHE": "Cache des températures",
       "METEO_HISTORY_CACHE": "Cache historique météo",
       "METEO_AROMEPI_PREFETCH": "Préchargement AROME-PI",
-      "TRACE_VIEWER": "Visionneuse de traces"
+      "TRACE_VIEWER": "Visionneuse de traces",
+      "TELEGRAM_CONNECTION": "Connexion Telegram (jeton personnel)",
+      "TELEGRAM_INBOX": "Boîte Telegram"
     }
   },
   "UPLOADFILE": {
@@ -7910,5 +7914,44 @@
     "PEAKS": "Sommets visibles",
     "NO_PEAKS": "Aucun sommet nommé ne dépasse la silhouette DEM dans cette portée.",
     "HIDDEN": "{{count}} sommet(s) caché(s) derrière le relief"
+  },
+  "TELEGRAM": {
+    "TITLE": "Telegram",
+    "SUBTITLE": "Connexion personnelle : chaque utilisateur PatTool utilise son propre bot Telegram (jeton BotFather). Rien n’est partagé entre les comptes.",
+    "CONNECT_TITLE": "Connecter votre Telegram",
+    "CONNECT_HELP": "Créez un bot avec BotFather, puis collez ici le jeton. Il est enregistré uniquement sur votre compte PatTool et le navigateur ne le revoit jamais.",
+    "CONNECT_TOKEN": "Jeton du bot",
+    "CONNECT_TOKEN_PLACEHOLDER": "123456789:AAH… (jeton BotFather)",
+    "CONNECT_SUBMIT": "Connecter",
+    "CONNECTING": "Vérification…",
+    "DISCONNECT": "Déconnecter",
+    "BOTFATHER_HINT": "Obtenir un jeton :",
+    "OPEN_TELEGRAM": "Ouvrir dans Telegram",
+    "INVITE_TITLE": "Inviter quelqu’un",
+    "INVITE_HELP": "Envoie ce lien (SMS, mail, WhatsApp…). La personne ouvre Telegram, appuie sur Démarrer, puis elle apparaît dans tes discussions.",
+    "INVITE_COPY": "Copier le lien",
+    "INVITE_COPIED": "Lien copié",
+    "INVITE_SHARE": "Partager via Telegram",
+    "INVITE_SHARE_TEXT": "Ouvre {{bot}} sur Telegram et appuie sur Démarrer pour discuter.",
+    "CHATS": "Discussions",
+    "MESSAGES": "Messages",
+    "EMPTY_INBOX": "Aucune discussion pour l’instant. Copie le lien d’invitation ci-dessus et envoie-le à la personne.",
+    "EMPTY_CHAT": "Choisissez une discussion ou attendez un message.",
+    "SEND": "Envoyer",
+    "SEND_PLACEHOLDER": "Écrire un message…",
+    "ERROR": "Telegram est temporairement indisponible.",
+    "ERROR_INVALID_TOKEN": "Jeton invalide. Vérifiez le jeton donné par @BotFather.",
+    "ERROR_NOT_CONNECTED": "Aucun bot Telegram n’est connecté à votre compte.",
+    "ERROR_SEND": "Impossible d’envoyer le message.",
+    "MEDIA_DOCUMENT": "Fichier",
+    "TYPE_PRIVATE": "Privé",
+    "TYPE_GROUP": "Groupe",
+    "TYPE_SUPERGROUP": "Super-groupe",
+    "TYPE_CHANNEL": "Chaîne",
+    "EMBED_TITLE": "Publier un post public",
+    "EMBED_HELP": "Collez le lien t.me d’un message public (chaîne ou groupe) pour l’afficher via le widget officiel Telegram.",
+    "EMBED_PLACEHOLDER": "https://t.me/nom_de_la_chaine/123",
+    "EMBED_OPEN": "Afficher",
+    "EMBED_INVALID": "Lien t.me invalide. Exemple : https://t.me/durov/43"
   }
 }

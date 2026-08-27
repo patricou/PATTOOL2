@@ -92,7 +92,8 @@
     "ASTRO_COMPASS": "منظار السماء",
     "NORD": "بوصلة",
     "DIRECTION": "المعايرة",
-    "RELIEF_FINDER": "مكتشف التضاريس"
+    "RELIEF_FINDER": "مكتشف التضاريس",
+    "TELEGRAM": "Telegram"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",
@@ -2150,7 +2151,9 @@
       "TRACE_VIEWER": "عارض المسارات",
       "WEBCAM_FAVORITES": "الكاميرات المفضلة",
       "ARCHIVE_RECENT": "عناصر Archive الأخيرة",
-      "ARCHIVE_AUDIO_PLAYLIST": "قائمة تشغيل صوت Archive"
+      "ARCHIVE_AUDIO_PLAYLIST": "قائمة تشغيل صوت Archive",
+      "TELEGRAM_CONNECTION": "اتصال Telegram (رمز شخصي)",
+      "TELEGRAM_INBOX": "وارد Telegram"
     }
   },
   "UPLOADFILE": {
@@ -5867,5 +5870,44 @@
     "MW": "Milky Way",
     "ANDROMEDA": "Andromeda",
     "TRIANGULUM": "Triangulum"
+  },
+  "TELEGRAM": {
+    "TITLE": "Telegram",
+    "SUBTITLE": "اتصال شخصي: كل مستخدم PatTool يستخدم بوت Telegram الخاص به (رمز BotFather). لا يُشارك شيء بين الحسابات.",
+    "CONNECT_TITLE": "ربط Telegram",
+    "CONNECT_HELP": "أنشئ بوتًا عبر BotFather ثم الصق الرمز هنا. يُحفظ في حساب PatTool فقط ولا يراه المتصفح بعد ذلك.",
+    "CONNECT_TOKEN": "رمز البوت",
+    "CONNECT_TOKEN_PLACEHOLDER": "123456789:AAH… (رمز BotFather)",
+    "CONNECT_SUBMIT": "ربط",
+    "CONNECTING": "جارٍ التحقق…",
+    "DISCONNECT": "قطع الاتصال",
+    "BOTFATHER_HINT": "الحصول على رمز:",
+    "OPEN_TELEGRAM": "فتح في Telegram",
+    "INVITE_TITLE": "دعوة شخص",
+    "INVITE_HELP": "أرسل هذا الرابط (رسالة، بريد، واتساب…). يفتح الشخص Telegram ويضغط ابدأ ثم يظهر في محادثاتك.",
+    "INVITE_COPY": "نسخ الرابط",
+    "INVITE_COPIED": "تم نسخ الرابط",
+    "INVITE_SHARE": "مشاركة عبر Telegram",
+    "INVITE_SHARE_TEXT": "افتح {{bot}} في Telegram واضغط ابدأ للدردشة.",
+    "CHATS": "المحادثات",
+    "MESSAGES": "الرسائل",
+    "EMPTY_INBOX": "لا محادثات بعد. انسخ رابط الدعوة أعلاه وأرسله للشخص.",
+    "EMPTY_CHAT": "اختر محادثة أو انتظر رسالة.",
+    "SEND": "إرسال",
+    "SEND_PLACEHOLDER": "اكتب رسالة…",
+    "ERROR": "Telegram غير متاح مؤقتًا.",
+    "ERROR_INVALID_TOKEN": "رمز غير صالح. تحقق من الرمز الذي أعطاه @BotFather.",
+    "ERROR_NOT_CONNECTED": "لا يوجد بوت Telegram مرتبط بحسابك.",
+    "ERROR_SEND": "تعذر إرسال الرسالة.",
+    "MEDIA_DOCUMENT": "ملف",
+    "TYPE_PRIVATE": "خاص",
+    "TYPE_GROUP": "مجموعة",
+    "TYPE_SUPERGROUP": "مجموعة كبرى",
+    "TYPE_CHANNEL": "قناة",
+    "EMBED_TITLE": "تضمين منشور عام",
+    "EMBED_HELP": "الصق رابط t.me لرسالة عامة (قناة أو مجموعة) لعرضها عبر ودجة Telegram الرسمية.",
+    "EMBED_PLACEHOLDER": "https://t.me/اسم_القناة/123",
+    "EMBED_OPEN": "عرض",
+    "EMBED_INVALID": "رابط t.me غير صالح. مثال: https://t.me/durov/43"
   }
 }

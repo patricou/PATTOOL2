@@ -51,7 +51,9 @@ public final class PatToolParameterCatalog {
             "meteofrance.history.cache.",
             "meteofrance.aromepi.playback.prefetch.",
             "trace.viewer.",
-            "gps.follow-user."
+            "gps.follow-user.",
+            "telegram.connection.",
+            "telegram.inbox."
     );
 
     public static final List<SectionDef> SECTIONS = List.of(
@@ -287,7 +289,8 @@ public final class PatToolParameterCatalog {
                     defSensitive("app.webcam.napspan-api-key"),
                     def("app.webcam.search-cache-minutes", false),
                     def("app.youtube.api-base", false),
-                    defSensitive("app.youtube.api-key")
+                    defSensitive("app.youtube.api-key"),
+                    def("app.telegram.api-base", false)
             ),
             section("electricity", "PATTOOL_PARAMS.SECTION.ELECTRICITY",
                     defSensitive("app.electricity.entsoe-token"),
@@ -424,6 +427,9 @@ public final class PatToolParameterCatalog {
         return lower.contains("secret")
                 || lower.contains("password")
                 || lower.contains("credentials")
+                || lower.contains("telegram.connection")
+                || lower.contains("bot-token")
+                || lower.endsWith(".token")
                 || lower.endsWith(".key")
                 || lower.endsWith(".keys")
                 || lower.contains("authorization")

@@ -1,0 +1,215 @@
+<div class="pat-title tg-title">
+  <h2>
+    <span class="tg-mark" aria-hidden="true">
+      <i class="fa fa-paper-plane"></i>
+    </span>
+    {{ 'TELEGRAM.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="tg-page">
+  <p class="tg-lead">{{ 'TELEGRAM.SUBTITLE' | translate }}</p>
+
+  <div class="alert alert-warning py-2 tg-alert" *ngIf="errorMessage && status?.connected" role="alert">
+    <i class="fa fa-exclamation-triangle me-2"></i>
+    {{ errorMessage | translate }}
+  </div>
+
+  <section class="tg-connect" *ngIf="!status?.connected" [attr.aria-label]="'TELEGRAM.CONNECT_TITLE' | translate">
+    <div class="tg-connect-mark" aria-hidden="true">
+      <i class="fa fa-paper-plane"></i>
+    </div>
+    <h3>{{ 'TELEGRAM.CONNECT_TITLE' | translate }}</h3>
+    <p>{{ 'TELEGRAM.CONNECT_HELP' | translate }}</p>
+    <p class="tg-botfather">
+      {{ 'TELEGRAM.BOTFATHER_HINT' | translate }}
+      <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer">@BotFather</a>
+    </p>
+    <form class="tg-connect-form" (submit)="$event.preventDefault(); connect()">
+      <label class="visually-hidden" for="tg-token">{{ 'TELEGRAM.CONNECT_TOKEN' | translate }}</label>
+      <input
+        id="tg-token"
+        type="password"
+        class="form-control tg-token"
+        name="tgToken"
+        autocomplete="off"
+        [(ngModel)]="botToken"
+        [placeholder]="'TELEGRAM.CONNECT_TOKEN_PLACEHOLDER' | translate" />
+      <button type="submit" class="btn btn-primary" [disabled]="!botToken.trim() || connecting">
+        <i class="fa" [class.fa-plug]="!connecting" [class.fa-spinner]="connecting" [class.fa-spin]="connecting"></i>
+        {{ (connecting ? 'TELEGRAM.CONNECTING' : 'TELEGRAM.CONNECT_SUBMIT') | translate }}
+      </button>
+    </form>
+    <div class="alert alert-danger py-2 tg-alert" *ngIf="connectError" role="alert">
+      {{ connectError | translate }}
+    </div>
+  </section>
+
+  <ng-container *ngIf="status?.connected">
+    <div class="tg-status">
+      <div class="tg-status-bot">
+        <span class="tg-status-dot" aria-hidden="true"></span>
+        <div>
+          <strong>{{ status?.botFirstName }}</strong>
+          <span class="tg-handle" *ngIf="botHandle()">{{ botHandle() }}</span>
+          <span class="tg-token-hint" *ngIf="status?.tokenHint">{{ status?.tokenHint }}</span>
+        </div>
+      </div>
+      <div class="tg-status-actions">
+        <a
+          *ngIf="botHandle()"
+          class="btn btn-outline-light btn-sm"
+          [href]="'https://t.me/' + status?.botUsername"
+          target="_blank"
+          rel="noopener noreferrer">
+          <i class="fa fa-external-link"></i>
+          {{ 'TELEGRAM.OPEN_TELEGRAM' | translate }}
+        </a>
+        <button type="button" class="btn btn-outline-danger btn-sm" (click)="disconnect()" [disabled]="disconnecting">
+          <i class="fa fa-unlink"></i>
+          {{ 'TELEGRAM.DISCONNECT' | translate }}
+        </button>
+      </div>
+    </div>
+
+    <div class="tg-invite" *ngIf="inviteUrl()">
+      <div>
+        <h3>{{ 'TELEGRAM.INVITE_TITLE' | translate }}</h3>
+        <p>{{ 'TELEGRAM.INVITE_HELP' | translate }}</p>
+        <code class="tg-invite-link">{{ inviteUrl() }}</code>
+      </div>
+      <div class="tg-invite-actions">
+        <button type="button" class="btn btn-primary btn-sm" (click)="copyInvite()">
+          <i class="fa" [class.fa-clipboard]="!inviteCopied" [class.fa-check]="inviteCopied"></i>
+          {{ (inviteCopied ? 'TELEGRAM.INVITE_COPIED' : 'TELEGRAM.INVITE_COPY') | translate }}
+        </button>
+        <a
+          class="btn btn-outline-light btn-sm"
+          [href]="shareInviteUrl()"
+          target="_blank"
+          rel="noopener noreferrer">
+          <i class="fa fa-share-alt"></i>
+          {{ 'TELEGRAM.INVITE_SHARE' | translate }}
+        </a>
+      </div>
+    </div>
+
+    <div class="tg-layout">
+      <aside class="tg-chats" [attr.aria-label]="'TELEGRAM.CHATS' | translate">
+        <div class="tg-chats-head">
+          <span>{{ 'TELEGRAM.CHATS' | translate }}</span>
+          <span class="tg-chats-count">{{ chats.length }}</span>
+        </div>
+        <p class="tg-empty-inbox" *ngIf="!chats.length">
+          {{ 'TELEGRAM.EMPTY_INBOX' | translate:{ bot: botHandle() } }}
+        </p>
+        <button
+          type="button"
+          class="tg-chat"
+          *ngFor="let chat of chats"
+          [class.active]="selectedChat?.id === chat.id"
+          (click)="selectChat(chat)">
+          <span class="tg-chat-avatar" aria-hidden="true">
+            <i class="fa" [class.fa-user]="chat.type === 'private'" [class.fa-users]="chat.type === 'group' || chat.type === 'supergroup'" [class.fa-bullhorn]="chat.type === 'channel'"></i>
+          </span>
+          <span class="tg-chat-body">
+            <span class="tg-chat-title">{{ chatTitle(chat) }}</span>
+            <span class="tg-chat-preview">{{ lastPreview(chat) }}</span>
+          </span>
+        </button>
+      </aside>
+
+      <section class="tg-thread" [attr.aria-label]="'TELEGRAM.MESSAGES' | translate">
+        <header class="tg-thread-head" *ngIf="selectedChat">
+          <strong>{{ chatTitle(selectedChat) }}</strong>
+          <span class="tg-thread-type" *ngIf="selectedChat.type">{{ ('TELEGRAM.TYPE_' + selectedChat.type.toUpperCase()) | translate }}</span>
+        </header>
+        <p class="tg-empty-chat" *ngIf="!selectedChat">{{ 'TELEGRAM.EMPTY_CHAT' | translate }}</p>
+        <div class="tg-messages" *ngIf="selectedChat">
+          <article
+            class="tg-bubble"
+            *ngFor="let msg of selectedMessages"
+            [class.outgoing]="msg.outgoing">
+            <div class="tg-bubble-meta">
+              <span class="tg-from">{{ msg.fromName }}</span>
+              <time>{{ formatTime(msg.date) }}</time>
+            </div>
+            <img
+              *ngIf="isPhoto(msg) && mediaUrl(msg.fileId)"
+              class="tg-media"
+              [src]="mediaUrl(msg.fileId)"
+              [alt]="msg.caption || msg.fileName || ''" />
+            <video
+              *ngIf="isVideo(msg) && mediaUrl(msg.fileId)"
+              class="tg-media"
+              controls
+              [src]="mediaUrl(msg.fileId)"></video>
+            <audio
+              *ngIf="isAudio(msg) && mediaUrl(msg.fileId)"
+              class="tg-audio"
+              controls
+              [src]="mediaUrl(msg.fileId)"></audio>
+            <a
+              *ngIf="msg.mediaKind === 'document' && mediaUrl(msg.fileId)"
+              class="tg-doc"
+              [href]="mediaUrl(msg.fileId)"
+              download
+              [attr.download]="msg.fileName || 'file'">
+              <i class="fa fa-file-o"></i>
+              {{ msg.fileName || ('TELEGRAM.MEDIA_DOCUMENT' | translate) }}
+            </a>
+            <p class="tg-text" *ngIf="msg.text">{{ msg.text }}</p>
+            <p class="tg-caption" *ngIf="msg.caption">{{ msg.caption }}</p>
+          </article>
+          <div #threadEnd></div>
+        </div>
+        <form class="tg-composer" *ngIf="selectedChat" (submit)="$event.preventDefault(); send()">
+          <label class="visually-hidden" for="tg-draft">{{ 'TELEGRAM.SEND_PLACEHOLDER' | translate }}</label>
+          <textarea
+            id="tg-draft"
+            #composer
+            class="form-control"
+            name="tgDraft"
+            rows="2"
+            [(ngModel)]="draft"
+            (keydown)="onComposerKeydown($event)"
+            [placeholder]="'TELEGRAM.SEND_PLACEHOLDER' | translate"></textarea>
+          <button type="submit" class="btn btn-primary" [disabled]="!draft.trim() || sending">
+            <i class="fa" [class.fa-paper-plane]="!sending" [class.fa-spinner]="sending" [class.fa-spin]="sending"></i>
+            {{ 'TELEGRAM.SEND' | translate }}
+          </button>
+        </form>
+        <div class="alert alert-danger py-2 tg-alert" *ngIf="sendError" role="alert">
+          {{ sendError | translate }}
+        </div>
+      </section>
+    </div>
+  </ng-container>
+
+  <section class="tg-embed" [attr.aria-label]="'TELEGRAM.EMBED_TITLE' | translate">
+    <h3>{{ 'TELEGRAM.EMBED_TITLE' | translate }}</h3>
+    <p>{{ 'TELEGRAM.EMBED_HELP' | translate }}</p>
+    <form class="tg-embed-form" (submit)="$event.preventDefault(); embedPost()">
+      <label class="visually-hidden" for="tg-post">{{ 'TELEGRAM.EMBED_PLACEHOLDER' | translate }}</label>
+      <input
+        id="tg-post"
+        type="url"
+        class="form-control"
+        name="tgPost"
+        [(ngModel)]="postUrl"
+        [placeholder]="'TELEGRAM.EMBED_PLACEHOLDER' | translate" />
+      <button type="submit" class="btn btn-outline-primary" [disabled]="!postUrl.trim() || embedding">
+        <i class="fa" [class.fa-code]="!embedding" [class.fa-spinner]="embedding" [class.fa-spin]="embedding"></i>
+        {{ 'TELEGRAM.EMBED_OPEN' | translate }}
+      </button>
+    </form>
+    <div class="alert alert-warning py-2 tg-alert" *ngIf="embedError" role="alert">
+      {{ embedError | translate }}
+    </div>
+    <iframe
+      *ngIf="embedSafeUrl"
+      class="tg-embed-frame"
+      [src]="embedSafeUrl"
+      [title]="'TELEGRAM.EMBED_TITLE' | translate"></iframe>
+  </section>
+</div>

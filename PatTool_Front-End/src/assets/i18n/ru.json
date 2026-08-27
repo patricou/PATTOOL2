@@ -522,7 +522,8 @@
     "ASTRO_COMPASS": "Небесный визир",
     "NORD": "Компас",
     "DIRECTION": "Калибровка",
-    "RELIEF_FINDER": "Рельеф"
+    "RELIEF_FINDER": "Рельеф",
+    "TELEGRAM": "Telegram"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",
@@ -2144,7 +2145,9 @@
       "TRACE_VIEWER": "Просмотр трасс",
       "WEBCAM_FAVORITES": "Избранные веб-камеры",
       "ARCHIVE_RECENT": "Недавние элементы Archive",
-      "ARCHIVE_AUDIO_PLAYLIST": "Аудиоплейлист Archive"
+      "ARCHIVE_AUDIO_PLAYLIST": "Аудиоплейлист Archive",
+      "TELEGRAM_CONNECTION": "Подключение Telegram (личный токен)",
+      "TELEGRAM_INBOX": "Входящие Telegram"
     }
   },
   "UPLOADFILE": {
@@ -5862,5 +5865,44 @@
     "MW": "Milky Way",
     "ANDROMEDA": "Andromeda",
     "TRIANGULUM": "Triangulum"
+  },
+  "TELEGRAM": {
+    "TITLE": "Telegram",
+    "SUBTITLE": "Личное подключение: каждый пользователь PatTool использует своего Telegram-бота (токен BotFather). Между аккаунтами ничего не общее.",
+    "CONNECT_TITLE": "Подключить Telegram",
+    "CONNECT_HELP": "Создайте бота через BotFather и вставьте токен сюда. Он хранится только в вашем аккаунте PatTool; браузер его больше не видит.",
+    "CONNECT_TOKEN": "Токен бота",
+    "CONNECT_TOKEN_PLACEHOLDER": "123456789:AAH… (токен BotFather)",
+    "CONNECT_SUBMIT": "Подключить",
+    "CONNECTING": "Проверка…",
+    "DISCONNECT": "Отключить",
+    "BOTFATHER_HINT": "Получить токен:",
+    "OPEN_TELEGRAM": "Открыть в Telegram",
+    "INVITE_TITLE": "Пригласить человека",
+    "INVITE_HELP": "Отправьте эту ссылку (SMS, почта, WhatsApp…). Человек откроет Telegram, нажмёт «Старт» и появится в ваших чатах.",
+    "INVITE_COPY": "Скопировать ссылку",
+    "INVITE_COPIED": "Ссылка скопирована",
+    "INVITE_SHARE": "Поделиться в Telegram",
+    "INVITE_SHARE_TEXT": "Откройте {{bot}} в Telegram и нажмите «Старт», чтобы начать чат.",
+    "CHATS": "Чаты",
+    "MESSAGES": "Сообщения",
+    "EMPTY_INBOX": "Пока нет чатов. Скопируйте ссылку-приглашение выше и отправьте её человеку.",
+    "EMPTY_CHAT": "Выберите чат или дождитесь сообщения.",
+    "SEND": "Отправить",
+    "SEND_PLACEHOLDER": "Написать сообщение…",
+    "ERROR": "Telegram временно недоступен.",
+    "ERROR_INVALID_TOKEN": "Недействительный токен. Проверьте токен от @BotFather.",
+    "ERROR_NOT_CONNECTED": "К вашему аккаунту не подключён бот Telegram.",
+    "ERROR_SEND": "Не удалось отправить сообщение.",
+    "MEDIA_DOCUMENT": "Файл",
+    "TYPE_PRIVATE": "Личный",
+    "TYPE_GROUP": "Группа",
+    "TYPE_SUPERGROUP": "Супергруппа",
+    "TYPE_CHANNEL": "Канал",
+    "EMBED_TITLE": "Встроить публичный пост",
+    "EMBED_HELP": "Вставьте ссылку t.me на публичное сообщение (канал или группа), чтобы показать его через официальный виджет Telegram.",
+    "EMBED_PLACEHOLDER": "https://t.me/имя_канала/123",
+    "EMBED_OPEN": "Показать",
+    "EMBED_INVALID": "Недействительная ссылка t.me. Пример: https://t.me/durov/43"
   }
 }

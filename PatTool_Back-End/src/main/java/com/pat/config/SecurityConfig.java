@@ -171,7 +171,7 @@ public class SecurityConfig {
                             "media-src 'self' data: https: blob:; " +
                             "font-src 'self' data: https://fonts.gstatic.com https://maxcdn.bootstrapcdn.com; " +
                             "connect-src 'self' blob: http://localhost:8080 http://localhost:8000 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com https://nominatim.openstreetmap.org https://api.open-elevation.com ws://localhost:8000 http://localhost:8000/ws; " +
-                            "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://www.google.com https://maps.google.com https://*.google.com https://cartes.gouv.fr https://www.youtube.com https://www.youtube-nocookie.com https://stellarium-web.org https://*.stellarium-web.org https://www.wikisky.org https://*.wikisky.org https://sky-map.org https://*.sky-map.org https://d3ufh70wg9uzo4.cloudfront.net https://webcams.windy.com https://embed.windy.com https://*.windy.com;")
+                            "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://www.google.com https://maps.google.com https://*.google.com https://cartes.gouv.fr https://www.youtube.com https://www.youtube-nocookie.com https://t.me https://telegram.org https://*.telegram.org https://stellarium-web.org https://*.stellarium-web.org https://www.wikisky.org https://*.wikisky.org https://sky-map.org https://*.sky-map.org https://d3ufh70wg9uzo4.cloudfront.net https://webcams.windy.com https://embed.windy.com https://*.windy.com;")
                     )
                     // Disable X-Frame-Options (defaults to DENY in Spring Security); framing is governed by CSP frame-ancestors.
                     .frameOptions(frame -> frame.disable())
@@ -377,6 +377,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/skymap/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/wiki/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/youtube/**").permitAll()
+                // Telegram Bot API — always authenticated (per-user BotFather token in Mongo)
+
                 // Éclipses — USNO + OPALE/IMCCE (lecture seule, données publiques)
                 .requestMatchers(HttpMethod.GET, "/api/external/eclipse/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/relief-finder/**").permitAll()

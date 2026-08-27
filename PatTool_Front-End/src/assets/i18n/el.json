@@ -92,7 +92,8 @@
     "ASTRO_COMPASS": "Σκόπευτρο ουρανού",
     "NORD": "Πυξίδα",
     "DIRECTION": "Βαθμονόμηση",
-    "RELIEF_FINDER": "Αναγνώριση αναγλύφου"
+    "RELIEF_FINDER": "Αναγνώριση αναγλύφου",
+    "TELEGRAM": "Telegram"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",
@@ -1904,7 +1905,9 @@
       "TRACE_VIEWER": "Προβολή ιχνών",
       "WEBCAM_FAVORITES": "Αγαπημένες κάμερες",
       "ARCHIVE_RECENT": "Πρόσφατα στοιχεία Archive",
-      "ARCHIVE_AUDIO_PLAYLIST": "Λίστα ήχου Archive"
+      "ARCHIVE_AUDIO_PLAYLIST": "Λίστα ήχου Archive",
+      "TELEGRAM_CONNECTION": "Σύνδεση Telegram (προσωπικό διακριτικό)",
+      "TELEGRAM_INBOX": "Εισερχόμενα Telegram"
     }
   },
   "UPLOADFILE": {
@@ -5871,5 +5874,44 @@
     "MW": "Milky Way",
     "ANDROMEDA": "Andromeda",
     "TRIANGULUM": "Triangulum"
+  },
+  "TELEGRAM": {
+    "TITLE": "Telegram",
+    "SUBTITLE": "Προσωπική σύνδεση: κάθε χρήστης PatTool χρησιμοποιεί το δικό του bot Telegram (διακριτικό BotFather). Τίποτα δεν κοινοποιείται μεταξύ λογαριασμών.",
+    "CONNECT_TITLE": "Σύνδεση Telegram",
+    "CONNECT_HELP": "Δημιουργήστε bot στο BotFather και επικολλήστε εδώ το διακριτικό. Αποθηκεύεται μόνο στον λογαριασμό PatTool και ο φυλλομετρητής δεν το ξαναβλέπει.",
+    "CONNECT_TOKEN": "Διακριτικό bot",
+    "CONNECT_TOKEN_PLACEHOLDER": "123456789:AAH… (διακριτικό BotFather)",
+    "CONNECT_SUBMIT": "Σύνδεση",
+    "CONNECTING": "Έλεγχος…",
+    "DISCONNECT": "Αποσύνδεση",
+    "BOTFATHER_HINT": "Λήψη διακριτικού:",
+    "OPEN_TELEGRAM": "Άνοιγμα στο Telegram",
+    "INVITE_TITLE": "Πρόσκληση κάποιου",
+    "INVITE_HELP": "Στείλτε αυτόν τον σύνδεσμο (SMS, email, WhatsApp…). Το άτομο ανοίγει το Telegram, πατά Έναρξη και εμφανίζεται στις συνομιλίες σας.",
+    "INVITE_COPY": "Αντιγραφή συνδέσμου",
+    "INVITE_COPIED": "Ο σύνδεσμος αντιγράφηκε",
+    "INVITE_SHARE": "Κοινοποίηση μέσω Telegram",
+    "INVITE_SHARE_TEXT": "Ανοίξτε το {{bot}} στο Telegram και πατήστε Έναρξη για συνομιλία.",
+    "CHATS": "Συνομιλίες",
+    "MESSAGES": "Μηνύματα",
+    "EMPTY_INBOX": "Δεν υπάρχουν ακόμη συνομιλίες. Αντιγράψτε τον σύνδεσμο πρόσκλησης παραπάνω και στείλτε τον.",
+    "EMPTY_CHAT": "Επιλέξτε συνομιλία ή περιμένετε μήνυμα.",
+    "SEND": "Αποστολή",
+    "SEND_PLACEHOLDER": "Γράψτε μήνυμα…",
+    "ERROR": "Το Telegram είναι προσωρινά μη διαθέσιμο.",
+    "ERROR_INVALID_TOKEN": "Μη έγκυρο διακριτικό. Ελέγξτε το διακριτικό του @BotFather.",
+    "ERROR_NOT_CONNECTED": "Δεν υπάρχει bot Telegram συνδεδεμένο στον λογαριασμό σας.",
+    "ERROR_SEND": "Αδυναμία αποστολής μηνύματος.",
+    "MEDIA_DOCUMENT": "Αρχείο",
+    "TYPE_PRIVATE": "Ιδιωτική",
+    "TYPE_GROUP": "Ομάδα",
+    "TYPE_SUPERGROUP": "Υπερομάδα",
+    "TYPE_CHANNEL": "Κανάλι",
+    "EMBED_TITLE": "Ενσωμάτωση δημόσιας ανάρτησης",
+    "EMBED_HELP": "Επικολλήστε σύνδεσμο t.me σε δημόσιο μήνυμα (κανάλι ή ομάδα) για εμφάνιση με το επίσημο γραφικό στοιχείο Telegram.",
+    "EMBED_PLACEHOLDER": "https://t.me/όνομα_καναλιού/123",
+    "EMBED_OPEN": "Εμφάνιση",
+    "EMBED_INVALID": "Μη έγκυρος σύνδεσμος t.me. Παράδειγμα: https://t.me/durov/43"
   }
 }

@@ -50,6 +50,7 @@
                     <li><a href="#news-fr">Actualités</a></li>
                     <li><a href="#wiki-fr">Wikipédia</a></li>
                     <li><a href="#youtube-fr">YouTube</a></li>
+                    <li><a href="#telegram-fr">Telegram</a></li>
                     <li><a href="#finance-fr">Devises, bourse, cryptos</a></li>
                     <li><a href="#terre-fr">Espace</a></li>
                     <li><a href="#viseur-fr">Viseur, boussole et calibrage</a></li>
@@ -108,6 +109,17 @@
                     <li>Tendances du pays via <code class="doc-code">/api/external/youtube/popular</code></li>
                     <li>Lecture dans un lecteur embarqué (youtube-nocookie) ; la clé API reste dans <code class="doc-code">app.youtube.api-key</code></li>
                     <li>Clé gratuite : Google Cloud Console → activer YouTube Data API v3 → créer une clé API</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="telegram-fr">
+                <h2>Telegram</h2>
+                <p>Route : <code class="doc-code">#/tools/telegram</code> (menu Média)</p>
+                <ul>
+                    <li>Connexion <strong>personnelle</strong> : chaque utilisateur PatTool colle le jeton de <em>son</em> bot (<a href="https://t.me/BotFather">@BotFather</a>). Le jeton est stocké dans Mongo (<code class="doc-code">telegram.connection.&lt;surnom&gt;</code>) et n’est jamais partagé entre comptes.</li>
+                    <li>Proxy Bot API officiel : <code class="doc-code">GET/PUT/DELETE /api/external/telegram/connection</code>, <code class="doc-code">GET /api/external/telegram/inbox</code> (<code class="doc-code">getUpdates</code>), <code class="doc-code">POST /api/external/telegram/send</code> (<code class="doc-code">sendMessage</code>), fichiers via <code class="doc-code">getFile</code></li>
+                    <li>Widget officiel pour un post public : coller un lien <code class="doc-code">https://t.me/chaine/123</code></li>
+                    <li>Doc Telegram : <a href="https://core.telegram.org/bots/api">core.telegram.org/bots/api</a> et <a href="https://core.telegram.org/widgets/post">widgets/post</a></li>
                 </ul>
             </section>
 
@@ -179,6 +191,7 @@
                     <li><a href="#news-en">News</a></li>
                     <li><a href="#wiki-en">Wikipedia</a></li>
                     <li><a href="#youtube-en">YouTube</a></li>
+                    <li><a href="#telegram-en">Telegram</a></li>
                     <li><a href="#finance-en">Currency, stocks, crypto</a></li>
                     <li><a href="#earth-en">Space</a></li>
                     <li><a href="#finder-en">Sky finder, compass and calibration</a></li>
@@ -208,6 +221,11 @@
             <section class="doc-section" id="youtube-en">
                 <h2>YouTube</h2>
                 <p><code class="doc-code">#/tools/youtube</code> (Media menu) — search videos, playlists and channels through <code class="doc-code">/api/external/youtube</code>. Trending videos load by country. Playback uses a youtube-nocookie embed; the Data API key stays in <code class="doc-code">app.youtube.api-key</code>.</p>
+            </section>
+
+            <section class="doc-section" id="telegram-en">
+                <h2>Telegram</h2>
+                <p><code class="doc-code">#/tools/telegram</code> (Media menu) — each PatTool user connects <strong>their own</strong> BotFather token (stored as <code class="doc-code">telegram.connection.&lt;username&gt;</code>). Inbox via <code class="doc-code">getUpdates</code>, send via <code class="doc-code">sendMessage</code>, media via <code class="doc-code">getFile</code>. Public posts can be embedded from a <code class="doc-code">t.me</code> link. See <a href="https://core.telegram.org/bots/api">Bot API</a>.</p>
             </section>
 
             <section class="doc-section" id="finance-en">

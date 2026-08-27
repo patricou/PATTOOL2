@@ -5,6 +5,7 @@ import com.pat.controller.dto.UserAppParameterDto;
 import com.pat.repo.domain.AppParameter;
 import com.pat.service.AppParameterService;
 import com.pat.service.LastRouteService;
+import com.pat.service.TelegramService;
 import com.pat.service.UserOwnerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -137,10 +138,14 @@ public class AppLastRouteRestController {
                 String feature = key != null && key.endsWith(suffix)
                         ? key.substring(0, key.length() - suffix.length())
                         : key;
+                String value = row.getParamValue();
+                if (key != null && key.startsWith("telegram.connection.")) {
+                    value = TelegramService.redactStoredConnection(value);
+                }
                 out.add(new UserAppParameterDto(
                         key,
                         feature,
-                        row.getParamValue(),
+                        value,
                         row.getValueType(),
                         row.getDescription(),
                         row.getDateModification(),

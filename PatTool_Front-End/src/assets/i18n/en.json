@@ -89,6 +89,7 @@
     "WEBCAM": "WebCams",
     "WIKI": "Wikipedia",
     "YOUTUBE": "YouTube",
+    "TELEGRAM": "Telegram",
     "ASTRO_COMPASS": "Sky finder",
     "NORD": "Compass",
     "DIRECTION": "Calibration",
@@ -376,6 +377,7 @@
       "app_webcam_search_cache_minutes": "Server cache duration (minutes) for Windy webcam listings.",
       "app_youtube_api_base": "Base URL of the YouTube Data API v3 used by the Media YouTube page.",
       "app_youtube_api_key": "YouTube Data API v3 key (never exposed to the browser). Free from console.cloud.google.com, YouTube Data API v3.",
+      "app_telegram_api_base": "Base URL of the Telegram Bot API (each PatTool user connects their own BotFather token).",
       "app_openroute_api_key": "OpenRouteService API key for GPS routing (never exposed to the browser).",
       "app_openroute_api_base": "OpenRouteService API base URL (proxy /api/external/openroute/*)."
     }
@@ -2795,7 +2797,9 @@
       "METEO_TEMPERATURE_CACHE": "Temperature cache",
       "METEO_HISTORY_CACHE": "Weather history cache",
       "METEO_AROMEPI_PREFETCH": "AROME-PI prefetch",
-      "TRACE_VIEWER": "Trace viewer"
+      "TRACE_VIEWER": "Trace viewer",
+      "TELEGRAM_CONNECTION": "Telegram connection (personal token)",
+      "TELEGRAM_INBOX": "Telegram inbox"
     }
   },
   "UPLOADFILE": {
@@ -7906,5 +7910,44 @@
     "PEAKS": "Visible peaks",
     "NO_PEAKS": "No named peak clears the DEM skyline in this range.",
     "HIDDEN": "{{count}} peak(s) hidden behind the terrain"
+  },
+  "TELEGRAM": {
+    "TITLE": "Telegram",
+    "SUBTITLE": "Personal connection: each PatTool user uses their own Telegram bot (BotFather token). Nothing is shared between accounts.",
+    "CONNECT_TITLE": "Connect your Telegram",
+    "CONNECT_HELP": "Create a bot with BotFather, then paste the token here. It is stored only on your PatTool account and the browser never sees it again.",
+    "CONNECT_TOKEN": "Bot token",
+    "CONNECT_TOKEN_PLACEHOLDER": "123456789:AAH… (BotFather token)",
+    "CONNECT_SUBMIT": "Connect",
+    "CONNECTING": "Checking…",
+    "DISCONNECT": "Disconnect",
+    "BOTFATHER_HINT": "Get a token:",
+    "OPEN_TELEGRAM": "Open in Telegram",
+    "INVITE_TITLE": "Invite someone",
+    "INVITE_HELP": "Send this link (SMS, email, WhatsApp…). They open Telegram, tap Start, then they appear in your chats.",
+    "INVITE_COPY": "Copy link",
+    "INVITE_COPIED": "Link copied",
+    "INVITE_SHARE": "Share via Telegram",
+    "INVITE_SHARE_TEXT": "Open {{bot}} in Telegram and tap Start to chat.",
+    "CHATS": "Chats",
+    "MESSAGES": "Messages",
+    "EMPTY_INBOX": "No chats yet. Copy the invite link above and send it to the person.",
+    "EMPTY_CHAT": "Pick a chat or wait for a message.",
+    "SEND": "Send",
+    "SEND_PLACEHOLDER": "Write a message…",
+    "ERROR": "Telegram is temporarily unavailable.",
+    "ERROR_INVALID_TOKEN": "Invalid token. Check the token given by @BotFather.",
+    "ERROR_NOT_CONNECTED": "No Telegram bot is connected to your account.",
+    "ERROR_SEND": "Could not send the message.",
+    "MEDIA_DOCUMENT": "File",
+    "TYPE_PRIVATE": "Private",
+    "TYPE_GROUP": "Group",
+    "TYPE_SUPERGROUP": "Supergroup",
+    "TYPE_CHANNEL": "Channel",
+    "EMBED_TITLE": "Embed a public post",
+    "EMBED_HELP": "Paste a t.me link to a public message (channel or group) to display it with the official Telegram widget.",
+    "EMBED_PLACEHOLDER": "https://t.me/channel_name/123",
+    "EMBED_OPEN": "Show",
+    "EMBED_INVALID": "Invalid t.me link. Example: https://t.me/durov/43"
   }
 }

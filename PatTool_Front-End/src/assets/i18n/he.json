@@ -92,7 +92,8 @@
     "ASTRO_COMPASS": "כוונת שמיים",
     "NORD": "מצפן",
     "DIRECTION": "כיול",
-    "RELIEF_FINDER": "מאתר רכסים"
+    "RELIEF_FINDER": "מאתר רכסים",
+    "TELEGRAM": "Telegram"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",
@@ -2151,7 +2152,9 @@
       "TRACE_VIEWER": "מציג מסלולים",
       "WEBCAM_FAVORITES": "מצלמות מועדפות",
       "ARCHIVE_RECENT": "פריטי Archive אחרונים",
-      "ARCHIVE_AUDIO_PLAYLIST": "פלייליסט אודיו Archive"
+      "ARCHIVE_AUDIO_PLAYLIST": "פלייליסט אודיו Archive",
+      "TELEGRAM_CONNECTION": "חיבור Telegram (אסימון אישי)",
+      "TELEGRAM_INBOX": "תיבת Telegram"
     }
   },
   "UPLOADFILE": {
@@ -5868,5 +5871,44 @@
     "MW": "Milky Way",
     "ANDROMEDA": "Andromeda",
     "TRIANGULUM": "Triangulum"
+  },
+  "TELEGRAM": {
+    "TITLE": "Telegram",
+    "SUBTITLE": "חיבור אישי: כל משתמש PatTool משתמש בבוט Telegram שלו (אסימון BotFather). אין שיתוף בין חשבונות.",
+    "CONNECT_TITLE": "חיבור Telegram",
+    "CONNECT_HELP": "צרו בוט ב-BotFather והדביקו כאן את האסימון. הוא נשמר רק בחשבון PatTool והדפדפן לא רואה אותו שוב.",
+    "CONNECT_TOKEN": "אסימון הבוט",
+    "CONNECT_TOKEN_PLACEHOLDER": "123456789:AAH… (אסימון BotFather)",
+    "CONNECT_SUBMIT": "חיבור",
+    "CONNECTING": "בודק…",
+    "DISCONNECT": "ניתוק",
+    "BOTFATHER_HINT": "קבלת אסימון:",
+    "OPEN_TELEGRAM": "פתיחה ב-Telegram",
+    "INVITE_TITLE": "הזמנת מישהו",
+    "INVITE_HELP": "שלחו את הקישור (SMS, דואל, WhatsApp…). האדם פותח Telegram, לוחץ התחל, ואז מופיע בצאטים שלכם.",
+    "INVITE_COPY": "העתקת קישור",
+    "INVITE_COPIED": "הקישור הועתק",
+    "INVITE_SHARE": "שיתוף ב-Telegram",
+    "INVITE_SHARE_TEXT": "פתחו את {{bot}} ב-Telegram ולחצו התחל כדי לשוחח.",
+    "CHATS": "צאטים",
+    "MESSAGES": "הודעות",
+    "EMPTY_INBOX": "אין עדיין צאטים. העתיקו את קישור ההזמנה למעלה ושלחו לאדם.",
+    "EMPTY_CHAT": "בחרו צאט או המתינו להודעה.",
+    "SEND": "שליחה",
+    "SEND_PLACEHOLDER": "כתבו הודעה…",
+    "ERROR": "Telegram אינו זמין כרגע.",
+    "ERROR_INVALID_TOKEN": "אסימון לא תקין. בדקו את האסימון מ-@BotFather.",
+    "ERROR_NOT_CONNECTED": "אין בוט Telegram מחובר לחשבון שלכם.",
+    "ERROR_SEND": "לא ניתן לשלוח את ההודעה.",
+    "MEDIA_DOCUMENT": "קובץ",
+    "TYPE_PRIVATE": "פרטי",
+    "TYPE_GROUP": "קבוצה",
+    "TYPE_SUPERGROUP": "סופר-קבוצה",
+    "TYPE_CHANNEL": "ערוץ",
+    "EMBED_TITLE": "הטמעת פוסט ציבורי",
+    "EMBED_HELP": "הדביקו קישור t.me להודעה ציבורית (ערוץ או קבוצה) כדי להציג אותה עם הווידגט הרשמי של Telegram.",
+    "EMBED_PLACEHOLDER": "https://t.me/שם_הערוץ/123",
+    "EMBED_OPEN": "הצגה",
+    "EMBED_INVALID": "קישור t.me לא תקין. דוגמה: https://t.me/durov/43"
   }
 }

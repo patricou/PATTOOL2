@@ -251,6 +251,58 @@ export interface ForecastSourceStreamEvent {
   error?: string;
 }
 
+export interface TelegramStatus {
+  connected?: boolean;
+  error?: string;
+  message?: string;
+  botId?: number;
+  botUsername?: string;
+  botFirstName?: string;
+  canJoinGroups?: boolean;
+  canReadAllGroupMessages?: boolean;
+  tokenHint?: string;
+  connectedAt?: number;
+}
+
+export interface TelegramMessage {
+  id?: number;
+  date?: number;
+  text?: string;
+  caption?: string;
+  fromName?: string;
+  outgoing?: boolean;
+  mediaKind?: string;
+  fileId?: string;
+  fileName?: string;
+  mimeType?: string;
+}
+
+export interface TelegramChat {
+  id?: string;
+  type?: string;
+  title?: string;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  messages?: TelegramMessage[];
+}
+
+export interface TelegramInbox {
+  connected?: boolean;
+  error?: string;
+  message?: string;
+  chats?: TelegramChat[];
+}
+
+export interface TelegramEmbed {
+  ok?: boolean;
+  error?: string;
+  channel?: string;
+  messageId?: number;
+  embedUrl?: string;
+  postUrl?: string;
+}
+
 @Injectable()
 export class ApiService {
 
@@ -2640,6 +2692,36 @@ export class ApiService {
       return this.API_URL + 'external/youtube/image?u=' + encodeURIComponent(raw);
     }
     return this.API_URL + raw.replace(/^\//, '');
+  }
+
+  getTelegramConnection(): Observable<TelegramStatus> {
+    return this._http.get<TelegramStatus>(this.API_URL + 'external/telegram/connection');
+  }
+
+  connectTelegram(botToken: string): Observable<TelegramStatus> {
+    return this._http.put<TelegramStatus>(this.API_URL + 'external/telegram/connection', { botToken });
+  }
+
+  disconnectTelegram(): Observable<void> {
+    return this._http.delete<void>(this.API_URL + 'external/telegram/connection');
+  }
+
+  getTelegramInbox(): Observable<TelegramInbox> {
+    return this._http.get<TelegramInbox>(this.API_URL + 'external/telegram/inbox');
+  }
+
+  sendTelegramMessage(chatId: string, text: string): Observable<TelegramInbox> {
+    return this._http.post<TelegramInbox>(this.API_URL + 'external/telegram/send', { chatId, text });
+  }
+
+  getTelegramFile(fileId: string): Observable<Blob> {
+    const params = new HttpParams().set('fileId', fileId);
+    return this._http.get(this.API_URL + 'external/telegram/file', { params, responseType: 'blob' });
+  }
+
+  embedTelegramPost(url: string): Observable<TelegramEmbed> {
+    const params = new HttpParams().set('url', url);
+    return this._http.get<TelegramEmbed>(this.API_URL + 'external/telegram/embed', { params });
   }
 
   // ===================================================================

@@ -92,7 +92,8 @@
     "ASTRO_COMPASS": "Visor de astros",
     "NORD": "Brújula",
     "DIRECTION": "Calibración",
-    "RELIEF_FINDER": "Buscador de relieve"
+    "RELIEF_FINDER": "Buscador de relieve",
+    "TELEGRAM": "Telegram"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",
@@ -2159,7 +2160,9 @@
       "TRACE_VIEWER": "Visor de trazas",
       "WEBCAM_FAVORITES": "Webcams favoritas",
       "ARCHIVE_RECENT": "Ítems recientes de Archive",
-      "ARCHIVE_AUDIO_PLAYLIST": "Lista de audio Archive"
+      "ARCHIVE_AUDIO_PLAYLIST": "Lista de audio Archive",
+      "TELEGRAM_CONNECTION": "Conexión Telegram (token personal)",
+      "TELEGRAM_INBOX": "Bandeja Telegram"
     }
   },
   "UPLOADFILE": {
@@ -5929,5 +5932,44 @@
     "MW": "Milky Way",
     "ANDROMEDA": "Andromeda",
     "TRIANGULUM": "Triangulum"
+  },
+  "TELEGRAM": {
+    "TITLE": "Telegram",
+    "SUBTITLE": "Conexión personal: cada usuario de PatTool usa su propio bot de Telegram (token de BotFather). Nada se comparte entre cuentas.",
+    "CONNECT_TITLE": "Conectar tu Telegram",
+    "CONNECT_HELP": "Crea un bot con BotFather y pega aquí el token. Se guarda solo en tu cuenta PatTool y el navegador no lo vuelve a ver.",
+    "CONNECT_TOKEN": "Token del bot",
+    "CONNECT_TOKEN_PLACEHOLDER": "123456789:AAH… (token de BotFather)",
+    "CONNECT_SUBMIT": "Conectar",
+    "CONNECTING": "Comprobando…",
+    "DISCONNECT": "Desconectar",
+    "BOTFATHER_HINT": "Obtener un token:",
+    "OPEN_TELEGRAM": "Abrir en Telegram",
+    "INVITE_TITLE": "Invitar a alguien",
+    "INVITE_HELP": "Envía este enlace (SMS, correo, WhatsApp…). La persona abre Telegram, pulsa Iniciar y aparece en tus chats.",
+    "INVITE_COPY": "Copiar enlace",
+    "INVITE_COPIED": "Enlace copiado",
+    "INVITE_SHARE": "Compartir por Telegram",
+    "INVITE_SHARE_TEXT": "Abre {{bot}} en Telegram y pulsa Iniciar para hablar.",
+    "CHATS": "Chats",
+    "MESSAGES": "Mensajes",
+    "EMPTY_INBOX": "Aún no hay chats. Copia el enlace de invitación de arriba y envíaselo a la persona.",
+    "EMPTY_CHAT": "Elige un chat o espera un mensaje.",
+    "SEND": "Enviar",
+    "SEND_PLACEHOLDER": "Escribe un mensaje…",
+    "ERROR": "Telegram no está disponible temporalmente.",
+    "ERROR_INVALID_TOKEN": "Token no válido. Comprueba el token de @BotFather.",
+    "ERROR_NOT_CONNECTED": "No hay ningún bot de Telegram conectado a tu cuenta.",
+    "ERROR_SEND": "No se pudo enviar el mensaje.",
+    "MEDIA_DOCUMENT": "Archivo",
+    "TYPE_PRIVATE": "Privado",
+    "TYPE_GROUP": "Grupo",
+    "TYPE_SUPERGROUP": "Supergrupo",
+    "TYPE_CHANNEL": "Canal",
+    "EMBED_TITLE": "Incrustar una publicación pública",
+    "EMBED_HELP": "Pega un enlace t.me de un mensaje público (canal o grupo) para mostrarlo con el widget oficial de Telegram.",
+    "EMBED_PLACEHOLDER": "https://t.me/nombre_del_canal/123",
+    "EMBED_OPEN": "Mostrar",
+    "EMBED_INVALID": "Enlace t.me no válido. Ejemplo: https://t.me/durov/43"
   }
 }

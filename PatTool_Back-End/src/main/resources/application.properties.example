@@ -291,6 +291,13 @@ app.cache.persistence.restore-on-startup=true
 # app.youtube.api-base=https://www.googleapis.com/youtube/v3
 # app.youtube.api-key=
 
+# --- Telegram (Media page, per PatTool user) — Bot API ---
+# Each signed-in user connects THEIR own bot (BotFather token). There is no shared server token.
+# 1) Open https://t.me/BotFather → /newbot → copy the token
+# 2) On #/tools/telegram paste the token (stored in Mongo as telegram.connection.<username>)
+# Optional local Bot API server: https://core.telegram.org/bots/api#using-a-local-bot-api-server
+# app.telegram.api-base=https://api.telegram.org
+
 # Électricité (page Monde) — clés gratuites optionnelles pour Europe (ENTSO-E) et USA (EIA)
 # ENTSO-E : https://transparency.entsoe.eu (inscription gratuite)
 # app.electricity.entsoe-token=

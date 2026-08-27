@@ -2020,6 +2020,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.pauseAutoDetectForObjectInfo();
     }
     this.objectInfoModalOpen = true;
+    this.syncLiveLookFreeze();
     this.loadObjectDossier();
     const live = this.liveModalEl?.nativeElement;
     if (live && this.currentFullscreenElement() === live) {
@@ -2041,10 +2042,11 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private pauseAutoDetectForObjectInfo(): void {
-    if (!this.autoDetectModalOpen || this.autoDetectPaused) {
+    if (!this.autoDetectModalOpen) {
       return;
     }
     this.autoDetectPaused = true;
+    this.syncLiveLookFreeze();
     this.syncCameraFreeze();
     this.stopAutoDetectTimerOnly();
   }
@@ -2058,17 +2060,20 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.autoDetectModalOpen) {
       if (wasPaused) {
         this.autoDetectPaused = true;
+        this.syncLiveLookFreeze();
         this.syncCameraFreeze();
         this.stopAutoDetectTimerOnly();
       } else if (wasPaused === false) {
         this.autoDetectPaused = false;
         this.autoDetectLive = true;
+        this.syncLiveLookFreeze();
         this.syncCameraFreeze();
         this.clearObjectDossier();
         this.runAutoDetectPass(false);
         this.restartAutoDetectTimer();
       }
     }
+    this.syncLiveLookFreeze();
     this.cdr.markForCheck();
   }
 
@@ -2215,14 +2220,40 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private onLookUpdate(): void {
+    if (this.liveLookFrozen()) {
+      return;
+    }
     const el = this.lookTracker.elevationDeg;
     this.devicePitchDeg = el != null ? 90 - el : null;
     this.applyHeadingReference();
     this.updateFinderProjection();
-    if (this.objectInfoModalOpen) {
-      return;
-    }
     this.cdr.markForCheck();
+  }
+
+  /** Pause auto-detect ou fiche objet : plus de suivi gyro / détection live. */
+  private liveLookFrozen(): boolean {
+    return this.objectInfoModalOpen || this.autoDetectPaused;
+  }
+
+  /** Figé azimut / élévation de visée utilisés par le radar auto-detect. */
+  private snapshotAutoDetectLook(): void {
+    const az = this.finderLookAzimuthDeg() ?? this.autoDetectLookAz;
+    const el =
+      this.lookTracker.elevationDeg ?? this.autoDetectLookEl ?? this.deviceSkyElevationDeg();
+    if (az != null && Number.isFinite(az)) {
+      this.autoDetectLookAz = az;
+    }
+    if (el != null && Number.isFinite(el)) {
+      this.autoDetectLookEl = el;
+    }
+  }
+
+  private syncLiveLookFreeze(): void {
+    const frozen = this.liveLookFrozen();
+    if (frozen) {
+      this.snapshotAutoDetectLook();
+    }
+    this.lookTracker.setUiPaused(frozen);
   }
 
   cibleGpsText(): string {
@@ -2408,6 +2439,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.autoDetectLive && !this.autoDetectPaused) {
       this.autoDetectPaused = true;
       this.finderPosePausedAuto = true;
+      this.syncLiveLookFreeze();
       this.stopAutoDetectTimerOnly();
       if (this.objectInfoModalOpen) {
         this.loadObjectDossier();
@@ -2452,10 +2484,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (resumeAuto && this.autoDetectModalOpen) {
       this.autoDetectPaused = false;
       this.autoDetectLive = true;
+      this.syncLiveLookFreeze();
       this.clearObjectDossier();
       this.runAutoDetectPass(false);
       this.restartAutoDetectTimer();
     }
+    this.syncLiveLookFreeze();
     this.syncCameraFreeze();
     if (resumeTracking) {
       this.updateFinderProjection();
@@ -4374,6 +4408,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.autoDetectLive = true;
     this.autoDetectModalOpen = true;
     this.autoDetectPaused = false;
+    this.syncLiveLookFreeze();
     this.syncCameraFreeze();
     this.autoDetectSettingsOpen = false;
     this.autoDetectBusy = true;
@@ -4411,12 +4446,14 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.autoDetectPaused) {
       this.autoDetectPaused = false;
       this.autoDetectLive = true;
+      this.syncLiveLookFreeze();
       this.syncCameraFreeze();
       this.clearObjectDossier();
       this.runAutoDetectPass(false);
       this.restartAutoDetectTimer();
     } else {
       this.autoDetectPaused = true;
+      this.syncLiveLookFreeze();
       this.syncCameraFreeze();
       this.stopAutoDetectTimerOnly();
     }
@@ -4559,8 +4596,13 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     azimuthDeg: number,
     elevationDeg: number
   ): { xPct: number; yPct: number } {
-    const camAz = this.autoDetectLookAz ?? this.finderLookAzimuthDeg();
-    const camEl = this.lookTracker.elevationDeg ?? this.autoDetectLookEl;
+    const frozen = this.liveLookFrozen();
+    const camAz = frozen
+      ? this.autoDetectLookAz ?? this.finderLookAzimuthDeg()
+      : this.finderLookAzimuthDeg() ?? this.autoDetectLookAz;
+    const camEl = frozen
+      ? this.autoDetectLookEl ?? this.lookTracker.elevationDeg
+      : this.lookTracker.elevationDeg ?? this.autoDetectLookEl;
     if (camAz == null || camEl == null) {
       return { xPct: 50, yPct: 50 };
     }
@@ -4733,6 +4775,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.autoDetectLive = false;
     this.autoDetectBusy = false;
     this.autoDetectPaused = false;
+    this.syncLiveLookFreeze();
     this.syncCameraFreeze();
     this.autoDetectSettingsOpen = false;
     this.autoDetectModalOpen = false;
@@ -4749,10 +4792,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private runAutoDetectPass(forceSelect: boolean): void {
-    if (this.objectInfoModalOpen) {
+    if (this.objectInfoModalOpen || this.autoDetectPaused) {
       return;
     }
-    if ((this.autoDetectPaused || this.finderPoseFrozen) && !forceSelect) {
+    if (this.finderPoseFrozen && !forceSelect) {
       return;
     }
     if (!this.autoDetectLive && !forceSelect) {
@@ -6491,6 +6534,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       if (now - this.issLastNetworkRefreshMs > ISS_REFRESH_MIN_MS) {
         this.issLastNetworkRefreshMs = now;
         void this.issNow.refresh(false).then(() => {
+          if (this.liveLookFrozen()) {
+            return;
+          }
           if (this.selectedKind === 'iss' && this.selectedSatellite.useIssLiveFeed) {
             this.recomputeIssSky();
             this.cdr.markForCheck();
@@ -6501,6 +6547,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.issLastNetworkRefreshMs = now;
       this.satNow.setObserver(this.lat, this.lon);
       void this.satNow.ensureOption(sat, false).then(() => {
+        if (this.liveLookFrozen()) {
+          return;
+        }
         if (this.selectedKind === 'iss' && this.selectedSatelliteId === sat.id) {
           this.recomputeIssSky();
           this.cdr.markForCheck();
@@ -8417,17 +8466,16 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.stopSkyTick();
     this.zone.runOutsideAngular(() => {
       this.skyTickTimer = setInterval(() => {
+        if (this.objectInfoModalOpen || this.autoDetectPaused) {
+          return;
+        }
         this.zone.run(() => {
           this.nowMs = Date.now();
           this.recomputeSky();
           this.refreshVisibleCatalog();
-          if (!this.objectInfoModalOpen) {
-            this.selectDefaultVisibleTarget();
-          }
+          this.selectDefaultVisibleTarget();
           this.refreshTickerNowLabel();
-          if (!this.objectInfoModalOpen) {
-            this.cdr.markForCheck();
-          }
+          this.cdr.markForCheck();
         });
       }, 1000);
     });
@@ -9382,6 +9430,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private scheduleHeadingPaint(): void {
+    if (this.liveLookFrozen()) {
+      return;
+    }
     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     if (now - this.headingLastPaintMs < HEADING_PAINT_MIN_MS) {
       return;
@@ -9725,6 +9776,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.mouseVirtualActive && this.calMethod === 'mouse') {
       return;
     }
+    if (this.liveLookFrozen()) {
+      return;
+    }
     this.sensorAlpha = meta.alpha;
     this.sensorBeta = meta.beta;
     this.sensorGamma = meta.gamma;
@@ -9756,6 +9810,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private applyDevicePitch(pitch: number | null): void {
+    if (this.liveLookFrozen()) {
+      return;
+    }
     if (pitch == null || !Number.isFinite(pitch)) {
       return;
     }
@@ -9902,6 +9959,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private applyHeadingReference(): void {
+    if (this.liveLookFrozen()) {
+      return;
+    }
     const lookAz = this.lookTracker?.azimuthDeg ?? null;
     const raw = this.lookTracker?.rawAzimuthDeg ?? this.headingRawDeg;
     if (this.exactPositionActive && lookAz != null) {
@@ -10456,6 +10516,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private tickAlignCue(): void {
+    if (this.liveLookFrozen()) {
+      return;
+    }
     const locked = !!this.finderProj?.centered && this.aboveHorizon();
     if (this.alignCue === 'off') {
       this.alignCuePrevBoth = locked;

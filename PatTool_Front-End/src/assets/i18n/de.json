@@ -92,7 +92,8 @@
     "ASTRO_COMPASS": "Himmelsvisier",
     "NORD": "Kompass",
     "DIRECTION": "Kalibrierung",
-    "RELIEF_FINDER": "Relief-Finder"
+    "RELIEF_FINDER": "Relief-Finder",
+    "TELEGRAM": "Telegram"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",
@@ -2161,7 +2162,9 @@
       "TRACE_VIEWER": "Spur-Viewer",
       "WEBCAM_FAVORITES": "Lieblings-Webcams",
       "ARCHIVE_RECENT": "Archive zuletzt angesehen",
-      "ARCHIVE_AUDIO_PLAYLIST": "Archive-Audio-Playlist"
+      "ARCHIVE_AUDIO_PLAYLIST": "Archive-Audio-Playlist",
+      "TELEGRAM_CONNECTION": "Telegram-Verbindung (persönliches Token)",
+      "TELEGRAM_INBOX": "Telegram-Posteingang"
     }
   },
   "UPLOADFILE": {
@@ -6010,5 +6013,44 @@
     "MW": "Milky Way",
     "ANDROMEDA": "Andromeda",
     "TRIANGULUM": "Triangulum"
+  },
+  "TELEGRAM": {
+    "TITLE": "Telegram",
+    "SUBTITLE": "Persönliche Verbindung: jeder PatTool-Nutzer verwendet seinen eigenen Telegram-Bot (BotFather-Token). Zwischen Konten wird nichts geteilt.",
+    "CONNECT_TITLE": "Telegram verbinden",
+    "CONNECT_HELP": "Erstellen Sie einen Bot bei BotFather und fügen Sie das Token hier ein. Es wird nur in Ihrem PatTool-Konto gespeichert; der Browser sieht es danach nicht mehr.",
+    "CONNECT_TOKEN": "Bot-Token",
+    "CONNECT_TOKEN_PLACEHOLDER": "123456789:AAH… (BotFather-Token)",
+    "CONNECT_SUBMIT": "Verbinden",
+    "CONNECTING": "Prüfung…",
+    "DISCONNECT": "Trennen",
+    "BOTFATHER_HINT": "Token holen:",
+    "OPEN_TELEGRAM": "In Telegram öffnen",
+    "INVITE_TITLE": "Jemanden einladen",
+    "INVITE_HELP": "Senden Sie diesen Link (SMS, E-Mail, WhatsApp…). Die Person öffnet Telegram, tippt auf Starten und erscheint dann in Ihren Chats.",
+    "INVITE_COPY": "Link kopieren",
+    "INVITE_COPIED": "Link kopiert",
+    "INVITE_SHARE": "Über Telegram teilen",
+    "INVITE_SHARE_TEXT": "Öffnen Sie {{bot}} in Telegram und tippen Sie auf Starten, um zu chatten.",
+    "CHATS": "Chats",
+    "MESSAGES": "Nachrichten",
+    "EMPTY_INBOX": "Noch keine Chats. Kopieren Sie den Einladungslink oben und senden Sie ihn der Person.",
+    "EMPTY_CHAT": "Wählen Sie einen Chat oder warten Sie auf eine Nachricht.",
+    "SEND": "Senden",
+    "SEND_PLACEHOLDER": "Nachricht schreiben…",
+    "ERROR": "Telegram ist vorübergehend nicht erreichbar.",
+    "ERROR_INVALID_TOKEN": "Ungültiges Token. Prüfen Sie das Token von @BotFather.",
+    "ERROR_NOT_CONNECTED": "Mit Ihrem Konto ist kein Telegram-Bot verbunden.",
+    "ERROR_SEND": "Nachricht konnte nicht gesendet werden.",
+    "MEDIA_DOCUMENT": "Datei",
+    "TYPE_PRIVATE": "Privat",
+    "TYPE_GROUP": "Gruppe",
+    "TYPE_SUPERGROUP": "Supergruppe",
+    "TYPE_CHANNEL": "Kanal",
+    "EMBED_TITLE": "Öffentlichen Beitrag einbetten",
+    "EMBED_HELP": "Fügen Sie einen t.me-Link zu einer öffentlichen Nachricht (Kanal oder Gruppe) ein, um sie mit dem offiziellen Telegram-Widget anzuzeigen.",
+    "EMBED_PLACEHOLDER": "https://t.me/kanalname/123",
+    "EMBED_OPEN": "Anzeigen",
+    "EMBED_INVALID": "Ungültiger t.me-Link. Beispiel: https://t.me/durov/43"
   }
 }

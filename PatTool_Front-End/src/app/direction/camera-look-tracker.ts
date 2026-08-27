@@ -87,6 +87,8 @@ export class CameraLookTracker {
   private fusion = new GyroMagComplementary();
   private lastQuatAtt: CameraAttitude | null = null;
   private lastPaint = 0;
+  /** Capteurs toujours à jour, mais plus de zone.run / callback UI. */
+  private uiPaused = false;
   private readonly onOrient = (e: DeviceOrientationEvent): void => this.handleOrient(e);
   private readonly onMotion = (e: DeviceMotionEvent): void => this.handleMotion(e);
 
@@ -207,7 +209,23 @@ export class CameraLookTracker {
     this.publish();
   }
 
+  /**
+   * Figé l’UI (astro-compass pause / fiche objet) sans arrêter les capteurs :
+   * azimut et élévation restent à jour pour la reprise.
+   */
+  setUiPaused(paused: boolean): void {
+    if (this.uiPaused === paused) {
+      return;
+    }
+    this.uiPaused = paused;
+    if (!paused) {
+      this.lastPaint = 0;
+      this.zone.run(() => this.onUpdate());
+    }
+  }
+
   stop(): void {
+    this.uiPaused = false;
     for (const s of this.generics) {
       try {
         s.stop();
@@ -504,6 +522,9 @@ export class CameraLookTracker {
     );
     if (this.rawElevationDeg != null) {
       this.elevationDeg = composeLookElevation(this.rawElevationDeg, d);
+    }
+    if (this.uiPaused) {
+      return;
     }
     const now = performance.now();
     if (now - this.lastPaint < 40) {

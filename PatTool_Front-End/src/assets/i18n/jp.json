@@ -92,7 +92,8 @@
     "ASTRO_COMPASS": "天空ファインダー",
     "NORD": "コンパス",
     "DIRECTION": "キャリブレーション",
-    "RELIEF_FINDER": "レリーフファインダー"
+    "RELIEF_FINDER": "レリーフファインダー",
+    "TELEGRAM": "Telegram"
   },
   "SOLAR_SYSTEM": {
     "TITLE": "Solar system map",
@@ -1906,7 +1907,9 @@
       "TRACE_VIEWER": "トレースビューア",
       "WEBCAM_FAVORITES": "お気に入りウェブカメラ",
       "ARCHIVE_RECENT": "Archiveの最近の項目",
-      "ARCHIVE_AUDIO_PLAYLIST": "Archive 音声プレイリスト"
+      "ARCHIVE_AUDIO_PLAYLIST": "Archive 音声プレイリスト",
+      "TELEGRAM_CONNECTION": "Telegram接続（個人トークン）",
+      "TELEGRAM_INBOX": "Telegram受信箱"
     }
   },
   "UPLOADFILE": {
@@ -5874,5 +5877,44 @@
     "MW": "Milky Way",
     "ANDROMEDA": "Andromeda",
     "TRIANGULUM": "Triangulum"
+  },
+  "TELEGRAM": {
+    "TITLE": "Telegram",
+    "SUBTITLE": "個人接続：PatTool の各ユーザーは自分の Telegram ボット（BotFather トークン）を使います。アカウント間で共有されません。",
+    "CONNECT_TITLE": "Telegram を接続",
+    "CONNECT_HELP": "BotFather でボットを作成し、トークンをここに貼り付けてください。PatTool アカウントにだけ保存され、ブラウザには再表示されません。",
+    "CONNECT_TOKEN": "ボットトークン",
+    "CONNECT_TOKEN_PLACEHOLDER": "123456789:AAH…（BotFather トークン）",
+    "CONNECT_SUBMIT": "接続",
+    "CONNECTING": "確認中…",
+    "DISCONNECT": "切断",
+    "BOTFATHER_HINT": "トークンを取得：",
+    "OPEN_TELEGRAM": "Telegram で開く",
+    "INVITE_TITLE": "相手を招待",
+    "INVITE_HELP": "このリンクを送信（SMS、メール、WhatsApp など）。相手が Telegram を開き「開始」をタップすると、チャットに表示されます。",
+    "INVITE_COPY": "リンクをコピー",
+    "INVITE_COPIED": "コピーしました",
+    "INVITE_SHARE": "Telegram で共有",
+    "INVITE_SHARE_TEXT": "Telegram で {{bot}} を開き、「開始」をタップしてチャットしてください。",
+    "CHATS": "チャット",
+    "MESSAGES": "メッセージ",
+    "EMPTY_INBOX": "まだチャットがありません。上の招待リンクをコピーして相手に送ってください。",
+    "EMPTY_CHAT": "チャットを選ぶか、メッセージを待ってください。",
+    "SEND": "送信",
+    "SEND_PLACEHOLDER": "メッセージを入力…",
+    "ERROR": "Telegram は一時的に利用できません。",
+    "ERROR_INVALID_TOKEN": "トークンが無効です。@BotFather のトークンを確認してください。",
+    "ERROR_NOT_CONNECTED": "アカウントに Telegram ボットが接続されていません。",
+    "ERROR_SEND": "メッセージを送信できませんでした。",
+    "MEDIA_DOCUMENT": "ファイル",
+    "TYPE_PRIVATE": "プライベート",
+    "TYPE_GROUP": "グループ",
+    "TYPE_SUPERGROUP": "スーパーグループ",
+    "TYPE_CHANNEL": "チャンネル",
+    "EMBED_TITLE": "公開投稿を埋め込む",
+    "EMBED_HELP": "公開メッセージ（チャンネルまたはグループ）の t.me リンクを貼ると、公式 Telegram ウィジェットで表示されます。",
+    "EMBED_PLACEHOLDER": "https://t.me/チャンネル名/123",
+    "EMBED_OPEN": "表示",
+    "EMBED_INVALID": "t.me リンクが無効です。例: https://t.me/durov/43"
   }
 }

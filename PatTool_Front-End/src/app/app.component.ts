@@ -90,7 +90,9 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     'meteofrance.temperature.cache': 'USERINFO.PARAM_LABELS.METEO_TEMPERATURE_CACHE',
     'meteofrance.history.cache': 'USERINFO.PARAM_LABELS.METEO_HISTORY_CACHE',
     'meteofrance.aromepi.playback.prefetch': 'USERINFO.PARAM_LABELS.METEO_AROMEPI_PREFETCH',
-    'trace.viewer': 'USERINFO.PARAM_LABELS.TRACE_VIEWER'
+    'trace.viewer': 'USERINFO.PARAM_LABELS.TRACE_VIEWER',
+    'telegram.connection': 'USERINFO.PARAM_LABELS.TELEGRAM_CONNECTION',
+    'telegram.inbox': 'USERINFO.PARAM_LABELS.TELEGRAM_INBOX'
 };
 
 @Component({
@@ -233,6 +235,7 @@ export class AppComponent implements OnInit {
         { routerLink: ['tools/archive-watcher'], icon: 'fa fa-archive', labelKey: 'MENU.ARCHIVE' },
         { routerLink: ['tools/webcam'], icon: 'fa fa-video-camera', labelKey: 'MENU.WEBCAM' },
         { routerLink: ['tools/youtube'], icon: 'fa fa-youtube-play', labelKey: 'MENU.YOUTUBE' },
+        { routerLink: ['tools/telegram'], icon: 'fa fa-paper-plane', labelKey: 'MENU.TELEGRAM' },
         { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' },
         { routerLink: ['api/wiki'], icon: 'fa fa-graduation-cap', labelKey: 'MENU.WIKI' }
     ];

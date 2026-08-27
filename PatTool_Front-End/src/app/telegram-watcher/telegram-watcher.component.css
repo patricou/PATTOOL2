@@ -1,0 +1,396 @@
+:host {
+  display: block;
+  min-height: calc(100vh - 80px);
+  color: #e8f4fc;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(42, 171, 238, 0.35), transparent 58%),
+    linear-gradient(180deg, #0e1621 0%, #17212b 42%, #0e1621 100%);
+}
+
+.tg-title h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.tg-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  background: #2aabee;
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+.tg-page {
+  padding: 0.65rem 1rem 1.6rem;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.tg-lead {
+  margin: 0 0 0.9rem;
+  color: #8ea6b8;
+  font-size: 0.92rem;
+}
+
+.tg-alert {
+  font-size: 0.88rem;
+}
+
+.tg-connect,
+.tg-embed {
+  background: rgba(23, 33, 43, 0.92);
+  border: 1px solid #2b5278;
+  border-radius: 0.85rem;
+  padding: 1.2rem 1.1rem 1.3rem;
+}
+
+.tg-connect {
+  text-align: center;
+  max-width: 36rem;
+  margin: 0 auto 1.1rem;
+}
+
+.tg-connect-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.2rem;
+  height: 3.2rem;
+  margin-bottom: 0.6rem;
+  border-radius: 50%;
+  background: #2aabee;
+  color: #fff;
+  font-size: 1.4rem;
+}
+
+.tg-connect h3,
+.tg-embed h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.15rem;
+}
+
+.tg-connect p,
+.tg-embed p {
+  margin: 0 0 0.75rem;
+  color: #9bb4c7;
+  font-size: 0.9rem;
+}
+
+.tg-botfather a {
+  color: #6fd3ff;
+}
+
+.tg-connect-form,
+.tg-embed-form,
+.tg-composer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tg-token,
+.tg-embed-form .form-control,
+.tg-composer textarea {
+  flex: 1 1 14rem;
+}
+
+.tg-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.7rem;
+  align-items: center;
+  margin-bottom: 0.85rem;
+  padding: 0.7rem 0.9rem;
+  background: #182533;
+  border: 1px solid #2b5278;
+  border-radius: 0.75rem;
+}
+
+.tg-status-bot {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.tg-status-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: #40c057;
+  box-shadow: 0 0 0 4px rgba(64, 192, 87, 0.2);
+}
+
+.tg-handle,
+.tg-token-hint {
+  display: block;
+  font-size: 0.78rem;
+  color: #8ea6b8;
+}
+
+.tg-status-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.tg-invite {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.85rem;
+  padding: 0.75rem 0.9rem;
+  background: rgba(42, 171, 238, 0.12);
+  border: 1px solid #2aabee;
+  border-radius: 0.75rem;
+}
+
+.tg-invite h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+}
+
+.tg-invite p {
+  margin: 0 0 0.4rem;
+  color: #9bb4c7;
+  font-size: 0.85rem;
+}
+
+.tg-invite-link {
+  display: inline-block;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.35rem;
+  background: #0e1621;
+  color: #6fd3ff;
+  font-size: 0.82rem;
+}
+
+.tg-invite-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.tg-layout {
+  display: grid;
+  grid-template-columns: minmax(14rem, 20rem) minmax(0, 1fr);
+  gap: 0.8rem;
+  min-height: 28rem;
+  margin-bottom: 1rem;
+}
+
+.tg-chats,
+.tg-thread {
+  background: #17212b;
+  border: 1px solid #2b5278;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 28rem;
+}
+
+.tg-chats-head,
+.tg-thread-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  background: #232e3c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.tg-chats-count,
+.tg-thread-type {
+  font-weight: 600;
+  color: #8ea6b8;
+  text-transform: none;
+}
+
+.tg-empty-inbox,
+.tg-empty-chat {
+  margin: 0;
+  padding: 1rem 0.9rem;
+  color: #8ea6b8;
+  font-size: 0.88rem;
+}
+
+.tg-chat {
+  display: flex;
+  width: 100%;
+  gap: 0.65rem;
+  padding: 0.7rem 0.8rem;
+  border: 0;
+  border-top: 1px solid #232e3c;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tg-chat:hover {
+  background: #1e2c3a;
+}
+
+.tg-chat.active {
+  background: #2b5278;
+}
+
+.tg-chat-avatar {
+  flex: 0 0 2.2rem;
+  width: 2.2rem;
+  height: 2.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #2aabee;
+  color: #fff;
+}
+
+.tg-chat-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tg-chat-title {
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tg-chat-preview {
+  font-size: 0.78rem;
+  color: #9bb4c7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tg-messages {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 0.8rem 0.75rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(42, 171, 238, 0.08), transparent 28%),
+    #0e1621;
+}
+
+.tg-bubble {
+  max-width: min(78%, 32rem);
+  align-self: flex-start;
+  padding: 0.45rem 0.65rem 0.5rem;
+  border-radius: 0.7rem 0.7rem 0.7rem 0.15rem;
+  background: #182533;
+  border: 1px solid #2b5278;
+}
+
+.tg-bubble.outgoing {
+  align-self: flex-end;
+  background: #2b5278;
+  border-color: #3d6d99;
+  border-radius: 0.7rem 0.7rem 0.15rem 0.7rem;
+}
+
+.tg-bubble-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.72rem;
+  color: #8ea6b8;
+  margin-bottom: 0.2rem;
+}
+
+.tg-from {
+  font-weight: 650;
+  color: #6fd3ff;
+}
+
+.tg-text,
+.tg-caption {
+  margin: 0.15rem 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tg-caption {
+  color: #c5d6e4;
+  font-size: 0.88rem;
+}
+
+.tg-media {
+  display: block;
+  max-width: 100%;
+  max-height: 16rem;
+  border-radius: 0.45rem;
+  margin: 0.25rem 0;
+}
+
+.tg-audio,
+.tg-doc {
+  display: block;
+  margin: 0.3rem 0;
+}
+
+.tg-doc {
+  color: #6fd3ff;
+}
+
+.tg-composer {
+  padding: 0.55rem 0.65rem 0.7rem;
+  border-top: 1px solid #2b5278;
+  background: #17212b;
+}
+
+.tg-composer textarea {
+  resize: vertical;
+  min-height: 2.6rem;
+  background: #0e1621;
+  color: #e8f4fc;
+  border-color: #2b5278;
+}
+
+.tg-embed {
+  margin-top: 0.4rem;
+}
+
+.tg-embed-frame {
+  display: block;
+  width: 100%;
+  min-height: 28rem;
+  margin-top: 0.8rem;
+  border: 0;
+  border-radius: 0.6rem;
+  background: #fff;
+}
+
+@media (max-width: 800px) {
+  .tg-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .tg-chats {
+    min-height: 0;
+    max-height: 14rem;
+  }
+
+  .tg-thread {
+    min-height: 22rem;
+  }
+}
