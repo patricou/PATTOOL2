@@ -590,13 +590,14 @@ export function setLookFromRawToTarget(
   rawElDeg?: number | null,
   targetElDeg?: number | null
 ): PattoolCalFile {
-  const patch: { azOffsetDeg: number; elOffsetDeg?: number } = {
-    azOffsetDeg: wrapSignedDeg(targetAzDeg - rawAzDeg)
-  };
+  const file = ensurePattoolCalStub();
+  file.derived.azOffsetDeg = wrapSignedDeg(targetAzDeg - rawAzDeg);
   if (rawElDeg != null && targetElDeg != null && Number.isFinite(rawElDeg) && Number.isFinite(targetElDeg)) {
-    patch.elOffsetDeg = Math.round(targetElDeg - rawElDeg);
+    file.derived.elOffsetDeg = targetElDeg - rawElDeg;
   }
-  return patchLookOffsets(patch);
+  file.calibratedAt = new Date().toISOString();
+  savePattoolCal(file);
+  return file;
 }
 
 export function resetLookOffsetsFromSamples(): PattoolCalFile | null {

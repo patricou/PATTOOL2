@@ -6019,6 +6019,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const ref = this.cibleMarkBearingDeg() ?? c?.refAzimuthDeg ?? this.headingDeg ?? raw;
     this.cibleSaving = true;
     this.cibleError = null;
+    this.markExactPosition();
+    const phoneEl = this.lookTracker?.elevationDeg ?? null;
     this.api
       .recalibrateDirectionCible(id, {
         name: c?.name,
@@ -6026,7 +6028,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         userLon: this.lon,
         phoneHeadingDeg: raw,
         refAzimuthDeg: ref,
-        phoneElevationDeg: this.lookTracker?.elevationDeg ?? null,
+        phoneElevationDeg: phoneEl,
         markLat: c?.markLat,
         markLon: c?.markLon,
         markAltM: c?.markAltM,
@@ -6039,7 +6041,6 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
           if (saved.id) {
             saveActiveCibleId(saved.id);
           }
-          this.setExactPositionActive(false);
           this.applyHeadingReference();
           this.updateFinderProjection();
           this.resolveCibleUserAddress();

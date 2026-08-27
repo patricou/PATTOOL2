@@ -24,6 +24,7 @@ import {
   derivePattoolCalMixed,
   patchLookOffsets,
   persistPattoolCalFromSamples,
+  setLookFromRawToTarget,
   sightingOffsetsFromLook,
   snapshotFromPayload,
   snapshotsFromExport,
@@ -504,6 +505,26 @@ describe('composeLookAzimuth / composeLookElevation', () => {
     expect(withDec).toBe(42);
     expect(composeLookAzimuth(withDec, LOOK_CAL)).toBe(62);
     expect(applyLookDeclination(40, false, 2)).toBe(40);
+  });
+
+  it('zeros az/el residual so the object sits on the reticle even with true-north declination', () => {
+    localStorage.removeItem(PATTOOL_CAL_KEY);
+    const mag = 80;
+    const dec = 2.4;
+    const targetAz = 95;
+    const targetEl = 28;
+    const rawEl = 19.5;
+    const declined = applyLookDeclination(mag, true, dec);
+    const file = setLookFromRawToTarget(declined, targetAz, rawEl, targetEl);
+    const camAz = composeLookAzimuth(declined, file.derived);
+    const camEl = composeLookElevation(rawEl, file.derived);
+    expect(camAz).toBeCloseTo(targetAz, 6);
+    expect(camEl).toBeCloseTo(targetEl, 6);
+    const p = projectCelestialToScreen(camAz, camEl, 0, targetAz, targetEl);
+    expect(p.centered).toBeTrue();
+    expect(p.xPct).toBeCloseTo(50, 5);
+    expect(p.yPct).toBeCloseTo(50, 5);
+    localStorage.removeItem(PATTOOL_CAL_KEY);
   });
 
   it('does not stack a second offset on an already composed heading', () => {

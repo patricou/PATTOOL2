@@ -6625,7 +6625,7 @@
     "HEADING_REF_OWNER": "Account",
     "HEADING_REF_CREATED": "Created",
     "HEADING_REF_UPDATED": "Updated",
-    "HEADING_REF_RECAL_HINT": "Phone upright: aim at the landmark, then lock. GPS azimuth is computed from your current position.",
+    "HEADING_REF_RECAL_HINT": "Put the object on the reticle, then lock. The app recomputes heading and elevation to center it, and stores the landmark GPS azimuth from your position.",
     "CIBLE_VERIFY": "Target check",
     "CIBLE_VERIFY_STOP": "Close check",
     "CIBLE_VERIFY_HINT": "Aim at the landmark, phone upright. The green arrow should point up if the lock is good.",

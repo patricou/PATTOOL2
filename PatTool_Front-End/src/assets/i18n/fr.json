@@ -6629,7 +6629,7 @@
     "HEADING_REF_OWNER": "Compte",
     "HEADING_REF_CREATED": "Créée",
     "HEADING_REF_UPDATED": "Mise à jour",
-    "HEADING_REF_RECAL_HINT": "Téléphone à la verticale : visez le repère, puis recalez. L’azimut GPS se calcule depuis votre position actuelle.",
+    "HEADING_REF_RECAL_HINT": "Placez l’objet au réticule, puis recalez. L’appli recalcule cap et élévation pour le centrer, et mémorise l’azimut GPS du repère depuis votre position.",
     "CIBLE_VERIFY": "Vérification cible",
     "CIBLE_VERIFY_STOP": "Fermer la vérif",
     "CIBLE_VERIFY_HINT": "Visez le repère, téléphone à la verticale. La flèche verte doit pointer vers le haut si le calage est bon.",

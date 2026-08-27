@@ -160,7 +160,7 @@ export class CameraLookTracker {
     if (this.magAzimuthDeg == null) {
       return false;
     }
-    setLookFromRawToTarget(this.magAzimuthDeg, targetAzDeg);
+    setLookFromRawToTarget(this.publishedRawAzimuthDeg(), targetAzDeg);
     this.lastPaint = 0;
     this.publish();
     return true;
@@ -176,10 +176,20 @@ export class CameraLookTracker {
     if (!Number.isFinite(targetAzDeg) || !Number.isFinite(targetElDeg)) {
       return false;
     }
-    setLookFromRawToTarget(this.magAzimuthDeg, targetAzDeg, this.rawElevationDeg, targetElDeg);
+    setLookFromRawToTarget(
+      this.publishedRawAzimuthDeg(),
+      targetAzDeg,
+      this.rawElevationDeg,
+      targetElDeg
+    );
     this.lastPaint = 0;
     this.publish();
     return true;
+  }
+
+  /** Même valeur que `publish()` passe à `composeLookAzimuth` (magnétique + déclinaison). */
+  private publishedRawAzimuthDeg(): number {
+    return applyLookDeclination(this.magAzimuthDeg!, this.trueNorthActive(), this.declinationDeg);
   }
 
   setTrueNorthCorrection(trueNorth: boolean, declinationDeg: number | null): void {
