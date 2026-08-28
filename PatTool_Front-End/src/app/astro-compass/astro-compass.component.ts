@@ -1285,7 +1285,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   finderZoom = FINDER_ZOOM_MIN;
   finderDigitalZoom = 1;
   finderVideoTransform = 'scale(1)';
-  /** Noms / icônes du viseur : grandissent avec le zoom. */
+  /** Étiquettes du viseur (étoiles, trail) : grandissent avec le zoom. L’icône cible reste fixe. */
   finderLabelScale = 1;
   finderPanning = false;
   /** Décalage de visée (°) en pause, pour glisser la vue. */

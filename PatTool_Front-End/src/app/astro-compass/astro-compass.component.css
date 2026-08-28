@@ -6398,13 +6398,13 @@ a.ac-compass-cal__btn--direction {
 
 .ac-finder__obj i,
 .ac-finder__dot {
-  font-size: calc(1.65rem * var(--ac-finder-label-scale, 1));
+  font-size: 1.65rem;
 }
 
 .ac-finder__dot {
   display: block;
-  width: calc(1.15rem * var(--ac-finder-label-scale, 1));
-  height: calc(1.15rem * var(--ac-finder-label-scale, 1));
+  width: 1.15rem;
+  height: 1.15rem;
   border-radius: 50%;
 }
 
