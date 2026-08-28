@@ -1546,39 +1546,46 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (next == null) {
       return;
     }
-    const se = document.scrollingElement || document.documentElement;
-    const current = se.scrollTop || window.scrollY || 0;
+    const current = this.windowScrollY();
     if (next <= current) {
       return;
     }
-    se.scrollTop = next;
-    document.documentElement.scrollTop = next;
-    document.body.scrollTop = next;
-    window.scrollTo(0, next);
+    this.applyHideTitleScroll();
   }
 
   /**
-   * Après un choix dans une rubrique : remonte vers le viseur, en laissant
-   * le bandeau titre hors écran (même position qu’à l’ouverture de la page).
+   * Après un choix dans une rubrique : un seul saut vers le viseur,
+   * bandeau titre hors écran (même position qu’à l’ouverture de la page).
    */
   private scrollToCompassHidingTitle(): void {
+    const active = document.activeElement as HTMLElement | null;
+    if (active && this.hostEl.nativeElement.contains(active) && typeof active.blur === 'function') {
+      active.blur();
+    }
     this.zone.runOutsideAngular(() => {
       requestAnimationFrame(() => {
-        const target = this.pageTitleHideScrollTop();
-        if (target == null) {
-          return;
-        }
-        const se = document.scrollingElement || document.documentElement;
-        const current = se.scrollTop || window.scrollY || 0;
-        if (Math.abs(current - target) < 2) {
-          return;
-        }
-        const reduce =
-          typeof matchMedia === 'function' &&
-          matchMedia('(prefers-reduced-motion: reduce)').matches;
-        window.scrollTo({ top: target, behavior: reduce ? 'auto' : 'smooth' });
+        this.applyHideTitleScroll();
+        requestAnimationFrame(() => {
+          if (!this.pageTitleIsOffscreen()) {
+            this.applyHideTitleScroll();
+          }
+        });
       });
     });
+  }
+
+  private applyHideTitleScroll(): void {
+    const target = this.pageTitleHideScrollTop();
+    if (target == null) {
+      return;
+    }
+    document.documentElement.scrollTop = target;
+    document.body.scrollTop = target;
+    window.scrollTo(0, target);
+  }
+
+  private windowScrollY(): number {
+    return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
   }
 
   /** ScrollY où le bandeau .pat-title est juste sous la navbar / les tickers. */
@@ -1587,9 +1594,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!title) {
       return null;
     }
-    const se = document.scrollingElement || document.documentElement;
-    const current = se.scrollTop || window.scrollY || 0;
-    const titleBottomDoc = current + title.getBoundingClientRect().bottom;
+    const y = this.windowScrollY();
+    const titleBottomDoc = y + title.getBoundingClientRect().bottom;
     return Math.max(0, Math.ceil(titleBottomDoc - this.fixedChromeBottom() + 6));
   }
 
@@ -3071,10 +3077,15 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onFinderWheel(ev: WheelEvent): void {
-    if (this.canPanFinderView() && this.isFinderStageEvent(ev) && !ev.ctrlKey && !ev.metaKey) {
-      if (this.isFinderPanIgnoreTarget(ev.target)) {
-        return;
-      }
+    if (this.isFinderPanIgnoreTarget(ev.target)) {
+      return;
+    }
+    const pinchZoom = ev.ctrlKey || ev.metaKey;
+    /* Hors plein écran, la molette défile la page même au-dessus du viseur. */
+    if (!pinchZoom && !this.isFullscreen && this.isFinderStageEvent(ev)) {
+      return;
+    }
+    if (this.canPanFinderView() && this.isFinderStageEvent(ev) && !pinchZoom) {
       ev.preventDefault();
       ev.stopPropagation();
       const dy = normalizeWheelDeltaPixels(ev);
@@ -3089,9 +3100,6 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       } else {
         this.applyFinderPanPixels(dx, dy);
       }
-      return;
-    }
-    if (this.isFinderPanIgnoreTarget(ev.target)) {
       return;
     }
     ev.preventDefault();
@@ -3227,7 +3235,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return false;
     }
     return !!el.closest(
-      'button, input, label, a, select, textarea, .ac-finder__zoom, .ac-finder__cue, .ac-cam-resize'
+      'button, input, label, a, select, textarea, .ac-finder__zoom, .ac-cam-resize'
     );
   }
 
@@ -6101,8 +6109,6 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const ref = this.cibleMarkBearingDeg() ?? c?.refAzimuthDeg ?? this.headingDeg ?? raw;
     this.cibleSaving = true;
     this.cibleError = null;
-    this.markExactPosition();
-    const phoneEl = this.lookTracker?.elevationDeg ?? null;
     this.api
       .recalibrateDirectionCible(id, {
         name: c?.name,
@@ -6110,7 +6116,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         userLon: this.lon,
         phoneHeadingDeg: raw,
         refAzimuthDeg: ref,
-        phoneElevationDeg: phoneEl,
+        phoneElevationDeg: this.lookTracker?.elevationDeg ?? null,
         markLat: c?.markLat,
         markLon: c?.markLon,
         markAltM: c?.markAltM,

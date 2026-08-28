@@ -35,6 +35,7 @@ public class AssistantModelsCatalogService {
     private final RestTemplate anthropicRestTemplate;
     private final RestTemplate geminiRestTemplate;
     private final RestTemplate mistralRestTemplate;
+    private final RestTemplate spaceXaiRestTemplate;
     private final ObjectMapper objectMapper;
 
     @Value("${openai.key:}")
@@ -64,16 +65,24 @@ public class AssistantModelsCatalogService {
     @Value("${mistral.api:https://api.mistral.ai/v1/chat/completions}")
     private String mistralApiUrl;
 
+    @Value("${spacexai.key:}")
+    private String spacexaiKey;
+
+    @Value("${spacexai.api:https://api.x.ai/v1/chat/completions}")
+    private String spacexaiApiUrl;
+
     public AssistantModelsCatalogService(
             @Qualifier("openAiRestTemplate") RestTemplate openAiRestTemplate,
             @Qualifier("anthropicRestTemplate") RestTemplate anthropicRestTemplate,
             @Qualifier("geminiRestTemplate") RestTemplate geminiRestTemplate,
             @Qualifier("mistralRestTemplate") RestTemplate mistralRestTemplate,
+            @Qualifier("spaceXaiRestTemplate") RestTemplate spaceXaiRestTemplate,
             ObjectMapper objectMapper) {
         this.openAiRestTemplate = openAiRestTemplate;
         this.anthropicRestTemplate = anthropicRestTemplate;
         this.geminiRestTemplate = geminiRestTemplate;
         this.mistralRestTemplate = mistralRestTemplate;
+        this.spaceXaiRestTemplate = spaceXaiRestTemplate;
         this.objectMapper = objectMapper;
     }
 
@@ -85,6 +94,7 @@ public class AssistantModelsCatalogService {
                     case "anthropic" -> listAnthropicModelIds();
                     case "gemini" -> listGeminiModelIds();
                     case "mistral" -> listMistralModelIds();
+                    case "spacexai" -> listSpaceXaiModelIds();
                     default -> List.of();
                 };
         return sortModelIds(ids);
@@ -428,6 +438,89 @@ public class AssistantModelsCatalogService {
         } catch (Exception e) {
             log.debug("mistral.api parse failed ({}), defaulting to /v1/models", e.getMessage());
             return "https://api.mistral.ai/v1/models";
+        }
+    }
+
+    private List<String> listSpaceXaiModelIds() {
+        if (spacexaiKey == null || spacexaiKey.isBlank()) {
+            return List.of();
+        }
+        String url = spaceXaiModelsEndpoint();
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(spacexaiKey.trim());
+            ResponseEntity<String> res =
+                    spaceXaiRestTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            if (!res.getStatusCode().is2xxSuccessful() || res.getBody() == null) {
+                return List.of();
+            }
+            JsonNode root = objectMapper.readTree(res.getBody());
+            JsonNode data = root.get("data");
+            if (data == null || !data.isArray()) {
+                return List.of();
+            }
+            Set<String> ids = new LinkedHashSet<>();
+            for (JsonNode n : data) {
+                JsonNode idNode = n.get("id");
+                if (idNode == null || !idNode.isTextual()) {
+                    continue;
+                }
+                String id = idNode.asText().trim();
+                if (isSpaceXaiChatLikeModelId(id)) {
+                    ids.add(id);
+                }
+            }
+            return new ArrayList<>(ids);
+        } catch (RestClientException e) {
+            log.debug("SpaceXAI models list failed: {}", e.getMessage());
+            return List.of();
+        } catch (Exception e) {
+            log.debug("SpaceXAI models list parse failed: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    static boolean isSpaceXaiChatLikeModelId(String id) {
+        if (id == null || id.isBlank()) {
+            return false;
+        }
+        String s = id.trim().toLowerCase(Locale.ROOT);
+        if (s.contains("embed") || s.contains("voice") || s.contains("tts") || s.contains("whisper")) {
+            return false;
+        }
+        if (s.contains("imagine") || s.contains("image") || s.contains("video")) {
+            return false;
+        }
+        return s.startsWith("grok-");
+    }
+
+    private String spaceXaiModelsEndpoint() {
+        String u = spacexaiApiUrl == null ? "" : spacexaiApiUrl.trim();
+        if (u.isEmpty()) {
+            return "https://api.x.ai/v1/models";
+        }
+        try {
+            UriComponentsBuilder b = UriComponentsBuilder.fromHttpUrl(u);
+            String path = b.build().getPath();
+            if (path == null || path.isEmpty()) {
+                b.replacePath("/v1/models");
+            } else if (path.endsWith("/chat/completions")) {
+                b.replacePath(
+                        path.substring(0, path.length() - "/chat/completions".length()) + "/models");
+            } else if (path.endsWith("/responses")) {
+                b.replacePath(path.substring(0, path.length() - "/responses".length()) + "/models");
+            } else if (!path.endsWith("/models")) {
+                int i = path.indexOf("/v1/");
+                if (i >= 0) {
+                    b.replacePath(path.substring(0, i + "/v1".length()) + "/models");
+                } else {
+                    b.replacePath("/v1/models");
+                }
+            }
+            return b.build().encode().toUriString();
+        } catch (Exception e) {
+            log.debug("spacexai.api parse failed ({}), defaulting to /v1/models", e.getMessage());
+            return "https://api.x.ai/v1/models";
         }
     }
 }

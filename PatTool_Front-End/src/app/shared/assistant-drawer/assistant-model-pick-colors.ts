@@ -4,6 +4,7 @@ import { ASSISTANT_GEMINI_MODEL_GUIDE_ROWS } from './assistant-gemini-model-guid
 import { ASSISTANT_MISTRAL_MODEL_GUIDE_ROWS } from './assistant-mistral-model-guide';
 import { ASSISTANT_MODEL_PICK_ROUTING } from './assistant-model-pick-routing';
 import { ASSISTANT_OPENAI_MODEL_GUIDE_ROWS } from './assistant-openai-model-guide';
+import { ASSISTANT_SPACEXAI_MODEL_GUIDE_ROWS } from './assistant-spacexai-model-guide';
 
 export interface AssistantModelPickColor {
   readonly bg: string;
@@ -18,7 +19,8 @@ const ASSISTANT_MODEL_GUIDES_BY_PROVIDER: readonly {
   { provider: 'openai', rows: ASSISTANT_OPENAI_MODEL_GUIDE_ROWS },
   { provider: 'anthropic', rows: ASSISTANT_ANTHROPIC_MODEL_GUIDE_ROWS },
   { provider: 'gemini', rows: ASSISTANT_GEMINI_MODEL_GUIDE_ROWS },
-  { provider: 'mistral', rows: ASSISTANT_MISTRAL_MODEL_GUIDE_ROWS }
+  { provider: 'mistral', rows: ASSISTANT_MISTRAL_MODEL_GUIDE_ROWS },
+  { provider: 'spacexai', rows: ASSISTANT_SPACEXAI_MODEL_GUIDE_ROWS }
 ];
 
 /** Stable key: same provider + API id → same color everywhere in the tools help modal. */

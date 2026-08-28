@@ -3,14 +3,14 @@ package com.pat.controller.dto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
- * Valeurs par défaut côté serveur : libellés + routage ({@code openai}, {@code anthropic}, {@code gemini}
- * ou {@code mistral}, selon {@code assistant.provider}).
+ * Valeurs par défaut côté serveur : libellés + routage ({@code openai}, {@code anthropic}, {@code gemini},
+ * {@code mistral} ou {@code spacexai}, selon {@code assistant.provider}).
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record AssistantClientConfigDto(
         String provider,
         String model,
-        /** {@code openai}, {@code anthropic}, {@code gemini} ou {@code mistral} — état configuré dans application.properties. */
+        /** {@code openai}, {@code anthropic}, {@code gemini}, {@code mistral} ou {@code spacexai} — état configuré dans application.properties. */
         String routingDefault,
         /** Préférence utilisateur persistée (Mongo {@code appParameters}) ; absent si jamais enregistrée. */
         AssistantRoutingPreferenceDto persistedRouting,
@@ -22,6 +22,8 @@ public record AssistantClientConfigDto(
         String geminiDefaultModel,
         /** Valeur {@code mistral.model} (non sensible). */
         String mistralDefaultModel,
+        /** Valeur {@code spacexai.model} (non sensible). */
+        String spacexaiDefaultModel,
         /**
          * Liens du bandeau assistant (voir {@code assistant.billing.openai-billing-url},
          * {@code assistant.billing.openai-usage-url}).
@@ -36,5 +38,7 @@ public record AssistantClientConfigDto(
         String billingGeminiApiKeysUrl,
         /** {@code assistant.billing.mistral-url}. */
         String billingMistralUrl,
+        /** {@code assistant.billing.spacexai-url}. */
+        String billingSpacexaiUrl,
         /** {@code gemini.image-generation-model} (non sensible). */
         String geminiImageGenerationModel) {}

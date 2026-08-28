@@ -174,4 +174,18 @@ public class RestTemplateConfig {
                 .setReadTimeout(Duration.ofSeconds(readSeconds))
                 .build();
     }
+
+    /**
+     * Client HTTP réservé aux appels SpaceXAI (Grok) chat / liste modèles.
+     */
+    @Bean("spaceXaiRestTemplate")
+    public RestTemplate spaceXaiRestTemplate(
+            RestTemplateBuilder builder,
+            @Value("${spacexai.http.connect-timeout-seconds:300}") int connectSeconds,
+            @Value("${spacexai.http.read-timeout-seconds:300}") int readSeconds) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(connectSeconds))
+                .setReadTimeout(Duration.ofSeconds(readSeconds))
+                .build();
+    }
 }

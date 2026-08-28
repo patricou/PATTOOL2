@@ -258,6 +258,15 @@
   color: #c8f4ff;
 }
 
+.ac-app-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: 0 0 auto;
+  border-radius: 0.22rem;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
 .ac-params-title {
   display: flex;
   flex-wrap: wrap;
@@ -2814,10 +2823,41 @@ a.ac-compass-cal__btn--direction {
   background: transparent;
 }
 
+.ac-options-cue,
 .ac-options-trail {
+  display: flex;
+  flex-direction: column;
   margin-top: 0.65rem;
   padding-top: 0.65rem;
   border-top: 1px solid rgba(140, 180, 255, 0.18);
+}
+
+.ac-options-cue__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.45rem;
+  color: #dce7fb;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.ac-options-cue .ac-look__cue {
+  justify-content: flex-start;
+  gap: 0.35rem;
+}
+
+.ac-options-cue .ac-look__cue-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.32rem 0.7rem;
+  font-size: 0.76rem;
+}
+
+.ac-options-cue .ac-place {
+  margin: 0.4rem 0 0;
 }
 
 .ac-panel--sensors {
@@ -5163,6 +5203,7 @@ a.ac-compass-cal__btn--direction {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
+  gap: 0.28rem;
   padding: 0.15rem 0.45rem;
   border: 1px solid rgba(158, 212, 255, 0.35);
   border-radius: 0.3rem;
@@ -6443,17 +6484,6 @@ a.ac-compass-cal__btn--direction {
   font-size: 0.7rem;
 }
 
-.ac-finder__cue {
-  position: absolute;
-  left: 0.45rem;
-  right: 3.2rem;
-  bottom: 0.45rem;
-  z-index: 4;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-}
-
 .ac-finder__hud-north {
   color: #ffd54a;
   font-weight: 700;
@@ -6874,6 +6904,11 @@ a.ac-compass-cal__btn--direction {
 
 .ac-finder__auto {
   white-space: nowrap;
+}
+
+.ac-compass-body > .ac-finder__auto {
+  margin: 0;
+  align-self: stretch;
 }
 
 .ac-finder__north-box {
@@ -7328,7 +7363,7 @@ a.ac-compass-cal__btn--direction {
 .ac-finder__quad .ac-finder__exact,
 .ac-finder__quad .ac-finder__recal,
 .ac-finder__quad .ac-finder__north-box-btn--more,
-.ac-finder__actions .ac-finder__auto {
+.ac-compass-body > .ac-finder__auto {
   display: inline-flex;
   align-items: center;
   justify-content: center;

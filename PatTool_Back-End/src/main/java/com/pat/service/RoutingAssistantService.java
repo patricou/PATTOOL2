@@ -9,7 +9,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Routage de l’assistant latéral selon {@code assistant.provider} ({@code openai} par défaut,
- * {@code anthropic} pour Claude, {@code gemini} pour Google Gemini, {@code mistral} pour Mistral AI).
+ * {@code anthropic} pour Claude, {@code gemini} pour Google Gemini, {@code mistral} pour Mistral AI,
+ * {@code spacexai} pour SpaceXAI / Grok).
  */
 @Service
 public class RoutingAssistantService {
@@ -23,16 +24,19 @@ public class RoutingAssistantService {
     private final AnthropicAssistantService anthropicAssistantService;
     private final GeminiAssistantService geminiAssistantService;
     private final MistralAssistantService mistralAssistantService;
+    private final SpaceXaiAssistantService spaceXaiAssistantService;
 
     public RoutingAssistantService(
             OpenAiAssistantService openAiAssistantService,
             AnthropicAssistantService anthropicAssistantService,
             GeminiAssistantService geminiAssistantService,
-            MistralAssistantService mistralAssistantService) {
+            MistralAssistantService mistralAssistantService,
+            SpaceXaiAssistantService spaceXaiAssistantService) {
         this.openAiAssistantService = openAiAssistantService;
         this.anthropicAssistantService = anthropicAssistantService;
         this.geminiAssistantService = geminiAssistantService;
         this.mistralAssistantService = mistralAssistantService;
+        this.spaceXaiAssistantService = spaceXaiAssistantService;
     }
 
     public AssistantChatResponseDto complete(AssistantChatRequestDto request) {
@@ -46,6 +50,7 @@ public class RoutingAssistantService {
             case "anthropic" -> anthropicAssistantService.complete(request);
             case "gemini" -> geminiAssistantService.complete(request);
             case "mistral" -> mistralAssistantService.complete(request);
+            case "spacexai" -> spaceXaiAssistantService.complete(request);
             default -> openAiAssistantService.complete(request);
         };
     }
@@ -55,6 +60,7 @@ public class RoutingAssistantService {
             case "anthropic" -> anthropicAssistantService.getConfiguredProviderLabel();
             case "gemini" -> geminiAssistantService.getConfiguredProviderLabel();
             case "mistral" -> mistralAssistantService.getConfiguredProviderLabel();
+            case "spacexai" -> spaceXaiAssistantService.getConfiguredProviderLabel();
             default -> openAiAssistantService.getConfiguredProviderLabel();
         };
     }
@@ -64,11 +70,12 @@ public class RoutingAssistantService {
             case "anthropic" -> anthropicAssistantService.getConfiguredModel();
             case "gemini" -> geminiAssistantService.getConfiguredModel();
             case "mistral" -> mistralAssistantService.getConfiguredModel();
+            case "spacexai" -> spaceXaiAssistantService.getConfiguredModel();
             default -> openAiAssistantService.getConfiguredModel();
         };
     }
 
-    /** {@code openai}, {@code anthropic}, {@code gemini} ou {@code mistral}, jamais vide (défaut {@code openai}). */
+    /** {@code openai}, {@code anthropic}, {@code gemini}, {@code mistral} ou {@code spacexai}, jamais vide (défaut {@code openai}). */
     public String getConfiguredRoutingSlug() {
         return configuredServerSlug();
     }
@@ -86,6 +93,7 @@ public class RoutingAssistantService {
             case "anthropic" -> anthropicAssistantService.getConfiguredModel();
             case "gemini" -> geminiAssistantService.getConfiguredModel();
             case "mistral" -> mistralAssistantService.getConfiguredModel();
+            case "spacexai" -> spaceXaiAssistantService.getConfiguredModel();
             default -> openAiAssistantService.getConfiguredModel();
         };
     }
@@ -109,7 +117,7 @@ public class RoutingAssistantService {
 
     /**
      * Valeur de {@code assistant.provider} : {@code openai} (défaut), {@code anthropic}/{@code claude},
-     * {@code gemini}/{@code google}, {@code mistral}.
+     * {@code gemini}/{@code google}, {@code mistral}, {@code spacexai}/{@code xai}/{@code grok}.
      */
     static String normalizeAssistantProviderProperty(String assistantProvider) {
         if (assistantProvider == null || assistantProvider.isBlank()) {
@@ -125,13 +133,16 @@ public class RoutingAssistantService {
         if ("mistral".equals(p)) {
             return "mistral";
         }
+        if ("spacexai".equals(p) || "xai".equals(p) || "grok".equals(p)) {
+            return "spacexai";
+        }
         return "openai";
     }
 
     /**
      * Valeur reconnue pour le corps de requête : {@code openai}, {@code anthropic}, {@code claude}
-     * (alias), {@code gemini}, {@code google} (alias), {@code mistral}. Toute autre valeur est ignorée
-     * pour retomber sur la config serveur.
+     * (alias), {@code gemini}, {@code google} (alias), {@code mistral}, {@code spacexai}, {@code xai},
+     * {@code grok}. Toute autre valeur est ignorée pour retomber sur la config serveur.
      */
     static String normalizeRoutingSlug(String provider) {
         if (provider == null || provider.isBlank()) {
@@ -146,6 +157,9 @@ public class RoutingAssistantService {
         }
         if ("mistral".equals(p)) {
             return "mistral";
+        }
+        if ("spacexai".equals(p) || "xai".equals(p) || "grok".equals(p)) {
+            return "spacexai";
         }
         if ("openai".equals(p)) {
             return "openai";

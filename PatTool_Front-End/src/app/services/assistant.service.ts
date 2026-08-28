@@ -82,7 +82,7 @@ export interface AssistantOpenAiCredits {
 }
 
 /** Fournisseurs IA supportés par l’assistant PatTool. */
-export type AssistantProviderSlug = 'openai' | 'anthropic' | 'gemini' | 'mistral';
+export type AssistantProviderSlug = 'openai' | 'anthropic' | 'gemini' | 'mistral' | 'spacexai';
 
 export function isAssistantProviderSlug(
   p: string | undefined | null
@@ -91,7 +91,8 @@ export function isAssistantProviderSlug(
     p === 'openai' ||
     p === 'anthropic' ||
     p === 'gemini' ||
-    p === 'mistral'
+    p === 'mistral' ||
+    p === 'spacexai'
   );
 }
 
@@ -99,7 +100,7 @@ export function isAssistantProviderSlug(
 export interface AssistantClientConfig {
   provider?: string | null;
   model?: string | null;
-  /** openai | anthropic | gemini | mistral — valeur de assistant.provider côté Spring. */
+  /** openai | anthropic | gemini | mistral | spacexai — valeur de assistant.provider côté Spring. */
   routingDefault?: string | null;
   /** Préférence persistée (Mongo appParameters), si l’utilisateur en a déjà enregistré une. */
   persistedRouting?: AssistantRoutingStored | null;
@@ -108,6 +109,7 @@ export interface AssistantClientConfig {
   anthropicDefaultModel?: string | null;
   geminiDefaultModel?: string | null;
   mistralDefaultModel?: string | null;
+  spacexaiDefaultModel?: string | null;
   /** Liens bandeau facturation / usage (assistant.billing.* côté serveur). */
   billingOpenaiBillingUrl?: string | null;
   billingOpenaiUsageUrl?: string | null;
@@ -115,6 +117,7 @@ export interface AssistantClientConfig {
   billingGeminiRateLimitUrl?: string | null;
   billingGeminiApiKeysUrl?: string | null;
   billingMistralUrl?: string | null;
+  billingSpacexaiUrl?: string | null;
   /** gemini.image-generation-model côté serveur (non sensible). */
   geminiImageGenerationModel?: string | null;
 }

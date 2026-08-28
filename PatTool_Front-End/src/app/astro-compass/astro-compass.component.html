@@ -266,8 +266,8 @@
               (click)="onSkyMapAppClick($event)"
               [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate"
               [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate">
-              <i class="fa fa-mobile" aria-hidden="true"></i>
-              <span>Sky Map</span>
+              <img class="ac-app-icon" src="assets/images/sky-map-app.svg" alt="" width="18" height="18" aria-hidden="true" />
+              <span>SkyMap</span>
             </a>
             <a
               class="ac-compass-refresh ac-compass-skymap-app ac-compass-skyview-app"
@@ -277,7 +277,7 @@
               (click)="onSkyViewAppClick($event)"
               [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate"
               [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate">
-              <i class="fa fa-eye" aria-hidden="true"></i>
+              <img class="ac-app-icon" src="assets/images/skyview-app.svg" alt="" width="18" height="18" aria-hidden="true" />
               <span>SkyView</span>
             </a>
           </div>
@@ -287,7 +287,17 @@
           <div class="ac-compass-status" *ngIf="geoStatus === 'locating' && azimuthDeg == null">
             <i class="fa fa-spinner fa-spin me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.LOCATING' | translate }}
           </div>
-
+          <button
+            type="button"
+            class="ac-compass-autodetect ac-finder__auto"
+            [class.ac-compass-autodetect--live]="autoDetectLive"
+            (click)="toggleAutoDetectLive()"
+            [attr.title]="(autoDetectLive ? 'ASTRO_COMPASS.AUTO_LIVE_STOP' : 'ASTRO_COMPASS.AUTO_LIVE_START') | translate"
+            [attr.aria-label]="(autoDetectLive ? 'ASTRO_COMPASS.AUTO_LIVE_STOP' : 'ASTRO_COMPASS.AUTO_LIVE_START') | translate"
+            [attr.aria-pressed]="autoDetectLive">
+            <i class="fa" [ngClass]="autoDetectBusy && !autoDetectLive ? 'fa-spinner fa-spin' : (autoDetectLive ? 'fa-pause' : 'fa-crosshairs')" aria-hidden="true"></i>
+            <span class="ac-compass-autodetect__txt">{{ (autoDetectLive ? 'ASTRO_COMPASS.AUTO_LIVE_ON' : 'ASTRO_COMPASS.AUTO_DETECT_SHORT') | translate }}</span>
+          </button>
           <div
               class="ac-finder"
               #camStage
@@ -594,8 +604,8 @@
                   (click)="onSkyMapAppClick($event)"
                   [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate"
                   [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate">
-                  <i class="fa fa-mobile" aria-hidden="true"></i>
-                  <span>Sky Map</span>
+                  <img class="ac-app-icon" src="assets/images/sky-map-app.svg" alt="" width="18" height="18" aria-hidden="true" />
+                  <span>SkyMap</span>
                 </a>
                 <a
                   *ngIf="isFullscreen"
@@ -606,7 +616,7 @@
                   (click)="onSkyViewAppClick($event)"
                   [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate"
                   [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate">
-                  <i class="fa fa-eye" aria-hidden="true"></i>
+                  <img class="ac-app-icon" src="assets/images/skyview-app.svg" alt="" width="18" height="18" aria-hidden="true" />
                   <span>SkyView</span>
                 </a>
               </div>
@@ -652,11 +662,6 @@
                   [attr.aria-label]="'ASTRO_COMPASS.FINDER_ZOOM_RESET' | translate">
                   {{ finderZoomLabel }}
                 </button>
-              </div>
-              <div class="ac-finder__cue" role="group" [attr.aria-label]="'ASTRO_COMPASS.CUE_LABEL' | translate">
-                <button type="button" class="ac-look__cue-btn" [class.ac-look__cue-btn--on]="alignCue === 'off'" (click)="setAlignCue('off')">{{ 'ASTRO_COMPASS.CUE_OFF' | translate }}</button>
-                <button type="button" class="ac-look__cue-btn" [class.ac-look__cue-btn--on]="alignCue === 'beep'" (click)="setAlignCue('beep')"><i class="fa fa-volume-up" aria-hidden="true"></i> {{ 'ASTRO_COMPASS.CUE_BEEP' | translate }}</button>
-                <button type="button" class="ac-look__cue-btn" [class.ac-look__cue-btn--on]="alignCue === 'vibrate'" (click)="setAlignCue('vibrate')"><i class="fa fa-mobile" aria-hidden="true"></i> {{ 'ASTRO_COMPASS.CUE_VIBRATE' | translate }}</button>
               </div>
               <button
                 type="button"
@@ -744,17 +749,6 @@
               <div class="ac-finder__quad" role="group">
                 <ng-container *ngTemplateOutlet="headingNavLinks"></ng-container>
               </div>
-              <button
-                type="button"
-                class="ac-compass-autodetect ac-finder__auto"
-                [class.ac-compass-autodetect--live]="autoDetectLive"
-                (click)="toggleAutoDetectLive()"
-                [attr.title]="(autoDetectLive ? 'ASTRO_COMPASS.AUTO_LIVE_STOP' : 'ASTRO_COMPASS.AUTO_LIVE_START') | translate"
-                [attr.aria-label]="(autoDetectLive ? 'ASTRO_COMPASS.AUTO_LIVE_STOP' : 'ASTRO_COMPASS.AUTO_LIVE_START') | translate"
-                [attr.aria-pressed]="autoDetectLive">
-                <i class="fa" [ngClass]="autoDetectBusy && !autoDetectLive ? 'fa-spinner fa-spin' : (autoDetectLive ? 'fa-pause' : 'fa-crosshairs')" aria-hidden="true"></i>
-                <span class="ac-compass-autodetect__txt">{{ (autoDetectLive ? 'ASTRO_COMPASS.AUTO_LIVE_ON' : 'ASTRO_COMPASS.AUTO_DETECT_SHORT') | translate }}</span>
-              </button>
             </div>
             <p class="ac-finder__lock" *ngIf="finderPoseFrozen">
               <i class="fa fa-pause me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.FINDER_PAUSED' | translate }}
@@ -1899,6 +1893,41 @@
     </div>
     <ng-container *ngTemplateOutlet="acMagFilter; context: { css: 'ac-mag-filter--panel' }"></ng-container>
     </div>
+    <div class="ac-options-cue">
+      <span class="ac-options-cue__title">
+        <i class="fa fa-volume-up" aria-hidden="true"></i>
+        {{ 'ASTRO_COMPASS.FINDER_INFO_CUE' | translate }}
+      </span>
+      <div class="ac-look__cue" role="group" [attr.aria-label]="'ASTRO_COMPASS.CUE_LABEL' | translate">
+        <button
+          type="button"
+          class="ac-look__cue-btn"
+          [class.ac-look__cue-btn--on]="alignCue === 'off'"
+          [attr.aria-pressed]="alignCue === 'off'"
+          (click)="setAlignCue('off')">
+          {{ 'ASTRO_COMPASS.CUE_OFF' | translate }}
+        </button>
+        <button
+          type="button"
+          class="ac-look__cue-btn"
+          [class.ac-look__cue-btn--on]="alignCue === 'beep'"
+          [attr.aria-pressed]="alignCue === 'beep'"
+          (click)="setAlignCue('beep')">
+          <i class="fa fa-volume-up" aria-hidden="true"></i>
+          {{ 'ASTRO_COMPASS.CUE_BEEP' | translate }}
+        </button>
+        <button
+          type="button"
+          class="ac-look__cue-btn"
+          [class.ac-look__cue-btn--on]="alignCue === 'vibrate'"
+          [attr.aria-pressed]="alignCue === 'vibrate'"
+          (click)="setAlignCue('vibrate')">
+          <i class="fa fa-mobile" aria-hidden="true"></i>
+          {{ 'ASTRO_COMPASS.CUE_VIBRATE' | translate }}
+        </button>
+      </div>
+      <p class="ac-place">{{ 'ASTRO_COMPASS.CUE_HINT' | translate }}</p>
+    </div>
     <div class="ac-options-trail">
       <label
         class="ac-finder__trail-sw"
@@ -2632,7 +2661,7 @@
               (click)="onSkyMapAppClick($event)"
               [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate"
               [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate">
-              <i class="fa fa-mobile me-1" aria-hidden="true"></i>
+              <img class="ac-app-icon" src="assets/images/sky-map-app.svg" alt="" width="16" height="16" aria-hidden="true" />
               {{ 'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate }}
             </a>
             <a
@@ -2643,7 +2672,7 @@
               (click)="onSkyViewAppClick($event)"
               [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate"
               [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate">
-              <i class="fa fa-eye me-1" aria-hidden="true"></i>
+              <img class="ac-app-icon" src="assets/images/skyview-app.svg" alt="" width="16" height="16" aria-hidden="true" />
               {{ 'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate }}
             </a>
           </span>

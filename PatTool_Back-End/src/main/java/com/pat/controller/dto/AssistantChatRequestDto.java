@@ -21,7 +21,7 @@ public record AssistantChatRequestDto(
         @Valid AssistantAttachedImageDto attachedImage,
         /**
          * Surcharge facultative du fournisseur pour ce tour : {@code openai}, {@code anthropic}, {@code claude},
-         * {@code gemini}, {@code google}.
+         * {@code gemini}, {@code google}, {@code mistral}, {@code spacexai}, {@code xai}, {@code grok}.
          * Si absent, le serveur utilise {@code assistant.provider}.
          */
         @JsonProperty("provider")

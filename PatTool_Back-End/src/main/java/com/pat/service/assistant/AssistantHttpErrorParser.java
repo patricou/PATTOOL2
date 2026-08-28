@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Extrait le libellé utilisateur d’une réponse JSON d’erreur HTTP des APIs OpenAI, Anthropic, Google
- * ou Mistral ({@code error.message}, {@code message} à la racine, {@code detail}).
+ * Extrait le libellé utilisateur d’une réponse JSON d’erreur HTTP des APIs OpenAI, Anthropic, Google,
+ * Mistral ou SpaceXAI ({@code error.message}, {@code message} à la racine, {@code detail}).
  */
 public final class AssistantHttpErrorParser {
 

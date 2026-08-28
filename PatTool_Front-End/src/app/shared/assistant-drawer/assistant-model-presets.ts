@@ -39,3 +39,14 @@ export const ASSISTANT_MISTRAL_MODEL_PRESETS = [
 
 /** Default Mistral model (align with server {@code mistral.model}). */
 export const ASSISTANT_MISTRAL_DEFAULT_MODEL = 'mistral-large-latest';
+
+export const ASSISTANT_SPACEXAI_MODEL_PRESETS = [
+  'grok-4.20-0309-reasoning',
+  'grok-4.3',
+  'grok-4.5',
+  'grok-4.6',
+  'grok-build-0.1'
+] as const;
+
+/** Default SpaceXAI model (align with server {@code spacexai.model}). */
+export const ASSISTANT_SPACEXAI_DEFAULT_MODEL = 'grok-4.6';

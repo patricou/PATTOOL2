@@ -38,5 +38,12 @@ export const ASSISTANT_TOOLS_HELP_PROVIDER_MATRIX: readonly AssistantToolsHelpPr
     webSearch: true,
     imageGeneration: false,
     mcp: false
+  },
+  {
+    sectionId: 'spacexai',
+    providerLabelKey: 'ASSISTANT.PROVIDER_SPACEXAI',
+    webSearch: true,
+    imageGeneration: false,
+    mcp: false
   }
 ];

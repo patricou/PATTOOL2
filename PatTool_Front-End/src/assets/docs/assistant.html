@@ -69,7 +69,7 @@
                     <li>Cliquez en dehors du panneau (zone grisée) ou sur <span class="doc-kbd">×</span> pour fermer.</li>
                 </ul>
                 <div class="doc-tip">
-                    <strong>Sécurité :</strong> vos messages ne partent jamais directement du navigateur vers OpenAI, Anthropic, Google ou Mistral. Tout transite par le <strong>serveur PatTool</strong>, qui détient les clés API.
+                    <strong>Sécurité :</strong> vos messages ne partent jamais directement du navigateur vers OpenAI, Anthropic, Google, Mistral ou SpaceXAI. Tout transite par le <strong>serveur PatTool</strong>, qui détient les clés API.
                 </div>
             </section>
 
@@ -78,7 +78,7 @@
                 <table class="doc-table">
                     <thead><tr><th>Élément</th><th>Rôle</th></tr></thead>
                     <tbody>
-                        <tr><td>Sélecteur <strong>Fournisseur</strong></td><td>OpenAI, Anthropic (Claude), Google (Gemini), Mistral AI</td></tr>
+                        <tr><td>Sélecteur <strong>Fournisseur</strong></td><td>OpenAI, Anthropic (Claude), Google (Gemini), Mistral AI, SpaceXAI (Grok)</td></tr>
                         <tr><td>Sélecteur <strong>Modèle</strong></td><td>Liste des modèles du fournisseur + option « Modèle personnalisé… » (id API libre)</td></tr>
                         <tr><td><strong>Guide modèles</strong> (ⓘ)</td><td>Tableaux « quel modèle pour quelle tâche » — cliquer un modèle l'applique dans le panneau</td></tr>
                         <tr><td><strong>Brave Search</strong></td><td>Ouvre search.brave.com dans un nouvel onglet (recherche manuelle)</td></tr>
@@ -96,12 +96,13 @@
 
             <section class="doc-section" id="fr-fournisseurs">
                 <h2>Fournisseur, modèle et guide</h2>
-                <h3>Les quatre fournisseurs</h3>
+                <h3>Les cinq fournisseurs</h3>
                 <div class="doc-cards">
                     <div class="doc-card"><h4>OpenAI</h4><p>GPT-5.x, GPT-4.x, série « o » (raisonnement). Seul fournisseur avec <strong>MCP</strong> et génération d'images OpenAI.</p></div>
                     <div class="doc-card"><h4>Anthropic</h4><p>Claude (Fable 5, Opus 4.8, Sonnet 4.6, Haiku 4.5). Recommandé pour les <strong>activités</strong> (lancement auto).</p></div>
                     <div class="doc-card"><h4>Google Gemini</h4><p>Texte, long contexte, vision et génération d'images Gemini. Utilisé pour les <strong>photos</strong> et les <strong>actualités</strong>.</p></div>
                     <div class="doc-card"><h4>Mistral AI</h4><p>Large, Small, Pixtral (vision), Codestral (code), Ministral (léger).</p></div>
+                    <div class="doc-card"><h4>SpaceXAI</h4><p>Grok 4.6 (phare), 4.5, 4.3, 4.20 Reasoning, Grok Build (code). Vision et recherche web Live Search.</p></div>
                 </div>
                 <h3>Choisir un modèle</h3>
                 <ol>
@@ -130,11 +131,11 @@
                 <h2>Cases « Outils » (sous le champ de message)</h2>
                 <p>Options facultatives — ralentissent la réponse et consomment plus d'API. Seules les cases compatibles avec le fournisseur actif sont affichées.</p>
                 <table class="doc-table">
-                    <thead><tr><th>Outil</th><th>OpenAI</th><th>Gemini</th><th>Anthropic</th><th>Mistral</th></tr></thead>
+                    <thead><tr><th>Outil</th><th>OpenAI</th><th>Gemini</th><th>Anthropic</th><th>Mistral</th><th>SpaceXAI</th></tr></thead>
                     <tbody>
-                        <tr><td><strong>Recherche web</strong></td><td>Oui</td><td>Oui</td><td>Oui</td><td>Oui</td></tr>
-                        <tr><td><strong>Génération d'images</strong></td><td>Oui</td><td>Oui</td><td>Non</td><td>Non</td></tr>
-                        <tr><td><strong>MCP</strong></td><td>Oui*</td><td>Non</td><td>Non</td><td>Non</td></tr>
+                        <tr><td><strong>Recherche web</strong></td><td>Oui</td><td>Oui</td><td>Oui</td><td>Oui</td><td>Oui</td></tr>
+                        <tr><td><strong>Génération d'images</strong></td><td>Oui</td><td>Oui</td><td>Non</td><td>Non</td><td>Non</td></tr>
+                        <tr><td><strong>MCP</strong></td><td>Oui*</td><td>Non</td><td>Non</td><td>Non</td><td>Non</td></tr>
                     </tbody>
                 </table>
                 <p class="doc-warn" style="margin-top:0.75rem;">* MCP : nécessite un serveur MCP configuré sur le backend (<code class="doc-code">openai.mcp.*</code>). Si aucun serveur n'est configuré, la case est grisée.</p>
@@ -237,18 +238,20 @@
                 <ul>
                     <li>Bouton <strong>graphique</strong> en tête : ouvre la console facturation du fournisseur sélectionné (URL configurée côté serveur)</li>
                     <li><strong>OpenAI</strong> : PatTool peut afficher le solde prépayé (USD) si l'API billing est configurée</li>
-                    <li><strong>Anthropic, Gemini, Mistral</strong> : pas de solde dans PatTool — lien vers la console du fournisseur</li>
+                    <li><strong>Anthropic, Gemini, Mistral, SpaceXAI</strong> : pas de solde dans PatTool — lien vers la console du fournisseur</li>
                 </ul>
             </section>
 
             <section class="doc-section" id="fr-conseils">
                 <h2>Conseils d'utilisation</h2>
                 <ul>
-                    <li><strong>Activité / rédaction</strong> : Claude Sonnet ou Opus, ou GPT-5.x — lancez depuis la carte activité pour un routage adapté</li>
+                    <li><strong>Activité / rédaction</strong> : Claude Fable 5 ou Sonnet, ou GPT-5.5 — lancez depuis la carte activité pour un routage adapté</li>
                     <li><strong>Photo / diaporama</strong> : Gemini Flash Image avec l'image déjà jointe</li>
-                    <li><strong>Actualité</strong> : Gemini + case Recherche web</li>
-                    <li><strong>Code</strong> : Codestral, o4-mini, ou Claude Opus</li>
-                    <li><strong>Rapide et pas cher</strong> : Haiku, GPT-4o mini, Mistral Small</li>
+                    <li><strong>Actualité</strong> : Gemini + case Recherche web (Grok 4.6 en alternative)</li>
+                    <li><strong>Code</strong> : Claude Fable 5, GPT-5.5, Grok 4.6 (rapport qualité/prix) ; Codestral pour la complétion rapide</li>
+                    <li><strong>Rapide et pas cher</strong> : Gemini 2.5 Flash, GPT-4o mini, Haiku</li>
+                    <li><strong>Traduction / français</strong> : Mistral Large</li>
+                    <li><strong>Raisonnement / docs longs</strong> : Gemini 3.1 Pro</li>
                     <li><strong>Illustration</strong> : cocher Génération d'images + OpenAI ou Gemini</li>
                     <li>Utilisez la <strong>gomme</strong> entre deux sujets différents pour éviter de mélanger les contextes</li>
                     <li>Consultez le <strong>Guide modèles</strong> intégré pour le tableau comparatif par type de tâche</li>
@@ -285,7 +288,7 @@
                     <li>Click the dimmed backdrop or <span class="doc-kbd">×</span> to close.</li>
                 </ul>
                 <div class="doc-tip">
-                    <strong>Security:</strong> messages never go directly from the browser to OpenAI, Anthropic, Google or Mistral. Everything goes through the <strong>PatTool server</strong>, which holds API keys.
+                    <strong>Security:</strong> messages never go directly from the browser to OpenAI, Anthropic, Google, Mistral or SpaceXAI. Everything goes through the <strong>PatTool server</strong>, which holds API keys.
                 </div>
             </section>
 
@@ -294,7 +297,7 @@
                 <table class="doc-table">
                     <thead><tr><th>Element</th><th>Purpose</th></tr></thead>
                     <tbody>
-                        <tr><td><strong>Provider</strong> selector</td><td>OpenAI, Anthropic (Claude), Google (Gemini), Mistral AI</td></tr>
+                        <tr><td><strong>Provider</strong> selector</td><td>OpenAI, Anthropic (Claude), Google (Gemini), Mistral AI, SpaceXAI (Grok)</td></tr>
                         <tr><td><strong>Model</strong> selector</td><td>Provider models + “Custom model…” (free API id)</td></tr>
                         <tr><td><strong>Model guide</strong> (ⓘ)</td><td>“Which model for which task” tables — click a model to apply it</td></tr>
                         <tr><td><strong>Brave Search</strong></td><td>Opens search.brave.com in a new tab</td></tr>
@@ -312,12 +315,13 @@
 
             <section class="doc-section" id="en-providers">
                 <h2>Provider, model and guide</h2>
-                <h3>Four providers</h3>
+                <h3>Five providers</h3>
                 <div class="doc-cards">
                     <div class="doc-card"><h4>OpenAI</h4><p>GPT-5.x, GPT-4.x, “o” series (reasoning). Only provider with <strong>MCP</strong> and OpenAI image generation.</p></div>
                     <div class="doc-card"><h4>Anthropic</h4><p>Claude (Fable 5, Opus 4.8, Sonnet 4.6, Haiku 4.5). Default for <strong>activity</strong> launches.</p></div>
                     <div class="doc-card"><h4>Google Gemini</h4><p>Text, long context, vision and Gemini images. Used for <strong>photos</strong> and <strong>news</strong>.</p></div>
                     <div class="doc-card"><h4>Mistral AI</h4><p>Large, Small, Pixtral (vision), Codestral (code), Ministral (lightweight).</p></div>
+                    <div class="doc-card"><h4>SpaceXAI</h4><p>Grok 4.6 (flagship), 4.5, 4.3, 4.20 Reasoning, Grok Build (code). Vision and Live Search web search.</p></div>
                 </div>
                 <h3>Choosing a model</h3>
                 <ol>
@@ -341,11 +345,11 @@
                 <h2>“Tools” checkboxes (below the input)</h2>
                 <p>Optional — slower replies and higher API usage. Only compatible options are shown for the active provider.</p>
                 <table class="doc-table">
-                    <thead><tr><th>Tool</th><th>OpenAI</th><th>Gemini</th><th>Anthropic</th><th>Mistral</th></tr></thead>
+                    <thead><tr><th>Tool</th><th>OpenAI</th><th>Gemini</th><th>Anthropic</th><th>Mistral</th><th>SpaceXAI</th></tr></thead>
                     <tbody>
-                        <tr><td><strong>Web search</strong></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
-                        <tr><td><strong>Image generation</strong></td><td>Yes</td><td>Yes</td><td>No</td><td>No</td></tr>
-                        <tr><td><strong>MCP</strong></td><td>Yes*</td><td>No</td><td>No</td><td>No</td></tr>
+                        <tr><td><strong>Web search</strong></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+                        <tr><td><strong>Image generation</strong></td><td>Yes</td><td>Yes</td><td>No</td><td>No</td><td>No</td></tr>
+                        <tr><td><strong>MCP</strong></td><td>Yes*</td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
                     </tbody>
                 </table>
                 <p class="doc-warn" style="margin-top:0.75rem;">* MCP requires a server configured on the backend (<code class="doc-code">openai.mcp.*</code>). Checkbox is disabled if none is set up.</p>
@@ -432,18 +436,20 @@
                 <ul>
                     <li><strong>Chart</strong> button opens the provider billing console (server-configured URL)</li>
                     <li><strong>OpenAI</strong>: prepaid balance may show in PatTool when billing API is configured</li>
-                    <li><strong>Anthropic, Gemini, Mistral</strong>: balance not shown in PatTool — external console link</li>
+                    <li><strong>Anthropic, Gemini, Mistral, SpaceXAI</strong>: balance not shown in PatTool — external console link</li>
                 </ul>
             </section>
 
             <section class="doc-section" id="en-tips">
                 <h2>Usage tips</h2>
                 <ul>
-                    <li><strong>Activities / writing</strong>: launch from activity card (Claude Opus routing)</li>
+                    <li><strong>Activities / writing</strong>: Claude Fable 5 or Sonnet, or GPT-5.5 — launch from the activity card when routing applies</li>
                     <li><strong>Photos / slideshow</strong>: Gemini Flash Image with image attached</li>
-                    <li><strong>News</strong>: Gemini + web search checkbox</li>
-                    <li><strong>Code</strong>: Codestral, o4-mini, or Claude Opus</li>
-                    <li><strong>Fast / cheap</strong>: Haiku, GPT-4o mini, Mistral Small</li>
+                    <li><strong>News</strong>: Gemini + web search checkbox (Grok 4.6 as alternative)</li>
+                    <li><strong>Code</strong>: Claude Fable 5, GPT-5.5, Grok 4.6 (value); Codestral for fast completion</li>
+                    <li><strong>Fast / cheap</strong>: Gemini 2.5 Flash, GPT-4o mini, Haiku</li>
+                    <li><strong>Translation / French</strong>: Mistral Large</li>
+                    <li><strong>Reasoning / long docs</strong>: Gemini 3.1 Pro</li>
                     <li><strong>Illustration</strong>: check Image generation + OpenAI or Gemini</li>
                     <li>Use the <strong>eraser</strong> between unrelated topics</li>
                     <li>Built-in <strong>Model guide</strong> for the full comparison table</li>

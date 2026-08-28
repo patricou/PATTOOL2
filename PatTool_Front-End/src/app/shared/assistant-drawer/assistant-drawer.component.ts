@@ -91,12 +91,15 @@ import {
   ASSISTANT_GEMINI_MODEL_PRESETS,
   ASSISTANT_MISTRAL_MODEL_PRESETS,
   ASSISTANT_MISTRAL_DEFAULT_MODEL,
-  ASSISTANT_OPENAI_MODEL_PRESETS
+  ASSISTANT_OPENAI_MODEL_PRESETS,
+  ASSISTANT_SPACEXAI_MODEL_PRESETS,
+  ASSISTANT_SPACEXAI_DEFAULT_MODEL
 } from './assistant-model-presets';
 import { ASSISTANT_ANTHROPIC_MODEL_GUIDE_ROWS } from './assistant-anthropic-model-guide';
 import { ASSISTANT_GEMINI_MODEL_GUIDE_ROWS } from './assistant-gemini-model-guide';
 import { AssistantProviderModelGuideSection } from './assistant-model-guide.types';
 import { ASSISTANT_MISTRAL_MODEL_GUIDE_ROWS } from './assistant-mistral-model-guide';
+import { ASSISTANT_SPACEXAI_MODEL_GUIDE_ROWS } from './assistant-spacexai-model-guide';
 import { buildAssistantPdfDownloadFilename } from './assistant-pdf-filename.util';
 import { ASSISTANT_OPENAI_MODEL_GUIDE_ROWS } from './assistant-openai-model-guide';
 import { ASSISTANT_MODEL_RANKING_ROWS } from './assistant-model-ranking-table';
@@ -170,7 +173,8 @@ export class AssistantDrawerComponent
     openai: { bg: '#d1fae5', text: '#065f46', border: '#6ee7b7' },
     anthropic: { bg: '#ffedd5', text: '#9a3412', border: '#fdba74' },
     gemini: { bg: '#dbeafe', text: '#1e40af', border: '#93c5fd' },
-    mistral: { bg: '#fef3c7', text: '#92400e', border: '#fcd34d' }
+    mistral: { bg: '#fef3c7', text: '#92400e', border: '#fcd34d' },
+    spacexai: { bg: '#ede9fe', text: '#5b21b6', border: '#c4b5fd' }
   };
 
   private readonly destroyRef = inject(DestroyRef);
@@ -486,6 +490,7 @@ export class AssistantDrawerComponent
     'https://aistudio.google.com/rate-limit?timeRange=last-28-days&hl=fr&project=gen-lang-client-0509711942';
   private static readonly DEFAULT_BILLING_GEMINI_KEYS = 'https://aistudio.google.com/app/apikey';
   private static readonly DEFAULT_BILLING_MISTRAL = 'https://console.mistral.ai/billing';
+  private static readonly DEFAULT_BILLING_SPACEXAI = 'https://console.x.ai';
 
   readonly MODEL_PRESET_CUSTOM = '__custom__';
 
@@ -529,6 +534,12 @@ export class AssistantDrawerComponent
       titleKey: 'ASSISTANT.TOOLS_HELP_MISTRAL_SECTION_TITLE',
       introKey: 'ASSISTANT.TOOLS_HELP_MISTRAL_SECTION_INTRO',
       rows: ASSISTANT_MISTRAL_MODEL_GUIDE_ROWS
+    },
+    {
+      sectionId: 'spacexai',
+      titleKey: 'ASSISTANT.TOOLS_HELP_SPACEXAI_SECTION_TITLE',
+      introKey: 'ASSISTANT.TOOLS_HELP_SPACEXAI_SECTION_INTRO',
+      rows: ASSISTANT_SPACEXAI_MODEL_GUIDE_ROWS
     }
   ];
 
@@ -539,6 +550,7 @@ export class AssistantDrawerComponent
   serverAnthropicDefault = '';
   serverGeminiDefault = '';
   serverMistralDefault = '';
+  serverSpacexaiDefault = '';
   /** {@code gemini.image-generation-model} renvoyé par GET /assistant/config. */
   serverGeminiImageGenerationModel = '';
   /** URLs du bandeau facturation (GET /assistant/config, assistant.billing.*). */
@@ -548,6 +560,7 @@ export class AssistantDrawerComponent
   billingGeminiRateLimitUrl = '';
   billingGeminiApiKeysUrl = '';
   billingMistralUrl = '';
+  billingSpacexaiUrl = '';
   /** Valeur de assistant.provider côté serveur. */
   serverRoutingDefault: AssistantProviderSlug = 'openai';
   /**
@@ -606,7 +619,8 @@ export class AssistantDrawerComponent
       p === 'openai' ||
       p === 'anthropic' ||
       p === 'gemini' ||
-      p === 'mistral'
+      p === 'mistral' ||
+      p === 'spacexai'
     );
   }
 
@@ -618,6 +632,8 @@ export class AssistantDrawerComponent
         return ASSISTANT_GEMINI_MODEL_PRESETS;
       case 'mistral':
         return ASSISTANT_MISTRAL_MODEL_PRESETS;
+      case 'spacexai':
+        return ASSISTANT_SPACEXAI_MODEL_PRESETS;
       default:
         return ASSISTANT_ANTHROPIC_MODEL_PRESETS;
     }
@@ -631,13 +647,15 @@ export class AssistantDrawerComponent
         return this.translate.instant('ASSISTANT.PROVIDER_GEMINI_SHORT');
       case 'mistral':
         return this.translate.instant('ASSISTANT.PROVIDER_MISTRAL_SHORT');
+      case 'spacexai':
+        return this.translate.instant('ASSISTANT.PROVIDER_SPACEXAI_SHORT');
       default:
         return this.translate.instant('ASSISTANT.PROVIDER_OPENAI_SHORT');
     }
   }
 
   private providerDisablesImageGeneration(p: AssistantProviderSlug): boolean {
-    return p === 'anthropic' || p === 'mistral';
+    return p === 'anthropic' || p === 'mistral' || p === 'spacexai';
   }
 
   /** Recherche web : tous les fournisseurs PatTool. */
@@ -668,7 +686,8 @@ export class AssistantDrawerComponent
     { slug: 'anthropic', labelKey: 'ASSISTANT.PROVIDER_ANTHROPIC' },
     { slug: 'gemini', labelKey: 'ASSISTANT.PROVIDER_GEMINI' },
     { slug: 'mistral', labelKey: 'ASSISTANT.PROVIDER_MISTRAL' },
-    { slug: 'openai', labelKey: 'ASSISTANT.PROVIDER_OPENAI' }
+    { slug: 'openai', labelKey: 'ASSISTANT.PROVIDER_OPENAI' },
+    { slug: 'spacexai', labelKey: 'ASSISTANT.PROVIDER_SPACEXAI' }
   ];
 
   /** Provider dropdown entries, sorted alphabetically by translated label. */
@@ -960,6 +979,8 @@ export class AssistantDrawerComponent
             typeof c.geminiDefaultModel === 'string' ? c.geminiDefaultModel.trim() : '';
           this.serverMistralDefault =
             typeof c.mistralDefaultModel === 'string' ? c.mistralDefaultModel.trim() : '';
+          this.serverSpacexaiDefault =
+            typeof c.spacexaiDefaultModel === 'string' ? c.spacexaiDefaultModel.trim() : '';
           const gimg =
             typeof c.geminiImageGenerationModel === 'string'
               ? c.geminiImageGenerationModel.trim()
@@ -977,6 +998,8 @@ export class AssistantDrawerComponent
             typeof c.billingGeminiApiKeysUrl === 'string' ? c.billingGeminiApiKeysUrl.trim() : '';
           this.billingMistralUrl =
             typeof c.billingMistralUrl === 'string' ? c.billingMistralUrl.trim() : '';
+          this.billingSpacexaiUrl =
+            typeof c.billingSpacexaiUrl === 'string' ? c.billingSpacexaiUrl.trim() : '';
           const rd =
             typeof c.routingDefault === 'string'
               ? c.routingDefault.trim().toLowerCase()
@@ -988,7 +1011,9 @@ export class AssistantDrawerComponent
                 ? 'gemini'
                 : rd === 'mistral'
                   ? 'mistral'
-                  : 'openai';
+                  : rd === 'spacexai'
+                    ? 'spacexai'
+                    : 'openai';
 
           this.applyRoutingPreferenceResolution(c);
           this.pendingSessionRouting = undefined;
@@ -1018,6 +1043,7 @@ export class AssistantDrawerComponent
           this.serverAnthropicDefault = '';
           this.serverGeminiDefault = '';
           this.serverMistralDefault = '';
+          this.serverSpacexaiDefault = '';
           this.serverGeminiImageGenerationModel = '';
           this.billingOpenaiBillingUrl = '';
           this.billingOpenaiUsageUrl = '';
@@ -1025,6 +1051,7 @@ export class AssistantDrawerComponent
           this.billingGeminiRateLimitUrl = '';
           this.billingGeminiApiKeysUrl = '';
           this.billingMistralUrl = '';
+          this.billingSpacexaiUrl = '';
           this.serverRoutingDefault = 'openai';
           this.applyRoutingPreferenceResolution({});
           this.pendingSessionRouting = undefined;
@@ -1257,6 +1284,9 @@ export class AssistantDrawerComponent
     if (p === 'mistral') {
       return ASSISTANT_MISTRAL_DEFAULT_MODEL;
     }
+    if (p === 'spacexai') {
+      return ASSISTANT_SPACEXAI_DEFAULT_MODEL;
+    }
     return this.presetsForRoutingProvider(p)[0] ?? 'gpt-4o';
   }
 
@@ -1303,6 +1333,15 @@ export class AssistantDrawerComponent
         return this.serverDefaultModel;
       }
       return ASSISTANT_MISTRAL_DEFAULT_MODEL;
+    }
+    if (this.routingProvider === 'spacexai') {
+      if (this.serverSpacexaiDefault) {
+        return this.serverSpacexaiDefault;
+      }
+      if (this.serverRoutingDefault === 'spacexai') {
+        return this.serverDefaultModel;
+      }
+      return ASSISTANT_SPACEXAI_DEFAULT_MODEL;
     }
     if (this.serverGeminiDefault) {
       return this.serverGeminiDefault;
@@ -1465,6 +1504,9 @@ export class AssistantDrawerComponent
     if (this.routingProvider === 'mistral') {
       return this.translate.instant('ASSISTANT.CREDITS_BTN_HINT_MISTRAL');
     }
+    if (this.routingProvider === 'spacexai') {
+      return this.translate.instant('ASSISTANT.CREDITS_BTN_HINT_SPACEXAI');
+    }
     return this.translate.instant('ASSISTANT.CREDITS_BTN_HINT');
   }
 
@@ -1477,6 +1519,9 @@ export class AssistantDrawerComponent
     }
     if (this.routingProvider === 'mistral') {
       return this.translate.instant('ASSISTANT.CREDITS_TOGGLE_MISTRAL');
+    }
+    if (this.routingProvider === 'spacexai') {
+      return this.translate.instant('ASSISTANT.CREDITS_TOGGLE_SPACEXAI');
     }
     return this.translate.instant('ASSISTANT.CREDITS_TOGGLE');
   }
@@ -1507,6 +1552,12 @@ export class AssistantDrawerComponent
       return this.resolveAssistantBillingUrl(
         this.billingMistralUrl,
         AssistantDrawerComponent.DEFAULT_BILLING_MISTRAL
+      );
+    }
+    if (this.routingProvider === 'spacexai') {
+      return this.resolveAssistantBillingUrl(
+        this.billingSpacexaiUrl,
+        AssistantDrawerComponent.DEFAULT_BILLING_SPACEXAI
       );
     }
     return this.resolveAssistantBillingUrl(
