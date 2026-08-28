@@ -102,7 +102,11 @@ import { ASSISTANT_MISTRAL_MODEL_GUIDE_ROWS } from './assistant-mistral-model-gu
 import { ASSISTANT_SPACEXAI_MODEL_GUIDE_ROWS } from './assistant-spacexai-model-guide';
 import { buildAssistantPdfDownloadFilename } from './assistant-pdf-filename.util';
 import { ASSISTANT_OPENAI_MODEL_GUIDE_ROWS } from './assistant-openai-model-guide';
-import { ASSISTANT_MODEL_RANKING_ROWS } from './assistant-model-ranking-table';
+import {
+  ASSISTANT_MODEL_RANKING_ROWS,
+  AssistantModelRankingRowDef,
+  sortAssistantModelRankingRows
+} from './assistant-model-ranking-table';
 import {
   assistantModelPickRoutingForKey,
   AssistantModelPickRouting,
@@ -505,8 +509,8 @@ export class AssistantDrawerComponent
   /** Complets / à jour : renseigné par GET /api/assistant/models pour le {@link routingProvider} courant. */
   private remoteCatalogModelIds: string[] = [];
 
-  /** Model / task catalogue for the tools help modal (ℹ️ next to MCP). */
-  readonly assistantModelRankingRows = ASSISTANT_MODEL_RANKING_ROWS;
+  /** Model / task catalogue for the tools help modal (ℹ️ next to MCP), A–Z by translated task. */
+  assistantModelRankingRows: AssistantModelRankingRowDef[] = [...ASSISTANT_MODEL_RANKING_ROWS];
   /** Optional tool checkboxes × provider matrix (tools help modal). */
   readonly assistantToolsHelpProviderMatrix = ASSISTANT_TOOLS_HELP_PROVIDER_MATRIX;
   /** Per-provider model guide sections in the same tools help modal. */
@@ -707,12 +711,22 @@ export class AssistantDrawerComponent
     );
   }
 
+  private refreshAssistantModelRankingRows(): void {
+    this.assistantModelRankingRows = sortAssistantModelRankingRows(
+      ASSISTANT_MODEL_RANKING_ROWS,
+      (taskKey) => this.translate.instant(taskKey),
+      this.translate.currentLang
+    );
+  }
+
   ngOnInit(): void {
     this.refreshRoutingProviderSelectOptions();
+    this.refreshAssistantModelRankingRows();
     this.translate.onLangChange
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
         this.refreshRoutingProviderSelectOptions();
+        this.refreshAssistantModelRankingRows();
         this.cdr.markForCheck();
       });
 

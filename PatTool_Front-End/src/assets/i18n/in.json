@@ -2637,7 +2637,7 @@
     "TOOLS_HELP_RANK_T10_S": "GPT-5.5",
     "TOOLS_HELP_RANK_T11_TASK": "Video generation",
     "TOOLS_HELP_RANK_T11_G": "Veo 3 (Google, outside PatTool)",
-    "TOOLS_HELP_RANK_T12_TASK": "Complex reasoning (STEM, logic)",
+    "TOOLS_HELP_RANK_T12_TASK": "Complex reasoning (STEM)",
     "TOOLS_HELP_RANK_T12_G": "Gemini 3.1 Pro",
     "TOOLS_HELP_RANK_T12_S": "Claude Fable 5",
     "TOOLS_HELP_RANK_T12_B": "Grok 4.20 Reasoning",
@@ -2683,7 +2683,11 @@
     "TOOLS_HELP_RANK_T23_TASK": "Fast code completion",
     "TOOLS_HELP_RANK_T23_G": "Codestral",
     "TOOLS_HELP_RANK_T23_S": "Claude Haiku 4.5",
-    "TOOLS_HELP_RANK_T23_B": "GPT-4o mini"
+    "TOOLS_HELP_RANK_T23_B": "GPT-4o mini",
+    "TOOLS_HELP_RANK_T24_TASK": "Logic puzzles / brain teasers",
+    "TOOLS_HELP_RANK_T24_G": "Gemini 3.1 Pro",
+    "TOOLS_HELP_RANK_T24_S": "Grok 4.20 Reasoning",
+    "TOOLS_HELP_RANK_T24_B": "Claude Sonnet 4.6"
   },
   "ABOUT": {
     "TITLE": "PatTool के बारे में",

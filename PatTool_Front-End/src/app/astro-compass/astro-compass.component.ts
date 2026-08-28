@@ -1250,6 +1250,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private finderPanLastX = 0;
   private finderPanLastY = 0;
   private finderPanMoved = false;
+  /** Un doigt hors plein écran : scroll page, ou pan horizontal en pause. */
+  private finderTouchAxis: 'undecided' | 'scroll' | 'pan' | null = null;
+  private finderTouchOriginX = 0;
+  private finderTouchOriginY = 0;
   /** Hauteur caméra (px) si l’utilisateur a redimensionné le viseur. */
   camHeightPx: number | null = null;
   private camResizing = false;
@@ -3141,15 +3145,24 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private onFinderTouchStart(ev: TouchEvent): void {
     if (ev.touches.length === 2) {
       this.endFinderPan();
+      this.finderTouchAxis = null;
       this.finderPinchStartDist = this.touchDistance(ev.touches[0], ev.touches[1]);
       this.finderPinchStartZoom = this.finderZoom;
       return;
     }
     this.finderPinchStartDist = 0;
-    if (ev.touches.length === 1) {
-      const t = ev.touches[0];
-      this.beginFinderPan(t.clientX, t.clientY, ev.target, ev.currentTarget);
+    if (ev.touches.length !== 1) {
+      return;
     }
+    const t = ev.touches[0];
+    this.finderTouchOriginX = t.clientX;
+    this.finderTouchOriginY = t.clientY;
+    if (this.isFullscreen) {
+      this.finderTouchAxis = 'pan';
+      this.beginFinderPan(t.clientX, t.clientY, ev.target, ev.currentTarget);
+      return;
+    }
+    this.finderTouchAxis = 'undecided';
   }
 
   private onFinderTouchMove(ev: TouchEvent): void {
@@ -3159,10 +3172,28 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.setFinderZoom((this.finderPinchStartZoom * dist) / this.finderPinchStartDist, false, false);
       return;
     }
-    if (ev.touches.length === 1 && this.finderPanning) {
-      ev.preventDefault();
-      this.moveFinderPan(ev.touches[0].clientX, ev.touches[0].clientY);
+    if (ev.touches.length !== 1) {
+      return;
     }
+    const t = ev.touches[0];
+    if (this.finderTouchAxis === 'undecided') {
+      const dx = t.clientX - this.finderTouchOriginX;
+      const dy = t.clientY - this.finderTouchOriginY;
+      if (Math.hypot(dx, dy) < 8) {
+        return;
+      }
+      if (Math.abs(dy) >= Math.abs(dx) || !this.canPanFinderView()) {
+        this.finderTouchAxis = 'scroll';
+        return;
+      }
+      this.finderTouchAxis = 'pan';
+      this.beginFinderPan(this.finderTouchOriginX, this.finderTouchOriginY, ev.target, ev.currentTarget);
+    }
+    if (this.finderTouchAxis === 'scroll' || !this.finderPanning) {
+      return;
+    }
+    ev.preventDefault();
+    this.moveFinderPan(t.clientX, t.clientY);
   }
 
   private onFinderTouchEnd(ev?: TouchEvent): void {
@@ -3171,6 +3202,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.finderPinchStartDist = 0;
     }
     if (!ev || ev.touches.length === 0) {
+      this.finderTouchAxis = null;
       this.endFinderPan();
     }
   }

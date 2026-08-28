@@ -5722,7 +5722,7 @@ a.ac-compass-cal__btn--direction {
   border-radius: 0.85rem;
   background: #05070e;
   border: 1px solid rgba(140, 180, 255, 0.28);
-  touch-action: none;
+  touch-action: pan-y;
   container-type: size;
 }
 
@@ -5743,6 +5743,7 @@ a.ac-compass-cal__btn--direction {
   height: 100%;
   border-radius: 0;
   border: 0;
+  touch-action: none;
 }
 
 .ac-finder--inview {

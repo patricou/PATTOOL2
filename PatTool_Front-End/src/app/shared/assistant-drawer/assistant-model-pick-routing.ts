@@ -127,7 +127,11 @@ export const ASSISTANT_MODEL_PICK_ROUTING: Readonly<Record<string, AssistantMode
 
   'ASSISTANT.TOOLS_HELP_RANK_T23_G': { provider: 'mistral', apiModelId: 'codestral-latest' },
   'ASSISTANT.TOOLS_HELP_RANK_T23_S': { provider: 'anthropic', apiModelId: 'claude-haiku-4-5-20251001' },
-  'ASSISTANT.TOOLS_HELP_RANK_T23_B': { provider: 'openai', apiModelId: 'gpt-4o-mini' }
+  'ASSISTANT.TOOLS_HELP_RANK_T23_B': { provider: 'openai', apiModelId: 'gpt-4o-mini' },
+
+  'ASSISTANT.TOOLS_HELP_RANK_T24_G': { provider: 'gemini', apiModelId: 'gemini-3.1-pro-preview' },
+  'ASSISTANT.TOOLS_HELP_RANK_T24_S': { provider: 'spacexai', apiModelId: 'grok-4.20-0309-reasoning' },
+  'ASSISTANT.TOOLS_HELP_RANK_T24_B': { provider: 'anthropic', apiModelId: 'claude-sonnet-4-6' }
 };
 
 export function assistantModelPickRoutingForKey(

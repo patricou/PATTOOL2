@@ -9,6 +9,17 @@ export interface AssistantModelRankingRowDef {
   readonly bronzeKey?: string;
 }
 
+/** Alphabetical order of translated task labels (current UI language). */
+export function sortAssistantModelRankingRows(
+  rows: readonly AssistantModelRankingRowDef[],
+  labelOf: (taskKey: string) => string,
+  locale?: string
+): AssistantModelRankingRowDef[] {
+  return [...rows].sort((a, b) =>
+    labelOf(a.taskKey).localeCompare(labelOf(b.taskKey), locale, { sensitivity: 'base' })
+  );
+}
+
 export const ASSISTANT_MODEL_RANKING_ROWS: readonly AssistantModelRankingRowDef[] = [
   {
     taskKey: 'ASSISTANT.TOOLS_HELP_RANK_T01_TASK',
@@ -141,5 +152,11 @@ export const ASSISTANT_MODEL_RANKING_ROWS: readonly AssistantModelRankingRowDef[
     goldKey: 'ASSISTANT.TOOLS_HELP_RANK_T23_G',
     silverKey: 'ASSISTANT.TOOLS_HELP_RANK_T23_S',
     bronzeKey: 'ASSISTANT.TOOLS_HELP_RANK_T23_B'
+  },
+  {
+    taskKey: 'ASSISTANT.TOOLS_HELP_RANK_T24_TASK',
+    goldKey: 'ASSISTANT.TOOLS_HELP_RANK_T24_G',
+    silverKey: 'ASSISTANT.TOOLS_HELP_RANK_T24_S',
+    bronzeKey: 'ASSISTANT.TOOLS_HELP_RANK_T24_B'
   }
 ];
