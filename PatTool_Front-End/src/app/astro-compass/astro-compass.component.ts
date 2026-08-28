@@ -68,6 +68,7 @@ import {
 import { constellationFigureStrokes } from './astro-compass-constellation-figures';
 import {
   ApiService,
+  AstroGroundPosition,
   AstroLastTarget,
   DirectionCible,
   IssCompassCalibration,
@@ -342,7 +343,7 @@ interface HelpTerm {
   aliases: string;
 }
 
-type TargetAccordionId = 'iss' | 'planet' | 'star' | 'galaxy' | 'deepsky' | 'constellation' | 'custom';
+type TargetAccordionId = 'iss' | 'planet' | 'star' | 'galaxy' | 'deepsky' | 'constellation' | 'ground' | 'custom';
 type SidePanelId = 'location' | 'visibility' | 'cible' | 'nord' | 'options';
 
 interface TypeHelpSection {
@@ -508,6 +509,26 @@ const TARGET_TYPE_HELP: Record<TargetAccordionId, TypeHelpCopy> = {
       }
     ]
   },
+  ground: {
+    titleFr: 'Position au sol',
+    titleEn: 'Ground position',
+    sections: [
+      {
+        textFr:
+          'Point GPS sur la Terre, choisi dans le visuel cartographique. Le viseur donne l’azimut, l’élévation angulaire, l’inclinaison du téléphone à viser et le dénivelé en mètres depuis votre position d’observateur vers ce point (sommet, phare, maison, ville…). Ce n’est pas un astre : la cible reste fixe au sol, même si elle est sous l’horizon (regard vers le bas).',
+        textEn:
+          'A GPS point on Earth, chosen in the map viewer. The finder gives azimuth, angular elevation, the phone tilt needed to aim, and the height difference in metres from your observer position to that point (peak, lighthouse, house, city…). It is not a sky object: the target stays on the ground, even below the horizon (look down).'
+      },
+      {
+        headingFr: 'Enregistrement',
+        headingEn: 'Saving',
+        textFr:
+          'Donnez un nom et une description, puis enregistrez. Les positions sont mémorisées pour votre compte (username) et restent disponibles à la prochaine ouverture du viseur.',
+        textEn:
+          'Give a name and a description, then save. Positions are stored for your account (username) and remain available the next time you open the finder.'
+      }
+    ]
+  },
   constellation: {
     titleFr: 'Constellation',
     titleEn: 'Constellation',
@@ -670,6 +691,8 @@ const ASTRO_HELP_TERMS: ReadonlyArray<HelpTerm> = [
   { id: 'zenith', termKey: 'ASTRO_COMPASS.HELP_ZENITH', defKey: 'ASTRO_COMPASS.HELP_ZENITH_DEF', aliases: 'zenith 90' },
   { id: 'nadir', termKey: 'ASTRO_COMPASS.HELP_NADIR', defKey: 'ASTRO_COMPASS.HELP_NADIR_DEF', aliases: 'nadir -90' },
   { id: 'card', termKey: 'ASTRO_COMPASS.HELP_CARD', defKey: 'ASTRO_COMPASS.HELP_CARD_DEF', aliases: 'cardinal n e s o ne no' },
+  { id: 'grounddelta', termKey: 'ASTRO_COMPASS.HELP_GROUNDDELTA', defKey: 'ASTRO_COMPASS.HELP_GROUNDDELTA_DEF', aliases: 'denivele elevation metres altitude sol gps' },
+  { id: 'groundpos', termKey: 'ASTRO_COMPASS.HELP_GROUNDPOS', defKey: 'ASTRO_COMPASS.HELP_GROUNDPOS_DEF', aliases: 'position sol gps carte trace viewer landmark' },
   { id: 'obs', termKey: 'ASTRO_COMPASS.HELP_OBS', defKey: 'ASTRO_COMPASS.HELP_OBS_DEF', aliases: 'observateur position gps adresse' },
   { id: 'sight', termKey: 'ASTRO_COMPASS.HELP_SIGHT', defKey: 'ASTRO_COMPASS.HELP_SIGHT_DEF', aliases: 'position exacte calage visee pointeur reticle sighting' },
   { id: 'pose', termKey: 'ASTRO_COMPASS.HELP_POSE', defKey: 'ASTRO_COMPASS.HELP_POSE_DEF', aliases: 'pause pose figer freeze hold viseur objet' },
@@ -925,6 +948,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedGalaxyId: string | undefined;
   selectedDeepSkyId: string | undefined;
   selectedConstellationId: string | undefined;
+  selectedGroundId: string | undefined;
   /** Satellite courant (mode {@code selectedKind === 'iss'}). */
   selectedSatelliteId = 'iss';
   starQuery = '';
@@ -975,6 +999,23 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   customRaHours = 0;
   customDecDeg = 0;
   customName = '';
+  groundPositions: AstroGroundPosition[] = [];
+  groundQuery = '';
+  groundDraftName = '';
+  groundDraftDesc = '';
+  groundDraftLat: number | null = null;
+  groundDraftLon: number | null = null;
+  groundDraftAltM: number | null = null;
+  groundDraftAddress: string | null = null;
+  groundEditingId: string | null = null;
+  groundSaving = false;
+  groundError: string | null = null;
+  groundFormModalOpen = false;
+  /** Masquée le temps du visuel cartographique, pour ne pas passer devant la carte. */
+  groundFormSuppressedForMap = false;
+  private groundLoadSub?: Subscription;
+  private groundSaveSub?: Subscription;
+  private pendingGroundTargetId: string | null = null;
 
   bodyIconClass = 'fa fa-circle';
   bodyColor = '#c1440e';
@@ -1072,6 +1113,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private addressSearchSub: Subscription | null = null;
   private reverseGeocodeSub: Subscription | null = null;
   private altitudeSub: Subscription | null = null;
+  private groundAltitudeSub: Subscription | null = null;
   private lastAddressResolveAtMs = 0;
   private lastAddressResolveLat: number | null = null;
   private lastAddressResolveLon: number | null = null;
@@ -1106,6 +1148,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   geoDistAu: number | null = null;
   helioDistAu: number | null = null;
   geoDistKm: number | null = null;
+  /** Dénivelé (m) : altitude GPS de la position au sol − altitude de l’observateur. */
+  groundDeltaAltM: number | null = null;
+  groundTargetAltM: number | null = null;
   /** Distance catalogue (étoiles / galaxies), depuis la Terre ≈ depuis l'observateur. */
   distLy: number | null = null;
   constellationName: string | null = null;
@@ -1129,7 +1174,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   markAddressBusy = false;
   cibleUserAddress: string | null = null;
   cibleUserAddressBusy = false;
-  private tracePickMode: 'observer' | 'mark' = 'observer';
+  private tracePickMode: 'observer' | 'mark' | 'ground' = 'observer';
   private markAddressSub: Subscription | null = null;
   private userAddressSub: Subscription | null = null;
   private lastCibleUserAddrKey = '';
@@ -1495,6 +1540,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loadHeadingRef();
     this.loadExactPositionActive();
     this.loadActiveCible();
+    this.loadGroundPositions();
     void this.lookTracker.start(false).then(() => {
       this.syncLookDeclination();
       if (this.lookTracker.sensorsOn) {
@@ -1645,7 +1691,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.userAddressSub?.unsubscribe();
     this.issPassSub?.unsubscribe();
     this.altitudeSub?.unsubscribe();
+    this.groundAltitudeSub?.unsubscribe();
     this.objectDossierSub?.unsubscribe();
+    this.groundLoadSub?.unsubscribe();
+    this.groundSaveSub?.unsubscribe();
     this.revokeConstellationSchemaBlobUrl();
     this.langChangeSub?.unsubscribe();
     this.tickerSaveSub?.unsubscribe();
@@ -2022,6 +2071,13 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.closeTypeHelp();
       return;
     }
+    if (this.groundFormModalOpen) {
+      if (typeof document !== 'undefined' && document.querySelector('ngb-modal-window')) {
+        return;
+      }
+      this.closeGroundFormModal();
+      return;
+    }
     if (this.helpModalOpen) {
       this.closeHelpModal();
       return;
@@ -2196,10 +2252,72 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.selectedKind === 'constellation') {
       return 'ASTRO_COMPASS.KIND_CONSTELLATION';
     }
-    if (this.selectedKind === 'planet' || this.selectedKind === 'star' || this.selectedKind === 'galaxy' || this.selectedKind === 'deepsky' || this.selectedKind === 'iss') {
+    if (this.selectedKind === 'planet') {
+      if (this.selectedPlanetId === 'sun') {
+        return 'ASTRO_COMPASS.KIND_SUN';
+      }
+      if (this.selectedPlanetId === 'moon') {
+        return 'ASTRO_COMPASS.KIND_MOON';
+      }
+      return 'ASTRO_COMPASS.KIND_PLANET';
+    }
+    if (this.selectedKind === 'star' || this.selectedKind === 'galaxy' || this.selectedKind === 'deepsky' || this.selectedKind === 'iss') {
       return this.autoDetectKindLabelKey(this.selectedKind, this.selectedDeepSkySubtype());
     }
+    if (this.selectedKind === 'ground') {
+      return 'ASTRO_COMPASS.KIND_GROUND';
+    }
     return 'ASTRO_COMPASS.KIND_CUSTOM';
+  }
+
+  /** Titre de la fiche : « Position du satellite / de la planète / de l’étoile… » selon le type. */
+  paramsTitleKey(): string {
+    switch (this.selectedKind) {
+      case 'iss':
+        return 'ASTRO_COMPASS.PARAMS_TITLE_SATELLITE';
+      case 'planet':
+        if (this.selectedPlanetId === 'sun') {
+          return 'ASTRO_COMPASS.PARAMS_TITLE_SUN';
+        }
+        if (this.selectedPlanetId === 'moon') {
+          return 'ASTRO_COMPASS.PARAMS_TITLE_MOON';
+        }
+        return 'ASTRO_COMPASS.PARAMS_TITLE_PLANET';
+      case 'star':
+        return 'ASTRO_COMPASS.PARAMS_TITLE_STAR';
+      case 'galaxy':
+        return 'ASTRO_COMPASS.PARAMS_TITLE_GALAXY';
+      case 'deepsky':
+        return this.deepSkyParamsTitleKey(this.selectedDeepSkySubtype());
+      case 'constellation':
+        return 'ASTRO_COMPASS.PARAMS_TITLE_CONSTELLATION';
+      case 'ground':
+        return 'ASTRO_COMPASS.PARAMS_TITLE_GROUND';
+      default:
+        return 'ASTRO_COMPASS.PARAMS_TITLE_CUSTOM';
+    }
+  }
+
+  private deepSkyParamsTitleKey(subtype?: AstroDeepSkySubtype): string {
+    if (subtype === 'blackhole') {
+      return 'ASTRO_COMPASS.PARAMS_TITLE_BLACKHOLE';
+    }
+    if (subtype === 'nebula') {
+      return 'ASTRO_COMPASS.PARAMS_TITLE_NEBULA';
+    }
+    if (subtype === 'cluster') {
+      return 'ASTRO_COMPASS.PARAMS_TITLE_CLUSTER';
+    }
+    if (subtype === 'quasar') {
+      return 'ASTRO_COMPASS.PARAMS_TITLE_QUASAR';
+    }
+    if (subtype === 'pulsar') {
+      return 'ASTRO_COMPASS.PARAMS_TITLE_PULSAR';
+    }
+    if (subtype === 'remnant') {
+      return 'ASTRO_COMPASS.PARAMS_TITLE_REMNANT';
+    }
+    return 'ASTRO_COMPASS.PARAMS_TITLE_DEEPSKY';
   }
 
   private maybeReloadObjectDossier(): void {
@@ -3979,6 +4097,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.selectedKind === 'constellation') {
       return `constellation:${this.selectedConstellationId ?? ''}:${dur}`;
     }
+    if (this.selectedKind === 'ground') {
+      return `ground:${this.selectedGroundId ?? ''}:${dur}`;
+    }
     return `custom:${this.customRaHours}:${this.customDecDeg}:${dur}`;
   }
 
@@ -3989,6 +4110,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const out: FinderTrailSkyPt[] = [{ az: this.azimuthDeg, el: this.elevationDeg, tMs: nowMs }];
     if (this.selectedKind === 'iss') {
       return out.concat(this.computeSatelliteTrailSky(nowMs));
+    }
+    if (this.selectedKind === 'ground') {
+      return out;
     }
     return out.concat(this.computeCelestialTrailSky(nowMs));
   }
@@ -4437,6 +4561,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         return 'deepsky';
       case 'constellation':
         return 'constellation';
+      case 'ground':
+        return 'ground';
       case 'custom':
         return 'custom';
     }
@@ -4740,8 +4866,14 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  autoDetectKindLabelKey(kind: AutoDetectHit['kind'], subtype?: AstroDeepSkySubtype): string {
+  autoDetectKindLabelKey(kind: AutoDetectHit['kind'], subtype?: AstroDeepSkySubtype, id?: string): string {
     if (kind === 'planet') {
+      if (id === 'sun') {
+        return 'ASTRO_COMPASS.KIND_SUN';
+      }
+      if (id === 'moon') {
+        return 'ASTRO_COMPASS.KIND_MOON';
+      }
       return 'ASTRO_COMPASS.KIND_PLANET';
     }
     if (kind === 'star') {
@@ -5658,6 +5790,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectFallbackVisibleTarget();
       return;
     }
+    if (this.selectedKind === 'ground') {
+      return;
+    }
     if (this.selectedKind === 'iss' && !this.isSatelliteChipVisible(this.selectedSatelliteId)) {
       this.selectFallbackVisibleTarget();
       return;
@@ -5968,6 +6103,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedGalaxyId = undefined;
     this.selectedDeepSkyId = undefined;
     this.selectedConstellationId = undefined;
+    this.selectedGroundId = undefined;
     this.bodyIconClass = 'fa fa-star';
     this.bodyColor = '#a8cfff';
     this.bodyLabel = this.customName.trim() || this.translate.instant('ASTRO_COMPASS.CUSTOM_TARGET');
@@ -6070,6 +6206,442 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.addressResults = [];
     this.addressSearchError = '';
     this.applyObserverPosition(result.lat, result.lon, this.height, result.displayName, true, true);
+  }
+
+  filteredGroundPositions(): AstroGroundPosition[] {
+    const q = this.groundQuery.trim().toLowerCase();
+    const list = this.groundPositions.filter(
+      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lon) && p.lat >= -90 && p.lat <= 90
+    );
+    if (!q) {
+      return list;
+    }
+    return list.filter((p) => {
+      const blob = `${p.name || ''} ${p.description || ''} ${p.address || ''}`.toLowerCase();
+      return blob.includes(q);
+    });
+  }
+
+  selectedGroundPosition(): AstroGroundPosition | undefined {
+    if (!this.selectedGroundId) {
+      return undefined;
+    }
+    return this.groundPositions.find((p) => p.id === this.selectedGroundId);
+  }
+
+  groundGpsText(pos?: AstroGroundPosition | null): string {
+    if (!pos || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lon)) {
+      return '—';
+    }
+    const alt =
+      pos.altM != null && Number.isFinite(pos.altM) ? ` · ${Math.round(pos.altM)} m` : '';
+    return `${pos.lat.toFixed(5)}, ${pos.lon.toFixed(5)}${alt}`;
+  }
+
+  groundDraftGpsText(): string {
+    if (this.groundDraftLat == null || this.groundDraftLon == null) {
+      return '';
+    }
+    const alt =
+      this.groundDraftAltM != null && Number.isFinite(this.groundDraftAltM)
+        ? ` · ${Math.round(this.groundDraftAltM)} m`
+        : '';
+    return `${this.groundDraftLat.toFixed(5)}, ${this.groundDraftLon.toFixed(5)}${alt}`;
+  }
+
+  groundLookDir(pos: AstroGroundPosition): CatalogSkyDir | null {
+    if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon) || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lon)) {
+      return null;
+    }
+    const look = AstroCompassComponent.groundLook(
+      this.lat,
+      this.lon,
+      this.height || 0,
+      pos.lat,
+      pos.lon,
+      pos.altM != null && Number.isFinite(pos.altM) ? pos.altM : 0
+    );
+    const altTxt =
+      pos.altM != null && Number.isFinite(pos.altM) ? ` · ${Math.round(pos.altM)} m` : '';
+    const delta =
+      pos.altM != null && Number.isFinite(pos.altM) && Number.isFinite(this.height)
+        ? pos.altM - this.height
+        : null;
+    const deltaTxt =
+      delta != null && Number.isFinite(delta) && Math.round(delta) !== 0
+        ? ` (${this.formatDeltaAltM(delta)})`
+        : '';
+    return {
+      azimuthDeg: look.azDeg,
+      elevationDeg: look.elDeg,
+      label: this.formatCatalogSkyDirLabel(look.azDeg, look.elDeg) + altTxt + deltaTxt
+    };
+  }
+
+  openTraceViewerForGround(): void {
+    if (!this.traceViewerModalComponent) {
+      return;
+    }
+    this.tracePickMode = 'ground';
+    const lat =
+      this.groundDraftLat != null && Number.isFinite(this.groundDraftLat) ? this.groundDraftLat : this.lat;
+    const lon =
+      this.groundDraftLon != null && Number.isFinite(this.groundDraftLon) ? this.groundDraftLon : this.lon;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return;
+    }
+    const label =
+      this.groundDraftName.trim() ||
+      this.translate.instant('ASTRO_COMPASS.GROUND_TITLE');
+    this.groundFormSuppressedForMap = true;
+    this.cdr.detectChanges();
+    this.traceViewerModalComponent.openAtLocation(lat, lon, label, undefined, true, true);
+  }
+
+  onTraceViewerClosed(): void {
+    if (!this.groundFormSuppressedForMap) {
+      return;
+    }
+    this.groundFormSuppressedForMap = false;
+    this.cdr.markForCheck();
+  }
+
+  onGroundQueryChange(): void {
+    this.cdr.markForCheck();
+  }
+
+  startNewGroundDraft(): void {
+    this.groundEditingId = null;
+    this.groundDraftName = '';
+    this.groundDraftDesc = '';
+    this.groundDraftLat = null;
+    this.groundDraftLon = null;
+    this.groundDraftAltM = null;
+    this.groundDraftAddress = null;
+    this.groundError = null;
+    this.cdr.markForCheck();
+  }
+
+  openNewGroundModal(): void {
+    this.startNewGroundDraft();
+    this.groundFormModalOpen = true;
+    this.cdr.markForCheck();
+  }
+
+  closeGroundFormModal(): void {
+    this.groundFormModalOpen = false;
+    this.groundFormSuppressedForMap = false;
+    this.startNewGroundDraft();
+  }
+
+  showGroundPositionOnMap(pos: AstroGroundPosition, ev?: Event): void {
+    ev?.stopPropagation();
+    if (!this.traceViewerModalComponent || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lon)) {
+      return;
+    }
+    const label = pos.name?.trim() || this.translate.instant('ASTRO_COMPASS.GROUND_TITLE');
+    this.tracePickMode = 'observer';
+    this.traceViewerModalComponent.openAtLocation(pos.lat, pos.lon, label, undefined, false, true);
+  }
+
+  editGroundPosition(pos: AstroGroundPosition, ev?: Event): void {
+    ev?.stopPropagation();
+    if (!pos.id) {
+      return;
+    }
+    this.groundEditingId = pos.id;
+    this.groundDraftName = pos.name || '';
+    this.groundDraftDesc = pos.description || '';
+    this.groundDraftLat = pos.lat;
+    this.groundDraftLon = pos.lon;
+    this.groundDraftAltM = pos.altM ?? null;
+    this.groundDraftAddress = pos.address || null;
+    this.groundError = null;
+    this.groundFormModalOpen = true;
+    this.fetchGroundDraftAltitude(pos.lat, pos.lon);
+    this.cdr.markForCheck();
+  }
+
+  selectGroundPosition(pos: AstroGroundPosition): void {
+    if (!pos?.id || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lon)) {
+      return;
+    }
+    this.noteUserTargetChoice();
+    this.selectedKind = 'ground';
+    this.selectedGroundId = pos.id;
+    this.selectedStarId = undefined;
+    this.selectedGalaxyId = undefined;
+    this.selectedDeepSkyId = undefined;
+    this.selectedConstellationId = undefined;
+    this.applyBodyDisplayFromGround(pos);
+    this.syncTargetAccordionFromSelection();
+    this.recomputeSky();
+    this.maybeReloadObjectDossier();
+    this.persistLastTarget();
+    this.ensureStoredGroundAltitude(pos);
+    this.cdr.markForCheck();
+  }
+
+  saveGroundPosition(): void {
+    const name = this.groundDraftName.trim();
+    if (!name) {
+      this.groundError = 'ASTRO_COMPASS.GROUND_NEED_NAME';
+      this.cdr.markForCheck();
+      return;
+    }
+    if (
+      this.groundDraftLat == null ||
+      this.groundDraftLon == null ||
+      !Number.isFinite(this.groundDraftLat) ||
+      !Number.isFinite(this.groundDraftLon)
+    ) {
+      this.groundError = 'ASTRO_COMPASS.GROUND_NEED_GPS';
+      this.cdr.markForCheck();
+      return;
+    }
+    if (!this.ownerUsername()) {
+      this.groundError = 'ASTRO_COMPASS.GROUND_NEED_LOGIN';
+      this.cdr.markForCheck();
+      return;
+    }
+    const lat = this.groundDraftLat;
+    const lon = this.groundDraftLon;
+    this.groundSaving = true;
+    this.groundError = null;
+    this.cdr.markForCheck();
+    const finish = (altM: number | null): void => {
+      this.persistGroundPosition({
+        name,
+        description: this.groundDraftDesc.trim() || null,
+        lat,
+        lon,
+        altM,
+        address: this.groundDraftAddress
+      });
+    };
+    this.groundAltitudeSub?.unsubscribe();
+    this.groundAltitudeSub = this.api.getAllAltitudes(lat, lon, null).subscribe({
+      next: (response) => {
+        const altitude = AstroCompassComponent.parseDemAltitudeM(response);
+        if (altitude != null) {
+          this.groundDraftAltM = altitude;
+        }
+        finish(this.groundDraftAltM);
+      },
+      error: () => finish(this.groundDraftAltM)
+    });
+  }
+
+  private persistGroundPosition(body: AstroGroundPosition): void {
+    this.groundSaveSub?.unsubscribe();
+    const req = this.groundEditingId
+      ? this.api.updateAstroGroundPosition(this.groundEditingId, body)
+      : this.api.createAstroGroundPosition(body);
+    this.groundSaveSub = req.subscribe({
+      next: (saved) => {
+        this.upsertGroundPosition(saved);
+        this.groundSaving = false;
+        this.selectGroundPosition(saved);
+        this.closeGroundFormModal();
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.groundSaving = false;
+        this.groundError =
+          err?.status === 401 || err?.status === 403
+            ? 'ASTRO_COMPASS.GROUND_NEED_LOGIN'
+            : 'ASTRO_COMPASS.GROUND_ERROR';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  deleteGroundPosition(pos: AstroGroundPosition, ev?: Event): void {
+    ev?.stopPropagation();
+    const id = pos.id;
+    if (!id) {
+      return;
+    }
+    this.groundSaveSub?.unsubscribe();
+    this.groundSaveSub = this.api.deleteAstroGroundPosition(id).subscribe({
+      next: () => {
+        this.groundPositions = this.groundPositions.filter((p) => p.id !== id);
+        if (this.groundEditingId === id) {
+          this.closeGroundFormModal();
+        }
+        if (this.selectedKind === 'ground' && this.selectedGroundId === id) {
+          this.selectedGroundId = undefined;
+          this.clearSkySnapshot();
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.groundError = 'ASTRO_COMPASS.GROUND_ERROR';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private loadGroundPositions(): void {
+    this.groundLoadSub?.unsubscribe();
+    this.groundLoadSub = this.api.listAstroGroundPositions().subscribe({
+      next: (res) => {
+        this.groundPositions = Array.isArray(res?.positions) ? res.positions : [];
+        const pending = this.pendingGroundTargetId;
+        this.pendingGroundTargetId = null;
+        if (pending) {
+          const hit = this.groundPositions.find((p) => p.id === pending);
+          if (hit) {
+            this.selectGroundPosition(hit);
+          }
+        } else if (this.selectedKind === 'ground' && this.selectedGroundId) {
+          const hit = this.groundPositions.find((p) => p.id === this.selectedGroundId);
+          if (hit) {
+            this.applyBodyDisplayFromGround(hit);
+            this.recomputeSky();
+          }
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.groundPositions = [];
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private upsertGroundPosition(saved: AstroGroundPosition): void {
+    if (!saved?.id) {
+      return;
+    }
+    const i = this.groundPositions.findIndex((p) => p.id === saved.id);
+    if (i >= 0) {
+      this.groundPositions = [...this.groundPositions.slice(0, i), saved, ...this.groundPositions.slice(i + 1)];
+    } else {
+      this.groundPositions = [saved, ...this.groundPositions];
+    }
+  }
+
+  private onGroundLocationPicked(location: { lat: number; lng: number; alt?: number | null }): void {
+    if (!Number.isFinite(location.lat) || !Number.isFinite(location.lng)) {
+      return;
+    }
+    this.groundDraftLat = location.lat;
+    this.groundDraftLon = location.lng;
+    this.groundDraftAltM =
+      location.alt != null && Number.isFinite(location.alt) ? location.alt : this.groundDraftAltM;
+    this.groundError = null;
+    this.groundDraftAddress = null;
+    this.fetchGroundDraftAltitude(location.lat, location.lng);
+    this.reverseGeocodeSub?.unsubscribe();
+    this.reverseGeocodeSub = this.api.geocodeReverse(location.lat, location.lng).subscribe({
+      next: (res: any) => {
+        const name = String(res?.display_name || res?.displayName || '').trim();
+        if (name) {
+          this.groundDraftAddress = name;
+          if (!this.groundDraftDesc.trim()) {
+            this.groundDraftDesc = name;
+          }
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => this.cdr.markForCheck()
+    });
+    this.cdr.markForCheck();
+  }
+
+  /** Même source DEM que le visuel cartographique / l’observateur : GET /external/weather/altitudes. */
+  private static parseDemAltitudeM(response: { altitudes?: Array<{ altitude?: number | string }> } | null | undefined): number | null {
+    const raw = response?.altitudes?.[0]?.altitude;
+    const altitude =
+      typeof raw === 'number' && Number.isFinite(raw) ? raw : parseFloat(String(raw ?? ''));
+    return Number.isFinite(altitude) ? altitude : null;
+  }
+
+  private fetchGroundDraftAltitude(lat: number, lon: number): void {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return;
+    }
+    this.groundAltitudeSub?.unsubscribe();
+    this.groundAltitudeSub = this.api.getAllAltitudes(lat, lon, null).subscribe({
+      next: (response) => {
+        const altitude = AstroCompassComponent.parseDemAltitudeM(response);
+        if (altitude == null) {
+          return;
+        }
+        if (
+          this.groundDraftLat == null ||
+          this.groundDraftLon == null ||
+          Math.abs(this.groundDraftLat - lat) > 0.0005 ||
+          Math.abs(this.groundDraftLon - lon) > 0.0005
+        ) {
+          return;
+        }
+        this.groundDraftAltM = altitude;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        /* garder l’altitude déjà connue */
+      }
+    });
+  }
+
+  /** Recalcule l’altitude DEM d’une position déjà enregistrée si elle manque ou vaut 0. */
+  private ensureStoredGroundAltitude(pos: AstroGroundPosition): void {
+    const id = pos.id;
+    if (!id || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lon)) {
+      return;
+    }
+    if (pos.altM != null && Number.isFinite(pos.altM) && Math.abs(pos.altM) > 0.5) {
+      return;
+    }
+    this.groundAltitudeSub?.unsubscribe();
+    this.groundAltitudeSub = this.api.getAllAltitudes(pos.lat, pos.lon, null).subscribe({
+      next: (response) => {
+        const altitude = AstroCompassComponent.parseDemAltitudeM(response);
+        if (altitude == null) {
+          return;
+        }
+        const current = this.groundPositions.find((p) => p.id === id);
+        if (!current) {
+          return;
+        }
+        if (current.altM != null && Number.isFinite(current.altM) && Math.abs(current.altM - altitude) < 0.5) {
+          return;
+        }
+        this.api
+          .updateAstroGroundPosition(id, {
+            name: current.name,
+            description: current.description ?? null,
+            lat: current.lat,
+            lon: current.lon,
+            altM: altitude,
+            address: current.address ?? null
+          })
+          .subscribe({
+            next: (saved) => {
+              this.upsertGroundPosition(saved);
+              if (this.selectedGroundId === id) {
+                this.recomputeSky();
+              }
+              if (this.groundEditingId === id) {
+                this.groundDraftAltM = saved.altM ?? altitude;
+              }
+              this.cdr.markForCheck();
+            },
+            error: () => {
+              current.altM = altitude;
+              if (this.selectedGroundId === id) {
+                this.recomputeSky();
+              }
+              this.cdr.markForCheck();
+            }
+          });
+      },
+      error: () => {
+        /* garder l’altitude enregistrée */
+      }
+    });
   }
 
   openTraceViewerForSelection(): void {
@@ -6304,6 +6876,11 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.onCibleMarkSelected(location);
       return;
     }
+    if (this.tracePickMode === 'ground') {
+      this.tracePickMode = 'observer';
+      this.onGroundLocationPicked(location);
+      return;
+    }
     this.userSource = 'map';
     const hasAlt = location.alt != null && Number.isFinite(location.alt);
     if (hasAlt) {
@@ -6448,6 +7025,14 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.constellationFigureSky = [];
       this.clearFinderConstellationOverlay();
       this.recomputeIssSky();
+      return;
+    }
+
+    if (this.selectedKind === 'ground') {
+      this.constellationMemberSky = [];
+      this.constellationFigureSky = [];
+      this.clearFinderConstellationOverlay();
+      this.recomputeGroundSky();
       return;
     }
 
@@ -6757,6 +7342,63 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.refreshPredictedPasses(sat);
     }
     this.recomputeIssVisibility();
+  }
+
+  private recomputeGroundSky(): void {
+    const pos = this.selectedGroundPosition();
+    if (!pos || !Number.isFinite(pos.lat) || !Number.isFinite(pos.lon)) {
+      this.clearSkySnapshot();
+      return;
+    }
+    this.applyBodyDisplayFromGround(pos);
+    this.mag = null;
+    this.phaseFraction = null;
+    this.phaseAngleDeg = null;
+    this.geoDistAu = null;
+    this.helioDistAu = null;
+    this.distLy = null;
+    this.elongationDeg = null;
+    this.riseAt = null;
+    this.setAt = null;
+    this.alwaysAbove = false;
+    this.nextRiseAt = null;
+    this.nextSetAt = null;
+    this.culminationAt = null;
+    this.culminationAltDeg = null;
+    this.visibilityDays = [];
+    this.visibilityHint = '';
+
+    const look = AstroCompassComponent.groundLook(
+      this.lat,
+      this.lon,
+      this.height || 0,
+      pos.lat,
+      pos.lon,
+      pos.altM != null && Number.isFinite(pos.altM) ? pos.altM : 0
+    );
+    const now = Date.now();
+    this.azimuthDeg = look.azDeg;
+    this.elevationDeg = look.elDeg;
+    this.geoDistKm = look.slantKm;
+    this.groundTargetAltM =
+      pos.altM != null && Number.isFinite(pos.altM) ? pos.altM : null;
+    this.groundDeltaAltM =
+      this.groundTargetAltM != null && Number.isFinite(this.height)
+        ? this.groundTargetAltM - this.height
+        : null;
+    this.currentlyVisible = true;
+    this.alwaysAbove = true;
+    this.alwaysBelow = false;
+    this.applySatelliteEquatorial(look.azDeg, look.elDeg, new Date(now));
+    this.updatedAtMs = now;
+    this.nowMs = now;
+    this.updateFinderProjection();
+  }
+
+  private applyBodyDisplayFromGround(pos: AstroGroundPosition): void {
+    this.bodyIconClass = 'fa fa-map-marker';
+    this.bodyColor = '#7dffb3';
+    this.bodyLabel = pos.name?.trim() || this.translate.instant('ASTRO_COMPASS.GROUND_TITLE');
   }
 
   private recomputeIssVisibility(): void {
@@ -7149,7 +7791,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   observerDistanceAvailable(): boolean {
-    return this.geoDistAu != null || this.distLy != null || this.issSlantKm != null;
+    return this.geoDistAu != null || this.distLy != null || this.issSlantKm != null || this.geoDistKm != null;
   }
 
   formatLightYears(ly: number): string {
@@ -7358,6 +8000,16 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return au.toExponential(2);
   }
 
+  formatDeltaAltM(m: number | null | undefined): string {
+    if (m == null || !Number.isFinite(m)) {
+      return '—';
+    }
+    const unit = this.translate.instant('ASTRO_COMPASS.DIST_M_UNIT');
+    const rounded = Math.round(m);
+    const sign = rounded > 0 ? '+' : '';
+    return sign + rounded.toLocaleString(undefined, { maximumFractionDigits: 0 }) + ' ' + unit;
+  }
+
   formatKm(km: number): string {
     if (!Number.isFinite(km) || km < 0) {
       return '—';
@@ -7423,6 +8075,32 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.objectDossierSub?.unsubscribe();
     this.setObjectDossier(null);
     this.objectDossierKey = key;
+    if (this.selectedKind === 'ground') {
+      const pos = this.selectedGroundPosition();
+      this.objectDossierBusy = false;
+      if (pos) {
+        this.setObjectDossier({
+          extract: pos.description?.trim() || pos.address?.trim() || null,
+          description: this.groundGpsText(pos),
+          thumbUrl: null,
+          imageUrl: null,
+          wikiUrl: null,
+          wikiTitle: pos.name || null,
+          wikiLang: null,
+          wikiDir: null,
+          skyNames: pos.address ? [pos.address] : [],
+          skyTypes: [],
+          vMag: null,
+          bMag: null,
+          skyMapCutoutUrl: null,
+          skyMapAtlasUrl: null,
+          skyMapEmbedUrl: null,
+          skyMapName: null
+        });
+      }
+      this.cdr.markForCheck();
+      return;
+    }
     const lookup = this.resolveObjectLookup();
     if (!lookup) {
       this.objectDossierBusy = false;
@@ -7570,7 +8248,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private fetchSkyMapPreview(lookup: WikiLookup): Observable<SkyMapPreview | null> {
-    if (this.selectedKind === 'iss' || (this.selectedKind === 'planet' && this.selectedPlanetId === 'sun')) {
+    if (this.selectedKind === 'iss' || this.selectedKind === 'ground' || (this.selectedKind === 'planet' && this.selectedPlanetId === 'sun')) {
       return of(null);
     }
     const isPlanet = this.selectedKind === 'planet';
@@ -7651,6 +8329,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     if (this.selectedKind === 'iss') {
       return this.selectedSatelliteId;
+    }
+    if (this.selectedKind === 'ground') {
+      return this.selectedGroundId || '';
     }
     return 'custom';
   }
@@ -8146,6 +8827,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.geoDistAu = null;
     this.helioDistAu = null;
     this.geoDistKm = null;
+    this.groundDeltaAltM = null;
+    this.groundTargetAltM = null;
     this.distLy = null;
     this.constellationName = null;
     this.elongationDeg = null;
@@ -10264,7 +10947,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   } | null {
     const target = this.targetPhoneTiltDeg();
     const current = this.devicePitchDeg;
-    if (target == null || current == null || this.elevationDeg == null || this.elevationDeg < -1) {
+    if (target == null || current == null || !this.canAimAtTarget()) {
       return null;
     }
     const diff = Math.round(target) - Math.round(current);
@@ -10306,7 +10989,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Flèche d’inclinaison : haut = plus vertical (+), bas = plus à plat / vers le sol (−). */
   angleArrow(): 'up' | 'down' | 'ok' | null {
-    if (!this.aboveHorizon()) {
+    if (!this.canAimAtTarget()) {
       return 'down';
     }
     const tilt = this.tiltInstruction();
@@ -10469,6 +11152,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       payload.id = this.selectedConstellationId;
     } else if (this.selectedKind === 'iss') {
       payload.id = this.selectedSatelliteId;
+    } else if (this.selectedKind === 'ground') {
+      payload.id = this.selectedGroundId;
     } else {
       payload.customRaHours = this.customRaHours;
       payload.customDecDeg = this.customDecDeg;
@@ -10618,6 +11303,15 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         this.selectSatellite(data.id);
         return true;
       }
+      if (data.kind === 'ground' && data.id) {
+        const hit = this.groundPositions.find((p) => p.id === data.id);
+        if (hit) {
+          this.selectGroundPosition(hit);
+          return true;
+        }
+        this.pendingGroundTargetId = data.id;
+        return this.groundPositions.length === 0;
+      }
       if (data.kind === 'custom') {
         const ra = Number(data.customRaHours);
         const dec = Number(data.customDecDeg);
@@ -10640,7 +11334,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.liveLookFrozen()) {
       return;
     }
-    const locked = !!this.finderProj?.centered && this.aboveHorizon();
+    const locked = !!this.finderProj?.centered && this.canAimAtTarget();
     if (this.alignCue === 'off') {
       this.alignCuePrevBoth = locked;
       return;
@@ -10785,6 +11479,14 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.elevationDeg != null && this.elevationDeg >= -1;
   }
 
+  /** Point visable dans le viseur (astres au-dessus de l’horizon, positions au sol même en regardant vers le bas). */
+  canAimAtTarget(): boolean {
+    if (this.elevationDeg == null || !Number.isFinite(this.elevationDeg)) {
+      return false;
+    }
+    return this.selectedKind === 'ground' || this.elevationDeg >= -1;
+  }
+
   notVisibleName(): string {
     const n = this.bodyLabel?.trim();
     return n || this.translate.instant('ASTRO_COMPASS.LOOK_THE_OBJECT');
@@ -10792,7 +11494,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   isPitchAligned(): boolean {
     const err = this.phoneTiltErrorDeg();
-    if (err == null || this.elevationDeg == null || this.elevationDeg < -1) {
+    if (err == null || !this.canAimAtTarget()) {
       // Sans inclinaison (desktop) : on ne bloque pas sur le pitch.
       return this.devicePitchDeg == null;
     }
@@ -10811,8 +11513,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       !this.headingActive ||
       this.headingDeg == null ||
       this.azimuthDeg == null ||
-      this.elevationDeg == null ||
-      this.elevationDeg < -1
+      !this.canAimAtTarget()
     ) {
       return false;
     }
@@ -11162,6 +11863,56 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       Math.cos(p1) * Math.cos(p2) * Math.sin(dLambda / 2) * Math.sin(dLambda / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
     return R * c;
+  }
+
+  private static groundLook(
+    lat1: number,
+    lon1: number,
+    h1m: number,
+    lat2: number,
+    lon2: number,
+    h2m: number
+  ): { azDeg: number; elDeg: number; groundKm: number; slantKm: number; deltaAltM: number; upM: number } {
+    const deltaAltM = (Number.isFinite(h2m) ? h2m : 0) - (Number.isFinite(h1m) ? h1m : 0);
+    const groundKm = AstroCompassComponent.haversineGreatCircleKm(lat1, lon1, lat2, lon2);
+    const p1 = AstroCompassComponent.toEcefMeters(lat1, lon1, h1m);
+    const p2 = AstroCompassComponent.toEcefMeters(lat2, lon2, h2m);
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const dz = p2.z - p1.z;
+    const slantM = Math.hypot(dx, dy, dz);
+    if (slantM < 1) {
+      return { azDeg: 0, elDeg: 90, groundKm, slantKm: slantM / 1000, deltaAltM, upM: deltaAltM };
+    }
+    const latR = (lat1 * Math.PI) / 180;
+    const lonR = (lon1 * Math.PI) / 180;
+    const sinLat = Math.sin(latR);
+    const cosLat = Math.cos(latR);
+    const sinLon = Math.sin(lonR);
+    const cosLon = Math.cos(lonR);
+    const east = -sinLon * dx + cosLon * dy;
+    const north = -sinLat * cosLon * dx - sinLat * sinLon * dy + cosLat * dz;
+    const up = cosLat * cosLon * dx + cosLat * sinLon * dy + sinLat * dz;
+    const azDeg = ((Math.atan2(east, north) * 180) / Math.PI + 360) % 360;
+    const elDeg = (Math.atan2(up, Math.hypot(east, north)) * 180) / Math.PI;
+    return { azDeg, elDeg, groundKm, slantKm: slantM / 1000, deltaAltM, upM: up };
+  }
+
+  private static toEcefMeters(latDeg: number, lonDeg: number, hM: number): { x: number; y: number; z: number } {
+    const a = 6378137;
+    const f = 1 / 298.257223563;
+    const e2 = f * (2 - f);
+    const lat = (latDeg * Math.PI) / 180;
+    const lon = (lonDeg * Math.PI) / 180;
+    const sinLat = Math.sin(lat);
+    const cosLat = Math.cos(lat);
+    const n = a / Math.sqrt(1 - e2 * sinLat * sinLat);
+    const h = Number.isFinite(hM) ? hM : 0;
+    return {
+      x: (n + h) * cosLat * Math.cos(lon),
+      y: (n + h) * cosLat * Math.sin(lon),
+      z: (n * (1 - e2) + h) * sinLat
+    };
   }
 
   /** Élévation satellite (rad) depuis l'angle géocentrique nadir ↔ observateur. */

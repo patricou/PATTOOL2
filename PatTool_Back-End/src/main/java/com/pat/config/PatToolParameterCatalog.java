@@ -44,6 +44,7 @@ public final class PatToolParameterCatalog {
             "globe.astro.max-magnitude.",
             "globe.astro.align-cue.",
             "globe.astro.ticker.",
+            "news.ticker.",
             "meteofrance.forecast.horizon.",
             "meteofrance.forecast.step.",
             "meteofrance.forecast.cache.",

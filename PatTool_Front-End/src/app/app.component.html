@@ -647,6 +647,16 @@
                     </div>
                 </div>
                 <div class="user-info-item">
+                    <div class="info-icon"><i class="fa fa-thumb-tack"></i></div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.GROUND_POSITIONS" | translate}}</div>
+                        <div class="info-value">
+                            <span *ngIf="isLoadingGroundPositions"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i></span>
+                            <span *ngIf="!isLoadingGroundPositions">{{ astroGroundPositions.length }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="user-info-item">
                     <div class="info-icon"><i class="fa fa-key"></i></div>
                     <div class="info-content">
                         <div class="info-label">{{"USERINFO.KEYCLOAKID" | translate}}</div>
@@ -739,7 +749,31 @@
                 <div class="alert alert-warning py-2 small mb-0" *ngIf="!isLoadingUserParams && userParamsError" role="alert">
                     {{ userParamsError | translate }}
                 </div>
-                <div class="text-muted small" *ngIf="!isLoadingUserParams && !userParamsError && paramsForTab(userInfoTab).length === 0">
+                <div class="user-info-grid mb-2" *ngIf="userInfoTab === 'globe' && (isLoadingGroundPositions || astroGroundPositions.length)">
+                    <div class="user-info-item">
+                        <div class="info-icon"><i class="fa fa-map-marker"></i></div>
+                        <div class="info-content">
+                            <div class="info-label">{{ 'USERINFO.GROUND_POSITIONS' | translate }}</div>
+                            <div class="info-value" *ngIf="isLoadingGroundPositions">
+                                <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+                                {{ 'USERINFO.LOADING_PARAMS' | translate }}
+                            </div>
+                            <div class="info-value" *ngIf="!isLoadingGroundPositions">
+                                {{ astroGroundPositions.length }}
+                                <ul class="user-ground-list" *ngIf="astroGroundPositions.length">
+                                    <li *ngFor="let g of astroGroundPositions">
+                                        <strong>{{ g.name }}</strong>
+                                        <span class="text-muted" *ngIf="g.description"> · {{ g.description }}</span>
+                                        <span class="user-modal-mono d-block small text-muted" *ngIf="g.lat != null && g.lon != null">
+                                            {{ g.lat | number:'1.4-5' }}, {{ g.lon | number:'1.4-5' }}<ng-container *ngIf="g.altM != null"> · {{ g.altM | number:'1.0-0' }} m</ng-container>
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-muted small" *ngIf="!isLoadingUserParams && !userParamsError && paramsForTab(userInfoTab).length === 0 && !(userInfoTab === 'globe' && (isLoadingGroundPositions || astroGroundPositions.length))">
                     {{ 'USERINFO.NO_PARAMS' | translate }}
                 </div>
                 <div class="user-info-grid" *ngIf="!isLoadingUserParams && paramsForTab(userInfoTab).length > 0">

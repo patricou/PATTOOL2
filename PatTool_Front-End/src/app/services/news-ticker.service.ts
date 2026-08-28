@@ -34,11 +34,9 @@ interface UserPrefs {
  * Rendered under the page title on Actualités, and as a fixed banner under
  * the navbar on every other route.
  *
- * Persistence policy: the ticker is DELIBERATELY NOT persisted across page
- * reloads. It always starts OFF so that a fresh page load never triggers an
- * automatic NewsAPI call (the free plan is capped at 100 requests/day, and
- * the user might just be browsing unrelated pages). The user re-enables it
- * per-session via the switch on the News page.
+ * Persistence: the switch is stored per username in Mongo ({@code news.ticker.<username>})
+ * and mirrored in localStorage for instant restore. Default remains OFF so a first
+ * visit never burns NewsAPI quota until the user turns the ticker on.
  */
 @Injectable({ providedIn: 'root' })
 export class NewsTickerService implements OnDestroy {
@@ -116,12 +114,17 @@ export class NewsTickerService implements OnDestroy {
   private readonly _articles$ = new BehaviorSubject<TickerArticle[]>([]);
   private readonly _loading$ = new BehaviorSubject<boolean>(false);
 
+  private static readonly ENABLED_KEY = 'pat.news.ticker.enabled';
+
   /**
    * True once the user has explicitly toggled the switch at least once
-   * in THIS session. Guards against a late-arriving server default
+   * in THIS session. Guards against a late-arriving server pref
    * silently flipping a switch the user just turned off.
    */
   private userHasOverridden = false;
+  private remoteHasPref = false;
+  private loadGen = 0;
+  private saveSub?: Subscription;
 
   private refreshSub?: Subscription;
   /** Wall-clock timestamp (ms) of the last successful or failed network call. */
@@ -136,9 +139,8 @@ export class NewsTickerService implements OnDestroy {
   private filtersSub?: Subscription;
 
   constructor(private api: ApiService) {
-    // Ticker starts OFF on every page load — intentional. No auto-fetch here.
-    // See class-level comment for rationale (quota protection).
-    this.clearLegacyPreference();
+    this.restoreLocal();
+    this.loadRemote();
     this.filtersSub = this.filtersChanged$.pipe(debounceTime(500)).subscribe(() => {
       // Only refetch when the ticker is actually visible — no point
       // burning quota to update a bar the user isn't looking at.
@@ -151,6 +153,7 @@ export class NewsTickerService implements OnDestroy {
   ngOnDestroy(): void {
     this.refreshSub?.unsubscribe();
     this.filtersSub?.unsubscribe();
+    this.saveSub?.unsubscribe();
   }
 
   // ---------- Public API ----------
@@ -172,30 +175,20 @@ export class NewsTickerService implements OnDestroy {
   }
 
   setEnabled(enabled: boolean): void {
-    // User-driven change always wins and locks out the server default.
-    // No persistence: next reload starts OFF again (by design, quota-safe).
     this.userHasOverridden = true;
-    if (this._enabled$.value === enabled) {
-      return;
-    }
-    this._enabled$.next(enabled);
-    if (enabled) {
-      this.startAutoRefresh();
-    } else {
-      this.stopAutoRefresh();
-      this._articles$.next([]);
-    }
+    this.applyEnabled(enabled, true);
   }
 
   /**
-   * Historically applied the backend's {@code newsapi.ticker.enabled.default}
-   * on first boot. Kept for API compatibility with callers, but is now a
-   * no-op: the ticker is always OFF on page load and only the user's
-   * explicit toggle turns it on (per-session). This prevents a fresh page
-   * load from ever triggering an automatic NewsAPI call via the ticker.
+   * Backend {@code newsapi.ticker.enabled.default} for first-time visitors
+   * who have neither a username-keyed Mongo row nor a local copy.
+   * Ignored once the user has toggled the switch or a saved pref exists.
    */
-  applyServerDefault(_enabled: boolean): void {
-    /* intentionally empty — see class-level comment */
+  applyServerDefault(enabled: boolean): void {
+    if (this.userHasOverridden || this.remoteHasPref || this.readLocal() !== null) {
+      return;
+    }
+    this.applyEnabled(enabled, false);
   }
 
   toggle(): void {
@@ -382,15 +375,81 @@ export class NewsTickerService implements OnDestroy {
     }
   }
 
-  /**
-   * Earlier versions of the app persisted the ticker state under
-   * {@code pat.news.ticker.enabled}. We no longer honor it (ticker always
-   * starts OFF to protect the 100-req/day NewsAPI quota), but we still
-   * purge the key on boot so it stops cluttering the user's localStorage.
-   */
-  private clearLegacyPreference(): void {
+  private restoreLocal(): void {
+    const local = this.readLocal();
+    if (local !== null) {
+      this.applyEnabled(local, false);
+    }
+  }
+
+  private loadRemote(): void {
+    const gen = ++this.loadGen;
+    this.api.getNewsTicker().subscribe({
+      next: (dto) => {
+        if (gen !== this.loadGen || this.userHasOverridden) {
+          return;
+        }
+        if (dto && typeof dto.enabled === 'boolean') {
+          this.remoteHasPref = true;
+          this.applyEnabled(dto.enabled, false);
+          this.writeLocal(dto.enabled);
+        } else {
+          const local = this.readLocal();
+          if (local !== null) {
+            this.saveRemote(local);
+          }
+        }
+      },
+      error: () => {
+        /* anonyme / hors-ligne : le localStorage ou le défaut (off) restent */
+      }
+    });
+  }
+
+  private applyEnabled(enabled: boolean, persist: boolean): void {
+    if (this._enabled$.value !== enabled) {
+      this._enabled$.next(enabled);
+      if (enabled) {
+        this.startAutoRefresh();
+      } else {
+        this.stopAutoRefresh();
+        this._articles$.next([]);
+      }
+    }
+    if (persist) {
+      this.writeLocal(enabled);
+      this.saveRemote(enabled);
+    }
+  }
+
+  private saveRemote(enabled: boolean): void {
+    this.loadGen++;
+    this.saveSub?.unsubscribe();
+    this.saveSub = this.api.setNewsTicker(enabled).subscribe({
+      error: () => {
+        /* hors connexion / anonyme : le localStorage suffit */
+      }
+    });
+  }
+
+  private readLocal(): boolean | null {
     try {
-      localStorage.removeItem('pat.news.ticker.enabled');
+      const raw = localStorage.getItem(NewsTickerService.ENABLED_KEY);
+      if (raw === '1' || raw === 'true') {
+        return true;
+      }
+      if (raw === '0' || raw === 'false') {
+        return false;
+      }
+    } catch {
+      // localStorage may be unavailable (private mode, quota); non-fatal.
+    }
+    return null;
+  }
+
+  private writeLocal(enabled: boolean): void {
+    try {
+      localStorage.setItem(NewsTickerService.ENABLED_KEY, enabled ? '1' : '0');
     } catch {
       // localStorage may be unavailable (private mode, quota); non-fatal.
     }

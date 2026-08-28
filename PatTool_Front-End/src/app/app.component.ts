@@ -28,10 +28,10 @@ import { YoutubeFloatingPlayerComponent } from './youtube-watcher/youtube-floati
 import { GlobeIssNowService } from './services/globe-iss-now.service';
 import { MongoHealthService, MongoHealthStatus } from './services/mongodb-health.service';
 import { LastRouteService } from './services/last-route.service';
-import { ApiService, UserAppParameter } from './services/api.service';
+import { ApiService, AstroGroundPosition, UserAppParameter } from './services/api.service';
 import { buildIssTopViewIconDataUrl } from './shared/globe-iss-icon.util';
 
-type UserInfoTabId = 'profile' | 'account' | 'tv' | 'globe' | 'meteo' | 'assistant' | 'other';
+type UserInfoTabId = 'profile' | 'account' | 'tv' | 'news' | 'globe' | 'meteo' | 'assistant' | 'other';
 
 interface UserInfoTabDef {
     id: UserInfoTabId;
@@ -84,6 +84,12 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     'globe.astro.max-magnitude': 'USERINFO.PARAM_LABELS.GLOBE_ASTRO_MAX_MAGNITUDE',
     'globe.astro.align-cue': 'USERINFO.PARAM_LABELS.GLOBE_ASTRO_ALIGN_CUE',
     'globe.astro.ticker': 'USERINFO.PARAM_LABELS.GLOBE_ASTRO_TICKER',
+    'globe.satellite.overlays': 'USERINFO.PARAM_LABELS.GLOBE_SATELLITE_OVERLAYS',
+    'globe.iss.compass.heading-mode': 'USERINFO.PARAM_LABELS.GLOBE_ISS_HEADING_MODE',
+    'gps.follow-user': 'USERINFO.PARAM_LABELS.GPS_FOLLOW_USER',
+    'news.ticker': 'USERINFO.PARAM_LABELS.NEWS_TICKER',
+    'tv.filter-preferences': 'USERINFO.PARAM_LABELS.TV_FILTER_PREFERENCES',
+    'radio.favorites': 'USERINFO.PARAM_LABELS.RADIO_FAVORITES',
     'meteofrance.forecast.horizon': 'USERINFO.PARAM_LABELS.METEO_FORECAST_HORIZON',
     'meteofrance.forecast.step': 'USERINFO.PARAM_LABELS.METEO_FORECAST_STEP',
     'meteofrance.forecast.cache': 'USERINFO.PARAM_LABELS.METEO_FORECAST_CACHE',
@@ -120,7 +126,10 @@ export class AppComponent implements OnInit, AfterViewInit {
     private userInfoCopyTimer: ReturnType<typeof setTimeout> | null = null;
     /** Filter Mongo appParameters: all | JWT sub | preferred_username. */
     public userParamsOwnerFilter: 'all' | 'sub' | 'username' = 'all';
+    public astroGroundPositions: AstroGroundPosition[] = [];
+    public isLoadingGroundPositions = false;
     private userParamsSub?: Subscription;
+    private groundPositionsSub?: Subscription;
     /** Cached tab strip — avoid new object identities each CD (breaks clicks with *ngFor). */
     private userInfoTabsCache: UserInfoTabDef[] = [
         { id: 'profile', labelKey: 'USERINFO.TAB_PROFILE', icon: 'fa-user' },
@@ -796,6 +805,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.userInfoTabsCacheKey = '';
         this.loadUserRoles();
         this.loadUserAppParameters();
+        this.loadAstroGroundPositions();
         this.modalService.open(this.usercontent, {
             backdrop: 'static',
             keyboard: false,
@@ -829,7 +839,8 @@ export class AppComponent implements OnInit, AfterViewInit {
             this.isLoadingUserParams ? '1' : '0',
             this.userParamsError || '',
             this.userParamsOwnerFilter,
-            (this.userAppParameters || []).map((p) => p.paramKey || p.featureKey || '').join('|')
+            (this.userAppParameters || []).map((p) => p.paramKey || p.featureKey || '').join('|'),
+            String(this.astroGroundPositions.length)
         ].join('::');
         if (cacheKey === this.userInfoTabsCacheKey && this.userInfoTabsCache.length) {
             return this.userInfoTabsCache;
@@ -840,6 +851,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         ];
         const categories: Array<{ id: UserInfoTabId; labelKey: string; icon: string }> = [
             { id: 'tv', labelKey: 'USERINFO.TAB_TV', icon: 'fa-television' },
+            { id: 'news', labelKey: 'USERINFO.TAB_NEWS', icon: 'fa-newspaper-o' },
             { id: 'globe', labelKey: 'USERINFO.TAB_GLOBE', icon: 'fa-globe' },
             { id: 'meteo', labelKey: 'USERINFO.TAB_METEO', icon: 'fa-cloud' },
             { id: 'assistant', labelKey: 'USERINFO.TAB_ASSISTANT', icon: 'fa-comments' },
@@ -854,7 +866,8 @@ export class AppComponent implements OnInit, AfterViewInit {
                 if (cat.id === 'other') {
                     continue;
                 }
-                const count = this.paramsForTab(cat.id).length;
+                const count = this.paramsForTab(cat.id).length
+                    + (cat.id === 'globe' ? this.astroGroundPositions.length : 0);
                 if (count > 0) {
                     tabs.push({ ...cat, count });
                 }
@@ -890,7 +903,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
 
     isUserParamTab(tab: UserInfoTabId): boolean {
-        return tab === 'tv' || tab === 'globe' || tab === 'meteo' || tab === 'assistant' || tab === 'other';
+        return tab === 'tv' || tab === 'news' || tab === 'globe' || tab === 'meteo' || tab === 'assistant' || tab === 'other';
     }
 
     paramsForTab(tab: UserInfoTabId): UserAppParameter[] {
@@ -923,7 +936,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         if (filter === 'sub' || filter === 'username') {
             this.userInfoTab = 'other';
             // Jump to first category that has rows, else "other".
-            const cats: UserInfoTabId[] = ['tv', 'globe', 'meteo', 'assistant', 'other'];
+            const cats: UserInfoTabId[] = ['tv', 'news', 'globe', 'meteo', 'assistant', 'other'];
             for (const id of cats) {
                 if (this.paramsForTab(id).length > 0) {
                     this.userInfoTab = id;
@@ -944,15 +957,20 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     private categorizeUserParam(p: UserAppParameter): UserInfoTabId {
         const key = ((p.featureKey || p.paramKey || '') as string).toLowerCase();
-        if (key.startsWith('tv.') || key.includes('.tv.') || key.startsWith('tv')) {
+        if (key.startsWith('tv.') || key.startsWith('radio.') || key.startsWith('webcam.') || key.includes('.tv.')) {
             return 'tv';
+        }
+        if (key.startsWith('news.') || key.includes('news.ticker')) {
+            return 'news';
         }
         if (
             key.startsWith('globe.') ||
             key.startsWith('iss.') ||
+            key.startsWith('gps.') ||
             key.includes('flight') ||
             key.includes('iss.') ||
-            key.includes('globe')
+            key.includes('globe') ||
+            key.includes('gps.follow')
         ) {
             return 'globe';
         }
@@ -1009,6 +1027,29 @@ export class AppComponent implements OnInit, AfterViewInit {
                 this.userInfoTabsCacheKey = '';
                 this.cdr.detectChanges();
                 this.appRef.tick();
+            }
+        });
+    }
+
+    private loadAstroGroundPositions(): void {
+        this.groundPositionsSub?.unsubscribe();
+        this.isLoadingGroundPositions = true;
+        this.astroGroundPositions = [];
+        this.userInfoTabsCacheKey = '';
+        this.groundPositionsSub = this.api.listAstroGroundPositions().pipe(
+            catchError(() => of({ positions: [] as AstroGroundPosition[] }))
+        ).subscribe({
+            next: (res) => {
+                this.astroGroundPositions = res?.positions || [];
+                this.isLoadingGroundPositions = false;
+                this.userInfoTabsCacheKey = '';
+                this.cdr.detectChanges();
+            },
+            error: () => {
+                this.astroGroundPositions = [];
+                this.isLoadingGroundPositions = false;
+                this.userInfoTabsCacheKey = '';
+                this.cdr.detectChanges();
             }
         });
     }

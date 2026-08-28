@@ -1,5 +1,7 @@
 package com.pat.controller;
 
+import com.pat.controller.dto.NewsTickerDto;
+import com.pat.service.NewsTickerPreferenceService;
 import com.pat.service.news.NewsImageProxyService;
 import com.pat.service.news.NewsProvider;
 import com.pat.service.news.RssNewsService;
@@ -7,10 +9,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -55,6 +63,9 @@ public class NewsApiController {
 
     @Autowired
     private NewsImageProxyService imageProxyService;
+
+    @Autowired
+    private NewsTickerPreferenceService newsTickerPreferenceService;
 
     /**
      * Resolve the right provider bean for this request. Unknown values
@@ -173,5 +184,45 @@ public class NewsApiController {
     @GetMapping(value = "/image")
     public ResponseEntity<byte[]> proxyImage(@RequestParam("u") String imageUrl) {
         return imageProxyService.proxy(imageUrl);
+    }
+
+    /** Bandeau d'actualités défilant, mémorisé pour l'utilisateur courant (username). Défaut : désactivé. */
+    @GetMapping("/ticker")
+    public ResponseEntity<NewsTickerDto> getNewsTicker() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return newsTickerPreferenceService.findForSubject(sub)
+                .map(enabled -> ResponseEntity.ok(new NewsTickerDto(enabled)))
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    /** Mémorise le switch du bandeau défilant dès que l'utilisateur le change. */
+    @PutMapping("/ticker")
+    public ResponseEntity<NewsTickerDto> setNewsTicker(@RequestBody NewsTickerDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null || body.enabled() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            boolean saved = newsTickerPreferenceService.saveForSubject(sub, body.enabled());
+            return ResponseEntity.ok(new NewsTickerDto(saved));
+        } catch (Exception e) {
+            log.warn("News ticker save failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /** Identifiant ({@code sub}) de l'utilisateur Keycloak courant, ou {@code null} si anonyme. */
+    private static String currentJwtSubject() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof Jwt jwt)) {
+            return null;
+        }
+        return jwt.getSubject();
     }
 }

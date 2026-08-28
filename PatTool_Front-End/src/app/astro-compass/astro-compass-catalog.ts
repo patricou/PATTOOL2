@@ -1,7 +1,7 @@
 import { Body } from 'astronomy-engine';
 
 /** Target kind for the celestial compass. */
-export type AstroTargetKind = 'planet' | 'star' | 'galaxy' | 'deepsky' | 'constellation' | 'custom' | 'iss';
+export type AstroTargetKind = 'planet' | 'star' | 'galaxy' | 'deepsky' | 'constellation' | 'custom' | 'iss' | 'ground';
 
 /** Deep-sky subtypes shown in the “other objects” catalogue. */
 export type AstroDeepSkySubtype = 'blackhole' | 'nebula' | 'cluster' | 'quasar' | 'pulsar' | 'remnant';

@@ -26,11 +26,25 @@ export interface CompassHeadingModePref {
 }
 
 export interface AstroLastTarget {
-  kind: 'planet' | 'star' | 'galaxy' | 'deepsky' | 'constellation' | 'custom' | 'iss';
+  kind: 'planet' | 'star' | 'galaxy' | 'deepsky' | 'constellation' | 'custom' | 'iss' | 'ground';
   id?: string;
   customRaHours?: number;
   customDecDeg?: number;
   customName?: string;
+}
+
+/** Point GPS visé depuis le viseur (GET/POST /astro/ground-positions). */
+export interface AstroGroundPosition {
+  id?: string;
+  name: string;
+  description?: string | null;
+  lat: number;
+  lon: number;
+  altM?: number | null;
+  address?: string | null;
+  ownerUsername?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AstroFinderTrailPref {
@@ -48,6 +62,10 @@ export interface AstroAlignCuePref {
 }
 
 export interface AstroTickerPref {
+  enabled: boolean;
+}
+
+export interface NewsTickerPref {
   enabled: boolean;
 }
 
@@ -1803,6 +1821,41 @@ export class ApiService {
     );
   }
 
+  listAstroGroundPositions(): Observable<{ ownerUsername?: string; positions: AstroGroundPosition[] }> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<{ ownerUsername?: string; positions: AstroGroundPosition[] }>(
+          this.API_URL + 'astro/ground-positions',
+          { headers }
+        )
+      )
+    );
+  }
+
+  createAstroGroundPosition(body: AstroGroundPosition): Observable<AstroGroundPosition> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post<AstroGroundPosition>(this.API_URL + 'astro/ground-positions', body, { headers })
+      )
+    );
+  }
+
+  updateAstroGroundPosition(id: string, body: AstroGroundPosition): Observable<AstroGroundPosition> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<AstroGroundPosition>(this.API_URL + 'astro/ground-positions/' + id, body, { headers })
+      )
+    );
+  }
+
+  deleteAstroGroundPosition(id: string): Observable<void> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.delete<void>(this.API_URL + 'astro/ground-positions/' + id, { headers })
+      )
+    );
+  }
+
   listDirectionCibles(): Observable<{ ownerUsername?: string; cibles: DirectionCible[] }> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
@@ -2137,6 +2190,30 @@ export class ApiService {
         if (options.language) params = params.set('language', options.language);
         return this._http.get(this.API_URL + 'external/news/sources', { headers, params });
       })
+    );
+  }
+
+  getNewsTicker(): Observable<NewsTickerPref | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<NewsTickerPref | null>(
+          this.API_URL + 'external/news/ticker',
+          { headers }
+        )
+      ),
+      catchError(() => of(null))
+    );
+  }
+
+  setNewsTicker(enabled: boolean): Observable<NewsTickerPref> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<NewsTickerPref>(
+          this.API_URL + 'external/news/ticker',
+          { enabled },
+          { headers }
+        )
+      )
     );
   }
 

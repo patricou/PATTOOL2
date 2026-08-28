@@ -122,7 +122,11 @@
   </span>
   <span class="ac-ticker__item" *ngIf="elevationDeg != null">
     <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.ELEVATION' | translate }}</span>
-    <span class="ac-ticker__val" [class.ac-ticker__val--warn]="!aboveHorizon()">{{ elevationDeg | number : '1.0-1' }}°</span>
+    <span class="ac-ticker__val" [class.ac-ticker__val--warn]="!canAimAtTarget()">{{ elevationDeg | number : '1.0-1' }}°</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="devicePitchDeg != null">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.DEVICE_PITCH' | translate }}</span>
+    <span class="ac-ticker__val">{{ devicePitchDeg | number : '1.0-0' }}°</span>
   </span>
   <span class="ac-ticker__item" *ngIf="mag != null">
     <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.MAGNITUDE' | translate }}</span>
@@ -146,7 +150,7 @@
       <ng-container *ngIf="distLy != null">{{ formatLightYears(distLy) }} {{ formatLightYearUnit(distLy) }}</ng-container>
       <ng-container *ngIf="distLy != null && geoDistAu != null"> · </ng-container>
       <ng-container *ngIf="geoDistAu != null">{{ formatAu(geoDistAu) }} {{ 'ASTRO_COMPASS.DIST_AU_UNIT' | translate }}</ng-container>
-      <ng-container *ngIf="geoDistKm != null"> · {{ formatKm(geoDistKm) }}</ng-container>
+      <ng-container *ngIf="geoDistKm != null"><ng-container *ngIf="distLy != null || geoDistAu != null"> · </ng-container>{{ formatKm(geoDistKm) }}</ng-container>
     </span>
   </span>
   <span class="ac-ticker__item" *ngIf="helioDistAu != null">
@@ -167,6 +171,14 @@
   <span class="ac-ticker__item" *ngIf="selectedKind === 'iss' && issAltKm != null">
     <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.ISS_ALTITUDE' | translate }}</span>
     <span class="ac-ticker__val">{{ issAltKm | number : '1.0-0' }} km</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="selectedKind === 'ground' && groundTargetAltM != null">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.GROUND_TARGET_ALT' | translate }}</span>
+    <span class="ac-ticker__val">{{ groundTargetAltM | number : '1.0-0' }} {{ 'ASTRO_COMPASS.DIST_M_UNIT' | translate }}</span>
+  </span>
+  <span class="ac-ticker__item" *ngIf="selectedKind === 'ground' && groundDeltaAltM != null">
+    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.GROUND_DELTA_ALT' | translate }}</span>
+    <span class="ac-ticker__val">{{ formatDeltaAltM(groundDeltaAltM) }}</span>
   </span>
   <span class="ac-ticker__item" *ngIf="selectedKind === 'iss' && issVelocityKmh != null">
     <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.ISS_VELOCITY' | translate }}</span>
@@ -508,17 +520,21 @@
                 <span class="ac-finder__name">{{ bodyLabel }}</span>
                 <span
                   class="ac-finder__obj-cam"
-                  *ngIf="headingDeg != null || lookTracker.elevationDeg != null">
+                  *ngIf="headingDeg != null || lookTracker.elevationDeg != null || devicePitchDeg != null">
                   <i class="fa fa-video-camera" aria-hidden="true"></i>
                   <ng-container *ngIf="headingDeg != null">{{ headingDeg | number : '1.0-0' }}° {{ headingCardinalLabel() }}</ng-container>
                   <ng-container *ngIf="headingDeg != null && lookTracker.elevationDeg != null"> · </ng-container>
                   <ng-container *ngIf="lookTracker.elevationDeg != null">{{ lookTracker.elevationDeg | number : '1.0-0' }}°</ng-container>
+                  <ng-container *ngIf="devicePitchDeg != null">
+                    <ng-container *ngIf="headingDeg != null || lookTracker.elevationDeg != null"> · </ng-container>
+                    {{ 'ASTRO_COMPASS.DEVICE_PITCH' | translate }} {{ devicePitchDeg | number : '1.0-0' }}°
+                  </ng-container>
                 </span>
               </button>
               <div class="ac-finder__hud">
                 <div
                   class="ac-finder__aim"
-                  *ngIf="headingDeg != null || lookTracker.elevationDeg != null"
+                  *ngIf="headingDeg != null || lookTracker.elevationDeg != null || devicePitchDeg != null"
                   [class.ac-finder__aim--locked]="finderProj?.centered">
                   <span class="ac-finder__aim-tag">
                     <i class="fa fa-video-camera" aria-hidden="true"></i>
@@ -542,6 +558,14 @@
                         <span class="ac-finder__aim-unit" *ngIf="lookTracker.elevationDeg != null">°</span>
                       </div>
                     </div>
+                    <div class="ac-finder__aim-metric">
+                      <span class="ac-finder__aim-lab">{{ 'ASTRO_COMPASS.DEVICE_PITCH' | translate }}</span>
+                      <div class="ac-finder__aim-val">
+                        <strong *ngIf="devicePitchDeg != null">{{ devicePitchDeg | number : '1.0-0' }}</strong>
+                        <strong *ngIf="devicePitchDeg == null">—</strong>
+                        <span class="ac-finder__aim-unit" *ngIf="devicePitchDeg != null">°</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div class="ac-finder__target" *ngIf="azimuthDeg != null || elevationDeg != null">
@@ -553,6 +577,7 @@
                   <div class="ac-finder__target-pair">
                     <span *ngIf="azimuthDeg != null">{{ azimuthDeg | number : '1.0-0' }}° {{ cardinalLabel() }}</span>
                     <span *ngIf="elevationDeg != null">{{ elevationDeg | number : '1.0-0' }}°</span>
+                    <span *ngIf="targetPhoneTiltDeg() != null">{{ 'ASTRO_COMPASS.DEVICE_PITCH' | translate }} {{ targetPhoneTiltDeg() | number : '1.0-0' }}°</span>
                   </div>
                 </div>
                 <div class="ac-finder__hud-offs" *ngIf="lookTracker.manualOffsetDeg || lookTracker.manualElOffsetDeg">
@@ -693,7 +718,7 @@
                 <span aria-hidden="true"></span>
               </button>
             </div>
-            <div class="ac-compass-notvis" *ngIf="azimuthDeg != null && !aboveHorizon()" role="status">
+            <div class="ac-compass-notvis" *ngIf="azimuthDeg != null && !canAimAtTarget()" role="status">
               <i class="fa fa-eye-slash" aria-hidden="true"></i>
               <div class="ac-compass-notvis__text">
                 <strong>{{ 'ASTRO_COMPASS.LOOK_NOT_VISIBLE' | translate }}</strong>
@@ -756,7 +781,7 @@
             <p class="ac-finder__lock" *ngIf="finderProj?.centered && !finderPoseFrozen">
               <i class="fa fa-bullseye me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.LOCKED' | translate }}
             </p>
-            <p class="ac-finder__seek" *ngIf="headingActive && finderProj && !finderProj.inView && aboveHorizon() && !finderPoseFrozen">
+            <p class="ac-finder__seek" *ngIf="headingActive && finderProj && !finderProj.inView && canAimAtTarget() && !finderPoseFrozen">
               {{ 'ASTRO_COMPASS.SEEK_HINT' | translate }}
             </p>
 
@@ -813,7 +838,7 @@
                   <div class="ac-autodetect__winner-text">
                     <div class="ac-autodetect__winner-name">{{ bodyLabel || autoDetectHits[0].name }}</div>
                     <div class="ac-autodetect__winner-kind">
-                      {{ autoDetectKindLabelKey(autoDetectHits[0].kind, autoDetectHits[0].subtype) | translate }}
+                      {{ autoDetectKindLabelKey(autoDetectHits[0].kind, autoDetectHits[0].subtype, autoDetectHits[0].id) | translate }}
                       · {{ 'ASTRO_COMPASS.AUTO_SEP' | translate : { deg: (autoDetectHits[0].separationDeg | number : '1.0-1') } }}
                     </div>
                   </div>
@@ -825,9 +850,13 @@
                   </div>
                   <div class="ac-autodetect__winner-cell" *ngIf="elevationDeg != null">
                     <span class="ac-autodetect__winner-k">{{ 'ASTRO_COMPASS.ELEVATION' | translate }}</span>
-                    <span class="ac-autodetect__winner-v" [class.ac-autodetect__winner-v--warn]="!aboveHorizon()">
+                    <span class="ac-autodetect__winner-v" [class.ac-autodetect__winner-v--warn]="!canAimAtTarget()">
                       {{ elevationDeg | number : '1.0-1' }}°
                     </span>
+                  </div>
+                  <div class="ac-autodetect__winner-cell" *ngIf="targetPhoneTiltDeg() != null">
+                    <span class="ac-autodetect__winner-k">{{ 'ASTRO_COMPASS.DEVICE_PITCH' | translate }}</span>
+                    <span class="ac-autodetect__winner-v">{{ targetPhoneTiltDeg() | number : '1.0-0' }}°</span>
                   </div>
                   <div class="ac-autodetect__winner-cell" *ngIf="mag != null">
                     <span class="ac-autodetect__winner-k">{{ 'ASTRO_COMPASS.MAGNITUDE' | translate }}</span>
@@ -851,12 +880,20 @@
                       <ng-container *ngIf="distLy != null">{{ formatLightYears(distLy) }} {{ formatLightYearUnit(distLy) }}</ng-container>
                       <ng-container *ngIf="distLy != null && geoDistAu != null"> · </ng-container>
                       <ng-container *ngIf="geoDistAu != null">{{ formatAu(geoDistAu) }} {{ 'ASTRO_COMPASS.DIST_AU_UNIT' | translate }}</ng-container>
-                      <ng-container *ngIf="geoDistKm != null"> · {{ formatKm(geoDistKm) }}</ng-container>
+                      <ng-container *ngIf="geoDistKm != null"><ng-container *ngIf="distLy != null || geoDistAu != null"> · </ng-container>{{ formatKm(geoDistKm) }}</ng-container>
                     </span>
                   </div>
                   <div class="ac-autodetect__winner-cell" *ngIf="selectedKind === 'iss' && issAltKm != null">
                     <span class="ac-autodetect__winner-k">{{ 'ASTRO_COMPASS.ISS_ALTITUDE' | translate }}</span>
                     <span class="ac-autodetect__winner-v">{{ issAltKm | number : '1.0-0' }} km</span>
+                  </div>
+                  <div class="ac-autodetect__winner-cell" *ngIf="selectedKind === 'ground' && groundTargetAltM != null">
+                    <span class="ac-autodetect__winner-k">{{ 'ASTRO_COMPASS.GROUND_TARGET_ALT' | translate }}</span>
+                    <span class="ac-autodetect__winner-v">{{ groundTargetAltM | number : '1.0-0' }} {{ 'ASTRO_COMPASS.DIST_M_UNIT' | translate }}</span>
+                  </div>
+                  <div class="ac-autodetect__winner-cell" *ngIf="selectedKind === 'ground' && groundDeltaAltM != null">
+                    <span class="ac-autodetect__winner-k">{{ 'ASTRO_COMPASS.GROUND_DELTA_ALT' | translate }}</span>
+                    <span class="ac-autodetect__winner-v">{{ formatDeltaAltM(groundDeltaAltM) }}</span>
                   </div>
                   <div class="ac-autodetect__winner-cell" *ngIf="selectedKind === 'iss' && issVelocityKmh != null">
                     <span class="ac-autodetect__winner-k">{{ 'ASTRO_COMPASS.ISS_VELOCITY' | translate }}</span>
@@ -893,7 +930,7 @@
                     <span class="ac-autodetect__hit-main">
                       <span class="ac-autodetect__hit-name">{{ hit.name }}</span>
                       <span class="ac-autodetect__hit-meta">
-                        {{ autoDetectKindLabelKey(hit.kind, hit.subtype) | translate }}
+                        {{ autoDetectKindLabelKey(hit.kind, hit.subtype, hit.id) | translate }}
                         · {{ hit.azimuthDeg | number : '1.0-0' }}° / {{ hit.elevationDeg | number : '1.0-0' }}°
                         <span *ngIf="hit.mag != null"> · mag {{ hit.mag | number : '1.1-1' }}</span>
                       </span>
@@ -1319,6 +1356,104 @@
       </div>
       </div>
 
+      <div class="ac-acc" [class.ac-acc--open]="isTargetAccordionOpen('ground')" [class.ac-acc--current]="selectedKind === 'ground'">
+      <div class="ac-acc__bar">
+      <button
+        type="button"
+        class="ac-acc__head"
+        (click)="toggleTargetAccordion('ground')"
+        [attr.aria-expanded]="isTargetAccordionOpen('ground')">
+        <h3>
+          <i class="fa fa-map-marker me-2" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.GROUND_TITLE' | translate }}
+          <span class="ac-count">({{ filteredGroundPositions().length }})</span>
+        </h3>
+        <span class="ac-acc__pick" *ngIf="selectedKind === 'ground' && !isTargetAccordionOpen('ground')">{{ bodyLabel }}</span>
+        <i class="fa fa-chevron-down ac-acc__chevron" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="ac-acc__info"
+        (click)="openTypeHelp('ground', $event)"
+        aria-label="Aide / Help">
+        <span aria-hidden="true">i</span>
+      </button>
+      </div>
+      <div class="ac-acc__body" *ngIf="isTargetAccordionOpen('ground')">
+      <div class="ac-ground-toolbar">
+        <button type="button" class="ac-loc-btn ac-ground-new-btn" (click)="openNewGroundModal()">
+          <i class="fa fa-plus me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.GROUND_NEW_BTN' | translate }}
+        </button>
+      </div>
+      <div class="ac-search" *ngIf="groundPositions.length">
+        <label for="acGroundQuery">{{ 'ASTRO_COMPASS.GROUND_FILTER' | translate }}</label>
+        <input
+          id="acGroundQuery"
+          type="search"
+          [(ngModel)]="groundQuery"
+          (ngModelChange)="onGroundQueryChange()"
+          [placeholder]="'ASTRO_COMPASS.GROUND_SEARCH_PLACEHOLDER' | translate"
+          autocomplete="off"
+          spellcheck="false"
+          [attr.aria-controls]="'acGroundPickerList'" />
+        <ul
+          *ngIf="filteredGroundPositions().length"
+          id="acGroundPickerList"
+          class="ac-picker__list"
+          role="listbox"
+          [attr.aria-label]="'ASTRO_COMPASS.GROUND_SELECT' | translate">
+          <li *ngFor="let g of filteredGroundPositions()" class="ac-ground__row">
+            <button
+              type="button"
+              class="ac-picker__opt"
+              [class.ac-picker__opt--active]="selectedKind === 'ground' && selectedGroundId === g.id"
+              role="option"
+              [attr.aria-selected]="selectedKind === 'ground' && selectedGroundId === g.id"
+              (click)="selectGroundPosition(g)">
+              <span class="ac-picker__opt-main">
+                {{ g.name }}
+                <span class="ac-ground__meta" *ngIf="g.description"> · {{ g.description }}</span>
+              </span>
+              <span
+                class="ac-picker__opt-dir"
+                *ngIf="groundLookDir(g) as dir"
+                [class.ac-picker__opt-dir--below]="dir.elevationDeg <= 0">{{ dir.label }}</span>
+            </button>
+            <button
+              type="button"
+              class="ac-ground__map"
+              (click)="showGroundPositionOnMap(g, $event)"
+              [attr.title]="'ASTRO_COMPASS.GROUND_VIEW_MAP' | translate"
+              [attr.aria-label]="'ASTRO_COMPASS.GROUND_VIEW_MAP' | translate">
+              <i class="fa fa-map" aria-hidden="true"></i>
+            </button>
+            <button
+              type="button"
+              class="ac-ground__edit"
+              (click)="editGroundPosition(g, $event)"
+              [attr.title]="'ASTRO_COMPASS.GROUND_EDIT' | translate"
+              [attr.aria-label]="'ASTRO_COMPASS.GROUND_EDIT' | translate">
+              <i class="fa fa-pencil" aria-hidden="true"></i>
+            </button>
+            <button
+              type="button"
+              class="ac-ground__del"
+              (click)="deleteGroundPosition(g, $event)"
+              [attr.title]="'ASTRO_COMPASS.GROUND_DELETE' | translate"
+              [attr.aria-label]="'ASTRO_COMPASS.GROUND_DELETE' | translate">
+              <i class="fa fa-trash" aria-hidden="true"></i>
+            </button>
+          </li>
+        </ul>
+        <p class="ac-place" *ngIf="groundQuery.trim() && !filteredGroundPositions().length">
+          {{ 'ASTRO_COMPASS.GROUND_FILTER_EMPTY' | translate }}
+        </p>
+      </div>
+      <p class="ac-place" *ngIf="!groundPositions.length">
+        {{ 'ASTRO_COMPASS.GROUND_EMPTY' | translate }}
+      </p>
+      </div>
+      </div>
+
       <ng-container *ngIf="!visibleOnly">
         <div class="ac-acc" [class.ac-acc--open]="isTargetAccordionOpen('custom')" [class.ac-acc--current]="selectedKind === 'custom'">
         <div class="ac-acc__bar">
@@ -1361,12 +1496,12 @@
         </div>
       </ng-container>
 
-      <div class="ac-acc ac-acc--box" [attr.aria-label]="'ASTRO_COMPASS.PARAMS_TITLE' | translate">
+      <div class="ac-acc ac-acc--box" [attr.aria-label]="paramsTitleKey() | translate">
       <div class="ac-acc__bar">
         <div class="ac-acc__head ac-acc__head--static">
           <h3 class="ac-params-title">
             <i [ngClass]="bodyIconClass" [style.color]="bodyColor" class="me-2" aria-hidden="true"></i>
-            {{ 'ASTRO_COMPASS.PARAMS_TITLE' | translate }}
+            {{ paramsTitleKey() | translate }}
             <span *ngIf="bodyLabel"> — {{ bodyLabel }}</span>
           </h3>
           <button
@@ -1390,14 +1525,26 @@
         </div>
         <div class="ac-compass-readout__item">
           <span class="ac-compass-readout__key">{{ 'ASTRO_COMPASS.ELEVATION' | translate }}</span>
-          <span class="ac-compass-readout__val" [class.ac-compass-readout__val--warn]="!aboveHorizon()">
+          <span class="ac-compass-readout__val" [class.ac-compass-readout__val--warn]="!canAimAtTarget()">
             {{ elevationDeg | number : '1.1-1' }}°
-            <span class="ac-compass-readout__note" *ngIf="!aboveHorizon()">· {{ 'ASTRO_COMPASS.LOOK_NOT_VISIBLE' | translate }}</span>
+            <span class="ac-compass-readout__note" *ngIf="!canAimAtTarget()">· {{ 'ASTRO_COMPASS.LOOK_NOT_VISIBLE' | translate }}</span>
           </span>
+        </div>
+        <div class="ac-compass-readout__item" *ngIf="targetPhoneTiltDeg() != null">
+          <span class="ac-compass-readout__key">{{ 'ASTRO_COMPASS.DEVICE_PITCH' | translate }}</span>
+          <span class="ac-compass-readout__val">{{ targetPhoneTiltDeg() | number : '1.0-0' }}°</span>
         </div>
         <div class="ac-compass-readout__item" *ngIf="selectedKind === 'iss' && issAltKm != null">
           <span class="ac-compass-readout__key">{{ 'ASTRO_COMPASS.ISS_ALTITUDE' | translate }}</span>
           <span class="ac-compass-readout__val">{{ issAltKm | number : '1.0-0' }} km</span>
+        </div>
+        <div class="ac-compass-readout__item" *ngIf="selectedKind === 'ground' && groundTargetAltM != null">
+          <span class="ac-compass-readout__key">{{ 'ASTRO_COMPASS.GROUND_TARGET_ALT' | translate }}</span>
+          <span class="ac-compass-readout__val">{{ groundTargetAltM | number : '1.0-0' }} {{ 'ASTRO_COMPASS.DIST_M_UNIT' | translate }}</span>
+        </div>
+        <div class="ac-compass-readout__item" *ngIf="selectedKind === 'ground' && groundDeltaAltM != null">
+          <span class="ac-compass-readout__key">{{ 'ASTRO_COMPASS.GROUND_DELTA_ALT' | translate }}</span>
+          <span class="ac-compass-readout__val">{{ formatDeltaAltM(groundDeltaAltM) }}</span>
         </div>
         <div class="ac-compass-readout__item" *ngIf="selectedKind === 'iss' && issVelocityKmh != null">
           <span class="ac-compass-readout__key">{{ 'ASTRO_COMPASS.ISS_VELOCITY' | translate }}</span>
@@ -1435,7 +1582,7 @@
             <ng-container *ngIf="distLy != null">{{ formatLightYears(distLy) }} {{ formatLightYearUnit(distLy) }}</ng-container>
             <ng-container *ngIf="distLy != null && geoDistAu != null"> · </ng-container>
             <ng-container *ngIf="geoDistAu != null">{{ formatAu(geoDistAu) }} {{ 'ASTRO_COMPASS.DIST_AU_UNIT' | translate }}</ng-container>
-            <ng-container *ngIf="geoDistKm != null"> · {{ formatKm(geoDistKm) }}</ng-container>
+            <ng-container *ngIf="geoDistKm != null"><ng-container *ngIf="distLy != null || geoDistAu != null"> · </ng-container>{{ formatKm(geoDistKm) }}</ng-container>
           </span>
         </div>
         <div class="ac-compass-readout__item" *ngIf="helioDistAu != null">
@@ -2187,6 +2334,7 @@
         <div class="ac-finder__target-pair">
           <span *ngIf="azimuthDeg != null">{{ azimuthDeg | number : '1.0-0' }}° {{ cardinalLabel() }}</span>
           <span *ngIf="elevationDeg != null">{{ elevationDeg | number : '1.0-0' }}°</span>
+          <span *ngIf="targetPhoneTiltDeg() != null">{{ 'ASTRO_COMPASS.DEVICE_PITCH' | translate }} {{ targetPhoneTiltDeg() | number : '1.0-0' }}°</span>
         </div>
       </div>
     </div>
@@ -2431,11 +2579,11 @@
   <p
     class="ac-horizon-badge"
     *ngIf="elevationDeg != null"
-    [class.ac-horizon-badge--on]="aboveHorizon()"
-    [class.ac-horizon-badge--off]="!aboveHorizon()"
+    [class.ac-horizon-badge--on]="canAimAtTarget()"
+    [class.ac-horizon-badge--off]="!canAimAtTarget()"
     role="status">
-    <i class="fa" [class.fa-eye]="aboveHorizon()" [class.fa-eye-slash]="!aboveHorizon()" aria-hidden="true"></i>
-    {{ (aboveHorizon() ? 'ASTRO_COMPASS.VIS_NOW_VISIBLE' : 'ASTRO_COMPASS.VIS_BELOW') | translate }}
+    <i class="fa" [class.fa-eye]="canAimAtTarget()" [class.fa-eye-slash]="!canAimAtTarget()" aria-hidden="true"></i>
+    {{ (canAimAtTarget() ? 'ASTRO_COMPASS.VIS_NOW_VISIBLE' : 'ASTRO_COMPASS.VIS_BELOW') | translate }}
   </p>
 </ng-template>
 
@@ -2468,7 +2616,7 @@
     </div>
     <div class="ac-live-info__cell" *ngIf="elevationDeg != null">
       <ng-container *ngTemplateOutlet="acFactTip; context: { labelKey: 'ASTRO_COMPASS.ELEVATION', helpKey: 'ASTRO_COMPASS.HELP_ELEVATION_DEF' }"></ng-container>
-      <span class="ac-live-info__v" [class.ac-live-info__v--warn]="!aboveHorizon()">{{ elevationDeg | number : '1.0-1' }}°</span>
+      <span class="ac-live-info__v" [class.ac-live-info__v--warn]="!canAimAtTarget()">{{ elevationDeg | number : '1.0-1' }}°</span>
     </div>
     <div class="ac-live-info__cell" *ngIf="mag != null">
       <ng-container *ngTemplateOutlet="acFactTip; context: { labelKey: 'ASTRO_COMPASS.MAGNITUDE', helpKey: 'ASTRO_COMPASS.HELP_MAG_DEF' }"></ng-container>
@@ -2492,7 +2640,7 @@
         <ng-container *ngIf="distLy != null">{{ formatLightYears(distLy) }} {{ formatLightYearUnit(distLy) }}</ng-container>
         <ng-container *ngIf="distLy != null && geoDistAu != null"> · </ng-container>
         <ng-container *ngIf="geoDistAu != null">{{ formatAu(geoDistAu) }} {{ 'ASTRO_COMPASS.DIST_AU_UNIT' | translate }}</ng-container>
-        <ng-container *ngIf="geoDistKm != null"> · {{ formatKm(geoDistKm) }}</ng-container>
+        <ng-container *ngIf="geoDistKm != null"><ng-container *ngIf="distLy != null || geoDistAu != null"> · </ng-container>{{ formatKm(geoDistKm) }}</ng-container>
       </span>
     </div>
     <div class="ac-live-info__cell" *ngIf="helioDistAu != null">
@@ -2513,6 +2661,14 @@
     <div class="ac-live-info__cell" *ngIf="selectedKind === 'iss' && issAltKm != null">
       <ng-container *ngTemplateOutlet="acFactTip; context: { labelKey: 'ASTRO_COMPASS.ISS_ALTITUDE', helpKey: 'ASTRO_COMPASS.HELP_ALT_DEF' }"></ng-container>
       <span class="ac-live-info__v">{{ issAltKm | number : '1.0-0' }} km</span>
+    </div>
+    <div class="ac-live-info__cell" *ngIf="selectedKind === 'ground' && groundTargetAltM != null">
+      <ng-container *ngTemplateOutlet="acFactTip; context: { labelKey: 'ASTRO_COMPASS.GROUND_TARGET_ALT', helpKey: 'ASTRO_COMPASS.HELP_GROUNDDELTA_DEF' }"></ng-container>
+      <span class="ac-live-info__v">{{ groundTargetAltM | number : '1.0-0' }} {{ 'ASTRO_COMPASS.DIST_M_UNIT' | translate }}</span>
+    </div>
+    <div class="ac-live-info__cell" *ngIf="selectedKind === 'ground' && groundDeltaAltM != null">
+      <ng-container *ngTemplateOutlet="acFactTip; context: { labelKey: 'ASTRO_COMPASS.GROUND_DELTA_ALT', helpKey: 'ASTRO_COMPASS.HELP_GROUNDDELTA_DEF' }"></ng-container>
+      <span class="ac-live-info__v">{{ formatDeltaAltM(groundDeltaAltM) }}</span>
     </div>
     <div class="ac-live-info__cell" *ngIf="selectedKind === 'iss' && issVelocityKmh != null">
       <ng-container *ngTemplateOutlet="acFactTip; context: { labelKey: 'ASTRO_COMPASS.ISS_VELOCITY', helpKey: 'ASTRO_COMPASS.HELP_VEL_DEF' }"></ng-container>
@@ -2836,8 +2992,12 @@
         <ng-container *ngIf="distLy != null">{{ formatLightYears(distLy) }} {{ formatLightYearUnit(distLy) }}</ng-container>
         <ng-container *ngIf="distLy != null && geoDistAu != null"> · </ng-container>
         <ng-container *ngIf="geoDistAu != null">{{ formatAu(geoDistAu) }} {{ 'ASTRO_COMPASS.DIST_AU_UNIT' | translate }}</ng-container>
-        <ng-container *ngIf="geoDistKm != null"> · {{ formatKm(geoDistKm) }}</ng-container>
+        <ng-container *ngIf="geoDistKm != null"><ng-container *ngIf="distLy != null || geoDistAu != null"> · </ng-container>{{ formatKm(geoDistKm) }}</ng-container>
       </span>
+    </div>
+    <div class="ac-live-dist" *ngIf="selectedKind === 'ground' && groundDeltaAltM != null">
+      <ng-container *ngTemplateOutlet="acFactTip; context: { labelKey: 'ASTRO_COMPASS.GROUND_DELTA_ALT', helpKey: 'ASTRO_COMPASS.HELP_GROUNDDELTA_DEF', css: 'ac-live-dist__k' }"></ng-container>
+      <span class="ac-live-dist__v">{{ formatDeltaAltM(groundDeltaAltM) }}<ng-container *ngIf="groundTargetAltM != null"> · {{ groundTargetAltM | number : '1.0-0' }} {{ 'ASTRO_COMPASS.DIST_M_UNIT' | translate }}</ng-container></span>
     </div>
     <ng-container *ngTemplateOutlet="acObjectFacts"></ng-container>
     <ng-container *ngTemplateOutlet="acObjectPasses"></ng-container>
@@ -2996,9 +3156,70 @@
   </footer>
 </div>
 
+<div class="ac-help-backdrop ac-ground-form-backdrop" *ngIf="groundFormModalOpen && !groundFormSuppressedForMap" (click)="closeGroundFormModal()" aria-hidden="true"></div>
+<div
+  class="ac-help-modal ac-ground-form-modal"
+  *ngIf="groundFormModalOpen && !groundFormSuppressedForMap"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="(groundEditingId ? 'ASTRO_COMPASS.GROUND_MODAL_EDIT' : 'ASTRO_COMPASS.GROUND_NEW_BTN') | translate"
+  (click)="$event.stopPropagation()">
+  <header class="ac-help-modal__header">
+    <h3 class="ac-help-modal__title">
+      <i class="fa fa-map-marker me-2" aria-hidden="true"></i>
+      {{ (groundEditingId ? 'ASTRO_COMPASS.GROUND_MODAL_EDIT' : 'ASTRO_COMPASS.GROUND_NEW_BTN') | translate }}
+    </h3>
+    <button
+      type="button"
+      class="ac-help-modal__close"
+      (click)="closeGroundFormModal()"
+      [attr.aria-label]="'ASTRO_COMPASS.HELP_CLOSE' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </header>
+  <div class="ac-help-modal__body ac-ground-form-modal__body">
+    <div class="ac-ground">
+      <button type="button" class="ac-loc-btn ac-ground-new-btn" (click)="openTraceViewerForGround()">
+        <i class="fa fa-map me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.GROUND_PICK_MAP' | translate }}
+      </button>
+      <p class="ac-place ac-place--result" *ngIf="groundDraftGpsText()">
+        <span class="ac-place__k">{{ 'ASTRO_COMPASS.GROUND_GPS' | translate }}</span>
+        <span class="ac-place__v">{{ groundDraftGpsText() }}</span>
+      </p>
+      <p class="ac-place" *ngIf="!groundDraftGpsText()">{{ 'ASTRO_COMPASS.GROUND_GPS_EMPTY' | translate }}</p>
+      <div class="ac-search">
+        <label for="acGroundName">{{ 'ASTRO_COMPASS.GROUND_NAME' | translate }}</label>
+        <input
+          id="acGroundName"
+          type="text"
+          [(ngModel)]="groundDraftName"
+          [placeholder]="'ASTRO_COMPASS.GROUND_NAME_PLACEHOLDER' | translate"
+          autocomplete="off"
+          spellcheck="false" />
+      </div>
+      <div class="ac-search">
+        <label for="acGroundDesc">{{ 'ASTRO_COMPASS.GROUND_DESC' | translate }}</label>
+        <textarea
+          id="acGroundDesc"
+          rows="2"
+          [(ngModel)]="groundDraftDesc"
+          [placeholder]="'ASTRO_COMPASS.GROUND_DESC_PLACEHOLDER' | translate"></textarea>
+      </div>
+      <div class="ac-ground__actions">
+        <button type="button" (click)="saveGroundPosition()" [disabled]="groundSaving">
+          <i class="fa" [ngClass]="groundSaving ? 'fa-spinner fa-spin' : 'fa-save'" aria-hidden="true"></i>
+          {{ (groundEditingId ? 'ASTRO_COMPASS.GROUND_UPDATE' : 'ASTRO_COMPASS.GROUND_SAVE') | translate }}
+        </button>
+      </div>
+      <p class="ac-place ac-place--warn" *ngIf="groundError">{{ groundError | translate }}</p>
+    </div>
+  </div>
+</div>
+
 <app-trace-viewer-modal
   #traceViewerModalComponent
-  (locationSelected)="onLocationSelected($event)">
+  (locationSelected)="onLocationSelected($event)"
+  (closed)="onTraceViewerClosed()">
 </app-trace-viewer-modal>
 <app-slideshow-modal
   #slideshowModalComponent

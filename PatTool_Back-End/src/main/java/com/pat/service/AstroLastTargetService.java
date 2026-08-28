@@ -24,7 +24,8 @@ public class AstroLastTargetService {
     private static final Logger log = LoggerFactory.getLogger(AstroLastTargetService.class);
 
     static final String PARAM_KEY_PREFIX = "globe.astro.last-target.";
-    private static final Set<String> KINDS = Set.of("planet", "star", "galaxy", "deepsky", "constellation", "custom", "iss");
+    private static final Set<String> KINDS = Set.of(
+            "planet", "star", "galaxy", "deepsky", "constellation", "custom", "iss", "ground");
     private static final Pattern CATALOG_ID = Pattern.compile("^[A-Za-z0-9._-]{1,80}$");
     private static final int NAME_MAX = 120;
 

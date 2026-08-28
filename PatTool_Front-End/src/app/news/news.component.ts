@@ -1773,9 +1773,9 @@ export class NewsComponent implements OnInit, OnDestroy {
       next: (status) => {
         this.apiStatus = status;
         this.isLoadingStatus = false;
-        // Let the backend choose the default ticker state for first-time
-        // visitors (newsapi.ticker.enabled.default). Ignored once the user
-        // has toggled the switch at least once.
+        // First-time visitors without a saved username pref still honor
+        // newsapi.ticker.enabled.default. Ignored once the user has a
+        // persisted choice or has toggled the switch this session.
         if (status && typeof status.tickerEnabledDefault === 'boolean') {
           this.newsTicker.applyServerDefault(status.tickerEnabledDefault);
         }

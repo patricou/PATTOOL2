@@ -3199,6 +3199,7 @@ a.ac-compass-cal__btn--direction {
 .ac-acc__body .ac-search,
 .ac-acc__body .ac-sort,
 .ac-acc__body .ac-custom,
+.ac-acc__body .ac-ground,
 .ac-acc__body .ac-place {
   margin-bottom: 0.35rem;
 }
@@ -3605,6 +3606,7 @@ a.ac-compass-cal__btn--direction {
 }
 
 .ac-search input,
+.ac-search textarea,
 .ac-custom input {
   width: 100%;
   font-size: 0.78rem;
@@ -3747,6 +3749,109 @@ a.ac-compass-cal__btn--direction {
   color: #cfe8ff;
   cursor: pointer;
   height: calc(1.5em + 0.7rem + 2px);
+}
+
+.ac-ground {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.4rem;
+}
+
+.ac-ground-toolbar {
+  margin: 0.35rem 0 0.55rem;
+}
+
+.ac-ground-new-btn {
+  width: 100%;
+  flex: 1 1 auto;
+}
+
+.ac-ground-form-backdrop {
+  z-index: 1036;
+}
+
+.ac-ground-form-modal {
+  z-index: 1037;
+  width: min(28rem, calc(100vw - 1.25rem));
+}
+
+.ac-ground-form-modal__body {
+  padding-top: 0.85rem;
+}
+
+.ac-ground-form-modal .ac-ground {
+  margin-top: 0;
+}
+
+.ac-ground-form-modal .ac-ground-new-btn {
+  min-height: 2.35rem;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.ac-ground textarea {
+  width: 100%;
+  min-height: 3.2rem;
+  resize: vertical;
+  font-size: 0.75rem;
+  color: #e8f0ff;
+  background: rgba(8, 16, 32, 0.55);
+  border: 1px solid rgba(120, 180, 255, 0.28);
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.45rem;
+}
+
+.ac-ground__actions button {
+  font-size: 0.72rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(125, 255, 179, 0.4);
+  background: rgba(80, 180, 120, 0.18);
+  color: #d8ffe8;
+  cursor: pointer;
+}
+
+.ac-ground__actions button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ac-ground__row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.2rem;
+}
+
+.ac-ground__row .ac-picker__opt {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ac-ground__meta {
+  font-weight: 400;
+  opacity: 0.72;
+}
+
+.ac-ground__map,
+.ac-ground__edit,
+.ac-ground__del {
+  flex: 0 0 auto;
+  width: 2rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(120, 180, 255, 0.28);
+  background: rgba(8, 16, 32, 0.45);
+  color: #cfe8ff;
+  cursor: pointer;
+}
+
+.ac-ground__map {
+  color: #9fd4ff;
+}
+
+.ac-ground__del {
+  color: #ffb4b4;
+  border-color: rgba(255, 140, 140, 0.35);
 }
 
 .ac-loc {

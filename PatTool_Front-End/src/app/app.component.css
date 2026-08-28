@@ -1342,6 +1342,16 @@ body > .tooltip {
     word-break: break-all;
 }
 
+.user-ground-list {
+    margin: 0.35rem 0 0;
+    padding-left: 1.1rem;
+    font-size: 0.88rem;
+}
+
+.user-ground-list li + li {
+    margin-top: 0.25rem;
+}
+
 .user-modal-params-loading {
     display: flex;
     align-items: center;
