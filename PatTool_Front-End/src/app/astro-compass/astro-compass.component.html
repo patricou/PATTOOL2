@@ -517,39 +517,17 @@
                   <i *ngIf="bodyIconClass !== 'fa fa-circle'" [ngClass]="bodyIconClass" aria-hidden="true"></i>
                   <span *ngIf="bodyIconClass === 'fa fa-circle'" class="ac-finder__dot" [style.background]="bodyColor"></span>
                 </span>
-                <span class="ac-finder__name">{{ bodyLabel }}</span>
-                <span
-                  class="ac-finder__obj-cam"
-                  *ngIf="headingDeg != null || lookTracker.elevationDeg != null || devicePitchDeg != null">
-                  <i class="fa fa-video-camera" aria-hidden="true"></i>
-                  <ng-container *ngIf="headingDeg != null">{{ headingDeg | number : '1.0-0' }}° {{ headingCardinalLabel() }}</ng-container>
-                  <ng-container *ngIf="headingDeg != null && lookTracker.elevationDeg != null"> · </ng-container>
-                  <ng-container *ngIf="lookTracker.elevationDeg != null">{{ lookTracker.elevationDeg | number : '1.0-0' }}°</ng-container>
-                  <ng-container *ngIf="devicePitchDeg != null">
-                    <ng-container *ngIf="headingDeg != null || lookTracker.elevationDeg != null"> · </ng-container>
-                    {{ 'ASTRO_COMPASS.DEVICE_PITCH' | translate }} {{ devicePitchDeg | number : '1.0-0' }}°
-                  </ng-container>
-                </span>
               </button>
               <div class="ac-finder__hud">
                 <div
                   class="ac-finder__aim"
-                  *ngIf="headingDeg != null || lookTracker.elevationDeg != null || devicePitchDeg != null"
+                  *ngIf="headingDeg != null || lookTracker.elevationDeg != null"
                   [class.ac-finder__aim--locked]="finderProj?.centered">
                   <span class="ac-finder__aim-tag">
                     <i class="fa fa-video-camera" aria-hidden="true"></i>
                     {{ 'ASTRO_COMPASS.HUD_CAMERA' | translate }}
                   </span>
                   <div class="ac-finder__aim-pair">
-                    <div class="ac-finder__aim-metric">
-                      <span class="ac-finder__aim-lab">{{ 'ASTRO_COMPASS.AZIMUTH' | translate }}</span>
-                      <div class="ac-finder__aim-val">
-                        <strong *ngIf="headingDeg != null">{{ headingDeg | number : '1.0-0' }}</strong>
-                        <strong *ngIf="headingDeg == null">—</strong>
-                        <span class="ac-finder__aim-unit" *ngIf="headingDeg != null">°</span>
-                        <em *ngIf="headingDeg != null">{{ headingCardinalLabel() }}</em>
-                      </div>
-                    </div>
                     <div class="ac-finder__aim-metric">
                       <span class="ac-finder__aim-lab">{{ 'ASTRO_COMPASS.ELEVATION' | translate }}</span>
                       <div class="ac-finder__aim-val">
@@ -559,11 +537,12 @@
                       </div>
                     </div>
                     <div class="ac-finder__aim-metric">
-                      <span class="ac-finder__aim-lab">{{ 'ASTRO_COMPASS.DEVICE_PITCH' | translate }}</span>
+                      <span class="ac-finder__aim-lab">{{ 'ASTRO_COMPASS.AZIMUTH' | translate }}</span>
                       <div class="ac-finder__aim-val">
-                        <strong *ngIf="devicePitchDeg != null">{{ devicePitchDeg | number : '1.0-0' }}</strong>
-                        <strong *ngIf="devicePitchDeg == null">—</strong>
-                        <span class="ac-finder__aim-unit" *ngIf="devicePitchDeg != null">°</span>
+                        <strong *ngIf="headingDeg != null">{{ headingDeg | number : '1.0-0' }}</strong>
+                        <strong *ngIf="headingDeg == null">—</strong>
+                        <span class="ac-finder__aim-unit" *ngIf="headingDeg != null">°</span>
+                        <em *ngIf="headingDeg != null">{{ headingCardinalLabel() }}</em>
                       </div>
                     </div>
                   </div>
@@ -577,7 +556,6 @@
                   <div class="ac-finder__target-pair">
                     <span *ngIf="azimuthDeg != null">{{ azimuthDeg | number : '1.0-0' }}° {{ cardinalLabel() }}</span>
                     <span *ngIf="elevationDeg != null">{{ elevationDeg | number : '1.0-0' }}°</span>
-                    <span *ngIf="targetPhoneTiltDeg() != null">{{ 'ASTRO_COMPASS.DEVICE_PITCH' | translate }} {{ targetPhoneTiltDeg() | number : '1.0-0' }}°</span>
                   </div>
                 </div>
                 <div class="ac-finder__hud-offs" *ngIf="lookTracker.manualOffsetDeg || lookTracker.manualElOffsetDeg">
@@ -2334,7 +2312,6 @@
         <div class="ac-finder__target-pair">
           <span *ngIf="azimuthDeg != null">{{ azimuthDeg | number : '1.0-0' }}° {{ cardinalLabel() }}</span>
           <span *ngIf="elevationDeg != null">{{ elevationDeg | number : '1.0-0' }}°</span>
-          <span *ngIf="targetPhoneTiltDeg() != null">{{ 'ASTRO_COMPASS.DEVICE_PITCH' | translate }} {{ targetPhoneTiltDeg() | number : '1.0-0' }}°</span>
         </div>
       </div>
     </div>
