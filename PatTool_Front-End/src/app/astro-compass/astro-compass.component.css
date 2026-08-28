@@ -6280,21 +6280,6 @@ a.ac-compass-cal__btn--direction {
   animation: ac-look-pulse 0.9s ease-in-out infinite;
 }
 
-.ac-finder__guide-ok {
-  position: absolute;
-  left: 50%;
-  top: calc(50% + 2.55rem);
-  transform: translateX(-50%);
-  width: 1.7rem;
-  height: 1.7rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: rgba(61, 255, 154, 0.92);
-  color: #062414;
-  font-size: 0.85rem;
-}
 
 .ac-finder__exact {
   display: inline-flex;
@@ -6383,7 +6368,7 @@ a.ac-compass-cal__btn--direction {
   color: inherit;
   font: inherit;
   cursor: default;
-  filter: drop-shadow(0 0 8px currentColor);
+  filter: drop-shadow(0 0 4px currentColor);
 }
 
 .ac-finder__obj-pin {
@@ -6398,13 +6383,13 @@ a.ac-compass-cal__btn--direction {
 
 .ac-finder__obj i,
 .ac-finder__dot {
-  font-size: 1.65rem;
+  font-size: 18px !important;
 }
 
 .ac-finder__dot {
   display: block;
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
 }
 

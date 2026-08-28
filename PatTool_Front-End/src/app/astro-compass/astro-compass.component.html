@@ -500,12 +500,9 @@
                   <i class="fa fa-chevron-down" aria-hidden="true"></i>
                   <span>{{ finderGuide.pitchDeg }}°</span>
                 </div>
-                <div class="ac-finder__guide-ok" *ngIf="finderGuide.ok" aria-hidden="true">
-                  <i class="fa fa-check"></i>
-                </div>
               </div>
               <button
-                *ngIf="finderProj?.inFront || finderProj?.inView || finderPoseFrozen"
+                *ngIf="finderProj?.inView || finderPoseFrozen"
                 type="button"
                 class="ac-finder__obj"
                 [class.ac-finder__obj--locked]="finderProj?.centered && !finderPoseFrozen"
@@ -514,8 +511,15 @@
                 [style.color]="bodyColor"
                 [attr.title]="bodyLabel">
                 <span class="ac-finder__obj-pin">
-                  <i *ngIf="bodyIconClass !== 'fa fa-circle'" [ngClass]="bodyIconClass" aria-hidden="true"></i>
-                  <span *ngIf="bodyIconClass === 'fa fa-circle'" class="ac-finder__dot" [style.background]="bodyColor"></span>
+                  <i
+                    *ngIf="bodyIconClass !== 'fa fa-circle'"
+                    [ngClass]="bodyIconClass"
+                    [style.font-size.px]="18"
+                    aria-hidden="true"></i>
+                  <span
+                    *ngIf="bodyIconClass === 'fa fa-circle'"
+                    class="ac-finder__dot"
+                    [style.background]="bodyColor"></span>
                 </span>
               </button>
               <div class="ac-finder__hud">
