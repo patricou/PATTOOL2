@@ -473,6 +473,17 @@ describe('computeFinderTurnGuide', () => {
     expect(g!.ok).toBeTrue();
     expect(g!.left || g!.right || g!.up || g!.down).toBeFalse();
   });
+
+  it('keeps yellow arrows when zoom pushes the target just off-screen', () => {
+    const proj = projectCelestialToScreen(0, 20, 0, 6, 20, 8, 10);
+    expect(proj.inView).toBeFalse();
+    expect(proj.inFront).toBeTrue();
+    expect(proj.xPct).toBeGreaterThan(100);
+    const g = computeFinderTurnGuide(0, 20, 6, 20, proj);
+    expect(g!.right).toBeTrue();
+    expect(g!.left).toBeFalse();
+    expect(g!.ok).toBeFalse();
+  });
 });
 
 describe('sightingOffsetsFromLook', () => {

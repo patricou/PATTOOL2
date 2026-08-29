@@ -442,18 +442,27 @@ export function computeFinderTurnGuide(
   let right = false;
   let up = false;
   let down = false;
-  if (proj?.inView) {
-    if (proj.xPct < 50 - GUIDE_SCREEN_DEAD_PCT) {
+  const onGlass =
+    !!proj?.inFront &&
+    proj.xPct >= 0 &&
+    proj.xPct <= 100 &&
+    proj.yPct >= 0 &&
+    proj.yPct <= 100;
+  if (proj?.inFront) {
+    /* Hors cadre (zoom) : pointer même pour 2–6°. Dans le cadre : zone morte écran. */
+    const dead = onGlass || proj.inView ? GUIDE_SCREEN_DEAD_PCT : 0;
+    if (proj.xPct < 50 - dead) {
       left = true;
-    } else if (proj.xPct > 50 + GUIDE_SCREEN_DEAD_PCT) {
+    } else if (proj.xPct > 50 + dead) {
       right = true;
     }
-    if (proj.yPct < 50 - GUIDE_SCREEN_DEAD_PCT) {
+    if (proj.yPct < 50 - dead) {
       up = true;
-    } else if (proj.yPct > 50 + GUIDE_SCREEN_DEAD_PCT) {
+    } else if (proj.yPct > 50 + dead) {
       down = true;
     }
-  } else {
+  }
+  if (!left && !right && !up && !down && !onGlass && !proj?.inView) {
     if (Math.abs(yawDeg) > GUIDE_DEAD_DEG) {
       if (yawDeg > 0) {
         right = true;

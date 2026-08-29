@@ -557,7 +557,7 @@ a.dir-btn--nord .fa {
   width: 100%;
   border-radius: 0.85rem;
   background: #020607;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .dir-cam__stage {
@@ -664,6 +664,7 @@ a.dir-btn--nord .fa {
   aspect-ratio: auto;
   border-radius: 0;
   background: #000;
+  touch-action: none;
 }
 
 .dir-cam--fs .dir-cam__stage,

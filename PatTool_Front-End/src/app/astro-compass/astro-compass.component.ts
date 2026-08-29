@@ -202,6 +202,9 @@ const FINDER_CENTER_SEP_DEG = 2.8;
 const FINDER_PAN_EL_MIN = -20;
 const FINDER_PAN_EL_MAX = 90;
 const FINDER_LABEL_SCALE_MAX = 2.5;
+/** L’icône cible suit un peu le zoom, sans retrouver l’ancienne taille. */
+const FINDER_OBJ_SCALE_MAX = 1.4;
+const FINDER_OBJ_SCALE_GAIN = 0.1;
 
 interface AddressSearchResult {
   lat: number;
@@ -1285,8 +1288,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   finderZoom = FINDER_ZOOM_MIN;
   finderDigitalZoom = 1;
   finderVideoTransform = 'scale(1)';
-  /** Étiquettes du viseur (étoiles, trail) : grandissent avec le zoom. L’icône cible reste fixe. */
+  /** Étiquettes du viseur (étoiles, trail) : grandissent avec le zoom. */
   finderLabelScale = 1;
+  /** Icône de l’objet : légèrement plus grande au zoom, plafonnée. */
+  finderObjScale = 1;
   finderPanning = false;
   /** Décalage de visée (°) en pause, pour glisser la vue. */
   private finderPanAz = 0;
@@ -3474,6 +3479,18 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private refreshFinderLabelScale(): void {
     const z = Math.max(FINDER_ZOOM_MIN, this.finderZoom);
     this.finderLabelScale = parseFloat(Math.min(FINDER_LABEL_SCALE_MAX, z).toFixed(3));
+    this.finderObjScale = parseFloat(
+      Math.min(FINDER_OBJ_SCALE_MAX, 1 + FINDER_OBJ_SCALE_GAIN * (z - 1)).toFixed(3)
+    );
+  }
+
+  /** Icône visible dès que le point projeté est dans le cadre, sans le test inView trop strict au zoom. */
+  get finderObjVisible(): boolean {
+    if (this.finderPoseFrozen) {
+      return true;
+    }
+    const p = this.finderProj;
+    return !!p && p.inFront && p.xPct >= 0 && p.xPct <= 100 && p.yPct >= 0 && p.yPct <= 100;
   }
 
   private syncFinderVideoTransform(): void {

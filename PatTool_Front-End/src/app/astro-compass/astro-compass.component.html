@@ -324,6 +324,7 @@
               [class.ac-finder--cible-verify]="cibleVerifyActive && headingRef === 'cible'"
               [class.ac-finder--cible-ok]="cibleVerifyActive && headingRef === 'cible' && cibleVerifyOk()"
               [style.--ac-finder-label-scale]="finderLabelScale"
+              [style.--ac-finder-obj-scale]="finderObjScale"
               [style.height.px]="!isFullscreen && camHeightPx != null ? camHeightPx : null">
               <video
                 #cam
@@ -502,7 +503,7 @@
                 </div>
               </div>
               <button
-                *ngIf="finderProj?.inView || finderPoseFrozen"
+                *ngIf="finderObjVisible"
                 type="button"
                 class="ac-finder__obj"
                 [class.ac-finder__obj--locked]="finderProj?.centered && !finderPoseFrozen"
@@ -514,7 +515,6 @@
                   <i
                     *ngIf="bodyIconClass !== 'fa fa-circle'"
                     [ngClass]="bodyIconClass"
-                    [style.font-size.px]="18"
                     aria-hidden="true"></i>
                   <span
                     *ngIf="bodyIconClass === 'fa fa-circle'"
@@ -561,10 +561,6 @@
                     <span *ngIf="azimuthDeg != null">{{ azimuthDeg | number : '1.0-0' }}° {{ cardinalLabel() }}</span>
                     <span *ngIf="elevationDeg != null">{{ elevationDeg | number : '1.0-0' }}°</span>
                   </div>
-                </div>
-                <div class="ac-finder__hud-offs" *ngIf="lookTracker.manualOffsetDeg || lookTracker.manualElOffsetDeg">
-                  <span *ngIf="lookTracker.manualOffsetDeg" class="ac-finder__hud-north">N {{ lookTracker.manualOffsetDeg > 0 ? '+' : '' }}{{ lookTracker.manualOffsetDeg }}°</span>
-                  <span *ngIf="lookTracker.manualElOffsetDeg" class="ac-finder__hud-sight">Él {{ lookTracker.manualElOffsetDeg > 0 ? '+' : '' }}{{ lookTracker.manualElOffsetDeg }}°</span>
                 </div>
               </div>
               <div class="ac-finder__right-btns">

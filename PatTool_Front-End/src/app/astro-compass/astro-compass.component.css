@@ -5819,6 +5819,7 @@ a.ac-compass-cal__btn--direction {
 
 .ac-finder {
   --ac-finder-label-scale: 1;
+  --ac-finder-obj-scale: 1;
   position: relative;
   width: 100%;
   aspect-ratio: 3 / 4;
@@ -6383,13 +6384,13 @@ a.ac-compass-cal__btn--direction {
 
 .ac-finder__obj i,
 .ac-finder__dot {
-  font-size: 18px !important;
+  font-size: calc(18px * var(--ac-finder-obj-scale, 1)) !important;
 }
 
 .ac-finder__dot {
   display: block;
-  width: 12px;
-  height: 12px;
+  width: calc(12px * var(--ac-finder-obj-scale, 1));
+  height: calc(12px * var(--ac-finder-obj-scale, 1));
   border-radius: 50%;
 }
 
@@ -6770,7 +6771,7 @@ a.ac-compass-cal__btn--direction {
   z-index: 2;
   transform: translate(-50%, -130%);
   pointer-events: none;
-  font-size: calc(0.62rem * var(--ac-finder-label-scale, 1));
+  font-size: calc(0.62rem * var(--ac-finder-obj-scale, 1));
   font-weight: 800;
   color: #fff;
   text-shadow: 0 1px 4px #000;
