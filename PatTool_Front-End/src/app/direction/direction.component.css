@@ -1338,6 +1338,37 @@ a.dir-btn--nord .fa {
   fill: #c41e0a;
 }
 
+.dir-viseur-name {
+  position: absolute;
+  left: 50%;
+  top: 6%;
+  z-index: 6;
+  transform: translateX(-50%);
+  max-width: 78%;
+  padding: 0.18rem 0.5rem;
+  border-radius: 0.45rem;
+  background: rgba(6, 18, 12, 0.78);
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  color: #d8ffe8;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  text-align: center;
+  text-shadow: 0 1px 3px #000;
+  pointer-events: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dir-viseur-name--day {
+  background: rgba(236, 252, 243, 0.88);
+  border-color: rgba(21, 128, 61, 0.55);
+  color: #14532d;
+  text-shadow: none;
+}
+
 .dir-hud {
   position: relative;
   flex: 0 0 auto;

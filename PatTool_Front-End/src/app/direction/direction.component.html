@@ -173,6 +173,12 @@
             class="dir-viseur__corners"
             d="M32 52 V32 H52 M148 32 H168 V52 M168 148 V168 H148 M52 168 H32 V148"/>
         </svg>
+        <div
+          class="dir-viseur-name"
+          *ngIf="activeTab === 'cible' && cibleOverlayName()"
+          [class.dir-viseur-name--day]="!viseurIsNight()">
+          {{ cibleOverlayName() }}
+        </div>
         <app-compass-rose
           *ngIf="!patWizard && activeTab === 'calibrage'"
           variant="overlay"

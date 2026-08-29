@@ -1212,6 +1212,10 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     return this.cibles.find((c) => c.id === this.selectedCibleId) ?? null;
   }
 
+  cibleOverlayName(): string {
+    return (this.cibleName || '').trim() || this.selectedCible()?.name || '';
+  }
+
   cibleLockDelta(): number | null {
     const c = this.selectedCible();
     return cibleLockDeltaDeg(
