@@ -134,8 +134,9 @@ public class UserOwnerService {
     }
 
     /**
-     * Read {@code prefix + username}, then legacy {@code prefix + keycloakId}.
-     * Copies a legacy hit onto the username key so later reads stay on the surnom.
+     * Read {@code prefix + username} and legacy {@code prefix + keycloakId},
+     * then keep the newest {@code dateModification}. Copies a newer alias onto
+     * the username key so later reads stay on the surnom.
      */
     public Optional<AppParameter> findParam(String prefix, String ownerHint) {
         if (!StringUtils.hasText(prefix)) {
@@ -146,32 +147,42 @@ public class UserOwnerService {
             return Optional.empty();
         }
         String writeId = owner.username();
-        if (writeId != null) {
-            Optional<AppParameter> byName = appParameterService.find(prefix + writeId);
-            if (byName.isPresent()) {
-                return byName;
-            }
-        }
+        AppParameter newest = null;
+        long newestMod = Long.MIN_VALUE;
         for (String alias : owner.aliases()) {
-            if (writeId != null && alias.equals(writeId)) {
-                continue;
-            }
             Optional<AppParameter> row = appParameterService.find(prefix + alias);
             if (row.isEmpty()) {
                 continue;
             }
-            if (writeId != null && !alias.equals(writeId)) {
-                AppParameter src = row.get();
-                appParameterService.setValue(
-                        prefix + writeId,
-                        src.getParamValue(),
-                        src.getValueType(),
-                        src.getDescription());
-                return appParameterService.find(prefix + writeId);
+            long mod = modificationEpoch(row.get());
+            if (newest == null || mod > newestMod) {
+                newest = row.get();
+                newestMod = mod;
             }
-            return row;
         }
-        return Optional.empty();
+        if (newest == null) {
+            return Optional.empty();
+        }
+        if (writeId != null && !newest.getParamKey().equals(prefix + writeId)) {
+            AppParameter src = newest;
+            appParameterService.setValue(
+                    prefix + writeId,
+                    src.getParamValue(),
+                    src.getValueType(),
+                    src.getDescription());
+            return appParameterService.find(prefix + writeId);
+        }
+        return Optional.of(newest);
+    }
+
+    private static long modificationEpoch(AppParameter row) {
+        if (row.getDateModification() != null) {
+            return row.getDateModification().getTime();
+        }
+        if (row.getDateCreation() != null) {
+            return row.getDateCreation().getTime();
+        }
+        return 0L;
     }
 
     public void dropAliasKeys(String prefix, String ownerHint) {

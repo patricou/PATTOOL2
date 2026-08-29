@@ -3736,9 +3736,15 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private readLastAstroCompassSatelliteId(): string | null {
     try {
       const user = this.keycloakService.getPreferredUsername();
-      const keys = user
-        ? [`${ASTRO_LAST_TARGET_KEY}:${user}`, ASTRO_LAST_TARGET_KEY]
-        : [ASTRO_LAST_TARGET_KEY];
+      const sub = this.keycloakService.getJwtSubject();
+      const keys: string[] = [];
+      if (user) {
+        keys.push(`${ASTRO_LAST_TARGET_KEY}:${user}`);
+      }
+      if (sub && sub !== user) {
+        keys.push(`${ASTRO_LAST_TARGET_KEY}:${sub}`);
+      }
+      keys.push(ASTRO_LAST_TARGET_KEY);
       for (const key of keys) {
         const raw = localStorage.getItem(key);
         if (!raw) {

@@ -31,6 +31,8 @@ export interface AstroLastTarget {
   customRaHours?: number;
   customDecDeg?: number;
   customName?: string;
+  /** Epoch ms — used to pick the newest of local vs Mongo (username key). */
+  updatedAtMs?: number;
 }
 
 /** Point GPS visé depuis le viseur (GET/POST /astro/ground-positions). */

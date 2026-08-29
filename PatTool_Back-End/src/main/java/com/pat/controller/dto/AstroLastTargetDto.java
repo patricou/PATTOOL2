@@ -8,7 +8,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  *
  * <p>{@code kind} : {@code planet}, {@code star}, {@code galaxy}, {@code deepsky}, {@code constellation},
  * {@code iss}, {@code custom} ou {@code ground}.
- * {@code id} identifie l'objet catalogue ou la position au sol ; pour {@code custom}, on mémorise AD/DEC et le nom.</p>
+ * {@code id} identifie l'objet catalogue ou la position au sol ; pour {@code custom}, on mémorise AD/DEC et le nom.
+ * {@code updatedAtMs} sert à départager un choix local et une ancienne clé Keycloak.</p>
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record AstroLastTargetDto(
@@ -16,5 +17,6 @@ public record AstroLastTargetDto(
         String id,
         Double customRaHours,
         Double customDecDeg,
-        String customName
+        String customName,
+        Long updatedAtMs
 ) {}

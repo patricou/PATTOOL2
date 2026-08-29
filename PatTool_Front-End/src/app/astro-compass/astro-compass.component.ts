@@ -11088,21 +11088,36 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return u ? `${base}:${u}` : base;
   }
 
+  /**
+   * Lit {@code base:username}, puis l’ancienne clé {@code base:keycloakId}, puis {@code base}.
+   * Recopie vers le surnom pour que le prochain chargement ne dépende plus du {@code sub}.
+   */
   private readUserLocal(base: string): string | null {
     try {
-      const keyed = localStorage.getItem(this.userLocalKey(base));
-      if (keyed != null && keyed !== '') {
-        return keyed;
+      const username = this.ownerUsername();
+      const sub = this.keycloak.getJwtSubject();
+      const keys: string[] = [];
+      if (username) {
+        keys.push(`${base}:${username}`);
       }
-      const legacy = localStorage.getItem(base);
-      if (legacy == null || legacy === '') {
-        return null;
+      if (sub && sub !== username) {
+        keys.push(`${base}:${sub}`);
       }
-      const u = this.ownerUsername();
-      if (u) {
-        localStorage.setItem(this.userLocalKey(base), legacy);
+      keys.push(base);
+      for (const key of keys) {
+        const value = localStorage.getItem(key);
+        if (value == null || value === '') {
+          continue;
+        }
+        if (username && key !== `${base}:${username}`) {
+          localStorage.setItem(`${base}:${username}`, value);
+          if (key !== base) {
+            localStorage.removeItem(key);
+          }
+        }
+        return value;
       }
-      return legacy;
+      return null;
     } catch {
       return null;
     }
@@ -11138,14 +11153,15 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private saveLastTarget(payload: LastAstroTarget): void {
-    this.writeLastTargetLocal(payload);
-    const key = this.targetPersistKey(payload);
+    const stamped = this.withLastTargetStamp(payload);
+    this.writeLastTargetLocal(stamped);
+    const key = this.targetPersistKey(stamped);
     if (key === this.lastPersistedTargetJson) {
       return;
     }
     this.lastTargetLoadGen++;
     this.lastTargetSaveSub?.unsubscribe();
-    this.lastTargetSaveSub = this.api.setAstroLastTarget(payload).subscribe({
+    this.lastTargetSaveSub = this.api.setAstroLastTarget(stamped).subscribe({
       next: () => {
         this.lastPersistedTargetJson = key;
       },
@@ -11155,8 +11171,35 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  private withLastTargetStamp(payload: LastAstroTarget): LastAstroTarget {
+    const ts =
+      typeof payload.updatedAtMs === 'number' && Number.isFinite(payload.updatedAtMs) && payload.updatedAtMs > 0
+        ? payload.updatedAtMs
+        : Date.now();
+    return { ...payload, updatedAtMs: ts };
+  }
+
+  private lastTargetStamp(data: LastAstroTarget | null | undefined): number {
+    const ts = data?.updatedAtMs;
+    return typeof ts === 'number' && Number.isFinite(ts) && ts > 0 ? ts : 0;
+  }
+
+  /** Plus récent gagne ; à horodatage égal / absent, on garde le local (déjà restauré sur cet appareil). */
+  private newerLastTarget(
+    local: LastAstroTarget | null,
+    remote: LastAstroTarget | null
+  ): LastAstroTarget | null {
+    if (!local) {
+      return remote;
+    }
+    if (!remote) {
+      return local;
+    }
+    return this.lastTargetStamp(remote) > this.lastTargetStamp(local) ? remote : local;
+  }
+
   private currentLastTargetPayload(): LastAstroTarget | null {
-    const payload: LastAstroTarget = { kind: this.selectedKind };
+    const payload: LastAstroTarget = { kind: this.selectedKind, updatedAtMs: Date.now() };
     if (this.selectedKind === 'planet') {
       payload.id = this.selectedPlanetId;
     } else if (this.selectedKind === 'star') {
@@ -11242,7 +11285,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return true;
   }
 
-  /** Compte connecté : la base gagne ; sinon on pousse le choix local vers Mongo. */
+  /** Compte connecté : le plus récent (local ou Mongo) gagne ; à égalité on garde le local. */
   private hydrateLastTargetFromDb(): void {
     if (this.hasSatelliteQueryTarget()) {
       return;
@@ -11257,10 +11300,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.autoDetectModalOpen || this.autoDetectLive) {
           return;
         }
-        if (remote?.kind) {
-          this.applyLastTarget(remote);
-          this.writeLastTargetLocal(remote);
-          this.lastPersistedTargetJson = this.targetPersistKey(remote);
+        const remoteOk = remote?.kind ? remote : null;
+        const winner = this.newerLastTarget(local, remoteOk);
+        if (winner && remoteOk && winner === remoteOk) {
+          this.applyLastTarget(remoteOk);
+          this.writeLastTargetLocal(remoteOk);
+          this.lastPersistedTargetJson = this.targetPersistKey(remoteOk);
           this.cdr.markForCheck();
           return;
         }

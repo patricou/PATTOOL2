@@ -84,6 +84,7 @@ public class AstroLastTargetService {
         if (!KINDS.contains(kind)) {
             return Optional.empty();
         }
+        Long stamp = sanitizeStamp(dto.updatedAtMs());
         if ("custom".equals(kind)) {
             Double ra = dto.customRaHours();
             Double dec = dto.customDecDeg();
@@ -100,12 +101,23 @@ public class AstroLastTargetService {
             if (name != null && name.isBlank()) {
                 name = null;
             }
-            return Optional.of(new AstroLastTargetDto("custom", null, ra, dec, name));
+            return Optional.of(new AstroLastTargetDto("custom", null, ra, dec, name, stamp));
         }
         String id = dto.id() == null ? "" : dto.id().trim();
         if (!CATALOG_ID.matcher(id).matches()) {
             return Optional.empty();
         }
-        return Optional.of(new AstroLastTargetDto(kind, id, null, null, null));
+        return Optional.of(new AstroLastTargetDto(kind, id, null, null, null, stamp));
+    }
+
+    private static Long sanitizeStamp(Long updatedAtMs) {
+        if (updatedAtMs == null || !Double.isFinite(updatedAtMs.doubleValue()) || updatedAtMs <= 0L) {
+            return null;
+        }
+        long now = System.currentTimeMillis();
+        if (updatedAtMs > now + 86_400_000L) {
+            return now;
+        }
+        return updatedAtMs;
     }
 }
