@@ -62,7 +62,8 @@ import {
   snapshotFromPayload,
   snapshotsFromExport,
   mergeCalSamples,
-  persistPattoolCalFromSamples
+  persistPattoolCalFromSamples,
+  setLookFromRawToTarget
 } from './direction-pattool-cal';
 import { clampCamHeightPx, loadCamHeightPx, saveCamHeightPx } from '../shared/preview-cam-size';
 import { applyMultiplicativeWheelScale, normalizeWheelDeltaPixels } from '../shared/wheel-zoom.util';
@@ -231,6 +232,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   cibleError: string | null = null;
   cibleUpdatedOk = false;
   cibleEditOpen = false;
+  cibleEditCreate = false;
   editName = '';
   editPhoto: string | null = null;
   editUserLat: number | null = null;
@@ -1532,7 +1534,8 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
         markLat: this.markLat,
         markLon: this.markLon,
         markAltM: this.markAltM,
-        markAddress: this.markAddress
+        markAddress: this.markAddress,
+        refAzimuthDeg: this.markBearingDeg()
       })
       .subscribe({
         next: (saved) => this.replaceCible(saved),
@@ -1542,6 +1545,19 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
 
   private resolveCibleRefAzimuth(fallback?: number | null): number {
     return this.markBearingDeg() ?? fallback ?? this.azimuthDeg ?? 0;
+  }
+
+  private snapLookToCibleMark(): void {
+    if (!this.hasMark()) {
+      return;
+    }
+    const targetAz = this.markBearingDeg();
+    const rawAz = this.headingBeforeOffset();
+    if (targetAz == null || rawAz == null || !Number.isFinite(targetAz) || !Number.isFinite(rawAz)) {
+      return;
+    }
+    this.patFile = setLookFromRawToTarget(rawAz, targetAz);
+    this.publish();
   }
 
   captureCiblePhoto(): void {
@@ -1595,6 +1611,10 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   }
 
   startNewCible(): void {
+    this.openCibleCreate();
+  }
+
+  private resetCibleDraft(): void {
     this.selectedCibleId = null;
     this.cibleName = '';
     this.ciblePhoto = null;
@@ -1684,6 +1704,22 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  openCibleCreate(): void {
+    const fromExisting = !!this.selectedCibleId;
+    this.cibleEditCreate = true;
+    this.editName = fromExisting ? '' : (this.cibleName || '').slice(0, 80);
+    this.editPhoto = fromExisting ? null : this.ciblePhoto;
+    this.editUserLat = this.gpsLat;
+    this.editUserLon = this.gpsLon;
+    this.editMarkLat = fromExisting ? null : this.markLat;
+    this.editMarkLon = fromExisting ? null : this.markLon;
+    this.editMarkAltM = fromExisting ? null : this.markAltM;
+    this.editMarkAddress = fromExisting ? null : (this.markAddress?.trim() || null);
+    this.editUserAddress = null;
+    this.editMapFocus = 'mark';
+    this.showCibleEditDialog();
+  }
+
   openCibleEdit(cible: DirectionCible, ev?: Event): void {
     ev?.preventDefault();
     ev?.stopPropagation();
@@ -1693,6 +1729,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     if (this.selectedCibleId !== cible.id) {
       this.selectCible(cible);
     }
+    this.cibleEditCreate = false;
     this.editName = (cible.name || '').slice(0, 80);
     this.editPhoto = cible.photoDataUrl ?? null;
     this.editUserLat = cible.userLat != null && Number.isFinite(cible.userLat) ? cible.userLat : this.gpsLat;
@@ -1703,6 +1740,10 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     this.editMarkAddress = cible.markAddress?.trim() || null;
     this.editUserAddress = null;
     this.editMapFocus = hasCibleMark(this.editMarkLat, this.editMarkLon) ? 'user' : 'mark';
+    this.showCibleEditDialog();
+  }
+
+  private showCibleEditDialog(): void {
     this.editError = null;
     this.editMarkAddressBusy = false;
     this.editUserAddressBusy = false;
@@ -1718,6 +1759,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
 
   closeCibleEdit(): void {
     this.cibleEditOpen = false;
+    this.cibleEditCreate = false;
     this.editError = null;
     this.editMarkAddressSub?.unsubscribe();
     this.editMarkAddressSub = null;
@@ -1772,7 +1814,8 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     const mark = this.editHasMark()
       ? { lat: this.editMarkLat!, lng: this.editMarkLon!, alt: this.editMarkAltM }
       : null;
-    const label = this.editName.trim() || this.translate.instant('DIRECTION.TARGET_EDIT_TITLE');
+    const label = this.editName.trim()
+      || this.translate.instant(this.cibleEditCreate ? 'DIRECTION.TARGET_NEW_TITLE' : 'DIRECTION.TARGET_EDIT_TITLE');
     this.traceViewerModal.openCiblePair(user, mark, label);
   }
 
@@ -1932,10 +1975,86 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     return m != null && m < CIBLE_MARK_MIN_DIST_M;
   }
 
+  editCoordText(value: number | null): string {
+    return value == null || !Number.isFinite(value) ? '' : String(value);
+  }
+
+  onEditUserLatInput(ev: Event): void {
+    this.applyEditCoord('userLat', ev, -90, 90);
+  }
+
+  onEditUserLonInput(ev: Event): void {
+    this.applyEditCoord('userLon', ev, -180, 180);
+  }
+
+  onEditMarkLatInput(ev: Event): void {
+    this.applyEditCoord('markLat', ev, -90, 90);
+  }
+
+  onEditMarkLonInput(ev: Event): void {
+    this.applyEditCoord('markLon', ev, -180, 180);
+  }
+
+  onEditMarkAltInput(ev: Event): void {
+    this.applyEditCoord('markAlt', ev, -500, 9000);
+  }
+
+  private applyEditCoord(
+    field: 'userLat' | 'userLon' | 'markLat' | 'markLon' | 'markAlt',
+    ev: Event,
+    min: number,
+    max: number
+  ): void {
+    const parsed = this.parseEditCoord(ev, min, max);
+    if (parsed === undefined) {
+      return;
+    }
+    if (field === 'userLat') {
+      this.editUserLat = parsed;
+    } else if (field === 'userLon') {
+      this.editUserLon = parsed;
+    } else if (field === 'markLat') {
+      this.editMarkLat = parsed;
+    } else if (field === 'markLon') {
+      this.editMarkLon = parsed;
+    } else {
+      this.editMarkAltM = parsed;
+    }
+    if (field === 'userLat' || field === 'userLon') {
+      this.editUserAddress = null;
+      if (this.editHasUser()) {
+        this.resolveEditUserAddress();
+      }
+    } else if (field !== 'markAlt') {
+      this.editMarkAddress = null;
+      if (this.editHasMark()) {
+        this.resolveEditMarkAddress();
+      }
+    }
+    this.syncEditMarkersToDraft(this.editHasUser() || this.editHasMark());
+    this.cdr.markForCheck();
+  }
+
+  private parseEditCoord(ev: Event, min: number, max: number): number | null | undefined {
+    const raw = ((ev.target as HTMLInputElement | null)?.value ?? '').trim().replace(',', '.');
+    if (!raw) {
+      this.editError = null;
+      return null;
+    }
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < min || n > max) {
+      this.editError = 'DIRECTION.TARGET_EDIT_COORD_BAD';
+      this.cdr.markForCheck();
+      return undefined;
+    }
+    this.editError = null;
+    return n;
+  }
+
   saveCibleEditModal(): void {
     const id = this.selectedCibleId;
     const name = this.editName.trim();
-    if (!id) {
+    if (!this.cibleEditCreate && !id) {
       return;
     }
     if (!name) {
@@ -1950,43 +2069,49 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     const hasUser = this.editHasUser();
     const refAzimuthDeg = hasUser && hasMark
       ? cibleMarkBearingDeg(this.editUserLat, this.editUserLon, this.editMarkLat, this.editMarkLon)
-      : null;
-    this.api
-      .updateDirectionCible(id, {
-        name,
-        photoDataUrl: this.editPhoto || '',
-        userLat: hasUser ? this.editUserLat : undefined,
-        userLon: hasUser ? this.editUserLon : undefined,
-        userAccM: hasUser ? null : undefined,
-        markLat: hasMark ? this.editMarkLat : null,
-        markLon: hasMark ? this.editMarkLon : null,
-        markAltM: hasMark ? this.editMarkAltM : null,
-        markAddress: hasMark ? this.editMarkAddress : null,
-        clearMark: !hasMark,
-        refAzimuthDeg
-      })
-      .subscribe({
-        next: (saved) => {
-          this.cibleSaving = false;
-          this.cibleUpdatedOk = true;
-          this.cibleName = name;
-          this.ciblePhoto = this.editPhoto;
-          this.markLat = this.editMarkLat;
-          this.markLon = this.editMarkLon;
-          this.markAltM = this.editMarkAltM;
-          this.markAddress = this.editMarkAddress;
-          this.replaceCible(saved);
-          this.ciblePhoto = this.editPhoto;
-          saveActiveCibleId(saved.id ?? id);
-          this.closeCibleEdit();
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.cibleSaving = false;
-          this.editError = 'DIRECTION.TARGET_SAVE_FAIL';
-          this.cdr.markForCheck();
-        }
-      });
+      : this.cibleEditCreate
+        ? this.resolveCibleRefAzimuth()
+        : null;
+    const body: DirectionCible = {
+      name,
+      photoDataUrl: this.editPhoto || '',
+      userLat: hasUser ? this.editUserLat : undefined,
+      userLon: hasUser ? this.editUserLon : undefined,
+      userAccM: hasUser ? (this.cibleEditCreate ? this.gpsAccM : null) : undefined,
+      markLat: hasMark ? this.editMarkLat : null,
+      markLon: hasMark ? this.editMarkLon : null,
+      markAltM: hasMark ? this.editMarkAltM : null,
+      markAddress: hasMark ? this.editMarkAddress : null,
+      clearMark: !hasMark,
+      refAzimuthDeg,
+      phoneElevationDeg: this.cibleEditCreate ? this.elevationDeg : undefined,
+      active: this.cibleEditCreate ? true : undefined
+    };
+    const req = this.cibleEditCreate
+      ? this.api.createDirectionCible(body)
+      : this.api.updateDirectionCible(id!, body);
+    req.subscribe({
+      next: (saved) => {
+        this.cibleSaving = false;
+        this.cibleUpdatedOk = true;
+        this.cibleName = name;
+        this.ciblePhoto = this.editPhoto;
+        this.markLat = this.editMarkLat;
+        this.markLon = this.editMarkLon;
+        this.markAltM = this.editMarkAltM;
+        this.markAddress = this.editMarkAddress;
+        this.replaceCible(saved);
+        this.ciblePhoto = this.editPhoto;
+        saveActiveCibleId(saved.id ?? id ?? null);
+        this.closeCibleEdit();
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.cibleSaving = false;
+        this.editError = 'DIRECTION.TARGET_SAVE_FAIL';
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   private initCibleEditMap(): void {
@@ -2346,6 +2471,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     }
     this.cibleSaving = true;
     this.cibleError = null;
+    this.snapLookToCibleMark();
     this.api
       .createDirectionCible({
         name,
@@ -2388,6 +2514,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
     }
     this.cibleSaving = true;
     this.cibleError = null;
+    this.snapLookToCibleMark();
     this.api
       .recalibrateDirectionCible(id, {
         name: this.cibleName.trim() || undefined,
@@ -2431,7 +2558,7 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
       next: () => {
         this.cibles = this.cibles.filter((c) => c.id !== cible.id);
         if (this.selectedCibleId === cible.id) {
-          this.startNewCible();
+          this.resetCibleDraft();
           saveActiveCibleId(null);
         }
         this.cdr.markForCheck();

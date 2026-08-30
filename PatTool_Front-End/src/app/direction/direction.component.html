@@ -706,7 +706,7 @@
       {{ 'DIRECTION.TARGET_ALIGNED' | translate }}
     </p>
     <p class="dir-msg dir-msg--bad" *ngIf="cibleError">{{ cibleError | translate }}</p>
-    <label class="dir-cible-name">
+    <label class="dir-cible-name" *ngIf="selectedCibleId">
       <span>{{ 'DIRECTION.TARGET_NAME' | translate }}</span>
       <input
         type="text"
@@ -762,10 +762,10 @@
         type="button"
         class="dir-btn dir-btn--go"
         *ngIf="!selectedCibleId"
-        [disabled]="cibleSaving || magAzimuthDeg == null"
-        (click)="saveNewCible()">
-        <i class="fa fa-floppy-o" aria-hidden="true"></i>
-        {{ 'DIRECTION.TARGET_SAVE' | translate }}
+        [disabled]="cibleSaving"
+        (click)="openCibleCreate()">
+        <i class="fa fa-plus" aria-hidden="true"></i>
+        {{ 'DIRECTION.TARGET_NEW' | translate }}
       </button>
       <hr class="dir-actions__rule" *ngIf="selectedCibleId" aria-hidden="true" />
       <button type="button" class="dir-btn" *ngIf="selectedCibleId" [disabled]="cibleSaving" (click)="startNewCible()">
@@ -932,8 +932,12 @@
     class="dir-modal__box dir-modal__box--edit"
     #cibleEditDialog
     tabindex="-1">
-    <h3 id="dir-cible-edit-title">{{ 'DIRECTION.TARGET_EDIT_TITLE' | translate }}</h3>
-    <p class="dir-modal__intro">{{ 'DIRECTION.TARGET_EDIT_HELP' | translate }}</p>
+    <h3 id="dir-cible-edit-title">
+      {{ (cibleEditCreate ? 'DIRECTION.TARGET_NEW_TITLE' : 'DIRECTION.TARGET_EDIT_TITLE') | translate }}
+    </h3>
+    <p class="dir-modal__intro">
+      {{ (cibleEditCreate ? 'DIRECTION.TARGET_NEW_HELP' : 'DIRECTION.TARGET_EDIT_HELP') | translate }}
+    </p>
     <p class="dir-msg dir-msg--bad" *ngIf="editError">{{ editError | translate }}</p>
     <label class="dir-cible-name">
       <span>{{ 'DIRECTION.TARGET_NAME' | translate }}</span>
@@ -1007,17 +1011,78 @@
     <p class="dir-modal__hint dir-edit-map-hint">{{ 'DIRECTION.TARGET_EDIT_MAP_HINT' | translate }}</p>
     <div class="dir-edit-map" #cibleEditMap></div>
     <dl class="dir-modal__dl dir-edit-dl">
-      <div>
+      <div class="dir-edit-dl__coords">
         <dt>{{ 'DIRECTION.TARGET_EDIT_USER' | translate }}</dt>
-        <dd>{{ editUserGpsText() }}</dd>
+        <dd>
+          <div class="dir-edit-coords">
+            <label>
+              <span>{{ 'DIRECTION.TARGET_EDIT_LAT' | translate }}</span>
+              <input
+                type="number"
+                inputmode="decimal"
+                step="0.00001"
+                min="-90"
+                max="90"
+                [value]="editCoordText(editUserLat)"
+                (change)="onEditUserLatInput($event)" />
+            </label>
+            <label>
+              <span>{{ 'DIRECTION.TARGET_EDIT_LON' | translate }}</span>
+              <input
+                type="number"
+                inputmode="decimal"
+                step="0.00001"
+                min="-180"
+                max="180"
+                [value]="editCoordText(editUserLon)"
+                (change)="onEditUserLonInput($event)" />
+            </label>
+          </div>
+        </dd>
       </div>
       <div class="dir-edit-dl__addr" *ngIf="editHasUser()">
         <dt>{{ 'DIRECTION.GPS_ADDR' | translate }}</dt>
         <dd>{{ editUserAddressText() }}</dd>
       </div>
-      <div>
+      <div class="dir-edit-dl__coords">
         <dt>{{ 'DIRECTION.TARGET_EDIT_MARK' | translate }}</dt>
-        <dd>{{ editMarkGpsText() }}</dd>
+        <dd>
+          <div class="dir-edit-coords">
+            <label>
+              <span>{{ 'DIRECTION.TARGET_EDIT_LAT' | translate }}</span>
+              <input
+                type="number"
+                inputmode="decimal"
+                step="0.00001"
+                min="-90"
+                max="90"
+                [value]="editCoordText(editMarkLat)"
+                (change)="onEditMarkLatInput($event)" />
+            </label>
+            <label>
+              <span>{{ 'DIRECTION.TARGET_EDIT_LON' | translate }}</span>
+              <input
+                type="number"
+                inputmode="decimal"
+                step="0.00001"
+                min="-180"
+                max="180"
+                [value]="editCoordText(editMarkLon)"
+                (change)="onEditMarkLonInput($event)" />
+            </label>
+            <label>
+              <span>{{ 'DIRECTION.TARGET_EDIT_ALT' | translate }}</span>
+              <input
+                type="number"
+                inputmode="decimal"
+                step="1"
+                min="-500"
+                max="9000"
+                [value]="editCoordText(editMarkAltM)"
+                (change)="onEditMarkAltInput($event)" />
+            </label>
+          </div>
+        </dd>
       </div>
       <div class="dir-edit-dl__addr" *ngIf="editHasMark()">
         <dt>{{ 'DIRECTION.TARGET_MARK_ADDR' | translate }}</dt>
@@ -1038,7 +1103,7 @@
       </button>
       <button type="button" class="dir-btn dir-btn--save" [disabled]="cibleSaving" (click)="saveCibleEditModal()">
         <i class="fa fa-floppy-o" aria-hidden="true"></i>
-        {{ 'DIRECTION.TARGET_UPDATE' | translate }}
+        {{ (cibleEditCreate ? 'DIRECTION.TARGET_SAVE' : 'DIRECTION.TARGET_UPDATE') | translate }}
       </button>
     </div>
   </div>

@@ -6,6 +6,7 @@ import {
   cibleMarkBearingDeg,
   cibleMarkDistanceM,
   cibleSensorHeadingFacingMark,
+  cibleViewfinderHeadingDeg,
   hasCibleMark
 } from './direction-cible-store';
 
@@ -44,5 +45,28 @@ describe('cible mark GPS', () => {
     expect(cibleLockDeltaDeg(40, 40, 120, 120)).toBe(0);
     expect(cibleLockDeltaDeg(70, 40, 120, 150)).toBe(0);
     expect(cibleLockDeltaDeg(40, 40, 120, 150)).not.toBe(0);
+  });
+
+  it('keeps the Nord heading when a GPS mark exists, even with a map-time magnetometer lock', () => {
+    const heading = cibleViewfinderHeadingDeg({
+      hasMark: true,
+      nordHeadingDeg: 240,
+      rawHeadingDeg: 10,
+      lockedHeadingDeg: 10,
+      lockedRefAzimuthDeg: 184,
+      liveMarkBearingDeg: 240
+    });
+    expect(heading).toBe(240);
+  });
+
+  it('falls back to the magnetometer lock only without a mark', () => {
+    const heading = cibleViewfinderHeadingDeg({
+      hasMark: false,
+      nordHeadingDeg: 240,
+      rawHeadingDeg: 10,
+      lockedHeadingDeg: 10,
+      lockedRefAzimuthDeg: 184
+    });
+    expect(heading).toBe(184);
   });
 });

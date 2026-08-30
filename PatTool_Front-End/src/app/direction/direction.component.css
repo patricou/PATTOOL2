@@ -2685,16 +2685,53 @@ section.dir-cal {
   margin-bottom: 0.2rem;
 }
 
-.dir-edit-dl > div.dir-edit-dl__addr {
+.dir-edit-dl > div.dir-edit-dl__addr,
+.dir-edit-dl > div.dir-edit-dl__coords {
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.2rem;
+  align-items: stretch;
+  gap: 0.35rem;
 }
 
-.dir-edit-dl > div.dir-edit-dl__addr dd {
+.dir-edit-dl > div.dir-edit-dl__addr dd,
+.dir-edit-dl > div.dir-edit-dl__coords dd {
   text-align: left;
   font-variant-numeric: normal;
   word-break: break-word;
+}
+
+.dir-edit-coords {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 0.4rem;
+}
+
+.dir-edit-coords label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.dir-edit-coords span {
+  font-size: 0.72rem;
+  color: #8fb8b0;
+}
+
+.dir-edit-coords input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0d2a28;
+  border: 1px solid #1f6f62;
+  color: #d7f4ee;
+  border-radius: 0.35rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dir-edit-coords input:focus {
+  outline: 2px solid rgba(62, 224, 192, 0.45);
+  outline-offset: 1px;
 }
 
 .dir-modal__box--edit .dir-modal__btns .dir-btn {

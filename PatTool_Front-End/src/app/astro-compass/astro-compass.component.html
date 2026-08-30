@@ -1692,6 +1692,14 @@
           <div class="ac-finder__north-box-row ac-finder__north-box-row--cible-actions">
             <button
               type="button"
+              class="ac-finder__north-box-btn"
+              [disabled]="cibleSaving"
+              (click)="openTraceViewerForCibleMark()">
+              <i class="fa fa-map-marker" aria-hidden="true"></i>
+              {{ 'DIRECTION.TARGET_MARK_PICK' | translate }}
+            </button>
+            <button
+              type="button"
               class="ac-finder__north-box-btn ac-finder__cible-verify-btn ac-finder__cible-verify-btn--lead"
               [class.ac-finder__cible-verify-btn--on]="cibleVerifyActive"
               (click)="toggleCibleVerify()"

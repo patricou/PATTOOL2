@@ -59,6 +59,43 @@ export function cibleImpliedGeoHeadingDeg(
 }
 
 /**
+ * Cap caméra du viseur en mode Cible.
+ * Un repère GPS est une direction à viser (toi → croix), pas un verrou
+ * magnétomètre pris sur la carte. On garde le cap Nord déjà calé.
+ * Le remap h0 + ref ne sert que s’il n’y a pas de repère, ou pas de Nord.
+ */
+export function cibleViewfinderHeadingDeg(opts: {
+  hasMark: boolean;
+  nordHeadingDeg?: number | null;
+  rawHeadingDeg?: number | null;
+  lockedHeadingDeg?: number | null;
+  lockedRefAzimuthDeg?: number | null;
+  liveMarkBearingDeg?: number | null;
+}): number | null {
+  const nord =
+    opts.nordHeadingDeg != null && Number.isFinite(opts.nordHeadingDeg)
+      ? normalizeDeg(opts.nordHeadingDeg)
+      : null;
+  if (opts.hasMark && nord != null) {
+    return nord;
+  }
+  const raw = opts.rawHeadingDeg;
+  const h0 = opts.lockedHeadingDeg;
+  const ref = opts.liveMarkBearingDeg ?? opts.lockedRefAzimuthDeg;
+  if (
+    raw != null &&
+    h0 != null &&
+    ref != null &&
+    Number.isFinite(raw) &&
+    Number.isFinite(h0) &&
+    Number.isFinite(ref)
+  ) {
+    return cibleImpliedGeoHeadingDeg(raw, h0, ref);
+  }
+  return nord;
+}
+
+/**
  * Cap magnétomètre attendu quand on vise le repère.
  * Même référentiel que le disque de la rose (pas l’azimut GPS).
  * Si le GPS du repère a changé depuis le calage, on décale h0 d’autant.

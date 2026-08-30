@@ -81,6 +81,7 @@ import {
   CIBLE_MARK_MIN_DIST_M,
   cibleMarkBearingDeg,
   cibleMarkDistanceM,
+  cibleViewfinderHeadingDeg,
   geocodeDisplayName,
   hasCibleMark,
   loadActiveCibleId,
@@ -2497,6 +2498,48 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   cibleMarkTooClose(): boolean {
     const m = this.cibleMarkDistanceM();
     return m != null && m < CIBLE_MARK_MIN_DIST_M;
+  }
+
+  private cibleMarkElevationDeg(): number | null {
+    const c = this.activeCible;
+    if (!hasCibleMark(c?.markLat, c?.markLon) || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+      return null;
+    }
+    const look = AstroCompassComponent.groundLook(
+      this.lat,
+      this.lon,
+      this.height || 0,
+      c!.markLat!,
+      c!.markLon!,
+      c?.markAltM != null && Number.isFinite(c.markAltM) ? c.markAltM : 0
+    );
+    return Number.isFinite(look.elDeg) ? look.elDeg : null;
+  }
+
+  openTraceViewerForCibleMark(): void {
+    if (!this.traceViewerModalComponent || !this.activeCible) {
+      return;
+    }
+    const lat =
+      this.activeCible.markLat != null && Number.isFinite(this.activeCible.markLat)
+        ? this.activeCible.markLat
+        : this.lat;
+    const lon =
+      this.activeCible.markLon != null && Number.isFinite(this.activeCible.markLon)
+        ? this.activeCible.markLon
+        : this.lon;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return;
+    }
+    this.tracePickMode = 'mark';
+    this.traceViewerModalComponent.openAtLocation(
+      lat,
+      lon,
+      this.activeCible.name || this.translate.instant('DIRECTION.TARGET_MARK'),
+      undefined,
+      true,
+      true
+    );
   }
 
   formatCibleDeg(v: number | null | undefined, signed = false): string {
@@ -6728,6 +6771,14 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     const ref = this.cibleMarkBearingDeg() ?? c?.refAzimuthDeg ?? this.headingDeg ?? raw;
+    const markEl = this.cibleMarkElevationDeg();
+    const phoneEl = this.lookTracker?.elevationDeg ?? null;
+    if (Number.isFinite(ref)) {
+      const elTarget = markEl ?? phoneEl;
+      if (elTarget != null && Number.isFinite(elTarget)) {
+        this.lookTracker.markCameraAsTarget(ref, elTarget);
+      }
+    }
     this.cibleSaving = true;
     this.cibleError = null;
     this.api
@@ -6737,7 +6788,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         userLon: this.lon,
         phoneHeadingDeg: raw,
         refAzimuthDeg: ref,
-        phoneElevationDeg: this.lookTracker?.elevationDeg ?? null,
+        phoneElevationDeg: phoneEl,
         markLat: c?.markLat,
         markLon: c?.markLon,
         markAltM: c?.markAltM,
@@ -6829,7 +6880,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         markLat: location.lat,
         markLon: location.lng,
         markAltM: location.alt != null && Number.isFinite(location.alt) ? location.alt : null,
-        markAddress: address
+        markAddress: address,
+        refAzimuthDeg: cibleMarkBearingDeg(this.lat, this.lon, location.lat, location.lng)
       })
       .subscribe({
         next: (saved) => {
@@ -10791,13 +10843,21 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.tickAlignCue();
       return;
     }
-    if (this.headingRef === 'cible' && this.activeCible?.phoneHeadingDeg != null && raw != null) {
-      const h0 = this.activeCible.phoneHeadingDeg;
-      const ref = this.activeCible.refAzimuthDeg ?? 0;
-      this.headingDeg = this.normalizeDeg(raw - h0 + ref);
-      this.headingActive = true;
-      this.tickAlignCue();
-      return;
+    if (this.headingRef === 'cible' && this.activeCible) {
+      const cibleHeading = cibleViewfinderHeadingDeg({
+        hasMark: this.cibleHasMark(),
+        nordHeadingDeg: lookAz,
+        rawHeadingDeg: raw,
+        lockedHeadingDeg: this.activeCible.phoneHeadingDeg,
+        lockedRefAzimuthDeg: this.activeCible.refAzimuthDeg,
+        liveMarkBearingDeg: this.cibleMarkBearingDeg()
+      });
+      if (cibleHeading != null) {
+        this.headingDeg = cibleHeading;
+        this.headingActive = true;
+        this.tickAlignCue();
+        return;
+      }
     }
     if (lookAz != null) {
       this.headingDeg = lookAz;
