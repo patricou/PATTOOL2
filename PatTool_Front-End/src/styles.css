@@ -5,6 +5,18 @@
 
 /* You can add global styles to this file, and also import other style files */
 
+/* Leaflet tooltips are position:absolute; without a width they shrink to one word per line. */
+.leaflet-tooltip.artisans-map-tooltip {
+	box-sizing: border-box;
+	display: block;
+	min-width: 16rem;
+	width: max-content;
+	max-width: min(22rem, 70vw);
+	white-space: normal;
+	padding: 0.5rem 0.7rem;
+	line-height: 1.4;
+}
+
 /* Archive.org search-term highlights injected via [innerHTML] (outside component encapsulation). */
 mark.ia-search-hit {
     background: #ff9800 !important;

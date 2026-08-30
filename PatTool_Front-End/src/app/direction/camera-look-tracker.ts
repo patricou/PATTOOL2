@@ -234,6 +234,40 @@ export class CameraLookTracker {
     }
   }
 
+  /** Instantané brut pour les pages de diagnostic (ne change pas la fusion). */
+  sensorDebug(): {
+    mag: Vec3 | null;
+    accel: Vec3 | null;
+    gyro: Vec3 | null;
+    magFieldUt: number | null;
+    hasMag: boolean;
+    hasAccel: boolean;
+    hasGyro: boolean;
+    hasGravity: boolean;
+    hasRotationVector: boolean;
+    lastBetaDeg: number | null;
+    lastGammaDeg: number | null;
+    rawAzimuthDeg: number | null;
+    rawElevationDeg: number | null;
+  } {
+    const mag = this.hasMag ? this.mag : null;
+    return {
+      mag,
+      accel: this.hasAccel ? this.accel : null,
+      gyro: this.hasGyro ? this.gyro : null,
+      magFieldUt: mag ? Math.hypot(mag.x, mag.y, mag.z) : null,
+      hasMag: this.hasMag,
+      hasAccel: this.hasAccel,
+      hasGyro: this.hasGyro,
+      hasGravity: this.hasGravity,
+      hasRotationVector: this.hasRotationVector,
+      lastBetaDeg: this.lastBetaDeg,
+      lastGammaDeg: this.lastGammaDeg,
+      rawAzimuthDeg: this.rawAzimuthDeg,
+      rawElevationDeg: this.rawElevationDeg
+    };
+  }
+
   stop(): void {
     this.uiPaused = false;
     for (const s of this.generics) {

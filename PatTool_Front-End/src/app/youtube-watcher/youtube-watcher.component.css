@@ -125,6 +125,8 @@
 :host .pat-title.yt-title {
   position: relative;
   border-bottom: none;
+  background: linear-gradient(135deg, #ff0000 0%, #cc0000 50%, #8a0000 100%);
+  box-shadow: 0 4px 15px rgba(204, 0, 0, 0.35);
 }
 
 :host .pat-title.yt-title h2 {

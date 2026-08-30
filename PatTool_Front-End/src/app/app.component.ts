@@ -237,6 +237,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { routerLink: ['api/gps-routing'], icon: 'fa fa-road', labelKey: 'MENU.GPS_ROUTING' },
         { routerLink: ['api/gpx-trace'], icon: 'fa fa-map-signs', labelKey: 'MENU.GPX_TRACE' },
         { routerLink: ['tools/relief-finder'], icon: 'fa fa-area-chart', labelKey: 'MENU.RELIEF_FINDER' },
+        { routerLink: ['tools/detection-error'], icon: 'fa fa-crosshairs', labelKey: 'MENU.DETECTION_ERROR' },
         { routerLink: ['api/timezone-converter'], icon: 'fa fa-clock-o', labelKey: 'MENU.TIME_ZONES' },
         { routerLink: ['api/electricite'], icon: 'fa fa-bolt', labelKey: 'MENU.ELECTRICITE' }
     ];
@@ -441,7 +442,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     /** Fond canvas html/body = ciel nocturne (évite le blanc au overscroll). */
     private updateStarrySkyPage(): void {
         const url = this.router.url || '';
-        const on = /\/tools\/(?:astro-compass|nord|direction|relief-finder|univers-futur)(?:\/|$|\?|#)/.test(url);
+        const on = /\/tools\/(?:astro-compass|nord|direction|relief-finder|detection-error|univers-futur)(?:\/|$|\?|#)/.test(url);
         try {
             document.documentElement.classList.toggle('pat-starry-sky', on);
             document.body.classList.toggle('pat-starry-sky', on);

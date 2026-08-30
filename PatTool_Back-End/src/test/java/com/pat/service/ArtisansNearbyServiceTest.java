@@ -37,6 +37,7 @@ class ArtisansNearbyServiceTest {
         assertEquals("", ArtisansNearbyService.normalizeWebsite("javascript:alert(1)"));
         assertEquals("", ArtisansNearbyService.normalizeWebsite("https://www.facebook.com/atelier-dupont"));
         assertEquals("", ArtisansNearbyService.normalizeWebsite("https://www.pagesjaunes.fr/pros/123"));
+        assertEquals("", ArtisansNearbyService.normalizeWebsite("https://www.laposte.fr/professionnel"));
     }
 
     @Test

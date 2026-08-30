@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, forkJoin, from, of } from 'rxjs';
 import { catchError, map, mergeMap, switchMap, toArray } from 'rxjs/operators';
 
+import { environment } from '../../environments/environment';
 import { ArtisansNearbyItem } from '../services/api.service';
 
 const OSM_WEBSITE_KEYS = [
@@ -29,6 +30,7 @@ const JUNK_HOST_MARKERS = [
   'youtu.be',
   'pagesjaunes.fr',
   'pagesjaunes.ch',
+  'pagesdor.be',
   'local.ch',
   'search.ch',
   'tripadvisor.',
@@ -40,6 +42,9 @@ const JUNK_HOST_MARKERS = [
   'google.com',
   'google.fr',
   'google.ch',
+  'googleusercontent.com',
+  'g.page',
+  'business.site',
   'societe.com',
   'pappers.fr',
   'infogreffe.fr',
@@ -47,7 +52,27 @@ const JUNK_HOST_MARKERS = [
   'wikipedia.org',
   'wikidata.org',
   'openstreetmap.org',
-  'foursquare.com'
+  'foursquare.com',
+  'laposte.fr',
+  '118000.fr',
+  '118218.fr',
+  '118712.fr',
+  'horaires-commerces.fr',
+  'horaires.com',
+  'justacote.com',
+  'cylex.fr',
+  'cylex.com',
+  'kompass.com',
+  'verif.com',
+  'manageo.fr',
+  'score3.fr',
+  'entreprises.lefigaro.fr',
+  'mappy.com',
+  'viamichelin.',
+  'uneboulangerie.fr',
+  'petitfute.com',
+  'timeout.com',
+  'le-codepostal.com'
 ];
 
 const GENERIC_NAME_TOKENS = new Set([
@@ -213,7 +238,8 @@ LIMIT 160`.trim();
 
 export function resolveOfficialWebsite(
   http: HttpClient,
-  item: ArtisansNearbyItem
+  item: ArtisansNearbyItem,
+  allowWebSearch = true
 ): Observable<string> {
   const known = normalizeWebsite(item.website);
   if (known) {
@@ -225,22 +251,23 @@ export function resolveOfficialWebsite(
   if (ids.length) {
     return websitesForEntities(http, ids).pipe(
       map((found) => found[0] || ''),
-      switchIfEmpty(() => searchThenResolve(http, item))
+      switchIfEmpty(() => searchThenResolve(http, item, allowWebSearch))
     );
   }
-  return searchThenResolve(http, item);
+  return searchThenResolve(http, item, allowWebSearch);
 }
 
 export function resolveOfficialWebsites(
   http: HttpClient,
-  items: ArtisansNearbyItem[]
+  items: ArtisansNearbyItem[],
+  webSearchLimit = 24
 ): Observable<ArtisansNearbyItem[]> {
   const missing = items.filter((item) => !normalizeWebsite(item.website));
   if (!missing.length) {
     return of(items);
   }
   return from(missing).pipe(
-    mergeMap((item) => resolveOfficialWebsite(http, item).pipe(
+    mergeMap((item, index) => resolveOfficialWebsite(http, item, index < webSearchLimit).pipe(
       map((url) => {
         if (url) {
           item.website = url;
@@ -253,25 +280,53 @@ export function resolveOfficialWebsites(
   );
 }
 
-function searchThenResolve(http: HttpClient, item: ArtisansNearbyItem): Observable<string> {
+function searchThenResolve(
+  http: HttpClient,
+  item: ArtisansNearbyItem,
+  allowWebSearch: boolean
+): Observable<string> {
   const queries = uniqueNonEmpty([
     [item.name, item.city].filter(Boolean).join(' '),
     item.brand && item.brand !== item.name ? item.brand : '',
     distinctiveQuery(item.name || '')
   ]);
+  const afterKnowledge = (source: Observable<string>) => source.pipe(
+    switchIfEmpty(() => allowWebSearch ? lookupViaWebSearch(http, item) : of(''))
+  );
   if (!queries.length) {
-    return suggestCompanyDomain(http, item);
+    return afterKnowledge(suggestCompanyDomain(http, item));
   }
   return searchWikidataIds(http, queries).pipe(
     switchMap((ids) => {
       if (!ids.length) {
-        return suggestCompanyDomain(http, item);
+        return afterKnowledge(suggestCompanyDomain(http, item));
       }
       return websitesForEntities(http, ids).pipe(
         map((urls) => pickBestWebsite(item, urls)),
-        switchIfEmpty(() => suggestCompanyDomain(http, item))
+        switchIfEmpty(() => afterKnowledge(suggestCompanyDomain(http, item)))
       );
     })
+  );
+}
+
+function lookupViaWebSearch(http: HttpClient, item: ArtisansNearbyItem): Observable<string> {
+  const name = (item.name || '').trim();
+  if (!name) {
+    return of('');
+  }
+  let params = new HttpParams().set('name', name);
+  if (item.city) {
+    params = params.set('city', item.city);
+  }
+  if (item.postalCode) {
+    params = params.set('postalCode', item.postalCode);
+  }
+  if (item.activity) {
+    params = params.set('activity', item.activity);
+  }
+  return http.get<{ website?: string }>(environment.API_URL + 'external/artisans/website', { params }).pipe(
+    map((raw) => normalizeWebsite(raw?.website)),
+    catchError(() => of(''))
   );
 }
 

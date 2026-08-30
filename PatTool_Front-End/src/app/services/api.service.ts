@@ -327,6 +327,7 @@ export type ArtisansSource = 'sirene' | 'osm';
 
 export interface ArtisansNearbyItem {
   id?: string;
+  source?: ArtisansSource;
   name?: string;
   activity?: string;
   activityCode?: string;
@@ -343,6 +344,11 @@ export interface ArtisansNearbyItem {
   brand?: string;
   wikidata?: string;
   brandWikidata?: string;
+}
+
+/** GET/PUT /api/external/artisans/favorites — per authenticated user */
+export interface ArtisansFavorites {
+  items?: ArtisansNearbyItem[];
 }
 
 export interface ArtisansNearbyResponse {
@@ -2819,6 +2825,56 @@ export class ApiService {
       params = params.set('perPage', String(options.perPage));
     }
     return this._http.get<ArtisansNearbyResponse>(this.API_URL + 'external/artisans/nearby', { params });
+  }
+
+  lookupArtisanWebsite(options: {
+    name: string;
+    city?: string;
+    postalCode?: string;
+    activity?: string;
+  }): Observable<{ website?: string }> {
+    let params = new HttpParams().set('name', options.name);
+    if (options.city?.trim()) {
+      params = params.set('city', options.city.trim());
+    }
+    if (options.postalCode?.trim()) {
+      params = params.set('postalCode', options.postalCode.trim());
+    }
+    if (options.activity?.trim()) {
+      params = params.set('activity', options.activity.trim());
+    }
+    return this._http.get<{ website?: string }>(this.API_URL + 'external/artisans/website', { params });
+  }
+
+  /** GET /api/external/artisans/favorites — JWT required, per-user list. */
+  getArtisansFavorites(): Observable<ArtisansFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<ArtisansFavorites>(this.API_URL + 'external/artisans/favorites', { headers })
+      )
+    );
+  }
+
+  /** PUT add one favorite artisan / pro snapshot. */
+  addArtisanFavorite(item: ArtisansNearbyItem): Observable<ArtisansFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<ArtisansFavorites>(this.API_URL + 'external/artisans/favorites/item', item, { headers })
+      )
+    );
+  }
+
+  /** DELETE remove one favorite by id (optional source). */
+  removeArtisanFavorite(id: string, source?: ArtisansSource | string): Observable<ArtisansFavorites> {
+    let params = new HttpParams().set('id', id || '');
+    if (source) {
+      params = params.set('source', source);
+    }
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.delete<ArtisansFavorites>(this.API_URL + 'external/artisans/favorites/item', { headers, params })
+      )
+    );
   }
 
   searchFoncierCachePlaces(provider: FoncierCacheProvider, query: string): Observable<FoncierCommuneSearch> {

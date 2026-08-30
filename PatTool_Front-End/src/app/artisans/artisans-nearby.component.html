@@ -55,30 +55,70 @@
       <i class="fa fa-location-arrow me-1" [class.fa-spin]="locating"></i>
       {{ i18nPrefix + '.MY_POSITION' | translate }}
     </button>
+    <button
+      type="button"
+      class="btn btn-outline-warning"
+      [class.active]="showFavorites"
+      (click)="setShowFavorites(!showFavorites)">
+      <i class="fa fa-star me-1" aria-hidden="true"></i>
+      {{ i18nPrefix + '.FAVORITES' | translate }}
+      <span *ngIf="favorites.length"> ({{ favorites.length }})</span>
+    </button>
   </form>
+
+  <p class="small text-muted artisans-map-hint">{{ i18nPrefix + '.MAP_CLICK_HINT' | translate }}</p>
 
   <p class="small text-muted artisans-place" *ngIf="placeLabel || (searchLat != null && searchLon != null)">
     <i class="fa fa-map-pin me-1"></i>
     {{ placeLabel || (searchLat | number:'1.4-4') + ', ' + (searchLon | number:'1.4-4') }}
   </p>
 
-  <div class="alert alert-warning py-2 artisans-alert" *ngIf="errorMessage && !isLoading" role="alert">
+  <div class="alert alert-warning py-2 artisans-alert" *ngIf="errorMessage && !isLoading && !showFavorites" role="alert">
     <i class="fa fa-exclamation-triangle me-2"></i>
     {{ errorMessage | translate }}
   </div>
+  <div class="alert alert-info py-2 artisans-alert" *ngIf="favoritesHint" role="status">
+    <i class="fa fa-info-circle me-2"></i>
+    {{ favoritesHint | translate }}
+  </div>
+  <div class="alert alert-warning py-2 artisans-alert" *ngIf="favoritesError" role="alert">
+    <i class="fa fa-exclamation-triangle me-2"></i>
+    {{ favoritesError | translate }}
+  </div>
 
-  <div class="artisans-empty" *ngIf="!searched && !isLoading">
+  <div class="artisans-empty" *ngIf="!hasVisiblePanel">
     <i class="fa fa-home artisans-empty-icon" aria-hidden="true"></i>
     <p>{{ i18nPrefix + '.EMPTY_HINT' | translate }}</p>
   </div>
 
-  <div class="artisans-layout" *ngIf="searched || isLoading">
+  <div class="artisans-layout" *ngIf="hasVisiblePanel">
     <aside class="artisans-results" [attr.aria-label]="i18nPrefix + '.RESULTS' | translate">
       <div class="artisans-results-head">
-        <span>{{ i18nPrefix + '.RESULTS' | translate }}</span>
-        <span class="artisans-results-count" *ngIf="!isLoading">
+        <span class="artisans-results-tabs" role="tablist">
+          <button
+            type="button"
+            class="artisans-tab"
+            role="tab"
+            [class.active]="!showFavorites"
+            [attr.aria-selected]="!showFavorites"
+            (click)="setShowFavorites(false)">
+            {{ i18nPrefix + '.RESULTS' | translate }}
+          </button>
+          <button
+            type="button"
+            class="artisans-tab"
+            role="tab"
+            [class.active]="showFavorites"
+            [attr.aria-selected]="showFavorites"
+            (click)="setShowFavorites(true)">
+            <i class="fa fa-star" aria-hidden="true"></i>
+            {{ i18nPrefix + '.FAVORITES' | translate }}
+            <span class="artisans-fav-count" *ngIf="favorites.length">{{ favorites.length }}</span>
+          </button>
+        </span>
+        <span class="artisans-results-count" *ngIf="!isLoading || showFavorites">
           <ng-container *ngIf="listFilterActive">
-            {{ i18nPrefix + '.RESULT_FILTERED' | translate:{ shown: listItems.length, total: viewportItems.length } }}
+            {{ i18nPrefix + '.RESULT_FILTERED' | translate:{ shown: listItems.length, total: showFavorites ? favorites.length : viewportItems.length } }}
           </ng-container>
           <ng-container *ngIf="!listFilterActive">
             {{ i18nPrefix + '.RESULT_COUNT' | translate:{ count: listItems.length } }}
@@ -86,7 +126,7 @@
         </span>
       </div>
 
-      <div class="artisans-list-tools" *ngIf="!isLoading && viewportItems.length">
+      <div class="artisans-list-tools" *ngIf="(!isLoading || showFavorites) && (showFavorites ? favorites.length : viewportItems.length)">
         <label class="visually-hidden" for="artisans-list-filter">{{ i18nPrefix + '.FILTER_LIST' | translate }}</label>
         <input
           id="artisans-list-filter"
@@ -128,15 +168,18 @@
         </select>
       </div>
 
-      <div class="artisans-busy" *ngIf="isLoading">
+      <div class="artisans-busy" *ngIf="isLoading && !showFavorites">
         <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
         {{ i18nPrefix + '.LOADING' | translate }}
       </div>
 
-      <p class="artisans-no-results" *ngIf="!isLoading && !listItems.length && !viewportItems.length">
+      <p class="artisans-no-results" *ngIf="showFavorites && !favorites.length && !favoritesHint">
+        {{ i18nPrefix + '.FAVORITES_EMPTY' | translate }}
+      </p>
+      <p class="artisans-no-results" *ngIf="!showFavorites && !isLoading && !listItems.length && !viewportItems.length">
         {{ i18nPrefix + '.NO_RESULTS' | translate }}
       </p>
-      <p class="artisans-no-results" *ngIf="!isLoading && !listItems.length && viewportItems.length">
+      <p class="artisans-no-results" *ngIf="!isLoading && !listItems.length && (showFavorites ? favorites.length : viewportItems.length)">
         {{ i18nPrefix + '.FILTER_EMPTY' | translate }}
       </p>
 
@@ -169,6 +212,17 @@
           </span>
         </span>
         <span class="artisans-hit-actions">
+          <button
+            type="button"
+            class="artisans-hit-fav"
+            [class.on]="isFavorite(item)"
+            [disabled]="favoriteBusyKey === favoriteKey(item)"
+            (click)="toggleFavorite(item, $event)"
+            [attr.title]="(isFavorite(item) ? i18nPrefix + '.REMOVE_FAVORITE' : i18nPrefix + '.ADD_FAVORITE') | translate"
+            [attr.aria-label]="(isFavorite(item) ? i18nPrefix + '.REMOVE_FAVORITE' : i18nPrefix + '.ADD_FAVORITE') | translate"
+            [attr.aria-pressed]="isFavorite(item)">
+            <i class="fa" [class.fa-star]="isFavorite(item)" [class.fa-star-o]="!isFavorite(item)" aria-hidden="true"></i>
+          </button>
           <button
             type="button"
             class="artisans-hit-site-btn"
@@ -208,7 +262,7 @@
       </div>
       </div>
 
-      <div class="artisans-pager" *ngIf="!isLoading && total > (result?.perPage || listPageSize)">
+      <div class="artisans-pager" *ngIf="!showFavorites && !isLoading && total > (result?.perPage || listPageSize)">
         <button type="button" class="btn btn-sm btn-outline-secondary" (click)="previousPage()" [disabled]="page <= 1">
           {{ i18nPrefix + '.PREV' | translate }}
         </button>
@@ -219,8 +273,19 @@
       </div>
     </aside>
 
-    <div class="artisans-map-card">
+    <div
+      #mapCard
+      class="artisans-map-card"
+      [class.artisans-map-card--fullscreen]="mapFullscreen">
       <div #mapHost class="artisans-map" role="img" [attr.aria-label]="i18nPrefix + '.MAP' | translate"></div>
+      <button
+        type="button"
+        class="artisans-map-fs-btn"
+        (click)="toggleMapFullscreen($event)"
+        [attr.title]="(mapFullscreen ? i18nPrefix + '.EXIT_FULLSCREEN' : i18nPrefix + '.FULLSCREEN') | translate"
+        [attr.aria-label]="(mapFullscreen ? i18nPrefix + '.EXIT_FULLSCREEN' : i18nPrefix + '.FULLSCREEN') | translate">
+        <i class="fa" [class.fa-compress]="mapFullscreen" [class.fa-expand]="!mapFullscreen" aria-hidden="true"></i>
+      </button>
     </div>
   </div>
 

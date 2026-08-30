@@ -3,6 +3,7 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  HostListener,
   NgZone,
   OnDestroy,
   OnInit,
@@ -19,8 +20,10 @@ import * as L from 'leaflet';
 
 import { LeafletBasemapService } from '../shared/leaflet-basemap.service';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { KeycloakService } from '../keycloak/keycloak.service';
 import {
   ApiService,
+  ArtisansFavorites,
   ArtisansNearbyItem,
   ArtisansNearbyResponse,
   ArtisansSource
@@ -33,11 +36,8 @@ import {
 } from './artisans-trades';
 import { searchOsmOverpass } from './artisans-overpass';
 import {
-  applyNearbyOfficialSites,
-  fetchNearbyOfficialSites,
   normalizeWebsite,
-  resolveOfficialWebsite,
-  resolveOfficialWebsites
+  resolveOfficialWebsite
 } from './artisans-website';
 
 type MappedArtisan = ArtisansNearbyItem & { lat: number; lon: number };
@@ -95,6 +95,7 @@ export const ARTISAN_TRADES = [
 export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @ViewChild('mapHost') mapHost?: ElementRef<HTMLDivElement>;
+  @ViewChild('mapCard') mapCard?: ElementRef<HTMLDivElement>;
   @ViewChild('resultsList') resultsList?: ElementRef<HTMLElement>;
   @ViewChild(TraceViewerModalComponent) traceViewer?: TraceViewerModalComponent;
 
@@ -120,37 +121,52 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   searchLon: number | null = null;
   result: ArtisansNearbyResponse | null = null;
   selectedId: string | null = null;
-  listItems: MappedArtisan[] = [];
+  listItems: ArtisansNearbyItem[] = [];
   viewportItems: MappedArtisan[] = [];
   listQuery = '';
   listTrade = 'all';
   listCity = '';
   sortKey: ArtisanSortKey = 'distance-asc';
 
+  showFavorites = false;
+  favorites: ArtisansNearbyItem[] = [];
+  favoriteKeys = new Set<string>();
+  favoriteBusyKey = '';
+  favoritesError = '';
+  favoritesHint = '';
+
   isLoading = false;
   locating = false;
   searched = false;
   errorMessage = '';
+  mapFullscreen = false;
 
   private map?: L.Map;
   private baseLayer: L.TileLayer | L.LayerGroup | null = null;
   private mapLayer?: L.FeatureGroup;
   private markers = new Map<string, L.CircleMarker>();
-  private radiusCircle?: L.Circle;
-  private mapSyncPaused = false;
-  private searchFromMapTimer: ReturnType<typeof setTimeout> | null = null;
+  private radiusCircle?: L.Polygon;
   private searchSub?: Subscription;
-  private websiteSub?: Subscription;
+  private favoritesSub?: Subscription;
+  private favoriteToggleSub?: Subscription;
   private readonly websiteResolving = new Set<string>();
   private readonly websiteJobs = new Map<string, Promise<string>>();
   private blinkTimer: ReturnType<typeof setInterval> | null = null;
   private blinkingMarker: L.CircleMarker | null = null;
+  private blinkingId: string | null = null;
   private readonly markerRestStyle = {
     radius: 7,
     weight: 1,
     color: '#fff',
     fillColor: '#c45c26',
     fillOpacity: 0.92
+  };
+  private readonly markerFavStyle = {
+    radius: 7,
+    weight: 1,
+    color: '#fff',
+    fillColor: '#c9a227',
+    fillOpacity: 0.95
   };
 
   constructor(
@@ -160,13 +176,15 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     private readonly translate: TranslateService,
     private readonly cdr: ChangeDetectorRef,
     private readonly ngZone: NgZone,
-    private readonly http: HttpClient
+    private readonly http: HttpClient,
+    private readonly keycloak: KeycloakService
   ) {}
 
   ngOnInit(): void {
     const source = this.route.snapshot.data['source'];
     this.source = source === 'osm' ? 'osm' : 'sirene';
     this.i18nPrefix = this.source === 'osm' ? 'NEARBY_PROS' : 'ARTISANS';
+    this.loadFavorites();
     this.useMyPosition(true);
   }
 
@@ -175,14 +193,193 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   ngOnDestroy(): void {
-    if (this.searchFromMapTimer != null) {
-      clearTimeout(this.searchFromMapTimer);
-    }
+    this.exitMapFullscreen();
     this.searchSub?.unsubscribe();
-    this.websiteSub?.unsubscribe();
+    this.favoritesSub?.unsubscribe();
+    this.favoriteToggleSub?.unsubscribe();
     this.stopMarkerBlink();
     this.map?.remove();
     this.map = undefined;
+  }
+
+  toggleMapFullscreen(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const shell = this.mapCard?.nativeElement;
+    if (!shell) {
+      return;
+    }
+    if (this.mapFullscreen) {
+      this.exitMapFullscreen();
+      return;
+    }
+    const request = shell.requestFullscreen?.bind(shell)
+      ?? (shell as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> })
+        .webkitRequestFullscreen?.bind(shell);
+    request?.().catch(() => {
+      this.mapFullscreen = true;
+      this.refreshMapAfterResize();
+    });
+  }
+
+  @HostListener('document:fullscreenchange')
+  @HostListener('document:webkitfullscreenchange')
+  onMapFullscreenChange(): void {
+    const shell = this.mapCard?.nativeElement;
+    const doc = document as Document & { webkitFullscreenElement?: Element };
+    const active = !!(shell && (document.fullscreenElement === shell || doc.webkitFullscreenElement === shell));
+    if (this.mapFullscreen === active) {
+      return;
+    }
+    this.mapFullscreen = active;
+    this.refreshMapAfterResize();
+  }
+
+  @HostListener('document:keydown.escape')
+  onMapFullscreenEscape(): void {
+    if (this.mapFullscreen) {
+      this.exitMapFullscreen();
+    }
+  }
+
+  private exitMapFullscreen(): void {
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element;
+      webkitExitFullscreen?: () => Promise<void>;
+    };
+    if (document.fullscreenElement || doc.webkitFullscreenElement) {
+      const exit = document.exitFullscreen?.bind(document) ?? doc.webkitExitFullscreen?.bind(document);
+      exit?.().catch(() => {
+        this.mapFullscreen = false;
+        this.refreshMapAfterResize();
+      });
+      return;
+    }
+    if (this.mapFullscreen) {
+      this.mapFullscreen = false;
+      this.refreshMapAfterResize();
+    }
+  }
+
+  private refreshMapAfterResize(): void {
+    this.cdr.markForCheck();
+    setTimeout(() => {
+      this.map?.invalidateSize();
+      this.updateRadiusCircle();
+    }, 120);
+  }
+
+  get isLoggedIn(): boolean {
+    return this.keycloak.isLoggedIn();
+  }
+
+  get hasVisiblePanel(): boolean {
+    return this.searched || this.isLoading || this.showFavorites;
+  }
+
+  favoriteKey(item: ArtisansNearbyItem): string {
+    const source = item.source || this.source;
+    return `${source}:${item.id || ''}`;
+  }
+
+  isFavorite(item: ArtisansNearbyItem): boolean {
+    return !!item.id && this.favoriteKeys.has(this.favoriteKey(item));
+  }
+
+  setShowFavorites(on: boolean): void {
+    this.showFavorites = on;
+    this.favoritesHint = '';
+    this.favoritesError = '';
+    if (on && !this.isLoggedIn) {
+      this.favoritesHint = `${this.i18nPrefix}.FAVORITES_LOGIN`;
+    }
+    this.applyListView();
+    setTimeout(() => {
+      this.ensureMap();
+      this.refreshMapMarkers(on);
+    }, 0);
+  }
+
+  toggleFavorite(item: ArtisansNearbyItem, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!item.id) {
+      return;
+    }
+    if (!this.isLoggedIn) {
+      this.favoritesHint = `${this.i18nPrefix}.FAVORITES_LOGIN`;
+      this.cdr.markForCheck();
+      return;
+    }
+    const key = this.favoriteKey(item);
+    if (this.favoriteBusyKey) {
+      return;
+    }
+    this.favoritesHint = '';
+    this.favoritesError = '';
+    this.favoriteBusyKey = key;
+    const removing = this.favoriteKeys.has(key);
+    this.favoriteToggleSub?.unsubscribe();
+    const req$ = removing
+      ? this.api.removeArtisanFavorite(item.id, item.source || this.source)
+      : this.api.addArtisanFavorite(this.toFavoritePayload(item));
+    this.favoriteToggleSub = req$.subscribe({
+      next: (res) => {
+        this.applyFavoritesPayload(res);
+        this.favoriteBusyKey = '';
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.favoriteBusyKey = '';
+        this.favoritesError = `${this.i18nPrefix}.ERR_FAVORITES_SAVE`;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private loadFavorites(): void {
+    if (!this.isLoggedIn) {
+      this.favorites = [];
+      this.favoriteKeys = new Set();
+      return;
+    }
+    this.favoritesSub?.unsubscribe();
+    this.favoritesSub = this.api.getArtisansFavorites().subscribe({
+      next: (res) => this.applyFavoritesPayload(res),
+      error: () => {
+        this.favoritesError = `${this.i18nPrefix}.ERR_FAVORITES_LOAD`;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private applyFavoritesPayload(res: ArtisansFavorites | null): void {
+    this.favorites = (res?.items || []).filter((item) => !!item.id);
+    this.favoriteKeys = new Set(this.favorites.map((item) => this.favoriteKey(item)));
+    if (this.showFavorites) {
+      this.applyListView();
+      setTimeout(() => this.refreshMapMarkers(true), 0);
+    }
+    this.cdr.markForCheck();
+  }
+
+  private toFavoritePayload(item: ArtisansNearbyItem): ArtisansNearbyItem {
+    return {
+      id: item.id,
+      source: item.source || this.source,
+      name: item.name,
+      activity: item.activity,
+      activityCode: item.activityCode,
+      tradeKey: this.resolvedTradeKey(item) || item.tradeKey,
+      address: item.address,
+      city: item.city,
+      postalCode: item.postalCode,
+      lat: item.lat,
+      lon: item.lon,
+      url: item.url,
+      website: item.website,
+      phone: item.phone
+    };
   }
 
   get items(): ArtisansNearbyItem[] {
@@ -225,7 +422,7 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
 
   get resultTrades(): string[] {
     const keys = new Set<string>();
-    for (const item of this.viewportItems) {
+    for (const item of this.listSourceItems()) {
       const key = this.resolvedTradeKey(item);
       if (key && key !== 'all') {
         keys.add(key);
@@ -236,13 +433,35 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
 
   get resultCities(): string[] {
     const cities = new Set<string>();
-    for (const item of this.viewportItems) {
+    for (const item of this.listSourceItems()) {
       const city = (item.city || '').trim();
       if (city) {
         cities.add(city);
       }
     }
     return [...cities].sort((a, b) => a.localeCompare(b, this.uiLocale, { sensitivity: 'base' }));
+  }
+
+  private listSourceItems(): ArtisansNearbyItem[] {
+    return this.showFavorites ? this.favoritesWithDistance() : this.viewportItems;
+  }
+
+  private favoritesWithDistance(): ArtisansNearbyItem[] {
+    return this.favorites.map((item) => {
+      if (this.searchLat == null || this.searchLon == null || !this.hasMapPoint(item)) {
+        return item;
+      }
+      return {
+        ...item,
+        distanceKm: Math.round(
+          haversineKm(this.searchLat, this.searchLon, item.lat as number, item.lon as number) * 10
+        ) / 10
+      };
+    });
+  }
+
+  private favoriteMappedItems(): MappedArtisan[] {
+    return this.favoritesWithDistance().filter((item): item is MappedArtisan => this.hasMapPoint(item));
   }
 
   private compareTradeLabels(a: string, b: string): number {
@@ -300,11 +519,21 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   siteSearchHref(item: ArtisansNearbyItem): string {
-    const query = [item.name, item.city, item.postalCode, 'site officiel']
+    const quotedName = item.name?.trim() ? `"${item.name.trim()}"` : '';
+    const query = [
+      quotedName,
+      item.city,
+      item.postalCode,
+      'site officiel',
+      '-site:pagesjaunes.fr',
+      '-site:facebook.com',
+      '-site:societe.com',
+      '-site:laposte.fr'
+    ]
       .filter((part) => !!(part && String(part).trim()))
       .join(' ')
       .trim();
-    if (!query) {
+    if (!quotedName) {
       return '';
     }
     return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
@@ -324,54 +553,6 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
         window.open(href, '_blank', 'noopener,noreferrer');
       }
       this.cdr.markForCheck();
-    });
-  }
-
-  private enrichWebsites(items: ArtisansNearbyItem[]): void {
-    this.websiteSub?.unsubscribe();
-    this.websiteResolving.clear();
-    this.websiteJobs.clear();
-    const missing = items.filter((item) => !this.websiteHref(item));
-    if (!missing.length) {
-      return;
-    }
-    for (const item of missing) {
-      const id = item.id || item.name || '';
-      if (id) {
-        this.websiteResolving.add(id);
-      }
-    }
-    this.cdr.markForCheck();
-    const lat = this.searchLat;
-    const lon = this.searchLon;
-    const nearby$ = lat != null && lon != null
-      ? fetchNearbyOfficialSites(this.http, lat, lon, this.radiusKm)
-      : of([]);
-    this.websiteSub = nearby$.pipe(
-      catchError(() => of([])),
-      switchMap((nearby) => {
-        applyNearbyOfficialSites(missing, nearby);
-        const still = missing.filter((item) => !this.websiteHref(item));
-        for (const item of missing) {
-          if (this.websiteHref(item)) {
-            const id = item.id || item.name || '';
-            if (id) {
-              this.websiteResolving.delete(id);
-            }
-          }
-        }
-        this.cdr.markForCheck();
-        return still.length ? resolveOfficialWebsites(this.http, still) : of(still);
-      })
-    ).subscribe({
-      next: () => {
-        this.websiteResolving.clear();
-        this.refreshResolvedSiteUi();
-      },
-      error: () => {
-        this.websiteResolving.clear();
-        this.cdr.markForCheck();
-      }
     });
   }
 
@@ -412,7 +593,7 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     for (const item of this.mappedItems) {
       const marker = item.id ? this.markers.get(item.id) : undefined;
       if (marker && this.websiteHref(item)) {
-        marker.setPopupContent(this.buildPopup(item));
+        marker.setTooltipContent(this.buildPopup(item));
       }
     }
     this.cdr.markForCheck();
@@ -514,10 +695,21 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   onRadiusSliderChange(): void {
-    this.applyRadiusToMap();
+    this.updateRadiusCircle();
     if (this.searched) {
-      this.search(1, true);
+      this.search(1, false);
     }
+  }
+
+  private searchAroundMapClick(latlng: L.LatLng): void {
+    if (this.isLoading) {
+      return;
+    }
+    this.addressQuery = '';
+    this.placeLabel = '';
+    this.searchLat = latlng.lat;
+    this.searchLon = latlng.lng;
+    this.search(1, true);
   }
 
   search(page = 1, fitMap = true): void {
@@ -530,6 +722,7 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     this.page = page;
     this.isLoading = true;
     this.searched = true;
+    this.showFavorites = false;
     this.errorMessage = '';
     this.listItems = [];
     this.viewportItems = [];
@@ -537,7 +730,6 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     this.listTrade = 'all';
     this.listCity = '';
     this.searchSub?.unsubscribe();
-    this.websiteSub?.unsubscribe();
     this.websiteResolving.clear();
     this.websiteJobs.clear();
     const lat = hasPoint && !q ? this.searchLat! : undefined;
@@ -567,7 +759,6 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
         }
         this.selectedId = this.mappedItems[0]?.id || null;
         this.cdr.markForCheck();
-        this.enrichWebsites(this.items);
         setTimeout(() => {
           this.ensureMap();
           this.refreshMapMarkers(fitMap);
@@ -600,33 +791,28 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
 
   onListHover(item: ArtisansNearbyItem): void {
     this.startMarkerBlink(item.id);
+    this.showMarkerInfo(item.id);
   }
 
   onListLeave(): void {
     this.stopMarkerBlink();
+    this.hideMarkerInfo();
   }
 
   selectItem(item: ArtisansNearbyItem): void {
     this.highlightListItem(item.id);
-    const marker = item.id ? this.markers.get(item.id) : undefined;
-    if (marker && this.map && item.lat != null && item.lon != null) {
-      this.mapSyncPaused = true;
-      this.map.setView([item.lat, item.lon], Math.max(this.map.getZoom(), 14));
-      marker.openPopup();
-      setTimeout(() => {
-        this.mapSyncPaused = false;
-        this.syncListToMap();
-      }, 250);
-    }
+    void this.ensureWebsite(item);
   }
 
-  private highlightListItem(id: string | undefined): void {
+  private highlightListItem(id: string | undefined, scrollToTop = false): void {
     if (!id) {
       return;
     }
     this.selectedId = id;
     this.cdr.markForCheck();
-    setTimeout(() => this.scrollHitToTop(id), 0);
+    if (scrollToTop) {
+      setTimeout(() => this.scrollHitToTop(id), 0);
+    }
   }
 
   private scrollHitToTop(id: string): void {
@@ -659,14 +845,19 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     const el = this.mapHost?.nativeElement;
     if (!el || this.map) {
       this.map?.invalidateSize();
+      this.updateRadiusCircle();
       return;
     }
     this.map = L.map(el, { zoomControl: true, attributionControl: true });
+    this.ensureRadiusPane();
     this.baseLayer = this.basemap.applyBaseLayer(this.map, 'osm-standard', null);
     this.mapLayer = L.featureGroup().addTo(this.map);
     this.map.setView([46.6, 2.5], 6);
     this.map.on('moveend zoomend', () => {
       this.ngZone.run(() => this.onMapViewChanged());
+    });
+    this.map.on('click', (event: L.LeafletMouseEvent) => {
+      this.ngZone.run(() => this.searchAroundMapClick(event.latlng));
     });
     setTimeout(() => this.map?.invalidateSize(), 0);
   }
@@ -693,7 +884,7 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
 
   private applyListView(): void {
     const query = this.listQuery.trim().toLowerCase();
-    let items = this.viewportItems.filter((item) => {
+    let items = this.listSourceItems().filter((item) => {
       if (this.listTrade !== 'all' && this.resolvedTradeKey(item) !== this.listTrade) {
         return false;
       }
@@ -723,10 +914,10 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     this.cdr.markForCheck();
   }
 
-  private compareItems(a: MappedArtisan, b: MappedArtisan): number {
-    const name = (item: MappedArtisan) => (item.name || '').trim();
-    const city = (item: MappedArtisan) => (item.city || '').trim();
-    const dist = (item: MappedArtisan) => item.distanceKm ?? Number.POSITIVE_INFINITY;
+  private compareItems(a: ArtisansNearbyItem, b: ArtisansNearbyItem): number {
+    const name = (item: ArtisansNearbyItem) => (item.name || '').trim();
+    const city = (item: ArtisansNearbyItem) => (item.city || '').trim();
+    const dist = (item: ArtisansNearbyItem) => item.distanceKm ?? Number.POSITIVE_INFINITY;
     switch (this.sortKey) {
       case 'distance-desc':
         return dist(b) - dist(a) || name(a).localeCompare(name(b), undefined, { sensitivity: 'base' });
@@ -748,72 +939,50 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
 
   private onMapViewChanged(): void {
     this.syncListToMap();
-    if (this.mapSyncPaused || !this.searched || !this.map || this.isLoading) {
-      return;
-    }
-    const next = this.radiusKmFromMap();
-    if (Math.abs(next - this.radiusKm) < 2) {
-      return;
-    }
-    this.radiusKm = next;
-    this.updateRadiusCircle();
-    this.cdr.markForCheck();
-    if (this.searchFromMapTimer != null) {
-      clearTimeout(this.searchFromMapTimer);
-    }
-    this.searchFromMapTimer = setTimeout(() => this.search(1, false), 500);
-  }
-
-  private radiusKmFromMap(): number {
-    if (!this.map) {
-      return this.radiusKm;
-    }
-    const bounds = this.map.getBounds();
-    const center = this.searchLat != null && this.searchLon != null
-      ? L.latLng(this.searchLat, this.searchLon)
-      : this.map.getCenter();
-    const farthestM = Math.max(
-      this.map.distance(center, bounds.getNorthEast()),
-      this.map.distance(center, bounds.getNorthWest()),
-      this.map.distance(center, bounds.getSouthEast()),
-      this.map.distance(center, bounds.getSouthWest())
-    );
-    return Math.max(1, Math.min(50, Math.round(farthestM / 1000)));
   }
 
   private applyRadiusToMap(): void {
     if (!this.map || this.searchLat == null || this.searchLon == null) {
       return;
     }
-    this.mapSyncPaused = true;
     const center = L.latLng(this.searchLat, this.searchLon);
     this.map.fitBounds(center.toBounds(this.radiusKm * 2000), {
       padding: [16, 16],
       maxZoom: 15
     });
     this.updateRadiusCircle();
-    setTimeout(() => {
-      this.mapSyncPaused = false;
-      this.syncListToMap();
-    }, 500);
+  }
+
+  private ensureRadiusPane(): void {
+    if (!this.map || this.map.getPane('radiusPane')) {
+      return;
+    }
+    this.map.createPane('radiusPane');
+    const pane = this.map.getPane('radiusPane');
+    if (pane) {
+      pane.style.zIndex = '350';
+    }
   }
 
   private updateRadiusCircle(): void {
     if (!this.map || this.searchLat == null || this.searchLon == null) {
       return;
     }
-    const meters = this.radiusKm * 1000;
+    this.ensureRadiusPane();
+    const ring = geodesicCircleRing(this.searchLat, this.searchLon, this.radiusKm * 1000);
     if (this.radiusCircle) {
-      this.radiusCircle.setLatLng([this.searchLat, this.searchLon]);
-      this.radiusCircle.setRadius(meters);
+      this.radiusCircle.setLatLngs(ring);
+      if (!this.map.hasLayer(this.radiusCircle)) {
+        this.radiusCircle.addTo(this.map);
+      }
       return;
     }
-    this.radiusCircle = L.circle([this.searchLat, this.searchLon], {
-      radius: meters,
+    this.radiusCircle = L.polygon(ring, {
+      pane: 'radiusPane',
       color: '#c45c26',
-      weight: 1,
+      weight: 2,
       fillColor: '#c45c26',
-      fillOpacity: 0.06,
+      fillOpacity: 0.08,
       interactive: false
     }).addTo(this.map);
   }
@@ -828,6 +997,7 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
       return;
     }
     this.blinkingMarker = marker;
+    this.blinkingId = id;
     let on = false;
     const pulse = () => {
       on = !on;
@@ -852,9 +1022,17 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
       this.blinkTimer = null;
     }
     if (this.blinkingMarker) {
-      this.blinkingMarker.setStyle(this.markerRestStyle);
+      this.blinkingMarker.setStyle(this.styleForItemId(this.blinkingId));
       this.blinkingMarker = null;
+      this.blinkingId = null;
     }
+  }
+
+  private styleForItemId(id?: string | null) {
+    if (id && (this.favoriteKeys.has(`${this.source}:${id}`) || this.favorites.some((item) => item.id === id))) {
+      return this.markerFavStyle;
+    }
+    return this.markerRestStyle;
   }
 
   private refreshMapMarkers(fitMap = false): void {
@@ -865,8 +1043,8 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     this.stopMarkerBlink();
     this.mapLayer.clearLayers();
     this.markers.clear();
-    const mapped = this.mappedItems;
-    if (this.searchLat != null && this.searchLon != null) {
+    const mapped = this.showFavorites ? this.favoriteMappedItems() : this.mappedItems;
+    if (!this.showFavorites && this.searchLat != null && this.searchLon != null) {
       const center = L.circleMarker([this.searchLat, this.searchLon], {
         radius: 8,
         color: '#fff',
@@ -874,12 +1052,17 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
         fillColor: '#0d6efd',
         fillOpacity: 1
       });
-      center.bindPopup(this.escapeHtml(this.placeLabel || this.translate.instant(`${this.i18nPrefix}.YOU`)));
+      center.bindTooltip(
+        this.escapeHtml(this.placeLabel || this.translate.instant(`${this.i18nPrefix}.YOU`)),
+        this.markerTooltipOptions()
+      );
+      center.on('click', (event) => L.DomEvent.stopPropagation(event));
       center.addTo(this.mapLayer);
     }
     for (const item of mapped) {
-      const marker = L.circleMarker([item.lat, item.lon], { ...this.markerRestStyle });
-      marker.bindPopup(this.buildPopup(item));
+      const rest = this.isFavorite(item) ? this.markerFavStyle : this.markerRestStyle;
+      const marker = L.circleMarker([item.lat, item.lon], { ...rest });
+      marker.bindTooltip(this.buildPopup(item), this.markerTooltipOptions());
       marker.on('mouseover', () => {
         if (this.blinkingMarker === marker) {
           return;
@@ -892,45 +1075,104 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
         if (this.blinkingMarker === marker) {
           return;
         }
-        marker.setStyle(this.markerRestStyle);
+        marker.setStyle(this.isFavorite(item) ? this.markerFavStyle : this.markerRestStyle);
       });
-      marker.on('click', () => this.ngZone.run(() => {
-        this.highlightListItem(item.id);
-        marker.openPopup();
-      }));
+      marker.on('click', (event) => {
+        L.DomEvent.stopPropagation(event);
+        this.ngZone.run(() => {
+          this.highlightListItem(item.id, true);
+          void this.ensureWebsite(item);
+        });
+      });
       marker.addTo(this.mapLayer);
       if (item.id) {
         this.markers.set(item.id, marker);
       }
     }
-    this.updateRadiusCircle();
-    if (fitMap && this.searchLat != null && this.searchLon != null) {
-      this.applyRadiusToMap();
+    if (this.showFavorites) {
+      this.hideRadiusCircle();
+      if (fitMap && mapped.length) {
+        const bounds = L.latLngBounds(mapped.map((item) => [item.lat, item.lon] as [number, number]));
+        this.map.fitBounds(bounds.pad(0.12), { maxZoom: 15, padding: [16, 16] });
+      }
+      this.applyListView();
     } else {
-      this.syncListToMap();
+      this.updateRadiusCircle();
+      if (fitMap && this.searchLat != null && this.searchLon != null) {
+        this.applyRadiusToMap();
+      } else {
+        this.syncListToMap();
+      }
     }
     setTimeout(() => {
       this.map?.invalidateSize();
-      this.syncListToMap();
+      if (this.showFavorites) {
+        this.hideRadiusCircle();
+        this.applyListView();
+      } else {
+        this.updateRadiusCircle();
+        this.syncListToMap();
+      }
     }, 0);
+  }
+
+  private hideRadiusCircle(): void {
+    if (this.radiusCircle && this.map?.hasLayer(this.radiusCircle)) {
+      this.map.removeLayer(this.radiusCircle);
+    }
+  }
+
+  private showMarkerInfo(id?: string): void {
+    this.hideMarkerInfo();
+    if (!id) {
+      return;
+    }
+    this.markers.get(id)?.openTooltip();
+  }
+
+  private hideMarkerInfo(): void {
+    for (const marker of this.markers.values()) {
+      marker.closeTooltip();
+    }
+    this.map?.closeTooltip();
+  }
+
+  private markerTooltipOptions(): L.TooltipOptions {
+    return {
+      direction: 'top',
+      offset: [0, -8],
+      opacity: 1,
+      sticky: false,
+      className: 'artisans-map-tooltip'
+    };
   }
 
   private buildPopup(item: ArtisansNearbyItem): string {
     const domain = this.domainLabel(item);
     const detail = this.activityDetail(item);
-    const lines = [
-      `<strong>${this.escapeHtml(item.name || '')}</strong>`,
-      domain ? `<span>${this.escapeHtml(domain)}</span>` : '',
-      detail ? this.escapeHtml(detail) : '',
-      item.activityCode ? this.escapeHtml(item.activityCode) : '',
-      item.address ? this.escapeHtml(item.address) : '',
-      [item.postalCode, item.city].filter(Boolean).join(' '),
+    const activity = [
+      domain,
+      detail && detail !== domain ? detail : '',
+      item.activityCode
+    ].filter((part) => !!(part && String(part).trim()));
+    const cityLine = [item.postalCode, item.city].filter(Boolean).join(' ').trim();
+    const address = (item.address || '').trim();
+    const place = address && cityLine && address.toLowerCase().includes(cityLine.toLowerCase())
+      ? [address]
+      : [address, cityLine].filter(Boolean);
+    const extras = [
       item.distanceKm != null
         ? this.escapeHtml(this.translate.instant(`${this.i18nPrefix}.DISTANCE`, { km: item.distanceKm }))
         : '',
       this.websiteHref(item)
         ? `<a href="${this.escapeHtml(this.websiteHref(item))}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(this.websiteLabel(item))}</a>`
         : ''
+    ].filter(Boolean);
+    const lines = [
+      `<strong>${this.escapeHtml(item.name || '')}</strong>`,
+      activity.length ? this.escapeHtml(activity.join(' · ')) : '',
+      place.length ? this.escapeHtml(place.join(', ')) : '',
+      extras.length ? extras.join(' · ') : ''
     ].filter(Boolean);
     return lines.join('<br>');
   }
@@ -942,4 +1184,35 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
+}
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * toRad;
+  const dLon = (lon2 - lon1) * toRad;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function geodesicCircleRing(lat: number, lon: number, radiusM: number, steps = 96): L.LatLngExpression[] {
+  const toRad = Math.PI / 180;
+  const toDeg = 180 / Math.PI;
+  const earthM = 6378137;
+  const lat1 = lat * toRad;
+  const lon1 = lon * toRad;
+  const ang = Math.max(radiusM, 1) / earthM;
+  const ring: L.LatLngExpression[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const bearing = (2 * Math.PI * i) / steps;
+    const lat2 = Math.asin(
+      Math.sin(lat1) * Math.cos(ang) + Math.cos(lat1) * Math.sin(ang) * Math.cos(bearing)
+    );
+    const lon2 = lon1 + Math.atan2(
+      Math.sin(bearing) * Math.sin(ang) * Math.cos(lat1),
+      Math.cos(ang) - Math.sin(lat1) * Math.sin(lat2)
+    );
+    ring.push([lat2 * toDeg, lon2 * toDeg]);
+  }
+  return ring;
 }

@@ -1,0 +1,265 @@
+<div class="pat-title de-title">
+  <h2>
+    <i class="fa fa-crosshairs me-2" aria-hidden="true"></i>
+    {{ 'DETECTION_ERROR.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="de-shell">
+<div class="de-page">
+  <p class="de-lede">{{ 'DETECTION_ERROR.SUBTITLE' | translate }}</p>
+
+  <div class="de-toolbar">
+    <button
+      type="button"
+      class="de-btn de-btn--primary"
+      *ngIf="!sensorsOn || lookTracker.needTap"
+      (click)="enableSensors()">
+      <i class="fa fa-wifi me-2" aria-hidden="true"></i>{{ 'DETECTION_ERROR.START_SENSORS' | translate }}
+    </button>
+    <p class="de-warn" *ngIf="lookTracker.denied">{{ 'DETECTION_ERROR.PERMISSION_DENIED' | translate }}</p>
+    <p class="de-hint" *ngIf="lookTracker.needTap && !lookTracker.denied">{{ 'DETECTION_ERROR.PERMISSION_NEEDED' | translate }}</p>
+
+    <label
+      class="de-switch"
+      [class.de-switch--disabled]="!trueNorthAvailable"
+      *ngIf="sensorsOn">
+      <input
+        type="checkbox"
+        [checked]="trueNorthActive"
+        [disabled]="!trueNorthAvailable"
+        (change)="toggleTrueNorth()" />
+      <span>{{ 'DETECTION_ERROR.TRUE_NORTH' | translate }}</span>
+    </label>
+    <p class="de-hint" *ngIf="sensorsOn && !trueNorthAvailable">
+      {{ 'DETECTION_ERROR.TRUE_NORTH_UNAVAILABLE' | translate }}
+    </p>
+  </div>
+
+  <div class="de-links" role="navigation">
+    <a class="de-link de-link--nord" routerLink="/tools/nord">
+      <i class="fa fa-compass" aria-hidden="true"></i>
+      {{ 'DETECTION_ERROR.OPEN_NORD' | translate }}
+    </a>
+    <a class="de-link de-link--cal" routerLink="/tools/direction">
+      <i class="fa fa-crosshairs" aria-hidden="true"></i>
+      {{ 'DETECTION_ERROR.OPEN_DIRECTION' | translate }}
+    </a>
+  </div>
+
+  <section class="de-instrument" [attr.aria-label]="'DETECTION_ERROR.LIVE_ARIA' | translate">
+    <div class="de-instrument-row">
+      <app-compass-rose
+        variant="stage"
+        [rotationDeg]="roseRotationDeg()"
+        [markAzimuthDeg]="dir.recorded">
+      </app-compass-rose>
+
+      <div class="de-elev" [attr.aria-label]="'DETECTION_ERROR.ELEVATION' | translate">
+        <span class="de-elev__end">+90°</span>
+        <div class="de-elev__track">
+          <span class="de-elev__mid" aria-hidden="true"></span>
+          <span
+            class="de-elev__fill"
+            [class.de-elev__fill--neg]="elevationDeg != null && elevationDeg < 0"
+            [style.bottom.%]="elevFillBottomPct()"
+            [style.height.%]="elevFillHeightPct()"></span>
+          <span
+            class="de-elev__marker"
+            *ngIf="elevationDeg != null"
+            [style.bottom.%]="elevMarkerPct()">
+            <i class="fa fa-mobile" aria-hidden="true"></i>
+          </span>
+        </div>
+        <span class="de-elev__end">−90°</span>
+        <span class="de-elev__val" [class.de-elev__val--neg]="elevationDeg != null && elevationDeg < 0">
+          {{ fmtDeg(elevationDeg, 0) }}
+        </span>
+        <span class="de-elev__cap">{{ 'DETECTION_ERROR.ELEVATION' | translate }}</span>
+      </div>
+    </div>
+
+    <div class="de-live">
+      <div class="de-live__cell">
+        <span>{{ 'DETECTION_ERROR.AZIMUTH' | translate }}</span>
+        <strong>{{ fmtHeading(azimuthDeg) }}</strong>
+        <em>{{ cardinalLabel(azimuthDeg) }}</em>
+      </div>
+      <div class="de-live__cell">
+        <span>{{ 'DETECTION_ERROR.ELEVATION' | translate }}</span>
+        <strong>{{ fmtDeg(elevationDeg) }}</strong>
+      </div>
+      <div class="de-live__cell">
+        <span>{{ 'DETECTION_ERROR.ROLL' | translate }}</span>
+        <strong>{{ fmtDeg(rollDeg) }}</strong>
+      </div>
+      <div class="de-live__cell">
+        <span>{{ 'DETECTION_ERROR.SOURCE' | translate }}</span>
+        <strong class="de-live__src">{{ lookTracker.source ? (sourceKey() | translate) : '—' }}</strong>
+      </div>
+    </div>
+  </section>
+
+  <div class="de-tests">
+    <article class="de-card" [attr.data-phase]="dir.phase">
+      <header>
+        <h3>{{ 'DETECTION_ERROR.DIR_TITLE' | translate }}</h3>
+        <span class="de-step">{{ 'DETECTION_ERROR.STEP' | translate:{ n: dir.phase === 'idle' ? 1 : dir.phase === 'done' ? 3 : 2 } }}</span>
+      </header>
+      <p class="de-card__hint">{{ dirHintKey() | translate:{ deg: dirAwayNeed } }}</p>
+
+      <dl class="de-metrics" *ngIf="dir.recorded != null">
+        <div>
+          <dt>{{ 'DETECTION_ERROR.RECORDED' | translate }}</dt>
+          <dd>{{ fmtHeading(dir.recorded) }} <small>{{ cardinalLabel(dir.recorded) }}</small></dd>
+        </div>
+        <div>
+          <dt>{{ 'DETECTION_ERROR.LIVE_DELTA' | translate }}</dt>
+          <dd [class.de-ok]="dir.phase !== 'done' && absLiveDelta('direction') < 2">
+            {{ fmtDeg(liveDelta('direction')) }}
+          </dd>
+        </div>
+        <div *ngIf="dir.returned != null">
+          <dt>{{ 'DETECTION_ERROR.RETURNED' | translate }}</dt>
+          <dd>{{ fmtHeading(dir.returned) }} <small>{{ cardinalLabel(dir.returned) }}</small></dd>
+        </div>
+        <div *ngIf="dir.returned != null">
+          <dt>{{ 'DETECTION_ERROR.DEVIATION' | translate }}</dt>
+          <dd [attr.data-verdict]="verdict(resultDelta('direction'))">{{ fmtDeg(resultDelta('direction')) }}</dd>
+        </div>
+        <div *ngIf="dir.peakAway">
+          <dt>{{ 'DETECTION_ERROR.PEAK_AWAY' | translate }}</dt>
+          <dd>{{ fmtDeg(dir.peakAway) }}</dd>
+        </div>
+      </dl>
+
+      <p class="de-verdict" *ngIf="dir.phase === 'done'" [attr.data-verdict]="verdict(resultDelta('direction'))">
+        {{ verdictKey('direction') | translate }}
+      </p>
+
+      <div class="de-actions">
+        <button
+          type="button"
+          class="de-btn de-btn--primary"
+          *ngIf="dir.phase === 'idle' || dir.phase === 'done'"
+          [disabled]="azimuthDeg == null"
+          (click)="record('direction')">
+          {{ (dir.phase === 'done' ? 'DETECTION_ERROR.DIR_AGAIN' : 'DETECTION_ERROR.DIR_RECORD') | translate }}
+        </button>
+        <button
+          type="button"
+          class="de-btn de-btn--accent"
+          *ngIf="dir.phase === 'turn' || dir.phase === 'return'"
+          [disabled]="!dir.turnedAway"
+          (click)="confirmReturn('direction')">
+          {{ 'DETECTION_ERROR.DIR_CONFIRM' | translate }}
+        </button>
+        <button
+          type="button"
+          class="de-btn"
+          *ngIf="dir.phase !== 'idle'"
+          (click)="reset('direction')">
+          {{ 'DETECTION_ERROR.RESET' | translate }}
+        </button>
+      </div>
+
+      <ul class="de-history" *ngIf="dirHistory.length">
+        <li *ngFor="let h of dirHistory" [attr.data-verdict]="verdict(h.delta)">
+          {{ fmtHeading(h.recorded) }} → {{ fmtHeading(h.returned) }}
+          <strong>{{ fmtDeg(h.delta) }}</strong>
+        </li>
+      </ul>
+    </article>
+
+    <article class="de-card" [attr.data-phase]="el.phase">
+      <header>
+        <h3>{{ 'DETECTION_ERROR.EL_TITLE' | translate }}</h3>
+        <span class="de-step">{{ 'DETECTION_ERROR.STEP' | translate:{ n: el.phase === 'idle' ? 1 : el.phase === 'done' ? 3 : 2 } }}</span>
+      </header>
+      <p class="de-card__hint">{{ elHintKey() | translate:{ deg: elAwayNeed } }}</p>
+
+      <dl class="de-metrics" *ngIf="el.recorded != null">
+        <div>
+          <dt>{{ 'DETECTION_ERROR.RECORDED' | translate }}</dt>
+          <dd>{{ fmtDeg(el.recorded) }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'DETECTION_ERROR.LIVE_DELTA' | translate }}</dt>
+          <dd [class.de-ok]="el.phase !== 'done' && absLiveDelta('elevation') < 2">
+            {{ fmtDeg(liveDelta('elevation')) }}
+          </dd>
+        </div>
+        <div *ngIf="el.returned != null">
+          <dt>{{ 'DETECTION_ERROR.RETURNED' | translate }}</dt>
+          <dd>{{ fmtDeg(el.returned) }}</dd>
+        </div>
+        <div *ngIf="el.returned != null">
+          <dt>{{ 'DETECTION_ERROR.DEVIATION' | translate }}</dt>
+          <dd [attr.data-verdict]="verdict(resultDelta('elevation'))">{{ fmtDeg(resultDelta('elevation')) }}</dd>
+        </div>
+        <div *ngIf="el.peakAway">
+          <dt>{{ 'DETECTION_ERROR.PEAK_AWAY' | translate }}</dt>
+          <dd>{{ fmtDeg(el.peakAway) }}</dd>
+        </div>
+      </dl>
+
+      <p class="de-verdict" *ngIf="el.phase === 'done'" [attr.data-verdict]="verdict(resultDelta('elevation'))">
+        {{ verdictKey('elevation') | translate }}
+      </p>
+
+      <div class="de-actions">
+        <button
+          type="button"
+          class="de-btn de-btn--primary"
+          *ngIf="el.phase === 'idle' || el.phase === 'done'"
+          [disabled]="elevationDeg == null"
+          (click)="record('elevation')">
+          {{ (el.phase === 'done' ? 'DETECTION_ERROR.EL_AGAIN' : 'DETECTION_ERROR.EL_RECORD') | translate }}
+        </button>
+        <button
+          type="button"
+          class="de-btn de-btn--accent"
+          *ngIf="el.phase === 'turn' || el.phase === 'return'"
+          [disabled]="!el.turnedAway"
+          (click)="confirmReturn('elevation')">
+          {{ 'DETECTION_ERROR.EL_CONFIRM' | translate }}
+        </button>
+        <button
+          type="button"
+          class="de-btn"
+          *ngIf="el.phase !== 'idle'"
+          (click)="reset('elevation')">
+          {{ 'DETECTION_ERROR.RESET' | translate }}
+        </button>
+      </div>
+
+      <ul class="de-history" *ngIf="elHistory.length">
+        <li *ngFor="let h of elHistory" [attr.data-verdict]="verdict(h.delta)">
+          {{ fmtDeg(h.recorded) }} → {{ fmtDeg(h.returned) }}
+          <strong>{{ fmtDeg(h.delta) }}</strong>
+        </li>
+      </ul>
+    </article>
+  </div>
+
+  <section class="de-sensors" [attr.aria-label]="'DETECTION_ERROR.SENSORS_TITLE' | translate">
+    <h3>{{ 'DETECTION_ERROR.SENSORS_TITLE' | translate }}</h3>
+    <p class="de-sensors__hint">{{ 'DETECTION_ERROR.SENSORS_HINT' | translate }}</p>
+    <div class="de-grid">
+      <article class="de-tile" *ngFor="let t of tiles()" [attr.data-status]="t.status">
+        <header>
+          <h4>{{ t.labelKey | translate }}</h4>
+          <span class="de-pill">{{ ('DETECTION_ERROR.ST_' + t.status) | translate }}</span>
+        </header>
+        <dl *ngIf="t.rows.length">
+          <div *ngFor="let r of t.rows">
+            <dt>{{ r.label }}</dt>
+            <dd>{{ r.value }}</dd>
+          </div>
+        </dl>
+        <p class="de-tile__empty" *ngIf="!t.rows.length">—</p>
+      </article>
+    </div>
+  </section>
+</div>
+</div>

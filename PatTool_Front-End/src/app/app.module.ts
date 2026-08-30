@@ -48,7 +48,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
-	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20260830a');
+	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20260830b');
 }
 
 @NgModule({
@@ -303,6 +303,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 				path: 'tools/relief-finder',
 				loadComponent: () =>
 					import('./relief-finder/relief-finder.component').then(m => m.ReliefFinderComponent)
+			},
+			{
+				path: 'tools/detection-error',
+				loadComponent: () =>
+					import('./detection-error/detection-error.component').then(m => m.DetectionErrorComponent)
 			},
 			{
 				path: 'tools/world-globe',
