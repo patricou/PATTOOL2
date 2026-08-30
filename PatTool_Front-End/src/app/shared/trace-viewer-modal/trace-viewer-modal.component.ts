@@ -575,6 +575,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/** Re-apply overlay switches after map init (prefs loaded before open). */
 	private applyPersistedSwitchEffects(): void {
+		this.deferWeatherUiUpdate(() => this.applyPersistedSwitchEffectsNow());
+	}
+
+	private applyPersistedSwitchEffectsNow(): void {
 		if (this.showGpsCoordinates) {
 			this.toggleGpsCoordinates();
 		}
@@ -2594,7 +2598,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		this.trackStats = null;
-		this.cdr.detectChanges();
+		this.scheduleTraceViewerCdr();
 	}
 
 	private parseTrack(content: string, extension: string): L.LatLngTuple[] {
@@ -4917,7 +4921,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			// Initialize with center if mouse hasn't moved yet
 			this.updateGpsCoordinatesFromCenter();
 		}
-		this.cdr.detectChanges();
+		this.scheduleTraceViewerCdr();
 		this.persistTraceViewerPreferences();
 	}
 
@@ -5018,7 +5022,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.currentLng = center.lng;
 		this.fetchAltitudeForCoordinates(center.lat, center.lng, 'current');
 		// Don't fetch weather here - weather should only be fetched on click or when weather switch is toggled
-		this.cdr.detectChanges();
+		this.scheduleTraceViewerCdr();
 	}
 
 	public copyGpsCoordinates(): void {
@@ -5086,7 +5090,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			// If address was already fetched for a clicked point, just display it
 			if (this.clickedAddress && this.clickedLat && this.clickedLng) {
 				// Address already available, just ensure it's displayed
-				this.cdr.detectChanges();
+				this.scheduleTraceViewerCdr();
 				this.persistTraceViewerPreferences();
 				return;
 			}
@@ -5127,7 +5131,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.clickedLng = lng;
 				this.clickedAlt = this.isFiniteAltitude(alt) ? alt : null;
 				this.clickedAddress = 'Loading address...';
-				this.cdr.detectChanges();
+				this.scheduleTraceViewerCdr();
 
 				// Get address and altitude
 				this.getAddressFromCoordinates(lat, lng);
@@ -6026,28 +6030,32 @@ export class TraceViewerModalComponent implements OnDestroy {
 					// Use the first altitude (highest priority)
 					const altitude = response.altitudes[0].altitude;
 					const finiteAlt = typeof altitude === 'number' && Number.isFinite(altitude) ? altitude : null;
-					if (type === 'current') {
-						this.currentAlt = finiteAlt;
-					} else {
-						this.clickedAlt = finiteAlt;
-						this.clickedWeatherAlt = finiteAlt; // Also update weather altitude
-						if (this.finalSelectedCoordinates) {
-							this.finalSelectedCoordinates = {
-								...this.finalSelectedCoordinates,
-								alt: finiteAlt
-							};
+					// Next tick: *ngIf="isFiniteAltitude(...)" must not flip false→true in the same CD (NG0100).
+					this.deferWeatherUiUpdate(() => {
+						if (type === 'current') {
+							this.currentAlt = finiteAlt;
+						} else {
+							this.clickedAlt = finiteAlt;
+							this.clickedWeatherAlt = finiteAlt;
+							if (this.finalSelectedCoordinates) {
+								this.finalSelectedCoordinates = {
+									...this.finalSelectedCoordinates,
+									alt: finiteAlt
+								};
+							}
 						}
-					}
-					this.scheduleTraceViewerCdr();
+					});
 				}
 			},
 			error: (error) => {
 				console.debug('Could not fetch altitude:', error);
-				if (type === 'current') {
-					this.currentAlt = null;
-				} else {
-					this.clickedAlt = null;
-				}
+				this.deferWeatherUiUpdate(() => {
+					if (type === 'current') {
+						this.currentAlt = null;
+					} else {
+						this.clickedAlt = null;
+					}
+				});
 			}
 		});
 	}

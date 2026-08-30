@@ -188,6 +188,20 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./electricite/electricite.component').then(m => m.ElectriciteComponent)
 			},
 			{
+				path: 'api/foncier/cerema',
+				loadComponent: () => import('./foncier/cerema.component').then(m => m.FoncierCeremaComponent)
+			},
+			{
+				path: 'api/foncier/stream-estate',
+				loadComponent: () => import('./foncier/foncier-listings.component').then(m => m.FoncierListingsComponent),
+				data: { provider: 'stream-estate' }
+			},
+			{
+				path: 'api/foncier/chercher-trouver',
+				loadComponent: () => import('./foncier/foncier-listings.component').then(m => m.FoncierListingsComponent),
+				data: { provider: 'chercher-trouver' }
+			},
+			{
 				path: 'tools/loto',
 				loadComponent: () => import('./loto/loto.component').then(m => m.LotoComponent)
 			},

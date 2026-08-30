@@ -256,6 +256,11 @@ export class AppComponent implements OnInit, AfterViewInit {
         { routerLink: ['api/stock-exchange'], icon: 'fa fa-line-chart', labelKey: 'MENU.STOCK_EXCHANGE' },
         { routerLink: ['api/cryptos'], icon: 'fa fa-bitcoin', labelKey: 'MENU.CRYPTOS' }
     ];
+    readonly navFoncierRaw: NavRouteMenuItem[] = [
+        { routerLink: ['api/foncier/cerema'], icon: 'fa fa-database', labelKey: 'MENU.CEREMA' },
+        { routerLink: ['api/foncier/stream-estate'], icon: 'fa fa-building', labelKey: 'MENU.STREAM_ESTATE' },
+        { routerLink: ['api/foncier/chercher-trouver'], icon: 'fa fa-search', labelKey: 'MENU.CHERCHER_TROUVER' }
+    ];
     /** Globe 3D, carte du système solaire et univers futur (sous-section du menu Monde). */
     readonly navGeoWorldRaw: NavRouteMenuItem[] = [
         { routerLink: ['tools/world-globe'], icon: 'fa fa-map', labelKey: 'MENU.WORLD_GLOBE' },
@@ -604,6 +609,10 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     get sortedNavFinance(): NavRouteMenuItem[] {
         return this.sortMenuByLabel(this.navFinanceRaw);
+    }
+
+    get sortedNavFoncier(): NavRouteMenuItem[] {
+        return this.sortMenuByLabel(this.navFoncierRaw);
     }
 
     get sortedNavMedia(): NavRouteMenuItem[] {

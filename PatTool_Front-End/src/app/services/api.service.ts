@@ -2751,6 +2751,118 @@ export class ApiService {
     return this._http.get<WikipediaSummary>(this.API_URL + 'external/wiki/summary', { params });
   }
 
+  searchFoncierCachePlaces(provider: FoncierCacheProvider, query: string): Observable<FoncierCommuneSearch> {
+    return this._http.get<FoncierCommuneSearch>(this.API_URL + 'external/foncier/cache/places', {
+      params: new HttpParams().set('provider', provider).set('q', query)
+    });
+  }
+
+  searchFoncierCommunes(query: string): Observable<FoncierCommuneSearch> {
+    return this._http.get<FoncierCommuneSearch>(this.API_URL + 'external/foncier/communes', {
+      params: new HttpParams().set('q', query)
+    });
+  }
+
+  geocodeFoncierPlace(query: string, postcode?: string): Observable<FoncierGeocodeHit> {
+    let params = new HttpParams().set('q', query);
+    if (postcode) {
+      params = params.set('postcode', postcode);
+    }
+    return this._http.get<FoncierGeocodeHit>(this.API_URL + 'external/foncier/geocode', { params });
+  }
+
+  getCeremaMutations(
+    codeInsee: string,
+    typeLocal = '',
+    page = 1,
+    radiusKm = 0,
+    source?: FoncierCacheSource
+  ): Observable<FoncierMutationPage> {
+    let params = new HttpParams().set('codeInsee', codeInsee).set('page', String(page));
+    if (typeLocal) {
+      params = params.set('typeLocal', typeLocal);
+    }
+    if (radiusKm > 0) {
+      params = params.set('radiusKm', String(radiusKm));
+    }
+    if (source) {
+      params = params.set('source', source);
+    }
+    return this._http.get<FoncierMutationPage>(this.API_URL + 'external/foncier/cerema/mutations', { params });
+  }
+
+  getFoncierCache(provider: FoncierCacheProvider): Observable<FoncierCacheStatus> {
+    return this._http.get<FoncierCacheStatus>(this.API_URL + 'external/foncier/cache', {
+      params: new HttpParams().set('provider', provider)
+    });
+  }
+
+  clearFoncierCache(provider: FoncierCacheProvider): Observable<FoncierCacheStatus> {
+    return this._http.post<FoncierCacheStatus>(this.API_URL + 'external/foncier/cache/clear', {}, {
+      params: new HttpParams().set('provider', provider)
+    });
+  }
+
+  getStreamEstateStatus(): Observable<FoncierListingStatus> {
+    return this._http.get<FoncierListingStatus>(this.API_URL + 'external/foncier/stream-estate/status');
+  }
+
+  searchStreamEstateListings(opts: FoncierListingSearch): Observable<FoncierListingPage> {
+    return this._http.get<FoncierListingPage>(this.API_URL + 'external/foncier/stream-estate/listings', {
+      params: this.foncierListingParams(opts)
+    });
+  }
+
+  getChercherTrouverStatus(): Observable<FoncierListingStatus> {
+    return this._http.get<FoncierListingStatus>(this.API_URL + 'external/foncier/chercher-trouver/status');
+  }
+
+  searchChercherTrouverListings(opts: FoncierListingSearch): Observable<FoncierListingPage> {
+    return this._http.get<FoncierListingPage>(this.API_URL + 'external/foncier/chercher-trouver/listings', {
+      params: this.foncierListingParams(opts)
+    });
+  }
+
+  private foncierListingParams(opts: FoncierListingSearch): HttpParams {
+    let params = new HttpParams();
+    if (opts.q) {
+      params = params.set('q', opts.q);
+    }
+    if (opts.type) {
+      params = params.set('type', opts.type);
+    }
+    if (opts.priceMin != null) {
+      params = params.set('priceMin', String(opts.priceMin));
+    }
+    if (opts.priceMax != null) {
+      params = params.set('priceMax', String(opts.priceMax));
+    }
+    if (opts.surfaceMin != null) {
+      params = params.set('surfaceMin', String(opts.surfaceMin));
+    }
+    if (opts.surfaceMax != null) {
+      params = params.set('surfaceMax', String(opts.surfaceMax));
+    }
+    if (opts.page) {
+      params = params.set('page', String(opts.page));
+    }
+    const codeInsee = (opts as { codeInsee?: string }).codeInsee;
+    if (codeInsee) {
+      params = params.set('codeInsee', codeInsee);
+    }
+    if (opts.radiusKm != null && opts.radiusKm > 0) {
+      params = params.set('radiusKm', String(opts.radiusKm));
+    }
+    if (opts.lat != null && opts.lon != null) {
+      params = params.set('lat', String(opts.lat));
+      params = params.set('lon', String(opts.lon));
+    }
+    if (opts.source) {
+      params = params.set('source', opts.source);
+    }
+    return params;
+  }
+
   searchYoutube(options: YoutubeSearchOptions): Observable<YoutubeSearchPage> {
     let params = new HttpParams();
     if (options.q) {
@@ -5353,6 +5465,125 @@ export interface WikipediaSummary {
   thumbnail?: { source?: string; width?: number; height?: number };
   originalimage?: { source?: string; width?: number; height?: number };
   content_urls?: { desktop?: { page?: string }; mobile?: { page?: string } };
+}
+
+export interface FoncierGeocodeHit {
+  lat?: number;
+  lon?: number;
+  label?: string;
+}
+
+export interface FoncierCommune {
+  code: string;
+  nom: string;
+  departement?: string;
+  departementCode?: string;
+  population?: number;
+  codesPostaux?: string[];
+  lat?: number;
+  lon?: number;
+}
+
+export interface FoncierCommuneSearch {
+  query?: string;
+  items?: FoncierCommune[];
+}
+
+export interface FoncierMutation {
+  id?: string;
+  date?: string;
+  nature?: string;
+  typeLocal?: string;
+  address?: string;
+  city?: string;
+  zipcode?: string;
+  insee?: string;
+  price?: number;
+  surface?: number;
+  rooms?: number;
+  landSurface?: number;
+  pricePerM2?: number;
+  lat?: number;
+  lon?: number;
+}
+
+export interface FoncierMutationPage {
+  codeInsee?: string;
+  typeLocal?: string;
+  page?: number;
+  pageSize?: number;
+  count?: number;
+  hasNext?: boolean;
+  cacheCount?: number;
+  source?: FoncierCacheSource;
+  items?: FoncierMutation[];
+}
+
+export type FoncierCacheSource = 'cache' | 'both' | 'api';
+export type FoncierCacheProvider = 'cerema' | 'stream-estate' | 'chercher-trouver';
+
+export interface FoncierCacheStatus {
+  provider?: FoncierCacheProvider;
+  count?: number;
+  cleared?: number;
+  items?: FoncierListing[];
+}
+
+export interface FoncierListingStatus {
+  configured?: boolean;
+  cacheCount?: number;
+}
+
+export interface FoncierListingSearch {
+  q?: string;
+  type?: string;
+  priceMin?: number;
+  priceMax?: number;
+  surfaceMin?: number;
+  surfaceMax?: number;
+  page?: number;
+  /** INSEE code of the selected commune (homonym-safe). */
+  codeInsee?: string;
+  radiusKm?: number;
+  lat?: number;
+  lon?: number;
+  source?: FoncierCacheSource;
+}
+
+export interface FoncierListing {
+  id?: string;
+  title?: string;
+  price?: number;
+  pricePerM2?: number;
+  surface?: number;
+  rooms?: number;
+  bedrooms?: number;
+  landSurface?: number;
+  type?: string;
+  city?: string;
+  zipcode?: string;
+  insee?: string;
+  address?: string;
+  seller?: string;
+  sellerType?: 'agency' | 'private' | string;
+  sellerNetwork?: string;
+  publishedAt?: string;
+  dpe?: string;
+  url?: string;
+  photo?: string;
+  source?: string;
+  lat?: number;
+  lon?: number;
+}
+
+export interface FoncierListingPage {
+  configured?: boolean;
+  page?: number;
+  count?: number;
+  hasNext?: boolean;
+  cacheCount?: number;
+  source?: FoncierCacheSource;
+  items?: FoncierListing[];
 }
 
 export type YoutubeItemKind = 'video' | 'playlist' | 'channel';

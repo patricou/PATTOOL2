@@ -63,6 +63,15 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
             return next.handle(req);
         }
 
+        // Foncier proxies (Cerema / Stream Estate / ChercherTrouver) are permitAll.
+        // Waiting on getToken() here redirected to Keycloak and reloaded the page in a loop.
+        const isFoncierPublicApi =
+            /\/api\/external\/foncier\//i.test(req.url)
+            && (req.method === 'GET' || req.method === 'POST');
+        if (isFoncierPublicApi) {
+            return next.handle(req);
+        }
+
         // If the caller already set Authorization (e.g. FileService.getHeaderWithToken()), pass through.
         // Avoids double getToken() and "Token retrieval failed" blocking uploads when token refresh is slow/fails.
         if (req.headers.has('Authorization')) {

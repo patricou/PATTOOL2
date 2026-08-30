@@ -124,7 +124,7 @@
                 </ul>
             </li>
 
-            <!-- Finance -->
+            <!-- Transactions : Finance + Foncier -->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle"
                    href="#"
@@ -132,12 +132,22 @@
                    role="button"
                    (click)="toggleFinanceDropdown($event)"
                    [attr.aria-expanded]="showFinanceDropdown">
-                    <i class="fa fa-money"></i> {{ 'MENU.FINANCE' | translate }}
+                    <i class="fa fa-exchange"></i> {{ 'MENU.TRANSACTIONS' | translate }}
                 </a>
                 <ul class="dropdown-menu"
                     [class.show]="showFinanceDropdown"
                     aria-labelledby="financeDropdown">
+                    <li><h6 class="dropdown-header">{{ 'MENU.FINANCE' | translate }}</h6></li>
                     <li *ngFor="let item of sortedNavFinance">
+                        <a class="dropdown-item"
+                           [routerLink]="item.routerLink"
+                           (click)="closeMenu()">
+                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><h6 class="dropdown-header">{{ 'MENU.FONCIER' | translate }}</h6></li>
+                    <li *ngFor="let item of sortedNavFoncier">
                         <a class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">
