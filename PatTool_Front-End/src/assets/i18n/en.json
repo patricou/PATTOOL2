@@ -6786,6 +6786,7 @@
     "HEADING_REF_USING_NORTH": "North in use",
     "HEADING_REF_USING_CIBLE": "Target in use",
     "HEADING_REF_NORTH": "North",
+    "HEADING_REF_LINE": "Reference: {{name}}",
     "HEADING_REF_CIBLE": "Target",
     "HEADING_REF_HINT": "Reference: {{name}}. Facing the target, the heading shows its geographic azimuth (not 0°).",
     "HEADING_REF_NONE": "No saved target — create one in Calibration → Target.",

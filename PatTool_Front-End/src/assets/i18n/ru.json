@@ -5030,6 +5030,7 @@
     "HEADING_REF_USING_NORTH": "Север активен",
     "HEADING_REF_USING_CIBLE": "Цель активна",
     "HEADING_REF_NORTH": "Север",
+    "HEADING_REF_LINE": "Ориентир: {{name}}",
     "HEADING_REF_CIBLE": "Цель",
     "HEADING_REF_HINT": "Опора: {{name}}. Если смотреть на цель, курс показывает её географический азимут (не 0°).",
     "HEADING_REF_NONE": "Нет цели — создайте в Калибровка → Цель.",

@@ -65,8 +65,17 @@
   color: #eaf1ff;
 }
 
+.ac-compass-title__text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  gap: 0.12rem;
+}
+
 .ac-compass-title__name {
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -77,6 +86,23 @@
   line-height: 1.15;
   color: #ffe7a3;
   text-shadow: 0 0 16px rgba(255, 196, 80, 0.4);
+}
+
+.ac-compass-title__ref {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: none;
+  color: #9ec5ff;
+}
+
+.ac-compass-title__ref--cible {
+  color: #7dffb3;
 }
 
 .ac-compass-title__thumb {
@@ -2355,6 +2381,10 @@ a.ac-compass-cal__btn--direction {
 
   .ac-compass-title__name {
     font-size: 1.28rem;
+  }
+
+  .ac-compass-title__ref {
+    font-size: 0.68rem;
   }
 
   .ac-compass-dial {

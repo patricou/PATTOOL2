@@ -5036,6 +5036,7 @@
     "HEADING_REF_USING_NORTH": "צפון בשימוש",
     "HEADING_REF_USING_CIBLE": "מטרה בשימוש",
     "HEADING_REF_NORTH": "צפון",
+    "HEADING_REF_LINE": "ייחוס: {{name}}",
     "HEADING_REF_CIBLE": "מטרה",
     "HEADING_REF_HINT": "ייחוס: {{name}}. כשמכוונים למטרה, הכיוון מציג את האזימוט הגאוגרפי שלה (לא 0°).",
     "HEADING_REF_NONE": "אין מטרה שמורה — צרו אחת בכיול → מטרה.",

@@ -5042,6 +5042,7 @@
     "HEADING_REF_USING_NORTH": "北を使用中",
     "HEADING_REF_USING_CIBLE": "目標を使用中",
     "HEADING_REF_NORTH": "北",
+    "HEADING_REF_LINE": "基準：{{name}}",
     "HEADING_REF_CIBLE": "目標",
     "HEADING_REF_HINT": "基準：{{name}}。目標を向けると、方位はその地理的方位角を示します（0°ではありません）。",
     "HEADING_REF_NONE": "目標がありません。キャリブレーション → 目標で作成してください。",

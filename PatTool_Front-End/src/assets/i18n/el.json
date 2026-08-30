@@ -5039,6 +5039,7 @@
     "HEADING_REF_USING_NORTH": "Βορράς σε χρήση",
     "HEADING_REF_USING_CIBLE": "Στόχος σε χρήση",
     "HEADING_REF_NORTH": "Βορράς",
+    "HEADING_REF_LINE": "Αναφορά: {{name}}",
     "HEADING_REF_CIBLE": "Στόχος",
     "HEADING_REF_HINT": "Αναφορά: {{name}}. Όταν στοχεύετε τον στόχο, η πορεία δείχνει το γεωγραφικό αζιμούθιο (όχι 0°).",
     "HEADING_REF_NONE": "Δεν υπάρχει στόχος — δημιουργήστε έναν στη Βαθμονόμηση → Στόχος.",

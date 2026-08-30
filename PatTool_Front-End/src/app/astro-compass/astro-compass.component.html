@@ -238,7 +238,12 @@
               [ngClass]="bodyIconClass"
               [style.color]="bodyColor"
               aria-hidden="true"></i>
-            <span class="ac-compass-title__name">{{ bodyLabel || ('ASTRO_COMPASS.TITLE' | translate) }}</span>
+            <span class="ac-compass-title__text">
+              <span class="ac-compass-title__name">{{ bodyLabel || ('ASTRO_COMPASS.TITLE' | translate) }}</span>
+              <span
+                class="ac-compass-title__ref"
+                [class.ac-compass-title__ref--cible]="headingRef === 'cible' && activeCible">{{ 'ASTRO_COMPASS.HEADING_REF_LINE' | translate : { name: headingRefLabel } }}</span>
+            </span>
           </h3>
           <div class="ac-compass-head-actions">
             <button

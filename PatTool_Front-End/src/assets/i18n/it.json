@@ -5051,6 +5051,7 @@
     "HEADING_REF_USING_NORTH": "Nord in uso",
     "HEADING_REF_USING_CIBLE": "Bersaglio in uso",
     "HEADING_REF_NORTH": "Nord",
+    "HEADING_REF_LINE": "Riferimento: {{name}}",
     "HEADING_REF_CIBLE": "Bersaglio",
     "HEADING_REF_HINT": "Riferimento: {{name}}. Puntando il bersaglio, la prua mostra il suo azimut geografico (non 0°).",
     "HEADING_REF_NONE": "Nessun bersaglio salvato — crealo in Calibrazione → Bersaglio.",

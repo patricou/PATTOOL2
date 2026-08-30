@@ -5037,6 +5037,7 @@
     "HEADING_REF_USING_NORTH": "正在使用北",
     "HEADING_REF_USING_CIBLE": "正在使用目标",
     "HEADING_REF_NORTH": "北",
+    "HEADING_REF_LINE": "基准：{{name}}",
     "HEADING_REF_CIBLE": "目标",
     "HEADING_REF_HINT": "基准：{{name}}。对准目标时，航向显示其地理方位角（不是 0°）。",
     "HEADING_REF_NONE": "尚未保存目标 — 请在校准 → 目标中创建。",

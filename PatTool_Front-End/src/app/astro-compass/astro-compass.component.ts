@@ -1172,6 +1172,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   headingActive = false;
   headingRawDeg: number | null = null;
   headingRef: 'north' | 'cible' = 'north';
+  get headingRefLabel(): string {
+    const name = this.headingRef === 'cible' ? this.activeCible?.name?.trim() : '';
+    return name || this.translate.instant('ASTRO_COMPASS.HEADING_REF_NORTH');
+  }
   activeCible: DirectionCible | null = null;
   cibleSaving = false;
   cibleError: string | null = null;

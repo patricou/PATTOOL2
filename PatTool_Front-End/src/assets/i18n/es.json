@@ -5096,6 +5096,7 @@
     "HEADING_REF_USING_NORTH": "Norte en uso",
     "HEADING_REF_USING_CIBLE": "Objetivo en uso",
     "HEADING_REF_NORTH": "Norte",
+    "HEADING_REF_LINE": "Referencia: {{name}}",
     "HEADING_REF_CIBLE": "Objetivo",
     "HEADING_REF_HINT": "Referencia: {{name}}. Al apuntar al objetivo, el rumbo muestra su acimut geográfico (no 0°).",
     "HEADING_REF_NONE": "No hay objetivo guardado — créalo en Calibración → Objetivo.",

@@ -5035,6 +5035,7 @@
     "HEADING_REF_USING_NORTH": "الشمال قيد الاستخدام",
     "HEADING_REF_USING_CIBLE": "الهدف قيد الاستخدام",
     "HEADING_REF_NORTH": "الشمال",
+    "HEADING_REF_LINE": "المرجع: {{name}}",
     "HEADING_REF_CIBLE": "الهدف",
     "HEADING_REF_HINT": "المرجع: {{name}}. عند مواجهة الهدف يعرض الاتجاه سمتَه الجغرافي (وليس 0°).",
     "HEADING_REF_NONE": "لا هدف محفوظًا — أنشئ واحدًا في المعايرة → الهدف.",

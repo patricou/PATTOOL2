@@ -5028,6 +5028,7 @@
     "HEADING_REF_USING_NORTH": "उत्तर सक्रिय",
     "HEADING_REF_USING_CIBLE": "लक्ष्य सक्रिय",
     "HEADING_REF_NORTH": "उत्तर",
+    "HEADING_REF_LINE": "संदर्भ: {{name}}",
     "HEADING_REF_CIBLE": "लक्ष्य",
     "HEADING_REF_HINT": "संदर्भ: {{name}}। लक्ष्य की ओर मुख करने पर दिशा उसका भौगोलिक दिगंश दिखाती है (0° नहीं)।",
     "HEADING_REF_NONE": "कोई लक्ष्य नहीं — अंशांकन → लक्ष्य में बनाएँ।",

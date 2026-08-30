@@ -5177,6 +5177,7 @@
     "HEADING_REF_USING_NORTH": "Norden aktiv",
     "HEADING_REF_USING_CIBLE": "Ziel aktiv",
     "HEADING_REF_NORTH": "Norden",
+    "HEADING_REF_LINE": "Bezug: {{name}}",
     "HEADING_REF_CIBLE": "Ziel",
     "HEADING_REF_HINT": "Bezug: {{name}}. Zur Zielrichtung zeigt die Anzeige deren geografischen Azimut (nicht 0°).",
     "HEADING_REF_NONE": "Kein Ziel gespeichert — legen Sie eines unter Kalibrierung → Ziel an.",

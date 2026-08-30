@@ -6790,6 +6790,7 @@
     "HEADING_REF_USING_NORTH": "Nord en service",
     "HEADING_REF_USING_CIBLE": "Cible en service",
     "HEADING_REF_NORTH": "Nord",
+    "HEADING_REF_LINE": "Repère : {{name}}",
     "HEADING_REF_CIBLE": "Cible",
     "HEADING_REF_HINT": "Repère : {{name}}. Face à la cible, le cap montre son azimut géographique (pas 0°).",
     "HEADING_REF_NONE": "Aucune cible enregistrée — créez-en une dans Calibrage → Cible.",
