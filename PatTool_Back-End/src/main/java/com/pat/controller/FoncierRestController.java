@@ -73,7 +73,7 @@ public class FoncierRestController {
     }
 
     @GetMapping("/cache")
-    public ResponseEntity<Map<String, Object>> cacheStatus(@RequestParam String provider) {
+    public ResponseEntity<?> cacheStatus(@RequestParam String provider) {
         String key = normalizeProvider(provider);
         if (key.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "invalid_provider"));
