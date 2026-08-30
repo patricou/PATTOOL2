@@ -4871,6 +4871,8 @@
     "AUTO_FOUND": "已识别目标",
     "AUTO_KEEP_TARGET": "保留在寻星器",
     "AUTO_KEEP_TARGET_HINT": "若已识别目标，离开自动检测后仍会在寻星器中保持选中。关闭：寻星器恢复之前的目标。",
+    "AUTO_USE_IN_FINDER": "在寻星器中使用",
+    "AUTO_USE_IN_FINDER_HINT": "关闭自动检测，并在寻星器中选中该目标。",
     "AUTO_LIVE_HINT": "持续跟踪你对准的方向 — 移动手机即可更换目标。",
     "AUTO_LIVE_ON": "实时",
     "AUTO_LIVE_START": "开始实时自动识别",

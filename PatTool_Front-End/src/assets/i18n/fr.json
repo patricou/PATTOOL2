@@ -6622,6 +6622,8 @@
     "AUTO_FOUND": "Objet identifié",
     "AUTO_KEEP_TARGET": "Garder dans le viseur",
     "AUTO_KEEP_TARGET_HINT": "Si un objet est identifié, il reste sélectionné dans le viseur d’astre en quittant l’auto-détection. Désactivé : le viseur reprend la cible précédente.",
+    "AUTO_USE_IN_FINDER": "Utiliser dans le viseur",
+    "AUTO_USE_IN_FINDER_HINT": "Ferme l’auto-détection et sélectionne cet objet dans le viseur d’astres.",
     "AUTO_LIVE_HINT": "Suit en continu l’astre pointé — bougez le téléphone pour changer de cible.",
     "AUTO_LIVE_ON": "Live",
     "AUTO_LIVE_START": "Démarrer l’auto-détection live",

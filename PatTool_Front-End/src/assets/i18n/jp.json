@@ -4876,6 +4876,8 @@
     "AUTO_FOUND": "天体を識別しました",
     "AUTO_KEEP_TARGET": "ファインダーに残す",
     "AUTO_KEEP_TARGET_HINT": "天体が識別されている場合、自動検出を終了してもファインダーで選択されたままです。オフ：以前の目標に戻します。",
+    "AUTO_USE_IN_FINDER": "ファインダーで使う",
+    "AUTO_USE_IN_FINDER_HINT": "自動検出を終了し、この天体をファインダーで選択します。",
     "AUTO_LIVE_HINT": "向けた先を連続追跡します。端末を動かすと対象が変わります。",
     "AUTO_LIVE_ON": "ライブ",
     "AUTO_LIVE_START": "ライブ自動検出を開始",

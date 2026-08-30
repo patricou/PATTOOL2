@@ -6618,6 +6618,8 @@
     "AUTO_FOUND": "Object identified",
     "AUTO_KEEP_TARGET": "Keep in finder",
     "AUTO_KEEP_TARGET_HINT": "If an object is identified, it stays selected in the star finder when you leave auto-detect. Off: the finder restores the previous target.",
+    "AUTO_USE_IN_FINDER": "Use in finder",
+    "AUTO_USE_IN_FINDER_HINT": "Leave auto-detect and select this object in the star finder.",
     "AUTO_LIVE_HINT": "Continuously tracks what you point at — move the phone to change target.",
     "AUTO_LIVE_ON": "Live",
     "AUTO_LIVE_START": "Start live auto-detect",

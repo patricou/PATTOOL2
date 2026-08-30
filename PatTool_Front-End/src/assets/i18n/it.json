@@ -4885,6 +4885,8 @@
     "AUTO_FOUND": "Oggetto identificato",
     "AUTO_KEEP_TARGET": "Mantieni nel mirino",
     "AUTO_KEEP_TARGET_HINT": "Se un oggetto è identificato, resta selezionato nel mirino quando esci dall’auto-rilevamento. Disattivo: il mirino ripristina il bersaglio precedente.",
+    "AUTO_USE_IN_FINDER": "Usa nel mirino",
+    "AUTO_USE_IN_FINDER_HINT": "Chiude l’auto-rilevamento e seleziona questo oggetto nel mirino.",
     "AUTO_LIVE_HINT": "Segue in continuo ciò che punti — muovi il telefono per cambiare bersaglio.",
     "AUTO_LIVE_ON": "Live",
     "AUTO_LIVE_START": "Avvia rilevamento auto live",

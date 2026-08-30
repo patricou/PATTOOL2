@@ -5672,6 +5672,12 @@ a.ac-compass-cal__btn--direction {
   color: #c9ffd6;
 }
 
+.ac-live-modal__action--finder {
+  border: 1px solid rgba(93, 216, 121, 0.65);
+  background: rgba(40, 140, 80, 0.32);
+  color: #c9ffd6;
+}
+
 .ac-live-modal__action--exit {
   border: 1px solid rgba(255, 120, 110, 0.5);
   background: rgba(160, 40, 40, 0.28);

@@ -5011,6 +5011,8 @@
     "AUTO_FOUND": "Objekt erkannt",
     "AUTO_KEEP_TARGET": "Im Sucher behalten",
     "AUTO_KEEP_TARGET_HINT": "Wenn ein Objekt erkannt ist, bleibt es im Sternensucher ausgewählt, sobald Sie die Auto-Erkennung verlassen. Aus: der Sucher stellt das vorherige Ziel wieder her.",
+    "AUTO_USE_IN_FINDER": "Im Sucher verwenden",
+    "AUTO_USE_IN_FINDER_HINT": "Auto-Erkennung beenden und dieses Objekt im Sternensucher auswählen.",
     "AUTO_LIVE_HINT": "Verfolgt laufend, worauf du zeigst — bewege das Telefon, um das Ziel zu wechseln.",
     "AUTO_LIVE_ON": "Live",
     "AUTO_LIVE_START": "Live-Auto-Erkennung starten",

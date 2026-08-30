@@ -2514,6 +2514,15 @@
       </button>
       <button
         type="button"
+        class="ac-live-modal__action ac-live-modal__action--finder"
+        *ngIf="autoDetectBestHit"
+        (click)="useAutoDetectInFinder()"
+        [attr.title]="'ASTRO_COMPASS.AUTO_USE_IN_FINDER_HINT' | translate">
+        <i class="fa fa-bullseye" aria-hidden="true"></i>
+        {{ 'ASTRO_COMPASS.AUTO_USE_IN_FINDER' | translate }}
+      </button>
+      <button
+        type="button"
         class="ac-live-modal__action ac-live-modal__action--exit"
         (click)="closeAutoDetectModal()"
         [attr.title]="'ASTRO_COMPASS.AUTO_EXIT' | translate">

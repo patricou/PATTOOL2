@@ -1038,6 +1038,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   autoDetectSettingsOpen = false;
   /** Si true : l’objet identifié reste la cible du viseur en quittant l’auto-détection. */
   autoDetectKeepTarget = false;
+  /** Un coup : le bouton « Utiliser dans le viseur » force la transmission à la fermeture. */
+  private autoDetectCommitOnExit = false;
   private autoDetectPreviousTarget: LastAstroTarget | null = null;
   private autoDetectPreviousChoseTarget = false;
   /** Objet figé tant que la fiche est ouverte (l’auto-detect ne le remplace pas). */
@@ -5013,11 +5015,13 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * En quittant l’auto-détection : ne transmet l’objet au viseur que si
-   * le switch est activé et qu’un objet a bien été identifié.
+   * le switch est activé, le bouton viseur a été cliqué, et qu’un objet a bien été identifié.
    */
   private finishAutoDetectSelection(): void {
-    const hit = this.autoDetectBestHit;
-    if (this.autoDetectKeepTarget && hit) {
+    const hit = this.resolvedAutoDetectHit();
+    const keep = this.autoDetectKeepTarget || this.autoDetectCommitOnExit;
+    this.autoDetectCommitOnExit = false;
+    if (keep && hit) {
       this.commitAutoDetectSelection();
     } else {
       this.restoreAutoDetectPreviousTarget();
@@ -5025,9 +5029,39 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.autoDetectPreviousTarget = null;
   }
 
+  /** Objet réellement choisi (liste / pause), sinon le gagnant du scan. */
+  resolvedAutoDetectHit(): AutoDetectHit | null {
+    const selected = this.autoDetectHits.find((h) => this.isAutoDetectSelected(h));
+    if (selected) {
+      return selected;
+    }
+    const pinned = this.autoDetectPinnedHit;
+    if (pinned && this.isAutoDetectSelected(pinned)) {
+      return pinned;
+    }
+    return this.autoDetectBestHit;
+  }
+
+  /**
+   * Envoie l’objet sélectionné au viseur d’astres, puis ferme l’auto-détection
+   * si elle est encore ouverte.
+   */
+  useAutoDetectInFinder(): void {
+    if (!this.resolvedAutoDetectHit()) {
+      return;
+    }
+    if (this.autoDetectModalOpen || this.autoDetectLive) {
+      this.autoDetectCommitOnExit = true;
+      this.clearAutoDetect();
+      return;
+    }
+    this.commitAutoDetectSelection();
+    this.cdr.markForCheck();
+  }
+
   /** Figé le dernier astre vu en auto-détection comme cible du viseur. */
   private commitAutoDetectSelection(): void {
-    const hit = this.autoDetectBestHit;
+    const hit = this.resolvedAutoDetectHit();
     if (!hit) {
       return;
     }

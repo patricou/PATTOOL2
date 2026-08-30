@@ -4930,6 +4930,8 @@
     "AUTO_FOUND": "Objeto identificado",
     "AUTO_KEEP_TARGET": "Conservar en el visor",
     "AUTO_KEEP_TARGET_HINT": "Si se identifica un objeto, permanece seleccionado en el visor al salir de la autodetección. Desactivado: el visor recupera el objetivo anterior.",
+    "AUTO_USE_IN_FINDER": "Usar en el visor",
+    "AUTO_USE_IN_FINDER_HINT": "Salir de la autodetección y seleccionar este objeto en el visor.",
     "AUTO_LIVE_HINT": "Sigue en continuo lo que apuntas — mueve el teléfono para cambiar de objetivo.",
     "AUTO_LIVE_ON": "Live",
     "AUTO_LIVE_START": "Iniciar autodetección en vivo",
