@@ -104,6 +104,7 @@ import {
 import { CameraLookTracker } from '../direction/camera-look-tracker';
 import {
   loadPattoolCal,
+  patchLookOffsets,
   persistPattoolCalFromSamples,
   sameCalSampleSet,
   snapshotFromPayload
@@ -1466,6 +1467,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly onLiveModalTouchMoveNative = (ev: TouchEvent) => this.onLiveModalTouchMove(ev);
   private readonly onLiveModalTouchEndNative = (ev: TouchEvent) => this.onFinderTouchEnd(ev);
   private static readonly EXACT_POS_KEY = 'pat.astro-compass.exact-pos.v1';
+  private static readonly UNDO_CIBLE_EL_SNAP_KEY = 'pat.astro-compass.undo-cible-el-snap.v1';
   private static readonly LAST_TARGET_KEY = 'pat.astro-compass.last-target.v1';
   private static readonly GLOBE_ASTRO_RETURN_SAT_KEY = 'pat.world-globe.astro-return-sat';
   private finderTrailSky: FinderTrailSkyPt[] = [];
@@ -1547,6 +1549,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.applyQueryTarget();
     this.startGeolocation();
     this.hydratePattoolCalFromDb();
+    this.undoBuggyCibleElevationSnap();
     this.loadHeadingRef();
     this.loadExactPositionActive();
     this.loadActiveCible();
@@ -2504,22 +2507,6 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return m != null && m < CIBLE_MARK_MIN_DIST_M;
   }
 
-  private cibleMarkElevationDeg(): number | null {
-    const c = this.activeCible;
-    if (!hasCibleMark(c?.markLat, c?.markLon) || !Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
-      return null;
-    }
-    const look = AstroCompassComponent.groundLook(
-      this.lat,
-      this.lon,
-      this.height || 0,
-      c!.markLat!,
-      c!.markLon!,
-      c?.markAltM != null && Number.isFinite(c.markAltM) ? c.markAltM : 0
-    );
-    return Number.isFinite(look.elDeg) ? look.elDeg : null;
-  }
-
   openTraceViewerForCibleMark(): void {
     if (!this.traceViewerModalComponent || !this.activeCible) {
       return;
@@ -2596,6 +2583,24 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     } catch {
       /* ignore */
     }
+  }
+
+  /** Recaler cible avait figé l’élévation GPS du repère ; on annule ce décalage une fois. */
+  private undoBuggyCibleElevationSnap(): void {
+    try {
+      if (localStorage.getItem(AstroCompassComponent.UNDO_CIBLE_EL_SNAP_KEY) === '1') {
+        return;
+      }
+      localStorage.setItem(AstroCompassComponent.UNDO_CIBLE_EL_SNAP_KEY, '1');
+    } catch {
+      return;
+    }
+    const file = loadPattoolCal();
+    const el = file?.derived?.elOffsetDeg;
+    if (el == null || !Number.isFinite(el) || Math.abs(el) < 0.5) {
+      return;
+    }
+    patchLookOffsets({ elOffsetDeg: 0 });
   }
 
   private loadExactPositionActive(): void {
@@ -6775,13 +6780,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     const ref = this.cibleMarkBearingDeg() ?? c?.refAzimuthDeg ?? this.headingDeg ?? raw;
-    const markEl = this.cibleMarkElevationDeg();
     const phoneEl = this.lookTracker?.elevationDeg ?? null;
     if (Number.isFinite(ref)) {
-      const elTarget = markEl ?? phoneEl;
-      if (elTarget != null && Number.isFinite(elTarget)) {
-        this.lookTracker.markCameraAsTarget(ref, elTarget);
-      }
+      this.lookTracker.markCameraAsAzimuth(ref);
     }
     this.cibleSaving = true;
     this.cibleError = null;

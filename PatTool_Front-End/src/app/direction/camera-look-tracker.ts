@@ -156,7 +156,7 @@ export class CameraLookTracker {
     return this.markCameraAsAzimuth(180);
   }
 
-  private markCameraAsAzimuth(targetAzDeg: number): boolean {
+  markCameraAsAzimuth(targetAzDeg: number): boolean {
     if (this.magAzimuthDeg == null) {
       return false;
     }
