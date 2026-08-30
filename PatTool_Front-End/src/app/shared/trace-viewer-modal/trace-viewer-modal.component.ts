@@ -149,6 +149,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public clickedAddress: string = '';
 	public clickedLat: number = 0;
 	public clickedLng: number = 0;
+
+	get canOpenGpsRouteToClickedAddress(): boolean {
+		return isValidGeoCoordinate(this.clickedLat, this.clickedLng)
+			&& !!this.clickedAddress
+			&& this.clickedAddress !== 'Loading address...';
+	}
 	public clickedAlt: number | null = null;
 	private finalSelectedCoordinates?: { lat: number; lng: number; alt?: number | null };
 	public showAddress: boolean = false;
@@ -3587,6 +3593,35 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 		});
 		this.close();
+	}
+
+	public openGpsRouteToClickedAddress(): void {
+		if (!this.canOpenGpsRouteToClickedAddress) {
+			return;
+		}
+		const queryParams: Record<string, string | number> = {
+			toLat: Math.round(this.clickedLat * 1e7) / 1e7,
+			toLon: Math.round(this.clickedLng * 1e7) / 1e7,
+			toLabel: this.clickedAddress
+		};
+		const from = this.getLastKnownUserLatLng();
+		if (from) {
+			queryParams['fromLat'] = Math.round(from.lat * 1e7) / 1e7;
+			queryParams['fromLon'] = Math.round(from.lng * 1e7) / 1e7;
+		}
+		void this.router.navigate(['api', 'gps-routing'], { queryParams });
+		this.close();
+	}
+
+	private getLastKnownUserLatLng(): { lat: number; lng: number } | null {
+		if (!this.deviceLocationMarker) {
+			return null;
+		}
+		const ll = this.deviceLocationMarker.getLatLng();
+		if (!isValidGeoCoordinate(ll.lat, ll.lng)) {
+			return null;
+		}
+		return { lat: ll.lat, lng: ll.lng };
 	}
 
 	public openMsStationHistoryFromTooltip(point: WeatherStationGridPoint): void {

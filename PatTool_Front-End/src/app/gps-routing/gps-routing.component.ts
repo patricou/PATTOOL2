@@ -14,8 +14,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
+
+import { isValidGeoCoordinate } from '../shared/geo-coordinates.util';
 
 import { L } from '../shared/leaflet-rotate-setup';
 import { LeafletBasemapOption, LeafletBasemapService } from '../shared/leaflet-basemap.service';
@@ -178,7 +181,9 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly ngZone: NgZone,
     private readonly modalService: NgbModal,
     private readonly keycloak: KeycloakService,
-    private readonly friendsService: FriendsService
+    private readonly friendsService: FriendsService,
+    private readonly activatedRoute: ActivatedRoute,
+    private readonly router: Router
   ) {}
 
   ngOnInit(): void {
@@ -210,7 +215,8 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.subs.push(
       this.fromSearch$.pipe(debounceTime(350)).subscribe((q) => this.runGeocode('from', q)),
       this.toSearch$.pipe(debounceTime(350)).subscribe((q) => this.runGeocode('to', q)),
-      this.viaSearch$.pipe(debounceTime(350)).subscribe(({ id, query }) => this.runGeocodeVia(id, query))
+      this.viaSearch$.pipe(debounceTime(350)).subscribe(({ id, query }) => this.runGeocodeVia(id, query)),
+      this.activatedRoute.queryParamMap.subscribe((params: ParamMap) => this.consumeIncomingRouteParams(params))
     );
   }
 
@@ -354,51 +360,123 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   useMyPositionAsFrom(): void {
-    if (!navigator.geolocation) {
-      this.errorMessage = 'GPS_ROUTING.GEOLOCATION_UNSUPPORTED';
+    void this.locateUserAsFrom();
+  }
+
+  private consumeIncomingRouteParams(params: ParamMap): void {
+    const dest = this.readQueryLatLon(params, 'toLat', 'toLon');
+    if (!dest) {
       return;
     }
-    this.isLocating = true;
-    this.errorMessage = '';
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        this.ngZone.run(() => {
-          const lat = pos.coords.latitude;
-          const lon = pos.coords.longitude;
-          this.fromPoint = {
-            lat,
-            lon,
-            label: this.translate.instant('GPS_ROUTING.MY_POSITION')
-          };
-          this.fromQuery = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-          this.fromResults = [];
-          this.isLocating = false;
+    const rawLabel = (params.get('toLabel') || '').trim();
+    const label = rawLabel || `${dest.lat.toFixed(5)}, ${dest.lon.toFixed(5)}`;
+    this.toPoint = { lat: dest.lat, lon: dest.lon, label };
+    this.toQuery = label;
+    this.toResults = [];
+    this.vias = [];
+    this.pickTarget = null;
+    const origin = this.readQueryLatLon(params, 'fromLat', 'fromLon');
+    if (origin) {
+      this.applyFromCoords(origin.lat, origin.lon, false);
+    }
+    this.persistDraft();
+    this.refreshMarkers();
+    this.clearIncomingRouteParams();
+    void this.locateUserAsFrom().then((ok) => {
+      if ((ok || this.fromPoint) && this.toPoint) {
+        this.calculateRoute();
+      }
+      this.cdr.detectChanges();
+    });
+  }
+
+  private readQueryLatLon(
+    params: ParamMap,
+    latKey: string,
+    lonKey: string
+  ): { lat: number; lon: number } | null {
+    const rawLat = params.get(latKey);
+    const rawLon = params.get(lonKey);
+    if (rawLat == null || rawLon == null || rawLat === '' || rawLon === '') {
+      return null;
+    }
+    const lat = Number(rawLat);
+    const lon = Number(rawLon);
+    if (!isValidGeoCoordinate(lat, lon)) {
+      return null;
+    }
+    return { lat, lon };
+  }
+
+  private clearIncomingRouteParams(): void {
+    void this.router.navigate([], {
+      relativeTo: this.activatedRoute,
+      queryParams: { toLat: null, toLon: null, toLabel: null, fromLat: null, fromLon: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
+  }
+
+  private applyFromCoords(lat: number, lon: number, reverseGeocode: boolean): void {
+    this.lastUserLat = lat;
+    this.lastUserLon = lon;
+    this.fromPoint = {
+      lat,
+      lon,
+      label: this.translate.instant('GPS_ROUTING.MY_POSITION')
+    };
+    this.fromQuery = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    this.fromResults = [];
+    this.persistDraft();
+    this.refreshMarkers();
+    if (!reverseGeocode) {
+      return;
+    }
+    this.api.geocodeReverse(lat, lon).subscribe({
+      next: (data: any) => {
+        const name = data?.display_name || data?.displayName;
+        if (name && this.fromPoint) {
+          this.fromPoint = { ...this.fromPoint, label: name };
+          this.fromQuery = name;
           this.persistDraft();
-          this.refreshMarkers();
           this.cdr.detectChanges();
-          this.api.geocodeReverse(lat, lon).subscribe({
-            next: (data: any) => {
-              const name = data?.display_name || data?.displayName;
-              if (name && this.fromPoint) {
-                this.fromPoint = { ...this.fromPoint, label: name };
-                this.fromQuery = name;
-                this.persistDraft();
-                this.cdr.detectChanges();
-              }
-            },
-            error: () => { /* keep coords label */ }
+        }
+      },
+      error: () => { /* keep coords label */ }
+    });
+  }
+
+  private locateUserAsFrom(): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        this.errorMessage = 'GPS_ROUTING.GEOLOCATION_UNSUPPORTED';
+        resolve(false);
+        return;
+      }
+      this.isLocating = true;
+      this.errorMessage = '';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          this.ngZone.run(() => {
+            this.applyFromCoords(pos.coords.latitude, pos.coords.longitude, true);
+            this.isLocating = false;
+            this.cdr.detectChanges();
+            resolve(true);
           });
-        });
-      },
-      () => {
-        this.ngZone.run(() => {
-          this.isLocating = false;
-          this.errorMessage = 'GPS_ROUTING.GEOLOCATION_ERROR';
-          this.cdr.detectChanges();
-        });
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
-    );
+        },
+        () => {
+          this.ngZone.run(() => {
+            this.isLocating = false;
+            if (!this.fromPoint) {
+              this.errorMessage = 'GPS_ROUTING.GEOLOCATION_ERROR';
+            }
+            this.cdr.detectChanges();
+            resolve(false);
+          });
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+      );
+    });
   }
 
   swapEnds(): void {
@@ -1743,12 +1821,16 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
         this.fromQuery = this.fromPoint.label || `${this.fromPoint.lat.toFixed(5)}, ${this.fromPoint.lon.toFixed(5)}`;
       }
       if (draft?.to && this.isValidPoint(draft.to)) {
-        this.toPoint = {
-          lat: Number(draft.to.lat),
-          lon: Number(draft.to.lon),
-          label: String(draft.to.label || '')
-        };
-        this.toQuery = this.toPoint.label || `${this.toPoint.lat.toFixed(5)}, ${this.toPoint.lon.toFixed(5)}`;
+        const lat = Number(draft.to.lat);
+        const lon = Number(draft.to.lon);
+        if (lat !== 0 || lon !== 0) {
+          this.toPoint = {
+            lat,
+            lon,
+            label: String(draft.to.label || '')
+          };
+          this.toQuery = this.toPoint.label || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+        }
       }
       if (Array.isArray(draft?.vias)) {
         this.vias = draft.vias

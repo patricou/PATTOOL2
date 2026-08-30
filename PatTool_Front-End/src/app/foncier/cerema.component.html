@@ -115,11 +115,23 @@
     <p class="mb-0">{{ 'FONCIER.CEREMA_EMPTY' | translate }}</p>
   </div>
 
-  <div class="foncier-toolbar" *ngIf="selected">
-    <div class="foncier-toolbar-place">
+  <div class="foncier-toolbar" *ngIf="selected || searched">
+    <div class="foncier-toolbar-place" *ngIf="selected">
       <strong>{{ selected.nom }}</strong>
       <span>{{ communeMeta(selected) }}</span>
     </div>
+    <div class="foncier-toolbar-end">
+      <label class="foncier-sort" for="cerema-sort">
+        <span>{{ 'FONCIER.SORT' | translate }}</span>
+        <select
+          id="cerema-sort"
+          class="form-select form-select-sm"
+          name="ceremaSort"
+          [(ngModel)]="sortKey"
+          (ngModelChange)="onSortChanged()">
+          <option *ngFor="let key of sortOptions" [ngValue]="key">{{ sortLabelKey(key) | translate }}</option>
+        </select>
+      </label>
     <div class="foncier-chips">
       <span class="foncier-chip" *ngIf="radiusKm > 0">{{ 'FONCIER.RADIUS_AROUND' | translate:{ km: radiusKm } }}</span>
       <span class="foncier-chip foncier-chip--count" *ngIf="searched && !loading">{{ 'FONCIER.RESULT_COUNT' | translate:{ count: count } }}</span>
@@ -128,6 +140,7 @@
         <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
         {{ 'FONCIER.LOADING' | translate }}
       </span>
+    </div>
     </div>
   </div>
 

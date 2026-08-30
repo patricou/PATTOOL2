@@ -12,7 +12,16 @@ import {
   FoncierCommune,
   FoncierMutation
 } from '../services/api.service';
-import { filterCacheItems, paginateCache, placesFromCache } from './foncier-cache-query';
+import {
+  FONCIER_SORT_OPTIONS,
+  FoncierSortKey,
+  filterCacheItems,
+  paginateCache,
+  parseFoncierSort,
+  placesFromCache,
+  sortCacheItems,
+  sortLabelKey
+} from './foncier-cache-query';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 
 @Component({
@@ -26,16 +35,19 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
 
   readonly radiusOptions = [0, 2, 5, 10, 20, 30];
   readonly sourceOptions: FoncierCacheSource[] = ['cache', 'both', 'api'];
+  readonly sortOptions = FONCIER_SORT_OPTIONS;
 
   query = '';
   typeLocal = '';
   radiusKm = 0;
   cacheMode: FoncierCacheSource = 'cache';
+  sortKey: FoncierSortKey = 'date-desc';
   cacheCount = 0;
   clearingCache = false;
   communes: FoncierCommune[] = [];
   selected: FoncierCommune | null = null;
   mutations: FoncierMutation[] = [];
+  private rawResults: FoncierMutation[] = [];
   count = 0;
   page = 1;
   hasNext = false;
@@ -68,6 +80,7 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
     this.typeLocal = params.get('type') || '';
     this.radiusKm = this.parseRadius(params.get('radius'));
     this.cacheMode = this.parseSource(params.get('source'));
+    this.sortKey = parseFoncierSort(params.get('sort'));
     const insee = params.get('insee') || '';
 
     this.subs.push(
@@ -142,16 +155,31 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
     this.query = '';
     this.typeLocal = '';
     this.radiusKm = 0;
+    this.sortKey = 'date-desc';
     this.cacheMode = 'cache';
     this.communes = [];
     this.selected = null;
     this.mutations = [];
+    this.rawResults = [];
     this.count = 0;
     this.page = 1;
     this.hasNext = false;
     this.searched = false;
     this.errorMessage = '';
     this.syncUrl();
+  }
+
+  onSortChanged(): void {
+    if (this.useLocalCache()) {
+      this.loadMutations(1);
+      return;
+    }
+    this.mutations = sortCacheItems(this.rawResults, this.sortKey);
+    this.syncUrl();
+  }
+
+  sortLabelKey(sort: FoncierSortKey): string {
+    return sortLabelKey(sort);
   }
 
   onTypeChanged(): void {
@@ -402,7 +430,8 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
       lat: this.selected?.lat,
       lon: this.selected?.lon
     });
-    const slice = paginateCache(matched, page, 40);
+    const slice = paginateCache(sortCacheItems(matched, this.sortKey), page, 40);
+    this.rawResults = slice.items;
     this.mutations = slice.items;
     this.count = slice.count;
     this.hasNext = slice.hasNext;
@@ -437,7 +466,8 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (res) => {
         this.loading = false;
-        this.mutations = res?.items || [];
+        this.rawResults = res?.items || [];
+        this.mutations = sortCacheItems(this.rawResults, this.sortKey);
         this.count = res?.count || 0;
         this.hasNext = !!res?.hasNext;
         if (res?.cacheCount != null) {
@@ -451,6 +481,7 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.loading = false;
         this.mutations = [];
+        this.rawResults = [];
         this.errorMessage = err?.error?.error === 'upstream_unavailable'
           ? 'FONCIER.ERROR_UPSTREAM'
           : 'FONCIER.ERROR';
@@ -466,7 +497,8 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
         type: this.typeLocal || null,
         insee: this.selected?.code || null,
         radius: this.radiusKm > 0 ? String(this.radiusKm) : null,
-        source: this.cacheMode !== 'cache' ? this.cacheMode : null
+        source: this.cacheMode !== 'cache' ? this.cacheMode : null,
+        sort: this.sortKey !== 'date-desc' ? this.sortKey : null
       },
       replaceUrl: true
     });

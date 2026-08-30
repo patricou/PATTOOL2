@@ -1604,6 +1604,35 @@
     color: #000;
 }
 
+.clicked-address-actions {
+    margin-top: 10px;
+}
+
+.clicked-address-route-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid #007bff;
+    border-radius: 6px;
+    background: #007bff;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+}
+
+.clicked-address-route-btn:hover:not(:disabled) {
+    background: #0069d9;
+}
+
+.clicked-address-route-btn:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
 .gps-coordinates-overlay {
 	position: absolute;
 	top: 52px;

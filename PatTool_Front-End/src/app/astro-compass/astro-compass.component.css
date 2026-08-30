@@ -6125,42 +6125,6 @@ a.ac-compass-cal__btn--direction {
   box-shadow: 0 0 18px rgba(34, 197, 94, 0.55);
 }
 
-.ac-finder__cible-name {
-  position: absolute;
-  left: 50%;
-  top: calc(50% - 2.35rem);
-  z-index: 4;
-  transform: translate(-50%, -100%);
-  max-width: calc(100% - 1.4rem);
-  padding: 0.18rem 0.5rem;
-  border-radius: 0.45rem;
-  background: rgba(6, 18, 12, 0.78);
-  border: 1px solid rgba(34, 197, 94, 0.5);
-  color: #d8ffe8;
-  font-size: 0.78rem;
-  font-weight: 800;
-  line-height: 1.2;
-  letter-spacing: 0.01em;
-  text-align: center;
-  text-shadow: 0 1px 3px #000;
-  pointer-events: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ac-finder__cible-name--day {
-  background: rgba(236, 252, 243, 0.88);
-  border-color: rgba(21, 128, 61, 0.55);
-  color: #14532d;
-  text-shadow: none;
-}
-
-.ac-finder--cible-ok .ac-finder__cible-name {
-  border-color: rgba(61, 255, 154, 0.75);
-  box-shadow: 0 0 12px rgba(61, 255, 154, 0.28);
-}
-
 .ac-finder__cible-ghost {
   position: absolute;
   inset: 0;

@@ -9,9 +9,89 @@ export interface FoncierCacheRow {
   type?: string;
   typeLocal?: string;
   price?: number;
+  pricePerM2?: number;
   surface?: number;
+  rooms?: number;
+  date?: string;
+  publishedAt?: string;
   lat?: number;
   lon?: number;
+}
+
+export type FoncierSortKey =
+  | 'date-desc'
+  | 'date-asc'
+  | 'price-asc'
+  | 'price-desc'
+  | 'm2-asc'
+  | 'm2-desc'
+  | 'surface-desc'
+  | 'surface-asc';
+
+export const FONCIER_SORT_OPTIONS: FoncierSortKey[] = [
+  'date-desc',
+  'date-asc',
+  'price-asc',
+  'price-desc',
+  'm2-asc',
+  'm2-desc',
+  'surface-desc',
+  'surface-asc'
+];
+
+export function parseFoncierSort(raw: string | null): FoncierSortKey {
+  return FONCIER_SORT_OPTIONS.includes(raw as FoncierSortKey)
+    ? raw as FoncierSortKey
+    : 'date-desc';
+}
+
+export function sortLabelKey(sort: FoncierSortKey): string {
+  switch (sort) {
+    case 'date-asc':
+      return 'FONCIER.SORT_DATE_ASC';
+    case 'price-asc':
+      return 'FONCIER.SORT_PRICE_ASC';
+    case 'price-desc':
+      return 'FONCIER.SORT_PRICE_DESC';
+    case 'm2-asc':
+      return 'FONCIER.SORT_M2_ASC';
+    case 'm2-desc':
+      return 'FONCIER.SORT_M2_DESC';
+    case 'surface-desc':
+      return 'FONCIER.SORT_SURFACE_DESC';
+    case 'surface-asc':
+      return 'FONCIER.SORT_SURFACE_ASC';
+    default:
+      return 'FONCIER.SORT_DATE_DESC';
+  }
+}
+
+export function sortCacheItems<T extends FoncierCacheRow>(items: T[], sort: FoncierSortKey): T[] {
+  const dir = sort.endsWith('-asc') ? 1 : -1;
+  const field = sort.startsWith('date')
+    ? 'date'
+    : sort.startsWith('price')
+      ? 'price'
+      : sort.startsWith('m2')
+        ? 'm2'
+        : 'surface';
+  return [...items].sort((a, b) => {
+    const av = sortValue(a, field);
+    const bv = sortValue(b, field);
+    if (av == null && bv == null) {
+      return 0;
+    }
+    if (av == null) {
+      return 1;
+    }
+    if (bv == null) {
+      return -1;
+    }
+    if (av === bv) {
+      return 0;
+    }
+    return av < bv ? -dir : dir;
+  });
 }
 
 export interface FoncierCacheFilter {
@@ -163,6 +243,30 @@ function matchesFilters(item: FoncierCacheRow, filter: FoncierCacheFilter): bool
     return false;
   }
   return true;
+}
+
+function sortValue(item: FoncierCacheRow, field: 'date' | 'price' | 'm2' | 'surface'): number | null {
+  if (field === 'date') {
+    const raw = item.publishedAt || item.date;
+    if (!raw) {
+      return null;
+    }
+    const time = Date.parse(raw);
+    return Number.isFinite(time) ? time : null;
+  }
+  if (field === 'price') {
+    return Number.isFinite(item.price) ? item.price as number : null;
+  }
+  if (field === 'm2') {
+    if (Number.isFinite(item.pricePerM2)) {
+      return item.pricePerM2 as number;
+    }
+    if (Number.isFinite(item.price) && Number.isFinite(item.surface) && (item.surface as number) > 0) {
+      return (item.price as number) / (item.surface as number);
+    }
+    return null;
+  }
+  return Number.isFinite(item.surface) ? item.surface as number : null;
 }
 
 function text(value: string | undefined): string {

@@ -261,6 +261,10 @@ export class AppComponent implements OnInit, AfterViewInit {
         { routerLink: ['api/foncier/stream-estate'], icon: 'fa fa-building', labelKey: 'MENU.STREAM_ESTATE' },
         { routerLink: ['api/foncier/chercher-trouver'], icon: 'fa fa-search', labelKey: 'MENU.CHERCHER_TROUVER' }
     ];
+    readonly navArtisansRaw: NavRouteMenuItem[] = [
+        { routerLink: ['iot/artisans'], icon: 'fa fa-wrench', labelKey: 'MENU.ARTISANS_COMMERCES' },
+        { routerLink: ['iot/pros'], icon: 'fa fa-map-marker', labelKey: 'MENU.NEARBY_PROS' }
+    ];
     /** Globe 3D, carte du système solaire et univers futur (sous-section du menu Monde). */
     readonly navGeoWorldRaw: NavRouteMenuItem[] = [
         { routerLink: ['tools/world-globe'], icon: 'fa fa-map', labelKey: 'MENU.WORLD_GLOBE' },
@@ -613,6 +617,10 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     get sortedNavFoncier(): NavRouteMenuItem[] {
         return this.sortMenuByLabel(this.navFoncierRaw);
+    }
+
+    get sortedNavArtisans(): NavRouteMenuItem[] {
+        return this.sortMenuByLabel(this.navArtisansRaw);
     }
 
     get sortedNavMedia(): NavRouteMenuItem[] {

@@ -1,0 +1,230 @@
+<div class="pat-title">
+  <h2>
+    <i [class]="source === 'osm' ? 'fa fa-map-marker me-2' : 'fa fa-wrench me-2'"></i>
+    {{ i18nPrefix + '.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="artisans-page">
+  <p class="artisans-lead text-muted">{{ i18nPrefix + '.SUBTITLE' | translate }}</p>
+
+  <form class="artisans-search" (submit)="$event.preventDefault(); search(1)">
+    <label class="visually-hidden" for="artisans-address">{{ i18nPrefix + '.ADDRESS' | translate }}</label>
+    <input
+      id="artisans-address"
+      type="search"
+      class="form-control artisans-address"
+      name="artisansAddress"
+      [(ngModel)]="addressQuery"
+      [placeholder]="i18nPrefix + '.ADDRESS_PLACEHOLDER' | translate"
+      autocomplete="street-address" />
+
+    <label class="visually-hidden" for="artisans-trade">{{ i18nPrefix + '.TRADE' | translate }}</label>
+    <select
+      id="artisans-trade"
+      class="form-select artisans-trade"
+      name="artisansTrade"
+      [(ngModel)]="trade"
+      (ngModelChange)="onTradeChange()">
+      <option *ngFor="let t of trades" [value]="t">{{ tradeLabelKey(t) | translate }}</option>
+    </select>
+
+    <label class="artisans-radius-label" for="artisans-radius">
+      {{ i18nPrefix + '.RADIUS' | translate }} {{ radiusKm }} km
+    </label>
+    <input
+      id="artisans-radius"
+      type="range"
+      class="form-range artisans-radius"
+      name="artisansRadius"
+      min="1"
+      max="50"
+      step="1"
+      [(ngModel)]="radiusKm"
+      (ngModelChange)="onRadiusSliderChange()" />
+
+    <button type="submit" class="btn btn-primary" [disabled]="isLoading">
+      <i class="fa fa-search me-1" [class.fa-spin]="isLoading"></i>
+      {{ i18nPrefix + '.SEARCH' | translate }}
+    </button>
+    <button
+      type="button"
+      class="btn btn-outline-secondary"
+      (click)="useMyPosition(true)"
+      [disabled]="locating">
+      <i class="fa fa-location-arrow me-1" [class.fa-spin]="locating"></i>
+      {{ i18nPrefix + '.MY_POSITION' | translate }}
+    </button>
+  </form>
+
+  <p class="small text-muted artisans-place" *ngIf="placeLabel || (searchLat != null && searchLon != null)">
+    <i class="fa fa-map-pin me-1"></i>
+    {{ placeLabel || (searchLat | number:'1.4-4') + ', ' + (searchLon | number:'1.4-4') }}
+  </p>
+
+  <div class="alert alert-warning py-2 artisans-alert" *ngIf="errorMessage && !isLoading" role="alert">
+    <i class="fa fa-exclamation-triangle me-2"></i>
+    {{ errorMessage | translate }}
+  </div>
+
+  <div class="artisans-empty" *ngIf="!searched && !isLoading">
+    <i class="fa fa-home artisans-empty-icon" aria-hidden="true"></i>
+    <p>{{ i18nPrefix + '.EMPTY_HINT' | translate }}</p>
+  </div>
+
+  <div class="artisans-layout" *ngIf="searched || isLoading">
+    <aside class="artisans-results" [attr.aria-label]="i18nPrefix + '.RESULTS' | translate">
+      <div class="artisans-results-head">
+        <span>{{ i18nPrefix + '.RESULTS' | translate }}</span>
+        <span class="artisans-results-count" *ngIf="!isLoading">
+          <ng-container *ngIf="listFilterActive">
+            {{ i18nPrefix + '.RESULT_FILTERED' | translate:{ shown: listItems.length, total: viewportItems.length } }}
+          </ng-container>
+          <ng-container *ngIf="!listFilterActive">
+            {{ i18nPrefix + '.RESULT_COUNT' | translate:{ count: listItems.length } }}
+          </ng-container>
+        </span>
+      </div>
+
+      <div class="artisans-list-tools" *ngIf="!isLoading && viewportItems.length">
+        <label class="visually-hidden" for="artisans-list-filter">{{ i18nPrefix + '.FILTER_LIST' | translate }}</label>
+        <input
+          id="artisans-list-filter"
+          type="search"
+          class="form-control form-control-sm artisans-list-query"
+          name="artisansListQuery"
+          [(ngModel)]="listQuery"
+          (ngModelChange)="onListViewChange()"
+          [placeholder]="i18nPrefix + '.FILTER_PLACEHOLDER' | translate" />
+        <label class="visually-hidden" for="artisans-list-trade">{{ i18nPrefix + '.FILTER_TRADE' | translate }}</label>
+        <select
+          id="artisans-list-trade"
+          class="form-select form-select-sm"
+          name="artisansListTrade"
+          [(ngModel)]="listTrade"
+          (ngModelChange)="onListViewChange()">
+          <option value="all">{{ 'ARTISANS.TRADE_ALL' | translate }}</option>
+          <option *ngFor="let t of resultTrades" [value]="t">{{ tradeLabelKey(t) | translate }}</option>
+        </select>
+        <label class="visually-hidden" for="artisans-list-city">{{ i18nPrefix + '.FILTER_CITY' | translate }}</label>
+        <select
+          id="artisans-list-city"
+          class="form-select form-select-sm"
+          name="artisansListCity"
+          [(ngModel)]="listCity"
+          (ngModelChange)="onListViewChange()"
+          *ngIf="resultCities.length > 1">
+          <option value="">{{ i18nPrefix + '.FILTER_CITY_ALL' | translate }}</option>
+          <option *ngFor="let city of resultCities" [value]="city">{{ city }}</option>
+        </select>
+        <label class="visually-hidden" for="artisans-list-sort">{{ i18nPrefix + '.SORT' | translate }}</label>
+        <select
+          id="artisans-list-sort"
+          class="form-select form-select-sm artisans-list-sort"
+          name="artisansListSort"
+          [(ngModel)]="sortKey"
+          (ngModelChange)="onListViewChange()">
+          <option *ngFor="let key of sortOptions" [ngValue]="key">{{ sortLabelKey(key) | translate }}</option>
+        </select>
+      </div>
+
+      <div class="artisans-busy" *ngIf="isLoading">
+        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+        {{ i18nPrefix + '.LOADING' | translate }}
+      </div>
+
+      <p class="artisans-no-results" *ngIf="!isLoading && !listItems.length && !viewportItems.length">
+        {{ i18nPrefix + '.NO_RESULTS' | translate }}
+      </p>
+      <p class="artisans-no-results" *ngIf="!isLoading && !listItems.length && viewportItems.length">
+        {{ i18nPrefix + '.FILTER_EMPTY' | translate }}
+      </p>
+
+      <div class="artisans-results-list" #resultsList>
+      <div
+        class="artisans-hit"
+        *ngFor="let item of listItems"
+        [attr.data-artisan-id]="item.id"
+        [class.active]="selectedId === item.id"
+        role="button"
+        tabindex="0"
+        (click)="selectItem(item)"
+        (mouseenter)="onListHover(item)"
+        (mouseleave)="onListLeave()"
+        (keydown.enter)="selectItem(item)"
+        (keydown.space)="$event.preventDefault(); selectItem(item)">
+        <span class="artisans-hit-body">
+          <span class="artisans-hit-title">{{ item.name }}</span>
+          <span class="artisans-hit-trade">{{ domainLabel(item) }}</span>
+          <span class="artisans-hit-meta" *ngIf="activityDetail(item) !== domainLabel(item) || item.activityCode">
+            <ng-container *ngIf="activityDetail(item) !== domainLabel(item)">{{ activityDetail(item) }}</ng-container>
+            <span *ngIf="item.activityCode" class="artisans-naf">{{ item.activityCode }}</span>
+          </span>
+          <span class="artisans-hit-addr" *ngIf="item.address || item.city">
+            {{ item.address }}
+            <ng-container *ngIf="item.city"> · {{ item.postalCode }} {{ item.city }}</ng-container>
+          </span>
+          <span class="artisans-hit-dist" *ngIf="item.distanceKm != null">
+            {{ i18nPrefix + '.DISTANCE' | translate:{ km: item.distanceKm } }}
+          </span>
+        </span>
+        <span class="artisans-hit-actions">
+          <button
+            type="button"
+            class="artisans-hit-site-btn"
+            *ngIf="siteButtonHref(item) || isWebsiteResolving(item)"
+            [class.artisans-hit-site-resolving]="isWebsiteResolving(item) && !websiteHref(item)"
+            (click)="openSite(item, $event)"
+            [attr.title]="(websiteHref(item)
+              ? i18nPrefix + '.OPEN_SITE'
+              : (isWebsiteResolving(item) ? i18nPrefix + '.FINDING_SITE' : i18nPrefix + '.SEARCH_SITE')) | translate"
+            [attr.aria-label]="(websiteHref(item)
+              ? i18nPrefix + '.OPEN_SITE'
+              : (isWebsiteResolving(item) ? i18nPrefix + '.FINDING_SITE' : i18nPrefix + '.SEARCH_SITE')) | translate">
+            <i class="fa fa-globe" aria-hidden="true"></i>
+            <span>{{ websiteHref(item) ? websiteLabel(item) : (i18nPrefix + '.SITE' | translate) }}<ng-container *ngIf="!websiteHref(item) && !isWebsiteResolving(item)">*</ng-container></span>
+          </button>
+          <button
+            type="button"
+            class="artisans-hit-trace"
+            *ngIf="item.lat != null && item.lon != null"
+            (click)="openInTraceViewer(item, $event)"
+            [attr.title]="i18nPrefix + '.OPEN_TRACE_VIEWER' | translate"
+            [attr.aria-label]="i18nPrefix + '.OPEN_TRACE_VIEWER' | translate">
+            <i class="fa fa-map" aria-hidden="true"></i>
+            <span>{{ i18nPrefix + '.OPEN_TRACE_VIEWER_SHORT' | translate }}</span>
+          </button>
+          <a
+            *ngIf="item.url"
+            class="artisans-hit-link"
+            [href]="item.url"
+            target="_blank"
+            rel="noopener noreferrer"
+            (click)="$event.stopPropagation()">
+            <i class="fa fa-external-link" aria-hidden="true"></i>
+            <span class="visually-hidden">{{ i18nPrefix + '.OPEN' | translate }}</span>
+          </a>
+        </span>
+      </div>
+      </div>
+
+      <div class="artisans-pager" *ngIf="!isLoading && total > (result?.perPage || listPageSize)">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="previousPage()" [disabled]="page <= 1">
+          {{ i18nPrefix + '.PREV' | translate }}
+        </button>
+        <span>{{ i18nPrefix + '.PAGE' | translate:{ page: page, pages: totalPages } }}</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="nextPage()" [disabled]="page >= totalPages">
+          {{ i18nPrefix + '.NEXT' | translate }}
+        </button>
+      </div>
+    </aside>
+
+    <div class="artisans-map-card">
+      <div #mapHost class="artisans-map" role="img" [attr.aria-label]="i18nPrefix + '.MAP' | translate"></div>
+    </div>
+  </div>
+
+  <p class="artisans-attribution">{{ i18nPrefix + '.ATTRIBUTION' | translate }}</p>
+</div>
+
+<app-trace-viewer-modal></app-trace-viewer-modal>

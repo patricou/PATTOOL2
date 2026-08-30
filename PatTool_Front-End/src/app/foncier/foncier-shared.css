@@ -247,6 +247,29 @@
   color: #64748b;
 }
 
+.foncier-toolbar-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.85rem;
+  margin-left: auto;
+}
+
+.foncier-sort {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.foncier-sort .form-select {
+  min-width: 12.5rem;
+  width: auto;
+}
+
 .foncier-chips {
   display: flex;
   flex-wrap: wrap;

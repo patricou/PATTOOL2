@@ -70,6 +70,17 @@
               <i class="fa fa-home me-1"></i>
               <span>{{ clickedAddress }}</span>
             </div>
+            <div class="clicked-address-actions">
+              <button type="button"
+                      class="clicked-address-route-btn"
+                      (click)="openGpsRouteToClickedAddress(); $event.stopPropagation()"
+                      [disabled]="!canOpenGpsRouteToClickedAddress"
+                      [attr.title]="'EVENTELEM.TRACK_ROUTE_TO_ADDRESS_HINT' | translate"
+                      [attr.aria-label]="'EVENTELEM.TRACK_ROUTE_TO_ADDRESS' | translate">
+                <i class="fa fa-road me-1" aria-hidden="true"></i>
+                <span>{{ 'EVENTELEM.TRACK_ROUTE_TO_ADDRESS' | translate }}</span>
+              </button>
+            </div>
           </div>
         </div>
 

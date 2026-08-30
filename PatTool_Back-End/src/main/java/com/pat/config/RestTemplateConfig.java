@@ -36,6 +36,9 @@ public class RestTemplateConfig {
     /** Terrarium DEM tiles + Overpass peaks for Relief Finder. */
     public static final String RELIEF_FINDER_REST_TEMPLATE = "reliefFinderRestTemplate";
 
+    /** Recherche d'entreprises + Overpass artisans (réponses parfois lentes). */
+    public static final String ARTISANS_REST_TEMPLATE = "artisansRestTemplate";
+
 
     /**
      * Client HTTP court pour proxies et API externes (échec rapide si indisponible).
@@ -116,6 +119,14 @@ public class RestTemplateConfig {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(8))
                 .setReadTimeout(Duration.ofSeconds(30))
+                .build();
+    }
+
+    @Bean(ARTISANS_REST_TEMPLATE)
+    public RestTemplate artisansRestTemplate(RestTemplateBuilder builder) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(8))
+                .setReadTimeout(Duration.ofSeconds(25))
                 .build();
     }
 

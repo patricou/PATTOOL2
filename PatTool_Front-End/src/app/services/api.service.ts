@@ -323,6 +323,41 @@ export interface TelegramEmbed {
   postUrl?: string;
 }
 
+export type ArtisansSource = 'sirene' | 'osm';
+
+export interface ArtisansNearbyItem {
+  id?: string;
+  name?: string;
+  activity?: string;
+  activityCode?: string;
+  tradeKey?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  lat?: number;
+  lon?: number;
+  distanceKm?: number;
+  url?: string;
+  website?: string;
+  phone?: string;
+  brand?: string;
+  wikidata?: string;
+  brandWikidata?: string;
+}
+
+export interface ArtisansNearbyResponse {
+  source?: ArtisansSource;
+  lat?: number;
+  lon?: number;
+  radiusKm?: number;
+  trade?: string;
+  placeLabel?: string;
+  total?: number;
+  page?: number;
+  perPage?: number;
+  items?: ArtisansNearbyItem[];
+}
+
 @Injectable()
 export class ApiService {
 
@@ -2749,6 +2784,41 @@ export class ApiService {
       params = params.set('lang', lang);
     }
     return this._http.get<WikipediaSummary>(this.API_URL + 'external/wiki/summary', { params });
+  }
+
+  searchArtisansNearby(options: {
+    source: ArtisansSource;
+    lat?: number;
+    lon?: number;
+    q?: string;
+    radiusKm?: number;
+    trade?: string;
+    page?: number;
+    perPage?: number;
+  }): Observable<ArtisansNearbyResponse> {
+    let params = new HttpParams().set('source', options.source);
+    if (options.lat != null) {
+      params = params.set('lat', String(options.lat));
+    }
+    if (options.lon != null) {
+      params = params.set('lon', String(options.lon));
+    }
+    if (options.q?.trim()) {
+      params = params.set('q', options.q.trim());
+    }
+    if (options.radiusKm != null) {
+      params = params.set('radiusKm', String(options.radiusKm));
+    }
+    if (options.trade) {
+      params = params.set('trade', options.trade);
+    }
+    if (options.page != null) {
+      params = params.set('page', String(options.page));
+    }
+    if (options.perPage != null) {
+      params = params.set('perPage', String(options.perPage));
+    }
+    return this._http.get<ArtisansNearbyResponse>(this.API_URL + 'external/artisans/nearby', { params });
   }
 
   searchFoncierCachePlaces(provider: FoncierCacheProvider, query: string): Observable<FoncierCommuneSearch> {

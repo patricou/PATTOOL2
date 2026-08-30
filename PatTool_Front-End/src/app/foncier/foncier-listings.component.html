@@ -165,6 +165,18 @@
       <strong>{{ selected.nom }}</strong>
       <span>{{ communeMeta(selected) }}</span>
     </div>
+    <div class="foncier-toolbar-end">
+      <label class="foncier-sort" for="listing-sort">
+        <span>{{ 'FONCIER.SORT' | translate }}</span>
+        <select
+          id="listing-sort"
+          class="form-select form-select-sm"
+          name="listingSort"
+          [(ngModel)]="sortKey"
+          (ngModelChange)="onSortChanged()">
+          <option *ngFor="let key of sortOptions" [ngValue]="key">{{ sortLabelKey(key) | translate }}</option>
+        </select>
+      </label>
     <div class="foncier-chips">
       <span class="foncier-chip" *ngIf="radiusKm > 0">{{ 'FONCIER.RADIUS_AROUND' | translate:{ km: radiusKm } }}</span>
       <span class="foncier-chip foncier-chip--count" *ngIf="searched && !loading">{{ 'FONCIER.RESULT_COUNT' | translate:{ count: count } }}</span>
@@ -173,6 +185,7 @@
         <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
         {{ 'FONCIER.LOADING' | translate }}
       </span>
+    </div>
     </div>
   </div>
 

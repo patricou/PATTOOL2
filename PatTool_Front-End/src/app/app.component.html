@@ -124,7 +124,7 @@
                 </ul>
             </li>
 
-            <!-- Transactions : Finance + Foncier -->
+            <!-- Business : Finance + Foncier + Artisans -->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle"
                    href="#"
@@ -148,6 +148,15 @@
                     <li><hr class="dropdown-divider"></li>
                     <li><h6 class="dropdown-header">{{ 'MENU.FONCIER' | translate }}</h6></li>
                     <li *ngFor="let item of sortedNavFoncier">
+                        <a class="dropdown-item"
+                           [routerLink]="item.routerLink"
+                           (click)="closeMenu()">
+                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><h6 class="dropdown-header">{{ 'MENU.ARTISANAT' | translate }}</h6></li>
+                    <li *ngFor="let item of sortedNavArtisans">
                         <a class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">

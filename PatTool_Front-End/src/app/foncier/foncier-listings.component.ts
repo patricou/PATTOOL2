@@ -7,7 +7,16 @@ import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 
 import { ApiService, FoncierCacheSource, FoncierCommune, FoncierListing } from '../services/api.service';
-import { filterCacheItems, paginateCache, placesFromCache } from './foncier-cache-query';
+import {
+  FONCIER_SORT_OPTIONS,
+  FoncierSortKey,
+  filterCacheItems,
+  paginateCache,
+  parseFoncierSort,
+  placesFromCache,
+  sortCacheItems,
+  sortLabelKey
+} from './foncier-cache-query';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 
 export type FoncierListingProvider = 'stream-estate' | 'chercher-trouver';
@@ -23,12 +32,14 @@ export class FoncierListingsComponent implements OnInit, OnDestroy {
 
   readonly radiusOptions = [0, 2, 5, 10, 20, 30];
   readonly sourceOptions: FoncierCacheSource[] = ['cache', 'both', 'api'];
+  readonly sortOptions = FONCIER_SORT_OPTIONS;
 
   provider: FoncierListingProvider = 'stream-estate';
   query = '';
   type = '';
   radiusKm = 0;
   cacheMode: FoncierCacheSource = 'cache';
+  sortKey: FoncierSortKey = 'date-desc';
   cacheCount = 0;
   clearingCache = false;
   priceMin = '';
@@ -38,6 +49,7 @@ export class FoncierListingsComponent implements OnInit, OnDestroy {
   communes: FoncierCommune[] = [];
   selected: FoncierCommune | null = null;
   listings: FoncierListing[] = [];
+  private rawResults: FoncierListing[] = [];
   count = 0;
   page = 1;
   hasNext = false;
@@ -83,6 +95,7 @@ export class FoncierListingsComponent implements OnInit, OnDestroy {
     this.surfaceMax = params.get('surfaceMax') || '';
     this.radiusKm = this.parseRadius(params.get('radius'));
     this.cacheMode = this.parseSource(params.get('source'));
+    this.sortKey = parseFoncierSort(params.get('sort'));
     const insee = params.get('insee') || '';
 
     this.subs.push(
@@ -195,10 +208,12 @@ export class FoncierListingsComponent implements OnInit, OnDestroy {
     this.surfaceMin = '';
     this.surfaceMax = '';
     this.radiusKm = 0;
+    this.sortKey = 'date-desc';
     this.cacheMode = 'cache';
     this.communes = [];
     this.selected = null;
         this.listings = [];
+        this.rawResults = [];
         this.count = 0;
         this.hasNext = false;
         this.page = 1;
@@ -211,6 +226,19 @@ export class FoncierListingsComponent implements OnInit, OnDestroy {
     if (this.selected || this.query.trim()) {
       this.submitSearch();
     }
+  }
+
+  onSortChanged(): void {
+    if (this.useLocalCache()) {
+      this.search(1);
+      return;
+    }
+    this.listings = sortCacheItems(this.rawResults, this.sortKey);
+    this.syncUrlIfChanged();
+  }
+
+  sortLabelKey(sort: FoncierSortKey): string {
+    return sortLabelKey(sort);
   }
 
   onSourceChanged(): void {
@@ -454,7 +482,8 @@ export class FoncierListingsComponent implements OnInit, OnDestroy {
     this.listSub = this.listingsCall(page).subscribe({
       next: (res) => {
         this.loading = false;
-        this.listings = res?.items || [];
+        this.rawResults = res?.items || [];
+        this.listings = sortCacheItems(this.rawResults, this.sortKey);
         this.count = res?.count != null ? res.count : this.listings.length;
         this.hasNext = !!res?.hasNext;
         this.configured = res?.configured !== false;
@@ -466,6 +495,7 @@ export class FoncierListingsComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.loading = false;
         this.listings = [];
+        this.rawResults = [];
         this.count = 0;
         this.hasNext = false;
         const code = err?.error?.error;
@@ -569,7 +599,8 @@ export class FoncierListingsComponent implements OnInit, OnDestroy {
       lat: this.selected?.lat,
       lon: this.selected?.lon
     });
-    const slice = paginateCache(matched, page, 20);
+    const slice = paginateCache(sortCacheItems(matched, this.sortKey), page, 20);
+    this.rawResults = slice.items;
     this.listings = slice.items;
     this.count = slice.count;
     this.hasNext = slice.hasNext;
@@ -591,7 +622,8 @@ export class FoncierListingsComponent implements OnInit, OnDestroy {
       surfaceMax: this.surfaceMax || null,
       insee: this.selected?.code || null,
       radius: this.radiusKm > 0 ? String(this.radiusKm) : null,
-      source: this.cacheMode !== 'cache' ? this.cacheMode : null
+      source: this.cacheMode !== 'cache' ? this.cacheMode : null,
+      sort: this.sortKey !== 'date-desc' ? this.sortKey : null
     };
     const params = this.route.snapshot.queryParamMap;
     const unchanged = Object.keys(next).every((key) => (params.get(key) || null) === next[key]);

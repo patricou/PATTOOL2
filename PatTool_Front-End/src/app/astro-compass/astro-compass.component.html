@@ -351,12 +351,6 @@
                 [class.ac-finder__reticle--day]="!finderReticleIsNight()"
                 aria-hidden="true"></div>
               <div
-                class="ac-finder__cible-name"
-                *ngIf="headingRef === 'cible' && activeCible"
-                [class.ac-finder__cible-name--day]="!finderReticleIsNight()">
-                {{ activeCible.name }}
-              </div>
-              <div
                 class="ac-finder__ref-arrow ac-finder__ref-arrow--north"
                 [style.transform]="'rotate(' + northArrowRotationDeg() + 'deg)'"
                 aria-hidden="true">
