@@ -81,7 +81,7 @@ export function filterCacheItems<T extends FoncierCacheRow>(items: T[], filter: 
     const center = items.find((item) =>
       finite(item.lat) != null
       && finite(item.lon) != null
-      && matchesPlace(item, insee, zipQuery, cityQuery, 0, null, null));
+      && matchesPlace(item, insee, zipQuery, cityQuery, 0, undefined, undefined));
     if (center) {
       lat = center.lat;
       lon = center.lon;
