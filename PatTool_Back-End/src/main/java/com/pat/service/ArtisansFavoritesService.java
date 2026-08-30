@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pat.controller.dto.ArtisanFavoriteDto;
 import com.pat.controller.dto.ArtisansFavoritesDto;
-import com.pat.repo.domain.AppParameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -15,7 +14,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * Per-user artisan / pro favorites, stored in {@code appParameters}
@@ -47,11 +45,9 @@ public class ArtisansFavoritesService {
     }
 
     public ArtisansFavoritesDto findForSubject(String jwtSubject) {
-        Optional<AppParameter> row = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject);
-        if (row.isEmpty()) {
-            return new ArtisansFavoritesDto();
-        }
-        String raw = row.get().getParamValue();
+        String raw = userOwnerService.findParam(PARAM_KEY_PREFIX, jwtSubject)
+                .map(com.pat.repo.domain.AppParameter::getParamValue)
+                .orElse(null);
         if (!StringUtils.hasText(raw)) {
             return new ArtisansFavoritesDto();
         }
