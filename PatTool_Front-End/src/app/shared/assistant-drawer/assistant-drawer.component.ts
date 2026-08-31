@@ -334,6 +334,11 @@ export class AssistantDrawerComponent
   /** Viseur d’astres / boussole / globe : le FAB recouvre la vue — on le masque. */
   fabHidden = false;
 
+  /** Page YouTube : pastille rouge pour coller au bandeau (et à la visionneuse). */
+  get fabYoutube(): boolean {
+    return /\/tools\/youtube(?:\/|$|\?)/.test(this.router.url || '');
+  }
+
   isOpen = false;
   fullscreen = false;
   draft = '';

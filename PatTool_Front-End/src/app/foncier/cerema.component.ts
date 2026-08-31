@@ -23,11 +23,12 @@ import {
   sortLabelKey
 } from './foncier-cache-query';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { SheetSelectComponent, SheetSelectOption } from '../shared/sheet-select/sheet-select.component';
 
 @Component({
   selector: 'app-foncier-cerema',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent, SheetSelectComponent],
   templateUrl: './cerema.component.html',
   styleUrls: ['./foncier-shared.css']
 })
@@ -36,6 +37,21 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
   readonly radiusOptions = [0, 2, 5, 10, 20, 30];
   readonly sourceOptions: FoncierCacheSource[] = ['cache', 'both', 'api'];
   readonly sortOptions = FONCIER_SORT_OPTIONS;
+  readonly typeOptions: SheetSelectOption[] = [
+    { value: '', labelKey: 'FONCIER.TYPE_ALL', icon: 'fa fa-th' },
+    { value: 'maison', labelKey: 'FONCIER.TYPE_HOUSE', icon: 'fa fa-home' },
+    { value: 'appartement', labelKey: 'FONCIER.TYPE_FLAT', icon: 'fa fa-building' }
+  ];
+  readonly radiusSelectOptions: SheetSelectOption[] = this.radiusOptions.map((km) =>
+    km === 0
+      ? { value: 0, labelKey: 'FONCIER.RADIUS_COMMUNE', icon: 'fa fa-map-pin' }
+      : { value: km, labelKey: 'FONCIER.RADIUS_KM', labelParams: { km }, icon: 'fa fa-dot-circle-o' }
+  );
+  readonly sortSelectOptions: SheetSelectOption[] = this.sortOptions.map((key) => ({
+    value: key,
+    labelKey: sortLabelKey(key),
+    icon: key.includes('asc') ? 'fa fa-sort-amount-asc' : 'fa fa-sort-amount-desc'
+  }));
 
   query = '';
   typeLocal = '';

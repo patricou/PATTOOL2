@@ -28,30 +28,26 @@
 
     <div class="foncier-field">
       <label for="cerema-type">{{ 'FONCIER.TYPE' | translate }}</label>
-      <select
-        id="cerema-type"
-        class="form-select"
+      <app-sheet-select
+        selectId="cerema-type"
         name="ceremaType"
+        [title]="'FONCIER.TYPE' | translate"
+        [options]="typeOptions"
         [(ngModel)]="typeLocal"
         (ngModelChange)="onTypeChanged()">
-        <option value="">{{ 'FONCIER.TYPE_ALL' | translate }}</option>
-        <option value="maison">{{ 'FONCIER.TYPE_HOUSE' | translate }}</option>
-        <option value="appartement">{{ 'FONCIER.TYPE_FLAT' | translate }}</option>
-      </select>
+      </app-sheet-select>
     </div>
 
     <div class="foncier-field">
       <label for="cerema-radius">{{ 'FONCIER.RADIUS' | translate }}</label>
-      <select
-        id="cerema-radius"
-        class="form-select"
+      <app-sheet-select
+        selectId="cerema-radius"
         name="ceremaRadius"
+        [title]="'FONCIER.RADIUS' | translate"
+        [options]="radiusSelectOptions"
         [(ngModel)]="radiusKm"
         (ngModelChange)="onRadiusChanged()">
-        <option *ngFor="let km of radiusOptions" [ngValue]="km">
-          {{ km === 0 ? ('FONCIER.RADIUS_COMMUNE' | translate) : ('FONCIER.RADIUS_KM' | translate:{ km: km }) }}
-        </option>
-      </select>
+      </app-sheet-select>
     </div>
 
     <div class="foncier-field foncier-field--source">
@@ -123,14 +119,15 @@
     <div class="foncier-toolbar-end">
       <label class="foncier-sort" for="cerema-sort">
         <span>{{ 'FONCIER.SORT' | translate }}</span>
-        <select
-          id="cerema-sort"
-          class="form-select form-select-sm"
+        <app-sheet-select
+          selectId="cerema-sort"
           name="ceremaSort"
+          size="sm"
+          [title]="'FONCIER.SORT' | translate"
+          [options]="sortSelectOptions"
           [(ngModel)]="sortKey"
           (ngModelChange)="onSortChanged()">
-          <option *ngFor="let key of sortOptions" [ngValue]="key">{{ sortLabelKey(key) | translate }}</option>
-        </select>
+        </app-sheet-select>
       </label>
     <div class="foncier-chips">
       <span class="foncier-chip" *ngIf="radiusKm > 0">{{ 'FONCIER.RADIUS_AROUND' | translate:{ km: radiusKm } }}</span>

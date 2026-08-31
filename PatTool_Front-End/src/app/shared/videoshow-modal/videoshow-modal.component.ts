@@ -49,6 +49,8 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   @Input() videos: VideoshowVideoSource[] = [];
   @Input() eventName: string = '';
   @Input() loadFromFileService: boolean = false; // If true, use fileId to load videos via FileService
+  /** When 'youtube', the title bar uses the YouTube page red instead of the default green. */
+  @Input() headerTheme: 'default' | 'youtube' = 'default';
   
   @Output() closed = new EventEmitter<void>();
   

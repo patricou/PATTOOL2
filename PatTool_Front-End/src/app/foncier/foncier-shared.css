@@ -265,7 +265,8 @@
   font-weight: 600;
 }
 
-.foncier-sort .form-select {
+.foncier-sort .form-select,
+.foncier-sort app-sheet-select {
   min-width: 12.5rem;
   width: auto;
 }
@@ -576,5 +577,17 @@
 
   .foncier-pill span {
     font-size: 0.75rem;
+  }
+
+  .foncier-sort {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.28rem;
+  }
+
+  .foncier-sort app-sheet-select {
+    min-width: 0;
+    width: 100%;
   }
 }

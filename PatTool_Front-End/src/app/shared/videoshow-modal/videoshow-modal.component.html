@@ -1,6 +1,6 @@
 <!-- Videoshow Modal -->
 <ng-template #videoshowModal let-c="close" let-d="dismiss">
-  <div class="modal-header videoshow-header">
+  <div class="modal-header videoshow-header" [class.videoshow-header--youtube]="headerTheme === 'youtube'">
     <h5 class="modal-title">
       <i class="fa fa-video-camera"></i> {{ 'EVENTELEM.VIDEOSHOW_TITLE' | translate }} - {{ eventName }}
     </h5>

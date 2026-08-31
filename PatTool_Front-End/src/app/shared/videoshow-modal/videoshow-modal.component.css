@@ -163,6 +163,10 @@
     flex-shrink: 0;
 }
 
+.videoshow-header.videoshow-header--youtube {
+    background: linear-gradient(135deg, #ff0000 0%, #cc0000 50%, #8a0000 100%);
+}
+
 .videoshow-header .btn {
     position: relative;
     z-index: 20001;

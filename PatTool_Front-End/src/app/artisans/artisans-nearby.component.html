@@ -8,26 +8,61 @@
 <div class="artisans-page">
   <p class="artisans-lead text-muted">{{ i18nPrefix + '.SUBTITLE' | translate }}</p>
 
-  <form class="artisans-search" (submit)="$event.preventDefault(); search(1)">
+  <form class="artisans-search" (submit)="$event.preventDefault(); submitAddressSearch()">
     <label class="visually-hidden" for="artisans-address">{{ i18nPrefix + '.ADDRESS' | translate }}</label>
-    <input
-      id="artisans-address"
-      type="search"
-      class="form-control artisans-address"
-      name="artisansAddress"
-      [(ngModel)]="addressQuery"
-      [placeholder]="i18nPrefix + '.ADDRESS_PLACEHOLDER' | translate"
-      autocomplete="street-address" />
+    <div class="artisans-address-wrap">
+      <input
+        id="artisans-address"
+        type="search"
+        class="form-control artisans-address"
+        name="artisansAddress"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-controls="artisans-address-results"
+        [attr.aria-expanded]="addressHits.length > 0 || addressSearching"
+        [attr.aria-activedescendant]="addressActiveIndex >= 0 ? ('artisans-address-opt' + addressActiveIndex) : null"
+        [(ngModel)]="addressQuery"
+        (ngModelChange)="onAddressQueryChange()"
+        (keydown)="onAddressKeydown($event)"
+        [placeholder]="i18nPrefix + '.ADDRESS_PLACEHOLDER' | translate"
+        autocomplete="off" />
+      <div
+        id="artisans-address-results"
+        class="artisans-address-results"
+        role="listbox"
+        *ngIf="addressHits.length || addressSearching">
+        <div class="small text-muted artisans-address-status" *ngIf="addressSearching">
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ i18nPrefix + '.ADDRESS_SEARCHING' | translate }}
+        </div>
+        <p class="small text-muted artisans-address-status mb-0" *ngIf="!addressSearching && addressHits.length">
+          {{ i18nPrefix + '.ADDRESS_SELECT' | translate }}
+        </p>
+        <button
+          type="button"
+          class="artisans-address-hit"
+          *ngFor="let hit of addressHits; let i = index"
+          [id]="'artisans-address-opt' + i"
+          role="option"
+          [attr.aria-selected]="addressActiveIndex === i"
+          [class.artisans-address-hit--active]="addressActiveIndex === i"
+          (mouseenter)="addressActiveIndex = i"
+          (mousedown)="selectAddress(hit)">
+          <i class="fa fa-map-marker me-1" aria-hidden="true"></i>{{ hit.displayName }}
+        </button>
+      </div>
+    </div>
 
     <label class="visually-hidden" for="artisans-trade">{{ i18nPrefix + '.TRADE' | translate }}</label>
-    <select
-      id="artisans-trade"
-      class="form-select artisans-trade"
+    <app-sheet-select
+      class="artisans-trade"
+      selectId="artisans-trade"
       name="artisansTrade"
+      [title]="i18nPrefix + '.TRADE' | translate"
+      [searchPlaceholder]="i18nPrefix + '.TRADE' | translate"
+      [options]="tradeSelectOptions"
       [(ngModel)]="trade"
       (ngModelChange)="onTradeChange()">
-      <option *ngFor="let t of trades" [value]="t">{{ tradeLabelKey(t) | translate }}</option>
-    </select>
+    </app-sheet-select>
 
     <label class="artisans-radius-label" for="artisans-radius">
       {{ i18nPrefix + '.RADIUS' | translate }} {{ radiusKm }} km
@@ -137,35 +172,37 @@
           (ngModelChange)="onListViewChange()"
           [placeholder]="i18nPrefix + '.FILTER_PLACEHOLDER' | translate" />
         <label class="visually-hidden" for="artisans-list-trade">{{ i18nPrefix + '.FILTER_TRADE' | translate }}</label>
-        <select
-          id="artisans-list-trade"
-          class="form-select form-select-sm"
+        <app-sheet-select
+          selectId="artisans-list-trade"
           name="artisansListTrade"
+          size="sm"
+          [title]="i18nPrefix + '.FILTER_TRADE' | translate"
+          [options]="listTradeOptions"
           [(ngModel)]="listTrade"
           (ngModelChange)="onListViewChange()">
-          <option value="all">{{ 'ARTISANS.TRADE_ALL' | translate }}</option>
-          <option *ngFor="let t of resultTrades" [value]="t">{{ tradeLabelKey(t) | translate }}</option>
-        </select>
+        </app-sheet-select>
         <label class="visually-hidden" for="artisans-list-city">{{ i18nPrefix + '.FILTER_CITY' | translate }}</label>
-        <select
-          id="artisans-list-city"
-          class="form-select form-select-sm"
+        <app-sheet-select
+          selectId="artisans-list-city"
           name="artisansListCity"
+          size="sm"
+          [title]="i18nPrefix + '.FILTER_CITY' | translate"
+          [options]="listCityOptions"
           [(ngModel)]="listCity"
           (ngModelChange)="onListViewChange()"
           *ngIf="resultCities.length > 1">
-          <option value="">{{ i18nPrefix + '.FILTER_CITY_ALL' | translate }}</option>
-          <option *ngFor="let city of resultCities" [value]="city">{{ city }}</option>
-        </select>
+        </app-sheet-select>
         <label class="visually-hidden" for="artisans-list-sort">{{ i18nPrefix + '.SORT' | translate }}</label>
-        <select
-          id="artisans-list-sort"
-          class="form-select form-select-sm artisans-list-sort"
+        <app-sheet-select
+          class="artisans-list-sort"
+          selectId="artisans-list-sort"
           name="artisansListSort"
+          size="sm"
+          [title]="i18nPrefix + '.SORT' | translate"
+          [options]="sortSelectOptions"
           [(ngModel)]="sortKey"
           (ngModelChange)="onListViewChange()">
-          <option *ngFor="let key of sortOptions" [ngValue]="key">{{ sortLabelKey(key) | translate }}</option>
-        </select>
+        </app-sheet-select>
       </div>
 
       <div class="artisans-busy" *ngIf="isLoading && !showFavorites">

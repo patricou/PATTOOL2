@@ -48,7 +48,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
-	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20260830b');
+	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20260831a');
 }
 
 @NgModule({

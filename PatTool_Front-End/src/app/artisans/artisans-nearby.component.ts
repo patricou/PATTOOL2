@@ -14,12 +14,13 @@ import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { firstValueFrom, Observable, of, Subscription, throwError } from 'rxjs';
-import { catchError, switchMap } from 'rxjs/operators';
+import { firstValueFrom, Observable, of, Subject, Subscription, throwError } from 'rxjs';
+import { catchError, debounceTime, switchMap, take } from 'rxjs/operators';
 import * as L from 'leaflet';
 
 import { LeafletBasemapService } from '../shared/leaflet-basemap.service';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { SheetSelectComponent, SheetSelectOption } from '../shared/sheet-select/sheet-select.component';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import {
   ApiService,
@@ -48,6 +49,12 @@ type ArtisanSortKey =
   | 'name-desc'
   | 'trade-asc'
   | 'city-asc';
+
+interface AddressHit {
+  lat: number;
+  lon: number;
+  displayName: string;
+}
 
 export const ARTISAN_LIST_PAGE_SIZE = 100;
 
@@ -85,10 +92,44 @@ export const ARTISAN_TRADES = [
   'fuel'
 ] as const;
 
+const TRADE_ICONS: Record<string, string> = {
+  all: 'fa fa-th',
+  plumber: 'fa fa-wrench',
+  electrician: 'fa fa-bolt',
+  heating: 'fa fa-fire',
+  painter: 'fa fa-paint-brush',
+  carpenter: 'fa fa-tree',
+  mason: 'fa fa-cube',
+  roofer: 'fa fa-home',
+  locksmith: 'fa fa-key',
+  tiler: 'fa fa-th-large',
+  glazier: 'fa fa-square-o',
+  gardener: 'fa fa-leaf',
+  cleaner: 'fa fa-bath',
+  hairdresser: 'fa fa-scissors',
+  baker: 'fa fa-birthday-cake',
+  butcher: 'fa fa-cutlery',
+  mechanic: 'fa fa-car',
+  appliance: 'fa fa-plug',
+  supermarket: 'fa fa-shopping-cart',
+  grocery: 'fa fa-shopping-basket',
+  shop: 'fa fa-tag',
+  hardware: 'fa fa-gavel',
+  clothing: 'fa fa-shopping-bag',
+  furniture: 'fa fa-bed',
+  florist: 'fa fa-pagelines',
+  pharmacy: 'fa fa-medkit',
+  optician: 'fa fa-eye',
+  restaurant: 'fa fa-cutlery',
+  cafe: 'fa fa-coffee',
+  hotel: 'fa fa-building',
+  fuel: 'fa fa-tint'
+};
+
 @Component({
   selector: 'app-artisans-nearby',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent, SheetSelectComponent],
   templateUrl: './artisans-nearby.component.html',
   styleUrls: ['./artisans-nearby.component.css']
 })
@@ -112,6 +153,9 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   source: ArtisansSource = 'sirene';
   i18nPrefix = 'ARTISANS';
   addressQuery = '';
+  addressHits: AddressHit[] = [];
+  addressActiveIndex = -1;
+  addressSearching = false;
   trade = 'all';
   radiusKm = 10;
   page = 1;
@@ -146,6 +190,10 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   private mapLayer?: L.FeatureGroup;
   private markers = new Map<string, L.CircleMarker>();
   private radiusCircle?: L.Polygon;
+  private addressPicked = false;
+  private readonly addressSearch$ = new Subject<string>();
+  private addressSearchSub?: Subscription;
+  private addressGeocodeSub?: Subscription;
   private searchSub?: Subscription;
   private favoritesSub?: Subscription;
   private favoriteToggleSub?: Subscription;
@@ -185,6 +233,9 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     this.source = source === 'osm' ? 'osm' : 'sirene';
     this.i18nPrefix = this.source === 'osm' ? 'NEARBY_PROS' : 'ARTISANS';
     this.loadFavorites();
+    this.addressSearchSub = this.addressSearch$.pipe(debounceTime(350)).subscribe((query) => {
+      this.lookupAddresses(query, false);
+    });
     this.useMyPosition(true);
   }
 
@@ -195,6 +246,8 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   ngOnDestroy(): void {
     this.exitMapFullscreen();
     this.searchSub?.unsubscribe();
+    this.addressSearchSub?.unsubscribe();
+    this.addressGeocodeSub?.unsubscribe();
     this.favoritesSub?.unsubscribe();
     this.favoriteToggleSub?.unsubscribe();
     this.stopMarkerBlink();
@@ -407,6 +460,45 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
       .sort((a, b) => this.compareTradeLabels(a, b));
     return ['all', ...rest];
   }
+
+  get tradeSelectOptions(): SheetSelectOption[] {
+    return this.trades.map((trade) => ({
+      value: trade,
+      labelKey: this.tradeLabelKey(trade),
+      icon: TRADE_ICONS[trade] || 'fa fa-wrench'
+    }));
+  }
+
+  get listTradeOptions(): SheetSelectOption[] {
+    return ['all', ...this.resultTrades].map((trade) => ({
+      value: trade,
+      labelKey: this.tradeLabelKey(trade),
+      icon: TRADE_ICONS[trade] || 'fa fa-wrench'
+    }));
+  }
+
+  get listCityOptions(): SheetSelectOption[] {
+    return [
+      { value: '', labelKey: this.i18nPrefix + '.FILTER_CITY_ALL', icon: 'fa fa-globe' },
+      ...this.resultCities.map((city) => ({
+        value: city,
+        label: city,
+        icon: 'fa fa-map-marker'
+      }))
+    ];
+  }
+
+  readonly sortSelectOptions: SheetSelectOption[] = this.sortOptions.map((key) => ({
+    value: key,
+    labelKey: this.sortLabelKey(key),
+    icon: key.startsWith('distance')
+      ? 'fa fa-location-arrow'
+      : key.startsWith('name')
+        ? 'fa fa-sort-alpha-asc'
+        : key.startsWith('trade')
+          ? 'fa fa-wrench'
+          : 'fa fa-map-marker'
+  }));
 
   tradeLabelKey(trade: string): string {
     return `ARTISANS.TRADE_${trade.toUpperCase()}`;
@@ -653,6 +745,8 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
           this.searchLon = pos.coords.longitude;
           this.placeLabel = '';
           this.addressQuery = '';
+          this.addressPicked = false;
+          this.clearAddressHits();
           this.cdr.markForCheck();
           if (autoSearch || this.searched) {
             this.search(1);
@@ -707,9 +801,146 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     }
     this.addressQuery = '';
     this.placeLabel = '';
+    this.addressPicked = false;
+    this.clearAddressHits();
     this.searchLat = latlng.lat;
     this.searchLon = latlng.lng;
     this.search(1, true);
+  }
+
+  onAddressQueryChange(): void {
+    const q = this.addressQuery.trim();
+    if (this.addressPicked && q === (this.placeLabel || '').trim()) {
+      return;
+    }
+    this.addressPicked = false;
+    this.errorMessage = '';
+    this.addressSearch$.next(this.addressQuery);
+  }
+
+  onAddressKeydown(event: KeyboardEvent): void {
+    const hits = this.addressHits;
+    if (!hits.length && event.key !== 'Escape') {
+      return;
+    }
+    const active = this.addressActiveIndex;
+    const setActive = (index: number) => {
+      this.addressActiveIndex = index;
+      this.cdr.markForCheck();
+    };
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        setActive(active < hits.length - 1 ? active + 1 : 0);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        setActive(active > 0 ? active - 1 : hits.length - 1);
+        break;
+      case 'Enter':
+        if (active >= 0 && active < hits.length) {
+          event.preventDefault();
+          this.selectAddress(hits[active]);
+        }
+        break;
+      case 'Escape':
+        event.preventDefault();
+        this.clearAddressHits();
+        this.cdr.markForCheck();
+        break;
+      case 'Home':
+        if (hits.length) {
+          event.preventDefault();
+          setActive(0);
+        }
+        break;
+      case 'End':
+        if (hits.length) {
+          event.preventDefault();
+          setActive(hits.length - 1);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  submitAddressSearch(): void {
+    if (this.addressHits.length) {
+      const hit = this.addressHits[this.addressActiveIndex] ?? this.addressHits[0];
+      this.selectAddress(hit);
+      return;
+    }
+    const q = this.addressQuery.trim();
+    if (q && !this.addressPicked) {
+      this.lookupAddresses(q, true);
+      return;
+    }
+    this.search(1);
+  }
+
+  selectAddress(hit: AddressHit): void {
+    if (!hit?.displayName || !Number.isFinite(hit.lat) || !Number.isFinite(hit.lon)) {
+      return;
+    }
+    this.addressQuery = hit.displayName;
+    this.placeLabel = hit.displayName;
+    this.searchLat = hit.lat;
+    this.searchLon = hit.lon;
+    this.addressPicked = true;
+    this.clearAddressHits();
+    this.search(1);
+  }
+
+  private lookupAddresses(query: string, fromSubmit: boolean): void {
+    const q = query.trim();
+    if (q.length < 3) {
+      this.clearAddressHits();
+      this.addressSearching = false;
+      if (fromSubmit) {
+        this.errorMessage = `${this.i18nPrefix}.NEED_PLACE`;
+      }
+      this.cdr.markForCheck();
+      return;
+    }
+    this.addressSearching = true;
+    if (fromSubmit) {
+      this.errorMessage = '';
+    }
+    this.addressGeocodeSub?.unsubscribe();
+    this.addressGeocodeSub = this.api.geocodeSearch(q).pipe(take(1)).subscribe({
+      next: (data) => {
+        this.addressHits = this.mapGeocodeHits(data);
+        this.addressActiveIndex = this.addressHits.length ? 0 : -1;
+        this.addressSearching = false;
+        if (!this.addressHits.length) {
+          this.errorMessage = `${this.i18nPrefix}.ADDRESS_NOT_FOUND`;
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.addressHits = [];
+        this.addressActiveIndex = -1;
+        this.addressSearching = false;
+        this.errorMessage = `${this.i18nPrefix}.ADDRESS_NOT_FOUND`;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private mapGeocodeHits(data: unknown[]): AddressHit[] {
+    return (data || []).map((item: any) => {
+      const lat = typeof item?.lat === 'number' ? item.lat : parseFloat(item?.lat);
+      const lon = typeof item?.lon === 'number' ? item.lon : parseFloat(item?.lon ?? item?.lng);
+      const displayName = String(item?.displayName || item?.display_name || '').trim();
+      return { lat, lon, displayName };
+    }).filter((hit: AddressHit) => hit.displayName && Number.isFinite(hit.lat) && Number.isFinite(hit.lon));
+  }
+
+  private clearAddressHits(): void {
+    this.addressHits = [];
+    this.addressActiveIndex = -1;
+    this.addressSearching = false;
   }
 
   search(page = 1, fitMap = true): void {
@@ -717,6 +948,10 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     const q = this.addressQuery.trim();
     if (!hasPoint && !q) {
       this.errorMessage = `${this.i18nPrefix}.NEED_PLACE`;
+      return;
+    }
+    if (q && !this.addressPicked) {
+      this.lookupAddresses(q, true);
       return;
     }
     this.page = page;
@@ -732,13 +967,13 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     this.searchSub?.unsubscribe();
     this.websiteResolving.clear();
     this.websiteJobs.clear();
-    const lat = hasPoint && !q ? this.searchLat! : undefined;
-    const lon = hasPoint && !q ? this.searchLon! : undefined;
+    const lat = hasPoint ? this.searchLat! : undefined;
+    const lon = hasPoint ? this.searchLon! : undefined;
     this.searchSub = this.api.searchArtisansNearby({
       source: this.source,
       lat,
       lon,
-      q: q || undefined,
+      q: this.placeLabel || q || undefined,
       radiusKm: this.radiusKm,
       trade: this.trade,
       page: this.page,
