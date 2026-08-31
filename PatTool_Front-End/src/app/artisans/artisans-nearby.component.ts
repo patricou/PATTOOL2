@@ -58,6 +58,8 @@ interface AddressHit {
 }
 
 export const ARTISAN_LIST_PAGE_SIZE = 100;
+export const ARTISAN_RADIUS_MIN_KM = 1;
+export const ARTISAN_RADIUS_MAX_KM = 50;
 
 export const ARTISAN_TRADES = [
   'all',
@@ -147,6 +149,8 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   @ViewChild(TraceViewerModalComponent) traceViewer?: TraceViewerModalComponent;
 
   readonly listPageSize = ARTISAN_LIST_PAGE_SIZE;
+  readonly radiusMinKm = ARTISAN_RADIUS_MIN_KM;
+  readonly radiusMaxKm = ARTISAN_RADIUS_MAX_KM;
   readonly sortOptions: ArtisanSortKey[] = [
     'distance-asc',
     'distance-desc',
@@ -196,6 +200,8 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   private mapLayer?: L.FeatureGroup;
   private markers = new Map<string, L.CircleMarker>();
   private radiusCircle?: L.Polygon;
+  private radiusSyncSuppressed = false;
+  private radiusSyncTimer: ReturnType<typeof setTimeout> | null = null;
   private addressPicked = false;
   private readonly addressSearch$ = new Subject<string>();
   private addressSearchSub?: Subscription;
@@ -257,6 +263,10 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     this.favoritesSub?.unsubscribe();
     this.favoriteToggleSub?.unsubscribe();
     this.stopMarkerBlink();
+    if (this.radiusSyncTimer != null) {
+      clearTimeout(this.radiusSyncTimer);
+      this.radiusSyncTimer = null;
+    }
     this.map?.remove();
     this.map = undefined;
   }
@@ -796,9 +806,7 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
 
   onRadiusSliderChange(): void {
     this.updateRadiusCircle();
-    if (this.searched) {
-      this.search(1, false);
-    }
+    this.applyRadiusToMap();
   }
 
   private searchAroundMapClick(latlng: L.LatLng): void {
@@ -1093,7 +1101,9 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     this.ensureRadiusPane();
     this.baseLayer = this.basemap.applyBaseLayer(this.map, 'osm-standard', null);
     this.mapLayer = L.featureGroup().addTo(this.map);
+    this.suppressRadiusSyncFromMap();
     this.map.setView([46.6, 2.5], 6);
+    this.map.on('zoom zoomend', () => this.onMapZoomChanged());
     this.map.on('moveend zoomend', () => {
       this.ngZone.run(() => this.onMapViewChanged());
     });
@@ -1182,10 +1192,69 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     this.syncListToMap();
   }
 
+  private onMapZoomChanged(): void {
+    if (this.radiusSyncSuppressed || this.showFavorites) {
+      return;
+    }
+    const next = this.radiusKmFromMapView();
+    if (next == null || next === this.radiusKm) {
+      return;
+    }
+    this.ngZone.run(() => {
+      this.radiusKm = next;
+      this.updateRadiusCircle();
+      this.cdr.markForCheck();
+    });
+  }
+
+  private radiusKmFromMapView(): number | null {
+    if (!this.map) {
+      return null;
+    }
+    const bounds = this.map.getBounds();
+    if (!bounds.isValid()) {
+      return null;
+    }
+    const pin = this.searchLat != null && this.searchLon != null
+      ? L.latLng(this.searchLat, this.searchLon)
+      : this.map.getCenter();
+    const center = bounds.contains(pin) ? pin : this.map.getCenter();
+    return this.clampRadiusKm(this.visibleRadiusKm(center, bounds));
+  }
+
+  private visibleRadiusKm(center: L.LatLng, bounds: L.LatLngBounds): number {
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
+    const north = center.distanceTo(L.latLng(ne.lat, center.lng));
+    const south = center.distanceTo(L.latLng(sw.lat, center.lng));
+    const east = center.distanceTo(L.latLng(center.lat, ne.lng));
+    const west = center.distanceTo(L.latLng(center.lat, sw.lng));
+    return Math.min(north, south, east, west) / 1000;
+  }
+
+  private clampRadiusKm(km: number): number {
+    if (!Number.isFinite(km)) {
+      return this.radiusMinKm;
+    }
+    return Math.max(this.radiusMinKm, Math.min(this.radiusMaxKm, Math.round(km)));
+  }
+
+  private suppressRadiusSyncFromMap(ms = 500): void {
+    this.radiusSyncSuppressed = true;
+    if (this.radiusSyncTimer != null) {
+      clearTimeout(this.radiusSyncTimer);
+    }
+    this.radiusSyncTimer = setTimeout(() => {
+      this.radiusSyncSuppressed = false;
+      this.radiusSyncTimer = null;
+    }, ms);
+  }
+
   private applyRadiusToMap(): void {
     if (!this.map || this.searchLat == null || this.searchLon == null) {
       return;
     }
+    this.suppressRadiusSyncFromMap();
     const center = L.latLng(this.searchLat, this.searchLon);
     this.map.fitBounds(center.toBounds(this.radiusKm * 2000), {
       padding: [16, 16],
@@ -1333,6 +1402,7 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     if (this.showFavorites) {
       this.hideRadiusCircle();
       if (fitMap && mapped.length) {
+        this.suppressRadiusSyncFromMap();
         const bounds = L.latLngBounds(mapped.map((item) => [item.lat, item.lon] as [number, number]));
         this.map.fitBounds(bounds.pad(0.12), { maxZoom: 15, padding: [16, 16] });
       }
