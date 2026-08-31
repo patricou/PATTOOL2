@@ -1,4 +1,10 @@
 :host {
+  --pat-title-bg: linear-gradient(135deg, #3f6212 0%, #365314 50%, #1a2e05 100%);
+  --pat-title-accent: #3f6212;
+  --pat-page-wash: 0;
+  --pat-page-bg: transparent;
+  --pat-title-shadow: 0 4px 15px rgba(63, 98, 18, 0.4);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='36'%3E%3Cpath d='M4 30 L20 10 L32 22 L46 6 L60 30' fill='none' stroke='white' stroke-opacity='0.22' stroke-width='1.5'/%3E%3C/svg%3E");
   display: block;
   position: relative;
   isolation: isolate;

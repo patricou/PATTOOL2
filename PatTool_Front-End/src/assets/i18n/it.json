@@ -6159,7 +6159,7 @@
     "RESULT_COUNT": "{{count}} risultato/i",
     "NO_RESULTS": "Nessun immobile trovato per questa ricerca.",
     "NO_COMMUNE": "Nessun comune trovato.",
-    "CHOOSE_COMMUNE": "Più comuni hanno questo nome. Scegliete quello giusto.",
+    "CHOOSE_COMMUNE": "Seleziona un comune dall’elenco per confermare.",
     "ERROR": "Il servizio immobiliare è temporaneamente non disponibile. Riprovate tra un istante.",
     "ERROR_INVALID_KEY": "La chiave API non è valida. Controllate la configurazione del server.",
     "ERROR_CREDITS": "La chiave è valida, ma l’account Stream Estate non ha più crediti. Ricaricate o scegliete un piano su stream.estate/console/billing.",

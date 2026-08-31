@@ -3,6 +3,7 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  HostBinding,
   HostListener,
   NgZone,
   OnDestroy,
@@ -134,6 +135,11 @@ const TRADE_ICONS: Record<string, string> = {
   styleUrls: ['./artisans-nearby.component.css']
 })
 export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy {
+
+  @HostBinding('class.artisans-osm')
+  get isOsmSource(): boolean {
+    return this.source === 'osm';
+  }
 
   @ViewChild('mapHost') mapHost?: ElementRef<HTMLDivElement>;
   @ViewChild('mapCard') mapCard?: ElementRef<HTMLDivElement>;

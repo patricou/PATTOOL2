@@ -1,4 +1,8 @@
 :host {
+  --pat-title-bg: linear-gradient(135deg, #475569 0%, #334155 50%, #1e293b 100%);
+  --pat-title-accent: #475569;
+  --pat-title-shadow: 0 4px 15px rgba(51, 65, 85, 0.4);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Ccircle cx='24' cy='24' r='7' fill='none' stroke='white' stroke-opacity='0.22'/%3E%3Cpath d='M24 8v6M24 34v6M8 24h6M34 24h6M12 12l4 4M32 32l4 4M32 12l-4 4M16 32l-4 4' stroke='white' stroke-opacity='0.16' stroke-width='1.5'/%3E%3C/svg%3E");
   display: block;
   --pp-bg: #eef2f8;
   --pp-card: #ffffff;

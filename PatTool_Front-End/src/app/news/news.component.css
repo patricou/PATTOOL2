@@ -1,3 +1,10 @@
+:host {
+  --pat-title-bg: linear-gradient(135deg, #1e293b 0%, #0f172a 55%, #111827 100%);
+  --pat-title-accent: #1e293b;
+  --pat-title-shadow: 0 4px 15px rgba(15, 23, 42, 0.45);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='40'%3E%3Cpath d='M8 10h64M8 18h48M8 26h56M8 34h40' stroke='white' stroke-opacity='0.14' stroke-width='1.5'/%3E%3C/svg%3E");
+}
+
 /* =============================================================
  * News component — polished, responsive, card-based layout
  * Conventions copied from openweathermap.component.css (neutral

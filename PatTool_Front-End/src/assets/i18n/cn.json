@@ -6144,7 +6144,7 @@
     "RESULT_COUNT": "{{count}} 条结果",
     "NO_RESULTS": "未找到符合条件的房产。",
     "NO_COMMUNE": "未找到市镇。",
-    "CHOOSE_COMMUNE": "多个市镇同名。请选择对应的一个。",
+    "CHOOSE_COMMUNE": "请从列表中选择一个市镇以确认。",
     "ERROR": "地产服务暂时不可用。请稍后再试。",
     "ERROR_INVALID_KEY": "API 密钥无效。请检查服务器配置。",
     "ERROR_CREDITS": "密钥有效，但 Stream Estate 账户已无额度。请在 stream.estate/console/billing 充值或选择套餐。",

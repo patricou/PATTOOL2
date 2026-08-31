@@ -1,3 +1,10 @@
+:host {
+  --pat-title-bg: linear-gradient(135deg, #4f46e5 0%, #4338ca 50%, #3730a3 100%);
+  --pat-title-accent: #4f46e5;
+  --pat-title-shadow: 0 4px 15px rgba(79, 70, 229, 0.35);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Ccircle cx='22' cy='22' r='13' fill='none' stroke='white' stroke-opacity='0.22'/%3E%3Cpath d='M22 22 L22 12 M22 22 L30 26' stroke='white' stroke-opacity='0.2' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
 .timezone-page {
     padding: 0.65rem 1rem 0.85rem;
     max-width: 880px;

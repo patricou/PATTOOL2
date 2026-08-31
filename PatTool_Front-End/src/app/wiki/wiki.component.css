@@ -1,3 +1,10 @@
+:host {
+  --pat-title-bg: linear-gradient(135deg, #2b4c7e 0%, #202122 55%, #111111 100%);
+  --pat-title-accent: #2b4c7e;
+  --pat-title-shadow: 0 4px 15px rgba(32, 33, 34, 0.45);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='24'%3E%3Cpath d='M6 8h48M6 16h36' stroke='white' stroke-opacity='0.14' stroke-width='1.4'/%3E%3C/svg%3E");
+}
+
 .wiki-mark {
   display: inline-flex;
   align-items: center;

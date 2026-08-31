@@ -62,6 +62,19 @@ public class FoncierGeoService {
         if (!StringUtils.hasText(trimmed) || trimmed.length() < 2 || trimmed.length() > MAX_QUERY_LEN) {
             return root;
         }
+        if (trimmed.matches("\\d{5}")) {
+            addUniqueCommune(items, communeByInsee(trimmed));
+            JsonNode byZip = fetchJson(UriComponentsBuilder.fromHttpUrl(trimBase(geoApiBase) + "/communes")
+                    .queryParam("codePostal", trimmed)
+                    .queryParam("fields", COMMUNE_FIELDS)
+                    .queryParam("boost", "population")
+                    .queryParam("limit", MAX_RESULTS)
+                    .build()
+                    .encode()
+                    .toUri(), "codePostal " + trimmed);
+            addCommunes(items, byZip);
+            return root;
+        }
         URI uri = UriComponentsBuilder.fromHttpUrl(trimBase(geoApiBase) + "/communes")
                 .queryParam("nom", trimmed)
                 .queryParam("fields", COMMUNE_FIELDS)
@@ -71,15 +84,7 @@ public class FoncierGeoService {
                 .encode()
                 .toUri();
         JsonNode raw = fetchJson(uri, "communes " + trimmed);
-        if (raw == null || !raw.isArray()) {
-            return root;
-        }
-        for (JsonNode node : raw) {
-            ObjectNode item = mapCommune(node);
-            if (item != null) {
-                items.add(item);
-            }
-        }
+        addCommunes(items, raw);
         return root;
     }
 
@@ -166,6 +171,31 @@ public class FoncierGeoService {
         copyCoordinates(item, node.get("centre"));
         copyCoordinates(item, node);
         return item;
+    }
+
+    private void addCommunes(ArrayNode items, JsonNode raw) {
+        if (raw == null || !raw.isArray()) {
+            return;
+        }
+        for (JsonNode node : raw) {
+            addUniqueCommune(items, mapCommune(node));
+        }
+    }
+
+    private void addUniqueCommune(ArrayNode items, ObjectNode item) {
+        if (items == null || item == null) {
+            return;
+        }
+        String code = text(item.get("code"));
+        if (!StringUtils.hasText(code)) {
+            return;
+        }
+        for (JsonNode existing : items) {
+            if (code.equals(text(existing.get("code")))) {
+                return;
+            }
+        }
+        items.add(item);
     }
 
     public ObjectNode geocodeBan(String query, String postcode) {

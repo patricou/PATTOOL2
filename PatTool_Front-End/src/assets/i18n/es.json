@@ -6204,7 +6204,7 @@
     "RESULT_COUNT": "{{count}} resultado(s)",
     "NO_RESULTS": "No se encontraron inmuebles para esta búsqueda.",
     "NO_COMMUNE": "No se encontró ningún municipio.",
-    "CHOOSE_COMMUNE": "Varios municipios tienen este nombre. Elija el que corresponda.",
+    "CHOOSE_COMMUNE": "Elija un municipio de la lista para validar.",
     "ERROR": "El servicio inmobiliario no está disponible temporalmente. Inténtelo de nuevo en un momento.",
     "ERROR_INVALID_KEY": "La clave API no es válida. Compruebe la configuración del servidor.",
     "ERROR_CREDITS": "La clave es válida, pero la cuenta Stream Estate no tiene créditos. Recargue o elija un plan en stream.estate/console/billing.",

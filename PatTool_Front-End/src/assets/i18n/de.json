@@ -6285,7 +6285,7 @@
     "RESULT_COUNT": "{{count}} Ergebnis(se)",
     "NO_RESULTS": "Keine Immobilien für diese Suche gefunden.",
     "NO_COMMUNE": "Keine Gemeinde gefunden.",
-    "CHOOSE_COMMUNE": "Mehrere Gemeinden tragen diesen Namen. Wählen Sie die passende.",
+    "CHOOSE_COMMUNE": "Wählen Sie eine Gemeinde in der Liste, um zu bestätigen.",
     "ERROR": "Der Grundstücksdienst ist vorübergehend nicht verfügbar. Bitte später erneut versuchen.",
     "ERROR_INVALID_KEY": "Der API-Schlüssel ist ungültig. Prüfen Sie die Serverkonfiguration.",
     "ERROR_CREDITS": "Der Schlüssel ist gültig, aber das Stream-Estate-Konto hat keine Credits mehr. Aufladen oder Tarif wählen unter stream.estate/console/billing.",

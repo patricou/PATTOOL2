@@ -1,3 +1,10 @@
+:host {
+  --pat-title-bg: linear-gradient(135deg, #ea580c 0%, #c2410c 50%, #9a3412 100%);
+  --pat-title-accent: #ea580c;
+  --pat-title-shadow: 0 4px 15px rgba(194, 65, 12, 0.4);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='40'%3E%3Ccircle cx='18' cy='20' r='10' fill='none' stroke='white' stroke-opacity='0.18'/%3E%3Ccircle cx='42' cy='20' r='10' fill='none' stroke='white' stroke-opacity='0.12'/%3E%3C/svg%3E");
+}
+
 .cryptos-page {
     padding: 1rem 1.25rem;
     max-width: 960px;

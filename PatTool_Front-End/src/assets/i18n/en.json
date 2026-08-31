@@ -8034,7 +8034,7 @@
     "RESULT_COUNT": "{{count}} result(s)",
     "NO_RESULTS": "No properties found for this search.",
     "NO_COMMUNE": "No commune found.",
-    "CHOOSE_COMMUNE": "Several communes share this name. Pick the one you want.",
+    "CHOOSE_COMMUNE": "Choose a commune from the list to confirm.",
     "ERROR": "The land service is temporarily unavailable. Try again in a moment.",
     "ERROR_INVALID_KEY": "The API key is invalid. Check the server configuration.",
     "ERROR_CREDITS": "The API key is valid, but the Stream Estate account is out of credits. Top up or subscribe at stream.estate/console/billing.",

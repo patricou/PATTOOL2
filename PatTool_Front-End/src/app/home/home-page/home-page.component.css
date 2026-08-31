@@ -25,6 +25,8 @@
  */
 :host {
     display: block;
+    --pat-page-wash: 0;
+    --pat-page-bg: transparent;
 }
 
 .pat-display {

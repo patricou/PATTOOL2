@@ -6143,7 +6143,7 @@
     "RESULT_COUNT": "{{count}} תוצאות",
     "NO_RESULTS": "לא נמצאו נכסים לחיפוש זה.",
     "NO_COMMUNE": "לא נמצאה רשות מקומית.",
-    "CHOOSE_COMMUNE": "כמה רשויות נושאות את השם הזה. בחרו את המתאימה.",
+    "CHOOSE_COMMUNE": "בחרו רשות מהרשימה כדי לאשר.",
     "ERROR": "שירות הנדל״ן אינו זמין זמנית. נסו שוב בעוד רגע.",
     "ERROR_INVALID_KEY": "מפתח ה-API אינו תקין. בדקו את הגדרות השרת.",
     "ERROR_CREDITS": "המפתח תקין, אך לחשבון Stream Estate אין קרדיטים. טענו או בחרו מסלול ב-stream.estate/console/billing.",

@@ -8038,7 +8038,7 @@
     "RESULT_COUNT": "{{count}} résultat(s)",
     "NO_RESULTS": "Aucun bien trouvé pour cette recherche.",
     "NO_COMMUNE": "Aucune commune trouvée.",
-    "CHOOSE_COMMUNE": "Plusieurs communes portent ce nom. Choisissez celle qui correspond.",
+    "CHOOSE_COMMUNE": "Choisissez une commune dans la liste pour valider.",
     "ERROR": "Le service foncier est temporairement indisponible. Réessayez dans un instant.",
     "ERROR_INVALID_KEY": "La clé API est invalide. Vérifiez la configuration serveur.",
     "ERROR_CREDITS": "La clé est valide, mais le compte Stream Estate n’a plus de crédits. Rechargez ou choisissez un forfait sur stream.estate/console/billing.",

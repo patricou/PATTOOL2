@@ -26,10 +26,43 @@
           type="search"
           class="form-control"
           name="listingQuery"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-controls="listing-commune-results"
+          [attr.aria-expanded]="(communes.length > 0 || searchingCommunes) && !selected"
+          [attr.aria-activedescendant]="communeActiveIndex >= 0 ? ('listing-commune-opt' + communeActiveIndex) : null"
           [(ngModel)]="query"
           (ngModelChange)="onQueryChanged()"
+          (keydown)="onCommuneKeydown($event)"
           [placeholder]="'FONCIER.COMMUNE_PLACEHOLDER' | translate"
           autocomplete="off" />
+        <div
+          id="listing-commune-results"
+          class="foncier-suggest"
+          role="listbox"
+          *ngIf="(communes.length || searchingCommunes) && !selected">
+          <div class="small text-muted foncier-suggest-status" *ngIf="searchingCommunes">
+            <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'FONCIER.LOADING' | translate }}
+          </div>
+          <p class="small text-muted foncier-suggest-status mb-0" *ngIf="!searchingCommunes && communes.length">
+            {{ 'FONCIER.CHOOSE_COMMUNE' | translate }}
+          </p>
+          <button
+            type="button"
+            *ngFor="let commune of communes; let i = index"
+            [id]="'listing-commune-opt' + i"
+            role="option"
+            [attr.aria-selected]="communeActiveIndex === i"
+            [class.active]="communeActiveIndex === i"
+            (mouseenter)="communeActiveIndex = i"
+            (mousedown)="pickCommune(commune)">
+            <span class="foncier-suggest-name">
+              <i class="fa fa-map-pin" aria-hidden="true"></i>
+              {{ commune.nom }}
+            </span>
+            <span class="foncier-suggest-meta">{{ communeMeta(commune) }}</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -128,21 +161,6 @@
       </button>
     </div>
   </form>
-
-  <p class="foncier-suggest-hint" *ngIf="communes.length > 1 && !selected">
-    {{ 'FONCIER.CHOOSE_COMMUNE' | translate }}
-  </p>
-  <ul class="foncier-suggest" *ngIf="communes.length && !selected">
-    <li *ngFor="let commune of communes">
-      <button type="button" (click)="pickCommune(commune)">
-        <span class="foncier-suggest-name">
-          <i class="fa fa-map-pin" aria-hidden="true"></i>
-          {{ commune.nom }}
-        </span>
-        <span class="foncier-suggest-meta">{{ communeMeta(commune) }}</span>
-      </button>
-    </li>
-  </ul>
 
   <div class="alert alert-warning py-2 foncier-alert" *ngIf="errorMessage && !loading && (configured || errorMessage === 'FONCIER.NO_COMMUNE')" role="alert">
     <i class="fa fa-exclamation-triangle me-2"></i>

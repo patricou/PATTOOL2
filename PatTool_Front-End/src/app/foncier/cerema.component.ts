@@ -62,6 +62,7 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
   clearingCache = false;
   communes: FoncierCommune[] = [];
   selected: FoncierCommune | null = null;
+  communeActiveIndex = -1;
   mutations: FoncierMutation[] = [];
   private rawResults: FoncierMutation[] = [];
   count = 0;
@@ -100,12 +101,13 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
     const insee = params.get('insee') || '';
 
     this.subs.push(
-      this.query$.pipe(debounceTime(80), distinctUntilChanged()).subscribe((value) => {
-        if (this.cacheMode === 'cache') {
-          return;
-        }
-        if (value.trim().length >= 2 && !this.selected) {
-          this.lookupCommunes(value);
+      this.query$.pipe(debounceTime(300), distinctUntilChanged()).subscribe((value) => {
+        const q = value.trim();
+        if (q.length >= 2 && !this.selected) {
+          this.lookupCommunes(q);
+        } else if (!this.selected) {
+          this.communes = [];
+          this.communeActiveIndex = -1;
         }
       })
     );
@@ -115,7 +117,7 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
     if (insee.match(/^\d{5}$/)) {
       this.selected = { code: insee, nom: this.query || insee };
       this.loadMutations(1);
-    } else if (this.cacheMode !== 'cache' && this.query.length >= 2) {
+    } else if (this.query.length >= 2) {
       this.lookupCommunes(this.query);
     }
   }
@@ -131,19 +133,56 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
     this.errorMessage = '';
     this.query$.next(this.query);
     this.syncUrl();
-    if (this.cacheMode === 'cache') {
-      const q = this.query.trim();
-      if (q.length >= 2 || /^\d{5}$/.test(q)) {
-        this.loadMutations(1);
-      } else {
-        this.mutations = [];
-        this.communes = [];
-        this.searched = false;
-      }
-      return;
-    }
     this.mutations = [];
     this.searched = false;
+    const q = this.query.trim();
+    if (q.length < 2) {
+      this.communes = [];
+      this.communeActiveIndex = -1;
+    }
+  }
+
+  onCommuneKeydown(event: KeyboardEvent): void {
+    const hits = this.communes;
+    if (!hits.length && event.key !== 'Escape') {
+      return;
+    }
+    const active = this.communeActiveIndex;
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        this.communeActiveIndex = active < hits.length - 1 ? active + 1 : 0;
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        this.communeActiveIndex = active > 0 ? active - 1 : hits.length - 1;
+        break;
+      case 'Enter':
+        if (active >= 0 && active < hits.length) {
+          event.preventDefault();
+          this.pickCommune(hits[active]);
+        }
+        break;
+      case 'Escape':
+        event.preventDefault();
+        this.communes = [];
+        this.communeActiveIndex = -1;
+        break;
+      case 'Home':
+        if (hits.length) {
+          event.preventDefault();
+          this.communeActiveIndex = 0;
+        }
+        break;
+      case 'End':
+        if (hits.length) {
+          event.preventDefault();
+          this.communeActiveIndex = hits.length - 1;
+        }
+        break;
+      default:
+        break;
+    }
   }
 
   submitSearch(): void {
@@ -151,7 +190,11 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
     if (!q) {
       return;
     }
-    if (this.selected || this.cacheMode === 'cache') {
+    if (this.communes.length && !this.selected) {
+      this.pickCommune(this.communes[this.communeActiveIndex] ?? this.communes[0]);
+      return;
+    }
+    if (this.selected) {
       this.loadMutations(1);
       return;
     }
@@ -162,6 +205,7 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
     this.selected = commune;
     this.query = commune.nom;
     this.communes = [];
+    this.communeActiveIndex = -1;
     this.loadMutations(1);
   }
 
@@ -174,6 +218,7 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
     this.sortKey = 'date-desc';
     this.cacheMode = 'cache';
     this.communes = [];
+    this.communeActiveIndex = -1;
     this.selected = null;
     this.mutations = [];
     this.rawResults = [];
@@ -199,21 +244,23 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
   }
 
   onTypeChanged(): void {
-    if (this.selected || (this.cacheMode === 'cache' && this.query.trim())) {
+    if (this.selected) {
       this.loadMutations(1);
     }
   }
 
   onRadiusChanged(): void {
-    if (this.selected || (this.cacheMode === 'cache' && this.query.trim())) {
+    if (this.selected) {
       this.loadMutations(1);
     }
   }
 
   onSourceChanged(): void {
     this.syncUrl();
-    if (this.selected || (this.cacheMode === 'cache' && this.query.trim())) {
+    if (this.selected) {
       this.loadMutations(1);
+    } else if (this.query.trim().length >= 2) {
+      this.lookupCommunes(this.query);
     }
   }
 
@@ -367,7 +414,7 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
         this.localCacheReady = Array.isArray(res?.items);
         this.cacheLoadPending = false;
         this.cacheCount = res?.count ?? this.cacheItems.length;
-        if (this.cacheMode === 'cache' && (this.searched || this.selected || this.query.trim().length >= 2)) {
+        if (this.cacheMode === 'cache' && this.selected) {
           this.loadMutations(this.page || 1);
         }
       },
@@ -382,34 +429,35 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
     return this.cacheMode === 'cache' && this.localCacheReady;
   }
 
-  private lookupCommunes(value: string, autoPick = false): void {
-    if (this.useLocalCache()) {
-      this.communeSub?.unsubscribe();
-      this.searchingCommunes = false;
-      this.communes = placesFromCache(this.cacheItems, value);
-      if (autoPick && this.communes.length === 1) {
-        this.pickCommune(this.communes[0]);
-      } else if (autoPick && this.communes.length === 0) {
-        this.errorMessage = 'FONCIER.NO_COMMUNE';
-      }
-      return;
-    }
+  private lookupCommunes(value: string, fromSubmit = false): void {
     this.communeSub?.unsubscribe();
     this.searchingCommunes = true;
     this.communeSub = this.api.searchFoncierCommunes(value.trim()).subscribe({
       next: (res) => {
-        this.communes = res?.items || [];
+        let items = res?.items || [];
+        if (!items.length && this.useLocalCache()) {
+          items = placesFromCache(this.cacheItems, value);
+        }
+        if (!items.length && /^\d{5}$/.test(value.trim())) {
+          const zip = value.trim();
+          items = [{ code: zip, nom: zip, codesPostaux: [zip] }];
+        }
+        this.communes = items;
+        this.communeActiveIndex = items.length ? 0 : -1;
         this.searchingCommunes = false;
-        if (autoPick && this.communes.length === 1) {
-          this.pickCommune(this.communes[0]);
-        } else if (autoPick && this.communes.length === 0) {
+        if (fromSubmit && items.length === 0) {
           this.errorMessage = 'FONCIER.NO_COMMUNE';
         }
       },
       error: () => {
+        const local = this.useLocalCache() ? placesFromCache(this.cacheItems, value) : [];
+        this.communes = local;
+        this.communeActiveIndex = local.length ? 0 : -1;
         this.searchingCommunes = false;
-        this.communes = [];
-        this.errorMessage = 'FONCIER.ERROR';
+        if (local.length) {
+          return;
+        }
+        this.errorMessage = fromSubmit ? 'FONCIER.NO_COMMUNE' : 'FONCIER.ERROR';
       }
     });
   }
@@ -435,9 +483,6 @@ export class FoncierCeremaComponent implements OnInit, OnDestroy {
     this.errorMessage = '';
     this.page = page;
     const q = this.query.trim();
-    if (!this.selected) {
-      this.communes = placesFromCache(this.cacheItems, q);
-    }
     const matched = filterCacheItems(this.cacheItems, {
       q,
       codeInsee: this.selected?.code,

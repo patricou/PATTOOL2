@@ -6149,7 +6149,7 @@
     "RESULT_COUNT": "{{count}} 件",
     "NO_RESULTS": "この検索に該当する物件はありません。",
     "NO_COMMUNE": "コミューンが見つかりません。",
-    "CHOOSE_COMMUNE": "同名のコミューンが複数あります。該当するものを選んでください。",
+    "CHOOSE_COMMUNE": "リストからコミューンを選んで確定してください。",
     "ERROR": "不動産サービスは一時的に利用できません。しばらくして再試行してください。",
     "ERROR_INVALID_KEY": "API キーが無効です。サーバー設定を確認してください。",
     "ERROR_CREDITS": "キーは有効ですが、Stream Estate アカウントのクレジットがありません。stream.estate/console/billing でチャージまたはプランを選択してください。",

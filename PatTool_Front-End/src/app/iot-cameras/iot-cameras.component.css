@@ -1,3 +1,10 @@
+:host {
+  --pat-title-bg: linear-gradient(135deg, #0f766e 0%, #115e59 50%, #134e4a 100%);
+  --pat-title-accent: #0f766e;
+  --pat-title-shadow: 0 4px 15px rgba(15, 118, 110, 0.35);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='40'%3E%3Crect x='6' y='10' width='30' height='22' rx='3' fill='none' stroke='white' stroke-opacity='0.22'/%3E%3Ccircle cx='21' cy='21' r='6' fill='none' stroke='white' stroke-opacity='0.18'/%3E%3Cpath d='M36 18 l12 -5 v16 l-12 -5z' fill='none' stroke='white' stroke-opacity='0.16'/%3E%3C/svg%3E");
+}
+
 .pat-title {
     text-align: center;
     padding: 1rem 0;

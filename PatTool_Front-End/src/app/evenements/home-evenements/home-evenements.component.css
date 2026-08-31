@@ -1,3 +1,11 @@
+:host {
+  --pat-title-bg: linear-gradient(135deg, #166534 0%, #14532d 50%, #052e16 100%);
+  --pat-title-accent: #166534;
+  --pat-title-shadow: 0 4px 15px rgba(22, 101, 52, 0.45);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect x='4' y='8' width='32' height='28' rx='2' fill='none' stroke='white' stroke-opacity='0.22'/%3E%3Cpath d='M4 16h32M16 8v28M24 8v28' stroke='white' stroke-opacity='0.14'/%3E%3C/svg%3E");
+  --even-page-bg: color-mix(in srgb, var(--pat-title-accent, #166534) 18%, #ffffff);
+}
+
 /* ===== RESULTS SECTION ===== */
 .results-section {
     flex: 0 0 auto;
@@ -63,7 +71,8 @@
     min-height: 100%;
     width: 100%;
     transition: none !important;
-    background-image: none;
+    background: var(--even-page-bg) !important;
+    background-image: none !important;
     overflow: visible !important;
     /* Ensure smooth scrolling */
     scroll-behavior: smooth;
@@ -1753,6 +1762,93 @@
     min-width: 140px !important;
     max-width: 180px !important;
     width: auto !important;
+}
+
+/* Toolbar + buttons: same fill as the page wash */
+.home-evenements-wrapper .controls-bar {
+    background: var(--even-page-bg);
+    border-color: color-mix(in srgb, var(--pat-title-accent, #166534) 18%, #e2e8f0);
+    box-shadow:
+        0 2px 8px color-mix(in srgb, var(--pat-title-accent, #166534) 10%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.home-evenements-wrapper .filter-input-container,
+.home-evenements-wrapper .filter-input-container-desktop {
+    background-color: var(--even-page-bg);
+    border-color: color-mix(in srgb, var(--pat-title-accent, #166534) 28%, #dee2e6);
+}
+
+.home-evenements-wrapper .filter-input-container-desktop:hover,
+.home-evenements-wrapper .filter-input-container:hover {
+    border-color: color-mix(in srgb, var(--pat-title-accent, #166534) 50%, #ffffff);
+    box-shadow:
+        0 0 0 0.2rem color-mix(in srgb, var(--pat-title-accent, #166534) 16%, transparent),
+        0 2px 6px color-mix(in srgb, var(--pat-title-accent, #166534) 12%, transparent);
+}
+
+.home-evenements-wrapper .filter-input-container-desktop:focus-within,
+.home-evenements-wrapper .filter-input-container:focus-within {
+    border-color: color-mix(in srgb, var(--pat-title-accent, #166534) 62%, #ffffff);
+    box-shadow:
+        0 0 0 0.25rem color-mix(in srgb, var(--pat-title-accent, #166534) 18%, transparent),
+        0 4px 8px color-mix(in srgb, var(--pat-title-accent, #166534) 12%, transparent);
+}
+
+.home-evenements-wrapper .results-section-redesigned > .btn-outline-secondary {
+    background-color: var(--even-page-bg);
+    border-color: color-mix(in srgb, var(--pat-title-accent, #166534) 30%, #ced4da);
+    color: color-mix(in srgb, var(--pat-title-accent, #166534) 78%, #334155);
+}
+
+.home-evenements-wrapper .results-section-redesigned > .btn-outline-secondary:hover {
+    background-color: color-mix(in srgb, var(--pat-title-accent, #166534) 26%, #ffffff);
+    border-color: color-mix(in srgb, var(--pat-title-accent, #166534) 46%, #ced4da);
+    color: color-mix(in srgb, var(--pat-title-accent, #166534) 90%, #1e293b);
+}
+
+.home-evenements-wrapper .view-toggle-group-redesigned {
+    background: var(--even-page-bg);
+    border-color: color-mix(in srgb, var(--pat-title-accent, #166534) 22%, #e2e8f0);
+}
+
+.home-evenements-wrapper .btn-view-toggle-redesigned {
+    background: var(--even-page-bg);
+    color: color-mix(in srgb, var(--pat-title-accent, #166534) 72%, #475569);
+}
+
+.home-evenements-wrapper .btn-view-toggle-redesigned:hover {
+    background: color-mix(in srgb, var(--pat-title-accent, #166534) 26%, #ffffff);
+    color: color-mix(in srgb, var(--pat-title-accent, #166534) 88%, #1e293b);
+}
+
+.home-evenements-wrapper .btn-view-toggle-redesigned.active {
+    background: color-mix(in srgb, var(--pat-title-accent, #166534) 86%, #ffffff);
+    color: #ffffff;
+    box-shadow: 0 2px 6px color-mix(in srgb, var(--pat-title-accent, #166534) 35%, transparent);
+}
+
+.home-evenements-wrapper .btn-photos-wall {
+    background: var(--even-page-bg) !important;
+    border-color: color-mix(in srgb, var(--pat-title-accent, #166534) 30%, #cbd5e1) !important;
+    color: color-mix(in srgb, var(--pat-title-accent, #166534) 80%, #334155);
+}
+
+.home-evenements-wrapper .btn-photos-wall:hover {
+    background: color-mix(in srgb, var(--pat-title-accent, #166534) 26%, #ffffff) !important;
+    border-color: color-mix(in srgb, var(--pat-title-accent, #166534) 44%, #cbd5e1) !important;
+    color: color-mix(in srgb, var(--pat-title-accent, #166534) 90%, #1e293b);
+}
+
+.home-evenements-wrapper .mobile-photos-btn {
+    background-color: var(--even-page-bg);
+    border-color: color-mix(in srgb, var(--pat-title-accent, #166534) 28%, #dee2e6);
+    color: color-mix(in srgb, var(--pat-title-accent, #166534) 78%, #334155);
+}
+
+.home-evenements-wrapper .mobile-photos-btn:hover {
+    background-color: color-mix(in srgb, var(--pat-title-accent, #166534) 26%, #ffffff);
+    color: color-mix(in srgb, var(--pat-title-accent, #166534) 90%, #1e293b);
 }
 
 /* Style professionnel pour le bouton de filtre (X) */

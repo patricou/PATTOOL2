@@ -359,16 +359,19 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe((e) => {
             this.updateTvPopoutMode();
             this.updateStarrySkyPage();
+            this.updatePageTitleWash();
             this.updateNewsRoute(e.urlAfterRedirects || e.url);
             this.lastRoute.remember(e.urlAfterRedirects || e.url);
         });
         this.updateTvPopoutMode();
         this.updateStarrySkyPage();
+        this.updatePageTitleWash();
         this.updateNewsRoute();
     }
 
     ngAfterViewInit(): void {
         this.syncNavbarOffset();
+        this.updatePageTitleWash();
     }
 
     @HostListener('window:resize')
@@ -446,6 +449,44 @@ export class AppComponent implements OnInit, AfterViewInit {
         try {
             document.documentElement.classList.toggle('pat-starry-sky', on);
             document.body.classList.toggle('pat-starry-sky', on);
+        } catch {
+            /* ignore */
+        }
+    }
+
+    /** Copy the routed page title hue onto <html> so body + host share the same light wash. */
+    private updatePageTitleWash(): void {
+        try {
+            const apply = () => {
+                const host = document.querySelector('app-root > router-outlet + *') as HTMLElement | null;
+                const html = document.documentElement;
+                if (!host) {
+                    html.style.removeProperty('--pat-title-accent');
+                    html.style.removeProperty('--pat-fab-accent');
+                    html.style.removeProperty('--pat-fab-bg');
+                    html.classList.remove('pat-page-no-wash');
+                    return;
+                }
+                const cs = getComputedStyle(host);
+                const wash = cs.getPropertyValue('--pat-page-wash').trim();
+                const skip = wash === '0' || wash === '0%';
+                html.classList.toggle('pat-page-no-wash', skip);
+                const accent = cs.getPropertyValue('--pat-title-accent').trim();
+                const titleBg = cs.getPropertyValue('--pat-title-bg').trim();
+                if (accent) {
+                    html.style.setProperty('--pat-title-accent', accent);
+                    html.style.setProperty('--pat-fab-accent', accent);
+                } else {
+                    html.style.removeProperty('--pat-title-accent');
+                    html.style.removeProperty('--pat-fab-accent');
+                }
+                if (titleBg) {
+                    html.style.setProperty('--pat-fab-bg', titleBg);
+                } else {
+                    html.style.removeProperty('--pat-fab-bg');
+                }
+            };
+            requestAnimationFrame(() => requestAnimationFrame(apply));
         } catch {
             /* ignore */
         }
