@@ -15,6 +15,10 @@ import { Subscription } from 'rxjs';
 import { ApiService } from '../services/api.service';
 import { CompassNorthEngine } from '../shared/compass-north.engine';
 import { CompassRoseComponent } from '../shared/compass-rose/compass-rose.component';
+import {
+  needsMotionPermissionTap,
+  requestMotionPermissionIfNeeded
+} from '../shared/device-motion-permission.util';
 import { magneticDeclinationDeg } from './magnetic-declination';
 
 const PAINT_MIN_MS = 50;
@@ -596,33 +600,13 @@ export class NordComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private async startAll(fromUserGesture: boolean): Promise<void> {
-    const doe = window.DeviceOrientationEvent as unknown as {
-      requestPermission?: () => Promise<string>;
-    };
-    const dme = window.DeviceMotionEvent as unknown as {
-      requestPermission?: () => Promise<string>;
-    };
-    if (typeof doe?.requestPermission === 'function') {
+    if (needsMotionPermissionTap()) {
       if (!fromUserGesture) {
         this.permissionNeeded = true;
         this.cdr.markForCheck();
         return;
       }
-      try {
-        const ori = await doe.requestPermission();
-        if (ori !== 'granted') {
-          this.permissionDenied = true;
-          this.cdr.markForCheck();
-          return;
-        }
-        if (typeof dme?.requestPermission === 'function') {
-          try {
-            await dme.requestPermission();
-          } catch {
-            /* optional */
-          }
-        }
-      } catch {
+      if ((await requestMotionPermissionIfNeeded()) === 'denied') {
         this.permissionDenied = true;
         this.cdr.markForCheck();
         return;

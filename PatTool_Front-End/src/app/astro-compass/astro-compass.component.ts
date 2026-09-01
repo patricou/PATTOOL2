@@ -95,6 +95,10 @@ import { magneticDeclinationDeg } from '../nord/magnetic-declination';
 import { clampCamHeightPx, loadCamHeightPx, saveCamHeightPx } from '../shared/preview-cam-size';
 import { isAndroidUserAgent, skyMapAndroidSearchIntent, openSkyMapAndroidApp } from '../shared/sky-map-app.util';
 import { isIosUserAgent, skyViewAppHref, openSkyViewApp } from '../shared/sky-view-app.util';
+import {
+  needsMotionPermissionTap,
+  requestMotionPermissionIfNeeded
+} from '../shared/device-motion-permission.util';
 import { wikiContentLang, wikiLookupRequest, wikiSourceDir, wikiSourceLang } from './astro-object-dossier.service';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import {
@@ -10074,25 +10078,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   /* ------------------------------------------------------------------ */
 
   private async startOrientation(): Promise<void> {
-    const doe: any =
-      typeof window !== 'undefined' ? (window as any).DeviceOrientationEvent : undefined;
-    const dme: any =
-      typeof window !== 'undefined' ? (window as any).DeviceMotionEvent : undefined;
-    if (doe && typeof doe.requestPermission === 'function') {
-      try {
-        const res = await doe.requestPermission();
-        if (res !== 'granted') {
-          return;
-        }
-      } catch {
+    if (needsMotionPermissionTap()) {
+      if ((await requestMotionPermissionIfNeeded()) === 'denied') {
         return;
-      }
-    }
-    if (dme && typeof dme.requestPermission === 'function') {
-      try {
-        await dme.requestPermission();
-      } catch {
-        /* optional */
       }
     }
 
@@ -10105,7 +10093,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    if (!doe) {
+    if (!('DeviceOrientationEvent' in window)) {
       return;
     }
     this.startOrientationListenerOnly();

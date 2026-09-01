@@ -44,6 +44,10 @@ import {
   type PersistedNordCal
 } from '../shared/compass-north.engine';
 import {
+  needsMotionPermissionTap,
+  requestMotionPermissionIfNeeded
+} from '../shared/device-motion-permission.util';
+import {
   PATTOOL_POSES,
   PattoolCalFile,
   PattoolCalMixMode,
@@ -2936,32 +2940,13 @@ export class DirectionComponent implements AfterViewInit, OnDestroy {
   }
 
   private async boot(fromTap: boolean): Promise<void> {
-    const doe = window.DeviceOrientationEvent as unknown as {
-      requestPermission?: () => Promise<string>;
-    };
-    const dme = window.DeviceMotionEvent as unknown as {
-      requestPermission?: () => Promise<string>;
-    };
-    if (typeof doe.requestPermission === 'function') {
+    if (needsMotionPermissionTap()) {
       if (!fromTap) {
         this.needTap = true;
         this.cdr.markForCheck();
         return;
       }
-      try {
-        if ((await doe.requestPermission()) !== 'granted') {
-          this.denied = true;
-          this.cdr.markForCheck();
-          return;
-        }
-        if (typeof dme.requestPermission === 'function') {
-          try {
-            await dme.requestPermission();
-          } catch {
-            /* optional */
-          }
-        }
-      } catch {
+      if ((await requestMotionPermissionIfNeeded()) === 'denied') {
         this.denied = true;
         this.cdr.markForCheck();
         return;

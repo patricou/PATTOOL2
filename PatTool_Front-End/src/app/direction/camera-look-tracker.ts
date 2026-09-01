@@ -18,6 +18,10 @@ import {
   type PersistedNordCal
 } from '../shared/compass-north.engine';
 import {
+  needsMotionPermissionTap,
+  requestMotionPermissionIfNeeded
+} from '../shared/device-motion-permission.util';
+import {
   applyLookDeclination,
   canonicalizeLookCal,
   composeLookAzimuth,
@@ -102,32 +106,13 @@ export class CameraLookTracker {
     this.trueNorth = loadSharedTrueNorth(this.trueNorth);
     this.needTap = false;
     this.denied = false;
-    const doe = window.DeviceOrientationEvent as unknown as {
-      requestPermission?: () => Promise<string>;
-    };
-    const dme = window.DeviceMotionEvent as unknown as {
-      requestPermission?: () => Promise<string>;
-    };
-    if (typeof doe.requestPermission === 'function') {
+    if (needsMotionPermissionTap()) {
       if (!fromTap) {
         this.needTap = true;
         this.onUpdate();
         return;
       }
-      try {
-        if ((await doe.requestPermission()) !== 'granted') {
-          this.denied = true;
-          this.onUpdate();
-          return;
-        }
-        if (typeof dme.requestPermission === 'function') {
-          try {
-            await dme.requestPermission();
-          } catch {
-            /* optional */
-          }
-        }
-      } catch {
+      if ((await requestMotionPermissionIfNeeded()) === 'denied') {
         this.denied = true;
         this.onUpdate();
         return;
