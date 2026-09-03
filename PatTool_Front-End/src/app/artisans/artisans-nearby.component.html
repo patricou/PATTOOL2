@@ -92,8 +92,9 @@
       class="artisans-trade"
       selectId="artisans-trade"
       name="artisansTrade"
+      [searchable]="true"
       [title]="i18nPrefix + '.TRADE' | translate"
-      [searchPlaceholder]="i18nPrefix + '.TRADE' | translate"
+      [searchPlaceholder]="'ARTISANS.TRADE_FILTER' | translate"
       [options]="tradeSelectOptions"
       [(ngModel)]="trade"
       (ngModelChange)="onTradeChange()">
@@ -234,8 +235,10 @@
           selectId="artisans-list-trade"
           name="artisansListTrade"
           size="sm"
+          [searchable]="true"
           [title]="i18nPrefix + '.FILTER_TRADE' | translate"
-          [options]="listTradeOptions"
+          [searchPlaceholder]="'ARTISANS.TRADE_FILTER' | translate"
+          [options]="listTradeSelectOptions"
           [(ngModel)]="listTrade"
           (ngModelChange)="onListViewChange()">
         </app-sheet-select>

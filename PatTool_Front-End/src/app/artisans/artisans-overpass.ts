@@ -13,7 +13,7 @@ const OVERPASS_URLS = [
 ];
 
 const OSM_FILTERS: Record<string, string> = {
-  all: 'node["shop"];node["craft"];node["office"~"^(estate_agent|lawyer|accountant)$"];node["amenity"~"^(restaurant|cafe|fast_food|bar|pub|pharmacy|fuel|dentist|doctors|clinic|veterinary|bank|post_office)$"];node["tourism"="hotel"]',
+  all: 'node["shop"];node["craft"];node["office"~"^(estate_agent|lawyer|accountant|insurance)$"];node["amenity"~"^(restaurant|cafe|fast_food|bar|pub|pharmacy|fuel|dentist|doctors|clinic|veterinary|bank|post_office)$"];node["shop"="wholesale"];node["tourism"="hotel"]',
   plumber: 'node["craft"~"^(plumber|heating_engineer)$"]',
   electrician: 'node["craft"="electrician"]',
   heating: 'node["craft"~"^(hvac|heating_engineer)$"]',
@@ -51,6 +51,8 @@ const OSM_FILTERS: Record<string, string> = {
   realestate: 'node["office"="estate_agent"]',
   laundry: 'node["shop"~"^(laundry|dry_cleaning)$"]',
   bank: 'node["amenity"="bank"]',
+  insurance: 'node["office"="insurance"]',
+  wholesale: 'node["shop"="wholesale"]',
   post: 'node["amenity"="post_office"]',
   shoes: 'node["shop"="shoes"]',
   electronics: 'node["shop"~"^(electronics|computer)$"]',

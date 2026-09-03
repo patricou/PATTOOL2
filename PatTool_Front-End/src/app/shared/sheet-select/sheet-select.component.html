@@ -1,14 +1,27 @@
-<select
-  class="form-select pat-sheet-select-native"
-  [class.form-select-sm]="size === 'sm'"
-  [id]="selectId || null"
-  [disabled]="disabled"
-  [ngModel]="value"
-  [ngModelOptions]="{standalone: true}"
-  [compareWith]="compareValues"
-  (ngModelChange)="commit($event)"
-  (blur)="markTouched()">
-  <option *ngFor="let opt of options; trackBy: trackOption" [ngValue]="opt.value">
-    {{ opt.label || (opt.labelKey ? (opt.labelKey | translate:opt.labelParams) : opt.value) }}
-  </option>
-</select>
+<div class="pat-sheet-select" [class.pat-sheet-select--sm]="size === 'sm'">
+  <input
+    *ngIf="isSearchable"
+    type="search"
+    class="form-control pat-sheet-select-filter"
+    [class.form-control-sm]="size === 'sm'"
+    [placeholder]="searchPlaceholder || title"
+    [ngModel]="filterQuery"
+    [ngModelOptions]="{standalone: true}"
+    [disabled]="disabled"
+    autocomplete="off"
+    (ngModelChange)="onFilter($event)" />
+  <select
+    class="form-select pat-sheet-select-native"
+    [class.form-select-sm]="size === 'sm'"
+    [id]="selectId || null"
+    [disabled]="disabled"
+    [ngModel]="value"
+    [ngModelOptions]="{standalone: true}"
+    [compareWith]="compareValues"
+    (ngModelChange)="commit($event)"
+    (blur)="markTouched()">
+    <option *ngFor="let opt of visibleOptions; trackBy: trackOption" [ngValue]="opt.value">
+      {{ optionLabel(opt) }}
+    </option>
+  </select>
+</div>

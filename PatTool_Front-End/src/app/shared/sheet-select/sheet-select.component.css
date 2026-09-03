@@ -3,6 +3,14 @@
   min-width: 0;
 }
 
-.pat-sheet-select-native {
+.pat-sheet-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.pat-sheet-select-native,
+.pat-sheet-select-filter {
   width: 100%;
 }

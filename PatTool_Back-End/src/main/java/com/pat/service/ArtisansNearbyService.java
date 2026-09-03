@@ -65,7 +65,7 @@ public class ArtisansNearbyService {
             "supermarket", "grocery", "shop", "hardware", "clothing", "furniture",
             "florist", "pharmacy", "optician", "restaurant", "cafe", "hotel", "fuel",
             "isolation", "plasterer", "beauty", "dentist", "doctor", "veterinary",
-            "realestate", "laundry", "bank", "post", "shoes", "electronics", "books",
+            "realestate", "laundry", "bank", "insurance", "wholesale", "post", "shoes", "electronics", "books",
             "sports", "jewelry", "bar", "fastfood"
     );
 
@@ -80,7 +80,7 @@ public class ArtisansNearbyService {
         SIRENE_NAF.put("heating", "43.22B");
         SIRENE_NAF.put("painter", "43.34Z");
         SIRENE_NAF.put("carpenter", "43.32A,43.32B,16.23Z");
-        SIRENE_NAF.put("mason", "43.99C");
+        SIRENE_NAF.put("mason", "43.99C,43.99D,43.11Z,43.12A,43.12B,43.13Z,41.20A,41.20B");
         SIRENE_NAF.put("roofer", "43.91A,43.91B,43.99A");
         SIRENE_NAF.put("locksmith", "43.32B");
         SIRENE_NAF.put("gardener", "81.30Z");
@@ -114,6 +114,8 @@ public class ArtisansNearbyService {
         SIRENE_NAF.put("realestate", "68.31Z");
         SIRENE_NAF.put("laundry", "96.01A,96.01B");
         SIRENE_NAF.put("bank", "64.19Z");
+        SIRENE_NAF.put("insurance", "65.11Z,65.12Z,66.21Z,66.22Z");
+        SIRENE_NAF.put("wholesale", "46.21Z,46.31Z,46.32Z,46.33Z,46.39Z,46.41Z,46.42Z,46.43Z,46.44Z,46.45Z,46.46Z,46.47Z,46.49Z,46.51Z,46.52Z,46.69A,46.69B,46.69C,46.71Z,46.72Z,46.73A,46.73B,46.74A,46.74B,46.75Z,46.76Z,46.77Z,46.90Z");
         SIRENE_NAF.put("shoes", "47.72Z");
         SIRENE_NAF.put("electronics", "47.41Z,47.42Z,47.43Z");
         SIRENE_NAF.put("books", "47.61Z,47.62Z");
@@ -157,6 +159,8 @@ public class ArtisansNearbyService {
         OSM_FILTERS.put("realestate", "nwr[\"office\"=\"estate_agent\"]");
         OSM_FILTERS.put("laundry", "nwr[\"shop\"~\"^(laundry|dry_cleaning)$\"]");
         OSM_FILTERS.put("bank", "nwr[\"amenity\"=\"bank\"]");
+        OSM_FILTERS.put("insurance", "nwr[\"office\"=\"insurance\"]");
+        OSM_FILTERS.put("wholesale", "nwr[\"shop\"=\"wholesale\"]");
         OSM_FILTERS.put("post", "nwr[\"amenity\"=\"post_office\"]");
         OSM_FILTERS.put("shoes", "nwr[\"shop\"=\"shoes\"]");
         OSM_FILTERS.put("electronics", "nwr[\"shop\"~\"^(electronics|computer)$\"]");
@@ -166,7 +170,7 @@ public class ArtisansNearbyService {
         OSM_FILTERS.put("bar", "nwr[\"amenity\"~\"^(bar|pub)$\"]");
         OSM_FILTERS.put("fastfood", "nwr[\"amenity\"=\"fast_food\"]");
         OSM_FILTERS.put("all",
-                "node[\"shop\"];node[\"craft\"];node[\"office\"~\"^(estate_agent|lawyer|accountant)$\"];node[\"amenity\"~\"^(restaurant|cafe|fast_food|bar|pub|pharmacy|fuel|dentist|doctors|clinic|veterinary|bank|post_office)$\"];node[\"tourism\"=\"hotel\"]");
+                "node[\"shop\"];node[\"craft\"];node[\"office\"~\"^(estate_agent|lawyer|accountant|insurance)$\"];node[\"amenity\"~\"^(restaurant|cafe|fast_food|bar|pub|pharmacy|fuel|dentist|doctors|clinic|veterinary|bank|post_office)$\"];node[\"shop\"=\"wholesale\"];node[\"tourism\"=\"hotel\"]");
     }
 
     /** Libellés INSEE NAF 2008 (et quelques codes NAF 2025) pour les métiers maison. */
@@ -223,6 +227,12 @@ public class ArtisansNearbyService {
         putNaf("75.00Z", "Activités vétérinaires", "veterinary");
         putNaf("68.31Z", "Agences immobilières", "realestate");
         putNaf("64.19Z", "Autres intermédiations monétaires", "bank");
+        putNaf("65.11Z", "Assurance vie", "insurance");
+        putNaf("65.12Z", "Autres assurances", "insurance");
+        putNaf("66.21Z", "Évaluation des risques et dommages", "insurance");
+        putNaf("66.22Z", "Courtage d’assurances", "insurance");
+        putNaf("46.21Z", "Commerce de gros de céréales", "wholesale");
+        putNaf("46.73B", "Commerce de gros de bois et matériaux", "wholesale");
         putNaf("47.41Z", "Commerce d’ordinateurs", "electronics");
         putNaf("47.42Z", "Commerce de matériels de télécommunication", "electronics");
         putNaf("47.43Z", "Commerce d’équipements audio/vidéo", "electronics");
@@ -316,6 +326,8 @@ public class ArtisansNearbyService {
         OSM_LABELS.put("clinic", "Clinique");
         OSM_LABELS.put("veterinary", "Vétérinaire");
         OSM_LABELS.put("bank", "Banque");
+        OSM_LABELS.put("insurance", "Assurance");
+        OSM_LABELS.put("wholesale", "Commerce de gros");
         OSM_LABELS.put("post_office", "La Poste");
         OSM_LABELS.put("estate_agent", "Agence immobilière");
         OSM_LABELS.put("laundry", "Pressing / laverie");
@@ -379,6 +391,8 @@ public class ArtisansNearbyService {
         OSM_TRADE.put("clinic", "doctor");
         OSM_TRADE.put("veterinary", "veterinary");
         OSM_TRADE.put("bank", "bank");
+        OSM_TRADE.put("insurance", "insurance");
+        OSM_TRADE.put("wholesale", "wholesale");
         OSM_TRADE.put("post_office", "post");
         OSM_TRADE.put("estate_agent", "realestate");
         OSM_TRADE.put("laundry", "laundry");
@@ -1125,6 +1139,12 @@ public class ArtisansNearbyService {
         }
         if (naf.startsWith("23.12")) {
             return "glazier";
+        }
+        if (naf.startsWith("65.") || naf.startsWith("66.2")) {
+            return "insurance";
+        }
+        if (naf.startsWith("46.")) {
+            return "wholesale";
         }
         return "";
     }

@@ -47,6 +47,12 @@ export const NAF_ACTIVITY_LABELS: Record<string, string> = {
   '75.00Z': 'Activités vétérinaires',
   '68.31Z': 'Agences immobilières',
   '64.19Z': 'Autres intermédiations monétaires',
+  '65.11Z': 'Assurance vie',
+  '65.12Z': 'Autres assurances',
+  '66.21Z': 'Évaluation des risques et dommages',
+  '66.22Z': 'Courtage d’assurances',
+  '46.21Z': 'Commerce de gros de céréales',
+  '46.73B': 'Commerce de gros de bois et matériaux',
   '47.41Z': 'Commerce d’ordinateurs, d’unités périphériques et de logiciels',
   '47.42Z': 'Commerce de matériels de télécommunication',
   '47.43Z': 'Commerce d’équipements audio/vidéo',
@@ -159,6 +165,12 @@ export const NAF_TRADE_KEYS: Record<string, string> = {
   '56.10C': 'restaurant',
   '56.30Z': 'cafe',
   '64.19Z': 'bank',
+  '65.11Z': 'insurance',
+  '65.12Z': 'insurance',
+  '66.21Z': 'insurance',
+  '66.22Z': 'insurance',
+  '46.21Z': 'wholesale',
+  '46.73B': 'wholesale',
   '68.31Z': 'realestate',
   '75.00Z': 'veterinary',
   '86.21Z': 'doctor',
@@ -211,6 +223,8 @@ export const SIRENE_EXTRA_TRADES = [
   'realestate',
   'laundry',
   'bank',
+  'insurance',
+  'wholesale',
   'shoes',
   'electronics',
   'books',
@@ -226,6 +240,8 @@ export const OSM_EXTRA_TRADES = [
   'realestate',
   'laundry',
   'bank',
+  'insurance',
+  'wholesale',
   'post',
   'shoes',
   'electronics',
@@ -245,7 +261,7 @@ export const TRADE_NAF_CODES: Record<string, string[]> = {
   heating: ['43.22B'],
   painter: ['43.34Z'],
   carpenter: ['43.32A', '43.32B', '16.23Z'],
-  mason: ['43.99C'],
+  mason: ['43.99C', '43.99D', '43.11Z', '43.12A', '43.12B', '43.13Z', '41.20A', '41.20B'],
   roofer: ['43.91A', '43.91B', '43.99A'],
   locksmith: ['43.32B'],
   gardener: ['81.30Z'],
@@ -283,7 +299,14 @@ export const TRADE_NAF_CODES: Record<string, string[]> = {
   electronics: ['47.41Z', '47.42Z', '47.43Z'],
   books: ['47.61Z', '47.62Z'],
   sports: ['47.64Z'],
-  jewelry: ['47.77Z']
+  jewelry: ['47.77Z'],
+  insurance: ['65.11Z', '65.12Z', '66.21Z', '66.22Z'],
+  wholesale: [
+    '46.21Z', '46.31Z', '46.32Z', '46.33Z', '46.34Z', '46.36Z', '46.37Z', '46.38A', '46.38B', '46.39Z',
+    '46.41Z', '46.42Z', '46.43Z', '46.44Z', '46.45Z', '46.46Z', '46.47Z', '46.49Z',
+    '46.51Z', '46.52Z', '46.61Z', '46.62Z', '46.63Z', '46.69A', '46.69B', '46.69C',
+    '46.71Z', '46.72Z', '46.73A', '46.73B', '46.74A', '46.74B', '46.75Z', '46.76Z', '46.77Z', '46.90Z'
+  ]
 };
 
 export const OSM_ACTIVITY_LABELS: Record<string, string> = {
@@ -343,6 +366,8 @@ export const OSM_ACTIVITY_LABELS: Record<string, string> = {
   clinic: 'Clinique',
   veterinary: 'Vétérinaire',
   bank: 'Banque',
+  insurance: 'Assurance',
+  wholesale: 'Commerce de gros',
   post_office: 'La Poste',
   estate_agent: 'Agence immobilière',
   laundry: 'Pressing / laverie',
@@ -408,6 +433,8 @@ export const OSM_TRADE_KEYS: Record<string, string> = {
   clinic: 'doctor',
   veterinary: 'veterinary',
   bank: 'bank',
+  insurance: 'insurance',
+  wholesale: 'wholesale',
   post_office: 'post',
   estate_agent: 'realestate',
   laundry: 'laundry',
@@ -518,6 +545,12 @@ export function tradeKeyFromCode(code: string | undefined | null): string {
   }
   if (naf.startsWith('23.12')) {
     return 'glazier';
+  }
+  if (naf.startsWith('65.') || naf.startsWith('66.2')) {
+    return 'insurance';
+  }
+  if (naf.startsWith('46.')) {
+    return 'wholesale';
   }
   return '';
 }

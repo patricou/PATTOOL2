@@ -264,6 +264,7 @@
   min-width: 12rem;
 }
 
+.artisans-trade .pat-sheet-select-filter,
 .artisans-trade .pat-sheet-select-native {
   min-height: calc(1.5em + 0.75rem + 2px);
 }

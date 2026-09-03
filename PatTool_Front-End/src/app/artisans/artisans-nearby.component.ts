@@ -111,6 +111,8 @@ const TRADE_ICONS: Record<string, string> = {
   realestate: 'fa fa-building-o',
   laundry: 'fa fa-tint',
   bank: 'fa fa-university',
+  insurance: 'fa fa-shield',
+  wholesale: 'fa fa-cubes',
   post: 'fa fa-envelope',
   shoes: 'fa fa-black-tie',
   electronics: 'fa fa-laptop',
@@ -179,6 +181,7 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   listQuery = '';
   listTrade = 'all';
   listCity = '';
+  listTradeSelectOptions: SheetSelectOption[] = [];
   sortKey: ArtisanSortKey = 'distance-asc';
 
   showFavorites = false;
@@ -260,7 +263,10 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
         replaceUrl: true
       });
     }
-    this.langSub = this.translate.onLangChange.subscribe(() => this.rebuildTradeSelectOptions());
+    this.langSub = this.translate.onLangChange.subscribe(() => {
+      this.rebuildTradeSelectOptions();
+      this.rebuildListTradeOptions();
+    });
     this.loadFavorites();
     this.addressSearchSub = this.addressSearch$.pipe(debounceTime(350)).subscribe((query) => {
       this.lookupAddresses(query, false);
@@ -540,12 +546,71 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     }));
   }
 
-  get listTradeOptions(): SheetSelectOption[] {
-    return ['all', ...this.resultTrades].map((trade) => ({
-      value: trade,
-      labelKey: this.tradeLabelKey(trade),
-      icon: TRADE_ICONS[trade] || 'fa fa-wrench'
-    }));
+  private rebuildListTradeOptions(): void {
+    const byValue = new Map<string, SheetSelectOption>();
+    for (const item of this.listSourceItems()) {
+      const option = this.itemTypeOption(item);
+      if (option && !byValue.has(String(option.value))) {
+        byValue.set(String(option.value), option);
+      }
+    }
+    const rest = [...byValue.values()].sort((a, b) =>
+      this.typeOptionLabel(a).localeCompare(this.typeOptionLabel(b), this.uiLocale, { sensitivity: 'base' })
+    );
+    this.listTradeSelectOptions = [
+      { value: 'all', labelKey: this.tradeLabelKey('all'), icon: TRADE_ICONS['all'] },
+      ...rest
+    ];
+  }
+
+  private itemTradeKey(item: ArtisansNearbyItem): string {
+    const fromItem = (item.tradeKey || '').trim();
+    if (fromItem && fromItem !== 'all') {
+      return fromItem;
+    }
+    return tradeKeyFromCode(item.activityCode);
+  }
+
+  private itemTypeValue(item: ArtisansNearbyItem): string {
+    const tradeKey = this.itemTradeKey(item);
+    if (tradeKey) {
+      return tradeKey;
+    }
+    const activity = this.activityDetail(item);
+    return activity ? `act:${activity}` : '';
+  }
+
+  private itemTypeOption(item: ArtisansNearbyItem): SheetSelectOption | null {
+    const tradeKey = this.itemTradeKey(item);
+    if (tradeKey) {
+      return {
+        value: tradeKey,
+        labelKey: this.tradeLabelKey(tradeKey),
+        icon: TRADE_ICONS[tradeKey] || 'fa fa-wrench'
+      };
+    }
+    const activity = this.activityDetail(item);
+    if (!activity) {
+      return null;
+    }
+    return {
+      value: `act:${activity}`,
+      label: activity,
+      icon: 'fa fa-tag'
+    };
+  }
+
+  private typeOptionLabel(option: SheetSelectOption): string {
+    if (option.label) {
+      return option.label;
+    }
+    if (option.labelKey) {
+      const label = this.translate.instant(option.labelKey);
+      if (label && !String(label).startsWith('ARTISANS.TRADE_')) {
+        return label;
+      }
+    }
+    return String(option.value ?? '');
   }
 
   get listCityOptions(): SheetSelectOption[] {
@@ -594,12 +659,12 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   get resultTrades(): string[] {
     const keys = new Set<string>();
     for (const item of this.listSourceItems()) {
-      const key = this.resolvedTradeKey(item);
-      if (key && key !== 'all') {
+      const key = this.itemTypeValue(item);
+      if (key) {
         keys.add(key);
       }
     }
-    return [...keys].sort((a, b) => this.compareTradeLabels(a, b));
+    return [...keys];
   }
 
   get resultCities(): string[] {
@@ -1289,11 +1354,12 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   private applyListView(): void {
+    this.rebuildListTradeOptions();
     const query = (this.showFavorites || this.source === 'osm')
       ? this.listQuery.trim().toLowerCase()
       : '';
     let items = this.listSourceItems().filter((item) => {
-      if (this.listTrade !== 'all' && this.resolvedTradeKey(item) !== this.listTrade) {
+      if (this.listTrade !== 'all' && this.itemTypeValue(item) !== this.listTrade) {
         return false;
       }
       if (this.listCity && (item.city || '').trim() !== this.listCity) {
@@ -1543,7 +1609,6 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     for (const marker of this.markers.values()) {
       marker.closeTooltip();
     }
-    this.map?.closeTooltip();
   }
 
   private markerTooltipOptions(): L.TooltipOptions {
