@@ -539,7 +539,10 @@ export class TodolistsComponent implements OnInit, OnDestroy {
 
     openEdit(list: TodoList): void {
         this.editing = JSON.parse(JSON.stringify(list)) as TodoList;
-        this.editing.items = (this.editing.items || []).map(it => ({ ...it }));
+        this.editing.items = (this.editing.items || []).map(it => ({
+            ...it,
+            description: this.htmlToPlain(it.description)
+        }));
         this.isNew = false;
         this.editorErrorMessage = '';
         this.editorRecipients = [];
@@ -698,7 +701,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
             .map(it => ({
                 ...it,
                 title: it.title.trim(),
-                description: this.isHtmlEmpty(it.description) ? null : (it.description || '').trim(),
+                description: this.htmlToPlain(it.description) || null,
                 priority: it.priority || 'normal',
                 status: it.status || 'open'
             }));
@@ -1402,6 +1405,11 @@ export class TodolistsComponent implements OnInit, OnDestroy {
             return text;
         }
         return text.slice(0, maxLen - 40) + '\n…\n' + this.translate.instant('TODOLISTS.SHARE.WHATSAPP_TRUNCATED');
+    }
+
+    /** Task notes are plain text (textarea). Convert leftover Quill HTML for display. */
+    itemNotesText(value?: string | null): string {
+        return this.htmlToPlain(value);
     }
 
     /** Strip HTML tags and decode common entities so the WhatsApp body stays plain text. */

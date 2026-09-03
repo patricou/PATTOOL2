@@ -1484,11 +1484,37 @@ app-root > router-outlet + * {
 }
 
 /* Viseur / boussole / calibrage : le rubber-band (scroll vers le haut) doit rester noir, pas blanc. */
-html.pat-starry-sky,
-html.pat-starry-sky body,
-body.pat-starry-sky {
+html.eclipse-sky-html--day,
+html.eclipse-sky-html--day body,
+html.ciel-sky-html--day,
+html.ciel-sky-html--day body,
+html.solar-sky-html--day,
+html.solar-sky-html--day body,
+html.uf-sky-html--day,
+html.uf-sky-html--day body {
+    background-color: #87ceeb;
+}
+
+html.eclipse-sky-html--twilight,
+html.eclipse-sky-html--twilight body,
+html.ciel-sky-html--twilight,
+html.ciel-sky-html--twilight body,
+html.solar-sky-html--twilight,
+html.solar-sky-html--twilight body,
+html.uf-sky-html--twilight,
+html.uf-sky-html--twilight body {
+    background-color: #2c1a40;
+}
+
+html.eclipse-sky-html--night,
+html.eclipse-sky-html--night body,
+html.ciel-sky-html--night,
+html.ciel-sky-html--night body,
+html.solar-sky-html--night,
+html.solar-sky-html--night body,
+html.uf-sky-html--night,
+html.uf-sky-html--night body {
     background-color: #02040c;
-    --bs-body-bg: #02040c;
 }
 
 /* Global fix for any dropdown arrows appearing in modal titles */
@@ -2058,4 +2084,63 @@ body.tv-popout-mode {
 body.tv-popout-mode app-root {
   display: block;
   min-height: 100vh;
+}
+
+/* Artisans nearby: native fullscreen ignores component encapsulation for :fullscreen. */
+.artisans-layout:fullscreen,
+.artisans-layout:-webkit-full-screen {
+  display: grid !important;
+  grid-template-columns: minmax(16rem, 24rem) minmax(0, 1fr) !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  align-items: stretch !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
+  padding: 0.7rem !important;
+  gap: 0.75rem !important;
+  background: #f6efe8 !important;
+  border-radius: 0 !important;
+}
+
+.artisans-layout:fullscreen .artisans-results,
+.artisans-layout:-webkit-full-screen .artisans-results {
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: none !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  align-self: stretch !important;
+}
+
+.artisans-layout:fullscreen .artisans-results-head,
+.artisans-layout:-webkit-full-screen .artisans-results-head,
+.artisans-layout:fullscreen .artisans-list-tools,
+.artisans-layout:-webkit-full-screen .artisans-list-tools,
+.artisans-layout:fullscreen .artisans-pager,
+.artisans-layout:-webkit-full-screen .artisans-pager {
+  flex-shrink: 0 !important;
+}
+
+.artisans-layout:fullscreen .artisans-results-list,
+.artisans-layout:-webkit-full-screen .artisans-results-list {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+
+.artisans-layout:fullscreen .artisans-map-card,
+.artisans-layout:-webkit-full-screen .artisans-map-card,
+.artisans-layout:fullscreen .artisans-map,
+.artisans-layout:-webkit-full-screen .artisans-map {
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+}
+
+@media (max-width: 800px) {
+  .artisans-layout:fullscreen,
+  .artisans-layout:-webkit-full-screen {
+    grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr) !important;
+  }
 }

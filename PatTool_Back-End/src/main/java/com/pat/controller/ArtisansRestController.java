@@ -25,7 +25,7 @@ import java.util.Map;
 
 /**
  * Nearby artisans / home trades.
- * {@code GET /api/external/artisans/nearby?source=sirene|osm&lat=&lon=&q=&radiusKm=&trade=&page=}
+ * {@code GET /api/external/artisans/nearby?source=sirene|osm&lat=&lon=&q=&radiusKm=&trade=&page=&text=}
  * Authenticated favorites: {@code GET/PUT /favorites}, {@code PUT/DELETE /favorites/item}.
  */
 @RestController
@@ -56,9 +56,10 @@ public class ArtisansRestController {
             @RequestParam(value = "radiusKm", required = false) Double radiusKm,
             @RequestParam(value = "trade", required = false) String trade,
             @RequestParam(value = "page", required = false) Integer page,
-            @RequestParam(value = "perPage", required = false) Integer perPage) {
+            @RequestParam(value = "perPage", required = false) Integer perPage,
+            @RequestParam(value = "text", required = false) String text) {
         return ResponseEntity.ok(artisansNearbyService.nearby(
-                source, lat, lon, address, radiusKm, trade, page, perPage));
+                source, lat, lon, address, radiusKm, trade, page, perPage, text));
     }
 
     @GetMapping("/website")

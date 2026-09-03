@@ -65,11 +65,13 @@
     <div class="yt-float-video-wrap">
       <iframe
         *ngIf="embedUrl"
+        class="yt-pip-embed"
         [src]="embedUrl"
         [title]="item?.title || ''"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowfullscreen
-        referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        referrerpolicy="strict-origin-when-cross-origin"
+        (load)="onPipEmbedLoad()"></iframe>
     </div>
     <p class="yt-float-channel" *ngIf="item?.channelTitle">{{ item?.channelTitle }}</p>
   </div>

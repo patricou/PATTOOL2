@@ -240,9 +240,8 @@
                                 {{ ('TODOLISTS.PRIORITY.' + item.priority.toUpperCase()) | translate }}
                             </span>
                         </div>
-                        <div class="todolists-item-desc todolists-rich-text"
-                             *ngIf="item.description"
-                             [innerHTML]="safeHtml(item.description)"></div>
+                        <div class="todolists-item-desc"
+                             *ngIf="item.description">{{ itemNotesText(item.description) }}</div>
                         <div class="todolists-item-meta">
                             <span *ngIf="item.dueDate" class="todolists-item-due">
                                 <i class="fa fa-clock-o"></i> {{ formatDate(item.dueDate) }}
@@ -438,12 +437,10 @@
                         </div>
                         <div class="col-12">
                             <label class="form-label todolists-editor-label">{{ 'TODOLISTS.ITEM_DESC' | translate }}</label>
-                            <quill-editor class="todolists-editor-quill todolists-editor-quill--small"
-                                          [(ngModel)]="item.description"
-                                          [modules]="quillModules"
-                                          [styles]="{ height: '104px' }"
-                                          [placeholder]="'TODOLISTS.ITEM_DESC' | translate">
-                            </quill-editor>
+                            <textarea class="form-control form-control-sm todolists-editor-item-notes"
+                                      rows="3"
+                                      [(ngModel)]="item.description"
+                                      [placeholder]="'TODOLISTS.ITEM_DESC' | translate"></textarea>
                         </div>
                     </div>
                 </div>

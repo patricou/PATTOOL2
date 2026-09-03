@@ -950,6 +950,25 @@
           </button>
         </div>
       </ng-template>
+      <ng-template #liveSkyHitsTpl>
+        <p class="ac-place ac-place--warn" *ngIf="liveSkyError">{{ liveSkyError | translate }}</p>
+        <ul
+          *ngIf="liveSkyHits.length"
+          class="ac-picker__list ac-picker__list--live"
+          role="listbox"
+          [attr.aria-label]="'ASTRO_COMPASS.LIVE_SEARCH' | translate">
+          <li *ngFor="let hit of liveSkyHits">
+            <button
+              type="button"
+              class="ac-picker__opt"
+              role="option"
+              (click)="aimLiveSkyHit(hit)">
+              <span class="ac-picker__opt-main">{{ hit.name }}</span>
+              <span class="ac-picker__opt-dir">{{ hit.detail }}</span>
+            </button>
+          </li>
+        </ul>
+      </ng-template>
       <ng-container *ngIf="showSatelliteSection">
       <div class="ac-acc" [class.ac-acc--open]="isTargetAccordionOpen('iss')" [class.ac-acc--current]="selectedKind === 'iss'">
       <div class="ac-acc__bar">
@@ -1112,7 +1131,18 @@
         </ul>
         <p class="ac-place" *ngIf="starQuery.trim() && !starResults.length">
           {{ 'ASTRO_COMPASS.STAR_FILTER_EMPTY' | translate }}
+          <button
+            type="button"
+            class="ac-live-search-btn"
+            (click)="searchLiveSky(starQuery, 'star')"
+            [disabled]="liveSkyBusy">
+            <i class="fa" [ngClass]="liveSkyBusy && liveSkyFrom === 'star' ? 'fa-spinner fa-spin' : 'fa-globe'" aria-hidden="true"></i>
+            {{ 'ASTRO_COMPASS.LIVE_FROM_FILTER' | translate:{ q: starQuery.trim() } }}
+          </button>
         </p>
+        <ng-container *ngIf="liveSkyFrom === 'star'">
+          <ng-container *ngTemplateOutlet="liveSkyHitsTpl"></ng-container>
+        </ng-container>
         <p class="ac-place" *ngIf="visibleOnly && !starQuery.trim() && !starResults.length">
           {{ 'ASTRO_COMPASS.STARS_NONE_VISIBLE' | translate }}
         </p>
@@ -1184,7 +1214,18 @@
         </ul>
         <p class="ac-place" *ngIf="galaxyQuery.trim() && !galaxyResults.length">
           {{ 'ASTRO_COMPASS.GALAXY_FILTER_EMPTY' | translate }}
+          <button
+            type="button"
+            class="ac-live-search-btn"
+            (click)="searchLiveSky(galaxyQuery, 'galaxy')"
+            [disabled]="liveSkyBusy">
+            <i class="fa" [ngClass]="liveSkyBusy && liveSkyFrom === 'galaxy' ? 'fa-spinner fa-spin' : 'fa-globe'" aria-hidden="true"></i>
+            {{ 'ASTRO_COMPASS.LIVE_FROM_FILTER' | translate:{ q: galaxyQuery.trim() } }}
+          </button>
         </p>
+        <ng-container *ngIf="liveSkyFrom === 'galaxy'">
+          <ng-container *ngTemplateOutlet="liveSkyHitsTpl"></ng-container>
+        </ng-container>
         <p class="ac-place" *ngIf="visibleOnly && !galaxyQuery.trim() && !galaxyResults.length">
           {{ 'ASTRO_COMPASS.GALAXIES_NONE_VISIBLE' | translate }}
         </p>
@@ -1256,7 +1297,18 @@
         </ul>
         <p class="ac-place" *ngIf="deepSkyQuery.trim() && !deepSkyResults.length">
           {{ 'ASTRO_COMPASS.DEEPSKY_FILTER_EMPTY' | translate }}
+          <button
+            type="button"
+            class="ac-live-search-btn"
+            (click)="searchLiveSky(deepSkyQuery, 'deepsky')"
+            [disabled]="liveSkyBusy">
+            <i class="fa" [ngClass]="liveSkyBusy && liveSkyFrom === 'deepsky' ? 'fa-spinner fa-spin' : 'fa-globe'" aria-hidden="true"></i>
+            {{ 'ASTRO_COMPASS.LIVE_FROM_FILTER' | translate:{ q: deepSkyQuery.trim() } }}
+          </button>
         </p>
+        <ng-container *ngIf="liveSkyFrom === 'deepsky'">
+          <ng-container *ngTemplateOutlet="liveSkyHitsTpl"></ng-container>
+        </ng-container>
         <p class="ac-place" *ngIf="visibleOnly && !deepSkyQuery.trim() && !deepSkyResults.length">
           {{ 'ASTRO_COMPASS.DEEPSKY_NONE_VISIBLE' | translate }}
         </p>
@@ -1328,7 +1380,18 @@
         </ul>
         <p class="ac-place" *ngIf="constellationQuery.trim() && !constellationResults.length">
           {{ 'ASTRO_COMPASS.CONSTELLATION_FILTER_EMPTY' | translate }}
+          <button
+            type="button"
+            class="ac-live-search-btn"
+            (click)="searchLiveSky(constellationQuery, 'constellation')"
+            [disabled]="liveSkyBusy">
+            <i class="fa" [ngClass]="liveSkyBusy && liveSkyFrom === 'constellation' ? 'fa-spinner fa-spin' : 'fa-globe'" aria-hidden="true"></i>
+            {{ 'ASTRO_COMPASS.LIVE_FROM_FILTER' | translate:{ q: constellationQuery.trim() } }}
+          </button>
         </p>
+        <ng-container *ngIf="liveSkyFrom === 'constellation'">
+          <ng-container *ngTemplateOutlet="liveSkyHitsTpl"></ng-container>
+        </ng-container>
         <p class="ac-place" *ngIf="visibleOnly && !constellationQuery.trim() && !constellationResults.length">
           {{ 'ASTRO_COMPASS.CONSTELLATIONS_NONE_VISIBLE' | translate }}
         </p>
@@ -1460,6 +1523,26 @@
         </button>
         </div>
         <div class="ac-acc__body" *ngIf="isTargetAccordionOpen('custom')">
+        <div class="ac-search">
+          <label for="acLiveSkyQuery">{{ 'ASTRO_COMPASS.LIVE_SEARCH' | translate }}</label>
+          <p class="ac-place">{{ 'ASTRO_COMPASS.LIVE_SEARCH_HINT' | translate }}</p>
+          <div class="ac-address-row">
+            <input
+              id="acLiveSkyQuery"
+              type="search"
+              [(ngModel)]="liveSkyQuery"
+              [placeholder]="'ASTRO_COMPASS.LIVE_SEARCH_PLACEHOLDER' | translate"
+              (keydown.enter)="$event.preventDefault(); searchLiveSky(liveSkyQuery, 'custom')"
+              autocomplete="off"
+              spellcheck="false" />
+            <button type="button" (click)="searchLiveSky(liveSkyQuery, 'custom')" [disabled]="liveSkyBusy">
+              <i class="fa fa-search" [class.fa-spin]="liveSkyBusy && liveSkyFrom === 'custom'" aria-hidden="true"></i>
+            </button>
+          </div>
+          <ng-container *ngIf="liveSkyFrom === 'custom'">
+            <ng-container *ngTemplateOutlet="liveSkyHitsTpl"></ng-container>
+          </ng-container>
+        </div>
         <div class="ac-custom">
           <div>
             <label for="acCustomRa">{{ 'ASTRO_COMPASS.RA_HOURS' | translate }}</label>

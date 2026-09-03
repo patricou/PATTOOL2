@@ -1,12 +1,47 @@
 <div class="pat-title">
   <h2>
     <i [class]="source === 'osm' ? 'fa fa-map-marker me-2' : 'fa fa-wrench me-2'"></i>
-    {{ i18nPrefix + '.TITLE' | translate }}
+    {{ 'ARTISANS.TITLE' | translate }}
   </h2>
 </div>
 
 <div class="artisans-page">
   <p class="artisans-lead text-muted">{{ i18nPrefix + '.SUBTITLE' | translate }}</p>
+
+  <div class="artisans-source" role="radiogroup" [attr.aria-label]="'ARTISANS.SOURCE' | translate">
+    <button
+      type="button"
+      class="artisans-source-opt"
+      [class.artisans-source-opt--on]="source === 'sirene'"
+      role="radio"
+      [attr.aria-checked]="source === 'sirene'"
+      [disabled]="isLoading"
+      (click)="setSource('sirene')">
+      <span class="artisans-source-ico" aria-hidden="true">
+        <i class="fa fa-university"></i>
+      </span>
+      <span class="artisans-source-copy">
+        <span class="artisans-source-name">{{ 'ARTISANS.SOURCE_SIRENE' | translate }}</span>
+        <span class="artisans-source-hint">{{ 'ARTISANS.SOURCE_SIRENE_HINT' | translate }}</span>
+      </span>
+    </button>
+    <button
+      type="button"
+      class="artisans-source-opt artisans-source-opt--osm"
+      [class.artisans-source-opt--on]="source === 'osm'"
+      role="radio"
+      [attr.aria-checked]="source === 'osm'"
+      [disabled]="isLoading"
+      (click)="setSource('osm')">
+      <span class="artisans-source-ico" aria-hidden="true">
+        <i class="fa fa-map"></i>
+      </span>
+      <span class="artisans-source-copy">
+        <span class="artisans-source-name">{{ 'ARTISANS.SOURCE_OSM' | translate }}</span>
+        <span class="artisans-source-hint">{{ 'ARTISANS.SOURCE_OSM_HINT' | translate }}</span>
+      </span>
+    </button>
+  </div>
 
   <form class="artisans-search" (submit)="$event.preventDefault(); submitAddressSearch()">
     <label class="visually-hidden" for="artisans-address">{{ i18nPrefix + '.ADDRESS' | translate }}</label>
@@ -78,13 +113,13 @@
       [(ngModel)]="radiusKm"
       (ngModelChange)="onRadiusSliderChange()" />
 
-    <button type="submit" class="btn btn-primary" [disabled]="isLoading">
+    <button type="submit" class="btn artisans-btn artisans-btn-search" [disabled]="isLoading">
       <i class="fa fa-search me-1" [class.fa-spin]="isLoading"></i>
       {{ i18nPrefix + '.SEARCH' | translate }}
     </button>
     <button
       type="button"
-      class="btn btn-outline-secondary"
+      class="btn artisans-btn artisans-btn-geo"
       (click)="useMyPosition(true)"
       [disabled]="locating">
       <i class="fa fa-location-arrow me-1" [class.fa-spin]="locating"></i>
@@ -92,21 +127,39 @@
     </button>
     <button
       type="button"
-      class="btn btn-outline-warning"
+      class="btn artisans-btn artisans-btn-fav"
       [class.active]="showFavorites"
       (click)="setShowFavorites(!showFavorites)">
       <i class="fa fa-star me-1" aria-hidden="true"></i>
       {{ i18nPrefix + '.FAVORITES' | translate }}
       <span *ngIf="favorites.length"> ({{ favorites.length }})</span>
     </button>
+    <span class="artisans-total" *ngIf="searched && !errorMessage">
+      <strong>{{ isLoading ? '…' : total }}</strong>
+      <span>{{ i18nPrefix + '.TOTAL_FOUND' | translate:{ count: total, km: radiusKm } }}</span>
+    </span>
+    <span class="artisans-help">
+      <button
+        type="button"
+        class="artisans-help-btn"
+        [class.artisans-help-btn--on]="countsHelpOpen"
+        (click)="toggleCountsHelp($event)"
+        [attr.title]="'ARTISANS.HELP' | translate"
+        [attr.aria-label]="'ARTISANS.HELP' | translate"
+        [attr.aria-expanded]="countsHelpOpen">
+        <i class="fa fa-info" aria-hidden="true"></i>
+      </button>
+      <div class="artisans-help-pop" *ngIf="countsHelpOpen" role="dialog" [attr.aria-label]="'ARTISANS.HELP_TITLE' | translate" (click)="$event.stopPropagation()">
+        <h3 class="artisans-help-title">{{ 'ARTISANS.HELP_TITLE' | translate }}</h3>
+        <p>{{ 'ARTISANS.HELP_SIRENE' | translate }}</p>
+        <p>{{ 'ARTISANS.HELP_OSM' | translate }}</p>
+        <p>{{ 'ARTISANS.HELP_NAMES' | translate }}</p>
+        <p>{{ 'ARTISANS.HELP_COMPARE' | translate }}</p>
+      </div>
+    </span>
   </form>
 
   <p class="small text-muted artisans-map-hint">{{ i18nPrefix + '.MAP_CLICK_HINT' | translate }}</p>
-
-  <p class="small text-muted artisans-place" *ngIf="placeLabel || (searchLat != null && searchLon != null)">
-    <i class="fa fa-map-pin me-1"></i>
-    {{ placeLabel || (searchLat | number:'1.4-4') + ', ' + (searchLon | number:'1.4-4') }}
-  </p>
 
   <div class="alert alert-warning py-2 artisans-alert" *ngIf="errorMessage && !isLoading && !showFavorites" role="alert">
     <i class="fa fa-exclamation-triangle me-2"></i>
@@ -126,7 +179,12 @@
     <p>{{ i18nPrefix + '.EMPTY_HINT' | translate }}</p>
   </div>
 
-  <div class="artisans-layout" *ngIf="hasVisiblePanel">
+  <div
+    #layoutShell
+    class="artisans-layout"
+    *ngIf="hasVisiblePanel"
+    [class.artisans-layout--fullscreen]="mapFullscreen"
+    [class.artisans-layout--fs-fallback]="mapFullscreenCssFallback">
     <aside class="artisans-results" [attr.aria-label]="i18nPrefix + '.RESULTS' | translate">
       <div class="artisans-results-head">
         <span class="artisans-results-tabs" role="tablist">
@@ -153,15 +211,15 @@
         </span>
         <span class="artisans-results-count" *ngIf="!isLoading || showFavorites">
           <ng-container *ngIf="listFilterActive">
-            {{ i18nPrefix + '.RESULT_FILTERED' | translate:{ shown: listItems.length, total: showFavorites ? favorites.length : viewportItems.length } }}
+            {{ i18nPrefix + '.RESULT_FILTERED' | translate:{ shown: listItems.length, total: showFavorites ? favorites.length : total } }}
           </ng-container>
           <ng-container *ngIf="!listFilterActive">
-            {{ i18nPrefix + '.RESULT_COUNT' | translate:{ count: listItems.length } }}
+            {{ i18nPrefix + '.RESULT_COUNT' | translate:{ count: showFavorites ? favorites.length : total } }}
           </ng-container>
         </span>
       </div>
 
-      <div class="artisans-list-tools" *ngIf="(!isLoading || showFavorites) && (showFavorites ? favorites.length : viewportItems.length)">
+      <div class="artisans-list-tools" *ngIf="showFavorites ? favorites.length : (viewportItems.length || listQuery.trim())">
         <label class="visually-hidden" for="artisans-list-filter">{{ i18nPrefix + '.FILTER_LIST' | translate }}</label>
         <input
           id="artisans-list-filter"
@@ -213,17 +271,17 @@
       <p class="artisans-no-results" *ngIf="showFavorites && !favorites.length && !favoritesHint">
         {{ i18nPrefix + '.FAVORITES_EMPTY' | translate }}
       </p>
-      <p class="artisans-no-results" *ngIf="!showFavorites && !isLoading && !listItems.length && !viewportItems.length">
+      <p class="artisans-no-results" *ngIf="!showFavorites && !isLoading && !listItems.length && !viewportItems.length && !listQuery.trim()">
         {{ i18nPrefix + '.NO_RESULTS' | translate }}
       </p>
-      <p class="artisans-no-results" *ngIf="!isLoading && !listItems.length && (showFavorites ? favorites.length : viewportItems.length)">
+      <p class="artisans-no-results" *ngIf="!isLoading && !listItems.length && (showFavorites ? favorites.length : (viewportItems.length || listQuery.trim()))">
         {{ i18nPrefix + '.FILTER_EMPTY' | translate }}
       </p>
 
       <div class="artisans-results-list" #resultsList>
       <div
         class="artisans-hit"
-        *ngFor="let item of listItems"
+        *ngFor="let item of listItems; let i = index"
         [attr.data-artisan-id]="item.id"
         [class.active]="selectedId === item.id"
         role="button"
@@ -233,8 +291,12 @@
         (mouseleave)="onListLeave()"
         (keydown.enter)="selectItem(item)"
         (keydown.space)="$event.preventDefault(); selectItem(item)">
+        <span class="artisans-hit-num" aria-hidden="true">{{ listItemNumber(i) }}</span>
         <span class="artisans-hit-body">
           <span class="artisans-hit-title">{{ item.name }}</span>
+          <span class="artisans-hit-legal" *ngIf="item.legalName">
+            {{ 'ARTISANS.LEGAL_NAME' | translate }} {{ item.legalName }}
+          </span>
           <span class="artisans-hit-trade">{{ domainLabel(item) }}</span>
           <span class="artisans-hit-meta" *ngIf="activityDetail(item) !== domainLabel(item) || item.activityCode">
             <ng-container *ngIf="activityDetail(item) !== domainLabel(item)">{{ activityDetail(item) }}</ng-container>
@@ -286,7 +348,19 @@
             <span>{{ i18nPrefix + '.OPEN_TRACE_VIEWER_SHORT' | translate }}</span>
           </button>
           <a
-            *ngIf="item.url"
+            *ngIf="sirenePageHref(item)"
+            class="artisans-hit-trace artisans-hit-sirene"
+            [href]="sirenePageHref(item)"
+            target="_blank"
+            rel="noopener noreferrer"
+            (click)="$event.stopPropagation()"
+            [attr.title]="'ARTISANS.OPEN_SIRENE_TITLE' | translate"
+            [attr.aria-label]="'ARTISANS.OPEN_SIRENE_TITLE' | translate">
+            <i class="fa fa-university" aria-hidden="true"></i>
+            <span>{{ 'ARTISANS.OPEN_SIRENE' | translate }}</span>
+          </a>
+          <a
+            *ngIf="item.url && !sirenePageHref(item)"
             class="artisans-hit-link"
             [href]="item.url"
             target="_blank"
@@ -312,9 +386,11 @@
 
     <div
       #mapCard
-      class="artisans-map-card"
-      [class.artisans-map-card--fullscreen]="mapFullscreen">
+      class="artisans-map-card">
       <div #mapHost class="artisans-map" role="img" [attr.aria-label]="i18nPrefix + '.MAP' | translate"></div>
+      <div class="artisans-map-count" *ngIf="!showFavorites && searched && !isLoading && !errorMessage">
+        {{ total }}
+      </div>
       <button
         type="button"
         class="artisans-map-fs-btn"
@@ -323,6 +399,10 @@
         [attr.aria-label]="(mapFullscreen ? i18nPrefix + '.EXIT_FULLSCREEN' : i18nPrefix + '.FULLSCREEN') | translate">
         <i class="fa" [class.fa-compress]="mapFullscreen" [class.fa-expand]="!mapFullscreen" aria-hidden="true"></i>
       </button>
+      <p class="artisans-place" *ngIf="placeCaption">
+        <i class="fa fa-map-pin me-1" aria-hidden="true"></i>
+        {{ placeCaption }}
+      </p>
     </div>
   </div>
 

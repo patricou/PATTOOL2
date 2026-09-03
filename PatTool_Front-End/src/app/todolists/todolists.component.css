@@ -942,6 +942,11 @@
     letter-spacing: 0.02em;
 }
 
+.todolists-editor-item-notes {
+    min-height: 4.75rem;
+    resize: vertical;
+}
+
 .todolists-editor--compact .todolists-editor-quill .ql-container {
     font-size: 13px;
 }

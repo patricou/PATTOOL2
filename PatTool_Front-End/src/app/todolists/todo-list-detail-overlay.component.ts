@@ -130,6 +130,11 @@ export class TodoListDetailOverlayComponent implements OnInit, OnDestroy {
         return this.sanitizer.bypassSecurityTrustHtml(value);
     }
 
+    /** Task notes are plain text; leftover Quill HTML is flattened for display. */
+    itemNotesText(value?: string | null): string {
+        return this.htmlToPlain(value);
+    }
+
     metaFor(list: TodoList | null): ListMeta {
         if (!list) {
             return { completed: 0, total: 0, percent: 0, overdue: false, daysUntilDue: null };

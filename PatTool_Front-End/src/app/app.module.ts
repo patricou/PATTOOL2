@@ -48,7 +48,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
-	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20260831b');
+	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20260903j');
 }
 
 @NgModule({
@@ -133,9 +133,8 @@ export function HttpLoaderFactory(http: HttpClient) {
 			},
 			{
 				path: 'iot/pros',
-				loadComponent: () =>
-					import('./artisans/artisans-nearby.component').then(m => m.ArtisansNearbyComponent),
-				data: { source: 'osm' }
+				redirectTo: '/iot/artisans',
+				pathMatch: 'full'
 			},
 			{ 
 				path: 'photos', 

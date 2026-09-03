@@ -13,16 +13,17 @@ import {
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom, Observable, of, Subject, Subscription, throwError } from 'rxjs';
-import { catchError, debounceTime, switchMap, take } from 'rxjs/operators';
+import { catchError, debounceTime, distinctUntilChanged, switchMap, take } from 'rxjs/operators';
 import * as L from 'leaflet';
 
 import { LeafletBasemapService } from '../shared/leaflet-basemap.service';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { SheetSelectComponent, SheetSelectOption } from '../shared/sheet-select/sheet-select.component';
 import { KeycloakService } from '../keycloak/keycloak.service';
+import { PositionService } from '../services/position.service';
 import {
   ApiService,
   ArtisansFavorites,
@@ -33,6 +34,8 @@ import {
 import {
   activityLabelFromCode,
   normalizeNaf,
+  OSM_TRADES,
+  SIRENE_TRADES,
   TRADE_NAF_CODES,
   tradeKeyFromCode
 } from './artisans-trades';
@@ -57,42 +60,14 @@ interface AddressHit {
   displayName: string;
 }
 
-export const ARTISAN_LIST_PAGE_SIZE = 100;
+export const ARTISAN_LIST_PAGE_SIZE = 250;
 export const ARTISAN_RADIUS_MIN_KM = 1;
 export const ARTISAN_RADIUS_MAX_KM = 50;
 
 export const ARTISAN_TRADES = [
   'all',
-  'plumber',
-  'electrician',
-  'heating',
-  'painter',
-  'carpenter',
-  'mason',
-  'roofer',
-  'locksmith',
-  'tiler',
-  'glazier',
-  'gardener',
-  'cleaner',
-  'hairdresser',
-  'baker',
-  'butcher',
-  'mechanic',
-  'appliance',
-  'supermarket',
-  'grocery',
-  'shop',
-  'hardware',
-  'clothing',
-  'furniture',
-  'florist',
-  'pharmacy',
-  'optician',
-  'restaurant',
-  'cafe',
-  'hotel',
-  'fuel'
+  ...SIRENE_TRADES.filter((trade) => trade !== 'all'),
+  ...OSM_TRADES.filter((trade) => trade !== 'all' && !(SIRENE_TRADES as readonly string[]).includes(trade))
 ] as const;
 
 const TRADE_ICONS: Record<string, string> = {
@@ -126,7 +101,24 @@ const TRADE_ICONS: Record<string, string> = {
   restaurant: 'fa fa-cutlery',
   cafe: 'fa fa-coffee',
   hotel: 'fa fa-building',
-  fuel: 'fa fa-tint'
+  fuel: 'fa fa-tint',
+  beauty: 'fa fa-magic',
+  isolation: 'fa fa-snowflake-o',
+  plasterer: 'fa fa-square',
+  dentist: 'fa fa-smile-o',
+  doctor: 'fa fa-user-md',
+  veterinary: 'fa fa-paw',
+  realestate: 'fa fa-building-o',
+  laundry: 'fa fa-tint',
+  bank: 'fa fa-university',
+  post: 'fa fa-envelope',
+  shoes: 'fa fa-black-tie',
+  electronics: 'fa fa-laptop',
+  books: 'fa fa-book',
+  sports: 'fa fa-futbol-o',
+  jewelry: 'fa fa-diamond',
+  bar: 'fa fa-beer',
+  fastfood: 'fa fa-cutlery'
 };
 
 @Component({
@@ -143,6 +135,12 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     return this.source === 'osm';
   }
 
+  @HostBinding('class.artisans-fs')
+  get isArtisansFullscreen(): boolean {
+    return this.mapFullscreen;
+  }
+
+  @ViewChild('layoutShell') layoutShell?: ElementRef<HTMLDivElement>;
   @ViewChild('mapHost') mapHost?: ElementRef<HTMLDivElement>;
   @ViewChild('mapCard') mapCard?: ElementRef<HTMLDivElement>;
   @ViewChild('resultsList') resultsList?: ElementRef<HTMLElement>;
@@ -167,6 +165,7 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   addressActiveIndex = -1;
   addressSearching = false;
   trade = 'all';
+  tradeSelectOptions: SheetSelectOption[] = [];
   radiusKm = 10;
   page = 1;
 
@@ -194,21 +193,30 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   searched = false;
   errorMessage = '';
   mapFullscreen = false;
+  /** True only when the Fullscreen API is unavailable; uses a fixed overlay instead. */
+  mapFullscreenCssFallback = false;
+  countsHelpOpen = false;
 
   private map?: L.Map;
   private baseLayer: L.TileLayer | L.LayerGroup | null = null;
   private mapLayer?: L.FeatureGroup;
   private markers = new Map<string, L.CircleMarker>();
   private radiusCircle?: L.Polygon;
-  private radiusSyncSuppressed = false;
-  private radiusSyncTimer: ReturnType<typeof setTimeout> | null = null;
   private addressPicked = false;
   private readonly addressSearch$ = new Subject<string>();
+  private readonly listQuery$ = new Subject<string>();
+  private readonly radiusSearch$ = new Subject<number>();
   private addressSearchSub?: Subscription;
+  private listQuerySub?: Subscription;
+  private radiusSearchSub?: Subscription;
   private addressGeocodeSub?: Subscription;
+  private langSub?: Subscription;
   private searchSub?: Subscription;
+  private placeGeocodeSub?: Subscription;
+  private remoteListQuery = '';
   private favoritesSub?: Subscription;
   private favoriteToggleSub?: Subscription;
+  private positionSub?: Subscription;
   private readonly websiteResolving = new Set<string>();
   private readonly websiteJobs = new Map<string, Promise<string>>();
   private blinkTimer: ReturnType<typeof setInterval> | null = null;
@@ -233,21 +241,38 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     private readonly api: ApiService,
     private readonly basemap: LeafletBasemapService,
     private readonly route: ActivatedRoute,
+    private readonly router: Router,
     private readonly translate: TranslateService,
     private readonly cdr: ChangeDetectorRef,
     private readonly ngZone: NgZone,
     private readonly http: HttpClient,
-    private readonly keycloak: KeycloakService
+    private readonly keycloak: KeycloakService,
+    private readonly position: PositionService
   ) {}
 
   ngOnInit(): void {
-    const source = this.route.snapshot.data['source'];
-    this.source = source === 'osm' ? 'osm' : 'sirene';
-    this.i18nPrefix = this.source === 'osm' ? 'NEARBY_PROS' : 'ARTISANS';
+    this.applySource('sirene', false);
+    if (this.route.snapshot.queryParamMap.get('source')) {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { source: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true
+      });
+    }
+    this.langSub = this.translate.onLangChange.subscribe(() => this.rebuildTradeSelectOptions());
     this.loadFavorites();
     this.addressSearchSub = this.addressSearch$.pipe(debounceTime(350)).subscribe((query) => {
       this.lookupAddresses(query, false);
     });
+    this.listQuerySub = this.listQuery$.pipe(
+      debounceTime(400),
+      distinctUntilChanged()
+    ).subscribe((query) => this.onDebouncedListQuery(query));
+    this.radiusSearchSub = this.radiusSearch$.pipe(
+      debounceTime(450),
+      distinctUntilChanged()
+    ).subscribe(() => this.searchAfterRadiusChange());
     this.useMyPosition(true);
   }
 
@@ -259,14 +284,15 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     this.exitMapFullscreen();
     this.searchSub?.unsubscribe();
     this.addressSearchSub?.unsubscribe();
+    this.listQuerySub?.unsubscribe();
+    this.radiusSearchSub?.unsubscribe();
+    this.langSub?.unsubscribe();
     this.addressGeocodeSub?.unsubscribe();
     this.favoritesSub?.unsubscribe();
     this.favoriteToggleSub?.unsubscribe();
+    this.positionSub?.unsubscribe();
+    this.placeGeocodeSub?.unsubscribe();
     this.stopMarkerBlink();
-    if (this.radiusSyncTimer != null) {
-      clearTimeout(this.radiusSyncTimer);
-      this.radiusSyncTimer = null;
-    }
     this.map?.remove();
     this.map = undefined;
   }
@@ -274,7 +300,7 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   toggleMapFullscreen(event?: Event): void {
     event?.preventDefault();
     event?.stopPropagation();
-    const shell = this.mapCard?.nativeElement;
+    const shell = this.layoutShell?.nativeElement;
     if (!shell) {
       return;
     }
@@ -285,7 +311,14 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     const request = shell.requestFullscreen?.bind(shell)
       ?? (shell as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> })
         .webkitRequestFullscreen?.bind(shell);
-    request?.().catch(() => {
+    if (!request) {
+      this.mapFullscreenCssFallback = true;
+      this.mapFullscreen = true;
+      this.refreshMapAfterResize();
+      return;
+    }
+    request().catch(() => {
+      this.mapFullscreenCssFallback = true;
       this.mapFullscreen = true;
       this.refreshMapAfterResize();
     });
@@ -294,21 +327,40 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   @HostListener('document:fullscreenchange')
   @HostListener('document:webkitfullscreenchange')
   onMapFullscreenChange(): void {
-    const shell = this.mapCard?.nativeElement;
+    const shell = this.layoutShell?.nativeElement;
     const doc = document as Document & { webkitFullscreenElement?: Element };
     const active = !!(shell && (document.fullscreenElement === shell || doc.webkitFullscreenElement === shell));
     if (this.mapFullscreen === active) {
       return;
     }
     this.mapFullscreen = active;
+    if (active) {
+      this.mapFullscreenCssFallback = false;
+    }
     this.refreshMapAfterResize();
   }
 
   @HostListener('document:keydown.escape')
   onMapFullscreenEscape(): void {
+    if (this.countsHelpOpen) {
+      this.countsHelpOpen = false;
+      return;
+    }
     if (this.mapFullscreen) {
       this.exitMapFullscreen();
     }
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    if (this.countsHelpOpen) {
+      this.countsHelpOpen = false;
+    }
+  }
+
+  toggleCountsHelp(event: Event): void {
+    event.stopPropagation();
+    this.countsHelpOpen = !this.countsHelpOpen;
   }
 
   private exitMapFullscreen(): void {
@@ -320,12 +372,14 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
       const exit = document.exitFullscreen?.bind(document) ?? doc.webkitExitFullscreen?.bind(document);
       exit?.().catch(() => {
         this.mapFullscreen = false;
+        this.mapFullscreenCssFallback = false;
         this.refreshMapAfterResize();
       });
       return;
     }
     if (this.mapFullscreen) {
       this.mapFullscreen = false;
+      this.mapFullscreenCssFallback = false;
       this.refreshMapAfterResize();
     }
   }
@@ -471,14 +525,15 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   get trades(): string[] {
-    const rest = ARTISAN_TRADES.filter((trade) => trade !== 'all')
+    const sourceTrades = this.source === 'osm' ? OSM_TRADES : SIRENE_TRADES;
+    const rest = sourceTrades.filter((trade) => trade !== 'all')
       .slice()
       .sort((a, b) => this.compareTradeLabels(a, b));
     return ['all', ...rest];
   }
 
-  get tradeSelectOptions(): SheetSelectOption[] {
-    return this.trades.map((trade) => ({
+  private rebuildTradeSelectOptions(): void {
+    this.tradeSelectOptions = this.trades.map((trade) => ({
       value: trade,
       labelKey: this.tradeLabelKey(trade),
       icon: TRADE_ICONS[trade] || 'fa fa-wrench'
@@ -526,6 +581,14 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
 
   get listFilterActive(): boolean {
     return !!this.listQuery.trim() || this.listTrade !== 'all' || !!this.listCity;
+  }
+
+  listItemNumber(index: number): number {
+    if (this.showFavorites) {
+      return index + 1;
+    }
+    const per = this.result?.perPage || this.listPageSize;
+    return (this.page - 1) * per + index + 1;
   }
 
   get resultTrades(): string[] {
@@ -597,11 +660,40 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   onListViewChange(): void {
+    if (!this.showFavorites && this.source === 'sirene' && this.searched) {
+      this.listQuery$.next(this.listQuery.trim());
+    }
     this.applyListView();
+  }
+
+  private onDebouncedListQuery(query: string): void {
+    if (this.showFavorites || this.source !== 'sirene' || !this.searched) {
+      return;
+    }
+    const q = query.trim();
+    if (q.length < 2 && !this.remoteListQuery) {
+      return;
+    }
+    this.search(1, false, false);
   }
 
   websiteHref(item: ArtisansNearbyItem): string {
     return normalizeWebsite(item.website);
+  }
+
+  sirenePageHref(item: ArtisansNearbyItem): string {
+    const url = (item.url || '').trim();
+    if (url.includes('annuaire-entreprises.data.gouv.fr/')) {
+      return url;
+    }
+    const id = String(item.id || '').replace(/\s/g, '');
+    if (/^\d{14}$/.test(id)) {
+      return `https://annuaire-entreprises.data.gouv.fr/etablissement/${id}`;
+    }
+    if (/^\d{9}$/.test(id)) {
+      return `https://annuaire-entreprises.data.gouv.fr/entreprise/${id}`;
+    }
+    return '';
   }
 
   isWebsiteResolving(item: ArtisansNearbyItem): boolean {
@@ -747,37 +839,67 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   useMyPosition(autoSearch = false): void {
-    if (!navigator.geolocation) {
-      this.errorMessage = `${this.i18nPrefix}.GEO_UNSUPPORTED`;
-      return;
-    }
     this.locating = true;
     this.errorMessage = '';
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
+    this.positionSub?.unsubscribe();
+    this.positionSub = this.position.getGpsPosition().pipe(
+      switchMap((gps) => gps ? of(gps) : this.position.getIpPosition())
+    ).subscribe({
+      next: (coords) => {
         this.ngZone.run(() => {
           this.locating = false;
-          this.searchLat = pos.coords.latitude;
-          this.searchLon = pos.coords.longitude;
+          if (!coords) {
+            this.errorMessage = `${this.i18nPrefix}.GEO_DENIED`;
+            this.cdr.markForCheck();
+            return;
+          }
+          this.searchLat = coords.latitude;
+          this.searchLon = coords.longitude;
           this.placeLabel = '';
           this.addressQuery = '';
           this.addressPicked = false;
           this.clearAddressHits();
+          this.errorMessage = '';
           this.cdr.markForCheck();
+          this.fillPlaceFromCoords(coords.latitude, coords.longitude);
           if (autoSearch || this.searched) {
             this.search(1);
           }
         });
       },
-      () => {
+      error: () => {
         this.ngZone.run(() => {
           this.locating = false;
           this.errorMessage = `${this.i18nPrefix}.GEO_DENIED`;
           this.cdr.markForCheck();
         });
-      },
-      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 }
-    );
+      }
+    });
+  }
+
+  get placeCaption(): string {
+    const label = (this.placeLabel || '').trim();
+    if (label && !looksLikeCoordinates(label)) {
+      return label;
+    }
+    if (this.searchLat != null && this.searchLon != null) {
+      return `${this.searchLat.toFixed(5)}, ${this.searchLon.toFixed(5)}`;
+    }
+    return '';
+  }
+
+  private fillPlaceFromCoords(lat: number, lon: number): void {
+    this.placeGeocodeSub?.unsubscribe();
+    this.placeGeocodeSub = this.api.geocodeReverse(lat, lon).pipe(
+      take(1),
+      catchError(() => of(null))
+    ).subscribe((res) => {
+      const label = String(res?.displayName || res?.display_name || '').trim();
+      if (label && this.searchLat === lat && this.searchLon === lon) {
+        this.placeLabel = label;
+        this.cdr.markForCheck();
+      }
+    });
   }
 
   private withOsmFallback(
@@ -798,6 +920,25 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     );
   }
 
+  setSource(source: ArtisansSource): void {
+    if (source === this.source || this.isLoading) {
+      return;
+    }
+    this.applySource(source, true);
+  }
+
+  private applySource(source: ArtisansSource, rerunSearch: boolean): void {
+    this.source = source;
+    this.i18nPrefix = source === 'osm' ? 'NEARBY_PROS' : 'ARTISANS';
+    this.rebuildTradeSelectOptions();
+    if (!this.trades.includes(this.trade)) {
+      this.trade = 'all';
+    }
+    if (rerunSearch && this.searched) {
+      this.search(1, false);
+    }
+  }
+
   onTradeChange(): void {
     if (this.searched) {
       this.search(1);
@@ -807,6 +948,14 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   onRadiusSliderChange(): void {
     this.updateRadiusCircle();
     this.applyRadiusToMap();
+    this.radiusSearch$.next(this.radiusKm);
+  }
+
+  private searchAfterRadiusChange(): void {
+    if (this.showFavorites || this.searchLat == null || this.searchLon == null) {
+      return;
+    }
+    this.search(1, false, false);
   }
 
   private searchAroundMapClick(latlng: L.LatLng): void {
@@ -819,6 +968,7 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     this.clearAddressHits();
     this.searchLat = latlng.lat;
     this.searchLon = latlng.lng;
+    this.fillPlaceFromCoords(latlng.lat, latlng.lng);
     this.search(1, true);
   }
 
@@ -957,7 +1107,7 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     this.addressSearching = false;
   }
 
-  search(page = 1, fitMap = true): void {
+  search(page = 1, fitMap = true, resetListFilters = true): void {
     const hasPoint = this.searchLat != null && this.searchLon != null;
     const q = this.addressQuery.trim();
     if (!hasPoint && !q) {
@@ -973,11 +1123,17 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     this.searched = true;
     this.showFavorites = false;
     this.errorMessage = '';
-    this.listItems = [];
-    this.viewportItems = [];
-    this.listQuery = '';
-    this.listTrade = 'all';
-    this.listCity = '';
+    if (resetListFilters) {
+      this.listItems = [];
+      this.viewportItems = [];
+      this.listQuery = '';
+      this.listTrade = 'all';
+      this.listCity = '';
+      this.remoteListQuery = '';
+    }
+    const listText = !resetListFilters && this.source === 'sirene' && this.listQuery.trim().length >= 2
+      ? this.listQuery.trim()
+      : '';
     this.searchSub?.unsubscribe();
     this.websiteResolving.clear();
     this.websiteJobs.clear();
@@ -991,7 +1147,8 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
       radiusKm: this.radiusKm,
       trade: this.trade,
       page: this.page,
-      perPage: ARTISAN_LIST_PAGE_SIZE
+      perPage: ARTISAN_LIST_PAGE_SIZE,
+      text: listText || undefined
     }).pipe(
       catchError((err) => this.source === 'osm' ? of({ items: [], total: 0 } as ArtisansNearbyResponse) : throwError(() => err)),
       switchMap((res) => this.withOsmFallback(res, lat, lon))
@@ -999,12 +1156,15 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
       next: (res) => {
         this.result = res;
         this.isLoading = false;
+        this.remoteListQuery = listText;
         if (res.lat != null && res.lon != null) {
           this.searchLat = res.lat;
           this.searchLon = res.lon;
         }
-        if (res.placeLabel) {
+        if (res.placeLabel && !looksLikeCoordinates(res.placeLabel)) {
           this.placeLabel = res.placeLabel;
+        } else if (!this.placeLabel.trim() && this.searchLat != null && this.searchLon != null) {
+          this.fillPlaceFromCoords(this.searchLat, this.searchLon);
         }
         this.selectedId = this.mappedItems[0]?.id || null;
         this.cdr.markForCheck();
@@ -1080,13 +1240,13 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
 
   previousPage(): void {
     if (this.page > 1) {
-      this.search(this.page - 1);
+      this.search(this.page - 1, true, false);
     }
   }
 
   nextPage(): void {
     if (this.page < this.totalPages) {
-      this.search(this.page + 1);
+      this.search(this.page + 1, true, false);
     }
   }
 
@@ -1101,9 +1261,7 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     this.ensureRadiusPane();
     this.baseLayer = this.basemap.applyBaseLayer(this.map, 'osm-standard', null);
     this.mapLayer = L.featureGroup().addTo(this.map);
-    this.suppressRadiusSyncFromMap();
     this.map.setView([46.6, 2.5], 6);
-    this.map.on('zoom zoomend', () => this.onMapZoomChanged());
     this.map.on('moveend zoomend', () => {
       this.ngZone.run(() => this.onMapViewChanged());
     });
@@ -1120,10 +1278,7 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
 
   private syncListToMap(): void {
     const mapped = this.mappedItems;
-    const bounds = this.map?.getBounds();
-    this.viewportItems = bounds
-      ? mapped.filter((item) => bounds.contains([item.lat, item.lon]))
-      : mapped;
+    this.viewportItems = mapped;
     if (this.listCity && !this.resultCities.includes(this.listCity)) {
       this.listCity = '';
     }
@@ -1134,7 +1289,9 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   private applyListView(): void {
-    const query = this.listQuery.trim().toLowerCase();
+    const query = (this.showFavorites || this.source === 'osm')
+      ? this.listQuery.trim().toLowerCase()
+      : '';
     let items = this.listSourceItems().filter((item) => {
       if (this.listTrade !== 'all' && this.resolvedTradeKey(item) !== this.listTrade) {
         return false;
@@ -1147,6 +1304,7 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
       }
       const hay = [
         item.name,
+        item.legalName,
         item.address,
         item.city,
         item.postalCode,
@@ -1192,69 +1350,10 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     this.syncListToMap();
   }
 
-  private onMapZoomChanged(): void {
-    if (this.radiusSyncSuppressed || this.showFavorites) {
-      return;
-    }
-    const next = this.radiusKmFromMapView();
-    if (next == null || next === this.radiusKm) {
-      return;
-    }
-    this.ngZone.run(() => {
-      this.radiusKm = next;
-      this.updateRadiusCircle();
-      this.cdr.markForCheck();
-    });
-  }
-
-  private radiusKmFromMapView(): number | null {
-    if (!this.map) {
-      return null;
-    }
-    const bounds = this.map.getBounds();
-    if (!bounds.isValid()) {
-      return null;
-    }
-    const pin = this.searchLat != null && this.searchLon != null
-      ? L.latLng(this.searchLat, this.searchLon)
-      : this.map.getCenter();
-    const center = bounds.contains(pin) ? pin : this.map.getCenter();
-    return this.clampRadiusKm(this.visibleRadiusKm(center, bounds));
-  }
-
-  private visibleRadiusKm(center: L.LatLng, bounds: L.LatLngBounds): number {
-    const ne = bounds.getNorthEast();
-    const sw = bounds.getSouthWest();
-    const north = center.distanceTo(L.latLng(ne.lat, center.lng));
-    const south = center.distanceTo(L.latLng(sw.lat, center.lng));
-    const east = center.distanceTo(L.latLng(center.lat, ne.lng));
-    const west = center.distanceTo(L.latLng(center.lat, sw.lng));
-    return Math.min(north, south, east, west) / 1000;
-  }
-
-  private clampRadiusKm(km: number): number {
-    if (!Number.isFinite(km)) {
-      return this.radiusMinKm;
-    }
-    return Math.max(this.radiusMinKm, Math.min(this.radiusMaxKm, Math.round(km)));
-  }
-
-  private suppressRadiusSyncFromMap(ms = 500): void {
-    this.radiusSyncSuppressed = true;
-    if (this.radiusSyncTimer != null) {
-      clearTimeout(this.radiusSyncTimer);
-    }
-    this.radiusSyncTimer = setTimeout(() => {
-      this.radiusSyncSuppressed = false;
-      this.radiusSyncTimer = null;
-    }, ms);
-  }
-
   private applyRadiusToMap(): void {
     if (!this.map || this.searchLat == null || this.searchLon == null) {
       return;
     }
-    this.suppressRadiusSyncFromMap();
     const center = L.latLng(this.searchLat, this.searchLon);
     this.map.fitBounds(center.toBounds(this.radiusKm * 2000), {
       padding: [16, 16],
@@ -1402,7 +1501,6 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
     if (this.showFavorites) {
       this.hideRadiusCircle();
       if (fitMap && mapped.length) {
-        this.suppressRadiusSyncFromMap();
         const bounds = L.latLngBounds(mapped.map((item) => [item.lat, item.lon] as [number, number]));
         this.map.fitBounds(bounds.pad(0.12), { maxZoom: 15, padding: [16, 16] });
       }
@@ -1477,10 +1575,16 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
         : '',
       this.websiteHref(item)
         ? `<a href="${this.escapeHtml(this.websiteHref(item))}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(this.websiteLabel(item))}</a>`
+        : '',
+      this.sirenePageHref(item)
+        ? `<a href="${this.escapeHtml(this.sirenePageHref(item))}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(this.translate.instant('ARTISANS.OPEN_SIRENE'))}</a>`
         : ''
     ].filter(Boolean);
     const lines = [
       `<strong>${this.escapeHtml(item.name || '')}</strong>`,
+      item.legalName
+        ? this.escapeHtml(`${this.translate.instant('ARTISANS.LEGAL_NAME')} ${item.legalName}`)
+        : '',
       activity.length ? this.escapeHtml(activity.join(' · ')) : '',
       place.length ? this.escapeHtml(place.join(', ')) : '',
       extras.length ? extras.join(' · ') : ''
@@ -1495,6 +1599,10 @@ export class ArtisansNearbyComponent implements OnInit, AfterViewInit, OnDestroy
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
+}
+
+function looksLikeCoordinates(value: string): boolean {
+  return /^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$/.test(value.trim());
 }
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {

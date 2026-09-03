@@ -3,8 +3,10 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  HostBinding,
   HostListener,
   OnDestroy,
+  OnInit,
   ViewChild,
   inject
 } from '@angular/core';
@@ -12,9 +14,10 @@ import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { Body, HelioVector, RotateVector, Rotation_EQJ_ECL } from 'astronomy-engine';
+import { Body, Equator, HelioVector, Horizon, Observer, RotateVector, Rotation_EQJ_ECL } from 'astronomy-engine';
 import { CONSTELLATION_FIGURES } from '../astro-compass/astro-compass-constellation-figures';
 import { ASTRO_GALAXIES } from '../astro-compass/astro-compass-catalog';
+import { PositionService } from '../services/position.service';
 import { normalizeWheelDeltaPixels, wheelScaleFactor } from '../shared/wheel-zoom.util';
 import {
   CosmoScenario,
@@ -30,6 +33,7 @@ import {
 
 export type FutureView = 'sky' | 'planets' | 'galaxies' | 'cosmos';
 export type TimeUnit = 'a' | 'ka' | 'Ma' | 'Ga';
+type SkyPeriod = 'day' | 'night' | 'twilight';
 
 interface Hit {
   x: number;
@@ -91,9 +95,22 @@ const PLANETS: readonly PlanetDef[] = [
   templateUrl: './univers-futur.component.html',
   styleUrls: ['./univers-futur.component.css']
 })
-export class UniversFuturComponent implements AfterViewInit, OnDestroy {
+export class UniversFuturComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly translate = inject(TranslateService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly position = inject(PositionService);
+
+  @HostBinding('class.uf-sky--day') get hostSkyDay(): boolean {
+    return this.skyPeriod === 'day';
+  }
+  @HostBinding('class.uf-sky--twilight') get hostSkyTwilight(): boolean {
+    return this.skyPeriod === 'twilight';
+  }
+  @HostBinding('class.uf-sky--night') get hostSkyNight(): boolean {
+    return this.skyPeriod === 'night';
+  }
+
+  skyPeriod: SkyPeriod = 'night';
 
   @ViewChild('skyCanvas') canvasRef?: ElementRef<HTMLCanvasElement>;
   @ViewChild('canvasWrap') wrapRef?: ElementRef<HTMLElement>;
@@ -127,6 +144,27 @@ export class UniversFuturComponent implements AfterViewInit, OnDestroy {
   private dragY = 0;
   private resizeObs?: ResizeObserver;
   private langSub?: Subscription;
+  private locationSub?: Subscription;
+  private observerLat: number | null = null;
+  private observerLon: number | null = null;
+  private skyTickTimer: ReturnType<typeof setInterval> | null = null;
+  private documentSkyClass: string | null = null;
+
+  ngOnInit(): void {
+    const hour = new Date().getHours();
+    this.skyPeriod = hour >= 6 && hour < 20 ? 'day' : 'night';
+    this.updatePageSky();
+    this.locationSub = this.position.getCurrentPosition().subscribe(pos => {
+      if (!pos) {
+        return;
+      }
+      this.observerLat = pos.latitude;
+      this.observerLon = pos.longitude;
+      this.updatePageSky();
+      this.cdr.detectChanges();
+    });
+    this.skyTickTimer = setInterval(() => this.updatePageSky(), 60_000);
+  }
 
   ngAfterViewInit(): void {
     this.galaxies = this.buildGalaxies();
@@ -141,6 +179,12 @@ export class UniversFuturComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.skyTickTimer) {
+      clearInterval(this.skyTickTimer);
+      this.skyTickTimer = null;
+    }
+    this.clearDocumentSky();
+    this.locationSub?.unsubscribe();
     this.stopPlay();
     this.langSub?.unsubscribe();
     this.resizeObs?.disconnect();
@@ -202,6 +246,62 @@ export class UniversFuturComponent implements AfterViewInit, OnDestroy {
     this.fullscreen = !!shell && this.currentFullscreenElement() === shell;
     this.cdr.detectChanges();
     queueMicrotask(() => this.draw());
+  }
+
+  private updatePageSky(): void {
+    if (this.observerLat != null && this.observerLon != null
+        && Number.isFinite(this.observerLat) && Number.isFinite(this.observerLon)) {
+      this.skyPeriod = this.computeSkyPeriod(this.observerLat, this.observerLon);
+    }
+    this.syncDocumentSky();
+  }
+
+  /** Same sun-altitude thresholds as the Ciel / Eclipse pages (civil dawn / dusk). */
+  private computeSkyPeriod(lat: number, lon: number): SkyPeriod {
+    try {
+      const observer = new Observer(lat, lon, 0);
+      const at = new Date();
+      const sunEq = Equator(Body.Sun, at, observer, true, true);
+      const sunHor = Horizon(at, observer, sunEq.ra, sunEq.dec, 'normal');
+      const sunAlt = sunHor.altitude;
+      if (sunAlt > -0.833) {
+        return 'day';
+      }
+      if (sunAlt > -6) {
+        return 'twilight';
+      }
+    } catch {
+      /* keep previous period */
+    }
+    return 'night';
+  }
+
+  private syncDocumentSky(): void {
+    const next = `uf-sky-html--${this.skyPeriod}`;
+    if (this.documentSkyClass === next) {
+      return;
+    }
+    this.clearDocumentSky();
+    try {
+      document.documentElement.classList.add(next);
+      document.body.classList.add(next);
+      this.documentSkyClass = next;
+    } catch {
+      this.documentSkyClass = null;
+    }
+  }
+
+  private clearDocumentSky(): void {
+    if (!this.documentSkyClass) {
+      return;
+    }
+    try {
+      document.documentElement.classList.remove(this.documentSkyClass);
+      document.body.classList.remove(this.documentSkyClass);
+    } catch {
+      /* ignore */
+    }
+    this.documentSkyClass = null;
   }
 
   get unitValue(): number {

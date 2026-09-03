@@ -263,8 +263,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { routerLink: ['api/foncier/chercher-trouver'], icon: 'fa fa-search', labelKey: 'MENU.CHERCHER_TROUVER' }
     ];
     readonly navArtisansRaw: NavRouteMenuItem[] = [
-        { routerLink: ['iot/artisans'], icon: 'fa fa-wrench', labelKey: 'MENU.ARTISANS_COMMERCES' },
-        { routerLink: ['iot/pros'], icon: 'fa fa-map-marker', labelKey: 'MENU.NEARBY_PROS' }
+        { routerLink: ['iot/artisans'], icon: 'fa fa-wrench', labelKey: 'MENU.ARTISANS_COMMERCES' }
     ];
     /** Globe 3D, carte du système solaire et univers futur (sous-section du menu Monde). */
     readonly navGeoWorldRaw: NavRouteMenuItem[] = [
@@ -445,7 +444,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     /** Fond canvas html/body = ciel nocturne (évite le blanc au overscroll). */
     private updateStarrySkyPage(): void {
         const url = this.router.url || '';
-        const on = /\/tools\/(?:astro-compass|nord|direction|relief-finder|detection-error|univers-futur)(?:\/|$|\?|#)/.test(url);
+        const on = /\/tools\/(?:astro-compass|nord|direction|relief-finder|detection-error)(?:\/|$|\?|#)/.test(url);
         try {
             document.documentElement.classList.toggle('pat-starry-sky', on);
             document.body.classList.toggle('pat-starry-sky', on);

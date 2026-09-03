@@ -322,22 +322,22 @@ public class IpGeolocationService {
             return null;
         }
 
-        // Check if it's a private/local IP
-        for (String pattern : PRIVATE_IP_PATTERNS) {
-            if (ipAddress.startsWith(pattern)) {
-                return null; // No coordinates for private IPs
-            }
+        // Private / loopback: ip-api would refuse the address. Query without IP so
+        // ip-api uses this server's public egress address (typical for localhost dev).
+        if (isPrivateOrLocalIp(ipAddress)) {
+            ipAddress = "";
         }
 
         // Check cache first
-        CoordinatesCacheEntry cached = coordinatesCache.get(ipAddress);
+        String cacheKey = (ipAddress == null || ipAddress.isBlank()) ? "__egress__" : ipAddress.trim();
+        CoordinatesCacheEntry cached = coordinatesCache.get(cacheKey);
         if (cached != null) {
             long ttlMillis = cacheTtlHours * 60 * 60 * 1000;
             if (!cached.isExpired(ttlMillis)) {
                 return new CoordinatesInfo(cached.latitude, cached.longitude);
             } else {
                 // Remove expired entry
-                coordinatesCache.remove(ipAddress);
+                coordinatesCache.remove(cacheKey);
             }
         }
         
@@ -345,9 +345,10 @@ public class IpGeolocationService {
         enforceCoordinatesCacheSizeLimit();
 
         try {
-            // Use ip-api.com free service (no API key required for basic usage)
-            // Format: http://ip-api.com/json/{ip}?fields=status,message,lat,lon
-            String url = "http://ip-api.com/json/" + ipAddress + "?fields=status,message,lat,lon";
+            String lookupKey = (ipAddress == null || ipAddress.isBlank()) ? "__egress__" : ipAddress.trim();
+            String url = lookupKey.equals("__egress__")
+                    ? "http://ip-api.com/json/?fields=status,message,lat,lon"
+                    : "http://ip-api.com/json/" + lookupKey + "?fields=status,message,lat,lon";
             
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
@@ -364,9 +365,9 @@ public class IpGeolocationService {
                         Double longitude = ((Number) lonObj).doubleValue();
                         
                         // Cache the result
-                        coordinatesCache.put(ipAddress, new CoordinatesCacheEntry(latitude, longitude));
+                        coordinatesCache.put(lookupKey, new CoordinatesCacheEntry(latitude, longitude));
                         
-                        log.debug("IP {} coordinates: lat={}, lon={}", ipAddress, latitude, longitude);
+                        log.debug("IP {} coordinates: lat={}, lon={}", lookupKey, latitude, longitude);
                         return new CoordinatesInfo(latitude, longitude);
                     }
                 } else {

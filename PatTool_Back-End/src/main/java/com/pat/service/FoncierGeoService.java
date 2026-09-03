@@ -44,6 +44,7 @@ public class FoncierGeoService {
     private final Map<String, ObjectNode> banCache = new ConcurrentHashMap<>();
     private final Map<String, ObjectNode> inseeCache = new ConcurrentHashMap<>();
     private final Map<String, List<ObjectNode>> departmentCommunesCache = new ConcurrentHashMap<>();
+    private final Map<String, List<String>> departmentCodesNearCache = new ConcurrentHashMap<>();
 
     @Value("${app.foncier.geo.api-base:https://geo.api.gouv.fr}")
     private String geoApiBase;
@@ -353,6 +354,30 @@ public class FoncierGeoService {
     }
 
     /**
+     * INSEE department codes that intersect the circle (center + bounding-box corners).
+     */
+    public List<String> departmentCodesNear(double lat, double lon, double radiusKm) {
+        double radius = Math.max(0.5, Math.min(radiusKm, 50));
+        String cacheKey = Math.round(lat * 1000) + ":" + Math.round(lon * 1000) + ":" + Math.round(radius);
+        List<String> cached = departmentCodesNearCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        Set<String> deptCodes = new LinkedHashSet<>();
+        GeoBbox box = bboxAround(lat, lon, radius);
+        addDept(deptCodes, communeAt(lat, lon));
+        addDept(deptCodes, communeAt(box.south, box.west));
+        addDept(deptCodes, communeAt(box.south, box.east));
+        addDept(deptCodes, communeAt(box.north, box.west));
+        addDept(deptCodes, communeAt(box.north, box.east));
+        List<String> out = new ArrayList<>(deptCodes);
+        if (!out.isEmpty()) {
+            departmentCodesNearCache.put(cacheKey, List.copyOf(out));
+        }
+        return out;
+    }
+
+    /**
      * Communes whose centre is within {@code radiusKm}.
      * geo.api.gouv.fr {@code /communes?lat=&lon=} only returns the commune containing
      * the point — {@code dist} is ignored — so we load department lists and filter.
@@ -360,14 +385,8 @@ public class FoncierGeoService {
     public List<ObjectNode> communesNear(double lat, double lon, int radiusKm) {
         List<ObjectNode> out = new ArrayList<>();
         double radius = Math.max(1, Math.min(radiusKm, 50));
-        Set<String> deptCodes = new LinkedHashSet<>();
-        GeoBbox box = bboxAround(lat, lon, radius);
+        Set<String> deptCodes = new LinkedHashSet<>(departmentCodesNear(lat, lon, radius));
         ObjectNode here = communeAt(lat, lon);
-        addDept(deptCodes, here);
-        addDept(deptCodes, communeAt(box.south, box.west));
-        addDept(deptCodes, communeAt(box.south, box.east));
-        addDept(deptCodes, communeAt(box.north, box.west));
-        addDept(deptCodes, communeAt(box.north, box.east));
         if (deptCodes.isEmpty() && here != null) {
             out.add(here);
             return out;

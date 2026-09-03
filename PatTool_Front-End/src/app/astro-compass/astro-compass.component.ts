@@ -16,7 +16,7 @@ import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browse
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { Observable, Subscription, forkJoin, of } from 'rxjs';
-import { catchError, map, switchMap } from 'rxjs/operators';
+import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 import {
   Body,
   DefineStar,
@@ -355,6 +355,16 @@ interface HelpTerm {
 type TargetAccordionId = 'iss' | 'planet' | 'star' | 'galaxy' | 'deepsky' | 'constellation' | 'ground' | 'custom';
 type SidePanelId = 'location' | 'visibility' | 'cible' | 'nord' | 'options';
 
+interface CatalogLiveHit {
+  key: string;
+  name: string;
+  detail: string;
+  raHours: number;
+  deDeg: number;
+  mag: number | null;
+  types: string[];
+}
+
 interface TypeHelpSection {
   headingFr?: string;
   headingEn?: string;
@@ -564,9 +574,9 @@ const TARGET_TYPE_HELP: Record<TargetAccordionId, TypeHelpCopy> = {
     sections: [
       {
         textFr:
-          'Saisissez l’ascension droite (en heures, 0 à 24) et la déclinaison (en degrés, −90 à +90) pour viser n’importe quel point du ciel, par exemple un objet hors catalogue, une comète éphémère ou une coordonnée lue dans une carte.',
+          'Cherchez n’importe quel nom (étoile, galaxie, nébuleuse, amas…) dans le catalogue du ciel, ou saisissez l’ascension droite (heures, 0 à 24) et la déclinaison (degrés, −90 à +90) pour viser un point hors liste, une comète éphémère ou une coordonnée lue sur une carte.',
         textEn:
-          'Enter right ascension (hours, 0 to 24) and declination (degrees, −90 to +90) to aim at any sky point, for example an object not in the catalogue, a short-lived comet, or a coordinate read from a chart.'
+          'Search any name (star, galaxy, nebula, cluster…) in the sky catalogue, or enter right ascension (hours, 0 to 24) and declination (degrees, −90 to +90) to aim at an unlisted object, a short-lived comet, or a coordinate from a chart.'
       }
     ]
   }
@@ -1008,6 +1018,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   customRaHours = 0;
   customDecDeg = 0;
   customName = '';
+  liveSkyQuery = '';
+  liveSkyHits: CatalogLiveHit[] = [];
+  liveSkyBusy = false;
+  liveSkyError: string | null = null;
+  liveSkyFrom: TargetAccordionId = 'custom';
+  private liveSkySub?: Subscription;
   groundPositions: AstroGroundPosition[] = [];
   groundQuery = '';
   groundDraftName = '';
@@ -1714,6 +1730,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.objectDossierSub?.unsubscribe();
     this.groundLoadSub?.unsubscribe();
     this.groundSaveSub?.unsubscribe();
+    this.liveSkySub?.unsubscribe();
     this.revokeConstellationSchemaBlobUrl();
     this.langChangeSub?.unsubscribe();
     this.tickerSaveSub?.unsubscribe();
@@ -6219,6 +6236,235 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.maybeReloadObjectDossier();
     this.persistLastTarget();
     this.cdr.markForCheck();
+  }
+
+  searchLiveSky(raw?: string, from: TargetAccordionId = 'custom'): void {
+    const q = (raw ?? this.liveSkyQuery).trim();
+    this.liveSkyFrom = from;
+    this.liveSkyQuery = q;
+    this.liveSkyHits = [];
+    this.liveSkyError = null;
+    if (q.length < 2) {
+      this.liveSkyError = 'ASTRO_COMPASS.LIVE_SEARCH_SHORT';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.liveSkyBusy = true;
+    this.liveSkySub?.unsubscribe();
+    this.liveSkySub = this.api.searchStellariumSkySources(q).pipe(
+      catchError(() => of([] as StellariumSkySource[])),
+      switchMap((results) => {
+        const hits = this.hitsFromStellarium(results);
+        if (hits.length) {
+          return of(hits);
+        }
+        return this.api.getSkyMapPreview({ q }).pipe(
+          catchError(() => of(null)),
+          map((preview) => (preview ? this.hitsFromSkyMap(preview) : []))
+        );
+      }),
+      finalize(() => {
+        this.liveSkyBusy = false;
+        this.cdr.markForCheck();
+      })
+    ).subscribe({
+      next: (hits) => {
+        this.liveSkyHits = hits.slice(0, 12);
+        if (!this.liveSkyHits.length) {
+          this.liveSkyError = 'ASTRO_COMPASS.LIVE_SEARCH_EMPTY';
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.liveSkyError = 'ASTRO_COMPASS.LIVE_SEARCH_ERROR';
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  aimLiveSkyHit(hit: CatalogLiveHit): void {
+    if (!hit) {
+      return;
+    }
+    if (this.trySelectLocalFromLiveName(hit.name, hit.types)) {
+      this.liveSkyHits = [];
+      this.liveSkyError = null;
+      return;
+    }
+    this.customRaHours = hit.raHours;
+    this.customDecDeg = hit.deDeg;
+    this.customName = hit.name;
+    this.applyCustomCoords();
+    this.liveSkyHits = [];
+    this.liveSkyError = null;
+  }
+
+  private hitsFromStellarium(results: StellariumSkySource[]): CatalogLiveHit[] {
+    const hits: CatalogLiveHit[] = [];
+    const seen = new Set<string>();
+    for (const source of results) {
+      if (this.isSatelliteSkySource(source)) {
+        continue;
+      }
+      const raHours = this.stellariumRaHours(source);
+      const deDeg = this.asFiniteNumber(source.model_data?.de);
+      if (raHours == null || deDeg == null) {
+        continue;
+      }
+      const name = (source.short_name || source.match || source.names?.[0] || '').trim();
+      if (!name) {
+        continue;
+      }
+      const key = `${name.toLowerCase()}|${raHours.toFixed(4)}|${deDeg.toFixed(4)}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      const mag = this.asFiniteNumber(source.model_data?.Vmag ?? source.model_data?.Bmag);
+      const types = (source.types || []).filter(Boolean);
+      hits.push({
+        key,
+        name,
+        detail: this.liveSkyDetail(types, mag, raHours, deDeg),
+        raHours,
+        deDeg,
+        mag,
+        types
+      });
+    }
+    return hits;
+  }
+
+  private hitsFromSkyMap(preview: SkyMapPreview): CatalogLiveHit[] {
+    const raHours = this.asFiniteNumber(preview.raHours);
+    const deDeg = this.asFiniteNumber(preview.deDeg);
+    if (raHours == null || deDeg == null) {
+      return [];
+    }
+    const name = (preview.name || preview.catalogId || preview.query || '').trim();
+    if (!name) {
+      return [];
+    }
+    const mag = this.asFiniteNumber(preview.magnitude);
+    const types = preview.type ? [preview.type] : [];
+    return [{
+      key: `skymap:${name.toLowerCase()}`,
+      name,
+      detail: this.liveSkyDetail(types, mag, raHours, deDeg),
+      raHours: ((raHours % 24) + 24) % 24,
+      deDeg,
+      mag,
+      types
+    }];
+  }
+
+  private liveSkyDetail(
+    types: string[],
+    mag: number | null,
+    raHours: number,
+    deDeg: number
+  ): string {
+    const bits: string[] = [];
+    if (types.length) {
+      bits.push(types.slice(0, 2).join(', '));
+    }
+    if (mag != null) {
+      bits.push(`mag ${mag.toFixed(1)}`);
+    }
+    bits.push(`${raHours.toFixed(2)} h / ${deDeg.toFixed(1)}°`);
+    return bits.join(' · ');
+  }
+
+  private stellariumRaHours(source: StellariumSkySource): number | null {
+    const ra = this.asFiniteNumber(source.model_data?.ra);
+    if (ra == null) {
+      return null;
+    }
+    // Noctua / Stellarium Web: RA in degrees (0–360).
+    const hours = ra / 15;
+    return ((hours % 24) + 24) % 24;
+  }
+
+  private isSatelliteSkySource(source: StellariumSkySource): boolean {
+    const model = (source.model || '').toLowerCase();
+    if (/tle|satellite/.test(model)) {
+      return true;
+    }
+    return (source.types || []).some((t) => (t || '').toLowerCase() === 'asa');
+  }
+
+  private trySelectLocalFromLiveName(name: string, types: string[]): boolean {
+    const q = name.trim().toLowerCase();
+    if (!q) {
+      return false;
+    }
+    const typeBlob = types.join(' ').toLowerCase();
+    const planet = ASTRO_PLANETS.find((p) => {
+      if (p.id === q) {
+        return true;
+      }
+      const label = this.translate.instant(p.labelKey);
+      return typeof label === 'string' && label.toLowerCase() === q;
+    });
+    if (planet && (!typeBlob || /planet|sun|moon|pluto/.test(typeBlob) || q === planet.id)) {
+      this.selectPlanet(planet.id);
+      return true;
+    }
+    const star = ASTRO_BRIGHT_STARS.find((s) => this.fixedSkyMatchesName(s, q));
+    if (star && (!typeBlob || /star|etoile|étoile/.test(typeBlob) || this.fixedSkyMatchesName(star, q))) {
+      this.selectStar(star);
+      return true;
+    }
+    const galaxy = ASTRO_GALAXIES.find((g) => this.fixedSkyMatchesName(g, q));
+    if (galaxy && (/gxy|galaxy|galax/.test(typeBlob) || this.fixedSkyMatchesName(galaxy, q))) {
+      this.selectGalaxy(galaxy);
+      return true;
+    }
+    const deep = ASTRO_DEEPSKY.find((o) => this.fixedSkyMatchesName(o, q));
+    if (deep) {
+      this.selectDeepSky(deep);
+      return true;
+    }
+    const constellation = ASTRO_CONSTELLATIONS.find((c) => {
+      return (
+        c.id === q ||
+        c.iau.toLowerCase() === q ||
+        c.name.toLowerCase() === q ||
+        c.nameFr.toLowerCase() === q ||
+        c.aliases.some((a) => a.toLowerCase() === q)
+      );
+    });
+    if (constellation && /constellation|const/.test(typeBlob)) {
+      this.selectConstellation(constellation);
+      return true;
+    }
+    if (planet) {
+      this.selectPlanet(planet.id);
+      return true;
+    }
+    if (star) {
+      this.selectStar(star);
+      return true;
+    }
+    if (galaxy) {
+      this.selectGalaxy(galaxy);
+      return true;
+    }
+    if (constellation) {
+      this.selectConstellation(constellation);
+      return true;
+    }
+    return false;
+  }
+
+  private fixedSkyMatchesName(
+    obj: { id: string; name: string; aliases: string[] },
+    q: string
+  ): boolean {
+    if (obj.id === q || obj.name.toLowerCase() === q) {
+      return true;
+    }
+    return obj.aliases.some((a) => a.toLowerCase() === q);
   }
 
   /** Appelé quand l'utilisateur édite lat/lon manuellement. */

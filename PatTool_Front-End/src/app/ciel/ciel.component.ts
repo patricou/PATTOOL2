@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostBinding, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browser';
@@ -6,10 +6,13 @@ import { TranslateModule } from '@ngx-translate/core';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { of, Subject, Subscription } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { Body, Equator, Horizon, Observer } from 'astronomy-engine';
 
 import { ApiService, SkyMapPreview, StellariumConfig, StellariumSkySource } from '../services/api.service';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { isAndroidUserAgent, skyMapAndroidSearchIntent, openSkyMapAndroidApp } from '../shared/sky-map-app.util';
+
+type SkyPeriod = 'day' | 'night' | 'twilight';
 
 @Component({
   selector: 'app-ciel',
@@ -20,12 +23,23 @@ import { isAndroidUserAgent, skyMapAndroidSearchIntent, openSkyMapAndroidApp } f
 })
 export class CielComponent implements OnInit, OnDestroy {
 
+  @HostBinding('class.ciel-sky--day') get hostSkyDay(): boolean {
+    return this.skyPeriod === 'day';
+  }
+  @HostBinding('class.ciel-sky--twilight') get hostSkyTwilight(): boolean {
+    return this.skyPeriod === 'twilight';
+  }
+  @HostBinding('class.ciel-sky--night') get hostSkyNight(): boolean {
+    return this.skyPeriod === 'night';
+  }
+
   config: StellariumConfig | null = null;
   viewerUrl: SafeResourceUrl | null = null;
 
   lat = 48.8566;
   lon = 2.3522;
   placeLabel = '';
+  skyPeriod: SkyPeriod = 'night';
 
   searchQuery = '';
   searchResults: StellariumSkySource[] = [];
@@ -42,6 +56,8 @@ export class CielComponent implements OnInit, OnDestroy {
   private readonly searchInput$ = new Subject<string>();
   private subscriptions = new Subscription();
   private skyMapSub: Subscription | null = null;
+  private skyTickTimer: ReturnType<typeof setInterval> | null = null;
+  private documentSkyClass: string | null = null;
 
   constructor(
     private readonly api: ApiService,
@@ -52,10 +68,17 @@ export class CielComponent implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.searchInput$.pipe(debounceTime(350), distinctUntilChanged()).subscribe(q => this.runSearch(q))
     );
+    this.updatePageSky();
+    this.skyTickTimer = setInterval(() => this.updatePageSky(), 60_000);
     this.loadConfig();
   }
 
   ngOnDestroy(): void {
+    if (this.skyTickTimer) {
+      clearInterval(this.skyTickTimer);
+      this.skyTickTimer = null;
+    }
+    this.clearDocumentSky();
     this.skyMapSub?.unsubscribe();
     this.subscriptions.unsubscribe();
   }
@@ -71,6 +94,7 @@ export class CielComponent implements OnInit, OnDestroy {
           this.lon = cfg.lon;
           this.placeLabel = cfg.placeLabel ?? '';
           this.updateViewerUrl(cfg.embedUrl);
+          this.updatePageSky();
           this.isLoadingConfig = false;
         },
         error: () => {
@@ -258,6 +282,64 @@ export class CielComponent implements OnInit, OnDestroy {
     }
     const name = (source.short_name || source.match || '').trim();
     return !/^sun\b/i.test(name);
+  }
+
+  private updatePageSky(): void {
+    if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
+      this.skyPeriod = 'night';
+      this.syncDocumentSky();
+      return;
+    }
+    this.skyPeriod = this.computeSkyPeriod(this.lat, this.lon);
+    this.syncDocumentSky();
+  }
+
+  /** Same sun-altitude thresholds as the Eclipse page (civil dawn / dusk). */
+  private computeSkyPeriod(lat: number, lon: number): SkyPeriod {
+    try {
+      const observer = new Observer(lat, lon, 0);
+      const at = new Date();
+      const sunEq = Equator(Body.Sun, at, observer, true, true);
+      const sunHor = Horizon(at, observer, sunEq.ra, sunEq.dec, 'normal');
+      const sunAlt = sunHor.altitude;
+      if (sunAlt > -0.833) {
+        return 'day';
+      }
+      if (sunAlt > -6) {
+        return 'twilight';
+      }
+    } catch {
+      /* keep night */
+    }
+    return 'night';
+  }
+
+  private syncDocumentSky(): void {
+    const next = `ciel-sky-html--${this.skyPeriod}`;
+    if (this.documentSkyClass === next) {
+      return;
+    }
+    this.clearDocumentSky();
+    try {
+      document.documentElement.classList.add(next);
+      document.body.classList.add(next);
+      this.documentSkyClass = next;
+    } catch {
+      this.documentSkyClass = null;
+    }
+  }
+
+  private clearDocumentSky(): void {
+    if (!this.documentSkyClass) {
+      return;
+    }
+    try {
+      document.documentElement.classList.remove(this.documentSkyClass);
+      document.body.classList.remove(this.documentSkyClass);
+    } catch {
+      /* ignore */
+    }
+    this.documentSkyClass = null;
   }
 
   private asFiniteNumber(value: unknown): number | null {

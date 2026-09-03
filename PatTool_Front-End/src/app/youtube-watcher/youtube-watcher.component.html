@@ -78,6 +78,12 @@
     <span class="yt-ticker__key">{{ 'YOUTUBE.TICKER_MODE' | translate }}</span>
     <span class="yt-ticker__val">{{ tickerModeLabelKey() | translate }}</span>
   </span>
+  <span class="yt-ticker__item" *ngIf="playAllActive">
+    <span class="yt-ticker__key">{{ 'YOUTUBE.TICKER_PLAY_ALL' | translate }}</span>
+    <span class="yt-ticker__val" *ngIf="playAllIndex() >= 0">
+      {{ 'YOUTUBE.PLAY_ALL_PLAYING' | translate:{ index: playAllIndex() + 1, count: playAllCount() } }}
+    </span>
+  </span>
 </ng-template>
 
 <div class="yt-page">
@@ -181,6 +187,21 @@
           {{ 'YOUTUBE.FLOAT_OPEN' | translate }}
         </button>
         <button
+          *ngIf="canPlayAll"
+          type="button"
+          class="btn btn-sm"
+          [class.btn-danger]="!playAllActive"
+          [class.btn-outline-light]="playAllActive"
+          (click)="togglePlayAll()"
+          [attr.title]="'YOUTUBE.PLAY_ALL_HINT' | translate"
+          [attr.aria-pressed]="playAllActive">
+          <i class="fa" [class.fa-play]="!playAllActive" [class.fa-stop]="playAllActive" aria-hidden="true"></i>
+          {{ (playAllActive ? 'YOUTUBE.PLAY_ALL_STOP' : 'YOUTUBE.PLAY_ALL') | translate }}
+          <ng-container *ngIf="playAllActive && playAllIndex() >= 0">
+            · {{ 'YOUTUBE.PLAY_ALL_PLAYING' | translate:{ index: playAllIndex() + 1, count: playAllCount() } }}
+          </ng-container>
+        </button>
+        <button
           *ngIf="canLinkVideo(selected)"
           type="button"
           class="btn btn-outline-light btn-sm"
@@ -257,6 +278,21 @@
         {{ 'YOUTUBE.FLOAT_RESTORE' | translate }}
       </button>
       <button
+        *ngIf="canPlayAll"
+        type="button"
+        class="btn btn-sm"
+        [class.btn-danger]="!playAllActive"
+        [class.btn-outline-light]="playAllActive"
+        (click)="togglePlayAll()"
+        [attr.title]="'YOUTUBE.PLAY_ALL_HINT' | translate"
+        [attr.aria-pressed]="playAllActive">
+        <i class="fa" [class.fa-play]="!playAllActive" [class.fa-stop]="playAllActive" aria-hidden="true"></i>
+        {{ (playAllActive ? 'YOUTUBE.PLAY_ALL_STOP' : 'YOUTUBE.PLAY_ALL') | translate }}
+        <ng-container *ngIf="playAllActive && playAllIndex() >= 0">
+          · {{ 'YOUTUBE.PLAY_ALL_PLAYING' | translate:{ index: playAllIndex() + 1, count: playAllCount() } }}
+        </ng-container>
+      </button>
+      <button
         *ngIf="canLinkVideo(selected)"
         type="button"
         class="btn btn-outline-light btn-sm"
@@ -290,6 +326,21 @@
 
   <div class="yt-results-head" *ngIf="searched || searching">
     <span>{{ (resultKind === 'popular' ? 'YOUTUBE.POPULAR' : 'YOUTUBE.RESULTS') | translate }}</span>
+    <button
+      *ngIf="!searching && canPlayAll"
+      type="button"
+      class="btn btn-sm yt-play-all"
+      [class.btn-danger]="!playAllActive"
+      [class.btn-outline-light]="playAllActive"
+      (click)="togglePlayAll()"
+      [attr.title]="'YOUTUBE.PLAY_ALL_HINT' | translate"
+      [attr.aria-pressed]="playAllActive">
+      <i class="fa" [class.fa-play]="!playAllActive" [class.fa-stop]="playAllActive" aria-hidden="true"></i>
+      {{ (playAllActive ? 'YOUTUBE.PLAY_ALL_STOP' : 'YOUTUBE.PLAY_ALL') | translate }}
+      <ng-container *ngIf="playAllActive && playAllIndex() >= 0">
+        · {{ 'YOUTUBE.PLAY_ALL_PLAYING' | translate:{ index: playAllIndex() + 1, count: playAllCount() } }}
+      </ng-container>
+    </button>
     <div class="yt-sort" *ngIf="!searching && items.length">
       <label class="visually-hidden" for="yt-sort">{{ 'YOUTUBE.SORT' | translate }}</label>
       <select

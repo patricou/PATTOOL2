@@ -3653,6 +3653,33 @@ a.ac-compass-cal__btn--direction {
   color: #eaf1ff;
 }
 
+.ac-live-search-btn {
+  display: block;
+  width: 100%;
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(120, 200, 255, 0.4);
+  background: rgba(80, 150, 255, 0.18);
+  color: #cfe8ff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ac-live-search-btn .fa {
+  margin-right: 0.35rem;
+}
+
+.ac-live-search-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.ac-picker__list--live {
+  max-height: min(36vh, 16rem);
+}
+
 .ac-picker__list {
   list-style: none;
   margin: 0.45rem 0 0;

@@ -24,7 +24,7 @@ type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
   styleUrls: ['./youtube-floating-player.component.css']
 })
 export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
-  state: YoutubeFloatingState = { open: false, minimized: false, item: null };
+  state: YoutubeFloatingState = { open: false, minimized: false, item: null, loadSeq: 0 };
   embedUrl: SafeResourceUrl | null = null;
 
   posX = 24;
@@ -51,6 +51,7 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
   private positioned = false;
   private lastEmbedKey = '';
   private stateSub?: Subscription;
+  private ytProgressTimer?: ReturnType<typeof setInterval>;
 
   constructor(
     private youtubePlayer: YoutubePlayerService,
@@ -68,12 +69,13 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
     this.stateSub = this.youtubePlayer.state$.subscribe((s) => {
       this.state = s;
       if (!s.open || !s.item) {
+        this.stopYoutubeProgressWatch();
         this.embedUrl = null;
         this.lastEmbedKey = '';
         this.cdr.markForCheck();
         return;
       }
-      const key = `${s.item.kind || 'video'}:${s.item.id}`;
+      const key = `${s.item.kind || 'video'}:${s.item.id}:${s.loadSeq || 0}`;
       if (key !== this.lastEmbedKey) {
         this.lastEmbedKey = key;
         this.embedUrl = this.buildEmbedUrl(s.item);
@@ -84,6 +86,7 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stateSub?.unsubscribe();
+    this.stopYoutubeProgressWatch();
   }
 
   youtubeWatchUrl(): string | null {
@@ -171,6 +174,15 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
     this.clampSizeAndPosition();
   }
 
+  @HostListener('window:message', ['$event'])
+  onWindowMessage(event: MessageEvent): void {
+    this.onYoutubeMessage(event);
+  }
+
+  onPipEmbedLoad(): void {
+    this.startYoutubeProgressWatch();
+  }
+
   private applyResize(event: MouseEvent): void {
     if (!this.resizing) {
       return;
@@ -242,16 +254,102 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
 
   private buildEmbedUrl(item: YoutubeItem): SafeResourceUrl | null {
     const id = item.id || '';
+    const origin =
+      typeof window !== 'undefined'
+        ? `&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+        : '';
+    const seq = `&cb=${this.state.loadSeq || 0}`;
     if (item.kind === 'playlist' && /^[a-zA-Z0-9_-]{10,64}$/.test(id)) {
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0&autoplay=1`
+        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0&autoplay=1&playsinline=1${origin}${seq}`
       );
     }
     if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/${id}?rel=0&autoplay=1`
+        `https://www.youtube-nocookie.com/embed/${id}?rel=0&autoplay=1&playsinline=1${origin}${seq}`
       );
     }
     return null;
+  }
+
+  private startYoutubeProgressWatch(): void {
+    this.stopYoutubeProgressWatch();
+    if (!this.state.open || !this.embedUrl) {
+      return;
+    }
+    this.handshakeYoutubePlayer();
+    this.ytProgressTimer = setInterval(() => this.handshakeYoutubePlayer(), 400);
+  }
+
+  private stopYoutubeProgressWatch(): void {
+    if (this.ytProgressTimer !== undefined) {
+      clearInterval(this.ytProgressTimer);
+      this.ytProgressTimer = undefined;
+    }
+  }
+
+  private handshakeYoutubePlayer(): void {
+    this.postToYoutube({ event: 'listening', id: 'yt-pip-embed' });
+    this.sendYoutubeCommand('addEventListener', ['onStateChange']);
+  }
+
+  private getYoutubeIframe(): HTMLIFrameElement | null {
+    if (typeof document === 'undefined') {
+      return null;
+    }
+    return document.querySelector('iframe.yt-pip-embed');
+  }
+
+  private postToYoutube(payload: object): void {
+    const iframe = this.getYoutubeIframe();
+    if (!iframe?.contentWindow) {
+      return;
+    }
+    try {
+      iframe.contentWindow.postMessage(JSON.stringify(payload), '*');
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private sendYoutubeCommand(func: string, args: unknown[] = []): void {
+    this.postToYoutube({ event: 'command', func, args, id: 'yt-pip-embed' });
+  }
+
+  private onYoutubeMessage(event: MessageEvent): void {
+    if (!this.state.open || !this.embedUrl) {
+      return;
+    }
+    const origin = (event.origin || '').toLowerCase();
+    if (!origin.includes('youtube.com') && !origin.includes('youtube-nocookie.com')) {
+      return;
+    }
+    let data: unknown = event.data;
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch {
+        return;
+      }
+    }
+    if (!data || typeof data !== 'object') {
+      return;
+    }
+    const payload = data as {
+      event?: string;
+      info?: number | Record<string, unknown>;
+    };
+    let state: number | undefined;
+    if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
+      state = payload.info;
+    } else if (payload.info && typeof payload.info === 'object' && !Array.isArray(payload.info)) {
+      const playerState = payload.info['playerState'];
+      if (typeof playerState === 'number') {
+        state = playerState;
+      }
+    }
+    if (state === 0) {
+      this.youtubePlayer.notifyEnded();
+    }
   }
 }

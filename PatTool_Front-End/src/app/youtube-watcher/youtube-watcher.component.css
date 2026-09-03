@@ -573,6 +573,21 @@
   color: #f1f1f1;
 }
 
+.yt-play-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+.yt-play-all.btn-outline-light:hover {
+  color: #111;
+  background: #f1f1f1;
+  border-color: #f1f1f1;
+}
+
 .yt-sort {
   display: inline-flex;
   align-items: center;
@@ -738,6 +753,10 @@
   color: #111;
   background: #f1f1f1;
   border-color: #f1f1f1;
+}
+
+:host .yt-now-playing-actions .btn-danger {
+  border-color: #cc0000;
 }
 
 :host .yt-channel-filter .btn-link {

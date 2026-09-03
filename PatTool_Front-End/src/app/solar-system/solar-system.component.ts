@@ -2,8 +2,10 @@ import {
   AfterViewInit,
   Component,
   ElementRef,
+  HostBinding,
   HostListener,
   inject,
+  NgZone,
   OnDestroy,
   OnInit,
   ViewChild
@@ -13,19 +15,24 @@ import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import {
   Body,
+  Equator,
   HelioVector,
+  Horizon,
   Illumination,
   KM_PER_AU,
   MoonPhase,
+  Observer,
   RotateVector,
   RotationAxis,
   Rotation_EQJ_ECL,
   Vector
 } from 'astronomy-engine';
+import { Subscription } from 'rxjs';
 import * as THREE from 'three';
 import { normalizeWheelDeltaPixels, wheelScaleFactor } from '../shared/wheel-zoom.util';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
+import { ApiService } from '../services/api.service';
 
 interface PlanetStyle {
   readonly body: Body;
@@ -65,6 +72,8 @@ export interface PlanetSnap {
   readonly rotationAxis?: RotationAxisPaint;
 }
 
+type SkyPeriod = 'day' | 'night' | 'twilight';
+
 @Component({
   selector: 'app-solar-system',
   standalone: true,
@@ -74,6 +83,12 @@ export interface PlanetSnap {
 })
 export class SolarSystemComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly translate = inject(TranslateService);
+  private readonly api = inject(ApiService);
+  private readonly ngZone = inject(NgZone);
+  skyPeriod: SkyPeriod = 'night';
+  @HostBinding('class.solar-sky--day') skyDay = false;
+  @HostBinding('class.solar-sky--twilight') skyTwilight = false;
+  @HostBinding('class.solar-sky--night') skyNight = true;
 
   @ViewChild('orbitCanvas') orbitCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('threeCanvas') threeCanvas?: ElementRef<HTMLCanvasElement>;
@@ -198,9 +213,19 @@ export class SolarSystemComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly onChartPointerDownEv = (e: PointerEvent) => this.handleChartPointerDown(e);
   private readonly onChartPointerMoveEv = (e: PointerEvent) => this.handleChartPointerMove(e);
   private readonly onChartPointerUpEv = (e: PointerEvent) => this.handleChartPointerUp(e);
+  private observerLat: number | null = null;
+  private observerLon: number | null = null;
+  private skyTickTimer: ReturnType<typeof setInterval> | null = null;
+  private documentSkyClass: string | null = null;
+  private locationSub: Subscription | null = null;
 
   ngOnInit(): void {
     this.translate.onLangChange.subscribe(() => queueMicrotask(() => this.redraw()));
+    const hour = new Date().getHours();
+    this.skyPeriod = hour >= 6 && hour < 20 ? 'day' : 'night';
+    this.updatePageSky();
+    this.resolveObserverLocation();
+    this.skyTickTimer = setInterval(() => this.updatePageSky(), 60_000);
   }
 
   ngAfterViewInit(): void {
@@ -212,6 +237,12 @@ export class SolarSystemComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.skyTickTimer) {
+      clearInterval(this.skyTickTimer);
+      this.skyTickTimer = null;
+    }
+    this.clearDocumentSky();
+    this.locationSub?.unsubscribe();
     cancelAnimationFrame(this.animId);
     cancelAnimationFrame(this.chartPanRedrawRaf);
     this.chartPanRedrawRaf = 0;
@@ -228,6 +259,115 @@ export class SolarSystemComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.redraw();
     }
+  }
+
+  private resolveObserverLocation(): void {
+    if (!navigator.geolocation) {
+      this.useIpLocationFallback();
+      return;
+    }
+    const askGps = (): void => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          this.ngZone.run(() => {
+            this.observerLat = position.coords.latitude;
+            this.observerLon = position.coords.longitude;
+            this.updatePageSky();
+          });
+        },
+        () => {
+          this.ngZone.run(() => this.useIpLocationFallback());
+        },
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+      );
+    };
+    const permissions = navigator.permissions as Permissions | undefined;
+    if (permissions?.query) {
+      permissions.query({ name: 'geolocation' as PermissionName }).then((status) => {
+        if (status.state === 'denied') {
+          this.useIpLocationFallback();
+        } else {
+          askGps();
+        }
+      }, () => askGps());
+    } else {
+      askGps();
+    }
+  }
+
+  private useIpLocationFallback(): void {
+    this.locationSub?.unsubscribe();
+    this.locationSub = this.api.getLocationByIp().subscribe({
+      next: loc => {
+        const lat = typeof loc?.lat === 'number' ? loc.lat : parseFloat(String(loc?.lat ?? ''));
+        const lon = typeof loc?.lon === 'number' ? loc.lon : parseFloat(String(loc?.lon ?? ''));
+        if (loc?.status === 'success' && Number.isFinite(lat) && Number.isFinite(lon)) {
+          this.observerLat = lat;
+          this.observerLon = lon;
+          this.updatePageSky();
+        }
+      },
+      error: () => { /* keep hour-based sky */ }
+    });
+  }
+
+  private updatePageSky(): void {
+    if (this.observerLat != null && this.observerLon != null
+        && Number.isFinite(this.observerLat) && Number.isFinite(this.observerLon)) {
+      this.skyPeriod = this.computeSkyPeriod(this.observerLat, this.observerLon);
+    }
+    this.skyDay = this.skyPeriod === 'day';
+    this.skyTwilight = this.skyPeriod === 'twilight';
+    this.skyNight = this.skyPeriod === 'night';
+    this.syncDocumentSky();
+  }
+
+  /** Same sun-altitude thresholds as Eclipse / Ciel (civil dawn / dusk). */
+  private computeSkyPeriod(lat: number, lon: number): SkyPeriod {
+    try {
+      const observer = new Observer(lat, lon, 0);
+      const at = new Date();
+      const sunEq = Equator(Body.Sun, at, observer, true, true);
+      const sunHor = Horizon(at, observer, sunEq.ra, sunEq.dec, 'normal');
+      const sunAlt = sunHor.altitude;
+      if (sunAlt > -0.833) {
+        return 'day';
+      }
+      if (sunAlt > -6) {
+        return 'twilight';
+      }
+    } catch {
+      /* keep previous period */
+    }
+    return 'night';
+  }
+
+  private syncDocumentSky(): void {
+    const next = `solar-sky-html--${this.skyPeriod}`;
+    if (this.documentSkyClass === next) {
+      return;
+    }
+    this.clearDocumentSky();
+    try {
+      document.documentElement.classList.add(next);
+      document.body.classList.add(next);
+      this.documentSkyClass = next;
+    } catch {
+      this.documentSkyClass = null;
+    }
+  }
+
+  private clearDocumentSky(): void {
+    if (!this.documentSkyClass) {
+      return;
+    }
+    try {
+      document.documentElement.classList.remove(this.documentSkyClass);
+      document.body.classList.remove(this.documentSkyClass);
+    } catch {
+      /* ignore */
+    }
+    this.documentSkyClass = null;
   }
 
   @HostListener('document:fullscreenchange')

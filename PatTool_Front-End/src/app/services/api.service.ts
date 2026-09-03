@@ -329,6 +329,8 @@ export interface ArtisansNearbyItem {
   id?: string;
   source?: ArtisansSource;
   name?: string;
+  /** SIRENE legal / company name when it differs from the shop sign. */
+  legalName?: string;
   activity?: string;
   activityCode?: string;
   tradeKey?: string;
@@ -2801,6 +2803,7 @@ export class ApiService {
     trade?: string;
     page?: number;
     perPage?: number;
+    text?: string;
   }): Observable<ArtisansNearbyResponse> {
     let params = new HttpParams().set('source', options.source);
     if (options.lat != null) {
@@ -2811,6 +2814,9 @@ export class ApiService {
     }
     if (options.q?.trim()) {
       params = params.set('q', options.q.trim());
+    }
+    if (options.text?.trim()) {
+      params = params.set('text', options.text.trim());
     }
     if (options.radiusKm != null) {
       params = params.set('radiusKm', String(options.radiusKm));

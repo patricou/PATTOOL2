@@ -16,6 +16,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Category } from '../../model/Category';
 import { Member } from '../../model/member';
 import { urllink } from '../../model/urllink';
+import { KeycloakService } from '../../keycloak/keycloak.service';
 import { MembersService } from '../../services/members.service';
 import { UrllinkService } from '../../services/urllink.service';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
@@ -102,6 +103,7 @@ export class LinksComponent implements OnInit, OnDestroy {
     private _memberService: MembersService,
     private _urlLinkService: UrllinkService,
     private _iotProxyService: IotProxyService,
+    private _keycloak: KeycloakService,
     private translate: TranslateService,
     private cdr: ChangeDetectorRef
   ) { }
@@ -554,7 +556,7 @@ export class LinksComponent implements OnInit, OnDestroy {
   }
 
   onLinkAnchorClick(u: urllink, event: MouseEvent): void {
-    if (!u.openByProxyLan) {
+    if (!u.openByProxyLan || !this._keycloak.hasIotRole()) {
       return;
     }
     event.preventDefault();
@@ -563,7 +565,7 @@ export class LinksComponent implements OnInit, OnDestroy {
 
   openLinkInBrowser(u: urllink): void {
     const raw = String(u.url || '');
-    if (!u.openByProxyLan) {
+    if (!u.openByProxyLan || !this._keycloak.hasIotRole()) {
       window.open(raw, '_blank', 'noopener,noreferrer');
       return;
     }
@@ -590,6 +592,12 @@ export class LinksComponent implements OnInit, OnDestroy {
   }
 
   private loadProxyTargets(): void {
+    // GET /api/iot-proxies requires the Iot role. Calling it for other users
+    // returns 401/403 and the Keycloak interceptor redirects to login → reload loop.
+    if (!this._keycloak.hasIotRole()) {
+      this.proxyTargets = [];
+      return;
+    }
     this._iotProxyService.list(this.user?.id).subscribe({
       next: (rows) => {
         this.proxyTargets = rows || [];

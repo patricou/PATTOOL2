@@ -3,6 +3,7 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  HostBinding,
   NgZone,
   OnDestroy,
   OnInit,
@@ -23,7 +24,8 @@ import {
   Libration,
   MoonPhase,
   Observer,
-  RAD2DEG
+  RAD2DEG,
+  SearchRiseSet
 } from 'astronomy-engine';
 
 import {
@@ -39,6 +41,7 @@ import {
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 
 type PlayerMode = 'solar' | 'lunar';
+type SkyPeriod = 'day' | 'night' | 'twilight';
 
 interface SkySnapshot {
   date: Date;
@@ -62,6 +65,13 @@ interface AddressSearchResult {
   displayName: string;
 }
 
+interface PlaceSunTimes {
+  sunrise: Date | null;
+  sunset: Date | null;
+  polar: 'day' | 'night' | null;
+  period: SkyPeriod;
+}
+
 @Component({
   selector: 'app-eclipse',
   standalone: true,
@@ -73,6 +83,16 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @ViewChild(TraceViewerModalComponent) traceViewerModalComponent?: TraceViewerModalComponent;
   @ViewChild('eclipseCanvas') canvasRef?: ElementRef<HTMLCanvasElement>;
+
+  @HostBinding('class.eclipse-sky--day') get hostSkyDay(): boolean {
+    return this.skyPeriod === 'day';
+  }
+  @HostBinding('class.eclipse-sky--twilight') get hostSkyTwilight(): boolean {
+    return this.skyPeriod === 'twilight';
+  }
+  @HostBinding('class.eclipse-sky--night') get hostSkyNight(): boolean {
+    return this.skyPeriod === 'night';
+  }
 
   year = new Date().getFullYear();
   /** Set from GPS / IP on load — not a hard-coded city. null until resolved (number inputs reject NaN). */
@@ -119,13 +139,38 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
   playing = false;
   playSpeedMinPerSec = 5;
   snapshot: SkySnapshot | null = null;
+  /** Ambient page sky from real now + selected observer (same rise/set as Astro Compass). */
+  skyPeriod: SkyPeriod = 'night';
+  sunriseAt: Date | null = null;
+  sunsetAt: Date | null = null;
+  polarMode: 'day' | 'night' | null = null;
+
+  compareLat: number | null = null;
+  compareLon: number | null = null;
+  compareHeight: number | null = 0;
+  comparePlaceLabel = '';
+  compareSunriseAt: Date | null = null;
+  compareSunsetAt: Date | null = null;
+  comparePolarMode: 'day' | 'night' | null = null;
+  compareAddressQuery = '';
+  compareAddressResults: AddressSearchResult[] = [];
+  loadingCompareAddressSearch = false;
+  compareAddressSearchError = '';
+  loadingCompareAddress = false;
+  private mapPickTarget: 'here' | 'compare' = 'here';
+
   private playTimer: ReturnType<typeof setInterval> | null = null;
+  private skyTickTimer: ReturnType<typeof setInterval> | null = null;
+  private documentSkyClass: string | null = null;
 
   private subscriptions = new Subscription();
   private readonly coordsChange$ = new Subject<{ lat: number; lon: number }>();
   private addressSub: Subscription | null = null;
   private altitudeSub: Subscription | null = null;
   private addressSearchSub: Subscription | null = null;
+  private compareAddressSub: Subscription | null = null;
+  private compareAddressSearchSub: Subscription | null = null;
+  private compareAltitudeSub: Subscription | null = null;
 
   constructor(
     private readonly api: ApiService,
@@ -144,7 +189,16 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
     );
     // Year lists do not need coordinates; sky / visibility wait for user location.
     this.reloadAll();
+    const hour = new Date().getHours();
+    this.skyPeriod = hour >= 6 && hour < 20 ? 'day' : 'night';
+    this.syncDocumentSky();
     this.useMyLocation();
+    this.skyTickTimer = setInterval(() => {
+      if (!this.playing) {
+        this.updatePageSky();
+        this.cdr.detectChanges();
+      }
+    }, 60_000);
   }
 
   ngAfterViewInit(): void {
@@ -153,10 +207,99 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopPlay();
+    if (this.skyTickTimer) {
+      clearInterval(this.skyTickTimer);
+      this.skyTickTimer = null;
+    }
+    this.clearDocumentSky();
     this.addressSub?.unsubscribe();
     this.altitudeSub?.unsubscribe();
     this.addressSearchSub?.unsubscribe();
+    this.compareAddressSub?.unsubscribe();
+    this.compareAddressSearchSub?.unsubscribe();
+    this.compareAltitudeSub?.unsubscribe();
     this.subscriptions.unsubscribe();
+  }
+
+  get skyPeriodKey(): string {
+    if (this.polarMode === 'day') {
+      return 'ECLIPSE.SKY_POLAR_DAY';
+    }
+    if (this.polarMode === 'night') {
+      return 'ECLIPSE.SKY_POLAR_NIGHT';
+    }
+    if (this.skyPeriod === 'twilight') {
+      return 'ECLIPSE.SKY_TWILIGHT';
+    }
+    if (this.skyPeriod === 'day') {
+      return 'ECLIPSE.SKY_DAY';
+    }
+    return 'ECLIPSE.SKY_NIGHT';
+  }
+
+  formatSkyClock(date: Date | null): string {
+    if (!date || Number.isNaN(date.getTime())) {
+      return '—';
+    }
+    return this.formatLocalTimeOnly(date.toISOString());
+  }
+
+  hasCompareCoords(): boolean {
+    return this.requireCompareCoords() != null;
+  }
+
+  requireCompareCoords(): { lat: number; lon: number; height: number } | null {
+    const lat = this.compareLat;
+    const lon = this.compareLon;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)
+      || (lat as number) < -90 || (lat as number) > 90
+      || (lon as number) < -180 || (lon as number) > 180) {
+      return null;
+    }
+    const height = Number.isFinite(this.compareHeight) ? (this.compareHeight as number) : 0;
+    return { lat: lat as number, lon: lon as number, height };
+  }
+
+  get sunriseDeltaMs(): number | null {
+    if (!this.sunriseAt || !this.compareSunriseAt) {
+      return null;
+    }
+    return this.compareSunriseAt.getTime() - this.sunriseAt.getTime();
+  }
+
+  get sunsetDeltaMs(): number | null {
+    if (!this.sunsetAt || !this.compareSunsetAt) {
+      return null;
+    }
+    return this.compareSunsetAt.getTime() - this.sunsetAt.getTime();
+  }
+
+  formatSkyDelta(ms: number | null): string {
+    if (ms == null || !Number.isFinite(ms)) {
+      return '—';
+    }
+    const roundedMin = Math.round(ms / 60_000);
+    if (roundedMin === 0) {
+      return '0 min';
+    }
+    const sign = roundedMin > 0 ? '+' : '−';
+    const totalMin = Math.abs(roundedMin);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (h > 0 && m > 0) {
+      return `${sign}${h} h ${m} min`;
+    }
+    if (h > 0) {
+      return `${sign}${h} h`;
+    }
+    return `${sign}${m} min`;
+  }
+
+  skyDeltaDirKey(ms: number | null): string {
+    if (ms == null || !Number.isFinite(ms) || Math.abs(ms) < 30_000) {
+      return 'ECLIPSE.SKY_DELTA_SAME';
+    }
+    return ms > 0 ? 'ECLIPSE.SKY_DELTA_LATER' : 'ECLIPSE.SKY_DELTA_EARLIER';
   }
 
   /** Forward geocode: address → GPS, then refresh sky / visibility from that place. */
@@ -219,6 +362,79 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
+  searchCompareAddressByQuery(): void {
+    (document.activeElement as HTMLElement)?.blur?.();
+    const query = this.compareAddressQuery?.trim();
+    if (!query) {
+      this.compareAddressSearchError = 'ECLIPSE.ADDRESS_REQUIRED';
+      this.compareAddressResults = [];
+      return;
+    }
+    this.compareAddressSearchError = '';
+    this.loadingCompareAddressSearch = true;
+    this.compareAddressResults = [];
+    this.compareAddressSearchSub?.unsubscribe();
+    this.compareAddressSearchSub = this.api.geocodeSearch(query).subscribe({
+      next: (data: any[]) => {
+        this.compareAddressResults = (data || []).map((item: any) => ({
+          lat: typeof item.lat === 'number' ? item.lat : parseFloat(item.lat) || 0,
+          lon: typeof item.lon === 'number' ? item.lon : parseFloat(item.lon) || 0,
+          displayName: String(item.displayName || item.display_name || '').trim()
+        })).filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lon)
+          && r.lat >= -90 && r.lat <= 90 && r.lon >= -180 && r.lon <= 180);
+        this.loadingCompareAddressSearch = false;
+        if (this.compareAddressResults.length === 0) {
+          this.compareAddressSearchError = 'ECLIPSE.ADDRESS_NO_RESULTS';
+        } else if (this.compareAddressResults.length === 1) {
+          this.selectCompareAddressResult(this.compareAddressResults[0]);
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.compareAddressResults = [];
+        this.loadingCompareAddressSearch = false;
+        this.compareAddressSearchError = 'ECLIPSE.ADDRESS_ERROR';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  selectCompareAddressResult(result: AddressSearchResult): void {
+    if (!result) {
+      return;
+    }
+    this.setCompareLocation(result.lat, result.lon, result.displayName || '');
+    this.compareAddressQuery = result.displayName || this.compareAddressQuery;
+    this.compareAddressResults = [];
+    this.compareAddressSearchError = '';
+    this.cdr.detectChanges();
+  }
+
+  setCompareLocation(lat: number, lon: number, label?: string): void {
+    this.compareLat = lat;
+    this.compareLon = lon;
+    if (label) {
+      this.comparePlaceLabel = label;
+    }
+    this.resolveCompareAddress(lat, lon);
+    this.refreshCompareSunTimes(new Date());
+  }
+
+  clearCompareLocation(): void {
+    this.compareLat = null;
+    this.compareLon = null;
+    this.compareHeight = 0;
+    this.comparePlaceLabel = '';
+    this.compareSunriseAt = null;
+    this.compareSunsetAt = null;
+    this.comparePolarMode = null;
+    this.compareAddressQuery = '';
+    this.compareAddressResults = [];
+    this.compareAddressSearchError = '';
+    this.compareAddressSub?.unsubscribe();
+    this.compareAltitudeSub?.unsubscribe();
+  }
+
   reloadAll(): void {
     if (!this.isValidYear(this.year)) {
       this.errorMessage = 'ECLIPSE.ERROR_YEAR';
@@ -240,24 +456,39 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.useIpLocationFallback();
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        this.ngZone.run(() => {
-          this.lat = position.coords.latitude;
-          this.lon = position.coords.longitude;
-          this.locatingUser = false;
-          // Altitude: same as Trace Viewer (DEM sea-level via getAllAltitudes), not GPS HAE.
-          this.resolveAddress(this.lat, this.lon);
-          this.checkVisibility();
-          this.refreshSky();
-          this.cdr.detectChanges();
-        });
-      },
-      () => {
-        this.ngZone.run(() => this.useIpLocationFallback());
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
-    );
+    const askGps = (): void => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          this.ngZone.run(() => {
+            this.lat = position.coords.latitude;
+            this.lon = position.coords.longitude;
+            this.locatingUser = false;
+            this.errorMessage = '';
+            // Altitude: same as Trace Viewer (DEM sea-level via getAllAltitudes), not GPS HAE.
+            this.resolveAddress(this.lat, this.lon);
+            this.checkVisibility();
+            this.refreshSky();
+            this.cdr.detectChanges();
+          });
+        },
+        () => {
+          this.ngZone.run(() => this.useIpLocationFallback());
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      );
+    };
+    const permissions = navigator.permissions as Permissions | undefined;
+    if (permissions?.query) {
+      permissions.query({ name: 'geolocation' as PermissionName }).then((status) => {
+        if (status.state === 'denied') {
+          this.useIpLocationFallback();
+        } else {
+          askGps();
+        }
+      }, () => askGps());
+    } else {
+      askGps();
+    }
   }
 
   /** Fallback when browser GPS is unavailable (same IP endpoint as before). */
@@ -266,9 +497,12 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.api.getLocationByIp().subscribe({
         next: loc => {
           this.locatingUser = false;
-          if (loc.status === 'success' && loc.lat != null && loc.lon != null) {
-            this.lat = loc.lat;
-            this.lon = loc.lon;
+          const lat = typeof loc?.lat === 'number' ? loc.lat : parseFloat(String(loc?.lat ?? ''));
+          const lon = typeof loc?.lon === 'number' ? loc.lon : parseFloat(String(loc?.lon ?? ''));
+          if (loc?.status === 'success' && Number.isFinite(lat) && Number.isFinite(lon)) {
+            this.errorMessage = '';
+            this.lat = lat;
+            this.lon = lon;
             this.resolveAddress(this.lat, this.lon);
             this.checkVisibility();
             this.refreshSky();
@@ -288,16 +522,36 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   openTraceViewerForSelection(): void {
-    const coords = this.requireCoords();
-    if (!this.traceViewerModalComponent || !coords) {
+    this.mapPickTarget = 'here';
+    if (!this.traceViewerModalComponent) {
       this.errorMessage = 'ECLIPSE.ERROR_COORDS';
       return;
     }
-    const label = `${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}`;
-    this.traceViewerModalComponent.openAtLocation(coords.lat, coords.lon, label, undefined, true, true);
+    const start = this.requireCoords() ?? this.requireCompareCoords();
+    const lat = start?.lat ?? 0;
+    const lon = start?.lon ?? 0;
+    const label = this.placeLabel || `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    this.traceViewerModalComponent.openAtLocation(lat, lon, label, undefined, true, true);
+  }
+
+  openTraceViewerForCompare(): void {
+    this.mapPickTarget = 'compare';
+    const start = this.requireCompareCoords() ?? this.requireCoords();
+    if (!this.traceViewerModalComponent || !start) {
+      this.errorMessage = 'ECLIPSE.ERROR_COORDS';
+      return;
+    }
+    const label = this.comparePlaceLabel
+      || `${start.lat.toFixed(5)}, ${start.lon.toFixed(5)}`;
+    this.traceViewerModalComponent.openAtLocation(start.lat, start.lon, label, undefined, true, true);
   }
 
   onLocationSelected(location: { lat: number; lng: number; alt?: number | null }): void {
+    if (this.mapPickTarget === 'compare') {
+      this.setCompareLocation(location.lat, location.lng);
+      this.mapPickTarget = 'here';
+      return;
+    }
     this.lat = location.lat;
     this.lon = location.lng;
     // Trace Viewer emits lat/lng only; altitude comes from the same DEM API it uses.
@@ -595,6 +849,57 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  private resolveCompareAddress(lat: number, lon: number): void {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)
+      || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+      this.comparePlaceLabel = '';
+      this.loadingCompareAddress = false;
+      return;
+    }
+    this.loadingCompareAddress = true;
+    this.compareAddressSub?.unsubscribe();
+    this.compareAddressSub = this.api.geocodeReverse(lat, lon).subscribe({
+      next: (data: any) => {
+        this.comparePlaceLabel = this.formatAddress(data);
+        this.loadingCompareAddress = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loadingCompareAddress = false;
+        this.cdr.detectChanges();
+      }
+    });
+    this.fetchCompareAltitude(lat, lon);
+  }
+
+  private fetchCompareAltitude(lat: number, lon: number): void {
+    this.compareAltitudeSub?.unsubscribe();
+    this.compareAltitudeSub = this.api.getAllAltitudes(lat, lon, null).subscribe({
+      next: (response: any) => {
+        const list = response?.altitudes;
+        if (!list || !Array.isArray(list) || list.length === 0) {
+          return;
+        }
+        const raw = list[0].altitude;
+        const altitude = typeof raw === 'number' && Number.isFinite(raw)
+          ? raw
+          : parseFloat(String(raw));
+        if (!Number.isFinite(altitude)) {
+          return;
+        }
+        if (this.compareHeight != null && Math.abs(altitude - this.compareHeight) < 1e-6) {
+          return;
+        }
+        this.compareHeight = altitude;
+        this.refreshCompareSunTimes(new Date());
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        // Keep current compare height on failure.
+      }
+    });
+  }
+
   /** Prefer displayName (address-geocode), then structured Nominatim/Photon fields. */
   private formatAddress(data: any): string {
     if (!data) {
@@ -706,6 +1011,7 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
   refreshSky(): void {
     if (!this.isValidCoords()) {
       this.snapshot = null;
+      this.updatePageSky();
       this.drawPlayer();
       return;
     }
@@ -714,6 +1020,7 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
     } catch {
       this.snapshot = null;
     }
+    this.updatePageSky();
     this.drawPlayer();
   }
 
@@ -834,17 +1141,7 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
     const discBase = Math.min(w, h);
 
     ctx.clearRect(0, 0, w, h);
-    // Sky background
-    const sky = ctx.createRadialGradient(cx, cy, 10, cx, cy, discBase * 0.6);
-    if (this.playerMode === 'solar') {
-      sky.addColorStop(0, '#1a2744');
-      sky.addColorStop(1, '#070b14');
-    } else {
-      sky.addColorStop(0, '#12182a');
-      sky.addColorStop(1, '#05060c');
-    }
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, w, h);
+    this.paintCanvasSky(ctx, w, h, cx, cy, discBase);
 
     const snap = this.snapshot;
     if (!snap) {
@@ -861,7 +1158,7 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.drawLunarEclipse(ctx, cx, cy, discBase * 0.32, snap, w, h);
     }
 
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.fillStyle = this.canvasSkyPeriod() === 'day' ? 'rgba(20,40,70,0.82)' : 'rgba(255,255,255,0.75)';
     ctx.font = '12px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(this.formatSimDateLocal(snap.date), 12, 20);
@@ -869,6 +1166,186 @@ export class EclipseComponent implements OnInit, AfterViewInit, OnDestroy {
     const coords = this.requireCoords();
     if (coords) {
       ctx.fillText(`${coords.lat.toFixed(3)}°, ${coords.lon.toFixed(3)}°`, w - 12, 20);
+    }
+  }
+
+  /** Ambient page sky from real now + selected observer (SearchRiseSet, like Astro Compass). */
+  private updatePageSky(): void {
+    const coords = this.requireCoords();
+    const now = new Date();
+    if (!coords) {
+      this.skyPeriod = 'night';
+      this.sunriseAt = null;
+      this.sunsetAt = null;
+      this.polarMode = null;
+      this.refreshCompareSunTimes(now);
+      this.syncDocumentSky();
+      return;
+    }
+    const here = this.computePlaceSunTimes(coords.lat, coords.lon, coords.height, now);
+    this.skyPeriod = here.period;
+    this.sunriseAt = here.sunrise;
+    this.sunsetAt = here.sunset;
+    this.polarMode = here.polar;
+    this.refreshCompareSunTimes(now);
+    this.syncDocumentSky();
+  }
+
+  private refreshCompareSunTimes(now: Date): void {
+    const coords = this.requireCompareCoords();
+    if (!coords) {
+      this.compareSunriseAt = null;
+      this.compareSunsetAt = null;
+      this.comparePolarMode = null;
+      return;
+    }
+    const times = this.computePlaceSunTimes(coords.lat, coords.lon, coords.height, now);
+    this.compareSunriseAt = times.sunrise;
+    this.compareSunsetAt = times.sunset;
+    this.comparePolarMode = times.polar;
+  }
+
+  private computePlaceSunTimes(lat: number, lon: number, height: number, at: Date): PlaceSunTimes {
+    const observer = new Observer(lat, lon, height);
+    let sunAlt = -90;
+    try {
+      const sunEq = Equator(Body.Sun, at, observer, true, true);
+      const sunHor = Horizon(at, observer, sunEq.ra, sunEq.dec, 'normal');
+      sunAlt = sunHor.altitude;
+    } catch {
+      sunAlt = -90;
+    }
+    let period: SkyPeriod = 'night';
+    if (sunAlt > -0.833) {
+      period = 'day';
+    } else if (sunAlt > -6) {
+      period = 'twilight';
+    }
+    let sunrise: Date | null = null;
+    let sunset: Date | null = null;
+    let polar: 'day' | 'night' | null = null;
+    try {
+      const dayStart = this.solarMidnight(at, lon);
+      const rise = SearchRiseSet(Body.Sun, observer, +1, dayStart, 1.5);
+      const set = SearchRiseSet(Body.Sun, observer, -1, dayStart, 1.5);
+      sunrise = rise?.date ?? null;
+      sunset = set?.date ?? null;
+      if (!sunrise && !sunset) {
+        polar = sunAlt > 0 ? 'day' : 'night';
+      }
+    } catch {
+      sunrise = null;
+      sunset = null;
+    }
+    return { sunrise, sunset, polar, period };
+  }
+
+  /** Approximate local solar midnight at the observer longitude. */
+  private solarMidnight(date: Date, lon: number): Date {
+    const lonMs = (lon / 15) * 3_600_000;
+    const solar = new Date(date.getTime() + lonMs);
+    const startUtc = Date.UTC(solar.getUTCFullYear(), solar.getUTCMonth(), solar.getUTCDate());
+    return new Date(startUtc - lonMs);
+  }
+
+  private syncDocumentSky(): void {
+    const next = `eclipse-sky-html--${this.skyPeriod}`;
+    if (this.documentSkyClass === next) {
+      return;
+    }
+    this.clearDocumentSky();
+    try {
+      document.documentElement.classList.add(next);
+      document.body.classList.add(next);
+      this.documentSkyClass = next;
+    } catch {
+      this.documentSkyClass = null;
+    }
+  }
+
+  private clearDocumentSky(): void {
+    if (!this.documentSkyClass) {
+      return;
+    }
+    try {
+      document.documentElement.classList.remove(this.documentSkyClass);
+      document.body.classList.remove(this.documentSkyClass);
+    } catch {
+      /* ignore */
+    }
+    this.documentSkyClass = null;
+  }
+
+  private canvasSkyPeriod(): SkyPeriod {
+    const alt = this.snapshot?.sunAlt;
+    if (alt == null || !Number.isFinite(alt)) {
+      return this.skyPeriod;
+    }
+    if (alt > -0.833) {
+      return 'day';
+    }
+    if (alt > -6) {
+      return 'twilight';
+    }
+    return 'night';
+  }
+
+  private paintCanvasSky(
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number,
+    cx: number,
+    cy: number,
+    discBase: number
+  ): void {
+    const period = this.canvasSkyPeriod();
+    if (period === 'day') {
+      const sky = ctx.createLinearGradient(0, 0, 0, h);
+      sky.addColorStop(0, '#4ea8d9');
+      sky.addColorStop(0.45, '#87ceeb');
+      sky.addColorStop(1, '#cfeefc');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, w, h);
+      return;
+    }
+    if (period === 'twilight') {
+      const sky = ctx.createLinearGradient(0, 0, 0, h);
+      sky.addColorStop(0, '#0b1a3a');
+      sky.addColorStop(0.4, '#5b2a6e');
+      sky.addColorStop(0.72, '#c45c26');
+      sky.addColorStop(1, '#f4a261');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, w, h);
+      this.drawNightStars(ctx, w, h, 0.28);
+      return;
+    }
+    const sky = ctx.createRadialGradient(cx, cy, 10, cx, cy, discBase * 0.7);
+    sky.addColorStop(0, this.playerMode === 'solar' ? '#1a2744' : '#12182a');
+    sky.addColorStop(1, '#02040c');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h);
+    this.drawNightStars(ctx, w, h, 1);
+  }
+
+  private drawNightStars(ctx: CanvasRenderingContext2D, w: number, h: number, alphaScale: number): void {
+    const coords = this.requireCoords();
+    let s = coords
+      ? (Math.abs((Math.floor(coords.lat * 1000) ^ Math.floor(coords.lon * 1000))) || 1)
+      : 1;
+    const rnd = (): number => {
+      s = (s * 16807) % 2147483647;
+      return (s - 1) / 2147483646;
+    };
+    const n = Math.max(40, Math.floor((w * h) / 4200));
+    for (let i = 0; i < n; i++) {
+      const x = rnd() * w;
+      const y = rnd() * h;
+      const r = rnd() < 0.12 ? 1.35 : rnd() < 0.4 ? 0.95 : 0.55;
+      const a = (0.35 + rnd() * 0.6) * alphaScale;
+      ctx.fillStyle = `rgba(255,255,255,${a})`;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 

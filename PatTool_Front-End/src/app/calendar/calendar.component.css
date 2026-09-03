@@ -162,9 +162,10 @@
 }
 
 :host {
-    --pat-title-bg: linear-gradient(135deg, #e11d48 0%, #be123c 50%, #9f1239 100%);
-    --pat-title-accent: #e11d48;
-    --pat-title-shadow: 0 4px 15px rgba(190, 18, 60, 0.4);
+    --pat-title-bg: linear-gradient(135deg, #1d4ed8 0%, #1e40af 50%, #1e3a8a 100%);
+    --pat-title-accent: #1d4ed8;
+    --pat-page-bg: color-mix(in srgb, #1d4ed8 8%, #ffffff);
+    --pat-title-shadow: 0 4px 15px rgba(29, 78, 216, 0.4);
     --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect x='4' y='8' width='32' height='28' rx='2' fill='none' stroke='white' stroke-opacity='0.18'/%3E%3Cpath d='M4 16h32M16 8v28M24 8v28' stroke='white' stroke-opacity='0.12'/%3E%3C/svg%3E");
     display: block;
     overflow: visible;
@@ -601,12 +602,33 @@
     }
 }
 
-/* FullCalendar (scoped to this page): variables + barre d’outils plus compacte */
+/* FullCalendar : fond jaune très clair, aujourd’hui un peu plus marqué, traits noirs */
 :host ::ng-deep .calendar-fc-wrap .fc {
-    --fc-border-color: #dee2e6;
-    --fc-page-bg-color: #fff;
-    --fc-neutral-bg-color: #f8f9fa;
+    --fc-border-color: #1a1a1a;
+    --fc-page-bg-color: #fffef5;
+    --fc-today-bg-color: #fff3b0;
+    --fc-neutral-bg-color: #fff8dc;
     --fc-small-font-size: 0.78em;
+}
+
+:host ::ng-deep .calendar-fc-wrap .fc .fc-scrollgrid,
+:host ::ng-deep .calendar-fc-wrap .fc td,
+:host ::ng-deep .calendar-fc-wrap .fc th {
+    border-color: #1a1a1a;
+}
+
+:host ::ng-deep .calendar-fc-wrap .fc .fc-daygrid-day,
+:host ::ng-deep .calendar-fc-wrap .fc .fc-timegrid-col {
+    background-color: #fffef5;
+}
+
+:host ::ng-deep .calendar-fc-wrap .fc .fc-col-header-cell {
+    background-color: color-mix(in srgb, #1d4ed8 4%, #ffffff);
+}
+
+:host ::ng-deep .calendar-fc-wrap .fc .fc-daygrid-day.fc-day-today,
+:host ::ng-deep .calendar-fc-wrap .fc .fc-timegrid-col.fc-day-today {
+    background-color: #fff3b0;
 }
 
 :host ::ng-deep .calendar-fc-wrap .fc .fc-toolbar.fc-header-toolbar {

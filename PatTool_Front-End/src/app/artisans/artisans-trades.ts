@@ -39,6 +39,22 @@ export const NAF_ACTIVITY_LABELS: Record<string, string> = {
   '95.29Z': 'Réparation d’autres biens personnels',
   '96.02A': 'Coiffure',
   '96.02B': 'Soins de beauté',
+  '96.01A': 'Blanchisserie-teinturerie de détail',
+  '96.01B': 'Blanchisserie-teinturerie de gros',
+  '86.21Z': 'Activité des médecins généralistes',
+  '86.22A': 'Activités de radiodiagnostic et de radiothérapie',
+  '86.23Z': 'Pratique dentaire',
+  '75.00Z': 'Activités vétérinaires',
+  '68.31Z': 'Agences immobilières',
+  '64.19Z': 'Autres intermédiations monétaires',
+  '47.41Z': 'Commerce d’ordinateurs, d’unités périphériques et de logiciels',
+  '47.42Z': 'Commerce de matériels de télécommunication',
+  '47.43Z': 'Commerce d’équipements audio/vidéo',
+  '47.61Z': 'Commerce de livres',
+  '47.62Z': 'Commerce de journaux et papeterie',
+  '47.64Z': 'Commerce d’articles de sport',
+  '47.72Z': 'Commerce de chaussures',
+  '47.77Z': 'Commerce d’articles d’horlogerie et de bijouterie',
   '10.71C': 'Boulangerie-pâtisserie',
   '10.71D': 'Pâtisserie',
   '23.12Z': 'Façonnage et transformation du verre',
@@ -80,9 +96,9 @@ export const NAF_TRADE_KEYS: Record<string, string> = {
   '43.21B': 'electrician',
   '43.22A': 'plumber',
   '43.22B': 'heating',
-  '43.29A': 'roofer',
+  '43.29A': 'isolation',
   '43.29B': 'electrician',
-  '43.31Z': 'mason',
+  '43.31Z': 'plasterer',
   '43.32A': 'carpenter',
   '43.32B': 'locksmith',
   '43.32C': 'carpenter',
@@ -104,6 +120,7 @@ export const NAF_TRADE_KEYS: Record<string, string> = {
   '81.30Z': 'gardener',
   '95.21Z': 'appliance',
   '96.02A': 'hairdresser',
+  '96.02B': 'beauty',
   '10.71C': 'baker',
   '10.71D': 'baker',
   '23.12Z': 'glazier',
@@ -125,15 +142,102 @@ export const NAF_TRADE_KEYS: Record<string, string> = {
   '47.54Z': 'appliance',
   '47.59A': 'furniture',
   '47.71Z': 'clothing',
+  '47.72Z': 'shoes',
   '47.73Z': 'pharmacy',
   '47.76Z': 'florist',
+  '47.77Z': 'jewelry',
   '47.78A': 'optician',
+  '47.41Z': 'electronics',
+  '47.42Z': 'electronics',
+  '47.43Z': 'electronics',
+  '47.61Z': 'books',
+  '47.62Z': 'books',
+  '47.64Z': 'sports',
   '55.10Z': 'hotel',
   '56.10A': 'restaurant',
   '56.10B': 'restaurant',
   '56.10C': 'restaurant',
-  '56.30Z': 'cafe'
+  '56.30Z': 'cafe',
+  '64.19Z': 'bank',
+  '68.31Z': 'realestate',
+  '75.00Z': 'veterinary',
+  '86.21Z': 'doctor',
+  '86.22A': 'doctor',
+  '86.23Z': 'dentist',
+  '96.01A': 'laundry',
+  '96.01B': 'laundry'
 };
+
+export const BASE_TRADES = [
+  'plumber',
+  'electrician',
+  'heating',
+  'painter',
+  'carpenter',
+  'mason',
+  'roofer',
+  'locksmith',
+  'tiler',
+  'glazier',
+  'gardener',
+  'cleaner',
+  'hairdresser',
+  'baker',
+  'butcher',
+  'mechanic',
+  'appliance',
+  'supermarket',
+  'grocery',
+  'shop',
+  'hardware',
+  'clothing',
+  'furniture',
+  'florist',
+  'pharmacy',
+  'optician',
+  'restaurant',
+  'cafe',
+  'hotel',
+  'fuel'
+] as const;
+
+export const SIRENE_EXTRA_TRADES = [
+  'isolation',
+  'plasterer',
+  'beauty',
+  'dentist',
+  'doctor',
+  'veterinary',
+  'realestate',
+  'laundry',
+  'bank',
+  'shoes',
+  'electronics',
+  'books',
+  'sports',
+  'jewelry'
+] as const;
+
+export const OSM_EXTRA_TRADES = [
+  'beauty',
+  'dentist',
+  'doctor',
+  'veterinary',
+  'realestate',
+  'laundry',
+  'bank',
+  'post',
+  'shoes',
+  'electronics',
+  'books',
+  'sports',
+  'jewelry',
+  'bar',
+  'fastfood'
+] as const;
+
+export const SIRENE_TRADES = ['all', ...BASE_TRADES, ...SIRENE_EXTRA_TRADES] as const;
+export const OSM_TRADES = ['all', ...BASE_TRADES, ...OSM_EXTRA_TRADES] as const;
 
 export const TRADE_NAF_CODES: Record<string, string[]> = {
   plumber: ['43.22A'],
@@ -141,7 +245,7 @@ export const TRADE_NAF_CODES: Record<string, string[]> = {
   heating: ['43.22B'],
   painter: ['43.34Z'],
   carpenter: ['43.32A', '43.32B', '16.23Z'],
-  mason: ['43.99C', '43.31Z'],
+  mason: ['43.99C'],
   roofer: ['43.91A', '43.91B', '43.99A'],
   locksmith: ['43.32B'],
   gardener: ['81.30Z'],
@@ -165,7 +269,21 @@ export const TRADE_NAF_CODES: Record<string, string[]> = {
   restaurant: ['56.10A', '56.10B', '56.10C'],
   cafe: ['56.30Z'],
   hotel: ['55.10Z'],
-  fuel: ['47.30Z']
+  fuel: ['47.30Z'],
+  isolation: ['43.29A'],
+  plasterer: ['43.31Z'],
+  beauty: ['96.02B'],
+  dentist: ['86.23Z'],
+  doctor: ['86.21Z', '86.22A'],
+  veterinary: ['75.00Z'],
+  realestate: ['68.31Z'],
+  laundry: ['96.01A', '96.01B'],
+  bank: ['64.19Z'],
+  shoes: ['47.72Z'],
+  electronics: ['47.41Z', '47.42Z', '47.43Z'],
+  books: ['47.61Z', '47.62Z'],
+  sports: ['47.64Z'],
+  jewelry: ['47.77Z']
 };
 
 export const OSM_ACTIVITY_LABELS: Record<string, string> = {
@@ -181,6 +299,7 @@ export const OSM_ACTIVITY_LABELS: Record<string, string> = {
   locksmith: 'Serrurerie',
   gardener: 'Paysagiste',
   hairdresser: 'Coiffure',
+  beauty: 'Soins de beauté',
   bakery: 'Boulangerie',
   car_repair: 'Garage automobile',
   appliance: 'Électroménager',
@@ -200,6 +319,11 @@ export const OSM_ACTIVITY_LABELS: Record<string, string> = {
   mall: 'Centre commercial',
   clothes: 'Habillement',
   shoes: 'Chaussures',
+  electronics: 'Électronique',
+  computer: 'Informatique',
+  books: 'Librairie',
+  sports: 'Sport',
+  jewelry: 'Bijouterie',
   furniture: 'Meubles',
   doityourself: 'Bricolage',
   hardware: 'Quincaillerie',
@@ -213,7 +337,16 @@ export const OSM_ACTIVITY_LABELS: Record<string, string> = {
   bar: 'Bar',
   pub: 'Bar',
   hotel: 'Hôtel',
-  fuel: 'Station-service'
+  fuel: 'Station-service',
+  dentist: 'Dentiste',
+  doctors: 'Médecin',
+  clinic: 'Clinique',
+  veterinary: 'Vétérinaire',
+  bank: 'Banque',
+  post_office: 'La Poste',
+  estate_agent: 'Agence immobilière',
+  laundry: 'Pressing / laverie',
+  dry_cleaning: 'Pressing'
 };
 
 export const OSM_TRADE_KEYS: Record<string, string> = {
@@ -229,6 +362,7 @@ export const OSM_TRADE_KEYS: Record<string, string> = {
   locksmith: 'locksmith',
   gardener: 'gardener',
   hairdresser: 'hairdresser',
+  beauty: 'beauty',
   bakery: 'baker',
   car_repair: 'mechanic',
   appliance: 'appliance',
@@ -248,8 +382,14 @@ export const OSM_TRADE_KEYS: Record<string, string> = {
   department_store: 'shop',
   mall: 'shop',
   clothes: 'clothing',
-  shoes: 'clothing',
+  shoes: 'shoes',
   furniture: 'furniture',
+  electronics: 'electronics',
+  computer: 'electronics',
+  books: 'books',
+  newsagent: 'books',
+  sports: 'sports',
+  jewelry: 'jewelry',
   doityourself: 'hardware',
   hardware: 'hardware',
   florist: 'florist',
@@ -257,12 +397,21 @@ export const OSM_TRADE_KEYS: Record<string, string> = {
   pharmacy: 'pharmacy',
   optician: 'optician',
   restaurant: 'restaurant',
-  fast_food: 'restaurant',
+  fast_food: 'fastfood',
   cafe: 'cafe',
-  bar: 'cafe',
-  pub: 'cafe',
+  bar: 'bar',
+  pub: 'bar',
   hotel: 'hotel',
-  fuel: 'fuel'
+  fuel: 'fuel',
+  dentist: 'dentist',
+  doctors: 'doctor',
+  clinic: 'doctor',
+  veterinary: 'veterinary',
+  bank: 'bank',
+  post_office: 'post',
+  estate_agent: 'realestate',
+  laundry: 'laundry',
+  dry_cleaning: 'laundry'
 };
 
 export function normalizeNaf(code: string | undefined | null): string {
@@ -303,11 +452,17 @@ export function tradeKeyFromCode(code: string | undefined | null): string {
   if (naf.startsWith('43.34') || naf.startsWith('43.39')) {
     return 'painter';
   }
-  if (naf.startsWith('43.91') || naf.startsWith('43.99A') || naf.startsWith('43.29A')) {
+  if (naf.startsWith('43.91') || naf.startsWith('43.99A')) {
     return 'roofer';
   }
+  if (naf.startsWith('43.29A')) {
+    return 'isolation';
+  }
+  if (naf.startsWith('43.31')) {
+    return 'plasterer';
+  }
   if (naf.startsWith('43.99') || naf.startsWith('43.11') || naf.startsWith('43.12')
-      || naf.startsWith('43.31') || naf.startsWith('41.')) {
+      || naf.startsWith('41.')) {
     return 'mason';
   }
   if (naf.startsWith('47.11A') || naf.startsWith('47.11B') || naf.startsWith('47.11C')) {
@@ -331,8 +486,11 @@ export function tradeKeyFromCode(code: string | undefined | null): string {
   if (naf.startsWith('47.59')) {
     return 'furniture';
   }
-  if (naf.startsWith('47.71') || naf.startsWith('47.72')) {
+  if (naf.startsWith('47.71')) {
     return 'clothing';
+  }
+  if (naf.startsWith('47.72')) {
+    return 'shoes';
   }
   if (naf.startsWith('47.73')) {
     return 'pharmacy';

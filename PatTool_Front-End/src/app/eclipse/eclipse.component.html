@@ -10,6 +10,165 @@
     {{ 'ECLIPSE.SUBTITLE' | translate }}
   </p>
 
+  <div class="eclipse-sky-info">
+    <div class="eclipse-sky-info__row">
+      <span class="badge"
+            [class.bg-info]="skyPeriod === 'day'"
+            [class.bg-warning]="skyPeriod === 'twilight'"
+            [class.bg-dark]="skyPeriod === 'night'"
+            [class.text-dark]="skyPeriod !== 'night'">
+        {{ skyPeriodKey | translate }}
+      </span>
+      <strong>{{ 'ECLIPSE.SKY_POS1' | translate }}</strong>
+      <span *ngIf="isValidCoords() && !polarMode">
+        <span class="eclipse-sky-info__muted">{{ 'ECLIPSE.SKY_SUNRISE' | translate }}:</span>
+        <strong class="ms-1">{{ formatSkyClock(sunriseAt) }}</strong>
+      </span>
+      <span *ngIf="isValidCoords() && !polarMode">
+        <span class="eclipse-sky-info__muted">{{ 'ECLIPSE.SKY_SUNSET' | translate }}:</span>
+        <strong class="ms-1">{{ formatSkyClock(sunsetAt) }}</strong>
+      </span>
+      <span *ngIf="isValidCoords()">
+        <span class="eclipse-sky-info__muted">{{ 'ECLIPSE.SKY_POSITION' | translate }}:</span>
+        <strong class="ms-1">{{ lat | number:'1.4-4' }}°, {{ lon | number:'1.4-4' }}°</strong>
+        <span class="ms-1" *ngIf="placeLabel">({{ placeLabel }})</span>
+      </span>
+      <span *ngIf="!isValidCoords() && locatingUser" class="eclipse-sky-info__muted">
+        <i class="fa fa-spinner fa-spin me-1"></i>{{ 'ECLIPSE.LOCATING' | translate }}
+      </span>
+    </div>
+
+    <div class="eclipse-sky-compare">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-7 col-lg-8">
+          <label class="form-label small mb-0" for="eclipsePos1Address">{{ 'ECLIPSE.SKY_POS1_ADDRESS' | translate }}</label>
+          <input id="eclipsePos1Address"
+                 type="text"
+                 class="form-control form-control-sm"
+                 [(ngModel)]="addressQuery"
+                 [placeholder]="'ECLIPSE.ADDRESS_PLACEHOLDER' | translate"
+                 (keydown.enter)="$event.preventDefault(); searchAddressByQuery()"
+                 autocomplete="off" />
+        </div>
+        <div class="col-12 col-md-5 col-lg-4 d-flex flex-wrap gap-1">
+          <button type="button" class="btn btn-outline-primary btn-sm"
+                  (click)="searchAddressByQuery()"
+                  [disabled]="loadingAddressSearch">
+            <i class="fa fa-search me-1" [class.fa-spin]="loadingAddressSearch"></i>
+            {{ 'ECLIPSE.ADDRESS_SEARCH_BTN' | translate }}
+          </button>
+          <button type="button" class="btn btn-outline-primary btn-sm"
+                  (click)="openTraceViewerForSelection()">
+            <i class="fa fa-map me-1"></i>
+            {{ 'ECLIPSE.SKY_POS1_MAP' | translate }}
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  (click)="useMyLocation()"
+                  [disabled]="locatingUser">
+            <i class="fa fa-crosshairs me-1" [class.fa-spin]="locatingUser"></i>
+            {{ 'ECLIPSE.USE_MY_LOCATION' | translate }}
+          </button>
+        </div>
+      </div>
+      <p class="small mb-0 mt-1 eclipse-sky-info__muted">{{ 'ECLIPSE.SKY_POS1_HINT' | translate }}</p>
+      <div *ngIf="addressSearchError" class="small text-danger mt-1">
+        {{ addressSearchError | translate }}
+      </div>
+      <ul *ngIf="addressResults.length" class="list-group eclipse-address-results mt-1 mb-0">
+        <li *ngFor="let r of addressResults"
+            class="list-group-item list-group-item-action"
+            (click)="selectAddressResult(r)"
+            role="button"
+            tabindex="0"
+            (keydown.enter)="selectAddressResult(r)">
+          {{ r.displayName }}
+          <span class="text-muted ms-1">({{ r.lat | number:'1.4-4' }}, {{ r.lon | number:'1.4-4' }})</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="eclipse-sky-compare">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-7 col-lg-8">
+          <label class="form-label small mb-0" for="eclipseCompareAddress">{{ 'ECLIPSE.SKY_COMPARE_ADDRESS' | translate }}</label>
+          <input id="eclipseCompareAddress"
+                 type="text"
+                 class="form-control form-control-sm"
+                 [(ngModel)]="compareAddressQuery"
+                 [placeholder]="'ECLIPSE.ADDRESS_PLACEHOLDER' | translate"
+                 (keydown.enter)="$event.preventDefault(); searchCompareAddressByQuery()"
+                 autocomplete="off" />
+        </div>
+        <div class="col-12 col-md-5 col-lg-4 d-flex flex-wrap gap-1">
+          <button type="button" class="btn btn-outline-primary btn-sm"
+                  (click)="searchCompareAddressByQuery()"
+                  [disabled]="loadingCompareAddressSearch">
+            <i class="fa fa-search me-1" [class.fa-spin]="loadingCompareAddressSearch"></i>
+            {{ 'ECLIPSE.SKY_COMPARE' | translate }}
+          </button>
+          <button type="button" class="btn btn-outline-primary btn-sm"
+                  (click)="openTraceViewerForCompare()">
+            <i class="fa fa-map me-1"></i>
+            {{ 'ECLIPSE.SKY_COMPARE_MAP' | translate }}
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  *ngIf="hasCompareCoords()"
+                  (click)="clearCompareLocation()">
+            {{ 'ECLIPSE.SKY_COMPARE_CLEAR' | translate }}
+          </button>
+        </div>
+      </div>
+      <p class="small mb-0 mt-1 eclipse-sky-info__muted">{{ 'ECLIPSE.SKY_COMPARE_HINT' | translate }}</p>
+      <div *ngIf="compareAddressSearchError" class="small text-danger mt-1">
+        {{ compareAddressSearchError | translate }}
+      </div>
+      <ul *ngIf="compareAddressResults.length" class="list-group eclipse-address-results mt-1 mb-0">
+        <li *ngFor="let r of compareAddressResults"
+            class="list-group-item list-group-item-action"
+            (click)="selectCompareAddressResult(r)"
+            role="button"
+            tabindex="0"
+            (keydown.enter)="selectCompareAddressResult(r)">
+          {{ r.displayName }}
+          <span class="text-muted ms-1">({{ r.lat | number:'1.4-4' }}, {{ r.lon | number:'1.4-4' }})</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="eclipse-sky-info__row" *ngIf="hasCompareCoords()">
+      <strong>{{ 'ECLIPSE.SKY_POS2' | translate }}</strong>
+      <span *ngIf="loadingCompareAddress" class="eclipse-sky-info__muted">
+        <i class="fa fa-spinner fa-spin me-1"></i>{{ 'ECLIPSE.ADDRESS_LOADING' | translate }}
+      </span>
+      <span *ngIf="!comparePolarMode">
+        <span class="eclipse-sky-info__muted">{{ 'ECLIPSE.SKY_SUNRISE' | translate }}:</span>
+        <strong class="ms-1">{{ formatSkyClock(compareSunriseAt) }}</strong>
+      </span>
+      <span *ngIf="!comparePolarMode">
+        <span class="eclipse-sky-info__muted">{{ 'ECLIPSE.SKY_SUNSET' | translate }}:</span>
+        <strong class="ms-1">{{ formatSkyClock(compareSunsetAt) }}</strong>
+      </span>
+      <span *ngIf="comparePolarMode === 'day'" class="badge bg-warning text-dark">{{ 'ECLIPSE.SKY_POLAR_DAY' | translate }}</span>
+      <span *ngIf="comparePolarMode === 'night'" class="badge bg-dark">{{ 'ECLIPSE.SKY_POLAR_NIGHT' | translate }}</span>
+      <span>
+        <strong>{{ compareLat | number:'1.4-4' }}°, {{ compareLon | number:'1.4-4' }}°</strong>
+        <span class="ms-1" *ngIf="comparePlaceLabel">({{ comparePlaceLabel }})</span>
+      </span>
+    </div>
+    <div class="eclipse-sky-delta" *ngIf="hasCompareCoords()">
+      <span>
+        <span class="eclipse-sky-info__muted">{{ 'ECLIPSE.SKY_DELTA_SUNRISE' | translate }}:</span>
+        <strong class="ms-1">{{ formatSkyDelta(sunriseDeltaMs) }}</strong>
+        <span class="ms-1" *ngIf="sunriseDeltaMs != null">({{ skyDeltaDirKey(sunriseDeltaMs) | translate }})</span>
+      </span>
+      <span>
+        <span class="eclipse-sky-info__muted">{{ 'ECLIPSE.SKY_DELTA_SUNSET' | translate }}:</span>
+        <strong class="ms-1">{{ formatSkyDelta(sunsetDeltaMs) }}</strong>
+        <span class="ms-1" *ngIf="sunsetDeltaMs != null">({{ skyDeltaDirKey(sunsetDeltaMs) | translate }})</span>
+      </span>
+    </div>
+  </div>
+
   <div *ngIf="errorMessage" class="alert alert-warning d-flex align-items-center" role="alert">
     <i class="fa fa-exclamation-triangle me-2"></i>
     <span>{{ errorMessage | translate }}</span>
@@ -190,6 +349,13 @@
           </div>
 
           <div *ngIf="snapshot as s" class="small eclipse-sky-stats">
+            <div>
+              <span class="text-muted">{{ skyPeriodKey | translate }}</span>
+              <span *ngIf="!polarMode">
+                · <span class="text-muted">{{ 'ECLIPSE.SKY_SUNRISE' | translate }}:</span> {{ formatSkyClock(sunriseAt) }}
+                · <span class="text-muted">{{ 'ECLIPSE.SKY_SUNSET' | translate }}:</span> {{ formatSkyClock(sunsetAt) }}
+              </span>
+            </div>
             <div><span class="text-muted">{{ 'ECLIPSE.SEP' | translate }}:</span> {{ s.separationDeg | number:'1.3-3' }}°</div>
             <div><span class="text-muted">{{ 'ECLIPSE.SUN_RAD' | translate }}:</span> {{ s.sunRadiusDeg | number:'1.3-3' }}°</div>
             <div><span class="text-muted">{{ 'ECLIPSE.MOON_RAD' | translate }}:</span> {{ s.moonRadiusDeg | number:'1.3-3' }}°</div>

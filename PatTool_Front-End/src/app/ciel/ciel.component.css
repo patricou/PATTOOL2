@@ -5,6 +5,295 @@
   --pat-page-bg: transparent;
   --pat-title-shadow: 0 4px 15px rgba(15, 23, 42, 0.5);
   --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Ccircle cx='12' cy='18' r='1.1' fill='white' opacity='0.35'/%3E%3Ccircle cx='48' cy='10' r='0.8' fill='white' opacity='0.25'/%3E%3Ccircle cx='66' cy='42' r='1.2' fill='white' opacity='0.3'/%3E%3Ccircle cx='28' cy='58' r='0.9' fill='white' opacity='0.22'/%3E%3C/svg%3E");
+  display: block;
+  position: relative;
+  min-height: calc(100vh - 80px);
+  transition: background-color 0.6s ease, color 0.4s ease;
+}
+
+:host::before,
+:host::after {
+  content: "";
+  position: absolute;
+  top: -100vh;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+:host::before {
+  background-image:
+    radial-gradient(1px 1px at 6% 10%, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 18% 34%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 31% 6%, rgba(210, 230, 255, 0.9), transparent),
+    radial-gradient(1.4px 1.4px at 44% 48%, #fff, transparent),
+    radial-gradient(1px 1px at 57% 16%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.1px 1.1px at 69% 38%, rgba(200, 220, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 82% 8%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.3px 1.3px at 93% 28%, #fff, transparent),
+    radial-gradient(1px 1px at 9% 58%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1.2px 1.2px at 24% 76%, rgba(230, 240, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 38% 92%, rgba(255, 255, 255, 0.65), transparent),
+    radial-gradient(1.5px 1.5px at 52% 68%, #fff, transparent),
+    radial-gradient(1px 1px at 66% 88%, rgba(200, 220, 255, 0.8), transparent),
+    radial-gradient(1.2px 1.2px at 78% 62%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 91% 84%, rgba(255, 255, 255, 0.7), transparent);
+  background-size: 220px 220px;
+}
+
+:host::after {
+  background-image:
+    radial-gradient(1.7px 1.7px at 14% 22%, #fff, transparent),
+    radial-gradient(2.1px 2.1px at 36% 58%, rgba(255, 232, 180, 0.95), transparent),
+    radial-gradient(1.5px 1.5px at 58% 12%, rgba(180, 210, 255, 0.95), transparent),
+    radial-gradient(1.9px 1.9px at 76% 44%, #fff, transparent),
+    radial-gradient(1.4px 1.4px at 22% 78%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(2.3px 2.3px at 88% 86%, rgba(255, 214, 120, 0.92), transparent);
+  background-size: 360px 360px;
+}
+
+:host.ciel-sky--day {
+  --pat-title-bg: linear-gradient(135deg, #3b82c4 0%, #2563a8 50%, #1e4d8c 100%);
+  --pat-title-accent: #2563a8;
+  --pat-title-shadow: 0 4px 15px rgba(37, 99, 168, 0.35);
+  --pat-title-pattern: none;
+  --pat-page-bg: #87ceeb;
+  color: #16324d;
+  background-color: #87ceeb;
+  background-image: linear-gradient(180deg, #5eb6e0 0%, #87ceeb 42%, #c5e8f7 100%);
+  box-shadow: 0 -100vh 0 0 #5eb6e0;
+}
+
+:host.ciel-sky--twilight {
+  --pat-title-bg: linear-gradient(135deg, #5b2a6e 0%, #c45c26 55%, #7c2d12 100%);
+  --pat-title-accent: #c45c26;
+  --pat-title-shadow: 0 4px 15px rgba(124, 45, 18, 0.45);
+  --bs-body-color: #f8ead8;
+  --bs-body-bg: #241428;
+  --bs-secondary-color: rgba(248, 234, 216, 0.72);
+  --bs-secondary-bg: #3a2438;
+  --bs-tertiary-bg: #2a1830;
+  --bs-border-color: rgba(255, 214, 180, 0.22);
+  --bs-link-color: #ffd7a8;
+  --bs-link-hover-color: #ffe8cc;
+  color-scheme: dark;
+  color: #f8ead8;
+  background-color: #2c1a40;
+  background-image: linear-gradient(180deg, #0b1a3a 0%, #5b2a6e 38%, #c45c26 78%, #f4a261 100%);
+  box-shadow: 0 -100vh 0 0 #0b1a3a;
+}
+
+:host.ciel-sky--twilight::before,
+:host.ciel-sky--twilight::after {
+  opacity: 0.35;
+}
+
+:host.ciel-sky--night {
+  --pat-title-bg: linear-gradient(135deg, #1c1917 0%, #0c0a09 50%, #000000 100%);
+  --pat-title-accent: #1c1917;
+  --bs-body-color: #dce7fb;
+  --bs-body-bg: #121a2e;
+  --bs-secondary-color: rgba(220, 231, 251, 0.72);
+  --bs-secondary-bg: #1a2438;
+  --bs-tertiary-bg: #0e1628;
+  --bs-border-color: rgba(255, 255, 255, 0.16);
+  --bs-link-color: #8ec8ff;
+  --bs-link-hover-color: #c5e0ff;
+  color-scheme: dark;
+  color: #dce7fb;
+  background-color: #02040c;
+  box-shadow: 0 -100vh 0 0 #02040c;
+}
+
+:host.ciel-sky--night::before {
+  opacity: 0.9;
+}
+
+:host.ciel-sky--night::after {
+  opacity: 0.88;
+  animation: ciel-star-twinkle 5.5s ease-in-out infinite;
+}
+
+@keyframes ciel-star-twinkle {
+  0%,
+  100% { opacity: 0.62; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host.ciel-sky--night::after {
+    animation: none;
+  }
+}
+
+:host .pat-title,
+:host .ciel-page {
+  position: relative;
+  z-index: 1;
+}
+
+:host.ciel-sky--night .ciel-page > p.text-muted,
+:host.ciel-sky--twilight .ciel-page > p.text-muted {
+  color: rgba(220, 231, 251, 0.72) !important;
+}
+
+:host.ciel-sky--twilight .ciel-page > p.text-muted {
+  color: rgba(248, 234, 216, 0.72) !important;
+}
+
+:host.ciel-sky--day .ciel-page > p.text-muted {
+  color: #2c5282 !important;
+}
+
+:host.ciel-sky--day .ciel-page .card,
+:host.ciel-sky--day .ciel-page .card-header {
+  background: rgba(94, 182, 224, 0.28);
+  border-color: rgba(30, 77, 140, 0.22);
+  box-shadow: none !important;
+  color: #16324d;
+}
+
+:host.ciel-sky--day .ciel-page .card-body,
+:host.ciel-sky--day .ciel-page .card-title,
+:host.ciel-sky--day .ciel-page h5,
+:host.ciel-sky--day .ciel-page h6,
+:host.ciel-sky--day .ciel-page .form-label {
+  color: #16324d;
+}
+
+:host.ciel-sky--day .ciel-page .form-control,
+:host.ciel-sky--day .ciel-page .form-select {
+  background-color: #cfeaf6;
+  border-color: rgba(30, 77, 140, 0.35);
+  color: #12314a;
+}
+
+:host.ciel-sky--day .ciel-page .form-control::placeholder {
+  color: #0d2b4a !important;
+  opacity: 1;
+}
+
+:host.ciel-sky--day .ciel-page input::-webkit-input-placeholder {
+  color: #0d2b4a !important;
+  opacity: 1;
+}
+
+:host.ciel-sky--day .ciel-page .list-group-item {
+  background-color: rgba(135, 206, 235, 0.35);
+  border-color: rgba(30, 77, 140, 0.16);
+  color: #16324d;
+}
+
+:host.ciel-sky--night .ciel-page .card,
+:host.ciel-sky--twilight .ciel-page .card,
+:host.ciel-sky--night .ciel-page .card-header,
+:host.ciel-sky--twilight .ciel-page .card-header {
+  background: rgba(8, 14, 28, 0.82);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: none !important;
+  color: #dce7fb;
+}
+
+:host.ciel-sky--twilight .ciel-page .card,
+:host.ciel-sky--twilight .ciel-page .card-header {
+  background: rgba(28, 16, 36, 0.78);
+  border-color: rgba(255, 214, 180, 0.18);
+  color: #f8ead8;
+}
+
+:host.ciel-sky--night .ciel-page .text-muted,
+:host.ciel-sky--twilight .ciel-page .text-muted {
+  color: rgba(220, 231, 251, 0.68) !important;
+}
+
+:host.ciel-sky--twilight .ciel-page .text-muted {
+  color: rgba(248, 234, 216, 0.72) !important;
+}
+
+:host.ciel-sky--night .ciel-page .form-control,
+:host.ciel-sky--night .ciel-page .form-select,
+:host.ciel-sky--twilight .ciel-page .form-control,
+:host.ciel-sky--twilight .ciel-page .form-select {
+  background-color: #121a2e;
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #e8eef8;
+  color-scheme: dark;
+}
+
+:host.ciel-sky--twilight .ciel-page .form-control,
+:host.ciel-sky--twilight .ciel-page .form-select {
+  background-color: #2a1830;
+  border-color: rgba(255, 214, 180, 0.28);
+  color: #f8ead8;
+}
+
+:host.ciel-sky--night .ciel-page .form-control::placeholder,
+:host.ciel-sky--twilight .ciel-page .form-control::placeholder {
+  color: rgba(220, 231, 251, 0.75) !important;
+  opacity: 1;
+}
+
+:host.ciel-sky--night .ciel-page input::-webkit-input-placeholder,
+:host.ciel-sky--twilight .ciel-page input::-webkit-input-placeholder {
+  color: rgba(220, 231, 251, 0.75) !important;
+  opacity: 1;
+}
+
+:host.ciel-sky--night .ciel-page .btn-outline-secondary,
+:host.ciel-sky--twilight .ciel-page .btn-outline-secondary {
+  color: #dce7fb;
+  background-color: rgba(12, 18, 34, 0.72);
+  border-color: rgba(220, 231, 251, 0.32);
+}
+
+:host.ciel-sky--night .ciel-page .btn-outline-secondary:hover,
+:host.ciel-sky--twilight .ciel-page .btn-outline-secondary:hover {
+  color: #fff;
+  background-color: rgba(48, 68, 110, 0.9);
+  border-color: rgba(220, 231, 251, 0.5);
+}
+
+:host.ciel-sky--night .ciel-page .btn-outline-primary,
+:host.ciel-sky--twilight .ciel-page .btn-outline-primary {
+  background-color: rgba(12, 18, 34, 0.72);
+}
+
+:host.ciel-sky--night .ciel-page .list-group-item,
+:host.ciel-sky--twilight .ciel-page .list-group-item {
+  background-color: rgba(10, 16, 32, 0.55);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: inherit;
+}
+
+:host.ciel-sky--night .ciel-page .list-group-item-action:hover,
+:host.ciel-sky--twilight .ciel-page .list-group-item-action:hover {
+  background-color: rgba(40, 58, 96, 0.7);
+  color: #fff;
+}
+
+:host.ciel-sky--night .ciel-page .alert-warning,
+:host.ciel-sky--twilight .ciel-page .alert-warning {
+  background: rgba(56, 40, 12, 0.85);
+  border-color: rgba(240, 162, 2, 0.4);
+  color: #ffe9b8;
+}
+
+:host.ciel-sky--night .ciel-selected-source,
+:host.ciel-sky--twilight .ciel-selected-source {
+  border-top-color: rgba(255, 255, 255, 0.14);
+}
+
+:host.ciel-sky--night .ciel-skymap-caption,
+:host.ciel-sky--twilight .ciel-skymap-caption {
+  color: rgba(220, 231, 251, 0.7);
+}
+
+:host.ciel-sky--day .ciel-skymap-caption {
+  color: #2c5282;
 }
 
 .ciel-page {

@@ -170,7 +170,10 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
 
   playbackCurrentSec = 0;
   playbackDurationSec = 0;
+  playAllActive = false;
   private ytProgressTimer?: ReturnType<typeof setInterval>;
+  private ignoreQueueEndedUntil = 0;
+  private embedGeneration = 0;
 
   constructor(
     private api: ApiService,
@@ -219,6 +222,12 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       })
     );
 
+    this.subs.push(
+      this.youtubePlayer.ended$.subscribe(() => {
+        this.ngZone.run(() => this.onQueueVideoEnded());
+      })
+    );
+
     document.body.classList.add(YoutubeWatcherComponent.PAGE_THEME_BODY_CLASS);
     this.setupLandscapeFullscreenWatchers();
     this.syncLandscapeFullscreen();
@@ -243,6 +252,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       clearTimeout(this.linkFeedbackTimer);
     }
     this.stopYoutubeProgressWatch();
+    this.stopPlayAll();
     if (this.scrollTopTimer !== undefined) {
       clearTimeout(this.scrollTopTimer);
     }
@@ -280,6 +290,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.searching = false;
     this.loadingMore = false;
     this.resultKind = 'popular';
+    this.stopPlayAll();
     this.syncUrl();
     this.loadPopular();
   }
@@ -289,6 +300,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     if (item.kind === 'channel' && item.id) {
+      this.stopPlayAll();
       this.channelId = item.id;
       this.query = '';
       this.type = 'video';
@@ -300,7 +312,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     if (this.playerOpen) {
       this.embedUrl = null;
       this.stopYoutubeProgressWatch();
-      this.youtubePlayer.open(item);
+      this.youtubePlayer.open(item, { keepMinimized: this.playAllActive });
     } else {
       this.embedUrl = this.buildEmbedUrl(item, true);
     }
@@ -347,8 +359,105 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     return this.selected;
   }
 
-  tickerModeLabelKey(): string {
+    tickerModeLabelKey(): string {
     return this.playerOpen ? 'YOUTUBE.TICKER_MODE_PIP' : 'YOUTUBE.TICKER_MODE_PAGE';
+  }
+
+  get canPlayAll(): boolean {
+    return this.queueItems().length > 0;
+  }
+
+  playAllIndex(): number {
+    return this.queueIndexOf(this.selected);
+  }
+
+  playAllCount(): number {
+    return this.queueItems().length;
+  }
+
+  togglePlayAll(): void {
+    if (this.playAllActive) {
+      this.stopPlayAll();
+      return;
+    }
+    this.startPlayAll();
+  }
+
+  private startPlayAll(): void {
+    const list = this.queueItems();
+    if (!list.length) {
+      return;
+    }
+    this.playAllActive = true;
+    const currentIdx = this.queueIndexOf(this.selected);
+    if (currentIdx >= 0 && (this.embedUrl || this.playerOpen)) {
+      if (
+        this.playbackDurationSec > 0 &&
+        this.playbackCurrentSec >= this.playbackDurationSec - 0.5
+      ) {
+        this.onQueueVideoEnded();
+      }
+      return;
+    }
+    this.playQueueItem(list[currentIdx >= 0 ? currentIdx : 0]);
+  }
+
+  private stopPlayAll(): void {
+    this.playAllActive = false;
+  }
+
+  private queueItems(): YoutubeItem[] {
+    const seen = new Set<string>();
+    const out: YoutubeItem[] = [];
+    for (const item of this.items) {
+      if (!this.isQueueItem(item)) {
+        continue;
+      }
+      const key = `${item.kind || 'video'}:${item.id}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      out.push(item);
+    }
+    return out;
+  }
+
+  private isQueueItem(item: YoutubeItem | null | undefined): boolean {
+    if (!item?.id || item.kind === 'channel' || this.isLive(item)) {
+      return false;
+    }
+    return item.kind === 'video' || item.kind === 'playlist' || !item.kind;
+  }
+
+  private queueIndexOf(item: YoutubeItem | null | undefined): number {
+    if (!item?.id) {
+      return -1;
+    }
+    const kind = item.kind || 'video';
+    return this.queueItems().findIndex((it) => it.id === item.id && (it.kind || 'video') === kind);
+  }
+
+  private playQueueItem(item: YoutubeItem): void {
+    this.ignoreQueueEndedUntil = Date.now() + 1500;
+    this.selectItem(item);
+  }
+
+  private onQueueVideoEnded(): void {
+    if (!this.playAllActive) {
+      return;
+    }
+    if (Date.now() < this.ignoreQueueEndedUntil) {
+      return;
+    }
+    const list = this.queueItems();
+    if (!list.length) {
+      this.stopPlayAll();
+      return;
+    }
+    const idx = this.queueIndexOf(this.selected);
+    const next = list[(idx < 0 ? 0 : idx + 1) % list.length];
+    this.playQueueItem(next);
   }
 
   closePlayer(): void {
@@ -593,6 +702,14 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       } else if (this.youtubePlayer.currentItem) {
         this.selected = this.youtubePlayer.currentItem;
       }
+      if (this.playAllActive) {
+        const list = this.queueItems();
+        if (!list.length) {
+          this.stopPlayAll();
+        } else if (this.queueIndexOf(this.selected) < 0) {
+          this.playQueueItem(list[0]);
+        }
+      }
     }
   }
 
@@ -603,14 +720,15 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       typeof window !== 'undefined'
         ? `&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
         : '';
+    const gen = `&cb=${++this.embedGeneration}`;
     if (item.kind === 'playlist' && /^[a-zA-Z0-9_-]{10,64}$/.test(id)) {
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0${extra}${origin}`
+        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0${extra}${origin}${gen}`
       );
     }
     if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/${id}?rel=0${extra}${origin}`
+        `https://www.youtube-nocookie.com/embed/${id}?rel=0${extra}${origin}${gen}`
       );
     }
     return null;
@@ -1112,13 +1230,24 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       info?: number | Record<string, unknown>;
     };
     if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
-      if (payload.info === 0 && this.playbackDurationSec > 0) {
-        this.playbackCurrentSec = this.playbackDurationSec;
+      if (payload.info === 0) {
+        if (this.playbackDurationSec > 0) {
+          this.playbackCurrentSec = this.playbackDurationSec;
+        }
+        this.onQueueVideoEnded();
       }
       return;
     }
     const info = payload.info;
     if (!info || typeof info !== 'object' || Array.isArray(info)) {
+      return;
+    }
+    const playerState = info['playerState'];
+    if (typeof playerState === 'number' && playerState === 0) {
+      if (this.playbackDurationSec > 0) {
+        this.playbackCurrentSec = this.playbackDurationSec;
+      }
+      this.onQueueVideoEnded();
       return;
     }
     const currentTime = info['currentTime'];
@@ -1142,6 +1271,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     }
     this.exitLandscapeFullscreen(false);
     this.videoshowRestorePip = this.playerOpen;
+    this.stopPlayAll();
     this.embedUrl = null;
     this.stopYoutubeProgressWatch();
     if (this.playerOpen) {

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 
@@ -64,9 +64,19 @@ export class PositionService {
      * @returns Observable with coordinates or null if unavailable
      */
     getIpPosition(): Observable<PositionCoordinates | null> {
-        // This will be handled by the backend when no GPS coordinates are provided
-        // The backend will automatically get IP-based coordinates
-        return of(null);
+        return this.http.get<{ status?: string; lat?: number; lon?: number }>(
+            this.API_URL + 'external/geocode/location-by-ip'
+        ).pipe(
+            map((res) => {
+                const lat = typeof res?.lat === 'number' ? res.lat : Number(res?.lat);
+                const lon = typeof res?.lon === 'number' ? res.lon : Number(res?.lon);
+                if (res?.status === 'success' && Number.isFinite(lat) && Number.isFinite(lon)) {
+                    return { latitude: lat, longitude: lon };
+                }
+                return null;
+            }),
+            catchError(() => of(null))
+        );
     }
 
     /**
@@ -75,10 +85,8 @@ export class PositionService {
      */
     getCurrentPosition(): Observable<PositionCoordinates | null> {
         return this.getGpsPosition().pipe(
-            catchError(() => {
-                // If GPS fails, return null (backend will use IP-based)
-                return of(null);
-            })
+            switchMap((gps) => gps ? of(gps) : this.getIpPosition()),
+            catchError(() => this.getIpPosition())
         );
     }
 }

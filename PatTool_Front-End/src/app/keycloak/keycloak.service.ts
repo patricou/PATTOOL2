@@ -79,7 +79,8 @@ export class KeycloakService {
     }
   }
 
-  getToken(): Promise<string> {
+  getToken(options?: { redirectOnFailure?: boolean }): Promise<string> {
+    const redirectOnFailure = options?.redirectOnFailure !== false;
     return new Promise<string>((resolve, reject) => {
       // Check if Keycloak is initialized
       if (!KeycloakService.auth.authz) {
@@ -119,7 +120,7 @@ export class KeycloakService {
             // Session expired - redirect to Keycloak login
             // BUT: Only redirect if we're not already on a login/error page
             const currentPath = window.location.pathname;
-            if (!currentPath.includes('login') && !currentPath.includes('error')) {
+            if (redirectOnFailure && !currentPath.includes('login') && !currentPath.includes('error')) {
               this.redirectToLogin();
             }
             reject('Token refresh failed');
@@ -127,7 +128,9 @@ export class KeycloakService {
       } else {
         // No token available - redirect to login
         console.log('No token available - redirecting to login');
-        this.redirectToLogin();
+        if (redirectOnFailure) {
+          this.redirectToLogin();
+        }
         reject('Not logged in');
       }
     });

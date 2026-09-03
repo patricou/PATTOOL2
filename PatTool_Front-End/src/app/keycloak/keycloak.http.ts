@@ -98,9 +98,17 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
             return next.handle(req);
         }
 
+        // IoT proxy list/CRUD requires the Iot role. The links page used to call this
+        // for every user; 401/403 or getToken() failure then Keycloak-login() → reload loop.
+        const isIotProxiesRoleGated =
+            /\/api\/iot-proxies(\/|$|\?)/i.test(req.url)
+            && !/\/api\/iot-proxies\/forward(\/|$|\?)/i.test(req.url);
+
         // For API requests, try to add the token
         // Handle case where token might not be available yet (during initialization)
-        return from(this.keycloakService.getToken()).pipe(
+        // Interceptor decides whether to redirect; getToken() must not login() on its own
+        // (otherwise skip-redirect paths like iot-proxies / events still reload the page).
+        return from(this.keycloakService.getToken({ redirectOnFailure: false })).pipe(
             switchMap(token => {
                 if (token) {
                     const authReq = req.clone({
@@ -111,6 +119,9 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
                             // For GET event API: do NOT redirect on 401/403 - let component show "ask owner" or error
                             const isEventApiGet = req.method === 'GET' && /\/api\/even/i.test(req.url);
                             if (isEventApiGet && (error.status === 401 || error.status === 403)) {
+                                return throwError(() => error);
+                            }
+                            if (isIotProxiesRoleGated && (error.status === 401 || error.status === 403)) {
                                 return throwError(() => error);
                             }
                             // Handle 401 Unauthorized - session expired
@@ -131,6 +142,9 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
                         catchError((error: HttpErrorResponse) => {
                             // For GET event API: do NOT redirect - let component show "ask owner" message
                             if (isEventApiGet && (error.status === 401 || error.status === 403)) {
+                                return throwError(() => error);
+                            }
+                            if (isIotProxiesRoleGated && (error.status === 401 || error.status === 403)) {
                                 return throwError(() => error);
                             }
                             // Handle 401 Unauthorized - session expired
@@ -154,6 +168,11 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
                 // and the component can show content or "ask owner" instead of redirecting (which would abort all in-flight requests)
                 const isEventApiGet = req.method === 'GET' && /\/api\/even/i.test(req.url);
                 
+                if (isIotProxiesRoleGated) {
+                    console.debug('[KEYCLOAK INTERCEPTOR] Token retrieval failed for iot-proxies - not redirecting');
+                    return throwError(() => error);
+                }
+
                 if (isUploadLogRequest) {
                     console.debug('[KEYCLOAK INTERCEPTOR] Token retrieval failed for upload-log polling - not redirecting');
                     return throwError(() => error);

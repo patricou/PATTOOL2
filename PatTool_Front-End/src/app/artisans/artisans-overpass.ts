@@ -13,7 +13,7 @@ const OVERPASS_URLS = [
 ];
 
 const OSM_FILTERS: Record<string, string> = {
-  all: 'node["shop"];node["craft"];node["amenity"~"^(restaurant|cafe|fast_food|bar|pub|pharmacy|fuel)$"];node["tourism"="hotel"]',
+  all: 'node["shop"];node["craft"];node["office"~"^(estate_agent|lawyer|accountant)$"];node["amenity"~"^(restaurant|cafe|fast_food|bar|pub|pharmacy|fuel|dentist|doctors|clinic|veterinary|bank|post_office)$"];node["tourism"="hotel"]',
   plumber: 'node["craft"~"^(plumber|heating_engineer)$"]',
   electrician: 'node["craft"="electrician"]',
   heating: 'node["craft"~"^(hvac|heating_engineer)$"]',
@@ -33,17 +33,32 @@ const OSM_FILTERS: Record<string, string> = {
   appliance: 'node["shop"="appliance"];node["craft"="electronics_repair"]',
   supermarket: 'node["shop"~"^(supermarket|hypermarket)$"]',
   grocery: 'node["shop"~"^(convenience|greengrocer|grocery)$"]',
-  shop: 'node["shop"~"^(general|kiosk|variety_store|department_store|mall|gift|newsagent|books|toys|sports|jewelry|electronics)$"]',
+  shop: 'node["shop"~"^(general|kiosk|variety_store|department_store|mall|gift)$"]',
   hardware: 'node["shop"~"^(doityourself|hardware)$"]',
-  clothing: 'node["shop"~"^(clothes|shoes)$"]',
+  clothing: 'node["shop"="clothes"]',
   furniture: 'node["shop"="furniture"]',
   florist: 'node["shop"="florist"]',
   pharmacy: 'node["amenity"="pharmacy"];node["shop"="chemist"]',
   optician: 'node["shop"="optician"]',
-  restaurant: 'node["amenity"~"^(restaurant|fast_food)$"]',
-  cafe: 'node["amenity"~"^(cafe|bar|pub)$"]',
+  restaurant: 'node["amenity"="restaurant"]',
+  cafe: 'node["amenity"="cafe"]',
   hotel: 'node["tourism"="hotel"]',
-  fuel: 'node["amenity"="fuel"]'
+  fuel: 'node["amenity"="fuel"]',
+  beauty: 'node["shop"="beauty"]',
+  dentist: 'node["amenity"="dentist"]',
+  doctor: 'node["amenity"~"^(doctors|clinic)$"]',
+  veterinary: 'node["amenity"="veterinary"]',
+  realestate: 'node["office"="estate_agent"]',
+  laundry: 'node["shop"~"^(laundry|dry_cleaning)$"]',
+  bank: 'node["amenity"="bank"]',
+  post: 'node["amenity"="post_office"]',
+  shoes: 'node["shop"="shoes"]',
+  electronics: 'node["shop"~"^(electronics|computer)$"]',
+  books: 'node["shop"~"^(books|newsagent)$"]',
+  sports: 'node["shop"="sports"]',
+  jewelry: 'node["shop"="jewelry"]',
+  bar: 'node["amenity"~"^(bar|pub)$"]',
+  fastfood: 'node["amenity"="fast_food"]'
 };
 
 interface OverpassElement {

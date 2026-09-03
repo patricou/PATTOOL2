@@ -82,7 +82,7 @@
               {{ ('TODOLISTS.PRIORITY.' + item.priority.toUpperCase()) | translate }}
             </span>
           </div>
-          <div class="todolists-item-desc todolists-rich-text" *ngIf="item.description" [innerHTML]="safeHtml(item.description)"></div>
+          <div class="todolists-item-desc" *ngIf="item.description">{{ itemNotesText(item.description) }}</div>
           <div class="todolists-item-meta">
             <span *ngIf="item.dueDate" class="todolists-item-due">
               <i class="fa fa-clock-o"></i> {{ formatDate(item.dueDate) }}
