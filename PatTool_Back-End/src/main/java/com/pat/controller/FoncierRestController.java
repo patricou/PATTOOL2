@@ -8,6 +8,7 @@ import com.pat.service.FoncierItemCacheService;
 import com.pat.service.FoncierItemCacheService.ListingQuery;
 import com.pat.service.FoncierItemCacheService.Source;
 import com.pat.service.FoncierStreamEstateProxyService;
+import com.pat.service.news.NewsImageProxyService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
@@ -31,18 +32,30 @@ public class FoncierRestController {
     private final FoncierStreamEstateProxyService streamEstateProxyService;
     private final FoncierChercherTrouverProxyService chercherTrouverProxyService;
     private final FoncierItemCacheService itemCache;
+    private final NewsImageProxyService imageProxyService;
 
     public FoncierRestController(
             FoncierGeoService geoService,
             FoncierCeremaProxyService ceremaProxyService,
             FoncierStreamEstateProxyService streamEstateProxyService,
             FoncierChercherTrouverProxyService chercherTrouverProxyService,
-            FoncierItemCacheService itemCache) {
+            FoncierItemCacheService itemCache,
+            NewsImageProxyService imageProxyService) {
         this.geoService = geoService;
         this.ceremaProxyService = ceremaProxyService;
         this.streamEstateProxyService = streamEstateProxyService;
         this.chercherTrouverProxyService = chercherTrouverProxyService;
         this.itemCache = itemCache;
+        this.imageProxyService = imageProxyService;
+    }
+
+    /**
+     * Same-origin photo proxy for listing cards. Bypasses Referer hotlink blocks
+     * and mixed-content URLs the same way the News page does.
+     */
+    @GetMapping("/image")
+    public ResponseEntity<byte[]> proxyImage(@RequestParam("u") String imageUrl) {
+        return imageProxyService.proxy(imageUrl);
     }
 
     @GetMapping("/communes")
@@ -93,21 +106,31 @@ public class FoncierRestController {
 
     @GetMapping("/cerema/mutations")
     public ResponseEntity<?> ceremaMutations(
-            @RequestParam String codeInsee,
+            @RequestParam(required = false) String codeInsee,
             @RequestParam(required = false) String typeLocal,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer pageSize,
             @RequestParam(required = false) Integer radiusKm,
-            @RequestParam(required = false) String source) {
-        if (!StringUtils.hasText(codeInsee)) {
+            @RequestParam(required = false) String source,
+            @RequestParam(required = false) Integer priceMin,
+            @RequestParam(required = false) Integer priceMax,
+            @RequestParam(required = false) Integer surfaceMin,
+            @RequestParam(required = false) Double lat,
+            @RequestParam(required = false) Double lon) {
+        boolean around = radiusKm != null && radiusKm > 0
+                && lat != null && lon != null
+                && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+        if (!StringUtils.hasText(codeInsee) && !around) {
             return ResponseEntity.badRequest().body(Map.of("error", "insee_required"));
         }
-        ListingQuery query = mutationQuery(codeInsee, typeLocal, page, pageSize, radiusKm, source);
+        ListingQuery query = mutationQuery(
+                codeInsee, typeLocal, page, pageSize, radiusKm, source, priceMin, priceMax, surfaceMin, lat, lon);
         if (query.source == Source.CACHE) {
             return ResponseEntity.ok(itemCache.mutationsPage(query));
         }
         try {
-            JsonNode api = ceremaProxyService.mutations(codeInsee, typeLocal, page, pageSize, radiusKm);
+            JsonNode api = ceremaProxyService.mutations(
+                    codeInsee, typeLocal, page, pageSize, radiusKm, priceMin, priceMax, surfaceMin, lat, lon);
             if (query.source == Source.API) {
                 itemCache.putItems(FoncierItemCacheService.CEREMA, api, codeInsee);
                 return ResponseEntity.ok(itemCache.annotateApiPage(FoncierItemCacheService.CEREMA, api, query.source));
@@ -257,11 +280,9 @@ public class FoncierRestController {
         query.pageSize = 20;
         query.codeInsee = codeInsee;
         String trimmed = q == null ? "" : q.trim();
-        if (trimmed.matches("\\d{5}")) {
-            query.zip = trimmed;
-        } else {
-            query.city = trimmed;
-        }
+        String[] place = FoncierGeoService.parsePlaceQuery(trimmed);
+        query.zip = place[0];
+        query.city = place[1];
         query.radiusKm = FoncierGeoService.clampRadiusKm(radiusKm);
         if (lat != null && lon != null && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
             query.lat = lat;
@@ -276,14 +297,26 @@ public class FoncierRestController {
             Integer page,
             Integer pageSize,
             Integer radiusKm,
-            String source) {
+            String source,
+            Integer priceMin,
+            Integer priceMax,
+            Integer surfaceMin,
+            Double lat,
+            Double lon) {
         ListingQuery query = new ListingQuery();
         query.source = Source.parse(source);
         query.codeInsee = codeInsee;
         query.type = typeLocal;
+        query.priceMin = priceMin;
+        query.priceMax = priceMax;
+        query.surfaceMin = surfaceMin;
         query.page = page == null || page < 1 ? 1 : page;
         query.pageSize = pageSize == null ? 40 : pageSize;
         query.radiusKm = FoncierGeoService.clampRadiusKm(radiusKm);
+        if (lat != null && lon != null && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+            query.lat = lat;
+            query.lon = lon;
+        }
         return query;
     }
 

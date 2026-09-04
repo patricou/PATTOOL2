@@ -20,6 +20,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.HtmlUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.ByteArrayOutputStream;
@@ -385,9 +386,9 @@ public class YoutubeProxyService {
             out.add(new YoutubeItemDto(
                     id,
                     kind,
-                    textOrNull(snippet.path("title")),
-                    textOrNull(snippet.path("description")),
-                    textOrNull(snippet.path("channelTitle")),
+                    htmlTextOrNull(snippet.path("title")),
+                    htmlTextOrNull(snippet.path("description")),
+                    htmlTextOrNull(snippet.path("channelTitle")),
                     textOrNull(snippet.path("channelId")),
                     textOrNull(snippet.path("publishedAt")),
                     thumbnailUrl(snippet.path("thumbnails")),
@@ -413,9 +414,9 @@ public class YoutubeProxyService {
             out.add(new YoutubeItemDto(
                     id,
                     "video",
-                    textOrNull(snippet.path("title")),
-                    textOrNull(snippet.path("description")),
-                    textOrNull(snippet.path("channelTitle")),
+                    htmlTextOrNull(snippet.path("title")),
+                    htmlTextOrNull(snippet.path("description")),
+                    htmlTextOrNull(snippet.path("channelTitle")),
                     textOrNull(snippet.path("channelId")),
                     textOrNull(snippet.path("publishedAt")),
                     thumbnailUrl(snippet.path("thumbnails")),
@@ -623,6 +624,19 @@ public class YoutubeProxyService {
     private static String textOrNull(JsonNode node) {
         String value = textOrEmpty(node);
         return StringUtils.hasText(value) ? value : null;
+    }
+
+    /** YouTube titles/descriptions often arrive HTML-encoded (`&#39;`, `&amp;`, `&quot;`). */
+    private static String htmlTextOrNull(JsonNode node) {
+        String value = textOrNull(node);
+        if (value == null) {
+            return null;
+        }
+        String decoded = HtmlUtils.htmlUnescape(value);
+        if (decoded.contains("&")) {
+            decoded = HtmlUtils.htmlUnescape(decoded);
+        }
+        return decoded;
     }
 
     private static Long longOrNull(JsonNode node) {

@@ -16,6 +16,8 @@ export interface YoutubePlayerOpenOptions {
   keepMinimized?: boolean;
 }
 
+export type YoutubePlayerCommand = 'play' | 'pause';
+
 @Injectable({ providedIn: 'root' })
 export class YoutubePlayerService {
   private readonly stateSubject = new BehaviorSubject<YoutubeFloatingState>({
@@ -25,9 +27,13 @@ export class YoutubePlayerService {
     loadSeq: 0
   });
   private readonly endedSubject = new Subject<void>();
+  private readonly commandSubject = new Subject<YoutubePlayerCommand>();
+  private readonly pausedSubject = new BehaviorSubject<boolean>(false);
 
   readonly state$ = this.stateSubject.asObservable();
   readonly ended$ = this.endedSubject.asObservable();
+  readonly command$ = this.commandSubject.asObservable();
+  readonly paused$ = this.pausedSubject.asObservable();
 
   get snapshot(): YoutubeFloatingState {
     return this.stateSubject.value;
@@ -37,11 +43,27 @@ export class YoutubePlayerService {
     return this.stateSubject.value.item;
   }
 
+  get paused(): boolean {
+    return this.pausedSubject.value;
+  }
+
+  sendCommand(command: YoutubePlayerCommand): void {
+    this.commandSubject.next(command);
+  }
+
+  setPaused(paused: boolean): void {
+    if (this.pausedSubject.value === paused) {
+      return;
+    }
+    this.pausedSubject.next(paused);
+  }
+
   open(item: YoutubeItem, options?: YoutubePlayerOpenOptions): void {
     if (!item?.id || item.kind === 'channel') {
       return;
     }
     const prev = this.stateSubject.value;
+    this.setPaused(false);
     this.stateSubject.next({
       open: true,
       minimized: options?.keepMinimized && prev.open ? prev.minimized : false,
@@ -70,6 +92,7 @@ export class YoutubePlayerService {
 
   close(): void {
     const prev = this.stateSubject.value;
+    this.setPaused(false);
     this.stateSubject.next({
       open: false,
       minimized: false,

@@ -11,6 +11,231 @@
 }
 
 .pat-sheet-select-native,
-.pat-sheet-select-filter {
+.pat-sheet-select-filter,
+.pat-sheet-select-trigger {
   width: 100%;
+}
+
+.pat-sheet-select-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid #d7dee8;
+  border-radius: 0.7rem;
+  background: #fff;
+  color: #1e293b;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  text-align: left;
+  appearance: none;
+  -webkit-appearance: none;
+  touch-action: manipulation;
+}
+
+.pat-sheet-select-trigger--sm {
+  min-height: 2.45rem;
+  padding: 0.38rem 0.7rem;
+  font-size: 0.88rem;
+  border-radius: 0.55rem;
+}
+
+.pat-sheet-select-trigger:disabled {
+  opacity: 0.55;
+}
+
+.pat-sheet-select-trigger:focus {
+  outline: none;
+  border-color: #c45c26;
+  box-shadow: 0 0 0 0.2rem rgba(196, 92, 38, 0.16);
+}
+
+.pat-sheet-select-trigger-icon,
+.pat-sheet-select-caret {
+  flex: 0 0 auto;
+  color: #64748b;
+}
+
+.pat-sheet-select-trigger-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pat-sheet-select-caret {
+  font-size: 0.72rem;
+}
+
+.pat-sheet-select-root {
+  position: fixed;
+  inset: 0;
+  z-index: 6000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(8, 8, 16, 0.55);
+  padding: 0;
+  overflow: hidden;
+}
+
+.pat-sheet-select-root--search {
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.pat-sheet-select-sheet {
+  width: 100%;
+  max-width: 32rem;
+  max-height: min(78vh, 36rem);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: rgba(30, 30, 46, 0.98);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 1rem 1rem 0 0;
+  box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.35);
+  padding: 0.35rem 0 calc(0.55rem + env(safe-area-inset-bottom, 0px));
+}
+
+.pat-sheet-select-sheet--search {
+  max-width: none;
+  max-height: none;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+  padding: calc(0.35rem + env(safe-area-inset-top, 0px)) 0 0.55rem;
+}
+
+.pat-sheet-select-root--search .pat-sheet-select-handle {
+  display: none;
+}
+
+.pat-sheet-select-handle {
+  width: 2.4rem;
+  height: 0.28rem;
+  margin: 0.35rem auto 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.pat-sheet-select-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  padding: 0.15rem 0.85rem 0.55rem;
+}
+
+.pat-sheet-select-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.pat-sheet-select-close {
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.pat-sheet-select-search {
+  position: relative;
+  flex-shrink: 0;
+  margin: 0 0.75rem 0.45rem;
+}
+
+.pat-sheet-select-search > .fa-search {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+}
+
+.pat-sheet-select-search-input {
+  width: 100%;
+  min-height: 2.45rem;
+  padding: 0.45rem 0.75rem 0.45rem 2.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 1rem;
+}
+
+.pat-sheet-select-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.pat-sheet-select-search-input:focus {
+  outline: none;
+  border-color: rgba(0, 123, 255, 0.7);
+}
+
+.pat-sheet-select-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.15rem 0.45rem 0.35rem;
+}
+
+.pat-sheet-select-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 2.85rem;
+  padding: 0.7rem 0.75rem;
+  border: 0;
+  border-radius: 0.7rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 1rem;
+  text-align: left;
+}
+
+.pat-sheet-select-option:hover,
+.pat-sheet-select-option:focus {
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
+.pat-sheet-select-option--on {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pat-sheet-select-option-icon {
+  flex: 0 0 1.15rem;
+  width: 1.15rem;
+  text-align: center;
+  color: #fff;
+}
+
+.pat-sheet-select-option-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pat-sheet-select-check {
+  flex: 0 0 auto;
+  color: #5b9dff;
+}
+
+.pat-sheet-select-empty {
+  margin: 0;
+  padding: 1rem 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
 }

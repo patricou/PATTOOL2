@@ -242,7 +242,7 @@ public class FoncierItemCacheService {
         root.put("source", query.source.wire());
         root.put("cacheCount", size(provider));
         List<ObjectNode> matched = matchListings(provider, query);
-        return slice(root, matched, query.page, query.pageSize);
+        return fillAll(root, matched);
     }
 
     public ObjectNode mutationsPage(ListingQuery query) {
@@ -253,7 +253,7 @@ public class FoncierItemCacheService {
         root.put("source", query.source.wire());
         root.put("cacheCount", size(CEREMA));
         List<ObjectNode> matched = matchListings(CEREMA, query);
-        return slice(root, matched, query.page, query.pageSize);
+        return fillAll(root, matched);
     }
 
     public JsonNode mergeListings(String provider, ListingQuery query, JsonNode apiPage) {
@@ -262,7 +262,11 @@ public class FoncierItemCacheService {
         root.put("configured", apiPage != null && apiPage.path("configured").asBoolean(true));
         root.put("source", query.source.wire());
         root.put("cacheCount", size(provider));
-        return slice(root, mergeApiThenCache(provider, query, apiPage), query.page, query.pageSize);
+        List<ObjectNode> merged = mergeApiThenCache(provider, query, apiPage);
+        if (apiPage != null && !apiPage.path("hasNext").asBoolean(false)) {
+            return fillAll(root, merged);
+        }
+        return slice(root, merged, query.page, query.pageSize);
     }
 
     public JsonNode mergeMutations(ListingQuery query, JsonNode apiPage) {
@@ -273,7 +277,11 @@ public class FoncierItemCacheService {
         root.put("pageSize", query.pageSize);
         root.put("source", query.source.wire());
         root.put("cacheCount", size(CEREMA));
-        return slice(root, mergeApiThenCache(CEREMA, query, apiPage), query.page, query.pageSize);
+        List<ObjectNode> merged = mergeApiThenCache(CEREMA, query, apiPage);
+        if (apiPage != null && !apiPage.path("hasNext").asBoolean(false)) {
+            return fillAll(root, merged);
+        }
+        return slice(root, merged, query.page, query.pageSize);
     }
 
     private List<ObjectNode> mergeApiThenCache(String provider, ListingQuery query, JsonNode apiPage) {
@@ -285,6 +293,9 @@ public class FoncierItemCacheService {
                     continue;
                 }
                 ObjectNode copy = item.deepCopy();
+                if (!matchesFilters(copy, query)) {
+                    continue;
+                }
                 String id = itemId(copy);
                 if (StringUtils.hasText(id)) {
                     seen.add(id);
@@ -341,6 +352,18 @@ public class FoncierItemCacheService {
             item.remove("cachedAt");
         }
         return out;
+    }
+
+    private ObjectNode fillAll(ObjectNode root, List<ObjectNode> matched) {
+        ArrayNode items = objectMapper.createArrayNode();
+        for (ObjectNode item : matched) {
+            items.add(item);
+        }
+        root.put("page", 1);
+        root.put("count", matched.size());
+        root.put("hasNext", false);
+        root.set("items", items);
+        return root;
     }
 
     private ObjectNode slice(ObjectNode root, List<ObjectNode> matched, int page, int pageSize) {

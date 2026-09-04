@@ -86,6 +86,52 @@
   </span>
 </ng-template>
 
+<ng-template #ytQueueBar>
+  <div class="yt-queue-bar" *ngIf="canPlayAll">
+    <div class="yt-queue-transport" role="group" [attr.aria-label]="'YOUTUBE.PLAY_ALL' | translate">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-light yt-queue-skip"
+        (click)="playQueuePrev()"
+        [attr.title]="'YOUTUBE.PLAY_PREV' | translate"
+        [attr.aria-label]="'YOUTUBE.PLAY_PREV' | translate">
+        <i class="fa fa-step-backward" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-light yt-queue-skip"
+        (click)="togglePlaybackPause()"
+        [attr.title]="(queuePaused ? 'YOUTUBE.PLAY_RESUME' : 'YOUTUBE.PLAY_PAUSE') | translate"
+        [attr.aria-label]="(queuePaused ? 'YOUTUBE.PLAY_RESUME' : 'YOUTUBE.PLAY_PAUSE') | translate"
+        [attr.aria-pressed]="!queuePaused">
+        <i class="fa" [ngClass]="queuePaused ? 'fa-play' : 'fa-pause'" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-light yt-queue-skip"
+        (click)="playQueueNext()"
+        [attr.title]="'YOUTUBE.PLAY_NEXT' | translate"
+        [attr.aria-label]="'YOUTUBE.PLAY_NEXT' | translate">
+        <i class="fa fa-step-forward" aria-hidden="true"></i>
+      </button>
+    </div>
+    <button
+      type="button"
+      class="btn btn-sm yt-play-all"
+      [class.btn-danger]="!playAllActive"
+      [class.btn-outline-light]="playAllActive"
+      (click)="togglePlayAll()"
+      [attr.title]="'YOUTUBE.PLAY_ALL_HINT' | translate"
+      [attr.aria-pressed]="playAllActive">
+      <i class="fa" [class.fa-play]="!playAllActive" [class.fa-stop]="playAllActive" aria-hidden="true"></i>
+      {{ (playAllActive ? 'YOUTUBE.PLAY_ALL_STOP' : 'YOUTUBE.PLAY_ALL') | translate }}
+      <ng-container *ngIf="playAllActive && playAllIndex() >= 0">
+        · {{ 'YOUTUBE.PLAY_ALL_PLAYING' | translate:{ index: playAllIndex() + 1, count: playAllCount() } }}
+      </ng-container>
+    </button>
+  </div>
+</ng-template>
+
 <div class="yt-page">
   <p class="yt-lead">{{ 'YOUTUBE.SUBTITLE' | translate }}</p>
 
@@ -186,21 +232,7 @@
           <i class="fa fa-clone" aria-hidden="true"></i>
           {{ 'YOUTUBE.FLOAT_OPEN' | translate }}
         </button>
-        <button
-          *ngIf="canPlayAll"
-          type="button"
-          class="btn btn-sm"
-          [class.btn-danger]="!playAllActive"
-          [class.btn-outline-light]="playAllActive"
-          (click)="togglePlayAll()"
-          [attr.title]="'YOUTUBE.PLAY_ALL_HINT' | translate"
-          [attr.aria-pressed]="playAllActive">
-          <i class="fa" [class.fa-play]="!playAllActive" [class.fa-stop]="playAllActive" aria-hidden="true"></i>
-          {{ (playAllActive ? 'YOUTUBE.PLAY_ALL_STOP' : 'YOUTUBE.PLAY_ALL') | translate }}
-          <ng-container *ngIf="playAllActive && playAllIndex() >= 0">
-            · {{ 'YOUTUBE.PLAY_ALL_PLAYING' | translate:{ index: playAllIndex() + 1, count: playAllCount() } }}
-          </ng-container>
-        </button>
+        <ng-container *ngTemplateOutlet="ytQueueBar"></ng-container>
         <button
           *ngIf="canLinkVideo(selected)"
           type="button"
@@ -226,6 +258,16 @@
           <i class="fa fa-external-link" aria-hidden="true"></i>
           {{ 'YOUTUBE.OPEN_YOUTUBE' | translate }}
         </a>
+        <button
+          *ngIf="youtubeUrl(selected)"
+          type="button"
+          class="btn btn-outline-light btn-sm yt-share-wa"
+          (click)="shareOnWhatsApp(selected, $event)"
+          [attr.title]="'YOUTUBE.SHARE_WHATSAPP_HINT' | translate"
+          [attr.aria-label]="'YOUTUBE.SHARE_WHATSAPP' | translate">
+          <i class="fa fa-whatsapp" aria-hidden="true"></i>
+          {{ 'YOUTUBE.SHARE_WHATSAPP' | translate }}
+        </button>
       </div>
       <footer
         class="yt-player-progress"
@@ -277,21 +319,7 @@
         <i class="fa fa-window-restore" aria-hidden="true"></i>
         {{ 'YOUTUBE.FLOAT_RESTORE' | translate }}
       </button>
-      <button
-        *ngIf="canPlayAll"
-        type="button"
-        class="btn btn-sm"
-        [class.btn-danger]="!playAllActive"
-        [class.btn-outline-light]="playAllActive"
-        (click)="togglePlayAll()"
-        [attr.title]="'YOUTUBE.PLAY_ALL_HINT' | translate"
-        [attr.aria-pressed]="playAllActive">
-        <i class="fa" [class.fa-play]="!playAllActive" [class.fa-stop]="playAllActive" aria-hidden="true"></i>
-        {{ (playAllActive ? 'YOUTUBE.PLAY_ALL_STOP' : 'YOUTUBE.PLAY_ALL') | translate }}
-        <ng-container *ngIf="playAllActive && playAllIndex() >= 0">
-          · {{ 'YOUTUBE.PLAY_ALL_PLAYING' | translate:{ index: playAllIndex() + 1, count: playAllCount() } }}
-        </ng-container>
-      </button>
+      <ng-container *ngTemplateOutlet="ytQueueBar"></ng-container>
       <button
         *ngIf="canLinkVideo(selected)"
         type="button"
@@ -317,6 +345,16 @@
         <i class="fa fa-external-link" aria-hidden="true"></i>
         {{ 'YOUTUBE.OPEN_YOUTUBE' | translate }}
       </a>
+      <button
+        *ngIf="youtubeUrl(selected)"
+        type="button"
+        class="btn btn-outline-light btn-sm yt-share-wa"
+        (click)="shareOnWhatsApp(selected, $event)"
+        [attr.title]="'YOUTUBE.SHARE_WHATSAPP_HINT' | translate"
+        [attr.aria-label]="'YOUTUBE.SHARE_WHATSAPP' | translate">
+        <i class="fa fa-whatsapp" aria-hidden="true"></i>
+        {{ 'YOUTUBE.SHARE_WHATSAPP' | translate }}
+      </button>
       <button type="button" class="btn btn-outline-light btn-sm" (click)="closePlayer()">
         <i class="fa fa-times" aria-hidden="true"></i>
         {{ 'YOUTUBE.FLOAT_CLOSE' | translate }}
@@ -326,21 +364,9 @@
 
   <div class="yt-results-head" *ngIf="searched || searching">
     <span>{{ (resultKind === 'popular' ? 'YOUTUBE.POPULAR' : 'YOUTUBE.RESULTS') | translate }}</span>
-    <button
-      *ngIf="!searching && canPlayAll"
-      type="button"
-      class="btn btn-sm yt-play-all"
-      [class.btn-danger]="!playAllActive"
-      [class.btn-outline-light]="playAllActive"
-      (click)="togglePlayAll()"
-      [attr.title]="'YOUTUBE.PLAY_ALL_HINT' | translate"
-      [attr.aria-pressed]="playAllActive">
-      <i class="fa" [class.fa-play]="!playAllActive" [class.fa-stop]="playAllActive" aria-hidden="true"></i>
-      {{ (playAllActive ? 'YOUTUBE.PLAY_ALL_STOP' : 'YOUTUBE.PLAY_ALL') | translate }}
-      <ng-container *ngIf="playAllActive && playAllIndex() >= 0">
-        · {{ 'YOUTUBE.PLAY_ALL_PLAYING' | translate:{ index: playAllIndex() + 1, count: playAllCount() } }}
-      </ng-container>
-    </button>
+    <ng-container *ngIf="!searching">
+      <ng-container *ngTemplateOutlet="ytQueueBar"></ng-container>
+    </ng-container>
     <div class="yt-sort" *ngIf="!searching && items.length">
       <label class="visually-hidden" for="yt-sort">{{ 'YOUTUBE.SORT' | translate }}</label>
       <select
@@ -375,30 +401,39 @@
   </p>
 
   <div class="yt-grid" *ngIf="!searching && items.length">
-    <button
-      type="button"
+    <div
       class="yt-card"
       *ngFor="let item of items"
-      [class.active]="selected?.id === item.id && selected?.kind === item.kind"
-      (click)="selectItem(item)">
-      <span class="yt-card-thumb">
-        <img *ngIf="thumbUrl(item)" [src]="thumbUrl(item)" [alt]="item.title || ''" />
-        <span class="yt-card-fallback" *ngIf="!thumbUrl(item)" aria-hidden="true">
-          <i class="fa fa-youtube-play"></i>
+      [class.active]="selected?.id === item.id && selected?.kind === item.kind">
+      <button type="button" class="yt-card-main" (click)="selectItem(item)">
+        <span class="yt-card-thumb">
+          <img *ngIf="thumbUrl(item)" [src]="thumbUrl(item)" [alt]="item.title || ''" />
+          <span class="yt-card-fallback" *ngIf="!thumbUrl(item)" aria-hidden="true">
+            <i class="fa fa-youtube-play"></i>
+          </span>
+          <span class="yt-card-duration" *ngIf="durationLabel(item.duration)">{{ durationLabel(item.duration) }}</span>
+          <span class="yt-live yt-card-live" *ngIf="isLive(item)">LIVE</span>
         </span>
-        <span class="yt-card-duration" *ngIf="durationLabel(item.duration)">{{ durationLabel(item.duration) }}</span>
-        <span class="yt-live yt-card-live" *ngIf="isLive(item)">LIVE</span>
-      </span>
-      <span class="yt-card-body">
-        <span class="yt-card-title">{{ item.title }}</span>
-        <span class="yt-card-channel" *ngIf="item.channelTitle">{{ item.channelTitle }}</span>
-        <span class="yt-card-meta">
-          <span *ngIf="item.kind !== 'video'">{{ ('YOUTUBE.TYPE_' + (item.kind || 'video').toUpperCase()) | translate }}</span>
-          <span *ngIf="viewsLabel(item.viewCount)">{{ 'YOUTUBE.VIEWS' | translate:{ count: viewsLabel(item.viewCount) } }}</span>
-          <span *ngIf="publishedLabel(item.publishedAt)">{{ publishedLabel(item.publishedAt) }}</span>
+        <span class="yt-card-body">
+          <span class="yt-card-title">{{ item.title }}</span>
+          <span class="yt-card-channel" *ngIf="item.channelTitle">{{ item.channelTitle }}</span>
+          <span class="yt-card-meta">
+            <span *ngIf="item.kind !== 'video'">{{ ('YOUTUBE.TYPE_' + (item.kind || 'video').toUpperCase()) | translate }}</span>
+            <span *ngIf="viewsLabel(item.viewCount)">{{ 'YOUTUBE.VIEWS' | translate:{ count: viewsLabel(item.viewCount) } }}</span>
+            <span *ngIf="publishedLabel(item.publishedAt)">{{ publishedLabel(item.publishedAt) }}</span>
+          </span>
         </span>
-      </span>
-    </button>
+      </button>
+      <button
+        *ngIf="youtubeUrl(item)"
+        type="button"
+        class="yt-card-share"
+        (click)="shareOnWhatsApp(item, $event)"
+        [attr.title]="'YOUTUBE.SHARE_WHATSAPP_HINT' | translate"
+        [attr.aria-label]="'YOUTUBE.SHARE_WHATSAPP' | translate">
+        <i class="fa fa-whatsapp" aria-hidden="true"></i>
+      </button>
+    </div>
   </div>
 
   <div class="yt-more" *ngIf="nextPageToken && !searching">

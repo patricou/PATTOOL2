@@ -2889,6 +2889,18 @@ export class ApiService {
     });
   }
 
+  /** Same-origin proxy for listing photos (hotlink / mixed-content, like News and YouTube). */
+  foncierPhotoUrl(raw?: string | null): string | null {
+    const url = (raw || '').trim();
+    if (!url) {
+      return null;
+    }
+    if (/^https?:\/\//i.test(url)) {
+      return this.API_URL + 'external/foncier/image?u=' + encodeURIComponent(url);
+    }
+    return url;
+  }
+
   searchFoncierCommunes(query: string): Observable<FoncierCommuneSearch> {
     return this._http.get<FoncierCommuneSearch>(this.API_URL + 'external/foncier/communes', {
       params: new HttpParams().set('q', query)
@@ -2903,22 +2915,42 @@ export class ApiService {
     return this._http.get<FoncierGeocodeHit>(this.API_URL + 'external/foncier/geocode', { params });
   }
 
-  getCeremaMutations(
-    codeInsee: string,
-    typeLocal = '',
-    page = 1,
-    radiusKm = 0,
-    source?: FoncierCacheSource
-  ): Observable<FoncierMutationPage> {
-    let params = new HttpParams().set('codeInsee', codeInsee).set('page', String(page));
-    if (typeLocal) {
-      params = params.set('typeLocal', typeLocal);
+  getCeremaMutations(opts: {
+    codeInsee?: string;
+    typeLocal?: string;
+    page?: number;
+    radiusKm?: number;
+    source?: FoncierCacheSource;
+    priceMin?: number;
+    priceMax?: number;
+    surfaceMin?: number;
+    lat?: number;
+    lon?: number;
+  }): Observable<FoncierMutationPage> {
+    let params = new HttpParams().set('page', String(opts.page || 1));
+    if (opts.codeInsee) {
+      params = params.set('codeInsee', opts.codeInsee);
     }
-    if (radiusKm > 0) {
-      params = params.set('radiusKm', String(radiusKm));
+    if (opts.typeLocal) {
+      params = params.set('typeLocal', opts.typeLocal);
     }
-    if (source) {
-      params = params.set('source', source);
+    if (opts.radiusKm != null && opts.radiusKm > 0) {
+      params = params.set('radiusKm', String(opts.radiusKm));
+    }
+    if (opts.source) {
+      params = params.set('source', opts.source);
+    }
+    if (opts.priceMin != null) {
+      params = params.set('priceMin', String(opts.priceMin));
+    }
+    if (opts.priceMax != null) {
+      params = params.set('priceMax', String(opts.priceMax));
+    }
+    if (opts.surfaceMin != null) {
+      params = params.set('surfaceMin', String(opts.surfaceMin));
+    }
+    if (opts.lat != null && opts.lon != null && Number.isFinite(opts.lat) && Number.isFinite(opts.lon)) {
+      params = params.set('lat', String(opts.lat)).set('lon', String(opts.lon));
     }
     return this._http.get<FoncierMutationPage>(this.API_URL + 'external/foncier/cerema/mutations', { params });
   }

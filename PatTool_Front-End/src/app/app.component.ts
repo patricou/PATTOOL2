@@ -258,9 +258,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { routerLink: ['api/cryptos'], icon: 'fa fa-bitcoin', labelKey: 'MENU.CRYPTOS' }
     ];
     readonly navFoncierRaw: NavRouteMenuItem[] = [
-        { routerLink: ['api/foncier/cerema'], icon: 'fa fa-database', labelKey: 'MENU.CEREMA' },
-        { routerLink: ['api/foncier/stream-estate'], icon: 'fa fa-building', labelKey: 'MENU.STREAM_ESTATE' },
-        { routerLink: ['api/foncier/chercher-trouver'], icon: 'fa fa-search', labelKey: 'MENU.CHERCHER_TROUVER' }
+        { routerLink: ['api/foncier'], icon: 'fa fa-home', labelKey: 'MENU.FONCIER' }
     ];
     readonly navArtisansRaw: NavRouteMenuItem[] = [
         { routerLink: ['iot/artisans'], icon: 'fa fa-wrench', labelKey: 'MENU.ARTISANS_COMMERCES' }

@@ -30,6 +30,7 @@ import { MembersService } from '../services/members.service';
 import { Evenement } from '../model/evenement';
 import { UrlEvent } from '../model/url-event';
 import { isYoutubeVideoId, parseYoutubeVideoId, youtubeWatchUrl } from '../shared/youtube-video-id.util';
+import { openWhatsAppTextShare } from '../shared/share-whatsapp-image.util';
 import {
   VideoshowModalComponent,
   VideoshowVideoSource
@@ -171,6 +172,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   playbackCurrentSec = 0;
   playbackDurationSec = 0;
   playAllActive = false;
+  playbackPaused = false;
   private ytProgressTimer?: ReturnType<typeof setInterval>;
   private ignoreQueueEndedUntil = 0;
   private embedGeneration = 0;
@@ -216,7 +218,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
           this.stopYoutubeProgressWatch();
         }
         if (s.item) {
-          this.selected = s.item;
+          this.selected = this.decodeYoutubeItem(s.item);
         }
         this.syncLandscapeFullscreen();
       })
@@ -225,6 +227,14 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.subs.push(
       this.youtubePlayer.ended$.subscribe(() => {
         this.ngZone.run(() => this.onQueueVideoEnded());
+      })
+    );
+
+    this.subs.push(
+      this.youtubePlayer.paused$.subscribe((paused) => {
+        if (this.playerOpen) {
+          this.playbackPaused = paused;
+        }
       })
     );
 
@@ -307,14 +317,15 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       this.runSearch();
       return;
     }
-    this.selected = item;
-    this.resetPlaybackClock(item);
+    this.selected = this.decodeYoutubeItem(item);
+    this.resetPlaybackClock(this.selected);
+    this.playbackPaused = false;
     if (this.playerOpen) {
       this.embedUrl = null;
       this.stopYoutubeProgressWatch();
-      this.youtubePlayer.open(item, { keepMinimized: this.playAllActive });
+      this.youtubePlayer.open(this.selected, { keepMinimized: this.playAllActive });
     } else {
-      this.embedUrl = this.buildEmbedUrl(item, true);
+      this.embedUrl = this.buildEmbedUrl(this.selected, true);
     }
     this.scrollPageToTop();
     void this.syncUrl().then(() => this.scrollPageToTop());
@@ -375,6 +386,48 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     return this.queueItems().length;
   }
 
+  get queuePaused(): boolean {
+    if (!this.selected || (!this.embedUrl && !this.playerOpen)) {
+      return true;
+    }
+    return this.playbackPaused;
+  }
+
+  playQueuePrev(): void {
+    const list = this.queueItems();
+    if (!list.length) {
+      return;
+    }
+    const idx = this.queueIndexOf(this.selected);
+    const prev = list[(idx <= 0 ? list.length : idx) - 1];
+    this.playQueueItem(prev);
+  }
+
+  playQueueNext(): void {
+    const list = this.queueItems();
+    if (!list.length) {
+      return;
+    }
+    const idx = this.queueIndexOf(this.selected);
+    const next = list[(idx < 0 ? 0 : idx + 1) % list.length];
+    this.playQueueItem(next);
+  }
+
+  togglePlaybackPause(): void {
+    if (!this.selected || (!this.embedUrl && !this.playerOpen)) {
+      this.startPlayAll();
+      return;
+    }
+    const pause = !this.queuePaused;
+    this.playbackPaused = pause;
+    if (this.playerOpen) {
+      this.youtubePlayer.sendCommand(pause ? 'pause' : 'play');
+      return;
+    }
+    this.handshakeYoutubePlayer();
+    this.sendYoutubeCommand(pause ? 'pauseVideo' : 'playVideo');
+  }
+
   togglePlayAll(): void {
     if (this.playAllActive) {
       this.stopPlayAll();
@@ -389,6 +442,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.playAllActive = true;
+    this.playbackPaused = false;
     const currentIdx = this.queueIndexOf(this.selected);
     if (currentIdx >= 0 && (this.embedUrl || this.playerOpen)) {
       if (
@@ -553,6 +607,23 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     return `https://www.youtube.com/watch?v=${encodeURIComponent(item.id)}`;
   }
 
+  shareOnWhatsApp(item: YoutubeItem | null, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const url = this.youtubeUrl(item);
+    if (!item || !url) {
+      return;
+    }
+    const title = (item.title || '').trim();
+    const channel = (item.channelTitle || '').trim();
+    const lines = [title || url];
+    if (channel) {
+      lines.push(channel);
+    }
+    lines.push('', url);
+    openWhatsAppTextShare(lines.join('\n'));
+  }
+
   durationLabel(iso: string | null | undefined): string {
     if (!iso) {
       return '';
@@ -683,7 +754,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       this.errorMessage = '';
     }
     this.missingKey = false;
-    const incoming = page?.items || [];
+    const incoming = (page?.items || []).map((item) => this.decodeYoutubeItem(item));
     if (!append) {
       this.itemSourceSeq = 0;
     }
@@ -700,7 +771,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       if (preferred && (preferred.kind === 'video' || preferred.kind === 'playlist')) {
         this.selectItem(preferred);
       } else if (this.youtubePlayer.currentItem) {
-        this.selected = this.youtubePlayer.currentItem;
+        this.selected = this.decodeYoutubeItem(this.youtubePlayer.currentItem);
       }
       if (this.playAllActive) {
         const list = this.queueItems();
@@ -1075,6 +1146,45 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     });
   }
 
+  private decodeYoutubeItem(item: YoutubeItem): YoutubeItem {
+    return {
+      ...item,
+      title: this.decodeYoutubeHtml(item.title),
+      description: this.decodeYoutubeHtml(item.description),
+      channelTitle: this.decodeYoutubeHtml(item.channelTitle)
+    };
+  }
+
+  /** YouTube sometimes returns titles with HTML entities (`&#39;`, `&amp;`, `&quot;`). */
+  private decodeYoutubeHtml(value: string | null | undefined): string | undefined {
+    if (value == null || value === '') {
+      return value === '' ? '' : undefined;
+    }
+    if (!/&[#a-zA-Z0-9]+;/.test(value)) {
+      return value;
+    }
+    let decoded = value;
+    for (let i = 0; i < 2; i++) {
+      const next =
+        typeof DOMParser !== 'undefined'
+          ? new DOMParser().parseFromString(decoded, 'text/html').documentElement.textContent || ''
+          : decoded
+              .replace(/&nbsp;/gi, ' ')
+              .replace(/&amp;/gi, '&')
+              .replace(/&quot;/gi, '"')
+              .replace(/&apos;/gi, "'")
+              .replace(/&#0*39;/g, "'")
+              .replace(/&#x0*27;/gi, "'")
+              .replace(/&lt;/gi, '<')
+              .replace(/&gt;/gi, '>');
+      if (next === decoded) {
+        break;
+      }
+      decoded = next;
+    }
+    return decoded;
+  }
+
   private publishedTime(item: YoutubeItem): number {
     const time = item.publishedAt ? Date.parse(item.publishedAt) : NaN;
     return Number.isFinite(time) ? time : 0;
@@ -1230,12 +1340,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       info?: number | Record<string, unknown>;
     };
     if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
-      if (payload.info === 0) {
-        if (this.playbackDurationSec > 0) {
-          this.playbackCurrentSec = this.playbackDurationSec;
-        }
-        this.onQueueVideoEnded();
-      }
+      this.applyYoutubePlayerState(payload.info);
       return;
     }
     const info = payload.info;
@@ -1243,12 +1348,11 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     const playerState = info['playerState'];
-    if (typeof playerState === 'number' && playerState === 0) {
-      if (this.playbackDurationSec > 0) {
-        this.playbackCurrentSec = this.playbackDurationSec;
+    if (typeof playerState === 'number') {
+      this.applyYoutubePlayerState(playerState);
+      if (playerState === 0) {
+        return;
       }
-      this.onQueueVideoEnded();
-      return;
     }
     const currentTime = info['currentTime'];
     const duration = info['duration'];
@@ -1258,6 +1362,22 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     if (typeof duration === 'number' && Number.isFinite(duration) && duration > 0) {
       this.playbackDurationSec = duration;
     }
+  }
+
+  private applyYoutubePlayerState(state: number): void {
+    if (state === 1 || state === 3) {
+      this.playbackPaused = false;
+    } else if (state === 2) {
+      this.playbackPaused = true;
+    }
+    if (state !== 0) {
+      return;
+    }
+    this.playbackPaused = true;
+    if (this.playbackDurationSec > 0) {
+      this.playbackCurrentSec = this.playbackDurationSec;
+    }
+    this.onQueueVideoEnded();
   }
 
   canLinkVideo(item: YoutubeItem | null | undefined): boolean {

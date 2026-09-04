@@ -97,6 +97,7 @@ export function sortCacheItems<T extends FoncierCacheRow>(items: T[], sort: Fonc
 export interface FoncierCacheFilter {
   q?: string;
   codeInsee?: string;
+  zip?: string;
   type?: string;
   priceMin?: number;
   priceMax?: number;
@@ -105,6 +106,31 @@ export interface FoncierCacheFilter {
   radiusKm?: number;
   lat?: number;
   lon?: number;
+}
+
+/** Turns "765 Chemin…, 01630 Sergy" into zip + commune so cache filters can match. */
+export function parseFoncierPlaceQuery(raw: string): { zip: string; city: string } {
+  const s = (raw || '').trim();
+  if (!s) {
+    return { zip: '', city: '' };
+  }
+  if (/^\d{5}$/.test(s)) {
+    return { zip: s, city: '' };
+  }
+  const zipMatch = s.match(/(\d{5})/);
+  if (!zipMatch || zipMatch.index == null) {
+    return { zip: '', city: s };
+  }
+  const zip = zipMatch[1];
+  const after = s.slice(zipMatch.index + 5).replace(/^[\s,;./-]+/, '').trim();
+  if (after) {
+    return { zip, city: after.split(/[,;]/)[0].trim() };
+  }
+  const before = s.slice(0, zipMatch.index).replace(/[\s,;./-]+$/, '').trim();
+  const parts = before.split(/[,;]/).map((part) => part.trim()).filter(Boolean);
+  const last = parts.length ? parts[parts.length - 1] : '';
+  const city = last && !/^\d/.test(last) && last.length <= 40 ? last : '';
+  return { zip, city };
 }
 
 export interface FoncierCachePage<T> {
@@ -149,9 +175,9 @@ export function placesFromCache(items: FoncierCacheRow[], query: string, limit =
 }
 
 export function filterCacheItems<T extends FoncierCacheRow>(items: T[], filter: FoncierCacheFilter): T[] {
-  const q = (filter.q || '').trim();
-  const zipQuery = /^\d{5}$/.test(q) ? q : '';
-  const cityQuery = zipQuery ? '' : q;
+  const parsed = parseFoncierPlaceQuery(filter.q || '');
+  const zipQuery = (filter.zip || parsed.zip || '').trim();
+  const cityQuery = parsed.city;
   const insee = padInsee(filter.codeInsee);
   let lat = finite(filter.lat);
   let lon = finite(filter.lon);

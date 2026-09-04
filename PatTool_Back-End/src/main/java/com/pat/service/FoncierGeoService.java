@@ -567,6 +567,37 @@ public class FoncierGeoService {
         return base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
     }
 
+    /**
+     * "765 Chemin…, 01630 Sergy" → zip=01630, city=Sergy so cache/API place filters match.
+     */
+    public static String[] parsePlaceQuery(String raw) {
+        String s = raw == null ? "" : raw.trim();
+        if (s.isEmpty()) {
+            return new String[] { "", "" };
+        }
+        if (s.matches("\\d{5}")) {
+            return new String[] { s, "" };
+        }
+        java.util.regex.Matcher zipMatch = java.util.regex.Pattern.compile("(\\d{5})").matcher(s);
+        if (!zipMatch.find()) {
+            return new String[] { "", s };
+        }
+        String zip = zipMatch.group(1);
+        String after = s.substring(zipMatch.end()).replaceFirst("^[\\s,;./-]+", "").trim();
+        if (StringUtils.hasText(after)) {
+            int cut = after.indexOf(',');
+            if (cut < 0) {
+                cut = after.indexOf(';');
+            }
+            return new String[] { zip, cut >= 0 ? after.substring(0, cut).trim() : after };
+        }
+        String before = s.substring(0, zipMatch.start()).replaceFirst("[\\s,;./-]+$", "").trim();
+        String[] parts = before.split("[,;]");
+        String last = parts.length == 0 ? "" : parts[parts.length - 1].trim();
+        String city = StringUtils.hasText(last) && !last.matches("^\\d.*") && last.length() <= 40 ? last : "";
+        return new String[] { zip, city };
+    }
+
     static String text(JsonNode node) {
         if (node == null || node.isNull()) {
             return "";

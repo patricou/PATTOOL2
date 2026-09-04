@@ -232,19 +232,35 @@ public class FoncierStreamEstateProxyService {
         }
         FoncierListingMeta.putAddress(item, row, cityName, zip);
         applyOfferMeta(item, row, advert, publisher, contact);
-        JsonNode pictures = first(row, "pictures", "picturesRemote");
-        if (pictures != null && pictures.isArray() && pictures.size() > 0) {
-            JsonNode photo = pictures.get(0);
-            if (photo != null && photo.isObject()) {
-                putText(item, "photo", first(photo, "url", "src", "href"));
-            } else {
-                putText(item, "photo", photo);
-            }
-        }
+        putPhoto(item, row, advert);
         if (!item.has("title") && !item.has("price") && !item.has("city")) {
             return null;
         }
         return item;
+    }
+
+    private static void putPhoto(ObjectNode item, JsonNode row, JsonNode advert) {
+        JsonNode photo = firstPicture(row);
+        if (photo == null) {
+            photo = firstPicture(advert);
+        }
+        putText(item, "photo", photo);
+    }
+
+    private static JsonNode firstPicture(JsonNode node) {
+        if (node == null || !node.isObject()) {
+            return null;
+        }
+        JsonNode pictures = first(node, "pictures", "picturesRemote", "images", "photos");
+        if (pictures != null && pictures.isArray() && pictures.size() > 0) {
+            JsonNode photo = pictures.get(0);
+            if (photo != null && photo.isObject()) {
+                JsonNode url = first(photo, "thumbnail", "small", "medium", "web", "url", "src", "href", "original");
+                return url != null ? url : photo;
+            }
+            return photo;
+        }
+        return first(node, "photo", "image", "thumbnail");
     }
 
     private static void applyOfferMeta(

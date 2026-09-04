@@ -128,6 +128,15 @@
     </button>
     <button
       type="button"
+      class="btn artisans-btn artisans-btn-map"
+      (click)="openTraceViewerForSelection()"
+      [disabled]="isLoading"
+      [attr.title]="i18nPrefix + '.OPEN_TRACE_VIEWER' | translate">
+      <i class="fa fa-map me-1" aria-hidden="true"></i>
+      {{ i18nPrefix + '.PICK_ON_MAP' | translate }}
+    </button>
+    <button
+      type="button"
       class="btn artisans-btn artisans-btn-fav"
       [class.active]="showFavorites"
       (click)="setShowFavorites(!showFavorites)">
@@ -372,6 +381,14 @@
             <i class="fa fa-external-link" aria-hidden="true"></i>
             <span class="visually-hidden">{{ i18nPrefix + '.OPEN' | translate }}</span>
           </a>
+          <button
+            type="button"
+            class="artisans-hit-whatsapp"
+            (click)="shareOnWhatsApp(item, $event)"
+            [attr.title]="'ARTISANS.SHARE_WHATSAPP_HINT' | translate"
+            [attr.aria-label]="'ARTISANS.SHARE_WHATSAPP' | translate">
+            <i class="fa fa-whatsapp" aria-hidden="true"></i>
+          </button>
         </span>
       </div>
       </div>
@@ -402,9 +419,9 @@
         [attr.aria-label]="(mapFullscreen ? i18nPrefix + '.EXIT_FULLSCREEN' : i18nPrefix + '.FULLSCREEN') | translate">
         <i class="fa" [class.fa-compress]="mapFullscreen" [class.fa-expand]="!mapFullscreen" aria-hidden="true"></i>
       </button>
-      <p class="artisans-place" *ngIf="placeCaption">
+      <p class="artisans-place" *ngIf="placeCaption" [attr.title]="placeCaption">
         <i class="fa fa-map-pin me-1" aria-hidden="true"></i>
-        {{ placeCaption }}
+        <span>{{ placeCaption }}</span>
       </p>
     </div>
   </div>
@@ -412,4 +429,4 @@
   <p class="artisans-attribution">{{ i18nPrefix + '.ATTRIBUTION' | translate }}</p>
 </div>
 
-<app-trace-viewer-modal></app-trace-viewer-modal>
+<app-trace-viewer-modal (locationSelected)="onLocationSelected($event)"></app-trace-viewer-modal>

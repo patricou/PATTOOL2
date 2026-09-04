@@ -1,9 +1,11 @@
 import {
   ChangeDetectorRef,
   Component,
+  ElementRef,
   HostListener,
   OnDestroy,
-  OnInit
+  OnInit,
+  ViewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -13,8 +15,18 @@ import { Subscription } from 'rxjs';
 
 import { YoutubeItem } from '../services/api.service';
 import { YoutubeFloatingState, YoutubePlayerService } from '../services/youtube-player.service';
+import { openWhatsAppTextShare } from '../shared/share-whatsapp-image.util';
 
 type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+
+interface DocumentPictureInPictureApi {
+  window: Window | null;
+  requestWindow(options?: {
+    width?: number;
+    height?: number;
+    disallowReturnToOpener?: boolean;
+  }): Promise<Window>;
+}
 
 @Component({
   selector: 'app-youtube-floating-player',
@@ -24,8 +36,12 @@ type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
   styleUrls: ['./youtube-floating-player.component.css']
 })
 export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
+  @ViewChild('floatHome') floatHome?: ElementRef<HTMLElement>;
+  @ViewChild('floatRoot') floatRoot?: ElementRef<HTMLElement>;
+
   state: YoutubeFloatingState = { open: false, minimized: false, item: null, loadSeq: 0 };
   embedUrl: SafeResourceUrl | null = null;
+  osPipActive = false;
 
   posX = 24;
   posY = 24;
@@ -51,7 +67,13 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
   private positioned = false;
   private lastEmbedKey = '';
   private stateSub?: Subscription;
+  private commandSub?: Subscription;
   private ytProgressTimer?: ReturnType<typeof setInterval>;
+  private pipWindow: Window | null = null;
+  private pipPageHideHandler?: () => void;
+  private pipMessageHandler?: (event: MessageEvent) => void;
+  private osPipEntering = false;
+  private osPipTearingDown = false;
 
   constructor(
     private youtubePlayer: YoutubePlayerService,
@@ -67,9 +89,11 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.placeDefaultPosition();
     this.stateSub = this.youtubePlayer.state$.subscribe((s) => {
+      const wasOpen = this.state.open;
       this.state = s;
       if (!s.open || !s.item) {
         this.stopYoutubeProgressWatch();
+        this.teardownOsPip(false);
         this.embedUrl = null;
         this.lastEmbedKey = '';
         this.cdr.markForCheck();
@@ -80,13 +104,27 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
         this.lastEmbedKey = key;
         this.embedUrl = this.buildEmbedUrl(s.item);
       }
+      this.syncPipWindowTitle(s.item.title);
       this.cdr.markForCheck();
+      if (!wasOpen) {
+        this.cdr.detectChanges();
+        void this.enterOsPip();
+      }
+    });
+    this.commandSub = this.youtubePlayer.command$.subscribe((command) => {
+      if (!this.state.open || !this.embedUrl) {
+        return;
+      }
+      this.handshakeYoutubePlayer();
+      this.sendYoutubeCommand(command === 'pause' ? 'pauseVideo' : 'playVideo');
     });
   }
 
   ngOnDestroy(): void {
     this.stateSub?.unsubscribe();
+    this.commandSub?.unsubscribe();
     this.stopYoutubeProgressWatch();
+    this.teardownOsPip(false);
   }
 
   youtubeWatchUrl(): string | null {
@@ -98,6 +136,24 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
       return `https://www.youtube.com/playlist?list=${encodeURIComponent(item.id)}`;
     }
     return `https://www.youtube.com/watch?v=${encodeURIComponent(item.id)}`;
+  }
+
+  shareOnWhatsApp(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const item = this.item;
+    const url = this.youtubeWatchUrl();
+    if (!item || !url) {
+      return;
+    }
+    const title = (item.title || '').trim();
+    const channel = (item.channelTitle || '').trim();
+    const lines = [title || url];
+    if (channel) {
+      lines.push(channel);
+    }
+    lines.push('', url);
+    openWhatsAppTextShare(lines.join('\n'));
   }
 
   minimize(): void {
@@ -112,6 +168,51 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
     this.youtubePlayer.close();
   }
 
+  /** Move the in-page overlay into an OS window that can leave the browser. */
+  async enterOsPip(): Promise<void> {
+    if (this.osPipEntering || this.isOsPipOpen() || !this.state.open) {
+      return;
+    }
+    this.osPipEntering = true;
+    try {
+      const width = Math.max(360, Math.round(this.widthPx || 420));
+      const height = Math.max(240, Math.round(this.heightPx || 300));
+      let target: Window | null = null;
+      const dpi = this.documentPipApi();
+      if (dpi) {
+        try {
+          target = await dpi.requestWindow({
+            width,
+            height,
+            disallowReturnToOpener: true
+          });
+        } catch {
+          target = null;
+        }
+      }
+      if (!target || target.closed) {
+        target = this.openPopupWindow(width, height);
+      }
+      if (!target || target.closed) {
+        return;
+      }
+      this.cdr.detectChanges();
+      const el = this.floatRoot?.nativeElement;
+      if (!el) {
+        try {
+          target.close();
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+      this.attachToOsWindow(target, el);
+    } finally {
+      this.osPipEntering = false;
+      this.cdr.markForCheck();
+    }
+  }
+
   goToYoutubePage(): void {
     const item = this.item;
     void this.router.navigate(['/tools/youtube'], {
@@ -122,6 +223,9 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
   }
 
   onDragStart(event: MouseEvent): void {
+    if (this.osPipActive) {
+      return;
+    }
     if ((event.target as HTMLElement)?.closest('button, a, iframe, .yt-float-resize')) {
       return;
     }
@@ -133,7 +237,7 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
   }
 
   onResizeStart(event: MouseEvent, edge: ResizeEdge): void {
-    if (this.state.minimized) {
+    if (this.osPipActive || this.state.minimized) {
       return;
     }
     event.preventDefault();
@@ -150,6 +254,9 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
 
   @HostListener('document:mousemove', ['$event'])
   onPointerMove(event: MouseEvent): void {
+    if (this.osPipActive) {
+      return;
+    }
     if (this.resizing) {
       this.applyResize(event);
       return;
@@ -252,6 +359,152 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
     this.posY = Math.min(Math.max(0, window.innerHeight - 48), Math.max(0, this.posY));
   }
 
+  private isOsPipOpen(): boolean {
+    return !!(this.pipWindow && !this.pipWindow.closed);
+  }
+
+  private documentPipApi(): DocumentPictureInPictureApi | null {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    return (
+      (window as Window & { documentPictureInPicture?: DocumentPictureInPictureApi })
+        .documentPictureInPicture || null
+    );
+  }
+
+  private openPopupWindow(width: number, height: number): Window | null {
+    try {
+      const popup = window.open(
+        '',
+        'pattool-youtube-pip',
+        `popup=yes,width=${width},height=${height},resizable=yes,scrollbars=no`
+      );
+      return popup && !popup.closed ? popup : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private attachToOsWindow(target: Window, el: HTMLElement): void {
+    this.teardownOsPipListeners();
+    this.copyStylesToWindow(target);
+    target.document.documentElement.classList.add('yt-doc-pip-root');
+    target.document.body.classList.add('yt-doc-pip-body');
+    target.document.title = this.item?.title || 'YouTube';
+    if (el.parentElement !== target.document.body) {
+      target.document.body.appendChild(el);
+    }
+    el.classList.add('yt-float--doc-pip');
+    this.pipWindow = target;
+    this.osPipActive = true;
+    this.pipPageHideHandler = () => this.onOsPipClosed();
+    this.pipMessageHandler = (event: MessageEvent) => this.onYoutubeMessage(event);
+    target.addEventListener('pagehide', this.pipPageHideHandler);
+    target.addEventListener('message', this.pipMessageHandler);
+    this.youtubePlayer.restore();
+  }
+
+  private onOsPipClosed(): void {
+    if (this.osPipTearingDown || !this.state.open) {
+      this.teardownOsPip(true);
+      return;
+    }
+    this.teardownOsPip(true);
+    this.youtubePlayer.close();
+  }
+
+  private teardownOsPip(fromPipClose: boolean): void {
+    if (this.osPipTearingDown) {
+      return;
+    }
+    this.osPipTearingDown = true;
+    try {
+      const el = this.floatRoot?.nativeElement;
+      const home = this.floatHome?.nativeElement;
+      const pip = this.pipWindow;
+      this.teardownOsPipListeners();
+      if (el) {
+        el.classList.remove('yt-float--doc-pip');
+        if (home && el.parentElement !== home) {
+          home.appendChild(el);
+        }
+      }
+      this.pipWindow = null;
+      this.osPipActive = false;
+      if (!fromPipClose && pip && !pip.closed) {
+        try {
+          pip.close();
+        } catch {
+          /* ignore */
+        }
+      }
+    } finally {
+      this.osPipTearingDown = false;
+    }
+  }
+
+  private teardownOsPipListeners(): void {
+    const pip = this.pipWindow;
+    if (pip && this.pipPageHideHandler) {
+      try {
+        pip.removeEventListener('pagehide', this.pipPageHideHandler);
+      } catch {
+        /* ignore */
+      }
+    }
+    if (pip && this.pipMessageHandler) {
+      try {
+        pip.removeEventListener('message', this.pipMessageHandler);
+      } catch {
+        /* ignore */
+      }
+    }
+    this.pipPageHideHandler = undefined;
+    this.pipMessageHandler = undefined;
+  }
+
+  private syncPipWindowTitle(title: string | null | undefined): void {
+    if (!this.pipWindow || this.pipWindow.closed) {
+      return;
+    }
+    try {
+      this.pipWindow.document.title = (title || '').trim() || 'YouTube';
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private copyStylesToWindow(target: Window): void {
+    const doc = target.document;
+    Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).forEach((node) => {
+      try {
+        doc.head.appendChild(node.cloneNode(true));
+      } catch {
+        /* ignore */
+      }
+    });
+    const base = doc.createElement('style');
+    base.textContent = `
+      html.yt-doc-pip-root, body.yt-doc-pip-body {
+        margin: 0; padding: 0; width: 100%; height: 100%;
+        overflow: hidden; background: #111; color: #f1f1f1;
+      }
+      body.yt-doc-pip-body .yt-float--doc-pip {
+        position: relative !important;
+        left: auto !important;
+        top: auto !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+      }
+    `;
+    doc.head.appendChild(base);
+  }
+
   private buildEmbedUrl(item: YoutubeItem): SafeResourceUrl | null {
     const id = item.id || '';
     const origin =
@@ -294,6 +547,11 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
   }
 
   private getYoutubeIframe(): HTMLIFrameElement | null {
+    const pipDoc = this.pipWindow && !this.pipWindow.closed ? this.pipWindow.document : null;
+    const fromPip = pipDoc?.querySelector('iframe.yt-pip-embed') as HTMLIFrameElement | null;
+    if (fromPip) {
+      return fromPip;
+    }
     if (typeof document === 'undefined') {
       return null;
     }
@@ -348,7 +606,13 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
         state = playerState;
       }
     }
+    if (state === 1 || state === 3) {
+      this.youtubePlayer.setPaused(false);
+    } else if (state === 2) {
+      this.youtubePlayer.setPaused(true);
+    }
     if (state === 0) {
+      this.youtubePlayer.setPaused(true);
       this.youtubePlayer.notifyEnded();
     }
   }

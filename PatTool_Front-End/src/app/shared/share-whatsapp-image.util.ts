@@ -11,13 +11,21 @@ export type WhatsAppImageShareOutcome =
   | 'download-fallback'
   | 'text-only';
 
-function openWhatsAppText(message: string): void {
+/** Open WhatsApp (app on phone, Web on desktop) with a prefilled text message. */
+export function openWhatsAppTextShare(message: string): void {
   const text = (message || '').trim();
+  if (!text) {
+    return;
+  }
   // api.whatsapp.com is more reliable on smartphones; wa.me is fine for desktop Web.
   const url = preferNativeFileShare()
     ? `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`
     : `https://wa.me/?text=${encodeURIComponent(text)}`;
   window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function openWhatsAppText(message: string): void {
+  openWhatsAppTextShare(message);
 }
 
 function downloadBlob(blob: Blob, fileName: string): void {

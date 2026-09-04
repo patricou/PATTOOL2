@@ -1,89 +1,111 @@
-<div
-  class="yt-float"
-  *ngIf="state.open"
-  [class.yt-float--minimized]="state.minimized"
-  [style.left.px]="posX"
-  [style.top.px]="posY"
-  [style.width.px]="state.minimized ? 280 : widthPx"
-  [style.height.px]="state.minimized ? null : heightPx"
-  role="dialog"
-  [attr.aria-label]="'YOUTUBE.FLOAT_TITLE' | translate">
-  <div class="yt-float-header" (mousedown)="onDragStart($event)">
-    <div class="yt-float-title">
-      <i class="fa fa-youtube-play me-1" aria-hidden="true"></i>
-      <span class="yt-float-title-text">{{ item?.title || ('YOUTUBE.FLOAT_TITLE' | translate) }}</span>
+<div class="yt-float-home" #floatHome>
+  <div
+    class="yt-float"
+    #floatRoot
+    *ngIf="state.open"
+    [class.yt-float--minimized]="state.minimized && !osPipActive"
+    [class.yt-float--doc-pip]="osPipActive"
+    [style.left.px]="osPipActive ? null : posX"
+    [style.top.px]="osPipActive ? null : posY"
+    [style.width.px]="osPipActive ? null : (state.minimized ? 280 : widthPx)"
+    [style.height.px]="osPipActive ? null : (state.minimized ? null : heightPx)"
+    role="dialog"
+    [attr.aria-label]="'YOUTUBE.FLOAT_TITLE' | translate">
+    <div class="yt-float-header" (mousedown)="onDragStart($event)">
+      <div class="yt-float-title">
+        <i class="fa fa-youtube-play me-1" aria-hidden="true"></i>
+        <span class="yt-float-title-text">{{ item?.title || ('YOUTUBE.FLOAT_TITLE' | translate) }}</span>
+      </div>
+      <div class="yt-float-actions">
+        <a
+          *ngIf="youtubeWatchUrl()"
+          class="yt-float-btn"
+          [href]="youtubeWatchUrl()"
+          target="_blank"
+          rel="noopener noreferrer"
+          [attr.title]="'YOUTUBE.OPEN_YOUTUBE' | translate"
+          [attr.aria-label]="'YOUTUBE.OPEN_YOUTUBE' | translate">
+          <i class="fa fa-external-link"></i>
+        </a>
+        <button
+          type="button"
+          class="yt-float-btn yt-float-btn--wa"
+          *ngIf="youtubeWatchUrl()"
+          (click)="shareOnWhatsApp($event)"
+          [attr.title]="'YOUTUBE.SHARE_WHATSAPP_HINT' | translate"
+          [attr.aria-label]="'YOUTUBE.SHARE_WHATSAPP' | translate">
+          <i class="fa fa-whatsapp"></i>
+        </button>
+        <button
+          type="button"
+          class="yt-float-btn"
+          (click)="goToYoutubePage()"
+          [attr.title]="'YOUTUBE.FLOAT_OPEN_PAGE' | translate"
+          [attr.aria-label]="'YOUTUBE.FLOAT_OPEN_PAGE' | translate">
+          <i class="fa fa-search"></i>
+        </button>
+        <button
+          type="button"
+          class="yt-float-btn"
+          *ngIf="!osPipActive"
+          (click)="enterOsPip()"
+          [attr.title]="'YOUTUBE.FLOAT_LEAVE_BROWSER_HINT' | translate"
+          [attr.aria-label]="'YOUTUBE.FLOAT_LEAVE_BROWSER' | translate">
+          <i class="fa fa-expand"></i>
+        </button>
+        <button
+          type="button"
+          class="yt-float-btn"
+          *ngIf="!state.minimized && !osPipActive"
+          (click)="minimize()"
+          [attr.title]="'YOUTUBE.FLOAT_MINIMIZE' | translate"
+          [attr.aria-label]="'YOUTUBE.FLOAT_MINIMIZE' | translate">
+          <i class="fa fa-minus"></i>
+        </button>
+        <button
+          type="button"
+          class="yt-float-btn"
+          *ngIf="state.minimized && !osPipActive"
+          (click)="restore()"
+          [attr.title]="'YOUTUBE.FLOAT_RESTORE' | translate"
+          [attr.aria-label]="'YOUTUBE.FLOAT_RESTORE' | translate">
+          <i class="fa fa-window-maximize"></i>
+        </button>
+        <button
+          type="button"
+          class="yt-float-btn yt-float-btn--close"
+          (click)="close()"
+          [attr.title]="'YOUTUBE.FLOAT_CLOSE' | translate"
+          [attr.aria-label]="'YOUTUBE.FLOAT_CLOSE' | translate">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
     </div>
-    <div class="yt-float-actions">
-      <a
-        *ngIf="youtubeWatchUrl()"
-        class="yt-float-btn"
-        [href]="youtubeWatchUrl()"
-        target="_blank"
-        rel="noopener noreferrer"
-        [attr.title]="'YOUTUBE.OPEN_YOUTUBE' | translate"
-        [attr.aria-label]="'YOUTUBE.OPEN_YOUTUBE' | translate">
-        <i class="fa fa-external-link"></i>
-      </a>
-      <button
-        type="button"
-        class="yt-float-btn"
-        (click)="goToYoutubePage()"
-        [attr.title]="'YOUTUBE.FLOAT_OPEN_PAGE' | translate"
-        [attr.aria-label]="'YOUTUBE.FLOAT_OPEN_PAGE' | translate">
-        <i class="fa fa-search"></i>
-      </button>
-      <button
-        type="button"
-        class="yt-float-btn"
-        *ngIf="!state.minimized"
-        (click)="minimize()"
-        [attr.title]="'YOUTUBE.FLOAT_MINIMIZE' | translate"
-        [attr.aria-label]="'YOUTUBE.FLOAT_MINIMIZE' | translate">
-        <i class="fa fa-minus"></i>
-      </button>
-      <button
-        type="button"
-        class="yt-float-btn"
-        *ngIf="state.minimized"
-        (click)="restore()"
-        [attr.title]="'YOUTUBE.FLOAT_RESTORE' | translate"
-        [attr.aria-label]="'YOUTUBE.FLOAT_RESTORE' | translate">
-        <i class="fa fa-window-maximize"></i>
-      </button>
-      <button
-        type="button"
-        class="yt-float-btn yt-float-btn--close"
-        (click)="close()"
-        [attr.title]="'YOUTUBE.FLOAT_CLOSE' | translate"
-        [attr.aria-label]="'YOUTUBE.FLOAT_CLOSE' | translate">
-        <i class="fa fa-times"></i>
-      </button>
-    </div>
-  </div>
 
-  <div class="yt-float-body">
-    <div class="yt-float-video-wrap">
-      <iframe
-        *ngIf="embedUrl"
-        class="yt-pip-embed"
-        [src]="embedUrl"
-        [title]="item?.title || ''"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowfullscreen
-        referrerpolicy="strict-origin-when-cross-origin"
-        (load)="onPipEmbedLoad()"></iframe>
+    <div class="yt-float-body">
+      <div class="yt-float-video-wrap">
+        <iframe
+          *ngIf="embedUrl"
+          class="yt-pip-embed"
+          [src]="embedUrl"
+          [title]="item?.title || ''"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen
+          referrerpolicy="strict-origin-when-cross-origin"
+          (load)="onPipEmbedLoad()"></iframe>
+      </div>
+      <p class="yt-float-channel" *ngIf="item?.channelTitle && !osPipActive">{{ item?.channelTitle }}</p>
     </div>
-    <p class="yt-float-channel" *ngIf="item?.channelTitle">{{ item?.channelTitle }}</p>
-  </div>
 
-  <ng-container *ngIf="!state.minimized">
-    <div class="yt-float-resize yt-float-resize--n" (mousedown)="onResizeStart($event, 'n')"></div>
-    <div class="yt-float-resize yt-float-resize--s" (mousedown)="onResizeStart($event, 's')"></div>
-    <div class="yt-float-resize yt-float-resize--e" (mousedown)="onResizeStart($event, 'e')"></div>
-    <div class="yt-float-resize yt-float-resize--w" (mousedown)="onResizeStart($event, 'w')"></div>
-    <div class="yt-float-resize yt-float-resize--ne" (mousedown)="onResizeStart($event, 'ne')"></div>
-    <div class="yt-float-resize yt-float-resize--nw" (mousedown)="onResizeStart($event, 'nw')"></div>
-    <div class="yt-float-resize yt-float-resize--se" (mousedown)="onResizeStart($event, 'se')" [attr.title]="'YOUTUBE.FLOAT_RESIZE' | translate"></div>
-    <div class="yt-float-resize yt-float-resize--sw" (mousedown)="onResizeStart($event, 'sw')"></div>
-  </ng-container>
+    <ng-container *ngIf="!state.minimized && !osPipActive">
+      <div class="yt-float-resize yt-float-resize--n" (mousedown)="onResizeStart($event, 'n')"></div>
+      <div class="yt-float-resize yt-float-resize--s" (mousedown)="onResizeStart($event, 's')"></div>
+      <div class="yt-float-resize yt-float-resize--e" (mousedown)="onResizeStart($event, 'e')"></div>
+      <div class="yt-float-resize yt-float-resize--w" (mousedown)="onResizeStart($event, 'w')"></div>
+      <div class="yt-float-resize yt-float-resize--ne" (mousedown)="onResizeStart($event, 'ne')"></div>
+      <div class="yt-float-resize yt-float-resize--nw" (mousedown)="onResizeStart($event, 'nw')"></div>
+      <div class="yt-float-resize yt-float-resize--se" (mousedown)="onResizeStart($event, 'se')" [attr.title]="'YOUTUBE.FLOAT_RESIZE' | translate"></div>
+      <div class="yt-float-resize yt-float-resize--sw" (mousedown)="onResizeStart($event, 'sw')"></div>
+    </ng-container>
+  </div>
 </div>

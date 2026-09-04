@@ -48,7 +48,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
-	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20260903k');
+	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20260904b');
 }
 
 @NgModule({
@@ -199,17 +199,22 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./electricite/electricite.component').then(m => m.ElectriciteComponent)
 			},
 			{
+				path: 'api/foncier',
+				loadComponent: () => import('./foncier/foncier.component').then(m => m.FoncierComponent)
+			},
+			{
 				path: 'api/foncier/cerema',
-				loadComponent: () => import('./foncier/cerema.component').then(m => m.FoncierCeremaComponent)
+				loadComponent: () => import('./foncier/foncier.component').then(m => m.FoncierComponent),
+				data: { provider: 'cerema' }
 			},
 			{
 				path: 'api/foncier/stream-estate',
-				loadComponent: () => import('./foncier/foncier-listings.component').then(m => m.FoncierListingsComponent),
+				loadComponent: () => import('./foncier/foncier.component').then(m => m.FoncierComponent),
 				data: { provider: 'stream-estate' }
 			},
 			{
 				path: 'api/foncier/chercher-trouver',
-				loadComponent: () => import('./foncier/foncier-listings.component').then(m => m.FoncierListingsComponent),
+				loadComponent: () => import('./foncier/foncier.component').then(m => m.FoncierComponent),
 				data: { provider: 'chercher-trouver' }
 			},
 			{

@@ -17,6 +17,15 @@
 	line-height: 1.4;
 }
 
+@media (max-width: 800px) {
+	.leaflet-tooltip.artisans-map-tooltip {
+		min-width: 0;
+		width: min(16rem, calc(100vw - 2rem));
+		max-width: calc(100vw - 2rem);
+		font-size: 0.78rem;
+	}
+}
+
 /* Archive.org search-term highlights injected via [innerHTML] (outside component encapsulation). */
 mark.ia-search-hit {
     background: #ff9800 !important;

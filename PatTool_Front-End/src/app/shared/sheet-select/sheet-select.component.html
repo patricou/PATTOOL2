@@ -1,4 +1,22 @@
-<div class="pat-sheet-select" [class.pat-sheet-select--sm]="size === 'sm'">
+<button
+  *ngIf="isMobile"
+  type="button"
+  class="pat-sheet-select-trigger"
+  [class.pat-sheet-select-trigger--sm]="size === 'sm'"
+  [id]="selectId || null"
+  [disabled]="disabled"
+  [attr.aria-label]="title || null"
+  [attr.aria-expanded]="open"
+  aria-haspopup="listbox"
+  (click)="openSheet()">
+  <i *ngIf="selectedOption?.icon" class="pat-sheet-select-trigger-icon" [ngClass]="selectedOption?.icon" aria-hidden="true"></i>
+  <span class="pat-sheet-select-trigger-label">
+    {{ selectedOption ? optionLabel(selectedOption) : title }}
+  </span>
+  <i class="fa fa-chevron-down pat-sheet-select-caret" aria-hidden="true"></i>
+</button>
+
+<div class="pat-sheet-select" *ngIf="!isMobile" [class.pat-sheet-select--sm]="size === 'sm'">
   <input
     *ngIf="isSearchable"
     type="search"
@@ -25,3 +43,57 @@
     </option>
   </select>
 </div>
+
+<ng-template #sheetTpl>
+  <div
+    class="pat-sheet-select-root"
+    [class.pat-sheet-select-root--search]="isSearchable"
+    role="presentation"
+    (click)="close()">
+    <div
+      class="pat-sheet-select-sheet"
+      [class.pat-sheet-select-sheet--search]="isSearchable"
+      role="listbox"
+      [attr.aria-label]="title || null"
+      (click)="$event.stopPropagation()">
+      <div class="pat-sheet-select-handle" aria-hidden="true"></div>
+      <header class="pat-sheet-select-head" *ngIf="title">
+        <h2 class="pat-sheet-select-title">{{ title }}</h2>
+        <button
+          type="button"
+          class="pat-sheet-select-close"
+          (click)="close()"
+          aria-label="×">
+          <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+      </header>
+      <div class="pat-sheet-select-search" *ngIf="isSearchable">
+        <i class="fa fa-search" aria-hidden="true"></i>
+        <input
+          type="search"
+          class="pat-sheet-select-search-input"
+          [value]="filterQuery"
+          (input)="onSearchInput($event)"
+          [placeholder]="searchPlaceholder || title"
+          autocomplete="off"
+          [attr.enterkeyhint]="'search'"
+          [attr.inputmode]="'search'" />
+      </div>
+      <div class="pat-sheet-select-list">
+        <button
+          type="button"
+          class="pat-sheet-select-option"
+          *ngFor="let opt of visibleOptions; trackBy: trackOption"
+          role="option"
+          [attr.aria-selected]="compareValues(opt.value, value)"
+          [class.pat-sheet-select-option--on]="compareValues(opt.value, value)"
+          (click)="pick(opt)">
+          <i *ngIf="opt.icon" class="pat-sheet-select-option-icon" [ngClass]="opt.icon" aria-hidden="true"></i>
+          <span class="pat-sheet-select-option-label">{{ optionLabel(opt) }}</span>
+          <i class="fa fa-check pat-sheet-select-check" *ngIf="compareValues(opt.value, value)" aria-hidden="true"></i>
+        </button>
+        <p class="pat-sheet-select-empty" *ngIf="!visibleOptions.length">—</p>
+      </div>
+    </div>
+  </div>
+</ng-template>

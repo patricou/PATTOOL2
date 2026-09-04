@@ -588,6 +588,55 @@
   border-color: #f1f1f1;
 }
 
+.yt-queue-bar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+
+.yt-queue-transport {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+.yt-queue-skip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.3rem;
+  min-height: 2.3rem;
+  padding: 0.38rem 0.55rem;
+}
+
+.yt-now-playing-actions > .yt-queue-bar {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.yt-now-playing-actions .yt-play-all {
+  flex: 1 1 8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.4rem;
+  min-height: 2.3rem;
+  margin: 0;
+  padding: 0.38rem 0.65rem;
+  box-sizing: border-box;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.25;
+}
+
+.yt-now-playing-actions .yt-play-all > .fa,
+.yt-now-playing-actions .yt-queue-skip > .fa {
+  flex: 0 0 1em;
+  width: 1em;
+  text-align: center;
+}
+
 .yt-sort {
   display: inline-flex;
   align-items: center;
@@ -634,6 +683,7 @@
 }
 
 .yt-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
@@ -642,7 +692,46 @@
   border-radius: 0.55rem;
   background: transparent;
   text-align: left;
+}
+
+.yt-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: inherit;
+  font: inherit;
   cursor: pointer;
+}
+
+.yt-card-share {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #25d366;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+.yt-card-share:hover,
+.yt-card-share:focus-visible {
+  background: #25d366;
+  color: #111;
+  outline: none;
 }
 
 .yt-card:hover .yt-card-thumb {
@@ -757,6 +846,18 @@
 
 :host .yt-now-playing-actions .btn-danger {
   border-color: #cc0000;
+}
+
+:host .yt-now-playing-actions .yt-share-wa {
+  color: #25d366;
+  border-color: #25d366;
+}
+
+:host .yt-now-playing-actions .yt-share-wa:hover,
+:host .yt-now-playing-actions .yt-share-wa:focus-visible {
+  color: #111;
+  background: #25d366;
+  border-color: #25d366;
 }
 
 :host .yt-channel-filter .btn-link {

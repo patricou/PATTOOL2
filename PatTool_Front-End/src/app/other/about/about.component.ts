@@ -117,7 +117,7 @@ export class AboutComponent {
     { route: ['tools/direction'], icon: 'fa-crosshairs', labelKey: 'MENU.DIRECTION', descKey: 'ABOUT.FEAT_DIRECTION' },
     { route: ['tools/relief-finder'], icon: 'fa-area-chart', labelKey: 'MENU.RELIEF_FINDER', descKey: 'ABOUT.FEAT_RELIEF' },
     { route: ['api/wiki'], icon: 'fa-graduation-cap', labelKey: 'MENU.WIKI', descKey: 'ABOUT.FEAT_WIKI' },
-    { route: ['api/foncier/cerema'], icon: 'fa-building', labelKey: 'MENU.FONCIER', descKey: 'ABOUT.FEAT_FONCIER' },
+    { route: ['api/foncier'], icon: 'fa-building', labelKey: 'MENU.FONCIER', descKey: 'ABOUT.FEAT_FONCIER' },
     { route: ['tools/archive-watcher'], icon: 'fa-archive', labelKey: 'MENU.ARCHIVE', descKey: 'ABOUT.FEAT_MEDIA' },
     { route: ['system'], icon: 'fa-cog', labelKey: 'MENU.SYSTEM', descKey: 'ABOUT.FEAT_SYSTEM' }
   ];

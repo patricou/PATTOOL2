@@ -1,14 +1,29 @@
 <div class="pat-title">
   <h2>
-    <i class="fa fa-home me-2" aria-hidden="true"></i>
-    {{ titleKey | translate }}
+    <i class="fa me-2" [ngClass]="titleIcon" aria-hidden="true"></i>
+    {{ 'FONCIER.TITLE' | translate }}
   </h2>
 </div>
 
 <div class="foncier-page">
-  <p class="foncier-lead">{{ subtitleKey | translate }}</p>
+  <p class="foncier-lead">{{ 'FONCIER.SUBTITLE' | translate }}</p>
 
-  <div class="alert alert-info foncier-alert foncier-signup" *ngIf="!configured" role="status">
+  <div class="foncier-tabs" role="tablist" [attr.aria-label]="'FONCIER.TITLE' | translate">
+    <button
+      type="button"
+      *ngFor="let tab of providers"
+      class="foncier-tab"
+      role="tab"
+      [id]="'foncier-tab-' + tab.id"
+      [attr.aria-selected]="provider === tab.id"
+      [class.foncier-tab--on]="provider === tab.id"
+      (click)="setProvider(tab.id)">
+      <i [class]="tab.icon" aria-hidden="true"></i>
+      <span>{{ tab.labelKey | translate }}</span>
+    </button>
+  </div>
+
+  <div class="alert alert-info foncier-alert foncier-signup" *ngIf="isListings && !configured" role="status">
     <i class="fa fa-key me-2"></i>
     {{ keyHelpKey | translate }}
     <div class="mt-2">
@@ -18,26 +33,27 @@
 
   <form class="foncier-panel" (submit)="$event.preventDefault(); submitSearch()">
     <div class="foncier-field foncier-field--place">
-      <label for="listing-query">{{ 'FONCIER.COMMUNE' | translate }}</label>
+      <label for="foncier-query">{{ 'FONCIER.COMMUNE' | translate }}</label>
       <div class="foncier-input-wrap">
         <i class="fa fa-map-marker" aria-hidden="true"></i>
         <input
-          id="listing-query"
+          id="foncier-query"
           type="search"
-          class="form-control"
-          name="listingQuery"
+          class="form-control form-control-sm"
+          name="foncierQuery"
           role="combobox"
           aria-autocomplete="list"
-          aria-controls="listing-commune-results"
+          aria-controls="foncier-commune-results"
           [attr.aria-expanded]="(communes.length > 0 || searchingCommunes) && !selected"
-          [attr.aria-activedescendant]="communeActiveIndex >= 0 ? ('listing-commune-opt' + communeActiveIndex) : null"
+          [attr.aria-activedescendant]="communeActiveIndex >= 0 ? ('foncier-commune-opt' + communeActiveIndex) : null"
           [(ngModel)]="query"
           (ngModelChange)="onQueryChanged()"
           (keydown)="onCommuneKeydown($event)"
           [placeholder]="'FONCIER.COMMUNE_PLACEHOLDER' | translate"
-          autocomplete="off" />
+          autocomplete="off"
+          autofocus />
         <div
-          id="listing-commune-results"
+          id="foncier-commune-results"
           class="foncier-suggest"
           role="listbox"
           *ngIf="(communes.length || searchingCommunes) && !selected">
@@ -50,7 +66,7 @@
           <button
             type="button"
             *ngFor="let commune of communes; let i = index"
-            [id]="'listing-commune-opt' + i"
+            [id]="'foncier-commune-opt' + i"
             role="option"
             [attr.aria-selected]="communeActiveIndex === i"
             [class.active]="communeActiveIndex === i"
@@ -67,21 +83,24 @@
     </div>
 
     <div class="foncier-field">
-      <label for="listing-type">{{ 'FONCIER.TYPE' | translate }}</label>
+      <label for="foncier-type">{{ 'FONCIER.TYPE' | translate }}</label>
       <app-sheet-select
-        selectId="listing-type"
-        name="listingType"
+        selectId="foncier-type"
+        name="foncierType"
+        size="sm"
         [title]="'FONCIER.TYPE' | translate"
         [options]="typeOptions"
-        [(ngModel)]="type">
+        [(ngModel)]="type"
+        (ngModelChange)="onTypeChanged()">
       </app-sheet-select>
     </div>
 
     <div class="foncier-field">
-      <label for="listing-radius">{{ 'FONCIER.RADIUS' | translate }}</label>
+      <label for="foncier-radius">{{ 'FONCIER.RADIUS' | translate }}</label>
       <app-sheet-select
-        selectId="listing-radius"
-        name="listingRadius"
+        selectId="foncier-radius"
+        name="foncierRadius"
+        size="sm"
         [title]="'FONCIER.RADIUS' | translate"
         [options]="radiusSelectOptions"
         [(ngModel)]="radiusKm"
@@ -105,33 +124,33 @@
     </div>
 
     <div class="foncier-field">
-      <label for="listing-price-min">{{ 'FONCIER.PRICE_MIN' | translate }}</label>
+      <label for="foncier-price-min">{{ 'FONCIER.PRICE_MIN' | translate }}</label>
       <input
-        id="listing-price-min"
+        id="foncier-price-min"
         type="number"
-        class="form-control"
+        class="form-control form-control-sm"
         name="priceMin"
         [(ngModel)]="priceMin"
         [placeholder]="'FONCIER.PRICE_MIN' | translate"
         min="0" />
     </div>
     <div class="foncier-field">
-      <label for="listing-price-max">{{ 'FONCIER.PRICE_MAX' | translate }}</label>
+      <label for="foncier-price-max">{{ 'FONCIER.PRICE_MAX' | translate }}</label>
       <input
-        id="listing-price-max"
+        id="foncier-price-max"
         type="number"
-        class="form-control"
+        class="form-control form-control-sm"
         name="priceMax"
         [(ngModel)]="priceMax"
         [placeholder]="'FONCIER.PRICE_MAX' | translate"
         min="0" />
     </div>
     <div class="foncier-field">
-      <label for="listing-surface-min">{{ 'FONCIER.SURFACE_MIN' | translate }}</label>
+      <label for="foncier-surface-min">{{ 'FONCIER.SURFACE_MIN' | translate }}</label>
       <input
-        id="listing-surface-min"
+        id="foncier-surface-min"
         type="number"
-        class="form-control"
+        class="form-control form-control-sm"
         name="surfaceMin"
         [(ngModel)]="surfaceMin"
         [placeholder]="'FONCIER.SURFACE_MIN' | translate"
@@ -139,21 +158,38 @@
     </div>
 
     <div class="foncier-actions">
-      <button type="submit" class="btn btn-primary foncier-search-btn" [disabled]="!query.trim() || loading">
+      <button type="submit" class="btn btn-sm btn-primary foncier-search-btn" [disabled]="(!query.trim() && !selected) || loading || locating">
         <i class="fa fa-search" aria-hidden="true"></i>
         <span>{{ 'FONCIER.SEARCH' | translate }}</span>
       </button>
       <button
         type="button"
-        class="btn btn-outline-secondary"
-        *ngIf="query || listings.length || selected"
+        class="btn btn-sm btn-outline-secondary foncier-geo-btn"
+        (click)="useMyPosition()"
+        [disabled]="locating || loading">
+        <i class="fa fa-location-arrow" [class.fa-spin]="locating" aria-hidden="true"></i>
+        <span>{{ 'FONCIER.MY_POSITION' | translate }}</span>
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary foncier-map-btn"
+        (click)="openTraceViewerForSelection()"
+        [disabled]="locating || loading"
+        [attr.title]="'FONCIER.OPEN_TRACE_VIEWER' | translate">
+        <i class="fa fa-map" aria-hidden="true"></i>
+        <span>{{ 'FONCIER.PICK_ON_MAP' | translate }}</span>
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        *ngIf="query || hasResults || selected"
         (click)="clearSearch()">
         <i class="fa fa-times" aria-hidden="true"></i>
         <span>{{ 'FONCIER.CLEAR' | translate }}</span>
       </button>
       <button
         type="button"
-        class="btn btn-outline-secondary"
+        class="btn btn-sm btn-outline-secondary"
         [disabled]="clearingCache || cacheCount === 0"
         (click)="clearCache()">
         <i class="fa" [ngClass]="clearingCache ? 'fa-spinner fa-spin' : 'fa-trash'" aria-hidden="true"></i>
@@ -162,7 +198,10 @@
     </div>
   </form>
 
-  <div class="alert alert-warning py-2 foncier-alert" *ngIf="errorMessage && !loading && (configured || errorMessage === 'FONCIER.NO_COMMUNE')" role="alert">
+  <div
+    class="alert alert-warning py-2 foncier-alert"
+    *ngIf="errorMessage && !loading && !locating && (configured || errorMessage === 'FONCIER.NO_COMMUNE' || errorMessage === 'FONCIER.GEO_DENIED')"
+    role="alert">
     <i class="fa fa-exclamation-triangle me-2"></i>
     {{ errorMessage | translate }}
     <div class="mt-2" *ngIf="errorMessage === 'FONCIER.ERROR_CREDITS'">
@@ -173,7 +212,9 @@
   </div>
 
   <div class="foncier-empty" *ngIf="(configured || cacheMode !== 'api') && !searched && !loading && !searchingCommunes && !communes.length">
-    <span class="foncier-empty-icon" aria-hidden="true"><i class="fa fa-search"></i></span>
+    <span class="foncier-empty-icon" aria-hidden="true">
+      <i class="fa" [ngClass]="isCerema ? 'fa-map-marker' : 'fa-search'"></i>
+    </span>
     <p class="mb-0">{{ emptyKey | translate }}</p>
   </div>
 
@@ -183,11 +224,11 @@
       <span>{{ communeMeta(selected) }}</span>
     </div>
     <div class="foncier-toolbar-end">
-      <label class="foncier-sort" for="listing-sort">
+      <label class="foncier-sort" for="foncier-sort">
         <span>{{ 'FONCIER.SORT' | translate }}</span>
         <app-sheet-select
-          selectId="listing-sort"
-          name="listingSort"
+          selectId="foncier-sort"
+          name="foncierSort"
           size="sm"
           [title]="'FONCIER.SORT' | translate"
           [options]="sortSelectOptions"
@@ -195,10 +236,19 @@
           (ngModelChange)="onSortChanged()">
         </app-sheet-select>
       </label>
+      <div class="foncier-pager foncier-pager--toolbar" *ngIf="showPager">
+        <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="page <= 1 || loading" (click)="loadPage(-1)">
+          <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        </button>
+        <span class="foncier-pager-label">{{ 'FONCIER.PAGE' | translate:{ page: page } }}<ng-container *ngIf="pageCount > 1"> / {{ pageCount }}</ng-container></span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="!canGoNext" (click)="loadPage(1)">
+          <i class="fa fa-chevron-right" aria-hidden="true"></i>
+        </button>
+      </div>
     <div class="foncier-chips">
       <span class="foncier-chip" *ngIf="radiusKm > 0">{{ 'FONCIER.RADIUS_AROUND' | translate:{ km: radiusKm } }}</span>
       <span class="foncier-chip foncier-chip--count" *ngIf="searched && !loading">{{ 'FONCIER.RESULT_COUNT' | translate:{ count: count } }}</span>
-      <span class="foncier-chip foncier-chip--cache">{{ 'FONCIER.CACHE_COUNT' | translate:{ count: cacheCount } }}</span>
+      <span class="foncier-chip foncier-chip--cache" [attr.title]="'FONCIER.CACHE_COUNT_HINT' | translate:{ source: providerBadge }">{{ 'FONCIER.CACHE_COUNT' | translate:{ count: cacheCount, source: providerBadge } }}</span>
       <span class="foncier-chip foncier-chip--load" *ngIf="loading">
         <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
         {{ 'FONCIER.LOADING' | translate }}
@@ -207,13 +257,75 @@
     </div>
   </div>
 
-  <div class="foncier-cards" *ngIf="listings.length">
-    <article class="foncier-card" *ngFor="let listing of listings">
+  <div class="foncier-table-wrap" *ngIf="isCerema && mutations.length">
+    <table class="table foncier-table mb-0">
+      <thead>
+        <tr>
+          <th class="foncier-th-num">#</th>
+          <th>{{ 'FONCIER.COL_DATE' | translate }}</th>
+          <th>{{ 'FONCIER.COL_TYPE' | translate }}</th>
+          <th>{{ 'FONCIER.COL_ADDRESS' | translate }}</th>
+          <th>{{ 'FONCIER.COL_SURFACE' | translate }}</th>
+          <th>{{ 'FONCIER.COL_ROOMS' | translate }}</th>
+          <th>{{ 'FONCIER.COL_PRICE' | translate }}</th>
+          <th>{{ 'FONCIER.COL_M2' | translate }}</th>
+          <th>{{ 'FONCIER.COL_MAP' | translate }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of mutations; let i = index">
+          <td class="foncier-td-num">
+            <span class="foncier-item-mark" [attr.title]="providerLabelKey | translate">
+              <span class="foncier-item-num">{{ itemNumber(i) }}</span>
+              <span class="foncier-item-src foncier-item-src--dvf">DVF</span>
+            </span>
+          </td>
+          <td class="foncier-td-date">{{ row.date || '—' }}</td>
+          <td>
+            <span class="foncier-stat">{{ row.typeLocal || row.nature || '—' }}</span>
+          </td>
+          <td class="foncier-td-address">{{ row.address || '—' }}</td>
+          <td>{{ formatNumber(row.surface, ' m²') }}</td>
+          <td>{{ formatNumber(row.rooms) }}</td>
+          <td class="foncier-price">{{ formatPrice(row.price) }}</td>
+          <td>{{ formatPrice(row.pricePerM2) }}</td>
+          <td>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary foncier-trace-btn"
+              *ngIf="canOpenMap(row)"
+              (click)="openMutationMap(row)"
+              [disabled]="!!geocodingKey"
+              [attr.title]="'FONCIER.OPEN_TRACE_VIEWER' | translate"
+              [attr.aria-label]="'FONCIER.OPEN_TRACE_VIEWER' | translate">
+              <i class="fa" [ngClass]="geocodingKey === (row.id || row.address) ? 'fa-spinner fa-spin' : 'fa-map'" aria-hidden="true"></i>
+              <span>{{ 'FONCIER.OPEN_TRACE_VIEWER_SHORT' | translate }}</span>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="foncier-cards" *ngIf="isListings && listings.length">
+    <article class="foncier-card" *ngFor="let listing of listings; let i = index">
       <div
         class="foncier-card-photo"
-        [class.foncier-card-photo--empty]="!listing.photo"
-        [ngStyle]="photoStyle(listing)">
-        <i *ngIf="!listing.photo" class="fa fa-home" aria-hidden="true"></i>
+        [class.foncier-card-photo--empty]="!listing.photo || isPhotoBroken(listing)">
+        <img
+          *ngIf="listing.photo && !isPhotoBroken(listing)"
+          class="foncier-card-photo-img"
+          [src]="photoSrc(listing)"
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerpolicy="no-referrer"
+          (error)="onPhotoError(listing)" />
+        <i *ngIf="!listing.photo || isPhotoBroken(listing)" class="fa fa-home" aria-hidden="true"></i>
+        <span class="foncier-item-mark foncier-item-mark--card" [attr.title]="providerLabelKey | translate">
+          <span class="foncier-item-num">{{ itemNumber(i) }}</span>
+          <span class="foncier-item-src" [class.foncier-item-src--se]="isStreamEstate" [class.foncier-item-src--ct]="isChercherTrouver">{{ providerBadge }}</span>
+        </span>
         <div class="foncier-card-price" *ngIf="listing.price != null">{{ formatPrice(listing.price) }}</div>
         <span class="foncier-dpe" *ngIf="listing.dpe" [ngClass]="dpeClass(listing.dpe)">DPE {{ listing.dpe }}</span>
       </div>
@@ -253,12 +365,20 @@
             type="button"
             class="btn btn-sm btn-outline-primary foncier-trace-btn"
             *ngIf="canOpenMap(listing)"
-            (click)="openInTraceViewer(listing)"
+            (click)="openListingMap(listing)"
             [disabled]="!!geocodingKey"
             [attr.title]="'FONCIER.OPEN_TRACE_VIEWER' | translate"
             [attr.aria-label]="'FONCIER.OPEN_TRACE_VIEWER' | translate">
             <i class="fa" [ngClass]="geocodingKey === (listing.id || listing.title) ? 'fa-spinner fa-spin' : 'fa-map'" aria-hidden="true"></i>
             <span>{{ 'FONCIER.OPEN_TRACE_VIEWER_SHORT' | translate }}</span>
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm foncier-whatsapp-btn"
+            (click)="shareListingOnWhatsApp(listing, $event)"
+            [attr.title]="'FONCIER.SHARE_WHATSAPP_HINT' | translate"
+            [attr.aria-label]="'FONCIER.SHARE_WHATSAPP' | translate">
+            <i class="fa fa-whatsapp" aria-hidden="true"></i>
           </button>
           <a
             *ngIf="listing.url"
@@ -274,20 +394,24 @@
     </article>
   </div>
 
-  <div class="foncier-empty foncier-empty--soft" *ngIf="searched && !loading && !listings.length && configured">
+  <div class="foncier-empty foncier-empty--soft" *ngIf="searched && !loading && !hasResults && (isCerema ? selected : configured)">
     <span class="foncier-empty-icon" aria-hidden="true"><i class="fa fa-home"></i></span>
     <p class="mb-0">{{ 'FONCIER.NO_RESULTS' | translate }}</p>
   </div>
 
-  <div class="foncier-pager" *ngIf="listings.length && (page > 1 || hasNext || listings.length >= 20)">
-    <button type="button" class="btn btn-outline-secondary" [disabled]="page <= 1 || loading" (click)="loadPage(-1)">
+  <div class="foncier-pager" *ngIf="showPager">
+    <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="page <= 1 || loading" (click)="loadPage(-1)">
       <i class="fa fa-chevron-left" aria-hidden="true"></i>
     </button>
-    <span class="foncier-pager-label">{{ 'FONCIER.PAGE' | translate:{ page: page } }}</span>
-    <button type="button" class="btn btn-outline-secondary" [disabled]="!hasNext && listings.length < 20 || loading" (click)="loadPage(1)">
+    <span class="foncier-pager-label">{{ 'FONCIER.PAGE' | translate:{ page: page } }}<ng-container *ngIf="pageCount > 1"> / {{ pageCount }}</ng-container></span>
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-secondary"
+      [disabled]="!canGoNext"
+      (click)="loadPage(1)">
       <i class="fa fa-chevron-right" aria-hidden="true"></i>
     </button>
   </div>
 </div>
 
-<app-trace-viewer-modal></app-trace-viewer-modal>
+<app-trace-viewer-modal (locationSelected)="onLocationSelected($event)"></app-trace-viewer-modal>

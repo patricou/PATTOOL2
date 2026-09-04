@@ -81,7 +81,7 @@ public class FoncierChercherTrouverProxyService {
         PlaceFilter place = applyPlace(builder, query, codeInsee);
         applyListingFilters(builder, type, priceMin, priceMax, surfaceMin, surfaceMax);
         JsonNode raw = fetchJson(builder.build().encode().toUri(), "annonces");
-        return mapListings(p, raw, place, false, true);
+        return mapListings(p, raw, place, true, true);
     }
 
     private JsonNode listingsAround(
@@ -212,14 +212,8 @@ public class FoncierChercherTrouverProxyService {
         root.put("configured", true);
         root.put("page", page);
         root.put("count", merged.size());
-        int from = Math.max(0, (page - 1) * 20);
-        int to = Math.min(from + 20, merged.size());
-        ArrayNode items = objectMapper.createArrayNode();
-        for (int i = from; i < to; i++) {
-            items.add(merged.get(i));
-        }
-        root.set("items", items);
-        root.put("hasNext", to < merged.size());
+        root.set("items", merged);
+        root.put("hasNext", false);
         return root;
     }
 
@@ -268,22 +262,30 @@ public class FoncierChercherTrouverProxyService {
                 matched.add(item);
             }
         }
-        int from = slicePage ? Math.max(0, (page - 1) * 20) : 0;
-        int to = slicePage ? Math.min(from + 20, matched.size()) : matched.size();
+        int matchedCount = matched.size();
+        int apiTotal = raw.has("total") && raw.get("total").canConvertToInt() ? raw.get("total").asInt() : 0;
+        boolean more = raw.path("has_more").asBoolean(false) || raw.path("hasMore").asBoolean(false);
+        int from = 0;
+        int to = matchedCount;
+        int count;
+        boolean hasNext;
+        if (slicePage && matchedCount > 20) {
+            from = Math.max(0, (page - 1) * 20);
+            to = Math.min(from + 20, matchedCount);
+            count = matchedCount;
+            hasNext = to < matchedCount;
+        } else if (slicePage) {
+            count = Math.max(matchedCount, apiTotal);
+            hasNext = more || page * 20 < count;
+        } else {
+            count = place.isEmpty() && apiTotal > matchedCount ? apiTotal : matchedCount;
+            hasNext = more || page * 20 < count;
+        }
         for (int i = from; i < to; i++) {
             items.add(matched.get(i));
         }
-        if (!slicePage && raw.has("total") && raw.get("total").canConvertToInt() && place.isEmpty()) {
-            root.put("count", raw.get("total").asInt());
-        } else {
-            root.put("count", slicePage ? matched.size() : items.size());
-        }
-        if (slicePage) {
-            root.put("hasNext", to < matched.size());
-        } else {
-            boolean more = raw.has("has_more") && raw.get("has_more").asBoolean();
-            root.put("hasNext", items.size() >= 20 && (place.isEmpty() || more));
-        }
+        root.put("count", count);
+        root.put("hasNext", hasNext);
         return root;
     }
 
@@ -291,37 +293,42 @@ public class FoncierChercherTrouverProxyService {
         if (row == null || !row.isObject()) {
             return null;
         }
+        JsonNode src = row.has("properties") && row.get("properties").isObject() ? row.get("properties") : row;
         ObjectNode item = objectMapper.createObjectNode();
-        putText(item, "id", first(row, "reference", "id"));
-        putText(item, "title", first(row, "title", "titre"));
-        putNumber(item, "price", first(row, "price", "prix"));
-        putNumber(item, "pricePerM2", first(row, "price_per_m2", "prix_m2"));
-        putNumber(item, "surface", first(row, "surface"));
-        putNumber(item, "rooms", first(row, "rooms", "pieces"));
-        putText(item, "city", first(row, "city", "ville"));
-        putText(item, "zipcode", first(row, "postal_code", "zipcode", "code_postal", "cp"));
+        putText(item, "id", first(src, "reference", "id"));
+        putText(item, "title", first(src, "title", "titre"));
+        putNumber(item, "price", first(src, "price", "prix"));
+        putNumber(item, "pricePerM2", first(src, "price_per_m2", "prix_m2"));
+        putNumber(item, "surface", first(src, "surface"));
+        putNumber(item, "rooms", first(src, "rooms", "pieces"));
+        putText(item, "city", first(src, "city", "ville"));
+        putText(item, "zipcode", first(src, "postal_code", "zipcode", "code_postal", "cp"));
         String cityName = FoncierGeoService.text(item.get("city"));
         String zip = FoncierGeoService.text(item.get("zipcode"));
         if (geocodeMissing) {
             String place = (StringUtils.hasText(zip) ? zip + " " : "") + cityName;
-            geoService.applyCoordinates(item, row, place, zip);
+            geoService.applyCoordinates(item, src, place, zip);
+            geoService.copyCoordinates(item, row.get("geometry"));
+            geoService.copyCoordinates(item, row);
         } else {
+            geoService.copyCoordinates(item, src);
+            geoService.copyCoordinates(item, row.get("geometry"));
             geoService.copyCoordinates(item, row);
         }
-        putText(item, "dpe", first(row, "dpe"));
-        putText(item, "type", first(row, "type"));
-        putText(item, "url", first(row, "external_url", "url", "source_url", "lien"));
-        putText(item, "source", first(row, "source", "portail"));
-        FoncierListingMeta.putAddress(item, row, cityName, zip);
-        String sellerType = FoncierGeoService.text(first(row, "seller_type"));
-        String seller = FoncierListingMeta.usableSeller(FoncierGeoService.text(first(row, "seller_name")));
-        String network = FoncierGeoService.text(first(row, "real_estate_network", "network"));
-        FoncierListingMeta.putOffer(item, seller, sellerType, network, first(row, "published_at", "updated_at", "created_at"));
-        JsonNode photos = first(row, "images", "photos");
+        putText(item, "dpe", first(src, "dpe"));
+        putText(item, "type", first(src, "type"));
+        putText(item, "url", first(src, "external_url", "url", "source_url", "lien"));
+        putText(item, "source", first(src, "source", "portail"));
+        FoncierListingMeta.putAddress(item, src, cityName, zip);
+        String sellerType = FoncierGeoService.text(first(src, "seller_type"));
+        String seller = FoncierListingMeta.usableSeller(FoncierGeoService.text(first(src, "seller_name")));
+        String network = FoncierGeoService.text(first(src, "real_estate_network", "network"));
+        FoncierListingMeta.putOffer(item, seller, sellerType, network, first(src, "published_at", "updated_at", "created_at"));
+        JsonNode photos = first(src, "images", "photos");
         if (photos != null && photos.isArray() && photos.size() > 0) {
-            putText(item, "photo", photos.get(0));
+            putPhoto(item, photos.get(0));
         } else {
-            putText(item, "photo", first(row, "photo", "image"));
+            putPhoto(item, first(row, "photo", "image"));
         }
         return item.has("title") || item.has("price") ? item : null;
     }
@@ -429,11 +436,14 @@ public class FoncierChercherTrouverProxyService {
         if (!raw.isObject()) {
             return null;
         }
-        JsonNode list = first(raw, "items", "results", "annonces", "data", "hydra:member", "member");
+        JsonNode list = first(raw, "items", "results", "annonces", "data", "features", "hydra:member", "member");
         return list != null && list.isArray() ? list : null;
     }
 
     private static JsonNode first(JsonNode row, String... fields) {
+        if (row == null || !row.isObject()) {
+            return null;
+        }
         for (String field : fields) {
             JsonNode node = row.get(field);
             if (node != null && !node.isNull()) {
@@ -441,6 +451,13 @@ public class FoncierChercherTrouverProxyService {
             }
         }
         return null;
+    }
+
+    private static void putPhoto(ObjectNode target, JsonNode node) {
+        if (node != null && node.isObject()) {
+            node = first(node, "thumbnail", "small", "medium", "web", "url", "src", "href", "original");
+        }
+        putText(target, "photo", node);
     }
 
     private static void putText(ObjectNode target, String field, JsonNode node) {

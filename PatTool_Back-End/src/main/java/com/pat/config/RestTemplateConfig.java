@@ -39,6 +39,9 @@ public class RestTemplateConfig {
     /** Recherche d'entreprises + Overpass artisans (réponses parfois lentes). */
     public static final String ARTISANS_REST_TEMPLATE = "artisansRestTemplate";
 
+    /** CEREMA DVF+ / listings fonciers — bbox 10 km souvent > 3 s. */
+    public static final String FONCIER_REST_TEMPLATE = "foncierRestTemplate";
+
 
     /**
      * Client HTTP court pour proxies et API externes (échec rapide si indisponible).
@@ -127,6 +130,14 @@ public class RestTemplateConfig {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(8))
                 .setReadTimeout(Duration.ofSeconds(25))
+                .build();
+    }
+
+    @Bean(FONCIER_REST_TEMPLATE)
+    public RestTemplate foncierRestTemplate(RestTemplateBuilder builder) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(8))
+                .setReadTimeout(Duration.ofSeconds(30))
                 .build();
     }
 
