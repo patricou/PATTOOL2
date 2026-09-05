@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   HostListener,
+  NgZone,
   OnDestroy,
   OnInit,
   ViewChild
@@ -69,17 +70,22 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
   private stateSub?: Subscription;
   private commandSub?: Subscription;
   private ytProgressTimer?: ReturnType<typeof setInterval>;
+  private ytApiListening = false;
   private pipWindow: Window | null = null;
   private pipPageHideHandler?: () => void;
   private pipMessageHandler?: (event: MessageEvent) => void;
   private osPipEntering = false;
   private osPipTearingDown = false;
+  private readonly onWindowYtMessage = (event: MessageEvent): void => {
+    this.onYoutubeMessage(event);
+  };
 
   constructor(
     private youtubePlayer: YoutubePlayerService,
     private sanitizer: DomSanitizer,
     private router: Router,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone
   ) {}
 
   get item(): YoutubeItem | null {
@@ -93,6 +99,8 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
       this.state = s;
       if (!s.open || !s.item) {
         this.stopYoutubeProgressWatch();
+        this.ytApiListening = false;
+        this.unloadPipEmbed();
         this.teardownOsPip(false);
         this.embedUrl = null;
         this.lastEmbedKey = '';
@@ -118,11 +126,17 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
       this.handshakeYoutubePlayer();
       this.sendYoutubeCommand(command === 'pause' ? 'pauseVideo' : 'playVideo');
     });
+    this.ngZone.runOutsideAngular(() => {
+      window.addEventListener('message', this.onWindowYtMessage);
+    });
   }
 
   ngOnDestroy(): void {
     this.stateSub?.unsubscribe();
     this.commandSub?.unsubscribe();
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('message', this.onWindowYtMessage);
+    }
     this.stopYoutubeProgressWatch();
     this.teardownOsPip(false);
   }
@@ -279,11 +293,6 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
   @HostListener('window:resize')
   onWindowResize(): void {
     this.clampSizeAndPosition();
-  }
-
-  @HostListener('window:message', ['$event'])
-  onWindowMessage(event: MessageEvent): void {
-    this.onYoutubeMessage(event);
   }
 
   onPipEmbedLoad(): void {
@@ -477,6 +486,13 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
 
   private copyStylesToWindow(target: Window): void {
     const doc = target.document;
+    Array.from(doc.querySelectorAll('link[rel="stylesheet"], style')).forEach((node) => {
+      try {
+        node.remove();
+      } catch {
+        /* ignore */
+      }
+    });
     Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).forEach((node) => {
       try {
         doc.head.appendChild(node.cloneNode(true));
@@ -530,8 +546,21 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
     if (!this.state.open || !this.embedUrl) {
       return;
     }
-    this.handshakeYoutubePlayer();
-    this.ytProgressTimer = setInterval(() => this.handshakeYoutubePlayer(), 400);
+    this.ytApiListening = false;
+    this.ngZone.runOutsideAngular(() => {
+      this.handshakeYoutubePlayer();
+      this.ytProgressTimer = setInterval(() => {
+        if (!this.state.open || !this.embedUrl) {
+          this.stopYoutubeProgressWatch();
+          return;
+        }
+        if (this.ytApiListening) {
+          this.stopYoutubeProgressWatch();
+          return;
+        }
+        this.handshakeYoutubePlayer();
+      }, 400);
+    });
   }
 
   private stopYoutubeProgressWatch(): void {
@@ -541,9 +570,22 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
     }
   }
 
+  private unloadPipEmbed(): void {
+    const iframe = this.getYoutubeIframe();
+    if (iframe) {
+      try {
+        iframe.src = 'about:blank';
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   private handshakeYoutubePlayer(): void {
     this.postToYoutube({ event: 'listening', id: 'yt-pip-embed' });
-    this.sendYoutubeCommand('addEventListener', ['onStateChange']);
+    if (!this.ytApiListening) {
+      this.sendYoutubeCommand('addEventListener', ['onStateChange']);
+    }
   }
 
   private getYoutubeIframe(): HTMLIFrameElement | null {
@@ -606,14 +648,23 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
         state = playerState;
       }
     }
-    if (state === 1 || state === 3) {
-      this.youtubePlayer.setPaused(false);
-    } else if (state === 2) {
-      this.youtubePlayer.setPaused(true);
+    this.ytApiListening = true;
+    if (state === undefined) {
+      return;
     }
-    if (state === 0) {
-      this.youtubePlayer.setPaused(true);
-      this.youtubePlayer.notifyEnded();
-    }
+    this.ngZone.run(() => {
+      if (!this.state.open || !this.embedUrl) {
+        return;
+      }
+      if (state === 1 || state === 3) {
+        this.youtubePlayer.setPaused(false);
+      } else if (state === 2) {
+        this.youtubePlayer.setPaused(true);
+      }
+      if (state === 0) {
+        this.youtubePlayer.setPaused(true);
+        this.youtubePlayer.notifyEnded();
+      }
+    });
   }
 }

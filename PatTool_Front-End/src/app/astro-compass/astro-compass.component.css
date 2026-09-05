@@ -6264,20 +6264,6 @@ a.ac-compass-cal__btn--direction {
   box-sizing: border-box;
 }
 
-.ac-finder__cible-verify-btn--hud {
-  box-sizing: border-box;
-  padding: 0.28rem 0.52rem;
-  border-radius: 0.4rem;
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
-  line-height: 1.2;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  cursor: pointer;
-}
-
 .ac-finder__cible-verify-btn--on {
   background: linear-gradient(180deg, #7ff3dc 0%, #22c55e 100%);
   border-color: #b8fff0;
@@ -6289,7 +6275,7 @@ a.ac-compass-cal__btn--direction {
 .ac-finder__guide {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 6;
   pointer-events: none;
 }
 
@@ -6319,25 +6305,29 @@ a.ac-compass-cal__btn--direction {
 }
 
 .ac-finder__guide-arrow--left {
+  --ac-guide-tf: translateY(-50%);
   left: 0.4rem;
   top: 50%;
   transform: translateY(-50%);
 }
 
 .ac-finder__guide-arrow--right {
+  --ac-guide-tf: translateY(-50%);
   right: 0.4rem;
   top: 50%;
   transform: translateY(-50%);
 }
 
 .ac-finder__guide-arrow--up {
-  top: 3.15rem;
+  --ac-guide-tf: translateX(-50%);
+  top: 0.4rem;
   left: 50%;
   transform: translateX(-50%);
 }
 
 .ac-finder__guide-arrow--down {
-  bottom: 5.6rem;
+  --ac-guide-tf: translateX(-50%);
+  bottom: 3.35rem;
   left: 50%;
   transform: translateX(-50%);
 }
@@ -6347,7 +6337,12 @@ a.ac-compass-cal__btn--direction {
   background: #ffd54a;
   border-color: #ffe08a;
   box-shadow: 0 0 18px rgba(255, 213, 74, 0.55);
-  animation: ac-look-pulse 0.9s ease-in-out infinite;
+  animation: ac-finder-guide-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes ac-finder-guide-pulse {
+  0%, 100% { transform: var(--ac-guide-tf) scale(1); }
+  50% { transform: var(--ac-guide-tf) scale(1.12); }
 }
 
 
@@ -6669,7 +6664,7 @@ a.ac-compass-cal__btn--direction {
 .ac-finder--fs .ac-finder__guide-arrow--up,
 .ac-finder:fullscreen .ac-finder__guide-arrow--up,
 .ac-finder:-webkit-full-screen .ac-finder__guide-arrow--up {
-  top: 8.4rem;
+  top: max(0.4rem, env(safe-area-inset-top, 0px));
 }
 
 .ac-finder__right-btns {
@@ -6918,26 +6913,53 @@ a.ac-compass-cal__btn--direction {
   color: #9fb2d8;
 }
 
-.ac-finder__zoom {
+.ac-finder__bottom {
   position: absolute;
   left: 0.4rem;
-  bottom: 2.85rem;
+  right: 0.4rem;
+  bottom: 0.4rem;
   z-index: 5;
   display: flex;
   flex-direction: row;
   align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  pointer-events: none;
+}
+
+.ac-finder__bottom > * {
+  pointer-events: auto;
+}
+
+.ac-finder--fs .ac-finder__bottom,
+.ac-finder:fullscreen .ac-finder__bottom,
+.ac-finder:-webkit-full-screen .ac-finder__bottom {
+  left: max(0.4rem, env(safe-area-inset-left, 0px));
+  right: max(0.4rem, env(safe-area-inset-right, 0px));
+  bottom: max(0.4rem, env(safe-area-inset-bottom, 0px));
+}
+
+.ac-finder__zoom {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   gap: 0.22rem;
-  padding: 0.22rem 0.28rem;
+  height: 2.4rem;
+  min-height: 2.4rem;
+  padding: 0 0.28rem;
+  box-sizing: border-box;
   border-radius: 0.55rem;
   background: rgba(8, 12, 24, 0.62);
   touch-action: manipulation;
 }
 
-.ac-finder--fs .ac-finder__zoom,
-.ac-finder:fullscreen .ac-finder__zoom,
-.ac-finder:-webkit-full-screen .ac-finder__zoom {
-  left: max(0.4rem, env(safe-area-inset-left, 0px));
-  bottom: max(2.85rem, calc(2.45rem + env(safe-area-inset-bottom, 0px)));
+.ac-finder__corner-btns {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .ac-finder__zoom-btn,
@@ -6946,7 +6968,7 @@ a.ac-compass-cal__btn--direction {
   align-items: center;
   justify-content: center;
   min-width: 1.75rem;
-  height: 1.75rem;
+  height: 2rem;
   padding: 0 0.28rem;
   border: 0;
   border-radius: 0.35rem;
@@ -6980,10 +7002,7 @@ a.ac-compass-cal__btn--direction {
 }
 
 .ac-finder__fs {
-  position: absolute;
-  right: 0.4rem;
-  bottom: 0.4rem;
-  z-index: 5;
+  position: relative;
   width: 2.4rem;
   height: 2.4rem;
   border: 0;
@@ -6994,15 +7013,7 @@ a.ac-compass-cal__btn--direction {
 }
 
 .ac-finder__info {
-  right: 3rem;
   color: #9ed4ff;
-}
-
-.ac-finder--fs .ac-finder__info,
-.ac-finder:fullscreen .ac-finder__info,
-.ac-finder:-webkit-full-screen .ac-finder__info {
-  right: max(3rem, calc(2.6rem + env(safe-area-inset-right, 0px)));
-  bottom: max(0.4rem, env(safe-area-inset-bottom, 0px));
 }
 
 .ac-cam-resize {

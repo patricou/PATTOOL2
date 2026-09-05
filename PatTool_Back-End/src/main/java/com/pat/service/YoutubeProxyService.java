@@ -212,7 +212,7 @@ public class YoutubeProxyService {
         if (StringUtils.hasText(lang)) {
             builder.queryParam("relevanceLanguage", lang);
         }
-        if (StringUtils.hasText(channel) && "video".equals(kind)) {
+        if (StringUtils.hasText(channel) && ("video".equals(kind) || "playlist".equals(kind))) {
             builder.queryParam("channelId", channel);
         }
         if (StringUtils.hasText(sort) && !"relevance".equals(sort)) {

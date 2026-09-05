@@ -459,12 +459,29 @@ describe('computeFinderTurnGuide', () => {
     expect(g!.pitchDeg).toBe(25);
   });
 
-  it('uses screen position when the object is in view', () => {
+  it('uses screen X when the object is in view, and sky elevation for tilt', () => {
     const proj = projectCelestialToScreen(0, 20, 0, 12, 8);
     expect(proj.inView).toBeTrue();
     const g = computeFinderTurnGuide(0, 20, 12, 8, proj);
     expect(g!.right).toBeTrue();
     expect(g!.down).toBeTrue();
+    expect(g!.up).toBeFalse();
+    expect(g!.pitchDeg).toBe(12);
+  });
+
+  it('tilts from Camera vs Cible sky elevation, not screen Y', () => {
+    const proj = {
+      xPct: 50,
+      yPct: 82,
+      inView: true,
+      inFront: true,
+      sepDeg: 1,
+      centered: false
+    };
+    const g = computeFinderTurnGuide(285, 14, 284, 15, proj);
+    expect(g!.up).toBeTrue();
+    expect(g!.down).toBeFalse();
+    expect(g!.pitchDeg).toBe(1);
   });
 
   it('is ok when the object is centered', () => {

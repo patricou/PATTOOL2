@@ -1,0 +1,395 @@
+<div class="pat-title">
+  <h2>
+    <i class="fa fa-film" aria-hidden="true"></i>
+    {{ 'VIDEO_MONTAGE.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="container-fluid py-3 vm-page">
+  <p class="text-muted vm-intro">{{ 'VIDEO_MONTAGE.INTRO' | translate }}</p>
+
+  <div class="vm-overlay" *ngIf="busy" role="status" aria-live="polite" [attr.aria-label]="busyKey | translate">
+    <div class="vm-overlay-card">
+      <span class="vm-spinner" aria-hidden="true"></span>
+      <span class="vm-overlay-text">{{ busyKey | translate }}</span>
+      <span class="small text-muted" *ngIf="exporting && exportClipCount">
+        {{ 'VIDEO_MONTAGE.EXPORT_PROGRESS' | translate:{ current: exportClipIndex, total: exportClipCount } }}
+      </span>
+    </div>
+  </div>
+
+  <div class="alert alert-success py-2" *ngIf="messageKey" role="status">
+    {{ messageKey | translate }}
+  </div>
+  <div class="alert alert-danger py-2" *ngIf="errorKey" role="alert">
+    {{ errorKey | translate }}
+  </div>
+
+  <div class="vm-toolbar mb-3">
+    <div class="d-flex flex-wrap gap-2 align-items-end">
+      <div class="flex-grow-1" style="min-width: 11rem">
+        <label for="vmProjects">{{ 'VIDEO_MONTAGE.PROJECTS' | translate }}</label>
+        <div class="vm-select-wrap">
+          <select
+            id="vmProjects"
+            class="form-select form-select-sm"
+            [disabled]="loadingProjects || busy"
+            [ngModel]="currentProjectId || ''"
+            (ngModelChange)="onProjectSelected($event)">
+            <option value="">{{ 'VIDEO_MONTAGE.NEW_PROJECT' | translate }}</option>
+            <option *ngFor="let doc of projects" [value]="doc.id || ''">
+              {{ doc.title }}
+            </option>
+          </select>
+          <span class="vm-select-spin" *ngIf="loadingProjects" aria-hidden="true"></span>
+        </div>
+      </div>
+      <div class="flex-grow-1" style="min-width: 11rem">
+        <label for="vmTitle">{{ 'VIDEO_MONTAGE.TITLE_LABEL' | translate }}</label>
+        <input
+          id="vmTitle"
+          class="form-control form-control-sm"
+          [(ngModel)]="title"
+          [placeholder]="'VIDEO_MONTAGE.TITLE_PLACEHOLDER' | translate" />
+      </div>
+      <div class="d-flex flex-wrap gap-1">
+          <button type="button" class="vm-btn vm-btn-ghost" (click)="newProject()" [disabled]="busy">
+          <i class="fa fa-plus" aria-hidden="true"></i>{{ 'VIDEO_MONTAGE.NEW_PROJECT' | translate }}
+        </button>
+          <button type="button" class="vm-btn vm-btn-violet" (click)="saveProject()" [disabled]="busy">
+          <span *ngIf="saving" class="spinner-border spinner-border-sm" role="status"></span>
+          <i *ngIf="!saving" class="fa fa-save" aria-hidden="true"></i>
+          {{ 'VIDEO_MONTAGE.SAVE' | translate }}
+        </button>
+        <button
+          type="button"
+          class="vm-btn vm-btn-rose"
+          (click)="deleteProject()"
+          [disabled]="!currentProjectId || busy">
+          <span *ngIf="deleting" class="spinner-border spinner-border-sm" role="status"></span>
+          <i *ngIf="!deleting" class="fa fa-trash" aria-hidden="true"></i>{{ 'VIDEO_MONTAGE.DELETE' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="vm-layout">
+    <section class="vm-library">
+      <div class="vm-card-head">
+        <span>{{ libraryTab === 'recordings' ? ('VIDEO_MONTAGE.TAB_RECORDINGS' | translate) : ('VIDEO_MONTAGE.TAB_ACTIVITIES' | translate) }}</span>
+        <div class="vm-tabs">
+          <button
+            type="button"
+            class="vm-tab"
+            [class.active]="libraryTab === 'activities'"
+            (click)="libraryTab = 'activities'">
+            <i class="fa fa-calendar me-1" aria-hidden="true"></i>{{ 'VIDEO_MONTAGE.TAB_ACTIVITIES' | translate }}
+          </button>
+          <button
+            type="button"
+            class="vm-tab"
+            [class.active]="libraryTab === 'recordings'"
+            (click)="libraryTab = 'recordings'">
+            <i class="fa fa-circle me-1 vm-rec-dot" aria-hidden="true"></i>{{ 'VIDEO_MONTAGE.TAB_RECORDINGS' | translate }}
+          </button>
+        </div>
+      </div>
+      <div class="vm-library-body" *ngIf="libraryTab === 'activities'">
+        <label class="vm-label" for="vmActivityFilter">{{ 'VIDEO_MONTAGE.ACTIVITY_FILTER' | translate }}</label>
+        <input
+          id="vmActivityFilter"
+          type="search"
+          class="form-control form-control-sm mb-2"
+          [(ngModel)]="activityFilter"
+          (ngModelChange)="onActivityFilterChange()"
+          [placeholder]="'VIDEO_MONTAGE.ACTIVITY_PLACEHOLDER' | translate" />
+        <div class="vm-inline-load" *ngIf="loadingActivities">
+          <span class="vm-spinner vm-spinner-sm" aria-hidden="true"></span>
+          {{ 'VIDEO_MONTAGE.LOADING' | translate }}
+        </div>
+        <select
+          class="form-select form-select-sm mb-2"
+          [ngModel]="selectedEventId || ''"
+          (ngModelChange)="selectActivity($event)">
+          <option value="">{{ 'VIDEO_MONTAGE.SELECT_ACTIVITY' | translate }}</option>
+          <option *ngFor="let a of filteredActivities" [value]="a.id">{{ a.label }}</option>
+        </select>
+        <div *ngIf="!activities.length && !loadingActivities" class="text-muted small">
+          {{ 'VIDEO_MONTAGE.NO_ACTIVITIES' | translate }}
+        </div>
+        <div class="vm-inline-load" *ngIf="loadingMedia">
+          <span class="vm-spinner vm-spinner-sm" aria-hidden="true"></span>
+          {{ 'VIDEO_MONTAGE.LOADING_MEDIA' | translate }}
+        </div>
+        <div *ngIf="selectedEventId && !loadingMedia && !libraryPhotos.length && !libraryVideos.length" class="text-muted small">
+          {{ 'VIDEO_MONTAGE.NO_MEDIA' | translate }}
+        </div>
+
+        <div class="vm-section-label photos" *ngIf="libraryPhotos.length">
+          <span>{{ 'VIDEO_MONTAGE.PHOTOS' | translate }} ({{ libraryPhotos.length }})</span>
+          <button type="button" class="vm-btn vm-btn-amber" (click)="addAll(libraryPhotos)">
+            {{ 'VIDEO_MONTAGE.ADD_ALL_PHOTOS' | translate }}
+          </button>
+        </div>
+        <div class="vm-thumbs">
+          <button
+            type="button"
+            class="vm-thumb"
+            *ngFor="let item of libraryPhotos; trackBy: trackByFileId"
+            (click)="addLibraryItem(item)"
+            [title]="item.title">
+            <img *ngIf="item.thumbUrl" [src]="item.thumbUrl" [alt]="item.title" />
+            <span *ngIf="!item.thumbUrl" class="vm-thumb-fallback"><i class="fa fa-picture-o"></i></span>
+            <span class="vm-thumb-add"><i class="fa fa-plus"></i></span>
+          </button>
+        </div>
+
+        <div class="vm-section-label videos" *ngIf="libraryVideos.length">
+          <span>{{ 'VIDEO_MONTAGE.VIDEOS' | translate }} ({{ libraryVideos.length }})</span>
+          <span class="small fw-normal text-muted">{{ 'VIDEO_MONTAGE.TRIM_HINT' | translate }}</span>
+        </div>
+        <div class="vm-thumbs">
+          <button
+            type="button"
+            class="vm-thumb vm-thumb-video"
+            *ngFor="let item of libraryVideos; trackBy: trackByFileId"
+            (click)="openTrim(item)"
+            [title]="item.title">
+            <video [src]="playbackUrl(item.fileId, 'low')" muted preload="none"></video>
+            <span class="vm-thumb-add"><i class="fa fa-scissors"></i></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="vm-library-body" *ngIf="libraryTab === 'recordings'">
+        <div class="vm-inline-load" *ngIf="loadingRecordings">
+          <span class="vm-spinner vm-spinner-sm" aria-hidden="true"></span>
+          {{ 'VIDEO_MONTAGE.LOADING' | translate }}
+        </div>
+        <div *ngIf="!loadingRecordings && !recordings.length" class="text-muted small">
+          {{ 'VIDEO_MONTAGE.RECORDINGS_EMPTY' | translate }}
+        </div>
+        <p class="small text-muted mb-2" *ngIf="recordings.length">{{ 'VIDEO_MONTAGE.TRIM_HINT' | translate }}</p>
+        <div class="vm-rec-list">
+          <button
+            type="button"
+            class="vm-rec-row"
+            *ngFor="let item of recordings; trackBy: trackByFileId"
+            (click)="openTrim(item)">
+            <i class="fa fa-video-camera me-2" aria-hidden="true"></i>
+            <span class="flex-grow-1 text-start">{{ item.title }}</span>
+            <span class="small" *ngIf="item.durationSec">{{ formatDuration(item.durationSec) }}</span>
+            <i class="fa fa-scissors ms-2" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="vm-preview">
+      <div class="vm-card-head">
+        <span>{{ 'VIDEO_MONTAGE.PREVIEW' | translate }}</span>
+        <span class="vm-chip">{{ formatDuration(totalDurationSec) }}</span>
+      </div>
+      <div class="vm-preview-stage">
+        <img
+          *ngIf="previewKind === 'photo' && previewPhotoUrl"
+          class="vm-preview-media"
+          [src]="previewPhotoUrl"
+          [alt]="previewTitle" />
+        <video
+          #previewVideo
+          class="vm-preview-media"
+          [class.d-none]="previewKind !== 'video'"
+          playsinline
+          muted
+          preload="auto"></video>
+        <div *ngIf="!previewKind" class="vm-preview-empty">
+          {{ 'VIDEO_MONTAGE.PREVIEW_HINT' | translate }}
+        </div>
+        <div class="vm-preview-caption" *ngIf="previewTitle">{{ previewTitle }}</div>
+      </div>
+      <div class="vm-preview-actions">
+        <button type="button" class="vm-btn vm-btn-teal" (click)="playPreview()" [disabled]="!timeline.length || previewPlaying" [title]="'VIDEO_MONTAGE.PLAY_HINT' | translate">
+          <i class="fa fa-play"></i>{{ 'VIDEO_MONTAGE.PLAY' | translate }}
+        </button>
+        <button type="button" class="vm-btn vm-btn-ghost" (click)="stopPreview()" [disabled]="!previewPlaying">
+          <i class="fa fa-stop"></i>{{ 'VIDEO_MONTAGE.STOP' | translate }}
+        </button>
+      </div>
+    </section>
+
+    <section class="vm-export">
+      <div class="vm-card-head">{{ 'VIDEO_MONTAGE.EXPORT' | translate }}</div>
+      <div class="vm-export-body">
+        <label class="vm-label">{{ 'VIDEO_MONTAGE.RESOLUTION' | translate }}</label>
+        <div class="vm-res">
+          <button
+            type="button"
+            class="vm-btn vm-btn-ghost"
+            *ngFor="let r of resolutions"
+            [class.on]="width === r.w"
+            (click)="setResolution(r.w, r.h)">
+            {{ r.labelKey | translate }}
+          </button>
+        </div>
+        <label class="vm-label" for="vmPhotoDur">{{ 'VIDEO_MONTAGE.PHOTO_DURATION' | translate }}</label>
+        <input
+          id="vmPhotoDur"
+          type="number"
+          class="form-control form-control-sm mb-2"
+          min="1"
+          max="30"
+          step="0.5"
+          [(ngModel)]="photoDefaultDurationSec" />
+
+        <div class="vm-music">
+          <label class="vm-label mb-1">{{ 'VIDEO_MONTAGE.MUSIC' | translate }}</label>
+          <input
+            id="vmMusic"
+            type="file"
+            class="form-control form-control-sm mb-1"
+            accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac"
+            (change)="onMusicFile($event)" />
+          <div class="vm-music-name mb-1" *ngIf="musicFileName">{{ musicFileName }}</div>
+          <div class="text-muted" style="font-size: 0.7rem" *ngIf="!musicFileName">{{ 'VIDEO_MONTAGE.MUSIC_NONE' | translate }}</div>
+          <label class="vm-label mt-1" for="vmMusicVol">{{ 'VIDEO_MONTAGE.MUSIC_VOLUME' | translate }}</label>
+          <input
+            id="vmMusicVol"
+            type="range"
+            class="form-range"
+            min="0"
+            max="1"
+            step="0.05"
+            [(ngModel)]="musicVolume"
+            [disabled]="!musicFileName" />
+          <div class="form-check vm-check mb-0">
+            <input id="vmMusicLoop" class="form-check-input" type="checkbox" [(ngModel)]="musicLoop" [disabled]="!musicFileName" />
+            <label class="form-check-label" for="vmMusicLoop">{{ 'VIDEO_MONTAGE.MUSIC_LOOP' | translate }}</label>
+          </div>
+          <div class="form-check vm-check mb-1">
+            <input id="vmKeepAudio" class="form-check-input" type="checkbox" [(ngModel)]="keepSourceAudio" />
+            <label class="form-check-label" for="vmKeepAudio">{{ 'VIDEO_MONTAGE.MUSIC_KEEP_ORIGINAL' | translate }}</label>
+          </div>
+          <button type="button" class="vm-btn vm-btn-rose" *ngIf="musicFileName" (click)="clearMusic()">
+            <i class="fa fa-times"></i>{{ 'VIDEO_MONTAGE.MUSIC_REMOVE' | translate }}
+          </button>
+        </div>
+
+        <div class="form-check vm-check mb-2">
+          <input
+            id="vmAttach"
+            class="form-check-input"
+            type="checkbox"
+            [(ngModel)]="attachToEvent"
+            [disabled]="!selectedEventId" />
+          <label class="form-check-label" for="vmAttach">{{ 'VIDEO_MONTAGE.ATTACH_EVENT' | translate }}</label>
+        </div>
+        <button type="button" class="vm-btn vm-btn-ink w-100 justify-content-center" (click)="exportMontage()" [disabled]="!canExport">
+          <span *ngIf="exporting" class="spinner-border spinner-border-sm" role="status"></span>
+          <i *ngIf="!exporting" class="fa fa-download"></i>
+          {{ (exporting ? 'VIDEO_MONTAGE.EXPORTING' : 'VIDEO_MONTAGE.EXPORT') | translate }}
+        </button>
+        <div class="small text-muted mt-2" *ngIf="exporting && exportClipCount">
+          {{ 'VIDEO_MONTAGE.EXPORT_PROGRESS' | translate:{ current: exportClipIndex, total: exportClipCount } }}
+        </div>
+        <button
+          type="button"
+          class="vm-btn vm-btn-teal w-100 justify-content-center mt-2"
+          *ngIf="exportResult"
+          (click)="downloadExport()">
+          <i class="fa fa-download"></i>{{ 'VIDEO_MONTAGE.DOWNLOAD' | translate }}
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <section class="vm-timeline-card">
+    <div class="vm-timeline-head">
+      <span>{{ 'VIDEO_MONTAGE.TIMELINE' | translate }}</span>
+      <span>{{ timeline.length }} · {{ formatDuration(totalDurationSec) }}</span>
+    </div>
+    <div class="vm-timeline">
+      <div *ngIf="!timeline.length" class="text-muted">{{ 'VIDEO_MONTAGE.TIMELINE_EMPTY' | translate }}</div>
+      <div class="vm-timeline-track">
+        <article
+          class="vm-clip"
+          *ngFor="let clip of timeline; let i = index; trackBy: trackByUiId"
+          [class.photo]="clip.kind === 'photo'"
+          [class.video]="clip.kind === 'video'"
+          [class.recording]="clip.kind === 'recording'"
+          draggable="true"
+          (dragstart)="onClipDragStart($event, i)"
+          (dragover)="$event.preventDefault()"
+          (drop)="onClipDrop($event, i)">
+          <div class="vm-clip-preview">
+            <img *ngIf="clip.kind === 'photo' && clip.thumbUrl" [src]="clip.thumbUrl" [alt]="clip.title || ''" />
+            <video *ngIf="clip.kind !== 'photo'" [src]="playbackUrl(clip.fileId, 'low')" muted preload="none"></video>
+            <span class="vm-clip-kind">{{ ('VIDEO_MONTAGE.CLIP_' + (clip.kind | uppercase)) | translate }}</span>
+          </div>
+          <div class="vm-clip-meta">
+            <div class="vm-clip-title" [title]="clip.title || clip.fileName">{{ clip.title || clip.fileName }}</div>
+            <label *ngIf="clip.kind === 'photo'">
+              {{ 'VIDEO_MONTAGE.DURATION' | translate }}
+              <input
+                type="number"
+                class="form-control form-control-sm"
+                min="0.5"
+                max="30"
+                step="0.5"
+                [(ngModel)]="clip.durationSec" />
+            </label>
+            <ng-container *ngIf="clip.kind !== 'photo'">
+              <div class="small text-muted">{{ formatClock(clip.startSec || 0) }} → {{ formatClock(clipEnd(clip)) }}</div>
+              <button type="button" class="vm-btn vm-btn-sky" (click)="openTrimForClip(i)">
+                <i class="fa fa-scissors"></i>{{ 'VIDEO_MONTAGE.EDIT_TRIM' | translate }}
+              </button>
+            </ng-container>
+            <div class="vm-clip-actions">
+              <button type="button" class="vm-btn vm-btn-ghost vm-btn-icon" (click)="moveClip(i, -1)" [disabled]="i === 0">
+                <i class="fa fa-arrow-left"></i>
+              </button>
+              <button type="button" class="vm-btn vm-btn-ghost vm-btn-icon" (click)="moveClip(i, 1)" [disabled]="i === timeline.length - 1">
+                <i class="fa fa-arrow-right"></i>
+              </button>
+              <button type="button" class="vm-btn vm-btn-rose vm-btn-icon" (click)="removeClip(i)">
+                <i class="fa fa-times"></i>
+              </button>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="vm-modal" *ngIf="trimOpen" (click)="closeTrim()">
+  <div class="vm-modal-card" (click)="$event.stopPropagation()">
+    <div class="vm-modal-head">{{ 'VIDEO_MONTAGE.TRIM_TITLE' | translate }}</div>
+    <div class="vm-modal-body">
+      <p class="small text-muted mb-2">{{ trimItem?.title }}</p>
+      <video
+        #trimVideo
+        class="vm-trim-video"
+        [src]="trimItem ? playbackUrl(trimItem.fileId) : ''"
+        (loadedmetadata)="onTrimMetadata($event)"
+        muted
+        playsinline
+        controls></video>
+      <div class="vm-range-labels mt-2">
+        <span>{{ 'VIDEO_MONTAGE.TRIM_START' | translate }} {{ formatClock(trimStart) }}</span>
+        <span>{{ 'VIDEO_MONTAGE.SOURCE_DURATION' | translate }} {{ formatClock(trimSourceDuration) }}</span>
+        <span>{{ 'VIDEO_MONTAGE.TRIM_END' | translate }} {{ formatClock(trimEnd) }}</span>
+      </div>
+      <div class="vm-ranges">
+        <input type="range" min="0" [max]="trimMax" step="0.1" [ngModel]="trimStart" (ngModelChange)="onTrimStart($event)" />
+        <input type="range" min="0" [max]="trimMax" step="0.1" [ngModel]="trimEnd" (ngModelChange)="onTrimEnd($event)" />
+      </div>
+      <div class="vm-modal-actions">
+        <button type="button" class="vm-btn vm-btn-ghost" (click)="closeTrim()">{{ 'VIDEO_MONTAGE.TRIM_CANCEL' | translate }}</button>
+        <button type="button" class="vm-btn vm-btn-teal" (click)="confirmTrim()" [disabled]="trimEnd - trimStart < 0.4">
+          {{ (trimEditIndex == null ? 'VIDEO_MONTAGE.TRIM_ADD' : 'VIDEO_MONTAGE.TRIM_APPLY') | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

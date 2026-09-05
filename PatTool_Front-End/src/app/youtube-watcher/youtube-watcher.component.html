@@ -137,25 +137,65 @@
 
   <form class="yt-search-bar" (submit)="$event.preventDefault(); submitSearch()">
     <label class="visually-hidden" for="yt-query">{{ 'YOUTUBE.SEARCH' | translate }}</label>
-    <input
-      id="yt-query"
-      type="search"
-      class="form-control yt-query"
-      name="ytQuery"
-      [(ngModel)]="query"
-      (ngModelChange)="onQueryChanged()"
-      [placeholder]="'YOUTUBE.SEARCH_PLACEHOLDER' | translate"
-      autocomplete="off"
-      autofocus />
+    <div class="yt-query-wrap">
+      <input
+        id="yt-query"
+        type="search"
+        class="form-control yt-query"
+        name="ytQuery"
+        [(ngModel)]="query"
+        (ngModelChange)="onQueryChanged()"
+        (focus)="onQueryFocus()"
+        (blur)="onQueryBlur()"
+        (keydown)="onQueryKeydown($event)"
+        [placeholder]="'YOUTUBE.SEARCH_PLACEHOLDER' | translate"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-controls="yt-recent-list"
+        [attr.aria-expanded]="recentOpen && filteredRecentSearches().length > 0"
+        [attr.aria-activedescendant]="recentActiveIndex >= 0 ? 'yt-recent-' + recentActiveIndex : null"
+        autofocus />
+      <ul
+        class="yt-recent"
+        id="yt-recent-list"
+        role="listbox"
+        *ngIf="recentOpen && filteredRecentSearches().length"
+        [attr.aria-label]="'YOUTUBE.RECENT_SEARCHES' | translate">
+        <li class="yt-recent-label" role="presentation">{{ 'YOUTUBE.RECENT_SEARCHES' | translate }}</li>
+        <li
+          *ngFor="let term of filteredRecentSearches(); let i = index"
+          class="yt-recent-item"
+          role="option"
+          [id]="'yt-recent-' + i"
+          [class.active]="i === recentActiveIndex"
+          [attr.aria-selected]="i === recentActiveIndex"
+          (mousedown)="$event.preventDefault(); applyRecentSearch(term)">
+          <i class="fa fa-history" aria-hidden="true"></i>
+          <span class="yt-recent-term">{{ term }}</span>
+          <button
+            type="button"
+            class="yt-recent-forget"
+            (mousedown)="removeRecentSearch(term, $event)"
+            [attr.title]="'YOUTUBE.RECENT_REMOVE' | translate"
+            [attr.aria-label]="'YOUTUBE.RECENT_REMOVE' | translate">
+            <i class="fa fa-times" aria-hidden="true"></i>
+          </button>
+        </li>
+      </ul>
+    </div>
 
     <label class="visually-hidden" for="yt-type">{{ 'YOUTUBE.TYPE' | translate }}</label>
     <select
       id="yt-type"
       class="form-select yt-type"
       name="ytType"
-      [(ngModel)]="type"
-      (ngModelChange)="onFilterChanged()">
-      <option *ngFor="let t of types" [value]="t">{{ ('YOUTUBE.TYPE_' + t.toUpperCase()) | translate }}</option>
+      [ngModel]="type"
+      (ngModelChange)="onTypeChanged($event)">
+      <option *ngFor="let t of types" [ngValue]="t">{{ ('YOUTUBE.TYPE_' + t.toUpperCase()) | translate }}</option>
     </select>
 
     <label class="visually-hidden" for="yt-region">{{ 'YOUTUBE.REGION' | translate }}</label>
@@ -163,12 +203,11 @@
       id="yt-region"
       class="form-select yt-region"
       name="ytRegion"
-      [(ngModel)]="regionCode"
-      (ngModelChange)="onFilterChanged()">
+      [(ngModel)]="regionCode">
       <option *ngFor="let opt of regions" [value]="opt.code">{{ opt.label }}</option>
     </select>
 
-    <button type="submit" class="btn btn-primary yt-search-btn" [disabled]="(!query.trim() && !channelId) || searching">
+    <button type="submit" class="btn btn-primary yt-search-btn" [disabled]="!canSubmitSearch || searching">
       <i class="fa fa-search" aria-hidden="true"></i>
       <span>{{ 'YOUTUBE.SEARCH' | translate }}</span>
     </button>
@@ -183,10 +222,22 @@
     </button>
   </form>
 
-  <p class="yt-channel-filter" *ngIf="channelId">
-    <i class="fa fa-user-circle" aria-hidden="true"></i>
-    {{ 'YOUTUBE.CHANNEL_FILTER' | translate }}
-    <button type="button" class="btn btn-link btn-sm p-0" (click)="clearSearch()">{{ 'YOUTUBE.CLEAR' | translate }}</button>
+  <div class="yt-context" *ngIf="contextVisible()">
+    <span class="yt-context-badge" [attr.data-kind]="contextKind()">
+      <i [class]="contextIconClass()" aria-hidden="true"></i>
+      {{ contextLabelKey() | translate }}
+    </span>
+    <span class="yt-context-name" *ngIf="contextName()">{{ contextName() }}</span>
+    <button
+      *ngIf="channelId"
+      type="button"
+      class="btn btn-link btn-sm yt-context-clear"
+      (click)="clearSearch()">
+      {{ 'YOUTUBE.CLEAR' | translate }}
+    </button>
+  </div>
+  <p class="yt-type-hint" *ngIf="needsTypeQuery">
+    {{ 'YOUTUBE.TYPE_NEEDS_QUERY' | translate }}
   </p>
 
   <div class="alert alert-warning py-2 yt-alert" *ngIf="errorMessage && !searching" role="alert">
@@ -197,18 +248,34 @@
     </span>
   </div>
 
-  <div class="yt-player" *ngIf="selected && embedUrl && !playerOpen">
+  <div class="yt-player" *ngIf="showYoutubeStage && !playerOpen">
     <div class="yt-player-frame" #playerFrame>
       <iframe
+        *ngIf="embedUrl && !playingRecording && !clipLoading"
         class="yt-page-embed"
         [src]="embedUrl"
-        [title]="selected.title || ''"
+        [title]="selected?.title || ''"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowfullscreen
         referrerpolicy="strict-origin-when-cross-origin"
         (load)="onYoutubeEmbedLoad()"></iframe>
+      <video
+        *ngIf="playingRecordingSafeUrl"
+        #clipPlayer
+        class="yt-page-clip"
+        [src]="playingRecordingSafeUrl"
+        controls
+        autoplay
+        playsinline
+        (loadeddata)="onClipVideoReady(clipPlayer)"
+        (error)="onClipVideoError()"
+        (ended)="stopClipPlayback()"></video>
+      <div class="yt-clip-loading" *ngIf="clipLoading && !playingRecordingSafeUrl">
+        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+        {{ 'YOUTUBE.LOADING' | translate }}
+      </div>
       <button
-        *ngIf="landscapeFullscreen"
+        *ngIf="landscapeFullscreen && !playingRecording"
         type="button"
         class="yt-landscape-fs-exit"
         (click)="exitLandscapeFullscreen(true)"
@@ -218,23 +285,96 @@
       </button>
     </div>
     <div class="yt-player-meta">
-      <h3 class="yt-player-title">{{ selected.title }}</h3>
-      <p class="yt-player-sub">
+      <p class="yt-player-kicker">
+        <i [class]="contextIconClass()" aria-hidden="true"></i>
+        {{ playingContextKey() | translate }}
+        <ng-container *ngIf="contextName()"> · {{ contextName() }}</ng-container>
+      </p>
+      <h3 class="yt-player-title">{{ playingRecording?.channelName || selected?.title }}</h3>
+      <p class="yt-player-sub" *ngIf="selected && !playingRecording">
         <span *ngIf="isLive(selected)" class="yt-live">LIVE</span>
         <span *ngIf="selected.channelTitle">{{ selected.channelTitle }}</span>
         <span *ngIf="durationLabel(selected.duration)"> · {{ durationLabel(selected.duration) }}</span>
         <span *ngIf="viewsLabel(selected.viewCount)"> · {{ 'YOUTUBE.VIEWS' | translate:{ count: viewsLabel(selected.viewCount) } }}</span>
         <span *ngIf="publishedLabel(selected.publishedAt)"> · {{ publishedLabel(selected.publishedAt) }}</span>
       </p>
-      <p class="yt-player-desc" *ngIf="selected.description">{{ selected.description }}</p>
+      <p class="yt-player-sub" *ngIf="playingRecording">
+        <span *ngIf="formatRecordingWhen(playingRecording.startedAt) as when">{{ when }}</span>
+        <span *ngIf="formatRecordingClock(playingRecording.actualDurationSec || playingRecording.durationSec) as dur">
+          · {{ dur }}
+        </span>
+        <span *ngIf="formatRecordingSize(playingRecording.byteLength) as size"> · {{ size }}</span>
+      </p>
+      <p class="yt-player-desc" *ngIf="selected?.description && !playingRecording">{{ selected?.description }}</p>
+      <div class="yt-record-live" *ngIf="clientRecordingActive">
+        <span>
+          {{ 'TV.RECORD_LIVE_DURATION' | translate }}
+          {{ formatRecordingClock(recordingElapsedSec) }}
+          <ng-container *ngIf="recordDurationSec > 0"> / {{ formatRecordingClock(recordDurationSec) }}</ng-container>
+        </span>
+        <span>{{ 'TV.RECORD_LIVE_SIZE' | translate }} {{ formatRecordingSize(recordingBytes) || '0 B' }}</span>
+      </div>
       <div class="yt-now-playing-actions">
-        <button type="button" class="btn btn-outline-light btn-sm yt-pip-open" (click)="openInFloatingWindow()">
+        <label
+          class="yt-record-duration"
+          *ngIf="!playingRecording && !clientRecordingActive && selected"
+          (click)="$event.stopPropagation()"
+          [attr.title]="'TV.RECORD_DURATION' | translate">
+          <span class="visually-hidden">{{ 'TV.RECORD_DURATION' | translate }}</span>
+          <select
+            class="yt-record-duration-select"
+            name="ytRecordDuration"
+            [(ngModel)]="recordDurationSec"
+            [attr.aria-label]="'TV.RECORD_DURATION' | translate">
+            <option *ngFor="let opt of recordDurationOptions" [ngValue]="opt.sec">
+              {{ opt.labelKey | translate }}
+            </option>
+          </select>
+        </label>
+        <button
+          *ngIf="!playingRecording && !clientRecordingActive && selected"
+          type="button"
+          class="btn btn-sm yt-record-btn"
+          [class.yt-record-btn--unavailable]="!recordingAvailable || !isLoggedIn"
+          [disabled]="recordingBusy"
+          (click)="startRecording($event)"
+          [attr.title]="recordButtonTitleKey | translate"
+          [attr.aria-label]="recordButtonTitleKey | translate">
+          <i class="fa fa-circle" aria-hidden="true"></i>
+          {{ 'YOUTUBE.RECORD' | translate }}
+        </button>
+        <button
+          *ngIf="clientRecordingActive"
+          type="button"
+          class="btn btn-sm yt-record-btn yt-record-btn--active"
+          [disabled]="recordingStopping"
+          (click)="stopActiveRecording($event)"
+          [attr.title]="'TV.RECORD_STOP' | translate"
+          [attr.aria-label]="'TV.RECORD_STOP' | translate">
+          <i class="fa" [ngClass]="recordingStopping ? 'fa-spinner fa-spin' : 'fa-stop'" aria-hidden="true"></i>
+          {{ 'TV.RECORD_STOP' | translate }}
+        </button>
+        <button
+          *ngIf="playingRecording"
+          type="button"
+          class="btn btn-outline-light btn-sm"
+          (click)="stopClipPlayback()">
+          <i class="fa fa-youtube-play" aria-hidden="true"></i>
+          {{ 'YOUTUBE.CLIP_BACK' | translate }}
+        </button>
+        <button
+          *ngIf="selected && !playingRecording"
+          type="button"
+          class="btn btn-outline-light btn-sm yt-pip-open"
+          (click)="openInFloatingWindow()">
           <i class="fa fa-clone" aria-hidden="true"></i>
           {{ 'YOUTUBE.FLOAT_OPEN' | translate }}
         </button>
-        <ng-container *ngTemplateOutlet="ytQueueBar"></ng-container>
+        <ng-container *ngIf="!playingRecording">
+          <ng-container *ngTemplateOutlet="ytQueueBar"></ng-container>
+        </ng-container>
         <button
-          *ngIf="canLinkVideo(selected)"
+          *ngIf="!playingRecording && canLinkVideo(selected)"
           type="button"
           class="btn btn-outline-light btn-sm"
           (click)="openInVideoshow()">
@@ -242,7 +382,7 @@
           {{ 'YOUTUBE.OPEN_VIDEOSHOW' | translate }}
         </button>
         <button
-          *ngIf="canLinkVideo(selected)"
+          *ngIf="!playingRecording && canLinkVideo(selected)"
           type="button"
           class="btn btn-outline-light btn-sm"
           (click)="openLinkToEventModal()">
@@ -250,7 +390,7 @@
           {{ 'YOUTUBE.LINK_TO_EVENT' | translate }}
         </button>
         <a
-          *ngIf="youtubeUrl(selected)"
+          *ngIf="!playingRecording && youtubeUrl(selected)"
           class="btn btn-outline-light btn-sm"
           [href]="youtubeUrl(selected)"
           target="_blank"
@@ -259,7 +399,7 @@
           {{ 'YOUTUBE.OPEN_YOUTUBE' | translate }}
         </a>
         <button
-          *ngIf="youtubeUrl(selected)"
+          *ngIf="!playingRecording && youtubeUrl(selected)"
           type="button"
           class="btn btn-outline-light btn-sm yt-share-wa"
           (click)="shareOnWhatsApp(selected, $event)"
@@ -269,9 +409,13 @@
           {{ 'YOUTUBE.SHARE_WHATSAPP' | translate }}
         </button>
       </div>
+      <p class="yt-record-hint" *ngIf="!clientRecordingActive && !playingRecording">
+        {{ 'YOUTUBE.RECORD_SHARE_TAB' | translate }}
+      </p>
+      <p class="yt-record-error" *ngIf="recordErrorKey" role="alert">{{ recordErrorKey | translate }}</p>
       <footer
         class="yt-player-progress"
-        *ngIf="showPlaybackFooter()"
+        *ngIf="!playingRecording && showPlaybackFooter()"
         [attr.aria-label]="playbackAriaLabel()">
         <ng-container *ngIf="!isLive(selected); else ytLiveProgress">
           <div
@@ -306,6 +450,11 @@
   <div class="yt-now-playing" *ngIf="playerOpen && selected">
     <div class="yt-now-playing-copy">
       <span class="yt-now-playing-kicker">{{ 'YOUTUBE.FLOAT_ACTIVE_BANNER' | translate }}</span>
+      <p class="yt-player-kicker">
+        <i [class]="contextIconClass()" aria-hidden="true"></i>
+        {{ playingContextKey() | translate }}
+        <ng-container *ngIf="contextName()"> · {{ contextName() }}</ng-container>
+      </p>
       <h3 class="yt-player-title">{{ selected.title }}</h3>
       <p class="yt-player-sub">
         <span *ngIf="isLive(selected)" class="yt-live">LIVE</span>
@@ -362,8 +511,20 @@
     </div>
   </div>
 
+  <div class="yt-recordings-entry" *ngIf="isLoggedIn">
+    <button
+      type="button"
+      class="btn btn-sm yt-recordings-open"
+      (click)="openRecordingsModal()"
+      [attr.title]="'YOUTUBE.RECORDINGS_OPEN' | translate">
+      <i class="fa fa-film" aria-hidden="true"></i>
+      {{ 'YOUTUBE.RECORDINGS_OPEN' | translate }}
+      <span class="yt-recordings-count" *ngIf="youtubeRecordings.length">{{ youtubeRecordings.length }}</span>
+    </button>
+  </div>
+
   <div class="yt-results-head" *ngIf="searched || searching">
-    <span>{{ (resultKind === 'popular' ? 'YOUTUBE.POPULAR' : 'YOUTUBE.RESULTS') | translate }}</span>
+    <span>{{ listContextKey() | translate }}</span>
     <ng-container *ngIf="!searching">
       <ng-container *ngTemplateOutlet="ytQueueBar"></ng-container>
     </ng-container>
@@ -556,6 +717,96 @@
         aria-hidden="true"></i>
       {{ linkFeedbackKey | translate : linkFeedbackParams }}
     </div>
+  </div>
+</ng-template>
+
+<ng-template #recordingsModal let-modal>
+  <div class="modal-header bg-dark text-white">
+    <h5 class="modal-title">
+      <i class="fa fa-film me-2" aria-hidden="true"></i>
+      {{ 'YOUTUBE.RECORDINGS_MODAL_TITLE' | translate }}
+    </h5>
+    <button
+      type="button"
+      class="btn-close btn-close-white"
+      (click)="closeRecordingsModal()"
+      [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+  <div class="modal-body yt-recordings-modal-body">
+    <p class="yt-recordings-empty" *ngIf="recordingsLoading">{{ 'YOUTUBE.LOADING' | translate }}</p>
+    <p class="yt-record-error" *ngIf="recordingsError" role="alert">{{ recordingsError | translate }}</p>
+    <ul class="yt-recording-list" *ngIf="!recordingsLoading" role="list">
+      <li
+        *ngFor="let rec of youtubeRecordings; trackBy: trackByRecordingId"
+        class="yt-recording-item"
+        [class.active]="playingRecording?.id === rec.id">
+        <button
+          type="button"
+          class="yt-recording-play"
+          [disabled]="rec.status !== 'DONE' || clipLoading"
+          (click)="playRecording(rec, $event)">
+          <span class="yt-recording-thumb-wrap">
+            <img *ngIf="rec.channelLogo" class="yt-recording-thumb" [src]="rec.channelLogo" alt="" />
+            <span *ngIf="!rec.channelLogo" class="yt-recording-thumb yt-recording-thumb--ph">
+              <i class="fa fa-film" aria-hidden="true"></i>
+            </span>
+            <i class="fa fa-play yt-recording-play-icon" aria-hidden="true"></i>
+          </span>
+          <span class="yt-recording-text">
+            <span class="yt-recording-name">{{ rec.channelName || 'YouTube' }}</span>
+            <span class="yt-recording-meta">
+              <span>{{ recordingStatusLabelKey(rec.status) | translate }}</span>
+              <span *ngIf="formatRecordingWhen(rec.startedAt) as when"> · {{ when }}</span>
+              <span *ngIf="formatRecordingClock(rec.actualDurationSec || rec.durationSec) as dur"> · {{ dur }}</span>
+              <span *ngIf="formatRecordingSize(rec.byteLength) as size"> · {{ size }}</span>
+            </span>
+          </span>
+        </button>
+        <span class="yt-recording-actions">
+          <button
+            *ngIf="rec.status === 'DONE'"
+            type="button"
+            class="btn btn-outline-light btn-sm"
+            [disabled]="clipLoading"
+            (click)="playRecording(rec, $event)"
+            [attr.title]="'YOUTUBE.PLAY_RESUME' | translate"
+            [attr.aria-label]="'YOUTUBE.PLAY_RESUME' | translate">
+            <i
+              class="fa"
+              [class.fa-play]="playingRecording?.id !== rec.id || !playingRecordingSafeUrl"
+              [class.fa-pause]="playingRecording?.id === rec.id && !!playingRecordingSafeUrl"
+              aria-hidden="true"></i>
+          </button>
+          <button
+            *ngIf="rec.status === 'DONE'"
+            type="button"
+            class="btn btn-outline-light btn-sm"
+            [disabled]="recordingBusy || downloadingRecordingId === rec.id"
+            (click)="downloadRecording(rec, $event)"
+            [attr.title]="'TV.RECORD_DOWNLOAD' | translate"
+            [attr.aria-label]="'TV.RECORD_DOWNLOAD' | translate">
+            <i
+              class="fa"
+              [class.fa-download]="downloadingRecordingId !== rec.id"
+              [class.fa-spinner]="downloadingRecordingId === rec.id"
+              [class.fa-spin]="downloadingRecordingId === rec.id"
+              aria-hidden="true"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-light btn-sm"
+            [disabled]="recordingBusy"
+            (click)="deleteRecording(rec, $event)"
+            [attr.title]="'TV.RECORD_DELETE' | translate"
+            [attr.aria-label]="'TV.RECORD_DELETE' | translate">
+            <i class="fa fa-trash" aria-hidden="true"></i>
+          </button>
+        </span>
+      </li>
+      <li *ngIf="!youtubeRecordings.length" class="yt-recordings-empty">
+        {{ 'YOUTUBE.NO_RECORDINGS' | translate }}
+      </li>
+    </ul>
   </div>
 </ng-template>
 

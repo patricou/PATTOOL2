@@ -48,7 +48,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
-	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20260904b');
+	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20260905b');
 }
 
 @NgModule({
@@ -268,6 +268,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 				path: 'tools/telegram',
 				loadComponent: () =>
 					import('./telegram-watcher/telegram-watcher.component').then(m => m.TelegramWatcherComponent)
+			},
+			{
+				path: 'tools/video-montage',
+				loadComponent: () =>
+					import('./video-montage/video-montage.component').then(m => m.VideoMontageComponent)
 			},
 			{
 				path: 'tools/tv-popout',

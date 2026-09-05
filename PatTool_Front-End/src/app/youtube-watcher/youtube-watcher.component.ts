@@ -1,4 +1,5 @@
 import {
+  ChangeDetectorRef,
   Component,
   ElementRef,
   HostBinding,
@@ -15,11 +16,12 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
-import { Subject, Subscription } from 'rxjs';
-import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 
 import {
   ApiService,
+  TvRecording,
+  TvRecordingStatus,
   YoutubeItem,
   YoutubeItemKind,
   YoutubeSearchPage
@@ -27,6 +29,7 @@ import {
 import { YoutubePlayerService } from '../services/youtube-player.service';
 import { EvenementsService, StreamedEvent } from '../services/evenements.service';
 import { MembersService } from '../services/members.service';
+import { KeycloakService } from '../keycloak/keycloak.service';
 import { Evenement } from '../model/evenement';
 import { UrlEvent } from '../model/url-event';
 import { isYoutubeVideoId, parseYoutubeVideoId, youtubeWatchUrl } from '../shared/youtube-video-id.util';
@@ -82,6 +85,10 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   type: YoutubeItemKind = 'video';
   regionCode = 'FR';
   channelId = '';
+  channelFilterTitle = '';
+  recentSearches: string[] = [];
+  recentOpen = false;
+  recentActiveIndex = -1;
   items: YoutubeItem[] = [];
   selected: YoutubeItem | null = null;
   embedUrl: SafeResourceUrl | null = null;
@@ -109,9 +116,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   @HostBinding('class.yt-landscape-fs') landscapeFullscreen = false;
   @ViewChild('playerFrame') playerFrame?: ElementRef<HTMLElement>;
   @ViewChild('linkToEventModal') linkToEventModal?: TemplateRef<unknown>;
+  @ViewChild('recordingsModal') recordingsModal?: TemplateRef<unknown>;
   @ViewChild('videoshowModalComponent') videoshowModalComponent?: VideoshowModalComponent;
 
-  private readonly query$ = new Subject<string>();
   private searchSub?: Subscription;
   private readonly subs: Subscription[] = [];
   private readonly itemSourceOrder = new WeakMap<YoutubeItem, number>();
@@ -120,6 +127,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private static readonly LANDSCAPE_FS_BODY_CLASS = 'yt-landscape-fs';
   private static readonly PAGE_THEME_BODY_CLASS = 'yt-page-theme';
   private static readonly TICKER_STORAGE_KEY = 'pattool.youtube.ticker-enabled';
+  private static readonly RECENT_SEARCHES_KEY = 'pattool.youtube.recent-searches';
+  private static readonly RECENT_SEARCHES_MAX = 8;
 
   private landscapeFsUserDismissed = false;
   private landscapeFsNativeRequested = false;
@@ -162,6 +171,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   ];
   linkTarget: YoutubeItem | null = null;
   private linkModalRef: NgbModalRef | null = null;
+  private recordingsModalRef: NgbModalRef | null = null;
   private linkEventsStreamSub?: Subscription;
   private linkSaveSub?: Subscription;
   private linkFeedbackTimer?: ReturnType<typeof setTimeout>;
@@ -173,9 +183,60 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   playbackDurationSec = 0;
   playAllActive = false;
   playbackPaused = false;
+  recordings: TvRecording[] = [];
+  recordingsError = '';
+  recordingsLoading = false;
+  playingRecording: TvRecording | null = null;
+  playingRecordingUrl = '';
+  playingRecordingSafeUrl: SafeResourceUrl | null = null;
+  clipLoading = false;
+  recordingStatus: TvRecordingStatus | null = null;
+  recordingStatusLoaded = false;
+  clientRecordingActive = false;
+  recordingElapsedSec = 0;
+  recordingBytes = 0;
+  recordingBusy = false;
+  recordErrorKey = '';
+  recordDurationSec = 0;
+  downloadingRecordingId = '';
+  readonly recordDurationOptions = [
+    { sec: 0, labelKey: 'YOUTUBE.RECORD_UNTIL_STOP' },
+    { sec: 60, labelKey: 'TV.RECORD_DUR_1M' },
+    { sec: 300, labelKey: 'TV.RECORD_DUR_5M' },
+    { sec: 600, labelKey: 'TV.RECORD_DUR_10M' },
+    { sec: 900, labelKey: 'TV.RECORD_DUR_15M' },
+    { sec: 1800, labelKey: 'TV.RECORD_DUR_30M' }
+  ];
+  @ViewChild('clipPlayer') clipPlayer?: ElementRef<HTMLVideoElement>;
+  private clipVideoEl: HTMLVideoElement | null = null;
+  private clipObjectUrl = '';
+  private clipAutoplayDone = false;
+  private clipTeardown = false;
+  private mediaRecorder: MediaRecorder | null = null;
+  private recordedChunks: Blob[] = [];
+  private displayStream: MediaStream | null = null;
+  private recordOutputStream: MediaStream | null = null;
+  private recordCropVideo: HTMLVideoElement | null = null;
+  private recordCropRaf?: number;
+  private clientRecordStartedAt = 0;
+  private clientRecordItem: YoutubeItem | null = null;
+  private recordAutoStopTimer?: ReturnType<typeof setTimeout>;
+  private recordStatsTimer?: ReturnType<typeof setInterval>;
+  private recordFinalizing = false;
+  private recordDidFinalize = false;
+  private destroyed = false;
+  private ytApiListening = false;
   private ytProgressTimer?: ReturnType<typeof setInterval>;
   private ignoreQueueEndedUntil = 0;
   private embedGeneration = 0;
+  private landscapeSyncTimer?: ReturnType<typeof setTimeout>;
+  private landscapeSuppressTimer?: ReturnType<typeof setTimeout>;
+  private scrollTopRaf?: number;
+  private scrollTopFollowTimer?: ReturnType<typeof setTimeout>;
+  private recentBlurTimer?: ReturnType<typeof setTimeout>;
+  private readonly onWindowYtMessage = (event: MessageEvent): void => {
+    this.onYoutubeProgressMessage(event);
+  };
 
   constructor(
     private api: ApiService,
@@ -186,9 +247,11 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     private router: Router,
     private evenementsService: EvenementsService,
     private membersService: MembersService,
+    private keycloak: KeycloakService,
     private modalService: NgbModal,
     private ngZone: NgZone,
-    private host: ElementRef<HTMLElement>
+    private host: ElementRef<HTMLElement>,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -200,16 +263,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.query = (params.get('q') || '').trim();
     this.channelId = (params.get('channel') || '').trim();
     this.tickerEnabled = this.readTickerPreference();
+    this.recentSearches = this.readRecentSearches();
     this.sortKey = this.normalizeSort(params.get('sort'));
     this.sortDir = this.normalizeSortDir(params.get('dir'), this.sortKey);
-
-    this.subs.push(
-      this.query$.pipe(debounceTime(450), distinctUntilChanged()).subscribe((value) => {
-        if (value.trim().length >= 2) {
-          this.runSearch();
-        }
-      })
-    );
 
     this.subs.push(
       this.youtubePlayer.state$.subscribe((s) => {
@@ -241,6 +297,13 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     document.body.classList.add(YoutubeWatcherComponent.PAGE_THEME_BODY_CLASS);
     this.setupLandscapeFullscreenWatchers();
     this.syncLandscapeFullscreen();
+    this.ngZone.runOutsideAngular(() => {
+      window.addEventListener('message', this.onWindowYtMessage);
+    });
+    this.loadRecordingCapability();
+    if (this.isLoggedIn) {
+      this.loadRecordings();
+    }
 
     if (this.query || this.channelId) {
       this.runSearch(params.get('id'));
@@ -250,39 +313,1005 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.searchSub?.unsubscribe();
     this.subs.forEach((s) => s.unsubscribe());
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('message', this.onWindowYtMessage);
+    }
     this.teardownLandscapeFullscreenWatchers();
     this.exitLandscapeFullscreen(false);
     document.body.classList.remove(YoutubeWatcherComponent.PAGE_THEME_BODY_CLASS);
     this.closeLinkToEventModal();
+    this.closeRecordingsModal();
     this.linkEventsStreamSub?.unsubscribe();
     this.linkSaveSub?.unsubscribe();
     if (this.linkFeedbackTimer !== undefined) {
       clearTimeout(this.linkFeedbackTimer);
+      this.linkFeedbackTimer = undefined;
     }
-    this.stopYoutubeProgressWatch();
+    this.clearLandscapeTimers();
+    this.clearScrollTopTimers();
+    if (this.recentBlurTimer !== undefined) {
+      clearTimeout(this.recentBlurTimer);
+      this.recentBlurTimer = undefined;
+    }
+    this.unloadPageEmbed();
     this.stopPlayAll();
-    if (this.scrollTopTimer !== undefined) {
-      clearTimeout(this.scrollTopTimer);
-    }
+    this.abortClientRecording(false);
+    this.stopClipPlayback();
   }
 
   onQueryChanged(): void {
-    this.channelId = '';
-    this.query$.next(this.query);
+    this.clearChannelFilter();
+    this.recentActiveIndex = -1;
+    this.recentOpen = this.filteredRecentSearches().length > 0;
   }
 
-  onFilterChanged(): void {
-    if (this.query.trim() || this.channelId) {
-      this.runSearch();
-    } else {
-      this.loadPopular();
+  onQueryFocus(): void {
+    if (this.recentBlurTimer !== undefined) {
+      clearTimeout(this.recentBlurTimer);
+      this.recentBlurTimer = undefined;
+    }
+    this.recentOpen = this.filteredRecentSearches().length > 0;
+  }
+
+  onQueryBlur(): void {
+    if (this.recentBlurTimer !== undefined) {
+      clearTimeout(this.recentBlurTimer);
+    }
+    this.recentBlurTimer = setTimeout(() => {
+      this.recentBlurTimer = undefined;
+      if (!this.destroyed) {
+        this.recentOpen = false;
+        this.recentActiveIndex = -1;
+      }
+    }, 120);
+  }
+
+  filteredRecentSearches(): string[] {
+    const q = this.query.trim().toLowerCase();
+    if (!q) {
+      return this.recentSearches;
+    }
+    return this.recentSearches.filter(
+      (term) => term.toLowerCase().includes(q) && term.toLowerCase() !== q
+    );
+  }
+
+  applyRecentSearch(term: string): void {
+    const value = (term || '').trim();
+    if (!value) {
+      return;
+    }
+    this.query = value;
+    this.recentOpen = false;
+    this.recentActiveIndex = -1;
+    this.clearChannelFilter();
+    this.runSearch();
+  }
+
+  removeRecentSearch(term: string, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.recentSearches = this.recentSearches.filter((item) => item !== term);
+    this.writeRecentSearches(this.recentSearches);
+    this.recentOpen = this.filteredRecentSearches().length > 0;
+    if (this.recentActiveIndex >= this.filteredRecentSearches().length) {
+      this.recentActiveIndex = this.filteredRecentSearches().length - 1;
     }
   }
 
+  onQueryKeydown(event: KeyboardEvent): void {
+    const list = this.filteredRecentSearches();
+    if (event.key === 'Escape') {
+      this.recentOpen = false;
+      this.recentActiveIndex = -1;
+      return;
+    }
+    if (event.key === 'ArrowDown') {
+      if (!list.length) {
+        return;
+      }
+      event.preventDefault();
+      this.recentOpen = true;
+      this.recentActiveIndex = Math.min(this.recentActiveIndex + 1, list.length - 1);
+      if (this.recentActiveIndex < 0) {
+        this.recentActiveIndex = 0;
+      }
+      return;
+    }
+    if (event.key === 'ArrowUp') {
+      if (!this.recentOpen || !list.length) {
+        return;
+      }
+      event.preventDefault();
+      this.recentActiveIndex = this.recentActiveIndex <= 0 ? -1 : this.recentActiveIndex - 1;
+      return;
+    }
+    if (event.key === 'Enter' && this.recentOpen && this.recentActiveIndex >= 0 && list[this.recentActiveIndex]) {
+      event.preventDefault();
+      this.applyRecentSearch(list[this.recentActiveIndex]);
+    }
+  }
+
+  onTypeChanged(value: YoutubeItemKind | string): void {
+    this.type = this.normalizeType(typeof value === 'string' ? value : String(value));
+    if (this.type === 'channel') {
+      this.clearChannelFilter();
+    }
+  }
+
+  get canSubmitSearch(): boolean {
+    if (this.query.trim()) {
+      return true;
+    }
+    return !!this.channelId && (this.type === 'video' || this.type === 'playlist');
+  }
+
+  get needsTypeQuery(): boolean {
+    return this.type !== 'video' && !this.query.trim() && !(this.channelId && this.type === 'playlist');
+  }
+
+  channelFilterLabelKey(): string {
+    return this.type === 'playlist' ? 'YOUTUBE.CHANNEL_FILTER_PLAYLISTS' : 'YOUTUBE.CHANNEL_FILTER';
+  }
+
+  contextVisible(): boolean {
+    return !!this.selected || this.searched || !!this.channelId;
+  }
+
+  contextLabelKey(): string {
+    if (this.selected) {
+      return this.playingContextKey();
+    }
+    return this.listContextKey();
+  }
+
+  playingContextKey(): string {
+    if (this.playingRecording) {
+      return 'YOUTUBE.CONTEXT_CLIP';
+    }
+    const kind = this.selected?.kind || 'video';
+    if (kind === 'playlist') {
+      return this.channelId ? 'YOUTUBE.CONTEXT_CHANNEL_PLAYLIST' : 'YOUTUBE.CONTEXT_PLAYLIST_VIDEO';
+    }
+    if (kind === 'channel') {
+      return 'YOUTUBE.CONTEXT_CHANNEL';
+    }
+    if (this.channelId) {
+      return 'YOUTUBE.CONTEXT_CHANNEL_VIDEO';
+    }
+    return 'YOUTUBE.CONTEXT_VIDEO';
+  }
+
+  listContextKey(): string {
+    if (this.resultKind === 'popular' && !this.query.trim() && !this.channelId) {
+      return 'YOUTUBE.POPULAR';
+    }
+    if (this.channelId) {
+      return this.channelFilterLabelKey();
+    }
+    if (this.type === 'playlist') {
+      return 'YOUTUBE.TYPE_PLAYLIST';
+    }
+    if (this.type === 'channel') {
+      return 'YOUTUBE.TYPE_CHANNEL';
+    }
+    return 'YOUTUBE.TYPE_VIDEO';
+  }
+
+  contextKind(): YoutubeItemKind {
+    const kind = this.selected?.kind || this.type;
+    if (kind === 'playlist' || kind === 'channel') {
+      return kind;
+    }
+    return 'video';
+  }
+
+  contextIconClass(): string {
+    if (this.playingRecording) {
+      return 'fa fa-film';
+    }
+    switch (this.contextKind()) {
+      case 'playlist':
+        return 'fa fa-list';
+      case 'channel':
+        return 'fa fa-user-circle';
+      default:
+        return 'fa fa-play-circle';
+    }
+  }
+
+  contextName(): string {
+    if (this.playingRecording) {
+      return (this.playingRecording.channelName || '').trim();
+    }
+    if (this.selected?.kind === 'playlist') {
+      return (this.selected.title || '').trim();
+    }
+    if (this.channelId) {
+      return (this.channelFilterTitle || this.selected?.channelTitle || '').trim();
+    }
+    if (this.selected?.kind === 'channel') {
+      return (this.selected.title || '').trim();
+    }
+    return '';
+  }
+
+  private clearChannelFilter(): void {
+    this.channelId = '';
+    this.channelFilterTitle = '';
+  }
+
+  get isLoggedIn(): boolean {
+    return this.keycloak.isLoggedIn();
+  }
+
+  get supportsBrowserRecording(): boolean {
+    return (
+      typeof MediaRecorder !== 'undefined' &&
+      typeof navigator !== 'undefined' &&
+      !!navigator.mediaDevices?.getDisplayMedia
+    );
+  }
+
+  get recordingAvailable(): boolean {
+    if (!this.supportsBrowserRecording) {
+      return false;
+    }
+    if (this.recordingStatusLoaded && this.recordingStatus?.enabled === false) {
+      return false;
+    }
+    return true;
+  }
+
+  get recordButtonTitleKey(): string {
+    if (!this.isLoggedIn) {
+      return 'TV.RECORD_LOGIN';
+    }
+    if (!this.recordingAvailable) {
+      return 'TV.ERR_RECORD_UNAVAILABLE';
+    }
+    return 'YOUTUBE.RECORD';
+  }
+
+  get recordingMaxUploadBytes(): number {
+    const fromStatus = this.recordingStatus?.maxUploadBytes;
+    if (typeof fromStatus === 'number' && fromStatus > 0) {
+      return fromStatus;
+    }
+    return 800 * 1024 * 1024;
+  }
+
+  get recordingNearSizeLimit(): boolean {
+    const max = this.recordingMaxUploadBytes;
+    return max > 0 && this.recordingBytes >= max * 0.9;
+  }
+
+  get youtubeRecordings(): TvRecording[] {
+    return this.recordings.filter((rec) => this.isYoutubeRecording(rec) && rec.ownedByMe === true);
+  }
+
+  get recordingStopping(): boolean {
+    return this.recordFinalizing;
+  }
+
+  get showYoutubeStage(): boolean {
+    if (this.playingRecording || this.clipLoading) {
+      return true;
+    }
+    return !!this.selected && !!this.embedUrl && this.selected.kind !== 'channel';
+  }
+
+  canRecordNow(): boolean {
+    return !!this.selected && !!this.embedUrl && !this.playerOpen && this.selected.kind !== 'channel';
+  }
+
+  async startRecording(event?: Event): Promise<void> {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.recordErrorKey = '';
+    if (!this.isLoggedIn) {
+      this.recordErrorKey = 'TV.RECORD_LOGIN';
+      return;
+    }
+    if (!this.recordingAvailable || this.recordingBusy || this.clientRecordingActive || !this.canRecordNow()) {
+      if (!this.recordingAvailable) {
+        this.recordErrorKey = 'TV.ERR_RECORD_UNAVAILABLE';
+      }
+      return;
+    }
+    const item = this.selected;
+    if (!item?.id) {
+      return;
+    }
+    let stream: MediaStream;
+    try {
+      const captureOpts: DisplayMediaStreamOptions & {
+        preferCurrentTab?: boolean;
+        selfBrowserSurface?: string;
+        surfaceSwitching?: string;
+        monitorTypeSurfaces?: string;
+        systemAudio?: string;
+      } = {
+        video: { frameRate: 25, displaySurface: 'browser' } as MediaTrackConstraints,
+        audio: true,
+        preferCurrentTab: true,
+        selfBrowserSurface: 'include',
+        surfaceSwitching: 'exclude',
+        monitorTypeSurfaces: 'exclude',
+        systemAudio: 'include'
+      };
+      const rawStream = await navigator.mediaDevices.getDisplayMedia(captureOpts);
+      this.displayStream = rawStream;
+      stream = await this.cropDisplayStreamToVideoArea(rawStream);
+      this.recordOutputStream = stream === rawStream ? null : stream;
+    } catch {
+      this.releaseRecordingCapture();
+      this.recordErrorKey = 'YOUTUBE.ERR_RECORD_SHARE';
+      return;
+    }
+    if (this.destroyed || !this.canRecordNow()) {
+      this.releaseRecordingCapture();
+      stream.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch {
+          /* ignore */
+        }
+      });
+      return;
+    }
+    const mimeType = this.pickRecorderMimeType();
+    try {
+      this.recordedChunks = [];
+      this.mediaRecorder = mimeType
+        ? new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_500_000 })
+        : new MediaRecorder(stream, { videoBitsPerSecond: 2_500_000 });
+    } catch {
+      this.releaseRecordingCapture();
+      stream.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch {
+          /* ignore */
+        }
+      });
+      this.recordErrorKey = 'TV.ERR_RECORD_UNAVAILABLE';
+      return;
+    }
+    this.displayStream?.getVideoTracks()[0]?.addEventListener('ended', () => {
+      if (this.clientRecordingActive && !this.recordFinalizing) {
+        this.stopActiveRecording();
+      }
+    });
+    this.mediaRecorder.ondataavailable = (ev: BlobEvent) => {
+      if (ev.data && ev.data.size > 0) {
+        this.recordedChunks.push(ev.data);
+        this.recordingBytes += ev.data.size;
+        if (this.recordingBytes >= this.recordingMaxUploadBytes) {
+          this.stopActiveRecording();
+        }
+      }
+    };
+    this.mediaRecorder.onerror = () => {
+      if (this.clientRecordingActive && !this.recordFinalizing) {
+        this.stopActiveRecording();
+      }
+    };
+    this.mediaRecorder.onstop = () => this.finalizeClientRecording();
+    this.clientRecordItem = { ...item };
+    this.clientRecordStartedAt = Date.now();
+    this.clientRecordingActive = true;
+    this.recordFinalizing = false;
+    this.recordDidFinalize = false;
+    this.recordingElapsedSec = 0;
+    this.recordingBytes = 0;
+    this.mediaRecorder.start(1000);
+    this.startRecordStatsTick();
+    if (this.recordAutoStopTimer !== undefined) {
+      clearTimeout(this.recordAutoStopTimer);
+    }
+    if (this.recordDurationSec > 0) {
+      this.recordAutoStopTimer = setTimeout(() => {
+        this.recordAutoStopTimer = undefined;
+        if (this.clientRecordingActive) {
+          this.stopActiveRecording();
+        }
+      }, Math.max(5, this.recordDurationSec) * 1000);
+    }
+  }
+
+  stopActiveRecording(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!this.clientRecordingActive || this.recordFinalizing) {
+      return;
+    }
+    this.recordFinalizing = true;
+    this.recordingBusy = true;
+    this.stopRecordStatsTick();
+    if (this.recordAutoStopTimer !== undefined) {
+      clearTimeout(this.recordAutoStopTimer);
+      this.recordAutoStopTimer = undefined;
+    }
+    const recorder = this.mediaRecorder;
+    if (!recorder) {
+      this.finalizeClientRecording();
+      return;
+    }
+    try {
+      if (recorder.state !== 'inactive') {
+        recorder.stop();
+      } else {
+        this.finalizeClientRecording();
+      }
+    } catch {
+      this.finalizeClientRecording();
+    }
+  }
+
+  playRecording(rec: TvRecording, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (rec.status !== 'DONE') {
+      return;
+    }
+    if (this.playingRecording?.id === rec.id && this.playingRecordingSafeUrl) {
+      this.stopClipPlayback();
+      return;
+    }
+    this.startClipPlayback(rec);
+  }
+
+  private dismissRecordingsModal(): void {
+    try {
+      this.recordingsModalRef?.dismiss();
+    } catch {
+      /* already closed */
+    }
+    this.recordingsModalRef = null;
+  }
+
+  onClipVideoReady(video: HTMLVideoElement): void {
+    this.clipVideoEl = video;
+    this.clipLoading = false;
+    if (this.clipAutoplayDone) {
+      return;
+    }
+    this.clipAutoplayDone = true;
+    const attempt = (muted: boolean) => {
+      video.muted = muted;
+      const play = video.play();
+      if (play && typeof play.then === 'function') {
+        play.catch((err: unknown) => {
+          const name =
+            err && typeof err === 'object' && 'name' in err ? String((err as { name: string }).name) : '';
+          if (name === 'NotAllowedError' && !muted) {
+            attempt(true);
+          }
+        });
+      }
+    };
+    attempt(false);
+  }
+
+  onClipVideoError(): void {
+    if (this.clipTeardown || !this.playingRecording) {
+      return;
+    }
+    this.clipLoading = false;
+    this.recordingsError = 'TV.ERR_RECORD_PLAY';
+  }
+
+  stopClipPlayback(): void {
+    this.clipTeardown = true;
+    const video = this.clipVideoEl || this.clipPlayer?.nativeElement;
+    if (video) {
+      try {
+        video.pause();
+        video.removeAttribute('src');
+      } catch {
+        /* ignore */
+      }
+    }
+    this.revokeClipObjectUrl();
+    this.playingRecording = null;
+    this.playingRecordingUrl = '';
+    this.playingRecordingSafeUrl = null;
+    this.clipVideoEl = null;
+    this.clipLoading = false;
+    this.clipAutoplayDone = false;
+    this.clipTeardown = false;
+  }
+
+  private startClipPlayback(rec: TvRecording): void {
+    this.stopClipPlayback();
+    this.playingRecording = rec;
+    this.clipLoading = true;
+    this.clipAutoplayDone = false;
+    this.recordingsError = '';
+    if (this.playerOpen) {
+      this.youtubePlayer.close();
+    }
+    this.dismissRecordingsModal();
+    this.sendYoutubeCommand('pauseVideo');
+    this.playbackPaused = true;
+    this.scrollPageToTop();
+    this.cdr.detectChanges();
+    this.api.downloadTvRecordingBlob(rec).subscribe({
+      next: (blob) => {
+        if (this.destroyed || this.playingRecording?.id !== rec.id) {
+          return;
+        }
+        this.revokeClipObjectUrl();
+        const typed = blob.type ? blob : new Blob([blob], { type: 'video/webm' });
+        this.clipObjectUrl = URL.createObjectURL(typed);
+        this.playingRecordingUrl = this.clipObjectUrl;
+        this.playingRecordingSafeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.clipObjectUrl);
+        this.clipLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        if (this.playingRecording?.id !== rec.id) {
+          return;
+        }
+        this.clipLoading = false;
+        this.recordingsError = 'TV.ERR_RECORD_PLAY';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private revokeClipObjectUrl(): void {
+    if (this.clipObjectUrl) {
+      URL.revokeObjectURL(this.clipObjectUrl);
+      this.clipObjectUrl = '';
+    }
+  }
+
+  downloadRecording(rec: TvRecording, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!rec?.id || rec.status !== 'DONE' || this.downloadingRecordingId) {
+      return;
+    }
+    this.downloadingRecordingId = rec.id;
+    this.recordingsError = '';
+    this.api.downloadTvRecordingBlob(rec).subscribe({
+      next: (blob) => {
+        this.downloadingRecordingId = '';
+        const href = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = href;
+        a.download = rec.fileName || `${(rec.channelName || 'youtube').replace(/[^\w.-]+/g, '_')}.webm`;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(href), 1500);
+      },
+      error: () => {
+        this.downloadingRecordingId = '';
+        this.recordingsError = 'TV.ERR_RECORD_DOWNLOAD';
+      }
+    });
+  }
+
+  deleteRecording(rec: TvRecording, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!rec?.id || this.recordingBusy || rec.ownedByMe === false) {
+      return;
+    }
+    this.recordingBusy = true;
+    this.api.deleteTvRecording(rec.id).subscribe({
+      next: () => {
+        this.recordingBusy = false;
+        this.recordings = this.recordings.filter((r) => r.id !== rec.id);
+        if (this.playingRecording?.id === rec.id) {
+          this.stopClipPlayback();
+        }
+      },
+      error: () => {
+        this.recordingBusy = false;
+        this.recordingsError = 'TV.ERR_RECORD_DELETE';
+      }
+    });
+  }
+
+  formatRecordingClock(totalSec: number | undefined | null): string {
+    const sec = Math.max(0, Math.floor(Number(totalSec) || 0));
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (h > 0) {
+      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  formatRecordingSize(bytes: number | undefined | null): string {
+    if (bytes == null || bytes <= 0) {
+      return '';
+    }
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(0)} KB`;
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  formatRecordingWhen(iso: string | undefined | null): string {
+    if (!iso) {
+      return '';
+    }
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return '';
+    }
+    return d.toLocaleString(this.translate.currentLang || 'fr', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  recordingStatusLabelKey(status: string | undefined): string {
+    switch (status) {
+      case 'PENDING':
+        return 'TV.RECORD_STATUS_PENDING';
+      case 'RUNNING':
+        return 'TV.RECORD_STATUS_RUNNING';
+      case 'DONE':
+        return 'TV.RECORD_STATUS_DONE';
+      case 'FAILED':
+        return 'TV.RECORD_STATUS_FAILED';
+      case 'CANCELLED':
+        return 'TV.RECORD_STATUS_CANCELLED';
+      default:
+        return 'TV.RECORD_STATUS_UNKNOWN';
+    }
+  }
+
+  trackByRecordingId(_index: number, rec: TvRecording): string {
+    return rec?.id || String(_index);
+  }
+
+  openRecordingsModal(): void {
+    if (!this.isLoggedIn || !this.recordingsModal) {
+      return;
+    }
+    this.loadRecordings();
+    if (this.recordingsModalRef) {
+      return;
+    }
+    this.recordingsModalRef = this.modalService.open(this.recordingsModal, {
+      size: 'lg',
+      centered: true,
+      scrollable: true,
+      windowClass: 'yt-recordings-modal',
+      backdropClass: 'yt-recordings-modal-backdrop',
+      modalDialogClass: 'yt-recordings-modal-dialog'
+    });
+    this.recordingsModalRef.dismissed.subscribe(() => this.onRecordingsModalClosed());
+    this.recordingsModalRef.closed.subscribe(() => this.onRecordingsModalClosed());
+  }
+
+  closeRecordingsModal(): void {
+    this.dismissRecordingsModal();
+  }
+
+  private onRecordingsModalClosed(): void {
+    this.recordingsModalRef = null;
+  }
+
+  private loadRecordingCapability(): void {
+    this.api.getTvRecordingStatus().subscribe({
+      next: (s) => {
+        this.recordingStatus = s || null;
+        this.recordingStatusLoaded = true;
+      },
+      error: () => {
+        this.recordingStatus = null;
+        this.recordingStatusLoaded = false;
+      }
+    });
+  }
+
+  private loadRecordings(): void {
+    if (!this.isLoggedIn) {
+      this.recordings = [];
+      return;
+    }
+    this.recordingsLoading = true;
+    this.recordingsError = '';
+    this.api.getTvRecordings().subscribe({
+      next: (list) => {
+        this.recordings = list || [];
+        this.recordingsLoading = false;
+      },
+      error: () => {
+        this.recordingsLoading = false;
+        this.recordingsError = 'TV.ERR_RECORDINGS_LOAD';
+      }
+    });
+  }
+
+  private pickRecorderMimeType(): string {
+    const candidates = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+      'video/mp4'
+    ];
+    for (const type of candidates) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        return type;
+      }
+    }
+    return '';
+  }
+
+  private finalizeClientRecording(): void {
+    if (this.recordDidFinalize) {
+      return;
+    }
+    this.recordDidFinalize = true;
+    const item = this.clientRecordItem;
+    const startedAt = this.clientRecordStartedAt;
+    const recorder = this.mediaRecorder;
+    const mimeType = recorder?.mimeType || this.pickRecorderMimeType() || 'video/webm';
+    const durationSec = Math.max(1, Math.round((Date.now() - (startedAt || Date.now())) / 1000));
+    const blob = new Blob(this.recordedChunks, { type: mimeType.split(';')[0] || 'video/webm' });
+    this.recordedChunks = [];
+    this.mediaRecorder = null;
+    this.clientRecordingActive = false;
+    this.clientRecordItem = null;
+    this.recordingElapsedSec = durationSec;
+    this.recordingBytes = blob.size;
+    this.releaseRecordingCapture();
+    if (!blob.size || blob.size < 1024) {
+      this.recordingBusy = false;
+      this.recordFinalizing = false;
+      this.recordErrorKey = 'TV.ERR_RECORD_START';
+      return;
+    }
+    if (!item?.id) {
+      this.recordingBusy = false;
+      this.recordFinalizing = false;
+      return;
+    }
+    const ext = mimeType.includes('mp4') ? '.mp4' : '.webm';
+    const watchUrl = this.youtubeUrl(item) || `https://www.youtube.com/watch?v=${item.id}`;
+    this.api
+      .uploadTvRecording(
+        blob,
+        {
+          channelId: item.id,
+          channelName: item.title || item.channelTitle || 'YouTube',
+          channelLogo: this.thumbUrl(item) || undefined,
+          country: 'YT',
+          streamUrl: watchUrl,
+          durationSec,
+          visibility: 'private'
+        },
+        `yt-${(item.title || 'rec').replace(/[^\w.-]+/g, '_').slice(0, 40)}${ext}`
+      )
+      .subscribe({
+        next: (rec) => {
+          this.recordingBusy = false;
+          this.recordFinalizing = false;
+          if (rec) {
+            this.recordings = [rec, ...this.recordings.filter((r) => r.id !== rec.id)];
+          }
+        },
+        error: (err) => {
+          this.recordingBusy = false;
+          this.recordFinalizing = false;
+          const code = err?.error?.error || '';
+          if (code === 'file_too_large' || err?.status === 413) {
+            this.recordErrorKey = 'TV.ERR_RECORD_TOO_LARGE';
+          } else if (code === 'tv_recording_disabled') {
+            this.recordErrorKey = 'TV.ERR_RECORD_UNAVAILABLE';
+          } else {
+            this.recordErrorKey = 'TV.ERR_RECORD_START';
+          }
+        }
+      });
+  }
+
+  private abortClientRecording(upload: boolean): void {
+    this.stopRecordStatsTick();
+    if (this.recordAutoStopTimer !== undefined) {
+      clearTimeout(this.recordAutoStopTimer);
+      this.recordAutoStopTimer = undefined;
+    }
+    try {
+      if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+        if (upload) {
+          this.stopActiveRecording();
+          return;
+        }
+        this.mediaRecorder.onstop = null;
+        this.mediaRecorder.onerror = null;
+        this.mediaRecorder.stop();
+      }
+    } catch {
+      /* ignore */
+    }
+    this.mediaRecorder = null;
+    this.recordedChunks = [];
+    this.clientRecordingActive = false;
+    this.clientRecordItem = null;
+    this.recordingElapsedSec = 0;
+    this.recordingBytes = 0;
+    this.recordFinalizing = false;
+    this.recordingBusy = false;
+    this.releaseRecordingCapture();
+  }
+
+  private releaseRecordingCapture(): void {
+    this.stopRecordCropLoop();
+    this.displayStream?.getTracks().forEach((track) => {
+      try {
+        track.stop();
+      } catch {
+        /* ignore */
+      }
+    });
+    this.displayStream = null;
+    if (this.recordOutputStream) {
+      this.recordOutputStream.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch {
+          /* ignore */
+        }
+      });
+      this.recordOutputStream = null;
+    }
+  }
+
+  private stopRecordCropLoop(): void {
+    if (this.recordCropRaf !== undefined) {
+      cancelAnimationFrame(this.recordCropRaf);
+      this.recordCropRaf = undefined;
+    }
+    if (this.recordCropVideo) {
+      try {
+        this.recordCropVideo.pause();
+        this.recordCropVideo.srcObject = null;
+      } catch {
+        /* ignore */
+      }
+      this.recordCropVideo = null;
+    }
+  }
+
+  private async cropDisplayStreamToVideoArea(stream: MediaStream): Promise<MediaStream> {
+    const el = this.getYoutubeIframe() || this.playerFrame?.nativeElement || null;
+    const videoTrack = stream.getVideoTracks()[0] as
+      | (MediaStreamTrack & {
+          cropTo?: (target: unknown) => Promise<void>;
+          restrictTo?: (target: unknown) => Promise<void>;
+        })
+      | undefined;
+    if (!el || !videoTrack) {
+      return stream;
+    }
+    const win = window as Window & {
+      CropTarget?: { fromElement: (node: Element) => Promise<unknown> };
+      RestrictionTarget?: { fromElement: (node: Element) => Promise<unknown> };
+    };
+    if (typeof win.RestrictionTarget?.fromElement === 'function' && typeof videoTrack.restrictTo === 'function') {
+      try {
+        const target = await win.RestrictionTarget.fromElement(el);
+        await videoTrack.restrictTo(target);
+        return stream;
+      } catch {
+        /* Region Capture / canvas fallback */
+      }
+    }
+    if (typeof win.CropTarget?.fromElement === 'function' && typeof videoTrack.cropTo === 'function') {
+      try {
+        const target = await win.CropTarget.fromElement(el);
+        await videoTrack.cropTo(target);
+        return stream;
+      } catch {
+        /* canvas fallback */
+      }
+    }
+    return this.cropDisplayStreamViaCanvas(stream, el);
+  }
+
+  private cropDisplayStreamViaCanvas(stream: MediaStream, el: HTMLElement): MediaStream {
+    const source = document.createElement('video');
+    source.setAttribute('playsinline', '');
+    source.muted = true;
+    source.playsInline = true;
+    source.srcObject = stream;
+    void source.play().catch(() => undefined);
+    this.recordCropVideo = source;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return stream;
+    }
+    const draw = () => {
+      this.recordCropRaf = requestAnimationFrame(draw);
+      if (source.readyState < 2) {
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      const vw = source.videoWidth;
+      const vh = source.videoHeight;
+      if (!vw || !vh || rect.width < 2 || rect.height < 2) {
+        return;
+      }
+      const scaleX = vw / Math.max(1, window.innerWidth);
+      const scaleY = vh / Math.max(1, window.innerHeight);
+      const sx = Math.max(0, rect.left * scaleX);
+      const sy = Math.max(0, rect.top * scaleY);
+      const sw = Math.min(vw - sx, rect.width * scaleX);
+      const sh = Math.min(vh - sy, rect.height * scaleY);
+      if (sw < 2 || sh < 2) {
+        return;
+      }
+      const dw = Math.round(sw);
+      const dh = Math.round(sh);
+      if (canvas.width !== dw || canvas.height !== dh) {
+        canvas.width = dw;
+        canvas.height = dh;
+      }
+      ctx.drawImage(source, sx, sy, sw, sh, 0, 0, dw, dh);
+    };
+    this.ngZone.runOutsideAngular(() => draw());
+    const cropped = canvas.captureStream(25);
+    stream.getAudioTracks().forEach((track) => cropped.addTrack(track));
+    return cropped;
+  }
+
+  private startRecordStatsTick(): void {
+    this.stopRecordStatsTick();
+    this.tickRecordStats();
+    this.ngZone.runOutsideAngular(() => {
+      this.recordStatsTimer = setInterval(() => {
+        this.ngZone.run(() => this.tickRecordStats());
+      }, 1000);
+    });
+  }
+
+  private stopRecordStatsTick(): void {
+    if (this.recordStatsTimer !== undefined) {
+      clearInterval(this.recordStatsTimer);
+      this.recordStatsTimer = undefined;
+    }
+  }
+
+  private tickRecordStats(): void {
+    if (!this.clientRecordingActive || !this.clientRecordStartedAt) {
+      return;
+    }
+    if (this.mediaRecorder && this.mediaRecorder.state === 'inactive' && !this.recordFinalizing) {
+      this.stopActiveRecording();
+      return;
+    }
+    this.recordingElapsedSec = Math.max(0, Math.floor((Date.now() - this.clientRecordStartedAt) / 1000));
+  }
+
+  private isYoutubeRecording(rec: TvRecording): boolean {
+    const url = (rec.streamUrl || '').toLowerCase();
+    const country = (rec.country || '').toUpperCase();
+    return country === 'YT' || url.includes('youtube.com') || url.includes('youtu.be');
+  }
+
   submitSearch(): void {
-    if (!this.query.trim() && !this.channelId) {
+    if (!this.canSubmitSearch) {
       return;
     }
     this.runSearch();
@@ -291,7 +1320,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   clearSearch(): void {
     this.searchSub?.unsubscribe();
     this.query = '';
-    this.channelId = '';
+    this.clearChannelFilter();
     this.type = 'video';
     this.items = [];
     this.nextPageToken = null;
@@ -309,9 +1338,14 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     if (!item?.id) {
       return;
     }
+    if (this.clientRecordingActive) {
+      this.stopActiveRecording();
+    }
+    this.stopClipPlayback();
     if (item.kind === 'channel' && item.id) {
       this.stopPlayAll();
       this.channelId = item.id;
+      this.channelFilterTitle = (item.title || item.channelTitle || '').trim();
       this.query = '';
       this.type = 'video';
       this.runSearch();
@@ -328,13 +1362,20 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       this.embedUrl = this.buildEmbedUrl(this.selected, true);
     }
     this.scrollPageToTop();
-    void this.syncUrl().then(() => this.scrollPageToTop());
-    setTimeout(() => this.syncLandscapeFullscreen(), 0);
+    void this.syncUrl().then(() => {
+      if (!this.destroyed) {
+        this.scrollPageToTop();
+      }
+    });
+    this.scheduleLandscapeSync();
   }
 
   openInFloatingWindow(): void {
     if (!this.selected) {
       return;
+    }
+    if (this.clientRecordingActive) {
+      this.stopActiveRecording();
     }
     this.exitLandscapeFullscreen(false);
     this.embedUrl = null;
@@ -522,7 +1563,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       this.selected = item;
       this.embedUrl = this.buildEmbedUrl(item, true);
     }
-    setTimeout(() => this.syncLandscapeFullscreen(), 0);
+    this.scheduleLandscapeSync();
   }
 
   exitLandscapeFullscreen(markDismissed = true): void {
@@ -542,8 +1583,14 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     document.body.classList.remove(YoutubeWatcherComponent.LANDSCAPE_FS_BODY_CLASS);
     this.landscapeFsSuppressDismiss = true;
     this.exitOwnedNativeFullscreen();
-    setTimeout(() => {
-      this.landscapeFsSuppressDismiss = false;
+    if (this.landscapeSuppressTimer !== undefined) {
+      clearTimeout(this.landscapeSuppressTimer);
+    }
+    this.landscapeSuppressTimer = setTimeout(() => {
+      this.landscapeSuppressTimer = undefined;
+      if (!this.destroyed) {
+        this.landscapeFsSuppressDismiss = false;
+      }
     }, 0);
   }
 
@@ -551,11 +1598,6 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   @HostListener('window:resize')
   onViewportOrientationMaybeChanged(): void {
     this.syncLandscapeFullscreen();
-  }
-
-  @HostListener('window:message', ['$event'])
-  onWindowMessage(event: MessageEvent): void {
-    this.onYoutubeProgressMessage(event);
   }
 
   loadMore(): void {
@@ -702,7 +1744,19 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private runSearch(preferId?: string | null): void {
     const q = this.query.trim();
     if (!q && !this.channelId) {
-      this.loadPopular(preferId);
+      if (this.type === 'video') {
+        this.loadPopular(preferId);
+        return;
+      }
+      this.searchSub?.unsubscribe();
+      this.searching = false;
+      this.searched = true;
+      this.items = [];
+      this.nextPageToken = null;
+      this.total = 0;
+      this.resultKind = 'search';
+      this.errorMessage = '';
+      this.syncUrl(preferId);
       return;
     }
     this.searchSub?.unsubscribe();
@@ -712,6 +1766,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.missingKey = false;
     this.resultKind = 'search';
     this.syncUrl(preferId);
+    if (q) {
+      this.rememberRecentSearch(q);
+    }
     this.searchSub = this.api
       .searchYoutube({
         q: q || undefined,
@@ -762,6 +1819,10 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       this.itemSourceOrder.set(item, this.itemSourceSeq++);
     });
     this.items = append ? [...this.items, ...incoming] : incoming;
+    if (this.channelId && !this.channelFilterTitle) {
+      const named = incoming.find((item) => (item.channelTitle || '').trim());
+      this.channelFilterTitle = (named?.channelTitle || '').trim();
+    }
     this.sortItems();
     this.nextPageToken = page?.nextPageToken || null;
     this.total = page?.total || this.items.length;
@@ -825,6 +1886,51 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
+  private rememberRecentSearch(term: string): void {
+    const value = term.trim();
+    if (value.length < 2) {
+      return;
+    }
+    const lower = value.toLowerCase();
+    const next = [
+      value,
+      ...this.recentSearches.filter((item) => item.toLowerCase() !== lower)
+    ].slice(0, YoutubeWatcherComponent.RECENT_SEARCHES_MAX);
+    this.recentSearches = next;
+    this.writeRecentSearches(next);
+  }
+
+  private readRecentSearches(): string[] {
+    try {
+      const raw = sessionStorage.getItem(YoutubeWatcherComponent.RECENT_SEARCHES_KEY);
+      if (!raw) {
+        return [];
+      }
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+      return parsed
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter((item) => item.length >= 2)
+        .slice(0, YoutubeWatcherComponent.RECENT_SEARCHES_MAX);
+    } catch {
+      return [];
+    }
+  }
+
+  private writeRecentSearches(terms: string[]): void {
+    try {
+      sessionStorage.setItem(
+        YoutubeWatcherComponent.RECENT_SEARCHES_KEY,
+        JSON.stringify(terms)
+      );
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }
+
   private scrollPageToTop(): void {
     if (typeof window === 'undefined' || typeof document === 'undefined') {
       return;
@@ -851,16 +1957,42 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       }
     };
     jump();
-    if (this.scrollTopTimer !== undefined) {
-      clearTimeout(this.scrollTopTimer);
-    }
+    this.clearScrollTopTimers();
     this.scrollTopTimer = setTimeout(() => {
+      this.scrollTopTimer = undefined;
+      if (this.destroyed) {
+        return;
+      }
       jump();
-      requestAnimationFrame(() => {
+      this.scrollTopRaf = requestAnimationFrame(() => {
+        this.scrollTopRaf = undefined;
+        if (this.destroyed) {
+          return;
+        }
         jump();
-        this.scrollTopTimer = setTimeout(jump, 80);
+        this.scrollTopFollowTimer = setTimeout(() => {
+          this.scrollTopFollowTimer = undefined;
+          if (!this.destroyed) {
+            jump();
+          }
+        }, 80);
       });
     }, 0);
+  }
+
+  private clearScrollTopTimers(): void {
+    if (this.scrollTopTimer !== undefined) {
+      clearTimeout(this.scrollTopTimer);
+      this.scrollTopTimer = undefined;
+    }
+    if (this.scrollTopFollowTimer !== undefined) {
+      clearTimeout(this.scrollTopFollowTimer);
+      this.scrollTopFollowTimer = undefined;
+    }
+    if (this.scrollTopRaf !== undefined) {
+      cancelAnimationFrame(this.scrollTopRaf);
+      this.scrollTopRaf = undefined;
+    }
   }
 
   private setupLandscapeFullscreenWatchers(): void {
@@ -930,6 +2062,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   }
 
   private syncLandscapeFullscreen(): void {
+    if (this.destroyed) {
+      return;
+    }
     if (!this.isLandscapeOrientation()) {
       this.landscapeFsUserDismissed = false;
       this.exitLandscapeFullscreen(false);
@@ -1265,15 +2400,26 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
 
   private startYoutubeProgressWatch(): void {
     this.stopYoutubeProgressWatch();
-    if (this.playerOpen || !this.embedUrl) {
+    if (this.destroyed || this.playerOpen || !this.embedUrl) {
       return;
     }
-    this.handshakeYoutubePlayer();
-    this.ytProgressTimer = setInterval(() => {
+    this.ytApiListening = false;
+    this.ngZone.runOutsideAngular(() => {
       this.handshakeYoutubePlayer();
-      this.sendYoutubeCommand('getCurrentTime');
-      this.sendYoutubeCommand('getDuration');
-    }, 400);
+      this.ytProgressTimer = setInterval(() => this.tickYoutubeProgressWatch(), 400);
+    });
+  }
+
+  private tickYoutubeProgressWatch(): void {
+    if (this.destroyed || this.playerOpen || !this.embedUrl) {
+      this.stopYoutubeProgressWatch();
+      return;
+    }
+    if (!this.ytApiListening) {
+      this.handshakeYoutubePlayer();
+    }
+    this.sendYoutubeCommand('getCurrentTime');
+    this.sendYoutubeCommand('getDuration');
   }
 
   private stopYoutubeProgressWatch(): void {
@@ -1283,9 +2429,48 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
+  private unloadPageEmbed(): void {
+    this.stopYoutubeProgressWatch();
+    this.ytApiListening = false;
+    const iframe = this.getYoutubeIframe();
+    if (iframe) {
+      try {
+        iframe.src = 'about:blank';
+      } catch {
+        /* ignore */
+      }
+    }
+    this.embedUrl = null;
+  }
+
+  private scheduleLandscapeSync(): void {
+    if (this.landscapeSyncTimer !== undefined) {
+      clearTimeout(this.landscapeSyncTimer);
+    }
+    this.landscapeSyncTimer = setTimeout(() => {
+      this.landscapeSyncTimer = undefined;
+      if (!this.destroyed) {
+        this.syncLandscapeFullscreen();
+      }
+    }, 0);
+  }
+
+  private clearLandscapeTimers(): void {
+    if (this.landscapeSyncTimer !== undefined) {
+      clearTimeout(this.landscapeSyncTimer);
+      this.landscapeSyncTimer = undefined;
+    }
+    if (this.landscapeSuppressTimer !== undefined) {
+      clearTimeout(this.landscapeSuppressTimer);
+      this.landscapeSuppressTimer = undefined;
+    }
+  }
+
   private handshakeYoutubePlayer(): void {
     this.postToYoutube({ event: 'listening', id: 'yt-page-embed' });
-    this.sendYoutubeCommand('addEventListener', ['onStateChange']);
+    if (!this.ytApiListening) {
+      this.sendYoutubeCommand('addEventListener', ['onStateChange']);
+    }
   }
 
   private getYoutubeIframe(): HTMLIFrameElement | null {
@@ -1317,7 +2502,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   }
 
   private onYoutubeProgressMessage(event: MessageEvent): void {
-    if (this.playerOpen || !this.embedUrl) {
+    if (this.destroyed || this.playerOpen || !this.embedUrl) {
       return;
     }
     const origin = (event.origin || '').toLowerCase();
@@ -1339,29 +2524,35 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       event?: string;
       info?: number | Record<string, unknown>;
     };
-    if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
-      this.applyYoutubePlayerState(payload.info);
-      return;
-    }
-    const info = payload.info;
-    if (!info || typeof info !== 'object' || Array.isArray(info)) {
-      return;
-    }
-    const playerState = info['playerState'];
-    if (typeof playerState === 'number') {
-      this.applyYoutubePlayerState(playerState);
-      if (playerState === 0) {
+    this.ytApiListening = true;
+    this.ngZone.run(() => {
+      if (this.destroyed || this.playerOpen || !this.embedUrl) {
         return;
       }
-    }
-    const currentTime = info['currentTime'];
-    const duration = info['duration'];
-    if (typeof currentTime === 'number' && Number.isFinite(currentTime)) {
-      this.playbackCurrentSec = Math.max(0, currentTime);
-    }
-    if (typeof duration === 'number' && Number.isFinite(duration) && duration > 0) {
-      this.playbackDurationSec = duration;
-    }
+      if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
+        this.applyYoutubePlayerState(payload.info);
+        return;
+      }
+      const info = payload.info;
+      if (!info || typeof info !== 'object' || Array.isArray(info)) {
+        return;
+      }
+      const playerState = info['playerState'];
+      if (typeof playerState === 'number') {
+        this.applyYoutubePlayerState(playerState);
+        if (playerState === 0) {
+          return;
+        }
+      }
+      const currentTime = info['currentTime'];
+      const duration = info['duration'];
+      if (typeof currentTime === 'number' && Number.isFinite(currentTime)) {
+        this.playbackCurrentSec = Math.max(0, currentTime);
+      }
+      if (typeof duration === 'number' && Number.isFinite(duration) && duration > 0) {
+        this.playbackDurationSec = duration;
+      }
+    });
   }
 
   private applyYoutubePlayerState(state: number): void {
@@ -1392,6 +2583,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.exitLandscapeFullscreen(false);
     this.videoshowRestorePip = this.playerOpen;
     this.stopPlayAll();
+    if (this.clientRecordingActive) {
+      this.stopActiveRecording();
+    }
     this.embedUrl = null;
     this.stopYoutubeProgressWatch();
     if (this.playerOpen) {
@@ -1428,7 +2622,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.embedUrl = this.buildEmbedUrl(item, true);
-    setTimeout(() => this.syncLandscapeFullscreen(), 0);
+    this.scheduleLandscapeSync();
   }
 
   openLinkToEventModal(): void {

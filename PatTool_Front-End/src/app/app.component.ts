@@ -249,6 +249,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { routerLink: ['tools/webcam'], icon: 'fa fa-video-camera', labelKey: 'MENU.WEBCAM' },
         { routerLink: ['tools/youtube'], icon: 'fa fa-youtube-play', labelKey: 'MENU.YOUTUBE' },
         { routerLink: ['tools/telegram'], icon: 'fa fa-paper-plane', labelKey: 'MENU.TELEGRAM' },
+        { routerLink: ['tools/video-montage'], icon: 'fa fa-film', labelKey: 'MENU.VIDEO_MONTAGE' },
         { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' },
         { routerLink: ['api/wiki'], icon: 'fa fa-graduation-cap', labelKey: 'MENU.WIKI' }
     ];

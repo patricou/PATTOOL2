@@ -418,10 +418,15 @@ export interface FinderTurnGuide {
 
 const GUIDE_DEAD_DEG = 8;
 const GUIDE_SCREEN_DEAD_PCT = 5;
+/** Zone morte d’inclinaison : 1° pour coller au bandeau Caméra vs Cible. */
+const PITCH_GUIDE_DEAD_DEG = 1;
 
 /**
- * Flèches de guidage : à l’écran si l’objet est dans le champ (compense le roulis),
- * sinon plus court chemin azimut / élévation.
+ * Flèches de guidage.
+ * Inclinaison (haut/bas) = écart d’élévation ciel (cible − caméra), comme les bandeaux
+ * Caméra / Cible : + = lever le téléphone, − = le baisser. Jamais la position Y à l’écran
+ * (zoom / FOV faussent ce pixel et inversent parfois le sens).
+ * Azimut : plus court chemin, ou position X à l’écran si l’objet est devant.
  */
 export function computeFinderTurnGuide(
   camAz: number | null,
@@ -440,8 +445,6 @@ export function computeFinderTurnGuide(
   }
   let left = false;
   let right = false;
-  let up = false;
-  let down = false;
   const onGlass =
     !!proj?.inFront &&
     proj.xPct >= 0 &&
@@ -449,35 +452,21 @@ export function computeFinderTurnGuide(
     proj.yPct >= 0 &&
     proj.yPct <= 100;
   if (proj?.inFront) {
-    /* Hors cadre (zoom) : pointer même pour 2–6°. Dans le cadre : zone morte écran. */
     const dead = onGlass || proj.inView ? GUIDE_SCREEN_DEAD_PCT : 0;
     if (proj.xPct < 50 - dead) {
       left = true;
     } else if (proj.xPct > 50 + dead) {
       right = true;
     }
-    if (proj.yPct < 50 - dead) {
-      up = true;
-    } else if (proj.yPct > 50 + dead) {
-      down = true;
+  } else if (Math.abs(yawDeg) > GUIDE_DEAD_DEG) {
+    if (yawDeg > 0) {
+      right = true;
+    } else {
+      left = true;
     }
   }
-  if (!left && !right && !up && !down && !onGlass && !proj?.inView) {
-    if (Math.abs(yawDeg) > GUIDE_DEAD_DEG) {
-      if (yawDeg > 0) {
-        right = true;
-      } else {
-        left = true;
-      }
-    }
-    if (Math.abs(pitchDeg) > GUIDE_DEAD_DEG) {
-      if (pitchDeg > 0) {
-        up = true;
-      } else {
-        down = true;
-      }
-    }
-  }
+  const up = pitchDeg >= PITCH_GUIDE_DEAD_DEG;
+  const down = pitchDeg <= -PITCH_GUIDE_DEAD_DEG;
   return {
     left,
     right,
