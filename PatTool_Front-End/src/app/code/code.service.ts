@@ -88,6 +88,7 @@ export interface CodeRepoTreeResponse {
   defaultBranch?: string | null;
   path?: string;
   entries?: CodeRepoTreeEntry[];
+  nodes?: CodeRepoTreeEntry[];
   error?: string;
 }
 
@@ -234,6 +235,19 @@ export class CodeWorkbenchService {
     );
   }
 
+  repoTreeIndex(url: string, branch?: string): Observable<CodeRepoTreeResponse> {
+    const body: { url: string; branch?: string } = { url: url.trim() };
+    const b = (branch || '').trim();
+    if (b) {
+      body.branch = b;
+    }
+    return this.withUserHeaders().pipe(
+      switchMap((headers) =>
+        this.http.post<CodeRepoTreeResponse>(`${this.baseUrl}/repo/tree-index`, body, { headers })
+      )
+    );
+  }
+
   repoFile(url: string, path: string, branch?: string): Observable<CodeRepoFile> {
     const body: { url: string; path: string; branch?: string } = {
       url: url.trim(),
@@ -278,6 +292,7 @@ export function languageFromPath(path: string): string {
     '.sql': 'sql',
     '.html': 'html',
     '.css': 'css',
+    '.scss': 'css',
     '.json': 'json',
     '.yml': 'yaml',
     '.yaml': 'yaml',

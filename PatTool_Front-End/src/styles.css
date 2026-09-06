@@ -35,6 +35,63 @@ mark.ia-search-hit {
     border-radius: 2px;
 }
 
+/* Code workbench syntax colors (VS Code Dark+). innerHTML spans are outside component encapsulation. */
+.code-hl-pre,
+.code-hl-fence,
+.code-repo-file,
+.code-msg-body .code-hl-fence {
+    color: #d4d4d4;
+}
+.code-hl-pre code,
+.code-hl-fence code {
+    color: inherit !important;
+    background: transparent !important;
+}
+.code-hl-pre .tok-kw,
+.code-hl-fence .tok-kw,
+.code-repo-file .tok-kw,
+.code-msg-body .tok-kw { color: #569cd6; }
+.code-hl-pre .tok-ctrl,
+.code-hl-fence .tok-ctrl,
+.code-repo-file .tok-ctrl,
+.code-msg-body .tok-ctrl { color: #c586c0; }
+.code-hl-pre .tok-str,
+.code-hl-fence .tok-str,
+.code-repo-file .tok-str,
+.code-msg-body .tok-str { color: #ce9178; }
+.code-hl-pre .tok-cmt,
+.code-hl-fence .tok-cmt,
+.code-repo-file .tok-cmt,
+.code-msg-body .tok-cmt { color: #6a9955; font-style: italic; }
+.code-hl-pre .tok-num,
+.code-hl-fence .tok-num,
+.code-repo-file .tok-num,
+.code-msg-body .tok-num { color: #b5cea8; }
+.code-hl-pre .tok-fn,
+.code-hl-fence .tok-fn,
+.code-repo-file .tok-fn,
+.code-msg-body .tok-fn { color: #dcdcaa; }
+.code-hl-pre .tok-type,
+.code-hl-fence .tok-type,
+.code-repo-file .tok-type,
+.code-msg-body .tok-type { color: #4ec9b0; }
+.code-hl-pre .tok-key,
+.code-hl-fence .tok-key,
+.code-repo-file .tok-key,
+.code-msg-body .tok-key { color: #9cdcfe; }
+.code-hl-pre .tok-var,
+.code-hl-fence .tok-var,
+.code-repo-file .tok-var,
+.code-msg-body .tok-var { color: #9cdcfe; }
+.code-hl-pre .tok-prop,
+.code-hl-fence .tok-prop,
+.code-repo-file .tok-prop,
+.code-msg-body .tok-prop { color: #9cdcfe; }
+.code-hl-pre .tok-dec,
+.code-hl-fence .tok-dec,
+.code-repo-file .tok-dec,
+.code-msg-body .tok-dec { color: #dcdcaa; }
+
 /* Fix for view transitions warning: prevent overflow:visible on img, video, canvas */
 img, video, canvas {
     overflow: hidden !important;

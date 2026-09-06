@@ -65,12 +65,16 @@ export class CodeComponent implements OnInit, OnDestroy {
   loadingRepoFile = false;
   repoOpenFile: CodeRepoFile | null = null;
   readonly repoExamples = [
+    'PATTOOL2',
+    'patricou/PATTOOL2',
     'une lib python pour parser du HTML',
-    'framework Java pour API REST',
-    'client GraphQL TypeScript',
     'facebook/react'
   ];
   private treeReq = 0;
+  private treeCacheRepo = '';
+  private readonly treeCache = new Map<string, CodeRepoTreeResponse>();
+  private repoFlat: CodeRepoTreeEntry[] | null = null;
+  private indexReq = 0;
   models: string[] = [];
   customModel = '';
   sending = false;
@@ -544,7 +548,11 @@ export class CodeComponent implements OnInit, OnDestroy {
     this.repoBranch = branch || this.repoBranch;
     this.repoOpenFile = null;
     this.repoPreview = null;
+    this.treeCache.clear();
+    this.treeCacheRepo = '';
+    this.repoFlat = null;
     this.loadTree('');
+    this.startTreeIndex();
     if (this.current) {
       this.current.repoUrl = url;
       this.markDirty();
@@ -556,6 +564,23 @@ export class CodeComponent implements OnInit, OnDestroy {
     if (!url) {
       return;
     }
+    const cacheKey = (path || '').replace(/^\/+|\/+$/g, '');
+    if (this.repoFlat && this.repoFlat.length) {
+      this.applyLocalTree(cacheKey);
+      return;
+    }
+    const repoKey = url + '|' + this.repoBranch.trim();
+    if (this.treeCacheRepo !== repoKey) {
+      this.treeCache.clear();
+      this.treeCacheRepo = repoKey;
+    }
+    const cached = this.treeCache.get(cacheKey);
+    if (cached) {
+      this.repoTree = cached;
+      this.repoTreePath = cached.path || cacheKey;
+      this.loadingTree = false;
+      return;
+    }
     const req = ++this.treeReq;
     this.loadingTree = true;
     this.errorKey = null;
@@ -564,14 +589,8 @@ export class CodeComponent implements OnInit, OnDestroy {
         if (req !== this.treeReq) {
           return;
         }
-        this.repoTree = tree;
-        this.repoTreePath = tree.path || path || '';
-        if (tree.defaultBranch && !this.repoBranch.trim()) {
-          this.repoBranch = tree.defaultBranch;
-        }
-        if (tree.htmlUrl) {
-          this.repoUrl = tree.htmlUrl;
-        }
+        this.applyTreeResponse(tree, path);
+        this.treeCache.set(cacheKey, tree);
         this.loadingTree = false;
       },
       error: (err) => {
@@ -582,6 +601,98 @@ export class CodeComponent implements OnInit, OnDestroy {
         this.setRepoError(err);
       }
     });
+  }
+
+  private startTreeIndex(): void {
+    const url = this.repoUrl.trim();
+    if (!url) {
+      return;
+    }
+    const req = ++this.indexReq;
+    this.codeApi.repoTreeIndex(url, this.repoBranch).subscribe({
+      next: (res) => {
+        if (req !== this.indexReq) {
+          return;
+        }
+        const nodes = res.nodes || [];
+        if (!nodes.length) {
+          return;
+        }
+        this.repoFlat = nodes;
+        if (res.defaultBranch && !this.repoBranch.trim()) {
+          this.repoBranch = res.defaultBranch;
+        }
+        this.treeReq++;
+        this.applyLocalTree(this.repoTreePath || '');
+      },
+      error: () => {
+        /* Folder clicks still work via per-directory API. */
+      }
+    });
+  }
+
+  private applyTreeResponse(tree: CodeRepoTreeResponse, path: string): void {
+    this.repoTree = tree;
+    this.repoTreePath = tree.path || path || '';
+    if (tree.defaultBranch && !this.repoBranch.trim()) {
+      this.repoBranch = tree.defaultBranch;
+    }
+    if (tree.htmlUrl) {
+      this.repoUrl = tree.htmlUrl;
+    }
+    this.treeCacheRepo = this.repoUrl.trim() + '|' + this.repoBranch.trim();
+  }
+
+  private applyLocalTree(path: string): void {
+    const rel = (path || '').replace(/^\/+|\/+$/g, '');
+    const prefix = rel ? rel + '/' : '';
+    const byName = new Map<string, CodeRepoTreeEntry>();
+    for (const node of this.repoFlat || []) {
+      const p = node.path || '';
+      if (prefix && !p.startsWith(prefix)) {
+        continue;
+      }
+      const rest = prefix ? p.slice(prefix.length) : p;
+      if (!rest) {
+        continue;
+      }
+      const slash = rest.indexOf('/');
+      if (slash < 0) {
+        byName.set(rest, {
+          name: rest,
+          path: p,
+          type: node.type === 'dir' ? 'dir' : 'file',
+          size: node.size
+        });
+      } else {
+        const dirName = rest.slice(0, slash);
+        if (!byName.has(dirName)) {
+          byName.set(dirName, {
+            name: dirName,
+            path: prefix + dirName,
+            type: 'dir',
+            size: 0
+          });
+        }
+      }
+    }
+    const entries = [...byName.values()].sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type === 'dir' ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+    this.repoTree = {
+      host: this.repoTree?.host,
+      owner: this.repoTree?.owner,
+      name: this.repoTree?.name,
+      htmlUrl: this.repoUrl,
+      defaultBranch: this.repoBranch,
+      path: rel,
+      entries
+    };
+    this.repoTreePath = rel;
+    this.loadingTree = false;
   }
 
   openTreeEntry(entry: CodeRepoTreeEntry): void {

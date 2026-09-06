@@ -11,8 +11,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.text.Normalizer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Turns a natural-language request into a GitHub/GitLab search, then runs it.
@@ -27,12 +30,24 @@ public class CodeRepoNaturalSearchService {
             "Reply with JSON only, no markdown, no extra text:",
             "{\"query\":\"...\",\"host\":\"github|gitlab|all\",\"summary\":\"...\"}",
             "Rules:",
-            "- query uses GitHub search syntax: keywords plus optional language:java stars:>50 topic:foo",
-            "- Prefer well-known public libraries and tools, not random gists",
+            "- If the user names a specific project (pattool, PATTOOL2, lodash), keep that name as ONE token.",
+            "  Search it with: Name in:name   Do not split it, do not add extra keywords.",
+            "- Do NOT add stars:> or popularity filters unless the user asks for popular/famous libraries.",
+            "- For generic requests (a html parser, rest framework), use keywords plus optional language:java.",
             "- host is github unless the user clearly asks for GitLab",
             "- summary is one short sentence in the user's language explaining the interpretation",
             "- Never help with malware, exploits, or attacking systems. If asked, search defensive security libraries instead and say so in summary.",
             "- Keep query under 120 characters.");
+
+    private static final Set<String> STOPWORDS = Set.of(
+            "a", "an", "the", "i", "me", "my", "we", "you", "please", "find", "search",
+            "looking", "look", "want", "need", "get", "show", "repo", "repos", "repository",
+            "repositories", "project", "projects", "github", "gitlab", "named", "called",
+            "for", "of", "on", "in", "to", "and",
+            "je", "tu", "il", "nous", "vous", "le", "la", "les", "un", "une", "des",
+            "du", "de", "d", "l", "cherche", "chercher", "rechercher", "recherche", "trouver",
+            "montre", "montrer", "depot", "depots", "projet", "projets",
+            "nomme", "appele", "svp", "s", "est", "ce", "cet", "cette");
 
     private final RoutingAssistantService routingAssistantService;
     private final CodeRepoWorldService codeRepoWorldService;
@@ -53,6 +68,14 @@ public class CodeRepoNaturalSearchService {
             Integer page,
             String provider,
             String model) {
+        String named = extractNamedQuery(utterance);
+        if (named != null) {
+            CodeRepoSearchResponse res = codeRepoWorldService.search(named, hostHint, page);
+            res.setNaturalLanguage(true);
+            res.setInterpretedQuery(named + " in:name");
+            res.setSummary(named);
+            return res;
+        }
         Interpreted interpreted = interpret(utterance, hostHint, provider, model);
         String host = StringUtils.hasText(interpreted.host) ? interpreted.host : hostHint;
         CodeRepoSearchResponse res;
@@ -163,6 +186,35 @@ public class CodeRepoNaturalSearchService {
         }
         String t = v.trim();
         return t.isEmpty() ? null : t;
+    }
+
+    /**
+     * "je cherche le repo pattool" → "pattool". Null if the request looks descriptive.
+     */
+    static String extractNamedQuery(String utterance) {
+        if (!StringUtils.hasText(utterance)) {
+            return null;
+        }
+        String[] words = Normalizer.normalize(utterance.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .replaceAll("[^a-z0-9._\\-/ ]", " ")
+                .trim()
+                .split("\\s+");
+        List<String> kept = new ArrayList<>();
+        for (String w : words) {
+            if (w.isEmpty() || STOPWORDS.contains(w)) {
+                continue;
+            }
+            kept.add(w);
+        }
+        if (kept.size() != 1) {
+            return null;
+        }
+        String only = kept.get(0);
+        if (only.matches("[a-z][a-z0-9._-]{1,80}") || only.matches("[a-z0-9._-]+/[a-z0-9._-]+")) {
+            return only;
+        }
+        return null;
     }
 
     private record Interpreted(String query, String host, String summary) {}

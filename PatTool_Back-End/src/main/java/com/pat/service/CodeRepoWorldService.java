@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Fetches public source files from GitHub or GitLab for defensive code review.
@@ -46,6 +47,7 @@ public class CodeRepoWorldService {
     private static final int MAX_FILES = 20;
     private static final int MAX_FILE_BYTES = 80_000;
     private static final int MAX_TOTAL_BYTES = 280_000;
+    private static final long TREE_CACHE_MS = 5 * 60_000L;
 
     private static final Set<String> SKIP_DIR_SEGMENTS = Set.of(
             "node_modules", "dist", "build", "target", "vendor", ".git", ".svn",
@@ -94,6 +96,9 @@ public class CodeRepoWorldService {
     private final ObjectMapper objectMapper;
     private final String githubToken;
     private final String gitlabToken;
+    private final Map<String, CachedFlatTree> githubTreeCache = new ConcurrentHashMap<>();
+    private final Map<String, CodeRepoTreeResponse> githubDirCache = new ConcurrentHashMap<>();
+    private final Map<String, String> githubDirSha = new ConcurrentHashMap<>();
 
     public CodeRepoWorldService(
             @Qualifier(RestTemplateConfig.CODE_REPO_REST_TEMPLATE) RestTemplate restTemplate,
@@ -124,19 +129,21 @@ public class CodeRepoWorldService {
         }
         int page = pageHint == null ? 1 : Math.max(1, Math.min(10, pageHint));
         String host = hostHint == null ? "all" : hostHint.trim().toLowerCase(Locale.ROOT);
-        CodeRepoSearchResponse out = new CodeRepoSearchResponse();
-        List<CodeRepoSearchHitDto> items = new ArrayList<>();
+        boolean wantStars = query.toLowerCase(Locale.ROOT).contains("stars:");
+        String nameToken = primarySearchToken(query);
+        Map<String, CodeRepoSearchHitDto> unique = new LinkedHashMap<>();
         if ("gitlab".equals(host) || "all".equals(host)) {
-            items.addAll(searchGitlab(keywordsForGitlab(query), page));
+            addUnique(unique, searchGitlab(keywordsForGitlab(query), page));
         }
         if ("github".equals(host) || "all".equals(host)) {
-            List<CodeRepoSearchHitDto> gh = searchGithub(query, page);
-            if ("all".equals(host)) {
-                items.addAll(0, gh);
-            } else {
-                items.addAll(gh);
+            if (StringUtils.hasText(nameToken) && !query.toLowerCase(Locale.ROOT).contains("in:name")) {
+                addUnique(unique, searchGithub(nameToken + " in:name", page, false));
             }
+            addUnique(unique, searchGithub(query, page, wantStars));
         }
+        List<CodeRepoSearchHitDto> items = new ArrayList<>(unique.values());
+        items.sort(nameMatchComparator(nameToken));
+        CodeRepoSearchResponse out = new CodeRepoSearchResponse();
         out.setItems(items);
         out.setTotal(items.size());
         return out;
@@ -151,6 +158,67 @@ public class CodeRepoWorldService {
         return StringUtils.hasText(stripped) ? stripped : query.trim();
     }
 
+    private static void addUnique(Map<String, CodeRepoSearchHitDto> unique, List<CodeRepoSearchHitDto> hits) {
+        for (CodeRepoSearchHitDto hit : hits) {
+            if (hit == null || !StringUtils.hasText(hit.getFullName())) {
+                continue;
+            }
+            String key = (hit.getHost() + ":" + hit.getFullName()).toLowerCase(Locale.ROOT);
+            unique.putIfAbsent(key, hit);
+        }
+    }
+
+    static String primarySearchToken(String query) {
+        if (!StringUtils.hasText(query)) {
+            return "";
+        }
+        String stripped = query.replaceAll(
+                "(?i)\\b(?:language|lang|stars|topic|size|forks|license|org|user|in):\\S+", " ");
+        stripped = stripped.replaceAll("[\"'><=()]", " ");
+        String best = "";
+        for (String part : stripped.split("\\s+")) {
+            if (part.matches("[A-Za-z][A-Za-z0-9._-]{1,80}") && part.length() > best.length()) {
+                best = part;
+            }
+        }
+        return best;
+    }
+
+    static Comparator<CodeRepoSearchHitDto> nameMatchComparator(String token) {
+        return (a, b) -> {
+            int cmp = Integer.compare(nameScore(b, token), nameScore(a, token));
+            if (cmp != 0) {
+                return cmp;
+            }
+            return Integer.compare(b.getStars(), a.getStars());
+        };
+    }
+
+    static int nameScore(CodeRepoSearchHitDto hit, String token) {
+        if (!StringUtils.hasText(token) || hit == null) {
+            return 0;
+        }
+        String t = token.toLowerCase(Locale.ROOT);
+        String name = hit.getName() == null ? "" : hit.getName().toLowerCase(Locale.ROOT);
+        String full = hit.getFullName() == null ? "" : hit.getFullName().toLowerCase(Locale.ROOT);
+        if (name.equals(t) || full.equalsIgnoreCase(t)) {
+            return 1000;
+        }
+        if (name.startsWith(t) && name.substring(t.length()).matches("\\d+")) {
+            return 950;
+        }
+        if (name.startsWith(t)) {
+            return 800;
+        }
+        if (name.contains(t) || full.contains("/" + t)) {
+            return 600;
+        }
+        if (full.contains(t)) {
+            return 400;
+        }
+        return 0;
+    }
+
     public CodeRepoTreeResponse listTree(String rawUrl, String branchHint, String rawPath) {
         ParsedRepo parsed = parse(rawUrl);
         String rel = sanitizeRelPath(rawPath);
@@ -158,6 +226,33 @@ public class CodeRepoWorldService {
             return listGithubTree(parsed, branchHint, rel);
         }
         return listGitlabTree(parsed, branchHint, rel);
+    }
+
+    public CodeRepoTreeResponse treeIndex(String rawUrl, String branchHint) {
+        ParsedRepo parsed = parse(rawUrl);
+        if ("gitlab".equals(parsed.host)) {
+            return listGitlabTree(parsed, branchHint, "");
+        }
+        String htmlUrl = "https://github.com/" + parsed.owner + "/" + parsed.name;
+        String branch = resolveGithubBranch(parsed, branchHint, htmlUrl).branch;
+        CachedFlatTree flat = loadGithubFlatTree(parsed, branch);
+        CodeRepoTreeResponse out = treeResponse("github", parsed, htmlUrl, branch, "", entriesAt(flat.nodes, ""));
+        List<CodeRepoTreeEntryDto> nodes = new ArrayList<>(Math.min(flat.nodes.size(), 20_000));
+        int n = 0;
+        for (FlatNode node : flat.nodes) {
+            if (n >= 20_000) {
+                break;
+            }
+            String name = node.path();
+            int slash = name.lastIndexOf('/');
+            if (slash >= 0) {
+                name = name.substring(slash + 1);
+            }
+            nodes.add(new CodeRepoTreeEntryDto(name, node.path(), node.dir() ? "dir" : "file", node.size()));
+            n++;
+        }
+        out.setNodes(nodes);
+        return out;
     }
 
     public CodeRepoFileDto readFile(String rawUrl, String branchHint, String rawPath) {
@@ -300,11 +395,13 @@ public class CodeRepoWorldService {
         return out;
     }
 
-    private List<CodeRepoSearchHitDto> searchGithub(String query, int page) {
-        JsonNode doc = getJson(
-                "https://api.github.com/search/repositories?q=" + encodePath(query)
-                        + "&sort=stars&order=desc&per_page=20&page=" + page,
-                githubHeaders());
+    private List<CodeRepoSearchHitDto> searchGithub(String query, int page, boolean sortByStars) {
+        String url = "https://api.github.com/search/repositories?q=" + encodePath(query)
+                + "&per_page=20&page=" + page;
+        if (sortByStars) {
+            url += "&sort=stars&order=desc";
+        }
+        JsonNode doc = getJson(url, githubHeaders());
         List<CodeRepoSearchHitDto> out = new ArrayList<>();
         JsonNode items = doc.path("items");
         if (!items.isArray()) {
@@ -359,10 +456,82 @@ public class CodeRepoWorldService {
     }
 
     private CodeRepoTreeResponse listGithubTree(ParsedRepo parsed, String branchHint, String rel) {
+        String htmlUrl = "https://github.com/" + parsed.owner + "/" + parsed.name;
+        GithubRef ref = resolveGithubBranch(parsed, branchHint, htmlUrl);
+        String branch = ref.branch;
+        htmlUrl = ref.htmlUrl;
+        String cacheKey = parsed.owner + "/" + parsed.name + "@" + branch + ":" + (rel == null ? "" : rel);
+        CodeRepoTreeResponse cached = githubDirCache.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        CodeRepoTreeResponse out;
+        String sha = githubDirSha.get(cacheKey);
+        try {
+            if (!StringUtils.hasText(rel)) {
+                out = listGithubGitTree(parsed, branch, htmlUrl, rel, branch);
+            } else if (StringUtils.hasText(sha)) {
+                out = listGithubGitTree(parsed, branch, htmlUrl, rel, sha);
+            } else {
+                out = listGithubContents(parsed, branch, htmlUrl, rel);
+            }
+        } catch (RuntimeException ex) {
+            log.debug("GitHub git tree fallback to contents for {} {}: {}", parsed.name, rel, ex.getMessage());
+            out = listGithubContents(parsed, branch, htmlUrl, rel);
+        }
+        githubDirCache.put(cacheKey, out);
+        return out;
+    }
+
+    private GithubRef resolveGithubBranch(ParsedRepo parsed, String branchHint, String htmlUrl) {
+        String branch = firstNonBlank(branchHint, parsed.branch);
+        if (StringUtils.hasText(branch)) {
+            return new GithubRef(branch, htmlUrl);
+        }
         JsonNode repo = getJson(
                 "https://api.github.com/repos/" + parsed.owner + "/" + parsed.name,
                 githubHeaders());
-        String branch = firstNonBlank(branchHint, parsed.branch, repo.path("default_branch").asText("main"));
+        branch = firstNonBlank(repo.path("default_branch").asText("main"));
+        String fromRepo = textOrNull(repo.path("html_url"));
+        return new GithubRef(branch, fromRepo != null ? fromRepo : htmlUrl);
+    }
+
+    private CodeRepoTreeResponse listGithubGitTree(
+            ParsedRepo parsed, String branch, String htmlUrl, String rel, String treeRef) {
+        JsonNode listing = getJson(
+                "https://api.github.com/repos/" + parsed.owner + "/" + parsed.name
+                        + "/git/trees/" + encodePath(treeRef),
+                githubHeaders());
+        JsonNode tree = listing.path("tree");
+        if (!tree.isArray()) {
+            throw new IllegalArgumentException("Not a directory");
+        }
+        String prefix = StringUtils.hasText(rel) ? rel.replaceAll("/+$", "") : "";
+        List<CodeRepoTreeEntryDto> entries = new ArrayList<>();
+        for (JsonNode n : tree) {
+            String typeRaw = n.path("type").asText("");
+            String name = n.path("path").asText("");
+            if (!isBrowsableName(name) || name.contains("/")) {
+                continue;
+            }
+            String path = prefix.isEmpty() ? name : prefix + "/" + name;
+            if (path.contains("..")) {
+                continue;
+            }
+            boolean dir = "tree".equals(typeRaw);
+            if (dir) {
+                githubDirSha.put(parsed.owner + "/" + parsed.name + "@" + branch + ":" + path, n.path("sha").asText(""));
+            }
+            entries.add(new CodeRepoTreeEntryDto(name, path, dir ? "dir" : "file", n.path("size").asInt(0)));
+        }
+        entries.sort(browseComparator());
+        if (entries.size() > 200) {
+            entries = new ArrayList<>(entries.subList(0, 200));
+        }
+        return treeResponse("github", parsed, htmlUrl, branch, rel, entries);
+    }
+
+    private CodeRepoTreeResponse listGithubContents(ParsedRepo parsed, String branch, String htmlUrl, String rel) {
         String url = "https://api.github.com/repos/" + parsed.owner + "/" + parsed.name + "/contents";
         if (StringUtils.hasText(rel)) {
             url += "/" + encodePath(rel).replace("%2F", "/");
@@ -372,13 +541,6 @@ public class CodeRepoWorldService {
         if (!listing.isArray()) {
             throw new IllegalArgumentException("Not a directory");
         }
-        CodeRepoTreeResponse out = new CodeRepoTreeResponse();
-        out.setHost("github");
-        out.setOwner(parsed.owner);
-        out.setName(parsed.name);
-        out.setHtmlUrl(textOrNull(repo.path("html_url")));
-        out.setDefaultBranch(branch);
-        out.setPath(rel);
         List<CodeRepoTreeEntryDto> entries = new ArrayList<>();
         for (JsonNode n : listing) {
             String typeRaw = n.path("type").asText("");
@@ -389,33 +551,143 @@ public class CodeRepoWorldService {
             }
             String type = "dir".equals(typeRaw) ? "dir" : "file";
             entries.add(new CodeRepoTreeEntryDto(name, path, type, n.path("size").asInt(0)));
+            if ("dir".equals(type)) {
+                githubDirSha.put(
+                        parsed.owner + "/" + parsed.name + "@" + branch + ":" + path,
+                        n.path("sha").asText(""));
+            }
         }
         entries.sort(browseComparator());
         if (entries.size() > 200) {
-            out.setEntries(new ArrayList<>(entries.subList(0, 200)));
-        } else {
-            out.setEntries(entries);
+            entries = new ArrayList<>(entries.subList(0, 200));
         }
+        return treeResponse("github", parsed, htmlUrl, branch, rel, entries);
+    }
+
+    private CachedFlatTree loadGithubFlatTree(ParsedRepo parsed, String branch) {
+        String key = parsed.owner + "/" + parsed.name + "@" + branch;
+        CachedFlatTree cached = githubTreeCache.get(key);
+        long now = System.currentTimeMillis();
+        if (cached != null && cached.expiresAtMillis > now) {
+            return cached;
+        }
+        pruneGithubTreeCache(now);
+        JsonNode treeDoc = getJson(
+                "https://api.github.com/repos/" + parsed.owner + "/" + parsed.name
+                        + "/git/trees/" + encodePath(branch) + "?recursive=1",
+                githubHeaders());
+        boolean truncated = treeDoc.path("truncated").asBoolean(false);
+        List<FlatNode> nodes = new ArrayList<>();
+        JsonNode tree = treeDoc.path("tree");
+        if (tree.isArray()) {
+            for (JsonNode n : tree) {
+                String type = n.path("type").asText("");
+                String path = n.path("path").asText("");
+                if (!StringUtils.hasText(path) || path.contains("..")) {
+                    continue;
+                }
+                boolean dir = "tree".equals(type);
+                if (!dir && !"blob".equals(type)) {
+                    continue;
+                }
+                nodes.add(new FlatNode(path, dir, n.path("size").asInt(0)));
+            }
+        }
+        CachedFlatTree fresh = new CachedFlatTree(now + TREE_CACHE_MS, truncated, nodes);
+        githubTreeCache.put(key, fresh);
+        return fresh;
+    }
+
+    private void pruneGithubTreeCache(long now) {
+        githubTreeCache.entrySet().removeIf(e -> e.getValue().expiresAtMillis <= now);
+        if (githubTreeCache.size() <= 8) {
+            return;
+        }
+        String oldest = null;
+        long oldestExp = Long.MAX_VALUE;
+        for (Map.Entry<String, CachedFlatTree> e : githubTreeCache.entrySet()) {
+            if (e.getValue().expiresAtMillis < oldestExp) {
+                oldestExp = e.getValue().expiresAtMillis;
+                oldest = e.getKey();
+            }
+        }
+        if (oldest != null) {
+            githubTreeCache.remove(oldest);
+        }
+    }
+
+    static List<CodeRepoTreeEntryDto> entriesAt(List<FlatNode> nodes, String rel) {
+        String prefix = StringUtils.hasText(rel) ? rel.replaceAll("/+$", "") + "/" : "";
+        Map<String, CodeRepoTreeEntryDto> byName = new LinkedHashMap<>();
+        for (FlatNode node : nodes) {
+            String path = node.path();
+            if (!prefix.isEmpty() && !path.startsWith(prefix)) {
+                continue;
+            }
+            String rest = prefix.isEmpty() ? path : path.substring(prefix.length());
+            if (!StringUtils.hasText(rest)) {
+                continue;
+            }
+            int slash = rest.indexOf('/');
+            if (slash < 0) {
+                if (!isBrowsableName(rest)) {
+                    continue;
+                }
+                byName.putIfAbsent(rest, new CodeRepoTreeEntryDto(
+                        rest, path, node.dir() ? "dir" : "file", node.size()));
+            } else {
+                String dirName = rest.substring(0, slash);
+                if (!isBrowsableName(dirName)) {
+                    continue;
+                }
+                String dirPath = prefix + dirName;
+                byName.putIfAbsent(dirName, new CodeRepoTreeEntryDto(dirName, dirPath, "dir", 0));
+            }
+        }
+        List<CodeRepoTreeEntryDto> entries = new ArrayList<>(byName.values());
+        entries.sort(browseComparator());
+        if (entries.size() > 200) {
+            return new ArrayList<>(entries.subList(0, 200));
+        }
+        return entries;
+    }
+
+    private static CodeRepoTreeResponse treeResponse(
+            String host,
+            ParsedRepo parsed,
+            String htmlUrl,
+            String branch,
+            String rel,
+            List<CodeRepoTreeEntryDto> entries) {
+        CodeRepoTreeResponse out = new CodeRepoTreeResponse();
+        out.setHost(host);
+        out.setOwner(parsed.owner);
+        out.setName(parsed.name);
+        out.setHtmlUrl(htmlUrl);
+        out.setDefaultBranch(branch);
+        out.setPath(rel);
+        out.setEntries(entries);
         return out;
     }
 
     private CodeRepoTreeResponse listGitlabTree(ParsedRepo parsed, String branchHint, String rel) {
         String projectPath = encodePath(parsed.owner + "/" + parsed.name);
-        JsonNode project = getJson("https://gitlab.com/api/v4/projects/" + projectPath, gitlabHeaders());
-        String branch = firstNonBlank(branchHint, parsed.branch, project.path("default_branch").asText("main"));
+        String htmlUrl = "https://gitlab.com/" + parsed.owner + "/" + parsed.name;
+        String branch = firstNonBlank(branchHint, parsed.branch);
+        if (!StringUtils.hasText(branch)) {
+            JsonNode project = getJson("https://gitlab.com/api/v4/projects/" + projectPath, gitlabHeaders());
+            branch = firstNonBlank(project.path("default_branch").asText("main"));
+            String fromProject = textOrNull(project.path("web_url"));
+            if (fromProject != null) {
+                htmlUrl = fromProject;
+            }
+        }
         String url = "https://gitlab.com/api/v4/projects/" + projectPath
                 + "/repository/tree?per_page=100&ref=" + encodePath(branch);
         if (StringUtils.hasText(rel)) {
             url += "&path=" + encodePath(rel);
         }
         JsonNode listing = getJson(url, gitlabHeaders());
-        CodeRepoTreeResponse out = new CodeRepoTreeResponse();
-        out.setHost("gitlab");
-        out.setOwner(parsed.owner);
-        out.setName(parsed.name);
-        out.setHtmlUrl(textOrNull(project.path("web_url")));
-        out.setDefaultBranch(branch);
-        out.setPath(rel);
         List<CodeRepoTreeEntryDto> entries = new ArrayList<>();
         if (listing.isArray()) {
             for (JsonNode n : listing) {
@@ -430,15 +702,17 @@ public class CodeRepoWorldService {
             }
         }
         entries.sort(browseComparator());
-        out.setEntries(entries);
-        return out;
+        return treeResponse("gitlab", parsed, htmlUrl, branch, rel, entries);
     }
 
     private CodeRepoFileDto readGithubFile(ParsedRepo parsed, String branchHint, String rel) {
-        JsonNode repo = getJson(
-                "https://api.github.com/repos/" + parsed.owner + "/" + parsed.name,
-                githubHeaders());
-        String branch = firstNonBlank(branchHint, parsed.branch, repo.path("default_branch").asText("main"));
+        String branch = firstNonBlank(branchHint, parsed.branch);
+        if (!StringUtils.hasText(branch)) {
+            JsonNode repo = getJson(
+                    "https://api.github.com/repos/" + parsed.owner + "/" + parsed.name,
+                    githubHeaders());
+            branch = firstNonBlank(repo.path("default_branch").asText("main"));
+        }
         JsonNode file = getJson(
                 "https://api.github.com/repos/" + parsed.owner + "/" + parsed.name
                         + "/contents/" + encodePath(rel).replace("%2F", "/")
@@ -460,8 +734,11 @@ public class CodeRepoWorldService {
 
     private CodeRepoFileDto readGitlabFile(ParsedRepo parsed, String branchHint, String rel) {
         String projectPath = encodePath(parsed.owner + "/" + parsed.name);
-        JsonNode project = getJson("https://gitlab.com/api/v4/projects/" + projectPath, gitlabHeaders());
-        String branch = firstNonBlank(branchHint, parsed.branch, project.path("default_branch").asText("main"));
+        String branch = firstNonBlank(branchHint, parsed.branch);
+        if (!StringUtils.hasText(branch)) {
+            JsonNode project = getJson("https://gitlab.com/api/v4/projects/" + projectPath, gitlabHeaders());
+            branch = firstNonBlank(project.path("default_branch").asText("main"));
+        }
         String content = getText(
                 "https://gitlab.com/api/v4/projects/" + projectPath
                         + "/repository/files/" + encodePath(rel) + "/raw?ref=" + encodePath(branch),
@@ -769,6 +1046,22 @@ public class CodeRepoWorldService {
             this.path = path;
             this.sha = sha;
             this.size = size;
+        }
+    }
+
+    private record FlatNode(String path, boolean dir, int size) {}
+
+    private record GithubRef(String branch, String htmlUrl) {}
+
+    private static final class CachedFlatTree {
+        final long expiresAtMillis;
+        final boolean truncated;
+        final List<FlatNode> nodes;
+
+        CachedFlatTree(long expiresAtMillis, boolean truncated, List<FlatNode> nodes) {
+            this.expiresAtMillis = expiresAtMillis;
+            this.truncated = truncated;
+            this.nodes = nodes;
         }
     }
 }

@@ -201,6 +201,17 @@ public class CodeWorkbenchRestController {
         }
     }
 
+    @PostMapping("/repo/tree-index")
+    public ResponseEntity<?> repoTreeIndex(@Valid @RequestBody CodeRepoBrowseRequest body) {
+        try {
+            return ResponseEntity.ok(codeRepoWorldService.treeIndex(body.getUrl(), body.getBranch()));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(errorBody(ex.getMessage()));
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(errorBody(ex.getMessage()));
+        }
+    }
+
     @PostMapping("/repo/file")
     public ResponseEntity<?> repoFile(@Valid @RequestBody CodeRepoBrowseRequest body) {
         try {

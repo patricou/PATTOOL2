@@ -71,6 +71,9 @@ function normalizeLang(language: string | null | undefined): string {
   if (l === 'htm' || l === 'xml' || l === 'vue') {
     return 'html';
   }
+  if (l === 'scss' || l === 'less' || l === 'sass') {
+    return 'css';
+  }
   if (l === 'md') {
     return 'markdown';
   }
@@ -92,6 +95,9 @@ function span(cls: string, text: string): string {
 /**
  * Highlight source. Output is HTML-safe (all text escaped).
  */
+const CONTROL =
+  'if|else|elif|for|while|do|switch|case|break|continue|return|try|catch|finally|throw|yield|await|async|match|when|unless|until|goto|defer|select|range|guard|repeat|then|fi|esac|done|rescue|ensure|raise|pass|lambda|from|import|export|default|new|delete|in|of|as';
+
 export function highlightSource(code: string, language?: string | null): string {
   if (!code) {
     return '';
@@ -103,6 +109,15 @@ export function highlightSource(code: string, language?: string | null): string 
   }
   if (lang === 'html' || lang === 'xml') {
     return highlightMarkup(src);
+  }
+  if (lang === 'css' || lang === 'scss' || lang === 'less') {
+    return highlightCss(src);
+  }
+  if (lang === 'yaml') {
+    return highlightYaml(src);
+  }
+  if (lang === 'markdown') {
+    return highlightMarkdownSource(src);
   }
   return highlightGeneric(src, lang);
 }
@@ -126,22 +141,48 @@ export function highlightMarkdown(text: string): string {
   return out;
 }
 
+const ctrlRe = new RegExp('^(?:' + CONTROL + ')$');
+
+function takeLineComment(src: string, i: number, n: number): number {
+  const end = src.indexOf('\n', i);
+  return end < 0 ? n : end;
+}
+
+function takeString(src: string, i: number, n: number): number {
+  const q = src[i];
+  if ((q === '"' || q === "'") && src.slice(i, i + 3) === q + q + q) {
+    const end = src.indexOf(q + q + q, i + 3);
+    return end < 0 ? n : end + 3;
+  }
+  let j = i + 1;
+  while (j < n) {
+    if (src[j] === '\\') {
+      j += 2;
+      continue;
+    }
+    if (src[j] === q) {
+      return j + 1;
+    }
+    j++;
+  }
+  return n;
+}
+
 function highlightGeneric(src: string, lang: string): string {
   const kw = KW[lang] || C_KEYWORDS;
-  const hashComments = lang === 'python' || lang === 'ruby' || lang === 'shell' || lang === 'yaml';
+  const hashComments = lang === 'python' || lang === 'ruby' || lang === 'shell';
   const sqlComments = lang === 'sql';
   const parts: string[] = [];
   let i = 0;
   const n = src.length;
-  const kwRe = new RegExp('^(?:' + kw + ')\\b');
+  const kwRe = new RegExp('^(?:' + kw + ')$');
 
   while (i < n) {
     const ch = src[i];
     const two = src.slice(i, i + 2);
 
     if (!hashComments && !sqlComments && two === '//') {
-      const end = src.indexOf('\n', i);
-      const take = end < 0 ? n : end;
+      const take = takeLineComment(src, i, n);
       parts.push(span('cmt', src.slice(i, take)));
       i = take;
       continue;
@@ -154,27 +195,23 @@ function highlightGeneric(src: string, lang: string): string {
       continue;
     }
     if ((hashComments && ch === '#') || (sqlComments && two === '--')) {
-      const end = src.indexOf('\n', i);
-      const take = end < 0 ? n : end;
+      const take = takeLineComment(src, i, n);
       parts.push(span('cmt', src.slice(i, take)));
       i = take;
       continue;
     }
     if (ch === '"' || ch === "'" || ch === '`') {
-      const q = ch;
+      const take = takeString(src, i, n);
+      parts.push(span('str', src.slice(i, take)));
+      i = take;
+      continue;
+    }
+    if (ch === '@' && /[A-Za-z_]/.test(src[i + 1] || '')) {
       let j = i + 1;
-      while (j < n) {
-        if (src[j] === '\\') {
-          j += 2;
-          continue;
-        }
-        if (src[j] === q) {
-          j++;
-          break;
-        }
+      while (j < n && /[A-Za-z0-9_]/.test(src[j])) {
         j++;
       }
-      parts.push(span('str', src.slice(i, j)));
+      parts.push(span('dec', src.slice(i, j)));
       i = j;
       continue;
     }
@@ -193,20 +230,23 @@ function highlightGeneric(src: string, lang: string): string {
         j++;
       }
       const word = src.slice(i, j);
-      if (kwRe.test(word)) {
+      let k = j;
+      while (k < n && (src[k] === ' ' || src[k] === '\t')) {
+        k++;
+      }
+      const afterDot = i > 0 && src[i - 1] === '.';
+      if (ctrlRe.test(word) && kwRe.test(word)) {
+        parts.push(span('ctrl', word));
+      } else if (kwRe.test(word)) {
         parts.push(span('kw', word));
+      } else if (src[k] === '(' || afterDot && src[k] === '(') {
+        parts.push(span('fn', word));
+      } else if (afterDot) {
+        parts.push(span('prop', word));
+      } else if (word[0] >= 'A' && word[0] <= 'Z') {
+        parts.push(span('type', word));
       } else {
-        let k = j;
-        while (k < n && (src[k] === ' ' || src[k] === '\t')) {
-          k++;
-        }
-        if (src[k] === '(') {
-          parts.push(span('fn', word));
-        } else if (word[0] >= 'A' && word[0] <= 'Z') {
-          parts.push(span('type', word));
-        } else {
-          parts.push(escapeHtml(word));
-        }
+        parts.push(span('var', word));
       }
       i = j;
       continue;
@@ -215,6 +255,147 @@ function highlightGeneric(src: string, lang: string): string {
     i++;
   }
   return parts.join('');
+}
+
+function highlightCss(src: string): string {
+  const parts: string[] = [];
+  let i = 0;
+  const n = src.length;
+  while (i < n) {
+    const ch = src[i];
+    const two = src.slice(i, i + 2);
+    if (two === '/*') {
+      const end = src.indexOf('*/', i + 2);
+      const take = end < 0 ? n : end + 2;
+      parts.push(span('cmt', src.slice(i, take)));
+      i = take;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const take = takeString(src, i, n);
+      parts.push(span('str', src.slice(i, take)));
+      i = take;
+      continue;
+    }
+    if (ch === '#' && /[0-9A-Fa-f]/.test(src[i + 1] || '')) {
+      let j = i + 1;
+      while (j < n && /[0-9A-Fa-f]/.test(src[j])) {
+        j++;
+      }
+      parts.push(span('num', src.slice(i, j)));
+      i = j;
+      continue;
+    }
+    if (ch === '@' && /[A-Za-z-]/.test(src[i + 1] || '')) {
+      let j = i + 1;
+      while (j < n && /[A-Za-z0-9-]/.test(src[j])) {
+        j++;
+      }
+      parts.push(span('dec', src.slice(i, j)));
+      i = j;
+      continue;
+    }
+    if (ch >= '0' && ch <= '9') {
+      let j = i + 1;
+      while (j < n && /[\d.]/.test(src[j])) {
+        j++;
+      }
+      while (j < n && /[A-Za-z%]/.test(src[j])) {
+        j++;
+      }
+      parts.push(span('num', src.slice(i, j)));
+      i = j;
+      continue;
+    }
+    if (/[A-Za-z_-]/.test(ch)) {
+      let j = i + 1;
+      while (j < n && /[A-Za-z0-9_-]/.test(src[j])) {
+        j++;
+      }
+      const word = src.slice(i, j);
+      let k = j;
+      while (k < n && (src[k] === ' ' || src[k] === '\t')) {
+        k++;
+      }
+      parts.push(span(src[k] === ':' ? 'key' : 'kw', word));
+      i = j;
+      continue;
+    }
+    parts.push(escapeHtml(ch));
+    i++;
+  }
+  return parts.join('');
+}
+
+function highlightYaml(src: string): string {
+  const parts: string[] = [];
+  let i = 0;
+  const n = src.length;
+  while (i < n) {
+    const ch = src[i];
+    if (ch === '#') {
+      const take = takeLineComment(src, i, n);
+      parts.push(span('cmt', src.slice(i, take)));
+      i = take;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const take = takeString(src, i, n);
+      parts.push(span('str', src.slice(i, take)));
+      i = take;
+      continue;
+    }
+    if (ch >= '0' && ch <= '9') {
+      let j = i + 1;
+      while (j < n && /[\d.]/.test(src[j])) {
+        j++;
+      }
+      parts.push(span('num', src.slice(i, j)));
+      i = j;
+      continue;
+    }
+    if (/[A-Za-z_]/.test(ch)) {
+      let j = i + 1;
+      while (j < n && /[A-Za-z0-9_.-]/.test(src[j])) {
+        j++;
+      }
+      const word = src.slice(i, j);
+      let k = j;
+      while (k < n && (src[k] === ' ' || src[k] === '\t')) {
+        k++;
+      }
+      if (src[k] === ':') {
+        parts.push(span('key', word));
+      } else if (/^(true|false|null|yes|no|on|off)$/i.test(word)) {
+        parts.push(span('kw', word));
+      } else {
+        parts.push(span('str', word));
+      }
+      i = j;
+      continue;
+    }
+    parts.push(escapeHtml(ch));
+    i++;
+  }
+  return parts.join('');
+}
+
+function highlightMarkdownSource(src: string): string {
+  return src
+    .split('\n')
+    .map((line) => {
+      if (/^#{1,6}\s/.test(line)) {
+        return span('kw', line);
+      }
+      if (/^>\s/.test(line)) {
+        return span('cmt', line);
+      }
+      let out = escapeHtml(line);
+      out = out.replace(/`([^`]+)`/g, (_a, body) => `<span class="tok-str">\`${body}\`</span>`);
+      out = out.replace(/\*\*([^*]+)\*\*/g, (_a, body) => `<span class="tok-fn">**${body}**</span>`);
+      return out;
+    })
+    .join('\n');
 }
 
 function highlightJson(src: string): string {

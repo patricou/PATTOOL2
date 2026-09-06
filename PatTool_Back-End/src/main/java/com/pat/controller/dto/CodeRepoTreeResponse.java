@@ -12,6 +12,8 @@ public class CodeRepoTreeResponse {
     private String defaultBranch;
     private String path;
     private List<CodeRepoTreeEntryDto> entries = new ArrayList<>();
+    /** Full repo index (path + type) so the UI can browse folders without extra round-trips. */
+    private List<CodeRepoTreeEntryDto> nodes;
 
     public String getHost() {
         return host;
@@ -67,5 +69,13 @@ public class CodeRepoTreeResponse {
 
     public void setEntries(List<CodeRepoTreeEntryDto> entries) {
         this.entries = entries != null ? entries : new ArrayList<>();
+    }
+
+    public List<CodeRepoTreeEntryDto> getNodes() {
+        return nodes;
+    }
+
+    public void setNodes(List<CodeRepoTreeEntryDto> nodes) {
+        this.nodes = nodes;
     }
 }

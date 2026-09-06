@@ -40,7 +40,7 @@
   display: flex;
   flex-direction: column;
   min-height: 18rem;
-  background: #0b1220;
+  background: #1e1e1e;
   border: 1px solid #1e293b;
   border-radius: 0.4rem;
   overflow: hidden;
@@ -77,10 +77,10 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.4rem 0.6rem;
-  background: #111827;
-  color: #99f6e4;
+  background: #252526;
+  color: #cccccc;
   font-size: 0.8rem;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid #3c3c3c;
 }
 
 .code-hl-toolbar .code-hl-lang {
@@ -118,7 +118,7 @@
 .code-hl-pre {
   margin: 0;
   padding: 0.75rem 0.85rem;
-  color: #e2e8f0;
+  color: #d4d4d4;
   pointer-events: none;
   position: absolute;
   inset: 0;
@@ -143,25 +143,34 @@
   resize: none;
   background: transparent;
   color: transparent;
-  caret-color: #5eead4;
+  -webkit-text-fill-color: transparent;
+  caret-color: #aeafad;
   outline: none;
 }
 
 .code-hl-input::placeholder {
-  color: #64748b;
+  color: #6a6a6a;
+  -webkit-text-fill-color: #6a6a6a;
 }
 
-.code-hl-pre code {
+.code-hl-pre code,
+.code-hl-fence code {
   font: inherit;
+  color: inherit;
+  background: transparent;
 }
 
-.tok-kw { color: #c4b5fd; }
-.tok-str { color: #86efac; }
-.tok-cmt { color: #94a3b8; font-style: italic; }
-.tok-num { color: #fdba74; }
-.tok-fn { color: #7dd3fc; }
-.tok-type { color: #fde68a; }
-.tok-key { color: #fca5a5; }
+:host ::ng-deep .tok-kw { color: #569cd6; }
+:host ::ng-deep .tok-ctrl { color: #c586c0; }
+:host ::ng-deep .tok-str { color: #ce9178; }
+:host ::ng-deep .tok-cmt { color: #6a9955; font-style: italic; }
+:host ::ng-deep .tok-num { color: #b5cea8; }
+:host ::ng-deep .tok-fn { color: #dcdcaa; }
+:host ::ng-deep .tok-type { color: #4ec9b0; }
+:host ::ng-deep .tok-key,
+:host ::ng-deep .tok-var,
+:host ::ng-deep .tok-prop { color: #9cdcfe; }
+:host ::ng-deep .tok-dec { color: #dcdcaa; }
 
 .code-msg-body {
   white-space: pre-wrap;
@@ -173,8 +182,8 @@
 .code-hl-fence {
   margin: 0.4rem 0;
   padding: 0.5rem 0.6rem;
-  background: #0b1220;
-  color: #e2e8f0;
+  background: #1e1e1e;
+  color: #d4d4d4;
   border-radius: 0.35rem;
   overflow: auto;
   white-space: pre;
@@ -274,8 +283,8 @@
   border: 1px solid #e2e8f0;
   border-radius: 0.4rem;
   padding: 0.6rem;
-  background: #0b1220;
-  color: #e2e8f0;
+  background: #1e1e1e;
+  color: #d4d4d4;
   min-height: 18rem;
 }
 
@@ -292,7 +301,7 @@
   max-height: 18rem;
   overflow: auto;
   margin: 0;
-  color: #e2e8f0;
+  color: #d4d4d4;
 }
 
 .code-hl-input::selection {
