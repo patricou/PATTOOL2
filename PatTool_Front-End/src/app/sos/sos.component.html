@@ -1,0 +1,191 @@
+<div class="pat-title">
+  <h2>
+    <i class="fa fa-exclamation-triangle me-2" aria-hidden="true"></i>
+    {{ 'SOS.TITLE' | translate }}
+  </h2>
+  <p class="pat-title-subtitle mb-0">{{ 'SOS.SUBTITLE' | translate }}</p>
+</div>
+
+<div class="sos-page">
+  <div class="sos-layout">
+    <section class="sos-map-card" aria-labelledby="sos-map-heading">
+      <div class="sos-card-head">
+        <h3 id="sos-map-heading">{{ 'SOS.MAP' | translate }}</h3>
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary"
+                (click)="locateUser(true)"
+                [disabled]="locating">
+          <i class="fa fa-refresh" [class.fa-spin]="locating" aria-hidden="true"></i>
+          {{ 'SOS.REFRESH_LOCATION' | translate }}
+        </button>
+      </div>
+
+      <p class="sos-status" *ngIf="locating && !hasPosition">
+        <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+        {{ 'SOS.LOCATING' | translate }}
+      </p>
+      <p class="sos-status sos-status--ok" *ngIf="hasPosition && locationSource === 'gps'">
+        <i class="fa fa-map-marker me-1" aria-hidden="true"></i>
+        {{ 'SOS.LOCATION_OK' | translate }}
+        <span *ngIf="accuracyM != null"> · {{ 'SOS.ACCURACY' | translate }} ~{{ accuracyM | number:'1.0-0' }} m</span>
+      </p>
+      <p class="sos-status sos-status--warn" *ngIf="hasPosition && locationSource === 'ip'">
+        <i class="fa fa-wifi me-1" aria-hidden="true"></i>
+        {{ 'SOS.LOCATION_APPROX' | translate }}
+      </p>
+      <p class="sos-status sos-status--err" *ngIf="locationError && !hasPosition">
+        <i class="fa fa-exclamation-circle me-1" aria-hidden="true"></i>
+        {{ 'SOS.LOCATION_ERROR' | translate }}
+      </p>
+      <p class="sos-coords" *ngIf="hasPosition">
+        {{ 'SOS.COORDS' | translate }} :
+        <strong>{{ latitude | number:'1.5-6' }}, {{ longitude | number:'1.5-6' }}</strong>
+      </p>
+      <p class="sos-address" *ngIf="hasPosition">
+        <span class="sos-address-label">{{ 'SOS.ADDRESS' | translate }} :</span>
+        <strong *ngIf="address">{{ address }}</strong>
+        <span *ngIf="!address && addressLoading">
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'SOS.ADDRESS_LOADING' | translate }}
+        </span>
+        <span *ngIf="!address && !addressLoading">{{ 'SOS.ADDRESS_UNKNOWN' | translate }}</span>
+      </p>
+
+      <div class="sos-map-shell">
+        <div #mapHost class="sos-map" role="img" [attr.aria-label]="'SOS.MAP' | translate"></div>
+      </div>
+    </section>
+
+    <section class="sos-side">
+      <div class="sos-card" aria-labelledby="sos-contacts-heading">
+        <div class="sos-card-head">
+          <h3 id="sos-contacts-heading">{{ 'SOS.CONTACTS' | translate }}</h3>
+          <div class="sos-head-actions" *ngIf="selectableCount > 0">
+            <button type="button" class="btn btn-sm btn-link" (click)="selectAll()">{{ 'SOS.SELECT_ALL' | translate }}</button>
+            <button type="button" class="btn btn-sm btn-link" (click)="selectNone()">{{ 'SOS.SELECT_NONE' | translate }}</button>
+          </div>
+        </div>
+        <p class="sos-hint">{{ 'SOS.CONTACTS_HINT' | translate }}</p>
+
+        <div *ngIf="!isLoggedIn" class="alert alert-warning py-2 px-3" role="status">
+          {{ 'SOS.LOGIN_HINT' | translate }}
+        </div>
+
+        <div *ngIf="contactsLoading" class="sos-loading">
+          <div class="spinner-border spinner-border-sm text-danger" role="status"></div>
+          <span>{{ 'SOS.LOADING_CONTACTS' | translate }}</span>
+        </div>
+
+        <div *ngIf="contactsError" class="alert alert-danger py-2 px-3" role="alert">
+          {{ 'SOS.CONTACTS_ERROR' | translate }}
+        </div>
+
+        <div *ngIf="isLoggedIn && !contactsLoading && !contactsError && contacts.length === 0" class="sos-empty">
+          <p>{{ 'SOS.NO_CONTACTS' | translate }}</p>
+          <a class="btn btn-sm btn-outline-primary" [routerLink]="['/friends']">
+            <i class="fa fa-users me-1" aria-hidden="true"></i>{{ 'SOS.OPEN_FRIENDS' | translate }}
+          </a>
+        </div>
+
+        <ul class="sos-contact-list" *ngIf="contacts.length > 0">
+          <li *ngFor="let contact of contacts; trackBy: trackById"
+              class="sos-contact"
+              [class.sos-contact--disabled]="!contact.phone"
+              [class.sos-contact--selected]="contact.selected"
+              [class.sos-contact--sent]="contact.sent">
+            <label class="sos-contact-label">
+              <input type="checkbox"
+                     [checked]="contact.selected"
+                     [disabled]="!contact.phone"
+                     (change)="toggleContact(contact)" />
+              <span class="sos-contact-name">{{ contact.name }}</span>
+              <span class="sos-contact-meta" *ngIf="contact.phone">
+                <i class="fa fa-whatsapp" aria-hidden="true"></i>
+              </span>
+              <span class="sos-contact-meta sos-contact-meta--warn" *ngIf="!contact.phone">
+                {{ 'SOS.NO_WHATSAPP' | translate }}
+              </span>
+            </label>
+            <div class="sos-contact-actions" *ngIf="contact.phone">
+              <button type="button"
+                      class="btn btn-sm btn-outline-success sos-contact-send"
+                      (click)="sendToContact(contact, 'whatsapp'); $event.stopPropagation()">
+                <i class="fa fa-whatsapp" aria-hidden="true"></i>
+                {{ 'SOS.SEND_TO' | translate:{ name: contact.name } }}
+              </button>
+              <button type="button"
+                      class="btn btn-sm btn-outline-primary sos-contact-send"
+                      (click)="sendToContact(contact, 'sms'); $event.stopPropagation()">
+                <i class="fa fa-commenting" aria-hidden="true"></i>
+                {{ 'SOS.SEND_SMS_TO' | translate:{ name: contact.name } }}
+              </button>
+            </div>
+          </li>
+        </ul>
+        <p class="sos-hint" *ngIf="contacts.length > 0 && selectableCount === 0">
+          {{ 'SOS.ADD_WHATSAPP_HINT' | translate }}
+          <a [routerLink]="['/friends']">{{ 'SOS.OPEN_FRIENDS' | translate }}</a>
+        </p>
+        <p class="sos-selected" *ngIf="selectableCount > 0">
+          {{ 'SOS.SELECTED_COUNT' | translate:{ count: selectedContacts.length } }}
+        </p>
+      </div>
+
+      <div class="sos-card">
+        <div class="sos-card-head">
+          <h3>{{ 'SOS.MESSAGE' | translate }}</h3>
+          <button type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  (click)="resetMessage()"
+                  [disabled]="!messageIsCustom">
+            {{ 'SOS.RESET_MESSAGE' | translate }}
+          </button>
+        </div>
+        <p class="sos-hint">{{ 'SOS.MESSAGE_HINT' | translate }}</p>
+        <textarea class="form-control sos-message"
+                  rows="7"
+                  [ngModel]="customMessage"
+                  (ngModelChange)="onMessageChange($event)"
+                  [attr.aria-label]="'SOS.MESSAGE' | translate"></textarea>
+        <p class="sos-hint">{{ 'SOS.PREVIEW' | translate }}</p>
+        <div class="sos-preview-body" [innerHTML]="fullMessageHtml"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="sos-send-bar">
+    <p class="sos-feedback sos-feedback--ok" *ngIf="clipboardCopied">{{ 'SOS.CLIPBOARD_OK' | translate }}</p>
+    <p class="sos-feedback sos-feedback--ok" *ngIf="sendFeedback === 'opened' && lastChannel === 'whatsapp'">{{ 'SOS.SENDING' | translate }}</p>
+    <p class="sos-feedback sos-feedback--ok" *ngIf="sendFeedback === 'opened' && lastChannel === 'sms'">{{ 'SOS.SENDING_SMS' | translate }}</p>
+    <p class="sos-feedback sos-feedback--warn" *ngIf="sendFeedback === 'blocked'">{{ 'SOS.BLOCKED' | translate }}</p>
+    <p class="sos-feedback sos-feedback--warn" *ngIf="sendFeedback === 'need-contact' && lastChannel === 'whatsapp'">{{ 'SOS.NEED_CONTACT' | translate }}</p>
+    <p class="sos-feedback sos-feedback--warn" *ngIf="sendFeedback === 'need-contact' && lastChannel === 'sms'">{{ 'SOS.NEED_CONTACT_SMS' | translate }}</p>
+    <p class="sos-feedback sos-feedback--warn" *ngIf="sendFeedback === 'sms-desktop'">{{ 'SOS.SMS_DESKTOP_HINT' | translate }}</p>
+
+    <div class="sos-remaining" *ngIf="remainingToSend.length > 0">
+      <button type="button"
+              class="btn"
+              [class.btn-danger]="lastChannel === 'whatsapp'"
+              [class.btn-primary]="lastChannel === 'sms'"
+              *ngFor="let contact of remainingToSend; trackBy: trackById"
+              (click)="sendToContact(contact, lastChannel)">
+        <i class="fa" [ngClass]="lastChannel === 'sms' ? 'fa-commenting' : 'fa-whatsapp'" aria-hidden="true"></i>
+        {{ (lastChannel === 'sms' ? 'SOS.SEND_SMS_TO' : 'SOS.SEND_TO') | translate:{ name: contact.name } }}
+      </button>
+    </div>
+
+    <div class="sos-send-actions">
+      <button type="button"
+              class="sos-send-btn"
+              (click)="sendSos('whatsapp')">
+        <i class="fa fa-whatsapp" aria-hidden="true"></i>
+        {{ 'SOS.SEND' | translate }}
+      </button>
+      <button type="button"
+              class="sos-send-btn sos-send-btn--sms"
+              (click)="sendSos('sms')">
+        <i class="fa fa-commenting" aria-hidden="true"></i>
+        {{ 'SOS.SEND_SMS' | translate }}
+      </button>
+    </div>
+  </div>
+</div>

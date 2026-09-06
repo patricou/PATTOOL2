@@ -4,6 +4,14 @@
         <img src="assets/images/pat.png" width="30" height="30" class="d-inline-block align-top" alt="">
         {{ 'MENU.BRAND' | translate }}
     </a>
+    <a class="nav-sos-link"
+       [routerLink]="['sos']"
+       routerLinkActive="nav-sos-link-active"
+       (click)="closeMenu()"
+       [attr.title]="'MENU.SOS' | translate"
+       [attr.aria-label]="'MENU.SOS' | translate">
+        <span class="nav-sos-badge">SOS</span>
+    </a>
 
     <!-- Mobile toggle button -->
     <button class="navbar-toggler" type="button" 

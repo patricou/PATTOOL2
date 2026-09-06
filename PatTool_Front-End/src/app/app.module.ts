@@ -92,6 +92,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{ path: 'links-admin', component: LinksAdminComponent },
 			{ path: 'home', component: HomePageComponent },
 			{
+				path: 'sos',
+				loadComponent: () => import('./sos/sos.component').then((m) => m.SosComponent)
+			},
+			{
 				path: 'profile',
 				loadComponent: () =>
 					import('./user-profile/user-profile.component').then((m) => m.UserProfileComponent)
