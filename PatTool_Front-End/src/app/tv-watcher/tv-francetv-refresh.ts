@@ -49,6 +49,7 @@ export function startFranceTvTokenKeeper(options: FranceTvTokenKeeperOptions): F
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let refreshing = false;
+  let abortWait: (() => void) | null = null;
 
   const clearTimer = () => {
     if (timer != null) {
@@ -96,6 +97,7 @@ export function startFranceTvTokenKeeper(options: FranceTvTokenKeeperOptions): F
           return;
         }
         settled = true;
+        abortWait = null;
         window.clearTimeout(timeout);
         video.removeEventListener('loadeddata', onReady);
         video.removeEventListener('canplay', onReady);
@@ -120,6 +122,7 @@ export function startFranceTvTokenKeeper(options: FranceTvTokenKeeperOptions): F
         }
       };
       const timeout = window.setTimeout(() => done(new Error('france.tv preload timeout')), PRELOAD_TIMEOUT_MS);
+      abortWait = () => done(new Error('aborted'));
       video.addEventListener('loadeddata', onReady);
       video.addEventListener('canplay', onReady);
       hls.on(Hls.Events.MANIFEST_PARSED, onManifest);
@@ -171,6 +174,10 @@ export function startFranceTvTokenKeeper(options: FranceTvTokenKeeperOptions): F
         /* ignore */
       }
 
+      if (cancelled() || options.getVideo() !== video) {
+        return;
+      }
+
       try {
         preloadHls.detachMedia();
       } catch {
@@ -212,6 +219,7 @@ export function startFranceTvTokenKeeper(options: FranceTvTokenKeeperOptions): F
       }
     } finally {
       refreshing = false;
+      abortWait = null;
       if (preloadHls) {
         try {
           preloadHls.destroy();
@@ -219,9 +227,7 @@ export function startFranceTvTokenKeeper(options: FranceTvTokenKeeperOptions): F
           /* ignore */
         }
       }
-      if (preloadVideo?.parentNode) {
-        preloadVideo.parentNode.removeChild(preloadVideo);
-      }
+      releaseDetachedVideo(preloadVideo);
     }
   };
 
@@ -247,8 +253,33 @@ export function startFranceTvTokenKeeper(options: FranceTvTokenKeeperOptions): F
     stop(): void {
       stopped = true;
       clearTimer();
+      abortWait?.();
+      abortWait = null;
     }
   };
+}
+
+function releaseDetachedVideo(video: HTMLVideoElement | null): void {
+  if (!video) {
+    return;
+  }
+  try {
+    video.pause();
+  } catch {
+    /* ignore */
+  }
+  try {
+    video.removeAttribute('src');
+    video.srcObject = null;
+    video.load();
+  } catch {
+    /* ignore */
+  }
+  try {
+    video.parentNode?.removeChild(video);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function franceTvSlugFromVirtual(url: string): string | null {

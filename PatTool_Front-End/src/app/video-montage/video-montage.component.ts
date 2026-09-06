@@ -135,10 +135,12 @@ export class VideoMontageComponent implements OnDestroy {
   private previewTimer: ReturnType<typeof setTimeout> | null = null;
   private previewIndex = 0;
   private previewPlayGen = 0;
+  private previewPhotoGen = 0;
   private objectUrls: string[] = [];
   private previewBlobUrls: string[] = [];
   private thumbCache = new Map<string, string>();
   private mediaLoadGen = 0;
+  private musicLoadGen = 0;
   private alive = true;
   private downloadTimers: ReturnType<typeof setTimeout>[] = [];
   private pendingDownloadUrls: string[] = [];
@@ -155,6 +157,7 @@ export class VideoMontageComponent implements OnDestroy {
   private musicObjectUrl: string | null = null;
   private musicBuffer: ArrayBuffer | null = null;
   private previewMusic: HTMLAudioElement | null = null;
+  private previewAudioCtx: AudioContext | null = null;
 
   trimOpen = false;
   trimItem: LibraryItem | null = null;
@@ -197,6 +200,7 @@ export class VideoMontageComponent implements OnDestroy {
     this.alive = false;
     this.exportAbort?.abort();
     this.stopPreview();
+    this.closePreviewAudioCtx();
     this.closeTrim();
     this.clearMusic();
     this.revokeObjectUrls();
@@ -535,10 +539,11 @@ export class VideoMontageComponent implements OnDestroy {
       return;
     }
     this.clearMusic(false);
+    const gen = this.musicLoadGen;
     this.musicFileName = file.name;
     this.musicObjectUrl = URL.createObjectURL(file);
     void file.arrayBuffer().then((buf) => {
-      if (!this.alive) {
+      if (!this.alive || gen !== this.musicLoadGen) {
         return;
       }
       this.musicBuffer = buf;
@@ -546,6 +551,7 @@ export class VideoMontageComponent implements OnDestroy {
   }
 
   clearMusic(resetName = true): void {
+    this.musicLoadGen++;
     this.stopPreviewMusic();
     if (this.musicObjectUrl) {
       URL.revokeObjectURL(this.musicObjectUrl);
@@ -576,6 +582,10 @@ export class VideoMontageComponent implements OnDestroy {
     }
   }
 
+  private shouldPlayClipAudio(): boolean {
+    return !this.musicObjectUrl || this.keepSourceAudio;
+  }
+
   private startPreviewMusic(): void {
     this.stopPreviewMusic();
     if (!this.musicObjectUrl) {
@@ -596,6 +606,35 @@ export class VideoMontageComponent implements OnDestroy {
     this.previewMusic = null;
   }
 
+  private unlockPreviewAudio(): void {
+    try {
+      const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (Ctor) {
+        if (!this.previewAudioCtx || this.previewAudioCtx.state === 'closed') {
+          this.previewAudioCtx = new Ctor();
+        }
+        void this.previewAudioCtx.resume();
+      }
+    } catch {
+      // ignore
+    }
+    const video = this.previewVideo?.nativeElement;
+    if (video) {
+      video.defaultMuted = false;
+      video.muted = !this.shouldPlayClipAudio();
+      video.volume = 1;
+    }
+  }
+
+  private closePreviewAudioCtx(): void {
+    const ctx = this.previewAudioCtx;
+    this.previewAudioCtx = null;
+    if (!ctx) {
+      return;
+    }
+    void ctx.close().catch(() => undefined);
+  }
+
   setResolution(w: number, h: number): void {
     this.width = w;
     this.height = h;
@@ -608,17 +647,16 @@ export class VideoMontageComponent implements OnDestroy {
     this.stopPreview();
     this.previewPlaying = true;
     this.previewIndex = 0;
+    this.unlockPreviewAudio();
     this.startPreviewMusic();
     this.playClipAt(0);
   }
 
   stopPreview(): void {
     this.previewPlayGen++;
+    this.previewPhotoGen++;
     this.previewPlaying = false;
-    if (this.previewTimer) {
-      clearTimeout(this.previewTimer);
-      this.previewTimer = null;
-    }
+    this.clearPreviewTimer();
     this.previewListeners?.abort();
     this.previewListeners = null;
     this.resetPreviewVideo();
@@ -668,10 +706,13 @@ export class VideoMontageComponent implements OnDestroy {
         }
       })
       .then(async (rendered) => {
-        if (abort.signal.aborted) {
+        if (!this.alive || abort.signal.aborted) {
           return;
         }
         await this.ngZone.run(async () => {
+          if (!this.alive || abort.signal.aborted) {
+            return;
+          }
           let attached = false;
           if (this.attachToEvent && this.selectedEventId) {
             attached = await this.uploadToEvent(rendered.blob, rendered.fileName);
@@ -689,7 +730,7 @@ export class VideoMontageComponent implements OnDestroy {
       })
       .catch((err: unknown) => {
         this.ngZone.run(() => {
-          if (abort.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
+          if (!this.alive || abort.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
             return;
           }
           this.errorKey =
@@ -700,6 +741,9 @@ export class VideoMontageComponent implements OnDestroy {
       })
       .finally(() => {
         this.ngZone.run(() => {
+          if (!this.alive) {
+            return;
+          }
           if (this.exportAbort === abort) {
             this.exportAbort = null;
           }
@@ -760,6 +804,7 @@ export class VideoMontageComponent implements OnDestroy {
     const timer = setTimeout(() => {
       URL.revokeObjectURL(url);
       this.pendingDownloadUrls = this.pendingDownloadUrls.filter((u) => u !== url);
+      this.downloadTimers = this.downloadTimers.filter((t) => t !== timer);
     }, 30_000);
     this.downloadTimers.push(timer);
   }
@@ -1027,24 +1072,53 @@ export class VideoMontageComponent implements OnDestroy {
       item.thumbUrl = cached;
       return;
     }
-    this.fileService.getFileWallPreview(item.fileId, 320).pipe(take(1), takeUntilDestroyed(this.destroyRef)).subscribe({
+    const gen = this.mediaLoadGen;
+    const fileId = item.fileId;
+    this.fileService.getFileWallPreview(fileId, 320).pipe(take(1), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (buf) => {
         if (!this.alive) {
           return;
         }
-        const url = URL.createObjectURL(new Blob([buf], { type: item.fileType || 'image/jpeg' }));
-        this.objectUrls.push(url);
-        this.thumbCache.set(item.fileId, url);
-        item.thumbUrl = url;
-        const onTimeline = this.timeline.find((c) => c.fileId === item.fileId);
-        if (onTimeline) {
-          onTimeline.thumbUrl = url;
+        if (this.thumbCache.has(fileId)) {
+          this.applyThumb(fileId, this.thumbCache.get(fileId)!);
+          return;
         }
+        if (!this.thumbStillNeeded(fileId, gen)) {
+          return;
+        }
+        const url = URL.createObjectURL(new Blob([buf], { type: item.fileType || 'image/jpeg' }));
+        if (!this.alive || !this.thumbStillNeeded(fileId, gen)) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        this.objectUrls.push(url);
+        this.thumbCache.set(fileId, url);
+        this.applyThumb(fileId, url);
       },
       error: () => {
-        item.thumbUrl = null;
+        if (this.alive && gen === this.mediaLoadGen) {
+          item.thumbUrl = null;
+        }
       }
     });
+  }
+
+  private thumbStillNeeded(fileId: string, gen: number): boolean {
+    if (this.timeline.some((c) => c.fileId === fileId)) {
+      return true;
+    }
+    return gen === this.mediaLoadGen && this.libraryPhotos.some((p) => p.fileId === fileId);
+  }
+
+  private applyThumb(fileId: string, url: string): void {
+    const lib = this.libraryPhotos.find((p) => p.fileId === fileId);
+    if (lib) {
+      lib.thumbUrl = url;
+    }
+    const onTimeline = this.timeline.find((c) => c.fileId === fileId);
+    if (onTimeline) {
+      onTimeline.thumbUrl = url;
+    }
   }
 
   private applyProject(doc: VideoMontageProject): void {
@@ -1127,13 +1201,17 @@ export class VideoMontageComponent implements OnDestroy {
       this.stopPreview();
       return;
     }
+    this.previewListeners?.abort();
+    this.previewListeners = null;
+    this.clearPreviewTimer();
     const gen = this.previewPlayGen;
+    const photoGen = ++this.previewPhotoGen;
     const clip = this.timeline[index];
     this.previewIndex = index;
     this.previewTitle = clip.title || clip.fileName || '';
     const durationMs = this.clipDuration(clip) * 1000;
     if (clip.kind === 'photo') {
-      this.pausePreviewVideo();
+      this.resetPreviewVideo();
       this.previewKind = 'photo';
       this.previewVideoUrl = null;
       this.revokePreviewBlobs();
@@ -1141,30 +1219,39 @@ export class VideoMontageComponent implements OnDestroy {
       if (!this.previewPhotoUrl) {
         this.fileService.getFileWallPreview(clip.fileId, 960).pipe(take(1), takeUntilDestroyed(this.destroyRef)).subscribe({
           next: (buf) => {
-            if (gen !== this.previewPlayGen || !this.alive) {
+            if (gen !== this.previewPlayGen || photoGen !== this.previewPhotoGen || !this.alive) {
               return;
             }
             const url = URL.createObjectURL(new Blob([buf], { type: clip.fileType || 'image/jpeg' }));
+            if (gen !== this.previewPlayGen || photoGen !== this.previewPhotoGen || !this.alive) {
+              URL.revokeObjectURL(url);
+              return;
+            }
             this.previewBlobUrls.push(url);
             this.previewPhotoUrl = url;
           }
         });
       }
-      this.previewTimer = setTimeout(() => this.playClipAt(index + 1), durationMs);
+      this.setPreviewTimer(() => this.playClipAt(index + 1), durationMs);
       return;
     }
     this.startPreviewVideo(clip, durationMs, index, gen);
   }
 
-  private pausePreviewVideo(): void {
-    const video = this.previewVideo?.nativeElement;
-    if (video && !video.paused) {
-      video.pause();
+  private resetPreviewVideo(): void {
+    this.releaseMediaElement(this.previewVideo?.nativeElement);
+  }
+
+  private clearPreviewTimer(): void {
+    if (this.previewTimer) {
+      clearTimeout(this.previewTimer);
+      this.previewTimer = null;
     }
   }
 
-  private resetPreviewVideo(): void {
-    this.releaseMediaElement(this.previewVideo?.nativeElement);
+  private setPreviewTimer(fn: () => void, ms: number): void {
+    this.clearPreviewTimer();
+    this.previewTimer = setTimeout(fn, ms);
   }
 
   private releaseMediaElement(el?: HTMLMediaElement | null): void {
@@ -1212,9 +1299,10 @@ export class VideoMontageComponent implements OnDestroy {
     const url = this.playbackUrl(clip.fileId);
     this.previewVideoUrl = url;
     this.cdr.detectChanges();
+    this.revokePreviewBlobs();
     const video = this.previewVideo?.nativeElement;
     if (!video) {
-      this.previewTimer = setTimeout(() => {
+      this.setPreviewTimer(() => {
         if (gen === this.previewPlayGen && this.previewPlaying) {
           this.startPreviewVideo(clip, durationMs, index, gen);
         }
@@ -1225,15 +1313,26 @@ export class VideoMontageComponent implements OnDestroy {
     const listeners = new AbortController();
     this.previewListeners = listeners;
     const signal = listeners.signal;
-    video.muted = true;
+    const wantAudio = this.shouldPlayClipAudio();
+    video.defaultMuted = false;
+    video.muted = !wantAudio;
+    video.volume = wantAudio ? 1 : 0;
     const start = clip.startSec || 0;
     const playNow = () => {
       if (gen !== this.previewPlayGen || !this.previewPlaying) {
         return;
       }
+      video.muted = !wantAudio;
       void video.play().catch(() => {
-        video.muted = true;
-        void video.play().catch(() => undefined);
+        if (!wantAudio) {
+          void video.play().catch(() => undefined);
+          return;
+        }
+        video.muted = false;
+        void video.play().catch(() => {
+          video.muted = true;
+          void video.play().catch(() => undefined);
+        });
       });
     };
     const begin = () => {
@@ -1269,10 +1368,12 @@ export class VideoMontageComponent implements OnDestroy {
         { once: true, signal }
       );
     }
-    this.previewTimer = setTimeout(() => {
+    this.setPreviewTimer(() => {
       if (gen !== this.previewPlayGen) {
         return;
       }
+      this.previewListeners?.abort();
+      this.previewListeners = null;
       video.pause();
       this.playClipAt(index + 1);
     }, durationMs);

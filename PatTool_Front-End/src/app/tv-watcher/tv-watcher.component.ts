@@ -339,6 +339,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private shareFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
   private resyncFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
   private channelStatusFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
+  private playDeferTimer: ReturnType<typeof setTimeout> | null = null;
+  private landscapeFsSuppressTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingDownloadUrls: string[] = [];
+  private downloadTimers: ReturnType<typeof setTimeout>[] = [];
+  private recordCaptureStream: MediaStream | null = null;
+  private pageAlive = true;
   /** Deep-link channel id waiting for catalog load. */
   private pendingShareChannelId = '';
   private playGeneration = 0;
@@ -834,12 +840,15 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.pageAlive = false;
     this.teardownLandscapeFullscreenWatchers();
     this.exitLandscapeFullscreen(false);
     this.clearChromeHideTimer();
     this.clearShareFeedbackTimer();
     this.clearResyncFeedbackTimer();
     this.clearChannelStatusFeedbackTimer();
+    this.clearPlayDeferTimer();
+    this.clearLandscapeFsSuppressTimer();
     this.stopRecordingsPoll();
     this.abortClientRecording(false);
     this.closeRecordingAudioGraph();
@@ -860,6 +869,14 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.lastChannelSaveSub?.unsubscribe();
     this.applyLeavePagePlaybackPolicy();
     this.destroyPlayer();
+    for (const t of this.downloadTimers) {
+      clearTimeout(t);
+    }
+    this.downloadTimers = [];
+    for (const url of this.pendingDownloadUrls) {
+      URL.revokeObjectURL(url);
+    }
+    this.pendingDownloadUrls = [];
   }
 
   /**
@@ -912,8 +929,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     document.body.classList.remove(TvWatcherComponent.LANDSCAPE_FS_BODY_CLASS);
     this.landscapeFsSuppressDismiss = true;
     this.exitOwnedNativeFullscreen();
-    // fullscreenchange is sync-ish on most browsers; clear on next tick.
-    setTimeout(() => {
+    this.clearLandscapeFsSuppressTimer();
+    this.landscapeFsSuppressTimer = setTimeout(() => {
+      this.landscapeFsSuppressTimer = null;
       this.landscapeFsSuppressDismiss = false;
     }, 0);
     // Landscape used showChrome(false) (sticky). Re-arm auto-hide for portrait.
@@ -963,6 +981,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   private teardownLandscapeFullscreenWatchers(): void {
+    this.clearLandscapeFsSuppressTimer();
     if (this.landscapeOrientationMql) {
       if (typeof this.landscapeOrientationMql.removeEventListener === 'function') {
         this.landscapeOrientationMql.removeEventListener('change', this.onLandscapeOrientationMedia);
@@ -1946,7 +1965,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.isBuffering = true;
     this.showChrome(true);
     this.cdr.detectChanges();
-    setTimeout(() => {
+    this.schedulePlayDefer(() => {
       if (
         !this.tvPlayer.isOpen &&
         !this.tvPlayer.isOsPipActive() &&
@@ -2704,6 +2723,31 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
+  private clearPlayDeferTimer(): void {
+    if (this.playDeferTimer != null) {
+      clearTimeout(this.playDeferTimer);
+      this.playDeferTimer = null;
+    }
+  }
+
+  private clearLandscapeFsSuppressTimer(): void {
+    if (this.landscapeFsSuppressTimer != null) {
+      clearTimeout(this.landscapeFsSuppressTimer);
+      this.landscapeFsSuppressTimer = null;
+    }
+  }
+
+  private schedulePlayDefer(fn: () => void, ms: number): void {
+    this.clearPlayDeferTimer();
+    this.playDeferTimer = setTimeout(() => {
+      this.playDeferTimer = null;
+      if (!this.pageAlive) {
+        return;
+      }
+      fn();
+    }, ms);
+  }
+
   /**
    * Probe the current channel via PatTool diagnose API and classify the failure layer
    * (IPTV / upstream / resolve / PatTool / client player).
@@ -2734,6 +2778,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       );
     } catch {
       result = null;
+    }
+
+    if (!this.pageAlive) {
+      return;
     }
 
     if (!result) {
@@ -2773,7 +2821,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           && !this.clientRecordingActive
         ) {
           this.virtualLiveHardRestarts += 1;
-          window.setTimeout(() => {
+          this.schedulePlayDefer(() => {
             if (this.selectedChannel?.id === channel.id && !this.clientRecordingActive) {
               this.restartStream();
             }
@@ -2835,7 +2883,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.showChrome(true);
     this.cdr.markForCheck();
     // Brief buffering pulse then clear status.
+    // Brief buffering pulse then clear status.
     window.setTimeout(() => {
+      if (!this.pageAlive) {
+        return;
+      }
       this.isBuffering = false;
       this.cdr.markForCheck();
     }, 400);
@@ -3685,11 +3737,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     try {
       stream = this.buildRecordingCaptureStream(video);
     } catch {
+      this.releaseRecordingCapture();
       this.playError = 'TV.ERR_RECORD_UNAVAILABLE';
       this.showChrome(true);
       this.cdr.markForCheck();
       return;
     }
+    this.recordCaptureStream = stream;
     if (!stream || stream.getTracks().length === 0) {
       this.releaseRecordingCapture();
       this.playError = 'TV.ERR_RECORD_UNAVAILABLE';
@@ -3830,7 +3884,15 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     } catch {
       try {
         const capturable = video as HTMLVideoElement & { captureStream: () => MediaStream };
-        return capturable.captureStream().getAudioTracks();
+        const captured = capturable.captureStream();
+        captured.getVideoTracks().forEach((t) => {
+          try {
+            t.stop();
+          } catch {
+            /* unused video from fallback capture */
+          }
+        });
+        return captured.getAudioTracks();
       } catch {
         return [];
       }
@@ -3915,6 +3977,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (rec) => {
+          if (!this.pageAlive) {
+            return;
+          }
           this.recordingBusy = false;
           this.recordFinalizing = false;
           if (rec) {
@@ -3925,6 +3990,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
         },
         error: (err) => {
+          if (!this.pageAlive) {
+            return;
+          }
           this.recordingBusy = false;
           this.recordFinalizing = false;
           const code = err?.error?.error || '';
@@ -3975,7 +4043,26 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       clearInterval(this.recordDrawTimer);
       this.recordDrawTimer = null;
     }
-    this.recordCanvas = null;
+    if (this.recordCaptureStream) {
+      this.recordCaptureStream.getTracks().forEach((t) => {
+        try {
+          t.stop();
+        } catch {
+          /* ignore */
+        }
+      });
+      this.recordCaptureStream = null;
+    }
+    if (this.recordCanvas) {
+      this.recordCanvas.width = 0;
+      this.recordCanvas.height = 0;
+      this.recordCanvas = null;
+    }
+    try {
+      this.recordAudioDest?.stream.getTracks().forEach((t) => t.stop());
+    } catch {
+      /* ignore */
+    }
     try {
       this.recordAudioDest?.disconnect();
     } catch {
@@ -4419,7 +4506,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.api.downloadTvRecordingBlob(rec).subscribe({
       next: (blob) => {
         this.downloadingRecordingId = '';
+        if (!this.pageAlive) {
+          return;
+        }
         const url = URL.createObjectURL(blob);
+        this.pendingDownloadUrls.push(url);
         const a = document.createElement('a');
         a.href = url;
         a.download = rec.fileName || `${(rec.channelName || 'tv').replace(/[^\w.-]+/g, '_')}.webm`;
@@ -4427,7 +4518,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         document.body.appendChild(a);
         a.click();
         a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1500);
+        const timer = setTimeout(() => {
+          URL.revokeObjectURL(url);
+          this.pendingDownloadUrls = this.pendingDownloadUrls.filter((u) => u !== url);
+          this.downloadTimers = this.downloadTimers.filter((t) => t !== timer);
+        }, 1500);
+        this.downloadTimers.push(timer);
         this.cdr.markForCheck();
       },
       error: () => {
@@ -4786,8 +4882,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           streamUrl
         });
         void bustVirtualLiveCache(streamUrl, this.api);
-        // Never destroy/recreate HLS inside its own ERROR callback — defer one tick.
-        window.setTimeout(() => {
+        this.schedulePlayDefer(() => {
           if (playGen === this.playGeneration) {
             this.playChannel(channel);
           }
@@ -5008,6 +5103,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   private destroyPlayer(): void {
+    this.playGeneration++;
+    this.clearPlayDeferTimer();
     this.franceTvKeeper?.stop();
     this.franceTvKeeper = null;
     if (this.tokenRenewedToastTimer != null) {

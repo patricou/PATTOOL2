@@ -3078,7 +3078,7 @@
     "PREVIEW": "Aperçu",
     "PREVIEW_HINT": "Ajoutez des clips à la timeline, puis lancez l’aperçu.",
     "PLAY": "Lire",
-    "PLAY_HINT": "L’aperçu joue la musique choisie (le son des clips est dans l’export si vous le gardez).",
+    "PLAY_HINT": "L’aperçu joue le son des vidéos. Avec une musique, les deux se mélangent si vous gardez le son d’origine.",
     "STOP": "Stop",
     "EXPORT": "Exporter la vidéo",
     "EXPORTING": "Rendu en cours…",

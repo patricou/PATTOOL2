@@ -19,7 +19,7 @@ import Hls from 'hls.js';
 import { ApiService, RadioCountry, RadioFrancePodcastEpisode, RadioFrancePodcastShow, RadioStation } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { RadioPlayerService } from '../services/radio-player.service';
-import { createTvHlsConfig, tryRecoverTvHlsError } from '../tv-watcher/tv-hls-config';
+import { createTvHlsConfig, resetTvMediaElement, tryRecoverTvHlsError } from '../tv-watcher/tv-hls-config';
 import {
   applyRadioMediaSession,
   closeRadioDocPip,
@@ -133,6 +133,8 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   private shareFeedbackTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingShareStationId = '';
   private playGeneration = 0;
+  private pageAlive = true;
+  private playDeferTimer: ReturnType<typeof setTimeout> | null = null;
   private static readonly CHROME_HIDE_MS = 4000;
   private static readonly LAST_STATION_STORAGE_KEY = 'pattool.radio.last-station';
   private static readonly KEEP_ALIVE_STORAGE_KEY = 'pattool.radio.keep-alive';
@@ -467,8 +469,10 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.pageAlive = false;
     this.clearChromeHideTimer();
     this.clearShareFeedbackTimer();
+    this.clearPlayDeferTimer();
     this.stationSearchSub?.unsubscribe();
     this.stationsSub?.unsubscribe();
     this.catalogCountSub?.unsubscribe();
@@ -715,6 +719,24 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
+  private clearPlayDeferTimer(): void {
+    if (this.playDeferTimer != null) {
+      clearTimeout(this.playDeferTimer);
+      this.playDeferTimer = null;
+    }
+  }
+
+  private schedulePlayDefer(fn: () => void, ms: number): void {
+    this.clearPlayDeferTimer();
+    this.playDeferTimer = setTimeout(() => {
+      this.playDeferTimer = null;
+      if (!this.pageAlive) {
+        return;
+      }
+      fn();
+    }, ms);
+  }
+
   openGlobalFilter(): void {
     this.globalFilterPreference = {
       applyToAllTabs: this.applyGlobalFilterToAllTabs,
@@ -921,6 +943,9 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
 
   private loadPodcastStations(): void {
     this.api.getRadioFrancePodcastStations().pipe(catchError(() => of([]))).subscribe((rows) => {
+      if (!this.pageAlive) {
+        return;
+      }
       this.podcastStations = Array.isArray(rows) ? rows : [];
       if (!this.podcastStations.some((s) => s.id === this.podcastStation) && this.podcastStations.length) {
         this.podcastStation = this.podcastStations[0].id;
@@ -1198,7 +1223,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     this.playError = '';
     this.chromeVisible = true;
     this.persistLastStation(station);
-    setTimeout(() => this.playStation(station), 0);
+    this.schedulePlayDefer(() => this.playStation(station), 0);
   }
 
   stopPlayback(): void {
@@ -1300,11 +1325,17 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       : this.api.addRadioFavorite(station);
     req.subscribe({
       next: (fav) => {
+        if (!this.pageAlive) {
+          return;
+        }
         this.applyFavorites(fav?.stations || []);
         this.favoriteBusyId = this.favoriteBusyId === busyId ? '' : this.favoriteBusyId;
         this.cdr.markForCheck();
       },
       error: () => {
+        if (!this.pageAlive) {
+          return;
+        }
         this.favoritesError = 'RADIO.ERR_FAVORITES_SAVE';
         this.favoriteBusyId = this.favoriteBusyId === busyId ? '' : this.favoriteBusyId;
         this.cdr.markForCheck();
@@ -1414,7 +1445,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     this.radioPlayer.clearPendingResume();
     this.selectedStation = station;
     this.playError = '';
-    setTimeout(() => {
+    this.schedulePlayDefer(() => {
       if (!this.radioPlayer.isOpen) {
         this.playStation(station);
       }
@@ -1427,6 +1458,9 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     this.countriesError = '';
     this.api.getRadioCountries().subscribe({
       next: (list) => {
+        if (!this.pageAlive) {
+          return;
+        }
         this.countries = list || [];
         this.isLoadingCountries = false;
         if (this.isAllCountries) {
@@ -1435,6 +1469,9 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       },
       error: () => {
+        if (!this.pageAlive) {
+          return;
+        }
         this.countriesError = 'RADIO.ERR_COUNTRIES';
         this.isLoadingCountries = false;
         this.cdr.markForCheck();
@@ -1572,7 +1609,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   private loadTags(countryOverride?: string): void {
     const country = (countryOverride || this.selectedCountry || 'all').toLowerCase();
     this.api.getRadioTags(country).pipe(catchError(() => of([] as string[]))).subscribe((tags) => {
-      if (this.tagsLoadCountry !== country) {
+      if (!this.pageAlive || this.tagsLoadCountry !== country) {
         return;
       }
       this.tags = tags || [];
@@ -1594,11 +1631,17 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     this.favoritesHint = '';
     this.api.getRadioFavorites().subscribe({
       next: (fav) => {
+        if (!this.pageAlive) {
+          return;
+        }
         this.applyFavorites(fav?.stations || []);
         this.isLoadingFavorites = false;
         this.cdr.markForCheck();
       },
       error: () => {
+        if (!this.pageAlive) {
+          return;
+        }
         this.favoritesError = 'RADIO.ERR_FAVORITES_LOAD';
         this.isLoadingFavorites = false;
         this.cdr.markForCheck();
@@ -1626,6 +1669,9 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.api.getRadioStationById(id).pipe(catchError(() => of(null))).subscribe((st) => {
+      if (!this.pageAlive) {
+        return;
+      }
       if (st) {
         this.pendingShareStationId = '';
         this.selectStation(st);
@@ -1642,7 +1688,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     if (local) {
       this.restoredLastStation = true;
       this.selectedStation = local;
-      setTimeout(() => {
+      this.schedulePlayDefer(() => {
         if (!this.radioPlayer.isOpen) {
           this.playStation(local);
         }
@@ -1650,10 +1696,13 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     }
     if (this.isLoggedIn) {
       this.api.getRadioLastStation().pipe(catchError(() => of(null))).subscribe((st) => {
+        if (!this.pageAlive) {
+          return;
+        }
         if (st && !this.restoredLastStation && !this.radioPlayer.isOpen) {
           this.restoredLastStation = true;
           this.selectedStation = st;
-          setTimeout(() => {
+          this.schedulePlayDefer(() => {
             if (!this.radioPlayer.isOpen) {
               this.playStation(st);
             }
@@ -1701,11 +1750,11 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
 
   private playStation(station: RadioStation): void {
     const media = this.mediaEl?.nativeElement;
-    if (!media || !station?.streamUrl) {
+    if (!this.pageAlive || !media || !station?.streamUrl) {
       return;
     }
-    const gen = ++this.playGeneration;
     this.destroyPlayer(false);
+    const gen = ++this.playGeneration;
     this.playError = '';
     this.isBuffering = true;
     this.cdr.markForCheck();
@@ -1746,6 +1795,9 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
           media.muted = true;
           this.isMuted = true;
           void media.play().then(() => {
+            if (gen !== this.playGeneration) {
+              return;
+            }
             this.isBuffering = false;
             this.cdr.markForCheck();
           }).catch(() => onError('RADIO.ERR_PLAY'));
@@ -1777,6 +1829,9 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       hls.attachMedia(media);
       hls.on(Hls.Events.MANIFEST_PARSED, () => tryPlay());
       hls.on(Hls.Events.ERROR, (_e, data) => {
+        if (gen !== this.playGeneration) {
+          return;
+        }
         if (data.fatal) {
           if (!tryRecoverTvHlsError(hls, data)) {
             onError('RADIO.ERR_STREAM');
@@ -1811,6 +1866,8 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   }
 
   private destroyPlayer(clearSrc = true): void {
+    this.playGeneration++;
+    this.clearPlayDeferTimer();
     closeRadioDocPip();
     if (this.hls) {
       try {
@@ -1825,14 +1882,19 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       media.onwaiting = null;
       media.onplaying = null;
       media.onerror = null;
-      try {
-        media.pause();
-      } catch {
-        // ignore
-      }
       if (clearSrc) {
-        media.removeAttribute('src');
-        media.load();
+        resetTvMediaElement(media);
+      } else {
+        try {
+          media.pause();
+        } catch {
+          // ignore
+        }
+        try {
+          media.srcObject = null;
+        } catch {
+          // ignore
+        }
       }
     }
     this.isPipActive = false;

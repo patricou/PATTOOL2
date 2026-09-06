@@ -77,42 +77,50 @@ export class VideoMontageRenderService {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, width, height);
 
-    const audioCtx = new AudioContext();
-    if (audioCtx.state === 'suspended') {
-      await audioCtx.resume();
-    }
-    const audioDest = audioCtx.createMediaStreamDestination();
-    const silence = audioCtx.createGain();
-    silence.gain.value = 0;
-    const osc = audioCtx.createOscillator();
-    osc.connect(silence);
-    silence.connect(audioDest);
-    osc.start();
-
-    const mixed = new MediaStream();
-    canvas.captureStream(FPS).getVideoTracks().forEach((t) => mixed.addTrack(t));
-    audioDest.stream.getAudioTracks().forEach((t) => mixed.addTrack(t));
-
-    const bits = height >= 1080 ? 8_000_000 : 4_000_000;
-    const recorder = mimeType
-      ? new MediaRecorder(mixed, { mimeType, videoBitsPerSecond: bits, audioBitsPerSecond: 128_000 })
-      : new MediaRecorder(mixed, { videoBitsPerSecond: bits, audioBitsPerSecond: 128_000 });
-    const chunks: Blob[] = [];
-    recorder.ondataavailable = (ev) => {
-      if (ev.data && ev.data.size > 0) {
-        chunks.push(ev.data);
-      }
-    };
-
-    const objectUrls: string[] = [];
+    let audioCtx: AudioContext | null = null;
+    let osc: OscillatorNode | null = null;
+    let recorder: MediaRecorder | null = null;
     let musicSource: AudioBufferSourceNode | null = null;
+    const mixed = new MediaStream();
     const throwIfAborted = () => {
       if (options.signal?.aborted) {
         throw new DOMException('Aborted', 'AbortError');
       }
     };
+    const revokeUrls = (urls: string[]) => {
+      for (const url of urls) {
+        URL.revokeObjectURL(url);
+      }
+      urls.length = 0;
+    };
 
     try {
+      audioCtx = new AudioContext();
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+      const audioDest = audioCtx.createMediaStreamDestination();
+      const silence = audioCtx.createGain();
+      silence.gain.value = 0;
+      osc = audioCtx.createOscillator();
+      osc.connect(silence);
+      silence.connect(audioDest);
+      osc.start();
+
+      canvas.captureStream(FPS).getVideoTracks().forEach((t) => mixed.addTrack(t));
+      audioDest.stream.getAudioTracks().forEach((t) => mixed.addTrack(t));
+
+      const bits = height >= 1080 ? 8_000_000 : 4_000_000;
+      recorder = mimeType
+        ? new MediaRecorder(mixed, { mimeType, videoBitsPerSecond: bits, audioBitsPerSecond: 128_000 })
+        : new MediaRecorder(mixed, { videoBitsPerSecond: bits, audioBitsPerSecond: 128_000 });
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size > 0) {
+          chunks.push(ev.data);
+        }
+      };
+
       if (options.music?.buffer && options.music.buffer.byteLength) {
         try {
           const decoded = await audioCtx.decodeAudioData(options.music.buffer.slice(0));
@@ -138,31 +146,40 @@ export class VideoMontageRenderService {
         options.onProgress?.(i + 1, clips.length);
         const clip = clips[i];
         const durationMs = Math.max(400, (clip.durationSec || 3) * 1000);
-        if (clip.kind === 'photo') {
-          const img = await this.loadImage(clip, objectUrls, options.signal);
-          await this.holdImage(ctx, img, width, height, durationMs, throwIfAborted);
-        } else {
-          await this.playVideoClip(
-            ctx,
-            audioCtx,
-            audioDest,
-            clip,
-            width,
-            height,
-            durationMs,
-            objectUrls,
-            throwIfAborted,
-            !!options.keepSourceAudio,
-            options.signal
-          );
+        const clipUrls: string[] = [];
+        try {
+          if (clip.kind === 'photo') {
+            const img = await this.loadImage(clip, clipUrls, options.signal);
+            try {
+              await this.holdImage(ctx, img, width, height, durationMs, throwIfAborted);
+            } finally {
+              img.src = '';
+            }
+          } else {
+            await this.playVideoClip(
+              ctx,
+              audioCtx,
+              audioDest,
+              clip,
+              width,
+              height,
+              durationMs,
+              clipUrls,
+              throwIfAborted,
+              !!options.keepSourceAudio,
+              options.signal
+            );
+          }
+        } finally {
+          revokeUrls(clipUrls);
         }
       }
 
       await new Promise<void>((resolve, reject) => {
-        recorder.onstop = () => resolve();
-        recorder.onerror = () => reject(new Error('recorder'));
+        recorder!.onstop = () => resolve();
+        recorder!.onerror = () => reject(new Error('recorder'));
         try {
-          recorder.stop();
+          recorder!.stop();
         } catch (e) {
           reject(e);
         }
@@ -183,28 +200,28 @@ export class VideoMontageRenderService {
         // already stopped
       }
       try {
-        osc.stop();
+        osc?.stop();
       } catch {
         // already stopped
       }
       try {
-        if (recorder.state !== 'inactive') {
+        if (recorder && recorder.state !== 'inactive') {
           recorder.stop();
         }
       } catch {
         // already stopped
       }
-      recorder.ondataavailable = null;
-      recorder.onstop = null;
-      recorder.onerror = null;
+      if (recorder) {
+        recorder.ondataavailable = null;
+        recorder.onstop = null;
+        recorder.onerror = null;
+      }
       mixed.getTracks().forEach((t) => t.stop());
       canvas.width = 0;
       canvas.height = 0;
-      void audioCtx.close();
-      for (const url of objectUrls) {
-        URL.revokeObjectURL(url);
+      if (audioCtx) {
+        void audioCtx.close().catch(() => undefined);
       }
-      objectUrls.length = 0;
     }
   }
 
@@ -216,16 +233,22 @@ export class VideoMontageRenderService {
     return new Promise((resolve, reject) => {
       const img = new Image();
       const onAbort = () => {
+        img.onload = null;
+        img.onerror = null;
         img.src = '';
         reject(new DOMException('Aborted', 'AbortError'));
       };
       signal?.addEventListener('abort', onAbort, { once: true });
       img.onload = () => {
         signal?.removeEventListener('abort', onAbort);
+        img.onload = null;
+        img.onerror = null;
         resolve(img);
       };
       img.onerror = () => {
         signal?.removeEventListener('abort', onAbort);
+        img.onload = null;
+        img.onerror = null;
         reject(new Error('image_load'));
       };
       img.src = url;
@@ -280,14 +303,17 @@ export class VideoMontageRenderService {
 
     let source: MediaElementAudioSourceNode | null = null;
     try {
-      await new Promise<void>((resolve, reject) => {
-        video.onloadedmetadata = () => resolve();
-        video.onerror = () => reject(new Error('video_load'));
-      });
+      await abortable(
+        new Promise<void>((resolve, reject) => {
+          video.onloadedmetadata = () => resolve();
+          video.onerror = () => reject(new Error('video_load'));
+        }),
+        signal
+      );
 
       const start = Math.max(0, clip.startSec || 0);
       if (start > 0) {
-        await seek(video, start);
+        await seek(video, start, signal);
       }
 
       if (keepSourceAudio) {
@@ -394,17 +420,30 @@ function waitRaf(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
-function seek(video: HTMLVideoElement, time: number): Promise<void> {
-  return new Promise((resolve) => {
-    const onSeeked = () => {
+function seek(video: HTMLVideoElement, time: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'));
+      return;
+    }
+    const cleanup = () => {
       video.removeEventListener('seeked', onSeeked);
+      signal?.removeEventListener('abort', onAbort);
+    };
+    const onSeeked = () => {
+      cleanup();
       resolve();
     };
+    const onAbort = () => {
+      cleanup();
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
     video.addEventListener('seeked', onSeeked);
+    signal?.addEventListener('abort', onAbort, { once: true });
     try {
       video.currentTime = time;
     } catch {
-      video.removeEventListener('seeked', onSeeked);
+      cleanup();
       resolve();
     }
   });

@@ -1518,6 +1518,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private skyTickTimer: ReturnType<typeof setInterval> | null = null;
   private ipFallbackAttempted = false;
+  private pageAlive = true;
+  private hideTitleRafOuter: number | null = null;
+  private hideTitleRafInner: number | null = null;
+  private autoDetectScrollTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly api: ApiService,
@@ -1577,6 +1581,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loadActiveCible();
     this.loadGroundPositions();
     void this.lookTracker.start(false).then(() => {
+      if (!this.pageAlive) {
+        this.lookTracker.stop();
+        return;
+      }
       this.syncLookDeclination();
       if (this.lookTracker.sensorsOn) {
         void this.startCamera();
@@ -1587,6 +1595,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.issNow.startBackgroundPrefetch();
     this.refreshVisibleSkyNow(false);
     void this.issNow.refresh(false).then(() => {
+      if (!this.pageAlive) {
+        return;
+      }
       this.refreshVisibleCatalog();
       this.selectDefaultVisibleTarget();
       this.cdr.markForCheck();
@@ -1598,23 +1609,48 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     this.bindFinderZoomGestures();
     this.bindFinderStageResize();
-    if (this.lookTracker.sensorsOn) {
+    if (this.pageAlive && this.lookTracker.sensorsOn) {
       void this.startCamera();
     }
     this.queueHidePageTitle();
   }
 
+  private cancelHideTitleWork(): void {
+    if (this.hideTitleTimer != null) {
+      clearTimeout(this.hideTitleTimer);
+      this.hideTitleTimer = null;
+    }
+    if (this.hideTitleRafOuter != null) {
+      cancelAnimationFrame(this.hideTitleRafOuter);
+      this.hideTitleRafOuter = null;
+    }
+    if (this.hideTitleRafInner != null) {
+      cancelAnimationFrame(this.hideTitleRafInner);
+      this.hideTitleRafInner = null;
+    }
+  }
+
   private queueHidePageTitle(): void {
     this.hideTitleTries = 0;
+    this.cancelHideTitleWork();
     this.zone.runOutsideAngular(() => {
       const run = (): void => {
+        if (!this.pageAlive) {
+          return;
+        }
         this.scrollPastPageTitle();
         this.hideTitleTries += 1;
         if (!this.pageTitleIsOffscreen() && this.hideTitleTries < 16) {
           this.hideTitleTimer = setTimeout(run, this.hideTitleTries < 5 ? 40 : 120);
         }
       };
-      requestAnimationFrame(() => requestAnimationFrame(run));
+      this.hideTitleRafOuter = requestAnimationFrame(() => {
+        this.hideTitleRafOuter = null;
+        this.hideTitleRafInner = requestAnimationFrame(() => {
+          this.hideTitleRafInner = null;
+          run();
+        });
+      });
     });
   }
 
@@ -1649,8 +1685,14 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.zone.runOutsideAngular(() => {
       requestAnimationFrame(() => {
+        if (!this.pageAlive) {
+          return;
+        }
         this.applyHideTitleScroll();
         requestAnimationFrame(() => {
+          if (!this.pageAlive) {
+            return;
+          }
           if (!this.pageTitleIsOffscreen()) {
             this.applyHideTitleScroll();
           }
@@ -1700,13 +1742,22 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.pageAlive = false;
+    this.lastTargetLoadGen++;
+    this.finderTrailLoadGen++;
+    this.maxMagnitudeLoadGen++;
+    this.tickerLoadGen++;
+    this.alignCueLoadGen++;
+    this.northHeadingModeLoadGen++;
+    this.cancelHideTitleWork();
+    if (this.autoDetectScrollTimer != null) {
+      clearTimeout(this.autoDetectScrollTimer);
+      this.autoDetectScrollTimer = null;
+    }
+    void this.exitAnyFullscreen();
     if (this.objectInfoCloseTimer != null) {
       clearTimeout(this.objectInfoCloseTimer);
       this.objectInfoCloseTimer = null;
-    }
-    if (this.hideTitleTimer != null) {
-      clearTimeout(this.hideTitleTimer);
-      this.hideTitleTimer = null;
     }
     if (this.northMarkTimer != null) {
       clearTimeout(this.northMarkTimer);
@@ -1734,6 +1785,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.revokeConstellationSchemaBlobUrl();
     this.langChangeSub?.unsubscribe();
     this.tickerSaveSub?.unsubscribe();
+    this.finderTrailSaveSub?.unsubscribe();
+    this.maxMagnitudeSaveSub?.unsubscribe();
+    this.alignCueSaveSub?.unsubscribe();
+    this.lastTargetSaveSub?.unsubscribe();
     this.tickerResizeObs?.disconnect();
     this.tickerResizeObs = undefined;
     if (this.tickerDurationRaf != null) {
@@ -1764,6 +1819,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private hydratePattoolCalFromDb(): void {
     this.api.getDirectionPattoolSamples().subscribe({
       next: (res) => {
+        if (!this.pageAlive) {
+          return;
+        }
         const snaps = (res.samples ?? []).map((s) => snapshotFromPayload(s));
         const local = loadPattoolCal();
         if (snaps.length >= 4 && !sameCalSampleSet(local?.samples, snaps)) {
@@ -1790,19 +1848,33 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async startCamera(): Promise<void> {
+    if (!this.pageAlive) {
+      return;
+    }
     this.camDenied = false;
     try {
       this.camStream?.getTracks().forEach((t) => t.stop());
-      this.camStream = await navigator.mediaDevices.getUserMedia({
+      this.camStream = null;
+      const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false
       });
+      if (!this.pageAlive) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      this.camStream = stream;
       await this.attachCameraStream();
+      if (!this.pageAlive) {
+        this.stopCamera();
+      }
     } catch {
       this.camDenied = true;
       this.camLive = false;
     }
-    this.cdr.markForCheck();
+    if (this.pageAlive) {
+      this.cdr.markForCheck();
+    }
   }
 
   private cameraVideoEls(): HTMLVideoElement[] {
@@ -1813,7 +1885,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private async attachCameraStream(): Promise<void> {
     const videos = this.cameraVideoEls();
-    if (!this.camStream || !videos.length) {
+    if (!this.pageAlive || !this.camStream || !videos.length) {
       return;
     }
     const alreadyBound = videos.every((video) => video.srcObject === this.camStream);
@@ -1844,7 +1916,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private async playAttachedCameraVideos(): Promise<void> {
-    if (this.cameraShouldBeFrozen()) {
+    if (!this.pageAlive || this.cameraShouldBeFrozen()) {
       return;
     }
     for (const video of this.cameraVideoEls()) {
@@ -1865,7 +1937,18 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.camStream = null;
     this.camLive = false;
     for (const video of this.cameraVideoEls()) {
+      try {
+        video.pause();
+      } catch {
+        /* ignore */
+      }
       video.srcObject = null;
+      try {
+        video.removeAttribute('src');
+        video.load();
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -2430,7 +2513,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private onLookUpdate(): void {
-    if (this.liveLookFrozen()) {
+    if (!this.pageAlive || this.liveLookFrozen()) {
       return;
     }
     const el = this.lookTracker.elevationDeg;
@@ -2644,6 +2727,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private loadActiveCible(): void {
     this.api.listDirectionCibles().subscribe({
       next: (res) => {
+        if (!this.pageAlive) {
+          return;
+        }
         const list = res.cibles ?? [];
         const wanted = list.find((c) => c.active) ?? list.find((c) => c.id === loadActiveCibleId()) ?? list[0] ?? null;
         this.activeCible = wanted;
@@ -2663,6 +2749,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         this.cdr.markForCheck();
       },
       error: () => {
+        if (!this.pageAlive) {
+          return;
+        }
         if (this.headingRef === 'cible') {
           this.headingRef = 'north';
           if (this.sidePanelOpen === 'cible') {
@@ -3014,7 +3103,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const gen = ++this.finderTrailLoadGen;
     this.api.getAstroFinderTrail().subscribe({
       next: (dto) => {
-        if (gen !== this.finderTrailLoadGen) {
+        if (!this.pageAlive || gen !== this.finderTrailLoadGen) {
           return;
         }
         let applied = false;
@@ -3205,7 +3294,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const gen = ++this.maxMagnitudeLoadGen;
     this.api.getAstroMaxMagnitude().subscribe({
       next: (dto) => {
-        if (gen !== this.maxMagnitudeLoadGen) {
+        if (!this.pageAlive || gen !== this.maxMagnitudeLoadGen) {
           return;
         }
         const remote = dto?.maxMagnitude;
@@ -3726,6 +3815,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.finderViewportSyncTimer = setTimeout(() => {
       this.finderViewportSyncTimer = null;
+      if (!this.pageAlive) {
+        return;
+      }
       this.updateFinderProjection();
       this.cdr.markForCheck();
     }, 50);
@@ -3944,7 +4036,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const gen = ++this.tickerLoadGen;
     this.api.getAstroTicker().subscribe({
       next: (dto) => {
-        if (gen !== this.tickerLoadGen) {
+        if (!this.pageAlive || gen !== this.tickerLoadGen) {
           return;
         }
         if (dto && typeof dto.enabled === 'boolean') {
@@ -4028,7 +4120,11 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     if (typeof ResizeObserver === 'undefined') {
-      queueMicrotask(() => this.updateTickerDuration(el.getBoundingClientRect().width));
+      queueMicrotask(() => {
+        if (this.pageAlive) {
+          this.updateTickerDuration(el.getBoundingClientRect().width);
+        }
+      });
       return;
     }
     this.zone.runOutsideAngular(() => {
@@ -4049,12 +4145,15 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.tickerDurationRaf = requestAnimationFrame(() => {
       this.tickerDurationRaf = null;
+      if (!this.pageAlive) {
+        return;
+      }
       this.updateTickerDuration(this.pendingTickerHalfWidthPx);
     });
   }
 
   private updateTickerDuration(halfWidthPx: number): void {
-    if (!Number.isFinite(halfWidthPx) || halfWidthPx <= 0) {
+    if (!this.pageAlive || !Number.isFinite(halfWidthPx) || halfWidthPx <= 0) {
       return;
     }
     const sec = Math.max(18, halfWidthPx / AstroCompassComponent.TICKER_SPEED_PX_PER_SEC);
@@ -4078,7 +4177,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.satNow.setObserver(this.lat, this.lon);
     void this.satNow.ensureOption(sat, false).then(() => {
-      if (!this.finderTrailEnabled || this.selectedKind !== 'iss' || this.selectedSatelliteId !== sat.id) {
+      if (!this.pageAlive || !this.finderTrailEnabled || this.selectedKind !== 'iss' || this.selectedSatelliteId !== sat.id) {
         return;
       }
       this.finderTrailSkyAtMs = 0;
@@ -4433,6 +4532,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.issStatus = 'loading';
     if (sat.useIssLiveFeed) {
       void this.issNow.refresh(true).then(() => {
+        if (!this.pageAlive) {
+          return;
+        }
         if (this.selectedKind === 'iss' && this.selectedSatelliteId === sat.id) {
           this.recomputeSky();
           this.cdr.markForCheck();
@@ -4442,6 +4544,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     } else if (!sat.skipLiveTle) {
       this.satNow.setObserver(this.lat, this.lon);
       void this.satNow.ensureOption(sat, true).then(() => {
+        if (!this.pageAlive) {
+          return;
+        }
         if (this.selectedKind === 'iss' && this.selectedSatelliteId === sat.id) {
           this.recomputeSky();
           this.cdr.markForCheck();
@@ -5017,6 +5122,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const ms = this.autoDetectIntervalMs;
     this.zone.runOutsideAngular(() => {
       this.autoDetectTimer = setInterval(() => {
+        if (!this.pageAlive) {
+          return;
+        }
         this.zone.run(() => this.runAutoDetectPass(false));
       }, ms);
     });
@@ -5277,7 +5385,14 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private scrollAutoDetectIntoView(): void {
-    setTimeout(() => {
+    if (this.autoDetectScrollTimer != null) {
+      clearTimeout(this.autoDetectScrollTimer);
+    }
+    this.autoDetectScrollTimer = setTimeout(() => {
+      this.autoDetectScrollTimer = null;
+      if (!this.pageAlive) {
+        return;
+      }
       try {
         document.getElementById('acAutoDetectPanel')?.scrollIntoView({
           behavior: 'smooth',
@@ -5898,11 +6013,17 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.cdr.markForCheck();
     void this.issNow.refresh(false).then(() => {
+      if (!this.pageAlive) {
+        return;
+      }
       this.refreshVisibleCatalog();
       if (this.visibleOnly) {
         this.ensureSelectionStillVisible();
       }
     }).finally(() => {
+      if (!this.pageAlive) {
+        return;
+      }
       this.visibleRefreshing = false;
       this.cdr.markForCheck();
     });
@@ -7085,6 +7206,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       })
       .subscribe({
         next: (saved) => {
+          if (!this.pageAlive) {
+            return;
+          }
           this.cibleSaving = false;
           this.activeCible = saved;
           if (saved.id) {
@@ -7598,7 +7722,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       if (now - this.issLastNetworkRefreshMs > ISS_REFRESH_MIN_MS) {
         this.issLastNetworkRefreshMs = now;
         void this.issNow.refresh(false).then(() => {
-          if (this.liveLookFrozen()) {
+          if (!this.pageAlive || this.liveLookFrozen()) {
             return;
           }
           if (this.selectedKind === 'iss' && this.selectedSatellite.useIssLiveFeed) {
@@ -7611,7 +7735,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.issLastNetworkRefreshMs = now;
       this.satNow.setObserver(this.lat, this.lon);
       void this.satNow.ensureOption(sat, false).then(() => {
-        if (this.liveLookFrozen()) {
+        if (!this.pageAlive || this.liveLookFrozen()) {
           return;
         }
         if (this.selectedKind === 'iss' && this.selectedSatelliteId === sat.id) {
@@ -8474,12 +8598,18 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       skyMap: this.fetchSkyMapPreview(lookup)
     }).subscribe({
       next: ({ wiki, sky, skyMap }) => {
+        if (!this.pageAlive) {
+          return;
+        }
         const hits = Array.isArray(sky) ? sky : sky ? [sky] : [];
         this.setObjectDossier(this.buildObjectDossier(wiki, this.pickSkySource(hits, lookup.sky), skyMap));
         this.objectDossierBusy = false;
         this.cdr.markForCheck();
       },
       error: () => {
+        if (!this.pageAlive) {
+          return;
+        }
         this.objectDossierBusy = false;
         this.cdr.markForCheck();
       }
@@ -9026,6 +9156,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     const svg = this.constellationSchemaSvgMarkup();
     const png = await this.svgMarkupToPngBlob(svg, 1200);
+    if (!this.pageAlive) {
+      return null;
+    }
     this.revokeConstellationSchemaBlobUrl();
     if (png) {
       const blobUrl = URL.createObjectURL(png);
@@ -9069,6 +9202,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       const url = URL.createObjectURL(svgBlob);
       const img = new Image();
       img.onload = () => {
+        if (!this.pageAlive) {
+          URL.revokeObjectURL(url);
+          img.src = '';
+          resolve(null);
+          return;
+        }
         try {
           const canvas = document.createElement('canvas');
           canvas.width = size;
@@ -9084,15 +9223,18 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
           ctx.drawImage(img, 0, 0, size, size);
           canvas.toBlob((blob) => {
             URL.revokeObjectURL(url);
-            resolve(blob);
+            img.src = '';
+            resolve(this.pageAlive ? blob : null);
           }, 'image/png');
         } catch {
           URL.revokeObjectURL(url);
+          img.src = '';
           resolve(null);
         }
       };
       img.onerror = () => {
         URL.revokeObjectURL(url);
+        img.src = '';
         resolve(null);
       };
       img.src = url;
@@ -9387,6 +9529,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.refreshVisibleCatalog();
     if (refreshIss) {
       void this.issNow.refresh(false).then(() => {
+        if (!this.pageAlive) {
+          return;
+        }
         this.refreshVisibleCatalog();
         this.cdr.markForCheck();
       });
@@ -9628,7 +9773,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.stopSkyTick();
     this.zone.runOutsideAngular(() => {
       this.skyTickTimer = setInterval(() => {
-        if (this.objectInfoModalOpen || this.autoDetectPaused) {
+        if (!this.pageAlive || this.objectInfoModalOpen || this.autoDetectPaused) {
           return;
         }
         this.zone.run(() => {
@@ -9665,6 +9810,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           this.zone.run(() => {
+            if (!this.pageAlive) {
+              return;
+            }
             this.heightUserLocked = false;
             this.userAccuracyM = Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null;
             this.userSource = 'gps';
@@ -9683,6 +9831,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         },
         () => {
           this.zone.run(() => {
+            if (!this.pageAlive) {
+              return;
+            }
             this.locationRefreshing = false;
             this.cdr.markForCheck();
           });
@@ -9705,6 +9856,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.geoWatchId = navigator.geolocation.watchPosition(
         (pos) => {
           this.zone.run(() => {
+            if (!this.pageAlive) {
+              return;
+            }
             // Ne pas écraser une position choisie (adresse / carte / manuel).
             if (
               this.userSource === 'manual' ||
@@ -9734,6 +9888,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         },
         () => {
           this.zone.run(() => {
+            if (!this.pageAlive) {
+              return;
+            }
             if (this.userSource !== 'gps') {
               this.tryIpLocationFallback();
             } else if (this.geoStatus === 'locating') {
@@ -9759,6 +9916,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.ipFallbackAttempted = true;
     this.api.getLocationByIp().subscribe({
       next: (res) => {
+        if (!this.pageAlive) {
+          return;
+        }
         if (this.userSource === 'gps') {
           return;
         }
@@ -10141,6 +10301,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.calLoadPending = true;
     this.api.getIssCompassCalibration().subscribe({
       next: (cal: IssCompassCalibration | null) => {
+        if (!this.pageAlive) {
+          return;
+        }
         this.calLoadPending = false;
         if (cal && this.isKnownCalMethod(cal.method)) {
           if (this.calStatus === 'uncalibrated' && this.calMethod == null) {
@@ -10235,6 +10398,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe({
         next: () => {
           this.zone.run(() => {
+            if (!this.pageAlive) {
+              return;
+            }
             this.calPersisted = true;
             this.calSaving = false;
             this.cdr.markForCheck();
@@ -10242,6 +10408,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         },
         error: () => {
           this.zone.run(() => {
+            if (!this.pageAlive) {
+              return;
+            }
             this.calPersisted = false;
             this.calSaving = false;
             this.cdr.markForCheck();
@@ -10654,6 +10823,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.api.setCompassHeadingMode(mode).subscribe({
       next: () => {
         this.zone.run(() => {
+          if (!this.pageAlive) {
+            return;
+          }
           this.northHeadingModePersisted = true;
           this.cdr.markForCheck();
         });
@@ -10673,7 +10845,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const gen = ++this.northHeadingModeLoadGen;
     this.api.getCompassHeadingMode().subscribe({
       next: (dto) => {
-        if (gen !== this.northHeadingModeLoadGen) {
+        if (!this.pageAlive || gen !== this.northHeadingModeLoadGen) {
           return;
         }
         const mode = dto?.headingMode;
@@ -11377,7 +11549,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const gen = ++this.alignCueLoadGen;
     this.api.getAstroAlignCue().subscribe({
       next: (dto) => {
-        if (gen !== this.alignCueLoadGen) {
+        if (!this.pageAlive || gen !== this.alignCueLoadGen) {
           return;
         }
         const mode = dto?.mode;
@@ -11496,6 +11668,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.lastTargetSaveSub?.unsubscribe();
     this.lastTargetSaveSub = this.api.setAstroLastTarget(stamped).subscribe({
       next: () => {
+        if (!this.pageAlive) {
+          return;
+        }
         this.lastPersistedTargetJson = key;
       },
       error: () => {
@@ -11627,7 +11802,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const local = this.readLastTargetLocal();
     this.api.getAstroLastTarget().subscribe({
       next: (remote) => {
-        if (gen !== this.lastTargetLoadGen) {
+        if (!this.pageAlive || gen !== this.lastTargetLoadGen) {
           return;
         }
         if (this.autoDetectModalOpen || this.autoDetectLive) {

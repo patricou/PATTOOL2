@@ -34,6 +34,7 @@ export class TvPipCarrier {
   private docPipPageHide: (() => void) | null = null;
   private hostSlot: HTMLDivElement | null = null;
   private suppressLeaveNotify = false;
+  private suppressLeaveTimer: ReturnType<typeof setTimeout> | null = null;
   private lastLabels: TvDocPipLabels | undefined;
   private fsShell: HTMLDivElement | null = null;
   private inOpenerFullscreen = false;
@@ -802,7 +803,11 @@ export class TvPipCarrier {
     try {
       void this.closePipSurface();
     } finally {
-      setTimeout(() => {
+      if (this.suppressLeaveTimer != null) {
+        clearTimeout(this.suppressLeaveTimer);
+      }
+      this.suppressLeaveTimer = setTimeout(() => {
+        this.suppressLeaveTimer = null;
         this.suppressLeaveNotify = false;
       }, 150);
     }
@@ -813,6 +818,10 @@ export class TvPipCarrier {
   /** Fully remove the carrier node + leave listener (idle / app teardown). */
   dispose(): void {
     this.suppressLeaveNotify = true;
+    if (this.suppressLeaveTimer != null) {
+      clearTimeout(this.suppressLeaveTimer);
+      this.suppressLeaveTimer = null;
+    }
     try {
       void this.closePipSurface();
     } finally {
@@ -842,6 +851,7 @@ export class TvPipCarrier {
       try {
         carrier.pause();
         carrier.removeAttribute('src');
+        carrier.srcObject = null;
         carrier.load();
       } catch {
         /* ignore */

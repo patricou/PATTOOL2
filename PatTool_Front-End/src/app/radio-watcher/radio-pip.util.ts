@@ -369,14 +369,15 @@ async function openDocumentPip(
       /* blocked */
     }
   });
-  doc.addEventListener('fullscreenchange', () => {
+  const onFullscreenChange = () => {
     const on = !!doc.fullscreenElement;
     fsBtn.innerHTML = on
       ? '<i class="fa fa-compress" aria-hidden="true"></i>'
       : '<i class="fa fa-arrows-alt" aria-hidden="true"></i>';
     fsBtn.title = on ? meta.labels.fullscreenExit : meta.labels.fullscreen;
     fsBtn.setAttribute('aria-label', fsBtn.title);
-  });
+  };
+  doc.addEventListener('fullscreenchange', onFullscreenChange);
 
   const closeBtn = doc.createElement('button');
   closeBtn.type = 'button';
@@ -439,6 +440,11 @@ async function openDocumentPip(
     tornDown = true;
     try {
       pipWindow.removeEventListener('pagehide', teardown);
+    } catch {
+      /* ignore */
+    }
+    try {
+      doc.removeEventListener('fullscreenchange', onFullscreenChange);
     } catch {
       /* ignore */
     }
@@ -537,7 +543,26 @@ export function stopRadioPipCarrier(): void {
   }
   try {
     el.pause();
+  } catch {
+    /* ignore */
+  }
+  try {
+    el.removeAttribute('src');
+  } catch {
+    /* ignore */
+  }
+  try {
     el.srcObject = null;
+  } catch {
+    /* ignore */
+  }
+  try {
+    el.load();
+  } catch {
+    /* ignore */
+  }
+  try {
+    el.remove();
   } catch {
     /* ignore */
   }

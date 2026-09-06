@@ -201,7 +201,6 @@
           class="vm-preview-media"
           [class.d-none]="previewKind !== 'video'"
           playsinline
-          muted
           preload="auto"></video>
         <div *ngIf="!previewKind" class="vm-preview-empty">
           {{ 'VIDEO_MONTAGE.PREVIEW_HINT' | translate }}

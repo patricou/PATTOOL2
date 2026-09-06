@@ -75,6 +75,10 @@ const WALL_BUFFER_DRAIN_TARGET = 3;
 const VIDEO_TIMELINE_START_DELAY_MS = 5000;
 /** Delay before loading the on-this-day banner. */
 const ON_THIS_DAY_DELAY_MS = 4000;
+/** Max full video blobs kept on the wall (off-screen files are revoked). */
+const WALL_VIDEO_BLOB_CACHE_CAP = 8;
+/** Max thumbnail blob URLs kept; off-screen tiles reload via IntersectionObserver. */
+const WALL_THUMB_BLOB_CACHE_CAP = 160;
 /** Approximate height of an event block (px) to preload 3 events ahead. */
 const EVENT_BLOCK_HEIGHT_PX = 500;
 const PREFETCH_EVENTS_AHEAD = 3;
@@ -393,6 +397,12 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
      */
     private videoTimelineFetchStarted = false;
     private searchDebounceId: ReturnType<typeof setTimeout> | null = null;
+    private videoTimelineDelayId: ReturnType<typeof setTimeout> | null = null;
+    private onThisDayDelayId: ReturnType<typeof setTimeout> | null = null;
+    private pendingTimeouts: ReturnType<typeof setTimeout>[] = [];
+    private idleCallbackIds: number[] = [];
+    private pendingObjectUrls: string[] = [];
+    private objectUrlTimers: ReturnType<typeof setTimeout>[] = [];
     /** When set, timeline shows only photos/videos for this event (from query param eventId). */
     filterEventId: string | undefined;
 
@@ -507,6 +517,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (this.searchDebounceId != null) {
             clearTimeout(this.searchDebounceId);
             this.searchDebounceId = null;
+        }
+        this.clearDeferredWallTimers();
+        this.clearPendingObjectUrls();
+        try {
+            this.youtubePlayer.close();
+        } catch {
+            /* ignore */
         }
         if (this.cdrScheduleId != null) {
             clearTimeout(this.cdrScheduleId);
@@ -739,6 +756,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             try {
                 v.pause();
                 v.removeAttribute('src');
+                v.srcObject = null;
                 v.load();
             } catch {
                 /* ignore */
@@ -973,6 +991,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.loadingVideos.clear();
         this.wallVideoFetchAttemptCount.clear();
         this.wallVideoHardFailedIds.clear();
+        this.clearDeferredWallTimers();
         requestAnimationFrame(() => {
             this.revokeBlobUrlsInMap(prevThumbUrls);
             this.revokeBlobUrlsInMap(prevVideoUrls);
@@ -991,6 +1010,133 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         idToUrl.forEach(url => {
             if (url.startsWith('blob:')) URL.revokeObjectURL(url);
         });
+    }
+
+    private clearDeferredWallTimers(): void {
+        if (this.videoTimelineDelayId != null) {
+            clearTimeout(this.videoTimelineDelayId);
+            this.videoTimelineDelayId = null;
+        }
+        if (this.onThisDayDelayId != null) {
+            clearTimeout(this.onThisDayDelayId);
+            this.onThisDayDelayId = null;
+        }
+        for (const t of this.pendingTimeouts) {
+            clearTimeout(t);
+        }
+        this.pendingTimeouts = [];
+        const cancelIdle = typeof cancelIdleCallback === 'function' ? cancelIdleCallback : null;
+        for (const id of this.idleCallbackIds) {
+            try {
+                cancelIdle?.(id);
+            } catch {
+                /* ignore */
+            }
+        }
+        this.idleCallbackIds = [];
+    }
+
+    private trackTimeout(fn: () => void, ms: number): ReturnType<typeof setTimeout> {
+        const id = setTimeout(() => {
+            this.pendingTimeouts = this.pendingTimeouts.filter((t) => t !== id);
+            fn();
+        }, ms);
+        this.pendingTimeouts.push(id);
+        return id;
+    }
+
+    private clearPendingObjectUrls(): void {
+        for (const t of this.objectUrlTimers) {
+            clearTimeout(t);
+        }
+        this.objectUrlTimers = [];
+        for (const url of this.pendingObjectUrls) {
+            URL.revokeObjectURL(url);
+        }
+        this.pendingObjectUrls = [];
+    }
+
+    private trackObjectUrl(url: string, revokeAfterMs: number): void {
+        this.pendingObjectUrls.push(url);
+        const timer = setTimeout(() => {
+            URL.revokeObjectURL(url);
+            this.pendingObjectUrls = this.pendingObjectUrls.filter((u) => u !== url);
+            this.objectUrlTimers = this.objectUrlTimers.filter((t) => t !== timer);
+        }, revokeAfterMs);
+        this.objectUrlTimers.push(timer);
+    }
+
+    private collectVisibleWallMediaIds(): Set<string> {
+        const keep = new Set<string>();
+        const addPhoto = (p: TimelinePhoto | undefined) => {
+            const id = p?.fileId?.trim();
+            if (id) {
+                keep.add(id);
+            }
+        };
+        for (const g of this.visibleGroups) {
+            for (const p of g.photos || []) {
+                addPhoto(p);
+            }
+            for (const v of g.videos || []) {
+                addPhoto(v);
+            }
+        }
+        for (const p of this.onThisDay) {
+            addPhoto(p);
+        }
+        return keep;
+    }
+
+    private pruneWallBlobCaches(): void {
+        const keep = this.collectVisibleWallMediaIds();
+        let pruned = false;
+        if (this.videoUrlCache.size > WALL_VIDEO_BLOB_CACHE_CAP) {
+            for (const id of [...this.videoUrlCache.keys()]) {
+                if (this.videoUrlCache.size <= WALL_VIDEO_BLOB_CACHE_CAP) {
+                    break;
+                }
+                if (keep.has(id)) {
+                    continue;
+                }
+                this.revokeVideoBlob(id);
+                pruned = true;
+            }
+        }
+        if (this.thumbnailCache.size > WALL_THUMB_BLOB_CACHE_CAP) {
+            for (const id of [...this.thumbnailCache.keys()]) {
+                if (this.thumbnailCache.size <= WALL_THUMB_BLOB_CACHE_CAP) {
+                    break;
+                }
+                if (keep.has(id)) {
+                    continue;
+                }
+                this.revokeThumbBlob(id);
+                pruned = true;
+            }
+        }
+        if (pruned) {
+            this.scanWallMediaHosts();
+        }
+    }
+
+    private revokeVideoBlob(id: string): void {
+        const url = this.videoUrlCache.get(id);
+        if (url?.startsWith('blob:')) {
+            URL.revokeObjectURL(url);
+        }
+        this.videoUrlCache.delete(id);
+        this.videoSafeUrlCache.delete(id);
+        this.clearWallMediaHostObservationFlags(id);
+    }
+
+    private revokeThumbBlob(id: string): void {
+        const url = this.thumbnailCache.get(id);
+        if (url?.startsWith('blob:')) {
+            URL.revokeObjectURL(url);
+        }
+        this.thumbnailCache.delete(id);
+        this.clearWallMediaHostObservationFlags(id);
     }
 
     /** Prune closed subscriptions from the tracking array to avoid unbounded growth. */
@@ -1015,7 +1161,11 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const delay = this.searchFilter.trim().length >= SEARCH_MIN_CHARS
             ? 250
             : VIDEO_TIMELINE_START_DELAY_MS;
-        setTimeout(() => {
+        if (this.videoTimelineDelayId != null) {
+            clearTimeout(this.videoTimelineDelayId);
+        }
+        this.videoTimelineDelayId = setTimeout(() => {
+            this.videoTimelineDelayId = null;
             if (this.destroyed) return;
             this.fetchNextVideos();
         }, delay);
@@ -1085,7 +1235,11 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 this.scheduleTimelinePrefetchAfterInitialPaint();
                 if (!this.filterEventId && !this.onThisDayApiScheduled && !search) {
                     this.onThisDayApiScheduled = true;
-                    setTimeout(() => {
+                    if (this.onThisDayDelayId != null) {
+                        clearTimeout(this.onThisDayDelayId);
+                    }
+                    this.onThisDayDelayId = setTimeout(() => {
+                        this.onThisDayDelayId = null;
                         if (this.destroyed || gen !== this.timelineLoadGeneration) return;
                         this.loadOnThisDay();
                     }, ON_THIS_DAY_DELAY_MS);
@@ -1212,18 +1366,18 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 const ric = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number })
                     .requestIdleCallback;
                 if (ric) {
-                    ric(() => drain(), { timeout: 400 });
+                    this.idleCallbackIds.push(ric(() => drain(), { timeout: 400 }));
                 } else {
-                    setTimeout(() => drain(), 120);
+                    this.trackTimeout(() => drain(), 120);
                 }
             }
         };
         const ric = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number })
             .requestIdleCallback;
         if (ric) {
-            ric(() => drain(), { timeout: 600 });
+            this.idleCallbackIds.push(ric(() => drain(), { timeout: 600 }));
         } else {
-            setTimeout(() => drain(), 200);
+            this.trackTimeout(() => drain(), 200);
         }
     }
 
@@ -1232,7 +1386,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (this.revealingInitialBatch || this.isLoading) {
             return;
         }
-        setTimeout(() => {
+        this.trackTimeout(() => {
             if (this.destroyed || this.revealingInitialBatch) return;
             if (this.hasMore && this.bufferedGroups.length < BUFFER_AHEAD) {
                 this.fetchNext();
@@ -1276,7 +1430,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.visibleGroups.push(group);
         this.warmGroupDerivedCaches(group);
         if (this.revealingInitialBatch) {
-            setTimeout(() => {
+            this.trackTimeout(() => {
                 if (!this.destroyed) this.requestWallTrackStatsForGroup(group);
             }, 2500);
         } else {
@@ -1724,13 +1878,17 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.cdr.markForCheck();
     }
 
-    private clearWallVideoHostObservationFlags(fileId: string): void {
+    private clearWallMediaHostObservationFlags(fileId: string): void {
         if (typeof document === 'undefined' || !fileId) return;
-        document.querySelectorAll('.wall-video-file-host[data-file-id]').forEach(el => {
+        document.querySelectorAll('[data-file-id]').forEach(el => {
             if (el.getAttribute('data-file-id') === fileId) {
                 el.removeAttribute('data-wall-media-observed');
             }
         });
+    }
+
+    private clearWallVideoHostObservationFlags(fileId: string): void {
+        this.clearWallMediaHostObservationFlags(fileId);
     }
 
     /**
@@ -1813,6 +1971,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                         this.loadingVideos.delete(id);
                         this.wallVideoFetchAttemptCount.delete(id);
                         this.wallVideoHardFailedIds.delete(id);
+                        this.pruneWallBlobCaches();
                     });
                 },
                 error: () => {
@@ -1852,6 +2011,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                         const url = URL.createObjectURL(blob);
                         this.thumbnailCache.set(photo.fileId, url);
                         this.loadingThumbnails.delete(photo.fileId);
+                        this.pruneWallBlobCaches();
                     });
                 },
                 error: () => {
@@ -2799,7 +2959,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     if (newWindow) {
                         newWindow.focus();
                     }
-                    setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+                    this.trackObjectUrl(objectUrl, 10000);
                 } catch (e) {
                     console.error('Wall PDF open failed', e);
                     alert(this.translate.instant('EVENTELEM.ERROR_LOADING_PDF'));

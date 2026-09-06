@@ -2395,7 +2395,7 @@
     "PREVIEW": "Preview",
     "PREVIEW_HINT": "Add clips to the timeline, then play the preview.",
     "PLAY": "Play",
-    "PLAY_HINT": "Muted preview; sound is included in the export.",
+    "PLAY_HINT": "Preview plays clip audio. With background music, both mix when you keep original sound.",
     "STOP": "Stop",
     "EXPORT": "Export video",
     "EXPORTING": "Rendering…",
