@@ -222,6 +222,30 @@ export function HttpLoaderFactory(http: HttpClient) {
 				data: { provider: 'chercher-trouver' }
 			},
 			{
+				path: 'api/foncier-suisse',
+				loadComponent: () => import('./foncier-suisse/foncier-suisse.component').then(m => m.FoncierSuisseComponent)
+			},
+			{
+				path: 'api/foncier-suisse/search',
+				loadComponent: () => import('./foncier-suisse/foncier-suisse.component').then(m => m.FoncierSuisseComponent),
+				data: { tab: 'search' }
+			},
+			{
+				path: 'api/foncier-suisse/popular',
+				loadComponent: () => import('./foncier-suisse/foncier-suisse.component').then(m => m.FoncierSuisseComponent),
+				data: { tab: 'popular' }
+			},
+			{
+				path: 'api/foncier-suisse/chances',
+				loadComponent: () => import('./foncier-suisse/foncier-suisse.component').then(m => m.FoncierSuisseComponent),
+				data: { tab: 'chances' }
+			},
+			{
+				path: 'api/foncier-suisse/guides',
+				loadComponent: () => import('./foncier-suisse/foncier-suisse.component').then(m => m.FoncierSuisseComponent),
+				data: { tab: 'guides' }
+			},
+			{
 				path: 'tools/loto',
 				loadComponent: () => import('./loto/loto.component').then(m => m.LotoComponent)
 			},
@@ -240,6 +264,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{
 				path: 'tools/chimie',
 				loadComponent: () => import('./chimie/chimie.component').then(m => m.ChimieComponent)
+			},
+			{
+				path: 'tools/code',
+				loadComponent: () => import('./code/code.component').then(m => m.CodeComponent)
 			},
 			{
 				path: 'tools/tv-watcher',

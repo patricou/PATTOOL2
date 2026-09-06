@@ -24,10 +24,10 @@ export interface AssistantLaunchAttachedImage {
 }
 
 /**
- * Photo / vision: slideshow, camera, or gallery/file picker → Google Gemini image-capable flash preview.
+ * Photo / vision: slideshow, camera, or gallery/file picker → Google Gemini image-capable flash.
  * Keep in sync with models enabled on the backend / {@code GET /api/assistant/models?provider=gemini}.
  */
-export const ASSISTANT_VISION_GEMINI_MODEL_ID = 'gemini-3.1-flash-image-preview';
+export const ASSISTANT_VISION_GEMINI_MODEL_ID = 'gemini-3.1-flash-image';
 
 export const ASSISTANT_VISION_IMAGE_LAUNCH_ROUTING: AssistantLaunchRouting = {
   provider: 'gemini',
@@ -35,11 +35,11 @@ export const ASSISTANT_VISION_IMAGE_LAUNCH_ROUTING: AssistantLaunchRouting = {
 };
 
 /**
- * News article card → assistant: Google Gemini 3.1 Pro class model (UI: "Gemini 3.1 Pro (Search)").
+ * News article card → assistant: Google Gemini 3.8 Flash (UI: "Gemini 3.8 Flash (Search)").
  * Web search is enabled via {@link AssistantLaunchToolFlags.webSearch}; server uses Gemini grounding tools.
  * Model id must match {@code GET /api/assistant/models?provider=gemini} / Google AI API naming.
  */
-export const ASSISTANT_NEWS_GEMINI_MODEL_ID = 'gemini-3.1-pro-preview';
+export const ASSISTANT_NEWS_GEMINI_MODEL_ID = 'gemini-3.8-flash';
 
 export const ASSISTANT_NEWS_LAUNCH_ROUTING: AssistantLaunchRouting = {
   provider: 'gemini',
@@ -47,11 +47,11 @@ export const ASSISTANT_NEWS_LAUNCH_ROUTING: AssistantLaunchRouting = {
 };
 
 /**
- * Activities / events UI ({@code element-evenement}, home list, detail page) → Anthropic Claude Opus 4.8.
+ * Activities / events UI ({@code element-evenement}, home list, detail page) → Anthropic Claude Opus 5.
  */
 export const ASSISTANT_EVENT_ELEMENT_LAUNCH_ROUTING: AssistantLaunchRouting = {
   provider: 'anthropic',
-  modelPreset: 'claude-opus-4-8'
+  modelPreset: 'claude-opus-5'
 };
 
 export interface AssistantLaunchPayload {

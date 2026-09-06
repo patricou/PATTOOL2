@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PatTool — Math</title>
+    <title>PatTool — Science</title>
     <link rel="stylesheet" href="/assets/css/pattool-doc.css">
 </head>
 <body>
     <header class="doc-topbar">
         <div class="doc-topbar-inner">
-            <h1 data-doc-lang="fr">Menu Math</h1>
-            <h1 data-doc-lang="en" hidden>Math menu</h1>
-            <p data-doc-lang="fr">Loto, EuroMillions, calculatrice, CERN, chimie</p>
-            <p data-doc-lang="en" hidden>Loto, EuroMillions, calculator, CERN, chemistry</p>
+            <h1 data-doc-lang="fr">Menu Science</h1>
+            <h1 data-doc-lang="en" hidden>Science menu</h1>
+            <p data-doc-lang="fr">Loto, EuroMillions, calculatrice, CERN, chimie, code</p>
+            <p data-doc-lang="en" hidden>Loto, EuroMillions, calculator, CERN, chemistry, code</p>
         </div>
     </header>
 
@@ -28,8 +28,8 @@
                 <a href="/assets/docs/whatspat.html">WhatsPat</a>
                 <a href="/assets/docs/assistant.html" data-doc-lang="fr">Assistant</a>
                 <a href="/assets/docs/assistant.html" data-doc-lang="en" hidden>Assistant</a>
-                <a href="/assets/docs/math.html" data-doc-lang="fr">Math</a>
-                <a href="/assets/docs/math.html" data-doc-lang="en" hidden>Math</a>
+                <a href="/assets/docs/math.html" data-doc-lang="fr">Science</a>
+                <a href="/assets/docs/math.html" data-doc-lang="en" hidden>Science</a>
                 <a href="/assets/docs/maison.html" data-doc-lang="fr">Maison</a>
                 <a href="/assets/docs/maison.html" data-doc-lang="en" hidden>Home</a>
                 <a href="/assets/docs/monde.html" data-doc-lang="fr">Monde</a>
@@ -50,6 +50,7 @@
                     <li><a href="#calc-fr">Calculatrice</a></li>
                     <li><a href="#cern-fr">CERN Open Data</a></li>
                     <li><a href="#chimie-fr">Chimie</a></li>
+                    <li><a href="#code-fr">Code</a></li>
                 </ul>
             </section>
 
@@ -74,7 +75,7 @@
                     <li><strong>Méthodes statistiques</strong> (χ², entropie, récurrence d'écart, corrélation des sommes, Monte Carlo) — cartes avec étoiles indicatives</li>
                     <li>Graphiques : fréquences, évolution mensuelle, comparaison de méthodes</li>
                     <li>Synchronisation des tirages (admin) et paramètre de date minimale pour l'IA</li>
-                    <li><strong>Analyse IA</strong> : prompt + enveloppe JSON (stats + méthodes cochées) → assistant avec <strong>Claude Opus 4.8</strong></li>
+                    <li><strong>Analyse IA</strong> : prompt + enveloppe JSON (stats + méthodes cochées) → assistant avec <strong>Claude Opus 5</strong></li>
                 </ul>
                 <div class="doc-warn">Les étoiles et analyses sont <em>indicatives</em> — pas une prédiction garantie des tirages.</div>
             </section>
@@ -115,6 +116,16 @@
                     <li><strong>Réactions</strong> — équilibres et exemples commentés</li>
                 </ul>
             </section>
+
+            <section class="doc-section" id="code-fr">
+                <h2>Code</h2>
+                <p>Route : <code class="doc-code">#/tools/code</code></p>
+                <ul>
+                    <li>Atelier logiciel : projets <strong>par utilisateur</strong> persistés dans MongoDB</li>
+                    <li>Édition de fichiers, assistant IA (OpenAI, Anthropic, Gemini, Mistral, SpaceXAI) spécialisé <strong>sécurité applicative</strong></li>
+                    <li>Analyse d’un dépôt <strong>GitHub / GitLab public</strong> (extrait de sources, revue défensive, pas d’exploit)</li>
+                </ul>
+            </section>
         </div>
 
         <div data-doc-lang="en" hidden>
@@ -126,6 +137,7 @@
                     <li><a href="#calc-en">Calculator</a></li>
                     <li><a href="#cern-en">CERN Open Data</a></li>
                     <li><a href="#chimie-en">Chemistry</a></li>
+                    <li><a href="#code-en">Code</a></li>
                 </ul>
             </section>
 
@@ -150,7 +162,7 @@
                     <li><strong>Statistical methods</strong> (χ², entropy, gap recurrence, sum correlation, Monte Carlo)</li>
                     <li>Charts: frequencies, monthly trends, method comparison</li>
                     <li>Draw sync (admin) and minimum date setting for AI</li>
-                    <li><strong>AI analysis</strong>: prompt + JSON envelope → <strong>Claude Opus 4.8</strong></li>
+                    <li><strong>AI analysis</strong>: prompt + JSON envelope → <strong>Claude Opus 5</strong></li>
                 </ul>
             </section>
 
@@ -169,10 +181,15 @@
                 <h2>Chemistry</h2>
                 <p>Route: <code class="doc-code">#/tools/chimie</code> — periodic table, 3D molecules, compare, reactions tabs.</p>
             </section>
+
+            <section class="doc-section" id="code-en">
+                <h2>Code</h2>
+                <p>Route: <code class="doc-code">#/tools/code</code> — per-user persisted projects, multi-provider coding assistant with a security focus, public GitHub/GitLab review (defensive only).</p>
+            </section>
         </div>
     </main>
 
-    <footer class="doc-footer"><p>PatTool — Math</p></footer>
+    <footer class="doc-footer"><p>PatTool — Science</p></footer>
     <script src="/assets/js/pattool-doc.js"></script>
 </body>
 </html>

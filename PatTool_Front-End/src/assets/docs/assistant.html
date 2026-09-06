@@ -27,8 +27,8 @@
                 <a href="/assets/docs/whatspat.html">WhatsPat</a>
                 <a href="/assets/docs/assistant.html" data-doc-lang="fr">Assistant</a>
                 <a href="/assets/docs/assistant.html" data-doc-lang="en" hidden>Assistant</a>
-                <a href="/assets/docs/math.html" data-doc-lang="fr">Math</a>
-                <a href="/assets/docs/math.html" data-doc-lang="en" hidden>Math</a>
+                <a href="/assets/docs/math.html" data-doc-lang="fr">Science</a>
+                <a href="/assets/docs/math.html" data-doc-lang="en" hidden>Science</a>
                 <a href="/assets/docs/maison.html" data-doc-lang="fr">Maison</a>
                 <a href="/assets/docs/maison.html" data-doc-lang="en" hidden>Home</a>
                 <a href="/assets/docs/monde.html" data-doc-lang="fr">Monde</a>
@@ -98,11 +98,11 @@
                 <h2>Fournisseur, modèle et guide</h2>
                 <h3>Les cinq fournisseurs</h3>
                 <div class="doc-cards">
-                    <div class="doc-card"><h4>OpenAI</h4><p>GPT-5.x, GPT-4.x, série « o » (raisonnement). Seul fournisseur avec <strong>MCP</strong> et génération d'images OpenAI.</p></div>
-                    <div class="doc-card"><h4>Anthropic</h4><p>Claude (Fable 5, Opus 4.8, Sonnet 4.6, Haiku 4.5). Recommandé pour les <strong>activités</strong> (lancement auto).</p></div>
+                    <div class="doc-card"><h4>OpenAI</h4><p>GPT-6 Astra, GPT-5.6 (Sol / Terra / Luna), GPT-5.5, GPT-4o. Seul fournisseur avec <strong>MCP</strong> et génération d'images OpenAI.</p></div>
+                    <div class="doc-card"><h4>Anthropic</h4><p>Claude (Fable 5.1, Opus 5, Sonnet 5, Haiku 4.5). Recommandé pour les <strong>activités</strong> (lancement auto).</p></div>
                     <div class="doc-card"><h4>Google Gemini</h4><p>Texte, long contexte, vision et génération d'images Gemini. Utilisé pour les <strong>photos</strong> et les <strong>actualités</strong>.</p></div>
-                    <div class="doc-card"><h4>Mistral AI</h4><p>Large, Small, Pixtral (vision), Codestral (code), Ministral (léger).</p></div>
-                    <div class="doc-card"><h4>SpaceXAI</h4><p>Grok 4.6 (phare), 4.5, 4.3, 4.20 Reasoning, Grok Build (code). Vision et recherche web Live Search.</p></div>
+                    <div class="doc-card"><h4>Mistral AI</h4><p>Medium 3.5 (phare), Large 3, Small 4, Codestral (code), Ministral 3 (léger). Vision sur Medium / Large / Small.</p></div>
+                    <div class="doc-card"><h4>SpaceXAI</h4><p>Grok 4.6 (phare), 4.5, 4.3, 4.20 Reasoning, 4.20 Multi-agent, Grok Build (code). Vision et recherche web Live Search.</p></div>
                 </div>
                 <h3>Choisir un modèle</h3>
                 <ol>
@@ -219,16 +219,16 @@
                 <table class="doc-table">
                     <thead><tr><th>Depuis</th><th>Bouton</th><th>Comportement typique</th></tr></thead>
                     <tbody>
-                        <tr><td>Carte activité (grille)</td><td><strong>IA</strong> / baguette</td><td>Titre de l'activité ; nouvelle conversation ; <strong>Anthropic Claude Opus 4.8</strong></td></tr>
-                        <tr><td>Fiche détail activité</td><td>Baguette en tête</td><td>Même routage Opus 4.8 + titre</td></tr>
+                        <tr><td>Carte activité (grille)</td><td><strong>IA</strong> / baguette</td><td>Titre de l'activité ; nouvelle conversation ; <strong>Anthropic Claude Opus 5</strong></td></tr>
+                        <tr><td>Fiche détail activité</td><td>Baguette en tête</td><td>Même routage Opus 5 + titre</td></tr>
                         <tr><td>Vue compacte (titre seul)</td><td>Baguette sur la carte</td><td>Même logique (titre de l'activité)</td></tr>
-                        <tr><td>Vue liste activités</td><td>Baguette</td><td>Titre ; Opus 4.8</td></tr>
+                        <tr><td>Vue liste activités</td><td>Baguette</td><td>Titre ; Opus 5</td></tr>
                         <tr><td>Mur de photos</td><td>Baguette sur un bloc</td><td>Nom de l'activité ; nouvelle conversation ; <em>conserve votre routage habituel</em></td></tr>
                         <tr><td>Diaporama</td><td>Envoyer à l'assistant</td><td>Image courante jointe ; champ vide + placeholder ; <strong>Gemini 3.1 Flash Image</strong> ; ferme le diaporama</td></tr>
-                        <tr><td>Actualités (menu Monde)</td><td>Assistant sur un article</td><td>Titre ; <strong>Gemini 3.1 Pro</strong> + recherche web cochée</td></tr>
+                        <tr><td>Actualités (menu Monde)</td><td>Assistant sur un article</td><td>Titre ; <strong>Gemini 3.8 Flash</strong> + recherche web cochée</td></tr>
                         <tr><td>Météo (OpenWeatherMap)</td><td>Baguette sur une ville</td><td>Texte « ville, pays » prérempli</td></tr>
                         <tr><td>Loto national</td><td>Analyse IA</td><td>Prompt i18n + JSON des tirages ; nouvelle conversation ; outils désactivés</td></tr>
-                        <tr><td>EuroMillions</td><td>Analyse IA</td><td>Stats + méthodes choisies en JSON ; <strong>Claude Opus 4.8</strong> ; outils désactivés</td></tr>
+                        <tr><td>EuroMillions</td><td>Analyse IA</td><td>Stats + méthodes choisies en JSON ; <strong>Claude Opus 5</strong> ; outils désactivés</td></tr>
                     </tbody>
                 </table>
             </section>
@@ -245,14 +245,14 @@
             <section class="doc-section" id="fr-conseils">
                 <h2>Conseils d'utilisation</h2>
                 <ul>
-                    <li><strong>Activité / rédaction</strong> : Claude Fable 5 ou Sonnet, ou GPT-5.5 — lancez depuis la carte activité pour un routage adapté</li>
+                    <li><strong>Activité / rédaction</strong> : Claude Fable 5.1 ou Sonnet 5, ou GPT-6 Astra — lancez depuis la carte activité pour un routage adapté</li>
                     <li><strong>Photo / diaporama</strong> : Gemini Flash Image avec l'image déjà jointe</li>
-                    <li><strong>Actualité</strong> : Gemini + case Recherche web (Grok 4.6 en alternative)</li>
-                    <li><strong>Code</strong> : Claude Fable 5, GPT-5.5, Grok 4.6 (rapport qualité/prix) ; Codestral pour la complétion rapide</li>
-                    <li><strong>Rapide et pas cher</strong> : Gemini 2.5 Flash, GPT-4o mini, Haiku</li>
-                    <li><strong>Traduction / français</strong> : Mistral Large</li>
-                    <li><strong>Raisonnement / docs longs</strong> : Gemini 3.1 Pro</li>
-                    <li><strong>Jeux de réflexion</strong> : Gemini 3.1 Pro, Grok 4.20 Reasoning, Claude Sonnet</li>
+                    <li><strong>Actualité</strong> : Gemini 3.8 Flash + case Recherche web (Grok 4.6 en alternative)</li>
+                    <li><strong>Code</strong> : Claude Fable 5.1, GPT-6 Astra, Grok 4.6 (rapport qualité/prix) ; Codestral pour la complétion rapide</li>
+                    <li><strong>Rapide et pas cher</strong> : Gemini 3.5 Flash-Lite, GPT-5.6 Luna, Haiku</li>
+                    <li><strong>Traduction / français</strong> : Mistral Medium 3.5</li>
+                    <li><strong>Raisonnement / docs longs</strong> : GPT-6 Astra, Gemini 3.1 Pro</li>
+                    <li><strong>Jeux de réflexion</strong> : Gemini 3.1 Pro, Grok 4.20 Reasoning, Claude Sonnet 5</li>
                     <li><strong>Illustration</strong> : cocher Génération d'images + OpenAI ou Gemini</li>
                     <li>Utilisez la <strong>gomme</strong> entre deux sujets différents pour éviter de mélanger les contextes</li>
                     <li>Consultez le <strong>Guide modèles</strong> intégré pour le tableau comparatif par type de tâche</li>
@@ -318,11 +318,11 @@
                 <h2>Provider, model and guide</h2>
                 <h3>Five providers</h3>
                 <div class="doc-cards">
-                    <div class="doc-card"><h4>OpenAI</h4><p>GPT-5.x, GPT-4.x, “o” series (reasoning). Only provider with <strong>MCP</strong> and OpenAI image generation.</p></div>
-                    <div class="doc-card"><h4>Anthropic</h4><p>Claude (Fable 5, Opus 4.8, Sonnet 4.6, Haiku 4.5). Default for <strong>activity</strong> launches.</p></div>
+                    <div class="doc-card"><h4>OpenAI</h4><p>GPT-6 Astra, GPT-5.6 (Sol / Terra / Luna), GPT-5.5, GPT-4o. Only provider with <strong>MCP</strong> and OpenAI image generation.</p></div>
+                    <div class="doc-card"><h4>Anthropic</h4><p>Claude (Fable 5.1, Opus 5, Sonnet 5, Haiku 4.5). Default for <strong>activity</strong> launches.</p></div>
                     <div class="doc-card"><h4>Google Gemini</h4><p>Text, long context, vision and Gemini images. Used for <strong>photos</strong> and <strong>news</strong>.</p></div>
-                    <div class="doc-card"><h4>Mistral AI</h4><p>Large, Small, Pixtral (vision), Codestral (code), Ministral (lightweight).</p></div>
-                    <div class="doc-card"><h4>SpaceXAI</h4><p>Grok 4.6 (flagship), 4.5, 4.3, 4.20 Reasoning, Grok Build (code). Vision and Live Search web search.</p></div>
+                    <div class="doc-card"><h4>Mistral AI</h4><p>Medium 3.5 (flagship), Large 3, Small 4, Codestral (code), Ministral 3 (lightweight). Vision on Medium / Large / Small.</p></div>
+                    <div class="doc-card"><h4>SpaceXAI</h4><p>Grok 4.6 (flagship), 4.5, 4.3, 4.20 Reasoning, 4.20 Multi-agent, Grok Build (code). Vision and Live Search web search.</p></div>
                 </div>
                 <h3>Choosing a model</h3>
                 <ol>
@@ -418,16 +418,16 @@
                 <table class="doc-table">
                     <thead><tr><th>From</th><th>Button</th><th>Typical behavior</th></tr></thead>
                     <tbody>
-                        <tr><td>Activity card (grid)</td><td><strong>AI</strong> / wand</td><td>Activity title; new thread; <strong>Anthropic Claude Opus 4.8</strong></td></tr>
-                        <tr><td>Activity detail page</td><td>Wand in header</td><td>Same Opus 4.8 routing + title</td></tr>
+                        <tr><td>Activity card (grid)</td><td><strong>AI</strong> / wand</td><td>Activity title; new thread; <strong>Anthropic Claude Opus 5</strong></td></tr>
+                        <tr><td>Activity detail page</td><td>Wand in header</td><td>Same Opus 5 routing + title</td></tr>
                         <tr><td>Title-only compact view</td><td>Wand on card</td><td>Activity title</td></tr>
-                        <tr><td>Activity list view</td><td>Wand</td><td>Title; Opus 4.8</td></tr>
+                        <tr><td>Activity list view</td><td>Wand</td><td>Title; Opus 5</td></tr>
                         <tr><td>Photo wall</td><td>Wand on block</td><td>Activity name; new thread; <em>keeps your usual routing</em></td></tr>
                         <tr><td>Slideshow</td><td>Send to assistant</td><td>Current image attached; empty field + placeholder; <strong>Gemini 3.1 Flash Image</strong>; closes slideshow</td></tr>
-                        <tr><td>News (World menu)</td><td>Assistant on article</td><td>Title; <strong>Gemini 3.1 Pro</strong> + web search on</td></tr>
+                        <tr><td>News (World menu)</td><td>Assistant on article</td><td>Title; <strong>Gemini 3.8 Flash</strong> + web search on</td></tr>
                         <tr><td>Weather (OpenWeatherMap)</td><td>Wand on city</td><td>Prefilled “city, country” text</td></tr>
                         <tr><td>National Loto</td><td>AI analysis</td><td>i18n prompt + draws JSON; new thread; tools off</td></tr>
-                        <tr><td>EuroMillions</td><td>AI analysis</td><td>Stats + selected methods as JSON; <strong>Claude Opus 4.8</strong>; tools off</td></tr>
+                        <tr><td>EuroMillions</td><td>AI analysis</td><td>Stats + selected methods as JSON; <strong>Claude Opus 5</strong>; tools off</td></tr>
                     </tbody>
                 </table>
             </section>
@@ -444,14 +444,14 @@
             <section class="doc-section" id="en-tips">
                 <h2>Usage tips</h2>
                 <ul>
-                    <li><strong>Activities / writing</strong>: Claude Fable 5 or Sonnet, or GPT-5.5 — launch from the activity card when routing applies</li>
+                    <li><strong>Activities / writing</strong>: Claude Fable 5.1 or Sonnet 5, or GPT-6 Astra — launch from the activity card when routing applies</li>
                     <li><strong>Photos / slideshow</strong>: Gemini Flash Image with image attached</li>
-                    <li><strong>News</strong>: Gemini + web search checkbox (Grok 4.6 as alternative)</li>
-                    <li><strong>Code</strong>: Claude Fable 5, GPT-5.5, Grok 4.6 (value); Codestral for fast completion</li>
-                    <li><strong>Fast / cheap</strong>: Gemini 2.5 Flash, GPT-4o mini, Haiku</li>
-                    <li><strong>Translation / French</strong>: Mistral Large</li>
-                    <li><strong>Reasoning / long docs</strong>: Gemini 3.1 Pro</li>
-                    <li><strong>Logic puzzles</strong>: Gemini 3.1 Pro, Grok 4.20 Reasoning, Claude Sonnet</li>
+                    <li><strong>News</strong>: Gemini 3.8 Flash + web search checkbox (Grok 4.6 as alternative)</li>
+                    <li><strong>Code</strong>: Claude Fable 5.1, GPT-6 Astra, Grok 4.6 (value); Codestral for fast completion</li>
+                    <li><strong>Fast / cheap</strong>: Gemini 3.5 Flash-Lite, GPT-5.6 Luna, Haiku</li>
+                    <li><strong>Translation / French</strong>: Mistral Medium 3.5</li>
+                    <li><strong>Reasoning / long docs</strong>: GPT-6 Astra, Gemini 3.1 Pro</li>
+                    <li><strong>Logic puzzles</strong>: Gemini 3.1 Pro, Grok 4.20 Reasoning, Claude Sonnet 5</li>
                     <li><strong>Illustration</strong>: check Image generation + OpenAI or Gemini</li>
                     <li>Use the <strong>eraser</strong> between unrelated topics</li>
                     <li>Built-in <strong>Model guide</strong> for the full comparison table</li>

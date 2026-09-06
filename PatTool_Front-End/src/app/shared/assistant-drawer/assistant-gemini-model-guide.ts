@@ -6,9 +6,18 @@ import { AssistantModelGuideRow } from './assistant-model-guide.types';
  */
 export const ASSISTANT_GEMINI_MODEL_GUIDE_ROWS: readonly AssistantModelGuideRow[] = [
   {
+    modelNameKey: 'ASSISTANT.TOOLS_HELP_GEMINI_38FLASH_NAME',
+    apiModelId: 'gemini-3.8-flash',
+    badgeKey: 'ASSISTANT.TOOLS_HELP_GEMINI_38FLASH_BADGE',
+    useKeys: [
+      'ASSISTANT.TOOLS_HELP_GEMINI_38FLASH_U1',
+      'ASSISTANT.TOOLS_HELP_GEMINI_38FLASH_U2',
+      'ASSISTANT.TOOLS_HELP_GEMINI_38FLASH_U3'
+    ]
+  },
+  {
     modelNameKey: 'ASSISTANT.TOOLS_HELP_GEMINI_31PRO_NAME',
     apiModelId: 'gemini-3.1-pro-preview',
-    badgeKey: 'ASSISTANT.TOOLS_HELP_GEMINI_31PRO_BADGE',
     useKeys: [
       'ASSISTANT.TOOLS_HELP_GEMINI_31PRO_U1',
       'ASSISTANT.TOOLS_HELP_GEMINI_31PRO_U2',
@@ -16,48 +25,30 @@ export const ASSISTANT_GEMINI_MODEL_GUIDE_ROWS: readonly AssistantModelGuideRow[
     ]
   },
   {
+    modelNameKey: 'ASSISTANT.TOOLS_HELP_GEMINI_35FLASH_NAME',
+    apiModelId: 'gemini-3.5-flash',
+    useKeys: [
+      'ASSISTANT.TOOLS_HELP_GEMINI_35FLASH_U1',
+      'ASSISTANT.TOOLS_HELP_GEMINI_35FLASH_U2',
+      'ASSISTANT.TOOLS_HELP_GEMINI_35FLASH_U3'
+    ]
+  },
+  {
+    modelNameKey: 'ASSISTANT.TOOLS_HELP_GEMINI_35FLASHLITE_NAME',
+    apiModelId: 'gemini-3.5-flash-lite',
+    useKeys: [
+      'ASSISTANT.TOOLS_HELP_GEMINI_35FLASHLITE_U1',
+      'ASSISTANT.TOOLS_HELP_GEMINI_35FLASHLITE_U2',
+      'ASSISTANT.TOOLS_HELP_GEMINI_35FLASHLITE_U3'
+    ]
+  },
+  {
     modelNameKey: 'ASSISTANT.TOOLS_HELP_GEMINI_31FLASHIMG_NAME',
-    apiModelId: 'gemini-3.1-flash-image-preview',
+    apiModelId: 'gemini-3.1-flash-image',
     useKeys: [
       'ASSISTANT.TOOLS_HELP_GEMINI_31FLASHIMG_U1',
       'ASSISTANT.TOOLS_HELP_GEMINI_31FLASHIMG_U2',
       'ASSISTANT.TOOLS_HELP_GEMINI_31FLASHIMG_U3'
-    ]
-  },
-  {
-    modelNameKey: 'ASSISTANT.TOOLS_HELP_GEMINI_25PRO_NAME',
-    apiModelId: 'gemini-2.5-pro',
-    useKeys: [
-      'ASSISTANT.TOOLS_HELP_GEMINI_25PRO_U1',
-      'ASSISTANT.TOOLS_HELP_GEMINI_25PRO_U2',
-      'ASSISTANT.TOOLS_HELP_GEMINI_25PRO_U3'
-    ]
-  },
-  {
-    modelNameKey: 'ASSISTANT.TOOLS_HELP_GEMINI_25FLASH_NAME',
-    apiModelId: 'gemini-2.5-flash',
-    useKeys: [
-      'ASSISTANT.TOOLS_HELP_GEMINI_25FLASH_U1',
-      'ASSISTANT.TOOLS_HELP_GEMINI_25FLASH_U2',
-      'ASSISTANT.TOOLS_HELP_GEMINI_25FLASH_U3'
-    ]
-  },
-  {
-    modelNameKey: 'ASSISTANT.TOOLS_HELP_GEMINI_20FLASH_NAME',
-    apiModelId: 'gemini-2.0-flash',
-    useKeys: [
-      'ASSISTANT.TOOLS_HELP_GEMINI_20FLASH_U1',
-      'ASSISTANT.TOOLS_HELP_GEMINI_20FLASH_U2',
-      'ASSISTANT.TOOLS_HELP_GEMINI_20FLASH_U3'
-    ]
-  },
-  {
-    modelNameKey: 'ASSISTANT.TOOLS_HELP_GEMINI_15FLASH_NAME',
-    apiModelId: 'gemini-1.5-flash',
-    useKeys: [
-      'ASSISTANT.TOOLS_HELP_GEMINI_15FLASH_U1',
-      'ASSISTANT.TOOLS_HELP_GEMINI_15FLASH_U2',
-      'ASSISTANT.TOOLS_HELP_GEMINI_15FLASH_U3'
     ]
   }
 ];

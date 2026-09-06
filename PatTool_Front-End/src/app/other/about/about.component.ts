@@ -118,6 +118,7 @@ export class AboutComponent {
     { route: ['tools/relief-finder'], icon: 'fa-area-chart', labelKey: 'MENU.RELIEF_FINDER', descKey: 'ABOUT.FEAT_RELIEF' },
     { route: ['api/wiki'], icon: 'fa-graduation-cap', labelKey: 'MENU.WIKI', descKey: 'ABOUT.FEAT_WIKI' },
     { route: ['api/foncier'], icon: 'fa-building', labelKey: 'MENU.FONCIER', descKey: 'ABOUT.FEAT_FONCIER' },
+    { route: ['api/foncier-suisse'], icon: 'fa-flag', labelKey: 'MENU.FONCIER_SUISSE', descKey: 'ABOUT.FEAT_FONCIER_SUISSE' },
     { route: ['tools/archive-watcher'], icon: 'fa-archive', labelKey: 'MENU.ARCHIVE', descKey: 'ABOUT.FEAT_MEDIA' },
     { route: ['tools/video-montage'], icon: 'fa-film', labelKey: 'MENU.VIDEO_MONTAGE', descKey: 'ABOUT.FEAT_VIDEO_MONTAGE' },
     { route: ['system'], icon: 'fa-cog', labelKey: 'MENU.SYSTEM', descKey: 'ABOUT.FEAT_SYSTEM' }

@@ -1,0 +1,333 @@
+<div class="pat-title">
+  <h2>
+    <i class="fa fa-code me-2"></i>
+    {{ 'CODE.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="code-page container-fluid py-3">
+  <p class="text-muted small mb-3">{{ 'CODE.SUBTITLE' | translate }}</p>
+
+  <div *ngIf="!isLoggedIn" class="alert alert-info">
+    <i class="fa fa-info-circle me-2"></i>{{ 'CODE.LOGIN_HINT' | translate }}
+  </div>
+
+  <div *ngIf="errorKey" class="alert alert-warning d-flex align-items-center" role="alert">
+    <i class="fa fa-exclamation-triangle me-2"></i>
+    <span>{{ errorKey | translate }}</span>
+  </div>
+  <div *ngIf="statusKey" class="alert alert-success py-2 small">{{ statusKey | translate }}</div>
+  <div *ngIf="repoPreview?.error" class="alert alert-warning py-2 small">{{ repoPreview?.error }}</div>
+
+  <div class="code-grid" *ngIf="isLoggedIn">
+    <aside class="card shadow-sm code-col">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="card-title mb-0"><i class="fa fa-folder-open me-1"></i> {{ 'CODE.PROJECTS' | translate }}</h5>
+          <button type="button" class="btn btn-sm btn-primary" (click)="newProject()">
+            <i class="fa fa-plus"></i> {{ 'CODE.NEW_PROJECT' | translate }}
+          </button>
+        </div>
+        <p *ngIf="loadingList" class="text-muted small mb-0">
+          <span class="spinner-border spinner-border-sm me-1"></span>{{ 'CODE.LOADING' | translate }}
+        </p>
+        <ul class="list-group list-group-flush code-project-list">
+          <li *ngFor="let p of projects"
+              class="list-group-item list-group-item-action"
+              [class.active]="current?.id === p.id"
+              (click)="openProject(p)">
+            <div class="fw-semibold text-truncate">{{ p.name }}</div>
+            <div class="small opacity-75 text-truncate">{{ p.language || '—' }} · {{ p.files?.length || 0 }} {{ 'CODE.FILES_SHORT' | translate }}</div>
+          </li>
+        </ul>
+        <p *ngIf="!loadingList && !projects.length" class="text-muted small mt-2 mb-0">{{ 'CODE.NO_PROJECT' | translate }}</p>
+      </div>
+    </aside>
+
+    <section class="card shadow-sm code-col code-col-main">
+      <div class="card-body d-flex flex-column">
+        <ng-container *ngIf="current; else noProject">
+          <div class="row g-2 mb-2">
+            <div class="col-md-5">
+              <label class="form-label small mb-1">{{ 'CODE.PROJECT_NAME' | translate }}</label>
+              <input class="form-control form-control-sm" [(ngModel)]="current.name" (ngModelChange)="onMetaChange()">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small mb-1">{{ 'CODE.LANGUAGE' | translate }}</label>
+              <select class="form-select form-select-sm" [(ngModel)]="current.language" (ngModelChange)="onMetaChange()">
+                <option *ngFor="let lang of languages" [ngValue]="lang">{{ lang }}</option>
+              </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end gap-2">
+              <button type="button" class="btn btn-sm btn-success" (click)="saveCurrent(false)" [disabled]="saving">
+                <i class="fa fa-save"></i> {{ 'CODE.SAVE' | translate }}
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-danger" (click)="deleteCurrent()">
+                <i class="fa fa-trash"></i>
+              </button>
+              <span *ngIf="dirty" class="small text-muted">{{ 'CODE.UNSAVED' | translate }}</span>
+            </div>
+          </div>
+          <label class="form-label small mb-1">{{ 'CODE.PROJECT_DESC' | translate }}</label>
+          <input class="form-control form-control-sm mb-3" [(ngModel)]="current.description" (ngModelChange)="onMetaChange()">
+
+          <div class="code-files-bar">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="mb-0">{{ 'CODE.FILES' | translate }}</h6>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-primary" (click)="addFile()">
+                  <i class="fa fa-plus"></i> {{ 'CODE.NEW_FILE' | translate }}
+                </button>
+                <button type="button"
+                        class="btn btn-sm btn-outline-secondary"
+                        (click)="toggleEditorFullscreen()"
+                        [disabled]="!selectedFile"
+                        [attr.title]="(editorFullscreen ? 'CODE.EXIT_FULLSCREEN' : 'CODE.FULLSCREEN') | translate"
+                        [attr.aria-label]="(editorFullscreen ? 'CODE.EXIT_FULLSCREEN' : 'CODE.FULLSCREEN') | translate">
+                  <i class="fa" [ngClass]="editorFullscreen ? 'fa-compress' : 'fa-expand'"></i>
+                </button>
+              </div>
+            </div>
+            <div class="code-file-tabs">
+              <button *ngFor="let f of files; let i = index"
+                      type="button"
+                      class="btn btn-sm"
+                      [class.btn-dark]="i === selectedFileIndex"
+                      [class.btn-outline-secondary]="i !== selectedFileIndex"
+                      (click)="selectFile(i)">
+                {{ f.path }}
+                <span class="ms-1" (click)="deleteFile(i); $event.stopPropagation()" title="{{ 'CODE.DELETE_FILE' | translate }}">&times;</span>
+              </button>
+            </div>
+          </div>
+
+          <div *ngIf="selectedFile"
+               #editorStage
+               class="code-hl-stage flex-grow-1"
+               [class.code-hl-stage--fs]="editorCssFs">
+            <div class="code-hl-toolbar">
+              <span class="text-truncate">{{ selectedFile.path }}</span>
+              <span class="code-hl-lang" *ngIf="editorLangLabel()">{{ editorLangLabel() }}</span>
+              <button type="button"
+                      class="btn btn-sm btn-outline-light"
+                      (click)="toggleEditorFullscreen()"
+                      [attr.title]="(editorFullscreen ? 'CODE.EXIT_FULLSCREEN' : 'CODE.FULLSCREEN') | translate">
+                <i class="fa" [ngClass]="editorFullscreen ? 'fa-compress' : 'fa-expand'"></i>
+              </button>
+            </div>
+            <div class="code-hl-body">
+              <pre #editorPre class="code-hl-pre" aria-hidden="true"><code [innerHTML]="highlightedEditorHtml()"></code></pre>
+              <textarea class="code-hl-input"
+                        [ngModel]="fileContentModel()"
+                        (ngModelChange)="onFileContentChange($event)"
+                        (scroll)="syncEditorScroll($event)"
+                        spellcheck="false"
+                        [attr.placeholder]="'CODE.EDITOR_PLACEHOLDER' | translate"></textarea>
+            </div>
+          </div>
+          <p *ngIf="!selectedFile" class="text-muted small">{{ 'CODE.EMPTY_FILES' | translate }}</p>
+        </ng-container>
+        <ng-template #noProject>
+          <p class="text-muted mb-0">{{ 'CODE.NO_PROJECT' | translate }}</p>
+        </ng-template>
+      </div>
+    </section>
+
+    <section class="card shadow-sm code-col">
+      <div class="card-body d-flex flex-column">
+        <h5 class="card-title"><i class="fa fa-shield me-1"></i> {{ 'CODE.ASSISTANT' | translate }}</h5>
+        <p class="small text-muted">{{ 'CODE.SECURITY_HINT' | translate }}</p>
+
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="form-label small mb-1">{{ 'CODE.PROVIDER' | translate }}</label>
+            <select class="form-select form-select-sm"
+                    [ngModel]="provider"
+                    (ngModelChange)="onProviderChange($event)">
+              <option *ngFor="let p of providers" [ngValue]="p.slug">{{ p.labelKey | translate }}</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-1">{{ 'CODE.MODEL' | translate }}</label>
+            <select class="form-select form-select-sm"
+                    [ngModel]="current?.model"
+                    (ngModelChange)="onModelChange($event)">
+              <option *ngFor="let m of models" [ngValue]="m">{{ m }}</option>
+            </select>
+          </div>
+        </div>
+        <input class="form-control form-control-sm mb-2"
+               [(ngModel)]="customModel"
+               (ngModelChange)="onMetaChange()"
+               [attr.placeholder]="'CODE.CUSTOM_MODEL' | translate">
+
+        <div #chatScroll class="code-chat mb-2">
+          <div *ngFor="let t of chatTurns" class="code-msg" [class.code-msg-user]="t.role === 'user'" [class.code-msg-ai]="t.role === 'assistant'">
+            <div class="small fw-semibold mb-1">{{ t.role === 'user' ? ('CODE.YOU' | translate) : ('CODE.ASSISTANT' | translate) }}</div>
+            <div class="code-msg-body" [innerHTML]="highlightedChatHtml(t.content)"></div>
+          </div>
+          <p *ngIf="!chatTurns.length" class="text-muted small mb-0">{{ 'CODE.CHAT_EMPTY' | translate }}</p>
+        </div>
+
+        <div *ngIf="applyCandidates.length" class="alert alert-info py-2 small">
+          {{ 'CODE.APPLY_HINT' | translate:{ count: applyCandidates.length } }}
+          <button type="button" class="btn btn-sm btn-primary ms-2" (click)="applyParsedFiles()">{{ 'CODE.APPLY_FILES' | translate }}</button>
+        </div>
+
+        <textarea class="form-control mb-2"
+                  rows="3"
+                  [(ngModel)]="draftPrompt"
+                  [attr.placeholder]="'CODE.PROMPT_PLACEHOLDER' | translate"
+                  (keydown.control.enter)="sendPrompt()"></textarea>
+        <button type="button" class="btn btn-primary" (click)="sendPrompt()" [disabled]="sending || !current || !draftPrompt.trim()">
+          <span *ngIf="sending" class="spinner-border spinner-border-sm me-1"></span>
+          {{ 'CODE.SEND' | translate }}
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <section class="card shadow-sm mt-3" *ngIf="isLoggedIn">
+    <div class="card-body">
+      <h5 class="card-title"><i class="fa fa-github me-1"></i> {{ 'CODE.REPO_TITLE' | translate }}</h5>
+      <p class="small text-muted">{{ 'CODE.REPO_HINT' | translate }}</p>
+
+      <div class="row g-2 align-items-end mb-2">
+        <div class="col-md-6">
+          <label class="form-label small mb-1">{{ 'CODE.REPO_SEARCH' | translate }}</label>
+          <input class="form-control"
+                 [(ngModel)]="repoSearchQuery"
+                 [attr.placeholder]="'CODE.REPO_SEARCH_PLACEHOLDER' | translate"
+                 (keydown.enter)="searchRepos()">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small mb-1">{{ 'CODE.REPO_HOST' | translate }}</label>
+          <select class="form-select" [(ngModel)]="repoSearchHost">
+            <option value="all">GitHub + GitLab</option>
+            <option value="github">GitHub</option>
+            <option value="gitlab">GitLab</option>
+          </select>
+        </div>
+        <div class="col-md-4 d-flex flex-column gap-1">
+          <button type="button" class="btn btn-primary" (click)="searchRepos()" [disabled]="searchingRepos || repoSearchQuery.trim().length < 2">
+            <span *ngIf="searchingRepos" class="spinner-border spinner-border-sm me-1"></span>
+            {{ 'CODE.REPO_SEARCH_BTN' | translate }}
+          </button>
+          <label class="form-check small mb-0">
+            <input class="form-check-input" type="checkbox" [(ngModel)]="repoSearchNatural">
+            {{ 'CODE.REPO_SEARCH_NL' | translate }}
+          </label>
+        </div>
+      </div>
+      <div class="d-flex flex-wrap gap-2 mb-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" *ngFor="let ex of repoExamples" (click)="searchRepos(ex)">{{ ex }}</button>
+      </div>
+      <p class="small text-muted mb-3" *ngIf="repoSearchInterpreted || repoSearchSummary">
+        <span *ngIf="repoSearchSummary">{{ repoSearchSummary }}</span>
+        <span *ngIf="repoSearchInterpreted">
+          <span *ngIf="repoSearchSummary"> — </span>
+          {{ 'CODE.REPO_SEARCH_INTERPRETED' | translate:{ query: repoSearchInterpreted } }}
+        </span>
+      </p>
+
+      <div *ngIf="repoHits.length" class="code-repo-hits mb-3">
+        <button type="button" class="code-repo-hit" *ngFor="let hit of repoHits" (click)="openSearchHit(hit)">
+          <div class="d-flex justify-content-between gap-2">
+            <strong class="text-truncate">{{ hit.fullName || (hit.owner + '/' + hit.name) }}</strong>
+            <span class="small text-nowrap"><i class="fa fa-star"></i> {{ hit.stars || 0 }} · {{ hit.host }}</span>
+          </div>
+          <div class="small text-muted text-truncate">{{ hit.description || hit.language || hit.htmlUrl }}</div>
+        </button>
+      </div>
+
+      <div class="row g-2 align-items-end">
+        <div class="col-md-7">
+          <label class="form-label small mb-1">{{ 'CODE.REPO_URL' | translate }}</label>
+          <input class="form-control" [(ngModel)]="repoUrl" [attr.placeholder]="'CODE.REPO_PLACEHOLDER' | translate">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small mb-1">{{ 'CODE.REPO_BRANCH' | translate }}</label>
+          <input class="form-control" [(ngModel)]="repoBranch" placeholder="main">
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+          <button type="button" class="btn btn-outline-primary" (click)="fetchRepo()" [disabled]="loadingTree || !repoUrl.trim()">
+            <span *ngIf="loadingTree" class="spinner-border spinner-border-sm me-1"></span>
+            {{ 'CODE.REPO_BROWSE' | translate }}
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="repoTree" class="code-repo-browse mt-3">
+        <p class="small mb-2">
+          <strong>{{ repoTree.owner }}/{{ repoTree.name }}</strong>
+          <span *ngIf="repoTree.defaultBranch"> · {{ repoTree.defaultBranch }}</span>
+        </p>
+        <nav class="code-repo-crumbs small mb-2" aria-label="breadcrumb">
+          <button type="button" class="btn btn-link btn-sm p-0" (click)="goTreeCrumb(-1)">{{ repoTree.name || '/' }}</button>
+          <ng-container *ngFor="let crumb of treeCrumbs; let i = index">
+            <span class="mx-1">/</span>
+            <button type="button" class="btn btn-link btn-sm p-0" (click)="goTreeCrumb(i)">{{ crumb }}</button>
+          </ng-container>
+        </nav>
+        <div class="code-repo-split">
+          <div class="code-repo-tree">
+            <button *ngIf="repoTreePath" type="button" class="code-repo-entry" (click)="goTreeParent()" [disabled]="loadingTree">
+              <i class="fa fa-level-up me-1"></i> ..
+            </button>
+            <button type="button"
+                    class="code-repo-entry"
+                    *ngFor="let e of repoTree.entries"
+                    [class.active]="repoOpenFile?.path === e.path"
+                    (click)="openTreeEntry(e)"
+                    [disabled]="loadingTree || loadingRepoFile">
+              <i class="fa me-1" [class.fa-folder]="e.type === 'dir'" [class.fa-file-text-o]="e.type !== 'dir'"></i>
+              {{ e.name }}
+              <span *ngIf="e.type !== 'dir' && e.size" class="small text-muted ms-1">{{ e.size }}</span>
+            </button>
+            <p *ngIf="!repoTree.entries?.length" class="text-muted small mb-0 p-2">{{ 'CODE.REPO_DIR_EMPTY' | translate }}</p>
+          </div>
+          <div class="code-repo-preview"
+               #repoPreviewStage
+               [class.code-hl-stage--fs]="repoCssFs">
+            <p *ngIf="loadingRepoFile" class="text-muted small">
+              <span class="spinner-border spinner-border-sm me-1"></span>{{ 'CODE.LOADING' | translate }}
+            </p>
+            <ng-container *ngIf="repoOpenFile">
+              <div class="d-flex justify-content-between align-items-center mb-2 gap-2">
+                <strong class="small text-truncate">{{ repoOpenFile.path }}</strong>
+                <div class="d-flex gap-1 flex-shrink-0">
+                  <button type="button"
+                          class="btn btn-sm btn-outline-light"
+                          (click)="toggleRepoFullscreen()"
+                          [attr.title]="(repoFullscreen ? 'CODE.EXIT_FULLSCREEN' : 'CODE.FULLSCREEN') | translate">
+                    <i class="fa" [ngClass]="repoFullscreen ? 'fa-compress' : 'fa-expand'"></i>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-success" (click)="importOpenFile()" [disabled]="!current">{{ 'CODE.REPO_IMPORT_FILE' | translate }}</button>
+                  <button type="button" class="btn btn-sm btn-primary" (click)="analyzeOpenFile()" [disabled]="!current || sending">{{ 'CODE.REPO_ANALYZE_FILE' | translate }}</button>
+                </div>
+              </div>
+              <pre class="code-repo-file code-hl-pre code-hl-pre--solo" [innerHTML]="highlightedRepoHtml()"></pre>
+            </ng-container>
+            <p *ngIf="!repoOpenFile && !loadingRepoFile" class="text-muted small mb-0">{{ 'CODE.REPO_PICK_FILE' | translate }}</p>
+          </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap mt-3">
+          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="fetchRepoSubset()" [disabled]="fetchingRepo">
+            <span *ngIf="fetchingRepo" class="spinner-border spinner-border-sm me-1"></span>
+            {{ 'CODE.REPO_FETCH' | translate }}
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-success" (click)="importRepoFiles()" [disabled]="!current || !repoPreview?.files?.length">
+            {{ 'CODE.REPO_IMPORT' | translate }}
+          </button>
+          <button type="button" class="btn btn-sm btn-primary" (click)="analyzeRepoWithAi()" [disabled]="!current || sending || !repoPreview?.files?.length">
+            {{ 'CODE.REPO_ANALYZE' | translate }}
+          </button>
+        </div>
+        <p *ngIf="repoPreview?.files?.length" class="small text-muted mt-2 mb-0">
+          {{ repoPreview?.files?.length }} {{ 'CODE.FILES_SHORT' | translate }}
+          <span *ngIf="repoPreview?.truncated"> · {{ 'CODE.REPO_TRUNCATED' | translate }}</span>
+        </p>
+      </div>
+    </div>
+  </section>
+</div>

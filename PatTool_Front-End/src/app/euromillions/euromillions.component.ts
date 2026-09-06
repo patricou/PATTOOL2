@@ -36,10 +36,10 @@ const EUROM_METHOD_USEFULNESS_STARS: Record<(typeof EUROM_METHOD_OPTION_IDS)[num
   sum_correlation: 2
 };
 
-/** Assistant launch from EuroMillions: Anthropic + `claude-opus-4-8`, matching the recommended UI selector. */
+/** Assistant launch from EuroMillions: Anthropic + `claude-opus-5`, matching the recommended UI selector. */
 const EUROM_AI_LAUNCH_ROUTING: AssistantLaunchRouting = {
   provider: 'anthropic',
-  modelPreset: 'claude-opus-4-8'
+  modelPreset: 'claude-opus-5'
 };
 
 export type EuromSortColumn = 'date' | 'combo' | 'gain' | 'code';

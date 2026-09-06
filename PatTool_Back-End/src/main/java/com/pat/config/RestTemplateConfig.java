@@ -42,6 +42,9 @@ public class RestTemplateConfig {
     /** CEREMA DVF+ / listings fonciers — bbox 10 km souvent > 3 s. */
     public static final String FONCIER_REST_TEMPLATE = "foncierRestTemplate";
 
+    /** GitHub / GitLab public APIs for the Science → Code workbench. */
+    public static final String CODE_REPO_REST_TEMPLATE = "codeRepoRestTemplate";
+
 
     /**
      * Client HTTP court pour proxies et API externes (échec rapide si indisponible).
@@ -52,6 +55,14 @@ public class RestTemplateConfig {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(2))
                 .setReadTimeout(Duration.ofSeconds(3))
+                .build();
+    }
+
+    @Bean(CODE_REPO_REST_TEMPLATE)
+    public RestTemplate codeRepoRestTemplate(RestTemplateBuilder builder) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(8))
+                .setReadTimeout(Duration.ofSeconds(20))
                 .build();
     }
 

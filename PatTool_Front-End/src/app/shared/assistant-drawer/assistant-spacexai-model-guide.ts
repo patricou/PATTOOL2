@@ -45,6 +45,15 @@ export const ASSISTANT_SPACEXAI_MODEL_GUIDE_ROWS: readonly AssistantSpaceXaiMode
     ]
   },
   {
+    modelNameKey: 'ASSISTANT.TOOLS_HELP_SPACEXAI_GROK420MA_NAME',
+    apiModelId: 'grok-4.20-multi-agent-0309',
+    useKeys: [
+      'ASSISTANT.TOOLS_HELP_SPACEXAI_GROK420MA_U1',
+      'ASSISTANT.TOOLS_HELP_SPACEXAI_GROK420MA_U2',
+      'ASSISTANT.TOOLS_HELP_SPACEXAI_GROK420MA_U3'
+    ]
+  },
+  {
     modelNameKey: 'ASSISTANT.TOOLS_HELP_SPACEXAI_BUILD_NAME',
     apiModelId: 'grok-build-0.1',
     useKeys: [

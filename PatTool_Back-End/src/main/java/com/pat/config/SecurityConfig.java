@@ -379,6 +379,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/artisans/nearby", "/api/external/artisans/website").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/foncier/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/external/foncier/cache/clear").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/foncier-suisse/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/external/foncier-suisse/cache/clear").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/youtube/**").permitAll()
                 // Telegram Bot API — always authenticated (per-user BotFather token in Mongo)
 

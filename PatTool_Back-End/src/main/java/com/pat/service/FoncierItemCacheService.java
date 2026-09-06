@@ -36,8 +36,9 @@ public class FoncierItemCacheService {
     public static final String CEREMA = "cerema";
     public static final String STREAM_ESTATE = "stream-estate";
     public static final String CHERCHER_TROUVER = "chercher-trouver";
+    public static final String IMMOSWIPE = "immoswipe";
     private static final int MAX_PER_PROVIDER = 5000;
-    private static final Set<String> PROVIDERS = Set.of(CEREMA, STREAM_ESTATE, CHERCHER_TROUVER);
+    private static final Set<String> PROVIDERS = Set.of(CEREMA, STREAM_ESTATE, CHERCHER_TROUVER, IMMOSWIPE);
 
     private final ObjectMapper objectMapper;
     private final FoncierGeoService geoService;

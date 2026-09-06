@@ -2987,6 +2987,118 @@ export class ApiService {
     });
   }
 
+  searchFoncierSuissePlaces(query: string): Observable<FoncierCommuneSearch> {
+    return this._http.get<FoncierCommuneSearch>(this.API_URL + 'external/foncier-suisse/places', {
+      params: new HttpParams().set('q', query)
+    });
+  }
+
+  geocodeFoncierSuissePlace(query: string, postcode?: string): Observable<FoncierGeocodeHit> {
+    let params = new HttpParams().set('q', query);
+    if (postcode) {
+      params = params.set('postcode', postcode);
+    }
+    return this._http.get<FoncierGeocodeHit>(this.API_URL + 'external/foncier-suisse/geocode', { params });
+  }
+
+  getFoncierSuisseCache(): Observable<FoncierCacheStatus> {
+    return this._http.get<FoncierCacheStatus>(this.API_URL + 'external/foncier-suisse/cache');
+  }
+
+  clearFoncierSuisseCache(): Observable<FoncierCacheStatus> {
+    return this._http.post<FoncierCacheStatus>(this.API_URL + 'external/foncier-suisse/cache/clear', {});
+  }
+
+  searchFoncierSuisseListings(opts: FoncierListingSearch & { roomsMin?: number; zip?: string; locale?: string }): Observable<FoncierListingPage> {
+    let params = this.foncierListingParams(opts);
+    if (opts.roomsMin != null && opts.roomsMin > 0) {
+      params = params.set('roomsMin', String(opts.roomsMin));
+    }
+    if (opts.zip) {
+      params = params.set('zip', opts.zip);
+    }
+    if (opts.locale) {
+      params = params.set('locale', opts.locale);
+    }
+    return this._http.get<FoncierListingPage>(this.API_URL + 'external/foncier-suisse/listings', { params });
+  }
+
+  getFoncierSuissePopular(opts: { locale?: string; source?: FoncierCacheSource }): Observable<FoncierListingPage> {
+    let params = new HttpParams();
+    if (opts.locale) {
+      params = params.set('locale', opts.locale);
+    }
+    if (opts.source) {
+      params = params.set('source', opts.source);
+    }
+    return this._http.get<FoncierListingPage>(this.API_URL + 'external/foncier-suisse/popular', { params });
+  }
+
+  getFoncierSuisseChances(opts: {
+    location: string;
+    rooms: string;
+    budget: string;
+    household: string;
+    timeframe: string;
+    income?: string;
+    workplace?: string;
+    locationType?: string;
+    locale?: string;
+  }): Observable<FoncierSuisseChances> {
+    let params = new HttpParams()
+      .set('location', opts.location)
+      .set('rooms', opts.rooms)
+      .set('budget', opts.budget)
+      .set('household', opts.household)
+      .set('timeframe', opts.timeframe);
+    if (opts.income) {
+      params = params.set('income', opts.income);
+    }
+    if (opts.workplace) {
+      params = params.set('workplace', opts.workplace);
+    }
+    if (opts.locationType) {
+      params = params.set('locationType', opts.locationType);
+    }
+    if (opts.locale) {
+      params = params.set('locale', opts.locale);
+    }
+    return this._http.get<FoncierSuisseChances>(this.API_URL + 'external/foncier-suisse/chances', { params });
+  }
+
+  getFoncierSuisseGuides(query?: string, locale?: string): Observable<FoncierSuisseGuides> {
+    let params = new HttpParams();
+    if (query) {
+      params = params.set('q', query);
+    }
+    if (locale) {
+      params = params.set('locale', locale);
+    }
+    return this._http.get<FoncierSuisseGuides>(this.API_URL + 'external/foncier-suisse/guides', { params });
+  }
+
+  getFoncierSuisseGuide(slug: string, locale?: string): Observable<FoncierSuisseGuide> {
+    let params = new HttpParams();
+    if (locale) {
+      params = params.set('locale', locale);
+    }
+    return this._http.get<FoncierSuisseGuide>(
+      this.API_URL + 'external/foncier-suisse/guides/' + encodeURIComponent(slug),
+      { params }
+    );
+  }
+
+  getFoncierSuisseFaqs(query?: string, locale?: string): Observable<FoncierSuisseFaqs> {
+    let params = new HttpParams();
+    if (query) {
+      params = params.set('q', query);
+    }
+    if (locale) {
+      params = params.set('locale', locale);
+    }
+    return this._http.get<FoncierSuisseFaqs>(this.API_URL + 'external/foncier-suisse/faqs', { params });
+  }
+
   private foncierListingParams(opts: FoncierListingSearch): HttpParams {
     let params = new HttpParams();
     if (opts.q) {
@@ -5684,7 +5796,7 @@ export interface FoncierMutationPage {
 }
 
 export type FoncierCacheSource = 'cache' | 'both' | 'api';
-export type FoncierCacheProvider = 'cerema' | 'stream-estate' | 'chercher-trouver';
+export type FoncierCacheProvider = 'cerema' | 'stream-estate' | 'chercher-trouver' | 'immoswipe';
 
 export interface FoncierCacheStatus {
   provider?: FoncierCacheProvider;
@@ -5738,6 +5850,8 @@ export interface FoncierListing {
   source?: string;
   lat?: number;
   lon?: number;
+  priceType?: string;
+  furnished?: boolean;
 }
 
 export interface FoncierListingPage {
@@ -5748,6 +5862,53 @@ export interface FoncierListingPage {
   cacheCount?: number;
   source?: FoncierCacheSource;
   items?: FoncierListing[];
+}
+
+export interface FoncierSuisseChanceScore {
+  name?: string;
+  type?: string;
+  score?: number;
+  avg_rent?: number;
+  vacancy_rate?: number;
+  competitors_range?: string;
+  tax_rate_pct?: number;
+  tax_chf_per_year?: number;
+  commute_minutes_to_workplace?: number;
+}
+
+export interface FoncierSuisseChances {
+  scores?: FoncierSuisseChanceScore[];
+  highlight_budget?: string;
+  highlight_alternative?: string;
+  tax_highlight?: string;
+  analysis_text?: string;
+}
+
+export interface FoncierSuisseGuide {
+  id?: number;
+  slug?: string;
+  title?: string;
+  image_url?: string;
+  published_at?: string;
+  md_preview?: string;
+  md_body?: string;
+  meta_title?: string;
+  meta_description?: string;
+}
+
+export interface FoncierSuisseGuides {
+  guides?: FoncierSuisseGuide[];
+}
+
+export interface FoncierSuisseFaq {
+  id?: number;
+  title?: string;
+  answer?: string;
+  role?: string;
+}
+
+export interface FoncierSuisseFaqs {
+  faqs?: FoncierSuisseFaq[];
 }
 
 export type YoutubeItemKind = 'video' | 'playlist' | 'channel';

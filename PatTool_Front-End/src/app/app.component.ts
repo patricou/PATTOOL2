@@ -259,7 +259,8 @@ export class AppComponent implements OnInit, AfterViewInit {
         { routerLink: ['api/cryptos'], icon: 'fa fa-bitcoin', labelKey: 'MENU.CRYPTOS' }
     ];
     readonly navFoncierRaw: NavRouteMenuItem[] = [
-        { routerLink: ['api/foncier'], icon: 'fa fa-home', labelKey: 'MENU.FONCIER' }
+        { routerLink: ['api/foncier'], icon: 'fa fa-home', labelKey: 'MENU.FONCIER' },
+        { routerLink: ['api/foncier-suisse'], icon: 'fa fa-flag', labelKey: 'MENU.FONCIER_SUISSE' }
     ];
     readonly navArtisansRaw: NavRouteMenuItem[] = [
         { routerLink: ['iot/artisans'], icon: 'fa fa-wrench', labelKey: 'MENU.ARTISANS_COMMERCES' }
@@ -293,7 +294,8 @@ export class AppComponent implements OnInit, AfterViewInit {
         { routerLink: ['tools/euromillions'], icon: 'fa fa-star', labelKey: 'MENU.EUROMILLIONS' },
         { routerLink: ['tools/calculator'], icon: 'fa fa-calculator', labelKey: 'MENU.CALCULATOR' },
         { routerLink: ['tools/cern'], icon: 'fa fa-flask', labelKey: 'MENU.CERN' },
-        { routerLink: ['tools/chimie'], icon: 'fa fa-flask', labelKey: 'MENU.CHIMIE' }
+        { routerLink: ['tools/chimie'], icon: 'fa fa-flask', labelKey: 'MENU.CHIMIE' },
+        { routerLink: ['tools/code'], icon: 'fa fa-code', labelKey: 'MENU.CODE' }
     ];
     readonly toolsMenuRowsRaw: ToolsMenuRow[] = [
         { kind: 'route', routerLink: ['friends'], icon: 'fa fa-users', labelKey: 'MENU.FRIENDS' },

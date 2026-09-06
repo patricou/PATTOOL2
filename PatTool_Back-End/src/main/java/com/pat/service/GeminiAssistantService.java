@@ -56,7 +56,7 @@ public class GeminiAssistantService {
     @Value("${gemini.api:https://generativelanguage.googleapis.com/v1beta}")
     private String apiBase;
 
-    @Value("${gemini.model:gemini-2.0-flash}")
+    @Value("${gemini.model:gemini-3.8-flash}")
     private String model;
 
     @Value("${gemini.max-output-tokens:16384}")
@@ -66,7 +66,7 @@ public class GeminiAssistantService {
     private String assistantProviderLabel;
 
     /** Modèle utilisé lorsque la génération d’images est demandée (texte + image). */
-    @Value("${gemini.image-generation-model:gemini-2.5-flash-image}")
+    @Value("${gemini.image-generation-model:gemini-3.1-flash-image}")
     private String imageGenerationModel;
 
     /**
@@ -333,7 +333,7 @@ public class GeminiAssistantService {
         if (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
         }
-        String mid = modelId != null ? modelId.trim() : "gemini-2.0-flash";
+        String mid = modelId != null ? modelId.trim() : "gemini-3.8-flash";
         return UriComponentsBuilder.fromUriString(base + "/models/" + mid + ":generateContent")
                 .queryParam("key", apiKey.trim())
                 .encode()

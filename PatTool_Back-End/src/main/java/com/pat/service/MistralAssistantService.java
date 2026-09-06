@@ -50,7 +50,7 @@ public class MistralAssistantService {
     @Value("${mistral.api:https://api.mistral.ai/v1/chat/completions}")
     private String apiUrl;
 
-    @Value("${mistral.model:mistral-large-latest}")
+    @Value("${mistral.model:mistral-medium-latest}")
     private String model;
 
     @Value("${mistral.max-tokens:8192}")
@@ -124,7 +124,7 @@ public class MistralAssistantService {
         if (imageAttach.dataUrl() != null && !isMistralVisionModel(requestModel)) {
             return AssistantChatResponseDto.err(
                     "Ce modèle Mistral ne prend pas en charge l’analyse d’images. "
-                            + "Choisissez pixtral-large-latest (ou un modèle Pixtral).");
+                            + "Choisissez mistral-medium-latest, mistral-large-latest ou mistral-small-latest.");
         }
 
         boolean wantWeb = tf != null && Boolean.TRUE.equals(tf.webSearch());
@@ -303,7 +303,15 @@ public class MistralAssistantService {
             return false;
         }
         String s = modelId.trim().toLowerCase(Locale.ROOT);
-        return s.startsWith("pixtral-") || s.contains("pixtral");
+        if (s.contains("embed") || s.contains("moderation") || s.contains("ocr") || s.contains("codestral")) {
+            return false;
+        }
+        return s.startsWith("pixtral-")
+                || s.contains("pixtral")
+                || s.startsWith("mistral-medium")
+                || s.startsWith("mistral-large")
+                || s.startsWith("mistral-small")
+                || s.startsWith("ministral-");
     }
 
     private String resolveConversationsApiUrl() {

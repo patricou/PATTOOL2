@@ -1,0 +1,340 @@
+<div class="pat-title">
+  <h2>
+    <i class="fa me-2" [ngClass]="titleIcon" aria-hidden="true"></i>
+    {{ 'FONCIER_SUISSE.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="foncier-page">
+  <p class="foncier-lead">{{ 'FONCIER_SUISSE.SUBTITLE' | translate }}</p>
+
+  <div class="foncier-tabs" role="tablist" [attr.aria-label]="'FONCIER_SUISSE.TITLE' | translate">
+    <button
+      type="button"
+      *ngFor="let tabItem of tabs"
+      class="foncier-tab"
+      role="tab"
+      [attr.aria-selected]="tab === tabItem.id"
+      [class.foncier-tab--on]="tab === tabItem.id"
+      (click)="setTab(tabItem.id)">
+      <i [class]="tabItem.icon" aria-hidden="true"></i>
+      <span>{{ tabItem.labelKey | translate }}</span>
+    </button>
+  </div>
+
+  <form class="foncier-panel" (submit)="$event.preventDefault(); submitSearch()">
+    <div class="foncier-field foncier-field--place" *ngIf="tab !== 'guides'">
+      <label for="fs-query">{{ 'FONCIER_SUISSE.CITY' | translate }}</label>
+      <div class="foncier-input-wrap">
+        <i class="fa fa-map-marker" aria-hidden="true"></i>
+        <input
+          id="fs-query"
+          type="search"
+          class="form-control form-control-sm"
+          name="fsQuery"
+          role="combobox"
+          aria-autocomplete="list"
+          [(ngModel)]="query"
+          (ngModelChange)="onQueryChanged()"
+          (keydown)="onCommuneKeydown($event)"
+          [placeholder]="'FONCIER_SUISSE.CITY_PLACEHOLDER' | translate"
+          autocomplete="off"
+          autofocus />
+        <div class="foncier-suggest" *ngIf="(communes.length || searchingCommunes) && !selected">
+          <div class="small text-muted foncier-suggest-status" *ngIf="searchingCommunes">
+            <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'FONCIER.LOADING' | translate }}
+          </div>
+          <p class="small text-muted foncier-suggest-status mb-0" *ngIf="!searchingCommunes && communes.length">
+            {{ 'FONCIER_SUISSE.CHOOSE_CITY' | translate }}
+          </p>
+          <button
+            type="button"
+            *ngFor="let commune of communes; let i = index"
+            role="option"
+            [class.active]="communeActiveIndex === i"
+            (mouseenter)="communeActiveIndex = i"
+            (mousedown)="pickCommune(commune)">
+            <span class="foncier-suggest-name">
+              <i class="fa fa-map-pin" aria-hidden="true"></i>
+              {{ commune.nom }}
+            </span>
+            <span class="foncier-suggest-meta">{{ communeMeta(commune) }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="foncier-field" *ngIf="isListingsTab">
+      <label for="fs-deal">{{ 'FONCIER_SUISSE.DEAL' | translate }}</label>
+      <app-sheet-select
+        selectId="fs-deal"
+        name="fsDeal"
+        size="sm"
+        [title]="'FONCIER_SUISSE.DEAL' | translate"
+        [options]="dealOptions"
+        [(ngModel)]="deal"
+        (ngModelChange)="onFilterChanged()">
+      </app-sheet-select>
+    </div>
+
+    <div class="foncier-field" *ngIf="tab === 'search'">
+      <label for="fs-rooms">{{ 'FONCIER.COL_ROOMS' | translate }}</label>
+      <app-sheet-select
+        selectId="fs-rooms"
+        name="fsRooms"
+        size="sm"
+        [title]="'FONCIER.COL_ROOMS' | translate"
+        [options]="roomsOptions"
+        [(ngModel)]="roomsMin"
+        (ngModelChange)="onFilterChanged()">
+      </app-sheet-select>
+    </div>
+
+    <div class="foncier-field foncier-field--source" *ngIf="isListingsTab">
+      <span class="foncier-field-label">{{ 'FONCIER.SOURCE' | translate }}</span>
+      <div class="foncier-pills" role="radiogroup">
+        <button
+          type="button"
+          *ngFor="let mode of sourceOptions"
+          class="foncier-pill"
+          [class.foncier-pill--on]="cacheMode === mode"
+          (click)="setCacheMode(mode)">
+          <i class="fa" [ngClass]="sourceIcon(mode)" aria-hidden="true"></i>
+          <span>{{ sourceLabelKey(mode) | translate }}</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="foncier-field" *ngIf="tab === 'search'">
+      <label for="fs-price-min">{{ 'FONCIER.PRICE_MIN' | translate }}</label>
+      <input id="fs-price-min" type="number" class="form-control form-control-sm" name="priceMin" [(ngModel)]="priceMin" min="0" />
+    </div>
+    <div class="foncier-field" *ngIf="tab === 'search'">
+      <label for="fs-price-max">{{ 'FONCIER.PRICE_MAX' | translate }}</label>
+      <input id="fs-price-max" type="number" class="form-control form-control-sm" name="priceMax" [(ngModel)]="priceMax" min="0" />
+    </div>
+    <div class="foncier-field" *ngIf="tab === 'search'">
+      <label for="fs-surface-min">{{ 'FONCIER.SURFACE_MIN' | translate }}</label>
+      <input id="fs-surface-min" type="number" class="form-control form-control-sm" name="surfaceMin" [(ngModel)]="surfaceMin" min="0" />
+    </div>
+
+    <div class="foncier-field" *ngIf="tab === 'chances'">
+      <label for="fs-ch-rooms">{{ 'FONCIER.COL_ROOMS' | translate }}</label>
+      <app-sheet-select selectId="fs-ch-rooms" name="chRooms" size="sm" [options]="chanceRoomOptions" [(ngModel)]="chanceRooms"></app-sheet-select>
+    </div>
+    <div class="foncier-field" *ngIf="tab === 'chances'">
+      <label for="fs-ch-budget">{{ 'FONCIER.BUDGET' | translate }}</label>
+      <app-sheet-select selectId="fs-ch-budget" name="chBudget" size="sm" [options]="chanceBudgetOptions" [(ngModel)]="chanceBudget"></app-sheet-select>
+    </div>
+    <div class="foncier-field" *ngIf="tab === 'chances'">
+      <label for="fs-ch-hh">{{ 'FONCIER_SUISSE.HOUSEHOLD' | translate }}</label>
+      <app-sheet-select selectId="fs-ch-hh" name="chHh" size="sm" [options]="chanceHouseholdOptions" [(ngModel)]="chanceHousehold"></app-sheet-select>
+    </div>
+    <div class="foncier-field" *ngIf="tab === 'chances'">
+      <label for="fs-ch-time">{{ 'FONCIER_SUISSE.TIMEFRAME' | translate }}</label>
+      <app-sheet-select selectId="fs-ch-time" name="chTime" size="sm" [options]="chanceTimeOptions" [(ngModel)]="chanceTime"></app-sheet-select>
+    </div>
+    <div class="foncier-field" *ngIf="tab === 'chances'">
+      <label for="fs-ch-work">{{ 'FONCIER_SUISSE.WORKPLACE' | translate }}</label>
+      <input id="fs-ch-work" type="text" class="form-control form-control-sm" name="chWork" [(ngModel)]="chanceWorkplace" [placeholder]="'FONCIER_SUISSE.WORKPLACE_PH' | translate" />
+    </div>
+
+    <div class="foncier-field foncier-field--place" *ngIf="tab === 'guides'">
+      <label for="fs-guides-q">{{ 'FONCIER_SUISSE.GUIDES_QUERY' | translate }}</label>
+      <input id="fs-guides-q" type="search" class="form-control form-control-sm" name="guidesQ" [(ngModel)]="guidesQuery" [placeholder]="'FONCIER_SUISSE.GUIDES_QUERY_PH' | translate" />
+    </div>
+
+    <div class="foncier-actions">
+      <button type="submit" class="btn btn-sm btn-primary foncier-search-btn" [disabled]="loading || locating || (tab === 'search' && !query.trim() && !selected)">
+        <i class="fa fa-search" aria-hidden="true"></i>
+        <span>{{ 'FONCIER.SEARCH' | translate }}</span>
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary foncier-geo-btn"
+        *ngIf="tab !== 'guides'"
+        (click)="useMyPosition()"
+        [disabled]="locating || loading">
+        <i class="fa fa-location-arrow" [class.fa-spin]="locating" aria-hidden="true"></i>
+        <span>{{ 'FONCIER.MY_POSITION' | translate }}</span>
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary foncier-map-btn"
+        *ngIf="tab !== 'guides'"
+        (click)="openTraceViewerForSelection()"
+        [disabled]="locating || loading"
+        [attr.title]="'FONCIER.OPEN_TRACE_VIEWER' | translate">
+        <i class="fa fa-map" aria-hidden="true"></i>
+        <span>{{ 'FONCIER.PICK_ON_MAP' | translate }}</span>
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" *ngIf="query || hasResults || selected" (click)="clearSearch()">
+        <i class="fa fa-times" aria-hidden="true"></i>
+        <span>{{ 'FONCIER.CLEAR' | translate }}</span>
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" *ngIf="isListingsTab" [disabled]="clearingCache || cacheCount === 0" (click)="clearCache()">
+        <i class="fa" [ngClass]="clearingCache ? 'fa-spinner fa-spin' : 'fa-trash'" aria-hidden="true"></i>
+        <span>{{ 'FONCIER.CLEAR_CACHE' | translate }}</span>
+      </button>
+    </div>
+  </form>
+
+  <div class="alert alert-warning py-2 foncier-alert" *ngIf="errorMessage && !loading && !locating" role="alert">
+    <i class="fa fa-exclamation-triangle me-2"></i>
+    {{ errorMessage | translate }}
+  </div>
+
+  <div class="foncier-empty" *ngIf="!searched && !loading && !searchingCommunes && !communes.length">
+    <span class="foncier-empty-icon" aria-hidden="true">
+      <i class="fa" [ngClass]="titleIcon"></i>
+    </span>
+    <p class="mb-0">{{ emptyKey | translate }}</p>
+  </div>
+
+  <div class="foncier-toolbar" *ngIf="isListingsTab && (selected || searched)">
+    <div class="foncier-toolbar-place" *ngIf="selected">
+      <strong>{{ selected.nom }}</strong>
+      <span>{{ communeMeta(selected) }}</span>
+    </div>
+    <div class="foncier-toolbar-end">
+      <label class="foncier-sort" for="fs-sort">
+        <span>{{ 'FONCIER.SORT' | translate }}</span>
+        <app-sheet-select selectId="fs-sort" name="fsSort" size="sm" [options]="sortSelectOptions" [(ngModel)]="sortKey" (ngModelChange)="onSortChanged()"></app-sheet-select>
+      </label>
+      <div class="foncier-pager foncier-pager--toolbar" *ngIf="showPager">
+        <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="page <= 1 || loading" (click)="loadPage(-1)">
+          <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        </button>
+        <span class="foncier-pager-label">{{ 'FONCIER.PAGE' | translate:{ page: page } }}<ng-container *ngIf="pageCount > 1"> / {{ pageCount }}</ng-container></span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="!canGoNext" (click)="loadPage(1)">
+          <i class="fa fa-chevron-right" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="foncier-chips">
+        <span class="foncier-chip foncier-chip--count" *ngIf="searched && !loading">{{ 'FONCIER.RESULT_COUNT' | translate:{ count: count } }}</span>
+        <span class="foncier-chip foncier-chip--cache">{{ 'FONCIER.CACHE_COUNT' | translate:{ count: cacheCount, source: 'CH' } }}</span>
+        <span class="foncier-chip foncier-chip--load" *ngIf="loading">
+          <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+          {{ 'FONCIER.LOADING' | translate }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="foncier-cards" *ngIf="isListingsTab && listings.length">
+    <article class="foncier-card" *ngFor="let listing of listings; let i = index">
+      <div class="foncier-card-photo" [class.foncier-card-photo--empty]="!listing.photo || isPhotoBroken(listing)">
+        <img
+          *ngIf="listing.photo && !isPhotoBroken(listing)"
+          class="foncier-card-photo-img"
+          [src]="photoSrc(listing)"
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerpolicy="no-referrer"
+          (error)="onPhotoError(listing)" />
+        <i *ngIf="!listing.photo || isPhotoBroken(listing)" class="fa fa-home" aria-hidden="true"></i>
+        <span class="foncier-item-mark foncier-item-mark--card" [attr.title]="providerLabelKey | translate">
+          <span class="foncier-item-num">{{ itemNumber(i) }}</span>
+          <span class="foncier-item-src foncier-item-src--ch">CH</span>
+        </span>
+        <div class="foncier-card-price" *ngIf="listing.price != null">{{ formatPrice(listing.price) }}</div>
+      </div>
+      <div class="foncier-card-body">
+        <h3 class="foncier-card-title">{{ listing.title || ('FONCIER.UNTITLED' | translate) }}</h3>
+        <div class="foncier-card-place" *ngIf="listing.address || listing.city || listing.zipcode">
+          <i class="fa fa-map-marker" aria-hidden="true"></i>
+          {{ listing.address || ((listing.zipcode ? listing.zipcode + ' ' : '') + (listing.city || '')) }}
+        </div>
+        <div class="foncier-card-stats">
+          <span class="foncier-stat">{{ dealLabel(listing) }}</span>
+          <span *ngIf="listing.furnished" class="foncier-stat">{{ 'FONCIER_SUISSE.FURNISHED' | translate }}</span>
+          <span *ngIf="listing.surface" class="foncier-stat">{{ formatNumber(listing.surface, ' m²') }}</span>
+          <span *ngIf="listing.rooms" class="foncier-stat">{{ formatNumber(listing.rooms) }} {{ 'FONCIER.ROOMS' | translate }}</span>
+          <span *ngIf="listing.pricePerM2" class="foncier-stat">{{ formatPrice(listing.pricePerM2) }}/m²</span>
+        </div>
+        <div class="foncier-card-actions">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary foncier-trace-btn"
+            *ngIf="canOpenMap(listing)"
+            (click)="openListingMap(listing)"
+            [disabled]="!!geocodingKey">
+            <i class="fa" [ngClass]="geocodingKey === (listing.id || listing.title) ? 'fa-spinner fa-spin' : 'fa-map'" aria-hidden="true"></i>
+            <span>{{ 'FONCIER.OPEN_TRACE_VIEWER_SHORT' | translate }}</span>
+          </button>
+          <button type="button" class="btn btn-sm foncier-whatsapp-btn" (click)="shareListingOnWhatsApp(listing, $event)">
+            <i class="fa fa-whatsapp" aria-hidden="true"></i>
+          </button>
+          <a *ngIf="listing.url" class="foncier-card-link" [href]="listing.url" target="_blank" rel="noopener noreferrer">
+            {{ 'FONCIER.OPEN_LISTING' | translate }}
+            <i class="fa fa-external-link" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  <div class="foncier-chances" *ngIf="tab === 'chances' && chanceScores.length">
+    <p class="foncier-chance-hint" *ngIf="chanceBudgetHint">{{ chanceBudgetHint }}</p>
+    <p class="foncier-chance-hint" *ngIf="chanceAltHint">{{ chanceAltHint }}</p>
+    <article class="foncier-chance-card" *ngFor="let score of chanceScores; let i = index">
+      <header>
+        <strong>{{ score.name }}</strong>
+        <span class="foncier-chance-type" *ngIf="score.type">{{ score.type }}</span>
+        <span class="foncier-chance-score">{{ score.score }} / 100</span>
+      </header>
+      <div class="foncier-chance-bar" aria-hidden="true">
+        <span [style.width]="scoreWidth(score.score)"></span>
+      </div>
+      <div class="foncier-card-stats">
+        <span class="foncier-stat" *ngIf="score.avg_rent != null">{{ 'FONCIER_SUISSE.AVG_RENT' | translate }} {{ formatPrice(score.avg_rent) }}</span>
+        <span class="foncier-stat" *ngIf="score.vacancy_rate != null">{{ 'FONCIER_SUISSE.VACANCY' | translate }} {{ formatNumber(score.vacancy_rate, ' %') }}</span>
+        <span class="foncier-stat" *ngIf="score.competitors_range">{{ 'FONCIER_SUISSE.COMPETITORS' | translate }} {{ score.competitors_range }}</span>
+        <span class="foncier-stat" *ngIf="score.commute_minutes_to_workplace != null">{{ 'FONCIER_SUISSE.COMMUTE' | translate }} {{ formatNumber(score.commute_minutes_to_workplace, ' min') }}</span>
+      </div>
+    </article>
+    <p class="foncier-chance-analysis" *ngIf="chanceAnalysis">{{ chanceAnalysis }}</p>
+  </div>
+
+  <div class="foncier-guides" *ngIf="tab === 'guides' && (guides.length || faqs.length)">
+    <section *ngIf="guides.length">
+      <h3 class="foncier-section-title">{{ 'FONCIER_SUISSE.GUIDES' | translate }}</h3>
+      <article class="foncier-guide-card" *ngFor="let guide of guides">
+        <button type="button" class="foncier-guide-toggle" (click)="openGuideBody(guide)">
+          <span>{{ guide.title }}</span>
+          <i class="fa" [ngClass]="openGuide?.slug === guide.slug ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
+        </button>
+        <p class="foncier-guide-preview" *ngIf="guide.md_preview && openGuide?.slug !== guide.slug">{{ guide.md_preview }}</p>
+        <pre class="foncier-guide-body" *ngIf="openGuide?.slug === guide.slug">{{ openGuide?.md_body || openGuide?.md_preview }}</pre>
+      </article>
+    </section>
+    <section *ngIf="faqs.length">
+      <h3 class="foncier-section-title">{{ 'FONCIER_SUISSE.FAQS' | translate }}</h3>
+      <article class="foncier-guide-card" *ngFor="let faq of faqs">
+        <button type="button" class="foncier-guide-toggle" (click)="toggleFaq(faq)">
+          <span>{{ faq.title }}</span>
+          <i class="fa" [ngClass]="openFaqId === faq.id ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
+        </button>
+        <p class="foncier-guide-preview" *ngIf="openFaqId === faq.id">{{ faq.answer }}</p>
+      </article>
+    </section>
+  </div>
+
+  <div class="foncier-empty foncier-empty--soft" *ngIf="searched && !loading && !hasResults">
+    <span class="foncier-empty-icon" aria-hidden="true"><i class="fa fa-home"></i></span>
+    <p class="mb-0">{{ 'FONCIER.NO_RESULTS' | translate }}</p>
+  </div>
+
+  <div class="foncier-pager" *ngIf="showPager">
+    <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="page <= 1 || loading" (click)="loadPage(-1)">
+      <i class="fa fa-chevron-left" aria-hidden="true"></i>
+    </button>
+    <span class="foncier-pager-label">{{ 'FONCIER.PAGE' | translate:{ page: page } }}<ng-container *ngIf="pageCount > 1"> / {{ pageCount }}</ng-container></span>
+    <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="!canGoNext" (click)="loadPage(1)">
+      <i class="fa fa-chevron-right" aria-hidden="true"></i>
+    </button>
+  </div>
+</div>
+
+<app-trace-viewer-modal (locationSelected)="onLocationSelected($event)"></app-trace-viewer-modal>

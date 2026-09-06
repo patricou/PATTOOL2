@@ -779,3 +779,112 @@
     width: 100%;
   }
 }
+
+:host.foncier-suisse-search,
+:host.foncier-suisse-popular,
+:host.foncier-suisse-chances,
+:host.foncier-suisse-guides {
+  --pat-title-bg: linear-gradient(135deg, #c81e1e 0%, #9b1c1c 50%, #7f1d1d 100%);
+  --pat-title-accent: #c81e1e;
+  --pat-title-shadow: 0 4px 15px rgba(200, 30, 30, 0.35);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect x='8' y='8' width='32' height='32' rx='4' fill='none' stroke='white' stroke-opacity='0.22'/%3E%3Cpath d='M24 14 V34 M14 24 H34' stroke='white' stroke-opacity='0.28' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+:host.foncier-suisse-popular {
+  --pat-title-bg: linear-gradient(135deg, #9b1c1c 0%, #7f1d1d 50%, #450a0a 100%);
+  --pat-title-accent: #9b1c1c;
+}
+
+:host.foncier-suisse-chances {
+  --pat-title-bg: linear-gradient(135deg, #b91c1c 0%, #881337 50%, #4c0519 100%);
+  --pat-title-accent: #be123c;
+}
+
+:host.foncier-suisse-guides {
+  --pat-title-bg: linear-gradient(135deg, #9f1239 0%, #881337 50%, #4c0519 100%);
+  --pat-title-accent: #9f1239;
+}
+
+.foncier-item-src--ch {
+  background: #c81e1e;
+}
+
+.foncier-chances,
+.foncier-guides {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.foncier-chance-card,
+.foncier-guide-card {
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0.65rem;
+  padding: 0.7rem 0.8rem;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+}
+
+.foncier-chance-card header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.7rem;
+}
+
+.foncier-chance-score {
+  margin-left: auto;
+  font-weight: 800;
+  color: #9b1c1c;
+}
+
+.foncier-chance-bar {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #fee2e2;
+  overflow: hidden;
+  margin: 0.45rem 0 0.55rem;
+}
+
+.foncier-chance-bar span {
+  display: block;
+  height: 100%;
+  background: #c81e1e;
+}
+
+.foncier-chance-hint,
+.foncier-chance-analysis {
+  font-size: 0.82rem;
+  color: #334155;
+  margin: 0;
+}
+
+.foncier-section-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin: 0.4rem 0 0.2rem;
+}
+
+.foncier-guide-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font-weight: 700;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.foncier-guide-preview,
+.foncier-guide-body {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  color: #475569;
+  white-space: pre-wrap;
+  font-family: inherit;
+}

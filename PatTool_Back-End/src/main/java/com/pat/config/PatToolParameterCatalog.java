@@ -273,6 +273,8 @@ public final class PatToolParameterCatalog {
                     defSensitive("app.foncier.stream-estate.api-key"),
                     def("app.foncier.chercher-trouver.api-base", false),
                     defSensitive("app.foncier.chercher-trouver.api-key"),
+                    def("app.foncier.immoswipe.api-base", false),
+                    def("app.foncier.geo-ch.api-base", false),
                     def("app.ip.geolocation.cache.max-size", false),
                     def("app.ip.geolocation.cache.ttl-hours", false),
                     def("app.chem.pubchem-rest-base", false),
