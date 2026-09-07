@@ -74,6 +74,42 @@ export function circularDiff(a: number, b: number): number {
 }
 
 /**
+ * Azimut du faisceau caméra (look ENU), 0° = Nord.
+ * Distinct du lacet / cap : près du zénith le haut du téléphone n’est plus la visée.
+ * `null` si la visée est trop verticale (azimut indéfini).
+ */
+export function lookAimAzimuthDeg(lookEast: number, lookNorth: number): number | null {
+  const h = Math.hypot(lookEast, lookNorth);
+  if (h < 0.02) {
+    return null;
+  }
+  return normalizeDeg((Math.atan2(lookEast, lookNorth) * 180) / Math.PI);
+}
+
+/**
+ * Azimut à donner à la projection du viseur.
+ * À l’horizon : cap boussole (calage Nord / cible).
+ * En l’air : azimut du vecteur visée, sinon l’astre reste coincé dans un coin.
+ */
+export const FINDER_LOOK_AIM_EL_DEG = 40;
+
+export function finderCameraAzimuthDeg(
+  headingDeg: number | null,
+  lookAimDeg: number | null,
+  elevationDeg: number | null
+): number | null {
+  const elOk = elevationDeg != null && Number.isFinite(elevationDeg);
+  const aimOk = lookAimDeg != null && Number.isFinite(lookAimDeg);
+  if (aimOk && elOk && Math.abs(elevationDeg as number) >= FINDER_LOOK_AIM_EL_DEG) {
+    return lookAimDeg;
+  }
+  if (headingDeg != null && Number.isFinite(headingDeg)) {
+    return headingDeg;
+  }
+  return aimOk ? lookAimDeg : null;
+}
+
+/**
  * Roulis utile pour le viseur, dans ]-90°, 90°].
  * Près du zénith, le « droite horizon » dérivé de la visée s’anti-aligne avec +X
  * appareil → le roulis brut saute à ~±180° et inverse le haut/bas de l’image.
@@ -404,6 +440,9 @@ export interface ScreenProjection {
   inFront: boolean;
   sepDeg: number;
   centered: boolean;
+  /** Écart caméra → cible dans le plan image (°). Présent pour le guidage près du zénith. */
+  xAngDeg?: number;
+  yAngDeg?: number;
 }
 
 export interface FinderTurnGuide {
@@ -420,12 +459,15 @@ const GUIDE_DEAD_DEG = 8;
 const GUIDE_SCREEN_DEAD_PCT = 5;
 /** Zone morte d’inclinaison : 1° pour coller au bandeau Caméra vs Cible. */
 const PITCH_GUIDE_DEAD_DEG = 1;
+/** Au-delà, Δazimut 2D n’a plus de sens (singularité du zénith). */
+const NEAR_ZENITH_EL_DEG = 70;
 
 /**
  * Flèches de guidage.
  * Inclinaison (haut/bas) = écart d’élévation ciel (cible − caméra), comme les bandeaux
  * Caméra / Cible : + = lever le téléphone, − = le baisser. Jamais la position Y à l’écran
- * (zoom / FOV faussent ce pixel et inversent parfois le sens).
+ * à l’horizon (zoom / FOV faussent ce pixel et inversent parfois le sens).
+ * Près du zénith, Δélévation ≈ 0 : on utilise l’angle caméra (yAng / écran).
  * Azimut : plus court chemin, ou position X à l’écran si l’objet est devant.
  */
 export function computeFinderTurnGuide(
@@ -438,8 +480,13 @@ export function computeFinderTurnGuide(
   if (camAz == null || camEl == null || tgtAz == null || tgtEl == null) {
     return null;
   }
-  const yawDeg = Math.round(circularDiff(tgtAz, camAz));
-  const pitchDeg = Math.round(tgtEl - camEl);
+  const yawDeg = Math.round(
+    proj?.inFront && proj.xAngDeg != null ? proj.xAngDeg : circularDiff(tgtAz, camAz)
+  );
+  const nearZenith = camEl >= NEAR_ZENITH_EL_DEG && tgtEl >= NEAR_ZENITH_EL_DEG;
+  const pitchDeg = Math.round(
+    proj?.inFront && nearZenith && proj.yAngDeg != null ? proj.yAngDeg : tgtEl - camEl
+  );
   if (proj?.centered) {
     return { left: false, right: false, up: false, down: false, ok: true, yawDeg: 0, pitchDeg: 0 };
   }
@@ -465,8 +512,13 @@ export function computeFinderTurnGuide(
       left = true;
     }
   }
-  const up = pitchDeg >= PITCH_GUIDE_DEAD_DEG;
-  const down = pitchDeg <= -PITCH_GUIDE_DEAD_DEG;
+  let up = pitchDeg >= PITCH_GUIDE_DEAD_DEG;
+  let down = pitchDeg <= -PITCH_GUIDE_DEAD_DEG;
+  if (proj?.inFront && nearZenith) {
+    const dead = onGlass || proj.inView ? GUIDE_SCREEN_DEAD_PCT : 0;
+    up = proj.yPct < 50 - dead;
+    down = proj.yPct > 50 + dead;
+  }
   return {
     left,
     right,
@@ -530,7 +582,32 @@ export function displayedCameraFovDeg(
   return { hfov: sensorWideDeg * 0.75, vfov: sensorWideDeg };
 }
 
-/** Projette un azimut/élévation ciel sur l’image caméra (visée −Z). */
+/** Vecteur unitaire ENU : azimut 0° = Nord, horaire ; élévation 0° = horizon. */
+function azElToEnu(azDeg: number, elDeg: number): { e: number; n: number; u: number } {
+  const az = (azDeg * Math.PI) / 180;
+  const el = (elDeg * Math.PI) / 180;
+  const ce = Math.cos(el);
+  return { e: Math.sin(az) * ce, n: Math.cos(az) * ce, u: Math.sin(el) };
+}
+
+/** Séparation angulaire sphérique entre deux az/él (°). */
+export function angularSeparationAzEl(
+  az1Deg: number,
+  el1Deg: number,
+  az2Deg: number,
+  el2Deg: number
+): number {
+  const a = azElToEnu(az1Deg, el1Deg);
+  const b = azElToEnu(az2Deg, el2Deg);
+  const c = Math.max(-1, Math.min(1, a.e * b.e + a.n * b.n + a.u * b.u));
+  return (Math.acos(c) * 180) / Math.PI;
+}
+
+/**
+ * Projette un azimut/élévation ciel sur l’image caméra (visée −Z).
+ * Géométrie sphérique : près du zénith un Δazimut de 180° peut n’être que quelques degrés
+ * sur le ciel — l’ancien test |Δaz| < 90° masquait alors l’astre.
+ */
 export function projectCelestialToScreen(
   camAzDeg: number,
   camElDeg: number,
@@ -543,13 +620,30 @@ export function projectCelestialToScreen(
   clampScreen = true
 ): ScreenProjection {
   const vfov = vfovDeg != null && Number.isFinite(vfovDeg) && vfovDeg > 0.25 ? vfovDeg : hfovDeg * 0.75;
-  const dAz = circularDiff(tgtAzDeg, camAzDeg);
-  const dEl = tgtElDeg - camElDeg;
-  const cosEl = Math.cos((camElDeg * Math.PI) / 180);
-  const xAng = dAz * Math.max(0.15, cosEl);
-  const yAng = dEl;
-  const sepDeg = Math.hypot(xAng, yAng);
-  const inFront = Math.abs(dAz) < 90 && camElDeg * tgtElDeg > -80;
+  const look = azElToEnu(camAzDeg, camElDeg);
+  const tgt = azElToEnu(tgtAzDeg, tgtElDeg);
+  const lookH = Math.hypot(look.e, look.n);
+  let rightE: number;
+  let rightN: number;
+  if (lookH > 1e-4) {
+    rightE = look.n / lookH;
+    rightN = -look.e / lookH;
+  } else {
+    const az = (camAzDeg * Math.PI) / 180;
+    rightE = Math.cos(az);
+    rightN = -Math.sin(az);
+  }
+  const upE = rightN * look.u;
+  const upN = -rightE * look.u;
+  const upU = rightE * look.n - rightN * look.e;
+  const fwd = look.e * tgt.e + look.n * tgt.n + look.u * tgt.u;
+  const x = rightE * tgt.e + rightN * tgt.n;
+  const y = upE * tgt.e + upN * tgt.n + upU * tgt.u;
+  const inFront = fwd > 0;
+  const fwdDen = fwd > 1e-6 ? fwd : 1e-6;
+  const xAng = (Math.atan2(x, fwdDen) * 180) / Math.PI;
+  const yAng = (Math.atan2(y, fwdDen) * 180) / Math.PI;
+  const sepDeg = (Math.acos(Math.max(-1, Math.min(1, fwd))) * 180) / Math.PI;
   const halfH = (hfovDeg * Math.PI) / 360;
   const halfV = (vfov * Math.PI) / 360;
   const clampTan = (deg: number) => Math.tan((Math.max(-80, Math.min(80, deg)) * Math.PI) / 180);
@@ -563,7 +657,9 @@ export function projectCelestialToScreen(
     inView,
     inFront,
     sepDeg,
-    centered: inView && sepDeg <= centerSepDeg
+    centered: inView && sepDeg <= centerSepDeg,
+    xAngDeg: xAng,
+    yAngDeg: yAng
   };
 }
 

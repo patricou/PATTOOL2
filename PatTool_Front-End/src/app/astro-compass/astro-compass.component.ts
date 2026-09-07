@@ -117,6 +117,7 @@ import {
   clipLineToRect,
   computeFinderTurnGuide,
   displayedCameraFovDeg,
+  finderCameraAzimuthDeg,
   projectCelestialToScreen,
   type FinderTurnGuide,
   type ScreenProjection
@@ -168,6 +169,10 @@ const OS_MAG_PULL = 0.05;
 const PITCH_SMOOTH_ALPHA = 0.22;
 /** Cône d'auto-détection autour de la direction du téléphone. */
 const AUTO_DETECT_MAX_SEP_DEG = 15;
+/** Nom affiché seulement si la visée est réellement sur l’objet (réticule). */
+const AUTO_DETECT_ON_TARGET_SEP_DEG = 2.8;
+/** Hystérésis pour éviter le clignotement du nom au bord du cône. */
+const AUTO_DETECT_ON_TARGET_HOLD_DEG = 1.2;
 /** Marge pour ne pas alterner entre deux astres proches (bruit cap / constellation). */
 const AUTO_DETECT_STICK_DEG = 2.8;
 const AUTO_DETECT_TOP_N = 8;
@@ -1112,6 +1117,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   private autoDetectCache: Array<Omit<AutoDetectHit, 'separationDeg'>> = [];
   private autoDetectCacheAtMs = 0;
   private autoDetectLastAppliedKey: string | null = null;
+  /** Clé de l’objet dont le nom est actuellement affiché (hystérésis visée). */
+  private autoDetectNameLatchKey: string | null = null;
 
   /** Live ISS extras (only when selectedKind === 'iss'). */
   issStatus: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
@@ -2799,12 +2806,18 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  /** Cap caméra du viseur : même cadran que la boussole (Cible après recaler, ou Nord). */
+  /** Cap caméra du viseur : visée réelle en l’air, cap boussole à l’horizon. */
   private finderLookAzimuthDeg(): number | null {
-    if (this.headingDeg != null && Number.isFinite(this.headingDeg)) {
-      return this.headingDeg;
-    }
-    return this.lookTracker?.azimuthDeg ?? null;
+    return finderCameraAzimuthDeg(
+      this.headingDeg,
+      this.lookTracker?.lookAimAzimuthDeg ?? null,
+      this.lookTracker?.elevationDeg ?? this.deviceSkyElevationDeg()
+    );
+  }
+
+  /** Azimut affiché / projeté pour la caméra (même valeur que l’overlay). */
+  cameraLookAzimuthDeg(): number | null {
+    return this.finderLookAzimuthDeg() ?? this.headingDeg;
   }
 
   private snapshotFinderPose(): void {
@@ -4833,7 +4846,10 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.syncCameraFreeze();
     this.autoDetectSettingsOpen = false;
     this.autoDetectBusy = true;
-    this.autoDetectLastAppliedKey = null;
+    const lockedOnFinder = this.finderHasLockedSelection();
+    const finderKey = this.currentAutoDetectSelectionKey();
+    this.autoDetectLastAppliedKey = lockedOnFinder ? finderKey : null;
+    this.autoDetectNameLatchKey = lockedOnFinder ? finderKey : null;
     this.autoDetectCache = [];
     this.autoDetectCacheAtMs = 0;
     this.cdr.markForCheck();
@@ -4966,6 +4982,35 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return this.autoDetectHits.find((h) => this.isAutoDetectSelected(h)) ?? null;
     }
     return this.autoDetectHits.length ? this.autoDetectHits[0] : null;
+  }
+
+  /** Objet réellement sous le réticule — le nom n’est affiché que dans ce cas. */
+  get autoDetectNamedHit(): AutoDetectHit | null {
+    const hit = this.autoDetectBestHit;
+    return hit && this.isAutoDetectOnTarget(hit) ? hit : null;
+  }
+
+  get autoDetectDisplayName(): string {
+    const hit = this.autoDetectNamedHit;
+    if (!hit) {
+      return '';
+    }
+    return (this.bodyLabel || hit.name).trim();
+  }
+
+  isAutoDetectOnTarget(hit: AutoDetectHit | null = this.autoDetectBestHit): boolean {
+    if (!hit) {
+      return false;
+    }
+    if (this.objectInfoModalOpen) {
+      const pinned = this.autoDetectPinnedHit;
+      return !pinned || (pinned.kind === hit.kind && pinned.id === hit.id);
+    }
+    if (this.hitIsFinderSelection(hit) && this.finderHasLockedSelection()) {
+      return true;
+    }
+    const key = hit.kind + ':' + hit.id;
+    return this.computeAutoDetectOnTarget(hit, this.autoDetectNameLatchKey === key);
   }
 
   get autoDetectOtherHits(): AutoDetectHit[] {
@@ -5287,7 +5332,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    const lookAz = this.headingDeg;
+    const lookAz = this.finderLookAzimuthDeg() ?? this.headingDeg;
     const lookEl = this.lookTracker.elevationDeg ?? this.deviceSkyElevationDeg();
     if (lookEl == null) {
       this.autoDetectErrorKey = 'ASTRO_COMPASS.AUTO_NEED_PITCH';
@@ -5295,6 +5340,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.cdr.markForCheck();
       return;
     }
+    this.updateFinderProjection();
     const now = Date.now();
 
     try {
@@ -5303,12 +5349,17 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         this.autoDetectCacheAtMs = now;
       }
 
-      const hits = this.stickAutoDetectHits(this.rankCachedSkyHits(lookAz, lookEl));
+      const hits = this.preferFinderLockedTarget(
+        this.stickAutoDetectHits(
+          this.mergeFinderSelectedIntoHits(this.rankCachedSkyHits(lookAz, lookEl), lookAz, lookEl)
+        )
+      );
       this.autoDetectHits = hits;
       this.autoDetectLookAz = lookAz;
       this.autoDetectLookEl = lookEl;
       this.autoDetectAtMs = now;
       this.autoDetectBusy = false;
+      this.syncAutoDetectNameLatch(hits[0] ?? null);
 
       if (!hits.length) {
         this.autoDetectErrorKey = 'ASTRO_COMPASS.AUTO_NONE';
@@ -5321,6 +5372,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         const key = best.kind + ':' + best.id;
         if (
           !this.objectInfoModalOpen &&
+          this.isAutoDetectOnTarget(best) &&
           (forceSelect || key !== this.autoDetectLastAppliedKey)
         ) {
           this.autoDetectLastAppliedKey = key;
@@ -5347,9 +5399,11 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     if (this.isAutoDetectSelected(hit)) {
       this.autoDetectLastAppliedKey = key;
+      this.autoDetectNameLatchKey = key;
       return;
     }
     this.autoDetectLastAppliedKey = key;
+    this.autoDetectNameLatchKey = key;
     if (hit.kind === 'planet') {
       this.selectPlanet(hit.id);
     } else if (hit.kind === 'star') {
@@ -5390,6 +5444,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.autoDetectCache = [];
     this.autoDetectCacheAtMs = 0;
     this.autoDetectLastAppliedKey = null;
+    this.autoDetectNameLatchKey = null;
     this.autoDetectPinnedHit = null;
     this.autoDetectPausedBeforeObjectInfo = null;
     this.clearObjectDossier();
@@ -5435,12 +5490,188 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.selectedKind === 'iss' && this.selectedSatelliteId === hit.id;
   }
 
+  private currentAutoDetectSelectionKey(): string | null {
+    if (this.selectedKind === 'planet' && this.selectedPlanetId) {
+      return 'planet:' + this.selectedPlanetId;
+    }
+    if (this.selectedKind === 'star' && this.selectedStarId) {
+      return 'star:' + this.selectedStarId;
+    }
+    if (this.selectedKind === 'galaxy' && this.selectedGalaxyId) {
+      return 'galaxy:' + this.selectedGalaxyId;
+    }
+    if (this.selectedKind === 'deepsky' && this.selectedDeepSkyId) {
+      return 'deepsky:' + this.selectedDeepSkyId;
+    }
+    if (this.selectedKind === 'constellation' && this.selectedConstellationId) {
+      return 'constellation:' + this.selectedConstellationId;
+    }
+    if (this.selectedKind === 'iss' && this.selectedSatelliteId) {
+      return 'iss:' + this.selectedSatelliteId;
+    }
+    return null;
+  }
+
+  private currentAutoDetectSelectionId(): string | null {
+    if (this.selectedKind === 'planet') {
+      return this.selectedPlanetId || null;
+    }
+    if (this.selectedKind === 'star') {
+      return this.selectedStarId ?? null;
+    }
+    if (this.selectedKind === 'galaxy') {
+      return this.selectedGalaxyId ?? null;
+    }
+    if (this.selectedKind === 'deepsky') {
+      return this.selectedDeepSkyId ?? null;
+    }
+    if (this.selectedKind === 'constellation') {
+      return this.selectedConstellationId ?? null;
+    }
+    if (this.selectedKind === 'iss') {
+      return this.selectedSatelliteId || null;
+    }
+    return null;
+  }
+
+  private hitIsFinderSelection(hit: AutoDetectHit): boolean {
+    const key = this.currentAutoDetectSelectionKey();
+    return !!key && hit.kind + ':' + hit.id === key;
+  }
+
+  /** Le viseur considère déjà l’objet choisi comme centré sous le réticule. */
+  private finderHasLockedSelection(): boolean {
+    return !!this.finderProj?.centered;
+  }
+
+  /**
+   * Réinjecte l’objet du viseur avec ses az/él live (pas le cache 2.5 s),
+   * pour que ISS / éphémérides restent alignés au basculement.
+   */
+  private mergeFinderSelectedIntoHits(
+    hits: AutoDetectHit[],
+    lookAz: number,
+    lookEl: number
+  ): AutoDetectHit[] {
+    const live = this.finderSelectedSkyHit(lookAz, lookEl);
+    if (!live || live.separationDeg > AUTO_DETECT_MAX_SEP_DEG) {
+      return hits;
+    }
+    const next = hits.filter((h) => h.kind !== live.kind || h.id !== live.id);
+    next.push(live);
+    next.sort((a, b) => {
+      if (a.separationDeg !== b.separationDeg) {
+        return a.separationDeg - b.separationDeg;
+      }
+      return (a.mag ?? 99) - (b.mag ?? 99);
+    });
+    return next.slice(0, AUTO_DETECT_TOP_N);
+  }
+
+  private finderSelectedSkyHit(lookAz: number, lookEl: number): AutoDetectHit | null {
+    const id = this.currentAutoDetectSelectionId();
+    if (
+      !id ||
+      this.azimuthDeg == null ||
+      this.elevationDeg == null ||
+      (this.selectedKind !== 'planet' &&
+        this.selectedKind !== 'star' &&
+        this.selectedKind !== 'galaxy' &&
+        this.selectedKind !== 'deepsky' &&
+        this.selectedKind !== 'constellation' &&
+        this.selectedKind !== 'iss')
+    ) {
+      return null;
+    }
+    const sep = AstroCompassComponent.angularSeparationDeg(
+      lookAz,
+      lookEl,
+      this.azimuthDeg,
+      this.elevationDeg
+    );
+    return {
+      kind: this.selectedKind,
+      id,
+      name: this.bodyLabel || id,
+      iconClass: this.bodyIconClass,
+      color: this.bodyColor,
+      azimuthDeg: this.azimuthDeg,
+      elevationDeg: this.elevationDeg,
+      separationDeg: sep,
+      mag: this.mag,
+      subtype: this.selectedDeepSkySubtype()
+    };
+  }
+
+  /**
+   * Si le viseur a l’objet choisi au centre, l’auto-détection doit afficher
+   * ce même objet — pas un voisin un peu plus proche dans le catalogue.
+   */
+  private preferFinderLockedTarget(hits: AutoDetectHit[]): AutoDetectHit[] {
+    if (!this.finderHasLockedSelection() || hits.length < 2) {
+      return hits;
+    }
+    const key = this.currentAutoDetectSelectionKey();
+    if (!key) {
+      return hits;
+    }
+    const idx = hits.findIndex((h) => h.kind + ':' + h.id === key);
+    if (idx <= 0) {
+      return hits;
+    }
+    const current = hits[idx];
+    return [current, ...hits.filter((_, i) => i !== idx)];
+  }
+
+  /** Séparation angulaire réelle visée → objet (sans pénalité de classement). */
+  private autoDetectTrueSeparationDeg(hit: AutoDetectHit): number {
+    const az = this.autoDetectLookAz;
+    const el = this.autoDetectLookEl;
+    if (az == null || el == null) {
+      return hit.kind === 'constellation' && !hit.fromRegion
+        ? Math.max(0, hit.separationDeg - 3)
+        : hit.separationDeg;
+    }
+    return AstroCompassComponent.angularSeparationDeg(az, el, hit.azimuthDeg, hit.elevationDeg);
+  }
+
+  private computeAutoDetectOnTarget(hit: AutoDetectHit, holding: boolean): boolean {
+    if (hit.fromRegion) {
+      return true;
+    }
+    const sep = this.autoDetectTrueSeparationDeg(hit);
+    const lock = AUTO_DETECT_ON_TARGET_SEP_DEG;
+    return sep <= (holding ? lock + AUTO_DETECT_ON_TARGET_HOLD_DEG : lock);
+  }
+
+  private syncAutoDetectNameLatch(best: AutoDetectHit | null): void {
+    if (this.objectInfoModalOpen) {
+      return;
+    }
+    if (!best) {
+      this.autoDetectNameLatchKey = null;
+      return;
+    }
+    const key = best.kind + ':' + best.id;
+    if (this.hitIsFinderSelection(best) && this.finderHasLockedSelection()) {
+      this.autoDetectNameLatchKey = key;
+      return;
+    }
+    if (this.computeAutoDetectOnTarget(best, this.autoDetectNameLatchKey === key)) {
+      this.autoDetectNameLatchKey = key;
+    } else {
+      this.autoDetectNameLatchKey = null;
+    }
+  }
+
   /** Garde l’astre courant tant qu’un concurrent n’est pas franchement plus proche. */
   private stickAutoDetectHits(hits: AutoDetectHit[]): AutoDetectHit[] {
     if (hits.length < 2) {
       return hits;
     }
-    const lastKey = this.autoDetectLastAppliedKey;
+    const lastKey =
+      this.autoDetectLastAppliedKey ??
+      (this.finderHasLockedSelection() ? this.currentAutoDetectSelectionKey() : null);
     if (!lastKey) {
       return hits;
     }
@@ -11491,9 +11722,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     const diff = this.circularDiffDeg(this.azimuthDeg, this.headingDeg);
     const mag = Math.abs(diff);
-    if (mag <= FACING_THRESHOLD_DEG) {
-      // Azimut OK — le message « face à la cible » n'apparaît que si l'inclinaison l'est aussi.
-      if (this.isPitchAligned()) {
+    if (this.isYawAligned()) {
+      // Azimut ciel OK (y compris près du zénith, où Δazimut 2D est trompeur).
+      if (this.isPitchAligned() || this.isLookOnTarget()) {
         return { key: 'ASTRO_COMPASS.FACING', deg: 0 };
       }
       return { key: 'ASTRO_COMPASS.TURN_OK', deg: 0 };
@@ -11569,6 +11800,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   turnDeltaDeg(): number | null {
     if (!this.headingActive || this.headingDeg == null || this.azimuthDeg == null) {
       return null;
+    }
+    if (this.isYawAligned()) {
+      return 0;
     }
     return Math.round(this.circularDiffDeg(this.azimuthDeg, this.headingDeg));
   }
@@ -12139,7 +12373,18 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.headingActive || this.headingDeg == null || this.azimuthDeg == null) {
       return false;
     }
-    return Math.abs(this.circularDiffDeg(this.azimuthDeg, this.headingDeg)) < FACING_THRESHOLD_DEG;
+    if (this.isLookOnTarget()) {
+      return true;
+    }
+    const dAz = Math.abs(this.circularDiffDeg(this.azimuthDeg, this.headingDeg));
+    const lookEl = this.lookSkyElevationDeg();
+    if (lookEl != null && Number.isFinite(lookEl)) {
+      const horizDeg = dAz * Math.max(0, Math.cos((lookEl * Math.PI) / 180));
+      if (horizDeg < FACING_THRESHOLD_DEG) {
+        return true;
+      }
+    }
+    return dAz < FACING_THRESHOLD_DEG;
   }
 
   isFacing(): boolean {
@@ -12151,7 +12396,43 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     ) {
       return false;
     }
+    if (this.isLookOnTarget()) {
+      return true;
+    }
     return this.isYawAligned() && this.isPitchAligned();
+  }
+
+  /** Visée caméra dans le cône de la cible (séparation sphérique), pas le Δazimut 2D. */
+  private isLookOnTarget(): boolean {
+    const sep = this.lookTargetSepDeg();
+    return sep != null && sep <= FACING_THRESHOLD_DEG;
+  }
+
+  private lookSkyElevationDeg(): number | null {
+    const live = this.lookTracker?.elevationDeg;
+    if (live != null && Number.isFinite(live)) {
+      return live;
+    }
+    return this.deviceSkyElevationDeg();
+  }
+
+  private lookTargetSepDeg(): number | null {
+    const lookAz = this.finderLookAzimuthDeg();
+    const lookEl = this.lookSkyElevationDeg();
+    if (
+      lookAz == null ||
+      this.azimuthDeg == null ||
+      this.elevationDeg == null ||
+      lookEl == null
+    ) {
+      return null;
+    }
+    return AstroCompassComponent.angularSeparationDeg(
+      lookAz,
+      lookEl,
+      this.azimuthDeg,
+      this.elevationDeg
+    );
   }
 
   updatedAgoLabel(): string | null {

@@ -8,7 +8,10 @@ import {
   computeFinderTurnGuide,
   displayedCameraFovDeg,
   GyroMagComplementary,
+  lookAimAzimuthDeg,
+  finderCameraAzimuthDeg,
   projectCelestialToScreen,
+  angularSeparationAzEl,
   uprightRollDeg,
   wrapSignedDeg,
   type CameraAttitude
@@ -405,6 +408,26 @@ describe('uprightRollDeg', () => {
   });
 });
 
+describe('lookAimAzimuthDeg / finderCameraAzimuthDeg', () => {
+  it('reads north / east from the look vector', () => {
+    expect(lookAimAzimuthDeg(0, 1)).toBeCloseTo(0, 5);
+    expect(lookAimAzimuthDeg(1, 0)).toBeCloseTo(90, 5);
+    expect(lookAimAzimuthDeg(0, -0.139)).toBeCloseTo(180, 0);
+  });
+
+  it('is undefined when looking straight up', () => {
+    expect(lookAimAzimuthDeg(0, 0)).toBeNull();
+  });
+
+  it('keeps the compass heading at the horizon', () => {
+    expect(finderCameraAzimuthDeg(40, 41, 15)).toBe(40);
+  });
+
+  it('switches to the look beam above 40° elevation', () => {
+    expect(finderCameraAzimuthDeg(0, 180, 82)).toBe(180);
+  });
+});
+
 describe('projectCelestialToScreen', () => {
   it('places a matching target at the center', () => {
     const p = projectCelestialToScreen(40, 30, 0, 40, 30);
@@ -443,6 +466,39 @@ describe('projectCelestialToScreen', () => {
     const p = projectCelestialToScreen(0, 20, 0, 180, 20);
     expect(p.inView).toBeFalse();
     expect(p.inFront).toBeFalse();
+  });
+
+  it('keeps a near-zenith star in front even when azimuths are opposite', () => {
+    const p = projectCelestialToScreen(0, 88, 0, 180, 88);
+    expect(p.inFront).toBeTrue();
+    expect(p.inView).toBeTrue();
+    expect(p.sepDeg).toBeLessThan(8);
+    expect(p.sepDeg).toBeCloseTo(angularSeparationAzEl(0, 88, 180, 88), 5);
+    expect(p.xPct).toBeGreaterThan(40);
+    expect(p.xPct).toBeLessThan(60);
+    expect(p.yPct).toBeGreaterThan(20);
+    expect(p.yPct).toBeLessThan(55);
+  });
+
+  it('places a matching near-zenith target on the reticle', () => {
+    const p = projectCelestialToScreen(200, 82, 0, 200, 82);
+    expect(p.inFront).toBeTrue();
+    expect(p.centered).toBeTrue();
+    expect(p.xPct).toBeCloseTo(50, 0);
+    expect(p.yPct).toBeCloseTo(50, 0);
+  });
+
+  it('centers a high star on the look beam, not on the phone-top heading', () => {
+    const heading = 0;
+    const lookAim = lookAimAzimuthDeg(0, -0.139);
+    expect(lookAim).toBeCloseTo(180, 0);
+    const camAz = finderCameraAzimuthDeg(heading, lookAim, 82);
+    expect(camAz).toBeCloseTo(180, 0);
+    const p = projectCelestialToScreen(camAz!, 82, 0, 180, 82);
+    expect(p.centered).toBeTrue();
+    const stuck = projectCelestialToScreen(heading, 82, 0, 180, 82);
+    expect(stuck.centered).toBeFalse();
+    expect(stuck.yPct).toBeLessThan(48);
   });
 });
 
@@ -500,6 +556,14 @@ describe('computeFinderTurnGuide', () => {
     expect(g!.right).toBeTrue();
     expect(g!.left).toBeFalse();
     expect(g!.ok).toBeFalse();
+  });
+
+  it('does not ask to spin 180° when the target is just past zenith', () => {
+    const proj = projectCelestialToScreen(0, 88, 0, 180, 88);
+    expect(proj.inFront).toBeTrue();
+    const g = computeFinderTurnGuide(0, 88, 180, 88, proj);
+    expect(g).toBeTruthy();
+    expect(g!.yawDeg).toBeLessThan(20);
   });
 });
 

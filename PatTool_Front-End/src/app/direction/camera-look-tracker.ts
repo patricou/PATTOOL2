@@ -9,6 +9,7 @@ import {
   cameraFromDeviceOrientation,
   cameraFromEarthToDeviceQuat,
   cameraFromMagAccel,
+  lookAimAzimuthDeg,
   normalizeDeg
 } from './direction-attitude';
 import {
@@ -55,6 +56,8 @@ const SOURCE_RANK: Record<HeadingSource, number> = {
  */
 export class CameraLookTracker {
   azimuthDeg: number | null = null;
+  /** Azimut du faisceau caméra (look), distinct du lacet quand on vise le zénith. */
+  lookAimAzimuthDeg: number | null = null;
   /** Cap magnétomètre brut, avant décalage Nord / poses. */
   rawAzimuthDeg: number | null = null;
   elevationDeg: number | null = null;
@@ -82,6 +85,8 @@ export class CameraLookTracker {
   private accelFromGeneric = false;
   private gyroFromGeneric = false;
   private magAzimuthDeg: number | null = null;
+  private lastLookEast: number | null = null;
+  private lastLookNorth: number | null = null;
   private rawElevationDeg: number | null = null;
   private smoothedElevationDeg: number | null = null;
   private lastBetaDeg: number | null = null;
@@ -273,6 +278,9 @@ export class CameraLookTracker {
     this.hasRotationVector = false;
     this.lastQuatAtt = null;
     this.source = null;
+    this.lookAimAzimuthDeg = null;
+    this.lastLookEast = null;
+    this.lastLookNorth = null;
   }
 
   private attitudeOpt(): AttitudeOptions {
@@ -486,6 +494,8 @@ export class CameraLookTracker {
     this.source = src;
     this.rollDeg = att.rollDeg;
     this.magAzimuthDeg = att.azimuthDeg;
+    this.lastLookEast = att.lookEast;
+    this.lastLookNorth = att.lookNorth;
     const d = loadPattoolCal()?.derived;
     const fromQuat = att.elevationDeg * (d?.elSign ?? 1);
     const tiltEl = d?.elSource === 'attitude' ? null : this.tiltElevationDeg();
@@ -549,6 +559,17 @@ export class CameraLookTracker {
       applyLookDeclination(az, this.trueNorthActive(), this.declinationDeg),
       d
     );
+    const aimRaw =
+      this.lastLookEast != null && this.lastLookNorth != null
+        ? lookAimAzimuthDeg(this.lastLookEast, this.lastLookNorth)
+        : null;
+    this.lookAimAzimuthDeg =
+      aimRaw != null
+        ? composeLookAzimuth(
+            applyLookDeclination(aimRaw, this.trueNorthActive(), this.declinationDeg),
+            d
+          )
+        : null;
     if (this.rawElevationDeg != null) {
       this.elevationDeg = composeLookElevation(this.rawElevationDeg, d);
     }

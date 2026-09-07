@@ -559,10 +559,10 @@
                     <div class="ac-finder__aim-metric">
                       <span class="ac-finder__aim-lab">{{ 'ASTRO_COMPASS.AZIMUTH' | translate }}</span>
                       <div class="ac-finder__aim-val">
-                        <strong *ngIf="headingDeg != null">{{ headingDeg | number : '1.0-0' }}</strong>
-                        <strong *ngIf="headingDeg == null">—</strong>
-                        <span class="ac-finder__aim-unit" *ngIf="headingDeg != null">°</span>
-                        <em *ngIf="headingDeg != null">{{ headingCardinalLabel() }}</em>
+                        <strong *ngIf="cameraLookAzimuthDeg() != null">{{ cameraLookAzimuthDeg() | number : '1.0-0' }}</strong>
+                        <strong *ngIf="cameraLookAzimuthDeg() == null">—</strong>
+                        <span class="ac-finder__aim-unit" *ngIf="cameraLookAzimuthDeg() != null">°</span>
+                        <em *ngIf="cameraLookAzimuthDeg() != null">{{ cardinalLabel(cameraLookAzimuthDeg()) }}</em>
                       </div>
                     </div>
                   </div>
@@ -801,21 +801,21 @@
                 } }}
               </p>
 
-              <!-- Objet identifié (gagnant) — bien visible -->
-              <div class="ac-autodetect__winner" *ngIf="!autoDetectBusy && autoDetectHits.length">
+              <!-- Objet identifié — nom seulement si la visée est dessus -->
+              <div class="ac-autodetect__winner" *ngIf="!autoDetectBusy && autoDetectNamedHit as hit">
                 <div class="ac-autodetect__winner-badge">
                   <i class="fa fa-check-circle" aria-hidden="true"></i>
                   {{ 'ASTRO_COMPASS.AUTO_FOUND' | translate }}
                 </div>
                 <div class="ac-autodetect__winner-body">
-                  <span class="ac-autodetect__winner-icon" [style.color]="autoDetectHits[0].color">
-                    <i [ngClass]="autoDetectHits[0].iconClass" aria-hidden="true"></i>
+                  <span class="ac-autodetect__winner-icon" [style.color]="hit.color">
+                    <i [ngClass]="hit.iconClass" aria-hidden="true"></i>
                   </span>
                   <div class="ac-autodetect__winner-text">
-                    <div class="ac-autodetect__winner-name">{{ bodyLabel || autoDetectHits[0].name }}</div>
+                    <div class="ac-autodetect__winner-name">{{ autoDetectDisplayName || hit.name }}</div>
                     <div class="ac-autodetect__winner-kind">
-                      {{ autoDetectKindLabelKey(autoDetectHits[0].kind, autoDetectHits[0].subtype, autoDetectHits[0].id) | translate }}
-                      · {{ 'ASTRO_COMPASS.AUTO_SEP' | translate : { deg: (autoDetectHits[0].separationDeg | number : '1.0-1') } }}
+                      {{ autoDetectKindLabelKey(hit.kind, hit.subtype, hit.id) | translate }}
+                      · {{ 'ASTRO_COMPASS.AUTO_SEP' | translate : { deg: (hit.separationDeg | number : '1.0-1') } }}
                     </div>
                   </div>
                 </div>
@@ -2387,13 +2387,22 @@
       {{ (camDenied ? 'ASTRO_COMPASS.CAM_DENIED' : 'ASTRO_COMPASS.CAM_PLACEHOLDER') | translate }}
     </div>
     <div
-      class="ac-live-hud"
-      *ngIf="azimuthDeg != null || elevationDeg != null">
+      class="ac-live-nameplate"
+      *ngIf="autoDetectNamedHit as named"
+      role="status"
+      aria-live="polite">
+      <span class="ac-live-nameplate__icon" [style.color]="named.color">
+        <i [ngClass]="named.iconClass" aria-hidden="true"></i>
+      </span>
+      <span class="ac-live-nameplate__name">{{ autoDetectDisplayName || named.name }}</span>
+    </div>
+    <div
+      class="ac-live-hud ac-live-hud--named"
+      *ngIf="autoDetectNamedHit && (azimuthDeg != null || elevationDeg != null)">
       <div class="ac-finder__target">
         <span class="ac-finder__target-tag">
           <i [ngClass]="bodyIconClass" [style.color]="bodyColor" aria-hidden="true"></i>
           {{ 'ASTRO_COMPASS.HUD_TARGET' | translate }}
-          <ng-container *ngIf="bodyLabel"> · {{ bodyLabel }}</ng-container>
         </span>
         <div class="ac-finder__target-pair">
           <span *ngIf="azimuthDeg != null">{{ azimuthDeg | number : '1.0-0' }}° {{ cardinalLabel() }}</span>
@@ -2469,10 +2478,11 @@
         <button
           type="button"
           class="ac-live-radar__target"
+          [class.ac-live-radar__target--on]="isAutoDetectOnTarget(hit)"
           [style.left.%]="autoDetectRadarXPercent()"
           [style.top.%]="autoDetectRadarYPercent()"
           [style.color]="hit.color"
-          [attr.title]="hit.name">
+          [attr.title]="isAutoDetectOnTarget(hit) ? hit.name : null">
           <i [ngClass]="hit.iconClass" aria-hidden="true"></i>
         </button>
       </div>
@@ -2502,10 +2512,9 @@
   </div>
 
   <div class="ac-live-modal__dock">
-    <div class="ac-live-id" *ngIf="autoDetectBestHit as hit" [attr.data-kind]="hit.kind">
-      <div class="ac-live-id__text">
-        <h2 class="ac-live-id__name">{{ bodyLabel || hit.name }}</h2>
-        <p class="ac-live-id__dist" *ngIf="distLy != null">
+    <div class="ac-live-id" *ngIf="autoDetectNamedHit as hit" [attr.data-kind]="hit.kind">
+      <div class="ac-live-id__text" *ngIf="distLy != null">
+        <p class="ac-live-id__dist">
           {{ formatLightYears(distLy) }}
           {{ formatLightYearUnit(distLy) }}
         </p>
@@ -2514,7 +2523,6 @@
         type="button"
         class="ac-live-id__info"
         (click)="openObjectInfoModal()"
-        [disabled]="!(bodyLabel || hit.name)"
         [attr.title]="'ASTRO_COMPASS.OBJECT_INFO_OPEN_HINT' | translate"
         [attr.aria-label]="'ASTRO_COMPASS.OBJECT_INFO_OPEN' | translate">
         <i class="fa fa-info-circle" aria-hidden="true"></i>
@@ -2588,7 +2596,7 @@
       <button
         type="button"
         class="ac-live-modal__action ac-live-modal__action--finder"
-        *ngIf="autoDetectBestHit"
+        *ngIf="autoDetectNamedHit"
         (click)="useAutoDetectInFinder()"
         [attr.title]="'ASTRO_COMPASS.AUTO_USE_IN_FINDER_HINT' | translate">
         <i class="fa fa-bullseye" aria-hidden="true"></i>
