@@ -46,6 +46,7 @@ public final class PatToolParameterCatalog {
             "globe.astro.align-cue.",
             "globe.astro.ticker.",
             "news.ticker.",
+            "news.source.",
             "meteofrance.forecast.horizon.",
             "meteofrance.forecast.step.",
             "meteofrance.forecast.cache.",

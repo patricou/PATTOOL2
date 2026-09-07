@@ -300,15 +300,15 @@ interface AutoDetectHit {
 
 type CatalogSkyKind = 'planet' | 'star' | 'galaxy' | 'deepsky' | 'constellation' | 'iss';
 type CatalogSortKind = CatalogSkyKind;
-type CatalogSortMode = 'name' | 'direction' | 'magnitude' | 'distance' | 'type' | 'constellation';
+type CatalogSortMode = 'name' | 'direction' | 'elevation' | 'magnitude' | 'distance' | 'type' | 'constellation';
 
 const CATALOG_SORT_MODES: Record<CatalogSortKind, readonly CatalogSortMode[]> = {
-  iss: ['name', 'direction'],
-  planet: ['name', 'direction'],
-  star: ['name', 'direction', 'magnitude', 'distance', 'constellation'],
-  galaxy: ['name', 'direction', 'magnitude', 'distance'],
-  deepsky: ['name', 'direction', 'type', 'magnitude', 'distance'],
-  constellation: ['name', 'direction']
+  iss: ['name', 'direction', 'elevation'],
+  planet: ['name', 'direction', 'elevation'],
+  star: ['name', 'direction', 'elevation', 'magnitude', 'distance', 'constellation'],
+  galaxy: ['name', 'direction', 'elevation', 'magnitude', 'distance'],
+  deepsky: ['name', 'direction', 'elevation', 'type', 'magnitude', 'distance'],
+  constellation: ['name', 'direction', 'elevation']
 };
 
 const DEFAULT_CATALOG_SORT: Record<CatalogSortKind, CatalogSortMode> = {
@@ -620,6 +620,14 @@ const OBJECT_WIKI_LOOKUP: Record<string, WikiLookup> = {
   'planet:uranus': { fr: 'Uranus_(planète)', en: 'Uranus', sky: 'Uranus' },
   'planet:neptune': { fr: 'Neptune_(planète)', en: 'Neptune', sky: 'Neptune' },
   'planet:pluto': { fr: 'Pluton_(planète naine)', en: 'Pluto', sky: 'Pluto' },
+  // FR « Vega » (no accent) is the ESA launcher; the star is « Véga ».
+  'star:vega': { fr: 'Véga', en: 'Vega', sky: 'Vega', search: 'Véga étoile Alpha Lyrae' },
+  'star:navi': { fr: 'Gamma_Cassiopeiae', en: 'Gamma_Cassiopeiae', sky: 'Navi', search: 'Gamma Cassiopeiae Navi étoile' },
+  'star:castor': { fr: 'Castor_(étoile)', en: 'Castor_(star)', sky: 'Castor', search: 'Castor étoile Alpha Geminorum' },
+  'star:algol': { fr: 'Algol_(étoile)', en: 'Algol', sky: 'Algol', search: 'Algol étoile Beta Persei' },
+  'star:mimosa': { fr: 'Mimosa_(étoile)', en: 'Beta_Crucis', sky: 'Mimosa', search: 'Mimosa Becrux Beta Crucis étoile' },
+  'star:capella': { fr: 'Capella_(étoile)', en: 'Capella', sky: 'Capella', search: 'Capella étoile Alpha Aurigae' },
+  'star:altair': { fr: 'Altaïr', en: 'Altair', sky: 'Altair', search: 'Altaïr Altair étoile Alpha Aquilae' },
   'iss:iss': { fr: 'Station_spatiale_internationale', en: 'International_Space_Station', sky: 'ISS', search: 'ISS station spatiale internationale' },
   'iss:tiangong': { fr: 'Station_spatiale_chinoise', en: 'Tiangong_space_station', sky: 'Tiangong', search: 'Tiangong station spatiale chinoise' },
   'iss:hubble': { fr: 'Hubble_(télescope_spatial)', en: 'Hubble_Space_Telescope', sky: 'HST', search: 'Hubble télescope spatial' },
@@ -3973,6 +3981,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (mode === 'direction') {
       return 'ASTRO_COMPASS.SORT_DIRECTION';
     }
+    if (mode === 'elevation') {
+      return 'ASTRO_COMPASS.SORT_ELEVATION';
+    }
     if (mode === 'magnitude') {
       return 'ASTRO_COMPASS.SORT_MAGNITUDE';
     }
@@ -3990,7 +4001,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.catalogSortDir[kind] = this.catalogSortDir[kind] === 1 ? -1 : 1;
     } else {
       this.catalogSort[kind] = mode;
-      this.catalogSortDir[kind] = 1;
+      // Élévation : plus haut dans le ciel d’abord. Direction : 0° (nord) → 359°.
+      this.catalogSortDir[kind] = mode === 'elevation' ? -1 : 1;
     }
     this.persistCatalogSortPref();
     this.applyCatalogSort(kind);
@@ -6255,29 +6267,34 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       return ((va as number) - (vb as number)) * dir;
     };
+    const bySkyNumber = (
+      da: CatalogSkyDir | null,
+      db: CatalogSkyDir | null,
+      valueOf: (d: CatalogSkyDir) => number
+    ): number => {
+      if (!da && !db) {
+        return 0;
+      }
+      if (!da) {
+        return 1;
+      }
+      if (!db) {
+        return -1;
+      }
+      return (valueOf(da) - valueOf(db)) * dir;
+    };
     return [...items].sort((a, b) => {
       if (mode === 'direction') {
         const da = this.catalogSkyDir(kind, opts.idOf(a));
         const db = this.catalogSkyDir(kind, opts.idOf(b));
-        if (!da && !db) {
-          return 0;
-        }
-        if (!da) {
-          return 1;
-        }
-        if (!db) {
-          return -1;
-        }
-        const aAbove = da.elevationDeg > 0 ? 1 : 0;
-        const bAbove = db.elevationDeg > 0 ? 1 : 0;
-        if (aAbove !== bAbove) {
-          return (bAbove - aAbove) * dir;
-        }
-        const el = (db.elevationDeg - da.elevationDeg) * dir;
-        if (el !== 0) {
-          return el;
-        }
-        return (da.azimuthDeg - db.azimuthDeg) * dir;
+        const az = bySkyNumber(da, db, (d) => ((Math.round(d.azimuthDeg) % 360) + 360) % 360);
+        return az || byName(a, b);
+      }
+      if (mode === 'elevation') {
+        const da = this.catalogSkyDir(kind, opts.idOf(a));
+        const db = this.catalogSkyDir(kind, opts.idOf(b));
+        const el = bySkyNumber(da, db, (d) => Math.round(d.elevationDeg));
+        return el || byName(a, b);
       }
       if (mode === 'magnitude' && opts.magOf) {
         return byNumber(opts.magOf(a), opts.magOf(b)) || byName(a, b);
@@ -8702,9 +8719,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return null;
     }
     const astroHint = /galax|n[eé]buleuse|nebula|messier|cluster|amas|étoile|star\b|planète|planet|constellation|satellite|station spatiale|space station|télescope spatial|space telescope|observatoire|observatory|dwarf|naine|quasar|spirale|spiral/i;
+    const starHint = this.wikiStarHintRe();
+    const notStar = this.wikiNotStarRe();
     const disambig = /disambiguation|homonymie|topics referred|desambiguaci[oó]n|begriffsklärung|disambigua|неоднозначн|曖昧さ回避|消歧义|توضيح|פירושונים|αποσαφήνιση|बहुविकल्पी/i;
     const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const queryRe = escaped ? new RegExp(escaped, 'i') : null;
+    const wantStar = this.selectedKind === 'star';
     let bestTitle: string | null = null;
     let bestScore = -1;
     for (const page of pages) {
@@ -8716,8 +8736,18 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       if (disambig.test(blob)) {
         continue;
       }
+      if (wantStar && notStar.test(blob) && !starHint.test(blob)) {
+        continue;
+      }
       let score = 1;
-      if (astroHint.test(blob)) {
+      if (wantStar) {
+        if (starHint.test(blob)) {
+          score += 8;
+        }
+        if (notStar.test(blob)) {
+          score -= 10;
+        }
+      } else if (astroHint.test(blob)) {
         score += 6;
       }
       if (queryRe && queryRe.test(title)) {
@@ -8728,11 +8758,33 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
         bestTitle = title;
       }
     }
-    return bestTitle || pages[0]?.title || null;
+    return bestTitle || (wantStar ? null : pages[0]?.title) || null;
   }
 
   private wikiSummaryUsable(wiki: WikipediaSummary | null | undefined): boolean {
-    return !!(wiki && wiki.type !== 'disambiguation' && (wiki.extract || wiki.description || wiki.title));
+    if (!(wiki && wiki.type !== 'disambiguation' && (wiki.extract || wiki.description || wiki.title))) {
+      return false;
+    }
+    return this.wikiSummaryMatchesKind(wiki);
+  }
+
+  private wikiStarHintRe(): RegExp {
+    return /[ée]toile|\bstar\b|constellation|magnitude|superg[ée]ante|naine blanche|spectral|bayer|lyrae|orionis|scorpii/i;
+  }
+
+  private wikiNotStarRe(): RegExp {
+    return /lanceur|fus[eé]e|\brocket\b|launch vehicle|missile|jeu vid[eé]o|video game|personnage|legend of zelda|langage de programmation|programming language|entreprise|mammif|rongeur|v[ée]g[ée]tal|\bplante\b|commune (fran[çc]aise|de)/i;
+  }
+
+  private wikiSummaryMatchesKind(wiki: WikipediaSummary): boolean {
+    if (this.selectedKind !== 'star') {
+      return true;
+    }
+    const blob = `${wiki.title || ''} ${wiki.description || ''} ${wiki.extract || ''}`;
+    if (this.wikiStarHintRe().test(blob)) {
+      return true;
+    }
+    return !this.wikiNotStarRe().test(blob);
   }
 
   private fetchSkyMapPreview(lookup: WikiLookup): Observable<SkyMapPreview | null> {
@@ -8835,7 +8887,17 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       if (!star) {
         return null;
       }
-      return { fr: star.name, en: star.name, sky: star.name, search: star.name };
+      const bayer = star.aliases.find((a) =>
+        /^(alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|omicron|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega)\s+[a-z]/i.test(
+          (a || '').trim()
+        )
+      );
+      const accented = star.aliases.find((a) => /[àâäéèêëïîôöùûüç]/i.test(a) && !/\s/.test(a.trim()));
+      const fr = (accented || star.name).trim();
+      const search = [fr, star.name, bayer, 'étoile', 'star']
+        .filter((v, i, a) => !!v && a.indexOf(v) === i)
+        .join(' ');
+      return { fr, en: star.name, sky: star.name, search };
     }
     if (this.selectedKind === 'galaxy' && this.selectedGalaxyId) {
       const galaxy = findGalaxyById(this.selectedGalaxyId);
@@ -8948,17 +9010,19 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       return results.find(isSatellite);
     }
-    const exact = results.find(matchesQuery);
+    const celestial = results.filter((s) => !isSatellite(s));
+    const pool = celestial.length ? celestial : results;
+    const exact = pool.find(matchesQuery);
     if (exact) {
       return exact;
     }
     if (this.selectedKind === 'galaxy' || this.selectedKind === 'deepsky') {
-      const galaxy = results.find((s) => (s.types || []).includes('G') || s.model === 'dso');
+      const galaxy = pool.find((s) => (s.types || []).includes('G') || s.model === 'dso');
       if (galaxy) {
         return galaxy;
       }
     }
-    return results[0];
+    return pool[0];
   }
 
   private buildObjectDossier(

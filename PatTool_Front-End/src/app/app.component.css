@@ -4,6 +4,10 @@
     background: linear-gradient(135deg, #000000 0%, #0d1a0d 20%, #1a331a 40%, #2d5a2d 50%, #1a331a 60%, #0d1a0d 80%, #000000 100%) !important;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
     min-height: var(--navbar-height);
+    padding-top: 0;
+    padding-bottom: 0;
+    display: flex;
+    align-items: center;
 }
 
 .navbar-brand {
@@ -14,6 +18,10 @@
     align-items: center;
     gap: 8px;
     margin-left: 15px; /* Marge à gauche pour décaler la photo */
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    line-height: 1;
 }
 
 .navbar-brand:hover {
@@ -71,10 +79,13 @@
     font-weight: 500;
     padding: 8px 16px !important;
     border-radius: 6px;
-    margin: 2px 4px;
+    margin: 0 4px;
     transition: all 0.15s ease;
     cursor: pointer;
     user-select: none;
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
 }
 
 .navbar-nav .nav-link:hover {
@@ -92,6 +103,58 @@
     margin-right: 6px;
     width: 16px;
     text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.navbar-nav .nav-link.dropdown-toggle::after {
+    margin-top: 0;
+    margin-bottom: 0;
+    vertical-align: 0;
+    align-self: center;
+    position: relative;
+    top: 0;
+}
+
+@media (min-width: 992px) {
+    .navbar {
+        height: var(--navbar-height);
+    }
+
+    .navbar-brand,
+    .nav-sos-link {
+        align-self: stretch;
+        display: flex;
+        align-items: center;
+    }
+
+    .navbar-collapse {
+        align-self: stretch;
+        display: flex !important;
+        align-items: stretch;
+    }
+
+    .navbar-nav {
+        flex-direction: row;
+        align-items: stretch;
+        align-self: stretch;
+        height: 100%;
+        margin-bottom: 0;
+    }
+
+    .navbar-nav .nav-item {
+        height: 100%;
+    }
+
+    .navbar-nav .nav-link {
+        height: 100%;
+        margin-top: 0;
+        margin-bottom: 0;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+    }
 }
 
 /* Calculatrice : icône seule dans un rond (après « Outils ») */
@@ -129,7 +192,7 @@
     background: none;
     border: none;
     text-decoration: none;
-    display: inline-block;
+    display: inline-flex;
     width: auto;
 }
 

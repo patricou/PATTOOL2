@@ -71,6 +71,14 @@ export interface NewsTickerPref {
   enabled: boolean;
 }
 
+/** Last News page source (NewsData.io / NewsAPI / RSS + feed), persisted per user. */
+export interface NewsSourcePreference {
+  provider: 'newsdata' | 'newsapi' | 'rss';
+  rssFeedId?: string;
+  rssFeedUrl?: string;
+  rssFeedName?: string;
+}
+
 export interface DirectionPattoolSamplePayload {
   sessionId: string;
   poseId: string;
@@ -2256,6 +2264,30 @@ export class ApiService {
         this._http.put<NewsTickerPref>(
           this.API_URL + 'external/news/ticker',
           { enabled },
+          { headers }
+        )
+      )
+    );
+  }
+
+  getNewsSourcePreference(): Observable<NewsSourcePreference | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<NewsSourcePreference | null>(
+          this.API_URL + 'external/news/source',
+          { headers }
+        )
+      ),
+      catchError(() => of(null))
+    );
+  }
+
+  setNewsSourcePreference(pref: NewsSourcePreference): Observable<NewsSourcePreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<NewsSourcePreference>(
+          this.API_URL + 'external/news/source',
+          pref,
           { headers }
         )
       )

@@ -46,6 +46,7 @@
                 <span>{{ 'NEWS.FILTERS_SECTION' | translate }}</span>
                 <span class="news-filters-collapse-summary" *ngIf="filtersCollapsed">
                     · {{ providerLabelKey() | translate }}
+                    <ng-container *ngIf="provider === 'rss'"> · {{ rssFeedId ? selectedRssFeedDisplayName() : ('NEWS.RSS_FEED_ALL' | translate) }}</ng-container>
                     · {{ ('NEWS.TAB_' + userTab.toUpperCase()) | translate }}
                     <ng-container *ngIf="userTab === 'search' && query"> · "{{ query }}"</ng-container>
                     <ng-container *ngIf="country"> · {{ getCountryFlag(country) }} {{ getCountryName(country) }}</ng-container>
@@ -252,6 +253,9 @@
                                 [(ngModel)]="rssFeedId"
                                 (ngModelChange)="onRssFeedChange()">
                             <option value="">{{ 'NEWS.RSS_FEED_ALL' | translate }}</option>
+                            <option *ngIf="rssSelectedFeedMissingFromCatalog()" [value]="rssFeedId">
+                                {{ rssSelectedFeedFallbackLabel() }}
+                            </option>
                             <optgroup *ngFor="let group of rssFeedsGrouped" [label]="rssGroupLabel(group.category)">
                                 <option *ngFor="let feed of group.feeds" [value]="feed.id">
                                     {{ feed.name }}

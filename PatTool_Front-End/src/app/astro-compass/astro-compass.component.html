@@ -275,6 +275,17 @@
               <span>{{ 'ASTRO_COMPASS.OBJECT_INFO_OPEN' | translate }}</span>
             </button>
             <a
+              class="ac-compass-refresh ac-compass-skymap-app ac-compass-skyview-app"
+              [href]="skyViewAppHref()"
+              [attr.target]="skyViewAppTarget()"
+              rel="noopener noreferrer"
+              (click)="onSkyViewAppClick($event)"
+              [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate"
+              [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate">
+              <img class="ac-app-icon" src="assets/images/skyview-app.svg" alt="" width="18" height="18" aria-hidden="true" />
+              <span>SkyView</span>
+            </a>
+            <a
               *ngIf="canOpenSkyMapApp()"
               class="ac-compass-refresh ac-compass-skymap-app"
               [href]="skyMapAppHref()"
@@ -285,17 +296,6 @@
               [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate">
               <img class="ac-app-icon" src="assets/images/sky-map-app.svg" alt="" width="18" height="18" aria-hidden="true" />
               <span>SkyMap</span>
-            </a>
-            <a
-              class="ac-compass-refresh ac-compass-skymap-app ac-compass-skyview-app"
-              [href]="skyViewAppHref()"
-              [attr.target]="skyViewAppTarget()"
-              rel="noopener noreferrer"
-              (click)="onSkyViewAppClick($event)"
-              [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate"
-              [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate">
-              <img class="ac-app-icon" src="assets/images/skyview-app.svg" alt="" width="18" height="18" aria-hidden="true" />
-              <span>SkyView</span>
             </a>
           </div>
         </div>
@@ -593,18 +593,6 @@
                   {{ (sightingMarked ? 'ASTRO_COMPASS.EXACT_POS_DONE' : 'ASTRO_COMPASS.EXACT_POS') | translate : { name: bodyLabel } }}
                 </button>
                 <a
-                  *ngIf="isFullscreen && canOpenSkyMapApp()"
-                  class="ac-finder__skymap"
-                  [href]="skyMapAppHref()"
-                  [attr.target]="skyMapAppTarget()"
-                  rel="noopener noreferrer"
-                  (click)="onSkyMapAppClick($event)"
-                  [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate"
-                  [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate">
-                  <img class="ac-app-icon" src="assets/images/sky-map-app.svg" alt="" width="18" height="18" aria-hidden="true" />
-                  <span>SkyMap</span>
-                </a>
-                <a
                   *ngIf="isFullscreen"
                   class="ac-finder__skymap ac-finder__skyview"
                   [href]="skyViewAppHref()"
@@ -615,6 +603,18 @@
                   [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate">
                   <img class="ac-app-icon" src="assets/images/skyview-app.svg" alt="" width="18" height="18" aria-hidden="true" />
                   <span>SkyView</span>
+                </a>
+                <a
+                  *ngIf="isFullscreen && canOpenSkyMapApp()"
+                  class="ac-finder__skymap"
+                  [href]="skyMapAppHref()"
+                  [attr.target]="skyMapAppTarget()"
+                  rel="noopener noreferrer"
+                  (click)="onSkyMapAppClick($event)"
+                  [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate"
+                  [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate">
+                  <img class="ac-app-icon" src="assets/images/sky-map-app.svg" alt="" width="18" height="18" aria-hidden="true" />
+                  <span>SkyMap</span>
                 </a>
               </div>
               <div class="ac-finder__bottom">
@@ -1448,10 +1448,7 @@
               role="option"
               [attr.aria-selected]="selectedKind === 'ground' && selectedGroundId === g.id"
               (click)="selectGroundPosition(g)">
-              <span class="ac-picker__opt-main">
-                {{ g.name }}
-                <span class="ac-ground__meta" *ngIf="g.description"> · {{ g.description }}</span>
-              </span>
+              <span class="ac-picker__opt-main">{{ g.name }}</span>
               <span
                 class="ac-picker__opt-dir"
                 *ngIf="groundLookDir(g) as dir"
@@ -2884,6 +2881,17 @@
           </span>
           <span class="ac-live-dossier__skymap-apps">
             <a
+              class="ac-live-dossier__skymap-app"
+              [href]="skyViewAppHref()"
+              [attr.target]="skyViewAppTarget()"
+              rel="noopener noreferrer"
+              (click)="onSkyViewAppClick($event)"
+              [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate"
+              [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate">
+              <img class="ac-app-icon" src="assets/images/skyview-app.svg" alt="" width="16" height="16" aria-hidden="true" />
+              {{ 'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate }}
+            </a>
+            <a
               *ngIf="canOpenSkyMapApp()"
               class="ac-live-dossier__skymap-app"
               [href]="skyMapAppHref()"
@@ -2894,17 +2902,6 @@
               [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate">
               <img class="ac-app-icon" src="assets/images/sky-map-app.svg" alt="" width="16" height="16" aria-hidden="true" />
               {{ 'ASTRO_COMPASS.DOSSIER_SKYMAP_APP' | translate }}
-            </a>
-            <a
-              class="ac-live-dossier__skymap-app"
-              [href]="skyViewAppHref()"
-              [attr.target]="skyViewAppTarget()"
-              rel="noopener noreferrer"
-              (click)="onSkyViewAppClick($event)"
-              [attr.title]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate"
-              [attr.aria-label]="'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate">
-              <img class="ac-app-icon" src="assets/images/skyview-app.svg" alt="" width="16" height="16" aria-hidden="true" />
-              {{ 'ASTRO_COMPASS.DOSSIER_SKYVIEW_APP' | translate }}
             </a>
           </span>
         </div>

@@ -1,6 +1,8 @@
 package com.pat.controller;
 
+import com.pat.controller.dto.NewsSourcePreferenceDto;
 import com.pat.controller.dto.NewsTickerDto;
+import com.pat.service.NewsSourcePreferenceService;
 import com.pat.service.NewsTickerPreferenceService;
 import com.pat.service.news.NewsImageProxyService;
 import com.pat.service.news.NewsProvider;
@@ -37,8 +39,9 @@ import java.util.Map;
  * The active provider is chosen per-request via the {@code ?provider=...}
  * query parameter. Values: {@code newsdata} (default), {@code newsapi},
  * or {@code rss} (curated RSS/Atom reader, no API key).
- * The frontend persists the selection in localStorage so users keep the
- * provider they picked across page reloads.
+ * The last provider (and RSS feed, when RSS is selected) is persisted
+ * per user in {@code appParameters} and mirrored in the frontend
+ * localStorage so the News page restores the same source on reload.
  */
 @RestController
 @RequestMapping("/api/external/news")
@@ -66,6 +69,9 @@ public class NewsApiController {
 
     @Autowired
     private NewsTickerPreferenceService newsTickerPreferenceService;
+
+    @Autowired
+    private NewsSourcePreferenceService newsSourcePreferenceService;
 
     /**
      * Resolve the right provider bean for this request. Unknown values
@@ -213,6 +219,35 @@ public class NewsApiController {
             return ResponseEntity.ok(new NewsTickerDto(saved));
         } catch (Exception e) {
             log.warn("News ticker save failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /** Dernière source (NewsData.io / NewsAPI / RSS + flux), mémorisée pour l'utilisateur courant. */
+    @GetMapping("/source")
+    public ResponseEntity<NewsSourcePreferenceDto> getNewsSourcePreference() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return newsSourcePreferenceService.findForSubject(sub)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    /** Mémorise la source d'actualités dès que l'utilisateur la change. */
+    @PutMapping("/source")
+    public ResponseEntity<?> setNewsSourcePreference(@RequestBody NewsSourcePreferenceDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            return ResponseEntity.ok(newsSourcePreferenceService.saveForSubject(sub, body));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.warn("News source preference save failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

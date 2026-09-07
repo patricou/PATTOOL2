@@ -3891,11 +3891,6 @@ a.ac-compass-cal__btn--direction {
   min-width: 0;
 }
 
-.ac-ground__meta {
-  font-weight: 400;
-  opacity: 0.72;
-}
-
 .ac-ground__map,
 .ac-ground__edit,
 .ac-ground__del {

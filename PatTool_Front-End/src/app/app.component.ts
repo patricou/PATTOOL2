@@ -88,6 +88,7 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     'globe.iss.compass.heading-mode': 'USERINFO.PARAM_LABELS.GLOBE_ISS_HEADING_MODE',
     'gps.follow-user': 'USERINFO.PARAM_LABELS.GPS_FOLLOW_USER',
     'news.ticker': 'USERINFO.PARAM_LABELS.NEWS_TICKER',
+    'news.source': 'USERINFO.PARAM_LABELS.NEWS_SOURCE',
     'tv.filter-preferences': 'USERINFO.PARAM_LABELS.TV_FILTER_PREFERENCES',
     'radio.favorites': 'USERINFO.PARAM_LABELS.RADIO_FAVORITES',
     'meteofrance.forecast.horizon': 'USERINFO.PARAM_LABELS.METEO_FORECAST_HORIZON',
