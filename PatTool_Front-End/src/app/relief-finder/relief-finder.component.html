@@ -1,4 +1,4 @@
-<div class="pat-title rf-title">
+<div class="pat-title rf-title" *ngIf="!landscapeImmersive">
   <h2>
     <i class="fa fa-area-chart me-2" aria-hidden="true"></i>
     {{ 'RELIEF_FINDER.TITLE' | translate }}
@@ -6,7 +6,7 @@
 </div>
 
 <div class="rf-page">
-  <p class="rf-lede">{{ 'RELIEF_FINDER.SUBTITLE' | translate }}</p>
+  <p class="rf-lede" *ngIf="!landscapeImmersive">{{ 'RELIEF_FINDER.SUBTITLE' | translate }}</p>
 
   <div class="rf-toolbar">
     <button type="button" class="rf-btn rf-btn--primary" (click)="locateGps()" [disabled]="geoStatus === 'pending'">
@@ -62,10 +62,18 @@
       class="rf-cam"
       #camStage
       [class.rf-cam--fs]="isFullscreen"
-      [class.rf-cam--resized]="!isFullscreen && camHeightPx != null"
+      [class.rf-cam--resized]="!isFullscreen && !landscapeImmersive && camHeightPx != null"
       [class.rf-cam--nocam]="!camImageOn || !camLive"
-      [style.height.px]="!isFullscreen && camHeightPx != null ? camHeightPx : null">
-      <video #cam playsinline muted autoplay [hidden]="!camImageOn"></video>
+      [class.rf-cam--zoomed]="camZoom > 1"
+      [style.height.px]="!isFullscreen && !landscapeImmersive && camHeightPx != null ? camHeightPx : null">
+      <video
+        #cam
+        playsinline
+        muted
+        autoplay
+        webkit-playsinline
+        [hidden]="!camImageOn"
+        [style.transform]="camVideoTransform"></video>
       <div class="rf-cam__empty" *ngIf="camImageOn && !camLive">{{ 'RELIEF_FINDER.CAM_PLACEHOLDER' | translate }}</div>
       <svg class="rf-sil" viewBox="0 0 100 100" preserveAspectRatio="none" [style.transform]="horizonTilt()" aria-hidden="true">
         <path class="rf-sil__fill" [attr.d]="silhouetteFill"></path>
@@ -115,6 +123,48 @@
         <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
         {{ 'RELIEF_FINDER.LOADING' | translate }}
       </div>
+      <div
+        class="rf-cam__zoom"
+        role="group"
+        [attr.aria-label]="'RELIEF_FINDER.CAM_ZOOM' | translate">
+        <button
+          type="button"
+          class="rf-cam__zoom-btn"
+          (click)="camZoomOut()"
+          [disabled]="camZoom <= camZoomMin"
+          [attr.title]="'RELIEF_FINDER.CAM_ZOOM_OUT' | translate"
+          [attr.aria-label]="'RELIEF_FINDER.CAM_ZOOM_OUT' | translate">
+          <i class="fa fa-minus" aria-hidden="true"></i>
+        </button>
+        <input
+          type="range"
+          class="rf-cam__zoom-range"
+          [min]="camZoomMin"
+          [max]="camZoomMax"
+          [step]="camZoomStep"
+          [value]="camZoom"
+          (input)="onCamZoomInput($event)"
+          [attr.aria-valuetext]="camZoomLabel"
+          [attr.aria-label]="'RELIEF_FINDER.CAM_ZOOM' | translate" />
+        <button
+          type="button"
+          class="rf-cam__zoom-btn"
+          (click)="camZoomIn()"
+          [disabled]="camZoom >= camZoomMax"
+          [attr.title]="'RELIEF_FINDER.CAM_ZOOM_IN' | translate"
+          [attr.aria-label]="'RELIEF_FINDER.CAM_ZOOM_IN' | translate">
+          <i class="fa fa-plus" aria-hidden="true"></i>
+        </button>
+        <button
+          type="button"
+          class="rf-cam__zoom-val"
+          (click)="resetCamZoom()"
+          [disabled]="camZoom <= camZoomMin"
+          [attr.title]="'RELIEF_FINDER.CAM_ZOOM_RESET' | translate"
+          [attr.aria-label]="'RELIEF_FINDER.CAM_ZOOM_RESET' | translate">
+          {{ camZoomLabel }}
+        </button>
+      </div>
       <div class="rf-cam__btns">
         <button type="button" class="rf-icon" (click)="toggleFullscreen()" [attr.title]="'RELIEF_FINDER.FULLSCREEN' | translate">
           <i class="fa" [ngClass]="isFullscreen ? 'fa-compress' : 'fa-expand'"></i>
@@ -122,7 +172,7 @@
       </div>
       <div
         class="rf-resize"
-        *ngIf="!isFullscreen"
+        *ngIf="!isFullscreen && !landscapeImmersive"
         (pointerdown)="onCamResizePointer($event)"
         (dblclick)="resetCamHeight()"
         [attr.title]="'RELIEF_FINDER.CAM_RESIZE' | translate"></div>
@@ -143,7 +193,7 @@
   <p class="rf-warn" *ngIf="loadError">{{ 'RELIEF_FINDER.LOAD_ERROR' | translate }}</p>
   <p class="rf-warn" *ngIf="camDenied && camImageOn">{{ 'RELIEF_FINDER.CAM_DENIED' | translate }}</p>
 
-  <section class="rf-peaks" *ngIf="horizon">
+  <section class="rf-peaks" *ngIf="horizon && !landscapeImmersive">
     <h3>
       {{ 'RELIEF_FINDER.PEAKS' | translate }}
       <small *ngIf="visiblePeaks().length">{{ visiblePeaks().length }}</small>

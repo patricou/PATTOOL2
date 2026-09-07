@@ -159,12 +159,40 @@ export function projectVisiblePeaks(
 
 export function displayedFov(
   video: HTMLVideoElement | undefined,
-  stage: HTMLElement | undefined
+  stage: HTMLElement | undefined,
+  zoom = 1
 ): { hfov: number; vfov: number } {
-  return displayedCameraFovDeg(
+  const base = displayedCameraFovDeg(
     video?.videoWidth || 0,
     video?.videoHeight || 0,
     stage?.clientWidth || video?.clientWidth || 0,
     stage?.clientHeight || video?.clientHeight || 0
   );
+  const z = Math.max(1, zoom);
+  return { hfov: base.hfov / z, vfov: base.vfov / z };
+}
+
+export function wrapSigned180(deg: number): number {
+  return ((((deg + 180) % 360) + 360) % 360) - 180;
+}
+
+/** Roulis du viseur une fois l’écran déjà tourné (portrait = 0, paysage ±90/270). */
+export function screenRelativeRollDeg(deviceRollDeg: number, screenAngleDeg: number): number {
+  return wrapSigned180(deviceRollDeg - screenAngleDeg);
+}
+
+export function screenAngleDeg(): number {
+  try {
+    const angle = screen.orientation?.angle;
+    if (typeof angle === 'number' && Number.isFinite(angle)) {
+      return angle;
+    }
+  } catch {
+    /* ignore */
+  }
+  if (typeof window === 'undefined') {
+    return 0;
+  }
+  const legacy = (window as Window & { orientation?: number }).orientation;
+  return typeof legacy === 'number' && Number.isFinite(legacy) ? legacy : 0;
 }

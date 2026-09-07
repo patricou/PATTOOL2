@@ -175,6 +175,7 @@
   border-radius: 0.7rem;
   background: #0b100d;
   border: 1px solid rgba(160, 200, 170, 0.22);
+  touch-action: none;
 }
 
 .rf-cam--nocam {
@@ -208,6 +209,7 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  transform-origin: center center;
 }
 
 .rf-cam__empty {
@@ -341,7 +343,7 @@
 .rf-hud {
   position: absolute;
   left: 0.45rem;
-  bottom: 0.45rem;
+  bottom: 2.85rem;
   display: flex;
   gap: 0.55rem;
   padding: 0.28rem 0.5rem;
@@ -405,11 +407,73 @@
   position: absolute;
   right: 0.4rem;
   bottom: 0.4rem;
+  z-index: 8;
 }
 
 .rf-icon {
   width: 2rem;
   height: 2rem;
+}
+
+.rf-cam__zoom {
+  position: absolute;
+  left: 0.4rem;
+  bottom: 0.45rem;
+  z-index: 8;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.22rem;
+  padding: 0.22rem 0.28rem;
+  border-radius: 0.55rem;
+  background: rgba(8, 14, 10, 0.62);
+  touch-action: manipulation;
+}
+
+.rf-cam--fs .rf-cam__zoom,
+.rf-cam:fullscreen .rf-cam__zoom,
+.rf-cam:-webkit-full-screen .rf-cam__zoom {
+  left: max(0.4rem, env(safe-area-inset-left, 0px));
+  bottom: 0.55rem;
+}
+
+.rf-cam__zoom-btn,
+.rf-cam__zoom-val {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.28rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: rgba(157, 236, 192, 0.92);
+  color: #0b1a12;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.rf-cam__zoom-btn:disabled,
+.rf-cam__zoom-val:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.rf-cam__zoom-val {
+  min-width: 2.2rem;
+  background: rgba(244, 255, 232, 0.92);
+  color: #0b120e;
+  font-variant-numeric: tabular-nums;
+}
+
+.rf-cam__zoom-range {
+  width: 4.8rem;
+  height: 1.35rem;
+  margin: 0;
+  accent-color: #9aecc0;
+  cursor: pointer;
 }
 
 .rf-resize {
@@ -507,4 +571,104 @@
   .rf-cam {
     height: min(62vh, 520px);
   }
+}
+
+:host.rf--landscape {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  height: 100%;
+}
+
+:host.rf--landscape .rf-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+}
+
+:host.rf--landscape .rf-toolbar,
+:host.rf--landscape .rf-radius {
+  position: absolute;
+  z-index: 6;
+  left: max(0.35rem, env(safe-area-inset-left, 0px));
+  right: max(0.35rem, env(safe-area-inset-right, 0px));
+  background: rgba(8, 14, 10, 0.55);
+  border-radius: 0.45rem;
+  padding: 0.28rem 0.4rem;
+  backdrop-filter: blur(8px);
+}
+
+:host.rf--landscape .rf-toolbar {
+  top: max(0.3rem, env(safe-area-inset-top, 0px));
+}
+
+:host.rf--landscape .rf-radius {
+  top: calc(max(0.3rem, env(safe-area-inset-top, 0px)) + 2.55rem);
+}
+
+:host.rf--landscape .rf-geo,
+:host.rf--landscape .rf-hint {
+  display: none;
+}
+
+:host.rf--landscape .rf-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  gap: 0;
+}
+
+:host.rf--landscape .rf-cam,
+:host.rf--landscape .rf-cam--resized {
+  height: 100%;
+  min-height: 0;
+  border-radius: 0;
+  border: 0;
+}
+
+:host.rf--landscape .rf-pano {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  height: 44px;
+  border-radius: 0;
+}
+
+:host.rf--landscape .rf-hud {
+  bottom: calc(44px + 2.7rem);
+  left: max(0.45rem, env(safe-area-inset-left, 0px));
+}
+
+:host.rf--landscape .rf-cam__zoom {
+  bottom: calc(44px + 0.4rem);
+  left: max(0.4rem, env(safe-area-inset-left, 0px));
+}
+
+:host.rf--landscape .rf-cam__btns {
+  bottom: calc(44px + 0.4rem);
+  right: max(0.4rem, env(safe-area-inset-right, 0px));
+}
+
+:host.rf--landscape .rf-guide {
+  top: 5.4rem;
+}
+
+:host.rf--landscape .rf-page > .rf-warn {
+  position: absolute;
+  z-index: 7;
+  left: 0.5rem;
+  right: 0.5rem;
+  top: 5.6rem;
+  margin: 0;
+  text-align: center;
+  pointer-events: none;
 }

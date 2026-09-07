@@ -1,5 +1,7 @@
 import {
+  displayedFov,
   sampleHorizonEl,
+  screenRelativeRollDeg,
   silhouetteFillPath,
   silhouetteScreenPoints,
   silhouetteStrokePath,
@@ -81,5 +83,19 @@ describe('relief-horizon', () => {
       visible: false
     };
     expect(projectVisiblePeaks([hidden], 10, 0, 60, 40).length).toBe(0);
+  });
+
+  it('narrows FOV when zooming in', () => {
+    const wide = displayedFov(undefined, { clientWidth: 800, clientHeight: 400 } as HTMLElement, 1);
+    const tight = displayedFov(undefined, { clientWidth: 800, clientHeight: 400 } as HTMLElement, 2);
+    expect(tight.hfov).toBeCloseTo(wide.hfov / 2, 5);
+    expect(tight.vfov).toBeCloseTo(wide.vfov / 2, 5);
+  });
+
+  it('cancels device roll against a landscape screen angle', () => {
+    expect(screenRelativeRollDeg(5, 0)).toBeCloseTo(5, 5);
+    expect(screenRelativeRollDeg(90, 90)).toBeCloseTo(0, 5);
+    expect(screenRelativeRollDeg(-90, 270)).toBeCloseTo(0, 5);
+    expect(Math.abs(screenRelativeRollDeg(100, 90))).toBeLessThan(15);
   });
 });

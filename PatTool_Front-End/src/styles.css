@@ -2113,6 +2113,35 @@ body.yt-page-theme {
   background-color: #0f0f0f;
 }
 
+/* Mobile landscape Relief Finder: hide app chrome, lock scroll */
+body.rf-landscape-fs {
+  overflow: hidden !important;
+}
+
+body.rf-landscape-fs app-root > app-assistant-drawer,
+body.rf-landscape-fs app-root > nav.navbar,
+body.rf-landscape-fs app-root > app-news-ticker,
+body.rf-landscape-fs app-root > app-currency-ticker,
+body.rf-landscape-fs app-root > app-stock-ticker,
+body.rf-landscape-fs app-root > .pat-div,
+body.rf-landscape-fs app-root > .friend-requests-app-banner {
+  display: none !important;
+}
+
+body.rf-landscape-fs app-relief-finder {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2000 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: #090c0a !important;
+}
+
 /* Mobile landscape YouTube: hide app chrome, lock scroll */
 body.yt-landscape-fs {
   overflow: hidden !important;

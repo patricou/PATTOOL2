@@ -4,6 +4,7 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
+  HostBinding,
   HostListener,
   NgZone,
   OnDestroy,
@@ -18,10 +19,13 @@ import { ApiService } from '../services/api.service';
 import { CameraLookTracker } from '../direction/camera-look-tracker';
 import { computeFinderTurnGuide, normalizeDeg, type FinderTurnGuide } from '../direction/direction-attitude';
 import { clampCamHeightPx, loadCamHeightPx, saveCamHeightPx } from '../shared/preview-cam-size';
+import { applyMultiplicativeWheelScale, normalizeWheelDeltaPixels } from '../shared/wheel-zoom.util';
 import {
   displayedFov,
   panoramaPath,
   projectVisiblePeaks,
+  screenAngleDeg,
+  screenRelativeRollDeg,
   silhouetteFillPath,
   silhouetteScreenPoints,
   silhouetteStrokePath,
@@ -33,6 +37,11 @@ import {
 const CAM_HEIGHT_KEY = 'pat.relief-finder.cam-height-px';
 const RADIUS_KEY = 'pat.relief-finder.radius-km';
 const CAM_IMAGE_KEY = 'pat.relief-finder.cam-image';
+const CAM_ZOOM_KEY = 'pat.relief-finder.cam-zoom';
+const CAM_ZOOM_MIN = 1;
+const CAM_ZOOM_MAX = 8;
+const CAM_ZOOM_STEP = 0.25;
+const LANDSCAPE_FS_BODY_CLASS = 'rf-landscape-fs';
 
 @Component({
   selector: 'app-relief-finder',
@@ -45,6 +54,7 @@ const CAM_IMAGE_KEY = 'pat.relief-finder.cam-image';
 export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('camStage') camStage?: ElementRef<HTMLElement>;
   private camEl?: ElementRef<HTMLVideoElement>;
+  @HostBinding('class.rf--landscape') landscapeImmersive = false;
 
   @ViewChild('cam')
   set camRef(el: ElementRef<HTMLVideoElement> | undefined) {
@@ -61,6 +71,22 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
   isFullscreen = false;
   camHeightPx: number | null = null;
   stream: MediaStream | null = null;
+  readonly camZoomMin = CAM_ZOOM_MIN;
+  readonly camZoomMax = CAM_ZOOM_MAX;
+  readonly camZoomStep = CAM_ZOOM_STEP;
+  camZoom = CAM_ZOOM_MIN;
+  camDigitalZoom = 1;
+  camVideoTransform = 'scale(1)';
+  private camZoomCaps: { min: number; max: number } | null = null;
+  private camZoomGesturesBound = false;
+  private camPinchStartDist = 0;
+  private camPinchStartZoom = CAM_ZOOM_MIN;
+  private readonly onCamWheelNative = (ev: WheelEvent): void => this.onCamWheel(ev);
+  private readonly onCamTouchStartNative = (ev: TouchEvent): void => this.onCamTouchStart(ev);
+  private readonly onCamTouchMoveNative = (ev: TouchEvent): void => this.onCamTouchMove(ev);
+  private readonly onCamTouchEndNative = (ev: TouchEvent): void => this.onCamTouchEnd(ev);
+  private landscapeOrientationMql: MediaQueryList | null = null;
+  private readonly onLandscapeOrientationMedia = (): void => this.syncLandscapeImmersive();
 
   lat: number | null = null;
   lon: number | null = null;
@@ -92,6 +118,7 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
     this.lookTracker = new CameraLookTracker(this.zone, () => this.onLookUpdate());
     this.camHeightPx = loadCamHeightPx(CAM_HEIGHT_KEY);
     this.camImageOn = loadCamImageOn();
+    this.loadCamZoomPref();
     try {
       const stored = Number(localStorage.getItem(RADIUS_KEY));
       if (this.radiusOptions.includes(stored)) {
@@ -109,6 +136,9 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.paintTimer = setInterval(() => this.onLookUpdate(), 80);
+    this.bindCamZoomGestures();
+    this.setupLandscapeWatchers();
+    this.syncLandscapeImmersive();
   }
 
   ngOnDestroy(): void {
@@ -118,12 +148,22 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
     this.horizonSub?.unsubscribe();
     this.lookTracker.stop();
     this.stopCamera();
+    this.unbindCamZoomGestures();
+    this.teardownLandscapeWatchers();
+    this.setLandscapeImmersive(false);
   }
 
   @HostListener('document:fullscreenchange')
   onFs(): void {
     this.isFullscreen = !!document.fullscreenElement;
     this.cdr.markForCheck();
+  }
+
+  @HostListener('window:orientationchange')
+  @HostListener('window:resize')
+  onViewportChanged(): void {
+    this.syncLandscapeImmersive();
+    this.onLookUpdate();
   }
 
   async enableSensors(): Promise<void> {
@@ -164,6 +204,9 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
       await this.attachCameraStream();
+      this.refreshCameraZoomCaps();
+      this.syncCamZoomOutputs();
+      this.bindCamZoomGestures();
     } catch {
       this.camDenied = true;
       this.camLive = false;
@@ -175,6 +218,7 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
     this.stream?.getTracks().forEach((t) => t.stop());
     this.stream = null;
     this.camLive = false;
+    this.camZoomCaps = null;
     const video = this.camEl?.nativeElement;
     if (video) {
       video.srcObject = null;
@@ -191,6 +235,8 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       await video.play();
       this.camLive = true;
+      this.refreshCameraZoomCaps();
+      this.syncCamZoomOutputs();
     } catch {
       this.camLive = false;
     }
@@ -219,7 +265,7 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onCamResizePointer(ev: PointerEvent): void {
-    if (this.isFullscreen || ev.button !== 0) {
+    if (this.isFullscreen || this.landscapeImmersive || ev.button !== 0) {
       return;
     }
     const startY = ev.clientY;
@@ -338,8 +384,34 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   horizonTilt(): string {
-    const rl = this.lookTracker.rollDeg ?? 0;
-    return `rotate(${-rl}deg)`;
+    const r = screenRelativeRollDeg(this.lookTracker.rollDeg ?? 0, screenAngleDeg());
+    return `rotate(${-r}deg)`;
+  }
+
+  get camZoomLabel(): string {
+    const z = this.camZoom;
+    const txt = Math.abs(z - Math.round(z)) < 0.05 ? String(Math.round(z)) : z.toFixed(1);
+    return `${txt}×`;
+  }
+
+  camZoomIn(): void {
+    this.setCamZoom(this.camZoom + CAM_ZOOM_STEP, true);
+  }
+
+  camZoomOut(): void {
+    this.setCamZoom(this.camZoom - CAM_ZOOM_STEP, true);
+  }
+
+  resetCamZoom(): void {
+    this.setCamZoom(CAM_ZOOM_MIN, true);
+  }
+
+  onCamZoomInput(ev: Event): void {
+    const n = Number((ev.target as HTMLInputElement).value);
+    if (!Number.isFinite(n)) {
+      return;
+    }
+    this.setCamZoom(n, true);
   }
 
   fovWindowStyle(win: { x: number; w: number }): Record<string, string> {
@@ -362,7 +434,7 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
       this.cdr.markForCheck();
       return;
     }
-    const fov = displayedFov(this.camEl?.nativeElement, this.camStage?.nativeElement);
+    const fov = displayedFov(this.camEl?.nativeElement, this.camStage?.nativeElement, this.camZoom);
     const pts = silhouetteScreenPoints(h, camAz, camEl, fov.hfov, fov.vfov);
     this.silhouetteFill = silhouetteFillPath(pts);
     this.silhouetteStroke = silhouetteStrokePath(pts);
@@ -407,6 +479,236 @@ export class ReliefFinderComponent implements OnInit, AfterViewInit, OnDestroy {
 
   distLabel(peak: ReliefPeak): string {
     return peak.distKm >= 10 ? `${Math.round(peak.distKm)} km` : `${peak.distKm.toFixed(1)} km`;
+  }
+
+  private onCamWheel(ev: WheelEvent): void {
+    if (this.isCamZoomIgnoreTarget(ev.target)) {
+      return;
+    }
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.setCamZoom(
+      applyMultiplicativeWheelScale(
+        this.camZoom,
+        normalizeWheelDeltaPixels(ev),
+        CAM_ZOOM_MIN,
+        CAM_ZOOM_MAX
+      ),
+      false
+    );
+  }
+
+  private onCamTouchStart(ev: TouchEvent): void {
+    if (ev.touches.length !== 2) {
+      this.camPinchStartDist = 0;
+      return;
+    }
+    this.camPinchStartDist = this.touchDistance(ev.touches[0], ev.touches[1]);
+    this.camPinchStartZoom = this.camZoom;
+  }
+
+  private onCamTouchMove(ev: TouchEvent): void {
+    if (ev.touches.length !== 2 || this.camPinchStartDist < 8) {
+      return;
+    }
+    ev.preventDefault();
+    const dist = this.touchDistance(ev.touches[0], ev.touches[1]);
+    this.setCamZoom((this.camPinchStartZoom * dist) / this.camPinchStartDist, false, false);
+  }
+
+  private onCamTouchEnd(ev?: TouchEvent): void {
+    if (this.camPinchStartDist > 0 && (!ev || ev.touches.length < 2)) {
+      this.setCamZoom(this.camZoom, true);
+      this.camPinchStartDist = 0;
+    }
+  }
+
+  private touchDistance(a: Touch, b: Touch): number {
+    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  }
+
+  private isCamZoomIgnoreTarget(target: EventTarget | null): boolean {
+    const el = target instanceof Element ? target : null;
+    return !!el?.closest('button, input, label, a, select, textarea, .rf-cam__zoom, .rf-resize');
+  }
+
+  private setCamZoom(next: number, snap: boolean, persist = true): void {
+    let z = Math.min(CAM_ZOOM_MAX, Math.max(CAM_ZOOM_MIN, next));
+    if (snap) {
+      z = Math.round(z / CAM_ZOOM_STEP) * CAM_ZOOM_STEP;
+    }
+    z = parseFloat(z.toFixed(2));
+    if (z === this.camZoom && persist) {
+      this.persistCamZoomPref();
+      return;
+    }
+    this.camZoom = z;
+    this.syncCamZoomOutputs();
+    this.onLookUpdate();
+    if (persist) {
+      this.persistCamZoomPref();
+    }
+    this.cdr.markForCheck();
+  }
+
+  private syncCamZoomOutputs(): void {
+    const caps = this.camZoomCaps;
+    const track = this.stream?.getVideoTracks()[0];
+    if (caps && track) {
+      const hw = Math.min(caps.max, Math.max(caps.min, this.camZoom));
+      this.camDigitalZoom = this.camZoom / hw;
+      this.camVideoTransform = `scale(${this.camDigitalZoom})`;
+      void track
+        .applyConstraints({ advanced: [{ zoom: hw }] } as unknown as MediaTrackConstraints)
+        .catch(() => {
+          this.camDigitalZoom = this.camZoom;
+          this.camVideoTransform = `scale(${this.camDigitalZoom})`;
+          this.cdr.markForCheck();
+        });
+      return;
+    }
+    this.camDigitalZoom = this.camZoom;
+    this.camVideoTransform = `scale(${this.camDigitalZoom})`;
+  }
+
+  private refreshCameraZoomCaps(): void {
+    try {
+      const track = this.stream?.getVideoTracks()[0];
+      const caps = track?.getCapabilities?.() as
+        | (MediaTrackCapabilities & { zoom?: number | { min?: number; max?: number } })
+        | undefined;
+      const z = caps?.zoom;
+      if (z && typeof z === 'object' && Number.isFinite(z.max) && (z.max ?? 0) > (z.min ?? 1)) {
+        this.camZoomCaps = { min: z.min ?? 1, max: z.max as number };
+        return;
+      }
+    } catch {
+      /* iOS / navigateurs sans zoom capteur */
+    }
+    this.camZoomCaps = null;
+  }
+
+  private bindCamZoomGestures(): void {
+    const el = this.camStage?.nativeElement;
+    if (!el || this.camZoomGesturesBound) {
+      return;
+    }
+    el.addEventListener('wheel', this.onCamWheelNative, { passive: false, capture: true });
+    el.addEventListener('touchstart', this.onCamTouchStartNative, { passive: true, capture: true });
+    el.addEventListener('touchmove', this.onCamTouchMoveNative, { passive: false, capture: true });
+    el.addEventListener('touchend', this.onCamTouchEndNative, { passive: true, capture: true });
+    el.addEventListener('touchcancel', this.onCamTouchEndNative, { passive: true, capture: true });
+    this.camZoomGesturesBound = true;
+  }
+
+  private unbindCamZoomGestures(): void {
+    const el = this.camStage?.nativeElement;
+    if (!el || !this.camZoomGesturesBound) {
+      return;
+    }
+    el.removeEventListener('wheel', this.onCamWheelNative, true);
+    el.removeEventListener('touchstart', this.onCamTouchStartNative, true);
+    el.removeEventListener('touchmove', this.onCamTouchMoveNative, true);
+    el.removeEventListener('touchend', this.onCamTouchEndNative, true);
+    el.removeEventListener('touchcancel', this.onCamTouchEndNative, true);
+    this.camZoomGesturesBound = false;
+  }
+
+  private loadCamZoomPref(): void {
+    try {
+      const raw = Number(localStorage.getItem(CAM_ZOOM_KEY));
+      if (Number.isFinite(raw)) {
+        this.camZoom = Math.min(CAM_ZOOM_MAX, Math.max(CAM_ZOOM_MIN, raw));
+        this.camDigitalZoom = this.camZoom;
+        this.camVideoTransform = `scale(${this.camDigitalZoom})`;
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    this.camZoom = CAM_ZOOM_MIN;
+    this.camDigitalZoom = CAM_ZOOM_MIN;
+    this.camVideoTransform = 'scale(1)';
+  }
+
+  private persistCamZoomPref(): void {
+    try {
+      localStorage.setItem(CAM_ZOOM_KEY, String(this.camZoom));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private setupLandscapeWatchers(): void {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+    this.landscapeOrientationMql = window.matchMedia('(orientation: landscape)');
+    if (typeof this.landscapeOrientationMql.addEventListener === 'function') {
+      this.landscapeOrientationMql.addEventListener('change', this.onLandscapeOrientationMedia);
+    } else {
+      (
+        this.landscapeOrientationMql as MediaQueryList & {
+          addListener?: (cb: () => void) => void;
+        }
+      ).addListener?.(this.onLandscapeOrientationMedia);
+    }
+  }
+
+  private teardownLandscapeWatchers(): void {
+    if (!this.landscapeOrientationMql) {
+      return;
+    }
+    if (typeof this.landscapeOrientationMql.removeEventListener === 'function') {
+      this.landscapeOrientationMql.removeEventListener('change', this.onLandscapeOrientationMedia);
+    } else {
+      (
+        this.landscapeOrientationMql as MediaQueryList & {
+          removeListener?: (cb: () => void) => void;
+        }
+      ).removeListener?.(this.onLandscapeOrientationMedia);
+    }
+    this.landscapeOrientationMql = null;
+  }
+
+  private isMobileLikeViewport(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    const coarse = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    const narrow = window.matchMedia('(max-width: 900px)').matches;
+    const touch = (navigator.maxTouchPoints || 0) > 0;
+    return coarse || (narrow && touch);
+  }
+
+  private isLandscapeOrientation(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    if (this.landscapeOrientationMql) {
+      return this.landscapeOrientationMql.matches;
+    }
+    return window.matchMedia('(orientation: landscape)').matches;
+  }
+
+  private syncLandscapeImmersive(): void {
+    const on = this.isMobileLikeViewport() && this.isLandscapeOrientation();
+    this.setLandscapeImmersive(on);
+  }
+
+  private setLandscapeImmersive(on: boolean): void {
+    if (this.landscapeImmersive === on) {
+      if (on) {
+        document.body.classList.add(LANDSCAPE_FS_BODY_CLASS);
+      } else {
+        document.body.classList.remove(LANDSCAPE_FS_BODY_CLASS);
+      }
+      return;
+    }
+    this.landscapeImmersive = on;
+    document.body.classList.toggle(LANDSCAPE_FS_BODY_CLASS, on);
+    this.cdr.markForCheck();
+    requestAnimationFrame(() => this.onLookUpdate());
   }
 }
 
