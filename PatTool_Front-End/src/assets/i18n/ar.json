@@ -6241,7 +6241,14 @@
     "CONTEXT_CLIP": "مقطع مسجّل",
     "CLIP_BACK": "العودة إلى YouTube",
     "RECORD_SHARE_TAB": "اختر هذا التبويب وضمّن الصوت. يُسجَّل فيديو YouTube فقط.",
-    "ERR_RECORD_SHARE": "تم إلغاء التسجيل. شارك هذا التبويب واسمح بالصوت."
+    "ERR_RECORD_SHARE": "تم إلغاء التسجيل. شارك هذا التبويب واسمح بالصوت.",
+    "TAB_FAVORITES": "المفضلة",
+    "FAVORITE": "إضافة إلى المفضلة",
+    "UNFAVORITE": "إزالة من المفضلة",
+    "FAVORITES_LOGIN": "سجّل الدخول لحفظ فيديوهاتك المفضلة ومزامنتها.",
+    "NO_FAVORITES": "لا توجد مفضلات بعد. اضغط على النجمة لحفظ عنصر.",
+    "ERR_FAVORITES_LOAD": "تعذّر تحميل المفضلة.",
+    "ERR_FAVORITES_SAVE": "تعذّر تحديث المفضلة. حاول مرة أخرى."
   },
   "RELIEF_FINDER": {
     "TITLE": "Relief finder",

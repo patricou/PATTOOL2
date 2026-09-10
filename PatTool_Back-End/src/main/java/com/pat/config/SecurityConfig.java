@@ -377,7 +377,11 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/external/foncier/cache/clear").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/foncier-suisse/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/external/foncier-suisse/cache/clear").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/external/youtube/**").permitAll()
+                // Favorites (GET/PUT/DELETE /api/external/youtube/favorites**) stay authenticated via /api/**
+                .requestMatchers(HttpMethod.GET, "/api/external/youtube/status").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/youtube/search").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/youtube/popular").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/youtube/image").permitAll()
                 // Telegram Bot API — always authenticated (per-user BotFather token in Mongo)
 
                 // Éclipses — USNO + OPALE/IMCCE (lecture seule, données publiques)

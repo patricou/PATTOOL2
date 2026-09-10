@@ -236,7 +236,7 @@
       {{ 'YOUTUBE.CLEAR' | translate }}
     </button>
   </div>
-  <p class="yt-type-hint" *ngIf="needsTypeQuery">
+  <p class="yt-type-hint" *ngIf="needsTypeQuery && listMode !== 'favorites'">
     {{ 'YOUTUBE.TYPE_NEEDS_QUERY' | translate }}
   </p>
 
@@ -399,6 +399,19 @@
           {{ 'YOUTUBE.OPEN_YOUTUBE' | translate }}
         </a>
         <button
+          *ngIf="!playingRecording && selected"
+          type="button"
+          class="btn btn-outline-light btn-sm yt-fav-btn"
+          [class.is-fav]="isFavorite(selected)"
+          [disabled]="favoriteBusyKey === favoriteKey(selected)"
+          (click)="toggleFavorite(selected, $event)"
+          [attr.title]="(isFavorite(selected) ? 'YOUTUBE.UNFAVORITE' : 'YOUTUBE.FAVORITE') | translate"
+          [attr.aria-label]="(isFavorite(selected) ? 'YOUTUBE.UNFAVORITE' : 'YOUTUBE.FAVORITE') | translate"
+          [attr.aria-pressed]="isFavorite(selected)">
+          <i class="fa" [class.fa-star]="isFavorite(selected)" [class.fa-star-o]="!isFavorite(selected)" aria-hidden="true"></i>
+          {{ (isFavorite(selected) ? 'YOUTUBE.UNFAVORITE' : 'YOUTUBE.FAVORITE') | translate }}
+        </button>
+        <button
           *ngIf="!playingRecording && youtubeUrl(selected)"
           type="button"
           class="btn btn-outline-light btn-sm yt-share-wa"
@@ -495,6 +508,18 @@
         {{ 'YOUTUBE.OPEN_YOUTUBE' | translate }}
       </a>
       <button
+        type="button"
+        class="btn btn-outline-light btn-sm yt-fav-btn"
+        [class.is-fav]="isFavorite(selected)"
+        [disabled]="favoriteBusyKey === favoriteKey(selected)"
+        (click)="toggleFavorite(selected, $event)"
+        [attr.title]="(isFavorite(selected) ? 'YOUTUBE.UNFAVORITE' : 'YOUTUBE.FAVORITE') | translate"
+        [attr.aria-label]="(isFavorite(selected) ? 'YOUTUBE.UNFAVORITE' : 'YOUTUBE.FAVORITE') | translate"
+        [attr.aria-pressed]="isFavorite(selected)">
+        <i class="fa" [class.fa-star]="isFavorite(selected)" [class.fa-star-o]="!isFavorite(selected)" aria-hidden="true"></i>
+        {{ (isFavorite(selected) ? 'YOUTUBE.UNFAVORITE' : 'YOUTUBE.FAVORITE') | translate }}
+      </button>
+      <button
         *ngIf="youtubeUrl(selected)"
         type="button"
         class="btn btn-outline-light btn-sm yt-share-wa"
@@ -511,8 +536,32 @@
     </div>
   </div>
 
-  <div class="yt-recordings-entry" *ngIf="isLoggedIn">
+  <div class="yt-toolbar">
+    <div class="yt-mode-tabs" role="tablist" [attr.aria-label]="'YOUTUBE.TITLE' | translate">
+      <button
+        type="button"
+        class="yt-mode-tab"
+        role="tab"
+        [class.active]="listMode === 'catalog'"
+        [attr.aria-selected]="listMode === 'catalog'"
+        (click)="setListMode('catalog')">
+        <i class="fa fa-youtube-play" aria-hidden="true"></i>
+        {{ (query || channelId ? 'YOUTUBE.RESULTS' : 'YOUTUBE.POPULAR') | translate }}
+      </button>
+      <button
+        type="button"
+        class="yt-mode-tab"
+        role="tab"
+        [class.active]="listMode === 'favorites'"
+        [attr.aria-selected]="listMode === 'favorites'"
+        (click)="setListMode('favorites')">
+        <i class="fa fa-star" aria-hidden="true"></i>
+        {{ 'YOUTUBE.TAB_FAVORITES' | translate }}
+        <span class="yt-fav-badge" *ngIf="favorites.length">{{ favorites.length }}</span>
+      </button>
+    </div>
     <button
+      *ngIf="isLoggedIn"
       type="button"
       class="btn btn-sm yt-recordings-open"
       (click)="openRecordingsModal()"
@@ -523,12 +572,19 @@
     </button>
   </div>
 
-  <div class="yt-results-head" *ngIf="searched || searching">
+  <div *ngIf="favoritesError" class="alert alert-warning py-2 yt-alert" role="alert">
+    {{ favoritesError | translate }}
+  </div>
+  <div *ngIf="favoritesHint" class="alert alert-info py-2 yt-alert" role="status">
+    {{ favoritesHint | translate }}
+  </div>
+
+  <div class="yt-results-head" *ngIf="showResultsHead">
     <span>{{ listContextKey() | translate }}</span>
-    <ng-container *ngIf="!searching">
+    <ng-container *ngIf="!searching && !(listMode === 'favorites' && isLoadingFavorites)">
       <ng-container *ngTemplateOutlet="ytQueueBar"></ng-container>
     </ng-container>
-    <div class="yt-sort" *ngIf="!searching && items.length">
+    <div class="yt-sort" *ngIf="!searching && displayedItems.length">
       <label class="visually-hidden" for="yt-sort">{{ 'YOUTUBE.SORT' | translate }}</label>
       <select
         id="yt-sort"
@@ -547,24 +603,28 @@
         <i class="fa" [class.fa-sort-amount-desc]="sortDir === 'desc'" [class.fa-sort-amount-asc]="sortDir === 'asc'" aria-hidden="true"></i>
       </button>
     </div>
-    <span class="yt-results-count" *ngIf="!searching">
-      {{ 'YOUTUBE.RESULT_COUNT' | translate:{ count: items.length } }}
+    <span class="yt-results-count" *ngIf="!searching && !(listMode === 'favorites' && isLoadingFavorites)">
+      {{ 'YOUTUBE.RESULT_COUNT' | translate:{ count: displayedItems.length } }}
     </span>
   </div>
 
-  <div class="yt-busy" *ngIf="searching">
+  <div class="yt-busy" *ngIf="searching || (listMode === 'favorites' && isLoadingFavorites)">
     <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
     {{ 'YOUTUBE.LOADING' | translate }}
   </div>
 
-  <p class="yt-no-results" *ngIf="!searching && searched && !items.length && !missingKey">
+  <p class="yt-no-results" *ngIf="listMode === 'favorites' && !isLoadingFavorites && !favorites.length && isLoggedIn && !favoritesError">
+    {{ 'YOUTUBE.NO_FAVORITES' | translate }}
+  </p>
+
+  <p class="yt-no-results" *ngIf="listMode !== 'favorites' && !searching && searched && !items.length && !missingKey">
     {{ 'YOUTUBE.NO_RESULTS' | translate }}
   </p>
 
-  <div class="yt-grid" *ngIf="!searching && items.length">
+  <div class="yt-grid" *ngIf="!searching && displayedItems.length && !(listMode === 'favorites' && isLoadingFavorites)">
     <div
       class="yt-card"
-      *ngFor="let item of items"
+      *ngFor="let item of displayedItems"
       [class.active]="selected?.id === item.id && selected?.kind === item.kind">
       <button type="button" class="yt-card-main" (click)="selectItem(item)">
         <span class="yt-card-thumb">
@@ -586,6 +646,17 @@
         </span>
       </button>
       <button
+        type="button"
+        class="yt-card-fav"
+        [class.is-fav]="isFavorite(item)"
+        [disabled]="favoriteBusyKey === favoriteKey(item)"
+        (click)="toggleFavorite(item, $event)"
+        [attr.title]="(isFavorite(item) ? 'YOUTUBE.UNFAVORITE' : 'YOUTUBE.FAVORITE') | translate"
+        [attr.aria-label]="(isFavorite(item) ? 'YOUTUBE.UNFAVORITE' : 'YOUTUBE.FAVORITE') | translate"
+        [attr.aria-pressed]="isFavorite(item)">
+        <i class="fa" [class.fa-star]="isFavorite(item)" [class.fa-star-o]="!isFavorite(item)" aria-hidden="true"></i>
+      </button>
+      <button
         *ngIf="youtubeUrl(item)"
         type="button"
         class="yt-card-share"
@@ -597,7 +668,7 @@
     </div>
   </div>
 
-  <div class="yt-more" *ngIf="nextPageToken && !searching">
+  <div class="yt-more" *ngIf="listMode === 'catalog' && nextPageToken && !searching">
     <button type="button" class="btn btn-outline-secondary" [disabled]="loadingMore" (click)="loadMore()">
       <i class="fa" [class.fa-spinner]="loadingMore" [class.fa-spin]="loadingMore" [class.fa-chevron-down]="!loadingMore" aria-hidden="true"></i>
       {{ 'YOUTUBE.LOAD_MORE' | translate }}

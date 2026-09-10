@@ -7,7 +7,8 @@ import { environment } from '../../../environments/environment';
 export type AboutTab = 'overview' | 'stack' | 'streaming' | 'resources';
 
 export interface AboutFeatureLink {
-  route: string[];
+  /** Absolute app path (`/photos`). Relative paths would stay under `/maps` and bounce to home. */
+  route: string;
   icon: string;
   labelKey: string;
   descKey: string;
@@ -97,31 +98,31 @@ export class AboutComponent {
   ];
 
   readonly featureLinks: AboutFeatureLink[] = [
-    { route: ['even'], icon: 'fa-list', labelKey: 'MENU.EVENTSLIST', descKey: 'ABOUT.FEAT_EVENTS' },
-    { route: ['photos'], icon: 'fa-picture-o', labelKey: 'MENU.PHOTOS', descKey: 'ABOUT.FEAT_PHOTOS' },
-    { route: ['results'], icon: 'fa-comments', labelKey: 'MENU.RESULTS', descKey: 'ABOUT.FEAT_WHATSPAT' },
-    { route: ['calendrier'], icon: 'fa-calendar-check-o', labelKey: 'MENU.CALENDAR', descKey: 'ABOUT.FEAT_CALENDAR' },
-    { route: ['todolists'], icon: 'fa-tasks', labelKey: 'MENU.TODOLISTS', descKey: 'ABOUT.FEAT_TODO' },
-    { route: ['notes'], icon: 'fa-sticky-note', labelKey: 'MENU.NOTES', descKey: 'ABOUT.FEAT_NOTES' },
-    { route: ['friends'], icon: 'fa-users', labelKey: 'MENU.FRIENDS', descKey: 'ABOUT.FEAT_FRIENDS' },
-    { route: ['links'], icon: 'fa-link', labelKey: 'MENU.LINKS', descKey: 'ABOUT.FEAT_LINKS' },
-    { route: ['iot'], icon: 'fa-home', labelKey: 'MENU.IOT_HOME', descKey: 'ABOUT.FEAT_IOT' },
-    { route: ['api/meteo-france'], icon: 'fa-cloud', labelKey: 'MENU.METEO_FRANCE', descKey: 'ABOUT.FEAT_GEO' },
-    { route: ['tools/world-globe'], icon: 'fa-globe', labelKey: 'MENU.WORLD_GLOBE', descKey: 'ABOUT.FEAT_GLOBE' },
-    { route: ['tools/solar-system'], icon: 'fa-sun-o', labelKey: 'MENU.SOLAR_SYSTEM', descKey: 'ABOUT.FEAT_SOLAR' },
-    { route: ['tools/ciel'], icon: 'fa-star', labelKey: 'MENU.SKY', descKey: 'ABOUT.FEAT_SKY' },
-    { route: ['tools/univers-futur'], icon: 'fa-hourglass-half', labelKey: 'MENU.FUTURE_UNIVERSE', descKey: 'ABOUT.FEAT_FUTURE_UNIVERSE' },
-    { route: ['tools/eclipse'], icon: 'fa-moon-o', labelKey: 'MENU.ECLIPSE', descKey: 'ABOUT.FEAT_ECLIPSE' },
-    { route: ['tools/astro-compass'], icon: 'fa-video-camera', labelKey: 'MENU.ASTRO_COMPASS', descKey: 'ABOUT.FEAT_ASTRO' },
-    { route: ['tools/nord'], icon: 'fa-location-arrow', labelKey: 'MENU.NORD', descKey: 'ABOUT.FEAT_COMPASS' },
-    { route: ['tools/direction'], icon: 'fa-crosshairs', labelKey: 'MENU.DIRECTION', descKey: 'ABOUT.FEAT_DIRECTION' },
-    { route: ['tools/relief-finder'], icon: 'fa-area-chart', labelKey: 'MENU.RELIEF_FINDER', descKey: 'ABOUT.FEAT_RELIEF' },
-    { route: ['api/wiki'], icon: 'fa-graduation-cap', labelKey: 'MENU.WIKI', descKey: 'ABOUT.FEAT_WIKI' },
-    { route: ['api/foncier'], icon: 'fa-building', labelKey: 'MENU.FONCIER', descKey: 'ABOUT.FEAT_FONCIER' },
-    { route: ['api/foncier-suisse'], icon: 'fa-flag', labelKey: 'MENU.FONCIER_SUISSE', descKey: 'ABOUT.FEAT_FONCIER_SUISSE' },
-    { route: ['tools/archive-watcher'], icon: 'fa-archive', labelKey: 'MENU.ARCHIVE', descKey: 'ABOUT.FEAT_MEDIA' },
-    { route: ['tools/video-montage'], icon: 'fa-film', labelKey: 'MENU.VIDEO_MONTAGE', descKey: 'ABOUT.FEAT_VIDEO_MONTAGE' },
-    { route: ['system'], icon: 'fa-cog', labelKey: 'MENU.SYSTEM', descKey: 'ABOUT.FEAT_SYSTEM' }
+    { route: '/even', icon: 'fa-list', labelKey: 'MENU.EVENTSLIST', descKey: 'ABOUT.FEAT_EVENTS' },
+    { route: '/photos', icon: 'fa-picture-o', labelKey: 'MENU.PHOTOS', descKey: 'ABOUT.FEAT_PHOTOS' },
+    { route: '/results', icon: 'fa-comments', labelKey: 'MENU.RESULTS', descKey: 'ABOUT.FEAT_WHATSPAT' },
+    { route: '/calendrier', icon: 'fa-calendar-check-o', labelKey: 'MENU.CALENDAR', descKey: 'ABOUT.FEAT_CALENDAR' },
+    { route: '/todolists', icon: 'fa-tasks', labelKey: 'MENU.TODOLISTS', descKey: 'ABOUT.FEAT_TODO' },
+    { route: '/notes', icon: 'fa-sticky-note', labelKey: 'MENU.NOTES', descKey: 'ABOUT.FEAT_NOTES' },
+    { route: '/friends', icon: 'fa-users', labelKey: 'MENU.FRIENDS', descKey: 'ABOUT.FEAT_FRIENDS' },
+    { route: '/links', icon: 'fa-link', labelKey: 'MENU.LINKS', descKey: 'ABOUT.FEAT_LINKS' },
+    { route: '/iot', icon: 'fa-home', labelKey: 'MENU.IOT_HOME', descKey: 'ABOUT.FEAT_IOT' },
+    { route: '/api/meteo-france', icon: 'fa-cloud', labelKey: 'MENU.METEO_FRANCE', descKey: 'ABOUT.FEAT_GEO' },
+    { route: '/tools/world-globe', icon: 'fa-globe', labelKey: 'MENU.WORLD_GLOBE', descKey: 'ABOUT.FEAT_GLOBE' },
+    { route: '/tools/solar-system', icon: 'fa-sun-o', labelKey: 'MENU.SOLAR_SYSTEM', descKey: 'ABOUT.FEAT_SOLAR' },
+    { route: '/tools/ciel', icon: 'fa-star', labelKey: 'MENU.SKY', descKey: 'ABOUT.FEAT_SKY' },
+    { route: '/tools/univers-futur', icon: 'fa-hourglass-half', labelKey: 'MENU.FUTURE_UNIVERSE', descKey: 'ABOUT.FEAT_FUTURE_UNIVERSE' },
+    { route: '/tools/eclipse', icon: 'fa-moon-o', labelKey: 'MENU.ECLIPSE', descKey: 'ABOUT.FEAT_ECLIPSE' },
+    { route: '/tools/astro-compass', icon: 'fa-video-camera', labelKey: 'MENU.ASTRO_COMPASS', descKey: 'ABOUT.FEAT_ASTRO' },
+    { route: '/tools/nord', icon: 'fa-location-arrow', labelKey: 'MENU.NORD', descKey: 'ABOUT.FEAT_COMPASS' },
+    { route: '/tools/direction', icon: 'fa-crosshairs', labelKey: 'MENU.DIRECTION', descKey: 'ABOUT.FEAT_DIRECTION' },
+    { route: '/tools/relief-finder', icon: 'fa-area-chart', labelKey: 'MENU.RELIEF_FINDER', descKey: 'ABOUT.FEAT_RELIEF' },
+    { route: '/api/wiki', icon: 'fa-graduation-cap', labelKey: 'MENU.WIKI', descKey: 'ABOUT.FEAT_WIKI' },
+    { route: '/api/foncier', icon: 'fa-building', labelKey: 'MENU.FONCIER', descKey: 'ABOUT.FEAT_FONCIER' },
+    { route: '/api/foncier-suisse', icon: 'fa-flag', labelKey: 'MENU.FONCIER_SUISSE', descKey: 'ABOUT.FEAT_FONCIER_SUISSE' },
+    { route: '/tools/archive-watcher', icon: 'fa-archive', labelKey: 'MENU.ARCHIVE', descKey: 'ABOUT.FEAT_MEDIA' },
+    { route: '/tools/video-montage', icon: 'fa-film', labelKey: 'MENU.VIDEO_MONTAGE', descKey: 'ABOUT.FEAT_VIDEO_MONTAGE' },
+    { route: '/system', icon: 'fa-cog', labelKey: 'MENU.SYSTEM', descKey: 'ABOUT.FEAT_SYSTEM' }
   ];
 
   readonly streamingSteps: Array<{ icon: string; titleKey: string; descKey: string }> = [

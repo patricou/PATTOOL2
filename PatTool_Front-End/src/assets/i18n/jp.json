@@ -6248,7 +6248,14 @@
     "CONTEXT_CLIP": "録画クリップ",
     "CLIP_BACK": "YouTube に戻る",
     "RECORD_SHARE_TAB": "このタブと音声を選んでください。YouTube 動画だけが録画されます。",
-    "ERR_RECORD_SHARE": "録画をキャンセルしました。このタブを共有し、音声を許可してください。"
+    "ERR_RECORD_SHARE": "録画をキャンセルしました。このタブを共有し、音声を許可してください。",
+    "TAB_FAVORITES": "お気に入り",
+    "FAVORITE": "お気に入りに追加",
+    "UNFAVORITE": "お気に入りから削除",
+    "FAVORITES_LOGIN": "ログインしてお気に入り動画を保存・同期してください。",
+    "NO_FAVORITES": "お気に入りはまだありません。星をタップして保存します。",
+    "ERR_FAVORITES_LOAD": "お気に入りを読み込めませんでした。",
+    "ERR_FAVORITES_SAVE": "お気に入りを更新できませんでした。もう一度お試しください。"
   },
   "RELIEF_FINDER": {
     "TITLE": "Relief finder",

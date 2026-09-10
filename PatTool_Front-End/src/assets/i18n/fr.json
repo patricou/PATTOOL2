@@ -8706,7 +8706,14 @@
     "CONTEXT_CLIP": "Extrait enregistré",
     "CLIP_BACK": "Revenir à YouTube",
     "RECORD_SHARE_TAB": "Choisissez cet onglet et le son. Seule la vidéo YouTube est enregistrée.",
-    "ERR_RECORD_SHARE": "Enregistrement annulé. Partagez cet onglet et autorisez le son."
+    "ERR_RECORD_SHARE": "Enregistrement annulé. Partagez cet onglet et autorisez le son.",
+    "TAB_FAVORITES": "Favoris",
+    "FAVORITE": "Ajouter aux favoris",
+    "UNFAVORITE": "Retirer des favoris",
+    "FAVORITES_LOGIN": "Connectez-vous pour enregistrer et synchroniser vos vidéos favorites.",
+    "NO_FAVORITES": "Aucun favori pour le moment. Touchez l’étoile pour en enregistrer.",
+    "ERR_FAVORITES_LOAD": "Impossible de charger vos favoris.",
+    "ERR_FAVORITES_SAVE": "Impossible de mettre à jour les favoris. Réessayez."
   },
   "RELIEF_FINDER": {
     "TITLE": "Relief finder",

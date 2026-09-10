@@ -8702,7 +8702,14 @@
     "CONTEXT_CLIP": "Recorded clip",
     "CLIP_BACK": "Back to YouTube",
     "RECORD_SHARE_TAB": "Choose this tab and include audio. Only the YouTube video is recorded.",
-    "ERR_RECORD_SHARE": "Recording cancelled. Share this tab and allow audio."
+    "ERR_RECORD_SHARE": "Recording cancelled. Share this tab and allow audio.",
+    "TAB_FAVORITES": "Favorites",
+    "FAVORITE": "Add to favorites",
+    "UNFAVORITE": "Remove from favorites",
+    "FAVORITES_LOGIN": "Sign in to save and sync your favorite videos.",
+    "NO_FAVORITES": "No favorites yet. Tap the star to save one here.",
+    "ERR_FAVORITES_LOAD": "Could not load your favorites.",
+    "ERR_FAVORITES_SAVE": "Could not update favorites. Please try again."
   },
   "RELIEF_FINDER": {
     "TITLE": "Relief finder",

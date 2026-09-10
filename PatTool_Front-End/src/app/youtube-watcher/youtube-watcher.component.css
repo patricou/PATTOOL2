@@ -62,7 +62,7 @@
 :host.yt-landscape-fs .yt-context,
 :host.yt-landscape-fs .yt-type-hint,
 :host.yt-landscape-fs .yt-alert,
-:host.yt-landscape-fs .yt-recordings-entry,
+:host.yt-landscape-fs .yt-toolbar,
 :host.yt-landscape-fs .yt-player-meta,
 :host.yt-landscape-fs .yt-now-playing,
 :host.yt-landscape-fs .yt-results-head,
@@ -937,6 +937,41 @@
   cursor: pointer;
 }
 
+.yt-card-fav {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.4rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #f1f1f1;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+.yt-card-fav.is-fav {
+  color: #ffd54f;
+}
+
+.yt-card-fav:hover,
+.yt-card-fav:focus-visible {
+  background: #ffd54f;
+  color: #111;
+  outline: none;
+}
+
+.yt-card-fav:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
 .yt-card-share:hover,
 .yt-card-share:focus-visible {
   background: #25d366;
@@ -1068,6 +1103,14 @@
   color: #111;
   background: #25d366;
   border-color: #25d366;
+}
+
+:host .yt-now-playing-actions .yt-fav-btn.is-fav,
+:host .yt-now-playing-actions .yt-fav-btn.is-fav:hover,
+:host .yt-now-playing-actions .yt-fav-btn.is-fav:focus-visible {
+  color: #111;
+  background: #ffd54f;
+  border-color: #ffd54f;
 }
 
 :host .yt-channel-filter .btn-link {
@@ -1359,10 +1402,66 @@
   border-radius: 0.7rem;
 }
 
-.yt-recordings-entry {
+.yt-toolbar {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem 0.75rem;
   margin: 0 0 0.75rem;
+}
+
+.yt-mode-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border: 1px solid #3f3f3f;
+  border-radius: 0.7rem;
+  background: rgba(33, 33, 33, 0.92);
+}
+
+.yt-mode-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.85rem;
+  padding: 0.2rem 0.7rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: #c4c4c4;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.yt-mode-tab.active {
+  background: #cc0000;
+  color: #fff;
+}
+
+.yt-mode-tab:hover:not(.active),
+.yt-mode-tab:focus-visible:not(.active) {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
+.yt-fav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.yt-mode-tab.active .yt-fav-badge {
+  background: rgba(0, 0, 0, 0.22);
 }
 
 .yt-recordings-open {

@@ -6308,7 +6308,14 @@
     "CONTEXT_CLIP": "Clip grabado",
     "CLIP_BACK": "Volver a YouTube",
     "RECORD_SHARE_TAB": "Elige esta pestaña e incluye el audio. Solo se graba el vídeo de YouTube.",
-    "ERR_RECORD_SHARE": "Grabación cancelada. Comparte esta pestaña y permite el audio."
+    "ERR_RECORD_SHARE": "Grabación cancelada. Comparte esta pestaña y permite el audio.",
+    "TAB_FAVORITES": "Favoritos",
+    "FAVORITE": "Añadir a favoritos",
+    "UNFAVORITE": "Quitar de favoritos",
+    "FAVORITES_LOGIN": "Inicie sesión para guardar y sincronizar sus vídeos favoritos.",
+    "NO_FAVORITES": "Aún no hay favoritos. Pulse la estrella para guardar uno.",
+    "ERR_FAVORITES_LOAD": "No se pudieron cargar los favoritos.",
+    "ERR_FAVORITES_SAVE": "No se pudieron actualizar los favoritos. Inténtelo de nuevo."
   },
   "RELIEF_FINDER": {
     "TITLE": "Relief finder",

@@ -23,4 +23,13 @@ describe('HomeMapsComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('should use absolute feature routes so tiles do not stay under /maps', () => {
+    expect(component.featureLinks.length).toBeGreaterThan(0);
+    for (const feat of component.featureLinks) {
+      expect(feat.route.startsWith('/'))
+        .withContext(`${feat.labelKey} must be absolute, got ${feat.route}`)
+        .toBeTrue();
+    }
+  });
 });

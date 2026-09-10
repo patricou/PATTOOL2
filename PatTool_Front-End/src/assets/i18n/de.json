@@ -6389,7 +6389,14 @@
     "CONTEXT_CLIP": "Aufgezeichneter Clip",
     "CLIP_BACK": "Zurück zu YouTube",
     "RECORD_SHARE_TAB": "Wählen Sie diesen Tab und den Ton. Es wird nur das YouTube-Video aufgezeichnet.",
-    "ERR_RECORD_SHARE": "Aufnahme abgebrochen. Diesen Tab freigeben und Ton zulassen."
+    "ERR_RECORD_SHARE": "Aufnahme abgebrochen. Diesen Tab freigeben und Ton zulassen.",
+    "TAB_FAVORITES": "Favoriten",
+    "FAVORITE": "Zu Favoriten hinzufügen",
+    "UNFAVORITE": "Aus Favoriten entfernen",
+    "FAVORITES_LOGIN": "Melden Sie sich an, um Ihre Lieblingsvideos zu speichern und zu synchronisieren.",
+    "NO_FAVORITES": "Noch keine Favoriten. Tippen Sie auf den Stern, um eines zu speichern.",
+    "ERR_FAVORITES_LOAD": "Favoriten konnten nicht geladen werden.",
+    "ERR_FAVORITES_SAVE": "Favoriten konnten nicht aktualisiert werden. Bitte erneut versuchen."
   },
   "RELIEF_FINDER": {
     "TITLE": "Relief finder",

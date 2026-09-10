@@ -3226,6 +3226,45 @@ export class ApiService {
     return this.API_URL + raw.replace(/^\//, '');
   }
 
+  getYoutubeFavorites(): Observable<YoutubeFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<YoutubeFavorites>(this.API_URL + 'external/youtube/favorites', { headers })
+      )
+    );
+  }
+
+  saveYoutubeFavorites(body: YoutubeFavorites): Observable<YoutubeFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<YoutubeFavorites>(this.API_URL + 'external/youtube/favorites', body, { headers })
+      )
+    );
+  }
+
+  addYoutubeFavorite(item: YoutubeItem): Observable<YoutubeFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<YoutubeFavorites>(this.API_URL + 'external/youtube/favorites/item', item, { headers })
+      )
+    );
+  }
+
+  removeYoutubeFavorite(itemId: string, kind?: string): Observable<YoutubeFavorites> {
+    let params = new HttpParams().set('id', itemId || '');
+    if (kind) {
+      params = params.set('kind', kind);
+    }
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.delete<YoutubeFavorites>(this.API_URL + 'external/youtube/favorites/item', {
+          headers,
+          params
+        })
+      )
+    );
+  }
+
   getTelegramConnection(): Observable<TelegramStatus> {
     return this._http.get<TelegramStatus>(this.API_URL + 'external/telegram/connection');
   }
@@ -5987,6 +6026,11 @@ export interface YoutubeSearchPage {
   nextPageToken?: string;
   prevPageToken?: string;
   total?: number;
+  items?: YoutubeItem[];
+}
+
+/** GET/PUT /api/external/youtube/favorites — per authenticated user */
+export interface YoutubeFavorites {
   items?: YoutubeItem[];
 }
 

@@ -6242,7 +6242,14 @@
     "CONTEXT_CLIP": "קטע מוקלט",
     "CLIP_BACK": "חזרה ל-YouTube",
     "RECORD_SHARE_TAB": "בחרו בכרטיסייה הזו וכללו שמע. רק סרטון YouTube יוקלט.",
-    "ERR_RECORD_SHARE": "ההקלטה בוטלה. שתפו את הכרטיסייה הזו ואשרו שמע."
+    "ERR_RECORD_SHARE": "ההקלטה בוטלה. שתפו את הכרטיסייה הזו ואשרו שמע.",
+    "TAB_FAVORITES": "מועדפים",
+    "FAVORITE": "הוסף למועדפים",
+    "UNFAVORITE": "הסר מהמועדפים",
+    "FAVORITES_LOGIN": "התחברו כדי לשמור ולסנכרן את הסרטונים המועדפים.",
+    "NO_FAVORITES": "אין עדיין מועדפים. לחצו על הכוכב כדי לשמור.",
+    "ERR_FAVORITES_LOAD": "לא ניתן לטעון את המועדפים.",
+    "ERR_FAVORITES_SAVE": "לא ניתן לעדכן את המועדפים. נסו שוב."
   },
   "RELIEF_FINDER": {
     "TITLE": "Relief finder",

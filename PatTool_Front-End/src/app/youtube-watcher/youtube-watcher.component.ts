@@ -46,6 +46,7 @@ interface YoutubeRegionOption {
 
 type YoutubeSortKey = 'relevance' | 'date' | 'views' | 'duration' | 'title' | 'channel';
 type YoutubeSortDir = 'asc' | 'desc';
+type YoutubeListMode = 'catalog' | 'favorites';
 
 @Component({
   selector: 'app-youtube-watcher',
@@ -96,6 +97,13 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   nextPageToken: string | null = null;
   resultKind: 'search' | 'popular' | string = 'popular';
   total = 0;
+  listMode: YoutubeListMode = 'catalog';
+  favorites: YoutubeItem[] = [];
+  favoriteKeys = new Set<string>();
+  favoriteBusyKey = '';
+  isLoadingFavorites = false;
+  favoritesError = '';
+  favoritesHint = '';
 
   searching = false;
   loadingMore = false;
@@ -120,6 +128,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   @ViewChild('videoshowModalComponent') videoshowModalComponent?: VideoshowModalComponent;
 
   private searchSub?: Subscription;
+  private favoritesSub?: Subscription;
   private readonly subs: Subscription[] = [];
   private readonly itemSourceOrder = new WeakMap<YoutubeItem, number>();
   private itemSourceSeq = 0;
@@ -303,6 +312,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.loadRecordingCapability();
     if (this.isLoggedIn) {
       this.loadRecordings();
+      this.loadFavorites();
     }
 
     if (this.query || this.channelId) {
@@ -315,6 +325,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     this.searchSub?.unsubscribe();
+    this.favoritesSub?.unsubscribe();
     this.subs.forEach((s) => s.unsubscribe());
     if (typeof window !== 'undefined') {
       window.removeEventListener('message', this.onWindowYtMessage);
@@ -486,6 +497,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   }
 
   listContextKey(): string {
+    if (this.listMode === 'favorites') {
+      return 'YOUTUBE.TAB_FAVORITES';
+    }
     if (this.resultKind === 'popular' && !this.query.trim() && !this.channelId) {
       return 'YOUTUBE.POPULAR';
     }
@@ -546,6 +560,89 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
 
   get isLoggedIn(): boolean {
     return this.keycloak.isLoggedIn();
+  }
+
+  get displayedItems(): YoutubeItem[] {
+    return this.listMode === 'favorites' ? this.favorites : this.items;
+  }
+
+  get showResultsHead(): boolean {
+    return this.listMode === 'favorites' || this.searched || this.searching;
+  }
+
+  favoriteKey(item: YoutubeItem | null | undefined): string {
+    if (!item?.id) {
+      return '';
+    }
+    return `${item.kind || 'video'}|${item.id}`;
+  }
+
+  isFavorite(item: YoutubeItem | null | undefined): boolean {
+    const key = this.favoriteKey(item);
+    return !!key && this.favoriteKeys.has(key);
+  }
+
+  setListMode(mode: YoutubeListMode): void {
+    if (this.listMode === mode) {
+      return;
+    }
+    this.listMode = mode;
+    this.favoritesHint = '';
+    this.stopPlayAll();
+    if (mode === 'favorites') {
+      if (!this.isLoggedIn) {
+        this.favoritesHint = 'YOUTUBE.FAVORITES_LOGIN';
+        return;
+      }
+      if (!this.favorites.length && !this.isLoadingFavorites) {
+        this.loadFavorites();
+      } else {
+        this.sortItems();
+      }
+      return;
+    }
+    if (!this.items.length && !this.searching) {
+      this.loadPopular();
+    }
+  }
+
+  toggleFavorite(item: YoutubeItem | null | undefined, event?: Event): void {
+    event?.stopPropagation();
+    if (!item?.id) {
+      return;
+    }
+    if (!this.isLoggedIn) {
+      this.favoritesHint = 'YOUTUBE.FAVORITES_LOGIN';
+      this.listMode = 'favorites';
+      return;
+    }
+    const key = this.favoriteKey(item);
+    if (!key || this.favoriteBusyKey) {
+      return;
+    }
+    this.favoritesHint = '';
+    this.favoritesError = '';
+    this.favoriteBusyKey = key;
+    const removing = this.isFavorite(item);
+    const req$ = removing
+      ? this.api.removeYoutubeFavorite(item.id, item.kind || 'video')
+      : this.api.addYoutubeFavorite(item);
+    req$.subscribe({
+      next: (fav) => {
+        if (this.destroyed) {
+          return;
+        }
+        this.applyFavorites(fav?.items || []);
+        this.favoriteBusyKey = this.favoriteBusyKey === key ? '' : this.favoriteBusyKey;
+      },
+      error: () => {
+        if (this.destroyed) {
+          return;
+        }
+        this.favoritesError = 'YOUTUBE.ERR_FAVORITES_SAVE';
+        this.favoriteBusyKey = this.favoriteBusyKey === key ? '' : this.favoriteBusyKey;
+      }
+    });
   }
 
   get supportsBrowserRecording(): boolean {
@@ -1314,6 +1411,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     if (!this.canSubmitSearch) {
       return;
     }
+    this.listMode = 'catalog';
     this.runSearch();
   }
 
@@ -1329,6 +1427,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.searching = false;
     this.loadingMore = false;
     this.resultKind = 'popular';
+    this.listMode = 'catalog';
     this.stopPlayAll();
     this.syncUrl();
     this.loadPopular();
@@ -1393,7 +1492,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
 
   onSortKeyChanged(): void {
     this.sortDir = this.defaultSortDir(this.sortKey);
-    if (this.query.trim() || this.channelId) {
+    if (this.listMode !== 'favorites' && (this.query.trim() || this.channelId)) {
       this.runSearch();
       return;
     }
@@ -1504,7 +1603,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private queueItems(): YoutubeItem[] {
     const seen = new Set<string>();
     const out: YoutubeItem[] = [];
-    for (const item of this.items) {
+    for (const item of this.displayedItems) {
       if (!this.isQueueItem(item)) {
         continue;
       }
@@ -1718,7 +1817,50 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     return this.api.youtubeThumbUrl(item);
   }
 
+  private loadFavorites(): void {
+    if (!this.isLoggedIn) {
+      this.favorites = [];
+      this.favoriteKeys = new Set();
+      this.favoritesHint = 'YOUTUBE.FAVORITES_LOGIN';
+      this.isLoadingFavorites = false;
+      return;
+    }
+    this.favoritesSub?.unsubscribe();
+    this.isLoadingFavorites = true;
+    this.favoritesError = '';
+    this.favoritesHint = '';
+    this.favoritesSub = this.api.getYoutubeFavorites().subscribe({
+      next: (fav) => {
+        if (this.destroyed) {
+          return;
+        }
+        this.applyFavorites(fav?.items || []);
+        this.isLoadingFavorites = false;
+      },
+      error: () => {
+        if (this.destroyed) {
+          return;
+        }
+        this.favoritesError = 'YOUTUBE.ERR_FAVORITES_LOAD';
+        this.isLoadingFavorites = false;
+      }
+    });
+  }
+
+  private applyFavorites(items: YoutubeItem[]): void {
+    const decoded = (items || []).map((item) => this.decodeYoutubeItem(item));
+    decoded.forEach((item, index) => {
+      this.itemSourceOrder.set(item, index);
+    });
+    this.favorites = decoded;
+    this.favoriteKeys = new Set(decoded.map((item) => this.favoriteKey(item)).filter(Boolean));
+    if (this.listMode === 'favorites') {
+      this.sortItems();
+    }
+  }
+
   private loadPopular(preferId?: string | null): void {
+    this.listMode = 'catalog';
     this.searchSub?.unsubscribe();
     this.searching = true;
     this.errorMessage = '';
@@ -1742,6 +1884,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   }
 
   private runSearch(preferId?: string | null): void {
+    this.listMode = 'catalog';
     const q = this.query.trim();
     if (!q && !this.channelId) {
       if (this.type === 'video') {
@@ -2248,13 +2391,19 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private sortItems(): void {
     const dir = this.sortDir === 'asc' ? 1 : -1;
     const key = this.sortKey;
-    this.items = [...this.items].sort((a, b) => {
-      const cmp = this.compareItems(a, b, key);
-      if (cmp !== 0) {
-        return cmp * dir;
-      }
-      return (this.itemSourceOrder.get(a) || 0) - (this.itemSourceOrder.get(b) || 0);
-    });
+    const sortList = (list: YoutubeItem[]): YoutubeItem[] =>
+      [...list].sort((a, b) => {
+        const cmp = this.compareItems(a, b, key);
+        if (cmp !== 0) {
+          return cmp * dir;
+        }
+        return (this.itemSourceOrder.get(a) || 0) - (this.itemSourceOrder.get(b) || 0);
+      });
+    if (this.listMode === 'favorites') {
+      this.favorites = sortList(this.favorites);
+    } else {
+      this.items = sortList(this.items);
+    }
   }
 
   private compareItems(a: YoutubeItem, b: YoutubeItem, key: YoutubeSortKey): number {

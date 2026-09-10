@@ -6263,7 +6263,14 @@
     "CONTEXT_CLIP": "Clip registrato",
     "CLIP_BACK": "Torna a YouTube",
     "RECORD_SHARE_TAB": "Scegli questa scheda e l’audio. Viene registrato solo il video YouTube.",
-    "ERR_RECORD_SHARE": "Registrazione annullata. Condividi questa scheda e consenti l’audio."
+    "ERR_RECORD_SHARE": "Registrazione annullata. Condividi questa scheda e consenti l’audio.",
+    "TAB_FAVORITES": "Preferiti",
+    "FAVORITE": "Aggiungi ai preferiti",
+    "UNFAVORITE": "Rimuovi dai preferiti",
+    "FAVORITES_LOGIN": "Accedi per salvare e sincronizzare i tuoi video preferiti.",
+    "NO_FAVORITES": "Nessun preferito per ora. Tocca la stella per salvarne uno.",
+    "ERR_FAVORITES_LOAD": "Impossibile caricare i preferiti.",
+    "ERR_FAVORITES_SAVE": "Impossibile aggiornare i preferiti. Riprova."
   },
   "RELIEF_FINDER": {
     "TITLE": "Relief finder",

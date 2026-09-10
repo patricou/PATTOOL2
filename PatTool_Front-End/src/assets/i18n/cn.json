@@ -6243,7 +6243,14 @@
     "CONTEXT_CLIP": "已录制片段",
     "CLIP_BACK": "返回 YouTube",
     "RECORD_SHARE_TAB": "请选择此标签页并包含声音。仅录制 YouTube 视频。",
-    "ERR_RECORD_SHARE": "已取消录制。请共享此标签页并允许声音。"
+    "ERR_RECORD_SHARE": "已取消录制。请共享此标签页并允许声音。",
+    "TAB_FAVORITES": "收藏",
+    "FAVORITE": "加入收藏",
+    "UNFAVORITE": "取消收藏",
+    "FAVORITES_LOGIN": "登录后即可保存并同步收藏的视频。",
+    "NO_FAVORITES": "还没有收藏。点击星星即可保存。",
+    "ERR_FAVORITES_LOAD": "无法加载收藏。",
+    "ERR_FAVORITES_SAVE": "无法更新收藏，请重试。"
   },
   "RELIEF_FINDER": {
     "TITLE": "Relief finder",
