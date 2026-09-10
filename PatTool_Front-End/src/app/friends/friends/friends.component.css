@@ -53,6 +53,94 @@
   min-height: 0;
 }
 
+/* Each tab's content sits in a panel attached to the active tab */
+.friends-tab-shell {
+  width: 100%;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+}
+
+.friends-tab-shell .nav-tabs {
+  margin-bottom: 0;
+  background: transparent;
+  box-shadow: none;
+  border-bottom: none !important;
+  padding: 0 2px 0 0;
+  gap: 6px;
+  border-radius: 0;
+}
+
+.friends-tab-shell .nav-tabs .nav-link {
+  margin-bottom: 0;
+  box-shadow: none;
+}
+
+.friends-tab-shell .nav-tabs .nav-link:hover {
+  transform: none;
+}
+
+.friends-tab-shell .nav-tabs .nav-link.active {
+  margin-bottom: -3px;
+  border-bottom: none !important;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: 0 -2px 8px color-mix(in srgb, var(--pat-title-accent, #ec4899) 28%, transparent);
+  z-index: 3;
+}
+
+.friends-tab-shell .tab-content {
+  align-items: stretch;
+  background: var(--friends-surface);
+  border: 1px solid var(--friends-border);
+  border-top: 3px solid var(--pat-title-accent, #ec4899);
+  border-radius: 0 16px 16px 16px;
+  padding: 1.25rem 1.35rem 1.5rem;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--pat-title-accent, #ec4899) 12%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  box-sizing: border-box;
+  min-height: 240px;
+}
+
+.friends-tab-shell .friends-loading {
+  background: var(--friends-surface);
+  border: 1px solid var(--friends-border);
+  border-top: 3px solid var(--pat-title-accent, #ec4899);
+  border-radius: 0 16px 16px 16px;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--pat-title-accent, #ec4899) 12%, transparent);
+  box-sizing: border-box;
+}
+
+.friends-tab-shell .invite-section {
+  background: color-mix(in srgb, var(--pat-title-accent, #ec4899) 6%, #ffffff) !important;
+}
+
+.friends-tab-shell .requests-container,
+.friends-tab-shell .friends-grid-section,
+.friends-tab-shell .friendship-origin-card {
+  background: color-mix(in srgb, var(--pat-title-accent, #ec4899) 6%, #ffffff);
+}
+
+@media (max-width: 767.98px) {
+  .friends-tab-shell .friends-tabs-mobile {
+    margin-bottom: 0;
+  }
+
+  .friends-tab-shell .friends-tabs-select {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom: none;
+    position: relative;
+    z-index: 3;
+  }
+
+  .friends-tab-shell .tab-content,
+  .friends-tab-shell .friends-loading {
+    border-radius: 0 0 16px 16px;
+    padding: 1rem;
+  }
+}
+
 /* Loading spinner - same pattern as links, links-admin, events */
 .friends-loading {
   display: flex;

@@ -141,6 +141,8 @@
   margin: 0;
   padding: 0.7rem 0.8rem;
   width: 100%;
+  align-self: stretch;
+  flex-shrink: 0;
   box-sizing: border-box;
   border-radius: 0.6rem;
   background: rgba(255, 70, 60, 0.22);

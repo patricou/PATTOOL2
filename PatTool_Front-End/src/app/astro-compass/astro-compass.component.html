@@ -315,6 +315,18 @@
             <i class="fa" [ngClass]="autoDetectBusy && !autoDetectLive ? 'fa-spinner fa-spin' : (autoDetectLive ? 'fa-pause' : 'fa-crosshairs')" aria-hidden="true"></i>
             <span class="ac-compass-autodetect__txt">{{ (autoDetectLive ? 'ASTRO_COMPASS.AUTO_LIVE_ON' : 'ASTRO_COMPASS.AUTO_DETECT_SHORT') | translate }}</span>
           </button>
+          <div class="ac-compass-notvis" *ngIf="azimuthDeg != null && !canAimAtTarget()" role="status">
+            <i class="fa fa-eye-slash" aria-hidden="true"></i>
+            <div class="ac-compass-notvis__text">
+              <strong>{{ 'ASTRO_COMPASS.LOOK_NOT_VISIBLE' | translate }}</strong>
+              <span>
+                {{ 'ASTRO_COMPASS.LOOK_NOT_VISIBLE_HINT' | translate : {
+                  name: notVisibleName(),
+                  deg: (elevationDeg | number : '1.0-0')
+                } }}
+              </span>
+            </div>
+          </div>
           <div
               class="ac-finder"
               #camStage
@@ -693,18 +705,6 @@
                 [attr.aria-label]="'ASTRO_COMPASS.CAM_RESIZE' | translate">
                 <span aria-hidden="true"></span>
               </button>
-            </div>
-            <div class="ac-compass-notvis" *ngIf="azimuthDeg != null && !canAimAtTarget()" role="status">
-              <i class="fa fa-eye-slash" aria-hidden="true"></i>
-              <div class="ac-compass-notvis__text">
-                <strong>{{ 'ASTRO_COMPASS.LOOK_NOT_VISIBLE' | translate }}</strong>
-                <span>
-                  {{ 'ASTRO_COMPASS.LOOK_NOT_VISIBLE_HINT' | translate : {
-                    name: notVisibleName(),
-                    deg: (elevationDeg | number : '1.0-0')
-                  } }}
-                </span>
-              </div>
             </div>
             <p class="ac-finder__hint" *ngIf="finderNeedTap">{{ 'ASTRO_COMPASS.NEED_TAP' | translate }}</p>
             <p class="ac-msg ac-msg--bad" *ngIf="finderDenied">{{ 'ASTRO_COMPASS.DENIED' | translate }}</p>
