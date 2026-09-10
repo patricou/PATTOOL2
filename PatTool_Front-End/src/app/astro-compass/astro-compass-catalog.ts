@@ -289,7 +289,7 @@ export const ASTRO_SATELLITES: ReadonlyArray<AstroSatelliteOption> = [
   {
     id: 'gpm',
     kind: 'iss',
-    noradId: 40376,
+    noradId: 39574,
     labelKey: 'ASTRO_COMPASS.BODY_GPM',
     iconClass: 'fa fa-tint',
     color: '#f97316',
@@ -466,7 +466,7 @@ export const ASTRO_SATELLITES: ReadonlyArray<AstroSatelliteOption> = [
   {
     id: 'smap',
     kind: 'iss',
-    noradId: 40609,
+    noradId: 40376,
     labelKey: 'ASTRO_COMPASS.BODY_SMAP',
     iconClass: 'fa fa-tint',
     color: '#14b8a6',
@@ -484,7 +484,7 @@ export const ASTRO_SATELLITES: ReadonlyArray<AstroSatelliteOption> = [
   {
     id: 'oco2',
     kind: 'iss',
-    noradId: 40002,
+    noradId: 40059,
     labelKey: 'ASTRO_COMPASS.BODY_OCO2',
     iconClass: 'fa fa-leaf',
     color: '#4ade80',

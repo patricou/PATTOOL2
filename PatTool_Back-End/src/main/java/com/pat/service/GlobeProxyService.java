@@ -169,7 +169,7 @@ public class GlobeProxyService {
             46984, // Sentinel-6 Michael Freilich
             38771, // MetOp-B
             43689, // MetOp-C
-            40376, // GPM Core
+            39574, // GPM Core
             28485, // Swift
             33053, // Fermi
             43435, // TESS
@@ -184,9 +184,9 @@ public class GlobeProxyService {
             38012, // Pléiades 1A
             38755, // SPOT-6
             54754, // SWOT
-            40609, // SMAP
+            40376, // SMAP
             43613, // ICESat-2
-            40002, // OCO-2
+            40059, // OCO-2
             53807, // BlueWalker 3
             44624, // Eutelsat 5 West B
             54048  // Hotbird 13F
@@ -196,6 +196,13 @@ public class GlobeProxyService {
 
     private static final String CELESTRAK_TLE_STARLINK =
             "https://celestrak.org/NORAD/elements/gp.php?GROUP=starlink&FORMAT=TLE";
+
+    /**
+     * Daily CelesTrak Starlink TLE mirror (GitHub). Used first because celestrak.org
+     * often connect-times-out from this host.
+     */
+    private static final String STARLINK_TLE_GITHUB_MIRROR =
+            "https://raw.githubusercontent.com/satvisorcom/satvisor-data/master/celestrak/tle/starlink.tle";
 
     private static final long ISS_NOW_MEMORY_CACHE_MS = 3_000L;
     private static final long SAT_TLE_MEMORY_CACHE_MS = 3_600_000L; // 1 h
@@ -572,25 +579,66 @@ public class GlobeProxyService {
     }
 
     /**
-     * CelesTrak STARLINK group TLE (name + line1 + line2 repeating). Cached ~1 h.
+     * STARLINK group TLE (name + line1 + line2 repeating). Cached ~1 h.
+     * GitHub CelesTrak mirror first; celestrak.org last (circuit-broken). Stale cache if both fail.
      */
     public byte[] fetchStarlinkTleGroup() {
         SatTleMemoryCache cached = starlinkTleCache;
         if (cached != null && cached.isFresh(SAT_TLE_GROUP_CACHE_MS)) {
             return cached.payload();
         }
-        byte[] raw = fetchBytes(
-                CELESTRAK_TLE_STARLINK,
-                MAX_BYTES_SAT_TLE_GROUP,
-                false,
-                TLE_CLIENT_UA,
-                "text/plain");
+        Exception last = null;
+        try {
+            return cacheStarlinkTle(fetchStarlinkTleFromUrl(STARLINK_TLE_GITHUB_MIRROR));
+        } catch (Exception e) {
+            last = e;
+            log.debug("Starlink TLE GitHub mirror failed: {}", e.getMessage());
+        }
+        byte[] fromCelestrak = tryCelestrakStarlinkGroup();
+        if (fromCelestrak != null) {
+            return cacheStarlinkTle(fromCelestrak);
+        }
+        if (cached != null && cached.isFresh(SAT_TLE_STALE_MAX_MS)) {
+            log.debug("Starlink TLE live sources failed; serving stale cache.");
+            return cached.payload();
+        }
+        throw new IllegalStateException("Starlink TLE group unavailable", last);
+    }
+
+    private byte[] cacheStarlinkTle(byte[] payload) {
+        starlinkTleCache = new SatTleMemoryCache(payload, System.currentTimeMillis());
+        return payload;
+    }
+
+    private byte[] fetchStarlinkTleFromUrl(String url) {
+        byte[] raw = fetchBytes(url, MAX_BYTES_SAT_TLE_GROUP, false, TLE_CLIENT_UA, "text/plain");
         String text = new String(raw, java.nio.charset.StandardCharsets.UTF_8);
         if (!text.contains("1 ") || !text.toUpperCase(Locale.ROOT).contains("STARLINK")) {
             throw new IllegalStateException("Unexpected Starlink TLE group payload");
         }
-        starlinkTleCache = new SatTleMemoryCache(raw, System.currentTimeMillis());
         return raw;
+    }
+
+    private byte[] tryCelestrakStarlinkGroup() {
+        long now = System.currentTimeMillis();
+        if (now < celestrakSkipUntilMs.get()) {
+            return null;
+        }
+        if (!celestrakAttemptInFlight.compareAndSet(false, true)) {
+            return null;
+        }
+        try {
+            return fetchStarlinkTleFromUrl(CELESTRAK_TLE_STARLINK);
+        } catch (Exception e) {
+            celestrakSkipUntilMs.set(System.currentTimeMillis() + CELESTRAK_CIRCUIT_MS);
+            log.warn(
+                    "TLE CelesTrak Starlink unreachable ({}), skipping for {} min",
+                    e.getMessage(),
+                    CELESTRAK_CIRCUIT_MS / 60_000L);
+            return null;
+        } finally {
+            celestrakAttemptInFlight.set(false);
+        }
     }
 
     /** Allowlisted NORAD catalog IDs exposable via the TLE proxy. */

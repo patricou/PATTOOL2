@@ -383,8 +383,8 @@ body:has(.wg-fs-root.wg-fs-root--viewport-locked) {
   padding-bottom: 0 !important;
   box-sizing: border-box;
   background: #070b16;
-  --wg-font: 0.68rem;
-  --wg-label: 0.66rem;
+  --wg-font: 0.78rem;
+  --wg-label: 0.76rem;
   --bs-gutter-x: 0;
 }
 
@@ -532,8 +532,8 @@ body:has(.wg-fs-root.wg-fs-root--viewport-locked) {
 .wg-fs-root:-moz-full-screen .wg-sidebar-inner,
 .wg-fs-root.wg-fs-root--viewport-locked .wg-sidebar-inner {
   max-height: 100%;
-  --wg-font: 0.62rem;
-  --wg-label: 0.6rem;
+  --wg-font: 0.72rem;
+  --wg-label: 0.7rem;
   padding: 0.32rem 0.38rem;
   overflow-x: hidden;
   overflow-y: auto;
@@ -599,9 +599,13 @@ body:has(.wg-fs-root--viewport-locked) {
 }
 
 .wg-shell {
+  --wg-sidebar-width: min(400px, 36vw);
+  --wg-shell-gap: 0.5rem;
+  --wg-shell-pad: 0.45rem;
+  --wg-sidebar-occupied: 0px;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--wg-shell-gap);
   align-items: stretch;
   flex: 1 1 auto;
   min-height: 0;
@@ -609,10 +613,14 @@ body:has(.wg-fs-root--viewport-locked) {
   overflow: hidden;
   background: radial-gradient(115% 95% at 50% -8%, #1c2749 0%, #070b16 58%, #02040a 100%);
   border-radius: 0;
-  padding: 0.45rem;
+  padding: var(--wg-shell-pad);
   position: relative;
   border: none;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.wg-shell:has(> .wg-sidebar) {
+  --wg-sidebar-occupied: calc(var(--wg-sidebar-width) + var(--wg-shell-gap));
 }
 
 @media (min-width: 992px) {
@@ -659,7 +667,7 @@ body:has(.wg-fs-root--viewport-locked) {
 
 @media (min-width: 992px) {
   .wg-sidebar {
-    width: min(400px, 36vw);
+    width: var(--wg-sidebar-width);
     flex: 0 0 auto;
   }
 }
@@ -1568,8 +1576,11 @@ body:has(.wg-fs-root--viewport-locked) {
 
 .wg-globe-stage-toolbar {
   position: absolute;
-  top: max(0.45rem, env(safe-area-inset-top, 0px));
-  left: max(0.45rem, env(safe-area-inset-left, 0px));
+  top: calc(var(--wg-shell-pad, 0.45rem) + max(0.45rem, env(safe-area-inset-top, 0px)));
+  left: calc(
+    var(--wg-shell-pad, 0.45rem) + var(--wg-sidebar-occupied, 0px) +
+      max(0.45rem, env(safe-area-inset-left, 0px))
+  );
   transform: none;
   z-index: 5;
   box-sizing: border-box;
@@ -1580,7 +1591,7 @@ body:has(.wg-fs-root--viewport-locked) {
   width: max-content;
   max-width: calc(100% - max(0.45rem, env(safe-area-inset-left, 0px)) - max(0.45rem, env(safe-area-inset-right, 0px)));
   margin: 0 !important;
-  padding: 0.38rem 0.48rem;
+  padding: 0.3rem 0.4rem;
   border-radius: 0.55rem;
   background: rgba(8, 12, 22, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1765,7 +1776,6 @@ body:has(.wg-fs-root--viewport-locked) {
 
 .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-canvas-host,
 .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-coords,
-.wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-globe-stage-toolbar,
 .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-trace-layer {
   grid-column: 1;
   grid-row: 1;
@@ -1936,7 +1946,6 @@ body:has(.wg-fs-root--viewport-locked) {
 
   .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-canvas-host,
   .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-coords,
-  .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-globe-stage-toolbar,
   .wg-shell--fs.wg-shell--fs-has-iss-pip .wg-stage--fs-iss-split > .wg-trace-layer {
     grid-column: 1;
     grid-row: 1;
@@ -2026,26 +2035,30 @@ body:has(.wg-fs-root--viewport-locked) {
 
 .wg-globe-stage-toolbar .wg-btn {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.32rem;
   white-space: nowrap;
   line-height: 1.25;
-  --bs-btn-font-size: 1rem;
-  --bs-btn-padding-y: 0.42rem;
-  --bs-btn-padding-x: 0.9rem;
-  font-size: 1rem;
-  padding: 0.42rem 0.9rem;
+  --bs-btn-font-size: 0.86rem;
+  --bs-btn-padding-y: 0.32rem;
+  --bs-btn-padding-x: 0.72rem;
+  font-size: 0.86rem;
+  padding: 0.32rem 0.72rem;
   border-radius: 999px;
 }
 
 .wg-globe-stage-toolbar .wg-btn .fa {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
 }
 
 .wg-globe-stage-toolbar .wg-btn--viseur {
   display: inline-flex;
   align-items: center;
-  gap: 0.38rem;
+  gap: 0.32rem;
   flex: 0 1 auto;
-  min-width: 5.5rem;
+  min-width: 5rem;
   max-width: 100%;
   overflow: hidden;
 }
@@ -2110,9 +2123,73 @@ body:has(.wg-fs-root--viewport-locked) {
 }
 
 .wg-shell--fs .wg-globe-stage-toolbar {
-  top: max(0.45rem, env(safe-area-inset-top, 0px));
-  left: max(0.45rem, env(safe-area-inset-left, 0px));
+  top: calc(var(--wg-shell-pad, 0.45rem) + max(0.45rem, env(safe-area-inset-top, 0px)));
+  left: calc(
+    var(--wg-shell-pad, 0.45rem) + var(--wg-sidebar-occupied, 0px) +
+      max(0.45rem, env(safe-area-inset-left, 0px))
+  );
   transform: none;
+}
+
+/* Colonne (mobile / tablette) : barre icônes pleine largeur, au-dessus du globe. */
+@media (max-width: 991.98px) {
+  .wg-globe-stage-toolbar,
+  .wg-shell--fs .wg-globe-stage-toolbar {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    transform: none;
+    width: calc(100% + 2 * var(--wg-shell-pad, 0.45rem));
+    max-width: none;
+    margin-left: calc(-1 * var(--wg-shell-pad, 0.45rem)) !important;
+    margin-right: calc(-1 * var(--wg-shell-pad, 0.45rem)) !important;
+    margin-top: calc(-1 * var(--wg-shell-pad, 0.45rem));
+    flex: 0 0 auto;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-self: stretch;
+    justify-content: stretch;
+    z-index: 6;
+    box-sizing: border-box;
+    border-radius: 0;
+    overflow: visible;
+    padding: 0.28rem max(0.35rem, env(safe-area-inset-right, 0px)) 0.28rem
+      max(0.35rem, env(safe-area-inset-left, 0px));
+  }
+
+  .wg-globe-stage-toolbar__row,
+  .wg-globe-stage-toolbar__row--main {
+    width: 100%;
+    max-width: 100%;
+    flex-wrap: nowrap;
+    justify-content: stretch;
+  }
+
+  .wg-globe-stage-toolbar__row--main .wg-btn,
+  .wg-globe-stage-toolbar .wg-btn,
+  .wg-globe-stage-toolbar .wg-btn--viseur {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.42rem 0.2rem;
+    min-height: 2.4rem;
+  }
+
+  .wg-globe-stage-toolbar .wg-btn-label,
+  .wg-globe-stage-toolbar .wg-btn--viseur-label {
+    display: none;
+  }
+
+  .wg-globe-stage-toolbar .wg-btn .fa,
+  .wg-globe-stage-toolbar .wg-btn .fa.me-1 {
+    margin: 0 !important;
+    font-size: 1.08rem;
+  }
 }
 
 .wg-coords {
@@ -2379,8 +2456,22 @@ body:has(.wg-fs-root--viewport-locked) {
   color: #b9c7e8;
 }
 
+.wg-sidebar-inner .form-control,
+.wg-sidebar-inner .form-select,
 .wg-geocode-input-group .form-control {
-  font-size: var(--wg-font, 0.68rem);
+  font-size: var(--wg-label, 0.66rem);
+  line-height: 1.2;
+  padding: 0.16rem 0.4rem;
+  min-height: 1.55rem;
+  height: auto;
+}
+
+.wg-sidebar-inner .input-group-sm > .form-control,
+.wg-sidebar-inner .input-group-sm > .btn {
+  font-size: var(--wg-label, 0.66rem);
+  line-height: 1.2;
+  padding: 0.16rem 0.4rem;
+  min-height: 1.55rem;
 }
 
 .wg-geocode-btn {
@@ -2440,9 +2531,9 @@ body:has(.wg-fs-root--viewport-locked) {
 
 .wg-iss-alert-section .form-control,
 .wg-iss-alert-section .form-select {
-  font-size: var(--wg-font, 0.68rem);
-  padding: 0.18rem 0.4rem;
-  line-height: 1.25;
+  font-size: var(--wg-label, 0.66rem);
+  padding: 0.16rem 0.4rem;
+  line-height: 1.2;
   margin-bottom: 0.1rem !important;
 }
 
@@ -2487,8 +2578,8 @@ body:has(.wg-fs-root--viewport-locked) {
 /* -------------------------------------------------------------------------- */
 @media (max-width: 767.98px) {
   .wg-root {
-    --wg-font: 0.58rem;
-    --wg-label: 0.56rem;
+    --wg-font: 0.66rem;
+    --wg-label: 0.64rem;
     padding-left: max(0.3rem, env(safe-area-inset-left, 0px)) !important;
     padding-right: max(0.3rem, env(safe-area-inset-right, 0px)) !important;
     padding-top: max(0.25rem, env(safe-area-inset-top, 0px)) !important;
@@ -2509,8 +2600,10 @@ body:has(.wg-fs-root--viewport-locked) {
   }
 
   .wg-shell {
-    padding: 0.38rem;
-    gap: 0.4rem;
+    --wg-shell-pad: 0.38rem;
+    --wg-shell-gap: 0.4rem;
+    padding: var(--wg-shell-pad);
+    gap: var(--wg-shell-gap);
     min-height: min(70vh, 730px);
     border-radius: 0.4rem;
   }
@@ -2566,13 +2659,15 @@ body:has(.wg-fs-root--viewport-locked) {
     margin-bottom: 0.25rem !important;
   }
 
-  /* iOS : éviter le zoom automatique au focus (min 16px) tout en gardant l’UI compacte ailleurs */
   .wg-geocode-input-group .form-control,
   .wg-iss-alert-section .form-control,
-  .wg-iss-alert-section .form-select {
-    font-size: max(16px, var(--wg-font));
-    padding-top: 0.28rem;
-    padding-bottom: 0.28rem;
+  .wg-iss-alert-section .form-select,
+  .wg-sidebar-inner .form-control,
+  .wg-sidebar-inner .form-select {
+    font-size: var(--wg-label);
+    line-height: 1.2;
+    padding: 0.16rem 0.38rem;
+    min-height: 1.5rem;
   }
 
   .wg-geocode-btn {
@@ -2655,41 +2750,40 @@ body:has(.wg-fs-root--viewport-locked) {
   }
 
   .wg-globe-stage-toolbar {
-    top: max(0.32rem, env(safe-area-inset-top, 0px));
-    left: 50%;
-    transform: translateX(-50%);
-    flex-direction: column;
-    flex-wrap: wrap;
+    flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
-    max-width: calc(100% - max(0.32rem, env(safe-area-inset-left, 0px)) - max(0.32rem, env(safe-area-inset-right, 0px)));
-    gap: 0.35rem !important;
-    row-gap: 0.35rem;
-    padding: 0.32rem 0.38rem;
+    justify-content: stretch;
+    gap: 0.22rem !important;
+    column-gap: 0.22rem;
+    row-gap: 0;
+    overflow: visible;
   }
 
-  .wg-shell--fs .wg-globe-stage-toolbar {
-    left: 50%;
-    transform: translateX(-50%);
+  .wg-globe-stage-toolbar__row,
+  .wg-globe-stage-toolbar__row--main {
+    flex-wrap: nowrap;
+    justify-content: stretch;
+    width: 100%;
+    max-width: 100%;
+    column-gap: 0.22rem;
   }
 
-  .wg-globe-stage-toolbar__row {
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  .wg-globe-stage-toolbar .wg-btn {
-    --bs-btn-font-size: 0.92rem;
-    font-size: 0.92rem;
-    padding: 0.38rem 0.72rem;
-  }
-
+  .wg-globe-stage-toolbar__row--main .wg-btn,
+  .wg-globe-stage-toolbar .wg-btn,
   .wg-globe-stage-toolbar .wg-btn--viseur {
-    min-width: 4.5rem;
-    padding-right: 0.62rem;
+    --bs-btn-font-size: 0.68rem;
+    font-size: 0.68rem;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0.42rem 0.16rem;
+    min-height: 2.35rem;
   }
 
-  .wg-globe-stage-toolbar .wg-btn .fa {
-    font-size: 1rem;
+  .wg-globe-stage-toolbar .wg-btn .fa,
+  .wg-globe-stage-toolbar .wg-btn .fa.me-1 {
+    margin: 0 !important;
+    font-size: 1.05rem;
   }
 
   /* Hors plein écran : flux ISS sous le globe (plus de PiP en bas à droite). */
@@ -2768,8 +2862,8 @@ body:has(.wg-fs-root--viewport-locked) {
 
 @media (max-width: 575.98px) {
   .wg-root {
-    --wg-font: 0.54rem;
-    --wg-label: 0.52rem;
+    --wg-font: 0.62rem;
+    --wg-label: 0.6rem;
   }
 
   .wg-title {
@@ -2778,6 +2872,30 @@ body:has(.wg-fs-root--viewport-locked) {
 
   .wg-canvas-host {
     min-height: 0;
+  }
+
+  .wg-globe-stage-toolbar {
+    column-gap: 0.16rem;
+  }
+
+  .wg-globe-stage-toolbar__row,
+  .wg-globe-stage-toolbar__row--main {
+    column-gap: 0.16rem;
+  }
+
+  .wg-globe-stage-toolbar__row--main .wg-btn,
+  .wg-globe-stage-toolbar .wg-btn,
+  .wg-globe-stage-toolbar .wg-btn--viseur {
+    --bs-btn-font-size: 0.62rem;
+    font-size: 0.62rem;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0.38rem 0.12rem;
+    min-height: 2.25rem;
+  }
+
+  .wg-globe-stage-toolbar .wg-btn .fa {
+    font-size: 1rem;
   }
 }
 
@@ -2792,8 +2910,9 @@ body:has(.wg-fs-root--viewport-locked) {
 .wg-flight-form .form-control,
 .wg-flight-form .form-select {
   font-size: var(--wg-label, 0.66rem);
-  padding: 0.18rem 0.4rem;
-  line-height: 1.25;
+  padding: 0.16rem 0.4rem;
+  line-height: 1.2;
+  min-height: 1.55rem;
 }
 
 .wg-flight-query-row {
