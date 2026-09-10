@@ -1,8 +1,11 @@
 <div class="pat-title">
-  <h2>
-    <i class="fa fa-flask me-2"></i>
-    {{ 'CERN.TITLE' | translate }}
-  </h2>
+  <div class="cern-page-header">
+    <a href="https://home.cern" target="_blank" rel="noopener noreferrer" class="cern-logo-link"
+       title="CERN" aria-label="CERN">
+      <img src="assets/images/cern-logo.svg" alt="CERN" class="cern-logo" width="176" height="51" />
+    </a>
+    <h2>{{ 'CERN.TITLE' | translate }}</h2>
+  </div>
 </div>
 
 <div class="cern-page container-fluid py-3">
@@ -140,7 +143,7 @@
         </p>
 
         <!-- LHC experiments & collisions -->
-        <div class="card border-info-subtle bg-light mb-3" *ngIf="hasLhcCharts() && !isLoadingOpenData">
+        <div class="card cern-lhc-panel mb-3" *ngIf="hasLhcCharts() && !isLoadingOpenData">
           <div class="card-body py-3">
             <h6 class="card-title mb-1">
               <i class="fa fa-circle-o-notch me-1"></i>

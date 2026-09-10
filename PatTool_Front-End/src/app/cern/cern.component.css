@@ -1,12 +1,100 @@
 :host {
-  --pat-title-bg: linear-gradient(135deg, #f97316 0%, #ea580c 50%, #c2410c 100%);
-  --pat-title-accent: #f97316;
-  --pat-title-shadow: 0 4px 15px rgba(234, 88, 12, 0.4);
-  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='64'%3E%3Cpolygon points='28,4 50,16 50,40 28,52 6,40 6,16' fill='none' stroke='white' stroke-opacity='0.16' stroke-width='1.2'/%3E%3C/svg%3E");
+  /* CERN blue — Pantone 286 / #3861AA (RGB 56 97 170) */
+  --cern-blue: #3861AA;
+  --cern-blue-dark: #24447A;
+  --cern-blue-darker: #1A335C;
+  --cern-blue-light: #6B8EC9;
+  --pat-title-bg: linear-gradient(135deg, #4A73B8 0%, #3861AA 48%, #24447A 100%);
+  --pat-title-accent: #3861AA;
+  --pat-title-shadow: 0 4px 15px rgba(56, 97, 170, 0.4);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='48'%3E%3Ccircle cx='24' cy='24' r='12' fill='none' stroke='white' stroke-opacity='0.18' stroke-width='1.6'/%3E%3Ccircle cx='40' cy='24' r='12' fill='none' stroke='white' stroke-opacity='0.12' stroke-width='1.6'/%3E%3C/svg%3E");
+}
+
+.cern-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.cern-logo-link {
+  flex-shrink: 0;
+  line-height: 0;
+  text-decoration: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
+}
+
+.cern-logo {
+  display: block;
+  height: 48px;
+  width: auto;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.cern-page-header h2 {
+  flex: 0 1 auto;
+}
+
+@media (max-width: 576px) {
+  .cern-logo {
+    height: 38px;
+  }
 }
 
 .cern-page {
   max-width: 1200px;
+}
+
+.cern-page .btn-primary {
+  background-color: var(--cern-blue);
+  border-color: var(--cern-blue);
+}
+
+.cern-page .btn-primary:hover,
+.cern-page .btn-primary:focus {
+  background-color: var(--cern-blue-dark);
+  border-color: var(--cern-blue-dark);
+}
+
+.cern-page .btn-outline-primary {
+  color: var(--cern-blue);
+  border-color: var(--cern-blue);
+}
+
+.cern-page .btn-outline-primary:hover,
+.cern-page .btn-outline-primary:focus,
+.cern-page .btn-group .btn-primary {
+  background-color: var(--cern-blue);
+  border-color: var(--cern-blue);
+  color: #fff;
+}
+
+.cern-page .btn-group .btn-outline-primary {
+  color: var(--cern-blue);
+  border-color: var(--cern-blue);
+}
+
+.cern-page a:not(.btn) {
+  color: var(--cern-blue);
+}
+
+.cern-page .card-title {
+  color: var(--cern-blue-dark);
+}
+
+.cern-source-card {
+  border-color: color-mix(in srgb, var(--cern-blue) 28%, #dee2e6) !important;
+  border-left: 3px solid var(--cern-blue) !important;
+}
+
+.cern-lhc-panel {
+  border-color: color-mix(in srgb, var(--cern-blue) 35%, #fff) !important;
+  background: color-mix(in srgb, var(--cern-blue) 8%, #fff) !important;
 }
 
 .cern-source-card code {
@@ -19,7 +107,7 @@
 }
 
 .cern-row-clickable:hover {
-  background-color: rgba(0, 123, 255, 0.08);
+  background-color: rgba(56, 97, 170, 0.1);
 }
 
 .cern-detail-panel {

@@ -202,9 +202,9 @@ export class CernComponent implements OnInit, OnDestroy {
   };
 
   private static readonly PALETTE = [
-    '#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545',
-    '#fd7e14', '#ffc107', '#198754', '#20c997', '#0dcaf0',
-    '#6c757d', '#343a40'
+    '#3861AA', '#24447A', '#6B8EC9', '#1A335C', '#8BA3D1',
+    '#0E7490', '#C9A227', '#DC2626', '#16A34A', '#7C3AED',
+    '#64748B', '#0F172A'
   ];
 
   private subs: Subscription[] = [];
@@ -477,12 +477,12 @@ export class CernComponent implements OnInit, OnDestroy {
     this.zenodoSubjectChartData = this.barDataset(
       this.mapCounts(r.categoryCounts, 10),
       this.translate.instant('CERN.CHART_SUBJECTS'),
-      '#6f42c1'
+      '#24447A'
     );
     this.zenodoYearChartData = this.barDatasetVertical(
       this.mapCounts(r.yearCounts, 12, true),
       this.translate.instant('CERN.CHART_YEARS'),
-      '#fd7e14'
+      '#3861AA'
     );
     this.zenodoTypeChartData = this.doughnutDataset(this.mapCounts(r.typeCounts, 8));
     this.zenodoAccessChartData = this.doughnutDataset(this.mapCounts(r.availabilityCounts, 6));
@@ -509,7 +509,7 @@ export class CernComponent implements OnInit, OnDestroy {
     this.yearChartData = this.barDatasetVertical(
       years,
       this.translate.instant('CERN.CHART_YEARS'),
-      '#6610f2'
+      '#24447A'
     );
 
     const types = this.mapCounts(r.typeCounts, 8);
@@ -542,7 +542,7 @@ export class CernComponent implements OnInit, OnDestroy {
       datasets: [{
         label: this.translate.instant('CERN.CHART_COLLISION_ENERGY'),
         data: energies.map((e) => e.value),
-        backgroundColor: '#0ea5e9',
+        backgroundColor: '#3861AA',
         borderWidth: 0
       }]
     };
@@ -555,7 +555,7 @@ export class CernComponent implements OnInit, OnDestroy {
       labels: collisions.map((e) => e.label),
       datasets: [{
         data: collisions.map((e) => e.value),
-        backgroundColor: ['#f59e0b', '#ef4444', '#8b5cf6', '#10b981', '#6366f1', '#ec4899', '#14b8a6', '#64748b']
+        backgroundColor: ['#3861AA', '#C9A227', '#DC2626', '#0E7490', '#6B8EC9', '#7C3AED', '#16A34A', '#64748B']
       }]
     };
 
@@ -575,8 +575,8 @@ export class CernComponent implements OnInit, OnDestroy {
       datasets: [{
         label: this.translate.instant('CERN.CHART_COLLISION_BUBBLE'),
         data: bubblePoints as { x: number; y: number; r: number; label?: string }[],
-        backgroundColor: 'rgba(14, 165, 233, 0.5)',
-        borderColor: '#0284c7',
+        backgroundColor: 'rgba(56, 97, 170, 0.5)',
+        borderColor: '#24447A',
         borderWidth: 1
       }]
     };
@@ -631,7 +631,7 @@ export class CernComponent implements OnInit, OnDestroy {
       datasets: [{
         label: this.translate.instant('CERN.CHART_FILE_SIZES'),
         data: entries.map((e) => e.value),
-        backgroundColor: '#20c997',
+        backgroundColor: '#6B8EC9',
         borderWidth: 0
       }]
     };
@@ -647,7 +647,7 @@ export class CernComponent implements OnInit, OnDestroy {
     this.repositoryChartData = this.barDataset(
       entries,
       this.translate.instant('CERN.CHART_REPOSITORY_PAGE'),
-      '#fd7e14'
+      '#3861AA'
     );
   }
 

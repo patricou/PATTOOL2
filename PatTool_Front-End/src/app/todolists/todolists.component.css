@@ -483,6 +483,12 @@
     white-space: pre-wrap;
 }
 
+.todolists-item-desc.todolists-rich-text p,
+.todolists-item-desc.todolists-rich-text ul,
+.todolists-item-desc.todolists-rich-text ol {
+    margin: 0 0 4px 0;
+}
+
 .todolists-item-meta {
     margin-top: 6px;
     display: flex;
@@ -635,6 +641,12 @@
     flex-direction: column;
     max-height: calc(100vh - 3.5rem);
     min-height: 0;
+}
+
+.todolists-editor {
+    height: 100%;
+    max-height: 100%;
+    flex: 1 1 auto;
 }
 
 .todolists-editor > .modal-header,
@@ -942,9 +954,12 @@
     letter-spacing: 0.02em;
 }
 
-.todolists-editor-item-notes {
-    min-height: 4.75rem;
-    resize: vertical;
+.todolists-editor-item .todolists-editor-quill--small {
+    margin-top: 2px;
+}
+
+.todolists-editor-item .todolists-editor-quill--small .ql-container {
+    min-height: 220px;
 }
 
 .todolists-editor--compact .todolists-editor-quill .ql-container {
@@ -1025,6 +1040,26 @@
 
 .todolists-rich-text *:last-child {
     margin-bottom: 0;
+}
+
+.todolists-rich-text .ql-size-small {
+    font-size: 0.75em;
+}
+
+.todolists-rich-text .ql-size-large {
+    font-size: 1.5em;
+}
+
+.todolists-rich-text .ql-size-huge {
+    font-size: 2.5em;
+}
+
+.todolists-rich-text .ql-font-serif {
+    font-family: Georgia, "Times New Roman", serif;
+}
+
+.todolists-rich-text .ql-font-monospace {
+    font-family: Monaco, "Courier New", monospace;
 }
 
 .todolists-rich-text img {

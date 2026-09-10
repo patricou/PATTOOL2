@@ -528,7 +528,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         this.editorRecipients = [];
         this.editorRecipientsDetailOpen = false;
         this.editorModalRef = this.modal.open(this.editModal, {
-            size: 'lg',
+            size: 'xl',
             scrollable: true,
             windowClass: 'todolists-modal',
             modalDialogClass: 'todolists-editor-dialog'
@@ -541,14 +541,14 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         this.editing = JSON.parse(JSON.stringify(list)) as TodoList;
         this.editing.items = (this.editing.items || []).map(it => ({
             ...it,
-            description: this.htmlToPlain(it.description)
+            description: this.notesForEditor(it.description)
         }));
         this.isNew = false;
         this.editorErrorMessage = '';
         this.editorRecipients = [];
         this.editorRecipientsDetailOpen = false;
         this.editorModalRef = this.modal.open(this.editModal, {
-            size: 'lg',
+            size: 'xl',
             scrollable: true,
             windowClass: 'todolists-modal',
             modalDialogClass: 'todolists-editor-dialog'
@@ -695,13 +695,13 @@ export class TodolistsComponent implements OnInit, OnDestroy {
             this.editorErrorMessage = this.translate.instant('TODOLISTS.GROUP_REQUIRED');
             return;
         }
-        // Strip empty items, normalise rich-text descriptions (Quill emits "<p><br></p>" for blank).
+        // Strip empty items, normalise rich-text descriptions / notes (Quill emits "<p><br></p>" for blank).
         this.editing.items = (this.editing.items || [])
             .filter(it => (it.title || '').trim().length > 0)
             .map(it => ({
                 ...it,
                 title: it.title.trim(),
-                description: this.htmlToPlain(it.description) || null,
+                description: this.isHtmlEmpty(it.description) ? null : (it.description || '').trim(),
                 priority: it.priority || 'normal',
                 status: it.status || 'open'
             }));
@@ -1407,9 +1407,32 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         return text.slice(0, maxLen - 40) + '\n…\n' + this.translate.instant('TODOLISTS.SHARE.WHATSAPP_TRUNCATED');
     }
 
-    /** Task notes are plain text (textarea). Convert leftover Quill HTML for display. */
-    itemNotesText(value?: string | null): string {
-        return this.htmlToPlain(value);
+    /** True when a task note has visible content (plain text or Quill HTML). */
+    hasItemNotes(value?: string | null): boolean {
+        return !this.isHtmlEmpty(value);
+    }
+
+    /**
+     * Keep existing Quill HTML as-is; wrap leftover plain-text notes so line breaks
+     * survive when the field is opened in the rich-text editor.
+     */
+    private notesForEditor(value?: string | null): string {
+        if (!value) {
+            return '';
+        }
+        if (/<\/?(p|div|strong|em|u|s|h[1-6]|ul|ol|li|span|a|blockquote|pre|br)\b/i.test(value)) {
+            return value;
+        }
+        return value
+            .split(/\n/)
+            .map(line => {
+                const escaped = line
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                return `<p>${escaped || '<br>'}</p>`;
+            })
+            .join('');
     }
 
     /** Strip HTML tags and decode common entities so the WhatsApp body stays plain text. */

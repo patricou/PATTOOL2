@@ -1794,9 +1794,18 @@ input#message {
 }
 
 /* Todo list create/edit — dialog width (ng-bootstrap attaches modal under body). */
-.modal.todolists-modal .modal-dialog.modal-lg.todolists-editor-dialog {
-    max-width: min(40rem, calc(100vw - 1rem)) !important;
+.modal.todolists-modal .modal-dialog.todolists-editor-dialog {
+    max-width: min(80rem, calc(100vw - 1.25rem)) !important;
     width: 100%;
+    height: calc(100vh - 1rem);
+    max-height: calc(100vh - 1rem);
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.modal.todolists-modal .modal-dialog.todolists-editor-dialog .modal-content {
+    height: 100%;
+    max-height: calc(100vh - 1rem);
 }
 
 /* Assistant — tools help (providers × tools table); wider than default modal-xl. */

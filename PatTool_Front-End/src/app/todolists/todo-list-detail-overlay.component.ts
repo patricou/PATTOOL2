@@ -130,9 +130,16 @@ export class TodoListDetailOverlayComponent implements OnInit, OnDestroy {
         return this.sanitizer.bypassSecurityTrustHtml(value);
     }
 
-    /** Task notes are plain text; leftover Quill HTML is flattened for display. */
-    itemNotesText(value?: string | null): string {
-        return this.htmlToPlain(value);
+    hasItemNotes(value?: string | null): boolean {
+        if (!value) {
+            return false;
+        }
+        const stripped = value
+            .replace(/<p>\s*<br\s*\/?>\s*<\/p>/gi, '')
+            .replace(/<[^>]+>/g, '')
+            .replace(/&nbsp;/g, '')
+            .trim();
+        return stripped.length > 0;
     }
 
     metaFor(list: TodoList | null): ListMeta {

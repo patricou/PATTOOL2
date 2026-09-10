@@ -294,7 +294,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { routerLink: ['tools/loto'], icon: 'fa fa-trophy', labelKey: 'MENU.LOTTO' },
         { routerLink: ['tools/euromillions'], icon: 'fa fa-star', labelKey: 'MENU.EUROMILLIONS' },
         { routerLink: ['tools/calculator'], icon: 'fa fa-calculator', labelKey: 'MENU.CALCULATOR' },
-        { routerLink: ['tools/cern'], icon: 'fa fa-flask', labelKey: 'MENU.CERN' },
+        { routerLink: ['tools/cern'], icon: 'fa fa-flask', labelKey: 'MENU.CERN', logoSrc: 'assets/images/cern-mark.svg' },
         { routerLink: ['tools/chimie'], icon: 'fa fa-flask', labelKey: 'MENU.CHIMIE' },
         { routerLink: ['tools/code'], icon: 'fa fa-code', labelKey: 'MENU.CODE' }
     ];
