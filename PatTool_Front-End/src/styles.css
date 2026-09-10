@@ -1466,7 +1466,7 @@ html.modal-open[class*=""]:has(.upload-logs-modal) {
     justify-content: center;
     margin-bottom: 1rem;
     padding: 1rem 0;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: none;
     position: relative;
     min-height: 60px;
 }
@@ -1726,6 +1726,7 @@ input#message {
     padding: 20px 30px;
     margin: -20px -15px 20px -15px;
     border-radius: 0;
+    border: none;
     box-shadow: var(--pat-title-shadow, 0 4px 15px rgba(0, 123, 255, 0.3));
     text-align: center;
     position: relative;

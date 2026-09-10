@@ -18,7 +18,6 @@ import org.springframework.security.oauth2.server.resource.web.BearerTokenResolv
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
-import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -187,14 +186,11 @@ public class SecurityConfig {
                     // Referrer: limit cross-origin URL leakage (explicit header for scanners / legacy browsers)
                     .referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                     // Generic Sensor API (boussole Nord) : Chrome bloque Magnetometer sans cette policy.
+                    // Ne pas renvoyer Feature-Policy en parallèle : Chrome ignore alors Permissions-Policy
+                    // pour accelerometer / gyroscope / magnetometer. ambient-light-sensor n'est plus un jeton reconnu.
                     .permissionsPolicy(policy -> policy.policy(
-                        "accelerometer=(self), gyroscope=(self), magnetometer=(self), ambient-light-sensor=(self)"
+                        "accelerometer=(self), gyroscope=(self), magnetometer=(self)"
                     ));
-                // Feature-Policy (ancien nom) : addHeaderWriter n'existe pas sur PermissionsPolicyConfig.
-                headers.addHeaderWriter(new StaticHeadersWriter(
-                    "Feature-Policy",
-                    "accelerometer 'self'; gyroscope 'self'; magnetometer 'self'; ambient-light-sensor 'self'"
-                ));
             })
             .oauth2ResourceServer(oauth2 -> oauth2
                 // <video>/<audio src> cannot send Authorization; allow access_token on GET /api/video/**

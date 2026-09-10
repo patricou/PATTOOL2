@@ -3,6 +3,11 @@
   --pat-title-accent: #ec4899;
   --pat-title-shadow: 0 4px 15px rgba(219, 39, 119, 0.35);
   --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='44'%3E%3Ccircle cx='20' cy='14' r='7' fill='none' stroke='white' stroke-opacity='0.22'/%3E%3Cpath d='M8 36c0-8 5-12 12-12s12 4 12 12' fill='none' stroke='white' stroke-opacity='0.18'/%3E%3Ccircle cx='36' cy='16' r='5' fill='none' stroke='white' stroke-opacity='0.16'/%3E%3C/svg%3E");
+  --friends-page-bg: color-mix(in srgb, var(--pat-title-accent, #ec4899) 18%, #ffffff);
+  --friends-surface: color-mix(in srgb, var(--pat-title-accent, #ec4899) 10%, #ffffff);
+  --friends-surface-strong: color-mix(in srgb, var(--pat-title-accent, #ec4899) 26%, #ffffff);
+  --friends-border: color-mix(in srgb, var(--pat-title-accent, #ec4899) 22%, #e2e8f0);
+  --friends-text: color-mix(in srgb, var(--pat-title-accent, #ec4899) 72%, #475569);
 }
 
 .friends-container {
@@ -73,7 +78,7 @@
 /* Modern Tabs Design - Highly Visible */
 .nav-tabs {
   border: none !important;
-  border-bottom: 3px solid #dee2e6;
+  border-bottom: 3px solid var(--friends-border);
   border-right: none !important;
   margin-bottom: 30px;
   margin-right: 0 !important;
@@ -83,7 +88,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  background: #ffffff;
+  background: var(--friends-page-bg);
   padding: 8px 4px 0 4px;
   gap: 8px;
   width: 100%;
@@ -91,7 +96,8 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
   border-radius: 8px 8px 0 0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--pat-title-accent, #ec4899) 10%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 .nav-tabs::after,
@@ -113,18 +119,18 @@
   }
   
   .nav-tabs::-webkit-scrollbar-track {
-    background: #e9ecef;
+    background: var(--friends-surface);
     border-radius: 3px;
     margin: 0 4px;
   }
   
   .nav-tabs::-webkit-scrollbar-thumb {
-    background: #007bff;
+    background: var(--pat-title-accent, #ec4899);
     border-radius: 3px;
   }
   
   .nav-tabs::-webkit-scrollbar-thumb:hover {
-    background: #0056b3;
+    background: #db2777;
   }
 }
 
@@ -148,7 +154,7 @@
 }
 
 .nav-tabs .nav-link {
-  color: #495057;
+  color: var(--friends-text);
   border: none !important;
   border-bottom: 3px solid transparent !important;
   border-right: none !important;
@@ -157,7 +163,7 @@
   transition: all 0.3s ease;
   white-space: nowrap;
   flex: 1;
-  background: #f8f9fa;
+  background: var(--friends-surface);
   position: relative;
   display: flex;
   align-items: center;
@@ -169,8 +175,8 @@
   margin-bottom: -3px;
   width: 100%;
   min-width: fit-content;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #dee2e6 !important;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--pat-title-accent, #ec4899) 12%, transparent);
+  border: 1px solid var(--friends-border) !important;
   border-bottom: none !important;
 }
 
@@ -186,23 +192,24 @@
 }
 
 .nav-tabs .nav-link:hover {
-  color: #0056b3;
-  background: #e3f2fd;
-  border-bottom-color: #2196f3;
+  color: color-mix(in srgb, var(--pat-title-accent, #ec4899) 90%, #1e293b);
+  background: var(--friends-surface-strong);
+  border-bottom-color: var(--pat-title-accent, #ec4899);
   border-right: none !important;
-  border-color: #2196f3 !important;
+  border-color: color-mix(in srgb, var(--pat-title-accent, #ec4899) 50%, #ffffff) !important;
   transform: translateY(-2px);
-  box-shadow: 0 2px 6px rgba(33, 150, 243, 0.2);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--pat-title-accent, #ec4899) 20%, transparent);
 }
 
 .nav-tabs .nav-link.active {
   color: #ffffff;
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-  border-bottom-color: #007bff !important;
+  background: var(--pat-title-bg);
+  border-bottom-color: var(--pat-title-accent, #ec4899) !important;
   border-right: none !important;
-  border-color: #007bff !important;
+  border-color: var(--pat-title-accent, #ec4899) !important;
   font-weight: 700;
-  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4), 0 -2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--pat-title-accent, #ec4899) 40%, transparent),
+    0 -2px 8px rgba(0, 0, 0, 0.05);
   z-index: 10;
   position: relative;
 }
@@ -286,21 +293,21 @@
   padding: 0.6rem 2rem 0.6rem 0.75rem;
   font-size: 1rem;
   font-weight: 600;
-  border: 2px solid #dee2e6;
+  border: 2px solid var(--friends-border);
   border-radius: 8px;
-  background-color: #fff;
-  color: #212529;
+  background-color: var(--friends-page-bg);
+  color: color-mix(in srgb, var(--pat-title-accent, #ec4899) 78%, #334155);
   -webkit-appearance: none;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23333' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23be185d' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
   background-repeat: no-repeat;
   background-position: right 0.6rem center;
   background-size: 1rem 0.75rem;
 }
 
 .friends-tabs-select:focus {
-  border-color: #007bff;
-  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  border-color: color-mix(in srgb, var(--pat-title-accent, #ec4899) 62%, #ffffff);
+  box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--pat-title-accent, #ec4899) 18%, transparent);
   outline: 0;
 }
 
@@ -444,6 +451,8 @@
 .invite-section {
   padding: 0.5rem 0.75rem !important;
   margin-bottom: 0.75rem !important;
+  background: var(--friends-page-bg) !important;
+  border: 1px solid var(--friends-border);
 }
 
 .invite-section h5 {
@@ -618,11 +627,11 @@
 }
 
 .friendship-origin-card {
-  background: #fff;
-  border: 1px solid #dee2e6;
+  background: var(--friends-page-bg);
+  border: 1px solid var(--friends-border);
   border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--pat-title-accent, #ec4899) 10%, transparent);
 }
 
 .friendship-origin-card h6 {
@@ -658,12 +667,12 @@
 /* Modern Group Card Design */
 .group-card {
   font-size: 0.85rem;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--friends-border);
   border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--pat-title-accent, #ec4899) 10%, transparent);
   transition: all 0.3s ease;
   overflow: hidden;
-  background: #ffffff;
+  background: var(--friends-surface);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -676,8 +685,8 @@
 }
 
 .group-card .card-header {
-  background: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
+  background: var(--friends-page-bg);
+  border-bottom: 1px solid var(--friends-border);
   color: #333;
   border: none;
   padding: 12px 16px;
@@ -691,6 +700,16 @@
   margin: 0;
   display: flex;
   align-items: center;
+}
+
+.tab-content > .card {
+  background: var(--friends-page-bg);
+  border-color: var(--friends-border);
+}
+
+.tab-content > .card .card-header {
+  background: var(--friends-surface);
+  border-bottom-color: var(--friends-border);
 }
 
 .group-card .card-header h5 i {
@@ -860,11 +879,11 @@
 .user-card,
 .request-card,
 .friend-card {
-  background: #fff;
-  border: 1px solid #dee2e6;
+  background: var(--friends-surface);
+  border: 1px solid var(--friends-border);
   border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px color-mix(in srgb, var(--pat-title-accent, #ec4899) 10%, transparent);
   transition: transform 0.2s, box-shadow 0.2s;
   display: flex;
   flex-direction: column;
@@ -883,8 +902,8 @@
 .user-header,
 .request-header,
 .friend-header {
-  background: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
+  background: var(--friends-page-bg);
+  border-bottom: 1px solid var(--friends-border);
   padding: 0.5rem 0.75rem;
   margin: -0.75rem -0.75rem 0.75rem -0.75rem;
   border-radius: 8px 8px 0 0;
@@ -1647,11 +1666,11 @@
 }
 
 .friends-grid-section {
-  background: #fff;
-  border: 1px solid #dee2e6;
+  background: var(--friends-page-bg);
+  border: 1px solid var(--friends-border);
   border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--pat-title-accent, #ec4899) 10%, transparent);
 }
 
 .friends-grid-section h6 {
@@ -1668,8 +1687,8 @@
 }
 
 .friends-grid-table thead th {
-  background-color: #f8f9fa;
-  border-bottom: 2px solid #dee2e6;
+  background-color: var(--friends-page-bg);
+  border-bottom: 2px solid var(--friends-border);
   font-weight: 600;
   color: #495057;
   padding: 8px;
@@ -1681,11 +1700,11 @@
 }
 
 .friends-grid-table tbody tr:hover {
-  background-color: #f8f9fa;
+  background-color: var(--friends-surface);
 }
 
 .friends-grid-table tbody tr.table-active {
-  background-color: #cfe2ff !important;
+  background-color: var(--friends-surface-strong) !important;
 }
 
 .friends-grid-table tbody td {
@@ -2776,10 +2795,11 @@
   margin-left: 0;
   margin-right: 0;
   padding: 1.25rem 1.5rem;
-  background: #fff;
+  background: var(--friends-page-bg);
   border-radius: 12px;
-  border: 1px solid #dee2e6;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--friends-border);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--pat-title-accent, #ec4899) 10%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
   box-sizing: border-box;
 }
 
@@ -2798,7 +2818,7 @@
   font-size: 0.75rem;
   font-weight: 600;
   padding: 0.35em 0.65em;
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  background: var(--pat-title-bg);
   border-radius: 20px;
 }
 
@@ -2838,7 +2858,7 @@
   width: 72px;
   height: 72px;
   margin: 0 auto 1rem;
-  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+  background: var(--friends-surface-strong);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -2847,7 +2867,7 @@
 
 .requests-empty-icon i {
   font-size: 2.2rem;
-  color: #6c757d;
+  color: var(--friends-text);
 }
 
 .requests-empty-title {
