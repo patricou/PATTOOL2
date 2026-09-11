@@ -56,6 +56,18 @@ export const NAF_ACTIVITY_LABELS: Record<string, string> = {
   '47.41Z': 'Commerce d’ordinateurs, d’unités périphériques et de logiciels',
   '47.42Z': 'Commerce de matériels de télécommunication',
   '47.43Z': 'Commerce d’équipements audio/vidéo',
+  '62.01Z': 'Programmation informatique',
+  '62.02A': 'Conseil en systèmes et logiciels informatiques',
+  '62.02B': 'Tierce maintenance de systèmes et d’applications informatiques',
+  '62.03Z': 'Gestion d’installations informatiques',
+  '62.09Z': 'Autres activités informatiques',
+  '63.11Z': 'Traitement de données, hébergement et activités connexes',
+  '63.12Z': 'Portails Internet',
+  '58.21Z': 'Édition de jeux électroniques',
+  '58.29A': 'Édition de logiciels système et de réseau',
+  '58.29B': 'Édition de logiciels outils de développement',
+  '58.29C': 'Édition de logiciels applicatifs',
+  '95.11Z': 'Réparation d’ordinateurs et d’équipements périphériques',
   '47.61Z': 'Commerce de livres',
   '47.62Z': 'Commerce de journaux et papeterie',
   '47.64Z': 'Commerce d’articles de sport',
@@ -156,6 +168,18 @@ export const NAF_TRADE_KEYS: Record<string, string> = {
   '47.41Z': 'electronics',
   '47.42Z': 'electronics',
   '47.43Z': 'electronics',
+  '62.01Z': 'it',
+  '62.02A': 'it',
+  '62.02B': 'it',
+  '62.03Z': 'it',
+  '62.09Z': 'it',
+  '63.11Z': 'it',
+  '63.12Z': 'it',
+  '58.21Z': 'it',
+  '58.29A': 'it',
+  '58.29B': 'it',
+  '58.29C': 'it',
+  '95.11Z': 'it',
   '47.61Z': 'books',
   '47.62Z': 'books',
   '47.64Z': 'sports',
@@ -227,6 +251,7 @@ export const SIRENE_EXTRA_TRADES = [
   'wholesale',
   'shoes',
   'electronics',
+  'it',
   'books',
   'sports',
   'jewelry'
@@ -245,6 +270,7 @@ export const OSM_EXTRA_TRADES = [
   'post',
   'shoes',
   'electronics',
+  'it',
   'books',
   'sports',
   'jewelry',
@@ -297,6 +323,12 @@ export const TRADE_NAF_CODES: Record<string, string[]> = {
   bank: ['64.19Z'],
   shoes: ['47.72Z'],
   electronics: ['47.41Z', '47.42Z', '47.43Z'],
+  it: [
+    '62.01Z', '62.02A', '62.02B', '62.03Z', '62.09Z',
+    '63.11Z', '63.12Z',
+    '58.21Z', '58.29A', '58.29B', '58.29C',
+    '95.11Z'
+  ],
   books: ['47.61Z', '47.62Z'],
   sports: ['47.64Z'],
   jewelry: ['47.77Z'],
@@ -344,6 +376,9 @@ export const OSM_ACTIVITY_LABELS: Record<string, string> = {
   shoes: 'Chaussures',
   electronics: 'Électronique',
   computer: 'Informatique',
+  it: 'Informatique',
+  software: 'Édition de logiciels',
+  web_design: 'Création de sites web',
   books: 'Librairie',
   sports: 'Sport',
   jewelry: 'Bijouterie',
@@ -410,7 +445,10 @@ export const OSM_TRADE_KEYS: Record<string, string> = {
   shoes: 'shoes',
   furniture: 'furniture',
   electronics: 'electronics',
-  computer: 'electronics',
+  computer: 'it',
+  it: 'it',
+  software: 'it',
+  web_design: 'it',
   books: 'books',
   newsagent: 'books',
   sports: 'sports',
@@ -457,6 +495,10 @@ export function tradeKeyFromCode(code: string | undefined | null): string {
   const naf = normalizeNaf(raw);
   if (NAF_TRADE_KEYS[naf]) {
     return NAF_TRADE_KEYS[naf];
+  }
+  if (naf.startsWith('62.') || naf.startsWith('63.11') || naf.startsWith('63.12')
+      || naf.startsWith('58.21') || naf.startsWith('58.29') || naf.startsWith('95.11')) {
+    return 'it';
   }
   if (naf.startsWith('43.21')) {
     return 'electrician';
@@ -596,6 +638,9 @@ export function activityLabelFromCode(code: string | undefined | null): string {
   }
   if (naf.startsWith('42.')) {
     return 'Génie civil';
+  }
+  if (naf.startsWith('62.') || naf.startsWith('63.1') || naf.startsWith('58.2') || naf.startsWith('95.11')) {
+    return 'Informatique';
   }
   return raw.replace(/_/g, ' ');
 }

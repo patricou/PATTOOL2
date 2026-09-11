@@ -355,11 +355,21 @@ export interface ArtisansNearbyItem {
   brand?: string;
   wikidata?: string;
   brandWikidata?: string;
+  openingHours?: string;
+  /** Currently closed according to OSM opening_hours (Europe/Paris). */
+  closed?: boolean;
 }
 
 /** GET/PUT /api/external/artisans/favorites — per authenticated user */
 export interface ArtisansFavorites {
   items?: ArtisansNearbyItem[];
+}
+
+/** GET/PUT /api/external/artisans/preferences — per authenticated user */
+export interface ArtisansPreferences {
+  radiusKm?: number;
+  perPage?: number;
+  mapListOnly?: boolean;
 }
 
 export interface ArtisansNearbyResponse {
@@ -375,6 +385,10 @@ export interface ArtisansNearbyResponse {
   page?: number;
   perPage?: number;
   items?: ArtisansNearbyItem[];
+  /** All geolocated matches in the radius (cache / both), not only the current list page. */
+  mapItems?: ArtisansNearbyItem[];
+  /** Distinct cities in the full match (before the city filter). */
+  cities?: string[];
 }
 
 export interface ArtisansCacheStatus {
@@ -2851,7 +2865,11 @@ export class ApiService {
     page?: number;
     perPage?: number;
     text?: string;
+    city?: string;
+    sort?: string;
     cache?: ArtisansCacheMode;
+    withoutCoords?: boolean;
+    includeClosed?: boolean;
   }): Observable<ArtisansNearbyResponse> {
     let params = new HttpParams().set('source', options.source);
     if (options.lat != null) {
@@ -2865,6 +2883,12 @@ export class ApiService {
     }
     if (options.text?.trim()) {
       params = params.set('text', options.text.trim());
+    }
+    if (options.city?.trim()) {
+      params = params.set('city', options.city.trim());
+    }
+    if (options.sort?.trim()) {
+      params = params.set('sort', options.sort.trim());
     }
     if (options.radiusKm != null) {
       params = params.set('radiusKm', String(options.radiusKm));
@@ -2880,6 +2904,12 @@ export class ApiService {
     }
     if (options.cache) {
       params = params.set('cache', options.cache);
+    }
+    if (options.withoutCoords) {
+      params = params.set('withoutCoords', 'true');
+    }
+    if (options.includeClosed === false) {
+      params = params.set('includeClosed', 'false');
     }
     return this._http.get<ArtisansNearbyResponse>(this.API_URL + 'external/artisans/nearby', { params });
   }
@@ -2942,6 +2972,28 @@ export class ApiService {
     return this.getHeaderWithToken().pipe(
       switchMap((headers) =>
         this._http.delete<ArtisansFavorites>(this.API_URL + 'external/artisans/favorites/item', { headers, params })
+      )
+    );
+  }
+
+  /** GET /api/external/artisans/preferences — JWT required, per-user search radius. */
+  getArtisansPreferences(): Observable<ArtisansPreferences> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<ArtisansPreferences>(this.API_URL + 'external/artisans/preferences', { headers })
+      )
+    );
+  }
+
+  /** PUT per-user artisans search preferences. */
+  saveArtisansPreferences(pref: ArtisansPreferences): Observable<ArtisansPreferences> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<ArtisansPreferences>(
+          this.API_URL + 'external/artisans/preferences',
+          pref,
+          { headers }
+        )
       )
     );
   }

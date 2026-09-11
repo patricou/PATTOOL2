@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -35,8 +37,13 @@ public class ArtisansItemCacheService {
     private static final Logger log = LoggerFactory.getLogger(ArtisansItemCacheService.class);
     public static final String SIRENE = "sirene";
     public static final String OSM = "osm";
-    private static final int MAX_PER_SOURCE = 8000;
+    /** Enough for a full SIRENE near_point dump (10 000) plus other places. */
+    private static final int MAX_PER_SOURCE = 50_000;
+    /** Map markers are independent of list pagination (nearest-first pages cluster at the origin). */
+    private static final int MAX_MAP_ITEMS = 10_000;
     private static final Set<String> SOURCES = Set.of(SIRENE, OSM);
+    private static final Set<String> SORTS = Set.of(
+            "distance-asc", "distance-desc", "name-asc", "name-desc", "trade-asc", "city-asc");
 
     private final ObjectMapper objectMapper;
     private final Map<String, ConcurrentHashMap<String, ObjectNode>> store = new ConcurrentHashMap<>();
@@ -168,6 +175,10 @@ public class ArtisansItemCacheService {
     }
 
     public void putItems(String source, JsonNode page, long expectedGeneration) {
+        putItems(source, page, expectedGeneration, true);
+    }
+
+    public void putItems(String source, JsonNode page, long expectedGeneration, boolean persistNow) {
         if (expectedGeneration != generation.get()) {
             return;
         }
@@ -199,20 +210,26 @@ public class ArtisansItemCacheService {
         }
         if (added > 0) {
             evictOldest(map);
-            persist();
+            if (persistNow) {
+                persist();
+            }
         }
+    }
+
+    public void flush() {
+        persist();
     }
 
     public ObjectNode page(NearbyQuery query) {
         ObjectNode root = baseMeta(query);
-        List<ObjectNode> matched = match(query);
+        List<ObjectNode> matched = applyClosedFilter(applyCityFilter(root, match(query), query), query);
         return slice(root, matched, query.page, query.perPage);
     }
 
     public JsonNode merge(NearbyQuery query, JsonNode apiPage) {
         putItems(query.source, apiPage, query.generation);
         ObjectNode root = baseMeta(query);
-        List<ObjectNode> merged = mergeApiThenCache(query, apiPage);
+        List<ObjectNode> merged = applyClosedFilter(applyCityFilter(root, mergeApiThenCache(query, apiPage), query), query);
         ObjectNode sliced = slice(root, merged, query.page, query.perPage);
         if (sliced.path("items").size() == 0 && apiPage != null && apiPage.path("items").size() > 0) {
             return annotate(query, apiPage);
@@ -266,7 +283,7 @@ public class ArtisansItemCacheService {
             }
             merged.add(cached);
         }
-        merged.sort(Comparator.comparingDouble(n -> n.path("distanceKm").asDouble(999)));
+        sortItems(merged, query);
         return merged;
     }
 
@@ -285,24 +302,48 @@ public class ArtisansItemCacheService {
             copy.remove("cachedAt");
             out.add(copy);
         }
-        out.sort(Comparator.comparingDouble(n -> n.path("distanceKm").asDouble(999)));
+        sortItems(out, query);
         return out;
     }
 
     private boolean matches(ObjectNode item, NearbyQuery query) {
         Double lat = asDouble(item.get("lat"));
         Double lon = asDouble(item.get("lon"));
-        if (lat == null || lon == null) {
-            return false;
-        }
-        double dist = ArtisansNearbyService.haversineKm(query.lat, query.lon, lat, lon);
-        if (dist > query.radiusKm + 0.05) {
-            return false;
+        boolean hasCoords = lat != null && lon != null
+                && Double.isFinite(lat) && Double.isFinite(lon);
+        if (!hasCoords) {
+            if (!query.includeWithoutCoords) {
+                return false;
+            }
+            Double originLat = asDouble(item.get("cacheOriginLat"));
+            Double originLon = asDouble(item.get("cacheOriginLon"));
+            Double originRadius = asDouble(item.get("cacheOriginRadiusKm"));
+            if (originLat == null || originLon == null) {
+                return false;
+            }
+            double originDist = ArtisansNearbyService.haversineKm(query.lat, query.lon, originLat, originLon);
+            double storedRadius = originRadius == null ? query.radiusKm : originRadius;
+            if (originDist > 0.2 || query.radiusKm + 0.05 < storedRadius) {
+                return false;
+            }
+        } else {
+            double dist = ArtisansNearbyService.haversineKm(query.lat, query.lon, lat, lon);
+            if (dist > query.radiusKm + 0.05) {
+                return false;
+            }
         }
         if (StringUtils.hasText(query.trade) && !"all".equals(query.trade)) {
-            String tradeKey = text(item.get("tradeKey"));
-            if (!query.trade.equalsIgnoreCase(tradeKey)) {
-                return false;
+            if (query.trade.startsWith("naf:")) {
+                String wanted = query.trade.substring(4).trim().toUpperCase(Locale.ROOT);
+                String code = text(item.get("activityCode")).trim().toUpperCase(Locale.ROOT);
+                if (!wanted.equals(code)) {
+                    return false;
+                }
+            } else {
+                String tradeKey = text(item.get("tradeKey"));
+                if (!query.trade.equalsIgnoreCase(tradeKey)) {
+                    return false;
+                }
             }
         }
         if (!StringUtils.hasText(query.text)) {
@@ -315,6 +356,97 @@ public class ArtisansItemCacheService {
                 || contains(item.get("address"), needle)
                 || contains(item.get("activity"), needle)
                 || contains(item.get("postalCode"), needle);
+    }
+
+    private List<ObjectNode> applyCityFilter(ObjectNode root, List<ObjectNode> matched, NearbyQuery query) {
+        putCities(root, matched);
+        if (!StringUtils.hasText(query.city)) {
+            return matched;
+        }
+        String wanted = query.city.trim();
+        List<ObjectNode> out = new ArrayList<>();
+        for (ObjectNode item : matched) {
+            if (text(item.get("city")).trim().equalsIgnoreCase(wanted)) {
+                out.add(item);
+            }
+        }
+        return out;
+    }
+
+    private List<ObjectNode> applyClosedFilter(List<ObjectNode> matched, NearbyQuery query) {
+        for (ObjectNode item : matched) {
+            item.put("closed", ArtisansOpeningHours.isClosedNow(text(item.get("openingHours"))));
+        }
+        if (query.includeClosed) {
+            return matched;
+        }
+        List<ObjectNode> open = new ArrayList<>();
+        for (ObjectNode item : matched) {
+            if (!item.path("closed").asBoolean(false)) {
+                open.add(item);
+            }
+        }
+        return open;
+    }
+
+    private void putCities(ObjectNode root, List<ObjectNode> matched) {
+        Map<String, String> byFold = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        for (ObjectNode item : matched) {
+            String city = text(item.get("city")).trim();
+            if (!StringUtils.hasText(city)) {
+                continue;
+            }
+            byFold.putIfAbsent(city, city);
+        }
+        List<String> cities = new ArrayList<>(byFold.values());
+        cities.sort(Collator.getInstance(Locale.FRENCH));
+        ArrayNode arr = root.putArray("cities");
+        for (String city : cities) {
+            arr.add(city);
+        }
+    }
+
+    private void sortItems(List<ObjectNode> items, NearbyQuery query) {
+        String sort = normalizeSort(query.sort);
+        Collator collator = Collator.getInstance(Locale.FRENCH);
+        collator.setStrength(Collator.PRIMARY);
+        items.sort((left, right) -> compareSorted(left, right, sort, collator));
+    }
+
+    private static String normalizeSort(String sort) {
+        String key = sort == null ? "" : sort.trim().toLowerCase(Locale.ROOT);
+        return SORTS.contains(key) ? key : "distance-asc";
+    }
+
+    private static int compareSorted(ObjectNode a, ObjectNode b, String sort, Collator collator) {
+        double distA = a.path("distanceKm").asDouble(999);
+        double distB = b.path("distanceKm").asDouble(999);
+        int byName = collator.compare(text(a.get("name")), text(b.get("name")));
+        return switch (sort) {
+            case "distance-desc" -> {
+                int byDist = Double.compare(distB, distA);
+                yield byDist != 0 ? byDist : byName;
+            }
+            case "name-asc" -> byName != 0 ? byName : Double.compare(distA, distB);
+            case "name-desc" -> byName != 0 ? -byName : Double.compare(distA, distB);
+            case "trade-asc" -> {
+                int byTrade = collator.compare(tradeSortKey(a), tradeSortKey(b));
+                yield byTrade != 0 ? byTrade : byName;
+            }
+            case "city-asc" -> {
+                int byCity = collator.compare(text(a.get("city")), text(b.get("city")));
+                yield byCity != 0 ? byCity : byName;
+            }
+            default -> {
+                int byDist = Double.compare(distA, distB);
+                yield byDist != 0 ? byDist : byName;
+            }
+        };
+    }
+
+    private static String tradeSortKey(ObjectNode item) {
+        String trade = text(item.get("tradeKey")).trim();
+        return StringUtils.hasText(trade) ? trade : text(item.get("activity")).trim();
     }
 
     private static void refreshDistance(ObjectNode item, NearbyQuery query) {
@@ -344,7 +476,7 @@ public class ArtisansItemCacheService {
 
     private ObjectNode slice(ObjectNode root, List<ObjectNode> matched, int page, int perPage) {
         int p = Math.max(1, page);
-        int size = Math.max(1, perPage);
+        int size = perPage <= 0 ? Math.max(matched.size(), 1) : Math.max(1, perPage);
         int from = Math.min((p - 1) * size, matched.size());
         int to = Math.min(from + size, matched.size());
         ArrayNode items = objectMapper.createArrayNode();
@@ -352,10 +484,52 @@ public class ArtisansItemCacheService {
             items.add(matched.get(i));
         }
         root.put("page", p);
-        root.put("perPage", size);
+        root.put("perPage", perPage <= 0 ? 0 : size);
         root.put("total", matched.size());
         root.set("items", items);
+        putMapItems(root, matched);
         return root;
+    }
+
+    private void putMapItems(ObjectNode root, List<ObjectNode> matched) {
+        ArrayNode points = objectMapper.createArrayNode();
+        int n = 0;
+        for (ObjectNode item : matched) {
+            Double lat = asDouble(item.get("lat"));
+            Double lon = asDouble(item.get("lon"));
+            if (lat == null || lon == null || !Double.isFinite(lat) || !Double.isFinite(lon)) {
+                continue;
+            }
+            points.add(mapPoint(item));
+            if (++n >= MAX_MAP_ITEMS) {
+                break;
+            }
+        }
+        root.set("mapItems", points);
+    }
+
+    private ObjectNode mapPoint(ObjectNode item) {
+        ObjectNode point = objectMapper.createObjectNode();
+        copyText(point, item, "id", "name", "legalName", "activity", "activityCode",
+                "tradeKey", "address", "city", "postalCode", "url", "website", "openingHours");
+        point.set("lat", item.get("lat"));
+        point.set("lon", item.get("lon"));
+        if (item.has("distanceKm")) {
+            point.set("distanceKm", item.get("distanceKm"));
+        }
+        if (item.path("closed").isBoolean()) {
+            point.put("closed", item.get("closed").asBoolean());
+        }
+        return point;
+    }
+
+    private static void copyText(ObjectNode dest, ObjectNode src, String... fields) {
+        for (String field : fields) {
+            String value = text(src.get(field));
+            if (StringUtils.hasText(value)) {
+                dest.put(field, value);
+            }
+        }
     }
 
     private static String itemId(ObjectNode item) {
@@ -454,6 +628,10 @@ public class ArtisansItemCacheService {
         public int perPage = 500;
         public String placeLabel = "";
         public String text = "";
+        public String city = "";
+        public String sort = "distance-asc";
         public long generation;
+        public boolean includeWithoutCoords;
+        public boolean includeClosed = true;
     }
 }

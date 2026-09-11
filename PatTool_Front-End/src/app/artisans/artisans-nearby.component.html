@@ -19,6 +19,7 @@
       <span>{{ i18nPrefix + '.LOADING' | translate }}</span>
     </div>
   </div>
+
   <button
     type="button"
     class="artisans-collapse-btn"
@@ -35,202 +36,245 @@
   </button>
 
   <div class="artisans-menus" *ngIf="!filtersCollapsed">
-  <p class="artisans-lead text-muted">{{ i18nPrefix + '.SUBTITLE' | translate }}</p>
-
-  <div class="artisans-source" role="radiogroup" [attr.aria-label]="'ARTISANS.SOURCE' | translate">
-    <button
-      type="button"
-      class="artisans-source-opt"
-      [class.artisans-source-opt--on]="source === 'sirene'"
-      role="radio"
-      [attr.aria-checked]="source === 'sirene'"
-      [disabled]="isLoading"
-      (click)="setSource('sirene')">
-      <span class="artisans-source-ico" aria-hidden="true">
-        <i class="fa fa-university"></i>
-      </span>
-      <span class="artisans-source-copy">
-        <span class="artisans-source-name">{{ 'ARTISANS.SOURCE_SIRENE' | translate }}</span>
-        <span class="artisans-source-hint">{{ 'ARTISANS.SOURCE_SIRENE_HINT' | translate }}</span>
-      </span>
-    </button>
-    <button
-      type="button"
-      class="artisans-source-opt artisans-source-opt--osm"
-      [class.artisans-source-opt--on]="source === 'osm'"
-      role="radio"
-      [attr.aria-checked]="source === 'osm'"
-      [disabled]="isLoading"
-      (click)="setSource('osm')">
-      <span class="artisans-source-ico" aria-hidden="true">
-        <i class="fa fa-map"></i>
-      </span>
-      <span class="artisans-source-copy">
-        <span class="artisans-source-name">{{ 'ARTISANS.SOURCE_OSM' | translate }}</span>
-        <span class="artisans-source-hint">{{ 'ARTISANS.SOURCE_OSM_HINT' | translate }}</span>
-      </span>
-    </button>
-  </div>
-
-  <div class="artisans-cache">
-    <div class="artisans-cache-modes" role="radiogroup" [attr.aria-label]="'ARTISANS.CACHE_MODE' | translate">
-      <button
-        type="button"
-        class="artisans-cache-opt"
-        *ngFor="let mode of cacheModes"
-        [class.artisans-cache-opt--on]="cacheMode === mode"
-        role="radio"
-        [attr.aria-checked]="cacheMode === mode"
-        [disabled]="isLoading"
-        (click)="setCacheMode(mode)">
-        <i class="fa" [ngClass]="cacheModeIcon(mode)" aria-hidden="true"></i>
-        <span>{{ cacheModeLabelKey(mode) | translate }}</span>
-      </button>
-    </div>
-    <button
-      type="button"
-      class="btn artisans-btn artisans-btn-cache"
-      [disabled]="clearingCache || cacheCount === 0"
-      (click)="clearCache()"
-      [attr.title]="'ARTISANS.CACHE_COUNT_HINT' | translate">
-      <i class="fa" [ngClass]="clearingCache ? 'fa-spinner fa-spin' : 'fa-trash'" aria-hidden="true"></i>
-      <span>{{ 'ARTISANS.CLEAR_CACHE' | translate }}</span>
-    </button>
-    <span
-      class="artisans-cache-count"
-      [attr.title]="'ARTISANS.CACHE_COUNT_HINT' | translate">
-      {{ 'ARTISANS.CACHE_COUNT' | translate:{ count: cacheCount } }}
-    </span>
-  </div>
-
-  <form class="artisans-search" (submit)="$event.preventDefault(); submitAddressSearch()">
-    <label class="visually-hidden" for="artisans-address">{{ i18nPrefix + '.ADDRESS' | translate }}</label>
-    <div class="artisans-address-wrap">
-      <input
-        id="artisans-address"
-        type="search"
-        class="form-control artisans-address"
-        name="artisansAddress"
-        role="combobox"
-        aria-autocomplete="list"
-        aria-controls="artisans-address-results"
-        [attr.aria-expanded]="addressHits.length > 0 || addressSearching"
-        [attr.aria-activedescendant]="addressActiveIndex >= 0 ? ('artisans-address-opt' + addressActiveIndex) : null"
-        [(ngModel)]="addressQuery"
-        (ngModelChange)="onAddressQueryChange()"
-        (keydown)="onAddressKeydown($event)"
-        [placeholder]="i18nPrefix + '.ADDRESS_PLACEHOLDER' | translate"
-        autocomplete="off" />
-      <div
-        id="artisans-address-results"
-        class="artisans-address-results"
-        role="listbox"
-        *ngIf="addressHits.length || addressSearching">
-        <div class="small text-muted artisans-address-status" *ngIf="addressSearching">
-          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ i18nPrefix + '.ADDRESS_SEARCHING' | translate }}
-        </div>
-        <p class="small text-muted artisans-address-status mb-0" *ngIf="!addressSearching && addressHits.length">
-          {{ i18nPrefix + '.ADDRESS_SELECT' | translate }}
-        </p>
+    <div class="artisans-toolbar">
+      <div class="artisans-source" role="radiogroup" [attr.aria-label]="'ARTISANS.SOURCE' | translate">
         <button
           type="button"
-          class="artisans-address-hit"
-          *ngFor="let hit of addressHits; let i = index"
-          [id]="'artisans-address-opt' + i"
-          role="option"
-          [attr.aria-selected]="addressActiveIndex === i"
-          [class.artisans-address-hit--active]="addressActiveIndex === i"
-          (mouseenter)="addressActiveIndex = i"
-          (mousedown)="selectAddress(hit)">
-          <i class="fa fa-map-marker me-1" aria-hidden="true"></i>{{ hit.displayName }}
+          class="artisans-source-opt"
+          [class.artisans-source-opt--on]="source === 'sirene'"
+          role="radio"
+          [attr.aria-checked]="source === 'sirene'"
+          [disabled]="isLoading"
+          [attr.title]="'ARTISANS.SOURCE_SIRENE_HINT' | translate"
+          (click)="setSource('sirene')">
+          <i class="fa fa-university" aria-hidden="true"></i>
+          <span>{{ 'ARTISANS.SOURCE_SIRENE' | translate }}</span>
+        </button>
+        <button
+          type="button"
+          class="artisans-source-opt artisans-source-opt--osm"
+          [class.artisans-source-opt--on]="source === 'osm'"
+          role="radio"
+          [attr.aria-checked]="source === 'osm'"
+          [disabled]="isLoading"
+          [attr.title]="'ARTISANS.SOURCE_OSM_HINT' | translate"
+          (click)="setSource('osm')">
+          <i class="fa fa-map" aria-hidden="true"></i>
+          <span>{{ 'ARTISANS.SOURCE_OSM' | translate }}</span>
         </button>
       </div>
-    </div>
-
-    <label class="visually-hidden" for="artisans-trade">{{ i18nPrefix + '.TRADE' | translate }}</label>
-    <app-sheet-select
-      class="artisans-trade"
-      selectId="artisans-trade"
-      name="artisansTrade"
-      [searchable]="true"
-      [title]="i18nPrefix + '.TRADE' | translate"
-      [searchPlaceholder]="'ARTISANS.TRADE_FILTER' | translate"
-      [options]="tradeSelectOptions"
-      [(ngModel)]="trade"
-      (ngModelChange)="onTradeChange()">
-    </app-sheet-select>
-
-    <label class="artisans-radius-label" for="artisans-radius">
-      {{ i18nPrefix + '.RADIUS' | translate }} {{ radiusKm }} km
-    </label>
-    <input
-      id="artisans-radius"
-      type="range"
-      class="form-range artisans-radius"
-      name="artisansRadius"
-      [min]="radiusMinKm"
-      [max]="radiusMaxKm"
-      step="1"
-      [(ngModel)]="radiusKm"
-      (ngModelChange)="onRadiusSliderChange()" />
-
-    <button type="submit" class="btn artisans-btn artisans-btn-search" [disabled]="isLoading">
-      <i class="fa fa-search me-1" [class.fa-spin]="isLoading"></i>
-      {{ i18nPrefix + '.SEARCH' | translate }}
-    </button>
-    <button
-      type="button"
-      class="btn artisans-btn artisans-btn-geo"
-      (click)="useMyPosition(true)"
-      [disabled]="locating">
-      <i class="fa fa-location-arrow me-1" [class.fa-spin]="locating"></i>
-      {{ i18nPrefix + '.MY_POSITION' | translate }}
-    </button>
-    <button
-      type="button"
-      class="btn artisans-btn artisans-btn-map"
-      (click)="openTraceViewerForSelection()"
-      [disabled]="isLoading"
-      [attr.title]="i18nPrefix + '.OPEN_TRACE_VIEWER' | translate">
-      <i class="fa fa-map me-1" aria-hidden="true"></i>
-      {{ i18nPrefix + '.PICK_ON_MAP' | translate }}
-    </button>
-    <button
-      type="button"
-      class="btn artisans-btn artisans-btn-fav"
-      [class.active]="showFavorites"
-      (click)="setShowFavorites(!showFavorites)">
-      <i class="fa fa-star me-1" aria-hidden="true"></i>
-      {{ i18nPrefix + '.FAVORITES' | translate }}
-      <span *ngIf="favorites.length"> ({{ favorites.length }})</span>
-    </button>
-    <span class="artisans-total" *ngIf="searched && !errorMessage">
-      <strong>{{ isLoading ? '…' : total }}</strong>
-      <span>{{ i18nPrefix + '.TOTAL_FOUND' | translate:{ count: total, km: radiusKm } }}</span>
-    </span>
-    <span class="artisans-help">
+      <span class="artisans-help">
+        <button
+          type="button"
+          class="artisans-help-btn"
+          [class.artisans-help-btn--on]="countsHelpOpen"
+          (click)="toggleCountsHelp($event)"
+          [attr.title]="'ARTISANS.HELP' | translate"
+          [attr.aria-label]="'ARTISANS.HELP' | translate"
+          [attr.aria-expanded]="countsHelpOpen">
+          <i class="fa fa-info" aria-hidden="true"></i>
+        </button>
+        <div class="artisans-help-pop" *ngIf="countsHelpOpen" role="dialog" [attr.aria-label]="'ARTISANS.HELP_TITLE' | translate" (click)="$event.stopPropagation()">
+          <h3 class="artisans-help-title">{{ 'ARTISANS.HELP_TITLE' | translate }}</h3>
+          <p>{{ 'ARTISANS.HELP_SIRENE' | translate }}</p>
+          <p>{{ 'ARTISANS.HELP_OSM' | translate }}</p>
+          <p>{{ 'ARTISANS.HELP_NAMES' | translate }}</p>
+          <p>{{ 'ARTISANS.HELP_COMPARE' | translate }}</p>
+          <p>{{ 'ARTISANS.HELP_CACHE' | translate }}</p>
+          <p>{{ 'ARTISANS.HELP_WITHOUT_COORDS' | translate }}</p>
+        </div>
+      </span>
       <button
         type="button"
-        class="artisans-help-btn"
-        [class.artisans-help-btn--on]="countsHelpOpen"
-        (click)="toggleCountsHelp($event)"
-        [attr.title]="'ARTISANS.HELP' | translate"
-        [attr.aria-label]="'ARTISANS.HELP' | translate"
-        [attr.aria-expanded]="countsHelpOpen">
-        <i class="fa fa-info" aria-hidden="true"></i>
+        class="artisans-total"
+        *ngIf="searched && !errorMessage"
+        (click)="openTradeStats($event)"
+        [disabled]="isLoading"
+        [attr.title]="(i18nPrefix + '.STATS_OPEN' | translate) + ' — ' + (i18nPrefix + '.TOTAL_FOUND' | translate:{ count: total, km: radiusKm })"
+        [attr.aria-haspopup]="'dialog'"
+        [attr.aria-expanded]="tradeStatsOpen">
+        <strong>{{ isLoading ? '…' : total }}</strong>
+        <span>{{ radiusKm }} km</span>
       </button>
-      <div class="artisans-help-pop" *ngIf="countsHelpOpen" role="dialog" [attr.aria-label]="'ARTISANS.HELP_TITLE' | translate" (click)="$event.stopPropagation()">
-        <h3 class="artisans-help-title">{{ 'ARTISANS.HELP_TITLE' | translate }}</h3>
-        <p>{{ 'ARTISANS.HELP_SIRENE' | translate }}</p>
-        <p>{{ 'ARTISANS.HELP_OSM' | translate }}</p>
-        <p>{{ 'ARTISANS.HELP_NAMES' | translate }}</p>
-        <p>{{ 'ARTISANS.HELP_COMPARE' | translate }}</p>
-        <p>{{ 'ARTISANS.HELP_CACHE' | translate }}</p>
-      </div>
-    </span>
-  </form>
+    </div>
 
-  <p class="small text-muted artisans-map-hint">{{ i18nPrefix + '.MAP_CLICK_HINT' | translate }}</p>
+    <form class="artisans-search" (submit)="$event.preventDefault(); submitAddressSearch()" [attr.title]="i18nPrefix + '.MAP_CLICK_HINT' | translate">
+      <div class="artisans-field artisans-field--place">
+        <label class="visually-hidden" for="artisans-address">{{ i18nPrefix + '.ADDRESS' | translate }}</label>
+        <div class="artisans-address-wrap">
+          <i class="fa fa-map-marker artisans-field-ico" aria-hidden="true"></i>
+          <input
+            id="artisans-address"
+            type="search"
+            class="form-control artisans-address"
+            name="artisansAddress"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-controls="artisans-address-results"
+            [attr.aria-expanded]="addressHits.length > 0 || addressSearching"
+            [attr.aria-activedescendant]="addressActiveIndex >= 0 ? ('artisans-address-opt' + addressActiveIndex) : null"
+            [(ngModel)]="addressQuery"
+            (ngModelChange)="onAddressQueryChange()"
+            (keydown)="onAddressKeydown($event)"
+            [placeholder]="i18nPrefix + '.ADDRESS_PLACEHOLDER' | translate"
+            autocomplete="off" />
+          <div
+            id="artisans-address-results"
+            class="artisans-address-results"
+            role="listbox"
+            *ngIf="addressHits.length || addressSearching">
+            <div class="small text-muted artisans-address-status" *ngIf="addressSearching">
+              <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ i18nPrefix + '.ADDRESS_SEARCHING' | translate }}
+            </div>
+            <p class="small text-muted artisans-address-status mb-0" *ngIf="!addressSearching && addressHits.length">
+              {{ i18nPrefix + '.ADDRESS_SELECT' | translate }}
+            </p>
+            <button
+              type="button"
+              class="artisans-address-hit"
+              *ngFor="let hit of addressHits; let i = index"
+              [id]="'artisans-address-opt' + i"
+              role="option"
+              [attr.aria-selected]="addressActiveIndex === i"
+              [class.artisans-address-hit--active]="addressActiveIndex === i"
+              (mouseenter)="addressActiveIndex = i"
+              (mousedown)="selectAddress(hit)">
+              <i class="fa fa-map-marker me-1" aria-hidden="true"></i>{{ hit.displayName }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="artisans-field artisans-field--trade">
+        <label class="visually-hidden" for="artisans-trade">{{ i18nPrefix + '.TRADE' | translate }}</label>
+        <app-sheet-select
+          class="artisans-trade"
+          selectId="artisans-trade"
+          name="artisansTrade"
+          size="sm"
+          [searchable]="true"
+          [title]="i18nPrefix + '.TRADE' | translate"
+          [searchPlaceholder]="'ARTISANS.TRADE_FILTER' | translate"
+          [options]="tradeSelectOptions"
+          [(ngModel)]="trade"
+          (ngModelChange)="onTradeChange()">
+        </app-sheet-select>
+      </div>
+
+      <div class="artisans-field artisans-field--radius">
+        <label class="visually-hidden" for="artisans-radius">{{ i18nPrefix + '.RADIUS' | translate }}</label>
+        <div class="artisans-radius-row">
+          <input
+            id="artisans-radius"
+            type="range"
+            class="form-range artisans-radius"
+            name="artisansRadius"
+            [min]="radiusMinKm"
+            [max]="radiusMaxKm"
+            step="1"
+            [(ngModel)]="radiusKm"
+            (ngModelChange)="onRadiusSliderChange()" />
+          <strong>{{ radiusKm }} km</strong>
+        </div>
+      </div>
+
+      <div class="artisans-actions">
+        <button type="submit" class="btn artisans-btn artisans-btn-search" [disabled]="isLoading">
+          <i class="fa fa-search" [class.fa-spin]="isLoading" aria-hidden="true"></i>
+          <span>{{ i18nPrefix + '.SEARCH' | translate }}</span>
+        </button>
+        <button
+          type="button"
+          class="btn artisans-btn artisans-btn-geo"
+          (click)="useMyPosition(true)"
+          [disabled]="locating"
+          [attr.title]="i18nPrefix + '.MY_POSITION' | translate">
+          <i class="fa fa-location-arrow" [class.fa-spin]="locating" aria-hidden="true"></i>
+          <span>{{ i18nPrefix + '.MY_POSITION' | translate }}</span>
+        </button>
+        <button
+          type="button"
+          class="btn artisans-btn artisans-btn-map"
+          (click)="openTraceViewerForSelection()"
+          [disabled]="isLoading"
+          [attr.title]="i18nPrefix + '.OPEN_TRACE_VIEWER' | translate">
+          <i class="fa fa-map" aria-hidden="true"></i>
+          <span>{{ i18nPrefix + '.PICK_ON_MAP' | translate }}</span>
+        </button>
+        <button
+          type="button"
+          class="btn artisans-btn artisans-btn-fav"
+          [class.active]="showFavorites"
+          (click)="setShowFavorites(!showFavorites)"
+          [attr.title]="i18nPrefix + '.FAVORITES' | translate">
+          <i class="fa fa-star" aria-hidden="true"></i>
+          <span>{{ i18nPrefix + '.FAVORITES' | translate }}</span>
+          <span class="artisans-btn-count" *ngIf="favorites.length">{{ favorites.length }}</span>
+        </button>
+      </div>
+    </form>
+
+    <div class="artisans-cache">
+      <div class="artisans-cache-modes" role="radiogroup" [attr.aria-label]="'ARTISANS.CACHE_MODE' | translate">
+        <button
+          type="button"
+          class="artisans-cache-opt"
+          *ngFor="let mode of cacheModes"
+          [class.artisans-cache-opt--on]="cacheMode === mode"
+          role="radio"
+          [attr.aria-checked]="cacheMode === mode"
+          [disabled]="isLoading"
+          (click)="setCacheMode(mode)">
+          <i class="fa" [ngClass]="cacheModeIcon(mode)" aria-hidden="true"></i>
+          <span>{{ cacheModeLabelKey(mode) | translate }}</span>
+        </button>
+      </div>
+      <button
+        type="button"
+        class="btn artisans-btn artisans-btn-cache"
+        [disabled]="clearingCache || cacheCount === 0"
+        (click)="clearCache()"
+        [attr.title]="'ARTISANS.CACHE_COUNT_HINT' | translate">
+        <i class="fa" [ngClass]="clearingCache ? 'fa-spinner fa-spin' : 'fa-trash'" aria-hidden="true"></i>
+        <span>{{ 'ARTISANS.CLEAR_CACHE' | translate }}</span>
+      </button>
+      <span
+        class="artisans-cache-count"
+        [class.artisans-cache-count--filling]="cacheFilling"
+        [attr.title]="'ARTISANS.CACHE_COUNT_HINT' | translate">
+        <i class="fa fa-spinner fa-spin" *ngIf="cacheFilling" aria-hidden="true"></i>
+        {{ 'ARTISANS.CACHE_COUNT' | translate:{ count: cacheCount } }}
+      </span>
+      <label
+        class="artisans-coords-switch"
+        *ngIf="source === 'sirene'"
+        [class.artisans-coords-switch--on]="includeWithoutCoords"
+        [attr.title]="'ARTISANS.WITHOUT_COORDS_HINT' | translate">
+        <input
+          type="checkbox"
+          role="switch"
+          name="artisansWithoutCoords"
+          [ngModel]="includeWithoutCoords"
+          (ngModelChange)="onWithoutCoordsChange($event)"
+          [disabled]="isLoading"
+          [attr.aria-label]="'ARTISANS.WITHOUT_COORDS' | translate" />
+        <span>{{ 'ARTISANS.WITHOUT_COORDS' | translate }}</span>
+      </label>
+      <label
+        class="artisans-coords-switch"
+        [class.artisans-coords-switch--on]="includeClosed"
+        [attr.title]="'ARTISANS.INCLUDE_CLOSED_HINT' | translate">
+        <input
+          type="checkbox"
+          role="switch"
+          name="artisansIncludeClosed"
+          [ngModel]="includeClosed"
+          (ngModelChange)="onIncludeClosedChange($event)"
+          [disabled]="isLoading"
+          [attr.aria-label]="'ARTISANS.INCLUDE_CLOSED' | translate" />
+        <span>{{ 'ARTISANS.INCLUDE_CLOSED' | translate }}</span>
+      </label>
+    </div>
   </div>
 
   <div class="alert alert-warning py-2 artisans-alert" *ngIf="errorMessage && !isLoading && !showFavorites" role="alert">
@@ -247,7 +291,9 @@
   </div>
 
   <div class="artisans-empty" *ngIf="!filtersCollapsed && !hasVisiblePanel">
-    <i class="fa fa-home artisans-empty-icon" aria-hidden="true"></i>
+    <span class="artisans-empty-mark" aria-hidden="true">
+      <i class="fa fa-home"></i>
+    </span>
     <p>{{ i18nPrefix + '.EMPTY_HINT' | translate }}</p>
   </div>
 
@@ -304,7 +350,7 @@
         </span>
       </div>
 
-      <div class="artisans-list-tools" *ngIf="!resultsCollapsed && (showFavorites ? favorites.length : (viewportItems.length || listQuery.trim()))">
+      <div class="artisans-list-tools" *ngIf="!resultsCollapsed && (listPoolCount || listQuery.trim())">
         <label class="visually-hidden" for="artisans-list-filter">{{ i18nPrefix + '.FILTER_LIST' | translate }}</label>
         <input
           id="artisans-list-filter"
@@ -314,18 +360,6 @@
           [(ngModel)]="listQuery"
           (ngModelChange)="onListViewChange()"
           [placeholder]="i18nPrefix + '.FILTER_PLACEHOLDER' | translate" />
-        <label class="visually-hidden" for="artisans-list-trade">{{ i18nPrefix + '.FILTER_TRADE' | translate }}</label>
-        <app-sheet-select
-          selectId="artisans-list-trade"
-          name="artisansListTrade"
-          size="sm"
-          [searchable]="true"
-          [title]="i18nPrefix + '.FILTER_TRADE' | translate"
-          [searchPlaceholder]="'ARTISANS.TRADE_FILTER' | translate"
-          [options]="listTradeSelectOptions"
-          [(ngModel)]="listTrade"
-          (ngModelChange)="onListViewChange()">
-        </app-sheet-select>
         <label class="visually-hidden" for="artisans-list-city">{{ i18nPrefix + '.FILTER_CITY' | translate }}</label>
         <app-sheet-select
           selectId="artisans-list-city"
@@ -334,7 +368,7 @@
           [title]="i18nPrefix + '.FILTER_CITY' | translate"
           [options]="listCityOptions"
           [(ngModel)]="listCity"
-          (ngModelChange)="onListViewChange()"
+          (ngModelChange)="onListCityChange()"
           *ngIf="resultCities.length > 1">
         </app-sheet-select>
         <label class="visually-hidden" for="artisans-list-sort">{{ i18nPrefix + '.SORT' | translate }}</label>
@@ -346,7 +380,7 @@
           [title]="i18nPrefix + '.SORT' | translate"
           [options]="sortSelectOptions"
           [(ngModel)]="sortKey"
-          (ngModelChange)="onListViewChange()">
+          (ngModelChange)="onListSortChange()">
         </app-sheet-select>
       </div>
 
@@ -358,10 +392,10 @@
       <p class="artisans-no-results" *ngIf="showFavorites && !favorites.length && !favoritesHint">
         {{ i18nPrefix + '.FAVORITES_EMPTY' | translate }}
       </p>
-      <p class="artisans-no-results" *ngIf="!showFavorites && !isLoading && !listItems.length && !viewportItems.length && !listQuery.trim()">
+      <p class="artisans-no-results" *ngIf="!showFavorites && !isLoading && !listItems.length && !listPoolCount && !listQuery.trim()">
         {{ i18nPrefix + '.NO_RESULTS' | translate }}
       </p>
-      <p class="artisans-no-results" *ngIf="!isLoading && !listItems.length && (showFavorites ? favorites.length : (viewportItems.length || listQuery.trim()))">
+      <p class="artisans-no-results" *ngIf="!isLoading && !listItems.length && (listPoolCount || listQuery.trim())">
         {{ i18nPrefix + '.FILTER_EMPTY' | translate }}
       </p>
 
@@ -373,6 +407,7 @@
         *ngFor="let item of listItems; let i = index"
         [attr.data-artisan-id]="item.id"
         [class.active]="selectedId === item.id"
+        [class.artisans-hit--closed]="isItemClosed(item)"
         role="button"
         tabindex="0"
         (click)="selectItem(item)"
@@ -382,7 +417,33 @@
         (keydown.space)="$event.preventDefault(); selectItem(item)">
         <span class="artisans-hit-num" aria-hidden="true">{{ listItemNumber(i) }}</span>
         <span class="artisans-hit-body">
-          <span class="artisans-hit-title">{{ item.name }}</span>
+          <span class="artisans-hit-top">
+            <span class="artisans-hit-title">{{ item.name }}</span>
+            <span
+              class="artisans-hit-closed"
+              *ngIf="isItemClosed(item)"
+              [attr.title]="'ARTISANS.CLOSED_HINT' | translate">
+              <span class="artisans-hit-closed-x" aria-hidden="true">×</span>
+              {{ 'ARTISANS.CLOSED' | translate }}
+            </span>
+            <span class="artisans-hit-dist" *ngIf="item.distanceKm != null">
+              {{ i18nPrefix + '.DISTANCE' | translate:{ km: item.distanceKm } }}
+            </span>
+            <span class="artisans-hit-dist artisans-hit-dist--nogeo" *ngIf="!itemHasMapPoint(item)">
+              {{ 'ARTISANS.NO_COORDS' | translate }}
+            </span>
+            <button
+              type="button"
+              class="artisans-hit-fav"
+              [class.on]="isFavorite(item)"
+              [disabled]="favoriteBusyKey === favoriteKey(item)"
+              (click)="toggleFavorite(item, $event)"
+              [attr.title]="(isFavorite(item) ? i18nPrefix + '.REMOVE_FAVORITE' : i18nPrefix + '.ADD_FAVORITE') | translate"
+              [attr.aria-label]="(isFavorite(item) ? i18nPrefix + '.REMOVE_FAVORITE' : i18nPrefix + '.ADD_FAVORITE') | translate"
+              [attr.aria-pressed]="isFavorite(item)">
+              <i class="fa" [class.fa-star]="isFavorite(item)" [class.fa-star-o]="!isFavorite(item)" aria-hidden="true"></i>
+            </button>
+          </span>
           <span class="artisans-hit-legal" *ngIf="item.legalName">
             {{ 'ARTISANS.LEGAL_NAME' | translate }} {{ item.legalName }}
           </span>
@@ -395,22 +456,8 @@
             {{ item.address }}
             <ng-container *ngIf="item.city"> · {{ item.postalCode }} {{ item.city }}</ng-container>
           </span>
-          <span class="artisans-hit-dist" *ngIf="item.distanceKm != null">
-            {{ i18nPrefix + '.DISTANCE' | translate:{ km: item.distanceKm } }}
-          </span>
         </span>
         <span class="artisans-hit-actions">
-          <button
-            type="button"
-            class="artisans-hit-fav"
-            [class.on]="isFavorite(item)"
-            [disabled]="favoriteBusyKey === favoriteKey(item)"
-            (click)="toggleFavorite(item, $event)"
-            [attr.title]="(isFavorite(item) ? i18nPrefix + '.REMOVE_FAVORITE' : i18nPrefix + '.ADD_FAVORITE') | translate"
-            [attr.aria-label]="(isFavorite(item) ? i18nPrefix + '.REMOVE_FAVORITE' : i18nPrefix + '.ADD_FAVORITE') | translate"
-            [attr.aria-pressed]="isFavorite(item)">
-            <i class="fa" [class.fa-star]="isFavorite(item)" [class.fa-star-o]="!isFavorite(item)" aria-hidden="true"></i>
-          </button>
           <button
             type="button"
             class="artisans-hit-site-btn"
@@ -478,7 +525,34 @@
       class="artisans-map-card">
       <div #mapHost class="artisans-map" role="img" [attr.aria-label]="i18nPrefix + '.MAP' | translate"></div>
       <div class="artisans-map-count" *ngIf="!showFavorites && searched && !isLoading && !errorMessage">
-        {{ total }}
+        {{ mapPlotItems.length }}
+      </div>
+      <div
+        class="artisans-map-list-switch"
+        *ngIf="!showFavorites && searched"
+        role="radiogroup"
+        [attr.aria-label]="i18nPrefix + '.MAP_LIST_ONLY' | translate"
+        [attr.title]="i18nPrefix + '.MAP_LIST_ONLY_HINT' | translate">
+        <button
+          type="button"
+          class="artisans-map-list-opt"
+          role="radio"
+          [attr.aria-checked]="!mapListOnly"
+          [class.artisans-map-list-opt--on]="!mapListOnly"
+          [disabled]="isLoading"
+          (click)="onMapListOnlyChange(false)">
+          {{ i18nPrefix + '.MAP_LIST_FULL' | translate }}
+        </button>
+        <button
+          type="button"
+          class="artisans-map-list-opt"
+          role="radio"
+          [attr.aria-checked]="mapListOnly"
+          [class.artisans-map-list-opt--on]="mapListOnly"
+          [disabled]="isLoading"
+          (click)="onMapListOnlyChange(true)">
+          {{ i18nPrefix + '.MAP_LIST_PAGE' | translate:{ page: page } }}
+        </button>
       </div>
       <label class="artisans-basemap">
         <span class="visually-hidden">{{ i18nPrefix + '.MAP_BASE_LAYER' | translate }}</span>
@@ -500,8 +574,8 @@
         [attr.aria-label]="(mapFullscreen ? i18nPrefix + '.EXIT_FULLSCREEN' : i18nPrefix + '.FULLSCREEN') | translate">
         <i class="fa" [class.fa-compress]="mapFullscreen" [class.fa-expand]="!mapFullscreen" aria-hidden="true"></i>
       </button>
-      <p class="artisans-place" *ngIf="placeCaption" [attr.title]="placeCaption">
-        <i class="fa fa-map-pin me-1" aria-hidden="true"></i>
+      <p class="artisans-place" *ngIf="placeCaption" [attr.title]="placeCaption" (click)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()">
+        <i class="fa fa-map-pin" aria-hidden="true"></i>
         <span>{{ placeCaption }}</span>
       </p>
     </div>
@@ -514,15 +588,103 @@
   <div
     class="artisans-pager"
     [class.artisans-pager--top]="top"
-    *ngIf="!showFavorites && !isLoading && total > (result?.perPage || listPageSize)">
-    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="previousPage()" [disabled]="page <= 1">
+    *ngIf="!showFavorites && !isLoading && searched && total > 0">
+    <button type="button" class="artisans-pager-btn" (click)="previousPage()" [disabled]="page <= 1 || totalPages <= 1">
       {{ i18nPrefix + '.PREV' | translate }}
     </button>
     <span>{{ i18nPrefix + '.PAGE' | translate:{ page: page, pages: totalPages } }}</span>
-    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="nextPage()" [disabled]="page >= totalPages">
+    <label class="artisans-page-size">
+      <span>{{ i18nPrefix + '.PAGE_SIZE' | translate }}</span>
+      <select
+        class="form-select form-select-sm artisans-page-size-select"
+        name="artisansPageSize"
+        [(ngModel)]="listPageSize"
+        (change)="onPageSizeChange()">
+        <option *ngFor="let n of pageSizeOptions" [ngValue]="n">
+          {{ n === 0 ? (i18nPrefix + '.PAGE_SIZE_ALL' | translate) : n }}
+        </option>
+      </select>
+    </label>
+    <button type="button" class="artisans-pager-btn" (click)="nextPage()" [disabled]="page >= totalPages || totalPages <= 1">
       {{ i18nPrefix + '.NEXT' | translate }}
     </button>
   </div>
 </ng-template>
+
+<div
+  class="artisans-stats-overlay"
+  *ngIf="tradeStatsOpen"
+  (click)="closeTradeStats()">
+  <div
+    class="artisans-stats-dialog"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-labelledby]="'artisans-stats-title'"
+    (click)="$event.stopPropagation()">
+    <div class="artisans-stats-head">
+      <h3 id="artisans-stats-title">{{ i18nPrefix + '.STATS_TITLE' | translate }}</h3>
+      <button
+        type="button"
+        class="artisans-stats-close"
+        (click)="closeTradeStats()"
+        [attr.aria-label]="i18nPrefix + '.STATS_CLOSE' | translate">
+        <i class="fa fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <p class="artisans-stats-meta" *ngIf="tradeStatsCounted && tradeStatsCounted !== total">
+      {{ i18nPrefix + '.STATS_SAMPLED' | translate:{ count: tradeStatsCounted, total: total } }}
+    </p>
+    <p class="artisans-stats-meta" *ngIf="tradeStatsCounted && tradeStatsCounted === total">
+      {{ i18nPrefix + '.STATS_COUNTED' | translate:{ count: tradeStatsCounted } }}
+    </p>
+    <p class="artisans-stats-hint" *ngIf="tradeStats.length">{{ i18nPrefix + '.STATS_HINT' | translate }}</p>
+    <div class="artisans-stats-tools" *ngIf="tradeStats.length">
+      <label class="visually-hidden" for="artisans-stats-filter">{{ i18nPrefix + '.STATS_FILTER' | translate }}</label>
+      <input
+        id="artisans-stats-filter"
+        type="search"
+        class="form-control form-control-sm artisans-stats-filter"
+        name="artisansStatsQuery"
+        [(ngModel)]="tradeStatsQuery"
+        [placeholder]="i18nPrefix + '.STATS_FILTER_PLACEHOLDER' | translate" />
+      <div class="artisans-stats-sorts" role="group" [attr.aria-label]="i18nPrefix + '.SORT' | translate">
+        <button
+          type="button"
+          class="artisans-stats-sort"
+          [class.artisans-stats-sort--on]="tradeStatsSort.startsWith('name-')"
+          (click)="toggleTradeStatsSort('name')"
+          [attr.title]="(tradeStatsSort === 'name-desc' ? i18nPrefix + '.STATS_SORT_NAME_DESC' : i18nPrefix + '.STATS_SORT_NAME_ASC') | translate">
+          <i class="fa" [class.fa-sort-alpha-asc]="tradeStatsSort !== 'name-desc'" [class.fa-sort-alpha-desc]="tradeStatsSort === 'name-desc'" aria-hidden="true"></i>
+          <span>{{ i18nPrefix + '.STATS_SORT_NAME' | translate }}</span>
+        </button>
+        <button
+          type="button"
+          class="artisans-stats-sort"
+          [class.artisans-stats-sort--on]="tradeStatsSort.startsWith('count-')"
+          (click)="toggleTradeStatsSort('count')"
+          [attr.title]="(tradeStatsSort === 'count-asc' ? i18nPrefix + '.STATS_SORT_COUNT_ASC' : i18nPrefix + '.STATS_SORT_COUNT_DESC') | translate">
+          <i class="fa" [class.fa-sort-amount-desc]="tradeStatsSort !== 'count-asc'" [class.fa-sort-amount-asc]="tradeStatsSort === 'count-asc'" aria-hidden="true"></i>
+          <span>{{ i18nPrefix + '.STATS_SORT_COUNT' | translate }}</span>
+        </button>
+      </div>
+    </div>
+    <p class="artisans-stats-empty" *ngIf="!tradeStats.length">{{ i18nPrefix + '.STATS_EMPTY' | translate }}</p>
+    <p class="artisans-stats-empty" *ngIf="tradeStats.length && !visibleTradeStats.length">{{ i18nPrefix + '.STATS_FILTER_EMPTY' | translate }}</p>
+    <ul class="artisans-stats-list" *ngIf="visibleTradeStats.length">
+      <li *ngFor="let row of visibleTradeStats">
+        <button type="button" class="artisans-stats-row" (click)="filterToTradeStat(row)">
+          <span class="artisans-stats-row-main">
+            <i [class]="row.icon" aria-hidden="true"></i>
+            <span class="artisans-stats-label">{{ row.label }}</span>
+            <span class="artisans-stats-count">{{ row.count }}</span>
+          </span>
+          <span class="artisans-stats-bar" aria-hidden="true">
+            <span class="artisans-stats-bar-fill" [style.width.%]="row.pct"></span>
+          </span>
+        </button>
+      </li>
+    </ul>
+  </div>
+</div>
 
 <app-trace-viewer-modal (locationSelected)="onLocationSelected($event)"></app-trace-viewer-modal>

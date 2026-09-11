@@ -33,6 +33,7 @@ public final class PatToolParameterCatalog {
             "webcam.favorites.",
             "webcam.last.",
             "artisans.favorites.",
+            "artisans.preferences.",
             "youtube.favorites.",
             "archive.recent.",
             "archive.audioPlaylist.",

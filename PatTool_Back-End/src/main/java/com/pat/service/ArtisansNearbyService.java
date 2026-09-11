@@ -50,16 +50,18 @@ public class ArtisansNearbyService {
     private static final String SIRENE_BASE = "https://recherche-entreprises.api.gouv.fr";
     private static final String ANNUAIRE_ETAB = "https://annuaire-entreprises.data.gouv.fr/etablissement/";
     private static final int MAX_RADIUS_KM = 50;
-    private static final int MAX_PER_PAGE = 500;
+    private static final int MAX_PER_PAGE = 10_000;
     private static final int DEFAULT_PER_PAGE = 500;
     private static final int SIRENE_PER_PAGE = 25;
+    private static final int SIRENE_MAX_RESULTS = 10_000;
     private static final int MAX_OSM_ITEMS = 500;
     private static final int MAX_TEXT_SIRENE_PAGES = 20;
-    private static final int CACHE_PREFETCH_SIRENE_PAGES = 60;
+    private static final int CACHE_PREFETCH_FLUSH_EVERY = 15;
     private static final int MAX_LIST_TEXT_LEN = 80;
     private static final int MAX_OVERPASS_BYTES = 2 * 1024 * 1024;
     private static final Set<String> SOURCES = Set.of("sirene", "osm");
     private static final Pattern WIKIDATA_ID = Pattern.compile("Q\\d+", Pattern.CASE_INSENSITIVE);
+    private static final Pattern NAF_CODE = Pattern.compile("\\d{2}\\.\\d{2}[A-Z]", Pattern.CASE_INSENSITIVE);
     private static final Set<String> TRADES = Set.of(
             "all", "plumber", "electrician", "heating", "painter", "carpenter",
             "mason", "roofer", "locksmith", "tiler", "glazier", "gardener", "cleaner",
@@ -67,12 +69,12 @@ public class ArtisansNearbyService {
             "supermarket", "grocery", "shop", "hardware", "clothing", "furniture",
             "florist", "pharmacy", "optician", "restaurant", "cafe", "hotel", "fuel",
             "isolation", "plasterer", "beauty", "dentist", "doctor", "veterinary",
-            "realestate", "laundry", "bank", "insurance", "wholesale", "post", "shoes", "electronics", "books",
+            "realestate", "laundry", "bank", "insurance", "wholesale", "post", "shoes", "electronics", "it", "books",
             "sports", "jewelry", "bar", "fastfood"
     );
 
-    /** NAF sections covering artisans, shops, food, health and local services. */
-    private static final String SIRENE_ALL_SECTIONS = "C,F,G,I,K,L,Q,S";
+    /** NAF sections covering artisans, shops, food, health, IT and local services. */
+    private static final String SIRENE_ALL_SECTIONS = "C,F,G,I,J,K,L,Q,S";
     private static final Map<String, String> SIRENE_NAF = new LinkedHashMap<>();
     private static final Map<String, String> OSM_FILTERS = new LinkedHashMap<>();
 
@@ -120,6 +122,7 @@ public class ArtisansNearbyService {
         SIRENE_NAF.put("wholesale", "46.21Z,46.31Z,46.32Z,46.33Z,46.39Z,46.41Z,46.42Z,46.43Z,46.44Z,46.45Z,46.46Z,46.47Z,46.49Z,46.51Z,46.52Z,46.69A,46.69B,46.69C,46.71Z,46.72Z,46.73A,46.73B,46.74A,46.74B,46.75Z,46.76Z,46.77Z,46.90Z");
         SIRENE_NAF.put("shoes", "47.72Z");
         SIRENE_NAF.put("electronics", "47.41Z,47.42Z,47.43Z");
+        SIRENE_NAF.put("it", "62.01Z,62.02A,62.02B,62.03Z,62.09Z,63.11Z,63.12Z,58.21Z,58.29A,58.29B,58.29C,95.11Z");
         SIRENE_NAF.put("books", "47.61Z,47.62Z");
         SIRENE_NAF.put("sports", "47.64Z");
         SIRENE_NAF.put("jewelry", "47.77Z");
@@ -165,14 +168,15 @@ public class ArtisansNearbyService {
         OSM_FILTERS.put("wholesale", "nwr[\"shop\"=\"wholesale\"]");
         OSM_FILTERS.put("post", "nwr[\"amenity\"=\"post_office\"]");
         OSM_FILTERS.put("shoes", "nwr[\"shop\"=\"shoes\"]");
-        OSM_FILTERS.put("electronics", "nwr[\"shop\"~\"^(electronics|computer)$\"]");
+        OSM_FILTERS.put("electronics", "nwr[\"shop\"=\"electronics\"]");
+        OSM_FILTERS.put("it", "nwr[\"shop\"=\"computer\"];nwr[\"office\"~\"^(it|software|web_design)$\"];nwr[\"craft\"=\"computer\"]");
         OSM_FILTERS.put("books", "nwr[\"shop\"~\"^(books|newsagent)$\"]");
         OSM_FILTERS.put("sports", "nwr[\"shop\"=\"sports\"]");
         OSM_FILTERS.put("jewelry", "nwr[\"shop\"=\"jewelry\"]");
         OSM_FILTERS.put("bar", "nwr[\"amenity\"~\"^(bar|pub)$\"]");
         OSM_FILTERS.put("fastfood", "nwr[\"amenity\"=\"fast_food\"]");
         OSM_FILTERS.put("all",
-                "node[\"shop\"];node[\"craft\"];node[\"office\"~\"^(estate_agent|lawyer|accountant|insurance)$\"];node[\"amenity\"~\"^(restaurant|cafe|fast_food|bar|pub|pharmacy|fuel|dentist|doctors|clinic|veterinary|bank|post_office)$\"];node[\"shop\"=\"wholesale\"];node[\"tourism\"=\"hotel\"]");
+                "node[\"shop\"];node[\"craft\"];node[\"office\"~\"^(estate_agent|lawyer|accountant|insurance|it|software|web_design)$\"];node[\"amenity\"~\"^(restaurant|cafe|fast_food|bar|pub|pharmacy|fuel|dentist|doctors|clinic|veterinary|bank|post_office)$\"];node[\"shop\"=\"wholesale\"];node[\"tourism\"=\"hotel\"]");
     }
 
     /** Libellés INSEE NAF 2008 (et quelques codes NAF 2025) pour les métiers maison. */
@@ -238,6 +242,18 @@ public class ArtisansNearbyService {
         putNaf("47.41Z", "Commerce d’ordinateurs", "electronics");
         putNaf("47.42Z", "Commerce de matériels de télécommunication", "electronics");
         putNaf("47.43Z", "Commerce d’équipements audio/vidéo", "electronics");
+        putNaf("62.01Z", "Programmation informatique", "it");
+        putNaf("62.02A", "Conseil en systèmes et logiciels informatiques", "it");
+        putNaf("62.02B", "Tierce maintenance de systèmes et d’applications informatiques", "it");
+        putNaf("62.03Z", "Gestion d’installations informatiques", "it");
+        putNaf("62.09Z", "Autres activités informatiques", "it");
+        putNaf("63.11Z", "Traitement de données, hébergement et activités connexes", "it");
+        putNaf("63.12Z", "Portails Internet", "it");
+        putNaf("58.21Z", "Édition de jeux électroniques", "it");
+        putNaf("58.29A", "Édition de logiciels système et de réseau", "it");
+        putNaf("58.29B", "Édition de logiciels outils de développement", "it");
+        putNaf("58.29C", "Édition de logiciels applicatifs", "it");
+        putNaf("95.11Z", "Réparation d’ordinateurs et d’équipements périphériques", "it");
         putNaf("47.61Z", "Commerce de livres", "books");
         putNaf("47.62Z", "Commerce de journaux et papeterie", "books");
         putNaf("47.64Z", "Commerce d’articles de sport", "sports");
@@ -306,6 +322,9 @@ public class ArtisansNearbyService {
         OSM_LABELS.put("shoes", "Chaussures");
         OSM_LABELS.put("electronics", "Électronique");
         OSM_LABELS.put("computer", "Informatique");
+        OSM_LABELS.put("it", "Informatique");
+        OSM_LABELS.put("software", "Édition de logiciels");
+        OSM_LABELS.put("web_design", "Création de sites web");
         OSM_LABELS.put("books", "Librairie");
         OSM_LABELS.put("sports", "Sport");
         OSM_LABELS.put("jewelry", "Bijouterie");
@@ -370,7 +389,10 @@ public class ArtisansNearbyService {
         OSM_TRADE.put("shoes", "shoes");
         OSM_TRADE.put("furniture", "furniture");
         OSM_TRADE.put("electronics", "electronics");
-        OSM_TRADE.put("computer", "electronics");
+        OSM_TRADE.put("computer", "it");
+        OSM_TRADE.put("it", "it");
+        OSM_TRADE.put("software", "it");
+        OSM_TRADE.put("web_design", "it");
         OSM_TRADE.put("books", "books");
         OSM_TRADE.put("newsagent", "books");
         OSM_TRADE.put("sports", "sports");
@@ -439,13 +461,18 @@ public class ArtisansNearbyService {
             Integer page,
             Integer perPage,
             String text,
-            String cache) {
+            String city,
+            String sort,
+            String cache,
+            Boolean withoutCoords,
+            Boolean includeClosed) {
         String src = normalizeSource(source);
         String job = normalizeTrade(trade);
         int pageN = page == null ? 1 : Math.max(1, page);
-        int size = perPage == null ? DEFAULT_PER_PAGE : Math.max(1, Math.min(MAX_PER_PAGE, perPage));
+        int size = perPage == null ? DEFAULT_PER_PAGE : resolvePerPage(perPage);
         double radius = radiusKm == null ? 10.0 : Math.max(0.5, Math.min(MAX_RADIUS_KM, radiusKm));
         String listText = normalizeListText(text);
+        String listCity = normalizeListCity(city);
         ArtisansItemCacheService.CacheMode cacheMode = ArtisansItemCacheService.CacheMode.parse(cache);
 
         ResolvedPlace place = resolvePlace(lat, lon, address);
@@ -460,14 +487,19 @@ public class ArtisansNearbyService {
         query.perPage = size;
         query.placeLabel = place.label;
         query.text = listText;
+        query.city = listCity;
+        query.sort = normalizeListSort(sort);
         query.generation = itemCache.generation();
+        query.includeWithoutCoords = Boolean.TRUE.equals(withoutCoords);
+        query.includeClosed = includeClosed == null || includeClosed;
 
         if (cacheMode == ArtisansItemCacheService.CacheMode.CACHE) {
             return itemCache.page(query);
         }
+        int liveSize = size <= 0 ? SIRENE_MAX_RESULTS : size;
         JsonNode api;
         try {
-            api = searchLive(src, place, radius, job, pageN, size, listText);
+            api = searchLive(src, place, radius, job, pageN, liveSize, listText, query.includeClosed);
         } catch (ResponseStatusException ex) {
             if (cacheMode == ArtisansItemCacheService.CacheMode.BOTH
                     && ex.getStatusCode().value() == HttpStatus.BAD_GATEWAY.value()) {
@@ -478,11 +510,11 @@ public class ArtisansNearbyService {
         JsonNode response;
         if (cacheMode == ArtisansItemCacheService.CacheMode.API) {
             itemCache.putItems(src, api, query.generation);
-            response = itemCache.annotate(query, api);
+            response = itemCache.annotate(query, applyCoordsFilter(api, query.includeWithoutCoords));
         } else {
-            response = itemCache.merge(query, api);
+            response = applyCoordsFilter(itemCache.merge(query, api), query.includeWithoutCoords);
         }
-        scheduleCachePrefetch(src, place, radius, job, pageN, size, listText, query.generation, api);
+        scheduleCachePrefetch(src, place, radius, job, pageN, liveSize, listText, query.generation, api);
         return response;
     }
 
@@ -496,10 +528,12 @@ public class ArtisansNearbyService {
             String listText,
             long generation,
             JsonNode visiblePage) {
-        if (visiblePage == null || visiblePage.path("items").size() < size) {
+        if (!"sirene".equals(src) || visiblePage == null) {
             return;
         }
-        if (!"sirene".equals(src)) {
+        int total = visiblePage.path("total").asInt(0);
+        int itemCount = visiblePage.path("items").size();
+        if (!shouldPrefetchSirene(total, pageN, size, itemCount)) {
             return;
         }
         taskExecutor.execute(() -> {
@@ -508,7 +542,7 @@ public class ArtisansNearbyService {
                     prefetchSireneByText(place, radius, job, listText, generation);
                 } else {
                     int firstExtraPage = pageN * size / SIRENE_PER_PAGE + 1;
-                    prefetchSirene(place, radius, job, firstExtraPage, generation);
+                    prefetchSirene(place, radius, job, firstExtraPage, generation, total);
                 }
             } catch (Exception ex) {
                 log.warn("Artisans cache prefetch failed: {}", ex.toString());
@@ -516,12 +550,24 @@ public class ArtisansNearbyService {
         });
     }
 
+    static boolean shouldPrefetchSirene(int total, int pageN, int size, int itemCount) {
+        if (size < 1 || pageN < 1) {
+            return false;
+        }
+        return total > pageN * size || itemCount >= size;
+    }
+
+    static int sireneLastPage(int totalResults) {
+        int capped = totalResults <= 0 ? SIRENE_MAX_RESULTS : Math.min(totalResults, SIRENE_MAX_RESULTS);
+        return Math.max(1, (capped + SIRENE_PER_PAGE - 1) / SIRENE_PER_PAGE);
+    }
+
     private void prefetchSirene(
-            ResolvedPlace place, double radius, String trade, int firstSirenePage, long generation) {
+            ResolvedPlace place, double radius, String trade, int firstSirenePage, long generation, int totalResults) {
+        int lastPage = sireneLastPage(totalResults);
         int stored = 0;
-        for (int sirenePage = firstSirenePage;
-                sirenePage < firstSirenePage + CACHE_PREFETCH_SIRENE_PAGES;
-                sirenePage++) {
+        int pages = 0;
+        for (int sirenePage = firstSirenePage; sirenePage <= lastPage; sirenePage++) {
             if (itemCache.generation() != generation) {
                 return;
             }
@@ -543,18 +589,28 @@ public class ArtisansNearbyService {
             ArrayNode items = objectMapper.createArrayNode();
             batch.set("items", items);
             for (JsonNode company : results) {
-                ObjectNode item = mapSirene(company, place.lat, place.lon, trade);
+                ObjectNode item = mapSirene(company, place.lat, place.lon, radius, trade);
                 if (item != null) {
                     items.add(item);
                 }
             }
             if (items.size() > 0) {
-                itemCache.putItems("sirene", batch, generation);
+                itemCache.putItems("sirene", batch, generation, false);
                 stored += items.size();
+            }
+            pages++;
+            if (pages % CACHE_PREFETCH_FLUSH_EVERY == 0) {
+                itemCache.flush();
             }
             if (results.size() < SIRENE_PER_PAGE) {
                 break;
             }
+            if (!pausePrefetch()) {
+                break;
+            }
+        }
+        if (pages > 0) {
+            itemCache.flush();
         }
         if (stored > 0) {
             log.info("Artisans cache prefetch stored {} extra SIRENE items around {}", stored, place.label);
@@ -566,9 +622,9 @@ public class ArtisansNearbyService {
         List<String> depts = foncierGeoService.departmentCodesNear(place.lat, place.lon, radius);
         String departments = String.join(",", depts);
         int stored = 0;
-        for (int sirenePage = MAX_TEXT_SIRENE_PAGES + 1;
-                sirenePage <= MAX_TEXT_SIRENE_PAGES + CACHE_PREFETCH_SIRENE_PAGES;
-                sirenePage++) {
+        int pages = 0;
+        int lastPage = SIRENE_MAX_RESULTS / SIRENE_PER_PAGE;
+        for (int sirenePage = MAX_TEXT_SIRENE_PAGES + 1; sirenePage <= lastPage; sirenePage++) {
             if (itemCache.generation() != generation) {
                 return;
             }
@@ -590,22 +646,42 @@ public class ArtisansNearbyService {
             ArrayNode items = objectMapper.createArrayNode();
             batch.set("items", items);
             for (JsonNode company : results) {
-                ObjectNode item = mapSirene(company, place.lat, place.lon, trade);
-                if (item == null || item.path("distanceKm").asDouble(999) > radius + 0.05) {
+                ObjectNode item = mapSirene(company, place.lat, place.lon, radius, trade);
+                if (item == null || !withinSearchRadius(item, radius)) {
                     continue;
                 }
                 items.add(item);
             }
             if (items.size() > 0) {
-                itemCache.putItems("sirene", batch, generation);
+                itemCache.putItems("sirene", batch, generation, false);
                 stored += items.size();
+            }
+            pages++;
+            if (pages % CACHE_PREFETCH_FLUSH_EVERY == 0) {
+                itemCache.flush();
             }
             if (results.size() < SIRENE_PER_PAGE) {
                 break;
             }
+            if (!pausePrefetch()) {
+                break;
+            }
+        }
+        if (pages > 0) {
+            itemCache.flush();
         }
         if (stored > 0) {
             log.info("Artisans cache prefetch stored {} extra SIRENE text items around {}", stored, place.label);
+        }
+    }
+
+    private static boolean pausePrefetch() {
+        try {
+            Thread.sleep(40);
+            return true;
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return false;
         }
     }
 
@@ -616,9 +692,10 @@ public class ArtisansNearbyService {
             String job,
             int pageN,
             int size,
-            String listText) {
+            String listText,
+            boolean includeClosed) {
         if ("osm".equals(src)) {
-            return searchOsm(place.lat, place.lon, radius, job, pageN, size, place.label);
+            return searchOsm(place.lat, place.lon, radius, job, pageN, size, place.label, includeClosed);
         }
         if (StringUtils.hasText(listText)) {
             return searchSireneByText(place.lat, place.lon, radius, job, pageN, size, place.label, listText);
@@ -682,7 +759,7 @@ public class ArtisansNearbyService {
                     skip--;
                     continue;
                 }
-                ObjectNode item = mapSirene(company, lat, lon, trade);
+                ObjectNode item = mapSirene(company, lat, lon, radiusKm, trade);
                 if (item != null) {
                     items.add(item);
                 }
@@ -720,11 +797,8 @@ public class ArtisansNearbyService {
                 break;
             }
             for (JsonNode company : results) {
-                ObjectNode item = mapSirene(company, lat, lon, trade);
-                if (item == null) {
-                    continue;
-                }
-                if (item.path("distanceKm").asDouble(999) > radiusKm + 0.05) {
+                ObjectNode item = mapSirene(company, lat, lon, radiusKm, trade);
+                if (item == null || !withinSearchRadius(item, radiusKm)) {
                     continue;
                 }
                 matched.add(item);
@@ -774,6 +848,8 @@ public class ArtisansNearbyService {
     private static void applySireneActivity(UriComponentsBuilder builder, String trade) {
         if ("all".equals(trade)) {
             builder.queryParam("section_activite_principale", SIRENE_ALL_SECTIONS);
+        } else if (isNafTrade(trade)) {
+            builder.queryParam("activite_principale", nafFromTrade(trade));
         } else if (StringUtils.hasText(SIRENE_NAF.get(trade))) {
             builder.queryParam("activite_principale", SIRENE_NAF.get(trade));
         }
@@ -790,43 +866,68 @@ public class ArtisansNearbyService {
         return value.length() < 2 ? "" : value;
     }
 
-    private ObjectNode mapSirene(JsonNode company, double originLat, double originLon, String trade) {
+    private static String normalizeListCity(String city) {
+        if (!StringUtils.hasText(city)) {
+            return "";
+        }
+        String value = city.trim().replaceAll("\\s+", " ");
+        return value.length() > MAX_LIST_TEXT_LEN ? value.substring(0, MAX_LIST_TEXT_LEN) : value;
+    }
+
+    private static String normalizeListSort(String sort) {
+        String key = sort == null ? "" : sort.trim().toLowerCase(Locale.ROOT);
+        return switch (key) {
+            case "distance-desc", "name-asc", "name-desc", "trade-asc", "city-asc" -> key;
+            default -> "distance-asc";
+        };
+    }
+
+    /** 0 means the full match (no pagination). */
+    private static int resolvePerPage(int perPage) {
+        if (perPage <= 0) {
+            return 0;
+        }
+        return Math.max(1, Math.min(MAX_PER_PAGE, perPage));
+    }
+
+    private ObjectNode mapSirene(JsonNode company, double originLat, double originLon, double radiusKm, String trade) {
         if (company == null || !company.isObject()) {
             return null;
         }
         Set<String> wantedNaf = nafSetForTrade(trade);
         JsonNode etab = pickEstablishment(company, wantedNaf);
-        if (etab == null) {
-            return null;
+        JsonNode siege = firstObject(company, "siege");
+        if (etab == null && siege != null && siege.isObject()) {
+            etab = siege;
         }
-        Double elat = asDouble(etab.get("latitude"));
-        Double elon = asDouble(etab.get("longitude"));
+        Double elat = etab != null ? asDouble(etab.get("latitude")) : null;
+        Double elon = etab != null ? asDouble(etab.get("longitude")) : null;
         if (elat == null || elon == null) {
-            elat = asDouble(firstObject(company, "siege").get("latitude"));
-            elon = asDouble(firstObject(company, "siege").get("longitude"));
-        }
-        if (elat == null || elon == null) {
-            return null;
+            elat = asDouble(siege.get("latitude"));
+            elon = asDouble(siege.get("longitude"));
         }
         String legalName = firstNonBlank(
                 textOrEmpty(company.get("nom_complet")),
                 textOrEmpty(company.get("nom_raison_sociale")));
         String tradeName = firstNonBlank(
                 firstEnseigne(etab),
-                textOrEmpty(etab.get("nom_commercial")),
-                firstEnseigne(firstObject(company, "siege")),
-                textOrEmpty(firstObject(company, "siege").get("nom_commercial")),
+                etab != null ? textOrEmpty(etab.get("nom_commercial")) : "",
+                firstEnseigne(siege),
+                textOrEmpty(siege.get("nom_commercial")),
                 parentheticalTradeName(legalName));
-        String name = firstNonBlank(tradeName, legalName);
+        String siret = firstNonBlank(
+                etab != null ? textOrEmpty(etab.get("siret")) : "",
+                textOrEmpty(company.get("siren")));
+        String name = firstNonBlank(tradeName, legalName, siret);
         if (!StringUtils.hasText(name)) {
             return null;
         }
         String companyNaf = firstNonBlank(
                 textOrEmpty(company.get("activite_principale")),
-                textOrEmpty(firstObject(company, "siege").get("activite_principale")));
-        String etabNaf = firstNonBlank(
+                textOrEmpty(siege.get("activite_principale")));
+        String etabNaf = etab != null ? firstNonBlank(
                 textOrEmpty(etab.get("activite_principale")),
-                textOrEmpty(etab.get("activite_principale_naf25")));
+                textOrEmpty(etab.get("activite_principale_naf25"))) : "";
         if (!wantedNaf.isEmpty() && !nafMatches(etabNaf, wantedNaf) && !nafMatches(companyNaf, wantedNaf)) {
             return null;
         }
@@ -836,7 +937,6 @@ public class ArtisansNearbyService {
                         nafMatches(companyNaf, wantedNaf) ? companyNaf : "",
                         etabNaf,
                         companyNaf);
-        String siret = firstNonBlank(textOrEmpty(etab.get("siret")), textOrEmpty(company.get("siren")));
         ObjectNode item = objectMapper.createObjectNode();
         item.put("id", StringUtils.hasText(siret) ? siret : name);
         item.put("name", name);
@@ -844,7 +944,7 @@ public class ArtisansNearbyService {
             item.put("legalName", legalName);
         }
         String apiLabel = firstNonBlank(
-                textOrEmpty(etab.get("libelle_activite_principale")),
+                etab != null ? textOrEmpty(etab.get("libelle_activite_principale")) : "",
                 textOrEmpty(company.get("libelle_activite_principale")));
         item.put("activity", firstNonBlank(labelForNaf(naf), apiLabel, naf));
         item.put("activityCode", naf);
@@ -853,19 +953,24 @@ public class ArtisansNearbyService {
             item.put("tradeKey", tradeKey);
         }
         item.put("address", firstNonBlank(
-                textOrEmpty(etab.get("adresse")),
-                textOrEmpty(etab.get("geo_adresse")),
-                textOrEmpty(firstObject(company, "siege").get("adresse")),
-                textOrEmpty(firstObject(company, "siege").get("geo_adresse"))));
+                etab != null ? textOrEmpty(etab.get("adresse")) : "",
+                etab != null ? textOrEmpty(etab.get("geo_adresse")) : "",
+                textOrEmpty(siege.get("adresse")),
+                textOrEmpty(siege.get("geo_adresse"))));
         item.put("city", firstNonBlank(
-                textOrEmpty(etab.get("libelle_commune")),
-                textOrEmpty(firstObject(company, "siege").get("libelle_commune"))));
+                etab != null ? textOrEmpty(etab.get("libelle_commune")) : "",
+                textOrEmpty(siege.get("libelle_commune"))));
         item.put("postalCode", firstNonBlank(
-                textOrEmpty(etab.get("code_postal")),
-                textOrEmpty(firstObject(company, "siege").get("code_postal"))));
-        item.put("lat", elat);
-        item.put("lon", elon);
-        item.put("distanceKm", round1(haversineKm(originLat, originLon, elat, elon)));
+                etab != null ? textOrEmpty(etab.get("code_postal")) : "",
+                textOrEmpty(siege.get("code_postal"))));
+        if (elat != null && elon != null && Double.isFinite(elat) && Double.isFinite(elon)) {
+            item.put("lat", elat);
+            item.put("lon", elon);
+            item.put("distanceKm", round1(haversineKm(originLat, originLon, elat, elon)));
+        }
+        item.put("cacheOriginLat", originLat);
+        item.put("cacheOriginLon", originLon);
+        item.put("cacheOriginRadiusKm", radiusKm);
         if (StringUtils.hasText(siret) && siret.length() == 14) {
             item.put("url", ANNUAIRE_ETAB + siret);
         } else if (StringUtils.hasText(textOrEmpty(company.get("siren")))) {
@@ -875,13 +980,45 @@ public class ArtisansNearbyService {
                 textOrEmpty(company.get("site_internet")),
                 textOrEmpty(company.get("site_web")),
                 textOrEmpty(company.get("website")),
-                textOrEmpty(etab.get("site_internet")),
-                textOrEmpty(etab.get("website")),
+                etab != null ? textOrEmpty(etab.get("site_internet")) : "",
+                etab != null ? textOrEmpty(etab.get("website")) : "",
                 textOrEmpty(firstObject(company, "complements").get("site_internet"))));
         if (StringUtils.hasText(website)) {
             item.put("website", website);
         }
         return item;
+    }
+
+    private JsonNode applyCoordsFilter(JsonNode page, boolean includeWithoutCoords) {
+        if (includeWithoutCoords || page == null || !page.isObject()) {
+            return page;
+        }
+        JsonNode src = page.get("items");
+        if (src == null || !src.isArray()) {
+            return page;
+        }
+        ObjectNode copy = page.deepCopy();
+        ArrayNode items = objectMapper.createArrayNode();
+        for (JsonNode item : src) {
+            if (itemHasCoords(item)) {
+                items.add(item);
+            }
+        }
+        copy.set("items", items);
+        return copy;
+    }
+
+    private static boolean itemHasCoords(JsonNode item) {
+        if (item == null || !item.isObject()) {
+            return false;
+        }
+        Double lat = asDouble(item.get("lat"));
+        Double lon = asDouble(item.get("lon"));
+        return lat != null && lon != null && Double.isFinite(lat) && Double.isFinite(lon);
+    }
+
+    private static boolean withinSearchRadius(JsonNode item, double radiusKm) {
+        return !itemHasCoords(item) || item.path("distanceKm").asDouble(999) <= radiusKm + 0.05;
     }
 
     private JsonNode pickEstablishment(JsonNode company, Set<String> wantedNaf) {
@@ -918,6 +1055,9 @@ public class ArtisansNearbyService {
         if (!StringUtils.hasText(trade) || "all".equals(trade)) {
             return Set.of();
         }
+        if (isNafTrade(trade)) {
+            return Set.of(nafFromTrade(trade));
+        }
         String csv = SIRENE_NAF.get(trade);
         if (!StringUtils.hasText(csv)) {
             return Set.of();
@@ -947,7 +1087,8 @@ public class ArtisansNearbyService {
             String trade,
             int page,
             int perPage,
-            String placeLabel) {
+            String placeLabel,
+            boolean includeClosed) {
         JsonNode raw = fetchOverpass(lat, lon, radiusKm, trade);
         List<ObjectNode> all = new ArrayList<>();
         if (raw != null) {
@@ -965,6 +1106,9 @@ public class ArtisansNearbyService {
             }
         }
         all.sort(Comparator.comparingDouble(n -> n.path("distanceKm").asDouble(999)));
+        if (!includeClosed) {
+            all.removeIf(n -> n.path("closed").asBoolean(false));
+        }
         int from = Math.min((page - 1) * perPage, all.size());
         int to = Math.min(from + perPage, all.size());
         ObjectNode root = baseResult("osm", lat, lon, radiusKm, trade, placeLabel);
@@ -1064,6 +1208,13 @@ public class ArtisansNearbyService {
         if (StringUtils.hasText(brandWikidata)) {
             item.put("brandWikidata", brandWikidata);
         }
+        String hours = tags != null ? firstNonBlank(
+                textOrEmpty(tags.get("opening_hours")),
+                textOrEmpty(tags.get("opening_hours:covid19"))) : "";
+        if (StringUtils.hasText(hours)) {
+            item.put("openingHours", hours);
+        }
+        item.put("closed", ArtisansOpeningHours.isClosedNow(hours));
         return item;
     }
 
@@ -1172,11 +1323,31 @@ public class ArtisansNearbyService {
     }
 
     private static String normalizeTrade(String trade) {
-        String value = trade == null || trade.isBlank() ? "all" : trade.trim().toLowerCase(Locale.ROOT);
-        if (!TRADES.contains(value)) {
+        String value = trade == null || trade.isBlank() ? "all" : trade.trim();
+        if (isNafTrade(value)) {
+            return "naf:" + nafFromTrade(value);
+        }
+        String key = value.toLowerCase(Locale.ROOT);
+        if (!TRADES.contains(key)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid_trade");
         }
-        return value;
+        return key;
+    }
+
+    static boolean isNafTrade(String trade) {
+        return StringUtils.hasText(nafFromTrade(trade));
+    }
+
+    static String nafFromTrade(String trade) {
+        if (!StringUtils.hasText(trade)) {
+            return "";
+        }
+        String value = trade.trim();
+        if (value.regionMatches(true, 0, "naf:", 0, 4)) {
+            value = value.substring(4).trim();
+        }
+        String naf = normalizeNaf(value);
+        return NAF_CODE.matcher(naf).matches() ? naf : "";
     }
 
     static String labelForNaf(String code) {
@@ -1217,6 +1388,9 @@ public class ArtisansNearbyService {
         if (naf.startsWith("42.")) {
             return "Génie civil";
         }
+        if (naf.startsWith("62.") || naf.startsWith("63.1") || naf.startsWith("58.2") || naf.startsWith("95.11")) {
+            return "Informatique";
+        }
         return "";
     }
 
@@ -1228,6 +1402,10 @@ public class ArtisansNearbyService {
         String exact = NAF_TRADE.get(naf);
         if (exact != null) {
             return exact;
+        }
+        if (naf.startsWith("62.") || naf.startsWith("63.11") || naf.startsWith("63.12")
+                || naf.startsWith("58.21") || naf.startsWith("58.29") || naf.startsWith("95.11")) {
+            return "it";
         }
         if (naf.startsWith("43.21")) {
             return "electrician";

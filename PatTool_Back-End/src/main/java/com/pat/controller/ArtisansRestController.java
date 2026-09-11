@@ -5,9 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pat.controller.dto.ArtisanFavoriteDto;
 import com.pat.controller.dto.ArtisansFavoritesDto;
+import com.pat.controller.dto.ArtisansPreferencesDto;
 import com.pat.service.ArtisansFavoritesService;
 import com.pat.service.ArtisansItemCacheService;
 import com.pat.service.ArtisansNearbyService;
+import com.pat.service.ArtisansRadiusPreferenceService;
 import com.pat.service.ArtisansWebsiteLookupService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,9 +30,10 @@ import java.util.Map;
 
 /**
  * Nearby artisans / home trades.
- * {@code GET /api/external/artisans/nearby?source=sirene|osm&cache=cache|api|both&lat=&lon=&q=&radiusKm=&trade=&page=&text=}
+ * {@code GET /api/external/artisans/nearby?source=sirene|osm&cache=cache|api|both&lat=&lon=&q=&radiusKm=&trade=&page=&text=&city=&sort=}
  * Shared item cache: {@code GET /cache}, {@code POST /cache/clear}.
  * Authenticated favorites: {@code GET/PUT /favorites}, {@code PUT/DELETE /favorites/item}.
+ * Authenticated search prefs: {@code GET/PUT /preferences}.
  */
 @RestController
 @RequestMapping("/api/external/artisans")
@@ -39,6 +42,7 @@ public class ArtisansRestController {
     private final ArtisansNearbyService artisansNearbyService;
     private final ArtisansWebsiteLookupService artisansWebsiteLookupService;
     private final ArtisansFavoritesService artisansFavoritesService;
+    private final ArtisansRadiusPreferenceService artisansRadiusPreferenceService;
     private final ArtisansItemCacheService itemCache;
     private final ObjectMapper objectMapper;
 
@@ -46,11 +50,13 @@ public class ArtisansRestController {
             ArtisansNearbyService artisansNearbyService,
             ArtisansWebsiteLookupService artisansWebsiteLookupService,
             ArtisansFavoritesService artisansFavoritesService,
+            ArtisansRadiusPreferenceService artisansRadiusPreferenceService,
             ArtisansItemCacheService itemCache,
             ObjectMapper objectMapper) {
         this.artisansNearbyService = artisansNearbyService;
         this.artisansWebsiteLookupService = artisansWebsiteLookupService;
         this.artisansFavoritesService = artisansFavoritesService;
+        this.artisansRadiusPreferenceService = artisansRadiusPreferenceService;
         this.itemCache = itemCache;
         this.objectMapper = objectMapper;
     }
@@ -66,9 +72,13 @@ public class ArtisansRestController {
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "perPage", required = false) Integer perPage,
             @RequestParam(value = "text", required = false) String text,
-            @RequestParam(value = "cache", required = false) String cache) {
+            @RequestParam(value = "city", required = false) String city,
+            @RequestParam(value = "sort", required = false) String sort,
+            @RequestParam(value = "cache", required = false) String cache,
+            @RequestParam(value = "withoutCoords", required = false) Boolean withoutCoords,
+            @RequestParam(value = "includeClosed", required = false) Boolean includeClosed) {
         return ResponseEntity.ok(artisansNearbyService.nearby(
-                source, lat, lon, address, radiusKm, trade, page, perPage, text, cache));
+                source, lat, lon, address, radiusKm, trade, page, perPage, text, city, sort, cache, withoutCoords, includeClosed));
     }
 
     @GetMapping("/cache")
@@ -150,6 +160,24 @@ public class ArtisansRestController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return ResponseEntity.ok(artisansFavoritesService.removeFavorite(sub, id, source));
+    }
+
+    @GetMapping("/preferences")
+    public ResponseEntity<ArtisansPreferencesDto> getPreferences() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(artisansRadiusPreferenceService.findForSubject(sub));
+    }
+
+    @PutMapping("/preferences")
+    public ResponseEntity<?> putPreferences(@RequestBody ArtisansPreferencesDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(artisansRadiusPreferenceService.saveForSubject(sub, body));
     }
 
     private static String normalizeCacheSource(String source) {

@@ -3,6 +3,7 @@ import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 
 import { ArtisansNearbyItem, ArtisansNearbyResponse } from '../services/api.service';
+import { isEstablishmentClosed } from './artisans-opening-hours';
 import { OSM_ACTIVITY_LABELS, OSM_TRADE_KEYS, tradeKeyFromCode } from './artisans-trades';
 import { normalizeWikidataId, osmWebsiteFromTags } from './artisans-website';
 
@@ -13,7 +14,7 @@ const OVERPASS_URLS = [
 ];
 
 const OSM_FILTERS: Record<string, string> = {
-  all: 'node["shop"];node["craft"];node["office"~"^(estate_agent|lawyer|accountant|insurance)$"];node["amenity"~"^(restaurant|cafe|fast_food|bar|pub|pharmacy|fuel|dentist|doctors|clinic|veterinary|bank|post_office)$"];node["shop"="wholesale"];node["tourism"="hotel"]',
+  all: 'node["shop"];node["craft"];node["office"~"^(estate_agent|lawyer|accountant|insurance|it|software|web_design)$"];node["amenity"~"^(restaurant|cafe|fast_food|bar|pub|pharmacy|fuel|dentist|doctors|clinic|veterinary|bank|post_office)$"];node["shop"="wholesale"];node["tourism"="hotel"]',
   plumber: 'node["craft"~"^(plumber|heating_engineer)$"]',
   electrician: 'node["craft"="electrician"]',
   heating: 'node["craft"~"^(hvac|heating_engineer)$"]',
@@ -55,7 +56,8 @@ const OSM_FILTERS: Record<string, string> = {
   wholesale: 'node["shop"="wholesale"]',
   post: 'node["amenity"="post_office"]',
   shoes: 'node["shop"="shoes"]',
-  electronics: 'node["shop"~"^(electronics|computer)$"]',
+  electronics: 'node["shop"="electronics"]',
+  it: 'node["shop"="computer"];node["office"~"^(it|software|web_design)$"];node["craft"="computer"]',
   books: 'node["shop"~"^(books|newsagent)$"]',
   sports: 'node["shop"="sports"]',
   jewelry: 'node["shop"="jewelry"]',
@@ -134,8 +136,9 @@ function mapOverpass(
     }
   }
   items.sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
-  const from = Math.min((page - 1) * perPage, items.length);
-  const to = Math.min(from + perPage, items.length);
+  const size = perPage <= 0 ? items.length : Math.max(1, perPage);
+  const from = Math.min((page - 1) * size, items.length);
+  const to = Math.min(from + size, items.length);
   return {
     source: 'osm',
     lat,
@@ -170,6 +173,7 @@ function mapElement(el: OverpassElement, originLat: number, originLon: number): 
   const brand = (tags['brand'] || '').trim();
   const wikidata = normalizeWikidataId(tags['wikidata']);
   const brandWikidata = normalizeWikidataId(tags['brand:wikidata']);
+  const openingHours = (tags['opening_hours'] || tags['opening_hours:covid19'] || '').trim();
   return {
     id: `${type}/${id}`,
     name,
@@ -188,7 +192,9 @@ function mapElement(el: OverpassElement, originLat: number, originLon: number): 
     brand: brand || undefined,
     wikidata: wikidata || undefined,
     brandWikidata: brandWikidata || undefined,
-    phone: tags['phone'] || tags['contact:phone'] || undefined
+    phone: tags['phone'] || tags['contact:phone'] || undefined,
+    openingHours: openingHours || undefined,
+    closed: isEstablishmentClosed({ openingHours })
   };
 }
 

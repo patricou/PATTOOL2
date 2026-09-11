@@ -26,6 +26,14 @@ class ArtisansNearbyServiceTest {
     }
 
     @Test
+    void naf6201ZIsIt() {
+        assertEquals("it", ArtisansNearbyService.tradeForNaf("62.01Z"));
+        assertEquals("it", ArtisansNearbyService.tradeForNaf("63.11Z"));
+        assertEquals("it", ArtisansNearbyService.tradeForNaf("95.11Z"));
+        assertEquals("Programmation informatique", ArtisansNearbyService.labelForNaf("62.01Z"));
+    }
+
+    @Test
     void nafPrefixFallsBackToBuildingTrade() {
         assertEquals("Travaux de bâtiment", ArtisansNearbyService.labelForNaf("43.50Z"));
     }
@@ -45,6 +53,30 @@ class ArtisansNearbyServiceTest {
         assertEquals("Q123", ArtisansNearbyService.normalizeWikidataId("https://www.wikidata.org/wiki/Q123"));
         assertEquals("Q99", ArtisansNearbyService.normalizeWikidataId("q99"));
         assertEquals("", ArtisansNearbyService.normalizeWikidataId("not-an-id"));
+    }
+
+    @Test
+    void nafTradeKeyParsesCode() {
+        assertEquals("69.10Z", ArtisansNearbyService.nafFromTrade("naf:69.10Z"));
+        assertEquals("69.10Z", ArtisansNearbyService.nafFromTrade("69.10z"));
+        assertEquals("", ArtisansNearbyService.nafFromTrade("plumber"));
+        assertTrue(ArtisansNearbyService.isNafTrade("naf:47.11A"));
+        assertTrue(!ArtisansNearbyService.isNafTrade("baker"));
+    }
+
+    @Test
+    void prefetchRunsWhenSireneTotalExceedsCurrentPage() {
+        assertTrue(ArtisansNearbyService.shouldPrefetchSirene(10_000, 1, 500, 350));
+        assertTrue(ArtisansNearbyService.shouldPrefetchSirene(10_000, 1, 500, 500));
+        assertTrue(!ArtisansNearbyService.shouldPrefetchSirene(200, 1, 500, 180));
+        assertTrue(!ArtisansNearbyService.shouldPrefetchSirene(0, 1, 500, 0));
+    }
+
+    @Test
+    void sireneLastPageCoversFullApiDump() {
+        assertEquals(400, ArtisansNearbyService.sireneLastPage(10_000));
+        assertEquals(1, ArtisansNearbyService.sireneLastPage(20));
+        assertEquals(400, ArtisansNearbyService.sireneLastPage(0));
     }
 
     @Test
