@@ -5,7 +5,37 @@
   </h2>
 </div>
 
-<div class="foncier-page">
+<div
+  class="foncier-page"
+  [class.foncier-page--filters-collapsed]="filtersCollapsed"
+  [class.foncier-page--results-collapsed]="resultsCollapsed">
+  <div
+    class="foncier-search-overlay"
+    *ngIf="loading || locating"
+    role="status"
+    aria-live="polite"
+    [attr.aria-label]="'FONCIER.LOADING' | translate">
+    <div class="foncier-search-overlay-inner">
+      <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+      <span>{{ 'FONCIER.LOADING' | translate }}</span>
+    </div>
+  </div>
+  <button
+    type="button"
+    class="foncier-collapse-btn"
+    (click)="toggleFiltersCollapsed()"
+    [attr.aria-expanded]="!filtersCollapsed"
+    [attr.title]="(filtersCollapsed ? 'FONCIER.FILTERS_SHOW' : 'FONCIER.FILTERS_HIDE') | translate">
+    <i class="fa" [class.fa-chevron-down]="!filtersCollapsed" [class.fa-chevron-right]="filtersCollapsed" aria-hidden="true"></i>
+    <span>{{ 'FONCIER.FILTERS' | translate }}</span>
+    <span class="foncier-collapse-summary" *ngIf="filtersCollapsed">
+      · {{ providerLabelKey | translate }}
+      <ng-container *ngIf="selected"> · {{ selected.nom }}</ng-container>
+      <ng-container *ngIf="searched && !loading && isListingsTab"> · {{ 'FONCIER.RESULT_COUNT' | translate:{ count: count } }}</ng-container>
+    </span>
+  </button>
+
+  <div class="foncier-menus" *ngIf="!filtersCollapsed">
   <p class="foncier-lead">{{ 'FONCIER_SUISSE.SUBTITLE' | translate }}</p>
 
   <div class="foncier-tabs" role="tablist" [attr.aria-label]="'FONCIER_SUISSE.TITLE' | translate">
@@ -178,13 +208,14 @@
       </button>
     </div>
   </form>
+  </div>
 
   <div class="alert alert-warning py-2 foncier-alert" *ngIf="errorMessage && !loading && !locating" role="alert">
     <i class="fa fa-exclamation-triangle me-2"></i>
     {{ errorMessage | translate }}
   </div>
 
-  <div class="foncier-empty" *ngIf="!searched && !loading && !searchingCommunes && !communes.length">
+  <div class="foncier-empty" *ngIf="!filtersCollapsed && !searched && !loading && !searchingCommunes && !communes.length">
     <span class="foncier-empty-icon" aria-hidden="true">
       <i class="fa" [ngClass]="titleIcon"></i>
     </span>
@@ -197,11 +228,11 @@
       <span>{{ communeMeta(selected) }}</span>
     </div>
     <div class="foncier-toolbar-end">
-      <label class="foncier-sort" for="fs-sort">
+      <label class="foncier-sort" for="fs-sort" *ngIf="!resultsCollapsed">
         <span>{{ 'FONCIER.SORT' | translate }}</span>
         <app-sheet-select selectId="fs-sort" name="fsSort" size="sm" [options]="sortSelectOptions" [(ngModel)]="sortKey" (ngModelChange)="onSortChanged()"></app-sheet-select>
       </label>
-      <div class="foncier-pager foncier-pager--toolbar" *ngIf="showPager">
+      <div class="foncier-pager foncier-pager--toolbar" *ngIf="!resultsCollapsed && showPager">
         <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="page <= 1 || loading" (click)="loadPage(-1)">
           <i class="fa fa-chevron-left" aria-hidden="true"></i>
         </button>
@@ -221,8 +252,36 @@
     </div>
   </div>
 
-  <div class="foncier-cards" *ngIf="isListingsTab && listings.length">
-    <article class="foncier-card" *ngFor="let listing of listings; let i = index">
+  <app-foncier-results-map
+    *ngIf="showResultsMap"
+    [points]="mapPoints"
+    [centerLat]="selected?.lat"
+    [centerLon]="selected?.lon"
+    [selectedId]="selectedMapId"
+    defaultLayerId="swisstopo-pixelkarte"
+    (pointSelect)="onMapPointSelect($event)">
+  </app-foncier-results-map>
+
+  <button
+    type="button"
+    class="foncier-collapse-btn foncier-collapse-btn--results"
+    *ngIf="isListingsTab && listings.length"
+    (click)="toggleResultsCollapsed()"
+    [attr.aria-expanded]="!resultsCollapsed"
+    [attr.title]="(resultsCollapsed ? 'FONCIER.RESULTS_SHOW' : 'FONCIER.RESULTS_HIDE') | translate">
+    <i class="fa" [class.fa-chevron-down]="!resultsCollapsed" [class.fa-chevron-right]="resultsCollapsed" aria-hidden="true"></i>
+    <span>{{ 'FONCIER.RESULTS' | translate }}</span>
+    <span class="foncier-collapse-summary" *ngIf="resultsCollapsed">
+      · {{ 'FONCIER.RESULT_COUNT' | translate:{ count: count } }}
+    </span>
+  </button>
+
+  <div class="foncier-cards" *ngIf="!resultsCollapsed && isListingsTab && listings.length">
+    <article
+      class="foncier-card"
+      *ngFor="let listing of listings; let i = index"
+      [attr.data-foncier-id]="mapItemId(listing, i)"
+      [class.foncier-card--on]="selectedMapId === mapItemId(listing, i)">
       <div class="foncier-card-photo" [class.foncier-card-photo--empty]="!listing.photo || isPhotoBroken(listing)">
         <img
           *ngIf="listing.photo && !isPhotoBroken(listing)"
@@ -326,7 +385,7 @@
     <p class="mb-0">{{ 'FONCIER.NO_RESULTS' | translate }}</p>
   </div>
 
-  <div class="foncier-pager" *ngIf="showPager">
+  <div class="foncier-pager" *ngIf="!resultsCollapsed && showPager">
     <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="page <= 1 || loading" (click)="loadPage(-1)">
       <i class="fa fa-chevron-left" aria-hidden="true"></i>
     </button>

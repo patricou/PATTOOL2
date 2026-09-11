@@ -106,6 +106,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   channelQuery = '';
   /** Quick list filter above the tabs (AND with the global filter). */
   sidebarFilterQuery = '';
+  /** When true, the channel list is folded so the player can use the width. */
+  sidebarCollapsed = false;
   /** Filter by EPG programme title (server-side search). */
   programQuery = '';
   selectedChannel: TvChannel | null = null;
@@ -359,6 +361,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private static readonly CHROME_HIDE_MS = 2000;
   private static readonly LAST_CHANNEL_STORAGE_KEY = 'pattool.tv.last-channel';
   private static readonly KEEP_ALIVE_STORAGE_KEY = 'pattool.tv.keep-alive';
+  private static readonly SIDEBAR_COLLAPSED_STORAGE_KEY = 'pattool.tv.sidebar-collapsed';
   private static readonly CATALOG_COUNT_STORAGE_KEY = 'pattool.tv.catalog-count';
   /** Max length for virtual stream tokens in share links (not full http URLs). */
   private static readonly SHARE_STREAM_MAX_LEN = 160;
@@ -773,6 +776,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.keepAliveOnNavigate = this.readKeepAlivePreference();
+    this.sidebarCollapsed = this.readSidebarCollapsedPreference();
     this.channelSearchSub = this.channelSearch$
       .pipe(debounceTime(280), distinctUntilChanged())
       .subscribe(() => {
@@ -1162,6 +1166,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  toggleSidebarCollapsed(): void {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+    this.writeSidebarCollapsedPreference(this.sidebarCollapsed);
+    this.cdr.markForCheck();
+  }
+
   private readKeepAlivePreference(): boolean {
     try {
       const raw = localStorage.getItem(TvWatcherComponent.KEEP_ALIVE_STORAGE_KEY);
@@ -1177,6 +1187,23 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private writeKeepAlivePreference(enabled: boolean): void {
     try {
       localStorage.setItem(TvWatcherComponent.KEEP_ALIVE_STORAGE_KEY, enabled ? '1' : '0');
+    } catch {
+      /* private mode / quota */
+    }
+  }
+
+  private readSidebarCollapsedPreference(): boolean {
+    try {
+      const raw = localStorage.getItem(TvWatcherComponent.SIDEBAR_COLLAPSED_STORAGE_KEY);
+      return raw === '1' || raw === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  private writeSidebarCollapsedPreference(collapsed: boolean): void {
+    try {
+      localStorage.setItem(TvWatcherComponent.SIDEBAR_COLLAPSED_STORAGE_KEY, collapsed ? '1' : '0');
     } catch {
       /* private mode / quota */
     }
@@ -4614,6 +4641,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     const playGen = ++this.playGeneration;
     this.hlsRecoverAttempts = { network: 0, media: 0 };
     this.applyAudioToVideo(video, { muted: false, ensureVolume: true });
+    video.title = channel.name || 'TV';
     disableTvSubtitles(null, video);
     const streamUrl = resolveTvStreamUrl(channel);
     const proxyUrl = this.api.tvStreamProxyUrl(streamUrl);

@@ -34,8 +34,9 @@
   z-index: 1;
 }
 
-/* Mobile landscape: immersive YouTube stage covering the viewport. */
-:host.yt-landscape-fs {
+/* Immersive YouTube stage: mobile landscape, or user theater (fill page). */
+:host.yt-landscape-fs,
+:host.yt-theater {
   display: block;
   position: fixed;
   inset: 0;
@@ -50,7 +51,8 @@
   overflow: hidden;
 }
 
-:host.yt-landscape-fs::before {
+:host.yt-landscape-fs::before,
+:host.yt-theater::before {
   display: none;
 }
 
@@ -69,11 +71,28 @@
 :host.yt-landscape-fs .yt-busy,
 :host.yt-landscape-fs .yt-no-results,
 :host.yt-landscape-fs .yt-grid,
-:host.yt-landscape-fs .yt-more {
+:host.yt-landscape-fs .yt-more,
+:host.yt-theater .pat-title,
+:host.yt-theater .yt-ticker,
+:host.yt-theater .yt-lead,
+:host.yt-theater .yt-search-bar,
+:host.yt-theater .yt-channel-filter,
+:host.yt-theater .yt-context,
+:host.yt-theater .yt-type-hint,
+:host.yt-theater .yt-alert,
+:host.yt-theater .yt-toolbar,
+:host.yt-theater .yt-player-meta,
+:host.yt-theater .yt-now-playing,
+:host.yt-theater .yt-results-head,
+:host.yt-theater .yt-busy,
+:host.yt-theater .yt-no-results,
+:host.yt-theater .yt-grid,
+:host.yt-theater .yt-more {
   display: none !important;
 }
 
-:host.yt-landscape-fs .yt-page {
+:host.yt-landscape-fs .yt-page,
+:host.yt-theater .yt-page {
   height: 100%;
   max-width: none;
   margin: 0;
@@ -81,16 +100,119 @@
   overflow: hidden;
 }
 
-:host.yt-landscape-fs .yt-player {
+:host.yt-landscape-fs .yt-player,
+:host.yt-theater .yt-player {
   display: block;
   height: 100%;
   margin: 0;
 }
 
-:host.yt-landscape-fs .yt-player-frame {
+:host.yt-landscape-fs .yt-player-frame,
+:host.yt-theater .yt-player-frame {
   height: 100%;
   padding-top: 0;
   border-radius: 0;
+}
+
+.yt-theater-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.7rem;
+  padding-top: max(0.55rem, env(safe-area-inset-top, 0px));
+  padding-left: max(0.7rem, env(safe-area-inset-left, 0px));
+  padding-right: max(0.7rem, env(safe-area-inset-right, 0px));
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0.12) 78%, transparent);
+  pointer-events: none;
+}
+
+.yt-theater-bar > * {
+  pointer-events: auto;
+}
+
+.yt-theater-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.yt-theater-title {
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yt-theater-sub {
+  color: rgba(241, 241, 241, 0.72);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yt-theater-bar .yt-queue-bar {
+  flex: 0 0 auto;
+}
+
+.yt-theater-bar .yt-queue-skip,
+.yt-theater-bar .yt-play-all {
+  min-height: 1.85rem;
+  min-width: 1.85rem;
+  padding: 0.18rem 0.5rem;
+  font-size: 0.78rem;
+}
+
+.yt-theater-exit {
+  flex: 0 0 auto;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+
+.yt-theater-exit:hover,
+.yt-theater-exit:focus-visible {
+  background: rgba(204, 0, 0, 0.75);
+  outline: none;
+}
+
+:host.yt-theater .yt-theater-bar .btn-outline-light {
+  color: #f1f1f1;
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+:host.yt-theater .yt-theater-bar .btn-outline-light:hover {
+  color: #111;
+  background: #f1f1f1;
+  border-color: #f1f1f1;
+}
+
+@media (max-width: 700px) {
+  .yt-theater-bar {
+    flex-wrap: wrap;
+  }
+
+  .yt-theater-copy {
+    flex: 1 1 calc(100% - 3rem);
+  }
 }
 
 .yt-landscape-fs-exit {

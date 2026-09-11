@@ -28,6 +28,7 @@ import { YoutubeFloatingPlayerComponent } from './youtube-watcher/youtube-floati
 import { GlobeIssNowService } from './services/globe-iss-now.service';
 import { MongoHealthService, MongoHealthStatus } from './services/mongodb-health.service';
 import { LastRouteService } from './services/last-route.service';
+import { BackgroundPlaybackService } from './services/background-playback.service';
 import { ApiService, AstroGroundPosition, UserAppParameter } from './services/api.service';
 import { buildIssTopViewIconDataUrl } from './shared/globe-iss-icon.util';
 
@@ -339,9 +340,11 @@ export class AppComponent implements OnInit, AfterViewInit {
         private _globeIssNow: GlobeIssNowService,
         private _mongoHealth: MongoHealthService,
         private lastRoute: LastRouteService,
-        private api: ApiService) {
+        private api: ApiService,
+        backgroundPlayback: BackgroundPlaybackService) {
         this.selectedFiles = [];
         this.lastRoute.beginSession();
+        backgroundPlayback.start();
         this._newsTicker.enabled$.subscribe((v) => {
             this.newsTickerEnabled = v;
             this.updateTickerBodyClasses();

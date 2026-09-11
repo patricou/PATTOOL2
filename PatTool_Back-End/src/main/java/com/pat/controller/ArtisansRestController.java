@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pat.controller.dto.ArtisanFavoriteDto;
 import com.pat.controller.dto.ArtisansFavoritesDto;
 import com.pat.service.ArtisansFavoritesService;
+import com.pat.service.ArtisansItemCacheService;
 import com.pat.service.ArtisansNearbyService;
 import com.pat.service.ArtisansWebsiteLookupService;
 import org.springframework.http.HttpStatus;
@@ -15,17 +16,20 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Locale;
 import java.util.Map;
 
 /**
  * Nearby artisans / home trades.
- * {@code GET /api/external/artisans/nearby?source=sirene|osm&lat=&lon=&q=&radiusKm=&trade=&page=&text=}
+ * {@code GET /api/external/artisans/nearby?source=sirene|osm&cache=cache|api|both&lat=&lon=&q=&radiusKm=&trade=&page=&text=}
+ * Shared item cache: {@code GET /cache}, {@code POST /cache/clear}.
  * Authenticated favorites: {@code GET/PUT /favorites}, {@code PUT/DELETE /favorites/item}.
  */
 @RestController
@@ -35,18 +39,22 @@ public class ArtisansRestController {
     private final ArtisansNearbyService artisansNearbyService;
     private final ArtisansWebsiteLookupService artisansWebsiteLookupService;
     private final ArtisansFavoritesService artisansFavoritesService;
+    private final ArtisansItemCacheService itemCache;
     private final ObjectMapper objectMapper;
 
     public ArtisansRestController(
             ArtisansNearbyService artisansNearbyService,
             ArtisansWebsiteLookupService artisansWebsiteLookupService,
             ArtisansFavoritesService artisansFavoritesService,
+            ArtisansItemCacheService itemCache,
             ObjectMapper objectMapper) {
         this.artisansNearbyService = artisansNearbyService;
         this.artisansWebsiteLookupService = artisansWebsiteLookupService;
         this.artisansFavoritesService = artisansFavoritesService;
+        this.itemCache = itemCache;
         this.objectMapper = objectMapper;
     }
+
     @GetMapping("/nearby")
     public ResponseEntity<JsonNode> nearby(
             @RequestParam(value = "source", required = false) String source,
@@ -57,9 +65,29 @@ public class ArtisansRestController {
             @RequestParam(value = "trade", required = false) String trade,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "perPage", required = false) Integer perPage,
-            @RequestParam(value = "text", required = false) String text) {
+            @RequestParam(value = "text", required = false) String text,
+            @RequestParam(value = "cache", required = false) String cache) {
         return ResponseEntity.ok(artisansNearbyService.nearby(
-                source, lat, lon, address, radiusKm, trade, page, perPage, text));
+                source, lat, lon, address, radiusKm, trade, page, perPage, text, cache));
+    }
+
+    @GetMapping("/cache")
+    public ResponseEntity<?> cacheStatus(@RequestParam(value = "source", required = false) String source) {
+        String key = normalizeCacheSource(source);
+        if (key.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "invalid_source"));
+        }
+        return ResponseEntity.ok(itemCache.snapshot(key));
+    }
+
+    @PostMapping("/cache/clear")
+    public ResponseEntity<?> cacheClear(@RequestParam(value = "source", required = false) String source) {
+        String key = normalizeCacheSource(source);
+        if (key.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "invalid_source"));
+        }
+        int cleared = itemCache.clear(key);
+        return ResponseEntity.ok(Map.of("source", key, "cleared", cleared, "count", 0));
     }
 
     @GetMapping("/website")
@@ -122,6 +150,11 @@ public class ArtisansRestController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return ResponseEntity.ok(artisansFavoritesService.removeFavorite(sub, id, source));
+    }
+
+    private static String normalizeCacheSource(String source) {
+        String key = source == null ? "" : source.trim().toLowerCase(Locale.ROOT);
+        return "sirene".equals(key) || "osm".equals(key) ? key : "";
     }
 
     private static String currentJwtSubject() {

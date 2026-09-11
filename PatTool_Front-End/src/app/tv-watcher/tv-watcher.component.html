@@ -26,6 +26,16 @@
       <span class="tv-global-filter-open-label">{{ 'TV.GLOBAL_FILTER_OPEN' | translate }}</span>
       <span class="tv-global-filter-open-dot" *ngIf="hasActiveGlobalFilter" aria-hidden="true"></span>
     </button>
+    <button
+      type="button"
+      class="tv-sidebar-expand-title-btn"
+      *ngIf="sidebarCollapsed"
+      (click)="toggleSidebarCollapsed()"
+      [attr.title]="'TV.SIDEBAR_EXPAND' | translate"
+      [attr.aria-label]="'TV.SIDEBAR_EXPAND' | translate">
+      <i class="fa fa-bars" aria-hidden="true"></i>
+      <span class="tv-sidebar-expand-title-label">{{ 'TV.SIDEBAR_EXPAND' | translate }}</span>
+    </button>
   </h2>
 </div>
 
@@ -59,32 +69,45 @@
     </button>
   </div>
 
-  <div class="tv-layout">
+  <div class="tv-layout" [class.tv-layout--sidebar-collapsed]="sidebarCollapsed">
     <aside class="tv-sidebar">
-      <div class="tv-sidebar-filter">
-        <label class="visually-hidden" for="tv-sidebar-filter">{{ 'TV.SIDEBAR_FILTER' | translate }}</label>
-        <div class="tv-sidebar-filter-row">
-          <i class="fa fa-search tv-sidebar-filter-icon" aria-hidden="true"></i>
-          <input
-            id="tv-sidebar-filter"
-            type="search"
-            class="form-control form-control-sm tv-sidebar-filter-input"
-            [(ngModel)]="sidebarFilterQuery"
-            (ngModelChange)="onSidebarFilterChange()"
-            [placeholder]="'TV.SIDEBAR_FILTER_PLACEHOLDER' | translate"
-            autocomplete="off"
-            spellcheck="false" />
-          <button
-            type="button"
-            class="tv-sidebar-filter-clear"
-            *ngIf="sidebarFilterQuery.trim()"
-            (click)="clearSidebarFilter()"
-            [attr.title]="'TV.SIDEBAR_FILTER_CLEAR' | translate"
-            [attr.aria-label]="'TV.SIDEBAR_FILTER_CLEAR' | translate">
-            <i class="fa fa-times" aria-hidden="true"></i>
-          </button>
+      <div class="tv-sidebar-toolbar">
+        <div class="tv-sidebar-filter">
+          <label class="visually-hidden" for="tv-sidebar-filter">{{ 'TV.SIDEBAR_FILTER' | translate }}</label>
+          <div class="tv-sidebar-filter-row">
+            <i class="fa fa-search tv-sidebar-filter-icon" aria-hidden="true"></i>
+            <input
+              id="tv-sidebar-filter"
+              type="search"
+              class="form-control form-control-sm tv-sidebar-filter-input"
+              [(ngModel)]="sidebarFilterQuery"
+              (ngModelChange)="onSidebarFilterChange()"
+              [placeholder]="'TV.SIDEBAR_FILTER_PLACEHOLDER' | translate"
+              autocomplete="off"
+              spellcheck="false" />
+            <button
+              type="button"
+              class="tv-sidebar-filter-clear"
+              *ngIf="sidebarFilterQuery.trim()"
+              (click)="clearSidebarFilter()"
+              [attr.title]="'TV.SIDEBAR_FILTER_CLEAR' | translate"
+              [attr.aria-label]="'TV.SIDEBAR_FILTER_CLEAR' | translate">
+              <i class="fa fa-times" aria-hidden="true"></i>
+            </button>
+          </div>
         </div>
+        <button
+          type="button"
+          class="tv-sidebar-collapse-btn"
+          (click)="toggleSidebarCollapsed()"
+          aria-expanded="true"
+          aria-controls="tv-sidebar-body"
+          [attr.title]="'TV.SIDEBAR_COLLAPSE' | translate"
+          [attr.aria-label]="'TV.SIDEBAR_COLLAPSE' | translate">
+          <i class="fa fa-chevron-left tv-sidebar-collapse-chevron" aria-hidden="true"></i>
+        </button>
       </div>
+      <div id="tv-sidebar-body" class="tv-sidebar-body">
       <div class="tv-mode-tabs" role="tablist">
         <div class="tv-mode-tabs-row">
           <button
@@ -589,6 +612,7 @@
           [disabled]="recordingsPage >= recordingsPages">
           <i class="fa fa-chevron-right" aria-hidden="true"></i>
         </button>
+      </div>
       </div>
     </aside>
 

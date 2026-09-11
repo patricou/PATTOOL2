@@ -83,7 +83,7 @@ export function searchOsmOverpass(
   radiusKm: number,
   trade: string,
   page = 1,
-  perPage = 100
+  perPage = 500
 ): Observable<ArtisansNearbyResponse> {
   const query = buildOverpassQuery(lat, lon, radiusKm, trade);
   return fetchFirst(http, query, 0).pipe(
@@ -111,7 +111,7 @@ function buildOverpassQuery(lat: number, lon: number, radiusKm: number, trade: s
       ? `  ${expr}(around:${around},${lat.toFixed(5)},${lon.toFixed(5)});`
       : '';
   }).filter(Boolean).join('\n');
-  return `[out:json][timeout:20];\n(\n${union}\n);\nout tags center 100;\n`;
+  return `[out:json][timeout:20];\n(\n${union}\n);\nout tags center 500;\n`;
 }
 
 function mapOverpass(

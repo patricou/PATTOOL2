@@ -659,6 +659,9 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
       if (state === 1 || state === 3) {
         this.youtubePlayer.setPaused(false);
       } else if (state === 2) {
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+          return;
+        }
         this.youtubePlayer.setPaused(true);
       }
       if (state === 0) {

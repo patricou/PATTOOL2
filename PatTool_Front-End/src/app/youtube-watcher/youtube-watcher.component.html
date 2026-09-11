@@ -275,7 +275,7 @@
         {{ 'YOUTUBE.LOADING' | translate }}
       </div>
       <button
-        *ngIf="landscapeFullscreen && !playingRecording"
+        *ngIf="landscapeFullscreen && !theaterMode && !playingRecording"
         type="button"
         class="yt-landscape-fs-exit"
         (click)="exitLandscapeFullscreen(true)"
@@ -283,6 +283,34 @@
         [attr.aria-label]="'YOUTUBE.LANDSCAPE_FS_EXIT' | translate">
         <i class="fa fa-compress" aria-hidden="true"></i>
       </button>
+      <div class="yt-theater-bar" *ngIf="theaterMode">
+        <div class="yt-theater-copy">
+          <span class="yt-theater-title">{{ playingRecording?.channelName || selected?.title }}</span>
+          <span class="yt-theater-sub" *ngIf="selected?.channelTitle && !playingRecording">{{ selected?.channelTitle }}</span>
+        </div>
+        <button
+          *ngIf="clientRecordingActive"
+          type="button"
+          class="btn btn-sm yt-record-btn yt-record-btn--active"
+          [disabled]="recordingStopping"
+          (click)="stopActiveRecording($event)"
+          [attr.title]="'TV.RECORD_STOP' | translate"
+          [attr.aria-label]="'TV.RECORD_STOP' | translate">
+          <i class="fa" [ngClass]="recordingStopping ? 'fa-spinner fa-spin' : 'fa-stop'" aria-hidden="true"></i>
+          {{ formatRecordingClock(recordingElapsedSec) }}
+        </button>
+        <ng-container *ngIf="!playingRecording">
+          <ng-container *ngTemplateOutlet="ytQueueBar"></ng-container>
+        </ng-container>
+        <button
+          type="button"
+          class="yt-theater-exit"
+          (click)="exitImmersivePlayer()"
+          [attr.title]="'YOUTUBE.THEATER_EXIT' | translate"
+          [attr.aria-label]="'YOUTUBE.THEATER_EXIT' | translate">
+          <i class="fa fa-compress" aria-hidden="true"></i>
+        </button>
+      </div>
     </div>
     <div class="yt-player-meta">
       <p class="yt-player-kicker">
@@ -369,6 +397,16 @@
           (click)="openInFloatingWindow()">
           <i class="fa fa-clone" aria-hidden="true"></i>
           {{ 'YOUTUBE.FLOAT_OPEN' | translate }}
+        </button>
+        <button
+          *ngIf="!theaterMode && (selected || playingRecording)"
+          type="button"
+          class="btn btn-outline-light btn-sm yt-theater-open"
+          (click)="toggleTheater()"
+          [attr.title]="'YOUTUBE.THEATER_HINT' | translate"
+          [attr.aria-label]="'YOUTUBE.THEATER' | translate">
+          <i class="fa fa-arrows-alt" aria-hidden="true"></i>
+          {{ 'YOUTUBE.THEATER' | translate }}
         </button>
         <ng-container *ngIf="!playingRecording">
           <ng-container *ngTemplateOutlet="ytQueueBar"></ng-container>

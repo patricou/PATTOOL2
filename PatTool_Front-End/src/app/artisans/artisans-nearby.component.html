@@ -5,7 +5,36 @@
   </h2>
 </div>
 
-<div class="artisans-page">
+<div
+  class="artisans-page"
+  [class.artisans-page--filters-collapsed]="filtersCollapsed">
+  <div
+    class="artisans-search-overlay"
+    *ngIf="isLoading || locating"
+    role="status"
+    aria-live="polite"
+    [attr.aria-label]="i18nPrefix + '.LOADING' | translate">
+    <div class="artisans-search-overlay-inner">
+      <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+      <span>{{ i18nPrefix + '.LOADING' | translate }}</span>
+    </div>
+  </div>
+  <button
+    type="button"
+    class="artisans-collapse-btn"
+    (click)="toggleFiltersCollapsed()"
+    [attr.aria-expanded]="!filtersCollapsed"
+    [attr.title]="(filtersCollapsed ? i18nPrefix + '.FILTERS_SHOW' : i18nPrefix + '.FILTERS_HIDE') | translate">
+    <i class="fa" [class.fa-chevron-down]="!filtersCollapsed" [class.fa-chevron-right]="filtersCollapsed" aria-hidden="true"></i>
+    <span>{{ i18nPrefix + '.FILTERS_SECTION' | translate }}</span>
+    <span class="artisans-collapse-summary" *ngIf="filtersCollapsed">
+      · {{ source === 'osm' ? ('ARTISANS.SOURCE_OSM' | translate) : ('ARTISANS.SOURCE_SIRENE' | translate) }}
+      <ng-container *ngIf="placeCaption"> · {{ placeCaption }}</ng-container>
+      · {{ radiusKm }} km
+    </span>
+  </button>
+
+  <div class="artisans-menus" *ngIf="!filtersCollapsed">
   <p class="artisans-lead text-muted">{{ i18nPrefix + '.SUBTITLE' | translate }}</p>
 
   <div class="artisans-source" role="radiogroup" [attr.aria-label]="'ARTISANS.SOURCE' | translate">
@@ -41,6 +70,37 @@
         <span class="artisans-source-hint">{{ 'ARTISANS.SOURCE_OSM_HINT' | translate }}</span>
       </span>
     </button>
+  </div>
+
+  <div class="artisans-cache">
+    <div class="artisans-cache-modes" role="radiogroup" [attr.aria-label]="'ARTISANS.CACHE_MODE' | translate">
+      <button
+        type="button"
+        class="artisans-cache-opt"
+        *ngFor="let mode of cacheModes"
+        [class.artisans-cache-opt--on]="cacheMode === mode"
+        role="radio"
+        [attr.aria-checked]="cacheMode === mode"
+        [disabled]="isLoading"
+        (click)="setCacheMode(mode)">
+        <i class="fa" [ngClass]="cacheModeIcon(mode)" aria-hidden="true"></i>
+        <span>{{ cacheModeLabelKey(mode) | translate }}</span>
+      </button>
+    </div>
+    <button
+      type="button"
+      class="btn artisans-btn artisans-btn-cache"
+      [disabled]="clearingCache || cacheCount === 0"
+      (click)="clearCache()"
+      [attr.title]="'ARTISANS.CACHE_COUNT_HINT' | translate">
+      <i class="fa" [ngClass]="clearingCache ? 'fa-spinner fa-spin' : 'fa-trash'" aria-hidden="true"></i>
+      <span>{{ 'ARTISANS.CLEAR_CACHE' | translate }}</span>
+    </button>
+    <span
+      class="artisans-cache-count"
+      [attr.title]="'ARTISANS.CACHE_COUNT_HINT' | translate">
+      {{ 'ARTISANS.CACHE_COUNT' | translate:{ count: cacheCount } }}
+    </span>
   </div>
 
   <form class="artisans-search" (submit)="$event.preventDefault(); submitAddressSearch()">
@@ -165,11 +225,13 @@
         <p>{{ 'ARTISANS.HELP_OSM' | translate }}</p>
         <p>{{ 'ARTISANS.HELP_NAMES' | translate }}</p>
         <p>{{ 'ARTISANS.HELP_COMPARE' | translate }}</p>
+        <p>{{ 'ARTISANS.HELP_CACHE' | translate }}</p>
       </div>
     </span>
   </form>
 
   <p class="small text-muted artisans-map-hint">{{ i18nPrefix + '.MAP_CLICK_HINT' | translate }}</p>
+  </div>
 
   <div class="alert alert-warning py-2 artisans-alert" *ngIf="errorMessage && !isLoading && !showFavorites" role="alert">
     <i class="fa fa-exclamation-triangle me-2"></i>
@@ -184,7 +246,7 @@
     {{ favoritesError | translate }}
   </div>
 
-  <div class="artisans-empty" *ngIf="!hasVisiblePanel">
+  <div class="artisans-empty" *ngIf="!filtersCollapsed && !hasVisiblePanel">
     <i class="fa fa-home artisans-empty-icon" aria-hidden="true"></i>
     <p>{{ i18nPrefix + '.EMPTY_HINT' | translate }}</p>
   </div>
@@ -194,10 +256,23 @@
     class="artisans-layout"
     *ngIf="hasVisiblePanel"
     [class.artisans-layout--fullscreen]="mapFullscreen"
-    [class.artisans-layout--fs-fallback]="mapFullscreenCssFallback">
-    <aside class="artisans-results" [attr.aria-label]="i18nPrefix + '.RESULTS' | translate">
+    [class.artisans-layout--fs-fallback]="mapFullscreenCssFallback"
+    [class.artisans-layout--results-collapsed]="resultsCollapsed">
+    <aside
+      class="artisans-results"
+      [class.artisans-results--collapsed]="resultsCollapsed"
+      [attr.aria-label]="i18nPrefix + '.RESULTS' | translate">
       <div class="artisans-results-head">
-        <span class="artisans-results-tabs" role="tablist">
+        <button
+          type="button"
+          class="artisans-results-toggle"
+          (click)="toggleResultsCollapsed()"
+          [attr.aria-expanded]="!resultsCollapsed"
+          [attr.title]="(resultsCollapsed ? i18nPrefix + '.RESULTS_SHOW' : i18nPrefix + '.RESULTS_HIDE') | translate"
+          [attr.aria-label]="(resultsCollapsed ? i18nPrefix + '.RESULTS_SHOW' : i18nPrefix + '.RESULTS_HIDE') | translate">
+          <i class="fa" [class.fa-chevron-left]="!resultsCollapsed" [class.fa-chevron-right]="resultsCollapsed" aria-hidden="true"></i>
+        </button>
+        <span class="artisans-results-tabs" role="tablist" *ngIf="!resultsCollapsed">
           <button
             type="button"
             class="artisans-tab"
@@ -219,7 +294,7 @@
             <span class="artisans-fav-count" *ngIf="favorites.length">{{ favorites.length }}</span>
           </button>
         </span>
-        <span class="artisans-results-count" *ngIf="!isLoading || showFavorites">
+        <span class="artisans-results-count" *ngIf="!resultsCollapsed && (!isLoading || showFavorites)">
           <ng-container *ngIf="listFilterActive">
             {{ i18nPrefix + '.RESULT_FILTERED' | translate:{ shown: listItems.length, total: showFavorites ? favorites.length : total } }}
           </ng-container>
@@ -229,7 +304,7 @@
         </span>
       </div>
 
-      <div class="artisans-list-tools" *ngIf="showFavorites ? favorites.length : (viewportItems.length || listQuery.trim())">
+      <div class="artisans-list-tools" *ngIf="!resultsCollapsed && (showFavorites ? favorites.length : (viewportItems.length || listQuery.trim()))">
         <label class="visually-hidden" for="artisans-list-filter">{{ i18nPrefix + '.FILTER_LIST' | translate }}</label>
         <input
           id="artisans-list-filter"
@@ -289,6 +364,8 @@
       <p class="artisans-no-results" *ngIf="!isLoading && !listItems.length && (showFavorites ? favorites.length : (viewportItems.length || listQuery.trim()))">
         {{ i18nPrefix + '.FILTER_EMPTY' | translate }}
       </p>
+
+      <ng-container *ngTemplateOutlet="artisansPager; context: { top: true }"></ng-container>
 
       <div class="artisans-results-list" #resultsList>
       <div
@@ -393,15 +470,7 @@
       </div>
       </div>
 
-      <div class="artisans-pager" *ngIf="!showFavorites && !isLoading && total > (result?.perPage || listPageSize)">
-        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="previousPage()" [disabled]="page <= 1">
-          {{ i18nPrefix + '.PREV' | translate }}
-        </button>
-        <span>{{ i18nPrefix + '.PAGE' | translate:{ page: page, pages: totalPages } }}</span>
-        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="nextPage()" [disabled]="page >= totalPages">
-          {{ i18nPrefix + '.NEXT' | translate }}
-        </button>
-      </div>
+      <ng-container *ngTemplateOutlet="artisansPager; context: { top: false }"></ng-container>
     </aside>
 
     <div
@@ -411,6 +480,18 @@
       <div class="artisans-map-count" *ngIf="!showFavorites && searched && !isLoading && !errorMessage">
         {{ total }}
       </div>
+      <label class="artisans-basemap">
+        <span class="visually-hidden">{{ i18nPrefix + '.MAP_BASE_LAYER' | translate }}</span>
+        <select
+          class="form-select form-select-sm artisans-basemap-select"
+          [(ngModel)]="mapBaseLayerId"
+          (ngModelChange)="onBasemapChange()"
+          [attr.aria-label]="i18nPrefix + '.MAP_BASE_LAYER' | translate">
+          <option *ngFor="let opt of basemapOptions" [value]="opt.id">
+            {{ opt.labelKey ? (opt.labelKey | translate) : opt.label }}
+          </option>
+        </select>
+      </label>
       <button
         type="button"
         class="artisans-map-fs-btn"
@@ -428,5 +509,20 @@
 
   <p class="artisans-attribution">{{ i18nPrefix + '.ATTRIBUTION' | translate }}</p>
 </div>
+
+<ng-template #artisansPager let-top="top">
+  <div
+    class="artisans-pager"
+    [class.artisans-pager--top]="top"
+    *ngIf="!showFavorites && !isLoading && total > (result?.perPage || listPageSize)">
+    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="previousPage()" [disabled]="page <= 1">
+      {{ i18nPrefix + '.PREV' | translate }}
+    </button>
+    <span>{{ i18nPrefix + '.PAGE' | translate:{ page: page, pages: totalPages } }}</span>
+    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="nextPage()" [disabled]="page >= totalPages">
+      {{ i18nPrefix + '.NEXT' | translate }}
+    </button>
+  </div>
+</ng-template>
 
 <app-trace-viewer-modal (locationSelected)="onLocationSelected($event)"></app-trace-viewer-modal>

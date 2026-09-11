@@ -27,6 +27,95 @@
   padding: 0 0.85rem 1.4rem;
 }
 
+.foncier-search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.38);
+  backdrop-filter: blur(2px);
+}
+
+.foncier-search-overlay-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 11rem;
+  padding: 1.35rem 1.7rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 12px 40px rgba(61, 98, 18, 0.28);
+  color: #3f6212;
+  font-size: 1rem;
+  font-weight: 650;
+  text-align: center;
+}
+
+.foncier-search-overlay-inner .fa-spinner {
+  font-size: 2.35rem;
+}
+
+.foncier-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  max-width: 100%;
+  padding: 0.35rem 0.8rem 0.35rem 0.5rem;
+  margin: 0 0 0.5rem;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 1px solid #bbf7d0;
+  border-radius: 999px;
+  color: #365314;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.foncier-collapse-btn:hover {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+}
+
+.foncier-collapse-btn[aria-expanded="true"] {
+  background: linear-gradient(135deg, #4d7c0f 0%, #3f6212 100%);
+  border-color: #3f6212;
+  color: #fff;
+}
+
+.foncier-collapse-btn i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  background: #fff;
+  color: #4d7c0f;
+  font-size: 0.68rem;
+}
+
+.foncier-collapse-btn[aria-expanded="true"] i {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.foncier-collapse-summary {
+  font-weight: 500;
+  color: #3f6212;
+}
+
+.foncier-collapse-btn[aria-expanded="true"] .foncier-collapse-summary {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.foncier-collapse-btn--results {
+  margin-top: 0.15rem;
+}
+
 .foncier-lead {
   margin: 0 0 0.5rem;
   color: #4b5563;
@@ -433,6 +522,10 @@
   background: #f7fbff;
 }
 
+.foncier-table tbody tr.foncier-row--on {
+  background: #ecfccb;
+}
+
 .foncier-td-date {
   white-space: nowrap;
   color: #475569;
@@ -471,6 +564,12 @@
 .foncier-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+}
+
+.foncier-card--on {
+  outline: 2px solid var(--pat-title-accent, #4d7c0f);
+  outline-offset: -1px;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
 }
 
 .foncier-card-photo {

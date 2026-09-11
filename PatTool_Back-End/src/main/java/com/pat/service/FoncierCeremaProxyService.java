@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -26,6 +27,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Cerema DVF+ open data — past property sales (no API key).
@@ -37,11 +39,14 @@ public class FoncierCeremaProxyService {
     private static final String USER_AGENT = "PatTool/1.0 (foncier; https://www.patrickdeschamps.com)";
     private static final int DEFAULT_PAGE_SIZE = 40;
     private static final int MAX_PAGE_SIZE = 80;
+    private static final long COOLDOWN_MS = 45_000L;
+    private static final long COOLDOWN_MAX_MS = 120_000L;
     private static final Set<String> TYPE_LOCALS = Set.of("maison", "appartement", "local", "dependance");
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final FoncierGeoService geoService;
+    private final AtomicLong skipUntilMs = new AtomicLong();
 
     @Value("${app.foncier.cerema.api-base:https://apidf-preprod.cerema.fr}")
     private String apiBase;
@@ -107,10 +112,19 @@ public class FoncierCeremaProxyService {
         if (primary == null) {
             throw new IllegalArgumentException("invalid_insee");
         }
-        JsonNode raw = fetchJson(primary, "mutations " + (aroundPoint ? (lat + "," + lon) : insee));
-        if (raw == null && inseeFallback != null && !inseeFallback.equals(primary)) {
+        if (coolingDown()) {
+            log.warn("Cerema skipped (cooldown after recent 5xx/timeout)");
+            throw new IllegalStateException("upstream_unavailable");
+        }
+        String label = "mutations " + (aroundPoint ? (lat + "," + lon) : insee);
+        FetchResult primaryResult = fetchJson(primary, label);
+        JsonNode raw = primaryResult.body;
+        boolean canFallback = inseeFallback != null && !inseeFallback.equals(primary);
+        if (raw == null && canFallback && !primaryResult.hostDown) {
             log.warn("Cerema bbox failed, falling back to code_insee {}", insee);
-            raw = fetchJson(inseeFallback, "mutations " + insee);
+            raw = fetchJson(inseeFallback, "mutations " + insee).body;
+        } else if (raw == null && canFallback && primaryResult.hostDown) {
+            log.warn("Cerema host down, skipping code_insee fallback for {}", insee);
         }
         if (raw == null) {
             throw new IllegalStateException("upstream_unavailable");
@@ -217,7 +231,7 @@ public class FoncierCeremaProxyService {
         return item;
     }
 
-    private JsonNode fetchJson(URI uri, String label) {
+    private FetchResult fetchJson(URI uri, String label) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Accept", "application/json");
         headers.set("User-Agent", USER_AGENT);
@@ -226,18 +240,69 @@ public class FoncierCeremaProxyService {
                     uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
             if (!response.getStatusCode().is2xxSuccessful() || !StringUtils.hasText(response.getBody())) {
                 log.warn("Cerema {} failed: HTTP {}", label, response.getStatusCode());
-                return null;
+                if (response.getStatusCode().is5xxServerError()) {
+                    markDown(null);
+                    return FetchResult.down();
+                }
+                return FetchResult.miss();
             }
-            return objectMapper.readTree(response.getBody());
+            skipUntilMs.set(0);
+            return FetchResult.ok(objectMapper.readTree(response.getBody()));
         } catch (HttpStatusCodeException ex) {
             log.warn("Cerema {} HTTP {}: {}", label, ex.getStatusCode(), ex.getStatusText());
-            return null;
+            if (ex.getStatusCode().is5xxServerError()) {
+                markDown(ex.getResponseHeaders());
+                return FetchResult.down();
+            }
+            return FetchResult.miss();
+        } catch (ResourceAccessException ex) {
+            markDown(null);
+            log.warn("Cerema {} error: {}", label, ex.getMessage());
+            return FetchResult.down();
         } catch (RestClientException ex) {
             log.warn("Cerema {} error: {}", label, ex.getMessage());
-            return null;
+            return FetchResult.miss();
         } catch (Exception ex) {
             log.warn("Cerema {} parse error: {}", label, ex.getMessage());
-            return null;
+            return FetchResult.miss();
+        }
+    }
+
+    private boolean coolingDown() {
+        return System.currentTimeMillis() < skipUntilMs.get();
+    }
+
+    private void markDown(HttpHeaders headers) {
+        long waitMs = COOLDOWN_MS;
+        if (headers != null) {
+            String retryAfter = headers.getFirst(HttpHeaders.RETRY_AFTER);
+            if (StringUtils.hasText(retryAfter) && retryAfter.trim().matches("\\d+")) {
+                waitMs = Math.min(COOLDOWN_MAX_MS, Long.parseLong(retryAfter.trim()) * 1000L);
+                waitMs = Math.max(COOLDOWN_MS, waitMs);
+            }
+        }
+        skipUntilMs.set(System.currentTimeMillis() + waitMs);
+    }
+
+    private static final class FetchResult {
+        final JsonNode body;
+        final boolean hostDown;
+
+        private FetchResult(JsonNode body, boolean hostDown) {
+            this.body = body;
+            this.hostDown = hostDown;
+        }
+
+        static FetchResult ok(JsonNode body) {
+            return new FetchResult(body, false);
+        }
+
+        static FetchResult miss() {
+            return new FetchResult(null, false);
+        }
+
+        static FetchResult down() {
+            return new FetchResult(null, true);
         }
     }
 

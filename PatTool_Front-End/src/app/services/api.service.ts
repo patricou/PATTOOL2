@@ -332,6 +332,7 @@ export interface TelegramEmbed {
 }
 
 export type ArtisansSource = 'sirene' | 'osm';
+export type ArtisansCacheMode = 'cache' | 'both' | 'api';
 
 export interface ArtisansNearbyItem {
   id?: string;
@@ -363,6 +364,8 @@ export interface ArtisansFavorites {
 
 export interface ArtisansNearbyResponse {
   source?: ArtisansSource;
+  cacheMode?: ArtisansCacheMode;
+  cacheCount?: number;
   lat?: number;
   lon?: number;
   radiusKm?: number;
@@ -372,6 +375,18 @@ export interface ArtisansNearbyResponse {
   page?: number;
   perPage?: number;
   items?: ArtisansNearbyItem[];
+}
+
+export interface ArtisansCacheStatus {
+  source?: ArtisansSource;
+  count?: number;
+  cleared?: number;
+  trades?: ArtisansCacheTradeCount[];
+}
+
+export interface ArtisansCacheTradeCount {
+  trade?: string;
+  count?: number;
 }
 
 @Injectable()
@@ -2836,6 +2851,7 @@ export class ApiService {
     page?: number;
     perPage?: number;
     text?: string;
+    cache?: ArtisansCacheMode;
   }): Observable<ArtisansNearbyResponse> {
     let params = new HttpParams().set('source', options.source);
     if (options.lat != null) {
@@ -2862,7 +2878,22 @@ export class ApiService {
     if (options.perPage != null) {
       params = params.set('perPage', String(options.perPage));
     }
+    if (options.cache) {
+      params = params.set('cache', options.cache);
+    }
     return this._http.get<ArtisansNearbyResponse>(this.API_URL + 'external/artisans/nearby', { params });
+  }
+
+  getArtisansCache(source: ArtisansSource): Observable<ArtisansCacheStatus> {
+    return this._http.get<ArtisansCacheStatus>(this.API_URL + 'external/artisans/cache', {
+      params: new HttpParams().set('source', source)
+    });
+  }
+
+  clearArtisansCache(source: ArtisansSource): Observable<ArtisansCacheStatus> {
+    return this._http.post<ArtisansCacheStatus>(this.API_URL + 'external/artisans/cache/clear', {}, {
+      params: new HttpParams().set('source', source)
+    });
   }
 
   lookupArtisanWebsite(options: {

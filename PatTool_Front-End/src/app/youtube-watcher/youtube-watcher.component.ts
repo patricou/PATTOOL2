@@ -122,6 +122,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
    * HostBinding keeps the iframe covering the viewport if Fullscreen API is blocked.
    */
   @HostBinding('class.yt-landscape-fs') landscapeFullscreen = false;
+  /** Desktop/mobile: fill the page by collapsing YouTube chrome and app menus. */
+  @HostBinding('class.yt-theater') theaterMode = false;
   @ViewChild('playerFrame') playerFrame?: ElementRef<HTMLElement>;
   @ViewChild('linkToEventModal') linkToEventModal?: TemplateRef<unknown>;
   @ViewChild('recordingsModal') recordingsModal?: TemplateRef<unknown>;
@@ -134,6 +136,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private itemSourceSeq = 0;
 
   private static readonly LANDSCAPE_FS_BODY_CLASS = 'yt-landscape-fs';
+  private static readonly THEATER_BODY_CLASS = 'yt-theater';
   private static readonly PAGE_THEME_BODY_CLASS = 'yt-page-theme';
   private static readonly TICKER_STORAGE_KEY = 'pattool.youtube.ticker-enabled';
   private static readonly RECENT_SEARCHES_KEY = 'pattool.youtube.recent-searches';
@@ -281,10 +284,12 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
         this.playerOpen = s.open;
         if (s.open) {
           this.stopYoutubeProgressWatch();
+          this.exitTheater();
         }
         if (s.item) {
           this.selected = this.decodeYoutubeItem(s.item);
         }
+        this.syncTheater();
         this.syncLandscapeFullscreen();
       })
     );
@@ -331,6 +336,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       window.removeEventListener('message', this.onWindowYtMessage);
     }
     this.teardownLandscapeFullscreenWatchers();
+    this.exitTheater();
     this.exitLandscapeFullscreen(false);
     document.body.classList.remove(YoutubeWatcherComponent.PAGE_THEME_BODY_CLASS);
     this.closeLinkToEventModal();
@@ -1466,6 +1472,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
         this.scrollPageToTop();
       }
     });
+    this.syncTheater();
     this.scheduleLandscapeSync();
   }
 
@@ -1476,6 +1483,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     if (this.clientRecordingActive) {
       this.stopActiveRecording();
     }
+    this.exitTheater();
     this.exitLandscapeFullscreen(false);
     this.embedUrl = null;
     this.stopYoutubeProgressWatch();
@@ -1662,7 +1670,61 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       this.selected = item;
       this.embedUrl = this.buildEmbedUrl(item, true);
     }
+    this.syncTheater();
     this.scheduleLandscapeSync();
+  }
+
+  toggleTheater(): void {
+    if (this.theaterMode) {
+      this.exitTheater();
+      return;
+    }
+    this.enterTheater();
+  }
+
+  exitTheater(): void {
+    if (
+      !this.theaterMode &&
+      !document.body.classList.contains(YoutubeWatcherComponent.THEATER_BODY_CLASS)
+    ) {
+      return;
+    }
+    this.theaterMode = false;
+    document.body.classList.remove(YoutubeWatcherComponent.THEATER_BODY_CLASS);
+  }
+
+  exitImmersivePlayer(markLandscapeDismissed = true): void {
+    this.exitTheater();
+    if (this.landscapeFullscreen) {
+      this.exitLandscapeFullscreen(markLandscapeDismissed);
+    }
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onTheaterEscape(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || event.defaultPrevented || !this.theaterMode) {
+      return;
+    }
+    if (this.linkModalRef || this.recordingsModalRef) {
+      return;
+    }
+    event.preventDefault();
+    this.exitTheater();
+  }
+
+  private enterTheater(): void {
+    if (this.destroyed || this.playerOpen || !this.showYoutubeStage) {
+      return;
+    }
+    this.theaterMode = true;
+    document.body.classList.add(YoutubeWatcherComponent.THEATER_BODY_CLASS);
+    this.scrollPageToTop();
+  }
+
+  private syncTheater(): void {
+    if (this.theaterMode && (this.playerOpen || !this.showYoutubeStage)) {
+      this.exitTheater();
+    }
   }
 
   exitLandscapeFullscreen(markDismissed = true): void {
@@ -2708,6 +2770,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     if (state === 1 || state === 3) {
       this.playbackPaused = false;
     } else if (state === 2) {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return;
+      }
       this.playbackPaused = true;
     }
     if (state !== 0) {
@@ -2729,6 +2794,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     if (!this.canLinkVideo(item) || !this.videoshowModalComponent) {
       return;
     }
+    this.exitTheater();
     this.exitLandscapeFullscreen(false);
     this.videoshowRestorePip = this.playerOpen;
     this.stopPlayAll();

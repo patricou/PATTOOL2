@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Subscription } from 'rxjs';
 
 import { ApiService, ArchiveFile, ArchiveItem, ArchiveItemDetail } from './api.service';
+import { BackgroundPlaybackService } from './background-playback.service';
 
 export type ArchiveQueueSource = 'playlist' | 'catalog' | 'recent' | 'none';
 
@@ -78,8 +79,14 @@ export class ArchiveAudioQueueService {
   private loadGeneration = 0;
   private itemTracks: ArchiveAudioQueueTrack[] = [];
 
-  constructor(private api: ApiService) {
+  constructor(
+    private api: ApiService,
+    backgroundPlayback: BackgroundPlaybackService
+  ) {
     this.audio.preload = 'auto';
+    this.audio.setAttribute('playsinline', '');
+    this.audio.setAttribute('webkit-playsinline', 'true');
+    backgroundPlayback.watchMedia(this.audio);
     this.audio.addEventListener('ended', () => this.onEnded());
     this.audio.addEventListener('play', () => this.patch({ paused: false }));
     this.audio.addEventListener('pause', () => {
@@ -391,6 +398,7 @@ export class ArchiveAudioQueueService {
       paused: true
     });
     try {
+      this.audio.title = track.name || this.snapshot.current?.title || 'Archive';
       this.audio.src = mediaUrl;
       this.audio.load();
     } catch {

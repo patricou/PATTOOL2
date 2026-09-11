@@ -74,9 +74,11 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
 
         // Artisans / nearby trades proxies are permitAll. A long Overpass wait plus
         // getToken() used to redirect to Keycloak and reload the page.
-        const isArtisansPublicApiGet =
-            req.method === 'GET' && /\/api\/external\/artisans\/(nearby|website)(\?|$|\/)/i.test(req.url);
-        if (isArtisansPublicApiGet) {
+        const isArtisansPublicApi =
+            /\/api\/external\/artisans\/(nearby|website|cache)(\?|$|\/)/i.test(req.url)
+            && (req.method === 'GET' || req.method === 'POST')
+            && !/\/favorites/i.test(req.url);
+        if (isArtisansPublicApi) {
             return next.handle(req);
         }
 

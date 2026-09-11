@@ -29,13 +29,14 @@ import {
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { SheetSelectComponent, SheetSelectOption } from '../shared/sheet-select/sheet-select.component';
 import { openWhatsAppTextShare } from '../shared/share-whatsapp-image.util';
+import { FoncierMapPoint, FoncierResultsMapComponent } from '../foncier/foncier-results-map.component';
 
 export type FoncierSuisseTab = 'search' | 'popular' | 'chances' | 'guides';
 
 @Component({
   selector: 'app-foncier-suisse',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent, SheetSelectComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent, SheetSelectComponent, FoncierResultsMapComponent],
   templateUrl: './foncier-suisse.component.html',
   styleUrls: ['../foncier/foncier-shared.css']
 })
@@ -140,6 +141,9 @@ export class FoncierSuisseComponent implements OnInit, OnDestroy {
   locating = false;
   errorMessage = '';
   geocodingKey = '';
+  selectedMapId: string | null = null;
+  filtersCollapsed = false;
+  resultsCollapsed = false;
   private cacheItems: FoncierCacheRow[] = [];
   private localCacheReady = false;
   private cacheLoadPending = true;
@@ -192,6 +196,26 @@ export class FoncierSuisseComponent implements OnInit, OnDestroy {
 
   get showPager(): boolean {
     return this.isListingsTab && this.hasResults && (this.page > 1 || this.hasNext || this.pageCount > 1);
+  }
+
+  get showResultsMap(): boolean {
+    return this.isListingsTab && this.searched && (this.mapPoints.length > 0 || this.hasCoords(this.selected));
+  }
+
+  get mapPoints(): FoncierMapPoint[] {
+    return this.listings.reduce<FoncierMapPoint[]>((points, listing, index) => {
+      if (!this.hasCoords(listing)) {
+        return points;
+      }
+      points.push({
+        id: this.mapItemId(listing, index),
+        lat: listing.lat as number,
+        lon: listing.lon as number,
+        label: this.mapPointLabel(listing),
+        number: this.itemNumber(index)
+      });
+      return points;
+    }, []);
   }
 
   get canGoNext(): boolean {
@@ -443,6 +467,7 @@ export class FoncierSuisseComponent implements OnInit, OnDestroy {
     this.page = 1;
     this.searched = false;
     this.errorMessage = '';
+    this.selectedMapId = null;
     this.chanceScores = [];
     this.guidesQuery = '';
     this.guides = [];
@@ -578,6 +603,30 @@ export class FoncierSuisseComponent implements OnInit, OnDestroy {
   openListingMap(listing: FoncierListing): void {
     const label = [listing.title, listing.address, listing.city, listing.zipcode].filter(Boolean).join(' · ');
     this.openInTraceViewer(listing, label, [listing.address, listing.city, listing.zipcode, this.selected?.nom], listing.zipcode);
+  }
+
+  onMapPointSelect(id: string): void {
+    this.selectedMapId = id;
+    const el = document.querySelector(`[data-foncier-id="${CSS.escape(id)}"]`) as HTMLElement | null;
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  toggleFiltersCollapsed(): void {
+    this.filtersCollapsed = !this.filtersCollapsed;
+  }
+
+  toggleResultsCollapsed(): void {
+    this.resultsCollapsed = !this.resultsCollapsed;
+  }
+
+  mapItemId(item: { id?: string; url?: string; address?: string; lat?: number; lon?: number }, index: number): string {
+    return item.id || item.url || `${index}-${item.lat}-${item.lon}-${item.address || ''}`;
+  }
+
+  private mapPointLabel(listing: FoncierListing): string {
+    const title = (listing.title || listing.address || '').trim();
+    const price = listing.price != null ? this.formatPrice(listing.price) : '';
+    return [title, price].filter(Boolean).join(' · ') || this.selected?.nom || '';
   }
 
   parseSource(value: string | null): FoncierCacheSource {
@@ -984,6 +1033,7 @@ export class FoncierSuisseComponent implements OnInit, OnDestroy {
   }
 
   private applyPageSlice(): void {
+    this.selectedMapId = null;
     const from = (this.page - 1) * this.pageSize;
     const to = from + this.pageSize;
     this.listings = this.fullListings.slice(from, to);

@@ -1,0 +1,27 @@
+<div
+  #mapShell
+  class="foncier-map-shell"
+  [class.foncier-map-shell--fullscreen]="mapFullscreen"
+  [class.foncier-map-shell--fs-fallback]="mapFullscreenCssFallback">
+  <div #mapHost class="foncier-results-map" role="img" [attr.aria-label]="'FONCIER.MAP' | translate"></div>
+  <label class="foncier-basemap">
+    <span class="visually-hidden">{{ 'FONCIER.MAP_BASE_LAYER' | translate }}</span>
+    <select
+      class="form-select form-select-sm foncier-basemap-select"
+      [(ngModel)]="mapBaseLayerId"
+      (ngModelChange)="onBasemapChange()"
+      [attr.aria-label]="'FONCIER.MAP_BASE_LAYER' | translate">
+      <option *ngFor="let opt of basemapOptions" [value]="opt.id">
+        {{ opt.labelKey ? (opt.labelKey | translate) : opt.label }}
+      </option>
+    </select>
+  </label>
+  <button
+    type="button"
+    class="foncier-map-fs-btn"
+    (click)="toggleMapFullscreen($event)"
+    [attr.title]="(mapFullscreen ? 'FONCIER.EXIT_FULLSCREEN' : 'FONCIER.FULLSCREEN') | translate"
+    [attr.aria-label]="(mapFullscreen ? 'FONCIER.EXIT_FULLSCREEN' : 'FONCIER.FULLSCREEN') | translate">
+    <i class="fa" [class.fa-compress]="mapFullscreen" [class.fa-expand]="!mapFullscreen" aria-hidden="true"></i>
+  </button>
+</div>

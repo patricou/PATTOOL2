@@ -111,8 +111,15 @@ export class TvPipCarrier {
     const v = document.createElement('video');
     v.id = 'pattool-tv-pip-carrier';
     v.setAttribute('playsinline', '');
+    v.setAttribute('webkit-playsinline', 'true');
     v.playsInline = true;
     v.controls = false;
+    try {
+      (v as HTMLVideoElement & { autoPictureInPicture?: boolean }).autoPictureInPicture = true;
+      v.disablePictureInPicture = false;
+    } catch {
+      /* ignore */
+    }
     Object.assign(v.style, {
       width: '100%',
       height: '100%',

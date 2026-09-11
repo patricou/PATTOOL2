@@ -1132,6 +1132,7 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
         this.isLoadingAudio = false;
         return;
       }
+      audio.title = this.selected?.title || section.title || 'Book';
       audio.load();
       audio
         .play()

@@ -74,6 +74,7 @@ export function applyRadioMediaSession(meta: {
       artist: 'PatTool Radio',
       artwork
     });
+    navigator.mediaSession.playbackState = 'playing';
   } catch {
     /* ignore */
   }

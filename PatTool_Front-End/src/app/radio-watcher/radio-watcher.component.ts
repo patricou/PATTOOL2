@@ -1757,6 +1757,13 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     const gen = ++this.playGeneration;
     this.playError = '';
     this.isBuffering = true;
+    media.title = station.name || 'Radio';
+    if (station.logo) {
+      media.setAttribute('data-pat-media-artwork', station.logo);
+    } else {
+      media.removeAttribute('data-pat-media-artwork');
+    }
+    applyRadioMediaSession({ title: station.name || 'Radio', artworkUrl: station.logo });
     this.cdr.markForCheck();
 
     const proxyUrl = this.api.radioStreamProxyUrl(station.streamUrl);

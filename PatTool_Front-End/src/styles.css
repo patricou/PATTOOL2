@@ -2152,8 +2152,9 @@ body.rf-landscape-fs app-relief-finder {
   background: #090c0a !important;
 }
 
-/* Mobile landscape YouTube: hide app chrome, lock scroll */
-body.yt-landscape-fs {
+/* Mobile landscape / theater YouTube: hide app chrome, lock scroll */
+body.yt-landscape-fs,
+body.yt-theater {
   overflow: hidden !important;
 }
 
@@ -2162,11 +2163,19 @@ body.yt-landscape-fs app-root > app-news-ticker,
 body.yt-landscape-fs app-root > app-currency-ticker,
 body.yt-landscape-fs app-root > app-stock-ticker,
 body.yt-landscape-fs app-root > .pat-div,
-body.yt-landscape-fs app-root > .friend-requests-app-banner {
+body.yt-landscape-fs app-root > .friend-requests-app-banner,
+body.yt-theater app-root > app-assistant-drawer,
+body.yt-theater app-root > nav.navbar,
+body.yt-theater app-root > app-news-ticker,
+body.yt-theater app-root > app-currency-ticker,
+body.yt-theater app-root > app-stock-ticker,
+body.yt-theater app-root > .pat-div,
+body.yt-theater app-root > .friend-requests-app-banner {
   display: none !important;
 }
 
-body.yt-landscape-fs app-youtube-watcher {
+body.yt-landscape-fs app-youtube-watcher,
+body.yt-theater app-youtube-watcher {
   display: block !important;
   position: fixed !important;
   inset: 0 !important;

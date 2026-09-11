@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -49,11 +50,12 @@ public class ArtisansNearbyService {
     private static final String SIRENE_BASE = "https://recherche-entreprises.api.gouv.fr";
     private static final String ANNUAIRE_ETAB = "https://annuaire-entreprises.data.gouv.fr/etablissement/";
     private static final int MAX_RADIUS_KM = 50;
-    private static final int MAX_PER_PAGE = 250;
-    private static final int DEFAULT_PER_PAGE = 250;
+    private static final int MAX_PER_PAGE = 500;
+    private static final int DEFAULT_PER_PAGE = 500;
     private static final int SIRENE_PER_PAGE = 25;
-    private static final int MAX_OSM_ITEMS = 100;
-    private static final int MAX_TEXT_SIRENE_PAGES = 12;
+    private static final int MAX_OSM_ITEMS = 500;
+    private static final int MAX_TEXT_SIRENE_PAGES = 20;
+    private static final int CACHE_PREFETCH_SIRENE_PAGES = 60;
     private static final int MAX_LIST_TEXT_LEN = 80;
     private static final int MAX_OVERPASS_BYTES = 2 * 1024 * 1024;
     private static final Set<String> SOURCES = Set.of("sirene", "osm");
@@ -407,17 +409,23 @@ public class ArtisansNearbyService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final FoncierGeoService foncierGeoService;
+    private final ArtisansItemCacheService itemCache;
+    private final TaskExecutor taskExecutor;
     private final List<String> overpassUrls;
 
     public ArtisansNearbyService(
             @Qualifier(RestTemplateConfig.ARTISANS_REST_TEMPLATE) RestTemplate restTemplate,
             ObjectMapper objectMapper,
             FoncierGeoService foncierGeoService,
+            ArtisansItemCacheService itemCache,
+            TaskExecutor taskExecutor,
             @Value("${artisans.overpass-urls:https://overpass.openstreetmap.fr/api/interpreter,https://overpass.osm.ch/api/interpreter,https://overpass-api.de/api/interpreter}")
                     String overpassUrlsCsv) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
         this.foncierGeoService = foncierGeoService;
+        this.itemCache = itemCache;
+        this.taskExecutor = taskExecutor;
         this.overpassUrls = parseCsv(overpassUrlsCsv);
     }
 
@@ -430,16 +438,185 @@ public class ArtisansNearbyService {
             String trade,
             Integer page,
             Integer perPage,
-            String text) {
+            String text,
+            String cache) {
         String src = normalizeSource(source);
         String job = normalizeTrade(trade);
         int pageN = page == null ? 1 : Math.max(1, page);
         int size = perPage == null ? DEFAULT_PER_PAGE : Math.max(1, Math.min(MAX_PER_PAGE, perPage));
         double radius = radiusKm == null ? 10.0 : Math.max(0.5, Math.min(MAX_RADIUS_KM, radiusKm));
         String listText = normalizeListText(text);
+        ArtisansItemCacheService.CacheMode cacheMode = ArtisansItemCacheService.CacheMode.parse(cache);
 
         ResolvedPlace place = resolvePlace(lat, lon, address);
+        ArtisansItemCacheService.NearbyQuery query = new ArtisansItemCacheService.NearbyQuery();
+        query.cacheMode = cacheMode;
+        query.source = src;
+        query.lat = place.lat;
+        query.lon = place.lon;
+        query.radiusKm = radius;
+        query.trade = job;
+        query.page = pageN;
+        query.perPage = size;
+        query.placeLabel = place.label;
+        query.text = listText;
+        query.generation = itemCache.generation();
 
+        if (cacheMode == ArtisansItemCacheService.CacheMode.CACHE) {
+            return itemCache.page(query);
+        }
+        JsonNode api;
+        try {
+            api = searchLive(src, place, radius, job, pageN, size, listText);
+        } catch (ResponseStatusException ex) {
+            if (cacheMode == ArtisansItemCacheService.CacheMode.BOTH
+                    && ex.getStatusCode().value() == HttpStatus.BAD_GATEWAY.value()) {
+                return itemCache.page(query);
+            }
+            throw ex;
+        }
+        JsonNode response;
+        if (cacheMode == ArtisansItemCacheService.CacheMode.API) {
+            itemCache.putItems(src, api, query.generation);
+            response = itemCache.annotate(query, api);
+        } else {
+            response = itemCache.merge(query, api);
+        }
+        scheduleCachePrefetch(src, place, radius, job, pageN, size, listText, query.generation, api);
+        return response;
+    }
+
+    private void scheduleCachePrefetch(
+            String src,
+            ResolvedPlace place,
+            double radius,
+            String job,
+            int pageN,
+            int size,
+            String listText,
+            long generation,
+            JsonNode visiblePage) {
+        if (visiblePage == null || visiblePage.path("items").size() < size) {
+            return;
+        }
+        if (!"sirene".equals(src)) {
+            return;
+        }
+        taskExecutor.execute(() -> {
+            try {
+                if (StringUtils.hasText(listText)) {
+                    prefetchSireneByText(place, radius, job, listText, generation);
+                } else {
+                    int firstExtraPage = pageN * size / SIRENE_PER_PAGE + 1;
+                    prefetchSirene(place, radius, job, firstExtraPage, generation);
+                }
+            } catch (Exception ex) {
+                log.warn("Artisans cache prefetch failed: {}", ex.toString());
+            }
+        });
+    }
+
+    private void prefetchSirene(
+            ResolvedPlace place, double radius, String trade, int firstSirenePage, long generation) {
+        int stored = 0;
+        for (int sirenePage = firstSirenePage;
+                sirenePage < firstSirenePage + CACHE_PREFETCH_SIRENE_PAGES;
+                sirenePage++) {
+            if (itemCache.generation() != generation) {
+                return;
+            }
+            JsonNode raw;
+            try {
+                raw = fetchSireneNearPoint(place.lat, place.lon, radius, trade, sirenePage, SIRENE_PER_PAGE);
+            } catch (Exception ex) {
+                log.warn("Artisans cache prefetch page {} failed: {}", sirenePage, ex.toString());
+                break;
+            }
+            if (raw == null || !raw.isObject()) {
+                break;
+            }
+            JsonNode results = raw.get("results");
+            if (results == null || !results.isArray() || results.size() == 0) {
+                break;
+            }
+            ObjectNode batch = objectMapper.createObjectNode();
+            ArrayNode items = objectMapper.createArrayNode();
+            batch.set("items", items);
+            for (JsonNode company : results) {
+                ObjectNode item = mapSirene(company, place.lat, place.lon, trade);
+                if (item != null) {
+                    items.add(item);
+                }
+            }
+            if (items.size() > 0) {
+                itemCache.putItems("sirene", batch, generation);
+                stored += items.size();
+            }
+            if (results.size() < SIRENE_PER_PAGE) {
+                break;
+            }
+        }
+        if (stored > 0) {
+            log.info("Artisans cache prefetch stored {} extra SIRENE items around {}", stored, place.label);
+        }
+    }
+
+    private void prefetchSireneByText(
+            ResolvedPlace place, double radius, String trade, String text, long generation) {
+        List<String> depts = foncierGeoService.departmentCodesNear(place.lat, place.lon, radius);
+        String departments = String.join(",", depts);
+        int stored = 0;
+        for (int sirenePage = MAX_TEXT_SIRENE_PAGES + 1;
+                sirenePage <= MAX_TEXT_SIRENE_PAGES + CACHE_PREFETCH_SIRENE_PAGES;
+                sirenePage++) {
+            if (itemCache.generation() != generation) {
+                return;
+            }
+            JsonNode raw;
+            try {
+                raw = fetchSireneSearch(text, trade, sirenePage, SIRENE_PER_PAGE, departments);
+            } catch (Exception ex) {
+                log.warn("Artisans cache prefetch text page {} failed: {}", sirenePage, ex.toString());
+                break;
+            }
+            if (raw == null || !raw.isObject()) {
+                break;
+            }
+            JsonNode results = raw.get("results");
+            if (results == null || !results.isArray() || results.size() == 0) {
+                break;
+            }
+            ObjectNode batch = objectMapper.createObjectNode();
+            ArrayNode items = objectMapper.createArrayNode();
+            batch.set("items", items);
+            for (JsonNode company : results) {
+                ObjectNode item = mapSirene(company, place.lat, place.lon, trade);
+                if (item == null || item.path("distanceKm").asDouble(999) > radius + 0.05) {
+                    continue;
+                }
+                items.add(item);
+            }
+            if (items.size() > 0) {
+                itemCache.putItems("sirene", batch, generation);
+                stored += items.size();
+            }
+            if (results.size() < SIRENE_PER_PAGE) {
+                break;
+            }
+        }
+        if (stored > 0) {
+            log.info("Artisans cache prefetch stored {} extra SIRENE text items around {}", stored, place.label);
+        }
+    }
+
+    private JsonNode searchLive(
+            String src,
+            ResolvedPlace place,
+            double radius,
+            String job,
+            int pageN,
+            int size,
+            String listText) {
         if ("osm".equals(src)) {
             return searchOsm(place.lat, place.lon, radius, job, pageN, size, place.label);
         }

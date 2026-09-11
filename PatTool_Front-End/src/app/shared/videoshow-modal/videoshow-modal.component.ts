@@ -1000,6 +1000,9 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.isPlaying = true;
         this.cdr.detectChanges();
       } else if (state === 2) {
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+          return;
+        }
         this.isPlaying = false;
         this.cdr.detectChanges();
       }

@@ -27,13 +27,14 @@ import {
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { SheetSelectComponent, SheetSelectOption } from '../shared/sheet-select/sheet-select.component';
 import { openWhatsAppTextShare } from '../shared/share-whatsapp-image.util';
+import { FoncierMapPoint, FoncierResultsMapComponent } from './foncier-results-map.component';
 
 export type FoncierProvider = 'cerema' | 'stream-estate' | 'chercher-trouver';
 
 @Component({
   selector: 'app-foncier',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent, SheetSelectComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent, SheetSelectComponent, FoncierResultsMapComponent],
   templateUrl: './foncier.component.html',
   styleUrls: ['./foncier-shared.css']
 })
@@ -100,6 +101,9 @@ export class FoncierComponent implements OnInit, OnDestroy {
   locating = false;
   errorMessage = '';
   geocodingKey = '';
+  selectedMapId: string | null = null;
+  filtersCollapsed = false;
+  resultsCollapsed = false;
   private cacheItems: FoncierCacheRow[] = [];
   private localCacheReady = false;
   private cacheLoadPending = true;
@@ -192,6 +196,27 @@ export class FoncierComponent implements OnInit, OnDestroy {
 
   get showPager(): boolean {
     return this.hasResults && (this.page > 1 || this.hasNext || this.pageCount > 1);
+  }
+
+  get showResultsMap(): boolean {
+    return this.searched && (this.mapPoints.length > 0 || this.hasCoords(this.selected));
+  }
+
+  get mapPoints(): FoncierMapPoint[] {
+    const rows = this.isCerema ? this.mutations : this.listings;
+    return rows.reduce<FoncierMapPoint[]>((points, row, index) => {
+      if (!this.hasCoords(row)) {
+        return points;
+      }
+      points.push({
+        id: this.mapItemId(row, index),
+        lat: row.lat as number,
+        lon: row.lon as number,
+        label: this.mapPointLabel(row),
+        number: this.itemNumber(index)
+      });
+      return points;
+    }, []);
   }
 
   get canGoNext(): boolean {
@@ -500,6 +525,7 @@ export class FoncierComponent implements OnInit, OnDestroy {
     this.page = 1;
     this.searched = false;
     this.errorMessage = '';
+    this.selectedMapId = null;
     this.syncUrlIfChanged();
   }
 
@@ -678,6 +704,32 @@ export class FoncierComponent implements OnInit, OnDestroy {
     const label = [listing.title, listing.address, listing.city, listing.zipcode].filter(Boolean).join(' · ');
     const queryParts = [listing.address, listing.city, listing.zipcode, this.selected?.nom];
     this.openInTraceViewer(listing, label, queryParts, listing.zipcode || this.selected?.codesPostaux?.[0]);
+  }
+
+  onMapPointSelect(id: string): void {
+    this.selectedMapId = id;
+    const el = document.querySelector(`[data-foncier-id="${CSS.escape(id)}"]`) as HTMLElement | null;
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  toggleFiltersCollapsed(): void {
+    this.filtersCollapsed = !this.filtersCollapsed;
+  }
+
+  toggleResultsCollapsed(): void {
+    this.resultsCollapsed = !this.resultsCollapsed;
+  }
+
+  mapItemId(item: { id?: string; url?: string; address?: string; lat?: number; lon?: number }, index: number): string {
+    return item.id || item.url || `${index}-${item.lat}-${item.lon}-${item.address || ''}`;
+  }
+
+  private mapPointLabel(row: FoncierListing | FoncierMutation): string {
+    const listing = row as FoncierListing;
+    const mutation = row as FoncierMutation;
+    const title = (listing.title || mutation.address || mutation.typeLocal || mutation.nature || '').trim();
+    const price = row.price != null ? this.formatPrice(row.price) : '';
+    return [title, price].filter(Boolean).join(' · ') || this.selected?.nom || '';
   }
 
   parseRadius(value: string | null): number {
@@ -1087,6 +1139,7 @@ export class FoncierComponent implements OnInit, OnDestroy {
   }
 
   private applyPageSlice(): void {
+    this.selectedMapId = null;
     const from = (this.page - 1) * this.pageSize;
     const to = from + this.pageSize;
     if (this.isCerema) {
