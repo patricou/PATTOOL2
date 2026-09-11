@@ -22,9 +22,11 @@
 }
 
 .foncier-page {
-  max-width: 1180px;
+  max-width: none;
+  width: 100%;
   margin: 0 auto;
-  padding: 0 0.85rem 1.4rem;
+  padding: 0 0.75rem 1.4rem;
+  box-sizing: border-box;
 }
 
 .foncier-search-overlay {
