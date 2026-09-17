@@ -2523,6 +2523,27 @@ export class ApiService {
     );
   }
 
+  /** Per-user GPS slope diagram multiplier (20° × 4.5 → vertical needle). */
+  getGpsSlopeScale(): Observable<GpsSlopeScalePreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<GpsSlopeScalePreference>(this.API_URL + 'external/gps/slope-scale', { headers })
+      )
+    );
+  }
+
+  saveGpsSlopeScale(slopeCoef: number): Observable<GpsSlopeScalePreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put<GpsSlopeScalePreference>(
+          this.API_URL + 'external/gps/slope-scale',
+          { slopeCoef },
+          { headers }
+        )
+      )
+    );
+  }
+
   // ===================================================================
   // GPS itineraries — persist & share with friends
   // Backend: /api/gps-itineraries (JWT required)
@@ -5302,6 +5323,11 @@ export interface GpsFollowPreference {
   followUser: boolean;
 }
 
+/** GET/PUT /api/external/gps/slope-scale */
+export interface GpsSlopeScalePreference {
+  slopeCoef: number;
+}
+
 /** Place point for a saved GPS itinerary. */
 export interface GpsItineraryPlace {
   lat: number;
@@ -5332,6 +5358,7 @@ export interface GpsFollowPoint {
   speedKmh?: number | null;
   accuracyM?: number | null;
   slopePct?: number | null;
+  gapBefore?: boolean;
 }
 
 /** Payload sent by the frontend (IndexedDB queue) when the network is back. */

@@ -132,6 +132,7 @@ export class GpsRecordingService implements OnDestroy {
   private lastFixAt = 0;
   private movingSinceMs: number | null = null;
   private pausedAccumSec = 0;
+  private resumeStartsNewSegment = false;
   private slopeWindow: Array<{ lat: number; lon: number; ele: number; t: number }> = [];
   private cumDist: number[] = [];
   private orientationListening = false;
@@ -250,7 +251,8 @@ export class GpsRecordingService implements OnDestroy {
     const recorded: GpsTrackPt[] = (session.recordedPoints || []).map((p) => ({
       lat: p.lat,
       lon: p.lon,
-      eleM: p.eleM ?? null
+      eleM: p.eleM ?? null,
+      gapBefore: p.gapBefore === true
     }));
     this.recordedPoints = recorded;
     this.lastRecorded = recorded.length ? recorded[recorded.length - 1] : null;
@@ -260,6 +262,7 @@ export class GpsRecordingService implements OnDestroy {
     const status = session.status === 'recording' ? 'paused' : (session.status || 'idle');
     this.pausedAccumSec = session.durationSec || 0;
     this.movingSinceMs = null;
+    this.resumeStartsNewSegment = status === 'paused';
     this.patch({
       status,
       title: session.title || 'GPS',
@@ -380,6 +383,7 @@ export class GpsRecordingService implements OnDestroy {
     }
     this.pausedAccumSec = this.currentDurationSec();
     this.movingSinceMs = null;
+    this.resumeStartsNewSegment = true;
     this.patch({ status: 'paused', durationSec: this.pausedAccumSec });
     this.clearTimers();
     this.stopKeepAliveAudio();
@@ -392,6 +396,7 @@ export class GpsRecordingService implements OnDestroy {
     const wasActive = this.snapshot.status === 'recording' || this.snapshot.status === 'paused';
     this.pausedAccumSec = this.currentDurationSec();
     this.movingSinceMs = null;
+    this.resumeStartsNewSegment = false;
     this.patch({
       status: wasActive ? 'finished' : this.snapshot.status,
       durationSec: this.pausedAccumSec
@@ -417,13 +422,19 @@ export class GpsRecordingService implements OnDestroy {
       if (!session) {
         return;
       }
-      this.recordedPoints = points.map((p) => ({ lat: p.lat, lon: p.lon, eleM: p.eleM ?? null }));
+      this.recordedPoints = points.map((p) => ({
+        lat: p.lat,
+        lon: p.lon,
+        eleM: p.eleM ?? null,
+        gapBefore: p.gapBefore === true
+      }));
       this.lastRecorded = this.recordedPoints.at(-1) || null;
       this.lastRecordedAt = points.at(-1)?.timeMs || 0;
       this.unsynced = this.store.unsyncedFrom(points);
       this.cumDist = cumulativeDistancesM(session.plannedTrack || []);
       const status: GpsFollowStatus = session.status === 'recording' ? 'paused' : session.status;
       this.pausedAccumSec = session.durationSec || 0;
+      this.resumeStartsNewSegment = status === 'paused';
       this.patch({
         status,
         title: session.title,
@@ -773,6 +784,9 @@ export class GpsRecordingService implements OnDestroy {
     if (track.length < 2) {
       doneM = 0;
       for (let i = 1; i < this.recordedPoints.length; i++) {
+        if (this.recordedPoints[i].gapBefore) {
+          continue;
+        }
         doneM += haversineMeters(
           this.recordedPoints[i - 1].lat,
           this.recordedPoints[i - 1].lon,
@@ -804,7 +818,13 @@ export class GpsRecordingService implements OnDestroy {
       }
     }
     const clientPointId = newClientId();
-    const rec: GpsTrackPt = { lat: user.lat, lon: user.lon, eleM: user.eleM };
+    const rec: GpsTrackPt = {
+      lat: user.lat,
+      lon: user.lon,
+      eleM: user.eleM,
+      gapBefore: this.resumeStartsNewSegment || undefined
+    };
+    this.resumeStartsNewSegment = false;
     this.recordedPoints.push(rec);
     this.lastRecorded = rec;
     this.lastRecordedAt = user.timeMs;
@@ -819,7 +839,8 @@ export class GpsRecordingService implements OnDestroy {
       timeMs: user.timeMs,
       speedKmh: user.speedKmh,
       accuracyM: user.accuracyM,
-      slopePct: user.slopePct
+      slopePct: user.slopePct,
+      gapBefore: rec.gapBefore === true
     };
     this.unsynced.push(point);
     const offline: GpsOfflinePoint = {

@@ -10,6 +10,7 @@ public class GpsRecordedPointDto {
     private Double speedKmh;
     private Double accuracyM;
     private Double slopePct;
+    private Boolean gapBefore;
 
     public String getClientPointId() {
         return clientPointId;
@@ -73,5 +74,13 @@ public class GpsRecordedPointDto {
 
     public void setSlopePct(Double slopePct) {
         this.slopePct = slopePct;
+    }
+
+    public Boolean getGapBefore() {
+        return gapBefore;
+    }
+
+    public void setGapBefore(Boolean gapBefore) {
+        this.gapBefore = gapBefore;
     }
 }

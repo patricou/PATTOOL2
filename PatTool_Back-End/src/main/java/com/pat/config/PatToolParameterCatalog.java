@@ -57,6 +57,7 @@ public final class PatToolParameterCatalog {
             "meteofrance.aromepi.playback.prefetch.",
             "trace.viewer.",
             "gps.follow-user.",
+            "gps.slope-coef.",
             "telegram.connection.",
             "telegram.inbox."
     );

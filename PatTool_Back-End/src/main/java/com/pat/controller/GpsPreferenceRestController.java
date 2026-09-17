@@ -1,7 +1,9 @@
 package com.pat.controller;
 
 import com.pat.controller.dto.GpsFollowPreferenceDto;
+import com.pat.controller.dto.GpsSlopeScalePreferenceDto;
 import com.pat.service.GpsFollowPreferenceService;
+import com.pat.service.GpsSlopeScalePreferenceService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -16,18 +18,23 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * Per-user GPS map follow preference.
+ * Per-user GPS preferences.
  * <p>
  * {@code GET/PUT /api/external/gps/follow-preferences}
+ * {@code GET/PUT /api/external/gps/slope-scale}
  */
 @RestController
 @RequestMapping("/api/external/gps")
 public class GpsPreferenceRestController {
 
     private final GpsFollowPreferenceService gpsFollowPreferenceService;
+    private final GpsSlopeScalePreferenceService gpsSlopeScalePreferenceService;
 
-    public GpsPreferenceRestController(GpsFollowPreferenceService gpsFollowPreferenceService) {
+    public GpsPreferenceRestController(
+            GpsFollowPreferenceService gpsFollowPreferenceService,
+            GpsSlopeScalePreferenceService gpsSlopeScalePreferenceService) {
         this.gpsFollowPreferenceService = gpsFollowPreferenceService;
+        this.gpsSlopeScalePreferenceService = gpsSlopeScalePreferenceService;
     }
 
     @GetMapping("/follow-preferences")
@@ -47,6 +54,28 @@ public class GpsPreferenceRestController {
         }
         try {
             return ResponseEntity.ok(gpsFollowPreferenceService.saveForSubject(sub, body));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/slope-scale")
+    public ResponseEntity<GpsSlopeScalePreferenceDto> getSlopeScale() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(gpsSlopeScalePreferenceService.findForSubject(sub));
+    }
+
+    @PutMapping("/slope-scale")
+    public ResponseEntity<?> putSlopeScale(@RequestBody GpsSlopeScalePreferenceDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            return ResponseEntity.ok(gpsSlopeScalePreferenceService.saveForSubject(sub, body));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

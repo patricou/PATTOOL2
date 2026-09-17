@@ -2253,7 +2253,8 @@
       "RADIO_FAVORITES": "الإذاعات المفضلة",
       "GLOBE_SATELLITE_OVERLAYS": "طبقات الأقمار (الكرة)",
       "GLOBE_ISS_HEADING_MODE": "وضع اتجاه محطة الفضاء",
-      "GPS_FOLLOW_USER": "تتبع GPS للمستخدم"
+      "GPS_FOLLOW_USER": "تتبع GPS للمستخدم",
+      "GPS_SLOPE_COEF": "GPS slope coefficient"
     },
     "TAB_NEWS": "أخبار",
     "GROUND_POSITIONS": "مواقع أرضية (المنظار)"
@@ -5125,7 +5126,10 @@
     "CLEAR": "Clear",
     "PARSING": "Reading track…",
     "START_RECORD": "Start recording",
+    "START_SHORT": "Start",
     "PAUSE": "Pause",
+    "PAUSE_HINT": "Stops the clock and the recorded track for a break (meal, night…). Resume afterwards.",
+    "PAUSED_BANNER": "Movement paused — time and track are frozen",
     "RESUME": "Resume",
     "STOP": "Stop",
     "DONE_KM": "Done",
@@ -5152,6 +5156,8 @@
     "SLOPE_CAL_RESET": "Reset",
     "SLOPE_CALIBRATED": "Zero = current phone pose",
     "SLOPE_FULLSCREEN": "Full screen",
+    "SLOPE_COEF": "Coef ×",
+    "SLOPE_COEF_HINT": "Vertical line ≈ {{deg}}° (roads rarely exceed 20°).",
     "INCLINE_NONE": "Tilt sensor unavailable",
     "INCLINE_ENABLE": "Enable tilt sensor",
     "INCLINE_DENIED": "Sensor access denied",

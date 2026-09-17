@@ -16,6 +16,8 @@ public class GpsRecordedPoint {
     private Double speedKmh;
     private Double accuracyM;
     private Double slopePct;
+    /** True when this sample starts a new recorded segment after a pause. */
+    private Boolean gapBefore;
 
     public String getClientPointId() {
         return clientPointId;
@@ -79,5 +81,13 @@ public class GpsRecordedPoint {
 
     public void setSlopePct(Double slopePct) {
         this.slopePct = slopePct;
+    }
+
+    public Boolean getGapBefore() {
+        return gapBefore;
+    }
+
+    public void setGapBefore(Boolean gapBefore) {
+        this.gapBefore = gapBefore;
     }
 }

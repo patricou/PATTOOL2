@@ -36,6 +36,7 @@ import {
   elevationGainLoss,
   GpsTrackPt,
   haversineMeters,
+  splitTrackSegments,
   trackSlopeAt
 } from './gps-geo.util';
 
@@ -57,7 +58,7 @@ interface GpsPlaceView {
 export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapHost') mapHost?: ElementRef<HTMLDivElement>;
   @ViewChild('mapShell') mapShell?: ElementRef<HTMLElement>;
-  @ViewChild('slopeShell') slopeShell?: ElementRef<HTMLElement>;
+  @ViewChild('slopeFsRoot') slopeFsRoot?: ElementRef<HTMLElement>;
   @ViewChild('fileInput') fileInput?: ElementRef<HTMLInputElement>;
 
   snap: GpsLiveSnapshot = this.recording.snapshot;
@@ -69,6 +70,10 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   slopeFullscreen = false;
   private mapFsNative = false;
   private slopeFsNative = false;
+  slopeCoef = 1;
+  readonly slopeCoefMin = 0.5;
+  readonly slopeCoefMax = 10;
+  readonly slopeCoefStep = 0.5;
   nav3dActive = false;
   followUser = true;
   mapOrientation: GpsMapOrientation = 'heading';
@@ -111,16 +116,43 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   }
 
   get trackSlopeNeedleDeg(): number {
-    return this.clampSlopeNeedle(this.trackSlope.deg);
+    return this.clampSlopeNeedle(this.scaleSlopeDeg(this.trackSlope.deg));
   }
 
   get slopeNeedleDeg(): number {
-    return this.clampSlopeNeedle(this.snap.user?.slopeDeg);
+    return this.clampSlopeNeedle(this.scaleSlopeDeg(this.snap.user?.slopeDeg));
   }
 
-  /** Phone pitch from the calibrated zero; 90° must draw a vertical needle. */
+  /** Phone pitch from the calibrated zero, amplified by the user coefficient. */
   get inclineNeedleDeg(): number {
-    return this.clampSlopeNeedle(this.snap.inclineDeg);
+    return this.clampSlopeNeedle(this.scaleSlopeDeg(this.snap.inclineDeg));
+  }
+
+  get slopeFullScaleDeg(): number {
+    const c = this.slopeCoef > 0 ? this.slopeCoef : 1;
+    return 90 / c;
+  }
+
+  get slopeFullScaleLabel(): string {
+    return this.slopeFullScaleDeg.toFixed(1);
+  }
+
+  scaleSlopeDeg(d: number | null | undefined): number | null {
+    if (d == null || !Number.isFinite(d)) {
+      return null;
+    }
+    return Math.max(-90, Math.min(90, d * this.slopeCoef));
+  }
+
+  scaleSlopePct(p: number | null | undefined): number | null {
+    if (p == null || !Number.isFinite(p)) {
+      return null;
+    }
+    const v = p * this.slopeCoef;
+    if (!Number.isFinite(v) || Math.abs(v) > 800) {
+      return v >= 0 ? 800 : -800;
+    }
+    return v;
   }
 
   private clampSlopeNeedle(d: number | null | undefined): number {
@@ -152,6 +184,8 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   private hideTitleRafOuter: number | null = null;
   private hideTitleRafInner: number | null = null;
   private pageAlive = true;
+  private slopeCoefSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private slopeCoefSaveSub: Subscription | null = null;
 
   constructor(
     readonly recording: GpsRecordingService,
@@ -168,6 +202,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     this.basemap.loadOptionalLayers(this.api);
     this.ensureMap();
     this.recording.ensureLocationWatch();
+    this.loadSlopeCoef();
     this.sub = this.recording.snapshot$.subscribe((snap) => {
       this.snap = snap;
       this.paintMap();
@@ -212,6 +247,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.pageAlive = false;
     this.cancelHideTitleWork();
+    this.clearSlopeCoefSaveTimer();
     this.exitMapFullscreenIfActive();
     this.exitSlopeFullscreenIfActive();
     this.sub?.unsubscribe();
@@ -219,6 +255,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     this.startGeocodeSub?.unsubscribe();
     this.finishGeocodeSub?.unsubscribe();
     this.currentGeocodeSub?.unsubscribe();
+    this.slopeCoefSaveSub?.unsubscribe();
     this.resizeObserver?.disconnect();
     this.recording.stopLocationWatchIfIdle();
     if (this.map) {
@@ -366,6 +403,16 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     this.recording.resetInclineCalibration();
   }
 
+  bumpSlopeCoef(dir: 1 | -1): void {
+    this.onSlopeCoefChange(this.slopeCoef + dir * this.slopeCoefStep);
+  }
+
+  onSlopeCoefChange(raw: number | string | null | undefined): void {
+    this.slopeCoef = this.clampSlopeCoef(raw);
+    this.persistSlopeCoefLocal();
+    this.scheduleSlopeCoefSave();
+  }
+
   async pause(): Promise<void> {
     await this.recording.pauseRecording();
   }
@@ -427,23 +474,22 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   }
 
   toggleSlopeFullscreen(): void {
-    const shell = this.slopeShell?.nativeElement;
-    if (!shell) {
-      return;
-    }
     if (this.slopeFullscreen) {
       this.exitSlopeFullscreenIfActive();
       return;
     }
-    this.requestElementFullscreen(shell, () => {
-      this.slopeFullscreen = true;
-    });
+    this.setSlopeFullscreen(true);
+    this.cdr.detectChanges();
+    const root = this.slopeFsRoot?.nativeElement;
+    if (root) {
+      this.requestElementFullscreen(root, () => undefined);
+    }
   }
 
   @HostListener('document:keydown.escape')
   onEscapeFullscreen(): void {
     if (this.slopeFullscreen && !this.nativeFullscreenElement()) {
-      this.slopeFullscreen = false;
+      this.setSlopeFullscreen(false);
     }
     if (this.mapFullscreen && !this.nativeFullscreenElement()) {
       this.mapFullscreen = false;
@@ -455,19 +501,19 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   @HostListener('document:webkitfullscreenchange')
   onFullscreenChange(): void {
     const mapActive = this.isElementFullscreen(this.mapShell?.nativeElement);
-    const slopeActive = this.isElementFullscreen(this.slopeShell?.nativeElement);
+    const slopeActive = this.isElementFullscreen(this.slopeFsRoot?.nativeElement);
     if (mapActive) {
       this.mapFsNative = true;
       this.slopeFsNative = false;
       this.mapFullscreen = true;
-      this.slopeFullscreen = false;
+      this.setSlopeFullscreen(false);
       this.refreshMapLayout();
       return;
     }
     if (slopeActive) {
       this.slopeFsNative = true;
       this.mapFsNative = false;
-      this.slopeFullscreen = true;
+      this.setSlopeFullscreen(true);
       if (this.mapFullscreen) {
         this.mapFullscreen = false;
         this.refreshMapLayout();
@@ -484,7 +530,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     }
     if (this.slopeFsNative) {
       this.slopeFsNative = false;
-      this.slopeFullscreen = false;
+      this.setSlopeFullscreen(false);
     }
   }
 
@@ -954,10 +1000,15 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
         }).addTo(this.trackLayer);
       }
       if (this.snap.recorded.length >= 2) {
-        L.polyline(
-          this.snap.recorded.map((p) => [p.lat, p.lon] as L.LatLngExpression),
-          { color: '#fd7e14', weight: 3, opacity: 0.8, dashArray: '6 8' }
-        ).addTo(this.trackLayer);
+        for (const seg of splitTrackSegments(this.snap.recorded)) {
+          if (seg.length < 2) {
+            continue;
+          }
+          L.polyline(
+            seg.map((p) => [p.lat, p.lon] as L.LatLngExpression),
+            { color: '#fd7e14', weight: 3, opacity: 0.8, dashArray: '6 8' }
+          ).addTo(this.trackLayer);
+        }
       }
     }
     this.syncUserMarker(this.snap.user);
@@ -998,6 +1049,70 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     setTimeout(() => this.map?.invalidateSize(), 120);
   }
 
+  private readonly slopeCoefStorageKey = 'pat.gps.slopeCoef.v1';
+
+  private clampSlopeCoef(raw: number | string | null | undefined): number {
+    const n = typeof raw === 'number' ? raw : parseFloat(String(raw ?? '').replace(',', '.'));
+    if (!Number.isFinite(n)) {
+      return 1;
+    }
+    const rounded = Math.round(n * 10) / 10;
+    return Math.max(this.slopeCoefMin, Math.min(this.slopeCoefMax, rounded));
+  }
+
+  private loadSlopeCoef(): void {
+    this.slopeCoef = this.readSlopeCoefLocal();
+    this.slopeCoefSaveSub?.unsubscribe();
+    this.slopeCoefSaveSub = this.api.getGpsSlopeScale().subscribe({
+      next: (pref) => {
+        this.slopeCoef = this.clampSlopeCoef(pref?.slopeCoef);
+        this.persistSlopeCoefLocal();
+        this.cdr.detectChanges();
+      },
+      error: () => undefined
+    });
+  }
+
+  private readSlopeCoefLocal(): number {
+    try {
+      const raw = localStorage.getItem(this.slopeCoefStorageKey);
+      return this.clampSlopeCoef(raw);
+    } catch {
+      return 1;
+    }
+  }
+
+  private persistSlopeCoefLocal(): void {
+    try {
+      localStorage.setItem(this.slopeCoefStorageKey, String(this.slopeCoef));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private scheduleSlopeCoefSave(): void {
+    this.clearSlopeCoefSaveTimer();
+    this.slopeCoefSaveTimer = setTimeout(() => this.saveSlopeCoefRemote(), 450);
+  }
+
+  private clearSlopeCoefSaveTimer(): void {
+    if (this.slopeCoefSaveTimer != null) {
+      clearTimeout(this.slopeCoefSaveTimer);
+      this.slopeCoefSaveTimer = null;
+    }
+  }
+
+  private saveSlopeCoefRemote(): void {
+    this.slopeCoefSaveSub?.unsubscribe();
+    this.slopeCoefSaveSub = this.api.saveGpsSlopeScale(this.slopeCoef).subscribe({
+      next: (pref) => {
+        this.slopeCoef = this.clampSlopeCoef(pref?.slopeCoef);
+        this.persistSlopeCoefLocal();
+      },
+      error: () => undefined
+    });
+  }
+
   private requestElementFullscreen(el: HTMLElement, onCssFallback: () => void): void {
     const request = el.requestFullscreen?.bind(el)
       ?? (el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen?.bind(el);
@@ -1035,12 +1150,20 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   }
 
   private exitSlopeFullscreenIfActive(): void {
-    if (this.isElementFullscreen(this.slopeShell?.nativeElement)) {
+    if (this.isElementFullscreen(this.slopeFsRoot?.nativeElement)) {
       this.exitNativeFullscreen();
+    }
+    this.setSlopeFullscreen(false);
+  }
+
+  private setSlopeFullscreen(on: boolean): void {
+    this.slopeFullscreen = on;
+    if (typeof document === 'undefined') {
       return;
     }
-    if (this.slopeFullscreen) {
-      this.slopeFullscreen = false;
+    document.body.classList.toggle('gps-slope-fs', on);
+    if (!on) {
+      this.refreshMapLayout();
     }
   }
 }

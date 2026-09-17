@@ -2972,7 +2972,8 @@
       "RADIO_FAVORITES": "Radios favorites",
       "GLOBE_SATELLITE_OVERLAYS": "Calques satellites (globe)",
       "GLOBE_ISS_HEADING_MODE": "Mode de cap ISS",
-      "GPS_FOLLOW_USER": "Suivi GPS utilisateur"
+      "GPS_FOLLOW_USER": "Suivi GPS utilisateur",
+      "GPS_SLOPE_COEF": "Coefficient de pente GPS"
     },
     "TAB_NEWS": "Actualités",
     "GROUND_POSITIONS": "Positions au sol (viseur)"
@@ -6848,7 +6849,10 @@
     "CLEAR": "Effacer",
     "PARSING": "Lecture du tracé…",
     "START_RECORD": "Démarrer l’enregistrement",
+    "START_SHORT": "Démarrer",
     "PAUSE": "Pause",
+    "PAUSE_HINT": "Arrête le chrono et le tracé le temps d’une pause (repas, nuit…). Reprenez ensuite.",
+    "PAUSED_BANNER": "Déplacement en pause — temps et tracé figés",
     "RESUME": "Reprendre",
     "STOP": "Arrêter",
     "DONE_KM": "Déjà fait",
@@ -6875,6 +6879,8 @@
     "SLOPE_CAL_RESET": "Annuler",
     "SLOPE_CALIBRATED": "Zéro = pose actuelle du téléphone",
     "SLOPE_FULLSCREEN": "Plein écran",
+    "SLOPE_COEF": "Coef ×",
+    "SLOPE_COEF_HINT": "Trait vertical ≈ {{deg}}° (une route dépasse rarement 20°).",
     "INCLINE_NONE": "Capteur d’inclinaison indisponible",
     "INCLINE_ENABLE": "Activer l’inclinaison",
     "INCLINE_DENIED": "Accès aux capteurs refusé",
@@ -6890,7 +6896,7 @@
     "SYNCING": "Mise à jour de la base…",
     "PENDING_SYNC": "{{n}} point(s) en attente de synchro",
     "SYNC_ERROR": "Serveur injoignable. Les points restent sur le téléphone jusqu’au retour du réseau.",
-    "BACKGROUND_HINT": "L’enregistrement continue si vous passez PATTOOL en arrière-plan ou perdez le réseau. Les points sont stockés sur le téléphone et envoyés vers la base quand le réseau revient.",
+    "BACKGROUND_HINT": "L’enregistrement continue si vous passez PATTOOL en arrière-plan ou perdez le réseau. Mettez en pause pour un repas ou une nuit : le temps et le tracé s’arrêtent. Les points sont stockés sur le téléphone et envoyés vers la base quand le réseau revient.",
     "SESSIONS": "Sorties enregistrées",
     "SESSIONS_EMPTY": "Aucune sortie enregistrée pour l’instant.",
     "DELETE_SESSION": "Supprimer",

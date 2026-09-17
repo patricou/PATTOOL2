@@ -195,6 +195,7 @@ public class GpsSessionService {
         p.setSpeedKmh(dto.getSpeedKmh());
         p.setAccuracyM(dto.getAccuracyM());
         p.setSlopePct(dto.getSlopePct());
+        p.setGapBefore(Boolean.TRUE.equals(dto.getGapBefore()) ? Boolean.TRUE : null);
         return p;
     }
 
@@ -246,6 +247,7 @@ public class GpsSessionService {
         dto.setSpeedKmh(p.getSpeedKmh());
         dto.setAccuracyM(p.getAccuracyM());
         dto.setSlopePct(p.getSlopePct());
+        dto.setGapBefore(Boolean.TRUE.equals(p.getGapBefore()) ? Boolean.TRUE : null);
         return dto;
     }
 

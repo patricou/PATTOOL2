@@ -4,6 +4,8 @@ export interface GpsTrackPt {
   lat: number;
   lon: number;
   eleM?: number | null;
+  /** First point after a pause — do not join to the previous sample. */
+  gapBefore?: boolean;
 }
 
 export function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -100,6 +102,9 @@ export function elevationGainLoss(points: GpsTrackPt[]): { gainM: number; lossM:
   let loss = 0;
   let prev: number | null = null;
   for (const p of points) {
+    if (p.gapBefore) {
+      prev = null;
+    }
     const ele = p.eleM;
     if (ele == null || !Number.isFinite(ele)) {
       continue;
@@ -115,6 +120,22 @@ export function elevationGainLoss(points: GpsTrackPt[]): { gainM: number; lossM:
     prev = ele;
   }
   return { gainM: gain, lossM: loss };
+}
+
+export function splitTrackSegments(points: GpsTrackPt[]): GpsTrackPt[][] {
+  const segs: GpsTrackPt[][] = [];
+  let cur: GpsTrackPt[] = [];
+  for (const p of points) {
+    if (p.gapBefore && cur.length) {
+      segs.push(cur);
+      cur = [];
+    }
+    cur.push(p);
+  }
+  if (cur.length) {
+    segs.push(cur);
+  }
+  return segs;
 }
 
 export function coordsToArrays(points: GpsTrackPt[]): number[][] {

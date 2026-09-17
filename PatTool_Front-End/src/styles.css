@@ -2152,6 +2152,35 @@ body.rf-landscape-fs app-relief-finder {
   background: #090c0a !important;
 }
 
+/* GPS slope inclinometer: hide app chrome, lock scroll */
+body.gps-slope-fs {
+  overflow: hidden !important;
+}
+
+body.gps-slope-fs app-root > app-assistant-drawer,
+body.gps-slope-fs app-root > nav.navbar,
+body.gps-slope-fs app-root > app-news-ticker,
+body.gps-slope-fs app-root > app-currency-ticker,
+body.gps-slope-fs app-root > app-stock-ticker,
+body.gps-slope-fs app-root > .pat-div,
+body.gps-slope-fs app-root > .friend-requests-app-banner {
+  display: none !important;
+}
+
+body.gps-slope-fs app-gps-track {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 20000 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: #020607 !important;
+}
+
 /* Mobile landscape / theater YouTube: hide app chrome, lock scroll */
 body.yt-landscape-fs,
 body.yt-theater {

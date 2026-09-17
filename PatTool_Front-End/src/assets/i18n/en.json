@@ -2988,7 +2988,8 @@
       "RADIO_FAVORITES": "Favorite radios",
       "GLOBE_SATELLITE_OVERLAYS": "Satellite overlays (globe)",
       "GLOBE_ISS_HEADING_MODE": "ISS heading mode",
-      "GPS_FOLLOW_USER": "GPS user follow"
+      "GPS_FOLLOW_USER": "GPS user follow",
+      "GPS_SLOPE_COEF": "GPS slope coefficient"
     },
     "TAB_NEWS": "News",
     "GROUND_POSITIONS": "Ground positions (viewfinder)"
@@ -6844,7 +6845,10 @@
     "CLEAR": "Clear",
     "PARSING": "Reading track…",
     "START_RECORD": "Start recording",
+    "START_SHORT": "Start",
     "PAUSE": "Pause",
+    "PAUSE_HINT": "Stops the clock and the recorded track for a break (meal, night…). Resume afterwards.",
+    "PAUSED_BANNER": "Movement paused — time and track are frozen",
     "RESUME": "Resume",
     "STOP": "Stop",
     "DONE_KM": "Done",
@@ -6871,6 +6875,8 @@
     "SLOPE_CAL_RESET": "Reset",
     "SLOPE_CALIBRATED": "Zero = current phone pose",
     "SLOPE_FULLSCREEN": "Full screen",
+    "SLOPE_COEF": "Coef ×",
+    "SLOPE_COEF_HINT": "Vertical line ≈ {{deg}}° (roads rarely exceed 20°).",
     "INCLINE_NONE": "Tilt sensor unavailable",
     "INCLINE_ENABLE": "Enable tilt sensor",
     "INCLINE_DENIED": "Sensor access denied",
@@ -6886,7 +6892,7 @@
     "SYNCING": "Updating the database…",
     "PENDING_SYNC": "{{n}} point(s) waiting to sync",
     "SYNC_ERROR": "Could not reach the server. Points stay on the phone until the network returns.",
-    "BACKGROUND_HINT": "Recording continues if you switch app or lose the network. Points are stored on the phone and sent to the database when you are back online.",
+    "BACKGROUND_HINT": "Recording continues if you switch app or lose the network. Pause for a meal or overnight: time and track stop. Points are stored on the phone and sent to the database when you are back online.",
     "SESSIONS": "Saved outings",
     "SESSIONS_EMPTY": "No saved outing yet.",
     "DELETE_SESSION": "Delete",
