@@ -2565,6 +2565,43 @@ export class ApiService {
   }
 
   // ===================================================================
+  // GPS follow sessions — planned track + recorded samples
+  // Backend: /api/gps-sessions (JWT required). Sync is idempotent via clientSessionId.
+  // ===================================================================
+
+  listGpsSessions(): Observable<GpsFollowSession[]> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<GpsFollowSession[]>(this.API_URL + 'gps-sessions', { headers })
+      )
+    );
+  }
+
+  getGpsSession(id: string): Observable<GpsFollowSession> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<GpsFollowSession>(this.API_URL + 'gps-sessions/' + encodeURIComponent(id), { headers })
+      )
+    );
+  }
+
+  syncGpsSession(body: GpsFollowSessionSync): Observable<GpsFollowSession> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post<GpsFollowSession>(this.API_URL + 'gps-sessions/sync', body, { headers })
+      )
+    );
+  }
+
+  deleteGpsSession(id: string): Observable<void> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.delete<void>(this.API_URL + 'gps-sessions/' + encodeURIComponent(id), { headers })
+      )
+    );
+  }
+
+  // ===================================================================
   // Twelve Data — stock exchange proxy
   // Backend: /api/external/stock/* (no auth required — server-side API key)
   // ===================================================================
@@ -5283,6 +5320,51 @@ export interface GpsItineraryWrite {
   ascentMeters?: number;
   descentMeters?: number;
   coordinates?: number[][];
+}
+
+/** One recorded GPS sample from the Monde GPS follow page. */
+export interface GpsFollowPoint {
+  clientPointId?: string;
+  lat: number;
+  lon: number;
+  eleM?: number | null;
+  timeMs?: number | null;
+  speedKmh?: number | null;
+  accuracyM?: number | null;
+  slopePct?: number | null;
+}
+
+/** Payload sent by the frontend (IndexedDB queue) when the network is back. */
+export interface GpsFollowSessionSync {
+  id?: string;
+  clientSessionId: string;
+  title?: string;
+  sourceType?: 'import' | 'file' | 'session';
+  sourceFileId?: string | null;
+  sourceFileName?: string | null;
+  status?: 'idle' | 'recording' | 'paused' | 'finished';
+  plannedTrack?: number[][];
+  plannedDistanceM?: number | null;
+  plannedAscentM?: number | null;
+  plannedDescentM?: number | null;
+  recordedPoints?: GpsFollowPoint[];
+  doneM?: number | null;
+  remainingM?: number | null;
+  ascentDoneM?: number | null;
+  descentDoneM?: number | null;
+  durationSec?: number | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+}
+
+/** Saved GPS follow session (planned track + recorded samples). */
+export interface GpsFollowSession extends GpsFollowSessionSync {
+  id?: string;
+  ownerMemberId?: string;
+  ownerUsername?: string;
+  recordedPointCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /** Saved GPS itinerary (mine or shared with me). */

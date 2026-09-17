@@ -341,6 +341,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     private intersectionObserver: IntersectionObserver | null = null;
     private wallVideoIntersectionObserver: IntersectionObserver | null = null;
     private wallVideoQuerySub: Subscription | null = null;
+    /**
+     * Overlays that cover the wall (trace, slideshow, videoshow, event card).
+     * IntersectionObserver still sees the tiles in the viewport, so autoplay must be gated.
+     */
+    private wallVideoSuspendReasons = new Set<string>();
+    /** Trace viewer can replace an open modal; pair each open with its closed event. */
+    private wallTraceViewerOpenCount = 0;
     /** Met en pause les vidéos du mur quand l’onglet est en arrière-plan. */
     private readonly onDocumentVisibilityChange = (): void => {
         if (this.destroyed || typeof document === 'undefined') {
@@ -355,7 +362,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             return;
         }
         this.ngZone.run(() => {
-            this.pauseAllWallTimelineVideos();
+            this.suspendWallVideoPlayback('videoshow');
             this.suspendWallYoutubeEmbedsForVideoshow();
             this.youtubePlayer.close();
         });
@@ -364,7 +371,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (this.destroyed) {
             return;
         }
-        this.ngZone.run(() => this.onWallVideoshowClosed());
+        this.ngZone.run(() => {
+            this.onWallVideoshowClosed();
+            this.resumeWallVideoPlayback('videoshow');
+        });
     };
     /** Loads masonry photos / videos only when near the viewport. */
     private wallMediaObserver: IntersectionObserver | null = null;
@@ -574,6 +584,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             clearTimeout(this.wallEventAccessOpenTimer);
             this.wallEventAccessOpenTimer = null;
         }
+        this.wallVideoSuspendReasons.clear();
+        this.wallTraceViewerOpenCount = 0;
         this.pauseAllWallTimelineVideos();
         this.releaseWallTimelineVideoElements();
         this.thumbnailCache.forEach(url => {
@@ -615,12 +627,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.wallVideoIntersectionObserver = new IntersectionObserver(
             (entries) => {
                 if (this.destroyed) return;
+                const suspendPlayback = this.isWallVideoPlaybackSuspended();
                 for (const entry of entries) {
                     const v = entry.target as HTMLVideoElement;
                     const visibleEnough =
                         entry.isIntersecting &&
                         entry.intersectionRatio >= WALL_VIDEO_AUTOPLAY_MIN_VISIBLE_RATIO;
-                    if (visibleEnough) {
+                    if (visibleEnough && !suspendPlayback) {
                         v.play().catch(() => { /* autoplay / politiques navigateur */ });
                     } else if (document.fullscreenElement !== v && document.pictureInPictureElement !== v) {
                         v.pause();
@@ -667,19 +680,49 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (document.fullscreenElement === v || document.pictureInPictureElement === v) {
             return;
         }
-        if (!this.isWallVideoSubstantiallyVisible(v)) {
+        if (this.isWallVideoPlaybackSuspended() || !this.isWallVideoSubstantiallyVisible(v)) {
             v.pause();
         }
     }
 
-    private pauseAllWallTimelineVideos(): void {
+    private isWallVideoPlaybackSuspended(): boolean {
+        return this.wallVideoSuspendReasons.size > 0;
+    }
+
+    /** Pause wall videos and block IntersectionObserver autoplay while an overlay covers the wall. */
+    private suspendWallVideoPlayback(reason: string): void {
+        this.wallVideoSuspendReasons.add(reason);
+        this.pauseAllWallTimelineVideos(true);
+        this.youtubePlayer.close();
+    }
+
+    /** Lift the autoplay gate only — do not restart videos that were stopped for the overlay. */
+    private resumeWallVideoPlayback(reason: string): void {
+        this.wallVideoSuspendReasons.delete(reason);
+    }
+
+    private markWallTraceViewerOpened(): void {
+        this.wallTraceViewerOpenCount++;
+        this.suspendWallVideoPlayback('trace');
+    }
+
+    private markWallTraceViewerClosed(): void {
+        if (this.wallTraceViewerOpenCount > 0) {
+            this.wallTraceViewerOpenCount--;
+        }
+        if (this.wallTraceViewerOpenCount === 0) {
+            this.resumeWallVideoPlayback('trace');
+        }
+    }
+
+    private pauseAllWallTimelineVideos(includeFullscreenAndPip = false): void {
         if (this.wallTimelineVideos?.length) {
             for (const ref of this.wallTimelineVideos) {
                 const v = ref?.nativeElement;
                 if (!v) {
                     continue;
                 }
-                if (document.fullscreenElement === v || document.pictureInPictureElement === v) {
+                if (!includeFullscreenAndPip && (document.fullscreenElement === v || document.pictureInPictureElement === v)) {
                     continue;
                 }
                 try {
@@ -2178,6 +2221,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     private openSlideshowWithGroup(group: TimelineGroup, startIndex: number): void {
         if (!this.slideshowModalComponent || !group.photos?.length) return;
+        this.suspendWallVideoPlayback('slideshow');
         const images: SlideshowImageSource[] = group.photos.map(p => ({
             fileId: p.fileId,
             fileName: p.fileName
@@ -2189,9 +2233,11 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     eventIdForCard: string | null = null;
     openEventCardModal(group: TimelineGroup): void {
         this.eventIdForCard = group.eventId;
+        this.suspendWallVideoPlayback('event-card');
     }
     closeEventCardOverlay(): void {
         this.eventIdForCard = null;
+        this.resumeWallVideoPlayback('event-card');
     }
 
     /** Opens the video in the player modal (photo wall). */
@@ -2238,6 +2284,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             fileId: p.fileId,
             fileName: p.fileName
         }));
+        this.suspendWallVideoPlayback('slideshow');
         this.slideshowModalComponent.open(images, this.translate.instant('PHOTO_TIMELINE.ON_THIS_DAY'), true, 0, undefined, index);
     }
 
@@ -2926,6 +2973,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             const fileName = pathPart || descPart || 'track';
             const displayTitle = descPart && descPart !== pathPart ? descPart : undefined;
             if (this.traceViewerModalComponent) {
+                this.markWallTraceViewerOpened();
                 this.traceViewerModalComponent.openFromFile(fsLink.fieldId, fileName, undefined, displayTitle);
             }
             return;
@@ -2971,6 +3019,19 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             }
         });
         this.subscriptions.push(sub);
+    }
+
+    openTrackInGps(fsLink: FsPhotoLink): void {
+        const id = (fsLink.fieldId || '').trim();
+        if (!id) {
+            return;
+        }
+        const pathPart = (fsLink.path || '').trim();
+        const descPart = (fsLink.description || '').trim();
+        const fileName = pathPart || descPart || 'track';
+        void this.router.navigate(['api', 'gps'], {
+            queryParams: { fileId: id, fileName }
+        });
     }
 
     /** Télécharge un ODS lié au mur (GridFS). */
@@ -3071,6 +3132,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
         this.fsSlideshowLoadingActive = true;
         this.currentFsSlideshowEventId = eventId;
+        this.suspendWallVideoPlayback('slideshow');
         this.slideshowModalComponent.open([], eventName, false, 0, undefined, 0, eventId, canAddToDb);
 
         const listSub = this.fileService.listImagesFromDisk(fsLink.path).subscribe({
@@ -3101,6 +3163,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.currentFsSlideshowEventId = '';
         this.fsSlideshowSubs.forEach(s => { if (s && !s.closed) s.unsubscribe(); });
         this.fsSlideshowSubs = [];
+        this.resumeWallVideoPlayback('slideshow');
         // Refresh timeline so newly added photo(s) appear immediately in the wall
         if (this.addedPhotoToDbDuringSlideshow) {
             this.addedPhotoToDbDuringSlideshow = false;
@@ -3118,6 +3181,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             this.slideshowModalComponent.setTraceViewerOpen(true);
         }
         if (this.traceViewerModalComponent) {
+            this.markWallTraceViewerOpened();
             this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, event.eventColor);
         }
     }
@@ -3126,6 +3190,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (this.slideshowModalComponent) {
             this.slideshowModalComponent.setTraceViewerOpen(false);
         }
+        this.markWallTraceViewerClosed();
     }
 
     startLocationMapLoadingEventId: string | null = null;
@@ -3263,6 +3328,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             }
         }
 
+        this.markWallTraceViewerOpened();
         this.traceViewerModalComponent.openAtLocation(lat, lng, label, finalEventColor);
     }
 
@@ -4406,10 +4472,12 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 animation: true
             });
             this.wallEventAccessModalRef = modalRef;
+            this.suspendWallVideoPlayback('access');
             modalRef.result.finally(() => {
                 if (this.wallEventAccessModalRef === modalRef) {
                     this.wallEventAccessModalRef = null;
                 }
+                this.resumeWallVideoPlayback('access');
             });
         };
 
@@ -4478,6 +4546,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             windowClass: 'modal-smooth-animation comments-modal wall-comments-modal'
         });
         this.wallCommentsModalRef = modalRef;
+        this.suspendWallVideoPlayback('comments');
         setTimeout(() => this.applyWallCommentsModalWhiteBorder(modalRef), 200);
         modalRef.result.finally(() => {
             if (this.wallCommentsModalRef === modalRef) {
@@ -4487,6 +4556,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             this.wallCommentaryLoading = false;
             this.wallCommentaryLoadingName = '';
             this.wallCommentaryLoadingEventId = '';
+            this.resumeWallVideoPlayback('comments');
             this.cdr.markForCheck();
         });
     }
@@ -4795,6 +4865,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             windowClass: 'modal-smooth-animation wall-links-modal'
         });
         this.wallLinksModalRef = modalRef;
+        this.suspendWallVideoPlayback('links');
         modalRef.result.finally(() => {
             if (this.wallLinksModalRef === modalRef) {
                 this.wallLinksModalRef = null;
@@ -4805,6 +4876,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             this.wallLinksGroup = null;
             this.isAddingWallUrlEvent = false;
             this.cancelEditWallUrlEvent();
+            this.resumeWallVideoPlayback('links');
             this.cdr.markForCheck();
         });
     }
@@ -5147,15 +5219,16 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 windowClass: 'discussion-modal-window'
             });
             this.wallDiscussionModalRef = modalRef;
-            const closedSub = modalRef.closed.subscribe(() => {
+            this.suspendWallVideoPlayback('discussion');
+            modalRef.result.finally(() => {
                 if (this.wallDiscussionModalRef === modalRef) {
                     this.wallDiscussionModalRef = null;
                 }
+                this.resumeWallVideoPlayback('discussion');
                 if (!this.destroyed) {
                     this.cdr.markForCheck();
                 }
             });
-            this.subscriptions.push(closedSub);
             if (modalRef?.componentInstance) {
                 modalRef.componentInstance.discussionId = discussionId;
                 modalRef.componentInstance.title = evenement.evenementName || 'Discussion';

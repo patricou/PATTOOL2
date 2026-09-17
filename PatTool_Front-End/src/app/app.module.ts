@@ -48,7 +48,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
-	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20260905b');
+	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20260917gps2');
 }
 
 @NgModule({
@@ -185,6 +185,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{
 				path: 'api/gps-routing',
 				loadComponent: () => import('./gps-routing/gps-routing.component').then(m => m.GpsRoutingComponent)
+			},
+			{
+				path: 'api/gps',
+				loadComponent: () => import('./gps-track/gps-track.component').then(m => m.GpsTrackComponent)
 			},
 			{
 				path: 'api/gpx-trace',

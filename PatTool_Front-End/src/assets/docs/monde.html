@@ -73,6 +73,7 @@
                     <tr><td><strong>Position / Météo</strong></td><td><code class="doc-code">#/api/openweathermap</code></td><td>Géolocalisation ou ville saisie ; météo actuelle et prévisions ; carte ; baguette → assistant avec « ville, pays »</td></tr>
                     <tr><td><strong>Adresse / GPS → carte</strong></td><td><code class="doc-code">#/api/address-geocode</code></td><td>Géocodage d'une adresse ou coordonnées → carte Leaflet</td></tr>
                     <tr><td><strong>GPS / Itinéraire</strong></td><td><code class="doc-code">#/api/gps-routing</code></td><td>Itinéraire A→B avec étapes intermédiaires (voiture, vélo, à pied) via OpenRouteService ; carte Leaflet + instructions</td></tr>
+                    <tr><td><strong>GPS</strong></td><td><code class="doc-code">#/api/gps</code></td><td>Suivi d'un tracé (import GPX/KML, mur de photos, visualiseur) : km faits / restants, D+/D−, vitesse, pente (capteur d'altitude), position sur la trace, enregistrement hors-ligne et vue 3D</td></tr>
                     <tr><td><strong>Trace GPX</strong></td><td><code class="doc-code">#/api/gpx-trace</code></td><td>Chargement d'un fichier GPX : carte, profil altimétrique, distance, dénivelé, vitesse, waypoints et métadonnées</td></tr>
                     <tr><td><strong>Relief finder</strong></td><td><code class="doc-code">#/tools/relief-finder</code></td><td>Viseur de sommets : silhouette DEM 360° (tuiles Terrarium) et noms OSM collés sur la caméra, avec le nord et l’élévation du viseur</td></tr>
                     <tr><td><strong>Détection d’erreur</strong></td><td><code class="doc-code">#/tools/detection-error</code></td><td>Mesure la déviation de direction et d’élévation du téléphone : enregistrer un cap, tourner, revenir, comparer. Lecture de tous les capteurs disponibles</td></tr>
@@ -218,7 +219,7 @@
 
             <section class="doc-section" id="geo-en">
                 <h2>Geolocation &amp; weather</h2>
-                <p>Weather (<code class="doc-code">#/api/openweathermap</code>), geocoding map (<code class="doc-code">#/api/address-geocode</code>), GPS routing (<code class="doc-code">#/api/gps-routing</code>), GPX track analyzer (<code class="doc-code">#/api/gpx-trace</code>), Relief finder (<code class="doc-code">#/tools/relief-finder</code> — DEM silhouette + named peaks on the rear camera), error detection (<code class="doc-code">#/tools/detection-error</code> — heading and elevation repeatability), time zones (<code class="doc-code">#/api/timezone-converter</code>).</p>
+                <p>Weather (<code class="doc-code">#/api/openweathermap</code>), geocoding map (<code class="doc-code">#/api/address-geocode</code>), GPS routing (<code class="doc-code">#/api/gps-routing</code>), GPS follow (<code class="doc-code">#/api/gps</code> — import a track, live km / elevation / slope, offline recording, 3D view), GPX track analyzer (<code class="doc-code">#/api/gpx-trace</code>), Relief finder (<code class="doc-code">#/tools/relief-finder</code> — DEM silhouette + named peaks on the rear camera), error detection (<code class="doc-code">#/tools/detection-error</code> — heading and elevation repeatability), time zones (<code class="doc-code">#/api/timezone-converter</code>).</p>
             </section>
 
             <section class="doc-section" id="news-en">

@@ -29,6 +29,7 @@ import { GlobeIssNowService } from './services/globe-iss-now.service';
 import { MongoHealthService, MongoHealthStatus } from './services/mongodb-health.service';
 import { LastRouteService } from './services/last-route.service';
 import { BackgroundPlaybackService } from './services/background-playback.service';
+import { GpsRecordingService } from './services/gps-recording.service';
 import { ApiService, AstroGroundPosition, UserAppParameter } from './services/api.service';
 import { buildIssTopViewIconDataUrl } from './shared/globe-iss-icon.util';
 
@@ -237,6 +238,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { routerLink: ['api/openweathermap'], icon: 'fa fa-location-arrow', labelKey: 'MENU.POSITION_METEO' },
         { routerLink: ['api/address-geocode'], icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP' },
         { routerLink: ['api/gps-routing'], icon: 'fa fa-road', labelKey: 'MENU.GPS_ROUTING' },
+        { routerLink: ['api/gps'], icon: 'fa fa-location-arrow', labelKey: 'MENU.GPS' },
         { routerLink: ['api/gpx-trace'], icon: 'fa fa-map-signs', labelKey: 'MENU.GPX_TRACE' },
         { routerLink: ['tools/relief-finder'], icon: 'fa fa-area-chart', labelKey: 'MENU.RELIEF_FINDER' },
         { routerLink: ['tools/detection-error'], icon: 'fa fa-crosshairs', labelKey: 'MENU.DETECTION_ERROR' },
@@ -341,7 +343,8 @@ export class AppComponent implements OnInit, AfterViewInit {
         private _mongoHealth: MongoHealthService,
         private lastRoute: LastRouteService,
         private api: ApiService,
-        backgroundPlayback: BackgroundPlaybackService) {
+        backgroundPlayback: BackgroundPlaybackService,
+        _gpsRecording: GpsRecordingService) {
         this.selectedFiles = [];
         this.lastRoute.beginSession();
         backgroundPlayback.start();

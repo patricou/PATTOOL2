@@ -15,10 +15,17 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { Map as MapLibreMap, Marker, NavigationControl } from 'maplibre-gl';
+import { Map as MapLibreMap, Marker, NavigationControl, RasterTileSource, setWorkerUrl } from 'maplibre-gl';
 import { OpenRouteStep } from '../services/api.service';
-import { environment } from '../../environments/environment';
 import { GpsMapOrientation } from '../shared/gps-map-orientation';
+import { environment } from '../../environments/environment';
+
+export interface GpsNav3dFix {
+  lat: number;
+  lon: number;
+  speedKmh?: number | null;
+  headingDeg?: number | null;
+}
 
 /**
  * GPS-style 3D navigation using MapLibre (pitched map + bearing).
@@ -45,6 +52,10 @@ export class GpsNav3dComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() orientation: GpsMapOrientation = 'heading';
   /** When true, camera recenters on the user every 5 seconds. */
   @Input() followUser = false;
+  /** When set, use this GPS fix instead of an internal watchPosition. */
+  @Input() externalFix: GpsNav3dFix | null = null;
+  /** Progress along the track (GPS page). Used when the user is off the route. */
+  @Input() alongIndex: number | null = null;
 
   @Output() closed = new EventEmitter<void>();
 
@@ -58,7 +69,22 @@ export class GpsNav3dComponent implements AfterViewInit, OnChanges, OnDestroy {
   zoomLevel = 16;
   fullscreen = false;
 
-  private readonly tileApiBase = `${environment.API_URL}external/map/tile`;
+  private static workerUrlReady = false;
+
+  private static ensureWorkerUrl(): void {
+    if (GpsNav3dComponent.workerUrlReady) {
+      return;
+    }
+    const url = new URL('assets/maplibre-gl-worker.mjs', document.baseURI).href;
+    setWorkerUrl(url);
+    GpsNav3dComponent.workerUrlReady = true;
+  }
+
+  private static readonly OSM_TILES = [
+    'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+  ];
   private readonly snapDistanceM = 120;
   private readonly zoomMin = 5;
   private readonly zoomMax = 20;
@@ -69,6 +95,7 @@ export class GpsNav3dComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   private map?: MapLibreMap;
   private userMarker?: Marker;
+  private usedProxyBasemapFallback = false;
   private resizeObserver?: ResizeObserver;
   private watchId: number | null = null;
   private followIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -97,7 +124,12 @@ export class GpsNav3dComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.rebuildRouteMeta();
     this.initMap();
     this.fallbackToRouteStart();
-    this.startGeolocation();
+    if (this.externalFix) {
+      this.applyExternalFix(this.externalFix);
+    } else {
+      this.startGeolocation();
+    }
+    this.syncFollowInterval();
     setTimeout(() => this.map?.resize(), 80);
     setTimeout(() => this.map?.resize(), 300);
   }
@@ -126,6 +158,17 @@ export class GpsNav3dComponent implements AfterViewInit, OnChanges, OnDestroy {
       this.syncFollowInterval();
       if (this.followUser) {
         this.syncCamera(true);
+      }
+    }
+    if (changes['externalFix'] && this.externalFix) {
+      this.applyExternalFix(this.externalFix);
+    }
+    if (changes['alongIndex'] && !changes['alongIndex'].firstChange) {
+      this.updateNavigationState();
+      if (this.followUser) {
+        this.syncCamera(false);
+      } else {
+        this.syncUserMarkerOnly();
       }
     }
   }
@@ -243,7 +286,7 @@ export class GpsNav3dComponent implements AfterViewInit, OnChanges, OnDestroy {
       return;
     }
     const start = this.routeCoords[0];
-    const tileUrl = `${this.tileApiBase}/{z}/{x}/{y}?style=voyager`;
+    GpsNav3dComponent.ensureWorkerUrl();
 
     this.ngZone.runOutsideAngular(() => {
       const map = new MapLibreMap({
@@ -253,9 +296,9 @@ export class GpsNav3dComponent implements AfterViewInit, OnChanges, OnDestroy {
           sources: {
             basemap: {
               type: 'raster',
-              tiles: [tileUrl],
+              tiles: [...GpsNav3dComponent.OSM_TILES],
               tileSize: 256,
-              attribution: '© OpenStreetMap © CARTO',
+              attribution: '© OpenStreetMap',
               maxzoom: 19
             }
           },
@@ -312,10 +355,31 @@ export class GpsNav3dComponent implements AfterViewInit, OnChanges, OnDestroy {
         this.zoomLevel = Math.round(this.map.getZoom() * 10) / 10;
         this.ngZone.run(() => this.cdr.detectChanges());
       });
+
+      map.on('error', (event) => this.fallbackBasemapIfNeeded(event));
     });
 
     this.resizeObserver = new ResizeObserver(() => this.map?.resize());
     this.resizeObserver.observe(host);
+  }
+
+  private fallbackBasemapIfNeeded(event: { error?: { status?: number }; sourceId?: string }): void {
+    if (this.usedProxyBasemapFallback || !this.map) {
+      return;
+    }
+    if (event.sourceId && event.sourceId !== 'basemap') {
+      return;
+    }
+    const status = event.error?.status;
+    if (status != null && status !== 401 && status !== 403 && status !== 429 && status < 500) {
+      return;
+    }
+    this.usedProxyBasemapFallback = true;
+    const src = this.map.getSource('basemap');
+    if (src && typeof (src as RasterTileSource).setTiles === 'function') {
+      const base = `${environment.API_URL}external/map/tile`;
+      (src as RasterTileSource).setTiles([`${base}/{z}/{x}/{y}?style=osm`]);
+    }
   }
 
   /**
@@ -368,6 +432,9 @@ export class GpsNav3dComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   private startGeolocation(): void {
+    if (this.externalFix) {
+      return;
+    }
     if (!navigator.geolocation) {
       this.statusKey = 'GPS_ROUTING.GEOLOCATION_UNSUPPORTED';
       this.cdr.detectChanges();
@@ -405,6 +472,24 @@ export class GpsNav3dComponent implements AfterViewInit, OnChanges, OnDestroy {
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
     );
     this.syncFollowInterval();
+  }
+
+  private applyExternalFix(fix: GpsNav3dFix): void {
+    this.hasFix = true;
+    this.statusKey = 'GPS_ROUTING.NAV3D_FOLLOWING';
+    this.userLat = fix.lat;
+    this.userLon = fix.lon;
+    this.userSpeedKmh = fix.speedKmh != null && Number.isFinite(fix.speedKmh) ? fix.speedKmh : null;
+    if (fix.headingDeg != null && Number.isFinite(fix.headingDeg)) {
+      this.userHeadingDeg = fix.headingDeg;
+      this.hasGpsHeading = true;
+    }
+    this.updateNavigationState();
+    this.syncUserMarkerOnly();
+    if (this.followUser && this.mapReady) {
+      this.syncCamera(false);
+    }
+    this.cdr.detectChanges();
   }
 
   private syncFollowInterval(): void {
@@ -476,6 +561,17 @@ export class GpsNav3dComponent implements AfterViewInit, OnChanges, OnDestroy {
         bestI = i;
       }
     }
+    const lastI = this.routeCoords.length - 1;
+    const hint = this.alongIndex;
+    const hinted = hint != null && Number.isFinite(hint)
+      ? Math.max(0, Math.min(lastI, Math.round(hint)))
+      : 0;
+    // Off the track: stay on the planned progress (start if none), not the geographically
+    // closest vertex — that often snaps to the finish when you are still at home.
+    if (bestD > this.snapDistanceM) {
+      bestI = hinted;
+      bestD = this.haversineM(this.userLat, this.userLon, this.routeCoords[bestI][0], this.routeCoords[bestI][1]);
+    }
     this.nearestIndex = bestI;
     this.updateRouteHeading();
     this.paintRouteOverlay();
@@ -484,24 +580,33 @@ export class GpsNav3dComponent implements AfterViewInit, OnChanges, OnDestroy {
     const done = this.cumulativeDistances[bestI] || 0;
     this.remainingDistanceM = Math.max(0, total - done);
 
-    let stepAlong = 0;
-    let next: OpenRouteStep | null = null;
-    let distToNext = 0;
-    for (const step of this.steps || []) {
-      const stepDist = step.distanceMeters || 0;
-      if (stepAlong + stepDist > done + 2) {
-        next = step;
-        distToNext = stepAlong + stepDist - done;
-        break;
+    const steps = this.steps || [];
+    if (steps.length) {
+      let stepAlong = 0;
+      let next: OpenRouteStep | null = null;
+      let distToNext = 0;
+      for (const step of steps) {
+        const stepDist = step.distanceMeters || 0;
+        if (stepAlong + stepDist > done + 2) {
+          next = step;
+          distToNext = stepAlong + stepDist - done;
+          break;
+        }
+        stepAlong += stepDist;
       }
-      stepAlong += stepDist;
+      if (!next) {
+        next = steps[steps.length - 1];
+        distToNext = this.remainingDistanceM;
+      }
+      this.nextInstruction = next?.instruction || next?.name || this.translate.instant('GPS_ROUTING.NAV3D_ARRIVE');
+      this.distanceToNextM = distToNext;
+    } else {
+      const arrived = this.remainingDistanceM <= 25 && bestI >= Math.max(0, lastI - 1);
+      this.nextInstruction = this.translate.instant(
+        arrived ? 'GPS_ROUTING.NAV3D_ARRIVE' : 'GPS_ROUTING.NAV3D_FOLLOW_TRACK'
+      );
+      this.distanceToNextM = null;
     }
-    if (!next && this.steps?.length) {
-      next = this.steps[this.steps.length - 1];
-      distToNext = this.remainingDistanceM;
-    }
-    this.nextInstruction = next?.instruction || next?.name || this.translate.instant('GPS_ROUTING.NAV3D_ARRIVE');
-    this.distanceToNextM = distToNext;
 
     this.viewSnapLat = bestD > this.snapDistanceM ? this.routeCoords[bestI][0] : this.userLat;
     this.viewSnapLon = bestD > this.snapDistanceM ? this.routeCoords[bestI][1] : this.userLon;

@@ -51,10 +51,26 @@ public class MapTileProxyService {
             default -> "https://a.basemaps.cartocdn.com/rastertiles/voyager/" + z + "/" + x + "/" + y + ".png";
         };
 
+        ResponseEntity<byte[]> fetched = fetchPng(url, safeStyle, z, x, y);
+        if (fetched.getStatusCode().is2xxSuccessful()) {
+            return fetched;
+        }
+        if (!"osm".equals(safeStyle)) {
+            String osmUrl = "https://tile.openstreetmap.org/" + z + "/" + x + "/" + y + ".png";
+            ResponseEntity<byte[]> osm = fetchPng(osmUrl, "osm", z, x, y);
+            if (osm.getStatusCode().is2xxSuccessful()) {
+                return osm;
+            }
+        }
+        return fetched;
+    }
+
+    private ResponseEntity<byte[]> fetchPng(String url, String style, int z, int x, int y) {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.set(HttpHeaders.USER_AGENT, "PatTool-MapTileProxy/1.0 (GPS 3D nav; contact via patrickdeschamps.com)");
             headers.set(HttpHeaders.ACCEPT, "image/png,image/*;q=0.8,*/*;q=0.5");
+            headers.set(HttpHeaders.REFERER, "https://www.patrickdeschamps.com/");
 
             ResponseEntity<byte[]> response = restTemplate.exchange(
                     url,
@@ -63,7 +79,7 @@ public class MapTileProxyService {
                     byte[].class
             );
             byte[] body = response.getBody();
-            if (body == null || body.length == 0) {
+            if (!response.getStatusCode().is2xxSuccessful() || body == null || body.length == 0) {
                 return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
             }
             HttpHeaders out = new HttpHeaders();
@@ -72,9 +88,10 @@ public class MapTileProxyService {
             out.setCacheControl(CacheControl.maxAge(Duration.ofHours(6)).cachePublic());
             return new ResponseEntity<>(body, out, HttpStatus.OK);
         } catch (HttpClientErrorException e) {
+            log.debug("Map tile HTTP {} (style={}, z={}, x={}, y={})", e.getStatusCode(), style, z, x, y);
             return ResponseEntity.status(e.getStatusCode()).build();
         } catch (Exception e) {
-            log.debug("Map tile fetch failed (style={}, z={}, x={}, y={}): {}", safeStyle, z, x, y, e.getMessage());
+            log.debug("Map tile fetch failed (style={}, z={}, x={}, y={}): {}", style, z, x, y, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
     }

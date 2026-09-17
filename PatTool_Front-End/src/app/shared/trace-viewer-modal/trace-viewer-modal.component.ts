@@ -6,6 +6,7 @@ import { NgbModule, NgbModal, NgbModalOptions, NgbModalRef } from '@ng-bootstrap
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Router } from '@angular/router';
 import { FileService } from '../../services/file.service';
+import { writeGpsHandoff } from '../../gps-track/gps-handoff';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { ApiService, TraceViewerPreference } from '../../services/api.service';
 import { WeatherStationMapLayerService } from '../../services/weather-station-map-layer.service';
@@ -155,6 +156,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 			&& !!this.clickedAddress
 			&& this.clickedAddress !== 'Loading address...';
 	}
+
+	get canOpenGpsFollow(): boolean {
+		return (this.gpxAnalysis?.points?.length ?? 0) >= 2
+			|| this.trackOrientationCoords.length >= 2
+			|| !!this.gpsSourceFileId;
+	}
+
+	private gpsSourceFileId: string | null = null;
+	private gpsSourceFileName = '';
 	public clickedAlt: number | null = null;
 	private finalSelectedCoordinates?: { lat: number; lng: number; alt?: number | null };
 	public showAddress: boolean = false;
@@ -1376,6 +1386,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.resetState();
 		const label = source.titleLabel != null && source.titleLabel.trim().length > 0 ? source.titleLabel.trim() : '';
 		this.trackFileName = label.length > 0 ? label : source.fileName;
+		this.gpsSourceFileId = source.fileId || null;
+		this.gpsSourceFileName = source.fileName || this.trackFileName;
 		this.initializeBaseLayers();
 		if (source.initialBaseLayerId && this.baseLayers[source.initialBaseLayerId]) {
 			this.selectedBaseLayerId = source.initialBaseLayerId;
@@ -2792,6 +2804,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.trackStats = null;
 		this.gpxAnalysis = null;
 		this.pendingTrackPoints = null;
+		this.gpsSourceFileId = null;
+		this.gpsSourceFileName = '';
 		this.trackOrientationCoords = [];
 		this.routeHeadingDeg = 0;
 		this.deviceHeadingDeg = null;
@@ -3592,6 +3606,41 @@ export class TraceViewerModalComponent implements OnDestroy {
 				stationId: point.stationId,
 			}
 		});
+		this.close();
+	}
+
+	public openGpsFollow(): void {
+		if (!this.canOpenGpsFollow) {
+			return;
+		}
+		if (this.gpsSourceFileId) {
+			void this.router.navigate(['api', 'gps'], {
+				queryParams: {
+					fileId: this.gpsSourceFileId,
+					fileName: this.gpsSourceFileName || this.trackFileName || 'track'
+				}
+			});
+			this.close();
+			return;
+		}
+		const fromGpx = this.gpxAnalysis?.points?.length
+			? this.gpxAnalysis.points.map((p) => ({ lat: p.lat, lon: p.lon, eleM: p.eleM ?? null }))
+			: [];
+		const fromMap = this.trackOrientationCoords.map((p) => ({
+			lat: p[0],
+			lon: p[1],
+			eleM: null as number | null
+		}));
+		const points = fromGpx.length >= 2 ? fromGpx : fromMap;
+		if (points.length < 2) {
+			return;
+		}
+		writeGpsHandoff({
+			title: this.trackFileName || this.gpsSourceFileName,
+			fileName: this.gpsSourceFileName || this.trackFileName,
+			points
+		});
+		void this.router.navigate(['api', 'gps']);
 		this.close();
 	}
 

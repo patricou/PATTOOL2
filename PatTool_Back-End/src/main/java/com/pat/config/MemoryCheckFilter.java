@@ -35,7 +35,9 @@ public class MemoryCheckFilter implements Filter {
         "/api/health/",
         "/favicon.ico",
         "/assets/",
-        "/.well-known/"
+        "/.well-known/",
+        // Small raster PNGs for GPS 3D; a burst of tiles must not 503 the map.
+        "/api/external/map/tile"
     };
     
     @Override

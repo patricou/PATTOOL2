@@ -651,6 +651,11 @@
                                             (click)="onPhotoWallFooterLinkClick(tr, group); $event.stopPropagation()">
                                         {{ 'PHOTO_TIMELINE.TRACK_TABLE_OPEN' | translate }}
                                     </button>
+                                    <button type="button"
+                                            class="btn btn-outline-success btn-sm py-0 px-2 ms-1 photo-wall-tracks-open-btn"
+                                            (click)="openTrackInGps(tr); $event.stopPropagation()">
+                                        {{ 'PHOTO_TIMELINE.TRACK_TABLE_GPS' | translate }}
+                                    </button>
                                 </td>
                             </tr>
                         </tbody>

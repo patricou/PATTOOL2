@@ -1,0 +1,345 @@
+<div class="pat-title">
+  <h2>
+    <i class="fa fa-location-arrow me-2" aria-hidden="true"></i>
+    {{ 'GPS.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="gps-page">
+  <p class="text-muted gps-lead gps-hint mb-3">{{ 'GPS.SUBTITLE' | translate }}</p>
+
+  <div *ngIf="errorMessage" class="alert alert-warning d-flex align-items-start" role="alert">
+    <i class="fa fa-exclamation-triangle me-2 mt-1" aria-hidden="true"></i>
+    <span>{{ errorMessage | translate }}</span>
+  </div>
+
+  <div class="card shadow-sm gps-panel mb-3">
+    <div class="card-body">
+      <div class="gps-map-shell"
+           #mapShell
+           [class.gps-map-shell--fullscreen]="mapFullscreen">
+        <div class="d-flex flex-wrap align-items-center justify-content-end gap-2 mb-2">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <div class="btn-group" role="group" [attr.aria-label]="'GPS_ROUTING.ORIENT_LABEL' | translate">
+              <button type="button"
+                      class="btn btn-sm btn-outline-secondary"
+                      *ngFor="let o of mapOrientations"
+                      [class.active]="mapOrientation === o.id"
+                      (click)="mapOrientation = o.id">
+                <i class="fa" [ngClass]="o.icon" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" id="gps-follow"
+                     [(ngModel)]="followUser">
+              <label class="form-check-label small" for="gps-follow">{{ 'GPS.FOLLOW' | translate }}</label>
+            </div>
+            <button type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    (click)="toggleNav3d()"
+                    [disabled]="!nav3dCoords.length"
+                    [attr.title]="'GPS.VIEW_3D' | translate">
+              <i class="fa fa-cube me-1" aria-hidden="true"></i>{{ 'GPS.VIEW_3D' | translate }}
+            </button>
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    (click)="toggleMapFullscreen()">
+              <i class="fa" [class.fa-expand]="!mapFullscreen" [class.fa-compress]="mapFullscreen" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <div #mapHost
+             class="gps-map"
+             [class.d-none]="nav3dActive"
+             role="img"
+             [attr.aria-label]="'GPS.MAP' | translate"></div>
+        <app-gps-nav-3d *ngIf="nav3dActive && nav3dCoords.length"
+                        class="gps-nav3d-host"
+                        [coordinates]="nav3dCoords"
+                        [orientation]="mapOrientation"
+                        [followUser]="followUser"
+                        [externalFix]="nav3dFix"
+                        [alongIndex]="snap.nearestIndex"
+                        (closed)="onNav3dClosed()"></app-gps-nav-3d>
+      </div>
+      <p class="small text-muted gps-hint mt-2 mb-0">{{ 'GPS.MAP_HINT' | translate }}</p>
+    </div>
+  </div>
+
+  <div class="gps-hud mb-2">
+    <div class="gps-stat">
+      <div class="gps-stat-label">{{ 'GPS.DONE_KM' | translate }}</div>
+      <div class="gps-stat-value">{{ formatKm(snap.doneM) }}</div>
+    </div>
+    <div class="gps-stat">
+      <div class="gps-stat-label">{{ 'GPS.REMAINING_KM' | translate }}</div>
+      <div class="gps-stat-value">{{ formatKm(snap.remainingM) }}</div>
+    </div>
+    <div class="gps-stat">
+      <div class="gps-stat-label">{{ 'GPS.ASCENT_DONE' | translate }}</div>
+      <div class="gps-stat-value gps-stat-value--up">{{ formatElev(snap.ascentDoneM) }}</div>
+    </div>
+    <div class="gps-stat">
+      <div class="gps-stat-label">{{ 'GPS.DESCENT_DONE' | translate }}</div>
+      <div class="gps-stat-value gps-stat-value--down">{{ formatElev(snap.descentDoneM) }}</div>
+    </div>
+    <div class="gps-stat">
+      <div class="gps-stat-label">{{ 'GPS.SPEED' | translate }}</div>
+      <div class="gps-stat-value">{{ formatSpeed(snap.user?.speedKmh) }}</div>
+    </div>
+    <div class="gps-stat">
+      <div class="gps-stat-label">{{ 'GPS.DURATION' | translate }}</div>
+      <div class="gps-stat-value">{{ formatDuration(snap.durationSec) }}</div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm gps-panel mb-3">
+    <div class="card-body">
+      <h3 class="h6 text-uppercase text-muted mb-3">{{ 'GPS.SLOPE_TITLE' | translate }}</h3>
+      <div class="gps-slope">
+        <div class="gps-slope-gauge" aria-hidden="true">
+          <div class="gps-slope-horizon"></div>
+          <div class="gps-slope-needle gps-slope-needle--track"
+               [class.gps-slope-needle--empty]="trackSlope.deg == null"
+               [style.transform]="'rotate(' + trackSlopeNeedleDeg + 'deg)'"></div>
+          <div class="gps-slope-needle gps-slope-needle--terrain"
+               [class.gps-slope-needle--empty]="snap.user?.slopeDeg == null"
+               [style.transform]="'rotate(' + slopeNeedleDeg + 'deg)'"></div>
+          <div class="gps-slope-needle gps-slope-needle--phone"
+               [class.gps-slope-needle--empty]="snap.inclineDeg == null"
+               [style.transform]="'rotate(' + inclineNeedleDeg + 'deg)'"></div>
+        </div>
+        <div class="gps-slope-readout">
+          <div class="gps-slope-pair" data-kind="track">
+            <div class="gps-slope-pair-label">{{ 'GPS.SLOPE_TRACK' | translate }}</div>
+            <div class="gps-slope-pair-value">{{ formatSlopeLine(trackSlope.pct, trackSlope.deg) }}</div>
+          </div>
+          <div class="gps-slope-pair" data-kind="terrain">
+            <div class="gps-slope-pair-label">{{ 'GPS.SLOPE_TERRAIN' | translate }}</div>
+            <div class="gps-slope-pair-value">{{ formatSlopeLine(snap.user?.slopePct, snap.user?.slopeDeg) }}</div>
+          </div>
+          <div class="gps-slope-pair" data-kind="phone">
+            <div class="gps-slope-pair-label">{{ 'GPS.SLOPE_PHONE' | translate }}</div>
+            <div class="gps-slope-pair-value">{{ formatSlopeLine(snap.inclinePct, snap.inclineDeg) }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="gps-slope-meta small text-muted mt-2">
+        <span *ngIf="trackSlope.deg == null && snap.track.length">{{ 'GPS.SLOPE_TRACK_NONE' | translate }}</span>
+        <span>{{ (snap.altitudeSource === 'baro' ? 'GPS.ALT_BARO' : snap.altitudeSource === 'gps' ? 'GPS.ALT_GPS' : 'GPS.ALT_NONE') | translate }}</span>
+        <span *ngIf="snap.user?.eleM != null">{{ formatElev(snap.user!.eleM) }}</span>
+        <span *ngIf="snap.inclineDenied">{{ 'GPS.INCLINE_DENIED' | translate }}</span>
+        <span *ngIf="!snap.inclineDenied && snap.inclineDeg == null && !snap.inclineNeedsPermission">
+          {{ 'GPS.INCLINE_NONE' | translate }}
+        </span>
+        <button type="button"
+                class="btn btn-sm btn-outline-primary"
+                *ngIf="snap.inclineNeedsPermission && !snap.inclineDenied"
+                (click)="enableIncline()">
+          {{ 'GPS.INCLINE_ENABLE' | translate }}
+        </button>
+      </div>
+      <p class="small text-muted gps-hint mb-0 mt-2">{{ 'GPS.SLOPE_HINT' | translate }}</p>
+    </div>
+  </div>
+
+  <div class="gps-places mb-3" *ngIf="startPlace || finishPlace || currentPlace">
+    <div class="gps-place" *ngIf="startPlace as p" data-kind="start">
+      <div class="gps-place-label">
+        <i class="fa fa-flag me-1" aria-hidden="true"></i>{{ 'GPS.POS_START' | translate }}
+      </div>
+      <button type="button"
+              class="gps-place-gps"
+              (click)="copyGps(p)"
+              [title]="'GPS.POS_GPS' | translate">
+        {{ formatPlaceGps(p) }}
+        <i class="fa fa-copy ms-1" aria-hidden="true"></i>
+      </button>
+      <div class="gps-place-addr">
+        <span *ngIf="p.loading" class="text-muted">
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'GPS.POS_LOADING' | translate }}
+        </span>
+        <span *ngIf="!p.loading">{{ p.address || ('GPS.POS_NO_ADDRESS' | translate) }}</span>
+      </div>
+    </div>
+    <div class="gps-place" *ngIf="currentPlace as p" data-kind="current">
+      <div class="gps-place-label">
+        <i class="fa fa-location-arrow me-1" aria-hidden="true"></i>{{ 'GPS.POS_CURRENT' | translate }}
+      </div>
+      <button type="button"
+              class="gps-place-gps"
+              (click)="copyGps(p)"
+              [title]="'GPS.POS_GPS' | translate">
+        {{ formatPlaceGps(p) }}
+        <i class="fa fa-copy ms-1" aria-hidden="true"></i>
+      </button>
+      <div class="gps-place-addr">
+        <span *ngIf="p.loading && !p.address" class="text-muted">
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'GPS.POS_LOADING' | translate }}
+        </span>
+        <span *ngIf="p.address || !p.loading">{{ p.address || ('GPS.POS_NO_ADDRESS' | translate) }}</span>
+      </div>
+    </div>
+    <div class="gps-place" *ngIf="finishPlace as p" data-kind="finish">
+      <div class="gps-place-label">
+        <i class="fa fa-flag-checkered me-1" aria-hidden="true"></i>{{ 'GPS.POS_FINISH' | translate }}
+      </div>
+      <button type="button"
+              class="gps-place-gps"
+              (click)="copyGps(p)"
+              [title]="'GPS.POS_GPS' | translate">
+        {{ formatPlaceGps(p) }}
+        <i class="fa fa-copy ms-1" aria-hidden="true"></i>
+      </button>
+      <div class="gps-place-addr">
+        <span *ngIf="p.loading" class="text-muted">
+          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'GPS.POS_LOADING' | translate }}
+        </span>
+        <span *ngIf="!p.loading">{{ p.address || ('GPS.POS_NO_ADDRESS' | translate) }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm gps-panel mb-3">
+    <div class="card-body py-2">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <h3 class="h6 mb-0">{{ 'GPS.MAP' | translate }}</h3>
+        <label class="mb-0 small d-flex align-items-center gap-2">
+          <span class="text-muted">{{ 'GPX_TRACE.MAP_BASE_LAYER' | translate }}</span>
+          <select class="form-select form-select-sm gps-basemap-select"
+                  [(ngModel)]="mapBaseLayerId"
+                  (ngModelChange)="onBasemapChange()">
+            <option *ngFor="let opt of basemapOptions" [value]="opt.id">
+              {{ opt.labelKey ? (opt.labelKey | translate) : opt.label }}
+            </option>
+          </select>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm gps-panel mb-3">
+        <div class="card-body">
+          <input #fileInput
+                 type="file"
+                 accept=".gpx,.kml,.tcx,.geojson,.json,application/gpx+xml,application/xml,text/xml,application/json"
+                 class="d-none"
+                 (change)="onFileInputChange($event)" />
+
+          <div class="gps-dropzone"
+               [class.gps-dropzone--active]="isDragOver"
+               role="button"
+               tabindex="0"
+               (click)="openFilePicker()"
+               (keydown.enter)="openFilePicker()"
+               (dragover)="onDragOver($event)"
+               (dragleave)="onDragLeave($event)"
+               (drop)="onDrop($event)">
+            <i class="fa fa-cloud-upload fa-2x mb-2" aria-hidden="true"></i>
+            <div class="fw-semibold">{{ 'GPS.DROPZONE_TITLE' | translate }}</div>
+            <div class="small text-muted">{{ 'GPS.DROPZONE_SUBTITLE' | translate }}</div>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 mt-3">
+            <button type="button" class="btn btn-sm btn-primary" (click)="openFilePicker()" [disabled]="isParsing">
+              <i class="fa fa-folder-open me-1" aria-hidden="true"></i>
+              {{ 'GPS.CHOOSE_FILE' | translate }}
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="clear()" [disabled]="isParsing">
+              <i class="fa fa-times me-1" aria-hidden="true"></i>
+              {{ 'GPS.CLEAR' | translate }}
+            </button>
+          </div>
+
+          <div *ngIf="isParsing" class="small text-muted mt-3">
+            <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+            {{ 'GPS.PARSING' | translate }}
+          </div>
+
+          <div class="small text-muted mt-3" *ngIf="snap.title">
+            <i class="fa fa-flag me-1" aria-hidden="true"></i>{{ snap.title }}
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm gps-panel mb-3 mb-lg-0">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+            <span class="gps-status-pill" [attr.data-status]="snap.status">{{ statusLabelKey() | translate }}</span>
+            <span class="small" [class.text-success]="snap.online" [class.text-warning]="!snap.online">
+              <i class="fa" [class.fa-wifi]="snap.online" [class.fa-exclamation-triangle]="!snap.online" aria-hidden="true"></i>
+              {{ (snap.online ? 'GPS.ONLINE' : 'GPS.OFFLINE') | translate }}
+            </span>
+          </div>
+          <div class="small text-muted mb-2" *ngIf="snap.syncing">
+            <i class="fa fa-refresh fa-spin me-1" aria-hidden="true"></i>{{ 'GPS.SYNCING' | translate }}
+          </div>
+          <div class="small text-muted mb-2" *ngIf="!snap.syncing && snap.pendingSync > 0">
+            {{ 'GPS.PENDING_SYNC' | translate:{ n: snap.pendingSync } }}
+          </div>
+          <div class="small text-danger mb-2" *ngIf="snap.lastSyncError">{{ snap.lastSyncError | translate }}</div>
+          <p class="small text-muted gps-hint mb-3">{{ 'GPS.BACKGROUND_HINT' | translate }}</p>
+
+          <div class="d-flex flex-wrap gap-2">
+            <button type="button"
+                    class="btn btn-success"
+                    *ngIf="snap.status !== 'recording'"
+                    (click)="start()"
+                    [disabled]="isParsing">
+              <i class="fa fa-play me-1" aria-hidden="true"></i>
+              {{ (snap.status === 'paused' ? 'GPS.RESUME' : 'GPS.START_RECORD') | translate }}
+            </button>
+            <button type="button"
+                    class="btn btn-warning"
+                    *ngIf="snap.status === 'recording'"
+                    (click)="pause()">
+              <i class="fa fa-pause me-1" aria-hidden="true"></i>
+              {{ 'GPS.PAUSE' | translate }}
+            </button>
+            <button type="button"
+                    class="btn btn-outline-danger"
+                    *ngIf="snap.status === 'recording' || snap.status === 'paused'"
+                    (click)="stop()">
+              <i class="fa fa-stop me-1" aria-hidden="true"></i>
+              {{ 'GPS.STOP' | translate }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm gps-panel h-100">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <h3 class="h6 text-uppercase text-muted mb-0">{{ 'GPS.SESSIONS' | translate }}</h3>
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="refreshSessions()">
+              <i class="fa fa-refresh" [class.fa-spin]="sessionsLoading" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="small text-muted" *ngIf="!sessions.length && !sessionsLoading">{{ 'GPS.SESSIONS_EMPTY' | translate }}</div>
+          <div class="gps-session-list">
+            <button type="button"
+                    class="gps-session-row"
+                    *ngFor="let s of sessions"
+                    (click)="loadSession(s)">
+              <div class="fw-semibold text-start">{{ s.title || ('GPS.TITLE' | translate) }}</div>
+              <div class="small text-muted text-start">
+                {{ formatKm(s.doneM) }}
+                <span *ngIf="s.ascentDoneM != null"> · D+ {{ formatElev(s.ascentDoneM) }}</span>
+              </div>
+              <span class="gps-session-del"
+                    (click)="deleteSession(s, $event)"
+                    [attr.title]="'GPS.DELETE_SESSION' | translate"
+                    [attr.aria-label]="'GPS.DELETE_SESSION' | translate">
+                <i class="fa fa-trash" aria-hidden="true"></i>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
