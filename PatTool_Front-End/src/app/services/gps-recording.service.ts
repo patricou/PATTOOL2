@@ -58,11 +58,15 @@ export interface GpsLiveSnapshot {
   descentDoneM: number;
   durationSec: number;
   altitudeSource: 'gps' | 'baro' | 'none';
-  /** Phone pitch from horizontal (0° = flat, 90° = upright), from DeviceOrientation. */
+  /** Phone pitch relative to the calibrated zero (0° = that pose, 90° = vertical). */
   inclineDeg: number | null;
   inclinePct: number | null;
   inclineNeedsPermission: boolean;
   inclineDenied: boolean;
+  /** True after the user sets the current phone pose as 0°. */
+  inclineCalibrated: boolean;
+  /** Raw pitch (flat = 0°) stored as the user's zero. */
+  inclineZeroOffsetDeg: number;
 }
 
 const EMPTY: GpsLiveSnapshot = {
@@ -92,8 +96,17 @@ const EMPTY: GpsLiveSnapshot = {
   inclineDeg: null,
   inclinePct: null,
   inclineNeedsPermission: false,
-  inclineDenied: false
+  inclineDenied: false,
+  inclineCalibrated: false,
+  inclineZeroOffsetDeg: 0
 };
+
+const INCLINE_CAL_KEY = 'pat.gps.inclineZero.v1';
+
+function wrapSignedDeg(d: number): number {
+  const x = ((((d + 180) % 360) + 360) % 360) - 180;
+  return x === -180 ? 180 : x;
+}
 
 /** Tiny looping silent WAV to keep the mobile tab alive in the background. */
 const SILENT_WAV =
@@ -123,6 +136,9 @@ export class GpsRecordingService implements OnDestroy {
   private cumDist: number[] = [];
   private orientationListening = false;
   private inclineSmoothed: number | null = null;
+  private inclineZeroOffsetDeg = 0;
+  private inclineCalibrated = false;
+  private pendingInclineCalibrate = false;
   private lastInclinePatchAt = 0;
   private lastInclineShownDeg: number | null = null;
   private readonly onOrientation = (e: DeviceOrientationEvent): void => {
@@ -151,6 +167,7 @@ export class GpsRecordingService implements OnDestroy {
       window.addEventListener('offline', this.onOffline);
       document.addEventListener('visibilitychange', this.onVisible);
     }
+    this.loadInclineCal();
     void this.restoreFromIndexedDb();
   }
 
@@ -278,8 +295,29 @@ export class GpsRecordingService implements OnDestroy {
       inclineDeg: this.snapshot.inclineDeg,
       inclinePct: this.snapshot.inclinePct,
       inclineNeedsPermission: this.snapshot.inclineNeedsPermission,
-      inclineDenied: this.snapshot.inclineDenied
+      inclineDenied: this.snapshot.inclineDenied,
+      inclineCalibrated: this.inclineCalibrated,
+      inclineZeroOffsetDeg: this.inclineZeroOffsetDeg
     });
+  }
+
+  /** Current phone pose becomes 0°. Call from a tap so iOS can unlock the sensor. */
+  async calibrateInclineZero(): Promise<void> {
+    await this.enableInclineFromUserGesture();
+    if (this.inclineSmoothed != null && Number.isFinite(this.inclineSmoothed)) {
+      this.applyInclineZero(this.inclineSmoothed);
+      return;
+    }
+    this.pendingInclineCalibrate = true;
+  }
+
+  resetInclineCalibration(): void {
+    this.pendingInclineCalibrate = false;
+    this.inclineZeroOffsetDeg = 0;
+    this.inclineCalibrated = false;
+    this.lastInclineShownDeg = null;
+    this.persistInclineCal();
+    this.publishInclineFromSmoothed();
   }
 
   ensureLocationWatch(): void {
@@ -516,7 +554,31 @@ export class GpsRecordingService implements OnDestroy {
     const a = 0.22;
     this.inclineSmoothed =
       this.inclineSmoothed == null ? raw : this.inclineSmoothed * (1 - a) + raw * a;
-    const deg = this.inclineSmoothed;
+    if (this.pendingInclineCalibrate) {
+      this.pendingInclineCalibrate = false;
+      this.applyInclineZero(this.inclineSmoothed);
+      return;
+    }
+    this.publishInclineFromSmoothed();
+  }
+
+  private applyInclineZero(rawDeg: number): void {
+    this.inclineZeroOffsetDeg = rawDeg;
+    this.inclineCalibrated = true;
+    this.persistInclineCal();
+    this.lastInclineShownDeg = null;
+    this.publishInclineFromSmoothed();
+  }
+
+  private publishInclineFromSmoothed(): void {
+    if (this.inclineSmoothed == null || !Number.isFinite(this.inclineSmoothed)) {
+      this.patch({
+        inclineCalibrated: this.inclineCalibrated,
+        inclineZeroOffsetDeg: this.inclineZeroOffsetDeg
+      });
+      return;
+    }
+    const deg = wrapSignedDeg(this.inclineSmoothed - this.inclineZeroOffsetDeg);
     const rad = (deg * Math.PI) / 180;
     let pct = Math.tan(rad) * 100;
     if (!Number.isFinite(pct) || Math.abs(pct) > 800) {
@@ -537,8 +599,51 @@ export class GpsRecordingService implements OnDestroy {
       inclineDeg: deg,
       inclinePct: pct,
       inclineNeedsPermission: false,
-      inclineDenied: false
+      inclineDenied: false,
+      inclineCalibrated: this.inclineCalibrated,
+      inclineZeroOffsetDeg: this.inclineZeroOffsetDeg
     });
+  }
+
+  private loadInclineCal(): void {
+    if (typeof localStorage === 'undefined') {
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(INCLINE_CAL_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw) as { offsetDeg?: number; calibrated?: boolean };
+      if (typeof parsed.offsetDeg === 'number' && Number.isFinite(parsed.offsetDeg) && parsed.calibrated) {
+        this.inclineZeroOffsetDeg = parsed.offsetDeg;
+        this.inclineCalibrated = true;
+        this.patch({
+          inclineCalibrated: true,
+          inclineZeroOffsetDeg: this.inclineZeroOffsetDeg
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private persistInclineCal(): void {
+    if (typeof localStorage === 'undefined') {
+      return;
+    }
+    try {
+      if (!this.inclineCalibrated) {
+        localStorage.removeItem(INCLINE_CAL_KEY);
+        return;
+      }
+      localStorage.setItem(
+        INCLINE_CAL_KEY,
+        JSON.stringify({ offsetDeg: this.inclineZeroOffsetDeg, calibrated: true })
+      );
+    } catch {
+      /* ignore */
+    }
   }
 
   private onPosition(pos: GeolocationPosition): void {

@@ -94,52 +94,80 @@
   </div>
 
   <div class="card shadow-sm gps-panel mb-3">
-    <div class="card-body">
-      <h3 class="h6 text-uppercase text-muted mb-3">{{ 'GPS.SLOPE_TITLE' | translate }}</h3>
-      <div class="gps-slope">
-        <div class="gps-slope-gauge" aria-hidden="true">
-          <div class="gps-slope-horizon"></div>
-          <div class="gps-slope-needle gps-slope-needle--track"
-               [class.gps-slope-needle--empty]="trackSlope.deg == null"
-               [style.transform]="'rotate(' + trackSlopeNeedleDeg + 'deg)'"></div>
-          <div class="gps-slope-needle gps-slope-needle--terrain"
-               [class.gps-slope-needle--empty]="snap.user?.slopeDeg == null"
-               [style.transform]="'rotate(' + slopeNeedleDeg + 'deg)'"></div>
-          <div class="gps-slope-needle gps-slope-needle--phone"
-               [class.gps-slope-needle--empty]="snap.inclineDeg == null"
-               [style.transform]="'rotate(' + inclineNeedleDeg + 'deg)'"></div>
-        </div>
-        <div class="gps-slope-readout">
-          <div class="gps-slope-pair" data-kind="track">
-            <div class="gps-slope-pair-label">{{ 'GPS.SLOPE_TRACK' | translate }}</div>
-            <div class="gps-slope-pair-value">{{ formatSlopeLine(trackSlope.pct, trackSlope.deg) }}</div>
-          </div>
-          <div class="gps-slope-pair" data-kind="terrain">
-            <div class="gps-slope-pair-label">{{ 'GPS.SLOPE_TERRAIN' | translate }}</div>
-            <div class="gps-slope-pair-value">{{ formatSlopeLine(snap.user?.slopePct, snap.user?.slopeDeg) }}</div>
-          </div>
-          <div class="gps-slope-pair" data-kind="phone">
-            <div class="gps-slope-pair-label">{{ 'GPS.SLOPE_PHONE' | translate }}</div>
-            <div class="gps-slope-pair-value">{{ formatSlopeLine(snap.inclinePct, snap.inclineDeg) }}</div>
+    <div class="gps-slope-shell"
+         #slopeShell
+         [class.gps-slope-shell--fullscreen]="slopeFullscreen">
+      <div class="card-body">
+        <div class="gps-slope-toolbar">
+          <h3 class="h6 text-uppercase text-muted mb-0">{{ 'GPS.SLOPE_TITLE' | translate }}</h3>
+          <div class="gps-slope-toolbar-actions">
+            <button type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    (click)="calibrateIncline()"
+                    [attr.title]="'GPS.SLOPE_CALIBRATE_HINT' | translate">
+              <i class="fa fa-crosshairs me-1" aria-hidden="true"></i>{{ 'GPS.SLOPE_CALIBRATE' | translate }}
+            </button>
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    *ngIf="snap.inclineCalibrated"
+                    (click)="resetInclineCal()">
+              {{ 'GPS.SLOPE_CAL_RESET' | translate }}
+            </button>
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    (click)="toggleSlopeFullscreen()"
+                    [attr.title]="'GPS.SLOPE_FULLSCREEN' | translate">
+              <i class="fa" [class.fa-expand]="!slopeFullscreen" [class.fa-compress]="slopeFullscreen" aria-hidden="true"></i>
+            </button>
           </div>
         </div>
+        <div class="gps-slope">
+          <div class="gps-slope-gauge" aria-hidden="true">
+            <div class="gps-slope-plumb"></div>
+            <div class="gps-slope-horizon"></div>
+            <div class="gps-slope-needle gps-slope-needle--track"
+                 [class.gps-slope-needle--empty]="trackSlope.deg == null"
+                 [style.transform]="'rotate(' + trackSlopeNeedleDeg + 'deg)'"></div>
+            <div class="gps-slope-needle gps-slope-needle--terrain"
+                 [class.gps-slope-needle--empty]="snap.user?.slopeDeg == null"
+                 [style.transform]="'rotate(' + slopeNeedleDeg + 'deg)'"></div>
+            <div class="gps-slope-needle gps-slope-needle--phone"
+                 [class.gps-slope-needle--empty]="snap.inclineDeg == null"
+                 [style.transform]="'rotate(' + inclineNeedleDeg + 'deg)'"></div>
+          </div>
+          <div class="gps-slope-readout">
+            <div class="gps-slope-pair" data-kind="track">
+              <div class="gps-slope-pair-label">{{ 'GPS.SLOPE_TRACK' | translate }}</div>
+              <div class="gps-slope-pair-value">{{ formatSlopeLine(trackSlope.pct, trackSlope.deg) }}</div>
+            </div>
+            <div class="gps-slope-pair" data-kind="terrain">
+              <div class="gps-slope-pair-label">{{ 'GPS.SLOPE_TERRAIN' | translate }}</div>
+              <div class="gps-slope-pair-value">{{ formatSlopeLine(snap.user?.slopePct, snap.user?.slopeDeg) }}</div>
+            </div>
+            <div class="gps-slope-pair" data-kind="phone">
+              <div class="gps-slope-pair-label">{{ 'GPS.SLOPE_PHONE' | translate }}</div>
+              <div class="gps-slope-pair-value">{{ formatSlopeLine(snap.inclinePct, snap.inclineDeg) }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="gps-slope-meta small text-muted mt-2">
+          <span *ngIf="snap.inclineCalibrated">{{ 'GPS.SLOPE_CALIBRATED' | translate }}</span>
+          <span *ngIf="trackSlope.deg == null && snap.track.length">{{ 'GPS.SLOPE_TRACK_NONE' | translate }}</span>
+          <span>{{ (snap.altitudeSource === 'baro' ? 'GPS.ALT_BARO' : snap.altitudeSource === 'gps' ? 'GPS.ALT_GPS' : 'GPS.ALT_NONE') | translate }}</span>
+          <span *ngIf="snap.user?.eleM != null">{{ formatElev(snap.user!.eleM) }}</span>
+          <span *ngIf="snap.inclineDenied">{{ 'GPS.INCLINE_DENIED' | translate }}</span>
+          <span *ngIf="!snap.inclineDenied && snap.inclineDeg == null && !snap.inclineNeedsPermission">
+            {{ 'GPS.INCLINE_NONE' | translate }}
+          </span>
+          <button type="button"
+                  class="btn btn-sm btn-outline-primary"
+                  *ngIf="snap.inclineNeedsPermission && !snap.inclineDenied"
+                  (click)="enableIncline()">
+            {{ 'GPS.INCLINE_ENABLE' | translate }}
+          </button>
+        </div>
+        <p class="small text-muted gps-hint mb-0 mt-2">{{ 'GPS.SLOPE_HINT' | translate }}</p>
       </div>
-      <div class="gps-slope-meta small text-muted mt-2">
-        <span *ngIf="trackSlope.deg == null && snap.track.length">{{ 'GPS.SLOPE_TRACK_NONE' | translate }}</span>
-        <span>{{ (snap.altitudeSource === 'baro' ? 'GPS.ALT_BARO' : snap.altitudeSource === 'gps' ? 'GPS.ALT_GPS' : 'GPS.ALT_NONE') | translate }}</span>
-        <span *ngIf="snap.user?.eleM != null">{{ formatElev(snap.user!.eleM) }}</span>
-        <span *ngIf="snap.inclineDenied">{{ 'GPS.INCLINE_DENIED' | translate }}</span>
-        <span *ngIf="!snap.inclineDenied && snap.inclineDeg == null && !snap.inclineNeedsPermission">
-          {{ 'GPS.INCLINE_NONE' | translate }}
-        </span>
-        <button type="button"
-                class="btn btn-sm btn-outline-primary"
-                *ngIf="snap.inclineNeedsPermission && !snap.inclineDenied"
-                (click)="enableIncline()">
-          {{ 'GPS.INCLINE_ENABLE' | translate }}
-        </button>
-      </div>
-      <p class="small text-muted gps-hint mb-0 mt-2">{{ 'GPS.SLOPE_HINT' | translate }}</p>
     </div>
   </div>
 

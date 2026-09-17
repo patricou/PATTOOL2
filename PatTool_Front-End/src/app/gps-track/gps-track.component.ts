@@ -57,6 +57,7 @@ interface GpsPlaceView {
 export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapHost') mapHost?: ElementRef<HTMLDivElement>;
   @ViewChild('mapShell') mapShell?: ElementRef<HTMLElement>;
+  @ViewChild('slopeShell') slopeShell?: ElementRef<HTMLElement>;
   @ViewChild('fileInput') fileInput?: ElementRef<HTMLInputElement>;
 
   snap: GpsLiveSnapshot = this.recording.snapshot;
@@ -65,6 +66,9 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   isDragOver = false;
   mapBaseLayerId = 'osm-standard';
   mapFullscreen = false;
+  slopeFullscreen = false;
+  private mapFsNative = false;
+  private slopeFsNative = false;
   nav3dActive = false;
   followUser = true;
   mapOrientation: GpsMapOrientation = 'heading';
@@ -114,7 +118,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     return this.clampSlopeNeedle(this.snap.user?.slopeDeg);
   }
 
-  /** Phone pitch from horizontal, for the inclinometer needle. */
+  /** Phone pitch from the calibrated zero; 90° must draw a vertical needle. */
   get inclineNeedleDeg(): number {
     return this.clampSlopeNeedle(this.snap.inclineDeg);
   }
@@ -123,7 +127,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     if (d == null || !Number.isFinite(d)) {
       return 0;
     }
-    return Math.max(-40, Math.min(40, d));
+    return Math.max(-180, Math.min(180, d));
   }
 
   private map: L.Map | null = null;
@@ -209,6 +213,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     this.pageAlive = false;
     this.cancelHideTitleWork();
     this.exitMapFullscreenIfActive();
+    this.exitSlopeFullscreenIfActive();
     this.sub?.unsubscribe();
     this.querySub?.unsubscribe();
     this.startGeocodeSub?.unsubscribe();
@@ -353,6 +358,14 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     await this.recording.enableInclineFromUserGesture();
   }
 
+  async calibrateIncline(): Promise<void> {
+    await this.recording.calibrateInclineZero();
+  }
+
+  resetInclineCal(): void {
+    this.recording.resetInclineCalibration();
+  }
+
   async pause(): Promise<void> {
     await this.recording.pauseRecording();
   }
@@ -407,25 +420,72 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       this.exitMapFullscreenIfActive();
       return;
     }
-    const request = shell.requestFullscreen?.bind(shell)
-      ?? (shell as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen?.bind(shell);
-    request?.().catch(() => {
+    this.requestElementFullscreen(shell, () => {
       this.mapFullscreen = true;
       this.refreshMapLayout();
     });
   }
 
-  @HostListener('document:fullscreenchange')
-  @HostListener('document:webkitfullscreenchange')
-  onMapFullscreenChange(): void {
-    const shell = this.mapShell?.nativeElement;
-    const doc = document as Document & { webkitFullscreenElement?: Element };
-    const active = !!(shell && (document.fullscreenElement === shell || doc.webkitFullscreenElement === shell));
-    if (this.mapFullscreen === active) {
+  toggleSlopeFullscreen(): void {
+    const shell = this.slopeShell?.nativeElement;
+    if (!shell) {
       return;
     }
-    this.mapFullscreen = active;
-    this.refreshMapLayout();
+    if (this.slopeFullscreen) {
+      this.exitSlopeFullscreenIfActive();
+      return;
+    }
+    this.requestElementFullscreen(shell, () => {
+      this.slopeFullscreen = true;
+    });
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeFullscreen(): void {
+    if (this.slopeFullscreen && !this.nativeFullscreenElement()) {
+      this.slopeFullscreen = false;
+    }
+    if (this.mapFullscreen && !this.nativeFullscreenElement()) {
+      this.mapFullscreen = false;
+      this.refreshMapLayout();
+    }
+  }
+
+  @HostListener('document:fullscreenchange')
+  @HostListener('document:webkitfullscreenchange')
+  onFullscreenChange(): void {
+    const mapActive = this.isElementFullscreen(this.mapShell?.nativeElement);
+    const slopeActive = this.isElementFullscreen(this.slopeShell?.nativeElement);
+    if (mapActive) {
+      this.mapFsNative = true;
+      this.slopeFsNative = false;
+      this.mapFullscreen = true;
+      this.slopeFullscreen = false;
+      this.refreshMapLayout();
+      return;
+    }
+    if (slopeActive) {
+      this.slopeFsNative = true;
+      this.mapFsNative = false;
+      this.slopeFullscreen = true;
+      if (this.mapFullscreen) {
+        this.mapFullscreen = false;
+        this.refreshMapLayout();
+      }
+      return;
+    }
+    if (this.nativeFullscreenElement()) {
+      return;
+    }
+    if (this.mapFsNative) {
+      this.mapFsNative = false;
+      this.mapFullscreen = false;
+      this.refreshMapLayout();
+    }
+    if (this.slopeFsNative) {
+      this.slopeFsNative = false;
+      this.slopeFullscreen = false;
+    }
   }
 
   refreshSessions(): void {
@@ -938,19 +998,49 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     setTimeout(() => this.map?.invalidateSize(), 120);
   }
 
+  private requestElementFullscreen(el: HTMLElement, onCssFallback: () => void): void {
+    const request = el.requestFullscreen?.bind(el)
+      ?? (el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen?.bind(el);
+    if (!request) {
+      onCssFallback();
+      return;
+    }
+    request().catch(() => onCssFallback());
+  }
+
+  private nativeFullscreenElement(): Element | null {
+    const doc = document as Document & { webkitFullscreenElement?: Element };
+    return document.fullscreenElement || doc.webkitFullscreenElement || null;
+  }
+
+  private isElementFullscreen(el: HTMLElement | undefined | null): boolean {
+    return !!el && this.nativeFullscreenElement() === el;
+  }
+
+  private exitNativeFullscreen(): void {
+    const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> };
+    const exit = document.exitFullscreen?.bind(document) ?? doc.webkitExitFullscreen?.bind(document);
+    exit?.().catch(() => undefined);
+  }
+
   private exitMapFullscreenIfActive(): void {
-    const doc = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => Promise<void> };
-    if (document.fullscreenElement || doc.webkitFullscreenElement) {
-      const exit = document.exitFullscreen?.bind(document) ?? doc.webkitExitFullscreen?.bind(document);
-      exit?.().catch(() => {
-        this.mapFullscreen = false;
-        this.refreshMapLayout();
-      });
+    if (this.isElementFullscreen(this.mapShell?.nativeElement)) {
+      this.exitNativeFullscreen();
       return;
     }
     if (this.mapFullscreen) {
       this.mapFullscreen = false;
       this.refreshMapLayout();
+    }
+  }
+
+  private exitSlopeFullscreenIfActive(): void {
+    if (this.isElementFullscreen(this.slopeShell?.nativeElement)) {
+      this.exitNativeFullscreen();
+      return;
+    }
+    if (this.slopeFullscreen) {
+      this.slopeFullscreen = false;
     }
   }
 }
