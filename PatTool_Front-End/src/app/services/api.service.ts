@@ -372,6 +372,13 @@ export interface ArtisansPreferences {
   mapListOnly?: boolean;
 }
 
+/** GET/PUT /api/external/audio/equalizer — per authenticated user */
+export interface AudioEqualizerPreference {
+  settings?: object | null;
+  userPreset?: object | null;
+  persisted?: boolean;
+}
+
 export interface ArtisansNearbyResponse {
   source?: ArtisansSource;
   cacheMode?: ArtisansCacheMode;
@@ -3387,6 +3394,22 @@ export class ApiService {
     return this.getHeaderWithToken().pipe(
       switchMap((headers) =>
         this._http.put<YoutubeFavorites>(this.API_URL + 'external/youtube/favorites/item', item, { headers })
+      )
+    );
+  }
+
+  getAudioEqualizerPreference(): Observable<AudioEqualizerPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<AudioEqualizerPreference>(this.API_URL + 'external/audio/equalizer', { headers })
+      )
+    );
+  }
+
+  saveAudioEqualizerPreference(body: AudioEqualizerPreference): Observable<AudioEqualizerPreference> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<AudioEqualizerPreference>(this.API_URL + 'external/audio/equalizer', body, { headers })
       )
     );
   }

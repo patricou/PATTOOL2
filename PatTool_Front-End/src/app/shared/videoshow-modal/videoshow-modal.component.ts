@@ -6,6 +6,8 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
+import { YoutubeEqualizerService } from '../../services/youtube-equalizer.service';
+import { YoutubeEqualizerModalComponent } from '../../youtube-watcher/youtube-equalizer-modal.component';
 import { Observable, Subscription, Subject } from 'rxjs';
 import { map, takeUntil, finalize } from 'rxjs/operators';
 
@@ -42,7 +44,8 @@ interface PatMetadata {
     CommonModule,
     FormsModule,
     NgbModule,
-    TranslateModule
+    TranslateModule,
+    YoutubeEqualizerModalComponent
   ]
 })
 export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -59,6 +62,9 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   @ViewChild('videoshowVideoEl') videoshowVideoElRef!: ElementRef<HTMLVideoElement>;
   @ViewChild('videoshowYoutubeEl') videoshowYoutubeElRef?: ElementRef<HTMLIFrameElement>;
   @ViewChild('thumbnailsStrip') thumbnailsStripRef!: ElementRef<HTMLElement>;
+  @ViewChild('eqModal') eqModal?: YoutubeEqualizerModalComponent;
+  eqLive = false;
+  private eqSub?: Subscription;
   
   // Videoshow state
   public videoshowVideos: string[] = [];
@@ -128,8 +134,14 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     private modalService: NgbModal,
     private translateService: TranslateService,
     private fileService: FileService,
-    private sanitizer: DomSanitizer
-  ) {}
+    private sanitizer: DomSanitizer,
+    readonly equalizer: YoutubeEqualizerService
+  ) {
+    this.eqSub = this.equalizer.sourceKind$.subscribe((kind) => {
+      this.eqLive = kind !== 'none';
+      this.cdr.markForCheck();
+    });
+  }
   
   ngOnInit(): void {
     this.setupFullscreenListener();
@@ -140,6 +152,9 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   ngOnDestroy(): void {
+    this.eqSub?.unsubscribe();
+    this.eqModal?.close();
+    this.equalizer.detachMediaElement(this.getVideoElement() || undefined);
     this.cleanupAllMemory();
   }
   
@@ -870,6 +885,7 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         }
         video.play().then(() => {
           this.isPlaying = true;
+          this.syncEqualizerSource();
           this.cdr.detectChanges();
         }).catch(() => {
           /* autoplay blocked — user can press Play */
@@ -886,6 +902,33 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
     const video = document.querySelector('video.videoshow-video') as HTMLVideoElement | null;
     return video;
+  }
+
+  openEqualizer(): void {
+    if (this.isCurrentYoutube()) {
+      void this.equalizer.startTabCapture();
+    } else {
+      const video = this.getVideoElement();
+      if (video) {
+        this.equalizer.attachMediaElement(video);
+      } else {
+        void this.equalizer.resume();
+      }
+    }
+    this.eqModal?.open();
+  }
+
+  private syncEqualizerSource(): void {
+    if (!this.eqModal?.isOpen && !this.equalizer.isLive) {
+      return;
+    }
+    if (this.isCurrentYoutube()) {
+      return;
+    }
+    const video = this.getVideoElement();
+    if (video) {
+      this.equalizer.attachMediaElement(video);
+    }
   }
 
   private getYoutubeIframe(): HTMLIFrameElement | null {
@@ -1148,6 +1191,7 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   public onVideoPlay(): void {
     this.isPlaying = true;
+    this.syncEqualizerSource();
     this.cdr.detectChanges();
   }
   
@@ -1358,6 +1402,8 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Close modal
   public onVideoshowClose(closeFn?: () => void): void {
     try {
+      this.eqModal?.close();
+      this.equalizer.detachMediaElement(this.getVideoElement() || undefined);
       this.stopVideo();
     } catch {
       /* ignore */

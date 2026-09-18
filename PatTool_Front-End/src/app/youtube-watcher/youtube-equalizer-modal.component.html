@@ -1,0 +1,381 @@
+<ng-template #eqModal let-modal>
+  <div class="modal-header yt-eq-header" [attr.data-theme]="theme">
+    <h5 class="modal-title">
+      <i class="fa fa-sliders me-2" aria-hidden="true"></i>
+      {{ 'YOUTUBE.EQ.TITLE' | translate }}
+    </h5>
+    <button
+      type="button"
+      class="btn-close btn-close-white"
+      (click)="close()"
+      [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+
+  <div class="modal-body yt-eq-body">
+    <p class="yt-eq-hint">{{ (variant === 'media' ? 'YOUTUBE.EQ.HINT_MEDIA' : 'YOUTUBE.EQ.HINT') | translate }}</p>
+
+    <div class="yt-eq-status" [attr.data-kind]="sourceKind">
+      <span *ngIf="sourceKind === 'capture'">{{ 'YOUTUBE.EQ.CAPTURE_ACTIVE' | translate }}</span>
+      <span *ngIf="sourceKind === 'media'">{{ (variant === 'media' ? 'YOUTUBE.EQ.MEDIA_ACTIVE' : 'YOUTUBE.EQ.CLIP_ACTIVE') | translate }}</span>
+      <span *ngIf="sourceKind === 'none'">{{ (variant === 'media' ? 'YOUTUBE.EQ.IDLE_MEDIA' : 'YOUTUBE.EQ.IDLE') | translate }}</span>
+    </div>
+
+    <canvas
+      #spectrum
+      class="yt-eq-spectrum"
+      width="720"
+      height="88"
+      [attr.aria-label]="'YOUTUBE.EQ.ANALYZER' | translate"></canvas>
+
+    <div class="yt-eq-toolbar">
+      <label class="yt-eq-switch">
+        <input
+          type="checkbox"
+          [ngModel]="settings.enabled"
+          (ngModelChange)="onToggle('enabled', $event)" />
+        <span>{{ 'YOUTUBE.EQ.ENABLE' | translate }}</span>
+      </label>
+      <label class="yt-eq-switch">
+        <input
+          type="checkbox"
+          [ngModel]="settings.bypass"
+          (ngModelChange)="onToggle('bypass', $event)" />
+        <span>{{ 'YOUTUBE.EQ.BYPASS' | translate }}</span>
+      </label>
+      <button type="button" class="btn btn-sm btn-outline-light" (click)="eq.reset()">
+        <i class="fa fa-undo" aria-hidden="true"></i>
+        {{ 'YOUTUBE.EQ.RESET' | translate }}
+      </button>
+      <button
+        *ngIf="hasYoutubeVideo && sourceKind !== 'capture'"
+        type="button"
+        class="btn btn-sm btn-danger"
+        [disabled]="captureBlocked || captureBusy"
+        (click)="onCapture()">
+        <i class="fa" [ngClass]="captureBusy ? 'fa-spinner fa-spin' : 'fa-headphones'" aria-hidden="true"></i>
+        {{ 'YOUTUBE.EQ.CAPTURE' | translate }}
+      </button>
+      <button
+        *ngIf="sourceKind === 'capture'"
+        type="button"
+        class="btn btn-sm btn-outline-light"
+        (click)="onStopCapture()">
+        <i class="fa fa-stop" aria-hidden="true"></i>
+        {{ 'YOUTUBE.EQ.CAPTURE_STOP' | translate }}
+      </button>
+    </div>
+    <p class="yt-eq-capture-hint" *ngIf="hasYoutubeVideo && sourceKind !== 'capture'">
+      {{ 'YOUTUBE.EQ.CAPTURE_HINT' | translate }}
+    </p>
+    <p class="yt-eq-capture-hint" *ngIf="sourceKind === 'capture'">
+      {{ 'YOUTUBE.EQ.OUTPUT_HINT' | translate }}
+    </p>
+    <p class="yt-eq-error" *ngIf="captureError" role="alert">{{ captureError | translate }}</p>
+
+    <div class="yt-eq-presets" role="group" [attr.aria-label]="'YOUTUBE.EQ.PRESETS' | translate">
+      <span class="yt-eq-presets-label">{{ 'YOUTUBE.EQ.PRESETS' | translate }}</span>
+      <button
+        *ngFor="let preset of presets"
+        type="button"
+        class="yt-eq-preset"
+        [class.active]="settings.preset === preset.id"
+        (click)="onPreset(preset.id)">
+        {{ preset.labelKey | translate }}
+      </button>
+      <button
+        *ngIf="hasUserPreset"
+        type="button"
+        class="yt-eq-preset yt-eq-preset-mine"
+        [class.active]="settings.preset === 'mine'"
+        (click)="onPreset('mine')">
+        {{ 'YOUTUBE.EQ.PRESET_MINE' | translate }}
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-light yt-eq-save" (click)="onSavePreset()">
+        <i class="fa fa-floppy-o" aria-hidden="true"></i>
+        {{ 'YOUTUBE.EQ.PRESET_SAVE' | translate }}
+      </button>
+      <span class="yt-eq-saved" *ngIf="presetSaved">{{ 'YOUTUBE.EQ.PRESET_SAVED' | translate }}</span>
+    </div>
+
+    <div class="yt-eq-tone">
+      <label class="yt-eq-knob">
+        <span>{{ 'YOUTUBE.EQ.BASS' | translate }}</span>
+        <input
+          type="range"
+          min="-12"
+          max="12"
+          step="0.5"
+          [ngModel]="settings.bass"
+          (ngModelChange)="onNumber('bass', $event)" />
+        <em>{{ formatDb(settings.bass) }} dB</em>
+      </label>
+      <label class="yt-eq-knob">
+        <span>{{ 'YOUTUBE.EQ.MID' | translate }}</span>
+        <input
+          type="range"
+          min="-12"
+          max="12"
+          step="0.5"
+          [ngModel]="settings.mid"
+          (ngModelChange)="onNumber('mid', $event)" />
+        <em>{{ formatDb(settings.mid) }} dB</em>
+      </label>
+      <label class="yt-eq-knob">
+        <span>{{ 'YOUTUBE.EQ.TREBLE' | translate }}</span>
+        <input
+          type="range"
+          min="-12"
+          max="12"
+          step="0.5"
+          [ngModel]="settings.treble"
+          (ngModelChange)="onNumber('treble', $event)" />
+        <em>{{ formatDb(settings.treble) }} dB</em>
+      </label>
+      <label class="yt-eq-knob">
+        <span>{{ 'YOUTUBE.EQ.PREAMP' | translate }}</span>
+        <input
+          type="range"
+          min="-12"
+          max="12"
+          step="0.5"
+          [ngModel]="settings.preamp"
+          (ngModelChange)="onNumber('preamp', $event)" />
+        <em>{{ formatDb(settings.preamp) }} dB</em>
+      </label>
+    </div>
+
+    <h6 class="yt-eq-section">{{ 'YOUTUBE.EQ.BANDS' | translate }}</h6>
+    <div class="yt-eq-bands" role="group" [attr.aria-label]="'YOUTUBE.EQ.BANDS' | translate">
+      <label class="yt-eq-band" *ngFor="let band of bands; let i = index">
+        <span class="yt-eq-band-val">{{ formatDb(settings.bands[i]) }}</span>
+        <input
+          class="yt-eq-vslider"
+          type="range"
+          min="-12"
+          max="12"
+          step="0.5"
+          [attr.aria-label]="band.label + ' Hz'"
+          [ngModel]="settings.bands[i]"
+          (ngModelChange)="onBand(i, $event)" />
+        <span class="yt-eq-band-hz">{{ band.label }}</span>
+      </label>
+    </div>
+
+    <div class="yt-eq-mix">
+      <label class="yt-eq-knob">
+        <span>{{ 'YOUTUBE.EQ.VOLUME' | translate }}</span>
+        <input
+          type="range"
+          min="0"
+          max="1.5"
+          step="0.01"
+          [ngModel]="settings.volume"
+          (ngModelChange)="onNumber('volume', $event)" />
+        <em>{{ (settings.volume * 100) | number:'1.0-0' }}%</em>
+      </label>
+      <label class="yt-eq-knob">
+        <span>{{ 'YOUTUBE.EQ.BALANCE' | translate }}</span>
+        <input
+          type="range"
+          min="-1"
+          max="1"
+          step="0.01"
+          [ngModel]="settings.balance"
+          (ngModelChange)="onNumber('balance', $event)" />
+        <em>{{ 'YOUTUBE.EQ.BALANCE_L' | translate }} {{ formatDb(settings.balance * 12) }} {{ 'YOUTUBE.EQ.BALANCE_R' | translate }}</em>
+      </label>
+      <label class="yt-eq-knob">
+        <span>{{ 'YOUTUBE.EQ.WIDTH' | translate }}</span>
+        <input
+          type="range"
+          min="0"
+          max="2"
+          step="0.01"
+          [ngModel]="settings.stereoWidth"
+          (ngModelChange)="onNumber('stereoWidth', $event)" />
+        <em>{{ settings.stereoWidth | number:'1.1-1' }}</em>
+      </label>
+      <label class="yt-eq-knob">
+        <span>{{ 'YOUTUBE.EQ.PRESENCE' | translate }}</span>
+        <input
+          type="range"
+          min="-12"
+          max="12"
+          step="0.5"
+          [ngModel]="settings.presence"
+          (ngModelChange)="onNumber('presence', $event)" />
+        <em>{{ formatDb(settings.presence) }} dB</em>
+      </label>
+      <label class="yt-eq-knob">
+        <span>{{ 'YOUTUBE.EQ.LOUDNESS' | translate }}</span>
+        <input
+          type="range"
+          min="0"
+          max="12"
+          step="0.5"
+          [ngModel]="settings.loudness"
+          (ngModelChange)="onNumber('loudness', $event)" />
+        <em>{{ formatDb(settings.loudness) }} dB</em>
+      </label>
+      <label class="yt-eq-knob">
+        <span>{{ 'YOUTUBE.EQ.REVERB' | translate }}</span>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          [ngModel]="settings.reverb"
+          (ngModelChange)="onNumber('reverb', $event)" />
+        <em>{{ (settings.reverb * 100) | number:'1.0-0' }}%</em>
+      </label>
+    </div>
+
+    <h6 class="yt-eq-section">{{ 'YOUTUBE.EQ.EFFECTS' | translate }}</h6>
+    <div class="yt-eq-mix">
+      <label class="yt-eq-knob">
+        <span>{{ 'YOUTUBE.EQ.ECHO' | translate }}</span>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          [ngModel]="settings.echo"
+          (ngModelChange)="onNumber('echo', $event)" />
+        <em>{{ (settings.echo * 100) | number:'1.0-0' }}%</em>
+      </label>
+      <label class="yt-eq-knob" [class.dim]="settings.echo <= 0">
+        <span>{{ 'YOUTUBE.EQ.ECHO_TIME' | translate }}</span>
+        <input
+          type="range"
+          min="0.08"
+          max="0.7"
+          step="0.01"
+          [disabled]="settings.echo <= 0"
+          [ngModel]="settings.echoTime"
+          (ngModelChange)="onNumber('echoTime', $event)" />
+        <em>{{ (settings.echoTime * 1000) | number:'1.0-0' }} ms</em>
+      </label>
+      <label class="yt-eq-knob">
+        <span>{{ 'YOUTUBE.EQ.CHORUS' | translate }}</span>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          [ngModel]="settings.chorus"
+          (ngModelChange)="onNumber('chorus', $event)" />
+        <em>{{ (settings.chorus * 100) | number:'1.0-0' }}%</em>
+      </label>
+      <label class="yt-eq-knob">
+        <span>{{ 'YOUTUBE.EQ.DRIVE' | translate }}</span>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          [ngModel]="settings.drive"
+          (ngModelChange)="onNumber('drive', $event)" />
+        <em>{{ (settings.drive * 100) | number:'1.0-0' }}%</em>
+      </label>
+      <label class="yt-eq-knob">
+        <span>{{ 'YOUTUBE.EQ.HIGHPASS' | translate }}</span>
+        <input
+          type="range"
+          min="20"
+          max="400"
+          step="1"
+          [ngModel]="settings.highpass"
+          (ngModelChange)="onNumber('highpass', $event)" />
+        <em>{{ settings.highpass | number:'1.0-0' }} Hz</em>
+      </label>
+      <label class="yt-eq-knob">
+        <span>{{ 'YOUTUBE.EQ.LOWPASS' | translate }}</span>
+        <input
+          type="range"
+          min="1500"
+          max="20000"
+          step="50"
+          [ngModel]="settings.lowpass"
+          (ngModelChange)="onNumber('lowpass', $event)" />
+        <em>{{ settings.lowpass | number:'1.0-0' }} Hz</em>
+      </label>
+    </div>
+
+    <button type="button" class="yt-eq-advanced-toggle" (click)="showAdvanced = !showAdvanced">
+      <i class="fa" [ngClass]="showAdvanced ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
+      {{ 'YOUTUBE.EQ.ADVANCED' | translate }}
+    </button>
+
+    <div class="yt-eq-advanced" *ngIf="showAdvanced">
+      <label class="yt-eq-switch">
+        <input
+          type="checkbox"
+          [ngModel]="settings.compressor"
+          (ngModelChange)="onToggle('compressor', $event)" />
+        <span>{{ 'YOUTUBE.EQ.COMPRESSOR' | translate }}</span>
+      </label>
+      <label class="yt-eq-switch">
+        <input
+          type="checkbox"
+          [ngModel]="settings.limiter"
+          (ngModelChange)="onToggle('limiter', $event)" />
+        <span>{{ 'YOUTUBE.EQ.LIMITER' | translate }}</span>
+      </label>
+      <label class="yt-eq-knob" [class.dim]="!settings.compressor">
+        <span>{{ 'YOUTUBE.EQ.THRESHOLD' | translate }}</span>
+        <input
+          type="range"
+          min="-60"
+          max="0"
+          step="1"
+          [disabled]="!settings.compressor"
+          [ngModel]="settings.compressorThreshold"
+          (ngModelChange)="onNumber('compressorThreshold', $event)" />
+        <em>{{ settings.compressorThreshold | number:'1.0-0' }} dB</em>
+      </label>
+      <label class="yt-eq-knob" [class.dim]="!settings.compressor">
+        <span>{{ 'YOUTUBE.EQ.RATIO' | translate }}</span>
+        <input
+          type="range"
+          min="1"
+          max="20"
+          step="0.5"
+          [disabled]="!settings.compressor"
+          [ngModel]="settings.compressorRatio"
+          (ngModelChange)="onNumber('compressorRatio', $event)" />
+        <em>{{ settings.compressorRatio | number:'1.1-1' }}:1</em>
+      </label>
+      <label class="yt-eq-knob" [class.dim]="!settings.compressor">
+        <span>{{ 'YOUTUBE.EQ.ATTACK' | translate }}</span>
+        <input
+          type="range"
+          min="0.001"
+          max="0.2"
+          step="0.001"
+          [disabled]="!settings.compressor"
+          [ngModel]="settings.compressorAttack"
+          (ngModelChange)="onNumber('compressorAttack', $event)" />
+        <em>{{ (settings.compressorAttack * 1000) | number:'1.0-0' }} ms</em>
+      </label>
+      <label class="yt-eq-knob" [class.dim]="!settings.compressor">
+        <span>{{ 'YOUTUBE.EQ.RELEASE' | translate }}</span>
+        <input
+          type="range"
+          min="0.02"
+          max="1"
+          step="0.01"
+          [disabled]="!settings.compressor"
+          [ngModel]="settings.compressorRelease"
+          (ngModelChange)="onNumber('compressorRelease', $event)" />
+        <em>{{ (settings.compressorRelease * 1000) | number:'1.0-0' }} ms</em>
+      </label>
+    </div>
+  </div>
+
+  <div class="modal-footer yt-eq-footer">
+    <button type="button" class="btn btn-outline-light" (click)="close()">
+      <i class="fa fa-times" aria-hidden="true"></i>
+      {{ 'COMMUN.CLOSE' | translate }}
+    </button>
+  </div>
+</ng-template>

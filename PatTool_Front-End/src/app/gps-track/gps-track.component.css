@@ -988,6 +988,59 @@
   position: relative;
 }
 
+.gps-map-rec {
+  position: absolute;
+  z-index: 1100;
+  left: 0.5rem;
+  bottom: 2.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.55rem 0.22rem 0.42rem;
+  border-radius: 999px;
+  background: rgba(185, 28, 28, 0.92);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+}
+
+.gps-map-rec--paused {
+  background: rgba(146, 104, 0, 0.92);
+}
+
+.gps-map-rec-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+  animation: gps-map-rec-pulse 1.15s ease-out infinite;
+}
+
+.gps-map-rec--paused .gps-map-rec-dot {
+  animation: none;
+  background: #ffe08a;
+}
+
+@keyframes gps-map-rec-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.65);
+    opacity: 1;
+  }
+  70% {
+    box-shadow: 0 0 0 0.45rem rgba(255, 255, 255, 0);
+    opacity: 0.55;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+    opacity: 1;
+  }
+}
+
 .gps-live-ctrl {
   position: absolute;
   z-index: 1100;

@@ -38,6 +38,8 @@ import {
   VideoshowModalComponent,
   VideoshowVideoSource
 } from '../shared/videoshow-modal/videoshow-modal.component';
+import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
+import { YoutubeEqualizerModalComponent } from './youtube-equalizer-modal.component';
 
 interface YoutubeRegionOption {
   code: string;
@@ -51,7 +53,7 @@ type YoutubeListMode = 'catalog' | 'favorites';
 @Component({
   selector: 'app-youtube-watcher',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, VideoshowModalComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, VideoshowModalComponent, YoutubeEqualizerModalComponent],
   providers: [EvenementsService],
   templateUrl: './youtube-watcher.component.html',
   styleUrls: ['./youtube-watcher.component.css']
@@ -128,6 +130,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   @ViewChild('linkToEventModal') linkToEventModal?: TemplateRef<unknown>;
   @ViewChild('recordingsModal') recordingsModal?: TemplateRef<unknown>;
   @ViewChild('videoshowModalComponent') videoshowModalComponent?: VideoshowModalComponent;
+  @ViewChild('eqModal') eqModal?: YoutubeEqualizerModalComponent;
+  eqLive = false;
 
   private searchSub?: Subscription;
   private favoritesSub?: Subscription;
@@ -263,7 +267,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     private modalService: NgbModal,
     private ngZone: NgZone,
     private host: ElementRef<HTMLElement>,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    readonly equalizer: YoutubeEqualizerService
   ) {}
 
   ngOnInit(): void {
@@ -278,6 +283,12 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.recentSearches = this.readRecentSearches();
     this.sortKey = this.normalizeSort(params.get('sort'));
     this.sortDir = this.normalizeSortDir(params.get('dir'), this.sortKey);
+
+    this.subs.push(
+      this.equalizer.sourceKind$.subscribe((kind) => {
+        this.eqLive = kind !== 'none';
+      })
+    );
 
     this.subs.push(
       this.youtubePlayer.state$.subscribe((s) => {
@@ -357,6 +368,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.stopPlayAll();
     this.abortClientRecording(false);
     this.stopClipPlayback();
+    this.equalizer.release();
   }
 
   onQueryChanged(): void {
@@ -714,6 +726,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   async startRecording(event?: Event): Promise<void> {
     event?.preventDefault();
     event?.stopPropagation();
+    this.equalizer.stopTabCapture();
     this.recordErrorKey = '';
     if (!this.isLoggedIn) {
       this.recordErrorKey = 'TV.RECORD_LOGIN';
@@ -879,6 +892,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
 
   onClipVideoReady(video: HTMLVideoElement): void {
     this.clipVideoEl = video;
+    if (this.equalizer.getAnalyser()) {
+      this.equalizer.attachMediaElement(video);
+    }
     this.clipLoading = false;
     if (this.clipAutoplayDone) {
       return;
@@ -911,6 +927,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   stopClipPlayback(): void {
     this.clipTeardown = true;
     const video = this.clipVideoEl || this.clipPlayer?.nativeElement;
+    this.equalizer.detachMediaElement(video);
     if (video) {
       try {
         video.pause();
@@ -1083,6 +1100,18 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
 
   trackByRecordingId(_index: number, rec: TvRecording): string {
     return rec?.id || String(_index);
+  }
+
+  openEqualizer(): void {
+    const clip = this.clipVideoEl || this.clipPlayer?.nativeElement;
+    if (clip) {
+      this.equalizer.attachMediaElement(clip);
+    } else if (!this.clientRecordingActive && this.showYoutubeStage && !this.playingRecording) {
+      void this.equalizer.startTabCapture();
+    } else {
+      void this.equalizer.resume();
+    }
+    this.eqModal?.open();
   }
 
   openRecordingsModal(): void {

@@ -304,6 +304,15 @@
         </ng-container>
         <button
           type="button"
+          class="yt-theater-eq"
+          (click)="openEqualizer()"
+          [class.is-live]="eqLive"
+          [attr.title]="'YOUTUBE.EQ.OPEN' | translate"
+          [attr.aria-label]="'YOUTUBE.EQ.OPEN' | translate">
+          <i class="fa fa-sliders" aria-hidden="true"></i>
+        </button>
+        <button
+          type="button"
           class="yt-theater-exit"
           (click)="exitImmersivePlayer()"
           [attr.title]="'YOUTUBE.THEATER_EXIT' | translate"
@@ -343,6 +352,16 @@
         <span>{{ 'TV.RECORD_LIVE_SIZE' | translate }} {{ formatRecordingSize(recordingBytes) || '0 B' }}</span>
       </div>
       <div class="yt-now-playing-actions">
+        <button
+          type="button"
+          class="btn btn-outline-light btn-sm yt-eq-open"
+          [class.is-live]="eqLive"
+          (click)="openEqualizer()"
+          [attr.title]="'YOUTUBE.EQ.OPEN' | translate"
+          [attr.aria-label]="'YOUTUBE.EQ.OPEN' | translate">
+          <i class="fa fa-sliders" aria-hidden="true"></i>
+          {{ 'YOUTUBE.EQ.OPEN' | translate }}
+        </button>
         <label
           class="yt-record-duration"
           *ngIf="!playingRecording && !clientRecordingActive && selected"
@@ -515,6 +534,16 @@
       </p>
     </div>
     <div class="yt-now-playing-actions">
+      <button
+        type="button"
+        class="btn btn-outline-light btn-sm yt-eq-open"
+        [class.is-live]="eqLive"
+        (click)="openEqualizer()"
+        [attr.title]="'YOUTUBE.EQ.OPEN' | translate"
+        [attr.aria-label]="'YOUTUBE.EQ.OPEN' | translate">
+        <i class="fa fa-sliders" aria-hidden="true"></i>
+        {{ 'YOUTUBE.EQ.OPEN' | translate }}
+      </button>
       <button type="button" class="btn btn-outline-light btn-sm" (click)="restorePlayer()">
         <i class="fa fa-window-restore" aria-hidden="true"></i>
         {{ 'YOUTUBE.FLOAT_RESTORE' | translate }}
@@ -598,16 +627,28 @@
         <span class="yt-fav-badge" *ngIf="favorites.length">{{ favorites.length }}</span>
       </button>
     </div>
-    <button
-      *ngIf="isLoggedIn"
-      type="button"
-      class="btn btn-sm yt-recordings-open"
-      (click)="openRecordingsModal()"
-      [attr.title]="'YOUTUBE.RECORDINGS_OPEN' | translate">
-      <i class="fa fa-film" aria-hidden="true"></i>
-      {{ 'YOUTUBE.RECORDINGS_OPEN' | translate }}
-      <span class="yt-recordings-count" *ngIf="youtubeRecordings.length">{{ youtubeRecordings.length }}</span>
-    </button>
+    <div class="yt-toolbar-actions">
+      <button
+        type="button"
+        class="btn btn-sm yt-eq-open"
+        [class.is-live]="eqLive"
+        (click)="openEqualizer()"
+        [attr.title]="'YOUTUBE.EQ.OPEN' | translate"
+        [attr.aria-label]="'YOUTUBE.EQ.OPEN' | translate">
+        <i class="fa fa-sliders" aria-hidden="true"></i>
+        {{ 'YOUTUBE.EQ.OPEN' | translate }}
+      </button>
+      <button
+        *ngIf="isLoggedIn"
+        type="button"
+        class="btn btn-sm yt-recordings-open"
+        (click)="openRecordingsModal()"
+        [attr.title]="'YOUTUBE.RECORDINGS_OPEN' | translate">
+        <i class="fa fa-film" aria-hidden="true"></i>
+        {{ 'YOUTUBE.RECORDINGS_OPEN' | translate }}
+        <span class="yt-recordings-count" *ngIf="youtubeRecordings.length">{{ youtubeRecordings.length }}</span>
+      </button>
+    </div>
   </div>
 
   <div *ngIf="favoritesError" class="alert alert-warning py-2 yt-alert" role="alert">
@@ -920,3 +961,8 @@
 </ng-template>
 
 <app-videoshow-modal #videoshowModalComponent headerTheme="youtube" (closed)="onVideoshowClosed()"></app-videoshow-modal>
+<app-youtube-equalizer-modal
+  #eqModal
+  theme="youtube"
+  [captureBlocked]="clientRecordingActive"
+  [hasYoutubeVideo]="showYoutubeStage && !playingRecording && !playerOpen"></app-youtube-equalizer-modal>

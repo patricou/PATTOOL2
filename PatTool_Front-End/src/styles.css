@@ -904,6 +904,20 @@ body.videoshow-fullscreen-active iframe.videoshow-youtube,
     inset: 0 !important;
 }
 
+/* YouTube — égaliseur audio (même bordure blanche que les autres modales) */
+body .modal.show.yt-eq-modal .modal-dialog > .modal-content,
+body .modal.yt-eq-modal.show .modal-dialog > .modal-content,
+body ngb-modal-window.modal.show.yt-eq-modal .modal-dialog > .modal-content,
+body ngb-modal-window.modal.yt-eq-modal.show .modal-dialog > .modal-content,
+body .modal.show .modal-dialog.yt-eq-modal-dialog > .modal-content,
+::ng-deep .modal.yt-eq-modal .modal-content,
+::ng-deep .yt-eq-modal-dialog .modal-content {
+    border: 4px solid #ffffff !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55) !important;
+}
+
 /* YouTube — lier la vidéo à une activité (même bordure blanche que les autres modales) */
 body .modal.show.yt-link-event-modal .modal-dialog > .modal-content,
 body .modal.yt-link-event-modal.show .modal-dialog > .modal-content,

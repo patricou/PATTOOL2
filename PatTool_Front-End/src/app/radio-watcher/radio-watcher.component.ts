@@ -35,6 +35,8 @@ import {
   RadioFilterPreference,
   RadioGlobalFilterModalComponent
 } from './radio-global-filter-modal.component';
+import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
+import { YoutubeEqualizerModalComponent } from '../youtube-watcher/youtube-equalizer-modal.component';
 
 type RadioListMode = 'catalog' | 'favorites' | 'podcasts';
 type PodcastBrowseLevel = 'shows' | 'episodes';
@@ -42,13 +44,16 @@ type PodcastBrowseLevel = 'shows' | 'episodes';
 @Component({
   selector: 'app-radio-watcher',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, RadioGlobalFilterModalComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, RadioGlobalFilterModalComponent, YoutubeEqualizerModalComponent],
   templateUrl: './radio-watcher.component.html',
   styleUrls: ['./radio-watcher.component.css']
 })
 export class RadioWatcherComponent implements OnInit, OnDestroy {
   @ViewChild('mediaEl') mediaEl?: ElementRef<HTMLVideoElement>;
   @ViewChild('playerPanel') playerPanelEl?: ElementRef<HTMLElement>;
+  @ViewChild('eqModal') eqModal?: YoutubeEqualizerModalComponent;
+  eqLive = false;
+  private eqSub?: Subscription;
 
   countries: RadioCountry[] = [];
   stations: RadioStation[] = [];
@@ -148,8 +153,14 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private route: ActivatedRoute,
     private router: Router,
-    private translate: TranslateService
-  ) {}
+    private translate: TranslateService,
+    readonly equalizer: YoutubeEqualizerService
+  ) {
+    this.eqSub = this.equalizer.sourceKind$.subscribe((kind) => {
+      this.eqLive = kind !== 'none';
+      this.cdr.markForCheck();
+    });
+  }
 
   get isAllCountries(): boolean {
     return (this.selectedCountry || '').toLowerCase() === 'all';
@@ -173,6 +184,16 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
 
   get isFloatingOpen(): boolean {
     return this.radioPlayer.isOpen;
+  }
+
+  openEqualizer(): void {
+    const el = this.mediaEl?.nativeElement;
+    if (el && !this.isFloatingOpen) {
+      this.equalizer.attachMediaElement(el);
+    } else {
+      void this.equalizer.resume();
+    }
+    this.eqModal?.open();
   }
 
   get displayedStations(): RadioStation[] {
@@ -470,6 +491,9 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.pageAlive = false;
+    this.eqSub?.unsubscribe();
+    this.eqModal?.close();
+    this.equalizer.detachMediaElement(this.mediaEl?.nativeElement);
     this.clearChromeHideTimer();
     this.clearShareFeedbackTimer();
     this.clearPlayDeferTimer();

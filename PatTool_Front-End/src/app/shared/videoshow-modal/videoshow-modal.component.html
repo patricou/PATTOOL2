@@ -188,10 +188,23 @@
         <i class="fa me-1" [ngClass]="showThumbnails ? 'fa-eye-slash' : 'fa-eye'"></i>
         <span>{{ showThumbnails ? ('EVENTELEM.HIDE_THUMBNAILS' | translate) : ('EVENTELEM.SHOW_THUMBNAILS' | translate) }}</span> <span class="ms-1">(T)</span>
       </button>
+      <button type="button" class="btn btn-secondary"
+              (click)="openEqualizer(); $event.stopPropagation()"
+              [class.btn-danger]="eqLive"
+              [disabled]="!isCurrentSlotReady()">
+        <i class="fa fa-sliders me-1"></i>
+        <span>{{ 'YOUTUBE.EQ.OPEN' | translate }}</span>
+      </button>
       <button type="button" class="btn btn-secondary ms-auto" (click)="onVideoshowClose(c)">
         <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
       </button>
     </div>
   </div>
 </ng-template>
+
+<app-youtube-equalizer-modal
+  #eqModal
+  [theme]="headerTheme === 'youtube' ? 'youtube' : 'videoshow'"
+  [variant]="isCurrentYoutube() ? 'youtube' : 'media'"
+  [hasYoutubeVideo]="isCurrentYoutube()"></app-youtube-equalizer-modal>
 

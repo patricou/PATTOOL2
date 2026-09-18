@@ -173,7 +173,8 @@
   font-size: 0.78rem;
 }
 
-.yt-theater-exit {
+.yt-theater-exit,
+.yt-theater-eq {
   flex: 0 0 auto;
   width: 2.35rem;
   height: 2.35rem;
@@ -189,7 +190,10 @@
 }
 
 .yt-theater-exit:hover,
-.yt-theater-exit:focus-visible {
+.yt-theater-exit:focus-visible,
+.yt-theater-eq:hover,
+.yt-theater-eq:focus-visible,
+.yt-theater-eq.is-live {
   background: rgba(204, 0, 0, 0.75);
   outline: none;
 }
@@ -1586,6 +1590,14 @@
   background: rgba(0, 0, 0, 0.22);
 }
 
+.yt-toolbar-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.yt-eq-open,
 .yt-recordings-open {
   display: inline-flex;
   align-items: center;
@@ -1597,6 +1609,9 @@
   border: 1px solid #5c5c5c;
 }
 
+.yt-eq-open:hover,
+.yt-eq-open:focus-visible,
+.yt-eq-open.is-live,
 .yt-recordings-open:hover,
 .yt-recordings-open:focus-visible {
   color: #fff;
@@ -1774,5 +1789,22 @@
 
 ::ng-deep .yt-recordings-modal .modal-body {
   background: #141414;
+}
+
+::ng-deep .yt-eq-modal {
+  z-index: 4200 !important;
+}
+
+::ng-deep .yt-eq-modal-backdrop {
+  z-index: 4190 !important;
+}
+
+::ng-deep .modal.yt-eq-modal .modal-content,
+::ng-deep .modal.show.yt-eq-modal .modal-dialog .modal-content,
+::ng-deep .modal.yt-eq-modal.show .modal-dialog .modal-content,
+::ng-deep .yt-eq-modal-dialog .modal-content {
+  border: 4px solid #ffffff !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
 }
 

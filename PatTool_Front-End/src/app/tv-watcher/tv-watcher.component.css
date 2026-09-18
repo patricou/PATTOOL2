@@ -178,6 +178,28 @@
   font-weight: 600;
 }
 
+.tv-eq-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #1d4ed8;
+  border-radius: 0.4rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  cursor: pointer;
+  margin-left: 0.15rem;
+}
+
+.tv-eq-open-btn:hover,
+.tv-eq-open-btn.is-live {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #b91c1c;
+}
+
 .tv-sidebar-expand-title-btn {
   display: inline-flex;
   align-items: center;
@@ -215,6 +237,10 @@
   }
 
   .tv-sidebar-expand-title-label {
+    display: none;
+  }
+
+  .tv-eq-open-label {
     display: none;
   }
 }

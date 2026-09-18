@@ -95,6 +95,13 @@
                         [externalFix]="nav3dFix"
                         [alongIndex]="snap.nearestIndex"
                         (closed)="onNav3dClosed()"></app-gps-nav-3d>
+        <div class="gps-map-rec"
+             *ngIf="snap.status === 'recording' || snap.status === 'paused'"
+             [class.gps-map-rec--paused]="snap.status === 'paused'"
+             [attr.aria-label]="(snap.status === 'paused' ? 'GPS.MAP_REC_PAUSE' : 'GPS.MAP_REC') | translate">
+          <span class="gps-map-rec-dot" aria-hidden="true"></span>
+          <span>{{ (snap.status === 'paused' ? 'GPS.MAP_REC_PAUSE' : 'GPS.MAP_REC') | translate }}</span>
+        </div>
         <div class="gps-live-ctrl" *ngIf="snap.status === 'recording' || snap.status === 'paused'">
           <span class="gps-status-pill gps-live-ctrl__status"
                 [attr.data-status]="snap.status">{{ statusLabelKey() | translate }}</span>

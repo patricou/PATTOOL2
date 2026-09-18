@@ -122,7 +122,7 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
             "headers": {
-              "Permissions-Policy": "accelerometer=(self), gyroscope=(self), magnetometer=(self), ambient-light-sensor=(self)",
+              "Permissions-Policy": "accelerometer=(self), gyroscope=(self), magnetometer=(self), ambient-light-sensor=(self), display-capture=(self), speaker-selection=(self)",
               "Feature-Policy": "accelerometer 'self'; gyroscope 'self'; magnetometer 'self'; ambient-light-sensor 'self'"
             }
           },

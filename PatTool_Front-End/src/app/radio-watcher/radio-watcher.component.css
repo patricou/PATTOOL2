@@ -230,6 +230,28 @@
   font-weight: 600;
 }
 
+.radio-eq-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #0f766e;
+  border-radius: 0.4rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  cursor: pointer;
+  margin-left: 0.15rem;
+}
+
+.radio-eq-open-btn:hover,
+.radio-eq-open-btn.is-live {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #b91c1c;
+}
+
 .radio-global-filter-open-dot {
   width: 0.45rem;
   height: 0.45rem;
@@ -240,6 +262,10 @@
 
 @media (max-width: 640px) {
   .radio-global-filter-open-label {
+    display: none;
+  }
+
+  .radio-eq-open-label {
     display: none;
   }
 }

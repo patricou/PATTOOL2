@@ -28,6 +28,16 @@
     </button>
     <button
       type="button"
+      class="tv-eq-open-btn"
+      [class.is-live]="eqLive"
+      (click)="openEqualizer()"
+      [attr.title]="'YOUTUBE.EQ.OPEN' | translate"
+      [attr.aria-label]="'YOUTUBE.EQ.OPEN' | translate">
+      <i class="fa fa-sliders" aria-hidden="true"></i>
+      <span class="tv-eq-open-label">{{ 'YOUTUBE.EQ.OPEN' | translate }}</span>
+    </button>
+    <button
+      type="button"
       class="tv-sidebar-expand-title-btn"
       *ngIf="sidebarCollapsed"
       (click)="toggleSidebarCollapsed()"
@@ -789,6 +799,16 @@
                   [attr.aria-label]="(isMuted ? 'TV.UNMUTE' : 'TV.MUTE') | translate">
                   <i class="fa" [class.fa-volume-off]="isMuted || volumePercent === 0" [class.fa-volume-down]="!isMuted && volumePercent > 0 && volumePercent < 50" [class.fa-volume-up]="!isMuted && volumePercent >= 50" aria-hidden="true"></i>
                 </button>
+                <button
+                  type="button"
+                  class="tv-now-action"
+                  [class.is-lit]="eqLive"
+                  (click)="openEqualizer()"
+                  [disabled]="isFloatingOpen"
+                  [attr.title]="'YOUTUBE.EQ.OPEN' | translate"
+                  [attr.aria-label]="'YOUTUBE.EQ.OPEN' | translate">
+                  <i class="fa fa-sliders" aria-hidden="true"></i>
+                </button>
                 <label class="tv-volume-slider-wrap" *ngIf="!isFloatingOpen">
                   <span class="visually-hidden">{{ 'TV.VOLUME_LEVEL' | translate:{ percent: isMuted ? 0 : volumePercent } }}</span>
                   <input
@@ -1184,3 +1204,5 @@
     </div>
   </div>
 </div>
+
+<app-youtube-equalizer-modal #eqModal theme="tv" variant="media" [hasYoutubeVideo]="false"></app-youtube-equalizer-modal>

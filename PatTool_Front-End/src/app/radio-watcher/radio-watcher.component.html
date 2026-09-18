@@ -16,6 +16,16 @@
       <span class="radio-global-filter-open-label">{{ 'RADIO.GLOBAL_FILTER_OPEN' | translate }}</span>
       <span class="radio-global-filter-open-dot" *ngIf="hasActiveGlobalFilter" aria-hidden="true"></span>
     </button>
+    <button
+      type="button"
+      class="radio-eq-open-btn"
+      [class.is-live]="eqLive"
+      (click)="openEqualizer()"
+      [attr.title]="'YOUTUBE.EQ.OPEN' | translate"
+      [attr.aria-label]="'YOUTUBE.EQ.OPEN' | translate">
+      <i class="fa fa-sliders" aria-hidden="true"></i>
+      <span class="radio-eq-open-label">{{ 'YOUTUBE.EQ.OPEN' | translate }}</span>
+    </button>
   </h2>
 </div>
 
@@ -580,6 +590,16 @@
                 [attr.title]="(isMuted || volumePercent === 0 ? 'RADIO.UNMUTE' : 'RADIO.MUTE') | translate">
                 <i class="fa" [class.fa-volume-off]="isMuted || volumePercent === 0" [class.fa-volume-up]="!(isMuted || volumePercent === 0)"></i>
               </button>
+              <button
+                type="button"
+                class="radio-now-action"
+                [class.is-lit]="eqLive"
+                (click)="openEqualizer()"
+                [disabled]="isFloatingOpen"
+                [attr.title]="'YOUTUBE.EQ.OPEN' | translate"
+                [attr.aria-label]="'YOUTUBE.EQ.OPEN' | translate">
+                <i class="fa fa-sliders"></i>
+              </button>
               <label class="radio-volume-slider-wrap" *ngIf="!isFloatingOpen">
                 <input
                   type="range"
@@ -696,3 +716,5 @@
 
   <p class="radio-lead text-muted radio-footer">{{ 'RADIO.SUBTITLE' | translate }}</p>
 </div>
+
+<app-youtube-equalizer-modal #eqModal theme="radio" variant="media" [hasYoutubeVideo]="false"></app-youtube-equalizer-modal>

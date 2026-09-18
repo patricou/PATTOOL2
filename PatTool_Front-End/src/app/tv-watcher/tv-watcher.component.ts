@@ -74,6 +74,8 @@ import { bustVirtualLiveCache, preflightVirtualLive, virtualLiveKeepAliveFromUrl
 import { MediaCatalogCacheToolbarComponent } from '../shared/media-catalog-cache-toolbar/media-catalog-cache-toolbar.component';
 import { TvEpgBrowserComponent } from './tv-epg-browser.component';
 import { TvGlobalFilterModalComponent } from './tv-global-filter-modal.component';
+import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
+import { YoutubeEqualizerModalComponent } from '../youtube-watcher/youtube-equalizer-modal.component';
 
 type TvListMode = 'catalog' | 'favorites' | 'recordings' | 'arte' | 'ia';
 type RecordingVisibilityPreset = 'private' | 'public' | 'friends' | 'friendGroups';
@@ -81,7 +83,7 @@ type RecordingVisibilityPreset = 'private' | 'public' | 'friends' | 'friendGroup
 @Component({
   selector: 'app-tv-watcher',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, TvEpgBrowserComponent, TvGlobalFilterModalComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, TvEpgBrowserComponent, TvGlobalFilterModalComponent, YoutubeEqualizerModalComponent],
   templateUrl: './tv-watcher.component.html',
   styleUrls: ['./tv-watcher.component.css']
 })
@@ -90,8 +92,14 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   set videoElRef(ref: ElementRef<HTMLVideoElement> | undefined) {
     this.videoEl = ref;
     this.bindLandscapeVideoFsListener(ref?.nativeElement || null);
+    if (ref?.nativeElement && this.eqModal?.isOpen) {
+      this.equalizer.attachMediaElement(ref.nativeElement);
+    }
   }
   videoEl?: ElementRef<HTMLVideoElement>;
+  @ViewChild('eqModal') eqModal?: YoutubeEqualizerModalComponent;
+  eqLive = false;
+  private eqSub?: Subscription;
 
   countries: TvCountry[] = [];
   channels: TvChannel[] = [];
@@ -387,8 +395,14 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private translate: TranslateService,
     private friendsService: FriendsService,
-    private membersService: MembersService
-  ) {}
+    private membersService: MembersService,
+    readonly equalizer: YoutubeEqualizerService
+  ) {
+    this.eqSub = this.equalizer.sourceKind$.subscribe((kind) => {
+      this.eqLive = kind !== 'none';
+      this.cdr.markForCheck();
+    });
+  }
 
   get isAllCountries(): boolean {
     return (this.selectedCountry || '').toLowerCase() === 'all';
@@ -413,6 +427,16 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   get isFloatingOpen(): boolean {
     return this.tvPlayer.isOpen;
+  }
+
+  openEqualizer(): void {
+    const el = this.videoEl?.nativeElement;
+    if (el && !this.isFloatingOpen && !this.clientRecordingActive) {
+      this.equalizer.attachMediaElement(el);
+    } else {
+      void this.equalizer.resume();
+    }
+    this.eqModal?.open();
   }
 
   get displayedChannels(): TvChannel[] {
@@ -845,6 +869,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.pageAlive = false;
+    this.eqSub?.unsubscribe();
+    this.eqModal?.close();
+    this.equalizer.detachMediaElement(this.videoEl?.nativeElement);
     this.teardownLandscapeFullscreenWatchers();
     this.exitLandscapeFullscreen(false);
     this.clearChromeHideTimer();
