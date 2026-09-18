@@ -636,9 +636,9 @@ mvn clean package -DskipTests
 
 **Frontend**:
 ```bash
-# Start Angular development server
+# Start Angular development server (8 GB Node heap — required; plain `ng serve` OOMs)
 cd PatTool_Front-End
-ng serve
+npm start
 
 # Navigate to http://localhost:4200/
 # App automatically reloads on file changes
