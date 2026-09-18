@@ -183,3 +183,108 @@ export function decodeTrackBuffer(buffer: ArrayBuffer): string {
   }
   return new TextDecoder('utf-8').decode(buffer);
 }
+
+/** Planned-track cap shared with the GPS session / itinerary backends. */
+export const MAX_PLANNED_TRACK_POINTS = 8000;
+
+export function downsampleTrackPoints(points: GpsTrackPt[], max: number): GpsTrackPt[] {
+  if (points.length <= max) {
+    return points.slice();
+  }
+  const out: GpsTrackPt[] = [];
+  const last = points.length - 1;
+  let prev = -1;
+  for (let i = 0; i < max - 1; i++) {
+    const idx = Math.round((i * last) / (max - 1));
+    if (idx === prev) {
+      continue;
+    }
+    out.push(points[idx]);
+    prev = idx;
+  }
+  if (prev !== last) {
+    out.push(points[last]);
+  }
+  return out;
+}
+
+export function escapeXml(value: string): string {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+export function slugFileName(value: string, fallback = 'track'): string {
+  const slug = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48)
+    .toLowerCase();
+  return slug || fallback;
+}
+
+export function buildTrackGpx(opts: {
+  points: GpsTrackPt[];
+  name: string;
+  desc?: string;
+  type?: string;
+}): string {
+  const now = new Date().toISOString();
+  const safeName = escapeXml(opts.name || 'GPS');
+  const safeDesc = escapeXml(opts.desc || '');
+  const safeType = escapeXml(opts.type || 'recorded');
+  const segs = splitTrackSegments(opts.points).filter((s) => s.length);
+  const trksegs = (segs.length ? segs : [opts.points])
+    .map((seg) => {
+      const trkpts = seg
+        .map((p) => {
+          const ele =
+            p.eleM != null && Number.isFinite(p.eleM)
+              ? `\n        <ele>${p.eleM.toFixed(1)}</ele>`
+              : '';
+          return `      <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}">${ele}</trkpt>`;
+        })
+        .join('\n');
+      return `    <trkseg>\n${trkpts}\n    </trkseg>`;
+    })
+    .join('\n');
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<gpx version="1.1" creator="PatTool GPS"',
+    '  xmlns="http://www.topografix.com/GPX/1/1"',
+    '  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+    '  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">',
+    '  <metadata>',
+    `    <name>${safeName}</name>`,
+    safeDesc ? `    <desc>${safeDesc}</desc>` : '',
+    `    <time>${now}</time>`,
+    '  </metadata>',
+    '  <trk>',
+    `    <name>${safeName}</name>`,
+    `    <type>${safeType}</type>`,
+    trksegs,
+    '  </trk>',
+    '</gpx>',
+    ''
+  ]
+    .filter((line) => line !== '')
+    .join('\n');
+}
+
+export function downloadTextFile(filename: string, text: string, mime: string): void {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

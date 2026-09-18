@@ -9,9 +9,11 @@ import {
 } from '../gps-track/gps-session-offline.store';
 import {
   cumulativeDistancesM,
+  downsampleTrackPoints,
   elevationGainLoss,
   GpsTrackPt,
   haversineMeters,
+  MAX_PLANNED_TRACK_POINTS,
   nearestTrackIndex,
   newClientId
 } from '../gps-track/gps-geo.util';
@@ -263,6 +265,13 @@ export class GpsRecordingService implements OnDestroy {
     this.pausedAccumSec = session.durationSec || 0;
     this.movingSinceMs = null;
     this.resumeStartsNewSegment = status === 'paused';
+    const hasTrip = recorded.length >= 2 || status === 'paused';
+    const plannedDistanceM = session.plannedDistanceM ?? (this.cumDist.at(-1) ?? null);
+    let nearestIndex = 0;
+    if (hasTrip && this.cumDist.length && session.doneM) {
+      const idx = this.cumDist.findIndex((d) => d >= (session.doneM || 0));
+      nearestIndex = idx >= 0 ? idx : this.cumDist.length - 1;
+    }
     this.patch({
       status,
       title: session.title || 'GPS',
@@ -272,15 +281,15 @@ export class GpsRecordingService implements OnDestroy {
       sourceFileName: session.sourceFileName || null,
       track: points,
       recorded: recorded.slice(),
-      plannedDistanceM: session.plannedDistanceM ?? (this.cumDist.at(-1) ?? null),
+      plannedDistanceM,
       plannedAscentM: session.plannedAscentM ?? null,
       plannedDescentM: session.plannedDescentM ?? null,
-      doneM: session.doneM || 0,
-      remainingM: session.remainingM ?? null,
-      ascentDoneM: session.ascentDoneM || 0,
-      descentDoneM: session.descentDoneM || 0,
-      durationSec: session.durationSec || 0,
-      nearestIndex: 0
+      doneM: hasTrip ? (session.doneM || 0) : 0,
+      remainingM: hasTrip ? (session.remainingM ?? null) : plannedDistanceM,
+      ascentDoneM: hasTrip ? (session.ascentDoneM || 0) : 0,
+      descentDoneM: hasTrip ? (session.descentDoneM || 0) : 0,
+      durationSec: hasTrip ? (session.durationSec || 0) : 0,
+      nearestIndex
     });
     void this.persistSession();
   }
@@ -408,6 +417,38 @@ export class GpsRecordingService implements OnDestroy {
       await this.persistSession();
       await this.flushSync();
     }
+  }
+
+  /**
+   * Turn the recorded path into the planned track of this outing (followable later).
+   * Keeps the recorded samples so the sortie itself is unchanged.
+   */
+  promoteRecordedAsTrack(opts?: { title?: string; sourceFileName?: string | null }): boolean {
+    const points = this.recordedPoints.filter(
+      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lon)
+    );
+    if (points.length < 2) {
+      return false;
+    }
+    const track = downsampleTrackPoints(points, MAX_PLANNED_TRACK_POINTS);
+    this.cumDist = cumulativeDistancesM(track);
+    const plannedDistanceM = this.cumDist.length ? this.cumDist[this.cumDist.length - 1] : null;
+    const elev = elevationGainLoss(track);
+    const title = (opts?.title || this.snapshot.title || 'GPS').trim();
+    this.patch({
+      title,
+      sourceFileName: opts?.sourceFileName ?? this.snapshot.sourceFileName,
+      track,
+      plannedDistanceM,
+      plannedAscentM: elev.gainM || null,
+      plannedDescentM: elev.lossM || null,
+      remainingM:
+        plannedDistanceM != null ? Math.max(0, plannedDistanceM - (this.snapshot.doneM || 0)) : null,
+      nearestIndex: 0
+    });
+    void this.persistSession();
+    void this.flushSync();
+    return true;
   }
 
   isBusy(): boolean {
@@ -760,13 +801,23 @@ export class GpsRecordingService implements OnDestroy {
     descentDoneM: number;
   } {
     const track = this.snapshot.track;
+    const total = this.cumDist.length ? this.cumDist[this.cumDist.length - 1] || 0 : (this.snapshot.plannedDistanceM || 0);
+    if (this.snapshot.status !== 'recording') {
+      const idlePreview = this.snapshot.status === 'idle' && this.recordedPoints.length < 2;
+      return {
+        nearestIndex: idlePreview ? 0 : this.snapshot.nearestIndex,
+        doneM: idlePreview ? 0 : this.snapshot.doneM,
+        remainingM: idlePreview ? (total || this.snapshot.plannedDistanceM) : this.snapshot.remainingM,
+        ascentDoneM: idlePreview ? 0 : this.snapshot.ascentDoneM,
+        descentDoneM: idlePreview ? 0 : this.snapshot.descentDoneM
+      };
+    }
     let nearestIndex = 0;
     let doneM = 0;
     let remainingM: number | null = this.snapshot.plannedDistanceM;
     if (track.length >= 2 && this.cumDist.length) {
       nearestIndex = nearestTrackIndex(track, user.lat, user.lon);
       doneM = this.cumDist[nearestIndex] || 0;
-      const total = this.cumDist[this.cumDist.length - 1] || 0;
       remainingM = Math.max(0, total - doneM);
       const along = track.slice(0, nearestIndex + 1);
       const elevTrack = elevationGainLoss(along);

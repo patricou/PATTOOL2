@@ -160,6 +160,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	get canOpenGpsFollow(): boolean {
 		return (this.gpxAnalysis?.points?.length ?? 0) >= 2
 			|| this.trackOrientationCoords.length >= 2
+			|| (this.pendingTrackPoints?.length ?? 0) >= 2
 			|| !!this.gpsSourceFileId;
 	}
 

@@ -18,6 +18,15 @@
   box-sizing: border-box;
 }
 
+.gps-page .btn,
+::ng-deep .gps-sessions-list-modal .btn,
+::ng-deep .gps-session-detail-modal .btn {
+  padding: 0.18rem 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  min-height: 1.7rem;
+}
+
 .gps-lead {
   font-size: 0.925rem;
   line-height: 1.5;
@@ -128,6 +137,147 @@
 .gps-panel {
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 0.75rem;
+}
+
+.gps-record-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.gps-record-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.gps-ctrl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.gps-ctrl-online {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #198754;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gps-ctrl-online--off {
+  color: #cc9a06;
+}
+
+.gps-ctrl-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.gps-ctrl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.4rem;
+  padding: 0.4rem 0.7rem;
+  border: 0;
+  border-radius: 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  color: #212529;
+  background: #f1f3f5;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+  transition: transform 0.12s ease, filter 0.12s ease, background-color 0.12s ease;
+}
+
+.gps-ctrl i {
+  font-size: 0.85rem;
+}
+
+.gps-ctrl span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gps-ctrl:hover:not(:disabled) {
+  filter: brightness(0.97);
+  transform: translateY(-1px);
+}
+
+.gps-ctrl:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.gps-ctrl:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.gps-ctrl--go {
+  color: #fff;
+  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+  box-shadow: 0 6px 14px rgba(22, 163, 74, 0.28);
+}
+
+.gps-ctrl--pause {
+  color: #664d03;
+  background: linear-gradient(180deg, #ffe08a 0%, #ffc107 100%);
+}
+
+.gps-ctrl--stop {
+  color: #fff;
+  background: linear-gradient(180deg, #f07178 0%, #dc3545 100%);
+  box-shadow: 0 6px 14px rgba(220, 53, 69, 0.22);
+}
+
+.gps-ctrl--sessions {
+  color: #0d6efd;
+  background: #eaf2ff;
+  box-shadow: inset 0 0 0 1px rgba(13, 110, 253, 0.18);
+}
+
+.gps-ctrl--gpx {
+  color: #343a40;
+  background: #eef1f4;
+}
+
+.gps-ctrl--clear {
+  color: #b02a37;
+  background: #fff1f2;
+  box-shadow: inset 0 0 0 1px rgba(220, 53, 69, 0.12);
+}
+
+.gps-ctrl--save {
+  color: #084298;
+  background: #e7f1ff;
+  box-shadow: inset 0 0 0 1px rgba(13, 110, 253, 0.16);
+}
+
+.gps-ctrl--wide {
+  grid-column: 1 / -1;
+}
+
+.gps-ctrl-track {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.7rem;
+  color: #6c757d;
+  font-size: 0.82rem;
 }
 
 .gps-dropzone {
@@ -505,9 +655,9 @@
   border-radius: 0.45rem;
   background: rgba(2, 6, 7, 0.55);
   color: #fff;
-  min-height: 2.2rem;
-  padding: 0.2rem 0.6rem;
-  font-size: 0.8rem;
+  min-height: 1.7rem;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
   backdrop-filter: blur(8px);
 }
 
@@ -668,8 +818,33 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  max-height: 16rem;
+  max-height: min(50vh, 24rem);
   overflow: auto;
+}
+
+.gps-sessions-modal-import {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.gps-dropzone .text-muted {
+  color: #6c757d !important;
+}
+
+::ng-deep .gps-sessions-list-modal .modal-content {
+  border-radius: 0.75rem;
+}
+
+::ng-deep .gps-sessions-list-header {
+  align-items: center;
+}
+
+::ng-deep .gps-sessions-list-header .modal-title {
+  font-size: 0.8rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: #6c757d;
 }
 
 .gps-session-row {
@@ -679,7 +854,7 @@
   text-align: left;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 0.5rem;
-  padding: 0.45rem 2rem 0.45rem 0.65rem;
+  padding: 0.45rem 3.6rem 0.45rem 0.65rem;
   background: #fff;
 }
 
@@ -687,13 +862,122 @@
   background: #f8f9fa;
 }
 
-.gps-session-del {
+.gps-session-actions {
   position: absolute;
-  right: 0.4rem;
+  right: 0.25rem;
   top: 50%;
   transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.05rem;
+}
+
+.gps-session-save,
+.gps-session-del {
   color: #dc3545;
   padding: 0.2rem 0.35rem;
+}
+
+.gps-session-save:hover,
+.gps-session-del:hover {
+  opacity: 0.75;
+}
+
+.gps-session-file {
+  margin-bottom: 1rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.5rem;
+  background: #f8fafc;
+}
+
+.gps-session-file-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-bottom: 0.2rem;
+}
+
+.gps-session-file-name {
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.gps-session-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.gps-session-stat {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+}
+
+.gps-session-stat-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+}
+
+.gps-session-stat-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.gps-session-dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 1rem;
+  margin: 0;
+}
+
+.gps-session-dl > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.gps-session-dl dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+  margin: 0;
+}
+
+.gps-session-dl dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+::ng-deep .gps-session-detail-modal .modal-content {
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+::ng-deep .gps-session-detail-header {
+  background: #2c3e50;
+  color: #fff;
+}
+
+::ng-deep .gps-session-detail-header .btn-close {
+  filter: invert(1) grayscale(100%);
+}
+
+::ng-deep .gps-session-detail-footer {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .gps-session-stat-grid,
+  .gps-session-dl {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .gps-stat--paused .gps-stat-value {
@@ -725,9 +1009,10 @@
 
 .gps-live-ctrl .btn {
   white-space: nowrap;
-  min-height: 2.35rem;
-  padding: 0.28rem 0.85rem;
-  font-weight: 700;
+  min-height: 1.7rem;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 650;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
 
@@ -758,6 +1043,33 @@
   padding: 0.75rem;
 }
 
+.gps-map-file {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  margin-top: 0.65rem;
+  min-width: 0;
+  color: #495057;
+  font-size: 0.82rem;
+}
+
+.gps-map-file-label {
+  color: #6c757d;
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.gps-map-file-name {
+  min-width: 0;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .gps-map,
 .gps-nav3d-host {
   display: block;
@@ -775,9 +1087,29 @@
   height: calc(100vh - 5rem);
 }
 
+.gps-map-toolbar {
+  min-width: 0;
+}
+
+.gps-basemap-field {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
 .gps-basemap-select {
   width: auto;
   min-width: 9rem;
+  max-width: 16rem;
+}
+
+.gps-offline-map {
+  padding-top: 0;
+}
+
+.gps-offline-map-progress {
+  height: 0.35rem;
 }
 
 :host ::ng-deep .gps-user-marker {

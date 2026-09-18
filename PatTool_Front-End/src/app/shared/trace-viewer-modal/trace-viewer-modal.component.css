@@ -800,8 +800,9 @@
 	column-gap: 0;
 	flex-wrap: nowrap;
 	padding: 0.45rem 0.65rem;
-	overflow-x: visible;
-	overflow-y: visible;
+	overflow: visible;
+	position: relative;
+	z-index: 30;
 	background: #2c3e50;
 	background-color: #2c3e50;
 	border-top: 1px solid #34495e;
@@ -858,11 +859,12 @@
 	width: 100%;
 	padding-top: 0.3rem;
 	border-top: 1px solid rgba(255, 255, 255, 0.14);
-	overflow-x: auto;
-	overflow-y: hidden;
+	overflow: visible;
 	-webkit-overflow-scrolling: touch;
 	scrollbar-width: thin;
 	overscroll-behavior-x: contain;
+	position: relative;
+	z-index: 30;
 }
 
 /* Mobile : interrupteurs au-dessus, tous les boutons d'action sur une seule ligne */
@@ -904,6 +906,7 @@
 	min-width: 0;
 	justify-content: center;
 	margin: 0;
+	overflow: visible;
 }
 
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row {
@@ -1014,8 +1017,15 @@
 }
 
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .gps-switch-label .switch-text-short {
+	display: none !important;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .gps-switch-label i {
+	margin-right: 0;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .gps-switch-label .device-countdown {
 	margin-left: 0.2rem;
-	white-space: nowrap;
 }
 
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .gps-switch-label i,
@@ -1073,6 +1083,106 @@
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .btn i,
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .btn span {
 	color: #fff !important;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group .btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 2.1rem;
+	width: 2.1rem;
+	height: 2.1rem;
+	padding: 0.26rem !important;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group .btn i {
+	margin: 0 !important;
+}
+
+.tv-open-gps-btn,
+::ng-deep .slideshow-header .tv-open-gps-btn,
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .btn.tv-open-gps-btn,
+::ng-deep .fullscreen-selector-icon-actions .btn.tv-open-gps-btn {
+	width: auto !important;
+	min-width: auto !important;
+	padding: 0.26rem 0.55rem !important;
+	background: #198754 !important;
+	background-color: #198754 !important;
+	border-color: #157347 !important;
+	color: #fff !important;
+	font-weight: 700;
+}
+
+.tv-open-gps-btn i,
+::ng-deep .slideshow-header .tv-open-gps-btn i,
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .btn.tv-open-gps-btn i,
+::ng-deep .fullscreen-selector-icon-actions .btn.tv-open-gps-btn i {
+	margin-right: 0.3rem !important;
+	color: #fff !important;
+}
+
+.tv-tip,
+::ng-deep .tv-tip {
+	position: relative;
+}
+
+.tv-tip::after,
+::ng-deep .tv-tip::after {
+	content: attr(data-tv-tip);
+	position: absolute;
+	left: 50%;
+	bottom: calc(100% + 8px);
+	transform: translateX(-50%);
+	background: #333;
+	color: #fff !important;
+	padding: 6px 10px;
+	border-radius: 4px;
+	font-size: 0.75rem !important;
+	font-weight: 600;
+	line-height: 1.25;
+	white-space: nowrap;
+	width: max-content;
+	max-width: 16rem;
+	text-align: center;
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	z-index: 10060;
+	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+.tv-tip:hover::after,
+.tv-tip:focus-visible::after,
+.tv-tip:focus-within::after,
+::ng-deep .tv-tip:hover::after,
+::ng-deep .tv-tip:focus-visible::after,
+::ng-deep .tv-tip:focus-within::after {
+	opacity: 1;
+	visibility: visible;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group .tv-tip::after {
+	white-space: normal;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group > .tv-tip:first-child::after,
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group > .tv-tip:nth-child(2)::after {
+	left: 0;
+	transform: none;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group > .tv-tip:nth-last-child(-n+2)::after,
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group .tv-tip:nth-last-child(-n+2)::after {
+	left: auto;
+	right: 0;
+	transform: none;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group > .tv-tip:nth-last-child(-n+2)::after,
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group .tv-tip:nth-last-child(-n+2)::after {
+	left: auto;
+	right: 0;
+	transform: none;
 }
 
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar #trace-base-layer {
@@ -1521,6 +1631,24 @@
 .fullscreen-selector-body {
 	display: flex;
 	flex-direction: column;
+}
+
+.fullscreen-selector-icon-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.35rem;
+	margin-top: 0.5rem;
+}
+
+.fullscreen-selector-icon-actions .btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.1rem;
+	min-width: 2.1rem;
+	height: 2.1rem;
+	padding: 0;
 }
 
 .fullscreen-selector label {

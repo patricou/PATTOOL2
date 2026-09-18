@@ -5,7 +5,15 @@
       {{ 'EVENTELEM.TRACK_VIEWER_TITLE' | translate:{ fileName: trackFileName } }}
     </h5>
     <button type="button"
-            class="btn btn-outline-light btn-sm rounded-circle ms-auto"
+            class="btn btn-success btn-sm tv-open-gps-btn ms-auto"
+            *ngIf="canOpenGpsFollow"
+            (click)="openGpsFollow()"
+            [attr.title]="'EVENTELEM.TRACK_OPEN_GPS' | translate"
+            [attr.aria-label]="'EVENTELEM.TRACK_OPEN_GPS' | translate">
+      <i class="fa fa-location-arrow me-1" aria-hidden="true"></i>GPS
+    </button>
+    <button type="button"
+            class="btn btn-outline-light btn-sm rounded-circle ms-2"
             (click)="close()"
             aria-label="Close">
       <i class="fa fa-times"></i>
@@ -256,13 +264,12 @@
              [class.fullscreen-selector--collapsed]="!isFullscreenOptionsExpanded">
           <button *ngIf="!isFullscreenOptionsExpanded"
                   type="button"
-                  class="btn btn-sm btn-outline-secondary fullscreen-selector-expand-btn"
+                  class="btn btn-sm btn-outline-secondary fullscreen-selector-expand-btn tv-tip"
                   (click)="toggleFullscreenOptions()"
-                  [title]="'COMMUN.EXPAND' | translate"
+                  [attr.data-tv-tip]="'COMMUN.OPTIONS' | translate"
                   [attr.aria-label]="'COMMUN.OPTIONS' | translate"
                   [attr.aria-expanded]="false">
-            <i class="fa fa-sliders me-1" aria-hidden="true"></i>
-            <span>{{ 'COMMUN.OPTIONS' | translate }}</span>
+            <i class="fa fa-sliders" aria-hidden="true"></i>
             <i class="fa fa-chevron-up ms-1" aria-hidden="true"></i>
           </button>
           <ng-container *ngIf="isFullscreenOptionsExpanded">
@@ -364,30 +371,45 @@
             </label>
           </div>
           </div>
+          <div class="fullscreen-selector-icon-actions">
           <button type="button"
-                  class="btn btn-outline-secondary btn-sm mt-2 w-100"
-                  (click)="recenterOnTrack()">
-            <i class="fa fa-crosshairs me-1"></i> {{ 'EVENTELEM.TRACK_RECENTER' | translate }}
+                  class="btn btn-success btn-sm tv-open-gps-btn tv-tip"
+                  *ngIf="canOpenGpsFollow"
+                  (click)="openGpsFollow()"
+                  [attr.data-tv-tip]="'EVENTELEM.TRACK_OPEN_GPS' | translate"
+                  [attr.aria-label]="'EVENTELEM.TRACK_OPEN_GPS' | translate">
+            <i class="fa fa-location-arrow me-1" aria-hidden="true"></i>GPS
           </button>
           <button type="button"
-                  class="btn btn-outline-secondary btn-sm mt-2 w-100"
-                  (click)="sharePosition()">
-            <i class="fa fa-share-alt me-1"></i> {{ 'EVENTELEM.TRACK_SHARE_LOCATION' | translate }}
+                  class="btn btn-outline-secondary btn-sm tv-tip"
+                  (click)="recenterOnTrack()"
+                  [attr.data-tv-tip]="'EVENTELEM.TRACK_RECENTER' | translate"
+                  [attr.aria-label]="'EVENTELEM.TRACK_RECENTER' | translate">
+            <i class="fa fa-crosshairs" aria-hidden="true"></i>
           </button>
           <button type="button"
-                  class="btn btn-outline-secondary btn-sm mt-2 w-100"
+                  class="btn btn-outline-secondary btn-sm tv-tip"
+                  (click)="sharePosition()"
+                  [attr.data-tv-tip]="'EVENTELEM.TRACK_SHARE_LOCATION' | translate"
+                  [attr.aria-label]="'EVENTELEM.TRACK_SHARE_LOCATION' | translate">
+            <i class="fa fa-share-alt" aria-hidden="true"></i>
+          </button>
+          <button type="button"
+                  class="btn btn-outline-secondary btn-sm tv-tip"
                   *ngIf="gpxAnalysis"
                   (click)="openGpxStatsModal()"
-                  [title]="'EVENTELEM.TRACK_GPX_STATS_HINT' | translate"
+                  [attr.data-tv-tip]="'EVENTELEM.TRACK_GPX_STATS' | translate"
                   [attr.aria-label]="'EVENTELEM.TRACK_GPX_STATS' | translate">
-            <i class="fa fa-bar-chart me-1" aria-hidden="true"></i> {{ 'EVENTELEM.TRACK_GPX_STATS' | translate }}
+            <i class="fa fa-bar-chart" aria-hidden="true"></i>
           </button>
           <button type="button"
-                  class="btn btn-outline-secondary btn-sm mt-2 w-100"
+                  class="btn btn-outline-secondary btn-sm tv-tip"
                   (click)="openCartesGouvEmbed()"
-                  [title]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
-            <i class="fa fa-map me-1"></i> IGN
+                  [attr.data-tv-tip]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate"
+                  [attr.aria-label]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
+            <i class="fa fa-map" aria-hidden="true"></i>
           </button>
+          </div>
             </div>
           </ng-container>
         </div>
@@ -456,137 +478,153 @@
     <div class="d-flex gap-1 align-items-center trace-viewer-footer-actions">
       <div class="trace-viewer-footer-actions-row trace-viewer-footer-actions-row--primary">
       <div class="trace-viewer-footer-switches-group d-flex align-items-center flex-nowrap">
-      <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
+      <div class="form-check form-switch d-flex align-items-center flex-shrink-0 tv-tip"
+           [attr.data-tv-tip]="'EVENTELEM.SHOW_ADDRESS' | translate">
         <input class="form-check-input" type="checkbox" id="show-address-switch"
                [(ngModel)]="showAddress"
-               (change)="onShowAddressChange()">
-        <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="show-address-switch" title="{{ 'EVENTELEM.SHOW_ADDRESS' | translate }}">
-          <i class="fa fa-home" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.TRACK_FOOTER_ADDR_SHORT' | translate }}</span>
+               (change)="onShowAddressChange()"
+               [attr.aria-label]="'EVENTELEM.SHOW_ADDRESS' | translate">
+        <label class="form-check-label ms-1 gps-switch-label" for="show-address-switch">
+          <i class="fa fa-home" aria-hidden="true"></i>
         </label>
       </div>
-      <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
+      <div class="form-check form-switch d-flex align-items-center flex-shrink-0 tv-tip"
+           [attr.data-tv-tip]="'EVENTELEM.SHOW_WEATHER' | translate">
         <input class="form-check-input" type="checkbox" id="show-weather-switch"
                [(ngModel)]="showWeather"
-               (change)="onShowWeatherChange()">
-        <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="show-weather-switch" [title]="'EVENTELEM.SHOW_WEATHER' | translate">
-          <i class="fa fa-cloud me-1" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.WEATHER' | translate }}</span>
+               (change)="onShowWeatherChange()"
+               [attr.aria-label]="'EVENTELEM.SHOW_WEATHER' | translate">
+        <label class="form-check-label ms-1 gps-switch-label" for="show-weather-switch">
+          <i class="fa fa-cloud" aria-hidden="true"></i>
         </label>
       </div>
-      <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
+      <div class="form-check form-switch d-flex align-items-center flex-shrink-0 tv-tip"
+           [attr.data-tv-tip]="'EVENTELEM.SHOW_WEATHER_STATIONS' | translate">
         <input class="form-check-input" type="checkbox" id="show-weather-stations-switch"
                [(ngModel)]="showWeatherStations"
-               (change)="onShowWeatherStationsChange()">
-        <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="show-weather-stations-switch" [title]="showWeatherStationsHintKey | translate">
-          <i class="fa fa-thermometer-half me-1" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.SHOW_WEATHER_STATIONS_SHORT' | translate }}</span>
+               (change)="onShowWeatherStationsChange()"
+               [attr.aria-label]="'EVENTELEM.SHOW_WEATHER_STATIONS' | translate">
+        <label class="form-check-label ms-1 gps-switch-label" for="show-weather-stations-switch">
+          <i class="fa fa-thermometer-half" aria-hidden="true"></i>
         </label>
       </div>
       <div class="d-flex align-items-center flex-shrink-0 gap-1">
-        <div class="form-check form-switch d-flex align-items-center mb-0">
+        <div class="form-check form-switch d-flex align-items-center mb-0 tv-tip"
+             [attr.data-tv-tip]="'METEO_FRANCE.AUTO_REFRESH' | translate">
           <input class="form-check-input" type="checkbox" id="auto-refresh-radar-switch"
                  [(ngModel)]="autoRefreshRadar"
-                 (ngModelChange)="onAutoRefreshRadarChange()">
-          <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="auto-refresh-radar-switch" [title]="'METEO_FRANCE.AUTO_REFRESH' | translate">
-            <span class="switch-text-short">{{ 'METEO_FRANCE.AUTO_REFRESH_SHORT' | translate }}</span>
+                 (ngModelChange)="onAutoRefreshRadarChange()"
+                 [attr.aria-label]="'METEO_FRANCE.AUTO_REFRESH' | translate">
+          <label class="form-check-label ms-1 gps-switch-label" for="auto-refresh-radar-switch">
+            <i class="fa fa-clock-o" aria-hidden="true"></i>
             <span *ngIf="autoRefreshRadar && showWeather && radarRefreshCountdown > 0" class="device-countdown">({{ radarRefreshCountdown }} s)</span>
           </label>
         </div>
         <button type="button"
-                class="btn btn-sm btn-outline-secondary tv-radar-refresh-btn"
+                class="btn btn-sm btn-outline-secondary tv-radar-refresh-btn tv-tip"
                 (click)="onRefreshRadar()"
                 [disabled]="!showWeather"
-                [attr.title]="'METEO_FRANCE.RADAR_REFRESH_NOW' | translate"
+                [attr.data-tv-tip]="'METEO_FRANCE.RADAR_REFRESH_NOW' | translate"
                 [attr.aria-label]="'METEO_FRANCE.RADAR_REFRESH_NOW' | translate">
           <i class="fa fa-refresh" aria-hidden="true"></i>
         </button>
       </div>
-      <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
+      <div class="form-check form-switch d-flex align-items-center flex-shrink-0 tv-tip"
+           [attr.data-tv-tip]="'EVENTELEM.TRACK_FOOTER_HIKING_HINT' | translate">
         <input class="form-check-input" type="checkbox" id="show-hiking-overlay-switch"
                [(ngModel)]="showHikingTrailsOverlay"
-               (ngModelChange)="onHikingTrailsOverlayChange()">
-        <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="show-hiking-overlay-switch" [title]="'EVENTELEM.TRACK_FOOTER_HIKING_HINT' | translate">
-          <i class="fa fa-map-signs" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.TRACK_FOOTER_HIKING_SHORT' | translate }}</span>
+               (ngModelChange)="onHikingTrailsOverlayChange()"
+               [attr.aria-label]="'EVENTELEM.TRACK_FOOTER_HIKING_HINT' | translate">
+        <label class="form-check-label ms-1 gps-switch-label" for="show-hiking-overlay-switch">
+          <i class="fa fa-map-signs" aria-hidden="true"></i>
         </label>
       </div>
-      <div class="form-check form-switch d-flex align-items-center flex-shrink-0">
+      <div class="form-check form-switch d-flex align-items-center flex-shrink-0 tv-tip"
+           [attr.data-tv-tip]="'EVENTELEM.TRACK_FOOTER_CYCLING_HINT' | translate">
         <input class="form-check-input" type="checkbox" id="show-cycling-overlay-switch"
                [(ngModel)]="showCyclingTrailsOverlay"
-               (ngModelChange)="onCyclingTrailsOverlayChange()">
-        <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="show-cycling-overlay-switch" [title]="'EVENTELEM.TRACK_FOOTER_CYCLING_HINT' | translate">
-          <i class="fa fa-bicycle" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.TRACK_FOOTER_CYCLING_SHORT' | translate }}</span>
+               (ngModelChange)="onCyclingTrailsOverlayChange()"
+               [attr.aria-label]="'EVENTELEM.TRACK_FOOTER_CYCLING_HINT' | translate">
+        <label class="form-check-label ms-1 gps-switch-label" for="show-cycling-overlay-switch">
+          <i class="fa fa-bicycle" aria-hidden="true"></i>
         </label>
       </div>
-      <div class="form-check form-switch d-flex align-items-center flex-shrink-0 trace-viewer-follow-switch">
+      <div class="form-check form-switch d-flex align-items-center flex-shrink-0 trace-viewer-follow-switch tv-tip"
+           [attr.data-tv-tip]="'EVENTELEM.TRACK_FOLLOW_DEVICE' | translate">
         <input class="form-check-input" type="checkbox" id="follow-device-location-switch"
                [(ngModel)]="followDeviceLocation"
-               (ngModelChange)="onFollowDeviceLocationChange()">
-        <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="follow-device-location-switch" [title]="'EVENTELEM.TRACK_FOLLOW_DEVICE' | translate">
-          <i class="fa fa-location-arrow" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.TRACK_FOOTER_FOLLOW_SHORT' | translate }}</span>
+               (ngModelChange)="onFollowDeviceLocationChange()"
+               [attr.aria-label]="'EVENTELEM.TRACK_FOLLOW_DEVICE' | translate">
+        <label class="form-check-label ms-1 gps-switch-label" for="follow-device-location-switch">
+          <i class="fa fa-location-arrow" aria-hidden="true"></i>
           <span *ngIf="followDeviceLocation" class="ms-1 device-countdown">({{ deviceLocationCountdown }} s)</span>
         </label>
       </div>
-      <div *ngIf="showKeepScreenAwakeSwitch" class="form-check form-switch d-flex align-items-center flex-shrink-0 trace-viewer-keep-awake-switch">
+      <div *ngIf="showKeepScreenAwakeSwitch" class="form-check form-switch d-flex align-items-center flex-shrink-0 trace-viewer-keep-awake-switch tv-tip"
+           [attr.data-tv-tip]="'EVENTELEM.TRACK_KEEP_SCREEN_AWAKE' | translate">
         <input class="form-check-input" type="checkbox" id="keep-screen-awake-switch"
                [(ngModel)]="keepScreenAwake"
-               (ngModelChange)="onKeepScreenAwakeChange()">
-        <label class="form-check-label ms-1 ms-sm-2 gps-switch-label" for="keep-screen-awake-switch" [title]="'EVENTELEM.TRACK_KEEP_SCREEN_AWAKE' | translate">
-          <i class="fa fa-lightbulb-o" aria-hidden="true"></i><span class="switch-text-short">{{ 'EVENTELEM.TRACK_FOOTER_KEEP_AWAKE_SHORT' | translate }}</span>
+               (ngModelChange)="onKeepScreenAwakeChange()"
+               [attr.aria-label]="'EVENTELEM.TRACK_KEEP_SCREEN_AWAKE' | translate">
+        <label class="form-check-label ms-1 gps-switch-label" for="keep-screen-awake-switch">
+          <i class="fa fa-lightbulb-o" aria-hidden="true"></i>
         </label>
       </div>
       </div>
       <div class="trace-viewer-footer-buttons-group d-flex align-items-center flex-nowrap">
       <button type="button"
-              class="btn btn-outline-secondary flex-shrink-0"
-              *ngIf="!isFullscreen"
-              (click)="recenterOnTrack()"
-              [title]="'EVENTELEM.TRACK_RECENTER' | translate">
-        <i class="fa fa-crosshairs me-1"></i><span class="trace-viewer-footer-btn-text">{{ 'EVENTELEM.TRACK_RECENTER_SHORT' | translate }}</span>
-      </button>
-      <button type="button"
-              class="btn btn-outline-secondary flex-shrink-0"
-              *ngIf="!isFullscreen"
-              (click)="sharePosition()"
-              [title]="'EVENTELEM.TRACK_SHARE_LOCATION' | translate">
-        <i class="fa fa-share-alt me-1"></i><span class="trace-viewer-footer-btn-text">{{ 'EVENTELEM.TRACK_SHARE_LOCATION' | translate }}</span>
-      </button>
-      <button type="button"
-              class="btn btn-outline-success flex-shrink-0"
+              class="btn btn-success flex-shrink-0 tv-open-gps-btn tv-tip"
               *ngIf="!isFullscreen && canOpenGpsFollow"
               (click)="openGpsFollow()"
-              [title]="'EVENTELEM.TRACK_OPEN_GPS_HINT' | translate"
+              [attr.data-tv-tip]="'EVENTELEM.TRACK_OPEN_GPS' | translate"
               [attr.aria-label]="'EVENTELEM.TRACK_OPEN_GPS' | translate">
-        <i class="fa fa-location-arrow me-1" aria-hidden="true"></i>
-        <span class="trace-viewer-footer-btn-text">{{ 'EVENTELEM.TRACK_OPEN_GPS' | translate }}</span>
+        <i class="fa fa-location-arrow me-1" aria-hidden="true"></i>GPS
       </button>
       <button type="button"
-              class="btn btn-outline-secondary flex-shrink-0"
+              class="btn btn-outline-secondary flex-shrink-0 tv-tip"
+              *ngIf="!isFullscreen"
+              (click)="recenterOnTrack()"
+              [attr.data-tv-tip]="'EVENTELEM.TRACK_RECENTER' | translate"
+              [attr.aria-label]="'EVENTELEM.TRACK_RECENTER' | translate">
+        <i class="fa fa-crosshairs" aria-hidden="true"></i>
+      </button>
+      <button type="button"
+              class="btn btn-outline-secondary flex-shrink-0 tv-tip"
+              *ngIf="!isFullscreen"
+              (click)="sharePosition()"
+              [attr.data-tv-tip]="'EVENTELEM.TRACK_SHARE_LOCATION' | translate"
+              [attr.aria-label]="'EVENTELEM.TRACK_SHARE_LOCATION' | translate">
+        <i class="fa fa-share-alt" aria-hidden="true"></i>
+      </button>
+      <button type="button"
+              class="btn btn-outline-secondary flex-shrink-0 tv-tip"
               *ngIf="!isFullscreen && gpxAnalysis"
               (click)="openGpxStatsModal()"
-              [title]="'EVENTELEM.TRACK_GPX_STATS_HINT' | translate"
+              [attr.data-tv-tip]="'EVENTELEM.TRACK_GPX_STATS' | translate"
               [attr.aria-label]="'EVENTELEM.TRACK_GPX_STATS' | translate">
-        <i class="fa fa-bar-chart me-1" aria-hidden="true"></i><span class="trace-viewer-footer-btn-text">{{ 'EVENTELEM.TRACK_GPX_STATS' | translate }}</span>
+        <i class="fa fa-bar-chart" aria-hidden="true"></i>
       </button>
       <button type="button"
-              class="btn btn-outline-secondary flex-shrink-0"
+              class="btn btn-outline-secondary flex-shrink-0 tv-tip"
               *ngIf="!isFullscreen"
               (click)="openCartesGouvEmbed()"
-              [title]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
-        <i class="fa fa-map me-1"></i>IGN
+              [attr.data-tv-tip]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate"
+              [attr.aria-label]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
+        <i class="fa fa-map" aria-hidden="true"></i>
       </button>
       <button type="button"
-              class="btn btn-secondary flex-shrink-0"
+              class="btn btn-secondary flex-shrink-0 tv-tip"
               (click)="toggleFullscreen()"
-              [title]="isFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate)">
-        <i class="fa" [ngClass]="isFullscreen ? 'fa-compress' : 'fa-arrows-alt'"></i>
-        <span class="ms-1 trace-viewer-footer-btn-text">
-          {{ isFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate) }}
-        </span>
+              [attr.data-tv-tip]="isFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate)"
+              [attr.aria-label]="isFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate)">
+        <i class="fa" [ngClass]="isFullscreen ? 'fa-compress' : 'fa-arrows-alt'" aria-hidden="true"></i>
       </button>
       <button type="button"
-              class="btn btn-secondary flex-shrink-0"
+              class="btn btn-secondary flex-shrink-0 tv-tip"
               (click)="close()"
-              [title]="'COMMUN.CLOSE' | translate">
-        <i class="fa fa-times me-1" aria-hidden="true"></i>
-        <span class="trace-viewer-footer-btn-text">{{ 'COMMUN.CLOSE' | translate }}</span>
+              [attr.data-tv-tip]="'COMMUN.CLOSE' | translate"
+              [attr.aria-label]="'COMMUN.CLOSE' | translate">
+        <i class="fa fa-times" aria-hidden="true"></i>
       </button>
       </div>
       </div>
@@ -750,9 +788,12 @@
       </select>
     </div>
     <div class="d-flex align-items-center gap-2 ms-auto">
-      <button type="button" class="btn btn-outline-light btn-sm" (click)="toggleCartesGouvFullscreen()" [title]="cartesGouvFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate)">
-        <i class="fa" [ngClass]="cartesGouvFullscreen ? 'fa-compress' : 'fa-arrows-alt'"></i>
-        <span class="ms-1">{{ (cartesGouvFullscreen ? 'EVENTELEM.EXIT_FULLSCREEN' : 'EVENTELEM.FULLSCREEN') | translate }}</span>
+      <button type="button"
+              class="btn btn-outline-light btn-sm tv-tip"
+              (click)="toggleCartesGouvFullscreen()"
+              [attr.data-tv-tip]="cartesGouvFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate)"
+              [attr.aria-label]="cartesGouvFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate)">
+        <i class="fa" [ngClass]="cartesGouvFullscreen ? 'fa-compress' : 'fa-arrows-alt'" aria-hidden="true"></i>
       </button>
       <button type="button" class="btn-close btn-close-white" aria-label="Fermer" (click)="closeCartesGouvEmbed()"></button>
     </div>
