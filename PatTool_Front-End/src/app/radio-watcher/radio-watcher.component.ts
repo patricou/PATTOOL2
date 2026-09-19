@@ -1782,6 +1782,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     this.playError = '';
     this.isBuffering = true;
     media.title = station.name || 'Radio';
+    media.setAttribute('data-pat-media-title', station.name || 'Radio');
     if (station.logo) {
       media.setAttribute('data-pat-media-artwork', station.logo);
     } else {

@@ -6,6 +6,7 @@ import { environment } from './environments/environment';
 import { KeycloakService } from './app/keycloak/keycloak.service';
 import { LastRouteService } from './app/services/last-route.service';
 import { prefetchPatStaticAssets } from './prefetch-static-assets';
+import { isBrowserOffline } from './app/shared/browser-offline.util';
 
 if (environment.production) {
   enableProdMode();
@@ -51,4 +52,13 @@ KeycloakService.init()
     const platform = platformBrowserDynamic();
     platform.bootstrapModule(AppModule);
   })
-  .catch(() => window.location.reload());
+  .catch(() => {
+    // A reload while offline makes Chrome Custom Tabs show "Vous êtes hors connexion"
+    // instead of the already-cached GPS page.
+    if (isBrowserOffline()) {
+      LastRouteService.tryRestoreHashBeforeBootstrap();
+      platformBrowserDynamic().bootstrapModule(AppModule);
+      return;
+    }
+    window.location.reload();
+  });

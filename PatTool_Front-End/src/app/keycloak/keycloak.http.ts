@@ -3,6 +3,7 @@ import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse
 import { KeycloakService } from './keycloak.service';
 import { Observable, from, throwError } from 'rxjs';
 import { switchMap, catchError } from 'rxjs/operators';
+import { isBrowserOffline, isNetworkHttpFailure } from '../shared/browser-offline.util';
 
 /**
  * This provides an HTTP interceptor that adds the Keycloak token to each request.
@@ -126,8 +127,8 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
                             if (isIotProxiesRoleGated && (error.status === 401 || error.status === 403)) {
                                 return throwError(() => error);
                             }
-                            // Handle 401 Unauthorized - session expired
-                            if (error.status === 401) {
+                            // Handle 401 Unauthorized - session expired (never while offline: Chrome would show "hors connexion")
+                            if (error.status === 401 && !this.shouldSkipLoginRedirect(error)) {
                                 console.warn('[KEYCLOAK INTERCEPTOR] ⚠️ Received 401 Unauthorized - session expired, redirecting to login');
                                 console.warn('[KEYCLOAK INTERCEPTOR] Request URL:', error.url);
                                 console.trace('[KEYCLOAK INTERCEPTOR] Stack trace:');
@@ -150,7 +151,7 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
                                 return throwError(() => error);
                             }
                             // Handle 401 Unauthorized - session expired
-                            if (error.status === 401) {
+                            if (error.status === 401 && !this.shouldSkipLoginRedirect(error)) {
                                 console.warn('[KEYCLOAK INTERCEPTOR] ⚠️ Received 401 Unauthorized - no token available, redirecting to login');
                                 console.warn('[KEYCLOAK INTERCEPTOR] Request URL:', error.url);
                                 console.trace('[KEYCLOAK INTERCEPTOR] Stack trace:');
@@ -214,6 +215,11 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
                         })
                     );
                 }
+
+                if (this.shouldSkipLoginRedirect()) {
+                    console.warn('[KEYCLOAK INTERCEPTOR] Token retrieval failed while offline — not redirecting to login');
+                    return throwError(() => error);
+                }
                 
                 // For other requests, redirect to login if token retrieval fails
                 console.warn('[KEYCLOAK INTERCEPTOR] ⚠️ Token retrieval failed - redirecting to login');
@@ -222,5 +228,9 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
                 return throwError(() => error);
             })
         );
+    }
+
+    private shouldSkipLoginRedirect(error?: HttpErrorResponse): boolean {
+        return isBrowserOffline() || isNetworkHttpFailure(error);
     }
 }

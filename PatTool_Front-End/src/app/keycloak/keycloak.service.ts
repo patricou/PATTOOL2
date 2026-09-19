@@ -2,13 +2,22 @@ import { Injectable } from '@angular/core';
 
 import { environment } from '../../environments/environment';
 import { Member } from '../model/member';
+import { isBrowserOffline } from '../shared/browser-offline.util';
 
 declare var Keycloak: any;
+
+interface PersistedKcSession {
+  token: string;
+  refreshToken: string;
+  idToken?: string;
+  timeSkew?: number;
+}
 
 @Injectable({ providedIn: 'root' })
 export class KeycloakService {
   static auth: any = {};
   private static tokenCache: { token: string; atMs: number } = { token: '', atMs: 0 };
+  private static readonly SESSION_STORAGE_KEY = 'pattool.kc.session';
 
   static init(): Promise<any> {
     const keycloakAuth: any = new Keycloak({
@@ -24,23 +33,56 @@ export class KeycloakService {
 
     KeycloakService.auth.loggedIn = false;
 
+    const stored = KeycloakService.readPersistedSession();
+    const offline = isBrowserOffline();
+    const initOptions: any = {
+      checkLoginIframe: false  // Disable login status iframe to prevent stuck loading state
+    };
+    if (stored?.token && stored?.refreshToken) {
+      initOptions.token = stored.token;
+      initOptions.refreshToken = stored.refreshToken;
+      if (stored.idToken) {
+        initOptions.idToken = stored.idToken;
+      }
+      if (typeof stored.timeSkew === 'number') {
+        initOptions.timeSkew = stored.timeSkew;
+      }
+    }
+    // Never send the tab to Keycloak when we already have a session:
+    // a failed refresh + login() is what Chrome turns into "Vous êtes hors connexion".
+    if (!offline && !(stored?.token && stored?.refreshToken)) {
+      initOptions.onLoad = 'login-required';
+    }
+
     return new Promise((resolve, reject) => {
-      keycloakAuth.init({ 
-        onLoad: 'login-required',
-        checkLoginIframe: false  // Disable login status iframe to prevent stuck loading state
-      })
-        .success(() => {
-          KeycloakService.auth.loggedIn = true;
-          KeycloakService.auth.authz = keycloakAuth;
-          // console.log ("|------------> document.baseURI :" + document.baseURI );
-          //console.log ("|----------->  keycloakAuth :" + JSON.stringify(keycloakAuth) );
+      const finish = (loggedIn: boolean) => {
+        KeycloakService.auth.loggedIn = loggedIn;
+        KeycloakService.auth.authz = keycloakAuth;
+        if (keycloakAuth.token) {
+          KeycloakService.persistSession(keycloakAuth);
           KeycloakService.auth.logoutUrl =
             keycloakAuth.authServerUrl +
             '/realms/pat-realm/protocol/openid-connect/logout?redirect_uri='
             + document.baseURI;
-          resolve(document.baseURI);
+        }
+        resolve(document.baseURI);
+      };
+
+      keycloakAuth.init(initOptions)
+        .success(() => {
+          finish(!!keycloakAuth.token);
         })
         .error(() => {
+          if (keycloakAuth.token) {
+            console.warn('[KEYCLOAK SERVICE] init token refresh failed — keeping stored session');
+            finish(true);
+            return;
+          }
+          if (offline) {
+            console.warn('[KEYCLOAK SERVICE] init failed offline — bootstrap without Keycloak redirect');
+            finish(false);
+            return;
+          }
           reject();
         });
     });
@@ -51,6 +93,7 @@ export class KeycloakService {
     // Immediately clear local session state
     KeycloakService.auth.loggedIn = false;
     KeycloakService.tokenCache = { token: '', atMs: 0 };
+    KeycloakService.clearPersistedSession();
     
     // Clear Keycloak session and redirect to login page immediately
     if (KeycloakService.auth.authz) {
@@ -92,6 +135,13 @@ export class KeycloakService {
         const authz: any = KeycloakService.auth.authz;
         const token: string = <string>authz.token;
 
+        // Offline: never call Keycloak (refresh would fail and login() would wipe GPS).
+        if (isBrowserOffline()) {
+          KeycloakService.tokenCache = { token, atMs: Date.now() };
+          resolve(token);
+          return;
+        }
+
         // Fast path: if token is valid for > 60s, don't call updateToken() (avoids slow network refresh)
         try {
           const exp: number | undefined = authz?.tokenParsed?.exp;
@@ -100,6 +150,7 @@ export class KeycloakService {
 
           if (ttlSec > 60) {
             KeycloakService.tokenCache = { token, atMs: Date.now() };
+            KeycloakService.persistSession(authz);
             resolve(token);
             return;
           }
@@ -112,23 +163,28 @@ export class KeycloakService {
           .success(() => {
             const refreshedToken: string = <string>KeycloakService.auth.authz.token;
             KeycloakService.tokenCache = { token: refreshedToken, atMs: Date.now() };
+            KeycloakService.persistSession(KeycloakService.auth.authz);
             resolve(refreshedToken);
           })
           .error(() => {
+            const stale: string = <string>(KeycloakService.auth.authz?.token || '');
+            if (stale) {
+              console.warn('[KEYCLOAK SERVICE] Token refresh failed — keeping existing token (no login redirect)');
+              KeycloakService.tokenCache = { token: stale, atMs: Date.now() };
+              resolve(stale);
+              return;
+            }
             console.warn('[KEYCLOAK SERVICE] ⚠️ Failed to refresh token - session expired, redirecting to login');
             console.trace('[KEYCLOAK SERVICE] Stack trace for token refresh failure:');
-            // Session expired - redirect to Keycloak login
-            // BUT: Only redirect if we're not already on a login/error page
             const currentPath = window.location.pathname;
-            if (redirectOnFailure && !currentPath.includes('login') && !currentPath.includes('error')) {
+            if (redirectOnFailure && !isBrowserOffline() && !currentPath.includes('login') && !currentPath.includes('error')) {
               this.redirectToLogin();
             }
             reject('Token refresh failed');
           });
       } else {
-        // No token available - redirect to login
         console.log('No token available - redirecting to login');
-        if (redirectOnFailure) {
+        if (redirectOnFailure && !isBrowserOffline()) {
           this.redirectToLogin();
         }
         reject('Not logged in');
@@ -140,6 +196,10 @@ export class KeycloakService {
    * Redirects to Keycloak login page when session has expired
    */
   redirectToLogin(): void {
+    if (isBrowserOffline()) {
+      console.warn('[KEYCLOAK SERVICE] skip login redirect while offline (keeps current page, e.g. GPS)');
+      return;
+    }
     console.warn('[KEYCLOAK SERVICE] ⚠️ redirectToLogin() called - Current URL:', window.location.href);
     console.trace('[KEYCLOAK SERVICE] Stack trace for redirectToLogin():');
     
@@ -239,17 +299,72 @@ export class KeycloakService {
 
   getUserAsMember(): Member {
     let user = KeycloakService.auth.authz;
+    const parsed = user?.tokenParsed;
+    if (!parsed) {
+      return new Member('', '', '', '', '', [], '');
+    }
     // id is managed by mongodb
     let member: Member = new Member("",
-      user.tokenParsed.email,
-      user.tokenParsed.given_name,
-      user.tokenParsed.family_name,
-      user.tokenParsed.preferred_username,
-      user.tokenParsed.realm_access.roles,
+      parsed.email,
+      parsed.given_name,
+      parsed.family_name,
+      parsed.preferred_username,
+      parsed.realm_access?.roles || [],
       user.subject
     );
     return member;
 
+  }
+
+  private static readPersistedSession(): PersistedKcSession | null {
+    if (typeof localStorage === 'undefined') {
+      return null;
+    }
+    try {
+      const raw = localStorage.getItem(KeycloakService.SESSION_STORAGE_KEY);
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw) as PersistedKcSession;
+      if (!parsed?.token || !parsed?.refreshToken) {
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  private static persistSession(authz: any): void {
+    if (typeof localStorage === 'undefined' || !authz?.token || !authz?.refreshToken) {
+      return;
+    }
+    try {
+      const payload: PersistedKcSession = {
+        token: authz.token,
+        refreshToken: authz.refreshToken
+      };
+      if (authz.idToken) {
+        payload.idToken = authz.idToken;
+      }
+      if (typeof authz.timeSkew === 'number') {
+        payload.timeSkew = authz.timeSkew;
+      }
+      localStorage.setItem(KeycloakService.SESSION_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      // Quota / private mode: GPS can still run from in-memory tokens.
+    }
+  }
+
+  private static clearPersistedSession(): void {
+    if (typeof localStorage === 'undefined') {
+      return;
+    }
+    try {
+      localStorage.removeItem(KeycloakService.SESSION_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
   }
 
   /**

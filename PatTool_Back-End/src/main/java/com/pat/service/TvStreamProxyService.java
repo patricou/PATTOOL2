@@ -438,6 +438,7 @@ public class TvStreamProxyService {
                 || h.contains("radiofrance.fr") || h.contains("arte.tv") || h.contains("arte-")
                 || h.equals("archive.org") || h.endsWith(".archive.org")
                 || h.contains("akamaized.net") || h.contains("akamai")
+                || h.contains("nextradiotv.com")
                 || h.contains("cloudfront.net") || h.contains("fastly")) {
             return false;
         }
@@ -797,6 +798,12 @@ public class TvStreamProxyService {
         if (ref.contains("arte.tv")) {
             return "https://www.arte.tv";
         }
+        if (ref.contains("ktotv.com")) {
+            return "https://www.ktotv.com";
+        }
+        if (ref.contains("bfmtv.com")) {
+            return "https://www.bfmtv.com";
+        }
         if (ref.contains("archive.org")) {
             return "https://archive.org";
         }
@@ -838,6 +845,13 @@ public class TvStreamProxyService {
         if (h.contains("arte.tv") || h.contains("arte-")
                 || (h.contains("akamaized.net") && h.contains("arte"))) {
             return "https://www.arte.tv/";
+        }
+        if (h.contains("livekto.akamaized.net") || h.contains("live-kto.akamaized.net")
+                || (h.contains("akamaized.net") && h.contains("kto"))) {
+            return "https://www.ktotv.com/";
+        }
+        if (h.contains("nextradiotv.com") || h.contains("ncdn-live-bfm") || h.contains("bfmtv.com")) {
+            return "https://www.bfmtv.com/";
         }
         if (h.equals("archive.org") || h.endsWith(".archive.org")) {
             return "https://archive.org/";
@@ -1002,14 +1016,14 @@ public class TvStreamProxyService {
                 continue;
             }
             if (trimmed.startsWith("#")) {
-                // ARTE Akamai master lists each rendition twice (primary + "-b" failover)
+                // ARTE / KTO Akamai masters list each rendition twice (primary + "-b" failover)
                 // with identical BANDWIDTH — hls.js thrash between them looks like
                 // constant connect/disconnect. Drop the failover STREAM-INF + URI pair.
                 if (trimmed.toUpperCase(Locale.ROOT).startsWith("#EXT-X-STREAM-INF")
                         && i + 1 < lines.length) {
                     String next = lines[i + 1] != null ? lines[i + 1].trim() : "";
                     if (!next.isEmpty() && !next.startsWith("#")
-                            && isArteAkamaiFailoverUri(resolveUri(base, next))) {
+                            && isAkamaiLiveFailoverUri(resolveUri(base, next))) {
                         i++; // skip failover URI
                         continue;
                     }
@@ -1022,7 +1036,7 @@ public class TvStreamProxyService {
                 continue;
             }
             URI absolute = resolveUri(base, trimmed);
-            if (isArteAkamaiFailoverUri(absolute)) {
+            if (isAkamaiLiveFailoverUri(absolute)) {
                 continue;
             }
             if (emitted) {
@@ -1035,10 +1049,11 @@ public class TvStreamProxyService {
     }
 
     /**
-     * ARTE live masters advertise primary + failover paths ({@code /live/2031003-b/…})
-     * at the same bitrate. Prefer the primary only.
+     * ARTE / KTO live masters advertise primary + failover paths
+     * ({@code /live/2031003-b/…}, {@code /live/20000018-b/…}) at the same bitrate.
+     * Prefer the primary only.
      */
-    private static boolean isArteAkamaiFailoverUri(URI uri) {
+    private static boolean isAkamaiLiveFailoverUri(URI uri) {
         if (uri == null) {
             return false;
         }
@@ -1048,8 +1063,12 @@ public class TvStreamProxyService {
             return false;
         }
         String h = host.toLowerCase(Locale.ROOT);
-        if (!(h.contains("artesimulcast")
-                || (h.contains("akamaized.net") && path.toLowerCase(Locale.ROOT).contains("arte")))) {
+        String pathLower = path.toLowerCase(Locale.ROOT);
+        boolean arte = h.contains("artesimulcast")
+                || (h.contains("akamaized.net") && pathLower.contains("arte"));
+        boolean kto = h.contains("livekto.akamaized.net")
+                || (h.contains("akamaized.net") && pathLower.contains("ktotv"));
+        if (!arte && !kto) {
             return false;
         }
         return path.matches("(?i).*/live/\\d+-b(/|$).*");

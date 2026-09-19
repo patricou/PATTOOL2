@@ -17,6 +17,8 @@ export class CachedOsmTileLayer extends L.TileLayer {
     super(cachedOsmTileUrl(), {
       maxNativeZoom: 19,
       maxZoom: 20,
+      errorTileUrl: L.Util.emptyImageUrl,
+      keepBuffer: 4,
       attribution: '&copy; OpenStreetMap contributors'
     });
     this.on('tileunload', (e: L.TileEvent) => {
@@ -36,36 +38,51 @@ export class CachedOsmTileLayer extends L.TileLayer {
     const url = this.getTileUrl(coords);
 
     const finish = (src: string): void => {
+      const empty = L.Util.emptyImageUrl;
       tile.onload = () => done(undefined, tile);
-      tile.onerror = () => done(new Error('tile'), tile);
+      tile.onerror = () => {
+        if (tile.getAttribute('src') !== empty) {
+          tile.src = empty;
+          return;
+        }
+        done(undefined, tile);
+      };
       tile.src = src;
     };
 
     void (async () => {
       const cached = await this.cache.get(id);
+      if (!this._map) {
+        done(undefined, tile);
+        return;
+      }
       if (cached) {
         const blobUrl = URL.createObjectURL(cached);
         tile._patBlob = blobUrl;
         finish(blobUrl);
         return;
       }
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        done(new Error('offline'), tile);
-        return;
-      }
       try {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          finish(url);
+          return;
+        }
         const res = await fetch(url);
         if (!res.ok) {
           throw new Error(`http_${res.status}`);
         }
         const blob = await res.blob();
         await this.cache.put(id, blob);
+        if (!this._map) {
+          done(undefined, tile);
+          return;
+        }
         const blobUrl = URL.createObjectURL(blob);
         tile._patBlob = blobUrl;
         finish(blobUrl);
       } catch {
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
-          done(new Error('offline'), tile);
+        if (!this._map) {
+          done(undefined, tile);
           return;
         }
         finish(url);

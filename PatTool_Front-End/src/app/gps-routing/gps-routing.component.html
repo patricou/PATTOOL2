@@ -391,54 +391,49 @@
     <div class="col-12 col-lg-8 order-1 order-lg-2">
       <div class="card shadow-sm gps-panel gps-map-panel">
         <div class="card-body p-2">
-          <div class="gps-map-toolbar d-flex flex-wrap align-items-center gap-2 mb-2">
-            <div class="gps-map-toolbar-primary">
-              <label class="gps-basemap-field mb-0" for="gpsBasemap">
-                <span class="small text-muted me-1">{{ 'GPS_ROUTING.MAP_BASE_LAYER' | translate }}</span>
-                <select id="gpsBasemap"
-                        class="form-select form-select-sm gps-basemap-select"
-                        [(ngModel)]="mapBaseLayerId"
-                        (ngModelChange)="onMapBaseLayerChange()"
-                        [attr.aria-label]="'GPS_ROUTING.MAP_BASE_LAYER' | translate">
-                  <option *ngFor="let layer of availableMapBaseLayers" [value]="layer.id">
-                    {{ getMapBaseLayerLabel(layer) }}
-                  </option>
-                </select>
-              </label>
-              <div class="gps-orient btn-group btn-group-sm"
-                   role="group"
-                   [attr.aria-label]="'GPS_ROUTING.ORIENT_LABEL' | translate">
-                <button type="button"
-                        class="btn"
-                        *ngFor="let o of orientations"
-                        [class.btn-primary]="mapOrientation === o.id"
-                        [class.btn-outline-secondary]="mapOrientation !== o.id"
-                        (click)="setMapOrientation(o.id)"
-                        [attr.title]="o.labelKey | translate"
-                        [attr.aria-label]="o.labelKey | translate"
-                        [attr.aria-pressed]="mapOrientation === o.id">
-                  <i class="fa" [ngClass]="o.icon" aria-hidden="true"></i>
-                  <span class="gps-orient-label ms-1">{{ o.labelKey | translate }}</span>
-                </button>
-              </div>
-            </div>
-            <div class="form-check form-switch gps-follow-switch mb-0">
-              <input class="form-check-input"
-                     type="checkbox"
-                     id="gpsFollowUser"
-                     [(ngModel)]="followUserPosition"
-                     (ngModelChange)="onFollowUserChange()"
-                     [attr.aria-label]="'GPS_ROUTING.FOLLOW_USER' | translate">
-              <label class="form-check-label small" for="gpsFollowUser"
-                     [attr.title]="'GPS_ROUTING.FOLLOW_USER_HINT' | translate">
-                {{ 'GPS_ROUTING.FOLLOW_USER' | translate }}
-              </label>
-            </div>
-          </div>
-
           <div class="gps-map-shell"
                #mapShell
                [class.gps-map-shell--fullscreen]="mapFullscreen">
+            <div class="gps-map-toolbar d-flex flex-wrap align-items-center gap-2 mb-2">
+              <div class="gps-map-toolbar-primary">
+                <app-gps-basemap-picker
+                  [label]="'GPS_ROUTING.MAP_BASE_LAYER' | translate"
+                  [options]="availableMapBaseLayers"
+                  [layerId]="mapBaseLayerId"
+                  (layerIdChange)="onBasemapPicked($event)">
+                </app-gps-basemap-picker>
+                <div class="gps-orient btn-group btn-group-sm"
+                     role="group"
+                     [attr.aria-label]="'GPS_ROUTING.ORIENT_LABEL' | translate">
+                  <button type="button"
+                          class="btn"
+                          *ngFor="let o of orientations"
+                          [class.btn-primary]="mapOrientation === o.id"
+                          [class.btn-outline-secondary]="mapOrientation !== o.id"
+                          (click)="setMapOrientation(o.id)"
+                          [attr.title]="o.labelKey | translate"
+                          [attr.aria-label]="o.labelKey | translate"
+                          [attr.aria-pressed]="mapOrientation === o.id">
+                    <i class="fa" [ngClass]="o.icon" aria-hidden="true"></i>
+                    <span class="gps-orient-label ms-1">{{ o.labelKey | translate }}</span>
+                  </button>
+                </div>
+              </div>
+              <div class="form-check form-switch gps-follow-switch mb-0">
+                <input class="form-check-input"
+                       type="checkbox"
+                       id="gpsFollowUser"
+                       [(ngModel)]="followUserPosition"
+                       (ngModelChange)="onFollowUserChange()"
+                       [attr.aria-label]="'GPS_ROUTING.FOLLOW_USER' | translate">
+                <label class="form-check-label small" for="gpsFollowUser"
+                       [attr.title]="'GPS_ROUTING.FOLLOW_USER_HINT' | translate">
+                  {{ 'GPS_ROUTING.FOLLOW_USER' | translate }}
+                </label>
+              </div>
+            </div>
+
+            <div class="gps-map-stage">
             <div class="gps-map-corner-actions" *ngIf="!nav3dActive">
               <button type="button"
                       class="btn btn-sm btn-light gps-map-action-btn shadow-sm"
@@ -490,6 +485,7 @@
                             [orientation]="mapOrientation"
                             [followUser]="followUserPosition"
                             (closed)="nav3dActive = false; refreshMapAfterNav3d(); applyMapBearing()"></app-gps-nav-3d>
+            </div>
           </div>
         </div>
       </div>

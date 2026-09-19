@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ApiService } from './api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
+import { isBrowserOffline } from '../shared/browser-offline.util';
 
 /**
  * Persists the last visited Angular route per user surnom
@@ -94,6 +95,11 @@ export class LastRouteService {
    * once (cross-device / cleared storage).
    */
   restoreFromServerIfNeeded(): void {
+    if (isBrowserOffline()) {
+      this.suppressPersist = false;
+      this.serverRestoreDone = true;
+      return;
+    }
     if (this.serverRestoreDone || this.restoredFromLocal || !this.coldStart) {
       this.suppressPersist = false;
       return;
@@ -135,6 +141,9 @@ export class LastRouteService {
   }
 
   private flushToServer(route: string): void {
+    if (isBrowserOffline()) {
+      return;
+    }
     this.saveSub?.unsubscribe();
     this.saveSub = this.api.saveAppLastRoute(route).subscribe({
       next: () => undefined,

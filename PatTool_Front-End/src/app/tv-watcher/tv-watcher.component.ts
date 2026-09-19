@@ -4669,6 +4669,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.hlsRecoverAttempts = { network: 0, media: 0 };
     this.applyAudioToVideo(video, { muted: false, ensureVolume: true });
     video.title = channel.name || 'TV';
+    video.setAttribute('data-pat-media-title', channel.name || 'TV');
     disableTvSubtitles(null, video);
     const streamUrl = resolveTvStreamUrl(channel);
     const proxyUrl = this.api.tvStreamProxyUrl(streamUrl);

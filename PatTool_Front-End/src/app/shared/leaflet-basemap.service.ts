@@ -98,10 +98,42 @@ export class LeafletBasemapService {
     }
 
     nextLayer.addTo(map);
+    this.silenceBrokenTiles(nextLayer);
     this.bringBasemapToBack(nextLayer);
     requestAnimationFrame(() => map.invalidateSize());
     return nextLayer;
   }
+
+  /** Hide the browser “disconnected” artwork on failed tiles so the map stays visible. */
+  silenceBrokenTiles(layer: L.TileLayer | L.LayerGroup | null | undefined): void {
+    if (!layer) {
+      return;
+    }
+    const empty = L.Util.emptyImageUrl;
+    const patch = (tileLayer: L.TileLayer): void => {
+      tileLayer.options.errorTileUrl = empty;
+      tileLayer.options.keepBuffer = Math.max(tileLayer.options.keepBuffer || 2, 4);
+      tileLayer.off('tileerror', this.onTileErrorBlank);
+      tileLayer.on('tileerror', this.onTileErrorBlank);
+    };
+    if (layer instanceof L.TileLayer) {
+      patch(layer);
+      return;
+    }
+    layer.eachLayer((child) => {
+      if (child instanceof L.TileLayer) {
+        patch(child);
+      }
+    });
+  }
+
+  private onTileErrorBlank = (e: L.TileErrorEvent): void => {
+    const img = e.tile as HTMLImageElement;
+    const empty = L.Util.emptyImageUrl;
+    if (img && img.getAttribute('src') !== empty) {
+      img.src = empty;
+    }
+  };
 
   private ensureInitialized(): void {
     if (this.initialized) {

@@ -23,6 +23,7 @@ import { isValidGeoCoordinate } from '../shared/geo-coordinates.util';
 import { L } from '../shared/leaflet-rotate-setup';
 import { LeafletBasemapOption, LeafletBasemapService } from '../shared/leaflet-basemap.service';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { GpsBasemapPickerComponent } from '../shared/gps-basemap-picker.component';
 import { GpsNav3dComponent } from './gps-nav-3d.component';
 import { GpsMapOrientation } from '../shared/gps-map-orientation';
 import { KeycloakService } from '../keycloak/keycloak.service';
@@ -89,7 +90,7 @@ type RotatableMap = L.Map & {
 @Component({
   selector: 'app-gps-routing',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent, GpsNav3dComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, TraceViewerModalComponent, GpsNav3dComponent, GpsBasemapPickerComponent],
   templateUrl: './gps-routing.component.html',
   styleUrls: ['./gps-routing.component.css']
 })
@@ -145,7 +146,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   isSearchingTo = false;
   errorMessage = '';
 
-  mapBaseLayerId = 'osm-standard';
+  mapBaseLayerId = 'opentopomap';
   mapFullscreen = false;
   nav3dActive = false;
   historyOpen = false;
@@ -892,8 +893,9 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.basemap.getAvailableLayers();
   }
 
-  getMapBaseLayerLabel(layer: LeafletBasemapOption): string {
-    return layer.labelKey ? this.translate.instant(layer.labelKey) : layer.label;
+  onBasemapPicked(layerId: string): void {
+    this.mapBaseLayerId = layerId;
+    this.onMapBaseLayerChange();
   }
 
   onMapBaseLayerChange(): void {

@@ -103,7 +103,59 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   if (id.startsWith('arte.fr') || /^arte(\b|[\s\-_.(]|hd|fhd|sd|uhd|4k)/i.test(name)) {
     return 'arte:LIVE';
   }
+  // KTO: iptv-org still lists the dead OVH Flussonic mirror (HTTP 403).
+  if (isKtoLiveChannel(channel)) {
+    return KTO_OFFICIAL_HLS;
+  }
+  // BFM: iptv-org 1080p entries use SFR nCDN (LIVE$…) which stalls ~24s behind
+  // live-edge and poisons MSE when the watchdog seeks. Prefer official NextRadioTV.
+  const bfmOfficial = bfmOfficialHlsFor(channel);
+  if (bfmOfficial) {
+    return bfmOfficial;
+  }
   return existing;
+}
+
+/** Official kto.tv live HLS (same URL as the homepage player). */
+export const KTO_OFFICIAL_HLS =
+  'https://livekto.akamaized.net/hls/live/20000018/ktotv/master.m3u8';
+
+/**
+ * French Catholic KTO (kto.fr) — not KTOO, Nicktoons, or « Kto est Kto ».
+ */
+export function isKtoLiveChannel(
+  channelOrUrl:
+    | string
+    | { name?: string | null; id?: string | null; streamUrl?: string | null }
+    | null
+    | undefined
+): boolean {
+  if (channelOrUrl == null) {
+    return false;
+  }
+  if (typeof channelOrUrl === 'string') {
+    return isKtoOfficialOrDeadMirrorUrl(channelOrUrl);
+  }
+  const id = (channelOrUrl.id || '').toLowerCase();
+  if (id.startsWith('kto.fr')) {
+    return true;
+  }
+  if (isKtoOfficialOrDeadMirrorUrl(channelOrUrl.streamUrl || '')) {
+    return true;
+  }
+  const name = (channelOrUrl.name || '').toLowerCase().trim();
+  return /^kto(\s+(hd|sd|fhd|uhd|4k))?(\s*\([^)]*\))?$/.test(name);
+}
+
+function isKtoOfficialOrDeadMirrorUrl(url: string): boolean {
+  const u = (url || '').toLowerCase();
+  if (!u) {
+    return false;
+  }
+  if (u.includes('livekto.akamaized.net') || u.includes('live-kto.akamaized.net')) {
+    return true;
+  }
+  return u.includes('145.239.5.177') && u.includes('/354/');
 }
 
 export function isFranceTvVirtual(url: string): boolean {
@@ -186,7 +238,64 @@ export function shouldSkipTvLiveEdgeWatchdog(
     || isM6GroupVirtual(streamUrl)
     || isRtsVirtual(streamUrl)
     || isArteLiveVirtual(streamUrl)
-    || isCapTerreChannel(channel || streamUrl);
+    || isCapTerreChannel(channel || streamUrl)
+    || isBfmSfrNcdn(streamUrl);
+}
+
+/**
+ * SFR nCDN BFM lives ({@code ncdn-live-bfm.pfd.sfr.net/shls/LIVE$…}) sit ~24s
+ * behind {@code liveSyncPosition}; forced live-edge seeks freeze currentTime.
+ */
+export function isBfmSfrNcdn(
+  channelOrUrl:
+    | string
+    | { name?: string | null; id?: string | null; streamUrl?: string | null }
+    | null
+    | undefined
+): boolean {
+  const url = typeof channelOrUrl === 'string'
+    ? channelOrUrl
+    : (channelOrUrl?.streamUrl || '');
+  const u = (url || '').toLowerCase();
+  return u.includes('ncdn-live-bfm.pfd.sfr.net') || u.includes('live$bfm');
+}
+
+/** Official NextRadioTV HLS for BFM TV / Business / Lyon (not regionals / BFM2). */
+export const BFM_OFFICIAL_HLS = {
+  tv: 'https://live-cdn-stream-euw1.bfmtv.bct.nextradiotv.com/master.m3u8',
+  business: 'https://live-cdn-stream-euw1.bfmb.bct.nextradiotv.com/master.m3u8',
+  lyon: 'https://live-cdn-bfmtvlyo-euw1.bfmtv.bct.nextradiotv.com/master.m3u8'
+} as const;
+
+export function bfmOfficialHlsFor(
+  channel: { name?: string | null; id?: string | null; streamUrl?: string | null } | null | undefined
+): string | null {
+  const slug = bfmOfficialSlug(channel);
+  return slug ? BFM_OFFICIAL_HLS[slug] : null;
+}
+
+function bfmOfficialSlug(
+  channel: { name?: string | null; id?: string | null; streamUrl?: string | null } | null | undefined
+): keyof typeof BFM_OFFICIAL_HLS | null {
+  if (!channel) {
+    return null;
+  }
+  const id = (channel.id || '').toLowerCase();
+  const name = (channel.name || '').toLowerCase().trim();
+  const url = (channel.streamUrl || '').toLowerCase();
+  if (id.startsWith('bfmbusiness.fr') || /^bfm\s*business\b/.test(name)
+      || url.includes('live$bfm_business') || url.includes('bfmb.bct.nextradiotv')) {
+    return 'business';
+  }
+  if (id.startsWith('bfmlyon.fr') || /^bfm\s*lyon\b/.test(name)
+      || url.includes('live$bfm_lyon') || url.includes('bfmtvlyo')) {
+    return 'lyon';
+  }
+  if (id.startsWith('bfmtv.fr') || name === 'bfmtv' || /^bfm(\s*tv)?(\s*\([^)]*\))?$/.test(name)
+      || url.includes('live$bfm_tv') || url.includes('live-cdn-stream-euw1.bfmtv.bct.nextradiotv')) {
+    return 'tv';
+  }
+  return null;
 }
 
 /** Finite ARTE replay (not the live channel) — use VOD HLS config, no live-edge seek. */

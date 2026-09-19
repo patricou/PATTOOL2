@@ -430,6 +430,7 @@
             #mediaEl
             class="radio-video radio-audio-el"
             playsinline
+            webkit-playsinline
             [class.radio-video--hidden]="!selectedStation || isFloatingOpen"
             [class.radio-video--error]="!!playError"
             (volumechange)="onMediaVolumeChange()"></video>

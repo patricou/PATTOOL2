@@ -14,10 +14,15 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
-import * as L from 'leaflet';
-import { firstValueFrom, Subscription } from 'rxjs';
+import { firstValueFrom, from, of, Subscription } from 'rxjs';
+import { catchError, map, mergeMap, reduce } from 'rxjs/operators';
 
 import { LeafletBasemapOption, LeafletBasemapService } from '../shared/leaflet-basemap.service';
+import { L, RotatableLeafletMap } from '../shared/leaflet-rotate-setup';
+import { GpsBasemapPickerComponent } from '../shared/gps-basemap-picker.component';
+import { CalendarEntry, CalendarService } from '../calendar/calendar.service';
+import { MembersService } from '../services/members.service';
+import { environment } from '../../environments/environment';
 import { ApiService, GpsFollowSession } from '../services/api.service';
 import { FileService } from '../services/file.service';
 import { GpsRecordingService, GpsLiveSnapshot, GpsUserFix } from '../services/gps-recording.service';
@@ -51,6 +56,7 @@ import {
   MAX_PLANNED_TRACK_POINTS,
   slugFileName,
   splitTrackSegments,
+  trackHeadingAt,
   trackSlopeAt
 } from './gps-geo.util';
 
@@ -60,6 +66,13 @@ interface GpsPlaceView {
   eleM: number | null;
   address: string;
   loading: boolean;
+}
+
+interface GpsLinkActivity {
+  id: string;
+  title: string;
+  label: string;
+  start: Date;
 }
 
 interface GpsTrackSaveStats {
@@ -74,7 +87,7 @@ interface GpsTrackSaveStats {
 @Component({
   selector: 'app-gps-track',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, GpsNav3dComponent, TraceViewerModalComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, GpsNav3dComponent, TraceViewerModalComponent, GpsBasemapPickerComponent],
   templateUrl: './gps-track.component.html',
   styleUrls: ['./gps-track.component.css']
 })
@@ -92,8 +105,9 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   successMessage = '';
   isParsing = false;
   savingTrack = false;
+  openingSessionTrace = false;
   isDragOver = false;
-  mapBaseLayerId = 'osm-standard';
+  mapBaseLayerId = 'opentopomap';
   mapFullscreen = false;
   slopeFullscreen = false;
   private mapFsNative = false;
@@ -107,7 +121,18 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   mapOrientation: GpsMapOrientation = 'heading';
   sessions: GpsFollowSession[] = [];
   sessionsLoading = false;
+  sessionSearch = '';
+  sessionFilter: 'all' | 'recorded' | 'imported' | 'active' = 'all';
+  sessionSort: 'date_desc' | 'date_asc' | 'distance' | 'ascent' | 'title' | 'duration' = 'date_desc';
   sessionDetail: GpsFollowSession | null = null;
+  linkActivityOpen = false;
+  linkActivityId = '';
+  linkActivitySearch = '';
+  linkActivityFilter: 'all' | 'upcoming' | 'past' = 'all';
+  linkActivitySort: 'date_desc' | 'date_asc' | 'title' = 'date_desc';
+  linkActivities: GpsLinkActivity[] = [];
+  linkActivitiesLoading = false;
+  linkingActivity = false;
   startPlace: GpsPlaceView | null = null;
   finishPlace: GpsPlaceView | null = null;
   currentPlace: GpsPlaceView | null = null;
@@ -125,6 +150,17 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
 
   get basemapOptions(): LeafletBasemapOption[] {
     return this.basemap.getAvailableLayers();
+  }
+
+  setMapBaseLayer(layerId: string): void {
+    if (!this.map || !layerId) {
+      this.mapBaseLayerId = layerId || this.mapBaseLayerId;
+      return;
+    }
+    this.mapBaseLayerId = layerId;
+    this.preferredBasemapId = layerId;
+    this.offlineFallback = false;
+    this.applyGpsBaseLayer();
   }
 
   get nav3dFix(): GpsNav3dFix | null {
@@ -208,7 +244,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     return Math.max(-180, Math.min(180, d));
   }
 
-  private map: L.Map | null = null;
+  private map: RotatableLeafletMap | null = null;
   private baseLayer: L.TileLayer | L.LayerGroup | null = null;
   private trackLayer: L.FeatureGroup | null = null;
   private userMarker: L.Marker | null = null;
@@ -233,16 +269,19 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   private slopeCoefSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private slopeCoefSaveSub: Subscription | null = null;
   private offlineSub: Subscription | null = null;
-  private preferredBasemapId = 'osm-standard';
+  private preferredBasemapId = 'opentopomap';
   private lastOnline = typeof navigator === 'undefined' ? true : navigator.onLine;
   private sessionsListModalRef: NgbModalRef | null = null;
   private sessionDetailModalRef: NgbModalRef | null = null;
+  private linkActivitySub: Subscription | null = null;
 
   constructor(
     readonly recording: GpsRecordingService,
     private readonly basemap: LeafletBasemapService,
     private readonly api: ApiService,
     private readonly files: FileService,
+    private readonly members: MembersService,
+    private readonly calendar: CalendarService,
     private readonly offlineMap: GpsOfflineMapService,
     private readonly offlineTiles: GpsOfflineTilesStore,
     private readonly route: ActivatedRoute,
@@ -325,6 +364,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     this.finishGeocodeSub?.unsubscribe();
     this.currentGeocodeSub?.unsubscribe();
     this.slopeCoefSaveSub?.unsubscribe();
+    this.linkActivitySub?.unsubscribe();
     this.closeSessionDetail();
     this.closeSessionsList();
     this.resizeObserver?.disconnect();
@@ -628,11 +668,241 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     await this.saveAsTrack();
   }
 
+  canDownloadSession(session: GpsFollowSession | null | undefined): boolean {
+    if (!session) {
+      return false;
+    }
+    const recorded = session.recordedPointCount ?? session.recordedPoints?.length ?? 0;
+    return recorded >= 2 || this.sessionPlannedPointCount(session) >= 2;
+  }
+
+  async downloadSessionGpx(session: GpsFollowSession, event?: Event): Promise<void> {
+    event?.stopPropagation();
+    if (this.savingTrack) {
+      return;
+    }
+    this.savingTrack = true;
+    this.errorMessage = '';
+    this.successMessage = '';
+    try {
+      const pack = await this.sessionGpxPack(session);
+      if (!pack) {
+        return;
+      }
+      this.downloadRecordedGpx(pack.points, pack.title, pack.fileName, pack.stats);
+      this.successMessage = 'GPS.DOWNLOAD_OK';
+    } finally {
+      this.savingTrack = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  toggleLinkActivityPicker(): void {
+    this.linkActivityOpen = !this.linkActivityOpen;
+    this.errorMessage = '';
+    if (this.linkActivityOpen) {
+      this.ensureLinkActivities();
+    }
+  }
+
+  async confirmLinkSessionToActivity(activityId?: string): Promise<void> {
+    const id = (activityId || this.linkActivityId || '').trim();
+    const session = this.sessionDetail;
+    if (!id || !session || this.linkingActivity) {
+      return;
+    }
+    this.linkActivityId = id;
+    this.linkingActivity = true;
+    this.errorMessage = '';
+    this.successMessage = '';
+    try {
+      const pack = await this.sessionGpxPack(session);
+      if (!pack) {
+        return;
+      }
+      const user = await firstValueFrom(this.members.getUserId({ skipGeolocation: true }));
+      if (!user?.id) {
+        this.errorMessage = 'GPS.LINK_ACTIVITY_ERR';
+        return;
+      }
+      const file = new File([pack.gpx], pack.fileName, { type: 'application/gpx+xml' });
+      const form = new FormData();
+      form.append('file', file, file.name);
+      const base = (environment.API_URL4FILE || '/uploadfile').replace(/\/$/, '');
+      const uploadUrl = `${base}/${user.id}/${id}`;
+      await firstValueFrom(this.files.postFileToUrl(form, user, uploadUrl));
+      this.successMessage = 'GPS.LINK_ACTIVITY_OK';
+      this.linkActivityOpen = false;
+    } catch {
+      this.errorMessage = 'GPS.LINK_ACTIVITY_ERR';
+    } finally {
+      this.linkingActivity = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private resetLinkActivityUi(): void {
+    this.linkActivityOpen = false;
+    this.linkActivityId = '';
+    this.linkActivitySearch = '';
+    this.linkActivityFilter = 'all';
+    this.linkingActivity = false;
+  }
+
+  get filteredLinkActivities(): GpsLinkActivity[] {
+    const query = this.linkActivitySearch.trim().toLowerCase();
+    const now = Date.now();
+    let list = this.linkActivities;
+    if (this.linkActivityFilter === 'upcoming') {
+      list = list.filter((a) => a.start.getTime() >= now);
+    } else if (this.linkActivityFilter === 'past') {
+      list = list.filter((a) => a.start.getTime() < now);
+    }
+    if (query) {
+      list = list.filter((a) =>
+        a.title.toLowerCase().includes(query) || a.label.toLowerCase().includes(query)
+      );
+    }
+    const sorted = list.slice();
+    if (this.linkActivitySort === 'title') {
+      sorted.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+    } else if (this.linkActivitySort === 'date_asc') {
+      sorted.sort((a, b) => a.start.getTime() - b.start.getTime());
+    } else {
+      sorted.sort((a, b) => b.start.getTime() - a.start.getTime());
+    }
+    return sorted;
+  }
+
+  private ensureLinkActivities(): void {
+    if (this.linkActivities.length || this.linkActivitiesLoading) {
+      return;
+    }
+    this.linkActivitiesLoading = true;
+    this.linkActivitySub?.unsubscribe();
+    const rangeFrom = new Date();
+    rangeFrom.setFullYear(rangeFrom.getFullYear() - 12);
+    const rangeTo = new Date();
+    rangeTo.setFullYear(rangeTo.getFullYear() + 1);
+    const chunkMs = 360 * 24 * 60 * 60 * 1000;
+    const chunks: Array<{ start: Date; end: Date }> = [];
+    let cursor = rangeFrom.getTime();
+    const endMs = rangeTo.getTime();
+    while (cursor < endMs) {
+      const next = Math.min(cursor + chunkMs, endMs);
+      chunks.push({ start: new Date(cursor), end: new Date(next) });
+      cursor = next;
+    }
+    this.linkActivitySub = from(chunks).pipe(
+      mergeMap(
+        (ch) => this.calendar.getEntries(ch.start, ch.end).pipe(
+          map((rows) => rows || []),
+          catchError(() => of([] as CalendarEntry[]))
+        ),
+        4
+      ),
+      reduce((acc, rows) => {
+        for (const e of rows) {
+          if (e.kind === 'ACTIVITY' && e.id) {
+            acc.set(e.id, e);
+          }
+        }
+        return acc;
+      }, new Map<string, CalendarEntry>())
+    ).subscribe({
+      next: (merged) => {
+        this.linkActivities = Array.from(merged.values())
+          .map((e) => {
+            const start = e.start ? new Date(e.start) : new Date(0);
+            const datePart = !Number.isNaN(start.getTime()) && start.getTime() > 0
+              ? start.toLocaleDateString()
+              : '';
+            return {
+              id: e.id,
+              title: e.title || '',
+              label: datePart ? `${e.title} — ${datePart}` : e.title,
+              start
+            };
+          })
+          .sort((a, b) => b.start.getTime() - a.start.getTime());
+        this.linkActivitiesLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.linkActivities = [];
+        this.linkActivitiesLoading = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private async sessionGpxPack(session: GpsFollowSession): Promise<{
+    points: GpsTrackPt[];
+    title: string;
+    fileName: string;
+    gpx: string;
+    stats?: GpsTrackSaveStats;
+  } | null> {
+    if (!session.id) {
+      this.errorMessage = 'GPS.ERR_SAVE_TRACK';
+      this.successMessage = '';
+      return null;
+    }
+    try {
+      const full = await firstValueFrom(this.api.getGpsSession(session.id));
+      const points = this.sessionGpxPoints(full);
+      if (points.length < 2) {
+        this.errorMessage = 'GPS.ERR_SAVE_TRACK';
+        this.successMessage = '';
+        return null;
+      }
+      const title = (full.title || session.title || this.trackExportTitle()).trim();
+      const fileName = (full.sourceFileName || session.sourceFileName || '').trim()
+        || `pattool-${slugFileName(title, 'sortie')}.gpx`;
+      const stats: GpsTrackSaveStats = {
+        distanceM: full.doneM,
+        durationSec: full.durationSec,
+        ascentM: full.ascentDoneM,
+        descentM: full.descentDoneM
+      };
+      const gpx = buildTrackGpx({
+        points,
+        name: title,
+        desc: this.gpxDescription(points, stats),
+        type: 'recorded'
+      });
+      return { points, title, fileName, gpx, stats };
+    } catch {
+      this.errorMessage = 'GPS.ERR_LOAD_SESSION';
+      this.successMessage = '';
+      return null;
+    }
+  }
+
+  private sessionGpxPoints(session: GpsFollowSession): GpsTrackPt[] {
+    const recorded = this.pointsFromSession(session);
+    if (recorded.length >= 2) {
+      return recorded;
+    }
+    return (session.plannedTrack || [])
+      .filter((c) => Array.isArray(c) && c.length >= 2 && Number.isFinite(c[0]) && Number.isFinite(c[1]))
+      .map((c) => ({ lat: c[0], lon: c[1] }));
+  }
+
   clear(): void {
     this.errorMessage = '';
     this.successMessage = '';
     this.recording.clearTrack();
     this.paintMap();
+  }
+
+  setMapOrientation(orientation: GpsMapOrientation): void {
+    if (this.mapOrientation === orientation) {
+      this.applyMapBearing(true);
+      return;
+    }
+    this.mapOrientation = orientation;
+    this.applyMapBearing(true);
   }
 
   toggleNav3d(): void {
@@ -644,6 +914,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       this.lastPaintKey = '';
       setTimeout(() => {
         this.paintMap();
+        this.applyMapBearing(true);
         this.map?.invalidateSize();
       }, 80);
     }
@@ -654,19 +925,9 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     this.lastPaintKey = '';
     setTimeout(() => {
       this.paintMap();
+      this.applyMapBearing(true);
       this.map?.invalidateSize();
     }, 80);
-  }
-
-  onBasemapChange(): void {
-    if (!this.map) {
-      return;
-    }
-    if (this.snap.online) {
-      this.preferredBasemapId = this.mapBaseLayerId;
-      this.offlineFallback = false;
-    }
-    this.applyGpsBaseLayer();
   }
 
   async downloadOfflineMap(): Promise<void> {
@@ -731,6 +992,10 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       this.mapBaseLayerId = 'osm-standard';
       this.offlineFallback = true;
       this.applyGpsBaseLayer();
+      return;
+    }
+    if (!online) {
+      this.basemap.silenceBrokenTiles(this.baseLayer);
       return;
     }
     if (online && this.offlineFallback) {
@@ -816,11 +1081,17 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  get filteredSessions(): GpsFollowSession[] {
+    const query = this.sessionSearch.trim().toLowerCase();
+    const list = this.sessions.filter((s) => this.sessionMatchesFilters(s, query));
+    return list.slice().sort((a, b) => this.compareSessions(a, b));
+  }
+
   refreshSessions(): void {
     this.sessionsLoading = true;
     this.api.listGpsSessions().subscribe({
       next: (list) => {
-        this.sessions = list || [];
+        this.sessions = (list || []).slice().sort((a, b) => this.compareSessionsByDate(a, b, -1));
         this.sessionsLoading = false;
         this.cdr.markForCheck();
       },
@@ -871,6 +1142,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.sessionDetail = session;
+    this.resetLinkActivityUi();
     this.closeSessionDetail();
     this.sessionDetailModalRef = this.modal.open(this.sessionDetailModal, {
       centered: true,
@@ -900,6 +1172,62 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  canOpenSessionInTraceViewer(session: GpsFollowSession | null | undefined): boolean {
+    if (!session) {
+      return false;
+    }
+    if ((session.recordedPointCount || session.recordedPoints?.length || 0) >= 2) {
+      return true;
+    }
+    if ((session.sourceFileId || '').trim()) {
+      return true;
+    }
+    return (session.plannedTrack?.length || 0) >= 2;
+  }
+
+  async openSessionInTraceViewer(session: GpsFollowSession): Promise<void> {
+    if (!this.traceViewer || !session.id || this.openingSessionTrace) {
+      return;
+    }
+    this.openingSessionTrace = true;
+    this.errorMessage = '';
+    this.cdr.markForCheck();
+    try {
+      const full = await firstValueFrom(this.api.getGpsSession(session.id));
+      const fileName = this.sessionFileName(full) || `${full.title || session.title || 'track'}.gpx`;
+      const recorded = this.pointsFromSession(full);
+      if (recorded.length >= 2) {
+        this.closeSessionDetail();
+        this.traceViewer.openWithTrackPoints(
+          recorded.map((p) => ({ lat: p.lat, lng: p.lon })),
+          fileName,
+          { initialBaseLayerId: this.mapBaseLayerId }
+        );
+        return;
+      }
+      const fileId = (full.sourceFileId || '').trim();
+      if (fileId) {
+        this.closeSessionDetail();
+        this.traceViewer.openFromFile(fileId, fileName, undefined, full.title || session.title);
+        return;
+      }
+      const planned = this.pointsFromPlannedTrack(full);
+      if (planned.length >= 2) {
+        this.closeSessionDetail();
+        this.traceViewer.openWithTrackPoints(planned, fileName, {
+          initialBaseLayerId: this.mapBaseLayerId
+        });
+        return;
+      }
+      this.errorMessage = 'GPS.ERR_NO_POINTS';
+    } catch {
+      this.errorMessage = 'GPS.ERR_LOAD_SESSION';
+    } finally {
+      this.openingSessionTrace = false;
+      this.cdr.markForCheck();
+    }
+  }
+
   sessionStatusKey(session: GpsFollowSession | null | undefined): string {
     switch (session?.status) {
       case 'recording':
@@ -915,6 +1243,87 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
 
   sessionFileName(session: GpsFollowSession | null | undefined): string {
     return (session?.sourceFileName || '').trim();
+  }
+
+  sessionListDate(session: GpsFollowSession | null | undefined): string {
+    const formatted = this.formatSessionDate(this.sessionDateValue(session));
+    return formatted === '—' ? '' : formatted;
+  }
+
+  private sessionMatchesFilters(session: GpsFollowSession, query: string): boolean {
+    if (!this.sessionMatchesKind(session)) {
+      return false;
+    }
+    if (!query) {
+      return true;
+    }
+    const title = (session.title || '').toLowerCase();
+    const file = this.sessionFileName(session).toLowerCase();
+    return title.includes(query) || file.includes(query);
+  }
+
+  private sessionMatchesKind(session: GpsFollowSession): boolean {
+    switch (this.sessionFilter) {
+      case 'recorded':
+        return this.sessionHasRecording(session);
+      case 'imported':
+        return !!this.sessionFileName(session) && !this.sessionHasRecording(session);
+      case 'active':
+        return session.status === 'recording' || session.status === 'paused';
+      default:
+        return true;
+    }
+  }
+
+  private sessionHasRecording(session: GpsFollowSession): boolean {
+    return (session.recordedPointCount || 0) >= 2 || (session.doneM || 0) > 10;
+  }
+
+  private compareSessions(a: GpsFollowSession, b: GpsFollowSession): number {
+    switch (this.sessionSort) {
+      case 'distance':
+        return this.compareNum(b.doneM ?? b.plannedDistanceM, a.doneM ?? a.plannedDistanceM)
+          || this.compareSessionsByDate(a, b, -1);
+      case 'ascent':
+        return this.compareNum(b.ascentDoneM ?? b.plannedAscentM, a.ascentDoneM ?? a.plannedAscentM)
+          || this.compareSessionsByDate(a, b, -1);
+      case 'duration':
+        return this.compareNum(b.durationSec, a.durationSec) || this.compareSessionsByDate(a, b, -1);
+      case 'title':
+        return (a.title || this.sessionFileName(a) || '').localeCompare(
+          b.title || this.sessionFileName(b) || '',
+          undefined,
+          { sensitivity: 'base' }
+        );
+      case 'date_asc':
+        return this.compareSessionsByDate(a, b, 1);
+      default:
+        return this.compareSessionsByDate(a, b, -1);
+    }
+  }
+
+  private compareSessionsByDate(a: GpsFollowSession, b: GpsFollowSession, dir: number): number {
+    return (this.sessionDateMs(a) - this.sessionDateMs(b)) * dir;
+  }
+
+  private compareNum(a: number | null | undefined, b: number | null | undefined): number {
+    const av = a != null && Number.isFinite(a) ? a : -1;
+    const bv = b != null && Number.isFinite(b) ? b : -1;
+    return av - bv;
+  }
+
+  private sessionDateValue(session: GpsFollowSession | null | undefined): string | null {
+    const value = session?.startedAt || session?.finishedAt || session?.createdAt || session?.updatedAt || null;
+    return value ? String(value) : null;
+  }
+
+  private sessionDateMs(session: GpsFollowSession | null | undefined): number {
+    const raw = this.sessionDateValue(session);
+    if (!raw) {
+      return 0;
+    }
+    const t = Date.parse(raw);
+    return Number.isFinite(t) ? t : 0;
   }
 
   currentTrackFileName(): string {
@@ -1195,6 +1604,17 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
         eleM: p.eleM ?? null,
         gapBefore: p.gapBefore === true
       }));
+  }
+
+  private pointsFromPlannedTrack(session: GpsFollowSession): Array<{ lat: number; lng: number }> {
+    const out: Array<{ lat: number; lng: number }> = [];
+    for (const c of session.plannedTrack || []) {
+      if (!Array.isArray(c) || c.length < 2 || !Number.isFinite(c[0]) || !Number.isFinite(c[1])) {
+        continue;
+      }
+      out.push({ lat: c[0], lng: c[1] });
+    }
+    return out;
   }
 
   private downloadRecordedGpx(
@@ -1546,29 +1966,64 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     if (!this.map) {
       return;
     }
-    const useCachedOsm = this.mapBaseLayerId === 'osm-standard' || this.offlineFallback;
-    if (this.baseLayer) {
-      this.map.removeLayer(this.baseLayer);
-      this.baseLayer = null;
-    }
+    this.removeGpsBaseLayers();
+    const useCachedOsm = this.offlineFallback || this.mapBaseLayerId === 'osm-standard';
     if (useCachedOsm) {
       this.baseLayer = new CachedOsmTileLayer(this.offlineTiles);
       this.baseLayer.addTo(this.map);
+      this.baseLayer.bringToBack();
+    } else {
+      this.baseLayer = this.basemap.applyBaseLayer(this.map, this.mapBaseLayerId, null);
+    }
+    if (this.baseLayer instanceof L.TileLayer) {
+      this.baseLayer.redraw();
+    }
+    this.basemap.silenceBrokenTiles(this.baseLayer);
+    requestAnimationFrame(() => this.map?.invalidateSize());
+  }
+
+  private removeGpsBaseLayers(): void {
+    if (!this.map) {
+      this.baseLayer = null;
       return;
     }
-    this.baseLayer = this.basemap.applyBaseLayer(this.map, this.mapBaseLayerId, null);
+    const toRemove: L.Layer[] = [];
+    this.map.eachLayer((layer) => {
+      if (layer === this.trackLayer || layer === this.userMarker) {
+        return;
+      }
+      if (layer instanceof L.TileLayer) {
+        toRemove.push(layer);
+        return;
+      }
+      if (layer instanceof L.LayerGroup && !(layer instanceof L.FeatureGroup)) {
+        toRemove.push(layer);
+      }
+    });
+    for (const layer of toRemove) {
+      this.map.removeLayer(layer);
+    }
+    this.baseLayer = null;
   }
 
   private ensureMap(): void {
     const el = this.mapHost?.nativeElement;
     if (!el || this.map) {
-      this.map?.invalidateSize();
       return;
     }
-    this.map = L.map(el, { zoomControl: true, attributionControl: true });
+    this.map = L.map(el, {
+      zoomControl: true,
+      attributionControl: true,
+      rotate: true,
+      bearing: 0,
+      touchRotate: false,
+      shiftKeyRotate: false,
+      rotateControl: false
+    } as L.MapOptions) as RotatableLeafletMap;
     this.applyGpsBaseLayer();
     this.trackLayer = L.featureGroup().addTo(this.map);
     this.map.setView([46.6, 2.5], 6);
+    this.applyMapBearing(true);
     setTimeout(() => this.map?.invalidateSize(), 0);
   }
 
@@ -1622,6 +2077,53 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
         this.map.fitBounds(b, { padding: [28, 28], maxZoom: 16 });
         this.didFitTrack = true;
       }
+    }
+    this.applyMapBearing();
+  }
+
+  private pathHeadingDeg(): number {
+    const planned = this.snap.track;
+    if (planned.length >= 2) {
+      const heading = trackHeadingAt(planned, this.snap.nearestIndex);
+      if (heading != null) {
+        return heading;
+      }
+    }
+    const recorded = this.snap.recorded;
+    if (recorded.length >= 2) {
+      const heading = trackHeadingAt(recorded, recorded.length - 1);
+      if (heading != null) {
+        return heading;
+      }
+    }
+    return 0;
+  }
+
+  private currentMapBearingDeg(): number {
+    if (this.mapOrientation === 'north') {
+      return 0;
+    }
+    if (this.mapOrientation === 'heading') {
+      const walk = this.snap.user?.headingDeg;
+      if (walk != null && Number.isFinite(walk)) {
+        return walk;
+      }
+    }
+    return this.pathHeadingDeg();
+  }
+
+  private applyMapBearing(force = false): void {
+    if (!this.map || this.nav3dActive || typeof this.map.setBearing !== 'function') {
+      return;
+    }
+    const bearing = ((this.currentMapBearingDeg() % 360) + 360) % 360;
+    try {
+      this.map.setBearing(bearing);
+      if (force) {
+        this.map.invalidateSize({ animate: false });
+      }
+    } catch {
+      // leaflet-rotate not ready
     }
   }
 

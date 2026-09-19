@@ -21,6 +21,7 @@ import {
   needsMotionPermissionTap,
   requestMotionPermissionIfNeeded
 } from '../shared/device-motion-permission.util';
+import { createQuietKeepAliveAudioUrl } from '../shared/quiet-keepalive-audio.util';
 
 export type GpsFollowStatus = 'idle' | 'recording' | 'paused' | 'finished';
 
@@ -110,9 +111,12 @@ function wrapSignedDeg(d: number): number {
   return x === -180 ? 180 : x;
 }
 
-/** Tiny looping silent WAV to keep the mobile tab alive in the background. */
-const SILENT_WAV =
-  'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+type GpsWakeLockSentinel = {
+  released?: boolean;
+  release: () => Promise<void>;
+  addEventListener: (type: 'release', listener: () => void) => void;
+  removeEventListener: (type: 'release', listener: () => void) => void;
+};
 
 @Injectable({ providedIn: 'root' })
 export class GpsRecordingService implements OnDestroy {
@@ -120,8 +124,11 @@ export class GpsRecordingService implements OnDestroy {
 
   private readonly store = new GpsSessionOfflineStore();
   private watchId: number | null = null;
-  private wakeLock: WakeLockSentinel | null = null;
+  private wakeLock: GpsWakeLockSentinel | null = null;
+  private wakeLockReleaseHandler: (() => void) | null = null;
   private keepAlive: HTMLAudioElement | null = null;
+  private keepAliveUrl: string | null = null;
+  private geoHeartbeat: ReturnType<typeof setInterval> | null = null;
   private baroSensor: { stop?: () => void } | null = null;
   private baroAltitudeM: number | null = null;
   private syncTimer: ReturnType<typeof setInterval> | null = null;
@@ -152,12 +159,19 @@ export class GpsRecordingService implements OnDestroy {
     void this.flushSync();
   };
   private readonly onOffline = (): void => this.patch({ online: false });
-  private readonly onVisible = (): void => {
-    if (document.visibilityState === 'visible' && this.snapshot$.value.status === 'recording') {
-      void this.requestWakeLock();
-      this.ensureKeepAliveAudio();
-      void this.flushSync();
+  private readonly onLifecycle = (): void => {
+    if (this.snapshot$.value.status !== 'recording') {
+      return;
     }
+    this.ensureKeepAliveAudio();
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      this.stopGeoHeartbeat();
+      void this.requestWakeLock();
+      this.ensureLocationWatch();
+      void this.flushSync();
+      return;
+    }
+    this.startGeoHeartbeat();
   };
 
   constructor(
@@ -168,7 +182,11 @@ export class GpsRecordingService implements OnDestroy {
     if (typeof window !== 'undefined') {
       window.addEventListener('online', this.onOnline);
       window.addEventListener('offline', this.onOffline);
-      document.addEventListener('visibilitychange', this.onVisible);
+      document.addEventListener('visibilitychange', this.onLifecycle);
+      document.addEventListener('freeze', this.onLifecycle);
+      document.addEventListener('resume', this.onLifecycle);
+      window.addEventListener('pagehide', this.onLifecycle);
+      window.addEventListener('pageshow', this.onLifecycle);
     }
     this.loadInclineCal();
     void this.restoreFromIndexedDb();
@@ -178,9 +196,14 @@ export class GpsRecordingService implements OnDestroy {
     if (typeof window !== 'undefined') {
       window.removeEventListener('online', this.onOnline);
       window.removeEventListener('offline', this.onOffline);
-      document.removeEventListener('visibilitychange', this.onVisible);
+      document.removeEventListener('visibilitychange', this.onLifecycle);
+      document.removeEventListener('freeze', this.onLifecycle);
+      document.removeEventListener('resume', this.onLifecycle);
+      window.removeEventListener('pagehide', this.onLifecycle);
+      window.removeEventListener('pageshow', this.onLifecycle);
     }
     this.teardownWatch();
+    this.stopGeoHeartbeat();
     this.stopKeepAliveAudio();
     void this.releaseWakeLock();
     this.stopBaro();
@@ -395,6 +418,7 @@ export class GpsRecordingService implements OnDestroy {
     this.resumeStartsNewSegment = true;
     this.patch({ status: 'paused', durationSec: this.pausedAccumSec });
     this.clearTimers();
+    this.stopGeoHeartbeat();
     this.stopKeepAliveAudio();
     void this.releaseWakeLock();
     await this.persistSession();
@@ -411,6 +435,7 @@ export class GpsRecordingService implements OnDestroy {
       durationSec: this.pausedAccumSec
     });
     this.clearTimers();
+    this.stopGeoHeartbeat();
     this.stopKeepAliveAudio();
     void this.releaseWakeLock();
     if (!silent) {
@@ -1009,21 +1034,60 @@ export class GpsRecordingService implements OnDestroy {
   }
 
   private async requestWakeLock(): Promise<void> {
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+      return;
+    }
+    if (this.wakeLock && !this.wakeLock.released) {
+      return;
+    }
+    await this.detachWakeLock();
     try {
-      const nav = navigator as Navigator & { wakeLock?: { request: (type: 'screen') => Promise<WakeLockSentinel> } };
-      this.wakeLock = (await nav.wakeLock?.request('screen')) || null;
+      const nav = navigator as Navigator & {
+        wakeLock?: { request: (type: 'screen') => Promise<GpsWakeLockSentinel> };
+      };
+      const lock = (await nav.wakeLock?.request('screen')) || null;
+      if (!lock) {
+        return;
+      }
+      this.wakeLock = lock;
+      this.wakeLockReleaseHandler = () => {
+        this.wakeLock = null;
+        if (this.snapshot$.value.status === 'recording' && document.visibilityState === 'visible') {
+          void this.requestWakeLock();
+        }
+      };
+      lock.addEventListener('release', this.wakeLockReleaseHandler);
     } catch {
       this.wakeLock = null;
     }
   }
 
   private async releaseWakeLock(): Promise<void> {
-    try {
-      await this.wakeLock?.release();
-    } catch {
-      /* ignore */
-    }
+    await this.detachWakeLock(true);
+  }
+
+  private async detachWakeLock(release = false): Promise<void> {
+    const lock = this.wakeLock;
+    const handler = this.wakeLockReleaseHandler;
     this.wakeLock = null;
+    this.wakeLockReleaseHandler = null;
+    if (!lock) {
+      return;
+    }
+    if (handler) {
+      try {
+        lock.removeEventListener('release', handler);
+      } catch {
+        /* ignore */
+      }
+    }
+    if (release && !lock.released) {
+      try {
+        await lock.release();
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   private ensureKeepAliveAudio(): void {
@@ -1031,8 +1095,11 @@ export class GpsRecordingService implements OnDestroy {
       return;
     }
     if (!this.keepAlive) {
-      const el = new Audio(SILENT_WAV);
+      this.keepAliveUrl = createQuietKeepAliveAudioUrl();
+      const el = new Audio(this.keepAliveUrl);
       el.loop = true;
+      el.preload = 'auto';
+      el.dataset['patKeepAlive'] = '1';
       el.setAttribute('title', 'PATTOOL GPS');
       el.setAttribute('data-pat-media-title', 'PATTOOL GPS');
       this.backgroundPlayback.watchMedia(el);
@@ -1048,6 +1115,7 @@ export class GpsRecordingService implements OnDestroy {
     if (!this.keepAlive) {
       return;
     }
+    this.backgroundPlayback.markUserPaused(this.keepAlive);
     try {
       this.keepAlive.pause();
     } catch {
@@ -1055,9 +1123,31 @@ export class GpsRecordingService implements OnDestroy {
     }
   }
 
+  private startGeoHeartbeat(): void {
+    if (this.geoHeartbeat != null || typeof navigator === 'undefined' || !navigator.geolocation) {
+      return;
+    }
+    this.geoHeartbeat = setInterval(() => {
+      if (this.snapshot$.value.status !== 'recording') {
+        return;
+      }
+      this.ensureKeepAliveAudio();
+      navigator.geolocation.getCurrentPosition(
+        (pos) => this.ngZone.run(() => this.onPosition(pos)),
+        () => undefined,
+        { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
+      );
+    }, 4000);
+  }
+
+  private stopGeoHeartbeat(): void {
+    if (this.geoHeartbeat != null) {
+      clearInterval(this.geoHeartbeat);
+      this.geoHeartbeat = null;
+    }
+  }
+
   private patch(partial: Partial<GpsLiveSnapshot>): void {
     this.snapshot$.next({ ...this.snapshot$.value, ...partial });
   }
 }
-
-type WakeLockSentinel = { release: () => Promise<void> };

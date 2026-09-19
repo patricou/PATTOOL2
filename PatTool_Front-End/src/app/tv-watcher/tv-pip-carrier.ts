@@ -146,6 +146,8 @@ export class TvPipCarrier {
   }): Promise<void> {
     const carrier = this.ensureVideo();
     this.channel = opts.channel;
+    carrier.title = opts.channel.name || 'TV';
+    carrier.setAttribute('data-pat-media-title', opts.channel.name || 'TV');
 
     // Close any prior PiP surface before opening a fresh one.
     if (this.isDocPipOpen() || document.pictureInPictureElement === carrier) {

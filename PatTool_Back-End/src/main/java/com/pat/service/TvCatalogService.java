@@ -44,6 +44,38 @@ public class TvCatalogService {
     private static final Pattern QUALITY_IN_NAME = Pattern.compile("\\((\\d+p)\\)", Pattern.CASE_INSENSITIVE);
     private static final Pattern COUNTRY_CODE = Pattern.compile("^[a-z]{2}$");
 
+    /**
+     * Official kto.tv live (homepage HLS). iptv-org still lists
+     * {@code http://145.239.5.177/354/index.m3u8} which returns HTTP 403.
+     */
+    private static final String KTO_OFFICIAL_HLS =
+            "https://livekto.akamaized.net/hls/live/20000018/ktotv/master.m3u8";
+    private static final String KTO_LOGO = "https://www.ktotv.com/img/logo-ktotv.png";
+
+    /**
+     * Official NextRadioTV HLS. iptv-org 1080p BFM entries use SFR nCDN
+     * ({@code ncdn-live-bfm.pfd.sfr.net/shls/LIVE$…}) which lags ~24s and
+     * stalls when the player seeks to live-edge.
+     */
+    private static final List<BfmOfficial> BFM_OFFICIAL = List.of(
+            new BfmOfficial("bfmtv.fr", "BFM TV", "News",
+                    "https://i.imgur.com/YJCcczD.png",
+                    "https://live-cdn-stream-euw1.bfmtv.bct.nextradiotv.com/master.m3u8",
+                    "540p"),
+            new BfmOfficial("bfmbusiness.fr", "BFM Business", "News",
+                    "https://i.imgur.com/psqIHn4.png",
+                    "https://live-cdn-stream-euw1.bfmb.bct.nextradiotv.com/master.m3u8",
+                    "540p"),
+            new BfmOfficial("bfmlyon.fr", "BFM Lyon", "News",
+                    "https://i.imgur.com/0uiiZRo.png",
+                    "https://live-cdn-bfmtvlyo-euw1.bfmtv.bct.nextradiotv.com/master.m3u8",
+                    "540p")
+    );
+
+    private record BfmOfficial(String idPrefix, String name, String group, String logo,
+                               String hls, String quality) {
+    }
+
     /** ISO 3166-1 alpha-2 codes (iptv-org playlists). France & Switzerland pinned first at display time. */
     private static final List<String> COUNTRY_CODES = List.of(
             "fr",
@@ -744,11 +776,14 @@ public class TvCatalogService {
      * Replace broken third-party mirrors of major French FTA channels with virtual
      * {@code francetv:…} / {@code tf1:…} / {@code canalgroup:…} / {@code radiofrance:…} / {@code m6group:…}
      * / {@code rts:…} / {@code arte:LIVE} URLs resolved on play.
+     * KTO / BFM are rewritten in every country playlist (iptv-org duplicates them worldwide).
      */
     private List<TvChannelDto> overlayOfficialLiveSources(List<TvChannelDto> channels, String countryCode) {
         if (channels == null || channels.isEmpty()) {
             return channels;
         }
+        channels = overlayKtoOfficialLive(channels);
+        channels = overlayBfmOfficialLive(channels);
         if ("ch".equals(countryCode)) {
             return overlayRtsLiveSources(channels);
         }
@@ -851,7 +886,52 @@ public class TvCatalogService {
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Gulli_2017.svg/512px-Gulli_2017.svg.png");
         ensureArteLiveChannel(out, "ARTE", "General",
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Arte_Logo_2017.svg/512px-Arte_Logo_2017.svg.png");
+        ensureKtoChannel(out, "KTO", "Religious", KTO_LOGO);
+        ensureBfmOfficialChannels(out);
         return prioritizeOfficialLive(out);
+    }
+
+    private static List<TvChannelDto> overlayBfmOfficialLive(List<TvChannelDto> channels) {
+        List<TvChannelDto> out = new ArrayList<>(channels.size());
+        for (TvChannelDto ch : channels) {
+            BfmOfficial def = matchBfmOfficial(ch);
+            if (def != null) {
+                String logo = ch.getLogo() != null && !ch.getLogo().isBlank() ? ch.getLogo() : def.logo();
+                out.add(new TvChannelDto(
+                        ch.getId(),
+                        def.name(),
+                        logo,
+                        ch.getGroup() != null && !ch.getGroup().isBlank() ? ch.getGroup() : def.group(),
+                        ch.getCountry(),
+                        def.hls(),
+                        def.quality()
+                ));
+            } else {
+                out.add(ch);
+            }
+        }
+        return out;
+    }
+
+    private static List<TvChannelDto> overlayKtoOfficialLive(List<TvChannelDto> channels) {
+        List<TvChannelDto> out = new ArrayList<>(channels.size());
+        for (TvChannelDto ch : channels) {
+            if (isKtoLiveChannel(ch)) {
+                String logo = ch.getLogo() != null && !ch.getLogo().isBlank() ? ch.getLogo() : KTO_LOGO;
+                out.add(new TvChannelDto(
+                        ch.getId(),
+                        "KTO",
+                        logo,
+                        ch.getGroup(),
+                        ch.getCountry(),
+                        KTO_OFFICIAL_HLS,
+                        "1080p"
+                ));
+            } else {
+                out.add(ch);
+            }
+        }
+        return out;
     }
 
     private List<TvChannelDto> overlayRtsLiveSources(List<TvChannelDto> channels) {
@@ -1062,6 +1142,97 @@ public class TvCatalogService {
         }
     }
 
+    private static void ensureKtoChannel(List<TvChannelDto> list, String name,
+                                         String group, String logo) {
+        boolean present = list.stream().anyMatch(c -> isOfficialKtoStream(c.getStreamUrl()));
+        if (!present) {
+            list.add(0, new TvChannelDto("kto.fr", name, logo, group, "fr", KTO_OFFICIAL_HLS, "1080p"));
+        }
+    }
+
+    private static void ensureBfmOfficialChannels(List<TvChannelDto> list) {
+        for (int i = BFM_OFFICIAL.size() - 1; i >= 0; i--) {
+            BfmOfficial def = BFM_OFFICIAL.get(i);
+            boolean present = list.stream().anyMatch(c -> def.hls().equalsIgnoreCase(c.getStreamUrl()));
+            if (!present) {
+                list.add(0, new TvChannelDto(def.idPrefix(), def.name(), def.logo(),
+                        def.group(), "fr", def.hls(), def.quality()));
+            }
+        }
+    }
+
+    private static BfmOfficial matchBfmOfficial(TvChannelDto ch) {
+        if (ch == null) {
+            return null;
+        }
+        String id = ch.getId() != null ? ch.getId().toLowerCase(Locale.ROOT) : "";
+        String name = ch.getName() != null ? ch.getName().toLowerCase(Locale.ROOT).trim() : "";
+        String url = ch.getStreamUrl() != null ? ch.getStreamUrl().toLowerCase(Locale.ROOT) : "";
+        for (BfmOfficial def : BFM_OFFICIAL) {
+            if (id.startsWith(def.idPrefix())) {
+                return def;
+            }
+        }
+        if (name.matches("^bfm\\s*business\\b.*") || url.contains("live$bfm_business")
+                || url.contains("bfmb.bct.nextradiotv")) {
+            return BFM_OFFICIAL.get(1);
+        }
+        if (name.matches("^bfm\\s*lyon\\b.*") || url.contains("live$bfm_lyon")
+                || url.contains("bfmtvlyo")) {
+            return BFM_OFFICIAL.get(2);
+        }
+        if (name.equals("bfmtv") || name.matches("^bfm(\\s*tv)?(\\s*\\([^)]*\\))?$")
+                || url.contains("live$bfm_tv")
+                || url.contains("live-cdn-stream-euw1.bfmtv.bct.nextradiotv")) {
+            return BFM_OFFICIAL.get(0);
+        }
+        return null;
+    }
+
+    private static boolean isOfficialBfmStream(String url) {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        String u = url.toLowerCase(Locale.ROOT);
+        return u.contains("nextradiotv.com") && (u.contains("bfmtv") || u.contains("bfmb"));
+    }
+
+    /** French Catholic KTO (kto.fr) — not KTOO, Nicktoons, or « Kto est Kto ». */
+    private static boolean isKtoLiveChannel(TvChannelDto ch) {
+        if (ch == null) {
+            return false;
+        }
+        String id = ch.getId() != null ? ch.getId().toLowerCase(Locale.ROOT) : "";
+        if (id.startsWith("kto.fr")) {
+            return true;
+        }
+        String url = ch.getStreamUrl() != null ? ch.getStreamUrl().toLowerCase(Locale.ROOT) : "";
+        if (isOfficialKtoStream(url) || isDeadKtoMirrorUrl(url)) {
+            return true;
+        }
+        String name = ch.getName() != null ? ch.getName().toLowerCase(Locale.ROOT).trim() : "";
+        return name.matches("^kto(\\s+(hd|sd|fhd|uhd|4k))?(\\s*\\([^)]*\\))?$");
+    }
+
+    private static boolean isOfficialKtoStream(String url) {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        String u = url.toLowerCase(Locale.ROOT);
+        return u.contains("livekto.akamaized.net") && u.contains("/ktotv/");
+    }
+
+    private static boolean isDeadKtoMirrorUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        String u = url.toLowerCase(Locale.ROOT);
+        if (u.contains("live-kto.akamaized.net")) {
+            return true;
+        }
+        return u.contains("145.239.5.177") && u.contains("/354/");
+    }
+
     /** ARTE main live (not regional / themed IPTV clones). */
     private static boolean isArteLiveChannel(TvChannelDto ch) {
         String id = ch.getId() != null ? ch.getId().toLowerCase(Locale.ROOT) : "";
@@ -1083,7 +1254,9 @@ public class TvCatalogService {
                     || RadioFranceLiveService.isVirtualUrl(ch.getStreamUrl())
                     || M6GroupLiveService.isVirtualUrl(ch.getStreamUrl())
                     || RtsLiveService.isVirtualUrl(ch.getStreamUrl())
-                    || ArteReplayService.isVirtualUrl(ch.getStreamUrl())) {
+                    || ArteReplayService.isVirtualUrl(ch.getStreamUrl())
+                    || isOfficialKtoStream(ch.getStreamUrl())
+                    || isOfficialBfmStream(ch.getStreamUrl())) {
                 priority.add(ch);
             } else {
                 rest.add(ch);

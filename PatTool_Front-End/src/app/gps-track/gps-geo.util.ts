@@ -19,6 +19,38 @@ export function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: 
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
 }
 
+/** Initial bearing in degrees (0 = north, 90 = east). */
+export function bearingDeg(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const lat1r = toRad(lat1);
+  const lat2r = toRad(lat2);
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(lat2r);
+  const x = Math.cos(lat1r) * Math.sin(lat2r) - Math.sin(lat1r) * Math.cos(lat2r) * Math.cos(dLon);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+/** Heading of the path around `index`, looking ~8 m ahead (or behind near the end). */
+export function trackHeadingAt(points: GpsTrackPt[], index: number, minM = 8): number | null {
+  if (points.length < 2) {
+    return null;
+  }
+  const i = Math.max(0, Math.min(index, points.length - 1));
+  const start = points[i];
+  for (let k = i + 1; k < points.length; k++) {
+    if (haversineMeters(start.lat, start.lon, points[k].lat, points[k].lon) >= minM) {
+      return bearingDeg(start.lat, start.lon, points[k].lat, points[k].lon);
+    }
+  }
+  for (let k = i - 1; k >= 0; k--) {
+    if (haversineMeters(points[k].lat, points[k].lon, start.lat, start.lon) >= minM) {
+      return bearingDeg(points[k].lat, points[k].lon, start.lat, start.lon);
+    }
+  }
+  const other = i < points.length - 1 ? points[i + 1] : points[i - 1];
+  return bearingDeg(start.lat, start.lon, other.lat, other.lon);
+}
+
 export function cumulativeDistancesM(points: GpsTrackPt[]): number[] {
   const out = [0];
   let along = 0;

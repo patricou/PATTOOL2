@@ -777,6 +777,9 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.hasIotRole = this._kc.hasIotRole();
         // Retrive the MLAB user (member) id from MLAB
         this._membersService.setUser(this.user);
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+            return;
+        }
         //this.user = this._membersService.getUser();
         // the folowing add the user.id and return it through an Observanle
         let now = new Date();

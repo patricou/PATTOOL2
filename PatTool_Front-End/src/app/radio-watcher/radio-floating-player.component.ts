@@ -379,6 +379,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
 
     media.title = station.name || 'Radio';
+    media.setAttribute('data-pat-media-title', station.name || 'Radio');
     if (station.logo) {
       media.setAttribute('data-pat-media-artwork', station.logo);
     } else {

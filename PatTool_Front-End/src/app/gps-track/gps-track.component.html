@@ -23,25 +23,24 @@
            #mapShell
            [class.gps-map-shell--fullscreen]="mapFullscreen">
         <div class="gps-map-toolbar d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-          <label class="gps-basemap-field mb-0" for="gpsTrackBasemap">
-            <span class="small text-muted">{{ 'GPX_TRACE.MAP_BASE_LAYER' | translate }}</span>
-            <select id="gpsTrackBasemap"
-                    class="form-select form-select-sm gps-basemap-select"
-                    [(ngModel)]="mapBaseLayerId"
-                    (ngModelChange)="onBasemapChange()"
-                    [attr.aria-label]="'GPX_TRACE.MAP_BASE_LAYER' | translate">
-              <option *ngFor="let opt of basemapOptions" [value]="opt.id">
-                {{ opt.labelKey ? (opt.labelKey | translate) : opt.label }}
-              </option>
-            </select>
-          </label>
+          <div class="gps-basemap-field mb-0">
+            <app-gps-basemap-picker
+              [label]="'GPX_TRACE.MAP_BASE_LAYER' | translate"
+              [options]="basemapOptions"
+              [layerId]="mapBaseLayerId"
+              (layerIdChange)="setMapBaseLayer($event)">
+            </app-gps-basemap-picker>
+          </div>
           <div class="d-flex flex-wrap align-items-center gap-2">
             <div class="btn-group" role="group" [attr.aria-label]="'GPS_ROUTING.ORIENT_LABEL' | translate">
               <button type="button"
                       class="btn btn-sm btn-outline-secondary"
                       *ngFor="let o of mapOrientations"
                       [class.active]="mapOrientation === o.id"
-                      (click)="mapOrientation = o.id">
+                      (click)="setMapOrientation(o.id)"
+                      [attr.title]="o.labelKey | translate"
+                      [attr.aria-label]="o.labelKey | translate"
+                      [attr.aria-pressed]="mapOrientation === o.id">
                 <i class="fa" [ngClass]="o.icon" aria-hidden="true"></i>
               </button>
             </div>
@@ -95,6 +94,12 @@
                         [externalFix]="nav3dFix"
                         [alongIndex]="snap.nearestIndex"
                         (closed)="onNav3dClosed()"></app-gps-nav-3d>
+        <div class="gps-map-offline"
+             *ngIf="!snap.online"
+             [attr.title]="'GPS.OFFLINE' | translate">
+          <i class="fa fa-wifi" aria-hidden="true"></i>
+          <span>{{ 'GPS.OFFLINE_SHORT' | translate }}</span>
+        </div>
         <div class="gps-map-rec"
              *ngIf="snap.status === 'recording' || snap.status === 'paused'"
              [class.gps-map-rec--paused]="snap.status === 'paused'"
@@ -130,6 +135,63 @@
         </div>
         <div class="gps-paused-banner" *ngIf="snap.status === 'paused'">
           <i class="fa fa-pause-circle me-2" aria-hidden="true"></i>{{ 'GPS.PAUSED_BANNER' | translate }}
+        </div>
+        <div class="gps-map-fs-overlay" *ngIf="mapFullscreen">
+          <div class="gps-map-fs-stats">
+            <div class="gps-map-fs-stat">
+              <span>{{ 'GPS.DONE_KM' | translate }}</span>
+              <strong>{{ formatKm(snap.doneM) }}</strong>
+            </div>
+            <div class="gps-map-fs-stat">
+              <span>{{ 'GPS.REMAINING_KM' | translate }}</span>
+              <strong>{{ formatKm(snap.remainingM) }}</strong>
+            </div>
+            <div class="gps-map-fs-stat">
+              <span>{{ 'GPS.ASCENT_DONE' | translate }}</span>
+              <strong class="gps-stat-value--up">{{ formatElev(snap.ascentDoneM) }}</strong>
+            </div>
+            <div class="gps-map-fs-stat">
+              <span>{{ 'GPS.DESCENT_DONE' | translate }}</span>
+              <strong class="gps-stat-value--down">{{ formatElev(snap.descentDoneM) }}</strong>
+            </div>
+            <div class="gps-map-fs-stat">
+              <span>{{ 'GPS.SPEED' | translate }}</span>
+              <strong>{{ formatSpeed(snap.user?.speedKmh) }}</strong>
+            </div>
+            <div class="gps-map-fs-stat" [class.gps-stat--paused]="snap.status === 'paused'">
+              <span>{{ 'GPS.DURATION' | translate }}</span>
+              <strong>{{ formatDuration(snap.durationSec) }}</strong>
+            </div>
+          </div>
+          <div class="gps-map-fs-slope">
+            <div class="gps-slope-gauge gps-map-fs-gauge" aria-hidden="true">
+              <div class="gps-slope-plumb"></div>
+              <div class="gps-slope-horizon"></div>
+              <div class="gps-slope-needle gps-slope-needle--track"
+                   [class.gps-slope-needle--empty]="trackSlope.deg == null"
+                   [style.transform]="'rotate(' + trackSlopeNeedleDeg + 'deg)'"></div>
+              <div class="gps-slope-needle gps-slope-needle--terrain"
+                   [class.gps-slope-needle--empty]="snap.user?.slopeDeg == null"
+                   [style.transform]="'rotate(' + slopeNeedleDeg + 'deg)'"></div>
+              <div class="gps-slope-needle gps-slope-needle--phone"
+                   [class.gps-slope-needle--empty]="snap.inclineDeg == null"
+                   [style.transform]="'rotate(' + inclineNeedleDeg + 'deg)'"></div>
+            </div>
+            <div class="gps-map-fs-slope-readout">
+              <div class="gps-slope-pair" data-kind="track">
+                <div class="gps-slope-pair-label">{{ 'GPS.SLOPE_TRACK' | translate }}</div>
+                <div class="gps-slope-pair-value">{{ formatSlopeLine(scaleSlopePct(trackSlope.pct), scaleSlopeDeg(trackSlope.deg)) }}</div>
+              </div>
+              <div class="gps-slope-pair" data-kind="terrain">
+                <div class="gps-slope-pair-label">{{ 'GPS.SLOPE_TERRAIN' | translate }}</div>
+                <div class="gps-slope-pair-value">{{ formatSlopeLine(scaleSlopePct(snap.user?.slopePct), scaleSlopeDeg(snap.user?.slopeDeg)) }}</div>
+              </div>
+              <div class="gps-slope-pair" data-kind="phone">
+                <div class="gps-slope-pair-label">{{ 'GPS.SLOPE_PHONE' | translate }}</div>
+                <div class="gps-slope-pair-value">{{ formatSlopeLine(scaleSlopePct(snap.inclinePct), scaleSlopeDeg(snap.inclineDeg)) }}</div>
+              </div>
+            </div>
+          </div>
         </div>
         </div>
       </div>
@@ -544,7 +606,7 @@
     <h5 class="modal-title text-uppercase">
       {{ 'GPS.SESSIONS' | translate }}
     </h5>
-    <div class="d-flex align-items-center gap-2">
+    <div class="gps-sessions-list-header-actions d-flex align-items-center gap-2 ms-auto">
       <button type="button"
               class="btn btn-sm btn-outline-secondary"
               (click)="refreshSessions()"
@@ -588,17 +650,52 @@
       </div>
     </div>
 
+    <div class="gps-sessions-toolbar" *ngIf="sessions.length || sessionSearch || sessionFilter !== 'all'">
+      <input type="search"
+             class="form-control form-control-sm gps-sessions-search"
+             [(ngModel)]="sessionSearch"
+             [placeholder]="'GPS.SESSIONS_SEARCH' | translate"
+             [attr.aria-label]="'GPS.SESSIONS_SEARCH' | translate">
+      <select class="form-select form-select-sm gps-sessions-filter"
+              [(ngModel)]="sessionFilter"
+              [attr.title]="'GPS.SESSIONS_FILTER' | translate"
+              [attr.aria-label]="'GPS.SESSIONS_FILTER' | translate">
+        <option value="all">{{ 'GPS.SESSIONS_FILTER_ALL' | translate }}</option>
+        <option value="recorded">{{ 'GPS.SESSIONS_FILTER_RECORDED' | translate }}</option>
+        <option value="imported">{{ 'GPS.SESSIONS_FILTER_IMPORTED' | translate }}</option>
+        <option value="active">{{ 'GPS.SESSIONS_FILTER_ACTIVE' | translate }}</option>
+      </select>
+      <select class="form-select form-select-sm gps-sessions-sort"
+              [(ngModel)]="sessionSort"
+              [attr.title]="'GPS.SESSIONS_SORT' | translate"
+              [attr.aria-label]="'GPS.SESSIONS_SORT' | translate">
+        <option value="date_desc">{{ 'GPS.SESSIONS_SORT_DATE_DESC' | translate }}</option>
+        <option value="date_asc">{{ 'GPS.SESSIONS_SORT_DATE_ASC' | translate }}</option>
+        <option value="distance">{{ 'GPS.SESSIONS_SORT_DISTANCE' | translate }}</option>
+        <option value="ascent">{{ 'GPS.SESSIONS_SORT_ASCENT' | translate }}</option>
+        <option value="duration">{{ 'GPS.SESSIONS_SORT_DURATION' | translate }}</option>
+        <option value="title">{{ 'GPS.SESSIONS_SORT_TITLE' | translate }}</option>
+      </select>
+    </div>
+    <div class="small text-muted gps-sessions-count"
+         *ngIf="sessions.length && filteredSessions.length">
+      {{ 'GPS.SESSIONS_COUNT' | translate:{ shown: filteredSessions.length, total: sessions.length } }}
+    </div>
     <div class="small text-muted" *ngIf="!sessions.length && !sessionsLoading">{{ 'GPS.SESSIONS_EMPTY' | translate }}</div>
+    <div class="small text-muted" *ngIf="sessions.length && !filteredSessions.length && !sessionsLoading">
+      {{ 'GPS.SESSIONS_NO_MATCH' | translate }}
+    </div>
     <div class="gps-session-list">
       <button type="button"
               class="gps-session-row"
-              *ngFor="let s of sessions"
+              *ngFor="let s of filteredSessions"
               (click)="openSessionDetail(s)">
-        <div class="fw-semibold text-start">{{ s.title || ('GPS.TITLE' | translate) }}</div>
+        <div class="gps-session-row-title fw-semibold text-start">{{ s.title || ('GPS.TITLE' | translate) }}</div>
         <div class="small text-muted text-start text-truncate" *ngIf="sessionFileName(s)">
           <i class="fa fa-file-o me-1" aria-hidden="true"></i>{{ sessionFileName(s) }}
         </div>
         <div class="small text-muted text-start">
+          <span *ngIf="sessionListDate(s) as d">{{ d }} · </span>
           {{ formatKm(s.doneM) }}
           <span *ngIf="s.ascentDoneM != null"> · D+ {{ formatElev(s.ascentDoneM) }}</span>
         </div>
@@ -705,13 +802,86 @@
         <dd>{{ sessionPlannedPointCount(s) }}</dd>
       </div>
     </dl>
+    <div *ngIf="errorMessage" class="alert alert-warning py-2 px-3 mt-3 mb-0" role="alert">
+      {{ errorMessage | translate }}
+    </div>
+    <div *ngIf="successMessage" class="alert alert-success py-2 px-3 mt-3 mb-0" role="status">
+      {{ successMessage | translate }}
+    </div>
+    <div class="gps-link-activity mt-3" *ngIf="linkActivityOpen">
+      <div class="small text-muted mb-1">{{ 'GPS.LINK_ACTIVITY_PICK' | translate }}</div>
+      <div class="gps-sessions-toolbar" *ngIf="linkActivities.length || linkActivitySearch || linkActivityFilter !== 'all'">
+        <input type="search"
+               class="form-control form-control-sm gps-sessions-search"
+               [(ngModel)]="linkActivitySearch"
+               [placeholder]="'GPS.LINK_ACTIVITY_SEARCH' | translate"
+               [attr.aria-label]="'GPS.LINK_ACTIVITY_SEARCH' | translate">
+        <select class="form-select form-select-sm gps-sessions-filter"
+                [(ngModel)]="linkActivityFilter"
+                [attr.title]="'GPS.LINK_ACTIVITY_FILTER' | translate"
+                [attr.aria-label]="'GPS.LINK_ACTIVITY_FILTER' | translate">
+          <option value="all">{{ 'GPS.LINK_ACTIVITY_FILTER_ALL' | translate }}</option>
+          <option value="upcoming">{{ 'GPS.LINK_ACTIVITY_FILTER_UPCOMING' | translate }}</option>
+          <option value="past">{{ 'GPS.LINK_ACTIVITY_FILTER_PAST' | translate }}</option>
+        </select>
+        <select class="form-select form-select-sm gps-sessions-sort"
+                [(ngModel)]="linkActivitySort"
+                [attr.title]="'GPS.SESSIONS_SORT' | translate"
+                [attr.aria-label]="'GPS.SESSIONS_SORT' | translate">
+          <option value="date_desc">{{ 'GPS.SESSIONS_SORT_DATE_DESC' | translate }}</option>
+          <option value="date_asc">{{ 'GPS.SESSIONS_SORT_DATE_ASC' | translate }}</option>
+          <option value="title">{{ 'GPS.SESSIONS_SORT_TITLE' | translate }}</option>
+        </select>
+      </div>
+      <div class="small text-muted" *ngIf="linkActivitiesLoading">{{ 'GPS.LINK_ACTIVITY_LOADING' | translate }}</div>
+      <div class="small text-muted" *ngIf="!linkActivitiesLoading && !linkActivities.length">
+        {{ 'GPS.LINK_ACTIVITY_NONE' | translate }}
+      </div>
+      <div class="small text-muted"
+           *ngIf="!linkActivitiesLoading && linkActivities.length && !filteredLinkActivities.length">
+        {{ 'GPS.LINK_ACTIVITY_NO_MATCH' | translate }}
+      </div>
+      <div class="small text-muted mb-1"
+           *ngIf="!linkActivitiesLoading && filteredLinkActivities.length">
+        {{ 'GPS.SESSIONS_COUNT' | translate:{ shown: filteredLinkActivities.length, total: linkActivities.length } }}
+      </div>
+      <div class="gps-link-activity-list" *ngIf="!linkActivitiesLoading && filteredLinkActivities.length">
+        <button type="button"
+                class="gps-link-activity-opt"
+                *ngFor="let a of filteredLinkActivities"
+                [class.gps-link-activity-opt--active]="linkActivityId === a.id"
+                [disabled]="linkingActivity"
+                (click)="confirmLinkSessionToActivity(a.id)">
+          {{ a.label }}
+        </button>
+      </div>
+    </div>
   </div>
   <div class="modal-footer gps-session-detail-footer">
     <button type="button"
             class="btn btn-sm btn-outline-primary"
-            *ngIf="(sessionDetail?.recordedPointCount || 0) >= 2"
-            (click)="saveSessionAsTrack(sessionDetail!); modal.close()">
-      <i class="fa fa-flag-checkered me-1" aria-hidden="true"></i>{{ 'GPS.SAVE_AS_TRACK' | translate }}
+            *ngIf="canDownloadSession(sessionDetail)"
+            [disabled]="savingTrack"
+            (click)="downloadSessionGpx(sessionDetail!)">
+      <i class="fa fa-download me-1" aria-hidden="true"></i>{{ 'GPS.DOWNLOAD' | translate }}
+    </button>
+    <button type="button"
+            class="btn btn-sm btn-outline-primary"
+            *ngIf="canDownloadSession(sessionDetail)"
+            [disabled]="linkingActivity"
+            (click)="toggleLinkActivityPicker()">
+      <i class="fa fa-link me-1" aria-hidden="true"></i>{{ 'GPS.LINK_ACTIVITY' | translate }}
+    </button>
+    <button type="button"
+            class="btn btn-sm btn-outline-secondary"
+            *ngIf="canOpenSessionInTraceViewer(sessionDetail)"
+            [disabled]="openingSessionTrace"
+            (click)="openSessionInTraceViewer(sessionDetail!)">
+      <i class="fa me-1"
+         [class.fa-spinner]="openingSessionTrace"
+         [class.fa-spin]="openingSessionTrace"
+         [class.fa-area-chart]="!openingSessionTrace"
+         aria-hidden="true"></i>{{ 'GPS.OPEN_TRACE_VIEWER' | translate }}
     </button>
     <button type="button" class="btn btn-sm btn-primary" (click)="openSessionOnMap()">
       <i class="fa fa-map me-1" aria-hidden="true"></i>{{ 'GPS.SESSION_OPEN_MAP' | translate }}

@@ -4,6 +4,9 @@ import { Injectable } from '@angular/core';
  * Keeps TV / radio / YouTube / archive / book (any HTML media) playing when the
  * mobile PWA or tab goes to the background. Mobile Chrome pauses video elements
  * unless Picture-in-Picture or Media Session is active; YouTube iframes pause on hide.
+ *
+ * GPS keep-alive audio (data-pat-keep-alive) is resumed too, but does not steal
+ * Media Session from a real player.
  */
 type AutoPipVideo = HTMLVideoElement & {
   autoPictureInPicture?: boolean;
@@ -19,12 +22,18 @@ interface DocumentPictureInPictureApi {
 export class BackgroundPlaybackService {
   private started = false;
   private active: HTMLMediaElement | null = null;
-  private youtubeUserPaused = false;
+  /** True only after a YouTube iframe reported playing/buffering. */
+  private youtubePlaying = false;
+  private youtubeUserPaused = true;
   private youtubeResumeAt = 0;
   private lastVisibleAt = 0;
   private pauseClassifyTimer: ReturnType<typeof setTimeout> | null = null;
+  private hiddenResumeTimer: ReturnType<typeof setInterval> | null = null;
+  private hiddenResumeStartedAt = 0;
   private readonly userPaused = new WeakMap<HTMLMediaElement, boolean>();
   private readonly prepared = new WeakSet<HTMLMediaElement>();
+  private readonly keepAlives = new Set<HTMLMediaElement>();
+  private readonly releasedKeepAlives = new WeakSet<HTMLMediaElement>();
   private readonly onPlay = (event: Event): void => this.handlePlay(event);
   private readonly onPause = (event: Event): void => this.handlePause(event);
   private readonly onEnded = (event: Event): void => this.handleEnded(event);
@@ -56,25 +65,62 @@ export class BackgroundPlaybackService {
     window.addEventListener('message', this.onYoutubeMessage);
   }
 
+  /** Watch a media element that is not in the DOM (e.g. {@code new Audio()}). */
+  watchMedia(el: HTMLMediaElement): void {
+    this.start();
+    this.prepareElement(el);
+  }
+
+  /** Call before pausing a keep-alive so background resume will not restart it. */
+  markUserPaused(el: HTMLMediaElement): void {
+    this.userPaused.set(el, true);
+    this.releasedKeepAlives.add(el);
+    if (this.active === el) {
+      this.active = this.pickFallbackActive(el);
+      if (this.active) {
+        this.bindMediaSession(this.active);
+      } else {
+        this.setPlaybackState('none');
+      }
+    }
+  }
+
   private handlePlay(event: Event): void {
     const el = event.target;
     if (!(el instanceof HTMLMediaElement) || el.dataset['patSkipBackground'] === '1') {
       return;
     }
     const src = el.currentSrc || el.src || '';
-    if (src.startsWith('data:')) {
+    const keepAlive = this.isKeepAlive(el);
+    if (!keepAlive && src.startsWith('data:')) {
       return;
     }
     this.prepareElement(el);
     this.userPaused.set(el, false);
+    this.releasedKeepAlives.delete(el);
     this.clearPauseClassifyTimer();
+    if (keepAlive) {
+      this.keepAlives.add(el);
+      if (this.active && this.active !== el && !this.isKeepAlive(this.active) && !this.active.paused) {
+        return;
+      }
+    }
     this.active = el;
     this.bindMediaSession(el);
   }
 
   private handlePause(event: Event): void {
     const el = event.target;
-    if (!(el instanceof HTMLMediaElement) || el !== this.active) {
+    if (!(el instanceof HTMLMediaElement)) {
+      return;
+    }
+    if (this.isKeepAlive(el)) {
+      if (!this.releasedKeepAlives.has(el) && !el.ended) {
+        this.resumeElement(el);
+      }
+      return;
+    }
+    if (el !== this.active) {
       return;
     }
     if (el.ended) {
@@ -107,45 +153,134 @@ export class BackgroundPlaybackService {
   private handleEnded(event: Event): void {
     const el = event.target;
     if (el === this.active) {
+      this.active = null;
       this.setPlaybackState('none');
     }
   }
 
   private handleVisibility(): void {
     if (this.isDocumentHidden()) {
+      if (!this.hasActivePlayback()) {
+        this.stopHiddenResumeLoop();
+        return;
+      }
       this.keepHtmlMediaAlive();
       this.resumeYoutubeIframes();
+      this.startHiddenResumeLoop();
       return;
     }
+    this.stopHiddenResumeLoop();
     this.lastVisibleAt = Date.now();
+    if (!this.hasActivePlayback()) {
+      return;
+    }
     const el = this.active;
     if (el && !this.userPaused.get(el) && el.paused && !el.ended) {
       this.resumeElement(el);
     }
-    if (!this.youtubeUserPaused) {
-      this.resumeYoutubeIframes();
+    this.resumeKeepAlives();
+    this.resumeYoutubeIframes();
+  }
+
+  /** True only if something was already playing (or GPS recording keep-alive). */
+  private hasActivePlayback(): boolean {
+    if (this.youtubePlaying && !this.youtubeUserPaused) {
+      return true;
     }
+    const el = this.active;
+    if (el && !this.userPaused.get(el) && !el.ended) {
+      return true;
+    }
+    for (const keep of this.keepAlives) {
+      if (this.releasedKeepAlives.has(keep) || keep.ended || this.userPaused.get(keep)) {
+        continue;
+      }
+      return true;
+    }
+    return false;
   }
 
   private keepHtmlMediaAlive(): void {
     const el = this.active;
-    if (!el || this.userPaused.get(el) || el.ended) {
-      return;
+    if (el && !this.userPaused.get(el) && !el.ended) {
+      if (el instanceof HTMLVideoElement) {
+        this.enableAutoPictureInPicture(el);
+        void this.tryEnterPictureInPicture(el);
+      }
+      if (el.paused) {
+        this.resumeElement(el);
+      } else {
+        this.setPlaybackState('playing');
+      }
     }
-    if (el instanceof HTMLVideoElement) {
-      this.enableAutoPictureInPicture(el);
-      void this.tryEnterPictureInPicture(el);
-    }
-    if (el.paused) {
-      this.resumeElement(el);
-    }
-    this.setPlaybackState('playing');
+    this.resumeKeepAlives();
+    this.resumeOrphanPlayingMedia();
   }
 
-  /** Watch a media element that is not in the DOM (e.g. {@code new Audio()}). */
-  watchMedia(el: HTMLMediaElement): void {
-    this.start();
-    this.prepareElement(el);
+  private resumeKeepAlives(): void {
+    this.keepAlives.forEach((el) => {
+      if (this.releasedKeepAlives.has(el) || el.ended) {
+        return;
+      }
+      if (el.paused) {
+        this.resumeElement(el, false);
+      }
+    });
+  }
+
+  /** Page video that started before this service bound it as active. */
+  private resumeOrphanPlayingMedia(): void {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    document.querySelectorAll('video, audio').forEach((node) => {
+      if (!(node instanceof HTMLMediaElement) || node === this.active) {
+        return;
+      }
+      if (this.isKeepAlive(node) || node.dataset['patSkipBackground'] === '1') {
+        return;
+      }
+      if (this.userPaused.get(node) || node.ended || node.paused) {
+        return;
+      }
+      if (!this.active || this.active.paused || this.isKeepAlive(this.active)) {
+        this.active = node;
+        this.bindMediaSession(node);
+      }
+    });
+  }
+
+  private startHiddenResumeLoop(): void {
+    this.stopHiddenResumeLoop();
+    if (!this.hasActivePlayback()) {
+      return;
+    }
+    this.hiddenResumeStartedAt = Date.now();
+    this.hiddenResumeTimer = setInterval(() => this.tickHiddenResume(true), 400);
+  }
+
+  private tickHiddenResume(allowSpeedSwitch: boolean): void {
+    if (!this.isDocumentHidden() || !this.hasActivePlayback()) {
+      this.stopHiddenResumeLoop();
+      return;
+    }
+    this.keepHtmlMediaAlive();
+    this.resumeYoutubeIframes();
+    if (!allowSpeedSwitch || Date.now() - this.hiddenResumeStartedAt <= 5000) {
+      return;
+    }
+    if (this.hiddenResumeTimer == null) {
+      return;
+    }
+    clearInterval(this.hiddenResumeTimer);
+    this.hiddenResumeTimer = setInterval(() => this.tickHiddenResume(false), 2000);
+  }
+
+  private stopHiddenResumeLoop(): void {
+    if (this.hiddenResumeTimer != null) {
+      clearInterval(this.hiddenResumeTimer);
+      this.hiddenResumeTimer = null;
+    }
   }
 
   private prepareElement(el: HTMLMediaElement): void {
@@ -215,7 +350,7 @@ export class BackgroundPlaybackService {
     }
   }
 
-  private resumeElement(el: HTMLMediaElement): void {
+  private resumeElement(el: HTMLMediaElement, updateSession = true): void {
     try {
       const p = el.play();
       if (p && typeof p.catch === 'function') {
@@ -224,7 +359,9 @@ export class BackgroundPlaybackService {
     } catch {
       /* ignore */
     }
-    this.setPlaybackState('playing');
+    if (updateSession && el === this.active) {
+      this.setPlaybackState('playing');
+    }
   }
 
   private bindMediaSession(el: HTMLMediaElement): void {
@@ -250,11 +387,18 @@ export class BackgroundPlaybackService {
       /* ignore */
     }
     this.setPlaybackState(el.paused ? 'paused' : 'playing');
+    this.syncPositionState(el);
+    const keepAlive = this.isKeepAlive(el);
     this.safeSetHandler('play', () => {
       this.userPaused.set(el, false);
+      this.releasedKeepAlives.delete(el);
       this.resumeElement(el);
     });
     this.safeSetHandler('pause', () => {
+      if (keepAlive) {
+        this.resumeElement(el);
+        return;
+      }
       this.userPaused.set(el, true);
       try {
         el.pause();
@@ -270,8 +414,30 @@ export class BackgroundPlaybackService {
       if (!this.userPaused.get(el) && el.paused && !el.ended) {
         this.resumeElement(el);
       }
-      this.resumeYoutubeIframes();
+      if (this.youtubePlaying && !this.youtubeUserPaused) {
+        this.resumeYoutubeIframes();
+      }
     });
+  }
+
+  private syncPositionState(el: HTMLMediaElement): void {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) {
+      return;
+    }
+    const duration = el.duration;
+    const position = el.currentTime;
+    if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(position)) {
+      return;
+    }
+    try {
+      navigator.mediaSession.setPositionState({
+        duration,
+        playbackRate: el.playbackRate || 1,
+        position: Math.min(position, duration)
+      });
+    } catch {
+      /* live streams / unsupported */
+    }
   }
 
   private setPlaybackState(state: MediaSessionPlaybackState): void {
@@ -309,6 +475,27 @@ export class BackgroundPlaybackService {
     return document.visibilityState === 'hidden' || document.hidden;
   }
 
+  private isKeepAlive(el: HTMLMediaElement): boolean {
+    return el.dataset['patKeepAlive'] === '1';
+  }
+
+  private pickFallbackActive(except: HTMLMediaElement): HTMLMediaElement | null {
+    if (typeof document === 'undefined') {
+      return null;
+    }
+    const nodes = Array.from(document.querySelectorAll('video, audio'));
+    for (const node of nodes) {
+      if (!(node instanceof HTMLMediaElement) || node === except) {
+        continue;
+      }
+      if (this.isKeepAlive(node) || node.paused || node.ended) {
+        continue;
+      }
+      return node;
+    }
+    return null;
+  }
+
   private handleYoutubeMessage(event: MessageEvent): void {
     const origin = (event.origin || '').toLowerCase();
     if (!origin.includes('youtube.com') && !origin.includes('youtube-nocookie.com')) {
@@ -319,23 +506,30 @@ export class BackgroundPlaybackService {
       return;
     }
     if (state === 1 || state === 3) {
+      this.youtubePlaying = true;
       this.youtubeUserPaused = false;
       this.applyYoutubeMediaSession();
       this.setPlaybackState('playing');
       return;
     }
     if (state === 0) {
+      this.youtubePlaying = false;
+      this.youtubeUserPaused = true;
       this.setPlaybackState('none');
       return;
     }
     if (state !== 2) {
       return;
     }
-    const browserLikelyPaused = this.isDocumentHidden() || Date.now() - this.lastVisibleAt < 500;
-    if (browserLikelyPaused && !this.youtubeUserPaused) {
+    const browserLikelyPaused =
+      this.youtubePlaying &&
+      !this.youtubeUserPaused &&
+      (this.isDocumentHidden() || Date.now() - this.lastVisibleAt < 500);
+    if (browserLikelyPaused) {
       this.resumeYoutubeIframes();
       return;
     }
+    this.youtubePlaying = false;
     this.youtubeUserPaused = true;
     this.setPlaybackState('paused');
   }
@@ -366,15 +560,17 @@ export class BackgroundPlaybackService {
   }
 
   private resumeYoutubeIframes(): void {
-    if (this.youtubeUserPaused) {
+    if (!this.youtubePlaying || this.youtubeUserPaused) {
       return;
     }
     const now = Date.now();
-    if (now - this.youtubeResumeAt < 400) {
+    if (now - this.youtubeResumeAt < 250) {
       return;
     }
     this.youtubeResumeAt = now;
     for (const iframe of this.collectYoutubeIframes()) {
+      this.postYoutubePayload(iframe, { event: 'listening', id: 'yt-bg' });
+      this.postYoutubeCommand(iframe, 'addEventListener', ['onStateChange']);
       this.postYoutubeCommand(iframe, 'playVideo');
     }
   }
@@ -400,17 +596,21 @@ export class BackgroundPlaybackService {
       /* ignore */
     }
     this.safeSetHandler('play', () => {
+      this.youtubePlaying = true;
       this.youtubeUserPaused = false;
       this.resumeYoutubeIframes();
     });
     this.safeSetHandler('pause', () => {
+      this.youtubePlaying = false;
       this.youtubeUserPaused = true;
       for (const frame of this.collectYoutubeIframes()) {
         this.postYoutubeCommand(frame, 'pauseVideo');
       }
     });
     this.safeSetHandler('enterpictureinpicture', () => {
-      this.resumeYoutubeIframes();
+      if (this.youtubePlaying && !this.youtubeUserPaused) {
+        this.resumeYoutubeIframes();
+      }
     });
   }
 
@@ -446,12 +646,16 @@ export class BackgroundPlaybackService {
     return found;
   }
 
-  private postYoutubeCommand(iframe: HTMLIFrameElement, func: string): void {
+  private postYoutubeCommand(iframe: HTMLIFrameElement, func: string, args: unknown[] = []): void {
+    this.postYoutubePayload(iframe, { event: 'command', func, args });
+  }
+
+  private postYoutubePayload(iframe: HTMLIFrameElement, payload: object): void {
     if (!iframe.contentWindow) {
       return;
     }
     try {
-      iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*');
+      iframe.contentWindow.postMessage(JSON.stringify(payload), '*');
     } catch {
       /* ignore */
     }
