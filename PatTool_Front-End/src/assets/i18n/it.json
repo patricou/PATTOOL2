@@ -5257,6 +5257,8 @@
     "LINK_ACTIVITY_FILTER_UPCOMING": "In arrivo",
     "LINK_ACTIVITY_FILTER_PAST": "Passate",
     "LINK_ACTIVITY_NO_MATCH": "Nessuna attività corrisponde.",
+    "LINKED_ACTIVITY": "Attività collegata",
+    "LINKED_ACTIVITIES": "Attività collegate",
     "ERR_SAVE_TRACK": "Punti GPS insufficienti per creare un tracciato.",
     "EXPORT_GPX": "Esporta GPX",
     "EXPORT_GPX_SHORT": "GPX",

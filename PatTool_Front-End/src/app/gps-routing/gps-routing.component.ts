@@ -21,6 +21,11 @@ import { debounceTime } from 'rxjs/operators';
 import { isValidGeoCoordinate } from '../shared/geo-coordinates.util';
 
 import { L } from '../shared/leaflet-rotate-setup';
+import {
+  attachLeafletMapWheelZoom,
+  LEAFLET_SMOOTH_WHEEL_MAP_OPTIONS,
+  LeafletMapWheelZoomHandle
+} from '../shared/leaflet-map-wheel-zoom';
 import { LeafletBasemapOption, LeafletBasemapService } from '../shared/leaflet-basemap.service';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { GpsBasemapPickerComponent } from '../shared/gps-basemap-picker.component';
@@ -158,6 +163,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   shareTarget: GpsHistoryEntry | null = null;
 
   private map?: RotatableMap;
+  private mapWheelZoom: LeafletMapWheelZoomHandle | null = null;
   private baseLayer: L.TileLayer | L.LayerGroup | null = null;
   private routeLayer?: L.FeatureGroup;
   private fromSearch$ = new Subject<string>();
@@ -235,6 +241,8 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.closeRouteDetails();
     this.dismissShareModal();
     this.nav3dActive = false;
+    this.mapWheelZoom?.detach();
+    this.mapWheelZoom = null;
     this.map?.remove();
     this.map = undefined;
   }
@@ -955,8 +963,9 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     const fromLabel = this.fromPoint?.label || this.translate.instant('GPS_ROUTING.FROM');
     const toLabel = this.toPoint?.label || this.translate.instant('GPS_ROUTING.TO');
     const title = this.routeTitle(fromLabel, toLabel);
-    this.traceViewerModal.openWithTrackPoints(points, title, {
-      initialBaseLayerId: this.mapBaseLayerId
+    this.traceViewerModal.openWithTrackPoints(points, this.buildGpxFileName(fromLabel, toLabel), {
+      initialBaseLayerId: this.mapBaseLayerId,
+      titleLabel: title
     });
   }
 
@@ -1346,12 +1355,16 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.map = L.map(el, {
       zoomControl: true,
       attributionControl: true,
+      ...LEAFLET_SMOOTH_WHEEL_MAP_OPTIONS,
+      zoomAnimation: false,
+      markerZoomAnimation: false,
       rotate: true,
       bearing: 0,
       touchRotate: false,
       shiftKeyRotate: false,
       rotateControl: false
     } as L.MapOptions) as RotatableMap;
+    this.mapWheelZoom = attachLeafletMapWheelZoom(this.map);
     this.baseLayer = this.basemap.applyBaseLayer(this.map, this.mapBaseLayerId, null);
     this.routeLayer = L.featureGroup().addTo(this.map);
     this.map.setView([46.6, 2.5], 6);

@@ -260,6 +260,40 @@ export function slugFileName(value: string, fallback = 'track'): string {
   return slug || fallback;
 }
 
+const TRACK_FILE_EXT = /\.(gpx|kml|kmz|tcx|geojson|json)$/i;
+
+/** True when the value looks like an imported track file, not a route title. */
+export function isTrackFileName(name?: string | null): boolean {
+  const raw = (name || '').trim();
+  if (!raw || raw.length > 180) {
+    return false;
+  }
+  const base = raw.replace(/\\/g, '/').split('/').pop() || raw;
+  if (!TRACK_FILE_EXT.test(base)) {
+    return false;
+  }
+  if (/[,→]/.test(base) || /\s{2,}/.test(base)) {
+    return false;
+  }
+  return true;
+}
+
+export function displayTrackFileName(name?: string | null): string {
+  if (!isTrackFileName(name)) {
+    return '';
+  }
+  const raw = (name || '').trim().replace(/\\/g, '/');
+  return raw.split('/').pop() || raw;
+}
+
+export function exportTrackFileName(name: string | null | undefined, title: string): string {
+  const shown = displayTrackFileName(name);
+  if (shown) {
+    return shown;
+  }
+  return `pattool-${slugFileName(title, 'sortie')}.gpx`;
+}
+
 export function buildTrackGpx(opts: {
   points: GpsTrackPt[];
   name: string;

@@ -5383,6 +5383,8 @@
     "LINK_ACTIVITY_FILTER_UPCOMING": "Bevorstehend",
     "LINK_ACTIVITY_FILTER_PAST": "Vergangen",
     "LINK_ACTIVITY_NO_MATCH": "Keine passende Aktivität.",
+    "LINKED_ACTIVITY": "Verknüpfte Aktivität",
+    "LINKED_ACTIVITIES": "Verknüpfte Aktivitäten",
     "ERR_SAVE_TRACK": "Nicht genug GPS-Punkte für eine Route.",
     "EXPORT_GPX": "GPX exportieren",
     "EXPORT_GPX_SHORT": "GPX",

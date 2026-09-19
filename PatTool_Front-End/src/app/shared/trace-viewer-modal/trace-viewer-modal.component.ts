@@ -7,6 +7,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Router } from '@angular/router';
 import { FileService } from '../../services/file.service';
 import { writeGpsHandoff } from '../../gps-track/gps-handoff';
+import { isTrackFileName } from '../../gps-track/gps-geo.util';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { ApiService, TraceViewerPreference } from '../../services/api.service';
 import { WeatherStationMapLayerService } from '../../services/weather-station-map-layer.service';
@@ -16,6 +17,11 @@ import { catchError, take, takeUntil } from 'rxjs/operators';
 import { WeatherPointTimelineComponent } from '../weather-point-timeline/weather-point-timeline.component';
 import { environment } from '../../../environments/environment';
 import { L, RotatableLeafletMap } from '../leaflet-rotate-setup';
+import {
+	attachLeafletMapWheelZoom,
+	LEAFLET_SMOOTH_WHEEL_MAP_OPTIONS,
+	LeafletMapWheelZoomHandle
+} from '../leaflet-map-wheel-zoom';
 import { isValidGeoCoordinate } from '../geo-coordinates.util';
 import { GpsMapOrientation } from '../gps-map-orientation';
 import {
@@ -364,11 +370,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Bloque le scroll de la page derrière la modale. */
 	private modalWindowWheelHandler?: (event: Event) => void;
 	private modalWindowWheelListenEl?: HTMLElement;
-	/** Molette carte : delta accumulé + 1 mise à jour / frame (comme slideshow). */
-	private traceMapWheelHandler?: (event: WheelEvent) => void;
-	private traceMapWheelAccum = 0;
-	private traceMapWheelRafId: number | null = null;
-	private traceMapWheelPoint = { x: 0, y: 0 };
+	/** Molette carte : même zoom fluide que GPS (tuiles + tracé ensemble). */
+	private mapWheelZoom: LeafletMapWheelZoomHandle | null = null;
 	private mapContainerHadLayout = false;
 	private mapInitVisibilityAttempts = 0;
 	/** `NgbModal` `container` host for embedding (globe): resolve `.map-container` under this root (avoid global IDs). */
@@ -857,7 +860,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public openWithTrackPoints(
 		points: Array<{ lat: number; lng: number } | L.LatLngTuple>,
 		fileName: string,
-		options?: { initialBaseLayerId?: string; eventColor?: { r: number; g: number; b: number } }
+		options?: { initialBaseLayerId?: string; eventColor?: { r: number; g: number; b: number }; titleLabel?: string }
 	): void {
 		if (!points?.length) {
 			console.warn('No points provided to openWithTrackPoints');
@@ -881,7 +884,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.selectionMode = false;
 		this.simpleShareMode = false;
 		this.open({
-			fileName: fileName || 'route.geojson',
+			fileName: fileName || 'route.gpx',
+			titleLabel: options?.titleLabel,
 			trackPoints,
 			initialBaseLayerId: options?.initialBaseLayerId
 		});
@@ -1785,11 +1789,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.map = L.map(container, {
 				zoomControl: true,
 				attributionControl: true,
-				zoomDelta: 1,
-				zoomSnap: 0,
+				...LEAFLET_SMOOTH_WHEEL_MAP_OPTIONS,
 				// Keep a consistent max zoom across basemaps; basemaps handle over-zoom via maxNativeZoom.
 				maxZoom: 20,
-				scrollWheelZoom: false,
 				doubleClickZoom: false,
 				rotate: true,
 				bearing: 0,
@@ -1868,120 +1870,22 @@ export class TraceViewerModalComponent implements OnDestroy {
 		});
 	}
 
-	private normalizeTraceMapWheelDelta(event: WheelEvent): number {
-		if (event.deltaMode === 0) {
-			return event.deltaY / 160;
-		}
-		if (event.deltaMode === 1) {
-			return event.deltaY / 5;
-		}
-		return event.deltaY / 0.9;
-	}
-
-	/** Pas dynamique (slideshow), appliqué sur le delta accumulé par frame. */
-	private applyMapWheelZoomFromDelta(delta: number, current: number, minZoom: number, maxZoom: number): number {
-		const baseStep = 0.55;
-		const multiplier = 0.1;
-		const dynamicStep = baseStep * (1 + current * multiplier);
-		const minStep = 0.28;
-		const maxStep = 2.6;
-		const step = Math.max(minStep, Math.min(maxStep, dynamicStep));
-
-		let next = current - delta * step;
-		if (next < minZoom) {
-			next = minZoom;
-		}
-		if (next > maxZoom) {
-			next = maxZoom;
-		}
-		return parseFloat(next.toFixed(3));
-	}
-
-	private onTraceMapWheel(event: WheelEvent): void {
-		if (!this.map) {
-			return;
-		}
-		event.preventDefault();
-
-		// Shift + molette : rotation (équivalent shiftKeyRotate de leaflet-rotate).
-		if (event.shiftKey) {
-			const rotatable = this.map as L.Map & {
-				setBearing?: (bearing: number) => void;
-				getBearing?: () => number;
-			};
-			if (typeof rotatable.setBearing === 'function' && typeof rotatable.getBearing === 'function') {
-				const deltaDeg = 5 * Math.sign(event.deltaY || 1);
-				rotatable.setBearing(rotatable.getBearing() + deltaDeg);
-			}
-			return;
-		}
-
-		const container = this.map.getContainer();
-		const rect = container.getBoundingClientRect();
-		if (rect.width > 0 && rect.height > 0) {
-			this.traceMapWheelPoint.x = event.clientX - rect.left;
-			this.traceMapWheelPoint.y = event.clientY - rect.top;
-		}
-
-		this.traceMapWheelAccum += this.normalizeTraceMapWheelDelta(event);
-		if (this.traceMapWheelRafId != null) {
-			return;
-		}
-		this.traceMapWheelRafId = requestAnimationFrame(() => this.flushTraceMapWheelZoom());
-	}
-
-	private flushTraceMapWheelZoom(): void {
-		this.traceMapWheelRafId = null;
-		const delta = this.traceMapWheelAccum;
-		this.traceMapWheelAccum = 0;
-		if (!this.map || Math.abs(delta) < 0.0001) {
-			return;
-		}
-
-		const minZoom = this.map.getMinZoom();
-		const maxZoom = this.map.getMaxZoom();
-		const oldZoom = this.map.getZoom();
-		const newZoom = this.applyMapWheelZoomFromDelta(delta, oldZoom, minZoom, maxZoom);
-		if (Math.abs(newZoom - oldZoom) < 0.0005) {
-			return;
-		}
-
-		const { x, y } = this.traceMapWheelPoint;
-		const container = this.map.getContainer();
-		const rect = container.getBoundingClientRect();
-		if (rect.width > 0 && rect.height > 0) {
-			const latlng = this.map.containerPointToLatLng(L.point(x, y));
-			this.map.setZoomAround(latlng, newZoom);
-		} else {
-			this.map.setZoom(newZoom);
-		}
-		this.currentZoom = newZoom;
-		this.scheduleTraceViewerCdr();
-	}
-
 	private registerTraceMapWheelZoom(): void {
-		if (!this.map || this.traceMapWheelHandler) {
+		if (!this.map || this.mapWheelZoom) {
 			return;
 		}
-		const container = this.map.getContainer();
-		this.traceMapWheelHandler = (e: WheelEvent) => this.onTraceMapWheel(e);
-		container.addEventListener('wheel', this.traceMapWheelHandler, { passive: false });
+		this.mapWheelZoom = attachLeafletMapWheelZoom(this.map, {
+			shiftRotates: true,
+			afterZoom: (zoom) => {
+				this.currentZoom = zoom;
+				this.scheduleTraceViewerCdr();
+			}
+		});
 	}
 
 	private unregisterTraceMapWheelZoom(): void {
-		if (this.traceMapWheelRafId != null) {
-			cancelAnimationFrame(this.traceMapWheelRafId);
-			this.traceMapWheelRafId = null;
-		}
-		this.traceMapWheelAccum = 0;
-		if (this.traceMapWheelHandler && this.map) {
-			try {
-				this.map.getContainer().removeEventListener('wheel', this.traceMapWheelHandler);
-			} catch {
-				/* map container may already be gone */
-			}
-		}
-		this.traceMapWheelHandler = undefined;
+		this.mapWheelZoom?.detach();
+		this.mapWheelZoom = null;
 	}
 
 	/** WMTS Swisstopo : zoom entier obligatoire (zoomSnap 0 → 14,8 ne charge pas les tuiles). */
@@ -3614,11 +3518,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!this.canOpenGpsFollow) {
 			return;
 		}
+		const realFileName = isTrackFileName(this.gpsSourceFileName)
+			? (this.gpsSourceFileName || '').trim()
+			: isTrackFileName(this.trackFileName)
+				? (this.trackFileName || '').trim()
+				: '';
 		if (this.gpsSourceFileId) {
 			void this.router.navigate(['api', 'gps'], {
 				queryParams: {
 					fileId: this.gpsSourceFileId,
-					fileName: this.gpsSourceFileName || this.trackFileName || 'track'
+					fileName: realFileName || 'track.gpx'
 				}
 			});
 			this.close();
@@ -3638,7 +3547,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		writeGpsHandoff({
 			title: this.trackFileName || this.gpsSourceFileName,
-			fileName: this.gpsSourceFileName || this.trackFileName,
+			fileName: realFileName || undefined,
 			points
 		});
 		void this.router.navigate(['api', 'gps']);

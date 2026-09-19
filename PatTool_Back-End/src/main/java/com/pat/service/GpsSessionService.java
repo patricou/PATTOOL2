@@ -1,8 +1,12 @@
 package com.pat.service;
 
+import com.pat.controller.dto.GpsLinkedActivityDto;
 import com.pat.controller.dto.GpsRecordedPointDto;
 import com.pat.controller.dto.GpsSessionDto;
+import com.pat.repo.EvenementsRepository;
 import com.pat.repo.GpsSessionRepository;
+import com.pat.repo.domain.Evenement;
+import com.pat.repo.domain.FileUploaded;
 import com.pat.repo.domain.GpsRecordedPoint;
 import com.pat.repo.domain.GpsSession;
 import com.pat.repo.domain.Member;
@@ -13,8 +17,10 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -27,17 +33,24 @@ public class GpsSessionService {
     private static final Set<String> STATUSES = Set.of("idle", "recording", "paused", "finished");
     private static final Set<String> SOURCES = Set.of("import", "file", "session");
 
-    private final GpsSessionRepository repository;
+    private static final int MAX_LINKED_ACTIVITIES = 40;
 
-    public GpsSessionService(GpsSessionRepository repository) {
+    private final GpsSessionRepository repository;
+    private final EvenementsRepository evenementsRepository;
+
+    public GpsSessionService(GpsSessionRepository repository, EvenementsRepository evenementsRepository) {
         this.repository = repository;
+        this.evenementsRepository = evenementsRepository;
     }
 
     public List<GpsSessionDto> listForMember(Member me) {
         List<GpsSession> list = repository.findByOwnerMemberIdOrderByUpdatedAtDesc(me.getId());
+        Map<String, List<GpsLinkedActivityDto>> linked = resolveLinkedActivities(list, me);
         List<GpsSessionDto> out = new ArrayList<>(list.size());
         for (GpsSession s : list) {
-            out.add(toDto(s, false));
+            GpsSessionDto dto = toDto(s, false);
+            applyLinkedActivities(dto, linked.get(s.getId()));
+            out.add(dto);
         }
         return out;
     }
@@ -45,7 +58,12 @@ public class GpsSessionService {
     public Optional<GpsSessionDto> getForMember(String id, Member me) {
         return repository.findById(id)
                 .filter(s -> me.getId().equals(s.getOwnerMemberId()))
-                .map(s -> toDto(s, true));
+                .map(s -> {
+                    GpsSessionDto dto = toDto(s, true);
+                    Map<String, List<GpsLinkedActivityDto>> linked = resolveLinkedActivities(List.of(s), me);
+                    applyLinkedActivities(dto, linked.get(s.getId()));
+                    return dto;
+                });
     }
 
     /**
@@ -78,7 +96,10 @@ public class GpsSessionService {
         if ("finished".equals(entity.getStatus()) && entity.getFinishedAt() == null) {
             entity.setFinishedAt(now);
         }
-        return toDto(repository.save(entity), true);
+        GpsSession saved = repository.save(entity);
+        GpsSessionDto dto = toDto(saved, true);
+        applyLinkedActivities(dto, resolveLinkedActivities(List.of(saved), me).get(saved.getId()));
+        return dto;
     }
 
     public boolean delete(String id, Member me) {
@@ -110,6 +131,9 @@ public class GpsSessionService {
         }
         if (body.getSourceFileName() != null) {
             entity.setSourceFileName(trimTo(body.getSourceFileName(), 240));
+        }
+        if (body.getLinkedActivityIds() != null) {
+            entity.setLinkedActivityIds(sanitizeLinkedIds(body.getLinkedActivityIds()));
         }
         if (body.getPlannedTrack() != null && !body.getPlannedTrack().isEmpty()) {
             List<double[]> coords = body.getPlannedTrack();
@@ -209,6 +233,9 @@ public class GpsSessionService {
         dto.setSourceType(entity.getSourceType());
         dto.setSourceFileId(entity.getSourceFileId());
         dto.setSourceFileName(entity.getSourceFileName());
+        dto.setLinkedActivityIds(entity.getLinkedActivityIds() != null
+                ? new ArrayList<>(entity.getLinkedActivityIds())
+                : new ArrayList<>());
         dto.setStatus(entity.getStatus());
         dto.setPlannedTrack(entity.getPlannedTrack() != null ? entity.getPlannedTrack() : List.of());
         dto.setPlannedDistanceM(entity.getPlannedDistanceM());
@@ -235,6 +262,143 @@ public class GpsSessionService {
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
         return dto;
+    }
+
+    private void applyLinkedActivities(GpsSessionDto dto, List<GpsLinkedActivityDto> linked) {
+        List<GpsLinkedActivityDto> list = linked != null ? linked : List.of();
+        dto.setLinkedActivities(list);
+        LinkedHashSet<String> ids = new LinkedHashSet<>();
+        if (dto.getLinkedActivityIds() != null) {
+            ids.addAll(sanitizeLinkedIds(dto.getLinkedActivityIds()));
+        }
+        for (GpsLinkedActivityDto a : list) {
+            if (a != null && StringUtils.hasText(a.getId())) {
+                ids.add(a.getId().trim());
+            }
+        }
+        dto.setLinkedActivityIds(new ArrayList<>(ids));
+    }
+
+    private Map<String, List<GpsLinkedActivityDto>> resolveLinkedActivities(List<GpsSession> sessions, Member me) {
+        Map<String, List<GpsLinkedActivityDto>> out = new LinkedHashMap<>();
+        if (sessions == null || sessions.isEmpty() || me == null || !StringUtils.hasText(me.getId())) {
+            return out;
+        }
+        LinkedHashSet<String> eventIds = new LinkedHashSet<>();
+        LinkedHashSet<String> fileIds = new LinkedHashSet<>();
+        LinkedHashSet<String> fileNames = new LinkedHashSet<>();
+        for (GpsSession s : sessions) {
+            if (s.getLinkedActivityIds() != null) {
+                eventIds.addAll(sanitizeLinkedIds(s.getLinkedActivityIds()));
+            }
+            if (StringUtils.hasText(s.getSourceFileId())) {
+                fileIds.add(s.getSourceFileId().trim());
+            }
+            String fileName = fileNameKey(s.getSourceFileName());
+            if (StringUtils.hasText(fileName)) {
+                fileNames.add(fileName);
+            }
+        }
+        List<Evenement> events = evenementsRepository.findAccessibleLinkedToTracks(
+                me.getId(),
+                new ArrayList<>(eventIds),
+                new ArrayList<>(fileIds),
+                new ArrayList<>(fileNames)
+        );
+        if (events == null || events.isEmpty()) {
+            for (GpsSession s : sessions) {
+                if (s.getId() != null) {
+                    out.put(s.getId(), List.of());
+                }
+            }
+            return out;
+        }
+        for (GpsSession s : sessions) {
+            if (s.getId() == null) {
+                continue;
+            }
+            LinkedHashMap<String, GpsLinkedActivityDto> byId = new LinkedHashMap<>();
+            Set<String> stored = new HashSet<>(sanitizeLinkedIds(s.getLinkedActivityIds()));
+            String sourceId = StringUtils.hasText(s.getSourceFileId()) ? s.getSourceFileId().trim() : "";
+            String sourceName = fileNameKey(s.getSourceFileName());
+            for (Evenement e : events) {
+                if (e == null || !StringUtils.hasText(e.getId())) {
+                    continue;
+                }
+                if (stored.contains(e.getId())
+                        || eventHasFile(e, sourceId, sourceName)) {
+                    byId.putIfAbsent(e.getId(), toLinkedDto(e));
+                    if (byId.size() >= MAX_LINKED_ACTIVITIES) {
+                        break;
+                    }
+                }
+            }
+            out.put(s.getId(), new ArrayList<>(byId.values()));
+        }
+        return out;
+    }
+
+    private static boolean eventHasFile(Evenement event, String fileId, String fileName) {
+        List<FileUploaded> files = event.getFileUploadeds();
+        if (files == null || files.isEmpty()) {
+            return false;
+        }
+        for (FileUploaded f : files) {
+            if (f == null) {
+                continue;
+            }
+            if (StringUtils.hasText(fileId) && fileId.equals(f.getFieldId())) {
+                return true;
+            }
+            if (StringUtils.hasText(fileName) && fileName.equalsIgnoreCase(fileNameKey(f.getFileName()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static GpsLinkedActivityDto toLinkedDto(Evenement e) {
+        GpsLinkedActivityDto dto = new GpsLinkedActivityDto();
+        dto.setId(e.getId());
+        dto.setTitle(StringUtils.hasText(e.getEvenementName()) ? e.getEvenementName().trim() : e.getId());
+        dto.setBeginEventDate(e.getBeginEventDate());
+        return dto;
+    }
+
+    private static List<String> sanitizeLinkedIds(List<String> raw) {
+        if (raw == null || raw.isEmpty()) {
+            return new ArrayList<>();
+        }
+        LinkedHashSet<String> ids = new LinkedHashSet<>();
+        for (String id : raw) {
+            if (!StringUtils.hasText(id)) {
+                continue;
+            }
+            String t = id.trim();
+            if (t.length() > 80) {
+                continue;
+            }
+            ids.add(t);
+            if (ids.size() >= MAX_LINKED_ACTIVITIES) {
+                break;
+            }
+        }
+        return new ArrayList<>(ids);
+    }
+
+    private static String fileNameKey(String name) {
+        if (!StringUtils.hasText(name)) {
+            return "";
+        }
+        String raw = name.trim().replace('\\', '/');
+        int slash = raw.lastIndexOf('/');
+        String base = slash >= 0 ? raw.substring(slash + 1) : raw;
+        if (!StringUtils.hasText(base)
+                || "track".equalsIgnoreCase(base)
+                || "track.gpx".equalsIgnoreCase(base)) {
+            return "";
+        }
+        return base;
     }
 
     private static GpsRecordedPointDto toPointDto(GpsRecordedPoint p) {

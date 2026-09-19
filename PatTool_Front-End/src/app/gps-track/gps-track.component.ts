@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { firstValueFrom, from, of, Subscription } from 'rxjs';
@@ -19,11 +19,16 @@ import { catchError, map, mergeMap, reduce } from 'rxjs/operators';
 
 import { LeafletBasemapOption, LeafletBasemapService } from '../shared/leaflet-basemap.service';
 import { L, RotatableLeafletMap } from '../shared/leaflet-rotate-setup';
+import {
+  attachLeafletMapWheelZoom,
+  LEAFLET_SMOOTH_WHEEL_MAP_OPTIONS,
+  LeafletMapWheelZoomHandle
+} from '../shared/leaflet-map-wheel-zoom';
 import { GpsBasemapPickerComponent } from '../shared/gps-basemap-picker.component';
 import { CalendarEntry, CalendarService } from '../calendar/calendar.service';
 import { MembersService } from '../services/members.service';
 import { environment } from '../../environments/environment';
-import { ApiService, GpsFollowSession } from '../services/api.service';
+import { ApiService, GpsFollowSession, GpsLinkedActivity } from '../services/api.service';
 import { FileService } from '../services/file.service';
 import { GpsRecordingService, GpsLiveSnapshot, GpsUserFix } from '../services/gps-recording.service';
 import {
@@ -55,6 +60,9 @@ import {
   haversineMeters,
   MAX_PLANNED_TRACK_POINTS,
   slugFileName,
+  isTrackFileName,
+  displayTrackFileName,
+  exportTrackFileName,
   splitTrackSegments,
   trackHeadingAt,
   trackSlopeAt
@@ -245,6 +253,8 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   }
 
   private map: RotatableLeafletMap | null = null;
+  private mapWheelZoom: LeafletMapWheelZoomHandle | null = null;
+  private lastAppliedBearingDeg: number | null = null;
   private baseLayer: L.TileLayer | L.LayerGroup | null = null;
   private trackLayer: L.FeatureGroup | null = null;
   private userMarker: L.Marker | null = null;
@@ -285,6 +295,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     private readonly offlineMap: GpsOfflineMapService,
     private readonly offlineTiles: GpsOfflineTilesStore,
     private readonly route: ActivatedRoute,
+    private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
     private readonly hostEl: ElementRef<HTMLElement>,
     private readonly zone: NgZone,
@@ -369,6 +380,9 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     this.closeSessionsList();
     this.resizeObserver?.disconnect();
     this.recording.stopLocationWatchIfIdle();
+    this.mapWheelZoom?.detach();
+    this.mapWheelZoom = null;
+    this.lastAppliedBearingDeg = null;
     if (this.map) {
       this.map.remove();
       this.map = null;
@@ -731,6 +745,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       const base = (environment.API_URL4FILE || '/uploadfile').replace(/\/$/, '');
       const uploadUrl = `${base}/${user.id}/${id}`;
       await firstValueFrom(this.files.postFileToUrl(form, user, uploadUrl));
+      await this.persistLinkedActivity(session, id);
       this.successMessage = 'GPS.LINK_ACTIVITY_OK';
       this.linkActivityOpen = false;
     } catch {
@@ -738,6 +753,104 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     } finally {
       this.linkingActivity = false;
       this.cdr.markForCheck();
+    }
+  }
+
+  get sessionLinkedActivities(): GpsLinkActivity[] {
+    const session = this.sessionDetail;
+    if (!session) {
+      return [];
+    }
+    const byId = new Map<string, GpsLinkActivity>();
+    for (const a of session.linkedActivities || []) {
+      if (a?.id) {
+        byId.set(a.id, this.toSessionLinkedActivity(a));
+      }
+    }
+    const ids = new Set(
+      [...(session.linkedActivityIds || []), ...byId.keys()]
+        .map((v) => (v || '').trim())
+        .filter(Boolean)
+    );
+    for (const a of this.linkActivities) {
+      if (ids.has(a.id) && !byId.has(a.id)) {
+        byId.set(a.id, a);
+      }
+    }
+    for (const id of ids) {
+      if (!byId.has(id)) {
+        byId.set(id, { id, title: id, label: id, start: new Date(0) });
+      }
+    }
+    return Array.from(byId.values()).sort((a, b) => b.start.getTime() - a.start.getTime());
+  }
+
+  isSessionLinkedTo(activityId: string): boolean {
+    const id = (activityId || '').trim();
+    return !!id && this.sessionLinkedActivities.some((a) => a.id === id);
+  }
+
+  openLinkedActivity(activityId: string, event?: Event): void {
+    event?.stopPropagation();
+    const id = (activityId || '').trim();
+    if (!id) {
+      return;
+    }
+    this.closeSessionDetail();
+    this.closeSessionsList();
+    void this.router.navigate(['/details-evenement', id]);
+  }
+
+  private toSessionLinkedActivity(a: GpsLinkedActivity): GpsLinkActivity {
+    const start = a.beginEventDate ? new Date(a.beginEventDate) : new Date(0);
+    const title = (a.title || '').trim() || a.id;
+    const datePart = !Number.isNaN(start.getTime()) && start.getTime() > 0
+      ? start.toLocaleDateString()
+      : '';
+    return {
+      id: a.id,
+      title,
+      label: datePart ? `${title} — ${datePart}` : title,
+      start
+    };
+  }
+
+  private async persistLinkedActivity(session: GpsFollowSession, activityId: string): Promise<void> {
+    const id = activityId.trim();
+    if (!id) {
+      return;
+    }
+    const ids = Array.from(new Set([...(session.linkedActivityIds || []), id].map((v) => v.trim()).filter(Boolean)));
+    const picked = this.linkActivities.find((a) => a.id === id);
+    const linked = [...(session.linkedActivities || [])];
+    if (picked && !linked.some((a) => a.id === id)) {
+      linked.push({
+        id: picked.id,
+        title: picked.title,
+        beginEventDate: Number.isNaN(picked.start.getTime()) ? null : picked.start.toISOString()
+      });
+    }
+    session.linkedActivityIds = ids;
+    session.linkedActivities = linked;
+    this.sessionDetail = { ...session };
+    this.sessions = this.sessions.map((s) => (s.id && s.id === session.id ? { ...session } : s));
+    const clientSessionId = (session.clientSessionId || '').trim();
+    if (!clientSessionId) {
+      return;
+    }
+    try {
+      const saved = await firstValueFrom(this.api.syncGpsSession({
+        clientSessionId,
+        linkedActivityIds: ids
+      }));
+      if (saved) {
+        session.linkedActivityIds = saved.linkedActivityIds || ids;
+        session.linkedActivities = saved.linkedActivities || linked;
+        this.sessionDetail = { ...session, ...saved, linkedActivityIds: session.linkedActivityIds, linkedActivities: session.linkedActivities };
+        this.sessions = this.sessions.map((s) => (s.id && s.id === session.id ? { ...s, ...this.sessionDetail } : s));
+      }
+    } catch {
+      /* File is already on the activity; ids will also be recovered from the filename. */
     }
   }
 
@@ -857,8 +970,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
         return null;
       }
       const title = (full.title || session.title || this.trackExportTitle()).trim();
-      const fileName = (full.sourceFileName || session.sourceFileName || '').trim()
-        || `pattool-${slugFileName(title, 'sortie')}.gpx`;
+      const fileName = exportTrackFileName(full.sourceFileName || session.sourceFileName, title);
       const stats: GpsTrackSaveStats = {
         distanceM: full.doneM,
         durationSec: full.durationSec,
@@ -1144,6 +1256,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     this.sessionDetail = session;
     this.resetLinkActivityUi();
     this.closeSessionDetail();
+    this.ensureLinkActivities();
     this.sessionDetailModalRef = this.modal.open(this.sessionDetailModal, {
       centered: true,
       scrollable: true,
@@ -1194,28 +1307,30 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
     try {
       const full = await firstValueFrom(this.api.getGpsSession(session.id));
-      const fileName = this.sessionFileName(full) || `${full.title || session.title || 'track'}.gpx`;
+      const title = (full.title || session.title || 'track').trim();
+      const fileName = exportTrackFileName(full.sourceFileName || session.sourceFileName, title);
       const recorded = this.pointsFromSession(full);
       if (recorded.length >= 2) {
         this.closeSessionDetail();
         this.traceViewer.openWithTrackPoints(
           recorded.map((p) => ({ lat: p.lat, lng: p.lon })),
           fileName,
-          { initialBaseLayerId: this.mapBaseLayerId }
+          { initialBaseLayerId: this.mapBaseLayerId, titleLabel: title }
         );
         return;
       }
       const fileId = (full.sourceFileId || '').trim();
       if (fileId) {
         this.closeSessionDetail();
-        this.traceViewer.openFromFile(fileId, fileName, undefined, full.title || session.title);
+        this.traceViewer.openFromFile(fileId, fileName, undefined, title);
         return;
       }
       const planned = this.pointsFromPlannedTrack(full);
       if (planned.length >= 2) {
         this.closeSessionDetail();
         this.traceViewer.openWithTrackPoints(planned, fileName, {
-          initialBaseLayerId: this.mapBaseLayerId
+          initialBaseLayerId: this.mapBaseLayerId,
+          titleLabel: title
         });
         return;
       }
@@ -1242,7 +1357,29 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   }
 
   sessionFileName(session: GpsFollowSession | null | undefined): string {
-    return (session?.sourceFileName || '').trim();
+    return displayTrackFileName(session?.sourceFileName);
+  }
+
+  sessionListFileName(session: GpsFollowSession | null | undefined): string {
+    const file = this.sessionFileName(session);
+    if (!file) {
+      return '';
+    }
+    const title = (session?.title || '').trim();
+    if (!title) {
+      return file;
+    }
+    const fileNorm = this.listTextKey(file.replace(/\.[^.]+$/, ''));
+    const titleNorm = this.listTextKey(title);
+    if (!fileNorm || fileNorm === titleNorm || titleNorm.includes(fileNorm) || fileNorm.includes(titleNorm)) {
+      return '';
+    }
+    return file;
+  }
+
+  onSessionRowKey(event: Event, session: GpsFollowSession): void {
+    event.preventDefault();
+    this.openSessionDetail(session);
   }
 
   sessionListDate(session: GpsFollowSession | null | undefined): string {
@@ -1327,11 +1464,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   }
 
   currentTrackFileName(): string {
-    const raw = (this.snap.sourceFileName || '').trim();
-    if (!raw) {
-      return '';
-    }
-    return raw.replace(/\\/g, '/').split('/').pop() || raw;
+    return displayTrackFileName(this.snap.sourceFileName);
   }
 
   sessionPlannedPointCount(session: GpsFollowSession | null | undefined): number {
@@ -1694,10 +1827,10 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.applyPoints(handoff.points, {
-      title: handoff.title || handoff.fileName,
+      title: handoff.title || (isTrackFileName(handoff.fileName) ? handoff.fileName : '') || 'GPS',
       sourceType: handoff.fileId ? 'file' : 'import',
       sourceFileId: handoff.fileId || null,
-      sourceFileName: handoff.fileName || null
+      sourceFileName: isTrackFileName(handoff.fileName) ? handoff.fileName : null
     });
   }
 
@@ -1768,6 +1901,15 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       return '';
     }
     return raw.split('/').pop() || raw;
+  }
+
+  private listTextKey(value: string): string {
+    return value
+      .toLowerCase()
+      .replace(/[_-]+/g, ' ')
+      .replace(/[.,;:/\\()[\]{}|→]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   private applyPoints(
@@ -2014,12 +2156,16 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     this.map = L.map(el, {
       zoomControl: true,
       attributionControl: true,
+      ...LEAFLET_SMOOTH_WHEEL_MAP_OPTIONS,
+      zoomAnimation: false,
+      markerZoomAnimation: false,
       rotate: true,
       bearing: 0,
       touchRotate: false,
       shiftKeyRotate: false,
       rotateControl: false
     } as L.MapOptions) as RotatableLeafletMap;
+    this.mapWheelZoom = attachLeafletMapWheelZoom(this.map);
     this.applyGpsBaseLayer();
     this.trackLayer = L.featureGroup().addTo(this.map);
     this.map.setView([46.6, 2.5], 6);
@@ -2033,17 +2179,22 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       this.syncUserMarker(this.snap.user);
       return;
     }
-    const key = `${this.snap.track.length}|${this.snap.nearestIndex}|${this.snap.recorded.length}`;
+    const liveSplit = this.isLiveOuting();
+    const key = `${this.snap.track.length}|${liveSplit ? this.snap.nearestIndex : 'all'}|${this.snap.recorded.length}`;
     if (key !== this.lastPaintKey) {
       this.lastPaintKey = key;
       this.trackLayer.clearLayers();
       const track = this.snap.track;
-      const idx = Math.max(0, Math.min(this.snap.nearestIndex, Math.max(0, track.length - 1)));
       if (track.length >= 2) {
-        const done = track.slice(0, idx + 1).map((p) => [p.lat, p.lon] as L.LatLngExpression);
+        const idx = liveSplit
+          ? Math.max(0, Math.min(this.snap.nearestIndex, Math.max(0, track.length - 1)))
+          : 0;
         const remain = track.slice(idx).map((p) => [p.lat, p.lon] as L.LatLngExpression);
-        if (done.length >= 2) {
-          L.polyline(done, { color: '#343a40', weight: 5, opacity: 0.85 }).addTo(this.trackLayer);
+        if (liveSplit) {
+          const done = track.slice(0, idx + 1).map((p) => [p.lat, p.lon] as L.LatLngExpression);
+          if (done.length >= 2) {
+            L.polyline(done, { color: '#343a40', weight: 5, opacity: 0.85 }).addTo(this.trackLayer);
+          }
         }
         if (remain.length >= 2) {
           L.polyline(remain, { color: '#0d6efd', weight: 5, opacity: 0.95 }).addTo(this.trackLayer);
@@ -2117,8 +2268,15 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       return;
     }
     const bearing = ((this.currentMapBearingDeg() % 360) + 360) % 360;
+    if (!force && this.lastAppliedBearingDeg != null) {
+      const delta = Math.abs(bearing - this.lastAppliedBearingDeg);
+      if (Math.min(delta, 360 - delta) < 0.5) {
+        return;
+      }
+    }
     try {
       this.map.setBearing(bearing);
+      this.lastAppliedBearingDeg = bearing;
       if (force) {
         this.map.invalidateSize({ animate: false });
       }

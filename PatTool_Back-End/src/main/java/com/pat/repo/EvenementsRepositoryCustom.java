@@ -22,5 +22,15 @@ public interface EvenementsRepositoryCustom {
 	 * search. Non-blank {@code userId} adds own, friends, and friend-group visibility; blank means public only.
 	 */
 	List<Evenement> findAccessibleOverlappingRange(Date rangeStart, Date rangeEnd, String userId);
+
+	/**
+	 * Activities the user can see that match stored ids and/or uploaded track files
+	 * (used to show which activities a GPS outing is linked to).
+	 */
+	List<Evenement> findAccessibleLinkedToTracks(
+			String userId,
+			List<String> eventIds,
+			List<String> fileIds,
+			List<String> fileNames);
 }
  

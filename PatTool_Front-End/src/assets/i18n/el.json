@@ -5240,6 +5240,8 @@
     "LINK_ACTIVITY_FILTER_UPCOMING": "Επερχόμενες",
     "LINK_ACTIVITY_FILTER_PAST": "Παρελθόν",
     "LINK_ACTIVITY_NO_MATCH": "Καμία δραστηριότητα δεν ταιριάζει.",
+    "LINKED_ACTIVITY": "Συνδεδεμένη δραστηριότητα",
+    "LINKED_ACTIVITIES": "Συνδεδεμένες δραστηριότητες",
     "ERR_SAVE_TRACK": "Δεν υπάρχουν αρκετά σημεία GPS για ίχνος.",
     "EXPORT_GPX": "Εξαγωγή GPX",
     "EXPORT_GPX_SHORT": "GPX",

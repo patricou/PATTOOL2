@@ -19,8 +19,8 @@
 }
 
 .gps-page .btn,
-::ng-deep .gps-sessions-list-modal .btn,
-::ng-deep .gps-session-detail-modal .btn {
+::ng-deep .gps-sessions-list-modal .btn:not(.gps-session-row),
+::ng-deep .gps-session-detail-modal .btn:not(.gps-session-linked-item) {
   padding: 0.18rem 0.5rem;
   font-size: 0.78rem;
   line-height: 1.25;
@@ -845,7 +845,8 @@
 .gps-session-list {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  align-items: stretch;
+  gap: 0.45rem;
   max-height: min(50vh, 24rem);
   min-width: 0;
   overflow: auto;
@@ -924,27 +925,83 @@
   margin-left: auto;
 }
 
+::ng-deep .gps-sessions-list-modal .gps-session-row {
+  flex: 0 0 auto;
+  height: auto !important;
+  min-height: auto !important;
+  max-height: none !important;
+  overflow: hidden;
+  white-space: normal;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  padding: 0.55rem 0.45rem 0.55rem 0.65rem;
+}
+
 .gps-session-row {
   position: relative;
-  display: block;
+  isolation: isolate;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.35rem;
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  height: auto;
+  min-height: auto;
   box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
   text-align: left;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 0.5rem;
-  padding: 0.45rem 3.6rem 0.45rem 0.65rem;
+  padding: 0.55rem 0.45rem 0.55rem 0.65rem;
   background: #fff;
   overflow: hidden;
   white-space: normal;
+  line-height: 1.35;
+  font-size: 0.9rem;
+  color: inherit;
+  cursor: pointer;
+}
+
+.gps-session-row-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.18rem;
+}
+
+.gps-session-row-title,
+.gps-session-row-file,
+.gps-session-row-meta {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .gps-session-row-title {
-  min-width: 0;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.gps-session-row-file {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  overflow: hidden;
+}
+
+.gps-session-row-meta {
+  overflow: hidden;
 }
 
 .gps-session-row:hover {
@@ -952,12 +1009,12 @@
 }
 
 .gps-session-actions {
-  position: absolute;
-  right: 0.25rem;
-  top: 50%;
-  transform: translateY(-50%);
+  position: static;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
+  align-self: center;
+  transform: none;
   gap: 0.05rem;
 }
 
@@ -990,7 +1047,48 @@
 
 .gps-session-file-name {
   font-weight: 600;
-  word-break: break-all;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.gps-session-linked {
+  margin-bottom: 1rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.5rem;
+  background: #f8fafc;
+}
+
+.gps-session-linked-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 0;
+  margin: 0.25rem 0 0;
+  padding: 0.4rem 0.15rem 0.15rem;
+  border: 0;
+  background: transparent;
+  color: #0d6efd;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  cursor: pointer;
+}
+
+.gps-session-linked-item:hover,
+.gps-session-linked-item:focus-visible {
+  color: #0a58ca;
+  text-decoration: underline;
+  outline: none;
+}
+
+.gps-session-linked-chevron {
+  margin-left: auto;
+  padding-left: 0.5rem;
+  color: #64748b;
 }
 
 .gps-session-stat-grid {
@@ -1132,7 +1230,7 @@
   }
 
   .gps-session-list {
-    max-height: min(38vh, 16rem);
+    max-height: min(48vh, 22rem);
   }
 
   .gps-session-stat-grid,

@@ -5236,6 +5236,8 @@
     "LINK_ACTIVITY_FILTER_UPCOMING": "قادمة",
     "LINK_ACTIVITY_FILTER_PAST": "سابقة",
     "LINK_ACTIVITY_NO_MATCH": "لا يوجد نشاط مطابق.",
+    "LINKED_ACTIVITY": "نشاط مرتبط",
+    "LINKED_ACTIVITIES": "أنشطة مرتبطة",
     "ERR_SAVE_TRACK": "لا توجد نقاط GPS كافية لإنشاء مسار.",
     "EXPORT_GPX": "تصدير GPX",
     "EXPORT_GPX_SHORT": "GPX",

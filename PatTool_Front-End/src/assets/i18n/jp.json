@@ -5243,6 +5243,8 @@
     "LINK_ACTIVITY_FILTER_UPCOMING": "今後",
     "LINK_ACTIVITY_FILTER_PAST": "過去",
     "LINK_ACTIVITY_NO_MATCH": "一致するアクティビティがありません。",
+    "LINKED_ACTIVITY": "リンク済みアクティビティ",
+    "LINKED_ACTIVITIES": "リンク済みアクティビティ",
     "ERR_SAVE_TRACK": "軌跡を作る GPS 点が足りません。",
     "EXPORT_GPX": "GPX を書き出す",
     "EXPORT_GPX_SHORT": "GPX",

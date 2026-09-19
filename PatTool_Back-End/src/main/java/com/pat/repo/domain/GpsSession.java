@@ -37,6 +37,9 @@ public class GpsSession {
     private String sourceFileId;
     private String sourceFileName;
 
+    /** Activities (evenement ids) this outing was explicitly linked to. */
+    private List<String> linkedActivityIds = new ArrayList<>();
+
     /** idle | recording | paused | finished */
     private String status;
 
@@ -122,6 +125,14 @@ public class GpsSession {
 
     public void setSourceFileName(String sourceFileName) {
         this.sourceFileName = sourceFileName;
+    }
+
+    public List<String> getLinkedActivityIds() {
+        return linkedActivityIds;
+    }
+
+    public void setLinkedActivityIds(List<String> linkedActivityIds) {
+        this.linkedActivityIds = linkedActivityIds != null ? linkedActivityIds : new ArrayList<>();
     }
 
     public String getStatus() {

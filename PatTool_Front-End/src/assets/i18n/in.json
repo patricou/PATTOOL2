@@ -5229,6 +5229,8 @@
     "LINK_ACTIVITY_FILTER_UPCOMING": "आगामी",
     "LINK_ACTIVITY_FILTER_PAST": "पिछली",
     "LINK_ACTIVITY_NO_MATCH": "कोई गतिविधि मेल नहीं खाती।",
+    "LINKED_ACTIVITY": "लिंक की गई गतिविधि",
+    "LINKED_ACTIVITIES": "लिंक की गई गतिविधियाँ",
     "ERR_SAVE_TRACK": "ट्रैक बनाने के लिए पर्याप्त GPS बिंदु नहीं।",
     "EXPORT_GPX": "GPX निर्यात करें",
     "EXPORT_GPX_SHORT": "GPX",

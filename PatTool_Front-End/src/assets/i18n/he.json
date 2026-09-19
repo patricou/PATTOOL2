@@ -5237,6 +5237,8 @@
     "LINK_ACTIVITY_FILTER_UPCOMING": "קרובות",
     "LINK_ACTIVITY_FILTER_PAST": "עבר",
     "LINK_ACTIVITY_NO_MATCH": "אין פעילות תואמת.",
+    "LINKED_ACTIVITY": "פעילות מקושרת",
+    "LINKED_ACTIVITIES": "פעילויות מקושרות",
     "ERR_SAVE_TRACK": "אין מספיק נקודות GPS ליצירת תוואי.",
     "EXPORT_GPX": "ייצוא GPX",
     "EXPORT_GPX_SHORT": "GPX",

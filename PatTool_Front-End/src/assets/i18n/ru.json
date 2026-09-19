@@ -5231,6 +5231,8 @@
     "LINK_ACTIVITY_FILTER_UPCOMING": "Предстоящие",
     "LINK_ACTIVITY_FILTER_PAST": "Прошедшие",
     "LINK_ACTIVITY_NO_MATCH": "Нет подходящих активностей.",
+    "LINKED_ACTIVITY": "Связанная активность",
+    "LINKED_ACTIVITIES": "Связанные активности",
     "ERR_SAVE_TRACK": "Недостаточно точек GPS для трека.",
     "EXPORT_GPX": "Экспорт GPX",
     "EXPORT_GPX_SHORT": "GPX",

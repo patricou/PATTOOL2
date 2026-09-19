@@ -18,12 +18,14 @@ import org.springframework.util.StringUtils;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Repository
@@ -126,6 +128,78 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 				.comparing(Evenement::getBeginEventDate, Comparator.nullsLast(Comparator.naturalOrder()))
 				.thenComparing(e -> e.getEvenementName(), Comparator.nullsLast(String::compareToIgnoreCase)));
 		return events;
+	}
+
+	@Override
+	public List<Evenement> findAccessibleLinkedToTracks(
+			String userId,
+			List<String> eventIds,
+			List<String> fileIds,
+			List<String> fileNames) {
+		List<Criteria> match = new ArrayList<>();
+		List<Object> idValues = idQueryValues(eventIds);
+		if (!idValues.isEmpty()) {
+			match.add(Criteria.where("_id").in(idValues));
+		}
+		List<String> ids = trimDistinct(fileIds);
+		if (!ids.isEmpty()) {
+			match.add(Criteria.where("fileUploadeds.fieldId").in(ids));
+		}
+		List<String> names = trimDistinct(fileNames);
+		if (!names.isEmpty()) {
+			List<Criteria> nameCrit = new ArrayList<>(names.size());
+			for (String name : names) {
+				nameCrit.add(Criteria.where("fileUploadeds.fileName").regex("^" + Pattern.quote(name) + "$", "i"));
+			}
+			match.add(nameCrit.size() == 1
+					? nameCrit.get(0)
+					: new Criteria().orOperator(nameCrit.toArray(new Criteria[0])));
+		}
+		if (match.isEmpty()) {
+			return new ArrayList<>();
+		}
+		Criteria matchAny = match.size() == 1
+				? match.get(0)
+				: new Criteria().orOperator(match.toArray(new Criteria[0]));
+		Query query = new Query(new Criteria().andOperator(
+				buildAccessCriteria(userId),
+				matchAny
+		));
+		query.fields()
+				.include("_id")
+				.include("evenementName")
+				.include("beginEventDate")
+				.include("fileUploadeds.fieldId")
+				.include("fileUploadeds.fileName");
+		return mongoTemplate.find(query, Evenement.class);
+	}
+
+	private static List<String> trimDistinct(Collection<String> values) {
+		if (values == null || values.isEmpty()) {
+			return List.of();
+		}
+		List<String> out = new ArrayList<>();
+		for (String raw : values) {
+			if (!StringUtils.hasText(raw)) {
+				continue;
+			}
+			String t = raw.trim();
+			if (!out.contains(t)) {
+				out.add(t);
+			}
+		}
+		return out;
+	}
+
+	private static List<Object> idQueryValues(Collection<String> ids) {
+		List<Object> out = new ArrayList<>();
+		for (String raw : trimDistinct(ids)) {
+			out.add(raw);
+			if (ObjectId.isValid(raw)) {
+				out.add(new ObjectId(raw));
+			}
+		}
+		return out;
 	}
 
 	@Override

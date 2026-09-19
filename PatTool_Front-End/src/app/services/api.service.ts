@@ -5405,6 +5405,14 @@ export interface GpsFollowSessionSync {
   durationSec?: number | null;
   startedAt?: string | null;
   finishedAt?: string | null;
+  linkedActivityIds?: string[] | null;
+}
+
+/** Activity linked to a saved GPS outing. */
+export interface GpsLinkedActivity {
+  id: string;
+  title?: string;
+  beginEventDate?: string | null;
 }
 
 /** Saved GPS follow session (planned track + recorded samples). */
@@ -5415,6 +5423,7 @@ export interface GpsFollowSession extends GpsFollowSessionSync {
   recordedPointCount?: number;
   createdAt?: string;
   updatedAt?: string;
+  linkedActivities?: GpsLinkedActivity[];
 }
 
 /** Saved GPS itinerary (mine or shared with me). */

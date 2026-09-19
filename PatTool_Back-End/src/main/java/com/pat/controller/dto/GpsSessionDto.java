@@ -17,6 +17,8 @@ public class GpsSessionDto {
     private String sourceType;
     private String sourceFileId;
     private String sourceFileName;
+    private List<String> linkedActivityIds;
+    private List<GpsLinkedActivityDto> linkedActivities;
     private String status;
     private List<double[]> plannedTrack = new ArrayList<>();
     private Double plannedDistanceM;
@@ -96,6 +98,22 @@ public class GpsSessionDto {
 
     public void setSourceFileName(String sourceFileName) {
         this.sourceFileName = sourceFileName;
+    }
+
+    public List<String> getLinkedActivityIds() {
+        return linkedActivityIds;
+    }
+
+    public void setLinkedActivityIds(List<String> linkedActivityIds) {
+        this.linkedActivityIds = linkedActivityIds;
+    }
+
+    public List<GpsLinkedActivityDto> getLinkedActivities() {
+        return linkedActivities;
+    }
+
+    public void setLinkedActivities(List<GpsLinkedActivityDto> linkedActivities) {
+        this.linkedActivities = linkedActivities;
     }
 
     public String getStatus() {

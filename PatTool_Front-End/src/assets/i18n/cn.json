@@ -5238,6 +5238,8 @@
     "LINK_ACTIVITY_FILTER_UPCOMING": "即将到来",
     "LINK_ACTIVITY_FILTER_PAST": "已过",
     "LINK_ACTIVITY_NO_MATCH": "没有匹配的活动。",
+    "LINKED_ACTIVITY": "关联的活动",
+    "LINKED_ACTIVITIES": "关联的活动",
     "ERR_SAVE_TRACK": "GPS 点不足，无法创建轨迹。",
     "EXPORT_GPX": "导出 GPX",
     "EXPORT_GPX_SHORT": "GPX",

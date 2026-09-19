@@ -6955,6 +6955,8 @@
     "LINK_ACTIVITY_FILTER_UPCOMING": "Upcoming",
     "LINK_ACTIVITY_FILTER_PAST": "Past",
     "LINK_ACTIVITY_NO_MATCH": "No activity matches.",
+    "LINKED_ACTIVITY": "Linked activity",
+    "LINKED_ACTIVITIES": "Linked activities",
     "ERR_SAVE_TRACK": "Not enough GPS points to create a track.",
     "EXPORT_GPX": "Export GPX",
     "EXPORT_GPX_SHORT": "GPX",
