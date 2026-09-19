@@ -5389,7 +5389,7 @@
     "EXPORT_GPX": "GPX exportieren",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "Offline-Karte",
-    "OFFLINE_MAP_HINT": "Lädt OpenStreetMap um die Route (~1 km Korridor, Zoom 12–16), damit sie ohne Netz sichtbar bleibt. Vor der Abfahrt vorbereiten.",
+    "OFFLINE_MAP_HINT": "Lädt OpenStreetMap um die Route (~1 km Korridor, Zoom 12–16). Die Kacheln bleiben auf dem Gerät, auch nach einem Neustart des Telefons.",
     "OFFLINE_MAP_DOWNLOAD": "Um die Route",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Um mich",
     "OFFLINE_MAP_CANCEL": "Abbrechen",
@@ -5401,7 +5401,11 @@
     "OFFLINE_MAP_NEED_NET": "Zum Herunterladen der Kacheln ist eine Verbindung nötig.",
     "OFFLINE_MAP_USING": "Offline-Hintergrund: vorgeladenes OpenStreetMap.",
     "OFFLINE_MAP_ERR": "Einige Kacheln konnten nicht heruntergeladen werden.",
-    "OFFLINE_MAP_DONE": "Offline-Karte ist bereit."
+    "OFFLINE_MAP_DONE": "Offline-Karte ist bereit.",
+    "OFFLINE_MAP_SOURCE_LABEL": "Kartenquelle",
+    "OFFLINE_MAP_SOURCE_NETWORK": "Netz",
+    "OFFLINE_MAP_SOURCE_DEVICE": "Mobil",
+    "OFFLINE_MAP_SOURCE_HINT": "Mobil: Karte auf dem Gerät gespeichert, nach einem Neustart ohne Netz verfügbar. Netz: Online-Hintergrundkarte."
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Adresssuche fehlgeschlagen.",

@@ -5249,7 +5249,7 @@
     "EXPORT_GPX": "GPX を書き出す",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "オフライン地図",
-    "OFFLINE_MAP_HINT": "軌跡の周囲（約 1 km、ズーム 12–16）の OpenStreetMap をダウンロードし、回線なしでも表示します。出発前に準備してください。",
+    "OFFLINE_MAP_HINT": "軌跡の周囲（約 1 km、ズーム 12–16）の OpenStreetMap をダウンロードします。タイルは端末に保存され、再起動後も利用できます。",
     "OFFLINE_MAP_DOWNLOAD": "軌跡の周囲",
     "OFFLINE_MAP_DOWNLOAD_HERE": "自分の周囲",
     "OFFLINE_MAP_CANCEL": "キャンセル",
@@ -5261,7 +5261,11 @@
     "OFFLINE_MAP_NEED_NET": "タイルのダウンロードには接続が必要です。",
     "OFFLINE_MAP_USING": "オフライン背景：プリロードした OpenStreetMap。",
     "OFFLINE_MAP_ERR": "一部のタイルをダウンロードできませんでした。",
-    "OFFLINE_MAP_DONE": "オフライン地図の準備ができました。"
+    "OFFLINE_MAP_DONE": "オフライン地図の準備ができました。",
+    "OFFLINE_MAP_SOURCE_LABEL": "地図の取得元",
+    "OFFLINE_MAP_SOURCE_NETWORK": "ネットワーク",
+    "OFFLINE_MAP_SOURCE_DEVICE": "端末",
+    "OFFLINE_MAP_SOURCE_HINT": "端末：地図をスマホに保存し、再起動後もオフラインで利用。ネットワーク：オンラインの背景地図。"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "住所の検索に失敗しました。",

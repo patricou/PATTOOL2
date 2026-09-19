@@ -5243,7 +5243,7 @@
     "EXPORT_GPX": "ייצוא GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "מפה לא מקוונת",
-    "OFFLINE_MAP_HINT": "מוריד OpenStreetMap סביב התוואי (מסדרון ~1 ק״מ, זום 12–16) כדי להציג בלי רשת. הכינו לפני היציאה.",
+    "OFFLINE_MAP_HINT": "מוריד OpenStreetMap סביב התוואי (מסדרון ~1 ק״מ, זום 12–16). האריחים נשמרים במכשיר, גם אחרי הפעלה מחדש של הטלפון.",
     "OFFLINE_MAP_DOWNLOAD": "סביב התוואי",
     "OFFLINE_MAP_DOWNLOAD_HERE": "סביבי",
     "OFFLINE_MAP_CANCEL": "ביטול",
@@ -5255,7 +5255,11 @@
     "OFFLINE_MAP_NEED_NET": "נדרש חיבור להורדת אריחים.",
     "OFFLINE_MAP_USING": "רקע לא מקוון: OpenStreetMap שנטען מראש.",
     "OFFLINE_MAP_ERR": "לא ניתן היה להוריד חלק מהאריחים.",
-    "OFFLINE_MAP_DONE": "המפה הלא מקוונת מוכנה."
+    "OFFLINE_MAP_DONE": "המפה הלא מקוונת מוכנה.",
+    "OFFLINE_MAP_SOURCE_LABEL": "מקור המפה",
+    "OFFLINE_MAP_SOURCE_NETWORK": "רשת",
+    "OFFLINE_MAP_SOURCE_DEVICE": "מכשיר",
+    "OFFLINE_MAP_SOURCE_HINT": "מכשיר: מפה שמורה בטלפון, זמינה בלי רשת אחרי הפעלה מחדש. רשת: רקע מקוון."
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "חיפוש הכתובת נכשל.",

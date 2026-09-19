@@ -5308,7 +5308,7 @@
     "EXPORT_GPX": "Exportar GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "Mapa sin conexión",
-    "OFFLINE_MAP_HINT": "Descarga OpenStreetMap alrededor del trazado (corredor ~1 km, zooms 12–16) para verlo sin red. Prepárelo antes de salir.",
+    "OFFLINE_MAP_HINT": "Descarga OpenStreetMap alrededor del trazado (corredor ~1 km, zooms 12–16). Las teselas permanecen en el dispositivo, también tras reiniciar el teléfono.",
     "OFFLINE_MAP_DOWNLOAD": "Alrededor del trazado",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Alrededor de mí",
     "OFFLINE_MAP_CANCEL": "Cancelar",
@@ -5320,7 +5320,11 @@
     "OFFLINE_MAP_NEED_NET": "Se necesita conexión para descargar las teselas.",
     "OFFLINE_MAP_USING": "Fondo sin conexión: OpenStreetMap precargado.",
     "OFFLINE_MAP_ERR": "No se pudieron descargar algunas teselas.",
-    "OFFLINE_MAP_DONE": "Mapa sin conexión listo."
+    "OFFLINE_MAP_DONE": "Mapa sin conexión listo.",
+    "OFFLINE_MAP_SOURCE_LABEL": "Origen del mapa",
+    "OFFLINE_MAP_SOURCE_NETWORK": "Red",
+    "OFFLINE_MAP_SOURCE_DEVICE": "Móvil",
+    "OFFLINE_MAP_SOURCE_HINT": "Móvil: mapa guardado en el aparato, disponible sin red tras un reinicio. Red: mapa de fondo en línea."
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Falló la búsqueda de dirección.",

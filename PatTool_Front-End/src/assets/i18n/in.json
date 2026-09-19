@@ -5235,7 +5235,7 @@
     "EXPORT_GPX": "GPX निर्यात करें",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "ऑफलाइन मानचित्र",
-    "OFFLINE_MAP_HINT": "ट्रैक के आसपास OpenStreetMap डाउनलोड करता है (~1 किमी गलियारा, ज़ूम 12–16) ताकि बिना नेटवर्क दिखे। जाने से पहले तैयार करें।",
+    "OFFLINE_MAP_HINT": "ट्रैक के आसपास OpenStreetMap डाउनलोड करता है (~1 किमी गलियारा, ज़ूम 12–16)। टाइल डिवाइस पर रहती हैं, फ़ोन रीस्टार्ट के बाद भी।",
     "OFFLINE_MAP_DOWNLOAD": "ट्रैक के आसपास",
     "OFFLINE_MAP_DOWNLOAD_HERE": "मेरे आसपास",
     "OFFLINE_MAP_CANCEL": "रद्द करें",
@@ -5247,7 +5247,11 @@
     "OFFLINE_MAP_NEED_NET": "टाइल डाउनलोड करने के लिए कनेक्शन चाहिए।",
     "OFFLINE_MAP_USING": "ऑफलाइन पृष्ठभूमि: पहले से लोड OpenStreetMap।",
     "OFFLINE_MAP_ERR": "कुछ टाइल डाउनलोड नहीं हो सकीं।",
-    "OFFLINE_MAP_DONE": "ऑफलाइन मानचित्र तैयार है।"
+    "OFFLINE_MAP_DONE": "ऑफलाइन मानचित्र तैयार है।",
+    "OFFLINE_MAP_SOURCE_LABEL": "मानचित्र स्रोत",
+    "OFFLINE_MAP_SOURCE_NETWORK": "नेटवर्क",
+    "OFFLINE_MAP_SOURCE_DEVICE": "डिवाइस",
+    "OFFLINE_MAP_SOURCE_HINT": "डिवाइस: मानचित्र फ़ोन पर सहेजा गया, रीस्टार्ट के बाद बिना नेटवर्क उपलब्ध। नेटवर्क: ऑनलाइन बेसमैप।"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "पता खोज विफल रही।",

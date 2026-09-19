@@ -36,6 +36,7 @@ export class GpsOfflineMapService {
   private abort: AbortController | null = null;
 
   constructor(private readonly store: GpsOfflineTilesStore) {
+    void this.store.ensurePersistent();
     void this.refreshMeta();
   }
 
@@ -68,6 +69,7 @@ export class GpsOfflineMapService {
       return false;
     }
     this.lastError$.next(null);
+    await this.store.ensurePersistent();
     this.downloading$.next(true);
     this.progress$.next({ done: 0, total: tiles.length, failed: 0 });
     this.abort = new AbortController();

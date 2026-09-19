@@ -5242,7 +5242,7 @@
     "EXPORT_GPX": "تصدير GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "خريطة دون اتصال",
-    "OFFLINE_MAP_HINT": "ينزّل OpenStreetMap حول المسار (ممر ~1 كم، تكبير 12–16) لعرضها دون شبكة. حضّرها قبل المغادرة.",
+    "OFFLINE_MAP_HINT": "ينزّل OpenStreetMap حول المسار (ممر ~1 كم، تكبير 12–16). تبقى البلاطات على الجهاز، حتى بعد إعادة تشغيل الهاتف.",
     "OFFLINE_MAP_DOWNLOAD": "حول المسار",
     "OFFLINE_MAP_DOWNLOAD_HERE": "حولي",
     "OFFLINE_MAP_CANCEL": "إلغاء",
@@ -5254,7 +5254,11 @@
     "OFFLINE_MAP_NEED_NET": "يلزم اتصال لتنزيل البلاطات.",
     "OFFLINE_MAP_USING": "خلفية دون اتصال: OpenStreetMap محضَّر مسبقًا.",
     "OFFLINE_MAP_ERR": "تعذّر تنزيل بعض البلاطات.",
-    "OFFLINE_MAP_DONE": "الخريطة دون اتصال جاهزة."
+    "OFFLINE_MAP_DONE": "الخريطة دون اتصال جاهزة.",
+    "OFFLINE_MAP_SOURCE_LABEL": "مصدر الخريطة",
+    "OFFLINE_MAP_SOURCE_NETWORK": "الشبكة",
+    "OFFLINE_MAP_SOURCE_DEVICE": "الجهاز",
+    "OFFLINE_MAP_SOURCE_HINT": "الجهاز: خريطة محفوظة على الهاتف، متاحة دون شبكة بعد إعادة التشغيل. الشبكة: خلفية عبر الإنترنت."
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "فشل البحث عن العنوان.",

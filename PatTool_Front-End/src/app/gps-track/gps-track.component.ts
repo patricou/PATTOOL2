@@ -149,6 +149,9 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   offlineDownloading = false;
   offlineError = '';
   offlineFallback = false;
+  /** When true, the visible basemap is the on-device pack (survives phone restart). */
+  offlineUseDevice = false;
+  private offlineSourceExplicit = false;
 
   readonly mapOrientations: { id: GpsMapOrientation; labelKey: string; icon: string }[] = [
     { id: 'north', labelKey: 'GPS_ROUTING.ORIENT_NORTH', icon: 'fa-compass' },
@@ -168,7 +171,32 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     this.mapBaseLayerId = layerId;
     this.preferredBasemapId = layerId;
     this.offlineFallback = false;
+    if (this.offlineUseDevice) {
+      this.offlineUseDevice = false;
+      this.offlineSourceExplicit = true;
+      this.persistOfflineMapSource();
+    }
     this.applyGpsBaseLayer();
+  }
+
+  get usingOfflineDeviceMap(): boolean {
+    return this.offlineMeta.tileCount > 0 && (this.offlineUseDevice || this.offlineFallback);
+  }
+
+  setOfflineMapSource(useDevice: boolean): void {
+    const next = !!useDevice && this.offlineMeta.tileCount > 0;
+    this.offlineSourceExplicit = true;
+    if (next === this.offlineUseDevice) {
+      this.persistOfflineMapSource();
+      return;
+    }
+    this.offlineUseDevice = next;
+    this.persistOfflineMapSource();
+    if (next) {
+      this.offlineFallback = false;
+    }
+    this.applyGpsBaseLayer();
+    this.cdr.markForCheck();
   }
 
   get nav3dFix(): GpsNav3dFix | null {
@@ -281,6 +309,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   private offlineSub: Subscription | null = null;
   private preferredBasemapId = 'opentopomap';
   private lastOnline = typeof navigator === 'undefined' ? true : navigator.onLine;
+  private readonly offlineSourceStorageKey = 'pat.gps.offlineMap.source.v1';
   private sessionsListModalRef: NgbModalRef | null = null;
   private sessionDetailModalRef: NgbModalRef | null = null;
   private linkActivitySub: Subscription | null = null;
@@ -303,6 +332,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   ) {}
 
   ngAfterViewInit(): void {
+    this.loadOfflineMapSource();
     this.basemap.loadOptionalLayers(this.api);
     this.ensureMap();
     this.recording.ensureLocationWatch();
@@ -316,7 +346,21 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     });
     this.offlineSub = new Subscription();
     this.offlineSub.add(this.offlineMap.meta$.subscribe((m) => {
+      const hadPack = this.offlineMeta.tileCount > 0;
       this.offlineMeta = m;
+      if (hadPack && !m.tileCount && this.offlineUseDevice) {
+        this.offlineUseDevice = false;
+        if (this.offlineSourceExplicit) {
+          this.persistOfflineMapSource();
+        }
+      } else if (m.tileCount > 0 && !this.offlineSourceExplicit && !this.offlineUseDevice) {
+        this.offlineUseDevice = true;
+        if (this.map) {
+          this.applyGpsBaseLayer();
+        }
+      } else if (this.map && this.offlineUseDevice && m.tileCount > 0 && !hadPack) {
+        this.applyGpsBaseLayer();
+      }
       this.cdr.markForCheck();
     }));
     this.offlineSub.add(this.offlineMap.progress$.subscribe((p) => {
@@ -1052,6 +1096,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     const ok = await this.offlineMap.downloadAround(points, false);
     if (ok) {
       this.successMessage = 'GPS.OFFLINE_MAP_DONE';
+      this.setOfflineMapSource(true);
     }
     this.cdr.markForCheck();
   }
@@ -1066,6 +1111,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     const ok = await this.offlineMap.downloadAround([{ lat: u.lat, lon: u.lon }], true);
     if (ok) {
       this.successMessage = 'GPS.OFFLINE_MAP_DONE';
+      this.setOfflineMapSource(true);
     }
     this.cdr.markForCheck();
   }
@@ -1076,6 +1122,7 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
 
   async clearOfflineMap(): Promise<void> {
     await this.offlineMap.clear();
+    this.setOfflineMapSource(false);
     this.successMessage = '';
     this.cdr.markForCheck();
   }
@@ -1099,9 +1146,11 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     if (!this.map) {
       return;
     }
-    if (!online && this.offlineMeta.tileCount > 0 && this.mapBaseLayerId !== 'osm-standard') {
-      this.preferredBasemapId = this.mapBaseLayerId;
-      this.mapBaseLayerId = 'osm-standard';
+    if (!online && this.offlineMeta.tileCount > 0) {
+      if (!this.offlineUseDevice && this.mapBaseLayerId !== 'osm-standard') {
+        this.preferredBasemapId = this.mapBaseLayerId;
+        this.mapBaseLayerId = 'osm-standard';
+      }
       this.offlineFallback = true;
       this.applyGpsBaseLayer();
       return;
@@ -1110,8 +1159,10 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       this.basemap.silenceBrokenTiles(this.baseLayer);
       return;
     }
-    if (online && this.offlineFallback) {
-      this.mapBaseLayerId = this.preferredBasemapId;
+    if (this.offlineFallback) {
+      if (!this.offlineUseDevice) {
+        this.mapBaseLayerId = this.preferredBasemapId;
+      }
       this.offlineFallback = false;
       this.applyGpsBaseLayer();
     }
@@ -2109,9 +2160,14 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.removeGpsBaseLayers();
-    const useCachedOsm = this.offlineFallback || this.mapBaseLayerId === 'osm-standard';
+    const hasPack = this.offlineMeta.tileCount > 0;
+    const useDevice = hasPack && (this.offlineUseDevice || this.offlineFallback);
+    const useCachedOsm = useDevice || this.mapBaseLayerId === 'osm-standard';
     if (useCachedOsm) {
-      this.baseLayer = new CachedOsmTileLayer(this.offlineTiles);
+      this.baseLayer = new CachedOsmTileLayer(this.offlineTiles, {
+        localOnly: useDevice,
+        skipCache: !useDevice
+      });
       this.baseLayer.addTo(this.map);
       this.baseLayer.bringToBack();
     } else {
@@ -2309,6 +2365,29 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
 
   private refreshMapLayout(): void {
     setTimeout(() => this.map?.invalidateSize(), 120);
+  }
+
+  private loadOfflineMapSource(): void {
+    try {
+      const raw = localStorage.getItem(this.offlineSourceStorageKey);
+      if (raw === 'device') {
+        this.offlineUseDevice = true;
+        this.offlineSourceExplicit = true;
+      } else if (raw === 'network') {
+        this.offlineUseDevice = false;
+        this.offlineSourceExplicit = true;
+      }
+    } catch {
+      this.offlineUseDevice = false;
+    }
+  }
+
+  private persistOfflineMapSource(): void {
+    try {
+      localStorage.setItem(this.offlineSourceStorageKey, this.offlineUseDevice ? 'device' : 'network');
+    } catch {
+      /* private mode */
+    }
   }
 
   private readonly slopeCoefStorageKey = 'pat.gps.slopeCoef.v1';

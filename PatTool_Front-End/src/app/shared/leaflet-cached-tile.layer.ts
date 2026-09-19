@@ -8,12 +8,22 @@ export function cachedOsmTileUrl(): string {
   return `${base}external/map/tile/{z}/{x}/{y}?style=${GPS_OFFLINE_STYLE}`;
 }
 
+export interface CachedOsmTileLayerOptions {
+  /** Read only the on-device pack; never hit the network. */
+  localOnly?: boolean;
+  /** Ignore the on-device pack and always fetch. */
+  skipCache?: boolean;
+}
+
 /**
- * OSM raster layer that reads IndexedDB first, then the PatTool tile proxy.
- * Cached blobs remain visible with no network.
+ * OSM raster layer that reads the on-device pack first, then the PatTool tile proxy.
+ * Cached tiles remain visible after a phone restart, with no network.
  */
 export class CachedOsmTileLayer extends L.TileLayer {
-  constructor(private readonly cache: GpsOfflineTilesStore) {
+  constructor(
+    private readonly cache: GpsOfflineTilesStore,
+    private readonly cacheOpts: CachedOsmTileLayerOptions = {}
+  ) {
     super(cachedOsmTileUrl(), {
       maxNativeZoom: 19,
       maxZoom: 20,
@@ -36,6 +46,8 @@ export class CachedOsmTileLayer extends L.TileLayer {
     tile.setAttribute('role', 'presentation');
     const id = gpsTileId(coords.z, coords.x, coords.y);
     const url = this.getTileUrl(coords);
+    const localOnly = !!this.cacheOpts.localOnly;
+    const skipCache = !!this.cacheOpts.skipCache;
 
     const finish = (src: string): void => {
       const empty = L.Util.emptyImageUrl;
@@ -51,28 +63,36 @@ export class CachedOsmTileLayer extends L.TileLayer {
     };
 
     void (async () => {
-      const cached = await this.cache.get(id);
-      if (!this._map) {
-        done(undefined, tile);
-        return;
+      if (!skipCache) {
+        const cached = await this.cache.get(id);
+        if (!this._map) {
+          done(undefined, tile);
+          return;
+        }
+        if (cached) {
+          const blobUrl = URL.createObjectURL(cached);
+          tile._patBlob = blobUrl;
+          finish(blobUrl);
+          return;
+        }
       }
-      if (cached) {
-        const blobUrl = URL.createObjectURL(cached);
-        tile._patBlob = blobUrl;
-        finish(blobUrl);
+      if (localOnly || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+        if (!this._map) {
+          done(undefined, tile);
+          return;
+        }
+        finish(L.Util.emptyImageUrl);
         return;
       }
       try {
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
-          finish(url);
-          return;
-        }
         const res = await fetch(url);
         if (!res.ok) {
           throw new Error(`http_${res.status}`);
         }
         const blob = await res.blob();
-        await this.cache.put(id, blob);
+        if (!skipCache) {
+          await this.cache.put(id, blob);
+        }
         if (!this._map) {
           done(undefined, tile);
           return;

@@ -1268,10 +1268,6 @@
 }
 
 .gps-map-rec {
-  position: absolute;
-  z-index: 1100;
-  left: 0.5rem;
-  bottom: 2.85rem;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -1284,7 +1280,7 @@
   letter-spacing: 0.08em;
   line-height: 1;
   pointer-events: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
 }
 
 .gps-map-rec--paused {
@@ -1348,9 +1344,8 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
 
-.gps-live-ctrl__status {
+.gps-live-ctrl__rec {
   flex: 0 0 auto;
-  color: inherit;
 }
 
 .gps-paused-banner {
@@ -1453,12 +1448,6 @@
   font-size: 0.88rem;
 }
 
-.gps-map-shell:fullscreen .gps-map-rec,
-.gps-map-shell--fullscreen .gps-map-rec {
-  top: 0.5rem;
-  bottom: auto;
-}
-
 @media (max-width: 991.98px) {
   .gps-map-fs-stats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1548,6 +1537,43 @@
 
 .gps-offline-map {
   padding-top: 0;
+}
+
+.gps-offline-source {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 0.35rem;
+}
+
+.gps-offline-source .form-check {
+  min-height: 0;
+  padding-left: 0;
+  display: flex;
+  align-items: center;
+}
+
+.gps-offline-source .form-check-input {
+  width: 2.4rem;
+  height: 1.2rem;
+  margin: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.gps-offline-source .form-check-input:disabled {
+  cursor: not-allowed;
+}
+
+.gps-offline-source-label {
+  font-size: 0.8rem;
+  color: #6c757d;
+  font-weight: 600;
+}
+
+.gps-offline-source-label.is-on {
+  color: #212529;
+  font-weight: 700;
 }
 
 .gps-offline-map-progress {

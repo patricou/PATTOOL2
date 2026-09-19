@@ -5246,7 +5246,7 @@
     "EXPORT_GPX": "Εξαγωγή GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "Χάρτης εκτός σύνδεσης",
-    "OFFLINE_MAP_HINT": "Λήψη OpenStreetMap γύρω από το ίχνος (διάδρομος ~1 χλμ., ζουμ 12–16) για εμφάνιση χωρίς δίκτυο. Προετοιμάστε το πριν φύγετε.",
+    "OFFLINE_MAP_HINT": "Λήψη OpenStreetMap γύρω από το ίχνος (διάδρομος ~1 χλμ., ζουμ 12–16). Τα πλακίδια μένουν στη συσκευή, και μετά από επανεκκίνηση του τηλεφώνου.",
     "OFFLINE_MAP_DOWNLOAD": "Γύρω από το ίχνος",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Γύρω μου",
     "OFFLINE_MAP_CANCEL": "Ακύρωση",
@@ -5258,7 +5258,11 @@
     "OFFLINE_MAP_NEED_NET": "Απαιτείται σύνδεση για λήψη πλακιδίων.",
     "OFFLINE_MAP_USING": "Φόντο εκτός σύνδεσης: προφορτωμένο OpenStreetMap.",
     "OFFLINE_MAP_ERR": "Ορισμένα πλακίδια δεν ήταν δυνατό να ληφθούν.",
-    "OFFLINE_MAP_DONE": "Ο χάρτης εκτός σύνδεσης είναι έτοιμος."
+    "OFFLINE_MAP_DONE": "Ο χάρτης εκτός σύνδεσης είναι έτοιμος.",
+    "OFFLINE_MAP_SOURCE_LABEL": "Πηγή χάρτη",
+    "OFFLINE_MAP_SOURCE_NETWORK": "Δίκτυο",
+    "OFFLINE_MAP_SOURCE_DEVICE": "Συσκευή",
+    "OFFLINE_MAP_SOURCE_HINT": "Συσκευή: χάρτης αποθηκευμένος στο τηλέφωνο, διαθέσιμος χωρίς δίκτυο μετά την επανεκκίνηση. Δίκτυο: διαδικτυακό υπόβαθρο."
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Η αναζήτηση διεύθυνσης απέτυχε.",

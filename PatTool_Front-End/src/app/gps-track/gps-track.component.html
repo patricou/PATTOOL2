@@ -70,8 +70,9 @@
                     class="btn btn-sm btn-outline-primary"
                     (click)="toggleNav3d()"
                     [disabled]="!nav3dCoords.length"
-                    [attr.title]="'GPS.VIEW_3D' | translate">
-              <i class="fa fa-cube me-1" aria-hidden="true"></i>{{ 'GPS.VIEW_3D' | translate }}
+                    [attr.title]="'GPS.VIEW_3D' | translate"
+                    [attr.aria-label]="'GPS.VIEW_3D' | translate">
+              <i class="fa fa-cube me-1" aria-hidden="true"></i>3D
             </button>
             <button type="button"
                     class="btn btn-sm btn-outline-secondary"
@@ -100,16 +101,13 @@
           <i class="fa fa-wifi" aria-hidden="true"></i>
           <span>{{ 'GPS.OFFLINE_SHORT' | translate }}</span>
         </div>
-        <div class="gps-map-rec"
-             *ngIf="snap.status === 'recording' || snap.status === 'paused'"
-             [class.gps-map-rec--paused]="snap.status === 'paused'"
-             [attr.aria-label]="(snap.status === 'paused' ? 'GPS.MAP_REC_PAUSE' : 'GPS.MAP_REC') | translate">
-          <span class="gps-map-rec-dot" aria-hidden="true"></span>
-          <span>{{ (snap.status === 'paused' ? 'GPS.MAP_REC_PAUSE' : 'GPS.MAP_REC') | translate }}</span>
-        </div>
         <div class="gps-live-ctrl" *ngIf="snap.status === 'recording' || snap.status === 'paused'">
-          <span class="gps-status-pill gps-live-ctrl__status"
-                [attr.data-status]="snap.status">{{ statusLabelKey() | translate }}</span>
+          <span class="gps-map-rec gps-live-ctrl__rec"
+                [class.gps-map-rec--paused]="snap.status === 'paused'"
+                [attr.aria-label]="(snap.status === 'paused' ? 'GPS.MAP_REC_PAUSE' : 'GPS.MAP_REC') | translate">
+            <span class="gps-map-rec-dot" aria-hidden="true"></span>
+            <span>{{ (snap.status === 'paused' ? 'GPS.MAP_REC_PAUSE' : 'GPS.MAP_REC') | translate }}</span>
+          </span>
           <button type="button"
                   class="btn btn-sm btn-success"
                   *ngIf="snap.status === 'paused'"
@@ -474,7 +472,27 @@
           <div class="small fw-semibold mb-0">{{ 'GPS.OFFLINE_MAP' | translate }}</div>
         </div>
         <p class="small text-muted gps-hint mb-2">{{ 'GPS.OFFLINE_MAP_HINT' | translate }}</p>
-        <div class="small text-info mb-2" *ngIf="offlineFallback">{{ 'GPS.OFFLINE_MAP_USING' | translate }}</div>
+        <div class="gps-offline-source"
+             role="group"
+             [attr.aria-label]="'GPS.OFFLINE_MAP_SOURCE_LABEL' | translate">
+          <span class="gps-offline-source-label"
+                [class.is-on]="!offlineUseDevice">{{ 'GPS.OFFLINE_MAP_SOURCE_NETWORK' | translate }}</span>
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input"
+                   type="checkbox"
+                   id="gpsOfflineSource"
+                   role="switch"
+                   [ngModel]="offlineUseDevice"
+                   (ngModelChange)="setOfflineMapSource($event)"
+                   [disabled]="offlineDownloading || !offlineMeta.tileCount"
+                   [attr.title]="'GPS.OFFLINE_MAP_SOURCE_HINT' | translate"
+                   [attr.aria-label]="'GPS.OFFLINE_MAP_SOURCE_LABEL' | translate">
+          </div>
+          <span class="gps-offline-source-label"
+                [class.is-on]="offlineUseDevice">{{ 'GPS.OFFLINE_MAP_SOURCE_DEVICE' | translate }}</span>
+        </div>
+        <p class="small text-muted mb-2">{{ 'GPS.OFFLINE_MAP_SOURCE_HINT' | translate }}</p>
+        <div class="small text-info mb-2" *ngIf="usingOfflineDeviceMap">{{ 'GPS.OFFLINE_MAP_USING' | translate }}</div>
         <div class="gps-ctrl-grid">
           <button type="button"
                   class="gps-ctrl gps-ctrl--sessions"

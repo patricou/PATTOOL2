@@ -5244,7 +5244,7 @@
     "EXPORT_GPX": "导出 GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "离线地图",
-    "OFFLINE_MAP_HINT": "围绕轨迹下载 OpenStreetMap（约 1 公里走廊，缩放 12–16），以便无网络时仍可显示。出发前请先准备。",
+    "OFFLINE_MAP_HINT": "围绕轨迹下载 OpenStreetMap（约 1 公里走廊，缩放 12–16）。图块保存在本机，手机重启后仍可使用。",
     "OFFLINE_MAP_DOWNLOAD": "轨迹周围",
     "OFFLINE_MAP_DOWNLOAD_HERE": "我的周围",
     "OFFLINE_MAP_CANCEL": "取消",
@@ -5256,7 +5256,11 @@
     "OFFLINE_MAP_NEED_NET": "下载图块需要网络连接。",
     "OFFLINE_MAP_USING": "离线底图：已预加载的 OpenStreetMap。",
     "OFFLINE_MAP_ERR": "部分图块无法下载。",
-    "OFFLINE_MAP_DONE": "离线地图已就绪。"
+    "OFFLINE_MAP_DONE": "离线地图已就绪。",
+    "OFFLINE_MAP_SOURCE_LABEL": "地图来源",
+    "OFFLINE_MAP_SOURCE_NETWORK": "网络",
+    "OFFLINE_MAP_SOURCE_DEVICE": "本机",
+    "OFFLINE_MAP_SOURCE_HINT": "本机：地图保存在手机上，重启后无需网络即可使用。网络：在线底图。"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "地址搜索失败。",

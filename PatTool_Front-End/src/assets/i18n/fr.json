@@ -6965,7 +6965,7 @@
     "EXPORT_GPX": "Exporter GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "Carte hors-ligne",
-    "OFFLINE_MAP_HINT": "Télécharge OpenStreetMap autour du tracé (corridor ~1 km, zooms 12–16) pour l’afficher sans réseau. À préparer avant de partir.",
+    "OFFLINE_MAP_HINT": "Télécharge OpenStreetMap autour du tracé (corridor ~1 km, zooms 12–16). Les tuiles restent enregistrées sur l’appareil, y compris après redémarrage du téléphone.",
     "OFFLINE_MAP_DOWNLOAD": "Autour du tracé",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Autour de moi",
     "OFFLINE_MAP_CANCEL": "Annuler",
@@ -6977,7 +6977,11 @@
     "OFFLINE_MAP_NEED_NET": "Connexion requise pour télécharger les tuiles.",
     "OFFLINE_MAP_USING": "Fond hors-ligne : OpenStreetMap préchargé.",
     "OFFLINE_MAP_ERR": "Certaines tuiles n’ont pas pu être téléchargées.",
-    "OFFLINE_MAP_DONE": "Carte prête hors-ligne."
+    "OFFLINE_MAP_DONE": "Carte prête hors-ligne.",
+    "OFFLINE_MAP_SOURCE_LABEL": "Source de la carte",
+    "OFFLINE_MAP_SOURCE_NETWORK": "Réseau",
+    "OFFLINE_MAP_SOURCE_DEVICE": "Mobile",
+    "OFFLINE_MAP_SOURCE_HINT": "Mobile : carte stockée sur l’appareil, disponible sans réseau après redémarrage. Réseau : fond de carte en ligne."
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Échec de la recherche d'adresse.",

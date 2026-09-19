@@ -5263,7 +5263,7 @@
     "EXPORT_GPX": "Esporta GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "Mappa offline",
-    "OFFLINE_MAP_HINT": "Scarica OpenStreetMap intorno al tracciato (corridoio ~1 km, zoom 12–16) per vederla senza rete. Preparala prima di partire.",
+    "OFFLINE_MAP_HINT": "Scarica OpenStreetMap intorno al tracciato (corridoio ~1 km, zoom 12–16). I riquadri restano sul dispositivo, anche dopo il riavvio del telefono.",
     "OFFLINE_MAP_DOWNLOAD": "Intorno al tracciato",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Intorno a me",
     "OFFLINE_MAP_CANCEL": "Annulla",
@@ -5275,7 +5275,11 @@
     "OFFLINE_MAP_NEED_NET": "Serve una connessione per scaricare i riquadri.",
     "OFFLINE_MAP_USING": "Sfondo offline: OpenStreetMap precaricato.",
     "OFFLINE_MAP_ERR": "Alcuni riquadri non sono stati scaricati.",
-    "OFFLINE_MAP_DONE": "Mappa offline pronta."
+    "OFFLINE_MAP_DONE": "Mappa offline pronta.",
+    "OFFLINE_MAP_SOURCE_LABEL": "Origine della mappa",
+    "OFFLINE_MAP_SOURCE_NETWORK": "Rete",
+    "OFFLINE_MAP_SOURCE_DEVICE": "Dispositivo",
+    "OFFLINE_MAP_SOURCE_HINT": "Dispositivo: mappa salvata sul telefono, disponibile senza rete dopo il riavvio. Rete: sfondo online."
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Ricerca indirizzo non riuscita.",

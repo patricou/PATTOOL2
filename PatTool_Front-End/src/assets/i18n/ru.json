@@ -5237,7 +5237,7 @@
     "EXPORT_GPX": "Экспорт GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "Офлайн-карта",
-    "OFFLINE_MAP_HINT": "Скачивает OpenStreetMap вокруг трека (коридор ~1 км, зумы 12–16), чтобы карта была видна без сети. Подготовьте до выхода.",
+    "OFFLINE_MAP_HINT": "Скачивает OpenStreetMap вокруг трека (коридор ~1 км, зумы 12–16). Тайлы остаются на устройстве, в том числе после перезапуска телефона.",
     "OFFLINE_MAP_DOWNLOAD": "Вокруг трека",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Вокруг меня",
     "OFFLINE_MAP_CANCEL": "Отмена",
@@ -5249,7 +5249,11 @@
     "OFFLINE_MAP_NEED_NET": "Для скачивания тайлов нужно соединение.",
     "OFFLINE_MAP_USING": "Офлайн-подложка: предзагруженный OpenStreetMap.",
     "OFFLINE_MAP_ERR": "Некоторые тайлы не удалось скачать.",
-    "OFFLINE_MAP_DONE": "Офлайн-карта готова."
+    "OFFLINE_MAP_DONE": "Офлайн-карта готова.",
+    "OFFLINE_MAP_SOURCE_LABEL": "Источник карты",
+    "OFFLINE_MAP_SOURCE_NETWORK": "Сеть",
+    "OFFLINE_MAP_SOURCE_DEVICE": "Устройство",
+    "OFFLINE_MAP_SOURCE_HINT": "Устройство: карта на телефоне, доступна без сети после перезапуска. Сеть: онлайн-подложка."
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Поиск адреса не удался.",

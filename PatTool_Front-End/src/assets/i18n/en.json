@@ -6961,7 +6961,7 @@
     "EXPORT_GPX": "Export GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "Offline map",
-    "OFFLINE_MAP_HINT": "Download OpenStreetMap around the track (~1 km corridor, zooms 12–16) so it stays visible with no network. Prepare this before you leave.",
+    "OFFLINE_MAP_HINT": "Download OpenStreetMap around the track (~1 km corridor, zooms 12–16). Tiles stay on the device, including after a phone restart.",
     "OFFLINE_MAP_DOWNLOAD": "Around the track",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Around me",
     "OFFLINE_MAP_CANCEL": "Cancel",
@@ -6973,7 +6973,11 @@
     "OFFLINE_MAP_NEED_NET": "A connection is required to download tiles.",
     "OFFLINE_MAP_USING": "Offline basemap: preloaded OpenStreetMap.",
     "OFFLINE_MAP_ERR": "Some tiles could not be downloaded.",
-    "OFFLINE_MAP_DONE": "Offline map is ready."
+    "OFFLINE_MAP_DONE": "Offline map is ready.",
+    "OFFLINE_MAP_SOURCE_LABEL": "Map source",
+    "OFFLINE_MAP_SOURCE_NETWORK": "Network",
+    "OFFLINE_MAP_SOURCE_DEVICE": "Device",
+    "OFFLINE_MAP_SOURCE_HINT": "Device: map stored on this phone, available offline after a restart. Network: live online basemap."
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Address search failed.",
