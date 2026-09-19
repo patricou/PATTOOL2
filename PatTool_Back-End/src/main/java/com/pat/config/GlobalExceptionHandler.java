@@ -20,6 +20,7 @@ import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -88,6 +89,16 @@ public class GlobalExceptionHandler {
             return false;
         }
         return accept.toLowerCase(Locale.ROOT).contains("text/html");
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<String> handleTypeMismatch(
+            MethodArgumentTypeMismatchException exc, HttpServletRequest request) {
+        String clientIp = getClientIpAddress(request);
+        String logMessage = "Bad request parameter from IP [" + clientIp + "]: " + exc.getMessage();
+        log.debug(logMessage);
+        exceptionTrackingService.addLog(clientIp, logMessage);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid parameter");
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)

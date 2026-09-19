@@ -29,6 +29,7 @@ import com.pat.service.TraceViewerPreferenceService;
 import com.pat.service.OpenMeteoService;
 import com.pat.service.OpenWeatherService;
 import com.pat.service.WeatherForecastAggregationService;
+import com.pat.util.SlippyMapTileCoords;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -469,11 +470,15 @@ public class ApiController {
      */
     @GetMapping(value = "/weather/map/clouds/{z}/{x}/{y}", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> getOpenWeatherCloudMapTile(
-            @PathVariable("z") int z,
-            @PathVariable("x") int x,
-            @PathVariable("y") int y,
+            @PathVariable("z") String z,
+            @PathVariable("x") String x,
+            @PathVariable("y") String y,
             @RequestParam(value = "enhance", defaultValue = "1.5") float enhance) {
-        return openWeatherService.getCloudMapTile(z, x, y, enhance);
+        return openWeatherService.getCloudMapTile(
+                SlippyMapTileCoords.parse(z),
+                SlippyMapTileCoords.parse(x),
+                SlippyMapTileCoords.parse(y),
+                enhance);
     }
 
     /**
@@ -481,10 +486,13 @@ public class ApiController {
      */
     @GetMapping(value = "/weather/map/temperature/{z}/{x}/{y}", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> getOpenWeatherTemperatureMapTile(
-            @PathVariable("z") int z,
-            @PathVariable("x") int x,
-            @PathVariable("y") int y) {
-        return openWeatherService.getTemperatureMapTile(z, x, y);
+            @PathVariable("z") String z,
+            @PathVariable("x") String x,
+            @PathVariable("y") String y) {
+        return openWeatherService.getTemperatureMapTile(
+                SlippyMapTileCoords.parse(z),
+                SlippyMapTileCoords.parse(x),
+                SlippyMapTileCoords.parse(y));
     }
 
     /**
@@ -1107,12 +1115,17 @@ public class ApiController {
      */
     @GetMapping(value = "/meteofrance/radar/wms/{z}/{x}/{y}", produces = {MediaType.IMAGE_PNG_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     public org.springframework.http.ResponseEntity<byte[]> getMeteoFranceRadarWmsTile(
-            @PathVariable int z,
-            @PathVariable int x,
-            @PathVariable int y,
+            @PathVariable String z,
+            @PathVariable String x,
+            @PathVariable String y,
             @RequestParam(value = "width", defaultValue = "256") int width,
             @RequestParam(value = "height", defaultValue = "256") int height) {
-        return meteoFranceRadarService.getWmsTileFromSlippyMap(z, x, y, width, height);
+        return meteoFranceRadarService.getWmsTileFromSlippyMap(
+                SlippyMapTileCoords.parse(z),
+                SlippyMapTileCoords.parse(x),
+                SlippyMapTileCoords.parse(y),
+                width,
+                height);
     }
 
     /**
@@ -1159,15 +1172,23 @@ public class ApiController {
      */
     @GetMapping(value = "/radar/rainviewer/tile/{z}/{x}/{y}", produces = MediaType.IMAGE_PNG_VALUE)
     public org.springframework.http.ResponseEntity<byte[]> getRainViewerTile(
-            @PathVariable("z") int z,
-            @PathVariable("x") int x,
-            @PathVariable("y") int y,
+            @PathVariable("z") String z,
+            @PathVariable("x") String x,
+            @PathVariable("y") String y,
             @RequestParam("path") String framePath,
             @RequestParam(value = "size", defaultValue = "256") int size,
             @RequestParam(value = "color", defaultValue = "2") int color,
             @RequestParam(value = "options", defaultValue = "1_1") String options,
             @RequestParam(value = "enhance", defaultValue = "0") float enhance) {
-        return meteoFranceRadarService.getRainViewerTile(framePath, z, x, y, size, color, options, enhance);
+        return meteoFranceRadarService.getRainViewerTile(
+                framePath,
+                SlippyMapTileCoords.parse(z),
+                SlippyMapTileCoords.parse(x),
+                SlippyMapTileCoords.parse(y),
+                size,
+                color,
+                options,
+                enhance);
     }
 
     /**
@@ -1238,9 +1259,9 @@ public class ApiController {
      */
     @GetMapping(value = "/meteofrance/aromepi/wms/{z}/{x}/{y}", produces = {MediaType.IMAGE_PNG_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     public ResponseEntity<byte[]> getMeteoFranceAromepiWmsTile(
-            @PathVariable("z") int z,
-            @PathVariable("x") int x,
-            @PathVariable("y") int y,
+            @PathVariable("z") String z,
+            @PathVariable("x") String x,
+            @PathVariable("y") String y,
             @RequestParam("layer") String layer,
             @RequestParam("time") String time,
             @RequestParam("referenceTime") String referenceTime,
@@ -1251,7 +1272,10 @@ public class ApiController {
             @RequestParam(value = "height", defaultValue = "256") int height,
             @RequestParam(value = "probeOnly", defaultValue = "false") boolean probeOnly) {
         return meteoFranceAromepiService.getWmsTile(
-                z, x, y, layer, style, time, referenceTime, domain, elevation, width, height, probeOnly);
+                SlippyMapTileCoords.parse(z),
+                SlippyMapTileCoords.parse(x),
+                SlippyMapTileCoords.parse(y),
+                layer, style, time, referenceTime, domain, elevation, width, height, probeOnly);
     }
 
     /**
@@ -1308,9 +1332,9 @@ public class ApiController {
      */
     @GetMapping(value = "/meteofrance/arpege/wms/{z}/{x}/{y}", produces = {MediaType.IMAGE_PNG_VALUE, MediaType.APPLICATION_OCTET_STREAM_VALUE})
     public ResponseEntity<byte[]> getMeteoFranceArpegeWmsTile(
-            @PathVariable("z") int z,
-            @PathVariable("x") int x,
-            @PathVariable("y") int y,
+            @PathVariable("z") String z,
+            @PathVariable("x") String x,
+            @PathVariable("y") String y,
             @RequestParam("layer") String layer,
             @RequestParam("time") String time,
             @RequestParam("referenceTime") String referenceTime,
@@ -1321,7 +1345,10 @@ public class ApiController {
             @RequestParam(value = "height", defaultValue = "256") int height,
             @RequestParam(value = "probeOnly", defaultValue = "false") boolean probeOnly) {
         return meteoFranceArpegeService.getWmsTile(
-                z, x, y, layer, style, time, referenceTime, domain, elevation, width, height, probeOnly);
+                SlippyMapTileCoords.parse(z),
+                SlippyMapTileCoords.parse(x),
+                SlippyMapTileCoords.parse(y),
+                layer, style, time, referenceTime, domain, elevation, width, height, probeOnly);
     }
 
     /**

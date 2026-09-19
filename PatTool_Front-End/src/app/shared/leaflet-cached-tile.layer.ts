@@ -40,11 +40,24 @@ export class CachedOsmTileLayer extends L.TileLayer {
     });
   }
 
+  override getTileUrl(coords: L.Coords): string {
+    const z = Math.max(0, Math.round(Number(coords.z)));
+    const x = Math.round(Number(coords.x));
+    const y = Math.round(Number(coords.y));
+    return cachedOsmTileUrl()
+      .replace('{z}', String(z))
+      .replace('{x}', String(x))
+      .replace('{y}', String(y));
+  }
+
   override createTile(coords: L.Coords, done: L.DoneCallback): HTMLElement {
     const tile = document.createElement('img') as HTMLImageElement & { _patBlob?: string };
     tile.alt = '';
     tile.setAttribute('role', 'presentation');
-    const id = gpsTileId(coords.z, coords.x, coords.y);
+    const z = Math.max(0, Math.round(Number(coords.z)));
+    const x = Math.round(Number(coords.x));
+    const y = Math.round(Number(coords.y));
+    const id = gpsTileId(z, x, y);
     const url = this.getTileUrl(coords);
     const localOnly = !!this.cacheOpts.localOnly;
     const skipCache = !!this.cacheOpts.skipCache;

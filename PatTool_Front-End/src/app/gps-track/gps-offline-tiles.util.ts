@@ -19,7 +19,7 @@ export const GPS_OFFLINE_HERE_BUFFER_M = 1500;
 export const GPS_OFFLINE_MAX_TILES = 2800;
 
 export function gpsTileId(z: number, x: number, y: number, style = GPS_OFFLINE_STYLE): string {
-  return `${style}|${z}|${x}|${y}`;
+  return `${style}|${Math.round(z)}|${Math.round(x)}|${Math.round(y)}`;
 }
 
 export function lonLatToTile(lon: number, lat: number, z: number): { x: number; y: number } {

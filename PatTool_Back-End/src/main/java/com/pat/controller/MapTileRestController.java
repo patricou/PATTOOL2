@@ -1,6 +1,7 @@
 package com.pat.controller;
 
 import com.pat.service.MapTileProxyService;
+import com.pat.util.SlippyMapTileCoords;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,10 +25,14 @@ public class MapTileRestController {
 
     @GetMapping(value = "/tile/{z}/{x}/{y}", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> getTile(
-            @PathVariable("z") int z,
-            @PathVariable("x") int x,
-            @PathVariable("y") int y,
+            @PathVariable("z") String z,
+            @PathVariable("x") String x,
+            @PathVariable("y") String y,
             @RequestParam(value = "style", defaultValue = "voyager") String style) {
-        return mapTileProxyService.getTile(style, z, x, y);
+        return mapTileProxyService.getTile(
+                style,
+                SlippyMapTileCoords.parse(z),
+                SlippyMapTileCoords.parse(x),
+                SlippyMapTileCoords.parse(y));
     }
 }
