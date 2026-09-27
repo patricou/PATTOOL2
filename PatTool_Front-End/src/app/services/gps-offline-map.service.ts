@@ -22,6 +22,17 @@ export interface GpsOfflineMapProgress {
 
 const EMPTY_PROGRESS: GpsOfflineMapProgress = { done: 0, total: 0, failed: 0 };
 
+export function formatOfflinePackSize(bytes: number | null | undefined): string {
+  const n = bytes || 0;
+  if (n < 1024) {
+    return `${n} o`;
+  }
+  if (n < 1024 * 1024) {
+    return `${Math.round(n / 1024)} Ko`;
+  }
+  return `${(n / (1024 * 1024)).toFixed(n >= 10 * 1024 * 1024 ? 0 : 1)} Mo`;
+}
+
 @Injectable({ providedIn: 'root' })
 export class GpsOfflineMapService {
   readonly meta$ = new BehaviorSubject<GpsOfflinePackMeta>({

@@ -458,6 +458,32 @@
           </select>
         </div>
       </div>
+      <div class="d-flex flex-wrap align-items-center gap-1 flex-shrink-0">
+        <button type="button"
+                class="btn btn-sm btn-outline-primary"
+                (click)="downloadTraceOfflineMap()"
+                [disabled]="offlineDownloading">
+          {{ 'GPS.OFFLINE_MAP_DOWNLOAD' | translate }}
+        </button>
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary"
+                *ngIf="offlineMeta.tileCount > 0 && !usingOfflineDeviceMap"
+                (click)="useSavedOfflineMap()">
+          {{ 'GPS.OFFLINE_MAP_SOURCE_DEVICE' | translate }}
+        </button>
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary"
+                *ngIf="offlineDownloading"
+                (click)="cancelTraceOfflineMap()">
+          {{ 'GPS.OFFLINE_MAP_CANCEL' | translate }}
+        </button>
+        <span class="small text-muted" *ngIf="offlineDownloading">
+          {{ 'GPS.OFFLINE_MAP_PROGRESS' | translate:{ done: offlineProgress.done, total: offlineProgress.total } }}
+        </span>
+        <span class="small text-info" *ngIf="usingOfflineDeviceMap">{{ 'GPS.OFFLINE_MAP_USING' | translate }}</span>
+        <span class="small text-success" *ngIf="offlineMessage">{{ offlineMessage | translate }}</span>
+        <span class="small text-danger" *ngIf="offlineError">{{ offlineError | translate }}</span>
+      </div>
       <div class="trace-viewer-footer-stats-inline d-flex flex-wrap align-items-center justify-content-end gap-2 flex-grow-1 ms-auto min-w-0">
         <div class="trace-stats" *ngIf="trackStats && !hasError">
           <span>

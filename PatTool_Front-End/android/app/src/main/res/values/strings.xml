@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PatTool</string>
+    <string name="title_activity_main">PatTool</string>
+    <string name="package_name">com.pattool.frontend</string>
+    <string name="custom_url_scheme">com.pattool.frontend</string>
+</resources>

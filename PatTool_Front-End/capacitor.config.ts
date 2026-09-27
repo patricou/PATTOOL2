@@ -4,8 +4,13 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.pattool.frontend',
   appName: 'PatTool',
-  /** Aligns with Angular build output so Back-End serves the same artefacts in dev/prod bundles. */
-  webDir: '../PatTool_Back-End/src/main/resources/static',
+  /** Phone bundle. The Spring static folder stays the website build (relative /api/). */
+  webDir: 'www',
+  server: {
+    androidScheme: 'https',
+    /** Keycloak login (online only) must stay inside the WebView. */
+    allowNavigation: ['www.patrickdeschamps.com', 'patrickdeschamps.com']
+  }
 };
 
 export default config;

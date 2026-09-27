@@ -139,6 +139,7 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 PatTool_Front-End/.angular/cache/**
 PatTool_Back-End/src/main/resources/application.properties
+PatTool_Front-End/www/
 PatTool_Back-End/src/main/resources/static/**
 !PatTool_Back-End/src/main/resources/static/assets
 PatTool_Back-End/target/**

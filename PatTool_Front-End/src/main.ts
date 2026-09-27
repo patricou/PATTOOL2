@@ -13,7 +13,9 @@ if (environment.production) {
 }
 
 // Précharge + fetch cache pour les assets publics (i18n, vidéos accueil, ffmpeg, etc.) avant Keycloak.init.
-prefetchPatStaticAssets();
+if (!isBrowserOffline()) {
+  prefetchPatStaticAssets();
+}
 
 // Suppress Google Maps diagnostic requests blocked by ad blockers
 // These are harmless telemetry requests that don't affect functionality

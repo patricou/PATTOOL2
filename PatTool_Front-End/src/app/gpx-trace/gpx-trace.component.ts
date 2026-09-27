@@ -23,7 +23,12 @@ import {
   isGpxFileName,
   sampleLatLonsForElevation
 } from './gpx-trace-analysis.util';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
+import { GpsOfflineMapProgress, GpsOfflineMapService, formatOfflinePackSize } from '../services/gps-offline-map.service';
+import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../gps-track/gps-offline-tiles.store';
+import { GpsLatLon } from '../gps-track/gps-offline-tiles.util';
+import { CachedOsmTileLayer } from '../shared/leaflet-cached-tile.layer';
+import { isBrowserOffline } from '../shared/browser-offline.util';
 
 /**
  * Monde — Trace GPX: upload a GPX file and display full track analytics + map + elevation profile.
@@ -48,6 +53,16 @@ export class GpxTraceComponent implements AfterViewInit, OnDestroy {
   isDragOver = false;
   mapBaseLayerId = 'osm-standard';
   mapFullscreen = false;
+  offlineMeta: GpsOfflinePackMeta = { tileCount: 0, bytes: 0, updatedAt: null };
+  offlineProgress: GpsOfflineMapProgress = { done: 0, total: 0, failed: 0 };
+  offlineDownloading = false;
+  offlineError = '';
+  offlineMessage = '';
+  offlineUseDevice = false;
+
+  get usingOfflineDeviceMap(): boolean {
+    return this.offlineMeta.tileCount > 0 && (this.offlineUseDevice || this.offlineFallback);
+  }
 
   get basemapOptions(): LeafletBasemapOption[] {
     return this.basemap.getAvailableLayers();
@@ -57,16 +72,24 @@ export class GpxTraceComponent implements AfterViewInit, OnDestroy {
   private baseLayer: L.TileLayer | L.LayerGroup | null = null;
   private trackLayer: L.FeatureGroup | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  private offlineSub: Subscription | null = null;
+  private offlineFallback = false;
+  private lastOnline = typeof navigator === 'undefined' ? true : navigator.onLine;
+  private readonly onOffline = (): void => this.applyOfflineBasemap(false);
+  private readonly onOnline = (): void => this.applyOfflineBasemap(true);
 
   constructor(
     private readonly basemap: LeafletBasemapService,
     private readonly api: ApiService,
     private readonly ngZone: NgZone,
-    private readonly cdr: ChangeDetectorRef
+    private readonly cdr: ChangeDetectorRef,
+    private readonly offlineMap: GpsOfflineMapService,
+    private readonly offlineTiles: GpsOfflineTilesStore
   ) {}
 
   ngAfterViewInit(): void {
     this.basemap.loadOptionalLayers(this.api);
+    this.bindOfflineMap();
     this.ensureMap();
     const el = this.mapHost?.nativeElement;
     if (el && typeof ResizeObserver !== 'undefined') {
@@ -76,6 +99,9 @@ export class GpxTraceComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    window.removeEventListener('offline', this.onOffline);
+    window.removeEventListener('online', this.onOnline);
+    this.offlineSub?.unsubscribe();
     this.exitMapFullscreenIfActive();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
@@ -189,10 +215,45 @@ export class GpxTraceComponent implements AfterViewInit, OnDestroy {
   }
 
   onBasemapChange(): void {
-    if (!this.map) {
+    this.offlineUseDevice = false;
+    this.offlineFallback = false;
+    this.applyGpxBaseLayer();
+  }
+
+  formatOfflineSize(bytes: number | null | undefined): string {
+    return formatOfflinePackSize(bytes);
+  }
+
+  async downloadOfflineMap(): Promise<void> {
+    const points = this.offlineDownloadPoints();
+    if (points.length < 1) {
+      this.offlineError = 'GPS.OFFLINE_MAP_NEED_POINTS';
+      this.cdr.markForCheck();
       return;
     }
-    this.baseLayer = this.basemap.applyBaseLayer(this.map, this.mapBaseLayerId, this.baseLayer);
+    this.offlineMessage = '';
+    const aroundHere = points.length < 2;
+    const ok = await this.offlineMap.downloadAround(points, aroundHere);
+    if (ok) {
+      this.offlineMessage = 'GPS.OFFLINE_MAP_DONE';
+      this.offlineUseDevice = true;
+      this.offlineFallback = false;
+      this.applyGpxBaseLayer();
+    }
+    this.cdr.markForCheck();
+  }
+
+  useSavedOfflineMap(): void {
+    if (this.offlineMeta.tileCount < 1) {
+      return;
+    }
+    this.offlineUseDevice = true;
+    this.offlineFallback = false;
+    this.applyGpxBaseLayer();
+  }
+
+  cancelOfflineMap(): void {
+    this.offlineMap.cancel();
   }
 
   formatDistance(meters: number | null): string {
@@ -343,6 +404,84 @@ export class GpxTraceComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  private bindOfflineMap(): void {
+    if (isBrowserOffline()) {
+      this.offlineFallback = true;
+    }
+    this.offlineSub = new Subscription();
+    this.offlineSub.add(this.offlineMap.meta$.subscribe((m) => {
+      const hadPack = this.offlineMeta.tileCount > 0;
+      this.offlineMeta = m;
+      if (hadPack && !m.tileCount) {
+        this.offlineUseDevice = false;
+      } else if (this.map && this.usingOfflineDeviceMap) {
+        this.applyGpxBaseLayer();
+      }
+      this.cdr.markForCheck();
+    }));
+    this.offlineSub.add(this.offlineMap.progress$.subscribe((p) => {
+      this.offlineProgress = p;
+      this.cdr.markForCheck();
+    }));
+    this.offlineSub.add(this.offlineMap.downloading$.subscribe((d) => {
+      this.offlineDownloading = d;
+      this.cdr.markForCheck();
+    }));
+    this.offlineSub.add(this.offlineMap.lastError$.subscribe((e) => {
+      this.offlineError = e || '';
+      this.cdr.markForCheck();
+    }));
+    window.addEventListener('offline', this.onOffline);
+    window.addEventListener('online', this.onOnline);
+  }
+
+  private offlineDownloadPoints(): GpsLatLon[] {
+    const pts = this.analysis?.points || [];
+    return pts
+      .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon))
+      .map((p) => ({ lat: p.lat, lon: p.lon }));
+  }
+
+  private applyOfflineBasemap(online: boolean): void {
+    if (online === this.lastOnline) {
+      return;
+    }
+    this.lastOnline = online;
+    if (!this.map) {
+      return;
+    }
+    if (!online && this.offlineMeta.tileCount > 0) {
+      this.offlineFallback = true;
+      this.applyGpxBaseLayer();
+      this.cdr.markForCheck();
+      return;
+    }
+    if (online && this.offlineFallback) {
+      this.offlineFallback = false;
+      this.applyGpxBaseLayer();
+      this.cdr.markForCheck();
+    }
+  }
+
+  private applyGpxBaseLayer(): void {
+    if (!this.map) {
+      return;
+    }
+    if (this.baseLayer) {
+      this.map.removeLayer(this.baseLayer);
+      this.baseLayer = null;
+    }
+    if (this.usingOfflineDeviceMap) {
+      this.baseLayer = new CachedOsmTileLayer(this.offlineTiles, { localOnly: true });
+      this.baseLayer.addTo(this.map);
+      if (this.baseLayer instanceof L.TileLayer) {
+        this.baseLayer.bringToBack();
+      }
+      return;
+    }
+    this.baseLayer = this.basemap.applyBaseLayer(this.map, this.mapBaseLayerId, null);
+  }
+
   private ensureMap(): void {
     const el = this.mapHost?.nativeElement;
     if (!el || this.map) {
@@ -353,7 +492,7 @@ export class GpxTraceComponent implements AfterViewInit, OnDestroy {
       zoomControl: true,
       attributionControl: true
     });
-    this.baseLayer = this.basemap.applyBaseLayer(this.map, this.mapBaseLayerId, null);
+    this.applyGpxBaseLayer();
     this.trackLayer = L.featureGroup().addTo(this.map);
     this.map.setView([46.6, 2.5], 6);
     setTimeout(() => this.map?.invalidateSize(), 0);

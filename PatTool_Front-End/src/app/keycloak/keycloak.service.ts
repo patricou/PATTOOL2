@@ -20,6 +20,13 @@ export class KeycloakService {
   private static readonly SESSION_STORAGE_KEY = 'pattool.kc.session';
 
   static init(): Promise<any> {
+    if (isBrowserOffline()) {
+      console.warn('[KEYCLOAK SERVICE] offline — skip Keycloak');
+      KeycloakService.auth.loggedIn = false;
+      KeycloakService.auth.authz = undefined;
+      return Promise.resolve(typeof document !== 'undefined' ? document.baseURI : '');
+    }
+
     const keycloakAuth: any = new Keycloak({
       "url": environment.keykloakBaseUrl,
       "realm": 'pat-realm',

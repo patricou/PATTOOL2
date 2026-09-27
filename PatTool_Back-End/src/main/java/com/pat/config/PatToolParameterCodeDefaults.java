@@ -42,7 +42,7 @@ public final class PatToolParameterCodeDefaults {
             Map.entry("app.tv.recording.max-duration-sec", "7200"),
             Map.entry("keycloak.client-id", "tutorial-frontend"),
             Map.entry("app.cors.allowed-origins",
-                    "http://localhost:4200,http://127.0.0.1:4200,http://localhost:8000,http://127.0.0.1:8000"),
+                    "http://localhost:4200,http://127.0.0.1:4200,http://localhost:8000,http://127.0.0.1:8000,https://localhost"),
             Map.entry("pat.passive-probe.allow-private-targets", "false"),
             Map.entry("pat.passive-probe.max-redirects", "5"),
             Map.entry("pat.passive-probe.connect-timeout-seconds", "5"),

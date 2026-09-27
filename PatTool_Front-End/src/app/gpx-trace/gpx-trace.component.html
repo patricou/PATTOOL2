@@ -212,6 +212,35 @@
                 </button>
               </div>
             </div>
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+              <button type="button"
+                      class="btn btn-sm btn-outline-primary"
+                      (click)="downloadOfflineMap()"
+                      [disabled]="offlineDownloading">
+                {{ 'GPS.OFFLINE_MAP_DOWNLOAD' | translate }}
+              </button>
+              <button type="button"
+                      class="btn btn-sm btn-outline-secondary"
+                      *ngIf="offlineMeta.tileCount > 0 && !usingOfflineDeviceMap"
+                      (click)="useSavedOfflineMap()">
+                {{ 'GPS.OFFLINE_MAP_SOURCE_DEVICE' | translate }}
+              </button>
+              <button type="button"
+                      class="btn btn-sm btn-outline-secondary"
+                      *ngIf="offlineDownloading"
+                      (click)="cancelOfflineMap()">
+                {{ 'GPS.OFFLINE_MAP_CANCEL' | translate }}
+              </button>
+              <span class="small text-muted" *ngIf="offlineDownloading">
+                {{ 'GPS.OFFLINE_MAP_PROGRESS' | translate:{ done: offlineProgress.done, total: offlineProgress.total } }}
+              </span>
+              <span class="small text-muted" *ngIf="offlineMeta.tileCount > 0">
+                {{ 'GPS.OFFLINE_MAP_STATS' | translate:{ n: offlineMeta.tileCount, size: formatOfflineSize(offlineMeta.bytes) } }}
+              </span>
+            </div>
+            <p class="small text-info mb-2" *ngIf="usingOfflineDeviceMap">{{ 'GPS.OFFLINE_MAP_USING' | translate }}</p>
+            <p class="small text-success mb-2" *ngIf="offlineMessage">{{ offlineMessage | translate }}</p>
+            <p class="small text-danger mb-2" *ngIf="offlineError">{{ offlineError | translate }}</p>
             <div #mapHost class="gpx-map" role="img" [attr.aria-label]="'GPX_TRACE.MAP' | translate"></div>
             <p class="small text-muted mt-2 mb-0" *ngIf="!analysis">{{ 'GPX_TRACE.MAP_HINT' | translate }}</p>
           </div>

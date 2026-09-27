@@ -12,7 +12,7 @@ import { KeycloakService } from '../../keycloak/keycloak.service';
 import { ApiService, TraceViewerPreference } from '../../services/api.service';
 import { WeatherStationMapLayerService } from '../../services/weather-station-map-layer.service';
 import { resolveWeatherStationProvider, resolveWeatherStationPointBrand, stationMarkerLatLng, WeatherStationGridPoint } from '../weather-station-map.util';
-import { forkJoin, of, Subject } from 'rxjs';
+import { forkJoin, of, Subject, Subscription } from 'rxjs';
 import { catchError, take, takeUntil } from 'rxjs/operators';
 import { WeatherPointTimelineComponent } from '../weather-point-timeline/weather-point-timeline.component';
 import { environment } from '../../../environments/environment';
@@ -23,6 +23,11 @@ import {
 	LeafletMapWheelZoomHandle
 } from '../leaflet-map-wheel-zoom';
 import { isValidGeoCoordinate } from '../geo-coordinates.util';
+import { GpsOfflineMapProgress, GpsOfflineMapService, formatOfflinePackSize } from '../../services/gps-offline-map.service';
+import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../../gps-track/gps-offline-tiles.store';
+import { GpsLatLon } from '../../gps-track/gps-offline-tiles.util';
+import { CachedOsmTileLayer } from '../leaflet-cached-tile.layer';
+import { isBrowserOffline } from '../browser-offline.util';
 import { GpsMapOrientation } from '../gps-map-orientation';
 import {
 	extractGeocodeCityName,
@@ -359,6 +364,21 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Fullscreen options panel (basemap, switches, actions) — collapsed by default. */
 	public isFullscreenOptionsExpanded = false;
 	private trackBounds: L.LatLngBounds | null = null;
+	offlineMeta: GpsOfflinePackMeta = { tileCount: 0, bytes: 0, updatedAt: null };
+	offlineProgress: GpsOfflineMapProgress = { done: 0, total: 0, failed: 0 };
+	offlineDownloading = false;
+	offlineError = '';
+	offlineMessage = '';
+	private offlineUseDevice = false;
+	private offlineFallback = false;
+	private offlineSub: Subscription | null = null;
+	private offlineLastOnline = typeof navigator === 'undefined' ? true : navigator.onLine;
+	private readonly onOffline = (): void => this.applyTraceOfflineBasemap(false);
+	private readonly onOnline = (): void => this.applyTraceOfflineBasemap(true);
+
+	get usingOfflineDeviceMap(): boolean {
+		return this.offlineMeta.tileCount > 0 && (this.offlineUseDevice || this.offlineFallback);
+	}
 	/** Zoom to restore when recentering a single-point view (openAtLocation). */
 	private locationRecenterZoom: number | null = null;
 	private static readonly DEFAULT_LOCATION_ZOOM = 14;
@@ -464,9 +484,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 		private readonly weatherStationMapLayer: WeatherStationMapLayerService,
 		private readonly sanitizer: DomSanitizer,
 		private readonly router: Router,
+		private readonly offlineMap: GpsOfflineMapService,
+		private readonly offlineTiles: GpsOfflineTilesStore,
 		@Inject(DOCUMENT) private readonly document: Document
 	) {
 		this.configureLeafletIcons();
+		this.bindOfflineMapPack();
 		this.loadTraceViewerPreferences();
 		this.loadRadarRefreshPreferences();
 		this.loadMapLayerCloudPreferences();
@@ -640,6 +663,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	ngOnDestroy(): void {
+		window.removeEventListener('offline', this.onOffline);
+		window.removeEventListener('online', this.onOnline);
+		this.offlineSub?.unsubscribe();
 		if (this.traceViewerCdrTimer != null) {
 			clearTimeout(this.traceViewerCdrTimer);
 			this.traceViewerCdrTimer = null;
@@ -3322,6 +3348,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public onBaseLayerChange(layerId: string): void {
+		this.offlineUseDevice = false;
+		this.offlineFallback = false;
 		if (layerId === 'cartes-gouv') {
 			this.lastBaseLayerBeforeCartesGouv = this.selectedBaseLayerId === 'cartes-gouv' ? this.lastBaseLayerBeforeCartesGouv : this.selectedBaseLayerId;
 			this.selectedBaseLayerId = 'cartes-gouv';
@@ -3347,11 +3375,113 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.isFullscreenOptionsExpanded = !this.isFullscreenOptionsExpanded;
 	}
 
+	formatOfflineSize(bytes: number | null | undefined): string {
+		return formatOfflinePackSize(bytes);
+	}
+
+	async downloadTraceOfflineMap(): Promise<void> {
+		const points = this.offlineDownloadPoints();
+		if (points.length < 1) {
+			this.offlineError = 'GPS.OFFLINE_MAP_NEED_POINTS';
+			this.cdr.markForCheck();
+			return;
+		}
+		this.offlineMessage = '';
+		const aroundHere = points.length < 2;
+		const ok = await this.offlineMap.downloadAround(points, aroundHere);
+		if (ok) {
+			this.offlineMessage = 'GPS.OFFLINE_MAP_DONE';
+			this.offlineUseDevice = true;
+			this.offlineFallback = false;
+			this.applySelectedBaseLayer();
+		}
+		this.cdr.markForCheck();
+	}
+
+	useSavedOfflineMap(): void {
+		if (this.offlineMeta.tileCount < 1) {
+			return;
+		}
+		this.offlineUseDevice = true;
+		this.offlineFallback = false;
+		this.applySelectedBaseLayer();
+		this.cdr.markForCheck();
+	}
+
+	cancelTraceOfflineMap(): void {
+		this.offlineMap.cancel();
+	}
+
+	private bindOfflineMapPack(): void {
+		if (isBrowserOffline()) {
+			this.offlineFallback = true;
+		}
+		this.offlineSub = new Subscription();
+		this.offlineSub.add(this.offlineMap.meta$.subscribe((m) => {
+			const hadPack = this.offlineMeta.tileCount > 0;
+			this.offlineMeta = m;
+			if (hadPack && !m.tileCount) {
+				this.offlineUseDevice = false;
+			} else if (this.map && this.usingOfflineDeviceMap) {
+				this.applySelectedBaseLayer();
+			}
+			this.cdr.markForCheck();
+		}));
+		this.offlineSub.add(this.offlineMap.progress$.subscribe((p) => {
+			this.offlineProgress = p;
+			this.cdr.markForCheck();
+		}));
+		this.offlineSub.add(this.offlineMap.downloading$.subscribe((d) => {
+			this.offlineDownloading = d;
+			this.cdr.markForCheck();
+		}));
+		this.offlineSub.add(this.offlineMap.lastError$.subscribe((e) => {
+			this.offlineError = e || '';
+			this.cdr.markForCheck();
+		}));
+		window.addEventListener('offline', this.onOffline);
+		window.addEventListener('online', this.onOnline);
+	}
+
+	private offlineDownloadPoints(): GpsLatLon[] {
+		if (this.trackOrientationCoords.length >= 1) {
+			return this.trackOrientationCoords
+				.filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]))
+				.map((p) => ({ lat: p[0], lon: p[1] }));
+		}
+		if (this.map) {
+			const c = this.map.getCenter();
+			return [{ lat: c.lat, lon: c.lng }];
+		}
+		return [];
+	}
+
+	private applyTraceOfflineBasemap(online: boolean): void {
+		if (online === this.offlineLastOnline) {
+			return;
+		}
+		this.offlineLastOnline = online;
+		if (!this.map) {
+			return;
+		}
+		if (!online && this.offlineMeta.tileCount > 0) {
+			this.offlineFallback = true;
+			this.applySelectedBaseLayer();
+			this.cdr.markForCheck();
+			return;
+		}
+		if (online && this.offlineFallback) {
+			this.offlineFallback = false;
+			this.applySelectedBaseLayer();
+			this.cdr.markForCheck();
+		}
+	}
+
 	private applySelectedBaseLayer(): void {
 		if (!this.map) {
 			return;
 		}
-		if (this.selectedBaseLayerId === 'cartes-gouv') {
+		if (!this.usingOfflineDeviceMap && this.selectedBaseLayerId === 'cartes-gouv') {
 			return;
 		}
 
@@ -3360,7 +3490,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		const isSwiss = this.isSwisstopoBasemap(this.selectedBaseLayerId);
-		const nextLayer: L.TileLayer | L.LayerGroup = isSwiss
+		const nextLayer: L.TileLayer | L.LayerGroup = this.usingOfflineDeviceMap
+			? new CachedOsmTileLayer(this.offlineTiles, { localOnly: true })
+			: isSwiss
 			? this.createSwisstopoLayer(this.selectedBaseLayerId)
 			: (this.baseLayers[this.selectedBaseLayerId] ?? this.baseLayers['osm-standard']);
 
