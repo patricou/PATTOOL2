@@ -95,10 +95,19 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
             return next.handle(req);
         }
 
-        // If the caller already set Authorization (e.g. FileService.getHeaderWithToken()), pass through.
-        // Avoids double getToken() and "Token retrieval failed" blocking uploads when token refresh is slow/fails.
+        // If the caller already set Authorization (e.g. FileService.getHeaderWithToken() or POST /memb/user),
+        // pass through without a second getToken(). Still react to 401: that call is how an expired
+        // access token shows up at startup, and it must go to login instead of a blocking alert.
         if (req.headers.has('Authorization')) {
-            return next.handle(req);
+            return next.handle(req).pipe(
+                catchError((error: HttpErrorResponse) => {
+                    if (error.status === 401 && !this.shouldSkipLoginRedirect(error) && !this.isLoginRedirectExempt(req)) {
+                        console.warn('[KEYCLOAK INTERCEPTOR] 401 on pre-authorized request — redirecting to login', req.url);
+                        this.keycloakService.redirectToLogin();
+                    }
+                    return throwError(() => error);
+                })
+            );
         }
 
         // IoT proxy list/CRUD requires the Iot role. The links page used to call this
@@ -232,5 +241,20 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
 
     private shouldSkipLoginRedirect(error?: HttpErrorResponse): boolean {
         return isBrowserOffline() || isNetworkHttpFailure(error);
+    }
+
+    /** Paths that must surface 401/403 to the caller instead of replacing the page with Keycloak. */
+    private isLoginRedirectExempt(req: HttpRequest<any>): boolean {
+        const url = req.url;
+        if (req.method === 'GET' && /\/api\/even/i.test(url)) {
+            return true;
+        }
+        if (/\/api\/iot-proxies(\/|$|\?)/i.test(url) && !/\/api\/iot-proxies\/forward(\/|$|\?)/i.test(url)) {
+            return true;
+        }
+        if (url.includes('/api/discussions/files/') || url.includes('/upload-logs/')) {
+            return true;
+        }
+        return url.includes('/uploadfile') || url.includes('/uploadondisk');
     }
 }

@@ -12,6 +12,78 @@ export interface GpsTileXYZ {
 }
 
 export const GPS_OFFLINE_STYLE = 'osm';
+
+/** One raster sheet of a basemap. Zoom bounds skip sheets that do not exist at that level. */
+export interface OfflineBasemapPart {
+  minZ?: number;
+  maxZ?: number;
+}
+
+/**
+ * Parts downloaded for each catalogue id. Must match MapTileProxyService templates.
+ * Legacy packs stored under style "osm" are read as osm-standard.
+ */
+export const OFFLINE_BASEMAP_PARTS: Record<string, OfflineBasemapPart[]> = {
+  'osm': [{}],
+  'osm-standard': [{}],
+  'voyager': [{}],
+  'osm-fr': [{}, {}],
+  'esri-imagery': [{}],
+  'opentopomap': [{}],
+  'ign-plan': [{}],
+  'ign-topo': [{}],
+  'ign-classic': [{ maxZ: 12 }, { minZ: 12 }],
+  'ign-ortho': [{}],
+  'ign-cadastre': [{}],
+  'ign-limites': [{}],
+  'ign-relief': [{}],
+  'ign-routes': [{}],
+  'ign-maps': [{}],
+  'ign-scan-regional': [{ maxZ: 12 }],
+  'cyclosm': [{}],
+  'swisstopo-pixelkarte': [{}],
+  'swisstopo-swissimage': [{}],
+  'opencyclemap': [{}],
+  'thunderforest-outdoors': [{}]
+};
+
+const CARTES_GOUV_STYLE: Record<string, string> = {
+  'ign-maps': 'ign-maps',
+  'ign-plan': 'ign-plan',
+  'ign-scan-regional': 'ign-scan-regional',
+  'ign-ortho': 'ign-ortho',
+  'ign-cadastre': 'ign-cadastre',
+  'ign-limites': 'ign-limites',
+  'ign-relief': 'ign-relief'
+};
+
+/** Catalogue id stored in the tile pack (cartes.gouv.fr is an embed, so its IGN sheet is stored). */
+export function offlinePackStyleId(basemapId: string, cartesLayerId?: string): string {
+  const id = (basemapId || '').trim();
+  if (id === 'cartes-gouv') {
+    return CARTES_GOUV_STYLE[cartesLayerId || ''] || 'ign-plan';
+  }
+  if (id === 'osm') {
+    return 'osm-standard';
+  }
+  return id || 'osm-standard';
+}
+
+export function offlineBasemapParts(style: string): OfflineBasemapPart[] {
+  return OFFLINE_BASEMAP_PARTS[style] || [{}];
+}
+
+export function offlineTileStyle(style: string, part: number): string {
+  return `${style}#${part}`;
+}
+
+/** Style id from a stored tile key (`style#part|z|x|y` or legacy `osm|z|x|y`). */
+export function styleFromTileId(id: string): string {
+  const head = (id || '').split('|')[0] || '';
+  const hash = head.indexOf('#');
+  const style = hash >= 0 ? head.slice(0, hash) : head;
+  return style === 'osm' ? 'osm-standard' : style;
+}
 export const GPS_OFFLINE_MIN_Z = 12;
 export const GPS_OFFLINE_MAX_Z = 16;
 export const GPS_OFFLINE_BUFFER_M = 1000;

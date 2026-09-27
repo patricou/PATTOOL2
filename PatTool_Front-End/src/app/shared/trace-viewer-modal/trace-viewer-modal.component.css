@@ -839,6 +839,48 @@
 	margin: 0;
 }
 
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-map-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.28rem;
+	white-space: nowrap;
+	color: #f7fbff !important;
+	background: rgba(255, 255, 255, 0.18) !important;
+	border-color: rgba(255, 255, 255, 0.62) !important;
+	font-weight: 600;
+	padding: 0.18rem 0.48rem !important;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-map-btn i,
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-map-btn span {
+	color: #f7fbff !important;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-note {
+	display: inline-flex;
+	align-items: center;
+	color: #f7fbff;
+	font-size: 0.75rem;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-note i {
+	color: #f7fbff;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-note--ok,
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-note--ok i {
+	color: #d8ffe8;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-note--err {
+	color: #ffd0d0;
+	white-space: normal;
+	max-width: 12rem;
+	font-weight: 500;
+}
+
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-stats-inline {
 	flex: 1 1 auto;
 	min-width: 12rem;

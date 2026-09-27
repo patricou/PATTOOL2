@@ -1,4 +1,4 @@
-import { isBrowserOffline, isNetworkHttpFailure } from './browser-offline.util';
+import { isBrowserOffline, isNetworkHttpFailure, isSessionExpiredHttp } from './browser-offline.util';
 
 describe('browser offline helpers', () => {
   const original = Object.getOwnPropertyDescriptor(Navigator.prototype, 'onLine');
@@ -30,5 +30,14 @@ describe('browser offline helpers', () => {
   it('treats any HTTP error as a network failure when offline', () => {
     setOnline(false);
     expect(isNetworkHttpFailure({ status: 401 })).toBe(true);
+  });
+
+  it('treats HTTP 401 as an expired session only when the browser is online', () => {
+    setOnline(true);
+    expect(isSessionExpiredHttp({ status: 401 })).toBe(true);
+    expect(isSessionExpiredHttp({ status: 0 })).toBe(false);
+    expect(isSessionExpiredHttp({ status: 500 })).toBe(false);
+    setOnline(false);
+    expect(isSessionExpiredHttp({ status: 401 })).toBe(false);
   });
 });

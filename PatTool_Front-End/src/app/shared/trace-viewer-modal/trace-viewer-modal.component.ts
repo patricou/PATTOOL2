@@ -26,7 +26,7 @@ import { isValidGeoCoordinate } from '../geo-coordinates.util';
 import { GpsOfflineMapProgress, GpsOfflineMapService, formatOfflinePackSize } from '../../services/gps-offline-map.service';
 import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../../gps-track/gps-offline-tiles.store';
 import { GpsLatLon } from '../../gps-track/gps-offline-tiles.util';
-import { CachedOsmTileLayer } from '../leaflet-cached-tile.layer';
+import { createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
 import { isBrowserOffline } from '../browser-offline.util';
 import { GpsMapOrientation } from '../gps-map-orientation';
 import {
@@ -3349,7 +3349,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	public onBaseLayerChange(layerId: string): void {
 		this.offlineUseDevice = false;
-		this.offlineFallback = false;
+		const online = typeof navigator === 'undefined' || navigator.onLine;
+		this.offlineFallback = !online && this.offlineMeta.tileCount > 0;
 		if (layerId === 'cartes-gouv') {
 			this.lastBaseLayerBeforeCartesGouv = this.selectedBaseLayerId === 'cartes-gouv' ? this.lastBaseLayerBeforeCartesGouv : this.selectedBaseLayerId;
 			this.selectedBaseLayerId = 'cartes-gouv';
@@ -3388,12 +3389,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.offlineMessage = '';
 		const aroundHere = points.length < 2;
-		const ok = await this.offlineMap.downloadAround(points, aroundHere);
+		const ok = await this.offlineMap.downloadAround(
+			points,
+			aroundHere,
+			this.selectedBaseLayerId,
+			this.selectedCartesGouvLayerId
+		);
 		if (ok) {
 			this.offlineMessage = 'GPS.OFFLINE_MAP_DONE';
-			this.offlineUseDevice = true;
-			this.offlineFallback = false;
-			this.applySelectedBaseLayer();
 		}
 		this.cdr.markForCheck();
 	}
@@ -3481,7 +3484,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!this.map) {
 			return;
 		}
-		if (!this.usingOfflineDeviceMap && this.selectedBaseLayerId === 'cartes-gouv') {
+		const usePack = this.usingOfflineDeviceMap;
+		if (!usePack && this.selectedBaseLayerId === 'cartes-gouv') {
 			return;
 		}
 
@@ -3490,8 +3494,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		const isSwiss = this.isSwisstopoBasemap(this.selectedBaseLayerId);
-		const nextLayer: L.TileLayer | L.LayerGroup = this.usingOfflineDeviceMap
-			? new CachedOsmTileLayer(this.offlineTiles, { localOnly: true })
+		const packStyle = this.offlineMap.displayStyle(this.selectedBaseLayerId, this.selectedCartesGouvLayerId);
+		const nextLayer: L.TileLayer | L.LayerGroup = usePack
+			? createOfflineBasemapLayer(this.offlineTiles, packStyle)
 			: isSwiss
 			? this.createSwisstopoLayer(this.selectedBaseLayerId)
 			: (this.baseLayers[this.selectedBaseLayerId] ?? this.baseLayers['osm-standard']);
@@ -3503,6 +3508,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 		nextLayer.addTo(this.map);
 		if (nextLayer instanceof L.TileLayer) {
 			nextLayer.bringToBack();
+		} else {
+			nextLayer.eachLayer((child) => {
+				if (child instanceof L.TileLayer) {
+					child.bringToBack();
+				}
+			});
 		}
 		this.activeBaseLayer = nextLayer;
 

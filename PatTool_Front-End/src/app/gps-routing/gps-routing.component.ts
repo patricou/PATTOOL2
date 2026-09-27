@@ -28,6 +28,10 @@ import {
 } from '../shared/leaflet-map-wheel-zoom';
 import { LeafletBasemapOption, LeafletBasemapService } from '../shared/leaflet-basemap.service';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { GpsOfflineMapProgress, GpsOfflineMapService } from '../services/gps-offline-map.service';
+import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../gps-track/gps-offline-tiles.store';
+import { GpsLatLon } from '../gps-track/gps-offline-tiles.util';
+import { createOfflineBasemapLayer } from '../shared/leaflet-cached-tile.layer';
 import { GpsBasemapPickerComponent } from '../shared/gps-basemap-picker.component';
 import { GpsNav3dComponent } from './gps-nav-3d.component';
 import { GpsMapOrientation } from '../shared/gps-map-orientation';
@@ -152,6 +156,11 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   errorMessage = '';
 
   mapBaseLayerId = 'opentopomap';
+  offlineDownloading = false;
+  offlineProgress: GpsOfflineMapProgress = { done: 0, total: 0, failed: 0 };
+  offlineError = '';
+  offlineMessage = '';
+  offlineMeta: GpsOfflinePackMeta = { tileCount: 0, bytes: 0, updatedAt: null };
   mapFullscreen = false;
   nav3dActive = false;
   historyOpen = false;
@@ -179,6 +188,8 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   private lastUserLon: number | null = null;
   private deviceHeadingDeg: number | null = null;
   private routeHeadingDeg = 0;
+  private offlineFallback = false;
+  private offlineLastOnline = typeof navigator === 'undefined' || navigator.onLine;
 
   constructor(
     private readonly api: ApiService,
@@ -190,7 +201,9 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly keycloak: KeycloakService,
     private readonly friendsService: FriendsService,
     private readonly activatedRoute: ActivatedRoute,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly offlineMap: GpsOfflineMapService,
+    private readonly offlineTiles: GpsOfflineTilesStore
   ) {}
 
   ngOnInit(): void {
@@ -223,7 +236,27 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
       this.fromSearch$.pipe(debounceTime(350)).subscribe((q) => this.runGeocode('from', q)),
       this.toSearch$.pipe(debounceTime(350)).subscribe((q) => this.runGeocode('to', q)),
       this.viaSearch$.pipe(debounceTime(350)).subscribe(({ id, query }) => this.runGeocodeVia(id, query)),
-      this.activatedRoute.queryParamMap.subscribe((params: ParamMap) => this.consumeIncomingRouteParams(params))
+      this.activatedRoute.queryParamMap.subscribe((params: ParamMap) => this.consumeIncomingRouteParams(params)),
+      this.offlineMap.meta$.subscribe((m) => {
+        this.offlineMeta = m;
+        if (!this.offlineLastOnline && m.tileCount > 0) {
+          this.offlineFallback = true;
+          this.applyRoutingBaseLayer();
+        }
+        this.cdr.markForCheck();
+      }),
+      this.offlineMap.progress$.subscribe((p) => {
+        this.offlineProgress = p;
+        this.cdr.markForCheck();
+      }),
+      this.offlineMap.downloading$.subscribe((d) => {
+        this.offlineDownloading = d;
+        this.cdr.markForCheck();
+      }),
+      this.offlineMap.lastError$.subscribe((e) => {
+        this.offlineError = e || '';
+        this.cdr.markForCheck();
+      })
     );
   }
 
@@ -907,7 +940,88 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onMapBaseLayerChange(): void {
+    this.applyRoutingBaseLayer();
+  }
+
+  @HostListener('window:online')
+  @HostListener('window:offline')
+  onRoutingNetworkChange(): void {
+    const online = typeof navigator === 'undefined' || navigator.onLine;
+    if (online === this.offlineLastOnline) {
+      return;
+    }
+    this.offlineLastOnline = online;
     if (!this.map) {
+      return;
+    }
+    if (!online && this.offlineMeta.tileCount > 0) {
+      this.offlineFallback = true;
+      this.applyRoutingBaseLayer();
+      this.cdr.markForCheck();
+      return;
+    }
+    if (online && this.offlineFallback) {
+      this.offlineFallback = false;
+      this.applyRoutingBaseLayer();
+      this.cdr.markForCheck();
+    }
+  }
+
+  async downloadRoutingOfflineMap(): Promise<void> {
+    const points = this.routingOfflinePoints();
+    if (!points.length) {
+      this.offlineError = 'GPS.OFFLINE_MAP_NEED_POINTS';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.offlineMessage = '';
+    const ok = await this.offlineMap.downloadAround(points, points.length < 2, this.mapBaseLayerId);
+    if (ok) {
+      this.offlineMessage = 'GPS.OFFLINE_MAP_DONE';
+    }
+    this.cdr.markForCheck();
+  }
+
+  cancelRoutingOfflineMap(): void {
+    this.offlineMap.cancel();
+  }
+
+  private routingOfflinePoints(): GpsLatLon[] {
+    const fromRoute = (this.route?.coordinates || [])
+      .filter((c) => Array.isArray(c) && c.length >= 2 && Number.isFinite(c[0]) && Number.isFinite(c[1]))
+      .map((c) => ({ lat: c[0], lon: c[1] }));
+    if (fromRoute.length) {
+      return fromRoute;
+    }
+    const pts: GpsLatLon[] = [];
+    if (this.fromPoint) {
+      pts.push({ lat: this.fromPoint.lat, lon: this.fromPoint.lon });
+    }
+    for (const via of this.resolvedViaPoints()) {
+      pts.push({ lat: via.lat, lon: via.lon });
+    }
+    if (this.toPoint) {
+      pts.push({ lat: this.toPoint.lat, lon: this.toPoint.lon });
+    }
+    if (pts.length) {
+      return pts;
+    }
+    const center = this.map?.getCenter();
+    return center ? [{ lat: center.lat, lon: center.lng }] : [];
+  }
+
+  private applyRoutingBaseLayer(): void {
+    if (!this.map) {
+      return;
+    }
+    if (this.offlineFallback && this.offlineMeta.tileCount > 0) {
+      if (this.baseLayer) {
+        this.map.removeLayer(this.baseLayer);
+      }
+      const style = this.offlineMap.displayStyle(this.mapBaseLayerId);
+      const pack = createOfflineBasemapLayer(this.offlineTiles, style);
+      this.baseLayer = pack;
+      pack.addTo(this.map);
       return;
     }
     this.baseLayer = this.basemap.applyBaseLayer(this.map, this.mapBaseLayerId, this.baseLayer);
@@ -1365,7 +1479,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
       rotateControl: false
     } as L.MapOptions) as RotatableMap;
     this.mapWheelZoom = attachLeafletMapWheelZoom(this.map);
-    this.baseLayer = this.basemap.applyBaseLayer(this.map, this.mapBaseLayerId, null);
+    this.applyRoutingBaseLayer();
     this.routeLayer = L.featureGroup().addTo(this.map);
     this.map.setView([46.6, 2.5], 6);
     this.map.on('click', (e: L.LeafletMouseEvent) => {

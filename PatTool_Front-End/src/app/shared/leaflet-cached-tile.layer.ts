@@ -1,11 +1,20 @@
 import * as L from 'leaflet';
 import { environment } from '../../environments/environment';
 import { GpsOfflineTilesStore } from '../gps-track/gps-offline-tiles.store';
-import { GPS_OFFLINE_STYLE, gpsTileId } from '../gps-track/gps-offline-tiles.util';
+import {
+  GPS_OFFLINE_STYLE,
+  gpsTileId,
+  offlineBasemapParts,
+  offlineTileStyle
+} from '../gps-track/gps-offline-tiles.util';
+
+export function cachedBasemapTileUrl(style: string, part = 0): string {
+  const base = environment.API_URL.endsWith('/') ? environment.API_URL : `${environment.API_URL}/`;
+  return `${base}external/map/tile/{z}/{x}/{y}?style=${encodeURIComponent(style)}&part=${part}`;
+}
 
 export function cachedOsmTileUrl(): string {
-  const base = environment.API_URL.endsWith('/') ? environment.API_URL : `${environment.API_URL}/`;
-  return `${base}external/map/tile/{z}/{x}/{y}?style=${GPS_OFFLINE_STYLE}`;
+  return cachedBasemapTileUrl(GPS_OFFLINE_STYLE, 0);
 }
 
 export interface CachedOsmTileLayerOptions {
@@ -13,6 +22,21 @@ export interface CachedOsmTileLayerOptions {
   localOnly?: boolean;
   /** Ignore the on-device pack and always fetch. */
   skipCache?: boolean;
+  /** Catalogue id (osm-standard, ign-plan, …). */
+  style?: string;
+  /** Sheet index when the basemap is several layers. */
+  part?: number;
+}
+
+/** On-device pack for one basemap, one Leaflet layer per sheet. */
+export function createOfflineBasemapLayer(store: GpsOfflineTilesStore, style: string): L.LayerGroup {
+  const parts = offlineBasemapParts(style);
+  const layers = parts.map((_, part) => new CachedOsmTileLayer(store, {
+    localOnly: true,
+    style,
+    part
+  }));
+  return L.layerGroup(layers);
 }
 
 /**
@@ -24,7 +48,7 @@ export class CachedOsmTileLayer extends L.TileLayer {
     private readonly cache: GpsOfflineTilesStore,
     private readonly cacheOpts: CachedOsmTileLayerOptions = {}
   ) {
-    super(cachedOsmTileUrl(), {
+    super(cachedBasemapTileUrl(cacheOpts.style || 'osm-standard', cacheOpts.part || 0), {
       maxNativeZoom: 19,
       maxZoom: 20,
       errorTileUrl: L.Util.emptyImageUrl,
@@ -44,7 +68,9 @@ export class CachedOsmTileLayer extends L.TileLayer {
     const z = Math.max(0, Math.round(Number(coords.z)));
     const x = Math.round(Number(coords.x));
     const y = Math.round(Number(coords.y));
-    return cachedOsmTileUrl()
+    const style = this.cacheOpts.style || 'osm-standard';
+    const part = this.cacheOpts.part || 0;
+    return cachedBasemapTileUrl(style, part)
       .replace('{z}', String(z))
       .replace('{x}', String(x))
       .replace('{y}', String(y));
@@ -57,7 +83,12 @@ export class CachedOsmTileLayer extends L.TileLayer {
     const z = Math.max(0, Math.round(Number(coords.z)));
     const x = Math.round(Number(coords.x));
     const y = Math.round(Number(coords.y));
-    const id = gpsTileId(z, x, y);
+    const style = this.cacheOpts.style || 'osm-standard';
+    const part = this.cacheOpts.part || 0;
+    const ids = [gpsTileId(z, x, y, offlineTileStyle(style, part))];
+    if (part === 0 && (style === 'osm-standard' || style === 'osm')) {
+      ids.push(gpsTileId(z, x, y, GPS_OFFLINE_STYLE));
+    }
     const url = this.getTileUrl(coords);
     const localOnly = !!this.cacheOpts.localOnly;
     const skipCache = !!this.cacheOpts.skipCache;
@@ -77,7 +108,13 @@ export class CachedOsmTileLayer extends L.TileLayer {
 
     void (async () => {
       if (!skipCache) {
-        const cached = await this.cache.get(id);
+        let cached: Blob | null = null;
+        for (const tileId of ids) {
+          cached = await this.cache.get(tileId);
+          if (cached) {
+            break;
+          }
+        }
         if (!this._map) {
           done(undefined, tile);
           return;
@@ -104,7 +141,7 @@ export class CachedOsmTileLayer extends L.TileLayer {
         }
         const blob = await res.blob();
         if (!skipCache) {
-          await this.cache.put(id, blob);
+          await this.cache.put(ids[0], blob);
         }
         if (!this._map) {
           done(undefined, tile);

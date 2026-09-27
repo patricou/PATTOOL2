@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { styleFromTileId } from './gps-offline-tiles.util';
 
 const DB_NAME = 'pattool-gps-tiles';
 const DB_VERSION = 1;
@@ -230,6 +231,25 @@ export class GpsOfflineTilesStore {
       return meta || { ...EMPTY_META };
     } catch {
       return { ...EMPTY_META };
+    }
+  }
+
+  /** Catalogue ids that have at least one stored tile. */
+  async listStyles(): Promise<string[]> {
+    try {
+      const db = await this.db();
+      const keys = (await reqToPromise(
+        db.transaction(STORE_TILES, 'readonly').objectStore(STORE_TILES).getAllKeys()
+      )) as IDBValidKey[] | undefined;
+      const styles = new Set<string>();
+      for (const key of keys || []) {
+        if (typeof key === 'string' && key) {
+          styles.add(styleFromTileId(key));
+        }
+      }
+      return [...styles];
+    } catch {
+      return [];
     }
   }
 

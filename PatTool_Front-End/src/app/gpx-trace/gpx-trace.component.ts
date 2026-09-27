@@ -27,7 +27,7 @@ import { firstValueFrom, Subscription } from 'rxjs';
 import { GpsOfflineMapProgress, GpsOfflineMapService, formatOfflinePackSize } from '../services/gps-offline-map.service';
 import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../gps-track/gps-offline-tiles.store';
 import { GpsLatLon } from '../gps-track/gps-offline-tiles.util';
-import { CachedOsmTileLayer } from '../shared/leaflet-cached-tile.layer';
+import { createOfflineBasemapLayer } from '../shared/leaflet-cached-tile.layer';
 import { isBrowserOffline } from '../shared/browser-offline.util';
 
 /**
@@ -216,7 +216,8 @@ export class GpxTraceComponent implements AfterViewInit, OnDestroy {
 
   onBasemapChange(): void {
     this.offlineUseDevice = false;
-    this.offlineFallback = false;
+    const online = typeof navigator === 'undefined' || navigator.onLine;
+    this.offlineFallback = !online && this.offlineMeta.tileCount > 0;
     this.applyGpxBaseLayer();
   }
 
@@ -233,12 +234,9 @@ export class GpxTraceComponent implements AfterViewInit, OnDestroy {
     }
     this.offlineMessage = '';
     const aroundHere = points.length < 2;
-    const ok = await this.offlineMap.downloadAround(points, aroundHere);
+    const ok = await this.offlineMap.downloadAround(points, aroundHere, this.mapBaseLayerId);
     if (ok) {
       this.offlineMessage = 'GPS.OFFLINE_MAP_DONE';
-      this.offlineUseDevice = true;
-      this.offlineFallback = false;
-      this.applyGpxBaseLayer();
     }
     this.cdr.markForCheck();
   }
@@ -472,11 +470,15 @@ export class GpxTraceComponent implements AfterViewInit, OnDestroy {
       this.baseLayer = null;
     }
     if (this.usingOfflineDeviceMap) {
-      this.baseLayer = new CachedOsmTileLayer(this.offlineTiles, { localOnly: true });
-      this.baseLayer.addTo(this.map);
-      if (this.baseLayer instanceof L.TileLayer) {
-        this.baseLayer.bringToBack();
-      }
+      const style = this.offlineMap.displayStyle(this.mapBaseLayerId);
+      const pack = createOfflineBasemapLayer(this.offlineTiles, style);
+      this.baseLayer = pack;
+      pack.addTo(this.map);
+      pack.eachLayer((child) => {
+        if (child instanceof L.TileLayer) {
+          child.bringToBack();
+        }
+      });
       return;
     }
     this.baseLayer = this.basemap.applyBaseLayer(this.map, this.mapBaseLayerId, null);

@@ -36,7 +36,7 @@ import {
   GpsOfflineMapService
 } from '../services/gps-offline-map.service';
 import { GpsOfflinePackMeta, GpsOfflineTilesStore } from './gps-offline-tiles.store';
-import { CachedOsmTileLayer } from '../shared/leaflet-cached-tile.layer';
+import { createOfflineBasemapLayer } from '../shared/leaflet-cached-tile.layer';
 import { GpsNav3dComponent, GpsNav3dFix } from '../gps-routing/gps-nav-3d.component';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { GpsMapOrientation } from '../shared/gps-map-orientation';
@@ -170,12 +170,13 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     }
     this.mapBaseLayerId = layerId;
     this.preferredBasemapId = layerId;
-    this.offlineFallback = false;
     if (this.offlineUseDevice) {
       this.offlineUseDevice = false;
       this.offlineSourceExplicit = true;
       this.persistOfflineMapSource();
     }
+    const online = typeof navigator === 'undefined' || navigator.onLine;
+    this.offlineFallback = !online && this.offlineMeta.tileCount > 0;
     this.applyGpsBaseLayer();
   }
 
@@ -353,13 +354,9 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
         if (this.offlineSourceExplicit) {
           this.persistOfflineMapSource();
         }
-      } else if (m.tileCount > 0 && !this.offlineSourceExplicit && !this.offlineUseDevice) {
-        this.offlineUseDevice = true;
         if (this.map) {
           this.applyGpsBaseLayer();
         }
-      } else if (this.map && this.offlineUseDevice && m.tileCount > 0 && !hadPack) {
-        this.applyGpsBaseLayer();
       }
       this.cdr.markForCheck();
     }));
@@ -554,25 +551,32 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   }
 
   get canOpenTraceViewer(): boolean {
-    return this.snap.track.length >= 2 || this.snap.recorded.length >= 2;
+    return true;
   }
 
   openInTraceViewer(): void {
-    if (!this.traceViewer || !this.canOpenTraceViewer) {
+    if (!this.traceViewer) {
       return;
     }
     const fileId = (this.snap.sourceFileId || '').trim();
-    const fileName = this.currentTrackFileName() || this.snap.title || 'track.gpx';
-    if (fileId) {
+    const fileName = this.currentTrackFileName() || this.snap.title || 'GPS';
+    const src = this.snap.track.length >= 2 ? this.snap.track : this.snap.recorded;
+    if (fileId && src.length >= 2) {
       this.traceViewer.openFromFile(fileId, fileName, undefined, this.snap.title);
       return;
     }
-    const src = this.snap.track.length >= 2 ? this.snap.track : this.snap.recorded;
-    const points = src.map((p) => ({ lat: p.lat, lng: p.lon }));
-    if (points.length < 2) {
+    if (src.length >= 2) {
+      this.traceViewer.openWithTrackPoints(src.map((p) => ({ lat: p.lat, lng: p.lon })), fileName, {
+        initialBaseLayerId: this.mapBaseLayerId
+      });
       return;
     }
-    this.traceViewer.openWithTrackPoints(points, fileName, {
+    const user = this.snap.user;
+    const center = this.map?.getCenter();
+    const lat = user?.lat ?? center?.lat ?? 46.6;
+    const lng = user?.lon ?? center?.lng ?? 2.5;
+    this.traceViewer.openAtLocation(lat, lng, fileName, undefined, false, false, {
+      zoom: this.map?.getZoom() || 14,
       initialBaseLayerId: this.mapBaseLayerId
     });
   }
@@ -1093,10 +1097,9 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.successMessage = '';
-    const ok = await this.offlineMap.downloadAround(points, false);
+    const ok = await this.offlineMap.downloadAround(points, false, this.mapBaseLayerId);
     if (ok) {
       this.successMessage = 'GPS.OFFLINE_MAP_DONE';
-      this.setOfflineMapSource(true);
     }
     this.cdr.markForCheck();
   }
@@ -1108,10 +1111,9 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       return;
     }
     this.successMessage = '';
-    const ok = await this.offlineMap.downloadAround([{ lat: u.lat, lon: u.lon }], true);
+    const ok = await this.offlineMap.downloadAround([{ lat: u.lat, lon: u.lon }], true, this.mapBaseLayerId);
     if (ok) {
       this.successMessage = 'GPS.OFFLINE_MAP_DONE';
-      this.setOfflineMapSource(true);
     }
     this.cdr.markForCheck();
   }
@@ -1147,10 +1149,6 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       return;
     }
     if (!online && this.offlineMeta.tileCount > 0) {
-      if (!this.offlineUseDevice && this.mapBaseLayerId !== 'osm-standard') {
-        this.preferredBasemapId = this.mapBaseLayerId;
-        this.mapBaseLayerId = 'osm-standard';
-      }
       this.offlineFallback = true;
       this.applyGpsBaseLayer();
       return;
@@ -1160,9 +1158,6 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       return;
     }
     if (this.offlineFallback) {
-      if (!this.offlineUseDevice) {
-        this.mapBaseLayerId = this.preferredBasemapId;
-      }
       this.offlineFallback = false;
       this.applyGpsBaseLayer();
     }
@@ -2161,15 +2156,17 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     }
     this.removeGpsBaseLayers();
     const hasPack = this.offlineMeta.tileCount > 0;
-    const useDevice = hasPack && (this.offlineUseDevice || this.offlineFallback);
-    const useCachedOsm = useDevice || this.mapBaseLayerId === 'osm-standard';
-    if (useCachedOsm) {
-      this.baseLayer = new CachedOsmTileLayer(this.offlineTiles, {
-        localOnly: useDevice,
-        skipCache: !useDevice
+    const usePack = hasPack && (this.offlineUseDevice || this.offlineFallback);
+    if (usePack) {
+      const style = this.offlineMap.displayStyle(this.mapBaseLayerId);
+      const pack = createOfflineBasemapLayer(this.offlineTiles, style);
+      this.baseLayer = pack;
+      pack.addTo(this.map);
+      pack.eachLayer((child) => {
+        if (child instanceof L.TileLayer) {
+          child.bringToBack();
+        }
       });
-      this.baseLayer.addTo(this.map);
-      this.baseLayer.bringToBack();
     } else {
       this.baseLayer = this.basemap.applyBaseLayer(this.map, this.mapBaseLayerId, null);
     }

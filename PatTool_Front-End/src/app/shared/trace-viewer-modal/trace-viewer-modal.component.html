@@ -447,9 +447,8 @@
 
   <div class="modal-footer slideshow-footer trace-viewer-footer-toolbar">
     <div class="trace-viewer-footer-row trace-viewer-footer-row--primary w-100 d-flex flex-wrap align-items-center gap-2">
-      <div class="trace-viewer-footer-basemap-slot flex-shrink-0"
-           *ngIf="availableBaseLayers.length > 0 && !isFullscreen">
-        <div class="trace-stats">
+      <div class="trace-viewer-footer-basemap-slot d-flex align-items-center flex-nowrap gap-1 flex-shrink-0">
+        <div class="trace-stats" *ngIf="availableBaseLayers.length > 0 && !isFullscreen">
           <select id="trace-base-layer" class="form-select form-select-sm"
                   [ngModel]="selectedBaseLayerId"
                   (ngModelChange)="onBaseLayerChange($event)"
@@ -457,32 +456,47 @@
             <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}</option>
           </select>
         </div>
-      </div>
-      <div class="d-flex flex-wrap align-items-center gap-1 flex-shrink-0">
         <button type="button"
-                class="btn btn-sm btn-outline-primary"
+                class="btn btn-sm tv-offline-map-btn tv-tip"
                 (click)="downloadTraceOfflineMap()"
-                [disabled]="offlineDownloading">
-          {{ 'GPS.OFFLINE_MAP_DOWNLOAD' | translate }}
+                [disabled]="offlineDownloading"
+                [attr.data-tv-tip]="'GPS.OFFLINE_MAP_HINT' | translate"
+                [attr.aria-label]="'GPS.OFFLINE_MAP_DOWNLOAD' | translate">
+          <i class="fa" [class.fa-download]="!offlineDownloading" [class.fa-spinner]="offlineDownloading" [class.fa-spin]="offlineDownloading" aria-hidden="true"></i>
+          <span>{{ 'GPS.OFFLINE_MAP_BTN' | translate }}</span>
         </button>
         <button type="button"
-                class="btn btn-sm btn-outline-secondary"
+                class="btn btn-sm tv-offline-map-btn tv-tip"
                 *ngIf="offlineMeta.tileCount > 0 && !usingOfflineDeviceMap"
-                (click)="useSavedOfflineMap()">
-          {{ 'GPS.OFFLINE_MAP_SOURCE_DEVICE' | translate }}
+                (click)="useSavedOfflineMap()"
+                [attr.data-tv-tip]="'GPS.OFFLINE_MAP_SOURCE_HINT' | translate"
+                [attr.aria-label]="'GPS.OFFLINE_MAP_SOURCE_DEVICE' | translate">
+          <i class="fa fa-mobile" aria-hidden="true"></i>
         </button>
         <button type="button"
-                class="btn btn-sm btn-outline-secondary"
+                class="btn btn-sm tv-offline-map-btn tv-tip"
                 *ngIf="offlineDownloading"
-                (click)="cancelTraceOfflineMap()">
-          {{ 'GPS.OFFLINE_MAP_CANCEL' | translate }}
+                (click)="cancelTraceOfflineMap()"
+                [attr.data-tv-tip]="'GPS.OFFLINE_MAP_CANCEL' | translate"
+                [attr.aria-label]="'GPS.OFFLINE_MAP_CANCEL' | translate">
+          <i class="fa fa-times" aria-hidden="true"></i>
         </button>
-        <span class="small text-muted" *ngIf="offlineDownloading">
-          {{ 'GPS.OFFLINE_MAP_PROGRESS' | translate:{ done: offlineProgress.done, total: offlineProgress.total } }}
+        <span class="tv-offline-note" *ngIf="offlineDownloading">
+          {{ offlineProgress.done }}/{{ offlineProgress.total }}
         </span>
-        <span class="small text-info" *ngIf="usingOfflineDeviceMap">{{ 'GPS.OFFLINE_MAP_USING' | translate }}</span>
-        <span class="small text-success" *ngIf="offlineMessage">{{ offlineMessage | translate }}</span>
-        <span class="small text-danger" *ngIf="offlineError">{{ offlineError | translate }}</span>
+        <span class="tv-offline-note tv-tip"
+              *ngIf="usingOfflineDeviceMap"
+              [attr.data-tv-tip]="'GPS.OFFLINE_MAP_USING' | translate"
+              [attr.aria-label]="'GPS.OFFLINE_MAP_USING' | translate">
+          <i class="fa fa-check" aria-hidden="true"></i>
+        </span>
+        <span class="tv-offline-note tv-offline-note--ok tv-tip"
+              *ngIf="offlineMessage && !usingOfflineDeviceMap"
+              [attr.data-tv-tip]="offlineMessage | translate"
+              [attr.aria-label]="offlineMessage | translate">
+          <i class="fa fa-check" aria-hidden="true"></i>
+        </span>
+        <span class="tv-offline-note tv-offline-note--err" *ngIf="offlineError">{{ offlineError | translate }}</span>
       </div>
       <div class="trace-viewer-footer-stats-inline d-flex flex-wrap align-items-center justify-content-end gap-2 flex-grow-1 ms-auto min-w-0">
         <div class="trace-stats" *ngIf="trackStats && !hasError">

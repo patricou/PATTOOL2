@@ -9,6 +9,7 @@ import { environment } from '../../environments/environment';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { CommonvaluesService } from './commonvalues.service';
 import { PositionCoordinates, PositionService } from './position.service';
+import { isBrowserOffline, isNetworkHttpFailure, isSessionExpiredHttp } from '../shared/browser-offline.util';
 
 /** Options for {@link MembersService.getUserId}. */
 export interface GetUserIdOptions {
@@ -54,6 +55,11 @@ export class MembersService {
     getUserId(options?: GetUserIdOptions): Observable<Member> {
 
         if (this.user.id == "") {
+            // No server round-trip while the phone is offline: GPS, trace viewer and
+            // itinerary keep the local Keycloak profile and their on-device data.
+            if (isBrowserOffline()) {
+                return of(this.user);
+            }
             this.registration$ ??= from(this._keycloakService.getToken()).pipe(
                 map((token: string) => {
                     return new HttpHeaders({
@@ -75,6 +81,7 @@ export class MembersService {
                         switchMap(position => this.postMembUserRegister(headers, position))
                     );
                 }),
+                catchError((error: unknown) => this.recoverMemberLookupFailure(error)),
                 finalize(() => {
                     this.registration$ = null;
                 }),
@@ -132,13 +139,46 @@ export class MembersService {
                 );
                 this.user = member;
                 return member;
-            }),
-            catchError((error: any) => {
-                console.error("¦=================> Error:", error);
-                alert("Issue to get the Id of the user : " + error);
-                throw error;
             })
         );
+    }
+
+    /**
+     * Startup lookup must not block the shell with alert([object Object]).
+     * 401 → login immediately. Offline / status 0 → keep the local session so GPS still runs.
+     */
+    private recoverMemberLookupFailure(error: unknown): Observable<Member> {
+        const httpError = this.asHttpStatus(error);
+        if (isBrowserOffline() || isNetworkHttpFailure(httpError)) {
+            console.warn('[MembersService] member id unavailable (offline) — keeping local session');
+            return of(this.user);
+        }
+        if (isSessionExpiredHttp(httpError) || this.isLocalSessionFailure(error)) {
+            console.warn('[MembersService] session expired — redirecting to login');
+            this._keycloakService.redirectToLogin();
+            return EMPTY;
+        }
+        console.error('[MembersService] member id request failed', error);
+        return of(this.user);
+    }
+
+    private asHttpStatus(error: unknown): { status?: number } | undefined {
+        if (error && typeof error === 'object' && 'status' in error) {
+            const status = (error as { status?: unknown }).status;
+            return typeof status === 'number' ? { status } : undefined;
+        }
+        return undefined;
+    }
+
+    private isLocalSessionFailure(error: unknown): boolean {
+        const msg = typeof error === 'string'
+            ? error
+            : (error && typeof error === 'object' && 'message' in error
+                ? String((error as { message?: unknown }).message ?? '')
+                : '');
+        return msg === 'Token refresh failed'
+            || msg === 'Not logged in'
+            || msg === 'Keycloak not initialized';
     }
 
     getUser(): Member {

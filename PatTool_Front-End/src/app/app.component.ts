@@ -403,6 +403,11 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.appOffline = false;
         this.scheduleNavbarOffsetSync();
         this.cdr.markForCheck();
+        // Offline launch skips POST /memb/user. Once the network is back, load the member id
+        // (or send the user to login if that token was refused).
+        if (!this.user?.id && this._kc.getTokenSync()) {
+            this.getUserInfo();
+        }
     }
 
     @HostListener('window:resize')
@@ -790,7 +795,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
 
     isAuthenticated(): boolean {
-        return this._kc.getAuth().authenticated;
+        return this._kc.isLoggedIn();
     }
 
     getUserInfo() {
@@ -800,7 +805,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.hasIotRole = this._kc.hasIotRole();
         // Retrive the MLAB user (member) id from MLAB
         this._membersService.setUser(this.user);
-        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        if (isBrowserOffline()) {
             return;
         }
         //this.user = this._membersService.getUser();
@@ -809,6 +814,10 @@ export class AppComponent implements OnInit, AfterViewInit {
         // console.log("0/1|------------------> UserId from AppComponent : " + now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds() + '.' + now.getMilliseconds());
         this._membersService.getUserId({ skipGeolocation: true }).subscribe(member => {
             // console.log("1/1|------------------> UserId from AppComponent ok : user.is :  " + member.id + " / " + now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds() + '.' + now.getMilliseconds());
+            // Network failure keeps the local profile (no Mongo id). Do not treat that as a loaded account.
+            if (!member?.id) {
+                return;
+            }
             this.user.id = member.id;
             // Update user object with member data (including roles)
             this.user = { ...this.user, ...member };
@@ -834,7 +843,12 @@ export class AppComponent implements OnInit, AfterViewInit {
             this._membersService.pushGpsPositionWhenAvailable();
             this.schedulePendingFriendRequestsPrompt();
         },
-            err => alert("Error when retieving MLB user id " + err)
+            (err) => {
+                // MembersService already redirects on 401 and keeps the local session offline.
+                // Never alert() here: stringifying the HttpErrorResponse yields "[object Object]"
+                // and a second dialog stacked on the first one.
+                console.error('[App] member id request failed', err);
+            }
         );
     }
 
