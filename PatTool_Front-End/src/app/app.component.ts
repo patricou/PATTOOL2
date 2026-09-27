@@ -28,6 +28,7 @@ import { YoutubeFloatingPlayerComponent } from './youtube-watcher/youtube-floati
 import { GlobeIssNowService } from './services/globe-iss-now.service';
 import { MongoHealthService, MongoHealthStatus } from './services/mongodb-health.service';
 import { LastRouteService } from './services/last-route.service';
+import { isBrowserOffline } from './shared/browser-offline.util';
 import { BackgroundPlaybackService } from './services/background-playback.service';
 import { GpsRecordingService } from './services/gps-recording.service';
 import { ApiService, AstroGroundPosition, UserAppParameter } from './services/api.service';
@@ -380,6 +381,28 @@ export class AppComponent implements OnInit, AfterViewInit {
     ngAfterViewInit(): void {
         this.syncNavbarOffset();
         this.updatePageTitleWash();
+    }
+
+    /** True while the phone or browser reports no network. */
+    appOffline = isBrowserOffline();
+
+    get offlineBannerText(): string {
+        const translated = this._translate.instant('MENU.OFFLINE_BANNER');
+        return translated && translated !== 'MENU.OFFLINE_BANNER' ? translated : 'PatTool est hors ligne';
+    }
+
+    @HostListener('window:offline')
+    onBrowserOffline(): void {
+        this.appOffline = true;
+        this.scheduleNavbarOffsetSync();
+        this.cdr.markForCheck();
+    }
+
+    @HostListener('window:online')
+    onBrowserOnline(): void {
+        this.appOffline = false;
+        this.scheduleNavbarOffsetSync();
+        this.cdr.markForCheck();
     }
 
     @HostListener('window:resize')

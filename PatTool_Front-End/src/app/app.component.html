@@ -1,4 +1,8 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top" *ngIf="!tvPopoutMode">
+    <div *ngIf="appOffline" class="pat-offline-banner" role="status">
+        <i class="fa fa-plane" aria-hidden="true"></i>
+        <span>{{ offlineBannerText }}</span>
+    </div>
     <!-- Brand -->
     <a class="navbar-brand" [routerLink]="['/home']">
         <img src="assets/images/pat.png" width="30" height="30" class="d-inline-block" alt="">

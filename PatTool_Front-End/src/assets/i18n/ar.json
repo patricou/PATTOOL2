@@ -15,6 +15,7 @@
   },
   "MENU": {
     "BRAND": "PATTOOL",
+    "OFFLINE_BANNER": "PatTool غير متصل",
     "LANG": "اللغة",
     "DOCUMENTATION": "التوثيق",
     "SLIDESHOW_DOCUMENTATION": "عرض الشرائح — دليل",

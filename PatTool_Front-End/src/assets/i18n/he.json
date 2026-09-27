@@ -15,6 +15,7 @@
   },
   "MENU": {
     "BRAND": "PATTOOL",
+    "OFFLINE_BANNER": "PatTool לא מחובר",
     "LANG": "שפה",
     "DOCUMENTATION": "תיעוד",
     "SLIDESHOW_DOCUMENTATION": "מצגת — מדריך",

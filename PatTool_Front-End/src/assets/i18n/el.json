@@ -15,6 +15,7 @@
   },
   "MENU": {
     "BRAND": "PATTOOL",
+    "OFFLINE_BANNER": "Το PatTool είναι εκτός σύνδεσης",
     "LANG": "Γλώσσα",
     "DOCUMENTATION": "Τεκμηρίωση",
     "SLIDESHOW_DOCUMENTATION": "Παρουσίαση — οδηγός",

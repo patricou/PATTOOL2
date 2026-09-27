@@ -449,6 +449,7 @@
   },
   "MENU": {
     "BRAND": "PATTOOL",
+    "OFFLINE_BANNER": "PatTool не в сети",
     "LANG": "Язык",
     "DOCUMENTATION": "Документация",
     "SLIDESHOW_DOCUMENTATION": "Слайд-шоу — руководство",

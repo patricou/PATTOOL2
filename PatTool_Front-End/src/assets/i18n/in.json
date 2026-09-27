@@ -448,6 +448,7 @@
   },
   "MENU": {
     "BRAND": "PATTOOL",
+    "OFFLINE_BANNER": "PatTool ऑफ़लाइन है",
     "LANG": "भाषा",
     "DOCUMENTATION": "प्रलेखन",
     "SLIDESHOW_DOCUMENTATION": "स्लाइडशो — गाइड",
