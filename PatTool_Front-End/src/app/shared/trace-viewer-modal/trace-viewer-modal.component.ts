@@ -25,7 +25,7 @@ import {
 import { isValidGeoCoordinate } from '../geo-coordinates.util';
 import { GpsOfflineMapProgress, GpsOfflineMapService, formatOfflinePackSize } from '../../services/gps-offline-map.service';
 import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../../gps-track/gps-offline-tiles.store';
-import { GpsLatLon } from '../../gps-track/gps-offline-tiles.util';
+import { viewWindowFromMap } from '../../gps-track/gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
 import { isBrowserOffline } from '../browser-offline.util';
 import { GpsMapOrientation } from '../gps-map-orientation';
@@ -3381,17 +3381,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	async downloadTraceOfflineMap(): Promise<void> {
-		const points = this.offlineDownloadPoints();
-		if (points.length < 1) {
-			this.offlineError = 'GPS.OFFLINE_MAP_NEED_POINTS';
+		const view = viewWindowFromMap(this.map);
+		if (!view) {
+			this.offlineError = 'GPS.OFFLINE_MAP_NEED_VIEW';
 			this.cdr.markForCheck();
 			return;
 		}
 		this.offlineMessage = '';
-		const aroundHere = points.length < 2;
-		const ok = await this.offlineMap.downloadAround(
-			points,
-			aroundHere,
+		const ok = await this.offlineMap.downloadView(
+			view,
 			this.selectedBaseLayerId,
 			this.selectedCartesGouvLayerId
 		);
@@ -3401,11 +3399,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.cdr.markForCheck();
 	}
 
-	useSavedOfflineMap(): void {
-		if (this.offlineMeta.tileCount < 1) {
-			return;
-		}
-		this.offlineUseDevice = true;
+	setTraceOfflineSource(useDevice: boolean): void {
+		this.offlineUseDevice = !!useDevice && this.offlineMeta.tileCount > 0;
 		this.offlineFallback = false;
 		this.applySelectedBaseLayer();
 		this.cdr.markForCheck();
@@ -3444,19 +3439,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}));
 		window.addEventListener('offline', this.onOffline);
 		window.addEventListener('online', this.onOnline);
-	}
-
-	private offlineDownloadPoints(): GpsLatLon[] {
-		if (this.trackOrientationCoords.length >= 1) {
-			return this.trackOrientationCoords
-				.filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]))
-				.map((p) => ({ lat: p[0], lon: p[1] }));
-		}
-		if (this.map) {
-			const c = this.map.getCenter();
-			return [{ lat: c.lat, lon: c.lng }];
-		}
-		return [];
 	}
 
 	private applyTraceOfflineBasemap(online: boolean): void {

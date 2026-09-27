@@ -36,6 +36,7 @@ import {
   GpsOfflineMapService
 } from '../services/gps-offline-map.service';
 import { GpsOfflinePackMeta, GpsOfflineTilesStore } from './gps-offline-tiles.store';
+import { viewWindowAround, viewWindowFromMap } from './gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../shared/leaflet-cached-tile.layer';
 import { GpsNav3dComponent, GpsNav3dFix } from '../gps-routing/gps-nav-3d.component';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
@@ -187,15 +188,9 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   setOfflineMapSource(useDevice: boolean): void {
     const next = !!useDevice && this.offlineMeta.tileCount > 0;
     this.offlineSourceExplicit = true;
-    if (next === this.offlineUseDevice) {
-      this.persistOfflineMapSource();
-      return;
-    }
     this.offlineUseDevice = next;
+    this.offlineFallback = false;
     this.persistOfflineMapSource();
-    if (next) {
-      this.offlineFallback = false;
-    }
     this.applyGpsBaseLayer();
     this.cdr.markForCheck();
   }
@@ -213,11 +208,11 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   }
 
   get canDownloadOfflineMap(): boolean {
-    return this.snap.track.length >= 2 || this.snap.recorded.length >= 2;
+    return !!this.map;
   }
 
   get canDownloadOfflineHere(): boolean {
-    return !!this.snap.user && Number.isFinite(this.snap.user.lat) && Number.isFinite(this.snap.user.lon);
+    return !!this.map && !!this.snap.user && Number.isFinite(this.snap.user.lat) && Number.isFinite(this.snap.user.lon);
   }
 
   get nav3dCoords(): number[][] {
@@ -1091,13 +1086,14 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   }
 
   async downloadOfflineMap(): Promise<void> {
-    const points = this.snap.track.length >= 2 ? this.snap.track : this.snap.recorded;
-    if (points.length < 2) {
-      this.offlineError = 'GPS.OFFLINE_MAP_NEED_POINTS';
+    const view = viewWindowFromMap(this.map);
+    if (!view) {
+      this.offlineError = 'GPS.OFFLINE_MAP_NEED_VIEW';
+      this.cdr.markForCheck();
       return;
     }
     this.successMessage = '';
-    const ok = await this.offlineMap.downloadAround(points, false, this.mapBaseLayerId);
+    const ok = await this.offlineMap.downloadView(view, this.mapBaseLayerId);
     if (ok) {
       this.successMessage = 'GPS.OFFLINE_MAP_DONE';
     }
@@ -1105,13 +1101,16 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   }
 
   async downloadOfflineHere(): Promise<void> {
+    const view = viewWindowFromMap(this.map);
     const u = this.snap.user;
-    if (!u) {
-      this.offlineError = 'GPS.OFFLINE_MAP_NEED_POINTS';
+    const around = view && u ? viewWindowAround(view, u.lat, u.lon) : null;
+    if (!around) {
+      this.offlineError = 'GPS.OFFLINE_MAP_NEED_VIEW';
+      this.cdr.markForCheck();
       return;
     }
     this.successMessage = '';
-    const ok = await this.offlineMap.downloadAround([{ lat: u.lat, lon: u.lon }], true, this.mapBaseLayerId);
+    const ok = await this.offlineMap.downloadView(around, this.mapBaseLayerId);
     if (ok) {
       this.successMessage = 'GPS.OFFLINE_MAP_DONE';
     }

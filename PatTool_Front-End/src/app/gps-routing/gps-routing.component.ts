@@ -30,7 +30,7 @@ import { LeafletBasemapOption, LeafletBasemapService } from '../shared/leaflet-b
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { GpsOfflineMapProgress, GpsOfflineMapService } from '../services/gps-offline-map.service';
 import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../gps-track/gps-offline-tiles.store';
-import { GpsLatLon } from '../gps-track/gps-offline-tiles.util';
+import { viewWindowFromMap } from '../gps-track/gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../shared/leaflet-cached-tile.layer';
 import { GpsBasemapPickerComponent } from '../shared/gps-basemap-picker.component';
 import { GpsNav3dComponent } from './gps-nav-3d.component';
@@ -161,6 +161,8 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   offlineError = '';
   offlineMessage = '';
   offlineMeta: GpsOfflinePackMeta = { tileCount: 0, bytes: 0, updatedAt: null };
+  /** When true, the visible basemap is the on-device pack. */
+  offlineUseDevice = false;
   mapFullscreen = false;
   nav3dActive = false;
   historyOpen = false;
@@ -189,6 +191,8 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   private deviceHeadingDeg: number | null = null;
   private routeHeadingDeg = 0;
   private offlineFallback = false;
+  /** User chose online while a pack exists; do not force the pack back on the next meta update. */
+  private offlineSourceExplicit = false;
   private offlineLastOnline = typeof navigator === 'undefined' || navigator.onLine;
 
   constructor(
@@ -238,9 +242,15 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
       this.viaSearch$.pipe(debounceTime(350)).subscribe(({ id, query }) => this.runGeocodeVia(id, query)),
       this.activatedRoute.queryParamMap.subscribe((params: ParamMap) => this.consumeIncomingRouteParams(params)),
       this.offlineMap.meta$.subscribe((m) => {
+        const hadPack = this.offlineMeta.tileCount > 0;
         this.offlineMeta = m;
-        if (!this.offlineLastOnline && m.tileCount > 0) {
+        if (!m.tileCount) {
+          this.offlineUseDevice = false;
+          this.offlineFallback = false;
+        } else if (!this.offlineLastOnline && !(this.offlineSourceExplicit && !this.offlineUseDevice)) {
           this.offlineFallback = true;
+        }
+        if (this.map && (!m.tileCount || this.offlineUseDevice || this.offlineFallback || hadPack)) {
           this.applyRoutingBaseLayer();
         }
         this.cdr.markForCheck();
@@ -934,8 +944,24 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.basemap.getAvailableLayers();
   }
 
+  get usingOfflineDeviceMap(): boolean {
+    return this.offlineMeta.tileCount > 0 && (this.offlineUseDevice || this.offlineFallback);
+  }
+
+  setRoutingOfflineSource(useDevice: boolean): void {
+    this.offlineSourceExplicit = true;
+    this.offlineUseDevice = !!useDevice && this.offlineMeta.tileCount > 0;
+    this.offlineFallback = false;
+    this.applyRoutingBaseLayer();
+    this.cdr.markForCheck();
+  }
+
   onBasemapPicked(layerId: string): void {
     this.mapBaseLayerId = layerId;
+    this.offlineUseDevice = false;
+    this.offlineSourceExplicit = true;
+    const online = typeof navigator === 'undefined' || navigator.onLine;
+    this.offlineFallback = !online && this.offlineMeta.tileCount > 0;
     this.onMapBaseLayerChange();
   }
 
@@ -954,28 +980,33 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.map) {
       return;
     }
-    if (!online && this.offlineMeta.tileCount > 0) {
+    if (!online && this.offlineMeta.tileCount > 0 && !(this.offlineSourceExplicit && !this.offlineUseDevice)) {
       this.offlineFallback = true;
       this.applyRoutingBaseLayer();
       this.cdr.markForCheck();
       return;
     }
-    if (online && this.offlineFallback) {
-      this.offlineFallback = false;
-      this.applyRoutingBaseLayer();
-      this.cdr.markForCheck();
+    if (online) {
+      if (!this.offlineUseDevice) {
+        this.offlineSourceExplicit = false;
+      }
+      if (this.offlineFallback) {
+        this.offlineFallback = false;
+        this.applyRoutingBaseLayer();
+        this.cdr.markForCheck();
+      }
     }
   }
 
   async downloadRoutingOfflineMap(): Promise<void> {
-    const points = this.routingOfflinePoints();
-    if (!points.length) {
-      this.offlineError = 'GPS.OFFLINE_MAP_NEED_POINTS';
+    const view = viewWindowFromMap(this.map);
+    if (!view) {
+      this.offlineError = 'GPS.OFFLINE_MAP_NEED_VIEW';
       this.cdr.markForCheck();
       return;
     }
     this.offlineMessage = '';
-    const ok = await this.offlineMap.downloadAround(points, points.length < 2, this.mapBaseLayerId);
+    const ok = await this.offlineMap.downloadView(view, this.mapBaseLayerId);
     if (ok) {
       this.offlineMessage = 'GPS.OFFLINE_MAP_DONE';
     }
@@ -986,35 +1017,11 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.offlineMap.cancel();
   }
 
-  private routingOfflinePoints(): GpsLatLon[] {
-    const fromRoute = (this.route?.coordinates || [])
-      .filter((c) => Array.isArray(c) && c.length >= 2 && Number.isFinite(c[0]) && Number.isFinite(c[1]))
-      .map((c) => ({ lat: c[0], lon: c[1] }));
-    if (fromRoute.length) {
-      return fromRoute;
-    }
-    const pts: GpsLatLon[] = [];
-    if (this.fromPoint) {
-      pts.push({ lat: this.fromPoint.lat, lon: this.fromPoint.lon });
-    }
-    for (const via of this.resolvedViaPoints()) {
-      pts.push({ lat: via.lat, lon: via.lon });
-    }
-    if (this.toPoint) {
-      pts.push({ lat: this.toPoint.lat, lon: this.toPoint.lon });
-    }
-    if (pts.length) {
-      return pts;
-    }
-    const center = this.map?.getCenter();
-    return center ? [{ lat: center.lat, lon: center.lng }] : [];
-  }
-
   private applyRoutingBaseLayer(): void {
     if (!this.map) {
       return;
     }
-    if (this.offlineFallback && this.offlineMeta.tileCount > 0) {
+    if (this.offlineMeta.tileCount > 0 && (this.offlineUseDevice || this.offlineFallback)) {
       if (this.baseLayer) {
         this.map.removeLayer(this.baseLayer);
       }

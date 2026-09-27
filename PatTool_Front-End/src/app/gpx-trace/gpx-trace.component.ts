@@ -26,7 +26,7 @@ import {
 import { firstValueFrom, Subscription } from 'rxjs';
 import { GpsOfflineMapProgress, GpsOfflineMapService, formatOfflinePackSize } from '../services/gps-offline-map.service';
 import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../gps-track/gps-offline-tiles.store';
-import { GpsLatLon } from '../gps-track/gps-offline-tiles.util';
+import { viewWindowFromMap } from '../gps-track/gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../shared/leaflet-cached-tile.layer';
 import { isBrowserOffline } from '../shared/browser-offline.util';
 
@@ -226,28 +226,25 @@ export class GpxTraceComponent implements AfterViewInit, OnDestroy {
   }
 
   async downloadOfflineMap(): Promise<void> {
-    const points = this.offlineDownloadPoints();
-    if (points.length < 1) {
-      this.offlineError = 'GPS.OFFLINE_MAP_NEED_POINTS';
+    const view = viewWindowFromMap(this.map);
+    if (!view) {
+      this.offlineError = 'GPS.OFFLINE_MAP_NEED_VIEW';
       this.cdr.markForCheck();
       return;
     }
     this.offlineMessage = '';
-    const aroundHere = points.length < 2;
-    const ok = await this.offlineMap.downloadAround(points, aroundHere, this.mapBaseLayerId);
+    const ok = await this.offlineMap.downloadView(view, this.mapBaseLayerId);
     if (ok) {
       this.offlineMessage = 'GPS.OFFLINE_MAP_DONE';
     }
     this.cdr.markForCheck();
   }
 
-  useSavedOfflineMap(): void {
-    if (this.offlineMeta.tileCount < 1) {
-      return;
-    }
-    this.offlineUseDevice = true;
+  setOfflineMapSource(useDevice: boolean): void {
+    this.offlineUseDevice = !!useDevice && this.offlineMeta.tileCount > 0;
     this.offlineFallback = false;
     this.applyGpxBaseLayer();
+    this.cdr.markForCheck();
   }
 
   cancelOfflineMap(): void {
@@ -431,13 +428,6 @@ export class GpxTraceComponent implements AfterViewInit, OnDestroy {
     }));
     window.addEventListener('offline', this.onOffline);
     window.addEventListener('online', this.onOnline);
-  }
-
-  private offlineDownloadPoints(): GpsLatLon[] {
-    const pts = this.analysis?.points || [];
-    return pts
-      .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon))
-      .map((p) => ({ lat: p.lat, lon: p.lon }));
   }
 
   private applyOfflineBasemap(online: boolean): void {

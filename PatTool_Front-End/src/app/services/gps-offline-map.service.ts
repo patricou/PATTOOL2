@@ -9,11 +9,13 @@ import {
   GPS_OFFLINE_MIN_Z,
   GpsLatLon,
   GpsTileXYZ,
+  GpsViewWindow,
   gpsTileId,
   offlineBasemapParts,
   offlinePackStyleId,
   offlineTileStyle,
-  tilesAroundPoints
+  tilesAroundPoints,
+  tilesInView
 } from '../gps-track/gps-offline-tiles.util';
 import { cachedBasemapTileUrl } from '../shared/leaflet-cached-tile.layer';
 
@@ -94,19 +96,22 @@ export class GpsOfflineMapService {
     return first || selected;
   }
 
+  /** Tiles for the map window on screen (current zoom, plus one level each way). */
+  async downloadView(
+    view: GpsViewWindow,
+    basemapId = 'osm-standard',
+    cartesLayerId?: string
+  ): Promise<boolean> {
+    const style = offlinePackStyleId(basemapId, cartesLayerId);
+    return this.downloadTiles(style, tilesInView(view), 'GPS.OFFLINE_MAP_NEED_VIEW');
+  }
+
   async downloadAround(
     points: GpsLatLon[],
     aroundHere = false,
     basemapId = 'osm-standard',
     cartesLayerId?: string
   ): Promise<boolean> {
-    if (this.downloading) {
-      return false;
-    }
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      this.lastError$.next('GPS.OFFLINE_MAP_NEED_NET');
-      return false;
-    }
     const style = offlinePackStyleId(basemapId, cartesLayerId);
     const tiles = tilesAroundPoints(points, {
       bufferM: aroundHere ? GPS_OFFLINE_HERE_BUFFER_M : GPS_OFFLINE_BUFFER_M,
@@ -114,9 +119,37 @@ export class GpsOfflineMapService {
       maxZ: GPS_OFFLINE_MAX_Z,
       maxTiles: GPS_OFFLINE_MAX_TILES
     });
+    return this.downloadTiles(style, tiles, 'GPS.OFFLINE_MAP_NEED_POINTS');
+  }
+
+  cancel(): void {
+    this.abort?.abort();
+  }
+
+  async clear(): Promise<void> {
+    this.cancel();
+    await this.store.clear();
+    this.lastStyle = null;
+    try {
+      localStorage.removeItem(LAST_STYLE_KEY);
+    } catch {
+      /* private mode */
+    }
+    this.progress$.next(EMPTY_PROGRESS);
+    await this.refreshMeta();
+  }
+
+  private async downloadTiles(style: string, tiles: GpsTileXYZ[], emptyKey: string): Promise<boolean> {
+    if (this.downloading) {
+      return false;
+    }
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      this.lastError$.next('GPS.OFFLINE_MAP_NEED_NET');
+      return false;
+    }
     const jobs = this.jobsFor(style, tiles);
     if (!jobs.length) {
-      this.lastError$.next('GPS.OFFLINE_MAP_NEED_POINTS');
+      this.lastError$.next(emptyKey);
       return false;
     }
     this.lastError$.next(null);
@@ -159,23 +192,6 @@ export class GpsOfflineMapService {
       this.downloading$.next(false);
       this.abort = null;
     }
-  }
-
-  cancel(): void {
-    this.abort?.abort();
-  }
-
-  async clear(): Promise<void> {
-    this.cancel();
-    await this.store.clear();
-    this.lastStyle = null;
-    try {
-      localStorage.removeItem(LAST_STYLE_KEY);
-    } catch {
-      /* private mode */
-    }
-    this.progress$.next(EMPTY_PROGRESS);
-    await this.refreshMeta();
   }
 
   private async fetchOne(style: string, part: number, tile: GpsTileXYZ, signal: AbortSignal): Promise<boolean> {

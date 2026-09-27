@@ -200,6 +200,18 @@
                     </option>
                   </select>
                 </label>
+                <div class="form-check form-switch gpx-offline-switch mb-0"
+                     [attr.title]="'GPS.OFFLINE_MAP_SOURCE_HINT' | translate">
+                  <input class="form-check-input"
+                         type="checkbox"
+                         id="gpx-offline-source"
+                         role="switch"
+                         [ngModel]="usingOfflineDeviceMap"
+                         (ngModelChange)="setOfflineMapSource($event)"
+                         [disabled]="offlineDownloading || !offlineMeta.tileCount"
+                         [attr.aria-label]="'GPS.OFFLINE_MAP_SOURCE_LABEL' | translate">
+                  <label class="form-check-label" for="gpx-offline-source">{{ 'GPS.OFFLINE_MAP_BTN' | translate }}</label>
+                </div>
                 <button type="button"
                         class="btn btn-sm btn-outline-secondary"
                         (click)="toggleMapFullscreen()"
@@ -218,12 +230,6 @@
                       (click)="downloadOfflineMap()"
                       [disabled]="offlineDownloading">
                 {{ 'GPS.OFFLINE_MAP_DOWNLOAD' | translate }}
-              </button>
-              <button type="button"
-                      class="btn btn-sm btn-outline-secondary"
-                      *ngIf="offlineMeta.tileCount > 0 && !usingOfflineDeviceMap"
-                      (click)="useSavedOfflineMap()">
-                {{ 'GPS.OFFLINE_MAP_SOURCE_DEVICE' | translate }}
               </button>
               <button type="button"
                       class="btn btn-sm btn-outline-secondary"

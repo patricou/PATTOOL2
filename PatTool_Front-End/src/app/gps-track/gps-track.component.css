@@ -1539,6 +1539,28 @@
   padding-top: 0;
 }
 
+.gps-offline-switch.form-check {
+  flex: 0 0 auto;
+  margin: 0;
+  padding-left: 2.5em;
+  min-height: 1.5rem;
+}
+
+.gps-offline-switch .form-check-input {
+  cursor: pointer;
+}
+
+.gps-offline-switch .form-check-input:disabled {
+  cursor: not-allowed;
+}
+
+.gps-offline-switch .form-check-label {
+  white-space: nowrap;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .gps-offline-source {
   display: flex;
   align-items: center;

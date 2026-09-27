@@ -839,6 +839,30 @@
 	margin: 0;
 }
 
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-switch.form-check {
+	margin: 0;
+	padding-left: 2.35em;
+	min-height: 1.35rem;
+	display: block;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-switch .form-check-input {
+	cursor: pointer;
+	margin-top: 0.15rem;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-switch .form-check-input:disabled {
+	cursor: not-allowed;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-switch .form-check-label {
+	color: #f7fbff !important;
+	font-size: 0.75rem !important;
+	font-weight: 600;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-map-btn {
 	display: inline-flex;
 	align-items: center;
@@ -1205,6 +1229,23 @@
 
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group .tv-tip::after {
 	white-space: normal;
+}
+
+/* Première ligne du footer, juste sous la carte : le tooltip vers le haut est coupé. */
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-basemap-slot,
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-row--primary {
+	overflow: visible;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-basemap-slot .tv-tip::after {
+	left: 0;
+	right: auto;
+	bottom: auto;
+	top: calc(100% + 8px);
+	transform: none;
+	white-space: normal;
+	max-width: min(18rem, 70vw);
+	text-align: left;
 }
 
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group > .tv-tip:first-child::after,
@@ -1673,6 +1714,33 @@
 .fullscreen-selector-body {
 	display: flex;
 	flex-direction: column;
+}
+
+.fullscreen-offline-row .btn {
+	width: auto;
+	min-width: 2rem;
+	height: 2rem;
+	padding: 0.2rem 0.45rem;
+}
+
+.fullscreen-selector .fullscreen-offline-switch.form-check {
+	margin: 0;
+	padding-left: 2.4em;
+	min-height: 1.35rem;
+}
+
+.fullscreen-selector .fullscreen-offline-switch .form-check-input {
+	cursor: pointer;
+}
+
+.fullscreen-selector .fullscreen-offline-switch .form-check-input:disabled {
+	cursor: not-allowed;
+}
+
+.fullscreen-selector .fullscreen-offline-switch .form-check-label {
+	white-space: nowrap;
+	cursor: pointer;
+	font-size: 0.8rem;
 }
 
 .fullscreen-selector-icon-actions {
