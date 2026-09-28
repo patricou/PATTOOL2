@@ -1,0 +1,72 @@
+<div class="pat-title">
+  <h2>
+    <span class="apk-android-logo apk-android-logo--title" aria-hidden="true">
+      <ng-container *ngTemplateOutlet="androidLogo"></ng-container>
+    </span>
+    {{ 'APK_DOWNLOAD.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="apk-page">
+  <p class="apk-lead">{{ 'APK_DOWNLOAD.LEAD' | translate }}</p>
+
+  <article class="apk-card">
+    <div class="apk-file">
+      <img class="apk-app-icon" src="assets/images/pattool-app-icon.png" alt="PatTool">
+      <div class="apk-file-body">
+        <div class="apk-file-name">PatTool</div>
+        <div class="apk-platform">
+          <span class="apk-android-logo" aria-hidden="true">
+            <ng-container *ngTemplateOutlet="androidLogo"></ng-container>
+          </span>
+          <span>{{ 'APK_DOWNLOAD.FOR_ANDROID' | translate }}</span>
+        </div>
+        <div class="apk-file-apk">pattool.apk</div>
+        <div class="apk-meta" *ngIf="bytes != null || builtAt">
+          <span *ngIf="bytes != null">{{ 'APK_DOWNLOAD.SIZE' | translate:{ size: formatSize(bytes) } }}</span>
+          <span *ngIf="builtAt">{{ 'APK_DOWNLOAD.BUILT' | translate:{ date: (builtAt | date:'dd/MM/yyyy HH:mm') } }}</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="apk-missing" *ngIf="available === false">{{ 'APK_DOWNLOAD.MISSING' | translate }}</p>
+
+    <a *ngIf="available !== false"
+       class="apk-download"
+       [href]="downloadUrl"
+       download="pattool.apk">
+      <i class="fa fa-download" aria-hidden="true"></i>
+      {{ 'APK_DOWNLOAD.DOWNLOAD' | translate }}
+    </a>
+    <button *ngIf="available === false" type="button" class="apk-download" disabled>
+      <i class="fa fa-download" aria-hidden="true"></i>
+      {{ 'APK_DOWNLOAD.DOWNLOAD' | translate }}
+    </button>
+
+    <ol class="apk-steps">
+      <li>
+        <span class="apk-step-n" aria-hidden="true">1</span>
+        <span>{{ 'APK_DOWNLOAD.STEP_1' | translate }}</span>
+      </li>
+      <li>
+        <span class="apk-step-n" aria-hidden="true">2</span>
+        <span>{{ 'APK_DOWNLOAD.STEP_2' | translate }}</span>
+      </li>
+      <li>
+        <span class="apk-step-n" aria-hidden="true">3</span>
+        <span>{{ 'APK_DOWNLOAD.STEP_3' | translate }}</span>
+      </li>
+    </ol>
+
+    <p class="apk-note">
+      <i class="fa fa-info-circle" aria-hidden="true"></i>
+      <span>{{ 'APK_DOWNLOAD.OPEN_HINT' | translate }}</span>
+    </p>
+  </article>
+</div>
+
+<ng-template #androidLogo>
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path fill="currentColor" d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85-.3-.15-.68-.04-.84.26l-1.88 3.24a11.46 11.46 0 0 0-8.92 0L5.66 5.71c-.16-.3-.54-.41-.84-.26-.3.16-.42.54-.26.85l1.84 3.18C2.92 11.03 1 14.22 1 17.85h22c0-3.63-1.92-6.82-5.4-8.37zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"/>
+  </svg>
+</ng-template>

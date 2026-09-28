@@ -1,0 +1,206 @@
+:host {
+  display: block;
+  --pat-title-bg: linear-gradient(135deg, #34a853 0%, #188038 52%, #0d5c28 100%);
+  --pat-title-accent: #188038;
+  --pat-title-shadow: 0 4px 15px rgba(13, 92, 40, 0.4);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='88' height='64' viewBox='0 0 88 64'%3E%3Cpath fill='white' fill-opacity='0.16' d='M58.2 24.6l2.8-4.8c.24-.47.06-1.04-.39-1.28-.45-.23-1.02-.06-1.26.39l-2.82 4.86a17.2 17.2 0 0 0-13.38 0l-2.82-4.86c-.24-.45-.81-.62-1.26-.39-.45.24-.63.81-.39 1.28l2.76 4.77C32.4 26.9 29.5 31.7 29.5 37.1h33c0-5.45-2.88-10.23-8.1-12.56zM39.5 33.2a1.88 1.88 0 1 1 0-3.75 1.88 1.88 0 0 1 0 3.75zm15 0a1.88 1.88 0 1 1 0-3.75 1.88 1.88 0 0 1 0 3.75z'/%3E%3C/svg%3E");
+}
+
+.apk-page {
+  box-sizing: border-box;
+  width: min(38rem, calc(100% - 2rem));
+  margin: 0.35rem auto 2.75rem;
+}
+
+.apk-lead {
+  margin: 0 0 1.15rem;
+  padding: 0 0.35rem;
+  text-align: center;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.apk-card {
+  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 1.15rem;
+  padding: 1.35rem 1.15rem 1.25rem;
+  box-shadow: 0 14px 36px rgba(30, 41, 59, 0.08);
+}
+
+.apk-file {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1.15rem;
+}
+
+.apk-app-icon {
+  flex: 0 0 auto;
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #f8fafc;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14);
+}
+
+.apk-android-logo {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 1.2rem;
+  height: 1.2rem;
+  color: #3ddc84;
+}
+
+.apk-android-logo svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.apk-android-logo--title {
+  width: 1.45rem;
+  height: 1.45rem;
+  margin-inline-end: 0.45rem;
+  color: #fff;
+}
+
+.apk-platform {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+  color: #146c36;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.apk-file-apk {
+  margin-top: 0.28rem;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.apk-file-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #0f172a;
+  letter-spacing: 0.01em;
+}
+
+.apk-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.apk-meta span {
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.apk-missing {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.75rem;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.apk-download {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border: 0;
+  border-radius: 0.85rem;
+  background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28);
+}
+
+.apk-download:hover {
+  color: #fff;
+  filter: brightness(1.05);
+}
+
+.apk-download:disabled {
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.apk-steps {
+  list-style: none;
+  margin: 1.35rem 0 0;
+  padding: 1.15rem 0 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.apk-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.apk-steps li + li {
+  margin-top: 0.85rem;
+}
+
+.apk-step-n {
+  flex: 0 0 auto;
+  width: 1.55rem;
+  height: 1.55rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.apk-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 1.15rem 0 0;
+  padding: 0.8rem 0.85rem;
+  border-radius: 0.8rem;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.apk-note .fa {
+  margin-top: 0.15rem;
+  color: #64748b;
+}
+
+@media (min-width: 768px) {
+  .apk-page {
+    width: min(40rem, calc(100% - 4.5rem));
+    margin-top: 0.75rem;
+    margin-bottom: 3rem;
+  }
+
+  .apk-card {
+    padding: 1.6rem 1.55rem 1.4rem;
+  }
+}

@@ -246,6 +246,26 @@
             </button>
             <button type="button"
                     class="btn btn-sm"
+                    [class.btn-outline-primary]="!offlineTraceSaved"
+                    [class.btn-success]="offlineTraceSaved"
+                    (click)="saveRouteOffline()"
+                    [disabled]="offlineTraceSaving || !route?.coordinates?.length"
+                    [title]="(offlineTraceSaved ? 'GPS_ROUTING.SAVED_OFFLINE' : 'GPS_ROUTING.SAVE_OFFLINE') | translate">
+              <i class="fa me-1"
+                 [class.fa-spinner]="offlineTraceSaving"
+                 [class.fa-spin]="offlineTraceSaving"
+                 [class.fa-check]="!offlineTraceSaving && offlineTraceSaved"
+                 [class.fa-cloud-download]="!offlineTraceSaving && !offlineTraceSaved"
+                 aria-hidden="true"></i>{{ (offlineTraceSaved ? 'GPS_ROUTING.SAVED_OFFLINE_SHORT' : 'GPS_ROUTING.SAVE_OFFLINE_SHORT') | translate }}
+            </button>
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    (click)="openOfflineTraces()"
+                    [title]="'EVENTELEM.OFFLINE_TRACES_BTN' | translate">
+              <i class="fa fa-folder-open me-1" aria-hidden="true"></i>{{ 'EVENTELEM.OFFLINE_TRACES_BTN' | translate }}
+            </button>
+            <button type="button"
+                    class="btn btn-sm"
                     [class.btn-info]="nav3dActive"
                     [class.btn-outline-info]="!nav3dActive"
                     (click)="toggleNav3d()"
@@ -276,6 +296,10 @@
               <span class="badge bg-light text-dark ms-1" *ngIf="recentSearches.length">{{ recentSearches.length }}</span>
             </button>
           </div>
+          <p class="small mb-2"
+             *ngIf="offlineTraceNotice"
+             [class.text-success]="offlineTraceNoticeOk"
+             [class.text-danger]="!offlineTraceNoticeOk">{{ offlineTraceNotice }}</p>
 
           <div class="gps-history mb-3" *ngIf="historyOpen">
             <div class="d-flex align-items-center justify-content-between mb-1">
@@ -471,6 +495,20 @@
                       [attr.aria-label]="'GPS_ROUTING.EXPORT_GPX' | translate">
                 <i class="fa fa-download" aria-hidden="true"></i>
                 <span class="gps-map-action-label">{{ 'GPS_ROUTING.EXPORT_GPX_SHORT' | translate }}</span>
+              </button>
+              <button type="button"
+                      class="btn btn-sm btn-light gps-map-action-btn shadow-sm"
+                      (click)="saveRouteOffline()"
+                      [disabled]="offlineTraceSaving || !route?.coordinates?.length"
+                      [attr.title]="(offlineTraceSaved ? 'GPS_ROUTING.SAVED_OFFLINE' : 'GPS_ROUTING.SAVE_OFFLINE') | translate"
+                      [attr.aria-label]="'GPS_ROUTING.SAVE_OFFLINE' | translate">
+                <i class="fa"
+                   [class.fa-spinner]="offlineTraceSaving"
+                   [class.fa-spin]="offlineTraceSaving"
+                   [class.fa-check]="!offlineTraceSaving && offlineTraceSaved"
+                   [class.fa-cloud-download]="!offlineTraceSaving && !offlineTraceSaved"
+                   aria-hidden="true"></i>
+                <span class="gps-map-action-label">{{ (offlineTraceSaved ? 'GPS_ROUTING.SAVED_OFFLINE_SHORT' : 'GPS_ROUTING.SAVE_OFFLINE_SHORT') | translate }}</span>
               </button>
               <button type="button"
                       class="btn btn-sm btn-light gps-map-action-btn shadow-sm"

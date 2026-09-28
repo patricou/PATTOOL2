@@ -140,6 +140,8 @@ vite.config.ts.timestamp-*
 PatTool_Front-End/.angular/cache/**
 PatTool_Back-End/src/main/resources/application.properties
 PatTool_Front-End/www/
+PatTool_Front-End/src/assets/downloads/*.apk
+PatTool_Front-End/src/assets/downloads/*.json
 PatTool_Back-End/src/main/resources/static/**
 !PatTool_Back-End/src/main/resources/static/assets
 PatTool_Back-End/target/**

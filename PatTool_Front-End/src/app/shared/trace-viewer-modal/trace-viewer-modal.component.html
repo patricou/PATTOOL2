@@ -301,6 +301,14 @@
                     [attr.aria-label]="'GPS.OFFLINE_MAP_OPEN' | translate">
               <i class="fa fa-download" aria-hidden="true"></i>
             </button>
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary tv-offline-traces-btn"
+                    (click)="openOfflineTracesModal()"
+                    [attr.title]="'EVENTELEM.OFFLINE_TRACES_BTN' | translate"
+                    [attr.aria-label]="'EVENTELEM.OFFLINE_TRACES_BTN' | translate">
+              <i class="fa fa-folder-open" aria-hidden="true"></i>
+              <span class="tv-offline-traces-count" *ngIf="offlineTraceCount">{{ offlineTraceCount }}</span>
+            </button>
             <div class="form-check form-switch fullscreen-offline-switch mb-0"
                  [attr.title]="'GPS.OFFLINE_MAP_SOURCE_HINT' | translate">
               <input class="form-check-input"
@@ -483,6 +491,14 @@
                 [attr.title]="'GPS.OFFLINE_MAP_OPEN' | translate"
                 [attr.aria-label]="'GPS.OFFLINE_MAP_OPEN' | translate">
           <i class="fa fa-download" aria-hidden="true"></i>
+        </button>
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary tv-offline-traces-btn tv-tip"
+                (click)="openOfflineTracesModal()"
+                [attr.data-tv-tip]="'EVENTELEM.OFFLINE_TRACES_BTN' | translate"
+                [attr.aria-label]="'EVENTELEM.OFFLINE_TRACES_BTN' | translate">
+          <i class="fa fa-folder-open" aria-hidden="true"></i>
+          <span class="tv-offline-traces-count" *ngIf="offlineTraceCount">{{ offlineTraceCount }}</span>
         </button>
         <div class="form-check form-switch tv-offline-switch mb-0 tv-tip"
              [attr.data-tv-tip]="'GPS.OFFLINE_MAP_SOURCE_HINT' | translate">
@@ -846,6 +862,65 @@
             sandbox="allow-forms allow-scripts allow-same-origin"
             allowfullscreen
             title="Cartes gouvernement françaises"></iframe>
+  </div>
+</ng-template>
+
+<ng-template #offlineTracesModal>
+  <div class="modal-header offline-traces-modal-header">
+    <h5 class="modal-title">
+      <i class="fa fa-folder-open me-2" aria-hidden="true"></i>
+      {{ 'EVENTELEM.OFFLINE_TRACES_TITLE' | translate }}
+    </h5>
+    <button type="button"
+            class="offline-traces-close ms-auto"
+            [attr.aria-label]="'COMMUN.CLOSE' | translate"
+            (click)="closeOfflineTracesModal()">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
+  <div class="modal-body offline-traces-modal-body">
+    <p class="text-muted mb-0" *ngIf="!offlineTraceList.length && !offlineTracesError">
+      {{ 'EVENTELEM.OFFLINE_TRACES_EMPTY' | translate }}
+    </p>
+    <p class="text-danger mb-2" *ngIf="offlineTracesError">{{ offlineTracesError }}</p>
+    <ul class="list-unstyled mb-0" *ngIf="offlineTraceList.length">
+      <li class="tv-offline-trace-row" *ngFor="let trace of offlineTraceList">
+        <div class="tv-offline-trace-copy">
+          <div class="fw-semibold text-break">{{ trace.title || trace.fileName }}</div>
+          <div class="small text-muted tv-offline-trace-meta">
+            {{ offlineTraceSourceKey(trace.source) | translate }}
+            <span *ngIf="trace.activityName && trace.source === 'photo-wall'"> · {{ trace.activityName }}</span>
+            <span *ngIf="formatOfflineTraceDistance(trace.distanceKm) as km"> · {{ km }}</span>
+            <span *ngIf="trace.elevationGainM"> · D+ {{ trace.elevationGainM }} m</span>
+            · {{ formatOfflineTraceSize(trace.bytes) }}
+            · {{ formatOfflineTraceWhen(trace.savedAt) }}
+          </div>
+        </div>
+        <div class="tv-offline-trace-actions">
+          <button type="button"
+                  class="btn btn-sm btn-primary"
+                  [disabled]="offlineTraceOpeningId === trace.id"
+                  (click)="showOfflineTrace(trace)">
+            <i class="fa" [ngClass]="offlineTraceOpeningId === trace.id ? 'fa-spinner fa-spin' : 'fa-map'" aria-hidden="true"></i>
+            <span class="ms-1">{{ 'EVENTELEM.OFFLINE_TRACES_SHOW' | translate }}</span>
+          </button>
+          <button type="button"
+                  class="btn btn-sm btn-outline-danger"
+                  (click)="deleteOfflineTrace(trace, $event)"
+                  [attr.title]="'EVENTELEM.OFFLINE_TRACES_DELETE' | translate"
+                  [attr.aria-label]="'EVENTELEM.OFFLINE_TRACES_DELETE' | translate">
+            <i class="fa fa-trash" aria-hidden="true"></i>
+          </button>
+        </div>
+      </li>
+    </ul>
+  </div>
+  <div class="modal-footer offline-traces-modal-footer">
+    <button type="button"
+            class="btn btn-secondary"
+            (click)="closeOfflineTracesModal()">
+      {{ 'COMMUN.CLOSE' | translate }}
+    </button>
   </div>
 </ng-template>
 

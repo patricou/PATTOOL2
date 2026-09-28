@@ -313,6 +313,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     readonly toolsMenuRowsRaw: ToolsMenuRow[] = [
         { kind: 'route', routerLink: ['friends'], icon: 'fa fa-users', labelKey: 'MENU.FRIENDS' },
         { kind: 'route', routerLink: ['results'], icon: 'fa fa-comments', labelKey: 'MENU.RESULTS' },
+        { kind: 'route', routerLink: ['tools/apk'], icon: 'fa fa-android', labelKey: 'MENU.APK_DOWNLOAD' },
         { kind: 'route', routerLink: ['tools/pdf-converter'], icon: 'fa fa-file-pdf-o', labelKey: 'MENU.PDF_CONVERTER' },
         { kind: 'route', routerLink: ['tools/ods-editor'], icon: 'fa fa-table', labelKey: 'MENU.ODS_EDITOR' },
         { kind: 'route', routerLink: ['system'], icon: 'fa fa-cog', labelKey: 'MENU.SYSTEM', authOnly: true },

@@ -500,6 +500,18 @@
                         {{ 'PHOTO_TIMELINE.TRACKS_TABLE_TITLE' | translate }}
                         <span *ngIf="wallTrackTableHasMultipleRows(group)" class="text-muted ms-1">({{ getGroupMongoTrackLinks(group).length }})</span>
                     </div>
+                    <div class="d-flex flex-wrap align-items-center gap-1">
+                    <button type="button"
+                            class="btn btn-sm photo-wall-tracks-expand-btn py-0 px-2"
+                            [class.btn-outline-primary]="!areWallTracksSavedOffline(group)"
+                            [class.btn-success]="areWallTracksSavedOffline(group)"
+                            [disabled]="isWallGroupOfflineSaving(group)"
+                            (click)="onWallTracksSaveOfflineClick(group, $event)"
+                            [attr.title]="'PHOTO_TIMELINE.TRACK_SAVE_OFFLINE' | translate"
+                            [attr.aria-label]="'PHOTO_TIMELINE.TRACK_SAVE_OFFLINE' | translate">
+                        <i class="fa me-sm-1" [ngClass]="wallGroupOfflineIcon(group)" aria-hidden="true"></i>
+                        <span class="d-none d-sm-inline">{{ (areWallTracksSavedOffline(group) ? 'PHOTO_TIMELINE.TRACK_SAVED_OFFLINE_SHORT' : 'PHOTO_TIMELINE.TRACK_SAVE_OFFLINE_ALL') | translate }}</span>
+                    </button>
                     <button *ngIf="wallTrackTableHasMultipleRows(group)"
                             type="button"
                             class="btn btn-sm btn-outline-secondary photo-wall-tracks-expand-btn py-0 px-2"
@@ -509,7 +521,12 @@
                         <i class="fa me-sm-1" [ngClass]="isWallTrackTableExpanded(group) ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
                         <span class="d-none d-sm-inline">{{ (isWallTrackTableExpanded(group) ? 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_LESS' : 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_ALL') | translate }}</span>
                     </button>
+                    </div>
                 </div>
+                <p class="small mb-1 photo-wall-offline-notice"
+                   *ngIf="wallOfflineNotice && wallOfflineNoticeEventId === group.eventId"
+                   [class.photo-wall-offline-notice--ok]="wallOfflineNoticeOk"
+                   [class.photo-wall-offline-notice--err]="!wallOfflineNoticeOk">{{ wallOfflineNotice }}</p>
                 <div class="table-responsive photo-wall-tracks-table-responsive">
                     <table class="table table-sm table-striped photo-wall-tracks-table mb-0 align-middle">
                         <thead>
@@ -584,6 +601,17 @@
                                         <span class="flex-grow-1 min-w-0">{{ tr.description || tr.path }}</span>
                                         <button *ngIf="tr.fieldId"
                                                 type="button"
+                                                class="btn btn-sm py-0 px-1 photo-wall-tracks-download-btn d-md-none flex-shrink-0"
+                                                [class.btn-outline-primary]="!isWallTrackSavedOffline(tr)"
+                                                [class.btn-success]="isWallTrackSavedOffline(tr)"
+                                                [disabled]="isWallTrackOfflineSaving(tr)"
+                                                (click)="onWallTrackSaveOfflineClick(tr, group, $event)"
+                                                [title]="(isWallTrackSavedOffline(tr) ? 'PHOTO_TIMELINE.TRACK_SAVED_OFFLINE' : 'PHOTO_TIMELINE.TRACK_SAVE_OFFLINE') | translate">
+                                            <i class="fa" [ngClass]="wallTrackOfflineIcon(tr)" aria-hidden="true"></i>
+                                            <span class="visually-hidden">{{ 'PHOTO_TIMELINE.TRACK_SAVE_OFFLINE' | translate }}</span>
+                                        </button>
+                                        <button *ngIf="tr.fieldId"
+                                                type="button"
                                                 class="btn btn-outline-secondary btn-sm py-0 px-1 photo-wall-tracks-download-btn d-md-none flex-shrink-0"
                                                 (click)="onWallTrackFileDownloadClick(tr, $event)"
                                                 [title]="'PHOTO_TIMELINE.TRACK_TABLE_DOWNLOAD' | translate">
@@ -595,6 +623,17 @@
                                 <td class="text-wrap photo-wall-tracks-col-file d-none d-md-table-cell">
                                     <div class="d-flex align-items-center gap-1 min-w-0">
                                         <span class="flex-grow-1 min-w-0 text-break">{{ tr.path || '—' }}</span>
+                                        <button *ngIf="tr.fieldId"
+                                                type="button"
+                                                class="btn btn-sm py-0 px-1 photo-wall-tracks-download-btn flex-shrink-0"
+                                                [class.btn-outline-primary]="!isWallTrackSavedOffline(tr)"
+                                                [class.btn-success]="isWallTrackSavedOffline(tr)"
+                                                [disabled]="isWallTrackOfflineSaving(tr)"
+                                                (click)="onWallTrackSaveOfflineClick(tr, group, $event)"
+                                                [title]="(isWallTrackSavedOffline(tr) ? 'PHOTO_TIMELINE.TRACK_SAVED_OFFLINE' : 'PHOTO_TIMELINE.TRACK_SAVE_OFFLINE') | translate">
+                                            <i class="fa" [ngClass]="wallTrackOfflineIcon(tr)" aria-hidden="true"></i>
+                                            <span class="visually-hidden">{{ 'PHOTO_TIMELINE.TRACK_SAVE_OFFLINE' | translate }}</span>
+                                        </button>
                                         <button *ngIf="tr.fieldId"
                                                 type="button"
                                                 class="btn btn-outline-secondary btn-sm py-0 px-1 photo-wall-tracks-download-btn flex-shrink-0"

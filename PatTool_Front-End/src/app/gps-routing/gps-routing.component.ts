@@ -30,6 +30,7 @@ import { LeafletBasemapOption, LeafletBasemapService } from '../shared/leaflet-b
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { GpsOfflineMapProgress, GpsOfflineMapService } from '../services/gps-offline-map.service';
 import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../gps-track/gps-offline-tiles.store';
+import { offlineTraceIdForRoute, OfflineTracesStore } from '../gps-track/offline-traces.store';
 import { viewWindowFromMap } from '../gps-track/gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../shared/leaflet-cached-tile.layer';
 import { GpsBasemapPickerComponent } from '../shared/gps-basemap-picker.component';
@@ -160,6 +161,11 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   offlineProgress: GpsOfflineMapProgress = { done: 0, total: 0, failed: 0 };
   offlineError = '';
   offlineMessage = '';
+  offlineTraceSaving = false;
+  offlineTraceSaved = false;
+  offlineTraceNotice = '';
+  offlineTraceNoticeOk = false;
+  private offlineTraceNoticeTimer: ReturnType<typeof setTimeout> | null = null;
   offlineMeta: GpsOfflinePackMeta = { tileCount: 0, bytes: 0, updatedAt: null };
   /** When true, the visible basemap is the on-device pack. */
   offlineUseDevice = false;
@@ -207,7 +213,8 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly activatedRoute: ActivatedRoute,
     private readonly router: Router,
     private readonly offlineMap: GpsOfflineMapService,
-    private readonly offlineTiles: GpsOfflineTilesStore
+    private readonly offlineTiles: GpsOfflineTilesStore,
+    private readonly offlineTraces: OfflineTracesStore
   ) {}
 
   ngOnInit(): void {
@@ -278,6 +285,10 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.offlineTraceNoticeTimer != null) {
+      clearTimeout(this.offlineTraceNoticeTimer);
+      this.offlineTraceNoticeTimer = null;
+    }
     this.subs.forEach((s) => s.unsubscribe());
     this.stopOrientationWatch();
     this.stopFollowTracking();
@@ -593,6 +604,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     this.closeRouteDetails();
     this.route = null;
     this.steps = [];
+    this.offlineTraceSaved = false;
     this.persistDraft();
 
     const lang = this.translate.currentLang || this.translate.defaultLang || 'en';
@@ -639,6 +651,8 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   clearRoute(): void {
     this.route = null;
     this.steps = [];
+    this.offlineTraceSaved = false;
+    this.offlineTraceNotice = '';
     this.errorMessage = '';
     this.nav3dActive = false;
     this.fromPoint = null;
@@ -1107,6 +1121,70 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  }
+
+  openOfflineTraces(): void {
+    this.traceViewerModal?.openOfflineTracesModal();
+  }
+
+  async saveRouteOffline(): Promise<void> {
+    const coords = this.route?.coordinates;
+    if (!coords?.length || this.offlineTraceSaving) {
+      return;
+    }
+    const points = coords.filter(
+      (c) => Array.isArray(c) && c.length >= 2 && Number.isFinite(c[0]) && Number.isFinite(c[1])
+    );
+    if (!points.length) {
+      return;
+    }
+    this.offlineTraceSaving = true;
+    this.offlineTraceNotice = '';
+    this.cdr.markForCheck();
+    try {
+      const fromLabel = this.fromPoint?.label || this.translate.instant('GPS_ROUTING.FROM');
+      const toLabel = this.toPoint?.label || this.translate.instant('GPS_ROUTING.TO');
+      const name = this.routeTitle(fromLabel, toLabel);
+      const profileLabel = this.translate.instant(
+        this.profiles.find((p) => p.id === this.profile)?.labelKey || 'GPS_ROUTING.TITLE'
+      );
+      const gpx = this.buildGpx(points, name, profileLabel);
+      const encoded = new TextEncoder().encode(gpx);
+      const data = encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength) as ArrayBuffer;
+      const distanceM = this.route?.distanceMeters;
+      await this.offlineTraces.save({
+        id: offlineTraceIdForRoute(gpx),
+        fileName: this.buildGpxFileName(fromLabel, toLabel),
+        title: name,
+        source: 'gps-routing',
+        activityName: name,
+        data,
+        distanceKm: distanceM != null && Number.isFinite(distanceM) ? Math.round((distanceM / 1000) * 10) / 10 : null,
+        elevationGainM: this.route?.ascentMeters ?? null
+      });
+      this.offlineTraceSaved = true;
+      this.showOfflineTraceNotice(this.translate.instant('GPS_ROUTING.SAVED_OFFLINE'), true);
+    } catch (err) {
+      console.error('Route offline save failed', err);
+      this.offlineTraceSaved = false;
+      this.showOfflineTraceNotice(this.translate.instant('GPS_ROUTING.SAVE_OFFLINE_ERROR'), false);
+    } finally {
+      this.offlineTraceSaving = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private showOfflineTraceNotice(message: string, ok: boolean): void {
+    if (this.offlineTraceNoticeTimer != null) {
+      clearTimeout(this.offlineTraceNoticeTimer);
+    }
+    this.offlineTraceNotice = message;
+    this.offlineTraceNoticeOk = ok;
+    this.offlineTraceNoticeTimer = setTimeout(() => {
+      this.offlineTraceNoticeTimer = null;
+      this.offlineTraceNotice = '';
+      this.cdr.markForCheck();
+    }, 4000);
   }
 
   formatDistance(meters?: number | null): string {

@@ -1006,6 +1006,22 @@
     line-height: 1.2;
 }
 
+.photo-wall-offline-notice {
+    display: inline-block;
+    margin: 0;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.35rem;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.photo-wall-offline-notice--ok {
+    color: #b6f5c8;
+}
+
+.photo-wall-offline-notice--err {
+    color: #ffc9c9;
+}
+
 .photo-wall-tracks-open-btn {
     font-size: 0.7rem;
     line-height: 1.25;

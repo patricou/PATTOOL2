@@ -25,6 +25,7 @@ import {
 import { isValidGeoCoordinate } from '../geo-coordinates.util';
 import { GpsOfflineMapProgress, GpsOfflineMapService } from '../../services/gps-offline-map.service';
 import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../../gps-track/gps-offline-tiles.store';
+import { OfflineTraceSummary, OfflineTracesStore } from '../../gps-track/offline-traces.store';
 import { viewWindowFromMap } from '../../gps-track/gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
 import { isBrowserOffline } from '../browser-offline.util';
@@ -123,6 +124,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@ViewChild(WeatherPointTimelineComponent) weatherPointTimeline?: WeatherPointTimelineComponent;
 	@ViewChild('cartesGouvModal') cartesGouvModal!: TemplateRef<any>;
 	@ViewChild('gpxStatsModal') gpxStatsModal!: TemplateRef<any>;
+	@ViewChild('offlineTracesModal') offlineTracesModal!: TemplateRef<any>;
 	@ViewChild('mapContainer', { static: false }) mapContainerRef?: ElementRef<HTMLDivElement>;
 	@Output() closed = new EventEmitter<void>();
 	@Output() locationSelected = new EventEmitter<{ lat: number; lng: number; alt?: number | null }>();
@@ -303,6 +305,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Bumped on each open so a dismissed modal's finalize cannot tear down the newer one. */
 	private modalGeneration = 0;
 	private gpxStatsModalRef?: NgbModalRef;
+	private offlineTracesModalRef?: NgbModalRef;
+	offlineTraceList: OfflineTraceSummary[] = [];
+	offlineTraceOpeningId: string | null = null;
+	offlineTracesError = '';
 	/** When set before `open()`, overrides default `NgbModal` options (e.g. attach into the globe div). */
 	private nextModalOptionsOverride: NgbModalOptions | null = null;
 	private map?: L.Map;
@@ -486,10 +492,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 		private readonly router: Router,
 		private readonly offlineMap: GpsOfflineMapService,
 		private readonly offlineTiles: GpsOfflineTilesStore,
+		private readonly offlineTraces: OfflineTracesStore,
 		@Inject(DOCUMENT) private readonly document: Document
 	) {
 		this.configureLeafletIcons();
 		this.bindOfflineMapPack();
+		this.offlineTraces.summaries$.pipe(takeUntil(this.destroy$)).subscribe((list) => {
+			this.offlineTraceList = list;
+			this.cdr.markForCheck();
+		});
 		this.loadTraceViewerPreferences();
 		this.loadRadarRefreshPreferences();
 		this.loadMapLayerCloudPreferences();
@@ -1082,6 +1093,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public close(): void {
+		this.closeOfflineTracesModal();
 		this.stopMapOrientationWatch();
 		this.stopFollowDeviceLocation();
 		void this.releaseScreenWakeLock();
@@ -1259,6 +1271,139 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.gpxStatsModalRef = undefined;
 			this.cdr.detectChanges();
 		});
+	}
+
+	get offlineTraceCount(): number {
+		return this.offlineTraceList.length;
+	}
+
+	public openOfflineTracesModal(): void {
+		if (!this.offlineTracesModal || this.offlineTracesModalRef) {
+			return;
+		}
+		this.offlineTracesError = '';
+		void this.offlineTraces.refresh();
+		const opts: NgbModalOptions = {
+			size: 'lg',
+			centered: true,
+			backdrop: 'static',
+			scrollable: true,
+			keyboard: true,
+			windowClass: 'trace-viewer-offline-traces-modal'
+		};
+		const mountEl = this.getCartesGouvModalMountElement();
+		if (mountEl) {
+			opts.container = mountEl;
+		}
+		this.offlineTracesModalRef = this.modalService.open(this.offlineTracesModal, opts);
+		this.offlineTracesModalRef.result.finally(() => {
+			this.offlineTracesModalRef = undefined;
+			this.cdr.markForCheck();
+		});
+	}
+
+	public closeOfflineTracesModal(): void {
+		if (!this.offlineTracesModalRef) {
+			return;
+		}
+		try {
+			this.offlineTracesModalRef.close();
+		} catch {
+			/* ignore */
+		}
+		this.offlineTracesModalRef = undefined;
+	}
+
+	public async showOfflineTrace(summary: OfflineTraceSummary): Promise<void> {
+		if (!summary?.id || this.offlineTraceOpeningId) {
+			return;
+		}
+		this.offlineTraceOpeningId = summary.id;
+		this.offlineTracesError = '';
+		this.cdr.markForCheck();
+		try {
+			const rec = await this.offlineTraces.get(summary.id);
+			if (!rec) {
+				this.offlineTracesError = this.translate('EVENTELEM.OFFLINE_TRACES_MISSING');
+				return;
+			}
+			const blob = new Blob([rec.data]);
+			const fileName = rec.fileName || 'track.gpx';
+			const title = (rec.title || fileName).trim();
+			let opened = false;
+			const reopen = (): void => {
+				if (opened) {
+					return;
+				}
+				opened = true;
+				this.eventColor = null;
+				this.open({ blob, fileName, titleLabel: title });
+			};
+			const ref = this.offlineTracesModalRef;
+			this.offlineTracesModalRef = undefined;
+			if (ref) {
+				ref.result.finally(() => reopen());
+				try {
+					ref.close();
+				} catch {
+					reopen();
+				}
+			} else {
+				reopen();
+			}
+		} finally {
+			this.offlineTraceOpeningId = null;
+			this.cdr.markForCheck();
+		}
+	}
+
+	public async deleteOfflineTrace(summary: OfflineTraceSummary, ev?: Event): Promise<void> {
+		ev?.stopPropagation();
+		if (!summary?.id) {
+			return;
+		}
+		if (!window.confirm(this.translate('EVENTELEM.OFFLINE_TRACES_DELETE_CONFIRM'))) {
+			return;
+		}
+		try {
+			await this.offlineTraces.delete(summary.id);
+		} catch (err) {
+			console.error('Offline trace delete failed', err);
+		}
+	}
+
+	offlineTraceSourceKey(source: string): string {
+		return source === 'gps-routing'
+			? 'EVENTELEM.OFFLINE_TRACES_SOURCE_ROUTE'
+			: 'EVENTELEM.OFFLINE_TRACES_SOURCE_WALL';
+	}
+
+	formatOfflineTraceWhen(savedAt: number): string {
+		if (!savedAt) {
+			return '';
+		}
+		try {
+			return new Date(savedAt).toLocaleString();
+		} catch {
+			return '';
+		}
+	}
+
+	formatOfflineTraceSize(bytes: number): string {
+		if (!bytes || bytes < 1024) {
+			return `${bytes || 0} B`;
+		}
+		if (bytes < 1024 * 1024) {
+			return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+		}
+		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	}
+
+	formatOfflineTraceDistance(km: number | null | undefined): string {
+		if (km == null || !Number.isFinite(km) || km <= 0) {
+			return '';
+		}
+		return `${km} km`;
 	}
 
 	public closeGpxStatsModal(): void {
@@ -2726,6 +2871,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private resetState(): void {
+		this.closeOfflineTracesModal();
 		this.closeGpxStatsModal();
 		this.trackBounds = null;
 		this.locationRecenterZoom = null;

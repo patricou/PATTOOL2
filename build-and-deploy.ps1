@@ -1,11 +1,13 @@
 # ===================================================================
 # PATTOOL Build and Deploy Script
 # ===================================================================
-# 1. Build front end (Angular)
-# 2. Build back end with Maven (clean, compile, package)
-# 3. Copy JAR to X:\pattool (network drive mapped to server)
+# 1. Build the Android APK and publish it for the download page
+# 2. Build front end (Angular) — the APK is copied into the site
+# 3. Build back end with Maven (clean, compile, package) — the JAR contains the APK
+# 4. Copy JAR to X:\pattool (network drive mapped to server)
 #
 # Stop and start PATTOOL on the server (PAT-DESKTOP) manually.
+# After restart, Outils → Application Android serves /assets/downloads/pattool.apk
 # ===================================================================
 #
 # If Maven is not found, set your Maven install folder here (path to the
@@ -89,9 +91,23 @@ Write-Host "================================================================" -F
 Write-Host ""
 
 # ---------------------------------------------------------------------------
-# Step 1: Build front end
+# Step 1: Android APK, so the download page in this deploy is the new app
 # ---------------------------------------------------------------------------
-Write-Host "[1/3] Building front end..." -ForegroundColor Yellow
+Write-Host "[1/4] Building Android APK..." -ForegroundColor Yellow
+Push-Location $FrontEndDir
+try {
+    npm run apk
+    if ($LASTEXITCODE -ne 0) { throw "APK build failed with exit code $LASTEXITCODE" }
+} finally {
+    Pop-Location
+}
+Write-Host "Android APK published for download." -ForegroundColor Green
+Write-Host ""
+
+# ---------------------------------------------------------------------------
+# Step 2: Build front end
+# ---------------------------------------------------------------------------
+Write-Host "[2/4] Building front end..." -ForegroundColor Yellow
 if (-not (Test-Path $FrontEndDir)) {
     Write-Host "ERROR: Front end directory not found: $FrontEndDir" -ForegroundColor Red
     exit 1
@@ -109,7 +125,7 @@ Write-Host ""
 # ---------------------------------------------------------------------------
 # Step 2: Build back end with Maven
 # ---------------------------------------------------------------------------
-Write-Host "[2/3] Building back end (Maven clean, compile, package)..." -ForegroundColor Yellow
+Write-Host "[3/4] Building back end (Maven clean, compile, package)..." -ForegroundColor Yellow
 if (-not (Test-Path $BackEndDir)) {
     Write-Host "ERROR: Back end directory not found: $BackEndDir" -ForegroundColor Red
     exit 1
@@ -135,7 +151,7 @@ Write-Host ""
 # ---------------------------------------------------------------------------
 # Step 3: Copy JAR to X:\pattool (mapped drive to server)
 # ---------------------------------------------------------------------------
-Write-Host "[3/3] Copying JAR to $DeployDir..." -ForegroundColor Yellow
+Write-Host "[4/4] Copying JAR to $DeployDir..." -ForegroundColor Yellow
 if (-not (Test-Path $DeployDir)) {
     Write-Host "ERROR: Deploy directory not found: $DeployDir. Ensure drive X: is mapped." -ForegroundColor Red
     exit 1

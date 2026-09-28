@@ -52,6 +52,16 @@
                 "glob": "maplibre-gl-shared.mjs",
                 "input": "node_modules/maplibre-gl/dist",
                 "output": "/assets"
+              },
+              {
+                "glob": "flag-icons.min.css",
+                "input": "node_modules/flag-icons/css",
+                "output": "/assets/vendor/flag-icons/css"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/flag-icons/flags",
+                "output": "/assets/vendor/flag-icons/flags"
               }
             ],
             "styles": [
@@ -65,6 +75,8 @@
             ],
             "scripts": [
               "node_modules/jquery/dist/jquery.js",
+              "node_modules/bootstrap/dist/js/bootstrap.bundle.min.js",
+              "node_modules/exif-js/exif.js",
               "src/app/js/keycloak.js"
             ],
             "allowedCommonJsDependencies": [
@@ -86,8 +98,8 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "6mb",
-                  "maximumError": "7mb"
+                  "maximumWarning": "7mb",
+                  "maximumError": "8mb"
                 },
                 {
                   "type": "anyComponentStyle",
@@ -112,8 +124,8 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "6mb",
-                  "maximumError": "7mb"
+                  "maximumWarning": "7mb",
+                  "maximumError": "8mb"
                 },
                 {
                   "type": "anyComponentStyle",
@@ -123,6 +135,50 @@
               ],
               "outputHashing": "all",
               "baseHref": "/",
+              "assets": [
+                "src/favicon.ico",
+                {
+                  "glob": "**/*",
+                  "input": "src/assets",
+                  "ignore": ["downloads/**"],
+                  "output": "/assets"
+                },
+                {
+                  "glob": "manifest.webmanifest",
+                  "input": "src",
+                  "output": "/"
+                },
+                {
+                  "glob": "robots.txt",
+                  "input": "src/assets",
+                  "output": "/"
+                },
+                {
+                  "glob": "**/*",
+                  "input": "src/assets/.well-known",
+                  "output": "/.well-known"
+                },
+                {
+                  "glob": "maplibre-gl-worker.mjs",
+                  "input": "node_modules/maplibre-gl/dist",
+                  "output": "/assets"
+                },
+                {
+                  "glob": "maplibre-gl-shared.mjs",
+                  "input": "node_modules/maplibre-gl/dist",
+                  "output": "/assets"
+                },
+                {
+                  "glob": "flag-icons.min.css",
+                  "input": "node_modules/flag-icons/css",
+                  "output": "/assets/vendor/flag-icons/css"
+                },
+                {
+                  "glob": "**/*",
+                  "input": "node_modules/flag-icons/flags",
+                  "output": "/assets/vendor/flag-icons/flags"
+                }
+              ],
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",

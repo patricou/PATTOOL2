@@ -48,7 +48,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
-	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20260927offline');
+	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20260928traces');
 }
 
 @NgModule({
@@ -362,6 +362,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 				path: 'tools/security-scan',
 				loadComponent: () =>
 					import('./world-security-scan/world-security-scan.component').then(m => m.WorldSecurityScanComponent)
+			},
+			{
+				path: 'tools/apk',
+				loadComponent: () =>
+					import('./apk-download/apk-download.component').then(m => m.ApkDownloadComponent)
 			},
 			{
 				path: 'tools/pdf-converter',

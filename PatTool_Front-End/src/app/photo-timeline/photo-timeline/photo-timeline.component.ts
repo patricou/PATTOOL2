@@ -21,7 +21,7 @@ import { Friend, FriendGroup } from '../../model/friend';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { VideoCompressionService } from '../../services/video-compression.service';
 import { VideoUploadProcessingService } from '../../services/video-upload-processing.service';
-import { asyncScheduler, forkJoin, of, Subscription } from 'rxjs';
+import { asyncScheduler, firstValueFrom, forkJoin, of, Subscription } from 'rxjs';
 import { map, distinctUntilChanged, catchError, take, switchMap, finalize, observeOn, timeout } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl, SafeStyle, SafeResourceUrl } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
@@ -35,6 +35,7 @@ import {
 import { EvenementsService } from '../../services/evenements.service';
 import { parseYoutubeVideoId, resolveUrlEventTypeForLink } from '../../shared/youtube-video-id.util';
 import { YoutubePlayerService } from '../../services/youtube-player.service';
+import { offlineTraceIdForWall, OfflineTracesStore } from '../../gps-track/offline-traces.store';
 import { ApiService } from '../../services/api.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { DiscussionService } from '../../services/discussion.service';
@@ -296,6 +297,14 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         /** From trace file (GPX time, TCX Time, …), ISO string */
         fileDateIso: string | null;
     }> = new Map();
+    /** GridFS ids already stored on this device for offline trace viewing. */
+    private wallOfflineSavedIds = new Set<string>();
+    private wallOfflineSavingIds = new Set<string>();
+    private wallOfflineSavingEvents = new Set<string>();
+    wallOfflineNotice = '';
+    wallOfflineNoticeEventId = '';
+    wallOfflineNoticeOk = false;
+    private wallOfflineNoticeTimer: ReturnType<typeof setTimeout> | null = null;
     /** Tri du tableau des traces GPS (clé = eventId). */
     private wallTrackTableSort = new Map<string, {
         col: 'name' | 'file' | 'owner' | 'date' | 'km' | 'elev';
@@ -487,7 +496,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         private assistantLaunch: AssistantLaunchService,
         private odsEditorLaunch: OdsEditorLaunchService,
         private apiService: ApiService,
-        private youtubePlayer: YoutubePlayerService
+        private youtubePlayer: YoutubePlayerService,
+        private offlineTraces: OfflineTracesStore
     ) {
         // Pré-charge `app.imagemaxsizekb` côté backend pour pouvoir adapter
         // le modal de compression dès la première sélection / "Ajouter dans
@@ -511,6 +521,14 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             this.cdr.markForCheck();
         });
         this.subscriptions.push(paramSub);
+        this.subscriptions.push(
+            this.offlineTraces.summaries$.subscribe((list) => {
+                this.wallOfflineSavedIds = new Set(
+                    list.filter((t) => t.source === 'photo-wall' && t.fieldId).map((t) => t.fieldId as string)
+                );
+                this.cdr.markForCheck();
+            })
+        );
         if (typeof window !== 'undefined') {
             window.addEventListener(VIDEOSHOW_OPEN_EVENT, this.onGlobalVideoshowOpen);
             window.addEventListener(VIDEOSHOW_CLOSE_EVENT, this.onGlobalVideoshowClose);
@@ -519,6 +537,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     ngOnDestroy(): void {
         this.destroyed = true;
+        if (this.wallOfflineNoticeTimer != null) {
+            clearTimeout(this.wallOfflineNoticeTimer);
+            this.wallOfflineNoticeTimer = null;
+        }
         this.timelineLoadGeneration++;
         this.subscriptions.forEach(s => s.unsubscribe());
         this.subscriptions = [];
@@ -3121,6 +3143,156 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             error: (err) => console.error('Wall track download failed', err)
         });
         this.subscriptions.push(sub);
+    }
+
+    /** True when this GridFS track is already stored on the device. */
+    isWallTrackSavedOffline(tr: FsPhotoLink): boolean {
+        const id = (tr?.fieldId || '').trim();
+        return !!id && this.wallOfflineSavedIds.has(id);
+    }
+
+    isWallTrackOfflineSaving(tr: FsPhotoLink): boolean {
+        const id = (tr?.fieldId || '').trim();
+        return !!id && this.wallOfflineSavingIds.has(id);
+    }
+
+    isWallGroupOfflineSaving(group: TimelineGroup): boolean {
+        const eventId = (group?.eventId || '').trim();
+        return !!eventId && this.wallOfflineSavingEvents.has(eventId);
+    }
+
+    areWallTracksSavedOffline(group: TimelineGroup): boolean {
+        const tracks = this.getGroupMongoTrackLinks(group).filter((tr) => (tr.fieldId || '').trim());
+        return tracks.length > 0 && tracks.every((tr) => this.isWallTrackSavedOffline(tr));
+    }
+
+    wallTrackOfflineIcon(tr: FsPhotoLink): string {
+        if (this.isWallTrackOfflineSaving(tr)) {
+            return 'fa-spinner fa-spin';
+        }
+        return this.isWallTrackSavedOffline(tr) ? 'fa-check' : 'fa-cloud-download';
+    }
+
+    wallGroupOfflineIcon(group: TimelineGroup): string {
+        if (this.isWallGroupOfflineSaving(group)) {
+            return 'fa-spinner fa-spin';
+        }
+        return this.areWallTracksSavedOffline(group) ? 'fa-check' : 'fa-cloud-download';
+    }
+
+    onWallTrackSaveOfflineClick(tr: FsPhotoLink, group: TimelineGroup, ev?: Event): void {
+        ev?.stopPropagation();
+        const eventId = (group?.eventId || '').trim();
+        void this.saveWallTrackOffline(tr, group).then((ok) => {
+            if (this.destroyed) {
+                return;
+            }
+            this.showWallOfflineNotice(
+                eventId,
+                this.translate.instant(ok ? 'PHOTO_TIMELINE.TRACK_SAVED_OFFLINE' : 'PHOTO_TIMELINE.TRACK_SAVE_OFFLINE_ERROR'),
+                ok
+            );
+        });
+    }
+
+    onWallTracksSaveOfflineClick(group: TimelineGroup, ev?: Event): void {
+        ev?.stopPropagation();
+        const eventId = (group?.eventId || '').trim();
+        if (!eventId || this.wallOfflineSavingEvents.has(eventId)) {
+            return;
+        }
+        const tracks = this.getGroupMongoTrackLinks(group).filter((tr) => (tr.fieldId || '').trim());
+        if (!tracks.length) {
+            return;
+        }
+        this.wallOfflineSavingEvents.add(eventId);
+        this.cdr.markForCheck();
+        void (async () => {
+            let failed = 0;
+            for (const tr of tracks) {
+                if (this.destroyed) {
+                    return;
+                }
+                const ok = await this.saveWallTrackOffline(tr, group);
+                if (!ok) {
+                    failed++;
+                }
+            }
+            this.wallOfflineSavingEvents.delete(eventId);
+            if (this.destroyed) {
+                return;
+            }
+            this.showWallOfflineNotice(
+                eventId,
+                this.translate.instant(failed ? 'PHOTO_TIMELINE.TRACK_SAVE_OFFLINE_ERROR' : 'PHOTO_TIMELINE.TRACK_SAVE_OFFLINE_DONE'),
+                failed === 0
+            );
+        })();
+    }
+
+    private async saveWallTrackOffline(tr: FsPhotoLink, group: TimelineGroup): Promise<boolean> {
+        const id = (tr?.fieldId || '').trim();
+        if (!id) {
+            return false;
+        }
+        if (this.wallOfflineSavingIds.has(id)) {
+            return true;
+        }
+        this.wallOfflineSavingIds.add(id);
+        this.cdr.markForCheck();
+        try {
+            const buffer = await firstValueFrom(this.fileService.getFile(id)) as ArrayBuffer;
+            if (!(buffer instanceof ArrayBuffer) || buffer.byteLength <= 0) {
+                return false;
+            }
+            const fileName = (tr.path || '').trim() || 'track.gpx';
+            const title = (tr.description || '').trim() || fileName;
+            const distanceKm = this.isManualTrackDistanceSet(tr)
+                ? (tr.manualDistanceKm ?? null)
+                : (this.getWallTrackStat(id)?.distanceKm ?? null);
+            const elevationGainM = this.isManualTrackElevationSet(tr)
+                ? (tr.manualElevationGainM ?? null)
+                : (this.getWallTrackStat(id)?.elevationGainM ?? null);
+            await this.offlineTraces.save({
+                id: offlineTraceIdForWall(id),
+                fileName,
+                title,
+                source: 'photo-wall',
+                activityName: (group?.eventName || '').trim() || undefined,
+                eventId: (group?.eventId || '').trim() || undefined,
+                fieldId: id,
+                data: buffer,
+                distanceKm,
+                elevationGainM
+            });
+            return true;
+        } catch (err) {
+            console.error('Wall track offline save failed', err);
+            return false;
+        } finally {
+            this.wallOfflineSavingIds.delete(id);
+            if (!this.destroyed) {
+                this.cdr.markForCheck();
+            }
+        }
+    }
+
+    private showWallOfflineNotice(eventId: string, message: string, ok: boolean): void {
+        if (this.wallOfflineNoticeTimer != null) {
+            clearTimeout(this.wallOfflineNoticeTimer);
+        }
+        this.wallOfflineNotice = message;
+        this.wallOfflineNoticeEventId = eventId;
+        this.wallOfflineNoticeOk = ok;
+        this.cdr.markForCheck();
+        this.wallOfflineNoticeTimer = setTimeout(() => {
+            this.wallOfflineNoticeTimer = null;
+            this.wallOfflineNotice = '';
+            this.wallOfflineNoticeEventId = '';
+            if (!this.destroyed) {
+                this.cdr.markForCheck();
+            }
+        }, 4000);
     }
 
     openFsSlideshow(fsLink: FsPhotoLink, group: TimelineGroup): void {
