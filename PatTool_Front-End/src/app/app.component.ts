@@ -31,6 +31,8 @@ import { LastRouteService } from './services/last-route.service';
 import { isBrowserOffline } from './shared/browser-offline.util';
 import { BackgroundPlaybackService } from './services/background-playback.service';
 import { GpsRecordingService } from './services/gps-recording.service';
+import { TraceViewerModalComponent } from './shared/trace-viewer-modal/trace-viewer-modal.component';
+import { GpsOfflinePackComponent } from './shared/gps-offline-pack.component';
 import { ApiService, AstroGroundPosition, UserAppParameter } from './services/api.service';
 import { buildIssTopViewIconDataUrl } from './shared/globe-iss-icon.util';
 
@@ -44,7 +46,9 @@ interface UserInfoTabDef {
 }
 
 interface NavRouteMenuItem {
-    routerLink: unknown[];
+    routerLink?: unknown[];
+    /** Opens the trace viewer instead of navigating. */
+    action?: 'trace-viewer';
     icon: string;
     labelKey: string;
     /** Optional menu logo (replaces Font Awesome icon when set). */
@@ -111,11 +115,13 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.css'],
     standalone: true,
-    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent, AssistantDrawerComponent, TvFloatingPlayerComponent, RadioFloatingPlayerComponent, ArchiveFloatingPlayerComponent, YoutubeFloatingPlayerComponent]
+    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NewsTickerComponent, CurrencyTickerComponent, StockTickerComponent, AssistantDrawerComponent, TvFloatingPlayerComponent, RadioFloatingPlayerComponent, ArchiveFloatingPlayerComponent, YoutubeFloatingPlayerComponent, TraceViewerModalComponent, GpsOfflinePackComponent]
 })
 export class AppComponent implements OnInit, AfterViewInit {
 
     @ViewChild('usercontent') usercontent!: TemplateRef<any>;
+    @ViewChild(TraceViewerModalComponent) mapTraceViewer?: TraceViewerModalComponent;
+    private mapTraceViewerRequest = 0;
 
     public user: Member = new Member("", "", "", "", "", [], "");
     public userRoles: string[] = []; // User roles from Keycloak
@@ -242,6 +248,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { routerLink: ['api/gps-routing'], icon: 'fa fa-road', labelKey: 'MENU.GPS_ROUTING' },
         { routerLink: ['api/gps'], icon: 'fa fa-location-arrow', labelKey: 'MENU.GPS' },
         { routerLink: ['api/gpx-trace'], icon: 'fa fa-map-signs', labelKey: 'MENU.GPX_TRACE' },
+        { action: 'trace-viewer', icon: 'fa fa-map', labelKey: 'MENU.MAP_TRACE_VIEWER' },
         { routerLink: ['tools/relief-finder'], icon: 'fa fa-area-chart', labelKey: 'MENU.RELIEF_FINDER' },
         { routerLink: ['tools/detection-error'], icon: 'fa fa-crosshairs', labelKey: 'MENU.DETECTION_ERROR' },
         { routerLink: ['api/timezone-converter'], icon: 'fa fa-clock-o', labelKey: 'MENU.TIME_ZONES' },
@@ -567,7 +574,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         if (!logoSrc) {
             return;
         }
-        const issItem = this.navGeoWorldRaw.find((item) => item.routerLink[0] === 'tools/world-globe');
+        const issItem = this.navGeoWorldRaw.find((item) => item.routerLink?.[0] === 'tools/world-globe');
         if (issItem) {
             issItem.logoSrc = logoSrc;
         }
@@ -2408,6 +2415,29 @@ export class AppComponent implements OnInit, AfterViewInit {
     closeMenu(): void {
         this.isMenuCollapsed = true;
         this.closeDropdowns();
+    }
+
+    /** Monde → Terre : ouvre le trace viewer centré sur la position, ou sur un point par défaut. */
+    openMapTraceViewer(): void {
+        const request = ++this.mapTraceViewerRequest;
+        let settled = false;
+        const open = (lat: number, lng: number) => {
+            if (settled || request !== this.mapTraceViewerRequest) {
+                return;
+            }
+            settled = true;
+            const label = this._translate.instant('MENU.MAP_TRACE_VIEWER');
+            this.mapTraceViewer?.openAtLocation(lat, lng, label, undefined, false, false, { zoom: 13 });
+        };
+        if (typeof navigator === 'undefined' || !navigator.geolocation) {
+            open(46.2, 6.15);
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => open(pos.coords.latitude, pos.coords.longitude),
+            () => open(46.2, 6.15),
+            { enableHighAccuracy: false, timeout: 1500, maximumAge: 300000 }
+        );
     }
 
     closeMenuOnly(): void {

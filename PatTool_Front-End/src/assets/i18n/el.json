@@ -109,7 +109,8 @@
     "NEARBY_PROS": "Επαγγελματίες κοντά",
     "ARTISANAT": "Τέχνες",
     "SOS": "SOS",
-    "FONCIER_SUISSE": "Ακίνητα Ελβετίας"
+    "FONCIER_SUISSE": "Ακίνητα Ελβετίας",
+    "MAP_TRACE_VIEWER": "Χάρτης (Traceviewer)"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -5247,7 +5248,7 @@
     "EXPORT_GPX": "Εξαγωγή GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "Χάρτης εκτός σύνδεσης",
-    "OFFLINE_MAP_HINT": "Λήψη του επιλεγμένου υποβάθρου για το παράθυρο του χάρτη (τρέχον ζουμ και ένα επίπεδο πάνω και κάτω). Τα πλακίδια μένουν στη συσκευή. Ο χάρτης στην οθόνη δεν αλλάζει: το αποθηκευμένο υπόβαθρο χρησιμοποιείται μόνο εκτός σύνδεσης.",
+    "OFFLINE_MAP_HINT": "Λήψη του επιλεγμένου υποβάθρου για το παράθυρο του χάρτη (τρέχον ζουμ, όλα τα υψηλότερα ζουμ και ένα επίπεδο κάτω). Τα πλακίδια μένουν στη συσκευή. Ο χάρτης στην οθόνη δεν αλλάζει: το αποθηκευμένο υπόβαθρο χρησιμοποιείται μόνο εκτός σύνδεσης.",
     "OFFLINE_MAP_DOWNLOAD": "Αυτό το παράθυρο",
     "OFFLINE_MAP_BTN": "Offline",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Γύρω μου",
@@ -5265,7 +5266,22 @@
     "OFFLINE_MAP_SOURCE_LABEL": "Πηγή χάρτη",
     "OFFLINE_MAP_SOURCE_NETWORK": "Δίκτυο",
     "OFFLINE_MAP_SOURCE_DEVICE": "Συσκευή",
-    "OFFLINE_MAP_SOURCE_HINT": "Συσκευή: χάρτης αποθηκευμένος στο τηλέφωνο, διαθέσιμος χωρίς δίκτυο μετά την επανεκκίνηση. Δίκτυο: διαδικτυακό υπόβαθρο."
+    "OFFLINE_MAP_SOURCE_HINT": "Συσκευή: χάρτης αποθηκευμένος στο τηλέφωνο, διαθέσιμος χωρίς δίκτυο μετά την επανεκκίνηση. Δίκτυο: διαδικτυακό υπόβαθρο.",
+    "OFFLINE_MAP_SPINNER": "Λήψη πλακιδίων",
+    "OFFLINE_MAP_FAILED": "{{n}} απέτυχαν",
+    "OFFLINE_MAP_CATALOG": "Αποθήκη εκτός σύνδεσης",
+    "OFFLINE_MAP_CATALOG_OPEN": "Αποθηκευμένα πλακίδια",
+    "OFFLINE_MAP_CATALOG_HINT": "Πλακίδια σε αυτόν τον browser: χάρτης, ζουμ και περιοχή.",
+    "OFFLINE_MAP_CATALOG_EMPTY": "Κανένα πλακίδιο σε αυτή τη συσκευή.",
+    "OFFLINE_MAP_CATALOG_LOADING": "Ανάγνωση αποθήκης…",
+    "OFFLINE_MAP_CATALOG_TOTAL": "{{n}} πλακίδια · {{size}}",
+    "OFFLINE_MAP_CATALOG_ZOOM": "Ζουμ {{min}}–{{max}}",
+    "OFFLINE_MAP_CATALOG_REGION": "{{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_CATALOG_UPDATED": "Ενημέρωση {{date}}",
+    "OFFLINE_MAP_OPEN": "Λήψη πλακιδίων",
+    "OFFLINE_MAP_SHARED": "Ένα απόθεμα στη συσκευή, κοινό για trace viewer, GPS, διαδρομή και GPX.",
+    "OFFLINE_MAP_WINDOW": "Παράθυρο {{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_ZOOMS": "Ζουμ {{current}} έως {{max}}"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Η αναζήτηση διεύθυνσης απέτυχε.",

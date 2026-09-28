@@ -1,5 +1,10 @@
 import { Injectable } from '@angular/core';
-import { styleFromTileId } from './gps-offline-tiles.util';
+import {
+  EMPTY_OFFLINE_INVENTORY,
+  GpsOfflineInventory,
+  styleFromTileId,
+  summarizeOfflineTiles
+} from './gps-offline-tiles.util';
 
 const DB_NAME = 'pattool-gps-tiles';
 const DB_VERSION = 1;
@@ -232,6 +237,37 @@ export class GpsOfflineTilesStore {
     } catch {
       return { ...EMPTY_META };
     }
+  }
+
+  /** Tiles stored in this browser, grouped by basemap, without loading image bytes into the result. */
+  async inventory(): Promise<GpsOfflineInventory> {
+    const entries: Array<{ id: string; bytes: number; savedAt: number | null }> = [];
+    try {
+      const db = await this.db();
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_TILES, 'readonly');
+        const req = tx.objectStore(STORE_TILES).openCursor();
+        req.onsuccess = () => {
+          const cursor = req.result;
+          if (!cursor) {
+            return;
+          }
+          const rec = cursor.value as GpsOfflineTileRecord;
+          entries.push({
+            id: rec.id,
+            bytes: recordBytes(rec),
+            savedAt: rec.savedAt || null
+          });
+          cursor.continue();
+        };
+        req.onerror = () => reject(req.error);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch {
+      return { ...EMPTY_OFFLINE_INVENTORY, regions: [] };
+    }
+    return summarizeOfflineTiles(entries);
   }
 
   /** Catalogue ids that have at least one stored tile. */

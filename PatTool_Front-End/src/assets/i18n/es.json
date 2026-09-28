@@ -109,7 +109,8 @@
     "NEARBY_PROS": "Profesionales cercanos",
     "ARTISANAT": "Oficios",
     "SOS": "SOS",
-    "FONCIER_SUISSE": "Inmobiliario Suiza"
+    "FONCIER_SUISSE": "Inmobiliario Suiza",
+    "MAP_TRACE_VIEWER": "Mapa (Traceviewer)"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -5309,7 +5310,7 @@
     "EXPORT_GPX": "Exportar GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "Mapa sin conexión",
-    "OFFLINE_MAP_HINT": "Descarga el mapa elegido para la ventana mostrada (zoom actual y un nivel por encima y por debajo). Las teselas permanecen en el dispositivo. El mapa en pantalla no cambia: el fondo guardado se usa solo sin conexión.",
+    "OFFLINE_MAP_HINT": "Descarga el mapa elegido para la ventana mostrada (zoom actual, todos los zooms más altos y un nivel por debajo). Las teselas permanecen en el dispositivo. El mapa en pantalla no cambia: el fondo guardado se usa solo sin conexión.",
     "OFFLINE_MAP_DOWNLOAD": "Esta ventana",
     "OFFLINE_MAP_BTN": "Sin red",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Alrededor de mí",
@@ -5327,7 +5328,22 @@
     "OFFLINE_MAP_SOURCE_LABEL": "Origen del mapa",
     "OFFLINE_MAP_SOURCE_NETWORK": "Red",
     "OFFLINE_MAP_SOURCE_DEVICE": "Móvil",
-    "OFFLINE_MAP_SOURCE_HINT": "Móvil: mapa guardado en el aparato, disponible sin red tras un reinicio. Red: mapa de fondo en línea."
+    "OFFLINE_MAP_SOURCE_HINT": "Móvil: mapa guardado en el aparato, disponible sin red tras un reinicio. Red: mapa de fondo en línea.",
+    "OFFLINE_MAP_SPINNER": "Descarga de teselas",
+    "OFFLINE_MAP_FAILED": "{{n}} fallidas",
+    "OFFLINE_MAP_CATALOG": "Almacén sin conexión",
+    "OFFLINE_MAP_CATALOG_OPEN": "Teselas guardadas",
+    "OFFLINE_MAP_CATALOG_HINT": "Teselas guardadas en este navegador: mapa, zooms y zona cubierta.",
+    "OFFLINE_MAP_CATALOG_EMPTY": "No hay teselas guardadas en este dispositivo.",
+    "OFFLINE_MAP_CATALOG_LOADING": "Leyendo el almacén…",
+    "OFFLINE_MAP_CATALOG_TOTAL": "{{n}} teselas · {{size}}",
+    "OFFLINE_MAP_CATALOG_ZOOM": "Zooms {{min}}–{{max}}",
+    "OFFLINE_MAP_CATALOG_REGION": "{{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_CATALOG_UPDATED": "Actualizado {{date}}",
+    "OFFLINE_MAP_OPEN": "Cargar teselas",
+    "OFFLINE_MAP_SHARED": "Un solo almacén en este dispositivo, compartido por el visor, GPS, ruta GPS y traza GPX.",
+    "OFFLINE_MAP_WINDOW": "Ventana {{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_ZOOMS": "Zooms {{current}} a {{max}}"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Falló la búsqueda de dirección.",

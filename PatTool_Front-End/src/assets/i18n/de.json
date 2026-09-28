@@ -109,7 +109,8 @@
     "NEARBY_PROS": "Betriebe in der Nähe",
     "ARTISANAT": "Handwerk",
     "SOS": "SOS",
-    "FONCIER_SUISSE": "Immobilien Schweiz"
+    "FONCIER_SUISSE": "Immobilien Schweiz",
+    "MAP_TRACE_VIEWER": "Karte (Traceviewer)"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -5390,7 +5391,7 @@
     "EXPORT_GPX": "GPX exportieren",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "Offline-Karte",
-    "OFFLINE_MAP_HINT": "Lädt die gewählte Karte für das angezeigte Kartenfenster (aktueller Zoom sowie eine Stufe darüber und darunter). Die Kacheln bleiben auf dem Gerät. Die angezeigte Karte wechselt nicht: die gespeicherte Karte gilt nur offline.",
+    "OFFLINE_MAP_HINT": "Lädt die gewählte Karte für das angezeigte Kartenfenster (aktueller Zoom, alle höheren Stufen und eine Stufe darunter). Die Kacheln bleiben auf dem Gerät. Die angezeigte Karte wechselt nicht: die gespeicherte Karte gilt nur offline.",
     "OFFLINE_MAP_DOWNLOAD": "Dieses Fenster",
     "OFFLINE_MAP_BTN": "Offline",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Um mich",
@@ -5408,7 +5409,22 @@
     "OFFLINE_MAP_SOURCE_LABEL": "Kartenquelle",
     "OFFLINE_MAP_SOURCE_NETWORK": "Netz",
     "OFFLINE_MAP_SOURCE_DEVICE": "Mobil",
-    "OFFLINE_MAP_SOURCE_HINT": "Mobil: Karte auf dem Gerät gespeichert, nach einem Neustart ohne Netz verfügbar. Netz: Online-Hintergrundkarte."
+    "OFFLINE_MAP_SOURCE_HINT": "Mobil: Karte auf dem Gerät gespeichert, nach einem Neustart ohne Netz verfügbar. Netz: Online-Hintergrundkarte.",
+    "OFFLINE_MAP_SPINNER": "Kacheln werden geladen",
+    "OFFLINE_MAP_FAILED": "{{n}} fehlgeschlagen",
+    "OFFLINE_MAP_CATALOG": "Offline-Bestand",
+    "OFFLINE_MAP_CATALOG_OPEN": "Gespeicherte Kacheln",
+    "OFFLINE_MAP_CATALOG_HINT": "Kacheln in diesem Browser: Karte, Zoomstufen und abgedeckte Region.",
+    "OFFLINE_MAP_CATALOG_EMPTY": "Keine Kacheln auf diesem Gerät.",
+    "OFFLINE_MAP_CATALOG_LOADING": "Bestand wird gelesen…",
+    "OFFLINE_MAP_CATALOG_TOTAL": "{{n}} Kacheln · {{size}}",
+    "OFFLINE_MAP_CATALOG_ZOOM": "Zoom {{min}}–{{max}}",
+    "OFFLINE_MAP_CATALOG_REGION": "{{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_CATALOG_UPDATED": "Aktualisiert {{date}}",
+    "OFFLINE_MAP_OPEN": "Kacheln laden",
+    "OFFLINE_MAP_SHARED": "Ein Speicher auf diesem Gerät, gemeinsam für Trace Viewer, GPS, Route und GPX.",
+    "OFFLINE_MAP_WINDOW": "Fenster {{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_ZOOMS": "Zoom {{current}} bis {{max}}"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Adresssuche fehlgeschlagen.",

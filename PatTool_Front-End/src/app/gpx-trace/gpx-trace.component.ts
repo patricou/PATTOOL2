@@ -225,19 +225,11 @@ export class GpxTraceComponent implements AfterViewInit, OnDestroy {
     return formatOfflinePackSize(bytes);
   }
 
-  async downloadOfflineMap(): Promise<void> {
-    const view = viewWindowFromMap(this.map);
-    if (!view) {
-      this.offlineError = 'GPS.OFFLINE_MAP_NEED_VIEW';
-      this.cdr.markForCheck();
-      return;
-    }
-    this.offlineMessage = '';
-    const ok = await this.offlineMap.downloadView(view, this.mapBaseLayerId);
-    if (ok) {
-      this.offlineMessage = 'GPS.OFFLINE_MAP_DONE';
-    }
-    this.cdr.markForCheck();
+  openOfflineTiles(): void {
+    this.offlineMap.openDownloadUi({
+      basemapId: this.mapBaseLayerId,
+      view: viewWindowFromMap(this.map)
+    });
   }
 
   setOfflineMapSource(useDevice: boolean): void {
@@ -245,10 +237,6 @@ export class GpxTraceComponent implements AfterViewInit, OnDestroy {
     this.offlineFallback = false;
     this.applyGpxBaseLayer();
     this.cdr.markForCheck();
-  }
-
-  cancelOfflineMap(): void {
-    this.offlineMap.cancel();
   }
 
   formatDistance(meters: number | null): string {

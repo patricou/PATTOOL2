@@ -38,6 +38,7 @@ import {
 import { GpsOfflinePackMeta, GpsOfflineTilesStore } from './gps-offline-tiles.store';
 import { viewWindowAround, viewWindowFromMap } from './gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../shared/leaflet-cached-tile.layer';
+import { isBrowserOffline } from '../shared/browser-offline.util';
 import { GpsNav3dComponent, GpsNav3dFix } from '../gps-routing/gps-nav-3d.component';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { GpsMapOrientation } from '../shared/gps-map-orientation';
@@ -329,7 +330,33 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.loadOfflineMapSource();
+    if (isBrowserOffline()) {
+      this.offlineFallback = true;
+    }
     this.basemap.loadOptionalLayers(this.api);
+    this.offlineSub = new Subscription();
+    this.offlineSub.add(this.offlineMap.meta$.subscribe((m) => {
+      const hadPack = this.offlineMeta.tileCount > 0;
+      this.offlineMeta = m;
+      if (!m.tileCount) {
+        this.offlineFallback = false;
+        if (this.offlineUseDevice) {
+          this.offlineUseDevice = false;
+          if (this.offlineSourceExplicit) {
+            this.persistOfflineMapSource();
+          }
+        }
+        if (hadPack && this.map) {
+          this.applyGpsBaseLayer();
+        }
+      } else if (isBrowserOffline()) {
+        this.offlineFallback = true;
+      }
+      if (this.map && m.tileCount > 0 && (this.offlineUseDevice || this.offlineFallback)) {
+        this.applyGpsBaseLayer();
+      }
+      this.cdr.markForCheck();
+    }));
     this.ensureMap();
     this.recording.ensureLocationWatch();
     this.loadSlopeCoef();
@@ -340,21 +367,6 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
       this.refreshPlaces(snap);
       this.cdr.detectChanges();
     });
-    this.offlineSub = new Subscription();
-    this.offlineSub.add(this.offlineMap.meta$.subscribe((m) => {
-      const hadPack = this.offlineMeta.tileCount > 0;
-      this.offlineMeta = m;
-      if (hadPack && !m.tileCount && this.offlineUseDevice) {
-        this.offlineUseDevice = false;
-        if (this.offlineSourceExplicit) {
-          this.persistOfflineMapSource();
-        }
-        if (this.map) {
-          this.applyGpsBaseLayer();
-        }
-      }
-      this.cdr.markForCheck();
-    }));
     this.offlineSub.add(this.offlineMap.progress$.subscribe((p) => {
       this.offlineProgress = p;
       this.cdr.markForCheck();
@@ -1085,47 +1097,14 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     }, 80);
   }
 
-  async downloadOfflineMap(): Promise<void> {
-    const view = viewWindowFromMap(this.map);
-    if (!view) {
-      this.offlineError = 'GPS.OFFLINE_MAP_NEED_VIEW';
-      this.cdr.markForCheck();
-      return;
-    }
-    this.successMessage = '';
-    const ok = await this.offlineMap.downloadView(view, this.mapBaseLayerId);
-    if (ok) {
-      this.successMessage = 'GPS.OFFLINE_MAP_DONE';
-    }
-    this.cdr.markForCheck();
-  }
-
-  async downloadOfflineHere(): Promise<void> {
+  openOfflineTiles(): void {
     const view = viewWindowFromMap(this.map);
     const u = this.snap.user;
-    const around = view && u ? viewWindowAround(view, u.lat, u.lon) : null;
-    if (!around) {
-      this.offlineError = 'GPS.OFFLINE_MAP_NEED_VIEW';
-      this.cdr.markForCheck();
-      return;
-    }
-    this.successMessage = '';
-    const ok = await this.offlineMap.downloadView(around, this.mapBaseLayerId);
-    if (ok) {
-      this.successMessage = 'GPS.OFFLINE_MAP_DONE';
-    }
-    this.cdr.markForCheck();
-  }
-
-  cancelOfflineMap(): void {
-    this.offlineMap.cancel();
-  }
-
-  async clearOfflineMap(): Promise<void> {
-    await this.offlineMap.clear();
-    this.setOfflineMapSource(false);
-    this.successMessage = '';
-    this.cdr.markForCheck();
+    this.offlineMap.openDownloadUi({
+      basemapId: this.mapBaseLayerId,
+      view,
+      aroundView: view && u ? viewWindowAround(view, u.lat, u.lon) : null
+    });
   }
 
   formatOfflineSize(bytes: number | null | undefined): string {

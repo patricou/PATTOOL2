@@ -84,11 +84,167 @@ export function styleFromTileId(id: string): string {
   const style = hash >= 0 ? head.slice(0, hash) : head;
   return style === 'osm' ? 'osm-standard' : style;
 }
+
+/** `style#part|z|x|y` or legacy `osm|z|x|y`. */
+export function parseStoredTileId(id: string): { style: string; z: number; x: number; y: number } | null {
+  const bits = (id || '').split('|');
+  if (bits.length !== 4) {
+    return null;
+  }
+  const z = Number(bits[1]);
+  const x = Number(bits[2]);
+  const y = Number(bits[3]);
+  if (!Number.isInteger(z) || !Number.isInteger(x) || !Number.isInteger(y) || z < 0 || z > 22) {
+    return null;
+  }
+  return { style: styleFromTileId(id), z, x, y };
+}
+
+/** Geographic rectangle of one slippy-map tile (north/west is the tile origin). */
+export function tileLatLonBounds(z: number, x: number, y: number): { south: number; west: number; north: number; east: number } {
+  const n = 2 ** z;
+  const west = (x / n) * 360 - 180;
+  const east = ((x + 1) / n) * 360 - 180;
+  const north = mercatorTileYToLat(y, n);
+  const south = mercatorTileYToLat(y + 1, n);
+  return { south, west, north, east };
+}
+
+function mercatorTileYToLat(y: number, n: number): number {
+  const latRad = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n)));
+  return (latRad * 180) / Math.PI;
+}
+
+export interface GpsOfflineZoomCount {
+  z: number;
+  count: number;
+}
+
+export interface GpsOfflineRegionSummary {
+  style: string;
+  tileCount: number;
+  bytes: number;
+  minZoom: number;
+  maxZoom: number;
+  zooms: GpsOfflineZoomCount[];
+  south: number;
+  west: number;
+  north: number;
+  east: number;
+  updatedAt: number | null;
+}
+
+export interface GpsOfflineInventory {
+  tileCount: number;
+  bytes: number;
+  updatedAt: number | null;
+  regions: GpsOfflineRegionSummary[];
+}
+
+export const EMPTY_OFFLINE_INVENTORY: GpsOfflineInventory = {
+  tileCount: 0,
+  bytes: 0,
+  updatedAt: null,
+  regions: []
+};
+
+/** Group stored tile keys by basemap, with zoom counts and the covered rectangle. */
+export function summarizeOfflineTiles(
+  entries: Array<{ id: string; bytes: number; savedAt?: number | null }>
+): GpsOfflineInventory {
+  interface Acc {
+    tileCount: number;
+    bytes: number;
+    south: number;
+    west: number;
+    north: number;
+    east: number;
+    zooms: Map<number, number>;
+    updatedAt: number | null;
+  }
+  const groups = new Map<string, Acc>();
+  let tileCount = 0;
+  let bytes = 0;
+  let updatedAt: number | null = null;
+  for (const entry of entries) {
+    const parsed = parseStoredTileId(entry.id);
+    if (!parsed || entry.bytes <= 0) {
+      continue;
+    }
+    const bounds = tileLatLonBounds(parsed.z, parsed.x, parsed.y);
+    tileCount += 1;
+    bytes += entry.bytes;
+    if (entry.savedAt && (!updatedAt || entry.savedAt > updatedAt)) {
+      updatedAt = entry.savedAt;
+    }
+    let group = groups.get(parsed.style);
+    if (!group) {
+      group = {
+        tileCount: 0,
+        bytes: 0,
+        south: bounds.south,
+        west: bounds.west,
+        north: bounds.north,
+        east: bounds.east,
+        zooms: new Map(),
+        updatedAt: null
+      };
+      groups.set(parsed.style, group);
+    } else {
+      group.south = Math.min(group.south, bounds.south);
+      group.west = Math.min(group.west, bounds.west);
+      group.north = Math.max(group.north, bounds.north);
+      group.east = Math.max(group.east, bounds.east);
+    }
+    group.tileCount += 1;
+    group.bytes += entry.bytes;
+    group.zooms.set(parsed.z, (group.zooms.get(parsed.z) || 0) + 1);
+    if (entry.savedAt && (!group.updatedAt || entry.savedAt > group.updatedAt)) {
+      group.updatedAt = entry.savedAt;
+    }
+  }
+  const regions: GpsOfflineRegionSummary[] = [...groups.entries()].map(([style, group]) => {
+    const zooms = [...group.zooms.entries()]
+      .map(([z, count]) => ({ z, count }))
+      .sort((a, b) => a.z - b.z);
+    return {
+      style,
+      tileCount: group.tileCount,
+      bytes: group.bytes,
+      minZoom: zooms[0]?.z ?? 0,
+      maxZoom: zooms[zooms.length - 1]?.z ?? 0,
+      zooms,
+      south: group.south,
+      west: group.west,
+      north: group.north,
+      east: group.east,
+      updatedAt: group.updatedAt
+    };
+  });
+  regions.sort((a, b) => b.tileCount - a.tileCount || a.style.localeCompare(b.style));
+  return { tileCount, bytes, updatedAt, regions };
+}
 export const GPS_OFFLINE_MIN_Z = 12;
 export const GPS_OFFLINE_MAX_Z = 16;
 export const GPS_OFFLINE_BUFFER_M = 1000;
 export const GPS_OFFLINE_HERE_BUFFER_M = 1500;
 export const GPS_OFFLINE_MAX_TILES = 2800;
+/** Cap for a map window downloaded at every higher zoom (current view through native max). */
+export const GPS_OFFLINE_VIEW_MAX_TILES = 40000;
+
+/** Native zoom ceiling per catalogue id. Layers omitted here go to 19. */
+const OFFLINE_BASEMAP_MAX_Z: Record<string, number> = {
+  'opentopomap': 17,
+  'cyclosm': 18,
+  'opencyclemap': 18,
+  'thunderforest-outdoors': 18,
+  'swisstopo-pixelkarte': 18,
+  'ign-scan-regional': 12
+};
+
+export function offlineBasemapMaxZoom(style: string): number {
+  return OFFLINE_BASEMAP_MAX_Z[style] ?? 19;
+}
 
 export function gpsTileId(z: number, x: number, y: number, style = GPS_OFFLINE_STYLE): string {
   return `${style}|${Math.round(z)}|${Math.round(x)}|${Math.round(y)}`;
@@ -174,17 +330,19 @@ export function viewWindowAround(view: GpsViewWindow, lat: number, lon: number):
 
 /**
  * Slippy-map tiles that cover the displayed window.
- * The on-screen zoom is filled first, then one level closer and one level wider,
- * so a single zoom step still has tiles. Extent is the window, not a track corridor.
+ * The on-screen zoom is filled first, then one level wider, then every higher zoom
+ * up to the basemap native maximum. Pass `zoomSpan` to keep a fixed ±N range.
+ * Extent is the window, not a track corridor.
  */
 export function tilesInView(
   view: GpsViewWindow,
   opts?: { zoomSpan?: number; minZ?: number; maxZ?: number; maxTiles?: number }
 ): GpsTileXYZ[] {
-  const maxTiles = opts?.maxTiles ?? GPS_OFFLINE_MAX_TILES;
+  const explicitSpan = opts?.zoomSpan != null;
+  const maxTiles = opts?.maxTiles ?? (explicitSpan ? GPS_OFFLINE_MAX_TILES : GPS_OFFLINE_VIEW_MAX_TILES);
   const absMin = opts?.minZ ?? 0;
   const absMax = opts?.maxZ ?? 19;
-  const span = Math.max(0, Math.floor(opts?.zoomSpan ?? 1));
+  const span = Math.max(0, Math.floor(opts?.zoomSpan ?? 0));
   const z0 = Math.round(view.zoom);
   if (!Number.isFinite(z0) || !Number.isFinite(view.south) || !Number.isFinite(view.north)
     || !Number.isFinite(view.west) || !Number.isFinite(view.east)) {
@@ -199,9 +357,16 @@ export function tilesInView(
     }
   };
   pushLevel(z0);
-  for (let d = 1; d <= span; d++) {
-    pushLevel(z0 + d);
-    pushLevel(z0 - d);
+  if (explicitSpan) {
+    for (let d = 1; d <= span; d++) {
+      pushLevel(z0 + d);
+      pushLevel(z0 - d);
+    }
+  } else {
+    pushLevel(z0 - 1);
+    for (let z = z0 + 1; z <= absMax; z++) {
+      pushLevel(z);
+    }
   }
 
   const seen = new Set<string>();

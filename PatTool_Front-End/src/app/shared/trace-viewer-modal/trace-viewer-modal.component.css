@@ -880,6 +880,33 @@
 	color: #f7fbff !important;
 }
 
+@media (max-width: 768px), (orientation: landscape) and (max-height: 500px) {
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-switch .form-check-label,
+	.fullscreen-selector .fullscreen-offline-switch .form-check-label {
+		display: none !important;
+	}
+
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-switch.form-check,
+	.fullscreen-offline-row .fullscreen-offline-switch.form-check {
+		margin-left: 0.9rem !important;
+	}
+
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-basemap-slot .tv-offline-map-btn,
+	.fullscreen-offline-row .btn {
+		box-sizing: border-box;
+		width: 2.15rem !important;
+		height: 2.15rem !important;
+		min-width: 2.15rem !important;
+		max-width: 2.15rem !important;
+		min-height: 2.15rem !important;
+		padding: 0 !important;
+		display: inline-flex !important;
+		align-items: center;
+		justify-content: center;
+		flex: 0 0 2.15rem !important;
+	}
+}
+
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-note {
 	display: inline-flex;
 	align-items: center;
@@ -1225,6 +1252,21 @@
 ::ng-deep .tv-tip:focus-within::after {
 	opacity: 1;
 	visibility: visible;
+}
+
+/* Mobile (portrait et paysage) : un tap laisse le focus, le tooltip reste collé sur les contrôles. */
+@media (max-width: 768px), (orientation: landscape) and (max-height: 500px) {
+	.tv-tip::after,
+	.tv-tip:hover::after,
+	.tv-tip:focus-visible::after,
+	.tv-tip:focus-within::after,
+	::ng-deep .tv-tip::after,
+	::ng-deep .tv-tip:hover::after,
+	::ng-deep .tv-tip:focus-visible::after,
+	::ng-deep .tv-tip:focus-within::after {
+		content: none !important;
+		display: none !important;
+	}
 }
 
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-switches-group .tv-tip::after {

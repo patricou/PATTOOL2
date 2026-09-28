@@ -1,0 +1,99 @@
+<ng-template #downloadModal let-modal>
+  <div class="modal-header">
+    <h5 class="modal-title">
+      <i class="fa fa-download me-2" aria-hidden="true"></i>{{ 'GPS.OFFLINE_MAP' | translate }}
+    </h5>
+    <button type="button" class="btn-close" [attr.aria-label]="'COMMUN.CLOSE' | translate" (click)="modal.dismiss()"></button>
+  </div>
+  <div class="modal-body">
+    <p class="small text-muted">{{ 'GPS.OFFLINE_MAP_SHARED' | translate }}</p>
+    <p class="mb-2">
+      <span class="text-muted">{{ 'GPS.OFFLINE_MAP_SOURCE_LABEL' | translate }} · </span>
+      <strong>{{ mapLabel(styleId) }}</strong>
+    </p>
+    <p class="small mb-1" *ngIf="request?.view">{{ windowLabel(request?.view) }}</p>
+    <p class="small mb-3" *ngIf="currentZoom !== null">
+      {{ 'GPS.OFFLINE_MAP_ZOOMS' | translate:{ current: currentZoom, max: maxZoom } }}
+    </p>
+    <p class="small text-warning mb-3" *ngIf="!request?.view">{{ 'GPS.OFFLINE_MAP_NEED_VIEW' | translate }}</p>
+    <p class="small text-warning mb-3" *ngIf="request?.view && !online">{{ 'GPS.OFFLINE_MAP_NEED_NET' | translate }}</p>
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <button type="button"
+              class="btn btn-primary"
+              (click)="downloadView(request?.view)"
+              [disabled]="downloading || !request?.view || !online">
+        <i class="fa fa-download me-1" aria-hidden="true"></i>{{ 'GPS.OFFLINE_MAP_DOWNLOAD' | translate }}
+      </button>
+      <button type="button"
+              class="btn btn-outline-primary"
+              *ngIf="request?.aroundView"
+              (click)="downloadView(request?.aroundView)"
+              [disabled]="downloading || !online">
+        <i class="fa fa-crosshairs me-1" aria-hidden="true"></i>{{ 'GPS.OFFLINE_MAP_DOWNLOAD_HERE' | translate }}
+      </button>
+    </div>
+
+    <div class="gps-offline-dl-inline" *ngIf="downloading" role="status" aria-live="polite">
+      <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+      <div class="flex-grow-1">
+        <div class="fw-semibold">{{ progress.done }} / {{ progress.total }}</div>
+        <div class="small text-muted" *ngIf="progress.style">{{ mapLabel(progress.style) }}</div>
+        <div class="gps-offline-dl-bar" aria-hidden="true">
+          <div [style.width.%]="percent"></div>
+        </div>
+        <div class="small text-danger" *ngIf="progress.failed">
+          {{ 'GPS.OFFLINE_MAP_FAILED' | translate:{ n: progress.failed } }}
+        </div>
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancel()">
+        {{ 'GPS.OFFLINE_MAP_CANCEL' | translate }}
+      </button>
+    </div>
+    <p class="small text-danger" *ngIf="errorKey">{{ errorKey | translate }}</p>
+
+    <h6 class="mt-4 mb-2">{{ 'GPS.OFFLINE_MAP_CATALOG' | translate }}</h6>
+    <div *ngIf="catalogLoading" class="text-muted small">
+      <i class="fa fa-spinner fa-spin me-2" aria-hidden="true"></i>{{ 'GPS.OFFLINE_MAP_CATALOG_LOADING' | translate }}
+    </div>
+    <div *ngIf="!catalogLoading && inventory && !inventory.tileCount" class="text-muted small">
+      {{ 'GPS.OFFLINE_MAP_CATALOG_EMPTY' | translate }}
+    </div>
+    <div *ngIf="!catalogLoading && inventory && inventory.tileCount">
+      <div class="fw-semibold mb-2">
+        {{ 'GPS.OFFLINE_MAP_CATALOG_TOTAL' | translate:{ n: inventory.tileCount, size: formatSize(inventory.bytes) } }}
+      </div>
+      <div class="gps-offline-region" *ngFor="let region of inventory.regions; trackBy: trackRegion">
+        <div class="d-flex justify-content-between align-items-baseline gap-2">
+          <div class="fw-semibold">{{ mapLabel(region.style) }}</div>
+          <div class="small text-muted text-nowrap">
+            {{ 'GPS.OFFLINE_MAP_CATALOG_TOTAL' | translate:{ n: region.tileCount, size: formatSize(region.bytes) } }}
+          </div>
+        </div>
+        <div class="small mt-1">
+          {{ 'GPS.OFFLINE_MAP_CATALOG_ZOOM' | translate:{ min: region.minZoom, max: region.maxZoom } }}
+        </div>
+        <div class="gps-offline-zooms">
+          <span *ngFor="let zoom of region.zooms">z{{ zoom.z }} · {{ zoom.count }}</span>
+        </div>
+        <div class="small mt-1">
+          {{ 'GPS.OFFLINE_MAP_CATALOG_REGION' | translate:{
+            south: formatCoord(region.south, 'lat'),
+            north: formatCoord(region.north, 'lat'),
+            west: formatCoord(region.west, 'lon'),
+            east: formatCoord(region.east, 'lon')
+          } }}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button"
+            class="btn btn-outline-danger me-auto"
+            (click)="clearStore()"
+            [disabled]="downloading || clearing || !inventory?.tileCount">
+      {{ 'GPS.OFFLINE_MAP_CLEAR' | translate }}
+    </button>
+    <button type="button" class="btn btn-secondary" (click)="modal.dismiss()">{{ 'COMMUN.CLOSE' | translate }}</button>
+  </div>
+</ng-template>

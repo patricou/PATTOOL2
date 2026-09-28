@@ -109,7 +109,8 @@
     "ARTISANS_COMMERCES": "Artisans et commerces",
     "NEARBY_PROS": "Pros à proximité",
     "ARTISANAT": "Artisanat",
-    "SOS": "SOS"
+    "SOS": "SOS",
+    "MAP_TRACE_VIEWER": "Map (Traceviewer)"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -6966,7 +6967,7 @@
     "EXPORT_GPX": "Exporter GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "Carte hors-ligne",
-    "OFFLINE_MAP_HINT": "Télécharge le fond de carte choisi pour la fenêtre affichée, au zoom actuel et un niveau au-dessus et en dessous. Autour de moi reprend la même fenêtre, centrée sur votre position. Les tuiles restent enregistrées sur l’appareil. La carte affichée ne change pas : le fond enregistré sert seulement hors ligne.",
+    "OFFLINE_MAP_HINT": "Télécharge le fond de carte choisi pour la fenêtre affichée, au zoom actuel, à tous les zooms plus élevés, et un niveau en dessous. Autour de moi reprend la même fenêtre, centrée sur votre position. Les tuiles restent enregistrées sur l’appareil. La carte affichée ne change pas : le fond enregistré sert seulement hors ligne.",
     "OFFLINE_MAP_DOWNLOAD": "Fenêtre affichée",
     "OFFLINE_MAP_BTN": "Hors-ligne",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Autour de moi",
@@ -6984,7 +6985,22 @@
     "OFFLINE_MAP_SOURCE_LABEL": "Source de la carte",
     "OFFLINE_MAP_SOURCE_NETWORK": "Réseau",
     "OFFLINE_MAP_SOURCE_DEVICE": "Mobile",
-    "OFFLINE_MAP_SOURCE_HINT": "Mobile : carte stockée sur l’appareil, disponible sans réseau après redémarrage. Réseau : fond de carte en ligne."
+    "OFFLINE_MAP_SOURCE_HINT": "Mobile : carte stockée sur l’appareil, disponible sans réseau après redémarrage. Réseau : fond de carte en ligne.",
+    "OFFLINE_MAP_SPINNER": "Téléchargement des tuiles",
+    "OFFLINE_MAP_FAILED": "{{n}} en échec",
+    "OFFLINE_MAP_CATALOG": "Stock hors-ligne",
+    "OFFLINE_MAP_CATALOG_OPEN": "Tuiles enregistrées",
+    "OFFLINE_MAP_CATALOG_HINT": "Tuiles gardées dans ce navigateur : carte, zooms et région couverte.",
+    "OFFLINE_MAP_CATALOG_EMPTY": "Aucune tuile enregistrée sur cet appareil.",
+    "OFFLINE_MAP_CATALOG_LOADING": "Lecture du stock…",
+    "OFFLINE_MAP_CATALOG_TOTAL": "{{n}} tuiles · {{size}}",
+    "OFFLINE_MAP_CATALOG_ZOOM": "Zooms {{min}} – {{max}}",
+    "OFFLINE_MAP_CATALOG_REGION": "{{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_CATALOG_UPDATED": "Mis à jour {{date}}",
+    "OFFLINE_MAP_OPEN": "Charger les tuiles",
+    "OFFLINE_MAP_SHARED": "Un seul stock sur cet appareil, partagé par le trace viewer, GPS, GPS / Itinéraire et Trace GPX.",
+    "OFFLINE_MAP_WINDOW": "Fenêtre {{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_ZOOMS": "Zooms {{current}} à {{max}}"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Échec de la recherche d'adresse.",

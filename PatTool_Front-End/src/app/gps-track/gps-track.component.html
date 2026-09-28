@@ -485,7 +485,6 @@
         <div class="gps-ctrl-head">
           <div class="small fw-semibold mb-0">{{ 'GPS.OFFLINE_MAP' | translate }}</div>
         </div>
-        <p class="small text-muted gps-hint mb-2">{{ 'GPS.OFFLINE_MAP_HINT' | translate }}</p>
         <div class="gps-offline-source"
              role="group"
              [attr.aria-label]="'GPS.OFFLINE_MAP_SOURCE_LABEL' | translate">
@@ -507,47 +506,9 @@
         </div>
         <p class="small text-muted mb-2">{{ 'GPS.OFFLINE_MAP_SOURCE_HINT' | translate }}</p>
         <div class="small text-info mb-2" *ngIf="usingOfflineDeviceMap">{{ 'GPS.OFFLINE_MAP_USING' | translate }}</div>
-        <div class="gps-ctrl-grid">
-          <button type="button"
-                  class="gps-ctrl gps-ctrl--sessions"
-                  (click)="downloadOfflineMap()"
-                  [disabled]="offlineDownloading || !snap.online || !canDownloadOfflineMap"
-                  [attr.title]="'GPS.OFFLINE_MAP_HINT' | translate">
-            <i class="fa fa-download" aria-hidden="true"></i>
-            <span>{{ 'GPS.OFFLINE_MAP_DOWNLOAD' | translate }}</span>
-          </button>
-          <button type="button"
-                  class="gps-ctrl gps-ctrl--gpx"
-                  (click)="downloadOfflineHere()"
-                  [disabled]="offlineDownloading || !snap.online || !canDownloadOfflineHere"
-                  [attr.title]="'GPS.OFFLINE_MAP_DOWNLOAD_HERE' | translate">
-            <i class="fa fa-crosshairs" aria-hidden="true"></i>
-            <span>{{ 'GPS.OFFLINE_MAP_DOWNLOAD_HERE' | translate }}</span>
-          </button>
-          <button type="button"
-                  class="gps-ctrl gps-ctrl--pause"
-                  *ngIf="offlineDownloading"
-                  (click)="cancelOfflineMap()">
-            <i class="fa fa-ban" aria-hidden="true"></i>
-            <span>{{ 'GPS.OFFLINE_MAP_CANCEL' | translate }}</span>
-          </button>
-          <button type="button"
-                  class="gps-ctrl gps-ctrl--clear"
-                  (click)="clearOfflineMap()"
-                  [disabled]="offlineDownloading || !offlineMeta.tileCount">
-            <i class="fa fa-trash" aria-hidden="true"></i>
-            <span>{{ 'GPS.OFFLINE_MAP_CLEAR' | translate }}</span>
-          </button>
-        </div>
-        <div class="small text-muted mt-2" *ngIf="offlineDownloading">
-          <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
-          {{ 'GPS.OFFLINE_MAP_PROGRESS' | translate:{ done: offlineProgress.done, total: offlineProgress.total } }}
-        </div>
-        <div class="progress gps-offline-map-progress mt-2" *ngIf="offlineDownloading && offlineProgress.total">
-          <div class="progress-bar"
-               role="progressbar"
-               [style.width.%]="(offlineProgress.done / offlineProgress.total) * 100"></div>
-        </div>
+        <button type="button" class="btn btn-primary btn-sm" (click)="openOfflineTiles()">
+          <i class="fa fa-download me-1" aria-hidden="true"></i>{{ 'GPS.OFFLINE_MAP_OPEN' | translate }}
+        </button>
         <div class="small text-muted mt-2" *ngIf="!offlineDownloading && offlineMeta.tileCount">
           {{ 'GPS.OFFLINE_MAP_STATS' | translate:{ n: offlineMeta.tileCount, size: formatOfflineSize(offlineMeta.bytes) } }}
         </div>

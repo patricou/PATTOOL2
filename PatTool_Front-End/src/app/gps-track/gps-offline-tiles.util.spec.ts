@@ -1,4 +1,4 @@
-import { lonLatToTile, tilesInView, viewWindowAround, GpsViewWindow } from './gps-offline-tiles.util';
+import { lonLatToTile, parseStoredTileId, summarizeOfflineTiles, tileLatLonBounds, tilesInView, viewWindowAround, GpsViewWindow } from './gps-offline-tiles.util';
 
 describe('tilesInView', () => {
   const geneva: GpsViewWindow = {
@@ -17,12 +17,15 @@ describe('tilesInView', () => {
     expect(tiles.some((t) => t.x === center.x && t.y === center.y)).toBeTrue();
   });
 
-  it('adds one zoom level each way around the window, not a fixed 12–16 corridor', () => {
-    const tiles = tilesInView(geneva);
+  it('covers the window at every higher zoom, plus one level wider', () => {
+    const tiles = tilesInView(geneva, { maxZ: 19 });
     const levels = [...new Set(tiles.map((t) => t.z))].sort((a, b) => a - b);
-    expect(levels).toEqual([15, 16, 17]);
+    expect(levels).toEqual([15, 16, 17, 18, 19]);
     expect(tiles[0].z).toBe(16);
     expect(tiles.some((t) => t.z === 12)).toBeFalse();
+    const at = (z: number) => tiles.filter((t) => t.z === z).length;
+    expect(at(19)).toBeGreaterThan(at(18));
+    expect(at(18)).toBeGreaterThan(at(16));
   });
 
   it('stops at the tile cap after the on-screen zoom is filled', () => {
@@ -39,5 +42,37 @@ describe('tilesInView', () => {
     expect(around!.east - around!.west).toBeCloseTo(geneva.east - geneva.west, 6);
     expect((around!.north + around!.south) / 2).toBeCloseTo(46.5, 6);
     expect((around!.east + around!.west) / 2).toBeCloseTo(6.5, 6);
+  });
+});
+
+describe('offline tile inventory', () => {
+  it('keeps a point inside the bounds of its slippy tile', () => {
+    const tile = lonLatToTile(6.15, 46.2, 16);
+    const bounds = tileLatLonBounds(16, tile.x, tile.y);
+    expect(bounds.west).toBeLessThanOrEqual(6.15);
+    expect(bounds.east).toBeGreaterThan(6.15);
+    expect(bounds.south).toBeLessThanOrEqual(46.2);
+    expect(bounds.north).toBeGreaterThan(46.2);
+  });
+
+  it('groups stored tiles by basemap, zoom and covered region', () => {
+    const a = lonLatToTile(6.15, 46.2, 15);
+    const b = lonLatToTile(6.16, 46.21, 16);
+    const inventory = summarizeOfflineTiles([
+      { id: `opentopomap#0|15|${a.x}|${a.y}`, bytes: 1000, savedAt: 10 },
+      { id: `osm|16|${b.x}|${b.y}`, bytes: 2000, savedAt: 20 },
+      { id: `opentopomap#0|15|${a.x}|${a.y}`, bytes: 500, savedAt: 30 }
+    ]);
+    expect(inventory.tileCount).toBe(3);
+    expect(inventory.bytes).toBe(3500);
+    expect(inventory.regions.map((region) => region.style)).toEqual(['opentopomap', 'osm-standard']);
+    const topo = inventory.regions[0];
+    expect(topo.tileCount).toBe(2);
+    expect(topo.minZoom).toBe(15);
+    expect(topo.maxZoom).toBe(15);
+    expect(topo.zooms).toEqual([{ z: 15, count: 2 }]);
+    expect(topo.north).toBeGreaterThan(topo.south);
+    expect(topo.east).toBeGreaterThan(topo.west);
+    expect(parseStoredTileId('osm-fr#1|14|1|2')?.style).toBe('osm-fr');
   });
 });

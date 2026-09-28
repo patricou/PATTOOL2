@@ -109,7 +109,8 @@
     "ARTISANAT": "Artigianato",
     "TELEGRAM": "Telegram",
     "SOS": "SOS",
-    "FONCIER_SUISSE": "Immobiliare Svizzera"
+    "FONCIER_SUISSE": "Immobiliare Svizzera",
+    "MAP_TRACE_VIEWER": "Mappa (Traceviewer)"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -5264,7 +5265,7 @@
     "EXPORT_GPX": "Esporta GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "Mappa offline",
-    "OFFLINE_MAP_HINT": "Scarica la mappa scelta per la finestra visualizzata (zoom attuale e un livello sopra e sotto). I riquadri restano sul dispositivo. La mappa a schermo non cambia: il fondo salvato si usa solo offline.",
+    "OFFLINE_MAP_HINT": "Scarica la mappa scelta per la finestra visualizzata (zoom attuale, tutti gli zoom più alti e un livello sotto). I riquadri restano sul dispositivo. La mappa a schermo non cambia: il fondo salvato si usa solo offline.",
     "OFFLINE_MAP_DOWNLOAD": "Questa finestra",
     "OFFLINE_MAP_BTN": "Offline",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Intorno a me",
@@ -5282,7 +5283,22 @@
     "OFFLINE_MAP_SOURCE_LABEL": "Origine della mappa",
     "OFFLINE_MAP_SOURCE_NETWORK": "Rete",
     "OFFLINE_MAP_SOURCE_DEVICE": "Dispositivo",
-    "OFFLINE_MAP_SOURCE_HINT": "Dispositivo: mappa salvata sul telefono, disponibile senza rete dopo il riavvio. Rete: sfondo online."
+    "OFFLINE_MAP_SOURCE_HINT": "Dispositivo: mappa salvata sul telefono, disponibile senza rete dopo il riavvio. Rete: sfondo online.",
+    "OFFLINE_MAP_SPINNER": "Scaricamento riquadri",
+    "OFFLINE_MAP_FAILED": "{{n}} non riusciti",
+    "OFFLINE_MAP_CATALOG": "Archivio offline",
+    "OFFLINE_MAP_CATALOG_OPEN": "Riquadri salvati",
+    "OFFLINE_MAP_CATALOG_HINT": "Riquadri tenuti in questo browser: mappa, zoom e area coperta.",
+    "OFFLINE_MAP_CATALOG_EMPTY": "Nessun riquadro salvato su questo dispositivo.",
+    "OFFLINE_MAP_CATALOG_LOADING": "Lettura dell’archivio…",
+    "OFFLINE_MAP_CATALOG_TOTAL": "{{n}} riquadri · {{size}}",
+    "OFFLINE_MAP_CATALOG_ZOOM": "Zoom {{min}}–{{max}}",
+    "OFFLINE_MAP_CATALOG_REGION": "{{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_CATALOG_UPDATED": "Aggiornato {{date}}",
+    "OFFLINE_MAP_OPEN": "Scarica riquadri",
+    "OFFLINE_MAP_SHARED": "Un solo archivio su questo dispositivo, condiviso da trace viewer, GPS, itinerario e traccia GPX.",
+    "OFFLINE_MAP_WINDOW": "Finestra {{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_ZOOMS": "Zoom {{current}}–{{max}}"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Ricerca indirizzo non riuscita.",

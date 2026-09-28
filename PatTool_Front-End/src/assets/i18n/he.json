@@ -109,7 +109,8 @@
     "NEARBY_PROS": "בעלי מקצוע בקרבת מקום",
     "ARTISANAT": "מלאכה",
     "SOS": "SOS",
-    "FONCIER_SUISSE": "נדל״ן שווייץ"
+    "FONCIER_SUISSE": "נדל״ן שווייץ",
+    "MAP_TRACE_VIEWER": "מפה (Traceviewer)"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -5244,7 +5245,7 @@
     "EXPORT_GPX": "ייצוא GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "מפה לא מקוונת",
-    "OFFLINE_MAP_HINT": "מוריד את מפת הרקע שנבחרה עבור החלון המוצג (הזום הנוכחי ורמה אחת מעליו ומתחתיו). האריחים נשמרים במכשיר. המפה על המסך לא מתחלפת: הרקע השמור משמש רק במצב לא מקוון.",
+    "OFFLINE_MAP_HINT": "מוריד את מפת הרקע שנבחרה עבור החלון המוצג (הזום הנוכחי, כל רמות הזום הגבוהות יותר ורמה אחת מתחת). האריחים נשמרים במכשיר. המפה על המסך לא מתחלפת: הרקע השמור משמש רק במצב לא מקוון.",
     "OFFLINE_MAP_DOWNLOAD": "החלון הזה",
     "OFFLINE_MAP_BTN": "לא מקוון",
     "OFFLINE_MAP_DOWNLOAD_HERE": "סביבי",
@@ -5262,7 +5263,22 @@
     "OFFLINE_MAP_SOURCE_LABEL": "מקור המפה",
     "OFFLINE_MAP_SOURCE_NETWORK": "רשת",
     "OFFLINE_MAP_SOURCE_DEVICE": "מכשיר",
-    "OFFLINE_MAP_SOURCE_HINT": "מכשיר: מפה שמורה בטלפון, זמינה בלי רשת אחרי הפעלה מחדש. רשת: רקע מקוון."
+    "OFFLINE_MAP_SOURCE_HINT": "מכשיר: מפה שמורה בטלפון, זמינה בלי רשת אחרי הפעלה מחדש. רשת: רקע מקוון.",
+    "OFFLINE_MAP_SPINNER": "הורדת אריחים",
+    "OFFLINE_MAP_FAILED": "{{n}} נכשלו",
+    "OFFLINE_MAP_CATALOG": "מאגר לא מקוון",
+    "OFFLINE_MAP_CATALOG_OPEN": "אריחים שמורים",
+    "OFFLINE_MAP_CATALOG_HINT": "אריחים בדפדפן הזה: מפה, זום ואזור.",
+    "OFFLINE_MAP_CATALOG_EMPTY": "אין אריחים שמורים במכשיר.",
+    "OFFLINE_MAP_CATALOG_LOADING": "קורא את המאגר…",
+    "OFFLINE_MAP_CATALOG_TOTAL": "{{n}} אריחים · {{size}}",
+    "OFFLINE_MAP_CATALOG_ZOOM": "זום {{min}}–{{max}}",
+    "OFFLINE_MAP_CATALOG_REGION": "{{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_CATALOG_UPDATED": "עודכן {{date}}",
+    "OFFLINE_MAP_OPEN": "טעינת אריחים",
+    "OFFLINE_MAP_SHARED": "מאגר אחד במכשיר, משותף לצופה, GPS, מסלול ו-GPX.",
+    "OFFLINE_MAP_WINDOW": "חלון {{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_ZOOMS": "זום {{current}} עד {{max}}"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "חיפוש הכתובת נכשל.",

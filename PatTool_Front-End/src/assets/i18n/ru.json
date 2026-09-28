@@ -543,7 +543,8 @@
     "NEARBY_PROS": "Мастера рядом",
     "ARTISANAT": "Ремесло",
     "SOS": "SOS",
-    "FONCIER_SUISSE": "Недвижимость Швейцарии"
+    "FONCIER_SUISSE": "Недвижимость Швейцарии",
+    "MAP_TRACE_VIEWER": "Карта (Traceviewer)"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -5238,7 +5239,7 @@
     "EXPORT_GPX": "Экспорт GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "Офлайн-карта",
-    "OFFLINE_MAP_HINT": "Скачивает выбранную карту для окна на экране (текущий зум и один уровень выше и ниже). Тайлы остаются на устройстве. Карта на экране не меняется: сохранённый фон используется только офлайн.",
+    "OFFLINE_MAP_HINT": "Скачивает выбранную карту для окна на экране (текущий зум, все более крупные зумы и один уровень ниже). Тайлы остаются на устройстве. Карта на экране не меняется: сохранённый фон используется только офлайн.",
     "OFFLINE_MAP_DOWNLOAD": "Это окно",
     "OFFLINE_MAP_BTN": "Офлайн",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Вокруг меня",
@@ -5256,7 +5257,22 @@
     "OFFLINE_MAP_SOURCE_LABEL": "Источник карты",
     "OFFLINE_MAP_SOURCE_NETWORK": "Сеть",
     "OFFLINE_MAP_SOURCE_DEVICE": "Устройство",
-    "OFFLINE_MAP_SOURCE_HINT": "Устройство: карта на телефоне, доступна без сети после перезапуска. Сеть: онлайн-подложка."
+    "OFFLINE_MAP_SOURCE_HINT": "Устройство: карта на телефоне, доступна без сети после перезапуска. Сеть: онлайн-подложка.",
+    "OFFLINE_MAP_SPINNER": "Загрузка тайлов",
+    "OFFLINE_MAP_FAILED": "{{n}} с ошибкой",
+    "OFFLINE_MAP_CATALOG": "Офлайн-запас",
+    "OFFLINE_MAP_CATALOG_OPEN": "Сохранённые тайлы",
+    "OFFLINE_MAP_CATALOG_HINT": "Тайлы в этом браузере: карта, масштабы и область.",
+    "OFFLINE_MAP_CATALOG_EMPTY": "На устройстве нет сохранённых тайлов.",
+    "OFFLINE_MAP_CATALOG_LOADING": "Чтение запаса…",
+    "OFFLINE_MAP_CATALOG_TOTAL": "{{n}} тайлов · {{size}}",
+    "OFFLINE_MAP_CATALOG_ZOOM": "Масштаб {{min}}–{{max}}",
+    "OFFLINE_MAP_CATALOG_REGION": "{{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_CATALOG_UPDATED": "Обновлено {{date}}",
+    "OFFLINE_MAP_OPEN": "Загрузить тайлы",
+    "OFFLINE_MAP_SHARED": "Одно хранилище на устройстве, общее для просмотра трека, GPS, маршрута и GPX.",
+    "OFFLINE_MAP_WINDOW": "Окно {{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_ZOOMS": "Масштаб {{current}}–{{max}}"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Поиск адреса не удался.",

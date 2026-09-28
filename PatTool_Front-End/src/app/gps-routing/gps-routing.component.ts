@@ -247,7 +247,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
         if (!m.tileCount) {
           this.offlineUseDevice = false;
           this.offlineFallback = false;
-        } else if (!this.offlineLastOnline && !(this.offlineSourceExplicit && !this.offlineUseDevice)) {
+        } else if (!this.offlineLastOnline) {
           this.offlineFallback = true;
         }
         if (this.map && (!m.tileCount || this.offlineUseDevice || this.offlineFallback || hadPack)) {
@@ -980,7 +980,7 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.map) {
       return;
     }
-    if (!online && this.offlineMeta.tileCount > 0 && !(this.offlineSourceExplicit && !this.offlineUseDevice)) {
+    if (!online && this.offlineMeta.tileCount > 0) {
       this.offlineFallback = true;
       this.applyRoutingBaseLayer();
       this.cdr.markForCheck();
@@ -998,23 +998,11 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  async downloadRoutingOfflineMap(): Promise<void> {
-    const view = viewWindowFromMap(this.map);
-    if (!view) {
-      this.offlineError = 'GPS.OFFLINE_MAP_NEED_VIEW';
-      this.cdr.markForCheck();
-      return;
-    }
-    this.offlineMessage = '';
-    const ok = await this.offlineMap.downloadView(view, this.mapBaseLayerId);
-    if (ok) {
-      this.offlineMessage = 'GPS.OFFLINE_MAP_DONE';
-    }
-    this.cdr.markForCheck();
-  }
-
-  cancelRoutingOfflineMap(): void {
-    this.offlineMap.cancel();
+  openOfflineTiles(): void {
+    this.offlineMap.openDownloadUi({
+      basemapId: this.mapBaseLayerId,
+      view: viewWindowFromMap(this.map)
+    });
   }
 
   private applyRoutingBaseLayer(): void {

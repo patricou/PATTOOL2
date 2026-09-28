@@ -542,7 +542,8 @@
     "NEARBY_PROS": "आस-पास के पेशेवर",
     "ARTISANAT": "शिल्प",
     "SOS": "SOS",
-    "FONCIER_SUISSE": "स्विस संपत्ति"
+    "FONCIER_SUISSE": "स्विस संपत्ति",
+    "MAP_TRACE_VIEWER": "मैप (Traceviewer)"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -5236,7 +5237,7 @@
     "EXPORT_GPX": "GPX निर्यात करें",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "ऑफलाइन मानचित्र",
-    "OFFLINE_MAP_HINT": "चुना हुआ नक्शा दिख रही विंडो के लिए सहेजता है (मौजूदा ज़ूम और एक स्तर ऊपर-नीचे)। स्क्रीन का नक्शा नहीं बदलता। सहेजा नक्शा सिर्फ ऑफ़लाइन इस्तेमाल होता है।",
+    "OFFLINE_MAP_HINT": "चुना हुआ नक्शा दिख रही विंडो के लिए सहेजता है (मौजूदा ज़ूम, सभी ऊँचे ज़ूम और एक स्तर नीचे)। स्क्रीन का नक्शा नहीं बदलता। सहेजा नक्शा सिर्फ ऑफ़लाइन इस्तेमाल होता है।",
     "OFFLINE_MAP_DOWNLOAD": "यह विंडो",
     "OFFLINE_MAP_BTN": "ऑफ़लाइन",
     "OFFLINE_MAP_DOWNLOAD_HERE": "मेरे आसपास",
@@ -5254,7 +5255,22 @@
     "OFFLINE_MAP_SOURCE_LABEL": "मानचित्र स्रोत",
     "OFFLINE_MAP_SOURCE_NETWORK": "नेटवर्क",
     "OFFLINE_MAP_SOURCE_DEVICE": "डिवाइस",
-    "OFFLINE_MAP_SOURCE_HINT": "डिवाइस: मानचित्र फ़ोन पर सहेजा गया, रीस्टार्ट के बाद बिना नेटवर्क उपलब्ध। नेटवर्क: ऑनलाइन बेसमैप।"
+    "OFFLINE_MAP_SOURCE_HINT": "डिवाइस: मानचित्र फ़ोन पर सहेजा गया, रीस्टार्ट के बाद बिना नेटवर्क उपलब्ध। नेटवर्क: ऑनलाइन बेसमैप।",
+    "OFFLINE_MAP_SPINNER": "टाइल डाउनलोड हो रही हैं",
+    "OFFLINE_MAP_FAILED": "{{n}} विफल",
+    "OFFLINE_MAP_CATALOG": "ऑफ़लाइन भंडार",
+    "OFFLINE_MAP_CATALOG_OPEN": "सहेजी गई टाइलें",
+    "OFFLINE_MAP_CATALOG_HINT": "इस ब्राउज़र में सहेजी टाइलें: नक्शा, ज़ूम और क्षेत्र।",
+    "OFFLINE_MAP_CATALOG_EMPTY": "इस डिवाइस पर कोई टाइल नहीं।",
+    "OFFLINE_MAP_CATALOG_LOADING": "भंडार पढ़ा जा रहा है…",
+    "OFFLINE_MAP_CATALOG_TOTAL": "{{n}} टाइल · {{size}}",
+    "OFFLINE_MAP_CATALOG_ZOOM": "ज़ूम {{min}}–{{max}}",
+    "OFFLINE_MAP_CATALOG_REGION": "{{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_CATALOG_UPDATED": "अपडेट {{date}}",
+    "OFFLINE_MAP_OPEN": "टाइल लोड करें",
+    "OFFLINE_MAP_SHARED": "इस डिवाइस पर एक ही भंडार, ट्रेस व्यूअर, GPS, मार्ग और GPX साझा करते हैं।",
+    "OFFLINE_MAP_WINDOW": "विंडो {{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_ZOOMS": "ज़ूम {{current}} से {{max}}"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "पता खोज विफल रही।",

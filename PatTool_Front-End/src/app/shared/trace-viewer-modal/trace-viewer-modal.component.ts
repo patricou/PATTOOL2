@@ -23,7 +23,7 @@ import {
 	LeafletMapWheelZoomHandle
 } from '../leaflet-map-wheel-zoom';
 import { isValidGeoCoordinate } from '../geo-coordinates.util';
-import { GpsOfflineMapProgress, GpsOfflineMapService, formatOfflinePackSize } from '../../services/gps-offline-map.service';
+import { GpsOfflineMapProgress, GpsOfflineMapService } from '../../services/gps-offline-map.service';
 import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../../gps-track/gps-offline-tiles.store';
 import { viewWindowFromMap } from '../../gps-track/gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
@@ -3376,27 +3376,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.isFullscreenOptionsExpanded = !this.isFullscreenOptionsExpanded;
 	}
 
-	formatOfflineSize(bytes: number | null | undefined): string {
-		return formatOfflinePackSize(bytes);
-	}
-
-	async downloadTraceOfflineMap(): Promise<void> {
-		const view = viewWindowFromMap(this.map);
-		if (!view) {
-			this.offlineError = 'GPS.OFFLINE_MAP_NEED_VIEW';
-			this.cdr.markForCheck();
-			return;
-		}
-		this.offlineMessage = '';
-		const ok = await this.offlineMap.downloadView(
-			view,
-			this.selectedBaseLayerId,
-			this.selectedCartesGouvLayerId
-		);
-		if (ok) {
-			this.offlineMessage = 'GPS.OFFLINE_MAP_DONE';
-		}
-		this.cdr.markForCheck();
+	openOfflineTiles(): void {
+		this.offlineMap.openDownloadUi({
+			basemapId: this.selectedBaseLayerId,
+			cartesLayerId: this.selectedCartesGouvLayerId,
+			view: viewWindowFromMap(this.map)
+		});
 	}
 
 	setTraceOfflineSource(useDevice: boolean): void {
@@ -3406,9 +3391,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.cdr.markForCheck();
 	}
 
-	cancelTraceOfflineMap(): void {
-		this.offlineMap.cancel();
-	}
 
 	private bindOfflineMapPack(): void {
 		if (isBrowserOffline()) {

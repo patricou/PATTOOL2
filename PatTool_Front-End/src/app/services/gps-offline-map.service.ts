@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subject } from 'rxjs';
 import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../gps-track/gps-offline-tiles.store';
 import {
   GPS_OFFLINE_BUFFER_M,
@@ -8,9 +8,11 @@ import {
   GPS_OFFLINE_MAX_Z,
   GPS_OFFLINE_MIN_Z,
   GpsLatLon,
+  GpsOfflineInventory,
   GpsTileXYZ,
   GpsViewWindow,
   gpsTileId,
+  offlineBasemapMaxZoom,
   offlineBasemapParts,
   offlinePackStyleId,
   offlineTileStyle,
@@ -23,9 +25,19 @@ export interface GpsOfflineMapProgress {
   done: number;
   total: number;
   failed: number;
+  /** Catalogue id of the basemap being downloaded. */
+  style?: string | null;
 }
 
 const EMPTY_PROGRESS: GpsOfflineMapProgress = { done: 0, total: 0, failed: 0 };
+
+/** What the shared offline modal should download. One store serves every map screen. */
+export interface GpsOfflineDownloadRequest {
+  basemapId: string;
+  cartesLayerId?: string;
+  view: GpsViewWindow | null;
+  aroundView?: GpsViewWindow | null;
+}
 
 export function formatOfflinePackSize(bytes: number | null | undefined): string {
   const n = bytes || 0;
@@ -51,8 +63,14 @@ export class GpsOfflineMapService {
   readonly downloading$ = new BehaviorSubject(false);
   readonly lastError$ = new BehaviorSubject<string | null>(null);
   readonly styles$ = new BehaviorSubject<string[]>([]);
+  /** Last claimed download overlay wins, so a page and the trace viewer do not stack two spinners. */
+  readonly overlayOwner$ = new BehaviorSubject(0);
+  /** Opens the single offline-tile modal (trace viewer, GPS, routing, GPX). */
+  readonly downloadUi$ = new Subject<GpsOfflineDownloadRequest>();
 
   private abort: AbortController | null = null;
+  private overlaySeq = 0;
+  private overlayStack: number[] = [];
   private knownStyles = new Set<string>();
   private lastStyle: string | null = null;
 
@@ -66,12 +84,32 @@ export class GpsOfflineMapService {
     return this.downloading$.value;
   }
 
+  openDownloadUi(request: GpsOfflineDownloadRequest): void {
+    this.downloadUi$.next(request);
+  }
+
+  claimOverlay(): number {
+    const id = ++this.overlaySeq;
+    this.overlayStack.push(id);
+    this.overlayOwner$.next(id);
+    return id;
+  }
+
+  releaseOverlay(id: number): void {
+    this.overlayStack = this.overlayStack.filter((item) => item !== id);
+    this.overlayOwner$.next(this.overlayStack[this.overlayStack.length - 1] ?? 0);
+  }
+
+  inventory(): Promise<GpsOfflineInventory> {
+    return this.store.inventory();
+  }
+
   async refreshMeta(): Promise<GpsOfflinePackMeta> {
     const meta = await this.store.meta();
-    this.meta$.next(meta);
     const styles = await this.store.listStyles();
     this.knownStyles = new Set(styles);
     this.styles$.next(styles);
+    this.meta$.next(meta);
     return meta;
   }
 
@@ -96,14 +134,18 @@ export class GpsOfflineMapService {
     return first || selected;
   }
 
-  /** Tiles for the map window on screen (current zoom, plus one level each way). */
+  /** Tiles for the map window: current zoom, one level out, and every higher zoom. */
   async downloadView(
     view: GpsViewWindow,
     basemapId = 'osm-standard',
     cartesLayerId?: string
   ): Promise<boolean> {
     const style = offlinePackStyleId(basemapId, cartesLayerId);
-    return this.downloadTiles(style, tilesInView(view), 'GPS.OFFLINE_MAP_NEED_VIEW');
+    return this.downloadTiles(
+      style,
+      tilesInView(view, { maxZ: offlineBasemapMaxZoom(style) }),
+      'GPS.OFFLINE_MAP_NEED_VIEW'
+    );
   }
 
   async downloadAround(
@@ -154,8 +196,8 @@ export class GpsOfflineMapService {
     }
     this.lastError$.next(null);
     await this.store.ensurePersistent();
+    this.progress$.next({ done: 0, total: jobs.length, failed: 0, style });
     this.downloading$.next(true);
-    this.progress$.next({ done: 0, total: jobs.length, failed: 0 });
     this.abort = new AbortController();
     let done = 0;
     let failed = 0;
@@ -169,7 +211,7 @@ export class GpsOfflineMapService {
         if (!ok) {
           failed += 1;
         }
-        this.progress$.next({ done, total: jobs.length, failed });
+        this.progress$.next({ done, total: jobs.length, failed, style });
       }
     };
     try {

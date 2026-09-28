@@ -109,7 +109,8 @@
     "NEARBY_PROS": "近くの業者",
     "ARTISANAT": "職人",
     "SOS": "SOS",
-    "FONCIER_SUISSE": "スイス不動産"
+    "FONCIER_SUISSE": "スイス不動産",
+    "MAP_TRACE_VIEWER": "地図 (Traceviewer)"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -5250,7 +5251,7 @@
     "EXPORT_GPX": "GPX を書き出す",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "オフライン地図",
-    "OFFLINE_MAP_HINT": "表示中の地図範囲の背景を、現在のズームとその上下1段階で保存します。画面の地図は切り替わりません。保存した背景はオフラインのときだけ使います。",
+    "OFFLINE_MAP_HINT": "表示中の地図範囲の背景を、現在のズーム、それより高い全ズーム、および1段階低いズームで保存します。画面の地図は切り替わりません。保存した背景はオフラインのときだけ使います。",
     "OFFLINE_MAP_DOWNLOAD": "表示中の範囲",
     "OFFLINE_MAP_BTN": "オフライン",
     "OFFLINE_MAP_DOWNLOAD_HERE": "自分の周囲",
@@ -5268,7 +5269,22 @@
     "OFFLINE_MAP_SOURCE_LABEL": "地図の取得元",
     "OFFLINE_MAP_SOURCE_NETWORK": "ネットワーク",
     "OFFLINE_MAP_SOURCE_DEVICE": "端末",
-    "OFFLINE_MAP_SOURCE_HINT": "端末：地図をスマホに保存し、再起動後もオフラインで利用。ネットワーク：オンラインの背景地図。"
+    "OFFLINE_MAP_SOURCE_HINT": "端末：地図をスマホに保存し、再起動後もオフラインで利用。ネットワーク：オンラインの背景地図。",
+    "OFFLINE_MAP_SPINNER": "タイルをダウンロード中",
+    "OFFLINE_MAP_FAILED": "{{n}} 件失敗",
+    "OFFLINE_MAP_CATALOG": "オフライン保存",
+    "OFFLINE_MAP_CATALOG_OPEN": "保存済みタイル",
+    "OFFLINE_MAP_CATALOG_HINT": "このブラウザに保存したタイル：地図、ズーム、範囲。",
+    "OFFLINE_MAP_CATALOG_EMPTY": "この端末に保存されたタイルはありません。",
+    "OFFLINE_MAP_CATALOG_LOADING": "保存内容を読み込み中…",
+    "OFFLINE_MAP_CATALOG_TOTAL": "{{n}} タイル · {{size}}",
+    "OFFLINE_MAP_CATALOG_ZOOM": "ズーム {{min}}–{{max}}",
+    "OFFLINE_MAP_CATALOG_REGION": "{{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_CATALOG_UPDATED": "更新 {{date}}",
+    "OFFLINE_MAP_OPEN": "タイルを読み込む",
+    "OFFLINE_MAP_SHARED": "この端末の保存は一つ。トレースビューア、GPS、ルート、GPXで共有します。",
+    "OFFLINE_MAP_WINDOW": "範囲 {{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_ZOOMS": "ズーム {{current}} から {{max}}"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "住所の検索に失敗しました。",

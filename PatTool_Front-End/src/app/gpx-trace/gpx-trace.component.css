@@ -108,6 +108,10 @@
   min-height: 0;
 }
 
+.gpx-map-stage {
+  position: relative;
+}
+
 .gpx-map {
   width: 100%;
   height: min(62vh, 520px);
@@ -136,6 +140,13 @@
   position: fixed;
   inset: 0;
   z-index: 2000;
+}
+
+.gpx-map-shell:fullscreen .gpx-map-stage,
+.gpx-map-shell:-webkit-full-screen .gpx-map-stage,
+.gpx-map-shell.gpx-map-shell--fullscreen .gpx-map-stage {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .gpx-map-shell:fullscreen .gpx-map,

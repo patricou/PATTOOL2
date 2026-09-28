@@ -109,7 +109,8 @@
     "NEARBY_PROS": "مهنيون قريبون",
     "ARTISANAT": "الحرف",
     "SOS": "SOS",
-    "FONCIER_SUISSE": "عقارات سويسرا"
+    "FONCIER_SUISSE": "عقارات سويسرا",
+    "MAP_TRACE_VIEWER": "خريطة (Traceviewer)"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -5243,7 +5244,7 @@
     "EXPORT_GPX": "تصدير GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "خريطة دون اتصال",
-    "OFFLINE_MAP_HINT": "ينزّل خريطة الأساس المختارة للنافذة المعروضة (التكبير الحالي ومستوى أعلاه وأدناه). تبقى البلاطات على الجهاز. الخريطة المعروضة لا تتغيّر: الخلفية المحفوظة تُستخدم فقط دون اتصال.",
+    "OFFLINE_MAP_HINT": "ينزّل خريطة الأساس المختارة للنافذة المعروضة (التكبير الحالي وكل مستويات التكبير الأعلى ومستوى أدنى). تبقى البلاطات على الجهاز. الخريطة المعروضة لا تتغيّر: الخلفية المحفوظة تُستخدم فقط دون اتصال.",
     "OFFLINE_MAP_DOWNLOAD": "هذه النافذة",
     "OFFLINE_MAP_BTN": "دون اتصال",
     "OFFLINE_MAP_DOWNLOAD_HERE": "حولي",
@@ -5261,7 +5262,22 @@
     "OFFLINE_MAP_SOURCE_LABEL": "مصدر الخريطة",
     "OFFLINE_MAP_SOURCE_NETWORK": "الشبكة",
     "OFFLINE_MAP_SOURCE_DEVICE": "الجهاز",
-    "OFFLINE_MAP_SOURCE_HINT": "الجهاز: خريطة محفوظة على الهاتف، متاحة دون شبكة بعد إعادة التشغيل. الشبكة: خلفية عبر الإنترنت."
+    "OFFLINE_MAP_SOURCE_HINT": "الجهاز: خريطة محفوظة على الهاتف، متاحة دون شبكة بعد إعادة التشغيل. الشبكة: خلفية عبر الإنترنت.",
+    "OFFLINE_MAP_SPINNER": "جارٍ تنزيل البلاطات",
+    "OFFLINE_MAP_FAILED": "{{n}} فشلت",
+    "OFFLINE_MAP_CATALOG": "مخزون دون اتصال",
+    "OFFLINE_MAP_CATALOG_OPEN": "البلاطات المحفوظة",
+    "OFFLINE_MAP_CATALOG_HINT": "بلاطات محفوظة في هذا المتصفح: الخريطة والتكبير والمنطقة.",
+    "OFFLINE_MAP_CATALOG_EMPTY": "لا بلاطات محفوظة على هذا الجهاز.",
+    "OFFLINE_MAP_CATALOG_LOADING": "جارٍ قراءة المخزون…",
+    "OFFLINE_MAP_CATALOG_TOTAL": "{{n}} بلاطة · {{size}}",
+    "OFFLINE_MAP_CATALOG_ZOOM": "التكبير {{min}}–{{max}}",
+    "OFFLINE_MAP_CATALOG_REGION": "{{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_CATALOG_UPDATED": "تحديث {{date}}",
+    "OFFLINE_MAP_OPEN": "تحميل البلاطات",
+    "OFFLINE_MAP_SHARED": "مخزون واحد على هذا الجهاز، مشترك بين العارض وGPS والمسار وGPX.",
+    "OFFLINE_MAP_WINDOW": "النافذة {{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_ZOOMS": "التكبير {{current}} إلى {{max}}"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "فشل البحث عن العنوان.",

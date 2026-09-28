@@ -109,7 +109,8 @@
     "ARTISANS_COMMERCES": "Artisans and shops",
     "NEARBY_PROS": "Nearby trades",
     "ARTISANAT": "Trades",
-    "SOS": "SOS"
+    "SOS": "SOS",
+    "MAP_TRACE_VIEWER": "Map (Trace viewer)"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -6962,7 +6963,7 @@
     "EXPORT_GPX": "Export GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "Offline map",
-    "OFFLINE_MAP_HINT": "Downloads the selected basemap for the map window on screen, at the current zoom and one level above and below. Around me uses that same window, centered on your position. Tiles stay on the device. The map on screen does not change: the saved basemap is used only when offline.",
+    "OFFLINE_MAP_HINT": "Downloads the selected basemap for the map window on screen, at the current zoom, every higher zoom, and one level below. Around me uses that same window, centered on your position. Tiles stay on the device. The map on screen does not change: the saved basemap is used only when offline.",
     "OFFLINE_MAP_DOWNLOAD": "This window",
     "OFFLINE_MAP_BTN": "Offline",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Around me",
@@ -6980,7 +6981,22 @@
     "OFFLINE_MAP_SOURCE_LABEL": "Map source",
     "OFFLINE_MAP_SOURCE_NETWORK": "Network",
     "OFFLINE_MAP_SOURCE_DEVICE": "Device",
-    "OFFLINE_MAP_SOURCE_HINT": "Device: map stored on this phone, available offline after a restart. Network: live online basemap."
+    "OFFLINE_MAP_SOURCE_HINT": "Device: map stored on this phone, available offline after a restart. Network: live online basemap.",
+    "OFFLINE_MAP_SPINNER": "Downloading tiles",
+    "OFFLINE_MAP_FAILED": "{{n}} failed",
+    "OFFLINE_MAP_CATALOG": "Offline store",
+    "OFFLINE_MAP_CATALOG_OPEN": "Stored tiles",
+    "OFFLINE_MAP_CATALOG_HINT": "Tiles kept in this browser: map, zoom levels and covered area.",
+    "OFFLINE_MAP_CATALOG_EMPTY": "No tiles stored on this device.",
+    "OFFLINE_MAP_CATALOG_LOADING": "Reading the store…",
+    "OFFLINE_MAP_CATALOG_TOTAL": "{{n}} tiles · {{size}}",
+    "OFFLINE_MAP_CATALOG_ZOOM": "Zooms {{min}}–{{max}}",
+    "OFFLINE_MAP_CATALOG_REGION": "{{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_CATALOG_UPDATED": "Updated {{date}}",
+    "OFFLINE_MAP_OPEN": "Download tiles",
+    "OFFLINE_MAP_SHARED": "One store on this device, shared by the trace viewer, GPS, GPS route and GPX trace.",
+    "OFFLINE_MAP_WINDOW": "Window {{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_ZOOMS": "Zooms {{current}} to {{max}}"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Address search failed.",

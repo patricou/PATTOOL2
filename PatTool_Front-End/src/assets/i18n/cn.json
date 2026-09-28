@@ -109,7 +109,8 @@
     "NEARBY_PROS": "附近商家",
     "ARTISANAT": "手艺",
     "SOS": "SOS",
-    "FONCIER_SUISSE": "瑞士房产"
+    "FONCIER_SUISSE": "瑞士房产",
+    "MAP_TRACE_VIEWER": "地图 (Traceviewer)"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -5245,7 +5246,7 @@
     "EXPORT_GPX": "导出 GPX",
     "EXPORT_GPX_SHORT": "GPX",
     "OFFLINE_MAP": "离线地图",
-    "OFFLINE_MAP_HINT": "下载当前窗口内的所选底图（当前缩放，以及上下各一级）。图块保存在本机。屏幕上的地图不会切换：保存的底图只在离线时使用。",
+    "OFFLINE_MAP_HINT": "下载当前窗口内的所选底图（当前缩放、全部更高缩放，以及低一级）。图块保存在本机。屏幕上的地图不会切换：保存的底图只在离线时使用。",
     "OFFLINE_MAP_DOWNLOAD": "当前窗口",
     "OFFLINE_MAP_BTN": "离线",
     "OFFLINE_MAP_DOWNLOAD_HERE": "我的周围",
@@ -5263,7 +5264,22 @@
     "OFFLINE_MAP_SOURCE_LABEL": "地图来源",
     "OFFLINE_MAP_SOURCE_NETWORK": "网络",
     "OFFLINE_MAP_SOURCE_DEVICE": "本机",
-    "OFFLINE_MAP_SOURCE_HINT": "本机：地图保存在手机上，重启后无需网络即可使用。网络：在线底图。"
+    "OFFLINE_MAP_SOURCE_HINT": "本机：地图保存在手机上，重启后无需网络即可使用。网络：在线底图。",
+    "OFFLINE_MAP_SPINNER": "正在下载图块",
+    "OFFLINE_MAP_FAILED": "{{n}} 个失败",
+    "OFFLINE_MAP_CATALOG": "离线库存",
+    "OFFLINE_MAP_CATALOG_OPEN": "已保存的图块",
+    "OFFLINE_MAP_CATALOG_HINT": "保存在此浏览器中的图块：地图、缩放级别和覆盖区域。",
+    "OFFLINE_MAP_CATALOG_EMPTY": "此设备上没有已保存的图块。",
+    "OFFLINE_MAP_CATALOG_LOADING": "正在读取库存…",
+    "OFFLINE_MAP_CATALOG_TOTAL": "{{n}} 个图块 · {{size}}",
+    "OFFLINE_MAP_CATALOG_ZOOM": "缩放 {{min}}–{{max}}",
+    "OFFLINE_MAP_CATALOG_REGION": "{{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_CATALOG_UPDATED": "更新于 {{date}}",
+    "OFFLINE_MAP_OPEN": "下载图块",
+    "OFFLINE_MAP_SHARED": "本机只有一份库存，轨迹查看器、GPS、路线和 GPX 共用。",
+    "OFFLINE_MAP_WINDOW": "窗口 {{south}} → {{north}}, {{west}} → {{east}}",
+    "OFFLINE_MAP_ZOOMS": "缩放 {{current}} 至 {{max}}"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "地址搜索失败。",
