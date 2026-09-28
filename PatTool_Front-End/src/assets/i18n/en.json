@@ -9201,7 +9201,7 @@
     "SIZE": "Size {{size}}",
     "BUILT": "Built {{date}}",
     "STEP_1": "Download pattool.apk.",
-    "STEP_2": "Open it. Allow installation if Android asks.",
+    "STEP_2": "Open it. Allow installation if Android asks. If Play Protect blocks it, tap More details, then Install anyway.",
     "STEP_3": "Confirm. Updating the app already on this phone keeps its data.",
     "OPEN_HINT": "From the installed app, the download opens in the phone browser."
   }

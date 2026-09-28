@@ -7196,7 +7196,7 @@
     "SIZE": "Tamaño {{size}}",
     "BUILT": "Creado el {{date}}",
     "STEP_1": "Descarga pattool.apk.",
-    "STEP_2": "Ábrelo. Permite la instalación si Android lo pide.",
+    "STEP_2": "Ábrelo. Permite la instalación si Android lo pide. Si Play Protect lo bloquea, toca Más detalles y luego Instalar de todas formas.",
     "STEP_3": "Confirma. Actualizar la aplicación ya instalada conserva los datos de este teléfono.",
     "OPEN_HINT": "Desde la aplicación ya instalada, la descarga se abre en el navegador del teléfono."
   }

@@ -23,6 +23,14 @@ interface ApkInfo {
 })
 export class ApkDownloadComponent implements OnInit {
   readonly downloadUrl = apkDownloadUrl(APK_PATH);
+
+  /** Changes when a new APK is published, so the phone does not reuse a cached file. */
+  get downloadHref(): string {
+    if (!this.builtAt) {
+      return this.downloadUrl;
+    }
+    return `${this.downloadUrl}?v=${encodeURIComponent(this.builtAt)}`;
+  }
   available: boolean | null = null;
   bytes: number | null = null;
   builtAt: string | null = null;
