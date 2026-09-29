@@ -2726,6 +2726,7 @@
     "TRACK_VIEW_ON_GLOBE_HINT": "Ouvrir le globe Terre centré sur le milieu de la carte",
     "TRACK_SHARE_LOCATION": "Partager",
     "TRACK_FOLLOW_DEVICE": "Suivre ma position",
+    "TRACK_RECENTER_USER": "Recentrer sur ma position",
     "TRACK_KEEP_SCREEN_AWAKE": "Garder l'écran allumé",
     "TRACK_FOOTER_KEEP_AWAKE_SHORT": "Écran",
     "CARTES_GOUV_FR": "Toutes les cartes IGN",

@@ -26,6 +26,19 @@
   background: #38bdf8;
 }
 
+.gps-offline-dl-cancel {
+  color: #dc3545;
+  border-color: #dc3545;
+  background: transparent;
+}
+
+.gps-offline-dl-cancel:hover,
+.gps-offline-dl-cancel:focus {
+  color: #fff;
+  background: #dc3545;
+  border-color: #dc3545;
+}
+
 .gps-offline-region {
   padding: 0.75rem 0;
   border-top: 1px solid rgba(0, 0, 0, 0.08);

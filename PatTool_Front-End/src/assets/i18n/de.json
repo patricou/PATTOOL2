@@ -1921,6 +1921,7 @@
     "TRACK_FOOTER_FOLLOW_SHORT": "Folgen",
     "TRACK_FOOTER_ZOOM_SHORT": "Zoom",
     "TRACK_FOLLOW_DEVICE": "Meiner Position folgen",
+    "TRACK_RECENTER_USER": "Auf meine Position zentrieren",
     "TRACK_KEEP_SCREEN_AWAKE": "Bildschirm anlassen",
     "TRACK_FOOTER_KEEP_AWAKE_SHORT": "Bildschirm",
     "TRACK_GPX_STATS": "GPX-Statistik",

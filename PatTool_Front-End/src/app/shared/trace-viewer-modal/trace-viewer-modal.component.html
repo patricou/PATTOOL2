@@ -411,6 +411,14 @@
           </button>
           <button type="button"
                   class="btn btn-outline-secondary btn-sm tv-tip"
+                  (click)="recenterOnUser()"
+                  [disabled]="locatingUser"
+                  [attr.data-tv-tip]="'EVENTELEM.TRACK_RECENTER_USER' | translate"
+                  [attr.aria-label]="'EVENTELEM.TRACK_RECENTER_USER' | translate">
+            <i class="fa" [ngClass]="locatingUser ? 'fa-spinner fa-spin' : 'fa-location-arrow'" aria-hidden="true"></i>
+          </button>
+          <button type="button"
+                  class="btn btn-outline-secondary btn-sm tv-tip"
                   (click)="recenterOnTrack()"
                   [attr.data-tv-tip]="'EVENTELEM.TRACK_RECENTER' | translate"
                   [attr.aria-label]="'EVENTELEM.TRACK_RECENTER' | translate">
@@ -629,11 +637,20 @@
       <div class="trace-viewer-footer-buttons-group d-flex align-items-center flex-nowrap">
       <button type="button"
               class="btn btn-success flex-shrink-0 tv-open-gps-btn tv-tip"
-              *ngIf="!isFullscreen && canOpenGpsFollow"
+              *ngIf="!isFullscreen && canOpenGpsFollow && !isMobileViewport()"
               (click)="openGpsFollow()"
               [attr.data-tv-tip]="'EVENTELEM.TRACK_OPEN_GPS' | translate"
               [attr.aria-label]="'EVENTELEM.TRACK_OPEN_GPS' | translate">
         <i class="fa fa-location-arrow me-1" aria-hidden="true"></i>GPS
+      </button>
+      <button type="button"
+              class="btn btn-outline-secondary flex-shrink-0 tv-tip"
+              *ngIf="!isFullscreen"
+              (click)="recenterOnUser()"
+              [disabled]="locatingUser"
+              [attr.data-tv-tip]="'EVENTELEM.TRACK_RECENTER_USER' | translate"
+              [attr.aria-label]="'EVENTELEM.TRACK_RECENTER_USER' | translate">
+        <i class="fa" [ngClass]="locatingUser ? 'fa-spinner fa-spin' : 'fa-location-arrow'" aria-hidden="true"></i>
       </button>
       <button type="button"
               class="btn btn-outline-secondary flex-shrink-0 tv-tip"

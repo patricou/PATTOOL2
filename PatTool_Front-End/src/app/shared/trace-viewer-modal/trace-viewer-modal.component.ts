@@ -280,6 +280,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/** Follow device GPS: recenter the map every 5 s. */
 	public followDeviceLocation: boolean = false;
+	/** One-shot geolocation in progress (recenter-on-user button). */
+	public locatingUser = false;
 	/** Keep the device screen on while the trace viewer is open (mobile). */
 	public keepScreenAwake = false;
 	private screenWakeLock: WakeLockSentinel | null = null;
@@ -314,6 +316,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private map?: L.Map;
 	private overlayLayer?: L.LayerGroup;
 	private pendingTrackPoints: L.LatLngTuple[] | null = null;
+	/**
+	 * Points already drawn. A stale modal `hidden` can destroy the map after the
+	 * pending list was consumed; the next map init redraws from this copy.
+	 */
+	private lastRenderedTrackPoints: L.LatLngTuple[] | null = null;
 	/** Coords du tracé affiché — pour orientation « Route ». */
 	private trackOrientationCoords: L.LatLngTuple[] = [];
 	private mapOrientationWatchId: number | null = null;
@@ -388,6 +395,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Zoom to restore when recentering a single-point view (openAtLocation). */
 	private locationRecenterZoom: number | null = null;
 	private static readonly DEFAULT_LOCATION_ZOOM = 14;
+	/** Close zoom when recentering once on the device GPS. */
+	private static readonly USER_POSITION_ZOOM = 18;
 	/** Tracks container resize (flex / modal / embed) to recover Leaflet black-map issues. */
 	private mapLayoutResizeObserver?: ResizeObserver;
 	private mapLayoutSyncDebouncer: number | null = null;
@@ -1741,16 +1750,23 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private subscribeToModalVisibility(): void {
 		const modalRefAny = this.modalRef as any;
+		const generation = this.modalGeneration;
 
 		const shown$ = modalRefAny?.shown;
 		const hidden$ = modalRefAny?.hidden;
 
 		if (shown$?.pipe) {
 			shown$.pipe(take(1)).subscribe(() => {
+				if (generation !== this.modalGeneration) {
+					return;
+				}
 				this.onModalShown();
 			});
 		} else {
 			const tick = (): void => {
+				if (generation !== this.modalGeneration || !this.modalRef) {
+					return;
+				}
 				this.setupModalWheelTrap();
 				this.cdr.detectChanges();
 				this.initMapLayersAfterModalMounted();
@@ -1766,6 +1782,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		if (hidden$?.pipe) {
 			hidden$?.pipe(take(1)).subscribe(() => {
+				// The previous viewer is still animating closed when a saved trace reopens it.
+				// Its hidden event must not destroy the map that already drew the new track.
+				if (generation !== this.modalGeneration) {
+					return;
+				}
 				this.isFullscreen = false;
 				this.destroyMap();
 			});
@@ -2075,6 +2096,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.forceCrosshairCursor();
 
 		this.overlayLayer = L.layerGroup().addTo(this.map);
+		this.restorePendingTrackFromLastRender();
 		this.applyInitialMapViewForPendingTrackData();
 		this.applySelectedBaseLayer();
 		this.registerRightClickZoom();
@@ -2378,6 +2400,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return out;
 	}
 
+	/** Redraw a track whose pending list was already consumed before a stale map destroy. */
+	private restorePendingTrackFromLastRender(): void {
+		if (this.pendingTrackPoints?.length || this.pendingPositions?.length || this.pendingLocation) {
+			return;
+		}
+		if (this.lastRenderedTrackPoints?.length) {
+			this.pendingTrackPoints = this.lastRenderedTrackPoints.slice();
+		}
+	}
+
 	/** Default France view when no track loaded yet. */
 	private applyInitialMapViewForPendingTrackData(): void {
 		if (!this.map) {
@@ -2399,6 +2431,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		const points = this.pendingTrackPoints;
 		this.pendingTrackPoints = null;
+		this.lastRenderedTrackPoints = points.slice();
 		this.locationRecenterZoom = null;
 		this.trackOrientationCoords = points.slice();
 		this.updateRouteHeadingFromTrack();
@@ -2996,6 +3029,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.trackStats = null;
 		this.gpxAnalysis = null;
 		this.pendingTrackPoints = null;
+		this.lastRenderedTrackPoints = null;
 		this.gpsSourceFileId = null;
 		this.gpsSourceFileName = '';
 		this.trackOrientationCoords = [];
@@ -4336,6 +4370,39 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		this.fitMapToTrackBounds(this.trackBounds);
+	}
+
+	/** One shot: center the map on the device GPS and show the position marker. */
+	public recenterOnUser(): void {
+		if (!this.map || !navigator.geolocation || this.locatingUser) {
+			return;
+		}
+		this.locatingUser = true;
+		this.cdr.markForCheck();
+		navigator.geolocation.getCurrentPosition(
+			(pos) => {
+				this.locatingUser = false;
+				if (!this.map) {
+					this.cdr.markForCheck();
+					return;
+				}
+				const lat = pos.coords.latitude;
+				const lng = pos.coords.longitude;
+				const zoom = Math.min(
+					this.map.getMaxZoom(),
+					Math.max(this.map.getZoom(), TraceViewerModalComponent.USER_POSITION_ZOOM)
+				);
+				this.map.setView([lat, lng], zoom);
+				this.currentZoom = zoom;
+				this.updateDeviceLocationMarker(lat, lng);
+				this.cdr.markForCheck();
+			},
+			() => {
+				this.locatingUser = false;
+				this.cdr.markForCheck();
+			},
+			{ enableHighAccuracy: true, timeout: 8000, maximumAge: 5000 }
+		);
 	}
 
 	public setMapOrientation(orientation: GpsMapOrientation): void {
