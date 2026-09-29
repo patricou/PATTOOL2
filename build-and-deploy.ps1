@@ -2,9 +2,13 @@
 # PATTOOL Build and Deploy Script
 # ===================================================================
 # 1. Build the Android APK and publish it for the download page
-# 2. Build front end (Angular) — the APK is copied into the site
+# 2. Stamp the About-page version, then build the front end (Angular)
 # 3. Build back end with Maven (clean, compile, package) — the JAR contains the APK
 # 4. Copy JAR to X:\pattool (network drive mapped to server)
+#
+# The About page reads PatTool_Front-End/src/environments/app-version.ts.
+# Each run stamps APP_VERSION = yyyy.MM.dd.HHmmss into the production bundle,
+# then restores 'dev' so a local ng serve does not look like a deployment.
 #
 # Stop and start PATTOOL on the server (PAT-DESKTOP) manually.
 # After restart, Outils → Application Android serves /assets/downloads/pattool.apk
@@ -105,21 +109,40 @@ Write-Host "Android APK published for download." -ForegroundColor Green
 Write-Host ""
 
 # ---------------------------------------------------------------------------
-# Step 2: Build front end
+# Step 2: Stamp About version, then build front end
 # ---------------------------------------------------------------------------
 Write-Host "[2/4] Building front end..." -ForegroundColor Yellow
 if (-not (Test-Path $FrontEndDir)) {
     Write-Host "ERROR: Front end directory not found: $FrontEndDir" -ForegroundColor Red
     exit 1
 }
+
+$AppVersionFile = Join-Path $FrontEndDir "src\environments\app-version.ts"
+if (-not (Test-Path $AppVersionFile)) {
+    Write-Host "ERROR: Version file not found: $AppVersionFile" -ForegroundColor Red
+    exit 1
+}
+$OriginalVersionBytes = [System.IO.File]::ReadAllBytes($AppVersionFile)
+$DeployVersion = Get-Date -Format "yyyy.MM.dd.HHmmss"
+Write-Host "  About version: $DeployVersion" -ForegroundColor Gray
+$utf8 = New-Object System.Text.UTF8Encoding $false
+$stamped = @"
+/**
+ * Stamped by build-and-deploy.ps1 for this deployment.
+ */
+export const APP_VERSION = '$DeployVersion';
+"@
+[System.IO.File]::WriteAllText($AppVersionFile, ($stamped.Trim() + "`n"), $utf8)
+
 Push-Location $FrontEndDir
 try {
     npm run build
     if ($LASTEXITCODE -ne 0) { throw "Front end build failed with exit code $LASTEXITCODE" }
 } finally {
+    [System.IO.File]::WriteAllBytes($AppVersionFile, $OriginalVersionBytes)
     Pop-Location
 }
-Write-Host "Front end build completed." -ForegroundColor Green
+Write-Host "Front end build completed (version $DeployVersion)." -ForegroundColor Green
 Write-Host ""
 
 # ---------------------------------------------------------------------------

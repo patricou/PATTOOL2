@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
+import { APP_VERSION } from '../../../environments/app-version';
 import { environment } from '../../../environments/environment';
 
 export type AboutTab = 'overview' | 'stack' | 'streaming' | 'resources';
@@ -33,7 +34,7 @@ export class AboutComponent {
   activeTab: AboutTab = 'overview';
 
   readonly isProduction = environment.production;
-  readonly appVersion = '2.0.1';
+  readonly appVersion = APP_VERSION;
   readonly copyrightYears = '2017–2026';
   readonly authorName = 'Patrick Deschamps';
   readonly authorSite = 'https://www.patrickdeschamps.com/#/';

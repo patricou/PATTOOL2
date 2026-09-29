@@ -392,7 +392,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private mapLayoutResizeObserver?: ResizeObserver;
 	private mapLayoutSyncDebouncer: number | null = null;
 	private traceViewerCdrTimer: number | null = null;
-	private mapResizeObservedDims = { w: -1, h: -1 };
+	private mapResizeObservedDims = new Map<HTMLElement, string>();
 	/** Bloque le scroll de la page derrière la modale. */
 	private modalWindowWheelHandler?: (event: Event) => void;
 	private modalWindowWheelListenEl?: HTMLElement;
@@ -400,6 +400,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private mapWheelZoom: LeafletMapWheelZoomHandle | null = null;
 	private mapContainerHadLayout = false;
 	private mapInitVisibilityAttempts = 0;
+	/** Local GPX is ready before the phone modal has a real height. */
+	private pendingRenderTimer: number | null = null;
+	private pendingRenderAttempts = 0;
+	private trackAutoFitUntil = 0;
+	private trackFitSize = { w: 0, h: 0 };
 	/** `NgbModal` `container` host for embedding (globe): resolve `.map-container` under this root (avoid global IDs). */
 	private mapEmbedHostRoot?: HTMLElement;
 	/** Avoid persisting while applying server-loaded preferences. */
@@ -967,16 +972,88 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const hadLayout = this.mapContainerHadLayout;
 		this.mapContainerHadLayout = ok;
 		if (!ok) {
+			if (this.hasPendingMapContent()) {
+				this.schedulePendingRenderRetry();
+			}
 			return;
 		}
-		if (!hadLayout) {
-			this.tryRenderPendingTrack();
-			this.tryRenderPendingPositions();
-			this.tryRenderPendingLocation();
-			if (this.trackBounds?.isValid()) {
-				this.fitMapToTrackBounds(this.trackBounds);
-			}
+		const hadPending = this.hasPendingMapContent();
+		this.tryRenderPendingTrack();
+		this.tryRenderPendingPositions();
+		this.tryRenderPendingLocation();
+		if (!this.hasPendingMapContent()) {
+			this.clearPendingRenderRetry();
 		}
+		if ((!hadLayout || hadPending) && this.trackBounds?.isValid()) {
+			this.fitMapToTrackBounds(this.trackBounds);
+			this.noteTrackFitted();
+		} else {
+			this.refitTrackIfLayoutSettling();
+		}
+	}
+
+	private hasPendingMapContent(): boolean {
+		return !!(this.pendingTrackPoints?.length || this.pendingPositions?.length || this.pendingLocation);
+	}
+
+	private mapContainerIsSized(): boolean {
+		const el = this.map?.getContainer();
+		return !!el && el.offsetWidth >= 2 && el.offsetHeight >= 2;
+	}
+
+	/** True when the draw must wait: the phone modal is still 0×0. */
+	private deferRenderUntilMapSized(): boolean {
+		if (this.mapContainerIsSized()) {
+			return false;
+		}
+		this.schedulePendingRenderRetry();
+		return true;
+	}
+
+	private schedulePendingRenderRetry(): void {
+		if (this.pendingRenderTimer != null || this.pendingRenderAttempts >= 40) {
+			return;
+		}
+		this.pendingRenderAttempts += 1;
+		this.pendingRenderTimer = window.setTimeout(() => {
+			this.pendingRenderTimer = null;
+			if (!this.map) {
+				return;
+			}
+			this.syncMapLayoutCore();
+		}, 80);
+	}
+
+	private clearPendingRenderRetry(): void {
+		if (this.pendingRenderTimer != null) {
+			clearTimeout(this.pendingRenderTimer);
+			this.pendingRenderTimer = null;
+		}
+		this.pendingRenderAttempts = 0;
+	}
+
+	private noteTrackFitted(): void {
+		const el = this.map?.getContainer();
+		this.trackFitSize = { w: el?.offsetWidth ?? 0, h: el?.offsetHeight ?? 0 };
+		this.trackAutoFitUntil = Date.now() + 1600;
+	}
+
+	/** Mobile modal height changes after the first paint; keep the trace in frame. */
+	private refitTrackIfLayoutSettling(): void {
+		if (!this.map || !this.trackBounds?.isValid() || Date.now() > this.trackAutoFitUntil) {
+			return;
+		}
+		const el = this.map.getContainer();
+		const w = el.offsetWidth;
+		const h = el.offsetHeight;
+		if (w < 2 || h < 2) {
+			return;
+		}
+		if (Math.abs(w - this.trackFitSize.w) <= 4 && Math.abs(h - this.trackFitSize.h) <= 4) {
+			return;
+		}
+		this.fitMapToTrackBounds(this.trackBounds);
+		this.trackFitSize = { w, h };
 	}
 
 	private getModalWindowElement(): HTMLElement | null {
@@ -1059,22 +1136,36 @@ export class TraceViewerModalComponent implements OnDestroy {
 			if (!this.map || !entries.length) {
 				return;
 			}
-			const cr = entries[0].contentRect;
-			const bw = Math.round(cr.width);
-			const bh = Math.round(cr.height);
-			if (bw < 2 || bh < 2) {
-				return;
+			let changed = false;
+			for (const entry of entries) {
+				const bw = Math.round(entry.contentRect.width);
+				const bh = Math.round(entry.contentRect.height);
+				if (bw < 2 || bh < 2) {
+					continue;
+				}
+				const key = `${bw}x${bh}`;
+				const target = entry.target as HTMLElement;
+				if (this.mapResizeObservedDims.get(target) === key) {
+					continue;
+				}
+				this.mapResizeObservedDims.set(target, key);
+				changed = true;
 			}
-			if (bw === this.mapResizeObservedDims.w && bh === this.mapResizeObservedDims.h) {
-				return;
+			if (changed) {
+				this.refreshMapLayout();
 			}
-			this.mapResizeObservedDims = { w: bw, h: bh };
-			this.refreshMapLayout();
 		});
-		try {
-			this.mapLayoutResizeObserver.observe(observedEl);
-		} catch {
-			/* ignore */
+		const targets = new Set<HTMLElement>([observedEl]);
+		const mapEl = this.map?.getContainer();
+		if (mapEl) {
+			targets.add(mapEl);
+		}
+		for (const target of targets) {
+			try {
+				this.mapLayoutResizeObserver.observe(target);
+			} catch {
+				/* ignore */
+			}
 		}
 	}
 
@@ -2259,9 +2350,32 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!this.map) {
 			return;
 		}
-		this.map.invalidateSize();
-		window.setTimeout(() => this.map?.invalidateSize(), 50);
-		window.setTimeout(() => this.map?.invalidateSize(), 150);
+		const refit = (): void => {
+			if (!this.map) {
+				return;
+			}
+			this.map.invalidateSize({ animate: false });
+			this.refitTrackIfLayoutSettling();
+		};
+		refit();
+		window.setTimeout(refit, 50);
+		window.setTimeout(refit, 200);
+		window.setTimeout(refit, 600);
+	}
+
+	/** SVG paths with 10k+ points often fail to paint in the Android WebView. */
+	private pointsForPolyline(points: L.LatLngTuple[]): L.LatLngTuple[] {
+		const max = 3500;
+		if (points.length <= max) {
+			return points;
+		}
+		const step = Math.ceil((points.length - 1) / (max - 1));
+		const out: L.LatLngTuple[] = [];
+		for (let i = 0; i < points.length - 1; i += step) {
+			out.push(points[i]);
+		}
+		out.push(points[points.length - 1]);
+		return out;
 	}
 
 	/** Default France view when no track loaded yet. */
@@ -2279,8 +2393,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
-		const el = this.map.getContainer();
-		if (el.offsetWidth < 2 || el.offsetHeight < 2) {
+		if (this.deferRenderUntilMapSized()) {
 			return;
 		}
 
@@ -2292,13 +2405,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		this.overlayLayer.clearLayers();
 
-		const polyline = L.polyline(points, {
+		const polyline = L.polyline(this.pointsForPolyline(points), {
 			color: '#007bff',
 			weight: 4,
 			opacity: 0.9
 		});
 
 		polyline.addTo(this.overlayLayer);
+		polyline.bringToFront();
 
 		const startMarker = L.circleMarker(points[0], {
 			radius: 6,
@@ -2317,10 +2431,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 		startMarker.addTo(this.overlayLayer);
 		endMarker.addTo(this.overlayLayer);
 
-		const bounds = polyline.getBounds();
+		const bounds = L.latLngBounds(points);
 		this.trackBounds = bounds;
+		this.map.invalidateSize({ animate: false });
 		this.fitMapToTrackBounds(bounds);
+		this.noteTrackFitted();
 		this.scheduleMapInvalidateAfterFit();
+		this.clearPendingRenderRetry();
 
 		this.trackStats = {
 			points: points.length,
@@ -2335,8 +2452,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
-		const el = this.map.getContainer();
-		if (el.offsetWidth < 2 || el.offsetHeight < 2) {
+		if (this.deferRenderUntilMapSized()) {
 			return;
 		}
 
@@ -2628,8 +2744,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
-		const el = this.map.getContainer();
-		if (el.offsetWidth < 2 || el.offsetHeight < 2) {
+		if (this.deferRenderUntilMapSized()) {
 			return;
 		}
 
@@ -2916,8 +3031,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private destroyMap(): void {
 		this.teardownMapLayoutObserver();
+		this.clearPendingRenderRetry();
+		this.trackAutoFitUntil = 0;
+		this.trackFitSize = { w: 0, h: 0 };
 		this.mapInitVisibilityAttempts = 0;
-		this.mapResizeObservedDims = { w: -1, h: -1 };
+		this.mapResizeObservedDims.clear();
 		this.mapContainerHadLayout = false;
 		this.isMapReady = false;
 		this.trackBounds = null;

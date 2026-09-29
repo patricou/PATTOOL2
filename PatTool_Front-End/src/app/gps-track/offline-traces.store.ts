@@ -82,6 +82,39 @@ function reqToPromise<T>(req: IDBRequest<T>): Promise<T> {
   });
 }
 
+/** Android WebView can hand back a Blob or a typed array instead of an ArrayBuffer. */
+function hasStoredPayload(data: unknown): boolean {
+  if (data instanceof ArrayBuffer) {
+    return data.byteLength > 0;
+  }
+  if (ArrayBuffer.isView(data)) {
+    return data.byteLength > 0;
+  }
+  return typeof Blob !== 'undefined' && data instanceof Blob && data.size > 0;
+}
+
+async function clonePayload(data: unknown): Promise<ArrayBuffer | null> {
+  try {
+    if (data instanceof ArrayBuffer) {
+      return data.byteLength > 0 ? data.slice(0) : null;
+    }
+    if (ArrayBuffer.isView(data)) {
+      if (data.byteLength <= 0) {
+        return null;
+      }
+      const copy = new ArrayBuffer(data.byteLength);
+      new Uint8Array(copy).set(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
+      return copy;
+    }
+    if (typeof Blob !== 'undefined' && data instanceof Blob && data.size > 0) {
+      return await data.arrayBuffer();
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 function toSummary(rec: OfflineTraceRecord): OfflineTraceSummary {
   return {
     id: rec.id,
@@ -128,7 +161,7 @@ export class OfflineTracesStore {
         db.transaction(STORE, 'readonly').objectStore(STORE).getAll()
       )) as OfflineTraceRecord[] | undefined;
       const list = (all || [])
-        .filter((rec) => rec?.id && rec.data instanceof ArrayBuffer && rec.data.byteLength > 0)
+        .filter((rec) => rec?.id && hasStoredPayload(rec.data))
         .map(toSummary)
         .sort((a, b) => b.savedAt - a.savedAt);
       this.publish(list);
@@ -175,10 +208,15 @@ export class OfflineTracesStore {
       const rec = (await reqToPromise(
         db.transaction(STORE, 'readonly').objectStore(STORE).get(key)
       )) as OfflineTraceRecord | undefined;
-      if (!rec?.data || !(rec.data instanceof ArrayBuffer) || rec.data.byteLength <= 0) {
+      if (!rec || !rec.id) {
         return await this.enterZone(Promise.resolve(null));
       }
-      return await this.enterZone(Promise.resolve({ ...rec, data: rec.data.slice(0) }));
+      const bytes = await clonePayload(rec.data);
+      if (!bytes) {
+        return await this.enterZone(Promise.resolve(null));
+      }
+      const record: OfflineTraceRecord = { ...rec, data: bytes };
+      return await this.enterZone(Promise.resolve(record));
     } catch {
       return await this.enterZone(Promise.resolve(null));
     }
