@@ -1437,6 +1437,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 				opened = true;
 				this.eventColor = null;
+				if (this.modalRef) {
+					this.replaceOpenTrack({ blob, fileName, titleLabel: title });
+					return;
+				}
 				this.open({ blob, fileName, titleLabel: title });
 			};
 			const ref = this.offlineTracesModalRef;
@@ -2034,7 +2038,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private initializeMap(): void {
 		if (this.map) {
-			return;
+			if (this.mapIsBoundToLiveContainer()) {
+				return;
+			}
+			this.destroyMap();
 		}
 
 		const container = this.resolveMapContainerElement();
@@ -2187,7 +2194,50 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.scheduleTraceViewerCdr();
 	}
 
+	/** Load another GPX into the viewer that is already open, without recreating the modal. */
+	private replaceOpenTrack(source: { blob: Blob; fileName: string; titleLabel: string }): void {
+		this.resetTraceViewerColors();
+		const label = (source.titleLabel || '').trim();
+		this.trackFileName = label || source.fileName;
+		this.gpsSourceFileId = null;
+		this.gpsSourceFileName = source.fileName || this.trackFileName;
+		this.hasError = false;
+		this.errorMessage = '';
+		this.isLoading = false;
+		this.trackStats = null;
+		this.gpxAnalysis = null;
+		this.pendingTrackPoints = null;
+		this.lastRenderedTrackPoints = null;
+		this.pendingLocation = null;
+		this.pendingPositions = null;
+		this.trackBounds = null;
+		this.locationRecenterZoom = null;
+		this.trackOrientationCoords = [];
+		this.routeHeadingDeg = 0;
+		this.overlayLayer?.clearLayers();
+		this.cdr.detectChanges();
+		if (!this.mapIsBoundToLiveContainer()) {
+			this.destroyMap();
+			this.initializeMap();
+		} else {
+			this.map?.invalidateSize({ animate: false });
+		}
+		this.readFromBlob(source.blob, source.fileName);
+	}
+
+	private mapIsBoundToLiveContainer(): boolean {
+		if (!this.map) {
+			return false;
+		}
+		const bound = this.map.getContainer();
+		const live = this.resolveMapContainerElement();
+		return !!bound?.isConnected && !!live && bound === live;
+	}
+
 	private ensureMapInitialization(): void {
+		if (this.map && !this.mapIsBoundToLiveContainer()) {
+			this.destroyMap();
+		}
 		if (this.map) {
 			return;
 		}

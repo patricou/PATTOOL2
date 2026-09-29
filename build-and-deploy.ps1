@@ -1,14 +1,14 @@
 # ===================================================================
 # PATTOOL Build and Deploy Script
 # ===================================================================
-# 1. Build the Android APK and publish it for the download page
-# 2. Stamp the About-page version, then build the front end (Angular)
+# 1. Stamp the About-page version, then build the Android APK
+# 2. Build front end (Angular) with the same version — the APK is copied into the site
 # 3. Build back end with Maven (clean, compile, package) — the JAR contains the APK
 # 4. Copy JAR to X:\pattool (network drive mapped to server)
 #
 # The About page reads PatTool_Front-End/src/environments/app-version.ts.
-# Each run stamps APP_VERSION = yyyy.MM.dd.HHmmss into the production bundle,
-# then restores 'dev' so a local ng serve does not look like a deployment.
+# Each run stamps APP_VERSION = yyyy.MM.dd.HHmmss before the APK and the web build
+# (the APK compiles that file via build:mobile), then restores 'dev'.
 #
 # Stop and start PATTOOL on the server (PAT-DESKTOP) manually.
 # After restart, Outils → Application Android serves /assets/downloads/pattool.apk
@@ -95,28 +95,12 @@ Write-Host "================================================================" -F
 Write-Host ""
 
 # ---------------------------------------------------------------------------
-# Step 1: Android APK, so the download page in this deploy is the new app
+# Stamp the About version before the APK and the web build share it
 # ---------------------------------------------------------------------------
-Write-Host "[1/4] Building Android APK..." -ForegroundColor Yellow
-Push-Location $FrontEndDir
-try {
-    npm run apk
-    if ($LASTEXITCODE -ne 0) { throw "APK build failed with exit code $LASTEXITCODE" }
-} finally {
-    Pop-Location
-}
-Write-Host "Android APK published for download." -ForegroundColor Green
-Write-Host ""
-
-# ---------------------------------------------------------------------------
-# Step 2: Stamp About version, then build front end
-# ---------------------------------------------------------------------------
-Write-Host "[2/4] Building front end..." -ForegroundColor Yellow
 if (-not (Test-Path $FrontEndDir)) {
     Write-Host "ERROR: Front end directory not found: $FrontEndDir" -ForegroundColor Red
     exit 1
 }
-
 $AppVersionFile = Join-Path $FrontEndDir "src\environments\app-version.ts"
 if (-not (Test-Path $AppVersionFile)) {
     Write-Host "ERROR: Version file not found: $AppVersionFile" -ForegroundColor Red
@@ -124,7 +108,7 @@ if (-not (Test-Path $AppVersionFile)) {
 }
 $OriginalVersionBytes = [System.IO.File]::ReadAllBytes($AppVersionFile)
 $DeployVersion = Get-Date -Format "yyyy.MM.dd.HHmmss"
-Write-Host "  About version: $DeployVersion" -ForegroundColor Gray
+Write-Host "About version: $DeployVersion" -ForegroundColor Gray
 $utf8 = New-Object System.Text.UTF8Encoding $false
 $stamped = @"
 /**
@@ -134,16 +118,37 @@ export const APP_VERSION = '$DeployVersion';
 "@
 [System.IO.File]::WriteAllText($AppVersionFile, ($stamped.Trim() + "`n"), $utf8)
 
-Push-Location $FrontEndDir
 try {
-    npm run build
-    if ($LASTEXITCODE -ne 0) { throw "Front end build failed with exit code $LASTEXITCODE" }
+    # -----------------------------------------------------------------------
+    # Step 1: Android APK (build:mobile compiles the stamped version)
+    # -----------------------------------------------------------------------
+    Write-Host "[1/4] Building Android APK..." -ForegroundColor Yellow
+    Push-Location $FrontEndDir
+    try {
+        npm run apk
+        if ($LASTEXITCODE -ne 0) { throw "APK build failed with exit code $LASTEXITCODE" }
+    } finally {
+        Pop-Location
+    }
+    Write-Host "Android APK published for download." -ForegroundColor Green
+    Write-Host ""
+
+    # -----------------------------------------------------------------------
+    # Step 2: Web front end, same version as the APK
+    # -----------------------------------------------------------------------
+    Write-Host "[2/4] Building front end..." -ForegroundColor Yellow
+    Push-Location $FrontEndDir
+    try {
+        npm run build
+        if ($LASTEXITCODE -ne 0) { throw "Front end build failed with exit code $LASTEXITCODE" }
+    } finally {
+        Pop-Location
+    }
+    Write-Host "Front end build completed (version $DeployVersion)." -ForegroundColor Green
+    Write-Host ""
 } finally {
     [System.IO.File]::WriteAllBytes($AppVersionFile, $OriginalVersionBytes)
-    Pop-Location
 }
-Write-Host "Front end build completed (version $DeployVersion)." -ForegroundColor Green
-Write-Host ""
 
 # ---------------------------------------------------------------------------
 # Step 2: Build back end with Maven
