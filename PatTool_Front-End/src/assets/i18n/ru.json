@@ -5264,6 +5264,7 @@
     "OFFLINE_MAP_DOWNLOAD": "Это окно",
     "OFFLINE_MAP_BTN": "Офлайн",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Вокруг меня",
+    "OFFLINE_MAP_DOWNLOAD_TRACK": "Вдоль трека",
     "OFFLINE_MAP_CANCEL": "Отмена",
     "OFFLINE_MAP_CLEAR": "Удалить",
     "OFFLINE_MAP_PROGRESS": "{{done}} / {{total}} тайлов",

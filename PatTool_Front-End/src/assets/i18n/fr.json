@@ -6993,6 +6993,7 @@
     "OFFLINE_MAP_DOWNLOAD": "Fenêtre affichée",
     "OFFLINE_MAP_BTN": "Hors-ligne",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Autour de moi",
+    "OFFLINE_MAP_DOWNLOAD_TRACK": "Autour de la trace",
     "OFFLINE_MAP_CANCEL": "Annuler",
     "OFFLINE_MAP_CLEAR": "Supprimer",
     "OFFLINE_MAP_PROGRESS": "{{done}} / {{total}} tuiles",

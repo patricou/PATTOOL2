@@ -32,6 +32,13 @@
               [disabled]="downloading || !online">
         <i class="fa fa-crosshairs me-1" aria-hidden="true"></i>{{ 'GPS.OFFLINE_MAP_DOWNLOAD_HERE' | translate }}
       </button>
+      <button type="button"
+              class="btn btn-outline-primary"
+              *ngIf="hasTrack"
+              (click)="downloadTrack()"
+              [disabled]="downloading || !online">
+        <i class="fa fa-road me-1" aria-hidden="true"></i>{{ 'GPS.OFFLINE_MAP_DOWNLOAD_TRACK' | translate }}
+      </button>
     </div>
 
     <div class="gps-offline-dl-inline" *ngIf="downloading" role="status" aria-live="polite">

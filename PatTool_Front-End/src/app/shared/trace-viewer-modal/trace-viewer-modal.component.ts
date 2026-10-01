@@ -395,8 +395,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Zoom to restore when recentering a single-point view (openAtLocation). */
 	private locationRecenterZoom: number | null = null;
 	private static readonly DEFAULT_LOCATION_ZOOM = 14;
-	/** Close zoom when recentering once on the device GPS. */
-	private static readonly USER_POSITION_ZOOM = 18;
+	/** Zoom when recentering once on the device GPS (street context, not rooftop). */
+	private static readonly USER_POSITION_ZOOM = 16;
 	/** Tracks container resize (flex / modal / embed) to recover Leaflet black-map issues. */
 	private mapLayoutResizeObserver?: ResizeObserver;
 	private mapLayoutSyncDebouncer: number | null = null;
@@ -3728,8 +3728,22 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.offlineMap.openDownloadUi({
 			basemapId: this.selectedBaseLayerId,
 			cartesLayerId: this.selectedCartesGouvLayerId,
-			view: viewWindowFromMap(this.map)
+			view: viewWindowFromMap(this.map),
+			track: this.offlineTrackPoints()
 		});
+	}
+
+	private offlineTrackPoints(): { lat: number; lon: number }[] | null {
+		const src = this.lastRenderedTrackPoints?.length
+			? this.lastRenderedTrackPoints
+			: this.pendingTrackPoints;
+		if (!src || src.length < 2) {
+			return null;
+		}
+		const points = src
+			.filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]))
+			.map((p) => ({ lat: p[0], lon: p[1] }));
+		return points.length >= 2 ? points : null;
 	}
 
 	setTraceOfflineSource(useDevice: boolean): void {

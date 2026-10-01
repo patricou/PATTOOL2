@@ -5290,6 +5290,7 @@
     "OFFLINE_MAP_DOWNLOAD": "Questa finestra",
     "OFFLINE_MAP_BTN": "Offline",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Intorno a me",
+    "OFFLINE_MAP_DOWNLOAD_TRACK": "Intorno alla traccia",
     "OFFLINE_MAP_CANCEL": "Annulla",
     "OFFLINE_MAP_CLEAR": "Elimina",
     "OFFLINE_MAP_PROGRESS": "{{done}} / {{total}} riquadri",

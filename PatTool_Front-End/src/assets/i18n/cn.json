@@ -5271,6 +5271,7 @@
     "OFFLINE_MAP_DOWNLOAD": "当前窗口",
     "OFFLINE_MAP_BTN": "离线",
     "OFFLINE_MAP_DOWNLOAD_HERE": "我的周围",
+    "OFFLINE_MAP_DOWNLOAD_TRACK": "轨迹周围",
     "OFFLINE_MAP_CANCEL": "取消",
     "OFFLINE_MAP_CLEAR": "删除",
     "OFFLINE_MAP_PROGRESS": "{{done}} / {{total}} 图块",

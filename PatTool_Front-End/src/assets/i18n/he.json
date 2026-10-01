@@ -5270,6 +5270,7 @@
     "OFFLINE_MAP_DOWNLOAD": "החלון הזה",
     "OFFLINE_MAP_BTN": "לא מקוון",
     "OFFLINE_MAP_DOWNLOAD_HERE": "סביבי",
+    "OFFLINE_MAP_DOWNLOAD_TRACK": "סביב המסלול",
     "OFFLINE_MAP_CANCEL": "ביטול",
     "OFFLINE_MAP_CLEAR": "מחיקה",
     "OFFLINE_MAP_PROGRESS": "{{done}} / {{total}} אריחים",

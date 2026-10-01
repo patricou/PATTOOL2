@@ -7,6 +7,7 @@ import {
   GPS_OFFLINE_MAX_TILES,
   GPS_OFFLINE_MAX_Z,
   GPS_OFFLINE_MIN_Z,
+  GPS_OFFLINE_VIEW_MAX_TILES,
   GpsLatLon,
   GpsOfflineInventory,
   GpsTileXYZ,
@@ -37,6 +38,8 @@ export interface GpsOfflineDownloadRequest {
   cartesLayerId?: string;
   view: GpsViewWindow | null;
   aroundView?: GpsViewWindow | null;
+  /** Loaded trace. The modal offers a corridor download when at least two points are present. */
+  track?: GpsLatLon[] | null;
 }
 
 export function formatOfflinePackSize(bytes: number | null | undefined): string {
@@ -146,6 +149,29 @@ export class GpsOfflineMapService {
       tilesInView(view, { maxZ: offlineBasemapMaxZoom(style) }),
       'GPS.OFFLINE_MAP_NEED_VIEW'
     );
+  }
+
+  /**
+   * Corridor along a loaded trace: same zoom span as the on-screen window
+   * (current zoom, one level below, then every higher zoom), about 1 km either side.
+   */
+  async downloadTrack(
+    points: GpsLatLon[],
+    view: GpsViewWindow | null | undefined,
+    basemapId = 'osm-standard',
+    cartesLayerId?: string
+  ): Promise<boolean> {
+    const style = offlinePackStyleId(basemapId, cartesLayerId);
+    const maxZ = offlineBasemapMaxZoom(style);
+    const zoom = view && Number.isFinite(view.zoom) ? view.zoom : undefined;
+    const tiles = tilesAroundPoints(points, {
+      bufferM: GPS_OFFLINE_BUFFER_M,
+      minZ: zoom != null ? Math.min(GPS_OFFLINE_MIN_Z, Math.round(zoom) - 1) : GPS_OFFLINE_MIN_Z,
+      maxZ,
+      maxTiles: GPS_OFFLINE_VIEW_MAX_TILES,
+      zoom
+    });
+    return this.downloadTiles(style, tiles, 'GPS.OFFLINE_MAP_NEED_POINTS');
   }
 
   async downloadAround(

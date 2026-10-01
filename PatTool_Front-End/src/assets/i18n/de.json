@@ -5417,6 +5417,7 @@
     "OFFLINE_MAP_DOWNLOAD": "Dieses Fenster",
     "OFFLINE_MAP_BTN": "Offline",
     "OFFLINE_MAP_DOWNLOAD_HERE": "Um mich",
+    "OFFLINE_MAP_DOWNLOAD_TRACK": "Entlang der Strecke",
     "OFFLINE_MAP_CANCEL": "Abbrechen",
     "OFFLINE_MAP_CLEAR": "Löschen",
     "OFFLINE_MAP_PROGRESS": "{{done}} / {{total}} Kacheln",

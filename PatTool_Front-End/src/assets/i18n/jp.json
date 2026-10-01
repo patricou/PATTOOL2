@@ -5276,6 +5276,7 @@
     "OFFLINE_MAP_DOWNLOAD": "表示中の範囲",
     "OFFLINE_MAP_BTN": "オフライン",
     "OFFLINE_MAP_DOWNLOAD_HERE": "自分の周囲",
+    "OFFLINE_MAP_DOWNLOAD_TRACK": "軌跡の周辺",
     "OFFLINE_MAP_CANCEL": "キャンセル",
     "OFFLINE_MAP_CLEAR": "削除",
     "OFFLINE_MAP_PROGRESS": "{{done}} / {{total}} タイル",

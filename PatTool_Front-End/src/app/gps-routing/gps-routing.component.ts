@@ -1013,9 +1013,13 @@ export class GpsRoutingComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   openOfflineTiles(): void {
+    const track = (this.route?.coordinates || [])
+      .filter((c) => Array.isArray(c) && c.length >= 2 && Number.isFinite(c[0]) && Number.isFinite(c[1]))
+      .map((c) => ({ lat: c[0], lon: c[1] }));
     this.offlineMap.openDownloadUi({
       basemapId: this.mapBaseLayerId,
-      view: viewWindowFromMap(this.map)
+      view: viewWindowFromMap(this.map),
+      track: track.length >= 2 ? track : null
     });
   }
 

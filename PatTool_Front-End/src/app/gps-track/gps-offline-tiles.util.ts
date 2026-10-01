@@ -468,12 +468,18 @@ export function tilesAroundPoints(
     minZ?: number;
     maxZ?: number;
     maxTiles?: number;
+    /**
+     * On-screen zoom. When set, the corridor is filled at this zoom first,
+     * then one level wider, then every higher zoom up to `maxZ`.
+     */
+    zoom?: number;
   }
 ): GpsTileXYZ[] {
   const bufferM = opts?.bufferM ?? GPS_OFFLINE_BUFFER_M;
   const minZ = opts?.minZ ?? GPS_OFFLINE_MIN_Z;
   const maxZ = opts?.maxZ ?? GPS_OFFLINE_MAX_Z;
   const maxTiles = opts?.maxTiles ?? GPS_OFFLINE_MAX_TILES;
+  const levels = corridorZoomLevels(minZ, maxZ, opts?.zoom);
   const seed = points.filter(
     (p) => Number.isFinite(p.lat) && Number.isFinite(p.lon) && Math.abs(p.lat) <= 85.05
   );
@@ -499,7 +505,7 @@ export function tilesAroundPoints(
     return true;
   };
 
-  for (let z = minZ; z <= maxZ; z++) {
+  for (const z of levels) {
     const midLat = seed[Math.floor(seed.length / 2)].lat;
     const mpt = Math.max(40, metersPerTile(midLat, z));
     const pad = Math.max(1, Math.ceil(bufferM / mpt) + 1);
@@ -516,6 +522,29 @@ export function tilesAroundPoints(
     }
   }
   return out;
+}
+
+/** Zoom order for a track corridor: current, one level out, then every higher zoom. */
+function corridorZoomLevels(minZ: number, maxZ: number, zoom?: number): number[] {
+  const levels: number[] = [];
+  const push = (z: number): void => {
+    if (z >= minZ && z <= maxZ && Number.isInteger(z) && !levels.includes(z)) {
+      levels.push(z);
+    }
+  };
+  if (zoom != null && Number.isFinite(zoom)) {
+    const z0 = Math.round(zoom);
+    push(z0);
+    push(z0 - 1);
+    for (let z = z0 + 1; z <= maxZ; z++) {
+      push(z);
+    }
+    return levels;
+  }
+  for (let z = minZ; z <= maxZ; z++) {
+    push(z);
+  }
+  return levels;
 }
 
 function haversineM(a: GpsLatLon, b: GpsLatLon): number {

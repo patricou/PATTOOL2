@@ -1100,10 +1100,12 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
   openOfflineTiles(): void {
     const view = viewWindowFromMap(this.map);
     const u = this.snap.user;
+    const src = this.snap.track.length >= 2 ? this.snap.track : this.snap.recorded;
     this.offlineMap.openDownloadUi({
       basemapId: this.mapBaseLayerId,
       view,
-      aroundView: view && u ? viewWindowAround(view, u.lat, u.lon) : null
+      aroundView: view && u ? viewWindowAround(view, u.lat, u.lon) : null,
+      track: src.length >= 2 ? src.map((p) => ({ lat: p.lat, lon: p.lon })) : null
     });
   }
 

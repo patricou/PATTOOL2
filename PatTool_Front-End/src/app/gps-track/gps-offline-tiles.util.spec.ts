@@ -1,4 +1,4 @@
-import { lonLatToTile, parseStoredTileId, summarizeOfflineTiles, tileLatLonBounds, tilesInView, viewWindowAround, GpsViewWindow } from './gps-offline-tiles.util';
+import { lonLatToTile, parseStoredTileId, summarizeOfflineTiles, tileLatLonBounds, tilesAroundPoints, tilesInView, viewWindowAround, GpsViewWindow } from './gps-offline-tiles.util';
 
 describe('tilesInView', () => {
   const geneva: GpsViewWindow = {
@@ -42,6 +42,33 @@ describe('tilesInView', () => {
     expect(around!.east - around!.west).toBeCloseTo(geneva.east - geneva.west, 6);
     expect((around!.north + around!.south) / 2).toBeCloseTo(46.5, 6);
     expect((around!.east + around!.west) / 2).toBeCloseTo(6.5, 6);
+  });
+});
+
+describe('tilesAroundPoints', () => {
+  const track = [
+    { lat: 46.20, lon: 6.15 },
+    { lat: 46.22, lon: 6.18 }
+  ];
+
+  it('covers a corridor around the track, current zoom first', () => {
+    const tiles = tilesAroundPoints(track, {
+      bufferM: 400,
+      minZ: 0,
+      maxZ: 16,
+      zoom: 15,
+      maxTiles: 8000
+    });
+    expect(tiles.length).toBeGreaterThan(0);
+    expect(tiles[0].z).toBe(15);
+    const levels = [...new Set(tiles.map((t) => t.z))];
+    expect(levels[0]).toBe(15);
+    expect(levels).toContain(14);
+    expect(levels).toContain(16);
+    expect(levels).not.toContain(13);
+    const center = lonLatToTile(6.15, 46.2, 15);
+    expect(tiles.some((t) => t.z === 15 && t.x === center.x && t.y === center.y)).toBeTrue();
+    expect(tiles.some((t) => t.z === 15 && Math.abs(t.x - center.x) + Math.abs(t.y - center.y) === 1)).toBeTrue();
   });
 });
 

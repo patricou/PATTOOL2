@@ -5269,6 +5269,7 @@
     "OFFLINE_MAP_DOWNLOAD": "هذه النافذة",
     "OFFLINE_MAP_BTN": "دون اتصال",
     "OFFLINE_MAP_DOWNLOAD_HERE": "حولي",
+    "OFFLINE_MAP_DOWNLOAD_TRACK": "حول المسار",
     "OFFLINE_MAP_CANCEL": "إلغاء",
     "OFFLINE_MAP_CLEAR": "حذف",
     "OFFLINE_MAP_PROGRESS": "{{done}} / {{total}} بلاطة",

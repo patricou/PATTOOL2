@@ -148,11 +148,29 @@ export class GpsOfflinePackComponent implements OnInit, OnDestroy {
     });
   }
 
+  get hasTrack(): boolean {
+    return (this.request?.track?.length || 0) >= 2;
+  }
+
   async downloadView(view: GpsViewWindow | null | undefined): Promise<void> {
     if (!view || this.downloading) {
       return;
     }
     await this.offline.downloadView(view, this.request?.basemapId, this.request?.cartesLayerId);
+    this.cdr.markForCheck();
+  }
+
+  async downloadTrack(): Promise<void> {
+    const points = this.request?.track;
+    if (!points || points.length < 2 || this.downloading) {
+      return;
+    }
+    await this.offline.downloadTrack(
+      points,
+      this.request?.view,
+      this.request?.basemapId,
+      this.request?.cartesLayerId
+    );
     this.cdr.markForCheck();
   }
 

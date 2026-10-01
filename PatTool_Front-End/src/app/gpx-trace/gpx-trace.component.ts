@@ -226,9 +226,11 @@ export class GpxTraceComponent implements AfterViewInit, OnDestroy {
   }
 
   openOfflineTiles(): void {
+    const points = this.analysis?.points || [];
     this.offlineMap.openDownloadUi({
       basemapId: this.mapBaseLayerId,
-      view: viewWindowFromMap(this.map)
+      view: viewWindowFromMap(this.map),
+      track: points.length >= 2 ? points.map((p) => ({ lat: p.lat, lon: p.lon })) : null
     });
   }
 
