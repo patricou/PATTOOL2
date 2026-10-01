@@ -5302,6 +5302,7 @@
     "OFFLINE_MAP_USING": "Sfondo offline: OpenStreetMap precaricato.",
     "OFFLINE_MAP_ERR": "Alcuni riquadri non sono stati scaricati.",
     "OFFLINE_MAP_DONE": "Mappa offline pronta.",
+    "OFFLINE_MAP_ALREADY": "Questi riquadri sono già salvati su questo dispositivo.",
     "OFFLINE_MAP_SOURCE_LABEL": "Origine della mappa",
     "OFFLINE_MAP_SOURCE_NETWORK": "Rete",
     "OFFLINE_MAP_SOURCE_DEVICE": "Dispositivo",

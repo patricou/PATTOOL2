@@ -270,6 +270,25 @@ export class GpsOfflineTilesStore {
     return summarizeOfflineTiles(entries);
   }
 
+  /** Ids already kept in this browser (`style#part|z|x|y`). */
+  async listIds(): Promise<Set<string>> {
+    try {
+      const db = await this.db();
+      const keys = (await reqToPromise(
+        db.transaction(STORE_TILES, 'readonly').objectStore(STORE_TILES).getAllKeys()
+      )) as IDBValidKey[] | undefined;
+      const ids = new Set<string>();
+      for (const key of keys || []) {
+        if (typeof key === 'string' && key) {
+          ids.add(key);
+        }
+      }
+      return ids;
+    } catch {
+      return new Set();
+    }
+  }
+
   /** Catalogue ids that have at least one stored tile. */
   async listStyles(): Promise<string[]> {
     try {

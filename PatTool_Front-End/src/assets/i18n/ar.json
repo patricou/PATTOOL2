@@ -5281,6 +5281,7 @@
     "OFFLINE_MAP_USING": "خلفية دون اتصال: OpenStreetMap محضَّر مسبقًا.",
     "OFFLINE_MAP_ERR": "تعذّر تنزيل بعض البلاطات.",
     "OFFLINE_MAP_DONE": "الخريطة دون اتصال جاهزة.",
+    "OFFLINE_MAP_ALREADY": "هذه البلاطات محفوظة مسبقًا على هذا الجهاز.",
     "OFFLINE_MAP_SOURCE_LABEL": "مصدر الخريطة",
     "OFFLINE_MAP_SOURCE_NETWORK": "الشبكة",
     "OFFLINE_MAP_SOURCE_DEVICE": "الجهاز",

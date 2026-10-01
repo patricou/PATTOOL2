@@ -1,9 +1,14 @@
 <ng-template #downloadModal let-modal>
-  <div class="modal-header">
+  <div class="modal-header gps-offline-pack-header">
     <h5 class="modal-title">
       <i class="fa fa-download me-2" aria-hidden="true"></i>{{ 'GPS.OFFLINE_MAP' | translate }}
     </h5>
-    <button type="button" class="btn-close" [attr.aria-label]="'COMMUN.CLOSE' | translate" (click)="modal.dismiss()"></button>
+    <button type="button"
+            class="btn btn-outline-light btn-sm rounded-circle ms-auto"
+            (click)="modal.dismiss()"
+            [attr.aria-label]="'COMMUN.CLOSE' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
   </div>
   <div class="modal-body">
     <p class="small text-muted">{{ 'GPS.OFFLINE_MAP_SHARED' | translate }}</p>
@@ -58,6 +63,7 @@
       </button>
     </div>
     <p class="small text-danger" *ngIf="errorKey">{{ errorKey | translate }}</p>
+    <p class="small text-muted" *ngIf="noticeKey && !downloading">{{ noticeKey | translate }}</p>
 
     <h6 class="mt-4 mb-2">{{ 'GPS.OFFLINE_MAP_CATALOG' | translate }}</h6>
     <div *ngIf="catalogLoading" class="text-muted small">

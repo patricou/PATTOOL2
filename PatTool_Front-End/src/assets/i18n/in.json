@@ -5274,6 +5274,7 @@
     "OFFLINE_MAP_USING": "ऑफलाइन पृष्ठभूमि: पहले से लोड OpenStreetMap।",
     "OFFLINE_MAP_ERR": "कुछ टाइल डाउनलोड नहीं हो सकीं।",
     "OFFLINE_MAP_DONE": "ऑफलाइन मानचित्र तैयार है।",
+    "OFFLINE_MAP_ALREADY": "ये टाइलें इस डिवाइस पर पहले से सहेजी हैं।",
     "OFFLINE_MAP_SOURCE_LABEL": "मानचित्र स्रोत",
     "OFFLINE_MAP_SOURCE_NETWORK": "नेटवर्क",
     "OFFLINE_MAP_SOURCE_DEVICE": "डिवाइस",

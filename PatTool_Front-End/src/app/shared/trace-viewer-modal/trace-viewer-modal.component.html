@@ -262,21 +262,36 @@
         <div *ngIf="isFullscreen"
              class="fullscreen-selector"
              [class.fullscreen-selector--collapsed]="!isFullscreenOptionsExpanded">
-          <button *ngIf="!isFullscreenOptionsExpanded"
-                  type="button"
-                  class="btn btn-sm btn-outline-secondary fullscreen-selector-expand-btn tv-tip"
-                  (click)="toggleFullscreenOptions()"
-                  [attr.data-tv-tip]="'COMMUN.OPTIONS' | translate"
-                  [attr.aria-label]="'COMMUN.OPTIONS' | translate"
-                  [attr.aria-expanded]="false">
-            <i class="fa fa-sliders" aria-hidden="true"></i>
-            <i class="fa fa-chevron-up ms-1" aria-hidden="true"></i>
-          </button>
+          <div *ngIf="!isFullscreenOptionsExpanded" class="fullscreen-selector-collapsed-actions">
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary fullscreen-selector-expand-btn tv-tip"
+                    (click)="toggleFullscreenOptions()"
+                    [attr.data-tv-tip]="'COMMUN.OPTIONS' | translate"
+                    [attr.aria-label]="'COMMUN.OPTIONS' | translate"
+                    [attr.aria-expanded]="false">
+              <i class="fa fa-sliders" aria-hidden="true"></i>
+              <i class="fa fa-chevron-up ms-1" aria-hidden="true"></i>
+            </button>
+            <button type="button"
+                    class="btn btn-sm btn-secondary fullscreen-exit-btn tv-tip"
+                    (click)="toggleFullscreen()"
+                    [attr.data-tv-tip]="'EVENTELEM.EXIT_FULLSCREEN' | translate"
+                    [attr.aria-label]="'EVENTELEM.EXIT_FULLSCREEN' | translate">
+              <i class="fa fa-compress" aria-hidden="true"></i>
+            </button>
+          </div>
           <ng-container *ngIf="isFullscreenOptionsExpanded">
             <div class="fullscreen-selector-header">
               <span class="fullscreen-selector-title">
                 <i class="fa fa-sliders me-1" aria-hidden="true"></i>{{ 'COMMUN.OPTIONS' | translate }}
               </span>
+              <button type="button"
+                      class="btn btn-sm btn-secondary fullscreen-exit-btn tv-tip"
+                      (click)="toggleFullscreen()"
+                      [attr.data-tv-tip]="'EVENTELEM.EXIT_FULLSCREEN' | translate"
+                      [attr.aria-label]="'EVENTELEM.EXIT_FULLSCREEN' | translate">
+                <i class="fa fa-compress" aria-hidden="true"></i>
+              </button>
               <button type="button"
                       class="btn btn-sm btn-outline-secondary fullscreen-selector-collapse-btn"
                       (click)="toggleFullscreenOptions()"
@@ -400,6 +415,19 @@
             </label>
           </div>
           </div>
+          <div class="fullscreen-selector-orient" role="group" [attr.aria-label]="'GPS_ROUTING.ORIENT_LABEL' | translate">
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary tv-tip"
+                    *ngFor="let o of mapOrientations"
+                    [class.active]="mapOrientation === o.id"
+                    (click)="setMapOrientation(o.id)"
+                    [disabled]="!isMapReady || (o.id === 'route' && !trackStats)"
+                    [attr.data-tv-tip]="o.labelKey | translate"
+                    [attr.aria-label]="o.labelKey | translate"
+                    [attr.aria-pressed]="mapOrientation === o.id">
+              <i class="fa" [ngClass]="o.icon" aria-hidden="true"></i>
+            </button>
+          </div>
           <div class="fullscreen-selector-icon-actions">
           <button type="button"
                   class="btn btn-success btn-sm tv-open-gps-btn tv-tip"
@@ -407,7 +435,7 @@
                   (click)="openGpsFollow()"
                   [attr.data-tv-tip]="'EVENTELEM.TRACK_OPEN_GPS' | translate"
                   [attr.aria-label]="'EVENTELEM.TRACK_OPEN_GPS' | translate">
-            <i class="fa fa-location-arrow me-1" aria-hidden="true"></i>GPS
+            <i class="fa fa-location-arrow" aria-hidden="true"></i>
           </button>
           <button type="button"
                   class="btn btn-outline-secondary btn-sm tv-tip"
@@ -445,6 +473,20 @@
                   [attr.data-tv-tip]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate"
                   [attr.aria-label]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
             <i class="fa fa-map" aria-hidden="true"></i>
+          </button>
+          <button type="button"
+                  class="btn btn-secondary btn-sm fullscreen-exit-btn tv-tip"
+                  (click)="toggleFullscreen()"
+                  [attr.data-tv-tip]="'EVENTELEM.EXIT_FULLSCREEN' | translate"
+                  [attr.aria-label]="'EVENTELEM.EXIT_FULLSCREEN' | translate">
+            <i class="fa fa-compress" aria-hidden="true"></i>
+          </button>
+          <button type="button"
+                  class="btn btn-secondary btn-sm tv-tip"
+                  (click)="close()"
+                  [attr.data-tv-tip]="'COMMUN.CLOSE' | translate"
+                  [attr.aria-label]="'COMMUN.CLOSE' | translate">
+            <i class="fa fa-times" aria-hidden="true"></i>
           </button>
           </div>
             </div>

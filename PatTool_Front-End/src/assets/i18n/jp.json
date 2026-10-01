@@ -5288,6 +5288,7 @@
     "OFFLINE_MAP_USING": "オフライン背景：プリロードした OpenStreetMap。",
     "OFFLINE_MAP_ERR": "一部のタイルをダウンロードできませんでした。",
     "OFFLINE_MAP_DONE": "オフライン地図の準備ができました。",
+    "OFFLINE_MAP_ALREADY": "これらのタイルはすでにこの端末に保存されています。",
     "OFFLINE_MAP_SOURCE_LABEL": "地図の取得元",
     "OFFLINE_MAP_SOURCE_NETWORK": "ネットワーク",
     "OFFLINE_MAP_SOURCE_DEVICE": "端末",

@@ -7001,6 +7001,7 @@
     "OFFLINE_MAP_USING": "Offline basemap: preloaded OpenStreetMap.",
     "OFFLINE_MAP_ERR": "Some tiles could not be downloaded.",
     "OFFLINE_MAP_DONE": "Offline map is ready.",
+    "OFFLINE_MAP_ALREADY": "These tiles are already stored on this device.",
     "OFFLINE_MAP_SOURCE_LABEL": "Map source",
     "OFFLINE_MAP_SOURCE_NETWORK": "Network",
     "OFFLINE_MAP_SOURCE_DEVICE": "Device",

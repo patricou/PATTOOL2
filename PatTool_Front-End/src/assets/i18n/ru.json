@@ -5276,6 +5276,7 @@
     "OFFLINE_MAP_USING": "Офлайн-подложка: предзагруженный OpenStreetMap.",
     "OFFLINE_MAP_ERR": "Некоторые тайлы не удалось скачать.",
     "OFFLINE_MAP_DONE": "Офлайн-карта готова.",
+    "OFFLINE_MAP_ALREADY": "Эти тайлы уже сохранены на этом устройстве.",
     "OFFLINE_MAP_SOURCE_LABEL": "Источник карты",
     "OFFLINE_MAP_SOURCE_NETWORK": "Сеть",
     "OFFLINE_MAP_SOURCE_DEVICE": "Устройство",

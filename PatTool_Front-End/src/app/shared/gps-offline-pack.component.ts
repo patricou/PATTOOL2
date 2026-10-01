@@ -45,6 +45,7 @@ export class GpsOfflinePackComponent implements OnInit, OnDestroy {
   downloading = false;
   progress: GpsOfflineMapProgress = EMPTY_PROGRESS;
   errorKey = '';
+  noticeKey = '';
   catalogLoading = false;
   inventory: GpsOfflineInventory | null = null;
   clearing = false;
@@ -64,6 +65,7 @@ export class GpsOfflinePackComponent implements OnInit, OnDestroy {
     this.sub.add(this.offline.downloadUi$.subscribe((request) => {
       this.request = request;
       this.errorKey = '';
+      this.noticeKey = '';
       this.open();
       void this.loadInventory();
     }));
@@ -81,6 +83,10 @@ export class GpsOfflinePackComponent implements OnInit, OnDestroy {
     }));
     this.sub.add(this.offline.lastError$.subscribe((error) => {
       this.errorKey = error || '';
+      this.cdr.markForCheck();
+    }));
+    this.sub.add(this.offline.lastNotice$.subscribe((notice) => {
+      this.noticeKey = notice || '';
       this.cdr.markForCheck();
     }));
   }
@@ -204,7 +210,8 @@ export class GpsOfflinePackComponent implements OnInit, OnDestroy {
     this.modalRef = this.modal.open(this.downloadModal, {
       size: 'lg',
       centered: true,
-      scrollable: true
+      scrollable: true,
+      windowClass: 'gps-offline-pack-modal'
     });
     void this.modalRef.result.then(
       () => { this.modalRef = null; },

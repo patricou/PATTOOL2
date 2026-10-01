@@ -5429,6 +5429,7 @@
     "OFFLINE_MAP_USING": "Offline-Hintergrund: vorgeladenes OpenStreetMap.",
     "OFFLINE_MAP_ERR": "Einige Kacheln konnten nicht heruntergeladen werden.",
     "OFFLINE_MAP_DONE": "Offline-Karte ist bereit.",
+    "OFFLINE_MAP_ALREADY": "Diese Kacheln sind auf diesem Gerät bereits gespeichert.",
     "OFFLINE_MAP_SOURCE_LABEL": "Kartenquelle",
     "OFFLINE_MAP_SOURCE_NETWORK": "Netz",
     "OFFLINE_MAP_SOURCE_DEVICE": "Mobil",

@@ -7005,6 +7005,7 @@
     "OFFLINE_MAP_USING": "Fond hors-ligne : OpenStreetMap préchargé.",
     "OFFLINE_MAP_ERR": "Certaines tuiles n’ont pas pu être téléchargées.",
     "OFFLINE_MAP_DONE": "Carte prête hors-ligne.",
+    "OFFLINE_MAP_ALREADY": "Ces tuiles sont déjà enregistrées sur cet appareil.",
     "OFFLINE_MAP_SOURCE_LABEL": "Source de la carte",
     "OFFLINE_MAP_SOURCE_NETWORK": "Réseau",
     "OFFLINE_MAP_SOURCE_DEVICE": "Mobile",

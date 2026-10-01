@@ -5282,6 +5282,7 @@
     "OFFLINE_MAP_USING": "רקע לא מקוון: OpenStreetMap שנטען מראש.",
     "OFFLINE_MAP_ERR": "לא ניתן היה להוריד חלק מהאריחים.",
     "OFFLINE_MAP_DONE": "המפה הלא מקוונת מוכנה.",
+    "OFFLINE_MAP_ALREADY": "אריחים אלה כבר שמורים במכשיר זה.",
     "OFFLINE_MAP_SOURCE_LABEL": "מקור המפה",
     "OFFLINE_MAP_SOURCE_NETWORK": "רשת",
     "OFFLINE_MAP_SOURCE_DEVICE": "מכשיר",

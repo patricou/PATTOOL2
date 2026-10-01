@@ -5285,6 +5285,7 @@
     "OFFLINE_MAP_USING": "Φόντο εκτός σύνδεσης: προφορτωμένο OpenStreetMap.",
     "OFFLINE_MAP_ERR": "Ορισμένα πλακίδια δεν ήταν δυνατό να ληφθούν.",
     "OFFLINE_MAP_DONE": "Ο χάρτης εκτός σύνδεσης είναι έτοιμος.",
+    "OFFLINE_MAP_ALREADY": "Αυτά τα πλακίδια είναι ήδη αποθηκευμένα σε αυτή τη συσκευή.",
     "OFFLINE_MAP_SOURCE_LABEL": "Πηγή χάρτη",
     "OFFLINE_MAP_SOURCE_NETWORK": "Δίκτυο",
     "OFFLINE_MAP_SOURCE_DEVICE": "Συσκευή",

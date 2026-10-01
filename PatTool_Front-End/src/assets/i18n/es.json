@@ -5347,6 +5347,7 @@
     "OFFLINE_MAP_USING": "Fondo sin conexión: OpenStreetMap precargado.",
     "OFFLINE_MAP_ERR": "No se pudieron descargar algunas teselas.",
     "OFFLINE_MAP_DONE": "Mapa sin conexión listo.",
+    "OFFLINE_MAP_ALREADY": "Estas teselas ya están guardadas en este dispositivo.",
     "OFFLINE_MAP_SOURCE_LABEL": "Origen del mapa",
     "OFFLINE_MAP_SOURCE_NETWORK": "Red",
     "OFFLINE_MAP_SOURCE_DEVICE": "Móvil",

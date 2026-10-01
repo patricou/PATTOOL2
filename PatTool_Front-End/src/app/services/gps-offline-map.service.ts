@@ -65,6 +65,8 @@ export class GpsOfflineMapService {
   readonly progress$ = new BehaviorSubject<GpsOfflineMapProgress>(EMPTY_PROGRESS);
   readonly downloading$ = new BehaviorSubject(false);
   readonly lastError$ = new BehaviorSubject<string | null>(null);
+  /** Set when a download adds nothing because every tile is already stored. */
+  readonly lastNotice$ = new BehaviorSubject<string | null>(null);
   readonly styles$ = new BehaviorSubject<string[]>([]);
   /** Last claimed download overlay wins, so a page and the trace viewer do not stack two spinners. */
   readonly overlayOwner$ = new BehaviorSubject(0);
@@ -88,6 +90,7 @@ export class GpsOfflineMapService {
   }
 
   openDownloadUi(request: GpsOfflineDownloadRequest): void {
+    this.lastNotice$.next(null);
     this.downloadUi$.next(request);
   }
 
@@ -222,7 +225,16 @@ export class GpsOfflineMapService {
     }
     this.lastError$.next(null);
     await this.store.ensurePersistent();
-    this.progress$.next({ done: 0, total: jobs.length, failed: 0, style });
+    const stored = await this.store.listIds();
+    const pending = jobs.filter((job) => !this.tileStored(stored, style, job.part, job.tile));
+    if (!pending.length) {
+      this.progress$.next({ done: 0, total: 0, failed: 0, style });
+      this.lastNotice$.next('GPS.OFFLINE_MAP_ALREADY');
+      this.rememberStyle(style);
+      return true;
+    }
+    this.lastNotice$.next(null);
+    this.progress$.next({ done: 0, total: pending.length, failed: 0, style });
     this.downloading$.next(true);
     this.abort = new AbortController();
     let done = 0;
@@ -230,24 +242,24 @@ export class GpsOfflineMapService {
     const limit = 4;
     let cursor = 0;
     const run = async (): Promise<void> => {
-      while (cursor < jobs.length && !this.abort?.signal.aborted) {
-        const job = jobs[cursor++];
+      while (cursor < pending.length && !this.abort?.signal.aborted) {
+        const job = pending[cursor++];
         const ok = await this.fetchOne(style, job.part, job.tile, this.abort!.signal);
         done += 1;
         if (!ok) {
           failed += 1;
         }
-        this.progress$.next({ done, total: jobs.length, failed, style });
+        this.progress$.next({ done, total: pending.length, failed, style });
       }
     };
     try {
-      await Promise.all(Array.from({ length: Math.min(limit, jobs.length) }, () => run()));
+      await Promise.all(Array.from({ length: Math.min(limit, pending.length) }, () => run()));
       await this.refreshMeta();
       if (this.abort?.signal.aborted) {
         this.lastError$.next(null);
         return false;
       }
-      if (failed > 0 && failed === jobs.length) {
+      if (failed > 0 && failed === pending.length) {
         this.lastError$.next('GPS.OFFLINE_MAP_ERR');
         return false;
       }
@@ -290,6 +302,15 @@ export class GpsOfflineMapService {
     } catch {
       return false;
     }
+  }
+
+  /** True when this exact tile (or the legacy osm key) is already in the device pack. */
+  private tileStored(stored: Set<string>, style: string, part: number, tile: GpsTileXYZ): boolean {
+    if (stored.has(gpsTileId(tile.z, tile.x, tile.y, offlineTileStyle(style, part)))) {
+      return true;
+    }
+    return part === 0 && (style === 'osm-standard' || style === 'osm')
+      && stored.has(gpsTileId(tile.z, tile.x, tile.y));
   }
 
   private jobsFor(style: string, tiles: GpsTileXYZ[]): Array<{ tile: GpsTileXYZ; part: number }> {

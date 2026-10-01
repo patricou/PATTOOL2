@@ -5283,6 +5283,7 @@
     "OFFLINE_MAP_USING": "离线底图：已预加载的 OpenStreetMap。",
     "OFFLINE_MAP_ERR": "部分图块无法下载。",
     "OFFLINE_MAP_DONE": "离线地图已就绪。",
+    "OFFLINE_MAP_ALREADY": "这些图块已保存在此设备上。",
     "OFFLINE_MAP_SOURCE_LABEL": "地图来源",
     "OFFLINE_MAP_SOURCE_NETWORK": "网络",
     "OFFLINE_MAP_SOURCE_DEVICE": "本机",
