@@ -243,6 +243,11 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private destroyed = false;
   private ytApiListening = false;
   private ytProgressTimer?: ReturnType<typeof setInterval>;
+  /** Coalesced YouTube infoDelivery sample. Applied once per frame so it never mutates bindings mid-check. */
+  private ytProgressRaf = 0;
+  private pendingPlaybackCurrent?: number;
+  private pendingPlaybackDuration?: number;
+  private pendingPlayerState?: number;
   private ignoreQueueEndedUntil = 0;
   private embedGeneration = 0;
   private landscapeSyncTimer?: ReturnType<typeof setTimeout>;
@@ -2667,6 +2672,78 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       clearInterval(this.ytProgressTimer);
       this.ytProgressTimer = undefined;
     }
+    this.clearPendingYoutubeProgress();
+  }
+
+  private clearPendingYoutubeProgress(): void {
+    if (this.ytProgressRaf) {
+      cancelAnimationFrame(this.ytProgressRaf);
+      this.ytProgressRaf = 0;
+    }
+    this.pendingPlaybackCurrent = undefined;
+    this.pendingPlaybackDuration = undefined;
+    this.pendingPlayerState = undefined;
+  }
+
+  /**
+   * YouTube posts several infoDelivery messages in one turn. Applying them inside
+   * ngZone.run starts change detection immediately, so a later sample in that same
+   * turn changes the progress label after Angular has already checked it (NG0100).
+   * Keep the latest sample and apply it on the next frame, before the next check.
+   */
+  private scheduleYoutubeProgress(update: {
+    currentTime?: number;
+    duration?: number;
+    playerState?: number;
+  }): void {
+    if (update.currentTime !== undefined) {
+      this.pendingPlaybackCurrent = update.currentTime;
+    }
+    if (update.duration !== undefined) {
+      this.pendingPlaybackDuration = update.duration;
+    }
+    if (update.playerState !== undefined) {
+      this.pendingPlayerState = update.playerState;
+    }
+    if (this.ytProgressRaf || this.destroyed) {
+      return;
+    }
+    this.ngZone.runOutsideAngular(() => {
+      this.ytProgressRaf = requestAnimationFrame(() => this.flushYoutubeProgress());
+    });
+  }
+
+  private flushYoutubeProgress(): void {
+    this.ytProgressRaf = 0;
+    if (this.destroyed || this.playerOpen || !this.embedUrl) {
+      this.pendingPlaybackCurrent = undefined;
+      this.pendingPlaybackDuration = undefined;
+      this.pendingPlayerState = undefined;
+      return;
+    }
+    const currentTime = this.pendingPlaybackCurrent;
+    const duration = this.pendingPlaybackDuration;
+    const playerState = this.pendingPlayerState;
+    this.pendingPlaybackCurrent = undefined;
+    this.pendingPlaybackDuration = undefined;
+    this.pendingPlayerState = undefined;
+    this.ngZone.run(() => {
+      if (this.destroyed || this.playerOpen || !this.embedUrl) {
+        return;
+      }
+      if (playerState !== undefined) {
+        this.applyYoutubePlayerState(playerState);
+        if (playerState === 0) {
+          return;
+        }
+      }
+      if (currentTime !== undefined) {
+        this.playbackCurrentSec = currentTime;
+      }
+      if (duration !== undefined) {
+        this.playbackDurationSec = duration;
+      }
+    });
   }
 
   private unloadPageEmbed(): void {
@@ -2765,34 +2842,35 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       info?: number | Record<string, unknown>;
     };
     this.ytApiListening = true;
-    this.ngZone.run(() => {
-      if (this.destroyed || this.playerOpen || !this.embedUrl) {
-        return;
-      }
-      if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
-        this.applyYoutubePlayerState(payload.info);
-        return;
-      }
-      const info = payload.info;
-      if (!info || typeof info !== 'object' || Array.isArray(info)) {
-        return;
-      }
-      const playerState = info['playerState'];
-      if (typeof playerState === 'number') {
-        this.applyYoutubePlayerState(playerState);
-        if (playerState === 0) {
-          return;
-        }
-      }
-      const currentTime = info['currentTime'];
-      const duration = info['duration'];
-      if (typeof currentTime === 'number' && Number.isFinite(currentTime)) {
-        this.playbackCurrentSec = Math.max(0, currentTime);
-      }
-      if (typeof duration === 'number' && Number.isFinite(duration) && duration > 0) {
-        this.playbackDurationSec = duration;
-      }
-    });
+    if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
+      this.scheduleYoutubeProgress({ playerState: payload.info });
+      return;
+    }
+    const info = payload.info;
+    if (!info || typeof info !== 'object' || Array.isArray(info)) {
+      return;
+    }
+    const playerState = info['playerState'];
+    const currentTime = info['currentTime'];
+    const duration = info['duration'];
+    const update: { currentTime?: number; duration?: number; playerState?: number } = {};
+    if (typeof playerState === 'number') {
+      update.playerState = playerState;
+    }
+    if (typeof currentTime === 'number' && Number.isFinite(currentTime)) {
+      update.currentTime = Math.max(0, currentTime);
+    }
+    if (typeof duration === 'number' && Number.isFinite(duration) && duration > 0) {
+      update.duration = duration;
+    }
+    if (
+      update.playerState === undefined &&
+      update.currentTime === undefined &&
+      update.duration === undefined
+    ) {
+      return;
+    }
+    this.scheduleYoutubeProgress(update);
   }
 
   private applyYoutubePlayerState(state: number): void {
