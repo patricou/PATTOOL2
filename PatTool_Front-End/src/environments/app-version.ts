@@ -1,5 +1,4 @@
 /**
- * Shown on the About page.
- * build-and-deploy.ps1 replaces this with a timestamp for the production bundle, then restores 'dev'.
+ * Stamped by build-and-deploy.ps1 for this deployment.
  */
-export const APP_VERSION = 'dev';
+export const APP_VERSION = '2026.10.03.220625';
