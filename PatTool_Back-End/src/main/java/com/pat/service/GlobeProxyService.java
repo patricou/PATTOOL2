@@ -14,6 +14,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -126,6 +128,13 @@ public class GlobeProxyService {
     private static final String CELESTRAK_TLE_BY_CATNR =
             "https://celestrak.org/NORAD/elements/gp.php?CATNR=%d&FORMAT=TLE";
 
+    /**
+     * CelesTrak GP cache, one NORAD id per request (3-line TLE).
+     * Tried first: celestrak.org often connect-times-out from this host, and
+     * tle.ivanstanojevic.me frequently answers 508.
+     */
+    private static final String RETLECTOR_TLE_BY_CATNR = "https://retlector.eu/%d/tle";
+
     /** Public TLE JSON by NORAD id (browser UA required; covers Hubble / Sentinel / Landsat). */
     private static final String IVAN_TLE_BY_CATNR =
             "https://tle.ivanstanojevic.me/api/tle/%d";
@@ -212,6 +221,8 @@ public class GlobeProxyService {
     private static final long SAT_TLE_FAIL_BACKOFF_MS = 120_000L;
     /** celestrak.org/com often black-holes TCP; one timeout opens this skip window. */
     private static final long CELESTRAK_CIRCUIT_MS = 30 * 60_000L;
+    /** ReTLEctor host failure (timeout / 5xx) — short skip so other sats don't each wait out the connect timeout. */
+    private static final long RETLECTOR_CIRCUIT_MS = 2 * 60_000L;
     private static final long SAT_TLE_GROUP_CACHE_MS = 3_600_000L;
     private static final int MAX_BYTES_SAT_TLE = 16_384;
     private static final int MAX_BYTES_SAT_TLE_GROUP = 3 * 1024 * 1024;
@@ -225,6 +236,7 @@ public class GlobeProxyService {
     private final ConcurrentHashMap<Integer, Long> satTleFailUntilMs = new ConcurrentHashMap<>();
     private final AtomicLong celestrakSkipUntilMs = new AtomicLong(0);
     private final AtomicBoolean celestrakAttemptInFlight = new AtomicBoolean(false);
+    private final AtomicLong retlectorSkipUntilMs = new AtomicLong(0);
 
     public GlobeProxyService(
             @Qualifier(RestTemplateConfig.GLOBE_PROXY_REST_TEMPLATE) RestTemplate globeProxyRestTemplate,
@@ -648,7 +660,7 @@ public class GlobeProxyService {
 
     /**
      * Classic 3-line TLE (name + line1 + line2) for an allowlisted NORAD id.
-     * Cached ~1 h. Tries Ivan → SatNOGS, then stale cache. CelesTrak is last resort
+     * Cached ~1 h. Tries ReTLEctor → Ivan → SatNOGS, then stale cache. CelesTrak is last resort
      * and circuit-broken after a connect timeout (often unreachable).
      */
     public byte[] fetchSatelliteTle(int noradId) {
@@ -668,6 +680,11 @@ public class GlobeProxyService {
             throw new IllegalStateException("TLE unavailable for NORAD " + noradId);
         }
         Exception last = null;
+        byte[] fromRetlector = tryRetlectorTle(noradId);
+        if (fromRetlector != null) {
+            satTleFailUntilMs.remove(noradId);
+            return cacheSatelliteTle(noradId, fromRetlector);
+        }
         try {
             byte[] fresh = cacheSatelliteTle(noradId, fetchSatelliteTleFromIvan(noradId));
             satTleFailUntilMs.remove(noradId);
@@ -695,6 +712,47 @@ public class GlobeProxyService {
         }
         satTleFailUntilMs.put(noradId, now + SAT_TLE_FAIL_BACKOFF_MS);
         throw new IllegalStateException("TLE unavailable for NORAD " + noradId, last);
+    }
+
+    /**
+     * Per-NORAD CelesTrak mirror. A timeout or 5xx opens a short skip window.
+     * A bad payload for one catalog id does not block the host for other satellites.
+     */
+    private byte[] tryRetlectorTle(int noradId) {
+        if (System.currentTimeMillis() < retlectorSkipUntilMs.get()) {
+            return null;
+        }
+        try {
+            String url = String.format(Locale.US, RETLECTOR_TLE_BY_CATNR, noradId);
+            byte[] raw = fetchBytes(url, MAX_BYTES_SAT_TLE, false);
+            String text = new String(raw, java.nio.charset.StandardCharsets.UTF_8).trim();
+            if (text.isEmpty() || !text.contains("1 ") || !text.contains("2 ")) {
+                throw new IllegalStateException("Unexpected ReTLEctor TLE payload for NORAD " + noradId);
+            }
+            return text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            if (isUpstreamHostFailure(e)) {
+                retlectorSkipUntilMs.set(System.currentTimeMillis() + RETLECTOR_CIRCUIT_MS);
+                log.warn(
+                        "TLE ReTLEctor unreachable ({}), skipping for {} min",
+                        e.getMessage(),
+                        RETLECTOR_CIRCUIT_MS / 60_000L);
+            } else {
+                log.debug("TLE ReTLEctor failed for {}: {}", noradId, e.getMessage());
+            }
+            return null;
+        }
+    }
+
+    private static boolean isUpstreamHostFailure(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof ResourceAccessException || current instanceof HttpServerErrorException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     /**

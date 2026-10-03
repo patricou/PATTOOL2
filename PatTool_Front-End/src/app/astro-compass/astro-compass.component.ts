@@ -66,6 +66,7 @@ import {
   AstroConstellationOption
 } from './astro-compass-constellations';
 import { constellationFigureStrokes } from './astro-compass-constellation-figures';
+import { AstroOfflineSkyService, type AstroSkyEpoch } from './astro-offline-sky.service';
 import {
   ApiService,
   AstroGroundPosition,
@@ -1418,6 +1419,15 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Horloge mise en cache pour fraîcheur / Soleil (évite NG0100). */
   nowMs = Date.now();
+  /** True when sky positions use the offline clock (no position network). */
+  skyOffline = false;
+  skyEpoch: AstroSkyEpoch = 'present';
+  skyLocalValue = '';
+  private skyInputFocused = false;
+  private autoDetectCacheStamp = '';
+  private issPassesForSkyMs = 0;
+  private readonly skyDayMs = 86_400_000;
+  private readonly skyYearMs = 365.25 * 86_400_000;
 
   readonly bezelDegrees: ReadonlyArray<number> = [
     30, 60, 120, 150, 210, 240, 300, 330
@@ -1540,6 +1550,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   constructor(
     private readonly api: ApiService,
+    private readonly skyClock: AstroOfflineSkyService,
     private readonly issNow: GlobeIssNowService,
     private readonly satNow: GlobeSatelliteNowService,
     private readonly translate: TranslateService,
@@ -1555,6 +1566,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.skyLocalValue = this.skyClock.localInputValue();
     this.onStarQueryChange();
     this.onGalaxyQueryChange();
     this.onDeepSkyQueryChange();
@@ -4197,7 +4209,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     const sat = this.selectedSatellite;
-    if (sat.skipLiveTle) {
+    if (sat.skipLiveTle || this.skyClock.isOffline()) {
       return;
     }
     this.satNow.setObserver(this.lat, this.lon);
@@ -4242,7 +4254,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const ticks: FinderTrailTick[] = [];
     let segment: string[] = [];
     let prev: { xPct: number; yPct: number } | null = null;
-    const now = Date.now();
+    const now = this.skyNowMs();
     for (const pt of this.finderTrailSky) {
       const proj = projectCelestialToScreen(camAz, camEl, 0, pt.az, pt.el, hfov, vfov);
       const onGlass = proj.inFront && proj.xPct >= -12 && proj.xPct <= 112 && proj.yPct >= -12 && proj.yPct <= 112;
@@ -4280,7 +4292,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private refreshFinderTrailSky(): void {
     const key = this.finderTrailTargetKey();
-    const now = Date.now();
+    const now = this.skyNowMs();
     if (
       key === this.finderTrailSkyKey &&
       now - this.finderTrailSkyAtMs < FINDER_TRAIL_SKY_MAX_AGE_MS &&
@@ -4295,28 +4307,29 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private finderTrailTargetKey(): string {
     const dur = this.finderTrailMinutes;
+    const stamp = this.skyClock.trailStamp();
     if (this.selectedKind === 'iss') {
-      return `iss:${this.selectedSatelliteId}:${dur}`;
+      return `iss:${this.selectedSatelliteId}:${dur}${stamp}`;
     }
     if (this.selectedKind === 'planet') {
-      return `planet:${this.selectedPlanetId}:${dur}`;
+      return `planet:${this.selectedPlanetId}:${dur}${stamp}`;
     }
     if (this.selectedKind === 'star') {
-      return `star:${this.selectedStarId ?? ''}:${dur}`;
+      return `star:${this.selectedStarId ?? ''}:${dur}${stamp}`;
     }
     if (this.selectedKind === 'galaxy') {
-      return `galaxy:${this.selectedGalaxyId ?? ''}:${dur}`;
+      return `galaxy:${this.selectedGalaxyId ?? ''}:${dur}${stamp}`;
     }
     if (this.selectedKind === 'deepsky') {
-      return `deepsky:${this.selectedDeepSkyId ?? ''}:${dur}`;
+      return `deepsky:${this.selectedDeepSkyId ?? ''}:${dur}${stamp}`;
     }
     if (this.selectedKind === 'constellation') {
-      return `constellation:${this.selectedConstellationId ?? ''}:${dur}`;
+      return `constellation:${this.selectedConstellationId ?? ''}:${dur}${stamp}`;
     }
     if (this.selectedKind === 'ground') {
-      return `ground:${this.selectedGroundId ?? ''}:${dur}`;
+      return `ground:${this.selectedGroundId ?? ''}:${dur}${stamp}`;
     }
-    return `custom:${this.customRaHours}:${this.customDecDeg}:${dur}`;
+    return `custom:${this.customRaHours}:${this.customDecDeg}:${dur}${stamp}`;
   }
 
   private computeFinderTrailSky(nowMs: number): FinderTrailSkyPt[] {
@@ -4555,7 +4568,12 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.applyBodyDisplayFromSatellite(sat);
     this.syncTargetAccordionFromSelection();
     this.issStatus = 'loading';
-    if (sat.useIssLiveFeed) {
+    if (this.skyClock.isOffline()) {
+      this.issPasses = [];
+      this.issPassesLoadedAtMs = 0;
+      this.riseAt = null;
+      this.setAt = null;
+    } else if (sat.useIssLiveFeed) {
       void this.issNow.refresh(true).then(() => {
         if (!this.pageAlive) {
           return;
@@ -5344,9 +5362,15 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     const now = Date.now();
 
     try {
-      if (!this.autoDetectCache.length || now - this.autoDetectCacheAtMs > AUTO_DETECT_CACHE_MS) {
+      const skyStamp = this.skyClock.trailStamp();
+      if (
+        !this.autoDetectCache.length ||
+        now - this.autoDetectCacheAtMs > AUTO_DETECT_CACHE_MS ||
+        skyStamp !== this.autoDetectCacheStamp
+      ) {
         this.autoDetectCache = this.buildSkyDirectionCache();
         this.autoDetectCacheAtMs = now;
+        this.autoDetectCacheStamp = skyStamp;
       }
 
       const hits = this.preferFinderLockedTarget(
@@ -5719,7 +5743,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /** Positions az/él du catalogue (rafraîchies toutes les ~2.5 s en live). */
   private buildSkyDirectionCache(): Array<Omit<AutoDetectHit, 'separationDeg'>> {
-    const date = new Date();
+    const date = this.skyDate();
     const observer = new Observer(this.lat, this.lon, this.height);
     const cache: Array<Omit<AutoDetectHit, 'separationDeg'>> = [];
 
@@ -5876,66 +5900,22 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if (this.autoDetectIncludeIss) {
-      const now = Date.now();
+      const now = this.skyNowMs();
       for (const sat of ASTRO_SATELLITES) {
-        let snapLat: number | null = null;
-        let snapLon: number | null = null;
-        let altKm = sat.defaultAltKm;
-        if (sat.useIssLiveFeed) {
-          const snap = this.issNow.snapshotForDisplay(now);
-          if (!snap) {
-            continue;
-          }
-          snapLat = snap.lat;
-          snapLon = snap.lon;
-          if (snap.altKm != null && snap.altKm > 0) {
-            altKm = snap.altKm;
-          }
-        } else if (sat.skipLiveTle && !sat.sunEarthL2) {
-          continue;
-        } else {
-          this.satNow.setObserver(this.lat, this.lon);
-          const snap = this.satNow.snapshotForOption(sat, now);
-          if (!snap) {
-            void this.satNow.ensureOption(sat, false);
-            continue;
-          }
-          snapLat = snap.lat;
-          snapLon = snap.lon;
-          if (snap.altKm != null && snap.altKm > 0) {
-            altKm = snap.altKm;
-          }
-        }
-        if (
-          !Number.isFinite(this.lat) ||
-          !Number.isFinite(this.lon) ||
-          snapLat == null ||
-          snapLon == null
-        ) {
+        const dir = this.computeSatelliteSkyNow(sat, now);
+        if (!dir || dir.elevationDeg < -2) {
           continue;
         }
-        const groundKm = AstroCompassComponent.haversineGreatCircleKm(
-          this.lat,
-          this.lon,
-          snapLat,
-          snapLon
-        );
-        const elevDeg =
-          (AstroCompassComponent.satelliteElevationRad(groundKm / EARTH_RADIUS_KM, altKm) * 180) /
-          Math.PI;
-        if (elevDeg >= -2) {
-          const az = AstroCompassComponent.initialBearingDeg(this.lat, this.lon, snapLat, snapLon);
-          cache.push({
-            kind: 'iss',
-            id: sat.id,
-            name: this.translate.instant(sat.labelKey),
-            iconClass: sat.iconClass,
-            color: sat.color,
-            azimuthDeg: az,
-            elevationDeg: elevDeg,
-            mag: null
-          });
-        }
+        cache.push({
+          kind: 'iss',
+          id: sat.id,
+          name: this.translate.instant(sat.labelKey),
+          iconClass: sat.iconClass,
+          color: sat.color,
+          azimuthDeg: dir.azimuthDeg,
+          elevationDeg: dir.elevationDeg,
+          mag: null
+        });
       }
     }
 
@@ -5954,7 +5934,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.autoDetectIncludeConstellations || lookEl < -2) {
       return;
     }
-    const item = this.constellationContainingLook(lookAz, lookEl, new Date());
+    const item = this.constellationContainingLook(lookAz, lookEl, this.skyDate());
     if (!item) {
       return;
     }
@@ -7643,7 +7623,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.recomputeSky();
     this.syncLookDeclination();
     this.cdr.markForCheck();
-    if (this.selectedKind === 'iss') {
+    if (this.selectedKind === 'iss' && !this.skyClock.isOffline()) {
       this.refreshIssPasses(true);
     }
     this.refreshVisibleCatalog();
@@ -7766,7 +7746,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    const date = new Date();
+    const date = this.skyDate();
     const observer = new Observer(this.lat, this.lon, this.height);
     let ra: number;
     let dec: number;
@@ -7944,8 +7924,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
-    this.updatedAtMs = Date.now();
-    this.nowMs = this.updatedAtMs;
+    const skyMs = this.skyNowMs();
+    this.updatedAtMs = skyMs;
+    this.nowMs = skyMs;
     this.recomputeVisibility(date, observer, bodyForIllum, isStarLike);
     this.updateFinderProjection();
   }
@@ -7965,28 +7946,29 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.constellationName = null;
     this.elongationDeg = null;
 
-    const now = Date.now();
-    if (sat.useIssLiveFeed) {
-      if (now - this.issLastNetworkRefreshMs > ISS_REFRESH_MIN_MS) {
-        this.issLastNetworkRefreshMs = now;
+    const wall = Date.now();
+    const now = this.skyNowMs();
+    if (!this.skyClock.isOffline() && sat.useIssLiveFeed) {
+      if (wall - this.issLastNetworkRefreshMs > ISS_REFRESH_MIN_MS) {
+        this.issLastNetworkRefreshMs = wall;
         void this.issNow.refresh(false).then(() => {
           if (!this.pageAlive || this.liveLookFrozen()) {
             return;
           }
-          if (this.selectedKind === 'iss' && this.selectedSatellite.useIssLiveFeed) {
+          if (this.selectedKind === 'iss' && this.selectedSatellite.useIssLiveFeed && !this.skyClock.isOffline()) {
             this.recomputeIssSky();
             this.cdr.markForCheck();
           }
         });
       }
-    } else if (!sat.skipLiveTle && now - this.issLastNetworkRefreshMs > ISS_REFRESH_MIN_MS) {
-      this.issLastNetworkRefreshMs = now;
+    } else if (!this.skyClock.isOffline() && !sat.skipLiveTle && wall - this.issLastNetworkRefreshMs > ISS_REFRESH_MIN_MS) {
+      this.issLastNetworkRefreshMs = wall;
       this.satNow.setObserver(this.lat, this.lon);
       void this.satNow.ensureOption(sat, false).then(() => {
         if (!this.pageAlive || this.liveLookFrozen()) {
           return;
         }
-        if (this.selectedKind === 'iss' && this.selectedSatelliteId === sat.id) {
+        if (this.selectedKind === 'iss' && this.selectedSatelliteId === sat.id && !this.skyClock.isOffline()) {
           this.recomputeIssSky();
           this.cdr.markForCheck();
         }
@@ -7998,7 +7980,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     let altKm: number | null = null;
     let velocityKmh: number | null = null;
 
-    if (sat.useIssLiveFeed) {
+    if (sat.useIssLiveFeed && !this.skyClock.isOffline()) {
       const snap = this.issNow.snapshotForDisplay(now);
       if (snap) {
         snapLat = snap.lat;
@@ -8018,7 +8000,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if (snapLat == null || snapLon == null) {
-      this.issStatus = this.issStatus === 'error' ? 'error' : 'loading';
+      this.issStatus = this.skyClock.isOffline() ? 'error' : this.issStatus === 'error' ? 'error' : 'loading';
       this.issLat = null;
       this.issLon = null;
       this.issAltKm = null;
@@ -8028,7 +8010,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.azimuthDeg = null;
       this.elevationDeg = null;
       this.geoDistKm = null;
-      if (!sat.useIssLiveFeed) {
+      if (!sat.useIssLiveFeed || this.skyClock.isOffline()) {
         this.riseAt = null;
         this.setAt = null;
       }
@@ -8066,7 +8048,15 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.nowMs = now;
     this.updateFinderProjection();
 
-    if (sat.useIssLiveFeed) {
+    if (this.skyClock.isOffline()) {
+      if (this.satNow.snapshotForOption(sat, now)) {
+        this.refreshPredictedPasses(sat);
+      } else {
+        this.issPasses = [];
+        this.riseAt = null;
+        this.setAt = null;
+      }
+    } else if (sat.useIssLiveFeed) {
       this.refreshIssPasses(false);
     } else {
       this.refreshPredictedPasses(sat);
@@ -8106,7 +8096,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       pos.lon,
       pos.altM != null && Number.isFinite(pos.altM) ? pos.altM : 0
     );
-    const now = Date.now();
+    const now = this.skyNowMs();
     this.azimuthDeg = look.azDeg;
     this.elevationDeg = look.elDeg;
     this.geoDistKm = look.slantKm;
@@ -8158,7 +8148,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.riseAt = null;
     this.setAt = null;
 
-    const now = Date.now();
+    const now = this.skyNowMs();
     const passes = this.issPasses;
     let current: IssPassItem | null = null;
     let upcoming: IssPassItem | null = null;
@@ -8227,7 +8217,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private refreshIssPasses(force: boolean): void {
-    if (this.selectedKind !== 'iss') {
+    if (this.skyClock.isOffline() || this.selectedKind !== 'iss') {
       return;
     }
     if (!Number.isFinite(this.lat) || !Number.isFinite(this.lon)) {
@@ -8316,7 +8306,8 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private refreshPredictedPasses(sat: AstroSatelliteOption): void {
     this.satNow.setObserver(this.lat, this.lon);
-    if (!this.satNow.snapshotForOption(sat, Date.now())) {
+    const skyMs = this.skyNowMs();
+    if (!this.satNow.snapshotForOption(sat, skyMs)) {
       return;
     }
     const now = Date.now();
@@ -8325,13 +8316,18 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.issPassesLon != null &&
       Math.abs(this.issPassesLat - this.lat) < 0.02 &&
       Math.abs(this.issPassesLon - this.lon) < 0.02;
-    if (samePlace && now - this.issPassesLoadedAtMs < 5 * 60_000) {
+    if (
+      samePlace &&
+      now - this.issPassesLoadedAtMs < 5 * 60_000 &&
+      Math.abs(skyMs - this.issPassesForSkyMs) < 5 * 60_000
+    ) {
       return;
     }
     this.issPasses = this.predictSatellitePasses(sat);
     this.issPassesLat = this.lat;
     this.issPassesLon = this.lon;
     this.issPassesLoadedAtMs = now;
+    this.issPassesForSkyMs = skyMs;
   }
 
   private applySatelliteEquatorial(azDeg: number, elDeg: number, date: Date): void {
@@ -8356,8 +8352,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return [];
     }
     this.satNow.setObserver(this.lat, this.lon);
-    const startMs = Date.now() - SAT_PASS_LOOKBACK_MS;
-    const endMs = Date.now() + SAT_PASS_HORIZON_MS;
+    const skyNow = this.skyNowMs();
+    const startMs = skyNow - SAT_PASS_LOOKBACK_MS;
+    const endMs = skyNow + SAT_PASS_HORIZON_MS;
     const passes: IssPassItem[] = [];
     let riseMs: number | null = null;
     let maxEl = -90;
@@ -8382,7 +8379,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       if (prevEl != null && prevEl > 0 && el <= 0 && riseMs != null) {
         const setMs = AstroCompassComponent.interpolateHorizonCrossing(prevMs, prevEl, t, el);
-        if (setMs > Date.now() - 15_000) {
+        if (setMs > skyNow - 15_000) {
           passes.push({
             riseAt: new Date(riseMs),
             setAt: new Date(setMs),
@@ -9813,16 +9810,96 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     this.bodyLabel = this.translate.instant(sat.labelKey);
   }
 
+  /** Live device clock, or the offline past / present / future instant. */
+  private skyNowMs(): number {
+    return this.skyClock.skyNowMs();
+  }
+
+  private skyDate(): Date {
+    return this.skyClock.skyDate();
+  }
+
+  toggleSkyClock(): void {
+    this.skyClock.toggle();
+    this.applySkyClock();
+  }
+
+  setSkyPresent(): void {
+    this.skyClock.setPresent();
+    this.applySkyClock();
+  }
+
+  setSkyPast(): void {
+    this.skyClock.setOffsetFromNow(-this.skyDayMs);
+    this.applySkyClock();
+  }
+
+  setSkyFuture(): void {
+    this.skyClock.setOffsetFromNow(this.skyDayMs);
+    this.applySkyClock();
+  }
+
+  nudgeSkyYears(years: number): void {
+    this.skyClock.nudge(years * this.skyYearMs);
+    this.applySkyClock();
+  }
+
+  onSkyLocalChange(event: Event): void {
+    const raw = (event.target as HTMLInputElement | null)?.value ?? '';
+    const ms = new Date(raw).getTime();
+    if (!Number.isFinite(ms)) {
+      return;
+    }
+    this.skyClock.setAbsolute(ms);
+    this.applySkyClock();
+  }
+
+  onSkyInputFocus(): void {
+    this.skyInputFocused = true;
+  }
+
+  onSkyInputBlur(): void {
+    this.skyInputFocused = false;
+    this.syncSkyLocalValue();
+  }
+
+  private syncSkyLocalValue(): void {
+    if (this.skyInputFocused) {
+      return;
+    }
+    const next = this.skyClock.localInputValue();
+    if (next !== this.skyLocalValue) {
+      this.skyLocalValue = next;
+    }
+  }
+
+  private applySkyClock(): void {
+    this.skyOffline = this.skyClock.isOffline();
+    this.skyEpoch = this.skyClock.epoch();
+    this.autoDetectCache = [];
+    this.autoDetectCacheAtMs = 0;
+    this.autoDetectCacheStamp = '';
+    this.finderTrailSkyKey = '';
+    this.finderTrailSkyAtMs = 0;
+    this.issPassesLoadedAtMs = 0;
+    this.nowMs = this.skyNowMs();
+    this.syncSkyLocalValue();
+    this.recomputeSky();
+    this.refreshVisibleCatalog();
+    this.refreshTickerNowLabel();
+    this.cdr.markForCheck();
+  }
+
   /**
    * Recalcule quels corps du catalogue sont au-dessus de l'horizon
    * (pour le filtre « visibles seulement »).
    */
   /** Recalcule tout de suite les astres au-dessus de l’horizon (retour sur la page). */
   private refreshVisibleSkyNow(refreshIss: boolean): void {
-    this.nowMs = Date.now();
+    this.nowMs = this.skyNowMs();
     this.recomputeSky();
     this.refreshVisibleCatalog();
-    if (refreshIss) {
+    if (refreshIss && !this.skyClock.isOffline()) {
       void this.issNow.refresh(false).then(() => {
         if (!this.pageAlive) {
           return;
@@ -9851,7 +9928,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    const date = new Date();
+    const date = this.skyDate();
     const observer = new Observer(this.lat, this.lon, this.height);
     const planetIds = new Set<string>();
     const starIds = new Set<string>();
@@ -9930,7 +10007,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
-    const now = Date.now();
+    const now = this.skyNowMs();
     for (const sat of ASTRO_SATELLITES) {
       const dir = this.computeSatelliteSkyNow(sat, now);
       if (!dir) {
@@ -10012,7 +10089,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
     let snapLat: number | null = null;
     let snapLon: number | null = null;
     let altKm = sat.defaultAltKm;
-    if (sat.useIssLiveFeed) {
+    if (sat.useIssLiveFeed && !this.skyClock.isOffline()) {
       const snap = this.issNow.snapshotForDisplay(nowMs);
       if (!snap) {
         return null;
@@ -10026,7 +10103,9 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
       this.satNow.setObserver(this.lat, this.lon);
       const snap = this.satNow.snapshotForOption(sat, nowMs);
       if (!snap) {
-        void this.satNow.ensureOption(sat, false);
+        if (!this.skyClock.isOffline()) {
+          void this.satNow.ensureOption(sat, false);
+        }
         return null;
       }
       snapLat = snap.lat;
@@ -10061,7 +10140,7 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private computeIssAboveHorizonNow(): boolean {
-    return this.computeSatelliteAboveHorizonNow(this.issOption);
+    return this.computeSatelliteAboveHorizonNow(this.issOption, this.skyNowMs());
   }
 
   private startSkyTick(): void {
@@ -10072,7 +10151,15 @@ export class AstroCompassComponent implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
         this.zone.run(() => {
-          this.nowMs = Date.now();
+          const skyMs = this.skyNowMs();
+          const frozen = this.skyClock.isOffline() && !this.skyClock.followClock;
+          if (frozen && this.azimuthDeg != null && skyMs === this.nowMs) {
+            this.refreshTickerNowLabel();
+            this.cdr.markForCheck();
+            return;
+          }
+          this.nowMs = skyMs;
+          this.syncSkyLocalValue();
           this.recomputeSky();
           this.refreshVisibleCatalog();
           this.selectDefaultVisibleTarget();

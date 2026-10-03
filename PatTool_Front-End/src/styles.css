@@ -2109,6 +2109,34 @@ body.tv-landscape-fs app-tv-watcher {
   background: #000 !important;
 }
 
+/* TV page stage: hide menu and title, keep the TV set (not fullscreen). */
+body.tv-focus {
+  overflow: hidden !important;
+}
+
+body.tv-focus app-root > nav.navbar,
+body.tv-focus app-root > app-news-ticker,
+body.tv-focus app-root > app-currency-ticker,
+body.tv-focus app-root > app-stock-ticker,
+body.tv-focus app-root > .pat-div,
+body.tv-focus app-root > .friend-requests-app-banner,
+body.tv-focus app-root > app-assistant-drawer {
+  display: none !important;
+}
+
+body.tv-focus app-tv-watcher {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1035 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
 /* Mobile landscape webcam watcher: hide app chrome, lock scroll */
 body.wc-landscape-fs {
   overflow: hidden !important;

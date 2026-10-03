@@ -245,6 +245,53 @@
   }
 }
 
+/* Page stage: menu and title hidden, TV set kept (not fullscreen). */
+:host.tv-focus {
+  background: var(--pat-page-bg, color-mix(in srgb, #1e40af 16%, #ffffff));
+}
+
+:host.tv-focus .pat-title,
+:host.tv-focus .tv-float-banner,
+:host.tv-focus .tv-sidebar,
+:host.tv-focus .tv-footer {
+  display: none !important;
+}
+
+:host.tv-focus .tv-page {
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0.55rem 0.85rem 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+:host.tv-focus .tv-layout,
+:host.tv-focus .tv-layout--sidebar-collapsed {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+:host.tv-focus .tv-player-panel {
+  width: min(100%, calc((100dvh - 6rem) * 16 / 9 + 1.2rem));
+  max-width: 100%;
+  margin-top: 2.2rem;
+  margin-inline: auto;
+  flex: 0 0 auto;
+}
+
+:host.tv-focus .tv-video-wrap {
+  max-height: calc(100dvh - 6rem);
+  width: 100%;
+}
+
 .tv-lead {
   margin: 0;
   font-size: 0.82rem;

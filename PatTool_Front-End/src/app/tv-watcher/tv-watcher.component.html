@@ -986,6 +986,16 @@
                   </span>
                   <span class="visually-hidden">{{ 'TV.KEEP_ALIVE' | translate }}</span>
                 </label>
+                <button
+                  type="button"
+                  class="tv-now-action"
+                  [class.is-lit]="focusMode"
+                  (click)="toggleFocusMode($event)"
+                  [attr.title]="(focusMode ? 'TV.FOCUS_EXIT_HINT' : 'TV.FOCUS_HINT') | translate"
+                  [attr.aria-label]="(focusMode ? 'TV.FOCUS_EXIT' : 'TV.FOCUS') | translate"
+                  [attr.aria-pressed]="focusMode">
+                  <i class="fa" [class.fa-compress]="focusMode" [class.fa-arrows-alt]="!focusMode" aria-hidden="true"></i>
+                </button>
               </div>
             </div>
           </div>

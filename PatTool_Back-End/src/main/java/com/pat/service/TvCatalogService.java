@@ -53,6 +53,13 @@ public class TvCatalogService {
     private static final String KTO_LOGO = "https://www.ktotv.com/img/logo-ktotv.png";
 
     /**
+     * Public Mezzo HLS. The iptv-org country playlist still lists
+     * {@code http://str2.iptvhd.ru:8080/Mezzo_HD/index.m3u8}, which returns HTTP 403
+     * ({@code deny_token}). Mezzo Live is left on its own mirror.
+     */
+    private static final String MEZZO_PUBLIC_HLS = "https://live-3.otcnet.ru/Mezzo/index.m3u8";
+
+    /**
      * Official NextRadioTV HLS. iptv-org 1080p BFM entries use SFR nCDN
      * ({@code ncdn-live-bfm.pfd.sfr.net/shls/LIVE$…}) which lags ~24s and
      * stalls when the player seeks to live-edge.
@@ -783,6 +790,7 @@ public class TvCatalogService {
             return channels;
         }
         channels = overlayKtoOfficialLive(channels);
+        channels = overlayMezzoPublicLive(channels);
         channels = overlayBfmOfficialLive(channels);
         if ("ch".equals(countryCode)) {
             return overlayRtsLiveSources(channels);
@@ -926,6 +934,28 @@ public class TvCatalogService {
                         ch.getCountry(),
                         KTO_OFFICIAL_HLS,
                         "1080p"
+                ));
+            } else {
+                out.add(ch);
+            }
+        }
+        return out;
+    }
+
+    private static List<TvChannelDto> overlayMezzoPublicLive(List<TvChannelDto> channels) {
+        List<TvChannelDto> out = new ArrayList<>(channels.size());
+        for (TvChannelDto ch : channels) {
+            if (isMezzoChannel(ch)) {
+                String quality = ch.getQuality() != null && !ch.getQuality().isBlank()
+                        ? ch.getQuality() : "1080p";
+                out.add(new TvChannelDto(
+                        ch.getId(),
+                        ch.getName(),
+                        ch.getLogo(),
+                        ch.getGroup(),
+                        ch.getCountry(),
+                        MEZZO_PUBLIC_HLS,
+                        quality
                 ));
             } else {
                 out.add(ch);
@@ -1212,6 +1242,32 @@ public class TvCatalogService {
         }
         String name = ch.getName() != null ? ch.getName().toLowerCase(Locale.ROOT).trim() : "";
         return name.matches("^kto(\\s+(hd|sd|fhd|uhd|4k))?(\\s*\\([^)]*\\))?$");
+    }
+
+    /** Mezzo (mezzo.fr) — not Mezzo Live. */
+    private static boolean isMezzoChannel(TvChannelDto ch) {
+        if (ch == null) {
+            return false;
+        }
+        String id = ch.getId() != null ? ch.getId().toLowerCase(Locale.ROOT) : "";
+        if (id.startsWith("mezzolive")) {
+            return false;
+        }
+        if (id.startsWith("mezzo.fr")) {
+            return true;
+        }
+        String name = ch.getName() != null ? ch.getName().toLowerCase(Locale.ROOT).trim() : "";
+        if (name.startsWith("mezzo live")) {
+            return false;
+        }
+        if (name.matches("^mezzo(\\s*\\([^)]*\\))?$")) {
+            return true;
+        }
+        String url = ch.getStreamUrl() != null ? ch.getStreamUrl().toLowerCase(Locale.ROOT) : "";
+        if (url.contains("mezzolive") || url.contains("mcquack.net")) {
+            return false;
+        }
+        return url.contains("iptvhd.ru") && url.contains("mezzo");
     }
 
     private static boolean isOfficialKtoStream(String url) {

@@ -6561,7 +6561,7 @@ a.ac-compass-cal__btn--direction {
   position: absolute;
   left: 0.45rem;
   top: 0.45rem;
-  right: 5.2rem;
+  right: 13.15rem;
   z-index: 4;
   display: flex;
   flex-direction: column;
@@ -6746,8 +6746,25 @@ a.ac-compass-cal__btn--direction {
   flex-direction: column;
   align-items: flex-end;
   gap: 0.26rem;
-  max-width: min(8.5rem, calc(100vw - 1.4rem));
+  max-width: min(12.6rem, calc(100% - 0.8rem));
   touch-action: manipulation;
+}
+
+.ac-finder__pose-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 0.26rem;
+  width: 100%;
+}
+
+.ac-finder__pose-row .ac-finder__pose {
+  width: auto;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.28rem 0.4rem;
+  font-size: 0.78rem;
 }
 
 .ac-finder--fs .ac-finder__right-btns,
@@ -6827,6 +6844,13 @@ a.ac-compass-cal__btn--direction {
   border-color: rgba(126, 200, 255, 0.6);
   color: #eaf6ff;
   box-shadow: 0 0 10px rgba(126, 200, 255, 0.28);
+}
+
+.ac-finder__offline--on {
+  background: rgba(255, 176, 46, 0.42);
+  border-color: rgba(255, 196, 92, 0.75);
+  color: #fff4d6;
+  box-shadow: 0 0 10px rgba(255, 176, 46, 0.28);
 }
 
 .ac-finder__trail {
@@ -8103,6 +8127,102 @@ a.ac-compass-cal__btn--direction {
   font-size: 0.88rem;
   line-height: 1.45;
   color: #e8eefc;
+}
+
+.ac-sky-clock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ac-sky-clock__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  align-self: flex-start;
+  min-height: 2rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 200, 255, 0.45);
+  background: rgba(80, 150, 255, 0.16);
+  color: #d7ecff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.ac-sky-clock__toggle--offline {
+  border-color: rgba(255, 196, 92, 0.7);
+  background: rgba(255, 176, 46, 0.18);
+  color: #ffe3a8;
+}
+
+.ac-sky-clock__toggle:hover,
+.ac-sky-clock__toggle:focus-visible {
+  outline: none;
+  filter: brightness(1.12);
+}
+
+.ac-sky-clock__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.4rem 0.45rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255, 196, 92, 0.28);
+  background: rgba(40, 28, 8, 0.35);
+}
+
+.ac-sky-clock__jumps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+}
+
+.ac-sky-clock__jumps button {
+  border: 1px solid rgba(255, 214, 140, 0.28);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f3e6c8;
+  border-radius: 0.4rem;
+  padding: 0.18rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ac-sky-clock__jumps button.ac-sky-clock__jump--on {
+  border-color: rgba(255, 196, 92, 0.85);
+  background: rgba(255, 176, 46, 0.22);
+  color: #fff4d6;
+}
+
+.ac-sky-clock__when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #f3e6c8;
+}
+
+.ac-sky-clock__when input {
+  border: 1px solid rgba(255, 214, 140, 0.35);
+  background: rgba(8, 10, 18, 0.65);
+  color: #fff8ea;
+  border-radius: 0.35rem;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.75rem;
+}
+
+.ac-sky-clock__hint {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: #d9c7a2;
 }
 
 

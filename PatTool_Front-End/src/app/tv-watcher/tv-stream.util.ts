@@ -107,6 +107,11 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   if (isKtoLiveChannel(channel)) {
     return KTO_OFFICIAL_HLS;
   }
+  // Mezzo: the iptv-org country playlist still points at str2.iptvhd.ru, which
+  // answers HTTP 403 (deny_token). Mezzo Live stays on its own mirror.
+  if (isMezzoChannel(channel)) {
+    return MEZZO_PUBLIC_HLS;
+  }
   // BFM: iptv-org 1080p entries use SFR nCDN (LIVE$…) which stalls ~24s behind
   // live-edge and poisons MSE when the watchdog seeks. Prefer official NextRadioTV.
   const bfmOfficial = bfmOfficialHlsFor(channel);
@@ -119,6 +124,53 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
 /** Official kto.tv live HLS (same URL as the homepage player). */
 export const KTO_OFFICIAL_HLS =
   'https://livekto.akamaized.net/hls/live/20000018/ktotv/master.m3u8';
+
+/** Public Mezzo HLS. iptv-org countries/fr.m3u still lists the token-denied iptvhd.ru mirror. */
+export const MEZZO_PUBLIC_HLS = 'https://live-3.otcnet.ru/Mezzo/index.m3u8';
+
+/**
+ * Mezzo (mezzo.fr) — not Mezzo Live.
+ */
+export function isMezzoChannel(
+  channelOrUrl:
+    | string
+    | { name?: string | null; id?: string | null; streamUrl?: string | null }
+    | null
+    | undefined
+): boolean {
+  if (channelOrUrl == null) {
+    return false;
+  }
+  if (typeof channelOrUrl === 'string') {
+    return isMezzoMirrorUrl(channelOrUrl);
+  }
+  const id = (channelOrUrl.id || '').toLowerCase();
+  if (id.startsWith('mezzolive')) {
+    return false;
+  }
+  if (id.startsWith('mezzo.fr')) {
+    return true;
+  }
+  const name = (channelOrUrl.name || '').toLowerCase().trim();
+  if (name.startsWith('mezzo live')) {
+    return false;
+  }
+  if (/^mezzo(\s*\([^)]*\))?$/.test(name)) {
+    return true;
+  }
+  return isMezzoMirrorUrl(channelOrUrl.streamUrl || '');
+}
+
+function isMezzoMirrorUrl(url: string): boolean {
+  const u = (url || '').toLowerCase();
+  if (!u || u.includes('mezzolive') || u.includes('mcquack.net')) {
+    return false;
+  }
+  if (u.includes('live-3.otcnet.ru') && u.includes('/mezzo/')) {
+    return true;
+  }
+  return u.includes('iptvhd.ru') && u.includes('mezzo');
+}
 
 /**
  * French Catholic KTO (kto.fr) — not KTOO, Nicktoons, or « Kto est Kto ».

@@ -374,7 +374,7 @@ public class GlobeProxyController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
-            log.debug("Satellite TLE proxy failed for {}: {}", noradId, e.getMessage());
+            log.warn("Satellite TLE proxy failed for {}: {}", noradId, e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }
     }

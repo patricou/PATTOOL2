@@ -309,6 +309,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
    */
   @HostBinding('class.tv-landscape-fs') landscapeFullscreen = false;
 
+  /**
+   * Page stage: hide the app menu and the page title so the TV set can grow,
+   * without the browser Fullscreen API or the edge-to-edge landscape stage.
+   */
+  @HostBinding('class.tv-focus') focusMode = false;
+
   /** EPG now/next keyed by lowercase XMLTV id. */
   epgById: Record<string, TvEpgNow> = {};
   isLoadingEpg = false;
@@ -375,6 +381,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private static readonly SHARE_STREAM_MAX_LEN = 160;
   private static readonly EPG_REFRESH_MS = 5 * 60 * 1000;
   private static readonly LANDSCAPE_FS_BODY_CLASS = 'tv-landscape-fs';
+  private static readonly FOCUS_BODY_CLASS = 'tv-focus';
 
   /** User dismissed immersive FS while still landscape — wait until portrait before auto-reentering. */
   private landscapeFsUserDismissed = false;
@@ -873,6 +880,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.eqModal?.close();
     this.equalizer.detachMediaElement(this.videoEl?.nativeElement);
     this.teardownLandscapeFullscreenWatchers();
+    this.exitFocusMode(false);
     this.exitLandscapeFullscreen(false);
     this.clearChromeHideTimer();
     this.clearShareFeedbackTimer();
@@ -1056,7 +1064,49 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       && !this.isFloatingOpen
       && !this.tvPlayer.isPopoutActive
       && !this.landscapeFsUserDismissed
+      && !this.focusMode
     );
+  }
+
+  /** TV set filling the page, menu and title hidden. Not browser fullscreen. */
+  toggleFocusMode(event?: Event): void {
+    event?.stopPropagation();
+    if (this.focusMode) {
+      this.exitFocusMode();
+      return;
+    }
+    this.enterFocusMode();
+  }
+
+  enterFocusMode(): void {
+    if (this.landscapeFullscreen) {
+      this.exitLandscapeFullscreen(true);
+    }
+    this.focusMode = true;
+    document.body.classList.add(TvWatcherComponent.FOCUS_BODY_CLASS);
+  }
+
+  exitFocusMode(syncLandscape = true): void {
+    if (!this.focusMode && !document.body.classList.contains(TvWatcherComponent.FOCUS_BODY_CLASS)) {
+      return;
+    }
+    this.focusMode = false;
+    document.body.classList.remove(TvWatcherComponent.FOCUS_BODY_CLASS);
+    if (syncLandscape) {
+      this.syncLandscapeFullscreen();
+    }
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onFocusEscape(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || event.defaultPrevented || !this.focusMode) {
+      return;
+    }
+    if (this.epgBrowserOpen || this.globalFilterOpen || this.eqModal?.isOpen) {
+      return;
+    }
+    event.preventDefault();
+    this.exitFocusMode();
   }
 
   private syncLandscapeFullscreen(): void {

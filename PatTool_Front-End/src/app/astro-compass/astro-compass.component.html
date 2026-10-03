@@ -109,7 +109,7 @@
 
 <ng-template #acTickerItemsTpl>
   <span class="ac-ticker__item">
-    <span class="ac-ticker__key">{{ 'ASTRO_COMPASS.TICKER_NOW' | translate }}</span>
+    <span class="ac-ticker__key">{{ (skyOffline ? 'ASTRO_COMPASS.SKY_CLOCK_AT' : 'ASTRO_COMPASS.TICKER_NOW') | translate }}</span>
     <span class="ac-ticker__val">{{ tickerNowLabel }}</span>
   </span>
   <span class="ac-ticker__item" *ngIf="selectedKindLabelKey() as kindKey">
@@ -297,6 +297,28 @@
               <img class="ac-app-icon" src="assets/images/sky-map-app.svg" alt="" width="18" height="18" aria-hidden="true" />
               <span>SkyMap</span>
             </a>
+          </div>
+        </div>
+
+        <div class="ac-sky-clock" *ngIf="skyOffline">
+          <div class="ac-sky-clock__panel">
+            <div class="ac-sky-clock__jumps" role="group" [attr.aria-label]="'ASTRO_COMPASS.SKY_CLOCK_JUMPS' | translate">
+              <button type="button" (click)="nudgeSkyYears(-1)">{{ 'ASTRO_COMPASS.SKY_CLOCK_YEAR_MINUS' | translate }}</button>
+              <button type="button" (click)="setSkyPast()" [class.ac-sky-clock__jump--on]="skyEpoch === 'past'">{{ 'ASTRO_COMPASS.SKY_CLOCK_PAST' | translate }}</button>
+              <button type="button" (click)="setSkyPresent()" [class.ac-sky-clock__jump--on]="skyEpoch === 'present'">{{ 'ASTRO_COMPASS.SKY_CLOCK_PRESENT' | translate }}</button>
+              <button type="button" (click)="setSkyFuture()" [class.ac-sky-clock__jump--on]="skyEpoch === 'future'">{{ 'ASTRO_COMPASS.SKY_CLOCK_FUTURE' | translate }}</button>
+              <button type="button" (click)="nudgeSkyYears(1)">{{ 'ASTRO_COMPASS.SKY_CLOCK_YEAR_PLUS' | translate }}</button>
+            </div>
+            <label class="ac-sky-clock__when">
+              <span>{{ 'ASTRO_COMPASS.SKY_CLOCK_AT' | translate }}</span>
+              <input
+                type="datetime-local"
+                [value]="skyLocalValue"
+                (focus)="onSkyInputFocus()"
+                (blur)="onSkyInputBlur()"
+                (change)="onSkyLocalChange($event)" />
+            </label>
+            <p class="ac-sky-clock__hint">{{ 'ASTRO_COMPASS.SKY_CLOCK_HINT' | translate }}</p>
           </div>
         </div>
 
@@ -581,6 +603,18 @@
                 </div>
               </div>
               <div class="ac-finder__right-btns">
+                <div class="ac-finder__pose-row">
+                <button
+                  type="button"
+                  class="ac-finder__pose ac-finder__offline"
+                  [class.ac-finder__offline--on]="skyOffline"
+                  (click)="toggleSkyClock()"
+                  [attr.aria-pressed]="skyOffline"
+                  [attr.title]="(skyOffline ? 'ASTRO_COMPASS.SKY_CLOCK_TO_LIVE_HINT' : 'ASTRO_COMPASS.SKY_CLOCK_TO_OFFLINE_HINT') | translate"
+                  [attr.aria-label]="(skyOffline ? 'ASTRO_COMPASS.SKY_CLOCK_TO_LIVE' : 'ASTRO_COMPASS.SKY_CLOCK_TO_OFFLINE') | translate">
+                  <i class="fa" [ngClass]="skyOffline ? 'fa-bolt' : 'fa-clock-o'" aria-hidden="true"></i>
+                  {{ (skyOffline ? 'ASTRO_COMPASS.SKY_CLOCK_LIVE' : 'ASTRO_COMPASS.SKY_CLOCK_OFFLINE') | translate }}
+                </button>
                 <button
                   type="button"
                   class="ac-finder__pose"
@@ -593,6 +627,7 @@
                   <i class="fa" [ngClass]="finderPoseFrozen ? 'fa-play' : 'fa-pause'" aria-hidden="true"></i>
                   {{ (finderPoseFrozen ? 'ASTRO_COMPASS.FINDER_RESUME' : 'ASTRO_COMPASS.FINDER_PAUSE') | translate }}
                 </button>
+                </div>
                 <button
                   *ngIf="isFullscreen"
                   type="button"
@@ -1009,7 +1044,10 @@
       <p class="ac-place" *ngIf="selectedKind === 'iss' && issStatus === 'loading'">
         <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.ISS_WAITING' | translate }}
       </p>
-      <p class="ac-place" *ngIf="selectedKind === 'iss' && issStatus === 'error'">
+      <p class="ac-place" *ngIf="selectedKind === 'iss' && issStatus === 'error' && skyOffline">
+        <i class="fa fa-clock-o me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.SKY_CLOCK_SAT_HINT' | translate }}
+      </p>
+      <p class="ac-place" *ngIf="selectedKind === 'iss' && issStatus === 'error' && !skyOffline">
         <i class="fa fa-exclamation-triangle me-1" aria-hidden="true"></i>{{ 'ASTRO_COMPASS.ISS_ERROR' | translate }}
       </p>
       </div>
