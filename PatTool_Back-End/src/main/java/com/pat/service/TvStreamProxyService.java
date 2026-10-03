@@ -11,9 +11,11 @@ import org.springframework.stereotype.Service;
 
 import jakarta.servlet.http.HttpServletResponse;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.zip.GZIPInputStream;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.URI;
@@ -582,6 +584,10 @@ public class TvStreamProxyService {
                 conn.setReadTimeout(READ_TIMEOUT_MS);
                 conn.setRequestProperty("User-Agent", userAgentForHost(uri.getHost()));
                 conn.setRequestProperty("Accept", "*/*");
+                // Do not let HttpURLConnection inflate transparently: some edges gzip the
+                // body and omit Content-Encoding, and the JDK inflater + keep-alive has
+                // returned empty playlists on the next live reload (Mezzo Live).
+                conn.setRequestProperty("Accept-Encoding", "identity");
                 String ref = referer != null ? referer : resolveReferer(uri.getHost());
                 applyBrowserHeaders(conn, ref);
                 if (rangeHeader != null && !rangeHeader.isBlank()) {
@@ -623,6 +629,8 @@ public class TvStreamProxyService {
                         // can continue with subsequent Range requests instead of failing.
                         log.debug("TV proxy truncated {} to {} bytes (progressive/ranged)",
                                 current, chunk.body.length);
+                    } else {
+                        chunk.body = inflateGzipIfNeeded(chunk.body, current);
                     }
                     FetchResult result = new FetchResult();
                     result.status = code;
@@ -671,7 +679,8 @@ public class TvStreamProxyService {
             HttpRequest.Builder builder = HttpRequest.newBuilder(uri)
                     .timeout(Duration.ofMillis(READ_TIMEOUT_MS))
                     .header("User-Agent", userAgentForHost(uri.getHost()))
-                    .header("Accept", "*/*");
+                    .header("Accept", "*/*")
+                    .header("Accept-Encoding", "identity");
             applyBrowserHeaders(builder, ref);
             if (rangeHeader != null && !rangeHeader.isBlank()) {
                 builder.header("Range", rangeHeader);
@@ -705,6 +714,9 @@ public class TvStreamProxyService {
                 // HttpClient follows redirects — use the effective URI for HLS rewrite.
                 result.finalUrl = resp.uri() != null ? resp.uri().toString() : url;
                 long declaredLength = resp.headers().firstValueAsLong("Content-Length").orElse(-1L);
+                if (!chunk.truncated) {
+                    chunk.body = inflateGzipIfNeeded(chunk.body, url);
+                }
                 if (chunk.truncated && chunk.body != null && chunk.body.length > 0) {
                     result.status = 206;
                     result.contentRange = contentRangeForTruncated(
@@ -715,6 +727,7 @@ public class TvStreamProxyService {
                 } else if (progressive && (result.acceptRanges == null || result.acceptRanges.isBlank())) {
                     result.acceptRanges = "bytes";
                 }
+                result.body = chunk.body;
                 return result;
             }
         } catch (Exception e) {
@@ -909,6 +922,46 @@ public class TvStreamProxyService {
         }
         int semi = contentType.indexOf(';');
         return semi >= 0 ? contentType.substring(0, semi).trim() : contentType;
+    }
+
+    /**
+     * Flussonic-style IPTV edges (Mezzo Live on mcquack, and similar) sometimes return a
+     * gzip-compressed HLS playlist with no {@code Content-Encoding} header.
+     * {@link HttpURLConnection} only inflates when that header is present, so the proxy
+     * rewrites the raw gzip as text. hls.js then dies on the live reload with
+     * {@code Missing format identifier #EXTM3U} after playback has already started.
+     * Sniff the magic bytes and inflate. Already-decoded bodies (and real MPEG-TS, which
+     * starts with {@code 0x47}) are left untouched.
+     */
+    private static byte[] inflateGzipIfNeeded(byte[] body, String url) {
+        if (body == null || body.length < 10
+                || (body[0] & 0xFF) != 0x1F
+                || (body[1] & 0xFF) != 0x8B) {
+            return body;
+        }
+        try (GZIPInputStream gzip = new GZIPInputStream(new ByteArrayInputStream(body));
+             ByteArrayOutputStream out = new ByteArrayOutputStream(Math.min(body.length * 4, MAX_BYTES))) {
+            byte[] buf = new byte[8192];
+            int total = 0;
+            int n;
+            while ((n = gzip.read(buf)) >= 0) {
+                if (total + n > MAX_BYTES) {
+                    log.debug("TV proxy gzip body exceeds cap for {}", url);
+                    return body;
+                }
+                total += n;
+                out.write(buf, 0, n);
+            }
+            byte[] inflated = out.toByteArray();
+            if (inflated.length == 0) {
+                return body;
+            }
+            log.debug("TV proxy inflated gzip {} -> {} bytes for {}", body.length, inflated.length, url);
+            return inflated;
+        } catch (IOException e) {
+            log.debug("TV proxy gzip inflate failed for {}: {}", url, e.toString());
+            return body;
+        }
     }
 
     /**
