@@ -20,6 +20,7 @@ import { ApiService, RadioCountry, RadioFrancePodcastEpisode, RadioFrancePodcast
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { RadioPlayerService } from '../services/radio-player.service';
 import { createTvHlsConfig, resetTvMediaElement, tryRecoverTvHlsError } from '../tv-watcher/tv-hls-config';
+import { attachRadioPlaybackGuard, bustRadioStreamUrl, RadioPlaybackGuard } from './radio-playback-guard';
 import {
   applyRadioMediaSession,
   closeRadioDocPip,
@@ -49,7 +50,7 @@ type PodcastBrowseLevel = 'shows' | 'episodes';
   styleUrls: ['./radio-watcher.component.css']
 })
 export class RadioWatcherComponent implements OnInit, OnDestroy {
-  @ViewChild('mediaEl') mediaEl?: ElementRef<HTMLVideoElement>;
+  @ViewChild('mediaEl') mediaEl?: ElementRef<HTMLAudioElement>;
   @ViewChild('playerPanel') playerPanelEl?: ElementRef<HTMLElement>;
   @ViewChild('eqModal') eqModal?: YoutubeEqualizerModalComponent;
   eqLive = false;
@@ -105,6 +106,8 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   isMuted = false;
   volumePercent = 100;
   isBuffering = false;
+  /** Stream dropped; playback restarts when the network is back. */
+  isReconnecting = false;
   chromeVisible = true;
   shareMenuOpen = false;
   shareFeedback = '';
@@ -124,6 +127,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
 
   private catalogCountSub?: Subscription;
   private hls: Hls | null = null;
+  private playbackGuard: RadioPlaybackGuard | null = null;
   private stationSearch$ = new Subject<string>();
   private stationSearchSub?: Subscription;
   private stationsSub?: Subscription;
@@ -559,7 +563,9 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     try {
-      media.disablePictureInPicture = true;
+      if (media instanceof HTMLVideoElement) {
+        media.disablePictureInPicture = true;
+      }
       media.pause();
     } catch {
       /* ignore */
@@ -1251,6 +1257,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   }
 
   stopPlayback(): void {
+    this.isReconnecting = false;
     this.destroyPlayer();
     this.selectedStation = null;
     this.playError = '';
@@ -1772,12 +1779,19 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
-  private playStation(station: RadioStation): void {
+  private playStation(station: RadioStation, reason: 'user' | 'reconnect' = 'user'): void {
     const media = this.mediaEl?.nativeElement;
     if (!this.pageAlive || !media || !station?.streamUrl) {
       return;
     }
-    this.destroyPlayer(false);
+    this.destroyPlayer(false, { keepPip: reason === 'reconnect' });
+    if (!this.pageAlive) {
+      return;
+    }
+    delete media.dataset['patSkipBackground'];
+    if (reason !== 'reconnect') {
+      this.isReconnecting = false;
+    }
     const gen = ++this.playGeneration;
     this.playError = '';
     this.isBuffering = true;
@@ -1791,8 +1805,19 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     applyRadioMediaSession({ title: station.name || 'Radio', artworkUrl: station.logo });
     this.cdr.markForCheck();
 
-    const proxyUrl = this.api.radioStreamProxyUrl(station.streamUrl);
+    const proxyUrl = bustRadioStreamUrl(this.api.radioStreamProxyUrl(station.streamUrl));
     const isHls = this.isHlsStream(station);
+    this.playbackGuard = attachRadioPlaybackGuard({
+      media,
+      isCurrent: () => this.pageAlive && gen === this.playGeneration,
+      reload: () => {
+        if (!this.pageAlive || gen !== this.playGeneration) {
+          return;
+        }
+        this.playStation(station, 'reconnect');
+      },
+      onReconnecting: () => this.noteRadioReconnect(gen)
+    });
 
     const onError = (message: string) => {
       if (gen !== this.playGeneration) {
@@ -1817,6 +1842,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
           return;
         }
         this.isBuffering = false;
+        this.isReconnecting = false;
         this.cdr.markForCheck();
       }).catch((err: unknown) => {
         if (gen !== this.playGeneration) {
@@ -1831,11 +1857,12 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
               return;
             }
             this.isBuffering = false;
+            this.isReconnecting = false;
             this.cdr.markForCheck();
           }).catch(() => onError('RADIO.ERR_PLAY'));
           return;
         }
-        onError('RADIO.ERR_PLAY');
+        this.playbackGuard?.requestReconnect();
       });
     };
 
@@ -1848,10 +1875,12 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     media.onplaying = () => {
       if (gen === this.playGeneration) {
         this.isBuffering = false;
+        this.isReconnecting = false;
+        this.playError = '';
         this.cdr.markForCheck();
       }
     };
-    media.onerror = () => onError('RADIO.ERR_MEDIA');
+    media.onerror = null;
 
     // HLS (.m3u8) — same path as TV
     if (isHls && Hls.isSupported()) {
@@ -1864,10 +1893,8 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
         if (gen !== this.playGeneration) {
           return;
         }
-        if (data.fatal) {
-          if (!tryRecoverTvHlsError(hls, data)) {
-            onError('RADIO.ERR_STREAM');
-          }
+        if (data.fatal && !tryRecoverTvHlsError(hls, data)) {
+          this.playbackGuard?.requestReconnect();
         }
       });
       return;
@@ -1897,10 +1924,34 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     return false;
   }
 
-  private destroyPlayer(clearSrc = true): void {
+  private noteRadioReconnect(gen: number): void {
+    if (!this.pageAlive || gen !== this.playGeneration) {
+      return;
+    }
+    this.playError = '';
+    this.isReconnecting = true;
+    this.isBuffering = true;
+    try {
+      this.cdr.detectChanges();
+    } catch {
+      this.cdr.markForCheck();
+    }
+  }
+
+  private destroyPlayer(clearSrc = true, options?: { keepPip?: boolean }): void {
+    const tearingDown = this.mediaEl?.nativeElement;
+    if (tearingDown) {
+      tearingDown.dataset['patSkipBackground'] = '1';
+    }
+    this.playbackGuard?.dispose();
+    this.playbackGuard = null;
     this.playGeneration++;
     this.clearPlayDeferTimer();
-    closeRadioDocPip();
+    if (!options?.keepPip) {
+      closeRadioDocPip();
+      this.isPipActive = false;
+      this.userOpenedPip = false;
+    }
     if (this.hls) {
       try {
         this.hls.destroy();
@@ -1929,8 +1980,6 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
         }
       }
     }
-    this.isPipActive = false;
-    this.userOpenedPip = false;
   }
 
   formatPlayError(message: string | null | undefined): string {

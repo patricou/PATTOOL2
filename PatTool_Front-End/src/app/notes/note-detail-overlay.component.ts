@@ -26,6 +26,7 @@ import { CalendarEntry, CalendarService } from '../calendar/calendar.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { Member } from '../model/member';
 import { FriendGroup } from '../model/friend';
+import { NoteContentHtmlPipe } from './note-content-html.pipe';
 
 /** Same curated post-it palette as notes.component (duplicated to avoid circular imports). */
 const NOTE_COLORS: string[] = [
@@ -54,7 +55,7 @@ interface NoteLinkOption {
 @Component({
     selector: 'app-note-detail-overlay',
     standalone: true,
-    imports: [CommonModule, FormsModule, TranslateModule],
+    imports: [CommonModule, FormsModule, TranslateModule, NoteContentHtmlPipe],
     templateUrl: './note-detail-overlay.component.html',
     styleUrls: ['./note-detail-overlay.component.css'],
     changeDetection: ChangeDetectionStrategy.OnPush

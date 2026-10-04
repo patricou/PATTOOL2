@@ -7,7 +7,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Router } from '@angular/router';
 import { FileService } from '../../services/file.service';
 import { writeGpsHandoff } from '../../gps-track/gps-handoff';
-import { isTrackFileName } from '../../gps-track/gps-geo.util';
+import { isTrackFileName, nearestTrackIndex, trackHeadingAt } from '../../gps-track/gps-geo.util';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { ApiService, TraceViewerPreference } from '../../services/api.service';
 import { WeatherStationMapLayerService } from '../../services/weather-station-map-layer.service';
@@ -23,6 +23,7 @@ import {
 	LeafletMapWheelZoomHandle
 } from '../leaflet-map-wheel-zoom';
 import { isValidGeoCoordinate } from '../geo-coordinates.util';
+import { requestMotionPermissionIfNeeded } from '../device-motion-permission.util';
 import { GpsOfflineMapProgress, GpsOfflineMapService } from '../../services/gps-offline-map.service';
 import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../../gps-track/gps-offline-tiles.store';
 import { OfflineTraceSummary, OfflineTracesStore } from '../../gps-track/offline-traces.store';
@@ -125,6 +126,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@ViewChild('cartesGouvModal') cartesGouvModal!: TemplateRef<any>;
 	@ViewChild('gpxStatsModal') gpxStatsModal!: TemplateRef<any>;
 	@ViewChild('offlineTracesModal') offlineTracesModal!: TemplateRef<any>;
+	@ViewChild('directionModal') directionModal!: TemplateRef<any>;
 	@ViewChild('mapContainer', { static: false }) mapContainerRef?: ElementRef<HTMLDivElement>;
 	@Output() closed = new EventEmitter<void>();
 	@Output() locationSelected = new EventEmitter<{ lat: number; lng: number; alt?: number | null }>();
@@ -293,6 +295,20 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private deviceLocationCountdownId: ReturnType<typeof setInterval> | null = null;
 	/** Map marker shown for device GPS when “Follow my position” is enabled. */
 	private deviceLocationMarker?: L.Marker;
+	/** Last device GPS fix used to aim the green direction arrow. */
+	private deviceLocationLatLng: { lat: number; lng: number } | null = null;
+	/** Address chosen in the direction modal; the green arrow points toward it. */
+	private directionTarget: { lat: number; lng: number; label: string } | null = null;
+	public directionTargetActive = false;
+	public directionQuery = '';
+	public directionSearching = false;
+	public directionLocating = false;
+	public directionSearchError = '';
+	public directionResults: Array<{ lat: number; lng: number; label: string }> = [];
+	public directionSelectedIndex: number | null = null;
+	private directionSearchSub?: Subscription;
+	private directionModalRef?: NgbModalRef;
+	private directionLocateGen = 0;
 
 	// Event color for styling
 	private eventColor: { r: number; g: number; b: number } | null = null;
@@ -325,7 +341,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private trackOrientationCoords: L.LatLngTuple[] = [];
 	private mapOrientationWatchId: number | null = null;
 	private deviceHeadingDeg: number | null = null;
+	/** Cap GPS reçu pendant un déplacement (vitesse suffisante). Prioritaire sur la boussole. */
+	private gpsCourseActive = false;
+	private compassListening = false;
+	private applyingMapBearing = false;
+	private lastCompassApplyMs = 0;
+	private lastGpsFix: { lat: number; lon: number } | null = null;
 	private routeHeadingDeg = 0;
+	private readonly onCompassOrientation = (event: Event): void => {
+		this.consumeCompassOrientation(event as DeviceOrientationEvent);
+	};
 	private pendingLocation: { lat: number; lng: number; label?: string; zoom?: number } | null = null;
 	private pendingPositions: Array<{ lat: number; lng: number; type?: string; datetime?: Date; label?: string }> | null = null;
 	private lastRenderedPosition: { lat: number; lng: number } | null = null; // Store the most recent position after rendering
@@ -712,6 +737,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@HostListener('window:keydown.escape', ['$event'])
 	onEscape(event: Event): void {
 		event.preventDefault();
+		if (this.directionModalRef) {
+			this.closeDirectionModal();
+			return;
+		}
 		if (this.gpxStatsModalRef) {
 			this.closeGpxStatsModal();
 			return;
@@ -1193,6 +1222,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public close(): void {
+		this.closeDirectionModal();
 		this.closeOfflineTracesModal();
 		this.stopMapOrientationWatch();
 		this.stopFollowDeviceLocation();
@@ -1521,6 +1551,173 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.gpxStatsModalRef = undefined;
 		this.cdr.detectChanges();
+	}
+
+	/** Ouvre la fenêtre pour saisir une adresse ; la flèche verte est posée à la fermeture. */
+	public openDirectionModal(): void {
+		if (!this.directionModal || this.directionModalRef) {
+			return;
+		}
+		this.directionSearchError = '';
+		this.directionSearching = false;
+		this.directionLocating = false;
+		const opts: NgbModalOptions = {
+			centered: true,
+			backdrop: 'static',
+			scrollable: true,
+			keyboard: true,
+			windowClass: 'trace-viewer-direction-modal'
+		};
+		const mountEl = this.getCartesGouvModalMountElement();
+		if (mountEl) {
+			opts.container = mountEl;
+		}
+		this.directionModalRef = this.modalService.open(this.directionModal, opts);
+		this.directionModalRef.result.finally(() => {
+			this.directionModalRef = undefined;
+			this.directionSearching = false;
+			this.directionLocating = false;
+			this.cdr.markForCheck();
+		});
+	}
+
+	public closeDirectionModal(): void {
+		this.directionLocateGen++;
+		this.directionLocating = false;
+		this.directionSearchSub?.unsubscribe();
+		this.directionSearchSub = undefined;
+		this.directionSearching = false;
+		if (!this.directionModalRef) {
+			return;
+		}
+		try {
+			this.directionModalRef.close();
+		} catch {
+			/* ignore */
+		}
+		this.directionModalRef = undefined;
+	}
+
+	public searchDirectionAddress(): void {
+		const query = this.directionQuery?.trim();
+		if (!query) {
+			this.directionSearchError = this.translate('ADDRESS_GEOCODE.ADDRESS_REQUIRED');
+			this.directionResults = [];
+			this.directionSelectedIndex = null;
+			return;
+		}
+		this.directionSearchError = '';
+		this.directionSelectedIndex = null;
+		this.directionSearching = true;
+		this.directionSearchSub?.unsubscribe();
+		this.directionSearchSub = this.apiService.geocodeSearch(query).pipe(take(1)).subscribe({
+			next: (data: any[]) => {
+				this.directionResults = (data || []).map((item: any) => ({
+					lat: typeof item.lat === 'number' ? item.lat : parseFloat(item.lat) || 0,
+					lng: typeof item.lon === 'number' ? item.lon : parseFloat(item.lon) || 0,
+					label: String(item.displayName || item.display_name || '').trim()
+				})).filter((item) => isValidGeoCoordinate(item.lat, item.lng) && item.label.length > 0);
+				if (this.directionResults.length === 0) {
+					this.directionSearchError = this.translate('ADDRESS_GEOCODE.NO_RESULTS');
+				} else if (this.directionResults.length === 1) {
+					this.directionSelectedIndex = 0;
+				}
+				this.directionSearching = false;
+				this.cdr.markForCheck();
+			},
+			error: () => {
+				this.directionResults = [];
+				this.directionSelectedIndex = null;
+				this.directionSearchError = this.translate('ADDRESS_GEOCODE.ERROR');
+				this.directionSearching = false;
+				this.cdr.markForCheck();
+			}
+		});
+	}
+
+	public selectDirectionResult(index: number): void {
+		this.directionSelectedIndex = index;
+		this.directionSearchError = '';
+	}
+
+	public confirmDirectionTarget(): void {
+		const index = this.directionSelectedIndex;
+		const picked = index != null ? this.directionResults[index] : undefined;
+		if (!picked) {
+			this.directionSearchError = this.translate('EVENTELEM.TRACK_DIRECTION_SELECT');
+			return;
+		}
+		if (this.deviceLocationLatLng && this.deviceLocationMarker) {
+			this.applyDirectionTarget(picked);
+			this.closeDirectionModal();
+			return;
+		}
+		if (!this.map || !navigator.geolocation) {
+			this.directionSearchError = this.translate('EVENTELEM.TRACK_DIRECTION_GPS_ERROR');
+			this.cdr.markForCheck();
+			return;
+		}
+		const gen = ++this.directionLocateGen;
+		this.directionLocating = true;
+		this.directionSearchError = '';
+		this.cdr.markForCheck();
+		navigator.geolocation.getCurrentPosition(
+			(pos) => {
+				if (gen !== this.directionLocateGen || !this.map) {
+					return;
+				}
+				this.directionLocating = false;
+				const lat = pos.coords.latitude;
+				const lng = pos.coords.longitude;
+				const zoom = Math.min(
+					this.map.getMaxZoom(),
+					Math.max(this.map.getZoom(), TraceViewerModalComponent.USER_POSITION_ZOOM)
+				);
+				this.map.setView([lat, lng], zoom);
+				this.currentZoom = zoom;
+				this.applyDirectionTarget(picked);
+				this.updateDeviceLocationMarker(lat, lng);
+				this.closeDirectionModal();
+				this.cdr.markForCheck();
+			},
+			() => {
+				if (gen !== this.directionLocateGen) {
+					return;
+				}
+				this.directionLocating = false;
+				this.applyDirectionTarget(picked);
+				this.directionSearchError = this.translate('EVENTELEM.TRACK_DIRECTION_GPS_ERROR');
+				this.cdr.markForCheck();
+			},
+			{ enableHighAccuracy: true, timeout: 8000, maximumAge: 5000 }
+		);
+	}
+
+	public clearDirectionTarget(): void {
+		this.clearDirectionTargetState();
+		this.syncDeviceLocationArrows();
+		this.closeDirectionModal();
+		this.cdr.markForCheck();
+	}
+
+	private applyDirectionTarget(picked: { lat: number; lng: number; label: string }): void {
+		this.directionTarget = { lat: picked.lat, lng: picked.lng, label: picked.label };
+		this.directionTargetActive = true;
+		this.syncDeviceLocationArrows();
+		this.cdr.markForCheck();
+	}
+
+	private clearDirectionTargetState(): void {
+		this.directionSearchSub?.unsubscribe();
+		this.directionSearchSub = undefined;
+		this.directionTarget = null;
+		this.directionTargetActive = false;
+		this.directionQuery = '';
+		this.directionResults = [];
+		this.directionSelectedIndex = null;
+		this.directionSearchError = '';
+		this.directionSearching = false;
+		this.directionLocating = false;
 	}
 
 	public formatGpxDistance(meters: number | null): string {
@@ -2109,7 +2306,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.registerRightClickZoom();
 
 		// Maintain crosshair cursor even when Leaflet changes classes
-		this.map.on('moveend', () => this.forceCrosshairCursor());
+		this.map.on('moveend', () => {
+			this.forceCrosshairCursor();
+			this.refreshOrientationAfterMapMove();
+		});
 		this.map.on('zoomend', () => {
 			this.forceCrosshairCursor();
 			if (this.isSwisstopoBasemap(this.selectedBaseLayerId) && this.map) {
@@ -3069,6 +3269,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private resetState(): void {
+		this.closeDirectionModal();
+		this.clearDirectionTargetState();
 		this.closeOfflineTracesModal();
 		this.closeGpxStatsModal();
 		this.trackBounds = null;
@@ -3085,6 +3287,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.trackOrientationCoords = [];
 		this.routeHeadingDeg = 0;
 		this.deviceHeadingDeg = null;
+		this.gpsCourseActive = false;
+		this.lastGpsFix = null;
 		this.mapOrientation = 'north';
 		this.stopMapOrientationWatch();
 		this.pendingLocation = null;
@@ -4474,6 +4678,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.applyMapBearing();
 			return;
 		}
+		if (orientation === 'heading') {
+			this.deviceHeadingDeg = null;
+			this.gpsCourseActive = false;
+		}
 		this.mapOrientation = orientation;
 		this.syncMapOrientationWatch();
 		this.applyMapBearing();
@@ -4486,6 +4694,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		} else {
 			this.stopMapOrientationWatch();
 		}
+		if (this.mapOrientation === 'heading') {
+			void this.startCompassHeading();
+		} else {
+			this.stopCompassHeading();
+		}
 	}
 
 	private startMapOrientationWatch(): void {
@@ -4494,12 +4707,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.mapOrientationWatchId = navigator.geolocation.watchPosition(
 			(pos) => {
-				if (pos.coords.heading != null && Number.isFinite(pos.coords.heading)) {
-					this.deviceHeadingDeg = pos.coords.heading;
-				}
-				if (this.mapOrientation === 'route') {
-					this.updateRouteHeadingNear(pos.coords.latitude, pos.coords.longitude);
-				}
+				this.lastGpsFix = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+				this.noteGpsCourse(pos);
 				if (this.mapOrientation === 'heading' || this.mapOrientation === 'route') {
 					this.applyMapBearing();
 				}
@@ -4514,40 +4723,142 @@ export class TraceViewerModalComponent implements OnDestroy {
 			navigator.geolocation.clearWatch(this.mapOrientationWatchId);
 			this.mapOrientationWatchId = null;
 		}
+		this.stopCompassHeading();
+		this.gpsCourseActive = false;
+	}
+
+	/** Cap GPS uniquement en déplacement : à l'arrêt le heading est souvent 0 ou absent. */
+	private noteGpsCourse(pos: GeolocationPosition): void {
+		const speed = pos.coords.speed;
+		const course = pos.coords.heading;
+		const moving = speed != null && Number.isFinite(speed) && speed >= 0.5;
+		if (!moving || course == null || !Number.isFinite(course)) {
+			this.gpsCourseActive = false;
+			return;
+		}
+		this.gpsCourseActive = true;
+		this.deviceHeadingDeg = course;
+	}
+
+	private async startCompassHeading(): Promise<void> {
+		if (this.compassListening || typeof window === 'undefined' || !('DeviceOrientationEvent' in window)) {
+			return;
+		}
+		const permission = await requestMotionPermissionIfNeeded();
+		if (permission === 'denied' || this.mapOrientation !== 'heading') {
+			return;
+		}
+		this.compassListening = true;
+		window.addEventListener('deviceorientationabsolute', this.onCompassOrientation, true);
+		window.addEventListener('deviceorientation', this.onCompassOrientation, true);
+	}
+
+	private stopCompassHeading(): void {
+		if (!this.compassListening || typeof window === 'undefined') {
+			this.compassListening = false;
+			return;
+		}
+		window.removeEventListener('deviceorientationabsolute', this.onCompassOrientation, true);
+		window.removeEventListener('deviceorientation', this.onCompassOrientation, true);
+		this.compassListening = false;
+	}
+
+	private consumeCompassOrientation(event: DeviceOrientationEvent): void {
+		if (this.mapOrientation !== 'heading' || this.gpsCourseActive) {
+			return;
+		}
+		const heading = this.compassHeadingDeg(event);
+		if (heading == null) {
+			return;
+		}
+		const now = Date.now();
+		if (this.deviceHeadingDeg != null && now - this.lastCompassApplyMs < 200) {
+			const delta = Math.abs(heading - this.deviceHeadingDeg);
+			if (Math.min(delta, 360 - delta) < 4) {
+				return;
+			}
+		}
+		this.lastCompassApplyMs = now;
+		this.deviceHeadingDeg = heading;
+		this.applyMapBearing();
+	}
+
+	private compassHeadingDeg(event: DeviceOrientationEvent): number | null {
+		const anyEvent = event as DeviceOrientationEvent & { webkitCompassHeading?: number };
+		const screenDeg = this.screenOrientationDeg();
+		if (typeof anyEvent.webkitCompassHeading === 'number' && Number.isFinite(anyEvent.webkitCompassHeading)) {
+			return this.wrapDeg(anyEvent.webkitCompassHeading - screenDeg);
+		}
+		if (event.absolute === true && event.alpha != null && Number.isFinite(event.alpha)) {
+			return this.wrapDeg(360 - event.alpha - screenDeg);
+		}
+		return null;
+	}
+
+	private screenOrientationDeg(): number {
+		try {
+			const angle = screen.orientation?.angle;
+			if (typeof angle === 'number' && Number.isFinite(angle)) {
+				return angle;
+			}
+		} catch {
+			/* ignore */
+		}
+		const legacy = (window as Window & { orientation?: number }).orientation;
+		return typeof legacy === 'number' && Number.isFinite(legacy) ? legacy : 0;
+	}
+
+	private wrapDeg(deg: number): number {
+		return ((deg % 360) + 360) % 360;
 	}
 
 	private updateRouteHeadingFromTrack(): void {
-		const coords = this.trackOrientationCoords;
-		if (!coords || coords.length < 2) {
+		const anchor = this.routeHeadingAnchor();
+		if (!anchor) {
 			this.routeHeadingDeg = 0;
 			return;
 		}
-		this.updateRouteHeadingNear(coords[0][0], coords[0][1]);
+		this.updateRouteHeadingNear(anchor.lat, anchor.lon);
 	}
 
+	private routeHeadingAnchor(): { lat: number; lon: number } | null {
+		if (this.followDeviceLocation && this.lastGpsFix) {
+			return this.lastGpsFix;
+		}
+		if (this.followDeviceLocation && this.deviceLocationLatLng) {
+			return { lat: this.deviceLocationLatLng.lat, lon: this.deviceLocationLatLng.lng };
+		}
+		if (this.map) {
+			const center = this.map.getCenter();
+			return { lat: center.lat, lon: center.lng };
+		}
+		const first = this.trackOrientationCoords[0];
+		return first ? { lat: first[0], lon: first[1] } : null;
+	}
+
+	/** Direction du tracé ~20 m en avant du point le plus proche (ignore les points GPS dupliqués). */
 	private updateRouteHeadingNear(lat: number, lon: number): void {
-		const coords = this.trackOrientationCoords;
-		if (!coords || coords.length < 2) {
+		const points = this.trackOrientationCoords;
+		if (points.length < 2) {
+			this.routeHeadingDeg = 0;
 			return;
 		}
-		let bestI = 0;
-		let bestD = Infinity;
-		for (let i = 0; i < coords.length; i++) {
-			const d = Math.hypot(coords[i][0] - lat, coords[i][1] - lon);
-			if (d < bestD) {
-				bestD = d;
-				bestI = i;
-			}
+		const track = points.map((p) => ({ lat: p[0], lon: p[1] }));
+		const heading = trackHeadingAt(track, nearestTrackIndex(track, lat, lon), 20);
+		if (heading != null && Number.isFinite(heading)) {
+			this.routeHeadingDeg = heading;
 		}
-		const i = Math.min(bestI, coords.length - 2);
-		const a = coords[i];
-		const b = coords[i + 1];
-		const lat1 = a[0] * Math.PI / 180;
-		const lat2 = b[0] * Math.PI / 180;
-		const dLon = (b[1] - a[1]) * Math.PI / 180;
-		const y = Math.sin(dLon) * Math.cos(lat2);
-		const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-		this.routeHeadingDeg = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+	}
+
+	/** Après un déplacement de la carte, realigne « Route » (ou « Marche » sans cap appareil). */
+	private refreshOrientationAfterMapMove(): void {
+		if (this.applyingMapBearing || this.mapOrientation === 'north') {
+			return;
+		}
+		if (this.mapOrientation === 'heading' && this.deviceHeadingDeg != null) {
+			return;
+		}
+		this.applyMapBearing();
 	}
 
 	private applyMapBearing(): void {
@@ -4556,20 +4867,22 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		let bearing = 0;
-		if (this.mapOrientation === 'heading') {
-			bearing = this.deviceHeadingDeg != null ? this.deviceHeadingDeg : this.routeHeadingDeg;
-		} else if (this.mapOrientation === 'route') {
-			if (!this.trackOrientationCoords.length) {
-				this.updateRouteHeadingFromTrack();
-			}
+		if (this.mapOrientation === 'heading' && this.deviceHeadingDeg != null) {
+			bearing = this.deviceHeadingDeg;
+		} else if (this.mapOrientation === 'heading' || this.mapOrientation === 'route') {
+			this.updateRouteHeadingFromTrack();
 			bearing = this.routeHeadingDeg;
 		}
+		this.applyingMapBearing = true;
 		try {
-			map.setBearing(((bearing % 360) + 360) % 360);
+			map.setBearing(this.wrapDeg(bearing));
 			map.invalidateSize({ animate: false });
 		} catch {
 			/* plugin not ready */
+		} finally {
+			this.applyingMapBearing = false;
 		}
+		this.syncDeviceLocationArrows();
 	}
 
 	/** Centre du viewport carte Leaflet → page Globe 3D (zoom corrélé au niveau de zoom carte). */
@@ -4631,23 +4944,85 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.scheduleTraceViewerCdr();
 	}
 
-	/** Affiche ou met à jour le marqueur « position appareil » sur la carte. */
+	/** Affiche ou met à jour le marqueur « position appareil » (point rouge, flèche nord, flèche cible). */
 	private updateDeviceLocationMarker(lat: number, lng: number): void {
 		if (!this.map) {
 			return;
 		}
+		this.deviceLocationLatLng = { lat, lng };
 		if (this.deviceLocationMarker) {
 			this.deviceLocationMarker.setLatLng([lat, lng]);
+			this.syncDeviceLocationArrows();
 			return;
 		}
 		const icon = L.divIcon({
 			className: 'device-location-marker',
-			html: '<span style="display:block;width:14px;height:14px;border-radius:50%;background:red;border:2px solid white;box-shadow:0 0 4px rgba(0,0,0,0.6);"></span>',
-			iconSize: [14, 14],
-			iconAnchor: [7, 7]
+			html: this.deviceLocationMarkerHtml(),
+			iconSize: [56, 56],
+			iconAnchor: [28, 28]
 		});
 		this.deviceLocationMarker = L.marker([lat, lng], { icon, zIndexOffset: 1000 });
 		this.deviceLocationMarker.addTo(this.map);
+		this.syncDeviceLocationArrows();
+	}
+
+	private deviceLocationMarkerHtml(): string {
+		const northLabel = this.translate('GPS_ROUTING.ORIENT_NORTH')
+			.replace(/&/g, '&amp;')
+			.replace(/"/g, '&quot;')
+			.replace(/</g, '&lt;');
+		return `<div class="device-location-marker-wrap" title="${northLabel}">` +
+			`<div class="device-location-target is-hidden" aria-hidden="true"><span class="device-location-target-arrow"></span></div>` +
+			`<div class="device-location-north" aria-hidden="true"><span class="device-location-north-arrow"></span></div>` +
+			`<span class="device-location-dot"></span>` +
+			`</div>`;
+	}
+
+	/** Aligne la flèche rouge sur le nord et la flèche verte sur l’adresse choisie. */
+	private syncDeviceLocationArrows(): void {
+		const root = this.deviceLocationMarker?.getElement();
+		if (!root) {
+			return;
+		}
+		const mapBearing = this.currentMapBearingDeg();
+		const north = root.querySelector('.device-location-north') as HTMLElement | null;
+		if (north) {
+			north.style.transform = `rotate(${-mapBearing}deg)`;
+		}
+		const targetEl = root.querySelector('.device-location-target') as HTMLElement | null;
+		const from = this.deviceLocationLatLng;
+		const to = this.directionTarget;
+		if (!targetEl) {
+			return;
+		}
+		if (!from || !to) {
+			targetEl.classList.add('is-hidden');
+			return;
+		}
+		targetEl.classList.remove('is-hidden');
+		const bearing = this.bearingDeg(from.lat, from.lng, to.lat, to.lng);
+		targetEl.style.transform = `rotate(${bearing - mapBearing}deg)`;
+		targetEl.title = to.label;
+	}
+
+	private bearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {
+		const phi1 = lat1 * Math.PI / 180;
+		const phi2 = lat2 * Math.PI / 180;
+		const dLon = (lng2 - lng1) * Math.PI / 180;
+		const y = Math.sin(dLon) * Math.cos(phi2);
+		const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLon);
+		return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+	}
+
+	private currentMapBearingDeg(): number {
+		const map = this.map as RotatableLeafletMap | undefined;
+		if (map && typeof map.getBearing === 'function') {
+			const bearing = map.getBearing();
+			if (typeof bearing === 'number' && Number.isFinite(bearing)) {
+				return ((bearing % 360) + 360) % 360;
+			}
+		}
+		return 0;
 	}
 
 	/** Supprime le marqueur « position appareil » de la carte. */
@@ -4659,6 +5034,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.deviceLocationMarker.remove();
 			this.deviceLocationMarker = undefined;
 		}
+		this.deviceLocationLatLng = null;
 	}
 
 	private fetchDevicePositionAndRecenter(): void {

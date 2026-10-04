@@ -1,6 +1,10 @@
 package com.pattool.frontend;
 
+import android.content.Context;
 import android.content.Intent;
+import android.media.AudioManager;
+import android.net.ConnectivityManager;
+import android.net.Network;
 import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.WebResourceError;
@@ -23,6 +27,9 @@ public class MainActivity extends BridgeActivity {
 
     /** Last URL reloaded locally, so a failed retry does not loop. */
     private String lastLocalReload;
+
+    /** Tells the radio page when the phone network drops or returns, even if the screen is off. */
+    private ConnectivityManager.NetworkCallback radioNetworkCallback;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -86,5 +93,106 @@ public class MainActivity extends BridgeActivity {
         }
         lastLocalReload = url;
         view.post(() -> view.loadUrl(url));
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        registerRadioNetworkCallback();
+    }
+
+    /**
+     * Screen off pauses the WebView on some phones. If a radio is already audible,
+     * keep the page timers running so the stream can continue and reconnect.
+     */
+    @Override
+    public void onPause() {
+        boolean keepAudio = isMusicActive();
+        super.onPause();
+        if (keepAudio) {
+            resumeWebViewForRadio();
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        unregisterRadioNetworkCallback();
+        super.onDestroy();
+    }
+
+    private boolean isMusicActive() {
+        AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        return audio != null && audio.isMusicActive();
+    }
+
+    private void resumeWebViewForRadio() {
+        Bridge bridge = getBridge();
+        if (bridge == null || bridge.getWebView() == null) {
+            return;
+        }
+        WebView webView = bridge.getWebView();
+        webView.onResume();
+        webView.resumeTimers();
+    }
+
+    private void registerRadioNetworkCallback() {
+        if (radioNetworkCallback != null) {
+            return;
+        }
+        ConnectivityManager connectivity =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivity == null) {
+            return;
+        }
+        ConnectivityManager.NetworkCallback callback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                runRadioScript("window.dispatchEvent(new Event('online'))");
+            }
+
+            @Override
+            public void onLost(Network network) {
+                runRadioScript("window.dispatchEvent(new Event('offline'))");
+            }
+        };
+        try {
+            connectivity.registerDefaultNetworkCallback(callback);
+            radioNetworkCallback = callback;
+        } catch (RuntimeException ignored) {
+            // Some devices reject the callback when no network is registered.
+        }
+    }
+
+    private void unregisterRadioNetworkCallback() {
+        ConnectivityManager.NetworkCallback callback = radioNetworkCallback;
+        radioNetworkCallback = null;
+        if (callback == null) {
+            return;
+        }
+        ConnectivityManager connectivity =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivity == null) {
+            return;
+        }
+        try {
+            connectivity.unregisterNetworkCallback(callback);
+        } catch (RuntimeException ignored) {
+            // Already unregistered.
+        }
+    }
+
+    private void runRadioScript(String script) {
+        Bridge bridge = getBridge();
+        if (bridge == null || bridge.getWebView() == null) {
+            return;
+        }
+        WebView webView = bridge.getWebView();
+        webView.post(() -> {
+            try {
+                webView.evaluateJavascript(script, null);
+            } catch (RuntimeException ignored) {
+                // WebView already destroyed.
+            }
+        });
     }
 }

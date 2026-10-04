@@ -30,7 +30,9 @@
     <article class="notes-overlay-postit"
              [style.background-color]="note.color || '#ffe066'">
       <h3 class="notes-overlay-postit-title" *ngIf="note.title">{{ note.title }}</h3>
-      <p class="notes-overlay-postit-body" *ngIf="note.content">{{ note.content }}</p>
+      <p class="notes-overlay-postit-body"
+         *ngIf="note.content"
+         [innerHTML]="note.content | noteContentHtml"></p>
       <div class="notes-overlay-postit-photos" *ngIf="photoCount() > 0">
         <img *ngFor="let src of draft.imageDataUrls | slice:0:4" [src]="src" alt="">
         <span class="notes-overlay-postit-photo-more" *ngIf="photoCount() > 4">+{{ photoCount() - 4 }}</span>

@@ -138,7 +138,7 @@ const MAX_MEDIA_RECOVERIES = 2;
  * {@code removeAttribute('src') + load()} alone is not always enough once
  * {@code HTMLMediaElement.error} is set (Chromium keeps the element unusable).
  */
-export function resetTvMediaElement(video: HTMLVideoElement | null | undefined): void {
+export function resetTvMediaElement(video: HTMLMediaElement | null | undefined): void {
   if (!video) {
     return;
   }

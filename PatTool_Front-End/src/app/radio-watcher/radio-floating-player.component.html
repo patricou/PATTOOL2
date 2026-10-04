@@ -108,12 +108,14 @@
       </div>
 
       <div class="radio-face" [class.radio-face--empty]="!station">
-        <video
+        <audio
           #mediaEl
           class="radio-video radio-audio-el radio-video--hidden"
+          preload="none"
           playsinline
           webkit-playsinline
-          (volumechange)="onMediaVolumeChange()"></video>
+          data-pat-radio="1"
+          (volumechange)="onMediaVolumeChange()"></audio>
 
         <div class="radio-ambient" aria-hidden="true"></div>
 
@@ -199,7 +201,7 @@
 
         <div class="radio-buffering" *ngIf="station && isBuffering && !playError">
           <i class="fa fa-spinner fa-spin"></i>
-          {{ 'RADIO.BUFFERING' | translate }}
+          {{ (isReconnecting ? 'RADIO.RECONNECTING' : 'RADIO.BUFFERING') | translate }}
         </div>
         <div class="radio-play-error" *ngIf="playError" role="alert">
           {{ formatPlayError(playError) }}

@@ -97,6 +97,7 @@ export class BackgroundPlaybackService {
     }
     this.prepareElement(el);
     this.userPaused.set(el, false);
+    delete el.dataset['patUserPaused'];
     this.releasedKeepAlives.delete(el);
     this.clearPauseClassifyTimer();
     if (keepAlive) {
@@ -111,7 +112,7 @@ export class BackgroundPlaybackService {
 
   private handlePause(event: Event): void {
     const el = event.target;
-    if (!(el instanceof HTMLMediaElement)) {
+    if (!(el instanceof HTMLMediaElement) || el.dataset['patSkipBackground'] === '1') {
       return;
     }
     if (this.isKeepAlive(el)) {
@@ -145,7 +146,14 @@ export class BackgroundPlaybackService {
         }
         return;
       }
+      if (el.dataset['patRadio'] === '1') {
+        // A visible pause is a phone call or a dropped stream. Do not mark it as a
+        // user stop — the radio guard reloads the stream. Lock-screen pause sets
+        // patUserPaused from the media session before this timer runs.
+        return;
+      }
       this.userPaused.set(el, true);
+      el.dataset['patUserPaused'] = '1';
       this.setPlaybackState('paused');
     }, 280);
   }
@@ -391,6 +399,7 @@ export class BackgroundPlaybackService {
     const keepAlive = this.isKeepAlive(el);
     this.safeSetHandler('play', () => {
       this.userPaused.set(el, false);
+      delete el.dataset['patUserPaused'];
       this.releasedKeepAlives.delete(el);
       this.resumeElement(el);
     });
@@ -400,6 +409,7 @@ export class BackgroundPlaybackService {
         return;
       }
       this.userPaused.set(el, true);
+      el.dataset['patUserPaused'] = '1';
       try {
         el.pause();
       } catch {

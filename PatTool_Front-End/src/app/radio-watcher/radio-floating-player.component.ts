@@ -19,6 +19,7 @@ import Hls from 'hls.js';
 import { ApiService, RadioStation } from '../services/api.service';
 import { RadioFloatingState, RadioPlayerService } from '../services/radio-player.service';
 import { createTvHlsConfig, resetTvMediaElement, tryRecoverTvHlsError } from '../tv-watcher/tv-hls-config';
+import { attachRadioPlaybackGuard, bustRadioStreamUrl, RadioPlaybackGuard } from './radio-playback-guard';
 import {
   applyRadioMediaSession,
   closeRadioDocPip,
@@ -37,13 +38,15 @@ import {
   styleUrls: ['./radio-watcher.component.css', './radio-floating-player.component.css']
 })
 export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
-  @ViewChild('mediaEl') mediaEl?: ElementRef<HTMLVideoElement>;
+  @ViewChild('mediaEl') mediaEl?: ElementRef<HTMLAudioElement>;
   @ViewChild('playerPanel') playerPanelEl?: ElementRef<HTMLElement>;
 
   state: RadioFloatingState = { open: false, minimized: false, station: null };
   isMuted = false;
   volumePercent = 100;
   isBuffering = false;
+  /** Stream dropped; playback restarts when the network is back. */
+  isReconnecting = false;
   playError = '';
   isPipActive = false;
   pipSupported = supportsRadioPictureInPicture();
@@ -65,6 +68,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   private positioned = false;
 
   private hls: Hls | null = null;
+  private playbackGuard: RadioPlaybackGuard | null = null;
   private stateSub?: Subscription;
   private favoritesSub?: Subscription;
   private lastStationId = '';
@@ -364,15 +368,22 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     this.posY = Math.max(0, Math.min(this.posY, window.innerHeight - this.headerH));
   }
 
-  private playStation(station: RadioStation): void {
+  private playStation(station: RadioStation, reason: 'user' | 'reconnect' = 'user'): void {
     const media = this.mediaEl?.nativeElement;
     if (!this.alive || !media || !station?.streamUrl) {
       return;
     }
-    // Keep Document PiP + World Receiver face open while switching presets.
+    // Keep Document PiP + World Receiver face open while switching presets or reconnecting.
     const keepDocPip = isRadioDocPipOpen();
     this.suppressPipHostClose = true;
     this.destroyPlayer(false, { keepDocPip });
+    if (!this.alive) {
+      return;
+    }
+    delete media.dataset['patSkipBackground'];
+    if (reason !== 'reconnect') {
+      this.isReconnecting = false;
+    }
     const gen = ++this.playGeneration;
     this.playError = '';
     this.isBuffering = true;
@@ -387,7 +398,18 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     }
     applyRadioMediaSession({ title: station.name || 'Radio', artworkUrl: station.logo });
 
-    const proxyUrl = this.api.radioStreamProxyUrl(station.streamUrl);
+    const proxyUrl = bustRadioStreamUrl(this.api.radioStreamProxyUrl(station.streamUrl));
+    this.playbackGuard = attachRadioPlaybackGuard({
+      media,
+      isCurrent: () => this.alive && gen === this.playGeneration,
+      reload: () => {
+        if (!this.alive || gen !== this.playGeneration) {
+          return;
+        }
+        this.playStation(station, 'reconnect');
+      },
+      onReconnecting: () => this.noteRadioReconnect(gen)
+    });
     const url = (station.streamUrl || '').toLowerCase();
     const codec = (station.codec || '').toLowerCase();
     const isHls =
@@ -412,6 +434,8 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
         return;
       }
       this.isBuffering = false;
+      this.isReconnecting = false;
+      this.playError = '';
       this.cdr.markForCheck();
       if (wantPip && supportsRadioDocumentPip() && !isRadioDocPipOpen()) {
         void this.enterPipForHost(media).finally(() => {
@@ -448,7 +472,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
               .catch(() => onError('RADIO.ERR_PLAY'));
             return;
           }
-          onError('RADIO.ERR_PLAY');
+          this.playbackGuard?.requestReconnect();
         });
     };
 
@@ -461,10 +485,12 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     media.onplaying = () => {
       if (gen === this.playGeneration) {
         this.isBuffering = false;
+        this.isReconnecting = false;
+        this.playError = '';
         this.cdr.markForCheck();
       }
     };
-    media.onerror = () => onError('RADIO.ERR_MEDIA');
+    media.onerror = null;
 
     if (isHls && Hls.isSupported()) {
       const hls = new Hls(createTvHlsConfig());
@@ -477,7 +503,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
           return;
         }
         if (data.fatal && !tryRecoverTvHlsError(hls, data)) {
-          onError('RADIO.ERR_STREAM');
+          this.playbackGuard?.requestReconnect();
         }
       });
       return;
@@ -487,7 +513,28 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     tryPlay();
   }
 
+  private noteRadioReconnect(gen: number): void {
+    if (!this.alive || gen !== this.playGeneration) {
+      return;
+    }
+    this.playError = '';
+    this.isReconnecting = true;
+    this.isBuffering = true;
+    this.suppressPipHostClose = false;
+    try {
+      this.cdr.detectChanges();
+    } catch {
+      this.cdr.markForCheck();
+    }
+  }
+
   private destroyPlayer(clearSrc = true, options?: { keepDocPip?: boolean }): void {
+    const tearingDown = this.mediaEl?.nativeElement;
+    if (tearingDown) {
+      tearingDown.dataset['patSkipBackground'] = '1';
+    }
+    this.playbackGuard?.dispose();
+    this.playbackGuard = null;
     this.playGeneration++;
     if (!options?.keepDocPip) {
       closeRadioDocPip();
@@ -531,7 +578,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async openDocPip(media: HTMLVideoElement): Promise<void> {
+  private async openDocPip(media: HTMLMediaElement): Promise<void> {
     if (!this.station) {
       return;
     }
@@ -567,7 +614,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     );
   }
 
-  private async enterPipForHost(media: HTMLVideoElement): Promise<void> {
+  private async enterPipForHost(media: HTMLMediaElement): Promise<void> {
     if (!this.alive || !this.pipSupported || !this.state.open || !this.station) {
       return;
     }

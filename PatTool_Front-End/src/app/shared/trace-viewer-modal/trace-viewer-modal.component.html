@@ -446,6 +446,16 @@
             <i class="fa" [ngClass]="locatingUser ? 'fa-spinner fa-spin' : 'fa-location-arrow'" aria-hidden="true"></i>
           </button>
           <button type="button"
+                  class="btn btn-sm tv-tip"
+                  [class.btn-success]="directionTargetActive"
+                  [class.btn-outline-secondary]="!directionTargetActive"
+                  (click)="openDirectionModal()"
+                  [attr.data-tv-tip]="'EVENTELEM.TRACK_DIRECTION' | translate"
+                  [attr.aria-label]="'EVENTELEM.TRACK_DIRECTION' | translate"
+                  [attr.aria-pressed]="directionTargetActive">
+            <i class="fa fa-map-marker" aria-hidden="true"></i>
+          </button>
+          <button type="button"
                   class="btn btn-outline-secondary btn-sm tv-tip"
                   (click)="recenterOnTrack()"
                   [attr.data-tv-tip]="'EVENTELEM.TRACK_RECENTER' | translate"
@@ -695,6 +705,17 @@
         <i class="fa" [ngClass]="locatingUser ? 'fa-spinner fa-spin' : 'fa-location-arrow'" aria-hidden="true"></i>
       </button>
       <button type="button"
+              class="btn flex-shrink-0 tv-tip"
+              *ngIf="!isFullscreen"
+              [class.btn-success]="directionTargetActive"
+              [class.btn-outline-secondary]="!directionTargetActive"
+              (click)="openDirectionModal()"
+              [attr.data-tv-tip]="'EVENTELEM.TRACK_DIRECTION' | translate"
+              [attr.aria-label]="'EVENTELEM.TRACK_DIRECTION' | translate"
+              [attr.aria-pressed]="directionTargetActive">
+        <i class="fa fa-map-marker" aria-hidden="true"></i>
+      </button>
+      <button type="button"
               class="btn btn-outline-secondary flex-shrink-0 tv-tip"
               *ngIf="!isFullscreen"
               (click)="recenterOnTrack()"
@@ -744,6 +765,68 @@
       </div>
     </div>
     </div>
+  </div>
+</ng-template>
+
+<ng-template #directionModal>
+  <div class="modal-header tv-direction-modal-header">
+    <h5 class="modal-title">
+      <i class="fa fa-map-marker me-2" aria-hidden="true"></i>
+      {{ 'EVENTELEM.TRACK_DIRECTION_TITLE' | translate }}
+    </h5>
+    <button type="button"
+            class="btn-close btn-close-white"
+            [attr.aria-label]="'COMMUN.CLOSE' | translate"
+            (click)="closeDirectionModal()"></button>
+  </div>
+  <div class="modal-body tv-direction-modal-body">
+    <p class="small text-muted mb-3">{{ 'EVENTELEM.TRACK_DIRECTION_HINT' | translate }}</p>
+    <div class="input-group">
+      <input type="text"
+             class="form-control"
+             [(ngModel)]="directionQuery"
+             [placeholder]="'ADDRESS_GEOCODE.ADDRESS_PLACEHOLDER' | translate"
+             [attr.aria-label]="'ADDRESS_GEOCODE.ENTER_ADDRESS' | translate"
+             (keydown.enter)="$event.preventDefault(); searchDirectionAddress()">
+      <button type="button"
+              class="btn btn-primary"
+              (click)="searchDirectionAddress()"
+              [disabled]="directionSearching || directionLocating">
+        <i class="fa" [ngClass]="directionSearching ? 'fa-spinner fa-spin' : 'fa-search'" aria-hidden="true"></i>
+        {{ 'EVENTELEM.TRACK_DIRECTION_SEARCH' | translate }}
+      </button>
+    </div>
+    <div *ngIf="directionSearchError" class="alert alert-danger mt-3 mb-0 py-2" role="alert">
+      {{ directionSearchError }}
+    </div>
+    <div class="small text-muted mt-3 mb-1" *ngIf="directionResults.length">{{ 'ADDRESS_GEOCODE.RESULTS' | translate }}</div>
+    <div class="list-group tv-direction-results" *ngIf="directionResults.length">
+      <button type="button"
+              class="list-group-item list-group-item-action"
+              *ngFor="let result of directionResults; let i = index"
+              [class.active]="directionSelectedIndex === i"
+              (click)="selectDirectionResult(i)">
+        {{ result.label }}
+      </button>
+    </div>
+  </div>
+  <div class="modal-footer tv-direction-modal-footer">
+    <button type="button"
+            class="btn btn-outline-light me-auto"
+            *ngIf="directionTargetActive"
+            (click)="clearDirectionTarget()">
+      {{ 'EVENTELEM.TRACK_DIRECTION_CLEAR' | translate }}
+    </button>
+    <button type="button" class="btn btn-outline-light" (click)="closeDirectionModal()">
+      {{ 'COMMUN.CANCEL' | translate }}
+    </button>
+    <button type="button"
+            class="btn btn-success"
+            (click)="confirmDirectionTarget()"
+            [disabled]="directionSelectedIndex == null || directionLocating">
+      <i class="fa fa-spinner fa-spin me-1" *ngIf="directionLocating" aria-hidden="true"></i>
+      {{ 'EVENTELEM.TRACK_DIRECTION_USE' | translate }}
+    </button>
   </div>
 </ng-template>
 

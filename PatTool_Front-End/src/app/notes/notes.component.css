@@ -145,6 +145,13 @@
     line-height: 1.35;
     max-height: 9rem;
     overflow: hidden;
+    overflow-wrap: anywhere;
+}
+
+.notes-postit-body a {
+    color: #1a4f8b;
+    text-decoration: underline;
+    cursor: pointer;
 }
 
 .notes-postit-photos {

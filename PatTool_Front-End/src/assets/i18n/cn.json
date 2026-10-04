@@ -4606,6 +4606,7 @@
     "ERR_STREAM": "This stream is offline or blocked right now. Try another station.",
     "ERR_MEDIA": "The stream started but playback failed (media unavailable or incompatible format).",
     "BUFFERING": "Loading stream…",
+    "RECONNECTING": "Network interrupted — playback resumes when the connection returns.",
     "MUTE": "Mute",
     "UNMUTE": "Unmute",
     "VOLUME": "Volume",

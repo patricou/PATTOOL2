@@ -68,7 +68,10 @@
                 </span>
 
                 <h3 class="notes-postit-title" *ngIf="note.title">{{ note.title }}</h3>
-                <p class="notes-postit-body" *ngIf="note.content">{{ note.content }}</p>
+                <p class="notes-postit-body"
+                   *ngIf="note.content"
+                   [innerHTML]="note.content | noteContentHtml"
+                   (click)="onNoteContentClick($event)"></p>
 
                 <div class="notes-postit-photos" *ngIf="photoCount(note) > 0">
                     <img *ngFor="let src of note.imageDataUrls | slice:0:3; let i = index"

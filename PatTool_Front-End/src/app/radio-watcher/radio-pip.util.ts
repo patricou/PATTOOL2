@@ -17,7 +17,7 @@ interface DocumentPictureInPictureApi {
 }
 
 let activeDocPip: RadioDocPipHandle | null = null;
-let mediaHome: { parent: Node; next: ChildNode | null; media: HTMLVideoElement } | null = null;
+let mediaHome: { parent: Node; next: ChildNode | null; media: HTMLMediaElement } | null = null;
 let faceHome: {
   parent: Node;
   next: ChildNode | null;
@@ -146,7 +146,7 @@ function copyStylesToPip(doc: Document): void {
  *   instead of toggling it closed (used when handing off across routes).
  */
 export async function enterRadioPictureInPicture(
-  video: HTMLVideoElement,
+  video: HTMLMediaElement,
   meta: {
     title: string;
     artworkUrl?: string | null;
@@ -178,7 +178,10 @@ export async function enterRadioPictureInPicture(
     return;
   }
 
-  // Fallback: classic video PiP (no custom radio face).
+  // Fallback: classic video PiP (no custom radio face). Audio keeps playing without it.
+  if (!(video instanceof HTMLVideoElement)) {
+    throw new Error('unsupported');
+  }
   if (!(document as Document & { pictureInPictureEnabled?: boolean }).pictureInPictureEnabled) {
     throw new Error('unsupported');
   }
@@ -191,7 +194,7 @@ export async function enterRadioPictureInPicture(
 }
 
 async function openDocumentPip(
-  video: HTMLVideoElement,
+  video: HTMLMediaElement,
   meta: {
     title: string;
     artworkUrl?: string | null;

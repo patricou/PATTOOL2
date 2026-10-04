@@ -30,6 +30,7 @@ import { CalendarEntry, CalendarService } from '../calendar/calendar.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { Member } from '../model/member';
 import { FriendGroup } from '../model/friend';
+import { NoteContentHtmlPipe } from './note-content-html.pipe';
 
 /** Curated post-it palette — warm sticky-note colours. */
 export const NOTE_COLORS: string[] = [
@@ -65,7 +66,7 @@ interface NoteLinkOption {
 @Component({
     selector: 'app-notes',
     standalone: true,
-    imports: [CommonModule, FormsModule, TranslateModule, NgbModalModule],
+    imports: [CommonModule, FormsModule, TranslateModule, NgbModalModule, NoteContentHtmlPipe],
     templateUrl: './notes.component.html',
     styleUrls: ['./notes.component.css'],
     changeDetection: ChangeDetectionStrategy.OnPush
@@ -631,6 +632,14 @@ export class NotesComponent implements OnInit, OnDestroy {
 
     trackById(_index: number, note: Note): string {
         return note.id || String(_index);
+    }
+
+    /** A link inside the post-it must open on its own, without also opening the note. */
+    onNoteContentClick(event: Event): void {
+        const target = event.target as HTMLElement | null;
+        if (target?.closest('a')) {
+            event.stopPropagation();
+        }
     }
 
     formatDate(value?: string): string {
