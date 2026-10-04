@@ -6809,7 +6809,7 @@
     "ORIENT_FIXED": "Fixe",
     "ORIENT_NORTH_HINT": "La carte tourne pour rester au nord réel, quelle que soit la direction du téléphone",
     "ORIENT_WALK_HINT": "Le haut de la carte suit la direction de la marche",
-    "ORIENT_FIXED_HINT": "La carte ne tourne pas",
+    "ORIENT_FIXED_HINT": "Nord en haut, la carte ne tourne plus",
     "SHARE": "Partager",
     "SHARE_TITLE": "Partager l’itinéraire",
     "SHARE_CONFIRM": "Enregistrer le partage",

@@ -1712,6 +1712,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private applyDirectionTarget(picked: { lat: number; lng: number; label: string }): void {
 		this.directionTarget = { lat: picked.lat, lng: picked.lng, label: picked.label };
 		this.directionTargetActive = true;
+		void this.startCompassHeading();
 		this.syncDeviceLocationArrows();
 		this.cdr.markForCheck();
 	}
@@ -1727,6 +1728,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.directionSearchError = '';
 		this.directionSearching = false;
 		this.directionLocating = false;
+		if (this.mapOrientation !== 'north') {
+			this.stopCompassHeading();
+		}
 	}
 
 	public formatGpxDistance(meters: number | null): string {
@@ -4717,29 +4721,31 @@ export class TraceViewerModalComponent implements OnDestroy {
 			if (orientation === 'north') {
 				void this.startCompassHeading();
 			}
-			if (orientation !== 'fixed') {
-				this.applyMapBearing();
-			}
+			this.applyMapBearing();
 			return;
 		}
 		this.mapOrientation = orientation;
 		this.syncMapOrientationWatch();
-		if (orientation !== 'fixed') {
-			this.applyMapBearing();
-		}
+		this.applyMapBearing();
 		this.scheduleTraceViewerCdr();
 	}
 
 	private syncMapOrientationWatch(): void {
 		if (this.mapOrientation === 'heading') {
-			this.stopCompassHeading();
 			this.startMapOrientationWatch();
+		} else {
+			this.stopGpsOrientationWatch();
+		}
+		this.ensureDirectionCompass();
+	}
+
+	/** Boussole utile au mode Nord et à la flèche verte (cible depuis la position). */
+	private ensureDirectionCompass(): void {
+		if (this.mapOrientation === 'north' || this.directionTarget) {
+			void this.startCompassHeading();
 			return;
 		}
-		this.stopMapOrientationWatch();
-		if (this.mapOrientation === 'north') {
-			void this.startCompassHeading();
-		}
+		this.stopCompassHeading();
 	}
 
 	private startMapOrientationWatch(): void {
@@ -4760,11 +4766,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private stopMapOrientationWatch(): void {
+		this.stopGpsOrientationWatch();
+		this.stopCompassHeading();
+	}
+
+	private stopGpsOrientationWatch(): void {
 		if (this.mapOrientationWatchId != null && navigator.geolocation) {
 			navigator.geolocation.clearWatch(this.mapOrientationWatchId);
 			this.mapOrientationWatchId = null;
 		}
-		this.stopCompassHeading();
 		this.gpsCourseActive = false;
 	}
 
@@ -4786,7 +4796,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		const permission = await requestMotionPermissionIfNeeded();
-		if (permission === 'denied' || this.mapOrientation !== 'north') {
+		if (permission === 'denied' || (this.mapOrientation !== 'north' && !this.directionTarget)) {
 			return;
 		}
 		this.compassListening = true;
@@ -4805,23 +4815,24 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private consumeCompassOrientation(event: DeviceOrientationEvent): void {
-		if (this.mapOrientation !== 'north') {
-			return;
-		}
 		const heading = this.compassHeadingDeg(event);
 		if (heading == null) {
 			return;
 		}
 		const now = Date.now();
-		if (this.compassNorthDeg != null && now - this.lastCompassApplyMs < 200) {
+		if (this.compassNorthDeg != null && now - this.lastCompassApplyMs < 50) {
 			const delta = Math.abs(heading - this.compassNorthDeg);
-			if (Math.min(delta, 360 - delta) < 4) {
+			if (Math.min(delta, 360 - delta) < 0.5) {
 				return;
 			}
 		}
 		this.lastCompassApplyMs = now;
 		this.compassNorthDeg = heading;
-		this.applyMapBearing();
+		if (this.mapOrientation === 'north') {
+			this.applyMapBearing();
+			return;
+		}
+		this.syncDeviceLocationArrows();
 	}
 
 	private compassHeadingDeg(event: DeviceOrientationEvent): number | null {
@@ -4830,7 +4841,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (typeof anyEvent.webkitCompassHeading === 'number' && Number.isFinite(anyEvent.webkitCompassHeading)) {
 			return this.wrapDeg(anyEvent.webkitCompassHeading - screenDeg);
 		}
-		if (event.absolute === true && event.alpha != null && Number.isFinite(event.alpha)) {
+		if (event.alpha != null && Number.isFinite(event.alpha)) {
 			return this.wrapDeg(360 - event.alpha - screenDeg);
 		}
 		return null;
@@ -4898,13 +4909,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private applyMapBearing(): void {
 		const map = this.map as RotatableLeafletMap | undefined;
-		if (!map || typeof map.setBearing !== 'function' || this.mapOrientation === 'fixed') {
+		if (!map || typeof map.setBearing !== 'function') {
 			this.syncDeviceLocationArrows();
 			return;
 		}
 		let bearing = 0;
 		if (this.mapOrientation === 'north') {
 			bearing = this.compassNorthDeg != null ? this.compassNorthDeg : 0;
+		} else if (this.mapOrientation === 'fixed') {
+			bearing = 0;
 		} else if (this.mapOrientation === 'heading') {
 			if (this.deviceHeadingDeg == null) {
 				this.syncDeviceLocationArrows();
@@ -5060,7 +5073,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		targetEl.style.display = '';
 		const bearing = this.bearingDeg(from.lat, from.lng, to.lat, to.lng);
-		targetEl.setAttribute('transform', `rotate(${bearing - mapBearing} 70 70)`);
+		const phoneHeading = this.compassNorthDeg != null ? this.compassNorthDeg : mapBearing;
+		targetEl.setAttribute('transform', `rotate(${bearing - phoneHeading} 70 70)`);
 	}
 
 	private bearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {
