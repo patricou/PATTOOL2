@@ -5129,7 +5129,7 @@
     "ORIENT_HEADING": "اتجاه السير",
     "ORIENT_ROUTE": "المسار",
     "ORIENT_FIXED": "ثابت",
-    "ORIENT_NORTH_HINT": "الشمال للأعلى مهما كان اتجاه الهاتف",
+    "ORIENT_NORTH_HINT": "تدور الخريطة مع الهاتف والسهم الأحمر يشير إلى الشمال",
     "ORIENT_WALK_HINT": "الأعلى هو اتجاه المشي",
     "ORIENT_FIXED_HINT": "الخريطة لا تدور",
     "SHARE": "مشاركة",

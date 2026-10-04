@@ -6803,7 +6803,7 @@
     "ORIENT_HEADING": "Heading",
     "ORIENT_ROUTE": "Route",
     "ORIENT_FIXED": "Fixed",
-    "ORIENT_NORTH_HINT": "The map rotates to stay aligned with true north, whatever way the phone points",
+    "ORIENT_NORTH_HINT": "The map turns with the phone so the red arrow keeps pointing north",
     "ORIENT_WALK_HINT": "The top of the map follows the walking direction",
     "ORIENT_FIXED_HINT": "North up, then the map stays still",
     "SHARE": "Share",

@@ -5122,7 +5122,7 @@
     "ORIENT_HEADING": "दिशा",
     "ORIENT_ROUTE": "मार्ग",
     "ORIENT_FIXED": "स्थिर",
-    "ORIENT_NORTH_HINT": "उत्तर ऊपर, फ़ोन की दिशा से स्वतंत्र",
+    "ORIENT_NORTH_HINT": "नक्शा फ़ोन के साथ घूमता है, लाल तीर उत्तर दिखाता है",
     "ORIENT_WALK_HINT": "ऊपर चलने की दिशा है",
     "ORIENT_FIXED_HINT": "नक्शा नहीं घूमता",
     "SHARE": "साझा करें",

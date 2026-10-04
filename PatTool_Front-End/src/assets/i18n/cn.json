@@ -5131,7 +5131,7 @@
     "ORIENT_HEADING": "朝向",
     "ORIENT_ROUTE": "路线",
     "ORIENT_FIXED": "固定",
-    "ORIENT_NORTH_HINT": "无论手机朝向，北始终在上",
+    "ORIENT_NORTH_HINT": "地图随手机转动，红色箭头始终指向北",
     "ORIENT_WALK_HINT": "上方为行进方向",
     "ORIENT_FIXED_HINT": "地图不旋转",
     "SHARE": "分享",

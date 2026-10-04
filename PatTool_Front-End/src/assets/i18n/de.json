@@ -5285,7 +5285,7 @@
     "ORIENT_HEADING": "Richtung",
     "ORIENT_ROUTE": "Route",
     "ORIENT_FIXED": "Fest",
-    "ORIENT_NORTH_HINT": "Norden bleibt oben, unabhängig von der Handyrichtung",
+    "ORIENT_NORTH_HINT": "Die Karte dreht sich mit dem Handy, der rote Pfeil zeigt nach Norden",
     "ORIENT_WALK_HINT": "Oben ist die Gehrichtung",
     "ORIENT_FIXED_HINT": "Die Karte dreht sich nicht",
     "SHARE": "Teilen",

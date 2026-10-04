@@ -30,7 +30,7 @@ import { OfflineTraceSummary, OfflineTracesStore } from '../../gps-track/offline
 import { viewWindowFromMap } from '../../gps-track/gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
 import { isBrowserOffline } from '../browser-offline.util';
-/** Nord = la carte tourne pour rester au nord réel. Marche = cap de marche en haut. Fixe = pas de rotation. */
+/** Nord = la carte suit la boussole (flèche rouge = nord réel). Marche = cap GPS en haut. Fixe = nord en haut, immobile. */
 type TraceMapOrientation = 'north' | 'heading' | 'fixed';
 import {
 	extractGeocodeCityName,
@@ -147,7 +147,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Full GPX analysis when the opened file is a GPX track (null otherwise). */
 	public gpxAnalysis: GpxAnalysis | null = null;
 	public isFullscreen = false;
-	/** Carte : nord / sens de marche / direction du tracé (leaflet-rotate). */
+	/** Carte : nord (boussole) / sens de marche / fixe (leaflet-rotate). */
 	public mapOrientation: TraceMapOrientation = 'north';
 	readonly mapOrientations: { id: TraceMapOrientation; labelKey: string; hintKey: string; icon: string }[] = [
 		{ id: 'north', labelKey: 'GPS_ROUTING.ORIENT_NORTH', hintKey: 'GPS_ROUTING.ORIENT_NORTH_HINT', icon: 'fa-compass' },
@@ -342,11 +342,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private trackOrientationCoords: L.LatLngTuple[] = [];
 	private mapOrientationWatchId: number | null = null;
 	private deviceHeadingDeg: number | null = null;
-	/** Cap boussole du téléphone : en mode Nord, la carte s’aligne dessus. */
+	/** Cap boussole lissé : en mode Nord, ce cap est en haut de l’écran. */
 	private compassNorthDeg: number | null = null;
+	/** Échantillons boussole très écartés, ignorés tant qu’ils ne se répètent pas. */
+	private compassOutlierStreak = 0;
 	/** Cap GPS reçu pendant un déplacement (vitesse suffisante). Prioritaire sur la boussole. */
 	private gpsCourseActive = false;
 	private compassListening = false;
+	private compassEventName: string | null = null;
 	private applyingMapBearing = false;
 	private lastCompassApplyMs = 0;
 	private lastGpsFix: { lat: number; lon: number } | null = null;
@@ -4718,9 +4721,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	public setMapOrientation(orientation: TraceMapOrientation): void {
 		if (this.mapOrientation === orientation) {
-			if (orientation === 'north') {
-				void this.startCompassHeading();
-			}
+			this.ensureDirectionCompass();
 			this.applyMapBearing();
 			return;
 		}
@@ -4739,7 +4740,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.ensureDirectionCompass();
 	}
 
-	/** Boussole utile au mode Nord et à la flèche verte (cible depuis la position). */
+	/** Mode Nord : la boussole tourne la carte. Sinon elle ne sert qu’à la flèche verte. */
 	private ensureDirectionCompass(): void {
 		if (this.mapOrientation === 'north' || this.directionTarget) {
 			void this.startCompassHeading();
@@ -4788,20 +4789,43 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		this.gpsCourseActive = true;
-		this.deviceHeadingDeg = course;
+		this.deviceHeadingDeg = this.smoothHeading(this.deviceHeadingDeg, course);
+	}
+
+	/** Évite les sauts de cap GPS qui font clignoter la carte. */
+	private smoothHeading(previous: number | null, next: number): number {
+		if (previous == null) {
+			return this.wrapDeg(next);
+		}
+		let diff = next - previous;
+		if (diff > 180) {
+			diff -= 360;
+		} else if (diff < -180) {
+			diff += 360;
+		}
+		return this.wrapDeg(previous + diff * 0.35);
 	}
 
 	private async startCompassHeading(): Promise<void> {
 		if (this.compassListening || typeof window === 'undefined' || !('DeviceOrientationEvent' in window)) {
 			return;
 		}
+		if (this.mapOrientation !== 'north' && !this.directionTarget) {
+			return;
+		}
 		const permission = await requestMotionPermissionIfNeeded();
-		if (permission === 'denied' || (this.mapOrientation !== 'north' && !this.directionTarget)) {
+		if (permission === 'denied' || this.compassListening) {
+			return;
+		}
+		if (this.mapOrientation !== 'north' && !this.directionTarget) {
 			return;
 		}
 		this.compassListening = true;
-		window.addEventListener('deviceorientationabsolute', this.onCompassOrientation, true);
-		window.addEventListener('deviceorientation', this.onCompassOrientation, true);
+		const eventName = 'ondeviceorientationabsolute' in window
+			? 'deviceorientationabsolute'
+			: 'deviceorientation';
+		this.compassEventName = eventName;
+		window.addEventListener(eventName, this.onCompassOrientation, true);
 	}
 
 	private stopCompassHeading(): void {
@@ -4809,9 +4833,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.compassListening = false;
 			return;
 		}
-		window.removeEventListener('deviceorientationabsolute', this.onCompassOrientation, true);
-		window.removeEventListener('deviceorientation', this.onCompassOrientation, true);
+		if (this.compassEventName) {
+			window.removeEventListener(this.compassEventName, this.onCompassOrientation, true);
+			this.compassEventName = null;
+		}
 		this.compassListening = false;
+		this.compassNorthDeg = null;
+		this.compassOutlierStreak = 0;
 	}
 
 	private consumeCompassOrientation(event: DeviceOrientationEvent): void {
@@ -4819,20 +4847,40 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (heading == null) {
 			return;
 		}
-		const now = Date.now();
-		if (this.compassNorthDeg != null && now - this.lastCompassApplyMs < 50) {
-			const delta = Math.abs(heading - this.compassNorthDeg);
-			if (Math.min(delta, 360 - delta) < 0.5) {
-				return;
-			}
-		}
-		this.lastCompassApplyMs = now;
-		this.compassNorthDeg = heading;
-		if (this.mapOrientation === 'north') {
-			this.applyMapBearing();
+		const accuracy = (event as DeviceOrientationEvent & { webkitCompassAccuracy?: number }).webkitCompassAccuracy;
+		if (typeof accuracy === 'number' && accuracy < 0) {
 			return;
 		}
-		this.syncDeviceLocationArrows();
+		if (this.compassNorthDeg == null) {
+			this.compassNorthDeg = heading;
+			this.compassOutlierStreak = 0;
+		} else {
+			let diff = heading - this.compassNorthDeg;
+			if (diff > 180) {
+				diff -= 360;
+			} else if (diff < -180) {
+				diff += 360;
+			}
+			if (Math.abs(diff) > 70) {
+				this.compassOutlierStreak += 1;
+				if (this.compassOutlierStreak < 5) {
+					return;
+				}
+			} else {
+				this.compassOutlierStreak = 0;
+			}
+			this.compassNorthDeg = this.wrapDeg(this.compassNorthDeg + diff * 0.12);
+		}
+		const now = Date.now();
+		if (now - this.lastCompassApplyMs < 90) {
+			return;
+		}
+		this.lastCompassApplyMs = now;
+		if (this.mapOrientation === 'north') {
+			this.applyMapBearing();
+		} else {
+			this.syncDeviceLocationArrows();
+		}
 	}
 
 	private compassHeadingDeg(event: DeviceOrientationEvent): number | null {
@@ -4915,9 +4963,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		let bearing = 0;
 		if (this.mapOrientation === 'north') {
-			bearing = this.compassNorthDeg != null ? this.compassNorthDeg : 0;
-		} else if (this.mapOrientation === 'fixed') {
-			bearing = 0;
+			if (this.compassNorthDeg == null) {
+				this.syncDeviceLocationArrows();
+				return;
+			}
+			bearing = this.compassNorthDeg;
 		} else if (this.mapOrientation === 'heading') {
 			if (this.deviceHeadingDeg == null) {
 				this.syncDeviceLocationArrows();
@@ -4925,10 +4975,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 			bearing = this.deviceHeadingDeg;
 		}
+		const next = this.wrapDeg(bearing);
+		const delta = Math.abs(next - this.currentMapBearingDeg());
+		if (Math.min(delta, 360 - delta) < 0.5) {
+			this.syncDeviceLocationArrows();
+			return;
+		}
 		this.applyingMapBearing = true;
 		try {
-			map.setBearing(this.wrapDeg(bearing));
-			map.invalidateSize({ animate: false });
+			map.setBearing(next);
 		} catch {
 			/* plugin not ready */
 		} finally {

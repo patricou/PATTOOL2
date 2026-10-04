@@ -5130,7 +5130,7 @@
     "ORIENT_HEADING": "הליכה",
     "ORIENT_ROUTE": "מסלול",
     "ORIENT_FIXED": "קבוע",
-    "ORIENT_NORTH_HINT": "צפון למעלה, בלי קשר לכיוון הטלפון",
+    "ORIENT_NORTH_HINT": "המפה מסתובבת עם הטלפון: החץ האדום מצביע צפונה",
     "ORIENT_WALK_HINT": "למעלה הוא כיוון ההליכה",
     "ORIENT_FIXED_HINT": "המפה לא מסתובבת",
     "SHARE": "שתף",

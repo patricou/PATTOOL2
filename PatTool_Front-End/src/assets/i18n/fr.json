@@ -6807,7 +6807,7 @@
     "ORIENT_HEADING": "Marche",
     "ORIENT_ROUTE": "Route",
     "ORIENT_FIXED": "Fixe",
-    "ORIENT_NORTH_HINT": "La carte tourne pour rester au nord réel, quelle que soit la direction du téléphone",
+    "ORIENT_NORTH_HINT": "La carte tourne avec le téléphone : la flèche rouge indique le nord",
     "ORIENT_WALK_HINT": "Le haut de la carte suit la direction de la marche",
     "ORIENT_FIXED_HINT": "Nord en haut, la carte ne tourne plus",
     "SHARE": "Partager",
