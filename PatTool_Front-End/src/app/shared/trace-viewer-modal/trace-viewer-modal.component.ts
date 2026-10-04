@@ -426,6 +426,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private mapLayoutResizeObserver?: ResizeObserver;
 	private mapLayoutSyncDebouncer: number | null = null;
 	private traceViewerCdrTimer: number | null = null;
+	/** Séparé de traceViewerCdrTimer : un zoomend ne doit pas annuler l’activation des boutons. */
+	private mapReadyTimer: number | null = null;
 	private mapResizeObservedDims = new Map<HTMLElement, string>();
 	/** Bloque le scroll de la page derrière la modale. */
 	private modalWindowWheelHandler?: (event: Event) => void;
@@ -719,6 +721,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (this.traceViewerCdrTimer != null) {
 			clearTimeout(this.traceViewerCdrTimer);
 			this.traceViewerCdrTimer = null;
+		}
+		if (this.mapReadyTimer != null) {
+			clearTimeout(this.mapReadyTimer);
+			this.mapReadyTimer = null;
 		}
 		this.stopMapOrientationWatch();
 		this.stopFollowDeviceLocation();
@@ -2040,6 +2046,25 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
+	/**
+	 * Le fit du tracé émet zoomend, qui passe par scheduleTraceViewerCdr.
+	 * Ce timer-là ne doit pas être le même, sinon isMapReady ne passe jamais à true
+	 * et les boutons d’orientation restent disabled.
+	 */
+	private armMapReadyFlag(): void {
+		if (this.mapReadyTimer != null) {
+			clearTimeout(this.mapReadyTimer);
+		}
+		this.mapReadyTimer = window.setTimeout(() => {
+			this.mapReadyTimer = null;
+			if (!this.map) {
+				return;
+			}
+			this.isMapReady = true;
+			this.cdr.markForCheck();
+		}, 0);
+	}
+
 	/** markForCheck au tick suivant — évite NG0100 sur PhotoTimelineComponent (parent) en dev mode. */
 	private scheduleTraceViewerCdr(): void {
 		if (this.traceViewerCdrTimer != null) {
@@ -2326,15 +2351,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.scheduleTraceViewerCdr();
 
 		this.map.whenReady(() => {
-			if (this.traceViewerCdrTimer != null) {
-				clearTimeout(this.traceViewerCdrTimer);
-				this.traceViewerCdrTimer = null;
-			}
-			this.traceViewerCdrTimer = window.setTimeout(() => {
-				this.traceViewerCdrTimer = null;
-				this.isMapReady = true;
-				this.cdr.markForCheck();
-			}, 0);
+			this.armMapReadyFlag();
 			/* Flex/embed layouts often omit a useful size on the first layout pass — retry pending renders below. */
 			this.tryRenderPendingTrack();
 			this.tryRenderPendingPositions();
@@ -3326,6 +3343,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.mapResizeObservedDims.clear();
 		this.mapContainerHadLayout = false;
 		this.isMapReady = false;
+		if (this.mapReadyTimer != null) {
+			clearTimeout(this.mapReadyTimer);
+			this.mapReadyTimer = null;
+		}
 		this.trackBounds = null;
 		this.teardownModalWheelTrap();
 		this.unregisterTraceMapWheelZoom();
@@ -4952,30 +4973,46 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.deviceLocationLatLng = { lat, lng };
 		if (this.deviceLocationMarker) {
 			this.deviceLocationMarker.setLatLng([lat, lng]);
+			this.deviceLocationMarker.setZIndexOffset(3000);
+			if (!this.deviceLocationMarker.getElement()?.querySelector('svg')) {
+				this.deviceLocationMarker.setIcon(this.deviceLocationIcon());
+			}
 			this.syncDeviceLocationArrows();
 			return;
 		}
-		const icon = L.divIcon({
-			className: 'device-location-marker',
-			html: this.deviceLocationMarkerHtml(),
-			iconSize: [56, 56],
-			iconAnchor: [28, 28]
-		});
-		this.deviceLocationMarker = L.marker([lat, lng], { icon, zIndexOffset: 1000 });
+		this.deviceLocationMarker = L.marker([lat, lng], { icon: this.deviceLocationIcon(), zIndexOffset: 3000 });
 		this.deviceLocationMarker.addTo(this.map);
 		this.syncDeviceLocationArrows();
 	}
 
+	private deviceLocationIcon(): L.DivIcon {
+		return L.divIcon({
+			className: 'device-location-marker',
+			html: this.deviceLocationMarkerHtml(),
+			iconSize: [140, 140],
+			iconAnchor: [70, 70]
+		});
+	}
+
+	/**
+	 * SVG inline : la modale est montée hors du composant, les classes CSS ne s’y appliquent pas.
+	 * Centre 70,70 = position GPS. Les flèches dépassent l’épingle (41 px).
+	 */
 	private deviceLocationMarkerHtml(): string {
 		const northLabel = this.translate('GPS_ROUTING.ORIENT_NORTH')
 			.replace(/&/g, '&amp;')
 			.replace(/"/g, '&quot;')
 			.replace(/</g, '&lt;');
-		return `<div class="device-location-marker-wrap" title="${northLabel}">` +
-			`<div class="device-location-target is-hidden" aria-hidden="true"><span class="device-location-target-arrow"></span></div>` +
-			`<div class="device-location-north" aria-hidden="true"><span class="device-location-north-arrow"></span></div>` +
-			`<span class="device-location-dot"></span>` +
-			`</div>`;
+		return `<div title="${northLabel}" style="width:140px;height:140px;overflow:visible;">` +
+			`<svg width="140" height="140" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;">` +
+			`<g class="device-location-target" style="display:none">` +
+			`<polygon points="70,4 56,46 70,34 84,46" fill="#16a34a" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>` +
+			`</g>` +
+			`<g class="device-location-north">` +
+			`<polygon points="70,16 60,50 70,40 80,50" fill="#e10600" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>` +
+			`</g>` +
+			`<circle cx="70" cy="70" r="8" fill="#e10600" stroke="#ffffff" stroke-width="2.5"/>` +
+			`</svg></div>`;
 	}
 
 	/** Aligne la flèche rouge sur le nord et la flèche verte sur l’adresse choisie. */
@@ -4984,25 +5021,28 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!root) {
 			return;
 		}
+		root.style.background = 'transparent';
+		root.style.border = 'none';
+		root.style.overflow = 'visible';
 		const mapBearing = this.currentMapBearingDeg();
-		const north = root.querySelector('.device-location-north') as HTMLElement | null;
+		const north = root.querySelector('.device-location-north') as SVGGElement | null;
 		if (north) {
-			north.style.transform = `rotate(${-mapBearing}deg)`;
+			north.setAttribute('transform', `rotate(${-mapBearing} 70 70)`);
 		}
-		const targetEl = root.querySelector('.device-location-target') as HTMLElement | null;
+		const targetEl = root.querySelector('.device-location-target') as SVGGElement | null;
 		const from = this.deviceLocationLatLng;
 		const to = this.directionTarget;
 		if (!targetEl) {
 			return;
 		}
 		if (!from || !to) {
-			targetEl.classList.add('is-hidden');
+			targetEl.style.display = 'none';
+			targetEl.removeAttribute('transform');
 			return;
 		}
-		targetEl.classList.remove('is-hidden');
+		targetEl.style.display = '';
 		const bearing = this.bearingDeg(from.lat, from.lng, to.lat, to.lng);
-		targetEl.style.transform = `rotate(${bearing - mapBearing}deg)`;
-		targetEl.title = to.label;
+		targetEl.setAttribute('transform', `rotate(${bearing - mapBearing} 70 70)`);
 	}
 
 	private bearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {

@@ -488,11 +488,24 @@
 
 @media (max-width: 576px) {
     .notes-board {
-        grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
         gap: 1rem;
     }
 
     .notes-postit {
         min-height: 9.5rem;
+    }
+}
+
+@media (max-width: 576px) and (orientation: portrait) {
+    .notes-board {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .notes-postit--tilt0,
+    .notes-postit--tilt1,
+    .notes-postit--tilt2,
+    .notes-postit--tilt3,
+    .notes-postit--tilt4 {
+        transform: none;
     }
 }

@@ -41,8 +41,9 @@
                   [attr.title]="o.labelKey | translate"
                   [attr.aria-label]="o.labelKey | translate"
                   [attr.aria-pressed]="mapOrientation === o.id"
-                  [disabled]="!isMapReady || (o.id === 'route' && !trackStats)">
+                  [disabled]="o.id === 'route' && !trackStats">
             <i class="fa" [ngClass]="o.icon" aria-hidden="true"></i>
+            <span>{{ o.labelKey | translate }}</span>
           </button>
         </div>
 
@@ -421,11 +422,12 @@
                     *ngFor="let o of mapOrientations"
                     [class.active]="mapOrientation === o.id"
                     (click)="setMapOrientation(o.id)"
-                    [disabled]="!isMapReady || (o.id === 'route' && !trackStats)"
+                    [disabled]="o.id === 'route' && !trackStats"
                     [attr.data-tv-tip]="o.labelKey | translate"
                     [attr.aria-label]="o.labelKey | translate"
                     [attr.aria-pressed]="mapOrientation === o.id">
               <i class="fa" [ngClass]="o.icon" aria-hidden="true"></i>
+              <span>{{ o.labelKey | translate }}</span>
             </button>
           </div>
           <div class="fullscreen-selector-icon-actions">
