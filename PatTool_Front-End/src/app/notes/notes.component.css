@@ -499,13 +499,7 @@
 @media (max-width: 576px) and (orientation: portrait) {
     .notes-board {
         grid-template-columns: minmax(0, 1fr);
-    }
-
-    .notes-postit--tilt0,
-    .notes-postit--tilt1,
-    .notes-postit--tilt2,
-    .notes-postit--tilt3,
-    .notes-postit--tilt4 {
-        transform: none;
+        padding-left: 0.45rem;
+        padding-right: 0.45rem;
     }
 }

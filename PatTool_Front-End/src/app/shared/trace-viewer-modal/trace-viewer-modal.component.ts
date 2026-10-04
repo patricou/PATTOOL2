@@ -30,7 +30,8 @@ import { OfflineTraceSummary, OfflineTracesStore } from '../../gps-track/offline
 import { viewWindowFromMap } from '../../gps-track/gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
 import { isBrowserOffline } from '../browser-offline.util';
-import { GpsMapOrientation } from '../gps-map-orientation';
+/** Nord = la carte tourne pour rester au nord réel. Marche = cap de marche en haut. Fixe = pas de rotation. */
+type TraceMapOrientation = 'north' | 'heading' | 'fixed';
 import {
 	extractGeocodeCityName,
 	formatMfStationProximityLabel,
@@ -55,7 +56,7 @@ interface TraceViewerSource {
 	fileName: string;
 	/** Optional title in the modal header (e.g. user description); falls back to fileName. */
 	titleLabel?: string;
-	location?: { lat: number; lng: number; label?: string; zoom?: number };
+	location?: { lat: number; lng: number; label?: string; zoom?: number; hidePin?: boolean };
 	positions?: Array<{ lat: number; lng: number; type?: string; datetime?: Date; label?: string }>;
 	/** Precomputed track polyline (e.g. GPS routing) — drawn like a GPX/GeoJSON file. */
 	trackPoints?: L.LatLngTuple[];
@@ -147,11 +148,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public gpxAnalysis: GpxAnalysis | null = null;
 	public isFullscreen = false;
 	/** Carte : nord / sens de marche / direction du tracé (leaflet-rotate). */
-	public mapOrientation: GpsMapOrientation = 'north';
-	readonly mapOrientations: { id: GpsMapOrientation; labelKey: string; icon: string }[] = [
-		{ id: 'north', labelKey: 'GPS_ROUTING.ORIENT_NORTH', icon: 'fa-compass' },
-		{ id: 'heading', labelKey: 'GPS_ROUTING.ORIENT_HEADING', icon: 'fa-location-arrow' },
-		{ id: 'route', labelKey: 'GPS_ROUTING.ORIENT_ROUTE', icon: 'fa-road' }
+	public mapOrientation: TraceMapOrientation = 'north';
+	readonly mapOrientations: { id: TraceMapOrientation; labelKey: string; hintKey: string; icon: string }[] = [
+		{ id: 'north', labelKey: 'GPS_ROUTING.ORIENT_NORTH', hintKey: 'GPS_ROUTING.ORIENT_NORTH_HINT', icon: 'fa-compass' },
+		{ id: 'heading', labelKey: 'GPS_ROUTING.ORIENT_HEADING', hintKey: 'GPS_ROUTING.ORIENT_WALK_HINT', icon: 'fa-location-arrow' },
+		{ id: 'fixed', labelKey: 'GPS_ROUTING.ORIENT_FIXED', hintKey: 'GPS_ROUTING.ORIENT_FIXED_HINT', icon: 'fa-lock' }
 	];
 	public showGpsCoordinates = false;
 	public currentLat: number = 0;
@@ -341,6 +342,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private trackOrientationCoords: L.LatLngTuple[] = [];
 	private mapOrientationWatchId: number | null = null;
 	private deviceHeadingDeg: number | null = null;
+	/** Cap boussole du téléphone : en mode Nord, la carte s’aligne dessus. */
+	private compassNorthDeg: number | null = null;
 	/** Cap GPS reçu pendant un déplacement (vitesse suffisante). Prioritaire sur la boussole. */
 	private gpsCourseActive = false;
 	private compassListening = false;
@@ -351,7 +354,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private readonly onCompassOrientation = (event: Event): void => {
 		this.consumeCompassOrientation(event as DeviceOrientationEvent);
 	};
-	private pendingLocation: { lat: number; lng: number; label?: string; zoom?: number } | null = null;
+	private pendingLocation: { lat: number; lng: number; label?: string; zoom?: number; hidePin?: boolean } | null = null;
 	private pendingPositions: Array<{ lat: number; lng: number; type?: string; datetime?: Date; label?: string }> | null = null;
 	private lastRenderedPosition: { lat: number; lng: number } | null = null; // Store the most recent position after rendering
 	private selectionMode: boolean = false;
@@ -849,7 +852,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		eventColor?: { r: number; g: number; b: number },
 		enableSelection: boolean = false,
 		simpleShare: boolean = false,
-		viewOptions?: { zoom?: number; initialBaseLayerId?: string }
+		viewOptions?: { zoom?: number; initialBaseLayerId?: string; hidePin?: boolean }
 	): void {
 		if (!isValidGeoCoordinate(lat, lng)) {
 			return;
@@ -872,7 +875,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Call open() which will call resetState() and reset selectionMode to false
 		this.open({
 			fileName,
-			location: { lat, lng, label, zoom: viewOptions?.zoom },
+			location: { lat, lng, label, zoom: viewOptions?.zoom, hidePin: viewOptions?.hidePin === true },
 			initialBaseLayerId: viewOptions?.initialBaseLayerId
 		});
 
@@ -2373,6 +2376,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			// Register address click handler (always active, but only updates if switch is enabled)
 			this.registerAddressClickHandler();
 
+			this.syncMapOrientationWatch();
 			this.applyPersistedSwitchEffects();
 			this.applyWeatherStationsOverlay();
 		});
@@ -3076,11 +3080,24 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
-		// Normal mode: SVG pin (photo / webcam / address position)
+		const hidePin = this.pendingLocation.hidePin === true;
+		// Carte « ma position » : le rond rouge suffit, pas d’épingle bleue.
 		this.pendingLocation = null;
 
 		this.overlayLayer.clearLayers();
 		this.locationRecenterZoom = viewZoom;
+
+		if (hidePin) {
+			this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
+			this.map.setView([lat, lng], viewZoom, { animate: false });
+			this.currentZoom = viewZoom;
+			this.updateDeviceLocationMarker(lat, lng);
+			this.trackStats = null;
+			this.scheduleTraceViewerCdr();
+			return;
+		}
+
+		// Normal mode: SVG pin (photo / webcam / address position)
 
 		const markerIcon = this.createPinDivIcon(this.resolveLocationPinColor(), 'custom-location-marker');
 		const marker = L.marker([lat, lng], {
@@ -3304,6 +3321,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.trackOrientationCoords = [];
 		this.routeHeadingDeg = 0;
 		this.deviceHeadingDeg = null;
+		this.compassNorthDeg = null;
 		this.gpsCourseActive = false;
 		this.lastGpsFix = null;
 		this.mapOrientation = 'north';
@@ -4694,31 +4712,33 @@ export class TraceViewerModalComponent implements OnDestroy {
 		);
 	}
 
-	public setMapOrientation(orientation: GpsMapOrientation): void {
+	public setMapOrientation(orientation: TraceMapOrientation): void {
 		if (this.mapOrientation === orientation) {
-			this.applyMapBearing();
+			if (orientation === 'north') {
+				void this.startCompassHeading();
+			}
+			if (orientation !== 'fixed') {
+				this.applyMapBearing();
+			}
 			return;
-		}
-		if (orientation === 'heading') {
-			this.deviceHeadingDeg = null;
-			this.gpsCourseActive = false;
 		}
 		this.mapOrientation = orientation;
 		this.syncMapOrientationWatch();
-		this.applyMapBearing();
+		if (orientation !== 'fixed') {
+			this.applyMapBearing();
+		}
 		this.scheduleTraceViewerCdr();
 	}
 
 	private syncMapOrientationWatch(): void {
-		if (this.mapOrientation === 'heading' || this.mapOrientation === 'route') {
-			this.startMapOrientationWatch();
-		} else {
-			this.stopMapOrientationWatch();
-		}
 		if (this.mapOrientation === 'heading') {
-			void this.startCompassHeading();
-		} else {
 			this.stopCompassHeading();
+			this.startMapOrientationWatch();
+			return;
+		}
+		this.stopMapOrientationWatch();
+		if (this.mapOrientation === 'north') {
+			void this.startCompassHeading();
 		}
 	}
 
@@ -4730,7 +4750,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			(pos) => {
 				this.lastGpsFix = { lat: pos.coords.latitude, lon: pos.coords.longitude };
 				this.noteGpsCourse(pos);
-				if (this.mapOrientation === 'heading' || this.mapOrientation === 'route') {
+				if (this.mapOrientation === 'heading') {
 					this.applyMapBearing();
 				}
 			},
@@ -4766,7 +4786,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		const permission = await requestMotionPermissionIfNeeded();
-		if (permission === 'denied' || this.mapOrientation !== 'heading') {
+		if (permission === 'denied' || this.mapOrientation !== 'north') {
 			return;
 		}
 		this.compassListening = true;
@@ -4785,7 +4805,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private consumeCompassOrientation(event: DeviceOrientationEvent): void {
-		if (this.mapOrientation !== 'heading' || this.gpsCourseActive) {
+		if (this.mapOrientation !== 'north') {
 			return;
 		}
 		const heading = this.compassHeadingDeg(event);
@@ -4793,14 +4813,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		const now = Date.now();
-		if (this.deviceHeadingDeg != null && now - this.lastCompassApplyMs < 200) {
-			const delta = Math.abs(heading - this.deviceHeadingDeg);
+		if (this.compassNorthDeg != null && now - this.lastCompassApplyMs < 200) {
+			const delta = Math.abs(heading - this.compassNorthDeg);
 			if (Math.min(delta, 360 - delta) < 4) {
 				return;
 			}
 		}
 		this.lastCompassApplyMs = now;
-		this.deviceHeadingDeg = heading;
+		this.compassNorthDeg = heading;
 		this.applyMapBearing();
 	}
 
@@ -4871,28 +4891,26 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
-	/** Après un déplacement de la carte, realigne « Route » (ou « Marche » sans cap appareil). */
+	/** Le déplacement de la carte ne change pas l’orientation (ni boussole, ni tracé). */
 	private refreshOrientationAfterMapMove(): void {
-		if (this.applyingMapBearing || this.mapOrientation === 'north') {
-			return;
-		}
-		if (this.mapOrientation === 'heading' && this.deviceHeadingDeg != null) {
-			return;
-		}
-		this.applyMapBearing();
+		return;
 	}
 
 	private applyMapBearing(): void {
 		const map = this.map as RotatableLeafletMap | undefined;
-		if (!map || typeof map.setBearing !== 'function') {
+		if (!map || typeof map.setBearing !== 'function' || this.mapOrientation === 'fixed') {
+			this.syncDeviceLocationArrows();
 			return;
 		}
 		let bearing = 0;
-		if (this.mapOrientation === 'heading' && this.deviceHeadingDeg != null) {
+		if (this.mapOrientation === 'north') {
+			bearing = this.compassNorthDeg != null ? this.compassNorthDeg : 0;
+		} else if (this.mapOrientation === 'heading') {
+			if (this.deviceHeadingDeg == null) {
+				this.syncDeviceLocationArrows();
+				return;
+			}
 			bearing = this.deviceHeadingDeg;
-		} else if (this.mapOrientation === 'heading' || this.mapOrientation === 'route') {
-			this.updateRouteHeadingFromTrack();
-			bearing = this.routeHeadingDeg;
 		}
 		this.applyingMapBearing = true;
 		try {

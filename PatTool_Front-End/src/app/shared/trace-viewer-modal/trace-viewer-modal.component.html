@@ -38,10 +38,9 @@
                   *ngFor="let o of mapOrientations"
                   [class.active]="mapOrientation === o.id"
                   (click)="setMapOrientation(o.id)"
-                  [attr.title]="o.labelKey | translate"
+                  [attr.title]="o.hintKey | translate"
                   [attr.aria-label]="o.labelKey | translate"
-                  [attr.aria-pressed]="mapOrientation === o.id"
-                  [disabled]="o.id === 'route' && !trackStats">
+                  [attr.aria-pressed]="mapOrientation === o.id">
             <i class="fa" [ngClass]="o.icon" aria-hidden="true"></i>
             <span>{{ o.labelKey | translate }}</span>
           </button>
@@ -422,8 +421,7 @@
                     *ngFor="let o of mapOrientations"
                     [class.active]="mapOrientation === o.id"
                     (click)="setMapOrientation(o.id)"
-                    [disabled]="o.id === 'route' && !trackStats"
-                    [attr.data-tv-tip]="o.labelKey | translate"
+                    [attr.data-tv-tip]="o.hintKey | translate"
                     [attr.aria-label]="o.labelKey | translate"
                     [attr.aria-pressed]="mapOrientation === o.id">
               <i class="fa" [ngClass]="o.icon" aria-hidden="true"></i>
@@ -586,7 +584,7 @@
             {{ 'EVENTELEM.TRACK_DISTANCE' | translate:{ km: trackStats.distanceKm } }}
           </span>
         </div>
-        <div class="trace-stats" *ngIf="isMapReady">
+        <div class="trace-stats" *ngIf="isMapReady && !isMobileViewport()">
           <span class="zoom-footer-label"><i class="fa fa-search me-1" aria-hidden="true"></i>{{ 'EVENTELEM.TRACK_FOOTER_ZOOM_SHORT' | translate }} {{ currentZoom | number:'1.1-2' }}</span>
         </div>
       </div>

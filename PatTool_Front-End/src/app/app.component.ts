@@ -2428,7 +2428,7 @@ export class AppComponent implements OnInit, AfterViewInit {
             }
             settled = true;
             const label = this._translate.instant('MENU.MAP_TRACE_VIEWER');
-            this.mapTraceViewer?.openAtLocation(lat, lng, label, undefined, false, false, { zoom: 13 });
+			this.mapTraceViewer?.openAtLocation(lat, lng, label, undefined, false, false, { zoom: 13, hidePin: true });
         };
         if (typeof navigator === 'undefined' || !navigator.geolocation) {
             open(46.2, 6.15);
