@@ -291,6 +291,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private screenWakeLockReleaseHandler?: () => void;
 	private visibilityChangeHandler?: () => void;
 	private static readonly DEVICE_LOCATION_FOLLOW_INTERVAL_S = 5;
+	/** Côté du marqueur position (px). Le centre est le point GPS. */
+	private static readonly DEVICE_MARKER_PX = 260;
 	/** Visible countdown (seconds until next update); 0 while an update is in progress. */
 	public deviceLocationCountdown: number = 0;
 	private deviceLocationCountdownId: ReturnType<typeof setInterval> | null = null;
@@ -4861,18 +4863,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 			} else if (diff < -180) {
 				diff += 360;
 			}
-			if (Math.abs(diff) > 70) {
+			if (Math.abs(diff) > 45) {
 				this.compassOutlierStreak += 1;
-				if (this.compassOutlierStreak < 5) {
+				if (this.compassOutlierStreak < 6) {
 					return;
 				}
 			} else {
 				this.compassOutlierStreak = 0;
 			}
-			this.compassNorthDeg = this.wrapDeg(this.compassNorthDeg + diff * 0.12);
+			const step = Math.max(-4, Math.min(4, diff * 0.18));
+			this.compassNorthDeg = this.wrapDeg(this.compassNorthDeg + step);
 		}
 		const now = Date.now();
-		if (now - this.lastCompassApplyMs < 90) {
+		if (now - this.lastCompassApplyMs < 160) {
 			return;
 		}
 		this.lastCompassApplyMs = now;
@@ -4883,29 +4886,31 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
+	/**
+	 * Angle à passer à setBearing. leaflet-rotate tourne les tuiles dans le sens
+	 * horaire : le cap « nord en haut de l’écran » n’est pas le cap boussole brut.
+	 * Même calcul que le handler CompassBearing du plugin.
+	 */
 	private compassHeadingDeg(event: DeviceOrientationEvent): number | null {
 		const anyEvent = event as DeviceOrientationEvent & { webkitCompassHeading?: number };
-		const screenDeg = this.screenOrientationDeg();
+		let angle: number | null = null;
 		if (typeof anyEvent.webkitCompassHeading === 'number' && Number.isFinite(anyEvent.webkitCompassHeading)) {
-			return this.wrapDeg(anyEvent.webkitCompassHeading - screenDeg);
+			angle = anyEvent.webkitCompassHeading;
+		} else if (event.alpha != null && Number.isFinite(event.alpha)) {
+			angle = event.alpha;
 		}
-		if (event.alpha != null && Number.isFinite(event.alpha)) {
-			return this.wrapDeg(360 - event.alpha - screenDeg);
+		if (angle == null) {
+			return null;
 		}
-		return null;
-	}
-
-	private screenOrientationDeg(): number {
-		try {
-			const angle = screen.orientation?.angle;
-			if (typeof angle === 'number' && Number.isFinite(angle)) {
-				return angle;
-			}
-		} catch {
-			/* ignore */
+		if (!event.absolute && typeof anyEvent.webkitCompassHeading === 'number') {
+			angle = 360 - angle;
 		}
-		const legacy = (window as Window & { orientation?: number }).orientation;
-		return typeof legacy === 'number' && Number.isFinite(legacy) ? legacy : 0;
+		let deviceOrientation = 0;
+		const legacyOrientation = (window as Window & { orientation?: number }).orientation;
+		if (!event.absolute && typeof legacyOrientation === 'number' && Number.isFinite(legacyOrientation)) {
+			deviceOrientation = legacyOrientation;
+		}
+		return this.wrapDeg(angle - deviceOrientation);
 	}
 
 	private wrapDeg(deg: number): number {
@@ -4977,7 +4982,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		const next = this.wrapDeg(bearing);
 		const delta = Math.abs(next - this.currentMapBearingDeg());
-		if (Math.min(delta, 360 - delta) < 0.5) {
+		if (Math.min(delta, 360 - delta) < 1.5) {
 			this.syncDeviceLocationArrows();
 			return;
 		}
@@ -5060,7 +5065,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (this.deviceLocationMarker) {
 			this.deviceLocationMarker.setLatLng([lat, lng]);
 			this.deviceLocationMarker.setZIndexOffset(3000);
-			if (!this.deviceLocationMarker.getElement()?.querySelector('svg')) {
+			if (!this.deviceLocationMarker.getElement()?.querySelector('.device-location-north line')) {
 				this.deviceLocationMarker.setIcon(this.deviceLocationIcon());
 			}
 			this.syncDeviceLocationArrows();
@@ -5072,48 +5077,66 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private deviceLocationIcon(): L.DivIcon {
+		const size = TraceViewerModalComponent.DEVICE_MARKER_PX;
 		return L.divIcon({
 			className: 'device-location-marker',
 			html: this.deviceLocationMarkerHtml(),
-			iconSize: [140, 140],
-			iconAnchor: [70, 70]
+			iconSize: [size, size],
+			iconAnchor: [size / 2, size / 2]
 		});
 	}
 
 	/**
 	 * SVG inline : la modale est montée hors du composant, les classes CSS ne s’y appliquent pas.
-	 * Centre 70,70 = position GPS. Les flèches dépassent l’épingle (41 px).
+	 * Le centre est la position GPS. Trait + pointe identiques pour le nord (rouge) et la cible (verte).
 	 */
 	private deviceLocationMarkerHtml(): string {
 		const northLabel = this.translate('GPS_ROUTING.ORIENT_NORTH')
 			.replace(/&/g, '&amp;')
 			.replace(/"/g, '&quot;')
 			.replace(/</g, '&lt;');
-		return `<div title="${northLabel}" style="width:140px;height:140px;overflow:visible;">` +
-			`<svg width="140" height="140" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;">` +
-			`<g class="device-location-target" style="display:none">` +
-			`<polygon points="70,4 56,46 70,34 84,46" fill="#16a34a" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>` +
-			`</g>` +
-			`<g class="device-location-north">` +
-			`<polygon points="70,16 60,50 70,40 80,50" fill="#e10600" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>` +
-			`</g>` +
-			`<circle cx="70" cy="70" r="8" fill="#e10600" stroke="#ffffff" stroke-width="2.5"/>` +
+		const size = TraceViewerModalComponent.DEVICE_MARKER_PX;
+		const c = size / 2;
+		return `<div title="${northLabel}" style="width:${size}px;height:${size}px;overflow:visible;pointer-events:none;">` +
+			`<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;">` +
+			`<g class="device-location-target" style="display:none">${this.deviceDirectionArrowSvg('#16a34a')}</g>` +
+			`<g class="device-location-north">${this.deviceDirectionArrowSvg('#e10600')}</g>` +
+			`<circle cx="${c}" cy="${c}" r="8" fill="#e10600" stroke="#ffffff" stroke-width="2.5"/>` +
 			`</svg></div>`;
+	}
+
+	/** Trait depuis la position, puis une pointe. Même géométrie pour les deux couleurs. */
+	private deviceDirectionArrowSvg(color: string): string {
+		const c = TraceViewerModalComponent.DEVICE_MARKER_PX / 2;
+		const tip = 8;
+		const base = 40;
+		return `<line x1="${c}" y1="${c}" x2="${c}" y2="${base - 4}" stroke="#ffffff" stroke-width="7" stroke-linecap="round"/>` +
+			`<line x1="${c}" y1="${c}" x2="${c}" y2="${base - 4}" stroke="${color}" stroke-width="4" stroke-linecap="round"/>` +
+			`<polygon points="${c},${tip} ${c - 16},${base} ${c + 16},${base}" fill="${color}" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>`;
 	}
 
 	/** Aligne la flèche rouge sur le nord et la flèche verte sur l’adresse choisie. */
 	private syncDeviceLocationArrows(): void {
-		const root = this.deviceLocationMarker?.getElement();
+		const marker = this.deviceLocationMarker;
+		if (!marker) {
+			return;
+		}
+		if (!marker.getElement()?.querySelector('.device-location-north line')) {
+			marker.setIcon(this.deviceLocationIcon());
+		}
+		const root = marker.getElement();
 		if (!root) {
 			return;
 		}
 		root.style.background = 'transparent';
 		root.style.border = 'none';
 		root.style.overflow = 'visible';
+		root.style.pointerEvents = 'none';
 		const mapBearing = this.currentMapBearingDeg();
+		const pivot = TraceViewerModalComponent.DEVICE_MARKER_PX / 2;
 		const north = root.querySelector('.device-location-north') as SVGGElement | null;
 		if (north) {
-			north.setAttribute('transform', `rotate(${-mapBearing} 70 70)`);
+			north.setAttribute('transform', `rotate(${mapBearing} ${pivot} ${pivot})`);
 		}
 		const targetEl = root.querySelector('.device-location-target') as SVGGElement | null;
 		const from = this.deviceLocationLatLng;
@@ -5128,8 +5151,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		targetEl.style.display = '';
 		const bearing = this.bearingDeg(from.lat, from.lng, to.lat, to.lng);
-		const phoneHeading = this.compassNorthDeg != null ? this.compassNorthDeg : mapBearing;
-		targetEl.setAttribute('transform', `rotate(${bearing - phoneHeading} 70 70)`);
+		targetEl.setAttribute('transform', `rotate(${bearing + mapBearing} ${pivot} ${pivot})`);
 	}
 
 	private bearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {

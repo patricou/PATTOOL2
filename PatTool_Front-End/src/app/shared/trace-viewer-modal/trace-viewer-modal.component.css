@@ -2596,6 +2596,7 @@
 	background: transparent !important;
 	border: none !important;
 	overflow: visible !important;
+	pointer-events: none !important;
 }
 
 :host ::ng-deep .device-location-marker-wrap {
