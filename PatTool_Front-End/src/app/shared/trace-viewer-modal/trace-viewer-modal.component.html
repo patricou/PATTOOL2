@@ -30,6 +30,20 @@
       <div class="map-wrapper">
         <div #mapContainer id="trace-viewer-map-container" class="map-container" aria-label="Track map"></div>
 
+        <div class="trace-viewer-compass-rose"
+             role="img"
+             [attr.aria-label]="'GPS_ROUTING.ORIENT_NORTH' | translate">
+          <svg #compassRoseDial class="trace-viewer-compass-rose-dial" viewBox="0 0 48 48" aria-hidden="true">
+            <circle cx="24" cy="24" r="22" fill="rgba(255, 255, 255, 0.78)" stroke="rgba(15, 23, 42, 0.28)" stroke-width="1"></circle>
+            <polygon points="24,12 27.4,24.6 24,24.6" fill="#e10600"></polygon>
+            <polygon points="24,12 20.6,24.6 24,24.6" fill="#f87171"></polygon>
+            <polygon points="24,37 27.4,24.6 24,24.6" fill="#64748b"></polygon>
+            <polygon points="24,37 20.6,24.6 24,24.6" fill="#cbd5e1"></polygon>
+            <circle cx="24" cy="24.6" r="1.7" fill="#0f172a"></circle>
+            <text x="24" y="9.6" text-anchor="middle" font-size="9" font-weight="700" font-family="system-ui, sans-serif" fill="#e10600">N</text>
+          </svg>
+        </div>
+
         <div class="trace-viewer-orient-overlay"
              role="group"
              [attr.aria-label]="'GPS_ROUTING.ORIENT_LABEL' | translate">
@@ -44,6 +58,11 @@
             <i class="fa" [ngClass]="o.icon" aria-hidden="true"></i>
             <span>{{ o.labelKey | translate }}</span>
           </button>
+        </div>
+
+        <div class="tv-direction-distance-chip" *ngIf="directionTargetActive && directionLiveDistanceLabel() as liveDistance">
+          <i class="fa fa-location-arrow" aria-hidden="true"></i>
+          <span>{{ 'EVENTELEM.TRACK_DIRECTION_DISTANCE' | translate:{ distance: liveDistance } }}</span>
         </div>
 
         <ul class="trace-viewer-legend" *ngIf="displayedTraces.length > 1">
@@ -807,13 +826,17 @@
       {{ directionSearchError }}
     </div>
     <div class="small text-muted mt-3 mb-1" *ngIf="directionResults.length">{{ 'ADDRESS_GEOCODE.RESULTS' | translate }}</div>
+    <div class="small text-muted mb-2" *ngIf="directionResults.length && directionOriginPending && !directionOrigin">
+      {{ 'EVENTELEM.TRACK_DIRECTION_DISTANCE_PENDING' | translate }}
+    </div>
     <div class="list-group tv-direction-results" *ngIf="directionResults.length">
       <button type="button"
-              class="list-group-item list-group-item-action"
+              class="list-group-item list-group-item-action tv-direction-result"
               *ngFor="let result of directionResults; let i = index"
               [class.active]="directionSelectedIndex === i"
               (click)="selectDirectionResult(i)">
-        {{ result.label }}
+        <span class="tv-direction-result-label">{{ result.label }}</span>
+        <span class="tv-direction-distance" *ngIf="directionDistanceLabel(result.lat, result.lng) as dist">{{ dist }}</span>
       </button>
     </div>
   </div>

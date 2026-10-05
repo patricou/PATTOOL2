@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   Component,
   ElementRef,
@@ -137,6 +138,15 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
   playerUrl: SafeResourceUrl | null = null;
   /** Forces iframe remount when webcam / mode changes (Angular may reuse the same iframe). */
   iframeMountKey = '';
+  /**
+   * Last mounted player identity. A new SafeResourceUrl with the same address still
+   * reassigns iframe.src and reloads the embed (and can reload PATTOOL if the embed
+   * navigates the top window).
+   */
+  private mountedPlayerKey = '';
+  /** Webcam ids Windy no longer serves (detail 404). Skipped on restore / auto-select. */
+  private readonly missingWebcamIds = new Set<string>();
+  private static readonly MISSING_WEBCAM_KEY = 'pattool.webcam.missing';
   iframeGen = 0;
   hlsError = '';
   /**
@@ -202,6 +212,7 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.loadMissingWebcamIds();
     // Sidebar text only refilters the already-loaded list (no server round-trip).
     this.searchSub = this.search$.pipe(debounceTime(200), distinctUntilChanged()).subscribe(() => {
       this.offset = 0;
@@ -1057,6 +1068,7 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
     this.refreshCaptureStamp();
     this.playerUrl = null;
     this.iframeMountKey = '';
+    this.mountedPlayerKey = '';
     this.hlsError = '';
     this.stopHls();
     this.isLoadingPlayer = false;
@@ -1113,12 +1125,21 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
         this.setPlayerMode(this.preferredMode(this.selected));
         this.syncLandscapeFullscreen();
       },
-      error: () => {
+      error: (err: unknown) => {
         if (this.selectedId !== requestId) {
           return;
         }
         this.isLoadingDetail = false;
         this.refreshCaptureStamp();
+        // Gone from Windy: do not keep restoring it (each visit refetched the 404 and
+        // restarted the embed, which reloaded the page).
+        if (err instanceof HttpErrorResponse && err.status === 404) {
+          this.noteMissingWebcam(requestId);
+          this.clearSelection();
+          this.pendingAutoSelectFirst = true;
+          this.tryAutoSelectDefault();
+          return;
+        }
         this.setPlayerMode(this.preferredMode(this.selected || item));
         this.syncLandscapeFullscreen();
       }
@@ -1126,22 +1147,9 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
   }
 
   setPlayerMode(mode: PlayerMode): void {
-    this.hlsError = '';
-    this.stopHls();
-    this.videoPaused = false;
-
-    if (mode === 'image') {
-      this.playerMode = 'image';
-      this.playerUrl = null;
-      const still = this.selected?.imagePreviewUrl || this.selected?.imageUrl;
-      this.isLoadingPlayer = !!still;
-      this.syncLandscapeFullscreen();
-      return;
-    }
-
     const cam = this.selected;
     let url = '';
-    if (cam) {
+    if (cam && mode !== 'image') {
       if (mode === 'live') {
         url = cam.playerLiveUrl || '';
       } else if (mode === 'month') {
@@ -1150,17 +1158,35 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
         url = cam.playerDayUrl || '';
       }
     }
+    const hls = !!url && (this.isHlsUrl(url) || (this.isStageDotCatalog && mode === 'live'));
+    // www.windy.com pages are not embeds: framed, they navigate the top window and reload PATTOOL.
+    if (url && !hls && !this.isEmbeddablePlayerUrl(url)) {
+      url = '';
+    }
+    const resolvedMode: PlayerMode = url ? mode : 'image';
+    const mountKey = `${this.selectedId}|${resolvedMode}|${url}`;
+    // Same Windy embed already on screen: do not assign a new SafeResourceUrl.
+    // That reassigns iframe.src and reloads the player (and can reload the page).
+    if (!hls && !!url && mountKey === this.mountedPlayerKey && this.playerUrl) {
+      return;
+    }
+    this.mountedPlayerKey = mountKey;
+
+    this.hlsError = '';
+    this.stopHls();
+    this.videoPaused = false;
 
     if (!url) {
       this.playerMode = 'image';
       this.playerUrl = null;
+      this.iframeMountKey = '';
       const still = cam?.imagePreviewUrl || cam?.imageUrl;
       this.isLoadingPlayer = !!still;
       this.syncLandscapeFullscreen();
       return;
     }
 
-    this.playerMode = mode;
+    this.playerMode = resolvedMode;
 
     // Road511 / NAPSPAN (and any .m3u8 live URL): play via proxied HLS / progressive MP4, not iframe.
     // NAPSPAN France often returns Viewsurf mediaRedirect → short MP4 (not HLS).
@@ -1612,9 +1638,10 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
     if (this.lastRestorePending) {
       return;
     }
-    if (this.items.length > 0) {
+    const next = this.items.find((cam) => !!cam?.id && !this.missingWebcamIds.has(cam.id));
+    if (next) {
       this.pendingAutoSelectFirst = false;
-      this.selectWebcam(this.items[0]);
+      this.selectWebcam(next);
     }
   }
 
@@ -1625,7 +1652,7 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
         this.tryAutoSelectDefault();
         return;
       }
-      if (!cam?.id) {
+      if (!cam?.id || this.missingWebcamIds.has(cam.id)) {
         this.tryAutoSelectDefault();
         return;
       }
@@ -1921,6 +1948,75 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
     this.videoPlaybackBound = null;
   }
 
+  /**
+   * True for real embed players. Detail pages on windy.com (and any same-origin URL)
+   * must not be iframed: they break out and reload the PATTOOL page.
+   */
+  private isEmbeddablePlayerUrl(url: string): boolean {
+    try {
+      const u = new URL(url);
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') {
+        return false;
+      }
+      const host = u.hostname.toLowerCase();
+      if (typeof window !== 'undefined' && host === window.location.hostname.toLowerCase()) {
+        return false;
+      }
+      if (host === 'webcams.windy.com' || host === 'embed.windy.com') {
+        return true;
+      }
+      if (host === 'windy.com' || host.endsWith('.windy.com')) {
+        return u.pathname.includes('/embed/');
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private loadMissingWebcamIds(): void {
+    try {
+      const raw = sessionStorage.getItem(WebcamWatcherComponent.MISSING_WEBCAM_KEY);
+      if (!raw) {
+        return;
+      }
+      const ids = JSON.parse(raw) as unknown;
+      if (!Array.isArray(ids)) {
+        return;
+      }
+      for (const id of ids) {
+        if (typeof id === 'string' && id) {
+          this.missingWebcamIds.add(id);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private noteMissingWebcam(id: string): void {
+    if (!id) {
+      return;
+    }
+    this.missingWebcamIds.add(id);
+    try {
+      sessionStorage.setItem(
+        WebcamWatcherComponent.MISSING_WEBCAM_KEY,
+        JSON.stringify([...this.missingWebcamIds])
+      );
+    } catch {
+      /* ignore quota */
+    }
+    const stored = this.readLastWebcamFromStorage();
+    if (stored?.id === id) {
+      try {
+        localStorage.removeItem(this.localStorageKey());
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   /** Force autoplay on Windy (and similar) embed players. */
   private withEmbedAutoplay(url: string): string {
     const raw = (url || '').trim();
@@ -1950,6 +2046,7 @@ export class WebcamWatcherComponent implements OnInit, OnDestroy {
     this.captureStampText = '';
     this.playerUrl = null;
     this.iframeMountKey = '';
+    this.mountedPlayerKey = '';
     this.playerMode = 'day';
     this.hlsError = '';
     this.isLoadingDetail = false;

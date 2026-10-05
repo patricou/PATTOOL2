@@ -2651,6 +2651,8 @@
     "TRACK_DIRECTION_CLEAR": "Remove arrow",
     "TRACK_DIRECTION_SELECT": "Choose an address from the list.",
     "TRACK_DIRECTION_GPS_ERROR": "Could not read your position. Show your position to see the arrow.",
+    "TRACK_DIRECTION_DISTANCE": "{{distance}} from your position",
+    "TRACK_DIRECTION_DISTANCE_PENDING": "Reading your position to calculate the distance…",
     "TRACK_KEEP_SCREEN_AWAKE": "Keep screen on",
     "TRACK_FOOTER_KEEP_AWAKE_SHORT": "Screen",
     "CARTES_GOUV_FR": "All IGN maps",

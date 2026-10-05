@@ -2738,6 +2738,8 @@
     "TRACK_DIRECTION_CLEAR": "Retirer la flèche",
     "TRACK_DIRECTION_SELECT": "Choisissez une adresse dans la liste.",
     "TRACK_DIRECTION_GPS_ERROR": "Impossible de lire votre position. Affichez votre position pour voir la flèche.",
+    "TRACK_DIRECTION_DISTANCE": "{{distance}} de votre position",
+    "TRACK_DIRECTION_DISTANCE_PENDING": "Lecture de votre position pour calculer la distance…",
     "TRACK_KEEP_SCREEN_AWAKE": "Garder l'écran allumé",
     "TRACK_FOOTER_KEEP_AWAKE_SHORT": "Écran",
     "CARTES_GOUV_FR": "Toutes les cartes IGN",

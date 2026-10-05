@@ -1930,6 +1930,8 @@
     "TRACK_DIRECTION_CLEAR": "Pfeil entfernen",
     "TRACK_DIRECTION_SELECT": "Wählen Sie eine Adresse aus der Liste.",
     "TRACK_DIRECTION_GPS_ERROR": "Position nicht lesbar. Position anzeigen, um den Pfeil zu sehen.",
+    "TRACK_DIRECTION_DISTANCE": "{{distance}} von Ihrem Standort",
+    "TRACK_DIRECTION_DISTANCE_PENDING": "Standort wird gelesen, um die Entfernung zu berechnen…",
     "TRACK_KEEP_SCREEN_AWAKE": "Bildschirm anlassen",
     "TRACK_FOOTER_KEEP_AWAKE_SHORT": "Bildschirm",
     "TRACK_GPX_STATS": "GPX-Statistik",

@@ -64,6 +64,16 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
             return next.handle(req);
         }
 
+        // Webcam catalog is permitAll. Waiting on getToken() redirected to Keycloak
+        // and reloaded the webcam page in a loop. /last and /favorites stay authenticated.
+        const isWebcamPublicApiGet =
+            req.method === 'GET'
+            && /\/api\/external\/webcam\//i.test(req.url)
+            && !/\/api\/external\/webcam\/(last|favorites)(\/|$|\?)/i.test(req.url);
+        if (isWebcamPublicApiGet) {
+            return next.handle(req);
+        }
+
         // Foncier proxies (Cerema / Stream Estate / ChercherTrouver) are permitAll.
         // Waiting on getToken() here redirected to Keycloak and reloaded the page in a loop.
         const isFoncierPublicApi =
@@ -253,6 +263,11 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
             return true;
         }
         if (url.includes('/api/discussions/files/') || url.includes('/upload-logs/')) {
+            return true;
+        }
+        // Optional per-user webcam state: a 401 must fall through to localStorage,
+        // not replace the page with Keycloak (that reloaded /tools/webcam in a loop).
+        if (/\/api\/external\/webcam\/(last|favorites)(\/|$|\?)/i.test(url)) {
             return true;
         }
         return url.includes('/uploadfile') || url.includes('/uploadondisk');

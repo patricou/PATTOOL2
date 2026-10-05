@@ -131,6 +131,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@ViewChild('offlineTracesModal') offlineTracesModal!: TemplateRef<any>;
 	@ViewChild('directionModal') directionModal!: TemplateRef<any>;
 	@ViewChild('mapContainer', { static: false }) mapContainerRef?: ElementRef<HTMLDivElement>;
+	@ViewChild('compassRoseDial', { static: false }) compassRoseDialRef?: ElementRef<SVGSVGElement>;
 	@Output() closed = new EventEmitter<void>();
 	@Output() locationSelected = new EventEmitter<{ lat: number; lng: number; alt?: number | null }>();
 	@Output() pairSelected = new EventEmitter<{
@@ -312,9 +313,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public directionSearchError = '';
 	public directionResults: Array<{ lat: number; lng: number; label: string }> = [];
 	public directionSelectedIndex: number | null = null;
+	/** Position utilisée pour la distance affichée dans la fenêtre d’adresse. */
+	public directionOrigin: { lat: number; lng: number } | null = null;
+	public directionOriginPending = false;
 	private directionSearchSub?: Subscription;
 	private directionModalRef?: NgbModalRef;
 	private directionLocateGen = 0;
+	private directionPreviewGen = 0;
 
 	// Event color for styling
 	private eventColor: { r: number; g: number; b: number } | null = null;
@@ -340,8 +345,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private nextModalOptionsOverride: NgbModalOptions | null = null;
 	private map?: L.Map;
 	private overlayLayer?: L.LayerGroup;
-	/** Canvas, not SVG: a long GPX path blanks the tile pane on the Android WebView. */
-	private trackCanvas?: L.Canvas;
 	private pendingTrackPoints: L.LatLngTuple[] | null = null;
 	private pendingTraces: { name: string; points: L.LatLngTuple[] }[] | null = null;
 	private lastRenderedTraces: { name: string; points: L.LatLngTuple[] }[] | null = null;
@@ -788,7 +791,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	@HostListener('window:keydown', ['$event'])
 	onKeydown(event: KeyboardEvent): void {
-		if (!this.map) {
+		if (!this.map || this.traceViewerShortcutBlocked(event)) {
 			return;
 		}
 
@@ -797,6 +800,25 @@ export class TraceViewerModalComponent implements OnDestroy {
 			event.preventDefault();
 			this.recenterOnTrack();
 		}
+	}
+
+	/** La touche R recentre la trace : ne pas l’avaler dans un champ ou une fenêtre (adresse, stats…). */
+	private traceViewerShortcutBlocked(event: KeyboardEvent): boolean {
+		if (event.ctrlKey || event.metaKey || event.altKey) {
+			return true;
+		}
+		if (this.directionModalRef || this.gpxStatsModalRef || this.offlineTracesModalRef || this.cartesGouvModalRef) {
+			return true;
+		}
+		const target = event.target as HTMLElement | null;
+		if (!target) {
+			return false;
+		}
+		const tag = target.tagName;
+		if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+			return true;
+		}
+		return target.isContentEditable === true;
 	}
 
 	public openFromFile(
@@ -1071,7 +1093,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/** True when the draw must wait: the phone modal is still too small for a real fitBounds. */
 	private deferRenderUntilMapSized(minPx = 2): boolean {
-		if (this.mapContainerIsSized(minPx)) {
+		if (this.map) {
+			this.map.invalidateSize({ animate: false, pan: false });
+		}
+		const size = this.map?.getSize();
+		if (this.mapContainerIsSized(minPx) && !!size && size.x >= minPx && size.y >= minPx) {
 			return false;
 		}
 		this.schedulePendingRenderRetry();
@@ -1674,6 +1700,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.directionSearchError = '';
 		this.directionSearching = false;
 		this.directionLocating = false;
+		this.requestDirectionOrigin();
 		const opts: NgbModalOptions = {
 			centered: true,
 			backdrop: 'static',
@@ -1696,6 +1723,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	public closeDirectionModal(): void {
 		this.directionLocateGen++;
+		this.directionPreviewGen++;
+		this.directionOriginPending = false;
 		this.directionLocating = false;
 		this.directionSearchSub?.unsubscribe();
 		this.directionSearchSub = undefined;
@@ -1751,6 +1780,70 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public selectDirectionResult(index: number): void {
 		this.directionSelectedIndex = index;
 		this.directionSearchError = '';
+	}
+
+	/** Distance orthodromique, en kilomètres et mètres, depuis la position connue. */
+	public directionDistanceLabel(lat: number, lng: number): string | null {
+		const from = this.deviceLocationLatLng ?? this.directionOrigin;
+		if (!from || !isValidGeoCoordinate(lat, lng)) {
+			return null;
+		}
+		const meters = L.latLng(from.lat, from.lng).distanceTo(L.latLng(lat, lng));
+		return this.formatDistanceKmM(meters);
+	}
+
+	public directionLiveDistanceLabel(): string | null {
+		const to = this.directionTarget;
+		if (!to) {
+			return null;
+		}
+		return this.directionDistanceLabel(to.lat, to.lng);
+	}
+
+	private formatDistanceKmM(meters: number): string | null {
+		if (!Number.isFinite(meters) || meters < 0) {
+			return null;
+		}
+		const rounded = Math.round(meters);
+		if (rounded < 1000) {
+			return `${rounded} m`;
+		}
+		const km = Math.floor(rounded / 1000);
+		const rest = rounded % 1000;
+		return rest === 0 ? `${km} km` : `${km} km ${rest} m`;
+	}
+
+	/** Lit la position une fois pour afficher les distances avant de poser la flèche. */
+	private requestDirectionOrigin(): void {
+		if (this.deviceLocationLatLng) {
+			this.directionOrigin = { lat: this.deviceLocationLatLng.lat, lng: this.deviceLocationLatLng.lng };
+			this.directionOriginPending = false;
+			return;
+		}
+		if (!navigator.geolocation) {
+			this.directionOriginPending = false;
+			return;
+		}
+		const gen = ++this.directionPreviewGen;
+		this.directionOriginPending = true;
+		navigator.geolocation.getCurrentPosition(
+			(pos) => {
+				if (gen !== this.directionPreviewGen) {
+					return;
+				}
+				this.directionOrigin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+				this.directionOriginPending = false;
+				this.cdr.markForCheck();
+			},
+			() => {
+				if (gen !== this.directionPreviewGen) {
+					return;
+				}
+				this.directionOriginPending = false;
+				this.cdr.markForCheck();
+			},
+			{ enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 }
+		);
 	}
 
 	public confirmDirectionTarget(): void {
@@ -2424,6 +2517,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.map = L.map(container, {
 				zoomControl: true,
 				attributionControl: true,
+				// Canvas renderer: a long GPX as SVG blanks the tile pane (grey map, controls still visible).
+				preferCanvas: true,
 				...LEAFLET_SMOOTH_WHEEL_MAP_OPTIONS,
 				// Keep a consistent max zoom across basemaps; basemaps handle over-zoom via maxNativeZoom.
 				maxZoom: 20,
@@ -2448,7 +2543,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.forceCrosshairCursor();
 
 		this.overlayLayer = L.layerGroup().addTo(this.map);
-		this.trackCanvas = L.canvas({ padding: 0.5 });
 		this.restorePendingTrackFromLastRender();
 		this.applyInitialMapViewForPendingTrackData();
 		this.applySelectedBaseLayer();
@@ -2471,6 +2565,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.currentZoom = this.map!.getZoom();
 			this.scheduleTraceViewerCdr();
 		});
+		this.map.on('rotate' as any, () => this.updateCompassRose());
 		this.currentZoom = this.map.getZoom();
 		this.scheduleTraceViewerCdr();
 
@@ -2498,6 +2593,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.registerAddressClickHandler();
 
 			this.syncMapOrientationWatch();
+			this.updateCompassRose();
 			this.applyPersistedSwitchEffects();
 			this.applyWeatherStationsOverlay();
 		});
@@ -2862,7 +2958,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!this.map || !bounds.isValid()) {
 			return;
 		}
+		this.map.invalidateSize({ animate: false, pan: false });
 		const maxZoom = this.resolveFitBoundsMaxZoom();
+		const size = this.map.getSize();
+		if (!size || size.x < 2 || size.y < 2) {
+			const zoom = Math.min(maxZoom, Math.max(2, this.locationRecenterZoom ?? 13));
+			this.map.setView(bounds.getCenter(), zoom, { animate: false });
+			this.currentZoom = this.map.getZoom();
+			return;
+		}
 		if (this.isDegenerateBounds(bounds)) {
 			const zoom = Math.min(
 				maxZoom,
@@ -2872,7 +2976,25 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.currentZoom = zoom;
 			return;
 		}
-		this.map.fitBounds(bounds, { padding: [24, 24], maxZoom });
+		this.map.fitBounds(bounds, { padding: [24, 24], maxZoom, animate: false });
+		this.snapMapZoomForTiles();
+	}
+
+	/**
+	 * zoomSnap 0 (molette fluide) laisse fitBounds sur un zoom fractionnaire.
+	 * Avec leaflet-rotate, ce zoom ne demande pas les tuiles : le fond reste gris.
+	 * Le menu « Map » passe par setView à un zoom entier, donc les tuiles s’affichent.
+	 */
+	private snapMapZoomForTiles(): void {
+		if (!this.map) {
+			return;
+		}
+		const raw = this.map.getZoom();
+		const rounded = Number.isFinite(raw) ? Math.round(raw) : 13;
+		const zoom = Math.min(this.map.getMaxZoom(), Math.max(this.map.getMinZoom(), rounded));
+		if (!Number.isFinite(raw) || Math.abs(raw - zoom) > 0.01) {
+			this.map.setView(this.map.getCenter(), zoom, { animate: false });
+		}
 		this.currentZoom = this.map.getZoom();
 	}
 
@@ -2923,13 +3045,50 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
-	/** Default France view when no track loaded yet. */
+	/** A map with no center/zoom cannot load tiles. Menu open always setView; a GPX must do the same before the line is drawn. */
 	private applyInitialMapViewForPendingTrackData(): void {
 		if (!this.map) {
 			return;
 		}
-		if (!this.pendingTrackPoints?.length && !this.pendingTraces?.length && !this.trackBounds?.isValid()) {
-			this.map.setView([46.2, 2.2], 6);
+		const anchor = this.previewCenterForPendingTrack();
+		if (anchor) {
+			this.map.setView(anchor, 13, { animate: false });
+			return;
+		}
+		if (!this.trackBounds?.isValid()) {
+			this.map.setView([46.2, 2.2], 6, { animate: false });
+		}
+	}
+
+	private previewCenterForPendingTrack(): L.LatLngTuple | null {
+		const pts = this.pendingTrackPoints?.length
+			? this.pendingTrackPoints
+			: this.pendingTraces?.find((trace) => trace.points.length)?.points;
+		if (!pts?.length) {
+			return null;
+		}
+		const mid = pts[Math.floor(pts.length / 2)];
+		if (!Number.isFinite(mid[0]) || !Number.isFinite(mid[1])) {
+			return null;
+		}
+		return mid;
+	}
+
+	/** Polyline/canvas added while zoom is NaN leaves the tile pane blank even after fitBounds. */
+	private ensureFiniteMapView(anchor: L.LatLngTuple): void {
+		if (!this.map) {
+			return;
+		}
+		this.map.invalidateSize({ animate: false, pan: false });
+		let centerOk = false;
+		try {
+			const center = this.map.getCenter();
+			centerOk = Number.isFinite(center.lat) && Number.isFinite(center.lng);
+		} catch {
+			centerOk = false;
+		}
+		if (!Number.isFinite(this.map.getZoom()) || !centerOk) {
+			this.map.setView(anchor, 13, { animate: false });
 		}
 	}
 
@@ -2942,6 +3101,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.setError(this.translate('EVENTELEM.TRACK_NO_POINTS'));
 			return;
 		}
+		this.ensureFiniteMapView(drawable[0].points[Math.floor(drawable[0].points.length / 2)]);
 		this.overlayLayer.clearLayers();
 		const colors = TraceViewerModalComponent.MULTI_TRACE_COLORS;
 		const legend: { name: string; color: string }[] = [];
@@ -2951,7 +3111,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		drawable.forEach((trace, index) => {
 			const color = colors[index % colors.length];
 			const line = L.polyline(this.pointsForPolyline(trace.points), {
-				renderer: this.trackCanvas,
 				color,
 				weight: 4,
 				opacity: 0.9
@@ -3000,7 +3159,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 			distanceKm: Math.round(distanceKm * 100) / 100
 		};
 		this.applyMapBearing();
-		this.redrawActiveBasemap();
 		this.cdr.detectChanges();
 	}
 
@@ -3059,10 +3217,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.trackOrientationCoords = points.slice();
 		this.updateRouteHeadingFromTrack();
 
+		this.ensureFiniteMapView(points[Math.floor(points.length / 2)]);
 		this.overlayLayer.clearLayers();
 
 		const polyline = L.polyline(this.pointsForPolyline(points), {
-			renderer: this.trackCanvas,
 			color: '#007bff',
 			weight: 4,
 			opacity: 0.9
@@ -3101,26 +3259,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			distanceKm: this.computeDistance(points)
 		};
 		this.applyMapBearing();
-		this.redrawActiveBasemap();
 		this.cdr.detectChanges();
-	}
-
-	/** A heavy overlay can leave the raster pane blank on Android; ask the basemap to paint again. */
-	private redrawActiveBasemap(): void {
-		const layer = this.activeBaseLayer;
-		if (!this.map || !layer) {
-			return;
-		}
-		const redraw = (child: L.Layer): void => {
-			if (child instanceof L.TileLayer) {
-				child.redraw();
-			}
-		};
-		if (layer instanceof L.TileLayer) {
-			redraw(layer);
-			return;
-		}
-		layer.eachLayer(redraw);
 	}
 
 	private tryRenderPendingPositions(): void {
@@ -3753,7 +3892,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.releaseLeafletControlPassiveTouchPatch();
 		this.overlayLayer = undefined;
-		this.trackCanvas = undefined;
 		this.hikingTrailsOverlay = undefined;
 		this.cyclingTrailsOverlay = undefined;
 		this.weatherRadarLoadRequestId++;
@@ -5618,7 +5756,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 			labelEl.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
 			const text = labelEl.querySelector('text');
 			if (text) {
-				text.textContent = `${Math.round(bearing) % 360}°`;
+				const distance = this.formatDistanceKmM(
+					L.latLng(from.lat, from.lng).distanceTo(L.latLng(to.lat, to.lng))
+				);
+				const label = distance ?? `${Math.round(bearing) % 360}°`;
+				text.textContent = label;
+				const rect = labelEl.querySelector('rect');
+				if (rect) {
+					const width = Math.max(52, Math.ceil(label.length * 7.4) + 14);
+					rect.setAttribute('width', String(width));
+					rect.setAttribute('x', String(-width / 2));
+				}
 			}
 		}
 	}
@@ -5641,6 +5789,25 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 		}
 		return 0;
+	}
+
+	/**
+	 * Rosace haut-centre : la pointe rouge reste sur le nord géographique.
+	 * Le pane carte est tourné de `bearing` dans le sens horaire, donc le nord
+	 * apparaît à l’écran avec ce même angle.
+	 */
+	private updateCompassRose(): void {
+		const refEl = this.mapEmbedHostRoot ? undefined : this.compassRoseDialRef?.nativeElement;
+		const dial = refEl?.isConnected ? refEl : this.findCompassRoseDial();
+		if (!dial) {
+			return;
+		}
+		dial.style.transform = `rotate(${this.currentMapBearingDeg().toFixed(1)}deg)`;
+	}
+
+	private findCompassRoseDial(): SVGSVGElement | null {
+		const wrapper = this.resolveMapContainerElement()?.closest('.map-wrapper');
+		return (wrapper?.querySelector('.trace-viewer-compass-rose-dial') as SVGSVGElement | null) ?? null;
 	}
 
 	/** Supprime le marqueur « position appareil » de la carte. */

@@ -420,7 +420,19 @@ export class ApiService {
 
   // Get the header with token for Keycloak Security
   private getHeaderWithToken(): Observable<HttpHeaders> {
-    return from(this._keycloakService.getToken()).pipe(
+    return this.authHeaders(true);
+  }
+
+  /**
+   * Webcam last/favorites are optional. getToken() must not call login() here:
+   * a refresh failure reloaded /tools/webcam in a loop.
+   */
+  private webcamAuthHeaders(): Observable<HttpHeaders> {
+    return this.authHeaders(false);
+  }
+
+  private authHeaders(redirectOnFailure: boolean): Observable<HttpHeaders> {
+    return from(this._keycloakService.getToken({ redirectOnFailure })).pipe(
       map((token: string) => {
         return new HttpHeaders({
           'Accept': 'application/json',
@@ -4866,7 +4878,7 @@ export class ApiService {
 
   /** GET /api/external/webcam/last — JWT required, per-user last opened webcam. */
   getWebcamLast(): Observable<WebcamItem | null> {
-    return this.getHeaderWithToken().pipe(
+    return this.webcamAuthHeaders().pipe(
       switchMap((headers) =>
         this._http.get<WebcamItem>(this.API_URL + 'external/webcam/last', {
           headers,
@@ -4878,7 +4890,7 @@ export class ApiService {
 
   /** PUT persist last opened webcam for the current user. */
   saveWebcamLast(webcam: WebcamItem): Observable<WebcamItem> {
-    return this.getHeaderWithToken().pipe(
+    return this.webcamAuthHeaders().pipe(
       switchMap((headers) =>
         this._http.put<WebcamItem>(this.API_URL + 'external/webcam/last', webcam, { headers })
       )
@@ -4887,7 +4899,7 @@ export class ApiService {
 
   /** GET /api/external/webcam/favorites — JWT required, per-user list. */
   getWebcamFavorites(): Observable<WebcamFavorites> {
-    return this.getHeaderWithToken().pipe(
+    return this.webcamAuthHeaders().pipe(
       switchMap((headers) =>
         this._http.get<WebcamFavorites>(this.API_URL + 'external/webcam/favorites', { headers })
       )
@@ -4896,7 +4908,7 @@ export class ApiService {
 
   /** PUT add one favorite webcam. */
   addWebcamFavorite(webcam: WebcamItem): Observable<WebcamFavorites> {
-    return this.getHeaderWithToken().pipe(
+    return this.webcamAuthHeaders().pipe(
       switchMap((headers) =>
         this._http.put<WebcamFavorites>(this.API_URL + 'external/webcam/favorites/item', webcam, {
           headers
@@ -4911,7 +4923,7 @@ export class ApiService {
     if (provider) {
       params = params.set('provider', provider);
     }
-    return this.getHeaderWithToken().pipe(
+    return this.webcamAuthHeaders().pipe(
       switchMap((headers) =>
         this._http.delete<WebcamFavorites>(this.API_URL + 'external/webcam/favorites/item', {
           headers,
