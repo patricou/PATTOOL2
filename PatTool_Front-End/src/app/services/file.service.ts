@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpResponse } from '@angular/common/http';
 
-import { Observable, from } from 'rxjs';
-import { map, shareReplay, switchMap } from 'rxjs/operators';
+import { Observable, from, of, throwError, firstValueFrom } from 'rxjs';
+import { finalize, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
 import { KeycloakService } from '../keycloak/keycloak.service';
@@ -33,6 +33,10 @@ export class FileService {
     private minimalAuthHeaders$?: Observable<HttpHeaders>;
     private minimalAuthHeadersAt = 0;
     private static readonly MINIMAL_HEADERS_TTL_MS = 20_000;
+    /** GPX/KML text already read in this session. Android WebView often cannot expose the same file as an ArrayBuffer. */
+    private readonly fileTextCache = new Map<string, string>();
+    private readonly fileTextInflight = new Map<string, Observable<string>>();
+    private static readonly FILE_TEXT_CACHE_MAX = 8;
 
     constructor(private _http: HttpClient, private _keycloakService: KeycloakService) {
     }
@@ -104,6 +108,33 @@ export class FileService {
                 this._http.get(this.API_URL + "file/" + fileId, { headers: headers, responseType: 'arraybuffer' })
             )
         );
+    }
+
+    /**
+     * Track files (GPX, KML, TCX, GeoJSON) as text.
+     * The Android WebView often returns an empty or unusable body when the same XML file is requested as an ArrayBuffer,
+     * which is why the photo wall could not open a trace. Text, then fetch, then a decoded buffer.
+     */
+    getFileText(fileId: string): Observable<string> {
+        const id = (fileId || '').trim();
+        if (!id) {
+            return throwError(() => new Error('missing file id'));
+        }
+        const cached = this.fileTextCache.get(id);
+        if (cached) {
+            return of(cached);
+        }
+        const pending = this.fileTextInflight.get(id);
+        if (pending) {
+            return pending;
+        }
+        const req = from(this.loadFileText(id)).pipe(
+            tap((text) => this.rememberFileText(id, text)),
+            finalize(() => this.fileTextInflight.delete(id)),
+            shareReplay({ bufferSize: 1, refCount: false })
+        );
+        this.fileTextInflight.set(id, req);
+        return req;
     }
 
     /** Downscaled JPEG preview for grids (photo wall). Backend supports ?maxEdge= (longest side in px). */
@@ -191,6 +222,104 @@ export class FileService {
         }
 
         return undefined;
+    }
+
+    private async loadFileText(fileId: string): Promise<string> {
+        const headers = await firstValueFrom(this.getHeaderWithTokenMinimal());
+        const url = this.API_URL + 'file/' + fileId;
+        const authorization = headers.get('Authorization') || '';
+        const attempts: Array<() => Promise<string>> = [
+            () => firstValueFrom(this._http.get(url, { headers, responseType: 'text' })),
+            () => this.fetchFileText(url, authorization),
+            async () => {
+                const payload = await firstValueFrom(
+                    this._http.get(url, { headers, responseType: 'arraybuffer' })
+                );
+                return this.decodeTrackBytes(payload);
+            }
+        ];
+        let lastError: unknown;
+        for (const attempt of attempts) {
+            try {
+                const text = await attempt();
+                if (this.looksLikeTrackText(text)) {
+                    return text.replace(/^\uFEFF/, '');
+                }
+            } catch (err) {
+                lastError = err;
+            }
+        }
+        throw lastError instanceof Error ? lastError : new Error('track file unreadable');
+    }
+
+    private async fetchFileText(url: string, authorization: string): Promise<string> {
+        const response = await fetch(url, {
+            headers: authorization ? { Authorization: authorization } : {}
+        });
+        if (!response.ok) {
+            throw new Error('track http ' + response.status);
+        }
+        return await response.text();
+    }
+
+    private looksLikeTrackText(text: string | null | undefined): text is string {
+        if (!text) {
+            return false;
+        }
+        const trimmed = text.trim();
+        if (trimmed.length < 8) {
+            return false;
+        }
+        const head = trimmed.slice(0, 240).toLowerCase();
+        return !head.startsWith('<!doctype') && !head.startsWith('<html');
+    }
+
+    private rememberFileText(fileId: string, text: string): void {
+        if (!this.looksLikeTrackText(text)) {
+            return;
+        }
+        if (this.fileTextCache.has(fileId)) {
+            this.fileTextCache.delete(fileId);
+        }
+        this.fileTextCache.set(fileId, text);
+        while (this.fileTextCache.size > FileService.FILE_TEXT_CACHE_MAX) {
+            const oldest = this.fileTextCache.keys().next().value as string | undefined;
+            if (!oldest) {
+                break;
+            }
+            this.fileTextCache.delete(oldest);
+        }
+    }
+
+    /** Android WebView may hand back a string, a typed array, or an ArrayBuffer from another realm. */
+    private decodeTrackBytes(payload: unknown): string {
+        if (typeof payload === 'string') {
+            return payload;
+        }
+        try {
+            let bytes: Uint8Array | null = null;
+            if (payload instanceof ArrayBuffer || Object.prototype.toString.call(payload) === '[object ArrayBuffer]') {
+                bytes = new Uint8Array(payload as ArrayBuffer);
+            } else if (ArrayBuffer.isView(payload)) {
+                bytes = new Uint8Array(payload.buffer, payload.byteOffset, payload.byteLength);
+            }
+            if (!bytes || bytes.byteLength === 0) {
+                return '';
+            }
+            try {
+                return new TextDecoder('utf-8').decode(bytes);
+            } catch {
+                let out = '';
+                const chunk = 0x8000;
+                for (let i = 0; i < bytes.length; i += chunk) {
+                    const slice = bytes.subarray(i, Math.min(bytes.length, i + chunk));
+                    out += String.fromCharCode.apply(null, Array.from(slice));
+                }
+                return out;
+            }
+        } catch {
+            return '';
+        }
     }
 
     // POST file to database    

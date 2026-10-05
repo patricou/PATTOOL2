@@ -2834,14 +2834,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 fileDateIso: null
             });
             const fileName = (link.path || '').trim() || 'track.gpx';
-            const sub = this.fileService.getFile(id).subscribe({
-                next: (buffer: ArrayBuffer) => {
+            const sub = this.fileService.getFileText(id).subscribe({
+                next: (text: string) => {
                     if (this.destroyed || gen !== this.timelineLoadGeneration) {
                         return;
                     }
                     this.scheduleWallTrackStatResult(gen, () => {
                         try {
-                            const text = new TextDecoder('utf-8').decode(buffer);
                             const stats = computeTrackStatsFromFileContent(fileName, text);
                             const dManual = (link.manualActivityDate || '').trim();
                             const fileDateIso = dManual
@@ -3124,9 +3123,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             return;
         }
         const fileName = (tr.path || '').trim() || 'track.gpx';
-        const sub = this.fileService.getFile(id).subscribe({
-            next: (buffer: ArrayBuffer) => {
-                const blob = new Blob([buffer], { type: 'application/octet-stream' });
+        const sub = this.fileService.getFileText(id).subscribe({
+            next: (text: string) => {
+                const blob = new Blob([text], { type: 'application/gpx+xml' });
                 if ((navigator as any).msSaveBlob) {
                     (navigator as any).msSaveBlob(blob, fileName);
                     return;
@@ -3241,10 +3240,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.wallOfflineSavingIds.add(id);
         this.cdr.markForCheck();
         try {
-            const buffer = await firstValueFrom(this.fileService.getFile(id)) as ArrayBuffer;
-            if (!(buffer instanceof ArrayBuffer) || buffer.byteLength <= 0) {
+            const text = await firstValueFrom(this.fileService.getFileText(id));
+            if (!text || !text.trim()) {
                 return false;
             }
+            const encoded = new TextEncoder().encode(text);
+            const buffer = new ArrayBuffer(encoded.byteLength);
+            new Uint8Array(buffer).set(encoded);
             const fileName = (tr.path || '').trim() || 'track.gpx';
             const title = (tr.description || '').trim() || fileName;
             const distanceKm = this.isManualTrackDistanceSet(tr)

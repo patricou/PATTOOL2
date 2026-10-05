@@ -26,7 +26,7 @@ import { isValidGeoCoordinate } from '../geo-coordinates.util';
 import { requestMotionPermissionIfNeeded } from '../device-motion-permission.util';
 import { GpsOfflineMapProgress, GpsOfflineMapService } from '../../services/gps-offline-map.service';
 import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../../gps-track/gps-offline-tiles.store';
-import { OfflineTraceSummary, OfflineTracesStore } from '../../gps-track/offline-traces.store';
+import { offlineTraceIdForWall, OfflineTraceSummary, OfflineTracesStore } from '../../gps-track/offline-traces.store';
 import { viewWindowFromMap } from '../../gps-track/gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
 import { isBrowserOffline } from '../browser-offline.util';
@@ -2596,16 +2596,56 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.isLoading = true;
 		this.cdr.detectChanges();
 
-		this.fileService.getFile(fileId).pipe(takeUntil(this.destroy$)).subscribe({
-			next: (payload: unknown) => {
-				void this.consumeTrackPayload(payload, fileName);
+		// Text first: the Android WebView often cannot read a GPX downloaded as an ArrayBuffer.
+		this.fileService.getFileText(fileId).pipe(takeUntil(this.destroy$)).subscribe({
+			next: (text: string) => {
+				this.consumeTrackText(text, fileName);
 			},
 			error: (err: unknown) => {
 				console.error('[TraceViewer] file download failed', fileId, err);
-				this.isLoading = false;
-				this.setError(this.translate('EVENTELEM.TRACK_LOAD_ERROR'));
+				void this.loadTrackFromOfflineCopy(fileId, fileName);
 			}
 		});
+	}
+
+	/** Device copy saved from the photo wall, when the network read failed. */
+	private async loadTrackFromOfflineCopy(fileId: string, fileName: string): Promise<void> {
+		try {
+			const rec = await this.offlineTraces.get(offlineTraceIdForWall(fileId));
+			const buffer = rec ? await this.toTrackArrayBuffer(rec.data) : null;
+			if (buffer) {
+				this.consumeTrackText(this.decodeArrayBuffer(buffer), rec?.fileName || fileName);
+				return;
+			}
+		} catch (err) {
+			console.error('[TraceViewer] offline track fallback failed', fileId, err);
+		}
+		this.isLoading = false;
+		this.setError(this.translate('EVENTELEM.TRACK_LOAD_ERROR'));
+	}
+
+	private consumeTrackText(text: string, fileName: string): void {
+		this.isLoading = true;
+		this.gpxAnalysis = null;
+		this.cdr.detectChanges();
+		try {
+			const source = (text || '').replace(/^\uFEFF/, '');
+			if (!source.trim()) {
+				this.setError(this.translate('EVENTELEM.TRACK_LOAD_ERROR'));
+				return;
+			}
+			const extension = this.getFileExtension(fileName);
+			this.tryAnalyzeGpx(fileName, source, source.length);
+			this.renderTrack(source, extension);
+		} catch (err) {
+			console.error('[TraceViewer] track read failed', fileName, err);
+			if (!this.pendingTrackPoints?.length && !this.lastRenderedTrackPoints?.length) {
+				this.setError(this.translate('EVENTELEM.TRACK_LOAD_ERROR'));
+			}
+		} finally {
+			this.isLoading = false;
+			this.cdr.detectChanges();
+		}
 	}
 
 	private readFromBlob(blob: Blob, fileName: string): void {
