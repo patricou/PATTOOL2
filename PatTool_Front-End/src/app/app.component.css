@@ -54,13 +54,56 @@
     border-radius: 4px;
 }
 
+.nav-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+}
+
+.nav-map-link,
 .nav-sos-link {
     display: inline-flex;
     align-items: center;
     align-self: center;
-    margin: 0 0.45rem 0 0.15rem;
+    margin: 0;
     text-decoration: none;
     flex-shrink: 0;
+}
+
+.nav-map-link {
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.nav-map-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.65rem;
+    padding: 0.22rem 0.55rem;
+    border-radius: 0.4rem;
+    background: #16a34a;
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    line-height: 1.2;
+    border: 1px solid rgba(187, 247, 208, 0.85);
+    box-shadow: 0 0 0 1px rgba(20, 83, 45, 0.35);
+}
+
+.nav-map-link:hover .nav-map-badge,
+.nav-map-link:focus-visible .nav-map-badge {
+    background: #15803d;
+    color: #fff;
+}
+
+.nav-map-link:focus-visible {
+    outline: 2px solid #bbf7d0;
+    outline-offset: 2px;
 }
 
 .nav-sos-badge {
@@ -146,7 +189,7 @@
     }
 
     .navbar-brand,
-    .nav-sos-link {
+    .nav-header-actions {
         align-self: stretch;
         display: flex;
         align-items: center;

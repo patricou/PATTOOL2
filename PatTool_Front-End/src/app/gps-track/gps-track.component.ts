@@ -568,14 +568,15 @@ export class GpsTrackComponent implements AfterViewInit, OnDestroy {
     const fileId = (this.snap.sourceFileId || '').trim();
     const fileName = this.currentTrackFileName() || this.snap.title || 'GPS';
     const src = this.snap.track.length >= 2 ? this.snap.track : this.snap.recorded;
-    if (fileId && src.length >= 2) {
-      this.traceViewer.openFromFile(fileId, fileName, undefined, this.snap.title);
-      return;
-    }
     if (src.length >= 2) {
       this.traceViewer.openWithTrackPoints(src.map((p) => ({ lat: p.lat, lng: p.lon })), fileName, {
-        initialBaseLayerId: this.mapBaseLayerId
+        initialBaseLayerId: this.mapBaseLayerId,
+        titleLabel: this.snap.title || fileName
       });
+      return;
+    }
+    if (fileId) {
+      this.traceViewer.openFromFile(fileId, fileName, undefined, this.snap.title);
       return;
     }
     const user = this.snap.user;

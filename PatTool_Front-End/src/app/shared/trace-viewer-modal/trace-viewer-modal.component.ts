@@ -60,6 +60,8 @@ interface TraceViewerSource {
 	positions?: Array<{ lat: number; lng: number; type?: string; datetime?: Date; label?: string }>;
 	/** Precomputed track polyline (e.g. GPS routing) — drawn like a GPX/GeoJSON file. */
 	trackPoints?: L.LatLngTuple[];
+	/** Several traces drawn together, each in its own color. */
+	traces?: { name: string; points: L.LatLngTuple[] }[];
 	/** When set (e.g. globe embed), selects this base layer id after layers are created. */
 	initialBaseLayerId?: string;
 }
@@ -148,7 +150,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public gpxAnalysis: GpxAnalysis | null = null;
 	public isFullscreen = false;
 	/** Carte : nord (boussole) / sens de marche / fixe (leaflet-rotate). */
-	public mapOrientation: TraceMapOrientation = 'north';
+	public mapOrientation: TraceMapOrientation = 'fixed';
 	readonly mapOrientations: { id: TraceMapOrientation; labelKey: string; hintKey: string; icon: string }[] = [
 		{ id: 'north', labelKey: 'GPS_ROUTING.ORIENT_NORTH', hintKey: 'GPS_ROUTING.ORIENT_NORTH_HINT', icon: 'fa-compass' },
 		{ id: 'heading', labelKey: 'GPS_ROUTING.ORIENT_HEADING', hintKey: 'GPS_ROUTING.ORIENT_WALK_HINT', icon: 'fa-location-arrow' },
@@ -291,6 +293,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private screenWakeLockReleaseHandler?: () => void;
 	private visibilityChangeHandler?: () => void;
 	private static readonly DEVICE_LOCATION_FOLLOW_INTERVAL_S = 5;
+	private static readonly MULTI_TRACE_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
 	/** Côté du marqueur position (px). Le centre est le point GPS. */
 	private static readonly DEVICE_MARKER_PX = 260;
 	/** Visible countdown (seconds until next update); 0 while an update is in progress. */
@@ -329,12 +332,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private offlineTracesModalRef?: NgbModalRef;
 	offlineTraceList: OfflineTraceSummary[] = [];
 	offlineTraceOpeningId: string | null = null;
+	selectedOfflineTraceIds: string[] = [];
+	/** Légende quand plusieurs traces sont affichées ensemble. */
+	displayedTraces: { name: string; color: string }[] = [];
 	offlineTracesError = '';
 	/** When set before `open()`, overrides default `NgbModal` options (e.g. attach into the globe div). */
 	private nextModalOptionsOverride: NgbModalOptions | null = null;
 	private map?: L.Map;
 	private overlayLayer?: L.LayerGroup;
 	private pendingTrackPoints: L.LatLngTuple[] | null = null;
+	private pendingTraces: { name: string; points: L.LatLngTuple[] }[] | null = null;
+	private lastRenderedTraces: { name: string; points: L.LatLngTuple[] }[] | null = null;
 	/**
 	 * Points already drawn. A stale modal `hidden` can destroy the map after the
 	 * pending list was consumed; the next map init redraws from this copy.
@@ -344,16 +352,22 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private trackOrientationCoords: L.LatLngTuple[] = [];
 	private mapOrientationWatchId: number | null = null;
 	private deviceHeadingDeg: number | null = null;
-	/** Cap boussole lissé : en mode Nord, ce cap est en haut de l’écran. */
+	/** Cap boussole filtré : cible du mode Nord (le rendu est interpolé à part). */
 	private compassNorthDeg: number | null = null;
+	/** Dernier cap brut accepté, pour ignorer les pics isolés du capteur. */
+	private lastRawCompassDeg: number | null = null;
 	/** Échantillons boussole très écartés, ignorés tant qu’ils ne se répètent pas. */
 	private compassOutlierStreak = 0;
+	/** Bearing affiché et cible — interpolation continue en mode Nord. */
+	private mapBearingGlideDisplayed: number | null = null;
+	private mapBearingGlideTarget: number | null = null;
+	private mapBearingGlideTs = 0;
+	private mapBearingGlideRaf: number | null = null;
 	/** Cap GPS reçu pendant un déplacement (vitesse suffisante). Prioritaire sur la boussole. */
 	private gpsCourseActive = false;
 	private compassListening = false;
 	private compassEventName: string | null = null;
 	private applyingMapBearing = false;
-	private lastCompassApplyMs = 0;
 	private lastGpsFix: { lat: number; lon: number } | null = null;
 	private routeHeadingDeg = 0;
 	private readonly onCompassOrientation = (event: Event): void => {
@@ -1045,7 +1059,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private hasPendingMapContent(): boolean {
-		return !!(this.pendingTrackPoints?.length || this.pendingPositions?.length || this.pendingLocation);
+		return !!(this.pendingTrackPoints?.length || this.pendingTraces?.length || this.pendingPositions?.length || this.pendingLocation);
 	}
 
 	private mapContainerIsSized(): boolean {
@@ -1456,6 +1470,89 @@ export class TraceViewerModalComponent implements OnDestroy {
 			/* ignore */
 		}
 		this.offlineTracesModalRef = undefined;
+	}
+
+	isOfflineTraceSelected(id: string): boolean {
+		return this.selectedOfflineTraceIds.includes(id);
+	}
+
+	toggleOfflineTraceSelection(id: string, checked: boolean): void {
+		if (!id) {
+			return;
+		}
+		if (checked) {
+			if (!this.selectedOfflineTraceIds.includes(id)) {
+				this.selectedOfflineTraceIds = [...this.selectedOfflineTraceIds, id];
+			}
+			return;
+		}
+		this.selectedOfflineTraceIds = this.selectedOfflineTraceIds.filter((item) => item !== id);
+	}
+
+	public async showSelectedOfflineTraces(): Promise<void> {
+		const ids = this.selectedOfflineTraceIds.filter((id) => this.offlineTraceList.some((trace) => trace.id === id));
+		if (!ids.length || this.offlineTraceOpeningId) {
+			return;
+		}
+		if (ids.length === 1) {
+			const one = this.offlineTraceList.find((trace) => trace.id === ids[0]);
+			if (one) {
+				await this.showOfflineTrace(one);
+			}
+			return;
+		}
+		this.offlineTraceOpeningId = ids[0];
+		this.offlineTracesError = '';
+		this.cdr.markForCheck();
+		try {
+			const traces: { name: string; points: L.LatLngTuple[] }[] = [];
+			for (const id of ids) {
+				const summary = this.offlineTraceList.find((trace) => trace.id === id);
+				const rec = await this.offlineTraces.get(id);
+				if (!rec) {
+					continue;
+				}
+				const buffer = await this.toTrackArrayBuffer(rec.data);
+				if (!buffer) {
+					continue;
+				}
+				const text = this.decodeArrayBuffer(buffer);
+				const ext = (rec.fileName || 'track.gpx').split('.').pop()?.toLowerCase() || 'gpx';
+				const points = this.parseTrack(text, ext);
+				if (points.length < 2) {
+					continue;
+				}
+				const name = (rec.title || summary?.title || rec.fileName || 'trace').trim();
+				traces.push({ name, points });
+			}
+			if (!traces.length) {
+				this.offlineTracesError = this.translate('EVENTELEM.OFFLINE_TRACES_MISSING');
+				return;
+			}
+			let opened = false;
+			const reopen = (): void => {
+				if (opened) {
+					return;
+				}
+				opened = true;
+				this.presentTraces(traces);
+			};
+			const ref = this.offlineTracesModalRef;
+			this.offlineTracesModalRef = undefined;
+			if (ref) {
+				ref.result.finally(() => reopen());
+				try {
+					ref.close();
+				} catch {
+					reopen();
+				}
+			} else {
+				reopen();
+			}
+		} finally {
+			this.offlineTraceOpeningId = null;
+			this.cdr.markForCheck();
+		}
 	}
 
 	public async showOfflineTrace(summary: OfflineTraceSummary): Promise<void> {
@@ -1892,6 +1989,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 			loc != null && isValidGeoCoordinate(loc.lat, loc.lng) ? loc : null;
 		this.pendingPositions = source.positions ?? null;
 		this.pendingTrackPoints = source.trackPoints?.length ? [...source.trackPoints] : null;
+		this.pendingTraces = source.traces?.length
+			? source.traces.map((trace) => ({ name: trace.name, points: trace.points.slice() }))
+			: null;
+		if (this.pendingTraces?.length) {
+			this.pendingTrackPoints = null;
+			this.pendingLocation = null;
+			this.pendingPositions = null;
+			this.trackStats = null;
+			this.gpxAnalysis = null;
+		}
 		if (this.pendingLocation) {
 			this.pendingTrackPoints = null;
 			this.trackStats = null;
@@ -1956,6 +2063,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.readFromBlob(source.blob, source.fileName);
 		} else if (source.fileId) {
 			this.loadFromFileId(source.fileId, source.fileName);
+		} else if (this.pendingTraces?.length) {
+			this.tryRenderPendingTrack();
 		} else if (this.pendingTrackPoints && this.pendingTrackPoints.length > 0) {
 			this.tryRenderPendingTrack();
 		} else if (source.positions && source.positions.length > 0) {
@@ -2437,7 +2546,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.trackStats = null;
 		this.gpxAnalysis = null;
 		this.pendingTrackPoints = null;
+		this.pendingTraces = null;
 		this.lastRenderedTrackPoints = null;
+		this.lastRenderedTraces = null;
+		this.displayedTraces = [];
 		this.pendingLocation = null;
 		this.pendingPositions = null;
 		this.trackBounds = null;
@@ -2485,12 +2597,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.cdr.detectChanges();
 
 		this.fileService.getFile(fileId).pipe(takeUntil(this.destroy$)).subscribe({
-			next: (buffer: ArrayBuffer) => {
-				this.isLoading = false;
-				const blob = new Blob([buffer]);
-				this.readFromBlob(blob, fileName);
+			next: (payload: unknown) => {
+				void this.consumeTrackPayload(payload, fileName);
 			},
-			error: () => {
+			error: (err: unknown) => {
+				console.error('[TraceViewer] file download failed', fileId, err);
 				this.isLoading = false;
 				this.setError(this.translate('EVENTELEM.TRACK_LOAD_ERROR'));
 			}
@@ -2498,22 +2609,96 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private readFromBlob(blob: Blob, fileName: string): void {
+		void this.consumeTrackPayload(blob, fileName);
+	}
+
+	/**
+	 * Android WebView often rejects Blob.arrayBuffer() or returns a typed array
+	 * instead of an ArrayBuffer. Read the bytes with a FileReader fallback.
+	 */
+	private async consumeTrackPayload(payload: unknown, fileName: string): Promise<void> {
 		this.isLoading = true;
 		this.gpxAnalysis = null;
 		this.cdr.detectChanges();
+		try {
+			const buffer = await this.toTrackArrayBuffer(payload);
+			if (!buffer || buffer.byteLength === 0) {
+				this.setError(this.translate('EVENTELEM.TRACK_LOAD_ERROR'));
+				return;
+			}
+			const extension = this.getFileExtension(fileName);
+			const text = this.decodeArrayBuffer(buffer);
+			this.tryAnalyzeGpx(fileName, text, buffer.byteLength);
+			this.renderTrack(text, extension);
+		} catch (err) {
+			console.error('[TraceViewer] track read failed', fileName, err);
+			this.setError(this.translate('EVENTELEM.TRACK_LOAD_ERROR'));
+		} finally {
+			this.isLoading = false;
+			this.cdr.detectChanges();
+		}
+	}
 
-		blob.arrayBuffer()
-			.then(buffer => {
-				const extension = this.getFileExtension(fileName);
-				const text = this.decodeArrayBuffer(buffer);
-				this.tryAnalyzeGpx(fileName, text, blob.size);
-				this.renderTrack(text, extension);
-			})
-			.catch(() => this.setError(this.translate('EVENTELEM.TRACK_LOAD_ERROR')))
-			.finally(() => {
-				this.isLoading = false;
-				this.cdr.detectChanges();
-			});
+	private async toTrackArrayBuffer(payload: unknown): Promise<ArrayBuffer | null> {
+		const rawBuffer = this.asArrayBuffer(payload);
+		if (rawBuffer) {
+			return rawBuffer;
+		}
+		if (ArrayBuffer.isView(payload)) {
+			if (payload.byteLength <= 0) {
+				return null;
+			}
+			const copy = new ArrayBuffer(payload.byteLength);
+			new Uint8Array(copy).set(new Uint8Array(payload.buffer, payload.byteOffset, payload.byteLength));
+			return copy;
+		}
+		if (typeof payload === 'string' && payload.trim()) {
+			return new TextEncoder().encode(payload).buffer;
+		}
+		if (typeof Blob !== 'undefined' && payload instanceof Blob && payload.size > 0) {
+			if (typeof payload.arrayBuffer === 'function') {
+				try {
+					const buffer = await payload.arrayBuffer();
+					if (buffer.byteLength > 0) {
+						return buffer;
+					}
+				} catch {
+					/* WebView: fall through to FileReader */
+				}
+			}
+			return this.readBlobWithFileReader(payload);
+		}
+		return null;
+	}
+
+	/** `instanceof ArrayBuffer` est faux pour certains buffers du WebView Android. */
+	private asArrayBuffer(payload: unknown): ArrayBuffer | null {
+		if (!payload || typeof payload !== 'object') {
+			return null;
+		}
+		const isBuffer = payload instanceof ArrayBuffer
+			|| Object.prototype.toString.call(payload) === '[object ArrayBuffer]';
+		if (!isBuffer) {
+			return null;
+		}
+		const buffer = payload as ArrayBuffer;
+		return buffer.byteLength > 0 ? buffer : null;
+	}
+
+	private readBlobWithFileReader(blob: Blob): Promise<ArrayBuffer> {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => {
+				const result = reader.result;
+				if (result instanceof ArrayBuffer && result.byteLength > 0) {
+					resolve(result);
+					return;
+				}
+				reject(new Error('empty track file'));
+			};
+			reader.onerror = () => reject(reader.error || new Error('track file read failed'));
+			reader.readAsArrayBuffer(blob);
+		});
 	}
 
 	/** Populate `gpxAnalysis` when the loaded content is a GPX file. */
@@ -2682,7 +2867,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/** Redraw a track whose pending list was already consumed before a stale map destroy. */
 	private restorePendingTrackFromLastRender(): void {
-		if (this.pendingTrackPoints?.length || this.pendingPositions?.length || this.pendingLocation) {
+		if (this.pendingTraces?.length || this.pendingTrackPoints?.length || this.pendingPositions?.length || this.pendingLocation) {
+			return;
+		}
+		if (this.lastRenderedTraces?.length) {
+			this.pendingTraces = this.lastRenderedTraces.map((trace) => ({ name: trace.name, points: trace.points.slice() }));
 			return;
 		}
 		if (this.lastRenderedTrackPoints?.length) {
@@ -2695,13 +2884,107 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!this.map) {
 			return;
 		}
-		if (!this.pendingTrackPoints?.length && !this.trackBounds?.isValid()) {
+		if (!this.pendingTrackPoints?.length && !this.pendingTraces?.length && !this.trackBounds?.isValid()) {
 			this.map.setView([46.2, 2.2], 6);
 		}
 	}
 
+	private drawMultipleTraces(traces: { name: string; points: L.LatLngTuple[] }[]): void {
+		if (!this.map || !this.overlayLayer) {
+			return;
+		}
+		const drawable = traces.filter((trace) => trace.points.length >= 2);
+		if (!drawable.length) {
+			this.setError(this.translate('EVENTELEM.TRACK_NO_POINTS'));
+			return;
+		}
+		this.overlayLayer.clearLayers();
+		const colors = TraceViewerModalComponent.MULTI_TRACE_COLORS;
+		const legend: { name: string; color: string }[] = [];
+		const stored: { name: string; points: L.LatLngTuple[] }[] = [];
+		const allPoints: L.LatLngTuple[] = [];
+		let distanceKm = 0;
+		drawable.forEach((trace, index) => {
+			const color = colors[index % colors.length];
+			const line = L.polyline(this.pointsForPolyline(trace.points), {
+				color,
+				weight: 4,
+				opacity: 0.9
+			});
+			line.bindTooltip(trace.name, { sticky: true });
+			line.addTo(this.overlayLayer!);
+			L.circleMarker(trace.points[0], {
+				radius: 5,
+				color: '#ffffff',
+				weight: 2,
+				fillColor: color,
+				fillOpacity: 1
+			}).bindTooltip(trace.name).addTo(this.overlayLayer!);
+			const end = trace.points[trace.points.length - 1];
+			L.circleMarker(end, {
+				radius: 5,
+				color,
+				weight: 2,
+				fillColor: '#ffffff',
+				fillOpacity: 1
+			}).bindTooltip(trace.name).addTo(this.overlayLayer!);
+			legend.push({ name: trace.name, color });
+			stored.push({ name: trace.name, points: trace.points.slice() });
+			allPoints.push(...trace.points);
+			const km = this.computeDistance(trace.points);
+			if (km != null && Number.isFinite(km)) {
+				distanceKm += km;
+			}
+		});
+		this.displayedTraces = legend;
+		this.lastRenderedTraces = stored;
+		this.lastRenderedTrackPoints = allPoints;
+		this.locationRecenterZoom = null;
+		this.trackOrientationCoords = drawable[0].points.slice();
+		this.updateRouteHeadingFromTrack();
+		const bounds = L.latLngBounds(allPoints);
+		this.trackBounds = bounds;
+		this.map.invalidateSize({ animate: false });
+		this.fitMapToTrackBounds(bounds);
+		this.noteTrackFitted();
+		this.scheduleMapInvalidateAfterFit();
+		this.clearPendingRenderRetry();
+		this.hasError = false;
+		this.trackStats = {
+			points: allPoints.length,
+			distanceKm: Math.round(distanceKm * 100) / 100
+		};
+		this.applyMapBearing();
+		this.cdr.detectChanges();
+	}
+
+	private presentTraces(traces: { name: string; points: L.LatLngTuple[] }[]): void {
+		const title = traces.length === 1
+			? traces[0].name
+			: this.translate('EVENTELEM.OFFLINE_TRACES_MULTI', { count: traces.length });
+		this.eventColor = null;
+		if (this.modalRef) {
+			this.trackFileName = title;
+			this.gpsSourceFileId = null;
+			this.gpsSourceFileName = traces.map((trace) => trace.name).join(', ');
+			this.hasError = false;
+			this.errorMessage = '';
+			this.isLoading = false;
+			this.gpxAnalysis = null;
+			this.pendingLocation = null;
+			this.pendingPositions = null;
+			this.pendingTraces = traces.map((trace) => ({ name: trace.name, points: trace.points.slice() }));
+			this.pendingTrackPoints = null;
+			this.ensureMapInitialization();
+			this.tryRenderPendingTrack();
+			this.cdr.detectChanges();
+			return;
+		}
+		this.open({ fileName: title, titleLabel: title, traces });
+	}
+
 	private tryRenderPendingTrack(): void {
-		if (!this.map || !this.overlayLayer || !this.pendingTrackPoints) {
+		if (!this.map || !this.overlayLayer || (!this.pendingTrackPoints && !this.pendingTraces?.length)) {
 			return;
 		}
 
@@ -2709,8 +2992,22 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
+		if (this.pendingTraces?.length) {
+			const traces = this.pendingTraces;
+			this.pendingTraces = null;
+			this.pendingTrackPoints = null;
+			this.drawMultipleTraces(traces);
+			return;
+		}
+
 		const points = this.pendingTrackPoints;
+		if (!points) {
+			return;
+		}
 		this.pendingTrackPoints = null;
+		this.pendingTraces = null;
+		this.lastRenderedTraces = null;
+		this.displayedTraces = [];
 		this.lastRenderedTrackPoints = points.slice();
 		this.locationRecenterZoom = null;
 		this.trackOrientationCoords = points.slice();
@@ -3324,7 +3621,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.trackStats = null;
 		this.gpxAnalysis = null;
 		this.pendingTrackPoints = null;
+		this.pendingTraces = null;
 		this.lastRenderedTrackPoints = null;
+		this.lastRenderedTraces = null;
+		this.displayedTraces = [];
 		this.gpsSourceFileId = null;
 		this.gpsSourceFileName = '';
 		this.trackOrientationCoords = [];
@@ -3333,7 +3633,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.compassNorthDeg = null;
 		this.gpsCourseActive = false;
 		this.lastGpsFix = null;
-		this.mapOrientation = 'north';
+		this.mapOrientation = 'fixed';
 		this.stopMapOrientationWatch();
 		this.pendingLocation = null;
 		this.pendingPositions = null;
@@ -4771,6 +5071,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private stopMapOrientationWatch(): void {
 		this.stopGpsOrientationWatch();
 		this.stopCompassHeading();
+		this.stopMapBearingGlide();
 	}
 
 	private stopGpsOrientationWatch(): void {
@@ -4841,7 +5142,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.compassListening = false;
 		this.compassNorthDeg = null;
+		this.lastRawCompassDeg = null;
 		this.compassOutlierStreak = 0;
+		this.stopMapBearingGlide();
 	}
 
 	private consumeCompassOrientation(event: DeviceOrientationEvent): void {
@@ -4853,32 +5156,24 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (typeof accuracy === 'number' && accuracy < 0) {
 			return;
 		}
-		if (this.compassNorthDeg == null) {
-			this.compassNorthDeg = heading;
-			this.compassOutlierStreak = 0;
-		} else {
-			let diff = heading - this.compassNorthDeg;
-			if (diff > 180) {
-				diff -= 360;
-			} else if (diff < -180) {
-				diff += 360;
-			}
-			if (Math.abs(diff) > 45) {
+		if (this.lastRawCompassDeg != null) {
+			const jump = Math.abs(this.shortestAngleDelta(this.lastRawCompassDeg, heading));
+			if (jump > 55) {
 				this.compassOutlierStreak += 1;
-				if (this.compassOutlierStreak < 6) {
+				if (this.compassOutlierStreak < 3) {
 					return;
 				}
 			} else {
 				this.compassOutlierStreak = 0;
 			}
-			const step = Math.max(-4, Math.min(4, diff * 0.18));
-			this.compassNorthDeg = this.wrapDeg(this.compassNorthDeg + step);
 		}
-		const now = Date.now();
-		if (now - this.lastCompassApplyMs < 160) {
-			return;
+		this.lastRawCompassDeg = heading;
+		if (this.compassNorthDeg == null) {
+			this.compassNorthDeg = heading;
+		} else {
+			const diff = this.shortestAngleDelta(this.compassNorthDeg, heading);
+			this.compassNorthDeg = this.wrapDeg(this.compassNorthDeg + diff * 0.55);
 		}
-		this.lastCompassApplyMs = now;
 		if (this.mapOrientation === 'north') {
 			this.applyMapBearing();
 		} else {
@@ -4915,6 +5210,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private wrapDeg(deg: number): number {
 		return ((deg % 360) + 360) % 360;
+	}
+
+	/** Plus court écart signé, dans ]-180, 180]. */
+	private shortestAngleDelta(from: number, to: number): number {
+		let diff = to - from;
+		if (diff > 180) {
+			diff -= 360;
+		} else if (diff < -180) {
+			diff += 360;
+		}
+		return diff;
 	}
 
 	private updateRouteHeadingFromTrack(): void {
@@ -4972,8 +5278,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.syncDeviceLocationArrows();
 				return;
 			}
-			bearing = this.compassNorthDeg;
-		} else if (this.mapOrientation === 'heading') {
+			this.glideMapBearing(this.wrapDeg(this.compassNorthDeg));
+			return;
+		}
+		this.stopMapBearingGlide();
+		if (this.mapOrientation === 'heading') {
 			if (this.deviceHeadingDeg == null) {
 				this.syncDeviceLocationArrows();
 				return;
@@ -4986,9 +5295,74 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.syncDeviceLocationArrows();
 			return;
 		}
+		this.commitMapBearing(map, next);
+	}
+
+	/**
+	 * Mode Nord : le capteur met à jour la cible, le bearing affiché la rejoint
+	 * en continu (exponentielle, sans dépassement). Évite les sauts de 4° toutes les 160 ms.
+	 */
+	private glideMapBearing(target: number): void {
+		this.mapBearingGlideTarget = target;
+		if (this.mapBearingGlideDisplayed == null) {
+			this.mapBearingGlideDisplayed = this.currentMapBearingDeg();
+		}
+		if (this.mapBearingGlideRaf != null) {
+			return;
+		}
+		const initial = this.shortestAngleDelta(this.mapBearingGlideDisplayed, target);
+		if (Math.abs(initial) < 0.12) {
+			this.syncDeviceLocationArrows();
+			return;
+		}
+		this.mapBearingGlideTs = 0;
+		const tick = (ts: number): void => {
+			const map = this.map as RotatableLeafletMap | undefined;
+			const displayed = this.mapBearingGlideDisplayed;
+			const goal = this.mapBearingGlideTarget;
+			if (
+				this.mapOrientation !== 'north'
+				|| displayed == null
+				|| goal == null
+				|| !map
+				|| typeof map.setBearing !== 'function'
+			) {
+				this.mapBearingGlideRaf = null;
+				return;
+			}
+			const dt = this.mapBearingGlideTs
+				? Math.min(0.05, (ts - this.mapBearingGlideTs) / 1000)
+				: 1 / 60;
+			this.mapBearingGlideTs = ts;
+			const delta = this.shortestAngleDelta(displayed, goal);
+			if (Math.abs(delta) < 0.08) {
+				this.mapBearingGlideDisplayed = goal;
+				this.commitMapBearing(map, goal);
+				this.mapBearingGlideRaf = null;
+				return;
+			}
+			const alpha = 1 - Math.exp(-dt / 0.12);
+			this.mapBearingGlideDisplayed = this.wrapDeg(displayed + delta * alpha);
+			this.commitMapBearing(map, this.mapBearingGlideDisplayed);
+			this.mapBearingGlideRaf = requestAnimationFrame(tick);
+		};
+		this.mapBearingGlideRaf = requestAnimationFrame(tick);
+	}
+
+	private stopMapBearingGlide(): void {
+		if (this.mapBearingGlideRaf != null && typeof cancelAnimationFrame === 'function') {
+			cancelAnimationFrame(this.mapBearingGlideRaf);
+		}
+		this.mapBearingGlideRaf = null;
+		this.mapBearingGlideDisplayed = null;
+		this.mapBearingGlideTarget = null;
+		this.mapBearingGlideTs = 0;
+	}
+
+	private commitMapBearing(map: RotatableLeafletMap, bearing: number): void {
 		this.applyingMapBearing = true;
 		try {
-			map.setBearing(next);
+			map.setBearing?.(bearing);
 		} catch {
 			/* plugin not ready */
 		} finally {
@@ -5065,7 +5439,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (this.deviceLocationMarker) {
 			this.deviceLocationMarker.setLatLng([lat, lng]);
 			this.deviceLocationMarker.setZIndexOffset(3000);
-			if (!this.deviceLocationMarker.getElement()?.querySelector('.device-location-north line')) {
+			if (!this.deviceLocationMarker.getElement()?.querySelector('svg[data-arrow-style="thin-label"]')) {
 				this.deviceLocationMarker.setIcon(this.deviceLocationIcon());
 			}
 			this.syncDeviceLocationArrows();
@@ -5098,21 +5472,25 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const size = TraceViewerModalComponent.DEVICE_MARKER_PX;
 		const c = size / 2;
 		return `<div title="${northLabel}" style="width:${size}px;height:${size}px;overflow:visible;pointer-events:none;">` +
-			`<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;">` +
-			`<g class="device-location-target" style="display:none">${this.deviceDirectionArrowSvg('#16a34a')}</g>` +
-			`<g class="device-location-north">${this.deviceDirectionArrowSvg('#e10600')}</g>` +
+			`<svg data-arrow-style="thin-label" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;">` +
+			`<g class="device-location-target" style="display:none" opacity="0.8">${this.deviceDirectionArrowSvg('#16a34a')}</g>` +
+			`<g class="device-location-north" style="display:none" opacity="0.8">${this.deviceDirectionArrowSvg('#e10600')}</g>` +
 			`<circle cx="${c}" cy="${c}" r="8" fill="#e10600" stroke="#ffffff" stroke-width="2.5"/>` +
+			`<g class="device-location-target-label" style="display:none">` +
+			`<rect x="-22" y="-10" width="44" height="20" rx="5" fill="rgba(255,255,255,0.92)" stroke="#16a34a" stroke-width="1"/>` +
+			`<text x="0" y="4" text-anchor="middle" font-size="12" font-weight="700" font-family="system-ui, sans-serif" fill="#15803d"></text>` +
+			`</g>` +
 			`</svg></div>`;
 	}
 
-	/** Trait depuis la position, puis une pointe. Même géométrie pour les deux couleurs. */
+	/** Trait fin depuis la position, puis une petite pointe. Même géométrie pour les deux couleurs. */
 	private deviceDirectionArrowSvg(color: string): string {
 		const c = TraceViewerModalComponent.DEVICE_MARKER_PX / 2;
-		const tip = 8;
-		const base = 40;
-		return `<line x1="${c}" y1="${c}" x2="${c}" y2="${base - 4}" stroke="#ffffff" stroke-width="7" stroke-linecap="round"/>` +
-			`<line x1="${c}" y1="${c}" x2="${c}" y2="${base - 4}" stroke="${color}" stroke-width="4" stroke-linecap="round"/>` +
-			`<polygon points="${c},${tip} ${c - 16},${base} ${c + 16},${base}" fill="${color}" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>`;
+		const tip = 58;
+		const base = 78;
+		return `<line x1="${c}" y1="${c - 12}" x2="${c}" y2="${base - 2}" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>` +
+			`<line x1="${c}" y1="${c - 12}" x2="${c}" y2="${base - 2}" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>` +
+			`<polygon points="${c},${tip} ${c - 7},${base} ${c + 7},${base}" fill="${color}" stroke="#ffffff" stroke-width="1.25" stroke-linejoin="round"/>`;
 	}
 
 	/** Aligne la flèche rouge sur le nord et la flèche verte sur l’adresse choisie. */
@@ -5121,7 +5499,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!marker) {
 			return;
 		}
-		if (!marker.getElement()?.querySelector('.device-location-north line')) {
+		if (!marker.getElement()?.querySelector('svg[data-arrow-style="thin-label"]')) {
 			marker.setIcon(this.deviceLocationIcon());
 		}
 		const root = marker.getElement();
@@ -5132,26 +5510,50 @@ export class TraceViewerModalComponent implements OnDestroy {
 		root.style.border = 'none';
 		root.style.overflow = 'visible';
 		root.style.pointerEvents = 'none';
+		const showArrows = this.mapOrientation === 'north';
 		const mapBearing = this.currentMapBearingDeg();
 		const pivot = TraceViewerModalComponent.DEVICE_MARKER_PX / 2;
 		const north = root.querySelector('.device-location-north') as SVGGElement | null;
 		if (north) {
-			north.setAttribute('transform', `rotate(${mapBearing} ${pivot} ${pivot})`);
+			if (!showArrows) {
+				north.style.display = 'none';
+			} else {
+				north.style.display = '';
+				north.setAttribute('transform', `rotate(${mapBearing} ${pivot} ${pivot})`);
+			}
 		}
 		const targetEl = root.querySelector('.device-location-target') as SVGGElement | null;
+		const labelEl = root.querySelector('.device-location-target-label') as SVGGElement | null;
 		const from = this.deviceLocationLatLng;
 		const to = this.directionTarget;
 		if (!targetEl) {
 			return;
 		}
-		if (!from || !to) {
+		if (!showArrows || !from || !to) {
 			targetEl.style.display = 'none';
 			targetEl.removeAttribute('transform');
+			if (labelEl) {
+				labelEl.style.display = 'none';
+			}
 			return;
 		}
 		targetEl.style.display = '';
 		const bearing = this.bearingDeg(from.lat, from.lng, to.lat, to.lng);
-		targetEl.setAttribute('transform', `rotate(${bearing + mapBearing} ${pivot} ${pivot})`);
+		const screenAngle = bearing + mapBearing;
+		targetEl.setAttribute('transform', `rotate(${screenAngle} ${pivot} ${pivot})`);
+		if (labelEl) {
+			// Étiquette droite (non tournée) posée au bout de la flèche verte : cap en degrés par rapport au nord.
+			const radius = pivot - 40;
+			const rad = screenAngle * Math.PI / 180;
+			const x = pivot + radius * Math.sin(rad);
+			const y = pivot - radius * Math.cos(rad);
+			labelEl.style.display = '';
+			labelEl.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+			const text = labelEl.querySelector('text');
+			if (text) {
+				text.textContent = `${Math.round(bearing) % 360}°`;
+			}
+		}
 	}
 
 	private bearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {

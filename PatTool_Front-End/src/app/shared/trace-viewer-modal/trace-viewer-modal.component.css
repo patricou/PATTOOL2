@@ -1706,6 +1706,31 @@
 	font-size: 0.95rem;
 }
 
+@media (max-width: 768px), (orientation: landscape) and (max-height: 500px) {
+	.trace-viewer-orient-btn span,
+	.fullscreen-selector-orient .btn span {
+		display: none;
+	}
+
+	.trace-viewer-orient-btn {
+		width: 2rem;
+		padding: 0;
+		gap: 0;
+	}
+
+	.fullscreen-selector-orient .btn {
+		width: 2rem;
+		min-width: 2rem;
+		padding: 0.2rem;
+		justify-content: center;
+	}
+
+	.fullscreen-selector-orient .btn i {
+		margin-right: 0 !important;
+		margin-left: 0 !important;
+	}
+}
+
 .trace-viewer-orient-btn:hover:not(:disabled) {
 	background: rgba(15, 118, 110, 0.12);
 	color: #0f766e;
@@ -3258,6 +3283,45 @@
 	max-height: min(70vh, 640px) !important;
 }
 
+.trace-viewer-legend {
+	position: absolute;
+	z-index: 500;
+	left: 10px;
+	bottom: 28px;
+	margin: 0;
+	padding: 0.35rem 0.5rem;
+	list-style: none;
+	max-width: min(16rem, 70%);
+	max-height: 40%;
+	overflow: auto;
+	background: rgba(255, 255, 255, 0.92);
+	border-radius: 8px;
+	box-shadow: 0 1px 4px rgba(15, 23, 42, 0.2);
+}
+
+.trace-viewer-legend li {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-size: 0.75rem;
+	line-height: 1.3;
+	color: #1e293b;
+}
+
+.trace-viewer-legend-swatch {
+	flex: 0 0 auto;
+	width: 0.7rem;
+	height: 0.7rem;
+	border-radius: 2px;
+}
+
+.trace-viewer-legend-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 ::ng-deep .trace-viewer-offline-traces-modal .tv-offline-trace-row {
 	display: flex !important;
 	flex-direction: row !important;
@@ -3270,6 +3334,18 @@
 	color: #1e293b !important;
 	width: 100% !important;
 	min-width: 0 !important;
+}
+
+::ng-deep .trace-viewer-offline-traces-modal .tv-offline-trace-check {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	margin: 0.15rem 0 0;
+}
+
+::ng-deep .trace-viewer-offline-traces-modal .tv-offline-trace-check input {
+	width: 1.05rem;
+	height: 1.05rem;
 }
 
 ::ng-deep .trace-viewer-offline-traces-modal .tv-offline-trace-copy {

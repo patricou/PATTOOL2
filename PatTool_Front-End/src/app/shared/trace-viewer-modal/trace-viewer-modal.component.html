@@ -46,6 +46,13 @@
           </button>
         </div>
 
+        <ul class="trace-viewer-legend" *ngIf="displayedTraces.length > 1">
+          <li *ngFor="let trace of displayedTraces">
+            <span class="trace-viewer-legend-swatch" [style.background]="trace.color"></span>
+            <span class="trace-viewer-legend-name">{{ trace.name }}</span>
+          </li>
+        </ul>
+
         <div *ngIf="showGpsCoordinates" class="gps-coordinates-overlay">
           <div class="gps-coordinates-box">
             <i class="fa fa-map-marker me-1"></i>
@@ -1027,6 +1034,12 @@
     <p class="text-danger mb-2" *ngIf="offlineTracesError">{{ offlineTracesError }}</p>
     <ul class="list-unstyled mb-0" *ngIf="offlineTraceList.length">
       <li class="tv-offline-trace-row" *ngFor="let trace of offlineTraceList">
+        <label class="tv-offline-trace-check">
+          <input type="checkbox"
+                 [checked]="isOfflineTraceSelected(trace.id)"
+                 (change)="toggleOfflineTraceSelection(trace.id, $any($event.target).checked)"
+                 [attr.aria-label]="'EVENTELEM.OFFLINE_TRACES_SELECT' | translate">
+        </label>
         <div class="tv-offline-trace-copy">
           <div class="fw-semibold text-break">{{ trace.title || trace.fileName }}</div>
           <div class="small text-muted tv-offline-trace-meta">
@@ -1058,6 +1071,13 @@
     </ul>
   </div>
   <div class="modal-footer offline-traces-modal-footer">
+    <button type="button"
+            class="btn btn-primary"
+            [disabled]="!selectedOfflineTraceIds.length || !!offlineTraceOpeningId"
+            (click)="showSelectedOfflineTraces()">
+      <i class="fa" [ngClass]="offlineTraceOpeningId ? 'fa-spinner fa-spin' : 'fa-map'" aria-hidden="true"></i>
+      <span class="ms-1">{{ 'EVENTELEM.OFFLINE_TRACES_SHOW_SELECTED' | translate:{ count: selectedOfflineTraceIds.length } }}</span>
+    </button>
     <button type="button"
             class="btn btn-secondary"
             (click)="closeOfflineTracesModal()">

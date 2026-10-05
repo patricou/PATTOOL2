@@ -8,14 +8,23 @@
         <img src="assets/images/pat.png" width="30" height="30" class="d-inline-block" alt="">
         {{ 'MENU.BRAND' | translate }}
     </a>
-    <a class="nav-sos-link"
-       [routerLink]="['sos']"
-       routerLinkActive="nav-sos-link-active"
-       (click)="closeMenu()"
-       [attr.title]="'MENU.SOS' | translate"
-       [attr.aria-label]="'MENU.SOS' | translate">
-        <span class="nav-sos-badge">SOS</span>
-    </a>
+    <div class="nav-header-actions">
+        <button type="button"
+                class="nav-map-link"
+                (click)="openMapTraceViewer()"
+                [attr.title]="'MENU.MAP_TRACE_VIEWER' | translate"
+                [attr.aria-label]="'MENU.MAP_TRACE_VIEWER' | translate">
+            <span class="nav-map-badge">MAP</span>
+        </button>
+        <a class="nav-sos-link"
+           [routerLink]="['sos']"
+           routerLinkActive="nav-sos-link-active"
+           (click)="closeMenu()"
+           [attr.title]="'MENU.SOS' | translate"
+           [attr.aria-label]="'MENU.SOS' | translate">
+            <span class="nav-sos-badge">SOS</span>
+        </a>
+    </div>
 
     <!-- Mobile toggle button -->
     <button class="navbar-toggler" type="button" 
