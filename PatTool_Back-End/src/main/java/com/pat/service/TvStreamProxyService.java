@@ -255,8 +255,9 @@ public class TvStreamProxyService {
 
         String referer = resolveReferer(host);
 
-        // Cap Terre: serve .ts from RAM when prefetched (player otherwise waits ~5–6 s/seg).
-        if (isCapTerreUpstream(upstreamUrl) && rangeHeader == null) {
+        // Cap Terre / Mezzo: serve .ts from RAM when prefetched (player otherwise
+        // waits out a sliding window of only ~4 segments and the oldest 404).
+        if ((isCapTerreUpstream(upstreamUrl) || isMezzoOtcnetUpstream(upstreamUrl)) && rangeHeader == null) {
             CapTerreCachedSegment cached = getCapTerreCachedSegment(upstreamUrl);
             if (cached != null) {
                 HttpHeaders headers = new HttpHeaders();
@@ -304,13 +305,19 @@ public class TvStreamProxyService {
             String playlistBase = (fetched.finalUrl != null && !fetched.finalUrl.isBlank())
                     ? fetched.finalUrl : upstreamUrl;
             String rawPlaylist = new String(body, StandardCharsets.UTF_8);
-            if (isCapTerreUpstream(upstreamUrl) || isCapTerreUpstream(playlistBase)) {
+            if (isMezzoOtcnetUpstream(upstreamUrl) || isMezzoOtcnetUpstream(playlistBase)) {
+                // 4×5 s window. hls.js liveSyncDurationCount (8) starts on the oldest
+                // segment, which 404s before the proxied download finishes.
+                rawPlaylist = keepNewestLiveSegments(rawPlaylist, 2);
+            }
+            if (isCapTerreUpstream(upstreamUrl) || isCapTerreUpstream(playlistBase)
+                    || isMezzoOtcnetUpstream(upstreamUrl) || isMezzoOtcnetUpstream(playlistBase)) {
                 scheduleCapTerrePrefetch(rawPlaylist, playlistBase, referer);
             }
             String rewritten = rewritePlaylist(rawPlaylist, playlistBase, proxyBase);
             body = rewritten.getBytes(StandardCharsets.UTF_8);
             contentType = "application/vnd.apple.mpegurl; charset=utf-8";
-        } else if (isCapTerreUpstream(upstreamUrl)) {
+        } else if (isCapTerreUpstream(upstreamUrl) || isMezzoOtcnetUpstream(upstreamUrl)) {
             putCapTerreCachedSegment(upstreamUrl, body, contentType);
         }
 
@@ -325,7 +332,8 @@ public class TvStreamProxyService {
         if (fetched.acceptRanges != null) {
             headers.set(HttpHeaders.ACCEPT_RANGES, fetched.acceptRanges);
         }
-        if (isCapTerreUpstream(upstreamUrl) && !isPlaylist(upstreamUrl, contentType, body)) {
+        if ((isCapTerreUpstream(upstreamUrl) || isMezzoOtcnetUpstream(upstreamUrl))
+                && !isPlaylist(upstreamUrl, contentType, body)) {
             headers.set("X-PatTool-CapTerre-Cache", "MISS");
         }
 
@@ -447,6 +455,96 @@ public class TvStreamProxyService {
         return true;
     }
 
+    /** Public Mezzo on {@code live-*.otcnet.ru} (Streamer). */
+    static boolean isMezzoOtcnetUpstream(String url) {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        String u = url.toLowerCase(Locale.ROOT);
+        return u.contains("otcnet.ru") && u.contains("/mezzo/");
+    }
+
+    /**
+     * Mezzo's otcnet media playlist is only ~4×5 s. Drop the oldest segments so the
+     * player starts on media that is still on the origin when the request arrives.
+     * Master playlists are returned unchanged. {@code #EXT-X-PROGRAM-DATE-TIME} is
+     * removed because it describes the dropped head.
+     */
+    static String keepNewestLiveSegments(String playlist, int keep) {
+        if (playlist == null || playlist.isBlank() || keep < 1) {
+            return playlist;
+        }
+        String[] lines = playlist.split("\\R", -1);
+        boolean media = false;
+        boolean master = false;
+        for (String line : lines) {
+            if (line == null) {
+                continue;
+            }
+            String t = line.trim();
+            if (t.startsWith("#EXT-X-STREAM-INF")) {
+                master = true;
+            }
+            if (t.startsWith("#EXTINF")) {
+                media = true;
+            }
+        }
+        if (master || !media) {
+            return playlist;
+        }
+        java.util.ArrayList<String> headers = new java.util.ArrayList<>();
+        java.util.ArrayList<String[]> pairs = new java.util.ArrayList<>();
+        String pendingInf = null;
+        for (String line : lines) {
+            if (line == null) {
+                continue;
+            }
+            String t = line.trim();
+            if (t.isEmpty() || t.startsWith("#EXT-X-PROGRAM-DATE-TIME")) {
+                continue;
+            }
+            if (t.startsWith("#EXTINF")) {
+                pendingInf = line;
+                continue;
+            }
+            if (pendingInf != null && !t.startsWith("#")) {
+                pairs.add(new String[] { pendingInf, line });
+                pendingInf = null;
+                continue;
+            }
+            headers.add(line);
+            pendingInf = null;
+        }
+        if (pairs.size() <= keep) {
+            return playlist;
+        }
+        int drop = pairs.size() - keep;
+        StringBuilder out = new StringBuilder(playlist.length());
+        boolean first = true;
+        for (String header : headers) {
+            String trimmed = header.trim();
+            if (trimmed.startsWith("#EXT-X-MEDIA-SEQUENCE:")) {
+                String raw = trimmed.substring("#EXT-X-MEDIA-SEQUENCE:".length()).trim();
+                try {
+                    long seq = Long.parseLong(raw);
+                    header = "#EXT-X-MEDIA-SEQUENCE:" + (seq + drop);
+                } catch (NumberFormatException ignored) {
+                    // keep the original tag
+                }
+            }
+            if (!first) {
+                out.append('\n');
+            }
+            out.append(header);
+            first = false;
+        }
+        for (int i = drop; i < pairs.size(); i++) {
+            out.append('\n').append(pairs.get(i)[0]);
+            out.append('\n').append(pairs.get(i)[1]);
+        }
+        return out.toString();
+    }
+
     /** Cap Terre iptv-org FR entry: {@code http://145.239.5.177/359a/…}. */
     static boolean isCapTerreUpstream(String url) {
         if (url == null || url.isBlank()) {
@@ -521,7 +619,7 @@ public class TvStreamProxyService {
                 continue;
             }
             String segUrl = absolute.toString();
-            if (!isCapTerreUpstream(segUrl)) {
+            if (!isCapTerreUpstream(segUrl) && !isMezzoOtcnetUpstream(segUrl)) {
                 continue;
             }
             String path = absolute.getPath();

@@ -109,6 +109,7 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   }
   // Mezzo: the iptv-org country playlist still points at str2.iptvhd.ru, which
   // answers HTTP 403 (deny_token). Mezzo Live stays on its own mirror.
+  // The otcnet window is only ~20 s; the player must stay near the live edge.
   if (isMezzoChannel(channel)) {
     return MEZZO_PUBLIC_HLS;
   }
@@ -280,7 +281,7 @@ function isCapTerreStreamUrl(url: string): boolean {
 
 /**
  * Live-edge seeks poison MSE on IPTV mirrors that lag behind realtime
- * (TF1/M6/RTS, ARTE LIVE failover, Cap Terre slow 1080p).
+ * (TF1/M6/RTS, ARTE LIVE failover, Cap Terre, Mezzo's 20 s window).
  */
 export function shouldSkipTvLiveEdgeWatchdog(
   streamUrl: string,
@@ -291,7 +292,23 @@ export function shouldSkipTvLiveEdgeWatchdog(
     || isRtsVirtual(streamUrl)
     || isArteLiveVirtual(streamUrl)
     || isCapTerreChannel(channel || streamUrl)
+    || isMezzoChannel(channel) || isMezzoChannel(streamUrl)
     || isBfmSfrNcdn(streamUrl);
+}
+
+/**
+ * Live playlists with only ~4×5 s of media (Cap Terre, Mezzo on otcnet).
+ * The default hls.js sync (8 fragments behind) starts on segments that have
+ * already left the window.
+ */
+export function usesTightLiveWindow(
+  channelOrUrl:
+    | string
+    | { name?: string | null; id?: string | null; streamUrl?: string | null }
+    | null
+    | undefined
+): boolean {
+  return isCapTerreChannel(channelOrUrl) || isMezzoChannel(channelOrUrl);
 }
 
 /**

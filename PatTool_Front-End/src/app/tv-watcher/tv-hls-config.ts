@@ -14,9 +14,9 @@ export type TvHlsPlaybackMode = 'live' | 'vod';
  */
 export type TvHlsConfigOptions = {
   /**
-   * Cap Terre–class: bare-HTTP 1080p with a tiny live window (~4×5 s segments).
-   * Stay near the *live* edge (old segments 404 within seconds), never force-seek on
-   * latency, and pace below 1× when the download cannot keep realtime.
+   * Cap Terre / Mezzo: tiny live window (~4×5 s segments).
+   * Stay near the live edge (old segments 404 within seconds) and never force-seek
+   * on latency. Playback-rate pacing is separate and Cap Terre only.
    */
   slowMirror?: boolean;
 };

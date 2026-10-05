@@ -17,6 +17,7 @@ import {
   internetArchiveIdFromVirtualUrl,
   isCanalGroupVirtual,
   isCapTerreChannel,
+  usesTightLiveWindow,
   isFranceTvVirtual,
   isInternetArchiveVirtual,
   isKeepAliveVirtualLive,
@@ -511,7 +512,8 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
         progressive,
         channelLabel: channel.name,
         skipLiveEdgeWatchdog: shouldSkipTvLiveEdgeWatchdog(streamUrl, channel),
-        slowMirror: isCapTerreChannel(channel) || isCapTerreChannel(streamUrl),
+        slowMirror: usesTightLiveWindow(channel) || usesTightLiveWindow(streamUrl),
+        paceBelowRealtime: isCapTerreChannel(channel) || isCapTerreChannel(streamUrl),
         onBuffering: (v) => {
           this.isBuffering = v;
           this.cdr.markForCheck();

@@ -41,6 +41,7 @@ import {
   isRtsVirtual,
   isShareSafeStreamToken,
   isCapTerreChannel,
+  usesTightLiveWindow,
   isTf1Virtual,
   needsProactiveTokenRenewal,
   resolveTvStreamUrl,
@@ -4857,7 +4858,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     // HLS — that path hangs on proxied ARTE CMAF (demuxed) VOD.
     if (Hls.isSupported()) {
       const vod = isArteReplayVod(streamUrl);
-      const slowMirror = isCapTerreChannel(channel) || isCapTerreChannel(streamUrl);
+      const capTerre = isCapTerreChannel(channel) || isCapTerreChannel(streamUrl);
+      const slowMirror = usesTightLiveWindow(channel) || usesTightLiveWindow(streamUrl);
       this.hls = new Hls(createTvHlsConfig(vod ? 'vod' : 'live', { slowMirror }));
       this.hls.loadSource(effectiveProxyUrl);
       this.hls.attachMedia(video);
@@ -4890,7 +4892,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       } catch {
         /* ignore */
       }
-      this.detachSlowMirrorPace = slowMirror
+      this.detachSlowMirrorPace = capTerre
         ? attachTvSlowMirrorPaceGuard(video, channel.name, (buffering) => {
             this.isBuffering = buffering;
             this.cdr.markForCheck();

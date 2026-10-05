@@ -340,6 +340,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private nextModalOptionsOverride: NgbModalOptions | null = null;
 	private map?: L.Map;
 	private overlayLayer?: L.LayerGroup;
+	/** Canvas, not SVG: a long GPX path blanks the tile pane on the Android WebView. */
+	private trackCanvas?: L.Canvas;
 	private pendingTrackPoints: L.LatLngTuple[] | null = null;
 	private pendingTraces: { name: string; points: L.LatLngTuple[] }[] | null = null;
 	private lastRenderedTraces: { name: string; points: L.LatLngTuple[] }[] | null = null;
@@ -1062,14 +1064,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return !!(this.pendingTrackPoints?.length || this.pendingTraces?.length || this.pendingPositions?.length || this.pendingLocation);
 	}
 
-	private mapContainerIsSized(): boolean {
+	private mapContainerIsSized(minPx = 2): boolean {
 		const el = this.map?.getContainer();
-		return !!el && el.offsetWidth >= 2 && el.offsetHeight >= 2;
+		return !!el && el.offsetWidth >= minPx && el.offsetHeight >= minPx;
 	}
 
-	/** True when the draw must wait: the phone modal is still 0×0. */
-	private deferRenderUntilMapSized(): boolean {
-		if (this.mapContainerIsSized()) {
+	/** True when the draw must wait: the phone modal is still too small for a real fitBounds. */
+	private deferRenderUntilMapSized(minPx = 2): boolean {
+		if (this.mapContainerIsSized(minPx)) {
 			return false;
 		}
 		this.schedulePendingRenderRetry();
@@ -2446,6 +2448,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.forceCrosshairCursor();
 
 		this.overlayLayer = L.layerGroup().addTo(this.map);
+		this.trackCanvas = L.canvas({ padding: 0.5 });
 		this.restorePendingTrackFromLastRender();
 		this.applyInitialMapViewForPendingTrackData();
 		this.applySelectedBaseLayer();
@@ -2890,9 +2893,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		window.setTimeout(refit, 600);
 	}
 
-	/** SVG paths with 10k+ points often fail to paint in the Android WebView. */
+	/** SVG paths with thousands of points blank the tile pane in the Android WebView. */
 	private pointsForPolyline(points: L.LatLngTuple[]): L.LatLngTuple[] {
-		const max = 3500;
+		const android = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+		const max = android ? 900 : 3500;
 		if (points.length <= max) {
 			return points;
 		}
@@ -2947,6 +2951,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		drawable.forEach((trace, index) => {
 			const color = colors[index % colors.length];
 			const line = L.polyline(this.pointsForPolyline(trace.points), {
+				renderer: this.trackCanvas,
 				color,
 				weight: 4,
 				opacity: 0.9
@@ -2995,6 +3000,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			distanceKm: Math.round(distanceKm * 100) / 100
 		};
 		this.applyMapBearing();
+		this.redrawActiveBasemap();
 		this.cdr.detectChanges();
 	}
 
@@ -3028,7 +3034,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
-		if (this.deferRenderUntilMapSized()) {
+		if (this.deferRenderUntilMapSized(160)) {
 			return;
 		}
 
@@ -3056,6 +3062,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.overlayLayer.clearLayers();
 
 		const polyline = L.polyline(this.pointsForPolyline(points), {
+			renderer: this.trackCanvas,
 			color: '#007bff',
 			weight: 4,
 			opacity: 0.9
@@ -3094,7 +3101,26 @@ export class TraceViewerModalComponent implements OnDestroy {
 			distanceKm: this.computeDistance(points)
 		};
 		this.applyMapBearing();
+		this.redrawActiveBasemap();
 		this.cdr.detectChanges();
+	}
+
+	/** A heavy overlay can leave the raster pane blank on Android; ask the basemap to paint again. */
+	private redrawActiveBasemap(): void {
+		const layer = this.activeBaseLayer;
+		if (!this.map || !layer) {
+			return;
+		}
+		const redraw = (child: L.Layer): void => {
+			if (child instanceof L.TileLayer) {
+				child.redraw();
+			}
+		};
+		if (layer instanceof L.TileLayer) {
+			redraw(layer);
+			return;
+		}
+		layer.eachLayer(redraw);
 	}
 
 	private tryRenderPendingPositions(): void {
@@ -3727,6 +3753,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.releaseLeafletControlPassiveTouchPatch();
 		this.overlayLayer = undefined;
+		this.trackCanvas = undefined;
 		this.hikingTrailsOverlay = undefined;
 		this.cyclingTrailsOverlay = undefined;
 		this.weatherRadarLoadRequestId++;

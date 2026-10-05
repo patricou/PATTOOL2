@@ -48,9 +48,15 @@ export interface TvHlsPlaybackCallbacks {
    */
   skipLiveEdgeWatchdog?: boolean;
   /**
-   * Cap Terre–class: deeper buffer + stay far behind live (download ≈ realtime).
+   * Tiny live window (Cap Terre, Mezzo): stay near the live edge.
+   * Does not slow the playback rate — that is {@link paceBelowRealtime}.
    */
   slowMirror?: boolean;
+  /**
+   * Cap Terre only: lock playback under 1× because each segment downloads
+   * about as slowly as it plays. Do not set this for Mezzo (CDN is faster than realtime).
+   */
+  paceBelowRealtime?: boolean;
   /** Progressive MP4/WebM (Internet Archive) — use video.src instead of hls.js. */
   progressive?: boolean;
   /** Channel display name for console diagnostics ({@code [TV] Cap Terre — …}). */
@@ -318,7 +324,7 @@ export function startTvHlsPlayback(
       channelLabel,
       slowMirror ? 2_500 : 0
     );
-    detachSlowPace = slowMirror
+    detachSlowPace = callbacks.paceBelowRealtime
       ? attachTvSlowMirrorPaceGuard(video, channelLabel, (buffering) => setBuffering(buffering))
       : null;
     tvPlayLog('lecture HLS démarrée (float/popout, diag spinner actif)', {
