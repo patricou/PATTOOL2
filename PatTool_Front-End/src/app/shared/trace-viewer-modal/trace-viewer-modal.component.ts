@@ -413,6 +413,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public currentZoom: number = 6;
 	/** True after the map is initialized (enables zoom overlay). */
 	public isMapReady = false;
+	/**
+	 * Cached viewport flag for the template.
+	 * A live read of innerWidth/innerHeight flips when the modal scrollbar appears (NG0100).
+	 */
+	public isMobileViewport = false;
 	/** Affiche l’interrupteur « garder l’écran actif » (mobile + Wake Lock API). */
 	public showKeepScreenAwakeSwitch = false;
 	readonly screenWakeLockAvailable =
@@ -2123,10 +2128,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const hostOpt = modalOpts.container;
 		this.mapEmbedHostRoot =
 			typeof HTMLElement !== 'undefined' && hostOpt instanceof HTMLElement ? hostOpt : undefined;
+		this.refreshTraceViewerViewportFlags();
 		this.modalRef = this.modalService.open(this.traceViewerModal, modalOpts);
 		this.hasEmittedClosed = false;
-		this.refreshTraceViewerViewportFlags();
 		this.registerMobileViewportListener();
+		// Scrollbar from the opened modal can change innerWidth. Apply that on the next tick
+		// so the *ngIf value stays stable for the check that open() already ran.
+		window.setTimeout(() => {
+			if (!this.modalRef) {
+				return;
+			}
+			this.refreshTraceViewerViewportFlags();
+			this.scheduleTraceViewerCdr();
+		}, 0);
 
 		const finalizeModal = () => {
 			// Ignore stale closed/dismissed from a modal that was replaced by a newer open().
@@ -3015,20 +3029,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 		window.setTimeout(refit, 600);
 	}
 
-	/** SVG paths with thousands of points blank the tile pane in the Android WebView. */
-	private pointsForPolyline(points: L.LatLngTuple[]): L.LatLngTuple[] {
-		const android = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
-		const max = android ? 900 : 3500;
-		if (points.length <= max) {
-			return points;
-		}
-		const step = Math.ceil((points.length - 1) / (max - 1));
-		const out: L.LatLngTuple[] = [];
-		for (let i = 0; i < points.length - 1; i += step) {
-			out.push(points[i]);
-		}
-		out.push(points[points.length - 1]);
-		return out;
+	/**
+	 * Every GPS vertex is drawn. Leaflet’s default smoothFactor (1 px) drops
+	 * points closer than a pixel, which is much more visible on a phone where
+	 * the whole track fits in fewer pixels. Canvas (preferCanvas) already
+	 * avoids the Android WebView blank-tile bug of a huge SVG path.
+	 */
+	private trackPolylineOptions(color: string): L.PolylineOptions {
+		return {
+			color,
+			weight: 4,
+			opacity: 0.9,
+			smoothFactor: 0
+		};
 	}
 
 	/** Redraw a track whose pending list was already consumed before a stale map destroy. */
@@ -3110,11 +3123,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		let distanceKm = 0;
 		drawable.forEach((trace, index) => {
 			const color = colors[index % colors.length];
-			const line = L.polyline(this.pointsForPolyline(trace.points), {
-				color,
-				weight: 4,
-				opacity: 0.9
-			});
+			const line = L.polyline(trace.points, this.trackPolylineOptions(color));
 			line.bindTooltip(trace.name, { sticky: true });
 			line.addTo(this.overlayLayer!);
 			L.circleMarker(trace.points[0], {
@@ -3220,11 +3229,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.ensureFiniteMapView(points[Math.floor(points.length / 2)]);
 		this.overlayLayer.clearLayers();
 
-		const polyline = L.polyline(this.pointsForPolyline(points), {
-			color: '#007bff',
-			weight: 4,
-			opacity: 0.9
-		});
+		const polyline = L.polyline(points, this.trackPolylineOptions('#007bff'));
 
 		polyline.addTo(this.overlayLayer);
 		polyline.bringToFront();
@@ -4005,6 +4010,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.isFullscreenInfoVisible = false;
 				this.isFullscreenOptionsExpanded = false;
 			}
+			this.refreshTraceViewerViewportFlags();
 			this.cdr.detectChanges();
 			setTimeout(() => {
 				this.syncMapLayoutCore();
@@ -4024,10 +4030,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
-	public isMobileViewport(): boolean {
-		return this.computeMobileViewport();
-	}
-
 	private computeMobileViewport(): boolean {
 		return (
 			this.document.defaultView != null &&
@@ -4036,7 +4038,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private refreshTraceViewerViewportFlags(): void {
-		this.showKeepScreenAwakeSwitch = this.computeMobileViewport() && this.screenWakeLockAvailable;
+		const mobile = this.computeMobileViewport();
+		this.isMobileViewport = mobile;
+		this.showKeepScreenAwakeSwitch = mobile && this.screenWakeLockAvailable;
 	}
 
 	private registerMobileViewportListener(): void {
@@ -4046,11 +4050,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		this.mobileViewportResizeHandler = () => {
-			const next = this.computeMobileViewport() && this.screenWakeLockAvailable;
-			if (next === this.showKeepScreenAwakeSwitch) {
+			const mobile = this.computeMobileViewport();
+			const nextAwake = mobile && this.screenWakeLockAvailable;
+			if (mobile === this.isMobileViewport && nextAwake === this.showKeepScreenAwakeSwitch) {
 				return;
 			}
-			this.showKeepScreenAwakeSwitch = next;
+			this.isMobileViewport = mobile;
+			this.showKeepScreenAwakeSwitch = nextAwake;
 			this.scheduleTraceViewerCdr();
 		};
 		win.addEventListener('resize', this.mobileViewportResizeHandler, { passive: true });
@@ -4143,7 +4149,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			if (!landscape.matches || !this.modalRef || this.document.fullscreenElement) {
 				return;
 			}
-			if (this.isMobileViewport()) {
+			if (this.computeMobileViewport()) {
 				this.toggleFullscreen();
 			}
 		};

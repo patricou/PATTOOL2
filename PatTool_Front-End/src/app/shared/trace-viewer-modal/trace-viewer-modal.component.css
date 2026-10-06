@@ -919,6 +919,18 @@
 		justify-content: center;
 		flex: 0 0 2.15rem !important;
 	}
+
+	/* Bouton « traces hors-ligne » : garde le badge compteur à l’intérieur (pas de carré forcé) */
+	.fullscreen-offline-row .btn.tv-offline-traces-btn {
+		width: auto !important;
+		max-width: none !important;
+		padding: 0 0.45rem !important;
+		flex: 0 0 auto !important;
+		gap: 0.25rem;
+	}
+	.fullscreen-offline-row .btn.tv-offline-traces-btn .tv-offline-traces-count {
+		margin-left: 0;
+	}
 }
 
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-note {
@@ -956,6 +968,13 @@
 
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-stats-inline .trace-stats {
 	justify-content: flex-end;
+}
+
+/* Mobile (portrait ou paysage) : pas de stats points / km / zoom dans le footer */
+@media (max-width: 768px), (max-height: 500px) {
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-stats-inline {
+		display: none !important;
+	}
 }
 
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-row--bottom {
@@ -1681,8 +1700,16 @@
 	transform-origin: 50% 50%;
 }
 
+.map-wrapper:fullscreen .trace-viewer-compass-rose,
+.map-wrapper:-webkit-full-screen .trace-viewer-compass-rose,
+.map-wrapper:-moz-full-screen .trace-viewer-compass-rose,
+.map-wrapper:-ms-fullscreen .trace-viewer-compass-rose {
+	top: 32px;
+}
+
 @media (max-width: 768px), (orientation: landscape) and (max-height: 500px) {
 	.trace-viewer-compass-rose {
+		top: 32px;
 		width: 34px;
 		height: 34px;
 	}
@@ -1809,18 +1836,100 @@
 	overflow: hidden;
 }
 
-.fullscreen-selector--collapsed {
-	min-width: auto;
-	max-width: none;
-	max-height: none;
-	padding: 0.35rem 0.45rem;
+/*
+ * Replié : pas de carte autour, juste deux boutons flottants (style contrôles Leaflet).
+ * Pas de pseudo-classes vendeur (:-webkit-full-screen, :-moz-full-screen…) dans ces
+ * sélecteurs : un navigateur qui n’en connaît pas une jette toute la règle. La
+ * spécificité (≥ 0,5,0) suffit à passer devant `.map-wrapper:fullscreen .fullscreen-selector .btn`.
+ */
+.map-wrapper .fullscreen-selector.fullscreen-selector--collapsed {
+	min-width: auto !important;
+	max-width: none !important;
+	max-height: none !important;
+	width: auto !important;
+	padding: 0 !important;
+	background: transparent !important;
+	border: 0 !important;
+	box-shadow: none !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
 	overflow: visible;
 }
 
 .fullscreen-selector-collapsed-actions {
 	display: flex;
 	align-items: center;
-	gap: 0.35rem;
+	gap: 0.5rem;
+}
+
+.map-wrapper .fullscreen-selector.fullscreen-selector--collapsed .fullscreen-selector-collapsed-actions .btn.btn-sm {
+	box-sizing: border-box;
+	width: 2.5rem !important;
+	min-width: 2.5rem !important;
+	height: 2.5rem !important;
+	min-height: 2.5rem !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	display: inline-flex !important;
+	align-items: center;
+	justify-content: center;
+	border-radius: 8px !important;
+	/* Fond légèrement transparent ; la modale est rendue hors de :host, donc pas de variables --tv-*. */
+	background: rgba(255, 255, 255, 0.82) !important;
+	background-color: rgba(255, 255, 255, 0.82) !important;
+	border: 1px solid rgba(15, 23, 42, 0.22) !important;
+	color: var(--tv-text, #1e293b) !important;
+	box-shadow: var(--tv-card-shadow, 0 4px 14px rgba(15, 23, 42, 0.25)) !important;
+	font-size: 1rem !important;
+	line-height: 1 !important;
+}
+
+.map-wrapper .fullscreen-selector.fullscreen-selector--collapsed .fullscreen-selector-collapsed-actions .btn.btn-sm i {
+	font-size: 1rem !important;
+	margin: 0 !important;
+	color: var(--tv-text, #1e293b) !important;
+}
+
+.map-wrapper .fullscreen-selector.fullscreen-selector--collapsed .fullscreen-selector-collapsed-actions .btn.btn-sm:hover,
+.map-wrapper .fullscreen-selector.fullscreen-selector--collapsed .fullscreen-selector-collapsed-actions .btn.btn-sm:focus-visible {
+	background: #ffffff !important;
+	background-color: #ffffff !important;
+	border-color: #20c997 !important;
+	color: #0f172a !important;
+}
+
+.map-wrapper .fullscreen-selector.fullscreen-selector--collapsed .fullscreen-selector-collapsed-actions .btn.btn-sm:hover i,
+.map-wrapper .fullscreen-selector.fullscreen-selector--collapsed .fullscreen-selector-collapsed-actions .btn.btn-sm:focus-visible i {
+	color: #0f172a !important;
+}
+
+/* Bouton Options replié : deux fois plus large, bleu, icône blanche. */
+.map-wrapper .fullscreen-selector.fullscreen-selector--collapsed .fullscreen-selector-collapsed-actions .btn.btn-sm.fullscreen-selector-expand-btn {
+	width: 5rem !important;
+	min-width: 5rem !important;
+	background: rgba(13, 110, 253, 0.82) !important;
+	background-color: rgba(13, 110, 253, 0.82) !important;
+	border-color: rgba(11, 94, 215, 0.9) !important;
+	color: #ffffff !important;
+	font-size: 1.15rem !important;
+}
+
+.map-wrapper .fullscreen-selector.fullscreen-selector--collapsed .fullscreen-selector-collapsed-actions .btn.btn-sm.fullscreen-selector-expand-btn i {
+	font-size: 1.15rem !important;
+	color: #ffffff !important;
+}
+
+.map-wrapper .fullscreen-selector.fullscreen-selector--collapsed .fullscreen-selector-collapsed-actions .btn.btn-sm.fullscreen-selector-expand-btn:hover,
+.map-wrapper .fullscreen-selector.fullscreen-selector--collapsed .fullscreen-selector-collapsed-actions .btn.btn-sm.fullscreen-selector-expand-btn:focus-visible {
+	background: #0b5ed7 !important;
+	background-color: #0b5ed7 !important;
+	border-color: #0a58ca !important;
+	color: #ffffff !important;
+}
+
+.map-wrapper .fullscreen-selector.fullscreen-selector--collapsed .fullscreen-selector-collapsed-actions .btn.btn-sm.fullscreen-selector-expand-btn:hover i,
+.map-wrapper .fullscreen-selector.fullscreen-selector--collapsed .fullscreen-selector-collapsed-actions .btn.btn-sm.fullscreen-selector-expand-btn:focus-visible i {
+	color: #ffffff !important;
 }
 
 .fullscreen-selector-expand-btn {
@@ -1843,10 +1952,40 @@
 	font-size: 0.85rem;
 }
 
-.fullscreen-selector-collapse-btn {
-	flex-shrink: 0;
-	padding: 0.15rem 0.45rem;
-	line-height: 1;
+/* Bouton « replier » du header : 2× plus grand, fond bleu translucide, chevron blanc. */
+.map-wrapper .fullscreen-selector .fullscreen-selector-header .btn.btn-sm.fullscreen-selector-collapse-btn {
+	box-sizing: border-box;
+	flex: 0 0 auto;
+	width: 3.5rem !important;
+	min-width: 3.5rem !important;
+	height: 2rem !important;
+	min-height: 2rem !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	display: inline-flex !important;
+	align-items: center;
+	justify-content: center;
+	border-radius: 8px !important;
+	background: rgba(13, 110, 253, 0.82) !important;
+	background-color: rgba(13, 110, 253, 0.82) !important;
+	border: 1px solid rgba(11, 94, 215, 0.9) !important;
+	color: #ffffff !important;
+	font-size: 1.1rem !important;
+	line-height: 1 !important;
+}
+
+.map-wrapper .fullscreen-selector .fullscreen-selector-header .btn.btn-sm.fullscreen-selector-collapse-btn i {
+	font-size: 1.1rem !important;
+	margin: 0 !important;
+	color: #ffffff !important;
+}
+
+.map-wrapper .fullscreen-selector .fullscreen-selector-header .btn.btn-sm.fullscreen-selector-collapse-btn:hover,
+.map-wrapper .fullscreen-selector .fullscreen-selector-header .btn.btn-sm.fullscreen-selector-collapse-btn:focus-visible {
+	background: #0b5ed7 !important;
+	background-color: #0b5ed7 !important;
+	border-color: #0a58ca !important;
+	color: #ffffff !important;
 }
 
 .fullscreen-selector-header .fullscreen-exit-btn,

@@ -296,7 +296,6 @@
                     [attr.aria-label]="'COMMUN.OPTIONS' | translate"
                     [attr.aria-expanded]="false">
               <i class="fa fa-sliders" aria-hidden="true"></i>
-              <i class="fa fa-chevron-up ms-1" aria-hidden="true"></i>
             </button>
             <button type="button"
                     class="btn btn-sm btn-secondary fullscreen-exit-btn tv-tip"
@@ -599,7 +598,8 @@
           <label class="form-check-label" for="tv-offline-source">{{ 'GPS.OFFLINE_MAP_BTN' | translate }}</label>
         </div>
       </div>
-      <div class="trace-viewer-footer-stats-inline d-flex flex-wrap align-items-center justify-content-end gap-2 flex-grow-1 ms-auto min-w-0">
+      <div class="trace-viewer-footer-stats-inline d-flex flex-wrap align-items-center justify-content-end gap-2 flex-grow-1 ms-auto min-w-0"
+           *ngIf="!isMobileViewport">
         <div class="trace-stats" *ngIf="trackStats && !hasError">
           <span>
             <i class="fa fa-map-marker me-1" aria-hidden="true"></i>
@@ -610,7 +610,7 @@
             {{ 'EVENTELEM.TRACK_DISTANCE' | translate:{ km: trackStats.distanceKm } }}
           </span>
         </div>
-        <div class="trace-stats" *ngIf="isMapReady && !isMobileViewport()">
+        <div class="trace-stats" *ngIf="isMapReady">
           <span class="zoom-footer-label"><i class="fa fa-search me-1" aria-hidden="true"></i>{{ 'EVENTELEM.TRACK_FOOTER_ZOOM_SHORT' | translate }} {{ currentZoom | number:'1.1-2' }}</span>
         </div>
       </div>
@@ -715,7 +715,7 @@
       <div class="trace-viewer-footer-buttons-group d-flex align-items-center flex-nowrap">
       <button type="button"
               class="btn btn-success flex-shrink-0 tv-open-gps-btn tv-tip"
-              *ngIf="!isFullscreen && canOpenGpsFollow && !isMobileViewport()"
+              *ngIf="!isFullscreen && canOpenGpsFollow && !isMobileViewport"
               (click)="openGpsFollow()"
               [attr.data-tv-tip]="'EVENTELEM.TRACK_OPEN_GPS' | translate"
               [attr.aria-label]="'EVENTELEM.TRACK_OPEN_GPS' | translate">
