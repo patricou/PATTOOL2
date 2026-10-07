@@ -1797,14 +1797,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return this.formatDistanceKmM(meters);
 	}
 
-	public directionLiveDistanceLabel(): string | null {
-		const to = this.directionTarget;
-		if (!to) {
-			return null;
-		}
-		return this.directionDistanceLabel(to.lat, to.lng);
-	}
-
 	private formatDistanceKmM(meters: number): string | null {
 		if (!Number.isFinite(meters) || meters < 0) {
 			return null;
@@ -5687,10 +5679,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 			`<g class="device-location-target" style="display:none" opacity="0.8">${this.deviceDirectionArrowSvg('#16a34a')}</g>` +
 			`<g class="device-location-north" style="display:none" opacity="0.8">${this.deviceDirectionArrowSvg('#e10600')}</g>` +
 			`<circle cx="${c}" cy="${c}" r="8" fill="#e10600" stroke="#ffffff" stroke-width="2.5"/>` +
-			`<g class="device-location-target-label" style="display:none">` +
-			`<rect x="-22" y="-10" width="44" height="20" rx="5" fill="rgba(255,255,255,0.92)" stroke="#16a34a" stroke-width="1"/>` +
-			`<text x="0" y="4" text-anchor="middle" font-size="12" font-weight="700" font-family="system-ui, sans-serif" fill="#15803d"></text>` +
-			`</g>` +
 			`</svg></div>`;
 	}
 
@@ -5704,13 +5692,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 			`<polygon points="${c},${tip} ${c - 7},${base} ${c + 7},${base}" fill="${color}" stroke="#ffffff" stroke-width="1.25" stroke-linejoin="round"/>`;
 	}
 
-	/** Aligne la flèche rouge sur le nord et la flèche verte sur l’adresse choisie. */
+	/** Flèche rouge = nord (mode Nord seulement). Flèche verte = adresse, dans les 3 modes. */
 	private syncDeviceLocationArrows(): void {
 		const marker = this.deviceLocationMarker;
 		if (!marker) {
 			return;
 		}
-		if (!marker.getElement()?.querySelector('svg[data-arrow-style="thin-label"]')) {
+		const markerEl = marker.getElement();
+		if (!markerEl?.querySelector('svg[data-arrow-style="thin-label"]') || markerEl.querySelector('.device-location-target-label')) {
 			marker.setIcon(this.deviceLocationIcon());
 		}
 		const root = marker.getElement();
@@ -5721,12 +5710,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		root.style.border = 'none';
 		root.style.overflow = 'visible';
 		root.style.pointerEvents = 'none';
-		const showArrows = this.mapOrientation === 'north';
 		const mapBearing = this.currentMapBearingDeg();
 		const pivot = TraceViewerModalComponent.DEVICE_MARKER_PX / 2;
 		const north = root.querySelector('.device-location-north') as SVGGElement | null;
 		if (north) {
-			if (!showArrows) {
+			if (this.mapOrientation !== 'north') {
 				north.style.display = 'none';
 			} else {
 				north.style.display = '';
@@ -5734,47 +5722,21 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 		}
 		const targetEl = root.querySelector('.device-location-target') as SVGGElement | null;
-		const labelEl = root.querySelector('.device-location-target-label') as SVGGElement | null;
 		const from = this.deviceLocationLatLng;
 		const to = this.directionTarget;
 		if (!targetEl) {
 			return;
 		}
-		if (!showArrows || !from || !to) {
+		if (!from || !to) {
 			targetEl.style.display = 'none';
 			targetEl.removeAttribute('transform');
-			if (labelEl) {
-				labelEl.style.display = 'none';
-			}
 			return;
 		}
 		targetEl.style.display = '';
 		const bearing = this.bearingDeg(from.lat, from.lng, to.lat, to.lng);
+		// Le marqueur reste droit à l'écran ; on ajoute la rotation de la carte pour viser l'adresse.
 		const screenAngle = bearing + mapBearing;
 		targetEl.setAttribute('transform', `rotate(${screenAngle} ${pivot} ${pivot})`);
-		if (labelEl) {
-			// Étiquette droite (non tournée) posée au bout de la flèche verte : cap en degrés par rapport au nord.
-			const radius = pivot - 40;
-			const rad = screenAngle * Math.PI / 180;
-			const x = pivot + radius * Math.sin(rad);
-			const y = pivot - radius * Math.cos(rad);
-			labelEl.style.display = '';
-			labelEl.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
-			const text = labelEl.querySelector('text');
-			if (text) {
-				const distance = this.formatDistanceKmM(
-					L.latLng(from.lat, from.lng).distanceTo(L.latLng(to.lat, to.lng))
-				);
-				const label = distance ?? `${Math.round(bearing) % 360}°`;
-				text.textContent = label;
-				const rect = labelEl.querySelector('rect');
-				if (rect) {
-					const width = Math.max(52, Math.ceil(label.length * 7.4) + 14);
-					rect.setAttribute('width', String(width));
-					rect.setAttribute('x', String(-width / 2));
-				}
-			}
-		}
 	}
 
 	private bearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {

@@ -2924,26 +2924,6 @@
 	color: #fff;
 }
 
-.tv-direction-distance-chip {
-	position: absolute;
-	left: 10px;
-	bottom: 28px;
-	z-index: 1000;
-	display: inline-flex;
-	align-items: center;
-	gap: 0.4rem;
-	max-width: calc(100% - 20px);
-	padding: 0.35rem 0.65rem;
-	border-radius: 999px;
-	background: rgba(255, 255, 255, 0.94);
-	color: #14532d;
-	font-weight: 700;
-	font-size: 0.85rem;
-	border: 1px solid rgba(22, 163, 74, 0.45);
-	box-shadow: 0 2px 10px rgba(15, 23, 42, 0.16);
-	pointer-events: none;
-}
-
 .gps-copy-btn:focus {
 	box-shadow: none;
 }
