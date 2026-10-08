@@ -56,6 +56,7 @@ import { groupIconFaClass, groupI18nKey } from './tv-group-icon.util';
 import { epgLookupKey, resolveEpgChannelId } from './tv-epg.util';
 import {
   attachTvHlsLiveSyncWatchdog,
+  attachTvAdaptivePaceGuard,
   attachTvSlowMirrorPaceGuard,
   attachTvUnderrunSpinnerWatch,
   createTvHlsConfig,
@@ -4897,7 +4898,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
             this.isBuffering = buffering;
             this.cdr.markForCheck();
           })
-        : null;
+        : isM6GroupVirtual(streamUrl)
+          ? attachTvAdaptivePaceGuard(video, channel.name)
+          : null;
       tvPlayLog('lecture HLS démarrée (diag spinner actif)', {
         channel: channel.name,
         channelId: channel.id,

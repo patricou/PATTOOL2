@@ -73,6 +73,55 @@
   align-items: center;
 }
 
+.pdf-converter-paste-zone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 4.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 2px dashed rgba(220, 38, 38, 0.45);
+  border-radius: 0.5rem;
+  background: rgba(220, 38, 38, 0.04);
+  color: #7f1d1d;
+  text-align: center;
+}
+
+.pdf-converter-paste-zone--focus,
+.pdf-converter-paste-zone--over {
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.16);
+}
+
+.pdf-converter-paste-capture {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  color: transparent;
+  caret-color: transparent;
+  white-space: nowrap;
+  cursor: copy;
+  outline: none;
+}
+
+.pdf-converter-paste-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  max-width: 36rem;
+  pointer-events: none;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.pdf-converter-paste-hint .fa {
+  font-size: 1.15rem;
+}
+
 .pdf-converter-links {
   padding-top: 0.25rem;
   border-top: 1px solid rgba(0, 0, 0, 0.06);

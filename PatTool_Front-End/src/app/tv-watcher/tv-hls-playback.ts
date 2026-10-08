@@ -2,6 +2,7 @@ import Hls from 'hls.js';
 import { resolveTvStreamErrorMessage } from './tv-stream-error.util';
 import {
   attachTvHlsLiveSyncWatchdog,
+  attachTvAdaptivePaceGuard,
   attachTvSlowMirrorPaceGuard,
   attachTvUnderrunSpinnerWatch,
   createTvHlsConfig,
@@ -57,6 +58,11 @@ export interface TvHlsPlaybackCallbacks {
    * about as slowly as it plays. Do not set this for Mezzo (CDN is faster than realtime).
    */
   paceBelowRealtime?: boolean;
+  /**
+   * M6/W9 mirror: drop below 1× only while the forward buffer is thin.
+   * Ignored when {@link paceBelowRealtime} is set.
+   */
+  adaptivePace?: boolean;
   /** Progressive MP4/WebM (Internet Archive) — use video.src instead of hls.js. */
   progressive?: boolean;
   /** Channel display name for console diagnostics ({@code [TV] Cap Terre — …}). */
@@ -326,7 +332,9 @@ export function startTvHlsPlayback(
     );
     detachSlowPace = callbacks.paceBelowRealtime
       ? attachTvSlowMirrorPaceGuard(video, channelLabel, (buffering) => setBuffering(buffering))
-      : null;
+      : callbacks.adaptivePace
+        ? attachTvAdaptivePaceGuard(video, channelLabel)
+        : null;
     tvPlayLog('lecture HLS démarrée (float/popout, diag spinner actif)', {
       channel: channelLabel,
       what: 'player attaché — underruns et recoveries logués',

@@ -34,9 +34,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Proxies free IPTV / HLS media through the backend (CORS + mixed-content safe).
@@ -81,6 +83,18 @@ public class TvStreamProxyService {
         t.setDaemon(true);
         return t;
     });
+    /**
+     * M6/W9 on 151.80: one origin download at a time. A second connection on the same
+     * segment (player + prefetch) cuts throughput in half and the 6 s media never arrives
+     * before the player underruns.
+     */
+    private final ExecutorService m6PrefetchExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "m6-prefetch");
+        t.setDaemon(true);
+        return t;
+    });
+    private final ConcurrentHashMap<String, CompletableFuture<CapTerreCachedSegment>> segmentSingleFlight =
+            new ConcurrentHashMap<>();
 
     private record CapTerreCachedSegment(byte[] body, String contentType, long expiresAtMs) {
         boolean alive() {
@@ -255,9 +269,27 @@ public class TvStreamProxyService {
 
         String referer = resolveReferer(host);
 
-        // Cap Terre / Mezzo: serve .ts from RAM when prefetched (player otherwise
+        // M6/W9: one shared download per segment. A parallel player fetch of the same .ts
+        // halves the ~230 KB/s pipe (6 s of media then takes ~16 s and the spinner stays up).
+        if (isM6ShortWindowUpstream(upstreamUrl) && isTransportStreamUrl(upstreamUrl) && rangeHeader == null) {
+            CapTerreCachedSegment seg = loadSingleFlightSegment(upstreamUrl, referer);
+            if (seg == null || seg.body() == null || seg.body().length == 0) {
+                return jsonError(HttpStatus.BAD_GATEWAY, "upstream_unreachable",
+                        "Segment M6 indisponible (" + host + ")", host, null);
+            }
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.CONTENT_TYPE,
+                    seg.contentType() != null
+                            ? seg.contentType()
+                            : MediaType.APPLICATION_OCTET_STREAM_VALUE);
+            headers.set(HttpHeaders.CACHE_CONTROL, "no-store");
+            headers.set("X-PatTool-CapTerre-Cache", "HIT");
+            return ResponseEntity.ok().headers(headers).body(seg.body());
+        }
+
+        // Cap Terre / Mezzo / M6 mirrors: serve .ts from RAM when prefetched (player otherwise
         // waits out a sliding window of only ~4 segments and the oldest 404).
-        if ((isCapTerreUpstream(upstreamUrl) || isMezzoOtcnetUpstream(upstreamUrl)) && rangeHeader == null) {
+        if (isShortWindowPrefetchUpstream(upstreamUrl) && rangeHeader == null) {
             CapTerreCachedSegment cached = getCapTerreCachedSegment(upstreamUrl);
             if (cached != null) {
                 HttpHeaders headers = new HttpHeaders();
@@ -305,19 +337,18 @@ public class TvStreamProxyService {
             String playlistBase = (fetched.finalUrl != null && !fetched.finalUrl.isBlank())
                     ? fetched.finalUrl : upstreamUrl;
             String rawPlaylist = new String(body, StandardCharsets.UTF_8);
-            if (isMezzoOtcnetUpstream(upstreamUrl) || isMezzoOtcnetUpstream(playlistBase)) {
-                // 4×5 s window. hls.js liveSyncDurationCount (8) starts on the oldest
-                // segment, which 404s before the proxied download finishes.
+            if (isShortWindowTrimUpstream(upstreamUrl) || isShortWindowTrimUpstream(playlistBase)) {
+                // ~4×6 s window (M6/W9 on 151.80, Mezzo on otcnet). The oldest segment
+                // 404s before a ~2 MiB proxied download finishes (~8 s for 6 s of media).
                 rawPlaylist = keepNewestLiveSegments(rawPlaylist, 2);
             }
-            if (isCapTerreUpstream(upstreamUrl) || isCapTerreUpstream(playlistBase)
-                    || isMezzoOtcnetUpstream(upstreamUrl) || isMezzoOtcnetUpstream(playlistBase)) {
+            if (isShortWindowPrefetchUpstream(upstreamUrl) || isShortWindowPrefetchUpstream(playlistBase)) {
                 scheduleCapTerrePrefetch(rawPlaylist, playlistBase, referer);
             }
             String rewritten = rewritePlaylist(rawPlaylist, playlistBase, proxyBase);
             body = rewritten.getBytes(StandardCharsets.UTF_8);
             contentType = "application/vnd.apple.mpegurl; charset=utf-8";
-        } else if (isCapTerreUpstream(upstreamUrl) || isMezzoOtcnetUpstream(upstreamUrl)) {
+        } else if (isShortWindowPrefetchUpstream(upstreamUrl)) {
             putCapTerreCachedSegment(upstreamUrl, body, contentType);
         }
 
@@ -332,7 +363,7 @@ public class TvStreamProxyService {
         if (fetched.acceptRanges != null) {
             headers.set(HttpHeaders.ACCEPT_RANGES, fetched.acceptRanges);
         }
-        if ((isCapTerreUpstream(upstreamUrl) || isMezzoOtcnetUpstream(upstreamUrl))
+        if (isShortWindowPrefetchUpstream(upstreamUrl)
                 && !isPlaylist(upstreamUrl, contentType, body)) {
             headers.set("X-PatTool-CapTerre-Cache", "MISS");
         }
@@ -545,6 +576,29 @@ public class TvStreamProxyService {
         return out.toString();
     }
 
+    /**
+     * M6 / W9 public mirrors on {@code 151.80.18.177} (Flussonic): 4×6 s window,
+     * ~2 MiB segments that take longer to download than they last on the origin.
+     */
+    static boolean isM6ShortWindowUpstream(String url) {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        String u = url.toLowerCase(Locale.ROOT);
+        return u.contains("151.80.18.177")
+                && (u.contains("/m6_hd/") || u.contains("/w9_hd/"));
+    }
+
+    /** Origins whose media playlist must be trimmed to the newest segments. */
+    static boolean isShortWindowTrimUpstream(String url) {
+        return isMezzoOtcnetUpstream(url) || isM6ShortWindowUpstream(url);
+    }
+
+    /** Origins whose .ts segments are prefetched into RAM. */
+    static boolean isShortWindowPrefetchUpstream(String url) {
+        return isCapTerreUpstream(url) || isMezzoOtcnetUpstream(url) || isM6ShortWindowUpstream(url);
+    }
+
     /** Cap Terre iptv-org FR entry: {@code http://145.239.5.177/359a/…}. */
     static boolean isCapTerreUpstream(String url) {
         if (url == null || url.isBlank()) {
@@ -606,6 +660,7 @@ public class TvStreamProxyService {
         } catch (Exception e) {
             return;
         }
+        java.util.ArrayList<String> m6Segments = new java.util.ArrayList<>();
         for (String line : rawPlaylist.split("\\R", -1)) {
             if (line == null) {
                 continue;
@@ -619,11 +674,15 @@ public class TvStreamProxyService {
                 continue;
             }
             String segUrl = absolute.toString();
-            if (!isCapTerreUpstream(segUrl) && !isMezzoOtcnetUpstream(segUrl)) {
+            if (!isShortWindowPrefetchUpstream(segUrl)) {
                 continue;
             }
             String path = absolute.getPath();
             if (path == null || !path.toLowerCase(Locale.ROOT).endsWith(".ts")) {
+                continue;
+            }
+            if (isM6ShortWindowUpstream(segUrl)) {
+                m6Segments.add(segUrl);
                 continue;
             }
             if (getCapTerreCachedSegment(segUrl) != null) {
@@ -654,6 +713,80 @@ public class TvStreamProxyService {
                 }
             });
         }
+        if (!m6Segments.isEmpty()) {
+            final String refererFinal = referer;
+            m6PrefetchExecutor.execute(() -> {
+                for (String segUrl : m6Segments) {
+                    try {
+                        loadSingleFlightSegment(segUrl, refererFinal);
+                    } catch (Exception e) {
+                        log.debug("M6 prefetch failed {}: {}", segUrl, e.toString());
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * One in-flight download per segment URL. Callers (player request and prefetch) share it.
+     * Bodies that are not MPEG-TS (Flussonic "Not found", 10 bytes) are not cached.
+     */
+    private CapTerreCachedSegment loadSingleFlightSegment(String url, String referer) {
+        CapTerreCachedSegment hit = getCapTerreCachedSegment(url);
+        if (hit != null) {
+            return hit;
+        }
+        CompletableFuture<CapTerreCachedSegment> created = new CompletableFuture<>();
+        CompletableFuture<CapTerreCachedSegment> existing = segmentSingleFlight.putIfAbsent(url, created);
+        if (existing != null) {
+            try {
+                CapTerreCachedSegment shared = existing.get(45, TimeUnit.SECONDS);
+                if (shared != null) {
+                    return shared;
+                }
+            } catch (Exception e) {
+                log.debug("M6 single-flight wait failed {}: {}", url, e.toString());
+            }
+            return getCapTerreCachedSegment(url);
+        }
+        try {
+            FetchResult fetched = fetch(url, null, referer);
+            if (fetched == null || fetched.status < 200 || fetched.status >= 300
+                    || fetched.body == null || !isMpegTransportStream(fetched.body)) {
+                created.complete(null);
+                return null;
+            }
+            String ct = fetched.contentType != null
+                    ? stripSpuriousCharset(fetched.contentType)
+                    : MediaType.APPLICATION_OCTET_STREAM_VALUE;
+            putCapTerreCachedSegment(url, fetched.body, ct);
+            CapTerreCachedSegment stored = getCapTerreCachedSegment(url);
+            created.complete(stored);
+            return stored;
+        } catch (Exception e) {
+            created.complete(null);
+            log.debug("M6 single-flight fetch failed {}: {}", url, e.toString());
+            return null;
+        } finally {
+            segmentSingleFlight.remove(url, created);
+        }
+    }
+
+    private static boolean isTransportStreamUrl(String url) {
+        if (url == null) {
+            return false;
+        }
+        String path = url;
+        int q = path.indexOf('?');
+        if (q >= 0) {
+            path = path.substring(0, q);
+        }
+        return path.toLowerCase(Locale.ROOT).endsWith(".ts");
+    }
+
+    /** MPEG-TS packets start with sync byte 0x47 and are well above a few kilobytes. */
+    private static boolean isMpegTransportStream(byte[] body) {
+        return body != null && body.length > 4096 && (body[0] & 0xFF) == 0x47;
     }
 
     private FetchResult fetch(String url, String rangeHeader, String referer) {

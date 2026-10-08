@@ -93,6 +93,31 @@
             {{ 'PDF_CONVERTER.REMOVE_IMAGE' | translate }}
           </button>
         </div>
+        <div
+          class="pdf-converter-paste-zone"
+          [class.pdf-converter-paste-zone--over]="pasteZoneDragOver"
+          [class.pdf-converter-paste-zone--focus]="pasteZoneFocused">
+          <div
+            #imagePasteZone
+            class="pdf-converter-paste-capture"
+            contenteditable="true"
+            role="textbox"
+            spellcheck="false"
+            autocomplete="off"
+            [attr.aria-label]="'PDF_CONVERTER.PASTE_ZONE_LABEL' | translate"
+            (focus)="pasteZoneFocused = true"
+            (blur)="pasteZoneFocused = false"
+            (paste)="onImagePaste($event)"
+            (input)="clearImagePasteZone()"
+            (dragenter)="onImageDragEnter($event)"
+            (dragover)="onImageDragOver($event)"
+            (dragleave)="onImageDragLeave($event)"
+            (drop)="onImageDrop($event)"></div>
+          <div class="pdf-converter-paste-hint" aria-hidden="true">
+            <i class="fa fa-paste"></i>
+            <span>{{ 'PDF_CONVERTER.PASTE_ZONE' | translate }}</span>
+          </div>
+        </div>
         <div class="pdf-converter-editor-wrap">
           <quill-editor
             [(ngModel)]="htmlContent"

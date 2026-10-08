@@ -51,6 +51,22 @@ class TvStreamProxyMezzoPlaylistTest {
     }
 
     @Test
+    void detectsM6ShortWindowMirrorOnly() {
+        assertTrue(TvStreamProxyService.isM6ShortWindowUpstream(
+                "http://151.80.18.177:86/M6_HD/tracks-v1a1/mono.m3u8"));
+        assertTrue(TvStreamProxyService.isM6ShortWindowUpstream(
+                "http://151.80.18.177:86/W9_HD/index.m3u8"));
+        assertTrue(TvStreamProxyService.isShortWindowTrimUpstream(
+                "http://151.80.18.177:86/M6_HD/tracks-v1a1/2026/10/08/17/50/01-06000.ts"));
+        assertFalse(TvStreamProxyService.isM6ShortWindowUpstream(
+                "http://151.80.18.177:86/TF1_HD/index.m3u8"));
+        assertFalse(TvStreamProxyService.isM6ShortWindowUpstream(
+                "http://145.239.5.177/319/index.m3u8"));
+        assertFalse(TvStreamProxyService.isShortWindowTrimUpstream(
+                "http://145.239.5.177/359a/index.m3u8"));
+    }
+
+    @Test
     void detectsOtcnetMezzoOnly() {
         assertTrue(TvStreamProxyService.isMezzoOtcnetUpstream(
                 "https://live-3.otcnet.ru/Mezzo/tracks-v1a1/mono.ts.m3u8"));

@@ -14,7 +14,7 @@ export type TvHlsPlaybackMode = 'live' | 'vod';
  */
 export type TvHlsConfigOptions = {
   /**
-   * Cap Terre / Mezzo: tiny live window (~4×5 s segments).
+   * Cap Terre / Mezzo / M6 group mirrors: tiny live window (~4×5–6 s segments).
    * Stay near the live edge (old segments 404 within seconds) and never force-seek
    * on latency. Playback-rate pacing is separate and Cap Terre only.
    */
@@ -606,6 +606,70 @@ export function attachTvSlowMirrorPaceGuard(
     lock('keep');
   }, 500);
 
+  return () => {
+    window.clearInterval(tick);
+    try {
+      if (video.playbackRate !== 1) {
+        video.playbackRate = 1;
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+}
+
+/**
+ * M6/W9 mirror (151.80): a 6 s segment is ~2 MiB and often takes ~8–9 s to arrive.
+ * Full speed drains the buffer and the spinner stays up. Ease off only while the
+ * forward buffer is thin; return to 1× once a cushion is back.
+ */
+export function attachTvAdaptivePaceGuard(
+  video: HTMLVideoElement,
+  channel?: string | null
+): () => void {
+  let lastLogAt = 0;
+  let lastRate = 1;
+
+  const apply = () => {
+    if (video.ended || video.error) {
+      return;
+    }
+    const ahead = forwardBufferSeconds(video);
+    let rate = 1;
+    if (ahead < 3) {
+      rate = 0.66;
+    } else if (ahead < 8) {
+      rate = 0.78;
+    } else if (ahead < 14) {
+      rate = 0.9;
+    }
+    try {
+      if (Math.abs(video.playbackRate - rate) < 0.02) {
+        return;
+      }
+      video.playbackRate = rate;
+    } catch {
+      return;
+    }
+    if (Math.abs(lastRate - rate) < 0.02) {
+      return;
+    }
+    lastRate = rate;
+    const now = Date.now();
+    if (now - lastLogAt < 4_000) {
+      return;
+    }
+    lastLogAt = now;
+    tvPlayLog(`pace M6 ${rate}× (buffer ${Math.round(ahead * 10) / 10}s)`, {
+      channel: channel || null,
+      what: 'vitesse ajustée au miroir — un segment de 6s met souvent plus de 6s à arriver',
+      fwdSec: Math.round(ahead * 10) / 10,
+      readyState: video.readyState
+    });
+  };
+
+  apply();
+  const tick = window.setInterval(apply, 400);
   return () => {
     window.clearInterval(tick);
     try {

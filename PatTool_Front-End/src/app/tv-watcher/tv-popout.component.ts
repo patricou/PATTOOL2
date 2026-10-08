@@ -514,6 +514,7 @@ export class TvPopoutComponent implements OnInit, OnDestroy {
         skipLiveEdgeWatchdog: shouldSkipTvLiveEdgeWatchdog(streamUrl, channel),
         slowMirror: usesTightLiveWindow(channel) || usesTightLiveWindow(streamUrl),
         paceBelowRealtime: isCapTerreChannel(channel) || isCapTerreChannel(streamUrl),
+        adaptivePace: isM6GroupVirtual(streamUrl),
         onBuffering: (v) => {
           this.isBuffering = v;
           this.cdr.markForCheck();

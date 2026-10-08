@@ -84,6 +84,7 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
 
   @ViewChild(QuillEditorComponent) quillEditor?: QuillEditorComponent;
   @ViewChild('quillImageInput') quillImageInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('imagePasteZone') imagePasteZone?: ElementRef<HTMLElement>;
 
   /** PDF file name without extension. */
   pdfFileName = '';
@@ -111,6 +112,9 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
   saveMessageKey = '';
   shareMessageKey = '';
   hasSelectedImage = false;
+  pasteZoneFocused = false;
+  pasteZoneDragOver = false;
+  private pasteDragDepth = 0;
   /** Include full running footer (name, date, author) in exported PDF; page numbers are always shown. */
   showPdfFooter = true;
 
@@ -319,12 +323,66 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
     const input = ev.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';
-    if (!file?.type.startsWith('image/')) {
+    if (!file || !this.isImageFile(file)) {
       return;
     }
-    this.compressImageFile(file)
-      .then((dataUrl) => this.insertImageAtCursor(dataUrl))
-      .catch((err) => console.error('pdf-converter image insert', err));
+    void this.insertImageFiles([file]);
+  }
+
+  onImagePaste(ev: ClipboardEvent): void {
+    ev.preventDefault();
+    const files = this.imageFilesFromTransfer(ev.clipboardData);
+    this.clearImagePasteZone();
+    if (files.length === 0) {
+      this.errorKey = 'PDF_CONVERTER.ERR_PASTE_IMAGE';
+      return;
+    }
+    void this.insertImageFiles(files);
+  }
+
+  onImageDragEnter(ev: DragEvent): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.pasteDragDepth++;
+    this.pasteZoneDragOver = true;
+  }
+
+  onImageDragOver(ev: DragEvent): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (ev.dataTransfer) {
+      ev.dataTransfer.dropEffect = 'copy';
+    }
+    this.pasteZoneDragOver = true;
+  }
+
+  onImageDragLeave(ev: DragEvent): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.pasteDragDepth = Math.max(0, this.pasteDragDepth - 1);
+    if (this.pasteDragDepth === 0) {
+      this.pasteZoneDragOver = false;
+    }
+  }
+
+  onImageDrop(ev: DragEvent): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.pasteDragDepth = 0;
+    this.pasteZoneDragOver = false;
+    const files = this.imageFilesFromTransfer(ev.dataTransfer);
+    if (files.length === 0) {
+      this.errorKey = 'PDF_CONVERTER.ERR_PASTE_IMAGE';
+      return;
+    }
+    void this.insertImageFiles(files);
+  }
+
+  clearImagePasteZone(): void {
+    const el = this.imagePasteZone?.nativeElement;
+    if (el) {
+      el.textContent = '';
+    }
   }
 
   loadDocuments(): void {
@@ -853,6 +911,59 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
     } catch {
       return titled;
     }
+  }
+
+  private async insertImageFiles(files: File[]): Promise<void> {
+    const images = files.filter((file) => this.isImageFile(file));
+    if (images.length === 0) {
+      this.errorKey = 'PDF_CONVERTER.ERR_PASTE_IMAGE';
+      return;
+    }
+    this.errorKey = '';
+    for (const file of images) {
+      try {
+        const dataUrl = await this.compressImageFile(file);
+        this.insertImageAtCursor(dataUrl);
+      } catch (err) {
+        console.error('pdf-converter image insert', err);
+        this.errorKey = 'PDF_CONVERTER.ERR_PASTE_IMAGE';
+      }
+    }
+  }
+
+  private imageFilesFromTransfer(data: DataTransfer | null): File[] {
+    if (!data) {
+      return [];
+    }
+    const files: File[] = [];
+    const items = data.items;
+    if (items?.length) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file && this.isImageFile(file)) {
+            files.push(file);
+          }
+        }
+      }
+    }
+    if (files.length === 0 && data.files?.length) {
+      for (let i = 0; i < data.files.length; i++) {
+        const file = data.files[i];
+        if (this.isImageFile(file)) {
+          files.push(file);
+        }
+      }
+    }
+    return files;
+  }
+
+  private isImageFile(file: File): boolean {
+    if (file.type.startsWith('image/')) {
+      return true;
+    }
+    return /\.(png|jpe?g|gif|webp|bmp|svg|avif)$/i.test(file.name);
   }
 
   private insertImageAtCursor(dataUrl: string): void {
