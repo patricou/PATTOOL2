@@ -105,18 +105,21 @@
       <section class="about-section">
         <h4>{{ 'ABOUT.FEATURES_TITLE' | translate }}</h4>
         <p class="about-section-desc">{{ 'ABOUT.FEATURES_DESC' | translate }}</p>
-        <div class="about-feature-grid">
-          <a
-            *ngFor="let feat of featureLinks"
-            [routerLink]="feat.route"
-            class="about-feature-tile">
-            <span class="about-feature-icon"><i class="fa" [ngClass]="feat.icon"></i></span>
-            <span class="about-feature-body">
-              <strong>{{ feat.labelKey | translate }}</strong>
-              <span>{{ feat.descKey | translate }}</span>
-            </span>
-            <i class="fa fa-angle-right about-feature-chevron"></i>
-          </a>
+        <div class="about-feature-group" *ngFor="let group of featureGroups">
+          <h5>{{ group.titleKey | translate }}</h5>
+          <div class="about-feature-grid">
+            <a
+              *ngFor="let feat of group.links"
+              [routerLink]="feat.route"
+              class="about-feature-tile">
+              <span class="about-feature-icon"><i class="fa" [ngClass]="feat.icon"></i></span>
+              <span class="about-feature-body">
+                <strong>{{ feat.labelKey | translate }}</strong>
+                <span>{{ feat.descKey | translate }}</span>
+              </span>
+              <i class="fa fa-angle-right about-feature-chevron"></i>
+            </a>
+          </div>
         </div>
       </section>
     </div>

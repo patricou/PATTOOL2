@@ -25,11 +25,21 @@ describe('HomeMapsComponent', () => {
   });
 
   it('should use absolute feature routes so tiles do not stay under /maps', () => {
+    expect(component.featureGroups.length).toBeGreaterThan(0);
     expect(component.featureLinks.length).toBeGreaterThan(0);
-    for (const feat of component.featureLinks) {
-      expect(feat.route.startsWith('/'))
-        .withContext(`${feat.labelKey} must be absolute, got ${feat.route}`)
-        .toBeTrue();
+    const routes = new Set<string>();
+    for (const group of component.featureGroups) {
+      expect(group.titleKey.length).toBeGreaterThan(0);
+      expect(group.links.length).toBeGreaterThan(0);
+      for (const feat of group.links) {
+        expect(feat.route.startsWith('/'))
+          .withContext(`${feat.labelKey} must be absolute, got ${feat.route}`)
+          .toBeTrue();
+        expect(routes.has(feat.route))
+          .withContext(`${feat.route} is listed twice`)
+          .toBeFalse();
+        routes.add(feat.route);
+      }
     }
   });
 });

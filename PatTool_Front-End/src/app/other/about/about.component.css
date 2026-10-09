@@ -265,6 +265,19 @@
   line-height: 1.45;
 }
 
+.about-feature-group + .about-feature-group {
+  margin-top: 1.15rem;
+}
+
+.about-feature-group h5 {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--about-accent);
+}
+
 .about-feature-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
