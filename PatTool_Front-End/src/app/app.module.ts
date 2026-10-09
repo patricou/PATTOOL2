@@ -114,10 +114,15 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./iothome/iothome.component').then(m => m.IothomeComponent),
 				canActivate: [IotRoleGuard]
 			},
-			{ 
-				path: 'iot/local-network', 
+			{
+				path: 'iot/local-network',
 				loadComponent: () => import('./local-network/local-network.component').then(m => m.LocalNetworkComponent),
 				canActivate: [IotRoleGuard]
+			},
+			{
+				path: 'iot/network-sentinel',
+				loadComponent: () => import('./network-sentinel/network-sentinel.component').then(m => m.NetworkSentinelComponent),
+				canActivate: [AdminRoleGuard]
 			},
 			{
 				path: 'iot/cameras',

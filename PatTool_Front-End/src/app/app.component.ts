@@ -292,6 +292,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     readonly navIotRaw: NavRouteMenuItem[] = [
         { routerLink: ['iot'], icon: 'fa fa-home', labelKey: 'MENU.IOT_HOME' },
         { routerLink: ['iot/local-network'], icon: 'fa fa-sitemap', labelKey: 'MENU.LOCAL_NETWORK', adminOnly: true },
+        { routerLink: ['iot/network-sentinel'], icon: 'fa fa-shield', labelKey: 'MENU.NETWORK_SENTINEL', adminOnly: true, visibleWithoutIotRole: true },
         { routerLink: ['iot/cameras'], icon: 'fa fa-video-camera', labelKey: 'MENU.CAMERAS' },
         { routerLink: ['iot/proxy'], icon: 'fa fa-random', labelKey: 'MENU.IOT_PROXY' },
         {

@@ -204,6 +204,7 @@ export class AboutComponent {
       links: [
         { route: '/iot', icon: 'fa-home', labelKey: 'MENU.IOT_HOME', descKey: 'ABOUT.FEAT_IOT' },
         { route: '/iot/local-network', icon: 'fa-sitemap', labelKey: 'MENU.LOCAL_NETWORK', descKey: 'ABOUT.FEAT_LOCAL_NETWORK' },
+        { route: '/iot/network-sentinel', icon: 'fa-shield', labelKey: 'MENU.NETWORK_SENTINEL', descKey: 'ABOUT.FEAT_NETWORK_SENTINEL' },
         { route: '/iot/cameras', icon: 'fa-video-camera', labelKey: 'MENU.CAMERAS', descKey: 'ABOUT.FEAT_CAMERAS' },
         { route: '/iot/proxy', icon: 'fa-random', labelKey: 'MENU.IOT_PROXY', descKey: 'ABOUT.FEAT_IOT_PROXY' },
         { route: '/tools/security-scan', icon: 'fa-shield', labelKey: 'MENU.WORLD_SECURITY_SCAN', descKey: 'ABOUT.FEAT_SECURITY' }

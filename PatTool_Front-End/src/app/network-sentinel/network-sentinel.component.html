@@ -1,0 +1,563 @@
+﻿<div class="pat-title ns-title">
+  <h2>{{ 'NETWORK_SENTINEL.TITLE' | translate }}</h2>
+  <button type="button" class="btn btn-info btn-sm ns-info-btn" *ngIf="isAuthorized" (click)="openGuide()"
+          [attr.aria-label]="'NETWORK_SENTINEL.INFO' | translate">
+    <i class="fa fa-info-circle" aria-hidden="true"></i>
+    {{ 'NETWORK_SENTINEL.INFO' | translate }}
+  </button>
+</div>
+
+<div class="container-fluid px-3 px-lg-4 pb-5 ns-root" *ngIf="isAuthorized">
+  <p class="text-secondary small mb-3">{{ 'NETWORK_SENTINEL.SUBTITLE' | translate }}</p>
+
+  <!-- Capabilities / host banner -->
+  <div class="ns-caps card shadow-sm border-0 mb-3" *ngIf="capabilities as c">
+    <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center gap-2">
+      <span class="ns-chip ns-chip-host" [title]="c.os">
+        <i class="fa fa-server"></i> {{ c.hostName }} <small class="text-muted">· {{ c.platform }}</small>
+      </span>
+      <span class="ns-chip" *ngFor="let a of c.localAddresses"><i class="fa fa-map-marker"></i> {{ a }}</span>
+      <span class="ns-chip" [class.ns-ok]="c.connectionTable" [class.ns-ko]="!c.connectionTable"
+            [title]="'NETWORK_SENTINEL.CAP_CONNECTIONS_TIP' | translate">
+        <i class="fa" [ngClass]="c.connectionTable ? 'fa-check' : 'fa-times'"></i>
+        {{ 'NETWORK_SENTINEL.CAP_CONNECTIONS' | translate }} <small *ngIf="c.connectionTool">({{ c.connectionTool }})</small>
+      </span>
+      <span class="ns-chip" [class.ns-ok]="c.packetCapture" [class.ns-ko]="!c.packetCapture"
+            [title]="'NETWORK_SENTINEL.CAP_CAPTURE_TIP' | translate">
+        <i class="fa" [ngClass]="c.packetCapture ? 'fa-check' : 'fa-times'"></i>
+        {{ 'NETWORK_SENTINEL.CAP_CAPTURE' | translate }} <small *ngIf="c.captureTool">({{ c.captureTool }})</small>
+      </span>
+      <span class="ns-chip" [class.ns-ok]="c.logonHistory" [class.ns-ko]="!c.logonHistory"
+            [title]="'NETWORK_SENTINEL.CAP_LOGONS_TIP' | translate">
+        <i class="fa" [ngClass]="c.logonHistory ? 'fa-check' : 'fa-times'"></i>
+        {{ 'NETWORK_SENTINEL.CAP_LOGONS' | translate }}
+      </span>
+      <span class="ns-chip" [class.ns-ok]="c.sessions" [class.ns-ko]="!c.sessions">
+        <i class="fa" [ngClass]="c.sessions ? 'fa-check' : 'fa-times'"></i>
+        {{ 'NETWORK_SENTINEL.CAP_SESSIONS' | translate }}
+      </span>
+      <span class="ns-chip ns-ok"><i class="fa fa-check"></i> {{ 'NETWORK_SENTINEL.CAP_DEVICE_SCAN' | translate }}</span>
+      <span class="ns-chip" *ngIf="status" [class.ns-ok]="status.baselineInitialized" [class.ns-warn]="!status.baselineInitialized"
+            [title]="'NETWORK_SENTINEL.BASELINE_TIP' | translate">
+        <i class="fa fa-graduation-cap"></i>
+        {{ (status.baselineInitialized ? 'NETWORK_SENTINEL.BASELINE_ARMED' : 'NETWORK_SENTINEL.BASELINE_LEARNING') | translate }}
+        <small>({{ status.baselineSweepCount }})</small>
+      </span>
+    </div>
+    <div class="px-3 pb-2" *ngIf="c.hints?.length">
+      <div class="ns-hint" *ngFor="let h of c.hints"><i class="fa fa-info-circle"></i> {{ h }}</div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="card shadow-sm border-0 mb-3 ns-controls">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <button class="btn btn-danger btn-sm ns-run" (click)="startSweep()" [disabled]="sweepRunning">
+          <i class="fa" [ngClass]="sweepRunning ? 'fa-spinner fa-spin' : 'fa-shield'"></i>
+          {{ (sweepRunning ? 'NETWORK_SENTINEL.SWEEP_RUNNING' : 'NETWORK_SENTINEL.RUN_SWEEP') | translate }}
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" *ngIf="sweepRunning" (click)="cancelSweepStream()"
+                [title]="'NETWORK_SENTINEL.STOP_LISTENING_TIP' | translate">
+          <i class="fa fa-eye-slash"></i> {{ 'NETWORK_SENTINEL.STOP_LISTENING' | translate }}
+        </button>
+
+        <div class="form-check form-switch ns-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="nsDeviceScan"
+                 [(ngModel)]="optIncludeDeviceScan" (ngModelChange)="onDefaultOptionsChange()" [disabled]="sweepRunning">
+          <label class="form-check-label" for="nsDeviceScan"><i class="fa fa-sitemap"></i> {{ 'NETWORK_SENTINEL.OPT_DEVICE_SCAN' | translate }}</label>
+        </div>
+        <div class="form-check form-switch ns-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="nsCapture"
+                 [(ngModel)]="optIncludeCapture" (ngModelChange)="onDefaultOptionsChange()"
+                 [disabled]="sweepRunning || !(capabilities?.packetCapture ?? true)">
+          <label class="form-check-label" for="nsCapture"><i class="fa fa-filter"></i> {{ 'NETWORK_SENTINEL.OPT_CAPTURE' | translate }}</label>
+        </div>
+        <select class="form-select form-select-sm ns-select" [(ngModel)]="optCaptureSeconds" (ngModelChange)="onDefaultOptionsChange()"
+                [disabled]="sweepRunning || !optIncludeCapture" [title]="'NETWORK_SENTINEL.OPT_CAPTURE_SECONDS' | translate">
+          <option *ngFor="let s of captureSecondsChoices" [ngValue]="s">{{ s }} s</option>
+        </select>
+
+        <span class="ns-sep d-none d-md-inline"></span>
+
+        <div class="form-check form-switch ns-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="nsScheduler"
+                 [checked]="prefs.schedulerEnabled" (change)="toggleScheduler()" [disabled]="prefsSaving">
+          <label class="form-check-label" for="nsScheduler">
+            <i class="fa fa-clock-o" [style.color]="prefs.schedulerEnabled ? '#28a745' : '#6c757d'"></i>
+            {{ 'NETWORK_SENTINEL.SCHEDULER' | translate }}
+          </label>
+        </div>
+        <select class="form-select form-select-sm ns-select" [ngModel]="prefs.schedulerIntervalMinutes" (ngModelChange)="onIntervalChange($event)"
+                [disabled]="prefsSaving" [title]="'NETWORK_SENTINEL.SCHEDULER_INTERVAL' | translate">
+          <option *ngFor="let m of intervalChoices" [ngValue]="m">{{ 'NETWORK_SENTINEL.EVERY_MINUTES' | translate: { minutes: m } }}</option>
+        </select>
+
+        <div class="form-check form-switch ns-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="nsEmail"
+                 [checked]="prefs.emailAlertsEnabled" (change)="toggleEmail()" [disabled]="prefsSaving">
+          <label class="form-check-label" for="nsEmail"><i class="fa fa-envelope"></i> {{ 'NETWORK_SENTINEL.EMAIL_ALERTS' | translate }}</label>
+        </div>
+        <select class="form-select form-select-sm ns-select" [ngModel]="prefs.emailMinSeverity" (ngModelChange)="onEmailSeverityChange($event)"
+                [disabled]="prefsSaving || !prefs.emailAlertsEnabled" [title]="'NETWORK_SENTINEL.EMAIL_MIN_SEVERITY' | translate">
+          <option value="CRITICAL">{{ 'NETWORK_SENTINEL.SEV.CRITICAL' | translate }}</option>
+          <option value="HIGH">{{ 'NETWORK_SENTINEL.SEV.HIGH' | translate }}</option>
+          <option value="MEDIUM">{{ 'NETWORK_SENTINEL.SEV.MEDIUM' | translate }}</option>
+          <option value="LOW">{{ 'NETWORK_SENTINEL.SEV.LOW' | translate }}</option>
+        </select>
+        <i class="fa fa-spinner fa-spin text-muted" *ngIf="prefsSaving"></i>
+      </div>
+
+      <!-- Sweep progress -->
+      <div class="ns-progress mt-2" *ngIf="sweepRunning || sweepError">
+        <div class="d-flex flex-wrap align-items-center gap-2 small">
+          <span class="badge bg-dark" *ngIf="sweepPhase">{{ ('NETWORK_SENTINEL.PHASE.' + sweepPhase) | translate }}</span>
+          <span class="text-muted" *ngIf="sweepActivity">{{ sweepActivity }}</span>
+          <span class="text-muted" *ngIf="sweepPhase === 'devices' && sweepDeviceTotal">
+            {{ 'NETWORK_SENTINEL.DEVICES_PROGRESS' | translate: { found: sweepDevicesFound, progress: sweepDeviceProgress, total: sweepDeviceTotal } }}
+          </span>
+          <span class="badge bg-danger" *ngIf="sweepLiveFindings.length">{{ 'NETWORK_SENTINEL.FINDINGS_SO_FAR' | translate: { count: sweepLiveFindings.length } }}</span>
+        </div>
+        <div class="progress mt-1" style="height: 6px;" *ngIf="sweepPhase === 'devices' && sweepDeviceTotal">
+          <div class="progress-bar bg-info" role="progressbar" [style.width.%]="sweepDevicePercent"></div>
+        </div>
+        <div class="alert alert-danger py-1 px-2 mt-2 mb-0 small" *ngIf="sweepError"><i class="fa fa-exclamation-triangle"></i> {{ sweepError }}</div>
+      </div>
+      <div class="alert alert-warning py-1 px-2 mt-2 mb-0 small" *ngIf="prefsError"><i class="fa fa-exclamation-triangle"></i> {{ prefsError }}</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <ul class="nav nav-tabs nav-fill flex-column flex-sm-row gap-1 mb-3 ns-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'findings'" (click)="setTab('findings')" role="tab">
+        <i class="fa fa-exclamation-circle"></i> {{ 'NETWORK_SENTINEL.TAB_FINDINGS' | translate }}
+        <span class="badge rounded-pill bg-danger ms-1" *ngIf="intrusionCount">{{ intrusionCount }}</span>
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'live'" (click)="setTab('live')" role="tab">
+        <i class="fa fa-exchange"></i> {{ 'NETWORK_SENTINEL.TAB_LIVE' | translate }}
+        <span class="badge rounded-pill bg-warning text-dark ms-1" *ngIf="live?.counts?.inboundPublic">{{ live?.counts?.inboundPublic }}</span>
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'capture'" (click)="setTab('capture')" role="tab">
+        <i class="fa fa-filter"></i> {{ 'NETWORK_SENTINEL.TAB_CAPTURE' | translate }}
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'access'" (click)="setTab('access')" role="tab">
+        <i class="fa fa-user-secret"></i> {{ 'NETWORK_SENTINEL.TAB_ACCESS' | translate }}
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'history'" (click)="setTab('history')" role="tab">
+        <i class="fa fa-history"></i> {{ 'NETWORK_SENTINEL.TAB_HISTORY' | translate }}
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'settings'" (click)="setTab('settings')" role="tab">
+        <i class="fa fa-cog"></i> {{ 'NETWORK_SENTINEL.TAB_SETTINGS' | translate }}
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content card shadow-sm border-0">
+
+    <!-- ===================================================================== FINDINGS -->
+    <div class="card-body" *ngIf="activeTab === 'findings'">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <ng-container *ngIf="sweep">
+            <span class="text-muted small">
+              {{ 'NETWORK_SENTINEL.LAST_SWEEP' | translate }} {{ sweep.startedAt | date:'dd-MM-yyyy HH:mm:ss' }}
+              · {{ formatDuration(sweep.durationMs) }}
+              · <span class="badge bg-secondary">{{ ('NETWORK_SENTINEL.TRIGGER.' + sweep.trigger) | translate }}</span>
+              <span class="badge bg-info text-dark ms-1" *ngIf="sweep.baselineLearning">{{ 'NETWORK_SENTINEL.BASELINE_LEARNING' | translate }}</span>
+              <span class="badge bg-success ms-1" *ngIf="sweep.emailSent"><i class="fa fa-envelope"></i> {{ 'NETWORK_SENTINEL.EMAIL_SENT' | translate }}</span>
+            </span>
+          </ng-container>
+          <span class="text-muted small" *ngIf="!sweep && !sweepLoading">{{ 'NETWORK_SENTINEL.NO_SWEEP_YET' | translate }}</span>
+          <i class="fa fa-spinner fa-spin text-muted" *ngIf="sweepLoading"></i>
+        </div>
+        <div class="form-check form-switch ns-switch mb-0">
+          <input class="form-check-input" type="checkbox" role="switch" id="nsShowAck" [(ngModel)]="showAcknowledged">
+          <label class="form-check-label" for="nsShowAck">{{ 'NETWORK_SENTINEL.SHOW_ACKNOWLEDGED' | translate }}</label>
+        </div>
+      </div>
+
+      <!-- Severity summary -->
+      <div class="ns-summary mb-3" *ngIf="sweep || sweepLiveFindings.length">
+        <div class="ns-sum ns-sum-intrusion" [class.ns-sum-zero]="!intrusionCount">
+          <div class="ns-sum-n">{{ intrusionCount }}</div>
+          <div class="ns-sum-l"><i class="fa fa-user-secret"></i> {{ 'NETWORK_SENTINEL.INTRUSIONS_SUCCEEDED' | translate }}</div>
+        </div>
+        <div class="ns-sum" *ngFor="let s of severities" [ngClass]="severityClass(s)" [class.ns-sum-zero]="!severityCount(currentFindings, s)">
+          <div class="ns-sum-n">{{ severityCount(currentFindings, s) }}</div>
+          <div class="ns-sum-l">{{ ('NETWORK_SENTINEL.SEV.' + s) | translate }}</div>
+        </div>
+        <div class="ns-sum ns-sum-neutral" *ngIf="sweep">
+          <div class="ns-sum-n">{{ sweep.deviceScanIncluded ? sweep.deviceCount : '–' }}</div>
+          <div class="ns-sum-l"><i class="fa fa-sitemap"></i> {{ 'NETWORK_SENTINEL.DEVICES' | translate }}
+            <span class="text-danger" *ngIf="sweep.unknownDeviceCount"> ({{ sweep.unknownDeviceCount }} ?)</span></div>
+        </div>
+        <div class="ns-sum ns-sum-neutral" *ngIf="sweep">
+          <div class="ns-sum-n">{{ sweep.inboundPublicCount }}</div>
+          <div class="ns-sum-l"><i class="fa fa-sign-in"></i> {{ 'NETWORK_SENTINEL.INBOUND_PUBLIC' | translate }}</div>
+        </div>
+        <div class="ns-sum ns-sum-neutral" *ngIf="sweep?.capture?.available">
+          <div class="ns-sum-n">{{ sweep?.capture?.packets }}</div>
+          <div class="ns-sum-l"><i class="fa fa-filter"></i> {{ 'NETWORK_SENTINEL.PACKETS' | translate }}</div>
+        </div>
+      </div>
+
+      <div class="alert alert-success border-0 shadow-sm" *ngIf="sweep && currentFindings.length === 0 && !sweepRunning">
+        <i class="fa fa-check-circle"></i> {{ 'NETWORK_SENTINEL.NO_FINDINGS' | translate }}
+      </div>
+
+      <!-- Findings list -->
+      <div class="ns-finding" *ngFor="let f of currentFindings; trackBy: trackByKey" [ngClass]="severityClass(f.severity)" [class.ns-acked]="f.acknowledged">
+        <div class="ns-finding-head">
+          <span class="ns-sev-badge" [ngClass]="severityClass(f.severity)">{{ ('NETWORK_SENTINEL.SEV.' + f.severity) | translate }}</span>
+          <span class="ns-intrusion" *ngIf="f.intrusionSucceeded && !f.acknowledged" [title]="'NETWORK_SENTINEL.INTRUSION_TIP' | translate">
+            <i class="fa fa-user-secret"></i> {{ 'NETWORK_SENTINEL.INTRUSION' | translate }}
+          </span>
+          <span class="ns-cat"><i class="fa" [ngClass]="categoryIcon(f.category)"></i> {{ categoryLabelKey(f.category) | translate }}</span>
+          <span class="ms-auto">
+            <button class="btn btn-sm" [ngClass]="f.acknowledged ? 'btn-outline-secondary' : 'btn-outline-success'"
+                    (click)="acknowledge(f, !f.acknowledged)" [disabled]="ackBusyKey === f.key"
+                    [title]="(f.acknowledged ? 'NETWORK_SENTINEL.UNACK_TIP' : 'NETWORK_SENTINEL.ACK_TIP') | translate">
+              <i class="fa" [ngClass]="ackBusyKey === f.key ? 'fa-spinner fa-spin' : (f.acknowledged ? 'fa-undo' : 'fa-check')"></i>
+              {{ (f.acknowledged ? 'NETWORK_SENTINEL.UNACK' : 'NETWORK_SENTINEL.ACK') | translate }}
+            </button>
+          </span>
+        </div>
+        <div class="ns-finding-title">{{ f.title }}</div>
+        <div class="ns-finding-detail">{{ f.detail }}</div>
+        <div class="ns-evidence" *ngIf="evidenceEntries(f).length">
+          <span class="ns-ev" *ngFor="let e of evidenceEntries(f)"><strong>{{ e.key }}</strong> {{ e.value }}</span>
+        </div>
+      </div>
+
+      <!-- Unknown devices from sweep -->
+      <div class="mt-4" *ngIf="sweep?.unknownDevices?.length">
+        <h6 class="text-danger"><i class="fa fa-question-circle"></i> {{ 'NETWORK_SENTINEL.UNKNOWN_DEVICES' | translate }}</h6>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped ns-table">
+            <thead><tr>
+              <th>IP</th><th>MAC</th><th>{{ 'NETWORK_SENTINEL.HOSTNAME' | translate }}</th><th>{{ 'NETWORK_SENTINEL.VENDOR' | translate }}</th><th>{{ 'NETWORK_SENTINEL.OPEN_PORTS' | translate }}</th>
+            </tr></thead>
+            <tbody>
+              <tr *ngFor="let d of sweep?.unknownDevices">
+                <td><code>{{ d['ipAddress'] }}</code></td><td><code>{{ d['macAddress'] }}</code></td>
+                <td>{{ d['hostname'] || '–' }}</td><td>{{ d['vendor'] || '–' }}</td><td>{{ d['openPorts'] || '–' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <a class="small" routerLink="/iot/local-network">{{ 'NETWORK_SENTINEL.GO_TO_INVENTORY' | translate }} â†’</a>
+      </div>
+
+      <div class="mt-3" *ngIf="sweep?.warnings?.length">
+        <div class="ns-hint ns-hint-warn" *ngFor="let w of sweep?.warnings"><i class="fa fa-exclamation-triangle"></i> {{ w }}</div>
+      </div>
+    </div>
+
+    <!-- ===================================================================== LIVE FLOWS -->
+    <div class="card-body" *ngIf="activeTab === 'live'">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <button class="btn btn-primary btn-sm" (click)="refreshLive()" [disabled]="liveLoading">
+          <i class="fa" [ngClass]="liveLoading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i> {{ 'NETWORK_SENTINEL.REFRESH' | translate }}
+        </button>
+        <div class="form-check form-switch ns-switch mb-0">
+          <input class="form-check-input" type="checkbox" role="switch" id="nsLiveAuto" [checked]="liveAutoRefresh" (change)="toggleLiveAutoRefresh()">
+          <label class="form-check-label" for="nsLiveAuto"><i class="fa fa-play-circle"></i> {{ 'NETWORK_SENTINEL.AUTO_REFRESH' | translate }}</label>
+        </div>
+        <select class="form-select form-select-sm ns-select" [(ngModel)]="flowFilter">
+          <option value="all">{{ 'NETWORK_SENTINEL.FLOW_ALL' | translate }}</option>
+          <option value="inboundPublic">{{ 'NETWORK_SENTINEL.FLOW_INBOUND_PUBLIC' | translate }}</option>
+          <option value="outboundPublic">{{ 'NETWORK_SENTINEL.FLOW_OUTBOUND_PUBLIC' | translate }}</option>
+          <option value="lan">{{ 'NETWORK_SENTINEL.FLOW_LAN' | translate }}</option>
+          <option value="listeners">{{ 'NETWORK_SENTINEL.FLOW_LISTENERS' | translate }}</option>
+        </select>
+        <input type="text" class="form-control form-control-sm ns-filter" [(ngModel)]="flowText" [placeholder]="'NETWORK_SENTINEL.FLOW_FILTER' | translate">
+        <span class="text-muted small ms-auto" *ngIf="live">{{ live.at | date:'HH:mm:ss' }} · {{ filteredFlows.length }} / {{ live.flowCount }}</span>
+      </div>
+
+      <div class="ns-summary mb-3" *ngIf="live?.counts as k">
+        <div class="ns-sum ns-sum-neutral"><div class="ns-sum-n">{{ k.established }}</div><div class="ns-sum-l">{{ 'NETWORK_SENTINEL.ESTABLISHED' | translate }}</div></div>
+        <div class="ns-sum" [ngClass]="k.inboundPublic ? 'sev-critical' : 'ns-sum-neutral'"><div class="ns-sum-n">{{ k.inboundPublic }}</div><div class="ns-sum-l"><i class="fa fa-sign-in"></i> {{ 'NETWORK_SENTINEL.INBOUND_PUBLIC' | translate }}</div></div>
+        <div class="ns-sum ns-sum-neutral"><div class="ns-sum-n">{{ k.outboundPublic }}</div><div class="ns-sum-l"><i class="fa fa-sign-out"></i> {{ 'NETWORK_SENTINEL.OUTBOUND_PUBLIC' | translate }}</div></div>
+        <div class="ns-sum ns-sum-neutral"><div class="ns-sum-n">{{ k.inboundLan + k.outboundLan }}</div><div class="ns-sum-l"><i class="fa fa-home"></i> {{ 'NETWORK_SENTINEL.LAN_FLOWS' | translate }}</div></div>
+        <div class="ns-sum ns-sum-neutral"><div class="ns-sum-n">{{ k.listeners }}</div><div class="ns-sum-l"><i class="fa fa-plug"></i> {{ 'NETWORK_SENTINEL.LISTENERS' | translate }}</div></div>
+      </div>
+
+      <div class="alert alert-danger py-1 px-2 small" *ngIf="liveError"><i class="fa fa-exclamation-triangle"></i> {{ liveError }}</div>
+
+      <!-- Live findings (socket table + sessions only) -->
+      <div class="mb-3" *ngIf="liveFindings.length">
+        <div class="ns-finding ns-finding-compact" *ngFor="let f of liveFindings; trackBy: trackByKey" [ngClass]="severityClass(f.severity)">
+          <div class="ns-finding-head">
+            <span class="ns-sev-badge" [ngClass]="severityClass(f.severity)">{{ ('NETWORK_SENTINEL.SEV.' + f.severity) | translate }}</span>
+            <span class="ns-intrusion" *ngIf="f.intrusionSucceeded && !f.acknowledged"><i class="fa fa-user-secret"></i> {{ 'NETWORK_SENTINEL.INTRUSION' | translate }}</span>
+            <span class="ns-cat"><i class="fa" [ngClass]="categoryIcon(f.category)"></i> {{ categoryLabelKey(f.category) | translate }}</span>
+            <span class="ms-auto">
+              <button class="btn btn-sm btn-outline-success" *ngIf="!f.acknowledged" (click)="acknowledge(f, true)" [disabled]="ackBusyKey === f.key">
+                <i class="fa fa-check"></i> {{ 'NETWORK_SENTINEL.ACK' | translate }}
+              </button>
+            </span>
+          </div>
+          <div class="ns-finding-title">{{ f.title }}</div>
+          <div class="ns-finding-detail">{{ f.detail }}</div>
+        </div>
+      </div>
+
+      <div class="table-responsive" *ngIf="live">
+        <table class="table table-sm table-hover ns-table ns-flows">
+          <thead><tr>
+            <th>{{ 'NETWORK_SENTINEL.DIRECTION' | translate }}</th>
+            <th>{{ 'NETWORK_SENTINEL.PROTO' | translate }}</th>
+            <th>{{ 'NETWORK_SENTINEL.LOCAL' | translate }}</th>
+            <th>{{ 'NETWORK_SENTINEL.REMOTE' | translate }}</th>
+            <th>{{ 'NETWORK_SENTINEL.SCOPE' | translate }}</th>
+            <th>{{ 'NETWORK_SENTINEL.STATE' | translate }}</th>
+            <th>{{ 'NETWORK_SENTINEL.PROCESS' | translate }}</th>
+          </tr></thead>
+          <tbody>
+            <tr *ngFor="let f of filteredFlows; trackBy: trackByFlow"
+                [class.ns-row-danger]="f.direction === 'INBOUND' && f.remoteScope === 'PUBLIC'"
+                [class.ns-row-public]="f.direction === 'OUTBOUND' && f.remoteScope === 'PUBLIC'">
+              <td>
+                <span class="ns-dir" [ngClass]="'ns-dir-' + f.direction.toLowerCase()">
+                  <i class="fa" [ngClass]="f.direction === 'INBOUND' ? 'fa-arrow-left' : (f.direction === 'OUTBOUND' ? 'fa-arrow-right' : 'fa-plug')"></i>
+                  {{ ('NETWORK_SENTINEL.DIR.' + f.direction) | translate }}
+                </span>
+              </td>
+              <td><code>{{ f.protocol }}</code></td>
+              <td><code>{{ f.localAddress }}:{{ f.localPort }}</code></td>
+              <td><code *ngIf="f.direction !== 'LISTEN'">{{ f.remoteAddress }}:{{ f.remotePort }}</code><span *ngIf="f.direction === 'LISTEN'" class="text-muted">–</span></td>
+              <td><span class="ns-scope" [ngClass]="'ns-scope-' + f.remoteScope.toLowerCase()" *ngIf="f.direction !== 'LISTEN'">{{ ('NETWORK_SENTINEL.SCOPES.' + f.remoteScope) | translate }}</span></td>
+              <td><small>{{ f.state }}</small></td>
+              <td><small>{{ f.processName || '–' }}<span class="text-muted" *ngIf="f.pid"> ({{ f.pid }})</span></small></td>
+            </tr>
+            <tr *ngIf="filteredFlows.length === 0"><td colspan="7" class="text-muted text-center">{{ 'NETWORK_SENTINEL.NO_FLOWS' | translate }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-2" *ngIf="live?.sessions?.length">
+        <h6><i class="fa fa-desktop"></i> {{ 'NETWORK_SENTINEL.OPEN_SESSIONS' | translate }}</h6>
+        <ul class="small mb-0">
+          <li *ngFor="let s of live?.sessions"><strong>{{ s.user }}</strong> · {{ s.method }} <span *ngIf="s.sourceAddress">· {{ s.sourceAddress }} ({{ s.sourceScope }})</span></li>
+        </ul>
+      </div>
+      <div class="mt-2" *ngIf="live?.warnings?.length">
+        <div class="ns-hint ns-hint-warn" *ngFor="let w of live?.warnings"><i class="fa fa-exclamation-triangle"></i> {{ w }}</div>
+      </div>
+    </div>
+
+    <!-- ===================================================================== CAPTURE -->
+    <div class="card-body" *ngIf="activeTab === 'capture'">
+      <ng-container *ngIf="sweep?.capture as cap; else noCapture">
+        <div class="d-flex flex-wrap align-items-center gap-3 mb-3 small text-muted" *ngIf="cap.available">
+          <span><i class="fa fa-filter"></i> {{ cap.tool }}</span>
+          <span>{{ cap.requestedSeconds }} s</span>
+          <span><strong>{{ cap.packets }}</strong> {{ 'NETWORK_SENTINEL.PACKETS' | translate }}</span>
+          <span><strong>{{ formatBytes(cap.bytes) }}</strong></span>
+          <span>{{ cap.conversations.length }} {{ 'NETWORK_SENTINEL.CONVERSATIONS' | translate }}</span>
+          <span>{{ cap.dnsQueries.length }} DNS</span>
+          <span>{{ cap.arpObservations.length }} ARP</span>
+          <span>{{ sweep?.startedAt | date:'dd-MM-yyyy HH:mm' }}</span>
+        </div>
+        <div class="alert alert-warning small" *ngIf="!cap.available"><i class="fa fa-exclamation-triangle"></i> {{ cap.warning }}</div>
+        <div class="alert alert-info small py-1 px-2" *ngIf="cap.available && cap.warning"><i class="fa fa-info-circle"></i> {{ cap.warning }}</div>
+
+        <div class="row g-3" *ngIf="cap.available">
+          <div class="col-12 col-xl-7">
+            <h6><i class="fa fa-exchange"></i> {{ 'NETWORK_SENTINEL.TOP_CONVERSATIONS' | translate }}</h6>
+            <div class="table-responsive ns-scroll">
+              <table class="table table-sm table-striped ns-table">
+                <thead><tr><th>{{ 'NETWORK_SENTINEL.PROTO' | translate }}</th><th>{{ 'NETWORK_SENTINEL.SOURCE' | translate }}</th><th>{{ 'NETWORK_SENTINEL.DESTINATION' | translate }}</th><th class="text-end">{{ 'NETWORK_SENTINEL.PACKETS' | translate }}</th><th class="text-end">{{ 'NETWORK_SENTINEL.BYTES' | translate }}</th><th class="text-end" [title]="'NETWORK_SENTINEL.DISTINCT_PORTS_TIP' | translate">#{{ 'NETWORK_SENTINEL.PORTS' | translate }}</th></tr></thead>
+                <tbody>
+                  <tr *ngFor="let c of cap.conversations" [class.ns-row-danger]="c.distinctDstPorts >= 15" [class.ns-row-public]="c.synOnly">
+                    <td><code>{{ c.protocol }}</code></td>
+                    <td><code>{{ c.srcAddress }}</code></td>
+                    <td><code>{{ c.dstAddress }}<span *ngIf="c.dstPort != null">:{{ c.dstPort }}</span></code></td>
+                    <td class="text-end">{{ c.packets }}</td>
+                    <td class="text-end">{{ formatBytes(c.bytes) }}</td>
+                    <td class="text-end">{{ c.distinctDstPorts }}<i class="fa fa-flag text-warning ms-1" *ngIf="c.synOnly" [title]="'NETWORK_SENTINEL.SYN_ONLY' | translate"></i></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="col-12 col-xl-5">
+            <h6><i class="fa fa-bar-chart"></i> {{ 'NETWORK_SENTINEL.TALKERS' | translate }}</h6>
+            <div class="table-responsive ns-scroll-sm">
+              <table class="table table-sm table-striped ns-table">
+                <thead><tr><th>{{ 'NETWORK_SENTINEL.HOST' | translate }}</th><th class="text-end">{{ 'NETWORK_SENTINEL.PACKETS' | translate }}</th><th class="text-end">{{ 'NETWORK_SENTINEL.BYTES' | translate }}</th></tr></thead>
+                <tbody><tr *ngFor="let h of cap.packetsByHost"><td><code>{{ h.address }}</code></td><td class="text-end">{{ h.packets }}</td><td class="text-end">{{ formatBytes(h.bytes) }}</td></tr></tbody>
+              </table>
+            </div>
+            <h6 class="mt-3"><i class="fa fa-book"></i> DNS</h6>
+            <div class="table-responsive ns-scroll-sm">
+              <table class="table table-sm table-striped ns-table">
+                <thead><tr><th>{{ 'NETWORK_SENTINEL.CLIENT' | translate }}</th><th>{{ 'NETWORK_SENTINEL.NAME' | translate }}</th><th class="text-end">#</th></tr></thead>
+                <tbody><tr *ngFor="let q of cap.dnsQueries"><td><code>{{ q.client }}</code></td><td class="ns-ellipsis" [title]="q.name">{{ q.name }}</td><td class="text-end">{{ q.count }}</td></tr>
+                <tr *ngIf="!cap.dnsQueries.length"><td colspan="3" class="text-muted">–</td></tr></tbody>
+              </table>
+            </div>
+            <h6 class="mt-3"><i class="fa fa-random"></i> ARP / IP â†” MAC</h6>
+            <div class="table-responsive ns-scroll-sm">
+              <table class="table table-sm table-striped ns-table">
+                <thead><tr><th>IP</th><th>MAC</th></tr></thead>
+                <tbody><tr *ngFor="let p of cap.ipToMac"><td><code>{{ p.ip }}</code></td><td><code>{{ p.mac }}</code></td></tr>
+                <tr *ngIf="!cap.ipToMac.length"><td colspan="2" class="text-muted">–</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+      <ng-template #noCapture>
+        <div class="alert alert-secondary small"><i class="fa fa-info-circle"></i> {{ 'NETWORK_SENTINEL.NO_CAPTURE' | translate }}</div>
+      </ng-template>
+    </div>
+
+    <!-- ===================================================================== ACCESS (sessions + logons) -->
+    <div class="card-body" *ngIf="activeTab === 'access'">
+      <p class="text-muted small">{{ 'NETWORK_SENTINEL.ACCESS_INTRO' | translate }}</p>
+      <ng-container *ngIf="sweep; else noSweepAccess">
+        <h6><i class="fa fa-desktop"></i> {{ 'NETWORK_SENTINEL.OPEN_SESSIONS' | translate }} ({{ sweep.sessions.length }})</h6>
+        <div class="table-responsive mb-3">
+          <table class="table table-sm table-striped ns-table">
+            <thead><tr><th>{{ 'NETWORK_SENTINEL.USER' | translate }}</th><th>{{ 'NETWORK_SENTINEL.METHOD' | translate }}</th><th>{{ 'NETWORK_SENTINEL.SOURCE' | translate }}</th><th>{{ 'NETWORK_SENTINEL.SCOPE' | translate }}</th><th>{{ 'NETWORK_SENTINEL.WHEN' | translate }}</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let s of sweep.sessions" [class.ns-row-danger]="s.sourceScope === 'PUBLIC'">
+                <td><strong>{{ s.user }}</strong></td><td>{{ s.method || '–' }}</td><td><code>{{ s.sourceAddress || '–' }}</code></td>
+                <td><span class="ns-scope" *ngIf="s.sourceScope" [ngClass]="'ns-scope-' + s.sourceScope.toLowerCase()">{{ ('NETWORK_SENTINEL.SCOPES.' + s.sourceScope) | translate }}</span></td>
+                <td><small>{{ s.when || '–' }}</small></td>
+              </tr>
+              <tr *ngIf="!sweep.sessions.length"><td colspan="5" class="text-muted">{{ 'NETWORK_SENTINEL.NONE' | translate }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h6><i class="fa fa-key"></i> {{ 'NETWORK_SENTINEL.RECENT_LOGONS' | translate }} ({{ sweep.logons.length }})</h6>
+        <div class="table-responsive ns-scroll">
+          <table class="table table-sm table-striped ns-table">
+            <thead><tr><th>{{ 'NETWORK_SENTINEL.USER' | translate }}</th><th>{{ 'NETWORK_SENTINEL.METHOD' | translate }}</th><th>{{ 'NETWORK_SENTINEL.SOURCE' | translate }}</th><th>{{ 'NETWORK_SENTINEL.SCOPE' | translate }}</th><th>{{ 'NETWORK_SENTINEL.WHEN' | translate }}</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let l of sweep.logons" [class.ns-row-danger]="l.sourceScope === 'PUBLIC'">
+                <td><strong>{{ l.user }}</strong></td><td>{{ l.method || '–' }}</td><td><code>{{ l.sourceAddress || '–' }}</code></td>
+                <td><span class="ns-scope" *ngIf="l.sourceScope" [ngClass]="'ns-scope-' + l.sourceScope.toLowerCase()">{{ ('NETWORK_SENTINEL.SCOPES.' + l.sourceScope) | translate }}</span></td>
+                <td><small>{{ l.when || '–' }}</small></td>
+              </tr>
+              <tr *ngIf="!sweep.logons.length"><td colspan="5" class="text-muted">{{ 'NETWORK_SENTINEL.NONE' | translate }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+      <ng-template #noSweepAccess>
+        <div class="alert alert-secondary small"><i class="fa fa-info-circle"></i> {{ 'NETWORK_SENTINEL.NO_SWEEP_YET' | translate }}</div>
+      </ng-template>
+    </div>
+
+    <!-- ===================================================================== HISTORY -->
+    <div class="card-body" *ngIf="activeTab === 'history'">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <button class="btn btn-outline-primary btn-sm" (click)="loadHistory()" [disabled]="historyLoading">
+          <i class="fa" [ngClass]="historyLoading ? 'fa-spinner fa-spin' : 'fa-refresh'"></i> {{ 'NETWORK_SENTINEL.REFRESH' | translate }}
+        </button>
+        <button class="btn btn-outline-danger btn-sm ms-auto" (click)="clearHistory()" [disabled]="!history.length">
+          <i class="fa fa-trash"></i> {{ 'NETWORK_SENTINEL.CLEAR_HISTORY' | translate }}
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover ns-table">
+          <thead><tr>
+            <th>{{ 'NETWORK_SENTINEL.WHEN' | translate }}</th><th>{{ 'NETWORK_SENTINEL.TRIGGER_LABEL' | translate }}</th><th>{{ 'NETWORK_SENTINEL.DURATION' | translate }}</th>
+            <th class="text-end"><i class="fa fa-user-secret"></i></th><th>{{ 'NETWORK_SENTINEL.SEVERITIES' | translate }}</th>
+            <th class="text-end">{{ 'NETWORK_SENTINEL.DEVICES' | translate }}</th><th class="text-end">{{ 'NETWORK_SENTINEL.INBOUND_PUBLIC' | translate }}</th><th class="text-end">{{ 'NETWORK_SENTINEL.PACKETS' | translate }}</th><th></th>
+          </tr></thead>
+          <tbody>
+            <tr *ngFor="let h of history" [class.table-active]="sweep?.id === h.id" style="cursor:pointer" (click)="openSweep(h.id)">
+              <td><small>{{ h.startedAt | date:'dd-MM-yyyy HH:mm:ss' }}</small></td>
+              <td><span class="badge bg-secondary">{{ ('NETWORK_SENTINEL.TRIGGER.' + h.trigger) | translate }}</span>
+                  <span class="badge bg-info text-dark ms-1" *ngIf="h.baselineLearning" [title]="'NETWORK_SENTINEL.BASELINE_LEARNING' | translate"><i class="fa fa-graduation-cap"></i></span></td>
+              <td><small>{{ formatDuration(h.durationMs) }}</small></td>
+              <td class="text-end"><span class="badge" [ngClass]="h.intrusionSucceededCount ? 'bg-danger' : 'bg-light text-muted'">{{ h.intrusionSucceededCount }}</span></td>
+              <td>
+                <span class="ns-mini" *ngFor="let s of severities" [ngClass]="severityClass(s)" [class.ns-mini-zero]="!h.severityCounts?.[s]">{{ h.severityCounts?.[s] || 0 }}</span>
+                <i class="fa fa-envelope text-success ms-1" *ngIf="h.emailSent" [title]="'NETWORK_SENTINEL.EMAIL_SENT' | translate"></i>
+              </td>
+              <td class="text-end">{{ h.deviceScanIncluded ? h.deviceCount : '–' }}<span class="text-danger" *ngIf="h.unknownDeviceCount"> (+{{ h.unknownDeviceCount }})</span></td>
+              <td class="text-end">{{ h.inboundPublicCount }}</td>
+              <td class="text-end">{{ h.captureIncluded ? h.capturePackets : '–' }}</td>
+              <td><i class="fa fa-chevron-right text-muted"></i></td>
+            </tr>
+            <tr *ngIf="!history.length && !historyLoading"><td colspan="9" class="text-muted text-center">{{ 'NETWORK_SENTINEL.NO_SWEEP_YET' | translate }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===================================================================== SETTINGS -->
+    <div class="card-body" *ngIf="activeTab === 'settings'">
+      <div class="row g-3">
+        <div class="col-12 col-lg-6">
+          <label class="form-label fw-semibold" for="nsTrusted"><i class="fa fa-shield"></i> {{ 'NETWORK_SENTINEL.TRUSTED_CIDRS' | translate }}</label>
+          <textarea id="nsTrusted" class="form-control form-control-sm" rows="5" [(ngModel)]="trustedCidrsText" placeholder="203.0.113.7&#10;198.51.100.0/24"></textarea>
+          <div class="form-text">{{ 'NETWORK_SENTINEL.TRUSTED_CIDRS_HELP' | translate }}</div>
+        </div>
+        <div class="col-12 col-lg-6">
+          <label class="form-label fw-semibold" for="nsExpected"><i class="fa fa-plug"></i> {{ 'NETWORK_SENTINEL.EXPECTED_LISTENERS' | translate }}</label>
+          <textarea id="nsExpected" class="form-control form-control-sm" rows="5" [(ngModel)]="expectedListenersText" placeholder="tcp:443&#10;tcp:8080&#10;udp:5353"></textarea>
+          <div class="form-text">{{ 'NETWORK_SENTINEL.EXPECTED_LISTENERS_HELP' | translate }}</div>
+        </div>
+        <div class="col-12">
+          <button class="btn btn-primary btn-sm" (click)="saveTrustAndListeners()" [disabled]="prefsSaving">
+            <i class="fa" [ngClass]="prefsSaving ? 'fa-spinner fa-spin' : 'fa-save'"></i> {{ 'NETWORK_SENTINEL.SAVE' | translate }}
+          </button>
+        </div>
+        <div class="col-12 col-lg-6" *ngIf="capabilities?.packetCapture">
+          <label class="form-label fw-semibold" for="nsIface"><i class="fa fa-filter"></i> {{ 'NETWORK_SENTINEL.CAPTURE_INTERFACE' | translate }}</label>
+          <select id="nsIface" class="form-select form-select-sm" [ngModel]="prefs.captureInterface || '__auto__'" (ngModelChange)="onCaptureInterfaceChange($event)" [disabled]="prefsSaving">
+            <option value="__auto__">{{ 'NETWORK_SENTINEL.CAPTURE_INTERFACE_AUTO' | translate }}</option>
+            <option *ngFor="let i of capabilities?.captureInterfaces" [value]="captureInterfaceName(i)">{{ i }}</option>
+          </select>
+          <div class="form-text">{{ 'NETWORK_SENTINEL.CAPTURE_INTERFACE_HELP' | translate }}</div>
+        </div>
+        <div class="col-12 col-lg-6" *ngIf="status">
+          <label class="form-label fw-semibold"><i class="fa fa-graduation-cap"></i> {{ 'NETWORK_SENTINEL.BASELINE' | translate }}</label>
+          <ul class="small mb-2">
+            <li>{{ 'NETWORK_SENTINEL.BASELINE_SWEEPS' | translate }}: <strong>{{ status.baselineSweepCount }}</strong></li>
+            <li>{{ 'NETWORK_SENTINEL.LISTENERS' | translate }}: <strong>{{ status.baselineListeners }}</strong></li>
+            <li>{{ 'NETWORK_SENTINEL.RECENT_LOGONS' | translate }}: <strong>{{ status.baselineLogons }}</strong></li>
+            <li>ARP: <strong>{{ status.baselineArpEntries }}</strong></li>
+            <li>{{ 'NETWORK_SENTINEL.ACKNOWLEDGED' | translate }}: <strong>{{ status.acknowledgedKeys }}</strong></li>
+          </ul>
+          <button class="btn btn-outline-danger btn-sm" (click)="resetBaseline()"><i class="fa fa-eraser"></i> {{ 'NETWORK_SENTINEL.RESET_BASELINE' | translate }}</button>
+          <div class="form-text">{{ 'NETWORK_SENTINEL.RESET_BASELINE_HELP' | translate }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="ns-modal-backdrop" *ngIf="guideOpen" (click)="closeGuide()" role="presentation">
+  <div class="ns-modal" role="dialog" aria-modal="true" aria-labelledby="nsGuideTitle" (click)="$event.stopPropagation()">
+    <div class="ns-modal-head">
+      <h3 id="nsGuideTitle"><i class="fa fa-book" aria-hidden="true"></i> {{ 'NETWORK_SENTINEL.GUIDE_TITLE' | translate }}</h3>
+      <button type="button" class="btn-close" (click)="closeGuide()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+    </div>
+    <div class="ns-modal-body">
+      <section *ngFor="let s of guideSections">
+        <h4><i class="fa" [ngClass]="s.icon" aria-hidden="true"></i> {{ s.titleKey | translate }}</h4>
+        <p>{{ s.bodyKey | translate }}</p>
+      </section>
+    </div>
+    <div class="ns-modal-foot">
+      <button type="button" class="btn btn-secondary btn-sm" (click)="closeGuide()">{{ 'COMMUN.CLOSE' | translate }}</button>
+    </div>
+  </div>
+</div>
