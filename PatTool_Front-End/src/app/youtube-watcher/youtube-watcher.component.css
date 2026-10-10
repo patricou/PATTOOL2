@@ -658,12 +658,38 @@
 }
 
 .yt-type,
-.yt-region {
+.yt-region,
+.yt-category {
   flex: 0 0 8rem;
 }
 
+.yt-category {
+  flex-basis: 10rem;
+}
+
+:host .yt-category.is-set {
+  border-color: #ff4e45;
+  background-color: #3d0b0b;
+  color: #fff;
+  font-weight: 600;
+}
+
+:host .yt-type option,
+:host .yt-region option,
+:host .yt-category option {
+  background-color: #1a1a1a;
+  color: #f1f1f1;
+  font-weight: 400;
+}
+
+:host .yt-category option:checked {
+  background-color: #8a0000;
+  color: #fff;
+}
+
 :host .yt-type,
-:host .yt-region {
+:host .yt-region,
+:host .yt-category {
   padding-right: 1.9rem;
   background-position: right 0.65rem center;
   background-size: 12px 9px;
@@ -679,9 +705,7 @@
   font-size: 0.74rem;
 }
 
-:host .yt-query,
-:host .yt-type,
-:host .yt-region {
+:host .yt-query, .yt-type, .yt-region, .yt-category {
   height: 1.8rem;
   padding-top: 0;
   padding-bottom: 0;
@@ -694,9 +718,7 @@
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-:host .yt-query:focus,
-:host .yt-type:focus,
-:host .yt-region:focus {
+:host .yt-query:focus, .yt-type:focus, .yt-region:focus, .yt-category:focus {
   border-color: #ff4e45;
   box-shadow: 0 0 0 3px rgba(255, 0, 0, 0.22);
 }
@@ -1562,7 +1584,8 @@
   }
 
   .yt-type,
-  .yt-region {
+  .yt-region,
+  .yt-category {
     flex: 1 1 8rem;
   }
 }

@@ -198,6 +198,20 @@
       <option *ngFor="let t of types" [ngValue]="t">{{ ('YOUTUBE.TYPE_' + t.toUpperCase()) | translate }}</option>
     </select>
 
+    <label class="visually-hidden" for="yt-category">{{ 'YOUTUBE.CATEGORY' | translate }}</label>
+    <select
+      *ngIf="type === 'video'"
+      id="yt-category"
+      class="form-select yt-category"
+      name="ytCategory"
+      [class.is-set]="!!category"
+      [ngModel]="category"
+      (ngModelChange)="onCategoryChanged($event)"
+      [attr.title]="'YOUTUBE.CATEGORY' | translate">
+      <option value="">{{ 'YOUTUBE.CATEGORY_ALL' | translate }}</option>
+      <option *ngFor="let c of sortedCategories()" [value]="c.id">{{ c.label }}</option>
+    </select>
+
     <label class="visually-hidden" for="yt-region">{{ 'YOUTUBE.REGION' | translate }}</label>
     <select
       id="yt-region"

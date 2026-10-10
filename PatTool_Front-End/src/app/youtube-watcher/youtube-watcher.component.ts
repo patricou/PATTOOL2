@@ -84,9 +84,28 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     { code: 'CN', label: '中国' }
   ];
 
+  /** YouTube Data API video category ids (only meaningful for type=video). */
+  readonly categories: ReadonlyArray<{ id: string; key: string }> = [
+    { id: '10', key: 'MUSIC' },
+    { id: '20', key: 'GAMING' },
+    { id: '17', key: 'SPORTS' },
+    { id: '25', key: 'NEWS' },
+    { id: '1', key: 'FILM' },
+    { id: '24', key: 'ENTERTAINMENT' },
+    { id: '23', key: 'COMEDY' },
+    { id: '27', key: 'EDUCATION' },
+    { id: '28', key: 'SCIENCE' },
+    { id: '26', key: 'HOWTO' },
+    { id: '19', key: 'TRAVEL' },
+    { id: '15', key: 'PETS' },
+    { id: '2', key: 'AUTOS' },
+    { id: '22', key: 'PEOPLE' }
+  ];
+
   query = '';
   type: YoutubeItemKind = 'video';
   regionCode = 'FR';
+  category = '';
   channelId = '';
   channelFilterTitle = '';
   recentSearches: string[] = [];
@@ -282,6 +301,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       params.get('region') || this.regionFromUiLang(this.translate.currentLang)
     );
     this.type = this.normalizeType(params.get('type'));
+    this.category = this.normalizeCategory(params.get('cat'));
     this.query = (params.get('q') || '').trim();
     this.channelId = (params.get('channel') || '').trim();
     this.tickerEnabled = this.readTickerPreference();
@@ -474,6 +494,43 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     if (this.type === 'channel') {
       this.clearChannelFilter();
     }
+  }
+
+  onCategoryChanged(value: string): void {
+    this.category = this.normalizeCategory(value);
+    this.listMode = 'catalog';
+    this.stopPlayAll();
+    if (this.query.trim() || this.channelId) {
+      this.runSearch();
+    } else {
+      this.syncUrl();
+      this.loadPopular();
+    }
+  }
+
+  private sortedCategoriesCache: { lang: string; list: ReadonlyArray<{ id: string; key: string; label: string }> } | null = null;
+
+  sortedCategories(): ReadonlyArray<{ id: string; key: string; label: string }> {
+    const lang = this.translate.currentLang || this.translate.defaultLang || 'fr';
+    const cached = this.sortedCategoriesCache;
+    if (cached && cached.lang === lang && cached.list.every((c) => c.label !== `YOUTUBE.CATEGORY_${c.key}`)) {
+      return cached.list;
+    }
+    const list = this.categories
+      .map((c) => ({ ...c, label: this.translate.instant(`YOUTUBE.CATEGORY_${c.key}`) as string }))
+      .sort((a, b) => a.label.localeCompare(b.label, lang, { sensitivity: 'base' }));
+    this.sortedCategoriesCache = { lang, list };
+    return list;
+  }
+
+  private normalizeCategory(value: string | null | undefined): string {
+    const id = (value || '').trim();
+    return this.categories.some((c) => c.id === id) ? id : '';
+  }
+
+  /** Category filter sent to the API; YouTube only supports it for video searches. */
+  private apiCategory(): string | undefined {
+    return this.type === 'video' && this.category ? this.category : undefined;
   }
 
   get canSubmitSearch(): boolean {
@@ -1469,6 +1526,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.query = '';
     this.clearChannelFilter();
     this.type = 'video';
+    this.category = '';
     this.items = [];
     this.nextPageToken = null;
     this.searched = false;
@@ -1815,7 +1873,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
         ? this.api.getYoutubePopular({
             regionCode: this.regionCode,
             pageToken: token,
-            maxResults: 12
+            maxResults: 12,
+            videoCategoryId: this.apiCategory()
           })
         : this.api.searchYoutube({
             q: this.query.trim() || undefined,
@@ -1825,7 +1884,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
             channelId: this.channelId || undefined,
             pageToken: token,
             maxResults: 12,
-            order: this.youtubeApiOrder()
+            order: !this.query.trim() && !this.channelId && this.apiCategory() ? 'viewCount' : this.youtubeApiOrder(),
+            videoCategoryId: this.apiCategory()
           });
     this.searchSub?.unsubscribe();
     this.searchSub = req$.subscribe({
@@ -1971,8 +2031,40 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.errorMessage = '';
     this.missingKey = false;
     this.resultKind = 'popular';
+    const category = this.apiCategory();
     this.searchSub = this.api
-      .getYoutubePopular({ regionCode: this.regionCode, maxResults: 12 })
+      .getYoutubePopular({ regionCode: this.regionCode, maxResults: 12, videoCategoryId: category })
+      .subscribe({
+        next: (page) => {
+          if (category && page?.configured !== false && (page?.error || !page?.items?.length)) {
+            // Not every category has a "most popular" chart in every region.
+            this.loadCategorySearch(category, preferId);
+            return;
+          }
+          this.searching = false;
+          this.searched = true;
+          this.applyPage(page, false, preferId);
+        },
+        error: () => {
+          this.searching = false;
+          this.searched = true;
+          this.items = [];
+          this.errorMessage = 'YOUTUBE.ERROR';
+        }
+      });
+  }
+
+  private loadCategorySearch(category: string, preferId?: string | null): void {
+    this.resultKind = 'search';
+    this.searchSub = this.api
+      .searchYoutube({
+        type: 'video',
+        regionCode: this.regionCode,
+        relevanceLanguage: this.relevanceLang(),
+        maxResults: 12,
+        order: 'viewCount',
+        videoCategoryId: category
+      })
       .subscribe({
         next: (page) => {
           this.searching = false;
@@ -2025,7 +2117,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
         relevanceLanguage: this.relevanceLang(),
         channelId: this.channelId || undefined,
         maxResults: 12,
-        order: this.youtubeApiOrder()
+        order: this.youtubeApiOrder(),
+        videoCategoryId: this.apiCategory()
       })
       .subscribe({
         next: (page) => {
@@ -3171,6 +3264,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     const queryParams: Record<string, string | null> = {
       q: this.query.trim() || null,
       type: this.type !== 'video' ? this.type : null,
+      cat: this.apiCategory() || null,
       region: this.regionCode !== this.regionFromUiLang(this.translate.currentLang) ? this.regionCode : null,
       channel: this.channelId || null,
       sort: this.sortKey !== 'relevance' ? this.sortKey : null,

@@ -3361,6 +3361,9 @@ export class ApiService {
     if (options.order) {
       params = params.set('order', options.order);
     }
+    if (options.videoCategoryId) {
+      params = params.set('videoCategoryId', options.videoCategoryId);
+    }
     return this._http.get<YoutubeSearchPage>(this.API_URL + 'external/youtube/search', { params });
   }
 
@@ -3374,6 +3377,9 @@ export class ApiService {
     }
     if (options.maxResults) {
       params = params.set('maxResults', String(options.maxResults));
+    }
+    if (options.videoCategoryId) {
+      params = params.set('videoCategoryId', options.videoCategoryId);
     }
     return this._http.get<YoutubeSearchPage>(this.API_URL + 'external/youtube/popular', { params });
   }
@@ -6233,12 +6239,14 @@ export interface YoutubeSearchOptions {
   pageToken?: string;
   maxResults?: number;
   order?: string;
+  videoCategoryId?: string;
 }
 
 export interface YoutubePopularOptions {
   regionCode?: string;
   pageToken?: string;
   maxResults?: number;
+  videoCategoryId?: string;
 }
 
 export interface YoutubeItem {

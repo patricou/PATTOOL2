@@ -175,7 +175,8 @@ public class YoutubeProxyService {
             String channelId,
             String pageToken,
             Integer maxResults,
-            String order) {
+            String order,
+            String videoCategoryId) {
         if (!isConfigured()) {
             return YoutubeSearchPageDto.missingKey();
         }
@@ -186,14 +187,15 @@ public class YoutubeProxyService {
         String channel = normalizeChannel(channelId);
         String token = normalizeToken(pageToken);
         String sort = normalizeOrder(order);
+        String category = "video".equals(kind) ? normalizeCategory(videoCategoryId) : "";
         int limit = clampLimit(maxResults);
-        if (!StringUtils.hasText(q) && !StringUtils.hasText(channel)) {
+        if (!StringUtils.hasText(q) && !StringUtils.hasText(channel) && !StringUtils.hasText(category)) {
             return emptyPage("search", q, kind, region);
         }
         if (StringUtils.hasText(q) && !SAFE_QUERY.matcher(q).matches()) {
             return YoutubeSearchPageDto.failure("invalid_query", "invalid_query");
         }
-        String cacheKey = "search|" + q + "|" + kind + "|" + region + "|" + lang + "|" + channel + "|" + sort + "|" + token + "|" + limit;
+        String cacheKey = "search|" + q + "|" + kind + "|" + region + "|" + lang + "|" + channel + "|" + sort + "|" + category + "|" + token + "|" + limit;
         YoutubeSearchPageDto cached = fromCache(cacheKey);
         if (cached != null) {
             return cached;
@@ -217,6 +219,9 @@ public class YoutubeProxyService {
         }
         if (StringUtils.hasText(sort) && !"relevance".equals(sort)) {
             builder.queryParam("order", sort);
+        }
+        if (StringUtils.hasText(category)) {
+            builder.queryParam("videoCategoryId", category);
         }
         if (StringUtils.hasText(token)) {
             builder.queryParam("pageToken", token);
@@ -250,7 +255,7 @@ public class YoutubeProxyService {
         return page;
     }
 
-    public YoutubeSearchPageDto popular(String regionCode, String pageToken, Integer maxResults) {
+    public YoutubeSearchPageDto popular(String regionCode, String pageToken, Integer maxResults, String videoCategoryId) {
         if (!isConfigured()) {
             return YoutubeSearchPageDto.missingKey();
         }
@@ -259,8 +264,9 @@ public class YoutubeProxyService {
             region = "FR";
         }
         String token = normalizeToken(pageToken);
+        String category = normalizeCategory(videoCategoryId);
         int limit = clampLimit(maxResults);
-        String cacheKey = "popular|" + region + "|" + token + "|" + limit;
+        String cacheKey = "popular|" + region + "|" + category + "|" + token + "|" + limit;
         YoutubeSearchPageDto cached = fromCache(cacheKey);
         if (cached != null) {
             return cached;
@@ -270,6 +276,9 @@ public class YoutubeProxyService {
                 .queryParam("chart", "mostPopular")
                 .queryParam("regionCode", region)
                 .queryParam("maxResults", limit);
+        if (StringUtils.hasText(category)) {
+            builder.queryParam("videoCategoryId", category);
+        }
         if (StringUtils.hasText(token)) {
             builder.queryParam("pageToken", token);
         }
@@ -597,6 +606,15 @@ public class YoutubeProxyService {
         }
         String value = channelId.trim();
         return SAFE_CHANNEL.matcher(value).matches() ? value : "";
+    }
+
+    /** YouTube video category ids are small integers (e.g. 10 = Music). */
+    private static String normalizeCategory(String categoryId) {
+        if (!StringUtils.hasText(categoryId)) {
+            return "";
+        }
+        String value = categoryId.trim();
+        return value.matches("\\d{1,3}") ? value : "";
     }
 
     private static int clampLimit(Integer limit) {

@@ -57,17 +57,19 @@ public class YoutubeRestController {
             @RequestParam(value = "channelId", required = false) String channelId,
             @RequestParam(value = "pageToken", required = false) String pageToken,
             @RequestParam(value = "maxResults", required = false) Integer maxResults,
-            @RequestParam(value = "order", required = false) String order) {
+            @RequestParam(value = "order", required = false) String order,
+            @RequestParam(value = "videoCategoryId", required = false) String videoCategoryId) {
         return youtubeProxyService.search(
-                query, type, regionCode, relevanceLanguage, channelId, pageToken, maxResults, order);
+                query, type, regionCode, relevanceLanguage, channelId, pageToken, maxResults, order, videoCategoryId);
     }
 
     @GetMapping(value = "/popular", produces = MediaType.APPLICATION_JSON_VALUE)
     public YoutubeSearchPageDto popular(
             @RequestParam(value = "regionCode", required = false) String regionCode,
             @RequestParam(value = "pageToken", required = false) String pageToken,
-            @RequestParam(value = "maxResults", required = false) Integer maxResults) {
-        return youtubeProxyService.popular(regionCode, pageToken, maxResults);
+            @RequestParam(value = "maxResults", required = false) Integer maxResults,
+            @RequestParam(value = "videoCategoryId", required = false) String videoCategoryId) {
+        return youtubeProxyService.popular(regionCode, pageToken, maxResults, videoCategoryId);
     }
 
     /** Thumbnail proxy — {@code <img src>} never hits YouTube/Google CDNs. */
