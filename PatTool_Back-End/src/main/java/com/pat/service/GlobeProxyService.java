@@ -33,6 +33,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 /**
  * Proxies fixed allow-listed globe imagery URLs (Three.js sample textures, NASA BMNG, NASA GIBS WMS),
@@ -237,6 +238,10 @@ public class GlobeProxyService {
     private final AtomicLong celestrakSkipUntilMs = new AtomicLong(0);
     private final AtomicBoolean celestrakAttemptInFlight = new AtomicBoolean(false);
     private final AtomicLong retlectorSkipUntilMs = new AtomicLong(0);
+    /** BMNG and Three.js planet maps are static; avoid re-downloading NASA / threejs.org on every page open. */
+    private static final long STATIC_GLOBE_IMAGE_CACHE_MS = 12L * 60L * 60L * 1000L;
+    private final ConcurrentHashMap<String, CachedGlobeImage> staticGlobeImageCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Object> staticGlobeImageLocks = new ConcurrentHashMap<>();
 
     public GlobeProxyService(
             @Qualifier(RestTemplateConfig.GLOBE_PROXY_REST_TEMPLATE) RestTemplate globeProxyRestTemplate,
@@ -296,18 +301,47 @@ public class GlobeProxyService {
 
     public record FetchedImage(byte[] body, MediaType contentType) {}
 
+    private record CachedGlobeImage(byte[] body, MediaType contentType, long fetchedAtMs) {
+        boolean isFresh(long maxAgeMs) {
+            return fetchedAtMs > 0 && System.currentTimeMillis() - fetchedAtMs <= maxAgeMs;
+        }
+    }
+
     public FetchedImage fetchThreeJsPlanetTexture(PlanetTextureAsset asset) {
         String url = THREE_JS_PLANET_URLS.get(asset);
         if (url == null) {
             throw new IllegalArgumentException("Unknown planet texture asset");
         }
-        byte[] bytes = fetchBytes(url, MAX_BYTES_TEXTURE);
-        return new FetchedImage(bytes, asset.getMediaType());
+        return fetchStaticGlobeImage("planet:" + asset.name(), () -> {
+            byte[] bytes = fetchBytes(url, MAX_BYTES_TEXTURE);
+            return new FetchedImage(bytes, asset.getMediaType());
+        });
     }
 
     public FetchedImage fetchSatelliteBasemap() {
-        byte[] bytes = fetchBytes(NASA_BMNG_JPG, MAX_BYTES_TEXTURE);
-        return new FetchedImage(bytes, MediaType.IMAGE_JPEG);
+        return fetchStaticGlobeImage("bmng", () -> {
+            byte[] bytes = fetchBytes(NASA_BMNG_JPG, MAX_BYTES_TEXTURE);
+            return new FetchedImage(bytes, MediaType.IMAGE_JPEG);
+        });
+    }
+
+    private FetchedImage fetchStaticGlobeImage(String cacheKey, Supplier<FetchedImage> loader) {
+        CachedGlobeImage cached = staticGlobeImageCache.get(cacheKey);
+        if (cached != null && cached.isFresh(STATIC_GLOBE_IMAGE_CACHE_MS)) {
+            return new FetchedImage(cached.body(), cached.contentType());
+        }
+        Object lock = staticGlobeImageLocks.computeIfAbsent(cacheKey, key -> new Object());
+        synchronized (lock) {
+            cached = staticGlobeImageCache.get(cacheKey);
+            if (cached != null && cached.isFresh(STATIC_GLOBE_IMAGE_CACHE_MS)) {
+                return new FetchedImage(cached.body(), cached.contentType());
+            }
+            FetchedImage fresh = loader.get();
+            staticGlobeImageCache.put(
+                    cacheKey,
+                    new CachedGlobeImage(fresh.body(), fresh.contentType(), System.currentTimeMillis()));
+            return fresh;
+        }
     }
 
     /**

@@ -1,0 +1,77 @@
+{
+  "ASTRO_COMPASS.HEADING_REF_OWNER": {
+    "it": "Conto"
+  },
+  "ASTRO_COMPASS.SKY_CLOCK_OFFLINE": {
+    "de": "Ohne Verbindung",
+    "es": "Sin conexión",
+    "it": "Non in linea",
+    "ar": "دون اتصال",
+    "cn": "离线",
+    "el": "Εκτός σύνδεσης",
+    "he": "לא מקוון",
+    "in": "असंपर्क",
+    "jp": "オフライン",
+    "ru": "Не в сети"
+  },
+  "ASTRO_COMPASS.SKY_CLOCK_TO_LIVE": {
+    "de": "Zurück zum Echtzeitmodus",
+    "es": "Volver al modo en directo",
+    "it": "Torna alla modalità dal vivo",
+    "ar": "العودة إلى الوضع المباشر",
+    "cn": "返回实时模式",
+    "el": "Επιστροφή στη ζωντανή λειτουργία",
+    "he": "חזרה למצב חי",
+    "in": "वास्तविक समय मोड पर वापस",
+    "jp": "リアルタイムモードに戻る",
+    "ru": "Вернуться в режим реального времени"
+  },
+  "ASTRO_COMPASS.SKY_CLOCK_TO_OFFLINE_HINT": {
+    "de": "Berechnet den Himmel auf dem Gerät, ohne Netz. Im Gegenwartsmodus schaltet diese Schaltfläche sofort um.",
+    "es": "Calcula el cielo en el dispositivo, sin red. En modo presente, este botón cambia de inmediato.",
+    "it": "Calcola il cielo sul dispositivo, senza rete. In modalità presente, questo pulsante commuta subito.",
+    "ar": "يحسب السماء على الجهاز، دون شبكة. في وضع الحاضر، يبدّل هذا الزر فورًا.",
+    "cn": "在设备上计算天空，无需网络。在现在模式下，此按钮会立即切换。",
+    "el": "Υπολογίζει τον ουρανό στη συσκευή, χωρίς δίκτυο. Στη λειτουργία παρόντος, αυτό το κουμπί αλλάζει αμέσως.",
+    "he": "מחשב את השמיים על המכשיר, בלי רשת. במצב הווה, לחצן זה מחליף מיד.",
+    "in": "आकाश की गणना उपकरण पर, बिना नेटवर्क। वर्तमान मोड में यह बटन तुरंत बदलता है।",
+    "jp": "ネットワークなしで、端末上で空を計算します。現在モードでは、このボタンですぐ切り替わります。",
+    "ru": "Считает небо на устройстве, без сети. В режиме настоящего эта кнопка переключает сразу."
+  },
+  "ASTRO_COMPASS.SKY_CLOCK_TO_LIVE_HINT": {
+    "de": "Zurück zur echten Uhr und zu den Positionen in Echtzeit.",
+    "es": "Volver al reloj real y a las posiciones en directo.",
+    "it": "Tornare all'orologio reale e alle posizioni in tempo reale.",
+    "ar": "العودة إلى الساعة الحقيقية والمواقع المباشرة.",
+    "cn": "返回真实时钟和实时位置。",
+    "el": "Επιστροφή στο πραγματικό ρολόι και στις ζωντανές θέσεις.",
+    "he": "חזרה לשעון האמיתי ולמיקומים בזמן אמת.",
+    "in": "वास्तविक घड़ी और वास्तविक समय की स्थितियों पर लौटें।",
+    "jp": "実際の時計とリアルタイムの位置に戻ります。",
+    "ru": "Вернуться к настоящим часам и положениям в реальном времени."
+  },
+  "ASTRO_COMPASS.SKY_CLOCK_JUMPS": {
+    "de": "Himmelszeitpunkt",
+    "es": "Instante del cielo",
+    "it": "Istante del cielo",
+    "ar": "لحظة السماء",
+    "cn": "天空时刻",
+    "el": "Στιγμή του ουρανού",
+    "he": "רגע השמיים",
+    "in": "आकाश का क्षण",
+    "jp": "空の瞬間",
+    "ru": "Мгновение неба"
+  },
+  "ASTRO_COMPASS.SKY_CLOCK_PAST": {
+    "de": "Vergangenheit",
+    "es": "Pasado",
+    "it": "Passato",
+    "ar": "الماضي",
+    "cn": "过去",
+    "el": "Παρελθόν",
+    "he": "עבר",
+    "in": "भूत",
+    "jp": "過去",
+    "ru": "Прошлое"
+  }
+}

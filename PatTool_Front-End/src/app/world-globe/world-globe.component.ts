@@ -894,6 +894,14 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     spec: THREE.Texture | null;
     bump: THREE.Texture | null;
   } | null = null;
+  /** Aperçu peint localement : la sphère est visible avant le JPEG NASA. */
+  private earthPreviewTexture: THREE.Texture | null = null;
+  private classicEarthLoadStarted = false;
+  private cloudsLoadStarted = false;
+  private satelliteBasemapLoadStarted = false;
+  /** Météo VIIRS attend la fin du fond (satellite ou carte) pour ne pas le ralentir. */
+  private basemapImagerySettled = false;
+  private globeDecorationsSynced = false;
   private satelliteTexture: THREE.Texture | null = null;
   private cloudsMesh?: THREE.Mesh;
   private starsPoints?: THREE.Points;
@@ -1235,6 +1243,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.kickIssPositionRefreshOnce();
     this.loadGlobeSatelliteOverlayPrefs();
     this.prefetchGlobeSatelliteTles();
+    this.prefetchDefaultBasemap();
     this.requestUserObserverPosition();
     this.pushTickerUiSnapshot();
   }
@@ -2160,6 +2169,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onCloudsToggle(): void {
+    if (this.cloudsEnabled) {
+      this.ensureCloudsMesh();
+    }
     if (this.cloudsMesh) {
       this.cloudsMesh.visible = this.cloudsEnabled;
     }
@@ -7340,116 +7352,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.starsPoints = this.makeStarField();
     scene.add(this.starsPoints);
-
-    const loader = new THREE.TextureLoader();
-    loader.setCrossOrigin('anonymous');
-    const aniso = renderer.capabilities.getMaxAnisotropy?.() ?? 1;
-
-    const loadCloudsThenMarkers = (): void => {
-      loader.load(
-        this.globePlanetTextureUrl('clouds'),
-        (cloudMap) => {
-          cloudMap.colorSpace = THREE.SRGBColorSpace;
-          cloudMap.anisotropy = aniso;
-          const cg = new THREE.SphereGeometry(1.025, GLOBE_CLOUDS_SEGMENTS, GLOBE_CLOUDS_SEGMENTS);
-          const cm = new THREE.MeshPhongMaterial({
-            map: cloudMap,
-            transparent: true,
-            opacity: 0.88,
-            depthWrite: false
-          });
-          const clouds = new THREE.Mesh(cg, cm);
-          clouds.rotation.y = Math.PI;
-          clouds.visible = this.cloudsEnabled;
-          scene.add(clouds);
-          this.cloudsMesh = clouds;
-        },
-        undefined,
-        () => {
-          /* nuages optionnels */
-        }
-      );
-    };
-
-    const addPhongEarth = (
-      earthMap: THREE.Texture,
-      specMap: THREE.Texture | null,
-      bumpMap: THREE.Texture | null
-    ): void => {
-      const earthGeo = new THREE.SphereGeometry(1, GLOBE_EARTH_SEGMENTS, GLOBE_EARTH_SEGMENTS);
-      const earthMat = new THREE.MeshPhongMaterial({
-        map: earthMap,
-        specularMap: specMap ?? undefined,
-        specular: new THREE.Color(0x334455),
-        shininess: 12,
-        bumpMap: bumpMap ?? undefined,
-        bumpScale: bumpMap ? 0.045 : 0
-      });
-      const earth = new THREE.Mesh(earthGeo, earthMat);
-      earth.rotation.y = Math.PI;
-      scene.add(earth);
-      this.earthMesh = earth;
-      this.globeSurfaceReady = true;
-      this.standardEarthTextures = { map: earthMap, spec: specMap, bump: bumpMap };
-      this.applyBasemapMode();
-      this.attachRotationAxisToEarth(earth);
-      this.frameDefaultGlobeCamera();
-      this.tryFlushPendingGlobeDeepLink();
-      this.syncGlobeDecorationsAfterEarthReady();
-    };
-
-    loader.load(
-      this.globePlanetTextureUrl('atmos'),
-      (earthMap) => {
-        earthMap.colorSpace = THREE.SRGBColorSpace;
-        earthMap.anisotropy = aniso;
-        loader.load(
-          this.globePlanetTextureUrl('specular'),
-          (specMap) => {
-            specMap.colorSpace = THREE.NoColorSpace;
-            loader.load(
-              this.globePlanetTextureUrl('normal'),
-              (bumpMap) => {
-                bumpMap.colorSpace = THREE.NoColorSpace;
-                addPhongEarth(earthMap, specMap, bumpMap);
-                loadCloudsThenMarkers();
-              },
-              undefined,
-              () => {
-                addPhongEarth(earthMap, specMap, null);
-                loadCloudsThenMarkers();
-              }
-            );
-          },
-          undefined,
-          () => {
-            this.addEarthStandard(earthMap, scene);
-            loadCloudsThenMarkers();
-          }
-        );
-      },
-      undefined,
-      () => {
-        this.textureLoadError = true;
-        const g = new THREE.SphereGeometry(1, 128, 128);
-        const m = new THREE.MeshStandardMaterial({
-          color: 0x2244aa,
-          roughness: 0.72,
-          metalness: 0.08,
-          wireframe: false
-        });
-        const earth = new THREE.Mesh(g, m);
-        earth.rotation.y = Math.PI;
-        scene.add(earth);
-        this.earthMesh = earth;
-        this.globeSurfaceReady = true;
-        this.standardEarthTextures = null;
-        this.attachRotationAxisToEarth(earth);
-        this.frameDefaultGlobeCamera();
-        this.tryFlushPendingGlobeDeepLink();
-        this.syncGlobeDecorationsAfterEarthReady();
-      }
-    );
+    this.mountEarthMeshNow(scene);
 
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObs = new ResizeObserver(() => {
@@ -7461,27 +7364,238 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.startLoop();
     this.controls.update();
+    this.applyBasemapMode();
+    if (this.cloudsEnabled) {
+      this.ensureCloudsMesh();
+    }
     this.syncFullscreenFromDocument();
+    requestAnimationFrame(() => {
+      if (!this.globeSurfaceReady || !this.earthMesh) {
+        return;
+      }
+      this.globeDecorationsSynced = true;
+      this.syncGlobeDecorationsAfterEarthReady();
+    });
   }
 
-  private addEarthStandard(earthMap: THREE.Texture, scene: THREE.Scene): void {
+  /** Sphère visible dès le premier frame, sans attendre le proxy NASA / Three.js. */
+  private mountEarthMeshNow(scene: THREE.Scene): void {
     const earthGeo = new THREE.SphereGeometry(1, GLOBE_EARTH_SEGMENTS, GLOBE_EARTH_SEGMENTS);
-    const earthMat = new THREE.MeshStandardMaterial({
-      map: earthMap,
-      roughness: 0.78,
-      metalness: 0.05
+    const preview = WorldGlobeComponent.createEarthPreviewTexture();
+    this.earthPreviewTexture = preview;
+    const earthMat = new THREE.MeshPhongMaterial({
+      map: preview,
+      specular: new THREE.Color(0x334455),
+      shininess: 12
     });
     const earth = new THREE.Mesh(earthGeo, earthMat);
     earth.rotation.y = Math.PI;
     scene.add(earth);
     this.earthMesh = earth;
     this.globeSurfaceReady = true;
-    this.standardEarthTextures = { map: earthMap, spec: null, bump: null };
-    this.applyBasemapMode();
     this.attachRotationAxisToEarth(earth);
     this.frameDefaultGlobeCamera();
     this.tryFlushPendingGlobeDeepLink();
-    this.syncGlobeDecorationsAfterEarthReady();
+  }
+
+  /**
+   * Aperçu équirectangulaire (lon 0 au centre, comme les textures NASA) peint en local.
+   * Suffisant pour reconnaître la Terre le temps que le fond satellite arrive.
+   */
+  private static createEarthPreviewTexture(): THREE.CanvasTexture {
+    const w = 512;
+    const h = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      const fallback = new THREE.CanvasTexture(canvas);
+      fallback.colorSpace = THREE.SRGBColorSpace;
+      return fallback;
+    }
+    const ocean = ctx.createLinearGradient(0, 0, 0, h);
+    ocean.addColorStop(0, '#e7eef3');
+    ocean.addColorStop(0.07, '#3d7eb8');
+    ocean.addColorStop(0.5, '#1a568f');
+    ocean.addColorStop(0.93, '#3d7eb8');
+    ocean.addColorStop(1, '#e7eef3');
+    ctx.fillStyle = ocean;
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#3c8f4a';
+    const rings: ReadonlyArray<ReadonlyArray<readonly [number, number]>> = [
+      [[-168, 71], [-141, 70], [-128, 71], [-105, 73], [-86, 74], [-68, 66], [-64, 58], [-56, 52], [-64, 46], [-70, 42], [-75, 36], [-81, 25], [-90, 29], [-97, 26], [-105, 22], [-112, 26], [-117, 32], [-124, 40], [-125, 49], [-136, 56], [-153, 59], [-166, 65]],
+      [[-81, 10], [-70, 12], [-60, 8], [-51, 4], [-35, -6], [-39, -16], [-40, -22], [-48, -28], [-53, -34], [-62, -40], [-68, -46], [-74, -52], [-76, -46], [-74, -18], [-78, -6], [-80, 1], [-78, 8]],
+      [[-17, 21], [-16, 28], [-10, 35], [-6, 36], [11, 37], [25, 32], [32, 31], [43, 12], [51, 11], [43, 0], [42, -15], [35, -26], [32, -29], [19, -35], [18, -32], [13, -12], [9, 4], [-5, 5], [-16, 12]],
+      [[-9, 37], [-9, 43], [-2, 43], [-6, 50], [-8, 54], [-5, 59], [5, 62], [12, 66], [28, 71], [40, 68], [30, 60], [39, 47], [28, 41], [19, 40], [10, 44], [3, 43], [-5, 36]],
+      [[40, 41], [48, 43], [60, 45], [68, 46], [72, 35], [77, 28], [80, 22], [88, 22], [97, 16], [105, 12], [109, 20], [120, 23], [122, 31], [131, 34], [135, 48], [142, 47], [142, 53], [158, 60], [180, 66], [140, 73], [100, 76], [70, 74], [60, 68], [44, 66], [40, 55]],
+      [[68, 24], [72, 21], [77, 8], [80, 13], [88, 22], [78, 26]],
+      [[-73, 78], [-62, 76], [-48, 70], [-22, 70], [-20, 80], [-42, 83], [-62, 83], [-73, 80]],
+      [[113, -22], [124, -16], [132, -12], [142, -11], [146, -16], [153, -26], [150, -38], [140, -38], [128, -33], [115, -34], [114, -26]],
+      [[43, -12], [50, -16], [47, -25], [43, -25]],
+      [[130, 31], [136, 34], [141, 41], [145, 43], [140, 45], [139, 35]],
+      [[-8, 50], [-5, 50], [-2, 53], [-4, 58], [-7, 58], [-8, 54]]
+    ];
+    for (const ring of rings) {
+      ctx.beginPath();
+      ring.forEach(([lon, lat], i) => {
+        const x = ((lon + 180) / 360) * w;
+        const y = ((90 - lat) / 180) * h;
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      ctx.closePath();
+      ctx.fill();
+    }
+    const iceTop = ((90 - 78) / 180) * h;
+    ctx.fillStyle = '#e7eef3';
+    ctx.fillRect(0, 0, w, iceTop);
+    const iceBottom = ((90 - -72) / 180) * h;
+    ctx.fillRect(0, iceBottom, w, h - iceBottom);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  /** Démarre le téléchargement du fond par défaut avant l’init WebGL. */
+  private prefetchDefaultBasemap(): void {
+    if (!this.basemapSatellite) {
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = this.globeSatelliteBmngUrl();
+  }
+
+  private ensureCloudsMesh(): void {
+    if (this.cloudsMesh || this.cloudsLoadStarted || !this.scene) {
+      return;
+    }
+    this.cloudsLoadStarted = true;
+    const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('anonymous');
+    const aniso = this.renderer?.capabilities.getMaxAnisotropy?.() ?? 1;
+    loader.load(
+      this.globePlanetTextureUrl('clouds'),
+      (cloudMap) => {
+        if (!this.scene || this.cloudsMesh) {
+          cloudMap.dispose();
+          return;
+        }
+        cloudMap.colorSpace = THREE.SRGBColorSpace;
+        cloudMap.anisotropy = aniso;
+        const cg = new THREE.SphereGeometry(1.025, GLOBE_CLOUDS_SEGMENTS, GLOBE_CLOUDS_SEGMENTS);
+        const cm = new THREE.MeshPhongMaterial({
+          map: cloudMap,
+          transparent: true,
+          opacity: 0.88,
+          depthWrite: false
+        });
+        const clouds = new THREE.Mesh(cg, cm);
+        clouds.rotation.y = Math.PI;
+        clouds.visible = this.cloudsEnabled;
+        this.scene.add(clouds);
+        this.cloudsMesh = clouds;
+      },
+      undefined,
+      () => {
+        this.cloudsLoadStarted = false;
+      }
+    );
+  }
+
+  private loadClassicEarthTextures(): void {
+    if (this.standardEarthTextures || this.classicEarthLoadStarted || !this.earthMesh) {
+      return;
+    }
+    this.classicEarthLoadStarted = true;
+    const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin('anonymous');
+    const aniso = this.renderer?.capabilities.getMaxAnisotropy?.() ?? 1;
+    loader.load(
+      this.globePlanetTextureUrl('atmos'),
+      (earthMap) => {
+        if (!this.earthMesh) {
+          earthMap.dispose();
+          return;
+        }
+        earthMap.colorSpace = THREE.SRGBColorSpace;
+        earthMap.anisotropy = aniso;
+        this.standardEarthTextures = { map: earthMap, spec: null, bump: null };
+        if (!this.basemapSatellite) {
+          this.applyClassicTexturesToEarth();
+        }
+        this.markBasemapImagerySettled();
+        loader.load(
+          this.globePlanetTextureUrl('specular'),
+          (specMap) => {
+            specMap.colorSpace = THREE.NoColorSpace;
+            if (this.standardEarthTextures) {
+              this.standardEarthTextures.spec = specMap;
+              if (!this.basemapSatellite) {
+                this.applyClassicTexturesToEarth();
+              }
+            } else {
+              specMap.dispose();
+            }
+          },
+          undefined,
+          () => {
+            /* spéculaire optionnelle */
+          }
+        );
+        loader.load(
+          this.globePlanetTextureUrl('normal'),
+          (bumpMap) => {
+            bumpMap.colorSpace = THREE.NoColorSpace;
+            if (this.standardEarthTextures) {
+              this.standardEarthTextures.bump = bumpMap;
+              if (!this.basemapSatellite) {
+                this.applyClassicTexturesToEarth();
+              }
+            } else {
+              bumpMap.dispose();
+            }
+          },
+          undefined,
+          () => {
+            /* relief optionnel */
+          }
+        );
+      },
+      undefined,
+      () => {
+        this.classicEarthLoadStarted = false;
+        if (!this.basemapSatellite && !this.satelliteTexture) {
+          this.textureLoadError = true;
+          this.cdr.markForCheck();
+        }
+        this.markBasemapImagerySettled();
+      }
+    );
+  }
+
+  private markBasemapImagerySettled(): void {
+    if (this.basemapImagerySettled) {
+      return;
+    }
+    this.basemapImagerySettled = true;
+    if (this.globeDecorationsSynced && this.weatherImageryEnabled && this.globeSurfaceReady && this.scene) {
+      this.ensureWeatherOverlayTexture();
+    }
+  }
+
+  private releaseEarthPreviewTexture(): void {
+    const preview = this.earthPreviewTexture;
+    if (!preview) {
+      return;
+    }
+    this.earthPreviewTexture = null;
+    preview.dispose();
   }
   private globePlanetTextureUrl(asset: 'atmos' | 'specular' | 'normal' | 'clouds'): string {
     return `${environment.API_URL}external/globe/texture/planets/${asset}`;
@@ -7596,7 +7710,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         void this.loadIssHistoricalTrace();
       }
     }
-    if (this.weatherImageryEnabled) {
+    if (this.weatherImageryEnabled && this.basemapImagerySettled) {
       this.ensureWeatherOverlayTexture();
     }
     if (this.flightTrackingActive) {
@@ -7609,49 +7723,83 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private applyBasemapMode(): void {
-    if (!this.earthMesh || !this.standardEarthTextures) {
+    if (!this.earthMesh) {
       return;
     }
-    const st = this.standardEarthTextures;
     if (this.basemapSatellite) {
       this.loadSatelliteTextureFromBackend();
       return;
     }
+    if (!this.standardEarthTextures) {
+      this.loadClassicEarthTextures();
+      return;
+    }
+    this.applyClassicTexturesToEarth();
+    this.markBasemapImagerySettled();
+  }
+
+  private applyClassicTexturesToEarth(): void {
+    const st = this.standardEarthTextures;
+    if (!this.earthMesh || !st || this.basemapSatellite) {
+      return;
+    }
     const m = this.earthMesh.material;
     if (m instanceof THREE.MeshPhongMaterial) {
+      const prev = m.map;
       m.map = st.map;
       m.bumpMap = st.bump ?? null;
       m.bumpScale = st.bump ? 0.045 : 0;
       m.specularMap = st.spec ?? null;
       m.needsUpdate = true;
+      if (prev === this.earthPreviewTexture) {
+        this.releaseEarthPreviewTexture();
+      }
     } else if (m instanceof THREE.MeshStandardMaterial) {
+      const prev = m.map;
       m.map = st.map;
       m.needsUpdate = true;
+      if (prev === this.earthPreviewTexture) {
+        this.releaseEarthPreviewTexture();
+      }
     }
   }
 
   private loadSatelliteTextureFromBackend(): void {
-    if (!this.earthMesh || !this.standardEarthTextures) {
+    if (!this.earthMesh) {
       return;
     }
     if (this.satelliteTexture) {
       this.applySatelliteTextureToEarth(this.satelliteTexture);
+      this.markBasemapImagerySettled();
       return;
     }
+    if (this.satelliteBasemapLoadStarted) {
+      return;
+    }
+    this.satelliteBasemapLoadStarted = true;
     const loader = new THREE.TextureLoader();
     loader.setCrossOrigin('anonymous');
     loader.load(
       this.globeSatelliteBmngUrl(),
       (tex) => {
+        if (!this.earthMesh) {
+          tex.dispose();
+          return;
+        }
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.anisotropy = this.renderer?.capabilities.getMaxAnisotropy?.() ?? 1;
         this.satelliteTexture = tex;
-        this.applySatelliteTextureToEarth(tex);
+        if (this.basemapSatellite) {
+          this.applySatelliteTextureToEarth(tex);
+        }
+        this.markBasemapImagerySettled();
         this.cdr.markForCheck();
       },
       undefined,
       () => {
+        this.satelliteBasemapLoadStarted = false;
         this.textureLoadError = true;
+        this.markBasemapImagerySettled();
         this.cdr.markForCheck();
       }
     );
@@ -7663,14 +7811,22 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     const m = this.earthMesh.material;
     if (m instanceof THREE.MeshPhongMaterial) {
+      const prev = m.map;
       m.map = tex;
       m.bumpMap = null;
       m.bumpScale = 0;
       m.specularMap = null;
       m.needsUpdate = true;
+      if (prev === this.earthPreviewTexture) {
+        this.releaseEarthPreviewTexture();
+      }
     } else if (m instanceof THREE.MeshStandardMaterial) {
+      const prev = m.map;
       m.map = tex;
       m.needsUpdate = true;
+      if (prev === this.earthPreviewTexture) {
+        this.releaseEarthPreviewTexture();
+      }
     }
   }
 
@@ -8202,8 +8358,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.issOverLookupLat = lat;
     this.issOverLookupLon = lon;
     this.issOverLookupAtMs = now;
+    const lang = (this.translate.currentLang || this.translate.defaultLang || 'en').split('-')[0];
     this.apiService
-      .geocodeReverse(lat, lon)
+      .geocodeReverse(lat, lon, lang)
       .pipe(timeout(8000))
       .subscribe({
         next: (res: any) => {

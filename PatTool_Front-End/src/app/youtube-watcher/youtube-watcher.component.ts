@@ -724,6 +724,15 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     return !!this.selected && !!this.embedUrl && this.selected.kind !== 'channel';
   }
 
+  /** True when the grouped action panel (beside the player or in the floating banner) is on screen. */
+  get actionsPanelVisible(): boolean {
+    return (this.showYoutubeStage && !this.playerOpen) || (this.playerOpen && !!this.selected);
+  }
+
+  get showQueueInPanel(): boolean {
+    return this.actionsPanelVisible && !this.playingRecording;
+  }
+
   canRecordNow(): boolean {
     return !!this.selected && !!this.embedUrl && !this.playerOpen && this.selected.kind !== 'channel';
   }
@@ -1500,10 +1509,10 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     } else {
       this.embedUrl = this.buildEmbedUrl(this.selected, true);
     }
-    this.scrollPageToTop();
+    this.revealPlayerIfHidden();
     void this.syncUrl().then(() => {
       if (!this.destroyed) {
-        this.scrollPageToTop();
+        this.revealPlayerIfHidden();
       }
     });
     this.syncTheater();
@@ -2168,6 +2177,24 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     } catch {
       /* ignore quota / private mode */
     }
+  }
+
+  private revealPlayerIfHidden(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const stage = this.host.nativeElement.querySelector(
+      '.yt-player-frame, .yt-now-playing'
+    ) as HTMLElement | null;
+    if (stage) {
+      const rect = stage.getBoundingClientRect();
+      const viewportH = window.innerHeight || document.documentElement.clientHeight;
+      const onScreen = rect.top < viewportH * 0.5 && rect.top > -rect.height / 2;
+      if (onScreen) {
+        return;
+      }
+    }
+    this.scrollPageToTop();
   }
 
   private scrollPageToTop(): void {

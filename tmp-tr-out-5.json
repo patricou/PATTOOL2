@@ -1,0 +1,4802 @@
+{
+  "MENU.MEDIA": {
+    "it": "Media"
+  },
+  "MENU.IA": {
+    "jp": "AI"
+  },
+  "MENU.LOTTO": {
+    "de": "Lotto",
+    "it": "Lotto"
+  },
+  "MENU.ECLIPSE": {
+    "es": "Eclipses"
+  },
+  "MENU.SYSTEM": {
+    "de": "System"
+  },
+  "MENU.WIKI": {
+    "de": "Wikipedia",
+    "es": "Wikipedia",
+    "it": "Wikipedia",
+    "jp": "ウィキペディア"
+  },
+  "SOS.SEND_SMS": {
+    "ar": "SOS عبر SMS",
+    "cn": "短信 SOS",
+    "el": "SOS μέσω SMS",
+    "he": "SOS ב-SMS",
+    "in": "SMS से SOS",
+    "jp": "SMS で SOS",
+    "ru": "SOS по SMS"
+  },
+  "SOS.SENDING_SMS": {
+    "ar": "يفتح تطبيق Messages مع SMS الطوارئ. أكّد الإرسال.",
+    "cn": "短信应用将打开并带上紧急短信。请确认发送。",
+    "el": "Η εφαρμογή Messages ανοίγει με το SMS έκτακτης ανάγκης. Επιβεβαιώστε την αποστολή.",
+    "he": "אפליקציית Messages נפתחת עם ה-SMS לחירום. אשרו את השליחה.",
+    "in": "Messages ऐप आपातकालीन SMS के साथ खुल रहा है। भेजना पुष्टि करें।",
+    "jp": "Messages アプリが緊急 SMS 付きで開きます。送信を確定してください。",
+    "ru": "Приложение Messages открывается с экстренной SMS. Подтвердите отправку."
+  },
+  "SOS.NEED_CONTACT_SMS": {
+    "ar": "لم يُحدد أي جهة اتصال: سيفتح تطبيق Messages لتختار المستلم. نُسخت الرسالة أيضاً.",
+    "cn": "未选择联系人：将打开 Messages 应用以便选择收件人。消息也已复制。",
+    "el": "Δεν επιλέχθηκε επαφή: η εφαρμογή Messages θα ανοίξει για να διαλέξετε τον παραλήπτη. Το μήνυμα αντιγράφεται επίσης.",
+    "he": "לא נבחר איש קשר: אפליקציית Messages תיפתח כדי לבחור נמען. ההודעה גם הועתקה.",
+    "in": "कोई संपर्क चयनित नहीं: Messages ऐप खुलेगा ताकि आप प्राप्तकर्ता चुन सकें। संदेश भी कॉपी हो गया है।",
+    "jp": "連絡先が未選択です。受信者を選べるよう Messages アプリが開きます。メッセージもコピーされています。",
+    "ru": "Контакт не выбран: откроется приложение Messages, чтобы выбрать получателя. Сообщение также скопировано."
+  },
+  "SOS.SMS_DESKTOP_HINT": {
+    "ar": "يُرسل SMS بشكل أفضل من الهاتف. نُسخت الرسالة: الصقها في Messages، أو استخدم زر SMS على الجوال.",
+    "cn": "短信最好在手机上发送。消息已复制：请粘贴到 Messages，或在移动设备上使用短信按钮。",
+    "el": "Το SMS στέλνεται κυρίως από τηλέφωνο. Το μήνυμα αντιγράφηκε: επικολλήστε το στα Messages ή χρησιμοποιήστε το κουμπί SMS στο κινητό.",
+    "he": "SMS נשלח בעיקר מהטלפון. ההודעה הועתקה: הדביקו אותה ב-Messages, או השתמשו בכפתור SMS בנייד.",
+    "in": "SMS मुख्यतः फ़ोन से भेजा जाता है। संदेश कॉपी हो गया: उसे Messages में चिपकाएँ, या मोबाइल पर SMS बटन का उपयोग करें।",
+    "jp": "SMS は主に電話から送ります。メッセージはコピー済みです。Messages に貼り付けるか、モバイルの SMS ボタンを使ってください。",
+    "ru": "SMS лучше отправлять с телефона. Сообщение скопировано: вставьте его в Messages или используйте кнопку SMS на мобильном."
+  },
+  "CIEL.TITLE": {
+    "de": "Himmelskarte",
+    "es": "Mapa del cielo",
+    "it": "Carta del cielo",
+    "ar": "خريطة السماء",
+    "cn": "星图",
+    "el": "Χάρτης ουρανού",
+    "he": "מפת השמיים",
+    "in": "आकाश मानचित्र",
+    "jp": "星図",
+    "ru": "Карта неба"
+  },
+  "CIEL.SUBTITLE": {
+    "de": "Eingebettetes Stellarium-Web-Planetarium. Die Objektsuche läuft über Noctua Sky; die Durchmusterungsfotos stammen von Sky-Map.org (DSS2).",
+    "es": "Planetario Stellarium Web integrado. La búsqueda de objetos pasa por Noctua Sky; las fotos de sondeo vienen de Sky-Map.org (DSS2).",
+    "it": "Planetario Stellarium Web integrato. La ricerca degli oggetti passa da Noctua Sky; le foto di indagine provengono da Sky-Map.org (DSS2).",
+    "ar": "قبة فلكية مدمجة Stellarium Web. البحث عن الأجرام يمر عبر Noctua Sky؛ وصور المسح من Sky-Map.org (DSS2).",
+    "cn": "内嵌 Stellarium Web 天文馆。天体搜索经由 Noctua Sky；巡天照片来自 Sky-Map.org（DSS2）。",
+    "el": "Ενσωματωμένο πλανητάριο Stellarium Web. Η αναζήτηση αντικειμένων γίνεται μέσω Noctua Sky· οι φωτογραφίες επισκόπησης προέρχονται από το Sky-Map.org (DSS2).",
+    "he": "פלנטריום Stellarium Web מוטמע. חיפוש העצמים עובר דרך Noctua Sky; תצלומי הסקר מגיעים מ-Sky-Map.org (DSS2).",
+    "in": "एम्बेडेड Stellarium Web तारामंडल। पिंड खोज Noctua Sky से होती है; सर्वेक्षण फ़ोटो Sky-Map.org (DSS2) से आती हैं।",
+    "jp": "組み込みの Stellarium Web プラネタリウム。天体検索は Noctua Sky 経由、掃天写真は Sky-Map.org（DSS2）からです。",
+    "ru": "Встроенный планетарий Stellarium Web. Поиск объектов идёт через Noctua Sky; обзорные снимки — с Sky-Map.org (DSS2)."
+  },
+  "CIEL.LOCATION": {
+    "de": "Beobachtungsort",
+    "es": "Lugar de observación",
+    "it": "Luogo di osservazione",
+    "ar": "موقع الرصد",
+    "cn": "观测地点",
+    "el": "Τόπος παρατήρησης",
+    "he": "מיקום התצפית",
+    "in": "अवलोकन स्थान",
+    "jp": "観測地点",
+    "ru": "Место наблюдения"
+  },
+  "CIEL.APPLY_LOCATION": {
+    "de": "Karte aktualisieren",
+    "es": "Actualizar el mapa",
+    "it": "Aggiorna la carta",
+    "ar": "تحديث الخريطة",
+    "cn": "更新星图",
+    "el": "Ενημέρωση χάρτη",
+    "he": "עדכון המפה",
+    "in": "मानचित्र अपडेट करें",
+    "jp": "星図を更新",
+    "ru": "Обновить карту"
+  },
+  "CIEL.USE_MY_LOCATION": {
+    "de": "Mein Standort (IP)",
+    "es": "Mi ubicación (IP)",
+    "it": "La mia posizione (IP)",
+    "ar": "موقعي (IP)",
+    "cn": "我的位置（IP）",
+    "el": "Η θέση μου (IP)",
+    "he": "המיקום שלי (IP)",
+    "in": "मेरा स्थान (IP)",
+    "jp": "現在地（IP）",
+    "ru": "Моё местоположение (IP)"
+  },
+  "CIEL.SEARCH": {
+    "de": "Objekt suchen",
+    "es": "Buscar un objeto",
+    "it": "Cerca un oggetto",
+    "ar": "البحث عن جرم",
+    "cn": "搜索天体",
+    "el": "Αναζήτηση αντικειμένου",
+    "he": "חיפוש עצם",
+    "in": "पिंड खोजें",
+    "jp": "天体を検索",
+    "ru": "Найти объект"
+  },
+  "CIEL.SEARCH_PLACEHOLDER": {
+    "de": "z. B. M31, Jupiter, Orion…",
+    "es": "p. ej. M31, Júpiter, Orión…",
+    "it": "es. M31, Giove, Orione…",
+    "ar": "مثال: M31، المشتري، الجبار…",
+    "cn": "例如 M31、木星、猎户座…",
+    "el": "π.χ. M31, Δίας, Ωρίων…",
+    "he": "לדוגמה M31, צדק, אוריון…",
+    "in": "उदा. M31, बृहस्पति, ओरायन…",
+    "jp": "例: M31、木星、オリオン…",
+    "ru": "напр. M31, Юпитер, Орион…"
+  },
+  "CIEL.SELECTED": {
+    "de": "Ausgewähltes Objekt",
+    "es": "Objeto seleccionado",
+    "it": "Oggetto selezionato",
+    "ar": "الجرم المحدد",
+    "cn": "已选天体",
+    "el": "Επιλεγμένο αντικείμενο",
+    "he": "העצם שנבחר",
+    "in": "चयनित पिंड",
+    "jp": "選択した天体",
+    "ru": "Выбранный объект"
+  },
+  "CIEL.VIEWER_HINT": {
+    "de": "Interaktive Himmelskarte (Stellarium Web)",
+    "es": "Mapa del cielo interactivo (Stellarium Web)",
+    "it": "Carta del cielo interattiva (Stellarium Web)",
+    "ar": "خريطة سماء تفاعلية (Stellarium Web)",
+    "cn": "交互式星图（Stellarium Web）",
+    "el": "Διαδραστικός χάρτης ουρανού (Stellarium Web)",
+    "he": "מפת שמיים אינטראקטיבית (Stellarium Web)",
+    "in": "संवादात्मक आकाश मानचित्र (Stellarium Web)",
+    "jp": "対話型星図（Stellarium Web）",
+    "ru": "Интерактивная карта неба (Stellarium Web)"
+  },
+  "CIEL.FULLSCREEN": {
+    "de": "Vollbild",
+    "es": "Pantalla completa",
+    "it": "Schermo intero",
+    "ar": "ملء الشاشة",
+    "cn": "全屏",
+    "el": "Πλήρης οθόνη",
+    "he": "מסך מלא",
+    "in": "पूर्ण स्क्रीन",
+    "jp": "全画面",
+    "ru": "На весь экран"
+  },
+  "CIEL.LOADING": {
+    "de": "Himmelskarte wird geladen…",
+    "es": "Cargando el mapa del cielo…",
+    "it": "Caricamento della carta del cielo…",
+    "ar": "جارٍ تحميل خريطة السماء…",
+    "cn": "正在加载星图…",
+    "el": "Φόρτωση χάρτη ουρανού…",
+    "he": "טוען את מפת השמיים…",
+    "in": "आकाश मानचित्र लोड हो रहा है…",
+    "jp": "星図を読み込み中…",
+    "ru": "Загрузка карты неба…"
+  },
+  "CIEL.CREDIT": {
+    "de": "Himmelskarte bereitgestellt von",
+    "es": "Mapa del cielo proporcionado por",
+    "it": "Carta del cielo fornita da",
+    "ar": "خريطة السماء مقدمة من",
+    "cn": "星图提供方",
+    "el": "Χάρτης ουρανού από",
+    "he": "מפת השמיים מסופקת על ידי",
+    "in": "आकाश मानचित्र प्रदानकर्ता",
+    "jp": "星図の提供元",
+    "ru": "Карту неба предоставляет"
+  },
+  "CIEL.ERROR_CONFIG": {
+    "de": "Die Himmelskonfiguration konnte nicht geladen werden.",
+    "es": "No se pudo cargar la configuración del cielo.",
+    "it": "Impossibile caricare la configurazione del cielo.",
+    "ar": "تعذر تحميل إعداد السماء.",
+    "cn": "无法加载天空配置。",
+    "el": "Αδυναμία φόρτωσης της διαμόρφωσης ουρανού.",
+    "he": "לא ניתן לטעון את תצורת השמיים.",
+    "in": "आकाश विन्यास लोड नहीं हो सका।",
+    "jp": "空の設定を読み込めませんでした。",
+    "ru": "Не удалось загрузить конфигурацию неба."
+  },
+  "CIEL.ERROR_COORDS": {
+    "de": "Ungültige Koordinaten.",
+    "es": "Coordenadas no válidas.",
+    "it": "Coordinate non valide.",
+    "ar": "إحداثيات غير صالحة.",
+    "cn": "坐标无效。",
+    "el": "Μη έγκυρες συντεταγμένες.",
+    "he": "קואורדינטות לא תקינות.",
+    "in": "अमान्य निर्देशांक।",
+    "jp": "座標が無効です。",
+    "ru": "Недопустимые координаты."
+  },
+  "CIEL.ERROR_GEO": {
+    "de": "Geolokalisierung nicht verfügbar.",
+    "es": "Geolocalización no disponible.",
+    "it": "Geolocalizzazione non disponibile.",
+    "ar": "تحديد الموقع غير متاح.",
+    "cn": "地理定位不可用。",
+    "el": "Ο γεωεντοπισμός δεν είναι διαθέσιμος.",
+    "he": "מיקום גאוגרפי אינו זמין.",
+    "in": "भू-स्थान उपलब्ध नहीं।",
+    "jp": "位置情報を利用できません。",
+    "ru": "Геолокация недоступна."
+  },
+  "CIEL.ERROR_SEARCH": {
+    "de": "Objektsuche nicht verfügbar.",
+    "es": "Búsqueda de objetos no disponible.",
+    "it": "Ricerca oggetti non disponibile.",
+    "ar": "البحث عن الأجرام غير متاح.",
+    "cn": "天体搜索不可用。",
+    "el": "Η αναζήτηση αντικειμένων δεν είναι διαθέσιμη.",
+    "he": "חיפוש עצמים אינו זמין.",
+    "in": "पिंड खोज उपलब्ध नहीं।",
+    "jp": "天体検索を利用できません。",
+    "ru": "Поиск объектов недоступен."
+  },
+  "CIEL.SKYMAP_PHOTO": {
+    "de": "Sky-Map-Karte (DSS2)",
+    "es": "Mapa Sky-Map (DSS2)",
+    "it": "Carta Sky-Map (DSS2)",
+    "ar": "خريطة Sky-Map (DSS2)",
+    "cn": "Sky-Map 图（DSS2）",
+    "el": "Χάρτης Sky-Map (DSS2)",
+    "he": "מפת Sky-Map (DSS2)",
+    "in": "Sky-Map मानचित्र (DSS2)",
+    "jp": "Sky-Map 図（DSS2）",
+    "ru": "Карта Sky-Map (DSS2)"
+  },
+  "CIEL.SKYMAP_OPEN": {
+    "de": "Sky-Map.org-Atlas öffnen",
+    "es": "Abrir el atlas Sky-Map.org",
+    "it": "Apri l’atlante Sky-Map.org",
+    "ar": "فتح أطلس Sky-Map.org",
+    "cn": "打开 Sky-Map.org 图集",
+    "el": "Άνοιγμα άτλαντα Sky-Map.org",
+    "he": "פתיחת האטלס Sky-Map.org",
+    "in": "Sky-Map.org एटलस खोलें",
+    "jp": "Sky-Map.org 図鑑を開く",
+    "ru": "Открыть атлас Sky-Map.org"
+  },
+  "CIEL.SKYMAP_APP": {
+    "de": "SkyMap-App öffnen",
+    "es": "Abrir la app SkyMap",
+    "it": "Apri l’app SkyMap",
+    "ar": "فتح تطبيق SkyMap",
+    "cn": "打开 SkyMap 应用",
+    "el": "Άνοιγμα εφαρμογής SkyMap",
+    "he": "פתיחת אפליקציית SkyMap",
+    "in": "SkyMap ऐप खोलें",
+    "jp": "SkyMap アプリを開く",
+    "ru": "Открыть приложение SkyMap"
+  },
+  "CIEL.SKYMAP_LOADING": {
+    "de": "Himmelsfoto wird geladen…",
+    "es": "Cargando la foto del cielo…",
+    "it": "Caricamento della foto del cielo…",
+    "ar": "جارٍ تحميل صورة السماء…",
+    "cn": "正在加载天空照片…",
+    "el": "Φόρτωση φωτογραφίας ουρανού…",
+    "he": "טוען את תצלום השמיים…",
+    "in": "आकाश फ़ोटो लोड हो रही है…",
+    "jp": "空の写真を読み込み中…",
+    "ru": "Загрузка снимка неба…"
+  },
+  "UNIVERS_FUTUR.TITLE": {
+    "de": "Künftiges Universum",
+    "es": "Universo futuro",
+    "it": "Universo futuro",
+    "ar": "الكون المستقبلي",
+    "cn": "未来宇宙",
+    "el": "Μελλοντικό σύμπαν",
+    "he": "היקום העתידי",
+    "in": "भविष्य का ब्रह्मांड",
+    "jp": "未来の宇宙",
+    "ru": "Будущая Вселенная"
+  },
+  "UNIVERS_FUTUR.SUBTITLE": {
+    "de": "Wahre Positionen (ohne Lichtlaufzeit) von Planeten, Sternen, Sternbildern und Galaxien in X Tausend, Millionen oder Milliarden Jahren. Die Expansion im beobachteten Modell hat kein Ende: alles fällt nicht auf einen Punkt zurück.",
+    "es": "Posiciones reales (sin retraso de la luz) de planetas, estrellas, constelaciones y galaxias dentro de X miles, millones o miles de millones de años. La expansión del modelo observado no tiene fin: todo no vuelve a un punto.",
+    "it": "Posizioni reali (senza ritardo della luce) di pianeti, stelle, costellazioni e galassie tra X migliaia, milioni o miliardi di anni. L’espansione del modello osservato non ha fine: tutto non torna a un punto.",
+    "ar": "مواقع حقيقية (بلا تأخير ضوئي) للكواكب والنجوم والكوكبات والمجرات بعد X آلاف أو ملايين أو مليارات السنين. توسّع النموذج المرصود بلا نهاية: لا يعود كل شيء إلى نقطة.",
+    "cn": "行星、恒星、星座和星系在 X 千年、百万年或十亿年后的真实位置（不含光行时）。观测模型中的膨胀没有终点：一切并不会回到一个点。",
+    "el": "Πραγματικές θέσεις (χωρίς καθυστέρηση φωτός) πλανητών, άστρων, αστερισμών και γαλαξιών σε X χιλιάδες, εκατομμύρια ή δισεκατομμύρια χρόνια. Η διαστολή του παρατηρούμενου μοντέλου δεν έχει τέλος: τα πάντα δεν επιστρέφουν σε ένα σημείο.",
+    "he": "מיקומים אמיתיים (ללא השהיית אור) של כוכבי לכת, כוכבים, קבוצות כוכבים וגלקסיות בעוד X אלפים, מיליונים או מיליארדי שנים. להתפשטות במודל הנצפה אין סוף: הכול אינו חוזר לנקודה.",
+    "in": "X हज़ार, मिलियन या अरब वर्षों में ग्रहों, तारों, तारामंडलों और आकाशगंगाओं की वास्तविक स्थितियाँ (प्रकाश-विलंब के बिना)। प्रेक्षित मॉडल में विस्तार का कोई अंत नहीं: सब कुछ एक बिंदु पर वापस नहीं आता।",
+    "jp": "X 千年、百万年、または十億年後の惑星・恒星・星座・銀河の真の位置（光の到達遅れなし）。観測モデルの膨張に終わりはなく、すべてが一点に戻ることはありません。",
+    "ru": "Истинные положения (без запаздывания света) планет, звёзд, созвездий и галактик через X тысяч, миллионов или миллиардов лет. Расширение в наблюдаемой модели не имеет конца: всё не возвращается в одну точку."
+  },
+  "UNIVERS_FUTUR.TIME_LABEL": {
+    "de": "In wie viel Zeit",
+    "es": "Dentro de cuánto tiempo",
+    "it": "Tra quanto tempo",
+    "ar": "بعد كم من الوقت",
+    "cn": "多久之后",
+    "el": "Σε πόσο χρόνο",
+    "he": "בעוד כמה זמן",
+    "in": "कितने समय बाद",
+    "jp": "どれだけ先",
+    "ru": "Через сколько времени"
+  },
+  "UNIVERS_FUTUR.UNIT_A": {
+    "de": "Jahre",
+    "es": "años",
+    "it": "anni",
+    "ar": "سنوات",
+    "cn": "年",
+    "el": "έτη",
+    "he": "שנים",
+    "in": "वर्ष",
+    "jp": "年",
+    "ru": "лет"
+  },
+  "UNIVERS_FUTUR.UNIT_KA": {
+    "de": "Tausend Jahre",
+    "es": "miles de años",
+    "it": "migliaia di anni",
+    "ar": "آلاف السنين",
+    "cn": "千年",
+    "el": "χιλιάδες έτη",
+    "he": "אלפי שנים",
+    "in": "हज़ार वर्ष",
+    "jp": "千年",
+    "ru": "тысячи лет"
+  },
+  "UNIVERS_FUTUR.UNIT_MA": {
+    "de": "Millionen Jahre",
+    "es": "millones de años",
+    "it": "milioni di anni",
+    "ar": "ملايين السنين",
+    "cn": "百万年",
+    "el": "εκατομμύρια έτη",
+    "he": "מיליוני שנים",
+    "in": "मिलियन वर्ष",
+    "jp": "百万年",
+    "ru": "миллионы лет"
+  },
+  "UNIVERS_FUTUR.UNIT_GA": {
+    "de": "Milliarden Jahre",
+    "es": "miles de millones de años",
+    "it": "miliardi di anni",
+    "ar": "مليارات السنين",
+    "cn": "十亿年",
+    "el": "δισεκατομμύρια έτη",
+    "he": "מיליארדי שנים",
+    "in": "अरब वर्ष",
+    "jp": "十億年",
+    "ru": "миллиарды лет"
+  },
+  "UNIVERS_FUTUR.NOW_BTN": {
+    "de": "Jetzt",
+    "es": "Ahora",
+    "it": "Adesso",
+    "ar": "الآن",
+    "cn": "现在",
+    "el": "Τώρα",
+    "he": "עכשיו",
+    "in": "अभी",
+    "jp": "現在",
+    "ru": "Сейчас"
+  },
+  "UNIVERS_FUTUR.PLAY": {
+    "de": "Animieren",
+    "es": "Animar",
+    "it": "Anima",
+    "ar": "تحريك",
+    "cn": "播放动画",
+    "el": "Κίνηση",
+    "he": "הנפשה",
+    "in": "एनिमेट करें",
+    "jp": "アニメーション",
+    "ru": "Анимировать"
+  },
+  "UNIVERS_FUTUR.RESET_VIEW": {
+    "de": "Neu zentrieren",
+    "es": "Volver a centrar",
+    "it": "Ricentra",
+    "ar": "إعادة التوسيط",
+    "cn": "重新居中",
+    "el": "Επανακέντρωση",
+    "he": "מרכוז מחדש",
+    "in": "फिर से केंद्रित करें",
+    "jp": "中央に戻す",
+    "ru": "Центрировать снова"
+  },
+  "UNIVERS_FUTUR.FULLSCREEN_ENTER": {
+    "de": "Vollbild",
+    "es": "Pantalla completa",
+    "it": "Schermo intero",
+    "ar": "ملء الشاشة",
+    "cn": "全屏",
+    "el": "Πλήρης οθόνη",
+    "he": "מסך מלא",
+    "in": "पूर्ण स्क्रीन",
+    "jp": "全画面",
+    "ru": "На весь экран"
+  },
+  "UNIVERS_FUTUR.FULLSCREEN_EXIT": {
+    "de": "Vollbild beenden",
+    "es": "Salir de pantalla completa",
+    "it": "Esci da schermo intero",
+    "ar": "إنهاء ملء الشاشة",
+    "cn": "退出全屏",
+    "el": "Έξοδος από πλήρη οθόνη",
+    "he": "יציאה ממסך מלא",
+    "in": "पूर्ण स्क्रीन छोड़ें",
+    "jp": "全画面を終了",
+    "ru": "Выйти из полноэкранного режима"
+  },
+  "UNIVERS_FUTUR.SCENARIO": {
+    "de": "Kosmologisches Szenario",
+    "es": "Escenario cosmológico",
+    "it": "Scenario cosmologico",
+    "ar": "سيناريو كوني",
+    "cn": "宇宙学情景",
+    "el": "Κοσμολογικό σενάριο",
+    "he": "תרחיש קוסמולוגי",
+    "in": "ब्रह्मांडीय परिदृश्य",
+    "jp": "宇宙論シナリオ",
+    "ru": "Космологический сценарий"
+  },
+  "UNIVERS_FUTUR.SCENARIO_LCDM": {
+    "de": "ΛCDM (beobachtet)",
+    "es": "ΛCDM (observado)",
+    "it": "ΛCDM (osservato)",
+    "ar": "ΛCDM (مرصود)",
+    "cn": "ΛCDM（观测）",
+    "el": "ΛCDM (παρατηρούμενο)",
+    "he": "ΛCDM (נצפה)",
+    "in": "ΛCDM (प्रेक्षित)",
+    "jp": "ΛCDM（観測）",
+    "ru": "ΛCDM (наблюдаемая)"
+  },
+  "UNIVERS_FUTUR.SCENARIO_CRUNCH": {
+    "de": "Big Crunch (hypothetisch)",
+    "es": "Big Crunch (hipotético)",
+    "it": "Big Crunch (ipotetico)",
+    "ar": "Big Crunch (افتراضي)",
+    "cn": "Big Crunch（假设）",
+    "el": "Big Crunch (υποθετικό)",
+    "he": "Big Crunch (היפותטי)",
+    "in": "Big Crunch (काल्पनिक)",
+    "jp": "Big Crunch（仮説）",
+    "ru": "Big Crunch (гипотетический)"
+  },
+  "UNIVERS_FUTUR.SCENARIO_HINT": {
+    "de": "ΛCDM: dunkle Energie, beschleunigte Expansion für immer. Big Crunch: geschlossenes Universum ohne dunkle Energie, Rücksturz in einen Punkt — von den aktuellen Messungen nicht gestützt.",
+    "es": "ΛCDM: energía oscura, expansión acelerada para siempre. Big Crunch: universo cerrado sin energía oscura, recolapsado en un punto — no respaldado por las mediciones actuales.",
+    "it": "ΛCDM: energia oscura, espansione accelerata per sempre. Big Crunch: universo chiuso senza energia oscura, ricollassato in un punto — non sostenuto dalle misure attuali.",
+    "ar": "ΛCDM: طاقة مظلمة، تمدد متسارع إلى الأبد. Big Crunch: كون مغلق بلا طاقة مظلمة، ينهار من جديد إلى نقطة — لا تدعمه القياسات الحالية.",
+    "cn": "ΛCDM：暗能量，加速膨胀永续。Big Crunch：无暗能量的封闭宇宙，重新坍缩为一点——当前测量并不支持。",
+    "el": "ΛCDM: σκοτεινή ενέργεια, επιταχυνόμενη διαστολή για πάντα. Big Crunch: κλειστό σύμπαν χωρίς σκοτεινή ενέργεια, επανακατάρρευση σε ένα σημείο — δεν στηρίζεται από τις τρέχουσες μετρήσεις.",
+    "he": "ΛCDM: אנרגיה אפלה, התפשטות מואצת לעד. Big Crunch: יקום סגור בלי אנרגיה אפלה, קורס חזרה לנקודה — אינו נתמך במדידות הנוכחיות.",
+    "in": "ΛCDM: अदीप्त ऊर्जा, सदा के लिए त्वरित विस्तार। Big Crunch: बिना अदीप्त ऊर्जा का बंद ब्रह्मांड, एक बिंदु पर पुनः सिकुड़ना — वर्तमान माप इसका समर्थन नहीं करते।",
+    "jp": "ΛCDM：ダークエネルギー、加速膨張が永遠に続く。Big Crunch：ダークエネルギーのない閉じた宇宙が一点へ再崩壊する——現在の測定では支持されない。",
+    "ru": "ΛCDM: тёмная энергия, ускоренное расширение навсегда. Big Crunch: замкнутая Вселенная без тёмной энергии, повторный коллапс в точку — не подтверждается текущими измерениями."
+  },
+  "UNIVERS_FUTUR.AGE": {
+    "de": "Alter des Universums",
+    "es": "Edad del universo",
+    "it": "Età dell’universo",
+    "ar": "عمر الكون",
+    "cn": "宇宙年龄",
+    "el": "Ηλικία του σύμπαντος",
+    "he": "גיל היקום",
+    "in": "ब्रह्मांड की आयु",
+    "jp": "宇宙の年齢",
+    "ru": "Возраст Вселенной"
+  },
+  "UNIVERS_FUTUR.TO_CRUNCH": {
+    "de": "Bis zum Punkt",
+    "es": "Hasta el punto",
+    "it": "Fino al punto",
+    "ar": "حتى النقطة",
+    "cn": "直到那一点",
+    "el": "Μέχρι το σημείο",
+    "he": "עד לנקודה",
+    "in": "बिंदु तक",
+    "jp": "その点まで",
+    "ru": "До точки"
+  },
+  "UNIVERS_FUTUR.VIEW_SKY": {
+    "de": "Himmel",
+    "es": "Cielo",
+    "it": "Cielo",
+    "ar": "السماء",
+    "cn": "天空",
+    "el": "Ουρανός",
+    "he": "שמיים",
+    "in": "आकाश",
+    "jp": "空",
+    "ru": "Небо"
+  },
+  "UNIVERS_FUTUR.VIEW_PLANETS": {
+    "de": "Planeten",
+    "es": "Planetas",
+    "it": "Pianeti",
+    "ar": "الكواكب",
+    "cn": "行星",
+    "el": "Πλανήτες",
+    "he": "כוכבי לכת",
+    "in": "ग्रह",
+    "jp": "惑星",
+    "ru": "Планеты"
+  },
+  "UNIVERS_FUTUR.HINT_SKY": {
+    "de": "3D-Eigenbewegungen (Hipparcos): die Sternbilder verformen sich. Blasse Linie = heute, kräftige Linie = gewähltes Datum. Vor allem bis ~100 000 Jahre realistisch.",
+    "es": "Movimientos propios 3D (Hipparcos): las constelaciones se deforman. Trazo tenue = hoy, trazo vivo = fecha elegida. Válido sobre todo hasta ~100 000 años.",
+    "it": "Moti propri 3D (Hipparcos): le costellazioni si deformano. Tratto pallido = oggi, tratto vivo = data scelta. Valido soprattutto fino a ~100 000 anni.",
+    "ar": "حركات ذاتية ثلاثية الأبعاد (Hipparcos): تتشوه الكوكبات. الخط الباهت = اليوم، الخط الواضح = التاريخ المختار. صالح خصوصاً حتى نحو 100 000 سنة.",
+    "cn": "三维自行（Hipparcos）：星座会变形。淡线 = 今天，亮线 = 所选日期。主要在约 100 000 年以内较为真实。",
+    "el": "Ιδίες κινήσεις 3D (Hipparcos): οι αστερισμοί παραμορφώνονται. Αχνή γραμμή = σήμερα, έντονη γραμμή = επιλεγμένη ημερομηνία. Ισχύει κυρίως έως ~100 000 έτη.",
+    "he": "תנועות עצמיות תלת-ממדיות (Hipparcos): קבוצות הכוכבים מתעוותות. קו חיוור = היום, קו בהיר = התאריך שנבחר. תקף בעיקר עד כ-100 000 שנים.",
+    "in": "3D स्वगत गतियाँ (Hipparcos): तारामंडल विकृत होते हैं। हल्की रेखा = आज, चमकीली रेखा = चुनी हुई तिथि। मुख्यतः ~100 000 वर्ष तक मान्य।",
+    "jp": "3D 固有運動（Hipparcos）：星座は変形します。薄い線 = 今日、濃い線 = 選んだ日付。主に約 100 000 年まで妥当です。",
+    "ru": "3D-собственные движения (Hipparcos): созвездия искажаются. Бледная линия = сегодня, яркая линия = выбранная дата. Реалистично в основном до ~100 000 лет."
+  },
+  "UNIVERS_FUTUR.HINT_PLANETS": {
+    "de": "Gravitationsgebundene Bahnen: das Sonnensystem dehnt sich nicht mit dem Universum aus. Nach ~5 Ga wird die Sonne zum Roten Riesen (innere Planeten außerhalb des Modells).",
+    "es": "Órbitas ligadas por la gravedad: el sistema solar no se expande con el universo. Más allá de ~5 Ga el Sol se vuelve gigante roja (planetas internos fuera del modelo).",
+    "it": "Orbite legate dalla gravità: il sistema solare non si dilata con l’universo. Oltre ~5 Ga il Sole diventa gigante rossa (pianeti interni fuori dal modello).",
+    "ar": "مدارات مرتبطة بالجاذبية: المجموعة الشمسية لا تتمدد مع الكون. بعد نحو 5 Ga تصبح الشمس عملاقة حمراء (الكواكب الداخلية خارج النموذج).",
+    "cn": "引力束缚的轨道：太阳系不会随宇宙膨胀。约 5 Ga 之后太阳成为红巨星（内行星超出模型）。",
+    "el": "Τροχιές δεσμευμένες από τη βαρύτητα: το ηλιακό σύστημα δεν διαστέλλεται με το σύμπαν. Πέρα από ~5 Ga ο Ήλιος γίνεται ερυθρός γίγαντας (εσωτερικοί πλανήτες εκτός μοντέλου).",
+    "he": "מסלולים קשורים בכבידה: מערכת השמש אינה מתפשטת עם היקום. מעבר לכ-5 Ga השמש הופכת לענק אדום (כוכבי הלכת הפנימיים מחוץ למודל).",
+    "in": "गुरुत्व से बंधी कक्षाएँ: सौरमंडल ब्रह्मांड के साथ नहीं फैलता। ~5 Ga के बाद सूर्य लाल दानव बन जाता है (आंतरिक ग्रह मॉडल से बाहर)।",
+    "jp": "重力で束縛された軌道：太陽系は宇宙とともに膨張しません。約 5 Ga を超えると太陽は赤色巨星になります（内側の惑星はモデル外）。",
+    "ru": "Орбиты, связанные гравитацией: Солнечная система не расширяется вместе со Вселенной. После ~5 Ga Солнце становится красным гигантом (внутренние планеты вне модели)."
+  },
+  "UNIVERS_FUTUR.HINT_GALAXIES": {
+    "de": "Gebundene Lokale Gruppe (Andromeda nähert sich, Kollision ~4,5 Ga). Die übrigen Galaxien folgen der Expansion: Eigenabstand = d₀ × a(t), ohne Lichtlaufzeit.",
+    "es": "Grupo Local ligado (Andrómeda se acerca, colisión ~4,5 Ga). Las demás galaxias siguen la expansión: distancia propia = d₀ × a(t), sin retraso de la luz.",
+    "it": "Gruppo Locale legato (Andromeda si avvicina, collisione ~4,5 Ga). Le altre galassie seguono l’espansione: distanza propria = d₀ × a(t), senza ritardo della luce.",
+    "ar": "المجموعة المحلية المرتبطة (المرأة المسلسلة تقترب، اصطدام ~4,5 Ga). المجرات الأخرى تتبع التمدد: المسافة الذاتية = d₀ × a(t)، بلا تأخير ضوئي.",
+    "cn": "束缚的本星系群（仙女座正在靠近，碰撞约 4.5 Ga）。其余星系随膨胀运动：固有距离 = d₀ × a(t)，不含光行时。",
+    "el": "Δεσμευμένη Τοπική Ομάδα (η Ανδρομέδα πλησιάζει, σύγκρουση ~4,5 Ga). Οι άλλοι γαλαξίες ακολουθούν τη διαστολή: ίδια απόσταση = d₀ × a(t), χωρίς καθυστέρηση φωτός.",
+    "he": "הקבוצה המקומית הקשורה (אנדרומדה מתקרבת, התנגשות ~4.5 Ga). שאר הגלקסיות עוקבות אחר ההתפשטות: מרחק עצמי = d₀ × a(t), בלי השהיית אור.",
+    "in": "बंधा स्थानीय समूह (एंड्रोमेडा निकट आ रही है, टक्कर ~4,5 Ga)। अन्य आकाशगंगाएँ विस्तार का अनुसरण करती हैं: उचित दूरी = d₀ × a(t), प्रकाश-विलंब के बिना।",
+    "jp": "束縛された局部銀河群（アンドロメダが接近、衝突 ~4,5 Ga）。他の銀河は膨張に従う：固有距離 = d₀ × a(t)、光の遅れなし。",
+    "ru": "Связанная Местная группа (Андромеда приближается, столкновение ~4,5 Ga). Остальные галактики следуют расширению: собственное расстояние = d₀ × a(t), без запаздывания света."
+  },
+  "UNIVERS_FUTUR.HINT_COSMOS": {
+    "de": "Gebundene Punkte in der Mitte = Lokale Gruppe (feste Größe). Die anderen entfernen sich mit a(t). Untere Kurve: Skalenfaktor. In ΛCDM sinkt er nie wieder.",
+    "es": "Puntos ligados en el centro = Grupo Local (tamaño fijo). Los demás se alejan con a(t). Curva inferior: factor de escala. En ΛCDM nunca vuelve a bajar.",
+    "it": "Punti legati al centro = Gruppo Locale (dimensione fissa). Gli altri si allontanano con a(t). Curva in basso: fattore di scala. In ΛCDM non ridiscende mai.",
+    "ar": "النقاط المرتبطة في المركز = المجموعة المحلية (حجم ثابت). الأخرى تبتعد مع a(t). المنحنى السفلي: عامل المقياس. في ΛCDM لا ينخفض أبداً.",
+    "cn": "中心的束缚点 = 本星系群（大小固定）。其余随 a(t) 远离。下方曲线：尺度因子。在 ΛCDM 中它永不回落。",
+    "el": "Δεσμευμένες κουκκίδες στο κέντρο = Τοπική Ομάδα (σταθερό μέγεθος). Οι άλλες απομακρύνονται με a(t). Κάτω καμπύλη: παράγοντας κλίμακας. Στο ΛCDM δεν κατεβαίνει ποτέ.",
+    "he": "נקודות קשורות במרכז = הקבוצה המקומית (גודל קבוע). האחרות מתרחקות עם a(t). העקומה התחתונה: גורם קנה מידה. ב-ΛCDM הוא אינו יורד לעולם.",
+    "in": "केंद्र की बंधी बिंदुएँ = स्थानीय समूह (स्थिर आकार)। अन्य a(t) के साथ दूर होती हैं। निचला वक्र: पैमाना गुणक। ΛCDM में वह कभी नीचे नहीं लौटता।",
+    "jp": "中心の束縛点 = 局部銀河群（大きさ固定）。他は a(t) とともに遠ざかる。下の曲線：スケール因子。ΛCDM では二度と下がらない。",
+    "ru": "Связанные точки в центре = Местная группа (фиксированный размер). Остальные удаляются с a(t). Нижняя кривая: масштабный фактор. В ΛCDM он больше не снижается."
+  },
+  "UNIVERS_FUTUR.VERDICT_LCDM_TITLE": {
+    "de": "Die Expansion hat kein Ende",
+    "es": "La expansión no tiene fin",
+    "it": "L’espansione non ha fine",
+    "ar": "التمدد بلا نهاية",
+    "cn": "膨胀没有终点",
+    "el": "Η διαστολή δεν έχει τέλος",
+    "he": "להתפשטות אין סוף",
+    "in": "विस्तार का कोई अंत नहीं",
+    "jp": "膨張に終わりはない",
+    "ru": "У расширения нет конца"
+  },
+  "UNIVERS_FUTUR.VERDICT_LCDM_BODY": {
+    "de": "Mit der gemessenen dunklen Energie wächst a(t) ohne Grenze. Gebundene Strukturen (Atome, Planeten, Galaxien) bleiben gebunden; ferne Galaxien entfernen sich für immer. Nichts kehrt zu einem Punkt zurück.",
+    "es": "Con la energía oscura medida, a(t) crece sin límite. Las estructuras ligadas (átomos, planetas, galaxias) siguen ligadas; las galaxias lejanas se alejan para siempre. Nada vuelve a un punto.",
+    "it": "Con l’energia oscura misurata, a(t) cresce senza limite. Le strutture legate (atomi, pianeti, galassie) restano legate; le galassie lontane si allontanano per sempre. Niente torna a un punto.",
+    "ar": "مع الطاقة المظلمة المقاسة، ينمو a(t) بلا حد. البنى المرتبطة (ذرات، كواكب، مجرات) تبقى مرتبطة؛ والمجرات البعيدة تبتعد إلى الأبد. لا شيء يعود إلى نقطة.",
+    "cn": "在测得的暗能量下，a(t) 无限增长。束缚结构（原子、行星、星系）保持束缚；遥远星系永远远离。没有任何东西回到一个点。",
+    "el": "Με τη μετρημένη σκοτεινή ενέργεια, το a(t) αυξάνεται χωρίς όριο. Οι δεσμευμένες δομές (άτομα, πλανήτες, γαλαξίες) μένουν δεσμευμένες· οι μακρινοί γαλαξίες απομακρύνονται για πάντα. Τίποτα δεν επιστρέφει σε ένα σημείο.",
+    "he": "עם האנרגיה האפלה שנמדדה, a(t) גדל בלי גבול. מבנים קשורים (אטומים, כוכבי לכת, גלקסיות) נשארים קשורים; גלקסיות רחוקות מתרחקות לעד. דבר אינו חוזר לנקודה.",
+    "in": "मापी गई अदीप्त ऊर्जा के साथ a(t) बिना सीमा बढ़ता है। बंधी संरचनाएँ (परमाणु, ग्रह, आकाशगंगाएँ) बंधी रहती हैं; दूर की आकाशगंगाएँ सदा के लिए दूर होती हैं। कुछ भी एक बिंदु पर नहीं लौटता।",
+    "jp": "測定されたダークエネルギーでは a(t) は限りなく増える。束縛構造（原子、惑星、銀河）は束縛されたまま、遠い銀河は永遠に遠ざかる。何も一点には戻らない。",
+    "ru": "При измеренной тёмной энергии a(t) растёт без предела. Связанные структуры (атомы, планеты, галактики) остаются связанными; далёкие галактики удаляются навсегда. Ничто не возвращается в точку."
+  },
+  "UNIVERS_FUTUR.VERDICT_CRUNCH_TITLE": {
+    "de": "Hypothetisches Szenario: Rückkollaps",
+    "es": "Escenario hipotético: recolapso",
+    "it": "Scenario ipotetico: ricollasso",
+    "ar": "سيناريو افتراضي: انهيار عكسي",
+    "cn": "假设情景：再坍缩",
+    "el": "Υποθετικό σενάριο: επανακατάρρευση",
+    "he": "תרחיש היפותטי: קריסה חוזרת",
+    "in": "काल्पनिक परिदृश्य: पुनः सिकुड़ना",
+    "jp": "仮説シナリオ：再崩壊",
+    "ru": "Гипотетический сценарий: повторный коллапс"
+  },
+  "UNIVERS_FUTUR.VERDICT_CRUNCH_BODY": {
+    "de": "Ohne dunkle Energie und mit genug Materie stoppt die Expansion, dann fällt alles auf einen Punkt zurück (Big Crunch). Das ist nicht das beobachtete Modell: nutzen Sie den Schieberegler, um zu sehen, wie das aussehen würde.",
+    "es": "Sin energía oscura y con bastante materia, la expansión se detiene y luego todo refluye hacia un punto (Big Crunch). No es el modelo observado: use el control deslizante para ver cómo sería.",
+    "it": "Senza energia oscura e con abbastanza materia, l’espansione si ferma e poi tutto rifluisce verso un punto (Big Crunch). Non è il modello osservato: usi il cursore per vedere come sarebbe.",
+    "ar": "بلا طاقة مظلمة ومع ما يكفي من المادة، يتوقف التمدد ثم يرتد كل شيء نحو نقطة (Big Crunch). هذا ليس النموذج المرصود: استخدم المنزلق لترى كيف سيبدو.",
+    "cn": "没有暗能量且物质足够时，膨胀会停止，然后一切回流到一个点（Big Crunch）。这不是观测模型：请用滑块看看会是什么样子。",
+    "el": "Χωρίς σκοτεινή ενέργεια και με αρκετή ύλη, η διαστολή σταματά και μετά τα πάντα επιστρέφουν σε ένα σημείο (Big Crunch). Δεν είναι το παρατηρούμενο μοντέλο: χρησιμοποιήστε τον ολισθητήρα για να δείτε πώς θα ήταν.",
+    "he": "בלי אנרגיה אפלה ועם די חומר, ההתפשטות נעצרת ואז הכול זורם חזרה לנקודה (Big Crunch). זה אינו המודל הנצפה: השתמשו במחוון כדי לראות איך זה היה נראה.",
+    "in": "अदीप्त ऊर्जा के बिना और पर्याप्त पदार्थ के साथ विस्तार रुकता है, फिर सब कुछ एक बिंदु की ओर लौटता है (Big Crunch)। यह प्रेक्षित मॉडल नहीं है: स्लाइडर से देखें कि यह कैसा लगेगा।",
+    "jp": "ダークエネルギーがなく物質が十分なら、膨張は止まり、その後すべてが一点へ戻る（Big Crunch）。これは観測モデルではありません。スライダーでその様子を見てください。",
+    "ru": "Без тёмной энергии и при достаточном количестве вещества расширение останавливается, затем всё стекается в точку (Big Crunch). Это не наблюдаемая модель: подвиньте ползунок, чтобы увидеть, как это выглядело бы."
+  },
+  "UNIVERS_FUTUR.VERDICT_CRUNCH_NOW": {
+    "de": "Alles ist zu einem Punkt zurückgekehrt",
+    "es": "Todo ha vuelto a un punto",
+    "it": "Tutto è tornato a un punto",
+    "ar": "عاد كل شيء إلى نقطة",
+    "cn": "一切已回到一个点",
+    "el": "Τα πάντα επέστρεψαν σε ένα σημείο",
+    "he": "הכול חזר לנקודה",
+    "in": "सब कुछ एक बिंदु पर लौट आया है",
+    "jp": "すべてが一点に戻った",
+    "ru": "Всё вернулось в одну точку"
+  },
+  "UNIVERS_FUTUR.VERDICT_CRUNCH_NOW_BODY": {
+    "de": "In diesem hypothetischen Szenario ist der Skalenfaktor auf null gefallen: das Universum ist zurückkollabiert.",
+    "es": "En este escenario hipotético el factor de escala ha vuelto a cero: el universo se ha recolapsado.",
+    "it": "In questo scenario ipotetico il fattore di scala è ricaduto a zero: l’universo si è ricollassato.",
+    "ar": "في هذا السيناريو الافتراضي عاد عامل المقياس إلى الصفر: انهار الكون من جديد.",
+    "cn": "在这一假设情景中，尺度因子已回落到零：宇宙已再坍缩。",
+    "el": "Σε αυτό το υποθετικό σενάριο ο παράγοντας κλίμακας έπεσε στο μηδέν: το σύμπαν επανακατέρρευσε.",
+    "he": "בתרחיש היפותטי זה גורם קנה המידה ירד לאפס: היקום קרס מחדש.",
+    "in": "इस काल्पनिक परिदृश्य में पैमाना गुणक शून्य पर लौट आया है: ब्रह्मांड पुनः सिकुड़ गया है।",
+    "jp": "この仮説シナリオではスケール因子がゼロに戻った：宇宙は再崩壊した。",
+    "ru": "В этом гипотетическом сценарии масштабный фактор упал до нуля: Вселенная снова сколлапсировала."
+  },
+  "UNIVERS_FUTUR.SUN": {
+    "de": "Sonne",
+    "es": "Sol",
+    "it": "Sole",
+    "ar": "الشمس",
+    "cn": "太阳",
+    "el": "Ήλιος",
+    "he": "שמש",
+    "in": "सूर्य",
+    "jp": "太陽",
+    "ru": "Солнце"
+  },
+  "UNIVERS_FUTUR.HERE": {
+    "de": "Hier (Lokale Gruppe)",
+    "es": "Aquí (Grupo Local)",
+    "it": "Qui (Gruppo Locale)",
+    "ar": "هنا (المجموعة المحلية)",
+    "cn": "此处（本星系群）",
+    "el": "Εδώ (Τοπική Ομάδα)",
+    "he": "כאן (הקבוצה המקומית)",
+    "in": "यहाँ (स्थानीय समूह)",
+    "jp": "ここ（局部銀河群）",
+    "ru": "Здесь (Местная группа)"
+  },
+  "UNIVERS_FUTUR.MW": {
+    "de": "Milchstraße",
+    "es": "Vía Láctea",
+    "it": "Via Lattea",
+    "ar": "درب التبانة",
+    "cn": "银河",
+    "el": "Γαλαξίας",
+    "he": "שביל החלב",
+    "in": "आकाशगंगा",
+    "jp": "天の川",
+    "ru": "Млечный Путь"
+  },
+  "UNIVERS_FUTUR.ANDROMEDA": {
+    "de": "Andromeda",
+    "es": "Andrómeda",
+    "it": "Andromeda",
+    "ar": "المرأة المسلسلة",
+    "cn": "仙女座",
+    "el": "Ανδρομέδα",
+    "he": "אנדרומדה",
+    "in": "एंड्रोमेडा",
+    "jp": "アンドロメダ",
+    "ru": "Андромеда"
+  },
+  "UNIVERS_FUTUR.TRIANGULUM": {
+    "de": "Dreieck",
+    "es": "Triángulo",
+    "it": "Triangolo",
+    "ar": "المثلث",
+    "cn": "三角座",
+    "el": "Τρίγωνον",
+    "he": "משולש",
+    "in": "त्रिभुज",
+    "jp": "さんかく座",
+    "ru": "Треугольник"
+  },
+  "ECLIPSE.DETAIL": {
+    "de": "Detail"
+  },
+  "ECLIPSE.TYPE_TOTAL": {
+    "de": "Total",
+    "es": "Total"
+  },
+  "ECLIPSE.PLAYER_SOLAR": {
+    "es": "Solar"
+  },
+  "ECLIPSE.PLAYER_LUNAR": {
+    "es": "Lunar"
+  },
+  "IOT_PROXY.UPSTREAM": {
+    "el": "Ανάντη URL",
+    "ru": "Исходный URL"
+  },
+  "IOT_PROXY.FILTER_LABEL": {
+    "de": "Filter"
+  },
+  "TODOLISTS.NAME": {
+    "de": "Name"
+  },
+  "TODOLISTS.ITEM_STATUS": {
+    "de": "Status"
+  },
+  "TODOLISTS.LINK_SECTION_TITLE": {
+    "de": "Diese Liste mit der Agenda verknüpfen",
+    "es": "Vincular esta lista a la agenda",
+    "it": "Collega questo elenco all’agenda",
+    "ar": "ربط هذه القائمة بالأجندة",
+    "cn": "将此列表关联到日程",
+    "el": "Σύνδεση αυτής της λίστας με την ατζέντα",
+    "he": "קישור רשימה זו ליומן",
+    "in": "इस सूची को एजेंडे से जोड़ें",
+    "jp": "このリストを予定表にリンク",
+    "ru": "Связать этот список с расписанием"
+  },
+  "TODOLISTS.LINK_SECTION_INTRO": {
+    "de": "Hier können Sie diese Aufgabenliste entweder mit einem persönlichen Termin in Ihrer Agenda oder mit einer Aktivität (Ereignis) verknüpfen, auf die Sie im Kalender Zugriff haben. Nicht beides gleichzeitig: eines von beiden.",
+    "es": "Aquí puede asociar esta lista de tareas a una cita personal de su agenda o a una actividad (evento) a la que tiene acceso en el calendario. No las dos a la vez: una u otra.",
+    "it": "Qui può associare questo elenco di attività a un appuntamento personale della sua agenda oppure a un’attività (evento) a cui ha accesso nel calendario. Non entrambe insieme: l’una o l’altra.",
+    "ar": "هنا يمكنك ربط قائمة المهام هذه إما بموعد شخصي في أجندتك أو بنشاط (حدث) يمكنك الوصول إليه في التقويم. ليس الاثنان معاً: أحدهما أو الآخر.",
+    "cn": "在此可将此任务列表关联到日程中的个人预约，或关联到日历中您可访问的活动（事件）。不能同时关联两者，只能二选一。",
+    "el": "Εδώ μπορείτε να συσχετίσετε αυτή τη λίστα εργασιών είτε με ένα προσωπικό ραντεβού στην ατζέντα σας είτε με μια δραστηριότητα (εκδήλωση) στην οποία έχετε πρόσβαση στο ημερολόγιο. Όχι και τα δύο ταυτόχρονα: το ένα ή το άλλο.",
+    "he": "כאן ניתן לשייך רשימת משימות זו לפגישה אישית ביומן או לפעילות (אירוע) שיש לך גישה אליה בלוח השנה. לא את שניהם יחד: אחד מהם.",
+    "in": "यहाँ आप इस कार्य-सूची को अपनी एजेंडे की व्यक्तिगत मुलाकात से या कैलेंडर में उपलब्ध किसी गतिविधि (इवेंट) से जोड़ सकते हैं। दोनों एक साथ नहीं: एक या दूसरा।",
+    "jp": "ここでは、このタスクリストを予定表の個人予定、またはカレンダーでアクセスできる活動（イベント）のどちらかに関連付けられます。同時に両方はできません。",
+    "ru": "Здесь можно связать этот список задач либо с личной встречей в расписании, либо с доступной вам активностью (событием) в календаре. Не оба сразу: одно или другое."
+  },
+  "TODOLISTS.LINK_PICK_APPOINTMENT": {
+    "de": "Persönlicher Termin (Agenda)",
+    "es": "Cita personal (agenda)",
+    "it": "Appuntamento personale (agenda)",
+    "ar": "موعد شخصي (الأجندة)",
+    "cn": "个人预约（日程）",
+    "el": "Προσωπικό ραντεβού (ατζέντα)",
+    "he": "פגישה אישית (יומן)",
+    "in": "व्यक्तिगत मुलाकात (एजेंडा)",
+    "jp": "個人予定（予定表）",
+    "ru": "Личная встреча (расписание)"
+  },
+  "TODOLISTS.LINK_PICK_ACTIVITY": {
+    "de": "Aktivität",
+    "es": "Actividad",
+    "it": "Attività",
+    "ar": "نشاط",
+    "cn": "活动",
+    "el": "Δραστηριότητα",
+    "he": "פעילות",
+    "in": "गतिविधि",
+    "jp": "活動",
+    "ru": "Активность"
+  },
+  "TODOLISTS.LINK_NONE": {
+    "de": "Keine",
+    "es": "Ninguno",
+    "it": "Nessuno",
+    "ar": "لا شيء",
+    "cn": "无",
+    "el": "Κανένα",
+    "he": "ללא",
+    "in": "कोई नहीं",
+    "jp": "なし",
+    "ru": "Нет"
+  },
+  "TODOLISTS.LINK_FILTER_PLACEHOLDER": {
+    "de": "Nach Name oder Datum filtern…",
+    "es": "Filtrar por nombre o fecha…",
+    "it": "Filtra per nome o data…",
+    "ar": "تصفية حسب الاسم أو التاريخ…",
+    "cn": "按名称或日期筛选…",
+    "el": "Φιλτράρισμα κατά όνομα ή ημερομηνία…",
+    "he": "סינון לפי שם או תאריך…",
+    "in": "नाम या दिनांक से फ़िल्टर करें…",
+    "jp": "名前または日付で絞り込む…",
+    "ru": "Фильтр по имени или дате…"
+  },
+  "TODOLISTS.LINK_FILTER_COUNT": {
+    "de": "{{shown}} von {{total}}",
+    "es": "{{shown}} de {{total}}",
+    "it": "{{shown}} di {{total}}",
+    "ar": "{{shown}} من {{total}}",
+    "cn": "{{shown}} / {{total}}",
+    "el": "{{shown}} από {{total}}",
+    "he": "{{shown}} מתוך {{total}}",
+    "in": "{{shown}} / {{total}}",
+    "jp": "{{shown}} / {{total}}",
+    "ru": "{{shown}} из {{total}}"
+  },
+  "TODOLISTS.LINK_OPTIONS_COUNT": {
+    "de": "{{count}} Aktivität(en)",
+    "es": "{{count}} actividad(es)",
+    "it": "{{count}} attività",
+    "ar": "{{count}} نشاط/أنشطة",
+    "cn": "{{count}} 项活动",
+    "el": "{{count}} δραστηριότητα(ες)",
+    "he": "{{count}} פעילויות",
+    "in": "{{count}} गतिविधि(याँ)",
+    "jp": "活動 {{count}} 件",
+    "ru": "{{count}} активност(и)"
+  },
+  "TODOLISTS.LINK_OPTIONS_COUNT_APPT": {
+    "de": "{{count}} Termin(e)",
+    "es": "{{count}} cita(s)",
+    "it": "{{count}} appuntamenti",
+    "ar": "{{count}} موعد/مواعيد",
+    "cn": "{{count}} 个预约",
+    "el": "{{count}} ραντεβού",
+    "he": "{{count}} פגישות",
+    "in": "{{count}} मुलाकातें",
+    "jp": "予定 {{count}} 件",
+    "ru": "{{count}} встреч(и)"
+  },
+  "TODOLISTS.LINK_LOADING_CALENDAR": {
+    "de": "Agenda und Aktivitäten werden geladen…",
+    "es": "Cargando la agenda y las actividades…",
+    "it": "Caricamento dell’agenda e delle attività…",
+    "ar": "جارٍ تحميل الأجندة والأنشطة…",
+    "cn": "正在加载日程和活动…",
+    "el": "Φόρτωση ατζέντας και δραστηριοτήτων…",
+    "he": "טוען את היומן והפעילויות…",
+    "in": "एजेंडा और गतिविधियाँ लोड हो रही हैं…",
+    "jp": "予定表と活動を読み込み中…",
+    "ru": "Загрузка расписания и активностей…"
+  },
+  "TODOLISTS.LINK_LOAD_ERROR": {
+    "de": "Die Agenda konnte nicht geladen werden. Sie können die Liste trotzdem speichern; versuchen Sie es später erneut, um eine Verknüpfung zu wählen.",
+    "es": "No se pudo cargar la agenda. Aún puede guardar la lista; inténtelo más tarde para elegir un vínculo.",
+    "it": "Impossibile caricare l’agenda. Può comunque salvare l’elenco; riprovi più tardi per scegliere un collegamento.",
+    "ar": "تعذر تحميل الأجندة. يمكنك حفظ القائمة رغم ذلك؛ أعد المحاولة لاحقاً لاختيار رابط.",
+    "cn": "无法加载日程。仍可保存列表；请稍后再选择关联。",
+    "el": "Δεν ήταν δυνατή η φόρτωση της ατζέντας. Μπορείτε να αποθηκεύσετε τη λίστα· δοκιμάστε αργότερα για να επιλέξετε σύνδεση.",
+    "he": "לא ניתן לטעון את היומן. עדיין ניתן לשמור את הרשימה; נסה שוב מאוחר יותר לבחירת קישור.",
+    "in": "एजेंडा लोड नहीं हो सका। आप सूची फिर भी सहेज सकते हैं; लिंक चुनने के लिए बाद में पुनः प्रयास करें।",
+    "jp": "予定表を読み込めませんでした。リストは保存できます。リンクの選択は後でもう一度お試しください。",
+    "ru": "Не удалось загрузить расписание. Список всё равно можно сохранить; позже повторите выбор связи."
+  },
+  "TODOLISTS.LINK_HINT": {
+    "de": "Wenn Sie einen Termin wählen, wird die Verknüpfung zu einer Aktivität automatisch gelöscht, und umgekehrt.",
+    "es": "Si elige una cita, el vínculo con una actividad se borra automáticamente, y al revés.",
+    "it": "Se sceglie un appuntamento, il collegamento a un’attività viene cancellato automaticamente, e viceversa.",
+    "ar": "إذا اخترت موعداً، يُمسح رابط النشاط تلقائياً، والعكس صحيح.",
+    "cn": "若选择预约，活动关联会自动清除，反之亦然。",
+    "el": "Αν επιλέξετε ραντεβού, η σύνδεση με δραστηριότητα διαγράφεται αυτόματα, και αντίστροφα.",
+    "he": "אם בוחרים פגישה, הקישור לפעילות נמחק אוטומטית, ולהפך.",
+    "in": "यदि आप मुलाकात चुनते हैं, गतिविधि का लिंक स्वतः मिट जाता है, और उलटा भी।",
+    "jp": "予定を選ぶと活動へのリンクは自動的に消え、その逆も同じです。",
+    "ru": "Если выбрать встречу, связь с активностью снимается автоматически, и наоборот."
+  },
+  "TODOLISTS.LINK_STALE_APPOINTMENT": {
+    "de": "Aktuelle Verknüpfung (Termin {{id}} — außerhalb des geladenen Bereichs oder nicht verfügbar)",
+    "es": "Vínculo actual (cita {{id}} — fuera del intervalo cargado o no disponible)",
+    "it": "Collegamento attuale (appuntamento {{id}} — fuori dall’intervallo caricato o non disponibile)",
+    "ar": "الرابط الحالي (موعد {{id}} — خارج النطاق المحمّل أو غير متاح)",
+    "cn": "当前关联（预约 {{id}} — 超出已加载范围或不可用）",
+    "el": "Τρέχουσα σύνδεση (ραντεβού {{id}} — εκτός φορτωμένου εύρους ή μη διαθέσιμο)",
+    "he": "קישור נוכחי (פגישה {{id}} — מחוץ לטווח שנטען או לא זמין)",
+    "in": "वर्तमान लिंक (मुलाकात {{id}} — लोड सीमा के बाहर या अनुपलब्ध)",
+    "jp": "現在のリンク（予定 {{id}} — 読み込み範囲外または利用不可）",
+    "ru": "Текущая связь (встреча {{id}} — вне загруженного диапазона или недоступна)"
+  },
+  "TODOLISTS.LINK_STALE_ACTIVITY": {
+    "de": "Aktuelle Verknüpfung (Aktivität {{id}} — außerhalb des geladenen Bereichs oder nicht verfügbar)",
+    "es": "Vínculo actual (actividad {{id}} — fuera del intervalo cargado o no disponible)",
+    "it": "Collegamento attuale (attività {{id}} — fuori dall’intervallo caricato o non disponibile)",
+    "ar": "الرابط الحالي (نشاط {{id}} — خارج النطاق المحمّل أو غير متاح)",
+    "cn": "当前关联（活动 {{id}} — 超出已加载范围或不可用）",
+    "el": "Τρέχουσα σύνδεση (δραστηριότητα {{id}} — εκτός φορτωμένου εύρους ή μη διαθέσιμη)",
+    "he": "קישור נוכחי (פעילות {{id}} — מחוץ לטווח שנטען או לא זמין)",
+    "in": "वर्तमान लिंक (गतिविधि {{id}} — लोड सीमा के बाहर या अनुपलब्ध)",
+    "jp": "現在のリンク（活動 {{id}} — 読み込み範囲外または利用不可）",
+    "ru": "Текущая связь (активность {{id}} — вне загруженного диапазона или недоступна)"
+  },
+  "TODOLISTS.PRIORITY.NORMAL": {
+    "de": "Normal",
+    "es": "Normal"
+  },
+  "TODOLISTS.SHARE.EMAIL": {
+    "el": "E-mail"
+  },
+  "NOTES.PHOTO_PREV": {
+    "ar": "الصورة السابقة",
+    "cn": "上一张照片",
+    "el": "Προηγούμενη φωτογραφία",
+    "he": "התמונה הקודמת",
+    "in": "पिछली फ़ोटो",
+    "jp": "前の写真",
+    "ru": "Предыдущее фото"
+  },
+  "NOTES.PHOTO_NEXT": {
+    "ar": "الصورة التالية",
+    "cn": "下一张照片",
+    "el": "Επόμενη φωτογραφία",
+    "he": "התמונה הבאה",
+    "in": "अगली फ़ोटो",
+    "jp": "次の写真",
+    "ru": "Следующее фото"
+  },
+  "NOTES.LINK_SECTION_TITLE": {
+    "ar": "ربط هذه الملاحظة بالأجندة",
+    "cn": "将此笔记关联到日程",
+    "el": "Σύνδεση αυτής της σημείωσης με την ατζέντα",
+    "he": "קישור הערה זו ליומן",
+    "in": "इस नोट को एजेंडे से जोड़ें",
+    "jp": "このメモを予定表にリンク",
+    "ru": "Связать эту заметку с расписанием"
+  },
+  "NOTES.LINK_SECTION_INTRO": {
+    "ar": "اربط هذه الملاحظة إما بموعد شخصي في أجندتك أو بنشاط — أحدهما وليس الاثنين.",
+    "cn": "将此笔记关联到日程中的个人预约或某项活动——二选一，不能同时两者。",
+    "el": "Συνδέστε αυτή τη σημείωση είτε με ένα προσωπικό ραντεβού στην ατζέντα σας είτε με μια δραστηριότητα — το ένα ή το άλλο, όχι και τα δύο.",
+    "he": "קשרו הערה זו לפגישה אישית ביומן או לפעילות — אחד מהם, לא שניהם.",
+    "in": "इस नोट को अपनी एजेंडे की व्यक्तिगत मुलाकात या किसी गतिविधि से जोड़ें — एक या दूसरा, दोनों नहीं।",
+    "jp": "このメモを予定表の個人予定か活動のどちらかにリンクします。両方同時にはできません。",
+    "ru": "Свяжите эту заметку либо с личной встречей в расписании, либо с активностью — одно или другое, не оба сразу."
+  },
+  "NOTES.LINK_PICK_APPOINTMENT": {
+    "ar": "موعد شخصي (الأجندة)",
+    "cn": "个人预约（日程）",
+    "el": "Προσωπικό ραντεβού (ατζέντα)",
+    "he": "פגישה אישית (יומן)",
+    "in": "व्यक्तिगत मुलाकात (एजेंडा)",
+    "jp": "個人予定（予定表）",
+    "ru": "Личная встреча (расписание)"
+  },
+  "NOTES.LINK_PICK_ACTIVITY": {
+    "ar": "نشاط",
+    "cn": "活动",
+    "el": "Δραστηριότητα",
+    "he": "פעילות",
+    "in": "गतिविधि",
+    "jp": "活動",
+    "ru": "Активность"
+  },
+  "NOTES.LINK_NONE": {
+    "ar": "لا شيء",
+    "cn": "无",
+    "el": "Κανένα",
+    "he": "ללא",
+    "in": "कोई नहीं",
+    "jp": "なし",
+    "ru": "Нет"
+  },
+  "NOTES.LINK_FILTER_PLACEHOLDER": {
+    "ar": "تصفية حسب الاسم أو التاريخ…",
+    "cn": "按名称或日期筛选…",
+    "el": "Φιλτράρισμα κατά όνομα ή ημερομηνία…",
+    "he": "סינון לפי שם או תאריך…",
+    "in": "नाम या दिनांक से फ़िल्टर करें…",
+    "jp": "名前または日付で絞り込む…",
+    "ru": "Фильтр по имени или дате…"
+  },
+  "NOTES.LINK_FILTER_COUNT": {
+    "ar": "{{shown}} من {{total}}",
+    "cn": "{{shown}} / {{total}}",
+    "el": "{{shown}} από {{total}}",
+    "he": "{{shown}} מתוך {{total}}",
+    "in": "{{shown}} / {{total}}",
+    "jp": "{{shown}} / {{total}}",
+    "ru": "{{shown}} из {{total}}"
+  },
+  "NOTES.LINK_OPTIONS_COUNT": {
+    "ar": "{{count}} نشاط/أنشطة",
+    "cn": "{{count}} 项活动",
+    "el": "{{count}} δραστηριότητα(ες)",
+    "he": "{{count}} פעילויות",
+    "in": "{{count}} गतिविधि(याँ)",
+    "jp": "活動 {{count}} 件",
+    "ru": "{{count}} активност(и)"
+  },
+  "NOTES.LINK_OPTIONS_COUNT_APPT": {
+    "ar": "{{count}} موعد/مواعيد",
+    "cn": "{{count}} 个预约",
+    "el": "{{count}} ραντεβού",
+    "he": "{{count}} פגישות",
+    "in": "{{count}} मुलाकातें",
+    "jp": "予定 {{count}} 件",
+    "ru": "{{count}} встреч(и)"
+  },
+  "NOTES.LINK_LOADING_CALENDAR": {
+    "ar": "جارٍ تحميل الأجندة والأنشطة…",
+    "cn": "正在加载日程和活动…",
+    "el": "Φόρτωση ατζέντας και δραστηριοτήτων…",
+    "he": "טוען את היומן והפעילויות…",
+    "in": "एजेंडा और गतिविधियाँ लोड हो रही हैं…",
+    "jp": "予定表と活動を読み込み中…",
+    "ru": "Загрузка расписания и активностей…"
+  },
+  "NOTES.LINK_LOAD_ERROR": {
+    "ar": "تعذر تحميل الأجندة. يمكنك حفظ الملاحظة رغم ذلك؛ أعد المحاولة لاحقاً لاختيار رابط.",
+    "cn": "无法加载日程。仍可保存笔记；请稍后再选择关联。",
+    "el": "Δεν ήταν δυνατή η φόρτωση της ατζέντας. Μπορείτε να αποθηκεύσετε τη σημείωση· δοκιμάστε αργότερα για να επιλέξετε σύνδεση.",
+    "he": "לא ניתן לטעון את היומן. עדיין ניתן לשמור את ההערה; נסה שוב מאוחר יותר לבחירת קישור.",
+    "in": "एजेंडा लोड नहीं हो सका। आप नोट फिर भी सहेज सकते हैं; लिंक चुनने के लिए बाद में पुनः प्रयास करें।",
+    "jp": "予定表を読み込めませんでした。メモは保存できます。リンクの選択は後でもう一度お試しください。",
+    "ru": "Не удалось загрузить расписание. Заметку всё равно можно сохранить; позже повторите выбор связи."
+  },
+  "NOTES.LINK_HINT": {
+    "ar": "اختيار موعد يمسح رابط النشاط، والعكس صحيح.",
+    "cn": "选择预约会清除活动关联，反之亦然。",
+    "el": "Η επιλογή ραντεβού διαγράφει τη σύνδεση δραστηριότητας και αντίστροφα.",
+    "he": "בחירת פגישה מוחקת את קישור הפעילות, ולהפך.",
+    "in": "मुलाकात चुनने से गतिविधि का लिंक मिट जाता है, और उलटा भी।",
+    "jp": "予定を選ぶと活動リンクは消え、その逆も同じです。",
+    "ru": "Выбор встречи снимает связь с активностью, и наоборот."
+  },
+  "NOTES.LINK_STALE_APPOINTMENT": {
+    "ar": "الرابط الحالي (موعد {{id}} — خارج التواريخ المحمّلة أو غير متاح)",
+    "cn": "当前关联（预约 {{id}} — 超出已加载日期或不可用）",
+    "el": "Τρέχουσα σύνδεση (ραντεβού {{id}} — εκτός φορτωμένων ημερομηνιών ή μη διαθέσιμο)",
+    "he": "קישור נוכחי (פגישה {{id}} — מחוץ לתאריכים שנטענו או לא זמין)",
+    "in": "वर्तमान लिंक (मुलाकात {{id}} — लोड तिथियों के बाहर या अनुपलब्ध)",
+    "jp": "現在のリンク（予定 {{id}} — 読み込んだ日付の外または利用不可）",
+    "ru": "Текущая связь (встреча {{id}} — вне загруженных дат или недоступна)"
+  },
+  "NOTES.LINK_STALE_ACTIVITY": {
+    "ar": "الرابط الحالي (نشاط {{id}} — خارج التواريخ المحمّلة أو غير متاح)",
+    "cn": "当前关联（活动 {{id}} — 超出已加载日期或不可用）",
+    "el": "Τρέχουσα σύνδεση (δραστηριότητα {{id}} — εκτός φορτωμένων ημερομηνιών ή μη διαθέσιμη)",
+    "he": "קישור נוכחי (פעילות {{id}} — מחוץ לתאריכים שנטענו או לא זמין)",
+    "in": "वर्तमान लिंक (गतिविधि {{id}} — लोड तिथियों के बाहर या अनुपलब्ध)",
+    "jp": "現在のリンク（活動 {{id}} — 読み込んだ日付の外または利用不可）",
+    "ru": "Текущая связь (активность {{id}} — вне загруженных дат или недоступна)"
+  },
+  "NOTES.OPEN_ACTIVITY_PHOTOS": {
+    "ar": "فتح صور النشاط",
+    "cn": "打开活动照片",
+    "el": "Άνοιγμα φωτογραφιών δραστηριότητας",
+    "he": "פתיחת תמונות הפעילות",
+    "in": "गतिविधि की फ़ोटो खोलें",
+    "jp": "活動の写真を開く",
+    "ru": "Открыть фото активности"
+  },
+  "NOTES.LINKED_APPOINTMENT": {
+    "ar": "مرتبطة بموعد",
+    "cn": "已关联到预约",
+    "el": "Συνδεδεμένη με ραντεβού",
+    "he": "מקושרת לפגישה",
+    "in": "एक मुलाकात से जुड़ी",
+    "jp": "予定にリンク済み",
+    "ru": "Связана со встречей"
+  },
+  "NOTES.FILTERED_BY_LINK": {
+    "de": "Notizen, die mit diesem Agendaeintrag verknüpft sind.",
+    "es": "Notas vinculadas a este elemento de la agenda.",
+    "it": "Note collegate a questo elemento dell’agenda.",
+    "ar": "ملاحظات مرتبطة بهذا العنصر في الأجندة.",
+    "cn": "与此日程项关联的笔记。",
+    "el": "Σημειώσεις συνδεδεμένες με αυτό το στοιχείο ατζέντας.",
+    "he": "הערות המקושרות לפריט יומן זה.",
+    "in": "इस एजेंडा आइटम से जुड़े नोट।",
+    "jp": "この予定項目にリンクされたメモ。",
+    "ru": "Заметки, связанные с этим элементом расписания."
+  },
+  "NOTES.CLEAR_LINK_FILTER": {
+    "de": "Alle Notizen anzeigen",
+    "es": "Mostrar todas las notas",
+    "it": "Mostra tutte le note",
+    "ar": "عرض كل الملاحظات",
+    "cn": "显示全部笔记",
+    "el": "Εμφάνιση όλων των σημειώσεων",
+    "he": "הצגת כל ההערות",
+    "in": "सभी नोट दिखाएँ",
+    "jp": "すべてのメモを表示",
+    "ru": "Показать все заметки"
+  },
+  "CALENDAR.LINKED_TODO_LIST": {
+    "de": "Verknüpfte Aufgabenliste",
+    "es": "Lista de tareas vinculada",
+    "it": "Elenco attività collegato",
+    "ar": "قائمة مهام مرتبطة",
+    "cn": "已关联的任务列表",
+    "el": "Συνδεδεμένη λίστα εργασιών",
+    "he": "רשימת משימות מקושרת",
+    "in": "जुड़ी कार्य-सूची",
+    "jp": "リンクされたタスクリスト",
+    "ru": "Связанный список задач"
+  },
+  "CALENDAR.LINKED_TODO_LIST_NONE": {
+    "de": "Keine",
+    "es": "Ninguna",
+    "it": "Nessuna",
+    "ar": "لا شيء",
+    "cn": "无",
+    "el": "Καμία",
+    "he": "ללא",
+    "in": "कोई नहीं",
+    "jp": "なし",
+    "ru": "Нет"
+  },
+  "CALENDAR.LINKED_TODO_LIST_LOADING": {
+    "de": "Ihre Listen werden geladen…",
+    "es": "Cargando sus listas…",
+    "it": "Caricamento dei suoi elenchi…",
+    "ar": "جارٍ تحميل قوائمك…",
+    "cn": "正在加载您的列表…",
+    "el": "Φόρτωση των λιστών σας…",
+    "he": "טוען את הרשימות שלך…",
+    "in": "आपकी सूचियाँ लोड हो रही हैं…",
+    "jp": "リストを読み込み中…",
+    "ru": "Загрузка ваших списков…"
+  },
+  "CALENDAR.OPEN_LINKED_TODO_LIST": {
+    "de": "Liste öffnen",
+    "es": "Abrir la lista",
+    "it": "Apri l’elenco",
+    "ar": "فتح القائمة",
+    "cn": "打开列表",
+    "el": "Άνοιγμα λίστας",
+    "he": "פתיחת הרשימה",
+    "in": "सूची खोलें",
+    "jp": "リストを開く",
+    "ru": "Открыть список"
+  },
+  "CALENDAR.LINKED_EVENT": {
+    "de": "Verknüpfte Aktivität",
+    "es": "Actividad vinculada",
+    "it": "Attività collegata",
+    "ar": "نشاط مرتبط",
+    "cn": "已关联的活动",
+    "el": "Συνδεδεμένη δραστηριότητα",
+    "he": "פעילות מקושרת",
+    "in": "जुड़ी गतिविधि",
+    "jp": "リンクされた活動",
+    "ru": "Связанная активность"
+  },
+  "CALENDAR.LINKED_EVENT_NONE": {
+    "de": "Keine",
+    "es": "Ninguna",
+    "it": "Nessuna",
+    "ar": "لا شيء",
+    "cn": "无",
+    "el": "Καμία",
+    "he": "ללא",
+    "in": "कोई नहीं",
+    "jp": "なし",
+    "ru": "Нет"
+  },
+  "CALENDAR.LINKED_EVENT_LOADING": {
+    "de": "Ihre Aktivitäten werden geladen…",
+    "es": "Cargando sus actividades…",
+    "it": "Caricamento delle sue attività…",
+    "ar": "جارٍ تحميل أنشطتك…",
+    "cn": "正在加载您的活动…",
+    "el": "Φόρτωση των δραστηριοτήτων σας…",
+    "he": "טוען את הפעילויות שלך…",
+    "in": "आपकी गतिविधियाँ लोड हो रही हैं…",
+    "jp": "活動を読み込み中…",
+    "ru": "Загрузка ваших активностей…"
+  },
+  "CALENDAR.OPEN_LINKED_EVENT": {
+    "de": "Aktivität öffnen",
+    "es": "Abrir la actividad",
+    "it": "Apri l’attività",
+    "ar": "فتح النشاط",
+    "cn": "打开活动",
+    "el": "Άνοιγμα δραστηριότητας",
+    "he": "פתיחת הפעילות",
+    "in": "गतिविधि खोलें",
+    "jp": "活動を開く",
+    "ru": "Открыть активность"
+  },
+  "CALENDAR.HOLIDAY_KIND_BANK": {
+    "de": "Bank"
+  },
+  "CALENDAR.HOLIDAY_KIND_OPTIONAL": {
+    "de": "Optional"
+  },
+  "LINKS.TITLE": {
+    "de": "Links"
+  },
+  "IOT.PORTAIL": {
+    "de": "Portal",
+    "es": "Portal"
+  },
+  "IOT.ERROR": {
+    "es": "Error"
+  },
+  "IOT.COLOR": {
+    "es": "Color"
+  },
+  "IOT.THERMOMETER": {
+    "de": "Thermometer"
+  },
+  "CAMERAS.ERROR": {
+    "es": "Error"
+  },
+  "CAMERAS.NAME": {
+    "de": "Name"
+  },
+  "CAMERAS.PASSWORD_PLACEHOLDER": {
+    "it": "parola d'ordine"
+  },
+  "NETWORK_SENTINEL.TRIGGER.MANUAL": {
+    "es": "manual"
+  },
+  "NETWORK_SENTINEL.HOSTNAME": {
+    "de": "Rechnername"
+  },
+  "NETWORK_SENTINEL.BYTES": {
+    "de": "Bytes",
+    "es": "Bytes",
+    "el": "Byte"
+  },
+  "NETWORK_SENTINEL.HOST": {
+    "de": "Rechner",
+    "es": "Equipo",
+    "it": "Nodo"
+  },
+  "NETWORK_SENTINEL.NAME": {
+    "de": "Name"
+  },
+  "EVENTHOME.EVENTFILTRE": {
+    "de": "Filter ...."
+  },
+  "EVENTHOME.VISIBILITY_FILTER": {
+    "de": "Sichtbarkeitsfilter",
+    "es": "Filtro de visibilidad",
+    "it": "Filtro visibilità",
+    "ar": "مرشح الظهور",
+    "cn": "可见性筛选",
+    "el": "Φίλτρο ορατότητας",
+    "he": "מסנן נראות",
+    "in": "दृश्यता फ़िल्टर",
+    "jp": "公開範囲フィルター",
+    "ru": "Фильтр видимости"
+  },
+  "EVENTHOME.URL_LINK": {
+    "de": "Link",
+    "it": "Collegamento"
+  },
+  "EVENTHOME.URL_TYPE_VIDEO": {
+    "de": "Video",
+    "es": "Vídeo",
+    "it": "Video"
+  },
+  "EVENTHOME.URL_TYPE_WEBSITE": {
+    "de": "Webseite"
+  },
+  "EVENTHOME.DEBUG_CACHE": {
+    "it": "Nella memoria temporanea"
+  },
+  "EVENTHOME.DEBUG_FILTER": {
+    "de": "Filter"
+  },
+  "EVENTCREATION.DIFF.2": {
+    "es": "Normal"
+  },
+  "EVENTCREATION.EVENTSTATUS": {
+    "de": "Status"
+  },
+  "EVENTCREATION.STARTLOCATION_SELECTED": {
+    "de": "Ausgewählter Ort",
+    "es": "Lugar seleccionado",
+    "it": "Luogo selezionato",
+    "ar": "المكان المحدد",
+    "cn": "已选地点",
+    "el": "Επιλεγμένος τόπος",
+    "he": "המקום שנבחר",
+    "in": "चयनित स्थान",
+    "jp": "選択した場所",
+    "ru": "Выбранное место"
+  },
+  "EVENTCREATION.STARTLOCATION_SEARCH": {
+    "de": "Ort weltweit suchen (Stadt, Adresse…)",
+    "es": "Buscar un lugar en el mundo (ciudad, dirección…)",
+    "it": "Cerca un luogo nel mondo (città, indirizzo…)",
+    "ar": "ابحث عن مكان في العالم (مدينة، عنوان…)",
+    "cn": "在全球搜索地点（城市、地址…）",
+    "el": "Αναζήτηση τόπου στον κόσμο (πόλη, διεύθυνση…)",
+    "he": "חיפוש מקום בעולם (עיר, כתובת…)",
+    "in": "दुनिया में स्थान खोजें (शहर, पता…)",
+    "jp": "世界の場所を検索（都市、住所…）",
+    "ru": "Искать место в мире (город, адрес…)"
+  },
+  "EVENTCREATION.TYPE.PARTY": {
+    "de": "Feier"
+  },
+  "EVENTCREATION.TYPE.CINEMA": {
+    "it": "Cinema"
+  },
+  "EVENTUPDT.EVENT_UPDATE_UNAUTHORIZED": {
+    "de": "Sie sind nicht berechtigt, diese Aktivität zu ändern. Nur der Eigentümer oder ein Administrator kann sie ändern.",
+    "es": "No está autorizado a modificar esta actividad. Solo el propietario o un administrador puede modificarla.",
+    "it": "Non è autorizzato a modificare questa attività. Solo il proprietario o un amministratore può modificarla.",
+    "ar": "لست مخوّلاً بتعديل هذا النشاط. وحده المالك أو المسؤول يمكنه تعديله.",
+    "cn": "您无权修改此活动。只有所有者或管理员可以修改。",
+    "el": "Δεν έχετε δικαίωμα να τροποποιήσετε αυτή τη δραστηριότητα. Μόνο ο κάτοχος ή ένας διαχειριστής μπορεί να την τροποποιήσει.",
+    "he": "אין לך הרשאה לשנות פעילות זו. רק הבעלים או מנהל יכולים לשנות אותה.",
+    "in": "आप इस गतिविधि को बदलने के लिए अधिकृत नहीं हैं। केवल स्वामी या व्यवस्थापक ही इसे बदल सकता है।",
+    "jp": "この活動を変更する権限がありません。所有者または管理者だけが変更できます。",
+    "ru": "У вас нет права изменять эту активность. Изменить её может только владелец или администратор."
+  },
+  "COMMUN.NO": {
+    "es": "No",
+    "it": "No"
+  },
+  "CHAT.NO_FILTER_RESULTS": {
+    "de": "Keine Ergebnisse gefunden",
+    "es": "No se encontraron resultados",
+    "it": "Nessun risultato trovato",
+    "ar": "لم يُعثر على نتائج",
+    "cn": "未找到结果",
+    "el": "Δεν βρέθηκαν αποτελέσματα",
+    "he": "לא נמצאו תוצאות",
+    "in": "कोई परिणाम नहीं मिला",
+    "jp": "結果が見つかりません",
+    "ru": "Ничего не найдено"
+  },
+  "CHAT.NO_FILTER_RESULTS_DESC": {
+    "de": "Keine Unterhaltung entspricht Ihrer Suche.",
+    "es": "Ninguna conversación coincide con su búsqueda.",
+    "it": "Nessuna conversazione corrisponde alla ricerca.",
+    "ar": "لا توجد محادثة تطابق بحثك.",
+    "cn": "没有讨论符合您的搜索。",
+    "el": "Καμία συζήτηση δεν ταιριάζει με την αναζήτησή σας.",
+    "he": "אין שיחה שתואמת את החיפוש.",
+    "in": "कोई चर्चा आपकी खोज से मेल नहीं खाती।",
+    "jp": "検索に一致する会話はありません。",
+    "ru": "Ни одно обсуждение не соответствует поиску."
+  },
+  "CHAT.FILTER_PLACEHOLDER": {
+    "de": "Unterhaltung suchen...",
+    "es": "Buscar una conversación...",
+    "it": "Cerca una conversazione...",
+    "ar": "البحث عن محادثة...",
+    "cn": "搜索讨论...",
+    "el": "Αναζήτηση συζήτησης...",
+    "he": "חיפוש שיחה...",
+    "in": "चर्चा खोजें...",
+    "jp": "会話を検索...",
+    "ru": "Искать обсуждение..."
+  },
+  "CHAT.TYPE_GENERAL": {
+    "es": "General"
+  },
+  "CHAT.EVENT_STATUS": {
+    "de": "Status"
+  },
+  "MAP.TITLE": {
+    "de": "Über",
+    "es": "Acerca de",
+    "it": "Informazioni",
+    "ar": "حول",
+    "cn": "关于",
+    "el": "Σχετικά",
+    "he": "אודות",
+    "in": "परिचय",
+    "jp": "概要",
+    "ru": "О программе"
+  },
+  "MAP.DATA": {
+    "de": "Daten",
+    "es": "Datos",
+    "it": "Dati",
+    "ar": "البيانات",
+    "cn": "数据",
+    "el": "Δεδομένα",
+    "he": "נתונים",
+    "in": "डेटा",
+    "jp": "データ",
+    "ru": "Данные"
+  },
+  "MAP.SECURITY": {
+    "de": "Sicherheit",
+    "es": "Seguridad",
+    "it": "Sicurezza",
+    "ar": "الأمان",
+    "cn": "安全",
+    "el": "Ασφάλεια",
+    "he": "אבטחה",
+    "in": "सुरक्षा",
+    "jp": "セキュリティ",
+    "ru": "Безопасность"
+  },
+  "MAP.REF": {
+    "de": "Erdacht, entworfen und umgesetzt von",
+    "es": "Imaginado, diseñado e implementado por",
+    "it": "Immaginato, concepito e realizzato da",
+    "ar": "تخيّله وصمّمه ونفّذه",
+    "cn": "构想、设计并实现者",
+    "el": "Εμπνεύστηκε, σχεδιάστηκε και υλοποιήθηκε από",
+    "he": "הגוי, עוצב ומומש על ידי",
+    "in": "कल्पित, अभिकल्पित और कार्यान्वित द्वारा",
+    "jp": "発想、設計、実装",
+    "ru": "Задумано, спроектировано и реализовано"
+  },
+  "USERINFO.ROLES": {
+    "es": "Roles"
+  },
+  "USERINFO.ROLE_MANAGER": {
+    "de": "Verwalter",
+    "it": "Gestore"
+  },
+  "USERINFO.ROLE_ADMIN": {
+    "de": "Administrator"
+  },
+  "USERINFO.VISIBLE_NO": {
+    "es": "No",
+    "it": "No"
+  },
+  "USERINFO.TAB_ACCOUNT": {
+    "it": "Conto"
+  },
+  "USERINFO.OWNER_USERNAME": {
+    "it": "Soprannome"
+  },
+  "USERINFO.PARAM_LABELS.RADIO_LAST_STATION": {
+    "de": "Letzter Radiosender",
+    "es": "Última emisora de radio",
+    "it": "Ultima stazione radio",
+    "ar": "آخر محطة راديو",
+    "cn": "上次电台",
+    "el": "Τελευταίος ραδιοσταθμός",
+    "he": "תחנת הרדיו האחרונה",
+    "in": "अंतिम रेडियो स्टेशन",
+    "jp": "最後のラジオ局",
+    "ru": "Последняя радиостанция"
+  },
+  "USERINFO.PARAM_LABELS.WEBCAM_LAST": {
+    "de": "Letzte Webcam",
+    "es": "Última webcam",
+    "it": "Ultima webcam",
+    "ar": "آخر كاميرا ويب",
+    "cn": "上次网络摄像头",
+    "el": "Τελευταία webcam",
+    "he": "מצלמת הרשת האחרונה",
+    "in": "अंतिम वेबकैम",
+    "jp": "最後のウェブカメラ",
+    "ru": "Последняя веб-камера"
+  },
+  "USERINFO.PARAM_LABELS.WEBCAM_FAVORITES": {
+    "in": "पसंदीदा वेबकैम"
+  },
+  "USERINFO.PARAM_LABELS.GPS_SLOPE_COEF": {
+    "de": "GPS-Neigungskoeffizient",
+    "es": "Coeficiente de pendiente GPS",
+    "it": "Coefficiente di pendenza GPS",
+    "ar": "معامل انحدار GPS",
+    "cn": "GPS 坡度系数",
+    "el": "Συντελεστής κλίσης GPS",
+    "he": "מקדם שיפוע GPS",
+    "in": "GPS ढलान गुणांक",
+    "jp": "GPS 勾配係数",
+    "ru": "Коэффициент уклона GPS"
+  },
+  "UPLOADFILE.UPLOADING_FILE": {
+    "it": "File {{current}}/{{total}}: {{fileName}}"
+  },
+  "PDF_CONVERTER.FILENAME_PLACEHOLDER": {
+    "ar": "مستندي",
+    "cn": "我的文档",
+    "he": "המסמך-שלי",
+    "in": "मेरा-दस्तावेज",
+    "jp": "マイドキュメント"
+  },
+  "PDF_CONVERTER.EDITOR_HINT": {
+    "de": "Ziehen Sie ein Bild, um es im Text zu verschieben. Klicken Sie darauf und ziehen Sie dann die Ecken, um die Größe zu ändern. Entf oder Rücktaste entfernt das ausgewählte Bild. Speichern Sie, um das Layout mit dem Text zu behalten.",
+    "es": "Arrastre una imagen para moverla dentro del texto. Haga clic en ella y luego arrastre las esquinas para cambiar el tamaño. Supr o Retroceso elimina la imagen seleccionada. Guarde para conservar el diseño con el texto.",
+    "it": "Trascini un’immagine per spostarla nel testo. Faccia clic su di essa, poi trascini gli angoli per ridimensionarla. Canc o Backspace rimuove l’immagine selezionata. Salvi per conservare l’impaginazione con il testo.",
+    "ar": "اسحب صورة لنقلها داخل النص. انقر عليها ثم اسحب الزوايا لتغيير الحجم. يحذف Delete أو Backspace الصورة المحددة. احفظ للاحتفاظ بالتخطيط مع النص.",
+    "cn": "拖动图片可在文本中移动。点击图片后拖动四角可调整大小。Delete 或退格键会删除所选图片。保存后即可保留与文本一起的版式。",
+    "el": "Σύρετε μια εικόνα για να τη μετακινήσετε στο κείμενο. Κάντε κλικ και μετά σύρετε τις γωνίες για αλλαγή μεγέθους. Το Delete ή το Backspace αφαιρεί την επιλεγμένη εικόνα. Αποθηκεύστε για να διατηρηθεί η διάταξη με το κείμενο.",
+    "he": "גררו תמונה כדי להזיז אותה בתוך הטקסט. לחצו עליה ואז גררו את הפינות לשינוי גודל. Delete או Backspace מוחקים את התמונה שנבחרה. שמרו כדי לשמור את הפריסה עם הטקסט.",
+    "in": "चित्र को पाठ में कहीं भी खिसकाने के लिए खींचें। उस पर क्लिक करें, फिर कोने खींचकर आकार बदलें। Delete या Backspace चयनित चित्र हटाता है। पाठ के साथ लेआउट रखने के लिए सहेजें।",
+    "jp": "画像をドラッグして本文中で移動します。クリックしてから角をドラッグするとサイズ変更できます。Delete または Backspace で選択画像を削除します。保存するとテキストとともにレイアウトが残ります。",
+    "ru": "Перетащите изображение, чтобы переместить его в тексте. Щёлкните по нему и потяните углы, чтобы изменить размер. Delete или Backspace удаляет выбранное изображение. Сохраните, чтобы оставить вёрстку вместе с текстом."
+  },
+  "PDF_CONVERTER.SAVED_DOCS_LABEL": {
+    "de": "Gespeicherte Dokumente",
+    "es": "Documentos guardados",
+    "it": "Documenti salvati",
+    "ar": "المستندات المحفوظة",
+    "cn": "已保存的文档",
+    "el": "Αποθηκευμένα έγγραφα",
+    "he": "מסמכים שמורים",
+    "in": "सहेजे दस्तावेज़",
+    "jp": "保存済み文書",
+    "ru": "Сохранённые документы"
+  },
+  "PDF_CONVERTER.NEW_DOC": {
+    "de": "Neues Dokument",
+    "es": "Nuevo documento",
+    "it": "Nuovo documento",
+    "ar": "مستند جديد",
+    "cn": "新建文档",
+    "el": "Νέο έγγραφο",
+    "he": "מסמך חדש",
+    "in": "नया दस्तावेज़",
+    "jp": "新規文書",
+    "ru": "Новый документ"
+  },
+  "PDF_CONVERTER.DELETE_DOC": {
+    "de": "Löschen",
+    "es": "Eliminar",
+    "it": "Elimina",
+    "ar": "حذف",
+    "cn": "删除",
+    "el": "Διαγραφή",
+    "he": "מחיקה",
+    "in": "हटाएँ",
+    "jp": "削除",
+    "ru": "Удалить"
+  },
+  "PDF_CONVERTER.SAVE_BTN": {
+    "de": "Speichern",
+    "es": "Guardar",
+    "it": "Salva",
+    "ar": "حفظ",
+    "cn": "保存",
+    "el": "Αποθήκευση",
+    "he": "שמירה",
+    "in": "सहेजें",
+    "jp": "保存",
+    "ru": "Сохранить"
+  },
+  "PDF_CONVERTER.SAVE_BTN_SHORT": {
+    "es": "Guard.",
+    "it": "Salva",
+    "ar": "حفظ",
+    "cn": "保存",
+    "el": "Αποθ.",
+    "he": "שמור",
+    "in": "सहेजें",
+    "jp": "保存",
+    "ru": "Сохр."
+  },
+  "PDF_CONVERTER.SAVED": {
+    "de": "Dokument gespeichert.",
+    "es": "Documento guardado.",
+    "it": "Documento salvato.",
+    "ar": "تم حفظ المستند.",
+    "cn": "文档已保存。",
+    "el": "Το έγγραφο αποθηκεύτηκε.",
+    "he": "המסמך נשמר.",
+    "in": "दस्तावेज़ सहेजा गया।",
+    "jp": "文書を保存しました。",
+    "ru": "Документ сохранён."
+  },
+  "PDF_CONVERTER.DELETED": {
+    "de": "Dokument gelöscht.",
+    "es": "Documento eliminado.",
+    "it": "Documento eliminato.",
+    "ar": "تم حذف المستند.",
+    "cn": "文档已删除。",
+    "el": "Το έγγραφο διαγράφηκε.",
+    "he": "המסמך נמחק.",
+    "in": "दस्तावेज़ हटाया गया।",
+    "jp": "文書を削除しました。",
+    "ru": "Документ удалён."
+  },
+  "PDF_CONVERTER.FOOTER_SWITCH": {
+    "de": "Fußzeile anzeigen (Name, Datum, Autor) — die Seitenzahl bleibt sichtbar",
+    "es": "Mostrar el pie de página (nombre, fecha, autor) — el número de página sigue visible",
+    "it": "Mostra il piè di pagina (nome, data, autore) — il numero di pagina resta visibile",
+    "ar": "إظهار التذييل (الاسم، التاريخ، المؤلف) — يبقى رقم الصفحة ظاهراً",
+    "cn": "显示页脚（名称、日期、作者）——页码始终显示",
+    "el": "Εμφάνιση υποσέλιδου (όνομα, ημερομηνία, συντάκτης) — ο αριθμός σελίδας παραμένει ορατός",
+    "he": "הצגת כותרת תחתונה (שם, תאריך, מחבר) — מספר העמוד נשאר גלוי",
+    "in": "पाद लेख दिखाएँ (नाम, दिनांक, लेखक) — पृष्ठ संख्या दिखाई रहती है",
+    "jp": "フッターを表示（名前、日付、著者）— ページ番号は常に表示されます",
+    "ru": "Показывать нижний колонтитул (имя, дата, автор) — номер страницы остаётся видимым"
+  },
+  "PDF_CONVERTER.CLEAR_BTN_SHORT": {
+    "es": "Borrar",
+    "it": "Cancella",
+    "ar": "مسح",
+    "cn": "清除",
+    "el": "Εκκαθ.",
+    "he": "נקה",
+    "in": "साफ़",
+    "jp": "消去",
+    "ru": "Очистить"
+  },
+  "PDF_CONVERTER.ERR_SHARE_WHATSAPP": {
+    "es": "No se pudo compartir el PDF en WhatsApp. Inténtelo de nuevo."
+  },
+  "PDF_CONVERTER.ERR_SAVE": {
+    "de": "Das Dokument konnte nicht gespeichert werden. Bitte erneut versuchen.",
+    "es": "No se pudo guardar el documento. Inténtelo de nuevo.",
+    "it": "Impossibile salvare il documento. Riprovi.",
+    "ar": "تعذر حفظ المستند. أعد المحاولة.",
+    "cn": "无法保存文档。请重试。",
+    "el": "Δεν ήταν δυνατή η αποθήκευση του εγγράφου. Δοκιμάστε ξανά.",
+    "he": "לא ניתן לשמור את המסמך. נסו שוב.",
+    "in": "दस्तावेज़ सहेजा नहीं जा सका। पुनः प्रयास करें।",
+    "jp": "文書を保存できませんでした。もう一度お試しください。",
+    "ru": "Не удалось сохранить документ. Повторите попытку."
+  },
+  "PDF_CONVERTER.ERR_LOAD": {
+    "de": "Das Dokument konnte nicht geladen werden.",
+    "es": "No se pudo cargar el documento.",
+    "it": "Impossibile caricare il documento.",
+    "ar": "تعذر تحميل المستند.",
+    "cn": "无法加载文档。",
+    "el": "Δεν ήταν δυνατή η φόρτωση του εγγράφου.",
+    "he": "לא ניתן לטעון את המסמך.",
+    "in": "दस्तावेज़ लोड नहीं हो सका।",
+    "jp": "文書を読み込めませんでした。",
+    "ru": "Не удалось загрузить документ."
+  },
+  "PDF_CONVERTER.ERR_DELETE": {
+    "de": "Das Dokument konnte nicht gelöscht werden.",
+    "es": "No se pudo eliminar el documento.",
+    "it": "Impossibile eliminare il documento.",
+    "ar": "تعذر حذف المستند.",
+    "cn": "无法删除文档。",
+    "el": "Δεν ήταν δυνατή η διαγραφή του εγγράφου.",
+    "he": "לא ניתן למחוק את המסמך.",
+    "in": "दस्तावेज़ हटाया नहीं जा सका।",
+    "jp": "文書を削除できませんでした。",
+    "ru": "Не удалось удалить документ."
+  },
+  "PDF_CONVERTER.LINK_FILTER_PLACEHOLDER": {
+    "de": "Nach Name oder Datum filtern…",
+    "es": "Filtrar por nombre o fecha…",
+    "it": "Filtra per nome o data…",
+    "ar": "تصفية حسب الاسم أو التاريخ…",
+    "cn": "按名称或日期筛选…",
+    "el": "Φιλτράρισμα κατά όνομα ή ημερομηνία…",
+    "he": "סינון לפי שם או תאריך…",
+    "in": "नाम या दिनांक से फ़िल्टर करें…",
+    "jp": "名前または日付で絞り込む…",
+    "ru": "Фильтр по имени или дате…"
+  },
+  "PDF_CONVERTER.LINK_FILTER_COUNT": {
+    "de": "{{shown}} von {{total}}",
+    "es": "{{shown}} de {{total}}",
+    "it": "{{shown}} di {{total}}",
+    "ar": "{{shown}} من {{total}}",
+    "cn": "{{shown}} / {{total}}",
+    "el": "{{shown}} από {{total}}",
+    "he": "{{shown}} מתוך {{total}}",
+    "in": "{{shown}} / {{total}}",
+    "jp": "{{shown}} / {{total}}",
+    "ru": "{{shown}} из {{total}}"
+  },
+  "PDF_CONVERTER.LINK_OPTIONS_COUNT": {
+    "de": "{{count}} Aktivität(en)",
+    "es": "{{count}} actividad(es)",
+    "it": "{{count}} attività",
+    "ar": "{{count}} نشاط/أنشطة",
+    "cn": "{{count}} 项活动",
+    "el": "{{count}} δραστηριότητα(ες)",
+    "he": "{{count}} פעילויות",
+    "in": "{{count}} गतिविधि(याँ)",
+    "jp": "活動 {{count}} 件",
+    "ru": "{{count}} активност(и)"
+  },
+  "PDF_CONVERTER.LINK_OPTIONS_COUNT_APPT": {
+    "de": "{{count}} Termin(e)",
+    "es": "{{count}} cita(s)",
+    "it": "{{count}} appuntamenti",
+    "ar": "{{count}} موعد/مواعيد",
+    "cn": "{{count}} 个预约",
+    "el": "{{count}} ραντεβού",
+    "he": "{{count}} פגישות",
+    "in": "{{count}} मुलाकातें",
+    "jp": "予定 {{count}} 件",
+    "ru": "{{count}} встреч(и)"
+  },
+  "ODS_EDITOR.TITLE": {
+    "de": "Calc-Editor (OpenOffice)",
+    "es": "Editor Calc (OpenOffice)",
+    "it": "Editor Calc (OpenOffice)",
+    "ar": "محرّر Calc (OpenOffice)",
+    "cn": "Calc 编辑器（OpenOffice）",
+    "el": "Επεξεργαστής Calc (OpenOffice)",
+    "he": "עורך Calc (OpenOffice)",
+    "in": "Calc संपादक (OpenOffice)",
+    "jp": "Calc エディター（OpenOffice）",
+    "ru": "Редактор Calc (OpenOffice)"
+  },
+  "ODS_EDITOR.INTRO": {
+    "de": "Öffnen, bearbeiten und speichern Sie OpenDocument-Tabellen (.ods) im Browser. Speichern Sie auf dem MongoDB-Server oder laden Sie lokal herunter. Farben und Formatierung der Originaldatei bleiben bei Anzeige und Speichern erhalten.",
+    "es": "Abra, edite y guarde hojas de cálculo OpenDocument (.ods) en el navegador. Guarde en el servidor MongoDB o descargue en local. Los colores y el formato del archivo original se conservan al ver y al guardar.",
+    "it": "Apra, modifichi e salvi fogli di calcolo OpenDocument (.ods) nel browser. Salvi sul server MongoDB o scarichi in locale. Colori e formattazione del file originale restano in visualizzazione e al salvataggio.",
+    "ar": "افتح وعدّل واحفظ جداول OpenDocument (.ods) في المتصفح. احفظ على خادم MongoDB أو نزّل محلياً. تُحفظ ألوان وتنسيق الملف الأصلي عند العرض والحفظ.",
+    "cn": "在浏览器中打开、编辑并保存 OpenDocument 电子表格（.ods）。可保存到 MongoDB 服务器或本地下载。查看和保存时会保留原文件的颜色与格式。",
+    "el": "Ανοίξτε, επεξεργαστείτε και αποθηκεύστε φύλλα OpenDocument (.ods) στο πρόγραμμα περιήγησης. Αποθηκεύστε στον διακομιστή MongoDB ή κατεβάστε τοπικά. Τα χρώματα και η μορφοποίηση του αρχικού αρχείου διατηρούνται στην προβολή και στην αποθήκευση.",
+    "he": "פתחו, ערכו ושמרו גיליונות OpenDocument‏ (.ods) בדפדפן. שמרו בשרת MongoDB או הורידו מקומית. צבעים ועיצוב של הקובץ המקורי נשמרים בתצוגה ובשמירה.",
+    "in": "ब्राउज़र में OpenDocument स्प्रेडशीट (.ods) खोलें, बदलें और सहेजें। MongoDB सर्वर पर सहेजें या स्थानीय रूप से डाउनलोड करें। मूल फ़ाइल के रंग और स्वरूपण देखने और सहेजने पर बने रहते हैं।",
+    "jp": "ブラウザーで OpenDocument 表計算（.ods）を開き、編集して保存します。MongoDB サーバーへ保存するか、ローカルにダウンロードできます。表示時と保存時に元ファイルの色と書式は保持されます。",
+    "ru": "Открывайте, изменяйте и сохраняйте таблицы OpenDocument (.ods) в браузере. Сохраняйте на сервер MongoDB или скачивайте локально. Цвета и оформление исходного файла сохраняются при просмотре и сохранении."
+  },
+  "ODS_EDITOR.OPEN_BTN": {
+    "de": "Eine .ods-Datei öffnen",
+    "es": "Abrir un archivo .ods",
+    "it": "Apri un file .ods",
+    "ar": "فتح ملف .ods",
+    "cn": "打开 .ods 文件",
+    "el": "Άνοιγμα αρχείου .ods",
+    "he": "פתיחת קובץ ‎.ods",
+    "in": ".ods फ़ाइल खोलें",
+    "jp": ".ods ファイルを開く",
+    "ru": "Открыть файл .ods"
+  },
+  "ODS_EDITOR.NEW_BTN": {
+    "de": "Neue Arbeitsmappe",
+    "es": "Nuevo libro",
+    "it": "Nuova cartella di lavoro",
+    "ar": "مصنف جديد",
+    "cn": "新建工作簿",
+    "el": "Νέο βιβλίο εργασίας",
+    "he": "חוברת עבודה חדשה",
+    "in": "नई कार्यपुस्तिका",
+    "jp": "新しいブック",
+    "ru": "Новая книга"
+  },
+  "ODS_EDITOR.NEW_DOC": {
+    "de": "Neue Arbeitsmappe",
+    "es": "Nuevo libro",
+    "it": "Nuova cartella di lavoro",
+    "ar": "مصنف جديد",
+    "cn": "新建工作簿",
+    "el": "Νέο βιβλίο εργασίας",
+    "he": "חוברת עבודה חדשה",
+    "in": "नई कार्यपुस्तिका",
+    "jp": "新しいブック",
+    "ru": "Новая книга"
+  },
+  "ODS_EDITOR.SAVED_DOCS_LABEL": {
+    "de": "Gespeicherte Arbeitsmappen",
+    "es": "Libros guardados",
+    "it": "Cartelle di lavoro salvate",
+    "ar": "المصنفات المحفوظة",
+    "cn": "已保存的工作簿",
+    "el": "Αποθηκευμένα βιβλία",
+    "he": "חוברות שמורות",
+    "in": "सहेजी कार्यपुस्तिकाएँ",
+    "jp": "保存済みブック",
+    "ru": "Сохранённые книги"
+  },
+  "ODS_EDITOR.DELETE_DOC": {
+    "de": "Löschen",
+    "es": "Eliminar",
+    "it": "Elimina",
+    "ar": "حذف",
+    "cn": "删除",
+    "el": "Διαγραφή",
+    "he": "מחיקה",
+    "in": "हटाएँ",
+    "jp": "削除",
+    "ru": "Удалить"
+  },
+  "ODS_EDITOR.SAVE_CLOUD_BTN": {
+    "de": "Auf dem Server speichern",
+    "es": "Guardar en el servidor",
+    "it": "Salva sul server",
+    "ar": "الحفظ على الخادم",
+    "cn": "保存到服务器",
+    "el": "Αποθήκευση στον διακομιστή",
+    "he": "שמירה בשרת",
+    "in": "सर्वर पर सहेजें",
+    "jp": "サーバーに保存",
+    "ru": "Сохранить на сервер"
+  },
+  "ODS_EDITOR.SAVE_BTN": {
+    "de": ".ods herunterladen",
+    "es": "Descargar .ods",
+    "it": "Scarica .ods",
+    "ar": "تنزيل .ods",
+    "cn": "下载 .ods",
+    "el": "Λήψη .ods",
+    "he": "הורדת ‎.ods",
+    "in": ".ods डाउनलोड करें",
+    "jp": ".ods をダウンロード",
+    "ru": "Скачать .ods"
+  },
+  "ODS_EDITOR.SAVED": {
+    "de": "Arbeitsmappe auf dem Server gespeichert.",
+    "es": "Libro guardado en el servidor.",
+    "it": "Cartella di lavoro salvata sul server.",
+    "ar": "تم حفظ المصنف على الخادم.",
+    "cn": "工作簿已保存到服务器。",
+    "el": "Το βιβλίο αποθηκεύτηκε στον διακομιστή.",
+    "he": "חוברת העבודה נשמרה בשרת.",
+    "in": "कार्यपुस्तिका सर्वर पर सहेजी गई।",
+    "jp": "ブックをサーバーに保存しました。",
+    "ru": "Книга сохранена на сервере."
+  },
+  "ODS_EDITOR.DELETED": {
+    "de": "Arbeitsmappe gelöscht.",
+    "es": "Libro eliminado.",
+    "it": "Cartella di lavoro eliminata.",
+    "ar": "تم حذف المصنف.",
+    "cn": "工作簿已删除。",
+    "el": "Το βιβλίο διαγράφηκε.",
+    "he": "חוברת העבודה נמחקה.",
+    "in": "कार्यपुस्तिका हटाई गई।",
+    "jp": "ブックを削除しました。",
+    "ru": "Книга удалена."
+  },
+  "ODS_EDITOR.ERR_FILENAME_REQUIRED": {
+    "de": "Bitte geben Sie einen Dateinamen ein.",
+    "es": "Introduzca un nombre de archivo.",
+    "it": "Inserisca un nome di file.",
+    "ar": "يرجى إدخال اسم ملف.",
+    "cn": "请输入文件名。",
+    "el": "Εισαγάγετε όνομα αρχείου.",
+    "he": "יש להזין שם קובץ.",
+    "in": "कृपया फ़ाइल नाम दर्ज करें।",
+    "jp": "ファイル名を入力してください。",
+    "ru": "Введите имя файла."
+  },
+  "ODS_EDITOR.ERR_SAVE_CLOUD": {
+    "de": "Die Arbeitsmappe konnte nicht auf dem Server gespeichert werden. Bitte erneut versuchen.",
+    "es": "No se pudo guardar el libro en el servidor. Inténtelo de nuevo.",
+    "it": "Impossibile salvare la cartella di lavoro sul server. Riprovi.",
+    "ar": "تعذر حفظ المصنف على الخادم. أعد المحاولة.",
+    "cn": "无法将工作簿保存到服务器。请重试。",
+    "el": "Δεν ήταν δυνατή η αποθήκευση του βιβλίου στον διακομιστή. Δοκιμάστε ξανά.",
+    "he": "לא ניתן לשמור את חוברת העבודה בשרת. נסו שוב.",
+    "in": "कार्यपुस्तिका सर्वर पर सहेजी नहीं जा सकी। पुनः प्रयास करें।",
+    "jp": "ブックをサーバーに保存できませんでした。もう一度お試しください。",
+    "ru": "Не удалось сохранить книгу на сервере. Повторите попытку."
+  },
+  "ODS_EDITOR.ERR_DELETE": {
+    "de": "Diese Arbeitsmappe konnte nicht gelöscht werden.",
+    "es": "No se pudo eliminar este libro.",
+    "it": "Impossibile eliminare questa cartella di lavoro.",
+    "ar": "تعذر حذف هذا المصنف.",
+    "cn": "无法删除此工作簿。",
+    "el": "Δεν ήταν δυνατή η διαγραφή αυτού του βιβλίου.",
+    "he": "לא ניתן למחוק חוברת עבודה זו.",
+    "in": "यह कार्यपुस्तिका हटाई नहीं जा सकी।",
+    "jp": "このブックを削除できませんでした。",
+    "ru": "Не удалось удалить эту книгу."
+  },
+  "ODS_EDITOR.ADD_ROW": {
+    "de": "Zeile hinzufügen",
+    "es": "Añadir una fila",
+    "it": "Aggiungi una riga",
+    "ar": "إضافة صف",
+    "cn": "添加一行",
+    "el": "Προσθήκη γραμμής",
+    "he": "הוספת שורה",
+    "in": "पंक्ति जोड़ें",
+    "jp": "行を追加",
+    "ru": "Добавить строку"
+  },
+  "ODS_EDITOR.ADD_COLUMN": {
+    "de": "Spalte hinzufügen",
+    "es": "Añadir una columna",
+    "it": "Aggiungi una colonna",
+    "ar": "إضافة عمود",
+    "cn": "添加一列",
+    "el": "Προσθήκη στήλης",
+    "he": "הוספת עמודה",
+    "in": "स्तंभ जोड़ें",
+    "jp": "列を追加",
+    "ru": "Добавить столбец"
+  },
+  "ODS_EDITOR.ADD_SHEET": {
+    "de": "Neues Blatt",
+    "es": "Nueva hoja",
+    "it": "Nuovo foglio",
+    "ar": "ورقة جديدة",
+    "cn": "新建工作表",
+    "el": "Νέο φύλλο",
+    "he": "גיליון חדש",
+    "in": "नई शीट",
+    "jp": "新しいシート",
+    "ru": "Новый лист"
+  },
+  "ODS_EDITOR.SHEET_LABEL": {
+    "de": "Name des aktiven Blatts",
+    "es": "Nombre de la hoja activa",
+    "it": "Nome del foglio attivo",
+    "ar": "اسم الورقة النشطة",
+    "cn": "当前工作表名称",
+    "el": "Όνομα ενεργού φύλλου",
+    "he": "שם הגיליון הפעיל",
+    "in": "सक्रिय शीट का नाम",
+    "jp": "アクティブなシート名",
+    "ru": "Имя активного листа"
+  },
+  "ODS_EDITOR.FILE_LABEL": {
+    "de": "Dateiname",
+    "es": "Nombre del archivo",
+    "it": "Nome del file",
+    "ar": "اسم الملف",
+    "cn": "文件名",
+    "el": "Όνομα αρχείου",
+    "he": "שם הקובץ",
+    "in": "फ़ाइल का नाम",
+    "jp": "ファイル名",
+    "ru": "Имя файла"
+  },
+  "ODS_EDITOR.NO_FILE": {
+    "de": "Öffnen Sie eine vorhandene Datei oder erstellen Sie eine neue Arbeitsmappe, um zu beginnen.",
+    "es": "Abra un archivo existente o cree un libro nuevo para empezar.",
+    "it": "Apra un file esistente o crei una nuova cartella di lavoro per iniziare.",
+    "ar": "افتح ملفاً موجوداً أو أنشئ مصنفاً جديداً للبدء.",
+    "cn": "打开现有文件或新建工作簿以开始。",
+    "el": "Ανοίξτε ένα υπάρχον αρχείο ή δημιουργήστε νέο βιβλίο για να ξεκινήσετε.",
+    "he": "פתחו קובץ קיים או צרו חוברת עבודה חדשה כדי להתחיל.",
+    "in": "शुरू करने के लिए मौजूदा फ़ाइल खोलें या नई कार्यपुस्तिका बनाएँ।",
+    "jp": "始めるには既存ファイルを開くか、新しいブックを作成してください。",
+    "ru": "Откройте существующий файл или создайте новую книгу, чтобы начать."
+  },
+  "ODS_EDITOR.UNSAVED": {
+    "de": "Nicht gespeicherte Änderungen",
+    "es": "Cambios sin guardar",
+    "it": "Modifiche non salvate",
+    "ar": "تغييرات غير محفوظة",
+    "cn": "未保存的更改",
+    "el": "Μη αποθηκευμένες αλλαγές",
+    "he": "שינויים שלא נשמרו",
+    "in": "असहेजे परिवर्तन",
+    "jp": "未保存の変更",
+    "ru": "Несохранённые изменения"
+  },
+  "ODS_EDITOR.ACCEPT_HINT": {
+    "de": "Format: OpenDocument Spreadsheet (.ods), kompatibel mit LibreOffice Calc und OpenOffice Calc.",
+    "es": "Formato: OpenDocument Spreadsheet (.ods), compatible con LibreOffice Calc y OpenOffice Calc.",
+    "it": "Formato: OpenDocument Spreadsheet (.ods), compatibile con LibreOffice Calc e OpenOffice Calc.",
+    "ar": "التنسيق: OpenDocument Spreadsheet (.ods)، متوافق مع LibreOffice Calc وOpenOffice Calc.",
+    "cn": "格式：OpenDocument Spreadsheet（.ods），兼容 LibreOffice Calc 和 OpenOffice Calc。",
+    "el": "Μορφή: OpenDocument Spreadsheet (.ods), συμβατή με LibreOffice Calc και OpenOffice Calc.",
+    "he": "תבנית: OpenDocument Spreadsheet‏ (.ods), תואמת ל-LibreOffice Calc ול-OpenOffice Calc.",
+    "in": "प्रारूप: OpenDocument Spreadsheet (.ods), LibreOffice Calc और OpenOffice Calc के साथ संगत।",
+    "jp": "形式：OpenDocument Spreadsheet（.ods）。LibreOffice Calc と OpenOffice Calc に対応。",
+    "ru": "Формат: OpenDocument Spreadsheet (.ods), совместим с LibreOffice Calc и OpenOffice Calc."
+  },
+  "ODS_EDITOR.FORMAT_PRESERVED": {
+    "de": "Farben und Formatierung des Originaldokuments sind aktiv.",
+    "es": "Los colores y el formato del documento original están activos.",
+    "it": "Colori e formattazione del documento originale sono attivi.",
+    "ar": "ألوان وتنسيق المستند الأصلي نشطة.",
+    "cn": "原始文档的颜色和格式已启用。",
+    "el": "Τα χρώματα και η μορφοποίηση του αρχικού εγγράφου είναι ενεργά.",
+    "he": "צבעים ועיצוב של המסמך המקורי פעילים.",
+    "in": "मूल दस्तावेज़ के रंग और स्वरूपण सक्रिय हैं।",
+    "jp": "元の文書の色と書式が有効です。",
+    "ru": "Цвета и оформление исходного документа активны."
+  },
+  "ODS_EDITOR.ADD_SHEET_DISABLED": {
+    "de": "Ein Blatt kann nicht hinzugefügt werden, solange die ursprüngliche Formatierung erhalten bleibt (Dateistruktur).",
+    "es": "No se puede añadir una hoja conservando el formato original (estructura del archivo).",
+    "it": "Impossibile aggiungere un foglio mantenendo la formattazione originale (struttura del file).",
+    "ar": "يتعذر إضافة ورقة مع الإبقاء على التنسيق الأصلي (بنية الملف).",
+    "cn": "在保留原始格式（文件结构）时无法添加工作表。",
+    "el": "Δεν είναι δυνατή η προσθήκη φύλλου διατηρώντας την αρχική μορφοποίηση (δομή αρχείου).",
+    "he": "לא ניתן להוסיף גיליון תוך שמירה על העיצוב המקורי (מבנה הקובץ).",
+    "in": "मूल स्वरूपण (फ़ाइल संरचना) रखते हुए शीट जोड़ी नहीं जा सकती।",
+    "jp": "元の書式（ファイル構造）を保ったままシートは追加できません。",
+    "ru": "Нельзя добавить лист, сохраняя исходное оформление (структуру файла)."
+  },
+  "ODS_EDITOR.FONT_SIZE": {
+    "de": "Textgröße",
+    "es": "Tamaño del texto",
+    "it": "Dimensione del testo",
+    "ar": "حجم النص",
+    "cn": "文字大小",
+    "el": "Μέγεθος κειμένου",
+    "he": "גודל הטקסט",
+    "in": "पाठ का आकार",
+    "jp": "文字サイズ",
+    "ru": "Размер текста"
+  },
+  "ODS_EDITOR.FONT_SIZE_DECREASE": {
+    "de": "Textgröße verringern",
+    "es": "Reducir el tamaño del texto",
+    "it": "Riduci la dimensione del testo",
+    "ar": "تصغير حجم النص",
+    "cn": "减小文字",
+    "el": "Σμίκρυνση κειμένου",
+    "he": "הקטנת הטקסט",
+    "in": "पाठ छोटा करें",
+    "jp": "文字を小さく",
+    "ru": "Уменьшить текст"
+  },
+  "ODS_EDITOR.FONT_SIZE_INCREASE": {
+    "de": "Textgröße vergrößern",
+    "es": "Aumentar el tamaño del texto",
+    "it": "Aumenta la dimensione del testo",
+    "ar": "تكبير حجم النص",
+    "cn": "增大文字",
+    "el": "Μεγέθυνση κειμένου",
+    "he": "הגדלת הטקסט",
+    "in": "पाठ बड़ा करें",
+    "jp": "文字を大きく",
+    "ru": "Увеличить текст"
+  },
+  "ODS_EDITOR.ERR_LOAD": {
+    "de": "Diese Datei konnte nicht gelesen werden. Prüfen Sie, ob es eine gültige .ods-Tabelle ist.",
+    "es": "No se pudo leer este archivo. Compruebe que sea una hoja .ods válida.",
+    "it": "Impossibile leggere questo file. Verifichi che sia un foglio .ods valido.",
+    "ar": "تعذرت قراءة هذا الملف. تحقق أنه جدول .ods صالح.",
+    "cn": "无法读取此文件。请确认它是有效的 .ods 表格。",
+    "el": "Δεν ήταν δυνατή η ανάγνωση αυτού του αρχείου. Ελέγξτε ότι είναι έγκυρο φύλλο .ods.",
+    "he": "לא ניתן לקרוא קובץ זה. בדקו שזהו גיליון ‎.ods תקין.",
+    "in": "यह फ़ाइल पढ़ी नहीं जा सकी। जाँचें कि यह मान्य .ods तालिका है।",
+    "jp": "このファイルを読み取れませんでした。有効な .ods 表計算か確認してください。",
+    "ru": "Не удалось прочитать этот файл. Проверьте, что это допустимая таблица .ods."
+  },
+  "ODS_EDITOR.ERR_SAVE": {
+    "de": "Die .ods-Datei konnte nicht erzeugt werden. Bitte erneut versuchen.",
+    "es": "No se pudo generar el archivo .ods. Inténtelo de nuevo.",
+    "it": "Impossibile generare il file .ods. Riprovi.",
+    "ar": "تعذر إنشاء ملف .ods. أعد المحاولة.",
+    "cn": "无法生成 .ods 文件。请重试。",
+    "el": "Δεν ήταν δυνατή η δημιουργία του αρχείου .ods. Δοκιμάστε ξανά.",
+    "he": "לא ניתן ליצור את קובץ ה-‎.ods. נסו שוב.",
+    "in": ".ods फ़ाइल बनाई नहीं जा सकी। पुनः प्रयास करें।",
+    "jp": ".ods ファイルを生成できませんでした。もう一度お試しください。",
+    "ru": "Не удалось создать файл .ods. Повторите попытку."
+  },
+  "LOTTO.JSON_AI_OPEN": {
+    "in": "JSON (एआई)"
+  },
+  "LOTTO.AI_STATS_PAYLOAD_INTRO": {
+    "de": "**Aggregiertes JSON (`pat-loto-ai-v2`)** — diese Zählungen verwenden (`mf`, `cf`, `tail`). Es gibt keine 1900 Zeilen `d` mehr.",
+    "es": "**JSON agregado (`pat-loto-ai-v2`)** — use estos recuentos (`mf`, `cf`, `tail`). Ya no hay 1900 líneas `d`.",
+    "it": "**JSON aggregato (`pat-loto-ai-v2`)** — usi questi conteggi (`mf`, `cf`, `tail`). Non ci sono più 1900 righe `d`.",
+    "ar": "**JSON مجمّع (`pat-loto-ai-v2`)** — استخدم هذه الأعداد (`mf`, `cf`, `tail`). لم يعد هناك 1900 سطر `d`.",
+    "cn": "**汇总 JSON（`pat-loto-ai-v2`）** — 使用这些计数（`mf`、`cf`、`tail`）。不再有 1900 行 `d`。",
+    "el": "**Συγκεντρωτικό JSON (`pat-loto-ai-v2`)** — χρησιμοποιήστε αυτές τις μετρήσεις (`mf`, `cf`, `tail`). Δεν υπάρχουν πια 1900 γραμμές `d`.",
+    "he": "**JSON מצטבר (`pat-loto-ai-v2`)** — השתמשו בספירות האלה (`mf`, `cf`, `tail`). אין עוד 1900 שורות `d`.",
+    "in": "**एकत्रित JSON (`pat-loto-ai-v2`)** — इन गणनाओं का उपयोग करें (`mf`, `cf`, `tail`). अब 1900 पंक्तियाँ `d` नहीं हैं।",
+    "jp": "**集計 JSON（`pat-loto-ai-v2`）** — これらのカウントを使ってください（`mf`、`cf`、`tail`）。1900 行の `d` はもうありません。",
+    "ru": "**Агрегированный JSON (`pat-loto-ai-v2`)** — используйте эти подсчёты (`mf`, `cf`, `tail`). 1900 строк `d` больше нет."
+  },
+  "EUROMILLIONS.FILTER_DRAW_COUNT_AI_SCOPE": {
+    "de": "{{count}} Ziehung(en) mit Datum ≥ {{since}} (untere Grenze des Assistenten)",
+    "es": "{{count}} sorteo(s) con fecha ≥ {{since}} (límite inferior del asistente)",
+    "it": "{{count}} estrazione/i con data ≥ {{since}} (limite inferiore dell’assistente)",
+    "ar": "{{count}} سحب/سحوبات بتاريخ ≥ {{since}} (الحد الأدنى للمساعد)",
+    "cn": "{{count}} 次开奖，日期 ≥ {{since}}（助手下限）",
+    "el": "{{count}} κλήρωση(εις) με ημερομηνία ≥ {{since}} (κάτω όριο βοηθού)",
+    "he": "{{count}} הגרלה/ות עם תאריך ≥ {{since}} (גבול תחתון של העוזר)",
+    "in": "{{count}} ड्रॉ, दिनांक ≥ {{since}} (सहायक की निचली सीमा)",
+    "jp": "日付 ≥ {{since}} の抽選 {{count}} 回（アシスタントの下限）",
+    "ru": "{{count}} тираж(ей) с датой ≥ {{since}} (нижняя граница помощника)"
+  },
+  "EUROMILLIONS.JSON_AI_OPEN": {
+    "el": "JSON (ΤΝ)",
+    "in": "JSON (एआई)"
+  },
+  "EUROMILLIONS.AI_FLOW_INFO_BTN_TOOLTIP": {
+    "de": "Wie diese Seite die Nachricht für den EuroMillions-Assistenten vorbereitet",
+    "es": "Cómo esta página prepara el mensaje para el asistente EuroMillions",
+    "it": "Come questa pagina prepara il messaggio per l’assistente EuroMillions",
+    "ar": "كيف تُجهّز هذه الصفحة الرسالة لمساعد EuroMillions",
+    "cn": "此页面如何为 EuroMillions 助手准备消息",
+    "el": "Πώς αυτή η σελίδα ετοιμάζει το μήνυμα για τον βοηθό EuroMillions",
+    "he": "איך הדף הזה מכין את ההודעה לעוזר EuroMillions",
+    "in": "यह पृष्ठ EuroMillions सहायक के लिए संदेश कैसे तैयार करता है",
+    "jp": "このページが EuroMillions アシスタント向けメッセージを用意する方法",
+    "ru": "Как эта страница готовит сообщение для помощника EuroMillions"
+  },
+  "EUROMILLIONS.AI_FLOW_INFO_BTN_ARIA": {
+    "de": "Hilfe: Assistentennachricht EuroMillions und JSON-Daten",
+    "es": "Ayuda: mensaje del asistente EuroMillions y datos JSON",
+    "it": "Guida: messaggio assistente EuroMillions e dati JSON",
+    "ar": "مساعدة: رسالة مساعد EuroMillions وبيانات JSON",
+    "cn": "帮助：EuroMillions 助手消息与 JSON 数据",
+    "el": "Βοήθεια: μήνυμα βοηθού EuroMillions και δεδομένα JSON",
+    "he": "עזרה: הודעת עוזר EuroMillions ונתוני JSON",
+    "in": "सहायता: EuroMillions सहायक संदेश और JSON डेटा",
+    "jp": "ヘルプ：EuroMillions アシスタントのメッセージと JSON データ",
+    "ru": "Справка: сообщение помощника EuroMillions и данные JSON"
+  },
+  "EUROMILLIONS.AI_FLOW_INFO_MODAL_TITLE": {
+    "ar": "EuroMillions — إعداد رسالة المساعد",
+    "cn": "EuroMillions — 助手消息的准备",
+    "el": "EuroMillions — προετοιμασία μηνύματος βοηθού",
+    "he": "EuroMillions — הכנת הודעת העוזר",
+    "in": "EuroMillions — सहायक संदेश की तैयारी",
+    "jp": "EuroMillions — アシスタントメッセージの準備",
+    "ru": "EuroMillions — подготовка сообщения помощника"
+  },
+  "EUROMILLIONS.AI_FLOW_INFO_LEAD": {
+    "de": "PatTool fügt in das Eingabefeld des Assistenten eine Nachricht ein, die gelesen oder geändert werden kann: Vorgaben für das Modell, eine Erinnerung an den oder die Analysewinkel und einen kompakten JSON-Block (Schema pat-eurom-ai-v2). Stellen Sie die Optionen unten ein und nutzen Sie dann die Hauptschaltfläche.",
+    "es": "PatTool inserta en el campo del asistente un mensaje listo para releer o modificar: consignas para el modelo, un recordatorio del ángulo o ángulos de análisis y un bloque JSON compacto (esquema pat-eurom-ai-v2). Ajuste las opciones de abajo y luego use el botón principal.",
+    "it": "PatTool inserisce nel campo dell’assistente un messaggio pronto da rileggere o modificare: istruzioni per il modello, un promemoria dell’angolo o degli angoli di analisi e un blocco JSON compatto (schema pat-eurom-ai-v2). Regoli le opzioni sotto, poi usi il pulsante principale.",
+    "ar": "يُدرج PatTool في حقل المساعد رسالة جاهزة لإعادة القراءة أو التعديل: توجيهات للنموذج، وتذكير بزاوية التحليل أو الزوايا، وكتلة JSON مضغوطة (المخطط pat-eurom-ai-v2). اضبط الخيارات أدناه ثم استخدم الزر الرئيسي.",
+    "cn": "PatTool 会在助手输入区填入一条可再读或修改的消息：给模型的说明、分析角度提示，以及一段紧凑 JSON（模式 pat-eurom-ai-v2）。请先调整下方选项，再使用主按钮。",
+    "el": "Το PatTool εισάγει στο πεδίο του βοηθού ένα μήνυμα έτοιμο για επανέλεγχο ή τροποποίηση: οδηγίες για το μοντέλο, υπενθύμιση της γωνίας ή των γωνιών ανάλυσης και ένα συμπαγές μπλοκ JSON (σχήμα pat-eurom-ai-v2). Ρυθμίστε τις επιλογές παρακάτω και μετά χρησιμοποιήστε το κύριο κουμπί.",
+    "he": "PatTool מכניס לשדה העוזר הודעה מוכנה לקריאה חוזרת או לעריכה: הנחיות למודל, תזכורת לזווית או לזוויות הניתוח, ובלוק JSON קומפקטי (סכמה pat-eurom-ai-v2). כוונו את האפשרויות למטה ואז השתמשו בכפתור הראשי.",
+    "in": "PatTool सहायक के इनपुट में पढ़ने या बदलने योग्य संदेश डालता है: मॉडल के लिए निर्देश, विश्लेषण कोण की याद, और एक संक्षिप्त JSON ब्लॉक (स्कीमा pat-eurom-ai-v2)। नीचे विकल्प सेट करें, फिर मुख्य बटन का उपयोग करें।",
+    "jp": "PatTool はアシスタントの入力欄に、読み直したり変更したりできるメッセージを入れます。モデルへの指示、分析の切り口の確認、そしてコンパクトな JSON ブロック（スキーマ pat-eurom-ai-v2）です。下のオプションを調整してからメインボタンを使ってください。",
+    "ru": "PatTool вставляет в поле помощника сообщение, которое можно перечитать или изменить: указания для модели, напоминание об угле или углах анализа и компактный блок JSON (схема pat-eurom-ai-v2). Настройте параметры ниже, затем используйте основную кнопку."
+  },
+  "EUROMILLIONS.AI_FLOW_INFO_S1_TITLE": {
+    "ar": "الزر الرئيسي — الأرقام الرابحة التالية",
+    "cn": "主按钮 — 下一期中奖号码",
+    "el": "Κύριο κουμπί — Επόμενοι νικητήριοι αριθμοί",
+    "he": "הכפתור הראשי — המספרים הזוכים הבאים",
+    "in": "मुख्य बटन — अगले विजयी अंक",
+    "jp": "メインボタン — 次の当選番号",
+    "ru": "Основная кнопка — следующие выигрышные номера"
+  },
+  "EUROMILLIONS.AI_FLOW_INFO_S1_BODY": {
+    "de": "Öffnet die Assistentenleiste mit dieser Nachricht bereits im Feld (neues Gespräch; es wird nichts gesendet, bis Sie im Assistenten auf Senden drücken). Anmeldung und Ziehungen in der Tabelle sind erforderlich. Bleibt die Schaltfläche inaktiv, prüfen Sie die Verbindung und das Laden.",
+    "es": "Abre el panel del asistente con ese mensaje ya pegado en el campo (conversación nueva; no se envía nada hasta que pulse Enviar en el asistente). Debe haber sesión iniciada y sorteos en la tabla. Si el botón sigue inactivo, compruebe la conexión y la carga.",
+    "it": "Apre il pannello dell’assistente con questo messaggio già incollato nel campo (nuova conversazione; non viene inviato nulla finché non preme Invia nell’assistente). Servono accesso e estrazioni nella tabella. Se il pulsante resta inattivo, controlli la connessione e il caricamento.",
+    "ar": "يفتح درج المساعد وهذه الرسالة ملصوقة مسبقاً في الحقل (محادثة جديدة؛ لا يُرسل شيء حتى تضغط إرسال في المساعد). يلزم تسجيل الدخول ووجود سحوبات في الجدول. إذا بقي الزر غير نشط، تحقق من الاتصال والتحميل.",
+    "cn": "打开助手抽屉，该消息已填入输入框（新对话；在助手中按发送之前不会发出）。必须已登录且表格中有开奖。若按钮一直不可用，请检查连接和加载。",
+    "el": "Ανοίγει το συρτάρι του βοηθού με αυτό το μήνυμα ήδη επικολλημένο στο πεδίο (νέα συνομιλία· τίποτα δεν αποστέλλεται μέχρι να πατήσετε Αποστολή στον βοηθό). Απαιτούνται σύνδεση και κληρώσεις στον πίνακα. Αν το κουμπί μείνει ανενεργό, ελέγξτε τη σύνδεση και τη φόρτωση.",
+    "he": "פותח את מגירת העוזר עם ההודעה כבר מודבקת בשדה (שיחה חדשה; דבר לא נשלח עד שלוחצים על שליחה בעוזר). נדרשים חיבור והגרלות בטבלה. אם הכפתור נשאר לא פעיל, בדקו חיבור וטעינה.",
+    "in": "सहायक दराज खोलता है और यह संदेश पहले से फ़ील्ड में चिपका होता है (नई बातचीत; सहायक में भेजें दबाने तक कुछ नहीं जाता)। साइन-इन और तालिका में ड्रॉ आवश्यक हैं। यदि बटन निष्क्रिय रहे, कनेक्शन और लोड जाँचें।",
+    "jp": "アシスタントの引き出しを開き、このメッセージがすでに入力欄に入っています（新しい会話。アシスタントで送信するまで何も送られません）。ログインと表の抽選が必要です。ボタンが無効のままなら、接続と読み込みを確認してください。",
+    "ru": "Открывает панель помощника с уже вставленным сообщением (новый разговор; ничего не отправляется, пока вы не нажмёте «Отправить» в помощнике). Нужны вход и тиражи в таблице. Если кнопка остаётся неактивной, проверьте подключение и загрузку."
+  },
+  "EUROMILLIONS.AI_FLOW_INFO_S2_TITLE": {
+    "de": "Kontrollkästchen «Synthese mehrerer Methoden»",
+    "es": "Casilla «Síntesis multimétodo»",
+    "it": "Casella «Sintesi multi-metodo»",
+    "ar": "مربع «توليف متعدد الطرق»",
+    "cn": "“多方法综合”复选框",
+    "el": "Πλαίσιο «Σύνθεση πολλών μεθόδων»",
+    "he": "תיבה «סינתזה רב-שיטתית»",
+    "in": "«बहु-विधि संश्लेषण» चेकबॉक्स",
+    "jp": "「複数手法の総合」チェックボックス",
+    "ru": "Флажок «Сводка по нескольким методам»"
+  },
+  "EUROMILLIONS.AI_FLOW_INFO_S2_BODY": {
+    "ar": "غير محدد: توجيه قياسي وطريقة واحدة فقط — تلك المختارة بزر الاختيار على البطاقات. محدد: توجيه توليف متعدد الطرق وإمكانية إرفاق عدة بطاقات تفصيلية بـ JSON (مربعات تحت كل بطاقة). تحديد هذا المربع وحده لا يفتح المساعد.",
+    "cn": "未勾选：标准说明且仅一种方法——卡片上单选按钮所选的那种。已勾选：多方法综合说明，并可将多份详细说明附到 JSON（每张卡片下的复选框）。只勾选此框不会打开助手。",
+    "el": "Αποεπιλεγμένο: τυπική οδηγία και μία μόνο μέθοδος — αυτή που επιλέγεται με το κουμπί επιλογής στις κάρτες. Επιλεγμένο: οδηγία σύνθεσης πολλών μεθόδων και δυνατότητα επισύναψης πολλών λεπτομερών δελτίων στο JSON (πλαίσια κάτω από κάθε κάρτα). Η επιλογή μόνο αυτού του πλαισίου δεν ανοίγει τον βοηθό.",
+    "he": "לא מסומן: הנחיה רגילה ושיטה אחת בלבד — זו שנבחרה בכפתור הבחירה על הכרטיסים. מסומן: הנחיית סינתזה רב-שיטתית ואפשרות לצרף כמה כרטיסים מפורטים ל-JSON (תיבות מתחת לכל כרטיס). סימון תיבה זו לבדה אינו פותח את העוזר.",
+    "in": "अचयनित: मानक निर्देश और केवल एक विधि — कार्ड पर रेडियो बटन से चुनी हुई। चयनित: बहु-विधि संश्लेषण निर्देश और JSON में कई विस्तृत पत्रक जोड़ने की सुविधा (प्रत्येक कार्ड के नीचे चेकबॉक्स)। केवल यह बॉक्स चेक करने से सहायक नहीं खुलता।",
+    "jp": "オフ：標準の指示と方法は一つだけ — カードのラジオボタンで選んだもの。オン：複数手法の総合指示になり、詳しい仕様を複数 JSON に添付できます（各カード下のチェック）。このチェックだけではアシスタントは開きません。",
+    "ru": "Снято: стандартное указание и только один метод — выбранный переключателем на карточках. Отмечено: указание сводки по нескольким методам и возможность приложить к JSON несколько подробных карточек (флажки под каждой карточкой). Одна эта галочка помощника не открывает."
+  },
+  "EUROMILLIONS.AI_FLOW_INFO_S3_TITLE": {
+    "de": "Karten zum Analysewinkel (Radio)",
+    "es": "Tarjetas de ángulo de análisis (radio)",
+    "it": "Schede dell’angolo di analisi (radio)",
+    "ar": "بطاقات زاوية التحليل (اختيار واحد)",
+    "cn": "分析角度卡片（单选）",
+    "el": "Κάρτες γωνίας ανάλυσης (επιλογή)",
+    "he": "כרטיסי זווית ניתוח (בחירה)",
+    "in": "विश्लेषण कोण कार्ड (रेडियो)",
+    "jp": "分析の切り口カード（ラジオ）",
+    "ru": "Карточки угла анализа (переключатель)"
+  },
+  "EUROMILLIONS.AI_FLOW_INFO_S3_BODY": {
+    "de": "Das Radio wählt immer den Hauptwinkel. Dessen Spezifikation wird in die JSON-Stammfelder kopiert (calculationMethodId, label, summary, spec). Bei mehreren Methoden im Synthesemodus zeigt das Radio, welche für diese Stammfelder die Hauptmethode bleibt.",
+    "es": "El radio elige siempre el ángulo principal. Su especificación se copia en los campos raíz del JSON (calculationMethodId, label, summary, spec). Con varios métodos en modo síntesis, el radio indica cuál sigue siendo principal para esos campos raíz.",
+    "it": "Il radio sceglie sempre l’angolo principale. La sua specifica viene copiata nei campi radice del JSON (calculationMethodId, label, summary, spec). Con più metodi in modalità sintesi, il radio indica quale resta principale per quei campi radice.",
+    "ar": "زر الاختيار يحدد دائماً الزاوية الرئيسية. تُنسخ مواصفاتها إلى حقول جذر JSON (calculationMethodId, label, summary, spec). مع عدة طرق في وضع التوليف، يشير الاختيار إلى أيها تبقى رئيسية لهذه الحقول الجذر.",
+    "cn": "单选始终选择主角度。其规格会复制到 JSON 根字段（calculationMethodId、label、summary、spec）。综合模式下附带多种方法时，单选仍标明哪一种是这些根字段的主方法。",
+    "el": "Η επιλογή ορίζει πάντα την κύρια γωνία. Η προδιαγραφή της αντιγράφεται στα ριζικά πεδία του JSON (calculationMethodId, label, summary, spec). Με πολλές μεθόδους σε λειτουργία σύνθεσης, η επιλογή δείχνει ποια μένει κύρια για αυτά τα ριζικά πεδία.",
+    "he": "בחירת הרדיו תמיד קובעת את הזווית הראשית. המפרט שלה מועתק לשדות השורש של ה-JSON‏ (calculationMethodId, label, summary, spec). עם כמה שיטות במצב סינתזה, הרדיו מציין איזו נשארת ראשית לשדות שורש אלה.",
+    "in": "रेडियो हमेशा मुख्य कोण चुनता है। उसकी विशिष्टता JSON के मूल फ़ील्ड में कॉपी होती है (calculationMethodId, label, summary, spec)। संश्लेषण मोड में कई विधियों के साथ रेडियो बताता है कि इन मूल फ़ील्ड के लिए कौन मुख्य रहती है।",
+    "jp": "ラジオは常に主たる切り口を選びます。その仕様は JSON のルート項目にコピーされます（calculationMethodId、label、summary、spec）。総合モードで複数手法があるときも、ラジオはこれらのルート項目の主手法を示します。",
+    "ru": "Переключатель всегда выбирает основной угол. Его спецификация копируется в корневые поля JSON (calculationMethodId, label, summary, spec). При нескольких методах в режиме сводки переключатель показывает, какой остаётся основным для этих корневых полей."
+  },
+  "EUROMILLIONS.AI_FLOW_INFO_S4_TITLE": {
+    "de": "Kontrollkästchen unter jeder Karte",
+    "es": "Casillas bajo cada tarjeta",
+    "it": "Caselle sotto ogni scheda",
+    "ar": "مربعات تحت كل بطاقة",
+    "cn": "每张卡片下的复选框",
+    "el": "Πλαίσια κάτω από κάθε κάρτα",
+    "he": "תיבות מתחת לכל כרטיס",
+    "in": "प्रत्येक कार्ड के नीचे चेकबॉक्स",
+    "jp": "各カードの下のチェック",
+    "ru": "Флажки под каждой карточкой"
+  },
+  "EUROMILLIONS.AI_FLOW_INFO_NOTE": {
+    "de": "Die im JSON enthaltenen Ziehungen beginnen am konfigurierten Mindestdatum (derzeit {{since}}). Administratoren können es im Bereich über der Aktionsleiste ändern.",
+    "es": "Los sorteos incluidos en el JSON empiezan en la fecha mínima configurada (actualmente {{since}}). Los administradores pueden cambiarla en el panel encima de la barra de acciones.",
+    "it": "Le estrazioni incluse nel JSON iniziano dalla data minima configurata (attualmente {{since}}). Gli amministratori possono modificarla nel pannello sopra la barra delle azioni.",
+    "ar": "تبدأ السحوبات المضمنة في JSON من التاريخ الأدنى المُعد (حالياً {{since}}). يمكن للمسؤولين تغييره في اللوحة فوق شريط الإجراءات.",
+    "cn": "JSON 中包含的开奖从配置的最早日期开始（当前为 {{since}}）。管理员可在操作栏上方的面板中修改。",
+    "el": "Οι κληρώσεις που περιλαμβάνονται στο JSON ξεκινούν από την ορισμένη ελάχιστη ημερομηνία (τώρα {{since}}). Οι διαχειριστές μπορούν να την αλλάξουν στον πίνακα πάνω από τη γραμμή ενεργειών.",
+    "he": "ההגרלות הכלולות ב-JSON מתחילות בתאריך המינימום שהוגדר (כרגע {{since}}). מנהלים יכולים לשנות אותו בלוח מעל סרגל הפעולות.",
+    "in": "JSON में शामिल ड्रॉ कॉन्फ़िगर न्यूनतम तिथि से शुरू होते हैं (अभी {{since}})। व्यवस्थापक इसे क्रिया पट्टी के ऊपर पैनल में बदल सकते हैं।",
+    "jp": "JSON に含まれる抽選は設定された最小日付から始まります（現在 {{since}}）。管理者は操作バー上のパネルで変更できます。",
+    "ru": "Тиражи в JSON начинаются с настроенной минимальной даты (сейчас {{since}}). Администраторы могут изменить её на панели над панелью действий."
+  },
+  "EUROMILLIONS.AI_STATS_PAYLOAD_INTRO": {
+    "ar": "**JSON (`pat-eurom-ai-v2`)** — النطاق **`sinceInclusive`** (**{{since}}**) : يستخدم `periods` + `tail` (**قائمة كاملة** لسحوبات هذه الفترة؛ **`tail.length`** = **`c`**).",
+    "cn": "**JSON（`pat-eurom-ai-v2`）** — 范围 **`sinceInclusive`**（**{{since}}**）：使用 `periods` + `tail`（该区间抽奖的**完整列表**；**`tail.length`** = **`c`**）。",
+    "el": "**JSON (`pat-eurom-ai-v2`)** — εύρος **`sinceInclusive`** (**{{since}}**): χρησιμοποιεί `periods` + `tail` (**πλήρης λίστα** κληρώσεων αυτού του διαστήματος· **`tail.length`** = **`c`**).",
+    "he": "**JSON (`pat-eurom-ai-v2`)** — היקף **`sinceInclusive`** (**{{since}}**): משתמש ב-`periods` + `tail` (**רשימה מלאה** של ההגרלות בטווח זה; **`tail.length`** = **`c`**).",
+    "in": "**JSON (`pat-eurom-ai-v2`)** — दायरा **`sinceInclusive`** (**{{since}}**): `periods` + `tail` का उपयोग (**इस अवधि की ड्रॉ की पूरी सूची**; **`tail.length`** = **`c`**)।",
+    "jp": "**JSON（`pat-eurom-ai-v2`）** — 範囲 **`sinceInclusive`**（**{{since}}**）：`periods` + `tail` を使う（この期間の抽選の**完全な一覧**；**`tail.length`** = **`c`**）。",
+    "ru": "**JSON (`pat-eurom-ai-v2`)** — охват **`sinceInclusive`** (**{{since}}**): использует `periods` + `tail` (**полный список** тиражей этого интервала; **`tail.length`** = **`c`**)."
+  },
+  "LINKSADMIN.NAME": {
+    "de": "Name"
+  },
+  "LINKSADMIN.URL": {
+    "de": "Link"
+  },
+  "LINKSADMIN.NAME_FIELD": {
+    "de": "Name"
+  },
+  "FRIENDS.NAME": {
+    "de": "Name"
+  },
+  "FRIENDS.KEYCLOAK_ID": {
+    "cn": "Keycloak ID",
+    "in": "Keycloak ID",
+    "jp": "Keycloak ID"
+  },
+  "FRIENDS.ONLINE": {
+    "de": "Verbunden",
+    "it": "In linea"
+  },
+  "FRIENDS.OFFLINE": {
+    "de": "Getrennt",
+    "it": "Non in linea"
+  },
+  "FRIENDS.ROLES": {
+    "es": "Roles"
+  },
+  "FRIENDS.NO": {
+    "es": "No",
+    "it": "No"
+  },
+  "FRIENDS.OPTIONAL": {
+    "de": "optional"
+  },
+  "FRIENDS.STATUS": {
+    "de": "Status",
+    "es": "Estado",
+    "it": "Stato",
+    "ar": "الحالة",
+    "cn": "状态",
+    "el": "Κατάσταση",
+    "he": "סטטוס",
+    "in": "स्थिति",
+    "jp": "ステータス",
+    "ru": "Статус"
+  },
+  "STATISTICS.DETAILS": {
+    "de": "Details"
+  },
+  "API.STATUS_LABEL": {
+    "de": "Status"
+  },
+  "API.ADDRESS": {
+    "el": "Διεύθυνση",
+    "jp": "住所"
+  },
+  "API.SEARCH_CITY": {
+    "el": "Αναζήτηση",
+    "jp": "検索"
+  },
+  "API.CITY_REQUIRED": {
+    "el": "Το όνομα της πόλης είναι υποχρεωτικό",
+    "jp": "都市名は必須です"
+  },
+  "API.COORDINATES_FOUND": {
+    "el": "Οι συντεταγμένες βρέθηκαν",
+    "jp": "座標が見つかりました"
+  },
+  "API.CITY_NOT_FOUND": {
+    "el": "Η πόλη δεν βρέθηκε",
+    "jp": "都市が見つかりません"
+  },
+  "API.SELECT_CITY": {
+    "el": "Επιλογή πόλης",
+    "jp": "都市を選択"
+  },
+  "API.FORECAST_MODE": {
+    "el": "Τρόπος εμφάνισης",
+    "jp": "表示モード"
+  },
+  "API.FORECAST_3H": {
+    "el": "Κάθε 3 ώρες",
+    "jp": "3 時間ごと"
+  },
+  "API.FORECAST_1H": {
+    "el": "Κάθε ώρα",
+    "jp": "毎時"
+  },
+  "API.FORECAST_DAILY": {
+    "el": "Ημερήσια σύνοψη",
+    "jp": "日次の概要"
+  },
+  "API.FORECAST_3H_INFO": {
+    "el": "Πρόγνωση κάθε 3 ώρες για 5 ημέρες",
+    "jp": "5 日間、3 時間ごとの予報"
+  },
+  "API.FORECAST_1H_INFO": {
+    "el": "Ωριαία πρόγνωση (24 ώρες)",
+    "jp": "毎時の予報（24 時間）"
+  },
+  "API.FORECAST_DAILY_INFO": {
+    "el": "Ημερήσια σύνοψη για 5 ημέρες",
+    "jp": "5 日間の日次概要"
+  },
+  "API.LOADING": {
+    "el": "Φόρτωση...",
+    "jp": "読み込み中..."
+  },
+  "API.SHARE_CURRENT_WEATHER": {
+    "el": "Κοινοποίηση τρέχοντος καιρού",
+    "jp": "現在の天気を共有"
+  },
+  "API.SHARE_FORECAST": {
+    "el": "Κοινοποίηση πρόγνωσης",
+    "jp": "予報を共有"
+  },
+  "API.COORDINATES": {
+    "el": "Συντεταγμένες GPS",
+    "jp": "GPS 座標"
+  },
+  "API.NO_CURRENT_WEATHER": {
+    "el": "Δεν υπάρχουν διαθέσιμα τρέχοντα μετεωρολογικά δεδομένα",
+    "jp": "現在の気象データはありません"
+  },
+  "API.NO_FORECAST_DATA": {
+    "el": "Δεν υπάρχουν διαθέσιμα δεδομένα πρόγνωσης",
+    "jp": "予報データはありません"
+  },
+  "API.SHARED_SUCCESSFULLY": {
+    "el": "Κοινοποιήθηκε με επιτυχία",
+    "jp": "共有しました"
+  },
+  "API.COPIED_TO_CLIPBOARD": {
+    "el": "Αντιγράφηκε στο πρόχειρο",
+    "jp": "クリップボードにコピーしました"
+  },
+  "API.SHARE_FAILED": {
+    "el": "Αποτυχία κοινοποίησης",
+    "jp": "共有に失敗しました"
+  },
+  "API.CHART_INCLUDED": {
+    "el": "Το γράφημα περιλαμβάνεται στην αρχική προβολή",
+    "jp": "グラフは元の表示に含まれています"
+  },
+  "API.SHARE_WEATHER": {
+    "de": "Wetter teilen",
+    "es": "Compartir el tiempo",
+    "it": "Condividi il meteo",
+    "ar": "مشاركة الطقس",
+    "cn": "分享天气",
+    "el": "Κοινοποίηση καιρού",
+    "he": "שיתוף מזג האוויר",
+    "in": "मौसम साझा करें",
+    "jp": "天気を共有",
+    "ru": "Поделиться погодой"
+  },
+  "API.ASSISTANT_CITY_TITLE": {
+    "de": "KI-Assistenten mit dieser Stadt und diesem Land in der Nachricht öffnen.",
+    "es": "Abrir el asistente de IA con esta ciudad y este país en el mensaje.",
+    "it": "Apri l’assistente IA con questa città e questo paese nel messaggio.",
+    "ar": "فتح مساعد الذكاء الاصطناعي مع هذه المدينة وهذا البلد في الرسالة.",
+    "cn": "打开 AI 助手，并在消息中带上该城市和国家。",
+    "el": "Άνοιγμα του βοηθού ΤΝ με αυτή την πόλη και αυτή τη χώρα στο μήνυμα.",
+    "he": "פתיחת עוזר הבינה המלאכותית עם עיר ומדינה אלה בהודעה.",
+    "in": "संदेश में इस शहर और देश के साथ एआई सहायक खोलें।",
+    "jp": "この都市と国をメッセージに入れて AI アシスタントを開く。",
+    "ru": "Открыть ИИ-помощника с этим городом и страной в сообщении."
+  },
+  "API.IMAGE_DATA_URL": {
+    "de": "Bild-URL:",
+    "es": "URL de la imagen:",
+    "it": "URL dell’immagine:",
+    "ar": "عنوان الصورة:",
+    "cn": "图片 URL：",
+    "el": "URL εικόνας:",
+    "he": "כתובת התמונה:",
+    "in": "चित्र URL:",
+    "jp": "画像 URL:",
+    "ru": "URL изображения:"
+  },
+  "ADDRESS_GEOCODE.ERROR": {
+    "es": "Error"
+  },
+  "PHOTO_TIMELINE.YOUTUBE_VIDEO": {
+    "de": "YouTube-Video",
+    "es": "Vídeo de YouTube",
+    "it": "Video YouTube",
+    "ar": "فيديو YouTube",
+    "cn": "YouTube 视频",
+    "el": "Βίντεο YouTube",
+    "he": "סרטון YouTube",
+    "in": "YouTube वीडियो",
+    "jp": "YouTube 動画",
+    "ru": "Видео YouTube"
+  },
+  "PHOTO_TIMELINE.YOUTUBE_OPEN_FLOATING": {
+    "de": "Im YouTube-Fenster vergrößern",
+    "es": "Ampliar en la ventana de YouTube",
+    "it": "Ingrandisci nella finestra YouTube",
+    "ar": "تكبير في نافذة YouTube",
+    "cn": "在 YouTube 窗口中放大",
+    "el": "Μεγέθυνση στο παράθυρο YouTube",
+    "he": "הגדלה בחלון YouTube",
+    "in": "YouTube विंडो में बड़ा करें",
+    "jp": "YouTube ウィンドウで拡大",
+    "ru": "Увеличить в окне YouTube"
+  },
+  "PHOTO_TIMELINE.OPEN_VIDEOSHOW": {
+    "de": "Im Videoplayer öffnen",
+    "es": "Abrir en el visor de vídeo",
+    "it": "Apri nel visualizzatore video",
+    "ar": "فتح في عارض الفيديو",
+    "cn": "在视频查看器中打开",
+    "el": "Άνοιγμα στην προβολή βίντεο",
+    "he": "פתיחה במציג הווידאו",
+    "in": "वीडियो दर्शक में खोलें",
+    "jp": "動画ビューアーで開く",
+    "ru": "Открыть в просмотре видео"
+  },
+  "PHOTO_TIMELINE.TOAST_ERROR_TITLE": {
+    "es": "Error"
+  },
+  "PHOTO_TIMELINE.TRACK_TABLE_NAME": {
+    "de": "Name"
+  },
+  "PHOTO_TIMELINE.TRACK_SAVE_OFFLINE": {
+    "de": "Diese Spur auf dem Gerät für den Modus ohne Netz speichern",
+    "es": "Guardar esta traza en el dispositivo para el modo sin conexión",
+    "it": "Salva questa traccia sul dispositivo per la modalità non in linea",
+    "ar": "حفظ هذا المسار على الجهاز لوضع عدم الاتصال",
+    "cn": "将此轨迹保存到设备以便离线使用",
+    "el": "Αποθήκευση αυτού του ίχνους στη συσκευή για λειτουργία εκτός σύνδεσης",
+    "he": "שמירת עקבה זו במכשיר למצב לא מקוון",
+    "in": "ऑफ़लाइन उपयोग के लिए इस ट्रेस को डिवाइस पर सहेजें",
+    "jp": "オフライン用にこの軌跡を端末へ保存",
+    "ru": "Сохранить этот трек на устройстве для режима без сети"
+  },
+  "PHOTO_TIMELINE.TRACK_SAVE_OFFLINE_ALL": {
+    "de": "Ohne Netz",
+    "es": "Sin conexión",
+    "it": "Non in linea",
+    "ar": "دون اتصال",
+    "cn": "离线",
+    "el": "Εκτός σύνδεσης",
+    "he": "לא מקוון",
+    "in": "ऑफ़लाइन",
+    "jp": "オフライン",
+    "ru": "Без сети"
+  },
+  "PHOTO_TIMELINE.TRACK_SAVED_OFFLINE": {
+    "de": "Spur auf diesem Gerät gespeichert",
+    "es": "Traza guardada en este dispositivo",
+    "it": "Traccia salvata su questo dispositivo",
+    "ar": "تم حفظ المسار على هذا الجهاز",
+    "cn": "轨迹已保存到此设备",
+    "el": "Το ίχνος αποθηκεύτηκε σε αυτή τη συσκευή",
+    "he": "העקבה נשמרה במכשיר זה",
+    "in": "ट्रेस इस डिवाइस पर सहेजा गया",
+    "jp": "軌跡をこの端末に保存しました",
+    "ru": "Трек сохранён на этом устройстве"
+  },
+  "PHOTO_TIMELINE.TRACK_SAVED_OFFLINE_SHORT": {
+    "de": "Gespeichert",
+    "es": "Guardado",
+    "it": "Salvato",
+    "ar": "تم الحفظ",
+    "cn": "已保存",
+    "el": "Αποθηκεύτηκε",
+    "he": "נשמר",
+    "in": "सहेजा गया",
+    "jp": "保存済み",
+    "ru": "Сохранено"
+  },
+  "PHOTO_TIMELINE.TRACK_SAVE_OFFLINE_DONE": {
+    "de": "Spuren auf diesem Gerät gespeichert",
+    "es": "Trazas guardadas en este dispositivo",
+    "it": "Tracce salvate su questo dispositivo",
+    "ar": "تم حفظ المسارات على هذا الجهاز",
+    "cn": "轨迹已保存到此设备",
+    "el": "Τα ίχνη αποθηκεύτηκαν σε αυτή τη συσκευή",
+    "he": "העקבות נשמרו במכשיר זה",
+    "in": "ट्रेस इस डिवाइस पर सहेजे गए",
+    "jp": "軌跡をこの端末に保存しました",
+    "ru": "Треки сохранены на этом устройстве"
+  },
+  "PHOTO_TIMELINE.TRACK_SAVE_OFFLINE_ERROR": {
+    "de": "Die Spur konnte nicht gespeichert werden",
+    "es": "No se pudo guardar la traza",
+    "it": "Impossibile salvare la traccia",
+    "ar": "تعذر حفظ المسار",
+    "cn": "无法保存轨迹",
+    "el": "Δεν ήταν δυνατή η αποθήκευση του ίχνους",
+    "he": "לא ניתן לשמור את העקבה",
+    "in": "ट्रेस सहेजा नहीं जा सका",
+    "jp": "軌跡を保存できませんでした",
+    "ru": "Не удалось сохранить трек"
+  },
+  "PHOTO_TIMELINE.TRACK_TABLE_ERROR": {
+    "es": "Error"
+  },
+  "PHOTO_TIMELINE.ODS_WALL_TABLE_TITLE": {
+    "de": "Calc-Tabellen (.ods)",
+    "es": "Hojas Calc (.ods)",
+    "it": "Fogli Calc (.ods)",
+    "ar": "جداول Calc‏ (.ods)",
+    "cn": "Calc 表格（.ods）",
+    "el": "Φύλλα Calc (.ods)",
+    "he": "גיליונות Calc‏ (.ods)",
+    "in": "Calc तालिकाएँ (.ods)",
+    "jp": "Calc 表計算（.ods）",
+    "ru": "Таблицы Calc (.ods)"
+  },
+  "PHOTO_TIMELINE.ODS_TABLE_DOWNLOAD": {
+    "de": "Tabelle herunterladen",
+    "es": "Descargar la hoja",
+    "it": "Scarica il foglio",
+    "ar": "تنزيل الجدول",
+    "cn": "下载表格",
+    "el": "Λήψη φύλλου",
+    "he": "הורדת הגיליון",
+    "in": "तालिका डाउनलोड करें",
+    "jp": "表計算をダウンロード",
+    "ru": "Скачать таблицу"
+  },
+  "PHOTO_TIMELINE.LINK_ACTION_OPEN_ODS": {
+    "de": "Im Calc-Editor öffnen",
+    "es": "Abrir en el editor Calc",
+    "it": "Apri nell’editor Calc",
+    "ar": "فتح في محرّر Calc",
+    "cn": "在 Calc 编辑器中打开",
+    "el": "Άνοιγμα στον επεξεργαστή Calc",
+    "he": "פתיחה בעורך Calc",
+    "in": "Calc संपादक में खोलें",
+    "jp": "Calc エディターで開く",
+    "ru": "Открыть в редакторе Calc"
+  },
+  "PHOTO_TIMELINE.PDF_CONVERTER_WALL_TABLE_TITLE": {
+    "ar": "مستندات محرّر PDF",
+    "cn": "PDF 编辑器文档",
+    "el": "Έγγραφα επεξεργαστή PDF",
+    "he": "מסמכי עורך PDF",
+    "in": "PDF संपादक दस्तावेज़",
+    "jp": "PDF エディターの文書",
+    "ru": "Документы редактора PDF"
+  },
+  "NEWS.PROVIDER_RSS_HINT": {
+    "de": "Öffentliche Quellen, ohne Schlüssel und ohne Kontingent — Katalog plus manuelles Hinzufügen",
+    "es": "Fuentes públicas, sin clave ni cupo — catálogo y alta manual",
+    "it": "Flussi pubblici, senza chiave né quota — catalogo e aggiunta manuale",
+    "ar": "تدفقات عامة، بلا مفتاح ولا حصة — فهرس وإضافة يدوية",
+    "cn": "公开源，无需密钥或配额 — 目录加手动添加",
+    "el": "Δημόσιες ροές, χωρίς κλειδί ή όριο — κατάλογος και χειροκίνητη προσθήκη",
+    "he": "הזנות ציבוריות, בלי מפתח ובלי מכסה — קטלוג והוספה ידנית",
+    "in": "सार्वजनिक फ़ीड, बिना कुंजी या कोटा — सूची और मैन्युअल जोड़ना",
+    "jp": "公開フィード。鍵も枠も不要 — カタログと手動追加",
+    "ru": "Публичные ленты, без ключа и без квоты — каталог и ручное добавление"
+  },
+  "NEWS.RSS_FEED": {
+    "de": "Quelle",
+    "es": "Fuente",
+    "it": "Flusso",
+    "ar": "تدفق",
+    "cn": "源",
+    "el": "Ροή",
+    "he": "הזנה",
+    "in": "फ़ीड",
+    "jp": "フィード",
+    "ru": "Лента"
+  },
+  "NEWS.RSS_FEED_ALL": {
+    "de": "Alle sichtbaren Quellen (Aggregat)",
+    "es": "Todas las fuentes visibles (agregado)",
+    "it": "Tutti i flussi visibili (aggregato)",
+    "ar": "كل التدفقات الظاهرة (مجمّع)",
+    "cn": "所有可见源（汇总）",
+    "el": "Όλες οι ορατές ροές (συγκεντρωτικά)",
+    "he": "כל ההזנות הגלויות (מצטבר)",
+    "in": "सभी दृश्य फ़ीड (एकत्र)",
+    "jp": "表示中の全フィード（集約）",
+    "ru": "Все видимые ленты (сводка)"
+  },
+  "NEWS.RSS_ADD_LABEL": {
+    "de": "Quelle hinzufügen",
+    "es": "Añadir una fuente",
+    "it": "Aggiungi un flusso",
+    "ar": "إضافة تدفق",
+    "cn": "添加源",
+    "el": "Προσθήκη ροής",
+    "he": "הוספת הזנה",
+    "in": "फ़ीड जोड़ें",
+    "jp": "フィードを追加",
+    "ru": "Добавить ленту"
+  },
+  "NEWS.RSS_ADD_PLACEHOLDER": {
+    "de": "Stichwort (Courrier International) oder URL der Quelle / der Webseite…",
+    "es": "Palabra clave (Courrier International) o URL de la fuente / del sitio…",
+    "it": "Parola chiave (Courrier International) o URL del flusso / del sito…",
+    "ar": "كلمة مفتاحية (Courrier International) أو عنوان التدفق / الموقع…",
+    "cn": "关键词（Courrier International）或源 / 网站 URL…",
+    "el": "Λέξη-κλειδί (Courrier International) ή URL ροής / ιστοτόπου…",
+    "he": "מילת מפתח (Courrier International) או כתובת הזנה / אתר…",
+    "in": "कीवर्ड (Courrier International) या फ़ीड / साइट URL…",
+    "jp": "キーワード（Courrier International）またはフィード / サイトの URL…",
+    "ru": "Ключевое слово (Courrier International) или URL ленты / сайта…"
+  },
+  "NEWS.RSS_ADD_SEARCH": {
+    "de": "Suchen",
+    "es": "Buscar",
+    "it": "Cerca",
+    "ar": "بحث",
+    "cn": "搜索",
+    "el": "Αναζήτηση",
+    "he": "חיפוש",
+    "in": "खोजें",
+    "jp": "検索",
+    "ru": "Искать"
+  },
+  "NEWS.RSS_ADD_CONFIRM": {
+    "de": "Hinzufügen",
+    "es": "Añadir",
+    "it": "Aggiungi",
+    "ar": "إضافة",
+    "cn": "添加",
+    "el": "Προσθήκη",
+    "he": "הוספה",
+    "in": "जोड़ें",
+    "jp": "追加",
+    "ru": "Добавить"
+  },
+  "NEWS.RSS_REFRESH_LIST": {
+    "de": "Liste aktualisieren",
+    "es": "Actualizar la lista",
+    "it": "Aggiorna l’elenco",
+    "ar": "تحديث القائمة",
+    "cn": "刷新列表",
+    "el": "Ανανέωση λίστας",
+    "he": "רענון הרשימה",
+    "in": "सूची ताज़ा करें",
+    "jp": "一覧を更新",
+    "ru": "Обновить список"
+  },
+  "NEWS.RSS_REFRESH_LIST_HINT": {
+    "de": "Lädt den Standardkatalog neu. Ihre hinzugefügten Quellen bleiben erhalten.",
+    "es": "Vuelve a cargar el catálogo predeterminado. Las fuentes que añadió se conservan.",
+    "it": "Ricarica il catalogo predefinito. I flussi che ha aggiunto restano.",
+    "ar": "يعيد تحميل الفهرس الافتراضي. تُحفظ التدفقات التي أضفتها.",
+    "cn": "重新加载默认目录。您添加的源会保留。",
+    "el": "Επαναφορτώνει τον προεπιλεγμένο κατάλογο. Οι ροές που προσθέσατε διατηρούνται.",
+    "he": "טוען מחדש את הקטלוג המוגדר כברירת מחדל. ההזנות שהוספת נשמרות.",
+    "in": "डिफ़ॉल्ट सूची फिर लोड होती है। आपके जोड़े फ़ीड बने रहते हैं।",
+    "jp": "既定のカタログを読み込み直します。追加したフィードは残ります。",
+    "ru": "Заново загружает каталог по умолчанию. Добавленные вами ленты сохраняются."
+  },
+  "NEWS.RSS_CATALOG_REFRESHED": {
+    "de": "Katalog neu geladen ({{count}} Standardquellen).",
+    "es": "Catálogo recargado ({{count}} fuentes predeterminadas).",
+    "it": "Catalogo ricaricato ({{count}} flussi predefiniti).",
+    "ar": "أُعيد تحميل الفهرس ({{count}} تدفق افتراضي).",
+    "cn": "目录已重新加载（{{count}} 个默认源）。",
+    "el": "Ο κατάλογος επαναφορτώθηκε ({{count}} προεπιλεγμένες ροές).",
+    "he": "הקטלוג נטען מחדש ({{count}} הזנות ברירת מחדל).",
+    "in": "सूची फिर लोड हुई ({{count}} डिफ़ॉल्ट फ़ीड)।",
+    "jp": "カタログを再読み込みしました（既定フィード {{count}} 件）。",
+    "ru": "Каталог перезагружен ({{count}} лент по умолчанию)."
+  },
+  "NEWS.RSS_ADDED": {
+    "de": "Quelle hinzugefügt: {{name}}",
+    "es": "Fuente añadida: {{name}}",
+    "it": "Flusso aggiunto: {{name}}",
+    "ar": "أُضيف التدفق: {{name}}",
+    "cn": "已添加源：{{name}}",
+    "el": "Η ροή προστέθηκε: {{name}}",
+    "he": "ההזנה נוספה: {{name}}",
+    "in": "फ़ीड जोड़ा गया: {{name}}",
+    "jp": "フィードを追加しました: {{name}}",
+    "ru": "Лента добавлена: {{name}}"
+  },
+  "NEWS.RSS_ALREADY": {
+    "de": "Diese Quelle ist bereits in der Liste.",
+    "es": "Esta fuente ya está en la lista.",
+    "it": "Questo flusso è già nell’elenco.",
+    "ar": "هذا التدفق موجود بالفعل في القائمة.",
+    "cn": "此源已在列表中。",
+    "el": "Αυτή η ροή είναι ήδη στη λίστα.",
+    "he": "הזנה זו כבר ברשימה.",
+    "in": "यह फ़ीड पहले से सूची में है।",
+    "jp": "このフィードはすでに一覧にあります。",
+    "ru": "Эта лента уже в списке."
+  },
+  "NEWS.RSS_REMOVED": {
+    "de": "Quelle aus Ihrer Liste entfernt.",
+    "es": "Fuente quitada de su lista.",
+    "it": "Flusso rimosso dal suo elenco.",
+    "ar": "أُزيل التدفق من قائمتك.",
+    "cn": "已从您的列表中移除该源。",
+    "el": "Η ροή αφαιρέθηκε από τη λίστα σας.",
+    "he": "ההזנה הוסרה מהרשימה שלך.",
+    "in": "फ़ीड आपकी सूची से हटाया गया।",
+    "jp": "フィードを一覧から外しました。",
+    "ru": "Лента удалена из вашего списка."
+  },
+  "NEWS.RSS_SEARCH_EMPTY": {
+    "de": "Keine Quelle gefunden. Versuchen Sie eine direkte URL (…/rss.xml).",
+    "es": "No se encontró ninguna fuente. Pruebe una URL directa (…/rss.xml).",
+    "it": "Nessun flusso trovato. Provi un URL diretto (…/rss.xml).",
+    "ar": "لم يُعثر على تدفق. جرّب عنواناً مباشراً (…/rss.xml).",
+    "cn": "未找到源。请尝试直接 URL（…/rss.xml）。",
+    "el": "Δεν βρέθηκε ροή. Δοκιμάστε ένα άμεσο URL (…/rss.xml).",
+    "he": "לא נמצאה הזנה. נסו כתובת ישירה (…/rss.xml).",
+    "in": "कोई फ़ीड नहीं मिला। सीधा URL आज़माएँ (…/rss.xml)।",
+    "jp": "フィードが見つかりません。直接 URL を試してください（…/rss.xml）。",
+    "ru": "Лента не найдена. Попробуйте прямой URL (…/rss.xml)."
+  },
+  "NEWS.RSS_SEARCH_ERROR": {
+    "de": "Quellensuche ist derzeit nicht möglich.",
+    "es": "La búsqueda de fuentes no está disponible ahora.",
+    "it": "Ricerca flussi al momento impossibile.",
+    "ar": "البحث عن التدفقات غير ممكن حالياً.",
+    "cn": "暂时无法搜索源。",
+    "el": "Η αναζήτηση ροών δεν είναι δυνατή αυτή τη στιγμή.",
+    "he": "חיפוש הזנות אינו זמין כרגע.",
+    "in": "अभी फ़ीड खोज संभव नहीं।",
+    "jp": "現在フィードを検索できません。",
+    "ru": "Поиск лент сейчас недоступен."
+  },
+  "NEWS.RSS_CUSTOM": {
+    "de": "Hinzugefügt",
+    "es": "Añadida",
+    "it": "Aggiunto",
+    "ar": "مضاف",
+    "cn": "已添加",
+    "el": "Προστέθηκε",
+    "he": "נוסף",
+    "in": "जोड़ा गया",
+    "jp": "追加済み",
+    "ru": "Добавлено"
+  },
+  "NEWS.RSS_OPEN_FEED": {
+    "de": "Diese Quelle lesen",
+    "es": "Leer esta fuente",
+    "it": "Leggi questo flusso",
+    "ar": "قراءة هذا التدفق",
+    "cn": "阅读此源",
+    "el": "Ανάγνωση αυτής της ροής",
+    "he": "קריאת הזנה זו",
+    "in": "यह फ़ीड पढ़ें",
+    "jp": "このフィードを読む",
+    "ru": "Читать эту ленту"
+  },
+  "NEWS.RSS_REMOVE": {
+    "de": "Entfernen",
+    "es": "Quitar",
+    "it": "Rimuovi",
+    "ar": "إزالة",
+    "cn": "移除",
+    "el": "Αφαίρεση",
+    "he": "הסרה",
+    "in": "हटाएँ",
+    "jp": "外す",
+    "ru": "Убрать"
+  },
+  "NEWS.SLIDESHOW": {
+    "de": "Diashow",
+    "es": "Presentación",
+    "it": "Presentazione",
+    "ar": "عرض شرائح",
+    "cn": "幻灯片",
+    "el": "Παρουσίαση",
+    "he": "מצגת",
+    "in": "स्लाइडशो",
+    "jp": "スライドショー",
+    "ru": "Слайд-шоу"
+  },
+  "NEWS.SLIDESHOW_HINT": {
+    "de": "Bilder dieses Ergebnisses in der Diashow öffnen",
+    "es": "Abrir las imágenes de este resultado en la presentación",
+    "it": "Apri le immagini di questo risultato nella presentazione",
+    "ar": "فتح صور هذه النتيجة في عرض الشرائح",
+    "cn": "在幻灯片中打开此结果的图片",
+    "el": "Άνοιγμα των εικόνων αυτού του αποτελέσματος στην παρουσίαση",
+    "he": "פתיחת התמונות של תוצאה זו במצגת",
+    "in": "इस परिणाम की छवियाँ स्लाइडशो में खोलें",
+    "jp": "この結果の画像をスライドショーで開く",
+    "ru": "Открыть изображения этого результата в слайд-шоу"
+  },
+  "NEWS.OPEN_SLIDESHOW": {
+    "de": "In der Diashow öffnen",
+    "es": "Abrir en la presentación",
+    "it": "Apri nella presentazione",
+    "ar": "فتح في عرض الشرائح",
+    "cn": "在幻灯片中打开",
+    "el": "Άνοιγμα στην παρουσίαση",
+    "he": "פתיחה במצגת",
+    "in": "स्लाइडशो में खोलें",
+    "jp": "スライドショーで開く",
+    "ru": "Открыть в слайд-шоу"
+  },
+  "NEWS.RSS_RESULTS": {
+    "de": "Ergebnisse",
+    "es": "Resultados",
+    "it": "Risultati",
+    "ar": "النتائج",
+    "cn": "结果",
+    "el": "Αποτελέσματα",
+    "he": "תוצאות",
+    "in": "परिणाम",
+    "jp": "結果",
+    "ru": "Результаты"
+  },
+  "NEWS.CATEGORY_GENERAL": {
+    "es": "General"
+  },
+  "NEWS.TICKER_LABEL": {
+    "de": "AKTUELL"
+  },
+  "TIMEZONE.TITLE": {
+    "de": "Zeitzonen",
+    "es": "Husos horarios",
+    "it": "Fusi orari",
+    "ar": "المناطق الزمنية",
+    "cn": "时区",
+    "el": "Ζώνες ώρας",
+    "he": "אזורי זמן",
+    "in": "समय क्षेत्र",
+    "jp": "タイムゾーン",
+    "ru": "Часовые пояса"
+  },
+  "TIMEZONE.SUBTITLE": {
+    "de": "Wählen Sie Datum und Uhrzeit, eine Quellzone und eine Zielzone — die umgerechnete Zeit erscheint unten.",
+    "es": "Elija una fecha y una hora, un huso de origen y un huso de destino: la hora convertida aparece abajo.",
+    "it": "Scelga data e ora, un fuso di origine e un fuso di destinazione: l’ora convertita compare sotto.",
+    "ar": "اختر تاريخاً وساعة ومنطقة مصدر ومنطقة هدف — يظهر الوقت المحوّل أدناه.",
+    "cn": "选择日期和时间、来源时区和目标时区——转换后的时间显示在下方。",
+    "el": "Επιλέξτε ημερομηνία και ώρα, ζώνη προέλευσης και ζώνη προορισμού — η μετατρεπόμενη ώρα εμφανίζεται παρακάτω.",
+    "he": "בחרו תאריך ושעה, אזור מקור ואזור יעד — השעה המומרת מופיעה למטה.",
+    "in": "दिनांक और समय, स्रोत क्षेत्र और लक्ष्य क्षेत्र चुनें — बदला हुआ समय नीचे दिखेगा।",
+    "jp": "日付と時刻、変換元と変換先のゾーンを選ぶと、変換後の時刻が下に表示されます。",
+    "ru": "Выберите дату и время, исходный и целевой пояс — преобразованное время появится ниже."
+  },
+  "TIMEZONE.STEP_WHEN": {
+    "de": "1 — Wann?",
+    "es": "1 — ¿Cuándo?",
+    "it": "1 — Quando?",
+    "ar": "1 — متى؟",
+    "cn": "1 — 何时？",
+    "el": "1 — Πότε;",
+    "he": "1 — מתי?",
+    "in": "1 — कब?",
+    "jp": "1 — いつ？",
+    "ru": "1 — Когда?"
+  },
+  "TIMEZONE.STEP_WHERE": {
+    "de": "2 — Wo?",
+    "es": "2 — ¿Dónde?",
+    "it": "2 — Dove?",
+    "ar": "2 — أين؟",
+    "cn": "2 — 何地？",
+    "el": "2 — Πού;",
+    "he": "2 — איפה?",
+    "in": "2 — कहाँ?",
+    "jp": "2 — どこ？",
+    "ru": "2 — Где?"
+  },
+  "TIMEZONE.STEP_RESULT": {
+    "de": "3 — Umgerechnete Zeit",
+    "es": "3 — Hora convertida",
+    "it": "3 — Ora convertita",
+    "ar": "3 — الوقت المحوّل",
+    "cn": "3 — 转换后的时间",
+    "el": "3 — Μετατρεπόμενη ώρα",
+    "he": "3 — שעה מומרת",
+    "in": "3 — बदला समय",
+    "jp": "3 — 変換後の時刻",
+    "ru": "3 — Преобразованное время"
+  },
+  "TIMEZONE.DATE_TIME": {
+    "de": "Zu konvertierendes Datum und Uhrzeit",
+    "es": "Fecha y hora a convertir",
+    "it": "Data e ora da convertire",
+    "ar": "التاريخ والساعة للتحويل",
+    "cn": "要转换的日期和时间",
+    "el": "Ημερομηνία και ώρα προς μετατροπή",
+    "he": "תאריך ושעה להמרה",
+    "in": "बदलने के लिए दिनांक और समय",
+    "jp": "変換する日付と時刻",
+    "ru": "Дата и время для преобразования"
+  },
+  "TIMEZONE.FROM": {
+    "de": "Quellzone",
+    "es": "Huso de origen",
+    "it": "Fuso di origine",
+    "ar": "المنطقة المصدر",
+    "cn": "来源时区",
+    "el": "Ζώνη προέλευσης",
+    "he": "אזור מקור",
+    "in": "स्रोत क्षेत्र",
+    "jp": "変換元ゾーン",
+    "ru": "Исходный пояс"
+  },
+  "TIMEZONE.TO": {
+    "de": "Zielzone",
+    "es": "Huso de destino",
+    "it": "Fuso di destinazione",
+    "ar": "المنطقة الهدف",
+    "cn": "目标时区",
+    "el": "Ζώνη προορισμού",
+    "he": "אזור יעד",
+    "in": "लक्ष्य क्षेत्र",
+    "jp": "変換先ゾーン",
+    "ru": "Целевой пояс"
+  },
+  "TIMEZONE.TARGET": {
+    "de": "Ziel",
+    "es": "Destino",
+    "it": "Destinazione",
+    "ar": "الهدف",
+    "cn": "目标",
+    "el": "Προορισμός",
+    "he": "יעד",
+    "in": "लक्ष्य",
+    "jp": "対象",
+    "ru": "Цель"
+  },
+  "TIMEZONE.SWAP": {
+    "de": "Zonen tauschen",
+    "es": "Invertir los husos",
+    "it": "Inverti i fusi",
+    "ar": "تبديل المنطقتين",
+    "cn": "对调时区",
+    "el": "Εναλλαγή ζωνών",
+    "he": "החלפת אזורים",
+    "in": "क्षेत्र बदलें",
+    "jp": "ゾーンを入れ替え",
+    "ru": "Поменять пояса"
+  },
+  "TIMEZONE.NOW": {
+    "de": "Aktuelle Zeit",
+    "es": "Hora actual",
+    "it": "Ora attuale",
+    "ar": "الوقت الحالي",
+    "cn": "当前时间",
+    "el": "Τρέχουσα ώρα",
+    "he": "השעה הנוכחית",
+    "in": "वर्तमान समय",
+    "jp": "現在時刻",
+    "ru": "Текущее время"
+  },
+  "TIMEZONE.CHANGE_ZONE": {
+    "de": "Zone wechseln",
+    "es": "Cambiar de huso",
+    "it": "Cambia fuso",
+    "ar": "تغيير المنطقة",
+    "cn": "更换时区",
+    "el": "Αλλαγή ζώνης",
+    "he": "החלפת אזור",
+    "in": "क्षेत्र बदलें",
+    "jp": "ゾーンを変更",
+    "ru": "Сменить пояс"
+  },
+  "TIMEZONE.CANCEL": {
+    "de": "Abbrechen",
+    "es": "Cancelar",
+    "it": "Annulla",
+    "ar": "إلغاء",
+    "cn": "取消",
+    "el": "Ακύρωση",
+    "he": "ביטול",
+    "in": "रद्द करें",
+    "jp": "キャンセル",
+    "ru": "Отмена"
+  },
+  "TIMEZONE.SEARCH_LABEL": {
+    "de": "Zeitzone suchen",
+    "es": "Buscar un huso",
+    "it": "Cerca un fuso",
+    "ar": "البحث عن منطقة زمنية",
+    "cn": "搜索时区",
+    "el": "Αναζήτηση ζώνης ώρας",
+    "he": "חיפוש אזור זמן",
+    "in": "समय क्षेत्र खोजें",
+    "jp": "タイムゾーンを検索",
+    "ru": "Искать часовой пояс"
+  },
+  "TIMEZONE.SEARCH_HINT": {
+    "de": "Geben Sie eine Abkürzung (CEST, EST, IST), einen Städtenamen oder eine Zonenkennung ein.",
+    "es": "Escriba una abreviatura (CEST, EST, IST), un nombre de ciudad o un identificador de huso.",
+    "it": "Inserisca un’abbreviazione (CEST, EST, IST), un nome di città o un identificatore di fuso.",
+    "ar": "أدخل اختصاراً (CEST, EST, IST) أو اسم مدينة أو معرّف منطقة.",
+    "cn": "输入缩写（CEST、EST、IST）、城市名或时区标识。",
+    "el": "Πληκτρολογήστε συντομογραφία (CEST, EST, IST), όνομα πόλης ή αναγνωριστικό ζώνης.",
+    "he": "הזינו קיצור (CEST, EST, IST), שם עיר או מזהה אזור.",
+    "in": "संक्षिप्त नाम (CEST, EST, IST), शहर का नाम या क्षेत्र पहचान दर्ज करें।",
+    "jp": "略称（CEST、EST、IST）、都市名、またはゾーン識別子を入力してください。",
+    "ru": "Введите сокращение (CEST, EST, IST), название города или идентификатор пояса."
+  },
+  "TIMEZONE.NO_FILTER_RESULTS": {
+    "de": "Keine Zeitzone entspricht dieser Suche.",
+    "es": "Ningún huso horario coincide con esta búsqueda.",
+    "it": "Nessun fuso orario corrisponde a questa ricerca.",
+    "ar": "لا توجد منطقة زمنية تطابق هذا البحث.",
+    "cn": "没有时区符合此搜索。",
+    "el": "Καμία ζώνη ώρας δεν ταιριάζει με αυτή την αναζήτηση.",
+    "he": "אין אזור זמן שתואם לחיפוש זה.",
+    "in": "कोई समय क्षेत्र इस खोज से मेल नहीं खाता।",
+    "jp": "この検索に一致するタイムゾーンはありません。",
+    "ru": "Ни один часовой пояс не соответствует этому поиску."
+  },
+  "TIMEZONE.POPULAR_SOURCE": {
+    "de": "Kurzauswahl — Quelle",
+    "es": "Acceso rápido — origen",
+    "it": "Scelta rapida — origine",
+    "ar": "اختصار — المصدر",
+    "cn": "快捷选择 — 来源",
+    "el": "Συντόμευση — προέλευση",
+    "he": "קיצור — מקור",
+    "in": "शॉर्टकट — स्रोत",
+    "jp": "ショートカット — 変換元",
+    "ru": "Быстрый выбор — источник"
+  },
+  "TIMEZONE.POPULAR_TARGET": {
+    "de": "Kurzauswahl — Ziel",
+    "es": "Acceso rápido — destino",
+    "it": "Scelta rapida — destinazione",
+    "ar": "اختصار — الهدف",
+    "cn": "快捷选择 — 目标",
+    "el": "Συντόμευση — προορισμός",
+    "he": "קיצור — יעד",
+    "in": "शॉर्टकट — लक्ष्य",
+    "jp": "ショートカット — 変換先",
+    "ru": "Быстрый выбор — цель"
+  },
+  "TIMEZONE.POPULAR.LONDON": {
+    "de": "London",
+    "es": "Londres",
+    "it": "Londra",
+    "ar": "لندن",
+    "cn": "伦敦",
+    "el": "Λονδίνο",
+    "he": "לונדון",
+    "in": "लंदन",
+    "jp": "ロンドン",
+    "ru": "Лондон"
+  },
+  "TIMEZONE.POPULAR.INDIA": {
+    "de": "Indien",
+    "es": "India",
+    "it": "India",
+    "ar": "الهند",
+    "cn": "印度",
+    "el": "Ινδία",
+    "he": "הודו",
+    "in": "भारत",
+    "jp": "インド",
+    "ru": "Индия"
+  },
+  "TIMEZONE.RESULT": {
+    "de": "Ergebnis",
+    "es": "Resultado",
+    "it": "Risultato",
+    "ar": "النتيجة",
+    "cn": "结果",
+    "el": "Αποτέλεσμα",
+    "he": "תוצאה",
+    "in": "परिणाम",
+    "jp": "結果",
+    "ru": "Результат"
+  },
+  "TIMEZONE.LOADING": {
+    "de": "Umwandlung…",
+    "es": "Conversión…",
+    "it": "Conversione…",
+    "ar": "تحويل…",
+    "cn": "正在转换…",
+    "el": "Μετατροπή…",
+    "he": "ממיר…",
+    "in": "रूपांतरण…",
+    "jp": "変換中…",
+    "ru": "Преобразование…"
+  },
+  "TIMEZONE.LOADING_ZONES": {
+    "de": "Zeitzonen werden geladen…",
+    "es": "Cargando husos horarios…",
+    "it": "Caricamento dei fusi orari…",
+    "ar": "جارٍ تحميل المناطق الزمنية…",
+    "cn": "正在加载时区…",
+    "el": "Φόρτωση ζωνών ώρας…",
+    "he": "טוען אזורי זמן…",
+    "in": "समय क्षेत्र लोड हो रहे हैं…",
+    "jp": "タイムゾーンを読み込み中…",
+    "ru": "Загрузка часовых поясов…"
+  },
+  "TIMEZONE.NO_DATA": {
+    "de": "Wählen Sie ein Datum und zwei verschiedene Zonen, um die Umrechnung zu sehen.",
+    "es": "Elija una fecha y dos husos distintos para ver la conversión.",
+    "it": "Scelga una data e due fusi diversi per vedere la conversione.",
+    "ar": "اختر تاريخاً ومنطقتين مختلفتين لرؤية التحويل.",
+    "cn": "请选择日期和两个不同时区以查看转换。",
+    "el": "Επιλέξτε ημερομηνία και δύο διαφορετικές ζώνες για να δείτε τη μετατροπή.",
+    "he": "בחרו תאריך ושני אזורים שונים כדי לראות את ההמרה.",
+    "in": "रूपांतरण देखने के लिए दिनांक और दो अलग क्षेत्र चुनें।",
+    "jp": "変換を見るには日付と異なる二つのゾーンを選んでください。",
+    "ru": "Выберите дату и два разных пояса, чтобы увидеть преобразование."
+  },
+  "TIMEZONE.SAME_ZONE": {
+    "de": "Wählen Sie zwei verschiedene Zeitzonen.",
+    "es": "Elija dos husos horarios distintos.",
+    "it": "Scelga due fusi orari diversi.",
+    "ar": "اختر منطقتين زمنيتين مختلفتين.",
+    "cn": "请选择两个不同的时区。",
+    "el": "Επιλέξτε δύο διαφορετικές ζώνες ώρας.",
+    "he": "בחרו שני אזורי זמן שונים.",
+    "in": "दो अलग समय क्षेत्र चुनें।",
+    "jp": "異なる二つのタイムゾーンを選んでください。",
+    "ru": "Выберите два разных часовых пояса."
+  },
+  "TIMEZONE.UTC_INSTANT": {
+    "de": "Derselbe Zeitpunkt (UTC)",
+    "es": "Mismo instante (UTC)",
+    "it": "Stesso istante (UTC)",
+    "ar": "نفس اللحظة (UTC)",
+    "cn": "同一时刻（UTC）",
+    "el": "Ίδια στιγμή (UTC)",
+    "he": "אותו רגע (UTC)",
+    "in": "वही क्षण (UTC)",
+    "jp": "同じ瞬間（UTC）",
+    "ru": "Тот же момент (UTC)"
+  },
+  "TIMEZONE.DAY_SHIFT": {
+    "de": "Kalendertag-Unterschied gegenüber dem Quelldatum",
+    "es": "Diferencia de día calendario respecto a la fecha de origen",
+    "it": "Scarto di giorno di calendario rispetto alla data di origine",
+    "ar": "فرق اليوم التقويمي مقارنة بتاريخ المصدر",
+    "cn": "相对来源日期的日历日差",
+    "el": "Διαφορά ημερολογιακής ημέρας ως προς την ημερομηνία προέλευσης",
+    "he": "הפרש יום לוח שנה ביחס לתאריך המקור",
+    "in": "स्रोत दिनांक की तुलना में कैलेंडर दिन का अंतर",
+    "jp": "変換元の日付に対する暦日のずれ",
+    "ru": "Разница календарного дня относительно исходной даты"
+  },
+  "TIMEZONE.DAY": {
+    "de": "Tag",
+    "es": "día",
+    "it": "giorno",
+    "ar": "يوم",
+    "cn": "天",
+    "el": "ημέρα",
+    "he": "יום",
+    "in": "दिन",
+    "jp": "日",
+    "ru": "день"
+  },
+  "TIMEZONE.SOURCE_NOTE": {
+    "de": "Abkürzungen (CEST, EST…) und Verschiebungen berücksichtigen die Sommerzeit am gewählten Datum.",
+    "es": "Las abreviaturas (CEST, EST…) y los desfases tienen en cuenta el horario de verano en la fecha elegida.",
+    "it": "Le abbreviazioni (CEST, EST…) e gli scarti tengono conto dell’ora legale alla data scelta.",
+    "ar": "الاختصارات (CEST, EST…) والفروقات تراعي التوقيت الصيفي في التاريخ المختار.",
+    "cn": "缩写（CEST、EST…）和时差会按所选日期的夏令时计算。",
+    "el": "Οι συντομογραφίες (CEST, EST…) και οι μετατοπίσεις λαμβάνουν υπόψη τη θερινή ώρα στην επιλεγμένη ημερομηνία.",
+    "he": "הקיצורים (CEST, EST…) וההיסטים מביאים בחשבון שעון קיץ בתאריך שנבחר.",
+    "in": "संक्षिप्त नाम (CEST, EST…) और अंतर चुनी तिथि पर डेलाइट सेविंग को ध्यान में रखते हैं।",
+    "jp": "略称（CEST、EST…）と時差は、選んだ日付の夏時間を反映します。",
+    "ru": "Сокращения (CEST, EST…) и смещения учитывают летнее время на выбранную дату."
+  },
+  "TIMEZONE.ERROR_ZONES": {
+    "de": "Die Zeitzonen konnten nicht geladen werden.",
+    "es": "No se pudieron cargar los husos horarios.",
+    "it": "Impossibile caricare i fusi orari.",
+    "ar": "تعذر تحميل المناطق الزمنية.",
+    "cn": "无法加载时区。",
+    "el": "Δεν ήταν δυνατή η φόρτωση των ζωνών ώρας.",
+    "he": "לא ניתן לטעון את אזורי הזמן.",
+    "in": "समय क्षेत्र लोड नहीं हो सके।",
+    "jp": "タイムゾーンを読み込めませんでした。",
+    "ru": "Не удалось загрузить часовые пояса."
+  },
+  "TIMEZONE.ERROR_CONVERT": {
+    "de": "Datum/Uhrzeit oder Zeitzone ungültig.",
+    "es": "Fecha/hora o huso horario no válido.",
+    "it": "Data/ora o fuso orario non valido.",
+    "ar": "التاريخ/الوقت أو المنطقة الزمنية غير صالحة.",
+    "cn": "日期/时间或时区无效。",
+    "el": "Μη έγκυρη ημερομηνία/ώρα ή ζώνη ώρας.",
+    "he": "תאריך/שעה או אזור זמן לא תקין.",
+    "in": "दिनांक/समय या समय क्षेत्र अमान्य।",
+    "jp": "日付/時刻またはタイムゾーンが無効です。",
+    "ru": "Недопустимые дата/время или часовой пояс."
+  },
+  "CRYPTOS.TITLE": {
+    "de": "Kryptowährungen",
+    "es": "Criptomonedas",
+    "it": "Criptovalute",
+    "ar": "العملات المشفرة",
+    "cn": "加密货币",
+    "el": "Κρυπτονομίσματα",
+    "he": "מטבעות קריפטו",
+    "in": "क्रिप्टो मुद्राएँ",
+    "jp": "暗号通貨",
+    "ru": "Криптовалюты"
+  },
+  "CRYPTOS.SUBTITLE": {
+    "de": "Nahezu Echtzeitkurse über CoinGecko (PatTool-Proxy, Server-Zwischenspeicher 60 s).",
+    "es": "Cotizaciones casi en tiempo real vía CoinGecko (proxy PatTool, caché de servidor 60 s).",
+    "it": "Quotazioni quasi in tempo reale tramite CoinGecko (proxy PatTool, memoria temporanea del server 60 s).",
+    "ar": "أسعار شبه آنية عبر CoinGecko (وكيل PatTool، ذاكرة خادم 60 ث).",
+    "cn": "通过 CoinGecko 的近实时行情（PatTool 代理，服务器缓存 60 秒）。",
+    "el": "Τιμές σχεδόν σε πραγματικό χρόνο μέσω CoinGecko (διαμεσολαβητής PatTool, προσωρινή μνήμη διακομιστή 60 δ).",
+    "he": "שערים כמעט בזמן אמת דרך CoinGecko (מתווך PatTool, מטמון שרת 60 שנ').",
+    "in": "CoinGecko से लगभग वास्तविक समय के भाव (PatTool प्रॉक्सी, सर्वर कैश 60 से)।",
+    "jp": "CoinGecko によるほぼリアルタイムの相場（PatTool プロキシ、サーバーキャッシュ 60 秒）。",
+    "ru": "Курсы почти в реальном времени через CoinGecko (прокси PatTool, серверный кэш 60 с)."
+  },
+  "CRYPTOS.PRICE": {
+    "de": "Kurs",
+    "es": "Cotización",
+    "it": "Quotazione",
+    "ar": "السعر",
+    "cn": "价格",
+    "el": "Τιμή",
+    "he": "שער",
+    "in": "भाव",
+    "jp": "価格",
+    "ru": "Курс"
+  },
+  "CRYPTOS.SYMBOL": {
+    "de": "Symbol",
+    "es": "Símbolo",
+    "it": "Simbolo",
+    "ar": "الرمز",
+    "cn": "符号",
+    "el": "Σύμβολο",
+    "he": "סמל",
+    "in": "प्रतीक",
+    "jp": "シンボル",
+    "ru": "Символ"
+  },
+  "CRYPTOS.NAME": {
+    "de": "Name",
+    "es": "Nombre",
+    "it": "Nome",
+    "ar": "الاسم",
+    "cn": "名称",
+    "el": "Όνομα",
+    "he": "שם",
+    "in": "नाम",
+    "jp": "名前",
+    "ru": "Имя"
+  },
+  "CRYPTOS.MARKET_CAP": {
+    "de": "Marktkapitalisierung",
+    "es": "Capitalización",
+    "it": "Capitalizzazione",
+    "ar": "القيمة السوقية",
+    "cn": "市值",
+    "el": "Κεφαλαιοποίηση",
+    "he": "שווי שוק",
+    "in": "बाज़ार पूँजी",
+    "jp": "時価総額",
+    "ru": "Капитализация"
+  },
+  "CRYPTOS.CURRENCY": {
+    "de": "Währung",
+    "es": "Divisa",
+    "it": "Valuta",
+    "ar": "العملة",
+    "cn": "货币",
+    "el": "Νόμισμα",
+    "he": "מטבע",
+    "in": "मुद्रा",
+    "jp": "通貨",
+    "ru": "Валюта"
+  },
+  "CRYPTOS.REFRESH": {
+    "de": "Aktualisieren",
+    "es": "Actualizar",
+    "it": "Aggiorna",
+    "ar": "تحديث",
+    "cn": "刷新",
+    "el": "Ανανέωση",
+    "he": "רענון",
+    "in": "ताज़ा करें",
+    "jp": "更新",
+    "ru": "Обновить"
+  },
+  "CRYPTOS.LOADING": {
+    "de": "Kurse werden geladen…",
+    "es": "Cargando cotizaciones…",
+    "it": "Caricamento delle quotazioni…",
+    "ar": "جارٍ تحميل الأسعار…",
+    "cn": "正在加载行情…",
+    "el": "Φόρτωση τιμών…",
+    "he": "טוען שערים…",
+    "in": "भाव लोड हो रहे हैं…",
+    "jp": "相場を読み込み中…",
+    "ru": "Загрузка курсов…"
+  },
+  "CRYPTOS.ERROR": {
+    "de": "Die Kryptokurse konnten nicht abgerufen werden.",
+    "es": "No se pudieron obtener las cotizaciones cripto.",
+    "it": "Impossibile recuperare le quotazioni cripto.",
+    "ar": "تعذر جلب أسعار العملات المشفرة.",
+    "cn": "无法获取加密货币行情。",
+    "el": "Δεν ήταν δυνατή η ανάκτηση των τιμών κρύπτο.",
+    "he": "לא ניתן לאחזר שערי קריפטו.",
+    "in": "क्रिप्टो भाव नहीं मिल सके।",
+    "jp": "暗号通貨の相場を取得できませんでした。",
+    "ru": "Не удалось получить курсы криптовалют."
+  },
+  "CRYPTOS.UPDATED": {
+    "de": "Aktualisiert am",
+    "es": "Actualizado el",
+    "it": "Aggiornato il",
+    "ar": "آخر تحديث في",
+    "cn": "更新于",
+    "el": "Ενημέρωση στις",
+    "he": "עודכן ב",
+    "in": "अपडेट",
+    "jp": "更新日時",
+    "ru": "Обновлено"
+  },
+  "CRYPTOS.SOURCE_NOTE": {
+    "de": "Quelle: CoinGecko — kostenloses Angebot, Server-Zwischenspeicher.",
+    "es": "Fuente: CoinGecko — oferta gratuita, caché de servidor.",
+    "it": "Fonte: CoinGecko — piano gratuito, memoria temporanea sul server.",
+    "ar": "المصدر: CoinGecko — عرض مجاني، ذاكرة خادم.",
+    "cn": "来源：CoinGecko — 免费档，服务器缓存。",
+    "el": "Πηγή: CoinGecko — δωρεάν επίπεδο, προσωρινή μνήμη διακομιστή.",
+    "he": "מקור: CoinGecko — מסלול חינמי, מטמון שרת.",
+    "in": "स्रोत: CoinGecko — मुफ़्त स्तर, सर्वर कैश।",
+    "jp": "出典：CoinGecko — 無料枠、サーバー側キャッシュ。",
+    "ru": "Источник: CoinGecko — бесплатный тариф, серверный кэш."
+  },
+  "CRYPTOS.HISTORY": {
+    "de": "Verlauf",
+    "es": "Historial",
+    "it": "Storico",
+    "ar": "السجل",
+    "cn": "历史",
+    "el": "Ιστορικό",
+    "he": "היסטוריה",
+    "in": "इतिहास",
+    "jp": "履歴",
+    "ru": "История"
+  },
+  "CRYPTOS.CHART_COIN": {
+    "de": "Kryptowährung des Diagramms",
+    "es": "Criptomoneda del gráfico",
+    "it": "Criptovaluta del grafico",
+    "ar": "العملة المشفرة للرسم",
+    "cn": "图表的加密货币",
+    "el": "Κρυπτονόμισμα γραφήματος",
+    "he": "מטבע הקריפטו של התרשים",
+    "in": "चार्ट की क्रिप्टो मुद्रा",
+    "jp": "グラフの暗号通貨",
+    "ru": "Криптовалюта графика"
+  },
+  "CRYPTOS.LOADING_HISTORY": {
+    "de": "Verlauf wird geladen…",
+    "es": "Cargando el historial…",
+    "it": "Caricamento dello storico…",
+    "ar": "جارٍ تحميل السجل…",
+    "cn": "正在加载历史…",
+    "el": "Φόρτωση ιστορικού…",
+    "he": "טוען היסטוריה…",
+    "in": "इतिहास लोड हो रहा है…",
+    "jp": "履歴を読み込み中…",
+    "ru": "Загрузка истории…"
+  },
+  "CRYPTOS.NO_HISTORY": {
+    "de": "Keine Verlaufsdaten für diesen Zeitraum.",
+    "es": "No hay datos históricos para este periodo.",
+    "it": "Nessun dato storico per questo periodo.",
+    "ar": "لا توجد بيانات تاريخية لهذه الفترة.",
+    "cn": "该时段没有历史数据。",
+    "el": "Δεν υπάρχουν ιστορικά δεδομένα για αυτή την περίοδο.",
+    "he": "אין נתונים היסטוריים לתקופה זו.",
+    "in": "इस अवधि का कोई ऐतिहासिक डेटा नहीं।",
+    "jp": "この期間の履歴データはありません。",
+    "ru": "Нет исторических данных за этот период."
+  },
+  "CRYPTOS.HISTORY_ERROR": {
+    "de": "Der Verlauf konnte nicht geladen werden.",
+    "es": "No se pudo cargar el historial.",
+    "it": "Impossibile caricare lo storico.",
+    "ar": "تعذر تحميل السجل.",
+    "cn": "无法加载历史。",
+    "el": "Δεν ήταν δυνατή η φόρτωση του ιστορικού.",
+    "he": "לא ניתן לטעון את ההיסטוריה.",
+    "in": "इतिहास लोड नहीं हो सका।",
+    "jp": "履歴を読み込めませんでした。",
+    "ru": "Не удалось загрузить историю."
+  },
+  "CRYPTOS.HISTORY_STALE": {
+    "de": "CoinGecko begrenzt die Rate — Diagramm aus dem Zwischenspeicher (ältere Daten).",
+    "es": "CoinGecko limita el ritmo — gráfico desde la caché (datos más antiguos).",
+    "it": "CoinGecko limita la frequenza — grafico dalla memoria temporanea (dati più vecchi).",
+    "ar": "CoinGecko يحدّ المعدل — الرسم من الذاكرة المؤقتة (بيانات أقدم).",
+    "cn": "CoinGecko 限制请求频率 — 图表来自缓存（数据较旧）。",
+    "el": "Το CoinGecko περιορίζει τον ρυθμό — γράφημα από την προσωρινή μνήμη (παλαιότερα δεδομένα).",
+    "he": "CoinGecko מגביל את הקצב — התרשים מהמטמון (נתונים ישנים יותר).",
+    "in": "CoinGecko दर सीमित करता है — चार्ट कैश से (पुराना डेटा)।",
+    "jp": "CoinGecko がレートを制限 — グラフはキャッシュ（より古いデータ）。",
+    "ru": "CoinGecko ограничивает частоту — график из кэша (более старые данные)."
+  },
+  "CRYPTOS.HISTORY_RATE_LIMIT": {
+    "de": "CoinGecko begrenzt die Rate. Bitte in 1 bis 2 Minuten erneut versuchen.",
+    "es": "CoinGecko limita el ritmo. Inténtelo de nuevo en 1 o 2 minutos.",
+    "it": "CoinGecko limita la frequenza. Riprovi tra 1 o 2 minuti.",
+    "ar": "CoinGecko يحدّ المعدل. أعد المحاولة خلال دقيقة إلى دقيقتين.",
+    "cn": "CoinGecko 限制了请求频率。请在 1 到 2 分钟后重试。",
+    "el": "Το CoinGecko περιορίζει τον ρυθμό. Δοκιμάστε ξανά σε 1 έως 2 λεπτά.",
+    "he": "CoinGecko מגביל את הקצב. נסו שוב בעוד דקה עד שתיים.",
+    "in": "CoinGecko दर सीमित कर रहा है। 1 से 2 मिनट में पुनः प्रयास करें।",
+    "jp": "CoinGecko がレートを制限しています。1〜2 分後にもう一度お試しください。",
+    "ru": "CoinGecko ограничивает частоту. Повторите через 1–2 минуты."
+  },
+  "STOCK.SYMBOL": {
+    "de": "Symbol"
+  },
+  "MEDIA_CACHE.REFRESH": {
+    "de": "Zwischenspeicher aktualisieren",
+    "es": "Actualizar las cachés",
+    "it": "Aggiorna le memorie temporanee",
+    "ar": "تحديث ذاكرات التخزين",
+    "cn": "刷新缓存",
+    "el": "Ανανέωση προσωρινής μνήμης",
+    "he": "רענון המטמונים",
+    "in": "कैश ताज़ा करें",
+    "jp": "キャッシュを更新",
+    "ru": "Обновить кэши"
+  },
+  "MEDIA_CACHE.REFRESH_TITLE": {
+    "de": "Alle Medien-Zwischenspeicher neu laden (TV, EPG, Radio, Archive.org)",
+    "es": "Recargar todas las cachés de medios (TV, EPG, radio, Archive.org)",
+    "it": "Ricarica tutte le memorie temporanee dei media (TV, EPG, radio, Archive.org)",
+    "ar": "إعادة تحميل كل ذاكرات الوسائط (TV, EPG, راديو, Archive.org)",
+    "cn": "重新加载全部媒体缓存（电视、EPG、广播、Archive.org）",
+    "el": "Επαναφόρτωση όλων των προσωρινών μνημών μέσων (TV, EPG, ραδιόφωνο, Archive.org)",
+    "he": "טעינה מחדש של כל מטמוני המדיה (TV, EPG, רדיו, Archive.org)",
+    "in": "सभी मीडिया कैश फिर लोड करें (TV, EPG, रेडियो, Archive.org)",
+    "jp": "すべてのメディアキャッシュを再読み込み（TV、EPG、ラジオ、Archive.org）",
+    "ru": "Перезагрузить все медиа-кэши (ТВ, EPG, радио, Archive.org)"
+  },
+  "MEDIA_CACHE.REFRESH_STARTED": {
+    "de": "Aktualisierung der Zwischenspeicher gestartet…",
+    "es": "Actualización de las cachés iniciada…",
+    "it": "Aggiornamento delle memorie temporanee avviato…",
+    "ar": "بدأ تحديث الذاكرات…",
+    "cn": "缓存刷新已开始…",
+    "el": "Η ανανέωση των προσωρινών μνημών ξεκίνησε…",
+    "he": "רענון המטמונים התחיל…",
+    "in": "कैश ताज़ा करना शुरू…",
+    "jp": "キャッシュの更新を開始しました…",
+    "ru": "Обновление кэшей начато…"
+  },
+  "MEDIA_CACHE.REFRESH_DONE": {
+    "de": "Alle Medien-Zwischenspeicher wurden neu geladen.",
+    "es": "Todas las cachés de medios se han recargado.",
+    "it": "Tutte le memorie temporanee dei media sono state ricaricate.",
+    "ar": "أُعيد تحميل كل ذاكرات الوسائط.",
+    "cn": "所有媒体缓存已重新加载。",
+    "el": "Όλες οι προσωρινές μνήμες μέσων επαναφορτώθηκαν.",
+    "he": "כל מטמוני המדיה נטענו מחדש.",
+    "in": "सभी मीडिया कैश फिर लोड हो गए।",
+    "jp": "すべてのメディアキャッシュを再読み込みしました。",
+    "ru": "Все медиа-кэши перезагружены."
+  },
+  "MEDIA_CACHE.REFRESH_DONE_SEC": {
+    "de": "Alle Medien-Zwischenspeicher neu geladen ({{seconds}} s).",
+    "es": "Todas las cachés de medios recargadas ({{seconds}} s).",
+    "it": "Tutte le memorie temporanee dei media ricaricate ({{seconds}} s).",
+    "ar": "أُعيد تحميل كل ذاكرات الوسائط ({{seconds}} ث).",
+    "cn": "所有媒体缓存已重新加载（{{seconds}} 秒）。",
+    "el": "Όλες οι προσωρινές μνήμες μέσων επαναφορτώθηκαν ({{seconds}} δ).",
+    "he": "כל מטמוני המדיה נטענו מחדש ({{seconds}} שנ').",
+    "in": "सभी मीडिया कैश फिर लोड ({{seconds}} से)।",
+    "jp": "すべてのメディアキャッシュを再読み込みしました（{{seconds}} 秒）。",
+    "ru": "Все медиа-кэши перезагружены ({{seconds}} с)."
+  },
+  "MEDIA_CACHE.REFRESH_ERROR": {
+    "de": "Aktualisierung der Zwischenspeicher fehlgeschlagen.",
+    "es": "Error al actualizar las cachés.",
+    "it": "Aggiornamento delle memorie temporanee non riuscito.",
+    "ar": "فشل تحديث الذاكرات.",
+    "cn": "缓存刷新失败。",
+    "el": "Αποτυχία ανανέωσης των προσωρινών μνημών.",
+    "he": "רענון המטמונים נכשל.",
+    "in": "कैश ताज़ा करना विफल।",
+    "jp": "キャッシュの更新に失敗しました。",
+    "ru": "Не удалось обновить кэши."
+  },
+  "MEDIA_CACHE.HELP": {
+    "de": "Hilfe zu Zwischenspeichern",
+    "es": "Ayuda de cachés",
+    "it": "Guida alle memorie",
+    "ar": "مساعدة الذاكرات",
+    "cn": "缓存帮助",
+    "el": "Βοήθεια προσωρινής μνήμης",
+    "he": "עזרה למטמון",
+    "in": "कैश सहायता",
+    "jp": "キャッシュのヘルプ",
+    "ru": "Справка по кэшам"
+  },
+  "MEDIA_CACHE.HELP_TITLE": {
+    "de": "Medien-Zwischenspeicher",
+    "es": "Cachés de medios",
+    "it": "Memorie temporanee dei media",
+    "ar": "ذاكرات الوسائط",
+    "cn": "媒体缓存",
+    "el": "Προσωρινές μνήμες μέσων",
+    "he": "מטמוני מדיה",
+    "in": "मीडिया कैश",
+    "jp": "メディアキャッシュ",
+    "ru": "Медиа-кэши"
+  },
+  "MEDIA_CACHE.HELP_CLOSE": {
+    "de": "Schließen",
+    "es": "Cerrar",
+    "it": "Chiudi",
+    "ar": "إغلاق",
+    "cn": "关闭",
+    "el": "Κλείσιμο",
+    "he": "סגירה",
+    "in": "बंद करें",
+    "jp": "閉じる",
+    "ru": "Закрыть"
+  },
+  "ARCHIVE.MT_MOVIES": {
+    "de": "Videos"
+  },
+  "ARCHIVE.MT_SOFTWARE": {
+    "de": "Programme",
+    "es": "Programas",
+    "it": "Programmi"
+  },
+  "ARCHIVE.SORT_DOWNLOADS": {
+    "de": "Heruntergeladen"
+  },
+  "ARCHIVE.COUNTRY": {
+    "de": "Land",
+    "es": "País",
+    "it": "Paese",
+    "ar": "البلد",
+    "cn": "国家",
+    "el": "Χώρα",
+    "he": "מדינה",
+    "in": "देश",
+    "jp": "国",
+    "ru": "Страна"
+  },
+  "ARCHIVE.COUNTRY_ALL": {
+    "de": "Alle Länder",
+    "es": "Todos los países",
+    "it": "Tutti i paesi",
+    "ar": "كل البلدان",
+    "cn": "所有国家",
+    "el": "Όλες οι χώρες",
+    "he": "כל המדינות",
+    "in": "सभी देश",
+    "jp": "すべての国",
+    "ru": "Все страны"
+  },
+  "ARCHIVE.NO_PLAYLIST_COLLECTIONS": {
+    "de": "Keine geteilte Audiosammlung. Melden Sie sich an, um eine zu erstellen.",
+    "es": "Ninguna colección de audio compartida. Inicie sesión para crear una.",
+    "it": "Nessuna raccolta audio condivisa. Acceda per crearne una.",
+    "ar": "لا توجد مجموعة صوتية مشتركة. سجّل الدخول لإنشاء واحدة.",
+    "cn": "没有共享的音频合集。请登录以创建。",
+    "el": "Καμία κοινόχρηστη συλλογή ήχου. Συνδεθείτε για να δημιουργήσετε μία.",
+    "he": "אין אוסף שמע משותף. התחברו כדי ליצור אחד.",
+    "in": "कोई साझा ऑडियो संग्रह नहीं। बनाने के लिए साइन इन करें।",
+    "jp": "共有オーディオコレクションはありません。作成するにはログインしてください。",
+    "ru": "Нет общей аудиоколлекции. Войдите, чтобы создать её."
+  },
+  "ARCHIVE.PLAYLIST_ITEM_COUNT": {
+    "de": "{{count}} Titel",
+    "es": "{{count}} pista(s)",
+    "it": "{{count}} brani",
+    "ar": "{{count}} مقطع/مقاطع",
+    "cn": "{{count}} 首",
+    "el": "{{count}} κομμάτι(α)",
+    "he": "{{count}} רצועות",
+    "in": "{{count}} ट्रैक",
+    "jp": "{{count}} 曲",
+    "ru": "{{count}} трек(ов)"
+  },
+  "ARCHIVE.PLAYLIST_OWNER": {
+    "de": "von {{name}}",
+    "es": "por {{name}}",
+    "it": "di {{name}}",
+    "ar": "بواسطة {{name}}",
+    "cn": "由 {{name}}",
+    "el": "από {{name}}",
+    "he": "מאת {{name}}",
+    "in": "{{name}} द्वारा",
+    "jp": "{{name}} 作",
+    "ru": "от {{name}}"
+  },
+  "ARCHIVE.PLAYLIST_YOURS": {
+    "de": "Ihre",
+    "es": "la suya",
+    "it": "la sua",
+    "ar": "الخاصة بك",
+    "cn": "您的",
+    "el": "η δική σας",
+    "he": "שלך",
+    "in": "आपकी",
+    "jp": "あなたのもの",
+    "ru": "ваша"
+  },
+  "ARCHIVE.PLAYLIST_CREATE": {
+    "de": "Neue Sammlung",
+    "es": "Nueva colección",
+    "it": "Nuova raccolta",
+    "ar": "مجموعة جديدة",
+    "cn": "新建合集",
+    "el": "Νέα συλλογή",
+    "he": "אוסף חדש",
+    "in": "नया संग्रह",
+    "jp": "新しいコレクション",
+    "ru": "Новая коллекция"
+  },
+  "ARCHIVE.PLAYLIST_CREATE_CONFIRM": {
+    "de": "Erstellen",
+    "es": "Crear",
+    "it": "Crea",
+    "ar": "إنشاء",
+    "cn": "创建",
+    "el": "Δημιουργία",
+    "he": "יצירה",
+    "in": "बनाएँ",
+    "jp": "作成",
+    "ru": "Создать"
+  },
+  "ARCHIVE.PLAYLIST_CREATE_FIRST": {
+    "de": "Erstellen Sie zuerst eine Sammlung",
+    "es": "Cree primero una colección",
+    "it": "Crei prima una raccolta",
+    "ar": "أنشئ مجموعة أولاً",
+    "cn": "请先创建一个合集",
+    "el": "Δημιουργήστε πρώτα μια συλλογή",
+    "he": "צרו קודם אוסף",
+    "in": "पहले एक संग्रह बनाएँ",
+    "jp": "先にコレクションを作成してください",
+    "ru": "Сначала создайте коллекцию"
+  },
+  "ARCHIVE.PLAYLIST_NAME_PLACEHOLDER": {
+    "de": "Name der Sammlung",
+    "es": "Nombre de la colección",
+    "it": "Nome della raccolta",
+    "ar": "اسم المجموعة",
+    "cn": "合集名称",
+    "el": "Όνομα συλλογής",
+    "he": "שם האוסף",
+    "in": "संग्रह का नाम",
+    "jp": "コレクション名",
+    "ru": "Название коллекции"
+  },
+  "ARCHIVE.PLAYLIST_NAME_REQUIRED": {
+    "de": "Geben Sie einen Sammlungsnamen an.",
+    "es": "Indique un nombre de colección.",
+    "it": "Indichi un nome di raccolta.",
+    "ar": "أدخل اسم مجموعة.",
+    "cn": "请填写合集名称。",
+    "el": "Δώστε όνομα συλλογής.",
+    "he": "ציינו שם אוסף.",
+    "in": "संग्रह का नाम बताएँ।",
+    "jp": "コレクション名を入力してください。",
+    "ru": "Укажите название коллекции."
+  },
+  "ARCHIVE.PLAYLIST_LOGIN_CREATE": {
+    "de": "Melden Sie sich an, um Ihre Sammlungen zu erstellen und zu verwalten. Öffentliche Sammlungen können Sie trotzdem anhören.",
+    "es": "Inicie sesión para crear y gestionar sus colecciones. Aun así puede escuchar las colecciones públicas.",
+    "it": "Acceda per creare e gestire le sue raccolte. Può comunque ascoltare le raccolte pubbliche.",
+    "ar": "سجّل الدخول لإنشاء مجموعاتك وإدارتها. يمكنك مع ذلك الاستماع إلى المجموعات العامة.",
+    "cn": "请登录以创建和管理您的合集。您仍可收听公开合集。",
+    "el": "Συνδεθείτε για να δημιουργήσετε και να διαχειριστείτε τις συλλογές σας. Μπορείτε πάντως να ακούσετε τις δημόσιες.",
+    "he": "התחברו כדי ליצור ולנהל את האוספים שלכם. עדיין אפשר להאזין לאוספים ציבוריים.",
+    "in": "अपने संग्रह बनाने और प्रबंधित करने के लिए साइन इन करें। सार्वजनिक संग्रह फिर भी सुन सकते हैं।",
+    "jp": "コレクションの作成と管理にはログインしてください。公開コレクションは聞けます。",
+    "ru": "Войдите, чтобы создавать свои коллекции и управлять ими. Публичные коллекции можно слушать и без входа."
+  },
+  "ARCHIVE.PLAYLIST_BACK": {
+    "de": "Zurück zu den Sammlungen",
+    "es": "Volver a las colecciones",
+    "it": "Torna alle raccolte",
+    "ar": "العودة إلى المجموعات",
+    "cn": "返回合集",
+    "el": "Επιστροφή στις συλλογές",
+    "he": "חזרה לאוספים",
+    "in": "संग्रहों पर वापस",
+    "jp": "コレクション一覧に戻る",
+    "ru": "Назад к коллекциям"
+  },
+  "ARCHIVE.PLAYLIST_RENAME": {
+    "de": "Sammlung umbenennen",
+    "es": "Renombrar la colección",
+    "it": "Rinomina la raccolta",
+    "ar": "إعادة تسمية المجموعة",
+    "cn": "重命名合集",
+    "el": "Μετονομασία συλλογής",
+    "he": "שינוי שם האוסף",
+    "in": "संग्रह का नाम बदलें",
+    "jp": "コレクション名を変更",
+    "ru": "Переименовать коллекцию"
+  },
+  "ARCHIVE.PLAYLIST_RENAME_PROMPT": {
+    "de": "Neuer Sammlungsname",
+    "es": "Nuevo nombre de la colección",
+    "it": "Nuovo nome della raccolta",
+    "ar": "اسم المجموعة الجديد",
+    "cn": "新的合集名称",
+    "el": "Νέο όνομα συλλογής",
+    "he": "שם אוסף חדש",
+    "in": "संग्रह का नया नाम",
+    "jp": "新しいコレクション名",
+    "ru": "Новое название коллекции"
+  },
+  "ARCHIVE.PLAYLIST_DELETE": {
+    "de": "Sammlung löschen",
+    "es": "Eliminar la colección",
+    "it": "Elimina la raccolta",
+    "ar": "حذف المجموعة",
+    "cn": "删除合集",
+    "el": "Διαγραφή συλλογής",
+    "he": "מחיקת האוסף",
+    "in": "संग्रह हटाएँ",
+    "jp": "コレクションを削除",
+    "ru": "Удалить коллекцию"
+  },
+  "ARCHIVE.PLAYLIST_DELETE_CONFIRM": {
+    "de": "Sammlung « {{name}} » löschen?",
+    "es": "¿Eliminar la colección « {{name}} »?",
+    "it": "Eliminare la raccolta « {{name}} »?",
+    "ar": "حذف المجموعة « {{name}} »؟",
+    "cn": "删除合集「{{name}}」？",
+    "el": "Διαγραφή της συλλογής « {{name}} »;",
+    "he": "למחוק את האוסף « {{name}} »?",
+    "in": "संग्रह « {{name}} » हटाएँ?",
+    "jp": "コレクション「{{name}}」を削除しますか？",
+    "ru": "Удалить коллекцию « {{name}} »?"
+  },
+  "ARCHIVE.PLAYLIST_PICK": {
+    "de": "Sammlung wählen",
+    "es": "Elegir una colección",
+    "it": "Scegli una raccolta",
+    "ar": "اختيار مجموعة",
+    "cn": "选择合集",
+    "el": "Επιλογή συλλογής",
+    "he": "בחירת אוסף",
+    "in": "संग्रह चुनें",
+    "jp": "コレクションを選ぶ",
+    "ru": "Выбрать коллекцию"
+  },
+  "ARCHIVE.ERR_PLAYLIST_TOO_MANY": {
+    "de": "Sie haben bereits die maximale Anzahl an Sammlungen erreicht.",
+    "es": "Ya ha alcanzado el número máximo de colecciones.",
+    "it": "Ha già raggiunto il numero massimo di raccolte.",
+    "ar": "بلغت بالفعل الحد الأقصى لعدد المجموعات.",
+    "cn": "您已达到合集数量上限。",
+    "el": "Έχετε ήδη φτάσει τον μέγιστο αριθμό συλλογών.",
+    "he": "כבר הגעתם למספר המרבי של אוספים.",
+    "in": "आप संग्रहों की अधिकतम संख्या तक पहुँच चुके हैं।",
+    "jp": "コレクション数の上限に達しています。",
+    "ru": "Вы уже достигли максимального числа коллекций."
+  },
+  "ARCHIVE.INFO_DOWNLOADS": {
+    "de": "Heruntergeladen"
+  },
+  "ARCHIVE.INFO_STATUS": {
+    "de": "Status"
+  },
+  "ARCHIVE.INFO_NO": {
+    "es": "No",
+    "it": "No"
+  },
+  "GPX_TRACE.NAME": {
+    "de": "Name"
+  },
+  "GPX_TRACE.LINK": {
+    "de": "Link",
+    "it": "Collegamento"
+  },
+  "GPX_TRACE.START": {
+    "de": "Start"
+  },
+  "GPS.START_SHORT": {
+    "de": "Starten"
+  },
+  "GPS.POS_START": {
+    "de": "Start"
+  },
+  "GPS.ONLINE": {
+    "de": "Verbunden",
+    "it": "In linea"
+  },
+  "GPS.OFFLINE_SHORT": {
+    "de": "Getrennt",
+    "it": "Non in linea"
+  },
+  "GPS.SESSIONS_SORT_TITLE": {
+    "de": "Name"
+  },
+  "GPS.OFFLINE_MAP_BTN": {
+    "de": "Getrennt",
+    "it": "Non in linea"
+  },
+  "GPS.OFFLINE_MAP_CATALOG_ZOOM": {
+    "es": "Zoom {{min}} – {{max}}"
+  },
+  "NORD.SUBTITLE": {
+    "de": "Nordkompass über den Magnetsensor und Auslesen der Telefonsensoren (wie der Diagnosebildschirm *#0*#).",
+    "es": "Brújula del norte mediante el sensor magnético y lectura de los sensores del teléfono (como la pantalla de diagnóstico *#0*#).",
+    "it": "Bussola del nord tramite il sensore magnetico e lettura dei sensori del telefono (come la schermata diagnostica *#0*#).",
+    "ar": "بوصلة الشمال عبر المستشعر المغناطيسي، وقراءة مستشعرات الهاتف (مثل شاشة التشخيص *#0*#).",
+    "cn": "通过磁传感器的北方罗盘，以及读取手机传感器（如同诊断界面 *#0*#）。",
+    "el": "Πυξίδα Βορρά μέσω του μαγνητικού αισθητήρα και ανάγνωση των αισθητήρων του τηλεφώνου (όπως η οθόνη διάγνωσης *#0*#).",
+    "he": "מצפן צפון דרך החיישן המגנטי, וקריאת חיישני הטלפון (כמו מסך האבחון *#0*#).",
+    "in": "चुंबकीय संवेदक से उत्तर कंपास, और फ़ोन संवेदकों का पाठ (निदान स्क्रीन *#0*# की तरह)।",
+    "jp": "磁気センサーによる北のコンパスと、電話のセンサー読み取り（診断画面 *#0*# と同様）。",
+    "ru": "Компас севера по магнитному датчику и чтение датчиков телефона (как диагностический экран *#0*#)."
+  },
+  "NORD.START_SENSORS": {
+    "de": "Sensoren aktivieren",
+    "es": "Activar los sensores",
+    "it": "Attiva i sensori",
+    "ar": "تفعيل المستشعرات",
+    "cn": "启用传感器",
+    "el": "Ενεργοποίηση αισθητήρων",
+    "he": "הפעלת החיישנים",
+    "in": "संवेदक चालू करें",
+    "jp": "センサーを有効にする",
+    "ru": "Включить датчики"
+  },
+  "NORD.PERMISSION_NEEDED": {
+    "de": "iOS verlangt eine Aktion: tippen Sie auf die Schaltfläche, um Kompass und Bewegung zu erlauben.",
+    "es": "iOS exige una acción: toque el botón para permitir brújula y movimiento.",
+    "it": "iOS richiede un’azione: tocchi il pulsante per consentire bussola e movimento.",
+    "ar": "يتطلب iOS إجراءً: المس الزر للسماح بالبوصلة والحركة.",
+    "cn": "iOS 需要一次操作：点按按钮以允许罗盘和运动。",
+    "el": "Το iOS απαιτεί ενέργεια: αγγίξτε το κουμπί για να επιτρέψετε πυξίδα και κίνηση.",
+    "he": "iOS דורש פעולה: געו בכפתור כדי לאשר מצפן ותנועה.",
+    "in": "iOS को एक क्रिया चाहिए: कंपास और गति की अनुमति के लिए बटन छुएँ।",
+    "jp": "iOS では操作が必要です。ボタンをタップしてコンパスとモーションを許可してください。",
+    "ru": "iOS требует действия: коснитесь кнопки, чтобы разрешить компас и движение."
+  },
+  "NORD.PERMISSION_DENIED": {
+    "de": "Zugriff auf die Sensoren verweigert. Erlauben Sie ihn in den Einstellungen und versuchen Sie es erneut.",
+    "es": "Acceso a los sensores denegado. Permítalo en Ajustes y vuelva a intentarlo.",
+    "it": "Accesso ai sensori negato. Consentalo in Impostazioni, poi riprovi.",
+    "ar": "رُفض الوصول إلى المستشعرات. اسمح به في الإعدادات ثم أعد المحاولة.",
+    "cn": "传感器访问被拒绝。请在设置中允许后再试。",
+    "el": "Η πρόσβαση στους αισθητήρες απορρίφθηκε. Επιτρέψτε την στις Ρυθμίσεις και δοκιμάστε ξανά.",
+    "he": "הגישה לחיישנים נדחתה. אשרו אותה בהגדרות ונסו שוב.",
+    "in": "संवेदक पहुँच अस्वीकृत। सेटिंग में अनुमति दें, फिर पुनः प्रयास करें।",
+    "jp": "センサーへのアクセスが拒否されました。設定で許可してから再試行してください。",
+    "ru": "Доступ к датчикам запрещён. Разрешите его в настройках и повторите."
+  },
+  "NORD.TRUE_NORTH": {
+    "de": "Geografisch Nord",
+    "es": "Norte geográfico",
+    "it": "Nord geografico",
+    "ar": "الشمال الجغرافي",
+    "cn": "真北",
+    "el": "Γεωγραφικός Βορράς",
+    "he": "צפון גאוגרפי",
+    "in": "भौगोलिक उत्तर",
+    "jp": "真北",
+    "ru": "Географический север"
+  },
+  "NORD.TRUE_NORTH_UNAVAILABLE": {
+    "de": "GPS erforderlich: ohne Position ist geografisch Nord aus (magnetische Richtung).",
+    "es": "Se requiere GPS: sin posición, el norte geográfico está desactivado (rumbo magnético).",
+    "it": "GPS richiesto: senza posizione il nord geografico è disattivato (rotta magnetica).",
+    "ar": "يلزم GPS: بلا موقع يُعطّل الشمال الجغرافي (الاتجاه المغناطيسي).",
+    "cn": "需要 GPS：没有定位时真北关闭（磁航向）。",
+    "el": "Απαιτείται GPS: χωρίς θέση ο γεωγραφικός Βορράς είναι ανενεργός (μαγνητική πορεία).",
+    "he": "נדרש GPS: בלי מיקום הצפון הגאוגרפי כבוי (כיוון מגנטי).",
+    "in": "GPS आवश्यक: स्थान के बिना भौगोलिक उत्तर बंद है (चुंबकीय दिशा)।",
+    "jp": "GPS が必要です。位置がないと真北はオフです（磁気方位）。",
+    "ru": "Нужен GPS: без координат географический север выключен (магнитный курс)."
+  },
+  "NORD.TRUE": {
+    "de": "wahr",
+    "es": "verdadero",
+    "it": "vero",
+    "ar": "حقيقي",
+    "cn": "真",
+    "el": "αληθές",
+    "he": "אמיתי",
+    "in": "सत्य",
+    "jp": "真",
+    "ru": "истинный"
+  },
+  "NORD.MAGNETIC": {
+    "de": "magnetisch",
+    "es": "magnético",
+    "it": "magnetico",
+    "ar": "مغناطيسي",
+    "cn": "磁",
+    "el": "μαγνητικό",
+    "he": "מגנטי",
+    "in": "चुंबकीय",
+    "jp": "磁気",
+    "ru": "магнитный"
+  },
+  "NORD.COMPASS_ARIA": {
+    "de": "Nordkompass",
+    "es": "Brújula del norte",
+    "it": "Bussola del nord",
+    "ar": "بوصلة الشمال",
+    "cn": "北方罗盘",
+    "el": "Πυξίδα Βορρά",
+    "he": "מצפן צפון",
+    "in": "उत्तर कंपास",
+    "jp": "北のコンパス",
+    "ru": "Компас севера"
+  },
+  "NORD.LIVE_ARIA": {
+    "de": "Kurs und Neigung des Telefons",
+    "es": "Rumbo e inclinación del teléfono",
+    "it": "Rotta e inclinazione del telefono",
+    "ar": "اتجاه الهاتف وميله",
+    "cn": "手机航向与倾斜",
+    "el": "Πορεία και κλίση τηλεφώνου",
+    "he": "כיוון והטיית הטלפון",
+    "in": "फ़ोन की दिशा और झुकाव",
+    "jp": "電話の方位と傾き",
+    "ru": "Курс и наклон телефона"
+  },
+  "NORD.AZIMUTH": {
+    "de": "Azimut",
+    "es": "Acimut",
+    "it": "Azimut",
+    "ar": "السمت",
+    "cn": "方位角",
+    "el": "Αζιμούθιο",
+    "he": "אזימוט",
+    "in": "दिगंश",
+    "jp": "方位角",
+    "ru": "Азимут"
+  },
+  "NORD.DECLINATION": {
+    "de": "Deklination",
+    "es": "Declinación",
+    "it": "Declinazione",
+    "ar": "الانحراف المغناطيسي",
+    "cn": "磁偏角",
+    "el": "Απόκλιση",
+    "he": "נטייה מגנטית",
+    "in": "दिक्पात",
+    "jp": "偏角",
+    "ru": "Склонение"
+  },
+  "NORD.DECLINATION_HINT": {
+    "de": "Magn. Nord → wahres Nord (GPS). Ändert sich nur, wenn Sie die Region wechseln.",
+    "es": "Norte magn. → norte verdadero (GPS). Solo cambia si cambia de región.",
+    "it": "Nord magn. → nord vero (GPS). Cambia solo se cambia regione.",
+    "ar": "الشمال المغناطيسي → الشمال الحقيقي (GPS). لا يتغير إلا إذا غيّرت المنطقة.",
+    "cn": "磁北 → 真北（GPS）。只有换地区才会变。",
+    "el": "Μαγν. Βορράς → αληθινός Βορράς (GPS). Αλλάζει μόνο αν αλλάξετε περιοχή.",
+    "he": "צפון מגנטי → צפון אמיתי (GPS). משתנה רק אם עוברים אזור.",
+    "in": "चुंब. उत्तर → सत्य उत्तर (GPS)। क्षेत्र बदलने पर ही बदलता है।",
+    "jp": "磁北 → 真北（GPS）。地域を移ったときだけ変わります。",
+    "ru": "Магн. север → истинный север (GPS). Меняется только при смене региона."
+  },
+  "NORD.FIELD": {
+    "de": "B-Feld",
+    "es": "Campo B",
+    "it": "Campo B",
+    "ar": "الحقل B",
+    "cn": "B场",
+    "el": "Πεδίο B",
+    "he": "שדה B",
+    "in": "B क्षेत्र",
+    "jp": "B場",
+    "ru": "Поле B"
+  },
+  "NORD.STABILITY": {
+    "de": "Stabilität",
+    "es": "Estabilidad",
+    "it": "Stabilità",
+    "ar": "الاستقرار",
+    "cn": "稳定性",
+    "el": "Σταθερότητα",
+    "he": "יציבות",
+    "in": "स्थिरता",
+    "jp": "安定性",
+    "ru": "Устойчивость"
+  },
+  "NORD.PITCH": {
+    "de": "Neigung",
+    "es": "Inclinación",
+    "it": "Inclinazione",
+    "ar": "الميل",
+    "cn": "倾斜",
+    "el": "Κλίση",
+    "he": "הטיה",
+    "in": "झुकाव",
+    "jp": "傾き",
+    "ru": "Наклон"
+  },
+  "NORD.ROLL": {
+    "de": "Querneigung",
+    "es": "Alabeo",
+    "it": "Rollio",
+    "ar": "الميل الجانبي",
+    "cn": "横滚",
+    "el": "Διατοιχισμός",
+    "he": "גלגול",
+    "in": "पार्श्व झुकाव",
+    "jp": "横揺れ",
+    "ru": "Крен"
+  },
+  "NORD.ADDRESS": {
+    "de": "Adresse",
+    "es": "Dirección",
+    "it": "Indirizzo",
+    "ar": "العنوان",
+    "cn": "地址",
+    "el": "Διεύθυνση",
+    "he": "כתובת",
+    "in": "पता",
+    "jp": "住所",
+    "ru": "Адрес"
+  },
+  "NORD.ADDRESS_REFRESH": {
+    "de": "Adresse aktualisieren",
+    "es": "Actualizar la dirección",
+    "it": "Aggiorna l’indirizzo",
+    "ar": "تحديث العنوان",
+    "cn": "刷新地址",
+    "el": "Ανανέωση διεύθυνσης",
+    "he": "רענון הכתובת",
+    "in": "पता ताज़ा करें",
+    "jp": "住所を更新",
+    "ru": "Обновить адрес"
+  },
+  "NORD.ADDRESS_EMPTY": {
+    "de": "Noch keine Adresse — aktivieren Sie GPS oder tippen Sie auf Aktualisieren.",
+    "es": "Aún no hay dirección: active el GPS o toque actualizar.",
+    "it": "Ancora nessun indirizzo — attivi il GPS o tocchi aggiorna.",
+    "ar": "لا عنوان بعد — فعّل GPS أو المس تحديث.",
+    "cn": "还没有地址——请开启 GPS 或点按刷新。",
+    "el": "Δεν υπάρχει ακόμη διεύθυνση — ενεργοποιήστε το GPS ή αγγίξτε ανανέωση.",
+    "he": "עדיין אין כתובת — הפעילו GPS או געו ברענון.",
+    "in": "अभी पता नहीं — GPS चालू करें या ताज़ा करें छुएँ।",
+    "jp": "住所はまだありません。GPS を有効にするか、更新をタップしてください。",
+    "ru": "Адреса пока нет — включите GPS или нажмите обновить."
+  },
+  "NORD.ADDRESS_LOADING": {
+    "de": "Adresse wird gesucht…",
+    "es": "Buscando la dirección…",
+    "it": "Ricerca dell’indirizzo…",
+    "ar": "جارٍ البحث عن العنوان…",
+    "cn": "正在查找地址…",
+    "el": "Αναζήτηση διεύθυνσης…",
+    "he": "מחפש כתובת…",
+    "in": "पता खोजा जा रहा है…",
+    "jp": "住所を検索中…",
+    "ru": "Поиск адреса…"
+  },
+  "NORD.ADDRESS_NEED_GPS": {
+    "de": "GPS-Position nicht verfügbar.",
+    "es": "Posición GPS no disponible.",
+    "it": "Posizione GPS non disponibile.",
+    "ar": "موقع GPS غير متاح.",
+    "cn": "GPS 位置不可用。",
+    "el": "Η θέση GPS δεν είναι διαθέσιμη.",
+    "he": "מיקום GPS אינו זמין.",
+    "in": "GPS स्थिति उपलब्ध नहीं।",
+    "jp": "GPS 位置を利用できません。",
+    "ru": "Позиция GPS недоступна."
+  },
+  "NORD.ADDRESS_NOT_FOUND": {
+    "de": "Keine Adresse für diese Position.",
+    "es": "Ninguna dirección para esta posición.",
+    "it": "Nessun indirizzo per questa posizione.",
+    "ar": "لا عنوان لهذا الموقع.",
+    "cn": "此位置没有地址。",
+    "el": "Καμία διεύθυνση για αυτή τη θέση.",
+    "he": "אין כתובת למיקום זה.",
+    "in": "इस स्थिति का कोई पता नहीं।",
+    "jp": "この位置の住所はありません。",
+    "ru": "Для этой позиции нет адреса."
+  },
+  "NORD.ADDRESS_ERROR": {
+    "de": "Die Adresse konnte nicht aufgelöst werden.",
+    "es": "No se pudo resolver la dirección.",
+    "it": "Impossibile risolvere l’indirizzo.",
+    "ar": "تعذر تحديد العنوان.",
+    "cn": "无法解析地址。",
+    "el": "Δεν ήταν δυνατή η επίλυση της διεύθυνσης.",
+    "he": "לא ניתן לפענח את הכתובת.",
+    "in": "पता हल नहीं हो सका।",
+    "jp": "住所を解決できませんでした。",
+    "ru": "Не удалось определить адрес."
+  },
+  "NORD.FIELD_INTERFERENCE": {
+    "de": "Ungewöhnliches Feld (außerhalb 22–72 µT): entfernen Sie sich von Magneten, Lautsprechern und magnetischen Hüllen.",
+    "es": "Campo anómalo (fuera de 22–72 µT): aléjese de imanes, altavoces y fundas magnéticas.",
+    "it": "Campo anomalo (fuori da 22–72 µT): allontanatevi da magneti, altoparlanti e cover magnetiche.",
+    "ar": "حقل غير طبيعي (خارج 22–72 µT): ابتعد عن المغناطيس ومكبرات الصوت والأغلفة المغناطيسية.",
+    "cn": "磁场异常（超出 22–72 µT）：请远离磁铁、扬声器和磁性外壳。",
+    "el": "Μη φυσιολογικό πεδίο (εκτός 22–72 µT): απομακρυνθείτε από μαγνήτες, ηχεία και μαγνητικές θήκες.",
+    "he": "שדה חריג (מחוץ ל-22–72 µT): התרחקו ממגנטים, רמקולים וכיסויים מגנטיים.",
+    "in": "असामान्य क्षेत्र (22–72 µT से बाहर): चुंबक, स्पीकर और चुंबकीय कवर से दूर रहें।",
+    "jp": "異常な磁場（22–72 µT の外）：磁石、スピーカー、磁気ケースから離してください。",
+    "ru": "Необычное поле (вне 22–72 µT): отойдите от магнитов, динамиков и магнитных чехлов."
+  },
+  "NORD.CAL_TITLE": {
+    "de": "Norden kalibrieren",
+    "es": "Calibrar el norte",
+    "it": "Calibrare il nord",
+    "ar": "معايرة الشمال",
+    "cn": "校准北方",
+    "el": "Βαθμονόμηση Βορρά",
+    "he": "כיול הצפון",
+    "in": "उत्तर कैलिब्रेट करें",
+    "jp": "北を較正",
+    "ru": "Откалибровать север"
+  },
+  "NORD.CAL_INTRO": {
+    "de": "Das Magnetometer driftet in der Nähe von Metall. Die Acht misst die Abweichung (hard-iron), dann hält das Gyroskop den Kurs — das macht ihn stabil.",
+    "es": "El magnetómetro deriva cerca del metal. El ocho mide el sesgo (hard-iron) y luego el giroscopio fija el rumbo: eso lo mantiene estable.",
+    "it": "Il magnetometro deriva vicino al metallo. L’otto misura lo scostamento (hard-iron), poi il giroscopio blocca la rotta: è ciò che la rende stabile.",
+    "ar": "ينحرف مقياس المغناطيسية قرب المعدن. شكل 8 يقيس الانحياز (hard-iron)، ثم يثبّت الجيروسكوب الاتجاه — وهذا ما يجعله مستقراً.",
+    "cn": "磁强计在金属附近会漂移。画 8 字测量偏差（hard-iron），然后陀螺仪锁定航向——这才让它稳定。",
+    "el": "Το μαγνητόμετρο παρασύρεται κοντά σε μέταλλο. Το οκτάρι μετρά την απόκλιση (hard-iron), έπειτα το γυροσκόπιο κλειδώνει την πορεία — αυτό την κρατά σταθερή.",
+    "he": "המגנטומטר נסחף ליד מתכת. תנועת 8 מודדת את ההטיה (hard-iron), ואז הגירוסקופ נועל את הכיוון — זה מה שמייצב אותו.",
+    "in": "चुंबकमापी धातु के पास भटकता है। अंक 8 पूर्वाग्रह (hard-iron) मापता है, फिर जाइरो दिशा स्थिर करता है — यही उसे स्थिर रखता है।",
+    "jp": "磁気計は金属の近くでずれます。8の字で偏り（hard-iron）を測り、その後ジャイロが方位を固定します。それが安定の理由です。",
+    "ru": "Магнитометр дрейфует рядом с металлом. Восьмёрка измеряет смещение (hard-iron), затем гироскоп фиксирует курс — это и делает его устойчивым."
+  },
+  "NORD.CAL_START": {
+    "de": "Kalibrierung starten",
+    "es": "Iniciar la calibración",
+    "it": "Avvia la calibrazione",
+    "ar": "بدء المعايرة",
+    "cn": "开始校准",
+    "el": "Έναρξη βαθμονόμησης",
+    "he": "התחלת הכיול",
+    "in": "कैलिब्रेशन शुरू करें",
+    "jp": "較正を開始",
+    "ru": "Начать калибровку"
+  },
+  "NORD.CAL_AGAIN": {
+    "de": "Erneut kalibrieren",
+    "es": "Volver a calibrar",
+    "it": "Ricalibra",
+    "ar": "إعادة المعايرة",
+    "cn": "重新校准",
+    "el": "Επαναβαθμονόμηση",
+    "he": "כיול מחדש",
+    "in": "फिर कैलिब्रेट करें",
+    "jp": "再較正",
+    "ru": "Калибровать снова"
+  },
+  "NORD.CAL_FIGURE8_HINT": {
+    "de": "Zeichnen Sie eine 8 in die Luft, drehen Sie das Telefon dabei um alle Achsen, fern von Metall.",
+    "es": "Trace un 8 en el aire con el teléfono, girándolo en todos los ejes, lejos del metal.",
+    "it": "Tracci un 8 nell’aria con il telefono, ruotandolo su tutti gli assi, lontano dal metallo.",
+    "ar": "ارسم 8 في الهواء بالهاتف، مع تدويره على كل المحاور، بعيداً عن المعدن.",
+    "cn": "用手机在空中画一个 8，并绕各轴转动，远离金属。",
+    "el": "Σχεδιάστε ένα 8 στον αέρα με το τηλέφωνο, περιστρέφοντάς το σε όλους τους άξονες, μακριά από μέταλλο.",
+    "he": "ציירו 8 באוויר עם הטלפון, תוך סיבוב על כל הצירים, הרחק ממתכת.",
+    "in": "धातु से दूर, फ़ोन को सभी अक्षों पर घुमाते हुए हवा में 8 बनाएँ।",
+    "jp": "金属から離れ、電話をすべての軸で回しながら空中に 8 を描いてください。",
+    "ru": "Нарисуйте в воздухе восьмёрку телефоном, поворачивая его по всем осям, вдали от металла."
+  },
+  "NORD.CAL_SETTLE_HINT": {
+    "de": "Halten Sie das Telefon still und flach…",
+    "es": "Mantenga el teléfono inmóvil y plano…",
+    "it": "Tenga il telefono fermo e piatto…",
+    "ar": "أمسك الهاتف ثابتاً وأفقياً…",
+    "cn": "请将手机平放并保持不动…",
+    "el": "Κρατήστε το τηλέφωνο ακίνητο και επίπεδο…",
+    "he": "החזיקו את הטלפון דומם ושטוח…",
+    "in": "फ़ोन को स्थिर और समतल रखें…",
+    "jp": "電話を平らに、動かさず持ってください…",
+    "ru": "Держите телефон неподвижно и горизонтально…"
+  },
+  "NORD.CAL_DONE": {
+    "de": "Norden verriegelt. Das Gyro hält den Kurs; das Magnetometer korrigiert nur sehr langsam.",
+    "es": "Norte bloqueado. El giroscopio mantiene el rumbo; el magnetómetro corrige solo muy lentamente.",
+    "it": "Nord bloccato. Il giroscopio mantiene la rotta; il magnetometro corregge solo molto lentamente.",
+    "ar": "الشمال مقفل. الجيروسكوب يحافظ على الاتجاه؛ ومقياس المغناطيسية يصحّح ببطء شديد فقط.",
+    "cn": "北方已锁定。陀螺仪保持航向；磁强计只非常缓慢地修正。",
+    "el": "Ο Βορράς κλειδώθηκε. Το γυροσκόπιο κρατά την πορεία· το μαγνητόμετρο διορθώνει μόνο πολύ αργά.",
+    "he": "הצפון נעול. הגירוסקופ שומר על הכיוון; המגנטומטר מתקן רק לאט מאוד.",
+    "in": "उत्तर लॉक हो गया। जाइरो दिशा बनाए रखता है; चुंबकमापी बहुत धीरे ही सुधारता है।",
+    "jp": "北を固定しました。ジャイロが方位を保ち、磁気計はごくゆっくり補正するだけです。",
+    "ru": "Север зафиксирован. Гироскоп держит курс; магнитометр поправляет лишь очень медленно."
+  },
+  "NORD.CAL_RESET": {
+    "de": "Kalibrierung vergessen",
+    "es": "Olvidar la calibración",
+    "it": "Dimentica la calibrazione",
+    "ar": "نسيان المعايرة",
+    "cn": "忘记校准",
+    "el": "Λήθη βαθμονόμησης",
+    "he": "שכחת הכיול",
+    "in": "कैलिब्रेशन भूलें",
+    "jp": "較正を忘れる",
+    "ru": "Забыть калибровку"
+  },
+  "NORD.AXIS_SPAN": {
+    "de": "Spanne {{ut}} µT",
+    "es": "amplitud {{ut}} µT",
+    "it": "estensione {{ut}} µT",
+    "ar": "مدى {{ut}} µT",
+    "cn": "幅度 {{ut}} µT",
+    "el": "εύρος {{ut}} µT",
+    "he": "טווח {{ut}} µT",
+    "in": "विस्तार {{ut}} µT",
+    "jp": "幅 {{ut}} µT",
+    "ru": "размах {{ut}} µT"
+  },
+  "NORD.DIR_W": {
+    "de": "W",
+    "cn": "西",
+    "jp": "西"
+  },
+  "NORD.S_BARO": {
+    "de": "Barometer"
+  },
+  "NORD.ST_error": {
+    "es": "error"
+  },
+  "FONCIER.RADIUS": {
+    "de": "Radius"
+  },
+  "ARTISANS.RADIUS": {
+    "de": "Radius"
+  },
+  "ARTISANS.STATS_FILTER": {
+    "de": "Filtern"
+  },
+  "ARTISANS.STATS_SORT_NAME": {
+    "de": "Name"
+  },
+  "ARTISANS.STATS_SORT_NAME_ASC": {
+    "de": "Name A → Z"
+  },
+  "ARTISANS.STATS_SORT_NAME_DESC": {
+    "de": "Name Z → A"
+  },
+  "ARTISANS.SORT_NAME_ASC": {
+    "de": "Name A → Z"
+  },
+  "ARTISANS.SORT_NAME_DESC": {
+    "de": "Name Z → A"
+  },
+  "ARTISANS.SITE": {
+    "de": "Webseite"
+  },
+  "ARTISANS.TRADE_FLORIST": {
+    "de": "Florist"
+  },
+  "ARTISANS.TRADE_HOTEL": {
+    "de": "Hotel",
+    "es": "Hotel",
+    "it": "Hotel"
+  },
+  "ARTISANS.TRADE_BANK": {
+    "de": "Bank"
+  },
+  "ARTISANS.TRADE_FASTFOOD": {
+    "it": "Ristorazione rapida"
+  },
+  "NEARBY_PROS.RADIUS": {
+    "de": "Radius"
+  },
+  "NEARBY_PROS.STATS_FILTER": {
+    "de": "Filtern"
+  },
+  "NEARBY_PROS.STATS_SORT_NAME": {
+    "de": "Name"
+  },
+  "NEARBY_PROS.STATS_SORT_NAME_ASC": {
+    "de": "Name A → Z"
+  },
+  "NEARBY_PROS.STATS_SORT_NAME_DESC": {
+    "de": "Name Z → A"
+  },
+  "NEARBY_PROS.SITE": {
+    "de": "Webseite"
+  },
+  "WIKI.TITLE": {
+    "de": "Wikipedia",
+    "es": "Wikipedia",
+    "it": "Wikipedia",
+    "ar": "ويكيبيديا",
+    "cn": "维基百科",
+    "el": "Βικιπαίδεια",
+    "he": "ויקיפדיה",
+    "in": "विकिपीडिया",
+    "jp": "ウィキペディア",
+    "ru": "Википедия"
+  },
+  "WIKI.SUBTITLE": {
+    "de": "Suchen Sie ein beliebiges Thema: die Seite fragt Wikipedia über die PatTool-API ab und zeigt Zusammenfassung, Bild und den Link zum Artikel.",
+    "es": "Busque cualquier tema: la página consulta Wikipedia a través de la API de PatTool y muestra el resumen, la imagen y el enlace al artículo.",
+    "it": "Cerchi qualsiasi argomento: la pagina interroga Wikipedia tramite l’API PatTool e mostra il riassunto, l’immagine e il collegamento all’articolo.",
+    "ar": "ابحث عن أي موضوع: تستعلم الصفحة ويكيبيديا عبر واجهة PatTool وتعرض الملخص والصورة ورابط المقال.",
+    "cn": "查找任意主题：此页通过 PatTool API 查询维基百科，并显示摘要、图片和条目链接。",
+    "el": "Αναζητήστε οποιοδήποτε θέμα: η σελίδα ρωτά τη Βικιπαίδεια μέσω του API του PatTool και δείχνει περίληψη, εικόνα και σύνδεσμο άρθρου.",
+    "he": "חפשו כל נושא: הדף שואל את ויקיפדיה דרך ה-API של PatTool ומציג תקציר, תמונה וקישור לערך.",
+    "in": "कोई भी विषय खोजें: यह पृष्ठ PatTool API से विकिपीडिया पूछता है और सार, चित्र और लेख लिंक दिखाता है।",
+    "jp": "任意の話題を検索：このページは PatTool API 経由でウィキペディアを問い合わせ、要約・画像・記事リンクを表示します。",
+    "ru": "Ищите любую тему: страница запрашивает Википедию через API PatTool и показывает краткое содержание, изображение и ссылку на статью."
+  },
+  "WIKI.SEARCH": {
+    "de": "Suchen",
+    "es": "Buscar",
+    "it": "Cerca",
+    "ar": "بحث",
+    "cn": "搜索",
+    "el": "Αναζήτηση",
+    "he": "חיפוש",
+    "in": "खोजें",
+    "jp": "検索",
+    "ru": "Искать"
+  },
+  "WIKI.SEARCH_PLACEHOLDER": {
+    "de": "Person, Ort, Werk, Idee…",
+    "es": "Persona, lugar, obra, idea…",
+    "it": "Persona, luogo, opera, idea…",
+    "ar": "شخص، مكان، عمل، فكرة…",
+    "cn": "人物、地点、作品、想法…",
+    "el": "Πρόσωπο, τόπος, έργο, ιδέα…",
+    "he": "אדם, מקום, יצירה, רעיון…",
+    "in": "व्यक्ति, स्थान, कृति, विचार…",
+    "jp": "人物、場所、作品、アイデア…",
+    "ru": "Человек, место, произведение, идея…"
+  },
+  "WIKI.LANGUAGE": {
+    "de": "Sprache der Enzyklopädie",
+    "es": "Idioma de la enciclopedia",
+    "it": "Lingua dell’enciclopedia",
+    "ar": "لغة الموسوعة",
+    "cn": "百科语言",
+    "el": "Γλώσσα εγκυκλοπαίδειας",
+    "he": "שפת האנציקלופדיה",
+    "in": "विश्वकोश की भाषा",
+    "jp": "百科事典の言語",
+    "ru": "Язык энциклопедии"
+  },
+  "WIKI.RESULTS": {
+    "de": "Ergebnisse",
+    "es": "Resultados",
+    "it": "Risultati",
+    "ar": "النتائج",
+    "cn": "结果",
+    "el": "Αποτελέσματα",
+    "he": "תוצאות",
+    "in": "परिणाम",
+    "jp": "結果",
+    "ru": "Результаты"
+  },
+  "WIKI.RESULT_COUNT": {
+    "de": "{{count}} Ergebnis(se)",
+    "es": "{{count}} resultado(s)",
+    "it": "{{count}} risultati",
+    "ar": "{{count}} نتيجة/نتائج",
+    "cn": "{{count}} 条结果",
+    "el": "{{count}} αποτέλεσμα(τα)",
+    "he": "{{count}} תוצאות",
+    "in": "{{count}} परिणाम",
+    "jp": "結果 {{count}} 件",
+    "ru": "{{count}} результат(ов)"
+  },
+  "WIKI.NO_RESULTS": {
+    "de": "Kein Artikel zu dieser Suche gefunden.",
+    "es": "Ningún artículo encontrado para esta búsqueda.",
+    "it": "Nessun articolo trovato per questa ricerca.",
+    "ar": "لم يُعثر على مقال لهذا البحث.",
+    "cn": "未找到与此搜索相符的条目。",
+    "el": "Δεν βρέθηκε άρθρο για αυτή την αναζήτηση.",
+    "he": "לא נמצא ערך לחיפוש זה.",
+    "in": "इस खोज का कोई लेख नहीं मिला।",
+    "jp": "この検索の記事は見つかりませんでした。",
+    "ru": "По этому запросу статья не найдена."
+  },
+  "WIKI.LOADING": {
+    "de": "Suche läuft…",
+    "es": "Búsqueda en curso…",
+    "it": "Ricerca in corso…",
+    "ar": "جارٍ البحث…",
+    "cn": "正在搜索…",
+    "el": "Αναζήτηση σε εξέλιξη…",
+    "he": "החיפוש מתבצע…",
+    "in": "खोज जारी…",
+    "jp": "検索中…",
+    "ru": "Идёт поиск…"
+  },
+  "WIKI.OPEN_WIKIPEDIA": {
+    "de": "Auf Wikipedia öffnen",
+    "es": "Abrir en Wikipedia",
+    "it": "Apri su Wikipedia",
+    "ar": "فتح على ويكيبيديا",
+    "cn": "在维基百科打开",
+    "el": "Άνοιγμα στη Βικιπαίδεια",
+    "he": "פתיחה בוויקיפדיה",
+    "in": "विकिपीडिया पर खोलें",
+    "jp": "ウィキペディアで開く",
+    "ru": "Открыть в Википедии"
+  },
+  "WIKI.DISAMBIGUATION": {
+    "de": "Begriffsklärungsseite — präzisieren Sie die Suche oder wählen Sie ein anderes Ergebnis.",
+    "es": "Página de desambiguación: precise la búsqueda o elija otro resultado.",
+    "it": "Pagina di disambiguazione — precisi la ricerca o scelga un altro risultato.",
+    "ar": "صفحة توضيح — حدّد بحثك أو اختر نتيجة أخرى.",
+    "cn": "消歧义页——请细化搜索或选择其他结果。",
+    "el": "Σελίδα αποσαφήνισης — διευκρινίστε την αναζήτηση ή επιλέξτε άλλο αποτέλεσμα.",
+    "he": "דף פירושונים — דייקו את החיפוש או בחרו תוצאה אחרת.",
+    "in": "बहुअर्थ पृष्ठ — खोज स्पष्ट करें या दूसरा परिणाम चुनें।",
+    "jp": "曖昧さ回避ページ — 検索を絞るか、別の結果を選んでください。",
+    "ru": "Страница значений — уточните запрос или выберите другой результат."
+  },
+  "WIKI.EMPTY_HINT": {
+    "de": "Geben Sie ein Wort oder einen Ausdruck ein, um Wikipedia in der gewählten Sprache abzufragen.",
+    "es": "Escriba una palabra o una expresión para consultar Wikipedia en el idioma elegido.",
+    "it": "Digiti una parola o un’espressione per interrogare Wikipedia nella lingua scelta.",
+    "ar": "اكتب كلمة أو عبارة لاستعلام ويكيبيديا باللغة المختارة.",
+    "cn": "输入词语或短语，以所选语言查询维基百科。",
+    "el": "Πληκτρολογήστε λέξη ή φράση για να ρωτήσετε τη Βικιπαίδεια στην επιλεγμένη γλώσσα.",
+    "he": "הקלידו מילה או ביטוי כדי לשאול את ויקיפדיה בשפה שנבחרה.",
+    "in": "चुनी भाषा में विकिपीडिया पूछने के लिए शब्द या वाक्यांश टाइप करें।",
+    "jp": "選んだ言語でウィキペディアを調べるには、語または句を入力してください。",
+    "ru": "Введите слово или выражение, чтобы запросить Википедию на выбранном языке."
+  },
+  "WIKI.ERROR": {
+    "de": "Wikipedia ist vorübergehend nicht verfügbar. Versuchen Sie es gleich noch einmal.",
+    "es": "Wikipedia no está disponible temporalmente. Inténtelo dentro de un momento.",
+    "it": "Wikipedia è temporaneamente non disponibile. Riprovi tra un attimo.",
+    "ar": "ويكيبيديا غير متاحة مؤقتاً. أعد المحاولة بعد لحظة.",
+    "cn": "维基百科暂时不可用。请稍后再试。",
+    "el": "Η Βικιπαίδεια δεν είναι προσωρινά διαθέσιμη. Δοκιμάστε ξανά σε λίγο.",
+    "he": "ויקיפדיה אינה זמינה זמנית. נסו שוב בעוד רגע.",
+    "in": "विकिपीडिया अस्थायी रूप से उपलब्ध नहीं। थोड़ी देर में पुनः प्रयास करें।",
+    "jp": "ウィキペディアは一時的に利用できません。しばらくしてから再試行してください。",
+    "ru": "Википедия временно недоступна. Повторите через мгновение."
+  },
+  "WIKI.ATTRIBUTION": {
+    "de": "Text und Bilder von Wikipedia, Lizenz CC BY-SA.",
+    "es": "Texto e imágenes de Wikipedia, licencia CC BY-SA.",
+    "it": "Testo e immagini da Wikipedia, licenza CC BY-SA.",
+    "ar": "النص والصور من ويكيبيديا، ترخيص CC BY-SA.",
+    "cn": "文字与图片来自维基百科，许可 CC BY-SA。",
+    "el": "Κείμενο και εικόνες από τη Βικιπαίδεια, άδεια CC BY-SA.",
+    "he": "טקסט ותמונות מוויקיפדיה, רישיון CC BY-SA.",
+    "in": "पाठ और चित्र विकिपीडिया से, लाइसेंस CC BY-SA।",
+    "jp": "本文と画像はウィキペディアより、ライセンス CC BY-SA。",
+    "ru": "Текст и изображения из Википедии, лицензия CC BY-SA."
+  },
+  "WIKI.CLEAR": {
+    "de": "Löschen",
+    "es": "Borrar",
+    "it": "Cancella",
+    "ar": "مسح",
+    "cn": "清除",
+    "el": "Εκκαθάριση",
+    "he": "ניקוי",
+    "in": "साफ़ करें",
+    "jp": "消去",
+    "ru": "Очистить"
+  },
+  "YOUTUBE.TYPE_VIDEO": {
+    "de": "Videos"
+  },
+  "YOUTUBE.CONTEXT_VIDEO": {
+    "de": "Video",
+    "it": "Video"
+  },
+  "YOUTUBE.FLOAT_OPEN": {
+    "it": "Finestra PiP"
+  },
+  "YOUTUBE.TICKER_MODE_PIP": {
+    "it": "Finestra PiP"
+  },
+  "YOUTUBE.EQ.OPEN": {
+    "de": "Entzerrer"
+  },
+  "YOUTUBE.EQ.BALANCE_L": {
+    "de": "L",
+    "jp": "左"
+  },
+  "YOUTUBE.EQ.BALANCE_R": {
+    "de": "R",
+    "jp": "右"
+  },
+  "YOUTUBE.EQ.ATTACK": {
+    "de": "Einsatz"
+  },
+  "YOUTUBE.EQ.RELEASE": {
+    "de": "Abklingen"
+  },
+  "YOUTUBE.EQ.LIMITER": {
+    "de": "Begrenzer",
+    "it": "Limitatore",
+    "el": "Περιοριστής"
+  },
+  "YOUTUBE.EQ.ECHO": {
+    "de": "Echo"
+  },
+  "RELIEF_FINDER.SUBTITLE": {
+    "de": "Benannte Gipfel (OSM) und die DEM-Silhouette werden aus Ihrer GPS-Position berechnet. Richten Sie das Telefon: die Namen stehen senkrecht auf dem Kurs.",
+    "es": "Las cumbres con nombre (OSM) y la silueta DEM se calculan desde su posición GPS. Apunte el teléfono: los nombres se muestran en vertical sobre el rumbo.",
+    "it": "Le vette nominate (OSM) e la sagoma DEM si calcolano dalla sua posizione GPS. Punti il telefono: i nomi compaiono in verticale sulla rotta.",
+    "ar": "تُحسب القمم المسماة (OSM) وظل DEM من موقع GPS. وجّه الهاتف: تظهر الأسماء عمودياً على الاتجاه.",
+    "cn": "已命名山峰（OSM）和 DEM 轮廓根据您的 GPS 位置计算。对准手机：名称会竖直显示在航向上。",
+    "el": "Οι ονομασμένες κορυφές (OSM) και η σιλουέτα DEM υπολογίζονται από τη θέση GPS. Στρέψτε το τηλέφωνο: τα ονόματα εμφανίζονται κατακόρυφα στην πορεία.",
+    "he": "פסגות עם שם (OSM) וצללית DEM מחושבות ממיקום ה-GPS. כוונו את הטלפון: השמות מוצגים אנכית על הכיוון.",
+    "in": "नामित शिखर (OSM) और DEM छाया आपकी GPS स्थिति से गणना होती है। फ़ोन घुमाएँ: नाम दिशा पर खड़े दिखते हैं।",
+    "jp": "名前のある山頂（OSM）と DEM の輪郭は GPS 位置から計算されます。電話を向けると、名前が方位上に縦に表示されます。",
+    "ru": "Именованные вершины (OSM) и силуэт DEM считаются от вашей позиции GPS. Направьте телефон: имена стоят вертикально по курсу."
+  },
+  "RELIEF_FINDER.GPS": {
+    "de": "Meine Position",
+    "es": "Mi posición",
+    "it": "La mia posizione",
+    "ar": "موقعي",
+    "cn": "我的位置",
+    "el": "Η θέση μου",
+    "he": "המיקום שלי",
+    "in": "मेरी स्थिति",
+    "jp": "現在地",
+    "ru": "Моя позиция"
+  },
+  "RELIEF_FINDER.SENSORS": {
+    "de": "Sensoren aktivieren",
+    "es": "Activar los sensores",
+    "it": "Attiva i sensori",
+    "ar": "تفعيل المستشعرات",
+    "cn": "启用传感器",
+    "el": "Ενεργοποίηση αισθητήρων",
+    "he": "הפעלת החיישנים",
+    "in": "संवेदक चालू करें",
+    "jp": "センサーを有効にする",
+    "ru": "Включить датчики"
+  },
+  "RELIEF_FINDER.CAM_START": {
+    "de": "Kamera starten",
+    "es": "Iniciar la cámara",
+    "it": "Avvia la fotocamera",
+    "ar": "تشغيل الكاميرا",
+    "cn": "启动相机",
+    "el": "Εκκίνηση κάμερας",
+    "he": "הפעלת המצלמה",
+    "in": "कैमरा शुरू करें",
+    "jp": "カメラを開始",
+    "ru": "Запустить камеру"
+  },
+  "RELIEF_FINDER.CAM_STOP": {
+    "de": "Kamera stoppen",
+    "es": "Detener la cámara",
+    "it": "Ferma la fotocamera",
+    "ar": "إيقاف الكاميرا",
+    "cn": "停止相机",
+    "el": "Διακοπή κάμερας",
+    "he": "עצירת המצלמה",
+    "in": "कैमरा रोकें",
+    "jp": "カメラを停止",
+    "ru": "Остановить камеру"
+  },
+  "RELIEF_FINDER.CALIBRATE": {
+    "de": "Kalibrierung",
+    "es": "Calibración",
+    "it": "Calibrazione",
+    "ar": "المعايرة",
+    "cn": "校准",
+    "el": "Βαθμονόμηση",
+    "he": "כיול",
+    "in": "कैलिब्रेशन",
+    "jp": "較正",
+    "ru": "Калибровка"
+  },
+  "RELIEF_FINDER.GPS_DENIED": {
+    "de": "Standortberechtigung verweigert.",
+    "es": "Permiso de ubicación denegado.",
+    "it": "Autorizzazione alla posizione negata.",
+    "ar": "رُفض إذن الموقع.",
+    "cn": "定位权限被拒绝。",
+    "el": "Η άδεια τοποθεσίας απορρίφθηκε.",
+    "he": "הרשאת המיקום נדחתה.",
+    "in": "स्थान अनुमति अस्वीकृत।",
+    "jp": "位置情報の許可が拒否されました。",
+    "ru": "Доступ к местоположению запрещён."
+  },
+  "RELIEF_FINDER.SENSORS_DENIED": {
+    "de": "Bewegungssensoren verweigert.",
+    "es": "Sensores de movimiento denegados.",
+    "it": "Sensori di movimento negati.",
+    "ar": "رُفضت مستشعرات الحركة.",
+    "cn": "运动传感器被拒绝。",
+    "el": "Οι αισθητήρες κίνησης απορρίφθηκαν.",
+    "he": "חיישני התנועה נדחו.",
+    "in": "गति संवेदक अस्वीकृत।",
+    "jp": "モーションセンサーが拒否されました。",
+    "ru": "Датчики движения запрещены."
+  },
+  "RELIEF_FINDER.NEED_TAP": {
+    "de": "iOS verlangt einen Tipp, um die Bewegungssensoren zu erlauben.",
+    "es": "iOS exige un toque para permitir los sensores de movimiento.",
+    "it": "iOS richiede un tocco per consentire i sensori di movimento.",
+    "ar": "يتطلب iOS لمسة للسماح بمستشعرات الحركة.",
+    "cn": "iOS 需要点按一次才能允许运动传感器。",
+    "el": "Το iOS απαιτεί άγγιγμα για να επιτραπούν οι αισθητήρες κίνησης.",
+    "he": "iOS דורש נגיעה כדי לאשר חיישני תנועה.",
+    "in": "गति संवेदकों की अनुमति के लिए iOS को एक टैप चाहिए।",
+    "jp": "iOS ではモーションセンサーを許可するためにタップが必要です。",
+    "ru": "iOS требует касания, чтобы разрешить датчики движения."
+  },
+  "RELIEF_FINDER.RADIUS": {
+    "de": "Reichweite",
+    "es": "Alcance",
+    "it": "Portata",
+    "ar": "المدى",
+    "cn": "范围",
+    "el": "Εμβέλεια",
+    "he": "טווח",
+    "in": "दूरी",
+    "jp": "範囲",
+    "ru": "Дальность"
+  },
+  "RELIEF_FINDER.CAM_PLACEHOLDER": {
+    "de": "Rückkamera — halten Sie das Telefon wie eine Kamera, Rückseite zu den Bergen.",
+    "es": "Cámara trasera: sostenga el teléfono como una cámara, el dorso hacia las montañas.",
+    "it": "Fotocamera posteriore — tenga il telefono come una fotocamera, il retro verso le montagne.",
+    "ar": "الكاميرا الخلفية — أمسك الهاتف كآلة تصوير، والظهر نحو الجبال.",
+    "cn": "后置相机——像拿相机一样握住手机，背面朝向群山。",
+    "el": "Πίσω κάμερα — κρατήστε το τηλέφωνο σαν φωτογραφική μηχανή, η πλάτη προς τα βουνά.",
+    "he": "מצלמה אחורית — החזיקו את הטלפון כמו מצלמה, הגב אל ההרים.",
+    "in": "पीछे का कैमरा — फ़ोन को कैमरे की तरह पकड़ें, पीठ पहाड़ों की ओर।",
+    "jp": "背面カメラ — 電話をカメラのように持ち、背面を山に向けてください。",
+    "ru": "Задняя камера — держите телефон как фотоаппарат, тыльной стороной к горам."
+  },
+  "RELIEF_FINDER.AZIMUTH": {
+    "de": "Azimut",
+    "es": "Acimut",
+    "it": "Azimut",
+    "ar": "السمت",
+    "cn": "方位角",
+    "el": "Αζιμούθιο",
+    "he": "אזימוט",
+    "in": "दिगंश",
+    "jp": "方位角",
+    "ru": "Азимут"
+  },
+  "RELIEF_FINDER.ELEVATION": {
+    "de": "Höhe",
+    "es": "Elevación",
+    "it": "Elevazione",
+    "ar": "الارتفاع",
+    "cn": "仰角",
+    "el": "Ανύψωση",
+    "he": "הגבהה",
+    "in": "उन्नयन",
+    "jp": "仰角",
+    "ru": "Возвышение"
+  },
+  "RELIEF_FINDER.FULLSCREEN": {
+    "de": "Vollbild",
+    "es": "Pantalla completa",
+    "it": "Schermo intero",
+    "ar": "ملء الشاشة",
+    "cn": "全屏",
+    "el": "Πλήρης οθόνη",
+    "he": "מסך מלא",
+    "in": "पूर्ण स्क्रीन",
+    "jp": "全画面",
+    "ru": "На весь экран"
+  },
+  "RELIEF_FINDER.CAM_RESIZE": {
+    "de": "Ziehen Sie zum Ändern der Größe. Doppelklick zum Zurücksetzen.",
+    "es": "Arrastre para cambiar el tamaño. Doble clic para restablecer.",
+    "it": "Trascini per ridimensionare. Doppio clic per ripristinare.",
+    "ar": "اسحب لتغيير الحجم. انقر نقراً مزدوجاً للاستعادة.",
+    "cn": "拖动以调整大小。双击可还原。",
+    "el": "Σύρετε για αλλαγή μεγέθους. Διπλό κλικ για επαναφορά.",
+    "he": "גררו לשינוי גודל. לחיצה כפולה לשחזור.",
+    "in": "आकार बदलने के लिए खींचें। बहाल करने के लिए डबल-क्लिक।",
+    "jp": "ドラッグでサイズ変更。ダブルクリックで元に戻します。",
+    "ru": "Потяните, чтобы изменить размер. Двойной щелчок — сброс."
+  },
+  "RELIEF_FINDER.LOADING": {
+    "de": "DEM-Silhouette wird berechnet…",
+    "es": "Calculando la silueta DEM…",
+    "it": "Calcolo della sagoma DEM…",
+    "ar": "جارٍ حساب ظل DEM…",
+    "cn": "正在计算 DEM 轮廓…",
+    "el": "Υπολογισμός σιλουέτας DEM…",
+    "he": "מחשב צללית DEM…",
+    "in": "DEM छाया की गणना…",
+    "jp": "DEM の輪郭を計算中…",
+    "ru": "Расчёт силуэта DEM…"
+  },
+  "RELIEF_FINDER.LOAD_ERROR": {
+    "de": "Der Horizont konnte nicht berechnet werden (DEM oder Netz).",
+    "es": "No se pudo calcular el horizonte (DEM o red).",
+    "it": "Impossibile calcolare l’orizzonte (DEM o rete).",
+    "ar": "تعذر حساب الأفق (DEM أو الشبكة).",
+    "cn": "无法计算地平线（DEM 或网络）。",
+    "el": "Δεν ήταν δυνατός ο υπολογισμός του ορίζοντα (DEM ή δίκτυο).",
+    "he": "לא ניתן לחשב את האופק (DEM או רשת).",
+    "in": "क्षितिज की गणना नहीं हो सकी (DEM या नेटवर्क)।",
+    "jp": "地平線を計算できませんでした（DEM またはネットワーク）。",
+    "ru": "Не удалось рассчитать горизонт (DEM или сеть)."
+  },
+  "RELIEF_FINDER.CAM_DENIED": {
+    "de": "Kamerazugriff verweigert.",
+    "es": "Acceso a la cámara denegado.",
+    "it": "Accesso alla fotocamera negato.",
+    "ar": "رُفض الوصول إلى الكاميرا.",
+    "cn": "相机访问被拒绝。",
+    "el": "Η πρόσβαση στην κάμερα απορρίφθηκε.",
+    "he": "הגישה למצלמה נדחתה.",
+    "in": "कैमरा पहुँच अस्वीकृत।",
+    "jp": "カメラへのアクセスが拒否されました。",
+    "ru": "Доступ к камере запрещён."
+  },
+  "RELIEF_FINDER.PANO_ARIA": {
+    "de": "360°-Horizontstreifen",
+    "es": "Franja de horizonte de 360°",
+    "it": "Striscia d’orizzonte a 360°",
+    "ar": "شريط أفق 360°",
+    "cn": "360° 地平线带",
+    "el": "Λωρίδα ορίζοντα 360°",
+    "he": "רצועת אופק 360°",
+    "in": "360° क्षितिज पट्टी",
+    "jp": "360° の地平線帯",
+    "ru": "Полоса горизонта 360°"
+  },
+  "RELIEF_FINDER.PEAKS": {
+    "de": "Sichtbare Gipfel",
+    "es": "Cumbres visibles",
+    "it": "Vette visibili",
+    "ar": "القمم الظاهرة",
+    "cn": "可见山峰",
+    "el": "Ορατές κορυφές",
+    "he": "פסגות גלויות",
+    "in": "दृश्य शिखर",
+    "jp": "見える山頂",
+    "ru": "Видимые вершины"
+  },
+  "RELIEF_FINDER.NO_PEAKS": {
+    "de": "Kein benannter Gipfel überragt die DEM-Silhouette in dieser Reichweite.",
+    "es": "Ninguna cumbre con nombre supera la silueta DEM en este alcance.",
+    "it": "Nessuna vetta nominata supera la sagoma DEM in questa portata.",
+    "ar": "لا تتجاوز أي قمة مسماة ظل DEM في هذا المدى.",
+    "cn": "在此范围内没有已命名山峰高出 DEM 轮廓。",
+    "el": "Καμία ονομασμένη κορυφή δεν ξεπερνά τη σιλουέτα DEM σε αυτή την εμβέλεια.",
+    "he": "אף פסגה עם שם אינה עוברת את צללית DEM בטווח זה.",
+    "in": "इस दूरी में कोई नामित शिखर DEM छाया से ऊपर नहीं निकलता।",
+    "jp": "この範囲では、名前のある山頂が DEM の輪郭を超えていません。",
+    "ru": "Ни одна именованная вершина не поднимается над силуэтом DEM в этой дальности."
+  },
+  "RELIEF_FINDER.HIDDEN": {
+    "de": "{{count}} Gipfel hinter dem Relief verborgen",
+    "es": "{{count}} cumbre(s) oculta(s) detrás del relieve",
+    "it": "{{count}} vetta/e nascosta/e dietro il rilievo",
+    "ar": "{{count}} قمة/قمم مخفية خلف التضاريس",
+    "cn": "{{count}} 座山峰被地形挡住",
+    "el": "{{count}} κορυφή(ές) κρυμμένη(ες) πίσω από το ανάγλυφο",
+    "he": "{{count}} פסגות מוסתרות מאחורי התבליט",
+    "in": "{{count}} शिखर भू-आकृति के पीछे छिपे",
+    "jp": "地形の陰に隠れた山頂 {{count}}",
+    "ru": "{{count}} вершин(а) скрыта за рельефом"
+  },
+  "TELEGRAM.CHATS": {
+    "de": "Unterhaltungen",
+    "es": "Conversaciones"
+  },
+  "TELEGRAM.MEDIA_DOCUMENT": {
+    "it": "File"
+  }
+}

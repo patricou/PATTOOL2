@@ -788,9 +788,10 @@ public class ApiController {
     @GetMapping(value = "/geocode/reverse", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> geocodeReverse(
             @RequestParam("lat") Double lat,
-            @RequestParam("lon") Double lon) {
-        log.debug("Geocode reverse: lat={}, lon={}", lat, lon);
-        return geocodeService.reverse(lat, lon);
+            @RequestParam("lon") Double lon,
+            @RequestParam(value = "lang", required = false) String lang) {
+        log.debug("Geocode reverse: lat={}, lon={}, lang={}", lat, lon, lang);
+        return geocodeService.reverse(lat, lon, lang);
     }
 
     /**

@@ -286,13 +286,24 @@
 		justify-content: space-between !important;
 		overflow-x: visible !important;
 		width: 100% !important;
-		gap: 0.2rem !important;
+		max-width: 100% !important;
+		min-width: 0 !important;
+		gap: 0.15rem !important;
 	}
 
 	.slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group .btn {
 		flex: 1 1 0 !important;
+		flex-shrink: 1 !important;
 		min-width: 0 !important;
+		width: auto !important;
+		max-width: 2.1rem !important;
 		justify-content: center !important;
+	}
+
+	.slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group .btn.tv-open-gps-btn {
+		flex: 0 0 auto !important;
+		width: auto !important;
+		max-width: none !important;
 	}
 	.slideshow-footer:not(.trace-viewer-footer-toolbar) .trace-viewer-footer-actions {
 		gap: 0.25rem !important;
@@ -372,11 +383,11 @@
 		margin-right: 0.2rem !important;
 	}
 
-	/* Bouton "Fond de carte" en plein écran */
+	/* Bouton "Fond de carte" en plein écran, sous la ligne rosace / orientation */
 	.fullscreen-info-btn {
 		padding: 0.3rem 0.5rem !important;
 		font-size: 0.75rem !important;
-		top: 48px !important;
+		top: calc(var(--tv-compass-top) + var(--tv-compass-size) + 8px) !important;
 		right: 8px !important;
 	}
 	.fullscreen-info-btn i {
@@ -516,13 +527,24 @@
 		justify-content: space-between !important;
 		overflow-x: visible !important;
 		width: 100% !important;
-		gap: 0.2rem !important;
+		max-width: 100% !important;
+		min-width: 0 !important;
+		gap: 0.15rem !important;
 	}
 
 	.slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group .btn {
 		flex: 1 1 0 !important;
+		flex-shrink: 1 !important;
 		min-width: 0 !important;
+		width: auto !important;
+		max-width: 2.1rem !important;
 		justify-content: center !important;
+	}
+
+	.slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group .btn.tv-open-gps-btn {
+		flex: 0 0 auto !important;
+		width: auto !important;
+		max-width: none !important;
 	}
 	.slideshow-footer:not(.trace-viewer-footer-toolbar) .trace-viewer-footer-actions {
 		gap: 0.25rem !important;
@@ -641,7 +663,7 @@
 	.fullscreen-info-btn {
 		padding: 0.3rem 0.5rem !important;
 		font-size: 0.75rem !important;
-		top: 48px !important;
+		top: calc(var(--tv-compass-top) + var(--tv-compass-size) + 8px) !important;
 		right: 8px !important;
 	}
 	.fullscreen-info-btn i {
@@ -727,7 +749,7 @@
 .map-wrapper:-webkit-full-screen .fullscreen-info-btn {
 	padding: 0.25rem 0.4rem !important;
 	font-size: 0.7rem !important;
-	top: 48px !important;
+	top: calc(var(--tv-compass-top) + var(--tv-compass-size) + 8px) !important;
 	right: 6px !important;
 }
 .map-wrapper:fullscreen .fullscreen-info-panel,
@@ -1050,8 +1072,9 @@
 	flex-wrap: nowrap !important;
 	align-items: center;
 	justify-content: space-between;
-	flex: 1 0 100%;
+	flex: 1 1 auto;
 	width: 100%;
+	max-width: 100%;
 	min-width: 0;
 	gap: 0.2rem;
 }
@@ -1104,18 +1127,22 @@
 		display: flex;
 		flex-wrap: nowrap;
 		align-items: center;
-		flex: 0 0 auto;
+		flex: 1 1 auto;
 		width: auto;
+		max-width: 100%;
+		min-width: 0;
 		margin-left: auto;
-		justify-content: flex-start;
-		gap: 0.28rem 0.45rem;
+		justify-content: flex-end;
+		gap: 0.28rem 0.35rem;
 		overflow-x: visible;
 		overflow-y: visible;
 	}
 
 	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group .btn {
-		flex: 0 0 auto;
-		min-width: auto;
+		flex: 0 1 2.1rem;
+		min-width: 0;
+		width: auto;
+		max-width: 2.1rem;
 	}
 
 	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-actions-row {
@@ -1215,10 +1242,19 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-width: 2.1rem;
-	width: 2.1rem;
+	box-sizing: border-box;
+	flex: 0 1 2.1rem !important;
+	flex-shrink: 1 !important;
+	min-width: 0 !important;
+	width: auto !important;
+	max-width: 2.1rem;
 	height: 2.1rem;
-	padding: 0.26rem !important;
+	padding: 0.26rem 0.1rem !important;
+}
+
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group .btn.tv-open-gps-btn {
+	flex: 0 0 auto !important;
+	max-width: none;
 }
 
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group .btn i {
@@ -1524,6 +1560,9 @@
 	overflow: hidden;
 	background: var(--tv-map-canvas-bg);
 	box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+	/* Rosace et boutons d’orientation partagent la même ligne. */
+	--tv-compass-top: 10px;
+	--tv-compass-size: 42px;
 }
 
 .map-container {
@@ -1535,7 +1574,7 @@
 
 .fullscreen-info-btn {
 	position: absolute;
-	top: 52px;
+	top: calc(var(--tv-compass-top) + var(--tv-compass-size) + 10px);
 	right: 12px;
 	z-index: 15;
 	background: var(--tv-card-bg);
@@ -1682,12 +1721,12 @@
 
 .trace-viewer-compass-rose {
 	position: absolute;
-	top: 10px;
+	top: var(--tv-compass-top);
 	left: 50%;
 	transform: translateX(-50%);
 	z-index: 1200;
-	width: 42px;
-	height: 42px;
+	width: var(--tv-compass-size);
+	height: var(--tv-compass-size);
 	border-radius: 50%;
 	box-shadow: 0 2px 10px rgba(15, 23, 42, 0.22);
 	pointer-events: none;
@@ -1700,28 +1739,35 @@
 	transform-origin: 50% 50%;
 }
 
-.map-wrapper:fullscreen .trace-viewer-compass-rose,
-.map-wrapper:-webkit-full-screen .trace-viewer-compass-rose,
-.map-wrapper:-moz-full-screen .trace-viewer-compass-rose,
-.map-wrapper:-ms-fullscreen .trace-viewer-compass-rose {
-	top: 32px;
+.map-wrapper:fullscreen {
+	--tv-compass-top: 32px;
+}
+.map-wrapper:-webkit-full-screen {
+	--tv-compass-top: 32px;
+}
+.map-wrapper:-moz-full-screen {
+	--tv-compass-top: 32px;
+}
+.map-wrapper:-ms-fullscreen {
+	--tv-compass-top: 32px;
 }
 
 @media (max-width: 768px), (orientation: landscape) and (max-height: 500px) {
-	.trace-viewer-compass-rose {
-		top: 32px;
-		width: 34px;
-		height: 34px;
+	.map-wrapper {
+		--tv-compass-top: 32px;
+		--tv-compass-size: 34px;
 	}
 }
 
 .trace-viewer-orient-overlay {
 	position: absolute;
-	top: 10px;
+	top: var(--tv-compass-top);
 	right: 10px;
+	height: var(--tv-compass-size);
+	box-sizing: border-box;
 	z-index: 1200;
 	display: flex;
-	align-items: center;
+	align-items: stretch;
 	gap: 0.2rem;
 	max-width: calc(100% - 58px);
 	flex-wrap: wrap;
@@ -1742,7 +1788,8 @@
 	align-items: center;
 	justify-content: center;
 	gap: 0.35rem;
-	height: 2rem;
+	height: auto;
+	align-self: stretch;
 	padding: 0 0.6rem;
 	border: none;
 	border-radius: 8px;
@@ -1767,7 +1814,7 @@
 	}
 
 	.trace-viewer-orient-btn {
-		width: 2rem;
+		width: calc(var(--tv-compass-size) - 6px);
 		padding: 0;
 		gap: 0;
 	}
@@ -2051,22 +2098,41 @@
 	font-size: 0.8rem;
 }
 
-.fullscreen-selector-icon-actions {
+.fullscreen-selector-icon-actions,
+.map-wrapper .fullscreen-selector .fullscreen-selector-icon-actions {
 	display: flex;
-	flex-wrap: wrap;
+	flex-direction: row;
+	flex-wrap: nowrap;
 	align-items: center;
-	gap: 0.35rem;
+	justify-content: space-between;
+	gap: 0.15rem;
 	margin-top: 0.5rem;
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
 }
 
-.fullscreen-selector-icon-actions .btn {
+.fullscreen-selector-icon-actions .btn,
+.map-wrapper .fullscreen-selector .fullscreen-selector-icon-actions .btn {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 2.1rem;
-	min-width: 2.1rem;
+	box-sizing: border-box;
+	flex: 1 1 0 !important;
+	width: auto !important;
+	min-width: 0 !important;
+	max-width: 2.1rem !important;
 	height: 2.1rem;
-	padding: 0;
+	margin-top: 0 !important;
+	padding: 0 !important;
+}
+
+.fullscreen-selector-icon-actions .btn.tv-open-gps-btn,
+.map-wrapper .fullscreen-selector .fullscreen-selector-icon-actions .btn.tv-open-gps-btn {
+	flex: 0 0 auto !important;
+	width: auto !important;
+	max-width: none !important;
+	min-width: auto !important;
 }
 
 .fullscreen-selector label {
@@ -2181,7 +2247,7 @@
 
 .gps-coordinates-overlay {
 	position: absolute;
-	top: 52px;
+	top: calc(var(--tv-compass-top) + var(--tv-compass-size) + 10px);
 	right: 20px;
 	z-index: 1000;
 	pointer-events: none;
@@ -2920,8 +2986,9 @@
 	white-space: nowrap;
 }
 
-::ng-deep .trace-viewer-direction-modal .list-group-item.active .tv-direction-distance {
-	color: #fff;
+::ng-deep .trace-viewer-direction-modal .list-group-item.active .tv-direction-distance,
+::ng-deep .trace-viewer-direction-modal .list-group-item.active .text-muted {
+	color: #fff !important;
 }
 
 .gps-copy-btn:focus {

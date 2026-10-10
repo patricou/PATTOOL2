@@ -467,6 +467,16 @@
           </button>
           <button type="button"
                   class="btn btn-sm tv-tip"
+                  [class.btn-success]="gotoTargetActive"
+                  [class.btn-outline-secondary]="!gotoTargetActive"
+                  (click)="openGotoModal()"
+                  [attr.data-tv-tip]="'EVENTELEM.TRACK_GOTO' | translate"
+                  [attr.aria-label]="'EVENTELEM.TRACK_GOTO' | translate"
+                  [attr.aria-pressed]="gotoTargetActive">
+            <i class="fa fa-search" aria-hidden="true"></i>
+          </button>
+          <button type="button"
+                  class="btn btn-sm tv-tip"
                   [class.btn-success]="directionTargetActive"
                   [class.btn-outline-secondary]="!directionTargetActive"
                   (click)="openDirectionModal()"
@@ -709,7 +719,7 @@
       </div>
       <div class="trace-viewer-footer-buttons-group d-flex align-items-center flex-nowrap">
       <button type="button"
-              class="btn btn-success flex-shrink-0 tv-open-gps-btn tv-tip"
+              class="btn btn-success tv-open-gps-btn tv-tip"
               *ngIf="!isFullscreen && canOpenGpsFollow && !isMobileViewport"
               (click)="openGpsFollow()"
               [attr.data-tv-tip]="'EVENTELEM.TRACK_OPEN_GPS' | translate"
@@ -717,7 +727,7 @@
         <i class="fa fa-location-arrow me-1" aria-hidden="true"></i>GPS
       </button>
       <button type="button"
-              class="btn btn-outline-secondary flex-shrink-0 tv-tip"
+              class="btn btn-outline-secondary tv-tip"
               *ngIf="!isFullscreen"
               (click)="recenterOnUser()"
               [disabled]="locatingUser"
@@ -726,7 +736,18 @@
         <i class="fa" [ngClass]="locatingUser ? 'fa-spinner fa-spin' : 'fa-location-arrow'" aria-hidden="true"></i>
       </button>
       <button type="button"
-              class="btn flex-shrink-0 tv-tip"
+              class="btn tv-tip"
+              *ngIf="!isFullscreen"
+              [class.btn-success]="gotoTargetActive"
+              [class.btn-outline-secondary]="!gotoTargetActive"
+              (click)="openGotoModal()"
+              [attr.data-tv-tip]="'EVENTELEM.TRACK_GOTO' | translate"
+              [attr.aria-label]="'EVENTELEM.TRACK_GOTO' | translate"
+              [attr.aria-pressed]="gotoTargetActive">
+        <i class="fa fa-search" aria-hidden="true"></i>
+      </button>
+      <button type="button"
+              class="btn tv-tip"
               *ngIf="!isFullscreen"
               [class.btn-success]="directionTargetActive"
               [class.btn-outline-secondary]="!directionTargetActive"
@@ -737,7 +758,7 @@
         <i class="fa fa-map-marker" aria-hidden="true"></i>
       </button>
       <button type="button"
-              class="btn btn-outline-secondary flex-shrink-0 tv-tip"
+              class="btn btn-outline-secondary tv-tip"
               *ngIf="!isFullscreen"
               (click)="recenterOnTrack()"
               [attr.data-tv-tip]="'EVENTELEM.TRACK_RECENTER' | translate"
@@ -745,7 +766,7 @@
         <i class="fa fa-crosshairs" aria-hidden="true"></i>
       </button>
       <button type="button"
-              class="btn btn-outline-secondary flex-shrink-0 tv-tip"
+              class="btn btn-outline-secondary tv-tip"
               *ngIf="!isFullscreen"
               (click)="sharePosition()"
               [attr.data-tv-tip]="'EVENTELEM.TRACK_SHARE_LOCATION' | translate"
@@ -753,7 +774,7 @@
         <i class="fa fa-share-alt" aria-hidden="true"></i>
       </button>
       <button type="button"
-              class="btn btn-outline-secondary flex-shrink-0 tv-tip"
+              class="btn btn-outline-secondary tv-tip"
               *ngIf="!isFullscreen && gpxAnalysis"
               (click)="openGpxStatsModal()"
               [attr.data-tv-tip]="'EVENTELEM.TRACK_GPX_STATS' | translate"
@@ -761,7 +782,7 @@
         <i class="fa fa-bar-chart" aria-hidden="true"></i>
       </button>
       <button type="button"
-              class="btn btn-outline-secondary flex-shrink-0 tv-tip"
+              class="btn btn-outline-secondary tv-tip"
               *ngIf="!isFullscreen"
               (click)="openCartesGouvEmbed()"
               [attr.data-tv-tip]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate"
@@ -769,14 +790,14 @@
         <i class="fa fa-map" aria-hidden="true"></i>
       </button>
       <button type="button"
-              class="btn btn-secondary flex-shrink-0 tv-tip"
+              class="btn btn-secondary tv-tip"
               (click)="toggleFullscreen()"
               [attr.data-tv-tip]="isFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate)"
               [attr.aria-label]="isFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate)">
         <i class="fa" [ngClass]="isFullscreen ? 'fa-compress' : 'fa-arrows-alt'" aria-hidden="true"></i>
       </button>
       <button type="button"
-              class="btn btn-secondary flex-shrink-0 tv-tip"
+              class="btn btn-secondary tv-tip"
               (click)="close()"
               [attr.data-tv-tip]="'COMMUN.CLOSE' | translate"
               [attr.aria-label]="'COMMUN.CLOSE' | translate">
@@ -851,6 +872,99 @@
             [disabled]="directionSelectedIndex == null || directionLocating">
       <i class="fa fa-spinner fa-spin me-1" *ngIf="directionLocating" aria-hidden="true"></i>
       {{ 'EVENTELEM.TRACK_DIRECTION_USE' | translate }}
+    </button>
+  </div>
+</ng-template>
+
+<ng-template #gotoLocationModal>
+  <div class="modal-header tv-direction-modal-header">
+    <h5 class="modal-title">
+      <i class="fa fa-search me-2" aria-hidden="true"></i>
+      {{ 'EVENTELEM.TRACK_GOTO_TITLE' | translate }}
+    </h5>
+    <button type="button"
+            class="btn-close btn-close-white"
+            [attr.aria-label]="'COMMUN.CLOSE' | translate"
+            (click)="closeGotoModal()"></button>
+  </div>
+  <div class="modal-body tv-direction-modal-body">
+    <p class="small text-muted mb-3">{{ 'EVENTELEM.TRACK_GOTO_HINT' | translate }}</p>
+    <div class="btn-group w-100 mb-3" role="group" [attr.aria-label]="'EVENTELEM.TRACK_GOTO_TITLE' | translate">
+      <button type="button"
+              class="btn btn-outline-primary"
+              [class.active]="gotoMode === 'address'"
+              (click)="setGotoMode('address')"
+              [attr.aria-pressed]="gotoMode === 'address'">
+        <i class="fa fa-home me-1" aria-hidden="true"></i>{{ 'EVENTELEM.TRACK_GOTO_MODE_ADDRESS' | translate }}
+      </button>
+      <button type="button"
+              class="btn btn-outline-primary"
+              [class.active]="gotoMode === 'coords'"
+              (click)="setGotoMode('coords')"
+              [attr.aria-pressed]="gotoMode === 'coords'">
+        <i class="fa fa-crosshairs me-1" aria-hidden="true"></i>{{ 'EVENTELEM.TRACK_GOTO_MODE_COORDS' | translate }}
+      </button>
+    </div>
+
+    <ng-container *ngIf="gotoMode === 'address'">
+      <div class="input-group">
+        <input type="text"
+               class="form-control"
+               [(ngModel)]="gotoQuery"
+               [placeholder]="'ADDRESS_GEOCODE.ADDRESS_PLACEHOLDER' | translate"
+               [attr.aria-label]="'ADDRESS_GEOCODE.ENTER_ADDRESS' | translate"
+               (keydown.enter)="$event.preventDefault(); searchGotoAddress()">
+        <button type="button"
+                class="btn btn-primary"
+                (click)="searchGotoAddress()"
+                [disabled]="gotoSearching">
+          <i class="fa" [ngClass]="gotoSearching ? 'fa-spinner fa-spin' : 'fa-search'" aria-hidden="true"></i>
+          {{ 'EVENTELEM.TRACK_GOTO_SEARCH' | translate }}
+        </button>
+      </div>
+      <div class="small text-muted mt-3 mb-1" *ngIf="gotoResults.length">{{ 'ADDRESS_GEOCODE.RESULTS' | translate }}</div>
+      <div class="list-group tv-direction-results" *ngIf="gotoResults.length">
+        <button type="button"
+                class="list-group-item list-group-item-action tv-direction-result"
+                *ngFor="let result of gotoResults; let i = index"
+                [class.active]="gotoSelectedIndex === i"
+                (click)="selectGotoResult(i)">
+          <span class="tv-direction-result-label">{{ result.label }}</span>
+          <span class="text-muted small text-nowrap">{{ result.lat.toFixed(5) }}, {{ result.lng.toFixed(5) }}</span>
+        </button>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="gotoMode === 'coords'">
+      <label class="form-label" for="trace-viewer-goto-coords">{{ 'ADDRESS_GEOCODE.ENTER_COORDINATES' | translate }}</label>
+      <input type="text"
+             id="trace-viewer-goto-coords"
+             class="form-control"
+             [(ngModel)]="gotoCoords"
+             [placeholder]="'ADDRESS_GEOCODE.COORDINATES_PLACEHOLDER' | translate"
+             [attr.aria-label]="'ADDRESS_GEOCODE.ENTER_COORDINATES' | translate"
+             (keydown.enter)="$event.preventDefault(); confirmGotoLocation()">
+    </ng-container>
+
+    <div *ngIf="gotoSearchError" class="alert alert-danger mt-3 mb-0 py-2" role="alert">
+      {{ gotoSearchError }}
+    </div>
+  </div>
+  <div class="modal-footer tv-direction-modal-footer">
+    <button type="button"
+            class="btn btn-outline-light me-auto"
+            *ngIf="gotoTargetActive"
+            (click)="clearGotoTarget()">
+      {{ 'EVENTELEM.TRACK_GOTO_CLEAR' | translate }}
+    </button>
+    <button type="button" class="btn btn-outline-light" (click)="closeGotoModal()">
+      {{ 'COMMUN.CANCEL' | translate }}
+    </button>
+    <button type="button"
+            class="btn btn-success"
+            (click)="confirmGotoLocation()"
+            [disabled]="(gotoMode === 'address' && gotoSelectedIndex == null) || (gotoMode === 'coords' && !gotoCoords.trim())">
+      {{ 'EVENTELEM.TRACK_GOTO_USE' | translate }}
     </button>
   </div>
 </ng-template>

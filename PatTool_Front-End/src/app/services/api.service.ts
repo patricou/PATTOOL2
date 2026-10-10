@@ -2183,10 +2183,14 @@ export class ApiService {
     );
   }
 
-  geocodeReverse(lat: number, lon: number): Observable<any> {
+  geocodeReverse(lat: number, lon: number, lang?: string): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {
-        const params = new HttpParams().set('lat', lat.toString()).set('lon', lon.toString());
+        let params = new HttpParams().set('lat', lat.toString()).set('lon', lon.toString());
+        const code = (lang || '').trim().split('-')[0];
+        if (code) {
+          params = params.set('lang', code);
+        }
         return this._http.get<any>(this.API_URL + 'external/geocode/reverse', { headers: headers, params: params });
       })
     );

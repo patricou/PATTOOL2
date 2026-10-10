@@ -1,0 +1,389 @@
+{
+  "PATTOOL_PARAMS.PARAM.app_holiday_ui_translate_enabled": {
+    "de": "Aktiviert die automatische Übersetzung der Feiertagsnamen in der Oberfläche.",
+    "es": "Activa la traducción automática de los nombres de los días festivos en la interfaz.",
+    "it": "Attiva la traduzione automatica dei nomi dei giorni festivi nell'interfaccia.",
+    "ar": "يفعّل الترجمة التلقائية لأسماء العطل الرسمية في الواجهة.",
+    "cn": "启用界面中公共假日名称的自动翻译。",
+    "el": "Ενεργοποιεί την αυτόματη μετάφραση των ονομάτων αργιών στη διεπαφή.",
+    "he": "מפעיל תרגום אוטומטי של שמות ימי החג בממשק.",
+    "in": "इंटरफ़ेस में सार्वजनिक अवकाश नामों का स्वचालित अनुवाद चालू करता है।",
+    "jp": "画面上の祝日名の自動翻訳を有効にします。",
+    "ru": "Включает автоматический перевод названий праздников в интерфейсе."
+  },
+  "PATTOOL_PARAMS.PARAM.app_holiday_ui_translate_cache_ttl_hours": {
+    "de": "Stunden, die übersetzte Feiertagsbezeichnungen zwischengespeichert werden, bevor neu übersetzt wird.",
+    "es": "Horas de caché de las etiquetas de días festivos traducidas antes de volver a traducir.",
+    "it": "Ore di cache delle etichette dei giorni festivi tradotte prima di una nuova traduzione.",
+    "ar": "ساعات تخزين تسميات العطل المترجمة مؤقتًا قبل إعادة الترجمة.",
+    "cn": "已翻译假日标签在重新翻译前缓存的小时数。",
+    "el": "Ώρες κρυφής μνήμης των μεταφρασμένων ετικετών αργιών πριν από νέα μετάφραση.",
+    "he": "שעות מטמון של תוויות חגים מתורגמות לפני תרגום מחדש.",
+    "in": "पुनः अनुवाद से पहले अनूदित अवकाश लेबल के कैश घंटे।",
+    "jp": "翻訳した祝日ラベルを再翻訳するまでキャッシュする時間数。",
+    "ru": "Часы кэширования переведённых подписей праздников перед повторным переводом."
+  },
+  "PATTOOL_PARAMS.PARAM.app_discussion_default_id": {
+    "de": "MongoDB-ObjectId des Diskussionsraums, der für neue Benutzer standardmäßig geöffnet wird.",
+    "es": "ObjectId de MongoDB de la discusión abierta de forma predeterminada para los nuevos usuarios.",
+    "it": "ObjectId MongoDB della discussione aperta per impostazione predefinita per i nuovi utenti.",
+    "ar": "معرّف ObjectId في MongoDB لغرفة النقاش المفتوحة افتراضيًا للمستخدمين الجدد.",
+    "cn": "为新用户默认打开的讨论室的 MongoDB ObjectId。",
+    "el": "ObjectId MongoDB της αίθουσας συζήτησης που ανοίγει από προεπιλογή για νέους χρήστες.",
+    "he": "ObjectId של MongoDB של חדר הדיון שנפתח כברירת מחדל למשתמשים חדשים.",
+    "in": "नए उपयोगकर्ताओं के लिए डिफ़ॉल्ट रूप से खोले जाने वाले चर्चा कक्ष का MongoDB ObjectId।",
+    "jp": "新規利用者に既定で開くディスカッション室の MongoDB ObjectId。",
+    "ru": "ObjectId MongoDB комнаты обсуждения, открываемой по умолчанию для новых пользователей."
+  },
+  "PATTOOL_PARAMS.PARAM.app_websocket_max_connections": {
+    "de": "Maximale Anzahl gleichzeitiger WebSocket-Verbindungen für die Live-Diskussion.",
+    "es": "Número máximo de conexiones WebSocket simultáneas (discusión en tiempo real).",
+    "it": "Numero massimo di connessioni WebSocket simultanee per la discussione in tempo reale.",
+    "ar": "العدد الأقصى لاتصالات WebSocket المتزامنة (نقاش مباشر).",
+    "cn": "实时讨论的最大同时 WebSocket 连接数。",
+    "el": "Μέγιστος αριθμός ταυτόχρονων συνδέσεων WebSocket για ζωντανή συζήτηση.",
+    "he": "המספר המרבי של חיבורי WebSocket במקביל לדיון חי.",
+    "in": "लाइव चर्चा के लिए अधिकतम एक साथ WebSocket कनेक्शन।",
+    "jp": "リアルタイムのディスカッション用の同時 WebSocket 接続の最大数。",
+    "ru": "Максимум одновременных соединений WebSocket для обсуждения в реальном времени."
+  },
+  "PATTOOL_PARAMS.PARAM.app_websocket_connection_max_age_minutes": {
+    "de": "Minuten, nach denen eine untätige WebSocket-Verbindung serverseitig geschlossen wird.",
+    "es": "Minutos antes de que el servidor cierre una conexión WebSocket inactiva.",
+    "it": "Minuti prima della chiusura lato server di una connessione WebSocket inattiva.",
+    "ar": "الدقائق قبل إغلاق اتصال WebSocket الخامل من جهة الخادم.",
+    "cn": "空闲 WebSocket 连接在服务器端关闭前的分钟数。",
+    "el": "Λεπτά πριν κλείσει στην πλευρά του διακομιστή μια ανενεργή σύνδεση WebSocket.",
+    "he": "דקות לפני שחיבור WebSocket לא פעיל נסגר בצד השרת.",
+    "in": "निष्क्रिय WebSocket कनेक्शन सर्वर पर बंद होने से पहले मिनट।",
+    "jp": "アイドルな WebSocket 接続をサーバー側で閉じるまでの分数。",
+    "ru": "Минуты до закрытия на сервере неактивного соединения WebSocket."
+  },
+  "PATTOOL_PARAMS.PARAM.app_connection_logs_excluded_users": {
+    "de": "Durch Kommas getrennte Benutzernamen, die von den Verbindungsprotokollen ausgeschlossen sind (z. B. Dienstkonten).",
+    "es": "Nombres de usuario (CSV) excluidos de los registros de conexión (p. ej. cuentas de servicio).",
+    "it": "Nomi utente (CSV) esclusi dai registri di connessione (es. account di servizio).",
+    "ar": "أسماء مستخدمين (CSV) مستثناة من سجلات الاتصال (مثل حسابات الخدمة).",
+    "cn": "从连接日志中排除的用户名（逗号分隔，例如服务账户）。",
+    "el": "Ονόματα χρηστών (CSV) που εξαιρούνται από τα αρχεία σύνδεσης (π.χ. λογαριασμοί υπηρεσίας).",
+    "he": "שמות משתמש (CSV) שאינם נכללים ביומני החיבור (למשל חשבונות שירות).",
+    "in": "कनेक्शन लॉग से बाहर उपयोगकर्ता नाम (CSV, उदा. सेवा खाते)।",
+    "jp": "接続ログから除外するユーザー名（カンマ区切り、例：サービスアカウント）。",
+    "ru": "Имена пользователей через запятую, исключённые из журналов подключений (например, служебные учётные записи)."
+  },
+  "PATTOOL_PARAMS.PARAM.app_webcam_windy_api_base": {
+    "de": "Basis-URL der API Windy Webcams v3, die die Webcam-Seite verwendet.",
+    "es": "URL base de la API Windy Webcams v3 usada por la página Webcam.",
+    "it": "URL di base dell'API Windy Webcams v3 usata dalla pagina Webcam.",
+    "ar": "عنوان URL الأساسي لواجهة API‏ Windy Webcams v3 التي تستخدمها صفحة كاميرا الويب.",
+    "cn": "Webcam 页面使用的 Windy Webcams API v3 基址 URL。",
+    "el": "Βασική διεύθυνση URL του API Windy Webcams v3 που χρησιμοποιεί η σελίδα Webcam.",
+    "he": "כתובת URL הבסיסית של API‏ Windy Webcams v3 שבה משתמש דף מצלמת הרשת.",
+    "in": "वेबकैम पृष्ठ द्वारा उपयोग किया जाने वाला Windy Webcams API v3 आधार URL।",
+    "jp": "ウェブカメラページが使う Windy Webcams API v3 のベース URL。",
+    "ru": "Базовый URL API Windy Webcams v3, который использует страница веб-камеры."
+  },
+  "PATTOOL_PARAMS.PARAM.app_webcam_windy_api_key": {
+    "de": "API-Schlüssel von Windy Webcams (Header x-windy-api-key). Kostenlos unter api.windy.com/keys.",
+    "es": "Clave de API de Windy Webcams (cabecera x-windy-api-key). Gratuita en api.windy.com/keys.",
+    "it": "Chiave API Windy Webcams (intestazione x-windy-api-key). Gratuita su api.windy.com/keys.",
+    "ar": "مفتاح API من Windy Webcams (ترويسة x-windy-api-key). مجاني على api.windy.com/keys.",
+    "cn": "Windy Webcams API 密钥（标头 x-windy-api-key）。可在 api.windy.com/keys 免费获取。",
+    "el": "Κλειδί API Windy Webcams (κεφαλίδα x-windy-api-key). Δωρεάν στο api.windy.com/keys.",
+    "he": "מפתח API של Windy Webcams (כותרת x-windy-api-key). חינם ב-api.windy.com/keys.",
+    "in": "Windy Webcams API कुंजी (शीर्षलेख x-windy-api-key)। api.windy.com/keys पर निःशुल्क।",
+    "jp": "Windy Webcams API キー（ヘッダー x-windy-api-key）。api.windy.com/keys で無料です。",
+    "ru": "Ключ API Windy Webcams (заголовок x-windy-api-key). Бесплатно на api.windy.com/keys."
+  },
+  "PATTOOL_PARAMS.PARAM.app_webcam_search_cache_minutes": {
+    "de": "Dauer in Minuten des Server-Zwischenspeichers für Windy-Webcam-Listen.",
+    "es": "Duración (minutos) de la caché del servidor para las listas de webcams de Windy.",
+    "it": "Durata (minuti) della cache del server per gli elenchi di webcam Windy.",
+    "ar": "المدة (بالدقائق) لذاكرة الخادم المؤقتة لقوائم كاميرات Windy.",
+    "cn": "Windy 网络摄像头列表的服务器缓存时长（分钟）。",
+    "el": "Διάρκεια (λεπτά) της κρυφής μνήμης διακομιστή για λίστες καμερών Windy.",
+    "he": "משך (דקות) מטמון השרת לרשימות מצלמות Windy.",
+    "in": "Windy वेबकैम सूचियों के लिए सर्वर कैश अवधि (मिनट)।",
+    "jp": "Windy のウェブカメラ一覧のサーバーキャッシュ期間（分）。",
+    "ru": "Длительность в минутах серверного кэша списков веб-камер Windy."
+  },
+  "PATTOOL_PARAMS.PARAM.app_youtube_api_base": {
+    "de": "Basis-URL der YouTube Data API v3, die die Seite YouTube-Medien verwendet.",
+    "es": "URL base de la API YouTube Data v3 usada por la página Medios YouTube.",
+    "it": "URL di base dell'API YouTube Data v3 usata dalla pagina Media YouTube.",
+    "ar": "عنوان URL الأساسي لواجهة YouTube Data API v3 التي تستخدمها صفحة وسائط YouTube.",
+    "cn": "YouTube 媒体页面使用的 YouTube Data API v3 基址 URL。",
+    "el": "Βασική διεύθυνση URL του YouTube Data API v3 που χρησιμοποιεί η σελίδα Πολυμέσα YouTube.",
+    "he": "כתובת URL הבסיסית של YouTube Data API v3 שבה משתמש דף המדיה YouTube.",
+    "in": "YouTube मीडिया पृष्ठ द्वारा उपयोग किया जाने वाला YouTube Data API v3 आधार URL।",
+    "jp": "YouTube メディアページが使う YouTube Data API v3 のベース URL。",
+    "ru": "Базовый URL YouTube Data API v3, который использует страница медиа YouTube."
+  },
+  "PATTOOL_PARAMS.PARAM.app_youtube_api_key": {
+    "de": "Schlüssel der YouTube Data API v3 (wird nie an den Browser weitergegeben). Kostenlos in der Google-Cloud-Konsole, API YouTube Data API v3.",
+    "es": "Clave de la API YouTube Data v3 (nunca se expone al navegador). Gratuita en console.cloud.google.com, API YouTube Data API v3.",
+    "it": "Chiave dell'API YouTube Data v3 (mai esposta al browser). Gratuita su console.cloud.google.com, API YouTube Data API v3.",
+    "ar": "مفتاح YouTube Data API v3 (لا يُكشف أبدًا للمتصفح). مجاني على console.cloud.google.com، واجهة YouTube Data API v3.",
+    "cn": "YouTube Data API v3 密钥（绝不暴露给浏览器）。可在 console.cloud.google.com 免费获取，API 为 YouTube Data API v3。",
+    "el": "Κλειδί του YouTube Data API v3 (δεν εκτίθεται ποτέ στο πρόγραμμα περιήγησης). Δωρεάν στο console.cloud.google.com, API YouTube Data API v3.",
+    "he": "מפתח YouTube Data API v3 (לעולם לא נחשף לדפדפן). חינם ב-console.cloud.google.com,‏ API‏ YouTube Data API v3.",
+    "in": "YouTube Data API v3 कुंजी (ब्राउज़र को कभी उजागर नहीं)। console.cloud.google.com पर निःशुल्क, API YouTube Data API v3।",
+    "jp": "YouTube Data API v3 キー（ブラウザーには公開しません）。console.cloud.google.com で無料、API は YouTube Data API v3。",
+    "ru": "Ключ YouTube Data API v3 (никогда не передаётся в браузер). Бесплатно на console.cloud.google.com, API YouTube Data API v3."
+  },
+  "PATTOOL_PARAMS.PARAM.app_telegram_api_base": {
+    "de": "Basis-URL der Telegram-Bot-API (jeder PatTool-Benutzer verbindet sein eigenes BotFather-Token).",
+    "es": "URL base de la API Bot de Telegram (cada usuario de PatTool conecta su propio token de BotFather).",
+    "it": "URL di base dell'API Bot di Telegram (ogni utente PatTool collega il proprio token BotFather).",
+    "ar": "عنوان URL الأساسي لواجهة Bot API من Telegram (كل مستخدم PatTool يربط رمز BotFather الخاص به).",
+    "cn": "Telegram Bot API 的基址 URL（每位 PatTool 用户连接自己的 BotFather 令牌）。",
+    "el": "Βασική διεύθυνση URL του Bot API του Telegram (κάθε χρήστης PatTool συνδέει το δικό του διακριτικό BotFather).",
+    "he": "כתובת URL הבסיסית של Bot API של Telegram (כל משתמש PatTool מחבר את אסימון BotFather שלו).",
+    "in": "Telegram Bot API का आधार URL (प्रत्येक PatTool उपयोगकर्ता अपना BotFather टोकन जोड़ता है)।",
+    "jp": "Telegram Bot API のベース URL（各 PatTool 利用者は自分の BotFather トークンを接続します）。",
+    "ru": "Базовый URL API бота Telegram (каждый пользователь PatTool подключает свой токен BotFather)."
+  },
+  "PATTOOL_PARAMS.PARAM.app_openroute_api_key": {
+    "de": "API-Schlüssel von OpenRouteService für die GPS-Routenberechnung (wird nie an den Browser weitergegeben).",
+    "es": "Clave de API de OpenRouteService para el cálculo de rutas GPS (nunca se expone al navegador).",
+    "it": "Chiave API OpenRouteService per il calcolo di itinerari GPS (mai esposta al browser).",
+    "ar": "مفتاح API من OpenRouteService لحساب مسارات GPS (لا يُكشف أبدًا للمتصفح).",
+    "cn": "用于 GPS 路线计算的 OpenRouteService API 密钥（绝不暴露给浏览器）。",
+    "el": "Κλειδί API του OpenRouteService για υπολογισμό διαδρομών GPS (δεν εκτίθεται ποτέ στο πρόγραμμα περιήγησης).",
+    "he": "מפתח API של OpenRouteService לחישוב מסלולי GPS (לעולם לא נחשף לדפדפן).",
+    "in": "GPS मार्ग गणना के लिए OpenRouteService API कुंजी (ब्राउज़र को कभी उजागर नहीं)।",
+    "jp": "GPS 経路計算用の OpenRouteService API キー（ブラウザーには公開しません）。",
+    "ru": "Ключ API OpenRouteService для расчёта маршрутов GPS (никогда не передаётся в браузер)."
+  },
+  "PATTOOL_PARAMS.PARAM.app_openroute_api_base": {
+    "de": "Basis-URL der API von OpenRouteService (Proxy /api/external/openroute/*).",
+    "es": "URL base de la API OpenRouteService (proxy /api/external/openroute/*).",
+    "it": "URL di base dell'API OpenRouteService (proxy /api/external/openroute/*).",
+    "ar": "عنوان URL الأساسي لواجهة API من OpenRouteService (وكيل /api/external/openroute/*).",
+    "cn": "OpenRouteService API 基址 URL（代理 /api/external/openroute/*）。",
+    "el": "Βασική διεύθυνση URL του API OpenRouteService (διαμεσολαβητής /api/external/openroute/*).",
+    "he": "כתובת URL הבסיסית של API‏ OpenRouteService (מתווך /api/external/openroute/*).",
+    "in": "OpenRouteService API आधार URL (प्रॉक्सी /api/external/openroute/*).",
+    "jp": "OpenRouteService API のベース URL（プロキシ /api/external/openroute/*）。",
+    "ru": "Базовый URL API OpenRouteService (прокси /api/external/openroute/*)."
+  },
+  "PATTOOL_PARAMS.PARAM.app_foncier_geo_api_base": {
+    "de": "URL von geo.api.gouv.fr zum Auflösen französischer Gemeinden (INSEE-Code und Postleitzahl).",
+    "es": "URL de geo.api.gouv.fr para resolver municipios (código INSEE y código postal).",
+    "it": "URL di geo.api.gouv.fr per risolvere i comuni (codice INSEE e codice postale).",
+    "ar": "عنوان URL لموقع geo.api.gouv.fr لحل البلديات (رمز INSEE والرمز البريدي).",
+    "cn": "用于解析市镇（INSEE 代码与邮政编码）的 geo.api.gouv.fr URL。",
+    "el": "Διεύθυνση URL του geo.api.gouv.fr για επίλυση δήμων (κωδικός INSEE και ταχυδρομικός κώδικας).",
+    "he": "כתובת URL של geo.api.gouv.fr לזיהוי רשויות (קוד INSEE ומיקוד).",
+    "in": "नगरों (INSEE कोड और डाक कोड) को हल करने के लिए geo.api.gouv.fr का URL।",
+    "jp": "コミューン（INSEE コードと郵便番号）を解決する geo.api.gouv.fr の URL。",
+    "ru": "URL geo.api.gouv.fr для определения коммун (код INSEE и почтовый индекс)."
+  },
+  "PATTOOL_PARAMS.PARAM.app_foncier_cerema_api_base": {
+    "de": "Basis-URL der API Cerema DVF+ (offene notarielle Verkaufsdaten).",
+    "es": "URL base de la API Cerema DVF+ (ventas notariales de datos abiertos).",
+    "it": "URL di base dell'API Cerema DVF+ (vendite notarili open data).",
+    "ar": "عنوان URL الأساسي لواجهة API‏ Cerema DVF+ (مبيعات موثّقة مفتوحة البيانات).",
+    "cn": "Cerema DVF+ API 基址 URL（公证销售开放数据）。",
+    "el": "Βασική διεύθυνση URL του API Cerema DVF+ (συμβολαιογραφικές πωλήσεις ανοικτών δεδομένων).",
+    "he": "כתובת URL הבסיסית של API‏ Cerema DVF+ (מכירות נוטריוניות בנתונים פתוחים).",
+    "in": "Cerema DVF+ API आधार URL (नोटरी बिक्री का खुला डेटा)।",
+    "jp": "Cerema DVF+ API のベース URL（公証された売買のオープンデータ）。",
+    "ru": "Базовый URL API Cerema DVF+ (открытые данные нотариальных продаж)."
+  },
+  "PATTOOL_PARAMS.PARAM.app_foncier_stream_estate_api_base": {
+    "de": "Basis-URL der API von Stream Estate (Immobilienanzeigen).",
+    "es": "URL base de la API Stream Estate (anuncios inmobiliarios).",
+    "it": "URL di base dell'API Stream Estate (annunci immobiliari).",
+    "ar": "عنوان URL الأساسي لواجهة API من Stream Estate (إعلانات عقارية).",
+    "cn": "Stream Estate API 基址 URL（房产公告）。",
+    "el": "Βασική διεύθυνση URL του API Stream Estate (αγγελίες ακινήτων).",
+    "he": "כתובת URL הבסיסית של API‏ Stream Estate (מודעות נדל״ן).",
+    "in": "Stream Estate API आधार URL (संपत्ति विज्ञापन)।",
+    "jp": "Stream Estate API のベース URL（不動産広告）。",
+    "ru": "Базовый URL API Stream Estate (объявления о недвижимости)."
+  },
+  "PATTOOL_PARAMS.PARAM.app_foncier_stream_estate_api_key": {
+    "de": "API-Schlüssel von Stream Estate (wird nie an den Browser weitergegeben). Konto unter stream.estate.",
+    "es": "Clave de API de Stream Estate (nunca se expone al navegador). Cuenta en stream.estate.",
+    "it": "Chiave API Stream Estate (mai esposta al browser). Account su stream.estate.",
+    "ar": "مفتاح API من Stream Estate (لا يُكشف أبدًا للمتصفح). حساب على stream.estate.",
+    "cn": "Stream Estate API 密钥（绝不暴露给浏览器）。账户在 stream.estate。",
+    "el": "Κλειδί API του Stream Estate (δεν εκτίθεται ποτέ στο πρόγραμμα περιήγησης). Λογαριασμός στο stream.estate.",
+    "he": "מפתח API של Stream Estate (לעולם לא נחשף לדפדפן). חשבון ב-stream.estate.",
+    "in": "Stream Estate API कुंजी (ब्राउज़र को कभी उजागर नहीं)। खाता stream.estate पर।",
+    "jp": "Stream Estate API キー（ブラウザーには公開しません）。アカウントは stream.estate。",
+    "ru": "Ключ API Stream Estate (никогда не передаётся в браузер). Учётная запись на stream.estate."
+  },
+  "PATTOOL_PARAMS.PARAM.app_foncier_chercher_trouver_api_base": {
+    "de": "Basis-URL der API von ChercherTrouver (zusammengefasste Anzeigen).",
+    "es": "URL base de la API ChercherTrouver (anuncios agregados).",
+    "it": "URL di base dell'API ChercherTrouver (annunci aggregati).",
+    "ar": "عنوان URL الأساسي لواجهة API من ChercherTrouver (إعلانات مجمّعة).",
+    "cn": "ChercherTrouver API 基址 URL（汇总公告）。",
+    "el": "Βασική διεύθυνση URL του API ChercherTrouver (συγκεντρωτικές αγγελίες).",
+    "he": "כתובת URL הבסיסית של API‏ ChercherTrouver (מודעות מצטברות).",
+    "in": "ChercherTrouver API आधार URL (एकत्रित विज्ञापन)।",
+    "jp": "ChercherTrouver API のベース URL（集約された広告）。",
+    "ru": "Базовый URL API ChercherTrouver (агрегированные объявления)."
+  },
+  "PATTOOL_PARAMS.PARAM.app_foncier_chercher_trouver_api_key": {
+    "de": "API-Schlüssel von ChercherTrouver (wird nie an den Browser weitergegeben). Konto unter cherchertrouver.immo.",
+    "es": "Clave de API de ChercherTrouver (nunca se expone al navegador). Cuenta en cherchertrouver.immo.",
+    "it": "Chiave API ChercherTrouver (mai esposta al browser). Account su cherchertrouver.immo.",
+    "ar": "مفتاح API من ChercherTrouver (لا يُكشف أبدًا للمتصفح). حساب على cherchertrouver.immo.",
+    "cn": "ChercherTrouver API 密钥（绝不暴露给浏览器）。账户在 cherchertrouver.immo。",
+    "el": "Κλειδί API του ChercherTrouver (δεν εκτίθεται ποτέ στο πρόγραμμα περιήγησης). Λογαριασμός στο cherchertrouver.immo.",
+    "he": "מפתח API של ChercherTrouver (לעולם לא נחשף לדפדפן). חשבון ב-cherchertrouver.immo.",
+    "in": "ChercherTrouver API कुंजी (ब्राउज़र को कभी उजागर नहीं)। खाता cherchertrouver.immo पर।",
+    "jp": "ChercherTrouver API キー（ブラウザーには公開しません）。アカウントは cherchertrouver.immo。",
+    "ru": "Ключ API ChercherTrouver (никогда не передаётся в браузер). Учётная запись на cherchertrouver.immo."
+  },
+  "ASTRO_COMPASS.BODY_PLUTO": {
+    "de": "Pluto"
+  },
+  "ASTRO_COMPASS.BODY_SATURN": {
+    "de": "Saturn"
+  },
+  "ASTRO_COMPASS.BODY_VENUS": {
+    "de": "Venus",
+    "es": "Venus"
+  },
+  "ASTRO_COMPASS.CAL_METHOD_MOUSE": {
+    "it": "Tocco / mouse"
+  },
+  "ASTRO_COMPASS.CUSTOM_NAME": {
+    "de": "Name (optional)"
+  },
+  "ASTRO_COMPASS.GROUND_NAME": {
+    "de": "Name"
+  },
+  "ASTRO_COMPASS.DEC_DEG": {
+    "de": "Dek (°)",
+    "es": "Dec (°)",
+    "it": "Dec (°)",
+    "ru": "Скл. (°)"
+  },
+  "ASTRO_COMPASS.DIR_W": {
+    "de": "W"
+  },
+  "ASTRO_COMPASS.ELONGATION": {
+    "de": "Elongation"
+  },
+  "ASTRO_COMPASS.CAM_RESIZE": {
+    "de": "Kamera vergrößern oder verkleinern",
+    "es": "Cambiar el tamaño de la cámara",
+    "it": "Ridimensiona la fotocamera",
+    "ar": "تغيير حجم الكاميرا",
+    "cn": "调整相机大小",
+    "el": "Αλλαγή μεγέθους κάμερας",
+    "he": "שינוי גודל המצלמה",
+    "in": "कैमरा का आकार बदलें",
+    "jp": "カメラのサイズを変更",
+    "ru": "Изменить размер камеры"
+  },
+  "ASTRO_COMPASS.CAM_RESIZE_HINT": {
+    "de": "Ziehen, um die Höhe zu ändern. Doppelklick setzt zurück.",
+    "es": "Arrastre para cambiar la altura. Doble clic para restablecer.",
+    "it": "Trascina per cambiare l'altezza. Doppio clic per ripristinare.",
+    "ar": "اسحب لتغيير الارتفاع. انقر نقرًا مزدوجًا للاستعادة.",
+    "cn": "拖动以更改高度。双击以恢复。",
+    "el": "Σύρετε για να αλλάξετε το ύψος. Διπλό κλικ για επαναφορά.",
+    "he": "גררו לשינוי הגובה. לחיצה כפולה לאיפוס.",
+    "in": "ऊँचाई बदलने के लिए खींचें। रीसेट के लिए दोहरा क्लिक।",
+    "jp": "ドラッグして高さを変えます。ダブルクリックで元に戻します。",
+    "ru": "Перетащите, чтобы изменить высоту. Двойной щелчок сбрасывает."
+  },
+  "ASTRO_COMPASS.HEADING_REF_OWNER": {
+    "it": "Account"
+  },
+  "ASTRO_COMPASS.GALAXY_SEARCH_PLACEHOLDER": {
+    "de": "Andromeda, M51, LMC…",
+    "it": "Andromeda, M51, LMC…"
+  },
+  "ASTRO_COMPASS.DIST_DH_VALUE": {
+    "de": "{{d}} T {{h}} Std",
+    "es": "{{d}} d {{h}} h"
+  },
+  "ASTRO_COMPASS.DIST_AU_UNIT": {
+    "cn": "天文单位",
+    "jp": "天文単位"
+  },
+  "ASTRO_COMPASS.DOSSIER_SKYMAP_FULLSCREEN": {
+    "ar": "ملء الشاشة",
+    "cn": "全屏",
+    "el": "Πλήρης οθόνη",
+    "he": "מסך מלא",
+    "in": "पूर्ण स्क्रीन",
+    "jp": "全画面",
+    "ru": "На весь экран"
+  },
+  "ASTRO_COMPASS.KIND_PLANET": {
+    "de": "Planet"
+  },
+  "ASTRO_COMPASS.CUE_OFF": {
+    "es": "Apagado",
+    "it": "Spento"
+  },
+  "ASTRO_COMPASS.SENSOR_NO": {
+    "es": "no",
+    "it": "no"
+  },
+  "ASTRO_COMPASS.NORTH_MODE_OS_YAW": {
+    "el": "Εκτροπή OS (360 − α)"
+  },
+  "ASTRO_COMPASS.NORTH_MODE_MAG": {
+    "de": "Magnetometer"
+  },
+  "ASTRO_COMPASS.SORT_NAME": {
+    "de": "Name"
+  },
+  "ASTRO_COMPASS.SKY_CLOCK_OFFLINE": {
+    "de": "Offline",
+    "es": "Sin conexión",
+    "it": "Non in linea",
+    "ar": "دون اتصال",
+    "cn": "离线",
+    "el": "Εκτός σύνδεσης",
+    "he": "לא מקוון",
+    "in": "ऑफ़लाइन",
+    "jp": "オフライン",
+    "ru": "Не в сети"
+  },
+  "ASTRO_COMPASS.SKY_CLOCK_TO_OFFLINE": {
+    "de": "Zur Berechnung ohne Netz wechseln",
+    "es": "Pasar al cálculo sin conexión",
+    "it": "Passa al calcolo non in linea",
+    "ar": "التبديل إلى الحساب دون اتصال",
+    "cn": "切换到离线计算",
+    "el": "Μετάβαση σε υπολογισμό εκτός σύνδεσης",
+    "he": "מעבר לחישוב לא מקוון",
+    "in": "ऑफ़लाइन गणना पर जाएँ",
+    "jp": "オフライン計算に切り替える",
+    "ru": "Перейти к расчёту без сети"
+  },
+  "ASTRO_COMPASS.SKY_CLOCK_TO_LIVE": {
+    "de": "Zurück zum Live-Modus",
+    "es": "Volver al modo en directo",
+    "it": "Torna alla modalità dal vivo",
+    "ar": "العودة إلى الوضع المباشر",
+    "cn": "返回实时模式",
+    "el": "Επιστροφή στη ζωντανή λειτουργία",
+    "he": "חזרה למצב חי",
+    "in": "लाइव मोड पर वापस",
+    "jp": "ライブモードに戻る",
+    "ru": "Вернуться в режим реального времени"
+  },
+  "ASTRO_COMPASS.SKY_CLOCK_PRESENT": {
+    "de": "Gegenwart",
+    "es": "Presente",
+    "it": "Presente",
+    "ar": "الحاضر",
+    "cn": "现在",
+    "el": "Παρόν",
+    "he": "הווה",
+    "in": "वर्तमान",
+    "jp": "現在",
+    "ru": "Настоящее"
+  }
+}

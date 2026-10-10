@@ -130,6 +130,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@ViewChild('gpxStatsModal') gpxStatsModal!: TemplateRef<any>;
 	@ViewChild('offlineTracesModal') offlineTracesModal!: TemplateRef<any>;
 	@ViewChild('directionModal') directionModal!: TemplateRef<any>;
+	@ViewChild('gotoLocationModal') gotoLocationModal!: TemplateRef<any>;
 	@ViewChild('mapContainer', { static: false }) mapContainerRef?: ElementRef<HTMLDivElement>;
 	@ViewChild('compassRoseDial', { static: false }) compassRoseDialRef?: ElementRef<SVGSVGElement>;
 	@Output() closed = new EventEmitter<void>();
@@ -320,6 +321,18 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private directionModalRef?: NgbModalRef;
 	private directionLocateGen = 0;
 	private directionPreviewGen = 0;
+
+	/** Point choisi dans la fenêtre adresse / coordonnées, affiché au centre de la carte. */
+	public gotoTargetActive = false;
+	public gotoMode: 'address' | 'coords' = 'address';
+	public gotoQuery = '';
+	public gotoCoords = '';
+	public gotoSearching = false;
+	public gotoSearchError = '';
+	public gotoResults: Array<{ lat: number; lng: number; label: string }> = [];
+	public gotoSelectedIndex: number | null = null;
+	private gotoSearchSub?: Subscription;
+	private gotoModalRef?: NgbModalRef;
 
 	// Event color for styling
 	private eventColor: { r: number; g: number; b: number } | null = null;
@@ -775,6 +788,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@HostListener('window:keydown.escape', ['$event'])
 	onEscape(event: Event): void {
 		event.preventDefault();
+		if (this.gotoModalRef) {
+			this.closeGotoModal();
+			return;
+		}
 		if (this.directionModalRef) {
 			this.closeDirectionModal();
 			return;
@@ -812,7 +829,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (event.ctrlKey || event.metaKey || event.altKey) {
 			return true;
 		}
-		if (this.directionModalRef || this.gpxStatsModalRef || this.offlineTracesModalRef || this.cartesGouvModalRef) {
+		if (this.gotoModalRef || this.directionModalRef || this.gpxStatsModalRef || this.offlineTracesModalRef || this.cartesGouvModalRef) {
 			return true;
 		}
 		const target = event.target as HTMLElement | null;
@@ -1283,6 +1300,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public close(): void {
+		this.closeGotoModal();
 		this.closeDirectionModal();
 		this.closeOfflineTracesModal();
 		this.stopMapOrientationWatch();
@@ -1909,6 +1927,188 @@ export class TraceViewerModalComponent implements OnDestroy {
 		void this.startCompassHeading();
 		this.syncDeviceLocationArrows();
 		this.cdr.markForCheck();
+	}
+
+	/** Ouvre la fenêtre pour choisir une adresse ou des coordonnées GPS. */
+	public openGotoModal(): void {
+		if (!this.gotoLocationModal || this.gotoModalRef) {
+			return;
+		}
+		this.gotoSearchError = '';
+		this.gotoSearching = false;
+		const opts: NgbModalOptions = {
+			centered: true,
+			backdrop: 'static',
+			scrollable: true,
+			keyboard: true,
+			windowClass: 'trace-viewer-direction-modal'
+		};
+		const mountEl = this.getCartesGouvModalMountElement();
+		if (mountEl) {
+			opts.container = mountEl;
+		}
+		this.gotoModalRef = this.modalService.open(this.gotoLocationModal, opts);
+		this.gotoModalRef.result.finally(() => {
+			this.gotoModalRef = undefined;
+			this.gotoSearching = false;
+			this.cdr.markForCheck();
+		});
+	}
+
+	public closeGotoModal(): void {
+		this.gotoSearchSub?.unsubscribe();
+		this.gotoSearchSub = undefined;
+		this.gotoSearching = false;
+		if (!this.gotoModalRef) {
+			return;
+		}
+		try {
+			this.gotoModalRef.close();
+		} catch {
+			/* ignore */
+		}
+		this.gotoModalRef = undefined;
+	}
+
+	public setGotoMode(mode: 'address' | 'coords'): void {
+		this.gotoMode = mode;
+		this.gotoSearchError = '';
+	}
+
+	public searchGotoAddress(): void {
+		const query = this.gotoQuery?.trim();
+		if (!query) {
+			this.gotoSearchError = this.translate('ADDRESS_GEOCODE.ADDRESS_REQUIRED');
+			this.gotoResults = [];
+			this.gotoSelectedIndex = null;
+			return;
+		}
+		this.gotoSearchError = '';
+		this.gotoSelectedIndex = null;
+		this.gotoSearching = true;
+		this.gotoSearchSub?.unsubscribe();
+		this.gotoSearchSub = this.apiService.geocodeSearch(query).pipe(take(1)).subscribe({
+			next: (data: any[]) => {
+				this.gotoResults = (data || []).map((item: any) => ({
+					lat: typeof item.lat === 'number' ? item.lat : parseFloat(item.lat) || 0,
+					lng: typeof item.lon === 'number' ? item.lon : parseFloat(item.lon) || 0,
+					label: String(item.displayName || item.display_name || '').trim()
+				})).filter((item) => isValidGeoCoordinate(item.lat, item.lng) && item.label.length > 0);
+				if (this.gotoResults.length === 0) {
+					this.gotoSearchError = this.translate('ADDRESS_GEOCODE.NO_RESULTS');
+				} else if (this.gotoResults.length === 1) {
+					this.gotoSelectedIndex = 0;
+				}
+				this.gotoSearching = false;
+				this.cdr.markForCheck();
+			},
+			error: () => {
+				this.gotoResults = [];
+				this.gotoSelectedIndex = null;
+				this.gotoSearchError = this.translate('ADDRESS_GEOCODE.ERROR');
+				this.gotoSearching = false;
+				this.cdr.markForCheck();
+			}
+		});
+	}
+
+	public selectGotoResult(index: number): void {
+		this.gotoSelectedIndex = index;
+		this.gotoSearchError = '';
+	}
+
+	public confirmGotoLocation(): void {
+		if (!this.map) {
+			return;
+		}
+		if (this.gotoMode === 'coords') {
+			const parsed = this.parseGotoCoordinates(this.gotoCoords);
+			if (!parsed) {
+				this.gotoSearchError = this.translate('ADDRESS_GEOCODE.INVALID_COORDINATES');
+				this.cdr.markForCheck();
+				return;
+			}
+			const label = `${parsed.lat.toFixed(6)}, ${parsed.lng.toFixed(6)}`;
+			this.showGotoLocation(parsed.lat, parsed.lng, label);
+			this.closeGotoModal();
+			return;
+		}
+		const picked = this.gotoSelectedIndex != null ? this.gotoResults[this.gotoSelectedIndex] : undefined;
+		if (!picked) {
+			this.gotoSearchError = this.translate('EVENTELEM.TRACK_GOTO_SELECT');
+			this.cdr.markForCheck();
+			return;
+		}
+		this.showGotoLocation(picked.lat, picked.lng, picked.label);
+		this.closeGotoModal();
+	}
+
+	public clearGotoTarget(): void {
+		if (this.selectionMarker) {
+			try {
+				this.selectionMarker.remove();
+			} catch {
+				/* ignore */
+			}
+			this.selectionMarker = undefined;
+		}
+		this.gotoTargetActive = false;
+		this.closeGotoModal();
+		this.cdr.markForCheck();
+	}
+
+	/** Centre la carte sur le point choisi et pose le repère rouge. */
+	private showGotoLocation(lat: number, lng: number, label: string): void {
+		if (!this.map || !isValidGeoCoordinate(lat, lng)) {
+			return;
+		}
+		if (this.followDeviceLocation) {
+			this.followDeviceLocation = false;
+			this.onFollowDeviceLocationChange();
+		}
+		this.createSelectionMarker(lat, lng, false);
+		const tip = label.trim();
+		if (tip && this.selectionMarker) {
+			this.selectionMarker.bindTooltip(tip, { direction: 'top', offset: [0, -36] });
+		}
+		const zoom = Math.min(
+			this.map.getMaxZoom(),
+			Math.max(this.map.getZoom(), TraceViewerModalComponent.USER_POSITION_ZOOM)
+		);
+		this.map.setView([lat, lng], zoom);
+		this.currentZoom = zoom;
+		this.finalSelectedCoordinates = { lat, lng };
+		this.gotoTargetActive = true;
+		this.updateSwitchesForPoint(lat, lng);
+		this.cdr.markForCheck();
+	}
+
+	/** « lat, lon », « lat lon » ou « lat,lon ». */
+	private parseGotoCoordinates(input: string): { lat: number; lng: number } | null {
+		const trimmed = (input || '').trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
+		const parts = trimmed.split(' ').filter((part) => part.length > 0);
+		if (parts.length < 2) {
+			return null;
+		}
+		const lat = parseFloat(parts[0]);
+		const lng = parseFloat(parts[1]);
+		if (!isValidGeoCoordinate(lat, lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+			return null;
+		}
+		return { lat, lng };
+	}
+
+	private clearGotoTargetState(): void {
+		this.gotoSearchSub?.unsubscribe();
+		this.gotoSearchSub = undefined;
+		this.gotoTargetActive = false;
+		this.gotoMode = 'address';
+		this.gotoQuery = '';
+		this.gotoCoords = '';
+		this.gotoResults = [];
+		this.gotoSelectedIndex = null;
+		this.gotoSearchError = '';
+		this.gotoSearching = false;
 	}
 
 	private clearDirectionTargetState(): void {
@@ -3811,6 +4011,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private resetState(): void {
+		this.closeGotoModal();
+		this.clearGotoTargetState();
 		this.closeDirectionModal();
 		this.clearDirectionTargetState();
 		this.closeOfflineTracesModal();

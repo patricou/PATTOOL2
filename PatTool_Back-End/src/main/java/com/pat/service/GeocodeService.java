@@ -206,46 +206,93 @@ public class GeocodeService {
      * Tries Nominatim first, then Photon and Open-Meteo as fallbacks when rate-limited or unavailable.
      */
     public Map<String, Object> reverse(double lat, double lon) {
-        Map<String, Object> cached = getCachedReverse(lat, lon);
+        return reverse(lat, lon, null);
+    }
+
+    /**
+     * @param lang UI language (fr, en, de, zh, ja, …). Country and place names follow this language when the provider supports it.
+     */
+    public Map<String, Object> reverse(double lat, double lon, String lang) {
+        String geocodeLang = normalizeGeocodeLang(lang);
+        Map<String, Object> cached = getCachedReverse(lat, lon, geocodeLang);
         if (cached != null) {
-            log.debug("Reverse geocode cache hit for ({}, {})", lat, lon);
+            log.debug("Reverse geocode cache hit for ({}, {}) lang={}", lat, lon, geocodeLang);
             return cached;
         }
 
-        Map<String, Object> nominatim = reverseViaNominatim(lat, lon);
+        Map<String, Object> nominatim = reverseViaNominatim(lat, lon, geocodeLang);
         if (nominatim != null) {
-            putCachedReverse(lat, lon, nominatim);
+            putCachedReverse(lat, lon, geocodeLang, nominatim);
             return nominatim;
         }
 
-        Map<String, Object> photon = reverseViaPhoton(lat, lon);
+        Map<String, Object> photon = reverseViaPhoton(lat, lon, geocodeLang);
         if (photon != null) {
             log.info("Reverse geocode fallback (Photon) for ({}, {}): {}", lat, lon, photon.get("display_name"));
-            putCachedReverse(lat, lon, photon);
+            putCachedReverse(lat, lon, geocodeLang, photon);
             return photon;
         }
 
-        Map<String, Object> openMeteo = reverseViaOpenMeteo(lat, lon);
+        Map<String, Object> openMeteo = reverseViaOpenMeteo(lat, lon, geocodeLang);
         if (openMeteo != null) {
             log.info("Reverse geocode fallback (Open-Meteo) for ({}, {}): {}", lat, lon, openMeteo.get("display_name"));
-            putCachedReverse(lat, lon, openMeteo);
+            putCachedReverse(lat, lon, geocodeLang, openMeteo);
             return openMeteo;
         }
 
         Map<String, Object> fallback = fallbackReverseResult(lat, lon);
-        putCachedReverse(lat, lon, fallback);
+        putCachedReverse(lat, lon, geocodeLang, fallback);
         return fallback;
     }
 
-    private Map<String, Object> reverseViaNominatim(double lat, double lon) {
-        String url = UriComponentsBuilder.fromHttpUrl(NOMINATIM_BASE + "/reverse")
+    /** App codes cn/jp/in map to Nominatim language tags. Empty means provider default. */
+    static String normalizeGeocodeLang(String lang) {
+        if (lang == null) {
+            return "";
+        }
+        String code = lang.trim().toLowerCase(Locale.ROOT);
+        int dash = code.indexOf('-');
+        if (dash > 0) {
+            code = code.substring(0, dash);
+        }
+        switch (code) {
+            case "cn":
+            case "zh":
+                return "zh";
+            case "jp":
+            case "ja":
+                return "ja";
+            case "in":
+            case "hi":
+                return "hi";
+            case "iw":
+                return "he";
+            case "fr":
+            case "en":
+            case "de":
+            case "es":
+            case "it":
+            case "ar":
+            case "ru":
+            case "he":
+            case "el":
+                return code;
+            default:
+                return code.isEmpty() ? "" : "en";
+        }
+    }
+
+    private Map<String, Object> reverseViaNominatim(double lat, double lon, String geocodeLang) {
+        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(NOMINATIM_BASE + "/reverse")
                 .queryParam("format", "json")
                 .queryParam("lat", lat)
                 .queryParam("lon", lon)
                 .queryParam("zoom", 18)
-                .queryParam("addressdetails", 1)
-                .build()
-                .toUriString();
+                .queryParam("addressdetails", 1);
+        if (geocodeLang != null && !geocodeLang.isEmpty()) {
+            builder.queryParam("accept-language", geocodeLang);
+        }
+        String url = builder.build().toUriString();
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("User-Agent", USER_AGENT);
@@ -301,11 +348,12 @@ public class GeocodeService {
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, Object> reverseViaPhoton(double lat, double lon) {
+    private Map<String, Object> reverseViaPhoton(double lat, double lon, String geocodeLang) {
+        String photonLang = photonLang(geocodeLang);
         String url = UriComponentsBuilder.fromHttpUrl(PHOTON_BASE + "/reverse")
                 .queryParam("lat", lat)
                 .queryParam("lon", lon)
-                .queryParam("lang", "fr")
+                .queryParam("lang", photonLang)
                 .build()
                 .toUriString();
         try {
@@ -351,11 +399,12 @@ public class GeocodeService {
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, Object> reverseViaOpenMeteo(double lat, double lon) {
+    private Map<String, Object> reverseViaOpenMeteo(double lat, double lon, String geocodeLang) {
+        String meteoLang = (geocodeLang == null || geocodeLang.isEmpty()) ? "fr" : geocodeLang;
         String url = UriComponentsBuilder.fromHttpUrl(OPEN_METEO_GEO_REVERSE)
                 .queryParam("latitude", lat)
                 .queryParam("longitude", lon)
-                .queryParam("language", "fr")
+                .queryParam("language", meteoLang)
                 .build()
                 .toUriString();
         try {
@@ -433,12 +482,29 @@ public class GeocodeService {
         }
     }
 
-    private static String reverseCacheKey(double lat, double lon) {
-        return String.format(Locale.ENGLISH, "%.4f,%.4f", lat, lon);
+    /** Photon only localizes de, en, fr and it. Other UI languages fall back to English, or French when no language was asked. */
+    private static String photonLang(String geocodeLang) {
+        if (geocodeLang == null || geocodeLang.isEmpty()) {
+            return "fr";
+        }
+        switch (geocodeLang) {
+            case "de":
+            case "en":
+            case "fr":
+            case "it":
+                return geocodeLang;
+            default:
+                return "en";
+        }
     }
 
-    private Map<String, Object> getCachedReverse(double lat, double lon) {
-        String key = reverseCacheKey(lat, lon);
+    private static String reverseCacheKey(double lat, double lon, String geocodeLang) {
+        String lang = geocodeLang == null ? "" : geocodeLang;
+        return String.format(Locale.ENGLISH, "%.4f,%.4f|%s", lat, lon, lang);
+    }
+
+    private Map<String, Object> getCachedReverse(double lat, double lon, String geocodeLang) {
+        String key = reverseCacheKey(lat, lon, geocodeLang);
         long now = System.currentTimeMillis();
         reverseCacheLock.lock();
         try {
@@ -455,11 +521,11 @@ public class GeocodeService {
         }
     }
 
-    private void putCachedReverse(double lat, double lon, Map<String, Object> result) {
+    private void putCachedReverse(double lat, double lon, String geocodeLang, Map<String, Object> result) {
         if (result == null || result.isEmpty()) {
             return;
         }
-        String key = reverseCacheKey(lat, lon);
+        String key = reverseCacheKey(lat, lon, geocodeLang);
         reverseCacheLock.lock();
         try {
             reverseCache.put(key, new ReverseCacheEntry(System.currentTimeMillis(), new LinkedHashMap<>(result)));
