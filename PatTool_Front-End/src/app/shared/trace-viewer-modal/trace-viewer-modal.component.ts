@@ -2021,6 +2021,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (tip && this.selectionMarker) {
 			this.selectionMarker.bindTooltip(tip, { direction: 'top', offset: [0, -36] });
 		}
+		this.selectionMarker?.on('click', (e: L.LeafletMouseEvent) => {
+			L.DomEvent.stopPropagation(e);
+			this.clearGotoTarget();
+			this.clearDirectionTarget();
+		});
 		const zoom = Math.min(
 			this.map.getMaxZoom(),
 			Math.max(this.map.getZoom(), TraceViewerModalComponent.USER_POSITION_ZOOM)
@@ -6510,21 +6515,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	 * Create a marker at clicked position (for general map clicks)
 	 */
 	private createClickMarker(lat: number, lng: number): void {
-		// Remove previous click marker if exists
-		if (this.clickMarker) {
-			try {
-				if (this.overlayLayer && this.overlayLayer.hasLayer(this.clickMarker)) {
-					this.overlayLayer.removeLayer(this.clickMarker);
-				}
-				if (this.map && this.map.hasLayer(this.clickMarker)) {
-					this.map.removeLayer(this.clickMarker);
-				}
-				this.clickMarker.remove();
-			} catch (e) {
-				console.warn('Error removing previous click marker:', e);
-			}
-			this.clickMarker = undefined;
-		}
+		this.removeClickMarker();
 
 		// Create red marker icon
 		const markerIcon = L.divIcon({
@@ -6542,7 +6533,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 			popupAnchor: [0, -41]
 		});
 
-		// Create marker
 		this.clickMarker = L.marker([lat, lng], {
 			icon: markerIcon,
 			zIndexOffset: 1000,
@@ -6550,22 +6540,36 @@ export class TraceViewerModalComponent implements OnDestroy {
 			riseOffset: 250
 		});
 
-		// Update switches when marker is clicked
+		// Un clic sur la cible l’enlève, ainsi que la cible de direction.
 		this.clickMarker.on('click', (e: L.LeafletMouseEvent) => {
-			e.originalEvent?.stopPropagation();
 			L.DomEvent.stopPropagation(e);
 			if (e.originalEvent) {
 				L.DomEvent.preventDefault(e.originalEvent);
 			}
-			if (this.clickMarker) {
-				const pos = this.clickMarker.getLatLng();
-				this.updateSwitchesForPoint(pos.lat, pos.lng);
-			}
+			this.removeClickMarker();
+			this.clearDirectionTarget();
 		});
 
-		// Add to map
 		this.clickMarker.addTo(this.map!);
 		this.syncClickDirectionArrow();
+	}
+
+	private removeClickMarker(): void {
+		if (this.clickMarker) {
+			try {
+				if (this.overlayLayer && this.overlayLayer.hasLayer(this.clickMarker)) {
+					this.overlayLayer.removeLayer(this.clickMarker);
+				}
+				if (this.map && this.map.hasLayer(this.clickMarker)) {
+					this.map.removeLayer(this.clickMarker);
+				}
+				this.clickMarker.remove();
+			} catch (e) {
+				console.warn('Error removing previous click marker:', e);
+			}
+			this.clickMarker = undefined;
+		}
+		this.removeClickDirectionMarker();
 	}
 
 	private cleanupLocationSelection(): void {
