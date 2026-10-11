@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Map">
+  <path fill="#22c55e" d="M4 8l8-4 8 4 8-4v20l-8 4-8-4-8 4z"/>
+  <path fill="#16a34a" d="M12 4l8 4v20l-8-4z"/>
+  <path fill="#38bdf8" d="M8 18c2-4 6-4 8 0s6 4 8 0v6l-8 3-8-3z"/>
+</svg>

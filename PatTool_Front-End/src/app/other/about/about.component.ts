@@ -13,6 +13,7 @@ export interface AboutFeatureLink {
   icon: string;
   labelKey: string;
   descKey: string;
+  logoSrc?: string;
 }
 
 export interface AboutFeatureGroup {
@@ -124,7 +125,7 @@ export class AboutComponent {
       titleKey: 'ABOUT.GROUP_PEOPLE',
       links: [
         { route: '/friends', icon: 'fa-users', labelKey: 'MENU.FRIENDS', descKey: 'ABOUT.FEAT_FRIENDS' },
-        { route: '/results', icon: 'fa-comments', labelKey: 'MENU.RESULTS', descKey: 'ABOUT.FEAT_WHATSPAT' },
+        { route: '/results', icon: 'fa-whatsapp', labelKey: 'MENU.RESULTS', descKey: 'ABOUT.FEAT_WHATSPAT', logoSrc: 'assets/images/whatsapp-logo.svg' },
         { route: '/sos', icon: 'fa-life-ring', labelKey: 'MENU.SOS', descKey: 'ABOUT.FEAT_SOS' }
       ]
     },
@@ -138,13 +139,13 @@ export class AboutComponent {
     {
       titleKey: 'MENU.GEO_EARTH',
       links: [
-        { route: '/api/meteo-france', icon: 'fa-umbrella', labelKey: 'MENU.METEO_FRANCE', descKey: 'ABOUT.FEAT_METEO' },
-        { route: '/api/openweathermap', icon: 'fa-location-arrow', labelKey: 'MENU.POSITION_METEO', descKey: 'ABOUT.FEAT_POSITION' },
+        { route: '/api/meteo-france', icon: 'fa-umbrella', labelKey: 'MENU.METEO_FRANCE', descKey: 'ABOUT.FEAT_METEO', logoSrc: 'assets/images/meteofrance-logo.svg' },
+        { route: '/api/openweathermap', icon: 'fa-cloud', labelKey: 'MENU.POSITION_METEO', descKey: 'ABOUT.FEAT_POSITION', logoSrc: 'assets/images/openweathermap-logo.svg' },
         { route: '/api/address-geocode', icon: 'fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP', descKey: 'ABOUT.FEAT_ADDRESS' },
         { route: '/api/gps-routing', icon: 'fa-road', labelKey: 'MENU.GPS_ROUTING', descKey: 'ABOUT.FEAT_ROUTING' },
         { route: '/api/gps', icon: 'fa-location-arrow', labelKey: 'MENU.GPS', descKey: 'ABOUT.FEAT_GPS' },
         { route: '/api/gpx-trace', icon: 'fa-map-signs', labelKey: 'MENU.GPX_TRACE', descKey: 'ABOUT.FEAT_GPX' },
-        { route: '/tools/relief-finder', icon: 'fa-area-chart', labelKey: 'MENU.RELIEF_FINDER', descKey: 'ABOUT.FEAT_RELIEF' },
+        { route: '/tools/relief-finder', icon: 'fa-area-chart', labelKey: 'MENU.RELIEF_FINDER', descKey: 'ABOUT.FEAT_RELIEF', logoSrc: 'assets/images/relief-mark.svg' },
         { route: '/tools/detection-error', icon: 'fa-crosshairs', labelKey: 'MENU.DETECTION_ERROR', descKey: 'ABOUT.FEAT_DETECTION' },
         { route: '/api/timezone-converter', icon: 'fa-clock-o', labelKey: 'MENU.TIME_ZONES', descKey: 'ABOUT.FEAT_TIMEZONES' },
         { route: '/api/electricite', icon: 'fa-bolt', labelKey: 'MENU.ELECTRICITE', descKey: 'ABOUT.FEAT_ELECTRICITE' }
@@ -157,8 +158,9 @@ export class AboutComponent {
         { route: '/tools/solar-system', icon: 'fa-sun-o', labelKey: 'MENU.SOLAR_SYSTEM', descKey: 'ABOUT.FEAT_SOLAR' },
         { route: '/tools/ciel', icon: 'fa-star', labelKey: 'MENU.SKY', descKey: 'ABOUT.FEAT_SKY' },
         { route: '/tools/univers-futur', icon: 'fa-hourglass-half', labelKey: 'MENU.FUTURE_UNIVERSE', descKey: 'ABOUT.FEAT_FUTURE_UNIVERSE' },
-        { route: '/tools/eclipse', icon: 'fa-moon-o', labelKey: 'MENU.ECLIPSE', descKey: 'ABOUT.FEAT_ECLIPSE' },
-        { route: '/tools/astro-compass', icon: 'fa-video-camera', labelKey: 'MENU.ASTRO_COMPASS', descKey: 'ABOUT.FEAT_ASTRO' },
+        { route: '/tools/eclipse', icon: 'fa-moon-o', labelKey: 'MENU.ECLIPSE', descKey: 'ABOUT.FEAT_ECLIPSE', logoSrc: 'assets/images/eclipse-mark.svg' },
+        { route: '/tools/nasa', icon: 'fa-rocket', labelKey: 'MENU.NASA', descKey: 'ABOUT.FEAT_NASA', logoSrc: 'assets/images/nasa-meatball.svg' },
+        { route: '/tools/astro-compass', icon: 'fa-binoculars', labelKey: 'MENU.ASTRO_COMPASS', descKey: 'ABOUT.FEAT_ASTRO' },
         { route: '/tools/nord', icon: 'fa-compass', labelKey: 'MENU.NORD', descKey: 'ABOUT.FEAT_COMPASS' },
         { route: '/tools/direction', icon: 'fa-crosshairs', labelKey: 'MENU.DIRECTION', descKey: 'ABOUT.FEAT_DIRECTION' }
       ]
@@ -167,15 +169,16 @@ export class AboutComponent {
       titleKey: 'MENU.MEDIA',
       links: [
         { route: '/tools/tv-watcher', icon: 'fa-television', labelKey: 'MENU.TV', descKey: 'ABOUT.FEAT_TV' },
-        { route: '/tools/radio-watcher', icon: 'fa-headphones', labelKey: 'MENU.RADIO', descKey: 'ABOUT.FEAT_RADIO' },
+        { route: '/tools/radio-watcher', icon: 'fa-headphones', labelKey: 'MENU.RADIO', descKey: 'ABOUT.FEAT_RADIO', logoSrc: 'assets/images/radio-mark.svg' },
         { route: '/tools/book-watcher', icon: 'fa-book', labelKey: 'MENU.BOOK', descKey: 'ABOUT.FEAT_BOOK' },
-        { route: '/tools/archive-watcher', icon: 'fa-archive', labelKey: 'MENU.ARCHIVE', descKey: 'ABOUT.FEAT_ARCHIVE' },
+        { route: '/tools/archive-watcher', icon: 'fa-university', labelKey: 'MENU.ARCHIVE', descKey: 'ABOUT.FEAT_ARCHIVE', logoSrc: 'assets/images/internet-archive-logo.svg' },
         { route: '/tools/webcam', icon: 'fa-video-camera', labelKey: 'MENU.WEBCAM', descKey: 'ABOUT.FEAT_WEBCAM' },
-        { route: '/tools/youtube', icon: 'fa-youtube-play', labelKey: 'MENU.YOUTUBE', descKey: 'ABOUT.FEAT_YOUTUBE' },
-        { route: '/tools/telegram', icon: 'fa-paper-plane', labelKey: 'MENU.TELEGRAM', descKey: 'ABOUT.FEAT_TELEGRAM' },
+        { route: '/tools/youtube', icon: 'fa-youtube', labelKey: 'MENU.YOUTUBE', descKey: 'ABOUT.FEAT_YOUTUBE', logoSrc: 'assets/images/youtube-logo.svg' },
+        { route: '/tools/tmdb', icon: 'fa-film', labelKey: 'MENU.TMDB', descKey: 'ABOUT.FEAT_TMDB', logoSrc: 'assets/images/tmdb-mark.svg' },
+        { route: '/tools/telegram', icon: 'fa-telegram', labelKey: 'MENU.TELEGRAM', descKey: 'ABOUT.FEAT_TELEGRAM', logoSrc: 'assets/images/telegram-logo.svg' },
         { route: '/tools/video-montage', icon: 'fa-film', labelKey: 'MENU.VIDEO_MONTAGE', descKey: 'ABOUT.FEAT_VIDEO_MONTAGE' },
         { route: '/api/news', icon: 'fa-newspaper-o', labelKey: 'MENU.NEWS', descKey: 'ABOUT.FEAT_NEWS' },
-        { route: '/api/wiki', icon: 'fa-graduation-cap', labelKey: 'MENU.WIKI', descKey: 'ABOUT.FEAT_WIKI' }
+        { route: '/api/wiki', icon: 'fa-wikipedia-w', labelKey: 'MENU.WIKI', descKey: 'ABOUT.FEAT_WIKI', logoSrc: 'assets/images/wikipedia-logo.svg' }
       ]
     },
     {
@@ -190,7 +193,7 @@ export class AboutComponent {
       titleKey: 'MENU.FONCIER',
       links: [
         { route: '/api/foncier', icon: 'fa-building', labelKey: 'MENU.FONCIER', descKey: 'ABOUT.FEAT_FONCIER' },
-        { route: '/api/foncier-suisse', icon: 'fa-flag', labelKey: 'MENU.FONCIER_SUISSE', descKey: 'ABOUT.FEAT_FONCIER_SUISSE' }
+        { route: '/api/foncier-suisse', icon: 'fa-flag', labelKey: 'MENU.FONCIER_SUISSE', descKey: 'ABOUT.FEAT_FONCIER_SUISSE', logoSrc: 'assets/images/swiss-flag.svg' }
       ]
     },
     {
@@ -206,17 +209,17 @@ export class AboutComponent {
         { route: '/iot/local-network', icon: 'fa-sitemap', labelKey: 'MENU.LOCAL_NETWORK', descKey: 'ABOUT.FEAT_LOCAL_NETWORK' },
         { route: '/iot/network-sentinel', icon: 'fa-shield', labelKey: 'MENU.NETWORK_SENTINEL', descKey: 'ABOUT.FEAT_NETWORK_SENTINEL' },
         { route: '/iot/cameras', icon: 'fa-video-camera', labelKey: 'MENU.CAMERAS', descKey: 'ABOUT.FEAT_CAMERAS' },
-        { route: '/iot/proxy', icon: 'fa-random', labelKey: 'MENU.IOT_PROXY', descKey: 'ABOUT.FEAT_IOT_PROXY' },
-        { route: '/tools/security-scan', icon: 'fa-shield', labelKey: 'MENU.WORLD_SECURITY_SCAN', descKey: 'ABOUT.FEAT_SECURITY' }
+        { route: '/iot/proxy', icon: 'fa-server', labelKey: 'MENU.IOT_PROXY', descKey: 'ABOUT.FEAT_IOT_PROXY' },
+        { route: '/tools/security-scan', icon: 'fa-search', labelKey: 'MENU.WORLD_SECURITY_SCAN', descKey: 'ABOUT.FEAT_SECURITY' }
       ]
     },
     {
       titleKey: 'MENU.MATH',
       links: [
-        { route: '/tools/loto', icon: 'fa-trophy', labelKey: 'MENU.LOTTO', descKey: 'ABOUT.FEAT_LOTO' },
-        { route: '/tools/euromillions', icon: 'fa-star', labelKey: 'MENU.EUROMILLIONS', descKey: 'ABOUT.FEAT_EUROMILLIONS' },
+        { route: '/tools/loto', icon: 'fa-trophy', labelKey: 'MENU.LOTTO', descKey: 'ABOUT.FEAT_LOTO', logoSrc: 'assets/images/loto-mark.svg' },
+        { route: '/tools/euromillions', icon: 'fa-star', labelKey: 'MENU.EUROMILLIONS', descKey: 'ABOUT.FEAT_EUROMILLIONS', logoSrc: 'assets/images/euromillions-mark.svg' },
         { route: '/tools/calculator', icon: 'fa-calculator', labelKey: 'MENU.CALCULATOR', descKey: 'ABOUT.FEAT_CALCULATOR' },
-        { route: '/tools/cern', icon: 'fa-flask', labelKey: 'MENU.CERN', descKey: 'ABOUT.FEAT_CERN' },
+        { route: '/tools/cern', icon: 'fa-flask', labelKey: 'MENU.CERN', descKey: 'ABOUT.FEAT_CERN', logoSrc: 'assets/images/cern-mark.svg' },
         { route: '/tools/chimie', icon: 'fa-flask', labelKey: 'MENU.CHIMIE', descKey: 'ABOUT.FEAT_CHIMIE' },
         { route: '/tools/code', icon: 'fa-code', labelKey: 'MENU.CODE', descKey: 'ABOUT.FEAT_CODE' }
       ]

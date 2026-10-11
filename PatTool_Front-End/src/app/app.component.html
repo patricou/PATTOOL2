@@ -41,6 +41,10 @@
          [ngClass]="{'show': !isMenuCollapsed}">
         
         <ul class="navbar-nav me-auto">
+            <ng-template #menuIcon let-item>
+                <img *ngIf="item?.logoSrc" [src]="item.logoSrc" alt="" class="nav-menu-logo" width="16" height="16" />
+                <i *ngIf="!item?.logoSrc" [class]="item.icon" [style.color]="item.iconColor"></i>
+            </ng-template>
             <!-- Events Dropdown -->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" 
@@ -49,7 +53,7 @@
                    role="button"
                    (click)="toggleEventsDropdown($event)" 
                    [attr.aria-expanded]="showEventsDropdown">
-                    <i class="fa fa-calendar"></i> {{ 'MENU.EVENTS' | translate }}
+                    <img src="assets/images/menu-events.svg" alt="" class="nav-menu-logo" width="16" height="16" /> {{ 'MENU.EVENTS' | translate }}
                 </a>
                 <ul class="dropdown-menu" 
                     [class.show]="showEventsDropdown" 
@@ -58,7 +62,7 @@
                         <a class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
                         </a>
                     </li>
                 </ul>
@@ -72,7 +76,7 @@
                    role="button"
                    (click)="toggleLinksDropdown($event)" 
                    [attr.aria-expanded]="showLinksDropdown">
-                    <i class="fa fa-link"></i> {{ 'MENU.LINKS' | translate }}
+                    <img src="assets/images/menu-link.svg" alt="" class="nav-menu-logo" width="16" height="16" /> {{ 'MENU.LINKS' | translate }}
                 </a>
                 <ul class="dropdown-menu" 
                     [class.show]="showLinksDropdown" 
@@ -81,7 +85,7 @@
                         <a class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
                         </a>
                     </li>
                 </ul>
@@ -95,7 +99,7 @@
                    role="button"
                    (click)="toggleOrganisationDropdown($event)"
                    [attr.aria-expanded]="showOrganisationDropdown">
-                    <i class="fa fa-sitemap"></i> {{ 'MENU.ORGANISATION' | translate }}
+                    <img src="assets/images/menu-tasks.svg" alt="" class="nav-menu-logo" width="16" height="16" /> {{ 'MENU.ORGANISATION' | translate }}
                 </a>
                 <ul class="dropdown-menu"
                     [class.show]="showOrganisationDropdown"
@@ -104,7 +108,7 @@
                         <a class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
                         </a>
                     </li>
                 </ul>
@@ -118,20 +122,41 @@
                    role="button"
                    (click)="toggleApiDropdown($event)" 
                    [attr.aria-expanded]="showApiDropdown">
-                    <i class="fa fa-map-marker me-1"></i> {{ 'MENU.GEO' | translate }}
+                    <img src="assets/images/menu-globe.svg" alt="" class="nav-menu-logo" width="16" height="16" /> {{ 'MENU.GEO' | translate }}
                 </a>
                 <ul class="dropdown-menu" 
                     [class.show]="showApiDropdown" 
                     aria-labelledby="apiDropdown">
                     <li><h6 class="dropdown-header">{{ 'MENU.GEO_WORLD_VIEWS' | translate }}</h6></li>
-                    <li *ngFor="let item of sortedNavGeoWorld">
-                        <a class="dropdown-item"
-                           [routerLink]="item.routerLink"
-                           (click)="closeMenu()">
-                            <img *ngIf="item.logoSrc" [src]="item.logoSrc" alt="" class="nav-menu-logo" width="16" height="16" />
-                            <i *ngIf="!item.logoSrc" [class]="item.icon"></i> {{ item.labelKey | translate }}
-                        </a>
-                    </li>
+                    <ng-container *ngFor="let item of sortedNavGeoWorldRows">
+                        <li *ngIf="item.kind === 'route'">
+                            <a class="dropdown-item"
+                               [routerLink]="$any(item).routerLink"
+                               (click)="closeMenu()">
+                                <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
+                            </a>
+                        </li>
+                        <li *ngIf="item.kind === 'sky-submenu'" class="dropdown-submenu">
+                            <a class="dropdown-item sky-submenu-toggle"
+                               href="#"
+                               id="skySubmenu"
+                               (click)="toggleSkySubmenu($event)"
+                               [attr.aria-expanded]="showSkySubmenu">
+                                <img src="assets/images/menu-sky.svg" alt="" class="nav-menu-logo" width="16" height="16" /> {{ 'MENU.ASTRONOMY' | translate }}
+                            </a>
+                            <ul class="dropdown-menu"
+                                [class.show]="showSkySubmenu"
+                                aria-labelledby="skySubmenu">
+                                <li *ngFor="let sky of sortedNavGeoSky">
+                                    <a class="dropdown-item"
+                                       [routerLink]="sky.routerLink"
+                                       (click)="closeMenu()">
+                                        <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: sky}"></ng-container> {{ sky.labelKey | translate }}
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    </ng-container>
                     <li><hr class="dropdown-divider"></li>
                     <li><h6 class="dropdown-header">{{ 'MENU.GEO_EARTH' | translate }}</h6></li>
                     <li *ngFor="let item of sortedNavGeoLocal">
@@ -139,14 +164,13 @@
                            class="dropdown-item"
                            href="#"
                            (click)="openMapTraceViewer(); closeMenu(); $event.preventDefault()">
-                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
                         </a>
                         <a *ngIf="item.routerLink"
                            class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                            <img *ngIf="item.logoSrc" [src]="item.logoSrc" alt="" class="nav-menu-logo" width="16" height="16" />
-                            <i *ngIf="!item.logoSrc" [class]="item.icon"></i> {{ item.labelKey | translate }}
+                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
                         </a>
                     </li>
                 </ul>
@@ -160,7 +184,7 @@
                    role="button"
                    (click)="toggleFinanceDropdown($event)"
                    [attr.aria-expanded]="showFinanceDropdown">
-                    <i class="fa fa-exchange"></i> {{ 'MENU.TRANSACTIONS' | translate }}
+                    <img src="assets/images/menu-briefcase.svg" alt="" class="nav-menu-logo" width="16" height="16" /> {{ 'MENU.TRANSACTIONS' | translate }}
                 </a>
                 <ul class="dropdown-menu"
                     [class.show]="showFinanceDropdown"
@@ -170,7 +194,7 @@
                         <a class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
                         </a>
                     </li>
                     <li><hr class="dropdown-divider"></li>
@@ -179,7 +203,7 @@
                         <a class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
                         </a>
                     </li>
                     <li><hr class="dropdown-divider"></li>
@@ -188,7 +212,7 @@
                         <a class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
                         </a>
                     </li>
                 </ul>
@@ -202,7 +226,7 @@
                    role="button"
                    (click)="toggleMediaDropdown($event)"
                    [attr.aria-expanded]="showMediaDropdown">
-                    <i class="fa fa-play-circle"></i> {{ 'MENU.MEDIA' | translate }}
+                    <img src="assets/images/menu-play.svg" alt="" class="nav-menu-logo" width="16" height="16" /> {{ 'MENU.MEDIA' | translate }}
                 </a>
                 <ul class="dropdown-menu"
                     [class.show]="showMediaDropdown"
@@ -211,7 +235,7 @@
                         <a class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
                         </a>
                     </li>
                 </ul>
@@ -225,7 +249,7 @@
                    role="button"
                    (click)="toggleIotDropdown($event)" 
                    [attr.aria-expanded]="showIotDropdown">
-                    <i class="fa fa-wifi"></i> {{ 'MENU.IOT' | translate }}
+                    <img src="assets/images/menu-home.svg" alt="" class="nav-menu-logo" width="16" height="16" /> {{ 'MENU.IOT' | translate }}
                 </a>
                 <ul class="dropdown-menu" 
                     [class.show]="showIotDropdown" 
@@ -235,7 +259,7 @@
                         <a class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
                         </a>
                     </li>
                 </ul>
@@ -249,7 +273,7 @@
                    role="button"
                    (click)="toggleMathDropdown($event)"
                    [attr.aria-expanded]="showMathDropdown">
-                    <i class="fa fa-graduation-cap"></i> {{ 'MENU.MATH' | translate }}
+                    <img src="assets/images/menu-atom.svg" alt="" class="nav-menu-logo" width="16" height="16" /> {{ 'MENU.MATH' | translate }}
                 </a>
                 <ul class="dropdown-menu"
                     [class.show]="showMathDropdown"
@@ -258,7 +282,7 @@
                         <a class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">
-                            <i [class]="item.icon"></i> {{ item.labelKey | translate }}
+                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
                         </a>
                     </li>
                 </ul>
@@ -272,7 +296,7 @@
                    role="button"
                    (click)="toggleToolsDropdown($event)" 
                    [attr.aria-expanded]="showToolsDropdown">
-                    <i class="fa fa-wrench"></i> <span>{{ 'MENU.TOOLS' | translate }}</span>
+                    <img src="assets/images/menu-artisan.svg" alt="" class="nav-menu-logo" width="16" height="16" /> <span>{{ 'MENU.TOOLS' | translate }}</span>
                 </a>
                 <ul class="dropdown-menu" 
                     [class.show]="showToolsDropdown" 
@@ -284,19 +308,19 @@
                             <a class="dropdown-item"
                                [routerLink]="$any(row).routerLink"
                                (click)="closeMenu()">
-                                <i [class]="$any(row).icon"></i> {{ $any(row).labelKey | translate }}
+                                <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: row}"></ng-container> {{ $any(row).labelKey | translate }}
                             </a>
                         </li>
                         <li *ngIf="row.kind === 'upload'">
                             <a class="dropdown-item"
                                (click)="open(uploadfilecontent); closeMenu(); $event.preventDefault()">
-                                <i [class]="$any(row).icon"></i> {{ $any(row).labelKey | translate }}
+                                <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: row}"></ng-container> {{ $any(row).labelKey | translate }}
                             </a>
                         </li>
                         <li *ngIf="row.kind === 'share'">
                             <a class="dropdown-item"
                                (click)="open(sharefilecontent); closeMenu(); $event.preventDefault()">
-                                <i [class]="$any(row).icon"></i> {{ $any(row).labelKey | translate }}
+                                <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: row}"></ng-container> {{ $any(row).labelKey | translate }}
                             </a>
                         </li>
                         <li *ngIf="row.kind === 'doc-submenu'"
@@ -308,7 +332,7 @@
                                href="#"
                                id="documentationSubmenu"
                                (click)="toggleDocumentationSubmenuOnClick($event)">
-                                <i class="fa fa-book"></i> {{ 'MENU.DOCUMENTATION' | translate }}
+                                <img src="assets/images/menu-doc.svg" alt="" class="nav-menu-logo" width="16" height="16" /> {{ 'MENU.DOCUMENTATION' | translate }}
                             </a>
                             <ul class="dropdown-menu documentation-submenu-list"
                                 #documentationSubmenu
@@ -322,7 +346,7 @@
                                 <li *ngFor="let doc of sortedDocumentationItems">
                                     <a class="dropdown-item"
                                        (click)="onDocMenuItemClick(doc, $event)">
-                                        <i [class]="doc.icon"></i> {{ doc.labelKey | translate }}
+                                        <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: doc}"></ng-container> {{ doc.labelKey | translate }}
                                     </a>
                                 </li>
                             </ul>
@@ -336,7 +360,7 @@
                                href="#"
                                id="languageSubmenu"
                                (click)="toggleLanguageSubmenuOnClick($event)">
-                                <i class="fa fa-language"></i> {{ 'MENU.LANG' | translate }}
+                                <img src="assets/images/menu-lang.svg" alt="" class="nav-menu-logo" width="16" height="16" /> {{ 'MENU.LANG' | translate }}
                             </a>
                             <ul class="dropdown-menu language-submenu-list"
                                 #languageSubmenu

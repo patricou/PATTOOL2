@@ -112,7 +112,10 @@
               *ngFor="let feat of group.links"
               [routerLink]="feat.route"
               class="about-feature-tile">
-              <span class="about-feature-icon"><i class="fa" [ngClass]="feat.icon"></i></span>
+              <span class="about-feature-icon">
+                <img *ngIf="feat.logoSrc" [src]="feat.logoSrc" alt="" width="22" height="22" />
+                <i *ngIf="!feat.logoSrc" class="fa" [ngClass]="feat.icon"></i>
+              </span>
               <span class="about-feature-body">
                 <strong>{{ feat.labelKey | translate }}</strong>
                 <span>{{ feat.descKey | translate }}</span>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Events">
+  <rect x="4" y="6" width="24" height="22" rx="3" fill="#fff"/>
+  <rect x="4" y="6" width="24" height="7" rx="3" fill="#e11d48"/>
+  <rect x="4" y="10" width="24" height="3" fill="#e11d48"/>
+  <rect x="10" y="3" width="3" height="6" rx="1" fill="#1e293b"/>
+  <rect x="19" y="3" width="3" height="6" rx="1" fill="#1e293b"/>
+  <rect x="8" y="17" width="7" height="2" rx="1" fill="#94a3b8"/>
+  <rect x="8" y="21" width="12" height="2" rx="1" fill="#cbd5e1"/>
+</svg>

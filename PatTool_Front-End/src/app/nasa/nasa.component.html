@@ -1,0 +1,251 @@
+<div class="pat-title">
+  <h2>
+    <img class="nasa-logo" src="assets/images/nasa-meatball.svg" alt="" width="36" height="36" />
+    {{ 'NASA.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="nasa-page container-fluid py-3">
+  <p class="text-muted small mb-3">
+    <img class="nasa-logo nasa-logo--inline" src="assets/images/nasa-meatball.svg" alt="" width="16" height="16" />
+    {{ 'NASA.SUBTITLE' | translate }}
+  </p>
+
+  <ul class="nav nav-pills mb-3 gap-2">
+    <li class="nav-item">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'apod'" (click)="selectTab('apod')">
+        <i class="fa fa-picture-o me-1"></i> {{ 'NASA.TAB_APOD' | translate }}
+      </button>
+    </li>
+    <li class="nav-item">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'epic'" (click)="selectTab('epic')">
+        <i class="fa fa-globe me-1"></i> {{ 'NASA.TAB_EPIC' | translate }}
+      </button>
+    </li>
+    <li class="nav-item">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'mars'" (click)="selectTab('mars')">
+        <i class="fa fa-circle me-1"></i> {{ 'NASA.TAB_MARS' | translate }}
+      </button>
+    </li>
+    <li class="nav-item">
+      <button type="button" class="nav-link" [class.active]="activeTab === 'neo'" (click)="selectTab('neo')">
+        <i class="fa fa-asterisk me-1"></i> {{ 'NASA.TAB_NEO' | translate }}
+      </button>
+    </li>
+  </ul>
+
+  <section *ngIf="activeTab === 'apod'">
+    <div class="row g-2 align-items-end mb-3">
+      <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+        <label class="form-label small mb-1" for="nasaApodDate">{{ 'NASA.DATE' | translate }}</label>
+        <input id="nasaApodDate" type="date" class="form-control form-control-sm" [(ngModel)]="apodDate" />
+      </div>
+      <div class="col-12 col-sm-auto d-flex gap-2">
+        <button type="button" class="btn btn-primary btn-sm" (click)="searchApod()" [disabled]="apodLoading">
+          <i class="fa fa-search me-1"></i> {{ 'NASA.LOAD' | translate }}
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="loadToday()" [disabled]="apodLoading">
+          {{ 'NASA.TODAY' | translate }}
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="apodLoading" class="text-muted small mb-3">
+      <span class="spinner-border spinner-border-sm me-1"></span> {{ 'NASA.LOADING' | translate }}
+    </div>
+    <div *ngIf="apodError" class="alert alert-warning">{{ apodError | translate }}</div>
+
+    <article class="card shadow-sm nasa-apod" *ngIf="apod && !apodLoading">
+      <div class="card-body">
+        <h3 class="h5 nasa-card-title">
+          <img class="nasa-logo nasa-logo--inline" src="assets/images/nasa-meatball.svg" alt="" width="22" height="22" />
+          {{ apod.title }}
+        </h3>
+        <p class="text-muted small mb-3">
+          {{ apod.date }}
+          <span *ngIf="apod.copyright"> · {{ 'NASA.COPYRIGHT' | translate }} {{ apod.copyright }}</span>
+        </p>
+        <button *ngIf="apod.mediaType === 'image' && apod.url" type="button" class="nasa-tile-hit" (click)="openApodSlideshow()">
+          <img class="nasa-apod-image" [src]="apod.hdUrl || apod.url" [alt]="apod.title" />
+        </button>
+        <iframe *ngIf="apodEmbed" class="nasa-apod-video" [src]="apodEmbed" [title]="apod.title" allowfullscreen></iframe>
+        <img *ngIf="apod.mediaType === 'video' && !apodEmbed && apod.thumbnailUrl" class="nasa-apod-image" [src]="apod.thumbnailUrl" [alt]="apod.title" />
+        <p *ngIf="apod.mediaType === 'video' && !apodEmbed" class="small">
+          <a *ngIf="apod.url" [href]="apod.url" target="_blank" rel="noopener">{{ 'NASA.OPEN_SOURCE' | translate }}</a>
+          <span *ngIf="!apod.url">{{ 'NASA.VIDEO_UNSUPPORTED' | translate }}</span>
+        </p>
+        <p class="nasa-explanation mt-3 mb-2">{{ apod.explanation }}</p>
+        <a *ngIf="apod.mediaType === 'image' && apod.hdUrl" [href]="apod.hdUrl" target="_blank" rel="noopener">
+          {{ 'NASA.OPEN_HD' | translate }}
+        </a>
+      </div>
+    </article>
+  </section>
+
+  <section *ngIf="activeTab === 'epic'">
+    <p class="text-muted small">{{ 'NASA.EPIC_HINT' | translate }}</p>
+    <div class="row g-2 align-items-end mb-3">
+      <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+        <label class="form-label small mb-1" for="nasaEpicDate">{{ 'NASA.DATE' | translate }}</label>
+        <input id="nasaEpicDate" type="date" class="form-control form-control-sm" [(ngModel)]="epicDate" />
+      </div>
+      <div class="col-12 col-sm-auto d-flex gap-2">
+        <button type="button" class="btn btn-primary btn-sm" (click)="loadEpic()" [disabled]="epicLoading">
+          <i class="fa fa-search me-1"></i> {{ 'NASA.LOAD' | translate }}
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="loadLatestEpic()" [disabled]="epicLoading">
+          {{ 'NASA.LATEST' | translate }}
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openEpicSlideshow(0)" [disabled]="epicLoading || !epic?.images?.length">
+          <i class="fa fa-picture-o me-1"></i> {{ 'NASA.SLIDESHOW' | translate }}
+        </button>
+      </div>
+    </div>
+    <div *ngIf="epicLoading" class="text-muted small mb-3">
+      <span class="spinner-border spinner-border-sm me-1"></span> {{ 'NASA.LOADING' | translate }}
+    </div>
+    <div *ngIf="epicError" class="alert alert-warning">{{ epicError | translate }}</div>
+    <div *ngIf="epic && !epic.images.length && !epicLoading" class="text-muted small">{{ 'NASA.EMPTY' | translate }}</div>
+    <div class="nasa-grid" *ngIf="epic as epicDay">
+      <figure class="card shadow-sm nasa-tile" *ngFor="let image of epicDay.images; let i = index">
+        <button type="button" class="nasa-tile-hit" (click)="openEpicSlideshow(i)">
+          <img [src]="epicSrc(image.date, image.image)" [alt]="image.caption || image.image" loading="lazy" />
+        </button>
+        <figcaption>
+          <div>{{ image.date }} <span *ngIf="image.time">{{ image.time }}</span></div>
+          <div *ngIf="image.latitude != null && image.longitude != null" class="text-muted">
+            {{ image.latitude | number:'1.1-1' }}°, {{ image.longitude | number:'1.1-1' }}°
+          </div>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section *ngIf="activeTab === 'mars'">
+    <p class="text-muted small">{{ 'NASA.MARS_DATE_HINT' | translate }}</p>
+    <div class="row g-2 align-items-end mb-3">
+      <div class="col-6 col-md-3 col-lg-2">
+        <label class="form-label small mb-1" for="nasaMarsDate">{{ 'NASA.DATE' | translate }}</label>
+        <input id="nasaMarsDate" type="date" class="form-control form-control-sm" [(ngModel)]="marsDate"
+               min="2004-01-04" />
+      </div>
+      <div class="col-6 col-md-3 col-lg-2">
+        <label class="form-label small mb-1" for="nasaRover">{{ 'NASA.ROVER' | translate }}</label>
+        <select id="nasaRover" class="form-select form-select-sm" [(ngModel)]="rover" (ngModelChange)="onRoverChange()">
+          <option *ngFor="let item of rovers" [value]="item">{{ roverLabel(item) }}</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-3 col-lg-2">
+        <label class="form-label small mb-1" for="nasaCamera">{{ 'NASA.CAMERA' | translate }}</label>
+        <select id="nasaCamera" class="form-select form-select-sm" [(ngModel)]="marsCamera">
+          <option value="">{{ 'NASA.CAMERA_ALL' | translate }}</option>
+          <option *ngFor="let camera of cameras()" [value]="camera">{{ camera }}</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-3 col-lg-2">
+        <label class="form-label small mb-1" for="nasaSol">{{ 'NASA.SOL' | translate }}</label>
+        <input id="nasaSol" type="number" min="0" class="form-control form-control-sm" [(ngModel)]="marsSol"
+               [placeholder]="'NASA.SOL_PLACEHOLDER' | translate" />
+      </div>
+      <div class="col-12 col-md-auto">
+        <button type="button" class="btn btn-primary btn-sm" (click)="loadMars(1)" [disabled]="marsLoading">
+          <i class="fa fa-search me-1"></i> {{ 'NASA.LOAD' | translate }}
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openMarsSlideshow(0)" [disabled]="marsLoading || !mars?.photos?.length">
+          <i class="fa fa-picture-o me-1"></i> {{ 'NASA.SLIDESHOW' | translate }}
+        </button>
+      </div>
+    </div>
+    <div *ngIf="marsLoading" class="text-muted small mb-3">
+      <span class="spinner-border spinner-border-sm me-1"></span> {{ 'NASA.LOADING' | translate }}
+    </div>
+    <div *ngIf="marsError" class="alert alert-warning">{{ marsError | translate }}</div>
+    <div *ngIf="mars && !mars.photos.length && !marsLoading" class="text-muted small">{{ 'NASA.EMPTY' | translate }}</div>
+    <div class="nasa-grid" *ngIf="mars as marsDay">
+      <figure class="card shadow-sm nasa-tile" *ngFor="let photo of marsDay.photos; let i = index">
+        <button type="button" class="nasa-tile-hit" (click)="openMarsSlideshow(i)">
+          <img [src]="photo.imageUrl" [alt]="photo.cameraFullName || photo.camera" loading="lazy" />
+        </button>
+        <figcaption>
+          <div>{{ photo.camera }} <span *ngIf="photo.cameraFullName" class="text-muted">· {{ photo.cameraFullName }}</span></div>
+          <div class="text-muted">{{ 'NASA.SOL' | translate }} {{ photo.sol }} · {{ photo.earthDate }}</div>
+        </figcaption>
+      </figure>
+    </div>
+    <div class="d-flex gap-2 mt-3" *ngIf="hasMarsPage() && mars as marsPageData">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="loadMars(marsPage - 1)" [disabled]="marsPage <= 1 || marsLoading">
+        {{ 'NASA.PREV' | translate }}
+      </button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="loadMars(marsPage + 1)" [disabled]="!marsPageData.hasMore || marsLoading">
+        {{ 'NASA.NEXT' | translate }}
+      </button>
+    </div>
+  </section>
+
+  <section *ngIf="activeTab === 'neo'">
+    <p class="text-muted small">{{ 'NASA.NEO_HINT' | translate }}</p>
+    <div class="row g-2 align-items-end mb-3">
+      <div class="col-6 col-md-3 col-lg-2">
+        <label class="form-label small mb-1" for="nasaNeoStart">{{ 'NASA.NEO_START' | translate }}</label>
+        <input id="nasaNeoStart" type="date" class="form-control form-control-sm" [(ngModel)]="neoStart" />
+      </div>
+      <div class="col-6 col-md-3 col-lg-2">
+        <label class="form-label small mb-1" for="nasaNeoEnd">{{ 'NASA.NEO_END' | translate }}</label>
+        <input id="nasaNeoEnd" type="date" class="form-control form-control-sm" [(ngModel)]="neoEnd" />
+      </div>
+      <div class="col-12 col-md-auto">
+        <button type="button" class="btn btn-primary btn-sm" (click)="loadNeo()" [disabled]="neoLoading">
+          <i class="fa fa-search me-1"></i> {{ 'NASA.LOAD' | translate }}
+        </button>
+      </div>
+    </div>
+    <div *ngIf="neoLoading" class="text-muted small mb-3">
+      <span class="spinner-border spinner-border-sm me-1"></span> {{ 'NASA.LOADING' | translate }}
+    </div>
+    <div *ngIf="neoError" class="alert alert-warning">{{ neoError | translate }}</div>
+    <p class="small" *ngIf="neo as neoCount">{{ 'NASA.COUNT' | translate:{ count: neoCount.count } }}</p>
+    <div class="table-responsive" *ngIf="neo as neoFeed">
+      <table class="table table-sm align-middle" *ngIf="neoFeed.objects.length">
+        <thead>
+          <tr>
+            <th>{{ 'NASA.NAME' | translate }}</th>
+            <th>{{ 'NASA.APPROACH' | translate }}</th>
+            <th>{{ 'NASA.DIAMETER' | translate }}</th>
+            <th>{{ 'NASA.MISS' | translate }}</th>
+            <th>{{ 'NASA.VELOCITY' | translate }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of neoFeed.objects">
+            <td>
+              {{ item.name }}
+              <span class="badge ms-1" [class.text-bg-danger]="item.hazardous" [class.text-bg-secondary]="!item.hazardous">
+                {{ (item.hazardous ? 'NASA.HAZARDOUS' : 'NASA.SAFE') | translate }}
+              </span>
+            </td>
+            <td>{{ item.approachDate }}</td>
+            <td>
+              <span *ngIf="item.diameterMinM != null">
+                {{ item.diameterMinM | number:'1.0-0' }}–{{ item.diameterMaxM | number:'1.0-0' }} {{ 'NASA.METERS' | translate }}
+              </span>
+            </td>
+            <td>
+              <span *ngIf="item.missKm != null">{{ item.missKm | number:'1.0-0' }} {{ 'NASA.KM' | translate }}</span>
+              <span *ngIf="item.missLunar != null" class="text-muted"> · {{ item.missLunar | number:'1.1-1' }} {{ 'NASA.LUNAR' | translate }}</span>
+            </td>
+            <td>
+              <span *ngIf="item.velocityKmh != null">{{ item.velocityKmh | number:'1.0-0' }} {{ 'NASA.KMH' | translate }}</span>
+            </td>
+            <td>
+              <a *ngIf="item.jplUrl" [href]="item.jplUrl" target="_blank" rel="noopener">{{ 'NASA.JPL' | translate }}</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div *ngIf="neo && !neo.objects.length && !neoLoading" class="text-muted small">{{ 'NASA.EMPTY' | translate }}</div>
+  </section>
+
+  <app-slideshow-modal #slideshowModalComponent></app-slideshow-modal>
+</div>

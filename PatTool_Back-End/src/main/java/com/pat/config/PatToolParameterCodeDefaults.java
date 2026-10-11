@@ -184,6 +184,8 @@ public final class PatToolParameterCodeDefaults {
             Map.entry("app.cern.opendata-api-base", "https://opendata.cern.ch/api"),
             Map.entry("app.cern.repository-api-base", "https://repository.cern/api"),
             Map.entry("app.cern.zenodo-api-base", "https://zenodo.org/api"),
+            Map.entry("app.nasa.api-base", "https://api.nasa.gov"),
+            Map.entry("app.nasa.api-key", "DEMO_KEY"),
             Map.entry("app.chem.pubchem-rest-base", "https://pubchem.ncbi.nlm.nih.gov/rest/pug"),
             Map.entry("app.chem.pubchem-autocomplete-base", "https://pubchem.ncbi.nlm.nih.gov/rest/autocomplete"),
             Map.entry("app.stellarium.web-base", "https://stellarium-web.org"),

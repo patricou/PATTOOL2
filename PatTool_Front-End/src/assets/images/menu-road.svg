@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Route">
+  <rect width="32" height="32" rx="6" fill="#15803d"/>
+  <path fill="#475569" d="M10 2h12l4 28H6z"/>
+  <rect x="14.6" y="5" width="2.8" height="4" rx="0.6" fill="#facc15"/>
+  <rect x="14.6" y="13" width="2.8" height="4" rx="0.6" fill="#facc15"/>
+  <rect x="14.6" y="21" width="2.8" height="4" rx="0.6" fill="#facc15"/>
+</svg>

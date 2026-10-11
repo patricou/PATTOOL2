@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Finder">
+  <rect x="3" y="10" width="11" height="14" rx="5" fill="#1e3a8a"/>
+  <rect x="18" y="10" width="11" height="14" rx="5" fill="#1e3a8a"/>
+  <rect x="13" y="13" width="6" height="4" rx="1" fill="#1e3a8a"/>
+  <circle cx="8.5" cy="17" r="3.2" fill="#7dd3fc"/>
+  <circle cx="23.5" cy="17" r="3.2" fill="#7dd3fc"/>
+</svg>

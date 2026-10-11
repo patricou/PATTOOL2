@@ -21,6 +21,9 @@ public class RestTemplateConfig {
     /** PubChem PUG REST — name resolution + 3D records + PNG images can be slow. */
     public static final String CHEM_REST_TEMPLATE = "chemRestTemplate";
 
+    /** NASA Open APIs and the APOD RSS fallback — the api.nasa.gov gateway is often slow. */
+    public static final String NASA_REST_TEMPLATE = "nasaRestTemplate";
+
     /** Météo-France DPClim — async order + file poll can take tens of seconds. */
     public static final String METEOFRANCE_CLIM_REST_TEMPLATE = "meteoFranceClimRestTemplate";
 
@@ -79,6 +82,14 @@ public class RestTemplateConfig {
         return builder
                 .setConnectTimeout(Duration.ofSeconds(5))
                 .setReadTimeout(Duration.ofSeconds(20))
+                .build();
+    }
+
+    @Bean(NASA_REST_TEMPLATE)
+    public RestTemplate nasaRestTemplate(RestTemplateBuilder builder) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(10))
+                .setReadTimeout(Duration.ofSeconds(30))
                 .build();
     }
 

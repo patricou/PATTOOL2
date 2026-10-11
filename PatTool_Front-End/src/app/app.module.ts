@@ -306,6 +306,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 					import('./youtube-watcher/youtube-watcher.component').then(m => m.YoutubeWatcherComponent)
 			},
 			{
+				path: 'tools/tmdb',
+				loadComponent: () =>
+					import('./tmdb-watcher/tmdb-watcher.component').then(m => m.TmdbWatcherComponent)
+			},
+			{
 				path: 'tools/telegram',
 				loadComponent: () =>
 					import('./telegram-watcher/telegram-watcher.component').then(m => m.TelegramWatcherComponent)
@@ -335,6 +340,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{
 				path: 'tools/eclipse',
 				loadComponent: () => import('./eclipse/eclipse.component').then(m => m.EclipseComponent)
+			},
+			{
+				path: 'tools/nasa',
+				loadComponent: () => import('./nasa/nasa.component').then(m => m.NasaComponent)
 			},
 			{
 				path: 'tools/astro-compass',

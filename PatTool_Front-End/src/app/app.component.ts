@@ -53,6 +53,8 @@ interface NavRouteMenuItem {
     labelKey: string;
     /** Optional menu logo (replaces Font Awesome icon when set). */
     logoSrc?: string;
+    /** Optional glyph color when no logo is set (brand marks such as Bitcoin). */
+    iconColor?: string;
     authOnly?: boolean;
     adminOnly?: boolean;
     /** Entrée visible sans rôle IoT (ex. scan sécurité), tant que les autres filtres passent. */
@@ -63,14 +65,19 @@ interface NavDocMenuItem {
   docAction: 'overview' | 'slideshow' | 'activities' | 'whatspat' | 'assistant' | 'math' | 'maison' | 'monde' | 'outils';
   icon: string;
   labelKey: string;
+  logoSrc?: string;
 }
 
 type ToolsMenuRow =
   | ({ kind: 'route' } & NavRouteMenuItem)
-  | { kind: 'upload'; icon: string; labelKey: string }
-  | { kind: 'share'; icon: string; labelKey: string }
+  | { kind: 'upload'; icon: string; labelKey: string; logoSrc?: string }
+  | { kind: 'share'; icon: string; labelKey: string; logoSrc?: string }
   | { kind: 'doc-submenu' }
   | { kind: 'lang-submenu' };
+
+type GeoWorldMenuRow =
+  | ({ kind: 'route' } & NavRouteMenuItem)
+  | { kind: 'sky-submenu'; labelKey: string };
 
 /** Mongo featureKey → i18n label (USERINFO.PARAM_LABELS.*). */
 const USER_PARAM_LABEL_KEYS: Record<string, string> = {
@@ -166,6 +173,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     public showMediaDropdown: boolean = false;
     public showLanguageSubmenu: boolean = false;
     public showDocumentationSubmenu: boolean = false;
+    /** Sous-menu Astronomie (Ciel, éclipses, NASA, système solaire, univers futur). */
+    public showSkySubmenu: boolean = false;
     public isDragOver: boolean = false;
     public compressImages: boolean = true; // Toggle for image compression (enabled by default)
     public isCompressing: boolean = false; // Track if compression is in progress
@@ -224,117 +233,125 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     /** Menus déroulants : entrées dans un ordre arbitraire, affichage trié par libellé traduit. */
     readonly navEventsRaw: NavRouteMenuItem[] = [
-        { routerLink: ['even'], icon: 'fa fa-list', labelKey: 'MENU.EVENTSLIST' },
-        { routerLink: ['neweven'], icon: 'fa fa-plus', labelKey: 'MENU.EVENTSCREATION' },
-        { routerLink: ['photos'], icon: 'fa fa-picture-o', labelKey: 'MENU.PHOTOS' }
+        { routerLink: ['even'], icon: 'fa fa-list', labelKey: 'MENU.EVENTSLIST', logoSrc: 'assets/images/menu-events.svg' },
+        { routerLink: ['neweven'], icon: 'fa fa-plus', labelKey: 'MENU.EVENTSCREATION', logoSrc: 'assets/images/menu-plus.svg' },
+        { routerLink: ['photos'], icon: 'fa fa-picture-o', labelKey: 'MENU.PHOTOS', logoSrc: 'assets/images/menu-photo.svg' }
     ];
     readonly navLinksRaw: NavRouteMenuItem[] = [
-        { routerLink: ['links'], icon: 'fa fa-link', labelKey: 'MENU.LINKS' },
-        { routerLink: ['links-admin'], icon: 'fa fa-cog', labelKey: 'MENU.LINKS_ADMINISTRATION' }
+        { routerLink: ['links'], icon: 'fa fa-link', labelKey: 'MENU.LINKS', logoSrc: 'assets/images/menu-link.svg' },
+        { routerLink: ['links-admin'], icon: 'fa fa-cog', labelKey: 'MENU.LINKS_ADMINISTRATION', logoSrc: 'assets/images/menu-cog.svg' }
     ];
     readonly navOrganisationRaw: NavRouteMenuItem[] = [
-        { routerLink: ['calendrier'], icon: 'fa fa-calendar-check-o', labelKey: 'MENU.CALENDAR' },
-        { routerLink: ['todolists'], icon: 'fa fa-tasks', labelKey: 'MENU.TODOLISTS' },
-        { routerLink: ['notes'], icon: 'fa fa-sticky-note', labelKey: 'MENU.NOTES' }
+        { routerLink: ['calendrier'], icon: 'fa fa-calendar-check-o', labelKey: 'MENU.CALENDAR', logoSrc: 'assets/images/menu-agenda.svg' },
+        { routerLink: ['todolists'], icon: 'fa fa-tasks', labelKey: 'MENU.TODOLISTS', logoSrc: 'assets/images/menu-tasks.svg' },
+        { routerLink: ['notes'], icon: 'fa fa-sticky-note', labelKey: 'MENU.NOTES', logoSrc: 'assets/images/menu-note.svg' }
     ];
     readonly navGeoLocalRaw: NavRouteMenuItem[] = [
         {
             routerLink: ['api/meteo-france'],
             icon: 'fa fa-umbrella',
-            labelKey: 'MENU.METEO_FRANCE'
+            labelKey: 'MENU.METEO_FRANCE',
+            logoSrc: 'assets/images/meteofrance-logo.svg'
         },
-        { routerLink: ['api/openweathermap'], icon: 'fa fa-location-arrow', labelKey: 'MENU.POSITION_METEO' },
-        { routerLink: ['api/address-geocode'], icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP' },
-        { routerLink: ['api/gps-routing'], icon: 'fa fa-road', labelKey: 'MENU.GPS_ROUTING' },
-        { routerLink: ['api/gps'], icon: 'fa fa-location-arrow', labelKey: 'MENU.GPS' },
-        { routerLink: ['api/gpx-trace'], icon: 'fa fa-map-signs', labelKey: 'MENU.GPX_TRACE' },
-        { action: 'trace-viewer', icon: 'fa fa-map', labelKey: 'MENU.MAP_TRACE_VIEWER' },
-        { routerLink: ['tools/relief-finder'], icon: 'fa fa-area-chart', labelKey: 'MENU.RELIEF_FINDER' },
-        { routerLink: ['tools/detection-error'], icon: 'fa fa-crosshairs', labelKey: 'MENU.DETECTION_ERROR' },
-        { routerLink: ['api/timezone-converter'], icon: 'fa fa-clock-o', labelKey: 'MENU.TIME_ZONES' },
-        { routerLink: ['api/electricite'], icon: 'fa fa-bolt', labelKey: 'MENU.ELECTRICITE' }
+        { routerLink: ['api/openweathermap'], icon: 'fa fa-cloud', labelKey: 'MENU.POSITION_METEO', logoSrc: 'assets/images/openweathermap-logo.svg' },
+        { routerLink: ['api/address-geocode'], icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP', logoSrc: 'assets/images/menu-pin.svg' },
+        { routerLink: ['api/gps-routing'], icon: 'fa fa-road', labelKey: 'MENU.GPS_ROUTING', logoSrc: 'assets/images/menu-road.svg' },
+        { routerLink: ['api/gps'], icon: 'fa fa-location-arrow', labelKey: 'MENU.GPS', logoSrc: 'assets/images/menu-gps.svg' },
+        { routerLink: ['api/gpx-trace'], icon: 'fa fa-map-signs', labelKey: 'MENU.GPX_TRACE', logoSrc: 'assets/images/menu-gpx.svg' },
+        { action: 'trace-viewer', icon: 'fa fa-map', labelKey: 'MENU.MAP_TRACE_VIEWER', logoSrc: 'assets/images/menu-map.svg' },
+        { routerLink: ['tools/relief-finder'], icon: 'fa fa-area-chart', labelKey: 'MENU.RELIEF_FINDER', logoSrc: 'assets/images/relief-mark.svg' },
+        { routerLink: ['tools/detection-error'], icon: 'fa fa-crosshairs', labelKey: 'MENU.DETECTION_ERROR', logoSrc: 'assets/images/menu-target.svg' },
+        { routerLink: ['api/timezone-converter'], icon: 'fa fa-clock-o', labelKey: 'MENU.TIME_ZONES', logoSrc: 'assets/images/menu-clock.svg' },
+        { routerLink: ['api/electricite'], icon: 'fa fa-bolt', labelKey: 'MENU.ELECTRICITE', logoSrc: 'assets/images/menu-bolt.svg' }
     ];
     readonly navMediaRaw: NavRouteMenuItem[] = [
-        { routerLink: ['tools/tv-watcher'], icon: 'fa fa-television', labelKey: 'MENU.TV' },
-        { routerLink: ['tools/radio-watcher'], icon: 'fa fa-headphones', labelKey: 'MENU.RADIO' },
-        { routerLink: ['tools/book-watcher'], icon: 'fa fa-book', labelKey: 'MENU.BOOK' },
-        { routerLink: ['tools/archive-watcher'], icon: 'fa fa-archive', labelKey: 'MENU.ARCHIVE' },
-        { routerLink: ['tools/webcam'], icon: 'fa fa-video-camera', labelKey: 'MENU.WEBCAM' },
-        { routerLink: ['tools/youtube'], icon: 'fa fa-youtube-play', labelKey: 'MENU.YOUTUBE' },
-        { routerLink: ['tools/telegram'], icon: 'fa fa-paper-plane', labelKey: 'MENU.TELEGRAM' },
-        { routerLink: ['tools/video-montage'], icon: 'fa fa-film', labelKey: 'MENU.VIDEO_MONTAGE' },
-        { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS' },
-        { routerLink: ['api/wiki'], icon: 'fa fa-graduation-cap', labelKey: 'MENU.WIKI' }
+        { routerLink: ['tools/tv-watcher'], icon: 'fa fa-television', labelKey: 'MENU.TV', logoSrc: 'assets/images/menu-tv.svg' },
+        { routerLink: ['tools/radio-watcher'], icon: 'fa fa-headphones', labelKey: 'MENU.RADIO', logoSrc: 'assets/images/radio-mark.svg' },
+        { routerLink: ['tools/book-watcher'], icon: 'fa fa-book', labelKey: 'MENU.BOOK', logoSrc: 'assets/images/menu-book.svg' },
+        { routerLink: ['tools/archive-watcher'], icon: 'fa fa-university', labelKey: 'MENU.ARCHIVE', logoSrc: 'assets/images/internet-archive-logo.svg' },
+        { routerLink: ['tools/webcam'], icon: 'fa fa-video-camera', labelKey: 'MENU.WEBCAM', logoSrc: 'assets/images/menu-webcam.svg' },
+        { routerLink: ['tools/youtube'], icon: 'fa fa-youtube', labelKey: 'MENU.YOUTUBE', logoSrc: 'assets/images/youtube-logo.svg' },
+        { routerLink: ['tools/tmdb'], icon: 'fa fa-film', labelKey: 'MENU.TMDB', logoSrc: 'assets/images/tmdb-mark.svg' },
+        { routerLink: ['tools/telegram'], icon: 'fa fa-telegram', labelKey: 'MENU.TELEGRAM', logoSrc: 'assets/images/telegram-logo.svg' },
+        { routerLink: ['tools/video-montage'], icon: 'fa fa-film', labelKey: 'MENU.VIDEO_MONTAGE', logoSrc: 'assets/images/menu-montage.svg' },
+        { routerLink: ['api/news'], icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS', logoSrc: 'assets/images/menu-news.svg' },
+        { routerLink: ['api/wiki'], icon: 'fa fa-wikipedia-w', labelKey: 'MENU.WIKI', logoSrc: 'assets/images/wikipedia-logo.svg' }
     ];
     readonly navFinanceRaw: NavRouteMenuItem[] = [
-        { routerLink: ['api/currency-converter'], icon: 'fa fa-money', labelKey: 'MENU.CURRENCY_CONVERTER' },
-        { routerLink: ['api/stock-exchange'], icon: 'fa fa-line-chart', labelKey: 'MENU.STOCK_EXCHANGE' },
-        { routerLink: ['api/cryptos'], icon: 'fa fa-bitcoin', labelKey: 'MENU.CRYPTOS' }
+        { routerLink: ['api/currency-converter'], icon: 'fa fa-money', labelKey: 'MENU.CURRENCY_CONVERTER', logoSrc: 'assets/images/menu-money.svg' },
+        { routerLink: ['api/stock-exchange'], icon: 'fa fa-line-chart', labelKey: 'MENU.STOCK_EXCHANGE', logoSrc: 'assets/images/menu-chart.svg' },
+        { routerLink: ['api/cryptos'], icon: 'fa fa-bitcoin', labelKey: 'MENU.CRYPTOS', logoSrc: 'assets/images/menu-bitcoin.svg' }
     ];
     readonly navFoncierRaw: NavRouteMenuItem[] = [
-        { routerLink: ['api/foncier'], icon: 'fa fa-home', labelKey: 'MENU.FONCIER' },
-        { routerLink: ['api/foncier-suisse'], icon: 'fa fa-flag', labelKey: 'MENU.FONCIER_SUISSE' }
+        { routerLink: ['api/foncier'], icon: 'fa fa-building', labelKey: 'MENU.FONCIER', logoSrc: 'assets/images/menu-building.svg' },
+        { routerLink: ['api/foncier-suisse'], icon: 'fa fa-flag', labelKey: 'MENU.FONCIER_SUISSE', logoSrc: 'assets/images/swiss-flag.svg' }
     ];
     readonly navArtisansRaw: NavRouteMenuItem[] = [
-        { routerLink: ['iot/artisans'], icon: 'fa fa-wrench', labelKey: 'MENU.ARTISANS_COMMERCES' }
+        { routerLink: ['iot/artisans'], icon: 'fa fa-wrench', labelKey: 'MENU.ARTISANS_COMMERCES', logoSrc: 'assets/images/menu-artisan.svg' }
     ];
-    /** Globe 3D, carte du système solaire et univers futur (sous-section du menu Monde). */
-    readonly navGeoWorldRaw: NavRouteMenuItem[] = [
-        { routerLink: ['tools/world-globe'], icon: 'fa fa-map', labelKey: 'MENU.WORLD_GLOBE' },
-        { routerLink: ['tools/solar-system'], icon: 'fa fa-globe', labelKey: 'MENU.SOLAR_SYSTEM' },
-        { routerLink: ['tools/ciel'], icon: 'fa fa-star', labelKey: 'MENU.SKY' },
-        { routerLink: ['tools/univers-futur'], icon: 'fa fa-hourglass-half', labelKey: 'MENU.FUTURE_UNIVERSE' },
-        { routerLink: ['tools/eclipse'], icon: 'fa fa-moon-o', labelKey: 'MENU.ECLIPSE' },
-        { routerLink: ['tools/astro-compass'], icon: 'fa fa-video-camera', labelKey: 'MENU.ASTRO_COMPASS' },
-        { routerLink: ['tools/nord'], icon: 'fa fa-location-arrow', labelKey: 'MENU.NORD' },
-        { routerLink: ['tools/direction'], icon: 'fa fa-crosshairs', labelKey: 'MENU.DIRECTION' }
+    /** Entrées directes du menu Espace, plus le sous-menu Astronomie. */
+    readonly navGeoWorldRowsRaw: GeoWorldMenuRow[] = [
+        { kind: 'route', routerLink: ['tools/world-globe'], icon: 'fa fa-map', labelKey: 'MENU.WORLD_GLOBE' },
+        { kind: 'route', routerLink: ['tools/astro-compass'], icon: 'fa fa-binoculars', labelKey: 'MENU.ASTRO_COMPASS', logoSrc: 'assets/images/menu-binoculars.svg' },
+        { kind: 'route', routerLink: ['tools/nord'], icon: 'fa fa-compass', labelKey: 'MENU.NORD', logoSrc: 'assets/images/menu-compass.svg' },
+        { kind: 'route', routerLink: ['tools/direction'], icon: 'fa fa-crosshairs', labelKey: 'MENU.DIRECTION', logoSrc: 'assets/images/menu-calibrate.svg' },
+        { kind: 'sky-submenu', labelKey: 'MENU.ASTRONOMY' }
+    ];
+    /** Ciel, éclipses, NASA, système solaire et univers futur. */
+    readonly navGeoSkyRaw: NavRouteMenuItem[] = [
+        { routerLink: ['tools/solar-system'], icon: 'fa fa-sun-o', labelKey: 'MENU.SOLAR_SYSTEM', logoSrc: 'assets/images/menu-sun.svg' },
+        { routerLink: ['tools/ciel'], icon: 'fa fa-star', labelKey: 'MENU.SKY', logoSrc: 'assets/images/menu-sky.svg' },
+        { routerLink: ['tools/univers-futur'], icon: 'fa fa-hourglass-half', labelKey: 'MENU.FUTURE_UNIVERSE', logoSrc: 'assets/images/menu-universe.svg' },
+        { routerLink: ['tools/eclipse'], icon: 'fa fa-moon-o', labelKey: 'MENU.ECLIPSE', logoSrc: 'assets/images/eclipse-mark.svg' },
+        { routerLink: ['tools/nasa'], icon: 'fa fa-rocket', labelKey: 'MENU.NASA', logoSrc: 'assets/images/nasa-meatball.svg' }
     ];
     readonly navIotRaw: NavRouteMenuItem[] = [
-        { routerLink: ['iot'], icon: 'fa fa-home', labelKey: 'MENU.IOT_HOME' },
-        { routerLink: ['iot/local-network'], icon: 'fa fa-sitemap', labelKey: 'MENU.LOCAL_NETWORK', adminOnly: true },
-        { routerLink: ['iot/network-sentinel'], icon: 'fa fa-shield', labelKey: 'MENU.NETWORK_SENTINEL', adminOnly: true, visibleWithoutIotRole: true },
-        { routerLink: ['iot/cameras'], icon: 'fa fa-video-camera', labelKey: 'MENU.CAMERAS' },
-        { routerLink: ['iot/proxy'], icon: 'fa fa-random', labelKey: 'MENU.IOT_PROXY' },
+        { routerLink: ['iot'], icon: 'fa fa-home', labelKey: 'MENU.IOT_HOME', logoSrc: 'assets/images/menu-home.svg' },
+        { routerLink: ['iot/local-network'], icon: 'fa fa-sitemap', labelKey: 'MENU.LOCAL_NETWORK', adminOnly: true, logoSrc: 'assets/images/menu-network.svg' },
+        { routerLink: ['iot/network-sentinel'], icon: 'fa fa-shield', labelKey: 'MENU.NETWORK_SENTINEL', adminOnly: true, visibleWithoutIotRole: true, logoSrc: 'assets/images/menu-shield.svg' },
+        { routerLink: ['iot/cameras'], icon: 'fa fa-video-camera', labelKey: 'MENU.CAMERAS', logoSrc: 'assets/images/menu-webcam.svg' },
+        { routerLink: ['iot/proxy'], icon: 'fa fa-server', labelKey: 'MENU.IOT_PROXY', logoSrc: 'assets/images/menu-server.svg' },
         {
             routerLink: ['tools/security-scan'],
-            icon: 'fa fa-shield',
+            icon: 'fa fa-search',
             labelKey: 'MENU.WORLD_SECURITY_SCAN',
             authOnly: true,
-            visibleWithoutIotRole: true
+            visibleWithoutIotRole: true,
+            logoSrc: 'assets/images/menu-scan.svg'
         }
     ];
     readonly navMathRaw: NavRouteMenuItem[] = [
-        { routerLink: ['tools/loto'], icon: 'fa fa-trophy', labelKey: 'MENU.LOTTO' },
-        { routerLink: ['tools/euromillions'], icon: 'fa fa-star', labelKey: 'MENU.EUROMILLIONS' },
-        { routerLink: ['tools/calculator'], icon: 'fa fa-calculator', labelKey: 'MENU.CALCULATOR' },
+        { routerLink: ['tools/loto'], icon: 'fa fa-trophy', labelKey: 'MENU.LOTTO', logoSrc: 'assets/images/loto-mark.svg' },
+        { routerLink: ['tools/euromillions'], icon: 'fa fa-star', labelKey: 'MENU.EUROMILLIONS', logoSrc: 'assets/images/euromillions-mark.svg' },
+        { routerLink: ['tools/calculator'], icon: 'fa fa-calculator', labelKey: 'MENU.CALCULATOR', logoSrc: 'assets/images/menu-calc.svg' },
         { routerLink: ['tools/cern'], icon: 'fa fa-flask', labelKey: 'MENU.CERN', logoSrc: 'assets/images/cern-mark.svg' },
-        { routerLink: ['tools/chimie'], icon: 'fa fa-flask', labelKey: 'MENU.CHIMIE' },
-        { routerLink: ['tools/code'], icon: 'fa fa-code', labelKey: 'MENU.CODE' }
+        { routerLink: ['tools/chimie'], icon: 'fa fa-flask', labelKey: 'MENU.CHIMIE', logoSrc: 'assets/images/menu-flask.svg' },
+        { routerLink: ['tools/code'], icon: 'fa fa-code', labelKey: 'MENU.CODE', logoSrc: 'assets/images/menu-code.svg' }
     ];
     readonly toolsMenuRowsRaw: ToolsMenuRow[] = [
-        { kind: 'route', routerLink: ['friends'], icon: 'fa fa-users', labelKey: 'MENU.FRIENDS' },
-        { kind: 'route', routerLink: ['results'], icon: 'fa fa-comments', labelKey: 'MENU.RESULTS' },
-        { kind: 'route', routerLink: ['tools/apk'], icon: 'fa fa-android', labelKey: 'MENU.APK_DOWNLOAD' },
-        { kind: 'route', routerLink: ['tools/pdf-converter'], icon: 'fa fa-file-pdf-o', labelKey: 'MENU.PDF_CONVERTER' },
-        { kind: 'route', routerLink: ['tools/ods-editor'], icon: 'fa fa-table', labelKey: 'MENU.ODS_EDITOR' },
-        { kind: 'route', routerLink: ['system'], icon: 'fa fa-cog', labelKey: 'MENU.SYSTEM', authOnly: true },
-        { kind: 'route', routerLink: ['tools/pattool-parameters'], icon: 'fa fa-sliders', labelKey: 'MENU.PATTOOL_PARAMETERS', authOnly: true, adminOnly: true },
-        { kind: 'route', routerLink: ['maps'], icon: 'fa fa-map', labelKey: 'MENU.MAPS' },
-        { kind: 'upload', icon: 'fa fa-cloud-upload', labelKey: 'UPLOADFILE.MENU' },
-        { kind: 'share', icon: 'fa fa-share-alt', labelKey: 'SHAREFILE.MENU' },
+        { kind: 'route', routerLink: ['friends'], icon: 'fa fa-users', labelKey: 'MENU.FRIENDS', logoSrc: 'assets/images/menu-friends.svg' },
+        { kind: 'route', routerLink: ['results'], icon: 'fa fa-whatsapp', labelKey: 'MENU.RESULTS', logoSrc: 'assets/images/whatsapp-logo.svg' },
+        { kind: 'route', routerLink: ['tools/apk'], icon: 'fa fa-android', labelKey: 'MENU.APK_DOWNLOAD', logoSrc: 'assets/images/menu-android.svg' },
+        { kind: 'route', routerLink: ['tools/pdf-converter'], icon: 'fa fa-file-pdf-o', labelKey: 'MENU.PDF_CONVERTER', logoSrc: 'assets/images/menu-pdf.svg' },
+        { kind: 'route', routerLink: ['tools/ods-editor'], icon: 'fa fa-table', labelKey: 'MENU.ODS_EDITOR', logoSrc: 'assets/images/menu-sheet.svg' },
+        { kind: 'route', routerLink: ['system'], icon: 'fa fa-cog', labelKey: 'MENU.SYSTEM', authOnly: true, logoSrc: 'assets/images/menu-cog.svg' },
+        { kind: 'route', routerLink: ['tools/pattool-parameters'], icon: 'fa fa-sliders', labelKey: 'MENU.PATTOOL_PARAMETERS', authOnly: true, adminOnly: true, logoSrc: 'assets/images/menu-sliders.svg' },
+        { kind: 'route', routerLink: ['maps'], icon: 'fa fa-map', labelKey: 'MENU.MAPS', logoSrc: 'assets/images/menu-map.svg' },
+        { kind: 'upload', icon: 'fa fa-cloud-upload', labelKey: 'UPLOADFILE.MENU', logoSrc: 'assets/images/menu-upload.svg' },
+        { kind: 'share', icon: 'fa fa-share-alt', labelKey: 'SHAREFILE.MENU', logoSrc: 'assets/images/menu-share.svg' },
         { kind: 'doc-submenu' },
         { kind: 'lang-submenu' }
     ];
     readonly navDocumentationItemsRaw: NavDocMenuItem[] = [
-        { docAction: 'overview', icon: 'fa fa-book', labelKey: 'MENU.DOC_OVERVIEW' },
-        { docAction: 'activities', icon: 'fa fa-calendar-check-o', labelKey: 'MENU.DOC_ACTIVITIES' },
-        { docAction: 'slideshow', icon: 'fa fa-picture-o', labelKey: 'MENU.SLIDESHOW_DOCUMENTATION' },
-        { docAction: 'whatspat', icon: 'fa fa-comments', labelKey: 'MENU.DOC_WHATSPAT' },
-        { docAction: 'assistant', icon: 'fa fa-magic', labelKey: 'MENU.DOC_ASSISTANT' },
-        { docAction: 'math', icon: 'fa fa-calculator', labelKey: 'MENU.DOC_MATH' },
-        { docAction: 'maison', icon: 'fa fa-home', labelKey: 'MENU.DOC_MAISON' },
-        { docAction: 'monde', icon: 'fa fa-globe', labelKey: 'MENU.DOC_MONDE' },
-        { docAction: 'outils', icon: 'fa fa-wrench', labelKey: 'MENU.DOC_OUTILS' }
+        { docAction: 'overview', icon: 'fa fa-book', labelKey: 'MENU.DOC_OVERVIEW', logoSrc: 'assets/images/menu-doc.svg' },
+        { docAction: 'activities', icon: 'fa fa-calendar-check-o', labelKey: 'MENU.DOC_ACTIVITIES', logoSrc: 'assets/images/menu-events.svg' },
+        { docAction: 'slideshow', icon: 'fa fa-picture-o', labelKey: 'MENU.SLIDESHOW_DOCUMENTATION', logoSrc: 'assets/images/menu-photo.svg' },
+        { docAction: 'whatspat', icon: 'fa fa-comments', labelKey: 'MENU.DOC_WHATSPAT', logoSrc: 'assets/images/whatsapp-logo.svg' },
+        { docAction: 'assistant', icon: 'fa fa-magic', labelKey: 'MENU.DOC_ASSISTANT', logoSrc: 'assets/images/menu-magic.svg' },
+        { docAction: 'math', icon: 'fa fa-calculator', labelKey: 'MENU.DOC_MATH', logoSrc: 'assets/images/menu-atom.svg' },
+        { docAction: 'maison', icon: 'fa fa-home', labelKey: 'MENU.DOC_MAISON', logoSrc: 'assets/images/menu-home.svg' },
+        { docAction: 'monde', icon: 'fa fa-globe', labelKey: 'MENU.DOC_MONDE', logoSrc: 'assets/images/menu-globe.svg' },
+        { docAction: 'outils', icon: 'fa fa-wrench', labelKey: 'MENU.DOC_OUTILS', logoSrc: 'assets/images/menu-artisan.svg' }
     ];
 
     constructor(public _translate: TranslateService,
@@ -576,8 +593,10 @@ export class AppComponent implements OnInit, AfterViewInit {
         if (!logoSrc) {
             return;
         }
-        const issItem = this.navGeoWorldRaw.find((item) => item.routerLink?.[0] === 'tools/world-globe');
-        if (issItem) {
+        const issItem = this.navGeoWorldRowsRaw.find(
+            (item) => item.kind === 'route' && item.routerLink?.[0] === 'tools/world-globe'
+        );
+        if (issItem && issItem.kind === 'route') {
             issItem.logoSrc = logoSrc;
         }
     }
@@ -694,8 +713,12 @@ export class AppComponent implements OnInit, AfterViewInit {
         return this.sortMenuByLabel(this.navGeoLocalRaw);
     }
 
-    get sortedNavGeoWorld(): NavRouteMenuItem[] {
-        return this.sortMenuByLabel(this.navGeoWorldRaw);
+    get sortedNavGeoWorldRows(): GeoWorldMenuRow[] {
+        return this.sortMenuByLabel(this.navGeoWorldRowsRaw);
+    }
+
+    get sortedNavGeoSky(): NavRouteMenuItem[] {
+        return this.sortMenuByLabel(this.navGeoSkyRaw);
     }
 
     get sortedNavFinance(): NavRouteMenuItem[] {
@@ -2064,6 +2087,9 @@ export class AppComponent implements OnInit, AfterViewInit {
         event.preventDefault();
         event.stopPropagation();
         this.showApiDropdown = !this.showApiDropdown;
+        if (!this.showApiDropdown) {
+            this.showSkySubmenu = false;
+        }
         this.showEventsDropdown = false; // Close other dropdown
         this.showToolsDropdown = false; // Close other dropdown
         this.showLinksDropdown = false; // Close other dropdown
@@ -2398,6 +2424,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.showMediaDropdown = false;
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
+        this.showSkySubmenu = false;
     }
 
     closeDropdowns(): void {
@@ -2412,6 +2439,14 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.showMediaDropdown = false;
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
+        this.showSkySubmenu = false;
+    }
+
+    toggleSkySubmenu(event: Event): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.showApiDropdown = true;
+        this.showSkySubmenu = !this.showSkySubmenu;
     }
 
     closeMenu(): void {

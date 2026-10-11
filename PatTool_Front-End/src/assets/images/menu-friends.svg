@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Friends">
+  <circle cx="12" cy="11" r="5" fill="#38bdf8"/>
+  <circle cx="21" cy="12" r="4" fill="#f472b6"/>
+  <path fill="#0284c7" d="M4 26c1-6 5-8 8-8s7 2 8 8z"/>
+  <path fill="#db2777" d="M16 26c.6-4 3-6 6-6 2.4 0 4.6 1.2 6 4v2z"/>
+</svg>

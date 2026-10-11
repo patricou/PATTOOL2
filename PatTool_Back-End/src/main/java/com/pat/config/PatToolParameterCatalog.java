@@ -268,6 +268,8 @@ public final class PatToolParameterCatalog {
                     def("app.cern.opendata-portal-base", false),
                     def("app.cern.repository-api-base", false),
                     def("app.cern.zenodo-api-base", false),
+                    def("app.nasa.api-base", false),
+                    defSensitive("app.nasa.api-key"),
                     def("app.nager.api-base", false),
                     def("app.frankfurter.api-base", false),
                     def("app.openroute.api-base", false),
@@ -315,6 +317,8 @@ public final class PatToolParameterCatalog {
                     def("app.webcam.search-cache-minutes", false),
                     def("app.youtube.api-base", false),
                     defSensitive("app.youtube.api-key"),
+                    def("app.tmdb.api-base", false),
+                    defSensitive("app.tmdb.api-key"),
                     def("app.telegram.api-base", false)
             ),
             section("electricity", "PATTOOL_PARAMS.SECTION.ELECTRICITY",

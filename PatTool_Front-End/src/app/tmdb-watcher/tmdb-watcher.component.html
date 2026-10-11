@@ -1,0 +1,243 @@
+<div class="pat-title">
+  <h2>
+    <img class="tmdb-logo" src="assets/images/tmdb-logo.svg" alt="TMDB" width="58" height="42" />
+    {{ 'TMDB.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="tmdb-page">
+  <p class="tmdb-lead">{{ 'TMDB.SUBTITLE' | translate }}</p>
+  <p class="tmdb-note">{{ 'TMDB.VIDEOS_NOTE' | translate }}</p>
+
+  <div class="tmdb-alert" *ngIf="missingKey" role="status">
+    <i class="fa fa-key" aria-hidden="true"></i>
+    <div>
+      <p>{{ 'TMDB.MISSING_KEY' | translate }}</p>
+      <p class="tmdb-alert-help">{{ 'TMDB.KEY_HELP' | translate }}</p>
+      <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener noreferrer">
+        themoviedb.org
+      </a>
+    </div>
+  </div>
+
+  <div class="tmdb-alert tmdb-alert--error" *ngIf="listError && !missingKey" role="alert">
+    {{ listError | translate }}
+  </div>
+
+  <div class="tmdb-tabs" role="tablist">
+    <button type="button" role="tab" [class.active]="mode === 'trending'" [attr.aria-selected]="mode === 'trending'" (click)="setMode('trending')">
+      <i class="fa fa-fire" aria-hidden="true"></i>
+      {{ 'TMDB.TAB_TRENDING' | translate }}
+    </button>
+    <button type="button" role="tab" [class.active]="mode === 'search'" [attr.aria-selected]="mode === 'search'" (click)="setMode('search')">
+      <i class="fa fa-search" aria-hidden="true"></i>
+      {{ 'TMDB.TAB_SEARCH' | translate }}
+    </button>
+    <button type="button" role="tab" [class.active]="mode === 'discover'" [attr.aria-selected]="mode === 'discover'" (click)="setMode('discover')">
+      <i class="fa fa-compass" aria-hidden="true"></i>
+      {{ 'TMDB.TAB_DISCOVER' | translate }}
+    </button>
+  </div>
+
+  <div class="tmdb-filters">
+    <div class="tmdb-media" role="group" [attr.aria-label]="'TMDB.MEDIA' | translate">
+      <button type="button" [class.active]="media === 'all'" *ngIf="mode !== 'discover'" (click)="setMedia('all')">
+        {{ 'TMDB.MEDIA_ALL' | translate }}
+      </button>
+      <button type="button" [class.active]="media === 'movie'" (click)="setMedia('movie')">
+        {{ 'TMDB.MEDIA_MOVIE' | translate }}
+      </button>
+      <button type="button" [class.active]="media === 'tv'" (click)="setMedia('tv')">
+        {{ 'TMDB.MEDIA_TV' | translate }}
+      </button>
+    </div>
+
+    <label class="tmdb-field" *ngIf="mode === 'trending'">
+      <span>{{ 'TMDB.WINDOW' | translate }}</span>
+      <select [(ngModel)]="window" (ngModelChange)="onFilterChange()">
+        <option value="day">{{ 'TMDB.WINDOW_DAY' | translate }}</option>
+        <option value="week">{{ 'TMDB.WINDOW_WEEK' | translate }}</option>
+      </select>
+    </label>
+
+    <div class="tmdb-search" *ngIf="mode === 'search'">
+      <label class="tmdb-sr" for="tmdb-query">{{ 'TMDB.SEARCH' | translate }}</label>
+      <input
+        id="tmdb-query"
+        type="search"
+        [(ngModel)]="query"
+        (ngModelChange)="onQueryChange()"
+        (keyup.enter)="runSearch()"
+        [placeholder]="'TMDB.SEARCH_PLACEHOLDER' | translate"
+        autocomplete="off" />
+      <button type="button" class="tmdb-icon-btn" *ngIf="query" (click)="clearSearch()" [attr.aria-label]="'TMDB.CLEAR' | translate">
+        <i class="fa fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <ng-container *ngIf="mode === 'discover'">
+      <label class="tmdb-field">
+        <span>{{ 'TMDB.GENRE' | translate }}</span>
+        <select [(ngModel)]="genre" (ngModelChange)="onFilterChange()">
+          <option [ngValue]="null">{{ 'TMDB.GENRE_ALL' | translate }}</option>
+          <option *ngFor="let g of genres" [ngValue]="g.id">{{ g.name }}</option>
+        </select>
+      </label>
+      <label class="tmdb-field tmdb-field--year">
+        <span>{{ 'TMDB.YEAR' | translate }}</span>
+        <input
+          type="number"
+          min="1870"
+          max="2100"
+          inputmode="numeric"
+          [(ngModel)]="yearText"
+          (change)="onFilterChange()"
+          [placeholder]="'TMDB.YEAR' | translate" />
+      </label>
+      <label class="tmdb-field">
+        <span>{{ 'TMDB.SORT' | translate }}</span>
+        <select [(ngModel)]="sort" (ngModelChange)="onFilterChange()">
+          <option value="popular">{{ 'TMDB.SORT_POPULAR' | translate }}</option>
+          <option value="rating">{{ 'TMDB.SORT_RATING' | translate }}</option>
+          <option value="newest">{{ 'TMDB.SORT_NEWEST' | translate }}</option>
+        </select>
+      </label>
+    </ng-container>
+  </div>
+
+  <p class="tmdb-count" *ngIf="!isLoading && !missingKey && !showEmptySearch && totalResults > 0">
+    {{ 'TMDB.RESULT_COUNT' | translate:{ count: totalResults } }}
+  </p>
+
+  <p class="tmdb-status" *ngIf="isLoading">{{ 'TMDB.LOADING' | translate }}</p>
+
+  <p class="tmdb-empty" *ngIf="!isLoading && !missingKey && !listError && items.length === 0">
+    {{ (showEmptySearch ? 'TMDB.EMPTY_SEARCH' : 'TMDB.NO_RESULTS') | translate }}
+  </p>
+
+  <div class="tmdb-grid" *ngIf="items.length">
+    <button
+      type="button"
+      class="tmdb-card"
+      *ngFor="let item of items; trackBy: trackItem"
+      (click)="openDetail(item)">
+      <span class="tmdb-poster">
+        <img *ngIf="item.posterUrl" [src]="item.posterUrl" [alt]="item.title || ''" loading="lazy" (error)="onPosterError(item)" />
+        <span class="tmdb-poster-fallback" *ngIf="!item.posterUrl" aria-hidden="true">
+          <i class="fa fa-film"></i>
+        </span>
+        <span class="tmdb-badge">{{ (item.mediaType === 'tv' ? 'TMDB.MEDIA_TV' : 'TMDB.MEDIA_MOVIE') | translate }}</span>
+        <span class="tmdb-score" *ngIf="item.voteAverage != null" [ngClass]="scoreClass(item.voteAverage)">
+          {{ item.voteAverage | number:'1.1-1' }}
+        </span>
+      </span>
+      <span class="tmdb-card-title">{{ item.title }}</span>
+      <span class="tmdb-card-meta">{{ yearOf(item.date) }}</span>
+    </button>
+  </div>
+
+  <div class="tmdb-pager" *ngIf="totalPages > 1">
+    <button type="button" (click)="goPage(-1)" [disabled]="page <= 1 || isLoading">
+      {{ 'TMDB.PREV' | translate }}
+    </button>
+    <span>{{ 'TMDB.PAGE' | translate:{ page: page, total: totalPages } }}</span>
+    <button type="button" (click)="goPage(1)" [disabled]="page >= totalPages || isLoading">
+      {{ 'TMDB.NEXT' | translate }}
+    </button>
+  </div>
+
+  <p class="tmdb-attrib">
+    <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">themoviedb.org</a>
+    <span>{{ 'TMDB.ATTRIBUTION' | translate }}</span>
+  </p>
+</div>
+
+<div class="tmdb-overlay" *ngIf="detailOpen && !videoshowOpen" (click)="closeDetail()">
+  <div
+    class="tmdb-dialog"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="detail?.title || ('TMDB.TITLE' | translate)"
+    (click)="$event.stopPropagation()">
+    <button type="button" class="tmdb-close" (click)="closeDetail()" [attr.aria-label]="'TMDB.CLOSE' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+
+    <p class="tmdb-status" *ngIf="detailLoading">{{ 'TMDB.DETAIL_LOADING' | translate }}</p>
+    <p class="tmdb-alert tmdb-alert--error" *ngIf="detailError">{{ detailError | translate }}</p>
+
+    <ng-container *ngIf="detail && !detailLoading">
+      <div class="tmdb-hero" [style.backgroundImage]="detail.backdropUrl ? 'url(' + detail.backdropUrl + ')' : null">
+        <img *ngIf="detail.posterUrl" class="tmdb-hero-poster" [src]="detail.posterUrl" [alt]="detail.title || ''" />
+        <div class="tmdb-hero-copy">
+          <p class="tmdb-hero-kind">{{ (detail.mediaType === 'tv' ? 'TMDB.MEDIA_TV' : 'TMDB.MEDIA_MOVIE') | translate }}</p>
+          <h3>{{ detail.title }}</h3>
+          <p class="tmdb-tagline" *ngIf="detail.tagline">{{ detail.tagline }}</p>
+          <p class="tmdb-hero-meta">
+            <span *ngIf="yearOf(detail.date)">{{ yearOf(detail.date) }}</span>
+            <span class="tmdb-score" *ngIf="detail.voteAverage != null" [ngClass]="scoreClass(detail.voteAverage)">
+              {{ detail.voteAverage | number:'1.1-1' }}
+            </span>
+            <span *ngIf="detail.voteCount">{{ detail.voteCount | number }}</span>
+            <span *ngIf="runtimeLabel(detail.runtime)">{{ runtimeLabel(detail.runtime) }}</span>
+          </p>
+          <button
+            type="button"
+            class="tmdb-viewer-btn"
+            *ngIf="hasPlayableVideos"
+            (click)="openInVideoshow()">
+            <i class="fa fa-play" aria-hidden="true"></i>
+            {{ 'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate }}
+          </button>
+          <p class="tmdb-note tmdb-note--hero">{{ 'TMDB.VIDEOS_NOTE' | translate }}</p>
+          <p class="tmdb-original" *ngIf="detail.originalTitle && detail.originalTitle !== detail.title">
+            {{ 'TMDB.ORIGINAL_TITLE' | translate }} : {{ detail.originalTitle }}
+          </p>
+        </div>
+      </div>
+
+      <div class="tmdb-detail-body">
+        <p class="tmdb-genres" *ngIf="detail.genres?.length">
+          <span *ngFor="let genre of detail.genres">{{ genre }}</span>
+        </p>
+        <p class="tmdb-facts">
+          <span *ngIf="detail.status">{{ 'TMDB.STATUS' | translate }} : {{ detail.status }}</span>
+          <span *ngIf="detail.seasons">{{ 'TMDB.SEASONS' | translate }} : {{ detail.seasons }}</span>
+          <span *ngIf="detail.episodes">{{ 'TMDB.EPISODES' | translate }} : {{ detail.episodes }}</span>
+        </p>
+        <h4>{{ 'TMDB.OVERVIEW' | translate }}</h4>
+        <p class="tmdb-overview">{{ detail.overview || ('TMDB.NO_OVERVIEW' | translate) }}</p>
+
+        <ng-container *ngIf="trailerSafe">
+          <h4>{{ 'TMDB.TRAILER' | translate }}</h4>
+          <div class="tmdb-trailer">
+            <iframe
+              [src]="trailerSafe"
+              [title]="'TMDB.TRAILER' | translate"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen>
+            </iframe>
+          </div>
+        </ng-container>
+
+        <ng-container *ngIf="detail.cast?.length">
+          <h4>{{ 'TMDB.CAST' | translate }}</h4>
+          <div class="tmdb-cast">
+            <div class="tmdb-cast-card" *ngFor="let person of detail.cast">
+              <img *ngIf="person.profileUrl" [src]="person.profileUrl" [alt]="person.name || ''" loading="lazy" />
+              <span class="tmdb-cast-fallback" *ngIf="!person.profileUrl" aria-hidden="true"><i class="fa fa-user"></i></span>
+              <strong>{{ person.name }}</strong>
+              <span *ngIf="person.character">{{ person.character }}</span>
+            </div>
+          </div>
+        </ng-container>
+
+        <p class="tmdb-detail-links" *ngIf="detail.tmdbUrl">
+          <a [href]="detail.tmdbUrl" target="_blank" rel="noopener noreferrer">{{ 'TMDB.OPEN_TMDB' | translate }}</a>
+        </p>
+      </div>
+    </ng-container>
+  </div>
+</div>
+
+<app-videoshow-modal #videoshowModalComponent (closed)="onVideoshowClosed()"></app-videoshow-modal>

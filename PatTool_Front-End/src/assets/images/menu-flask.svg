@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Chemistry">
+  <path fill="#e2e8f0" d="M12 3h8v2l-2 2v6l8 12a3 3 0 0 1-2.5 4.5h-15A3 3 0 0 1 6 25l8-12V7L12 5z"/>
+  <path fill="#22c55e" d="M8.2 22L14 14h4l5.8 8a2 2 0 0 1-1.6 3.2H9.8A2 2 0 0 1 8.2 22z"/>
+  <circle cx="13" cy="23" r="1.2" fill="#bbf7d0"/>
+  <circle cx="18" cy="21" r="1" fill="#bbf7d0"/>
+</svg>

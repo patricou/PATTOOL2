@@ -64,6 +64,14 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
             return next.handle(req);
         }
 
+        // NASA Open APIs are permitAll. Waiting on getToken() or a 401 redirected to
+        // Keycloak and reloaded /tools/nasa in a loop.
+        const isNasaPublicApiGet =
+            req.method === 'GET' && /\/api\/external\/nasa\//i.test(req.url);
+        if (isNasaPublicApiGet) {
+            return next.handle(req);
+        }
+
         // Webcam catalog is permitAll. Waiting on getToken() redirected to Keycloak
         // and reloaded the webcam page in a loop. /last and /favorites stay authenticated.
         const isWebcamPublicApiGet =

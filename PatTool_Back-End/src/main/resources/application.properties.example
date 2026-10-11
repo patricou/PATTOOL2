@@ -291,6 +291,19 @@ app.cache.persistence.restore-on-startup=true
 # app.youtube.api-base=https://www.googleapis.com/youtube/v3
 # app.youtube.api-key=
 
+# --- TMDB (Media page, films et séries) — API v3 ---
+# 1) https://www.themoviedb.org/signup
+# 2) https://www.themoviedb.org/settings/api → demander une clé API (Developer)
+# 3) Coller la clé v3 ci-dessous et redémarrer le backend. Jamais dans le frontend.
+# app.tmdb.api-base=https://api.themoviedb.org/3
+# app.tmdb.api-key=
+
+# --- NASA (page Monde / NASA) — https://api.nasa.gov ---
+# Sans clé, le code utilise DEMO_KEY (quota très bas, partagé).
+# Colle la clé personnelle ci-dessous et redémarre le backend. Jamais dans le frontend.
+# app.nasa.api-base=https://api.nasa.gov
+# app.nasa.api-key=
+
 # --- Telegram (Media page, per PatTool user) — Bot API ---
 # Each signed-in user connects THEIR own bot (BotFather token). There is no shared server token.
 # 1) Open https://t.me/BotFather → /newbot → copy the token

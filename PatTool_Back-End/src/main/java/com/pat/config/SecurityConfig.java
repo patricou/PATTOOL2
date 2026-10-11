@@ -312,6 +312,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/electricity/**").permitAll()
                 // CERN Open Data & CDS Repository proxies — public read-only data
                 .requestMatchers(HttpMethod.GET, "/api/external/cern/**").permitAll()
+                // NASA Open APIs (APOD, EPIC, Mars, NeoWs) — public read-only, key stays server-side
+                .requestMatchers(HttpMethod.GET, "/api/external/nasa/**").permitAll()
                 // Chemistry proxy (PubChem) — public read-only data (periodic table, molecules, images)
                 .requestMatchers(HttpMethod.GET, "/api/external/chem/**").permitAll()
                 // Free IPTV catalog + HLS stream proxy (iptv-org) — public read-only
@@ -383,6 +385,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/youtube/search").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/youtube/popular").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/youtube/image").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/tmdb/**").permitAll()
                 // Telegram Bot API — always authenticated (per-user BotFather token in Mongo)
 
                 // Éclipses — USNO + OPALE/IMCCE (lecture seule, données publiques)

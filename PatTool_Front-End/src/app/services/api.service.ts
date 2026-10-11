@@ -3618,6 +3618,41 @@ export class ApiService {
   }
 
   // ===================================================================
+  // NASA Open APIs — APOD, EPIC, Mars rovers, NeoWs
+  // Backend: /api/external/nasa/* (no auth required — public data)
+  // ===================================================================
+
+  getNasaApod(date?: string): Observable<NasaApod> {
+    let params = new HttpParams();
+    if (date) params = params.set('date', date);
+    return this._http.get<NasaApod>(this.API_URL + 'external/nasa/apod', { params });
+  }
+
+  getNasaEpic(date?: string): Observable<NasaEpic> {
+    let params = new HttpParams();
+    if (date) params = params.set('date', date);
+    return this._http.get<NasaEpic>(this.API_URL + 'external/nasa/epic', { params });
+  }
+
+  nasaEpicImageUrl(date: string, name: string): string {
+    const params = new HttpParams().set('date', date).set('name', name);
+    return this.API_URL + 'external/nasa/epic/image?' + params.toString();
+  }
+
+  getNasaMars(rover: string, sol?: number, camera?: string, page = 1, earthDate?: string): Observable<NasaMars> {
+    let params = new HttpParams().set('rover', rover).set('page', page);
+    if (earthDate) params = params.set('date', earthDate);
+    else if (sol != null && Number.isFinite(sol)) params = params.set('sol', sol);
+    if (camera) params = params.set('camera', camera);
+    return this._http.get<NasaMars>(this.API_URL + 'external/nasa/mars', { params });
+  }
+
+  getNasaNeo(start: string, end: string): Observable<NasaNeoFeed> {
+    const params = new HttpParams().set('start', start).set('end', end);
+    return this._http.get<NasaNeoFeed>(this.API_URL + 'external/nasa/neo', { params });
+  }
+
+  // ===================================================================
   // Chimie — PubChem proxy (periodic table, molecules, 2D/3D structures)
   // Backend: /api/external/chem/* (no auth required — public data)
   // ===================================================================
@@ -5256,6 +5291,52 @@ export class ApiService {
     );
   }
 
+  getTmdbTrending(media: string, window: string, lang: string, page: number): Observable<TmdbPage> {
+    const params = new HttpParams()
+      .set('media', media)
+      .set('window', window)
+      .set('lang', lang)
+      .set('page', String(page));
+    return this._http.get<TmdbPage>(this.API_URL + 'external/tmdb/trending', { params });
+  }
+
+  searchTmdb(query: string, media: string, lang: string, page: number): Observable<TmdbPage> {
+    const params = new HttpParams()
+      .set('q', query)
+      .set('media', media)
+      .set('lang', lang)
+      .set('page', String(page));
+    return this._http.get<TmdbPage>(this.API_URL + 'external/tmdb/search', { params });
+  }
+
+  discoverTmdb(options: TmdbDiscoverOptions): Observable<TmdbPage> {
+    let params = new HttpParams()
+      .set('media', options.media)
+      .set('sort', options.sort)
+      .set('lang', options.lang)
+      .set('page', String(options.page));
+    if (options.genre) {
+      params = params.set('genre', String(options.genre));
+    }
+    if (options.year) {
+      params = params.set('year', String(options.year));
+    }
+    return this._http.get<TmdbPage>(this.API_URL + 'external/tmdb/discover', { params });
+  }
+
+  getTmdbGenres(media: string, lang: string): Observable<TmdbGenres> {
+    const params = new HttpParams().set('media', media).set('lang', lang);
+    return this._http.get<TmdbGenres>(this.API_URL + 'external/tmdb/genres', { params });
+  }
+
+  getTmdbDetail(media: string, id: number, lang: string): Observable<TmdbDetail> {
+    const params = new HttpParams()
+      .set('media', media)
+      .set('id', String(id))
+      .set('lang', lang);
+    return this._http.get<TmdbDetail>(this.API_URL + 'external/tmdb/detail', { params });
+  }
+
   /** GET /api/admin/pattool-parameters — read-only application.properties snapshot (admin). */
   getPatToolParameters(): Observable<PatToolParametersResponse> {
     return this.getHeaderWithToken().pipe(
@@ -5849,6 +5930,69 @@ export interface CernRepositoryRecordSummary {
   resourceType: string;
 }
 
+export interface NasaApod {
+  date: string;
+  title: string;
+  explanation: string;
+  mediaType: string;
+  url?: string;
+  hdUrl?: string;
+  thumbnailUrl?: string;
+  copyright?: string;
+}
+
+export interface NasaEpicImage {
+  image: string;
+  caption?: string;
+  date: string;
+  time?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface NasaEpic {
+  date?: string;
+  images: NasaEpicImage[];
+}
+
+export interface NasaMarsPhoto {
+  id: number;
+  sol: number;
+  earthDate?: string;
+  camera?: string;
+  cameraFullName?: string;
+  rover?: string;
+  imageUrl: string;
+}
+
+export interface NasaMars {
+  rover: string;
+  sol?: number;
+  page: number;
+  hasMore: boolean;
+  photos: NasaMarsPhoto[];
+}
+
+export interface NasaNeo {
+  id: string;
+  name: string;
+  approachDate: string;
+  hazardous: boolean;
+  diameterMinM?: number;
+  diameterMaxM?: number;
+  missKm?: number;
+  missLunar?: number;
+  velocityKmh?: number;
+  jplUrl?: string;
+}
+
+export interface NasaNeoFeed {
+  startDate: string;
+  endDate: string;
+  count: number;
+  objects: NasaNeo[];
+}
+
 // ===================================================================
 // Chimie — PubChem
 // ===================================================================
@@ -6275,6 +6419,87 @@ export interface YoutubeSearchPage {
   prevPageToken?: string;
   total?: number;
   items?: YoutubeItem[];
+}
+
+export interface TmdbItem {
+  id: number;
+  mediaType: 'movie' | 'tv' | string;
+  title?: string;
+  originalTitle?: string | null;
+  overview?: string | null;
+  posterUrl?: string | null;
+  backdropUrl?: string | null;
+  date?: string | null;
+  voteAverage?: number | null;
+  voteCount?: number | null;
+  originalLanguage?: string | null;
+}
+
+export interface TmdbPage {
+  configured?: boolean;
+  error?: string | null;
+  page?: number;
+  totalPages?: number;
+  totalResults?: number;
+  items?: TmdbItem[];
+}
+
+export interface TmdbCredit {
+  id?: number;
+  name?: string;
+  character?: string | null;
+  profileUrl?: string | null;
+}
+
+export interface TmdbVideo {
+  key?: string;
+  name?: string | null;
+  type?: string | null;
+}
+
+export interface TmdbDetail {
+  configured?: boolean;
+  error?: string | null;
+  id?: number | null;
+  mediaType?: string | null;
+  title?: string | null;
+  originalTitle?: string | null;
+  tagline?: string | null;
+  overview?: string | null;
+  posterUrl?: string | null;
+  backdropUrl?: string | null;
+  date?: string | null;
+  voteAverage?: number | null;
+  voteCount?: number | null;
+  runtime?: number | null;
+  genres?: string[];
+  status?: string | null;
+  seasons?: number | null;
+  episodes?: number | null;
+  trailerKey?: string | null;
+  videos?: TmdbVideo[];
+  tmdbUrl?: string | null;
+  cast?: TmdbCredit[];
+}
+
+export interface TmdbGenre {
+  id: number;
+  name: string;
+}
+
+export interface TmdbGenres {
+  configured?: boolean;
+  error?: string | null;
+  genres?: TmdbGenre[];
+}
+
+export interface TmdbDiscoverOptions {
+  media: string;
+  genre?: number | null;
+  year?: number | null;
+  sort: string;
+  lang: string;
+  page: number;
 }
 
 /** GET/PUT /api/external/youtube/favorites — per authenticated user */

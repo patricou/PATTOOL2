@@ -1,0 +1,91 @@
+:host {
+  --pat-title-bg: linear-gradient(135deg, #07111f 0%, #163a66 55%, #0b1a33 100%);
+  --pat-title-accent: #163a66;
+  --pat-title-shadow: 0 4px 15px rgba(7, 17, 31, 0.45);
+  --pat-page-wash: 0;
+  display: block;
+  min-height: calc(100vh - 80px);
+}
+
+.nasa-page {
+  max-width: 1200px;
+}
+
+.nasa-logo {
+  height: 1.7rem;
+  width: 1.7rem;
+  margin-right: 0.55rem;
+  flex: 0 0 auto;
+}
+
+.nasa-logo--inline {
+  height: 1rem;
+  width: 1rem;
+  margin-right: 0.35rem;
+  vertical-align: -0.15em;
+}
+
+.nasa-card-title .nasa-logo--inline {
+  height: 1.35rem;
+  width: 1.35rem;
+}
+
+.nasa-apod-image {
+  display: block;
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  background: #07111f;
+  border-radius: 0.4rem;
+}
+
+.nasa-apod-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 0.4rem;
+  background: #07111f;
+}
+
+.nasa-explanation {
+  white-space: pre-wrap;
+}
+
+.nasa-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.nasa-tile {
+  overflow: hidden;
+  margin: 0;
+}
+
+.nasa-tile-hit {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.nasa-tile-hit:focus-visible {
+  outline: 2px solid #7eb6ff;
+  outline-offset: -2px;
+}
+
+.nasa-tile img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  background: #07111f;
+}
+
+.nasa-tile figcaption {
+  padding: 0.55rem 0.7rem 0.7rem;
+  font-size: 0.82rem;
+}

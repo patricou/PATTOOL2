@@ -316,6 +316,12 @@
   flex-shrink: 0;
 }
 
+.about-feature-icon img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
 .about-feature-body {
   display: flex;
   flex-direction: column;
