@@ -130,8 +130,14 @@ public class CachePersistenceService {
             
             try (ObjectInputStream ois = new ObjectInputStream(
                     new BufferedInputStream(Files.newInputStream(cachePath)))) {
-                
+                ois.setObjectInputFilter(info -> info.serialClass() != null
+                        ? ObjectInputFilter.Status.REJECTED
+                        : ObjectInputFilter.Status.UNDECIDED);
+
                 int entryCount = ois.readInt();
+                if (entryCount < 0 || entryCount > 100_000) {
+                    throw new IOException("cache entry count out of range");
+                }
                 int loadedCount = 0;
                 long loadedSize = 0;
                 
@@ -142,11 +148,17 @@ public class CachePersistenceService {
                         long originalSize = ois.readLong();
                         ois.readLong(); // Skip compressedSize (we'll calculate it from data length)
                         int dataLength = ois.readInt();
+                        if (dataLength < 0 || dataLength > 30 * 1024 * 1024) {
+                            throw new IOException("cache blob out of range");
+                        }
                         byte[] data = new byte[dataLength];
                         ois.readFully(data);
                         
                         // Read EXIF metadata
                         int metadataSize = ois.readInt();
+                        if (metadataSize < 0 || metadataSize > 256) {
+                            throw new IOException("cache metadata out of range");
+                        }
                         Map<String, String> exifMetadata = new java.util.LinkedHashMap<>();
                         for (int j = 0; j < metadataSize; j++) {
                             String exifKey = ois.readUTF();

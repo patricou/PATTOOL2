@@ -30,7 +30,73 @@ public final class RichHtmlSanitizer {
                     .addProtocols("a", "href", "http", "https", "mailto")
                     .addProtocols("img", "src", "data");
 
+    /** Quill HTML stored on events and todo lists. Scripts and active URLs are removed. */
+    private static final Safelist STORED_SAFELIST =
+            Safelist.relaxed()
+                    .addTags("span")
+                    .addAttributes(":all", "class", "style")
+                    .addAttributes("li", "data-list")
+                    .addAttributes("img", "src", "alt", "width", "height")
+                    .addAttributes("a", "href", "target", "rel")
+                    .addProtocols("a", "href", "http", "https", "mailto")
+                    .addProtocols("img", "src", "http", "https", "data");
+
     private RichHtmlSanitizer() {}
+
+    /**
+     * HTML fragment safe to store and later render. Keeps Quill formatting.
+     */
+    public static String sanitizeStoredHtml(String html) {
+        if (html == null) {
+            return null;
+        }
+        if (html.isBlank()) {
+            return "";
+        }
+        String cleaned = Jsoup.clean(html, STORED_SAFELIST);
+        Document doc = Jsoup.parseBodyFragment(cleaned);
+        for (Element img : doc.select("img")) {
+            if (!isSafeImageSrc(img.attr("src"))) {
+                img.remove();
+            }
+        }
+        for (Element a : doc.select("a[href]")) {
+            String href = a.attr("href").trim();
+            if (href.isEmpty()
+                    || href.regionMatches(true, 0, "javascript:", 0, 11)
+                    || href.regionMatches(true, 0, "data:", 0, 5)) {
+                a.removeAttr("href");
+            } else {
+                a.attr("rel", "noopener noreferrer");
+            }
+        }
+        for (Element el : doc.select("[style]")) {
+            String style = sanitizeInlineStyle(el.attr("style"));
+            if (style.isEmpty()) {
+                el.removeAttr("style");
+            } else {
+                el.attr("style", style);
+            }
+        }
+        doc.outputSettings().prettyPrint(false);
+        return doc.body().html();
+    }
+
+    private static boolean isSafeImageSrc(String src) {
+        if (src == null) {
+            return false;
+        }
+        String value = src.trim();
+        if (value.regionMatches(true, 0, "https://", 0, 8)
+                || value.regionMatches(true, 0, "http://", 0, 7)) {
+            return true;
+        }
+        return value.regionMatches(true, 0, "data:image/png", 0, 14)
+                || value.regionMatches(true, 0, "data:image/jpeg", 0, 15)
+                || value.regionMatches(true, 0, "data:image/jpg", 0, 14)
+                || value.regionMatches(true, 0, "data:image/gif", 0, 14)
+                || value.regionMatches(true, 0, "data:image/webp", 0, 15);
+    }
 
     /**
      * Returns a safe HTML fragment (no {@code html}/{@code body} wrapper) suitable for PDF rendering.

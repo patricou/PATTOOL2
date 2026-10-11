@@ -2,6 +2,7 @@ package com.pat.controller;
 
 import com.pat.service.FilenameDateService;
 import com.pat.service.ImageCompressionService;
+import com.pat.util.SafePaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +12,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -65,9 +65,14 @@ public class DiskImageController {
                                    @RequestParam(value = "limit", required = false) Optional<Integer> limit,
                                    @RequestParam(value = "sort", required = false) Optional<String> sort) throws IOException {
         log.debug("[FSPhotos][LIST] basePath='{}', relativePath='{}'", basePath, relativePath);
-        String sanitized = sanitizeRelativePath(relativePath);
-        Path dir = Paths.get(basePath, sanitized).normalize();
-        log.debug("[FSPhotos][LIST] sanitized='{}', resolvedDir='{}'", sanitized, dir);
+        Path dir;
+        try {
+            dir = SafePaths.resolveInside(Paths.get(basePath), relativePath);
+        } catch (IOException e) {
+            log.warn("[FSPhotos][LIST] Rejected path outside storage root");
+            return List.of();
+        }
+        log.debug("[FSPhotos][LIST] resolvedDir='{}'", dir);
 
         if (!Files.exists(dir)) {
             log.warn("[FSPhotos][LIST] Directory does not exist: {}", dir);
@@ -152,11 +157,15 @@ public class DiskImageController {
                                              @RequestParam("fileName") String fileName,
                                              @RequestParam(value = "compress", defaultValue = "false") boolean compress) throws IOException {
         log.debug("[FSPhotos][IMAGE] basePath='{}', relativePath='{}', fileName='{}', compress={}", basePath, relativePath, fileName, compress);
-        String sanitizedRel = sanitizeRelativePath(relativePath);
-        String sanitizedName = sanitizeFileName(fileName);
-
-        Path file = Paths.get(basePath, sanitizedRel, sanitizedName).normalize();
-        log.debug("[FSPhotos][IMAGE] sanitizedRel='{}', sanitizedName='{}', resolvedFile='{}'", sanitizedRel, sanitizedName, file);
+        String sanitizedName = SafePaths.safeFileName(fileName);
+        Path file;
+        try {
+            file = SafePaths.resolveInside(Paths.get(basePath), relativePath, sanitizedName);
+        } catch (IOException e) {
+            log.warn("[FSPhotos][IMAGE] Rejected path outside storage root");
+            return ResponseEntity.badRequest().build();
+        }
+        log.debug("[FSPhotos][IMAGE] sanitizedName='{}', resolvedFile='{}'", sanitizedName, file);
 
         if (!Files.exists(file) || !Files.isRegularFile(file)) {
             log.warn("[FSPhotos][IMAGE] File not found or not regular: {}", file);
@@ -177,7 +186,7 @@ public class DiskImageController {
         if (compress && imageCompressionService.isImageType(contentType)) {
             long maxSizeInBytes = imageMaxSizeKb * 1024L;
             long originalSize = Files.size(file);
-            String cacheKey = String.format("%s|%s|%d|%d", sanitizedRel, sanitizedName, lastModified, maxSizeInBytes);
+            String cacheKey = String.format("%s|%d|%d", file.toAbsolutePath().normalize(), lastModified, maxSizeInBytes);
 
             // CRITICAL: Check cache FIRST before loading image into memory
             // This ensures we only load image if compressed version doesn't exist
@@ -199,6 +208,8 @@ public class DiskImageController {
                         .header("X-Pat-Image-Size-Before", Long.toString(cachedResult.getOriginalSize()))
                         .header("X-Pat-Image-Size-After", Long.toString(cachedResult.getCompressedSize()))
                         .header("Access-Control-Expose-Headers", "X-Pat-Compression, X-Pat-Image-Size-Before, X-Pat-Image-Size-After, X-Pat-Exif");
+
+                addSafeResourceHeaders(builder, contentType);
 
                 if (!cachedResult.getExifMetadata().isEmpty()) {
                     String exifSummary = cachedResult.getExifMetadata()
@@ -295,6 +306,8 @@ public class DiskImageController {
                                     // Ensure the browser can read our custom headers
                                     .header("Access-Control-Expose-Headers", "X-Pat-Compression, X-Pat-Image-Size-Before, X-Pat-Image-Size-After, X-Pat-Exif");
 
+                            addSafeResourceHeaders(builder, contentType);
+
                             if (!compressionResult.getExifMetadata().isEmpty()) {
                                 String exifSummary = compressionResult.getExifMetadata()
                                     .entrySet()
@@ -366,7 +379,7 @@ public class DiskImageController {
         InputStream is = Files.newInputStream(file);
         long originalSize = Files.size(file);
         String exifHeader = "PatOriginalFileSizeBytes=" + originalSize + "; PatOriginalFileSizeKB=" + Math.max(1, originalSize / 1024) + "";
-        return ResponseEntity.ok()
+        ResponseEntity.BodyBuilder originalBuilder = ResponseEntity.ok()
                 .lastModified(lastModified)
                 .cacheControl(CacheControl.maxAge(3600, TimeUnit.SECONDS).cachePublic())
                 .contentType(MediaType.parseMediaType(contentType))
@@ -375,8 +388,9 @@ public class DiskImageController {
                 .header("X-Pat-Image-Size-Before", Long.toString(originalSize))
                 .header("X-Pat-Exif", exifHeader)
                 // Ensure the browser can read our custom headers
-                .header("Access-Control-Expose-Headers", "X-Pat-Compression, X-Pat-Image-Size-Before, X-Pat-Image-Size-After, X-Pat-Exif")
-                .body(new InputStreamResource(is));
+                .header("Access-Control-Expose-Headers", "X-Pat-Compression, X-Pat-Image-Size-Before, X-Pat-Image-Size-After, X-Pat-Exif");
+        addSafeResourceHeaders(originalBuilder, contentType);
+        return originalBuilder.body(new InputStreamResource(is));
     }
 
     private boolean isImageFile(String fileName) {
@@ -384,21 +398,11 @@ public class DiskImageController {
         return IMAGE_EXTENSIONS.stream().anyMatch(lower::endsWith);
     }
 
-    private String sanitizeRelativePath(String input) {
-        if (input == null) return "";
-        String cleaned = input.replace("..", "");
-        cleaned = cleaned.replace("\\", "/");
-        cleaned = cleaned.replaceAll("^/+", "");
-        return cleaned;
-    }
-
-    private String sanitizeFileName(String input) {
-        if (!StringUtils.hasText(input)) return input;
-        String name = input;
-        name = name.replace("..", "");
-        name = name.replace("/", "");
-        name = name.replace("\\", "");
-        return name;
+    private static void addSafeResourceHeaders(ResponseEntity.BodyBuilder builder, String contentType) {
+        builder.header("X-Content-Type-Options", "nosniff");
+        if (contentType != null && contentType.toLowerCase(Locale.ROOT).contains("svg")) {
+            builder.header("Content-Security-Policy", "sandbox; default-src 'none'");
+        }
     }
 
 }

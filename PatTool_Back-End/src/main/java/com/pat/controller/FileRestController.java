@@ -9,8 +9,10 @@ import com.pat.repo.domain.FileUploaded;
 import com.pat.repo.domain.Member;
 import com.pat.repo.EvenementsRepository;
 import com.pat.repo.MembersRepository;
+import com.pat.service.FriendsService;
 import com.pat.service.ImageCompressionService;
 import com.pat.service.MemoryMonitoringService;
+import com.pat.util.SafePaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +29,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -90,6 +93,9 @@ public class FileRestController {
     
     @Autowired
     private MemoryMonitoringService memoryMonitoringService;
+
+    @Autowired
+    private FriendsService friendsService;
 
     private static final Logger log = LoggerFactory.getLogger(FileRestController.class);
     
@@ -250,10 +256,9 @@ public class FileRestController {
             return disposition;
         }
         
-        // Create ASCII-safe fallback filename (replace non-ASCII with underscore)
-        String asciiFilename = filename.replaceAll("[^\\x20-\\x7E]", "_");
-        // Ensure the fallback is properly quoted
-        String quotedAscii = "\"" + asciiFilename.replace("\"", "\\\"") + "\"";
+        // Create ASCII-safe fallback filename (replace non-ASCII and header-breaking characters)
+        String asciiFilename = filename.replaceAll("[^\\x20-\\x7E]", "_").replace("\\", "_").replace("\"", "_");
+        String quotedAscii = "\"" + asciiFilename + "\"";
         
         // Encode filename for filename* parameter (RFC 5987)
         try {
@@ -786,7 +791,7 @@ public class FileRestController {
                             Files.createDirectories(uploadPath);
                         }
 
-                        Path filePath = uploadPath.resolve(file.getOriginalFilename());
+                        Path filePath = SafePaths.resolveInside(uploadPath, SafePaths.safeFileName(file.getOriginalFilename()));
                         Files.write(filePath, fileBytesToWrite);
 
                         // log.info("File Uploaded : " + filePath + " Successfully");
@@ -888,10 +893,11 @@ public class FileRestController {
                 evenementid, files.length, freeBeforeUpload / (1024 * 1024), rt.maxMemory() / (1024 * 1024));
         
         try {
-            Member uploaderMember = membersRepository.findById(userId).orElse(null);
-            if (uploaderMember == null) {
-                log.debug("[UPLOAD] Rejected: user not found, userId={}", userId);
-                return new ResponseEntity<>(null, null, HttpStatus.BAD_REQUEST);
+            Member uploaderMember = friendsService.getCurrentUser(
+                    SecurityContextHolder.getContext().getAuthentication());
+            if (uploaderMember == null || uploaderMember.getId() == null || !uploaderMember.getId().equals(userId)) {
+                log.warn("[UPLOAD] Rejected: authenticated member does not match userId={}", userId);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
 
             // Find the evenement

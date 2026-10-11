@@ -129,8 +129,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@ViewChild('cartesGouvModal') cartesGouvModal!: TemplateRef<any>;
 	@ViewChild('gpxStatsModal') gpxStatsModal!: TemplateRef<any>;
 	@ViewChild('offlineTracesModal') offlineTracesModal!: TemplateRef<any>;
-	@ViewChild('directionModal') directionModal!: TemplateRef<any>;
-	@ViewChild('gotoLocationModal') gotoLocationModal!: TemplateRef<any>;
+	@ViewChild('placeModal') placeModal!: TemplateRef<any>;
 	@ViewChild('mapContainer', { static: false }) mapContainerRef?: ElementRef<HTMLDivElement>;
 	@ViewChild('compassRoseDial', { static: false }) compassRoseDialRef?: ElementRef<SVGSVGElement>;
 	@Output() closed = new EventEmitter<void>();
@@ -308,31 +307,32 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Address chosen in the direction modal; the green arrow points toward it. */
 	private directionTarget: { lat: number; lng: number; label: string } | null = null;
 	public directionTargetActive = false;
-	public directionQuery = '';
-	public directionSearching = false;
 	public directionLocating = false;
-	public directionSearchError = '';
-	public directionResults: Array<{ lat: number; lng: number; label: string }> = [];
-	public directionSelectedIndex: number | null = null;
-	/** Position utilisée pour la distance affichée dans la fenêtre d’adresse. */
-	public directionOrigin: { lat: number; lng: number } | null = null;
-	public directionOriginPending = false;
-	private directionSearchSub?: Subscription;
-	private directionModalRef?: NgbModalRef;
 	private directionLocateGen = 0;
-	private directionPreviewGen = 0;
 
 	/** Point choisi dans la fenêtre adresse / coordonnées, affiché au centre de la carte. */
 	public gotoTargetActive = false;
-	public gotoMode: 'address' | 'coords' = 'address';
-	public gotoQuery = '';
-	public gotoCoords = '';
-	public gotoSearching = false;
-	public gotoSearchError = '';
-	public gotoResults: Array<{ lat: number; lng: number; label: string }> = [];
-	public gotoSelectedIndex: number | null = null;
-	private gotoSearchSub?: Subscription;
-	private gotoModalRef?: NgbModalRef;
+
+	/** Fenêtre unique : une seule recherche, puis centrer la carte ou afficher la direction. */
+	private placeModalRef?: NgbModalRef;
+	public placeMode: 'address' | 'coords' = 'address';
+	public placeQuery = '';
+	public placeCoords = '';
+	public placeSearching = false;
+	public placeError = '';
+	public placeResults: Array<{ lat: number; lng: number; label: string }> = [];
+	public placeSelectedIndex: number | null = null;
+	private placeSearchSub?: Subscription;
+	/** Position utilisée pour la distance et l’angle affichés dans la fenêtre. */
+	public placeOrigin: { lat: number; lng: number } | null = null;
+	public placeOriginPending = false;
+	private placeOriginGen = 0;
+	private placeCoordsCache?: { input: string; point: { lat: number; lng: number; label: string } | null };
+	private readonly placeMetricsCache = new Map<string, { distance: string; bearing: number; cardinal: string }>();
+
+	public get placeTargetActive(): boolean {
+		return this.gotoTargetActive || this.directionTargetActive;
+	}
 
 	// Event color for styling
 	private eventColor: { r: number; g: number; b: number } | null = null;
@@ -788,12 +788,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@HostListener('window:keydown.escape', ['$event'])
 	onEscape(event: Event): void {
 		event.preventDefault();
-		if (this.gotoModalRef) {
-			this.closeGotoModal();
-			return;
-		}
-		if (this.directionModalRef) {
-			this.closeDirectionModal();
+		if (this.placeModalRef) {
+			this.closePlaceModal();
 			return;
 		}
 		if (this.gpxStatsModalRef) {
@@ -829,7 +825,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (event.ctrlKey || event.metaKey || event.altKey) {
 			return true;
 		}
-		if (this.gotoModalRef || this.directionModalRef || this.gpxStatsModalRef || this.offlineTracesModalRef || this.cartesGouvModalRef) {
+		if (this.placeModalRef || this.gpxStatsModalRef || this.offlineTracesModalRef || this.cartesGouvModalRef) {
 			return true;
 		}
 		const target = event.target as HTMLElement | null;
@@ -1300,8 +1296,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public close(): void {
-		this.closeGotoModal();
-		this.closeDirectionModal();
+		this.closePlaceModal();
 		this.closeOfflineTracesModal();
 		this.stopMapOrientationWatch();
 		this.stopFollowDeviceLocation();
@@ -1715,15 +1710,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.cdr.detectChanges();
 	}
 
-	/** Ouvre la fenêtre pour saisir une adresse ; la flèche verte est posée à la fermeture. */
-	public openDirectionModal(): void {
-		if (!this.directionModal || this.directionModalRef) {
+	/** Ouvre la fenêtre pour centrer la carte ou afficher la direction. */
+	public openPlaceModal(): void {
+		if (!this.placeModal || this.placeModalRef) {
 			return;
 		}
-		this.directionSearchError = '';
-		this.directionSearching = false;
+		this.placeError = '';
+		this.placeSearching = false;
 		this.directionLocating = false;
-		this.requestDirectionOrigin();
+		this.requestPlaceOrigin();
 		const opts: NgbModalOptions = {
 			centered: true,
 			backdrop: 'static',
@@ -1735,84 +1730,126 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (mountEl) {
 			opts.container = mountEl;
 		}
-		this.directionModalRef = this.modalService.open(this.directionModal, opts);
-		this.directionModalRef.result.finally(() => {
-			this.directionModalRef = undefined;
-			this.directionSearching = false;
+		this.placeModalRef = this.modalService.open(this.placeModal, opts);
+		this.placeModalRef.result.finally(() => {
+			this.placeModalRef = undefined;
+			this.placeSearching = false;
 			this.directionLocating = false;
 			this.cdr.markForCheck();
 		});
 	}
 
-	public closeDirectionModal(): void {
+	public closePlaceModal(): void {
 		this.directionLocateGen++;
-		this.directionPreviewGen++;
-		this.directionOriginPending = false;
+		this.placeOriginGen++;
+		this.placeOriginPending = false;
 		this.directionLocating = false;
-		this.directionSearchSub?.unsubscribe();
-		this.directionSearchSub = undefined;
-		this.directionSearching = false;
-		if (!this.directionModalRef) {
+		this.placeSearchSub?.unsubscribe();
+		this.placeSearchSub = undefined;
+		this.placeSearching = false;
+		if (!this.placeModalRef) {
 			return;
 		}
 		try {
-			this.directionModalRef.close();
+			this.placeModalRef.close();
 		} catch {
 			/* ignore */
 		}
-		this.directionModalRef = undefined;
+		this.placeModalRef = undefined;
 	}
 
-	public searchDirectionAddress(): void {
-		const query = this.directionQuery?.trim();
+	public setPlaceMode(mode: 'address' | 'coords'): void {
+		this.placeMode = mode;
+		this.placeError = '';
+	}
+
+	public searchPlaceAddress(): void {
+		const query = this.placeQuery?.trim();
 		if (!query) {
-			this.directionSearchError = this.translate('ADDRESS_GEOCODE.ADDRESS_REQUIRED');
-			this.directionResults = [];
-			this.directionSelectedIndex = null;
+			this.placeError = this.translate('ADDRESS_GEOCODE.ADDRESS_REQUIRED');
+			this.placeResults = [];
+			this.placeSelectedIndex = null;
 			return;
 		}
-		this.directionSearchError = '';
-		this.directionSelectedIndex = null;
-		this.directionSearching = true;
-		this.directionSearchSub?.unsubscribe();
-		this.directionSearchSub = this.apiService.geocodeSearch(query).pipe(take(1)).subscribe({
+		this.placeError = '';
+		this.placeSelectedIndex = null;
+		this.placeSearching = true;
+		this.placeSearchSub?.unsubscribe();
+		this.placeSearchSub = this.apiService.geocodeSearch(query).pipe(take(1)).subscribe({
 			next: (data: any[]) => {
-				this.directionResults = (data || []).map((item: any) => ({
+				this.placeResults = (data || []).map((item: any) => ({
 					lat: typeof item.lat === 'number' ? item.lat : parseFloat(item.lat) || 0,
 					lng: typeof item.lon === 'number' ? item.lon : parseFloat(item.lon) || 0,
 					label: String(item.displayName || item.display_name || '').trim()
 				})).filter((item) => isValidGeoCoordinate(item.lat, item.lng) && item.label.length > 0);
-				if (this.directionResults.length === 0) {
-					this.directionSearchError = this.translate('ADDRESS_GEOCODE.NO_RESULTS');
-				} else if (this.directionResults.length === 1) {
-					this.directionSelectedIndex = 0;
+				if (this.placeResults.length === 0) {
+					this.placeError = this.translate('ADDRESS_GEOCODE.NO_RESULTS');
+				} else if (this.placeResults.length === 1) {
+					this.placeSelectedIndex = 0;
 				}
-				this.directionSearching = false;
+				this.placeSearching = false;
 				this.cdr.markForCheck();
 			},
 			error: () => {
-				this.directionResults = [];
-				this.directionSelectedIndex = null;
-				this.directionSearchError = this.translate('ADDRESS_GEOCODE.ERROR');
-				this.directionSearching = false;
+				this.placeResults = [];
+				this.placeSelectedIndex = null;
+				this.placeError = this.translate('ADDRESS_GEOCODE.ERROR');
+				this.placeSearching = false;
 				this.cdr.markForCheck();
 			}
 		});
 	}
 
-	public selectDirectionResult(index: number): void {
-		this.directionSelectedIndex = index;
-		this.directionSearchError = '';
+	public selectPlaceResult(index: number): void {
+		this.placeSelectedIndex = index;
+		this.placeError = '';
 	}
 
-	/** Distance orthodromique, en kilomètres et mètres, depuis la position connue. */
-	public directionDistanceLabel(lat: number, lng: number): string | null {
-		const from = this.deviceLocationLatLng ?? this.directionOrigin;
+	/** Point retenu : adresse sélectionnée ou coordonnées saisies valides. */
+	public get placeSelected(): { lat: number; lng: number; label: string } | null {
+		if (this.placeMode === 'coords') {
+			if (this.placeCoordsCache?.input !== this.placeCoords) {
+				const parsed = this.parseGotoCoordinates(this.placeCoords);
+				this.placeCoordsCache = {
+					input: this.placeCoords,
+					point: parsed ? { ...parsed, label: `${parsed.lat.toFixed(6)}, ${parsed.lng.toFixed(6)}` } : null
+				};
+			}
+			return this.placeCoordsCache.point;
+		}
+		const index = this.placeSelectedIndex;
+		return index != null ? this.placeResults[index] ?? null : null;
+	}
+
+	/** Distance et cap (0° = nord, sens horaire) depuis la position actuelle. */
+	public placeMetrics(lat: number, lng: number): { distance: string; bearing: number; cardinal: string } | null {
+		const from = this.deviceLocationLatLng ?? this.placeOrigin;
 		if (!from || !isValidGeoCoordinate(lat, lng)) {
 			return null;
 		}
+		const key = `${from.lat},${from.lng}|${lat},${lng}`;
+		const cached = this.placeMetricsCache.get(key);
+		if (cached) {
+			return cached;
+		}
 		const meters = L.latLng(from.lat, from.lng).distanceTo(L.latLng(lat, lng));
-		return this.formatDistanceKmM(meters);
+		const distance = this.formatDistanceKmM(meters);
+		if (!distance) {
+			return null;
+		}
+		const bearing = Math.round(this.bearingDeg(from.lat, from.lng, lat, lng)) % 360;
+		const metrics = { distance, bearing, cardinal: this.cardinalLabel(bearing) };
+		if (this.placeMetricsCache.size > 200) {
+			this.placeMetricsCache.clear();
+		}
+		this.placeMetricsCache.set(key, metrics);
+		return metrics;
+	}
+
+	private cardinalLabel(bearing: number): string {
+		const keys = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+		const key = keys[Math.round(bearing / 45) % 8];
+		return this.translate(`EVENTELEM.TRACK_CARDINAL_${key}`);
 	}
 
 	private formatDistanceKmM(meters: number): string | null {
@@ -1828,33 +1865,33 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return rest === 0 ? `${km} km` : `${km} km ${rest} m`;
 	}
 
-	/** Lit la position une fois pour afficher les distances avant de poser la flèche. */
-	private requestDirectionOrigin(): void {
+	/** Lit la position une fois pour afficher distance et angle avant toute action. */
+	private requestPlaceOrigin(): void {
 		if (this.deviceLocationLatLng) {
-			this.directionOrigin = { lat: this.deviceLocationLatLng.lat, lng: this.deviceLocationLatLng.lng };
-			this.directionOriginPending = false;
+			this.placeOrigin = { lat: this.deviceLocationLatLng.lat, lng: this.deviceLocationLatLng.lng };
+			this.placeOriginPending = false;
 			return;
 		}
 		if (!navigator.geolocation) {
-			this.directionOriginPending = false;
+			this.placeOriginPending = false;
 			return;
 		}
-		const gen = ++this.directionPreviewGen;
-		this.directionOriginPending = true;
+		const gen = ++this.placeOriginGen;
+		this.placeOriginPending = true;
 		navigator.geolocation.getCurrentPosition(
 			(pos) => {
-				if (gen !== this.directionPreviewGen) {
+				if (gen !== this.placeOriginGen) {
 					return;
 				}
-				this.directionOrigin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-				this.directionOriginPending = false;
+				this.placeOrigin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+				this.placeOriginPending = false;
 				this.cdr.markForCheck();
 			},
 			() => {
-				if (gen !== this.directionPreviewGen) {
+				if (gen !== this.placeOriginGen) {
 					return;
 				}
-				this.directionOriginPending = false;
+				this.placeOriginPending = false;
 				this.cdr.markForCheck();
 			},
 			{ enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 }
@@ -1862,25 +1899,26 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public confirmDirectionTarget(): void {
-		const index = this.directionSelectedIndex;
-		const picked = index != null ? this.directionResults[index] : undefined;
+		const picked = this.placeSelected;
 		if (!picked) {
-			this.directionSearchError = this.translate('EVENTELEM.TRACK_DIRECTION_SELECT');
+			this.placeError = this.translate(this.placeMode === 'coords'
+				? 'ADDRESS_GEOCODE.INVALID_COORDINATES'
+				: 'EVENTELEM.TRACK_DIRECTION_SELECT');
 			return;
 		}
 		if (this.deviceLocationLatLng && this.deviceLocationMarker) {
 			this.applyDirectionTarget(picked);
-			this.closeDirectionModal();
+			this.closePlaceModal();
 			return;
 		}
 		if (!this.map || !navigator.geolocation) {
-			this.directionSearchError = this.translate('EVENTELEM.TRACK_DIRECTION_GPS_ERROR');
+			this.placeError = this.translate('EVENTELEM.TRACK_DIRECTION_GPS_ERROR');
 			this.cdr.markForCheck();
 			return;
 		}
 		const gen = ++this.directionLocateGen;
 		this.directionLocating = true;
-		this.directionSearchError = '';
+		this.placeError = '';
 		this.cdr.markForCheck();
 		navigator.geolocation.getCurrentPosition(
 			(pos) => {
@@ -1898,7 +1936,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.currentZoom = zoom;
 				this.applyDirectionTarget(picked);
 				this.updateDeviceLocationMarker(lat, lng);
-				this.closeDirectionModal();
+				this.closePlaceModal();
 				this.cdr.markForCheck();
 			},
 			() => {
@@ -1907,7 +1945,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 				this.directionLocating = false;
 				this.applyDirectionTarget(picked);
-				this.directionSearchError = this.translate('EVENTELEM.TRACK_DIRECTION_GPS_ERROR');
+				this.placeError = this.translate('EVENTELEM.TRACK_DIRECTION_GPS_ERROR');
 				this.cdr.markForCheck();
 			},
 			{ enableHighAccuracy: true, timeout: 8000, maximumAge: 5000 }
@@ -1917,7 +1955,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public clearDirectionTarget(): void {
 		this.clearDirectionTargetState();
 		this.syncDeviceLocationArrows();
-		this.closeDirectionModal();
+		this.closePlaceModal();
 		this.cdr.markForCheck();
 	}
 
@@ -1929,118 +1967,20 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.cdr.markForCheck();
 	}
 
-	/** Ouvre la fenêtre pour choisir une adresse ou des coordonnées GPS. */
-	public openGotoModal(): void {
-		if (!this.gotoLocationModal || this.gotoModalRef) {
-			return;
-		}
-		this.gotoSearchError = '';
-		this.gotoSearching = false;
-		const opts: NgbModalOptions = {
-			centered: true,
-			backdrop: 'static',
-			scrollable: true,
-			keyboard: true,
-			windowClass: 'trace-viewer-direction-modal'
-		};
-		const mountEl = this.getCartesGouvModalMountElement();
-		if (mountEl) {
-			opts.container = mountEl;
-		}
-		this.gotoModalRef = this.modalService.open(this.gotoLocationModal, opts);
-		this.gotoModalRef.result.finally(() => {
-			this.gotoModalRef = undefined;
-			this.gotoSearching = false;
-			this.cdr.markForCheck();
-		});
-	}
-
-	public closeGotoModal(): void {
-		this.gotoSearchSub?.unsubscribe();
-		this.gotoSearchSub = undefined;
-		this.gotoSearching = false;
-		if (!this.gotoModalRef) {
-			return;
-		}
-		try {
-			this.gotoModalRef.close();
-		} catch {
-			/* ignore */
-		}
-		this.gotoModalRef = undefined;
-	}
-
-	public setGotoMode(mode: 'address' | 'coords'): void {
-		this.gotoMode = mode;
-		this.gotoSearchError = '';
-	}
-
-	public searchGotoAddress(): void {
-		const query = this.gotoQuery?.trim();
-		if (!query) {
-			this.gotoSearchError = this.translate('ADDRESS_GEOCODE.ADDRESS_REQUIRED');
-			this.gotoResults = [];
-			this.gotoSelectedIndex = null;
-			return;
-		}
-		this.gotoSearchError = '';
-		this.gotoSelectedIndex = null;
-		this.gotoSearching = true;
-		this.gotoSearchSub?.unsubscribe();
-		this.gotoSearchSub = this.apiService.geocodeSearch(query).pipe(take(1)).subscribe({
-			next: (data: any[]) => {
-				this.gotoResults = (data || []).map((item: any) => ({
-					lat: typeof item.lat === 'number' ? item.lat : parseFloat(item.lat) || 0,
-					lng: typeof item.lon === 'number' ? item.lon : parseFloat(item.lon) || 0,
-					label: String(item.displayName || item.display_name || '').trim()
-				})).filter((item) => isValidGeoCoordinate(item.lat, item.lng) && item.label.length > 0);
-				if (this.gotoResults.length === 0) {
-					this.gotoSearchError = this.translate('ADDRESS_GEOCODE.NO_RESULTS');
-				} else if (this.gotoResults.length === 1) {
-					this.gotoSelectedIndex = 0;
-				}
-				this.gotoSearching = false;
-				this.cdr.markForCheck();
-			},
-			error: () => {
-				this.gotoResults = [];
-				this.gotoSelectedIndex = null;
-				this.gotoSearchError = this.translate('ADDRESS_GEOCODE.ERROR');
-				this.gotoSearching = false;
-				this.cdr.markForCheck();
-			}
-		});
-	}
-
-	public selectGotoResult(index: number): void {
-		this.gotoSelectedIndex = index;
-		this.gotoSearchError = '';
-	}
-
 	public confirmGotoLocation(): void {
 		if (!this.map) {
 			return;
 		}
-		if (this.gotoMode === 'coords') {
-			const parsed = this.parseGotoCoordinates(this.gotoCoords);
-			if (!parsed) {
-				this.gotoSearchError = this.translate('ADDRESS_GEOCODE.INVALID_COORDINATES');
-				this.cdr.markForCheck();
-				return;
-			}
-			const label = `${parsed.lat.toFixed(6)}, ${parsed.lng.toFixed(6)}`;
-			this.showGotoLocation(parsed.lat, parsed.lng, label);
-			this.closeGotoModal();
-			return;
-		}
-		const picked = this.gotoSelectedIndex != null ? this.gotoResults[this.gotoSelectedIndex] : undefined;
+		const picked = this.placeSelected;
 		if (!picked) {
-			this.gotoSearchError = this.translate('EVENTELEM.TRACK_GOTO_SELECT');
+			this.placeError = this.translate(this.placeMode === 'coords'
+				? 'ADDRESS_GEOCODE.INVALID_COORDINATES'
+				: 'EVENTELEM.TRACK_GOTO_SELECT');
 			this.cdr.markForCheck();
 			return;
 		}
 		this.showGotoLocation(picked.lat, picked.lng, picked.label);
-		this.closeGotoModal();
+		this.closePlaceModal();
 	}
 
 	public clearGotoTarget(): void {
@@ -2053,7 +1993,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.selectionMarker = undefined;
 		}
 		this.gotoTargetActive = false;
-		this.closeGotoModal();
+		this.closePlaceModal();
 		this.cdr.markForCheck();
 	}
 
@@ -2098,29 +2038,22 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return { lat, lng };
 	}
 
-	private clearGotoTargetState(): void {
-		this.gotoSearchSub?.unsubscribe();
-		this.gotoSearchSub = undefined;
-		this.gotoTargetActive = false;
-		this.gotoMode = 'address';
-		this.gotoQuery = '';
-		this.gotoCoords = '';
-		this.gotoResults = [];
-		this.gotoSelectedIndex = null;
-		this.gotoSearchError = '';
-		this.gotoSearching = false;
+	private clearPlaceSearchState(): void {
+		this.placeSearchSub?.unsubscribe();
+		this.placeSearchSub = undefined;
+		this.placeMode = 'address';
+		this.placeQuery = '';
+		this.placeCoords = '';
+		this.placeResults = [];
+		this.placeSelectedIndex = null;
+		this.placeError = '';
+		this.placeSearching = false;
+		this.placeOrigin = null;
 	}
 
 	private clearDirectionTargetState(): void {
-		this.directionSearchSub?.unsubscribe();
-		this.directionSearchSub = undefined;
 		this.directionTarget = null;
 		this.directionTargetActive = false;
-		this.directionQuery = '';
-		this.directionResults = [];
-		this.directionSelectedIndex = null;
-		this.directionSearchError = '';
-		this.directionSearching = false;
 		this.directionLocating = false;
 		if (this.mapOrientation !== 'north') {
 			this.stopCompassHeading();
@@ -4011,9 +3944,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private resetState(): void {
-		this.closeGotoModal();
-		this.clearGotoTargetState();
-		this.closeDirectionModal();
+		this.closePlaceModal();
+		this.gotoTargetActive = false;
+		this.clearPlaceSearchState();
 		this.clearDirectionTargetState();
 		this.closeOfflineTracesModal();
 		this.closeGpxStatsModal();

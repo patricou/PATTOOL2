@@ -1059,6 +1059,9 @@ public class NetworkSentinelHostProbeService {
 
     /** Absolute path (or bare name when on PATH) of a tool, null when not found. Cached. */
     public String tool(String name) {
+        if (name == null || !name.matches("[A-Za-z0-9][A-Za-z0-9._+-]{0,40}")) {
+            return null;
+        }
         long now = System.currentTimeMillis();
         Map<String, String> cache = toolCache;
         if (now - toolCacheAt > TOOL_CACHE_MS || !cache.containsKey(name)) {
@@ -1094,7 +1097,7 @@ public class NetworkSentinelHostProbeService {
                     "/opt/homebrew/bin")) {
                 candidates.add(dir + "/" + name);
             }
-            CommandResult w = run(List.of("sh", "-c", "command -v " + name), 10, StandardCharsets.UTF_8);
+            CommandResult w = run(List.of("sh", "-c", "command -v \"$1\"", "sh", name), 10, StandardCharsets.UTF_8);
             if (w.started() && w.ok() && !w.stdout().isEmpty() && !w.stdout().get(0).isBlank()) {
                 return w.stdout().get(0).trim();
             }

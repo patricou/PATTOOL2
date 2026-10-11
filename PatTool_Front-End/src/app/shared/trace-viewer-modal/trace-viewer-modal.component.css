@@ -2953,6 +2953,94 @@
 	filter: invert(1) grayscale(100%);
 }
 
+::ng-deep .trace-viewer-direction-modal .tv-place-metrics {
+	flex: 0 0 auto;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 0.15rem;
+}
+
+::ng-deep .trace-viewer-direction-modal .tv-place-bearing {
+	font-size: 0.85em;
+	font-variant-numeric: tabular-nums;
+	color: #1d4ed8;
+	white-space: nowrap;
+}
+
+::ng-deep .trace-viewer-direction-modal .tv-place-bearing .fa,
+::ng-deep .trace-viewer-direction-modal .tv-place-bearing-arrow {
+	display: inline-block;
+	transform-origin: 50% 50%;
+}
+
+::ng-deep .trace-viewer-direction-modal .list-group-item.active .tv-place-bearing {
+	color: #fff;
+}
+
+::ng-deep .trace-viewer-direction-modal .tv-place-selected {
+	border: 1px solid #cbd5e1;
+	border-left: 4px solid #16a34a;
+	border-radius: 6px;
+	padding: 0.6rem 0.75rem;
+	background: #f8fafc;
+}
+
+::ng-deep .trace-viewer-direction-modal .tv-place-selected-label {
+	font-weight: 600;
+	word-break: break-word;
+}
+
+::ng-deep .trace-viewer-direction-modal .tv-place-selected-metrics {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 0.5rem;
+	margin-top: 0.5rem;
+}
+
+::ng-deep .trace-viewer-direction-modal .tv-place-stat {
+	display: flex;
+	flex-direction: column;
+}
+
+::ng-deep .trace-viewer-direction-modal .tv-place-stat-label {
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	color: #64748b;
+}
+
+::ng-deep .trace-viewer-direction-modal .tv-place-stat-value {
+	font-size: 1.2rem;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	color: #0f172a;
+}
+
+::ng-deep .trace-viewer-direction-modal .tv-place-bearing-arrow {
+	color: #16a34a;
+	margin-right: 0.2rem;
+}
+
+::ng-deep .trace-viewer-direction-modal .modal-footer.tv-place-footer {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+
+::ng-deep .trace-viewer-direction-modal .tv-place-clear,
+::ng-deep .trace-viewer-direction-modal .tv-place-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin: 0;
+}
+
+::ng-deep .trace-viewer-direction-modal .tv-place-actions {
+	margin-left: auto;
+	justify-content: flex-end;
+}
+
 ::ng-deep .trace-viewer-direction-modal .modal-body.tv-direction-modal-body {
 	flex: 1 1 auto;
 	min-height: 0;

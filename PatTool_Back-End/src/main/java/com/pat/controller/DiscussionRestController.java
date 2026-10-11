@@ -8,6 +8,7 @@ import com.pat.repo.domain.DiscussionStatisticsDTO;
 import com.pat.repo.MembersRepository;
 import com.pat.service.DiscussionConnectionService;
 import com.pat.service.DiscussionService;
+import com.pat.util.SafePaths;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -416,29 +417,18 @@ public class DiscussionRestController {
      */
     private String[] saveFile(MultipartFile file, String discussionId, String subfolder) throws IOException {
         // Create directory structure: uploadDir/discussions/discussionId/images or videos
-        Path discussionDir = Paths.get(uploadDir, "discussions", discussionId, subfolder);
+        Path discussionDir = SafePaths.resolveInside(Paths.get(uploadDir), "discussions", discussionId, subfolder);
         Files.createDirectories(discussionDir);
 
-        // Generate unique filename
-        String originalFilename = file.getOriginalFilename();
-        String baseName = "file";
-        String extension = "";
-        if (originalFilename != null && originalFilename.contains(".")) {
-            int lastDotIndex = originalFilename.lastIndexOf(".");
-            baseName = originalFilename.substring(0, lastDotIndex);
-            extension = originalFilename.substring(lastDotIndex); // Includes the dot
-        } else if (originalFilename != null) {
-            baseName = originalFilename;
-        }
-        String filename = System.currentTimeMillis() + "_" + baseName + extension;
-        Path filePath = discussionDir.resolve(filename);
+        String filename = System.currentTimeMillis() + "_" + SafePaths.safeFileName(file.getOriginalFilename());
+        Path filePath = SafePaths.resolveInside(discussionDir, filename);
 
         // Save file
         file.transferTo(filePath.toFile());
 
         // Return URL path (relative to server)
         String url = "/api/discussions/files/" + discussionId + "/" + subfolder + "/" + filename;
-        return new String[]{url, originalFilename};
+        return new String[]{url, SafePaths.safeFileName(file.getOriginalFilename())};
     }
 
     /**
@@ -449,8 +439,14 @@ public class DiscussionRestController {
             @PathVariable String discussionId,
             @PathVariable String subfolder,
             @PathVariable String filename) {
+        Path filePath;
         try {
-            Path filePath = Paths.get(uploadDir, "discussions", discussionId, subfolder, filename);
+            filePath = SafePaths.resolveInside(
+                    Paths.get(uploadDir), "discussions", discussionId, subfolder, filename);
+        } catch (IOException e) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
             File file = filePath.toFile();
 
             if (!file.exists() || !file.isFile()) {
@@ -466,6 +462,10 @@ public class DiscussionRestController {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(org.springframework.http.MediaType.parseMediaType(contentType));
             headers.setContentLength(fileContent.length);
+            headers.set("X-Content-Type-Options", "nosniff");
+            if (contentType.toLowerCase(java.util.Locale.ROOT).contains("svg")) {
+                headers.set("Content-Security-Policy", "sandbox; default-src 'none'");
+            }
 
             return ResponseEntity.ok().headers(headers).body(fileContent);
         } catch (Exception e) {

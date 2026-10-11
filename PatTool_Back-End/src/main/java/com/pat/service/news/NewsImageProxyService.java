@@ -9,13 +9,13 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import com.pat.util.SsrfGuard;
+
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
-import java.net.InetAddress;
 import java.net.URI;
 import java.net.URL;
-import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.Locale;
 
@@ -72,55 +72,54 @@ public class NewsImageProxyService {
             return ResponseEntity.badRequest().build();
         }
 
+        if (!SsrfGuard.isPublicHttpUrl(uri.toString())) {
+            log.warn("News image proxy rejected non-public URL");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         String scheme = uri.getScheme();
-        if (scheme == null
-                || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        String host = uri.getHost();
-        if (host == null || host.isBlank()) {
-            return ResponseEntity.badRequest().build();
-        }
-
-        // SSRF guard: refuse to fetch anything on our own network.
-        try {
-            InetAddress addr = InetAddress.getByName(host);
-            if (addr.isAnyLocalAddress()
-                    || addr.isLoopbackAddress()
-                    || addr.isLinkLocalAddress()
-                    || addr.isSiteLocalAddress()) {
-                log.warn("News image proxy rejected private/local host: {}", host);
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
-        } catch (UnknownHostException e) {
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
-        }
 
         // Opportunistic https upgrade so mixed-content URLs still work for most CDNs.
         if ("http".equalsIgnoreCase(scheme)) {
             String httpsUrl = "https://" + rawUrl.substring("http://".length());
-            ResponseEntity<byte[]> upgraded = doFetch(httpsUrl);
+            ResponseEntity<byte[]> upgraded = doFetch(httpsUrl, 3);
             if (upgraded != null) return upgraded;
         }
 
-        ResponseEntity<byte[]> resp = doFetch(rawUrl);
+        ResponseEntity<byte[]> resp = doFetch(rawUrl, 3);
         return resp != null ? resp : ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
     }
 
-    /** Core fetch: returns null on any transport-level failure. */
-    private ResponseEntity<byte[]> doFetch(String url) {
+    /** Core fetch: returns null on any transport-level failure. Redirects are checked again. */
+    private ResponseEntity<byte[]> doFetch(String url, int redirectsLeft) {
+        if (!SsrfGuard.isPublicHttpUrl(url)) {
+            log.warn("News image proxy rejected non-public URL");
+            return null;
+        }
         HttpURLConnection conn = null;
         try {
             URL u = new URL(url);
             conn = (HttpURLConnection) u.openConnection();
             conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
             conn.setReadTimeout(READ_TIMEOUT_MS);
-            conn.setInstanceFollowRedirects(true);
+            conn.setInstanceFollowRedirects(false);
             conn.setRequestProperty("User-Agent", USER_AGENT);
             conn.setRequestProperty("Accept", "image/*,*/*;q=0.5");
 
             int code = conn.getResponseCode();
+            if (code >= 300 && code < 400) {
+                if (redirectsLeft <= 0) {
+                    return null;
+                }
+                String location = conn.getHeaderField("Location");
+                if (location == null || location.isBlank()) {
+                    return null;
+                }
+                URI next = URI.create(url).resolve(location.trim());
+                conn.disconnect();
+                conn = null;
+                return doFetch(next.toString(), redirectsLeft - 1);
+            }
             if (code < 200 || code >= 400) {
                 return null;
             }

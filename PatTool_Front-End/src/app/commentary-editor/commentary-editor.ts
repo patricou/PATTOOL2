@@ -6,6 +6,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Commentary } from '../model/commentary';
+import { sanitizeRichHtml } from '../shared/rich-html.sanitize';
 import { Member } from '../model/member';
 import Quill from 'quill';
 
@@ -523,8 +524,9 @@ export class CommentaryEditor implements OnInit, OnChanges, AfterViewInit {
     }
 
     const color = this.eventColor;
+    const safeHtml = sanitizeRichHtml(html);
     if (!color) {
-      return this.sanitizer.bypassSecurityTrustHtml(html);
+      return this.sanitizer.bypassSecurityTrustHtml(safeHtml);
     }
 
     // Calculate color variants
@@ -544,7 +546,7 @@ export class CommentaryEditor implements OnInit, OnChanges, AfterViewInit {
     const darkTextColor = `rgb(${darkR}, ${darkG}, ${darkB})`;
 
     // Process HTML string to replace background styles
-    let processedHtml = html;
+    let processedHtml = safeHtml;
     
     // Replace background colors/styles in style attributes
     processedHtml = processedHtml.replace(

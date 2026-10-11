@@ -15,6 +15,7 @@ import com.pat.repo.MembersRepository;
 import com.pat.repo.DiscussionRepository;
 import com.pat.repo.TodoListRepository;
 import com.pat.service.EvenementTodoListLinkService;
+import com.pat.service.RichHtmlSanitizer;
 import com.pat.service.EvenementNoteLinkService;
 import com.pat.service.EvenementPdfConverterLinkService;
 import com.pat.repo.UserConnectionLogRepository;
@@ -1842,6 +1843,7 @@ public class EvenementRestController {
 
         evenement.setId(null);
 
+        sanitizeCommentaries(evenement);
         Evenement eventSaved = evenementsRepository.save(evenement);
 
         //log.info("Evenements POST " + eventSaved +" Saved !");
@@ -2029,6 +2031,7 @@ public class EvenementRestController {
             }
         }
 
+        sanitizeCommentaries(evenement);
         Evenement eventSaved = evenementsRepository.save(evenement);
 
         //log.info("Evenements PUT " + eventSaved.getEvenementName()+" Updated ! ( Visbility "+ eventSaved.getVisibility() +") ");
@@ -2218,6 +2221,17 @@ public class EvenementRestController {
         return null;
     }
 
+    private void sanitizeCommentaries(Evenement evenement) {
+        if (evenement == null || evenement.getCommentaries() == null) {
+            return;
+        }
+        for (Commentary commentary : evenement.getCommentaries()) {
+            if (commentary != null && commentary.getCommentary() != null) {
+                commentary.setCommentary(RichHtmlSanitizer.sanitizeStoredHtml(commentary.getCommentary()));
+            }
+        }
+    }
+
     /**
      * Add a commentary to an event
      * POST /api/even/{eventId}/commentaries
@@ -2235,6 +2249,7 @@ public class EvenementRestController {
                 return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
             }
 
+            commentary.setCommentary(RichHtmlSanitizer.sanitizeStoredHtml(commentary.getCommentary()));
             // Set the comment owner to current user
             commentary.setCommentOwner(currentUserName);
             commentary.setDateCreation(new Date());
@@ -2299,7 +2314,7 @@ public class EvenementRestController {
             }
 
             // Update the commentary content
-            existingCommentary.setCommentary(commentary.getCommentary());
+            existingCommentary.setCommentary(RichHtmlSanitizer.sanitizeStoredHtml(commentary.getCommentary()));
             // Keep the original dateCreation, commentOwner, and id
             Evenement savedEvent = evenementsRepository.save(evenement);
 

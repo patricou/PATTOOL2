@@ -416,11 +416,7 @@ public class SecurityConfig {
                 // Note: More specific API rules (role-based) are defined above and checked first
                 // IMPORTANT: This rule MUST come before .anyRequest() to protect all /api/** endpoints
                 .requestMatchers("/api/**").authenticated()
-                
-                // TEMPORARY: Allow POST /uploadfile without auth to confirm request reaches controller.
-                // If controller is hit, the issue is JWT validation; remove this and fix token/issuer.
-                .requestMatchers(HttpMethod.POST, "/uploadfile/**").permitAll()
-                
+
                 // Other authenticated endpoints (non-API)
                 .requestMatchers("/database/**", "/uploadfile/**", "/uploadondisk/**").authenticated()
                 

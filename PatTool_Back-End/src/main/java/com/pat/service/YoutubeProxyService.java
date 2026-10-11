@@ -103,24 +103,40 @@ public class YoutubeProxyService {
      * never talks to i.ytimg.com / ggpht directly.
      */
     public ResponseEntity<byte[]> proxyThumbnail(String rawUrl) {
+        return fetchThumbnail(rawUrl, 3);
+    }
+
+    private ResponseEntity<byte[]> fetchThumbnail(String rawUrl, int redirectsLeft) {
         if (!isAllowedThumbUrl(rawUrl)) {
             return ResponseEntity.badRequest().build();
         }
         HttpURLConnection conn = null;
         try {
             URL u = new URL(rawUrl);
-            InetAddress addr = InetAddress.getByName(u.getHost());
-            if (addr.isAnyLocalAddress() || addr.isLoopbackAddress()
-                    || addr.isLinkLocalAddress() || addr.isSiteLocalAddress()) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            for (InetAddress addr : InetAddress.getAllByName(u.getHost())) {
+                if (!com.pat.util.SsrfGuard.isPublicAddress(addr)) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+                }
             }
             conn = (HttpURLConnection) u.openConnection();
             conn.setConnectTimeout(5_000);
             conn.setReadTimeout(8_000);
-            conn.setInstanceFollowRedirects(true);
+            conn.setInstanceFollowRedirects(false);
             conn.setRequestProperty("User-Agent", USER_AGENT);
             conn.setRequestProperty("Accept", "image/*,*/*;q=0.5");
             int code = conn.getResponseCode();
+            if (code >= 300 && code < 400) {
+                String location = conn.getHeaderField("Location");
+                String next = location == null || location.isBlank()
+                        ? ""
+                        : URI.create(rawUrl).resolve(location.trim()).toString();
+                if (redirectsLeft <= 0 || !isAllowedThumbUrl(next)) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+                }
+                conn.disconnect();
+                conn = null;
+                return fetchThumbnail(next, redirectsLeft - 1);
+            }
             if (code < 200 || code >= 400) {
                 return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
             }

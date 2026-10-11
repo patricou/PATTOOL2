@@ -11,6 +11,7 @@ import { Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { sanitizeRichHtml } from '../shared/rich-html.sanitize';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Subscription, from, of } from 'rxjs';
 import { catchError, finalize, map, switchMap } from 'rxjs/operators';
@@ -127,7 +128,7 @@ export class TodoListDetailOverlayComponent implements OnInit, OnDestroy {
         if (!value) {
             return '';
         }
-        return this.sanitizer.bypassSecurityTrustHtml(value);
+        return this.sanitizer.bypassSecurityTrustHtml(sanitizeRichHtml(value));
     }
 
     hasItemNotes(value?: string | null): boolean {

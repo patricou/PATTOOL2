@@ -11,6 +11,7 @@ import com.pat.repo.domain.Member;
 import com.pat.repo.domain.TodoItem;
 import com.pat.repo.domain.TodoList;
 import com.pat.service.DiscussionService;
+import com.pat.service.RichHtmlSanitizer;
 import com.pat.service.TodoListVisibilityService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -22,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.regex.Pattern;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -615,7 +617,9 @@ public class TodoListRestController {
           .append(escapeHtml(StringUtils.hasText(list.getName()) ? list.getName() : t.get("LIST_FALLBACK")))
           .append("</h1>");
         if (StringUtils.hasText(list.getDescription())) {
-            sb.append("<div class='header-list-desc'>").append(list.getDescription()).append("</div>");
+            sb.append("<div class='header-list-desc'>")
+              .append(RichHtmlSanitizer.sanitizeStoredHtml(list.getDescription()))
+              .append("</div>");
         }
         sb.append("</div>");
 
@@ -687,7 +691,7 @@ public class TodoListRestController {
                 sb.append("</td></tr>");
                 if (StringUtils.hasText(it.getDescription())) {
                     sb.append("<tr").append(isDone ? " class='done'" : "").append("><td class='item-desc'>")
-                      .append(it.getDescription())
+                      .append(RichHtmlSanitizer.sanitizeStoredHtml(it.getDescription()))
                       .append("</td></tr>");
                 }
             }
@@ -982,8 +986,8 @@ public class TodoListRestController {
 
     private void applyEditableFields(TodoList list, TodoListRequest body) {
         list.setName(body.getName().trim());
-        list.setDescription(body.getDescription() != null ? body.getDescription().trim() : null);
-        list.setImageDataUrl(StringUtils.hasText(body.getImageDataUrl()) ? body.getImageDataUrl() : null);
+        list.setDescription(sanitizeStoredHtml(body.getDescription()));
+        list.setImageDataUrl(sanitizeImageDataUrl(body.getImageDataUrl()));
         list.setDueDate(body.getDueDate());
         list.setStatus(StringUtils.hasText(body.getStatus()) ? body.getStatus().trim() : TodoList.STATUS_OPEN);
         list.setUpdatedAt(new Date());
@@ -1003,7 +1007,7 @@ public class TodoListRestController {
             TodoItem it = new TodoItem();
             it.setId(StringUtils.hasText(p.getId()) ? p.getId() : UUID.randomUUID().toString());
             it.setTitle(p.getTitle().trim());
-            it.setDescription(p.getDescription() != null ? p.getDescription().trim() : null);
+            it.setDescription(sanitizeStoredHtml(p.getDescription()));
             it.setStatus(StringUtils.hasText(p.getStatus()) ? p.getStatus().trim() : TodoList.STATUS_OPEN);
             it.setDueDate(p.getDueDate());
             it.setAssigneeMemberId(StringUtils.hasText(p.getAssigneeMemberId())
@@ -1015,6 +1019,30 @@ public class TodoListRestController {
             items.add(it);
         }
         return items;
+    }
+
+    private static final Pattern IMAGE_DATA_URL = Pattern.compile(
+            "^data:image/(png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=\\r\\n]+$",
+            Pattern.CASE_INSENSITIVE);
+    private static final int MAX_IMAGE_DATA_URL_CHARS = 8 * 1024 * 1024;
+
+    private static String sanitizeStoredHtml(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return null;
+        }
+        String cleaned = RichHtmlSanitizer.sanitizeStoredHtml(raw.trim());
+        return StringUtils.hasText(cleaned) ? cleaned : null;
+    }
+
+    private static String sanitizeImageDataUrl(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return null;
+        }
+        String value = raw.trim();
+        if (value.length() > MAX_IMAGE_DATA_URL_CHARS || !IMAGE_DATA_URL.matcher(value).matches()) {
+            return null;
+        }
+        return value;
     }
 
     private void applySharingFields(TodoList entity, String visibilityRaw, String friendGroupIdRaw,

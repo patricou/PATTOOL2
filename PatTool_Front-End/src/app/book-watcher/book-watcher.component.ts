@@ -16,6 +16,7 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 
 import { ApiService, BookItem, BookSection } from '../services/api.service';
+import { sanitizeRichHtml } from '../shared/rich-html.sanitize';
 
 type BookSource =
   | 'openlibrary'
@@ -1475,18 +1476,7 @@ export class BookWatcherComponent implements OnInit, OnDestroy {
    * Strip scripts / meta-refresh / target=_top so embedded book HTML cannot navigate PATTOOL away.
    */
   private sanitizeBookHtml(html: string): string {
-    let out = html || '';
-    out = out.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-    out = out.replace(/<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi, '');
-    out = out.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
-    out = out.replace(/\s+target\s*=\s*("|')_?(top|parent)\1/gi, ' target="_blank"');
-    out = out.replace(/<base\b[^>]*>/gi, '');
-    // Keep body fragment when a full document is returned
-    const bodyMatch = out.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-    if (bodyMatch?.[1]) {
-      out = bodyMatch[1];
-    }
-    return out;
+    return sanitizeRichHtml(html);
   }
 
   private openIframe(url: string): void {

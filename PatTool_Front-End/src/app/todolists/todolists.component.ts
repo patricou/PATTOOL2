@@ -14,6 +14,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbModal, NgbModalModule, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { QuillModule } from 'ngx-quill';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { sanitizeRichHtml } from '../shared/rich-html.sanitize';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription, forkJoin, from as fromIterable, of } from 'rxjs';
@@ -130,7 +131,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         if (!value) {
             return '';
         }
-        return this.sanitizer.bypassSecurityTrustHtml(value);
+        return this.sanitizer.bypassSecurityTrustHtml(sanitizeRichHtml(value));
     }
 
     /**
