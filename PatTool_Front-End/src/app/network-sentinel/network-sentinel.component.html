@@ -44,7 +44,7 @@
         <small>({{ status.baselineSweepCount }})</small>
       </span>
     </div>
-    <div class="px-3 pb-2" *ngIf="c.hints?.length">
+    <div class="px-3 pb-2" *ngIf="c.hints.length">
       <div class="ns-hint" *ngFor="let h of c.hints"><i class="fa fa-info-circle"></i> {{ h }}</div>
     </div>
   </div>
@@ -487,7 +487,7 @@
               <td><small>{{ formatDuration(h.durationMs) }}</small></td>
               <td class="text-end"><span class="badge" [ngClass]="h.intrusionSucceededCount ? 'bg-danger' : 'bg-light text-muted'">{{ h.intrusionSucceededCount }}</span></td>
               <td>
-                <span class="ns-mini" *ngFor="let s of severities" [ngClass]="severityClass(s)" [class.ns-mini-zero]="!h.severityCounts?.[s]">{{ h.severityCounts?.[s] || 0 }}</span>
+                <span class="ns-mini" *ngFor="let s of severities" [ngClass]="severityClass(s)" [class.ns-mini-zero]="!h.severityCounts[s]">{{ h.severityCounts[s] || 0 }}</span>
                 <i class="fa fa-envelope text-success ms-1" *ngIf="h.emailSent" [title]="'NETWORK_SENTINEL.EMAIL_SENT' | translate"></i>
               </td>
               <td class="text-end">{{ h.deviceScanIncluded ? h.deviceCount : '–' }}<span class="text-danger" *ngIf="h.unknownDeviceCount"> (+{{ h.unknownDeviceCount }})</span></td>

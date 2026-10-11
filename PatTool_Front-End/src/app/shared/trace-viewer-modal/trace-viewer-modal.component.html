@@ -835,8 +835,12 @@
           {{ 'EVENTELEM.TRACK_GOTO_SEARCH' | translate }}
         </button>
       </div>
-      <div class="small text-muted mt-3 mb-1" *ngIf="placeResults.length">{{ 'ADDRESS_GEOCODE.RESULTS' | translate }}</div>
-      <div class="list-group tv-direction-results" *ngIf="placeResults.length">
+      <ng-container *ngIf="placeResults.length > 1">
+      <div class="small text-muted mt-3 mb-1">{{ 'ADDRESS_GEOCODE.RESULTS' | translate }}</div>
+      <div class="small text-muted mb-2" *ngIf="!placeHasOrigin">
+        {{ (placeOriginPending ? 'EVENTELEM.TRACK_DIRECTION_DISTANCE_PENDING' : 'EVENTELEM.TRACK_PLACE_NO_ORIGIN') | translate }}
+      </div>
+      <div class="list-group tv-direction-results">
         <button type="button"
                 class="list-group-item list-group-item-action tv-direction-result"
                 *ngFor="let result of placeResults; let i = index"
@@ -852,6 +856,7 @@
           </span>
         </button>
       </div>
+      </ng-container>
     </ng-container>
 
     <ng-container *ngIf="placeMode === 'coords'">
@@ -865,7 +870,7 @@
              [attr.aria-label]="'ADDRESS_GEOCODE.ENTER_COORDINATES' | translate">
     </ng-container>
 
-    <div class="tv-place-selected mt-3" *ngIf="placeSelected as sel">
+    <div class="tv-place-selected mt-3" *ngIf="(placeMode === 'coords' || placeResults.length === 1) && placeSelected as sel">
       <div class="tv-place-selected-label">
         <i class="fa fa-map-marker me-1" aria-hidden="true"></i>{{ sel.label }}
       </div>

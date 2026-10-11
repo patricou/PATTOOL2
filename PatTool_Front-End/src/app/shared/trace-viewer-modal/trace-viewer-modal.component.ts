@@ -297,6 +297,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private static readonly MULTI_TRACE_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
 	/** Côté du marqueur position (px). Le centre est le point GPS. */
 	private static readonly DEVICE_MARKER_PX = 260;
+	/** Milieu de la tige de la flèche verte (entre la base de la pointe et le point GPS). */
+	private static readonly ARROW_LABEL_Y = 97;
 	/** Visible countdown (seconds until next update); 0 while an update is in progress. */
 	public deviceLocationCountdown: number = 0;
 	private deviceLocationCountdownId: ReturnType<typeof setInterval> | null = null;
@@ -307,6 +309,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Address chosen in the direction modal; the green arrow points toward it. */
 	private directionTarget: { lat: number; lng: number; label: string } | null = null;
 	public directionTargetActive = false;
+	/** Après un saut le long de la flèche : la cible est la position GPS (rond rouge), suivie en direct. */
+	private directionTargetFollowsDevice = false;
 	public directionLocating = false;
 	private directionLocateGen = 0;
 
@@ -329,6 +333,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private placeOriginGen = 0;
 	private placeCoordsCache?: { input: string; point: { lat: number; lng: number; label: string } | null };
 	private readonly placeMetricsCache = new Map<string, { distance: string; bearing: number; cardinal: string }>();
+
+	public get placeHasOrigin(): boolean {
+		return !!(this.deviceLocationLatLng ?? this.placeOrigin);
+	}
 
 	public get placeTargetActive(): boolean {
 		return this.gotoTargetActive || this.directionTargetActive;
@@ -405,6 +413,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private pairClickHandler?: (e: L.LeafletMouseEvent) => void;
 	private selectionMarker?: L.Marker;
 	private clickMarker?: L.Marker;
+	private clickDirectionMarker?: L.Marker;
 	private locationSelectionClickHandler?: (e: L.LeafletMouseEvent) => void;
 
 	private static leafletIconsConfigured = false;
@@ -1961,6 +1970,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private applyDirectionTarget(picked: { lat: number; lng: number; label: string }): void {
 		this.directionTarget = { lat: picked.lat, lng: picked.lng, label: picked.label };
+		this.directionTargetFollowsDevice = false;
 		this.directionTargetActive = true;
 		void this.startCompassHeading();
 		this.syncDeviceLocationArrows();
@@ -2053,6 +2063,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private clearDirectionTargetState(): void {
 		this.directionTarget = null;
+		this.directionTargetFollowsDevice = false;
 		this.directionTargetActive = false;
 		this.directionLocating = false;
 		if (this.mapOrientation !== 'north') {
@@ -4038,6 +4049,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// destroyMap can run from a stale modal finalize during reopen and would drop the pin to render.
 		this.selectionMarker = undefined;
 		this.clickMarker = undefined;
+		this.clickDirectionMarker = undefined;
 		this.locationSelectionClickHandler = undefined;
 		this.pairUserMarker = undefined;
 		this.pairMarkMarker = undefined;
@@ -5811,24 +5823,64 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const c = size / 2;
 		return `<div title="${northLabel}" style="width:${size}px;height:${size}px;overflow:visible;pointer-events:none;">` +
 			`<svg data-arrow-style="thin-label" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;">` +
-			`<g class="device-location-target" style="display:none" opacity="0.8">${this.deviceDirectionArrowSvg('#16a34a')}</g>` +
+			`<g class="device-location-target" style="display:none" opacity="0.8">${this.deviceDirectionArrowSvg('#16a34a', true)}</g>` +
 			`<g class="device-location-north" style="display:none" opacity="0.8">${this.deviceDirectionArrowSvg('#e10600')}</g>` +
 			`<circle cx="${c}" cy="${c}" r="8" fill="#e10600" stroke="#ffffff" stroke-width="2.5"/>` +
 			`</svg></div>`;
 	}
 
 	/** Trait fin depuis la position, puis une petite pointe. Même géométrie pour les deux couleurs. */
-	private deviceDirectionArrowSvg(color: string): string {
+	private deviceDirectionArrowSvg(color: string, withDistance = false): string {
 		const c = TraceViewerModalComponent.DEVICE_MARKER_PX / 2;
 		const tip = 58;
 		const base = 78;
+		const label = withDistance
+			? `<text class="dir-arrow-distance" x="${c}" y="${TraceViewerModalComponent.ARROW_LABEL_Y}" text-anchor="middle" dy="-4" ` +
+				`font-size="10" font-weight="700" font-family="system-ui, sans-serif" fill="${color}" ` +
+				`stroke="#ffffff" stroke-width="3" stroke-linejoin="round" paint-order="stroke"></text>`
+			: '';
 		return `<line x1="${c}" y1="${c - 12}" x2="${c}" y2="${base - 2}" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>` +
 			`<line x1="${c}" y1="${c - 12}" x2="${c}" y2="${base - 2}" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>` +
-			`<polygon points="${c},${tip} ${c - 7},${base} ${c + 7},${base}" fill="${color}" stroke="#ffffff" stroke-width="1.25" stroke-linejoin="round"/>`;
+			`<polygon points="${c},${tip} ${c - 7},${base} ${c + 7},${base}" fill="${color}" stroke="#ffffff" stroke-width="1.25" stroke-linejoin="round"/>` +
+			label;
+	}
+
+	/**
+	 * Distance écrite le long de la tige. Le groupe est tourné de `screenAngle` :
+	 * on retourne le texte de 180° quand il se lirait à l’envers.
+	 */
+	private updateArrowDistanceLabel(
+		group: Element,
+		from: { lat: number; lng: number },
+		to: { lat: number; lng: number },
+		screenAngle: number
+	): void {
+		const text = group.querySelector('.dir-arrow-distance');
+		if (!text) {
+			return;
+		}
+		const meters = L.latLng(from.lat, from.lng).distanceTo(L.latLng(to.lat, to.lng));
+		text.textContent = this.formatArrowDistance(meters);
+		const a = this.wrapDeg(screenAngle);
+		const rotation = a < 180 ? -90 : 90;
+		const c = TraceViewerModalComponent.DEVICE_MARKER_PX / 2;
+		text.setAttribute('transform', `rotate(${rotation} ${c} ${TraceViewerModalComponent.ARROW_LABEL_Y})`);
+	}
+
+	private formatArrowDistance(meters: number): string {
+		if (!Number.isFinite(meters) || meters < 0) {
+			return '';
+		}
+		if (meters < 1000) {
+			return `${Math.round(meters)} m`;
+		}
+		const km = meters / 1000;
+		return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km)} km`;
 	}
 
 	/** Flèche rouge = nord (mode Nord seulement). Flèche verte = adresse, dans les 3 modes. */
 	private syncDeviceLocationArrows(): void {
+		this.syncClickDirectionArrow();
 		const marker = this.deviceLocationMarker;
 		if (!marker) {
 			return;
@@ -5858,7 +5910,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		const targetEl = root.querySelector('.device-location-target') as SVGGElement | null;
 		const from = this.deviceLocationLatLng;
-		const to = this.directionTarget;
+		const to = this.effectiveDirectionTarget();
 		if (!targetEl) {
 			return;
 		}
@@ -5867,11 +5919,148 @@ export class TraceViewerModalComponent implements OnDestroy {
 			targetEl.removeAttribute('transform');
 			return;
 		}
+		if (this.isSameSpot(from, to)) {
+			targetEl.style.display = 'none';
+			return;
+		}
 		targetEl.style.display = '';
 		const bearing = this.bearingDeg(from.lat, from.lng, to.lat, to.lng);
 		// Le marqueur reste droit à l'écran ; on ajoute la rotation de la carte pour viser l'adresse.
 		const screenAngle = bearing + mapBearing;
 		targetEl.setAttribute('transform', `rotate(${screenAngle} ${pivot} ${pivot})`);
+		this.updateArrowDistanceLabel(targetEl, from, to, screenAngle);
+	}
+
+	/** Flèche verte aussi sur le point double-cliqué, vers l’adresse choisie. */
+	private syncClickDirectionArrow(): void {
+		const from = this.clickMarker?.getLatLng();
+		const to = this.effectiveDirectionTarget();
+		if (!this.map || !from || !to || this.isSameSpot(from, to)) {
+			this.removeClickDirectionMarker();
+			return;
+		}
+		const size = TraceViewerModalComponent.DEVICE_MARKER_PX;
+		const pivot = size / 2;
+		if (!this.clickDirectionMarker) {
+			this.clickDirectionMarker = L.marker(from, {
+				icon: L.divIcon({
+					className: 'click-direction-marker',
+					html: `<div style="width:${size}px;height:${size}px;overflow:visible;pointer-events:none;">` +
+						`<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible;">` +
+						`<g class="click-direction-target" opacity="0.8">${this.deviceDirectionArrowSvg('#16a34a', true)}</g>` +
+						`</svg></div>`,
+					iconSize: [size, size],
+					iconAnchor: [pivot, pivot]
+				}),
+				interactive: false,
+				keyboard: false,
+				zIndexOffset: 900
+			}).addTo(this.map);
+		} else {
+			this.clickDirectionMarker.setLatLng(from);
+		}
+		const root = this.clickDirectionMarker.getElement();
+		if (!root) {
+			return;
+		}
+		root.style.background = 'transparent';
+		root.style.border = 'none';
+		root.style.pointerEvents = 'none';
+		const arrow = root.querySelector('.click-direction-target') as SVGGElement | null;
+		const screenAngle = this.bearingDeg(from.lat, from.lng, to.lat, to.lng) + this.currentMapBearingDeg();
+		if (arrow) {
+			arrow.setAttribute('transform', `rotate(${screenAngle} ${pivot} ${pivot})`);
+			this.updateArrowDistanceLabel(arrow, from, to, screenAngle);
+		}
+	}
+
+	private effectiveDirectionTarget(): { lat: number; lng: number } | null {
+		if ((this.directionTargetFollowsDevice || !this.directionTarget) && this.deviceLocationLatLng) {
+			return this.deviceLocationLatLng;
+		}
+		return this.directionTarget;
+	}
+
+	private isSameSpot(a: { lat: number; lng: number }, b: { lat: number; lng: number }): boolean {
+		return L.latLng(a.lat, a.lng).distanceTo(L.latLng(b.lat, b.lng)) < 2;
+	}
+
+	/**
+	 * Zone de double-clic autour de la flèche verte (pointe et fin de tige), en pixels écran.
+	 * La flèche fait 72 px depuis son point de départ, le texte de distance est sur la tige.
+	 */
+	private directionArrowAt(point: L.Point): 'device' | 'click' | null {
+		const to = this.effectiveDirectionTarget();
+		if (!this.map || !to) {
+			return null;
+		}
+		const origins: Array<{ origin: 'device' | 'click'; from: { lat: number; lng: number } | null }> = [
+			{ origin: 'click', from: this.clickMarker?.getLatLng() ?? null },
+			{ origin: 'device', from: this.deviceLocationLatLng }
+		];
+		const mapBearing = this.currentMapBearingDeg();
+		for (const { origin, from } of origins) {
+			if (!from || this.isSameSpot(from, to)) {
+				continue;
+			}
+			const base = this.map.latLngToContainerPoint([from.lat, from.lng]);
+			const angle = (this.bearingDeg(from.lat, from.lng, to.lat, to.lng) + mapBearing) * Math.PI / 180;
+			const ux = Math.sin(angle);
+			const uy = -Math.cos(angle);
+			const dx = point.x - base.x;
+			const dy = point.y - base.y;
+			const along = dx * ux + dy * uy;
+			const across = Math.abs(dx * uy - dy * ux);
+			if (along >= 30 && along <= 84 && across <= 18) {
+				return origin;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Va à la cible de la flèche. La flèche pointe ensuite vers la position GPS (rond rouge),
+	 * ou vers le point de départ si la position n’est pas connue.
+	 */
+	private jumpAlongDirection(origin: 'device' | 'click'): void {
+		const to = this.effectiveDirectionTarget();
+		const from = origin === 'device' ? this.deviceLocationLatLng : this.clickMarker?.getLatLng() ?? null;
+		if (!this.map || !to || !from) {
+			return;
+		}
+		const device = this.deviceLocationLatLng ? { ...this.deviceLocationLatLng } : null;
+		const followingDevice = this.directionTargetFollowsDevice || !this.directionTarget;
+		if (this.followDeviceLocation) {
+			this.followDeviceLocation = false;
+			this.onFollowDeviceLocationChange();
+			if (device) {
+				this.updateDeviceLocationMarker(device.lat, device.lng);
+			}
+		}
+		const backTo = device && !followingDevice ? device : from;
+		this.directionTargetFollowsDevice = !!device && !followingDevice;
+		this.directionTarget = {
+			lat: backTo.lat,
+			lng: backTo.lng,
+			label: `${backTo.lat.toFixed(6)}, ${backTo.lng.toFixed(6)}`
+		};
+		this.map.panTo([to.lat, to.lng]);
+		this.createClickMarker(to.lat, to.lng);
+		this.updateSwitchesForPoint(to.lat, to.lng);
+		this.syncDeviceLocationArrows();
+		this.cdr.markForCheck();
+	}
+
+	private removeClickDirectionMarker(): void {
+		if (!this.clickDirectionMarker) {
+			return;
+		}
+		try {
+			this.clickDirectionMarker.remove();
+		} catch {
+			/* ignore */
+		}
+		this.clickDirectionMarker = undefined;
 	}
 
 	private bearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -5923,6 +6112,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.deviceLocationMarker = undefined;
 		}
 		this.deviceLocationLatLng = null;
+		this.syncClickDirectionArrow();
 	}
 
 	private fetchDevicePositionAndRecenter(): void {
@@ -6375,6 +6565,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		// Add to map
 		this.clickMarker.addTo(this.map!);
+		this.syncClickDirectionArrow();
 	}
 
 	private cleanupLocationSelection(): void {
@@ -6410,6 +6601,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 			this.clickMarker = undefined;
 		}
+		this.removeClickDirectionMarker();
 	}
 
 	private closeModalInstance(): void {
@@ -6816,6 +7008,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 				return;
 			}
 			L.DomEvent.stop(e);
+			const arrowOrigin = this.directionArrowAt(e.containerPoint);
+			if (arrowOrigin) {
+				this.jumpAlongDirection(arrowOrigin);
+				return;
+			}
 			const lat = e.latlng.lat;
 			const lng = e.latlng.lng;
 			this.createClickMarker(lat, lng);

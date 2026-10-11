@@ -283,12 +283,12 @@
 		flex-direction: row !important;
 		flex-wrap: nowrap !important;
 		align-items: center !important;
-		justify-content: space-between !important;
+		justify-content: stretch !important;
 		overflow-x: visible !important;
 		width: 100% !important;
 		max-width: 100% !important;
 		min-width: 0 !important;
-		gap: 0.15rem !important;
+		gap: 0.25rem !important;
 	}
 
 	.slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group .btn {
@@ -296,12 +296,12 @@
 		flex-shrink: 1 !important;
 		min-width: 0 !important;
 		width: auto !important;
-		max-width: 2.1rem !important;
+		max-width: none !important;
 		justify-content: center !important;
 	}
 
 	.slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group .btn.tv-open-gps-btn {
-		flex: 0 0 auto !important;
+		flex: 1 1 0 !important;
 		width: auto !important;
 		max-width: none !important;
 	}
@@ -524,12 +524,12 @@
 		flex-direction: row !important;
 		flex-wrap: nowrap !important;
 		align-items: center !important;
-		justify-content: space-between !important;
+		justify-content: stretch !important;
 		overflow-x: visible !important;
 		width: 100% !important;
 		max-width: 100% !important;
 		min-width: 0 !important;
-		gap: 0.15rem !important;
+		gap: 0.25rem !important;
 	}
 
 	.slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group .btn {
@@ -537,12 +537,12 @@
 		flex-shrink: 1 !important;
 		min-width: 0 !important;
 		width: auto !important;
-		max-width: 2.1rem !important;
+		max-width: none !important;
 		justify-content: center !important;
 	}
 
 	.slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-buttons-group .btn.tv-open-gps-btn {
-		flex: 0 0 auto !important;
+		flex: 1 1 0 !important;
 		width: auto !important;
 		max-width: none !important;
 	}
@@ -2104,8 +2104,8 @@
 	flex-direction: row;
 	flex-wrap: nowrap;
 	align-items: center;
-	justify-content: space-between;
-	gap: 0.15rem;
+	justify-content: stretch;
+	gap: 0.25rem;
 	margin-top: 0.5rem;
 	width: 100%;
 	max-width: 100%;
@@ -2121,7 +2121,7 @@
 	flex: 1 1 0 !important;
 	width: auto !important;
 	min-width: 0 !important;
-	max-width: 2.1rem !important;
+	max-width: none !important;
 	height: 2.1rem;
 	margin-top: 0 !important;
 	padding: 0 !important;
@@ -3037,8 +3037,35 @@
 }
 
 ::ng-deep .trace-viewer-direction-modal .tv-place-actions {
-	margin-left: auto;
+	flex: 1 1 100%;
+	flex-wrap: nowrap;
 	justify-content: flex-end;
+	gap: 0.4rem;
+	min-width: 0;
+}
+
+::ng-deep .trace-viewer-direction-modal .tv-place-actions > .btn {
+	margin: 0;
+	white-space: nowrap;
+}
+
+@media (max-width: 576px) {
+	::ng-deep .trace-viewer-direction-modal .tv-place-actions > .btn {
+		flex: 1 1 0;
+		min-width: 0;
+		padding: 0.375rem 0.4rem;
+		font-size: 0.85rem;
+		line-height: 1.15;
+		white-space: normal;
+	}
+
+	::ng-deep .trace-viewer-direction-modal .tv-place-actions > .btn:first-child {
+		flex: 0.8 1 0;
+	}
+
+	::ng-deep .trace-viewer-direction-modal .tv-place-actions > .btn:last-child {
+		flex: 1.4 1 0;
+	}
 }
 
 ::ng-deep .trace-viewer-direction-modal .modal-body.tv-direction-modal-body {
