@@ -585,6 +585,7 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
     this.postToYoutube({ event: 'listening', id: 'yt-pip-embed' });
     if (!this.ytApiListening) {
       this.sendYoutubeCommand('addEventListener', ['onStateChange']);
+      this.sendYoutubeCommand('addEventListener', ['onError']);
     }
   }
 
@@ -639,6 +640,15 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
       event?: string;
       info?: number | Record<string, unknown>;
     };
+    if (payload.event === 'onError') {
+      this.ytApiListening = true;
+      this.ngZone.run(() => {
+        if (this.state.open && this.embedUrl) {
+          this.youtubePlayer.notifyUnavailable();
+        }
+      });
+      return;
+    }
     let state: number | undefined;
     if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
       state = payload.info;

@@ -46,7 +46,7 @@ interface YoutubeRegionOption {
   label: string;
 }
 
-type YoutubeSortKey = 'relevance' | 'date' | 'views' | 'duration' | 'title' | 'channel';
+type YoutubeSortKey = 'relevance' | 'date' | 'views' | 'duration' | 'title' | 'artist' | 'song' | 'channel';
 type YoutubeSortDir = 'asc' | 'desc';
 type YoutubeListMode = 'catalog' | 'favorites';
 
@@ -60,7 +60,7 @@ type YoutubeListMode = 'catalog' | 'favorites';
 })
 export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   readonly types: YoutubeItemKind[] = ['video', 'playlist', 'channel'];
-  readonly sortKeys: YoutubeSortKey[] = ['relevance', 'date', 'views', 'duration', 'title', 'channel'];
+  readonly sortKeys: YoutubeSortKey[] = ['relevance', 'date', 'views', 'duration', 'title', 'artist', 'song', 'channel'];
   readonly regions: YoutubeRegionOption[] = [
     { code: 'FR', label: 'France' },
     { code: 'BE', label: 'Belgique' },
@@ -162,6 +162,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private static readonly THEATER_BODY_CLASS = 'yt-theater';
   private static readonly PAGE_THEME_BODY_CLASS = 'yt-page-theme';
   private static readonly TICKER_STORAGE_KEY = 'pattool.youtube.ticker-enabled';
+  private static readonly LOOP_STORAGE_KEY = 'pattool.youtube.loop-queue';
   private static readonly RECENT_SEARCHES_KEY = 'pattool.youtube.recent-searches';
   private static readonly RECENT_SEARCHES_MAX = 8;
 
@@ -268,6 +269,11 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private pendingPlaybackDuration?: number;
   private pendingPlayerState?: number;
   private ignoreQueueEndedUntil = 0;
+  /** Consecutive unavailable queue items; stops play-all once the whole queue failed. */
+  private queueUnavailableStreak = 0;
+  private readonly artistSongCache = new WeakMap<YoutubeItem, { artist: string; song: string }>();
+  /** Restart play-all from the first item once the last one has finished. */
+  loopQueue = this.readLoopPreference();
   private embedGeneration = 0;
   private landscapeSyncTimer?: ReturnType<typeof setTimeout>;
   private landscapeSuppressTimer?: ReturnType<typeof setTimeout>;
@@ -333,6 +339,12 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.subs.push(
       this.youtubePlayer.ended$.subscribe(() => {
         this.ngZone.run(() => this.onQueueVideoEnded());
+      })
+    );
+
+    this.subs.push(
+      this.youtubePlayer.unavailable$.subscribe(() => {
+        this.ngZone.run(() => this.onQueueVideoUnavailable());
       })
     );
 
@@ -1564,7 +1576,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       this.embedUrl = null;
       this.stopYoutubeProgressWatch();
       this.youtubePlayer.open(this.selected, { keepMinimized: this.playAllActive });
-    } else {
+    } else if (!this.loadInFullscreenEmbed(this.selected)) {
       this.embedUrl = this.buildEmbedUrl(this.selected, true);
     }
     this.revealPlayerIfHidden();
@@ -1642,6 +1654,23 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     return this.playbackPaused;
   }
 
+  setLoopQueue(enabled: boolean): void {
+    this.loopQueue = enabled;
+    try {
+      localStorage.setItem(YoutubeWatcherComponent.LOOP_STORAGE_KEY, enabled ? '1' : '0');
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }
+
+  private readLoopPreference(): boolean {
+    try {
+      return localStorage.getItem(YoutubeWatcherComponent.LOOP_STORAGE_KEY) !== '0';
+    } catch {
+      return true;
+    }
+  }
+
   playQueuePrev(): void {
     const list = this.queueItems();
     if (!list.length) {
@@ -1692,6 +1721,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     }
     this.playAllActive = true;
     this.playbackPaused = false;
+    this.queueUnavailableStreak = 0;
     const currentIdx = this.queueIndexOf(this.selected);
     if (currentIdx >= 0 && (this.embedUrl || this.playerOpen)) {
       if (
@@ -1753,12 +1783,33 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     if (Date.now() < this.ignoreQueueEndedUntil) {
       return;
     }
+    this.queueUnavailableStreak = 0;
+    this.playNextQueueItem(true);
+  }
+
+  private onQueueVideoUnavailable(): void {
+    if (!this.playAllActive) {
+      return;
+    }
+    this.queueUnavailableStreak++;
+    if (this.queueUnavailableStreak >= this.queueItems().length) {
+      this.stopPlayAll();
+      return;
+    }
+    this.playNextQueueItem(true);
+  }
+
+  private playNextQueueItem(auto = false): void {
     const list = this.queueItems();
     if (!list.length) {
       this.stopPlayAll();
       return;
     }
     const idx = this.queueIndexOf(this.selected);
+    if (auto && !this.loopQueue && idx >= list.length - 1) {
+      this.stopPlayAll();
+      return;
+    }
     const next = list[(idx < 0 ? 0 : idx + 1) % list.length];
     this.playQueueItem(next);
   }
@@ -2572,6 +2623,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       value === 'views' ||
       value === 'duration' ||
       value === 'title' ||
+      value === 'artist' ||
+      value === 'song' ||
       value === 'channel' ||
       value === 'relevance'
     ) {
@@ -2581,7 +2634,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   }
 
   private defaultSortDir(key: YoutubeSortKey): YoutubeSortDir {
-    return key === 'title' || key === 'channel' || key === 'relevance' ? 'asc' : 'desc';
+    return key === 'date' || key === 'views' || key === 'duration' ? 'desc' : 'asc';
   }
 
   private normalizeSortDir(value: string | null, key: YoutubeSortKey): YoutubeSortDir {
@@ -2632,11 +2685,51 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
         return this.durationSeconds(a.duration) - this.durationSeconds(b.duration);
       case 'title':
         return this.compareText(a.title, b.title);
+      case 'artist':
+        return (
+          this.compareText(this.artistSong(a).artist, this.artistSong(b).artist) ||
+          this.compareText(this.artistSong(a).song, this.artistSong(b).song)
+        );
+      case 'song':
+        return this.compareText(this.artistSong(a).song, this.artistSong(b).song);
       case 'channel':
         return this.compareText(a.channelTitle, b.channelTitle);
       default:
         return (this.itemSourceOrder.get(a) || 0) - (this.itemSourceOrder.get(b) || 0);
     }
+  }
+
+  /**
+   * Music uploads are usually titled "Artist - Song (Official Video)"; otherwise the
+   * channel name (minus "- Topic" / "VEVO") stands in for the artist.
+   */
+  private artistSong(item: YoutubeItem): { artist: string; song: string } {
+    const cached = this.artistSongCache.get(item);
+    if (cached) {
+      return cached;
+    }
+    const title = (item.title || '').trim();
+    const sep = title.match(/\s+[-–—|]\s+/);
+    let artist: string;
+    let song: string;
+    if (sep && sep.index !== undefined && sep.index > 0) {
+      artist = title.slice(0, sep.index);
+      song = title.slice(sep.index + sep[0].length);
+    } else {
+      artist = (item.channelTitle || '')
+        .replace(/\s*-\s*topic$/i, '')
+        .replace(/\s*vevo$/i, '');
+      song = title;
+    }
+    const clean = (s: string) =>
+      s
+        .replace(/[([{][^)\]}]*[)\]}]/g, ' ')
+        .replace(/["“”«»]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const result = { artist: clean(artist), song: clean(song) || song.trim() };
+    this.artistSongCache.set(item, result);
+    return result;
   }
 
   private compareText(a: string | null | undefined, b: string | null | undefined): number {
@@ -2907,7 +3000,34 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.postToYoutube({ event: 'listening', id: 'yt-page-embed' });
     if (!this.ytApiListening) {
       this.sendYoutubeCommand('addEventListener', ['onStateChange']);
+      this.sendYoutubeCommand('addEventListener', ['onError']);
     }
+  }
+
+  /**
+   * Changing the iframe src while YouTube's own fullscreen is active exits fullscreen,
+   * so load the next item into the existing player instead.
+   */
+  private loadInFullscreenEmbed(item: YoutubeItem): boolean {
+    if (!this.embedUrl || !this.ytApiListening || typeof document === 'undefined') {
+      return false;
+    }
+    const iframe = this.getYoutubeIframe();
+    const doc = document as Document & { webkitFullscreenElement?: Element | null };
+    const fsEl = document.fullscreenElement || doc.webkitFullscreenElement || null;
+    if (!iframe || fsEl !== iframe) {
+      return false;
+    }
+    const id = item.id || '';
+    if (item.kind === 'playlist' && /^[a-zA-Z0-9_-]{10,64}$/.test(id)) {
+      this.sendYoutubeCommand('loadPlaylist', [{ list: id, listType: 'playlist' }]);
+      return true;
+    }
+    if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
+      this.sendYoutubeCommand('loadVideoById', [id]);
+      return true;
+    }
+    return false;
   }
 
   private getYoutubeIframe(): HTMLIFrameElement | null {
@@ -2962,6 +3082,14 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       info?: number | Record<string, unknown>;
     };
     this.ytApiListening = true;
+    if (payload.event === 'onError') {
+      this.ngZone.run(() => {
+        if (!this.destroyed && !this.playerOpen && this.embedUrl) {
+          this.onQueueVideoUnavailable();
+        }
+      });
+      return;
+    }
     if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
       this.scheduleYoutubeProgress({ playerState: payload.info });
       return;
@@ -2996,6 +3124,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private applyYoutubePlayerState(state: number): void {
     if (state === 1 || state === 3) {
       this.playbackPaused = false;
+      if (state === 1) {
+        this.queueUnavailableStreak = 0;
+      }
     } else if (state === 2) {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
         return;

@@ -27,11 +27,13 @@ export class YoutubePlayerService {
     loadSeq: 0
   });
   private readonly endedSubject = new Subject<void>();
+  private readonly unavailableSubject = new Subject<void>();
   private readonly commandSubject = new Subject<YoutubePlayerCommand>();
   private readonly pausedSubject = new BehaviorSubject<boolean>(false);
 
   readonly state$ = this.stateSubject.asObservable();
   readonly ended$ = this.endedSubject.asObservable();
+  readonly unavailable$ = this.unavailableSubject.asObservable();
   readonly command$ = this.commandSubject.asObservable();
   readonly paused$ = this.pausedSubject.asObservable();
 
@@ -74,6 +76,10 @@ export class YoutubePlayerService {
 
   notifyEnded(): void {
     this.endedSubject.next();
+  }
+
+  notifyUnavailable(): void {
+    this.unavailableSubject.next();
   }
 
   minimize(): void {

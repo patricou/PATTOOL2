@@ -122,6 +122,16 @@
         <i class="me-1" [ngClass]="isPlaying ? 'fa fa-stop' : 'fa fa-play'"></i>
         <span>{{ (isPlaying ? 'EVENTELEM.STOP' : 'EVENTELEM.PLAY') | translate }}</span>
       </button>
+      <div class="form-check form-switch mb-0 videoshow-loop-switch"
+           [attr.title]="'EVENTELEM.LOOP_PLAYLIST_HINT' | translate">
+        <input class="form-check-input" type="checkbox" role="switch" id="videoshow-loop-playlist"
+               [checked]="loopPlaylist"
+               (change)="setLoopPlaylist($any($event.target).checked)"
+               (click)="$event.stopPropagation()">
+        <label class="form-check-label" for="videoshow-loop-playlist">
+          <i class="fa fa-repeat me-1"></i>{{ 'EVENTELEM.LOOP_PLAYLIST' | translate }}
+        </label>
+      </div>
       <div class="btn-group" role="group">
         <button type="button" class="btn btn-secondary" 
                 (click)="setVolume(volume - 0.1); $event.stopPropagation()"

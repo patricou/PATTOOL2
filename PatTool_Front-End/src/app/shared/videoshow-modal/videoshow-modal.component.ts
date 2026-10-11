@@ -126,6 +126,9 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private youtubeEmbedSafeCache = new Map<string, SafeResourceUrl>();
   private youtubeEmbedGeneration = 0;
   private ignoreYoutubeEndedUntil = 0;
+  private static readonly LOOP_STORAGE_KEY = 'pattool.videoshow.loop-playlist';
+  /** Restart from the first video once the last one has finished. */
+  public loopPlaylist = this.readLoopPreference();
   private youtubeMessageListener?: (event: MessageEvent) => void;
   
   constructor(
@@ -864,6 +867,23 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.goToVideoIndex((this.currentVideoshowIndex + 1) % this.videos.length);
   }
 
+  public setLoopPlaylist(enabled: boolean): void {
+    this.loopPlaylist = enabled;
+    try {
+      localStorage.setItem(VideoshowModalComponent.LOOP_STORAGE_KEY, enabled ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private readLoopPreference(): boolean {
+    try {
+      return localStorage.getItem(VideoshowModalComponent.LOOP_STORAGE_KEY) !== '0';
+    } catch {
+      return true;
+    }
+  }
+
   private goToVideoIndex(index: number): void {
     if (index < 0 || index >= this.videos.length) {
       return;
@@ -1207,6 +1227,11 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private onPlaybackEnded(): void {
     this.isPlaying = false;
     this.currentTime = 0;
+    const isLast = this.currentVideoshowIndex >= this.videos.length - 1;
+    if (isLast && !this.loopPlaylist) {
+      this.cdr.detectChanges();
+      return;
+    }
     if (this.videos.length > 1) {
       this.nextVideo();
     } else {

@@ -115,6 +115,18 @@
         <i class="fa fa-step-forward" aria-hidden="true"></i>
       </button>
     </div>
+    <label class="yt-loop-switch" [attr.title]="'YOUTUBE.PLAY_LOOP_HINT' | translate">
+      <span class="form-check form-switch mb-0">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          [checked]="loopQueue"
+          (change)="setLoopQueue($any($event.target).checked)" />
+      </span>
+      <i class="fa fa-repeat" aria-hidden="true"></i>
+      <span>{{ 'YOUTUBE.PLAY_LOOP' | translate }}</span>
+    </label>
     <button
       type="button"
       class="yt-btn yt-play-all"
@@ -498,7 +510,8 @@
               *ngIf="!playingRecording && canLinkVideo(selected)"
               type="button"
               class="yt-btn"
-              (click)="openInVideoshow()">
+              (click)="openInVideoshow()"
+              [attr.title]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate">
               <i class="fa fa-expand" aria-hidden="true"></i>
               {{ 'YOUTUBE.OPEN_VIDEOSHOW' | translate }}
             </button>
@@ -635,7 +648,8 @@
             *ngIf="canLinkVideo(selected)"
             type="button"
             class="yt-btn"
-            (click)="openInVideoshow()">
+            (click)="openInVideoshow()"
+            [attr.title]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate">
             <i class="fa fa-expand" aria-hidden="true"></i>
             {{ 'YOUTUBE.OPEN_VIDEOSHOW' | translate }}
           </button>
@@ -783,6 +797,7 @@
     <ng-container *ngIf="!showQueueInPanel && !searching && !(listMode === 'favorites' && isLoadingFavorites)">
       <ng-container *ngTemplateOutlet="ytQueueBar"></ng-container>
     </ng-container>
+    <div class="yt-results-center">
     <div class="yt-sort" *ngIf="!searching && displayedItems.length">
       <label class="visually-hidden" for="yt-sort">{{ 'YOUTUBE.SORT' | translate }}</label>
       <select
@@ -801,6 +816,16 @@
         [attr.aria-label]="(sortDir === 'desc' ? 'YOUTUBE.SORT_DIR_DESC' : 'YOUTUBE.SORT_DIR_ASC') | translate">
         <i class="fa" [class.fa-sort-amount-desc]="sortDir === 'desc'" [class.fa-sort-amount-asc]="sortDir === 'asc'" aria-hidden="true"></i>
       </button>
+    </div>
+    <button
+      *ngIf="listMode === 'catalog' && nextPageToken && !searching"
+      type="button"
+      class="yt-btn yt-btn--sm yt-more-head-btn"
+      [disabled]="loadingMore"
+      (click)="loadMore()">
+      <i class="fa" [class.fa-spinner]="loadingMore" [class.fa-spin]="loadingMore" [class.fa-chevron-down]="!loadingMore" aria-hidden="true"></i>
+      {{ 'YOUTUBE.LOAD_MORE' | translate }}
+    </button>
     </div>
     <span class="yt-results-count" *ngIf="!searching && !(listMode === 'favorites' && isLoadingFavorites)">
       {{ 'YOUTUBE.RESULT_COUNT' | translate:{ count: displayedItems.length } }}

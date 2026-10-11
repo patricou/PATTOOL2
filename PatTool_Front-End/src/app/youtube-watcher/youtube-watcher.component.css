@@ -1333,14 +1333,68 @@
   gap: 0.4rem;
 }
 
+.yt-loop-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 1.8rem;
+  margin: 0;
+  padding: 0 0.7rem;
+  border: 1px solid rgba(255, 70, 70, 0.4);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 40, 40, 0.2) 0%, rgba(150, 0, 0, 0.28) 100%);
+  color: #fbeaea;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.yt-loop-switch .form-switch {
+  display: inline-flex;
+  align-items: center;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.yt-loop-switch .form-check-input {
+  width: 2em;
+  height: 1.1em;
+  margin: 0;
+  float: none;
+  cursor: pointer;
+  background-color: #3a0000;
+  border: 1px solid #fff;
+  box-shadow: none;
+}
+
+.yt-loop-switch .form-check-input:checked {
+  background-color: #cc0000;
+  border-color: #fff;
+}
+
+.yt-results-center {
+  display: inline-flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
 .yt-sort {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  margin-left: auto;
   text-transform: none;
   letter-spacing: 0;
   font-weight: 600;
+}
+
+.yt-more-head-btn {
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 :host .yt-sort-select {
@@ -1360,9 +1414,15 @@
   box-shadow: 0 0 0 2px rgba(255, 78, 69, 0.35);
 }
 
-.yt-sort-select option {
-  color: #212121;
-  background: #fff;
+:host .yt-sort-select option {
+  background-color: #1a1a1a;
+  color: #f1f1f1;
+  font-weight: 400;
+}
+
+:host .yt-sort-select option:checked {
+  background-color: #8a0000;
+  color: #fff;
 }
 
 .yt-results-count {
