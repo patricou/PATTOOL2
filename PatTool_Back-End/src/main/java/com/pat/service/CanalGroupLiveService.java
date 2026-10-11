@@ -36,6 +36,12 @@ public class CanalGroupLiveService {
     public static final String SCHEME_PREFIX = "canalgroup:";
 
     private static final String METADATA_API = "https://www.dailymotion.com/player/metadata/video/";
+    /**
+     * Public Sénat's metadata call returns DM020 (no {@code qualities}) even while
+     * the live is on air. This playlist is refreshed with a signed dmcdn master.
+     */
+    private static final String PUBLIC_SENAT_MIRROR =
+            "https://raw.githubusercontent.com/Paradise-91/ParaTV/main/streams/publicsenat/publicsenat-dm.m3u8";
     private static final String USER_VIDEOS_API = "https://api.dailymotion.com/user/%s/videos";
     private static final String USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -153,6 +159,9 @@ public class CanalGroupLiveService {
         try {
             String mediaId = resolveMediaId(def);
             String hls = fetchHlsFromMetadata(mediaId, def.embedder());
+            if (!StringUtils.hasText(hls) && "publicsenat".equals(key)) {
+                hls = resolvePublicSenatMirror();
+            }
             if (!StringUtils.hasText(hls)) {
                 return cached != null ? Optional.of(cached.url) : Optional.empty();
             }
@@ -161,8 +170,40 @@ public class CanalGroupLiveService {
             return Optional.of(hls);
         } catch (Exception e) {
             log.warn("Canal group live resolve failed for {}: {}", key, e.toString());
+            if ("publicsenat".equals(key)) {
+                String mirror = resolvePublicSenatMirror();
+                if (StringUtils.hasText(mirror)) {
+                    streamCache.put(key, new CachedUrl(mirror, now.plus(Duration.ofMinutes(3))));
+                    return Optional.of(mirror);
+                }
+            }
             return cached != null ? Optional.of(cached.url) : Optional.empty();
         }
+    }
+
+    /** Signed Public Sénat master maintained outside the metadata API. */
+    private String resolvePublicSenatMirror() {
+        try {
+            HttpRequest req = HttpRequest.newBuilder(URI.create(PUBLIC_SENAT_MIRROR))
+                    .timeout(Duration.ofSeconds(12))
+                    .header("User-Agent", USER_AGENT)
+                    .header("Accept", "application/vnd.apple.mpegurl, text/plain, */*")
+                    .GET()
+                    .build();
+            HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            String body = resp.body();
+            if (resp.statusCode() >= 200 && resp.statusCode() < 300
+                    && body != null
+                    && body.contains("#EXTM3U")
+                    && body.contains("dmcdn.net")) {
+                log.info("Public Sénat live using signed Dailymotion mirror (metadata has no qualities)");
+                return PUBLIC_SENAT_MIRROR;
+            }
+            log.warn("Public Sénat mirror unusable HTTP {}", resp.statusCode());
+        } catch (Exception e) {
+            log.warn("Public Sénat mirror failed: {}", e.toString());
+        }
+        return null;
     }
 
     public Optional<String> resolveVirtualOrPassthrough(String url) {

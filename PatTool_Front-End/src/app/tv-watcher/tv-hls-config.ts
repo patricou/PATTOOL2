@@ -14,9 +14,8 @@ export type TvHlsPlaybackMode = 'live' | 'vod';
  */
 export type TvHlsConfigOptions = {
   /**
-   * Cap Terre / Mezzo / M6 group mirrors: tiny live window (~4×5–6 s segments).
-   * Stay near the live edge (old segments 404 within seconds) and never force-seek
-   * on latency. Playback-rate pacing is separate and Cap Terre only.
+   * Cap Terre / Mezzo: tiny live window (~4×5 s segments).
+   * Stay near the live edge (old segments expire within seconds).
    */
   slowMirror?: boolean;
 };

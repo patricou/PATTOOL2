@@ -7,8 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Mezzo on otcnet publishes a ~20 s media playlist. Starting at the oldest
- * segment 404s before the proxy can deliver it.
+ * Short live windows: trim only the slow M6/W9 mirror. Mezzo on otcnet is fast
+ * enough to keep its full playlist. Dailymotion DVR (Public Sénat) is trimmed.
  */
 class TvStreamProxyMezzoPlaylistTest {
 
@@ -64,6 +64,10 @@ class TvStreamProxyMezzoPlaylistTest {
                 "http://145.239.5.177/319/index.m3u8"));
         assertFalse(TvStreamProxyService.isShortWindowTrimUpstream(
                 "http://145.239.5.177/359a/index.m3u8"));
+        assertFalse(TvStreamProxyService.isShortWindowTrimUpstream(
+                "http://5.180.164.197:8080/M6/index.m3u8"));
+        assertFalse(TvStreamProxyService.isM6ShortWindowUpstream(
+                "https://live-3.otcnet.ru/Mezzo/index.m3u8"));
     }
 
     @Test
@@ -74,5 +78,13 @@ class TvStreamProxyMezzoPlaylistTest {
                 "http://stream.mcquack.net/276/index.m3u8"));
         assertFalse(TvStreamProxyService.isMezzoOtcnetUpstream(
                 "http://str2.iptvhd.ru:8080/Mezzo_HD/index.m3u8"));
+        assertFalse(TvStreamProxyService.isShortWindowTrimUpstream(
+                "https://live-3.otcnet.ru/Mezzo/tracks-v1a1/mono.ts.m3u8"));
+        assertTrue(TvStreamProxyService.isShortWindowPrefetchUpstream(
+                "https://live-3.otcnet.ru/Mezzo/tracks-v1a1/mono.ts.m3u8"));
+        assertTrue(TvStreamProxyService.isDailymotionCdnUpstream(
+                "https://live2.eu-north-1a.cf.dmcdn.net/sec2(abc)/cloud/3/xkxbzc/d/live-480.m3u8"));
+        assertFalse(TvStreamProxyService.isDailymotionCdnUpstream(
+                "https://www.dailymotion.com/player/metadata/video/xkxbzc"));
     }
 }

@@ -109,7 +109,7 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   }
   // Mezzo: the iptv-org country playlist still points at str2.iptvhd.ru, which
   // answers HTTP 403 (deny_token). Mezzo Live stays on its own mirror.
-  // The otcnet window is only ~20 s; the player must stay near the live edge.
+  // The otcnet window is only ~20 s; the player stays near the live edge.
   if (isMezzoChannel(channel)) {
     return MEZZO_PUBLIC_HLS;
   }
@@ -297,10 +297,9 @@ export function shouldSkipTvLiveEdgeWatchdog(
 }
 
 /**
- * Live playlists with only ~4 short segments (Cap Terre, Mezzo, M6/W9 mirrors).
+ * Live playlists with only ~4 short segments (Cap Terre, Mezzo on otcnet).
  * The default hls.js sync (8 fragments behind) starts on segments that have
- * already left the window — on M6 the oldest .ts 404s while a ~2 MiB download
- * is still in flight (~8 s for 6 s of media).
+ * already left that window.
  */
 export function usesTightLiveWindow(
   channelOrUrl:
@@ -309,33 +308,7 @@ export function usesTightLiveWindow(
     | null
     | undefined
 ): boolean {
-  if (isCapTerreChannel(channelOrUrl) || isMezzoChannel(channelOrUrl)) {
-    return true;
-  }
-  const url = decodeShareStreamToken(streamUrlOf(channelOrUrl));
-  if (isM6GroupVirtual(url)) {
-    return true;
-  }
-  if (channelOrUrl != null && typeof channelOrUrl !== 'string') {
-    const id = (channelOrUrl.id || '').toLowerCase();
-    if (id.startsWith('m6group-')) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function streamUrlOf(
-  channelOrUrl:
-    | string
-    | { streamUrl?: string | null }
-    | null
-    | undefined
-): string {
-  if (channelOrUrl == null) {
-    return '';
-  }
-  return typeof channelOrUrl === 'string' ? channelOrUrl : (channelOrUrl.streamUrl || '');
+  return isCapTerreChannel(channelOrUrl) || isMezzoChannel(channelOrUrl);
 }
 
 /**

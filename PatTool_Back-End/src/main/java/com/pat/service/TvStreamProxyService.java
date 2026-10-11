@@ -338,9 +338,16 @@ public class TvStreamProxyService {
                     ? fetched.finalUrl : upstreamUrl;
             String rawPlaylist = new String(body, StandardCharsets.UTF_8);
             if (isShortWindowTrimUpstream(upstreamUrl) || isShortWindowTrimUpstream(playlistBase)) {
-                // ~4×6 s window (M6/W9 on 151.80, Mezzo on otcnet). The oldest segment
-                // 404s before a ~2 MiB proxied download finishes (~8 s for 6 s of media).
+                // M6/W9 on 151.80: ~4×6 s window and ~2 MiB segments that take longer
+                // to download than they stay on the origin. The fast 5.180 mirror is
+                // left intact. Mezzo on otcnet is fast enough to keep its full ~20 s window.
                 rawPlaylist = keepNewestLiveSegments(rawPlaylist, 2);
+            }
+            if ((isDailymotionCdnUpstream(upstreamUrl) || isDailymotionCdnUpstream(playlistBase))
+                    && (rawPlaylist == null || !rawPlaylist.contains("#EXT-X-ENDLIST"))) {
+                // Public Sénat publishes hours of DVR (~4 800 segments). hls.js then
+                // starts hours behind live. Keep a short sliding window.
+                rawPlaylist = keepNewestLiveSegments(rawPlaylist, 12);
             }
             if (isShortWindowPrefetchUpstream(upstreamUrl) || isShortWindowPrefetchUpstream(playlistBase)) {
                 scheduleCapTerrePrefetch(rawPlaylist, playlistBase, referer);
@@ -591,7 +598,16 @@ public class TvStreamProxyService {
 
     /** Origins whose media playlist must be trimmed to the newest segments. */
     static boolean isShortWindowTrimUpstream(String url) {
-        return isMezzoOtcnetUpstream(url) || isM6ShortWindowUpstream(url);
+        return isM6ShortWindowUpstream(url);
+    }
+
+    /** Dailymotion live CDN ({@code *.dmcdn.net}), including Public Sénat DVR playlists. */
+    static boolean isDailymotionCdnUpstream(String url) {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        String u = url.toLowerCase(Locale.ROOT);
+        return u.contains("dmcdn.net");
     }
 
     /** Origins whose .ts segments are prefetched into RAM. */

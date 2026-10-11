@@ -59,8 +59,10 @@ public class M6GroupLiveService {
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Logo_M6_2015.svg/512px-Logo_M6_2015.svg.png",
                 "m6.fr",
                 List.of(
-                        "http://151.80.18.177:86/M6_HD/index.m3u8",
-                        "http://145.239.5.177/319/index.m3u8"
+                        // ~8 MB/s, AVC 1080p, ~36 s window. The 151.80 mirror still answers
+                        // but a 6 s segment takes ~17 s, so playback cannot stay realtime.
+                        "http://5.180.164.197:8080/M6/index.m3u8",
+                        "http://151.80.18.177:86/M6_HD/index.m3u8"
                 )));
         CHANNELS.put("w9", new ChannelDef(
                 "W9",

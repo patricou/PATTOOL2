@@ -414,6 +414,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private selectionMarker?: L.Marker;
 	private clickMarker?: L.Marker;
 	private clickDirectionMarker?: L.Marker;
+	private directionTargetMarker?: L.Marker;
 	private locationSelectionClickHandler?: (e: L.LeafletMouseEvent) => void;
 
 	private static leafletIconsConfigured = false;
@@ -4055,6 +4056,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.selectionMarker = undefined;
 		this.clickMarker = undefined;
 		this.clickDirectionMarker = undefined;
+		this.directionTargetMarker = undefined;
 		this.locationSelectionClickHandler = undefined;
 		this.pairUserMarker = undefined;
 		this.pairMarkMarker = undefined;
@@ -5885,6 +5887,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/** Flèche rouge = nord (mode Nord seulement). Flèche verte = adresse, dans les 3 modes. */
 	private syncDeviceLocationArrows(): void {
+		this.syncDirectionTargetMarker();
 		this.syncClickDirectionArrow();
 		const marker = this.deviceLocationMarker;
 		if (!marker) {
@@ -6066,6 +6069,51 @@ export class TraceViewerModalComponent implements OnDestroy {
 			/* ignore */
 		}
 		this.clickDirectionMarker = undefined;
+	}
+
+	/** Rond bleu sur la cible de direction (pas quand la flèche vise la position GPS). */
+	private syncDirectionTargetMarker(): void {
+		const target = this.directionTargetFollowsDevice ? null : this.directionTarget;
+		if (!this.map || !target) {
+			this.removeDirectionTargetMarker();
+			return;
+		}
+		if (this.directionTargetMarker) {
+			this.directionTargetMarker.setLatLng([target.lat, target.lng]);
+			return;
+		}
+		this.directionTargetMarker = L.marker([target.lat, target.lng], {
+			icon: L.divIcon({
+				className: 'direction-target-marker',
+				html: '<svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg" style="display:block;cursor:pointer;">' +
+					'<circle cx="11" cy="11" r="8" fill="#1d4ed8" stroke="#ffffff" stroke-width="2.5"/></svg>',
+				iconSize: [22, 22],
+				iconAnchor: [11, 11]
+			}),
+			keyboard: false,
+			zIndexOffset: 2900
+		}).addTo(this.map);
+		const el = this.directionTargetMarker.getElement();
+		if (el) {
+			el.style.background = 'transparent';
+			el.style.border = 'none';
+		}
+		this.directionTargetMarker.on('click', (e: L.LeafletMouseEvent) => {
+			L.DomEvent.stopPropagation(e);
+			this.clearDirectionTarget();
+		});
+	}
+
+	private removeDirectionTargetMarker(): void {
+		if (!this.directionTargetMarker) {
+			return;
+		}
+		try {
+			this.directionTargetMarker.remove();
+		} catch {
+			/* ignore */
+		}
+		this.directionTargetMarker = undefined;
 	}
 
 	private bearingDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {
