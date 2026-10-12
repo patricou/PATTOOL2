@@ -393,6 +393,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 					import('./ods-editor/ods-editor.component').then(m => m.OdsEditorComponent)
 			},
 			{
+				path: 'tools/horloge',
+				loadComponent: () =>
+					import('./clock/clock.component').then(m => m.ClockComponent)
+			},
+			{
 				path: 'calendrier',
 				loadComponent: () => import('./calendar/calendar.component').then(m => m.CalendarComponent)
 			},

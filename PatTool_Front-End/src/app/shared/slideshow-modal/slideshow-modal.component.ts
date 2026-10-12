@@ -2041,6 +2041,25 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     });
   }
   
+  /**
+   * CORS mode only for same-origin and blob URLs. Hosts such as mars.nasa.gov do not send
+   * Access-Control-Allow-Origin; crossorigin="anonymous" then blocks the image and the spinner never clears.
+   */
+  public get mainImageCrossOrigin(): 'anonymous' | null {
+    const url = (this.currentSlideshowImageUrl ?? '').trim();
+    if (!url) {
+      return null;
+    }
+    if (url.startsWith('blob:') || url.startsWith('data:')) {
+      return 'anonymous';
+    }
+    try {
+      return new URL(url, document.baseURI).origin === window.location.origin ? 'anonymous' : null;
+    } catch {
+      return null;
+    }
+  }
+
   // Handle image load event
   public onImageLoad(event?: Event): void {
     // Sortir vite du handler natif « load » (évite les violations perf Chrome / Zone sur gros fichiers)
@@ -2091,6 +2110,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
+  public onMainImageError(event?: Event): void {
+    const img = (event?.target as HTMLImageElement | undefined) ?? this.slideshowImgElRef?.nativeElement;
+    if (img && !this.sameMainImageDisplayUrl(img.currentSrc || img.src, this.currentSlideshowImageUrl)) {
+      return;
+    }
+    this.mainImageDecodePending = false;
+    this.scheduleDeferredSlideshowTemplateFlags();
+    this.cdr.markForCheck();
+  }
+
   private updateAverageBackgroundColor(): void {
     try {
       // Ne pas recalculer la couleur de fond pendant le zoom
@@ -2136,8 +2165,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           }
           canvas.width = tw;
           canvas.height = th;
-          ctx.drawImage(imgEl, 0, 0, tw, th);
-          const imageData = ctx.getImageData(0, 0, tw, th);
+          let imageData: ImageData;
+          try {
+            ctx.drawImage(imgEl, 0, 0, tw, th);
+            imageData = ctx.getImageData(0, 0, tw, th);
+          } catch {
+            // Remote photos (mars.nasa.gov) display without CORS; the canvas stays tainted.
+            return;
+          }
           const data = imageData.data;
           let r = 0, g = 0, b = 0, count = 0;
           

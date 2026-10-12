@@ -227,6 +227,7 @@ export class AboutComponent {
     {
       titleKey: 'MENU.TOOLS',
       links: [
+        { route: '/tools/horloge', icon: 'fa-clock-o', labelKey: 'MENU.HORLOGE', descKey: 'ABOUT.FEAT_HORLOGE', logoSrc: 'assets/images/menu-clock.svg' },
         { route: '/tools/apk', icon: 'fa-android', labelKey: 'MENU.APK_DOWNLOAD', descKey: 'ABOUT.FEAT_APK' },
         { route: '/tools/pdf-converter', icon: 'fa-file-pdf-o', labelKey: 'MENU.PDF_CONVERTER', descKey: 'ABOUT.FEAT_PDF' },
         { route: '/tools/ods-editor', icon: 'fa-table', labelKey: 'MENU.ODS_EDITOR', descKey: 'ABOUT.FEAT_ODS' },

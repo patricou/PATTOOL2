@@ -1,0 +1,607 @@
+<section class="clock-page" [class.is-lcd]="isLcd" [class.is-ringing]="ringing">
+  <div class="pat-title">
+    <h2>
+      <img src="assets/images/menu-clock.svg" alt="" class="clock-title-logo" width="22" height="22" />
+      {{ 'CLOCK.TITLE' | translate }}
+    </h2>
+  </div>
+
+  <div class="clock-body">
+  <div class="clock-stage">
+    <div class="watch" *ngIf="showAnalog">
+      <svg viewBox="0 0 200 200" role="img" [attr.aria-label]="readout + ' ' + effectiveZone">
+        <defs>
+          <radialGradient id="clockWash" cx="50%" cy="38%" r="72%">
+            <stop class="wash-in" offset="0%" />
+            <stop class="wash-out" offset="100%" />
+          </radialGradient>
+          <radialGradient id="sunburstGrad" cx="50%" cy="42%" r="78%">
+            <stop class="burst-in" offset="0%" />
+            <stop class="burst-mid" offset="46%" />
+            <stop class="burst-out" offset="100%" />
+          </radialGradient>
+          <linearGradient id="indexMetal" x1="0" y1="0" x2="1" y2="0">
+            <stop class="idx-edge" offset="0%" />
+            <stop class="idx-core" offset="46%" />
+            <stop class="idx-edge" offset="100%" />
+          </linearGradient>
+        </defs>
+        <circle class="bezel" cx="100" cy="100" r="96" />
+        <circle class="dial-face" cx="100" cy="100" r="88" />
+        <circle class="dial-ring" cx="100" cy="100" r="86" />
+        <g *ngIf="hasDialWash" class="sunburst" aria-hidden="true">
+          <circle class="burst-disk" cx="100" cy="100" r="88" />
+          <g class="burst-rays">
+            <line *ngFor="let deg of sunRays" x1="100" y1="14" x2="100" y2="64"
+                  [class.ray-strong]="deg % 10 === 0"
+                  [attr.transform]="'rotate(' + deg + ' 100 100)'" />
+          </g>
+          <ellipse class="burst-sheen" cx="100" cy="58" rx="42" ry="22" />
+          <g *ngIf="isSunburst && faceId !== 'gousset' && !isDiver" class="applied">
+            <g *ngFor="let h of hourMarks" [attr.transform]="'rotate(' + h.deg + ' 100 100)'">
+              <ng-container *ngIf="showBurstIndex(h.i)">
+                <rect class="idx-shadow" x="98.05" y="16.4" width="3.9" height="17.2" rx="0.5" />
+                <rect class="idx" [class.card]="h.i % 3 === 0"
+                      [attr.x]="h.i % 3 === 0 ? 98.2 : 98.65"
+                      [attr.y]="h.i % 3 === 0 ? 15.4 : 17.6"
+                      [attr.width]="h.i % 3 === 0 ? 3.6 : 2.7"
+                      [attr.height]="h.i % 3 === 0 ? 18 : 12" rx="0.4" />
+              </ng-container>
+            </g>
+            <g *ngFor="let t of ticks" [attr.transform]="tickRotate(t)">
+              <line *ngIf="t % 5 !== 0" class="tick-min" x1="100" y1="15.2" x2="100" y2="18.4" />
+            </g>
+          </g>
+          <g *ngIf="faceId === 'gousset'" class="railroad">
+            <circle cx="100" cy="100" r="80" />
+            <circle cx="100" cy="100" r="73" />
+          </g>
+          <g *ngIf="isDiver" class="diver-idx">
+            <g *ngFor="let h of hourMarks" [attr.transform]="'rotate(' + h.deg + ' 100 100)'">
+              <polygon *ngIf="h.i === 0" class="idx" points="100,15 105.4,28 94.6,28" />
+              <rect *ngIf="h.i === 6 || h.i === 9" class="idx" x="98.15" y="16" width="3.7" height="16" rx="0.7" />
+              <circle *ngIf="h.i % 3 !== 0" class="idx" cx="100" cy="22" r="3.2" />
+            </g>
+            <g *ngFor="let t of ticks" [attr.transform]="tickRotate(t)">
+              <line *ngIf="t % 5 !== 0" class="tick-min" x1="100" y1="15.2" x2="100" y2="18.4" />
+            </g>
+          </g>
+          <g *ngIf="hasDiveBezel" class="dive-bezel">
+            <polygon class="dive-pip" points="100,5.2 103.6,12.2 96.4,12.2" />
+            <g *ngFor="let m of diveMarks" [attr.transform]="'rotate(' + m.deg + ' 100 100)'">
+              <text class="dive-num" x="100" y="10.2" text-anchor="middle" [attr.transform]="'rotate(' + (-m.deg) + ' 100 10.2)'">{{ m.n }}</text>
+            </g>
+          </g>
+        </g>
+        <circle *ngIf="faceId === 'sport'" class="chapter" cx="100" cy="100" r="72" />
+        <circle *ngIf="faceId === 'field-cream'" class="chapter" cx="100" cy="100" r="76" />
+        <rect class="crown" x="191" y="90" width="6" height="20" rx="1.5" />
+
+        <g class="motif" *ngIf="motif.length">
+          <ng-container *ngFor="let el of motif">
+            <circle *ngIf="el.k === 'c'" [attr.cx]="el.a" [attr.cy]="el.b" [attr.r]="el.r" [attr.class]="el.c" />
+            <line *ngIf="el.k === 'l'" [attr.x1]="el.a" [attr.y1]="el.b" [attr.x2]="el.x2" [attr.y2]="el.y2" [attr.class]="el.c" />
+            <path *ngIf="el.k === 'p'" [attr.d]="el.d" [attr.class]="el.c" [attr.transform]="el.t || null" />
+            <rect *ngIf="el.k === 'r'" [attr.x]="el.a" [attr.y]="el.b" [attr.width]="el.w" [attr.height]="el.h" [attr.rx]="el.rx || 0" [attr.class]="el.c" [attr.transform]="el.t || null" />
+            <ellipse *ngIf="el.k === 'e'" [attr.cx]="el.a" [attr.cy]="el.b" [attr.rx]="el.rx" [attr.ry]="el.ry" [attr.class]="el.c" [attr.transform]="el.t || null" />
+          </ng-container>
+        </g>
+        <g *ngIf="faceId === 'radar'" class="sweep" [attr.transform]="'rotate(' + secondAngle + ' 100 100)'">
+          <path d="M100 100 L100 24 A76 76 0 0 0 78 38 Z" />
+        </g>
+
+        <g *ngIf="faceId === 'guilloche'" class="guilloche">
+          <circle *ngFor="let radius of guillocheRadii" cx="100" cy="100" [attr.r]="radius" />
+        </g>
+
+        <g *ngIf="faceId === 'aurora'" class="aurora">
+          <circle cx="100" cy="100" r="68" />
+          <g *ngFor="let h of hourMarks" [attr.transform]="'rotate(' + h.deg + ' 100 100)'">
+            <rect x="98.1" y="16" width="3.8" height="15" rx="1.9" />
+          </g>
+        </g>
+
+        <g *ngIf="faceId === 'skeleton'" class="skeleton">
+          <circle cx="100" cy="100" r="72" />
+          <circle cx="100" cy="100" r="48" />
+          <path d="M38 78 C70 48 130 48 162 78" />
+          <path d="M46 128 C78 108 122 108 154 128" />
+          <circle cx="100" cy="58" r="11" />
+          <circle cx="68" cy="124" r="8" />
+          <circle cx="132" cy="124" r="8" />
+        </g>
+
+        <g *ngIf="faceId === 'deco'" class="deco">
+          <circle cx="100" cy="100" r="82" />
+          <circle cx="100" cy="100" r="76" />
+          <g *ngFor="let h of hourMarks" [attr.transform]="'rotate(' + h.deg + ' 100 100)'">
+            <polygon [class.cardinal]="h.i % 3 === 0" points="100,15 104.2,31 100,27 95.8,31" />
+          </g>
+        </g>
+
+        <g *ngIf="faceId === 'constellation'" class="constellation">
+          <polyline [attr.points]="constellationPath" />
+          <circle *ngFor="let h of hourMarks" [attr.cx]="h.x" [attr.cy]="h.y" [attr.r]="h.i % 3 === 0 ? 2.3 : 1.35" />
+          <circle *ngFor="let s of fieldStars" [attr.cx]="s.x" [attr.cy]="s.y" [attr.r]="s.r" />
+        </g>
+
+        <g *ngIf="faceId === 'bauhaus'" class="bauhaus">
+          <circle *ngFor="let h of hourMarks"
+                  [attr.cx]="h.x" [attr.cy]="h.y"
+                  [attr.r]="h.i % 3 === 0 ? 7.2 : 1.8"
+                  [class]="'bau-dot bau-' + h.i" />
+        </g>
+
+        <g *ngIf="faceId === 'regulator'" class="regulator">
+          <circle class="reg-well" cx="100" cy="64" r="18" />
+          <circle class="reg-face" cx="100" cy="64" r="14.5" />
+          <text x="100" y="55" text-anchor="middle" font-size="3.4">12</text>
+          <text x="100" y="76" text-anchor="middle" font-size="3.4">6</text>
+          <g [attr.transform]="'rotate(' + hourAngle + ' 100 64)'">
+            <line x1="100" y1="68" x2="100" y2="54" />
+          </g>
+          <circle class="reg-cap" cx="100" cy="64" r="1.3" />
+        </g>
+
+        <ng-container *ngIf="showLineTicks">
+          <g *ngFor="let t of ticks" [attr.transform]="tickRotate(t)">
+            <line class="tick" [class.major]="t % 5 === 0"
+                  x1="100" [attr.y1]="t % 5 === 0 ? 16 : 20" x2="100" y2="26" />
+          </g>
+        </ng-container>
+
+        <text *ngFor="let n of numerals"
+              class="numeral"
+              [attr.x]="n.x"
+              [attr.y]="n.y"
+              [attr.font-size]="numeralSize"
+              [attr.font-family]="numeralFont"
+              text-anchor="middle"
+              dominant-baseline="central">{{ n.text }}</text>
+
+        <text class="dial-date" x="100" [attr.y]="dateY" text-anchor="middle">{{ shortDate }}</text>
+        <g *ngIf="hasDateWindow" class="date-win">
+          <rect x="120" y="92" width="24" height="16" rx="1.2" />
+          <text x="132" y="100.5" text-anchor="middle" dominant-baseline="central">{{ dateNum }}</text>
+        </g>
+        <g *ngIf="isSharpAnalog" class="sharp-dial">
+          <text class="sharp-logo" x="100" y="50" text-anchor="middle">SHARP</text>
+          <text class="sharp-sub" x="100" y="118" text-anchor="middle">QUARTZ</text>
+          <g class="date-win">
+            <rect x="118" y="92" width="26" height="16" rx="1.2" />
+            <text x="131" y="100.5" text-anchor="middle" dominant-baseline="central">{{ dateNum }}</text>
+          </g>
+        </g>
+        <text *ngIf="faceId === 'hybrid-sharp'" class="sharp-logo" x="100" y="46" text-anchor="middle">SHARP</text>
+        <text *ngIf="isQuartz && mode === 'clock'" class="quartz-mark" x="100" y="116" text-anchor="middle">QUARTZ</text>
+        <g *ngIf="faceId === 'quartz-date'" class="date-win">
+          <rect x="118" y="92" width="26" height="16" rx="1.2" />
+          <text x="131" y="100.5" text-anchor="middle" dominant-baseline="central">{{ dateNum }}</text>
+        </g>
+        <text *ngIf="isChrono && mode === 'clock'" class="chrono-mark" x="100" y="118" text-anchor="middle">{{ chronoMark }}</text>
+        <g *ngIf="isChrono" class="subdials">
+          <g transform="translate(52 100)">
+            <circle class="sub-well" r="17.2" />
+            <circle class="sub-face" r="15" />
+            <line *ngFor="let q of subTicks" class="sub-tick" y1="-13" y2="-11" [attr.transform]="'rotate(' + q + ')'" />
+            <g [attr.transform]="'rotate(' + secondAngle + ')'"><line class="sub-hand" y1="2.4" y2="-11" /></g>
+            <circle class="sub-cap" r="1.05" />
+          </g>
+          <g transform="translate(148 100)">
+            <circle class="sub-well" r="17.2" />
+            <circle class="sub-face" r="15" />
+            <line *ngFor="let q of subTicks" class="sub-tick" y1="-13" y2="-11" [attr.transform]="'rotate(' + q + ')'" />
+            <g [attr.transform]="'rotate(' + minuteAngle + ')'"><line class="sub-hand" y1="2.4" y2="-11" /></g>
+            <circle class="sub-cap" r="1.05" />
+          </g>
+          <g transform="translate(100 148)">
+            <circle class="sub-well" r="17.2" />
+            <circle class="sub-face" r="15" />
+            <line *ngFor="let q of subTicks" class="sub-tick" y1="-13" y2="-11" [attr.transform]="'rotate(' + q + ')'" />
+            <g [attr.transform]="'rotate(' + hourAngle + ')'"><line class="sub-hand" y1="2.4" y2="-11" /></g>
+            <circle class="sub-cap" r="1.05" />
+          </g>
+        </g>
+        <g *ngIf="hasSmallSeconds" class="subdials small-sec" transform="translate(100 150)">
+          <circle class="sub-well" r="14.2" />
+          <circle class="sub-face" r="12.2" />
+          <line *ngFor="let q of subTicks" class="sub-tick" y1="-10.4" y2="-8.8" [attr.transform]="'rotate(' + q + ')'" />
+          <g [attr.transform]="'rotate(' + secondAngle + ')'"><line class="sub-hand" y1="2" y2="-9" /></g>
+          <circle class="sub-cap" r="0.9" />
+        </g>
+        <text *ngIf="mode !== 'clock'" class="subread" x="100" [attr.y]="isChrono || hasSmallSeconds ? 42 : 156" text-anchor="middle" font-size="7">{{ readout }}<tspan *ngIf="showFraction">.{{ fraction }}</tspan></text>
+
+        <g class="hand hour" *ngIf="faceId !== 'regulator'" [attr.transform]="'rotate(' + hourAngle + ' 100 100)'">
+          <line x1="100" y1="108" x2="100" y2="58" />
+        </g>
+        <g class="hand minute" [attr.transform]="'rotate(' + minuteAngle + ' 100 100)'">
+          <line x1="100" y1="112" x2="100" y2="36" />
+        </g>
+        <g class="hand second" [attr.transform]="'rotate(' + secondAngle + ' 100 100)'">
+          <line x1="100" y1="118" x2="100" y2="28" />
+        </g>
+        <circle class="cap" cx="100" cy="100" r="3.2" />
+      </svg>
+      <div class="dial-lcd" *ngIf="isHybrid" aria-hidden="true">
+        <ng-container *ngFor="let tok of lcdTokens">
+          <span *ngIf="tok.kind === 'c'" class="colon" [class.on]="colonOn"><i></i><i></i></span>
+          <svg *ngIf="tok.kind === 'd'" viewBox="0 0 20 38" class="seg-digit">
+            <path *ngFor="let s of segPaths" [attr.d]="s.d" [class.on]="segOn(tok.ch, s.id)" />
+          </svg>
+        </ng-container>
+      </div>
+      <p class="clock-date">{{ shortDate }}</p>
+      <p class="clock-zone">{{ effectiveZone }}</p>
+    </div>
+
+    <div class="ultra" *ngIf="isUltra" role="img" [attr.aria-label]="readout + ' ' + effectiveZone">
+      <svg viewBox="0 0 360 210" aria-hidden="true">
+        <defs>
+          <radialGradient id="ultraDial" cx="50%" cy="40%" r="72%">
+            <stop offset="0%" stop-color="#4a4a4a" />
+            <stop offset="48%" stop-color="#161616" />
+            <stop offset="100%" stop-color="#050505" />
+          </radialGradient>
+        </defs>
+        <g class="u-strap">
+          <rect x="6" y="46" width="54" height="118" rx="16" />
+          <rect x="300" y="46" width="54" height="118" rx="16" />
+          <g class="u-hole">
+            <circle cx="22" cy="68" r="4.2" /><circle cx="44" cy="68" r="4.2" />
+            <circle cx="22" cy="90" r="4.2" /><circle cx="44" cy="90" r="4.2" />
+            <circle cx="22" cy="112" r="4.2" /><circle cx="44" cy="112" r="4.2" />
+            <circle cx="22" cy="134" r="4.2" /><circle cx="44" cy="134" r="4.2" />
+            <circle cx="316" cy="68" r="4.2" /><circle cx="338" cy="68" r="4.2" />
+            <circle cx="316" cy="90" r="4.2" /><circle cx="338" cy="90" r="4.2" />
+            <circle cx="316" cy="112" r="4.2" /><circle cx="338" cy="112" r="4.2" />
+            <circle cx="316" cy="134" r="4.2" /><circle cx="338" cy="134" r="4.2" />
+          </g>
+        </g>
+        <rect class="u-case" x="62" y="8" width="236" height="194" rx="46" />
+        <rect class="u-lip" x="74" y="20" width="212" height="170" rx="38" />
+        <circle class="u-dial" cx="180" cy="105" r="74" />
+        <circle class="u-track" cx="180" cy="105" r="70" />
+        <g *ngFor="let t of ticks" [attr.transform]="'rotate(' + (t * 6) + ' 180 105)'">
+          <line *ngIf="t % 5 !== 0" class="u-min" x1="180" y1="38" x2="180" y2="41" />
+        </g>
+        <g *ngFor="let h of hourMarks" [attr.transform]="'rotate(' + h.deg + ' 180 105)'">
+          <rect *ngIf="h.i % 3 === 0" class="u-card" x="178.2" y="34" width="3.6" height="12" rx="0.7" />
+          <circle *ngIf="h.i % 3 !== 0" class="u-dot" cx="180" cy="39" r="1.7" />
+        </g>
+        <text class="u-day" x="180" y="78" text-anchor="middle">{{ weekShort }}</text>
+        <g class="u-date">
+          <rect x="214" y="96" width="22" height="16" rx="2" />
+          <text x="225" y="104.5" text-anchor="middle" dominant-baseline="central">{{ dateNum }}</text>
+        </g>
+        <g class="u-hour" [attr.transform]="'rotate(' + hourAngle + ' 180 105)'">
+          <line x1="180" y1="114" x2="180" y2="68" />
+        </g>
+        <g class="u-minute" [attr.transform]="'rotate(' + minuteAngle + ' 180 105)'">
+          <line x1="180" y1="118" x2="180" y2="48" />
+        </g>
+        <g class="u-second" [attr.transform]="'rotate(' + secondAngle + ' 180 105)'">
+          <line x1="180" y1="122" x2="180" y2="40" />
+        </g>
+        <circle class="u-cap" cx="180" cy="105" r="3.2" />
+        <g class="u-controls">
+          <rect x="292" y="58" width="12" height="26" rx="3" />
+          <rect x="294" y="96" width="14" height="20" rx="4" />
+          <rect x="292" y="128" width="12" height="22" rx="3" />
+        </g>
+      </svg>
+    </div>
+
+    <div class="resin" *ngIf="isResin" role="img" [attr.aria-label]="readout + ' ' + effectiveZone">
+      <div class="resin-case">
+        <div class="resin-top"><span>LIGHT</span><span>START / STOP</span></div>
+        <div class="resin-screen">
+          <div class="resin-head"><span>{{ weekShort }}</span><span>{{ dateNum }}</span></div>
+          <div class="resin-time">
+            <ng-container *ngFor="let tok of moduleClockTokens">
+              <span *ngIf="tok.kind === 'c'" class="colon" [class.on]="colonOn"><i></i><i></i></span>
+              <svg *ngIf="tok.kind === 'd'" viewBox="0 0 20 38" class="seg-digit">
+                <path *ngFor="let s of segPaths" [attr.d]="s.d" [class.on]="segOn(tok.ch, s.id)" />
+              </svg>
+            </ng-container>
+            <span class="resin-sec">{{ smartSeconds }}</span>
+          </div>
+        </div>
+        <div class="resin-mid"><span>MODE</span><span>ALARM</span></div>
+        <div class="resin-foot">WATER 50M RESIST</div>
+      </div>
+    </div>
+
+    <div class="round-dig" *ngIf="isRoundDig" role="img" [attr.aria-label]="readout + ' ' + effectiveZone">
+      <div class="round-case">
+        <div class="round-top"><span>LIGHT</span><span>START</span></div>
+        <div class="round-screen">
+          <div class="round-head"><span>{{ weekShort }}</span><span>{{ hour12Label }}</span></div>
+          <div class="round-time">
+            <ng-container *ngFor="let tok of moduleClockTokens">
+              <span *ngIf="tok.kind === 'c'" class="colon" [class.on]="colonOn"><i></i><i></i></span>
+              <svg *ngIf="tok.kind === 'd'" viewBox="0 0 20 38" class="seg-digit">
+                <path *ngFor="let s of segPaths" [attr.d]="s.d" [class.on]="segOn(tok.ch, s.id)" />
+              </svg>
+            </ng-container>
+          </div>
+          <div class="round-date">{{ dateNum }}</div>
+        </div>
+        <div class="round-foot"><span>MODE</span><span>WATER RESIST</span><span>RESET</span></div>
+      </div>
+    </div>
+
+    <div class="lcd" *ngIf="isLcd && !isResin && !isRoundDig" [class.led]="isLed" [class.module]="isModule" role="img" [attr.aria-label]="readout + ' ' + effectiveZone">
+      <div class="lcd-brand">{{ isSharpLcd ? 'SHARP' : 'PATTOOL' }}</div>
+      <div class="sharp-modes" *ngIf="isSharpLcd" aria-hidden="true">
+        <span>TIME</span><span>ALARM</span><span>CHRONO</span>
+      </div>
+      <div class="mod-day" *ngIf="isLed || isModule">{{ weekShort }}</div>
+      <div class="lcd-row">
+        <ng-container *ngFor="let tok of (isModule ? moduleClockTokens : lcdTokens)">
+          <span *ngIf="tok.kind === 'c'" class="colon" [class.on]="colonOn" aria-hidden="true"><i></i><i></i></span>
+          <svg *ngIf="tok.kind === 'd'" viewBox="0 0 20 38" class="seg-digit" aria-hidden="true">
+            <path *ngFor="let s of segPaths" [attr.d]="s.d" [class.on]="segOn(tok.ch, s.id)" />
+          </svg>
+        </ng-container>
+        <span class="mod-sec" *ngIf="isModule && moduleSeconds">{{ moduleSeconds }}</span>
+        <span class="lcd-frac" *ngIf="showFraction">.{{ fraction }}</span>
+      </div>
+      <div class="lcd-sub">
+        <span>{{ isLed || isModule ? moduleDate : shortDate }}</span>
+        <span class="lcd-zone" *ngIf="!isLed">{{ effectiveZone }}</span>
+      </div>
+    </div>
+
+    <div class="board" *ngIf="isBoard" role="img" [attr.aria-label]="readout + ' ' + effectiveZone">
+      <div class="board-read">
+        <div class="lcd-row">
+          <ng-container *ngFor="let tok of lcdTokens">
+            <span *ngIf="tok.kind === 'c'" class="colon" [class.on]="colonOn" aria-hidden="true"><i></i><i></i></span>
+            <svg *ngIf="tok.kind === 'd'" viewBox="0 0 20 38" class="seg-digit" aria-hidden="true">
+              <path *ngFor="let s of segPaths" [attr.d]="s.d" [class.on]="segOn(tok.ch, s.id)" />
+            </svg>
+          </ng-container>
+          <span class="lcd-frac" *ngIf="showFraction">.{{ fraction }}</span>
+        </div>
+        <div class="board-sub">
+          <span>{{ shortDate }}</span>
+          <span>{{ zoneCity }}</span>
+        </div>
+      </div>
+      <ng-container *ngTemplateOutlet="miniAnalog"></ng-container>
+    </div>
+
+    <div class="smart" *ngIf="isSmart" [class.square]="faceId === 'smart-sand'" role="img" [attr.aria-label]="readout + ' ' + effectiveZone">
+      <svg class="smart-ring" viewBox="0 0 100 100" aria-hidden="true">
+        <circle class="ring-track" cx="50" cy="50" r="46" />
+        <circle class="ring-value" cx="50" cy="50" r="46" transform="rotate(-90 50 50)"
+                [attr.stroke-dasharray]="ringLength" [attr.stroke-dashoffset]="ringOffset" />
+      </svg>
+      <div class="smart-day">{{ weekShort }}</div>
+      <div class="smart-hm">{{ smartHourMinute }}</div>
+      <div class="smart-sec">{{ smartSeconds }}</div>
+      <div class="smart-meta">
+        <span>{{ shortDate }}</span>
+        <span>{{ zoneCity }}</span>
+      </div>
+      <ng-container *ngTemplateOutlet="miniAnalog"></ng-container>
+    </div>
+
+    <div class="nixie" *ngIf="isNixie" role="img" [attr.aria-label]="readout + ' ' + effectiveZone">
+      <div class="nixie-brand">NIXIE</div>
+      <div class="nixie-row">
+        <ng-container *ngFor="let tok of lcdTokens">
+          <span *ngIf="tok.kind === 'c'" class="nixie-colon" [class.on]="colonOn">:</span>
+          <span *ngIf="tok.kind === 'd'" class="nixie-tube">{{ tok.ch }}</span>
+        </ng-container>
+        <span class="nixie-frac" *ngIf="showFraction">.{{ fraction }}</span>
+      </div>
+      <div class="nixie-sub">
+        <span>{{ shortDate }}</span>
+        <span>{{ effectiveZone }}</span>
+      </div>
+    </div>
+    <button type="button" class="fill-exit" *ngIf="fillScreen" (click)="toggleFill()">{{ 'CLOCK.FILL_EXIT' | translate }}</button>
+
+    <div class="banner ring" *ngIf="ringing" role="alert">
+      <strong>{{ ringMessage }}</strong>
+      <button type="button" (click)="dismissRing()">{{ 'CLOCK.DISMISS' | translate }}</button>
+    </div>
+    <div class="banner mail" *ngIf="emailNotice" role="status">
+      <span>{{ emailNotice }}</span>
+      <button type="button" (click)="emailNotice = ''">{{ 'CLOCK.DISMISS' | translate }}</button>
+    </div>
+  </div>
+
+  <aside class="dock">
+    <button type="button" class="fill-toggle" (click)="toggleFill()">{{ (fillScreen ? 'CLOCK.FILL_EXIT' : 'CLOCK.FILL') | translate }}</button>
+    <div class="dock-modes" role="tablist" [attr.aria-label]="'CLOCK.TITLE' | translate">
+      <button type="button" role="tab" [attr.aria-selected]="mode === 'clock'" [class.on]="mode === 'clock'" (click)="setMode('clock')">{{ 'CLOCK.MODE_CLOCK' | translate }}</button>
+      <button type="button" role="tab" [attr.aria-selected]="mode === 'chrono'" [class.on]="mode === 'chrono'" (click)="setMode('chrono')">{{ 'CLOCK.MODE_CHRONO' | translate }}</button>
+      <button type="button" role="tab" [attr.aria-selected]="mode === 'alarm'" [class.on]="mode === 'alarm'" (click)="setMode('alarm')">{{ 'CLOCK.MODE_ALARM' | translate }}</button>
+      <button type="button" role="tab" [attr.aria-selected]="mode === 'timer'" [class.on]="mode === 'timer'" (click)="setMode('timer')">{{ 'CLOCK.MODE_TIMER' | translate }}</button>
+    </div>
+
+    <div class="face-row" [attr.aria-label]="'CLOCK.FACE' | translate">
+      <button type="button" *ngFor="let face of faces"
+              class="swatch"
+              [class.on]="faceId === face.id"
+              [attr.data-face]="face.id"
+              [attr.title]="face.labelKey | translate"
+              [attr.aria-label]="face.labelKey | translate"
+              [attr.aria-pressed]="faceId === face.id"
+              (click)="setFace(face.id)">
+        <svg *ngIf="miniKind(face.id) === 'resin'" viewBox="0 0 36 36" aria-hidden="true">
+          <rect class="resin-body" x="4" y="6" width="28" height="24" rx="3" />
+          <rect class="resin-glass" x="8" y="10" width="20" height="14" rx="1" />
+        </svg>
+        <svg *ngIf="miniKind(face.id) === 'round'" viewBox="0 0 36 36" aria-hidden="true">
+          <circle class="round-body" cx="18" cy="18" r="15" />
+          <rect class="round-glass" x="8" y="11" width="20" height="14" rx="1.5" />
+        </svg>
+        <svg *ngIf="miniKind(face.id) === 'lcd'" viewBox="0 0 36 36" aria-hidden="true">
+          <rect class="lcd-panel" x="2" y="8" width="32" height="20" rx="3" />
+          <g class="lcd-ink">
+            <rect x="5" y="12.5" width="3.4" height="11" rx="0.5" />
+            <rect x="10" y="12.5" width="3.4" height="11" rx="0.5" />
+            <circle cx="16" cy="15" r="0.7" />
+            <circle cx="16" cy="21" r="0.7" />
+            <rect x="18.2" y="12.5" width="3.4" height="11" rx="0.5" />
+            <rect x="23.2" y="12.5" width="3.4" height="11" rx="0.5" />
+          </g>
+        </svg>
+        <svg *ngIf="miniKind(face.id) === 'board'" viewBox="0 0 36 36" aria-hidden="true">
+          <rect class="board-panel" x="1.5" y="8" width="24" height="20" rx="2" />
+          <circle class="board-mini" cx="30.2" cy="18" r="4.6" />
+        </svg>
+        <svg *ngIf="miniKind(face.id) === 'ultra'" viewBox="0 0 36 36" aria-hidden="true">
+          <rect class="u-sw-strap" x="1" y="10" width="6" height="16" rx="2" />
+          <rect class="u-sw-strap" x="29" y="10" width="6" height="16" rx="2" />
+          <rect class="u-sw-case" x="7" y="5" width="22" height="26" rx="6" />
+          <circle class="u-sw-dial" cx="18" cy="18" r="8" />
+          <line class="u-sw-hand" x1="18" y1="18" x2="18" y2="12" />
+        </svg>
+        <svg *ngIf="miniKind(face.id) === 'smart'" viewBox="0 0 36 36" aria-hidden="true">
+          <rect class="smart-body" x="4" y="4" width="28" height="28" rx="8" />
+          <text class="smart-hm-mini" x="18" y="16" text-anchor="middle">12:30</text>
+          <circle class="smart-dot" cx="18" cy="25" r="3.2" />
+        </svg>
+        <svg *ngIf="miniKind(face.id) === 'nixie'" viewBox="0 0 36 36" aria-hidden="true">
+          <rect class="nix-panel" x="2" y="8" width="32" height="20" rx="3" />
+          <text class="nix-digit" x="18" y="22.5" text-anchor="middle">12:00</text>
+        </svg>
+        <svg *ngIf="miniKind(face.id) === 'analog' || miniKind(face.id) === 'hybrid'" viewBox="0 0 36 36" aria-hidden="true">
+          <defs *ngIf="hasWashId(face.id)">
+            <radialGradient [attr.id]="'swb-' + face.id" cx="50%" cy="38%" r="72%">
+              <stop offset="0%" style="stop-color: var(--mi)" />
+              <stop offset="52%" style="stop-color: var(--mm)" />
+              <stop offset="100%" style="stop-color: var(--mo)" />
+            </radialGradient>
+          </defs>
+          <circle class="mb" cx="18" cy="18" r="16" />
+          <circle class="mf" cx="18" cy="18" r="13" [attr.fill]="hasWashId(face.id) ? 'url(#swb-' + face.id + ')' : null" />
+          <circle *ngIf="face.id === 'aurora'" class="glow" cx="18" cy="13" r="7" />
+          <g *ngIf="face.id === 'guilloche'" class="rings" fill="none">
+            <circle cx="18" cy="18" r="10" />
+            <circle cx="18" cy="18" r="7" />
+            <circle cx="18" cy="18" r="4" />
+          </g>
+          <g *ngIf="face.id === 'constellation'" class="stars">
+            <circle cx="11" cy="12" r="0.7" />
+            <circle cx="23" cy="11" r="0.55" />
+            <circle cx="15" cy="21" r="0.5" />
+            <circle cx="24" cy="19" r="0.6" />
+          </g>
+          <g *ngIf="face.id === 'bauhaus'" class="wedges">
+            <path d="M18 18 L18 6 A12 12 0 0 1 28.4 12.6 Z" />
+            <path d="M18 18 L28.4 12.6 A12 12 0 0 1 24 28.4 Z" />
+          </g>
+          <circle *ngIf="face.id === 'regulator'" class="sub" cx="18" cy="11.2" r="3" />
+          <g *ngIf="face.id.startsWith('chrono')" class="mini-subs">
+            <circle cx="8.2" cy="18" r="2.5" />
+            <circle cx="27.8" cy="18" r="2.5" />
+            <circle cx="18" cy="26.2" r="2.5" />
+          </g>
+          <circle *ngIf="face.id === 'gousset' || face.id === 'burst-sand'" class="mini-subs" cx="18" cy="25.6" r="2.7" />
+          <g class="ticks">
+            <line *ngFor="let angle of miniAngles" x1="18" y1="6.1" x2="18" y2="8" [attr.transform]="'rotate(' + angle + ' 18 18)'" />
+          </g>
+          <text *ngIf="isTypedQuartz(face.id)" class="mini-num" x="18" y="10.2" text-anchor="middle">12</text>
+          <line class="mh" x1="18" y1="18.4" x2="18" y2="9.6" />
+          <line class="mm" x1="18" y1="18.4" x2="24.6" y2="18.4" />
+          <circle class="cap" cx="18" cy="18.4" r="1.05" />
+          <rect *ngIf="miniKind(face.id) === 'hybrid'" class="hybrid-win" x="9.5" y="21.2" width="17" height="4.6" rx="0.8" />
+        </svg>
+      </button>
+    </div>
+
+    <label class="zone-row">
+      <span>{{ 'CLOCK.TIMEZONE' | translate }}</span>
+      <select [ngModel]="timeZoneChoice" (ngModelChange)="setTimeZone($event)">
+        <option value="">{{ 'CLOCK.TZ_BROWSER' | translate }} — {{ browserZone }}</option>
+        <option *ngFor="let zone of zones" [value]="zone">{{ zone }}</option>
+      </select>
+    </label>
+
+    <div class="dock-panel" *ngIf="mode === 'chrono'">
+      <div class="actions">
+        <button type="button" class="primary" *ngIf="!chronoRunning" (click)="startChrono()">{{ 'CLOCK.START' | translate }}</button>
+        <button type="button" class="primary" *ngIf="chronoRunning" (click)="pauseChrono()">{{ 'CLOCK.PAUSE' | translate }}</button>
+        <button type="button" (click)="addLap()">{{ 'CLOCK.LAP' | translate }}</button>
+        <button type="button" (click)="resetChrono()">{{ 'CLOCK.RESET' | translate }}</button>
+      </div>
+      <p class="readout-lg">{{ formatMs(chronoMs, true) }}</p>
+      <p class="empty" *ngIf="laps.length === 0">{{ 'CLOCK.NO_LAPS' | translate }}</p>
+      <ol class="laps" *ngIf="laps.length > 0">
+        <li *ngFor="let lap of laps; let i = index; trackBy: trackLap">
+          <span>{{ 'CLOCK.LAP' | translate }} {{ laps.length - i }}</span>
+          <span>{{ lapLabel(lap) }}</span>
+        </li>
+      </ol>
+    </div>
+
+    <div class="dock-panel" *ngIf="mode === 'alarm'">
+      <form class="editor" (ngSubmit)="addAlarm()">
+        <input type="time" name="alarmTime" [(ngModel)]="alarmDraft" required />
+        <input type="text" name="alarmLabel" [(ngModel)]="alarmLabel" maxlength="80" [placeholder]="'CLOCK.LABEL' | translate" />
+        <label class="choice"><input type="radio" name="alarmChannel" value="ring" [(ngModel)]="alarmChannel" /> {{ 'CLOCK.CHANNEL_RING' | translate }}</label>
+        <label class="choice"><input type="radio" name="alarmChannel" value="email" [(ngModel)]="alarmChannel" /> {{ 'CLOCK.CHANNEL_EMAIL' | translate }}</label>
+        <button type="submit" class="primary">{{ 'CLOCK.ADD' | translate }}</button>
+      </form>
+      <p class="hint" *ngIf="alarmChannel === 'email'">{{ 'CLOCK.EMAIL_HINT' | translate }}</p>
+      <p class="hint warn" *ngIf="alarmChannel === 'email' && !loggedIn">{{ 'CLOCK.EMAIL_LOGIN' | translate }}</p>
+      <p class="hint warn" *ngIf="emailNeedsZone">{{ 'CLOCK.EMAIL_NEEDS_ZONE' | translate }}</p>
+      <p class="hint" *ngIf="notifyEmail && alarmChannel === 'email'">{{ 'CLOCK.EMAIL_TO' | translate:{ email: notifyEmail } }}</p>
+      <p class="empty" *ngIf="alarms.length === 0">{{ 'CLOCK.NO_ALARMS' | translate }}</p>
+      <ul class="rows">
+        <li *ngFor="let alarm of alarms; trackBy: trackAlarm">
+          <button type="button" class="toggle" [class.on]="alarm.enabled" (click)="toggleAlarm(alarm)">{{ (alarm.enabled ? 'CLOCK.ON' : 'CLOCK.OFF') | translate }}</button>
+          <span class="when">{{ pad(alarm.hour) }}:{{ pad(alarm.minute) }}</span>
+          <span class="grow">{{ alarm.label || ('CLOCK.DAILY' | translate) }}</span>
+          <span class="tag">{{ (alarm.channel === 'email' ? 'CLOCK.CHANNEL_EMAIL' : 'CLOCK.CHANNEL_RING') | translate }}</span>
+          <button type="button" class="ghost" (click)="removeAlarm(alarm)">{{ 'CLOCK.DELETE' | translate }}</button>
+        </li>
+      </ul>
+    </div>
+
+    <div class="dock-panel" *ngIf="mode === 'timer'">
+      <div class="presets">
+        <button type="button" (click)="addPreset(1)">{{ 'CLOCK.PRESET_1' | translate }}</button>
+        <button type="button" (click)="addPreset(5)">{{ 'CLOCK.PRESET_5' | translate }}</button>
+        <button type="button" (click)="addPreset(15)">{{ 'CLOCK.PRESET_15' | translate }}</button>
+        <button type="button" (click)="addPreset(30)">{{ 'CLOCK.PRESET_30' | translate }}</button>
+      </div>
+      <form class="editor" (ngSubmit)="addTimer()">
+        <label>{{ 'CLOCK.HOURS' | translate }}<input type="number" name="timerH" min="0" max="23" [(ngModel)]="timerH" /></label>
+        <label>{{ 'CLOCK.MINUTES' | translate }}<input type="number" name="timerM" min="0" max="59" [(ngModel)]="timerM" /></label>
+        <label>{{ 'CLOCK.SECONDS' | translate }}<input type="number" name="timerS" min="0" max="59" [(ngModel)]="timerS" /></label>
+        <input type="text" name="timerLabel" [(ngModel)]="timerLabel" maxlength="80" [placeholder]="'CLOCK.LABEL' | translate" />
+        <button type="submit" class="primary">{{ 'CLOCK.ADD' | translate }}</button>
+      </form>
+      <p class="empty" *ngIf="timers.length === 0">{{ 'CLOCK.NO_TIMERS' | translate }}</p>
+      <ul class="rows">
+        <li *ngFor="let timer of timers; trackBy: trackTimer" [class.focus]="timer.id === focusTimerId" (click)="selectTimer(timer)">
+          <button type="button" class="toggle" [class.on]="timer.running" (click)="toggleTimer(timer)">{{ (timer.running ? 'CLOCK.PAUSE' : 'CLOCK.START') | translate }}</button>
+          <span class="when">{{ formatMs(timerRemaining(timer), false) }}</span>
+          <span class="grow">{{ timer.label }}</span>
+          <button type="button" class="ghost" (click)="resetTimer(timer)">{{ 'CLOCK.RESET' | translate }}</button>
+          <button type="button" class="ghost" (click)="removeTimer(timer)">{{ 'CLOCK.DELETE' | translate }}</button>
+        </li>
+      </ul>
+    </div>
+  </aside>
+  </div>
+  <ng-template #miniAnalog>
+    <svg class="mini-analog" viewBox="0 0 100 100" aria-hidden="true">
+      <circle class="ma-bezel" cx="50" cy="50" r="47" />
+      <circle class="ma-face" cx="50" cy="50" r="40" />
+      <g *ngFor="let angle of miniAngles">
+        <line class="ma-tick" x1="50" y1="14" x2="50" y2="18" [attr.transform]="'rotate(' + angle + ' 50 50)'" />
+      </g>
+      <g [attr.transform]="'rotate(' + hourAngle + ' 50 50)'"><line class="ma-hour" x1="50" y1="54" x2="50" y2="30" /></g>
+      <g [attr.transform]="'rotate(' + minuteAngle + ' 50 50)'"><line class="ma-min" x1="50" y1="56" x2="50" y2="20" /></g>
+      <g [attr.transform]="'rotate(' + secondAngle + ' 50 50)'"><line class="ma-sec" x1="50" y1="58" x2="50" y2="16" /></g>
+      <circle class="ma-cap" cx="50" cy="50" r="2.2" />
+    </svg>
+  </ng-template>
+</section>

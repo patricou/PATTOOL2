@@ -34,7 +34,7 @@
         <img #slideshowImgEl *ngIf="showMainSlideshowImage" 
              [src]="currentSlideshowImageUrl" 
              alt="Slideshow image {{ currentSlideshowIndex + 1 }}"
-             crossorigin="anonymous"
+             [attr.crossorigin]="mainImageCrossOrigin"
              class="slideshow-image"
              [style.transform]="'translate3d(' + slideshowTranslateX + 'px,' + slideshowTranslateY + 'px,0) scale(' + slideshowZoom + ')'"
              style="transform-origin:center center; position: relative;"
@@ -46,6 +46,7 @@
              (click)="onSlideshowImageClick($event)"
              (contextmenu)="$event.preventDefault()"
              (load)="onImageLoad($event)"
+             (error)="onMainImageError($event)"
              [class.fullscreen-image]="isFullscreen"
              />
         <!-- Loading spinner for filesystem variants -->

@@ -101,6 +101,7 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     'globe.satellite.overlays': 'USERINFO.PARAM_LABELS.GLOBE_SATELLITE_OVERLAYS',
     'globe.iss.compass.heading-mode': 'USERINFO.PARAM_LABELS.GLOBE_ISS_HEADING_MODE',
     'gps.follow-user': 'USERINFO.PARAM_LABELS.GPS_FOLLOW_USER',
+    'clock.preferences': 'USERINFO.PARAM_LABELS.CLOCK_PREFERENCES',
     'gps.slope-coef': 'USERINFO.PARAM_LABELS.GPS_SLOPE_COEF',
     'news.ticker': 'USERINFO.PARAM_LABELS.NEWS_TICKER',
     'news.source': 'USERINFO.PARAM_LABELS.NEWS_SOURCE',
@@ -329,6 +330,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { routerLink: ['tools/code'], icon: 'fa fa-code', labelKey: 'MENU.CODE', logoSrc: 'assets/images/menu-code.svg' }
     ];
     readonly toolsMenuRowsRaw: ToolsMenuRow[] = [
+        { kind: 'route', routerLink: ['tools/horloge'], icon: 'fa fa-clock-o', labelKey: 'MENU.HORLOGE', logoSrc: 'assets/images/menu-clock.svg' },
         { kind: 'route', routerLink: ['friends'], icon: 'fa fa-users', labelKey: 'MENU.FRIENDS', logoSrc: 'assets/images/menu-friends.svg' },
         { kind: 'route', routerLink: ['results'], icon: 'fa fa-whatsapp', labelKey: 'MENU.RESULTS', logoSrc: 'assets/images/whatsapp-logo.svg' },
         { kind: 'route', routerLink: ['tools/apk'], icon: 'fa fa-android', labelKey: 'MENU.APK_DOWNLOAD', logoSrc: 'assets/images/menu-android.svg' },

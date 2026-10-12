@@ -152,18 +152,27 @@
   </p>
 </div>
 
-<div class="tmdb-overlay" *ngIf="detailOpen && !videoshowOpen" (click)="closeDetail()">
+<div
+  class="tmdb-overlay"
+  *ngIf="detailOpen && !videoshowOpen"
+  [class.tmdb-overlay--loading]="detailLoading"
+  (click)="closeDetail()">
   <div
     class="tmdb-dialog"
+    [class.tmdb-dialog--loading]="detailLoading"
     role="dialog"
     aria-modal="true"
+    [attr.aria-busy]="detailLoading"
     [attr.aria-label]="detail?.title || ('TMDB.TITLE' | translate)"
     (click)="$event.stopPropagation()">
     <button type="button" class="tmdb-close" (click)="closeDetail()" [attr.aria-label]="'TMDB.CLOSE' | translate">
       <i class="fa fa-times" aria-hidden="true"></i>
     </button>
 
-    <p class="tmdb-status" *ngIf="detailLoading">{{ 'TMDB.DETAIL_LOADING' | translate }}</p>
+    <div class="tmdb-detail-loading" *ngIf="detailLoading" role="status">
+      <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+      <span>{{ 'TMDB.DETAIL_LOADING' | translate }}</span>
+    </div>
     <p class="tmdb-alert tmdb-alert--error" *ngIf="detailError">{{ detailError | translate }}</p>
 
     <ng-container *ngIf="detail && !detailLoading">

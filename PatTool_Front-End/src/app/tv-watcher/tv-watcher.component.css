@@ -2,10 +2,15 @@
   --pat-title-bg: linear-gradient(135deg, #3b0764 0%, #1e1b4b 50%, #0f0a1a 100%);
   --pat-title-accent: #3b0764;
   --pat-page-wash: 0;
-  --pat-page-bg: color-mix(in srgb, #1e40af 16%, #ffffff);
+  --pat-page-bg: #14110f;
   --pat-title-shadow: 0 4px 15px rgba(59, 7, 100, 0.4);
   --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='6'%3E%3Cpath d='M0 0h4' stroke='white' stroke-opacity='0.12'/%3E%3C/svg%3E");
   display: block;
+  /* One warm light behind the set. Sides stay an even dark, with no color bands. */
+  background-color: #14110f;
+  background-image: radial-gradient(ellipse 68% 58% at 50% 44%, #3d2e26 0%, #241c18 46%, #14110f 74%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 /* Mobile landscape: immersive TV stage covering the viewport. */
@@ -246,10 +251,6 @@
 }
 
 /* Page stage: menu and title hidden, TV set kept (not fullscreen). */
-:host.tv-focus {
-  background: var(--pat-page-bg, color-mix(in srgb, #1e40af 16%, #ffffff));
-}
-
 :host.tv-focus .pat-title,
 :host.tv-focus .tv-float-banner,
 :host.tv-focus .tv-sidebar,
@@ -297,12 +298,13 @@
   font-size: 0.82rem;
   line-height: 1.4;
   text-align: center;
+  color: rgba(236, 228, 216, 0.78);
 }
 
 .tv-footer {
   margin-top: 0.85rem;
   padding: 0.65rem 0.35rem 0.15rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  border-top: 1px solid rgba(255, 244, 230, 0.12);
 }
 
 .tv-title-icon {
@@ -1608,8 +1610,8 @@
   box-shadow:
     0 1px 0 rgba(255, 230, 190, 0.35) inset,
     0 -2px 4px rgba(0, 0, 0, 0.25) inset,
-    0 10px 28px rgba(40, 22, 8, 0.35),
-    0 2px 6px rgba(0, 0, 0, 0.2);
+    0 22px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
   width: min(100%, calc((100dvh - 15.5rem) * 16 / 9 + 1.2rem));

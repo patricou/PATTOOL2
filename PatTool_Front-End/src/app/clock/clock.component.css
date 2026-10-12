@@ -1,0 +1,3050 @@
+:host {
+  --pat-page-wash: 0;
+  --pat-title-bg: linear-gradient(135deg, #57534e 0%, #44403c 48%, #292524 100%);
+  --pat-title-accent: #d6d3d1;
+  --pat-title-shadow: 0 4px 15px rgba(41, 37, 36, 0.45);
+  --pat-page-bg: var(--clock-bg);
+  --clock-bg: #14110e;
+  --face: #f4f0e6;
+  --burst-in: color-mix(in srgb, var(--face) 45%, white);
+  --burst-mid: var(--face);
+  --burst-out: color-mix(in srgb, var(--face) 62%, black);
+  --burst-ray: rgba(255, 255, 255, 0.28);
+  --mark: #1c1915;
+  --hand: #1c1915;
+  --sec: #c4352b;
+  --bezel: #3a3228;
+  --bezel-fill: #241e18;
+  --num: #1c1915;
+  --accent: #d7b07a;
+  --lcd-bg: #07140d;
+  --lcd-on: #c8ffb0;
+  --lcd-off: rgba(200, 255, 176, 0.045);
+  --lcd-frame: #1c3a28;
+  --clock-gap: calc(var(--navbar-offset, 60px) + 20px);
+  --clock-pad: var(--navbar-offset, 60px);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  margin-top: calc(-1 * var(--clock-gap)) !important;
+  padding-top: var(--clock-pad);
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  min-height: 0;
+  background-color: var(--clock-bg);
+  background-image: none;
+  color: #f6f1e8;
+}
+
+:host-context(body.pat-has-news-ticker) {
+  --clock-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + 12px);
+  --clock-pad: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px));
+}
+:host-context(body.pat-has-currency-ticker) {
+  --clock-gap: calc(var(--navbar-offset, 60px) + var(--currency-ticker-height, 40px) + 12px);
+  --clock-pad: calc(var(--navbar-offset, 60px) + var(--currency-ticker-height, 40px));
+}
+:host-context(body.pat-has-stock-ticker) {
+  --clock-gap: calc(var(--navbar-offset, 60px) + var(--stock-ticker-height, 40px) + 12px);
+  --clock-pad: calc(var(--navbar-offset, 60px) + var(--stock-ticker-height, 40px));
+}
+:host-context(body.pat-has-news-ticker.pat-has-currency-ticker) {
+  --clock-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px) + 12px);
+  --clock-pad: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px));
+}
+:host-context(body.pat-has-news-ticker.pat-has-stock-ticker) {
+  --clock-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--stock-ticker-height, 40px) + 12px);
+  --clock-pad: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--stock-ticker-height, 40px));
+}
+:host-context(body.pat-has-currency-ticker.pat-has-stock-ticker) {
+  --clock-gap: calc(var(--navbar-offset, 60px) + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px) + 12px);
+  --clock-pad: calc(var(--navbar-offset, 60px) + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px));
+}
+:host-context(body.pat-has-news-ticker.pat-has-currency-ticker.pat-has-stock-ticker) {
+  --clock-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px) + 12px);
+  --clock-pad: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px));
+}
+
+:host([data-face="roman"]) {
+  --pat-title-bg: linear-gradient(135deg, #7c5a2a 0%, #4a3418 55%, #2a2118 100%);
+  --pat-title-accent: #e0c48a;
+  --clock-bg: #1a140f;
+  --face: #f7f1e4;
+  --mark: #3a2a16;
+  --hand: #3a2a16;
+  --sec: #8c2f22;
+  --bezel: #6b4a22;
+  --bezel-fill: #2a2118;
+  --num: #4a3418;
+  --accent: #e0c48a;
+}
+
+:host([data-face="noir"]) {
+  --pat-title-bg: linear-gradient(135deg, #334155 0%, #1e293b 55%, #0f172a 100%);
+  --pat-title-accent: #cbd5e1;
+  --clock-bg: #07080b;
+  --face: #12141a;
+  --burst-in: #3a4458;
+  --burst-mid: #12141a;
+  --burst-out: #07080c;
+  --burst-ray: rgba(255, 255, 255, 0.2);
+  --mark: #e8e6e1;
+  --hand: #f4f1ea;
+  --sec: #ff5a4a;
+  --bezel: #2a2e38;
+  --bezel-fill: #0c0e13;
+  --num: #f4f1ea;
+  --accent: #9aa3b5;
+}
+
+:host([data-face="gold"]) {
+  --pat-title-bg: linear-gradient(135deg, #a16207 0%, #854d0e 50%, #3f2e12 100%);
+  --pat-title-accent: #fde68a;
+  --clock-bg: #1c140c;
+  --face: #f8f1dc;
+  --burst-in: #fff6d0;
+  --burst-mid: #f0ddb0;
+  --burst-out: #c6a56a;
+  --burst-ray: rgba(255, 255, 255, 0.42);
+  --mark: #8a6a2f;
+  --hand: #7a5a22;
+  --sec: #b42318;
+  --bezel: #c6a15a;
+  --bezel-fill: #3a2c14;
+  --num: #6e5420;
+  --accent: #e6c878;
+}
+
+:host([data-face="sport"]) {
+  --pat-title-bg: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 55%, #0f172a 100%);
+  --pat-title-accent: #93c5fd;
+  --clock-bg: #10141c;
+  --face: #1a2333;
+  --burst-in: #4d6484;
+  --burst-mid: #1a2333;
+  --burst-out: #0c121c;
+  --burst-ray: rgba(255, 255, 255, 0.22);
+  --mark: #d5deea;
+  --hand: #f2f6fb;
+  --sec: #ffb020;
+  --bezel: #31445f;
+  --bezel-fill: #0e1624;
+  --num: #e7eef8;
+  --accent: #7eb6ff;
+}
+
+:host([data-face="minimal"]) {
+  --pat-title-bg: linear-gradient(135deg, #52525b 0%, #3f3f46 55%, #18181b 100%);
+  --pat-title-accent: #e4e4e7;
+  --clock-bg: #101010;
+  --face: #f7f7f5;
+  --burst-in: #ffffff;
+  --burst-mid: #ecece8;
+  --burst-out: #c8c8c2;
+  --burst-ray: rgba(255, 255, 255, 0.5);
+  --mark: #222;
+  --hand: #111;
+  --sec: #111;
+  --bezel: #d9d9d6;
+  --bezel-fill: #ecece8;
+  --num: #222;
+  --accent: #888;
+}
+
+:host([data-face="aurora"]) {
+  --pat-title-bg: linear-gradient(135deg, #0e7490 0%, #155e75 45%, #312e81 100%);
+  --pat-title-accent: #67e8f9;
+  --clock-bg: #061018;
+  --wash-in: #1a4d55;
+  --wash-out: #071018;
+  --face: #071018;
+  --mark: #d8fff4;
+  --hand: #e8fff8;
+  --sec: #5eead4;
+  --bezel: #134e4a;
+  --bezel-fill: #04221f;
+  --num: #e8fff8;
+  --accent: #5eead4;
+}
+
+:host([data-face="skeleton"]) {
+  --pat-title-bg: linear-gradient(135deg, #57534e 0%, #44403c 50%, #1c1917 100%);
+  --pat-title-accent: #d6d3d1;
+  --clock-bg: #12110f;
+  --face: #1a1916;
+  --mark: #d6c4a1;
+  --hand: #f5f0e6;
+  --sec: #e7c27a;
+  --bezel: #6b5a3e;
+  --bezel-fill: #241e16;
+  --num: #f5f0e6;
+  --accent: #e7c27a;
+}
+
+:host([data-face="deco"]) {
+  --pat-title-bg: linear-gradient(135deg, #b45309 0%, #1c1917 55%, #0c0a09 100%);
+  --pat-title-accent: #fdba74;
+  --clock-bg: #1a120c;
+  --face: #f3e6c8;
+  --mark: #1c1917;
+  --hand: #1c1917;
+  --sec: #b45309;
+  --bezel: #292524;
+  --bezel-fill: #1c1917;
+  --num: #1c1917;
+  --accent: #d97706;
+}
+
+:host([data-face="constellation"]) {
+  --pat-title-bg: linear-gradient(135deg, #312e81 0%, #1e1b4b 50%, #0b1026 100%);
+  --pat-title-accent: #c4b5fd;
+  --clock-bg: #070b18;
+  --wash-in: #243056;
+  --wash-out: #070b18;
+  --face: #070b18;
+  --mark: #e0e7ff;
+  --hand: #f8fafc;
+  --sec: #fbbf24;
+  --bezel: #312e81;
+  --bezel-fill: #0b1026;
+  --num: #e0e7ff;
+  --accent: #a5b4fc;
+}
+
+:host([data-face="regulator"]) {
+  --pat-title-bg: linear-gradient(135deg, #44403c 0%, #292524 55%, #1c1917 100%);
+  --pat-title-accent: #e7e5e4;
+  --clock-bg: #1c1917;
+  --face: #faf7f2;
+  --mark: #1c1917;
+  --hand: #1c1917;
+  --sec: #b91c1c;
+  --bezel: #44403c;
+  --bezel-fill: #292524;
+  --num: #1c1917;
+  --accent: #a8a29e;
+}
+
+:host([data-face="bauhaus"]) {
+  --pat-title-bg: linear-gradient(135deg, #e11d48 0%, #1d4ed8 55%, #facc15 100%);
+  --pat-title-accent: #fecdd3;
+  --clock-bg: #e4e4e7;
+  color: #18181b;
+  --face: #fafafa;
+  --mark: #18181b;
+  --hand: #18181b;
+  --sec: #e11d48;
+  --bezel: #18181b;
+  --bezel-fill: #27272a;
+  --num: #18181b;
+  --accent: #e11d48;
+}
+
+:host([data-face="guilloche"]) {
+  --pat-title-bg: linear-gradient(135deg, #1d4ed8 0%, #1e3a5f 55%, #172033 100%);
+  --pat-title-accent: #bfdbfe;
+  --clock-bg: #101826;
+  --face: #f7f1e4;
+  --mark: #1e3a8a;
+  --hand: #1d4ed8;
+  --sec: #1e3a8a;
+  --bezel: #1e3a8a;
+  --bezel-fill: #172033;
+  --num: #1e3a8a;
+  --accent: #60a5fa;
+}
+
+:host([data-face="marine"]) {
+  --pat-title-bg: linear-gradient(135deg, #1e3a5f 0%, #172554 55%, #0c1a33 100%);
+  --pat-title-accent: #f5d9a8;
+  --clock-bg: #0c1a33;
+  --face: #10243f;
+  --mark: #f3e6c4;
+  --hand: #f6edd8;
+  --sec: #e8b86d;
+  --bezel: #c4a46a;
+  --bezel-fill: #1a2744;
+  --num: #f6edd8;
+  --accent: #e8b86d;
+}
+:host([data-face="rail"]) {
+  --pat-title-bg: linear-gradient(135deg, #44403c 0%, #292524 55%, #1c1917 100%);
+  --pat-title-accent: #e7e5e4;
+  --clock-bg: #1c1917;
+  --face: #faf7f2;
+  --mark: #1c1917;
+  --hand: #1c1917;
+  --sec: #b91c1c;
+  --bezel: #292524;
+  --bezel-fill: #0c0a09;
+  --num: #1c1917;
+  --accent: #b91c1c;
+}
+:host([data-face="metro"]) {
+  --pat-title-bg: linear-gradient(135deg, #0f766e 0%, #115e59 55%, #042f2e 100%);
+  --pat-title-accent: #99f6e4;
+  --clock-bg: #042f2e;
+  --face: #0f3d38;
+  --mark: #d1fae5;
+  --hand: #ecfdf5;
+  --sec: #f5d0a9;
+  --bezel: #d6b07a;
+  --bezel-fill: #134e4a;
+  --num: #ecfdf5;
+  --accent: #5eead4;
+}
+:host([data-face="obsidian"]) {
+  --pat-title-bg: linear-gradient(135deg, #3f3f46 0%, #18181b 55%, #09090b 100%);
+  --pat-title-accent: #e4e4e7;
+  --clock-bg: #09090b;
+  --face: #18181b;
+  --mark: #d4d4d8;
+  --hand: #fafafa;
+  --sec: #a1a1aa;
+  --bezel: #3f3f46;
+  --bezel-fill: #09090b;
+  --num: #e4e4e7;
+  --accent: #e4e4e7;
+}
+:host([data-face="sakura"]) {
+  --pat-title-bg: linear-gradient(135deg, #be185d 0%, #9d174d 50%, #4c0519 100%);
+  --pat-title-accent: #fbcfe8;
+  --clock-bg: #3b0618;
+  --face: #4a1942;
+  --mark: #fce7f3;
+  --hand: #fff1f2;
+  --sec: #fb7185;
+  --bezel: #f9a8d4;
+  --bezel-fill: #831843;
+  --num: #fff1f2;
+  --accent: #f9a8d4;
+}
+:host([data-face="desert"]) {
+  --pat-title-bg: linear-gradient(135deg, #c2410c 0%, #9a3412 50%, #431407 100%);
+  --pat-title-accent: #fdba74;
+  --clock-bg: #431407;
+  --face: #7c2d12;
+  --mark: #ffedd5;
+  --hand: #fff7ed;
+  --sec: #fdba74;
+  --bezel: #ea580c;
+  --bezel-fill: #7c2d12;
+  --num: #fff7ed;
+  --accent: #fdba74;
+}
+:host([data-face="abyss"]) {
+  --pat-title-bg: linear-gradient(135deg, #0e7490 0%, #164e63 50%, #042f2e 100%);
+  --pat-title-accent: #67e8f9;
+  --clock-bg: #021016;
+  --face: #042f2e;
+  --mark: #a5f3fc;
+  --hand: #ecfeff;
+  --sec: #22d3ee;
+  --bezel: #155e75;
+  --bezel-fill: #042f2e;
+  --num: #ecfeff;
+  --accent: #22d3ee;
+}
+:host([data-face="arcade"]) {
+  --pat-title-bg: linear-gradient(135deg, #c026d3 0%, #6b21a8 50%, #1e0533 100%);
+  --pat-title-accent: #f0abfc;
+  --clock-bg: #1a0524;
+  --face: #2e1065;
+  --mark: #f5d0fe;
+  --hand: #fdf4ff;
+  --sec: #22d3ee;
+  --bezel: #e879f9;
+  --bezel-fill: #3b0764;
+  --num: #fdf4ff;
+  --accent: #e879f9;
+}
+:host([data-face="cathedral"]) {
+  --pat-title-bg: linear-gradient(135deg, #7f1d1d 0%, #1e3a8a 50%, #14532d 100%);
+  --pat-title-accent: #fde68a;
+  --clock-bg: #1c1410;
+  --face: #241c16;
+  --mark: #fde68a;
+  --hand: #fffbeb;
+  --sec: #f59e0b;
+  --bezel: #a16207;
+  --bezel-fill: #292018;
+  --num: #fffbeb;
+  --accent: #fde68a;
+}
+:host([data-face="radar"]) {
+  --pat-title-bg: linear-gradient(135deg, #166534 0%, #14532d 50%, #022c22 100%);
+  --pat-title-accent: #86efac;
+  --clock-bg: #022c22;
+  --face: #03180f;
+  --mark: #4ade80;
+  --hand: #bbf7d0;
+  --sec: #4ade80;
+  --bezel: #166534;
+  --bezel-fill: #052e16;
+  --num: #bbf7d0;
+  --accent: #4ade80;
+}
+:host([data-face="marble"]) {
+  --pat-title-bg: linear-gradient(135deg, #a8a29e 0%, #78716c 50%, #44403c 100%);
+  --pat-title-accent: #fafaf9;
+  --clock-bg: #292524;
+  --face: #f5f5f4;
+  --mark: #44403c;
+  --hand: #1c1917;
+  --sec: #a16207;
+  --bezel: #d6d3d1;
+  --bezel-fill: #57534e;
+  --num: #1c1917;
+  --accent: #a8a29e;
+}
+:host([data-face="ink"]) {
+  --pat-title-bg: linear-gradient(135deg, #44403c 0%, #292524 55%, #1c1917 100%);
+  --pat-title-accent: #e7e5e4;
+  --clock-bg: #1c1917;
+  --face: #f5f0e6;
+  --mark: #1c1917;
+  --hand: #1c1917;
+  --sec: #7f1d1d;
+  --bezel: #292524;
+  --bezel-fill: #0c0a09;
+  --num: #1c1917;
+  --accent: #44403c;
+}
+:host([data-face="circuit"]) {
+  --pat-title-bg: linear-gradient(135deg, #0e7490 0%, #155e75 50%, #082f49 100%);
+  --pat-title-accent: #67e8f9;
+  --clock-bg: #04141c;
+  --face: #06202a;
+  --mark: #a5f3fc;
+  --hand: #ecfeff;
+  --sec: #22d3ee;
+  --bezel: #0891b2;
+  --bezel-fill: #083344;
+  --num: #ecfeff;
+  --accent: #22d3ee;
+}
+:host([data-face="lunar"]) {
+  --pat-title-bg: linear-gradient(135deg, #64748b 0%, #334155 55%, #0f172a 100%);
+  --pat-title-accent: #e2e8f0;
+  --clock-bg: #0f172a;
+  --face: #cbd5e1;
+  --mark: #334155;
+  --hand: #0f172a;
+  --sec: #64748b;
+  --bezel: #94a3b8;
+  --bezel-fill: #1e293b;
+  --num: #0f172a;
+  --accent: #94a3b8;
+}
+:host([data-face="flame"]) {
+  --pat-title-bg: linear-gradient(135deg, #ea580c 0%, #9a3412 50%, #1c0a06 100%);
+  --pat-title-accent: #fdba74;
+  --clock-bg: #1c0a06;
+  --face: #2a1008;
+  --mark: #ffedd5;
+  --hand: #fff7ed;
+  --sec: #fb923c;
+  --bezel: #c2410c;
+  --bezel-fill: #431407;
+  --num: #fff7ed;
+  --accent: #fb923c;
+}
+:host([data-face="prism"]) {
+  --pat-title-bg: linear-gradient(135deg, #7c3aed 0%, #db2777 50%, #0284c7 100%);
+  --pat-title-accent: #f5f3ff;
+  --clock-bg: #0b0618;
+  --face: #120a24;
+  --mark: #e9d5ff;
+  --hand: #faf5ff;
+  --sec: #f472b6;
+  --bezel: #7c3aed;
+  --bezel-fill: #1e1035;
+  --num: #faf5ff;
+  --accent: #c4b5fd;
+}
+:host([data-face="aviator"]) {
+  --pat-title-bg: linear-gradient(135deg, #78716c 0%, #57534e 50%, #292524 100%);
+  --pat-title-accent: #fef3c7;
+  --clock-bg: #292018;
+  --face: #3f3428;
+  --mark: #fef3c7;
+  --hand: #fffbeb;
+  --sec: #f97316;
+  --bezel: #a8a29e;
+  --bezel-fill: #44403c;
+  --num: #fffbeb;
+  --accent: #fbbf24;
+}
+:host([data-face="forest"]) {
+  --pat-title-bg: linear-gradient(135deg, #166534 0%, #14532d 50%, #052e16 100%);
+  --pat-title-accent: #bbf7d0;
+  --clock-bg: #052e16;
+  --face: #14532d;
+  --mark: #dcfce7;
+  --hand: #f0fdf4;
+  --sec: #facc15;
+  --bezel: #4d7c0f;
+  --bezel-fill: #14532d;
+  --num: #f0fdf4;
+  --accent: #86efac;
+}
+:host([data-face="chess"]) {
+  --pat-title-bg: linear-gradient(135deg, #44403c 0%, #1c1917 55%, #0c0a09 100%);
+  --pat-title-accent: #fafaf9;
+  --clock-bg: #0c0a09;
+  --face: #292524;
+  --mark: #fafaf9;
+  --hand: #fafaf9;
+  --sec: #b91c1c;
+  --bezel: #a8a29e;
+  --bezel-fill: #1c1917;
+  --num: #fafaf9;
+  --accent: #e7e5e4;
+}
+:host([data-face="orbit"]) {
+  --pat-title-bg: linear-gradient(135deg, #1e3a8a 0%, #312e81 50%, #1e1b4b 100%);
+  --pat-title-accent: #c7d2fe;
+  --clock-bg: #07091a;
+  --face: #0c1028;
+  --mark: #c7d2fe;
+  --hand: #eef2ff;
+  --sec: #fbbf24;
+  --bezel: #4338ca;
+  --bezel-fill: #1e1b4b;
+  --num: #eef2ff;
+  --accent: #a5b4fc;
+}
+
+:host([data-face="hybrid-green"]) {
+  --pat-title-bg: linear-gradient(135deg, #166534 0%, #14532d 48%, #052e16 100%);
+  --pat-title-accent: #86efac;
+  --clock-bg: #07140e;
+  --face: #10261c;
+  --mark: #d8ffe8;
+  --hand: #f3fff6;
+  --num: #d8ffe8;
+  --sec: #8dff9a;
+  --bezel: #1c3a28;
+  --bezel-fill: #08140e;
+  --accent: #8dff9a;
+  --lcd-bg: #04140c;
+  --lcd-on: #b6ff9c;
+  --lcd-off: rgba(182, 255, 156, 0.045);
+  --lcd-frame: #145233;
+}
+:host([data-face="hybrid-amber"]) {
+  --pat-title-bg: linear-gradient(135deg, #b45309 0%, #7c2d12 55%, #431407 100%);
+  --pat-title-accent: #fdba74;
+  --clock-bg: #140c04;
+  --face: #24180c;
+  --mark: #ffe7c2;
+  --hand: #fff6e8;
+  --num: #ffe7c2;
+  --sec: #ffb000;
+  --bezel: #5a3a10;
+  --bezel-fill: #1a1006;
+  --accent: #ffb000;
+  --lcd-bg: #1c1004;
+  --lcd-on: #ffbf3c;
+  --lcd-off: rgba(255, 191, 60, 0.045);
+  --lcd-frame: #5a3a10;
+}
+:host([data-face="hybrid-blue"]) {
+  --pat-title-bg: linear-gradient(135deg, #0369a1 0%, #0c4a6e 55%, #082f49 100%);
+  --pat-title-accent: #7dd3fc;
+  --clock-bg: #041018;
+  --face: #0c1e30;
+  --mark: #d7f1ff;
+  --hand: #f4fbff;
+  --num: #d7f1ff;
+  --sec: #7fd0ff;
+  --bezel: #1a4568;
+  --bezel-fill: #061018;
+  --accent: #7fd0ff;
+  --lcd-bg: #071826;
+  --lcd-on: #9ad7ff;
+  --lcd-off: rgba(154, 215, 255, 0.045);
+  --lcd-frame: #1a4568;
+}
+
+:host([data-face="lcd-light"]) {
+  --pat-title-bg: linear-gradient(135deg, #a3a892 0%, #6f7564 55%, #3f4436 100%);
+  --pat-title-accent: #1c2416;
+  --clock-bg: #b7bca8;
+  color: #1c2416;
+  --accent: #3f4a32;
+  --lcd-bg: #c9d2b6;
+  --lcd-on: #1a2114;
+  --lcd-off: rgba(26, 33, 20, 0.07);
+  --lcd-frame: #8d937c;
+}
+:host([data-face="lcd-red"]) {
+  --pat-title-bg: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 55%, #450a0a 100%);
+  --pat-title-accent: #fecaca;
+  --clock-bg: #1a0606;
+  --accent: #f87171;
+  --lcd-bg: #2a0a0a;
+  --lcd-on: #ff6b6b;
+  --lcd-off: rgba(255, 107, 107, 0.045);
+  --lcd-frame: #7f1d1d;
+}
+:host([data-face="lcd-white"]) {
+  --pat-title-bg: linear-gradient(135deg, #52525b 0%, #3f3f46 55%, #18181b 100%);
+  --pat-title-accent: #fafafa;
+  --clock-bg: #09090b;
+  --accent: #f4f4f5;
+  --lcd-bg: #18181b;
+  --lcd-on: #fafafa;
+  --lcd-off: rgba(250, 250, 250, 0.045);
+  --lcd-frame: #3f3f46;
+}
+:host([data-face="lcd-pink"]) {
+  --pat-title-bg: linear-gradient(135deg, #be185d 0%, #9d174d 55%, #500724 100%);
+  --pat-title-accent: #fbcfe8;
+  --clock-bg: #2a0616;
+  --accent: #f9a8d4;
+  --lcd-bg: #3b0a22;
+  --lcd-on: #ff8ec8;
+  --lcd-off: rgba(255, 142, 200, 0.045);
+  --lcd-frame: #9d174d;
+}
+:host([data-face="quartz"]) {
+  --pat-title-bg: linear-gradient(135deg, #71717a 0%, #3f3f46 55%, #18181b 100%);
+  --pat-title-accent: #e4e4e7;
+  --clock-bg: #18181b;
+  --face: #f4f4f5;
+  --mark: #27272a;
+  --hand: #18181b;
+  --sec: #dc2626;
+  --bezel: #a1a1aa;
+  --bezel-fill: #3f3f46;
+  --num: #18181b;
+  --accent: #a1a1aa;
+}
+:host([data-face="quartz-date"]) {
+  --pat-title-bg: linear-gradient(135deg, #78716c 0%, #44403c 55%, #1c1917 100%);
+  --pat-title-accent: #e7e5e4;
+  --clock-bg: #1c1917;
+  --face: #faf7f2;
+  --mark: #292524;
+  --hand: #1c1917;
+  --sec: #b91c1c;
+  --bezel: #a8a29e;
+  --bezel-fill: #44403c;
+  --num: #1c1917;
+  --accent: #a8a29e;
+}
+:host([data-face="quartz-black"]) {
+  --pat-title-bg: linear-gradient(135deg, #3f3f46 0%, #18181b 55%, #09090b 100%);
+  --pat-title-accent: #d4d4d8;
+  --clock-bg: #09090b;
+  --face: #18181b;
+  --mark: #e4e4e7;
+  --hand: #fafafa;
+  --sec: #f87171;
+  --bezel: #52525b;
+  --bezel-fill: #09090b;
+  --num: #fafafa;
+  --accent: #d4d4d8;
+}
+:host([data-face="quartz-gold"]) {
+  --pat-title-bg: linear-gradient(135deg, #a16207 0%, #713f12 55%, #29200c 100%);
+  --pat-title-accent: #fde68a;
+  --clock-bg: #1c1408;
+  --face: #f8ecd4;
+  --mark: #713f12;
+  --hand: #5c3b12;
+  --sec: #b45309;
+  --bezel: #eab308;
+  --bezel-fill: #713f12;
+  --num: #5c3b12;
+  --accent: #eab308;
+}
+:host([data-face="quartz-field"]) {
+  --pat-title-bg: linear-gradient(135deg, #3f6212 0%, #365314 55%, #1a2e05 100%);
+  --pat-title-accent: #ecfccb;
+  --clock-bg: #1a2e05;
+  --face: #3f4f2a;
+  --mark: #ecfccb;
+  --hand: #f7fee7;
+  --sec: #facc15;
+  --bezel: #84cc16;
+  --bezel-fill: #365314;
+  --num: #f7fee7;
+  --accent: #a3e635;
+}
+
+:host([data-face="quartz-serif"]) {
+  --pat-title-bg: linear-gradient(135deg, #92400e 0%, #78350f 55%, #29200c 100%);
+  --pat-title-accent: #fde68a;
+  --clock-bg: #1c140c;
+  --face: #f6efe2;
+  --mark: #5c3b1e;
+  --hand: #3f2a16;
+  --sec: #b45309;
+  --bezel: #d6b07a;
+  --bezel-fill: #5c3b1e;
+  --num: #3f2a16;
+  --accent: #d6b07a;
+}
+:host([data-face="quartz-mono"]) {
+  --pat-title-bg: linear-gradient(135deg, #14532d 0%, #052e16 55%, #022c22 100%);
+  --pat-title-accent: #86efac;
+  --clock-bg: #04140c;
+  --face: #0c1f16;
+  --mark: #86efac;
+  --hand: #dcfce7;
+  --sec: #4ade80;
+  --bezel: #166534;
+  --bezel-fill: #052e16;
+  --num: #bbf7d0;
+  --accent: #4ade80;
+}
+:host([data-face="quartz-script"]) {
+  --pat-title-bg: linear-gradient(135deg, #9f1239 0%, #881337 55%, #4c0519 100%);
+  --pat-title-accent: #fecdd3;
+  --clock-bg: #2a0c14;
+  --face: #fff1f2;
+  --mark: #9f1239;
+  --hand: #881337;
+  --sec: #e11d48;
+  --bezel: #fb7185;
+  --bezel-fill: #9f1239;
+  --num: #9f1239;
+  --accent: #fb7185;
+}
+:host([data-face="quartz-narrow"]) {
+  --pat-title-bg: linear-gradient(135deg, #64748b 0%, #334155 55%, #0f172a 100%);
+  --pat-title-accent: #e2e8f0;
+  --clock-bg: #0f172a;
+  --face: #e2e8f0;
+  --mark: #0f172a;
+  --hand: #020617;
+  --sec: #0369a1;
+  --bezel: #94a3b8;
+  --bezel-fill: #334155;
+  --num: #020617;
+  --accent: #64748b;
+}
+:host([data-face="quartz-gothic"]) {
+  --pat-title-bg: linear-gradient(135deg, #334155 0%, #1e293b 55%, #0f172a 100%);
+  --pat-title-accent: #f8fafc;
+  --clock-bg: #0f172a;
+  --face: #f8fafc;
+  --mark: #0f172a;
+  --hand: #020617;
+  --sec: #0ea5e9;
+  --bezel: #cbd5e1;
+  --bezel-fill: #1e293b;
+  --num: #020617;
+  --accent: #94a3b8;
+}
+:host([data-face="quartz-heavy"]) {
+  --pat-title-bg: linear-gradient(135deg, #ea580c 0%, #9a3412 55%, #1c0a06 100%);
+  --pat-title-accent: #ffedd5;
+  --clock-bg: #1c0a06;
+  --face: #1c1917;
+  --mark: #ffedd5;
+  --hand: #fff7ed;
+  --sec: #fb923c;
+  --bezel: #c2410c;
+  --bezel-fill: #292524;
+  --num: #fff7ed;
+  --accent: #fb923c;
+}
+:host([data-face="quartz-serif"]) .numeral { font-weight: 600; }
+:host([data-face="quartz-mono"]) .numeral { font-weight: 600; }
+:host([data-face="quartz-script"]) .numeral { font-weight: 500; }
+:host([data-face="quartz-narrow"]) .numeral { font-weight: 620; font-stretch: condensed; }
+:host([data-face="quartz-gothic"]) .numeral { font-weight: 500; }
+:host([data-face="quartz-heavy"]) .numeral { font-weight: 800; }
+:host([data-face="quartz-serif"]) .quartz-mark { font-family: Georgia, "Palatino Linotype", serif; letter-spacing: 0.18em; }
+:host([data-face="quartz-mono"]) .quartz-mark { font-family: Consolas, ui-monospace, monospace; letter-spacing: 0.12em; }
+:host([data-face="quartz-script"]) .quartz-mark { font-family: "Segoe Script", cursive; letter-spacing: 0.04em; font-size: 6px; }
+:host([data-face="quartz-narrow"]) .quartz-mark { font-family: Bahnschrift, "Arial Narrow", sans-serif; letter-spacing: 0.28em; }
+:host([data-face="quartz-gothic"]) .quartz-mark { font-family: "Century Gothic", sans-serif; letter-spacing: 0.26em; }
+:host([data-face="quartz-heavy"]) .quartz-mark { font-family: Impact, "Arial Black", sans-serif; letter-spacing: 0.14em; font-size: 6px; }
+
+:host([data-face="burst-silver"]),
+:host([data-face="chrono-silver"]) {
+  --pat-title-bg: linear-gradient(135deg, #d5d8df 0%, #8b919c 48%, #3a404a 100%);
+  --pat-title-accent: #f8fafc;
+  --clock-bg: #2a3038;
+  --face: #c5c9d1;
+  --burst-in: #f7f8fa;
+  --burst-mid: #c9ced6;
+  --burst-out: #8d939e;
+  --burst-ray: rgba(255, 255, 255, 0.42);
+  --index: #f4efe8;
+  --index-edge: #9a8b7c;
+  --mark: #3c414a;
+  --hand: #2a2e34;
+  --sec: #c4554a;
+  --bezel: #eef0f3;
+  --bezel-fill: #6d7380;
+  --num: #2a2e34;
+  --accent: #c5c9d1;
+}
+:host([data-face="burst-green"]),
+:host([data-face="chrono-green"]) {
+  --pat-title-bg: linear-gradient(135deg, #34d399 0%, #047857 52%, #022c22 100%);
+  --pat-title-accent: #ecfdf5;
+  --clock-bg: #022c22;
+  --face: #0f6b45;
+  --burst-in: #7ddec0;
+  --burst-mid: #14915c;
+  --burst-out: #063824;
+  --burst-ray: rgba(255, 255, 255, 0.28);
+  --index: #f6f1e4;
+  --index-edge: #8d7b62;
+  --mark: #f3eee4;
+  --hand: #f7f3ea;
+  --sec: #fffaf2;
+  --bezel: #d7c7a4;
+  --bezel-fill: #145c3c;
+  --num: #f7f3ea;
+  --accent: #6ee7b7;
+}
+:host([data-face="burst-blue"]) {
+  --pat-title-bg: linear-gradient(135deg, #7dd3fc 0%, #1d4ed8 52%, #0c1e3d 100%);
+  --pat-title-accent: #e0f2fe;
+  --clock-bg: #0c1e3d;
+  --face: #2f74b8;
+  --burst-in: #d7effc;
+  --burst-mid: #4b93d4;
+  --burst-out: #1a4e86;
+  --burst-ray: rgba(255, 255, 255, 0.34);
+  --index: #f4efe6;
+  --index-edge: #8a735c;
+  --mark: #f8fafc;
+  --hand: #f8fafc;
+  --sec: #fff7ed;
+  --bezel: #dbe7f3;
+  --bezel-fill: #1e4f86;
+  --num: #f8fafc;
+  --accent: #7dd3fc;
+}
+:host([data-face="burst-sand"]) {
+  --pat-title-bg: linear-gradient(135deg, #f5e6c8 0%, #c4a46a 50%, #6b4e24 100%);
+  --pat-title-accent: #fffbeb;
+  --clock-bg: #3a2a16;
+  --face: #e6d2ae;
+  --burst-in: #fff8ee;
+  --burst-mid: #e7d0a4;
+  --burst-out: #b89058;
+  --burst-ray: rgba(255, 255, 255, 0.4);
+  --index: #5c4630;
+  --index-edge: #2c2116;
+  --mark: #4a3824;
+  --hand: #3a2c1c;
+  --sec: #9f1239;
+  --bezel: #f3e0b8;
+  --bezel-fill: #a68448;
+  --num: #3a2c1c;
+  --accent: #d4b483;
+}
+:host([data-face="burst-ink"]) {
+  --pat-title-bg: linear-gradient(135deg, #166534 0%, #052e16 55%, #020617 100%);
+  --pat-title-accent: #d9f99d;
+  --clock-bg: #020617;
+  --face: #0c3d2c;
+  --burst-in: #2f8a5e;
+  --burst-mid: #0e4a32;
+  --burst-out: #041910;
+  --burst-ray: rgba(180, 255, 210, 0.22);
+  --index: #e8d7a4;
+  --index-edge: #7a6840;
+  --mark: #e7d7a8;
+  --hand: #f6edd4;
+  --sec: #f6edd4;
+  --bezel: #d6c48a;
+  --bezel-fill: #123528;
+  --num: #f6edd4;
+  --accent: #86efac;
+}
+:host([data-face="gousset"]) {
+  --pat-title-bg: linear-gradient(135deg, #f5f0e6 0%, #d6d0c4 48%, #6b6458 100%);
+  --pat-title-accent: #1c1917;
+  --clock-bg: #2a2722;
+  --face: #f7f3ea;
+  --burst-in: #fffdf8;
+  --burst-mid: #f0e9dc;
+  --burst-out: #d9d0c2;
+  --burst-ray: rgba(80, 60, 30, 0.1);
+  --mark: #2c2824;
+  --hand: #1c1917;
+  --sec: #1c1917;
+  --bezel: #f5f0e6;
+  --bezel-fill: #8a8378;
+  --num: #1c1917;
+  --accent: #a8a29e;
+}
+:host([data-face="diver-blue"]) {
+  --pat-title-bg: linear-gradient(135deg, #60a5fa 0%, #1d4ed8 52%, #0b1f4a 100%);
+  --pat-title-accent: #e0f2fe;
+  --clock-bg: #0b1f4a;
+  --face: #1d4ed8;
+  --burst-in: #60a5fa;
+  --burst-mid: #1d4ed8;
+  --burst-out: #0c245c;
+  --burst-ray: rgba(255, 255, 255, 0.28);
+  --index: #f8fafc;
+  --index-edge: #94a3b8;
+  --mark: #e2e8f0;
+  --hand: #f8fafc;
+  --sec: #f8fafc;
+  --bezel: #e2e8f0;
+  --bezel-fill: #cbd5e1;
+  --dive-ink: #0f172a;
+  --num: #f8fafc;
+  --accent: #93c5fd;
+}
+:host([data-face="chrono-gold"]) {
+  --pat-title-bg: linear-gradient(135deg, #fde68a 0%, #d97706 50%, #78350f 100%);
+  --pat-title-accent: #fffbeb;
+  --clock-bg: #3b2608;
+  --face: #e0b044;
+  --burst-in: #ffe7a3;
+  --burst-mid: #e0b044;
+  --burst-out: #9a7018;
+  --burst-ray: rgba(255, 248, 220, 0.35);
+  --index: #fff8e6;
+  --index-edge: #7c5a1e;
+  --mark: #3f2d0c;
+  --hand: #3f2d0c;
+  --sec: #7f1d1d;
+  --bezel: #f6e27a;
+  --bezel-fill: #a16207;
+  --num: #3f2d0c;
+  --accent: #fbbf24;
+}
+:host([data-face="field-cream"]) {
+  --pat-title-bg: linear-gradient(135deg, #e7e5e4 0%, #a8a29e 52%, #44403c 100%);
+  --pat-title-accent: #1c1917;
+  --clock-bg: #292524;
+  --face: #f6f1e4;
+  --burst-in: #fffaf0;
+  --burst-mid: #f3e6cc;
+  --burst-out: #d2b98a;
+  --burst-ray: rgba(255, 255, 255, 0.42);
+  --mark: #1c1917;
+  --hand: #1c1917;
+  --sec: #dc2626;
+  --bezel: #d6d3d1;
+  --bezel-fill: #a8a29e;
+  --num: #1c1917;
+  --accent: #dc2626;
+}
+:host([data-face="chrono-slate"]) {
+  --pat-title-bg: linear-gradient(135deg, #d1d5db 0%, #6b7280 52%, #1f2937 100%);
+  --pat-title-accent: #f9fafb;
+  --clock-bg: #1f2937;
+  --face: #6b7280;
+  --burst-in: #e5e7eb;
+  --burst-mid: #6b7280;
+  --burst-out: #374151;
+  --burst-ray: rgba(255, 255, 255, 0.28);
+  --index: #f9fafb;
+  --index-edge: #4b5563;
+  --mark: #f9fafb;
+  --hand: #f9fafb;
+  --sec: #e11d48;
+  --bezel: #e5e7eb;
+  --bezel-fill: #4b5563;
+  --num: #f9fafb;
+  --accent: #e5e7eb;
+}
+:host([data-face="chrono-blue"]) {
+  --pat-title-bg: linear-gradient(135deg, #93c5fd 0%, #2563eb 52%, #1e3a8a 100%);
+  --pat-title-accent: #eff6ff;
+  --clock-bg: #172554;
+  --face: #2563eb;
+  --burst-in: #bfdbfe;
+  --burst-mid: #3b82f6;
+  --burst-out: #1e3a8a;
+  --burst-ray: rgba(255, 255, 255, 0.32);
+  --index: #f8fafc;
+  --index-edge: #64748b;
+  --mark: #f8fafc;
+  --hand: #f8fafc;
+  --sec: #fecaca;
+  --bezel: #e2e8f0;
+  --bezel-fill: #64748b;
+  --num: #f8fafc;
+  --accent: #93c5fd;
+}
+:host([data-face="dress-navy"]) {
+  --pat-title-bg: linear-gradient(135deg, #7dd3c7 0%, #0f4c5c 52%, #082f36 100%);
+  --pat-title-accent: #ecfeff;
+  --clock-bg: #082f36;
+  --face: #155e75;
+  --burst-in: #5eead4;
+  --burst-mid: #0e7490;
+  --burst-out: #083344;
+  --burst-ray: rgba(255, 255, 255, 0.22);
+  --index: #f0fdfa;
+  --index-edge: #115e59;
+  --mark: #f0fdfa;
+  --hand: #f8fafc;
+  --sec: #f8fafc;
+  --bezel: #cbd5e1;
+  --bezel-fill: #334155;
+  --num: #f8fafc;
+  --accent: #99f6e4;
+}
+:host([data-face="chrono-black"]) {
+  --pat-title-bg: linear-gradient(135deg, #52525b 0%, #18181b 55%, #09090b 100%);
+  --pat-title-accent: #f4f4f5;
+  --clock-bg: #09090b;
+  --face: #18181b;
+  --burst-in: #3f3f46;
+  --burst-mid: #18181b;
+  --burst-out: #09090b;
+  --burst-ray: rgba(255, 255, 255, 0.16);
+  --index: #f4f4f5;
+  --index-edge: #71717a;
+  --mark: #e4e4e7;
+  --hand: #fafafa;
+  --sec: #fafafa;
+  --bezel: #52525b;
+  --bezel-fill: #18181b;
+  --dive-ink: #f4f4f5;
+  --num: #f4f4f5;
+  --accent: #a1a1aa;
+}
+:host([data-face="lcd-led"]) {
+  --pat-title-bg: linear-gradient(135deg, #ef4444 0%, #7f1d1d 55%, #1c0a0a 100%);
+  --pat-title-accent: #fecaca;
+  --clock-bg: #0a0a0a;
+  --accent: #ff3b30;
+  --lcd-bg: #070707;
+  --lcd-on: #ff3b30;
+  --lcd-off: rgba(255, 59, 48, 0.07);
+  --lcd-frame: #27272a;
+}
+:host([data-face="lcd-module"]) {
+  --pat-title-bg: linear-gradient(135deg, #d6d3d1 0%, #57534e 55%, #1c1917 100%);
+  --pat-title-accent: #1c1917;
+  --clock-bg: #1c1917;
+  --accent: #d6d3d1;
+  --lcd-bg: #d7ddd2;
+  --lcd-on: #1a1c18;
+  --lcd-off: rgba(26, 28, 24, 0.08);
+  --lcd-frame: #292524;
+}
+:host([data-face="lcd-dive"]) {
+  --pat-title-bg: linear-gradient(135deg, #3f3f46 0%, #18181b 55%, #09090b 100%);
+  --pat-title-accent: #e4e4e7;
+  --clock-bg: #09090b;
+  --accent: #d4d4d8;
+  --lcd-bg: #c5cdc0;
+  --lcd-on: #1c211c;
+  --lcd-off: rgba(28, 33, 28, 0.08);
+  --lcd-frame: #27272a;
+}
+:host([data-face="field-cream"]) .chapter { stroke: var(--mark); opacity: 0.4; }
+
+:host([data-face="ripple"]) {
+  --pat-title-bg: linear-gradient(135deg, #0e7490 0%, #155e75 55%, #042f2e 100%);
+  --pat-title-accent: #a5f3fc;
+  --clock-bg: #042f2e;
+  --face: #083344;
+  --mark: #cffafe;
+  --hand: #ecfeff;
+  --sec: #22d3ee;
+  --bezel: #0891b2;
+  --bezel-fill: #164e63;
+  --num: #ecfeff;
+  --accent: #67e8f9;
+}
+:host([data-face="gears"]) {
+  --pat-title-bg: linear-gradient(135deg, #78716c 0%, #44403c 55%, #1c1917 100%);
+  --pat-title-accent: #e7e5e4;
+  --clock-bg: #1c1917;
+  --face: #292524;
+  --mark: #d6d3d1;
+  --hand: #fafaf9;
+  --sec: #f59e0b;
+  --bezel: #a8a29e;
+  --bezel-fill: #44403c;
+  --num: #fafaf9;
+  --accent: #f59e0b;
+}
+:host([data-face="compass"]) {
+  --pat-title-bg: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 55%, #172554 100%);
+  --pat-title-accent: #dbeafe;
+  --clock-bg: #0c1a33;
+  --face: #f8fafc;
+  --mark: #1e3a8a;
+  --hand: #172554;
+  --sec: #dc2626;
+  --bezel: #1d4ed8;
+  --bezel-fill: #1e3a8a;
+  --num: #172554;
+  --accent: #2563eb;
+}
+:host([data-face="vinyl"]) {
+  --pat-title-bg: linear-gradient(135deg, #44403c 0%, #1c1917 55%, #0c0a09 100%);
+  --pat-title-accent: #fecaca;
+  --clock-bg: #0c0a09;
+  --face: #18181b;
+  --mark: #a1a1aa;
+  --hand: #fafafa;
+  --sec: #e11d48;
+  --bezel: #3f3f46;
+  --bezel-fill: #09090b;
+  --num: #fafafa;
+  --accent: #fb7185;
+}
+:host([data-face="eclipse"]) {
+  --pat-title-bg: linear-gradient(135deg, #f59e0b 0%, #7c2d12 50%, #1e1b4b 100%);
+  --pat-title-accent: #fde68a;
+  --clock-bg: #0b1020;
+  --face: #0f172a;
+  --mark: #fde68a;
+  --hand: #fffbeb;
+  --sec: #fbbf24;
+  --bezel: #b45309;
+  --bezel-fill: #1e1b4b;
+  --num: #fffbeb;
+  --accent: #fbbf24;
+}
+:host([data-face="ecg"]) {
+  --pat-title-bg: linear-gradient(135deg, #14532d 0%, #052e16 55%, #022c22 100%);
+  --pat-title-accent: #86efac;
+  --clock-bg: #022c22;
+  --face: #052e16;
+  --mark: #bbf7d0;
+  --hand: #f0fdf4;
+  --sec: #4ade80;
+  --bezel: #166534;
+  --bezel-fill: #052e16;
+  --num: #f0fdf4;
+  --accent: #4ade80;
+}
+:host([data-face="fan"]) {
+  --pat-title-bg: linear-gradient(135deg, #be123c 0%, #9f1239 55%, #4c0519 100%);
+  --pat-title-accent: #ffe4e6;
+  --clock-bg: #3f0d18;
+  --face: #881337;
+  --mark: #ffe4e6;
+  --hand: #fff1f2;
+  --sec: #fb7185;
+  --bezel: #e11d48;
+  --bezel-fill: #4c0519;
+  --num: #fff1f2;
+  --accent: #fda4af;
+}
+:host([data-face="labyrinth"]) {
+  --pat-title-bg: linear-gradient(135deg, #a16207 0%, #713f12 55%, #29200c 100%);
+  --pat-title-accent: #fde68a;
+  --clock-bg: #1c1408;
+  --face: #29200c;
+  --mark: #fde68a;
+  --hand: #fffbeb;
+  --sec: #f59e0b;
+  --bezel: #ca8a04;
+  --bezel-fill: #422006;
+  --num: #fffbeb;
+  --accent: #fbbf24;
+}
+:host([data-face="hybrid-night"]) {
+  --pat-title-bg: linear-gradient(135deg, #312e81 0%, #1e1b4b 55%, #0b1026 100%);
+  --pat-title-accent: #c7d2fe;
+  --clock-bg: #0b1026;
+  --face: #11142c;
+  --mark: #e0e7ff;
+  --hand: #eef2ff;
+  --sec: #a5b4fc;
+  --bezel: #4338ca;
+  --bezel-fill: #1e1b4b;
+  --num: #eef2ff;
+  --accent: #a5b4fc;
+  --lcd-bg: #07091a;
+  --lcd-on: #c7d2fe;
+  --lcd-off: rgba(199, 210, 254, 0.04);
+  --lcd-frame: #3730a3;
+}
+:host([data-face="hybrid-chrono"]) {
+  --pat-title-bg: linear-gradient(135deg, #44403c 0%, #292524 55%, #1c1917 100%);
+  --pat-title-accent: #e7e5e4;
+  --clock-bg: #1c1917;
+  --face: #faf7f2;
+  --mark: #292524;
+  --hand: #1c1917;
+  --sec: #b91c1c;
+  --bezel: #a8a29e;
+  --bezel-fill: #44403c;
+  --num: #1c1917;
+  --accent: #b91c1c;
+  --lcd-bg: #1c1917;
+  --lcd-on: #f5f5f4;
+  --lcd-off: rgba(245, 245, 244, 0.05);
+  --lcd-frame: #44403c;
+}
+:host([data-face="hybrid-radar"]) {
+  --pat-title-bg: linear-gradient(135deg, #166534 0%, #14532d 55%, #022c22 100%);
+  --pat-title-accent: #86efac;
+  --clock-bg: #022c22;
+  --face: #03180f;
+  --mark: #4ade80;
+  --hand: #bbf7d0;
+  --sec: #4ade80;
+  --bezel: #166534;
+  --bezel-fill: #052e16;
+  --num: #bbf7d0;
+  --accent: #4ade80;
+  --lcd-bg: #04140c;
+  --lcd-on: #86efac;
+  --lcd-off: rgba(134, 239, 172, 0.04);
+  --lcd-frame: #166534;
+}
+:host([data-face="hybrid-sakura"]) {
+  --pat-title-bg: linear-gradient(135deg, #be185d 0%, #9d174d 55%, #4c0519 100%);
+  --pat-title-accent: #fbcfe8;
+  --clock-bg: #3b0618;
+  --face: #4a1942;
+  --mark: #fce7f3;
+  --hand: #fff1f2;
+  --sec: #fb7185;
+  --bezel: #f9a8d4;
+  --bezel-fill: #831843;
+  --num: #fff1f2;
+  --accent: #f9a8d4;
+  --lcd-bg: #3b0a22;
+  --lcd-on: #ff8ec8;
+  --lcd-off: rgba(255, 142, 200, 0.04);
+  --lcd-frame: #9d174d;
+}
+:host([data-face="hybrid-orbit"]) {
+  --pat-title-bg: linear-gradient(135deg, #1e3a8a 0%, #312e81 55%, #1e1b4b 100%);
+  --pat-title-accent: #c7d2fe;
+  --clock-bg: #07091a;
+  --face: #0c1028;
+  --mark: #c7d2fe;
+  --hand: #eef2ff;
+  --sec: #fbbf24;
+  --bezel: #4338ca;
+  --bezel-fill: #1e1b4b;
+  --num: #eef2ff;
+  --accent: #a5b4fc;
+  --lcd-bg: #07091a;
+  --lcd-on: #fde68a;
+  --lcd-off: rgba(253, 230, 138, 0.04);
+  --lcd-frame: #3730a3;
+}
+:host([data-face="hybrid-deco"]) {
+  --pat-title-bg: linear-gradient(135deg, #b45309 0%, #78350f 55%, #1c1408 100%);
+  --pat-title-accent: #fde68a;
+  --clock-bg: #1c1408;
+  --face: #2a1b10;
+  --mark: #fde68a;
+  --hand: #fffbeb;
+  --sec: #f59e0b;
+  --bezel: #d97706;
+  --bezel-fill: #451a03;
+  --num: #fffbeb;
+  --accent: #fbbf24;
+  --lcd-bg: #1c1408;
+  --lcd-on: #fde68a;
+  --lcd-off: rgba(253, 230, 138, 0.04);
+  --lcd-frame: #92400e;
+}
+
+:host([data-face="lcd-sharp"]) {
+  --pat-title-bg: linear-gradient(135deg, #9aa0a8 0%, #6b7280 55%, #374151 100%);
+  --pat-title-accent: #1f2937;
+  --clock-bg: #d5d8de;
+  color: #1f2937;
+  --accent: #4b5563;
+  --lcd-bg: #c9d0b4;
+  --lcd-on: #1a2114;
+  --lcd-off: rgba(26, 33, 20, 0.06);
+  --lcd-frame: #9aa1ab;
+}
+:host([data-face="lcd-sharp-black"]) {
+  --pat-title-bg: linear-gradient(135deg, #27272a 0%, #18181b 55%, #09090b 100%);
+  --pat-title-accent: #d4d4d8;
+  --clock-bg: #09090b;
+  --accent: #a3e635;
+  --lcd-bg: #121816;
+  --lcd-on: #b6f5a8;
+  --lcd-off: rgba(182, 245, 168, 0.04);
+  --lcd-frame: #3f3f46;
+}
+:host([data-face="sharp-silver"]) {
+  --pat-title-bg: linear-gradient(135deg, #94a3b8 0%, #475569 55%, #1e293b 100%);
+  --pat-title-accent: #e2e8f0;
+  --clock-bg: #1e293b;
+  --face: #f8fafc;
+  --mark: #334155;
+  --hand: #0f172a;
+  --sec: #b91c1c;
+  --bezel: #cbd5e1;
+  --bezel-fill: #64748b;
+  --num: #0f172a;
+  --accent: #94a3b8;
+}
+:host([data-face="sharp-gold"]) {
+  --pat-title-bg: linear-gradient(135deg, #d6b07a 0%, #a16207 55%, #422006 100%);
+  --pat-title-accent: #fef3c7;
+  --clock-bg: #29200c;
+  --face: #f8ecd4;
+  --mark: #713f12;
+  --hand: #5c3b12;
+  --sec: #b45309;
+  --bezel: #eab308;
+  --bezel-fill: #854d0e;
+  --num: #5c3b12;
+  --accent: #eab308;
+}
+:host([data-face="sharp-black"]) {
+  --pat-title-bg: linear-gradient(135deg, #44403c 0%, #1c1917 55%, #0c0a09 100%);
+  --pat-title-accent: #fde68a;
+  --clock-bg: #0c0a09;
+  --face: #18181b;
+  --mark: #f5e6b8;
+  --hand: #fef3c7;
+  --sec: #f59e0b;
+  --bezel: #a8a29e;
+  --bezel-fill: #292524;
+  --num: #fef3c7;
+  --accent: #f5e6b8;
+}
+:host([data-face="hybrid-sharp"]) {
+  --pat-title-bg: linear-gradient(135deg, #71717a 0%, #3f3f46 55%, #18181b 100%);
+  --pat-title-accent: #e4e4e7;
+  --clock-bg: #18181b;
+  --face: #f4f4f5;
+  --mark: #27272a;
+  --hand: #18181b;
+  --sec: #dc2626;
+  --bezel: #a1a1aa;
+  --bezel-fill: #3f3f46;
+  --num: #18181b;
+  --accent: #a1a1aa;
+  --lcd-bg: #c9d0b4;
+  --lcd-on: #1a2114;
+  --lcd-off: rgba(26, 33, 20, 0.06);
+  --lcd-frame: #6b7058;
+}
+:host([data-face^="lcd-sharp"]) .lcd {
+  border-radius: 14px;
+  border-width: 10px;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35), 0 16px 32px rgba(0, 0, 0, 0.28);
+}
+:host([data-face="lcd-sharp"]) .seg-digit path.on,
+:host([data-face="lcd-sharp"]) .colon i,
+:host([data-face="hybrid-sharp"]) .seg-digit path.on,
+:host([data-face="hybrid-sharp"]) .colon i { filter: none; box-shadow: none; }
+:host([data-face^="lcd-sharp"]) .lcd-brand { letter-spacing: 0.42em; font-weight: 700; }
+.sharp-modes {
+  display: flex;
+  gap: 0.8rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  opacity: 0.55;
+}
+.sharp-logo { fill: var(--mark); font-size: 8px; letter-spacing: 0.28em; font-family: Arial, Helvetica, sans-serif; font-weight: 700; }
+.sharp-sub { fill: var(--mark); font-size: 4.2px; letter-spacing: 0.34em; font-family: Arial, Helvetica, sans-serif; opacity: 0.8; }
+
+:host([data-face="nixie"]) {
+  --pat-title-bg: linear-gradient(135deg, #9a3412 0%, #7c2d12 50%, #1c0a06 100%);
+  --pat-title-accent: #fdba74;
+  --clock-bg: #140804;
+  --accent: #ff6a1a;
+  --lcd-on: #ff8a3d;
+}
+
+:host([data-face="lcd-green"]) {
+  --pat-title-bg: linear-gradient(135deg, #166534 0%, #14532d 48%, #052e16 100%);
+  --pat-title-accent: #86efac;
+  --pat-title-shadow: 0 4px 15px rgba(6, 78, 59, 0.45);
+  --clock-bg: #03110b;
+  --accent: #8dff9a;
+  --lcd-bg: #062015;
+  --lcd-on: #b6ff9c;
+  --lcd-off: rgba(182, 255, 156, 0.04);
+  --lcd-frame: #145233;
+}
+
+:host([data-face="lcd-amber"]) {
+  --pat-title-bg: linear-gradient(135deg, #b45309 0%, #7c2d12 55%, #431407 100%);
+  --pat-title-accent: #fdba74;
+  --clock-bg: #140c04;
+  --accent: #ffb000;
+  --lcd-bg: #1c1004;
+  --lcd-on: #ffbf3c;
+  --lcd-off: rgba(255, 191, 60, 0.04);
+  --lcd-frame: #5a3a10;
+}
+
+:host([data-face="lcd-blue"]) {
+  --pat-title-bg: linear-gradient(135deg, #0369a1 0%, #0c4a6e 55%, #082f49 100%);
+  --pat-title-accent: #7dd3fc;
+  --clock-bg: #041018;
+  --accent: #7fd0ff;
+  --lcd-bg: #071826;
+  --lcd-on: #9ad7ff;
+  --lcd-off: rgba(154, 215, 255, 0.04);
+  --lcd-frame: #1a4568;
+}
+
+:host .pat-title {
+  margin: 0;
+}
+
+.clock-title-logo {
+  width: 1.35rem;
+  height: 1.35rem;
+  margin-right: 0.45rem;
+  vertical-align: -0.22rem;
+}
+
+.clock-page {
+  --clock-chrome: calc(var(--navbar-offset, 60px) + 20px);
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(ellipse at 50% 38%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 58%),
+    var(--clock-bg);
+}
+
+.clock-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: stretch;
+  padding: 0.7rem 0.85rem 0.9rem;
+}
+
+:host-context(body.pat-has-news-ticker) .clock-page {
+  --clock-chrome: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + 12px);
+}
+:host-context(body.pat-has-currency-ticker) .clock-page {
+  --clock-chrome: calc(var(--navbar-offset, 60px) + var(--currency-ticker-height, 40px) + 12px);
+}
+:host-context(body.pat-has-stock-ticker) .clock-page {
+  --clock-chrome: calc(var(--navbar-offset, 60px) + var(--stock-ticker-height, 40px) + 12px);
+}
+:host-context(body.pat-has-news-ticker.pat-has-currency-ticker) .clock-page {
+  --clock-chrome: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px) + 12px);
+}
+:host-context(body.pat-has-news-ticker.pat-has-stock-ticker) .clock-page {
+  --clock-chrome: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--stock-ticker-height, 40px) + 12px);
+}
+:host-context(body.pat-has-currency-ticker.pat-has-stock-ticker) .clock-page {
+  --clock-chrome: calc(var(--navbar-offset, 60px) + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px) + 12px);
+}
+:host-context(body.pat-has-news-ticker.pat-has-currency-ticker.pat-has-stock-ticker) .clock-page {
+  --clock-chrome: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px) + 12px);
+}
+
+.clock-stage {
+  order: 2;
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: 0.2rem;
+  container-type: size;
+}
+
+.watch {
+  position: relative;
+  width: min(100cqi, calc(100cqb - 3.2rem), 720px);
+  max-height: 100cqb;
+  text-align: center;
+  container-type: inline-size;
+}
+
+.dial-lcd {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.12rem;
+  width: 46%;
+  margin-top: 64%;
+  padding: 0.28rem 0.4rem 0.22rem;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  border-radius: 8px;
+  background: var(--lcd-bg);
+  border: 2px solid var(--lcd-frame);
+  box-shadow: inset 0 0 14px color-mix(in srgb, var(--lcd-on) 18%, transparent);
+}
+.dial-lcd .seg-digit { width: 1.35rem; }
+.dial-lcd .colon {
+  width: 0.38rem;
+  height: 1.7rem;
+  gap: 0.32rem;
+}
+.dial-lcd .colon i {
+  width: 0.28rem;
+  height: 0.28rem;
+}
+:host([data-face="hybrid-night"]) .dial-lcd { margin-top: 30%; width: 40%; }
+:host([data-face="hybrid-chrono"]) .dial-lcd { margin-top: 74%; width: 52%; }
+:host([data-face="hybrid-radar"]) .dial-lcd { margin-top: 50%; width: 36%; }
+:host([data-face="hybrid-sakura"]) .dial-lcd { margin-top: 68%; width: 44%; }
+:host([data-face="hybrid-orbit"]) .dial-lcd { margin-top: 56%; width: 38%; }
+:host([data-face="hybrid-deco"]) .dial-lcd { margin-top: 72%; width: 42%; }
+
+.watch svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.4));
+}
+
+.wash-in { stop-color: var(--wash-in, var(--face)); }
+.wash-out { stop-color: var(--wash-out, var(--face)); }
+.bezel { fill: var(--bezel-fill); stroke: var(--bezel); stroke-width: 7; }
+.dial-face { fill: var(--face); }
+:host([data-face^="burst-"]) .dial-ring,
+:host([data-face^="chrono-"]) .dial-ring,
+:host([data-face^="diver-"]) .dial-ring,
+:host([data-face^="dress-"]) .dial-ring,
+:host([data-face="gousset"]) .dial-ring { opacity: 0.2; }
+.burst-disk { fill: url(#sunburstGrad); }
+.burst-in { stop-color: var(--burst-in); }
+.burst-mid { stop-color: var(--burst-mid); }
+.burst-out { stop-color: var(--burst-out); }
+.idx-core { stop-color: var(--index, #f6f1e8); }
+.idx-edge { stop-color: var(--index-edge, #8a8074); }
+.burst-rays line { stroke: var(--burst-ray, rgba(255, 255, 255, 0.2)); stroke-width: 0.35; opacity: 0.55; }
+.burst-rays line.ray-strong { stroke-width: 0.7; opacity: 0.9; }
+.burst-sheen { fill: #fff; opacity: 0.16; }
+.idx { fill: url(#indexMetal); }
+.idx-shadow { fill: rgba(0, 0, 0, 0.28); }
+.tick-min { stroke: color-mix(in srgb, var(--mark) 55%, transparent); stroke-width: 0.45; }
+.railroad circle { fill: none; stroke: var(--mark); stroke-width: 0.7; opacity: 0.55; }
+.chrono-mark { fill: var(--mark); font-size: 4.6px; letter-spacing: 0.28em; font-family: ui-sans-serif, system-ui, sans-serif; opacity: 0.8; }
+.sub-well { fill: rgba(0, 0, 0, 0.28); }
+.sub-face { fill: color-mix(in srgb, var(--burst-mid, #ddd) 72%, white); stroke: rgba(0, 0, 0, 0.28); stroke-width: 0.45; }
+.sub-tick { stroke: var(--mark); stroke-width: 0.55; }
+.sub-hand { stroke: var(--hand); stroke-width: 0.95; stroke-linecap: round; }
+.sub-cap { fill: var(--hand); }
+.dive-num { fill: var(--dive-ink, #1c1917); font-size: 4.8px; font-weight: 700; font-family: ui-sans-serif, system-ui, sans-serif; }
+.dive-pip { fill: var(--dive-ink, #1c1917); }
+.lcd.led,
+.lcd.module { max-width: 720px; }
+.lcd.led { border-radius: 42px; border-width: 10px; }
+.mod-day {
+  align-self: flex-start;
+  margin-left: 6%;
+  color: var(--lcd-on);
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: clamp(1rem, 2.6vw, 1.6rem);
+}
+.mod-sec {
+  align-self: flex-end;
+  margin-bottom: 0.45rem;
+  color: var(--lcd-on);
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  font-size: clamp(1.3rem, 3.4vw, 2.2rem);
+}
+:host([data-face="lcd-module"]) .seg-digit path.on,
+:host([data-face="lcd-module"]) .colon i,
+:host([data-face="lcd-dive"]) .seg-digit path.on,
+:host([data-face="lcd-dive"]) .colon i { filter: none; box-shadow: none; }
+:host([data-face="lcd-dive"]) .seg-digit { width: min(15vw, 104px); }
+:host([data-face="aurora"]) .dial-face,
+:host([data-face="constellation"]) .dial-face { fill: url(#clockWash); }
+
+.guilloche circle { fill: none; stroke: color-mix(in srgb, var(--mark) 35%, var(--face)); stroke-width: 0.55; }
+.aurora circle { fill: none; stroke: color-mix(in srgb, var(--sec) 55%, transparent); stroke-width: 0.8; }
+.aurora rect { fill: var(--sec); filter: drop-shadow(0 0 2px var(--sec)); }
+.skeleton circle,
+.skeleton path { fill: none; stroke: var(--mark); stroke-width: 1.15; }
+.skeleton circle:nth-of-type(n+3) { stroke-width: 1.6; }
+.deco circle { fill: none; stroke: var(--mark); stroke-width: 0.7; }
+.deco polygon { fill: var(--mark); }
+.deco polygon.cardinal { fill: var(--sec); }
+.constellation polyline { fill: none; stroke: color-mix(in srgb, var(--accent) 70%, white); stroke-width: 0.45; opacity: 0.7; }
+.constellation circle { fill: #fff; filter: drop-shadow(0 0 1.5px #fff); }
+.bau-dot { fill: #18181b; }
+.bau-0 { fill: #e11d48; }
+.bau-3 { fill: #eab308; }
+.bau-6 { fill: #2563eb; }
+.bau-9 { fill: #18181b; }
+.regulator .reg-well { fill: #e7e5e4; stroke: #1c1917; stroke-width: 0.6; }
+.regulator .reg-face { fill: #faf7f2; }
+.regulator text { fill: #1c1917; font-family: ui-monospace, monospace; }
+.regulator line { stroke: #1c1917; stroke-width: 1.3; stroke-linecap: round; }
+.regulator .reg-cap { fill: #b91c1c; stroke: none; }
+.motif .ring { fill: none; stroke: var(--mark); stroke-width: 0.9; opacity: 0.7; }
+.motif .dot { fill: var(--mark); }
+.motif .card { fill: var(--sec); }
+.motif .baton { fill: var(--mark); }
+.motif .petal { fill: var(--accent); opacity: 0.9; }
+.motif .moon { fill: #e4e4e7; }
+.motif .shade { fill: #18181b; }
+.motif .pistil { fill: #fde68a; }
+.motif .sun { fill: color-mix(in srgb, var(--accent) 28%, transparent); }
+.motif .ray { stroke: var(--accent); stroke-width: 1.15; opacity: 0.8; }
+.motif .glowdot { fill: var(--sec); }
+.motif .grid { stroke: var(--accent); stroke-width: 0.6; opacity: 0.45; }
+.motif .pixel { fill: var(--accent); }
+.motif .glass { stroke: none; }
+:host([data-face="cathedral"]) .motif .glass:nth-child(6n+1) { fill: #7f1d1d; }
+:host([data-face="cathedral"]) .motif .glass:nth-child(6n+2) { fill: #a16207; }
+:host([data-face="cathedral"]) .motif .glass:nth-child(6n+3) { fill: #166534; }
+:host([data-face="cathedral"]) .motif .glass:nth-child(6n+4) { fill: #1d4ed8; }
+:host([data-face="cathedral"]) .motif .glass:nth-child(6n+5) { fill: #6d28d9; }
+:host([data-face="cathedral"]) .motif .glass:nth-child(6n+6) { fill: #9a3412; }
+.motif .blip { fill: var(--sec); }
+.sweep path { fill: var(--sec); opacity: 0.28; }
+.motif .vein { fill: none; stroke: color-mix(in srgb, var(--mark) 35%, var(--accent)); stroke-width: 1.3; opacity: 0.55; }
+.motif .enso { fill: none; stroke: var(--mark); stroke-width: 2.6; stroke-linecap: round; }
+.motif .brush { stroke: var(--mark); stroke-width: 3.2; stroke-linecap: round; opacity: 0.85; }
+.motif .trace { stroke: var(--accent); stroke-width: 1.05; opacity: 0.85; }
+.motif .pad { fill: var(--sec); }
+.motif .crater { fill: none; stroke: color-mix(in srgb, var(--mark) 70%, white); stroke-width: 0.8; }
+.motif .ember { fill: var(--accent); opacity: 0.28; }
+.motif .tongue { fill: var(--sec); opacity: 0.82; }
+.motif .arc { fill: none; stroke-width: 5.5; stroke-linecap: butt; }
+:host([data-face="prism"]) .motif .arc:nth-child(6n+1) { stroke: #f43f5e; }
+:host([data-face="prism"]) .motif .arc:nth-child(6n+2) { stroke: #f97316; }
+:host([data-face="prism"]) .motif .arc:nth-child(6n+3) { stroke: #eab308; }
+:host([data-face="prism"]) .motif .arc:nth-child(6n+4) { stroke: #22c55e; }
+:host([data-face="prism"]) .motif .arc:nth-child(6n+5) { stroke: #38bdf8; }
+:host([data-face="prism"]) .motif .arc:nth-child(6n+6) { stroke: #a78bfa; }
+.motif .marker { fill: var(--sec); }
+.motif .leaf { fill: var(--accent); opacity: 0.9; }
+.motif .lite { fill: #faf7f2; }
+.motif .dark { fill: #1c1917; }
+.motif .orbit { fill: none; stroke: var(--mark); stroke-width: 0.7; opacity: 0.75; }
+.motif .planet { fill: #fbbf24; }
+.motif .planet.alt { fill: #38bdf8; }
+.motif .planet.far { fill: #fb7185; }
+.motif .rose { fill: var(--sec); }
+.motif .groove { fill: none; stroke: color-mix(in srgb, var(--mark) 50%, transparent); stroke-width: 0.65; }
+.motif .label { fill: var(--accent); }
+.motif .disk { fill: var(--accent); opacity: 0.9; }
+.motif .bite { fill: var(--face); }
+.motif .pulse { fill: none; stroke: var(--sec); stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
+:host([data-face="cathedral"]) .dial-ring,
+:host([data-face="prism"]) .dial-ring,
+:host([data-face="chess"]) .dial-ring,
+:host([data-face="radar"]) .dial-ring { opacity: 0; }
+:host([data-face="ink"]) .hand.hour line { stroke-width: 5.4; }
+:host([data-face="arcade"]) .hand line { stroke-linecap: square; }
+:host([data-face="aviator"]) .hand.hour line { stroke-width: 5.2; }
+:host([data-face="radar"]) .hand.second line { stroke-width: 1.7; }
+.dial-ring { fill: none; stroke: var(--mark); stroke-width: 0.6; opacity: 0.35; }
+.chapter { fill: none; stroke: var(--sec); stroke-width: 1.2; opacity: 0.55; }
+.crown { fill: var(--bezel); }
+.tick { stroke: var(--mark); stroke-width: 1.1; stroke-linecap: round; }
+.tick.major { stroke-width: 2.2; }
+.numeral { fill: var(--num); font-weight: 600; }
+.subread { fill: var(--num); font-family: ui-monospace, monospace; font-weight: 650; }
+.hand line { stroke-linecap: round; }
+.hand.hour line { stroke: var(--hand); stroke-width: 4.2; }
+.hand.minute line { stroke: var(--hand); stroke-width: 2.8; }
+:host([data-face="bauhaus"]) .hand.hour line { stroke-width: 6.5; }
+:host([data-face="skeleton"]) .hand.hour line,
+:host([data-face="skeleton"]) .hand.minute line { stroke-width: 1.5; }
+:host([data-face="guilloche"]) .hand.hour line,
+:host([data-face="guilloche"]) .hand.minute line { stroke: #1d4ed8; }
+.hand.second line { stroke: var(--sec); stroke-width: 1.15; }
+:host([data-face^="quartz"]) .tick.major { stroke-width: 3.2; }
+:host([data-face^="quartz"]) .hand.second line { stroke-width: 1.35; }
+.quartz-mark { fill: var(--mark); font-size: 5px; letter-spacing: 0.22em; font-family: ui-sans-serif, system-ui, sans-serif; opacity: 0.7; }
+.date-win rect { fill: #fff; stroke: #1c1917; stroke-width: 0.5; }
+.date-win text { fill: #1c1917; font-size: 8px; font-family: ui-monospace, monospace; font-weight: 700; }
+:host([data-face="lcd-light"]) .seg-digit path.on,
+:host([data-face="lcd-light"]) .colon i { filter: none; box-shadow: none; }
+:host([data-face="lcd-light"]) .lcd { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35), 0 12px 28px rgba(0, 0, 0, 0.18); border-radius: 10px; }
+.cap { fill: var(--sec); stroke: var(--face); stroke-width: 1; }
+
+.clock-date,
+.clock-zone {
+  margin: 0.12rem 0 0;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+.clock-date { font-size: 0.95rem; }
+.dial-date {
+  fill: var(--num, var(--mark));
+  font-size: 6.4px;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-weight: 650;
+}
+.clock-zone { margin-top: 0.15rem; font-size: 0.82rem; opacity: 0.72; }
+
+.lcd {
+  width: max-content;
+  max-width: min(100cqi, 100%);
+  max-height: 100cqb;
+  min-height: 0;
+  margin: 0 auto;
+  padding: 1.6rem 1.2rem 1.3rem;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--lcd-on) 8%, transparent), transparent 30%),
+    var(--lcd-bg);
+  border: 3px solid var(--lcd-frame);
+  box-shadow:
+    inset 0 0 40px color-mix(in srgb, var(--lcd-on) 10%, transparent),
+    0 18px 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+}
+
+.lcd-brand {
+  align-self: flex-start;
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  color: var(--lcd-on);
+  opacity: 0.7;
+}
+
+.lcd-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.seg-digit {
+  width: min(8cqb, 9cqi, 58px);
+  height: auto;
+  overflow: visible;
+}
+.seg-digit path { fill: var(--lcd-off); }
+.seg-digit path.on {
+  fill: var(--lcd-on);
+  filter: drop-shadow(0 0 4px var(--lcd-on));
+}
+
+.colon {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.7rem;
+  width: 0.7rem;
+  height: min(14cqb, 16cqi, 92px);
+  opacity: 0.25;
+}
+.colon.on { opacity: 1; }
+.colon i {
+  display: block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--lcd-on);
+  box-shadow: 0 0 8px var(--lcd-on);
+}
+
+.lcd-frac {
+  align-self: flex-end;
+  margin-bottom: 0.4rem;
+  color: var(--lcd-on);
+  font-family: ui-monospace, monospace;
+  font-size: clamp(1.2rem, 3vw, 2rem);
+  text-shadow: 0 0 8px var(--lcd-on);
+}
+
+.lcd-sub {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--lcd-on);
+  opacity: 0.85;
+  font-size: 0.95rem;
+  text-transform: capitalize;
+}
+.lcd-zone { opacity: 0.75; text-transform: none; font-size: 0.82rem; }
+
+.nixie {
+  width: max-content;
+  max-width: min(100cqi, 100%);
+  max-height: 100cqb;
+  min-height: 0;
+  margin: 0 auto;
+  padding: 1.4rem 1.2rem 1.2rem;
+  border-radius: 28px;
+  background:
+    radial-gradient(ellipse at 50% 42%, #3a1a10, #140804 68%);
+  border: 3px solid #5c2a16;
+  box-shadow: inset 0 0 50px rgba(255, 80, 20, 0.18), 0 18px 40px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+}
+.nixie-brand {
+  align-self: flex-start;
+  letter-spacing: 0.32em;
+  font-size: 0.72rem;
+  color: #ffb080;
+  opacity: 0.75;
+}
+.nixie-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+.nixie-tube {
+  width: clamp(2.4rem, 8vw, 4.6rem);
+  height: clamp(3.6rem, 12vw, 6.4rem);
+  display: grid;
+  place-items: center;
+  border-radius: 46%;
+  background: radial-gradient(circle at 50% 42%, #4a2416, #140804 74%);
+  box-shadow: inset 0 0 16px rgba(255, 90, 20, 0.45), 0 8px 14px rgba(0, 0, 0, 0.35);
+  color: #ff7a2e;
+  font-family: "Times New Roman", Times, serif;
+  font-size: clamp(2rem, 6vw, 3.6rem);
+  line-height: 1;
+  text-shadow: 0 0 6px #ffd0a0, 0 0 16px #ff4d00;
+}
+.nixie-colon {
+  color: #ff7a2e;
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  opacity: 0.25;
+  text-shadow: 0 0 10px #ff4d00;
+}
+.nixie-colon.on { opacity: 1; }
+.nixie-frac,
+.nixie-sub {
+  color: #ffb080;
+}
+.nixie-frac { font-family: ui-monospace, monospace; font-size: 1.4rem; align-self: flex-end; }
+.nixie-sub {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.95rem;
+  text-transform: capitalize;
+}
+
+.clock-page.is-ringing .watch svg,
+.clock-page.is-ringing .lcd {
+  animation: ring-pulse 1s ease-in-out infinite;
+}
+
+@keyframes ring-pulse {
+  0%, 100% { filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.4)); }
+  50% { filter: drop-shadow(0 0 18px var(--accent)); }
+}
+
+.banner {
+  margin: 0.4rem auto 0;
+  width: min(96vw, 820px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 18%, #111);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.banner button,
+.dock button,
+.editor button {
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, #666);
+  background: transparent;
+  color: inherit;
+  border-radius: 999px;
+  padding: 0.14rem 0.46rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.dock button.primary,
+.editor button.primary,
+.banner button {
+  background: var(--accent);
+  color: #1a1208;
+  border-color: transparent;
+  font-weight: 650;
+}
+.dock button.on,
+.face-row .swatch.on {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.dock {
+  order: 1;
+  width: auto;
+  min-height: 0;
+  max-height: 100%;
+  margin: 0;
+  overflow: auto;
+  padding: 0.7rem 0.75rem 0.8rem;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--clock-bg) 78%, #000);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.fill-toggle,
+.fill-exit {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: inherit;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 999px;
+  padding: 0.14rem 0.5rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.fill-toggle { margin-bottom: 0.55rem; }
+.fill-exit {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  z-index: 3;
+}
+
+:host-context(body.clock-fill) {
+  position: fixed;
+  inset: 0;
+  z-index: 1040;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+:host-context(body.clock-fill) .pat-title,
+:host-context(body.clock-fill) .dock { display: none; }
+:host-context(body.clock-fill) .clock-body {
+  display: block;
+  height: 100%;
+  padding: 0;
+}
+:host-context(body.clock-fill) .clock-stage {
+  height: 100%;
+}
+:host-context(body.clock-fill) .watch,
+:host-context(body.clock-fill) .lcd,
+:host-context(body.clock-fill) .nixie,
+:host-context(body.clock-fill) .board,
+:host-context(body.clock-fill) .smart,
+:host-context(body.clock-fill) .resin,
+:host-context(body.clock-fill) .round-dig,
+:host-context(body.clock-fill) .ultra {
+  width: min(94cqi, calc(100cqb - 2.8rem), 92vmin);
+  max-height: 100%;
+}
+:host-context(body.clock-fill) .board,
+:host-context(body.clock-fill) .lcd,
+:host-context(body.clock-fill) .nixie {
+  width: max-content;
+  max-width: min(78cqi, calc(100cqb - 2rem), 36rem);
+}
+
+.dock-modes,
+.face-row,
+.presets,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+}
+
+.dock-modes { margin-bottom: 0.55rem; }
+.dock-modes button[aria-selected="true"] {
+  background: var(--accent);
+  color: #1a1208;
+  border-color: transparent;
+}
+
+.face-row { margin-bottom: 0.45rem; }
+.dock .swatch {
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: transparent;
+  overflow: hidden;
+  line-height: 0;
+}
+.dock .swatch[data-face^="lcd"],
+.dock .swatch[data-face="nixie"] {
+  border-radius: 5px;
+  width: 2rem;
+}
+.swatch svg { width: 100%; height: 100%; display: block; }
+.swatch .mb { fill: #3a3228; }
+.swatch .mf { fill: #f4f0e6; }
+.swatch .ticks line { stroke: #1c1915; stroke-width: 0.9; }
+.swatch .mh,
+.swatch .mm { stroke: #1c1915; stroke-linecap: round; }
+.swatch .mh { stroke-width: 1.5; }
+.swatch .mm { stroke-width: 1.05; }
+.swatch .cap { fill: #c4352b; }
+.swatch[data-face="roman"] .mb { fill: #6b4a22; }
+.swatch[data-face="roman"] .mf { fill: #f3e6c8; }
+.swatch[data-face="noir"] .mb { fill: #000; }
+.swatch[data-face="noir"] .mf { fill: #14161c; }
+.swatch[data-face="noir"] .ticks line,
+.swatch[data-face="noir"] .mh,
+.swatch[data-face="noir"] .mm { stroke: #e7e5e4; }
+.swatch[data-face="gold"] .mb { fill: #c4a35a; }
+.swatch[data-face="gold"] .mf { fill: #fff6d8; }
+.swatch[data-face="gold"] .ticks line,
+.swatch[data-face="gold"] .mh,
+.swatch[data-face="gold"] .mm { stroke: #5c4314; }
+.swatch[data-face="sport"] .mb { fill: #0e1624; }
+.swatch[data-face="sport"] .mf { fill: #24344c; }
+.swatch[data-face="sport"] .ticks line,
+.swatch[data-face="sport"] .mh,
+.swatch[data-face="sport"] .mm { stroke: #d5deea; }
+.swatch[data-face="minimal"] .mb { fill: #d4d4d4; }
+.swatch[data-face="minimal"] .mf { fill: #fafafa; }
+.swatch[data-face="minimal"] .ticks line { stroke-width: 0.6; }
+.swatch[data-face="aurora"] .mb { fill: #061018; }
+.swatch[data-face="aurora"] .mf { fill: #155e75; }
+.swatch[data-face="aurora"] .glow { fill: #5eead4; opacity: 0.55; }
+.swatch[data-face="aurora"] .ticks line,
+.swatch[data-face="aurora"] .mh,
+.swatch[data-face="aurora"] .mm { stroke: #ecfeff; }
+.swatch[data-face="skeleton"] .mb { fill: none; stroke: #d6c4a1; stroke-width: 1.3; }
+.swatch[data-face="skeleton"] .mf { fill: #12110f; }
+.swatch[data-face="skeleton"] .ticks line,
+.swatch[data-face="skeleton"] .mh,
+.swatch[data-face="skeleton"] .mm { stroke: #d6c4a1; }
+.swatch[data-face="deco"] .mb { fill: #d97706; }
+.swatch[data-face="deco"] .mf { fill: #f3e6c8; }
+.swatch[data-face="deco"] .ticks line,
+.swatch[data-face="deco"] .mh,
+.swatch[data-face="deco"] .mm { stroke: #9a3412; }
+.swatch[data-face="constellation"] .mb { fill: #1e1b4b; }
+.swatch[data-face="constellation"] .mf { fill: #070b18; }
+.swatch[data-face="constellation"] .stars { fill: #e0e7ff; }
+.swatch[data-face="constellation"] .ticks line,
+.swatch[data-face="constellation"] .mh,
+.swatch[data-face="constellation"] .mm { stroke: #c7d2fe; }
+.swatch[data-face="regulator"] .mb { fill: #44403c; }
+.swatch[data-face="regulator"] .mf { fill: #faf7f2; }
+.swatch[data-face="regulator"] .sub { fill: #fff; stroke: #44403c; stroke-width: 0.6; }
+.swatch[data-face="bauhaus"] .mb { fill: #18181b; }
+.swatch[data-face="bauhaus"] .mf { fill: #fafafa; }
+.swatch[data-face="bauhaus"] .wedges path:first-child { fill: #e11d48; }
+.swatch[data-face="bauhaus"] .wedges path:last-child { fill: #2563eb; }
+.swatch[data-face="guilloche"] .mb { fill: #1e3a8a; }
+.swatch[data-face="guilloche"] .mf { fill: #f7f1e4; }
+.swatch[data-face="guilloche"] .rings { stroke: #1d4ed8; stroke-width: 0.6; }
+.swatch[data-face="guilloche"] .mh,
+.swatch[data-face="guilloche"] .mm { stroke: #1d4ed8; }
+.swatch[data-face^="hybrid"] .ticks line,
+.swatch[data-face^="hybrid"] .mh,
+.swatch[data-face^="hybrid"] .mm { stroke: #f4fff8; }
+.swatch[data-face="hybrid-green"] .mb { fill: #1c3a28; }
+.swatch[data-face="hybrid-green"] .mf { fill: #10261c; }
+.swatch[data-face="hybrid-green"] .hybrid-win { fill: #04140c; stroke: #8dff9a; stroke-width: 0.4; }
+.swatch[data-face="hybrid-amber"] .mb { fill: #5a3a10; }
+.swatch[data-face="hybrid-amber"] .mf { fill: #24180c; }
+.swatch[data-face="hybrid-amber"] .hybrid-win { fill: #1c1004; stroke: #ffb000; stroke-width: 0.4; }
+.swatch[data-face="hybrid-blue"] .mb { fill: #1a4568; }
+.swatch[data-face="hybrid-blue"] .mf { fill: #0c1e30; }
+.swatch[data-face="hybrid-blue"] .hybrid-win { fill: #071826; stroke: #7fd0ff; stroke-width: 0.4; }
+.swatch .lcd-panel { fill: #062015; }
+.swatch .lcd-ink { fill: #b6ff9c; }
+.swatch[data-face="lcd-amber"] .lcd-panel { fill: #1c1004; }
+.swatch[data-face="lcd-amber"] .lcd-ink { fill: #ffbf3c; }
+.swatch[data-face="lcd-blue"] .lcd-panel { fill: #071826; }
+.swatch[data-face="lcd-blue"] .lcd-ink { fill: #9ad7ff; }
+.swatch[data-face="lcd-light"] .lcd-panel { fill: #c9d2b6; }
+.swatch[data-face="lcd-light"] .lcd-ink { fill: #1a2114; }
+.swatch[data-face="lcd-red"] .lcd-panel { fill: #2a0a0a; }
+.swatch[data-face="lcd-red"] .lcd-ink { fill: #ff6b6b; }
+.swatch[data-face="lcd-white"] .lcd-panel { fill: #18181b; }
+.swatch[data-face="lcd-white"] .lcd-ink { fill: #fafafa; }
+.swatch[data-face="lcd-pink"] .lcd-panel { fill: #3b0a22; }
+.swatch[data-face="lcd-pink"] .lcd-ink { fill: #ff8ec8; }
+.swatch[data-face="lcd-sharp"] .lcd-panel { fill: #c9d0b4; }
+.swatch[data-face="lcd-sharp"] .lcd-ink { fill: #1a2114; }
+.swatch[data-face="lcd-sharp-black"] .lcd-panel { fill: #121816; }
+.swatch[data-face="lcd-sharp-black"] .lcd-ink { fill: #b6f5a8; }
+.swatch[data-face="sharp-silver"] .mb { fill: #cbd5e1; }
+.swatch[data-face="sharp-silver"] .mf { fill: #f8fafc; }
+.swatch[data-face="sharp-silver"] .cap { fill: #b91c1c; }
+.swatch[data-face="sharp-gold"] .mb { fill: #eab308; }
+.swatch[data-face="sharp-gold"] .mf { fill: #f8ecd4; }
+.swatch[data-face="sharp-gold"] .ticks line,
+.swatch[data-face="sharp-gold"] .mh,
+.swatch[data-face="sharp-gold"] .mm { stroke: #713f12; }
+.swatch[data-face="sharp-black"] .mb { fill: #a8a29e; }
+.swatch[data-face="sharp-black"] .mf { fill: #18181b; }
+.swatch[data-face="sharp-black"] .ticks line,
+.swatch[data-face="sharp-black"] .mh,
+.swatch[data-face="sharp-black"] .mm { stroke: #f5e6b8; }
+.swatch[data-face="hybrid-sharp"] .mb { fill: #a1a1aa; }
+.swatch[data-face="hybrid-sharp"] .mf { fill: #f4f4f5; }
+.swatch[data-face="hybrid-sharp"] .hybrid-win { fill: #c9d0b4; stroke: #1a2114; stroke-width: 0.4; }
+.swatch[data-face="quartz"] .mb { fill: #a1a1aa; }
+.swatch[data-face="quartz"] .mf { fill: #f4f4f5; }
+.swatch[data-face="quartz"] .cap { fill: #dc2626; }
+.swatch[data-face="quartz-date"] .mb { fill: #a8a29e; }
+.swatch[data-face="quartz-date"] .mf { fill: #faf7f2; }
+.swatch[data-face="quartz-date"] .cap { fill: #b91c1c; }
+.swatch[data-face="quartz-black"] .mb { fill: #27272a; }
+.swatch[data-face="quartz-black"] .mf { fill: #18181b; }
+.swatch[data-face="quartz-black"] .ticks line,
+.swatch[data-face="quartz-black"] .mh,
+.swatch[data-face="quartz-black"] .mm { stroke: #e4e4e7; }
+.swatch[data-face="quartz-gold"] .mb { fill: #eab308; }
+.swatch[data-face="quartz-gold"] .mf { fill: #f8ecd4; }
+.swatch[data-face="quartz-gold"] .ticks line,
+.swatch[data-face="quartz-gold"] .mh,
+.swatch[data-face="quartz-gold"] .mm { stroke: #713f12; }
+.swatch[data-face="quartz-field"] .mb { fill: #84cc16; }
+.swatch[data-face="quartz-field"] .mf { fill: #3f4f2a; }
+.swatch[data-face="quartz-field"] .ticks line,
+.swatch[data-face="quartz-field"] .mh,
+.swatch[data-face="quartz-field"] .mm { stroke: #ecfccb; }
+.swatch[data-face="quartz-serif"] .ticks,
+.swatch[data-face="quartz-mono"] .ticks,
+.swatch[data-face="quartz-script"] .ticks,
+.swatch[data-face="quartz-narrow"] .ticks,
+.swatch[data-face="quartz-gothic"] .ticks,
+.swatch[data-face="quartz-heavy"] .ticks { display: none; }
+.swatch .mini-num { font-size: 7px; font-weight: 650; }
+.swatch[data-face="quartz-serif"] .mb { fill: #d6b07a; }
+.swatch[data-face="quartz-serif"] .mf { fill: #f6efe2; }
+.swatch[data-face="quartz-serif"] .mini-num,
+.swatch[data-face="quartz-serif"] .mh,
+.swatch[data-face="quartz-serif"] .mm { fill: #3f2a16; stroke: #3f2a16; font-family: Georgia, "Palatino Linotype", serif; }
+.swatch[data-face="quartz-mono"] .mb { fill: #166534; }
+.swatch[data-face="quartz-mono"] .mf { fill: #0c1f16; }
+.swatch[data-face="quartz-mono"] .mini-num,
+.swatch[data-face="quartz-mono"] .mh,
+.swatch[data-face="quartz-mono"] .mm { fill: #bbf7d0; stroke: #bbf7d0; font-family: Consolas, monospace; }
+.swatch[data-face="quartz-script"] .mb { fill: #fb7185; }
+.swatch[data-face="quartz-script"] .mf { fill: #fff1f2; }
+.swatch[data-face="quartz-script"] .mini-num,
+.swatch[data-face="quartz-script"] .mh,
+.swatch[data-face="quartz-script"] .mm { fill: #9f1239; stroke: #9f1239; font-family: "Segoe Script", cursive; }
+.swatch[data-face="quartz-narrow"] .mb { fill: #94a3b8; }
+.swatch[data-face="quartz-narrow"] .mf { fill: #e2e8f0; }
+.swatch[data-face="quartz-narrow"] .mini-num,
+.swatch[data-face="quartz-narrow"] .mh,
+.swatch[data-face="quartz-narrow"] .mm { fill: #020617; stroke: #020617; font-family: Bahnschrift, "Arial Narrow", sans-serif; }
+.swatch[data-face="quartz-gothic"] .mb { fill: #cbd5e1; }
+.swatch[data-face="quartz-gothic"] .mf { fill: #f8fafc; }
+.swatch[data-face="quartz-gothic"] .mini-num,
+.swatch[data-face="quartz-gothic"] .mh,
+.swatch[data-face="quartz-gothic"] .mm { fill: #020617; stroke: #020617; font-family: "Century Gothic", sans-serif; }
+.swatch[data-face="quartz-heavy"] .mb { fill: #c2410c; }
+.swatch[data-face="quartz-heavy"] .mf { fill: #1c1917; }
+.swatch[data-face="quartz-heavy"] .mini-num,
+.swatch[data-face="quartz-heavy"] .mh,
+.swatch[data-face="quartz-heavy"] .mm { fill: #fff7ed; stroke: #fff7ed; font-family: Impact, "Arial Black", sans-serif; }
+.swatch[data-face="burst-silver"] { --mi: #f7f8fa; --mm: #c9ced6; --mo: #8d939e; }
+.swatch[data-face="burst-green"] { --mi: #7ddec0; --mm: #14915c; --mo: #063824; }
+.swatch[data-face="burst-blue"] { --mi: #d7effc; --mm: #4b93d4; --mo: #1a4e86; }
+.swatch[data-face="burst-sand"] { --mi: #fff8ee; --mm: #e7d0a4; --mo: #b89058; }
+.swatch[data-face="burst-ink"] { --mi: #2f8a5e; --mm: #0e4a32; --mo: #041910; }
+.swatch[data-face="chrono-green"] { --mi: #7ddec0; --mm: #14915c; --mo: #063824; }
+.swatch[data-face="chrono-silver"] { --mi: #f7f8fa; --mm: #c9ced6; --mo: #8d939e; }
+.swatch[data-face="gousset"] { --mi: #fffdf8; --mm: #f0e9dc; --mo: #d9d0c2; }
+.swatch[data-face="burst-silver"] .mb,
+.swatch[data-face="chrono-silver"] .mb,
+.swatch[data-face="gousset"] .mb { fill: #8b919c; }
+.swatch[data-face="burst-green"] .mb,
+.swatch[data-face="chrono-green"] .mb { fill: #145c3c; }
+.swatch[data-face="burst-blue"] .mb { fill: #1e4f86; }
+.swatch[data-face="burst-sand"] .mb { fill: #a68448; }
+.swatch[data-face="burst-ink"] .mb { fill: #123528; }
+.swatch[data-face="burst-green"] .ticks line,
+.swatch[data-face="burst-green"] .mh,
+.swatch[data-face="burst-green"] .mm,
+.swatch[data-face="chrono-green"] .ticks line,
+.swatch[data-face="chrono-green"] .mh,
+.swatch[data-face="chrono-green"] .mm,
+.swatch[data-face="burst-blue"] .ticks line,
+.swatch[data-face="burst-blue"] .mh,
+.swatch[data-face="burst-blue"] .mm,
+.swatch[data-face="burst-ink"] .ticks line,
+.swatch[data-face="burst-ink"] .mh,
+.swatch[data-face="burst-ink"] .mm { stroke: #f6f1e4; }
+.swatch[data-face="burst-sand"] .ticks line,
+.swatch[data-face="burst-sand"] .mh,
+.swatch[data-face="burst-sand"] .mm { stroke: #4a3824; }
+.swatch .mini-subs { fill: color-mix(in srgb, var(--mi, #fff) 70%, white); stroke: rgba(0, 0, 0, 0.28); stroke-width: 0.35; }
+.swatch[data-face="diver-blue"] { --mi: #60a5fa; --mm: #1d4ed8; --mo: #0c245c; }
+.swatch[data-face="chrono-gold"] { --mi: #ffe7a3; --mm: #e0b044; --mo: #9a7018; }
+.swatch[data-face="chrono-slate"] { --mi: #e5e7eb; --mm: #6b7280; --mo: #374151; }
+.swatch[data-face="chrono-blue"] { --mi: #bfdbfe; --mm: #3b82f6; --mo: #1e3a8a; }
+.swatch[data-face="dress-navy"] { --mi: #5eead4; --mm: #0e7490; --mo: #083344; }
+.swatch[data-face="chrono-black"] { --mi: #3f3f46; --mm: #18181b; --mo: #09090b; }
+.swatch[data-face="diver-blue"] .mb,
+.swatch[data-face="chrono-blue"] .mb,
+.swatch[data-face="chrono-slate"] .mb { fill: #cbd5e1; }
+.swatch[data-face="chrono-gold"] .mb { fill: #a16207; }
+.swatch[data-face="dress-navy"] .mb,
+.swatch[data-face="chrono-black"] .mb { fill: #27272a; }
+.swatch[data-face="diver-blue"] .ticks line,
+.swatch[data-face="diver-blue"] .mh,
+.swatch[data-face="diver-blue"] .mm,
+.swatch[data-face="chrono-blue"] .ticks line,
+.swatch[data-face="chrono-blue"] .mh,
+.swatch[data-face="chrono-blue"] .mm,
+.swatch[data-face="chrono-slate"] .ticks line,
+.swatch[data-face="chrono-slate"] .mh,
+.swatch[data-face="chrono-slate"] .mm,
+.swatch[data-face="dress-navy"] .ticks line,
+.swatch[data-face="dress-navy"] .mh,
+.swatch[data-face="dress-navy"] .mm,
+.swatch[data-face="chrono-black"] .ticks line,
+.swatch[data-face="chrono-black"] .mh,
+.swatch[data-face="chrono-black"] .mm { stroke: #f8fafc; }
+.swatch[data-face="chrono-gold"] .ticks line,
+.swatch[data-face="chrono-gold"] .mh,
+.swatch[data-face="chrono-gold"] .mm { stroke: #3f2d0c; }
+.swatch[data-face="field-cream"] .mb { fill: #a8a29e; }
+.swatch[data-face="field-cream"] .mf { fill: #f6f1e4; }
+.swatch[data-face="field-cream"] .cap { fill: #dc2626; }
+.swatch[data-face="lcd-led"] .lcd-panel { fill: #111; }
+.swatch[data-face="lcd-led"] .lcd-ink { fill: #ff3b30; }
+.swatch[data-face="lcd-module"] .lcd-panel { fill: #d7ddd2; }
+.swatch[data-face="lcd-module"] .lcd-ink { fill: #1a1c18; }
+.swatch[data-face="lcd-dive"] .lcd-panel { fill: #c5cdc0; }
+.swatch[data-face="lcd-dive"] .lcd-ink { fill: #1c211c; }
+.swatch .nix-panel { fill: #1a0a06; stroke: #ff6a1a; stroke-width: 1; }
+.swatch .nix-digit { fill: #ff8a3d; font-size: 8px; font-family: Georgia, serif; }
+.swatch[data-face="marine"] .mb { fill: #c4a46a; }
+.swatch[data-face="marine"] .mf { fill: #10243f; }
+.swatch[data-face="marine"] .ticks line,
+.swatch[data-face="marine"] .mh,
+.swatch[data-face="marine"] .mm { stroke: #f3e6c4; }
+.swatch[data-face="rail"] .mb { fill: #1c1917; }
+.swatch[data-face="rail"] .mf { fill: #faf7f2; }
+.swatch[data-face="metro"] .mb { fill: #d6b07a; }
+.swatch[data-face="metro"] .mf { fill: #0f3d38; }
+.swatch[data-face="metro"] .ticks line,
+.swatch[data-face="metro"] .mh,
+.swatch[data-face="metro"] .mm { stroke: #d1fae5; }
+.swatch[data-face="obsidian"] .mb { fill: #27272a; }
+.swatch[data-face="obsidian"] .mf { fill: #18181b; }
+.swatch[data-face="obsidian"] .ticks line,
+.swatch[data-face="obsidian"] .mh,
+.swatch[data-face="obsidian"] .mm { stroke: #e4e4e7; }
+.swatch[data-face="sakura"] .mb { fill: #f9a8d4; }
+.swatch[data-face="sakura"] .mf { fill: #4a1942; }
+.swatch[data-face="sakura"] .ticks line,
+.swatch[data-face="sakura"] .mh,
+.swatch[data-face="sakura"] .mm { stroke: #fce7f3; }
+.swatch[data-face="desert"] .mb { fill: #ea580c; }
+.swatch[data-face="desert"] .mf { fill: #7c2d12; }
+.swatch[data-face="desert"] .ticks line,
+.swatch[data-face="desert"] .mh,
+.swatch[data-face="desert"] .mm { stroke: #ffedd5; }
+.swatch[data-face="abyss"] .mb { fill: #155e75; }
+.swatch[data-face="abyss"] .mf { fill: #042f2e; }
+.swatch[data-face="abyss"] .ticks line,
+.swatch[data-face="abyss"] .mh,
+.swatch[data-face="abyss"] .mm { stroke: #67e8f9; }
+.swatch[data-face="arcade"] .mb { fill: #e879f9; }
+.swatch[data-face="arcade"] .mf { fill: #2e1065; }
+.swatch[data-face="arcade"] .ticks line,
+.swatch[data-face="arcade"] .mh,
+.swatch[data-face="arcade"] .mm { stroke: #f5d0fe; }
+.swatch[data-face="cathedral"] .mb { fill: #a16207; }
+.swatch[data-face="cathedral"] .mf { fill: #241c16; }
+.swatch[data-face="cathedral"] .ticks line { stroke: #fde68a; }
+.swatch[data-face="radar"] .mb { fill: #166534; }
+.swatch[data-face="radar"] .mf { fill: #03180f; }
+.swatch[data-face="radar"] .ticks line,
+.swatch[data-face="radar"] .mh,
+.swatch[data-face="radar"] .mm { stroke: #4ade80; }
+.swatch[data-face="marble"] .mb { fill: #d6d3d1; }
+.swatch[data-face="marble"] .mf { fill: #f5f5f4; }
+.swatch[data-face="ink"] .mb { fill: #292524; }
+.swatch[data-face="ink"] .mf { fill: #f5f0e6; }
+.swatch[data-face="circuit"] .mb { fill: #0891b2; }
+.swatch[data-face="circuit"] .mf { fill: #06202a; }
+.swatch[data-face="circuit"] .ticks line,
+.swatch[data-face="circuit"] .mh,
+.swatch[data-face="circuit"] .mm { stroke: #67e8f9; }
+.swatch[data-face="lunar"] .mb { fill: #94a3b8; }
+.swatch[data-face="lunar"] .mf { fill: #cbd5e1; }
+.swatch[data-face="flame"] .mb { fill: #c2410c; }
+.swatch[data-face="flame"] .mf { fill: #2a1008; }
+.swatch[data-face="flame"] .ticks line,
+.swatch[data-face="flame"] .mh,
+.swatch[data-face="flame"] .mm { stroke: #fdba74; }
+.swatch[data-face="prism"] .mb { fill: #7c3aed; }
+.swatch[data-face="prism"] .mf { fill: #120a24; }
+.swatch[data-face="prism"] .ticks line { stroke: #e9d5ff; }
+.swatch[data-face="aviator"] .mb { fill: #a8a29e; }
+.swatch[data-face="aviator"] .mf { fill: #3f3428; }
+.swatch[data-face="aviator"] .ticks line,
+.swatch[data-face="aviator"] .mh,
+.swatch[data-face="aviator"] .mm { stroke: #fef3c7; }
+.swatch[data-face="forest"] .mb { fill: #4d7c0f; }
+.swatch[data-face="forest"] .mf { fill: #14532d; }
+.swatch[data-face="forest"] .ticks line,
+.swatch[data-face="forest"] .mh,
+.swatch[data-face="forest"] .mm { stroke: #dcfce7; }
+.swatch[data-face="chess"] .mb { fill: #a8a29e; }
+.swatch[data-face="chess"] .mf { fill: #292524; }
+.swatch[data-face="chess"] .ticks line,
+.swatch[data-face="chess"] .mh,
+.swatch[data-face="chess"] .mm { stroke: #fafaf9; }
+.swatch[data-face="orbit"] .mb { fill: #4338ca; }
+.swatch[data-face="orbit"] .mf { fill: #0c1028; }
+.swatch[data-face="orbit"] .ticks line,
+.swatch[data-face="orbit"] .mh,
+.swatch[data-face="orbit"] .mm { stroke: #c7d2fe; }
+.swatch[data-face="ripple"] .mb { fill: #0891b2; }
+.swatch[data-face="ripple"] .mf { fill: #083344; }
+.swatch[data-face="ripple"] .ticks line,
+.swatch[data-face="ripple"] .mh,
+.swatch[data-face="ripple"] .mm { stroke: #cffafe; }
+.swatch[data-face="gears"] .mb { fill: #a8a29e; }
+.swatch[data-face="gears"] .mf { fill: #292524; }
+.swatch[data-face="gears"] .ticks line,
+.swatch[data-face="gears"] .mh,
+.swatch[data-face="gears"] .mm { stroke: #f59e0b; }
+.swatch[data-face="compass"] .mb { fill: #1d4ed8; }
+.swatch[data-face="compass"] .mf { fill: #f8fafc; }
+.swatch[data-face="compass"] .cap { fill: #dc2626; }
+.swatch[data-face="vinyl"] .mb { fill: #3f3f46; }
+.swatch[data-face="vinyl"] .mf { fill: #18181b; }
+.swatch[data-face="vinyl"] .ticks line,
+.swatch[data-face="vinyl"] .mh,
+.swatch[data-face="vinyl"] .mm { stroke: #fb7185; }
+.swatch[data-face="eclipse"] .mb { fill: #b45309; }
+.swatch[data-face="eclipse"] .mf { fill: #0f172a; }
+.swatch[data-face="eclipse"] .cap { fill: #fbbf24; }
+.swatch[data-face="ecg"] .mb { fill: #166534; }
+.swatch[data-face="ecg"] .mf { fill: #052e16; }
+.swatch[data-face="ecg"] .ticks line,
+.swatch[data-face="ecg"] .mh,
+.swatch[data-face="ecg"] .mm { stroke: #4ade80; }
+.swatch[data-face="fan"] .mb { fill: #e11d48; }
+.swatch[data-face="fan"] .mf { fill: #881337; }
+.swatch[data-face="fan"] .ticks line,
+.swatch[data-face="fan"] .mh,
+.swatch[data-face="fan"] .mm { stroke: #ffe4e6; }
+.swatch[data-face="labyrinth"] .mb { fill: #ca8a04; }
+.swatch[data-face="labyrinth"] .mf { fill: #29200c; }
+.swatch[data-face="labyrinth"] .ticks line,
+.swatch[data-face="labyrinth"] .mh,
+.swatch[data-face="labyrinth"] .mm { stroke: #fde68a; }
+.swatch[data-face="hybrid-night"] .mb { fill: #4338ca; }
+.swatch[data-face="hybrid-night"] .mf { fill: #11142c; }
+.swatch[data-face="hybrid-night"] .ticks line,
+.swatch[data-face="hybrid-night"] .mh,
+.swatch[data-face="hybrid-night"] .mm { stroke: #e0e7ff; }
+.swatch[data-face="hybrid-night"] .hybrid-win { fill: #07091a; stroke: #a5b4fc; stroke-width: 0.4; }
+.swatch[data-face="hybrid-chrono"] .mb { fill: #a8a29e; }
+.swatch[data-face="hybrid-chrono"] .mf { fill: #faf7f2; }
+.swatch[data-face="hybrid-chrono"] .hybrid-win { fill: #1c1917; stroke: #f5f5f4; stroke-width: 0.4; }
+.swatch[data-face="hybrid-radar"] .mb { fill: #166534; }
+.swatch[data-face="hybrid-radar"] .mf { fill: #03180f; }
+.swatch[data-face="hybrid-radar"] .ticks line,
+.swatch[data-face="hybrid-radar"] .mh,
+.swatch[data-face="hybrid-radar"] .mm { stroke: #4ade80; }
+.swatch[data-face="hybrid-radar"] .hybrid-win { fill: #04140c; stroke: #86efac; stroke-width: 0.4; }
+.swatch[data-face="hybrid-sakura"] .mb { fill: #f9a8d4; }
+.swatch[data-face="hybrid-sakura"] .mf { fill: #4a1942; }
+.swatch[data-face="hybrid-sakura"] .ticks line,
+.swatch[data-face="hybrid-sakura"] .mh,
+.swatch[data-face="hybrid-sakura"] .mm { stroke: #fce7f3; }
+.swatch[data-face="hybrid-sakura"] .hybrid-win { fill: #3b0a22; stroke: #ff8ec8; stroke-width: 0.4; }
+.swatch[data-face="hybrid-orbit"] .mb { fill: #4338ca; }
+.swatch[data-face="hybrid-orbit"] .mf { fill: #0c1028; }
+.swatch[data-face="hybrid-orbit"] .ticks line,
+.swatch[data-face="hybrid-orbit"] .mh,
+.swatch[data-face="hybrid-orbit"] .mm { stroke: #c7d2fe; }
+.swatch[data-face="hybrid-orbit"] .hybrid-win { fill: #07091a; stroke: #fde68a; stroke-width: 0.4; }
+.swatch[data-face="hybrid-deco"] .mb { fill: #d97706; }
+.swatch[data-face="hybrid-deco"] .mf { fill: #2a1b10; }
+.swatch[data-face="hybrid-deco"] .ticks line,
+.swatch[data-face="hybrid-deco"] .mh,
+.swatch[data-face="hybrid-deco"] .mm { stroke: #fde68a; }
+.swatch[data-face="hybrid-deco"] .hybrid-win { fill: #1c1408; stroke: #fde68a; stroke-width: 0.4; }
+
+.zone-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.92rem;
+}
+.zone-row select,
+.editor input {
+  background: rgba(0, 0, 0, 0.28);
+  color: inherit;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, #666);
+  border-radius: 8px;
+  padding: 0.35rem 0.5rem;
+}
+.zone-row select { min-width: min(100%, 18rem); }
+
+.dock-panel {
+  margin-top: 0.7rem;
+}
+
+.editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: end;
+  margin: 0.45rem 0;
+}
+.editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+.editor input[type="number"] { width: 4.5rem; }
+.choice { display: flex; align-items: center; gap: 0.3rem; font-size: 0.9rem; }
+
+.hint { margin: 0.2rem 0; font-size: 0.82rem; opacity: 0.8; }
+.hint.warn { color: #ffb4a8; opacity: 1; }
+.empty { margin: 0.4rem 0; opacity: 0.7; }
+
+.readout-lg {
+  font-family: ui-monospace, monospace;
+  font-size: clamp(1.4rem, 4vw, 2.2rem);
+  margin: 0.6rem 0 0.3rem;
+  letter-spacing: 0.06em;
+}
+
+.laps,
+.rows {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+}
+.laps li,
+.rows li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.laps li { justify-content: space-between; font-variant-numeric: tabular-nums; }
+.rows li.focus { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.grow { flex: 1; min-width: 4rem; }
+.when { font-variant-numeric: tabular-nums; font-family: ui-monospace, monospace; }
+.tag { font-size: 0.75rem; opacity: 0.75; }
+.ghost { background: transparent !important; color: inherit !important; }
+
+@media (max-width: 860px) {
+  .clock-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(8.5rem, 34%);
+  }
+  .clock-stage { order: 1; }
+  .dock { order: 2; max-height: none; height: 100%; }
+  .lcd-sub { flex-direction: column; gap: 0.2rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clock-page.is-ringing .watch svg,
+  .clock-page.is-ringing .lcd { animation: none; }
+}
+
+:host([data-face="roman"]) { --burst-in: #fff8ee; --burst-mid: #f0e0c4; --burst-out: #c9b48a; --burst-ray: rgba(255, 255, 255, 0.4); }
+:host([data-face="quartz"]),
+:host([data-face="hybrid-sharp"]),
+:host([data-face="sharp-silver"]) { --burst-in: #ffffff; --burst-mid: #e4e4e7; --burst-out: #b8bcc4; --burst-ray: rgba(255, 255, 255, 0.45); }
+:host([data-face="quartz-date"]) { --burst-in: #fffdf8; --burst-mid: #f0e8dc; --burst-out: #d4c8b8; --burst-ray: rgba(255, 255, 255, 0.42); }
+:host([data-face="quartz-black"]),
+:host([data-face="sharp-black"]) { --burst-in: #3f3f46; --burst-mid: #18181b; --burst-out: #09090b; --burst-ray: rgba(255, 255, 255, 0.18); }
+:host([data-face="quartz-gold"]),
+:host([data-face="sharp-gold"]) { --burst-in: #fff3d0; --burst-mid: #f0ddb4; --burst-out: #c9a36a; --burst-ray: rgba(255, 255, 255, 0.4); }
+:host([data-face="quartz-field"]) { --burst-in: #7da356; --burst-mid: #3f4f2a; --burst-out: #243216; --burst-ray: rgba(255, 255, 255, 0.22); }
+:host([data-face="quartz-serif"]) { --burst-in: #fff8ee; --burst-mid: #f0e2cc; --burst-out: #d4b896; --burst-ray: rgba(255, 255, 255, 0.4); }
+:host([data-face="quartz-mono"]),
+:host([data-face="hybrid-green"]) { --burst-in: #1f7a4a; --burst-mid: #0c1f16; --burst-out: #04140c; --burst-ray: rgba(180, 255, 210, 0.2); }
+:host([data-face="quartz-script"]) { --burst-in: #fff5f6; --burst-mid: #ffd0d8; --burst-out: #f0a0b0; --burst-ray: rgba(255, 255, 255, 0.45); }
+:host([data-face="quartz-narrow"]) { --burst-in: #ffffff; --burst-mid: #e2e8f0; --burst-out: #b6c2d0; --burst-ray: rgba(255, 255, 255, 0.4); }
+:host([data-face="quartz-gothic"]) { --burst-in: #ffffff; --burst-mid: #f1f5f9; --burst-out: #cbd5e1; --burst-ray: rgba(255, 255, 255, 0.45); }
+:host([data-face="quartz-heavy"]) { --burst-in: #57534e; --burst-mid: #1c1917; --burst-out: #0c0a09; --burst-ray: rgba(255, 220, 180, 0.18); }
+:host([data-face="hybrid-amber"]) { --burst-in: #8a5a28; --burst-mid: #24180c; --burst-out: #120c06; --burst-ray: rgba(255, 210, 140, 0.2); }
+:host([data-face="hybrid-blue"]) { --burst-in: #1e5a86; --burst-mid: #0c1e30; --burst-out: #061018; --burst-ray: rgba(180, 220, 255, 0.2); }
+
+.swatch[data-face="classic"] { --mi: #fffdf8; --mm: #f0e6d4; --mo: #cfc3ae; }
+.swatch[data-face="classic"] .mf { fill: url(#swb-classic); }
+.swatch[data-face="roman"] { --mi: #fff8ee; --mm: #f0e0c4; --mo: #c9b48a; }
+.swatch[data-face="roman"] .mf { fill: url(#swb-roman); }
+.swatch[data-face="noir"] { --mi: #3a4458; --mm: #12141a; --mo: #07080c; }
+.swatch[data-face="noir"] .mf { fill: url(#swb-noir); }
+.swatch[data-face="gold"] { --mi: #fff6d0; --mm: #f0ddb0; --mo: #c6a56a; }
+.swatch[data-face="gold"] .mf { fill: url(#swb-gold); }
+.swatch[data-face="sport"] { --mi: #4d6484; --mm: #1a2333; --mo: #0c121c; }
+.swatch[data-face="sport"] .mf { fill: url(#swb-sport); }
+.swatch[data-face="minimal"] { --mi: #ffffff; --mm: #ecece8; --mo: #c8c8c2; }
+.swatch[data-face="minimal"] .mf { fill: url(#swb-minimal); }
+.swatch[data-face="field-cream"] { --mi: #fffaf0; --mm: #f3e6cc; --mo: #d2b98a; }
+.swatch[data-face="field-cream"] .mf { fill: url(#swb-field-cream); }
+.swatch[data-face="quartz"] { --mi: #ffffff; --mm: #e4e4e7; --mo: #b8bcc4; }
+.swatch[data-face="quartz"] .mf { fill: url(#swb-quartz); }
+.swatch[data-face="hybrid-sharp"] { --mi: #ffffff; --mm: #e4e4e7; --mo: #b8bcc4; }
+.swatch[data-face="hybrid-sharp"] .mf { fill: url(#swb-hybrid-sharp); }
+.swatch[data-face="sharp-silver"] { --mi: #ffffff; --mm: #e4e4e7; --mo: #b8bcc4; }
+.swatch[data-face="sharp-silver"] .mf { fill: url(#swb-sharp-silver); }
+.swatch[data-face="quartz-date"] { --mi: #fffdf8; --mm: #f0e8dc; --mo: #d4c8b8; }
+.swatch[data-face="quartz-date"] .mf { fill: url(#swb-quartz-date); }
+.swatch[data-face="quartz-black"] { --mi: #3f3f46; --mm: #18181b; --mo: #09090b; }
+.swatch[data-face="quartz-black"] .mf { fill: url(#swb-quartz-black); }
+.swatch[data-face="sharp-black"] { --mi: #3f3f46; --mm: #18181b; --mo: #09090b; }
+.swatch[data-face="sharp-black"] .mf { fill: url(#swb-sharp-black); }
+.swatch[data-face="quartz-gold"] { --mi: #fff3d0; --mm: #f0ddb4; --mo: #c9a36a; }
+.swatch[data-face="quartz-gold"] .mf { fill: url(#swb-quartz-gold); }
+.swatch[data-face="sharp-gold"] { --mi: #fff3d0; --mm: #f0ddb4; --mo: #c9a36a; }
+.swatch[data-face="sharp-gold"] .mf { fill: url(#swb-sharp-gold); }
+.swatch[data-face="quartz-field"] { --mi: #7da356; --mm: #3f4f2a; --mo: #243216; }
+.swatch[data-face="quartz-field"] .mf { fill: url(#swb-quartz-field); }
+.swatch[data-face="quartz-serif"] { --mi: #fff8ee; --mm: #f0e2cc; --mo: #d4b896; }
+.swatch[data-face="quartz-serif"] .mf { fill: url(#swb-quartz-serif); }
+.swatch[data-face="quartz-mono"] { --mi: #1f7a4a; --mm: #0c1f16; --mo: #04140c; }
+.swatch[data-face="quartz-mono"] .mf { fill: url(#swb-quartz-mono); }
+.swatch[data-face="hybrid-green"] { --mi: #1f7a4a; --mm: #0c1f16; --mo: #04140c; }
+.swatch[data-face="hybrid-green"] .mf { fill: url(#swb-hybrid-green); }
+.swatch[data-face="quartz-script"] { --mi: #fff5f6; --mm: #ffd0d8; --mo: #f0a0b0; }
+.swatch[data-face="quartz-script"] .mf { fill: url(#swb-quartz-script); }
+.swatch[data-face="quartz-narrow"] { --mi: #ffffff; --mm: #e2e8f0; --mo: #b6c2d0; }
+.swatch[data-face="quartz-narrow"] .mf { fill: url(#swb-quartz-narrow); }
+.swatch[data-face="quartz-gothic"] { --mi: #ffffff; --mm: #f1f5f9; --mo: #cbd5e1; }
+.swatch[data-face="quartz-gothic"] .mf { fill: url(#swb-quartz-gothic); }
+.swatch[data-face="quartz-heavy"] { --mi: #57534e; --mm: #1c1917; --mo: #0c0a09; }
+.swatch[data-face="quartz-heavy"] .mf { fill: url(#swb-quartz-heavy); }
+.swatch[data-face="hybrid-amber"] { --mi: #8a5a28; --mm: #24180c; --mo: #120c06; }
+.swatch[data-face="hybrid-amber"] .mf { fill: url(#swb-hybrid-amber); }
+.swatch[data-face="hybrid-blue"] { --mi: #1e5a86; --mm: #0c1e30; --mo: #061018; }
+.swatch[data-face="hybrid-blue"] .mf { fill: url(#swb-hybrid-blue); }
+.swatch[data-face="burst-silver"] .mf { fill: url(#swb-burst-silver); }
+.swatch[data-face="burst-green"] .mf { fill: url(#swb-burst-green); }
+.swatch[data-face="burst-blue"] .mf { fill: url(#swb-burst-blue); }
+.swatch[data-face="burst-sand"] .mf { fill: url(#swb-burst-sand); }
+.swatch[data-face="burst-ink"] .mf { fill: url(#swb-burst-ink); }
+.swatch[data-face="chrono-green"] .mf { fill: url(#swb-chrono-green); }
+.swatch[data-face="chrono-silver"] .mf { fill: url(#swb-chrono-silver); }
+.swatch[data-face="gousset"] .mf { fill: url(#swb-gousset); }
+.swatch[data-face="diver-blue"] .mf { fill: url(#swb-diver-blue); }
+.swatch[data-face="chrono-gold"] .mf { fill: url(#swb-chrono-gold); }
+.swatch[data-face="chrono-slate"] .mf { fill: url(#swb-chrono-slate); }
+.swatch[data-face="chrono-blue"] .mf { fill: url(#swb-chrono-blue); }
+.swatch[data-face="dress-navy"] .mf { fill: url(#swb-dress-navy); }
+.swatch[data-face="chrono-black"] .mf { fill: url(#swb-chrono-black); }
+
+:host([data-face="board-green"]) {
+  --pat-title-bg: linear-gradient(135deg, #166534 0%, #14532d 48%, #052e16 100%);
+  --pat-title-accent: #86efac;
+  --clock-bg: #03110b;
+  --accent: #8dff9a;
+  --lcd-bg: #062015;
+  --lcd-on: #b6ff9c;
+  --lcd-off: rgba(182, 255, 156, 0.06);
+  --lcd-frame: #145233;
+  --face: #f4f1ea;
+  --hand: #1c1917;
+  --sec: #b91c1c;
+  --bezel: #d6d3d1;
+  --bezel-fill: #44403c;
+  --num: #1c1917;
+}
+:host([data-face="board-amber"]) {
+  --pat-title-bg: linear-gradient(135deg, #b45309 0%, #7c2d12 55%, #431407 100%);
+  --pat-title-accent: #fdba74;
+  --clock-bg: #140c04;
+  --accent: #ffb000;
+  --lcd-bg: #1c1004;
+  --lcd-on: #ffbf3c;
+  --lcd-off: rgba(255, 191, 60, 0.07);
+  --lcd-frame: #5a3a10;
+  --face: #fff7ed;
+  --hand: #431407;
+  --sec: #b91c1c;
+  --bezel: #fdba74;
+  --bezel-fill: #7c2d12;
+  --num: #431407;
+}
+:host([data-face="board-blue"]) {
+  --pat-title-bg: linear-gradient(135deg, #0369a1 0%, #0c4a6e 55%, #082f49 100%);
+  --pat-title-accent: #7dd3fc;
+  --clock-bg: #041018;
+  --accent: #7fd0ff;
+  --lcd-bg: #071826;
+  --lcd-on: #9ad7ff;
+  --lcd-off: rgba(154, 215, 255, 0.07);
+  --lcd-frame: #1a4568;
+  --face: #f8fafc;
+  --hand: #0f172a;
+  --sec: #e11d48;
+  --bezel: #cbd5e1;
+  --bezel-fill: #334155;
+  --num: #0f172a;
+}
+:host([data-face="board-light"]) .seg-digit path.on,
+:host([data-face="board-light"]) .colon i { filter: none; box-shadow: none; }
+:host([data-face="board-light"]) {
+  --pat-title-bg: linear-gradient(135deg, #d6d3d1 0%, #57534e 55%, #1c1917 100%);
+  --pat-title-accent: #1c1917;
+  --clock-bg: #1c1917;
+  --accent: #d6d3d1;
+  --lcd-bg: #d7ddd2;
+  --lcd-on: #1a1c18;
+  --lcd-off: rgba(26, 28, 24, 0.08);
+  --lcd-frame: #292524;
+  --face: #fffdf8;
+  --hand: #1c1917;
+  --sec: #b91c1c;
+  --bezel: #a8a29e;
+  --bezel-fill: #44403c;
+  --num: #1c1917;
+}
+:host([data-face="smart-oled"]) {
+  --pat-title-bg: linear-gradient(135deg, #334155 0%, #0f172a 55%, #020617 100%);
+  --pat-title-accent: #e2e8f0;
+  --clock-bg: #020617;
+  --face: #0a0a0a;
+  --num: #f8fafc;
+  --accent: #38bdf8;
+  --hand: #f8fafc;
+  --sec: #38bdf8;
+  color: #f8fafc;
+}
+:host([data-face="smart-sport"]) {
+  --pat-title-bg: linear-gradient(135deg, #65a30d 0%, #14532d 55%, #052e16 100%);
+  --pat-title-accent: #ecfccb;
+  --clock-bg: #052e16;
+  --face: #0c1408;
+  --num: #f7fee7;
+  --accent: #a3e635;
+  --hand: #f7fee7;
+  --sec: #a3e635;
+  color: #f7fee7;
+}
+:host([data-face="smart-sand"]) {
+  --pat-title-bg: linear-gradient(135deg, #e7d3b0 0%, #a16207 55%, #3f2e12 100%);
+  --pat-title-accent: #1c1408;
+  --clock-bg: #2a2118;
+  --face: #f6efe4;
+  --num: #292018;
+  --accent: #c2410c;
+  --hand: #292018;
+  --sec: #c2410c;
+}
+:host([data-face="smart-night"]) {
+  --pat-title-bg: linear-gradient(135deg, #0e7490 0%, #164e63 55%, #082f49 100%);
+  --pat-title-accent: #cffafe;
+  --clock-bg: #041018;
+  --face: #071425;
+  --num: #e0f2fe;
+  --accent: #22d3ee;
+  --hand: #e0f2fe;
+  --sec: #22d3ee;
+  color: #e0f2fe;
+}
+
+.board {
+  width: max-content;
+  max-width: min(100cqi, 100%);
+  max-height: 100cqb;
+  min-height: 0;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.1rem 1.2rem;
+  border-radius: 28px;
+  background: var(--lcd-bg);
+  border: 8px solid var(--lcd-frame);
+  box-shadow: inset 0 0 28px color-mix(in srgb, var(--lcd-on) 10%, transparent), 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+.board-read { min-width: 0; }
+.board .seg-digit { width: min(7cqb, 8cqi, 52px); }
+.board .colon { height: min(12cqb, 14cqi, 84px); }
+.board-sub {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-top: 0.45rem;
+  color: var(--lcd-on);
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+.board .mini-analog { width: 100%; max-width: 150px; justify-self: center; }
+.board .ma-bezel { fill: var(--bezel-fill); stroke: var(--bezel); stroke-width: 3; }
+.board .ma-face { fill: var(--face); }
+.board .ma-tick,
+.board .ma-hour,
+.board .ma-min { stroke: var(--hand); stroke-linecap: round; }
+.board .ma-tick { stroke-width: 1.4; }
+.board .ma-hour { stroke-width: 3.2; }
+.board .ma-min { stroke-width: 2.1; }
+.board .ma-sec { stroke: var(--sec); stroke-width: 1.1; stroke-linecap: round; }
+.board .ma-cap { fill: var(--sec); }
+
+.smart {
+  position: relative;
+  width: min(100cqi, 100cqb, 420px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  border: 12px solid #141414;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--face) 78%, white), var(--face) 68%);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), inset 0 0 0 2px rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.smart.square { border-radius: 22%; }
+.smart-ring { position: absolute; inset: 5%; width: 90%; height: 90%; }
+.ring-track { fill: none; stroke: color-mix(in srgb, var(--num) 18%, transparent); stroke-width: 3; }
+.ring-value { fill: none; stroke: var(--accent); stroke-width: 3.2; stroke-linecap: round; }
+.smart-day { letter-spacing: 0.16em; text-transform: uppercase; font-size: 0.8rem; opacity: 0.75; z-index: 1; }
+.smart-hm {
+  z-index: 1;
+  font-size: clamp(3.2rem, 11vw, 6.4rem);
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+  color: var(--num);
+}
+.smart-sec { z-index: 1; color: var(--accent); font-size: clamp(1.1rem, 3vw, 1.8rem); font-variant-numeric: tabular-nums; }
+.smart-meta { z-index: 1; display: flex; gap: 0.8rem; font-size: 0.82rem; opacity: 0.8; }
+.smart .mini-analog { width: 22%; margin-top: 0.35rem; z-index: 1; }
+.smart .ma-bezel { fill: none; stroke: color-mix(in srgb, var(--num) 40%, transparent); stroke-width: 2; }
+.smart .ma-face { fill: color-mix(in srgb, var(--num) 10%, var(--face)); }
+.smart .ma-tick,
+.smart .ma-hour,
+.smart .ma-min { stroke: var(--num); stroke-linecap: round; }
+.smart .ma-tick { stroke-width: 1.5; }
+.smart .ma-hour { stroke-width: 3; }
+.smart .ma-min { stroke-width: 2; }
+.smart .ma-sec { stroke: var(--accent); stroke-width: 1.1; stroke-linecap: round; }
+.smart .ma-cap { fill: var(--accent); }
+
+.swatch .board-panel { fill: #062015; }
+.swatch .board-mini { fill: #f4f1ea; stroke: #44403c; stroke-width: 0.6; }
+.swatch[data-face="board-amber"] .board-panel { fill: #1c1004; }
+.swatch[data-face="board-blue"] .board-panel { fill: #071826; }
+.swatch[data-face="board-light"] .board-panel { fill: #d7ddd2; }
+.swatch .smart-body { fill: #0a0a0a; stroke: #38bdf8; stroke-width: 1; }
+.swatch .smart-hm-mini { fill: #f8fafc; font-size: 7px; font-family: system-ui, sans-serif; }
+.swatch .smart-dot { fill: none; stroke: #f8fafc; stroke-width: 0.6; }
+.swatch[data-face="smart-sport"] .smart-body { fill: #0c1408; stroke: #a3e635; }
+.swatch[data-face="smart-sport"] .smart-hm-mini,
+.swatch[data-face="smart-sport"] .smart-dot { fill: #f7fee7; stroke: #a3e635; }
+.swatch[data-face="smart-sand"] .smart-body { fill: #f6efe4; stroke: #c2410c; }
+.swatch[data-face="smart-sand"] .smart-hm-mini { fill: #292018; }
+.swatch[data-face="smart-sand"] .smart-dot { stroke: #292018; }
+.swatch[data-face="smart-night"] .smart-body { fill: #071425; stroke: #22d3ee; }
+.swatch[data-face="smart-night"] .smart-hm-mini { fill: #e0f2fe; }
+.swatch[data-face="smart-night"] .smart-dot { stroke: #22d3ee; }
+
+@media (max-width: 860px) {
+  .board {
+    grid-template-columns: auto auto;
+    min-height: 0;
+    padding: 0.55rem 0.5rem;
+    gap: 0.45rem;
+    border-width: 5px;
+    border-radius: 16px;
+  }
+  .board .seg-digit { width: min(6cqb, 7cqi, 28px); }
+  .board .colon { height: min(10cqb, 12cqi, 44px); }
+  .board-sub { font-size: 0.72rem; }
+  .smart { width: min(100cqi, 100cqb); border-width: 8px; }
+  .smart-hm { font-size: clamp(1.5rem, 22cqb, 3.2rem); }
+}
+
+@media (max-width: 860px) {
+  :host([data-face^="hybrid"]) .dial-lcd {
+    width: max-content;
+    max-width: 36%;
+    padding: 0.06rem 0.12rem 0.04rem;
+    border-width: 1px;
+    border-radius: 4px;
+    box-shadow: none;
+  }
+  :host .dial-lcd .seg-digit { width: clamp(6px, 2.5cqw, 0.72rem); }
+  :host .dial-lcd .colon {
+    width: 0.14rem;
+    height: clamp(8px, 3.2cqw, 0.9rem);
+    gap: 0.1rem;
+  }
+  :host .dial-lcd .colon i { width: 0.12rem; height: 0.12rem; box-shadow: none; }
+
+  :host .lcd {
+    width: min(84vw, 320px);
+    min-height: 0;
+    padding: 0.45rem 0.35rem 0.4rem;
+    gap: 0.22rem;
+    border-radius: 14px;
+    border-width: 2px;
+  }
+  :host .lcd .seg-digit,
+  :host([data-face="lcd-dive"]) .seg-digit,
+  :host([data-face^="lcd"]) .seg-digit {
+    width: min(5.6vw, 20px);
+  }
+  :host .lcd .colon {
+    width: 0.32rem;
+    height: min(9vw, 32px);
+    gap: 0.22rem;
+  }
+  :host .lcd .colon i { width: 0.24rem; height: 0.24rem; }
+  :host .lcd-brand { font-size: 0.58rem; }
+  :host .mod-day { font-size: 0.72rem; margin-left: 0; }
+  :host .mod-sec { font-size: 0.85rem; }
+  :host .sharp-modes { font-size: 0.55rem; gap: 0.4rem; }
+}
+
+:host([data-face="lcd-resin"]) {
+  --pat-title-bg: linear-gradient(135deg, #3f3f46 0%, #18181b 55%, #09090b 100%);
+  --pat-title-accent: #e4e4e7;
+  --clock-bg: #0c0c0c;
+  --accent: #a1a1aa;
+  color: #e4e4e7;
+}
+:host([data-face="lcd-round"]) {
+  --pat-title-bg: linear-gradient(135deg, #27272a 0%, #18181b 55%, #09090b 100%);
+  --pat-title-accent: #e7eee8;
+  --clock-bg: #09090b;
+  --accent: #d4d4d8;
+  color: #e4e4e7;
+}
+.resin, .round-dig {
+  width: min(100cqi, 100%);
+  max-height: 100cqb;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.resin-case {
+  width: min(100%, 34rem, 96cqb);
+  background: #161616;
+  border-radius: 1.1rem;
+  border: 3px solid #2c2c2c;
+  box-shadow: inset 0 0 0 7px #0a0a0a, 0 14px 28px rgba(0, 0, 0, 0.4);
+  padding: 0.55rem 0.7rem 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+.resin-top, .resin-mid, .resin-foot, .resin-head {
+  display: flex;
+  justify-content: space-between;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  opacity: 0.8;
+}
+.resin-foot { justify-content: center; }
+.resin-screen {
+  background: #d5ddd4;
+  color: #1a1c18;
+  border: 3px solid #3f3f46;
+  border-radius: 0.2rem;
+  padding: 0.28rem 0.4rem 0.35rem;
+}
+.resin-head { font-family: ui-monospace, monospace; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.08em; opacity: 1; }
+.resin-time { display: flex; align-items: flex-end; justify-content: center; gap: 0.2rem; }
+:host([data-face="lcd-resin"]) .resin .seg-digit { width: min(8cqb, 2.4rem, 42px); }
+.resin .colon { height: min(12cqb, 3.4rem, 64px); width: 0.4rem; gap: 0.35rem; }
+.resin .colon i, .round-dig .colon i { background: #1a1c18; box-shadow: none; width: 0.32rem; height: 0.32rem; }
+.resin .seg-digit path, .round-dig .seg-digit path { fill: rgba(26, 28, 24, 0.12); }
+.resin .seg-digit path.on, .round-dig .seg-digit path.on { fill: #1a1c18; filter: none; }
+.resin-sec { font-family: ui-monospace, monospace; font-weight: 700; font-size: 0.95rem; margin: 0 0 0.2rem 0.15rem; }
+.round-case {
+  width: min(100cqi, 100cqb, 28rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #2a2a2a, #0a0a0a 72%);
+  border: 10px solid #141414;
+  box-shadow: inset 0 0 0 2px #3a3a3a, 0 14px 28px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+.round-top, .round-foot {
+  display: flex;
+  justify-content: space-between;
+  width: 72%;
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+.round-screen {
+  width: 62%;
+  background: #e4ece6;
+  color: #1c211c;
+  border-radius: 0.35rem;
+  padding: 0.3rem 0.25rem 0.15rem;
+}
+.round-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 0.35rem;
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.round-time { display: flex; justify-content: center; align-items: center; }
+:host([data-face="lcd-round"]) .round-dig .seg-digit { width: min(9cqb, 2.6rem, 46px); }
+.round-dig .colon { height: min(14cqb, 3.8rem, 70px); width: 0.45rem; gap: 0.4rem; }
+.round-date { text-align: center; font-family: ui-monospace, monospace; font-weight: 700; font-size: clamp(1.1rem, 7cqb, 2rem); line-height: 1; }
+.swatch .resin-body { fill: #161616; stroke: #3f3f46; stroke-width: 1; }
+.swatch .resin-glass { fill: #d5ddd4; }
+.swatch .round-body { fill: #141414; stroke: #3f3f46; stroke-width: 1.2; }
+.swatch .round-glass { fill: #e4ece6; }
+
+:host([data-face="ultra-orange"]) {
+  --pat-title-bg: linear-gradient(135deg, #ea580c 0%, #9a3412 55%, #431407 100%);
+  --pat-title-accent: #ffedd5;
+  --clock-bg: #1a0d06;
+  --accent: #f97316;
+  color: #ffedd5;
+}
+.ultra {
+  width: min(100cqi, calc(100cqb - 1rem), 640px);
+  max-height: 100cqb;
+  margin: 0 auto;
+}
+.ultra svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.45)); }
+.u-strap rect { fill: #f97316; }
+.u-hole { fill: #1a0d06; }
+.u-case { fill: #2a2a2a; stroke: #111; stroke-width: 2; }
+.u-lip { fill: #141414; stroke: #3f3f46; stroke-width: 2; }
+.u-dial { fill: url(#ultraDial); }
+.u-track { fill: none; stroke: #3f3f46; stroke-width: 1.2; }
+.u-min { stroke: #a1a1aa; stroke-width: 0.7; }
+.u-card, .u-dot { fill: #f97316; }
+.u-day { fill: #f97316; font-size: 8px; font-family: ui-monospace, monospace; letter-spacing: 0.14em; }
+.u-date rect { fill: #111; stroke: #f97316; stroke-width: 0.8; }
+.u-date text { fill: #f8fafc; font-size: 8px; font-family: ui-monospace, monospace; font-weight: 700; }
+.u-hour line { stroke: #f4f4f5; stroke-width: 4.2; stroke-linecap: round; }
+.u-minute line { stroke: #e4e4e7; stroke-width: 2.6; stroke-linecap: round; }
+.u-second line { stroke: #f97316; stroke-width: 1.3; stroke-linecap: round; }
+.u-cap { fill: #f97316; stroke: #111; stroke-width: 0.6; }
+.u-controls rect { fill: #52525b; }
+.swatch[data-face="aurora"] { --mi: #1a4d55; --mm: #0c2830; --mo: #04080e; }
+.swatch[data-face="skeleton"] { --mi: #4a453c; --mm: #1a1916; --mo: #0c0b09; }
+.swatch[data-face="deco"] { --mi: #fff6e4; --mm: #f3e6c8; --mo: #c9b48a; }
+.swatch[data-face="constellation"] { --mi: #243056; --mm: #070b18; --mo: #03050c; }
+.swatch[data-face="regulator"] { --mi: #fffdf8; --mm: #f0e6d4; --mo: #d4c8b4; }
+.swatch[data-face="bauhaus"] { --mi: #ffffff; --mm: #f4f4f5; --mo: #d4d4d8; }
+.swatch[data-face="guilloche"] { --mi: #fffaf2; --mm: #f7f1e4; --mo: #d4c4a4; }
+.swatch[data-face="marine"] { --mi: #3d6494; --mm: #10243f; --mo: #081426; }
+.swatch[data-face="rail"] { --mi: #fffdf8; --mm: #f0e6d4; --mo: #d4c8b4; }
+.swatch[data-face="metro"] { --mi: #1f7a70; --mm: #0f3d38; --mo: #062420; }
+.swatch[data-face="obsidian"] { --mi: #3f3f46; --mm: #18181b; --mo: #09090b; }
+.swatch[data-face="sakura"] { --mi: #8a3a78; --mm: #4a1942; --mo: #240c20; }
+.swatch[data-face="desert"] { --mi: #c45a32; --mm: #7c2d12; --mo: #3c1408; }
+.swatch[data-face="abyss"] { --mi: #0e6b68; --mm: #042f2e; --mo: #021616; }
+.swatch[data-face="arcade"] { --mi: #6b3ad0; --mm: #2e1065; --mo: #140628; }
+.swatch[data-face="cathedral"] { --mi: #5a4638; --mm: #241c16; --mo: #100c08; }
+.swatch[data-face="radar"] { --mi: #0c5a32; --mm: #03180f; --mo: #010804; }
+.swatch[data-face="marble"] { --mi: #ffffff; --mm: #e7e5e4; --mo: #c4bfb8; }
+.swatch[data-face="ink"] { --mi: #fffaf2; --mm: #f5f0e6; --mo: #d4cbb8; }
+.swatch[data-face="circuit"] { --mi: #14586c; --mm: #06202a; --mo: #020e14; }
+.swatch[data-face="lunar"] { --mi: #f8fafc; --mm: #cbd5e1; --mo: #94a3b8; }
+.swatch[data-face="flame"] { --mi: #6b3018; --mm: #2a1008; --mo: #100604; }
+.swatch[data-face="prism"] { --mi: #3d2870; --mm: #120a24; --mo: #080412; }
+.swatch[data-face="aviator"] { --mi: #7a6854; --mm: #3f3428; --mo: #1c1610; }
+.swatch[data-face="forest"] { --mi: #2f8a52; --mm: #14532d; --mo: #082816; }
+.swatch[data-face="chess"] { --mi: #57534e; --mm: #292524; --mo: #0c0a09; }
+.swatch[data-face="orbit"] { --mi: #2a3480; --mm: #0c1028; --mo: #060814; }
+.swatch[data-face="ripple"] { --mi: #0e7490; --mm: #083344; --mo: #031820; }
+.swatch[data-face="gears"] { --mi: #57534e; --mm: #292524; --mo: #0c0a09; }
+.swatch[data-face="compass"] { --mi: #ffffff; --mm: #e2e8f0; --mo: #b6c2d4; }
+.swatch[data-face="vinyl"] { --mi: #3f3f46; --mm: #18181b; --mo: #09090b; }
+.swatch[data-face="eclipse"] { --mi: #334155; --mm: #0f172a; --mo: #060a14; }
+.swatch[data-face="ecg"] { --mi: #166534; --mm: #052e16; --mo: #02140a; }
+.swatch[data-face="fan"] { --mi: #be123c; --mm: #881337; --mo: #3f0618; }
+.swatch[data-face="labyrinth"] { --mi: #6b5420; --mm: #29200c; --mo: #100c04; }
+.swatch[data-face="hybrid-night"] { --mi: #2e3470; --mm: #11142c; --mo: #070914; }
+.swatch[data-face="hybrid-chrono"] { --mi: #fffdf8; --mm: #f0e6d4; --mo: #d4c8b4; }
+.swatch[data-face="hybrid-radar"] { --mi: #0c5a32; --mm: #03180f; --mo: #010804; }
+.swatch[data-face="hybrid-sakura"] { --mi: #8a3a78; --mm: #4a1942; --mo: #240c20; }
+.swatch[data-face="hybrid-orbit"] { --mi: #2a3480; --mm: #0c1028; --mo: #060814; }
+.swatch[data-face="hybrid-deco"] { --mi: #6b4528; --mm: #2a1b10; --mo: #100a06; }
+.swatch[data-face="aurora"] .mf { fill: url(#swb-aurora); }
+.swatch[data-face="skeleton"] .mf { fill: url(#swb-skeleton); }
+.swatch[data-face="deco"] .mf { fill: url(#swb-deco); }
+.swatch[data-face="constellation"] .mf { fill: url(#swb-constellation); }
+.swatch[data-face="regulator"] .mf { fill: url(#swb-regulator); }
+.swatch[data-face="bauhaus"] .mf { fill: url(#swb-bauhaus); }
+.swatch[data-face="guilloche"] .mf { fill: url(#swb-guilloche); }
+.swatch[data-face="marine"] .mf { fill: url(#swb-marine); }
+.swatch[data-face="rail"] .mf { fill: url(#swb-rail); }
+.swatch[data-face="metro"] .mf { fill: url(#swb-metro); }
+.swatch[data-face="obsidian"] .mf { fill: url(#swb-obsidian); }
+.swatch[data-face="sakura"] .mf { fill: url(#swb-sakura); }
+.swatch[data-face="desert"] .mf { fill: url(#swb-desert); }
+.swatch[data-face="abyss"] .mf { fill: url(#swb-abyss); }
+.swatch[data-face="arcade"] .mf { fill: url(#swb-arcade); }
+.swatch[data-face="cathedral"] .mf { fill: url(#swb-cathedral); }
+.swatch[data-face="radar"] .mf { fill: url(#swb-radar); }
+.swatch[data-face="marble"] .mf { fill: url(#swb-marble); }
+.swatch[data-face="ink"] .mf { fill: url(#swb-ink); }
+.swatch[data-face="circuit"] .mf { fill: url(#swb-circuit); }
+.swatch[data-face="lunar"] .mf { fill: url(#swb-lunar); }
+.swatch[data-face="flame"] .mf { fill: url(#swb-flame); }
+.swatch[data-face="prism"] .mf { fill: url(#swb-prism); }
+.swatch[data-face="aviator"] .mf { fill: url(#swb-aviator); }
+.swatch[data-face="forest"] .mf { fill: url(#swb-forest); }
+.swatch[data-face="chess"] .mf { fill: url(#swb-chess); }
+.swatch[data-face="orbit"] .mf { fill: url(#swb-orbit); }
+.swatch[data-face="ripple"] .mf { fill: url(#swb-ripple); }
+.swatch[data-face="gears"] .mf { fill: url(#swb-gears); }
+.swatch[data-face="compass"] .mf { fill: url(#swb-compass); }
+.swatch[data-face="vinyl"] .mf { fill: url(#swb-vinyl); }
+.swatch[data-face="eclipse"] .mf { fill: url(#swb-eclipse); }
+.swatch[data-face="ecg"] .mf { fill: url(#swb-ecg); }
+.swatch[data-face="fan"] .mf { fill: url(#swb-fan); }
+.swatch[data-face="labyrinth"] .mf { fill: url(#swb-labyrinth); }
+.swatch[data-face="hybrid-night"] .mf { fill: url(#swb-hybrid-night); }
+.swatch[data-face="hybrid-chrono"] .mf { fill: url(#swb-hybrid-chrono); }
+.swatch[data-face="hybrid-radar"] .mf { fill: url(#swb-hybrid-radar); }
+.swatch[data-face="hybrid-sakura"] .mf { fill: url(#swb-hybrid-sakura); }
+.swatch[data-face="hybrid-orbit"] .mf { fill: url(#swb-hybrid-orbit); }
+.swatch[data-face="hybrid-deco"] .mf { fill: url(#swb-hybrid-deco); }
+.swatch .u-sw-strap { fill: #f97316; }
+.swatch .u-sw-case { fill: #27272a; }
+.swatch .u-sw-dial { fill: #09090b; }
+.swatch .u-sw-hand { stroke: #f97316; stroke-width: 1.4; stroke-linecap: round; }

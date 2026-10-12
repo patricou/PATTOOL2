@@ -1560,6 +1560,26 @@ html:not(.pat-starry-sky):not(.pat-page-no-wash) body {
     transition: background-color 0.2s ease;
 }
 
+/* TV watcher: dark wall behind the set. Keep overscroll the same tone. */
+html:has(app-tv-watcher),
+html:has(app-tv-watcher) body {
+    background-color: #14110f;
+}
+
+/* Horloge : le fond de page suit le cadran (pas de bande blanche au-dessus du titre ni en bas). */
+html:has(app-clock),
+html:has(app-clock) body {
+    background-color: var(--clock-html-bg, #052e16);
+    height: 100%;
+    overflow: hidden;
+}
+
+/* NASA : le rubber-band reste dans l'espace, pas sur un blanc. */
+html:has(app-nasa),
+html:has(app-nasa) body {
+    background-color: #050814;
+}
+
 app-root > router-outlet + * {
     display: block;
     box-sizing: border-box;
