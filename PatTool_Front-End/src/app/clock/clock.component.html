@@ -1,4 +1,39 @@
 <section class="clock-page" [class.is-lcd]="isLcd" [class.is-ringing]="ringing">
+  <svg class="stage-metal" aria-hidden="true">
+    <defs>
+      <linearGradient id="stageMetal" x1="8%" y1="0%" x2="92%" y2="100%">
+        <stop class="metal-hi" offset="0%" />
+        <stop class="metal-mid" offset="38%" />
+        <stop class="metal-lo" offset="72%" />
+        <stop class="metal-mid" offset="100%" />
+      </linearGradient>
+      <linearGradient id="stageGlint" x1="0%" y1="0%" x2="80%" y2="100%">
+        <stop offset="0%" stop-color="#fff" stop-opacity="0" />
+        <stop offset="36%" stop-color="#fff" stop-opacity="0.05" />
+        <stop offset="48%" stop-color="#fff" stop-opacity="0.42" />
+        <stop offset="58%" stop-color="#fff" stop-opacity="0.06" />
+        <stop offset="100%" stop-color="#fff" stop-opacity="0" />
+      </linearGradient>
+      <pattern id="stageBrush" width="3" height="3" patternUnits="userSpaceOnUse">
+        <line class="brush-ink" x1="0" y1="0" x2="0" y2="3" />
+      </pattern>
+      <pattern id="stageMotif" [attr.width]="stageMotif.w" [attr.height]="stageMotif.h"
+               [attr.patternTransform]="'rotate(' + stageMotif.angle + ')'"
+               patternUnits="userSpaceOnUse">
+        <g class="motif-ink" [attr.stroke-width]="stageMotif.weight">
+          <line *ngFor="let line of stageMotif.lines"
+                [attr.x1]="line.x1" [attr.y1]="line.y1" [attr.x2]="line.x2" [attr.y2]="line.y2" />
+          <circle *ngFor="let dot of stageMotif.dots" [class.fill]="dot.fill"
+                  [attr.cx]="dot.cx" [attr.cy]="dot.cy" [attr.r]="dot.r" />
+          <path *ngIf="stageMotif.path" [attr.d]="stageMotif.path" />
+        </g>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#stageMetal)" />
+    <rect width="100%" height="100%" fill="url(#stageBrush)" />
+    <rect width="100%" height="100%" fill="url(#stageMotif)" />
+    <rect width="100%" height="100%" fill="url(#stageGlint)" />
+  </svg>
   <div class="pat-title">
     <h2>
       <img src="assets/images/menu-clock.svg" alt="" class="clock-title-logo" width="22" height="22" />
@@ -15,7 +50,7 @@
        [style.--look-shine]="lookScale(look.brilliance)">
     <div class="watch" *ngIf="showAnalog">
       <div class="watch-plate">
-      <svg class="watch-face" viewBox="0 0 200 200" role="img" [attr.aria-label]="readout + ' ' + effectiveZone">
+      <svg class="watch-face" viewBox="-8 -8 216 216" role="img" [attr.aria-label]="readout + ' ' + effectiveZone">
         <defs>
           <radialGradient id="clockWash" cx="50%" cy="38%" r="72%">
             <stop class="wash-in" offset="0%" />
@@ -96,7 +131,7 @@
         </g>
         <circle *ngIf="faceId === 'sport'" class="chapter" cx="100" cy="100" r="72" />
         <circle *ngIf="faceId === 'field-cream'" class="chapter" cx="100" cy="100" r="76" />
-        <rect class="crown" x="191" y="90" width="6" height="20" rx="1.5" />
+        <rect class="crown" x="199.8" y="91" width="7" height="18" rx="1.6" />
 
         <g class="motif" *ngIf="motif.length">
           <ng-container *ngFor="let el of motif">
@@ -240,15 +275,29 @@
           </svg>
         </ng-container>
       </div>
-      <svg class="watch-hands" viewBox="0 0 200 200" aria-hidden="true">
-        <g class="hand hour" *ngIf="faceId !== 'regulator'" [attr.transform]="'rotate(' + hourAngle + ' 100 100)'">
-          <line x1="100" y1="108" x2="100" y2="58" />
+      <svg class="watch-hands" viewBox="-8 -8 216 216" aria-hidden="true">
+        <defs>
+          <linearGradient id="hourHandTone" class="hour-hand-tone" gradientUnits="objectBoundingBox" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" class="body" />
+            <stop offset="64%" class="body" />
+            <stop offset="72%" class="tip" />
+            <stop offset="100%" class="tip" />
+          </linearGradient>
+          <linearGradient id="minuteHandTone" class="minute-hand-tone" gradientUnits="objectBoundingBox" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" class="body" />
+            <stop offset="70%" class="body" />
+            <stop offset="78%" class="tip" />
+            <stop offset="100%" class="tip" />
+          </linearGradient>
+        </defs>
+        <g class="hand hour" *ngIf="faceId !== 'regulator'" [class.open]="handKind === 'open'" [attr.transform]="'rotate(' + hourAngle + ' 100 100)'">
+          <path [attr.d]="hourHandPath" fill-rule="evenodd" />
         </g>
-        <g class="hand minute" [attr.transform]="'rotate(' + minuteAngle + ' 100 100)'">
-          <line x1="100" y1="112" x2="100" y2="36" />
+        <g class="hand minute" [class.open]="handKind === 'open'" [attr.transform]="'rotate(' + minuteAngle + ' 100 100)'">
+          <path [attr.d]="minuteHandPath" fill-rule="evenodd" />
         </g>
-        <g class="hand second" [attr.transform]="'rotate(' + secondAngle + ' 100 100)'">
-          <line x1="100" y1="118" x2="100" y2="28" />
+        <g class="hand second" [class.open]="handKind === 'open'" [attr.transform]="'rotate(' + secondAngle + ' 100 100)'">
+          <path [attr.d]="secondHandPath" fill-rule="evenodd" />
         </g>
         <circle class="cap" cx="100" cy="100" r="3.2" />
         <g class="crystal">

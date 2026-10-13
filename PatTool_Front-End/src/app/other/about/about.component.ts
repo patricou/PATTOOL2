@@ -190,6 +190,13 @@ export class AboutComponent {
       ]
     },
     {
+      titleKey: 'MENU.JEUX_ARGENT',
+      links: [
+        { route: '/tools/loto', icon: 'fa-trophy', labelKey: 'MENU.LOTTO', descKey: 'ABOUT.FEAT_LOTO', logoSrc: 'assets/images/loto-mark.svg' },
+        { route: '/tools/euromillions', icon: 'fa-star', labelKey: 'MENU.EUROMILLIONS', descKey: 'ABOUT.FEAT_EUROMILLIONS', logoSrc: 'assets/images/euromillions-mark.svg' }
+      ]
+    },
+    {
       titleKey: 'MENU.FONCIER',
       links: [
         { route: '/api/foncier', icon: 'fa-building', labelKey: 'MENU.FONCIER', descKey: 'ABOUT.FEAT_FONCIER' },
@@ -216,8 +223,6 @@ export class AboutComponent {
     {
       titleKey: 'MENU.MATH',
       links: [
-        { route: '/tools/loto', icon: 'fa-trophy', labelKey: 'MENU.LOTTO', descKey: 'ABOUT.FEAT_LOTO', logoSrc: 'assets/images/loto-mark.svg' },
-        { route: '/tools/euromillions', icon: 'fa-star', labelKey: 'MENU.EUROMILLIONS', descKey: 'ABOUT.FEAT_EUROMILLIONS', logoSrc: 'assets/images/euromillions-mark.svg' },
         { route: '/tools/calculator', icon: 'fa-calculator', labelKey: 'MENU.CALCULATOR', descKey: 'ABOUT.FEAT_CALCULATOR' },
         { route: '/tools/cern', icon: 'fa-flask', labelKey: 'MENU.CERN', descKey: 'ABOUT.FEAT_CERN', logoSrc: 'assets/images/cern-mark.svg' },
         { route: '/tools/chimie', icon: 'fa-flask', labelKey: 'MENU.CHIMIE', descKey: 'ABOUT.FEAT_CHIMIE' },

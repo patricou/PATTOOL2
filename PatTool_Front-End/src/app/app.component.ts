@@ -283,6 +283,10 @@ export class AppComponent implements OnInit, AfterViewInit {
         { routerLink: ['api/stock-exchange'], icon: 'fa fa-line-chart', labelKey: 'MENU.STOCK_EXCHANGE', logoSrc: 'assets/images/menu-chart.svg' },
         { routerLink: ['api/cryptos'], icon: 'fa fa-bitcoin', labelKey: 'MENU.CRYPTOS', logoSrc: 'assets/images/menu-bitcoin.svg' }
     ];
+    readonly navJeuxArgentRaw: NavRouteMenuItem[] = [
+        { routerLink: ['tools/loto'], icon: 'fa fa-trophy', labelKey: 'MENU.LOTTO', logoSrc: 'assets/images/loto-mark.svg' },
+        { routerLink: ['tools/euromillions'], icon: 'fa fa-star', labelKey: 'MENU.EUROMILLIONS', logoSrc: 'assets/images/euromillions-mark.svg' }
+    ];
     readonly navFoncierRaw: NavRouteMenuItem[] = [
         { routerLink: ['api/foncier'], icon: 'fa fa-building', labelKey: 'MENU.FONCIER', logoSrc: 'assets/images/menu-building.svg' },
         { routerLink: ['api/foncier-suisse'], icon: 'fa fa-flag', labelKey: 'MENU.FONCIER_SUISSE', logoSrc: 'assets/images/swiss-flag.svg' }
@@ -322,8 +326,6 @@ export class AppComponent implements OnInit, AfterViewInit {
         }
     ];
     readonly navMathRaw: NavRouteMenuItem[] = [
-        { routerLink: ['tools/loto'], icon: 'fa fa-trophy', labelKey: 'MENU.LOTTO', logoSrc: 'assets/images/loto-mark.svg' },
-        { routerLink: ['tools/euromillions'], icon: 'fa fa-star', labelKey: 'MENU.EUROMILLIONS', logoSrc: 'assets/images/euromillions-mark.svg' },
         { routerLink: ['tools/calculator'], icon: 'fa fa-calculator', labelKey: 'MENU.CALCULATOR', logoSrc: 'assets/images/menu-calc.svg' },
         { routerLink: ['tools/cern'], icon: 'fa fa-flask', labelKey: 'MENU.CERN', logoSrc: 'assets/images/cern-mark.svg' },
         { routerLink: ['tools/chimie'], icon: 'fa fa-flask', labelKey: 'MENU.CHIMIE', logoSrc: 'assets/images/menu-flask.svg' },
@@ -725,6 +727,10 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     get sortedNavFinance(): NavRouteMenuItem[] {
         return this.sortMenuByLabel(this.navFinanceRaw);
+    }
+
+    get sortedNavJeuxArgent(): NavRouteMenuItem[] {
+        return this.sortMenuByLabel(this.navJeuxArgentRaw);
     }
 
     get sortedNavFoncier(): NavRouteMenuItem[] {

@@ -1020,6 +1020,142 @@
   --num: #f4f4f5;
   --accent: #a1a1aa;
 }
+:host([data-face="chrono-panda"]) {
+  --pat-title-bg: linear-gradient(135deg, #f8fafc 0%, #94a3b8 52%, #1e293b 100%);
+  --pat-title-accent: #0f172a;
+  --clock-bg: #1e293b;
+  --face: #f4f7fb;
+  --burst-in: #ffffff;
+  --burst-mid: #e8eef5;
+  --burst-out: #c5d0dc;
+  --burst-ray: rgba(15, 23, 42, 0.08);
+  --mark: #0f172a;
+  --hand: #0f172a;
+  --sec: #dc2626;
+  --bezel: #e2e8f0;
+  --bezel-fill: #64748b;
+  --num: #0f172a;
+  --accent: #dc2626;
+}
+:host([data-face="chrono-navy"]) {
+  --pat-title-bg: linear-gradient(135deg, #1e3a8a 0%, #172554 55%, #0b1224 100%);
+  --pat-title-accent: #dbeafe;
+  --clock-bg: #070d1c;
+  --face: #132448;
+  --burst-in: #1e3a8a;
+  --burst-mid: #132448;
+  --burst-out: #0b1733;
+  --burst-ray: rgba(190, 210, 255, 0.14);
+  --mark: #e2e8f0;
+  --hand: #f8fafc;
+  --sec: #f59e0b;
+  --bezel: #94a3b8;
+  --bezel-fill: #1e293b;
+  --num: #e2e8f0;
+  --accent: #60a5fa;
+}
+:host([data-face="chrono-racing"]) {
+  --pat-title-bg: linear-gradient(135deg, #fb923c 0%, #c2410c 52%, #1c0a06 100%);
+  --pat-title-accent: #ffedd5;
+  --clock-bg: #140804;
+  --face: #1a100c;
+  --burst-in: #7c2d12;
+  --burst-mid: #1a100c;
+  --burst-out: #0c0706;
+  --burst-ray: rgba(255, 160, 80, 0.16);
+  --mark: #ffedd5;
+  --hand: #fff7ed;
+  --sec: #fb923c;
+  --bezel: #f97316;
+  --bezel-fill: #7c2d12;
+  --num: #ffedd5;
+  --accent: #fb923c;
+}
+:host([data-face="chrono-burgundy"]) {
+  --pat-title-bg: linear-gradient(135deg, #9f1239 0%, #4c0519 55%, #1c0a10 100%);
+  --pat-title-accent: #fecdd3;
+  --clock-bg: #14060c;
+  --face: #6b1230;
+  --burst-in: #9f1239;
+  --burst-mid: #6b1230;
+  --burst-out: #3a0c1c;
+  --burst-ray: rgba(255, 180, 190, 0.14);
+  --mark: #ffe4e6;
+  --hand: #fff1f2;
+  --sec: #fde68a;
+  --bezel: #e7c27a;
+  --bezel-fill: #7c2d12;
+  --num: #ffe4e6;
+  --accent: #fb7185;
+}
+:host([data-face="chrono-copper"]) {
+  --pat-title-bg: linear-gradient(135deg, #ea580c 0%, #9a3412 55%, #431407 100%);
+  --pat-title-accent: #ffedd5;
+  --clock-bg: #1c1008;
+  --face: #b45309;
+  --burst-in: #fdba74;
+  --burst-mid: #c2410c;
+  --burst-out: #7c2d12;
+  --burst-ray: rgba(255, 230, 200, 0.2);
+  --mark: #431407;
+  --hand: #431407;
+  --sec: #fef3c7;
+  --bezel: #f6c28b;
+  --bezel-fill: #9a3412;
+  --num: #431407;
+  --accent: #fb923c;
+}
+:host([data-face="chrono-forest"]) {
+  --pat-title-bg: linear-gradient(135deg, #166534 0%, #14532d 55%, #052e16 100%);
+  --pat-title-accent: #dcfce7;
+  --clock-bg: #07140c;
+  --face: #14532d;
+  --burst-in: #166534;
+  --burst-mid: #14532d;
+  --burst-out: #052e16;
+  --burst-ray: rgba(180, 255, 190, 0.12);
+  --mark: #dcfce7;
+  --hand: #f0fdf4;
+  --sec: #fbbf24;
+  --bezel: #86efac;
+  --bezel-fill: #166534;
+  --num: #dcfce7;
+  --accent: #4ade80;
+}
+:host([data-face="chrono-ice"]) {
+  --pat-title-bg: linear-gradient(135deg, #e0f2fe 0%, #38bdf8 52%, #0c4a6e 100%);
+  --pat-title-accent: #082f49;
+  --clock-bg: #0c4a6e;
+  --face: #e0f2fe;
+  --burst-in: #ffffff;
+  --burst-mid: #bae6fd;
+  --burst-out: #7dd3fc;
+  --burst-ray: rgba(8, 47, 73, 0.08);
+  --mark: #0c4a6e;
+  --hand: #082f49;
+  --sec: #e11d48;
+  --bezel: #e2e8f0;
+  --bezel-fill: #475569;
+  --num: #0c4a6e;
+  --accent: #0284c7;
+}
+:host([data-face="chrono-sand"]) {
+  --pat-title-bg: linear-gradient(135deg, #f5e6c8 0%, #c4a574 52%, #6b4f2a 100%);
+  --pat-title-accent: #3f2e16;
+  --clock-bg: #3f2e16;
+  --face: #e7d3ae;
+  --burst-in: #f8edd6;
+  --burst-mid: #e7d3ae;
+  --burst-out: #c4a574;
+  --burst-ray: rgba(63, 46, 22, 0.1);
+  --mark: #3f2e16;
+  --hand: #3f2e16;
+  --sec: #9f1239;
+  --bezel: #f6e27a;
+  --bezel-fill: #a16207;
+  --num: #3f2e16;
+  --accent: #b45309;
+}
 :host([data-face="lcd-led"]) {
   --pat-title-bg: linear-gradient(135deg, #ef4444 0%, #7f1d1d 55%, #1c0a0a 100%);
   --pat-title-accent: #fecaca;
@@ -1413,16 +1549,34 @@
 
 .clock-page {
   --clock-chrome: calc(var(--navbar-offset, 60px) + 20px);
+  position: relative;
+  z-index: 0;
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(ellipse at 50% 38%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 58%),
-    var(--clock-bg);
+  background: var(--clock-bg);
 }
+.stage-metal {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.metal-hi { stop-color: color-mix(in srgb, var(--accent) 34%, white); }
+.metal-mid { stop-color: color-mix(in srgb, var(--accent) 46%, var(--bezel)); }
+.metal-lo { stop-color: color-mix(in srgb, var(--accent) 24%, black); }
+.brush-ink { stroke: rgb(255 255 255 / 0.16); stroke-width: 1; }
+.motif-ink {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 72%, white);
+  opacity: 0.55;
+}
+.motif-ink .fill { fill: color-mix(in srgb, var(--accent) 70%, white); stroke: none; }
 
 .clock-body {
   flex: 1 1 auto;
@@ -1591,7 +1745,10 @@
   height: auto;
   display: block;
 }
-.watch-face { filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.4)); }
+.watch-face {
+  overflow: visible;
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.4));
+}
 
 .wash-in { stop-color: var(--wash-in, var(--face)); }
 .wash-out { stop-color: var(--wash-out, var(--face)); }
@@ -1647,6 +1804,9 @@
 :host([data-face="quartz-serif"]),
 :host([data-face="burst-sand"]),
 :host([data-face="chrono-gold"]),
+:host([data-face="chrono-copper"]),
+:host([data-face="chrono-burgundy"]),
+:host([data-face="chrono-sand"]),
 :host([data-face="labyrinth"]),
 :host([data-face="hybrid-amber"]),
 :host([data-face="hybrid-deco"]),
@@ -1857,14 +2017,16 @@
 .tick.major { stroke-width: 2.2; }
 .numeral { fill: var(--num); font-weight: 600; }
 .subread { fill: var(--num); font-family: ui-monospace, monospace; font-weight: 650; }
-.hand line { stroke-linecap: round; }
-.hand.hour line { stroke: var(--hand); stroke-width: 4.2; }
-.hand.minute line { stroke: var(--hand); stroke-width: 2.8; }
-:host([data-face="bauhaus"]) .hand.hour line { stroke-width: 6.5; }
-:host([data-face="skeleton"]) .hand.hour line,
-:host([data-face="skeleton"]) .hand.minute line { stroke-width: 1.5; }
-:host([data-face="guilloche"]) .hand.hour line,
-:host([data-face="guilloche"]) .hand.minute line { stroke: #1d4ed8; }
+.hour-hand-tone stop.body { stop-color: color-mix(in srgb, #161311 70%, var(--mark)); }
+.hour-hand-tone stop.tip { stop-color: #ff2a2a; }
+.minute-hand-tone stop.body { stop-color: color-mix(in srgb, #9f1239 68%, #1c1917); }
+.minute-hand-tone stop.tip { stop-color: #ff4d3a; }
+.hand.hour path { fill: url(#hourHandTone); stroke: none; }
+.hand.minute path { fill: url(#minuteHandTone); stroke: none; }
+.hand.second path { fill: #e11d2e; stroke: none; }
+.hand.open path { fill: none; stroke: url(#hourHandTone); stroke-width: 1.15; stroke-linejoin: round; }
+.hand.minute.open path { stroke: url(#minuteHandTone); }
+.hand.second.open path { fill: none; stroke: #e11d2e; }
 .hand.second line { stroke: var(--sec); stroke-width: 1.15; }
 :host([data-face^="quartz"]) .tick.major { stroke-width: 3.2; }
 :host([data-face^="quartz"]) .hand.second line { stroke-width: 1.35; }
@@ -2438,6 +2600,14 @@
 .swatch[data-face="chrono-blue"] { --mi: #bfdbfe; --mm: #3b82f6; --mo: #1e3a8a; }
 .swatch[data-face="dress-navy"] { --mi: #5eead4; --mm: #0e7490; --mo: #083344; }
 .swatch[data-face="chrono-black"] { --mi: #3f3f46; --mm: #18181b; --mo: #09090b; }
+.swatch[data-face="chrono-panda"] { --mi: #ffffff; --mm: #e8eef5; --mo: #c5d0dc; }
+.swatch[data-face="chrono-navy"] { --mi: #1e3a8a; --mm: #132448; --mo: #0b1733; }
+.swatch[data-face="chrono-racing"] { --mi: #7c2d12; --mm: #1a100c; --mo: #0c0706; }
+.swatch[data-face="chrono-burgundy"] { --mi: #9f1239; --mm: #6b1230; --mo: #3a0c1c; }
+.swatch[data-face="chrono-copper"] { --mi: #fdba74; --mm: #c2410c; --mo: #7c2d12; }
+.swatch[data-face="chrono-forest"] { --mi: #166534; --mm: #14532d; --mo: #052e16; }
+.swatch[data-face="chrono-ice"] { --mi: #ffffff; --mm: #bae6fd; --mo: #7dd3fc; }
+.swatch[data-face="chrono-sand"] { --mi: #f8edd6; --mm: #e7d3ae; --mo: #c4a574; }
 .swatch[data-face="diver-blue"] .mb,
 .swatch[data-face="chrono-blue"] .mb,
 .swatch[data-face="chrono-slate"] .mb { fill: #cbd5e1; }
@@ -2957,6 +3127,14 @@
 .swatch[data-face="chrono-blue"] .mf { fill: url(#swb-chrono-blue); }
 .swatch[data-face="dress-navy"] .mf { fill: url(#swb-dress-navy); }
 .swatch[data-face="chrono-black"] .mf { fill: url(#swb-chrono-black); }
+.swatch[data-face="chrono-panda"] .mf { fill: url(#swb-chrono-panda); }
+.swatch[data-face="chrono-navy"] .mf { fill: url(#swb-chrono-navy); }
+.swatch[data-face="chrono-racing"] .mf { fill: url(#swb-chrono-racing); }
+.swatch[data-face="chrono-burgundy"] .mf { fill: url(#swb-chrono-burgundy); }
+.swatch[data-face="chrono-copper"] .mf { fill: url(#swb-chrono-copper); }
+.swatch[data-face="chrono-forest"] .mf { fill: url(#swb-chrono-forest); }
+.swatch[data-face="chrono-ice"] .mf { fill: url(#swb-chrono-ice); }
+.swatch[data-face="chrono-sand"] .mf { fill: url(#swb-chrono-sand); }
 
 :host([data-face="board-green"]) {
   --pat-title-bg: linear-gradient(135deg, #166534 0%, #14532d 48%, #052e16 100%);
@@ -3253,6 +3431,77 @@
 .lcd.module .seg-digit { width: min(13cqi, 4.6rem); }
 .lcd .colon { height: min(20cqi, 7.2rem); }
 .lcd.module .colon { height: min(25cqi, 8.7rem); }
+
+@media (min-width: 1100px) and (min-height: 640px) {
+  :host-context(body.clock-fill) .lcd,
+  :host-context(body.clock-fill) .lcd.led,
+  :host-context(body.clock-fill) .lcd.module,
+  :host-context(body.clock-fill) .nixie {
+    width: min(90cqi, calc(100cqb * 2.3));
+    max-width: 100%;
+    max-height: calc(100cqb - 1.6rem);
+  }
+  :host-context(body.clock-fill) .nixie {
+    width: min(84cqi, calc(100cqb * 2.05));
+  }
+  :host-context(body.clock-fill) .lcd .seg-digit {
+    width: 11.2cqi;
+  }
+  :host-context(body.clock-fill) .lcd.module .seg-digit,
+  :host-context(body.clock-fill) .lcd.led .seg-digit {
+    width: 13.5cqi;
+  }
+  :host-context(body.clock-fill) .lcd .colon {
+    height: 20cqi;
+    width: 2cqi;
+    gap: 4.2cqi;
+  }
+  :host-context(body.clock-fill) .lcd.module .colon,
+  :host-context(body.clock-fill) .lcd.led .colon {
+    height: 25cqi;
+  }
+  :host-context(body.clock-fill) .lcd .colon i {
+    width: 1.45cqi;
+    height: 1.45cqi;
+  }
+  :host-context(body.clock-fill) .lcd-brand {
+    font-size: 2.3cqi;
+  }
+  :host-context(body.clock-fill) .lcd-sub,
+  :host-context(body.clock-fill) .lcd-zone {
+    font-size: 2.8cqi;
+  }
+  :host-context(body.clock-fill) .mod-day,
+  :host-context(body.clock-fill) .mod-sec {
+    font-size: 5.2cqi;
+  }
+  :host-context(body.clock-fill) .board {
+    width: min(92cqi, calc(100cqb * 2.15));
+    max-width: 100%;
+    max-height: calc(100cqb - 1.6rem);
+    container-type: inline-size;
+    box-sizing: border-box;
+    justify-content: center;
+  }
+  :host-context(body.clock-fill) .board .seg-digit {
+    width: 9.2cqi;
+  }
+  :host-context(body.clock-fill) .board .colon {
+    height: 17cqi;
+    width: 1.8cqi;
+  }
+  :host-context(body.clock-fill) .board .colon i {
+    width: 1.3cqi;
+    height: 1.3cqi;
+  }
+  :host-context(body.clock-fill) .board .mini-analog {
+    width: 18cqi;
+    max-width: 18cqi;
+  }
+  :host-context(body.clock-fill) .board-sub {
+    font-size: 2.6cqi;
+  }
+}
 
 @media (max-width: 860px) {
   :host([data-face^="hybrid"]) .dial-lcd {

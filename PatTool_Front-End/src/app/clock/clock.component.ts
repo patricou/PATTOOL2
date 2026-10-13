@@ -75,6 +75,30 @@ interface ZonedParts {
   day: string;
 }
 
+interface StageMark {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+interface StageDot {
+  cx: number;
+  cy: number;
+  r: number;
+  fill: boolean;
+}
+
+interface StageMotif {
+  w: number;
+  h: number;
+  angle: number;
+  weight: number;
+  lines: StageMark[];
+  dots: StageDot[];
+  path: string;
+}
+
 const FACES: ClockFace[] = [
   { id: 'classic', labelKey: 'CLOCK.FACE_CLASSIC' },
   { id: 'roman', labelKey: 'CLOCK.FACE_ROMAN' },
@@ -132,6 +156,14 @@ const FACES: ClockFace[] = [
   { id: 'chrono-blue', labelKey: 'CLOCK.FACE_CHRONO_BLUE' },
   { id: 'dress-navy', labelKey: 'CLOCK.FACE_DRESS_NAVY' },
   { id: 'chrono-black', labelKey: 'CLOCK.FACE_CHRONO_BLACK' },
+  { id: 'chrono-panda', labelKey: 'CLOCK.FACE_CHRONO_PANDA' },
+  { id: 'chrono-navy', labelKey: 'CLOCK.FACE_CHRONO_NAVY' },
+  { id: 'chrono-racing', labelKey: 'CLOCK.FACE_CHRONO_RACING' },
+  { id: 'chrono-burgundy', labelKey: 'CLOCK.FACE_CHRONO_BURGUNDY' },
+  { id: 'chrono-copper', labelKey: 'CLOCK.FACE_CHRONO_COPPER' },
+  { id: 'chrono-forest', labelKey: 'CLOCK.FACE_CHRONO_FOREST' },
+  { id: 'chrono-ice', labelKey: 'CLOCK.FACE_CHRONO_ICE' },
+  { id: 'chrono-sand', labelKey: 'CLOCK.FACE_CHRONO_SAND' },
   { id: 'lcd-led', labelKey: 'CLOCK.FACE_LCD_LED' },
   { id: 'lcd-module', labelKey: 'CLOCK.FACE_LCD_MODULE' },
   { id: 'lcd-dive', labelKey: 'CLOCK.FACE_LCD_DIVE' },
@@ -236,6 +268,56 @@ const SEGMENTS: Record<string, string> = {
   '7': 'abc',
   '8': 'abcdefg',
   '9': 'abcdfg'
+};
+
+type HandKind = 'dauphine' | 'sword' | 'mercedes' | 'arrow' | 'leaf' | 'baton' | 'pomme' | 'alpha' | 'open';
+
+const HAND_PATHS: Record<HandKind, { hour: string; minute: string; second: string }> = {
+  dauphine: {
+    hour: 'M100 56 L102.3 74 L101.5 108 L98.5 108 L97.7 74 Z',
+    minute: 'M100 34 L101.5 54 L101.05 114 L98.95 114 L98.5 54 Z',
+    second: 'M99.68 120 H100.32 V28 H99.68 Z'
+  },
+  sword: {
+    hour: 'M100 54 L102.8 72 L101.6 108 L98.4 108 L97.2 72 Z',
+    minute: 'M100 32 L101.9 52 L101.15 114 L98.85 114 L98.1 52 Z',
+    second: 'M99.68 120 H100.32 V28 H99.68 Z'
+  },
+  mercedes: {
+    hour: 'M100 54 L102.6 74 L101.5 108 L98.5 108 L97.4 74 Z M100 68 m-2.2 0 a2.2 2.2 0 1 0 4.4 0 a2.2 2.2 0 1 0 -4.4 0',
+    minute: 'M100 32 L101.7 56 L101.1 114 L98.9 114 L98.3 56 Z',
+    second: 'M99.68 118 H100.32 V34 H99.68 Z M100 112 m-1.6 0 a1.6 1.6 0 1 0 3.2 0 a1.6 1.6 0 1 0 -3.2 0'
+  },
+  arrow: {
+    hour: 'M100 52 L103.6 68 L101.35 68 L101.35 108 L98.65 108 L98.65 68 L96.4 68 Z',
+    minute: 'M100 32 L102.6 46 L101.05 114 L98.95 114 L97.4 46 Z',
+    second: 'M100 26 L101.5 33 H100.32 V120 H99.68 V33 H98.5 Z'
+  },
+  leaf: {
+    hour: 'M100 56 C103.2 74 102.4 96 101.4 110 H98.6 C97.6 96 96.8 74 100 56 Z',
+    minute: 'M100 34 C102.2 54 101.8 96 101.05 116 H98.95 C98.2 96 97.8 54 100 34 Z',
+    second: 'M99.68 120 H100.32 V28 H99.68 Z'
+  },
+  baton: {
+    hour: 'M98.7 108 H101.3 V62 Q101.3 56 100 56 Q98.7 56 98.7 62 Z',
+    minute: 'M99.15 114 H100.85 V38 Q100.85 32 100 32 Q99.15 32 99.15 38 Z',
+    second: 'M99.68 120 H100.32 V28 H99.68 Z'
+  },
+  pomme: {
+    hour: 'M99.5 108 H100.5 V70 H99.5 Z M100 66 m-3.1 0 a3.1 3.1 0 1 0 6.2 0 a3.1 3.1 0 1 0 -6.2 0',
+    minute: 'M99.55 114 H100.45 V48 H99.55 Z M100 44 m-2.4 0 a2.4 2.4 0 1 0 4.8 0 a2.4 2.4 0 1 0 -4.8 0',
+    second: 'M99.68 118 H100.32 V36 H99.68 Z M100 32 m-1.5 0 a1.5 1.5 0 1 0 3 0 a1.5 1.5 0 1 0 -3 0'
+  },
+  alpha: {
+    hour: 'M100 54 L102.8 96 L101.15 110 L98.85 110 L97.2 96 Z',
+    minute: 'M100 32 L101.9 94 L101 116 L99 116 L98.1 94 Z',
+    second: 'M99.68 120 H100.32 V32 L101.4 32 L100 26 L98.6 32 H99.68 Z'
+  },
+  open: {
+    hour: 'M100 56 L102.3 74 L101.5 108 L98.5 108 L97.7 74 Z',
+    minute: 'M100 34 L101.5 54 L101.05 114 L98.95 114 L98.5 54 Z',
+    second: 'M99.68 120 H100.32 V28 H99.68 Z'
+  }
 };
 
 const PREFS_KEY = 'pattool.clock.prefs';
@@ -509,16 +591,102 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
     return CLOCK_MOTIFS[this.faceId] ?? NO_MOTIF;
   }
 
+  get handKind(): HandKind {
+    const id = this.faceId;
+    if (id.startsWith('chrono-')) return 'alpha';
+    if (id.startsWith('diver-') || id === 'sport' || id === 'aviator' || id === 'field-cream') return 'arrow';
+    if (id.startsWith('quartz') || id === 'bauhaus' || id === 'minimal' || id.startsWith('sharp-') || id === 'hybrid-sharp') return 'baton';
+    if (id === 'roman' || id === 'cathedral' || id === 'marine' || id === 'gousset' || id === 'gold') return 'pomme';
+    if (id === 'deco' || id === 'marble' || id === 'guilloche') return 'dauphine';
+    if (id === 'skeleton' || id === 'circuit' || id === 'gears') return 'open';
+    if (id === 'sakura' || id === 'flame' || id === 'desert' || id === 'forest' || id === 'hybrid-sakura') return 'leaf';
+    if (id === 'noir' || id === 'obsidian' || id.startsWith('burst-')) return 'mercedes';
+    if (id.startsWith('hybrid') || id === 'radar' || id === 'arcade' || id === 'orbit') return 'sword';
+    const kinds: HandKind[] = ['dauphine', 'sword', 'arrow', 'leaf', 'mercedes', 'baton', 'alpha', 'pomme'];
+    let n = 0;
+    for (let i = 0; i < id.length; i++) n += id.charCodeAt(i);
+    return kinds[n % kinds.length];
+  }
+
+  get hourHandPath(): string {
+    return HAND_PATHS[this.handKind].hour;
+  }
+
+  get minuteHandPath(): string {
+    return HAND_PATHS[this.handKind].minute;
+  }
+
+  get secondHandPath(): string {
+    return HAND_PATHS[this.handKind].second;
+  }
+
+  get stageMotif(): StageMotif {
+    const index = Math.max(0, this.faces.findIndex((face) => face.id === this.faceId));
+    const kind = index % 12;
+    const step = 36 + (index % 8) * 7;
+    const angle = (index * 13) % 180;
+    const weight = +(0.8 + (index % 4) * 0.35).toFixed(2);
+    const lines: StageMark[] = [];
+    const dots: StageDot[] = [];
+    let path = '';
+    const gap = 7 + (index % 3) * 3;
+    if (kind === 0 || kind === 4 || kind === 10) {
+      const both = kind === 4;
+      const grid = kind === 10;
+      const pitch = grid ? gap + 4 : gap;
+      for (let y = pitch; y < step; y += pitch) {
+        lines.push({ x1: 0, y1: y, x2: step, y2: y });
+        if (both || grid) {
+          lines.push({ x1: y, y1: 0, x2: y, y2: step });
+        }
+      }
+    } else if (kind === 1 || kind === 5) {
+      const pitch = 9 + (index % 4) * 3;
+      const fill = kind === 1;
+      for (let y = pitch / 2; y < step; y += pitch) {
+        for (let x = pitch / 2; x < step; x += pitch) {
+          dots.push({ cx: x, cy: y, r: fill ? 1.3 + (index % 3) * 0.45 : 2.4 + (index % 3) * 0.7, fill });
+        }
+      }
+    } else if (kind === 6) {
+      const pitch = 12 + (index % 3) * 4;
+      const arm = 2.2 + (index % 3);
+      for (let y = pitch / 2; y < step; y += pitch) {
+        for (let x = pitch / 2; x < step; x += pitch) {
+          lines.push({ x1: x - arm, y1: y, x2: x + arm, y2: y });
+          lines.push({ x1: x, y1: y - arm, x2: x, y2: y + arm });
+        }
+      }
+    } else if (kind === 2) {
+      path = `M${step / 2} 2 L${step - 2} ${step / 2} L${step / 2} ${step - 2} L2 ${step / 2} Z`;
+    } else if (kind === 3) {
+      path = `M2 ${step * 0.65} L${step / 2} 4 L${step - 2} ${step * 0.65}`;
+    } else if (kind === 7) {
+      const mid = step / 2;
+      path = `M0 ${mid} Q${step * 0.25} 2 ${mid} ${mid} T${step} ${mid}`;
+    } else if (kind === 8) {
+      path = `M2 ${step - 2} L${step / 2} 3 L${step - 2} ${step - 2} Z`;
+    } else if (kind === 9) {
+      const r = step * 0.55;
+      path = `M0 ${step} A${r} ${r} 0 0 1 ${step} ${step} M0 4 A${r} ${r} 0 0 1 ${step} 4`;
+    } else {
+      const c = step / 2;
+      const o = 2 + (index % 3);
+      path = `M${c} ${o} L${c + o} ${c} L${c} ${step - o} L${c - o} ${c} Z`;
+    }
+    return { w: step, h: step, angle, weight, lines, dots, path };
+  }
+
   get showLineTicks(): boolean {
-    return this.showAnalog && ![
+    return this.showAnalog && !this.faceId.startsWith('chrono-') && ![
       'aurora', 'skeleton', 'deco', 'constellation', 'bauhaus', 'regulator', 'guilloche',
       'marine', 'rail', 'metro', 'sakura', 'desert', 'abyss', 'arcade', 'cathedral', 'radar',
       'ink', 'circuit', 'flame', 'prism', 'aviator', 'forest', 'chess', 'orbit',
       'quartz-serif', 'quartz-mono', 'quartz-script', 'quartz-narrow', 'quartz-gothic', 'quartz-heavy',
       'ripple', 'gears', 'compass', 'vinyl', 'eclipse', 'ecg', 'fan', 'labyrinth',
       'hybrid-night', 'hybrid-chrono', 'hybrid-radar', 'hybrid-sakura', 'hybrid-orbit', 'hybrid-deco',
-      'burst-silver', 'burst-green', 'burst-blue', 'burst-sand', 'burst-ink', 'chrono-green', 'chrono-silver',
-      'diver-blue', 'chrono-gold', 'chrono-slate', 'chrono-blue', 'dress-navy', 'chrono-black'
+      'burst-silver', 'burst-green', 'burst-blue', 'burst-sand', 'burst-ink',
+      'diver-blue', 'dress-navy'
     ].includes(this.faceId);
   }
 

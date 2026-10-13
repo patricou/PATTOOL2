@@ -176,7 +176,7 @@
                 </ul>
             </li>
 
-            <!-- Business : Finance + Foncier + Artisans -->
+            <!-- Business : Finance + Jeux d'argent + Foncier + Artisans -->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle"
                    href="#"
@@ -191,6 +191,15 @@
                     aria-labelledby="financeDropdown">
                     <li><h6 class="dropdown-header">{{ 'MENU.FINANCE' | translate }}</h6></li>
                     <li *ngFor="let item of sortedNavFinance">
+                        <a class="dropdown-item"
+                           [routerLink]="item.routerLink"
+                           (click)="closeMenu()">
+                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><h6 class="dropdown-header">{{ 'MENU.JEUX_ARGENT' | translate }}</h6></li>
+                    <li *ngFor="let item of sortedNavJeuxArgent">
                         <a class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">
@@ -265,7 +274,7 @@
                 </ul>
             </li>
 
-            <!-- Science / jeux & calculatrice -->
+            <!-- Science / calculatrice -->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle"
                    href="#"
