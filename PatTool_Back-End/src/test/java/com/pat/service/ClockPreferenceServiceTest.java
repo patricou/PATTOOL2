@@ -50,6 +50,35 @@ class ClockPreferenceServiceTest {
     }
 
     @Test
+    void lookStaysNeutralWhenMissingAndClampsWhenOutOfRange() throws Exception {
+        AppParameter row = new AppParameter(
+                "clock.preferences.alice",
+                "{\"faceId\":\"cobalt\",\"timeZone\":\"\",\"alarms\":[]}",
+                AppParameter.TYPE_JSON,
+                "test");
+        when(userOwnerService.findParam("clock.preferences.", "sub")).thenReturn(Optional.of(row));
+        ClockPreferencesDto found = service.findForSubject("sub");
+        assertEquals("cobalt", found.getFaceId());
+        assertEquals(100, found.getContrast());
+        assertEquals(100, found.getReflection());
+
+        when(userOwnerService.writeKey("clock.preferences.", "sub")).thenReturn("clock.preferences.alice");
+        ClockPreferencesDto body = new ClockPreferencesDto();
+        body.setFaceId("ruby");
+        body.setContrast(900);
+        body.setBrightness(10);
+        body.setReflection(0);
+        body.setBrilliance(150);
+        ClockPreferencesDto saved = service.saveForSubject("sub", body, null);
+        assertEquals("ruby", saved.getFaceId());
+        assertEquals(170, saved.getContrast());
+        assertEquals(50, saved.getBrightness());
+        assertEquals(0, saved.getReflection());
+        assertEquals(100, saved.getIntensity());
+        assertEquals(150, saved.getBrilliance());
+    }
+
+    @Test
     void normalizeFaceAndZone() {
         assertEquals("classic", ClockPreferenceService.normalizeFace("nope"));
         assertEquals("lcd-green", ClockPreferenceService.normalizeFace("LCD-GREEN"));

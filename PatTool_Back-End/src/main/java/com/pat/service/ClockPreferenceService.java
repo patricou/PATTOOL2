@@ -65,6 +65,8 @@ public class ClockPreferenceService {
             "sharp-silver", "sharp-gold", "sharp-black", "hybrid-sharp",
             "quartz", "quartz-date", "quartz-black", "quartz-gold", "quartz-field",
             "quartz-serif", "quartz-mono", "quartz-script", "quartz-narrow", "quartz-gothic", "quartz-heavy",
+            "cobalt", "ruby", "emerald", "copper", "indigo", "olive", "wine", "petrol", "plum", "lava",
+            "pine", "graphite", "brass", "saffron", "navy-ink", "moss", "rust", "lagoon", "onyx", "garnet",
             "nixie");
 
     private static final DateTimeFormatter HM = DateTimeFormatter.ofPattern("HH:mm");
@@ -105,6 +107,7 @@ public class ClockPreferenceService {
         saved.setAlarms(normalizeAlarms(
                 body == null ? null : body.getAlarms(),
                 previous.getAlarms()));
+        applyLook(saved, body);
         saved.setNotifyEmail(resolveEmail(jwtSubject, firstEmail(jwtEmail, previous.getNotifyEmail())));
         String key = userOwnerService.writeKey(PARAM_KEY_PREFIX, jwtSubject);
         try {
@@ -260,6 +263,7 @@ public class ClockPreferenceService {
             out.setTimeZone(normalizeZone(dto.getTimeZone()));
             out.setNotifyEmail(looksLikeEmail(dto.getNotifyEmail()) ? dto.getNotifyEmail().trim() : "");
             out.setAlarms(normalizeAlarms(dto.getAlarms(), List.of()));
+            applyLook(out, dto);
             return out;
         } catch (JsonProcessingException e) {
             log.debug("clock.preferences unreadable JSON: {}", e.getMessage());
@@ -268,7 +272,9 @@ public class ClockPreferenceService {
     }
 
     private static ClockPreferencesDto defaults() {
-        return new ClockPreferencesDto();
+        ClockPreferencesDto dto = new ClockPreferencesDto();
+        applyLook(dto, null);
+        return dto;
     }
 
     static List<ClockAlarmDto> normalizeAlarms(List<ClockAlarmDto> incoming, List<ClockAlarmDto> previous) {
@@ -360,6 +366,22 @@ public class ClockPreferenceService {
         }
         String v = value.trim();
         return v.matches("\\d{4}-\\d{2}-\\d{2}") ? v : "";
+    }
+
+    private static void applyLook(ClockPreferencesDto target, ClockPreferencesDto source) {
+        target.setContrast(normalizeLook(source == null ? null : source.getContrast(), 50, 170));
+        target.setBrightness(normalizeLook(source == null ? null : source.getBrightness(), 50, 170));
+        target.setReflection(normalizeLook(source == null ? null : source.getReflection(), 0, 200));
+        target.setIntensity(normalizeLook(source == null ? null : source.getIntensity(), 0, 200));
+        target.setBrilliance(normalizeLook(source == null ? null : source.getBrilliance(), 0, 200));
+    }
+
+    /** Missing value stays at the neutral design (100). */
+    static int normalizeLook(Integer value, int min, int max) {
+        if (value == null) {
+            return 100;
+        }
+        return clamp(value, min, max);
     }
 
     private static int clamp(int value, int min, int max) {

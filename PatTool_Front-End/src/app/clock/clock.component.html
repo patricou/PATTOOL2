@@ -7,7 +7,12 @@
   </div>
 
   <div class="clock-body">
-  <div class="clock-stage">
+  <div class="clock-stage"
+       [style.--look-contrast]="lookScale(look.contrast)"
+       [style.--look-bright]="lookScale(look.brightness)"
+       [style.--look-reflect]="lookScale(look.reflection)"
+       [style.--look-sat]="lookScale(look.intensity)"
+       [style.--look-shine]="lookScale(look.brilliance)">
     <div class="watch" *ngIf="showAnalog">
       <svg viewBox="0 0 200 200" role="img" [attr.aria-label]="readout + ' ' + effectiveZone">
         <defs>
@@ -25,8 +30,23 @@
             <stop class="idx-core" offset="46%" />
             <stop class="idx-edge" offset="100%" />
           </linearGradient>
+          <linearGradient id="bezelMetal" x1="12%" y1="6%" x2="88%" y2="96%">
+            <stop class="rim-a" offset="0%" />
+            <stop class="rim-b" offset="14%" />
+            <stop class="rim-c" offset="34%" />
+            <stop class="rim-d" offset="58%" />
+            <stop class="rim-c" offset="78%" />
+            <stop class="rim-b" offset="100%" />
+          </linearGradient>
+          <radialGradient id="crystalDome" cx="26%" cy="16%" r="42%">
+            <stop class="glass-a" offset="0%" />
+            <stop class="glass-b" offset="34%" />
+            <stop class="glass-c" offset="62%" />
+            <stop class="glass-d" offset="100%" />
+          </radialGradient>
         </defs>
         <circle class="bezel" cx="100" cy="100" r="96" />
+        <circle class="bezel-glint" cx="100" cy="100" r="91.2" transform="rotate(-128 100 100)" />
         <circle class="dial-face" cx="100" cy="100" r="88" />
         <circle class="dial-ring" cx="100" cy="100" r="86" />
         <g *ngIf="hasDialWash" class="sunburst" aria-hidden="true">
@@ -221,6 +241,10 @@
           <line x1="100" y1="118" x2="100" y2="28" />
         </g>
         <circle class="cap" cx="100" cy="100" r="3.2" />
+        <g class="crystal" aria-hidden="true">
+          <circle class="crystal-dome" cx="100" cy="100" r="87.2" />
+          <ellipse class="crystal-spot" cx="66" cy="44" rx="30" ry="11" transform="rotate(-32 66 44)" />
+        </g>
       </svg>
       <div class="dial-lcd" *ngIf="isHybrid" aria-hidden="true">
         <ng-container *ngFor="let tok of lcdTokens">
@@ -241,6 +265,18 @@
             <stop offset="0%" stop-color="#4a4a4a" />
             <stop offset="48%" stop-color="#161616" />
             <stop offset="100%" stop-color="#050505" />
+          </radialGradient>
+          <linearGradient id="ultraMetal" x1="8%" y1="0%" x2="92%" y2="100%">
+            <stop offset="0%" stop-color="#fff1cc" />
+            <stop offset="22%" stop-color="#f6b15a" />
+            <stop offset="48%" stop-color="#c2410c" />
+            <stop offset="74%" stop-color="#7c2d12" />
+            <stop offset="100%" stop-color="#fdba74" />
+          </linearGradient>
+          <radialGradient id="ultraGlass" cx="32%" cy="24%" r="70%">
+            <stop offset="0%" stop-color="#ffe7c2" stop-opacity="0.45" />
+            <stop offset="42%" stop-color="#ffffff" stop-opacity="0.05" />
+            <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
           </radialGradient>
         </defs>
         <g class="u-strap">
@@ -283,6 +319,7 @@
           <line x1="180" y1="122" x2="180" y2="40" />
         </g>
         <circle class="u-cap" cx="180" cy="105" r="3.2" />
+        <circle class="u-glass" cx="180" cy="105" r="70" fill="url(#ultraGlass)" />
         <g class="u-controls">
           <rect x="292" y="58" width="12" height="26" rx="3" />
           <rect x="294" y="96" width="14" height="20" rx="4" />
@@ -401,7 +438,20 @@
         <span>{{ effectiveZone }}</span>
       </div>
     </div>
-    <button type="button" class="fill-exit" *ngIf="fillScreen" (click)="toggleFill()">{{ 'CLOCK.FILL_EXIT' | translate }}</button>
+    <div class="look-bar" *ngIf="!fillScreen" role="group" [attr.aria-label]="'CLOCK.LOOK' | translate">
+      <div class="look-item" *ngFor="let key of lookKeys">
+        <span class="look-name">{{ ('CLOCK.LOOK_' + key.toUpperCase()) | translate }}</span>
+        <button type="button" (click)="stepLook(key, -1)" [disabled]="look[key] <= lookBound(key).min"
+                [attr.aria-label]="('CLOCK.LOOK_LESS' | translate) + ' ' + (('CLOCK.LOOK_' + key.toUpperCase()) | translate)">−</button>
+        <span class="look-val">{{ look[key] }}</span>
+        <button type="button" (click)="stepLook(key, 1)" [disabled]="look[key] >= lookBound(key).max"
+                [attr.aria-label]="('CLOCK.LOOK_MORE' | translate) + ' ' + (('CLOCK.LOOK_' + key.toUpperCase()) | translate)">+</button>
+      </div>
+      <button type="button" class="look-reset" (click)="resetLook()">{{ 'CLOCK.LOOK_RESET' | translate }}</button>
+    </div>
+    <button type="button" class="fill-exit" *ngIf="fillScreen" (click)="toggleFill()" [attr.aria-label]="'CLOCK.FILL_EXIT' | translate">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+    </button>
 
     <div class="banner ring" *ngIf="ringing" role="alert">
       <strong>{{ ringMessage }}</strong>

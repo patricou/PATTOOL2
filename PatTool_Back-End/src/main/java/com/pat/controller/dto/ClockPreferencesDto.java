@@ -17,6 +17,12 @@ public class ClockPreferencesDto {
     /** Filled by the server from the account. Ignored when sent by the client. */
     private String notifyEmail = "";
     private List<ClockAlarmDto> alarms = new ArrayList<>();
+    /** 100 is the designed look. Null means the client did not send a value. */
+    private Integer contrast;
+    private Integer brightness;
+    private Integer reflection;
+    private Integer intensity;
+    private Integer brilliance;
 
     public String getFaceId() {
         return faceId;
@@ -48,5 +54,45 @@ public class ClockPreferencesDto {
 
     public void setAlarms(List<ClockAlarmDto> alarms) {
         this.alarms = alarms;
+    }
+
+    public Integer getContrast() {
+        return contrast;
+    }
+
+    public void setContrast(Integer contrast) {
+        this.contrast = contrast;
+    }
+
+    public Integer getBrightness() {
+        return brightness;
+    }
+
+    public void setBrightness(Integer brightness) {
+        this.brightness = brightness;
+    }
+
+    public Integer getReflection() {
+        return reflection;
+    }
+
+    public void setReflection(Integer reflection) {
+        this.reflection = reflection;
+    }
+
+    public Integer getIntensity() {
+        return intensity;
+    }
+
+    public void setIntensity(Integer intensity) {
+        this.intensity = intensity;
+    }
+
+    public Integer getBrilliance() {
+        return brilliance;
+    }
+
+    public void setBrilliance(Integer brilliance) {
+        this.brilliance = brilliance;
     }
 }

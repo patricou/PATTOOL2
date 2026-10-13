@@ -40,6 +40,21 @@ interface ClockPrefs {
   timeZone?: string;
   notifyEmail?: string;
   alarms?: ClockAlarm[];
+  contrast?: number;
+  brightness?: number;
+  reflection?: number;
+  intensity?: number;
+  brilliance?: number;
+}
+
+type LookKey = 'contrast' | 'brightness' | 'reflection' | 'intensity' | 'brilliance';
+
+interface ClockLook {
+  contrast: number;
+  brightness: number;
+  reflection: number;
+  intensity: number;
+  brilliance: number;
 }
 
 interface Numeral {
@@ -164,6 +179,26 @@ const FACES: ClockFace[] = [
   { id: 'quartz-narrow', labelKey: 'CLOCK.FACE_QUARTZ_NARROW' },
   { id: 'quartz-gothic', labelKey: 'CLOCK.FACE_QUARTZ_GOTHIC' },
   { id: 'quartz-heavy', labelKey: 'CLOCK.FACE_QUARTZ_HEAVY' },
+  { id: 'cobalt', labelKey: 'CLOCK.FACE_COBALT' },
+  { id: 'ruby', labelKey: 'CLOCK.FACE_RUBY' },
+  { id: 'emerald', labelKey: 'CLOCK.FACE_EMERALD' },
+  { id: 'copper', labelKey: 'CLOCK.FACE_COPPER' },
+  { id: 'indigo', labelKey: 'CLOCK.FACE_INDIGO' },
+  { id: 'olive', labelKey: 'CLOCK.FACE_OLIVE' },
+  { id: 'wine', labelKey: 'CLOCK.FACE_WINE' },
+  { id: 'petrol', labelKey: 'CLOCK.FACE_PETROL' },
+  { id: 'plum', labelKey: 'CLOCK.FACE_PLUM' },
+  { id: 'lava', labelKey: 'CLOCK.FACE_LAVA' },
+  { id: 'pine', labelKey: 'CLOCK.FACE_PINE' },
+  { id: 'graphite', labelKey: 'CLOCK.FACE_GRAPHITE' },
+  { id: 'brass', labelKey: 'CLOCK.FACE_BRASS' },
+  { id: 'saffron', labelKey: 'CLOCK.FACE_SAFFRON' },
+  { id: 'navy-ink', labelKey: 'CLOCK.FACE_NAVY_INK' },
+  { id: 'moss', labelKey: 'CLOCK.FACE_MOSS' },
+  { id: 'rust', labelKey: 'CLOCK.FACE_RUST' },
+  { id: 'lagoon', labelKey: 'CLOCK.FACE_LAGOON' },
+  { id: 'onyx', labelKey: 'CLOCK.FACE_ONYX' },
+  { id: 'garnet', labelKey: 'CLOCK.FACE_GARNET' },
   { id: 'nixie', labelKey: 'CLOCK.FACE_NIXIE' }
 ];
 
@@ -206,6 +241,18 @@ const SEGMENTS: Record<string, string> = {
 const PREFS_KEY = 'pattool.clock.prefs';
 const RUNTIME_KEY = 'pattool.clock.runtime';
 
+const LOOK_RANGE: Record<LookKey, { min: number; max: number; step: number }> = {
+  contrast: { min: 50, max: 170, step: 10 },
+  brightness: { min: 50, max: 170, step: 10 },
+  reflection: { min: 0, max: 200, step: 10 },
+  intensity: { min: 0, max: 200, step: 10 },
+  brilliance: { min: 0, max: 200, step: 10 }
+};
+
+function defaultLook(): ClockLook {
+  return { contrast: 100, brightness: 100, reflection: 100, intensity: 100, brilliance: 100 };
+}
+
 @Component({
   selector: 'app-clock',
   standalone: true,
@@ -218,6 +265,7 @@ const RUNTIME_KEY = 'pattool.clock.runtime';
 })
 export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly faces = FACES;
+  readonly lookKeys: LookKey[] = ['contrast', 'brightness', 'reflection', 'intensity', 'brilliance'];
   readonly sunRays = Array.from({ length: 72 }, (_, i) => i * 5);
   readonly subTicks = [0, 90, 180, 270];
   readonly ringLength = 289;
@@ -257,6 +305,7 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
   ];
 
   faceId = 'classic';
+  look: ClockLook = defaultLook();
   /** Empty string follows the browser zone and is not stored as a fixed zone. */
   timeZoneChoice = '';
   browserZone = 'UTC';
@@ -297,6 +346,9 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
   chronoRunning = false;
   fillScreen = false;
 
+  private swipeStartX = 0;
+  private swipeStartY = 0;
+  private swipeActive = false;
   private chronoAccumulated = 0;
   private chronoStartedAt = 0;
   private tickTimer: ReturnType<typeof setInterval> | null = null;
@@ -677,6 +729,30 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
     return 'analog';
   }
 
+  lookScale(value: number): number {
+    return value / 100;
+  }
+
+  lookBound(key: LookKey): { min: number; max: number } {
+    return LOOK_RANGE[key];
+  }
+
+  stepLook(key: LookKey, dir: number): void {
+    const range = LOOK_RANGE[key];
+    const sign = dir < 0 ? -1 : 1;
+    const next = this.clamp(this.look[key] + sign * range.step, range.min, range.max);
+    if (next === this.look[key]) {
+      return;
+    }
+    this.look = { ...this.look, [key]: next };
+    this.scheduleSave();
+  }
+
+  resetLook(): void {
+    this.look = defaultLook();
+    this.scheduleSave();
+  }
+
   setFace(id: string): void {
     if (!FACE_IDS.has(id) || id === this.faceId) {
       return;
@@ -710,13 +786,55 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
     if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
       return;
     }
+    event.preventDefault();
+    this.stepFace(forward ? 1 : -1);
+  }
+
+  @HostListener('touchstart', ['$event'])
+  onFaceSwipeStart(event: TouchEvent): void {
+    if (event.touches.length !== 1) {
+      this.swipeActive = false;
+      return;
+    }
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('button, a, input, textarea, select, .dock')) {
+      this.swipeActive = false;
+      return;
+    }
+    this.swipeActive = true;
+    this.swipeStartX = event.touches[0].clientX;
+    this.swipeStartY = event.touches[0].clientY;
+  }
+
+  @HostListener('touchend', ['$event'])
+  onFaceSwipeEnd(event: TouchEvent): void {
+    if (!this.swipeActive) {
+      return;
+    }
+    this.swipeActive = false;
+    const touch = event.changedTouches[0];
+    if (!touch) {
+      return;
+    }
+    const dx = touch.clientX - this.swipeStartX;
+    const dy = touch.clientY - this.swipeStartY;
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy)) {
+      return;
+    }
+    this.stepFace(dx < 0 ? 1 : -1);
+  }
+
+  @HostListener('touchcancel')
+  onFaceSwipeCancel(): void {
+    this.swipeActive = false;
+  }
+
+  private stepFace(step: number): void {
     const index = FACES.findIndex((face) => face.id === this.faceId);
-    const step = forward ? 1 : -1;
     const next = FACES[(index + step + FACES.length) % FACES.length];
     if (!next) {
       return;
     }
-    event.preventDefault();
     this.setFace(next.id);
     queueMicrotask(() => {
       this.hostEl.nativeElement.querySelector('.swatch.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -1152,6 +1270,13 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
     this.timeZoneChoice = zone && this.isZone(zone) ? zone : '';
     this.alarms = Array.isArray(prefs.alarms) ? prefs.alarms.map((a) => this.normalizeAlarm(a)) : [];
     this.notifyEmail = (prefs.notifyEmail || '').trim();
+    this.look = {
+      contrast: this.readLook(prefs.contrast, LOOK_RANGE.contrast),
+      brightness: this.readLook(prefs.brightness, LOOK_RANGE.brightness),
+      reflection: this.readLook(prefs.reflection, LOOK_RANGE.reflection),
+      intensity: this.readLook(prefs.intensity, LOOK_RANGE.intensity),
+      brilliance: this.readLook(prefs.brilliance, LOOK_RANGE.brilliance)
+    };
     this.refreshNumerals();
     this.writeLocalPrefs();
     queueMicrotask(() => this.syncPageBg());
@@ -1161,6 +1286,11 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
     return {
       faceId: this.faceId,
       timeZone: this.timeZoneChoice,
+      contrast: this.look.contrast,
+      brightness: this.look.brightness,
+      reflection: this.look.reflection,
+      intensity: this.look.intensity,
+      brilliance: this.look.brilliance,
       alarms: this.alarms.map((a) => ({
         id: a.id,
         hour: a.hour,
@@ -1171,6 +1301,14 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
         lastFiredDate: a.lastFiredDate
       }))
     };
+  }
+
+  private readLook(value: unknown, range: { min: number; max: number }): number {
+    const n = Number(value);
+    if (!Number.isFinite(n)) {
+      return 100;
+    }
+    return this.clamp(Math.round(n), range.min, range.max);
   }
 
   private normalizeAlarm(raw: ClockAlarm): ClockAlarm {
