@@ -14,7 +14,8 @@
        [style.--look-sat]="lookScale(look.intensity)"
        [style.--look-shine]="lookScale(look.brilliance)">
     <div class="watch" *ngIf="showAnalog">
-      <svg viewBox="0 0 200 200" role="img" [attr.aria-label]="readout + ' ' + effectiveZone">
+      <div class="watch-plate">
+      <svg class="watch-face" viewBox="0 0 200 200" role="img" [attr.aria-label]="readout + ' ' + effectiveZone">
         <defs>
           <radialGradient id="clockWash" cx="50%" cy="38%" r="72%">
             <stop class="wash-in" offset="0%" />
@@ -38,7 +39,7 @@
             <stop class="rim-c" offset="78%" />
             <stop class="rim-b" offset="100%" />
           </linearGradient>
-          <radialGradient id="crystalDome" cx="26%" cy="16%" r="42%">
+          <radialGradient id="crystalDome" cx="24%" cy="14%" r="24%">
             <stop class="glass-a" offset="0%" />
             <stop class="glass-b" offset="34%" />
             <stop class="glass-c" offset="62%" />
@@ -230,7 +231,16 @@
           <circle class="sub-cap" r="0.9" />
         </g>
         <text *ngIf="mode !== 'clock'" class="subread" x="100" [attr.y]="isChrono || hasSmallSeconds ? 42 : 156" text-anchor="middle" font-size="7">{{ readout }}<tspan *ngIf="showFraction">.{{ fraction }}</tspan></text>
-
+      </svg>
+      <div class="dial-lcd" *ngIf="isHybrid" aria-hidden="true">
+        <ng-container *ngFor="let tok of lcdTokens">
+          <span *ngIf="tok.kind === 'c'" class="colon" [class.on]="colonOn"><i></i><i></i></span>
+          <svg *ngIf="tok.kind === 'd'" viewBox="0 0 20 38" class="seg-digit">
+            <path *ngFor="let s of segPaths" [attr.d]="s.d" [class.on]="segOn(tok.ch, s.id)" />
+          </svg>
+        </ng-container>
+      </div>
+      <svg class="watch-hands" viewBox="0 0 200 200" aria-hidden="true">
         <g class="hand hour" *ngIf="faceId !== 'regulator'" [attr.transform]="'rotate(' + hourAngle + ' 100 100)'">
           <line x1="100" y1="108" x2="100" y2="58" />
         </g>
@@ -241,18 +251,11 @@
           <line x1="100" y1="118" x2="100" y2="28" />
         </g>
         <circle class="cap" cx="100" cy="100" r="3.2" />
-        <g class="crystal" aria-hidden="true">
+        <g class="crystal">
           <circle class="crystal-dome" cx="100" cy="100" r="87.2" />
           <ellipse class="crystal-spot" cx="66" cy="44" rx="30" ry="11" transform="rotate(-32 66 44)" />
         </g>
       </svg>
-      <div class="dial-lcd" *ngIf="isHybrid" aria-hidden="true">
-        <ng-container *ngFor="let tok of lcdTokens">
-          <span *ngIf="tok.kind === 'c'" class="colon" [class.on]="colonOn"><i></i><i></i></span>
-          <svg *ngIf="tok.kind === 'd'" viewBox="0 0 20 38" class="seg-digit">
-            <path *ngFor="let s of segPaths" [attr.d]="s.d" [class.on]="segOn(tok.ch, s.id)" />
-          </svg>
-        </ng-container>
       </div>
       <p class="clock-date">{{ shortDate }}</p>
       <p class="clock-zone">{{ effectiveZone }}</p>

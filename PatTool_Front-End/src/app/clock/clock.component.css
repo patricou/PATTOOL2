@@ -1538,11 +1538,21 @@
   container-type: inline-size;
 }
 
+.watch-plate { position: relative; }
+.watch svg.watch-hands {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  filter: none;
+}
 .dial-lcd {
   position: absolute;
   left: 50%;
   top: 0;
-  z-index: 2;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1580,8 +1590,8 @@
   width: 100%;
   height: auto;
   display: block;
-  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.4));
 }
+.watch-face { filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.4)); }
 
 .wash-in { stop-color: var(--wash-in, var(--face)); }
 .wash-out { stop-color: var(--wash-out, var(--face)); }
@@ -1592,7 +1602,7 @@
 .glass-a { stop-color: var(--glass-hi); }
 .glass-b { stop-color: var(--glass-mid); }
 .glass-c { stop-color: var(--glass-hi); stop-opacity: 0; }
-.glass-d { stop-color: var(--glass-edge); }
+.glass-d { stop-color: transparent; stop-opacity: 0; }
 .bezel { fill: var(--bezel-fill); stroke: url(#bezelMetal); stroke-width: 7.5; }
 .bezel-glint {
   fill: none;
@@ -1701,9 +1711,9 @@
   --rim-glint: color-mix(in srgb, white 28%, var(--bezel));
   --rim-body: color-mix(in srgb, var(--bezel) 88%, white);
   --rim-shade: color-mix(in srgb, var(--bezel) 42%, black);
-  --glass-hi: color-mix(in srgb, var(--bezel) 12%, white);
+  --glass-hi: rgb(255 255 255 / 0.22);
   --glass-mid: transparent;
-  --glass-edge: color-mix(in srgb, var(--bezel) 35%, black);
+  --glass-edge: transparent;
 }
 .dial-face { fill: var(--face); }
 :host([data-face^="burst-"]) .dial-ring,
