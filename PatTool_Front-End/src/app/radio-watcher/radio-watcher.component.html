@@ -482,10 +482,12 @@
         <div
           class="radio-face"
           [class.radio-face--empty]="!selectedStation || isFloatingOpen">
+          <!-- crossorigin: without CORS mode the equalizer (Web Audio) only receives silence from the API stream proxy. -->
           <audio
             #mediaEl
             class="radio-video radio-audio-el"
             preload="none"
+            crossorigin="anonymous"
             playsinline
             webkit-playsinline
             data-pat-radio="1"
