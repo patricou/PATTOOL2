@@ -377,6 +377,7 @@ public class ClockPreferenceService {
         target.setReflection(normalizeLook(source == null ? null : source.getReflection(), 0, 200));
         target.setIntensity(normalizeLook(source == null ? null : source.getIntensity(), 0, 200));
         target.setBrilliance(normalizeLook(source == null ? null : source.getBrilliance(), 0, 200));
+        target.setGlare(normalizeLook(source == null ? null : source.getGlare(), 0, 200));
     }
 
     /** Missing value stays at the neutral design (100). */

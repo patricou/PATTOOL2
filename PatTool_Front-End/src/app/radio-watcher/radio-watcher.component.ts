@@ -1,4 +1,5 @@
 import {
+  AfterViewInit,
   ChangeDetectorRef,
   Component,
   ElementRef,
@@ -41,16 +42,30 @@ import { YoutubeEqualizerModalComponent } from '../youtube-watcher/youtube-equal
 
 type RadioListMode = 'catalog' | 'favorites' | 'podcasts';
 type PodcastBrowseLevel = 'shows' | 'episodes';
+export type RadioSkin = 'classic' | 'artdeco' | 'synthwave' | 'spaceage' | 'military' | 'steampunk' | 'aurora';
+
+const RADIO_SKINS: readonly RadioSkin[] = [
+  'classic',
+  'artdeco',
+  'synthwave',
+  'spaceage',
+  'military',
+  'steampunk',
+  'aurora'
+];
 
 @Component({
   selector: 'app-radio-watcher',
   standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, RadioGlobalFilterModalComponent, YoutubeEqualizerModalComponent],
   templateUrl: './radio-watcher.component.html',
-  styleUrls: ['./radio-watcher.component.css']
+  styleUrls: ['./radio-watcher.component.css', './radio-skins.css']
 })
-export class RadioWatcherComponent implements OnInit, OnDestroy {
+export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('mediaEl') mediaEl?: ElementRef<HTMLAudioElement>;
+  @ViewChild('sidebarEl') sidebarEl?: ElementRef<HTMLElement>;
+  /** Desktop only: sidebar fills from its top down to the bottom of the screen. */
+  sidebarHeightPx: number | null = null;
   @ViewChild('playerPanel') playerPanelEl?: ElementRef<HTMLElement>;
   @ViewChild('eqModal') eqModal?: YoutubeEqualizerModalComponent;
   eqLive = false;
@@ -67,6 +82,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   selectedTag = '';
   stationQuery = '';
   sidebarFilterQuery = '';
+  sidebarCollapsed = false;
   selectedStation: RadioStation | null = null;
   worldwideSearchHint = false;
   countryMenuOpen = false;
@@ -113,6 +129,12 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   shareFeedback = '';
   /** When true, leaving the page with keep-alive keeps World Receiver playing. */
   keepAliveOnNavigate = true;
+  readonly radioSkins = RADIO_SKINS;
+  radioSkin: RadioSkin = 'classic';
+  skinMenuOpen = false;
+  private skinChosenThisVisit = false;
+  private skinLoadSub?: Subscription;
+  private skinSaveSub?: Subscription;
   isPipActive = false;
   pipSupported = supportsRadioPictureInPicture();
   readonly canNativeShare =
@@ -147,6 +169,8 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
   private static readonly CHROME_HIDE_MS = 4000;
   private static readonly LAST_STATION_STORAGE_KEY = 'pattool.radio.last-station';
   private static readonly KEEP_ALIVE_STORAGE_KEY = 'pattool.radio.keep-alive';
+  private static readonly SKIN_STORAGE_KEY = 'pattool.radio.skin';
+  private static readonly SIDEBAR_COLLAPSED_STORAGE_KEY = 'pattool.radio.sidebar-collapsed';
   private static readonly SHARE_STREAM_MAX_LEN = 80;
   private static readonly PRESET_COUNT = 12;
 
@@ -442,6 +466,8 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.keepAliveOnNavigate = this.readKeepAlivePreference();
+    this.restoreSkinPreference();
+    this.sidebarCollapsed = this.readSidebarCollapsedPreference();
     this.stationSearchSub = this.stationSearch$
       .pipe(debounceTime(280), distinctUntilChanged())
       .subscribe(() => {
@@ -508,6 +534,7 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     this.podcastEpisodesSub?.unsubscribe();
     this.resumeSub?.unsubscribe();
     this.lastStationSaveSub?.unsubscribe();
+    this.skinLoadSub?.unsubscribe();
     this.navLeaveSub?.unsubscribe();
     this.applyLeavePagePlaybackPolicy();
     this.destroyPlayer();
@@ -683,10 +710,138 @@ export class RadioWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
+  toggleSidebarCollapsed(): void {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+    try {
+      localStorage.setItem(RadioWatcherComponent.SIDEBAR_COLLAPSED_STORAGE_KEY, this.sidebarCollapsed ? '1' : '0');
+    } catch {
+      /* private mode / quota */
+    }
+    this.cdr.markForCheck();
+    this.scheduleSidebarHeightUpdate();
+  }
+
+  ngAfterViewInit(): void {
+    this.scheduleSidebarHeightUpdate();
+  }
+
+  @HostListener('window:resize')
+  scheduleSidebarHeightUpdate(): void {
+    requestAnimationFrame(() => this.updateSidebarHeight());
+  }
+
+  private updateSidebarHeight(): void {
+    const el = this.sidebarEl?.nativeElement;
+    let next: number | null = null;
+    // ≤900px the sidebar sits under the player and is sized by CSS.
+    if (el && window.innerWidth > 900) {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      next = Math.max(320, Math.round(window.innerHeight - top - 16));
+    }
+    if (next !== this.sidebarHeightPx) {
+      this.sidebarHeightPx = next;
+      this.cdr.markForCheck();
+    }
+  }
+
+  private readSidebarCollapsedPreference(): boolean {
+    try {
+      const raw = localStorage.getItem(RadioWatcherComponent.SIDEBAR_COLLAPSED_STORAGE_KEY);
+      return raw === '1' || raw === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  skinNameKey(skin: RadioSkin): string {
+    return `RADIO.SKIN_${skin.toUpperCase()}`;
+  }
+
+  skinDescKey(skin: RadioSkin): string {
+    return `RADIO.SKIN_${skin.toUpperCase()}_DESC`;
+  }
+
+  toggleSkinMenu(event: Event): void {
+    event.stopPropagation();
+    this.skinMenuOpen = !this.skinMenuOpen;
+    this.cdr.markForCheck();
+  }
+
+  setRadioSkin(skin: RadioSkin): void {
+    this.radioSkin = skin;
+    this.skinMenuOpen = false;
+    this.skinChosenThisVisit = true;
+    this.writeLocalSkin(skin);
+    this.saveRemoteSkin(skin);
+    this.cdr.markForCheck();
+  }
+
+  private static isRadioSkin(value: string | null | undefined): value is RadioSkin {
+    return !!value && (RADIO_SKINS as readonly string[]).includes(value);
+  }
+
+  private readLocalSkin(): RadioSkin | null {
+    try {
+      const raw = localStorage.getItem(RadioWatcherComponent.SKIN_STORAGE_KEY);
+      return RadioWatcherComponent.isRadioSkin(raw) ? raw : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private writeLocalSkin(skin: RadioSkin): void {
+    try {
+      localStorage.setItem(RadioWatcherComponent.SKIN_STORAGE_KEY, skin);
+    } catch {
+      /* private mode / quota */
+    }
+  }
+
+  private saveRemoteSkin(skin: RadioSkin): void {
+    if (!this.isLoggedIn) {
+      return;
+    }
+    this.skinSaveSub?.unsubscribe();
+    this.skinSaveSub = this.api.saveRadioSkin(skin).pipe(catchError(() => of(null))).subscribe();
+  }
+
+  /** Local value applies instantly; the account value (if any) wins once loaded, unless the user already picked one. */
+  private restoreSkinPreference(): void {
+    const local = this.readLocalSkin();
+    this.radioSkin = local ?? 'classic';
+    if (!this.isLoggedIn) {
+      return;
+    }
+    this.skinLoadSub = this.api.getRadioSkin().pipe(catchError(() => of(null))).subscribe((remote) => {
+      if (!this.pageAlive || this.skinChosenThisVisit) {
+        return;
+      }
+      if (RadioWatcherComponent.isRadioSkin(remote)) {
+        this.radioSkin = remote;
+        this.writeLocalSkin(remote);
+        this.cdr.markForCheck();
+      } else if (local) {
+        this.saveRemoteSkin(local);
+      }
+    });
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.skinMenuOpen) {
+      this.skinMenuOpen = false;
+      this.cdr.markForCheck();
+    }
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement | null;
     let changed = false;
+    if (this.skinMenuOpen && !target?.closest?.('.radio-skin-picker')) {
+      this.skinMenuOpen = false;
+      changed = true;
+    }
     if (this.shareMenuOpen && !target?.closest?.('.radio-share-wrap')) {
       this.shareMenuOpen = false;
       changed = true;

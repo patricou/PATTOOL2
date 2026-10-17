@@ -189,7 +189,17 @@
   align-items: start;
 }
 
+.radio-layout--sidebar-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.radio-layout--sidebar-collapsed .radio-sidebar {
+  display: none;
+}
+
+/* Desktop height is set from the component (top of the sidebar → bottom of the screen). */
 .radio-sidebar {
+  margin-top: 1.4rem;
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -197,8 +207,6 @@
   border-radius: 0.75rem;
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.05);
   overflow: hidden;
-  /* Keep list height in sync with the player so the page stays above the fold */
-  max-height: calc(100dvh - 11rem);
   /* Allow the channel list flex child to shrink and scroll inside */
   min-height: 0;
 }
@@ -268,11 +276,18 @@
   .radio-eq-open-label {
     display: none;
   }
+
+  .radio-sidebar-expand-title-label {
+    display: none;
+  }
 }
 
 .radio-sidebar-filter {
   flex: 0 0 auto;
-  padding: 0.45rem 0.55rem 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.45rem 0.35rem 0.55rem;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   background: linear-gradient(180deg, rgba(240, 253, 250, 0.95), rgba(255, 255, 255, 0.6));
 }
@@ -281,6 +296,57 @@
   position: relative;
   display: flex;
   align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.radio-sidebar-collapse-btn {
+  flex: 0 0 2.1rem;
+  width: 2.1rem;
+  height: 1.9rem;
+  padding: 0;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 0.4rem;
+  background: #fff;
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.radio-sidebar-collapse-btn:hover {
+  background: #f0fdfa;
+  color: #0f766e;
+  border-color: #5eead4;
+}
+
+.radio-sidebar-collapse-btn:focus-visible {
+  outline: 2px solid rgba(13, 148, 136, 0.45);
+  outline-offset: 1px;
+}
+
+:host-context([dir='rtl']) .radio-sidebar-collapse-chevron {
+  transform: scaleX(-1);
+}
+
+.radio-sidebar-expand-title-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #0f766e;
+  border-radius: 0.4rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  cursor: pointer;
+  margin-left: 0.15rem;
+}
+
+.radio-sidebar-expand-title-btn:hover {
+  background: #f0fdfa;
 }
 
 .radio-sidebar-filter-icon {
@@ -1628,35 +1694,6 @@
   animation: radio-onair-blink 1.2s ease-in-out infinite;
 }
 
-.radio-audio-logo {
-  width: 3.55rem;
-  height: 3.55rem;
-  object-fit: contain;
-  border-radius: 0.65rem;
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(243, 230, 200, 0.15);
-}
-
-.radio-audio-label {
-  color: #f7f1e4;
-  font-size: 1rem;
-  font-weight: 650;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.75);
-}
-
-.radio-station-meta {
-  display: flex;
-  gap: 0.55rem;
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(243, 230, 200, 0.72);
-}
-
 .radio-presets {
   position: relative;
   z-index: 5;
@@ -1979,14 +2016,13 @@
   to { transform: rotate(360deg); }
 }
 
+/* Signal indicators (meter needle, EQ bars) keep moving: they are small and show the stream is live. */
 @media (prefers-reduced-motion: reduce) {
   .radio-whip-mast,
   .radio-whip-tip,
   .radio-whip-wave,
   .radio-player-panel--on .radio-dial-glow,
-  .radio-meter-needle.is-live,
   .radio-player-panel--on .radio-tube-glow,
-  .radio-eq-bar,
   .radio-player-frame--live .radio-speaker-hub,
   .radio-on-air span,
   .radio-player-panel--live .radio-knob--vol,
@@ -2019,8 +2055,20 @@
   pointer-events: auto;
 }
 
-.radio-chrome--hidden {
+/* Idle: the playing station stays visible, only the button row folds away. */
+.radio-now-actions {
+  max-height: 8rem;
+  transition: opacity 0.28s ease, max-height 0.28s ease;
+}
+
+.radio-chrome--hidden .radio-now-playing {
+  row-gap: 0;
+}
+
+.radio-chrome--hidden .radio-now-actions {
   opacity: 0;
+  max-height: 0;
+  overflow: hidden;
   pointer-events: none;
 }
 
@@ -2394,9 +2442,10 @@
     max-height: min(22rem, calc(100dvh - 18rem));
   }
 
+  /* Single column: the list is one screen tall (below the navbar). */
   .radio-sidebar {
-    /* More room for the channel list; filters stay fixed, list scrolls inside */
-    max-height: min(62dvh, 28rem);
+    margin-top: 0;
+    height: calc(100dvh - var(--navbar-offset, 60px) - 1rem);
     min-height: 16rem;
     order: 1;
   }
@@ -2416,7 +2465,6 @@
 
 @media (max-width: 640px) {
   .radio-sidebar {
-    max-height: min(70dvh, 32rem);
     min-height: 18rem;
   }
 
@@ -2471,12 +2519,6 @@
       max-height 0.28s ease,
       margin 0.28s ease,
       padding 0.28s ease;
-  }
-
-  .radio-chrome--hidden {
-    max-height: 0;
-    margin: 0 !important;
-    padding: 0 !important;
   }
 
   /* Chrome is below the video on mobile â€” open share menu upward. */

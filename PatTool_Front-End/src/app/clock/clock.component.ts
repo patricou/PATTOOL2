@@ -45,9 +45,10 @@ interface ClockPrefs {
   reflection?: number;
   intensity?: number;
   brilliance?: number;
+  glare?: number;
 }
 
-type LookKey = 'contrast' | 'brightness' | 'reflection' | 'intensity' | 'brilliance';
+type LookKey = 'contrast' | 'brightness' | 'reflection' | 'intensity' | 'brilliance' | 'glare';
 
 interface ClockLook {
   contrast: number;
@@ -55,6 +56,7 @@ interface ClockLook {
   reflection: number;
   intensity: number;
   brilliance: number;
+  glare: number;
 }
 
 interface Numeral {
@@ -328,11 +330,12 @@ const LOOK_RANGE: Record<LookKey, { min: number; max: number; step: number }> = 
   brightness: { min: 50, max: 170, step: 10 },
   reflection: { min: 0, max: 200, step: 10 },
   intensity: { min: 0, max: 200, step: 10 },
-  brilliance: { min: 0, max: 200, step: 10 }
+  brilliance: { min: 0, max: 200, step: 10 },
+  glare: { min: 0, max: 200, step: 10 }
 };
 
 function defaultLook(): ClockLook {
-  return { contrast: 100, brightness: 100, reflection: 100, intensity: 100, brilliance: 100 };
+  return { contrast: 100, brightness: 100, reflection: 100, intensity: 100, brilliance: 100, glare: 100 };
 }
 
 @Component({
@@ -347,7 +350,7 @@ function defaultLook(): ClockLook {
 })
 export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly faces = FACES;
-  readonly lookKeys: LookKey[] = ['contrast', 'brightness', 'reflection', 'intensity', 'brilliance'];
+  readonly lookKeys: LookKey[] = ['contrast', 'brightness', 'reflection', 'glare', 'intensity', 'brilliance'];
   readonly sunRays = Array.from({ length: 72 }, (_, i) => i * 5);
   readonly subTicks = [0, 90, 180, 270];
   readonly ringLength = 289;
@@ -1443,7 +1446,8 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
       brightness: this.readLook(prefs.brightness, LOOK_RANGE.brightness),
       reflection: this.readLook(prefs.reflection, LOOK_RANGE.reflection),
       intensity: this.readLook(prefs.intensity, LOOK_RANGE.intensity),
-      brilliance: this.readLook(prefs.brilliance, LOOK_RANGE.brilliance)
+      brilliance: this.readLook(prefs.brilliance, LOOK_RANGE.brilliance),
+      glare: this.readLook(prefs.glare, LOOK_RANGE.glare)
     };
     this.refreshNumerals();
     this.writeLocalPrefs();
@@ -1459,6 +1463,7 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
       reflection: this.look.reflection,
       intensity: this.look.intensity,
       brilliance: this.look.brilliance,
+      glare: this.look.glare,
       alarms: this.alarms.map((a) => ({
         id: a.id,
         hour: a.hour,

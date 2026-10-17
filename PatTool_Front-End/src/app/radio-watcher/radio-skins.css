@@ -1,0 +1,2238 @@
+/* =========================================================================
+   Radio skins — loaded after radio-watcher.component.css so equal-specificity
+   rules here win. Each skin is scoped by .radio-skin--<id> on .radio-player-panel.
+   "classic" has no overrides (it is the base World Receiver look).
+   ========================================================================= */
+
+/* ---------- Style picker (title bar) ---------- */
+
+:host .pat-title.radio-title--menu-open {
+  z-index: 10 !important;
+}
+
+.radio-skin-picker {
+  position: relative;
+  display: inline-flex;
+  margin-left: 0.15rem;
+}
+
+.radio-skin-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #0f766e;
+  border-radius: 0.4rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  cursor: pointer;
+  text-shadow: none;
+}
+
+.radio-skin-open-btn:hover,
+.radio-skin-open-btn.is-open {
+  background: #f0fdfa;
+  border-color: #5eead4;
+}
+
+.radio-skin-open-btn .fa-caret-down {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.radio-skin-menu {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  z-index: 40;
+  width: min(22rem, calc(100vw - 1.5rem));
+  max-height: min(72vh, 34rem);
+  overflow-y: auto;
+  padding: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  background: #fff;
+  color: #1f2937;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.8rem;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.28);
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: normal;
+  text-shadow: none;
+  white-space: normal;
+}
+
+.radio-skin-menu-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.5rem 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.radio-skin-option {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.6rem;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.radio-skin-option:hover,
+.radio-skin-option:focus-visible {
+  background: #f1f5f9;
+  outline: none;
+}
+
+.radio-skin-option.active {
+  background: #ecfdf5;
+  border-color: #99f6e4;
+}
+
+.radio-skin-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.radio-skin-option-name {
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: #0f172a;
+}
+
+.radio-skin-option-desc {
+  font-size: 0.73rem;
+  color: #64748b;
+}
+
+.radio-skin-option-check {
+  color: #0d9488;
+  flex: 0 0 auto;
+}
+
+.radio-skin-swatch {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 0.6rem;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+    0 2px 6px rgba(15, 23, 42, 0.2);
+}
+
+.radio-skin-swatch--mini {
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+}
+
+.radio-skin-swatch--classic {
+  background:
+    radial-gradient(circle at 50% 60%, #3a2a22 0 24%, #d4a84b 25% 30%, transparent 31%),
+    linear-gradient(90deg, transparent 12%, #1a262f 12% 88%, transparent 88%) 0 18% / 100% 18% no-repeat,
+    linear-gradient(160deg, #2f6f6a, #123330);
+}
+
+.radio-skin-swatch--artdeco {
+  background:
+    radial-gradient(circle at 50% 100%, #ffe3a0 0 12%, transparent 13%),
+    repeating-conic-gradient(from -90deg at 50% 100%, rgba(240, 207, 122, 0.95) 0 7deg, transparent 7deg 14deg),
+    repeating-linear-gradient(95deg, #6b3d1c 0 3px, #8a5228 3px 7px, #5a3116 7px 9px);
+}
+
+.radio-skin-swatch--synthwave {
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 229, 255, 0.8) 0 1px, transparent 1px 5px) bottom / 100% 34% no-repeat,
+    radial-gradient(circle at 50% 66%, #ffe53b 0 14%, #ff6c8f 26%, transparent 27%),
+    linear-gradient(180deg, #12021f, #3b0b5e 60%, #ff3f9a 66%, #12002a 66%);
+}
+
+.radio-skin-swatch--spaceage {
+  background:
+    radial-gradient(circle at 50% 56%, #ff7a12 0 8%, transparent 9%),
+    radial-gradient(circle, rgba(30, 30, 34, 0.85) 0 1px, transparent 1.4px) 0 0 / 4px 4px,
+    radial-gradient(circle at 50% 56%, transparent 0 30%, #f4f5f7 31% 38%, transparent 39%),
+    radial-gradient(ellipse at 30% 15%, rgba(255, 255, 255, 0.6), transparent 45%),
+    linear-gradient(165deg, #ffa040, #e85a00);
+}
+
+.radio-skin-swatch--military {
+  background:
+    radial-gradient(circle at 15% 15%, #8c9466 0 6%, transparent 7%),
+    radial-gradient(circle at 85% 15%, #8c9466 0 6%, transparent 7%),
+    radial-gradient(circle at 15% 85%, #8c9466 0 6%, transparent 7%),
+    radial-gradient(circle at 85% 85%, #8c9466 0 6%, transparent 7%),
+    repeating-linear-gradient(180deg, #0b0d07 0 3px, #3b4228 3px 5px) center / 56% 52% no-repeat,
+    linear-gradient(160deg, #66703f, #383f22);
+}
+
+.radio-skin-swatch--steampunk {
+  background:
+    radial-gradient(circle, #2a1608 0 14%, transparent 15% 26%, #d9a441 27% 50%, transparent 51%),
+    repeating-conic-gradient(#d9a441 0 12deg, transparent 12deg 24deg) center / 74% 74% no-repeat,
+    linear-gradient(150deg, #c26b33, #5a2a10);
+}
+
+.radio-skin-swatch--aurora {
+  background:
+    radial-gradient(1px 1px at 20% 20%, #fff, transparent),
+    radial-gradient(1px 1px at 70% 15%, #fff, transparent),
+    radial-gradient(ellipse at 25% 45%, rgba(109, 255, 200, 0.85), transparent 55%),
+    radial-gradient(ellipse at 78% 55%, rgba(165, 120, 255, 0.85), transparent 55%),
+    linear-gradient(180deg, #0b1630, #030712);
+}
+
+@media (max-width: 640px) {
+  .radio-skin-open-label {
+    display: none;
+  }
+
+  /* Anchor the menu to the full-width title instead of the (possibly edge) button. */
+  .radio-skin-picker {
+    position: static;
+  }
+
+  .radio-skin-menu {
+    left: 0.25rem;
+    right: 0.25rem;
+    width: auto;
+  }
+}
+
+/* =========================================================================
+   1. ART DÉCO — walnut cathedral radio, ivory dial, gold sunburst
+   ========================================================================= */
+
+.radio-player-panel.radio-skin--artdeco {
+  --radio-shell-edge: #2a1608;
+  --radio-brass: #e0b85a;
+  --radio-brass-dark: #7a5418;
+  --radio-cream: #f6ead0;
+  --radio-accent: #ffcf6e;
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(255, 230, 180, 0.3), transparent 50%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.35) 0%, transparent 9% 91%, rgba(0, 0, 0, 0.35) 100%),
+    repeating-linear-gradient(92deg, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 9px),
+    repeating-radial-gradient(ellipse at 50% 120%, #6e3d1b 0 6px, #7f4a22 6px 11px, #5e3215 11px 14px, #74421e 14px 22px);
+  border: 4px solid #2a1608;
+  border-radius: 50% 50% 1.1rem 1.1rem / 4.5rem 4.5rem 1.1rem 1.1rem;
+  padding: 3.2rem 1.2rem 1rem;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 220, 160, 0.25),
+    inset 0 -6px 14px rgba(0, 0, 0, 0.45),
+    0 22px 44px rgba(40, 18, 4, 0.5),
+    0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.radio-skin--artdeco.radio-player-panel--on {
+  box-shadow:
+    inset 0 2px 0 rgba(255, 220, 160, 0.3),
+    inset 0 -6px 14px rgba(0, 0, 0, 0.45),
+    0 22px 44px rgba(40, 18, 4, 0.5),
+    0 0 46px rgba(255, 190, 90, 0.18);
+}
+
+.radio-skin--artdeco.radio-player-panel::before {
+  border-radius: 50% 50% 0.8rem 0.8rem / 4.1rem 4.1rem 0.8rem 0.8rem;
+  border-color: rgba(240, 200, 120, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(42, 22, 8, 0.5);
+}
+
+/* Handle becomes a gold sunburst crowning the dome. */
+.radio-skin--artdeco .radio-cabinet-handle {
+  top: 0.55rem;
+  width: 7rem;
+  height: 2.2rem;
+  border-radius: 7rem 7rem 0 0 / 2.2rem 2.2rem 0 0;
+  background:
+    radial-gradient(circle at 50% 100%, #ffe3a0 0 0.55rem, #b8913f 0.6rem 0.72rem, transparent 0.74rem),
+    repeating-conic-gradient(from -90deg at 50% 100%, #f0cf7a 0 6deg, transparent 6deg 12deg);
+  box-shadow: none;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+
+.radio-skin--artdeco .radio-cabinet-handle-grip,
+.radio-skin--artdeco .radio-whip-antenna {
+  display: none;
+}
+
+.radio-skin--artdeco .radio-feet {
+  left: -0.45rem;
+  right: -0.45rem;
+  bottom: -0.8rem;
+  height: 0.65rem;
+  border-radius: 0 0 0.6rem 0.6rem;
+  background: linear-gradient(180deg, #4a2810, #1f0e05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
+}
+
+.radio-skin--artdeco .radio-feet span {
+  display: none;
+}
+
+.radio-skin--artdeco .radio-player-frame {
+  background: linear-gradient(180deg, #2a160a, #1a0d05);
+  border: 2px solid #1a0b03;
+  box-shadow:
+    inset 0 0 0 2px rgba(224, 184, 90, 0.35),
+    inset 0 12px 28px rgba(0, 0, 0, 0.5);
+}
+
+.radio-skin--artdeco .radio-brand-name {
+  font-family: 'Didot', 'Bodoni MT', Georgia, serif;
+  letter-spacing: 0.35em;
+  color: #f0d38a;
+}
+
+.radio-skin--artdeco .radio-brand-model,
+.radio-skin--synthwave .radio-brand-model,
+.radio-skin--spaceage .radio-brand-model,
+.radio-skin--military .radio-brand-model,
+.radio-skin--steampunk .radio-brand-model,
+.radio-skin--aurora .radio-brand-model {
+  font-size: 0;
+}
+
+.radio-skin--artdeco .radio-brand-model::after,
+.radio-skin--synthwave .radio-brand-model::after,
+.radio-skin--spaceage .radio-brand-model::after,
+.radio-skin--military .radio-brand-model::after,
+.radio-skin--steampunk .radio-brand-model::after,
+.radio-skin--aurora .radio-brand-model::after {
+  font-size: 0.58rem;
+  letter-spacing: 0.28em;
+}
+
+.radio-skin--artdeco .radio-brand-model::after {
+  content: 'Cathédrale · 1938';
+  color: rgba(224, 184, 90, 0.85);
+}
+
+.radio-skin--artdeco .radio-face {
+  background: radial-gradient(ellipse at 50% 30%, #3b2312 0%, #22130a 60%, #140b05 100%);
+}
+
+.radio-skin--artdeco .radio-ambient {
+  background: radial-gradient(circle at 50% 45%, rgba(255, 190, 90, 0.14), transparent 55%);
+}
+
+.radio-skin--artdeco .radio-dial-glass {
+  border: 2px solid #b8913f;
+  border-radius: 1.6rem 1.6rem 0.4rem 0.4rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.4), transparent 40%),
+    linear-gradient(180deg, #f4e6c4, #e2cc98);
+  box-shadow:
+    inset 0 -6px 12px rgba(120, 80, 20, 0.3),
+    0 0 0 2px #2a1608;
+}
+
+.radio-skin--artdeco .radio-dial-glow {
+  background: linear-gradient(90deg, transparent, rgba(255, 190, 90, 0.35), transparent);
+}
+
+.radio-skin--artdeco .radio-dial-freqs {
+  font-family: Georgia, 'Times New Roman', serif;
+  color: #4a2a10;
+}
+
+.radio-skin--artdeco .radio-dial-tick {
+  background: rgba(74, 42, 16, 0.55);
+}
+
+.radio-skin--artdeco .radio-dial-tick:nth-child(3n + 1) {
+  background: #8a1c1c;
+}
+
+.radio-skin--artdeco .radio-dial-needle {
+  background: #b3261e;
+  box-shadow: 0 0 4px rgba(179, 38, 30, 0.5);
+}
+
+.radio-skin--artdeco .radio-dial-bands {
+  color: rgba(74, 42, 16, 0.55);
+  font-family: Georgia, serif;
+}
+
+.radio-skin--artdeco .radio-dial-bands .is-active {
+  color: #8a1c1c;
+  text-shadow: none;
+}
+
+.radio-skin--artdeco .radio-meter-glass {
+  border: 2px solid #b8913f;
+  border-radius: 1.4rem 1.4rem 0.4rem 0.4rem;
+  background: linear-gradient(180deg, #f4e6c4, #e2cc98);
+  box-shadow: inset 0 -6px 10px rgba(120, 80, 20, 0.3), 0 0 0 2px #2a1608;
+}
+
+.radio-skin--artdeco .radio-meter-scale {
+  border-color: rgba(74, 42, 16, 0.55);
+}
+
+.radio-skin--artdeco .radio-meter-needle {
+  background: #2a1608;
+}
+
+.radio-skin--artdeco .radio-meter-label {
+  color: #4a2a10;
+  font-family: Georgia, serif;
+}
+
+/* Speaker as a cathedral window with golden rays rising from a half sun. */
+.radio-skin--artdeco .radio-speaker-cloth {
+  border-radius: 50% 50% 0.9rem 0.9rem / 50% 50% 0.9rem 0.9rem;
+  background: repeating-conic-gradient(from -90deg at 50% 100%, #c79a45 0 4deg, #3a200d 4deg 10deg);
+  box-shadow:
+    inset 0 0 0 4px #b8913f,
+    inset 0 0 0 7px #2a1608,
+    inset 0 -20px 40px rgba(0, 0, 0, 0.55),
+    0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+.radio-skin--artdeco .radio-speaker-cloth::before,
+.radio-skin--artdeco .radio-speaker-grille {
+  border-radius: inherit;
+}
+
+.radio-skin--artdeco .radio-speaker-ring {
+  display: none;
+}
+
+.radio-skin--artdeco .radio-speaker-hub {
+  top: auto;
+  bottom: -30%;
+  width: 34%;
+  height: 34%;
+  background: radial-gradient(circle at 50% 40%, #fff1c8 0%, #f0cf7a 45%, #a5741f 100%);
+}
+
+.radio-skin--artdeco .radio-eq-bar {
+  background: linear-gradient(180deg, #ffe3a0, #c78a2a);
+}
+
+.radio-skin--artdeco .radio-knob {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.35), transparent 40%),
+    radial-gradient(circle, #4a2410 0 56%, #e0b85a 58% 66%, #3a1a08 68%);
+}
+
+.radio-skin--artdeco .radio-knob::after {
+  background: #e0b85a;
+}
+
+.radio-skin--artdeco .radio-power-cap {
+  background: radial-gradient(circle at 35% 30%, #7a4a22, #2a1608);
+  border-color: rgba(224, 184, 90, 0.5);
+}
+
+.radio-skin--artdeco .radio-power-led.is-on {
+  background: #ffb347;
+  box-shadow: 0 0 10px rgba(255, 179, 71, 0.85);
+}
+
+.radio-skin--artdeco .radio-preset {
+  color: #3a200d;
+  border-color: #6b4a20;
+  background: linear-gradient(180deg, #fbf3df 0%, #eadbb5 60%, #cdb47e 100%);
+}
+
+.radio-skin--artdeco .radio-preset.is-active {
+  background: linear-gradient(180deg, #ffe3a0 0%, #e0b85a 55%, #a5741f 100%);
+}
+
+.radio-skin--artdeco .radio-placeholder-orb {
+  background: radial-gradient(circle, rgba(224, 184, 90, 0.3), transparent 70%);
+}
+
+/* =========================================================================
+   2. SYNTHWAVE 1984 — neon, sunset sun, scrolling perspective grid
+   ========================================================================= */
+
+.radio-player-panel.radio-skin--synthwave {
+  --radio-shell-edge: #ff2bd6;
+  --radio-brass: #ff4fd8;
+  --radio-brass-dark: #5b1580;
+  --radio-cream: #fdf0ff;
+  --radio-accent: #00e5ff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 30%),
+    repeating-linear-gradient(90deg, rgba(0, 229, 255, 0.05) 0 1px, transparent 1px 22px),
+    linear-gradient(180deg, #1a0533 0%, #2d0b4e 55%, #0d0221 100%);
+  border: 2px solid #ff2bd6;
+  border-radius: 1rem;
+  box-shadow:
+    0 0 0 1px rgba(0, 229, 255, 0.35),
+    0 0 18px rgba(255, 43, 214, 0.55),
+    0 0 42px rgba(0, 229, 255, 0.18),
+    inset 0 0 24px rgba(255, 43, 214, 0.25),
+    0 22px 44px rgba(10, 0, 30, 0.55);
+}
+
+.radio-skin--synthwave.radio-player-panel--on {
+  animation: radio-skin-neon-breathe 3.2s ease-in-out infinite;
+}
+
+.radio-skin--synthwave.radio-player-panel::before {
+  inset: 0.35rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(0, 229, 255, 0.45);
+  box-shadow: inset 0 0 12px rgba(0, 229, 255, 0.15);
+}
+
+.radio-skin--synthwave .radio-cabinet-handle {
+  background: linear-gradient(180deg, #ffffff, #b9c3d6 45%, #5d6b85);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.6);
+}
+
+.radio-skin--synthwave .radio-cabinet-handle-grip {
+  background: rgba(255, 43, 214, 0.7);
+}
+
+.radio-skin--synthwave .radio-whip-base {
+  background: linear-gradient(180deg, #fff, #5d6b85);
+}
+
+.radio-skin--synthwave .radio-whip-mast {
+  background: linear-gradient(180deg, #ffffff 0%, #00e5ff 50%, #0077a8 100%);
+  box-shadow: 0 0 6px rgba(0, 229, 255, 0.85);
+}
+
+.radio-skin--synthwave .radio-whip-tip {
+  background: radial-gradient(circle at 30% 30%, #fff 0%, #ff4fd8 50%, #8a1c9e 100%);
+  box-shadow: 0 0 12px rgba(255, 43, 214, 0.9);
+}
+
+.radio-skin--synthwave .radio-whip-wave {
+  border-color: rgba(255, 43, 214, 0.6);
+}
+
+.radio-skin--synthwave .radio-feet span {
+  background: #ff2bd6;
+  box-shadow: 0 0 8px #ff2bd6;
+}
+
+.radio-skin--synthwave .radio-player-frame {
+  background: #0b0118;
+  border: 2px solid #3a0f63;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 43, 214, 0.25),
+    inset 0 12px 28px rgba(0, 0, 0, 0.6);
+}
+
+.radio-skin--synthwave .radio-brand-name {
+  font-family: 'Trebuchet MS', 'Arial Black', sans-serif;
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: transparent;
+  background: linear-gradient(180deg, #ffffff 0%, #a8f4ff 45%, #ff4fd8 55%, #ffd36b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: none;
+  filter: drop-shadow(0 0 4px rgba(255, 43, 214, 0.7));
+}
+
+.radio-skin--synthwave .radio-brand-model::after {
+  content: 'Turbo Cassette 84';
+  color: #00e5ff;
+  font-style: italic;
+}
+
+.radio-skin--synthwave .radio-face {
+  background: linear-gradient(180deg, #090018 0%, #240746 40%, #5a0f6e 62%, #ff3f9a 70%, #12002a 70.5%, #0b0118 100%);
+}
+
+/* Stars */
+.radio-skin--synthwave .radio-face::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 35% 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, #fff, transparent),
+    radial-gradient(1px 1px at 24% 46%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 38% 14%, #fff, transparent),
+    radial-gradient(1px 1px at 63% 26%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 79% 12%, #fff, transparent),
+    radial-gradient(1px 1px at 91% 40%, rgba(255, 255, 255, 0.7), transparent);
+}
+
+/* Perspective grid floor — sits above the sun so the sun "sets" behind the horizon. */
+.radio-skin--synthwave .radio-face::after {
+  content: '';
+  position: absolute;
+  left: -60%;
+  right: -60%;
+  top: 70%;
+  bottom: -20%;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 229, 255, 0.8) 0 1px, transparent 1px 16px),
+    repeating-linear-gradient(90deg, rgba(255, 43, 214, 0.75) 0 1px, transparent 1px 36px),
+    linear-gradient(180deg, #2a0547, #0b0118);
+  transform: perspective(140px) rotateX(55deg);
+  transform-origin: 50% 0;
+}
+
+.radio-skin--synthwave.radio-player-panel--on .radio-face::after {
+  animation: radio-skin-grid-scroll 1.2s linear infinite;
+}
+
+.radio-skin--synthwave .radio-ambient {
+  background: radial-gradient(ellipse at 50% 70%, rgba(255, 63, 154, 0.35), transparent 55%);
+}
+
+/* The speaker becomes the striped retro sun. */
+.radio-skin--synthwave .radio-speaker {
+  filter: drop-shadow(0 0 18px rgba(255, 90, 150, 0.6));
+}
+
+.radio-skin--synthwave .radio-speaker-cloth {
+  background: linear-gradient(180deg, #ffe53b 0%, #ff9a3c 35%, #ff3f8e 70%, #c3157a 100%);
+  box-shadow: none;
+  -webkit-mask: linear-gradient(180deg, #000 0 52%, transparent 52% 55%, #000 55% 63%, transparent 63% 67%, #000 67% 74%, transparent 74% 79%, #000 79% 85%, transparent 85% 91%, #000 91%);
+  mask: linear-gradient(180deg, #000 0 52%, transparent 52% 55%, #000 55% 63%, transparent 63% 67%, #000 67% 74%, transparent 74% 79%, #000 79% 85%, transparent 85% 91%, #000 91%);
+}
+
+.radio-skin--synthwave .radio-speaker-cloth::before,
+.radio-skin--synthwave .radio-speaker-ring,
+.radio-skin--synthwave .radio-speaker-hub {
+  display: none;
+}
+
+.radio-skin--synthwave .radio-eq {
+  opacity: 0.8;
+}
+
+.radio-skin--synthwave .radio-eq-bar {
+  background: linear-gradient(180deg, #5a0f6e, #12002a);
+}
+
+.radio-skin--synthwave .radio-dial-glass,
+.radio-skin--synthwave .radio-meter-glass {
+  background: #07000f;
+  border: 1px solid #00e5ff;
+  box-shadow:
+    0 0 8px rgba(0, 229, 255, 0.45),
+    inset 0 0 12px rgba(0, 229, 255, 0.2);
+}
+
+.radio-skin--synthwave .radio-dial-glow {
+  background: linear-gradient(90deg, transparent, rgba(255, 43, 214, 0.3), transparent);
+}
+
+.radio-skin--synthwave .radio-dial-freqs {
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+  color: #00e5ff;
+  text-shadow: 0 0 6px #00e5ff;
+}
+
+.radio-skin--synthwave .radio-dial-tick {
+  background: rgba(255, 43, 214, 0.6);
+}
+
+.radio-skin--synthwave .radio-dial-tick:nth-child(3n + 1) {
+  background: #00e5ff;
+  box-shadow: 0 0 4px #00e5ff;
+}
+
+.radio-skin--synthwave .radio-dial-needle {
+  background: #ff2bd6;
+  box-shadow: 0 0 10px #ff2bd6, 0 0 2px #fff;
+}
+
+.radio-skin--synthwave .radio-dial-bands {
+  color: rgba(253, 240, 255, 0.45);
+  font-family: 'Courier New', monospace;
+}
+
+.radio-skin--synthwave .radio-dial-bands .is-active {
+  color: #ff4fd8;
+  text-shadow: 0 0 8px #ff2bd6;
+}
+
+.radio-skin--synthwave .radio-meter-scale {
+  border-color: rgba(0, 229, 255, 0.6);
+}
+
+.radio-skin--synthwave .radio-meter-needle {
+  background: linear-gradient(180deg, #ff2bd6, #ffd36b);
+  box-shadow: 0 0 6px #ff2bd6;
+}
+
+.radio-skin--synthwave .radio-meter-label {
+  font-size: 0;
+}
+
+.radio-skin--synthwave .radio-meter-label::after {
+  content: 'TURBO';
+  font-size: 0.5rem;
+  letter-spacing: 0.14em;
+  color: #ff4fd8;
+  text-shadow: 0 0 6px #ff2bd6;
+}
+
+.radio-skin--synthwave .radio-tube {
+  background: rgba(255, 43, 214, 0.06);
+  border: 1px solid rgba(255, 43, 214, 0.6);
+  border-radius: 0.4rem;
+}
+
+.radio-skin--synthwave.radio-player-panel--on .radio-tube-glow {
+  background: linear-gradient(180deg, #a8f4ff, #00e5ff);
+  box-shadow: 0 0 12px #00e5ff;
+}
+
+.radio-skin--synthwave.radio-player-panel--on .radio-tube:nth-child(2) .radio-tube-glow {
+  background: linear-gradient(180deg, #ff9cf0, #ff2bd6);
+  box-shadow: 0 0 12px #ff2bd6;
+}
+
+.radio-skin--synthwave.radio-player-panel--on .radio-tube:nth-child(3) .radio-tube-glow {
+  background: linear-gradient(180deg, #fff2a8, #ffd36b);
+  box-shadow: 0 0 12px #ffd36b;
+}
+
+.radio-skin--synthwave .radio-knob {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.25), transparent 40%),
+    radial-gradient(circle, #1a0533 0 58%, #00e5ff 60% 66%, #0d0221 68%);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+}
+
+.radio-skin--synthwave .radio-knob::after {
+  background: #ff2bd6;
+  box-shadow: 0 0 4px #ff2bd6;
+}
+
+.radio-skin--synthwave .radio-power-cap {
+  background: #12002a;
+  border-color: #ff2bd6;
+  box-shadow: 0 0 6px rgba(255, 43, 214, 0.6);
+}
+
+.radio-skin--synthwave .radio-power-led.is-on {
+  background: #00e5ff;
+  box-shadow: 0 0 10px #00e5ff;
+}
+
+.radio-skin--synthwave .radio-preset {
+  color: #00e5ff;
+  border: 1px solid rgba(0, 229, 255, 0.55);
+  background: linear-gradient(180deg, #2a0b4a, #12002a);
+  box-shadow:
+    0 0 6px rgba(0, 229, 255, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  text-shadow: 0 0 6px rgba(0, 229, 255, 0.8);
+}
+
+.radio-skin--synthwave .radio-preset.is-active {
+  color: #fff;
+  background: linear-gradient(180deg, #ff4fd8, #8a1c9e);
+  box-shadow: 0 0 14px #ff2bd6;
+  outline: none;
+}
+
+.radio-skin--synthwave .radio-now-action:not(.radio-now-action--accent):not(.radio-now-action--stop):not(.radio-now-action--fav) {
+  color: #fff;
+  border-color: rgba(255, 43, 214, 0.8);
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.35), transparent 42%),
+    linear-gradient(160deg, #ff8ae6 0%, #ff2bd6 50%, #6a1b9a 100%);
+  box-shadow: 0 0 10px rgba(255, 43, 214, 0.5);
+}
+
+.radio-skin--synthwave .radio-now-action.is-lit:not(.radio-now-action--accent):not(.radio-now-action--stop):not(.radio-now-action--fav) {
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.4), transparent 42%),
+    linear-gradient(160deg, #a8f4ff 0%, #00e5ff 50%, #006a8a 100%);
+  border-color: rgba(0, 229, 255, 0.9);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.6);
+}
+
+.radio-skin--synthwave .radio-volume-slider {
+  background: linear-gradient(90deg, #00e5ff, #ff2bd6);
+}
+
+.radio-skin--synthwave .radio-placeholder-icon {
+  color: #00e5ff;
+  text-shadow: 0 0 12px #00e5ff;
+}
+
+.radio-skin--synthwave .radio-placeholder-orb {
+  background: radial-gradient(circle, rgba(255, 43, 214, 0.4), transparent 70%);
+}
+
+.radio-skin--synthwave .radio-world-arcs span {
+  border-color: rgba(0, 229, 255, 0.4);
+}
+
+.radio-skin--synthwave .radio-world-arcs span:nth-child(2) {
+  border-color: rgba(255, 43, 214, 0.4);
+}
+
+/* =========================================================================
+   3. SPACE AGE 67 — glossy orange plastic, chrome, perforated grille
+   ========================================================================= */
+
+.radio-player-panel.radio-skin--spaceage {
+  --radio-shell-edge: #b33a00;
+  --radio-brass: #e6e9ee;
+  --radio-brass-dark: #7d8592;
+  --radio-cream: #2b1a0a;
+  --radio-accent: #ff6a00;
+  background:
+    radial-gradient(ellipse 70% 40% at 30% 8%, rgba(255, 255, 255, 0.55), transparent 60%),
+    radial-gradient(ellipse at 80% 110%, rgba(120, 20, 0, 0.35), transparent 55%),
+    linear-gradient(165deg, #ffa040 0%, #ff7a12 40%, #e85a00 75%, #c94400 100%);
+  border: 3px solid #f2f4f7;
+  border-radius: 3.2rem;
+  padding: 1.35rem 1.35rem 1rem;
+  box-shadow:
+    0 0 0 2px #9aa3b0,
+    inset 0 2px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -10px 22px rgba(120, 30, 0, 0.35),
+    0 24px 46px rgba(120, 40, 0, 0.35),
+    0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+.radio-skin--spaceage.radio-player-panel::before {
+  inset: 0.45rem;
+  border-radius: 2.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: none;
+}
+
+/* Thick white carrying loop */
+.radio-skin--spaceage .radio-cabinet-handle {
+  box-sizing: border-box;
+  top: -1.45rem;
+  width: 9rem;
+  height: 1.7rem;
+  background: transparent;
+  border: 0.55rem solid #f4f5f7;
+  border-bottom: none;
+  border-radius: 1.1rem 1.1rem 0 0;
+  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.radio-skin--spaceage .radio-cabinet-handle-grip,
+.radio-skin--spaceage .radio-feet {
+  display: none;
+}
+
+.radio-skin--spaceage .radio-whip-mast {
+  width: 0.2rem;
+  background: repeating-linear-gradient(180deg, #fafbfc 0 0.55rem, #9aa3b0 0.55rem 0.62rem);
+}
+
+.radio-skin--spaceage .radio-whip-base {
+  background: linear-gradient(180deg, #fff, #9aa3b0);
+}
+
+.radio-skin--spaceage .radio-whip-tip {
+  background: radial-gradient(circle at 30% 30%, #fff 0%, #c2c8d0 50%, #6b7380 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.radio-skin--spaceage .radio-whip-wave {
+  border-color: rgba(255, 122, 18, 0.6);
+}
+
+.radio-skin--spaceage .radio-player-frame {
+  background: linear-gradient(180deg, #ffffff 0%, #f1f1ee 60%, #e2e2dc 100%);
+  border: 2px solid #d5d7db;
+  border-radius: 2.2rem;
+  box-shadow:
+    inset 0 2px 0 #fff,
+    inset 0 -6px 14px rgba(0, 0, 0, 0.08);
+}
+
+.radio-skin--spaceage .radio-brand-name {
+  font-family: 'Futura', 'Century Gothic', 'Trebuchet MS', sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  color: #ff6a00;
+  text-shadow: none;
+}
+
+.radio-skin--spaceage .radio-brand-model::after {
+  content: 'Transistor · Space Age 67';
+  color: #6b7380;
+}
+
+.radio-skin--spaceage .radio-face {
+  border-radius: 1.7rem;
+  background: radial-gradient(ellipse at 50% 30%, #fffdf8 0%, #f3ede1 60%, #e6dccb 100%);
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+
+.radio-skin--spaceage .radio-ambient {
+  background: radial-gradient(circle at 50% 55%, rgba(255, 122, 18, 0.12), transparent 55%);
+}
+
+.radio-skin--spaceage .radio-dial {
+  left: 1.4rem;
+  right: 5.3rem;
+}
+
+.radio-skin--spaceage .radio-meter {
+  right: 1.4rem;
+  width: 3.45rem;
+}
+
+.radio-skin--spaceage .radio-dial-glass {
+  border: 2px solid #c9ced6;
+  border-radius: 1.2rem;
+  background: linear-gradient(180deg, #ffffff, #f0f0f0);
+  box-shadow: inset 0 -4px 8px rgba(0, 0, 0, 0.08);
+}
+
+.radio-skin--spaceage .radio-dial-freqs,
+.radio-skin--spaceage .radio-dial-scale,
+.radio-skin--spaceage .radio-dial-bands {
+  left: 1rem;
+  right: 1rem;
+}
+
+.radio-skin--spaceage .radio-dial-glow {
+  background: linear-gradient(90deg, transparent, rgba(255, 122, 18, 0.18), transparent);
+}
+
+.radio-skin--spaceage .radio-dial-freqs {
+  font-family: 'Futura', 'Century Gothic', 'Trebuchet MS', sans-serif;
+  font-weight: 700;
+  color: #1d1d1f;
+}
+
+.radio-skin--spaceage .radio-dial-tick {
+  background: #4a4a4f;
+}
+
+.radio-skin--spaceage .radio-dial-tick:nth-child(3n + 1) {
+  background: #ff6a00;
+}
+
+.radio-skin--spaceage .radio-dial-needle {
+  background: #ff3d00;
+  box-shadow: 0 0 4px rgba(255, 61, 0, 0.6);
+}
+
+.radio-skin--spaceage .radio-dial-bands {
+  color: #9aa0a8;
+}
+
+.radio-skin--spaceage .radio-dial-bands .is-active {
+  color: #ff6a00;
+  text-shadow: none;
+}
+
+/* Round porthole meter */
+.radio-skin--spaceage .radio-meter-glass {
+  border-radius: 50%;
+  border: 3px solid #c9ced6;
+  background: radial-gradient(circle at 40% 35%, #ffffff, #ececec 70%);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.15), 0 0 0 1px #9aa3b0;
+}
+
+.radio-skin--spaceage .radio-meter-scale {
+  border-color: rgba(0, 0, 0, 0.4);
+}
+
+.radio-skin--spaceage .radio-meter-needle {
+  background: #ff3d00;
+}
+
+.radio-skin--spaceage .radio-meter-label {
+  font-size: 0;
+}
+
+.radio-skin--spaceage .radio-meter-label::after {
+  content: 'AUTO';
+  font-size: 0.45rem;
+  letter-spacing: 0.14em;
+  color: #555;
+}
+
+/* Tubes become transistor-era pilot lights */
+.radio-skin--spaceage .radio-tubes {
+  gap: 0.55rem;
+}
+
+.radio-skin--spaceage .radio-tube {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #c9ced6 60%, #8a929e);
+  border: 1px solid #9aa3b0;
+}
+
+.radio-skin--spaceage .radio-tube-glow {
+  inset: 22%;
+  border-radius: 50%;
+}
+
+.radio-skin--spaceage.radio-player-panel--on .radio-tube-glow {
+  background: radial-gradient(circle, #d6ffc4, #2bd14b);
+  box-shadow: 0 0 8px rgba(43, 209, 75, 0.85);
+}
+
+/* Perforated chrome grille */
+.radio-skin--spaceage .radio-speaker-cloth {
+  background:
+    radial-gradient(circle, rgba(30, 30, 34, 0.85) 0 1.4px, transparent 1.8px) 0 0 / 9px 9px,
+    radial-gradient(circle at 35% 30%, #ffffff 0%, #d9dde3 45%, #9aa3b0 100%);
+  box-shadow:
+    0 0 0 5px #f4f5f7,
+    0 0 0 7px #c3c8cf,
+    0 10px 22px rgba(80, 30, 0, 0.25),
+    inset 0 0 18px rgba(0, 0, 0, 0.25);
+}
+
+.radio-skin--spaceage .radio-speaker-cloth::before,
+.radio-skin--spaceage .radio-speaker-ring {
+  display: none;
+}
+
+.radio-skin--spaceage .radio-speaker-hub {
+  width: 22%;
+  height: 22%;
+  background: radial-gradient(circle at 35% 30%, #ffc38a 0%, #ff7a12 55%, #b33a00 100%);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.radio-skin--spaceage .radio-player-frame--live .radio-speaker-hub {
+  box-shadow: 0 0 0 2px rgba(255, 122, 18, 0.4), 0 0 18px rgba(255, 122, 18, 0.55);
+}
+
+.radio-skin--spaceage .radio-eq-bar {
+  background: linear-gradient(180deg, #ff9a3c, #d94300);
+}
+
+.radio-skin--spaceage .radio-controls-row {
+  left: 1.5rem;
+  right: 1.5rem;
+}
+
+.radio-skin--spaceage .radio-knob {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.9), transparent 45%),
+    repeating-conic-gradient(#f4f5f7 0 6deg, #9aa3b0 6deg 12deg);
+  border: 1px solid #8a929e;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.25);
+}
+
+.radio-skin--spaceage .radio-knob::after {
+  background: #ff6a00;
+}
+
+.radio-skin--spaceage .radio-power-cap {
+  background: radial-gradient(circle at 35% 30%, #ffc38a, #ff7a12 55%, #b33a00);
+  border-color: #b33a00;
+}
+
+.radio-skin--spaceage .radio-placeholder {
+  color: #3a2a1a;
+}
+
+.radio-skin--spaceage .radio-placeholder-note {
+  color: rgba(58, 42, 26, 0.6) !important;
+}
+
+.radio-skin--spaceage .radio-placeholder-icon {
+  color: #ff6a00;
+}
+
+.radio-skin--spaceage .radio-placeholder .btn-outline-light {
+  color: #ff6a00;
+  border-color: #ff6a00;
+}
+
+.radio-skin--spaceage .radio-placeholder-orb {
+  background: radial-gradient(circle, rgba(255, 122, 18, 0.3), transparent 70%);
+}
+
+.radio-skin--spaceage .radio-world-arcs span {
+  border-color: rgba(255, 122, 18, 0.35);
+}
+
+.radio-skin--spaceage .radio-world-arcs span:nth-child(3) {
+  border-color: rgba(120, 128, 140, 0.35);
+}
+
+.radio-skin--spaceage .radio-chrome {
+  background: linear-gradient(
+    180deg,
+    rgba(246, 240, 229, 0) 0%,
+    rgba(246, 240, 229, 0.85) 28%,
+    rgba(246, 240, 229, 0.97) 100%
+  );
+}
+
+.radio-skin--spaceage .radio-now-playing {
+  color: #2b1a0a;
+}
+
+.radio-skin--spaceage .radio-now-meta {
+  color: #7a6a58 !important;
+}
+
+.radio-skin--spaceage .radio-preset {
+  color: #ff6a00;
+  border: 1px solid #c3c8cf;
+  border-radius: 0.6rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f1f1ee 70%, #dcdcd6 100%);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 3px 0 #b8bdc4,
+    0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+.radio-skin--spaceage .radio-preset-label {
+  color: #3a2a1a;
+}
+
+.radio-skin--spaceage .radio-preset.is-active {
+  color: #fff;
+  background: linear-gradient(180deg, #ffa040, #e85a00);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25), 0 1px 0 #b8bdc4;
+  outline: none;
+}
+
+.radio-skin--spaceage .radio-preset.is-active .radio-preset-label {
+  color: #fff;
+}
+
+/* =========================================================================
+   4. FIELD RADIO — olive drab steel, canvas strap, green phosphor scope
+   ========================================================================= */
+
+.radio-player-panel.radio-skin--military {
+  --radio-shell-edge: #1f2414;
+  --radio-brass: #b9ad7a;
+  --radio-brass-dark: #575034;
+  --radio-cream: #e9e2b0;
+  --radio-accent: #7cff6b;
+  background:
+    radial-gradient(circle at 0.65rem 0.65rem, #c5c9a8 0 0.08rem, #2b2f1c 0.1rem 0.2rem, #8c9466 0.21rem 0.26rem, transparent 0.28rem),
+    radial-gradient(circle at calc(100% - 0.65rem) 0.65rem, #c5c9a8 0 0.08rem, #2b2f1c 0.1rem 0.2rem, #8c9466 0.21rem 0.26rem, transparent 0.28rem),
+    radial-gradient(circle at 0.65rem calc(100% - 0.65rem), #c5c9a8 0 0.08rem, #2b2f1c 0.1rem 0.2rem, #8c9466 0.21rem 0.26rem, transparent 0.28rem),
+    radial-gradient(circle at calc(100% - 0.65rem) calc(100% - 0.65rem), #c5c9a8 0 0.08rem, #2b2f1c 0.1rem 0.2rem, #8c9466 0.21rem 0.26rem, transparent 0.28rem),
+    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.04) 0 2px, transparent 2px 5px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 4px),
+    linear-gradient(160deg, #66703f 0%, #4e5730 50%, #383f22 100%);
+  border: 3px solid #1f2414;
+  border-radius: 0.45rem;
+  box-shadow:
+    inset 0 0 0 2px rgba(200, 210, 150, 0.12),
+    inset 0 -6px 12px rgba(0, 0, 0, 0.4),
+    0 18px 36px rgba(20, 25, 10, 0.5);
+}
+
+.radio-skin--military.radio-player-panel::before {
+  display: none;
+}
+
+/* Canvas webbing strap with stitching */
+.radio-skin--military .radio-cabinet-handle {
+  top: -0.95rem;
+  width: 12rem;
+  height: 1.05rem;
+  border-radius: 0.2rem;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.09) 0 2px, transparent 2px 4px),
+    linear-gradient(180deg, #a69a6a, #7c7149);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.radio-skin--military .radio-cabinet-handle-grip {
+  width: calc(100% - 1rem);
+  height: 0.55rem;
+  border-radius: 0;
+  background: none;
+  border-top: 1px dashed rgba(40, 35, 15, 0.6);
+  border-bottom: 1px dashed rgba(40, 35, 15, 0.6);
+}
+
+.radio-skin--military .radio-whip-antenna {
+  top: -3.1rem;
+  height: 3.25rem;
+}
+
+.radio-skin--military .radio-whip-mast {
+  background: linear-gradient(90deg, #111 0%, #555 50%, #111 100%);
+  animation-duration: 7s;
+}
+
+.radio-skin--military .radio-whip-base {
+  background: linear-gradient(180deg, #555, #111);
+}
+
+.radio-skin--military .radio-whip-tip {
+  background: radial-gradient(circle at 30% 30%, #ff9a8a 0%, #c62828 60%, #5a0d0d 100%);
+  box-shadow: 0 0 6px rgba(198, 40, 40, 0.6);
+  animation-duration: 7s;
+}
+
+.radio-skin--military .radio-whip-wave {
+  border-color: rgba(124, 255, 107, 0.5);
+}
+
+.radio-skin--military .radio-feet span {
+  width: 1.4rem;
+  height: 0.45rem;
+  border-radius: 0.15rem;
+  background: #15170e;
+}
+
+.radio-skin--military .radio-player-frame {
+  background: linear-gradient(180deg, #2c3220, #1d2114);
+  border: 2px solid #12150b;
+  border-radius: 0.35rem;
+  box-shadow:
+    inset 0 0 0 1px rgba(233, 226, 176, 0.08),
+    inset 0 10px 24px rgba(0, 0, 0, 0.5);
+}
+
+.radio-skin--military .radio-brand-name {
+  font-family: 'Stencil', 'Impact', 'Arial Black', sans-serif;
+  letter-spacing: 0.3em;
+  color: #e9e2b0;
+  font-size: 0.82rem;
+}
+
+.radio-skin--military .radio-brand-model::after {
+  content: 'Field Receiver · Mk II';
+  color: rgba(233, 226, 176, 0.6);
+  font-family: 'Courier New', monospace;
+}
+
+.radio-skin--military .radio-face {
+  border-radius: 0.3rem;
+  background: radial-gradient(ellipse at 50% 40%, #142414 0%, #0a140b 60%, #050a05 100%);
+}
+
+/* CRT scanlines */
+.radio-skin--military .radio-face::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px);
+  opacity: 0.55;
+}
+
+.radio-skin--military .radio-ambient {
+  background: radial-gradient(circle at 50% 50%, rgba(124, 255, 107, 0.12), transparent 60%);
+}
+
+.radio-skin--military .radio-dial-glass {
+  background: #050a05;
+  border: 1px solid #3c4a2a;
+  border-radius: 0.2rem;
+  box-shadow: inset 0 0 14px rgba(124, 255, 107, 0.12);
+}
+
+.radio-skin--military .radio-dial-glow {
+  background: linear-gradient(90deg, transparent, rgba(124, 255, 107, 0.2), transparent);
+}
+
+.radio-skin--military .radio-dial-freqs,
+.radio-skin--military .radio-dial-bands {
+  font-family: 'Courier New', monospace;
+}
+
+.radio-skin--military .radio-dial-freqs {
+  color: #7cff6b;
+  text-shadow: 0 0 5px rgba(124, 255, 107, 0.8);
+}
+
+.radio-skin--military .radio-dial-tick {
+  background: rgba(124, 255, 107, 0.4);
+}
+
+.radio-skin--military .radio-dial-tick:nth-child(3n + 1) {
+  background: #7cff6b;
+}
+
+.radio-skin--military .radio-dial-needle {
+  background: #b8ffab;
+  box-shadow: 0 0 8px #7cff6b;
+}
+
+.radio-skin--military .radio-dial-bands {
+  color: rgba(124, 255, 107, 0.35);
+}
+
+.radio-skin--military .radio-dial-bands .is-active {
+  color: #7cff6b;
+  text-shadow: 0 0 8px rgba(124, 255, 107, 0.7);
+}
+
+/* Meter becomes an oscilloscope: flat trace idle, sine trace when live. */
+.radio-skin--military .radio-meter-glass {
+  background:
+    repeating-linear-gradient(0deg, rgba(124, 255, 107, 0.14) 0 1px, transparent 1px 0.55rem),
+    repeating-linear-gradient(90deg, rgba(124, 255, 107, 0.14) 0 1px, transparent 1px 0.55rem),
+    #050a05;
+  border: 1px solid #3c4a2a;
+  border-radius: 0.2rem;
+}
+
+.radio-skin--military .radio-meter-scale {
+  display: none;
+}
+
+.radio-skin--military .radio-meter-needle {
+  left: 0.25rem;
+  right: 0.25rem;
+  bottom: 1rem;
+  width: auto;
+  height: 1rem;
+  margin: 0;
+  border-radius: 0;
+  transform: none;
+  background: linear-gradient(transparent calc(50% - 1px), #7cff6b calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px));
+  filter: drop-shadow(0 0 3px rgba(124, 255, 107, 0.9));
+}
+
+.radio-skin--military .radio-meter-needle.is-live {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='16' viewBox='0 0 24 16'%3E%3Cpath d='M0 8 Q6 0 12 8 T24 8' fill='none' stroke='%237cff6b' stroke-width='1.6'/%3E%3C/svg%3E") 0 50% / 0.9rem 100% repeat-x;
+  animation: radio-skin-scope 0.9s linear infinite;
+}
+
+.radio-skin--military .radio-meter-label {
+  font-size: 0;
+}
+
+.radio-skin--military .radio-meter-label::after {
+  content: 'SCOPE';
+  font-size: 0.5rem;
+  letter-spacing: 0.14em;
+  font-family: 'Courier New', monospace;
+  color: #7cff6b;
+}
+
+.radio-skin--military.radio-player-panel--on .radio-tube-glow {
+  background: radial-gradient(circle, rgba(170, 255, 150, 0.95), rgba(60, 200, 60, 0.25) 70%);
+  box-shadow: 0 0 10px rgba(124, 255, 107, 0.6);
+}
+
+/* Slotted steel speaker plate with corner screws */
+.radio-skin--military .radio-speaker-cloth {
+  border-radius: 0.6rem;
+  background:
+    repeating-linear-gradient(180deg, #0b0d07 0 0.32rem, #3b4228 0.32rem 0.5rem),
+    #2a2f1c;
+  box-shadow:
+    inset 0 0 0 0.45rem #3a4128,
+    inset 0 0 0 0.55rem #12150b,
+    0 8px 18px rgba(0, 0, 0, 0.45);
+}
+
+.radio-skin--military .radio-speaker-grille {
+  border-radius: 0.45rem;
+  background:
+    radial-gradient(circle at 0.35rem 0.35rem, #b5b99a 0 0.12rem, transparent 0.15rem),
+    radial-gradient(circle at calc(100% - 0.35rem) 0.35rem, #b5b99a 0 0.12rem, transparent 0.15rem),
+    radial-gradient(circle at 0.35rem calc(100% - 0.35rem), #b5b99a 0 0.12rem, transparent 0.15rem),
+    radial-gradient(circle at calc(100% - 0.35rem) calc(100% - 0.35rem), #b5b99a 0 0.12rem, transparent 0.15rem);
+}
+
+.radio-skin--military .radio-speaker-cloth::before,
+.radio-skin--military .radio-speaker-ring,
+.radio-skin--military .radio-speaker-hub {
+  display: none;
+}
+
+.radio-skin--military .radio-eq {
+  opacity: 0.85;
+}
+
+.radio-skin--military .radio-eq-bar {
+  border-radius: 0;
+  background: linear-gradient(180deg, #c8ffb8, #3fbf3a);
+  box-shadow: 0 0 6px rgba(124, 255, 107, 0.5);
+}
+
+.radio-skin--military .radio-knob {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.18), transparent 40%),
+    repeating-conic-gradient(#20231a 0 8deg, #0e100a 8deg 16deg);
+  border: 2px solid #0a0b07;
+}
+
+.radio-skin--military .radio-knob::after {
+  background: #e9e2b0;
+}
+
+/* Power cap becomes a toggle lever */
+.radio-skin--military .radio-power-cap {
+  width: 0.5rem;
+  height: 1.2rem;
+  border-radius: 0.2rem;
+  background: linear-gradient(90deg, #8a8a8a, #eeeeee 50%, #777);
+  border-color: rgba(0, 0, 0, 0.45);
+}
+
+.radio-skin--military .radio-preset {
+  color: #e9e2b0;
+  border: 1px solid #12150b;
+  border-radius: 0.2rem;
+  background: linear-gradient(180deg, #3a4128, #252a19);
+  font-family: 'Courier New', monospace;
+  box-shadow:
+    inset 0 1px 0 rgba(233, 226, 176, 0.15),
+    0 2px 3px rgba(0, 0, 0, 0.45);
+}
+
+.radio-skin--military .radio-preset.is-active {
+  color: #7cff6b;
+  background: linear-gradient(180deg, #2c4a22, #1a2e14);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.5),
+    0 0 8px rgba(124, 255, 107, 0.45);
+  outline: 1px solid rgba(124, 255, 107, 0.5);
+}
+
+.radio-skin--military .radio-placeholder {
+  color: #9fe89a;
+}
+
+.radio-skin--military .radio-placeholder-icon {
+  color: #7cff6b;
+  text-shadow: 0 0 10px rgba(124, 255, 107, 0.7);
+}
+
+.radio-skin--military .radio-placeholder-orb {
+  background: radial-gradient(circle, rgba(124, 255, 107, 0.25), transparent 70%);
+}
+
+.radio-skin--military .radio-world-arcs span {
+  border-color: rgba(124, 255, 107, 0.3);
+}
+
+/* =========================================================================
+   5. STEAMPUNK NAUTILUS — riveted copper, gears, Edison bulbs, gauge
+   ========================================================================= */
+
+.radio-player-panel.radio-skin--steampunk {
+  --radio-shell-edge: #3b1f0c;
+  --radio-brass: #d9a441;
+  --radio-brass-dark: #6e4513;
+  --radio-cream: #f5deb0;
+  --radio-accent: #ffb54a;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(255, 210, 150, 0.35), transparent 30%),
+    radial-gradient(circle at 75% 70%, rgba(80, 30, 5, 0.35), transparent 35%),
+    radial-gradient(circle at 60% 25%, rgba(255, 190, 120, 0.2), transparent 25%),
+    radial-gradient(circle at 30% 80%, rgba(255, 190, 120, 0.15), transparent 28%),
+    linear-gradient(150deg, #c26b33 0%, #9c4e22 40%, #7a3a17 75%, #5a2a10 100%);
+  border: 4px solid #3b1f0c;
+  border-radius: 1.1rem;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 200, 130, 0.25),
+    inset 0 -8px 16px rgba(40, 15, 0, 0.5),
+    0 20px 40px rgba(50, 20, 5, 0.5);
+}
+
+/* Rivet rows on all four edges */
+.radio-skin--steampunk.radio-player-panel::before {
+  inset: 0.3rem;
+  border: none;
+  border-radius: 0.85rem;
+  box-shadow: none;
+  background:
+    radial-gradient(circle, #f3d48a 0 0.07rem, #b07a26 0.09rem 0.15rem, #4a2d08 0.16rem 0.19rem, transparent 0.2rem) top left / 1.1rem 0.5rem repeat-x,
+    radial-gradient(circle, #f3d48a 0 0.07rem, #b07a26 0.09rem 0.15rem, #4a2d08 0.16rem 0.19rem, transparent 0.2rem) bottom left / 1.1rem 0.5rem repeat-x,
+    radial-gradient(circle, #f3d48a 0 0.07rem, #b07a26 0.09rem 0.15rem, #4a2d08 0.16rem 0.19rem, transparent 0.2rem) top left / 0.5rem 1.1rem repeat-y,
+    radial-gradient(circle, #f3d48a 0 0.07rem, #b07a26 0.09rem 0.15rem, #4a2d08 0.16rem 0.19rem, transparent 0.2rem) top right / 0.5rem 1.1rem repeat-y;
+}
+
+.radio-skin--steampunk .radio-cabinet-handle {
+  width: 7rem;
+  height: 0.7rem;
+  top: -0.75rem;
+  border-radius: 0.35rem;
+  background: linear-gradient(180deg, #ffe2a0, #d9a441 45%, #6e4513);
+}
+
+.radio-skin--steampunk .radio-cabinet-handle-grip {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff1c8, #b07a26 60%, #4a2d08);
+  box-shadow: 0 0 0 1px #3b1f0c;
+}
+
+/* Copper coil antenna with a Tesla spark */
+.radio-skin--steampunk .radio-whip-mast {
+  width: 0.32rem;
+  background: repeating-linear-gradient(180deg, #ffcf94 0 2px, #b0602a 2px 4px, #5a2a10 4px 5px);
+}
+
+.radio-skin--steampunk .radio-whip-base {
+  background: linear-gradient(180deg, #ffe2a0, #6e4513);
+}
+
+.radio-skin--steampunk .radio-whip-tip {
+  background: radial-gradient(circle at 40% 40%, #fff 0%, #8fe3ff 40%, #2b7cff 80%);
+  box-shadow: 0 0 12px #6fd3ff, 0 0 24px rgba(111, 211, 255, 0.6);
+}
+
+.radio-skin--steampunk.radio-player-panel--live .radio-whip-tip {
+  animation: radio-skin-whip-sway 5.5s ease-in-out infinite, radio-skin-spark 0.9s steps(2) infinite;
+}
+
+.radio-skin--steampunk .radio-whip-wave {
+  border-color: rgba(111, 211, 255, 0.65);
+}
+
+.radio-skin--steampunk .radio-feet {
+  bottom: -0.75rem;
+}
+
+.radio-skin--steampunk .radio-feet span {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe2a0, #b07a26 55%, #4a2d08);
+}
+
+/* Stitched leather bezel */
+.radio-skin--steampunk .radio-player-frame {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 220, 170, 0.08), transparent 60%),
+    linear-gradient(180deg, #3a2414, #24160b);
+  border: 2px solid #1a0d04;
+  outline: 1px dashed rgba(245, 222, 176, 0.35);
+  outline-offset: -6px;
+}
+
+.radio-skin--steampunk .radio-brand-name {
+  font-family: 'Copperplate', 'Copperplate Gothic Light', Georgia, serif;
+  letter-spacing: 0.25em;
+}
+
+.radio-skin--steampunk .radio-brand-model::after {
+  content: 'Nautilus · Æther Receiver';
+  color: #d9a441;
+  font-family: Georgia, serif;
+  font-style: italic;
+}
+
+.radio-skin--steampunk .radio-face {
+  background: radial-gradient(ellipse at 50% 35%, #3b2616 0%, #22150b 60%, #120a04 100%);
+}
+
+/* Two brass gears turning behind the speaker */
+.radio-skin--steampunk .radio-face::before,
+.radio-skin--steampunk .radio-face::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, #22150b 0 13%, transparent 14% 22%, rgba(201, 146, 46, 0.6) 23% 44%, transparent 45%),
+    repeating-conic-gradient(rgba(201, 146, 46, 0.6) 0 10deg, transparent 10deg 20deg);
+  -webkit-mask: radial-gradient(circle, #000 0 50%, transparent 51%);
+  mask: radial-gradient(circle, #000 0 50%, transparent 51%);
+  opacity: 0.5;
+}
+
+.radio-skin--steampunk .radio-face::before {
+  left: -2.6rem;
+  bottom: -2.6rem;
+  width: 8.5rem;
+  height: 8.5rem;
+}
+
+.radio-skin--steampunk .radio-face::after {
+  right: -2rem;
+  top: 4.2rem;
+  width: 6rem;
+  height: 6rem;
+}
+
+.radio-skin--steampunk.radio-player-panel--on .radio-face::before {
+  animation: radio-skin-gear-spin 16s linear infinite;
+}
+
+.radio-skin--steampunk.radio-player-panel--on .radio-face::after {
+  animation: radio-skin-gear-spin 11s linear infinite reverse;
+}
+
+.radio-skin--steampunk .radio-ambient {
+  background: radial-gradient(circle at 50% 50%, rgba(255, 170, 60, 0.12), transparent 55%);
+}
+
+/* Parchment dial */
+.radio-skin--steampunk .radio-dial-glass {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.25), transparent 40%),
+    radial-gradient(ellipse at 50% 50%, #f3e2bd 0%, #e2c993 70%, #c9a86a 100%);
+  border: 3px solid #b07a26;
+  border-radius: 0.4rem;
+  box-shadow:
+    inset 0 0 12px rgba(110, 60, 10, 0.45),
+    0 0 0 1px #3b1f0c;
+}
+
+.radio-skin--steampunk .radio-dial-glow {
+  background: linear-gradient(90deg, transparent, rgba(255, 170, 60, 0.3), transparent);
+}
+
+.radio-skin--steampunk .radio-dial-freqs {
+  font-family: Georgia, serif;
+  font-style: italic;
+  color: #3b1f0c;
+}
+
+.radio-skin--steampunk .radio-dial-tick {
+  background: rgba(90, 58, 20, 0.6);
+}
+
+.radio-skin--steampunk .radio-dial-tick:nth-child(3n + 1) {
+  background: #8a1c1c;
+}
+
+.radio-skin--steampunk .radio-dial-needle {
+  background: linear-gradient(180deg, #8a1c1c, #2a1608);
+  box-shadow: none;
+}
+
+.radio-skin--steampunk .radio-dial-bands {
+  color: rgba(59, 31, 12, 0.55);
+  font-family: Georgia, serif;
+}
+
+.radio-skin--steampunk .radio-dial-bands .is-active {
+  color: #8a1c1c;
+  text-shadow: none;
+}
+
+/* Pressure gauge */
+.radio-skin--steampunk .radio-meter {
+  width: 3.45rem;
+}
+
+.radio-skin--steampunk .radio-meter-glass {
+  border-radius: 50%;
+  border: 3px solid #d9a441;
+  background: radial-gradient(circle, #f6e8c6 0 60%, #e0c48c 100%);
+  box-shadow:
+    0 0 0 1px #3b1f0c,
+    inset 0 0 8px rgba(110, 60, 10, 0.5),
+    0 2px 5px rgba(0, 0, 0, 0.4);
+}
+
+.radio-skin--steampunk .radio-meter-scale {
+  border: 1.5px dashed rgba(59, 31, 12, 0.7);
+  border-bottom: none;
+}
+
+.radio-skin--steampunk .radio-meter-needle {
+  background: linear-gradient(180deg, #8a1c1c, #1a0d04);
+}
+
+.radio-skin--steampunk .radio-meter-label {
+  font-size: 0;
+}
+
+.radio-skin--steampunk .radio-meter-label::after {
+  content: 'ÆTHER';
+  font-size: 0.45rem;
+  letter-spacing: 0.12em;
+  font-family: Georgia, serif;
+  color: #3b1f0c;
+}
+
+/* Edison bulbs */
+.radio-skin--steampunk .radio-tube {
+  width: 0.95rem;
+  height: 1.45rem;
+  border-radius: 50% 50% 0.25rem 0.25rem / 60% 60% 0.25rem 0.25rem;
+  background: radial-gradient(ellipse at 40% 30%, rgba(255, 255, 255, 0.35), rgba(255, 220, 170, 0.06) 60%);
+  border: 1px solid rgba(255, 220, 170, 0.35);
+  border-bottom: 0.3rem solid #b07a26;
+}
+
+.radio-skin--steampunk .radio-tube-glow {
+  inset: 12% 18% 8%;
+  border-radius: 50%;
+}
+
+.radio-skin--steampunk.radio-player-panel--on .radio-tube-glow {
+  background: radial-gradient(ellipse, #fff3c4 0 12%, rgba(255, 170, 60, 0.85) 30%, rgba(255, 120, 30, 0.25) 60%, transparent 75%);
+  box-shadow: 0 0 14px rgba(255, 170, 60, 0.7);
+}
+
+/* Brass porthole speaker */
+.radio-skin--steampunk .radio-speaker-cloth {
+  background: radial-gradient(circle, #2a1608 0 55%, #1a0d04 100%);
+  box-shadow:
+    0 0 0 2px #3b1f0c,
+    inset 0 0 0 0.55rem #b07a26,
+    inset 0 0 0 0.62rem #3b1f0c,
+    inset 0 0 26px rgba(0, 0, 0, 0.6),
+    0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+.radio-skin--steampunk .radio-speaker-cloth::before {
+  inset: 0.7rem;
+  opacity: 0.9;
+  background:
+    repeating-linear-gradient(45deg, rgba(217, 164, 65, 0.2) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(-45deg, rgba(217, 164, 65, 0.2) 0 1px, transparent 1px 5px);
+}
+
+.radio-skin--steampunk .radio-speaker-ring {
+  border-color: rgba(217, 164, 65, 0.3);
+}
+
+.radio-skin--steampunk .radio-eq-bar {
+  background: linear-gradient(180deg, #ffe0a0, #c26b33);
+}
+
+.radio-skin--steampunk .radio-knob {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55), transparent 40%),
+    radial-gradient(circle, #d9a441 0 55%, transparent 56%),
+    repeating-conic-gradient(#f3d48a 0 10deg, #6e4513 10deg 20deg);
+}
+
+.radio-skin--steampunk .radio-knob::after {
+  background: #3b1f0c;
+}
+
+.radio-skin--steampunk .radio-power-led.is-on {
+  background: #ffb54a;
+  box-shadow: 0 0 10px rgba(255, 181, 74, 0.85);
+}
+
+.radio-skin--steampunk .radio-power-cap {
+  background: radial-gradient(circle at 35% 30%, #fff1c8, #b07a26 60%, #4a2d08);
+  border-color: #3b1f0c;
+}
+
+/* Typewriter keys */
+.radio-skin--steampunk .radio-preset {
+  color: #2a1608;
+  border: 2px solid #b07a26;
+  border-radius: 999px;
+  font-family: Georgia, serif;
+  background: radial-gradient(circle at 50% 35%, #fffaf0 0 45%, #eadcbc 80%);
+  box-shadow:
+    0 0 0 1px #3b1f0c,
+    0 3px 0 #3b1f0c,
+    0 4px 6px rgba(0, 0, 0, 0.4);
+}
+
+.radio-skin--steampunk .radio-preset:active,
+.radio-skin--steampunk .radio-preset.is-active {
+  transform: translateY(2px);
+  box-shadow:
+    0 0 0 1px #3b1f0c,
+    0 1px 0 #3b1f0c;
+}
+
+.radio-skin--steampunk .radio-preset.is-active {
+  background: radial-gradient(circle at 50% 35%, #ffe7b0 0 45%, #e0b65e 80%);
+  outline: none;
+}
+
+.radio-skin--steampunk .radio-placeholder-orb {
+  background: radial-gradient(circle, rgba(255, 170, 60, 0.28), transparent 70%);
+}
+
+/* =========================================================================
+   6. AURORA — frosted glass, starry sky, drifting northern lights
+   ========================================================================= */
+
+.radio-player-panel.radio-skin--aurora {
+  --radio-shell-edge: rgba(255, 255, 255, 0.35);
+  --radio-brass: #bdf7e6;
+  --radio-brass-dark: #4b7fa6;
+  --radio-cream: #f2fbff;
+  --radio-accent: #6dffc8;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.05) 45%, rgba(255, 255, 255, 0.12) 100%),
+    radial-gradient(ellipse at 15% 10%, rgba(109, 255, 200, 0.45), transparent 50%),
+    radial-gradient(ellipse at 90% 30%, rgba(165, 120, 255, 0.45), transparent 55%),
+    radial-gradient(ellipse at 50% 110%, rgba(80, 160, 255, 0.45), transparent 60%),
+    linear-gradient(160deg, #1b2b4d 0%, #0f1a33 60%, #0a1226 100%);
+  background-size: 100% 100%, 200% 200%, 200% 200%, 200% 200%, 100% 100%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 2rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 0 30px rgba(109, 255, 200, 0.12),
+    0 24px 50px rgba(10, 20, 50, 0.45),
+    0 0 0 1px rgba(109, 255, 200, 0.15);
+}
+
+.radio-skin--aurora.radio-player-panel--on {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 0 30px rgba(109, 255, 200, 0.18),
+    0 24px 50px rgba(10, 20, 50, 0.45),
+    0 0 44px rgba(109, 255, 200, 0.22);
+  animation: radio-skin-aurora-drift 14s ease-in-out infinite alternate;
+}
+
+.radio-skin--aurora.radio-player-panel::before {
+  inset: 0.45rem;
+  border-radius: 1.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: none;
+}
+
+.radio-skin--aurora .radio-cabinet-handle {
+  width: 6rem;
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(200, 240, 255, 0.35));
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 2px 8px rgba(10, 20, 50, 0.3),
+    0 0 12px rgba(109, 255, 200, 0.35);
+}
+
+.radio-skin--aurora .radio-cabinet-handle-grip {
+  height: 0.18rem;
+  background: linear-gradient(90deg, #6dffc8, #a578ff);
+}
+
+.radio-skin--aurora .radio-whip-mast {
+  width: 0.14rem;
+  background: linear-gradient(180deg, #ffffff, rgba(255, 255, 255, 0.3));
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+}
+
+.radio-skin--aurora .radio-whip-base {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.radio-skin--aurora .radio-whip-tip {
+  background: radial-gradient(circle at 35% 35%, #fff 0%, #6dffc8 45%, #a578ff 100%);
+  box-shadow: 0 0 14px #6dffc8;
+}
+
+.radio-skin--aurora .radio-whip-wave {
+  border-color: rgba(109, 255, 200, 0.55);
+}
+
+.radio-skin--aurora .radio-feet {
+  display: none;
+}
+
+.radio-skin--aurora .radio-player-frame {
+  background: linear-gradient(180deg, rgba(5, 10, 25, 0.85), rgba(5, 8, 20, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 1.5rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+.radio-skin--aurora .radio-brand-name {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-weight: 300;
+  letter-spacing: 0.5em;
+  color: #f2fbff;
+  text-shadow: 0 0 10px rgba(109, 255, 200, 0.6);
+}
+
+.radio-skin--aurora .radio-brand-model::after {
+  content: 'Aurora · Nordlys';
+  color: rgba(189, 247, 230, 0.75);
+}
+
+.radio-skin--aurora .radio-face {
+  border-radius: 1.1rem;
+  background: radial-gradient(ellipse at 50% 120%, #10305a 0%, #071226 55%, #030712 100%);
+}
+
+/* Stars */
+.radio-skin--aurora .radio-face::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 8% 22%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 18% 64%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 27% 38%, #fff, transparent),
+    radial-gradient(1px 1px at 41% 12%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 56% 30%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1.5px 1.5px at 67% 18%, #fff, transparent),
+    radial-gradient(1px 1px at 78% 52%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1px 1px at 88% 28%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 94% 70%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 35% 82%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1.5px 1.5px at 72% 86%, rgba(255, 255, 255, 0.7), transparent);
+  animation: radio-skin-twinkle 5s ease-in-out infinite alternate;
+}
+
+/* Northern lights */
+.radio-skin--aurora .radio-face::after {
+  content: '';
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  top: 6%;
+  height: 58%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 40% 60% at 25% 50%, rgba(109, 255, 200, 0.55), transparent 70%),
+    radial-gradient(ellipse 35% 55% at 55% 40%, rgba(120, 200, 255, 0.45), transparent 70%),
+    radial-gradient(ellipse 30% 50% at 80% 55%, rgba(165, 120, 255, 0.5), transparent 70%);
+  filter: blur(14px);
+  opacity: 0.45;
+  transform: skewY(-6deg);
+  transition: opacity 0.6s ease;
+}
+
+.radio-skin--aurora.radio-player-panel--on .radio-face::after {
+  opacity: 0.9;
+  animation: radio-skin-aurora-wave 9s ease-in-out infinite alternate;
+}
+
+.radio-skin--aurora .radio-ambient {
+  opacity: 0;
+}
+
+.radio-skin--aurora .radio-dial {
+  left: 0.9rem;
+  right: 4.85rem;
+}
+
+.radio-skin--aurora .radio-meter {
+  right: 0.9rem;
+}
+
+.radio-skin--aurora .radio-dial-glass,
+.radio-skin--aurora .radio-meter-glass {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.radio-skin--aurora .radio-dial-glow {
+  background: linear-gradient(90deg, transparent, rgba(109, 255, 200, 0.25), transparent);
+}
+
+.radio-skin--aurora .radio-dial-freqs {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-weight: 300;
+  color: rgba(242, 251, 255, 0.8);
+}
+
+.radio-skin--aurora .radio-dial-tick {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.radio-skin--aurora .radio-dial-tick:nth-child(3n + 1) {
+  background: #6dffc8;
+}
+
+.radio-skin--aurora .radio-dial-needle {
+  background: linear-gradient(180deg, #ffffff, #6dffc8);
+  box-shadow: 0 0 10px rgba(109, 255, 200, 0.85);
+}
+
+.radio-skin--aurora .radio-dial-bands {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.radio-skin--aurora .radio-dial-bands .is-active {
+  color: #6dffc8;
+  text-shadow: 0 0 8px rgba(109, 255, 200, 0.7);
+}
+
+.radio-skin--aurora .radio-meter-scale {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.radio-skin--aurora .radio-meter-needle {
+  background: linear-gradient(180deg, #6dffc8, #a578ff);
+}
+
+.radio-skin--aurora .radio-meter-label {
+  font-size: 0;
+}
+
+.radio-skin--aurora .radio-meter-label::after {
+  content: 'FLUX';
+  font-size: 0.5rem;
+  letter-spacing: 0.2em;
+  color: rgba(189, 247, 230, 0.8);
+}
+
+/* Tubes become three floating light orbs */
+.radio-skin--aurora .radio-tubes {
+  gap: 0.6rem;
+}
+
+.radio-skin--aurora .radio-tube {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.radio-skin--aurora .radio-tube-glow {
+  inset: 15%;
+  border-radius: 50%;
+}
+
+.radio-skin--aurora.radio-player-panel--on .radio-tube-glow {
+  background: #6dffc8;
+  box-shadow: 0 0 10px #6dffc8;
+}
+
+.radio-skin--aurora.radio-player-panel--on .radio-tube:nth-child(2) .radio-tube-glow {
+  background: #78c8ff;
+  box-shadow: 0 0 10px #78c8ff;
+}
+
+.radio-skin--aurora.radio-player-panel--on .radio-tube:nth-child(3) .radio-tube-glow {
+  background: #a578ff;
+  box-shadow: 0 0 10px #a578ff;
+}
+
+/* Glass speaker with a rotating aurora halo */
+.radio-skin--aurora .radio-speaker-cloth {
+  background: radial-gradient(circle, rgba(12, 22, 46, 0.65) 0%, rgba(8, 16, 36, 0.9) 100%);
+  box-shadow:
+    inset 0 0 30px rgba(109, 255, 200, 0.12),
+    0 0 34px rgba(109, 255, 200, 0.2),
+    0 0 60px rgba(165, 120, 255, 0.12);
+}
+
+.radio-skin--aurora .radio-speaker-cloth::before {
+  inset: 0;
+  opacity: 1;
+  background: conic-gradient(from 0deg, #6dffc8, #78c8ff, #a578ff, #ff8ad8, #6dffc8);
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  mask: radial-gradient(closest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+}
+
+.radio-skin--aurora.radio-player-panel--on .radio-speaker-cloth::before {
+  animation: radio-skin-halo-spin 8s linear infinite;
+}
+
+.radio-skin--aurora .radio-speaker-ring {
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.radio-skin--aurora .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #bdf7e6 40%, #4b7fa6 100%);
+}
+
+.radio-skin--aurora .radio-player-frame--live .radio-speaker-hub {
+  box-shadow: 0 0 0 2px rgba(109, 255, 200, 0.4), 0 0 22px rgba(109, 255, 200, 0.55);
+}
+
+.radio-skin--aurora .radio-eq {
+  opacity: 0.85;
+}
+
+.radio-skin--aurora .radio-eq-bar {
+  background: linear-gradient(180deg, #6dffc8, #a578ff);
+}
+
+.radio-skin--aurora .radio-knob {
+  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #e3edf5 50%, #a9b8c8 100%);
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.4),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.12);
+}
+
+.radio-skin--aurora .radio-knob::after {
+  background: #2bbf8f;
+}
+
+.radio-skin--aurora .radio-power-cap {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.radio-skin--aurora .radio-power-led.is-on {
+  background: #6dffc8;
+  box-shadow: 0 0 10px #6dffc8;
+}
+
+.radio-skin--aurora .radio-preset {
+  color: #f2fbff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.radio-skin--aurora .radio-preset.is-active {
+  color: #fff;
+  background: linear-gradient(135deg, rgba(109, 255, 200, 0.55), rgba(165, 120, 255, 0.55));
+  box-shadow: 0 0 14px rgba(109, 255, 200, 0.45);
+  outline: none;
+}
+
+.radio-skin--aurora .radio-now-action:not(.radio-now-action--accent):not(.radio-now-action--stop):not(.radio-now-action--fav) {
+  color: #f2fbff;
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.radio-skin--aurora .radio-now-action.is-lit:not(.radio-now-action--accent):not(.radio-now-action--stop):not(.radio-now-action--fav) {
+  background: linear-gradient(135deg, rgba(109, 255, 200, 0.6), rgba(165, 120, 255, 0.6));
+}
+
+.radio-skin--aurora .radio-volume-slider {
+  background: linear-gradient(90deg, #6dffc8, #78c8ff, #a578ff);
+}
+
+.radio-skin--aurora .radio-placeholder-icon {
+  color: #6dffc8;
+  text-shadow: 0 0 12px rgba(109, 255, 200, 0.6);
+}
+
+.radio-skin--aurora .radio-placeholder-orb {
+  background: radial-gradient(circle, rgba(109, 255, 200, 0.3), transparent 70%);
+}
+
+.radio-skin--aurora .radio-world-arcs span {
+  border-color: rgba(109, 255, 200, 0.3);
+}
+
+.radio-skin--aurora .radio-world-arcs span:nth-child(2) {
+  border-color: rgba(165, 120, 255, 0.3);
+}
+
+/* ---------- Keyframes ---------- */
+
+@keyframes radio-skin-neon-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(0, 229, 255, 0.35),
+      0 0 18px rgba(255, 43, 214, 0.55),
+      0 0 42px rgba(0, 229, 255, 0.18),
+      inset 0 0 24px rgba(255, 43, 214, 0.25),
+      0 22px 44px rgba(10, 0, 30, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(0, 229, 255, 0.6),
+      0 0 28px rgba(255, 43, 214, 0.85),
+      0 0 60px rgba(0, 229, 255, 0.3),
+      inset 0 0 30px rgba(255, 43, 214, 0.35),
+      0 22px 44px rgba(10, 0, 30, 0.55);
+  }
+}
+
+@keyframes radio-skin-grid-scroll {
+  from { background-position: 0 0, 0 0, 0 0; }
+  to { background-position: 0 16px, 0 0, 0 0; }
+}
+
+@keyframes radio-skin-scope {
+  from { background-position: 0 50%; }
+  to { background-position: 0.9rem 50%; }
+}
+
+@keyframes radio-skin-gear-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes radio-skin-whip-sway {
+  0%, 100% { transform: rotate(14deg); }
+  50% { transform: rotate(20deg); }
+}
+
+@keyframes radio-skin-spark {
+  0% { box-shadow: 0 0 12px #6fd3ff, 0 0 24px rgba(111, 211, 255, 0.6); }
+  100% { box-shadow: 0 0 4px #6fd3ff, 0 0 10px rgba(111, 211, 255, 0.3); }
+}
+
+@keyframes radio-skin-aurora-drift {
+  0% { background-position: 0 0, 0% 0%, 100% 0%, 50% 100%, 0 0; }
+  100% { background-position: 0 0, 60% 40%, 40% 60%, 30% 70%, 0 0; }
+}
+
+@keyframes radio-skin-aurora-wave {
+  0% { transform: skewY(-6deg) translateX(-6%) scaleY(1); }
+  50% { transform: skewY(-2deg) translateX(3%) scaleY(1.15); }
+  100% { transform: skewY(-8deg) translateX(6%) scaleY(0.92); }
+}
+
+@keyframes radio-skin-twinkle {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+
+@keyframes radio-skin-halo-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+  .radio-skin--spaceage .radio-chrome {
+    background: none;
+  }
+
+  .radio-player-panel.radio-skin--artdeco {
+    padding-top: 2.9rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radio-skin--synthwave.radio-player-panel--on,
+  .radio-skin--synthwave.radio-player-panel--on .radio-face::after,
+  .radio-skin--steampunk.radio-player-panel--on .radio-face::before,
+  .radio-skin--steampunk.radio-player-panel--on .radio-face::after,
+  .radio-skin--steampunk.radio-player-panel--live .radio-whip-tip,
+  .radio-skin--aurora.radio-player-panel--on,
+  .radio-skin--aurora .radio-face::before,
+  .radio-skin--aurora.radio-player-panel--on .radio-face::after,
+  .radio-skin--aurora.radio-player-panel--on .radio-speaker-cloth::before {
+    animation: none !important;
+  }
+}

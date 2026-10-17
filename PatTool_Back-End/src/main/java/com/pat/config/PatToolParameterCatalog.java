@@ -30,6 +30,7 @@ public final class PatToolParameterCatalog {
             "tv.last-channel.",
             "radio.favorites.",
             "radio.last-station.",
+            "radio.skin.",
             "webcam.favorites.",
             "webcam.last.",
             "artisans.favorites.",

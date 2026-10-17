@@ -55,7 +55,9 @@ public class TmdbProxyService {
     private static final Set<String> SEARCH_MEDIA = Set.of("multi", "movie", "tv");
     private static final Set<String> DISCOVER_MEDIA = Set.of("movie", "tv");
     private static final Set<String> WINDOWS = Set.of("day", "week");
-    private static final Set<String> SORTS = Set.of("popular", "rating", "newest");
+    private static final Set<String> SORTS = Set.of(
+            "popular", "rating", "rating_asc", "newest", "oldest", "title", "title_desc", "votes", "revenue");
+    private static final int CREDIT_PAGE_SIZE = 20;
     private static final Map<String, String> LANGS = Map.ofEntries(
             Map.entry("fr", "fr-FR"),
             Map.entry("en", "en-US"),
@@ -157,7 +159,16 @@ public class TmdbProxyService {
         return result;
     }
 
-    public TmdbPageDto discover(String media, Integer genre, Integer year, String sort, String lang, Integer page) {
+    public TmdbPageDto discover(
+            String media,
+            Integer genre,
+            Integer year,
+            String sort,
+            String actor,
+            String producer,
+            String director,
+            String lang,
+            Integer page) {
         if (!isConfigured()) {
             return TmdbPageDto.missingKey();
         }
@@ -167,11 +178,37 @@ public class TmdbProxyService {
         String sortKey = SORTS.contains(sort) ? sort : "popular";
         Integer genreId = genre != null && genre > 0 && genre < 100000 ? genre : null;
         Integer releaseYear = year != null && year >= 1870 && year <= 2100 ? year : null;
+        String actorQuery = cleanPerson(actor);
+        String producerQuery = cleanPerson(producer);
+        String directorQuery = cleanPerson(director);
+        if (rejectedPerson(actor) || rejectedPerson(producer) || rejectedPerson(director)) {
+            return TmdbPageDto.failure("invalid_query");
+        }
         String cacheKey = "discover|" + kind + "|" + language + "|" + pageNo + "|" + sortKey
-                + "|" + genreId + "|" + releaseYear;
+                + "|" + genreId + "|" + releaseYear
+                + "|" + cacheToken(actorQuery) + "|" + cacheToken(producerQuery) + "|" + cacheToken(directorQuery);
         TmdbPageDto cached = fromCache(cacheKey);
         if (cached != null) {
             return cached;
+        }
+        PersonHit actorHit = resolvePerson(actorQuery, "actor", language);
+        PersonHit producerHit = resolvePerson(producerQuery, "producer", language);
+        PersonHit directorHit = resolvePerson(directorQuery, "director", language);
+        if (failed(actorHit) || failed(producerHit) || failed(directorHit)) {
+            return TmdbPageDto.failure("upstream_error");
+        }
+        if (missingPerson(actorQuery, actorHit) || missingPerson(producerQuery, producerHit) || missingPerson(directorQuery, directorHit)) {
+            TmdbPageDto empty = TmdbPageDto.empty();
+            putCache(cacheKey, empty);
+            return empty;
+        }
+        if (producerHit != null || directorHit != null) {
+            TmdbPageDto credited = creditsPage(
+                    kind, genreId, releaseYear, sortKey, pageNo, language, actorHit, producerHit, directorHit);
+            if (credited.error() == null) {
+                putCache(cacheKey, credited);
+            }
+            return credited;
         }
         UriComponentsBuilder builder = UriComponentsBuilder
                 .fromUriString(apiBase + "/discover/" + kind)
@@ -179,7 +216,7 @@ public class TmdbProxyService {
                 .queryParam("page", pageNo)
                 .queryParam("include_adult", "false")
                 .queryParam("sort_by", sortParam(sortKey, kind));
-        if ("rating".equals(sortKey)) {
+        if (("rating".equals(sortKey) || "rating_asc".equals(sortKey)) && actorHit == null) {
             builder.queryParam("vote_count.gte", 200);
         }
         if (genreId != null) {
@@ -189,8 +226,14 @@ public class TmdbProxyService {
             String yearParam = "tv".equals(kind) ? "first_air_date_year" : "primary_release_year";
             builder.queryParam(yearParam, releaseYear);
         }
+        if (actorHit != null) {
+            builder.queryParam("with_cast", actorHit.id());
+        }
         JsonNode raw = fetchJson(withKey(builder), "discover");
         TmdbPageDto result = mapPage(raw, kind, pageNo);
+        if (actorHit != null && result.error() == null) {
+            result = result.withPeople(actorHit.name(), null, null);
+        }
         if (result.error() == null) {
             putCache(cacheKey, result);
         }
@@ -277,7 +320,7 @@ public class TmdbProxyService {
         int page = raw.path("page").asInt(requestedPage);
         int totalPages = Math.max(0, raw.path("total_pages").asInt(0));
         int total = Math.max(0, raw.path("total_results").asInt(items.size()));
-        return new TmdbPageDto(true, null, page, totalPages, total, items);
+        return new TmdbPageDto(true, null, page, totalPages, total, items, null, null, null);
     }
 
     private List<TmdbItemDto> mapItems(JsonNode results, String fallbackMedia) {
@@ -320,7 +363,8 @@ public class TmdbProxyService {
                     blankToNull(date),
                     vote(node.path("vote_average")),
                     positiveInt(node.path("vote_count")),
-                    blankToNull(textOrEmpty(node.path("original_language")))
+                    blankToNull(textOrEmpty(node.path("original_language"))),
+                    popularity(node.path("popularity"))
             ));
         }
         return items;
@@ -459,11 +503,327 @@ public class TmdbProxyService {
     }
 
     private String sortParam(String sort, String media) {
+        boolean tv = "tv".equals(media);
         return switch (sort) {
             case "rating" -> "vote_average.desc";
-            case "newest" -> "tv".equals(media) ? "first_air_date.desc" : "primary_release_date.desc";
+            case "rating_asc" -> "vote_average.asc";
+            case "newest" -> tv ? "first_air_date.desc" : "primary_release_date.desc";
+            case "oldest" -> tv ? "first_air_date.asc" : "primary_release_date.asc";
+            case "title" -> tv ? "name.asc" : "title.asc";
+            case "title_desc" -> tv ? "name.desc" : "title.desc";
+            case "votes" -> "vote_count.desc";
+            case "revenue" -> tv ? "popularity.desc" : "revenue.desc";
             default -> "popularity.desc";
         };
+    }
+
+    /**
+     * Producer and director are job-specific, which discover {@code with_crew} cannot express.
+     * Filmography comes from combined credits, then the chosen sort is applied locally.
+     */
+    private TmdbPageDto creditsPage(
+            String media,
+            Integer genreId,
+            Integer year,
+            String sort,
+            int pageNo,
+            String language,
+            PersonHit actor,
+            PersonHit producer,
+            PersonHit director) {
+        List<TmdbItemDto> pool = null;
+        PersonHit[] people = { actor, producer, director };
+        String[] roles = { "actor", "producer", "director" };
+        for (int i = 0; i < people.length; i++) {
+            if (people[i] == null) {
+                continue;
+            }
+            List<TmdbItemDto> credits = filmography(people[i].id(), roles[i], media, genreId, year, language);
+            if (credits == null) {
+                return TmdbPageDto.failure("upstream_error");
+            }
+            pool = intersect(pool, credits);
+        }
+        if (pool == null) {
+            return TmdbPageDto.failure("upstream_error");
+        }
+        List<TmdbItemDto> sorted = new ArrayList<>(pool);
+        sorted.sort(itemOrder(sort));
+        int total = sorted.size();
+        int totalPages = total == 0 ? 0 : (total + CREDIT_PAGE_SIZE - 1) / CREDIT_PAGE_SIZE;
+        int safePage = totalPages == 0 ? 1 : Math.min(pageNo, totalPages);
+        int from = total == 0 ? 0 : (safePage - 1) * CREDIT_PAGE_SIZE;
+        int to = Math.min(total, from + CREDIT_PAGE_SIZE);
+        List<TmdbItemDto> slice = total == 0 ? List.of() : new ArrayList<>(sorted.subList(from, to));
+        return new TmdbPageDto(
+                true,
+                null,
+                safePage,
+                totalPages,
+                total,
+                slice,
+                actor == null ? null : actor.name(),
+                producer == null ? null : producer.name(),
+                director == null ? null : director.name());
+    }
+
+    private List<TmdbItemDto> filmography(
+            long personId, String role, String media, Integer genreId, Integer year, String language) {
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromUriString(apiBase + "/person/" + personId + "/combined_credits")
+                .queryParam("language", language);
+        JsonNode raw = fetchJson(withKey(builder), "credits");
+        if (raw == null || apiError(raw) != null) {
+            return null;
+        }
+        JsonNode bucket = "actor".equals(role) ? raw.path("cast") : raw.path("crew");
+        var filtered = objectMapper.createArrayNode();
+        Set<String> seen = new LinkedHashSet<>();
+        if (bucket.isArray()) {
+            for (JsonNode node : bucket) {
+                if (!creditMatches(node, role, media, genreId, year)) {
+                    continue;
+                }
+                String kind = textOrEmpty(node.path("media_type"));
+                long id = node.path("id").asLong(0);
+                if (id <= 0 || !seen.add(kind + "-" + id)) {
+                    continue;
+                }
+                filtered.add(node);
+            }
+        }
+        return mapItems(filtered, media);
+    }
+
+    private static boolean creditMatches(JsonNode node, String role, String media, Integer genreId, Integer year) {
+        if (node.path("adult").asBoolean(false)) {
+            return false;
+        }
+        String kind = textOrEmpty(node.path("media_type"));
+        if (!media.equals(kind)) {
+            return false;
+        }
+        if (!roleMatches(node, role)) {
+            return false;
+        }
+        if (genreId != null && !hasGenre(node, genreId)) {
+            return false;
+        }
+        if (year != null) {
+            String date = firstText(
+                    node,
+                    "movie".equals(kind) ? "release_date" : "first_air_date",
+                    "release_date");
+            if (!date.startsWith(String.valueOf(year))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean roleMatches(JsonNode node, String role) {
+        if ("actor".equals(role)) {
+            return true;
+        }
+        String job = textOrEmpty(node.path("job"));
+        if ("director".equals(role)) {
+            return "Director".equalsIgnoreCase(job);
+        }
+        if ("producer".equals(role)) {
+            String department = textOrEmpty(node.path("department"));
+            return "Production".equalsIgnoreCase(department)
+                    && job.toLowerCase(Locale.ROOT).contains("producer");
+        }
+        return false;
+    }
+
+    private static boolean hasGenre(JsonNode node, int genreId) {
+        JsonNode ids = node.path("genre_ids");
+        if (!ids.isArray()) {
+            return false;
+        }
+        for (JsonNode id : ids) {
+            if (id.asInt(0) == genreId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<TmdbItemDto> intersect(List<TmdbItemDto> left, List<TmdbItemDto> right) {
+        if (right == null) {
+            return null;
+        }
+        if (left == null) {
+            return right;
+        }
+        Set<String> ids = new LinkedHashSet<>();
+        for (TmdbItemDto item : right) {
+            ids.add(item.mediaType() + "-" + item.id());
+        }
+        List<TmdbItemDto> out = new ArrayList<>();
+        for (TmdbItemDto item : left) {
+            if (ids.contains(item.mediaType() + "-" + item.id())) {
+                out.add(item);
+            }
+        }
+        return out;
+    }
+
+    private PersonHit resolvePerson(String query, String role, String language) {
+        if (!StringUtils.hasText(query)) {
+            return null;
+        }
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromUriString(apiBase + "/search/person")
+                .queryParam("query", query)
+                .queryParam("language", language)
+                .queryParam("include_adult", "false")
+                .queryParam("page", 1);
+        JsonNode raw = fetchJson(withKey(builder), "person");
+        if (raw == null) {
+            return PersonHit.lookupFailed();
+        }
+        if (apiError(raw) != null) {
+            return PersonHit.lookupFailed();
+        }
+        String department = switch (role) {
+            case "producer" -> "Production";
+            case "director" -> "Directing";
+            default -> "Acting";
+        };
+        JsonNode first = null;
+        JsonNode departmentBest = null;
+        double departmentPop = -1;
+        int seen = 0;
+        for (JsonNode person : raw.path("results")) {
+            if (seen >= 5) {
+                break;
+            }
+            long id = person.path("id").asLong(0);
+            if (id <= 0 || !StringUtils.hasText(textOrEmpty(person.path("name")))) {
+                continue;
+            }
+            seen++;
+            if (first == null) {
+                first = person;
+            }
+            double pop = person.path("popularity").asDouble(0);
+            if (department.equalsIgnoreCase(textOrEmpty(person.path("known_for_department"))) && pop > departmentPop) {
+                departmentPop = pop;
+                departmentBest = person;
+            }
+        }
+        JsonNode best = departmentBest != null ? departmentBest : first;
+        if (best == null) {
+            return null;
+        }
+        return PersonHit.found(best.path("id").asLong(0), textOrEmpty(best.path("name")));
+    }
+
+    private static Comparator<TmdbItemDto> itemOrder(String sort) {
+        return (a, b) -> {
+            int primary = switch (sort) {
+                case "rating" -> compareDouble(a.voteAverage(), b.voteAverage(), true);
+                case "rating_asc" -> compareDouble(a.voteAverage(), b.voteAverage(), false);
+                case "newest" -> compareText(a.date(), b.date(), true);
+                case "oldest" -> compareText(a.date(), b.date(), false);
+                case "title" -> compareText(a.title(), b.title(), false);
+                case "title_desc" -> compareText(a.title(), b.title(), true);
+                case "votes" -> compareInt(a.voteCount(), b.voteCount(), true);
+                default -> compareDouble(a.popularity(), b.popularity(), true);
+            };
+            if (primary != 0 || "title".equals(sort) || "title_desc".equals(sort)) {
+                return primary;
+            }
+            return compareText(a.title(), b.title(), false);
+        };
+    }
+
+    private static int compareText(String left, String right, boolean descending) {
+        boolean leftEmpty = !StringUtils.hasText(left);
+        boolean rightEmpty = !StringUtils.hasText(right);
+        if (leftEmpty || rightEmpty) {
+            if (leftEmpty && rightEmpty) {
+                return 0;
+            }
+            return leftEmpty ? 1 : -1;
+        }
+        int cmp = left.compareToIgnoreCase(right);
+        return descending ? -cmp : cmp;
+    }
+
+    private static int compareDouble(Double left, Double right, boolean descending) {
+        if (left == null || right == null) {
+            if (left == null && right == null) {
+                return 0;
+            }
+            return left == null ? 1 : -1;
+        }
+        int cmp = Double.compare(left, right);
+        return descending ? -cmp : cmp;
+    }
+
+    private static int compareInt(Integer left, Integer right, boolean descending) {
+        if (left == null || right == null) {
+            if (left == null && right == null) {
+                return 0;
+            }
+            return left == null ? 1 : -1;
+        }
+        int cmp = Integer.compare(left, right);
+        return descending ? -cmp : cmp;
+    }
+
+    private static String cleanPerson(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return null;
+        }
+        String query = raw.trim().replaceAll("\\s+", " ");
+        if (query.length() < 2 || !safeQuery(query)) {
+            return null;
+        }
+        return query;
+    }
+
+    private static boolean rejectedPerson(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return false;
+        }
+        return !safeQuery(raw.trim());
+    }
+
+    private static String cacheToken(String query) {
+        return query == null ? "" : query.toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean failed(PersonHit hit) {
+        return hit != null && hit.failed();
+    }
+
+    private static boolean missingPerson(String query, PersonHit hit) {
+        return StringUtils.hasText(query) && hit == null;
+    }
+
+    private static Double popularity(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return null;
+        }
+        double value = node.asDouble(Double.NaN);
+        if (Double.isNaN(value) || value < 0) {
+            return null;
+        }
+        return Math.round(value * 10.0) / 10.0;
+    }
+
+    private record PersonHit(long id, String name, boolean failed) {
+        private static PersonHit found(long id, String name) {
+            return new PersonHit(id, name, false);
+        }
+
+        private static PersonHit lookupFailed() {
+            return new PersonHit(0, null, true);
+        }
     }
 
     private java.net.URI withKey(UriComponentsBuilder builder) {

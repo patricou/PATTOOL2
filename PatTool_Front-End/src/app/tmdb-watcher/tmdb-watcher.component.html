@@ -75,6 +75,21 @@
       </button>
     </div>
 
+    <label class="tmdb-field tmdb-field--sort">
+      <span>{{ 'TMDB.SORT' | translate }}</span>
+      <select [(ngModel)]="sort" (ngModelChange)="onSortChange()">
+        <option value="popular">{{ 'TMDB.SORT_POPULAR' | translate }}</option>
+        <option value="newest">{{ 'TMDB.SORT_NEWEST' | translate }}</option>
+        <option value="oldest">{{ 'TMDB.SORT_OLDEST' | translate }}</option>
+        <option value="title">{{ 'TMDB.SORT_TITLE' | translate }}</option>
+        <option value="title_desc">{{ 'TMDB.SORT_TITLE_DESC' | translate }}</option>
+        <option value="rating">{{ 'TMDB.SORT_RATING' | translate }}</option>
+        <option value="rating_asc">{{ 'TMDB.SORT_RATING_ASC' | translate }}</option>
+        <option value="votes">{{ 'TMDB.SORT_VOTES' | translate }}</option>
+        <option *ngIf="mode === 'discover' && media === 'movie'" value="revenue">{{ 'TMDB.SORT_REVENUE' | translate }}</option>
+      </select>
+    </label>
+
     <ng-container *ngIf="mode === 'discover'">
       <label class="tmdb-field">
         <span>{{ 'TMDB.GENRE' | translate }}</span>
@@ -94,16 +109,42 @@
           (change)="onFilterChange()"
           [placeholder]="'TMDB.YEAR' | translate" />
       </label>
-      <label class="tmdb-field">
-        <span>{{ 'TMDB.SORT' | translate }}</span>
-        <select [(ngModel)]="sort" (ngModelChange)="onFilterChange()">
-          <option value="popular">{{ 'TMDB.SORT_POPULAR' | translate }}</option>
-          <option value="rating">{{ 'TMDB.SORT_RATING' | translate }}</option>
-          <option value="newest">{{ 'TMDB.SORT_NEWEST' | translate }}</option>
-        </select>
+      <label class="tmdb-field tmdb-field--person">
+        <span>{{ 'TMDB.ACTOR' | translate }}</span>
+        <input
+          type="search"
+          [(ngModel)]="actorText"
+          (ngModelChange)="onPersonChange()"
+          [placeholder]="'TMDB.ACTOR_PLACEHOLDER' | translate"
+          autocomplete="off" />
+      </label>
+      <label class="tmdb-field tmdb-field--person">
+        <span>{{ 'TMDB.PRODUCER' | translate }}</span>
+        <input
+          type="search"
+          [(ngModel)]="producerText"
+          (ngModelChange)="onPersonChange()"
+          [placeholder]="'TMDB.PRODUCER_PLACEHOLDER' | translate"
+          autocomplete="off" />
+      </label>
+      <label class="tmdb-field tmdb-field--person">
+        <span>{{ 'TMDB.DIRECTOR' | translate }}</span>
+        <input
+          type="search"
+          [(ngModel)]="directorText"
+          (ngModelChange)="onPersonChange()"
+          [placeholder]="'TMDB.DIRECTOR_PLACEHOLDER' | translate"
+          autocomplete="off" />
       </label>
     </ng-container>
   </div>
+
+  <p class="tmdb-match" *ngIf="mode === 'discover' && (actorName || producerName || directorName)">
+    <span *ngIf="actorName">{{ 'TMDB.ACTOR' | translate }} : {{ actorName }}</span>
+    <span *ngIf="producerName">{{ 'TMDB.PRODUCER' | translate }} : {{ producerName }}</span>
+    <span *ngIf="directorName">{{ 'TMDB.DIRECTOR' | translate }} : {{ directorName }}</span>
+  </p>
+  <p class="tmdb-note" *ngIf="mode !== 'discover' && sort !== 'popular'">{{ 'TMDB.SORT_PAGE_NOTE' | translate }}</p>
 
   <p class="tmdb-count" *ngIf="!isLoading && !missingKey && !showEmptySearch && totalResults > 0">
     {{ 'TMDB.RESULT_COUNT' | translate:{ count: totalResults } }}

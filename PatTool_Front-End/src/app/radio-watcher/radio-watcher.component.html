@@ -1,4 +1,4 @@
-<div class="pat-title">
+<div class="pat-title" [class.radio-title--menu-open]="skinMenuOpen">
   <h2 class="radio-page-title">
     <span class="radio-title-icon" aria-hidden="true">
       <i class="fa fa-headphones"></i>
@@ -26,6 +26,52 @@
       <i class="fa fa-sliders" aria-hidden="true"></i>
       <span class="radio-eq-open-label">{{ 'YOUTUBE.EQ.OPEN' | translate }}</span>
     </button>
+    <button
+      type="button"
+      class="radio-sidebar-expand-title-btn"
+      *ngIf="sidebarCollapsed"
+      (click)="toggleSidebarCollapsed()"
+      [attr.title]="'TV.SIDEBAR_EXPAND' | translate"
+      [attr.aria-label]="'TV.SIDEBAR_EXPAND' | translate">
+      <i class="fa fa-bars" aria-hidden="true"></i>
+      <span class="radio-sidebar-expand-title-label">{{ 'TV.SIDEBAR_EXPAND' | translate }}</span>
+    </button>
+    <span class="radio-skin-picker">
+      <button
+        type="button"
+        class="radio-skin-open-btn"
+        [class.is-open]="skinMenuOpen"
+        (click)="toggleSkinMenu($event)"
+        aria-haspopup="menu"
+        [attr.aria-expanded]="skinMenuOpen"
+        [attr.title]="'RADIO.SKIN_TITLE' | translate"
+        [attr.aria-label]="'RADIO.SKIN_TITLE' | translate">
+        <span class="radio-skin-swatch radio-skin-swatch--mini" [ngClass]="'radio-skin-swatch--' + radioSkin" aria-hidden="true"></span>
+        <span class="radio-skin-open-label">{{ 'RADIO.SKIN_OPEN' | translate }}</span>
+        <i class="fa fa-caret-down" aria-hidden="true"></i>
+      </button>
+      <span class="radio-skin-menu" *ngIf="skinMenuOpen" role="menu" [attr.aria-label]="'RADIO.SKIN_TITLE' | translate">
+        <span class="radio-skin-menu-title">
+          <i class="fa fa-paint-brush" aria-hidden="true"></i>
+          {{ 'RADIO.SKIN_TITLE' | translate }}
+        </span>
+        <button
+          *ngFor="let skin of radioSkins"
+          type="button"
+          class="radio-skin-option"
+          role="menuitemradio"
+          [class.active]="skin === radioSkin"
+          [attr.aria-checked]="skin === radioSkin"
+          (click)="setRadioSkin(skin)">
+          <span class="radio-skin-swatch" [ngClass]="'radio-skin-swatch--' + skin" aria-hidden="true"></span>
+          <span class="radio-skin-option-text">
+            <span class="radio-skin-option-name">{{ skinNameKey(skin) | translate }}</span>
+            <span class="radio-skin-option-desc">{{ skinDescKey(skin) | translate }}</span>
+          </span>
+          <i class="fa fa-check radio-skin-option-check" *ngIf="skin === radioSkin" aria-hidden="true"></i>
+        </button>
+      </span>
+    </span>
   </h2>
 </div>
 
@@ -49,8 +95,8 @@
     </button>
   </div>
 
-  <div class="radio-layout">
-    <aside class="radio-sidebar">
+  <div class="radio-layout" [class.radio-layout--sidebar-collapsed]="sidebarCollapsed">
+    <aside class="radio-sidebar" #sidebarEl [style.height.px]="sidebarHeightPx">
       <div class="radio-sidebar-filter">
         <label class="visually-hidden" for="radio-sidebar-filter">{{ 'RADIO.SIDEBAR_FILTER' | translate }}</label>
         <div class="radio-sidebar-filter-row">
@@ -74,6 +120,15 @@
             <i class="fa fa-times" aria-hidden="true"></i>
           </button>
         </div>
+        <button
+          type="button"
+          class="radio-sidebar-collapse-btn"
+          (click)="toggleSidebarCollapsed()"
+          aria-expanded="true"
+          [attr.title]="'TV.SIDEBAR_COLLAPSE' | translate"
+          [attr.aria-label]="'TV.SIDEBAR_COLLAPSE' | translate">
+          <i class="fa fa-chevron-left radio-sidebar-collapse-chevron" aria-hidden="true"></i>
+        </button>
       </div>
 
       <div class="radio-mode-tabs" role="tablist">
@@ -391,6 +446,7 @@
     <section
       #playerPanel
       class="radio-player-panel"
+      [ngClass]="'radio-skin--' + radioSkin"
       [class.radio-player-panel--on]="!!selectedStation && !isFloatingOpen && !playError"
       [class.radio-player-panel--live]="!!selectedStation && !isBuffering && !playError && !isFloatingOpen"
       aria-label="Radio">
@@ -492,21 +548,6 @@
 
           <div class="radio-station-badge" *ngIf="selectedStation && !isFloatingOpen && !playError">
             <div class="radio-on-air"><span></span> ON AIR</div>
-            <img
-              *ngIf="stationLogo(selectedStation) as logo"
-              class="radio-audio-logo"
-              [src]="logo"
-              [alt]="selectedStation.name"
-              (error)="$any($event.target).style.display='none'" />
-            <div class="radio-audio-label">
-              <i class="fa fa-rss" aria-hidden="true"></i>
-              <span>{{ selectedStation.name }}</span>
-            </div>
-            <div class="radio-station-meta">
-              <span *ngIf="selectedStation.country">{{ countryLabel(selectedStation.country) }}</span>
-              <span *ngIf="selectedStation.codec">{{ selectedStation.codec }}</span>
-              <span *ngIf="formatBitrate(selectedStation)">{{ formatBitrate(selectedStation) }}</span>
-            </div>
           </div>
 
           <div class="radio-controls-row" aria-hidden="true">
@@ -557,8 +598,7 @@
           class="radio-chrome"
           *ngIf="selectedStation"
           [class.radio-chrome--hidden]="!chromeVisible"
-          [class.radio-chrome--share-open]="shareMenuOpen"
-          [attr.aria-hidden]="!chromeVisible">
+          [class.radio-chrome--share-open]="shareMenuOpen">
           <div class="radio-now-playing">
             <div class="radio-now-info">
               <img
@@ -583,7 +623,11 @@
               </div>
             </div>
 
-            <div class="radio-now-actions" [class.radio-now-actions--share-open]="shareMenuOpen" role="toolbar">
+            <div
+              class="radio-now-actions"
+              [class.radio-now-actions--share-open]="shareMenuOpen"
+              role="toolbar"
+              [attr.aria-hidden]="!chromeVisible">
               <button
                 type="button"
                 class="radio-now-action"

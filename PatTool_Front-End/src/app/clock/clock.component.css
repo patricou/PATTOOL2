@@ -1624,6 +1624,11 @@
   padding: 0.2rem 0.2rem 5.2rem;
   container-type: size;
   touch-action: pan-y;
+  --glare-keep: clamp(0%, calc(var(--look-glare, 1) * 100%), 100%);
+  --glare-boost: clamp(0%, calc((var(--look-glare, 1) - 1) * 100%), 100%);
+  --rim-shine-g: color-mix(in srgb, color-mix(in srgb, #fff var(--glare-boost), var(--rim-shine)) var(--glare-keep), var(--rim-body));
+  --rim-glint-g: color-mix(in srgb, color-mix(in srgb, #fff var(--glare-boost), var(--rim-glint)) var(--glare-keep), var(--rim-body));
+  --glare-band: clamp(0, calc((var(--look-glare, 1) - 1) * 0.9), 0.9);
 }
 
 .look-bar {
@@ -1723,21 +1728,32 @@
   border: 2px solid var(--lcd-frame);
   box-shadow: inset 0 0 14px color-mix(in srgb, var(--lcd-on) 18%, transparent);
 }
-.dial-lcd .seg-digit { width: 12cqi; height: auto; }
+.dial-lcd .seg-digit {
+  width: 12cqi;
+  max-width: 12%;
+  min-width: 0;
+  flex: 0 1 12%;
+  height: auto;
+}
 .dial-lcd .colon {
   width: 2.2cqi;
+  max-width: 3%;
   height: 22cqi;
   gap: 4cqi;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 .dial-lcd .colon i {
   width: 1.8cqi;
   height: 1.8cqi;
+  max-width: 0.28rem;
+  max-height: 0.28rem;
 }
 :host([data-face="hybrid-night"]) .dial-lcd { margin-top: 30%; width: 40%; }
-:host([data-face="hybrid-chrono"]) .dial-lcd { margin-top: 74%; width: 52%; }
-:host([data-face="hybrid-radar"]) .dial-lcd { margin-top: 50%; width: 36%; }
+:host([data-face="hybrid-chrono"]) .dial-lcd { margin-top: 71%; width: 42%; }
+:host([data-face="hybrid-radar"]) .dial-lcd { margin-top: 28%; width: 36%; }
 :host([data-face="hybrid-sakura"]) .dial-lcd { margin-top: 68%; width: 44%; }
-:host([data-face="hybrid-orbit"]) .dial-lcd { margin-top: 56%; width: 38%; }
+:host([data-face="hybrid-orbit"]) .dial-lcd { margin-top: 28%; width: 36%; }
 :host([data-face="hybrid-deco"]) .dial-lcd { margin-top: 72%; width: 42%; }
 
 .watch svg {
@@ -1752,8 +1768,8 @@
 
 .wash-in { stop-color: var(--wash-in, var(--face)); }
 .wash-out { stop-color: var(--wash-out, var(--face)); }
-.rim-a { stop-color: var(--rim-shine); }
-.rim-b { stop-color: var(--rim-glint); }
+.rim-a { stop-color: var(--rim-shine-g, var(--rim-shine)); }
+.rim-b { stop-color: var(--rim-glint-g, var(--rim-glint)); }
 .rim-c { stop-color: var(--rim-body); }
 .rim-d { stop-color: var(--rim-shade); }
 .glass-a { stop-color: var(--glass-hi); }
@@ -1763,15 +1779,15 @@
 .bezel { fill: var(--bezel-fill); stroke: url(#bezelMetal); stroke-width: 7.5; }
 .bezel-glint {
   fill: none;
-  stroke: var(--rim-shine);
+  stroke: var(--rim-shine-g, var(--rim-shine));
   stroke-width: 1.35;
   stroke-linecap: round;
   stroke-dasharray: 54 280;
-  opacity: calc(0.82 * var(--look-shine, 1));
+  opacity: calc(0.82 * var(--look-shine, 1) * var(--look-glare, 1));
 }
-.crystal { pointer-events: none; opacity: clamp(0, var(--look-reflect, 1), 1); }
+.crystal { pointer-events: none; opacity: clamp(0, calc(var(--look-reflect, 1) * var(--look-glare, 1)), 1); }
 .crystal-dome { fill: url(#crystalDome); }
-.crystal-spot { fill: var(--glass-hi); opacity: calc(0.28 * var(--look-shine, 1)); }
+.crystal-spot { fill: var(--glass-hi); opacity: calc(0.28 * var(--look-shine, 1) * var(--look-glare, 1)); }
 .watch::after {
   content: "";
   position: absolute;
@@ -1779,7 +1795,28 @@
   border-radius: 50%;
   pointer-events: none;
   background: radial-gradient(circle at 26% 16%, rgba(255, 255, 255, 0.42), transparent 42%);
-  opacity: clamp(0, calc(var(--look-reflect, 1) - 1), 1);
+  opacity: clamp(0, calc(var(--look-reflect, 1) * var(--look-glare, 1) - 1), 1);
+}
+.watch-plate::after,
+.lcd::after,
+.board::after,
+.nixie::after,
+.smart::before,
+.resin-case::after,
+.round-case::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(118deg, transparent 24%, rgba(255, 255, 255, 0.04) 32%, rgba(255, 255, 255, 0.5) 41%, rgba(255, 255, 255, 0.08) 50%, transparent 62%);
+  mix-blend-mode: screen;
+  opacity: var(--glare-band, 0);
+}
+.watch-plate::after {
+  inset: 4%;
+  border-radius: 50%;
 }
 .watch,
 .ultra,
@@ -2068,9 +2105,9 @@
     linear-gradient(180deg, color-mix(in srgb, var(--lcd-on) 8%, transparent), transparent 30%),
     var(--lcd-bg);
   position: relative;
-  border: 3px solid color-mix(in srgb, var(--rim-glint) 55%, var(--lcd-frame));
+  border: 3px solid color-mix(in srgb, var(--rim-glint-g, var(--rim-glint)) 55%, var(--lcd-frame));
   box-shadow:
-    inset 0 1px 0 var(--rim-shine),
+    inset 0 1px 0 var(--rim-shine-g, var(--rim-shine)),
     inset 0 0 0 1px color-mix(in srgb, var(--rim-shade) 45%, transparent),
     inset 0 0 40px color-mix(in srgb, var(--lcd-on) 10%, transparent),
     0 18px 40px rgba(0, 0, 0, 0.35);
@@ -2163,7 +2200,7 @@
   border: 3px solid transparent;
   background:
     radial-gradient(ellipse at 50% 42%, #3a1a10, #140804 68%) padding-box,
-    linear-gradient(145deg, var(--rim-shine), var(--rim-glint) 22%, var(--rim-body) 58%, var(--rim-shade)) border-box;
+    linear-gradient(145deg, var(--rim-shine-g, var(--rim-shine)), var(--rim-glint-g, var(--rim-glint)) 22%, var(--rim-body) 58%, var(--rim-shade)) border-box;
   box-shadow: inset 0 0 50px rgba(255, 80, 20, 0.18), 0 18px 40px rgba(0, 0, 0, 0.4);
   display: flex;
   flex-direction: column;
@@ -3269,9 +3306,9 @@
   border-radius: 28px;
   border: 8px solid transparent;
   background:
-    var(--lcd-bg) padding-box,
-    linear-gradient(140deg, var(--rim-shine), var(--rim-glint) 24%, var(--rim-body) 55%, var(--rim-shade)) border-box;
-  box-shadow: inset 0 1px 0 var(--rim-shine), inset 0 0 28px color-mix(in srgb, var(--lcd-on) 10%, transparent), 0 18px 40px rgba(0, 0, 0, 0.35);
+    linear-gradient(var(--lcd-bg), var(--lcd-bg)) padding-box,
+    linear-gradient(140deg, var(--rim-shine-g, var(--rim-shine)), var(--rim-glint-g, var(--rim-glint)) 24%, var(--rim-body) 55%, var(--rim-shade)) border-box;
+  box-shadow: inset 0 1px 0 var(--rim-shine-g, var(--rim-shine)), inset 0 0 28px color-mix(in srgb, var(--lcd-on) 10%, transparent), 0 18px 40px rgba(0, 0, 0, 0.35);
 }
 .lcd::before,
 .board::before,
@@ -3283,7 +3320,7 @@
   pointer-events: none;
   z-index: 2;
   background: linear-gradient(168deg, var(--glass-hi) 0%, transparent 16%);
-  opacity: clamp(0, var(--look-reflect, 1), 1);
+  opacity: clamp(0, calc(var(--look-reflect, 1) * var(--look-glare, 1)), 1);
 }
 .board-read { min-width: 0; }
 .board .seg-digit { width: min(7cqb, 8cqi, 52px); }
@@ -3329,8 +3366,8 @@
   border-radius: 50%;
   background:
     radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--face) 78%, white), var(--face) 68%) padding-box,
-    linear-gradient(148deg, var(--rim-shine), var(--rim-glint) 20%, var(--rim-body) 48%, var(--rim-shade) 76%, var(--rim-glint)) border-box;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), inset 0 0 0 1px color-mix(in srgb, var(--rim-shine) 55%, transparent);
+    linear-gradient(148deg, var(--rim-shine-g, var(--rim-shine)), var(--rim-glint-g, var(--rim-glint)) 20%, var(--rim-body) 48%, var(--rim-shade) 76%, var(--rim-glint-g, var(--rim-glint))) border-box;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), inset 0 0 0 1px color-mix(in srgb, var(--rim-shine-g, var(--rim-shine)) 55%, transparent);
   overflow: hidden;
 }
 .smart::after {
@@ -3341,7 +3378,7 @@
   pointer-events: none;
   z-index: 2;
   background: radial-gradient(circle at 28% 16%, var(--glass-hi), transparent 28%);
-  opacity: clamp(0, var(--look-reflect, 1), 1);
+  opacity: clamp(0, calc(var(--look-reflect, 1) * var(--look-glare, 1)), 1);
 }
 .smart.square { border-radius: 22%; }
 .smart-ring { position: absolute; inset: 5%; width: 90%; height: 90%; }
@@ -3505,10 +3542,26 @@
 
 @media (max-width: 860px) {
   :host([data-face^="hybrid"]) .dial-lcd {
-    padding: 0.04rem 0.08rem;
+    padding: 0.03rem 0.05rem;
     border-width: 1px;
     border-radius: 4px;
     box-shadow: none;
+    max-width: 36%;
+  }
+  :host([data-face="hybrid-night"]) .dial-lcd { width: 32%; max-width: 32%; }
+  :host([data-face="hybrid-chrono"]) .dial-lcd { width: 34%; max-width: 34%; margin-top: 69%; }
+  :host([data-face="hybrid-radar"]) .dial-lcd { width: 30%; max-width: 30%; }
+  :host([data-face="hybrid-sakura"]) .dial-lcd { width: 32%; max-width: 32%; }
+  :host([data-face="hybrid-orbit"]) .dial-lcd { width: 30%; max-width: 30%; }
+  :host([data-face="hybrid-deco"]) .dial-lcd { width: 32%; max-width: 32%; }
+  :host .dial-lcd .seg-digit {
+    width: 10cqi;
+    max-width: 11%;
+    flex-basis: 11%;
+  }
+  :host .dial-lcd .colon {
+    height: 18cqi;
+    gap: 3cqi;
   }
   :host .dial-lcd .colon i { box-shadow: none; }
 
@@ -3548,6 +3601,7 @@
   justify-content: center;
 }
 .resin-case {
+  position: relative;
   width: min(100%, 34rem, 96cqb);
   background: #161616;
   border-radius: 1.1rem;
@@ -3583,6 +3637,7 @@
 .resin .seg-digit path.on, .round-dig .seg-digit path.on { fill: #1a1c18; filter: none; }
 .resin-sec { font-family: ui-monospace, monospace; font-weight: 700; font-size: 0.95rem; margin: 0 0 0.2rem 0.15rem; }
 .round-case {
+  position: relative;
   width: min(100%, 32rem);
   aspect-ratio: 1;
   container-type: inline-size;
@@ -3659,7 +3714,7 @@
 .u-hour line { stroke: #f4f4f5; stroke-width: 4.2; stroke-linecap: round; }
 .u-minute line { stroke: #e4e4e7; stroke-width: 2.6; stroke-linecap: round; }
 .u-second line { stroke: #f97316; stroke-width: 1.3; stroke-linecap: round; }
-.u-glass { opacity: clamp(0, var(--look-reflect, 1), 1); }
+.u-glass { opacity: clamp(0, calc(var(--look-reflect, 1) * var(--look-glare, 1)), 1); }
 .u-cap { fill: #f97316; stroke: #111; stroke-width: 0.6; }
 .u-controls rect { fill: #52525b; }
 .swatch[data-face="aurora"] { --mi: #1a4d55; --mm: #0c2830; --mo: #04080e; }

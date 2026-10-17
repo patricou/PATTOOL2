@@ -17,7 +17,7 @@ import java.util.Map;
  * TMDB v3 proxy for the Media page (trending, search, discover, detail).
  * {@code GET /api/external/tmdb/trending?media=all&window=week}
  * {@code GET /api/external/tmdb/search?q=Dune&media=movie}
- * {@code GET /api/external/tmdb/discover?media=movie&genre=28}
+ * {@code GET /api/external/tmdb/discover?media=movie&genre=28&sort=newest&actor=DiCaprio}
  * {@code GET /api/external/tmdb/detail?media=movie&id=603}
  */
 @RestController
@@ -62,9 +62,12 @@ public class TmdbRestController {
             @RequestParam(value = "genre", required = false) Integer genre,
             @RequestParam(value = "year", required = false) Integer year,
             @RequestParam(value = "sort", required = false) String sort,
+            @RequestParam(value = "actor", required = false) String actor,
+            @RequestParam(value = "producer", required = false) String producer,
+            @RequestParam(value = "director", required = false) String director,
             @RequestParam(value = "lang", required = false) String lang,
             @RequestParam(value = "page", required = false) Integer page) {
-        return tmdbProxyService.discover(media, genre, year, sort, lang, page);
+        return tmdbProxyService.discover(media, genre, year, sort, actor, producer, director, lang, page);
     }
 
     @GetMapping(value = "/genres", produces = MediaType.APPLICATION_JSON_VALUE)

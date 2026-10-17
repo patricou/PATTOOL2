@@ -23,6 +23,7 @@ public class ClockPreferencesDto {
     private Integer reflection;
     private Integer intensity;
     private Integer brilliance;
+    private Integer glare;
 
     public String getFaceId() {
         return faceId;
@@ -94,5 +95,13 @@ public class ClockPreferencesDto {
 
     public void setBrilliance(Integer brilliance) {
         this.brilliance = brilliance;
+    }
+
+    public Integer getGlare() {
+        return glare;
+    }
+
+    public void setGlare(Integer glare) {
+        this.glare = glare;
     }
 }

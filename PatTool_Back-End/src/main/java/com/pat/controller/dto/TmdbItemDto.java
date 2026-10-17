@@ -14,6 +14,7 @@ public record TmdbItemDto(
         String date,
         Double voteAverage,
         Integer voteCount,
-        String originalLanguage
+        String originalLanguage,
+        Double popularity
 ) {
 }

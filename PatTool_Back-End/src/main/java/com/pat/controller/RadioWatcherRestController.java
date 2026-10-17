@@ -9,6 +9,7 @@ import com.pat.service.RadioCatalogService;
 import com.pat.service.RadioFavoritesService;
 import com.pat.service.RadioFrancePodcastService;
 import com.pat.service.RadioLastStationService;
+import com.pat.service.RadioSkinService;
 import com.pat.service.RadioStreamProxyService;
 import com.pat.service.TvStreamProxyService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -57,6 +58,7 @@ import java.util.stream.Collectors;
  *   <li>{@code GET/PUT /api/external/radio/favorites}</li>
  *   <li>{@code PUT/DELETE /api/external/radio/favorites/item}</li>
  *   <li>{@code GET/PUT /api/external/radio/last-station}</li>
+ *   <li>{@code GET/PUT /api/external/radio/skin}</li>
  * </ul>
  */
 @RestController
@@ -74,6 +76,9 @@ public class RadioWatcherRestController {
 
     @Autowired
     private RadioLastStationService radioLastStationService;
+
+    @Autowired
+    private RadioSkinService radioSkinService;
 
     @Autowired
     private RadioFrancePodcastService radioFrancePodcastService;
@@ -286,6 +291,32 @@ public class RadioWatcherRestController {
         }
         try {
             return ResponseEntity.ok(radioLastStationService.saveForSubject(sub, station));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/skin")
+    public ResponseEntity<Map<String, String>> getSkin() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String skin = radioSkinService.findForSubject(sub);
+        if (skin == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(Map.of("skin", skin));
+    }
+
+    @PutMapping("/skin")
+    public ResponseEntity<Map<String, String>> putSkin(@RequestBody Map<String, String> body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            return ResponseEntity.ok(Map.of("skin", radioSkinService.saveForSubject(sub, body.get("skin"))));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

@@ -4451,6 +4451,27 @@ export class ApiService {
     );
   }
 
+  getRadioSkin(): Observable<string | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<{ skin: string }>(this.API_URL + 'external/radio/skin', {
+          headers,
+          observe: 'response'
+        }).pipe(
+          map((res) => (res.status === 204 ? null : res.body?.skin || null))
+        )
+      )
+    );
+  }
+
+  saveRadioSkin(skin: string): Observable<{ skin: string }> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<{ skin: string }>(this.API_URL + 'external/radio/skin', { skin }, { headers })
+      )
+    );
+  }
+
   // --- Book watcher (Open Library / Gutenberg / LibriVox / Archive / Google / Standard Ebooks) ---
 
   searchOpenLibraryBooks(
@@ -5320,6 +5341,15 @@ export class ApiService {
     }
     if (options.year) {
       params = params.set('year', String(options.year));
+    }
+    if (options.actor) {
+      params = params.set('actor', options.actor);
+    }
+    if (options.producer) {
+      params = params.set('producer', options.producer);
+    }
+    if (options.director) {
+      params = params.set('director', options.director);
     }
     return this._http.get<TmdbPage>(this.API_URL + 'external/tmdb/discover', { params });
   }
@@ -6433,6 +6463,7 @@ export interface TmdbItem {
   voteAverage?: number | null;
   voteCount?: number | null;
   originalLanguage?: string | null;
+  popularity?: number | null;
 }
 
 export interface TmdbPage {
@@ -6442,6 +6473,9 @@ export interface TmdbPage {
   totalPages?: number;
   totalResults?: number;
   items?: TmdbItem[];
+  actorName?: string | null;
+  producerName?: string | null;
+  directorName?: string | null;
 }
 
 export interface TmdbCredit {
@@ -6498,6 +6532,9 @@ export interface TmdbDiscoverOptions {
   genre?: number | null;
   year?: number | null;
   sort: string;
+  actor?: string | null;
+  producer?: string | null;
+  director?: string | null;
   lang: string;
   page: number;
 }

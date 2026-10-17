@@ -47,7 +47,8 @@
        [style.--look-bright]="lookScale(look.brightness)"
        [style.--look-reflect]="lookScale(look.reflection)"
        [style.--look-sat]="lookScale(look.intensity)"
-       [style.--look-shine]="lookScale(look.brilliance)">
+       [style.--look-shine]="lookScale(look.brilliance)"
+       [style.--look-glare]="lookScale(look.glare)">
     <div class="watch" *ngIf="showAnalog">
       <div class="watch-plate">
       <svg class="watch-face" viewBox="-8 -8 216 216" role="img" [attr.aria-label]="readout + ' ' + effectiveZone">
