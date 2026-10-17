@@ -55,8 +55,9 @@ public class TvCatalogService {
     /**
      * Public Mezzo HLS. The iptv-org country playlist still lists
      * {@code http://str2.iptvhd.ru:8080/Mezzo_HD/index.m3u8}, which returns HTTP 403
-     * ({@code deny_token}). The otcnet window is only ~20 s and the origin is fast
-     * enough to keep it whole. Mezzo Live stays on its own mirror.
+     * ({@code deny_token}). The otcnet window is only ~20 s. Keep it whole, but do not
+     * bulk-download it: after two ~3.5 MiB segments the CDN throttles below realtime.
+     * Mezzo Live stays on its own mirror.
      */
     private static final String MEZZO_PUBLIC_HLS = "https://live-3.otcnet.ru/Mezzo/index.m3u8";
 

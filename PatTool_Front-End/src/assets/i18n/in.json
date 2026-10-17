@@ -2429,6 +2429,8 @@
     "YES": "हाँ",
     "NO": "नहीं",
     "CLOSE": "बंद करें",
+    "FULLSCREEN": "पूर्ण स्क्रीन",
+    "EXIT_FULLSCREEN": "पूर्ण स्क्रीन बंद करें",
     "MONGODB_DOWN_TITLE": "MongoDB उपलब्ध नहीं है",
     "MONGODB_DOWN_MESSAGE": "ऐप MongoDB डेटाबेस ({{target}}) तक नहीं पहुँच पा रहा है। शुरू होने तक अधिकांश सुविधाएँ काम नहीं करेंगी।",
     "MONGODB_DOWN_HINT": "इस होस्ट पर MongoDB शुरू करें, फिर पुनः प्रयास करें पर क्लिक करें।",

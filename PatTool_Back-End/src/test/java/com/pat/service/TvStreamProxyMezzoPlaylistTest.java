@@ -82,6 +82,14 @@ class TvStreamProxyMezzoPlaylistTest {
                 "https://live-3.otcnet.ru/Mezzo/tracks-v1a1/mono.ts.m3u8"));
         assertTrue(TvStreamProxyService.isShortWindowPrefetchUpstream(
                 "https://live-3.otcnet.ru/Mezzo/tracks-v1a1/mono.ts.m3u8"));
+        assertFalse(TvStreamProxyService.shouldPrefetchShortWindow(
+                "https://live-3.otcnet.ru/Mezzo/tracks-v1a1/mono.ts.m3u8"));
+        assertTrue(TvStreamProxyService.shouldPrefetchShortWindow(
+                "http://145.239.5.177/359a/index.m3u8"));
+        assertEquals(0, TvStreamProxyService.mezzoSlotWaitMs(0, 0));
+        assertEquals(0, TvStreamProxyService.mezzoSlotWaitMs(1, 200));
+        assertEquals(4_800, TvStreamProxyService.mezzoSlotWaitMs(2, 200));
+        assertEquals(0, TvStreamProxyService.mezzoSlotWaitMs(2, 5_000));
         assertTrue(TvStreamProxyService.isDailymotionCdnUpstream(
                 "https://live2.eu-north-1a.cf.dmcdn.net/sec2(abc)/cloud/3/xkxbzc/d/live-480.m3u8"));
         assertFalse(TvStreamProxyService.isDailymotionCdnUpstream(

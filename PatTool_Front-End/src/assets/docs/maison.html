@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PatTool — Maison</title>
-    <link rel="stylesheet" href="/assets/css/pattool-doc.css">
+    <link rel="stylesheet" href="/assets/css/pattool-doc.css?v=2">
 </head>
 <body>
     <header class="doc-topbar">
@@ -60,6 +60,15 @@
                 <div class="doc-tip">Les commandes passent par le backend PatTool qui dialogue avec le matériel sur le réseau local — pas de contrôle direct depuis le navigateur.</div>
             </section>
 
+            <section class="doc-section" id="sentinelle-fr">
+                <h2>Sentinelle réseau</h2>
+                <p>Route : <code class="doc-code">#/iot/network-sentinel</code> — <strong>admin</strong>, visible même sans rôle IoT.</p>
+                <ul>
+                    <li>Détecte les signes d'intrusion déjà réussie : connexions entrantes depuis Internet, nouveaux ports en écoute, sessions distantes</li>
+                    <li>Appareils inconnus, ARP spoofing, balayages et trafic suspect sur une courte capture</li>
+                </ul>
+            </section>
+
             <section class="doc-section" id="reseau-fr">
                 <h2>Réseau local</h2>
                 <p>Route : <code class="doc-code">#/iot/local-network</code> — <strong>admin uniquement</strong></p>
@@ -113,6 +122,11 @@
                 <p>Route: <code class="doc-code">#/iot</code> — test Ethernet shield, gate open/close, shutters; commands via PatTool server.</p>
             </section>
 
+            <section class="doc-section" id="sentinelle-en">
+                <h2>Network sentinel</h2>
+                <p>Route: <code class="doc-code">#/iot/network-sentinel</code> — <strong>admin</strong>. Looks for signs of a breach already in progress: inbound Internet connections, new listening ports, remote sessions, unknown devices, ARP spoofing and suspicious traffic in a short capture.</p>
+            </section>
+
             <section class="doc-section" id="reseau-en">
                 <h2>Local network</h2>
                 <p>Route: <code class="doc-code">#/iot/local-network</code> — admin LAN device scan and diagnostics.</p>
@@ -136,6 +150,6 @@
     </main>
 
     <footer class="doc-footer"><p>PatTool — Home</p></footer>
-    <script src="/assets/js/pattool-doc.js"></script>
+    <script src="/assets/js/pattool-doc.js?v=2"></script>
 </body>
 </html>

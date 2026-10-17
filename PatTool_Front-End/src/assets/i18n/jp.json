@@ -1985,6 +1985,8 @@
     "YES": "はい",
     "NO": "いいえ",
     "CLOSE": "閉じる",
+    "FULLSCREEN": "全画面",
+    "EXIT_FULLSCREEN": "全画面を終了",
     "MONGODB_DOWN_TITLE": "MongoDB を利用できません",
     "MONGODB_DOWN_MESSAGE": "アプリケーションは MongoDB データベース（{{target}}）に接続できません。起動するまで多くの機能は利用できません。",
     "MONGODB_DOWN_HINT": "このホストで MongoDB を起動してから、再試行をクリックしてください。",

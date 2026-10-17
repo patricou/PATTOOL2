@@ -49,10 +49,14 @@ export interface TvHlsPlaybackCallbacks {
    */
   skipLiveEdgeWatchdog?: boolean;
   /**
-   * Tiny live window (Cap Terre, Mezzo): stay near the live edge.
+   * Tiny live window (Cap Terre): stay near the live edge.
    * Does not slow the playback rate — that is {@link paceBelowRealtime}.
    */
   slowMirror?: boolean;
+  /**
+   * Mezzo: buffer only ~2 segments. A longer burst makes otcnet throttle.
+   */
+  pacedLive?: boolean;
   /**
    * Cap Terre only: lock playback under 1× because each segment downloads
    * about as slowly as it plays. Do not set this for Mezzo (CDN is faster than realtime).
@@ -316,7 +320,8 @@ export function startTvHlsPlayback(
   } else if (Hls.isSupported()) {
     const vod = !!callbacks.vod;
     const slowMirror = !!callbacks.slowMirror;
-    hls = new Hls(createTvHlsConfig(vod ? 'vod' : 'live', { slowMirror }));
+    const pacedLive = !!callbacks.pacedLive;
+    hls = new Hls(createTvHlsConfig(vod ? 'vod' : 'live', { slowMirror, pacedLive }));
     hls.loadSource(proxyUrl);
     hls.attachMedia(video);
     disableTvSubtitles(hls, video);
@@ -339,6 +344,7 @@ export function startTvHlsPlayback(
       channel: channelLabel,
       what: 'player attaché — underruns et recoveries logués',
       slowMirror,
+      pacedLive,
       skipLiveEdge: !!callbacks.skipLiveEdgeWatchdog
     });
     bindHlsHandlers(hls);

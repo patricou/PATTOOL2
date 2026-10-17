@@ -352,12 +352,17 @@
                                 aria-labelledby="documentationSubmenu"
                                 (mouseenter)="showDocumentationSubmenu = true; showToolsDropdown = true; showLanguageSubmenu = false"
                                 (mouseleave)="checkCloseDocumentationSubmenu($event)">
-                                <li *ngFor="let doc of sortedDocumentationItems">
-                                    <a class="dropdown-item"
-                                       (click)="onDocMenuItemClick(doc, $event)">
-                                        <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: doc}"></ng-container> {{ doc.labelKey | translate }}
-                                    </a>
-                                </li>
+                                <ng-container *ngFor="let doc of documentationMenuEntries">
+                                    <li *ngIf="doc.kind === 'header'" class="documentation-submenu-header" role="presentation">
+                                        {{ doc.labelKey | translate }}
+                                    </li>
+                                    <li *ngIf="doc.kind === 'page'">
+                                        <a class="dropdown-item"
+                                           (click)="onDocMenuItemClick(doc, $event)">
+                                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: doc}"></ng-container> {{ doc.labelKey | translate }}
+                                        </a>
+                                    </li>
+                                </ng-container>
                             </ul>
                         </li>
                         <li *ngIf="row.kind === 'lang-submenu'"
@@ -514,6 +519,38 @@
     </div>
   </div>
 </div>
+
+<ng-template #doccontent let-d="dismiss">
+    <div class="doc-modal-container">
+        <div class="doc-modal-header">
+            <div class="doc-modal-title-section">
+                <i class="fa fa-book" aria-hidden="true"></i>
+                <h5 class="doc-modal-title">{{ 'MENU.DOCUMENTATION' | translate }}</h5>
+            </div>
+            <div class="doc-modal-actions">
+                <button type="button"
+                        class="doc-modal-icon-btn"
+                        (click)="toggleDocFullscreen()"
+                        [attr.aria-pressed]="docModalFullscreen"
+                        [attr.aria-label]="(docModalFullscreen ? 'COMMUN.EXIT_FULLSCREEN' : 'COMMUN.FULLSCREEN') | translate"
+                        [attr.title]="(docModalFullscreen ? 'COMMUN.EXIT_FULLSCREEN' : 'COMMUN.FULLSCREEN') | translate">
+                    <i class="fa" [class.fa-compress]="docModalFullscreen" [class.fa-expand]="!docModalFullscreen" aria-hidden="true"></i>
+                </button>
+                <button type="button"
+                        class="doc-modal-icon-btn"
+                        (click)="d('close')"
+                        [attr.aria-label]="'COMMUN.CLOSE' | translate"
+                        [attr.title]="'COMMUN.CLOSE' | translate">
+                    <i class="fa fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+        </div>
+        <iframe *ngIf="docModalSafeUrl"
+                class="doc-modal-frame"
+                [src]="docModalSafeUrl"
+                [attr.title]="'MENU.DOCUMENTATION' | translate"></iframe>
+    </div>
+</ng-template>
 
 <!-- Modal window for user information -->
 <ng-template #usercontent let-c="close" let-d="dismiss">

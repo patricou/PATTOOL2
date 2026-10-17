@@ -3091,6 +3091,8 @@
     "YES": "Oui",
     "NO": "Non",
     "CLOSE": "Fermer",
+    "FULLSCREEN": "Plein écran",
+    "EXIT_FULLSCREEN": "Quitter le plein écran",
     "MONGODB_DOWN_TITLE": "MongoDB indisponible",
     "MONGODB_DOWN_MESSAGE": "L'application ne peut pas joindre la base MongoDB ({{target}}). La plupart des fonctionnalités ne fonctionneront pas tant qu'elle n'est pas démarrée.",
     "MONGODB_DOWN_HINT": "Démarrez MongoDB sur cette machine, puis cliquez sur Réessayer.",

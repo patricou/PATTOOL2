@@ -2453,6 +2453,8 @@
     "YES": "Sá",
     "NO": "No",
     "CLOSE": "Cerrar",
+    "FULLSCREEN": "Pantalla completa",
+    "EXIT_FULLSCREEN": "Salir de pantalla completa",
     "MONGODB_DOWN_TITLE": "MongoDB no disponible",
     "MONGODB_DOWN_MESSAGE": "La aplicación no puede conectar con la base MongoDB ({{target}}). La mayoría de funciones no funcionarán hasta que se inicie.",
     "MONGODB_DOWN_HINT": "Inicie MongoDB en este equipo y pulse Reintentar.",

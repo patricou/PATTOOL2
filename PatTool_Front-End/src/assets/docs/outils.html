@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PatTool — Outils</title>
-    <link rel="stylesheet" href="/assets/css/pattool-doc.css">
+    <link rel="stylesheet" href="/assets/css/pattool-doc.css?v=2">
 </head>
 <body>
     <header class="doc-topbar">
@@ -145,14 +145,16 @@
                 <table class="doc-table">
                     <thead><tr><th>Entrée</th><th>Route</th><th>Description</th></tr></thead>
                     <tbody>
-                        <tr><td><strong>Horloge</strong></td><td><code class="doc-code">#/tools/horloge</code></td><td>Cadran, chronomètre, alarmes et minuteurs</td></tr>
-                        <tr><td><strong>A Propos</strong></td><td><code class="doc-code">#/maps</code></td><td>Page « à propos » du projet, carte, crédits</td></tr>
-                        <tr><td><strong>Système</strong></td><td><code class="doc-code">#/system</code></td><td>État serveur, mémoire, threads — utilisateur connecté</td></tr>
-                        <tr><td><strong>Paramètres PATTOOL</strong></td><td><code class="doc-code">#/tools/pattool-parameters</code></td><td>Catalogue des propriétés serveur (lecture seule, secrets masqués) — <strong>admin</strong></td></tr>
-                        <tr><td><strong>Téléverser</strong></td><td>modale menu</td><td>Upload de fichiers vers GridFS / activités (images, PDF, vidéo…)</td></tr>
-                        <tr><td><strong>Partager des fichiers</strong></td><td>modale menu</td><td>Sélection locale, compression optionnelle, partage via API Web Share ou téléchargement</td></tr>
-                        <tr><td><strong>Documentation</strong></td><td>sous-menu</td><td>Ces pages d'aide (langue = langue de l'application)</td></tr>
-                        <tr><td><strong>Langue</strong></td><td>sous-menu</td><td>12 langues ; sélecteur déplaçable en bas à droite de l'écran</td></tr>
+                        <tr id="amis-fr"><td><strong>Amis</strong></td><td><code class="doc-code">#/friends</code></td><td>Demandes d'amitié, groupes, numéros WhatsApp pour le SOS</td></tr>
+                        <tr id="apk-fr"><td><strong>Application Android</strong></td><td><code class="doc-code">#/tools/apk</code></td><td>Téléchargement du fichier d'installation APK</td></tr>
+                        <tr id="apropos-fr"><td><strong>A Propos</strong></td><td><code class="doc-code">#/maps</code></td><td>Page « à propos » du projet, carte, crédits</td></tr>
+                        <tr id="systeme-fr"><td><strong>Système</strong></td><td><code class="doc-code">#/system</code></td><td>État serveur, mémoire, threads, caches — utilisateur connecté</td></tr>
+                        <tr id="parametres-fr"><td><strong>Paramètres PATTOOL</strong></td><td><code class="doc-code">#/tools/pattool-parameters</code></td><td>Catalogue des propriétés serveur (lecture seule, secrets masqués) — <strong>admin</strong></td></tr>
+                        <tr id="upload-fr"><td><strong>Téléverser</strong></td><td>modale menu</td><td>Upload de fichiers vers GridFS / activités (images, PDF, vidéo…)</td></tr>
+                        <tr id="partage-fr"><td><strong>Partager des fichiers</strong></td><td>modale menu</td><td>Sélection locale, compression optionnelle, partage via API Web Share ou téléchargement</td></tr>
+                        <tr id="sos-fr"><td><strong>SOS</strong></td><td><code class="doc-code">#/sos</code></td><td>Alerte : position, adresse, message WhatsApp ou SMS aux amis cochés</td></tr>
+                        <tr><td><strong>Documentation</strong></td><td>sous-menu</td><td>Une entrée par page. Français si la langue de l'interface est le français, anglais sinon</td></tr>
+                        <tr><td><strong>Langue</strong></td><td>sous-menu</td><td>12 langues d'interface ; sélecteur déplaçable en bas à droite de l'écran</td></tr>
                     </tbody>
                 </table>
             </section>
@@ -166,7 +168,7 @@
                     <li><a href="#pdf-en">PDF editor</a></li>
                     <li><a href="#ods-en">Calc spreadsheet (.ods)</a></li>
                     <li><a href="#whatspat-en">WhatsPat</a></li>
-                    <li><a href="#other-en">Other menu entries</a></li>
+                    <li><a href="#autres-en">Other menu entries</a></li>
                 </ul>
             </section>
 
@@ -209,14 +211,24 @@
                 <p><code class="doc-code">#/results</code> — see <a href="/assets/docs/whatspat.html">WhatsPat documentation</a>.</p>
             </section>
 
-            <section class="doc-section" id="other-en">
+            <section class="doc-section" id="autres-en">
                 <h2>Other menu entries</h2>
-                <p>About (<code class="doc-code">#/maps</code>), System, PatTool parameters (admin), Upload modal, Share modal, Documentation submenu, Language submenu.</p>
+                <ul>
+                    <li id="amis-en"><strong>Friends</strong> — <code class="doc-code">#/friends</code>, requests, groups, WhatsApp numbers used by SOS</li>
+                    <li id="apk-en"><strong>Android app</strong> — <code class="doc-code">#/tools/apk</code>, download the APK</li>
+                    <li id="apropos-en"><strong>About</strong> — <code class="doc-code">#/maps</code></li>
+                    <li id="systeme-en"><strong>System</strong> — <code class="doc-code">#/system</code>, server, memory, caches</li>
+                    <li id="parametres-en"><strong>PatTool parameters</strong> — <code class="doc-code">#/tools/pattool-parameters</code>, admin, read-only, secrets masked</li>
+                    <li id="upload-en"><strong>Upload</strong> — menu modal, files to GridFS / activities</li>
+                    <li id="partage-en"><strong>Share files</strong> — local selection, optional compression, Web Share or download</li>
+                    <li id="sos-en"><strong>SOS</strong> — <code class="doc-code">#/sos</code>, position, address, WhatsApp or SMS to selected friends</li>
+                </ul>
+                <p>Documentation follows the interface language: French, or English for every other language. The language menu itself still offers 12 interface languages.</p>
             </section>
         </div>
     </main>
 
     <footer class="doc-footer"><p>PatTool — Tools</p></footer>
-    <script src="/assets/js/pattool-doc.js"></script>
+    <script src="/assets/js/pattool-doc.js?v=2"></script>
 </body>
 </html>

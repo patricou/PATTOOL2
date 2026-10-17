@@ -14,10 +14,16 @@ export type TvHlsPlaybackMode = 'live' | 'vod';
  */
 export type TvHlsConfigOptions = {
   /**
-   * Cap Terre / Mezzo: tiny live window (~4×5 s segments).
+   * Cap Terre: tiny live window (~4×5 s segments).
    * Stay near the live edge (old segments expire within seconds).
    */
   slowMirror?: boolean;
+  /**
+   * Mezzo on otcnet: each 5 s segment is ~3.5 MiB. The CDN stays at ~5 MB/s for two
+   * segments, then falls under realtime if a third starts immediately. Keep a
+   * two-segment cushion and do not prefetch further.
+   */
+  pacedLive?: boolean;
 };
 
 export function createTvHlsConfig(
@@ -25,7 +31,9 @@ export function createTvHlsConfig(
   opts: TvHlsConfigOptions = {}
 ): Partial<HlsConfig> {
   const vod = mode === 'vod';
-  const slow = !vod && !!opts.slowMirror;
+  const paced = !vod && !!opts.pacedLive;
+  const slow = !vod && !!opts.slowMirror && !paced;
+  const nearEdge = slow || paced;
   return {
     enableWorker: true,
     lowLatencyMode: false,
@@ -34,40 +42,44 @@ export function createTvHlsConfig(
     // Live IPTV (TF1/TMC on slow mirrors): deep buffer + stay behind the live edge
     // so startup can fill before realtime catch-up pressure.
     // Cap Terre playlist ≈ 20 s — cannot buffer more than the sliding window.
-    maxBufferLength: vod ? 30 : slow ? 18 : 45,
-    maxMaxBufferLength: vod ? 60 : slow ? 30 : 90,
-    backBufferLength: vod ? 30 : slow ? 6 : 30,
-    // Cap Terre: stay near the *newest* edge. Syncing to the back of a 4-segment
-    // window loads segments that 404 while downloading (seen in console).
-    liveSyncDurationCount: vod ? 3 : slow ? 2 : 8,
+    // Mezzo: hls.js refills as soon as the forward buffer drops under this cap.
+    // 6 s keeps two 5 s segments (5 < 6), then waits ~4 s of playback before a third
+    // download. A cap of 10 s would request that third immediately and trip otcnet.
+    maxBufferLength: vod ? 30 : paced ? 6 : slow ? 18 : 45,
+    maxMaxBufferLength: vod ? 60 : paced ? 6 : slow ? 30 : 90,
+    backBufferLength: vod ? 30 : paced ? 4 : slow ? 6 : 30,
+    // Cap Terre / Mezzo: stay near the *newest* edge. Syncing to the back of a
+    // 4-segment window loads segments that 404 while downloading.
+    liveSyncDurationCount: vod ? 3 : nearEdge ? 2 : 8,
     // Infinity (hls.js default) — never seek because “max latency” was exceeded.
     // A finite cap (even 60) + tiny window + underrun → synchronizeToLiveEdge seeks.
-    liveMaxLatencyDurationCount: vod ? 6 : slow ? Number.POSITIVE_INFINITY : 24,
+    liveMaxLatencyDurationCount: vod ? 6 : nearEdge ? Number.POSITIVE_INFINITY : 24,
     // Prefer next buffered range over hard jump to liveSync when recovering.
-    ...(slow ? { liveSyncMode: 'buffered' as const } : {}),
+    ...(nearEdge ? { liveSyncMode: 'buffered' as const } : {}),
     // Must stay false for VOD: with true, hls.js exposes a liveSyncPosition near the
     // end and our live-edge watchdog seeks the replay straight to the finale.
     liveDurationInfinity: !vod,
     // Must stay 1 — values > 1 desync lipsync over time. Cap Terre pacing uses a
     // separate buffer guard that may briefly go below 1 (slowMirror only).
     maxLiveSyncPlaybackRate: 1,
-    highBufferWatchdogPeriod: slow ? 4 : 2,
+    highBufferWatchdogPeriod: nearEdge ? 4 : 2,
     nudgeOffset: 0.1,
     nudgeMaxRetry: slow ? 8 : 5,
     maxFragLookUpTolerance: 0.25,
-    startFragPrefetch: true,
+    // Mezzo: a third in-flight segment is what drops otcnet under realtime.
+    startFragPrefetch: !paced,
     // Slow IPTV segments (TF1 HD ~4 MiB / 12–20 s) — default 20 s aborts mid-download.
     // Cap Terre 404s on expired frags: fail fast and skip (don't retry a dead .ts).
     manifestLoadingTimeOut: vod ? 20_000 : 25_000,
     levelLoadingTimeOut: vod ? 20_000 : 25_000,
-    fragLoadingTimeOut: vod ? 20_000 : slow ? 25_000 : 60_000,
-    fragLoadingMaxRetry: vod ? 4 : slow ? 2 : 5,
-    fragLoadingRetryDelay: slow ? 500 : 1_000,
+    fragLoadingTimeOut: vod ? 20_000 : nearEdge ? 25_000 : 60_000,
+    fragLoadingMaxRetry: vod ? 4 : nearEdge ? 2 : 5,
+    fragLoadingRetryDelay: nearEdge ? 500 : 1_000,
     xhrSetup: (xhr) => {
       xhr.withCredentials = false;
       // Match fragLoadingTimeOut for XHR (hls.js also sets timeout, belt-and-suspenders).
       if (!vod) {
-        xhr.timeout = slow ? 25_000 : 60_000;
+        xhr.timeout = nearEdge ? 25_000 : 60_000;
       }
     }
   };

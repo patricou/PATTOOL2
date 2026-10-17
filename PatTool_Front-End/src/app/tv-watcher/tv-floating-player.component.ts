@@ -15,7 +15,7 @@ import { Subscription, firstValueFrom } from 'rxjs';
 
 import { ApiService, TvChannel } from '../services/api.service';
 import { TvFloatingState, TvPlayerService } from '../services/tv-player.service';
-import { isCanalGroupVirtual, isCapTerreChannel, isFranceTvVirtual, isArteReplayVod, isInternetArchiveVirtual, internetArchiveIdFromVirtualUrl, isKeepAliveVirtualLive, isM6GroupVirtual, isProgressiveVod, isRadioFranceVirtual, isRtsVirtual, isTf1Virtual, needsProactiveTokenRenewal, resolveTvStreamUrl, shouldSkipTvLiveEdgeWatchdog, usesTightLiveWindow } from '../tv-watcher/tv-stream.util';
+import { isCanalGroupVirtual, isCapTerreChannel, isFranceTvVirtual, isArteReplayVod, isInternetArchiveVirtual, internetArchiveIdFromVirtualUrl, isKeepAliveVirtualLive, isM6GroupVirtual, isProgressiveVod, isRadioFranceVirtual, isRtsVirtual, isTf1Virtual, needsProactiveTokenRenewal, resolveTvStreamUrl, shouldSkipTvLiveEdgeWatchdog, usesPacedLiveWindow, usesTightLiveWindow } from '../tv-watcher/tv-stream.util';
 import { formatTvPlayErrorDisplay } from './tv-stream-error.util';
 import { startTvHlsPlayback, TvHlsPlaybackHandle } from './tv-hls-playback';
 import { bustVirtualLiveCache, preflightVirtualLive, virtualLiveKeepAliveFromUrl } from './tv-virtual-live-keepalive';
@@ -535,6 +535,7 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
         channelLabel: channel.name,
         skipLiveEdgeWatchdog: shouldSkipTvLiveEdgeWatchdog(streamUrl, channel),
         slowMirror: usesTightLiveWindow(channel) || usesTightLiveWindow(streamUrl),
+        pacedLive: usesPacedLiveWindow(channel) || usesPacedLiveWindow(streamUrl),
         paceBelowRealtime: isCapTerreChannel(channel) || isCapTerreChannel(streamUrl),
         adaptivePace: isM6GroupVirtual(streamUrl),
         onBuffering: (v) => {

@@ -41,6 +41,7 @@ import {
   isRtsVirtual,
   isShareSafeStreamToken,
   isCapTerreChannel,
+  usesPacedLiveWindow,
   usesTightLiveWindow,
   isTf1Virtual,
   needsProactiveTokenRenewal,
@@ -4861,7 +4862,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       const vod = isArteReplayVod(streamUrl);
       const capTerre = isCapTerreChannel(channel) || isCapTerreChannel(streamUrl);
       const slowMirror = usesTightLiveWindow(channel) || usesTightLiveWindow(streamUrl);
-      this.hls = new Hls(createTvHlsConfig(vod ? 'vod' : 'live', { slowMirror }));
+      const pacedLive = usesPacedLiveWindow(channel) || usesPacedLiveWindow(streamUrl);
+      this.hls = new Hls(createTvHlsConfig(vod ? 'vod' : 'live', { slowMirror, pacedLive }));
       this.hls.loadSource(effectiveProxyUrl);
       this.hls.attachMedia(video);
       disableTvSubtitles(this.hls, video);
@@ -4907,6 +4909,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         what: 'player attaché — les underruns et recoveries seront logués',
         skipLiveEdge,
         slowMirror,
+        pacedLive,
         proxyHost: (() => {
           try {
             return new URL(effectiveProxyUrl, window.location.origin).pathname.slice(0, 80);

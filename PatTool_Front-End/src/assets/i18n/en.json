@@ -3107,6 +3107,8 @@
     "YES": "Yes",
     "NO": "No",
     "CLOSE": "Close",
+    "FULLSCREEN": "Full screen",
+    "EXIT_FULLSCREEN": "Exit full screen",
     "MONGODB_DOWN_TITLE": "MongoDB is not available",
     "MONGODB_DOWN_MESSAGE": "The application cannot reach the MongoDB database ({{target}}). Most features will not work until it is started.",
     "MONGODB_DOWN_HINT": "Start MongoDB on this host, then click Retry.",

@@ -2450,6 +2450,8 @@
     "YES": "نعم",
     "NO": "لا",
     "CLOSE": "إغلاق",
+    "FULLSCREEN": "ملء الشاشة",
+    "EXIT_FULLSCREEN": "إنهاء ملء الشاشة",
     "MONGODB_DOWN_TITLE": "MongoDB غير متاح",
     "MONGODB_DOWN_MESSAGE": "لا يمكن للتطبيق الوصول إلى قاعدة بيانات MongoDB ({{target}}). لن تعمل معظم الميزات حتى يتم تشغيلها.",
     "MONGODB_DOWN_HINT": "شغّل MongoDB على هذا المضيف ثم انقر إعادة المحاولة.",

@@ -6,7 +6,8 @@ import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService, LangChangeEvent } from '@ngx-translate/core';
 import { KeycloakService } from './keycloak/keycloak.service';
-import { NgbModule, NgbModal, ModalDismissReasons } from '@ng-bootstrap/ng-bootstrap';
+import { NgbModule, NgbModal, NgbModalRef, ModalDismissReasons } from '@ng-bootstrap/ng-bootstrap';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Member } from './model/member';
 import { MembersService } from './services/members.service';
 import { CommonvaluesService } from './services/commonvalues.service';
@@ -61,12 +62,17 @@ interface NavRouteMenuItem {
     visibleWithoutIotRole?: boolean;
 }
 
-interface NavDocMenuItem {
-  docAction: 'overview' | 'slideshow' | 'activities' | 'whatspat' | 'assistant' | 'math' | 'maison' | 'monde' | 'outils';
-  icon: string;
-  labelKey: string;
-  logoSrc?: string;
-}
+type DocMenuEntry =
+  | { kind: 'header'; labelKey: string }
+  | {
+      kind: 'page';
+      page: string;
+      /** Section id without the -fr / -en suffix. */
+      anchor?: string;
+      icon: string;
+      labelKey: string;
+      logoSrc?: string;
+    };
 
 type ToolsMenuRow =
   | ({ kind: 'route' } & NavRouteMenuItem)
@@ -128,6 +134,7 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
 export class AppComponent implements OnInit, AfterViewInit {
 
     @ViewChild('usercontent') usercontent!: TemplateRef<any>;
+    @ViewChild('doccontent') doccontent!: TemplateRef<any>;
     @ViewChild(TraceViewerModalComponent) mapTraceViewer?: TraceViewerModalComponent;
     private mapTraceViewerRequest = 0;
 
@@ -346,16 +353,89 @@ export class AppComponent implements OnInit, AfterViewInit {
         { kind: 'doc-submenu' },
         { kind: 'lang-submenu' }
     ];
-    readonly navDocumentationItemsRaw: NavDocMenuItem[] = [
-        { docAction: 'overview', icon: 'fa fa-book', labelKey: 'MENU.DOC_OVERVIEW', logoSrc: 'assets/images/menu-doc.svg' },
-        { docAction: 'activities', icon: 'fa fa-calendar-check-o', labelKey: 'MENU.DOC_ACTIVITIES', logoSrc: 'assets/images/menu-events.svg' },
-        { docAction: 'slideshow', icon: 'fa fa-picture-o', labelKey: 'MENU.SLIDESHOW_DOCUMENTATION', logoSrc: 'assets/images/menu-photo.svg' },
-        { docAction: 'whatspat', icon: 'fa fa-comments', labelKey: 'MENU.DOC_WHATSPAT', logoSrc: 'assets/images/whatsapp-logo.svg' },
-        { docAction: 'assistant', icon: 'fa fa-magic', labelKey: 'MENU.DOC_ASSISTANT', logoSrc: 'assets/images/menu-magic.svg' },
-        { docAction: 'math', icon: 'fa fa-calculator', labelKey: 'MENU.DOC_MATH', logoSrc: 'assets/images/menu-atom.svg' },
-        { docAction: 'maison', icon: 'fa fa-home', labelKey: 'MENU.DOC_MAISON', logoSrc: 'assets/images/menu-home.svg' },
-        { docAction: 'monde', icon: 'fa fa-globe', labelKey: 'MENU.DOC_MONDE', logoSrc: 'assets/images/menu-globe.svg' },
-        { docAction: 'outils', icon: 'fa fa-wrench', labelKey: 'MENU.DOC_OUTILS', logoSrc: 'assets/images/menu-artisan.svg' }
+    /** Outils → Documentation : une entrée par page, groupée comme les menus. Le texte de la page est FR ou EN. */
+    readonly docMenuRaw: DocMenuEntry[] = [
+        { kind: 'page', page: 'overview', icon: 'fa fa-book', labelKey: 'MENU.DOC_OVERVIEW', logoSrc: 'assets/images/menu-doc.svg' },
+        { kind: 'page', page: 'assistant', icon: 'fa fa-magic', labelKey: 'MENU.DOC_ASSISTANT', logoSrc: 'assets/images/menu-magic.svg' },
+        { kind: 'header', labelKey: 'MENU.EVENTS' },
+        { kind: 'page', page: 'activities', anchor: 'liste', icon: 'fa fa-list', labelKey: 'MENU.EVENTSLIST', logoSrc: 'assets/images/menu-events.svg' },
+        { kind: 'page', page: 'activities', anchor: 'creation', icon: 'fa fa-plus', labelKey: 'MENU.EVENTSCREATION', logoSrc: 'assets/images/menu-plus.svg' },
+        { kind: 'page', page: 'activities', anchor: 'mur', icon: 'fa fa-picture-o', labelKey: 'MENU.PHOTOS', logoSrc: 'assets/images/menu-photo.svg' },
+        { kind: 'page', page: 'slideshow', icon: 'fa fa-picture-o', labelKey: 'MENU.SLIDESHOW_DOCUMENTATION', logoSrc: 'assets/images/menu-photo.svg' },
+        { kind: 'header', labelKey: 'MENU.LINKS' },
+        { kind: 'page', page: 'monde', anchor: 'liens', icon: 'fa fa-link', labelKey: 'MENU.LINKS', logoSrc: 'assets/images/menu-link.svg' },
+        { kind: 'page', page: 'monde', anchor: 'liens', icon: 'fa fa-cog', labelKey: 'MENU.LINKS_ADMINISTRATION', logoSrc: 'assets/images/menu-cog.svg' },
+        { kind: 'header', labelKey: 'MENU.ORGANISATION' },
+        { kind: 'page', page: 'organisation', anchor: 'agenda', icon: 'fa fa-calendar-check-o', labelKey: 'MENU.CALENDAR', logoSrc: 'assets/images/menu-agenda.svg' },
+        { kind: 'page', page: 'organisation', anchor: 'taches', icon: 'fa fa-tasks', labelKey: 'MENU.TODOLISTS', logoSrc: 'assets/images/menu-tasks.svg' },
+        { kind: 'page', page: 'organisation', anchor: 'notes', icon: 'fa fa-sticky-note', labelKey: 'MENU.NOTES', logoSrc: 'assets/images/menu-note.svg' },
+        { kind: 'header', labelKey: 'MENU.GEO' },
+        { kind: 'page', page: 'monde', anchor: 'globe', icon: 'fa fa-map', labelKey: 'MENU.WORLD_GLOBE', logoSrc: 'assets/images/menu-globe.svg' },
+        { kind: 'page', page: 'monde', anchor: 'viseur', icon: 'fa fa-binoculars', labelKey: 'MENU.ASTRO_COMPASS', logoSrc: 'assets/images/menu-binoculars.svg' },
+        { kind: 'page', page: 'monde', anchor: 'boussole', icon: 'fa fa-compass', labelKey: 'MENU.NORD', logoSrc: 'assets/images/menu-compass.svg' },
+        { kind: 'page', page: 'monde', anchor: 'calibrage', icon: 'fa fa-crosshairs', labelKey: 'MENU.DIRECTION', logoSrc: 'assets/images/menu-calibrate.svg' },
+        { kind: 'page', page: 'monde', anchor: 'solaire', icon: 'fa fa-sun-o', labelKey: 'MENU.SOLAR_SYSTEM', logoSrc: 'assets/images/menu-sun.svg' },
+        { kind: 'page', page: 'monde', anchor: 'ciel', icon: 'fa fa-star', labelKey: 'MENU.SKY', logoSrc: 'assets/images/menu-sky.svg' },
+        { kind: 'page', page: 'monde', anchor: 'univers', icon: 'fa fa-hourglass-half', labelKey: 'MENU.FUTURE_UNIVERSE', logoSrc: 'assets/images/menu-universe.svg' },
+        { kind: 'page', page: 'monde', anchor: 'eclipses', icon: 'fa fa-moon-o', labelKey: 'MENU.ECLIPSE', logoSrc: 'assets/images/eclipse-mark.svg' },
+        { kind: 'page', page: 'monde', anchor: 'nasa', icon: 'fa fa-rocket', labelKey: 'MENU.NASA', logoSrc: 'assets/images/nasa-meatball.svg' },
+        { kind: 'page', page: 'monde', anchor: 'meteo', icon: 'fa fa-umbrella', labelKey: 'MENU.METEO_FRANCE', logoSrc: 'assets/images/meteofrance-logo.svg' },
+        { kind: 'page', page: 'monde', anchor: 'position', icon: 'fa fa-cloud', labelKey: 'MENU.POSITION_METEO', logoSrc: 'assets/images/openweathermap-logo.svg' },
+        { kind: 'page', page: 'monde', anchor: 'adresse', icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP', logoSrc: 'assets/images/menu-pin.svg' },
+        { kind: 'page', page: 'monde', anchor: 'itineraire', icon: 'fa fa-road', labelKey: 'MENU.GPS_ROUTING', logoSrc: 'assets/images/menu-road.svg' },
+        { kind: 'page', page: 'monde', anchor: 'gps', icon: 'fa fa-location-arrow', labelKey: 'MENU.GPS', logoSrc: 'assets/images/menu-gps.svg' },
+        { kind: 'page', page: 'monde', anchor: 'gpx', icon: 'fa fa-map-signs', labelKey: 'MENU.GPX_TRACE', logoSrc: 'assets/images/menu-gpx.svg' },
+        { kind: 'page', page: 'monde', anchor: 'carte', icon: 'fa fa-map', labelKey: 'MENU.MAP_TRACE_VIEWER', logoSrc: 'assets/images/menu-map.svg' },
+        { kind: 'page', page: 'monde', anchor: 'relief', icon: 'fa fa-area-chart', labelKey: 'MENU.RELIEF_FINDER', logoSrc: 'assets/images/relief-mark.svg' },
+        { kind: 'page', page: 'monde', anchor: 'detection', icon: 'fa fa-crosshairs', labelKey: 'MENU.DETECTION_ERROR', logoSrc: 'assets/images/menu-target.svg' },
+        { kind: 'page', page: 'monde', anchor: 'fuseaux', icon: 'fa fa-clock-o', labelKey: 'MENU.TIME_ZONES', logoSrc: 'assets/images/menu-clock.svg' },
+        { kind: 'page', page: 'monde', anchor: 'electricite', icon: 'fa fa-bolt', labelKey: 'MENU.ELECTRICITE', logoSrc: 'assets/images/menu-bolt.svg' },
+        { kind: 'header', labelKey: 'MENU.TRANSACTIONS' },
+        { kind: 'page', page: 'business', anchor: 'devises', icon: 'fa fa-money', labelKey: 'MENU.CURRENCY_CONVERTER', logoSrc: 'assets/images/menu-money.svg' },
+        { kind: 'page', page: 'business', anchor: 'bourse', icon: 'fa fa-line-chart', labelKey: 'MENU.STOCK_EXCHANGE', logoSrc: 'assets/images/menu-chart.svg' },
+        { kind: 'page', page: 'business', anchor: 'cryptos', icon: 'fa fa-bitcoin', labelKey: 'MENU.CRYPTOS', logoSrc: 'assets/images/menu-bitcoin.svg' },
+        { kind: 'page', page: 'math', anchor: 'loto', icon: 'fa fa-trophy', labelKey: 'MENU.LOTTO', logoSrc: 'assets/images/loto-mark.svg' },
+        { kind: 'page', page: 'math', anchor: 'eurom', icon: 'fa fa-star', labelKey: 'MENU.EUROMILLIONS', logoSrc: 'assets/images/euromillions-mark.svg' },
+        { kind: 'page', page: 'business', anchor: 'foncier', icon: 'fa fa-building', labelKey: 'MENU.FONCIER', logoSrc: 'assets/images/menu-building.svg' },
+        { kind: 'page', page: 'business', anchor: 'foncier-suisse', icon: 'fa fa-flag', labelKey: 'MENU.FONCIER_SUISSE', logoSrc: 'assets/images/swiss-flag.svg' },
+        { kind: 'page', page: 'business', anchor: 'artisans', icon: 'fa fa-wrench', labelKey: 'MENU.ARTISANS_COMMERCES', logoSrc: 'assets/images/menu-artisan.svg' },
+        { kind: 'header', labelKey: 'MENU.MEDIA' },
+        { kind: 'page', page: 'media', anchor: 'tv', icon: 'fa fa-television', labelKey: 'MENU.TV', logoSrc: 'assets/images/menu-tv.svg' },
+        { kind: 'page', page: 'media', anchor: 'radio', icon: 'fa fa-headphones', labelKey: 'MENU.RADIO', logoSrc: 'assets/images/radio-mark.svg' },
+        { kind: 'page', page: 'media', anchor: 'livres', icon: 'fa fa-book', labelKey: 'MENU.BOOK', logoSrc: 'assets/images/menu-book.svg' },
+        { kind: 'page', page: 'media', anchor: 'archive', icon: 'fa fa-university', labelKey: 'MENU.ARCHIVE', logoSrc: 'assets/images/internet-archive-logo.svg' },
+        { kind: 'page', page: 'media', anchor: 'webcam', icon: 'fa fa-video-camera', labelKey: 'MENU.WEBCAM', logoSrc: 'assets/images/menu-webcam.svg' },
+        { kind: 'page', page: 'media', anchor: 'youtube', icon: 'fa fa-youtube', labelKey: 'MENU.YOUTUBE', logoSrc: 'assets/images/youtube-logo.svg' },
+        { kind: 'page', page: 'media', anchor: 'tmdb', icon: 'fa fa-film', labelKey: 'MENU.TMDB', logoSrc: 'assets/images/tmdb-mark.svg' },
+        { kind: 'page', page: 'media', anchor: 'telegram', icon: 'fa fa-telegram', labelKey: 'MENU.TELEGRAM', logoSrc: 'assets/images/telegram-logo.svg' },
+        { kind: 'page', page: 'media', anchor: 'montage', icon: 'fa fa-film', labelKey: 'MENU.VIDEO_MONTAGE', logoSrc: 'assets/images/menu-montage.svg' },
+        { kind: 'page', page: 'media', anchor: 'actus', icon: 'fa fa-newspaper-o', labelKey: 'MENU.NEWS', logoSrc: 'assets/images/menu-news.svg' },
+        { kind: 'page', page: 'media', anchor: 'wiki', icon: 'fa fa-wikipedia-w', labelKey: 'MENU.WIKI', logoSrc: 'assets/images/wikipedia-logo.svg' },
+        { kind: 'header', labelKey: 'MENU.IOT' },
+        { kind: 'page', page: 'maison', anchor: 'domotique', icon: 'fa fa-home', labelKey: 'MENU.IOT_HOME', logoSrc: 'assets/images/menu-home.svg' },
+        { kind: 'page', page: 'maison', anchor: 'reseau', icon: 'fa fa-sitemap', labelKey: 'MENU.LOCAL_NETWORK', logoSrc: 'assets/images/menu-network.svg' },
+        { kind: 'page', page: 'maison', anchor: 'sentinelle', icon: 'fa fa-shield', labelKey: 'MENU.NETWORK_SENTINEL', logoSrc: 'assets/images/menu-shield.svg' },
+        { kind: 'page', page: 'maison', anchor: 'cameras', icon: 'fa fa-video-camera', labelKey: 'MENU.CAMERAS', logoSrc: 'assets/images/menu-webcam.svg' },
+        { kind: 'page', page: 'maison', anchor: 'proxy', icon: 'fa fa-server', labelKey: 'MENU.IOT_PROXY', logoSrc: 'assets/images/menu-server.svg' },
+        { kind: 'page', page: 'maison', anchor: 'scan', icon: 'fa fa-search', labelKey: 'MENU.WORLD_SECURITY_SCAN', logoSrc: 'assets/images/menu-scan.svg' },
+        { kind: 'header', labelKey: 'MENU.MATH' },
+        { kind: 'page', page: 'math', anchor: 'calc', icon: 'fa fa-calculator', labelKey: 'MENU.CALCULATOR', logoSrc: 'assets/images/menu-calc.svg' },
+        { kind: 'page', page: 'math', anchor: 'cern', icon: 'fa fa-flask', labelKey: 'MENU.CERN', logoSrc: 'assets/images/cern-mark.svg' },
+        { kind: 'page', page: 'math', anchor: 'chimie', icon: 'fa fa-flask', labelKey: 'MENU.CHIMIE', logoSrc: 'assets/images/menu-flask.svg' },
+        { kind: 'page', page: 'math', anchor: 'code', icon: 'fa fa-code', labelKey: 'MENU.CODE', logoSrc: 'assets/images/menu-code.svg' },
+        { kind: 'header', labelKey: 'MENU.TOOLS' },
+        { kind: 'page', page: 'outils', anchor: 'horloge', icon: 'fa fa-clock-o', labelKey: 'MENU.HORLOGE', logoSrc: 'assets/images/menu-clock.svg' },
+        { kind: 'page', page: 'outils', anchor: 'amis', icon: 'fa fa-users', labelKey: 'MENU.FRIENDS', logoSrc: 'assets/images/menu-friends.svg' },
+        { kind: 'page', page: 'whatspat', icon: 'fa fa-whatsapp', labelKey: 'MENU.RESULTS', logoSrc: 'assets/images/whatsapp-logo.svg' },
+        { kind: 'page', page: 'outils', anchor: 'apk', icon: 'fa fa-android', labelKey: 'MENU.APK_DOWNLOAD', logoSrc: 'assets/images/menu-android.svg' },
+        { kind: 'page', page: 'outils', anchor: 'pdf', icon: 'fa fa-file-pdf-o', labelKey: 'MENU.PDF_CONVERTER', logoSrc: 'assets/images/menu-pdf.svg' },
+        { kind: 'page', page: 'outils', anchor: 'ods', icon: 'fa fa-table', labelKey: 'MENU.ODS_EDITOR', logoSrc: 'assets/images/menu-sheet.svg' },
+        { kind: 'page', page: 'outils', anchor: 'systeme', icon: 'fa fa-cog', labelKey: 'MENU.SYSTEM', logoSrc: 'assets/images/menu-cog.svg' },
+        { kind: 'page', page: 'outils', anchor: 'parametres', icon: 'fa fa-sliders', labelKey: 'MENU.PATTOOL_PARAMETERS', logoSrc: 'assets/images/menu-sliders.svg' },
+        { kind: 'page', page: 'outils', anchor: 'apropos', icon: 'fa fa-map', labelKey: 'MENU.MAPS', logoSrc: 'assets/images/menu-map.svg' },
+        { kind: 'page', page: 'outils', anchor: 'upload', icon: 'fa fa-cloud-upload', labelKey: 'UPLOADFILE.MENU', logoSrc: 'assets/images/menu-upload.svg' },
+        { kind: 'page', page: 'outils', anchor: 'partage', icon: 'fa fa-share-alt', labelKey: 'SHAREFILE.MENU', logoSrc: 'assets/images/menu-share.svg' },
+        { kind: 'page', page: 'outils', anchor: 'sos', icon: 'fa fa-life-ring', labelKey: 'MENU.SOS', logoSrc: 'assets/images/menu-target.svg' }
     ];
 
     constructor(public _translate: TranslateService,
@@ -376,7 +456,8 @@ export class AppComponent implements OnInit, AfterViewInit {
         private lastRoute: LastRouteService,
         private api: ApiService,
         backgroundPlayback: BackgroundPlaybackService,
-        _gpsRecording: GpsRecordingService) {
+        _gpsRecording: GpsRecordingService,
+        private sanitizer: DomSanitizer) {
         this.selectedFiles = [];
         this.lastRoute.beginSession();
         backgroundPlayback.start();
@@ -797,8 +878,32 @@ export class AppComponent implements OnInit, AfterViewInit {
             );
     }
 
-    get sortedDocumentationItems(): NavDocMenuItem[] {
-        return this.sortMenuByLabel(this.navDocumentationItemsRaw);
+    /** Garde l’ordre des menus ; trie les pages à l’intérieur de chaque groupe. */
+    get documentationMenuEntries(): DocMenuEntry[] {
+        const lang = this._translate.currentLang || this._translate.getDefaultLang();
+        const out: DocMenuEntry[] = [];
+        let bucket: Extract<DocMenuEntry, { kind: 'page' }>[] = [];
+        const flush = () => {
+            bucket.sort((a, b) =>
+                this._translate.instant(a.labelKey).localeCompare(
+                    this._translate.instant(b.labelKey),
+                    lang,
+                    { sensitivity: 'base', numeric: true }
+                )
+            );
+            out.push(...bucket);
+            bucket = [];
+        };
+        for (const entry of this.docMenuRaw) {
+            if (entry.kind === 'header') {
+                flush();
+                out.push(entry);
+            } else {
+                bucket.push(entry);
+            }
+        }
+        flush();
+        return out;
     }
 
     get sortedLangCodes(): string[] {
@@ -813,9 +918,12 @@ export class AppComponent implements OnInit, AfterViewInit {
         );
     }
 
-    onDocMenuItemClick(doc: NavDocMenuItem, event: Event): void {
+    onDocMenuItemClick(doc: DocMenuEntry, event: Event): void {
         event.preventDefault();
-        this.openDocumentation(doc.docAction);
+        if (doc.kind !== 'page') {
+            return;
+        }
+        this.openDocumentation(doc.page, doc.anchor);
         this.showDocumentationSubmenu = false;
         this.closeMenu();
     }
@@ -2309,11 +2417,21 @@ export class AppComponent implements OnInit, AfterViewInit {
                     padding: 4px 0 !important;
                     transform: none !important;
                     width: auto !important;
+                    min-width: 260px !important;
+                    max-width: 360px !important;
                     height: auto !important;
+                    max-height: 85vh !important;
+                    overflow-y: auto !important;
+                    overflow-x: hidden !important;
                     background: rgba(30, 30, 46, 0.95) !important;
                     backdrop-filter: blur(10px);
                     border: 2px solid white !important;
                 `;
+                const placed = submenuElement.getBoundingClientRect();
+                const overflow = placed.bottom - (window.innerHeight - 8);
+                if (overflow > 0) {
+                    submenuElement.style.top = `${Math.max(8, top - overflow)}px`;
+                }
                 
                 // Force class
                 submenuElement.classList.add('show');
@@ -2490,12 +2608,62 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.closeDropdowns();
     }
 
-    /** Opens a doc page in FR if app language is French, otherwise EN (?lang=). */
-    openDocumentation(page: string): void {
+    /** Safe iframe URL for the documentation modal. Null while the modal is closed. */
+    docModalSafeUrl: SafeResourceUrl | null = null;
+    docModalFullscreen = false;
+    private docModalRef: NgbModalRef | null = null;
+
+    /** Opens a doc page in French when the UI language is French, otherwise English. */
+    openDocumentation(page: string, anchor?: string): void {
         const lang = this._commonValuesServices.getLang();
         const docLang = lang === 'fr' ? 'fr' : 'en';
-        const docUrl = `/assets/docs/${page}.html?lang=${docLang}`;
-        window.open(docUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=yes,menubar=yes');
+        const safePage = /^[a-z0-9-]+$/.test(page) ? page : 'overview';
+        const safeAnchor = anchor && /^[a-z0-9-]+$/.test(anchor) ? `#${anchor}-${docLang}` : '';
+        const docUrl = `/assets/docs/${safePage}.html?lang=${docLang}${safeAnchor}`;
+        this.docModalSafeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(docUrl);
+        this.cdr.markForCheck();
+        if (this.docModalRef) {
+            return;
+        }
+        this.docModalFullscreen = false;
+        this.docModalRef = this.modalService.open(this.doccontent, {
+            backdrop: true,
+            keyboard: true,
+            windowClass: 'doc-modal-window',
+            modalDialogClass: 'doc-modal-dialog'
+        });
+        const closeDocModal = () => {
+            this.leaveDocFullscreen();
+            this.docModalRef = null;
+            this.docModalSafeUrl = null;
+            this.cdr.markForCheck();
+        };
+        this.docModalRef.result.then(closeDocModal, closeDocModal);
+    }
+
+    toggleDocFullscreen(): void {
+        const root = document.querySelector('.doc-modal-container') as HTMLElement | null;
+        if (!root) {
+            return;
+        }
+        if (document.fullscreenElement) {
+            void document.exitFullscreen();
+            return;
+        }
+        void root.requestFullscreen?.().catch(() => undefined);
+    }
+
+    private leaveDocFullscreen(): void {
+        if (document.fullscreenElement?.classList.contains('doc-modal-container')) {
+            void document.exitFullscreen();
+        }
+        this.docModalFullscreen = false;
+    }
+
+    @HostListener('document:fullscreenchange')
+    onDocFullscreenChange(): void {
+        this.docModalFullscreen = document.fullscreenElement?.classList.contains('doc-modal-container') ?? false;
+        this.cdr.markForCheck();
     }
 
     @HostListener('document:click', ['$event'])

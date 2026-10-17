@@ -109,7 +109,8 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   }
   // Mezzo: the iptv-org country playlist still points at str2.iptvhd.ru, which
   // answers HTTP 403 (deny_token). Mezzo Live stays on its own mirror.
-  // The otcnet window is only ~20 s; the player stays near the live edge.
+  // The otcnet window is only ~20 s. The player keeps two segments, not the whole window:
+  // a third back-to-back download makes the CDN fall under realtime.
   if (isMezzoChannel(channel)) {
     return MEZZO_PUBLIC_HLS;
   }
@@ -297,9 +298,10 @@ export function shouldSkipTvLiveEdgeWatchdog(
 }
 
 /**
- * Live playlists with only ~4 short segments (Cap Terre, Mezzo on otcnet).
- * The default hls.js sync (8 fragments behind) starts on segments that have
- * already left that window.
+ * Cap Terre: playlist is only ~4 short segments, and each one downloads about
+ * as slowly as it plays. Stay near the live edge and allow a deep buffer inside
+ * that window. Mezzo is {@link usesPacedLiveWindow} instead — a deep buffer
+ * there triggers the CDN throttle.
  */
 export function usesTightLiveWindow(
   channelOrUrl:
@@ -308,7 +310,21 @@ export function usesTightLiveWindow(
     | null
     | undefined
 ): boolean {
-  return isCapTerreChannel(channelOrUrl) || isMezzoChannel(channelOrUrl);
+  return isCapTerreChannel(channelOrUrl);
+}
+
+/**
+ * Mezzo on otcnet. Two ~3.5 MiB segments stay fast; a third immediate download
+ * drops the pipe under the 5 s realtime budget and the picture stalls.
+ */
+export function usesPacedLiveWindow(
+  channelOrUrl:
+    | string
+    | { name?: string | null; id?: string | null; streamUrl?: string | null }
+    | null
+    | undefined
+): boolean {
+  return isMezzoChannel(channelOrUrl);
 }
 
 /**

@@ -2454,6 +2454,8 @@
     "YES": "Ja",
     "NO": "Nein",
     "CLOSE": "Schließen",
+    "FULLSCREEN": "Vollbild",
+    "EXIT_FULLSCREEN": "Vollbild beenden",
     "MONGODB_DOWN_TITLE": "MongoDB nicht verfügbar",
     "MONGODB_DOWN_MESSAGE": "Die Anwendung kann die MongoDB-Datenbank ({{target}}) nicht erreichen. Die meisten Funktionen stehen erst nach dem Start zur Verfügung.",
     "MONGODB_DOWN_HINT": "Starten Sie MongoDB auf diesem Host und klicken Sie auf Erneut versuchen.",

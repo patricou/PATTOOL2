@@ -2451,6 +2451,8 @@
     "YES": "כן",
     "NO": "לא",
     "CLOSE": "סגור",
+    "FULLSCREEN": "מסך מלא",
+    "EXIT_FULLSCREEN": "יציאה ממסך מלא",
     "MONGODB_DOWN_TITLE": "MongoDB אינו זמין",
     "MONGODB_DOWN_MESSAGE": "היישום לא יכול להגיע למסד הנתונים MongoDB ({{target}}). רוב הפונקציות לא יעבדו עד שהוא יופעל.",
     "MONGODB_DOWN_HINT": "הפעל MongoDB במארח זה ולחץ נסה שוב.",

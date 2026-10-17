@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatTool — Business</title>
+    <link rel="stylesheet" href="/assets/css/pattool-doc.css?v=2">
+</head>
+<body>
+    <header class="doc-topbar">
+        <div class="doc-topbar-inner">
+            <h1 data-doc-lang="fr">Menu Business</h1>
+            <h1 data-doc-lang="en" hidden>Business menu</h1>
+            <p data-doc-lang="fr">Finance, jeux, foncier et artisanat</p>
+            <p data-doc-lang="en" hidden>Finance, games, land and trades</p>
+        </div>
+    </header>
+    <div class="doc-toolbar">
+        <div class="doc-toolbar-inner">
+            <nav class="doc-nav-links" aria-label="Documentation">
+                <a href="/assets/docs/overview.html">Guide</a>
+                <a href="/assets/docs/organisation.html" data-doc-lang="fr">Organisation</a>
+                <a href="/assets/docs/organisation.html" data-doc-lang="en" hidden>Organization</a>
+                <a href="/assets/docs/business.html">Business</a>
+                <a href="/assets/docs/media.html" data-doc-lang="fr">Média</a>
+                <a href="/assets/docs/media.html" data-doc-lang="en" hidden>Media</a>
+                <a href="/assets/docs/math.html" data-doc-lang="fr">Science</a>
+                <a href="/assets/docs/math.html" data-doc-lang="en" hidden>Science</a>
+            </nav>
+        </div>
+    </div>
+    <main class="doc-main">
+        <div data-doc-lang="fr">
+            <section class="doc-section" id="devises-fr">
+                <h2>Convertisseur de devises</h2>
+                <p>Route : <code class="doc-code">#/api/currency-converter</code></p>
+                <p>Taux officiels de la Banque centrale européenne (Frankfurter), conversion dans les deux sens, bandeau de cours optionnel.</p>
+            </section>
+            <section class="doc-section" id="bourse-fr">
+                <h2>Bourse</h2>
+                <p>Route : <code class="doc-code">#/api/stock-exchange</code></p>
+                <p>Cours d'actions, graphiques, et bandeau boursier global optionnel.</p>
+            </section>
+            <section class="doc-section" id="cryptos-fr">
+                <h2>Cryptos</h2>
+                <p>Route : <code class="doc-code">#/api/cryptos</code></p>
+                <p>Prix des principales cryptomonnaies et leur évolution.</p>
+            </section>
+            <section class="doc-section" id="foncier-fr">
+                <h2>Foncier</h2>
+                <p>Route : <code class="doc-code">#/api/foncier</code></p>
+                <p>Ventes notariales officielles (Cerema / DVF) et annonces (Stream Estate, ChercherTrouver), commune par commune. Saisissez un nom ou un code postal ; en cas d'homonymes, choisissez la commune.</p>
+            </section>
+            <section class="doc-section" id="foncier-suisse-fr">
+                <h2>Foncier Suisse</h2>
+                <p>Route : <code class="doc-code">#/api/foncier-suisse</code></p>
+                <p>Maisons et appartements en Suisse via Immoswipe (location, vente, meublé), plus Chancen-Check et guides. Sans clé API.</p>
+            </section>
+            <section class="doc-section" id="artisans-fr">
+                <h2>Artisans et commerces</h2>
+                <p>Route : <code class="doc-code">#/iot/artisans</code></p>
+                <p>Annuaire officiel SIRENE autour d'une adresse ou de votre position. Filtre par métier (codes NAF).</p>
+            </section>
+            <section class="doc-section">
+                <h2>Jeux d'argent</h2>
+                <p>Loto et EuroMillions sont dans ce menu. Leur guide détaillé est sur la page <a href="/assets/docs/math.html#loto-fr">Science</a> (Loto, EuroMillions).</p>
+            </section>
+        </div>
+        <div data-doc-lang="en" hidden>
+            <section class="doc-section" id="devises-en">
+                <h2>Currency converter</h2>
+                <p>Route: <code class="doc-code">#/api/currency-converter</code>. European Central Bank rates via Frankfurter, both directions, optional rate ticker.</p>
+            </section>
+            <section class="doc-section" id="bourse-en">
+                <h2>Stock exchange</h2>
+                <p>Route: <code class="doc-code">#/api/stock-exchange</code>. Quotes, charts, optional global stock ticker.</p>
+            </section>
+            <section class="doc-section" id="cryptos-en">
+                <h2>Crypto</h2>
+                <p>Route: <code class="doc-code">#/api/cryptos</code>. Major cryptocurrency prices and changes.</p>
+            </section>
+            <section class="doc-section" id="foncier-en">
+                <h2>French land records</h2>
+                <p>Route: <code class="doc-code">#/api/foncier</code>. Official notary sales (Cerema / DVF) and listings (Stream Estate, ChercherTrouver), town by town.</p>
+            </section>
+            <section class="doc-section" id="foncier-suisse-en">
+                <h2>Swiss property</h2>
+                <p>Route: <code class="doc-code">#/api/foncier-suisse</code>. Houses and flats in Switzerland via Immoswipe (rent, sale, furnished), plus Chancen-Check and guides. No API key.</p>
+            </section>
+            <section class="doc-section" id="artisans-en">
+                <h2>Trades and shops</h2>
+                <p>Route: <code class="doc-code">#/iot/artisans</code>. Official SIRENE directory around an address or your position, filtered by trade (NAF codes).</p>
+            </section>
+            <section class="doc-section">
+                <h2>Lottery games</h2>
+                <p>Loto and EuroMillions live in this menu. The detailed guide is on the <a href="/assets/docs/math.html#loto-en">Science</a> page.</p>
+            </section>
+        </div>
+    </main>
+    <footer class="doc-footer"><p>PatTool — Business</p></footer>
+    <script src="/assets/js/pattool-doc.js?v=2"></script>
+</body>
+</html>

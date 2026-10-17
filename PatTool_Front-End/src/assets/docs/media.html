@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatTool — Média</title>
+    <link rel="stylesheet" href="/assets/css/pattool-doc.css?v=2">
+</head>
+<body>
+    <header class="doc-topbar">
+        <div class="doc-topbar-inner">
+            <h1 data-doc-lang="fr">Menu Média</h1>
+            <h1 data-doc-lang="en" hidden>Media menu</h1>
+            <p data-doc-lang="fr">TV, radio, livres, web, actualités</p>
+            <p data-doc-lang="en" hidden>TV, radio, books, web, news</p>
+        </div>
+    </header>
+    <div class="doc-toolbar">
+        <div class="doc-toolbar-inner">
+            <nav class="doc-nav-links" aria-label="Documentation">
+                <a href="/assets/docs/overview.html">Guide</a>
+                <a href="/assets/docs/media.html" data-doc-lang="fr">Média</a>
+                <a href="/assets/docs/media.html" data-doc-lang="en" hidden>Media</a>
+                <a href="/assets/docs/monde.html" data-doc-lang="fr">Monde</a>
+                <a href="/assets/docs/monde.html" data-doc-lang="en" hidden>World</a>
+            </nav>
+        </div>
+    </div>
+    <main class="doc-main">
+        <div data-doc-lang="fr">
+            <section class="doc-section" id="tv-fr">
+                <h2>TVs</h2>
+                <p>Route : <code class="doc-code">#/tools/tv-watcher</code></p>
+                <p>Chaînes IPTV publiques gratuites (TV française par défaut). Les flux passent par le backend. Lecteur flottant possible.</p>
+            </section>
+            <section class="doc-section" id="radio-fr">
+                <h2>Radios</h2>
+                <p>Route : <code class="doc-code">#/tools/radio-watcher</code></p>
+                <p>Radios internet du monde entier, flux proxifiés par PatTool, lecteur flottant.</p>
+            </section>
+            <section class="doc-section" id="livres-fr">
+                <h2>Livres</h2>
+                <p>Route : <code class="doc-code">#/tools/book-watcher</code></p>
+                <p>Livres gratuits (Open Library, Gutenberg, Internet Archive, Google Books, Standard Ebooks) et livres audio LibriVox.</p>
+            </section>
+            <section class="doc-section" id="archive-fr">
+                <h2>Internet Archive</h2>
+                <p>Route : <code class="doc-code">#/tools/archive-watcher</code></p>
+                <p>Films, textes, audio, concerts, logiciels, images, collections et Wayback Machine. Les dernières sélections sont mémorisées sur le compte.</p>
+            </section>
+            <section class="doc-section" id="webcam-fr">
+                <h2>WebCams</h2>
+                <p>Route : <code class="doc-code">#/tools/webcam</code></p>
+                <p>Webcams Windy (images, timelapses, live) et caméras trafic (Road511, NAP européen). Favoris synchronisés avec le compte.</p>
+            </section>
+            <section class="doc-section" id="youtube-fr">
+                <h2>YouTube</h2>
+                <p>Route : <code class="doc-code">#/tools/youtube</code></p>
+                <ul>
+                    <li>Recherche de vidéos, playlists et chaînes via le proxy PatTool</li>
+                    <li>Tendances par pays, lecture embarquée (youtube-nocookie)</li>
+                    <li><strong>Tout lire</strong> enchaîne la liste puis recommence</li>
+                    <li>La clé API reste dans <code class="doc-code">app.youtube.api-key</code></li>
+                </ul>
+            </section>
+            <section class="doc-section" id="tmdb-fr">
+                <h2>Films et séries</h2>
+                <p>Route : <code class="doc-code">#/tools/tmdb</code></p>
+                <p>Tendances, recherche et fiches via l'API TMDB. La clé reste sur le serveur. TMDB ne diffuse pas les films : seulement bandes-annonces, teasers et extraits.</p>
+            </section>
+            <section class="doc-section" id="telegram-fr">
+                <h2>Telegram</h2>
+                <p>Route : <code class="doc-code">#/tools/telegram</code></p>
+                <p>Chaque utilisateur colle le jeton de <em>son</em> bot (<a href="https://t.me/BotFather">@BotFather</a>). Le jeton est stocké dans Mongo pour ce compte. Boîte de réception, envoi de messages, fichiers, et widget pour un post public <code class="doc-code">t.me</code>.</p>
+            </section>
+            <section class="doc-section" id="montage-fr">
+                <h2>Montage vidéo</h2>
+                <p>Route : <code class="doc-code">#/tools/video-montage</code></p>
+                <p>Timeline de photos et vidéos d'activités, plus les enregistrements TV ou YouTube. Aperçu et export dans le navigateur (sans FFmpeg). Le fichier peut être téléchargé ou ajouté à l'activité.</p>
+            </section>
+            <section class="doc-section" id="actus-fr">
+                <h2>Actualités</h2>
+                <p>Route : <code class="doc-code">#/api/news</code></p>
+                <ul>
+                    <li>NewsData.io, NewsAPI, et un catalogue RSS (sans clé)</li>
+                    <li>Filtres pays, langue, catégorie, recherche</li>
+                    <li>Bandeau défilant optionnel en haut de l'application</li>
+                    <li>Bouton assistant sur un article</li>
+                </ul>
+            </section>
+            <section class="doc-section" id="wiki-fr">
+                <h2>Wikipédia</h2>
+                <p>Route : <code class="doc-code">#/api/wiki</code></p>
+                <p>Recherche, résumé, image et lien, via le proxy PatTool. La langue de l'encyclopédie est indépendante de la langue de l'interface. Le viseur d'astres ouvre aussi une fiche.</p>
+            </section>
+        </div>
+        <div data-doc-lang="en" hidden>
+            <section class="doc-section" id="tv-en">
+                <h2>TV</h2>
+                <p>Route: <code class="doc-code">#/tools/tv-watcher</code>. Free public IPTV (French TV by default). Streams are proxied by the backend. A floating player is available.</p>
+            </section>
+            <section class="doc-section" id="radio-en">
+                <h2>Radio</h2>
+                <p>Route: <code class="doc-code">#/tools/radio-watcher</code>. Internet radio stations worldwide, proxied by PatTool, with a floating player.</p>
+            </section>
+            <section class="doc-section" id="livres-en">
+                <h2>Books</h2>
+                <p>Route: <code class="doc-code">#/tools/book-watcher</code>. Free books (Open Library, Gutenberg, Internet Archive, Google Books, Standard Ebooks) and LibriVox audiobooks.</p>
+            </section>
+            <section class="doc-section" id="archive-en">
+                <h2>Internet Archive</h2>
+                <p>Route: <code class="doc-code">#/tools/archive-watcher</code>. Movies, texts, audio, concerts, software, images, collections and the Wayback Machine. Recent picks are stored on the account.</p>
+            </section>
+            <section class="doc-section" id="webcam-en">
+                <h2>Webcams</h2>
+                <p>Route: <code class="doc-code">#/tools/webcam</code>. Windy webcams (stills, timelapses, live) and traffic cameras (Road511, European NAP). Favorites sync with the account.</p>
+            </section>
+            <section class="doc-section" id="youtube-en">
+                <h2>YouTube</h2>
+                <p>Route: <code class="doc-code">#/tools/youtube</code>. Search videos, playlists and channels through the PatTool proxy, country trends, nocookie embed. <strong>Play all</strong> walks the list and loops. The API key stays in <code class="doc-code">app.youtube.api-key</code>.</p>
+            </section>
+            <section class="doc-section" id="tmdb-en">
+                <h2>Movies and series</h2>
+                <p>Route: <code class="doc-code">#/tools/tmdb</code>. Trends, search and titles via TMDB. The key stays on the server. TMDB does not stream films — only trailers, teasers and clips.</p>
+            </section>
+            <section class="doc-section" id="telegram-en">
+                <h2>Telegram</h2>
+                <p>Route: <code class="doc-code">#/tools/telegram</code>. Each user pastes their own BotFather token, stored in Mongo for that account. Inbox, send, files, and a widget for a public <code class="doc-code">t.me</code> post.</p>
+            </section>
+            <section class="doc-section" id="montage-en">
+                <h2>Video montage</h2>
+                <p>Route: <code class="doc-code">#/tools/video-montage</code>. Timeline of activity photos and videos plus TV or YouTube recordings. Preview and export in the browser (no FFmpeg). Download the file or attach it to the activity.</p>
+            </section>
+            <section class="doc-section" id="actus-en">
+                <h2>News</h2>
+                <p>Route: <code class="doc-code">#/api/news</code>. NewsData.io, NewsAPI and an RSS catalogue. Country, language and category filters, optional scrolling ticker, assistant button on an article.</p>
+            </section>
+            <section class="doc-section" id="wiki-en">
+                <h2>Wikipedia</h2>
+                <p>Route: <code class="doc-code">#/api/wiki</code>. Search, summary, image and link through the PatTool proxy. Encyclopedia language is independent of the interface language. The sky finder also opens a card.</p>
+            </section>
+        </div>
+    </main>
+    <footer class="doc-footer"><p>PatTool — Media</p></footer>
+    <script src="/assets/js/pattool-doc.js?v=2"></script>
+</body>
+</html>

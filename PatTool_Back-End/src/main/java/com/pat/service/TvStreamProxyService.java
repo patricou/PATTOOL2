@@ -287,8 +287,9 @@ public class TvStreamProxyService {
             return ResponseEntity.ok().headers(headers).body(seg.body());
         }
 
-        // Cap Terre / Mezzo / M6 mirrors: serve .ts from RAM when prefetched (player otherwise
-        // waits out a sliding window of only ~4 segments and the oldest 404).
+        // Cap Terre / Mezzo / M6 mirrors: serve a .ts from RAM when it was already fetched
+        // (player otherwise waits out a sliding window of only ~4 segments and the oldest 404).
+        // Mezzo is cached on demand only — see shouldPrefetchShortWindow.
         if (isShortWindowPrefetchUpstream(upstreamUrl) && rangeHeader == null) {
             CapTerreCachedSegment cached = getCapTerreCachedSegment(upstreamUrl);
             if (cached != null) {
@@ -301,6 +302,13 @@ public class TvStreamProxyService {
                 headers.set("X-PatTool-CapTerre-Cache", "HIT");
                 return ResponseEntity.ok().headers(headers).body(cached.body());
             }
+        }
+
+        // Mezzo otcnet serves ~3.5 MiB / 5 s. Two segments back-to-back stay at ~5 MB/s;
+        // a third with no pause drops under realtime and playback stalls. Cache hits
+        // returned above do not take a slot.
+        if (isMezzoOtcnetUpstream(upstreamUrl) && isTransportStreamUrl(upstreamUrl) && rangeHeader == null) {
+            awaitMezzoSegmentSlot();
         }
 
         FetchResult fetched = fetch(upstreamUrl, rangeHeader, referer);
@@ -340,7 +348,8 @@ public class TvStreamProxyService {
             if (isShortWindowTrimUpstream(upstreamUrl) || isShortWindowTrimUpstream(playlistBase)) {
                 // M6/W9 on 151.80: ~4×6 s window and ~2 MiB segments that take longer
                 // to download than they stay on the origin. The fast 5.180 mirror is
-                // left intact. Mezzo on otcnet is fast enough to keep its full ~20 s window.
+                // left intact. Mezzo keeps its full ~20 s window (trimming it caused
+                // stalls); the otcnet throttle is handled by not bulk-prefetching.
                 rawPlaylist = keepNewestLiveSegments(rawPlaylist, 2);
             }
             if ((isDailymotionCdnUpstream(upstreamUrl) || isDailymotionCdnUpstream(playlistBase))
@@ -349,7 +358,7 @@ public class TvStreamProxyService {
                 // starts hours behind live. Keep a short sliding window.
                 rawPlaylist = keepNewestLiveSegments(rawPlaylist, 12);
             }
-            if (isShortWindowPrefetchUpstream(upstreamUrl) || isShortWindowPrefetchUpstream(playlistBase)) {
+            if (shouldPrefetchShortWindow(upstreamUrl) || shouldPrefetchShortWindow(playlistBase)) {
                 scheduleCapTerrePrefetch(rawPlaylist, playlistBase, referer);
             }
             String rewritten = rewritePlaylist(rawPlaylist, playlistBase, proxyBase);
@@ -613,6 +622,67 @@ public class TvStreamProxyService {
     /** Origins whose .ts segments are prefetched into RAM. */
     static boolean isShortWindowPrefetchUpstream(String url) {
         return isCapTerreUpstream(url) || isMezzoOtcnetUpstream(url) || isM6ShortWindowUpstream(url);
+    }
+
+    /**
+     * Cap Terre and the slow M6 mirror need the whole playlist pulled into RAM.
+     * Mezzo must not: prefetching its four segments is what trips the otcnet throttle.
+     * Segments the player actually requests are still cached on the way through.
+     */
+    static boolean shouldPrefetchShortWindow(String url) {
+        return isShortWindowPrefetchUpstream(url) && !isMezzoOtcnetUpstream(url);
+    }
+
+    /** Two Mezzo segments may start in the same window; a third waits so the CDN recovers. */
+    static final int MEZZO_BURST_MAX = 2;
+    static final long MEZZO_BURST_WINDOW_MS = 5_000L;
+
+    private final Object mezzoFetchPace = new Object();
+    private int mezzoBurstCount;
+    private long mezzoBurstWindowStartMs;
+
+    /**
+     * @param countInWindow fetches already started in the current window
+     * @param elapsedInWindowMs time since the window opened; a negative or expired window yields 0
+     * @return milliseconds to wait before another origin fetch; 0 means it may start now
+     */
+    static int mezzoSlotWaitMs(int countInWindow, long elapsedInWindowMs) {
+        if (elapsedInWindowMs < 0
+                || elapsedInWindowMs >= MEZZO_BURST_WINDOW_MS
+                || countInWindow < MEZZO_BURST_MAX) {
+            return 0;
+        }
+        long wait = MEZZO_BURST_WINDOW_MS - elapsedInWindowMs;
+        if (wait > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) wait;
+    }
+
+    private void awaitMezzoSegmentSlot() {
+        synchronized (mezzoFetchPace) {
+            for (;;) {
+                long now = System.currentTimeMillis();
+                long elapsed = mezzoBurstWindowStartMs == 0
+                        ? MEZZO_BURST_WINDOW_MS
+                        : now - mezzoBurstWindowStartMs;
+                int wait = mezzoSlotWaitMs(mezzoBurstCount, elapsed);
+                if (wait <= 0) {
+                    if (elapsed >= MEZZO_BURST_WINDOW_MS) {
+                        mezzoBurstCount = 0;
+                        mezzoBurstWindowStartMs = now;
+                    }
+                    mezzoBurstCount++;
+                    return;
+                }
+                try {
+                    mezzoFetchPace.wait(wait);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
     }
 
     /** Cap Terre iptv-org FR entry: {@code http://145.239.5.177/359a/…}. */
