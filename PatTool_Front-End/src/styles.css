@@ -1560,10 +1560,54 @@ html:not(.pat-starry-sky):not(.pat-page-no-wash) body {
     transition: background-color 0.2s ease;
 }
 
-/* TV watcher: dark wall behind the set. Keep overscroll the same tone. */
+/* TV / radio: overscroll follows the selected metal page. */
 html:has(app-tv-watcher),
-html:has(app-tv-watcher) body {
-    background-color: #14110f;
+html:has(app-tv-watcher) body,
+html:has(app-radio-watcher),
+html:has(app-radio-watcher) body {
+    background-color: #1c1612;
+}
+
+html:has(app-tv-watcher.tv-skin--artdeco),
+html:has(app-tv-watcher.tv-skin--artdeco) body,
+html:has(app-radio-watcher.radio-skin--artdeco),
+html:has(app-radio-watcher.radio-skin--artdeco) body {
+    background-color: #140c08;
+}
+
+html:has(app-tv-watcher.tv-skin--synthwave),
+html:has(app-tv-watcher.tv-skin--synthwave) body,
+html:has(app-radio-watcher.radio-skin--synthwave),
+html:has(app-radio-watcher.radio-skin--synthwave) body {
+    background-color: #0d0221;
+}
+
+html:has(app-tv-watcher.tv-skin--spaceage),
+html:has(app-tv-watcher.tv-skin--spaceage) body,
+html:has(app-radio-watcher.radio-skin--spaceage),
+html:has(app-radio-watcher.radio-skin--spaceage) body {
+    background-color: #3a1808;
+}
+
+html:has(app-tv-watcher.tv-skin--military),
+html:has(app-tv-watcher.tv-skin--military) body,
+html:has(app-radio-watcher.radio-skin--military),
+html:has(app-radio-watcher.radio-skin--military) body {
+    background-color: #1a1e10;
+}
+
+html:has(app-tv-watcher.tv-skin--steampunk),
+html:has(app-tv-watcher.tv-skin--steampunk) body,
+html:has(app-radio-watcher.radio-skin--steampunk),
+html:has(app-radio-watcher.radio-skin--steampunk) body {
+    background-color: #2a140c;
+}
+
+html:has(app-tv-watcher.tv-skin--aurora),
+html:has(app-tv-watcher.tv-skin--aurora) body,
+html:has(app-radio-watcher.radio-skin--aurora),
+html:has(app-radio-watcher.radio-skin--aurora) body {
+    background-color: #070d1c;
 }
 
 /* Horloge : le fond de page suit le cadran (pas de bande blanche au-dessus du titre ni en bas). */

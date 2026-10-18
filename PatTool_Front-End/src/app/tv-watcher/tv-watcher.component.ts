@@ -309,6 +309,13 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   keepAliveOnNavigate = true;
   readonly tvSkins = TV_SKINS;
   tvSkin: TvSkin = 'classic';
+  @HostBinding('class.tv-skin--classic') get skinClassic(): boolean { return this.tvSkin === 'classic'; }
+  @HostBinding('class.tv-skin--artdeco') get skinArtdeco(): boolean { return this.tvSkin === 'artdeco'; }
+  @HostBinding('class.tv-skin--synthwave') get skinSynthwave(): boolean { return this.tvSkin === 'synthwave'; }
+  @HostBinding('class.tv-skin--spaceage') get skinSpaceage(): boolean { return this.tvSkin === 'spaceage'; }
+  @HostBinding('class.tv-skin--military') get skinMilitary(): boolean { return this.tvSkin === 'military'; }
+  @HostBinding('class.tv-skin--steampunk') get skinSteampunk(): boolean { return this.tvSkin === 'steampunk'; }
+  @HostBinding('class.tv-skin--aurora') get skinAurora(): boolean { return this.tvSkin === 'aurora'; }
   skinMenuOpen = false;
   private skinChosenThisVisit = false;
   private skinLoadSub?: Subscription;

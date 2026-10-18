@@ -1217,3 +1217,391 @@
     animation: none !important;
   }
 }
+
+/* =========================================================================
+   Channel menu — same skin as the set (class is also on .tv-sidebar)
+   ========================================================================= */
+
+.tv-sidebar.tv-skin--classic {
+  --menu-bg:
+    linear-gradient(180deg, rgba(255, 248, 235, 0.55), rgba(255, 248, 235, 0) 28%),
+    repeating-linear-gradient(90deg, rgba(92, 58, 30, 0.045) 0 1px, transparent 1px 7px),
+    linear-gradient(165deg, #f6ead6 0%, #e7d3b0 100%);
+  --menu-fg: #3d2614;
+  --menu-muted: #7a5a38;
+  --menu-border: #6b4423;
+  --menu-border-width: 2px;
+  --menu-accent: #8b4513;
+  --menu-accent-fg: #fff8ee;
+  --menu-toolbar: linear-gradient(180deg, #efe0c4, #e4cfaa);
+  --menu-input-bg: #fffaf3;
+  --menu-input-fg: #3d2614;
+  --menu-input-border: rgba(92, 58, 30, 0.28);
+  --menu-hover: rgba(139, 69, 19, 0.1);
+  --menu-active: rgba(139, 69, 19, 0.18);
+  --menu-meta-bg: rgba(255, 248, 235, 0.72);
+  --menu-shadow: 0 10px 24px rgba(61, 38, 20, 0.22);
+  --menu-radius: 0.85rem;
+  --menu-logo-bg: #fffaf3;
+}
+
+.tv-sidebar.tv-skin--artdeco {
+  color-scheme: dark;
+  --menu-bg:
+    radial-gradient(ellipse at 50% -20%, rgba(255, 220, 150, 0.22), transparent 46%),
+    repeating-linear-gradient(92deg, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 9px),
+    linear-gradient(180deg, #4a2c16 0%, #2a1608 100%);
+  --menu-fg: #f8ecc8;
+  --menu-muted: #d4b56a;
+  --menu-border: #e0b85a;
+  --menu-border-width: 2px;
+  --menu-accent: #e0b85a;
+  --menu-accent-fg: #2a1608;
+  --menu-toolbar: linear-gradient(180deg, #5a381c, #3a2210);
+  --menu-input-bg: #1a0d05;
+  --menu-input-fg: #f8ecc8;
+  --menu-input-border: rgba(224, 184, 90, 0.45);
+  --menu-hover: rgba(224, 184, 90, 0.14);
+  --menu-active: rgba(224, 184, 90, 0.24);
+  --menu-meta-bg: rgba(0, 0, 0, 0.22);
+  --menu-shadow: 0 16px 36px rgba(42, 22, 8, 0.5), inset 0 1px 0 rgba(255, 220, 160, 0.25);
+  --menu-radius: 1.15rem 1.15rem 0.65rem 0.65rem;
+  --menu-logo-bg: #f6e7c1;
+}
+
+.tv-sidebar.tv-skin--synthwave {
+  color-scheme: dark;
+  --menu-bg:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 26%),
+    repeating-linear-gradient(90deg, rgba(0, 229, 255, 0.05) 0 1px, transparent 1px 18px),
+    linear-gradient(180deg, #1a0533 0%, #120224 100%);
+  --menu-fg: #fde7ff;
+  --menu-muted: #d8b4fe;
+  --menu-border: #ff2bd6;
+  --menu-border-width: 2px;
+  --menu-accent: #00e5ff;
+  --menu-accent-fg: #0d0221;
+  --menu-toolbar: linear-gradient(180deg, #2d0b4e, #1a0533);
+  --menu-input-bg: #0d0221;
+  --menu-input-fg: #fde7ff;
+  --menu-input-border: rgba(0, 229, 255, 0.45);
+  --menu-hover: rgba(255, 43, 214, 0.16);
+  --menu-active: rgba(0, 229, 255, 0.16);
+  --menu-meta-bg: rgba(0, 0, 0, 0.28);
+  --menu-shadow:
+    0 0 0 1px rgba(0, 229, 255, 0.35),
+    0 0 18px rgba(255, 43, 214, 0.4),
+    0 16px 36px rgba(10, 0, 30, 0.55);
+  --menu-radius: 0.7rem;
+  --menu-logo-bg: #fff;
+}
+
+.tv-sidebar.tv-skin--spaceage {
+  --menu-bg:
+    radial-gradient(ellipse 80% 40% at 30% 0%, rgba(255, 255, 255, 0.45), transparent 55%),
+    linear-gradient(165deg, #ffb15a 0%, #ff7a12 48%, #e85a00 100%);
+  --menu-fg: #3b1600;
+  --menu-muted: #6a2c08;
+  --menu-border: #f4f6f8;
+  --menu-border-width: 3px;
+  --menu-accent: #3b1600;
+  --menu-accent-fg: #fff6ec;
+  --menu-toolbar: linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 122, 18, 0.05));
+  --menu-input-bg: #fff8f0;
+  --menu-input-fg: #3b1600;
+  --menu-input-border: rgba(59, 22, 0, 0.28);
+  --menu-hover: rgba(59, 22, 0, 0.1);
+  --menu-active: rgba(59, 22, 0, 0.16);
+  --menu-meta-bg: rgba(255, 255, 255, 0.28);
+  --menu-shadow:
+    0 0 0 2px #9aa3b0,
+    inset 0 2px 0 rgba(255, 255, 255, 0.55),
+    0 18px 36px rgba(120, 40, 0, 0.32);
+  --menu-radius: 1.35rem;
+  --menu-logo-bg: #fff;
+}
+
+.tv-sidebar.tv-skin--military {
+  color-scheme: dark;
+  --menu-bg:
+    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.05) 0 2px, transparent 2px 5px),
+    linear-gradient(160deg, #66703f 0%, #3e4626 100%);
+  --menu-fg: #eef3d4;
+  --menu-muted: #c5d09a;
+  --menu-border: #1f2414;
+  --menu-border-width: 3px;
+  --menu-accent: #b6ff6a;
+  --menu-accent-fg: #12180a;
+  --menu-toolbar: linear-gradient(180deg, #556338, #3a4224);
+  --menu-input-bg: #1c2112;
+  --menu-input-fg: #e7f0c4;
+  --menu-input-border: rgba(182, 255, 106, 0.35);
+  --menu-hover: rgba(182, 255, 106, 0.12);
+  --menu-active: rgba(182, 255, 106, 0.2);
+  --menu-meta-bg: rgba(0, 0, 0, 0.22);
+  --menu-shadow:
+    inset 0 0 0 2px rgba(200, 210, 150, 0.14),
+    0 14px 28px rgba(20, 25, 10, 0.45);
+  --menu-radius: 0.35rem;
+  --menu-logo-bg: #e7ecc8;
+}
+
+.tv-sidebar.tv-skin--steampunk {
+  color-scheme: dark;
+  --menu-bg:
+    radial-gradient(circle at 18% 12%, rgba(255, 210, 150, 0.28), transparent 32%),
+    linear-gradient(150deg, #c26b33 0%, #7a3a17 100%);
+  --menu-fg: #fff6e4;
+  --menu-muted: #f3d48a;
+  --menu-border: #3b1f0c;
+  --menu-border-width: 3px;
+  --menu-accent: #f3d48a;
+  --menu-accent-fg: #3b1f0c;
+  --menu-toolbar: linear-gradient(180deg, #a85a28, #6a3012);
+  --menu-input-bg: #3b1f0c;
+  --menu-input-fg: #fff6e4;
+  --menu-input-border: rgba(243, 212, 138, 0.45);
+  --menu-hover: rgba(243, 212, 138, 0.16);
+  --menu-active: rgba(243, 212, 138, 0.26);
+  --menu-meta-bg: rgba(40, 16, 4, 0.28);
+  --menu-shadow:
+    inset 0 0 0 2px rgba(255, 200, 130, 0.28),
+    0 16px 32px rgba(50, 20, 5, 0.45);
+  --menu-radius: 0.7rem;
+  --menu-logo-bg: #fff6e4;
+}
+
+.tv-sidebar.tv-skin--aurora {
+  color-scheme: dark;
+  --menu-bg:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04) 40%, rgba(255, 255, 255, 0.08)),
+    radial-gradient(ellipse at 12% 0%, rgba(109, 255, 200, 0.4), transparent 50%),
+    radial-gradient(ellipse at 100% 80%, rgba(165, 120, 255, 0.38), transparent 55%),
+    linear-gradient(160deg, #1b2b4d, #0a1226);
+  --menu-fg: #f4f7ff;
+  --menu-muted: #c5d4ef;
+  --menu-border: rgba(255, 255, 255, 0.4);
+  --menu-border-width: 1px;
+  --menu-accent: #6dffc8;
+  --menu-accent-fg: #0a1226;
+  --menu-toolbar: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04));
+  --menu-input-bg: rgba(8, 14, 30, 0.72);
+  --menu-input-fg: #f4f7ff;
+  --menu-input-border: rgba(109, 255, 200, 0.4);
+  --menu-hover: rgba(109, 255, 200, 0.12);
+  --menu-active: rgba(109, 255, 200, 0.2);
+  --menu-meta-bg: rgba(0, 0, 0, 0.22);
+  --menu-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 18px 40px rgba(10, 20, 50, 0.42);
+  --menu-radius: 1.2rem;
+  --menu-logo-bg: rgba(255, 255, 255, 0.92);
+}
+
+/* =========================================================================
+   Title bar + page metal — class is on :host (tv-skin--*)
+   ========================================================================= */
+
+:host.tv-skin--classic {
+  --pat-title-accent: #8b5e34;
+  --pat-title-shadow: 0 8px 22px rgba(42, 24, 10, 0.45);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M0 2h8M0 6h8' stroke='white' stroke-opacity='0.16' stroke-width='0.7'/%3E%3C/svg%3E");
+  --pat-title-bg: linear-gradient(180deg, #f0d7a8 0%, #a67c4e 7%, #5c3a1e 20%, #3d2614 52%, #5a3820 86%, #24160d 100%);
+  --pat-page-bg: #1c1612;
+  --title-btn-bg: linear-gradient(180deg, #fffaf3 0%, #e7d3b0 100%);
+  --title-btn-fg: #3d2614;
+  --title-btn-border: #6b4423;
+  --title-btn-hover-bg: linear-gradient(180deg, #ffffff 0%, #f3e0c0 100%);
+  --title-btn-active-bg: linear-gradient(180deg, #e7d3b0 0%, #c4a574 100%);
+  --title-btn-active-fg: #3d2614;
+  --title-btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 1px 2px rgba(0, 0, 0, 0.28);
+  background-color: #1c1612;
+  background-image:
+    linear-gradient(118deg, transparent 0 34%, rgba(255, 236, 210, 0.04) 43%, rgba(255, 244, 220, 0.2) 49%, rgba(255, 236, 210, 0.04) 56%, transparent 66%),
+    linear-gradient(180deg, rgba(255, 220, 170, 0.14) 0%, transparent 22%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0 1px, rgba(0, 0, 0, 0.06) 1px 2px, transparent 2px 5px),
+    radial-gradient(ellipse 80% 50% at 50% 8%, rgba(196, 150, 90, 0.28), transparent 60%),
+    linear-gradient(180deg, #4a3a2c 0%, #241c16 46%, #100e0c 100%);
+  background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
+  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-attachment: fixed;
+}
+
+:host.tv-skin--classic .pat-title::before {
+  background: linear-gradient(180deg, rgba(255, 244, 220, 0.42) 0%, rgba(255, 255, 255, 0.05) 18%, transparent 40%);
+}
+
+:host.tv-skin--artdeco {
+  --pat-title-accent: #e0b85a;
+  --pat-title-shadow: 0 8px 22px rgba(20, 8, 2, 0.55);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='28'%3E%3Cpath d='M0 28 L28 2 L56 28' fill='none' stroke='%23e0b85a' stroke-opacity='0.5' stroke-width='1.1'/%3E%3Cpath d='M14 28 L28 10 L42 28' fill='none' stroke='%23e0b85a' stroke-opacity='0.28' stroke-width='0.8'/%3E%3C/svg%3E");
+  --pat-title-bg: linear-gradient(180deg, #f3d48a 0%, #8a6230 8%, #3a2210 22%, #1a0d05 55%, #2a1608 100%);
+  --pat-page-bg: #140c08;
+  --title-btn-bg: linear-gradient(180deg, #3a2210 0%, #1a0d05 100%);
+  --title-btn-fg: #f6e7c1;
+  --title-btn-border: #e0b85a;
+  --title-btn-hover-bg: linear-gradient(180deg, #5a381c 0%, #2a1608 100%);
+  --title-btn-active-bg: linear-gradient(180deg, #e0b85a 0%, #a5741f 100%);
+  --title-btn-active-fg: #2a1608;
+  --title-btn-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.4);
+  background-color: #140c08;
+  background-image:
+    linear-gradient(115deg, transparent 0 30%, rgba(224, 184, 90, 0.05) 42%, rgba(255, 230, 170, 0.22) 49%, rgba(224, 184, 90, 0.05) 57%, transparent 70%),
+    linear-gradient(180deg, rgba(224, 184, 90, 0.16) 0%, transparent 24%),
+    repeating-linear-gradient(90deg, rgba(224, 184, 90, 0.05) 0 1px, transparent 1px 7px),
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(224, 184, 90, 0.2), transparent 58%),
+    linear-gradient(180deg, #3a2414 0%, #140c08 48%, #0a0604 100%);
+  background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
+  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-attachment: fixed;
+}
+
+:host.tv-skin--artdeco .pat-title::before {
+  background: linear-gradient(180deg, rgba(243, 212, 138, 0.45) 0%, transparent 22%);
+}
+
+:host.tv-skin--synthwave {
+  --pat-title-accent: #ff2bd6;
+  --pat-title-shadow: 0 0 18px rgba(255, 43, 214, 0.35), 0 8px 22px rgba(8, 0, 20, 0.55);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='16'%3E%3Cpath d='M0 15h32M16 0v16' stroke='%2300e5ff' stroke-opacity='0.28' stroke-width='1'/%3E%3C/svg%3E");
+  --pat-title-bg: linear-gradient(180deg, #ff7ae0 0%, #ff2bd6 6%, #2d0b4e 16%, #120224 52%, #1a0533 100%);
+  --pat-page-bg: #0d0221;
+  --title-btn-bg: linear-gradient(180deg, #2d0b4e 0%, #120224 100%);
+  --title-btn-fg: #fde7ff;
+  --title-btn-border: #00e5ff;
+  --title-btn-hover-bg: linear-gradient(180deg, #4a1478 0%, #1a0533 100%);
+  --title-btn-active-bg: linear-gradient(180deg, #ff2bd6 0%, #7a1468 100%);
+  --title-btn-active-fg: #fff;
+  --title-btn-shadow: 0 0 10px rgba(0, 229, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  background-color: #0d0221;
+  background-image:
+    linear-gradient(112deg, transparent 0 28%, rgba(0, 229, 255, 0.05) 40%, rgba(255, 255, 255, 0.16) 48%, rgba(255, 43, 214, 0.12) 54%, transparent 68%),
+    linear-gradient(180deg, rgba(255, 43, 214, 0.18) 0%, transparent 26%),
+    repeating-linear-gradient(90deg, rgba(0, 229, 255, 0.05) 0 1px, transparent 1px 14px),
+    radial-gradient(ellipse 80% 45% at 50% 0%, rgba(255, 43, 214, 0.22), transparent 55%),
+    linear-gradient(180deg, #2a0848 0%, #0d0221 50%, #05010e 100%);
+  background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
+  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-attachment: fixed;
+}
+
+:host.tv-skin--synthwave .pat-title::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(0, 229, 255, 0.12) 16%, transparent 36%);
+}
+
+:host.tv-skin--spaceage {
+  --pat-title-accent: #e85a00;
+  --pat-title-shadow: 0 8px 22px rgba(120, 40, 0, 0.4);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M0 14 L14 0' stroke='white' stroke-opacity='0.2' stroke-width='1'/%3E%3C/svg%3E");
+  --pat-title-bg: linear-gradient(180deg, #ffffff 0%, #d5d7db 6%, #ffb15a 14%, #e85a00 36%, #9a3412 70%, #5c1d00 100%);
+  --pat-page-bg: #3a1808;
+  --title-btn-bg: linear-gradient(180deg, #ffffff 0%, #e4e7ec 100%);
+  --title-btn-fg: #3b1600;
+  --title-btn-border: #f4f6f8;
+  --title-btn-hover-bg: linear-gradient(180deg, #ffffff 0%, #fff1e4 100%);
+  --title-btn-active-bg: linear-gradient(180deg, #ffb15a 0%, #e85a00 100%);
+  --title-btn-active-fg: #3b1600;
+  --title-btn-shadow: inset 0 1px 0 #fff, 0 0 0 1px #9aa3b0, 0 1px 2px rgba(0, 0, 0, 0.25);
+  background-color: #3a1808;
+  background-image:
+    linear-gradient(108deg, transparent 0 32%, rgba(255, 255, 255, 0.06) 42%, rgba(255, 255, 255, 0.28) 49%, rgba(255, 180, 80, 0.1) 56%, transparent 68%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, transparent 20%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, rgba(80, 20, 0, 0.08) 1px 2px, transparent 2px 4px),
+    radial-gradient(ellipse 75% 42% at 40% 0%, rgba(255, 160, 60, 0.35), transparent 58%),
+    linear-gradient(165deg, #ff8a2a 0%, #c2410c 38%, #6a2408 100%);
+  background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
+  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-attachment: fixed;
+}
+
+:host.tv-skin--spaceage .pat-title::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.08) 12%, transparent 28%);
+}
+
+:host.tv-skin--military {
+  --pat-title-accent: #66703f;
+  --pat-title-shadow: 0 8px 20px rgba(16, 20, 8, 0.5);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath d='M0 10 L10 0 M0 5 L5 0 M5 10 L10 5' stroke='%23d5d8b0' stroke-opacity='0.25' stroke-width='0.8'/%3E%3C/svg%3E");
+  --pat-title-bg: linear-gradient(180deg, #e4e7c4 0%, #8c9466 7%, #4e5730 18%, #2b3118 52%, #1a1e10 100%);
+  --pat-page-bg: #1a1e10;
+  --title-btn-bg: linear-gradient(180deg, #2f361c 0%, #1a1e10 100%);
+  --title-btn-fg: #eef3d4;
+  --title-btn-border: #b6ff6a;
+  --title-btn-hover-bg: linear-gradient(180deg, #4e5730 0%, #2b3118 100%);
+  --title-btn-active-bg: linear-gradient(180deg, #b6ff6a 0%, #6a9a32 100%);
+  --title-btn-active-fg: #12180a;
+  --title-btn-shadow: inset 0 1px 0 rgba(230, 236, 180, 0.28), 0 1px 2px rgba(0, 0, 0, 0.35);
+  background-color: #1a1e10;
+  background-image:
+    linear-gradient(116deg, transparent 0 36%, rgba(220, 230, 170, 0.05) 44%, rgba(255, 255, 255, 0.16) 50%, rgba(180, 200, 110, 0.06) 57%, transparent 68%),
+    linear-gradient(180deg, rgba(200, 210, 150, 0.14) 0%, transparent 22%),
+    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.05) 0 2px, transparent 2px 6px),
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(140, 160, 70, 0.22), transparent 58%),
+    linear-gradient(160deg, #4e5730 0%, #242818 46%, #10140c 100%);
+  background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
+  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-attachment: fixed;
+}
+
+:host.tv-skin--military .pat-title::before {
+  background: linear-gradient(180deg, rgba(230, 236, 180, 0.4) 0%, transparent 20%);
+}
+
+:host.tv-skin--steampunk {
+  --pat-title-accent: #c26b33;
+  --pat-title-shadow: 0 8px 22px rgba(40, 16, 4, 0.5);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='20'%3E%3Ccircle cx='8' cy='10' r='1.7' fill='%23f3d48a' opacity='0.5'/%3E%3Ccircle cx='8' cy='10' r='0.55' fill='%233b1f0c' opacity='0.7'/%3E%3C/svg%3E");
+  --pat-title-bg: linear-gradient(180deg, #f3d48a 0%, #d9a441 6%, #c26b33 16%, #7a3a17 48%, #3b1f0c 100%);
+  --pat-page-bg: #2a140c;
+  --title-btn-bg: linear-gradient(180deg, #6a3012 0%, #3b1f0c 100%);
+  --title-btn-fg: #fff6e4;
+  --title-btn-border: #f3d48a;
+  --title-btn-hover-bg: linear-gradient(180deg, #a85a28 0%, #5a2a10 100%);
+  --title-btn-active-bg: linear-gradient(180deg, #f3d48a 0%, #c26b33 100%);
+  --title-btn-active-fg: #3b1f0c;
+  --title-btn-shadow: inset 0 1px 0 rgba(255, 220, 160, 0.35), 0 1px 2px rgba(0, 0, 0, 0.35);
+  background-color: #2a140c;
+  background-image:
+    linear-gradient(112deg, transparent 0 30%, rgba(243, 212, 138, 0.06) 42%, rgba(255, 236, 200, 0.22) 49%, rgba(194, 107, 51, 0.08) 57%, transparent 70%),
+    linear-gradient(180deg, rgba(243, 212, 138, 0.18) 0%, transparent 24%),
+    repeating-linear-gradient(90deg, rgba(255, 210, 150, 0.05) 0 1px, rgba(40, 12, 0, 0.08) 1px 2px, transparent 2px 5px),
+    radial-gradient(ellipse 70% 42% at 30% 0%, rgba(194, 107, 51, 0.35), transparent 58%),
+    linear-gradient(150deg, #a85a28 0%, #5a2a10 42%, #1a0c06 100%);
+  background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
+  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-attachment: fixed;
+}
+
+:host.tv-skin--steampunk .pat-title::before {
+  background: linear-gradient(180deg, rgba(243, 212, 138, 0.5) 0%, transparent 18%);
+}
+
+:host.tv-skin--aurora {
+  --pat-title-accent: #6dffc8;
+  --pat-title-shadow: 0 0 22px rgba(109, 255, 200, 0.2), 0 8px 22px rgba(6, 10, 24, 0.5);
+  --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='48'%3E%3Cpath d='M0 24 Q30 6 60 24 T120 24' fill='none' stroke='%236dffc8' stroke-opacity='0.4' stroke-width='1.4'/%3E%3Cpath d='M0 32 Q30 14 60 32 T120 32' fill='none' stroke='%23a578ff' stroke-opacity='0.32' stroke-width='1.2'/%3E%3C/svg%3E");
+  --pat-title-bg: linear-gradient(180deg, #d8fff2 0%, #6dffc8 6%, #1b2b4d 16%, #0a1226 55%, #14082a 100%);
+  --pat-page-bg: #070d1c;
+  --title-btn-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(8, 14, 30, 0.85) 100%);
+  --title-btn-fg: #f4f7ff;
+  --title-btn-border: rgba(109, 255, 200, 0.7);
+  --title-btn-hover-bg: linear-gradient(180deg, rgba(109, 255, 200, 0.22) 0%, rgba(12, 20, 40, 0.9) 100%);
+  --title-btn-active-bg: linear-gradient(180deg, #6dffc8 0%, #2bbf8f 100%);
+  --title-btn-active-fg: #0a1226;
+  --title-btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 0 12px rgba(109, 255, 200, 0.25);
+  background-color: #070d1c;
+  background-image:
+    linear-gradient(108deg, transparent 0 30%, rgba(109, 255, 200, 0.05) 40%, rgba(255, 255, 255, 0.18) 48%, rgba(165, 120, 255, 0.12) 55%, transparent 68%),
+    linear-gradient(180deg, rgba(109, 255, 200, 0.16) 0%, transparent 28%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 6px),
+    radial-gradient(ellipse 55% 40% at 15% 0%, rgba(109, 255, 200, 0.28), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 90% 10%, rgba(165, 120, 255, 0.22), transparent 55%),
+    linear-gradient(165deg, #1b2b4d 0%, #0a1226 55%, #070b16 100%);
+  background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat, no-repeat;
+  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%, 100% 100%;
+  background-attachment: fixed;
+}
+
+:host.tv-skin--aurora .pat-title::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, rgba(109, 255, 200, 0.12) 16%, transparent 36%);
+}

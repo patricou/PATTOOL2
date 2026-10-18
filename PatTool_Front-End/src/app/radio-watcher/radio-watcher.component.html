@@ -96,7 +96,7 @@
   </div>
 
   <div class="radio-layout" [class.radio-layout--sidebar-collapsed]="sidebarCollapsed">
-    <aside class="radio-sidebar" #sidebarEl [style.height.px]="sidebarHeightPx">
+    <aside class="radio-sidebar" #sidebarEl [style.height.px]="sidebarHeightPx" [ngClass]="'radio-skin--' + radioSkin">
       <div class="radio-sidebar-filter">
         <label class="visually-hidden" for="radio-sidebar-filter">{{ 'RADIO.SIDEBAR_FILTER' | translate }}</label>
         <div class="radio-sidebar-filter-row">

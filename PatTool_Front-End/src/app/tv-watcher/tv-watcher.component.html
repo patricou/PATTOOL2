@@ -116,7 +116,7 @@
   </div>
 
   <div class="tv-layout" [class.tv-layout--sidebar-collapsed]="sidebarCollapsed">
-    <aside class="tv-sidebar">
+    <aside class="tv-sidebar" [ngClass]="'tv-skin--' + tvSkin">
       <div class="tv-sidebar-toolbar">
         <div class="tv-sidebar-filter">
           <label class="visually-hidden" for="tv-sidebar-filter">{{ 'TV.SIDEBAR_FILTER' | translate }}</label>

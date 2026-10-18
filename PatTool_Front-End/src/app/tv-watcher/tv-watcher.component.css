@@ -2772,3 +2772,232 @@
     padding-right: 0.85rem;
   }
 }
+
+/* Sidebar follows the selected TV skin. Palette lives on --menu-* (tv-skins.css). */
+.tv-sidebar {
+  --menu-bg: #fff;
+  --menu-fg: #212529;
+  --menu-muted: #6c757d;
+  --menu-border: rgba(0, 0, 0, 0.08);
+  --menu-border-width: 1px;
+  --menu-accent: #0d6efd;
+  --menu-accent-fg: #fff;
+  --menu-toolbar: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(255, 255, 255, 0.6));
+  --menu-input-bg: #fff;
+  --menu-input-fg: #212529;
+  --menu-input-border: rgba(15, 23, 42, 0.12);
+  --menu-hover: rgba(13, 110, 253, 0.06);
+  --menu-active: rgba(13, 110, 253, 0.12);
+  --menu-meta-bg: #f8f9fa;
+  --menu-shadow: 0 1px 4px rgba(15, 23, 42, 0.05);
+  --menu-radius: 0.75rem;
+  --menu-logo-bg: #f8f9fa;
+  color: var(--menu-fg);
+  background: var(--menu-bg);
+  border-color: var(--menu-border);
+  border-width: var(--menu-border-width);
+  border-radius: var(--menu-radius);
+  box-shadow: var(--menu-shadow);
+}
+
+.tv-sidebar .tv-mode-tabs,
+.tv-sidebar .tv-mode-tabs-row--secondary,
+.tv-sidebar .tv-sidebar-toolbar,
+.tv-sidebar .tv-section-bar,
+.tv-sidebar .tv-channel-meta,
+.tv-sidebar .tv-arte-pager {
+  border-color: color-mix(in srgb, var(--menu-fg) 14%, transparent);
+}
+
+.tv-sidebar .tv-sidebar-toolbar,
+.tv-sidebar .tv-section-bar,
+.tv-sidebar .tv-channel-meta,
+.tv-sidebar .tv-list-loading {
+  background: var(--menu-toolbar);
+  color: var(--menu-fg);
+}
+
+.tv-sidebar .tv-channel-meta,
+.tv-sidebar .tv-section-bar,
+.tv-sidebar .tv-list-loading {
+  background: var(--menu-meta-bg);
+}
+
+.tv-sidebar .tv-sidebar-collapse-btn,
+.tv-sidebar .form-control,
+.tv-sidebar .form-select {
+  background-color: var(--menu-input-bg);
+  color: var(--menu-input-fg);
+  border-color: var(--menu-input-border);
+}
+
+.tv-sidebar .form-control::placeholder {
+  color: var(--menu-muted);
+  opacity: 0.9;
+}
+
+.tv-sidebar .tv-sidebar-collapse-btn:hover,
+.tv-sidebar .form-control:focus,
+.tv-sidebar .form-select:focus {
+  background-color: var(--menu-input-bg);
+  color: var(--menu-input-fg);
+  border-color: var(--menu-accent);
+  box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--menu-accent) 28%, transparent);
+}
+
+.tv-sidebar .tv-sidebar-filter-icon,
+.tv-sidebar .tv-sidebar-filter-clear,
+.tv-sidebar .tv-channel-index,
+.tv-sidebar .tv-channel-group,
+.tv-sidebar .tv-channel-epg,
+.tv-sidebar .tv-arte-pager-label,
+.tv-sidebar .tv-channel-logo--placeholder,
+.tv-sidebar .form-label {
+  color: var(--menu-muted);
+}
+
+.tv-sidebar .tv-sidebar-filter-clear:hover {
+  color: var(--menu-fg);
+  background: var(--menu-hover);
+}
+
+.tv-sidebar .tv-mode-tab {
+  color: var(--menu-muted);
+}
+
+.tv-sidebar .tv-mode-tab.active:not(.tv-mode-tab--recordings):not(.tv-mode-tab--arte):not(.tv-mode-tab--ia) {
+  color: var(--menu-accent);
+  background: var(--menu-active);
+  box-shadow: inset 0 -2px 0 var(--menu-accent);
+}
+
+.tv-sidebar .tv-count-badge,
+.tv-sidebar .tv-fav-badge {
+  background: var(--menu-accent);
+  color: var(--menu-accent-fg);
+}
+
+.tv-sidebar .tv-mode-tab.active .tv-count-badge,
+.tv-sidebar .tv-mode-tab.active .tv-fav-badge {
+  background: var(--menu-accent-fg);
+  color: var(--menu-accent);
+}
+
+.tv-sidebar .tv-channel-meta-filter,
+.tv-sidebar .tv-channel-meta-loading,
+.tv-sidebar .tv-channel-epg-label,
+.tv-sidebar .tv-channel-country,
+.tv-sidebar .tv-list-loading-text {
+  color: var(--menu-fg);
+}
+
+.tv-sidebar .tv-channel-meta-filter,
+.tv-sidebar .tv-channel-epg-label,
+.tv-sidebar .tv-channel-item.active .tv-channel-index {
+  color: var(--menu-accent);
+}
+
+.tv-sidebar .tv-list-loading-spinner {
+  border-color: color-mix(in srgb, var(--menu-accent) 30%, transparent);
+  border-top-color: var(--menu-accent);
+}
+
+.tv-sidebar .tv-channel-item:hover,
+.tv-sidebar .tv-channel-item:focus {
+  background: var(--menu-hover);
+}
+
+.tv-sidebar .tv-channel-item.active {
+  background: var(--menu-active);
+  box-shadow: inset 3px 0 0 var(--menu-accent);
+}
+
+:host-context([dir='rtl']) .tv-sidebar .tv-channel-item.active {
+  box-shadow: inset -3px 0 0 var(--menu-accent);
+}
+
+.tv-sidebar .tv-channel-name {
+  color: var(--menu-fg);
+}
+
+.tv-sidebar .tv-channel-logo {
+  background: var(--menu-logo-bg);
+}
+
+.tv-sidebar .tv-fav-btn {
+  color: var(--menu-muted);
+}
+
+.tv-sidebar .text-muted {
+  color: var(--menu-muted) !important;
+}
+
+.tv-sidebar .tv-arte-pager .btn {
+  --bs-btn-color: var(--menu-fg);
+  --bs-btn-border-color: var(--menu-input-border);
+  --bs-btn-bg: var(--menu-input-bg);
+  --bs-btn-hover-color: var(--menu-accent-fg);
+  --bs-btn-hover-bg: var(--menu-accent);
+  --bs-btn-hover-border-color: var(--menu-accent);
+  --bs-btn-active-color: var(--menu-accent-fg);
+  --bs-btn-active-bg: var(--menu-accent);
+  --bs-btn-active-border-color: var(--menu-accent);
+  --bs-btn-disabled-color: var(--menu-muted);
+  --bs-btn-disabled-bg: transparent;
+  --bs-btn-disabled-border-color: var(--menu-input-border);
+}
+
+.tv-sidebar .tv-channel-list {
+  scrollbar-color: color-mix(in srgb, var(--menu-accent) 55%, transparent) transparent;
+}
+
+.tv-sidebar .tv-channel-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.tv-sidebar .tv-channel-list::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--menu-accent) 55%, transparent);
+  border-radius: 99px;
+}
+
+/* Title buttons follow the selected skin (--title-btn-* on :host, set in tv-skins.css). */
+:host .pat-title .tv-epg-browser-open-btn,
+:host .pat-title .tv-global-filter-open-btn,
+:host .pat-title .tv-eq-open-btn,
+:host .pat-title .tv-sidebar-expand-title-btn,
+:host .pat-title .tv-skin-open-btn {
+  background: var(--title-btn-bg, #fff);
+  color: var(--title-btn-fg, #1d4ed8);
+  border-color: var(--title-btn-border, rgba(0, 0, 0, 0.12));
+  box-shadow: var(--title-btn-shadow, none);
+  text-shadow: none;
+}
+
+:host .pat-title .tv-epg-browser-open-btn:hover,
+:host .pat-title .tv-global-filter-open-btn:hover,
+:host .pat-title .tv-eq-open-btn:hover,
+:host .pat-title .tv-sidebar-expand-title-btn:hover,
+:host .pat-title .tv-skin-open-btn:hover,
+:host .pat-title .tv-skin-open-btn.is-open {
+  background: var(--title-btn-hover-bg, #eff6ff);
+  color: var(--title-btn-fg, #1d4ed8);
+  border-color: var(--title-btn-border, rgba(0, 0, 0, 0.12));
+}
+
+:host .pat-title .tv-global-filter-open-btn.is-active {
+  background: var(--title-btn-active-bg, #dbeafe);
+  color: var(--title-btn-active-fg, #1e40af);
+  border-color: var(--title-btn-border, #93c5fd);
+  font-weight: 600;
+}
+
+:host .pat-title .tv-eq-open-btn.is-live,
+:host .pat-title .tv-eq-open-btn.is-live:hover {
+  background: #7f1d1d;
+  color: #fee2e2;
+  border-color: #fca5a5;
+}
+
+:host .pat-title .tv-global-filter-open-dot {
+  background: var(--title-btn-fg, #2563eb);
+}

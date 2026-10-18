@@ -2577,3 +2577,240 @@
     font-size: 0.95rem;
   }
 }
+
+/* Sidebar follows the selected radio skin. Palette lives on --menu-* (radio-skins.css). */
+.radio-sidebar {
+  --menu-bg: #fff;
+  --menu-fg: #212529;
+  --menu-muted: #6c757d;
+  --menu-border: rgba(0, 0, 0, 0.08);
+  --menu-border-width: 1px;
+  --menu-accent: #0d6efd;
+  --menu-accent-fg: #fff;
+  --menu-toolbar: linear-gradient(180deg, rgba(240, 253, 250, 0.95), rgba(255, 255, 255, 0.6));
+  --menu-input-bg: #fff;
+  --menu-input-fg: #212529;
+  --menu-input-border: rgba(15, 23, 42, 0.12);
+  --menu-hover: rgba(13, 110, 253, 0.06);
+  --menu-active: rgba(13, 110, 253, 0.12);
+  --menu-meta-bg: #f8f9fa;
+  --menu-shadow: 0 1px 4px rgba(15, 23, 42, 0.05);
+  --menu-radius: 0.75rem;
+  --menu-logo-bg: #f8f9fa;
+  color: var(--menu-fg);
+  background: var(--menu-bg);
+  border-color: var(--menu-border);
+  border-width: var(--menu-border-width);
+  border-radius: var(--menu-radius);
+  box-shadow: var(--menu-shadow);
+}
+
+.radio-sidebar .radio-mode-tabs,
+.radio-sidebar .radio-sidebar-filter,
+.radio-sidebar .radio-section-bar,
+.radio-sidebar .radio-channel-meta,
+.radio-sidebar .radio-filters-panel,
+.radio-sidebar .radio-filters,
+.radio-sidebar .radio-list-pager {
+  border-color: color-mix(in srgb, var(--menu-fg) 14%, transparent);
+}
+
+.radio-sidebar .radio-sidebar-filter {
+  background: var(--menu-toolbar);
+}
+
+.radio-sidebar .radio-section-bar,
+.radio-sidebar .radio-channel-meta,
+.radio-sidebar .radio-filters-toggle,
+.radio-sidebar .radio-list-loading {
+  background: var(--menu-meta-bg);
+  color: var(--menu-fg);
+}
+
+.radio-sidebar .radio-filters-toggle:hover {
+  background: var(--menu-hover);
+  color: var(--menu-accent);
+}
+
+.radio-sidebar .radio-sidebar-collapse-btn,
+.radio-sidebar .form-control,
+.radio-sidebar .form-select {
+  background-color: var(--menu-input-bg);
+  color: var(--menu-input-fg);
+  border-color: var(--menu-input-border);
+}
+
+.radio-sidebar .form-control::placeholder {
+  color: var(--menu-muted);
+  opacity: 0.9;
+}
+
+.radio-sidebar .radio-sidebar-collapse-btn:hover,
+.radio-sidebar .form-control:focus,
+.radio-sidebar .form-select:focus {
+  background-color: var(--menu-input-bg);
+  color: var(--menu-input-fg);
+  border-color: var(--menu-accent);
+  box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--menu-accent) 28%, transparent);
+}
+
+.radio-sidebar .radio-sidebar-filter-icon,
+.radio-sidebar .radio-sidebar-filter-clear,
+.radio-sidebar .radio-channel-index,
+.radio-sidebar .radio-channel-group,
+.radio-sidebar .radio-channel-epg,
+.radio-sidebar .radio-list-pager-label,
+.radio-sidebar .radio-channel-logo--placeholder,
+.radio-sidebar .form-label,
+.radio-sidebar .radio-filters-toggle-caret {
+  color: var(--menu-muted);
+}
+
+.radio-sidebar .radio-sidebar-filter-clear:hover {
+  color: var(--menu-fg);
+  background: var(--menu-hover);
+}
+
+.radio-sidebar .radio-mode-tab {
+  color: var(--menu-muted);
+}
+
+.radio-sidebar .radio-mode-tab.active {
+  color: var(--menu-accent);
+  background: var(--menu-active);
+  box-shadow: inset 0 -2px 0 var(--menu-accent);
+}
+
+.radio-sidebar .radio-count-badge,
+.radio-sidebar .radio-fav-badge,
+.radio-sidebar .radio-filters-active-badge {
+  background: var(--menu-accent);
+  color: var(--menu-accent-fg);
+}
+
+.radio-sidebar .radio-mode-tab.active .radio-count-badge,
+.radio-sidebar .radio-mode-tab.active .radio-fav-badge {
+  background: var(--menu-accent-fg);
+  color: var(--menu-accent);
+}
+
+.radio-sidebar .radio-channel-meta-filter,
+.radio-sidebar .radio-channel-epg-label,
+.radio-sidebar .radio-channel-item.active .radio-channel-index,
+.radio-sidebar .radio-podcast-back,
+.radio-sidebar .radio-list-loading-text,
+.radio-sidebar .radio-channel-country {
+  color: var(--menu-accent);
+}
+
+.radio-sidebar .radio-list-loading-text,
+.radio-sidebar .radio-channel-country,
+.radio-sidebar .radio-channel-name {
+  color: var(--menu-fg);
+}
+
+.radio-sidebar .radio-channel-meta-filter,
+.radio-sidebar .radio-channel-epg-label,
+.radio-sidebar .radio-channel-item.active .radio-channel-index,
+.radio-sidebar .radio-podcast-back {
+  color: var(--menu-accent);
+}
+
+.radio-sidebar .radio-list-loading-spinner {
+  border-color: color-mix(in srgb, var(--menu-accent) 30%, transparent);
+  border-top-color: var(--menu-accent);
+}
+
+.radio-sidebar .radio-channel-item:hover,
+.radio-sidebar .radio-channel-item:focus {
+  background: var(--menu-hover);
+}
+
+.radio-sidebar .radio-channel-item.active {
+  background: var(--menu-active);
+  box-shadow: inset 3px 0 0 var(--menu-accent);
+}
+
+:host-context([dir='rtl']) .radio-sidebar .radio-channel-item.active {
+  box-shadow: inset -3px 0 0 var(--menu-accent);
+}
+
+.radio-sidebar .radio-channel-logo {
+  background: var(--menu-logo-bg);
+}
+
+.radio-sidebar .radio-fav-btn {
+  color: var(--menu-muted);
+}
+
+.radio-sidebar .text-muted {
+  color: var(--menu-muted) !important;
+}
+
+.radio-sidebar .radio-list-pager .btn {
+  --bs-btn-color: var(--menu-fg);
+  --bs-btn-border-color: var(--menu-input-border);
+  --bs-btn-bg: var(--menu-input-bg);
+  --bs-btn-hover-color: var(--menu-accent-fg);
+  --bs-btn-hover-bg: var(--menu-accent);
+  --bs-btn-hover-border-color: var(--menu-accent);
+  --bs-btn-active-color: var(--menu-accent-fg);
+  --bs-btn-active-bg: var(--menu-accent);
+  --bs-btn-active-border-color: var(--menu-accent);
+  --bs-btn-disabled-color: var(--menu-muted);
+  --bs-btn-disabled-bg: transparent;
+  --bs-btn-disabled-border-color: var(--menu-input-border);
+}
+
+.radio-sidebar .radio-channel-list {
+  scrollbar-color: color-mix(in srgb, var(--menu-accent) 55%, transparent) transparent;
+}
+
+.radio-sidebar .radio-channel-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.radio-sidebar .radio-channel-list::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--menu-accent) 55%, transparent);
+  border-radius: 99px;
+}
+
+/* Title buttons follow the selected skin (--title-btn-* on :host, set in radio-skins.css). */
+:host .pat-title .radio-global-filter-open-btn,
+:host .pat-title .radio-eq-open-btn,
+:host .pat-title .radio-sidebar-expand-title-btn,
+:host .pat-title .radio-skin-open-btn {
+  background: var(--title-btn-bg, #fff);
+  color: var(--title-btn-fg, #0f766e);
+  border-color: var(--title-btn-border, rgba(0, 0, 0, 0.12));
+  box-shadow: var(--title-btn-shadow, none);
+  text-shadow: none;
+}
+
+:host .pat-title .radio-global-filter-open-btn:hover,
+:host .pat-title .radio-eq-open-btn:hover,
+:host .pat-title .radio-sidebar-expand-title-btn:hover,
+:host .pat-title .radio-skin-open-btn:hover,
+:host .pat-title .radio-skin-open-btn.is-open {
+  background: var(--title-btn-hover-bg, #f0fdfa);
+  color: var(--title-btn-fg, #0f766e);
+  border-color: var(--title-btn-border, rgba(0, 0, 0, 0.12));
+}
+
+:host .pat-title .radio-global-filter-open-btn.is-active {
+  background: var(--title-btn-active-bg, #ccfbf1);
+  color: var(--title-btn-active-fg, #0f766e);
+  border-color: var(--title-btn-border, #5eead4);
+  font-weight: 600;
+}
+
+:host .pat-title .radio-eq-open-btn.is-live,
+:host .pat-title .radio-eq-open-btn.is-live:hover {
+  background: #7f1d1d;
+  color: #fee2e2;
+  border-color: #fca5a5;
+}
+
+:host .pat-title .radio-global-filter-open-dot {
+  background: var(--title-btn-fg, #0d9488);
+}
