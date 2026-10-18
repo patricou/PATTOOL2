@@ -120,7 +120,7 @@ public final class PatToolParameterCodeDefaults {
             Map.entry("app.cern.opendata-portal-base", "https://opendata.cern.ch"),
             Map.entry("app.nager.api-base", "https://date.nager.at/api/v3"),
             Map.entry("app.frankfurter.api-base", "https://api.frankfurter.app"),
-            Map.entry("app.openroute.api-base", "https://api.openrouteservice.org"),
+            Map.entry("app.openroute.api-base", "https://api.heigit.org/openrouteservice"),
             Map.entry("app.openroute.api-key", ""),
             Map.entry("app.foncier.geo.api-base", "https://geo.api.gouv.fr"),
             Map.entry("app.foncier.cerema.api-base", "https://apidf-preprod.cerema.fr"),

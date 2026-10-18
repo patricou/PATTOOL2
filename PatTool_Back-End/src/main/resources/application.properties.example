@@ -252,7 +252,8 @@ app.cache.persistence.restore-on-startup=true
 
 # --- OpenRouteService (GPS page, proxy /api/external/openroute/*) ---
 # Free API key: https://openrouteservice.org/dev/#/signup
-# app.openroute.api-base=https://api.openrouteservice.org
+# api.openrouteservice.org was shut down; use the HeiGIT host.
+# app.openroute.api-base=https://api.heigit.org/openrouteservice
 # app.openroute.api-key=
 
 # --- Archive watcher (Internet Archive) ---

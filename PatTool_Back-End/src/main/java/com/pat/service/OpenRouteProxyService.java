@@ -9,6 +9,7 @@ import com.pat.controller.dto.OpenRouteStepDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -19,6 +20,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,18 +51,33 @@ public class OpenRouteProxyService {
     /** Intermediate stops between start and end (ORS public API allows many more). */
     static final int MAX_VIA_POINTS = 8;
 
+    /**
+     * Snap each point to the road network. The public default (350 m) misses
+     * geocoded places that sit off the nearest drivable way.
+     */
+    private static final int SNAP_RADIUS_METERS = 2000;
+
+    /** {@code api.openrouteservice.org} was deprecated in April 2026 and no longer answers. */
+    private static final String DEPRECATED_API_HOST = "api.openrouteservice.org";
+
+    private static final String DEFAULT_API_BASE = "https://api.heigit.org/openrouteservice";
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    @Value("${app.openroute.api-base:https://api.openrouteservice.org}")
+    @Value("${app.openroute.api-base:" + DEFAULT_API_BASE + "}")
     private String apiBase;
 
     /** OpenRouteService API key — never exposed to the browser. */
     @Value("${app.openroute.api-key:}")
     private String apiKey;
 
-    public OpenRouteProxyService(RestTemplate restTemplate, ObjectMapper objectMapper) {
-        this.restTemplate = restTemplate;
+    public OpenRouteProxyService(RestTemplateBuilder restTemplateBuilder, ObjectMapper objectMapper) {
+        // The shared client times out after 3 s; a long driving route needs more.
+        this.restTemplate = restTemplateBuilder
+                .setConnectTimeout(Duration.ofSeconds(5))
+                .setReadTimeout(Duration.ofSeconds(25))
+                .build();
         this.objectMapper = objectMapper;
     }
 
@@ -141,6 +158,7 @@ public class OpenRouteProxyService {
         body.put("elevation", true);
         body.put("extra_info", extraInfoForProfile(resolvedProfile));
         body.put("attributes", List.of("avgspeed", "percentage"));
+        body.put("radiuses", snapRadiuses(coordinates.size()));
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -202,6 +220,14 @@ public class OpenRouteProxyService {
                     truncate(ex.getResponseBodyAsString(), 400));
             return null;
         }
+    }
+
+    private static List<Integer> snapRadiuses(int pointCount) {
+        List<Integer> radiuses = new ArrayList<>(pointCount);
+        for (int i = 0; i < pointCount; i++) {
+            radiuses.add(SNAP_RADIUS_METERS);
+        }
+        return radiuses;
     }
 
     private static List<String> extraInfoForProfile(String profile) {
@@ -487,11 +513,16 @@ public class OpenRouteProxyService {
 
     private static String normalizeBase(String base) {
         if (!StringUtils.hasText(base)) {
-            return "https://api.openrouteservice.org";
+            return DEFAULT_API_BASE;
         }
         String trimmed = base.trim();
         while (trimmed.endsWith("/")) {
             trimmed = trimmed.substring(0, trimmed.length() - 1);
+        }
+        String lower = trimmed.toLowerCase(Locale.ROOT);
+        if (lower.startsWith("https://" + DEPRECATED_API_HOST)
+                || lower.startsWith("http://" + DEPRECATED_API_HOST)) {
+            return DEFAULT_API_BASE;
         }
         return trimmed;
     }
