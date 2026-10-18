@@ -22,7 +22,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  *   <li>{@code departureCity}/{@code arrivalCity} : municipality for those ICAO codes (bundled lookup);</li>
  *   <li>{@code arrivalCountry} : destination country (ICAO lookup or adsbdb planned route);</li>
  *   <li>{@code departureTimeEpoch}/{@code arrivalTimeEpoch} : estimated departure / arrival times
- *       (OpenSky {@code firstSeen} / {@code lastSeen}, UTC epoch seconds).</li>
+ *       (OpenSky {@code firstSeen} / {@code lastSeen}, UTC epoch seconds);</li>
+ *   <li>{@code dataSource} : provider that supplied this position, {@code opensky} or {@code flightaware}.</li>
  * </ul>
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -49,5 +50,6 @@ public record FlightStateDto(
         String arrivalCity,
         String arrivalCountry,
         Long departureTimeEpoch,
-        Long arrivalTimeEpoch
+        Long arrivalTimeEpoch,
+        String dataSource
 ) {}

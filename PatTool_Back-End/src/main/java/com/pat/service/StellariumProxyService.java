@@ -107,7 +107,7 @@ public class StellariumProxyService {
                 .fromHttpUrl(normalizeBase(noctuaSkyApiBase) + "/skysources/")
                 .queryParam("q", trimmed)
                 .toUriString();
-        return fetchJson(url);
+        return fetchCatalogueOr(url, objectMapper.createArrayNode());
     }
 
     public JsonNode skySourceByName(String name) {
@@ -117,7 +117,7 @@ public class StellariumProxyService {
         }
         String encoded = URLEncoder.encode(trimmed, StandardCharsets.UTF_8).replace("+", "%20");
         String url = normalizeBase(noctuaSkyApiBase) + "/skysources/name/" + encoded;
-        return fetchJson(url);
+        return fetchCatalogueOr(url, objectMapper.nullNode());
     }
 
     private ResolvedLocation resolveLocation(HttpServletRequest request, Double lat, Double lon) {
@@ -213,6 +213,24 @@ public class StellariumProxyService {
         boolean defaultPort = ("http".equalsIgnoreCase(scheme) && port == 80)
                 || ("https".equalsIgnoreCase(scheme) && port == 443);
         return defaultPort ? scheme + "://" + host : scheme + "://" + host + ":" + port;
+    }
+
+    /**
+     * Catalogue lookups are best-effort. Noctua Sky often answers 503 or presents a
+     * certificate this JVM does not trust; a 502 made the browser log a failed GET and
+     * the Keycloak interceptor send the user to login. An empty payload lets the UI
+     * fall through to Sky-Map / Wikipedia.
+     */
+    private JsonNode fetchCatalogueOr(String url, JsonNode empty) {
+        try {
+            return fetchJson(url);
+        } catch (ResponseStatusException ex) {
+            if (ex.getStatusCode().is5xxServerError()) {
+                log.warn("Stellarium catalogue unavailable ({}): {}", ex.getReason(), url);
+                return empty;
+            }
+            throw ex;
+        }
     }
 
     private JsonNode fetchJson(String url) {

@@ -14,10 +14,14 @@ import com.pat.controller.dto.AssistantConversationSummaryDto;
 import com.pat.controller.dto.AssistantOpenAiCreditsDto;
 import com.pat.controller.dto.AssistantPdfExportRequestDto;
 import com.pat.controller.dto.AssistantRoutingPreferenceDto;
+import com.pat.controller.dto.AssistantShareEmailRequestDto;
+import com.pat.repo.domain.Member;
 import com.pat.service.AssistantConversationAssetService;
 import com.pat.service.AssistantConversationService;
 import com.pat.service.AssistantModelsCatalogService;
 import com.pat.service.AssistantPdfExportService;
+import com.pat.service.AssistantShareEmailService;
+import com.pat.service.FriendsService;
 import com.pat.service.assistant.AssistantPdfFilenameSupport;
 import com.pat.service.AssistantRoutingPreferenceService;
 import com.pat.service.OpenAiBillingService;
@@ -40,6 +44,7 @@ import org.springframework.web.bind.annotation.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -57,6 +62,8 @@ public class AssistantController {
     private final AssistantConversationAssetService assistantConversationAssetService;
     private final AssistantBillingLinksProperties assistantBillingLinks;
     private final AssistantModelsCatalogService assistantModelsCatalogService;
+    private final AssistantShareEmailService assistantShareEmailService;
+    private final FriendsService friendsService;
 
     public AssistantController(
             RoutingAssistantService routingAssistantService,
@@ -66,7 +73,9 @@ public class AssistantController {
             AssistantConversationService assistantConversationService,
             AssistantConversationAssetService assistantConversationAssetService,
             AssistantBillingLinksProperties assistantBillingLinks,
-            AssistantModelsCatalogService assistantModelsCatalogService) {
+            AssistantModelsCatalogService assistantModelsCatalogService,
+            AssistantShareEmailService assistantShareEmailService,
+            FriendsService friendsService) {
         this.routingAssistantService = routingAssistantService;
         this.openAiBillingService = openAiBillingService;
         this.assistantRoutingPreferenceService = assistantRoutingPreferenceService;
@@ -75,6 +84,8 @@ public class AssistantController {
         this.assistantConversationAssetService = assistantConversationAssetService;
         this.assistantBillingLinks = assistantBillingLinks;
         this.assistantModelsCatalogService = assistantModelsCatalogService;
+        this.assistantShareEmailService = assistantShareEmailService;
+        this.friendsService = friendsService;
     }
 
     /**
@@ -342,6 +353,30 @@ public class AssistantController {
                     .body(pdf);
         } catch (Exception e) {
             log.error("assistant export-pdf failed", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Partage de la conversation par e-mail (soi-même ou amis uniquement) : corps HTML (Markdown rendu,
+     * images inline) et, si demandé, le même PDF que l’export en pièce jointe.
+     */
+    @PostMapping(value = "/assistant/share-email", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> shareByEmail(@RequestBody @Valid AssistantShareEmailRequestDto body) {
+        Member me = friendsService.getCurrentUser(SecurityContextHolder.getContext().getAuthentication());
+        if (me == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            AssistantShareEmailService.ShareResult r = assistantShareEmailService.share(me, body);
+            if (r.total() == 0) {
+                return ResponseEntity.badRequest().body(Map.of("error", "no_recipient_email"));
+            }
+            return ResponseEntity.ok(Map.of("sent", r.sent(), "skipped", r.skipped(), "total", r.total()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", String.valueOf(e.getMessage())));
+        } catch (Exception e) {
+            log.error("assistant share-email failed", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

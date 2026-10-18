@@ -330,7 +330,8 @@ public class OpenSkyService {
                 state.lastContact(),
                 h.departureAirport(), h.arrivalAirport(),
                 null, null, null, null, null, null, null,
-                h.departureTimeEpoch(), h.arrivalTimeEpoch());
+                h.departureTimeEpoch(), h.arrivalTimeEpoch(),
+                state.dataSource());
     }
 
     private FlightStateDto withAirportDetails(FlightStateDto state, FlightScheduleHint hint) {
@@ -375,7 +376,8 @@ public class OpenSkyService {
                 state.lastContact(),
                 state.departureAirport(), state.arrivalAirport(),
                 depName, arrName, depIata, arrIata, depCity, arrCity, arrCountry,
-                state.departureTimeEpoch(), state.arrivalTimeEpoch());
+                state.departureTimeEpoch(), state.arrivalTimeEpoch(),
+                state.dataSource());
     }
 
     private static String blankToNull(String value) {
@@ -693,7 +695,8 @@ public class OpenSkyService {
                 null,
                 null,
                 null,
-                null);
+                null,
+                "opensky");
     }
 
     private static String textAt(JsonNode arr, int idx) {

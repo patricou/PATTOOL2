@@ -19,7 +19,7 @@ import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Subscription, firstValueFrom, timeout } from 'rxjs';
 import { finalize } from 'rxjs/operators';
-import { ApiService, GlobeIssGlobalPrefs, GlobeSatelliteOverlayPrefs, IssAlertAdminEntry, IssAlertConfig } from '../services/api.service';
+import { ApiService, FlightTrack, GlobeIssGlobalPrefs, GlobeSatelliteOverlayPrefs, IssAlertAdminEntry, IssAlertConfig } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { GlobeIssNowService, GlobeIssNowSnapshot } from '../services/globe-iss-now.service';
 import { GlobeSatelliteNowService } from '../services/globe-satellite-now.service';
@@ -171,6 +171,8 @@ const ISS_LIVE_HD_DESTINATION_ORBITE_URL =
 const ISS_LIVE_YOUTUBE_VIDEO_ID = 'M3HKLzjvKPc';
 /** Page HD Destination Orbite → lite-youtube `awQzjn72bI0` (màj 06-11-2025 ; ancien `FuuC4dpSQ1M` hors ligne). */
 const ISS_LIVE_HD_YOUTUBE_VIDEO_ID = 'awQzjn72bI0';
+/** Page live FlightAware (indicatif ICAO / n° de vol), nouvel onglet. */
+const FLIGHTAWARE_LIVE_FLIGHT_URL = 'https://fr.flightaware.com/live/flight/';
 /** Vitesse de la lumière pour la distance observateur → satellite (s lum.). */
 const C_KM_PER_S = 299792.458;
 
@@ -402,6 +404,18 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly sanitizer = inject(DomSanitizer);
 
+  /** Preferred live flight source. Default OpenSky; FlightAware if OpenSky has no position. */
+  flightSource: 'flightaware' | 'opensky' = 'opensky';
+
+  /** Switch OpenSky ↔ FlightAware. ICAO24 searches always stay on OpenSky. */
+  onFlightSourceToggle(useFlightAware: boolean): void {
+    this.flightSource = useFlightAware ? 'flightaware' : 'opensky';
+    if (this.flightTrackingActive) {
+      this.persistFlightTrackingPreference();
+      void this.refreshFlightNow();
+    }
+  }
+
   @ViewChild('globeCanvasHost') globeCanvasHost?: ElementRef<HTMLElement>;
   @ViewChild('issTraceDateLoupe') issTraceDateLoupe?: ElementRef<HTMLElement>;
   @ViewChild('countryLabelLoupe') countryLabelLoupe?: ElementRef<HTMLElement>;
@@ -417,17 +431,15 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Demi-piste du bandeau ISS : sert à mesurer la largeur réelle pour une vitesse constante. */
   @ViewChild('issTickerHalf')
   set issTickerHalfRef(ref: ElementRef<HTMLElement> | undefined) {
-    const el = ref?.nativeElement;
-    if (el === this.issTickerHalfEl) {
-      return;
-    }
-    this.issTickerHalfEl = el;
-    // AfterViewChecked : ne pas toucher au DOM / ResizeObserver dans le même tour que CD (NG0100 / removeChild).
-    queueMicrotask(() => {
-      if (this.issTickerHalfEl === el) {
-        this.attachIssTickerSpeedObserver();
-      }
-    });
+    this.issTickerMeasureEl = ref?.nativeElement;
+    this.queueTickerSpeedObserver();
+  }
+
+  /** Demi-piste du bandeau vol, mesurée à part : son texte est plus long que celui de l’ISS. */
+  @ViewChild('flightTickerHalf')
+  set flightTickerHalfRef(ref: ElementRef<HTMLElement> | undefined) {
+    this.flightTickerMeasureEl = ref?.nativeElement;
+    this.queueTickerSpeedObserver();
   }
 
   /** Mini-fenêtre ISS en direct (embed YouTube, même source que Destination Orbite). Affichée par défaut. */
@@ -577,7 +589,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Nom de pays agrandi (loupe) au survol d’une étiquette pays. */
   countryLabelLoupeLabel: string | null = null;
   /** Vitesse de défilement cible du bandeau ISS, en pixels par seconde. */
-  private static readonly ISS_TICKER_SPEED_PX_PER_SEC = 90;
+  private static readonly ISS_TICKER_SPEED_PX_PER_SEC = 70;
   private static readonly COMPASS_POINTS: ReadonlyArray<ReadonlyArray<'N' | 'E' | 'S' | 'W'>> = [
     ['N'], ['N', 'N', 'E'], ['N', 'E'], ['E', 'N', 'E'],
     ['E'], ['E', 'S', 'E'], ['S', 'E'], ['S', 'S', 'E'],
@@ -585,6 +597,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     ['W'], ['W', 'N', 'W'], ['N', 'W'], ['N', 'N', 'W']
   ];
   private issTickerHalfEl?: HTMLElement;
+  private issTickerMeasureEl?: HTMLElement;
+  private flightTickerMeasureEl?: HTMLElement;
+  /** Largeur déjà appliquée : les petits changements (horloge, chiffres) ne relancent pas l’animation. */
+  private appliedTickerHalfWidthPx = 0;
   private issTickerResizeObs?: ResizeObserver;
   private issTickerDurationRaf: number | null = null;
   private pendingIssTickerHalfWidthPx = 0;
@@ -632,6 +648,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   flightCallsign: string | null = null;
   flightIcao24: string | null = null;
   flightOriginCountry: string | null = null;
+  /** Provider of the position currently shown (may differ from the switch after OpenSky fallback). */
+  flightDataSource: 'opensky' | 'flightaware' | null = null;
   flightLastContactEpoch: number | null = null;
   /** ICAO airport codes for departure / arrival (OpenSky). */
   flightDepartureAirport: string | null = null;
@@ -4789,7 +4807,25 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Observe la largeur réelle d’une demi-piste du bandeau ISS et recalcule la durée d’animation
+   * Le bandeau visible (vol s’il est suivi, sinon ISS) est celui dont on mesure la largeur.
+   * AfterViewChecked : ne pas toucher au DOM / ResizeObserver dans le même tour que CD.
+   */
+  private queueTickerSpeedObserver(): void {
+    const el = this.flightTickerMeasureEl ?? this.issTickerMeasureEl;
+    if (el === this.issTickerHalfEl) {
+      return;
+    }
+    this.issTickerHalfEl = el;
+    this.appliedTickerHalfWidthPx = 0;
+    queueMicrotask(() => {
+      if (this.issTickerHalfEl === el) {
+        this.attachIssTickerSpeedObserver();
+      }
+    });
+  }
+
+  /**
+   * Observe la largeur réelle d’une demi-piste du bandeau et recalcule la durée d’animation
    * pour garder une vitesse de défilement constante (px/s) quel que soit le nombre d’infos affichées.
    */
   private attachIssTickerSpeedObserver(): void {
@@ -4829,12 +4865,39 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!Number.isFinite(halfWidthPx) || halfWidthPx <= 0) {
       return;
     }
+    const track = this.issTickerHalfEl?.parentElement;
+    if (!track) {
+      return;
+    }
+    const prevWidth = this.appliedTickerHalfWidthPx;
+    if (prevWidth > 0 && track.style.animationDuration) {
+      const delta = Math.abs(halfWidthPx - prevWidth) / prevWidth;
+      if (delta < 0.08) {
+        return;
+      }
+    }
     const sec = Math.max(30, halfWidthPx / WorldGlobeComponent.ISS_TICKER_SPEED_PX_PER_SEC);
     const rounded = Math.round(sec);
-    if (rounded !== this.issTickerDurationSec) {
-      this.scheduleWorldGlobeCdr(() => {
-        this.issTickerDurationSec = rounded;
-      });
+    const previous = typeof track.getAnimations === 'function' ? track.getAnimations()[0] : undefined;
+    let progress = 0;
+    if (previous) {
+      const timing = previous.effect?.getComputedTiming();
+      const durationMs = typeof timing?.duration === 'number' ? timing.duration : 0;
+      const timeMs = typeof previous.currentTime === 'number' ? previous.currentTime : 0;
+      if (durationMs > 0) {
+        progress = (timeMs % durationMs) / durationMs;
+      }
+    }
+    this.appliedTickerHalfWidthPx = halfWidthPx;
+    this.issTickerDurationSec = rounded;
+    track.style.animationDuration = `${rounded}s`;
+    const restarted = typeof track.getAnimations === 'function' ? track.getAnimations()[0] : undefined;
+    if (restarted && progress > 0) {
+      try {
+        restarted.currentTime = progress * rounded * 1000;
+      } catch {
+        /* le navigateur a déjà repris l’animation à zéro */
+      }
     }
   }
 
@@ -10021,6 +10084,39 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.flightStatus = this.flightTrackingActive ? this.flightStatus : 'idle';
   }
 
+  /** Source sent to the proxy: ICAO24 cannot use FlightAware. */
+  private flightRequestSource(): 'flightaware' | 'opensky' {
+    const mode = this.flightTrackingActive ? this.flightTrackedMode : this.flightMode;
+    return mode === 'icao24' ? 'opensky' : this.flightSource;
+  }
+
+  /**
+   * ICAO callsign / flight number for FlightAware ({@code AFR501}).
+   * Uses the live callsign when known, otherwise the callsign field (not an ICAO24 hex).
+   */
+  flightAwareIdent(): string | null {
+    const live = this.normalizeFlightQuery(this.flightCallsign ?? '', 'callsign');
+    if (live != null) {
+      return live;
+    }
+    if (this.flightMode === 'callsign') {
+      return this.normalizeFlightQuery(this.flightQueryInput, 'callsign');
+    }
+    if (this.flightTrackedMode === 'callsign' && this.flightTrackedQuery != null) {
+      return this.normalizeFlightQuery(this.flightTrackedQuery, 'callsign');
+    }
+    return null;
+  }
+
+  /** Opens the current flight on FlightAware (French live page) in a new tab. */
+  openFlightAwareLive(): void {
+    const ident = this.flightAwareIdent();
+    if (ident == null) {
+      return;
+    }
+    window.open(FLIGHTAWARE_LIVE_FLIGHT_URL + encodeURIComponent(ident), '_blank', 'noopener,noreferrer');
+  }
+
   /** Starts tracking the entered flight (validation, persistence, polling, first fetch). */
   startFlightTracking(): void {
     const query = this.normalizeFlightQuery(this.flightQueryInput, this.flightMode);
@@ -10114,6 +10210,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.flightCallsign = null;
     this.flightIcao24 = null;
     this.flightOriginCountry = null;
+    this.flightDataSource = null;
     this.flightLastContactEpoch = null;
     this.flightDepartureAirport = null;
     this.flightArrivalAirport = null;
@@ -10312,13 +10409,15 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const mode = this.flightTrackedMode;
     const query = this.flightTrackedQuery;
     try {
-      const state = await firstValueFrom(this.apiService.getFlightState(mode, query));
+      const source = this.flightRequestSource();
+      const state = await firstValueFrom(this.apiService.getFlightState(mode, query, source));
       if (!this.flightTrackingActive || this.flightTrackedQuery !== query) {
         return;
       }
       if (state == null) {
         this.scheduleWorldGlobeCdr(() => {
           this.flightStatus = 'notfound';
+          this.flightDataSource = null;
         });
         return;
       }
@@ -10327,6 +10426,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (lat == null || lon == null || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
         this.scheduleWorldGlobeCdr(() => {
           this.flightStatus = 'notfound';
+          this.flightDataSource = null;
         });
         return;
       }
@@ -10352,6 +10452,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.flightCallsign = state.callsign && state.callsign.trim() !== '' ? state.callsign.trim() : null;
       this.flightIcao24 = icao24;
       this.flightOriginCountry = state.originCountry ?? null;
+      this.flightDataSource =
+        state.dataSource === 'flightaware' || state.dataSource === 'opensky' ? state.dataSource : source;
       this.flightLastContactEpoch = typeof state.lastContact === 'number' ? state.lastContact : null;
       this.flightDepartureAirport =
         state.departureAirport && state.departureAirport.trim() !== ''
@@ -10374,8 +10476,12 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.flightMarkerRadius = radius;
       this.syncFlightGlobeVisuals();
 
-      if (icao24) {
-        void this.loadFlightTrack(icao24);
+      if (source === 'flightaware') {
+        void this.loadFlightTrack(null, this.flightCallsign || query);
+      } else if (icao24) {
+        void this.loadFlightTrack(icao24, this.flightCallsign || query);
+      } else if (this.flightCallsign || query) {
+        void this.loadFlightTrack(null, this.flightCallsign || query);
       }
 
       this.scheduleWorldGlobeCdr();
@@ -10383,48 +10489,64 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       const status = (err as { status?: number })?.status;
       this.scheduleWorldGlobeCdr(() => {
         this.flightStatus = status === 502 || status === 503 ? 'upstream' : 'error';
+        this.flightDataSource = null;
       });
     }
   }
 
-  /** Loads the full OpenSky trajectory (departure → current position) and redraws the line. */
-  private async loadFlightTrack(icao24: string): Promise<void> {
+  /** Loads trajectory: OpenSky by ICAO24, or FlightAware by callsign when hex is unknown. */
+  private async loadFlightTrack(icao24: string | null, callsign?: string | null): Promise<void> {
     if (!this.flightTrackingActive) {
       return;
     }
+    const ident = callsign?.trim() || '';
     try {
-      const track = await firstValueFrom(this.apiService.getFlightTrack(icao24, 0));
-      if (!this.flightTrackingActive) {
-        return;
-      }
-      if (!track?.points?.length) {
-        return;
-      }
-      const pts: { lat: number; lon: number; radius: number }[] = [];
-      for (const wp of track.points) {
-        const la = typeof wp.latitude === 'number' ? wp.latitude : null;
-        const lo = typeof wp.longitude === 'number' ? wp.longitude : null;
-        if (la == null || lo == null || Math.abs(la) > 90 || Math.abs(lo) > 180) {
-          continue;
+      let track: FlightTrack | null = null;
+      if (this.flightRequestSource() === 'flightaware') {
+        track = ident ? await firstValueFrom(this.apiService.getFlightTrackByCallsign(ident)) : null;
+      } else {
+        if (icao24) {
+          track = await firstValueFrom(this.apiService.getFlightTrack(icao24, 0));
         }
-        const altM = typeof wp.baroAltitudeM === 'number' ? wp.baroAltitudeM : null;
-        pts.push({ lat: la, lon: lo, radius: this.flightRadiusForAltitude(altM) });
+        if (!track?.points?.length && ident) {
+          track = await firstValueFrom(this.apiService.getFlightTrackByCallsign(ident));
+        }
       }
-      if (pts.length < 2) {
-        return;
-      }
-      this.flightTrackPoints.length = 0;
-      this.flightTrackPoints.push(...pts);
-      this.rebuildFlightTrailGeometry();
-      if (track.callsign?.trim()) {
-        this.scheduleWorldGlobeCdr(() => {
-          if (!this.flightCallsign) {
-            this.flightCallsign = track.callsign!.trim();
-          }
-        });
-      }
+      await this.applyFlightTrack(track);
     } catch {
       /* trajectory is optional: live position remains visible */
+    }
+  }
+
+  private async applyFlightTrack(track: FlightTrack | null): Promise<void> {
+    if (!this.flightTrackingActive) {
+      return;
+    }
+    if (!track?.points?.length) {
+      return;
+    }
+    const pts: { lat: number; lon: number; radius: number }[] = [];
+    for (const wp of track.points) {
+      const la = typeof wp.latitude === 'number' ? wp.latitude : null;
+      const lo = typeof wp.longitude === 'number' ? wp.longitude : null;
+      if (la == null || lo == null || Math.abs(la) > 90 || Math.abs(lo) > 180) {
+        continue;
+      }
+      const altM = typeof wp.baroAltitudeM === 'number' ? wp.baroAltitudeM : null;
+      pts.push({ lat: la, lon: lo, radius: this.flightRadiusForAltitude(altM) });
+    }
+    if (pts.length < 2) {
+      return;
+    }
+    this.flightTrackPoints.length = 0;
+    this.flightTrackPoints.push(...pts);
+    this.rebuildFlightTrailGeometry();
+    if (track.callsign?.trim()) {
+      this.scheduleWorldGlobeCdr(() => {
+        if (!this.flightCallsign) {
+          this.flightCallsign = track.callsign!.trim();
+        }
+      });
     }
   }
 
@@ -10862,6 +10984,9 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         this.flightMode = pref.mode;
         this.flightQueryInput = query;
+        if (pref.source === 'opensky' || pref.source === 'flightaware') {
+          this.flightSource = pref.source;
+        }
         if (typeof pref.pollIntervalSec === 'number') {
           this.flightPollIntervalSec = this.clampFlightPollIntervalSec(pref.pollIntervalSec);
         }
@@ -10882,7 +11007,8 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       .setFlightTracking({
         mode: this.flightTrackedMode,
         query: this.flightTrackedQuery,
-        pollIntervalSec: this.clampFlightPollIntervalSec(this.flightPollIntervalSec)
+        pollIntervalSec: this.clampFlightPollIntervalSec(this.flightPollIntervalSec),
+        source: this.flightSource
       })
       .subscribe({ next: () => {}, error: () => {} });
   }

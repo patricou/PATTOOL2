@@ -1,0 +1,1219 @@
+/* =========================================================================
+   TV skins — loaded after tv-watcher.component.css so equal-specificity
+   rules here win. Each skin is scoped by .tv-skin--<id> on .tv-player-panel.
+   "classic" has no overrides (it is the base wooden TV set).
+   ========================================================================= */
+
+/* ---------- Style picker (title bar) ---------- */
+
+:host .pat-title.tv-title--menu-open {
+  z-index: 10 !important;
+}
+
+.tv-skin-picker {
+  position: relative;
+  display: inline-flex;
+  margin-left: 0.15rem;
+}
+
+.tv-skin-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #1d4ed8;
+  border-radius: 0.4rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  cursor: pointer;
+  text-shadow: none;
+}
+
+.tv-skin-open-btn:hover,
+.tv-skin-open-btn.is-open {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.tv-skin-open-btn .fa-caret-down {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.tv-skin-menu {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  z-index: 40;
+  width: min(22rem, calc(100vw - 1.5rem));
+  max-height: min(72vh, 34rem);
+  overflow-y: auto;
+  padding: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  background: #fff;
+  color: #1f2937;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.8rem;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.28);
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: normal;
+  text-shadow: none;
+  white-space: normal;
+}
+
+.tv-skin-menu-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.5rem 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.tv-skin-option {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.6rem;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.tv-skin-option:hover,
+.tv-skin-option:focus-visible {
+  background: #f1f5f9;
+  outline: none;
+}
+
+.tv-skin-option.active {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.tv-skin-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tv-skin-option-name {
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: #0f172a;
+}
+
+.tv-skin-option-desc {
+  font-size: 0.73rem;
+  color: #64748b;
+}
+
+.tv-skin-option-check {
+  color: #2563eb;
+  flex: 0 0 auto;
+}
+
+.tv-skin-swatch {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 0.6rem;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+    0 2px 6px rgba(15, 23, 42, 0.2);
+}
+
+.tv-skin-swatch--mini {
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+}
+
+.tv-skin-swatch--classic {
+  background:
+    radial-gradient(ellipse 30% 22% at 50% 56%, rgba(120, 170, 220, 0.45), transparent 70%),
+    linear-gradient(#0b0a09, #0b0a09) 50% 58% / 72% 54% no-repeat,
+    linear-gradient(160deg, #c4a574 0%, #8b5e34 48%, #5c3a1e 100%);
+}
+
+.tv-skin-swatch--artdeco {
+  background:
+    radial-gradient(circle at 50% 0, #ffe3a0 0 10%, transparent 11%),
+    linear-gradient(#1a0d05, #1a0d05) 50% 62% / 64% 44% no-repeat,
+    linear-gradient(#e0b85a, #e0b85a) 50% 62% / 74% 54% no-repeat,
+    repeating-conic-gradient(from 90deg at 50% 0, rgba(240, 207, 122, 0.85) 0 8deg, transparent 8deg 16deg),
+    repeating-linear-gradient(95deg, #6b3d1c 0 3px, #8a5228 3px 7px, #5a3116 7px 9px);
+}
+
+.tv-skin-swatch--synthwave {
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 229, 255, 0.8) 0 1px, transparent 1px 4px) 50% 74% / 72% 18% no-repeat,
+    radial-gradient(circle at 50% 56%, #ffe53b 0 11%, #ff6c8f 18%, transparent 19%),
+    linear-gradient(180deg, #2d0b4e, #ff3f9a) 50% 56% / 72% 52% no-repeat,
+    linear-gradient(160deg, #1a0533, #3b0b5e);
+  box-shadow:
+    inset 0 0 0 2px #ff2bd6,
+    0 2px 6px rgba(15, 23, 42, 0.2);
+}
+
+.tv-skin-swatch--spaceage {
+  background:
+    radial-gradient(ellipse 36% 28% at 50% 55%, #15151a 0 95%, transparent 100%),
+    radial-gradient(ellipse 42% 34% at 50% 55%, #f4f5f7 0 95%, transparent 100%),
+    radial-gradient(ellipse at 30% 15%, rgba(255, 255, 255, 0.6), transparent 45%),
+    linear-gradient(165deg, #ffa040, #e85a00);
+}
+
+.tv-skin-swatch--military {
+  background:
+    radial-gradient(circle at 14% 14%, #8c9466 0 6%, transparent 7%),
+    radial-gradient(circle at 86% 14%, #8c9466 0 6%, transparent 7%),
+    radial-gradient(circle at 14% 86%, #8c9466 0 6%, transparent 7%),
+    radial-gradient(circle at 86% 86%, #8c9466 0 6%, transparent 7%),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.35) 0 1px, transparent 1px 3px) 50% 50% / 64% 52% no-repeat,
+    radial-gradient(ellipse at 50% 50%, #3f8f38, #0a140b) 50% 50% / 64% 52% no-repeat,
+    linear-gradient(160deg, #66703f, #383f22);
+}
+
+.tv-skin-swatch--steampunk {
+  background:
+    radial-gradient(circle at 12% 12%, #f3d48a 0 5%, transparent 6%),
+    radial-gradient(circle at 88% 12%, #f3d48a 0 5%, transparent 6%),
+    radial-gradient(circle at 12% 88%, #f3d48a 0 5%, transparent 6%),
+    radial-gradient(circle at 88% 88%, #f3d48a 0 5%, transparent 6%),
+    radial-gradient(ellipse 30% 24% at 50% 52%, #2a1608 0 92%, transparent 100%),
+    radial-gradient(ellipse 38% 31% at 50% 52%, #d9a441 0 92%, transparent 100%),
+    linear-gradient(150deg, #c26b33, #5a2a10);
+}
+
+.tv-skin-swatch--aurora {
+  background:
+    radial-gradient(1px 1px at 32% 45%, #fff, transparent),
+    radial-gradient(1px 1px at 66% 52%, #fff, transparent),
+    radial-gradient(ellipse 30% 18% at 40% 50%, rgba(109, 255, 200, 0.75), transparent 70%),
+    linear-gradient(#071226, #071226) 50% 55% / 72% 52% no-repeat,
+    radial-gradient(ellipse at 20% 20%, rgba(109, 255, 200, 0.85), transparent 55%),
+    radial-gradient(ellipse at 85% 80%, rgba(165, 120, 255, 0.85), transparent 55%),
+    linear-gradient(180deg, #1b2b4d, #0a1226);
+}
+
+@media (max-width: 640px) {
+  .tv-skin-open-label {
+    display: none;
+  }
+
+  /* Anchor the menu to the full-width title instead of the (possibly edge) button. */
+  .tv-skin-picker {
+    position: static;
+  }
+
+  .tv-skin-menu {
+    left: 0.25rem;
+    right: 0.25rem;
+    width: auto;
+  }
+}
+
+/* =========================================================================
+   1. ART DÉCO — walnut arched cabinet, gold sunburst, ivory knobs
+   ========================================================================= */
+
+.tv-player-panel.tv-skin--artdeco {
+  --tv-wood-edge: #2a1608;
+  --tv-bezel: #b8913f;
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(255, 230, 180, 0.3), transparent 50%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.35) 0%, transparent 7% 93%, rgba(0, 0, 0, 0.35) 100%),
+    repeating-linear-gradient(92deg, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 9px),
+    repeating-radial-gradient(ellipse at 50% 130%, #6e3d1b 0 6px, #7f4a22 6px 11px, #5e3215 11px 14px, #74421e 14px 22px);
+  border: 4px solid #2a1608;
+  border-radius: 3rem 3rem 1rem 1rem / 2.2rem 2.2rem 1rem 1rem;
+  padding: 1.1rem 0.75rem 1.35rem;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 220, 160, 0.25),
+    inset 0 -6px 14px rgba(0, 0, 0, 0.45),
+    0 22px 44px rgba(40, 18, 4, 0.5),
+    0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.tv-skin--artdeco.tv-player-panel--on {
+  box-shadow:
+    inset 0 2px 0 rgba(255, 220, 160, 0.3),
+    inset 0 -6px 14px rgba(0, 0, 0, 0.45),
+    0 22px 44px rgba(40, 18, 4, 0.5),
+    0 0 46px rgba(255, 190, 90, 0.18);
+}
+
+.tv-skin--artdeco.tv-player-panel::before {
+  border-radius: 2.7rem 2.7rem 0.75rem 0.75rem / 1.95rem 1.95rem 0.75rem 0.75rem;
+  border-color: rgba(240, 200, 120, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(42, 22, 8, 0.5);
+}
+
+/* Rabbit ears become a gold sunburst crowning the arch. */
+.tv-skin--artdeco .tv-antenna {
+  top: -1.45rem;
+  width: 6.5rem;
+  height: 1.6rem;
+  border-radius: 6.5rem 6.5rem 0 0 / 1.6rem 1.6rem 0 0;
+  background:
+    radial-gradient(circle at 50% 100%, #ffe3a0 0 0.45rem, #b8913f 0.5rem 0.6rem, transparent 0.62rem),
+    repeating-conic-gradient(from -90deg at 50% 100%, #f0cf7a 0 6deg, transparent 6deg 12deg);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+
+.tv-skin--artdeco .tv-antenna-base,
+.tv-skin--artdeco .tv-antenna-mast,
+.tv-skin--artdeco .tv-antenna-ear {
+  display: none;
+}
+
+/* Two ivory-and-gold knobs with a brass grille between them. */
+.tv-skin--artdeco.tv-player-panel::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0.2rem;
+  width: min(14rem, 60%);
+  height: 0.95rem;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 0.475rem 50%, #fff1c8 0 0.12rem, #e0b85a 0.14rem 0.3rem, #4a2410 0.32rem 0.42rem, transparent 0.44rem),
+    radial-gradient(circle at calc(100% - 0.475rem) 50%, #fff1c8 0 0.12rem, #e0b85a 0.14rem 0.3rem, #4a2410 0.32rem 0.42rem, transparent 0.44rem),
+    repeating-linear-gradient(90deg, #e0b85a 0 2px, transparent 2px 6px) 50% 50% / calc(100% - 2.6rem) 0.45rem no-repeat;
+}
+
+.tv-skin--artdeco .tv-player-frame {
+  border-radius: 1.1rem 1.1rem 0.6rem 0.6rem;
+  background: linear-gradient(180deg, #2a160a, #120a04);
+  border: 2px solid #b8913f;
+  box-shadow:
+    0 0 0 2px #2a1608,
+    inset 0 0 0 2px rgba(42, 22, 8, 0.9),
+    inset 0 0 18px rgba(0, 0, 0, 0.65);
+}
+
+.tv-skin--artdeco .tv-video-wrap {
+  border-radius: 0.85rem 0.85rem 0.4rem 0.4rem;
+}
+
+.tv-skin--artdeco .tv-video-wrap--empty {
+  background: radial-gradient(ellipse at 50% 45%, #3b2312 0%, #22130a 55%, #140b05 100%);
+}
+
+.tv-skin--artdeco .tv-placeholder {
+  color: #f6ead0;
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+.tv-skin--artdeco .tv-placeholder-icon {
+  color: #e0b85a;
+  opacity: 0.85;
+}
+
+.tv-skin--artdeco .tv-now-action:not(.tv-now-action--record):not(.tv-now-action--stop):not(.tv-now-action--warn):not(.tv-now-action--fav) {
+  color: #3a200d;
+  border-color: #6b4a20;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.6), transparent 42%),
+    linear-gradient(160deg, #fbf3df 0%, #eadbb5 55%, #b89a5e 100%);
+}
+
+.tv-skin--artdeco .tv-now-action.is-lit:not(.tv-now-action--record):not(.tv-now-action--stop):not(.tv-now-action--warn):not(.tv-now-action--fav) {
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.55), transparent 42%),
+    linear-gradient(160deg, #ffe3a0 0%, #e0b85a 55%, #a5741f 100%);
+}
+
+/* =========================================================================
+   2. SYNTHWAVE 1984 — neon cabinet, sunset screen, perspective grid
+   ========================================================================= */
+
+.tv-player-panel.tv-skin--synthwave {
+  --tv-wood-edge: #ff2bd6;
+  --tv-bezel: #3a0f63;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 30%),
+    repeating-linear-gradient(90deg, rgba(0, 229, 255, 0.05) 0 1px, transparent 1px 22px),
+    linear-gradient(180deg, #1a0533 0%, #2d0b4e 55%, #0d0221 100%);
+  border: 2px solid #ff2bd6;
+  border-radius: 0.9rem;
+  box-shadow:
+    0 0 0 1px rgba(0, 229, 255, 0.35),
+    0 0 18px rgba(255, 43, 214, 0.55),
+    0 0 42px rgba(0, 229, 255, 0.18),
+    inset 0 0 24px rgba(255, 43, 214, 0.25),
+    0 22px 44px rgba(10, 0, 30, 0.55);
+}
+
+.tv-skin--synthwave.tv-player-panel--on {
+  animation: tv-skin-neon-breathe 3.2s ease-in-out infinite;
+}
+
+.tv-skin--synthwave.tv-player-panel::before {
+  border-radius: 0.65rem;
+  border: 1px solid rgba(0, 229, 255, 0.45);
+  box-shadow: inset 0 0 12px rgba(0, 229, 255, 0.15);
+}
+
+.tv-skin--synthwave .tv-antenna-base {
+  background: linear-gradient(180deg, #ffffff, #5d6b85);
+}
+
+.tv-skin--synthwave .tv-antenna-mast {
+  background: #b9c3d6;
+}
+
+.tv-skin--synthwave .tv-antenna-ear {
+  background: linear-gradient(180deg, #ffffff 0%, #00e5ff 55%, #0077a8 100%);
+  box-shadow: 0 0 6px rgba(0, 229, 255, 0.85);
+}
+
+.tv-skin--synthwave .tv-antenna-ball {
+  background: radial-gradient(circle at 30% 30%, #fff 0%, #ff4fd8 50%, #8a1c9e 100%);
+  box-shadow: 0 0 10px rgba(255, 43, 214, 0.9);
+}
+
+.tv-skin--synthwave .tv-player-frame {
+  background: #0b0118;
+  border: 2px solid #3a0f63;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 43, 214, 0.35),
+    inset 0 12px 28px rgba(0, 0, 0, 0.6),
+    0 0 10px rgba(0, 229, 255, 0.3);
+}
+
+.tv-skin--synthwave .tv-video-wrap {
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.55);
+}
+
+.tv-skin--synthwave .tv-video-wrap--empty {
+  background: linear-gradient(180deg, #090018 0%, #240746 38%, #5a0f6e 58%, #ff3f9a 66%, #12002a 66.5%, #0b0118 100%);
+}
+
+/* Striped retro sun that sets behind the horizon. */
+.tv-skin--synthwave .tv-video-wrap--empty::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  z-index: 0;
+  width: 30%;
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  pointer-events: none;
+  background: linear-gradient(180deg, #ffe53b 0%, #ff9a3c 35%, #ff3f8e 70%, #c3157a 100%);
+  -webkit-mask: linear-gradient(180deg, #000 0 48%, transparent 48% 52%, #000 52% 60%, transparent 60% 64%, #000 64% 71%, transparent 71% 76%, #000 76%);
+  mask: linear-gradient(180deg, #000 0 48%, transparent 48% 52%, #000 52% 60%, transparent 60% 64%, #000 64% 71%, transparent 71% 76%, #000 76%);
+  filter: drop-shadow(0 0 18px rgba(255, 90, 150, 0.6));
+}
+
+/* Perspective grid floor — above the sun. */
+.tv-skin--synthwave .tv-video-wrap--empty::after {
+  content: '';
+  position: absolute;
+  left: -60%;
+  right: -60%;
+  top: 66%;
+  bottom: -20%;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 229, 255, 0.8) 0 1px, transparent 1px 16px),
+    repeating-linear-gradient(90deg, rgba(255, 43, 214, 0.75) 0 1px, transparent 1px 36px),
+    linear-gradient(180deg, #2a0547, #0b0118);
+  transform: perspective(140px) rotateX(55deg);
+  transform-origin: 50% 0;
+  animation: tv-skin-grid-scroll 1.6s linear infinite;
+}
+
+.tv-skin--synthwave .tv-placeholder {
+  color: #fdf0ff;
+  text-shadow: 0 0 8px rgba(255, 43, 214, 0.8);
+}
+
+.tv-skin--synthwave .tv-placeholder-icon {
+  color: #00e5ff;
+  opacity: 0.9;
+  text-shadow: 0 0 12px #00e5ff;
+}
+
+.tv-skin--synthwave .tv-now-action:not(.tv-now-action--record):not(.tv-now-action--stop):not(.tv-now-action--warn):not(.tv-now-action--fav) {
+  color: #fff;
+  border-color: rgba(255, 43, 214, 0.8);
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.35), transparent 42%),
+    linear-gradient(160deg, #ff8ae6 0%, #ff2bd6 50%, #6a1b9a 100%);
+}
+
+.tv-skin--synthwave .tv-now-action.is-lit:not(.tv-now-action--record):not(.tv-now-action--stop):not(.tv-now-action--warn):not(.tv-now-action--fav) {
+  border-color: rgba(0, 229, 255, 0.9);
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.4), transparent 42%),
+    linear-gradient(160deg, #a8f4ff 0%, #00e5ff 50%, #006a8a 100%);
+}
+
+.tv-skin--synthwave .tv-now-action .fa {
+  text-shadow: none;
+}
+
+.tv-skin--synthwave .tv-volume-slider-wrap {
+  background: #12002a;
+  border-color: rgba(255, 43, 214, 0.6);
+}
+
+.tv-skin--synthwave .tv-volume-slider,
+.tv-skin--synthwave .tv-volume-slider::-moz-range-track {
+  background: linear-gradient(90deg, #00e5ff, #ff2bd6);
+}
+
+.tv-skin--synthwave .tv-volume-slider::-webkit-slider-thumb {
+  border-color: #ff2bd6;
+  background: radial-gradient(circle at 32% 28%, #fff 0%, #ff4fd8 50%, #8a1c9e 100%);
+  box-shadow: 0 0 6px #ff2bd6;
+}
+
+.tv-skin--synthwave .tv-volume-slider::-moz-range-thumb {
+  border-color: #ff2bd6;
+  background: radial-gradient(circle at 32% 28%, #fff 0%, #ff4fd8 50%, #8a1c9e 100%);
+  box-shadow: 0 0 6px #ff2bd6;
+}
+
+/* =========================================================================
+   3. SPACE AGE 70 — glossy orange helmet TV, smoked visor, chrome pedestal
+   ========================================================================= */
+
+.tv-player-panel.tv-skin--spaceage {
+  --tv-wood-edge: #b33a00;
+  --tv-bezel: #d5d7db;
+  background:
+    radial-gradient(ellipse 70% 40% at 30% 8%, rgba(255, 255, 255, 0.55), transparent 60%),
+    radial-gradient(ellipse at 80% 110%, rgba(120, 20, 0, 0.35), transparent 55%),
+    linear-gradient(165deg, #ffa040 0%, #ff7a12 40%, #e85a00 75%, #c94400 100%);
+  border: 3px solid #f2f4f7;
+  border-radius: 2.6rem;
+  padding: 0.95rem 1.05rem 1rem;
+  box-shadow:
+    0 0 0 2px #9aa3b0,
+    inset 0 2px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -10px 22px rgba(120, 30, 0, 0.35),
+    0 24px 46px rgba(120, 40, 0, 0.35),
+    0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+.tv-skin--spaceage.tv-player-panel::before {
+  inset: 0.4rem;
+  border-radius: 2.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: none;
+}
+
+/* Thick white carrying loop instead of rabbit ears. */
+.tv-skin--spaceage .tv-antenna {
+  box-sizing: border-box;
+  top: -1.55rem;
+  width: 8rem;
+  height: 1.75rem;
+  border: 0.5rem solid #f4f5f7;
+  border-bottom: none;
+  border-radius: 1.1rem 1.1rem 0 0;
+  filter: drop-shadow(0 -1px 2px rgba(0, 0, 0, 0.2));
+}
+
+.tv-skin--spaceage .tv-antenna-base,
+.tv-skin--spaceage .tv-antenna-mast,
+.tv-skin--spaceage .tv-antenna-ear {
+  display: none;
+}
+
+/* Chrome pedestal. */
+.tv-skin--spaceage.tv-player-panel::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -0.75rem;
+  width: 30%;
+  height: 0.7rem;
+  transform: translateX(-50%);
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  pointer-events: none;
+  background: linear-gradient(180deg, #fafbfc, #c2c8d0 60%, #8a929e);
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
+}
+
+.tv-skin--spaceage .tv-player-frame {
+  border-radius: 1.9rem;
+  background: radial-gradient(ellipse at 50% 0%, #3a3a42 0%, #0b0b0e 60%);
+  border: 2px solid #d5d7db;
+  box-shadow:
+    0 0 0 3px #f4f5f7,
+    0 0 0 4px #9aa3b0,
+    inset 0 0 18px rgba(0, 0, 0, 0.7);
+}
+
+.tv-skin--spaceage .tv-video-wrap {
+  border-radius: 1.2rem;
+}
+
+.tv-skin--spaceage .tv-video-wrap--empty {
+  background:
+    radial-gradient(ellipse 60% 40% at 28% 18%, rgba(255, 255, 255, 0.12), transparent 60%),
+    radial-gradient(ellipse at 50% 60%, #1d1d24 0%, #0b0b0e 70%);
+}
+
+.tv-skin--spaceage .tv-placeholder-icon {
+  color: #ff7a12;
+  opacity: 0.85;
+}
+
+.tv-skin--spaceage .tv-now-action:not(.tv-now-action--record):not(.tv-now-action--stop):not(.tv-now-action--warn):not(.tv-now-action--fav) {
+  color: #ff6a00;
+  border-color: #c3c8cf;
+  background:
+    radial-gradient(circle at 32% 28%, #ffffff, transparent 45%),
+    linear-gradient(180deg, #ffffff 0%, #f1f1ee 60%, #d5d7db 100%);
+}
+
+.tv-skin--spaceage .tv-now-action.is-lit:not(.tv-now-action--record):not(.tv-now-action--stop):not(.tv-now-action--warn):not(.tv-now-action--fav) {
+  color: #fff;
+  border-color: #b33a00;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.5), transparent 42%),
+    linear-gradient(160deg, #ffa040, #e85a00);
+}
+
+.tv-skin--spaceage .tv-now-action .fa {
+  text-shadow: none;
+}
+
+.tv-skin--spaceage .tv-volume-slider,
+.tv-skin--spaceage .tv-volume-slider::-moz-range-track {
+  background: linear-gradient(90deg, #ffa040, #e85a00);
+}
+
+.tv-skin--spaceage .tv-volume-slider::-webkit-slider-thumb {
+  border-color: #9aa3b0;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #d9dde3 55%, #9aa3b0);
+}
+
+.tv-skin--spaceage .tv-volume-slider::-moz-range-thumb {
+  border-color: #9aa3b0;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #d9dde3 55%, #9aa3b0);
+}
+
+/* =========================================================================
+   4. FIELD MONITOR — olive drab steel, canvas strap, green phosphor CRT
+   ========================================================================= */
+
+.tv-player-panel.tv-skin--military {
+  --tv-wood-edge: #1f2414;
+  --tv-bezel: #12150b;
+  background:
+    radial-gradient(circle at 0.42rem 0.42rem, #c5c9a8 0 0.07rem, #2b2f1c 0.09rem 0.18rem, #8c9466 0.19rem 0.24rem, transparent 0.26rem),
+    radial-gradient(circle at calc(100% - 0.42rem) 0.42rem, #c5c9a8 0 0.07rem, #2b2f1c 0.09rem 0.18rem, #8c9466 0.19rem 0.24rem, transparent 0.26rem),
+    radial-gradient(circle at 0.42rem calc(100% - 0.42rem), #c5c9a8 0 0.07rem, #2b2f1c 0.09rem 0.18rem, #8c9466 0.19rem 0.24rem, transparent 0.26rem),
+    radial-gradient(circle at calc(100% - 0.42rem) calc(100% - 0.42rem), #c5c9a8 0 0.07rem, #2b2f1c 0.09rem 0.18rem, #8c9466 0.19rem 0.24rem, transparent 0.26rem),
+    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.04) 0 2px, transparent 2px 5px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 4px),
+    linear-gradient(160deg, #66703f 0%, #4e5730 50%, #383f22 100%);
+  border: 3px solid #1f2414;
+  border-radius: 0.45rem;
+  padding: 0.75rem;
+  box-shadow:
+    inset 0 0 0 2px rgba(200, 210, 150, 0.12),
+    inset 0 -6px 12px rgba(0, 0, 0, 0.4),
+    0 18px 36px rgba(20, 25, 10, 0.5);
+}
+
+.tv-skin--military.tv-player-panel::before {
+  display: none;
+}
+
+/* Canvas webbing strap with stitching instead of rabbit ears. */
+.tv-skin--military .tv-antenna {
+  top: -0.95rem;
+  width: 12rem;
+  height: 1.05rem;
+  border-radius: 0.2rem;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.09) 0 2px, transparent 2px 4px),
+    linear-gradient(180deg, #a69a6a, #7c7149);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.tv-skin--military .tv-antenna::before {
+  content: '';
+  position: absolute;
+  inset: 0.22rem 0.5rem;
+  border-top: 1px dashed rgba(40, 35, 15, 0.6);
+  border-bottom: 1px dashed rgba(40, 35, 15, 0.6);
+}
+
+.tv-skin--military .tv-antenna-base,
+.tv-skin--military .tv-antenna-mast,
+.tv-skin--military .tv-antenna-ear {
+  display: none;
+}
+
+.tv-skin--military .tv-player-frame {
+  background: linear-gradient(180deg, #2c3220, #1d2114);
+  border: 2px solid #12150b;
+  border-radius: 0.35rem;
+  box-shadow:
+    inset 0 0 0 1px rgba(233, 226, 176, 0.08),
+    inset 0 10px 24px rgba(0, 0, 0, 0.5);
+}
+
+.tv-skin--military .tv-video-wrap {
+  border-radius: 0.2rem;
+  box-shadow:
+    0 0 0 1px #3c4a2a,
+    0 0 10px rgba(124, 255, 107, 0.18);
+}
+
+.tv-skin--military .tv-video-wrap--empty {
+  background:
+    repeating-linear-gradient(0deg, rgba(124, 255, 107, 0.12) 0 1px, transparent 1px 1.6rem),
+    repeating-linear-gradient(90deg, rgba(124, 255, 107, 0.12) 0 1px, transparent 1px 1.6rem),
+    radial-gradient(ellipse at 50% 50%, #142414 0%, #0a140b 60%, #050a05 100%);
+}
+
+/* CRT scanlines over the idle phosphor screen. */
+.tv-skin--military .tv-video-wrap--empty::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px);
+  opacity: 0.55;
+}
+
+.tv-skin--military .tv-placeholder {
+  color: #9fe89a;
+  font-family: 'Courier New', monospace;
+  text-shadow: 0 0 6px rgba(124, 255, 107, 0.6);
+}
+
+.tv-skin--military .tv-placeholder .text-muted {
+  color: rgba(159, 232, 154, 0.6) !important;
+}
+
+.tv-skin--military .tv-placeholder-icon {
+  color: #7cff6b;
+  opacity: 0.9;
+  text-shadow: 0 0 10px rgba(124, 255, 107, 0.7);
+}
+
+.tv-skin--military .tv-now-action:not(.tv-now-action--record):not(.tv-now-action--stop):not(.tv-now-action--warn):not(.tv-now-action--fav) {
+  color: #e9e2b0;
+  border: 1px solid #12150b;
+  border-radius: 0.3rem;
+  background: linear-gradient(180deg, #4a5232, #2c3220);
+}
+
+.tv-skin--military .tv-now-action.is-lit:not(.tv-now-action--record):not(.tv-now-action--stop):not(.tv-now-action--warn):not(.tv-now-action--fav) {
+  color: #7cff6b;
+  background: linear-gradient(180deg, #2c4a22, #1a2e14);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.5),
+    0 0 8px rgba(124, 255, 107, 0.45);
+}
+
+.tv-skin--military .tv-now-action .fa {
+  text-shadow: none;
+}
+
+.tv-skin--military .tv-volume-slider,
+.tv-skin--military .tv-volume-slider::-moz-range-track {
+  background: linear-gradient(90deg, #3fbf3a, #c8ffb8);
+}
+
+.tv-skin--military .tv-volume-slider::-webkit-slider-thumb {
+  border-color: #0a0b07;
+  background: radial-gradient(circle at 35% 30%, #eeeeee, #8a8a8a 60%, #333);
+}
+
+.tv-skin--military .tv-volume-slider::-moz-range-thumb {
+  border-color: #0a0b07;
+  background: radial-gradient(circle at 35% 30%, #eeeeee, #8a8a8a 60%, #333);
+}
+
+/* =========================================================================
+   5. STEAMPUNK NAUTILUS — riveted copper, Tesla coil ears, brass gear
+   ========================================================================= */
+
+.tv-player-panel.tv-skin--steampunk {
+  --tv-wood-edge: #3b1f0c;
+  --tv-bezel: #b07a26;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(255, 210, 150, 0.35), transparent 30%),
+    radial-gradient(circle at 75% 70%, rgba(80, 30, 5, 0.35), transparent 35%),
+    radial-gradient(circle at 60% 25%, rgba(255, 190, 120, 0.2), transparent 25%),
+    radial-gradient(circle at 30% 80%, rgba(255, 190, 120, 0.15), transparent 28%),
+    linear-gradient(150deg, #c26b33 0%, #9c4e22 40%, #7a3a17 75%, #5a2a10 100%);
+  border: 4px solid #3b1f0c;
+  border-radius: 1rem;
+  padding: 0.75rem;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 200, 130, 0.25),
+    inset 0 -8px 16px rgba(40, 15, 0, 0.5),
+    0 20px 40px rgba(50, 20, 5, 0.5);
+}
+
+/* Rivet rows on all four edges */
+.tv-skin--steampunk.tv-player-panel::before {
+  inset: 0.2rem;
+  border: none;
+  border-radius: 0.75rem;
+  box-shadow: none;
+  background:
+    radial-gradient(circle, #f3d48a 0 0.07rem, #b07a26 0.09rem 0.15rem, #4a2d08 0.16rem 0.19rem, transparent 0.2rem) top left / 1.1rem 0.5rem repeat-x,
+    radial-gradient(circle, #f3d48a 0 0.07rem, #b07a26 0.09rem 0.15rem, #4a2d08 0.16rem 0.19rem, transparent 0.2rem) bottom left / 1.1rem 0.5rem repeat-x,
+    radial-gradient(circle, #f3d48a 0 0.07rem, #b07a26 0.09rem 0.15rem, #4a2d08 0.16rem 0.19rem, transparent 0.2rem) top left / 0.5rem 1.1rem repeat-y,
+    radial-gradient(circle, #f3d48a 0 0.07rem, #b07a26 0.09rem 0.15rem, #4a2d08 0.16rem 0.19rem, transparent 0.2rem) top right / 0.5rem 1.1rem repeat-y;
+}
+
+.tv-skin--steampunk .tv-antenna-base {
+  width: 1.6rem;
+  height: 0.55rem;
+  margin-left: -0.8rem;
+  border-radius: 0.8rem 0.8rem 0 0;
+  background: radial-gradient(ellipse at 50% 100%, #ffe2a0 0%, #d9a441 45%, #6e4513 100%);
+}
+
+.tv-skin--steampunk .tv-antenna-mast {
+  width: 4px;
+  margin-left: -2px;
+  background: linear-gradient(90deg, #6e4513, #ffe2a0, #6e4513);
+}
+
+/* Copper coil ears with Tesla spark tips */
+.tv-skin--steampunk .tv-antenna-ear {
+  width: 4px;
+  background: repeating-linear-gradient(180deg, #ffcf94 0 2px, #b0602a 2px 4px, #5a2a10 4px 5px);
+}
+
+.tv-skin--steampunk .tv-antenna-ball {
+  background: radial-gradient(circle at 40% 40%, #fff 0%, #8fe3ff 40%, #2b7cff 80%);
+  box-shadow: 0 0 10px #6fd3ff, 0 0 20px rgba(111, 211, 255, 0.6);
+}
+
+.tv-skin--steampunk.tv-player-panel--on .tv-antenna-ball {
+  animation: tv-skin-spark 0.9s steps(2) infinite;
+}
+
+/* Brass gear turning in the bottom-right corner while a channel plays. */
+.tv-skin--steampunk.tv-player-panel::after {
+  content: '';
+  position: absolute;
+  right: -0.8rem;
+  bottom: -0.9rem;
+  z-index: 1;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle, #3b1f0c 0 14%, #d9a441 15% 30%, #b07a26 31% 52%, transparent 53%),
+    repeating-conic-gradient(#d9a441 0 12deg, transparent 12deg 24deg);
+  -webkit-mask: radial-gradient(circle, #000 0 50%, transparent 51%);
+  mask: radial-gradient(circle, #000 0 50%, transparent 51%);
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+
+.tv-skin--steampunk.tv-player-panel--on::after {
+  animation: tv-skin-gear-spin 12s linear infinite;
+}
+
+.tv-skin--steampunk .tv-player-frame {
+  border-radius: 0.7rem;
+  background: linear-gradient(180deg, #3a2414, #24160b);
+  border: 3px solid #b07a26;
+  box-shadow:
+    0 0 0 1px #3b1f0c,
+    inset 0 0 0 1px #3b1f0c,
+    inset 0 0 16px rgba(0, 0, 0, 0.6);
+  outline: 1px dashed rgba(245, 222, 176, 0.35);
+  outline-offset: -7px;
+}
+
+.tv-skin--steampunk .tv-video-wrap {
+  border-radius: 0.45rem;
+}
+
+.tv-skin--steampunk .tv-video-wrap--empty {
+  background: radial-gradient(ellipse at 50% 45%, #3b2616 0%, #22150b 55%, #120a04 100%);
+}
+
+.tv-skin--steampunk .tv-placeholder {
+  color: #f5deb0;
+  font-family: Georgia, serif;
+}
+
+.tv-skin--steampunk .tv-placeholder-icon {
+  color: #d9a441;
+  opacity: 0.85;
+}
+
+.tv-skin--steampunk .tv-now-action:not(.tv-now-action--record):not(.tv-now-action--stop):not(.tv-now-action--warn):not(.tv-now-action--fav) {
+  color: #2a1608;
+  border-color: #3b1f0c;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55), transparent 40%),
+    radial-gradient(circle, #d9a441 0 55%, transparent 56%),
+    repeating-conic-gradient(#f3d48a 0 10deg, #6e4513 10deg 20deg);
+}
+
+.tv-skin--steampunk .tv-now-action.is-lit:not(.tv-now-action--record):not(.tv-now-action--stop):not(.tv-now-action--warn):not(.tv-now-action--fav) {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.6), transparent 40%),
+    radial-gradient(circle, #ffb54a 0 55%, transparent 56%),
+    repeating-conic-gradient(#ffe2a0 0 10deg, #8a5418 10deg 20deg);
+  box-shadow:
+    inset 0 2px 5px rgba(0, 0, 0, 0.4),
+    0 0 8px rgba(255, 181, 74, 0.6);
+}
+
+.tv-skin--steampunk .tv-volume-slider,
+.tv-skin--steampunk .tv-volume-slider::-moz-range-track {
+  background: linear-gradient(90deg, #6e4513 0%, #d9a441 55%, #c26b33 100%);
+}
+
+/* =========================================================================
+   6. AURORA — frosted glass, starry screen, drifting northern lights
+   ========================================================================= */
+
+.tv-player-panel.tv-skin--aurora {
+  --tv-wood-edge: rgba(255, 255, 255, 0.35);
+  --tv-bezel: rgba(255, 255, 255, 0.18);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.05) 45%, rgba(255, 255, 255, 0.12) 100%),
+    radial-gradient(ellipse at 15% 10%, rgba(109, 255, 200, 0.45), transparent 50%),
+    radial-gradient(ellipse at 90% 30%, rgba(165, 120, 255, 0.45), transparent 55%),
+    radial-gradient(ellipse at 50% 110%, rgba(80, 160, 255, 0.45), transparent 60%),
+    linear-gradient(160deg, #1b2b4d 0%, #0f1a33 60%, #0a1226 100%);
+  background-size: 100% 100%, 200% 200%, 200% 200%, 200% 200%, 100% 100%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 1.5rem;
+  padding: 0.6rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 0 30px rgba(109, 255, 200, 0.12),
+    0 24px 50px rgba(10, 20, 50, 0.45),
+    0 0 0 1px rgba(109, 255, 200, 0.15);
+}
+
+.tv-skin--aurora.tv-player-panel--on {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 0 30px rgba(109, 255, 200, 0.18),
+    0 24px 50px rgba(10, 20, 50, 0.45),
+    0 0 44px rgba(109, 255, 200, 0.22);
+  animation: tv-skin-aurora-drift 14s ease-in-out infinite alternate;
+}
+
+.tv-skin--aurora.tv-player-panel::before {
+  border-radius: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: none;
+}
+
+.tv-skin--aurora .tv-antenna-base {
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 8px rgba(109, 255, 200, 0.4);
+}
+
+.tv-skin--aurora .tv-antenna-mast {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.tv-skin--aurora .tv-antenna-ear {
+  background: linear-gradient(180deg, #ffffff, rgba(255, 255, 255, 0.3));
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+}
+
+.tv-skin--aurora .tv-antenna-ball {
+  background: radial-gradient(circle at 35% 35%, #fff 0%, #6dffc8 45%, #2bbf8f 100%);
+  box-shadow: 0 0 12px #6dffc8;
+}
+
+.tv-skin--aurora .tv-antenna-ear--right .tv-antenna-ball {
+  background: radial-gradient(circle at 35% 35%, #fff 0%, #a578ff 50%, #5b3bd1 100%);
+  box-shadow: 0 0 12px #a578ff;
+}
+
+.tv-skin--aurora .tv-player-frame {
+  border-radius: 1.1rem;
+  background: linear-gradient(180deg, rgba(5, 10, 25, 0.85), rgba(5, 8, 20, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+.tv-skin--aurora .tv-video-wrap {
+  border-radius: 0.75rem;
+}
+
+.tv-skin--aurora .tv-video-wrap--empty {
+  background: radial-gradient(ellipse at 50% 120%, #10305a 0%, #071226 55%, #030712 100%);
+}
+
+/* Stars */
+.tv-skin--aurora .tv-video-wrap--empty::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 8% 22%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 18% 64%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 27% 38%, #fff, transparent),
+    radial-gradient(1px 1px at 41% 12%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 56% 30%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1.5px 1.5px at 67% 18%, #fff, transparent),
+    radial-gradient(1px 1px at 78% 52%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1px 1px at 88% 28%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 94% 70%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 35% 82%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1.5px 1.5px at 72% 86%, rgba(255, 255, 255, 0.7), transparent);
+  animation: tv-skin-twinkle 5s ease-in-out infinite alternate;
+}
+
+/* Northern lights */
+.tv-skin--aurora .tv-video-wrap--empty::after {
+  content: '';
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  top: 4%;
+  height: 60%;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 40% 60% at 25% 50%, rgba(109, 255, 200, 0.55), transparent 70%),
+    radial-gradient(ellipse 35% 55% at 55% 40%, rgba(120, 200, 255, 0.45), transparent 70%),
+    radial-gradient(ellipse 30% 50% at 80% 55%, rgba(165, 120, 255, 0.5), transparent 70%);
+  filter: blur(14px);
+  opacity: 0.8;
+  transform: skewY(-6deg);
+  animation: tv-skin-aurora-wave 9s ease-in-out infinite alternate;
+}
+
+.tv-skin--aurora .tv-placeholder {
+  color: #f2fbff;
+}
+
+.tv-skin--aurora .tv-placeholder-icon {
+  color: #6dffc8;
+  opacity: 0.9;
+  text-shadow: 0 0 12px rgba(109, 255, 200, 0.6);
+}
+
+.tv-skin--aurora .tv-now-action:not(.tv-now-action--record):not(.tv-now-action--stop):not(.tv-now-action--warn):not(.tv-now-action--fav) {
+  color: #f2fbff;
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(4px);
+}
+
+.tv-skin--aurora .tv-now-action.is-lit:not(.tv-now-action--record):not(.tv-now-action--stop):not(.tv-now-action--warn):not(.tv-now-action--fav) {
+  background: linear-gradient(135deg, rgba(109, 255, 200, 0.6), rgba(165, 120, 255, 0.6));
+}
+
+.tv-skin--aurora .tv-now-action .fa {
+  text-shadow: none;
+}
+
+.tv-skin--aurora .tv-volume-slider-wrap {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.tv-skin--aurora .tv-volume-slider,
+.tv-skin--aurora .tv-volume-slider::-moz-range-track {
+  background: linear-gradient(90deg, #6dffc8, #78c8ff, #a578ff);
+}
+
+.tv-skin--aurora .tv-volume-slider::-webkit-slider-thumb {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #e3edf5 50%, #a9b8c8 100%);
+}
+
+.tv-skin--aurora .tv-volume-slider::-moz-range-thumb {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #e3edf5 50%, #a9b8c8 100%);
+}
+
+/* ---------- Keyframes ---------- */
+
+@keyframes tv-skin-neon-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(0, 229, 255, 0.35),
+      0 0 18px rgba(255, 43, 214, 0.55),
+      0 0 42px rgba(0, 229, 255, 0.18),
+      inset 0 0 24px rgba(255, 43, 214, 0.25),
+      0 22px 44px rgba(10, 0, 30, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(0, 229, 255, 0.6),
+      0 0 28px rgba(255, 43, 214, 0.85),
+      0 0 60px rgba(0, 229, 255, 0.3),
+      inset 0 0 30px rgba(255, 43, 214, 0.35),
+      0 22px 44px rgba(10, 0, 30, 0.55);
+  }
+}
+
+@keyframes tv-skin-grid-scroll {
+  from { background-position: 0 0, 0 0, 0 0; }
+  to { background-position: 0 16px, 0 0, 0 0; }
+}
+
+@keyframes tv-skin-gear-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes tv-skin-spark {
+  0% { box-shadow: 0 0 10px #6fd3ff, 0 0 20px rgba(111, 211, 255, 0.6); }
+  100% { box-shadow: 0 0 4px #6fd3ff, 0 0 8px rgba(111, 211, 255, 0.3); }
+}
+
+@keyframes tv-skin-aurora-drift {
+  0% { background-position: 0 0, 0% 0%, 100% 0%, 50% 100%, 0 0; }
+  100% { background-position: 0 0, 60% 40%, 40% 60%, 30% 70%, 0 0; }
+}
+
+@keyframes tv-skin-aurora-wave {
+  0% { transform: skewY(-6deg) translateX(-6%) scaleY(1); }
+  50% { transform: skewY(-2deg) translateX(3%) scaleY(1.15); }
+  100% { transform: skewY(-8deg) translateX(6%) scaleY(0.92); }
+}
+
+@keyframes tv-skin-twinkle {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+
+/* ---------- Mobile ---------- */
+
+@media (max-width: 640px) {
+  .tv-player-panel.tv-skin--artdeco {
+    padding: 0.9rem 0.4rem 1.2rem;
+    border-radius: 2rem 2rem 0.8rem 0.8rem / 1.5rem 1.5rem 0.8rem 0.8rem;
+  }
+
+  .tv-skin--artdeco.tv-player-panel::before {
+    border-radius: 1.75rem 1.75rem 0.6rem 0.6rem / 1.3rem 1.3rem 0.6rem 0.6rem;
+  }
+
+  .tv-skin--artdeco .tv-antenna {
+    top: -1.3rem;
+  }
+
+  .tv-player-panel.tv-skin--spaceage {
+    padding: 0.55rem 0.6rem 0.6rem;
+    border-radius: 1.8rem;
+  }
+
+  .tv-skin--spaceage.tv-player-panel::before {
+    border-radius: 1.5rem;
+  }
+
+  .tv-skin--spaceage .tv-player-frame {
+    border-radius: 1.3rem;
+  }
+
+  .tv-skin--spaceage .tv-video-wrap {
+    border-radius: 0.9rem;
+  }
+
+  .tv-player-panel.tv-skin--military,
+  .tv-player-panel.tv-skin--steampunk {
+    padding: 0.6rem;
+  }
+
+  .tv-player-panel.tv-skin--aurora {
+    padding: 0.4rem;
+  }
+
+  .tv-skin--military .tv-antenna {
+    width: 9rem;
+  }
+
+  .tv-skin--steampunk.tv-player-panel::after {
+    right: -0.35rem;
+    width: 2.1rem;
+    height: 2.1rem;
+  }
+}
+
+/* ---------- Immersive landscape stage: keep the screen edge-to-edge ---------- */
+
+:host.tv-landscape-fs .tv-player-panel.tv-player-panel {
+  padding: 0;
+  background: #000;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  animation: none;
+}
+
+:host.tv-landscape-fs .tv-player-panel::before,
+:host.tv-landscape-fs .tv-player-panel::after,
+:host.tv-landscape-fs .tv-video-wrap::before,
+:host.tv-landscape-fs .tv-video-wrap::after,
+:host.tv-landscape-fs .tv-antenna {
+  display: none;
+}
+
+:host.tv-landscape-fs .tv-player-panel:not(.tv-skin--classic) .tv-player-frame {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  outline: none;
+}
+
+:host.tv-landscape-fs .tv-player-panel .tv-video-wrap {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-skin--synthwave.tv-player-panel--on,
+  .tv-skin--synthwave .tv-video-wrap--empty::after,
+  .tv-skin--steampunk.tv-player-panel--on::after,
+  .tv-skin--steampunk.tv-player-panel--on .tv-antenna-ball,
+  .tv-skin--aurora.tv-player-panel--on,
+  .tv-skin--aurora .tv-video-wrap--empty::before,
+  .tv-skin--aurora .tv-video-wrap--empty::after {
+    animation: none !important;
+  }
+}

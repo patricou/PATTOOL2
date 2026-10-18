@@ -3,6 +3,7 @@ package com.pat.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -16,6 +17,7 @@ import org.springframework.mail.MailException;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.MailAuthenticationException;
 import java.io.File;
+import java.util.List;
 
 /**
  * Created by patricou on 01/06/2016.
@@ -225,6 +227,57 @@ public class SmtpMailSender {
             } catch (Exception e) {
                 log.error("Failed to send email with inline image to {}: {}", recipient, e.getMessage(), e);
                 throw new RuntimeException("Failed to send email with inline image: " + e.getMessage(), e);
+            }
+        }
+    }
+
+    /** Binary MIME part (inline image referenced by {@code cid:} or file attachment). */
+    public record MailPart(String name, byte[] bytes, String contentType) {}
+
+    /**
+     * Multipart email: plain + HTML alternative, optional inline images ({@link MailPart#name()} is the
+     * content-id) and optional file attachments ({@link MailPart#name()} is the file name).
+     */
+    @Async
+    public void sendMailWithParts(String from, String to, String bcc, String subject,
+            String plainText, String htmlBody, List<MailPart> inlines, List<MailPart> attachments) {
+        String[] recipients = parseRecipients(to);
+        for (String recipient : recipients) {
+            MimeMessage mail = javaMailSender.createMimeMessage();
+            try {
+                MimeMessageHelper helper = new MimeMessageHelper(mail, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, "UTF-8");
+                helper.setTo(recipient);
+                if (bcc != null && !bcc.trim().isEmpty()) {
+                    helper.setBcc(parseRecipients(bcc));
+                }
+                helper.setReplyTo(from);
+                helper.setFrom(from, "PatTool Application");
+                helper.setSubject(subject);
+                helper.setText(plainText != null && !plainText.isEmpty() ? plainText : htmlToPlainText(htmlBody), htmlBody);
+                if (inlines != null) {
+                    for (MailPart p : inlines) {
+                        helper.addInline(p.name(), new ByteArrayResource(p.bytes()), p.contentType());
+                    }
+                }
+                if (attachments != null) {
+                    for (MailPart p : attachments) {
+                        helper.addAttachment(p.name(), new ByteArrayResource(p.bytes()), p.contentType());
+                    }
+                }
+                mail.setHeader("X-Mailer", "PatTool Application");
+                mail.setHeader("X-Priority", "3");
+                mail.setHeader("Importance", "Normal");
+                mail.setHeader("List-Unsubscribe", "<mailto:" + from + "?subject=Unsubscribe>");
+                mail.setHeader("List-Unsubscribe-Post", "List-Unsubscribe=One-Click");
+                if (mail.getMessageID() == null) {
+                    mail.setHeader("Message-ID", generateMessageId());
+                }
+                log.debug("Sending email with parts via SMTP - To: {}, Subject: {}", recipient, subject);
+                javaMailSender.send(mail);
+                log.debug("Email with parts sent successfully to {} - Subject: '{}'", recipient, subject);
+            } catch (Exception e) {
+                log.error("Failed to send email with parts to {}: {}", recipient, e.getMessage(), e);
+                throw new RuntimeException("Failed to send email with parts: " + e.getMessage(), e);
             }
         }
     }

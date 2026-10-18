@@ -72,6 +72,15 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
             return next.handle(req);
         }
 
+        // Stellarium, Sky-Map and Wikipedia are permitAll. Waiting on getToken()
+        // redirected to login when the ISS fiche loaded (Noctua Sky 502 + session not ready).
+        const isPublicSkyCatalogGet =
+            req.method === 'GET'
+            && /\/api\/external\/(stellarium|skymap|wiki)\//i.test(req.url);
+        if (isPublicSkyCatalogGet) {
+            return next.handle(req);
+        }
+
         // Webcam catalog is permitAll. Waiting on getToken() redirected to Keycloak
         // and reloaded the webcam page in a loop. /last and /favorites stay authenticated.
         const isWebcamPublicApiGet =
@@ -276,6 +285,9 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
         // Optional per-user webcam state: a 401 must fall through to localStorage,
         // not replace the page with Keycloak (that reloaded /tools/webcam in a loop).
         if (/\/api\/external\/webcam\/(last|favorites)(\/|$|\?)/i.test(url)) {
+            return true;
+        }
+        if (req.method === 'GET' && /\/api\/external\/(stellarium|skymap|wiki)\//i.test(url)) {
             return true;
         }
         return url.includes('/uploadfile') || url.includes('/uploadondisk');

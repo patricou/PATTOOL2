@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api")
 public class MailController {
@@ -197,6 +199,33 @@ public class MailController {
         }
 
         log.debug("=== END MAIL SENDING ATTEMPT (WITH INLINE IMAGE) ===\n");
+        return null;
+    }
+
+    /**
+     * Send plain + HTML to one recipient with inline images ({@code cid:}) and file attachments.
+     */
+    public String sendMailToRecipientWithParts(String recipientEmail, String subject, String plainText, String htmlBody,
+            List<SmtpMailSender.MailPart> inlines, List<SmtpMailSender.MailPart> attachments, String bcc) {
+        log.debug("=== MAIL SENDING ATTEMPT (WITH PARTS) ===");
+        log.debug("Subject: {}", subject);
+        log.debug("To: {}", recipientEmail);
+        log.debug("Mail enabled (app.sendmail): {}", sendmail);
+        try {
+            if (sendmail && recipientEmail != null && !recipientEmail.trim().isEmpty()) {
+                smtpMailSender.sendMailWithParts(mailSentFrom, recipientEmail, bcc, subject, plainText, htmlBody,
+                        inlines, attachments);
+                log.debug("✓ Mail with parts sent successfully to {} - Subject: '{}'", recipientEmail, subject);
+            } else if (!sendmail) {
+                log.warn("✗ Mail sending skipped - app.sendmail is set to false");
+            } else {
+                log.warn("✗ Mail sending skipped - recipient email is empty");
+            }
+        } catch (Exception e) {
+            log.error("✗ ERROR sending mail to {} - Subject: '{}' - Error: {}",
+                    recipientEmail, subject, e.getMessage(), e);
+        }
+        log.debug("=== END MAIL SENDING ATTEMPT (WITH PARTS) ===\n");
         return null;
     }
 

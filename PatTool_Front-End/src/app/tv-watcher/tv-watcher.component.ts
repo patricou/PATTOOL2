@@ -82,13 +82,24 @@ import { YoutubeEqualizerModalComponent } from '../youtube-watcher/youtube-equal
 
 type TvListMode = 'catalog' | 'favorites' | 'recordings' | 'arte' | 'ia';
 type RecordingVisibilityPreset = 'private' | 'public' | 'friends' | 'friendGroups';
+export type TvSkin = 'classic' | 'artdeco' | 'synthwave' | 'spaceage' | 'military' | 'steampunk' | 'aurora';
+
+const TV_SKINS: readonly TvSkin[] = [
+  'classic',
+  'artdeco',
+  'synthwave',
+  'spaceage',
+  'military',
+  'steampunk',
+  'aurora'
+];
 
 @Component({
   selector: 'app-tv-watcher',
   standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, TvEpgBrowserComponent, TvGlobalFilterModalComponent, YoutubeEqualizerModalComponent],
   templateUrl: './tv-watcher.component.html',
-  styleUrls: ['./tv-watcher.component.css']
+  styleUrls: ['./tv-watcher.component.css', './tv-skins.css']
 })
 export class TvWatcherComponent implements OnInit, OnDestroy {
   @ViewChild('videoEl')
@@ -296,6 +307,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private tokenRenewedToastTimer: ReturnType<typeof setTimeout> | null = null;
   /** When true, leaving the page keeps playback in the floating player. */
   keepAliveOnNavigate = true;
+  readonly tvSkins = TV_SKINS;
+  tvSkin: TvSkin = 'classic';
+  skinMenuOpen = false;
+  private skinChosenThisVisit = false;
+  private skinLoadSub?: Subscription;
+  private skinSaveSub?: Subscription;
   readonly canNativeShare =
     typeof navigator !== 'undefined' && typeof (navigator as Navigator).share === 'function';
 
@@ -379,6 +396,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private static readonly LAST_CHANNEL_STORAGE_KEY = 'pattool.tv.last-channel';
   private static readonly KEEP_ALIVE_STORAGE_KEY = 'pattool.tv.keep-alive';
   private static readonly SIDEBAR_COLLAPSED_STORAGE_KEY = 'pattool.tv.sidebar-collapsed';
+  private static readonly SKIN_STORAGE_KEY = 'pattool.tv.skin';
   private static readonly CATALOG_COUNT_STORAGE_KEY = 'pattool.tv.catalog-count';
   /** Max length for virtual stream tokens in share links (not full http URLs). */
   private static readonly SHARE_STREAM_MAX_LEN = 160;
@@ -810,6 +828,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.keepAliveOnNavigate = this.readKeepAlivePreference();
+    this.restoreSkinPreference();
     this.sidebarCollapsed = this.readSidebarCollapsedPreference();
     this.channelSearchSub = this.channelSearch$
       .pipe(debounceTime(280), distinctUntilChanged())
@@ -909,6 +928,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.iaProgramsSub?.unsubscribe();
     this.resumeSub?.unsubscribe();
     this.lastChannelSaveSub?.unsubscribe();
+    this.skinLoadSub?.unsubscribe();
     this.applyLeavePagePlaybackPolicy();
     this.destroyPlayer();
     for (const t of this.downloadTimers) {
@@ -1102,6 +1122,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown', ['$event'])
   onFocusEscape(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.skinMenuOpen) {
+      this.skinMenuOpen = false;
+      this.cdr.markForCheck();
+      return;
+    }
     if (event.key !== 'Escape' || event.defaultPrevented || !this.focusMode) {
       return;
     }
@@ -1289,11 +1314,88 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
+  skinNameKey(skin: TvSkin): string {
+    return `TV.SKIN_${skin.toUpperCase()}`;
+  }
+
+  skinDescKey(skin: TvSkin): string {
+    return `TV.SKIN_${skin.toUpperCase()}_DESC`;
+  }
+
+  toggleSkinMenu(event: Event): void {
+    event.stopPropagation();
+    this.skinMenuOpen = !this.skinMenuOpen;
+    this.cdr.markForCheck();
+  }
+
+  setTvSkin(skin: TvSkin): void {
+    this.tvSkin = skin;
+    this.skinMenuOpen = false;
+    this.skinChosenThisVisit = true;
+    this.writeLocalSkin(skin);
+    this.saveRemoteSkin(skin);
+    this.cdr.markForCheck();
+  }
+
+  private static isTvSkin(value: string | null | undefined): value is TvSkin {
+    return !!value && (TV_SKINS as readonly string[]).includes(value);
+  }
+
+  private readLocalSkin(): TvSkin | null {
+    try {
+      const raw = localStorage.getItem(TvWatcherComponent.SKIN_STORAGE_KEY);
+      return TvWatcherComponent.isTvSkin(raw) ? raw : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private writeLocalSkin(skin: TvSkin): void {
+    try {
+      localStorage.setItem(TvWatcherComponent.SKIN_STORAGE_KEY, skin);
+    } catch {
+      /* private mode / quota */
+    }
+  }
+
+  private saveRemoteSkin(skin: TvSkin): void {
+    if (!this.isLoggedIn) {
+      return;
+    }
+    this.skinSaveSub?.unsubscribe();
+    this.skinSaveSub = this.api.saveTvSkin(skin).pipe(catchError(() => of(null))).subscribe();
+  }
+
+  /** Local value applies instantly; the account value (if any) wins once loaded, unless the user already picked one. */
+  private restoreSkinPreference(): void {
+    const local = this.readLocalSkin();
+    this.tvSkin = local ?? 'classic';
+    if (!this.isLoggedIn) {
+      return;
+    }
+    this.skinLoadSub = this.api.getTvSkin().pipe(catchError(() => of(null))).subscribe((remote) => {
+      if (!this.pageAlive || this.skinChosenThisVisit) {
+        return;
+      }
+      if (TvWatcherComponent.isTvSkin(remote)) {
+        this.tvSkin = remote;
+        this.writeLocalSkin(remote);
+        this.cdr.markForCheck();
+      } else if (local) {
+        this.saveRemoteSkin(local);
+      }
+    });
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement | null;
     let changed = false;
     let closedOverlay = false;
+    if (this.skinMenuOpen && !target?.closest?.('.tv-skin-picker')) {
+      this.skinMenuOpen = false;
+      changed = true;
+    }
     if (this.shareMenuOpen && !target?.closest?.('.tv-share-wrap')) {
       this.shareMenuOpen = false;
       changed = true;

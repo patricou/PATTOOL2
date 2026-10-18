@@ -110,6 +110,16 @@
       </button>
       <button
         type="button"
+        class="btn btn-sm btn-info pat-assistant-header-btn pat-assistant-header-email"
+        [disabled]="!canShareAssistantWhatsApp()"
+        (click)="openEmailShareModal(); $event.stopPropagation()"
+        [title]="'ASSISTANT.SHARE_EMAIL_HINT' | translate"
+        [attr.aria-label]="'ASSISTANT.SHARE_EMAIL' | translate">
+        <i class="fa fa-envelope me-1" aria-hidden="true"></i>
+        <span class="pat-assistant-header-email-text">{{ 'ASSISTANT.SHARE_EMAIL' | translate }}</span>
+      </button>
+      <button
+        type="button"
         class="btn btn-sm btn-outline-secondary pat-assistant-header-btn pat-assistant-header-pdf"
         [disabled]="!canShareAssistantWhatsApp()"
         (click)="exportAssistantThreadPdf($event)"
@@ -1182,6 +1192,126 @@
     <button type="button" class="btn btn-sm btn-success" (click)="confirmAssistantWhatsAppShare()">
       <i class="fa fa-whatsapp me-1"></i>
       {{ 'EVENTELEM.SHARE_NOW' | translate }}
+    </button>
+  </div>
+</ng-template>
+
+<ng-template #assistantEmailShareModal let-modal>
+  <div class="modal-header bg-info text-white">
+    <h5 class="modal-title">
+      <i class="fa fa-envelope me-2" aria-hidden="true"></i>
+      {{ 'ASSISTANT.SHARE_EMAIL_TITLE' | translate }}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" (click)="cancelAssistantEmailShare()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+  <div class="modal-body">
+    <fieldset class="mb-3 border rounded px-3 py-2">
+      <legend class="float-none w-auto fs-6 fw-semibold px-1 mb-2">
+        {{ 'ASSISTANT.SHARE_WHATSAPP_SCOPE_LABEL' | translate }}
+      </legend>
+      <div class="form-check">
+        <input
+          class="form-check-input"
+          type="radio"
+          name="assistantEmailShareScope"
+          id="assistantEmailShareScopeFull"
+          value="full"
+          [(ngModel)]="emailShareTranscriptMode" />
+        <label class="form-check-label" for="assistantEmailShareScopeFull">
+          {{ 'ASSISTANT.SHARE_WHATSAPP_SCOPE_FULL' | translate }}
+        </label>
+      </div>
+      <div class="form-check mb-0">
+        <input
+          class="form-check-input"
+          type="radio"
+          name="assistantEmailShareScope"
+          id="assistantEmailShareScopeAssistantOnly"
+          value="assistant_only"
+          [(ngModel)]="emailShareTranscriptMode" />
+        <label class="form-check-label" for="assistantEmailShareScopeAssistantOnly">
+          {{ 'ASSISTANT.SHARE_WHATSAPP_SCOPE_ASSISTANT_ONLY' | translate }}
+        </label>
+      </div>
+    </fieldset>
+
+    <div class="mb-3">
+      <label class="form-label fw-semibold mb-1">
+        <i class="fa fa-users me-1" aria-hidden="true"></i>
+        {{ 'ASSISTANT.SHARE_EMAIL_RECIPIENTS' | translate }}
+      </label>
+      <p class="small text-muted mb-2">{{ 'ASSISTANT.SHARE_EMAIL_FRIENDS_ONLY' | translate }}</p>
+      <div *ngIf="emailShareRecipientsLoading" class="text-muted small">
+        <i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>
+        {{ 'ASSISTANT.SHARE_EMAIL_LOADING_RECIPIENTS' | translate }}
+      </div>
+      <div *ngIf="!emailShareRecipientsLoading && emailShareRecipients.length === 0" class="text-muted small">
+        {{ 'ASSISTANT.SHARE_EMAIL_NO_FRIENDS' | translate }}
+      </div>
+      <div class="assistant-email-share-chips">
+        <button
+          type="button"
+          class="btn btn-sm"
+          *ngFor="let r of emailShareRecipients"
+          [disabled]="!r.hasEmail || emailShareSending"
+          [class.btn-info]="emailShareSelectedIds.has(r.memberId)"
+          [class.text-white]="emailShareSelectedIds.has(r.memberId)"
+          [class.btn-outline-secondary]="!emailShareSelectedIds.has(r.memberId)"
+          [title]="r.hasEmail ? r.displayName : ('ASSISTANT.SHARE_EMAIL_NO_ADDRESS' | translate)"
+          (click)="toggleEmailShareRecipient(r.memberId)">
+          <i
+            class="fa me-1"
+            [class.fa-check-circle]="emailShareSelectedIds.has(r.memberId)"
+            [class.fa-circle-o]="!emailShareSelectedIds.has(r.memberId)"
+            aria-hidden="true"></i>
+          {{ r.displayName }}
+          <span *ngIf="r.isSelf" class="badge bg-secondary ms-1">{{ 'ASSISTANT.SHARE_EMAIL_ME' | translate }}</span>
+          <i *ngIf="!r.hasEmail" class="fa fa-ban text-muted ms-1" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label for="assistantEmailShareMsg" class="form-label fw-semibold mb-1">
+        {{ 'ASSISTANT.SHARE_EMAIL_MESSAGE' | translate }}
+      </label>
+      <textarea
+        id="assistantEmailShareMsg"
+        class="form-control form-control-sm"
+        rows="3"
+        maxlength="4000"
+        [(ngModel)]="emailShareMessage"
+        [placeholder]="'ASSISTANT.SHARE_WHATSAPP_TEXTAREA_PLACEHOLDER' | translate"
+        style="resize: vertical; max-height: 180px"></textarea>
+    </div>
+
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="checkbox" id="assistantEmailShareAttachPdf" [(ngModel)]="emailShareAttachPdf" />
+      <label class="form-check-label" for="assistantEmailShareAttachPdf">
+        <i class="fa fa-file-pdf-o me-1" aria-hidden="true"></i>
+        {{ 'ASSISTANT.SHARE_EMAIL_ATTACH_PDF' | translate }}
+      </label>
+    </div>
+    <p class="small text-muted mb-0">{{ 'ASSISTANT.SHARE_EMAIL_FULL_TEXT_NOTE' | translate }}</p>
+
+    <div *ngIf="emailShareErrorKey" class="alert alert-danger small mb-0 mt-3 py-2" role="alert">
+      {{ emailShareErrorKey | translate }}
+    </div>
+    <div *ngIf="emailShareSuccessParams" class="alert alert-success small mb-0 mt-3 py-2" role="status">
+      {{ 'ASSISTANT.SHARE_EMAIL_SENT' | translate: emailShareSuccessParams }}
+    </div>
+  </div>
+  <div class="modal-footer py-2 px-3">
+    <button type="button" class="btn btn-sm btn-secondary" (click)="cancelAssistantEmailShare()">
+      {{ (emailShareSuccessParams ? 'COMMUN.CLOSE' : 'COMMUN.CANCEL') | translate }}
+    </button>
+    <button
+      type="button"
+      class="btn btn-sm btn-info text-white"
+      (click)="confirmAssistantEmailShare()"
+      [disabled]="emailShareSending || emailShareSelectedIds.size === 0">
+      <i class="fa me-1" [class.fa-spinner]="emailShareSending" [class.fa-spin]="emailShareSending" [class.fa-paper-plane]="!emailShareSending" aria-hidden="true"></i>
+      {{ 'ASSISTANT.SHARE_EMAIL_SEND' | translate }}
     </button>
   </div>
 </ng-template>

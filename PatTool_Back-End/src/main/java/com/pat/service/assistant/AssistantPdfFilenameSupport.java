@@ -52,7 +52,7 @@ public final class AssistantPdfFilenameSupport {
         return "";
     }
 
-    static String plainTextForSlug(String raw) {
+    public static String plainTextForSlug(String raw) {
         if (raw == null || raw.isBlank()) {
             return "";
         }

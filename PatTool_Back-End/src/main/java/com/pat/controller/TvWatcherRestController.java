@@ -25,6 +25,7 @@ import com.pat.service.TvFavoritesService;
 import com.pat.service.TvFilterPreferenceService;
 import com.pat.service.TvLastChannelService;
 import com.pat.service.TvRecordingService;
+import com.pat.service.TvSkinService;
 import com.pat.service.TvStreamProxyService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -87,6 +88,7 @@ import java.util.stream.Collectors;
  *   <li>{@code DELETE /api/external/tv/favorites/item?id=...}</li>
  *   <li>{@code GET/PUT /api/external/tv/filter-preferences} — global filter across tabs</li>
  *   <li>{@code GET/PUT /api/external/tv/last-channel} — last watched channel</li>
+ *   <li>{@code GET/PUT /api/external/tv/skin} — TV cabinet style</li>
  *   <li>{@code GET/POST /api/external/tv/recordings} — browser DVR upload (GridFS)</li>
  *   <li>{@code PATCH /api/external/tv/recordings/{id}} — rename</li>
  *   <li>{@code DELETE /api/external/tv/recordings/{id}}</li>
@@ -110,6 +112,9 @@ public class TvWatcherRestController {
 
     @Autowired
     private TvLastChannelService tvLastChannelService;
+
+    @Autowired
+    private TvSkinService tvSkinService;
 
     @Autowired
     private FranceTvLiveService franceTvLiveService;
@@ -580,6 +585,34 @@ public class TvWatcherRestController {
         }
         try {
             return ResponseEntity.ok(tvLastChannelService.saveForSubject(sub, channel));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /** TV cabinet style for the current user (empty body when none). */
+    @GetMapping("/skin")
+    public ResponseEntity<Map<String, String>> getSkin() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String skin = tvSkinService.findForSubject(sub);
+        if (skin == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(Map.of("skin", skin));
+    }
+
+    /** Persist the TV cabinet style for the current user. */
+    @PutMapping("/skin")
+    public ResponseEntity<Map<String, String>> putSkin(@RequestBody Map<String, String> body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            return ResponseEntity.ok(Map.of("skin", tvSkinService.saveForSubject(sub, body.get("skin"))));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

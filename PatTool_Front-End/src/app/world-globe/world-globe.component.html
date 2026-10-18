@@ -10,7 +10,7 @@
 
   <div
     class="wg-iss-ticker"
-    *ngIf="issTickerEnabled"
+    *ngIf="issTickerEnabled && !flightTrackingActive"
     role="marquee"
     [attr.aria-label]="tickerUiAriaLabel">
     <div
@@ -26,7 +26,7 @@
         <span>{{ tickerUiLoadingLabel }}</span>
       </div>
       <div class="wg-iss-ticker__row" *ngIf="tickerUiHasLiveData">
-        <div class="wg-iss-ticker__track" [style.animationDuration.s]="issTickerDurationSec">
+        <div class="wg-iss-ticker__track">
           <div class="wg-iss-ticker__loop-half" #issTickerHalf>
             <ng-container *ngFor="let _ of issTickerMarqueeRepeats">
               <ng-container *ngTemplateOutlet="issTickerItemsTpl"></ng-container>
@@ -70,6 +70,104 @@
     <span class="wg-iss-ticker__item" *ngIf="tickerUiStepKm != null">
       <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_STEP' | translate }}</span>
       <span class="wg-iss-ticker__val">{{ tickerUiStepKm | number : '1.0-1' }} km</span>
+    </span>
+  </ng-template>
+
+  <div
+    class="wg-iss-ticker wg-flight-ticker"
+    *ngIf="flightTrackingActive"
+    [class.wg-flight-ticker--fa]="flightDataSource === 'flightaware'"
+    role="marquee"
+    [attr.aria-label]="'WORLD_GLOBE.OPT_SECTION_FLIGHT' | translate">
+    <div class="wg-iss-ticker__label" aria-hidden="true">
+      <i class="fa fa-plane" aria-hidden="true"></i>
+      <span>{{ flightCallsign || flightTrackedQuery || ('WORLD_GLOBE.OPT_SECTION_FLIGHT' | translate) }}</span>
+    </div>
+    <div class="wg-iss-ticker__rows">
+      <div class="wg-iss-ticker__loading" *ngIf="flightStatus !== 'tracking' || flightLat == null">
+        <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+        <span>{{ 'WORLD_GLOBE.FLIGHT_LOADING' | translate }}</span>
+      </div>
+      <div class="wg-iss-ticker__row" *ngIf="flightStatus === 'tracking' && flightLat != null">
+        <div class="wg-iss-ticker__track">
+          <div class="wg-iss-ticker__loop-half" #flightTickerHalf>
+            <ng-container *ngFor="let _ of issTickerMarqueeRepeats">
+              <ng-container *ngTemplateOutlet="flightTickerItemsTpl"></ng-container>
+            </ng-container>
+          </div>
+          <div class="wg-iss-ticker__loop-half" aria-hidden="true">
+            <ng-container *ngFor="let _ of issTickerMarqueeRepeats">
+              <ng-container *ngTemplateOutlet="flightTickerItemsTpl"></ng-container>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <ng-template #flightTickerItemsTpl>
+    <span class="wg-iss-ticker__item" *ngIf="flightDataSource">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.FLIGHT_DATA_SOURCE' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ (flightDataSource === 'flightaware' ? 'WORLD_GLOBE.FLIGHT_FLIGHTAWARE' : 'WORLD_GLOBE.FLIGHT_SOURCE_OPENSKY') | translate }}</span>
+    </span>
+    <span class="wg-iss-ticker__item" *ngIf="flightIcao24">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.FLIGHT_ICAO24' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ flightIcao24 }}</span>
+    </span>
+    <span class="wg-iss-ticker__item" *ngIf="flightDepartureAirport || flightDepartureAirportName">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.FLIGHT_DEPARTURE_AIRPORT' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ formatFlightAirport(flightDepartureAirportName, flightDepartureAirportIata, flightDepartureAirport) }}</span>
+    </span>
+    <span class="wg-iss-ticker__item" *ngIf="flightDepartureCity">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.FLIGHT_DEPARTURE_CITY' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ flightDepartureCity }}</span>
+    </span>
+    <span class="wg-iss-ticker__item" *ngIf="flightArrivalAirport || flightArrivalAirportName">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.FLIGHT_ARRIVAL_AIRPORT' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ formatFlightAirport(flightArrivalAirportName, flightArrivalAirportIata, flightArrivalAirport) }}</span>
+    </span>
+    <span class="wg-iss-ticker__item" *ngIf="flightArrivalCity">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.FLIGHT_ARRIVAL_CITY' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ flightArrivalCity }}</span>
+    </span>
+    <span class="wg-iss-ticker__item" *ngIf="flightArrivalCountry">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.FLIGHT_ARRIVAL_COUNTRY' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ flightArrivalCountry }}</span>
+    </span>
+    <span class="wg-iss-ticker__item" *ngIf="formatFlightTimeEpoch(flightDepartureTimeEpoch) !== '—'">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.FLIGHT_DEPARTURE_TIME' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ formatFlightTimeEpoch(flightDepartureTimeEpoch) }}</span>
+    </span>
+    <span class="wg-iss-ticker__item" *ngIf="formatFlightTimeEpoch(flightArrivalTimeEpoch) !== '—'">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.FLIGHT_ARRIVAL_TIME' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ formatFlightTimeEpoch(flightArrivalTimeEpoch) }}</span>
+    </span>
+    <span class="wg-iss-ticker__item">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_LAT' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ flightLat | number : '1.2-2' }}°</span>
+    </span>
+    <span class="wg-iss-ticker__item">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_LON' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ flightLon | number : '1.2-2' }}°</span>
+    </span>
+    <span class="wg-iss-ticker__item">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_ALT' | translate }}</span>
+      <span class="wg-iss-ticker__val">
+        <ng-container *ngIf="flightOnGround === true; else flightTickerAlt">{{ 'WORLD_GLOBE.FLIGHT_ON_GROUND' | translate }}</ng-container>
+        <ng-template #flightTickerAlt>{{ flightAltKm != null ? (flightAltKm | number : '1.1-1') + ' km' : '—' }}</ng-template>
+      </span>
+    </span>
+    <span class="wg-iss-ticker__item" *ngIf="flightSpeedKmh != null">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_SPEED' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ flightSpeedKmh | number : '1.0-0' }} km/h</span>
+    </span>
+    <span class="wg-iss-ticker__item" *ngIf="flightTrackDeg != null">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.FLIGHT_HEADING' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ flightTrackDeg | number : '1.0-0' }}°</span>
+    </span>
+    <span class="wg-iss-ticker__item">
+      <span class="wg-iss-ticker__key">{{ 'WORLD_GLOBE.ISS_TICKER_NOW' | translate }}</span>
+      <span class="wg-iss-ticker__val">{{ issTickerNowLabel }}</span>
     </span>
   </ng-template>
 
@@ -837,6 +935,26 @@
                     </select>
                   </div>
                 </div>
+                <div class="wg-opt-row wg-opt-row--tools">
+                  <label class="wg-opt-row__label" for="wgFlightSource" [attr.title]="'WORLD_GLOBE.FLIGHT_SOURCE_HINT' | translate">{{ 'WORLD_GLOBE.FLIGHT_SOURCE' | translate }}</label>
+                  <div class="wg-opt-row__tools wg-flight-source">
+                    <span class="wg-flight-source__opt" [class.wg-flight-source__opt--on]="flightSource === 'opensky'">{{ 'WORLD_GLOBE.FLIGHT_SOURCE_OPENSKY' | translate }}</span>
+                    <div class="form-check form-switch wg-opt-switch mb-0">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        role="switch"
+                        id="wgFlightSource"
+                        name="flightSource"
+                        [ngModel]="flightSource === 'flightaware'"
+                        (ngModelChange)="onFlightSourceToggle($event)"
+                        [disabled]="!globeSurfaceReady || flightMode === 'icao24'"
+                        [attr.title]="'WORLD_GLOBE.FLIGHT_SOURCE_HINT' | translate"
+                        [attr.aria-label]="'WORLD_GLOBE.FLIGHT_SOURCE_HINT' | translate" />
+                    </div>
+                    <span class="wg-flight-source__opt" [class.wg-flight-source__opt--on]="flightSource === 'flightaware'">{{ 'WORLD_GLOBE.FLIGHT_FLIGHTAWARE' | translate }}</span>
+                  </div>
+                </div>
                 <div class="wg-opt-row wg-opt-row--tools wg-flight-query-row">
                   <input
                     type="text"
@@ -855,11 +973,20 @@
                     [attr.title]="'WORLD_GLOBE.FLIGHT_TRACK_HINT' | translate">
                     <i class="fa fa-crosshairs me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.FLIGHT_TRACK' | translate }}
                   </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-info wg-flight-aware-btn"
+                    (click)="openFlightAwareLive()"
+                    [disabled]="flightAwareIdent() == null"
+                    [attr.title]="'WORLD_GLOBE.FLIGHT_FLIGHTAWARE_HINT' | translate"
+                    [attr.aria-label]="'WORLD_GLOBE.FLIGHT_FLIGHTAWARE_HINT' | translate">
+                    <i class="fa fa-external-link me-1" aria-hidden="true"></i>{{ 'WORLD_GLOBE.FLIGHT_FLIGHTAWARE' | translate }}
+                  </button>
                 </div>
               </form>
 
               <ng-container *ngIf="flightTrackingActive">
-                <div class="wg-opt-row wg-opt-row--tools">
+                <div class="wg-opt-row wg-opt-row--tools wg-flight-actions">
                   <span class="wg-iss-tools-interval" [attr.title]="'WORLD_GLOBE.FLIGHT_POLL_INTERVAL_LABEL' | translate">
                     <input
                       id="wgFlightInterval"
@@ -900,6 +1027,16 @@
                     [attr.aria-label]="'WORLD_GLOBE.FLIGHT_CLEAR' | translate">
                     <i class="fa fa-trash" aria-hidden="true"></i>
                   </button>
+                </div>
+
+                <div
+                  class="wg-flight-data-source"
+                  *ngIf="flightDataSource as src"
+                  [class.wg-flight-data-source--fa]="src === 'flightaware'"
+                  [attr.title]="src === 'flightaware' && flightSource === 'opensky' ? ('WORLD_GLOBE.FLIGHT_DATA_SOURCE_FALLBACK' | translate) : ('WORLD_GLOBE.FLIGHT_DATA_SOURCE' | translate)">
+                  <span>{{ 'WORLD_GLOBE.FLIGHT_DATA_SOURCE' | translate }}</span>
+                  <strong>{{ (src === 'flightaware' ? 'WORLD_GLOBE.FLIGHT_FLIGHTAWARE' : 'WORLD_GLOBE.FLIGHT_SOURCE_OPENSKY') | translate }}</strong>
+                  <span class="wg-flight-data-source__fallback" *ngIf="src === 'flightaware' && flightSource === 'opensky'">{{ 'WORLD_GLOBE.FLIGHT_DATA_SOURCE_FALLBACK' | translate }}</span>
                 </div>
 
                 <p class="wg-opt-iss-meta text-info small mb-0" *ngIf="flightStatus === 'loading'">{{ 'WORLD_GLOBE.FLIGHT_LOADING' | translate }}</p>

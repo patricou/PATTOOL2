@@ -28,6 +28,7 @@ public final class PatToolParameterCatalog {
             "tv.favorites.",
             "tv.filter-preferences.",
             "tv.last-channel.",
+            "tv.skin.",
             "radio.favorites.",
             "radio.last-station.",
             "radio.skin.",

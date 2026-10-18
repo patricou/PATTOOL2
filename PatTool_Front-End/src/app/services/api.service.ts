@@ -183,6 +183,8 @@ export interface FlightState {
   departureTimeEpoch?: number | null;
   /** Estimated arrival time (OpenSky lastSeen, Unix epoch seconds UTC). */
   arrivalTimeEpoch?: number | null;
+  /** Provider that supplied this position: opensky or flightaware. */
+  dataSource?: 'opensky' | 'flightaware' | null;
 }
 
 /** Per-user satellite overlay switches (GET/PUT /external/globe/satellites/overlays). */
@@ -198,6 +200,7 @@ export interface FlightTrackingPreference {
   mode: 'callsign' | 'icao24';
   query: string;
   pollIntervalSec?: number | null;
+  source?: 'flightaware' | 'opensky' | null;
 }
 
 /** Per-user trace viewer switches and basemap (GET/PUT /external/trace-viewer/preferences). */
@@ -2013,8 +2016,12 @@ export class ApiService {
    * flight number) or 'icao24' (24-bit hex address). Returns null when the flight is not found (404).
    * Throws on upstream OpenSky failure (502).
    */
-  getFlightState(mode: 'callsign' | 'icao24', query: string): Observable<FlightState | null> {
-    const params = new HttpParams().set('mode', mode).set('q', query);
+  getFlightState(
+    mode: 'callsign' | 'icao24',
+    query: string,
+    source: 'flightaware' | 'opensky' = 'opensky'
+  ): Observable<FlightState | null> {
+    const params = new HttpParams().set('mode', mode).set('q', query).set('source', source);
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
         this._http.get<FlightState>(
@@ -2040,6 +2047,20 @@ export class ApiService {
    */
   getFlightTrack(icao24: string, time = 0): Observable<FlightTrack | null> {
     const params = new HttpParams().set('icao24', icao24).set('time', String(time));
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<FlightTrack>(
+          this.API_URL + 'external/globe/flight/track',
+          { headers, params }
+        )
+      ),
+      catchError(() => from([null as FlightTrack | null]))
+    );
+  }
+
+  /** FlightAware live track by callsign (oceanic fallback when OpenSky has no ICAO24). */
+  getFlightTrackByCallsign(callsign: string): Observable<FlightTrack | null> {
+    const params = new HttpParams().set('callsign', callsign);
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
         this._http.get<FlightTrack>(
@@ -4118,6 +4139,27 @@ export class ApiService {
     return this.getHeaderWithToken().pipe(
       switchMap((headers) =>
         this._http.put<TvChannel>(this.API_URL + 'external/tv/last-channel', channel, { headers })
+      )
+    );
+  }
+
+  getTvSkin(): Observable<string | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<{ skin: string }>(this.API_URL + 'external/tv/skin', {
+          headers,
+          observe: 'response'
+        }).pipe(
+          map((res) => (res.status === 204 ? null : res.body?.skin || null))
+        )
+      )
+    );
+  }
+
+  saveTvSkin(skin: string): Observable<{ skin: string }> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<{ skin: string }>(this.API_URL + 'external/tv/skin', { skin }, { headers })
       )
     );
   }

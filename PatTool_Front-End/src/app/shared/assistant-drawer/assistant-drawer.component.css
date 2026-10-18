@@ -470,6 +470,17 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
   letter-spacing: 0.01em;
 }
 
+.pat-assistant-header-email {
+  color: #ffffff;
+}
+
+.pat-assistant-header-email-text {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
 .pat-assistant-header-pdf-text {
   font-size: 0.78rem;
   font-weight: 600;
@@ -2377,6 +2388,7 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
   .pat-assistant-insert-img-evt-text,
   .pat-assistant-insert-cmt-evt-text,
   .pat-assistant-header-whatsapp-text,
+  .pat-assistant-header-email-text,
   .pat-assistant-header-pdf-text,
   .pat-assistant-header-history-text,
   .pat-assistant-routing-help-btn-text {
@@ -2399,6 +2411,7 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
     margin-right: 0 !important;
   }
 
+  .pat-assistant-header-email .fa-envelope,
   .pat-assistant-header-pdf .fa-file-pdf-o {
     margin-right: 0 !important;
   }
@@ -2416,6 +2429,12 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
 }
 
 /* Modale historique : styles dans src/styles.css (portail body — voir commentaire là-bas). */
+
+::ng-deep .assistant-email-share-modal .assistant-email-share-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
 
 ::ng-deep .whatsapp-share-modal .whatsapp-share-preview-stack {
   display: flex;

@@ -58,6 +58,7 @@ import {
   AssistantRoutingStored,
   AssistantProviderSlug,
   AssistantService,
+  AssistantShareEmailRequest,
   AssistantToolFlagsRequest,
   parseElapsedMsFromAssistantResponse
 } from '../../services/assistant.service';
@@ -83,6 +84,7 @@ import { EvenementsService, StreamedEvent } from '../../services/evenements.serv
 import { FileService } from '../../services/file.service';
 import { UploadConfigService } from '../../services/upload-config.service';
 import { MembersService } from '../../services/members.service';
+import { FriendsService } from '../../services/friends.service';
 import { Evenement } from '../../model/evenement';
 import { Commentary } from '../../model/commentary';
 import { environment } from '../../../environments/environment';
@@ -186,6 +188,7 @@ export class AssistantDrawerComponent
   @ViewChild('threadEl') threadEl?: ElementRef<HTMLDivElement>;
   @ViewChild('draftInput') draftInputEl?: ElementRef<HTMLTextAreaElement>;
   @ViewChild('assistantWhatsappShareModal') assistantWhatsappShareModal!: TemplateRef<unknown>;
+  @ViewChild('assistantEmailShareModal') assistantEmailShareModal!: TemplateRef<unknown>;
   @ViewChild('assistantInsertImageInEventModal') assistantInsertImageInEventModal!: TemplateRef<unknown>;
   /**
    * Modal de choix de compression d'image (réutilise les clés i18n
@@ -217,6 +220,20 @@ export class AssistantDrawerComponent
   /** Contenu du récap : tout le fil utilisateur + assistant, ou uniquement les réponses de l’assistant. */
   whatsappShareTranscriptMode: 'full' | 'assistant_only' = 'full';
   private whatsappShareModalRef: NgbModalRef | null = null;
+
+  /** Modal partage e-mail : destinataires limités à soi-même et aux amis (contrôlé côté serveur). */
+  emailShareRecipients: Array<{ memberId: string; displayName: string; hasEmail: boolean; isSelf: boolean }> = [];
+  emailShareSelectedIds = new Set<string>();
+  emailShareMessage = '';
+  emailShareTranscriptMode: 'full' | 'assistant_only' = 'full';
+  emailShareAttachPdf = true;
+  emailShareRecipientsLoading = false;
+  emailShareSending = false;
+  emailShareErrorKey: string | null = null;
+  emailShareSuccessParams: { sent: number; total: number } | null = null;
+  private emailShareModalRef: NgbModalRef | null = null;
+  private emailShareRecipientsSub?: Subscription;
+  private emailShareSendSub?: Subscription;
 
   /** Modal « Insérer dans un évènement » (image générée OU commentaire texte). */
   private insertImageModalRef: NgbModalRef | null = null;
@@ -607,6 +624,7 @@ export class AssistantDrawerComponent
     private fileService: FileService,
     private uploadConfigService: UploadConfigService,
     private membersService: MembersService,
+    private friendsService: FriendsService,
     private hostRef: ElementRef<HTMLElement>
   ) {
     // Pré-charge `app.imagemaxsizekb` dès l'instanciation du drawer pour
@@ -1621,6 +1639,16 @@ export class AssistantDrawerComponent
         /* ignore */
       }
       this.whatsappShareModalRef = null;
+    }
+    this.emailShareRecipientsSub?.unsubscribe();
+    this.emailShareSendSub?.unsubscribe();
+    if (this.emailShareModalRef) {
+      try {
+        this.emailShareModalRef.dismiss();
+      } catch {
+        /* ignore */
+      }
+      this.emailShareModalRef = null;
     }
     if (this.insertImageModalRef) {
       try {
@@ -4028,11 +4056,8 @@ export class AssistantDrawerComponent
       typeof m.content === 'string' ? m.content : ''
     ).trim();
     if (replyPlain.length > 0) {
-      const max = 1200;
-      const excerpt =
-        replyPlain.length <= max ? replyPlain : `${replyPlain.slice(0, max)}…`;
       const aiLabel = this.translate.instant('ASSISTANT.AI');
-      message += `\n\n*${aiLabel}*\n${excerpt}`;
+      message += `\n\n*${aiLabel}*\n${replyPlain}`;
     }
 
     const nav = navigator as Navigator & {
@@ -4081,12 +4106,7 @@ export class AssistantDrawerComponent
       }
     }
 
-    const waText = this.truncateForWaMe(message);
-    window.open(
-      `https://wa.me/?text=${encodeURIComponent(waText)}`,
-      '_blank',
-      'noopener,noreferrer'
-    );
+    this.openWhatsAppMePreservingFullText(message);
   }
 
   // -------------------------------------------------------------------------
@@ -4893,6 +4913,140 @@ export class AssistantDrawerComponent
     this.cdr.markForCheck();
   }
 
+  openEmailShareModal(): void {
+    if (!this.canShareAssistantWhatsApp()) {
+      return;
+    }
+    this.emailShareMessage = '';
+    this.emailShareTranscriptMode = 'full';
+    this.emailShareAttachPdf = true;
+    this.emailShareErrorKey = null;
+    this.emailShareSuccessParams = null;
+    this.emailShareSending = false;
+    this.emailShareRecipients = [];
+    this.emailShareSelectedIds = new Set<string>();
+    this.emailShareModalRef = this.modalService.open(this.assistantEmailShareModal, {
+      size: 'lg',
+      centered: true,
+      scrollable: true,
+      windowClass: 'assistant-email-share-modal'
+    });
+    const onClosed = (): void => {
+      this.emailShareModalRef = null;
+      this.emailShareSendSub?.unsubscribe();
+    };
+    this.emailShareModalRef.result.then(onClosed, onClosed);
+    this.loadEmailShareRecipients();
+    this.cdr.markForCheck();
+  }
+
+  private loadEmailShareRecipients(): void {
+    const me = this.membersService.getUser();
+    const myId = me?.id ?? '';
+    this.emailShareRecipientsLoading = true;
+    this.emailShareRecipientsSub?.unsubscribe();
+    this.emailShareRecipientsSub = this.friendsService
+      .getFriends()
+      .pipe(
+        catchError(() => of([])),
+        finalize(() => {
+          this.emailShareRecipientsLoading = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe((friends) => {
+        const byId = new Map<string, { memberId: string; displayName: string; hasEmail: boolean; isSelf: boolean }>();
+        for (const f of friends) {
+          const other = f.user1?.id === myId ? f.user2 : f.user1;
+          if (!other?.id || other.id === myId) {
+            continue;
+          }
+          byId.set(other.id, {
+            memberId: other.id,
+            displayName:
+              [other.firstName, other.lastName].filter(Boolean).join(' ').trim() || other.userName || other.id,
+            hasEmail: !!other.addressEmail?.trim(),
+            isSelf: false
+          });
+        }
+        const sorted = Array.from(byId.values()).sort((a, b) =>
+          a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' })
+        );
+        if (myId) {
+          sorted.unshift({
+            memberId: myId,
+            displayName:
+              [me.firstName, me.lastName].filter(Boolean).join(' ').trim() || me.userName || myId,
+            hasEmail: !!me.addressEmail?.trim(),
+            isSelf: true
+          });
+        }
+        this.emailShareRecipients = sorted;
+      });
+  }
+
+  toggleEmailShareRecipient(memberId: string): void {
+    if (this.emailShareSelectedIds.has(memberId)) {
+      this.emailShareSelectedIds.delete(memberId);
+    } else {
+      this.emailShareSelectedIds.add(memberId);
+    }
+    this.emailShareErrorKey = null;
+    this.emailShareSuccessParams = null;
+  }
+
+  cancelAssistantEmailShare(): void {
+    this.emailShareSendSub?.unsubscribe();
+    this.emailShareModalRef?.close();
+    this.emailShareModalRef = null;
+  }
+
+  confirmAssistantEmailShare(): void {
+    const toMemberIds = Array.from(this.emailShareSelectedIds);
+    if (toMemberIds.length === 0) {
+      this.emailShareErrorKey = 'ASSISTANT.SHARE_EMAIL_NO_RECIPIENT';
+      return;
+    }
+    if (this.emailShareSending) {
+      return;
+    }
+    const assistantOnly = this.emailShareTranscriptMode === 'assistant_only';
+    if (assistantOnly && !this.messages.some((m) => m.role === 'assistant')) {
+      this.emailShareErrorKey = 'ASSISTANT.SHARE_EMAIL_ERROR';
+      return;
+    }
+    this.emailShareSending = true;
+    this.emailShareErrorKey = null;
+    this.emailShareSuccessParams = null;
+    this.emailShareSendSub?.unsubscribe();
+    this.emailShareSendSub = this.buildAssistantPdfExportRequest$()
+      .pipe(
+        map((conversation): AssistantShareEmailRequest => ({
+          toMemberIds,
+          customMessage: this.emailShareMessage.trim() || undefined,
+          mailLang: this.translate.currentLang || 'fr',
+          attachPdf: this.emailShareAttachPdf,
+          conversation: assistantOnly
+            ? { ...conversation, turns: conversation.turns.filter((t) => t.role === 'assistant') }
+            : conversation
+        })),
+        switchMap((payload) => this.assistant.shareThreadByEmail(payload)),
+        finalize(() => {
+          this.emailShareSending = false;
+          this.cdr.markForCheck();
+        })
+      )
+      .subscribe({
+        next: (res) => {
+          this.emailShareSuccessParams = { sent: res.sent, total: res.total };
+        },
+        error: (err) => {
+          console.error('assistant share e-mail', err);
+          this.emailShareErrorKey = 'ASSISTANT.SHARE_EMAIL_ERROR';
+        }
+      });
+  }
+
   /**
    * Convertit un sous-ensemble Markdown (réponses modèle) vers le formatage texte WhatsApp :
    * *gras*, titres, ~~barré~~, liens, blocs ``` inchangés.
@@ -5397,6 +5551,8 @@ export class AssistantDrawerComponent
       }
     }
 
+    const txtFile = this.buildAssistantShareTextFile(message);
+
     const nav = navigator as Navigator & {
       share?: (data: ShareData) => Promise<void>;
       canShare?: (data: ShareData) => boolean;
@@ -5406,9 +5562,45 @@ export class AssistantDrawerComponent
       e != null && typeof e === 'object' && 'name' in e && String((e as { name?: string }).name) === 'AbortError';
 
     if (typeof nav.share === 'function') {
+      // Sans image : texte intégral via Web Share (pas de plafond wa.me).
+      if (imageFiles.length === 0) {
+        try {
+          await nav.share({ title, text: message });
+          this.cancelAssistantWhatsAppShare();
+          return;
+        } catch (err: unknown) {
+          if (aborted(err)) {
+            return;
+          }
+        }
+      } else if (message.trim()) {
+        // WhatsApp ignore souvent ShareData.text dès qu’il y a des fichiers.
+        copyPlainTextToClipboard(message);
+      }
+
+      const filesWithTranscript = [...imageFiles, txtFile];
+      try {
+        await nav.share({ title, text: message, files: filesWithTranscript });
+        this.showAssistantTransientBanner(
+          'ASSISTANT.SHARE_WHATSAPP_FULL_TEXT_CLIPBOARD',
+          'success',
+          7500
+        );
+        this.cancelAssistantWhatsAppShare();
+        return;
+      } catch (err: unknown) {
+        if (aborted(err)) {
+          return;
+        }
+      }
       if (imageFiles.length > 0) {
         try {
           await nav.share({ title, text: message, files: imageFiles });
+          this.showAssistantTransientBanner(
+            'ASSISTANT.SHARE_WHATSAPP_FULL_TEXT_CLIPBOARD',
+            'success',
+            7500
+          );
           this.cancelAssistantWhatsAppShare();
           return;
         } catch (err: unknown) {
@@ -5428,14 +5620,41 @@ export class AssistantDrawerComponent
       }
     }
 
-    const waText = this.truncateForWaMe(message);
-    if (this.whatsappShareModalRef) {
-      this.whatsappShareModalRef.close();
-      this.whatsappShareModalRef = null;
-    }
-    this.whatsappShareMessage = '';
-    this.whatsappShareTranscriptMode = 'full';
-    window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, '_blank');
+    this.openWhatsAppMePreservingFullText(message);
+    this.cancelAssistantWhatsAppShare();
     this.cdr.markForCheck();
+  }
+
+  /** Fichier texte UTF-8 de la conversation complète (repli si WhatsApp omet le champ texte). */
+  private buildAssistantShareTextFile(message: string): File {
+    const name = this.buildAssistantPdfFilename().replace(/\.pdf$/i, '.txt');
+    return new File([message], name, { type: 'text/plain' });
+  }
+
+  /**
+   * Repli {@code wa.me} : l’URL a une taille limitée, donc on n’y met qu’un extrait si besoin,
+   * et on copie toujours le texte intégral dans le presse-papiers dans ce cas.
+   */
+  private openWhatsAppMePreservingFullText(message: string): void {
+    const prefix = 'https://wa.me/?text=';
+    const maxUrl = 8000;
+    const fullUrl = `${prefix}${encodeURIComponent(message)}`;
+    if (fullUrl.length <= maxUrl) {
+      window.open(fullUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (message.trim()) {
+      copyPlainTextToClipboard(message);
+      this.showAssistantTransientBanner(
+        'ASSISTANT.SHARE_WHATSAPP_FULL_TEXT_CLIPBOARD',
+        'success',
+        8000
+      );
+    }
+    window.open(
+      `${prefix}${encodeURIComponent(this.truncateForWaMe(message))}`,
+      '_blank',
+      'noopener,noreferrer'
+    );
   }
 }

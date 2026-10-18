@@ -245,7 +245,8 @@ public class AssistantPdfExportService {
         appendPdfEmbeddedImages(body, turn, false);
     }
 
-    private String markdownToHtmlFragment(String md) {
+    /** Markdown (assistant reply) → escaped HTML fragment; also used for the e-mail share body. */
+    public String markdownToHtmlFragment(String md) {
         if (md == null || md.isBlank()) {
             return "<p>—</p>";
         }

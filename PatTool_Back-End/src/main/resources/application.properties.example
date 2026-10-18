@@ -210,6 +210,13 @@ opensky.client-secret=
 # Reuse stale snapshot up to N seconds when OpenSky returns 429 (default 900 = 15 min).
 # opensky.all-states-stale-max-seconds=900
 
+# --- FlightAware public live page (oceanic fallback when OpenSky has no ADS-B) ---
+# Parses trackpollBootstrap from /live/flight/{ident} (position + track). No API key.
+# Disable if FlightAware starts blocking the server IP (HTTP 402/403).
+# flight.flightaware.enabled=true
+# flight.flightaware.base-url=https://fr.flightaware.com
+# flight.flightaware.cache-seconds=45
+
 # --- Flight route enrichment (adsbdb.com, no API key) ---
 # When OpenSky omits estArrivalAirport during a live flight:
 # 1) retry OpenSky /flights/departure from the known departure airport + callsign

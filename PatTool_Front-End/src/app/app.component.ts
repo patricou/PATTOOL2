@@ -91,6 +91,7 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     'assistant.routing': 'USERINFO.PARAM_LABELS.ASSISTANT_ROUTING',
     'tv.favorites': 'USERINFO.PARAM_LABELS.TV_FAVORITES',
     'tv.last-channel': 'USERINFO.PARAM_LABELS.TV_LAST_CHANNEL',
+    'tv.skin': 'USERINFO.PARAM_LABELS.TV_SKIN',
     'radio.last-station': 'USERINFO.PARAM_LABELS.RADIO_LAST_STATION',
     'radio.skin': 'USERINFO.PARAM_LABELS.RADIO_SKIN',
     'webcam.favorites': 'USERINFO.PARAM_LABELS.WEBCAM_FAVORITES',

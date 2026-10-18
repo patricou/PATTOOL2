@@ -23,6 +23,7 @@ import com.pat.service.CompassCalibrationService;
 import com.pat.service.FlightTrackingPreferenceService;
 import com.pat.service.GlobeIssGlobalPrefsService;
 import com.pat.service.GlobeSatelliteOverlayPrefsService;
+import com.pat.service.FlightAwareLiveService;
 import com.pat.service.OpenSkyService;
 import com.pat.service.OpenSkyUnavailableException;
 import com.pat.service.GlobeProxyService;
@@ -82,6 +83,7 @@ public class GlobeProxyController {
     private final AstroAlignCueService astroAlignCueService;
     private final AstroTickerService astroTickerService;
     private final OpenSkyService openSkyService;
+    private final FlightAwareLiveService flightAwareLiveService;
     private final FlightTrackingPreferenceService flightTrackingPreferenceService;
     private final GlobeSatelliteOverlayPrefsService globeSatelliteOverlayPrefsService;
 
@@ -99,6 +101,7 @@ public class GlobeProxyController {
             AstroAlignCueService astroAlignCueService,
             AstroTickerService astroTickerService,
             OpenSkyService openSkyService,
+            FlightAwareLiveService flightAwareLiveService,
             FlightTrackingPreferenceService flightTrackingPreferenceService,
             GlobeSatelliteOverlayPrefsService globeSatelliteOverlayPrefsService) {
         this.globeProxyService = globeProxyService;
@@ -114,6 +117,7 @@ public class GlobeProxyController {
         this.astroAlignCueService = astroAlignCueService;
         this.astroTickerService = astroTickerService;
         this.openSkyService = openSkyService;
+        this.flightAwareLiveService = flightAwareLiveService;
         this.flightTrackingPreferenceService = flightTrackingPreferenceService;
         this.globeSatelliteOverlayPrefsService = globeSatelliteOverlayPrefsService;
     }
@@ -872,19 +876,27 @@ public class GlobeProxyController {
     /* ===================================================================== */
 
     /**
-     * Current flight state via OpenSky. {@code mode=callsign} (callsign / flight number) or
-     * {@code mode=icao24} (hex address). Returns 404 if the flight is not found / not reachable,
-     * 400 if the request is invalid.
+     * Current flight state. {@code source=opensky} (default) or {@code flightaware}.
+     * When OpenSky is selected and returns nothing (or is down), callsign search falls
+     * back to FlightAware. ICAO24 lookups always use OpenSky.
      */
     @GetMapping("/flight/state")
     public ResponseEntity<FlightStateDto> flightState(
             @RequestParam("mode") String mode,
-            @RequestParam("q") String query) {
+            @RequestParam("q") String query,
+            @RequestParam(value = "source", required = false) String source) {
         String normalizedMode = mode == null ? "" : mode.trim().toLowerCase(java.util.Locale.ROOT);
+        String normalizedSource = source == null || source.isBlank()
+                ? "opensky"
+                : source.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!normalizedSource.equals("flightaware") && !normalizedSource.equals("opensky")) {
+            return ResponseEntity.badRequest().build();
+        }
         if (query == null || query.isBlank()) {
             return ResponseEntity.badRequest().build();
         }
-        Optional<FlightStateDto> state;
+        Optional<FlightStateDto> state = Optional.empty();
+        boolean openSkyDown = false;
         switch (normalizedMode) {
             case "icao24" -> {
                 if (!OpenSkyService.isValidIcao24(query)) {
@@ -893,46 +905,75 @@ public class GlobeProxyController {
                 try {
                     state = openSkyService.fetchByIcao24(query);
                 } catch (OpenSkyUnavailableException e) {
-                    return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+                    openSkyDown = true;
                 }
             }
             case "callsign" -> {
                 if (!OpenSkyService.isValidCallsign(query)) {
                     return ResponseEntity.badRequest().build();
                 }
-                try {
-                    state = openSkyService.fetchByCallsign(query);
-                } catch (OpenSkyUnavailableException e) {
-                    return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+                if ("opensky".equals(normalizedSource)) {
+                    try {
+                        state = openSkyService.fetchByCallsign(query);
+                    } catch (OpenSkyUnavailableException e) {
+                        openSkyDown = true;
+                    }
+                    if (state.isEmpty()) {
+                        state = flightAwareLiveService.fetchByCallsign(query);
+                    }
+                } else {
+                    state = flightAwareLiveService.fetchByCallsign(query);
                 }
             }
             default -> {
                 return ResponseEntity.badRequest().build();
             }
         }
-        return state
-                .map(dto -> ResponseEntity.ok()
-                        .cacheControl(CacheControl.noStore())
-                        .body(dto))
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        if (state.isPresent()) {
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.noStore())
+                    .body(state.get());
+        }
+        if (openSkyDown && "icao24".equals(normalizedMode)) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+        return ResponseEntity.notFound().build();
     }
 
     /**
-     * Full flight trajectory (OpenSky {@code /tracks/all}) from departure to arrival.
-     * {@code time=0} (default): live track if the flight is in progress.
+     * Flight trajectory: OpenSky {@code /tracks/all} by ICAO24, or FlightAware live track
+     * by callsign when {@code callsign} is set.
      */
     @GetMapping("/flight/track")
     public ResponseEntity<FlightTrackDto> flightTrack(
-            @RequestParam("icao24") String icao24,
+            @RequestParam(value = "icao24", required = false) String icao24,
+            @RequestParam(value = "callsign", required = false) String callsign,
             @RequestParam(value = "time", defaultValue = "0") long time) {
-        if (!OpenSkyService.isValidIcao24(icao24)) {
-            return ResponseEntity.badRequest().build();
-        }
-        return openSkyService.fetchTrackByIcao24(icao24, time)
-                .map(dto -> ResponseEntity.ok()
+        if (icao24 != null && !icao24.isBlank()) {
+            if (!OpenSkyService.isValidIcao24(icao24)) {
+                return ResponseEntity.badRequest().build();
+            }
+            Optional<FlightTrackDto> track = openSkyService.fetchTrackByIcao24(icao24, time);
+            if (track.isPresent()) {
+                return ResponseEntity.ok()
                         .cacheControl(CacheControl.noStore())
-                        .body(dto))
-                .orElseGet(() -> ResponseEntity.notFound().build());
+                        .body(track.get());
+            }
+        }
+        if (callsign != null && !callsign.isBlank()) {
+            if (!OpenSkyService.isValidCallsign(callsign)) {
+                return ResponseEntity.badRequest().build();
+            }
+            return flightAwareLiveService.fetchTrackByCallsign(callsign)
+                    .map(dto -> ResponseEntity.ok()
+                            .cacheControl(CacheControl.noStore())
+                            .body(dto))
+                    .orElseGet(() -> ResponseEntity.notFound().build());
+        }
+        if (icao24 != null && !icao24.isBlank()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.badRequest().build();
     }
 
     /**

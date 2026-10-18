@@ -175,6 +175,22 @@ export interface AssistantPdfExportRequest {
   turns: AssistantPdfExportTurn[];
 }
 
+export interface AssistantShareEmailRequest {
+  /** Current user or friends only (resolved to e-mails server-side). */
+  toMemberIds: string[];
+  customMessage?: string;
+  mailLang?: string;
+  /** Attach the same PDF as the export button (default true). */
+  attachPdf?: boolean;
+  conversation: AssistantPdfExportRequest;
+}
+
+export interface AssistantShareEmailResponse {
+  sent: number;
+  skipped: number;
+  total: number;
+}
+
 /**
  * Tour persisté (Mongo) — images utilisateur en data URL ;
  * images générées assistant via {@link generatedImageAssetIds} (fichiers dédiés), pas dans {@code content}.
@@ -230,6 +246,7 @@ export class AssistantService {
     environment.API_URL + 'assistant/routing-preference';
 
   private readonly exportPdfUrl = environment.API_URL + 'assistant/export-pdf';
+  private readonly shareEmailUrl = environment.API_URL + 'assistant/share-email';
   private readonly conversationsUrl =
     environment.API_URL + 'assistant/conversations';
 
@@ -324,6 +341,15 @@ export class AssistantService {
               return throwError(() => err);
             })
           )
+      )
+    );
+  }
+
+  /** Partage de la conversation par e-mail (amis / soi-même), PDF joint en option. */
+  shareThreadByEmail(payload: AssistantShareEmailRequest): Observable<AssistantShareEmailResponse> {
+    return this.authHeaders().pipe(
+      switchMap((headers) =>
+        this.http.post<AssistantShareEmailResponse>(this.shareEmailUrl, payload, { headers })
       )
     );
   }

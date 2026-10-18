@@ -26,6 +26,8 @@ public class FlightTrackingPreferenceService {
 
     static final String PARAM_KEY_PREFIX = "globe.flight.tracking.";
     private static final Set<String> SUPPORTED_MODES = Set.of("callsign", "icao24");
+    private static final Set<String> SUPPORTED_SOURCES = Set.of("flightaware", "opensky");
+    private static final String SOURCE_DEFAULT = "opensky";
     private static final int POLL_MIN_SEC = 10;
     private static final int POLL_MAX_SEC = 600;
     private static final int POLL_DEFAULT_SEC = 15;
@@ -107,6 +109,13 @@ public class FlightTrackingPreferenceService {
                 : query.toUpperCase(Locale.ROOT);
         int poll = dto.pollIntervalSec() != null ? dto.pollIntervalSec() : POLL_DEFAULT_SEC;
         poll = Math.max(POLL_MIN_SEC, Math.min(POLL_MAX_SEC, poll));
-        return Optional.of(new FlightTrackingPreferenceDto(mode, query, poll));
+        String source = dto.source() == null ? SOURCE_DEFAULT : dto.source().trim().toLowerCase(Locale.ROOT);
+        if (source.isEmpty()) {
+            source = SOURCE_DEFAULT;
+        }
+        if (!SUPPORTED_SOURCES.contains(source)) {
+            return Optional.empty();
+        }
+        return Optional.of(new FlightTrackingPreferenceDto(mode, query, poll, source));
     }
 }
