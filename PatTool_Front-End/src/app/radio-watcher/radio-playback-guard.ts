@@ -2,7 +2,11 @@
  * Keeps a live radio stream alive across a screen lock and a dropped network.
  * The element must be an {@code <audio>} (a {@code <video>} is paused when the
  * phone sleeps). A dead socket is reopened until the listener stops the station.
+ * On Android, a playing station also holds a playback foreground service so the
+ * WebView is not frozen when the screen turns off.
  */
+
+import { screenIsOff, setScreenKeepAlive } from '../services/media-screen-keepalive';
 
 export interface RadioPlaybackGuard {
   requestReconnect(): void;
@@ -23,6 +27,15 @@ const STALL_BEFORE_START_MS = 22000;
 
 let audioSessionOwners = 0;
 
+function radioTitle(media: HTMLMediaElement): string {
+  const raw = (media.getAttribute('data-pat-media-title') || media.title || 'Radio').trim();
+  return (raw || 'Radio').slice(0, 80);
+}
+
+function syncNativeRadio(playing: boolean, title?: string): void {
+  setScreenKeepAlive('radio', playing && audioSessionOwners > 0, title);
+}
+
 export function bustRadioStreamUrl(proxyUrl: string): string {
   const join = proxyUrl.includes('?') ? '&' : '?';
   return `${proxyUrl}${join}r=${Date.now()}`;
@@ -30,7 +43,7 @@ export function bustRadioStreamUrl(proxyUrl: string): string {
 
 export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): RadioPlaybackGuard {
   const { media } = options;
-  claimRadioAudioSession();
+  claimRadioAudioSession(media);
 
   let disposed = false;
   let offline = typeof navigator !== 'undefined' && navigator.onLine === false;
@@ -38,6 +51,8 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
   let retryDelay = MIN_RETRY_MS;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let stallTimer: ReturnType<typeof setTimeout> | null = null;
+  let sleepKickTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastSleepKick = 0;
 
   const userHold = (): boolean =>
     media.dataset['patUserPaused'] === '1' && !media.error;
@@ -118,6 +133,53 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
     }, wait);
   };
 
+  const clearSleepKick = (): void => {
+    if (sleepKickTimer != null) {
+      clearTimeout(sleepKickTimer);
+      sleepKickTimer = null;
+    }
+  };
+
+  const keepPlayingThroughSleep = (): void => {
+    if (disposed || !options.isCurrent() || userHold() || sleepKickTimer != null) {
+      return;
+    }
+    const asleep =
+      screenIsOff() || (typeof document !== 'undefined' && document.visibilityState === 'hidden');
+    if (!asleep || (!media.paused && !media.ended && !media.error)) {
+      return;
+    }
+    const now = Date.now();
+    if (now - lastSleepKick < 400) {
+      return;
+    }
+    lastSleepKick = now;
+    const kick = (attempt: number): void => {
+      sleepKickTimer = null;
+      if (disposed || !options.isCurrent() || userHold()) {
+        return;
+      }
+      const stillAsleep =
+        screenIsOff() || (typeof document !== 'undefined' && document.visibilityState === 'hidden');
+      if (!stillAsleep || (!media.paused && !media.ended && !media.error)) {
+        return;
+      }
+      void media.play().catch(() => {
+        if (disposed || !options.isCurrent() || userHold()) {
+          return;
+        }
+        if (media.error) {
+          schedule(retryDelay);
+          return;
+        }
+        if (attempt < 5) {
+          sleepKickTimer = setTimeout(() => kick(attempt + 1), 450);
+        }
+      });
+    };
+    kick(0);
+  };
+
   const onPlaying = (): void => {
     if (disposed) {
       return;
@@ -126,6 +188,22 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
     retryDelay = MIN_RETRY_MS;
     clearStall();
     clearRetry();
+    syncNativeRadio(true, radioTitle(media));
+  };
+
+  const onMediaPause = (): void => {
+    keepPlayingThroughSleep();
+  };
+
+  const onScreen = (): void => {
+    if (disposed || !options.isCurrent()) {
+      return;
+    }
+    if (screenIsOff()) {
+      keepPlayingThroughSleep();
+      return;
+    }
+    onForeground();
   };
 
   const onTimeUpdate = (): void => {
@@ -203,12 +281,15 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
   };
 
   const onVisibility = (): void => {
-    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-      onForeground();
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      keepPlayingThroughSleep();
+      return;
     }
+    onForeground();
   };
 
   media.addEventListener('playing', onPlaying);
+  media.addEventListener('pause', onMediaPause);
   media.addEventListener('timeupdate', onTimeUpdate);
   media.addEventListener('waiting', onWaiting);
   media.addEventListener('stalled', onWaiting);
@@ -219,6 +300,7 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
   document.addEventListener('visibilitychange', onVisibility);
   document.addEventListener('resume', onForeground);
   window.addEventListener('pageshow', onForeground);
+  window.addEventListener('patradioscreen', onScreen);
 
   return {
     requestReconnect(): void {
@@ -231,7 +313,9 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
       disposed = true;
       clearRetry();
       clearStall();
+      clearSleepKick();
       media.removeEventListener('playing', onPlaying);
+      media.removeEventListener('pause', onMediaPause);
       media.removeEventListener('timeupdate', onTimeUpdate);
       media.removeEventListener('waiting', onWaiting);
       media.removeEventListener('stalled', onWaiting);
@@ -242,13 +326,15 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
       document.removeEventListener('visibilitychange', onVisibility);
       document.removeEventListener('resume', onForeground);
       window.removeEventListener('pageshow', onForeground);
+      window.removeEventListener('patradioscreen', onScreen);
       releaseRadioAudioSession();
     }
   };
 }
 
-function claimRadioAudioSession(): void {
+function claimRadioAudioSession(media: HTMLMediaElement): void {
   audioSessionOwners += 1;
+  syncNativeRadio(true, radioTitle(media));
   const session = audioSession();
   if (!session) {
     return;
@@ -265,6 +351,7 @@ function releaseRadioAudioSession(): void {
   if (audioSessionOwners > 0) {
     return;
   }
+  syncNativeRadio(false);
   const session = audioSession();
   if (!session) {
     return;

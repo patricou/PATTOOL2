@@ -9,11 +9,14 @@ import android.net.Network;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.view.View;
 import android.view.Window;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
+import androidx.core.content.ContextCompat;
 import java.util.Locale;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -38,6 +41,9 @@ public class MainActivity extends BridgeActivity {
     /** Tells the radio page when the phone network drops or returns, even if the screen is off. */
     private ConnectivityManager.NetworkCallback radioNetworkCallback;
 
+    /** True while radio or YouTube is playing. Set from the page, read on screen off. */
+    private volatile boolean radioKeepAlive;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -46,16 +52,15 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
-        hideNavigationBar();
-    }
-
-    @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
             hideNavigationBar();
+            return;
+        }
+        if (radioKeepAlive && !isScreenInteractive()) {
+            resumeWebViewForRadio();
+            notifyRadioScreen(true);
         }
     }
 
@@ -109,6 +114,7 @@ public class MainActivity extends BridgeActivity {
             return;
         }
         WebView webView = bridge.getWebView();
+        webView.addJavascriptInterface(new RadioNativeBridge(this), "PatRadioNative");
         webView.setWebViewClient(new BridgeWebViewClient(bridge) {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
@@ -168,20 +174,52 @@ public class MainActivity extends BridgeActivity {
     }
 
     /**
-     * Screen off pauses the WebView on some phones. If a radio is already audible,
-     * keep the page timers running so the stream can continue and reconnect.
+     * Screen off pauses the WebView on some phones. If radio or YouTube is playing,
+     * keep the page timers running and tell the page to resume the stream.
      */
     @Override
     public void onPause() {
-        boolean keepAudio = isMusicActive();
+        boolean screenOff = !isScreenInteractive();
+        boolean keepAudio = radioKeepAlive || isMusicActive();
         super.onPause();
-        if (keepAudio) {
+        if (screenOff && keepAudio) {
             resumeWebViewForRadio();
+        }
+        if (screenOff && radioKeepAlive) {
+            notifyRadioScreen(true);
         }
     }
 
     @Override
+    public void onStop() {
+        boolean screenOff = !isScreenInteractive();
+        boolean keepAudio = radioKeepAlive || isMusicActive();
+        super.onStop();
+        if (screenOff && keepAudio) {
+            resumeWebViewForRadio();
+        }
+        if (screenOff && radioKeepAlive) {
+            notifyRadioScreen(true);
+        }
+    }
+
+    @Override
+    public void onResume() {
+        notifyRadioScreen(false);
+        super.onResume();
+        hideNavigationBar();
+    }
+
+    @Override
     public void onDestroy() {
+        radioKeepAlive = false;
+        Intent stopRadio = new Intent(this, RadioKeepAliveService.class);
+        stopRadio.setAction(RadioKeepAliveService.ACTION_STOP);
+        try {
+            startService(stopRadio);
+        } catch (RuntimeException ignored) {
+            // Service already stopped, or the process is going away.
+        }
         unregisterRadioNetworkCallback();
         super.onDestroy();
     }
@@ -189,6 +227,83 @@ public class MainActivity extends BridgeActivity {
     private boolean isMusicActive() {
         AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         return audio != null && audio.isMusicActive();
+    }
+
+    private boolean isScreenInteractive() {
+        PowerManager power = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        return power == null || power.isInteractive();
+    }
+
+    /** Called from the radio page when a station starts or stops. */
+    void onRadioPlayingFromPage(boolean playing, String title) {
+        radioKeepAlive = playing;
+        runOnUiThread(() -> {
+            if (!isAppPage()) {
+                radioKeepAlive = false;
+                return;
+            }
+            if (playing) {
+                applyRadioRendererPriority(true);
+                String safe = title == null ? "Radio" : title.trim();
+                if (safe.isEmpty()) {
+                    safe = "Radio";
+                } else if (safe.length() > 80) {
+                    safe = safe.substring(0, 80);
+                }
+                Intent intent = new Intent(this, RadioKeepAliveService.class);
+                intent.putExtra(RadioKeepAliveService.EXTRA_TITLE, safe);
+                try {
+                    ContextCompat.startForegroundService(this, intent);
+                } catch (RuntimeException ignored) {
+                    // Screen already off and the system refused a new playback service.
+                }
+                return;
+            }
+            applyRadioRendererPriority(false);
+            Intent intent = new Intent(this, RadioKeepAliveService.class);
+            intent.setAction(RadioKeepAliveService.ACTION_STOP);
+            try {
+                startService(intent);
+            } catch (RuntimeException ignored) {
+                // Service already stopped.
+            }
+        });
+    }
+
+    private boolean isAppPage() {
+        Bridge bridge = getBridge();
+        if (bridge == null || bridge.getWebView() == null) {
+            return false;
+        }
+        String url = bridge.getWebView().getUrl();
+        if (url == null || url.isEmpty()) {
+            return true;
+        }
+        Uri uri = Uri.parse(url);
+        String host = uri.getHost();
+        if (host == null) {
+            return url.startsWith("file:");
+        }
+        return APP_HOST.equalsIgnoreCase(host) || "localhost".equalsIgnoreCase(host);
+    }
+
+    private void applyRadioRendererPriority(boolean important) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return;
+        }
+        Bridge bridge = getBridge();
+        if (bridge == null || bridge.getWebView() == null) {
+            return;
+        }
+        bridge.getWebView().setRendererPriorityPolicy(
+                important ? WebView.RENDERER_PRIORITY_IMPORTANT : WebView.RENDERER_PRIORITY_BOUND,
+                !important);
+    }
+
+    private void notifyRadioScreen(boolean off) {
+        runRadioScript(
+                "window.__patRadioScreenOff=" + (off ? "true" : "false")
+                        + ";window.dispatchEvent(new Event('patradioscreen'))");
     }
 
     private void resumeWebViewForRadio() {
@@ -260,5 +375,20 @@ public class MainActivity extends BridgeActivity {
                 // WebView already destroyed.
             }
         });
+    }
+}
+
+/** Page bridge: the radio player calls this when a station starts or stops. */
+class RadioNativeBridge {
+
+    private final MainActivity activity;
+
+    RadioNativeBridge(MainActivity activity) {
+        this.activity = activity;
+    }
+
+    @JavascriptInterface
+    public void setPlaying(boolean playing, String title) {
+        activity.onRadioPlayingFromPage(playing, title);
     }
 }

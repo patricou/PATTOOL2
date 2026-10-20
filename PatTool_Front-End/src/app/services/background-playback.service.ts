@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { screenIsOff, setScreenKeepAlive } from './media-screen-keepalive';
 
 /**
  * Keeps TV / radio / YouTube / archive / book (any HTML media) playing when the
@@ -25,6 +26,11 @@ export class BackgroundPlaybackService {
   /** True only after a YouTube iframe reported playing/buffering. */
   private youtubePlaying = false;
   private youtubeUserPaused = true;
+  /** Lock-screen or in-app pause button, not a pause caused by the screen turning off. */
+  private youtubeExplicitPause = false;
+  private youtubePauseMarkedAt = 0;
+  private youtubePauseTimer: ReturnType<typeof setTimeout> | null = null;
+  private youtubeSleepKick: ReturnType<typeof setTimeout> | null = null;
   private youtubeResumeAt = 0;
   private lastVisibleAt = 0;
   private pauseClassifyTimer: ReturnType<typeof setTimeout> | null = null;
@@ -45,6 +51,7 @@ export class BackgroundPlaybackService {
   };
   private readonly onVisibility = (): void => this.handleVisibility();
   private readonly onYoutubeMessage = (event: MessageEvent): void => this.handleYoutubeMessage(event);
+  private readonly onScreenPower = (): void => this.handleScreenPower();
 
   /** Call once from the app shell so capture is active on every route. */
   start(): void {
@@ -63,6 +70,7 @@ export class BackgroundPlaybackService {
     window.addEventListener('pagehide', this.onVisibility);
     window.addEventListener('pageshow', this.onVisibility);
     window.addEventListener('message', this.onYoutubeMessage);
+    window.addEventListener('patradioscreen', this.onScreenPower);
   }
 
   /** Watch a media element that is not in the DOM (e.g. {@code new Audio()}). */
@@ -108,6 +116,7 @@ export class BackgroundPlaybackService {
     }
     this.active = el;
     this.bindMediaSession(el);
+    this.syncClipKeepAlive(el, true);
   }
 
   private handlePause(event: Event): void {
@@ -140,7 +149,7 @@ export class BackgroundPlaybackService {
       if (el !== this.active || el.ended) {
         return;
       }
-      if (this.isDocumentHidden()) {
+      if (this.isDocumentHidden() || screenIsOff()) {
         if (!this.userPaused.get(el)) {
           this.resumeElement(el);
         }
@@ -154,16 +163,29 @@ export class BackgroundPlaybackService {
       }
       this.userPaused.set(el, true);
       el.dataset['patUserPaused'] = '1';
+      this.syncClipKeepAlive(el, false);
       this.setPlaybackState('paused');
     }, 280);
   }
 
   private handleEnded(event: Event): void {
     const el = event.target;
+    if (el instanceof HTMLMediaElement) {
+      this.syncClipKeepAlive(el, false);
+    }
     if (el === this.active) {
       this.active = null;
       this.setPlaybackState('none');
     }
+  }
+
+  /** Saved recording played on the YouTube page (a video element, not the iframe). */
+  private syncClipKeepAlive(el: HTMLMediaElement, playing: boolean): void {
+    if (!el.classList.contains('yt-page-clip')) {
+      return;
+    }
+    const title = (el.getAttribute('title') || el.getAttribute('data-pat-media-title') || '').trim();
+    setScreenKeepAlive('clip', playing, title || 'YouTube');
   }
 
   private handleVisibility(): void {
@@ -516,32 +538,102 @@ export class BackgroundPlaybackService {
       return;
     }
     if (state === 1 || state === 3) {
+      this.clearYoutubePauseTimer();
       this.youtubePlaying = true;
       this.youtubeUserPaused = false;
+      this.youtubeExplicitPause = false;
       this.applyYoutubeMediaSession();
       this.setPlaybackState('playing');
+      setScreenKeepAlive('youtube', true, this.youtubeTitle());
       return;
     }
     if (state === 0) {
+      this.clearYoutubePauseTimer();
       this.youtubePlaying = false;
       this.youtubeUserPaused = true;
+      this.youtubeExplicitPause = false;
       this.setPlaybackState('none');
+      setScreenKeepAlive('youtube', false);
       return;
     }
     if (state !== 2) {
       return;
     }
-    const browserLikelyPaused =
-      this.youtubePlaying &&
-      !this.youtubeUserPaused &&
-      (this.isDocumentHidden() || Date.now() - this.lastVisibleAt < 500);
-    if (browserLikelyPaused) {
-      this.resumeYoutubeIframes();
+    this.clearYoutubePauseTimer();
+    this.youtubePauseTimer = setTimeout(() => {
+      this.youtubePauseTimer = null;
+      if (!this.youtubePlaying || this.youtubeExplicitPause) {
+        return;
+      }
+      const systemPause =
+        screenIsOff() || this.isDocumentHidden() || Date.now() - this.lastVisibleAt < 700;
+      if (!this.youtubeUserPaused && systemPause) {
+        this.resumeYoutubeIframes();
+        this.scheduleYoutubeSleepKick();
+        return;
+      }
+      this.youtubePlaying = false;
+      this.youtubeUserPaused = true;
+      this.youtubePauseMarkedAt = Date.now();
+      this.setPlaybackState('paused');
+      setScreenKeepAlive('youtube', false);
+    }, 450);
+  }
+
+  /** Screen off: keep a video that was already playing, and undo a pause the phone just caused. */
+  private handleScreenPower(): void {
+    if (!screenIsOff()) {
       return;
     }
-    this.youtubePlaying = false;
-    this.youtubeUserPaused = true;
-    this.setPlaybackState('paused');
+    const el = this.active;
+    if (el && !this.userPaused.get(el) && !el.ended && el.paused) {
+      this.resumeElement(el);
+    }
+    const justMarked = this.youtubePauseMarkedAt > 0 && Date.now() - this.youtubePauseMarkedAt < 1200;
+    if (this.youtubeUserPaused && justMarked && !this.youtubeExplicitPause) {
+      this.youtubePlaying = true;
+      this.youtubeUserPaused = false;
+      setScreenKeepAlive('youtube', true, this.youtubeTitle());
+    }
+    if (!this.youtubePlaying || this.youtubeUserPaused) {
+      return;
+    }
+    this.resumeYoutubeIframes();
+    this.scheduleYoutubeSleepKick();
+  }
+
+  private scheduleYoutubeSleepKick(): void {
+    if (this.youtubeSleepKick != null) {
+      return;
+    }
+    let attempt = 0;
+    const tick = (): void => {
+      this.youtubeSleepKick = null;
+      if (!this.youtubePlaying || this.youtubeUserPaused || this.youtubeExplicitPause) {
+        return;
+      }
+      if (!screenIsOff() && !this.isDocumentHidden()) {
+        return;
+      }
+      this.resumeYoutubeIframes();
+      attempt += 1;
+      if (attempt < 5) {
+        this.youtubeSleepKick = setTimeout(tick, 450);
+      }
+    };
+    this.youtubeSleepKick = setTimeout(tick, 450);
+  }
+
+  private clearYoutubePauseTimer(): void {
+    if (this.youtubePauseTimer != null) {
+      clearTimeout(this.youtubePauseTimer);
+      this.youtubePauseTimer = null;
+    }
+  }
+
+  private youtubeTitle(): string {
+    const iframe = this.collectYoutubeIframes()[0];
+    return (iframe?.getAttribute('title') || '').trim() || 'YouTube';
   }
 
   private readYoutubePlayerState(raw: unknown): number | undefined {
@@ -608,11 +700,16 @@ export class BackgroundPlaybackService {
     this.safeSetHandler('play', () => {
       this.youtubePlaying = true;
       this.youtubeUserPaused = false;
+      this.youtubeExplicitPause = false;
+      setScreenKeepAlive('youtube', true, this.youtubeTitle());
       this.resumeYoutubeIframes();
     });
     this.safeSetHandler('pause', () => {
+      this.clearYoutubePauseTimer();
       this.youtubePlaying = false;
       this.youtubeUserPaused = true;
+      this.youtubeExplicitPause = true;
+      setScreenKeepAlive('youtube', false);
       for (const frame of this.collectYoutubeIframes()) {
         this.postYoutubeCommand(frame, 'pauseVideo');
       }

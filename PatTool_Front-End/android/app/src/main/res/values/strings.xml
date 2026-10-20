@@ -4,4 +4,7 @@
     <string name="title_activity_main">PatTool</string>
     <string name="package_name">com.pattool.frontend</string>
     <string name="custom_url_scheme">com.pattool.frontend</string>
+    <string name="radio_keepalive_channel">Lecture</string>
+    <string name="radio_keepalive_channel_desc">Maintient la radio et YouTube quand l\'écran s\'éteint</string>
+    <string name="radio_keepalive_text">Lecture en cours</string>
 </resources>

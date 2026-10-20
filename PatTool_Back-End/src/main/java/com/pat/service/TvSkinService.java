@@ -18,7 +18,8 @@ public class TvSkinService {
 
     /** Must match {@code TvSkin} in tv-watcher.component.ts. */
     public static final Set<String> ALLOWED_SKINS = Set.of(
-            "classic", "artdeco", "synthwave", "spaceage", "military", "steampunk", "aurora");
+            "classic", "artdeco", "synthwave", "spaceage", "military", "steampunk", "aurora",
+            "noir", "bamboo", "porcelain", "carbon", "candy", "espace");
 
     private final AppParameterService appParameterService;
     private final UserOwnerService userOwnerService;

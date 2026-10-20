@@ -2578,31 +2578,14 @@
   }
 }
 
-/* Sidebar follows the selected radio skin. Palette lives on --menu-* (radio-skins.css). */
+/* Sidebar inherits the skin palette from :host (--menu-* in radio-skins.css). */
 .radio-sidebar {
-  --menu-bg: #fff;
-  --menu-fg: #212529;
-  --menu-muted: #6c757d;
-  --menu-border: rgba(0, 0, 0, 0.08);
-  --menu-border-width: 1px;
-  --menu-accent: #0d6efd;
-  --menu-accent-fg: #fff;
-  --menu-toolbar: linear-gradient(180deg, rgba(240, 253, 250, 0.95), rgba(255, 255, 255, 0.6));
-  --menu-input-bg: #fff;
-  --menu-input-fg: #212529;
-  --menu-input-border: rgba(15, 23, 42, 0.12);
-  --menu-hover: rgba(13, 110, 253, 0.06);
-  --menu-active: rgba(13, 110, 253, 0.12);
-  --menu-meta-bg: #f8f9fa;
-  --menu-shadow: 0 1px 4px rgba(15, 23, 42, 0.05);
-  --menu-radius: 0.75rem;
-  --menu-logo-bg: #f8f9fa;
-  color: var(--menu-fg);
-  background: var(--menu-bg);
-  border-color: var(--menu-border);
-  border-width: var(--menu-border-width);
-  border-radius: var(--menu-radius);
-  box-shadow: var(--menu-shadow);
+  color: var(--menu-fg, #212529);
+  background: var(--menu-bg, #fff);
+  border-color: var(--menu-border, rgba(0, 0, 0, 0.08));
+  border-width: var(--menu-border-width, 1px);
+  border-radius: var(--menu-radius, 0.75rem);
+  box-shadow: var(--menu-shadow, 0 1px 4px rgba(15, 23, 42, 0.05));
 }
 
 .radio-sidebar .radio-mode-tabs,
@@ -2806,9 +2789,9 @@
 
 :host .pat-title .radio-eq-open-btn.is-live,
 :host .pat-title .radio-eq-open-btn.is-live:hover {
-  background: #7f1d1d;
-  color: #fee2e2;
-  border-color: #fca5a5;
+  background: var(--title-btn-active-bg, #ccfbf1);
+  color: var(--title-btn-active-fg, #0f766e);
+  border-color: var(--title-btn-border, #5eead4);
 }
 
 :host .pat-title .radio-global-filter-open-dot {

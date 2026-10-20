@@ -22,6 +22,21 @@ import {
 } from '../services/youtube-equalizer.service';
 
 export type YoutubeEqTheme = 'youtube' | 'tv' | 'radio' | 'videoshow';
+/** Cabinet chosen on the radio or TV page. */
+export type YoutubeEqCabinet =
+  | 'classic'
+  | 'artdeco'
+  | 'synthwave'
+  | 'spaceage'
+  | 'military'
+  | 'steampunk'
+  | 'aurora'
+  | 'noir'
+  | 'bamboo'
+  | 'porcelain'
+  | 'carbon'
+  | 'candy'
+  | 'espace';
 
 @Component({
   selector: 'app-youtube-equalizer-modal',
@@ -37,6 +52,8 @@ export class YoutubeEqualizerModalComponent implements OnDestroy {
   @Input() variant: 'youtube' | 'media' = 'youtube';
   /** Header color: matches the page that opened the equalizer. */
   @Input() theme: YoutubeEqTheme = 'youtube';
+  /** Radio / TV cabinet. The equalizer uses this skin when the page has one. */
+  @Input() cabinet: YoutubeEqCabinet | '' = '';
 
   @ViewChild('eqModal') eqModal?: TemplateRef<unknown>;
   @ViewChild('spectrum') spectrumRef?: ElementRef<HTMLCanvasElement>;
@@ -110,7 +127,7 @@ export class YoutubeEqualizerModalComponent implements OnDestroy {
       size: 'xl',
       centered: true,
       scrollable: true,
-      windowClass: 'yt-eq-modal',
+      windowClass: `yt-eq-modal yt-eq-skin-${this.theme}`,
       backdropClass: 'yt-eq-modal-backdrop',
       modalDialogClass: 'yt-eq-modal-dialog'
     });
@@ -215,12 +232,17 @@ export class YoutubeEqualizerModalComponent implements OnDestroy {
     }
     const w = canvas.width;
     const h = canvas.height;
+    const skin = getComputedStyle(canvas);
+    const pick = (name: string, fallback: string) => skin.getPropertyValue(name).trim() || fallback;
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = 'rgba(20, 8, 8, 0.92)';
+    ctx.fillStyle = pick('--eq-spectrum-fill', 'rgba(20, 8, 8, 0.92)');
     ctx.fillRect(0, 0, w, h);
     if (!analyser) {
       return;
     }
+    const barHi = pick('--eq-bar-hi', '#ff6b6b');
+    const barMid = pick('--eq-bar-mid', '#ff0000');
+    const barLo = pick('--eq-bar-lo', '#7a0000');
     const bins = new Uint8Array(analyser.frequencyBinCount);
     analyser.getByteFrequencyData(bins);
     const barCount = 48;
@@ -237,9 +259,9 @@ export class YoutubeEqualizerModalComponent implements OnDestroy {
       const x = i * (barW + gap);
       const y = h - bh;
       const gradient = ctx.createLinearGradient(0, y, 0, h);
-      gradient.addColorStop(0, '#ff6b6b');
-      gradient.addColorStop(0.45, '#ff0000');
-      gradient.addColorStop(1, '#7a0000');
+      gradient.addColorStop(0, barHi);
+      gradient.addColorStop(0.45, barMid);
+      gradient.addColorStop(1, barLo);
       ctx.fillStyle = gradient;
       ctx.fillRect(x, y, barW, bh);
     }

@@ -539,6 +539,16 @@ export class YoutubeEqualizerService {
       throw new Error('AudioContext unavailable');
     }
     const ctx = new Ctor();
+    ctx.onstatechange = () => {
+      if (ctx.state !== 'suspended') {
+        return;
+      }
+      const el = this.mediaElement;
+      if (!el || el.paused || el.ended || el.dataset['patUserPaused'] === '1') {
+        return;
+      }
+      void ctx.resume().catch(() => undefined);
+    };
     const input = ctx.createGain();
     const bypassGain = ctx.createGain();
     const processedGain = ctx.createGain();

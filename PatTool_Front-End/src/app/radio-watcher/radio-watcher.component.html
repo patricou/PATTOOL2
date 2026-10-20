@@ -56,7 +56,7 @@
           {{ 'RADIO.SKIN_TITLE' | translate }}
         </span>
         <button
-          *ngFor="let skin of radioSkins"
+          *ngFor="let skin of sortedRadioSkins; trackBy: trackRadioSkin"
           type="button"
           class="radio-skin-option"
           role="menuitemradio"
@@ -766,4 +766,4 @@
   <p class="radio-lead text-muted radio-footer">{{ 'RADIO.SUBTITLE' | translate }}</p>
 </div>
 
-<app-youtube-equalizer-modal #eqModal theme="radio" variant="media" [hasYoutubeVideo]="false"></app-youtube-equalizer-modal>
+<app-youtube-equalizer-modal #eqModal theme="radio" [cabinet]="radioSkin" variant="media" [hasYoutubeVideo]="false"></app-youtube-equalizer-modal>

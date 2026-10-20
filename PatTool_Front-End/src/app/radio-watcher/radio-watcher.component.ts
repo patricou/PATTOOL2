@@ -43,7 +43,20 @@ import { YoutubeEqualizerModalComponent } from '../youtube-watcher/youtube-equal
 
 type RadioListMode = 'catalog' | 'favorites' | 'podcasts';
 type PodcastBrowseLevel = 'shows' | 'episodes';
-export type RadioSkin = 'classic' | 'artdeco' | 'synthwave' | 'spaceage' | 'military' | 'steampunk' | 'aurora';
+export type RadioSkin =
+  | 'classic'
+  | 'artdeco'
+  | 'synthwave'
+  | 'spaceage'
+  | 'military'
+  | 'steampunk'
+  | 'aurora'
+  | 'noir'
+  | 'bamboo'
+  | 'porcelain'
+  | 'carbon'
+  | 'candy'
+  | 'espace';
 
 const RADIO_SKINS: readonly RadioSkin[] = [
   'classic',
@@ -52,7 +65,13 @@ const RADIO_SKINS: readonly RadioSkin[] = [
   'spaceage',
   'military',
   'steampunk',
-  'aurora'
+  'aurora',
+  'noir',
+  'bamboo',
+  'porcelain',
+  'carbon',
+  'candy',
+  'espace'
 ];
 
 @Component({
@@ -139,6 +158,12 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostBinding('class.radio-skin--military') get skinMilitary(): boolean { return this.radioSkin === 'military'; }
   @HostBinding('class.radio-skin--steampunk') get skinSteampunk(): boolean { return this.radioSkin === 'steampunk'; }
   @HostBinding('class.radio-skin--aurora') get skinAurora(): boolean { return this.radioSkin === 'aurora'; }
+  @HostBinding('class.radio-skin--noir') get skinNoir(): boolean { return this.radioSkin === 'noir'; }
+  @HostBinding('class.radio-skin--bamboo') get skinBamboo(): boolean { return this.radioSkin === 'bamboo'; }
+  @HostBinding('class.radio-skin--porcelain') get skinPorcelain(): boolean { return this.radioSkin === 'porcelain'; }
+  @HostBinding('class.radio-skin--carbon') get skinCarbon(): boolean { return this.radioSkin === 'carbon'; }
+  @HostBinding('class.radio-skin--candy') get skinCandy(): boolean { return this.radioSkin === 'candy'; }
+  @HostBinding('class.radio-skin--espace') get skinEspace(): boolean { return this.radioSkin === 'espace'; }
   skinMenuOpen = false;
   private skinChosenThisVisit = false;
   private skinLoadSub?: Subscription;
@@ -759,6 +784,21 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     } catch {
       return false;
     }
+  }
+
+  get sortedRadioSkins(): RadioSkin[] {
+    const lang = this.translate.currentLang || this.translate.defaultLang || 'fr';
+    return [...this.radioSkins].sort((a, b) =>
+      this.translate.instant(this.skinNameKey(a)).localeCompare(
+        this.translate.instant(this.skinNameKey(b)),
+        lang,
+        { sensitivity: 'base' }
+      )
+    );
+  }
+
+  trackRadioSkin(_index: number, skin: RadioSkin): string {
+    return skin;
   }
 
   skinNameKey(skin: RadioSkin): string {

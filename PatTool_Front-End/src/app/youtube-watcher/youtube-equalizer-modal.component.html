@@ -1,5 +1,5 @@
 <ng-template #eqModal let-modal>
-  <div class="modal-header yt-eq-header" [attr.data-theme]="theme">
+  <div class="modal-header yt-eq-header" [attr.data-theme]="theme" [attr.data-cabinet]="cabinet || null">
     <h5 class="modal-title">
       <i class="fa fa-sliders me-2" aria-hidden="true"></i>
       {{ 'YOUTUBE.EQ.TITLE' | translate }}

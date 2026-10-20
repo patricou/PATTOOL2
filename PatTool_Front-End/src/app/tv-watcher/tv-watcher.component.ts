@@ -82,7 +82,20 @@ import { YoutubeEqualizerModalComponent } from '../youtube-watcher/youtube-equal
 
 type TvListMode = 'catalog' | 'favorites' | 'recordings' | 'arte' | 'ia';
 type RecordingVisibilityPreset = 'private' | 'public' | 'friends' | 'friendGroups';
-export type TvSkin = 'classic' | 'artdeco' | 'synthwave' | 'spaceage' | 'military' | 'steampunk' | 'aurora';
+export type TvSkin =
+  | 'classic'
+  | 'artdeco'
+  | 'synthwave'
+  | 'spaceage'
+  | 'military'
+  | 'steampunk'
+  | 'aurora'
+  | 'noir'
+  | 'bamboo'
+  | 'porcelain'
+  | 'carbon'
+  | 'candy'
+  | 'espace';
 
 const TV_SKINS: readonly TvSkin[] = [
   'classic',
@@ -91,7 +104,13 @@ const TV_SKINS: readonly TvSkin[] = [
   'spaceage',
   'military',
   'steampunk',
-  'aurora'
+  'aurora',
+  'noir',
+  'bamboo',
+  'porcelain',
+  'carbon',
+  'candy',
+  'espace'
 ];
 
 @Component({
@@ -316,6 +335,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   @HostBinding('class.tv-skin--military') get skinMilitary(): boolean { return this.tvSkin === 'military'; }
   @HostBinding('class.tv-skin--steampunk') get skinSteampunk(): boolean { return this.tvSkin === 'steampunk'; }
   @HostBinding('class.tv-skin--aurora') get skinAurora(): boolean { return this.tvSkin === 'aurora'; }
+  @HostBinding('class.tv-skin--noir') get skinNoir(): boolean { return this.tvSkin === 'noir'; }
+  @HostBinding('class.tv-skin--bamboo') get skinBamboo(): boolean { return this.tvSkin === 'bamboo'; }
+  @HostBinding('class.tv-skin--porcelain') get skinPorcelain(): boolean { return this.tvSkin === 'porcelain'; }
+  @HostBinding('class.tv-skin--carbon') get skinCarbon(): boolean { return this.tvSkin === 'carbon'; }
+  @HostBinding('class.tv-skin--candy') get skinCandy(): boolean { return this.tvSkin === 'candy'; }
+  @HostBinding('class.tv-skin--espace') get skinEspace(): boolean { return this.tvSkin === 'espace'; }
   skinMenuOpen = false;
   private skinChosenThisVisit = false;
   private skinLoadSub?: Subscription;
@@ -1319,6 +1344,21 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     } catch {
       /* private mode / quota */
     }
+  }
+
+  get sortedTvSkins(): TvSkin[] {
+    const lang = this.translate.currentLang || this.translate.defaultLang || 'fr';
+    return [...this.tvSkins].sort((a, b) =>
+      this.translate.instant(this.skinNameKey(a)).localeCompare(
+        this.translate.instant(this.skinNameKey(b)),
+        lang,
+        { sensitivity: 'base' }
+      )
+    );
+  }
+
+  trackTvSkin(_index: number, skin: TvSkin): string {
+    return skin;
   }
 
   skinNameKey(skin: TvSkin): string {
