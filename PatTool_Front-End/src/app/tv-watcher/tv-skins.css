@@ -48,7 +48,7 @@
   right: 0;
   z-index: 40;
   width: min(22rem, calc(100vw - 1.5rem));
-  max-height: min(72vh, 34rem);
+  max-height: min(82vh, 44rem);
   overflow-y: auto;
   padding: 0.45rem;
   display: flex;
@@ -67,6 +67,12 @@
   letter-spacing: normal;
   text-shadow: none;
   white-space: normal;
+}
+
+.tv-skin-menu-title--next {
+  margin-top: 0.35rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--menu-border, rgba(0, 0, 0, 0.08));
 }
 
 .tv-skin-menu-title {
@@ -265,6 +271,54 @@
   box-shadow: inset 0 0 0 1px #7ee7ff, 0 0 8px rgba(126, 231, 255, 0.4);
 }
 
+.tv-skin-swatch--kanizsa {
+  background:
+    radial-gradient(circle at 50% 28%, #161616 0 11%, transparent 12%),
+    radial-gradient(circle at 30% 68%, #161616 0 11%, transparent 12%),
+    radial-gradient(circle at 70% 68%, #161616 0 11%, transparent 12%),
+    linear-gradient(#12141c, #12141c) 50% 58% / 62% 42% no-repeat,
+    #f3efe4;
+  box-shadow: inset 0 0 0 2px #161616;
+}
+
+.tv-skin-swatch--cafewall {
+  background:
+    linear-gradient(#111, #111) 0 22% / 18% 16% no-repeat,
+    linear-gradient(#f4f4f4, #f4f4f4) 22% 22% / 18% 16% no-repeat,
+    linear-gradient(#111, #111) 44% 22% / 18% 16% no-repeat,
+    linear-gradient(#f4f4f4, #f4f4f4) 66% 22% / 18% 16% no-repeat,
+    linear-gradient(#111, #111) 50% 58% / 62% 36% no-repeat,
+    #6e6e6e;
+  box-shadow: inset 0 0 0 2px #111;
+}
+
+.tv-skin-swatch--penrose {
+  background:
+    linear-gradient(#e8c872, #e8c872) 50% 28% / 40% 6% no-repeat,
+    linear-gradient(62deg, transparent 40%, #e8c872 40% 58%, transparent 58%) 22% 40% / 28% 28% no-repeat,
+    linear-gradient(-62deg, transparent 40%, #e8c872 40% 58%, transparent 58%) 50% 40% / 28% 28% no-repeat,
+    linear-gradient(#12141c, #12141c) 50% 58% / 62% 40% no-repeat,
+    #12141c;
+  box-shadow: inset 0 0 0 2px #e8c872;
+}
+
+.tv-skin-swatch--scintille {
+  background:
+    radial-gradient(circle at 22% 30%, #fff 0 1.5px, transparent 2px),
+    radial-gradient(circle at 50% 30%, #fff 0 1.5px, transparent 2px),
+    radial-gradient(circle at 78% 30%, #fff 0 1.5px, transparent 2px),
+    linear-gradient(#0e0e12, #0e0e12) 50% 58% / 62% 40% no-repeat,
+    repeating-linear-gradient(#111 0 8px, #8e8e98 8px 11px);
+  box-shadow: inset 0 0 0 2px #111;
+}
+
+.tv-skin-swatch--barber {
+  background:
+    linear-gradient(#07070c, #07070c) 50% 58% / 62% 40% no-repeat,
+    repeating-linear-gradient(45deg, #c8102e 0 5px, #f4f4f4 5px 10px, #1d4e89 10px 15px);
+  box-shadow: inset 0 0 0 2px #f4f4f4;
+}
+
 @media (max-width: 640px) {
   .tv-skin-open-label {
     display: none;
@@ -362,8 +416,9 @@
     inset 0 0 18px rgba(0, 0, 0, 0.65);
 }
 
-.tv-skin--artdeco .tv-video-wrap {
-  border-radius: 0.85rem 0.85rem 0.4rem 0.4rem;
+.tv-skin--artdeco .tv-video-wrap,
+.tv-skin--artdeco .tv-video {
+  border-radius: inherit;
 }
 
 .tv-skin--artdeco .tv-video-wrap--empty {
@@ -612,17 +667,18 @@
 }
 
 .tv-skin--spaceage .tv-player-frame {
+  padding: 0;
   border-radius: 1.9rem;
-  background: radial-gradient(ellipse at 50% 0%, #3a3a42 0%, #0b0b0e 60%);
+  background: #0b0b0e;
   border: 2px solid #d5d7db;
   box-shadow:
     0 0 0 3px #f4f5f7,
-    0 0 0 4px #9aa3b0,
-    inset 0 0 18px rgba(0, 0, 0, 0.7);
+    0 0 0 4px #9aa3b0;
 }
 
-.tv-skin--spaceage .tv-video-wrap {
-  border-radius: 1.2rem;
+.tv-skin--spaceage .tv-video-wrap,
+.tv-skin--spaceage .tv-video {
+  border-radius: calc(1.9rem - 2px);
 }
 
 .tv-skin--spaceage .tv-video-wrap--empty {
@@ -736,8 +792,12 @@
     inset 0 10px 24px rgba(0, 0, 0, 0.5);
 }
 
+.tv-skin--military .tv-video-wrap,
+.tv-skin--military .tv-video {
+  border-radius: inherit;
+}
+
 .tv-skin--military .tv-video-wrap {
-  border-radius: 0.2rem;
   box-shadow:
     0 0 0 1px #3c4a2a,
     0 0 10px rgba(124, 255, 107, 0.18);
@@ -910,8 +970,9 @@
   outline-offset: -7px;
 }
 
-.tv-skin--steampunk .tv-video-wrap {
-  border-radius: 0.45rem;
+.tv-skin--steampunk .tv-video-wrap,
+.tv-skin--steampunk .tv-video {
+  border-radius: inherit;
 }
 
 .tv-skin--steampunk .tv-video-wrap--empty {
@@ -1024,8 +1085,9 @@
     inset 0 0 30px rgba(0, 0, 0, 0.5);
 }
 
-.tv-skin--aurora .tv-video-wrap {
-  border-radius: 0.75rem;
+.tv-skin--aurora .tv-video-wrap,
+.tv-skin--aurora .tv-video {
+  border-radius: inherit;
 }
 
 .tv-skin--aurora .tv-video-wrap--empty {
@@ -1466,8 +1528,9 @@
     border-radius: 1.3rem;
   }
 
-  .tv-skin--spaceage .tv-video-wrap {
-    border-radius: 0.9rem;
+  .tv-skin--spaceage .tv-video-wrap,
+  .tv-skin--spaceage .tv-video {
+    border-radius: calc(1.3rem - 2px);
   }
 
   .tv-player-panel.tv-skin--military,
@@ -1878,7 +1941,7 @@
     radial-gradient(ellipse 80% 50% at 50% 8%, rgba(196, 150, 90, 0.28), transparent 60%),
     linear-gradient(180deg, #4a3a2c 0%, #241c16 46%, #100e0c 100%);
   background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
-  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-size: 100% 520%, 100% 520%, auto, 100% 520%, 100% 520%;
   background-attachment: fixed;
 }
 
@@ -1907,7 +1970,7 @@
     radial-gradient(ellipse 70% 40% at 50% 0%, rgba(224, 184, 90, 0.2), transparent 58%),
     linear-gradient(180deg, #3a2414 0%, #140c08 48%, #0a0604 100%);
   background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
-  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-size: 100% 520%, 100% 520%, auto, 100% 520%, 100% 520%;
   background-attachment: fixed;
 }
 
@@ -1936,7 +1999,7 @@
     radial-gradient(ellipse 80% 45% at 50% 0%, rgba(255, 43, 214, 0.22), transparent 55%),
     linear-gradient(180deg, #2a0848 0%, #0d0221 50%, #05010e 100%);
   background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
-  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-size: 100% 520%, 100% 520%, auto, 100% 520%, 100% 520%;
   background-attachment: fixed;
 }
 
@@ -1949,7 +2012,7 @@
   --pat-title-shadow: 0 8px 22px rgba(120, 40, 0, 0.4);
   --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M0 14 L14 0' stroke='white' stroke-opacity='0.2' stroke-width='1'/%3E%3C/svg%3E");
   --pat-title-bg: linear-gradient(180deg, #ffffff 0%, #d5d7db 6%, #ffb15a 14%, #e85a00 36%, #9a3412 70%, #5c1d00 100%);
-  --pat-page-bg: #3a1808;
+  --pat-page-bg: #e85a00;
   --title-btn-bg: linear-gradient(180deg, #ffd08a 0%, #ff8a1a 55%, #e85a00 100%);
   --title-btn-fg: #3b1600;
   --title-btn-border: #fff7ef;
@@ -1957,15 +2020,15 @@
   --title-btn-active-bg: linear-gradient(180deg, #fff6ea 0%, #ffd08a 100%);
   --title-btn-active-fg: #9a3412;
   --title-btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 0 0 1px #9aa3b0, 0 1px 2px rgba(90, 30, 0, 0.35);
-  background-color: #3a1808;
+  background-color: #e85a00;
   background-image:
     linear-gradient(108deg, transparent 0 32%, rgba(255, 255, 255, 0.06) 42%, rgba(255, 255, 255, 0.28) 49%, rgba(255, 180, 80, 0.1) 56%, transparent 68%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, transparent 20%),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, rgba(80, 20, 0, 0.08) 1px 2px, transparent 2px 4px),
     radial-gradient(ellipse 75% 42% at 40% 0%, rgba(255, 160, 60, 0.35), transparent 58%),
-    linear-gradient(165deg, #ff8a2a 0%, #c2410c 38%, #6a2408 100%);
+    linear-gradient(165deg, #ff8a2a 0%, #f07818 48%, #e85a00 100%);
   background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
-  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-size: 100% 520%, 100% 520%, auto, 100% 520%, 100% 520%;
   background-attachment: fixed;
 }
 
@@ -1994,7 +2057,7 @@
     radial-gradient(ellipse 70% 40% at 50% 0%, rgba(140, 160, 70, 0.22), transparent 58%),
     linear-gradient(160deg, #4e5730 0%, #242818 46%, #10140c 100%);
   background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
-  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-size: 100% 520%, 100% 520%, auto, 100% 520%, 100% 520%;
   background-attachment: fixed;
 }
 
@@ -2023,7 +2086,7 @@
     radial-gradient(ellipse 70% 42% at 30% 0%, rgba(194, 107, 51, 0.35), transparent 58%),
     linear-gradient(150deg, #a85a28 0%, #5a2a10 42%, #1a0c06 100%);
   background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
-  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-size: 100% 520%, 100% 520%, auto, 100% 520%, 100% 520%;
   background-attachment: fixed;
 }
 
@@ -2053,7 +2116,7 @@
     radial-gradient(ellipse 50% 40% at 90% 10%, rgba(165, 120, 255, 0.22), transparent 55%),
     linear-gradient(165deg, #1b2b4d 0%, #0a1226 55%, #070b16 100%);
   background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat, no-repeat;
-  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%, 100% 100%;
+  background-size: 100% 520%, 100% 520%, auto, 100% 520%, 100% 520%, 100% 520%;
   background-attachment: fixed;
 }
 
@@ -2206,7 +2269,417 @@
   --title-btn-active-bg: #3ddec8;
   --title-btn-active-fg: #14302c;
   --title-btn-shadow: 0 0 0 1px #9aa3b0;
-  background-color: #4a1830;
-  background-image: linear-gradient(165deg, #ff4d8d, #2a1020);
+  background-color: #ff6fa3;
+  background-image: linear-gradient(165deg, #ff4d8d, #ff6fa3);
+  background-size: 100% 100%;
   background-attachment: fixed;
+}
+
+/* Optical illusions — same principles as the radio, drawn on the page and the bezel. */
+
+.tv-player-panel.tv-skin--kanizsa {
+  --tv-wood-edge: #161616;
+  --tv-bezel: #161616;
+  background: #f7f4ec;
+  border: 3px solid #161616;
+  border-radius: 1.15rem;
+  box-shadow: 0 16px 32px rgba(22, 22, 22, 0.28);
+}
+
+.tv-skin--kanizsa .tv-player-frame {
+  background: #161616;
+  background-image: none;
+  border-color: #161616;
+}
+
+.tv-skin--kanizsa .tv-video-wrap {
+  background: #12141c;
+  border-color: #161616;
+}
+
+.tv-skin--kanizsa .tv-placeholder,
+.tv-skin--kanizsa .tv-placeholder-icon {
+  color: #f3efe4;
+}
+
+.tv-skin--kanizsa .tv-antenna-base,
+.tv-skin--kanizsa .tv-antenna-mast,
+.tv-skin--kanizsa .tv-antenna-ear {
+  background: #161616;
+}
+
+.tv-skin--kanizsa .tv-antenna-ball {
+  background: #f3efe4;
+  box-shadow: 0 0 0 2px #161616;
+}
+
+.tv-player-panel.tv-skin--cafewall {
+  --tv-wood-edge: #f4f4f4;
+  --tv-bezel: #111;
+  background: #2a2a2a;
+  border: 3px solid #f4f4f4;
+  border-radius: 0.85rem;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35);
+}
+
+.tv-skin--cafewall .tv-player-frame {
+  background: #1a1a1a;
+  background-image: none;
+  border-color: #111;
+}
+
+.tv-skin--cafewall .tv-video-wrap {
+  background: #111;
+  border-color: #f4f4f4;
+}
+
+.tv-skin--cafewall .tv-placeholder,
+.tv-skin--cafewall .tv-placeholder-icon {
+  color: #f4f4f4;
+}
+
+.tv-skin--cafewall .tv-antenna-base,
+.tv-skin--cafewall .tv-antenna-mast,
+.tv-skin--cafewall .tv-antenna-ear {
+  background: #f4f4f4;
+}
+
+.tv-skin--cafewall .tv-antenna-ball {
+  background: #111;
+}
+
+.tv-player-panel.tv-skin--penrose {
+  --tv-wood-edge: #e8c872;
+  --tv-bezel: #12141c;
+  background: #12141c;
+  border: 3px solid #e8c872;
+  border-radius: 0.9rem;
+  box-shadow: 0 0 0 1px #a8843a, 0 16px 32px rgba(0, 0, 0, 0.45);
+}
+
+.tv-skin--penrose .tv-player-frame {
+  background: #0e1018;
+  background-image: none;
+  border-color: #e8c872;
+}
+
+.tv-skin--penrose .tv-video-wrap {
+  background: #07080e;
+  border-color: #e8c872;
+}
+
+.tv-skin--penrose .tv-placeholder,
+.tv-skin--penrose .tv-placeholder-icon {
+  color: #f8e7b0;
+}
+
+.tv-skin--penrose .tv-antenna-base,
+.tv-skin--penrose .tv-antenna-mast,
+.tv-skin--penrose .tv-antenna-ear {
+  background: linear-gradient(180deg, #fff6d4, #a8843a);
+}
+
+.tv-skin--penrose .tv-antenna-ball {
+  background: #e8c872;
+  box-shadow: 0 0 10px #e8c872;
+}
+
+.tv-player-panel.tv-skin--scintille {
+  --tv-wood-edge: #f4f4f8;
+  --tv-bezel: #111;
+  background: #16161c;
+  border: 3px solid #f4f4f8;
+  border-radius: 0.85rem;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.45);
+}
+
+.tv-skin--scintille .tv-player-frame {
+  background: #111;
+  background-image: none;
+  border-color: #111;
+}
+
+.tv-skin--scintille .tv-video-wrap {
+  background: #0e0e12;
+  border-color: #f4f4f8;
+}
+
+.tv-skin--scintille .tv-placeholder,
+.tv-skin--scintille .tv-placeholder-icon {
+  color: #f4f4f8;
+}
+
+.tv-skin--scintille .tv-antenna-base,
+.tv-skin--scintille .tv-antenna-mast,
+.tv-skin--scintille .tv-antenna-ear {
+  background: #f4f4f8;
+}
+
+.tv-skin--scintille .tv-antenna-ball {
+  background: #fff;
+  box-shadow: 0 0 10px #fff;
+}
+
+.tv-player-panel.tv-skin--barber {
+  --tv-wood-edge: #f4f4f4;
+  --tv-bezel: #1d4e89;
+  background: #1d4e89;
+  border: 3px solid #f4f4f4;
+  border-radius: 1rem;
+  box-shadow: 0 0 0 2px #c8102e, 0 16px 32px rgba(16, 42, 82, 0.4);
+}
+
+.tv-skin--barber .tv-player-frame {
+  background: #102a52;
+  background-image: none;
+  border-color: #fff;
+}
+
+.tv-skin--barber .tv-video-wrap {
+  background: #07070c;
+  border-color: #fff;
+}
+
+.tv-skin--barber .tv-placeholder,
+.tv-skin--barber .tv-placeholder-icon {
+  color: #fff;
+}
+
+.tv-skin--barber .tv-antenna-base,
+.tv-skin--barber .tv-antenna-mast,
+.tv-skin--barber .tv-antenna-ear {
+  background: linear-gradient(180deg, #fff, #c8102e);
+}
+
+.tv-skin--barber .tv-antenna-ball {
+  background: #c8102e;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+:host.tv-skin--kanizsa {
+  --pat-title-accent: #161616;
+  --pat-title-shadow: 0 8px 22px rgba(22, 22, 22, 0.2);
+  --pat-title-bg: linear-gradient(180deg, #fff 0%, #f3efe4 18%, #161616 100%);
+  --pat-page-bg: #f3efe4;
+  --title-btn-bg: #f3efe4;
+  --title-btn-fg: #161616;
+  --title-btn-border: #161616;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #161616;
+  --title-btn-active-fg: #f3efe4;
+  --title-btn-shadow: 0 0 0 1px #161616;
+  --menu-bg: #f7f4ec;
+  --menu-fg: #161616;
+  --menu-muted: #5c584e;
+  --menu-border: #161616;
+  --menu-border-width: 2px;
+  --menu-accent: #161616;
+  --menu-accent-fg: #f3efe4;
+  --menu-toolbar: rgba(22, 22, 22, 0.06);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #161616;
+  --menu-input-border: #161616;
+  --menu-hover: rgba(22, 22, 22, 0.06);
+  --menu-active: rgba(22, 22, 22, 0.12);
+  --menu-meta-bg: rgba(22, 22, 22, 0.06);
+  --menu-shadow: 0 12px 28px rgba(22, 22, 22, 0.16);
+  --menu-radius: 1rem;
+  --menu-logo-bg: #f3efe4;
+  background-color: #f3efe4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='176'%3E%3Crect width='200' height='176' fill='%23f3efe4'/%3E%3Ccircle cx='100' cy='40' r='24' fill='%23161616'/%3E%3Cpolygon points='100,40 82,60 118,60' fill='%23f3efe4'/%3E%3Ccircle cx='46' cy='128' r='24' fill='%23161616'/%3E%3Cpolygon points='46,128 68,110 74,136' fill='%23f3efe4'/%3E%3Ccircle cx='154' cy='128' r='24' fill='%23161616'/%3E%3Cpolygon points='154,128 132,110 126,136' fill='%23f3efe4'/%3E%3C/svg%3E");
+  background-size: 200px 176px;
+  animation: illusion-tv-kanizsa 8s ease-in-out infinite;
+}
+
+:host.tv-skin--cafewall {
+  --pat-title-accent: #111;
+  --pat-title-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  --pat-title-bg: linear-gradient(180deg, #f4f4f4 0%, #6e6e6e 16%, #111 100%);
+  --pat-page-bg: #6e6e6e;
+  --title-btn-bg: #f4f4f4;
+  --title-btn-fg: #111;
+  --title-btn-border: #111;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #111;
+  --title-btn-active-fg: #f4f4f4;
+  --title-btn-shadow: 0 0 0 1px #111;
+  --menu-bg: #f4f4f4;
+  --menu-fg: #111;
+  --menu-muted: #4a4a4a;
+  --menu-border: #111;
+  --menu-border-width: 2px;
+  --menu-accent: #111;
+  --menu-accent-fg: #f4f4f4;
+  --menu-toolbar: rgba(0, 0, 0, 0.06);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #111;
+  --menu-input-border: #111;
+  --menu-hover: rgba(0, 0, 0, 0.06);
+  --menu-active: rgba(0, 0, 0, 0.12);
+  --menu-meta-bg: rgba(0, 0, 0, 0.05);
+  --menu-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+  --menu-radius: 0.7rem;
+  --menu-logo-bg: #fff;
+  background-color: #6e6e6e;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='44' shape-rendering='crispEdges'%3E%3Crect width='96' height='44' fill='%236e6e6e'/%3E%3Crect y='3' width='22' height='16' fill='%23111111'/%3E%3Crect x='24' y='3' width='22' height='16' fill='%23f4f4f4'/%3E%3Crect x='48' y='3' width='22' height='16' fill='%23111111'/%3E%3Crect x='72' y='3' width='22' height='16' fill='%23f4f4f4'/%3E%3Crect x='-12' y='25' width='22' height='16' fill='%23f4f4f4'/%3E%3Crect x='12' y='25' width='22' height='16' fill='%23111111'/%3E%3Crect x='36' y='25' width='22' height='16' fill='%23f4f4f4'/%3E%3Crect x='60' y='25' width='22' height='16' fill='%23111111'/%3E%3Crect x='84' y='25' width='22' height='16' fill='%23f4f4f4'/%3E%3C/svg%3E");
+  background-size: 96px 44px;
+  animation: illusion-tv-cafe 4.6s linear infinite;
+}
+
+:host.tv-skin--penrose {
+  --pat-title-accent: #e8c872;
+  --pat-title-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  --pat-title-bg: linear-gradient(180deg, #f8e7b0 0%, #a8843a 14%, #12141c 100%);
+  --pat-page-bg: #12141c;
+  --title-btn-bg: #1a1c28;
+  --title-btn-fg: #f8e7b0;
+  --title-btn-border: #e8c872;
+  --title-btn-hover-bg: #242838;
+  --title-btn-active-bg: #e8c872;
+  --title-btn-active-fg: #12141c;
+  --title-btn-shadow: 0 0 0 1px #a8843a;
+  --menu-bg: #1a1c28;
+  --menu-fg: #f8e7b0;
+  --menu-muted: #c9b27a;
+  --menu-border: #e8c872;
+  --menu-border-width: 1px;
+  --menu-accent: #e8c872;
+  --menu-accent-fg: #12141c;
+  --menu-toolbar: rgba(232, 200, 114, 0.08);
+  --menu-input-bg: #12141c;
+  --menu-input-fg: #f8e7b0;
+  --menu-input-border: #e8c872;
+  --menu-hover: rgba(232, 200, 114, 0.12);
+  --menu-active: rgba(232, 200, 114, 0.22);
+  --menu-meta-bg: rgba(232, 200, 114, 0.08);
+  --menu-shadow: 0 0 18px rgba(232, 200, 114, 0.2);
+  --menu-radius: 0.8rem;
+  --menu-logo-bg: #12141c;
+  background-color: #12141c;
+  background-image:
+    repeating-linear-gradient(60deg, transparent 0 26px, rgba(232, 200, 114, 0.85) 26px 28px),
+    repeating-linear-gradient(-60deg, transparent 0 26px, rgba(232, 200, 114, 0.55) 26px 28px),
+    repeating-linear-gradient(180deg, transparent 0 26px, rgba(232, 200, 114, 0.4) 26px 28px);
+  background-size: 56px 96px;
+  animation: illusion-tv-penrose 16s linear infinite;
+}
+
+:host.tv-skin--scintille {
+  --pat-title-accent: #f4f4f8;
+  --pat-title-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+  --pat-title-bg: linear-gradient(180deg, #f4f4f8 0%, #8e8e98 18%, #111 100%);
+  --pat-page-bg: #8e8e98;
+  --title-btn-bg: #f4f4f8;
+  --title-btn-fg: #111;
+  --title-btn-border: #111;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #111;
+  --title-btn-active-fg: #f4f4f8;
+  --title-btn-shadow: 0 0 0 1px #111;
+  --menu-bg: #f4f4f8;
+  --menu-fg: #111;
+  --menu-muted: #3a3a44;
+  --menu-border: #111;
+  --menu-border-width: 2px;
+  --menu-accent: #111;
+  --menu-accent-fg: #f4f4f8;
+  --menu-toolbar: rgba(0, 0, 0, 0.05);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #111;
+  --menu-input-border: #111;
+  --menu-hover: rgba(0, 0, 0, 0.06);
+  --menu-active: rgba(0, 0, 0, 0.12);
+  --menu-meta-bg: rgba(0, 0, 0, 0.05);
+  --menu-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+  --menu-radius: 0.7rem;
+  --menu-logo-bg: #fff;
+  background-color: #8e8e98;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.85), transparent 22%),
+    linear-gradient(#111 0 16px, transparent 16px),
+    linear-gradient(90deg, #111 0 16px, transparent 16px),
+    radial-gradient(circle at 18px 18px, #fff 1.7px, transparent 2.4px);
+  background-size: 52% 52%, 20px 20px, 20px 20px, 20px 20px;
+  background-repeat: no-repeat, repeat, repeat, repeat;
+  animation: illusion-tv-scintille 5.5s ease-in-out infinite alternate;
+}
+
+:host.tv-skin--barber {
+  --pat-title-accent: #c8102e;
+  --pat-title-shadow: 0 8px 22px rgba(16, 42, 82, 0.4);
+  --pat-title-bg: linear-gradient(180deg, #f4f4f4 0%, #c8102e 22%, #1d4e89 100%);
+  --pat-page-bg: #1d4e89;
+  --title-btn-bg: #f4f4f4;
+  --title-btn-fg: #1d4e89;
+  --title-btn-border: #fff;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #c8102e;
+  --title-btn-active-fg: #fff;
+  --title-btn-shadow: 0 0 0 1px #1d4e89;
+  --menu-bg: #f7f4ef;
+  --menu-fg: #1d4e89;
+  --menu-muted: #5c3a3a;
+  --menu-border: #1d4e89;
+  --menu-border-width: 2px;
+  --menu-accent: #c8102e;
+  --menu-accent-fg: #fff;
+  --menu-toolbar: rgba(29, 78, 137, 0.08);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #1d4e89;
+  --menu-input-border: #1d4e89;
+  --menu-hover: rgba(200, 16, 46, 0.08);
+  --menu-active: rgba(200, 16, 46, 0.16);
+  --menu-meta-bg: rgba(29, 78, 137, 0.08);
+  --menu-shadow: 0 12px 28px rgba(16, 42, 82, 0.22);
+  --menu-radius: 0.85rem;
+  --menu-logo-bg: #fff;
+  background-color: #1d4e89;
+  background-image: linear-gradient(
+    45deg,
+    #c8102e 0,
+    #c8102e 33.333%,
+    #f7f7f7 0,
+    #f7f7f7 66.666%,
+    #1d4e89 0,
+    #1d4e89 100%
+  );
+  background-size: 120px 120px;
+  background-repeat: repeat;
+  animation: illusion-tv-barber-page 1.1s linear infinite;
+}
+
+@keyframes illusion-tv-kanizsa {
+  0%, 100% { background-size: 200px 176px; }
+  50% { background-size: 248px 218px; }
+}
+
+@keyframes illusion-tv-cafe {
+  to { background-position: 48px 0; }
+}
+
+@keyframes illusion-tv-cafe-back {
+  to { background-position: -48px 0; }
+}
+
+@keyframes illusion-tv-penrose {
+  to { background-position: 56px 0, -56px 0, 0 96px; }
+}
+
+@keyframes illusion-tv-penrose-frame {
+  to { background-position: 40px 0, -40px 0; }
+}
+
+@keyframes illusion-tv-scintille {
+  0% { background-position: -10% 0%, 0 0, 0 0, 0 0; }
+  50% { background-position: 68% 55%, 0 0, 0 0, 0 0; }
+  100% { background-position: 8% 78%, 0 0, 0 0, 0 0; }
+}
+
+@keyframes illusion-tv-barber {
+  to { background-position: 29.7px 29.7px; }
+}
+
+@keyframes illusion-tv-barber-page {
+  from { background-position: 0 0; }
+  to { background-position: 0 -120px; }
 }

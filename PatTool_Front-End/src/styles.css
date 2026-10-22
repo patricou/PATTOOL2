@@ -923,6 +923,37 @@ body .modal.show .modal-dialog.yt-eq-modal-dialog > .modal-content,
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55) !important;
 }
 
+/* Spectrum band: shrinks so the sliders stay inside the window. */
+body .yt-eq-modal .yt-eq-spectrum,
+body .yt-eq-modal-dialog .yt-eq-spectrum {
+    display: block !important;
+    width: 100% !important;
+    flex: 1 1 72px !important;
+    height: auto !important;
+    min-height: 56px !important;
+    max-height: 110px !important;
+}
+
+body .modal.show .modal-dialog.yt-eq-modal-dialog {
+    height: calc(100dvh - 1rem);
+    max-height: calc(100dvh - 1rem);
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+body .yt-eq-modal-dialog .modal-content {
+    height: 100%;
+    max-height: 100%;
+    display: flex !important;
+    flex-direction: column;
+}
+
+body .yt-eq-modal-dialog .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden !important;
+}
+
 /* YouTube — lier la vidéo à une activité (même bordure blanche que les autres modales) */
 body .modal.show.yt-link-event-modal .modal-dialog > .modal-content,
 body .modal.yt-link-event-modal.show .modal-dialog > .modal-content,
@@ -1560,54 +1591,132 @@ html:not(.pat-starry-sky):not(.pat-page-no-wash) body {
     transition: background-color 0.2s ease;
 }
 
-/* TV / radio: overscroll follows the selected metal page. */
-html:has(app-tv-watcher),
-html:has(app-tv-watcher) body,
-html:has(app-radio-watcher),
-html:has(app-radio-watcher) body {
+/* TV / radio: overscroll follows the selected metal page.
+   :not() matches the light wash above so these rules win on specificity. */
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher) body {
     background-color: #1c1612;
 }
 
-html:has(app-tv-watcher.tv-skin--artdeco),
-html:has(app-tv-watcher.tv-skin--artdeco) body,
-html:has(app-radio-watcher.radio-skin--artdeco),
-html:has(app-radio-watcher.radio-skin--artdeco) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--artdeco),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--artdeco) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--artdeco),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--artdeco) body {
     background-color: #140c08;
 }
 
-html:has(app-tv-watcher.tv-skin--synthwave),
-html:has(app-tv-watcher.tv-skin--synthwave) body,
-html:has(app-radio-watcher.radio-skin--synthwave),
-html:has(app-radio-watcher.radio-skin--synthwave) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--synthwave),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--synthwave) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--synthwave),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--synthwave) body {
     background-color: #0d0221;
 }
 
-html:has(app-tv-watcher.tv-skin--spaceage),
-html:has(app-tv-watcher.tv-skin--spaceage) body,
-html:has(app-radio-watcher.radio-skin--spaceage),
-html:has(app-radio-watcher.radio-skin--spaceage) body {
-    background-color: #3a1808;
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--spaceage),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--spaceage) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--spaceage),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--spaceage) body {
+    background-color: #e85a00;
 }
 
-html:has(app-tv-watcher.tv-skin--military),
-html:has(app-tv-watcher.tv-skin--military) body,
-html:has(app-radio-watcher.radio-skin--military),
-html:has(app-radio-watcher.radio-skin--military) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--military),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--military) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--military),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--military) body {
     background-color: #1a1e10;
 }
 
-html:has(app-tv-watcher.tv-skin--steampunk),
-html:has(app-tv-watcher.tv-skin--steampunk) body,
-html:has(app-radio-watcher.radio-skin--steampunk),
-html:has(app-radio-watcher.radio-skin--steampunk) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--steampunk),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--steampunk) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--steampunk),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--steampunk) body {
     background-color: #2a140c;
 }
 
-html:has(app-tv-watcher.tv-skin--aurora),
-html:has(app-tv-watcher.tv-skin--aurora) body,
-html:has(app-radio-watcher.radio-skin--aurora),
-html:has(app-radio-watcher.radio-skin--aurora) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--aurora),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--aurora) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--aurora),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--aurora) body {
     background-color: #070d1c;
+}
+
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--noir),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--noir) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--noir),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--noir) body {
+    background-color: #070709;
+}
+
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--bamboo),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--bamboo) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--bamboo),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--bamboo) body {
+    background-color: #1a1208;
+}
+
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--porcelain),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--porcelain) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--porcelain),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--porcelain) body {
+    background-color: #eef3f8;
+}
+
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--carbon),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--carbon) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--carbon),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--carbon) body {
+    background-color: #07090d;
+}
+
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--espace),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--espace) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--espace),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--espace) body {
+    background-color: #02040c;
+}
+
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--candy),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--candy) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--candy),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--candy) body {
+    background-color: #ff6fa3;
+}
+
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--kanizsa),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--kanizsa) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--kanizsa),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--kanizsa) body {
+    background-color: #f3efe4;
+}
+
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--cafewall),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--cafewall) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--cafewall),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--cafewall) body {
+    background-color: #6e6e6e;
+}
+
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--penrose),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--penrose) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--penrose),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--penrose) body {
+    background-color: #12141c;
+}
+
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--scintille),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--scintille) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--scintille),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--scintille) body {
+    background-color: #8e8e98;
+}
+
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--barber),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--barber) body,
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--barber),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--barber) body {
+    background-color: #1d4e89;
 }
 
 /* Horloge : le fond de page suit le cadran (pas de bande blanche au-dessus du titre ni en bas). */
@@ -1630,6 +1739,12 @@ app-root > router-outlet + * {
     width: 100%;
     min-height: calc(100vh - 80px);
     background-color: var(--pat-page-bg, color-mix(in srgb, var(--pat-title-accent, #64748b) 18%, #ffffff));
+}
+
+/* Radio / TV: the skin must cover the viewport bottom while scrolling, not the flat page color. */
+app-root > router-outlet + app-radio-watcher,
+app-root > router-outlet + app-tv-watcher {
+    min-height: 100dvh;
 }
 
 /* Viseur / boussole / calibrage : le rubber-band (scroll vers le haut) doit rester noir, pas blanc. */

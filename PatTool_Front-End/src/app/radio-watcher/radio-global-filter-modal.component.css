@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   z-index: 1100;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(4, 6, 12, 0.62);
 }
 
 .radio-global-filter-modal {
@@ -15,11 +15,13 @@
   max-height: min(92vh, 44rem);
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border: 4px solid #ffffff;
-  border-radius: 0.5rem;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.28);
+  color: var(--menu-fg, #1f2937);
+  background: var(--menu-bg, #fff);
+  border: var(--menu-border-width, 1px) solid var(--menu-border, rgba(0, 0, 0, 0.12));
+  border-radius: var(--menu-radius, 0.85rem);
+  box-shadow: var(--menu-shadow, 0 18px 40px rgba(15, 23, 42, 0.28));
   overflow: hidden;
+  color-scheme: inherit;
 }
 
 .radio-global-filter-header {
@@ -28,45 +30,115 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  background: linear-gradient(315deg, #0f766e 0%, #0d9488 50%, #14b8a6 100%);
-  color: #fff;
+  border-bottom: var(--menu-border-width, 1px) solid var(--menu-border, rgba(0, 0, 0, 0.12));
+  background: var(--menu-toolbar, transparent);
+  color: var(--menu-fg, #1f2937);
 }
 
 .radio-global-filter-title {
   margin: 0;
   font-size: 1.05rem;
-  font-weight: 600;
-  color: #fff;
+  font-weight: 650;
+  color: inherit;
 }
 
 .radio-global-filter-close {
   border: 0;
   background: transparent;
-  color: #fff;
+  color: inherit;
   font-size: 1.1rem;
   line-height: 1;
   padding: 0.2rem 0.35rem;
   cursor: pointer;
-  opacity: 0.9;
+  opacity: 0.8;
+  border-radius: 0.35rem;
 }
 
-.radio-global-filter-close:hover {
+.radio-global-filter-close:hover,
+.radio-global-filter-close:focus-visible {
   opacity: 1;
+  background: var(--menu-hover, rgba(0, 0, 0, 0.06));
+  outline: none;
 }
 
 .radio-global-filter-body {
   flex: 1 1 auto;
   overflow: auto;
   padding: 1rem 1.1rem 1.1rem;
+  scrollbar-color: var(--menu-accent, #64748b) transparent;
 }
 
 .radio-global-filter-lead {
   line-height: 1.4;
+  color: var(--menu-muted, #6b7280);
+}
+
+.radio-global-filter-modal .text-muted {
+  color: var(--menu-muted, #6b7280) !important;
+}
+
+.radio-global-filter-modal .form-label,
+.radio-global-filter-modal .form-check-label {
+  color: var(--menu-fg, #1f2937);
+}
+
+.radio-global-filter-modal .form-text {
+  color: var(--menu-muted, #6b7280);
 }
 
 .radio-global-filter-apply-check .form-check-label {
   font-weight: 600;
+}
+
+.radio-global-filter-modal .form-control,
+.radio-global-filter-modal .form-select {
+  background-color: var(--menu-input-bg, #fff);
+  color: var(--menu-input-fg, #1f2937);
+  border-color: var(--menu-input-border, rgba(0, 0, 0, 0.16));
+}
+
+.radio-global-filter-modal .form-control::placeholder {
+  color: var(--menu-muted, #6b7280);
+  opacity: 0.8;
+}
+
+.radio-global-filter-modal .form-select {
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--menu-input-fg, #1f2937) 50%),
+    linear-gradient(135deg, var(--menu-input-fg, #1f2937) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.05rem) calc(50% - 1px),
+    calc(100% - 0.75rem) calc(50% - 1px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.radio-global-filter-modal .form-control:focus,
+.radio-global-filter-modal .form-select:focus {
+  background-color: var(--menu-input-bg, #fff);
+  color: var(--menu-input-fg, #1f2937);
+  border-color: var(--menu-accent, #2563eb);
+  box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--menu-accent, #2563eb) 35%, transparent);
+}
+
+.radio-global-filter-modal option {
+  background-color: var(--menu-input-bg, #fff);
+  color: var(--menu-input-fg, #1f2937);
+}
+
+.radio-global-filter-modal .form-check-input {
+  background-color: var(--menu-input-bg, #fff);
+  border-color: var(--menu-input-border, rgba(0, 0, 0, 0.25));
+}
+
+.radio-global-filter-modal .form-check-input:checked {
+  background-color: var(--menu-accent, #2563eb);
+  border-color: var(--menu-accent, #2563eb);
+}
+
+.radio-global-filter-modal .form-check-input:focus {
+  border-color: var(--menu-accent, #2563eb);
+  box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--menu-accent, #2563eb) 35%, transparent);
 }
 
 .radio-global-filter-footer {
@@ -76,8 +148,8 @@
   gap: 0.5rem;
   flex-wrap: wrap;
   padding: 0.65rem 1rem 0.85rem;
-  border-top: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-top: var(--menu-border-width, 1px) solid var(--menu-border, rgba(0, 0, 0, 0.12));
+  background: var(--menu-toolbar, transparent);
 }
 
 .radio-global-filter-footer-right {
@@ -85,4 +157,35 @@
   align-items: center;
   gap: 0.4rem;
   margin-left: auto;
+}
+
+.radio-global-filter-footer .btn {
+  background: var(--title-btn-bg, transparent);
+  color: var(--title-btn-fg, var(--menu-fg, #1f2937));
+  border: 1px solid var(--title-btn-border, var(--menu-border, rgba(0, 0, 0, 0.16)));
+  box-shadow: var(--title-btn-shadow, none);
+}
+
+.radio-global-filter-footer .btn:hover,
+.radio-global-filter-footer .btn:focus-visible {
+  background: var(--title-btn-hover-bg, var(--menu-hover, rgba(0, 0, 0, 0.06)));
+  color: var(--title-btn-fg, var(--menu-fg, #1f2937));
+  border-color: var(--title-btn-border, var(--menu-accent, #2563eb));
+}
+
+.radio-global-filter-footer .btn-primary {
+  background: var(--title-btn-active-bg, var(--menu-accent, #2563eb));
+  color: var(--title-btn-active-fg, var(--menu-accent-fg, #fff));
+  border-color: transparent;
+}
+
+.radio-global-filter-footer .btn-primary:hover,
+.radio-global-filter-footer .btn-primary:focus-visible {
+  background: var(--title-btn-active-bg, var(--menu-accent, #2563eb));
+  color: var(--title-btn-active-fg, var(--menu-accent-fg, #fff));
+  filter: brightness(1.06);
+}
+
+.radio-global-filter-footer .btn:disabled {
+  opacity: 0.55;
 }

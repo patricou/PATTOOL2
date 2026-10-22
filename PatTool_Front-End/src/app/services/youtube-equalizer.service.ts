@@ -83,6 +83,7 @@ export const YOUTUBE_EQ_PRESETS: YoutubeEqPreset[] = [
 
 const STORAGE_KEY = 'pattool.youtube.equalizer';
 const USER_PRESET_KEY = 'pattool.youtube.equalizer.user';
+const ENGAGED_KEY = 'pattool.youtube.equalizer.engaged';
 const DB_MIN = -12;
 const DB_MAX = 12;
 
@@ -228,12 +229,57 @@ export class YoutubeEqualizerService {
     return this.sourceKindSubject.value !== 'none';
   }
 
+  /** Saved choice: the equalizer was processing audio and is still enabled. Survives a reload. */
+  get wantsProcessing(): boolean {
+    const s = this.settings;
+    if (!s.enabled || s.bypass) {
+      return false;
+    }
+    return this.isEngaged() || this.hasPersistedSettings();
+  }
+
   get hasUserPreset(): boolean {
     return !!this.userPresetSubject.value;
   }
 
   private emitSource(kind: YoutubeEqSourceKind): void {
     this.ngZone.run(() => this.sourceKindSubject.next(kind));
+    this.syncEngaged(kind);
+  }
+
+  private hasPersistedSettings(): boolean {
+    try {
+      return !!localStorage.getItem(STORAGE_KEY);
+    } catch {
+      return false;
+    }
+  }
+
+  private isEngaged(): boolean {
+    try {
+      return localStorage.getItem(ENGAGED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private writeEngaged(on: boolean): void {
+    try {
+      localStorage.setItem(ENGAGED_KEY, on ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private syncEngaged(kind: YoutubeEqSourceKind): void {
+    const s = this.settings;
+    if (!s.enabled || s.bypass) {
+      this.writeEngaged(false);
+      return;
+    }
+    if (kind === 'media' || kind === 'capture') {
+      this.writeEngaged(true);
+    }
   }
 
   private emitCaptureError(key: string): void {
@@ -244,7 +290,7 @@ export class YoutubeEqualizerService {
     return this.analyser;
   }
 
-  async resume(): Promise<void> {
+  async resume(): Promise<boolean> {
     const ctx = this.ensureGraph();
     if (ctx.state === 'suspended') {
       try {
@@ -254,6 +300,7 @@ export class YoutubeEqualizerService {
       }
     }
     this.bindOutputWindow();
+    return ctx.state === 'running';
   }
 
   patch(partial: Partial<YoutubeEqualizerSettings>, markCustom = true): void {
@@ -272,6 +319,7 @@ export class YoutubeEqualizerService {
       /* AudioContext unavailable */
     }
     this.applySettings(next);
+    this.syncEngaged(this.sourceKind);
     this.schedulePersist();
   }
 
@@ -592,8 +640,10 @@ export class YoutubeEqualizerService {
     const reverbWet = ctx.createGain();
     const master = ctx.createGain();
     const analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.72;
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.42;
+    analyser.minDecibels = -75;
+    analyser.maxDecibels = -18;
     const sum = ctx.createGain();
     const widthMix = ctx.createGain();
 

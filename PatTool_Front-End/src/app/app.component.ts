@@ -170,6 +170,9 @@ export class AppComponent implements OnInit, AfterViewInit {
     public resultSaveOndisk: string = "";
     /** Minimal chrome for the detached TV pop-out window. */
     public tvPopoutMode = false;
+    /** Re-reads the routed page skin when its host class changes (radio / TV style picker). */
+    private pageWashHost: HTMLElement | null = null;
+    private pageWashObserver: MutationObserver | null = null;
     public isMenuCollapsed = true;
     public isLoading: boolean = false;
     public showEventsDropdown: boolean = false;
@@ -603,41 +606,76 @@ export class AppComponent implements OnInit, AfterViewInit {
         }
     }
 
-    /** Copy the routed page title hue onto <html> so body + host share the same light wash. */
+    /** Copy the routed page title hue onto <html> so body + the AI button share the active skin. */
     private updatePageTitleWash(): void {
         try {
             const apply = () => {
                 const host = document.querySelector('app-root > router-outlet + *') as HTMLElement | null;
-                const html = document.documentElement;
-                if (!host) {
-                    html.style.removeProperty('--pat-title-accent');
-                    html.style.removeProperty('--pat-fab-accent');
-                    html.style.removeProperty('--pat-fab-bg');
-                    html.classList.remove('pat-page-no-wash');
-                    return;
-                }
-                const cs = getComputedStyle(host);
-                const wash = cs.getPropertyValue('--pat-page-wash').trim();
-                const skip = wash === '0' || wash === '0%';
-                html.classList.toggle('pat-page-no-wash', skip);
-                const accent = cs.getPropertyValue('--pat-title-accent').trim();
-                const titleBg = cs.getPropertyValue('--pat-title-bg').trim();
-                if (accent) {
-                    html.style.setProperty('--pat-title-accent', accent);
-                    html.style.setProperty('--pat-fab-accent', accent);
-                } else {
-                    html.style.removeProperty('--pat-title-accent');
-                    html.style.removeProperty('--pat-fab-accent');
-                }
-                if (titleBg) {
-                    html.style.setProperty('--pat-fab-bg', titleBg);
-                } else {
-                    html.style.removeProperty('--pat-fab-bg');
-                }
+                this.watchPageWashHost(host);
+                this.applyPageTitleWash(host);
             };
             requestAnimationFrame(() => requestAnimationFrame(apply));
         } catch {
             /* ignore */
+        }
+    }
+
+    private watchPageWashHost(host: HTMLElement | null): void {
+        if (host === this.pageWashHost) {
+            return;
+        }
+        this.pageWashObserver?.disconnect();
+        this.pageWashObserver = null;
+        this.pageWashHost = host;
+        if (!host || typeof MutationObserver === 'undefined') {
+            return;
+        }
+        this.pageWashObserver = new MutationObserver(() => this.applyPageTitleWash(host));
+        this.pageWashObserver.observe(host, { attributes: true, attributeFilter: ['class'] });
+    }
+
+    private applyPageTitleWash(host: HTMLElement | null): void {
+        const html = document.documentElement;
+        if (!host) {
+            html.style.removeProperty('--pat-title-accent');
+            html.style.removeProperty('--pat-fab-accent');
+            html.style.removeProperty('--pat-fab-bg');
+            html.style.removeProperty('--pat-fab-fg');
+            html.style.removeProperty('--pat-fab-border');
+            html.classList.remove('pat-page-no-wash');
+            return;
+        }
+        const cs = getComputedStyle(host);
+        const wash = cs.getPropertyValue('--pat-page-wash').trim();
+        const skip = wash === '0' || wash === '0%';
+        html.classList.toggle('pat-page-no-wash', skip);
+        const accent = cs.getPropertyValue('--pat-title-accent').trim();
+        const titleBg = cs.getPropertyValue('--pat-title-bg').trim();
+        const radio = host.tagName === 'APP-RADIO-WATCHER';
+        const fabBg = (radio ? cs.getPropertyValue('--title-btn-active-bg').trim() : '') || titleBg;
+        const fabFg = radio ? cs.getPropertyValue('--title-btn-active-fg').trim() : '';
+        const fabBorder = radio ? cs.getPropertyValue('--title-btn-border').trim() : '';
+        if (accent) {
+            html.style.setProperty('--pat-title-accent', accent);
+            html.style.setProperty('--pat-fab-accent', accent);
+        } else {
+            html.style.removeProperty('--pat-title-accent');
+            html.style.removeProperty('--pat-fab-accent');
+        }
+        if (fabBg) {
+            html.style.setProperty('--pat-fab-bg', fabBg);
+        } else {
+            html.style.removeProperty('--pat-fab-bg');
+        }
+        if (fabFg) {
+            html.style.setProperty('--pat-fab-fg', fabFg);
+        } else {
+            html.style.removeProperty('--pat-fab-fg');
+        }
+        if (fabBorder) {
+            html.style.setProperty('--pat-fab-border', fabBorder);
+        } else {
+            html.style.removeProperty('--pat-fab-border');
         }
     }
 

@@ -63,6 +63,24 @@
       <span class="tv-skin-menu" *ngIf="skinMenuOpen" role="menu" [attr.aria-label]="'TV.SKIN_TITLE' | translate">
         <span class="tv-skin-menu-title">
           <i class="fa fa-paint-brush" aria-hidden="true"></i>
+          {{ 'TV.SKIN_GROUP_ILLUSION' | translate }}
+        </span>
+        <button
+          *ngFor="let skin of illusionSkins; trackBy: trackTvSkin"
+          type="button"
+          class="tv-skin-option"
+          role="menuitemradio"
+          [class.active]="skin === tvSkin"
+          [attr.aria-checked]="skin === tvSkin"
+          (click)="setTvSkin(skin)">
+          <span class="tv-skin-swatch" [ngClass]="'tv-skin-swatch--' + skin" aria-hidden="true"></span>
+          <span class="tv-skin-option-text">
+            <span class="tv-skin-option-name">{{ skinNameKey(skin) | translate }}</span>
+            <span class="tv-skin-option-desc">{{ skinDescKey(skin) | translate }}</span>
+          </span>
+          <i class="fa fa-check tv-skin-option-check" *ngIf="skin === tvSkin" aria-hidden="true"></i>
+        </button>
+        <span class="tv-skin-menu-title tv-skin-menu-title--next">
           {{ 'TV.SKIN_TITLE' | translate }}
         </span>
         <button

@@ -95,7 +95,12 @@ export type TvSkin =
   | 'porcelain'
   | 'carbon'
   | 'candy'
-  | 'espace';
+  | 'espace'
+  | 'kanizsa'
+  | 'cafewall'
+  | 'penrose'
+  | 'scintille'
+  | 'barber';
 
 const TV_SKINS: readonly TvSkin[] = [
   'classic',
@@ -110,7 +115,12 @@ const TV_SKINS: readonly TvSkin[] = [
   'porcelain',
   'carbon',
   'candy',
-  'espace'
+  'espace',
+  'kanizsa',
+  'cafewall',
+  'penrose',
+  'scintille',
+  'barber'
 ];
 
 @Component({
@@ -341,6 +351,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   @HostBinding('class.tv-skin--carbon') get skinCarbon(): boolean { return this.tvSkin === 'carbon'; }
   @HostBinding('class.tv-skin--candy') get skinCandy(): boolean { return this.tvSkin === 'candy'; }
   @HostBinding('class.tv-skin--espace') get skinEspace(): boolean { return this.tvSkin === 'espace'; }
+  @HostBinding('class.tv-skin--kanizsa') get skinKanizsa(): boolean { return this.tvSkin === 'kanizsa'; }
+  @HostBinding('class.tv-skin--cafewall') get skinCafewall(): boolean { return this.tvSkin === 'cafewall'; }
+  @HostBinding('class.tv-skin--penrose') get skinPenrose(): boolean { return this.tvSkin === 'penrose'; }
+  @HostBinding('class.tv-skin--scintille') get skinScintille(): boolean { return this.tvSkin === 'scintille'; }
+  @HostBinding('class.tv-skin--barber') get skinBarber(): boolean { return this.tvSkin === 'barber'; }
   skinMenuOpen = false;
   private skinChosenThisVisit = false;
   private skinLoadSub?: Subscription;
@@ -1346,9 +1361,20 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
+  private static readonly ILLUSION_SKINS: readonly TvSkin[] = [
+    'kanizsa',
+    'cafewall',
+    'penrose',
+    'scintille',
+    'barber'
+  ];
+
+  readonly illusionSkins = TvWatcherComponent.ILLUSION_SKINS;
+
   get sortedTvSkins(): TvSkin[] {
+    const pinned = new Set<TvSkin>(TvWatcherComponent.ILLUSION_SKINS);
     const lang = this.translate.currentLang || this.translate.defaultLang || 'fr';
-    return [...this.tvSkins].sort((a, b) =>
+    return this.tvSkins.filter((skin) => !pinned.has(skin)).sort((a, b) =>
       this.translate.instant(this.skinNameKey(a)).localeCompare(
         this.translate.instant(this.skinNameKey(b)),
         lang,

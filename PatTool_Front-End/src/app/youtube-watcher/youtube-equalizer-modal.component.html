@@ -12,19 +12,33 @@
   </div>
 
   <div class="modal-body yt-eq-body">
-    <p class="yt-eq-hint">{{ (variant === 'media' ? 'YOUTUBE.EQ.HINT_MEDIA' : 'YOUTUBE.EQ.HINT') | translate }}</p>
-
-    <div class="yt-eq-status" [attr.data-kind]="sourceKind">
-      <span *ngIf="sourceKind === 'capture'">{{ 'YOUTUBE.EQ.CAPTURE_ACTIVE' | translate }}</span>
-      <span *ngIf="sourceKind === 'media'">{{ (variant === 'media' ? 'YOUTUBE.EQ.MEDIA_ACTIVE' : 'YOUTUBE.EQ.CLIP_ACTIVE') | translate }}</span>
-      <span *ngIf="sourceKind === 'none'">{{ (variant === 'media' ? 'YOUTUBE.EQ.IDLE_MEDIA' : 'YOUTUBE.EQ.IDLE') | translate }}</span>
+    <div class="yt-eq-viz">
+      <span class="yt-eq-viz-label">{{ 'YOUTUBE.EQ.ANALYZER' | translate }}</span>
+      <button
+        *ngFor="let shape of spectrumShapes"
+        type="button"
+        class="yt-eq-viz-btn"
+        [class.active]="spectrumShape === shape"
+        (click)="setSpectrumShape(shape)">
+        {{ ('YOUTUBE.EQ.SPECTRUM_' + shape.toUpperCase()) | translate }}
+      </button>
+      <span class="yt-eq-viz-label">{{ 'YOUTUBE.EQ.SPECTRUM_COLORS' | translate }}</span>
+      <button
+        *ngFor="let palette of spectrumPalettes"
+        type="button"
+        class="yt-eq-swatch"
+        [class.active]="spectrumPalette === palette.id"
+        [style.background]="palette.swatch"
+        [attr.title]="('YOUTUBE.EQ.SPECTRUM_' + palette.id.toUpperCase()) | translate"
+        [attr.aria-label]="('YOUTUBE.EQ.SPECTRUM_' + palette.id.toUpperCase()) | translate"
+        (click)="setSpectrumPalette(palette.id)"></button>
     </div>
 
     <canvas
       #spectrum
       class="yt-eq-spectrum"
       width="720"
-      height="88"
+      height="165"
       [attr.aria-label]="'YOUTUBE.EQ.ANALYZER' | translate"></canvas>
 
     <div class="yt-eq-toolbar">

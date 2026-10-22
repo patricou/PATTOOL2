@@ -58,14 +58,14 @@
   width: 54px;
   height: 54px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.92);
+  border: 2px solid var(--pat-fab-border, rgba(255, 255, 255, 0.92));
   z-index: 10;
   pointer-events: auto;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--asst-fab-fill);
-  color: #ffffff;
+  color: var(--pat-fab-fg, #ffffff);
   box-shadow: 0 2px 14px color-mix(in srgb, var(--asst-fab) 42%, transparent);
   cursor: pointer;
   transition:
@@ -78,8 +78,8 @@
 
 .pat-assistant-fab:hover {
   transform: translateX(-50%) scale(1.06);
-  color: #ffffff;
-  border-color: #ffffff;
+  color: var(--pat-fab-fg, #ffffff);
+  border-color: var(--pat-fab-border, #ffffff);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(0, 0, 0, 0.12)),
     var(--asst-fab-fill);
@@ -87,7 +87,7 @@
 }
 
 .pat-assistant-fab--left {
-  /* Far left of the viewport (TV / Webcam pages) — clear of the sidebar search row */
+  /* Far left of the viewport (TV, radio, webcam) — clear of the sidebar search row */
   left: max(0.55rem, env(safe-area-inset-left, 0px));
   right: auto;
   transform: none;

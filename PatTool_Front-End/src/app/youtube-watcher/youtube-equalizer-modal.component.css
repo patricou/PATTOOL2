@@ -19,7 +19,9 @@
   color: var(--eq-text, #f1f1f1);
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.4rem;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .yt-eq-hint,
@@ -54,11 +56,68 @@
 .yt-eq-spectrum {
   display: block;
   width: 100%;
-  height: 88px;
+  flex: 1 1 72px;
+  height: auto;
+  min-height: 56px;
+  max-height: 110px;
   border-radius: 0.5rem;
   background: var(--eq-spectrum-bg, #100808);
   border: 1px solid var(--eq-spectrum-border, #3a1515);
   box-shadow: var(--eq-spectrum-glow, 0 0 12px rgba(255, 0, 0, 0.22));
+}
+
+.yt-eq-viz-note {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.25;
+  color: var(--eq-muted, #aaa);
+}
+
+.yt-eq-viz {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.yt-eq-viz-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--eq-muted, #bbb);
+  margin-right: 0.1rem;
+}
+
+.yt-eq-viz-btn {
+  border: 1px solid var(--eq-preset-border, #4a4a4a);
+  background: var(--eq-preset-bg, #1f1f1f);
+  color: var(--eq-preset-text, #eee);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.yt-eq-viz-btn.active,
+.yt-eq-viz-btn:hover,
+.yt-eq-viz-btn:focus-visible {
+  background: var(--eq-accent, #cc0000);
+  border-color: var(--eq-accent, #cc0000);
+  color: #fff;
+  outline: none;
+}
+
+.yt-eq-swatch {
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+}
+
+.yt-eq-swatch.active,
+.yt-eq-swatch:focus-visible {
+  border-color: #fff;
+  outline: none;
 }
 
 .yt-eq-toolbar {
@@ -148,8 +207,8 @@
 .yt-eq-mix,
 .yt-eq-advanced {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0.7rem 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem 0.85rem;
 }
 
 .yt-eq-knob {
@@ -181,7 +240,7 @@
 }
 
 .yt-eq-section {
-  margin: 0.2rem 0 0;
+  margin: 0;
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--eq-text, #fff);
@@ -191,7 +250,7 @@
   display: flex;
   justify-content: space-between;
   gap: 0.15rem;
-  padding: 0.4rem 0.2rem 0.2rem;
+  padding: 0;
   overflow-x: auto;
 }
 
@@ -215,7 +274,7 @@
   direction: rtl;
   appearance: slider-vertical;
   width: 1.4rem;
-  height: 8.2rem;
+  height: 4.6rem;
   accent-color: var(--eq-accent, #cc0000);
 }
 
@@ -694,6 +753,156 @@
   --eq-preset-border: #166534;
 }
 
+::ng-deep .yt-eq-modal:has([data-cabinet='kanizsa']) {
+  --eq-header: linear-gradient(180deg, #fff 0%, #f3efe4 20%, #161616 100%);
+  --eq-header-text: #f3efe4;
+  --eq-header-border: #161616;
+  --eq-radius: 1rem;
+  --eq-accent: #161616;
+  --eq-body: #f3efe4;
+  --eq-text: #161616;
+  --eq-muted: #5c584e;
+  --eq-label: #161616;
+  --eq-value: #161616;
+  --eq-footer: #161616;
+  --eq-footer-border: #161616;
+  --eq-frame: #161616;
+  --eq-content-bg: #f7f4ec;
+  --eq-spectrum-bg: #f3efe4;
+  --eq-spectrum-fill: rgba(243, 239, 228, 0.94);
+  --eq-spectrum-border: #161616;
+  --eq-spectrum-glow: none;
+  --eq-bar-hi: #161616;
+  --eq-bar-mid: #5c584e;
+  --eq-bar-lo: #161616;
+  --eq-status-bg: #fff;
+  --eq-status-border: #161616;
+  --eq-status-text: #161616;
+  --eq-preset-bg: #fff;
+  --eq-preset-border: #161616;
+  --eq-preset-text: #161616;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='cafewall']) {
+  --eq-header: linear-gradient(180deg, #f4f4f4 0%, #6e6e6e 22%, #111 100%);
+  --eq-header-text: #f4f4f4;
+  --eq-header-border: #111;
+  --eq-radius: 0.7rem;
+  --eq-accent: #111;
+  --eq-body: #d7d7d7;
+  --eq-text: #111;
+  --eq-muted: #3a3a3a;
+  --eq-label: #111;
+  --eq-value: #111;
+  --eq-footer: #111;
+  --eq-footer-border: #f4f4f4;
+  --eq-frame: #111;
+  --eq-content-bg: #ececec;
+  --eq-spectrum-bg: #6e6e6e;
+  --eq-spectrum-fill: rgba(17, 17, 17, 0.92);
+  --eq-spectrum-border: #f4f4f4;
+  --eq-spectrum-glow: none;
+  --eq-bar-hi: #fff;
+  --eq-bar-mid: #f4f4f4;
+  --eq-bar-lo: #111;
+  --eq-status-bg: #fff;
+  --eq-status-border: #111;
+  --eq-status-text: #111;
+  --eq-preset-bg: #fff;
+  --eq-preset-border: #111;
+  --eq-preset-text: #111;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='penrose']) {
+  --eq-header: linear-gradient(180deg, #f8e7b0 0%, #a8843a 16%, #12141c 100%);
+  --eq-header-text: #f8e7b0;
+  --eq-header-border: #e8c872;
+  --eq-radius: 0.8rem;
+  --eq-accent: #e8c872;
+  --eq-body: #12141c;
+  --eq-text: #f8e7b0;
+  --eq-muted: #c9b27a;
+  --eq-label: #f8e7b0;
+  --eq-value: #e8c872;
+  --eq-footer: #0e1018;
+  --eq-footer-border: #e8c872;
+  --eq-frame: #e8c872;
+  --eq-content-bg: #1a1c28;
+  --eq-spectrum-bg: #0e1018;
+  --eq-spectrum-fill: rgba(14, 16, 24, 0.94);
+  --eq-spectrum-border: #e8c872;
+  --eq-spectrum-glow: 0 0 14px rgba(232, 200, 114, 0.35);
+  --eq-bar-hi: #fff6d4;
+  --eq-bar-mid: #e8c872;
+  --eq-bar-lo: #a8843a;
+  --eq-status-bg: #12141c;
+  --eq-status-border: #e8c872;
+  --eq-status-text: #f8e7b0;
+  --eq-preset-bg: #12141c;
+  --eq-preset-border: #e8c872;
+  --eq-preset-text: #f8e7b0;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='scintille']) {
+  --eq-header: linear-gradient(180deg, #f4f4f8 0%, #8e8e98 18%, #111 100%);
+  --eq-header-text: #f4f4f8;
+  --eq-header-border: #111;
+  --eq-radius: 0.7rem;
+  --eq-accent: #f4f4f8;
+  --eq-body: #2a2a32;
+  --eq-text: #f4f4f8;
+  --eq-muted: #c8c8d0;
+  --eq-label: #f4f4f8;
+  --eq-value: #fff;
+  --eq-footer: #111;
+  --eq-footer-border: #f4f4f8;
+  --eq-frame: #f4f4f8;
+  --eq-content-bg: #1a1a22;
+  --eq-spectrum-bg: #8e8e98;
+  --eq-spectrum-fill: rgba(17, 17, 17, 0.9);
+  --eq-spectrum-border: #fff;
+  --eq-spectrum-glow: 0 0 12px rgba(255, 255, 255, 0.35);
+  --eq-bar-hi: #fff;
+  --eq-bar-mid: #f4f4f8;
+  --eq-bar-lo: #8e8e98;
+  --eq-status-bg: #111;
+  --eq-status-border: #f4f4f8;
+  --eq-status-text: #f4f4f8;
+  --eq-preset-bg: #111;
+  --eq-preset-border: #f4f4f8;
+  --eq-preset-text: #f4f4f8;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='barber']) {
+  --eq-header: linear-gradient(180deg, #f4f4f4 0%, #c8102e 24%, #1d4e89 100%);
+  --eq-header-text: #fff;
+  --eq-header-border: #fff;
+  --eq-radius: 0.9rem;
+  --eq-accent: #c8102e;
+  --eq-body: #1d4e89;
+  --eq-text: #fff;
+  --eq-muted: #d6e2f5;
+  --eq-label: #fff;
+  --eq-value: #fff;
+  --eq-footer: #102a52;
+  --eq-footer-border: #fff;
+  --eq-frame: #fff;
+  --eq-content-bg: #16386e;
+  --eq-spectrum-bg: #0c2244;
+  --eq-spectrum-fill: rgba(12, 34, 68, 0.94);
+  --eq-spectrum-border: #c8102e;
+  --eq-spectrum-glow: 0 0 14px rgba(200, 16, 46, 0.4);
+  --eq-bar-hi: #fff;
+  --eq-bar-mid: #c8102e;
+  --eq-bar-lo: #7a0c1c;
+  --eq-status-bg: #102a52;
+  --eq-status-border: #fff;
+  --eq-status-text: #fff;
+  --eq-preset-bg: #102a52;
+  --eq-preset-border: #fff;
+  --eq-preset-text: #fff;
+}
+
 ::ng-deep .yt-eq-modal-backdrop {
   z-index: 4190;
   background: rgba(0, 0, 0, 0.72);
@@ -711,4 +920,28 @@
 
 ::ng-deep .yt-eq-modal-dialog {
   max-width: min(920px, calc(100vw - 1.2rem));
+  max-height: calc(100dvh - 1rem);
+  height: calc(100dvh - 1rem);
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+::ng-deep .yt-eq-modal-dialog .modal-content {
+  height: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+::ng-deep .yt-eq-modal-dialog .modal-header,
+::ng-deep .yt-eq-modal-dialog .modal-footer {
+  flex: 0 0 auto;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+}
+
+::ng-deep .yt-eq-modal-dialog .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }

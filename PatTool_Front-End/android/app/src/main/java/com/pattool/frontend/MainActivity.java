@@ -6,9 +6,12 @@ import android.graphics.Color;
 import android.media.AudioManager;
 import android.net.ConnectivityManager;
 import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.view.View;
 import android.view.Window;
@@ -40,6 +43,13 @@ public class MainActivity extends BridgeActivity {
 
     /** Tells the radio page when the phone network drops or returns, even if the screen is off. */
     private ConnectivityManager.NetworkCallback radioNetworkCallback;
+
+    /** True after the default network has validated internet. Avoids repeating online events. */
+    private boolean radioNetworkValidated;
+
+    private final Handler radioNetworkHandler = new Handler(Looper.getMainLooper());
+
+    private Runnable pendingRadioOffline;
 
     /** True while radio or YouTube is playing. Set from the page, read on screen off. */
     private volatile boolean radioKeepAlive;
@@ -220,6 +230,10 @@ public class MainActivity extends BridgeActivity {
         } catch (RuntimeException ignored) {
             // Service already stopped, or the process is going away.
         }
+        if (pendingRadioOffline != null) {
+            radioNetworkHandler.removeCallbacks(pendingRadioOffline);
+            pendingRadioOffline = null;
+        }
         unregisterRadioNetworkCallback();
         super.onDestroy();
     }
@@ -316,6 +330,50 @@ public class MainActivity extends BridgeActivity {
         webView.resumeTimers();
     }
 
+    /** Internet is usable. Wake the page timers and tell the radio to reopen the stream. */
+    private void publishRadioOnlineIfValidated(Network network) {
+        ConnectivityManager connectivity =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivity == null) {
+            return;
+        }
+        NetworkCapabilities caps = connectivity.getNetworkCapabilities(network);
+        boolean validated = caps != null
+                && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+        if (!validated) {
+            if (radioNetworkValidated) {
+                scheduleRadioOffline();
+            }
+            return;
+        }
+        if (pendingRadioOffline != null) {
+            radioNetworkHandler.removeCallbacks(pendingRadioOffline);
+            pendingRadioOffline = null;
+        }
+        if (radioNetworkValidated) {
+            return;
+        }
+        radioNetworkValidated = true;
+        if (radioKeepAlive) {
+            resumeWebViewForRadio();
+        }
+        runRadioScript("window.dispatchEvent(new Event('online'))");
+    }
+
+    /** Short delay so a Wi-Fi to mobile handover does not cut a stream that is still playing. */
+    private void scheduleRadioOffline() {
+        if (pendingRadioOffline != null) {
+            return;
+        }
+        pendingRadioOffline = () -> {
+            pendingRadioOffline = null;
+            radioNetworkValidated = false;
+            runRadioScript("window.dispatchEvent(new Event('offline'))");
+        };
+        radioNetworkHandler.postDelayed(pendingRadioOffline, 1200);
+    }
+
     private void registerRadioNetworkCallback() {
         if (radioNetworkCallback != null) {
             return;
@@ -328,12 +386,17 @@ public class MainActivity extends BridgeActivity {
         ConnectivityManager.NetworkCallback callback = new ConnectivityManager.NetworkCallback() {
             @Override
             public void onAvailable(Network network) {
-                runRadioScript("window.dispatchEvent(new Event('online'))");
+                radioNetworkHandler.post(() -> publishRadioOnlineIfValidated(network));
+            }
+
+            @Override
+            public void onCapabilitiesChanged(Network network, NetworkCapabilities capabilities) {
+                radioNetworkHandler.post(() -> publishRadioOnlineIfValidated(network));
             }
 
             @Override
             public void onLost(Network network) {
-                runRadioScript("window.dispatchEvent(new Event('offline'))");
+                radioNetworkHandler.post(() -> scheduleRadioOffline());
             }
         };
         try {

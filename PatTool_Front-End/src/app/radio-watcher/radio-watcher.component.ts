@@ -56,7 +56,12 @@ export type RadioSkin =
   | 'porcelain'
   | 'carbon'
   | 'candy'
-  | 'espace';
+  | 'espace'
+  | 'kanizsa'
+  | 'cafewall'
+  | 'penrose'
+  | 'scintille'
+  | 'barber';
 
 const RADIO_SKINS: readonly RadioSkin[] = [
   'classic',
@@ -71,7 +76,12 @@ const RADIO_SKINS: readonly RadioSkin[] = [
   'porcelain',
   'carbon',
   'candy',
-  'espace'
+  'espace',
+  'kanizsa',
+  'cafewall',
+  'penrose',
+  'scintille',
+  'barber'
 ];
 
 @Component({
@@ -89,7 +99,9 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('playerPanel') playerPanelEl?: ElementRef<HTMLElement>;
   @ViewChild('eqModal') eqModal?: YoutubeEqualizerModalComponent;
   eqLive = false;
+  private eqSourceLive = false;
   private eqSub?: Subscription;
+  private playbackGesture: (() => void) | null = null;
 
   countries: RadioCountry[] = [];
   stations: RadioStation[] = [];
@@ -164,6 +176,11 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostBinding('class.radio-skin--carbon') get skinCarbon(): boolean { return this.radioSkin === 'carbon'; }
   @HostBinding('class.radio-skin--candy') get skinCandy(): boolean { return this.radioSkin === 'candy'; }
   @HostBinding('class.radio-skin--espace') get skinEspace(): boolean { return this.radioSkin === 'espace'; }
+  @HostBinding('class.radio-skin--kanizsa') get skinKanizsa(): boolean { return this.radioSkin === 'kanizsa'; }
+  @HostBinding('class.radio-skin--cafewall') get skinCafewall(): boolean { return this.radioSkin === 'cafewall'; }
+  @HostBinding('class.radio-skin--penrose') get skinPenrose(): boolean { return this.radioSkin === 'penrose'; }
+  @HostBinding('class.radio-skin--scintille') get skinScintille(): boolean { return this.radioSkin === 'scintille'; }
+  @HostBinding('class.radio-skin--barber') get skinBarber(): boolean { return this.radioSkin === 'barber'; }
   skinMenuOpen = false;
   private skinChosenThisVisit = false;
   private skinLoadSub?: Subscription;
@@ -217,10 +234,12 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     private translate: TranslateService,
     readonly equalizer: YoutubeEqualizerService
   ) {
-    this.eqSub = this.equalizer.sourceKind$.subscribe((kind) => {
-      this.eqLive = kind !== 'none';
-      this.cdr.markForCheck();
-    });
+    this.eqSub = new Subscription();
+    this.eqSub.add(this.equalizer.sourceKind$.subscribe((kind) => {
+      this.eqSourceLive = kind !== 'none';
+      this.refreshEqIndicator();
+    }));
+    this.eqSub.add(this.equalizer.settings$.subscribe(() => this.refreshEqIndicator()));
   }
 
   get isAllCountries(): boolean {
@@ -245,6 +264,78 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get isFloatingOpen(): boolean {
     return this.radioPlayer.isOpen;
+  }
+
+  /** Pastille : le réglage enregistré est actif, même juste après un rechargement. */
+  get eqActive(): boolean {
+    return this.equalizer.wantsProcessing && (this.eqSourceLive || !!this.selectedStation);
+  }
+
+  private refreshEqIndicator(): void {
+    this.eqLive = this.eqSourceLive;
+    this.cdr.markForCheck();
+  }
+
+  private async engageEqualizer(media: HTMLMediaElement): Promise<void> {
+    if (!this.pageAlive || this.isFloatingOpen || !this.equalizer.wantsProcessing) {
+      return;
+    }
+    if (this.equalizer.sourceKind !== 'none') {
+      return;
+    }
+    const running = await this.equalizer.resume();
+    if (!running || !this.pageAlive || this.isFloatingOpen) {
+      return;
+    }
+    this.equalizer.attachMediaElement(media);
+  }
+
+  private armPlaybackGesture(station: RadioStation, gen: number, reload: boolean): void {
+    this.clearPlaybackGesture();
+    this.isBuffering = false;
+    this.playError = '';
+    const kick = () => {
+      this.clearPlaybackGesture();
+      if (!this.pageAlive || gen !== this.playGeneration) {
+        return;
+      }
+      const media = this.mediaEl?.nativeElement;
+      if (!media) {
+        return;
+      }
+      if (reload || media.error) {
+        this.playStation(station, 'user');
+        return;
+      }
+      media.muted = false;
+      this.isMuted = false;
+      const pending = media.play();
+      void this.engageEqualizer(media);
+      void pending.then(() => {
+        if (gen !== this.playGeneration) {
+          return;
+        }
+        this.isBuffering = false;
+        this.isReconnecting = false;
+        this.playError = '';
+        this.cdr.markForCheck();
+      }).catch(() => {
+        if (gen !== this.playGeneration) {
+          return;
+        }
+        this.playStation(station, 'user');
+      });
+    };
+    this.playbackGesture = kick;
+    document.addEventListener('pointerdown', kick, true);
+    this.cdr.markForCheck();
+  }
+
+  private clearPlaybackGesture(): void {
+    if (this.playbackGesture) {
+      document.removeEventListener('pointerdown', this.playbackGesture, true);
+      this.playbackGesture = null;
+    }
   }
 
   openEqualizer(): void {
@@ -555,6 +646,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.pageAlive = false;
     this.eqSub?.unsubscribe();
+    this.clearPlaybackGesture();
     this.eqModal?.close();
     this.equalizer.detachMediaElement(this.mediaEl?.nativeElement);
     this.clearChromeHideTimer();
@@ -786,9 +878,20 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  private static readonly ILLUSION_SKINS: readonly RadioSkin[] = [
+    'kanizsa',
+    'cafewall',
+    'penrose',
+    'scintille',
+    'barber'
+  ];
+
+  readonly illusionSkins = RadioWatcherComponent.ILLUSION_SKINS;
+
   get sortedRadioSkins(): RadioSkin[] {
+    const pinned = new Set<RadioSkin>(RadioWatcherComponent.ILLUSION_SKINS);
     const lang = this.translate.currentLang || this.translate.defaultLang || 'fr';
-    return [...this.radioSkins].sort((a, b) =>
+    return this.radioSkins.filter((skin) => !pinned.has(skin)).sort((a, b) =>
       this.translate.instant(this.skinNameKey(a)).localeCompare(
         this.translate.instant(this.skinNameKey(b)),
         lang,
@@ -916,7 +1019,16 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onRadioPointerLeave(): void {
-    this.scheduleChromeHide(800);
+    this.clearChromeHideTimer();
+    if (!this.selectedStation) {
+      return;
+    }
+    this.shareMenuOpen = false;
+    if (!this.chromeVisible) {
+      return;
+    }
+    this.chromeVisible = false;
+    this.cdr.markForCheck();
   }
 
   private showChrome(scheduleHide: boolean): void {
@@ -1456,7 +1568,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.playError = '';
     this.chromeVisible = true;
     this.persistLastStation(station);
-    this.schedulePlayDefer(() => this.playStation(station), 0);
+    this.playStation(station);
   }
 
   stopPlayback(): void {
@@ -1681,7 +1793,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.playError = '';
     this.schedulePlayDefer(() => {
       if (!this.radioPlayer.isOpen) {
-        this.playStation(station);
+        this.playStation(station, 'restore');
       }
     }, 0);
     this.cdr.markForCheck();
@@ -1924,7 +2036,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
       this.selectedStation = local;
       this.schedulePlayDefer(() => {
         if (!this.radioPlayer.isOpen) {
-          this.playStation(local);
+          this.playStation(local, 'restore');
         }
       }, 0);
     }
@@ -1938,7 +2050,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
           this.selectedStation = st;
           this.schedulePlayDefer(() => {
             if (!this.radioPlayer.isOpen) {
-              this.playStation(st);
+              this.playStation(st, 'restore');
             }
           }, 0);
           this.cdr.markForCheck();
@@ -1982,7 +2094,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private playStation(station: RadioStation, reason: 'user' | 'reconnect' = 'user'): void {
+  private playStation(station: RadioStation, reason: 'user' | 'reconnect' | 'restore' = 'user'): void {
     const media = this.mediaEl?.nativeElement;
     if (!this.pageAlive || !media || !station?.streamUrl) {
       return;
@@ -2046,6 +2158,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         this.isBuffering = false;
         this.isReconnecting = false;
+        void this.engageEqualizer(media);
         this.cdr.markForCheck();
       }).catch((err: unknown) => {
         if (gen !== this.playGeneration) {
@@ -2061,8 +2174,27 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
             }
             this.isBuffering = false;
             this.isReconnecting = false;
+            this.playError = '';
+            if (reason === 'user') {
+              void this.engageEqualizer(media);
+            } else {
+              this.armPlaybackGesture(station, gen, false);
+            }
             this.cdr.markForCheck();
-          }).catch(() => onError('RADIO.ERR_PLAY'));
+          }).catch(() => {
+            if (gen !== this.playGeneration) {
+              return;
+            }
+            if (reason === 'user') {
+              onError('RADIO.ERR_PLAY');
+              return;
+            }
+            this.armPlaybackGesture(station, gen, true);
+          });
+          return;
+        }
+        if (reason === 'restore' || reason === 'reconnect') {
+          this.armPlaybackGesture(station, gen, true);
           return;
         }
         this.playbackGuard?.requestReconnect();

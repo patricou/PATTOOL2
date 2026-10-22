@@ -19,12 +19,12 @@
     <button
       type="button"
       class="radio-eq-open-btn"
-      [class.is-live]="eqLive"
       (click)="openEqualizer()"
-      [attr.title]="'YOUTUBE.EQ.OPEN' | translate"
-      [attr.aria-label]="'YOUTUBE.EQ.OPEN' | translate">
+      [attr.title]="(eqActive ? 'YOUTUBE.EQ.MEDIA_ACTIVE' : 'YOUTUBE.EQ.OPEN') | translate"
+      [attr.aria-label]="(eqActive ? 'YOUTUBE.EQ.MEDIA_ACTIVE' : 'YOUTUBE.EQ.OPEN') | translate">
       <i class="fa fa-sliders" aria-hidden="true"></i>
       <span class="radio-eq-open-label">{{ 'YOUTUBE.EQ.OPEN' | translate }}</span>
+      <span class="radio-eq-open-badge" *ngIf="eqActive" aria-hidden="true"></span>
     </button>
     <button
       type="button"
@@ -53,6 +53,24 @@
       <span class="radio-skin-menu" *ngIf="skinMenuOpen" role="menu" [attr.aria-label]="'RADIO.SKIN_TITLE' | translate">
         <span class="radio-skin-menu-title">
           <i class="fa fa-paint-brush" aria-hidden="true"></i>
+          {{ 'RADIO.SKIN_GROUP_ILLUSION' | translate }}
+        </span>
+        <button
+          *ngFor="let skin of illusionSkins; trackBy: trackRadioSkin"
+          type="button"
+          class="radio-skin-option"
+          role="menuitemradio"
+          [class.active]="skin === radioSkin"
+          [attr.aria-checked]="skin === radioSkin"
+          (click)="setRadioSkin(skin)">
+          <span class="radio-skin-swatch" [ngClass]="'radio-skin-swatch--' + skin" aria-hidden="true"></span>
+          <span class="radio-skin-option-text">
+            <span class="radio-skin-option-name">{{ skinNameKey(skin) | translate }}</span>
+            <span class="radio-skin-option-desc">{{ skinDescKey(skin) | translate }}</span>
+          </span>
+          <i class="fa fa-check radio-skin-option-check" *ngIf="skin === radioSkin" aria-hidden="true"></i>
+        </button>
+        <span class="radio-skin-menu-title radio-skin-menu-title--next">
           {{ 'RADIO.SKIN_TITLE' | translate }}
         </span>
         <button
@@ -496,6 +514,11 @@
             (volumechange)="onMediaVolumeChange()"></audio>
 
           <div class="radio-ambient" aria-hidden="true"></div>
+          <div class="radio-synth-floor" aria-hidden="true">
+            <div class="radio-synth-tilt">
+              <div class="radio-synth-grid"></div>
+            </div>
+          </div>
 
           <div class="radio-dial" aria-hidden="true">
             <div class="radio-dial-glass">
@@ -546,6 +569,11 @@
                 <span class="radio-speaker-hub"></span>
               </div>
             </div>
+          </div>
+
+          <div class="radio-screen-fx" aria-hidden="true">
+            <span class="radio-screen-fx-a"></span>
+            <span class="radio-screen-fx-b"></span>
           </div>
 
           <div class="radio-station-badge" *ngIf="selectedStation && !isFloatingOpen && !playError">
@@ -641,13 +669,13 @@
               </button>
               <button
                 type="button"
-                class="radio-now-action"
-                [class.is-lit]="eqLive"
+                class="radio-now-action radio-now-action--eq"
                 (click)="openEqualizer()"
                 [disabled]="isFloatingOpen"
                 [attr.title]="'YOUTUBE.EQ.OPEN' | translate"
                 [attr.aria-label]="'YOUTUBE.EQ.OPEN' | translate">
                 <i class="fa fa-sliders"></i>
+                <span class="radio-eq-open-badge" *ngIf="eqActive" aria-hidden="true"></span>
               </button>
               <label class="radio-volume-slider-wrap" *ngIf="!isFloatingOpen">
                 <input

@@ -48,7 +48,7 @@
   right: 0;
   z-index: 40;
   width: min(22rem, calc(100vw - 1.5rem));
-  max-height: min(72vh, 34rem);
+  max-height: min(82vh, 44rem);
   overflow-y: auto;
   padding: 0.45rem;
   display: flex;
@@ -67,6 +67,12 @@
   letter-spacing: normal;
   text-shadow: none;
   white-space: normal;
+}
+
+.radio-skin-menu-title--next {
+  margin-top: 0.35rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--menu-border, rgba(0, 0, 0, 0.08));
 }
 
 .radio-skin-menu-title {
@@ -250,6 +256,66 @@
     radial-gradient(ellipse at 75% 40%, rgba(90, 60, 180, 0.8), transparent 55%),
     linear-gradient(180deg, #070b18, #02040c);
   box-shadow: inset 0 0 0 1px #7ee7ff, 0 0 8px rgba(126, 231, 255, 0.45);
+}
+
+.radio-skin-swatch--kanizsa {
+  background:
+    radial-gradient(circle at 50% 22%, #161616 0 16%, transparent 17%),
+    radial-gradient(circle at 24% 74%, #161616 0 16%, transparent 17%),
+    radial-gradient(circle at 76% 74%, #161616 0 16%, transparent 17%),
+    #f3efe4;
+  box-shadow: inset 0 0 0 2px #161616;
+}
+
+.radio-skin-swatch--cafewall {
+  background:
+    linear-gradient(#111, #111) 0 18% / 22% 28% no-repeat,
+    linear-gradient(#f4f4f4, #f4f4f4) 26% 18% / 22% 28% no-repeat,
+    linear-gradient(#111, #111) 52% 18% / 22% 28% no-repeat,
+    linear-gradient(#f4f4f4, #f4f4f4) 78% 18% / 22% 28% no-repeat,
+    linear-gradient(#f4f4f4, #f4f4f4) -8% 58% / 22% 28% no-repeat,
+    linear-gradient(#111, #111) 18% 58% / 22% 28% no-repeat,
+    linear-gradient(#f4f4f4, #f4f4f4) 44% 58% / 22% 28% no-repeat,
+    linear-gradient(#111, #111) 70% 58% / 22% 28% no-repeat,
+    #6e6e6e;
+  box-shadow: inset 0 0 0 2px #111;
+}
+
+.radio-skin-swatch--penrose {
+  background:
+    linear-gradient(#e8c872, #e8c872) 50% 18% / 64% 8% no-repeat,
+    linear-gradient(62deg, transparent 42%, #e8c872 42% 58%, transparent 58%) 18% 42% / 46% 52% no-repeat,
+    linear-gradient(-62deg, transparent 42%, #e8c872 42% 58%, transparent 58%) 36% 42% / 46% 52% no-repeat,
+    #12141c;
+  box-shadow: inset 0 0 0 2px #e8c872;
+}
+
+.radio-skin-swatch--scintille {
+  background:
+    radial-gradient(circle at 20% 20%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 50% 20%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 80% 20%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 20% 50%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 50% 50%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 80% 50%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 20% 80%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 50% 80%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 80% 80%, #fff 0 2px, transparent 3px),
+    linear-gradient(#111 0 0) 0 0 / 100% 2px no-repeat,
+    linear-gradient(#111 0 0) 0 33% / 100% 2px no-repeat,
+    linear-gradient(#111 0 0) 0 66% / 100% 2px no-repeat,
+    linear-gradient(#111 0 0) 0 100% / 100% 2px no-repeat,
+    linear-gradient(#111 0 0) 0 0 / 2px 100% no-repeat,
+    linear-gradient(#111 0 0) 33% 0 / 2px 100% no-repeat,
+    linear-gradient(#111 0 0) 66% 0 / 2px 100% no-repeat,
+    linear-gradient(#111 0 0) 100% 0 / 2px 100% no-repeat,
+    #8e8e98;
+  box-shadow: inset 0 0 0 2px #111;
+}
+
+.radio-skin-swatch--barber {
+  background: repeating-linear-gradient(45deg, #c8102e 0 6px, #f4f4f4 6px 12px, #1d4e89 12px 18px);
+  box-shadow: inset 0 0 0 2px #f4f4f4;
 }
 
 @media (max-width: 640px) {
@@ -629,26 +695,51 @@
     radial-gradient(1px 1px at 91% 40%, rgba(255, 255, 255, 0.7), transparent);
 }
 
-/* Perspective grid floor — sits above the sun so the sun "sets" behind the horizon. */
-.radio-skin--synthwave .radio-face::after {
-  content: '';
-  position: absolute;
-  left: -60%;
-  right: -60%;
-  top: 70%;
-  bottom: -20%;
-  z-index: 1;
-  pointer-events: none;
-  background:
-    repeating-linear-gradient(0deg, rgba(0, 229, 255, 0.8) 0 1px, transparent 1px 16px),
-    repeating-linear-gradient(90deg, rgba(255, 43, 214, 0.75) 0 1px, transparent 1px 36px),
-    linear-gradient(180deg, #2a0547, #0b0118);
-  transform: perspective(140px) rotateX(55deg);
-  transform-origin: 50% 0;
+/* Floor is a real element: desktop Chrome will not scroll a background painted on a rotated layer. */
+.radio-synth-floor {
+  display: none;
 }
 
-.radio-skin--synthwave.radio-player-panel--on .radio-face::after {
-  animation: radio-skin-grid-scroll 1.2s linear infinite;
+.radio-skin--synthwave .radio-face::after {
+  content: none;
+  display: none;
+}
+
+.radio-skin--synthwave .radio-synth-floor {
+  display: block;
+  position: absolute;
+  z-index: 2;
+  left: -35%;
+  right: -35%;
+  top: 62%;
+  bottom: -6%;
+  overflow: hidden;
+  perspective: 220px;
+  pointer-events: none;
+}
+
+.radio-skin--synthwave .radio-synth-tilt {
+  position: absolute;
+  left: -8%;
+  right: -8%;
+  top: 0;
+  height: 260%;
+  transform: rotateX(64deg);
+  transform-origin: center top;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(to right, rgba(255, 43, 214, 0.8) 0 1px, transparent 1px 46px),
+    linear-gradient(180deg, #3a0a5c 0%, #0b0118 100%);
+}
+
+.radio-skin--synthwave .radio-synth-grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -36px;
+  height: 160%;
+  background: repeating-linear-gradient(to bottom, rgba(0, 229, 255, 0.95) 0 2px, transparent 2px 36px);
+  animation: radio-skin-grid-scroll 4s linear infinite;
 }
 
 .radio-skin--synthwave .radio-ambient {
@@ -1297,6 +1388,7 @@
   pointer-events: none;
   background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px);
   opacity: 0.55;
+  animation: radio-skin-scan 0.9s linear infinite;
 }
 
 .radio-skin--military .radio-ambient {
@@ -1607,7 +1699,7 @@
 .radio-skin--steampunk .radio-face::after {
   content: '';
   position: absolute;
-  z-index: 0;
+  z-index: 1;
   pointer-events: none;
   border-radius: 50%;
   background:
@@ -1935,7 +2027,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: 1;
   pointer-events: none;
   background-image:
     radial-gradient(1px 1px at 8% 22%, rgba(255, 255, 255, 0.9), transparent),
@@ -1960,7 +2052,7 @@
   right: -20%;
   top: 6%;
   height: 58%;
-  z-index: 0;
+  z-index: 1;
   pointer-events: none;
   background:
     radial-gradient(ellipse 40% 60% at 25% 50%, rgba(109, 255, 200, 0.55), transparent 70%),
@@ -2195,6 +2287,251 @@
   border-color: rgba(165, 120, 255, 0.3);
 }
 
+/* ---------- Screen motion: real layer above the speaker (pseudo-elements stay hidden behind it) ---------- */
+
+.radio-screen-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.radio-screen-fx-a,
+.radio-screen-fx-b {
+  display: none;
+  position: absolute;
+  pointer-events: none;
+}
+
+.radio-skin--classic .radio-face::after,
+.radio-skin--artdeco .radio-face::before,
+.radio-skin--spaceage .radio-face::after,
+.radio-skin--steampunk .radio-face::before,
+.radio-skin--steampunk .radio-face::after,
+.radio-skin--aurora .radio-face::before,
+.radio-skin--aurora .radio-face::after,
+.radio-skin--noir .radio-face::after,
+.radio-skin--bamboo .radio-face::before,
+.radio-skin--bamboo .radio-face::after,
+.radio-skin--porcelain .radio-face::after,
+.radio-skin--carbon .radio-face::after,
+.radio-skin--candy .radio-face::after,
+.radio-skin--espace .radio-face::before,
+.radio-skin--espace .radio-face::after,
+.radio-skin--kanizsa .radio-face::before,
+.radio-skin--kanizsa .radio-face::after,
+.radio-skin--cafewall .radio-face::before,
+.radio-skin--cafewall .radio-face::after,
+.radio-skin--penrose .radio-face::before,
+.radio-skin--penrose .radio-face::after,
+.radio-skin--scintille .radio-face::before,
+.radio-skin--scintille .radio-face::after,
+.radio-skin--barber .radio-face::before,
+.radio-skin--barber .radio-face::after {
+  content: none;
+  display: none;
+  animation: none;
+}
+
+.radio-skin--classic .radio-screen-fx-a {
+  display: block;
+  left: -30%;
+  top: 6%;
+  width: 70%;
+  height: 78%;
+  background: radial-gradient(ellipse at 50% 50%, rgba(255, 220, 160, 0.95), rgba(255, 150, 40, 0.45) 42%, transparent 70%);
+  animation: radio-skin-lamp 5.5s ease-in-out infinite alternate;
+}
+
+.radio-skin--artdeco .radio-screen-fx-a {
+  display: block;
+  left: 50%;
+  top: 58%;
+  width: 170%;
+  height: 170%;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 214, 120, 0.9) 0 8deg, transparent 8deg 22deg);
+  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 0 16%, #000 28% 72%, transparent 80%);
+  mask: radial-gradient(circle at 50% 50%, transparent 0 16%, #000 28% 72%, transparent 80%);
+  animation: radio-skin-fan 14s linear infinite;
+}
+
+.radio-skin--spaceage .radio-screen-fx-a {
+  display: block;
+  left: 50%;
+  top: 54%;
+  width: 78%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 3px dashed rgba(255, 106, 0, 0.95);
+  background: radial-gradient(circle at 50% 0, #ff6a00 0 6px, transparent 7px);
+  animation: radio-skin-orbit 10s linear infinite;
+}
+
+.radio-skin--military .radio-screen-fx-a {
+  display: block;
+  left: 0;
+  right: 0;
+  top: 8%;
+  height: 22%;
+  background: linear-gradient(180deg, transparent, rgba(124, 255, 107, 0.55), transparent);
+  box-shadow: 0 0 18px rgba(124, 255, 107, 0.45);
+  animation: radio-skin-hud 2.4s ease-in-out infinite alternate;
+}
+
+.radio-skin--steampunk .radio-screen-fx-a,
+.radio-skin--steampunk .radio-screen-fx-b {
+  display: block;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, transparent 0 28%, rgba(201, 146, 46, 0.95) 29% 34%, transparent 35% 46%, rgba(232, 184, 74, 0.9) 47% 54%, transparent 55%),
+    repeating-conic-gradient(rgba(232, 184, 74, 0.95) 0 8deg, transparent 8deg 18deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 18%, #000 19% 62%, transparent 63%);
+  mask: radial-gradient(circle, transparent 0 18%, #000 19% 62%, transparent 63%);
+}
+
+.radio-skin--steampunk .radio-screen-fx-a {
+  left: 4%;
+  bottom: 2%;
+  width: 46%;
+  aspect-ratio: 1;
+  animation: radio-skin-gear-spin 12s linear infinite;
+}
+
+.radio-skin--steampunk .radio-screen-fx-b {
+  right: 2%;
+  top: 22%;
+  width: 34%;
+  aspect-ratio: 1;
+  animation: radio-skin-gear-spin 8s linear infinite reverse;
+}
+
+.radio-skin--aurora .radio-screen-fx-a {
+  display: block;
+  inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 12% 30%, #fff, transparent),
+    radial-gradient(2px 2px at 28% 68%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(2.5px 2.5px at 46% 24%, #fff, transparent),
+    radial-gradient(2px 2px at 62% 72%, rgba(215, 255, 245, 0.95), transparent),
+    radial-gradient(2.5px 2.5px at 78% 36%, #fff, transparent),
+    radial-gradient(2px 2px at 90% 64%, rgba(255, 255, 255, 0.85), transparent);
+  animation: radio-skin-twinkle 2.4s ease-in-out infinite alternate;
+}
+
+.radio-skin--aurora .radio-screen-fx-b {
+  display: block;
+  left: -15%;
+  right: -15%;
+  top: 8%;
+  height: 62%;
+  background:
+    radial-gradient(ellipse 40% 70% at 22% 50%, rgba(109, 255, 200, 0.85), transparent 70%),
+    radial-gradient(ellipse 36% 60% at 52% 42%, rgba(120, 200, 255, 0.75), transparent 70%),
+    radial-gradient(ellipse 32% 55% at 80% 55%, rgba(190, 140, 255, 0.8), transparent 70%);
+  filter: blur(8px);
+  animation: radio-skin-aurora-wave 9s ease-in-out infinite alternate;
+}
+
+.radio-skin--noir .radio-screen-fx-a {
+  display: block;
+  inset: -20% -40%;
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.72) 50%, transparent 62%);
+  animation: radio-skin-search 4.8s ease-in-out infinite alternate;
+}
+
+.radio-skin--bamboo .radio-screen-fx-a,
+.radio-skin--bamboo .radio-screen-fx-b {
+  display: block;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  background: #ffb703;
+  box-shadow: 0 0 14px 4px #ffb703;
+}
+
+.radio-skin--bamboo .radio-screen-fx-a {
+  left: 18%;
+  top: 34%;
+  animation: radio-skin-firefly 5.5s ease-in-out infinite alternate;
+}
+
+.radio-skin--bamboo .radio-screen-fx-b {
+  right: 16%;
+  top: 58%;
+  background: #ffe08a;
+  box-shadow: 0 0 14px 4px #ffe08a;
+  animation: radio-skin-firefly 7s ease-in-out infinite alternate-reverse;
+}
+
+.radio-skin--porcelain .radio-screen-fx-a {
+  display: block;
+  left: -25%;
+  top: 16%;
+  width: 90%;
+  height: 60%;
+  background:
+    radial-gradient(ellipse at 30% 50%, rgba(255, 255, 255, 0.85), transparent 70%),
+    radial-gradient(ellipse at 72% 40%, rgba(190, 214, 240, 0.8), transparent 68%);
+  filter: blur(1px);
+  animation: radio-skin-clouds 14s ease-in-out infinite alternate;
+}
+
+.radio-skin--carbon .radio-screen-fx {
+  container-type: size;
+}
+
+.radio-skin--carbon .radio-screen-fx-a {
+  display: block;
+  left: 8%;
+  right: 8%;
+  top: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, #3d8bfd, #fff, #3d8bfd, transparent);
+  box-shadow: 0 0 16px 2px #3d8bfd;
+  animation: radio-skin-carbon-scan 2.6s ease-in-out infinite alternate;
+}
+
+.radio-skin--candy .radio-screen-fx-a {
+  display: block;
+  left: 18%;
+  bottom: 8%;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 0 0 4px rgba(61, 222, 200, 0.45),
+    4.2rem -0.4rem 0 0.1rem rgba(255, 255, 255, 0.9),
+    7.5rem 0.6rem 0 0.35rem rgba(255, 179, 204, 0.95);
+  animation: radio-skin-bubbles 6.5s ease-in infinite;
+}
+
+.radio-skin--espace .radio-screen-fx-a {
+  display: block;
+  inset: -10%;
+  background-image:
+    radial-gradient(2px 2px at 12% 22%, #fff, transparent),
+    radial-gradient(2px 2px at 28% 64%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(2.5px 2.5px at 46% 30%, #fff, transparent),
+    radial-gradient(2px 2px at 63% 74%, rgba(215, 231, 255, 0.95), transparent),
+    radial-gradient(2.5px 2.5px at 78% 24%, #fff, transparent),
+    radial-gradient(2px 2px at 90% 58%, rgba(255, 255, 255, 0.85), transparent);
+  animation: radio-skin-star-drift 18s linear infinite;
+}
+
+.radio-skin--espace .radio-screen-fx-b {
+  display: block;
+  left: -12%;
+  top: 28%;
+  width: 4.5rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, #7ee7ff 70%, #fff);
+  box-shadow: 0 0 12px #7ee7ff;
+  animation: radio-skin-comet 7s linear infinite;
+}
+
 /* ---------- Keyframes ---------- */
 
 @keyframes radio-skin-neon-breathe {
@@ -2217,8 +2554,8 @@
 }
 
 @keyframes radio-skin-grid-scroll {
-  from { background-position: 0 0, 0 0, 0 0; }
-  to { background-position: 0 16px, 0 0, 0 0; }
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(0, 36px, 0); }
 }
 
 @keyframes radio-skin-scope {
@@ -2260,6 +2597,69 @@
 @keyframes radio-skin-halo-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@keyframes radio-skin-scan {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(0, 6px, 0); }
+}
+
+@keyframes radio-skin-lamp {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(95%, 12%, 0); }
+}
+
+@keyframes radio-skin-fan {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes radio-skin-orbit {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes radio-skin-search {
+  from { transform: translate3d(-16%, 0, 0); }
+  to { transform: translate3d(16%, 0, 0); }
+}
+
+@keyframes radio-skin-firefly {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(1.8rem, -1.6rem, 0); }
+}
+
+@keyframes radio-skin-clouds {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(38%, 8%, 0); }
+}
+
+@keyframes radio-skin-hud {
+  from { transform: translate3d(0, 1.4rem, 0); }
+  to { transform: translate3d(0, 11rem, 0); }
+}
+
+@keyframes radio-skin-carbon-scan {
+  from { transform: translate3d(0, 8cqh, 0); }
+  to { transform: translate3d(0, 90cqh, 0); }
+}
+
+@keyframes radio-skin-bubbles {
+  0% { transform: translate3d(0, 0.5rem, 0); opacity: 0; }
+  15% { opacity: 0.9; }
+  100% { transform: translate3d(0.8rem, -10rem, 0); opacity: 0; }
+}
+
+@keyframes radio-skin-star-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-6%, 8%, 0); }
+}
+
+@keyframes radio-skin-comet {
+  0% { transform: translate3d(0, 0, 0); opacity: 0; }
+  12% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate3d(22rem, 3.2rem, 0); opacity: 0; }
 }
 
 /* =========================================================================
@@ -2696,13 +3096,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .radio-skin--synthwave.radio-player-panel--on,
-  .radio-skin--synthwave.radio-player-panel--on .radio-face::after,
-  .radio-skin--steampunk.radio-player-panel--on .radio-face::before,
-  .radio-skin--steampunk.radio-player-panel--on .radio-face::after,
   .radio-skin--steampunk.radio-player-panel--live .radio-whip-tip,
   .radio-skin--aurora.radio-player-panel--on,
-  .radio-skin--aurora .radio-face::before,
-  .radio-skin--aurora.radio-player-panel--on .radio-face::after,
   .radio-skin--aurora.radio-player-panel--on .radio-speaker-cloth::before,
   :host.radio-skin--espace::before,
   :host.radio-skin--espace::after {
@@ -3052,7 +3447,7 @@
     radial-gradient(ellipse 80% 50% at 50% 8%, rgba(196, 150, 90, 0.28), transparent 60%),
     linear-gradient(180deg, #4a3a2c 0%, #241c16 46%, #100e0c 100%);
   background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
-  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-size: 100% 520%, 100% 520%, auto, 100% 520%, 100% 520%;
   background-attachment: fixed;
 }
 
@@ -3081,7 +3476,7 @@
     radial-gradient(ellipse 70% 40% at 50% 0%, rgba(224, 184, 90, 0.2), transparent 58%),
     linear-gradient(180deg, #3a2414 0%, #140c08 48%, #0a0604 100%);
   background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
-  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-size: 100% 520%, 100% 520%, auto, 100% 520%, 100% 520%;
   background-attachment: fixed;
 }
 
@@ -3110,7 +3505,7 @@
     radial-gradient(ellipse 80% 45% at 50% 0%, rgba(255, 43, 214, 0.22), transparent 55%),
     linear-gradient(180deg, #2a0848 0%, #0d0221 50%, #05010e 100%);
   background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
-  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-size: 100% 520%, 100% 520%, auto, 100% 520%, 100% 520%;
   background-attachment: fixed;
 }
 
@@ -3123,7 +3518,7 @@
   --pat-title-shadow: 0 8px 22px rgba(120, 40, 0, 0.4);
   --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M0 14 L14 0' stroke='white' stroke-opacity='0.2' stroke-width='1'/%3E%3C/svg%3E");
   --pat-title-bg: linear-gradient(180deg, #ffffff 0%, #d5d7db 6%, #ffb15a 14%, #e85a00 36%, #9a3412 70%, #5c1d00 100%);
-  --pat-page-bg: #3a1808;
+  --pat-page-bg: #e85a00;
   --title-btn-bg: linear-gradient(180deg, #ffd08a 0%, #ff8a1a 55%, #e85a00 100%);
   --title-btn-fg: #3b1600;
   --title-btn-border: #fff7ef;
@@ -3131,15 +3526,15 @@
   --title-btn-active-bg: linear-gradient(180deg, #fff6ea 0%, #ffd08a 100%);
   --title-btn-active-fg: #9a3412;
   --title-btn-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 0 0 1px #9aa3b0, 0 1px 2px rgba(90, 30, 0, 0.35);
-  background-color: #3a1808;
+  background-color: #e85a00;
   background-image:
     linear-gradient(108deg, transparent 0 32%, rgba(255, 255, 255, 0.06) 42%, rgba(255, 255, 255, 0.28) 49%, rgba(255, 180, 80, 0.1) 56%, transparent 68%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, transparent 20%),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, rgba(80, 20, 0, 0.08) 1px 2px, transparent 2px 4px),
     radial-gradient(ellipse 75% 42% at 40% 0%, rgba(255, 160, 60, 0.35), transparent 58%),
-    linear-gradient(165deg, #ff8a2a 0%, #c2410c 38%, #6a2408 100%);
+    linear-gradient(165deg, #ff8a2a 0%, #f07818 48%, #e85a00 100%);
   background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
-  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-size: 100% 520%, 100% 520%, auto, 100% 520%, 100% 520%;
   background-attachment: fixed;
 }
 
@@ -3168,7 +3563,7 @@
     radial-gradient(ellipse 70% 40% at 50% 0%, rgba(140, 160, 70, 0.22), transparent 58%),
     linear-gradient(160deg, #4e5730 0%, #242818 46%, #10140c 100%);
   background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
-  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-size: 100% 520%, 100% 520%, auto, 100% 520%, 100% 520%;
   background-attachment: fixed;
 }
 
@@ -3197,7 +3592,7 @@
     radial-gradient(ellipse 70% 42% at 30% 0%, rgba(194, 107, 51, 0.35), transparent 58%),
     linear-gradient(150deg, #a85a28 0%, #5a2a10 42%, #1a0c06 100%);
   background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat;
-  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%;
+  background-size: 100% 520%, 100% 520%, auto, 100% 520%, 100% 520%;
   background-attachment: fixed;
 }
 
@@ -3227,7 +3622,7 @@
     radial-gradient(ellipse 50% 40% at 90% 10%, rgba(165, 120, 255, 0.22), transparent 55%),
     linear-gradient(165deg, #1b2b4d 0%, #0a1226 55%, #070b16 100%);
   background-repeat: no-repeat, no-repeat, repeat, no-repeat, no-repeat, no-repeat;
-  background-size: 100% 100%, 100% 100%, auto, 100% 100%, 100% 100%, 100% 100%;
+  background-size: 100% 520%, 100% 520%, auto, 100% 520%, 100% 520%, 100% 520%;
   background-attachment: fixed;
 }
 
@@ -3372,7 +3767,7 @@
   --pat-title-accent: #3ddec8;
   --pat-title-shadow: 0 8px 22px rgba(160, 20, 70, 0.35);
   --pat-title-bg: linear-gradient(180deg, #fff 0%, #ffb3cc 10%, #ff4d8d 36%, #9a1248 100%);
-  --pat-page-bg: #4a1830;
+  --pat-page-bg: #ff6fa3;
   --title-btn-bg: linear-gradient(180deg, #fff, #ffd0e0);
   --title-btn-fg: #9a1248;
   --title-btn-border: #fff;
@@ -3380,8 +3775,608 @@
   --title-btn-active-bg: #3ddec8;
   --title-btn-active-fg: #14302c;
   --title-btn-shadow: 0 0 0 1px #9aa3b0;
-  background-color: #4a1830;
-  background-image: linear-gradient(165deg, #ff4d8d, #2a1020);
+  background-color: #ff6fa3;
+  background-image: linear-gradient(165deg, #ff4d8d, #ff6fa3);
+  background-size: 100% 100%;
   background-attachment: fixed;
+}
+
+/* =========================================================================
+   Optical illusions — original CSS drawings of classic principles
+   ========================================================================= */
+
+.radio-player-panel.radio-skin--kanizsa,
+.radio-player-panel.radio-skin--cafewall,
+.radio-player-panel.radio-skin--penrose,
+.radio-player-panel.radio-skin--scintille,
+.radio-player-panel.radio-skin--barber {
+  border-radius: 1.15rem;
+}
+
+.radio-player-panel.radio-skin--kanizsa {
+  --radio-shell-edge: #161616;
+  --radio-brass: #f3efe4;
+  --radio-brass-dark: #161616;
+  --radio-cream: #f3efe4;
+  --radio-accent: #161616;
+  background: #f7f4ec;
+  border: 3px solid #161616;
+  box-shadow: 0 16px 32px rgba(22, 22, 22, 0.28);
+}
+
+.radio-skin--kanizsa .radio-player-frame,
+.radio-skin--kanizsa .radio-face {
+  background: #f3efe4;
+  border-color: #161616;
+}
+
+.radio-skin--kanizsa .radio-brand-name,
+.radio-skin--kanizsa .radio-preset {
+  color: #161616;
+}
+
+.radio-skin--kanizsa .radio-knob,
+.radio-skin--kanizsa .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #fff, #d9d3c6 55%, #161616);
+}
+
+.radio-skin--kanizsa .radio-knob::after,
+.radio-skin--kanizsa .radio-power-led.is-on,
+.radio-skin--kanizsa .radio-eq-bar {
+  background: #161616;
+}
+
+.radio-skin--kanizsa .radio-preset {
+  border: 1px solid #161616;
+  background: #f3efe4;
+}
+
+.radio-skin--kanizsa .radio-preset.is-active {
+  color: #f3efe4;
+  background: #161616;
+}
+
+.radio-skin--kanizsa .radio-screen-fx-a {
+  display: block;
+  left: 50%;
+  top: 54%;
+  width: min(62%, 13.5rem);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background-color: #f4f0e6;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='58' r='24' fill='%23161616'/%3E%3Cpolygon points='100,58 76,86 124,86' fill='%23f4f0e6'/%3E%3Ccircle cx='58' cy='132' r='24' fill='%23161616'/%3E%3Cpolygon points='58,132 88,110 90,146' fill='%23f4f0e6'/%3E%3Ccircle cx='142' cy='132' r='24' fill='%23161616'/%3E%3Cpolygon points='142,132 112,110 110,146' fill='%23f4f0e6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center 46%;
+  background-size: 86% 86%;
+  box-shadow: inset 0 0 0 2px rgba(22, 22, 22, 0.22);
+  animation: illusion-kanizsa-face 8s linear infinite;
+}
+
+.radio-player-panel.radio-skin--cafewall {
+  --radio-shell-edge: #111;
+  --radio-brass: #f4f4f4;
+  --radio-brass-dark: #111;
+  --radio-cream: #f4f4f4;
+  --radio-accent: #111;
+  background: #2a2a2a;
+  border: 3px solid #f4f4f4;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35);
+}
+
+.radio-skin--cafewall .radio-player-frame {
+  background: #1a1a1a;
+  border-color: #f4f4f4;
+}
+
+.radio-skin--cafewall .radio-face {
+  background: #6e6e6e;
+}
+
+.radio-skin--cafewall .radio-brand-name,
+.radio-skin--cafewall .radio-preset {
+  color: #f4f4f4;
+}
+
+.radio-skin--cafewall .radio-knob,
+.radio-skin--cafewall .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #fff, #cfcfcf 50%, #111);
+}
+
+.radio-skin--cafewall .radio-knob::after,
+.radio-skin--cafewall .radio-power-led.is-on,
+.radio-skin--cafewall .radio-eq-bar {
+  background: #f4f4f4;
+}
+
+.radio-skin--cafewall .radio-preset {
+  border: 1px solid #f4f4f4;
+  background: #111;
+}
+
+.radio-skin--cafewall .radio-preset.is-active {
+  color: #111;
+  background: #f4f4f4;
+}
+
+.radio-skin--cafewall .radio-screen-fx-a {
+  display: block;
+  inset: 0;
+  background-color: #6e6e6e;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='44' shape-rendering='crispEdges'%3E%3Crect width='96' height='44' fill='%236e6e6e'/%3E%3Crect y='3' width='22' height='16' fill='%23111111'/%3E%3Crect x='24' y='3' width='22' height='16' fill='%23f4f4f4'/%3E%3Crect x='48' y='3' width='22' height='16' fill='%23111111'/%3E%3Crect x='72' y='3' width='22' height='16' fill='%23f4f4f4'/%3E%3Crect x='-12' y='25' width='22' height='16' fill='%23f4f4f4'/%3E%3Crect x='12' y='25' width='22' height='16' fill='%23111111'/%3E%3Crect x='36' y='25' width='22' height='16' fill='%23f4f4f4'/%3E%3Crect x='60' y='25' width='22' height='16' fill='%23111111'/%3E%3Crect x='84' y='25' width='22' height='16' fill='%23f4f4f4'/%3E%3C/svg%3E");
+  background-size: 96px 44px;
+  animation: illusion-cafe-face 2.4s linear infinite;
+}
+
+.radio-player-panel.radio-skin--penrose {
+  --radio-shell-edge: #e8c872;
+  --radio-brass: #e8c872;
+  --radio-brass-dark: #a8843a;
+  --radio-cream: #f8e7b0;
+  --radio-accent: #e8c872;
+  background: #12141c;
+  border: 3px solid #e8c872;
+  box-shadow: 0 0 0 1px #a8843a, 0 16px 32px rgba(0, 0, 0, 0.45);
+}
+
+.radio-skin--penrose .radio-player-frame,
+.radio-skin--penrose .radio-face {
+  background: #0e1018;
+  border-color: #e8c872;
+}
+
+.radio-skin--penrose .radio-brand-name,
+.radio-skin--penrose .radio-preset {
+  color: #f8e7b0;
+}
+
+.radio-skin--penrose .radio-knob,
+.radio-skin--penrose .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #fff6d4, #e8c872 45%, #a8843a);
+}
+
+.radio-skin--penrose .radio-knob::after,
+.radio-skin--penrose .radio-power-led.is-on,
+.radio-skin--penrose .radio-eq-bar {
+  background: #e8c872;
+}
+
+.radio-skin--penrose .radio-power-led.is-on {
+  box-shadow: 0 0 12px #e8c872;
+}
+
+.radio-skin--penrose .radio-preset {
+  border: 1px solid #e8c872;
+  background: #12141c;
+}
+
+.radio-skin--penrose .radio-preset.is-active {
+  color: #12141c;
+  background: #e8c872;
+}
+
+.radio-skin--penrose .radio-screen-fx-a {
+  display: block;
+  left: 16%;
+  top: 30%;
+  width: 68%;
+  height: 60%;
+  background: linear-gradient(180deg, #fff6d4, #e8c872 42%, #a8843a);
+  clip-path: polygon(evenodd, 50% 0%, 100% 100%, 0% 100%, 50% 18%, 82% 86%, 18% 86%);
+  filter: drop-shadow(0 0 8px rgba(232, 200, 114, 0.55));
+  animation: illusion-penrose-tilt 5.5s ease-in-out infinite;
+}
+
+.radio-skin--penrose .radio-screen-fx-b {
+  display: block;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin: -0.35rem 0 0 -0.35rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 12px 3px rgba(255, 248, 220, 0.95);
+  offset-path: polygon(50% 32%, 82% 88%, 18% 88%);
+  offset-rotate: 0deg;
+  animation: illusion-penrose-gleam 3.4s linear infinite;
+}
+
+.radio-player-panel.radio-skin--scintille {
+  --radio-shell-edge: #111;
+  --radio-brass: #f4f4f8;
+  --radio-brass-dark: #111;
+  --radio-cream: #f4f4f8;
+  --radio-accent: #f4f4f8;
+  background: #16161c;
+  border: 3px solid #f4f4f8;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.45);
+}
+
+.radio-skin--scintille .radio-player-frame,
+.radio-skin--scintille .radio-face {
+  background: #8e8e98;
+  border-color: #111;
+}
+
+.radio-skin--scintille .radio-brand-name,
+.radio-skin--scintille .radio-preset {
+  color: #f4f4f8;
+}
+
+.radio-skin--scintille .radio-knob,
+.radio-skin--scintille .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #fff, #c8c8d0 50%, #111);
+}
+
+.radio-skin--scintille .radio-knob::after,
+.radio-skin--scintille .radio-power-led.is-on,
+.radio-skin--scintille .radio-eq-bar {
+  background: #fff;
+}
+
+.radio-skin--scintille .radio-preset {
+  border: 1px solid #f4f4f8;
+  background: #111;
+}
+
+.radio-skin--scintille .radio-preset.is-active {
+  color: #111;
+  background: #f4f4f8;
+}
+
+.radio-skin--scintille .radio-screen-fx-a {
+  display: block;
+  left: 50%;
+  top: 54%;
+  width: min(62%, 13.5rem);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid #f4f4f8;
+  box-shadow: 0 0 0 3px #111;
+  background-color: #111;
+  background-image:
+    radial-gradient(circle at 16px 16px, #fff 1.8px, transparent 2.5px),
+    linear-gradient(#111 0 14px, #8e8e98 14px),
+    linear-gradient(90deg, #111 0 14px, transparent 14px);
+  background-size: 18px 18px;
+}
+
+.radio-skin--scintille .radio-screen-fx-b {
+  display: block;
+  width: 4.8rem;
+  height: 4.8rem;
+  margin: -2.4rem 0 0 -2.4rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 12%, rgba(255, 255, 255, 0.72) 36%, transparent 70%);
+  filter: blur(0.4px);
+  animation: illusion-scintille-spot 3.4s linear infinite;
+}
+
+.radio-player-panel.radio-skin--barber {
+  --radio-shell-edge: #f4f4f4;
+  --radio-brass: #f4f4f4;
+  --radio-brass-dark: #1d4e89;
+  --radio-cream: #fff;
+  --radio-accent: #c8102e;
+  background: #1d4e89;
+  border: 3px solid #f4f4f4;
+  box-shadow: 0 0 0 2px #c8102e, 0 16px 32px rgba(29, 78, 137, 0.4);
+}
+
+.radio-skin--barber .radio-player-frame {
+  background: #102a52;
+  border-color: #f4f4f4;
+}
+
+.radio-skin--barber .radio-face {
+  background:
+    radial-gradient(circle at 50% 54%, rgba(255, 255, 255, 0.08), transparent 36%),
+    #102a52;
+}
+
+.radio-skin--barber .radio-brand-name,
+.radio-skin--barber .radio-preset {
+  color: #fff;
+}
+
+.radio-skin--barber .radio-knob,
+.radio-skin--barber .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #fff, #f4f4f4 40%, #c8102e);
+}
+
+.radio-skin--barber .radio-knob::after,
+.radio-skin--barber .radio-power-led.is-on,
+.radio-skin--barber .radio-eq-bar {
+  background: #c8102e;
+}
+
+.radio-skin--barber .radio-preset {
+  border: 1px solid #fff;
+  background: #1d4e89;
+}
+
+.radio-skin--barber .radio-preset.is-active {
+  color: #fff;
+  background: #c8102e;
+  border-color: #c8102e;
+}
+
+.radio-skin--barber .radio-screen-fx-a {
+  display: block;
+  left: 50%;
+  top: 54%;
+  width: min(62%, 13.5rem);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid #f4f4f4;
+  box-shadow: 0 0 0 3px #c8102e;
+  background: repeating-linear-gradient(
+    -45deg,
+    #c8102e 0 16px,
+    #f7f7f7 16px 32px,
+    #1d4e89 32px 48px
+  );
+  animation: illusion-barber-pole 0.85s linear infinite;
+}
+
+.radio-skin--barber .radio-screen-fx-b {
+  display: block;
+  left: 50%;
+  top: 54%;
+  width: min(62%, 13.5rem);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.28), transparent 42%, rgba(0, 0, 0, 0.22));
+  pointer-events: none;
+}
+
+:host.radio-skin--kanizsa {
+  --pat-title-accent: #161616;
+  --pat-title-shadow: 0 8px 22px rgba(22, 22, 22, 0.2);
+  --pat-title-bg: linear-gradient(180deg, #fff 0%, #f3efe4 18%, #161616 100%);
+  --pat-page-bg: #f3efe4;
+  --title-btn-bg: #f3efe4;
+  --title-btn-fg: #161616;
+  --title-btn-border: #161616;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #161616;
+  --title-btn-active-fg: #f3efe4;
+  --title-btn-shadow: 0 0 0 1px #161616;
+  --menu-bg: #f7f4ec;
+  --menu-fg: #161616;
+  --menu-muted: #5c584e;
+  --menu-border: #161616;
+  --menu-border-width: 2px;
+  --menu-accent: #161616;
+  --menu-accent-fg: #f3efe4;
+  --menu-toolbar: rgba(22, 22, 22, 0.06);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #161616;
+  --menu-input-border: #161616;
+  --menu-hover: rgba(22, 22, 22, 0.06);
+  --menu-active: rgba(22, 22, 22, 0.12);
+  --menu-meta-bg: rgba(22, 22, 22, 0.06);
+  --menu-shadow: 0 12px 28px rgba(22, 22, 22, 0.16);
+  --menu-radius: 1rem;
+  --menu-logo-bg: #f3efe4;
+  background-color: #f3efe4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='176'%3E%3Crect width='200' height='176' fill='%23f3efe4'/%3E%3Ccircle cx='100' cy='40' r='24' fill='%23161616'/%3E%3Cpolygon points='100,40 82,60 118,60' fill='%23f3efe4'/%3E%3Ccircle cx='46' cy='128' r='24' fill='%23161616'/%3E%3Cpolygon points='46,128 68,110 74,136' fill='%23f3efe4'/%3E%3Ccircle cx='154' cy='128' r='24' fill='%23161616'/%3E%3Cpolygon points='154,128 132,110 126,136' fill='%23f3efe4'/%3E%3C/svg%3E");
+  background-size: 200px 176px;
+  animation: illusion-kanizsa-page 8s ease-in-out infinite;
+}
+
+:host.radio-skin--cafewall {
+  --pat-title-accent: #111;
+  --pat-title-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  --pat-title-bg: linear-gradient(180deg, #f4f4f4 0%, #6e6e6e 16%, #111 100%);
+  --pat-page-bg: #6e6e6e;
+  --title-btn-bg: #f4f4f4;
+  --title-btn-fg: #111;
+  --title-btn-border: #111;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #111;
+  --title-btn-active-fg: #f4f4f4;
+  --title-btn-shadow: 0 0 0 1px #111;
+  --menu-bg: #f4f4f4;
+  --menu-fg: #111;
+  --menu-muted: #4a4a4a;
+  --menu-border: #111;
+  --menu-border-width: 2px;
+  --menu-accent: #111;
+  --menu-accent-fg: #f4f4f4;
+  --menu-toolbar: rgba(0, 0, 0, 0.06);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #111;
+  --menu-input-border: #111;
+  --menu-hover: rgba(0, 0, 0, 0.06);
+  --menu-active: rgba(0, 0, 0, 0.12);
+  --menu-meta-bg: rgba(0, 0, 0, 0.05);
+  --menu-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+  --menu-radius: 0.7rem;
+  --menu-logo-bg: #fff;
+  background-color: #6e6e6e;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='44' shape-rendering='crispEdges'%3E%3Crect width='96' height='44' fill='%236e6e6e'/%3E%3Crect y='3' width='22' height='16' fill='%23111111'/%3E%3Crect x='24' y='3' width='22' height='16' fill='%23f4f4f4'/%3E%3Crect x='48' y='3' width='22' height='16' fill='%23111111'/%3E%3Crect x='72' y='3' width='22' height='16' fill='%23f4f4f4'/%3E%3Crect x='-12' y='25' width='22' height='16' fill='%23f4f4f4'/%3E%3Crect x='12' y='25' width='22' height='16' fill='%23111111'/%3E%3Crect x='36' y='25' width='22' height='16' fill='%23f4f4f4'/%3E%3Crect x='60' y='25' width='22' height='16' fill='%23111111'/%3E%3Crect x='84' y='25' width='22' height='16' fill='%23f4f4f4'/%3E%3C/svg%3E");
+  background-size: 96px 44px;
+  animation: illusion-cafe-page 4.2s linear infinite;
+}
+
+:host.radio-skin--penrose {
+  --pat-title-accent: #e8c872;
+  --pat-title-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  --pat-title-bg: linear-gradient(180deg, #f8e7b0 0%, #a8843a 14%, #12141c 100%);
+  --pat-page-bg: #12141c;
+  --title-btn-bg: #1a1c28;
+  --title-btn-fg: #f8e7b0;
+  --title-btn-border: #e8c872;
+  --title-btn-hover-bg: #242838;
+  --title-btn-active-bg: #e8c872;
+  --title-btn-active-fg: #12141c;
+  --title-btn-shadow: 0 0 0 1px #a8843a;
+  --menu-bg: #1a1c28;
+  --menu-fg: #f8e7b0;
+  --menu-muted: #c9b27a;
+  --menu-border: #e8c872;
+  --menu-border-width: 1px;
+  --menu-accent: #e8c872;
+  --menu-accent-fg: #12141c;
+  --menu-toolbar: rgba(232, 200, 114, 0.08);
+  --menu-input-bg: #12141c;
+  --menu-input-fg: #f8e7b0;
+  --menu-input-border: #e8c872;
+  --menu-hover: rgba(232, 200, 114, 0.12);
+  --menu-active: rgba(232, 200, 114, 0.22);
+  --menu-meta-bg: rgba(232, 200, 114, 0.08);
+  --menu-shadow: 0 0 18px rgba(232, 200, 114, 0.2);
+  --menu-radius: 0.8rem;
+  --menu-logo-bg: #12141c;
+  background-color: #12141c;
+  background-image:
+    repeating-linear-gradient(60deg, transparent 0 26px, rgba(232, 200, 114, 0.85) 26px 28px),
+    repeating-linear-gradient(-60deg, transparent 0 26px, rgba(232, 200, 114, 0.55) 26px 28px),
+    repeating-linear-gradient(180deg, transparent 0 26px, rgba(232, 200, 114, 0.4) 26px 28px);
+  background-size: 56px 96px;
+  animation: illusion-penrose-field 16s linear infinite;
+}
+
+:host.radio-skin--scintille {
+  --pat-title-accent: #f4f4f8;
+  --pat-title-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+  --pat-title-bg: linear-gradient(180deg, #f4f4f8 0%, #8e8e98 18%, #111 100%);
+  --pat-page-bg: #8e8e98;
+  --title-btn-bg: #f4f4f8;
+  --title-btn-fg: #111;
+  --title-btn-border: #111;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #111;
+  --title-btn-active-fg: #f4f4f8;
+  --title-btn-shadow: 0 0 0 1px #111;
+  --menu-bg: #f4f4f8;
+  --menu-fg: #111;
+  --menu-muted: #3a3a44;
+  --menu-border: #111;
+  --menu-border-width: 2px;
+  --menu-accent: #111;
+  --menu-accent-fg: #f4f4f8;
+  --menu-toolbar: rgba(0, 0, 0, 0.05);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #111;
+  --menu-input-border: #111;
+  --menu-hover: rgba(0, 0, 0, 0.06);
+  --menu-active: rgba(0, 0, 0, 0.12);
+  --menu-meta-bg: rgba(0, 0, 0, 0.05);
+  --menu-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+  --menu-radius: 0.7rem;
+  --menu-logo-bg: #fff;
+  background-color: #8e8e98;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.85), transparent 22%),
+    linear-gradient(#111 0 16px, transparent 16px),
+    linear-gradient(90deg, #111 0 16px, transparent 16px),
+    radial-gradient(circle at 18px 18px, #fff 1.7px, transparent 2.4px);
+  background-size: 52% 52%, 20px 20px, 20px 20px, 20px 20px;
+  background-repeat: no-repeat, repeat, repeat, repeat;
+  animation: illusion-scintille-wave 5.5s ease-in-out infinite alternate;
+}
+
+:host.radio-skin--barber {
+  --pat-title-accent: #c8102e;
+  --pat-title-shadow: 0 8px 22px rgba(16, 42, 82, 0.4);
+  --pat-title-bg: linear-gradient(180deg, #f4f4f4 0%, #c8102e 22%, #1d4e89 100%);
+  --pat-page-bg: #1d4e89;
+  --title-btn-bg: #f4f4f4;
+  --title-btn-fg: #1d4e89;
+  --title-btn-border: #fff;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #c8102e;
+  --title-btn-active-fg: #fff;
+  --title-btn-shadow: 0 0 0 1px #1d4e89;
+  --menu-bg: #f7f4ef;
+  --menu-fg: #1d4e89;
+  --menu-muted: #5c3a3a;
+  --menu-border: #1d4e89;
+  --menu-border-width: 2px;
+  --menu-accent: #c8102e;
+  --menu-accent-fg: #fff;
+  --menu-toolbar: rgba(29, 78, 137, 0.08);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #1d4e89;
+  --menu-input-border: #1d4e89;
+  --menu-hover: rgba(200, 16, 46, 0.08);
+  --menu-active: rgba(200, 16, 46, 0.16);
+  --menu-meta-bg: rgba(29, 78, 137, 0.08);
+  --menu-shadow: 0 12px 28px rgba(16, 42, 82, 0.22);
+  --menu-radius: 0.85rem;
+  --menu-logo-bg: #fff;
+  background-color: #1d4e89;
+  background-image: linear-gradient(
+    45deg,
+    #c8102e 0,
+    #c8102e 33.333%,
+    #f7f7f7 0,
+    #f7f7f7 66.666%,
+    #1d4e89 0,
+    #1d4e89 100%
+  );
+  background-size: 120px 120px;
+  background-repeat: repeat;
+  animation: illusion-barber 1.1s linear infinite;
+}
+
+@keyframes illusion-kanizsa-face {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes illusion-kanizsa-page {
+  0%, 100% { background-size: 200px 176px; background-position: 0 0; }
+  50% { background-size: 248px 218px; background-position: -16px -10px; }
+}
+
+@keyframes illusion-cafe-face {
+  to { background-position: 48px 0; }
+}
+
+@keyframes illusion-cafe-page {
+  to { background-position: -48px 0; }
+}
+
+@keyframes illusion-penrose-tilt {
+  0%, 100% { transform: rotate(-7deg) scale(0.94); }
+  50% { transform: rotate(7deg) scale(1); }
+}
+
+@keyframes illusion-penrose-gleam {
+  to { offset-distance: 100%; }
+}
+
+@keyframes illusion-penrose-field {
+  to { background-position: 56px 0, -56px 0, 0 96px; }
+}
+
+@keyframes illusion-scintille-wave {
+  0% { background-position: -10% 0%, 0 0, 0 0, 0 0; }
+  50% { background-position: 68% 55%, 0 0, 0 0, 0 0; }
+  100% { background-position: 8% 78%, 0 0, 0 0, 0 0; }
+}
+
+@keyframes illusion-scintille-spot {
+  0% { left: 50%; top: 36%; }
+  25% { left: 68%; top: 54%; }
+  50% { left: 50%; top: 72%; }
+  75% { left: 32%; top: 54%; }
+  100% { left: 50%; top: 36%; }
+}
+
+@keyframes illusion-barber {
+  from { background-position: 0 0; }
+  to { background-position: 0 -120px; }
+}
+
+@keyframes illusion-barber-pole {
+  to { background-position: 0 -67.88px; }
 }
 

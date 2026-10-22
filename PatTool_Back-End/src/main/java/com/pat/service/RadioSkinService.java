@@ -19,7 +19,8 @@ public class RadioSkinService {
     /** Must match {@code RadioSkin} in radio-watcher.component.ts. */
     public static final Set<String> ALLOWED_SKINS = Set.of(
             "classic", "artdeco", "synthwave", "spaceage", "military", "steampunk", "aurora",
-            "noir", "bamboo", "porcelain", "carbon", "candy", "espace");
+            "noir", "bamboo", "porcelain", "carbon", "candy", "espace",
+            "kanizsa", "cafewall", "penrose", "scintille", "barber");
 
     private final AppParameterService appParameterService;
     private final UserOwnerService userOwnerService;
