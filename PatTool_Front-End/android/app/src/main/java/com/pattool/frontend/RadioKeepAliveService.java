@@ -103,12 +103,12 @@ public class RadioKeepAliveService extends Service {
                 .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setPriority(NotificationCompat.PRIORITY_LOW);
+        Notification notification = builder.build();
         MediaSession session = mediaSession;
         if (session != null) {
-            builder.setStyle(new androidx.media.app.NotificationCompat.MediaStyle()
-                    .setMediaSession(session.getSessionToken()));
+            notification.extras.putParcelable(Notification.EXTRA_MEDIA_SESSION, session.getSessionToken());
         }
-        return builder.build();
+        return notification;
     }
 
     @SuppressWarnings("deprecation")
