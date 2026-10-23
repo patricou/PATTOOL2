@@ -6777,8 +6777,15 @@
     "SKIN_SCINTILLE_DESC": "White dots seem to flash where you are not looking.",
     "SKIN_BARBER": "Barber pole",
     "SKIN_BARBER_DESC": "Diagonal bands that seem to climb forever.",
+    "SLEEVE": "Sleeve",
+    "SLEEVE_SHOW": "Show the track photos",
+    "SLEEVE_HIDE": "Hide the track photos",
     "PIP": "Outside browser (PiP)",
     "PIP_EXIT": "Exit PiP",
+    "FOCUS": "Full page",
+    "FOCUS_HINT": "Show the radio without the menu or the title, without going fullscreen",
+    "FOCUS_EXIT": "Menu and title",
+    "FOCUS_EXIT_HINT": "Show the menu and the title again",
     "FULLSCREEN": "Fullscreen",
     "FULLSCREEN_EXIT": "Exit fullscreen",
     "ERR_PIP": "Could not enable Picture-in-Picture in this browser.",
@@ -6806,7 +6813,8 @@
     "GLOBAL_FILTER_APPLY_ALL_HINT": "When enabled, the filter stays active when switching tabs.",
     "GLOBAL_FILTER_APPLY": "Apply",
     "GLOBAL_FILTER_CLEAR": "Clear",
-    "GLOBAL_FILTER_STATION_HINT": "Search by station name (or genre). In “all countries” mode, at least 2 characters."
+    "GLOBAL_FILTER_STATION_HINT": "Search by station name (or genre). In “all countries” mode, at least 2 characters.",
+    "NOW_TRACK": "Now playing"
   },
   "BOOK": {
     "TITLE": "Books — world library",

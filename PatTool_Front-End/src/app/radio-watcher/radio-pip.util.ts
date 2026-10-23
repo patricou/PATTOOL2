@@ -1,5 +1,7 @@
 /** Document Picture-in-Picture for Radio — World Receiver face in an always-on-top window. */
 
+import { setScreenKeepAlive } from '../services/media-screen-keepalive';
+
 export interface RadioDocPipLabels {
   fullscreen: string;
   fullscreenExit: string;
@@ -60,6 +62,8 @@ export function closeRadioDocPip(): void {
 
 export function applyRadioMediaSession(meta: {
   title: string;
+  artist?: string | null;
+  album?: string | null;
   artworkUrl?: string | null;
 }): void {
   if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) {
@@ -67,17 +71,70 @@ export function applyRadioMediaSession(meta: {
   }
   try {
     const artwork = meta.artworkUrl
-      ? [{ src: meta.artworkUrl, sizes: '512x512', type: 'image/png' }]
+      ? [{ src: meta.artworkUrl, sizes: '512x512', type: artworkMime(meta.artworkUrl) }]
       : [];
     navigator.mediaSession.metadata = new MediaMetadata({
       title: meta.title || 'Radio',
-      artist: 'PatTool Radio',
+      artist: meta.artist || 'PatTool Radio',
+      album: meta.album || '',
       artwork
     });
     navigator.mediaSession.playbackState = 'playing';
   } catch {
     /* ignore */
   }
+}
+
+/** Song title, artist and station, for the lock screen and a Bluetooth device. */
+export function publishRadioTrack(
+  media: HTMLMediaElement | null | undefined,
+  meta: {
+    station?: string | null;
+    title?: string | null;
+    artist?: string | null;
+    album?: string | null;
+    artworkUrl?: string | null;
+  }
+): void {
+  const station = clipRadioText(meta.station) || 'Radio';
+  const song = clipRadioText(meta.title);
+  const artist = clipRadioText(meta.artist);
+  const album = clipRadioText(meta.album) || station;
+  const title = song || station;
+  const shownArtist = artist || (song ? station : 'PatTool Radio');
+  if (media) {
+    media.title = title;
+    media.setAttribute('data-pat-media-title', title);
+    media.setAttribute('data-pat-media-artist', shownArtist);
+    media.setAttribute('data-pat-media-album', album);
+    if (meta.artworkUrl) {
+      media.setAttribute('data-pat-media-artwork', meta.artworkUrl);
+    } else {
+      media.removeAttribute('data-pat-media-artwork');
+    }
+  }
+  applyRadioMediaSession({
+    title,
+    artist: shownArtist,
+    album,
+    artworkUrl: meta.artworkUrl
+  });
+  setScreenKeepAlive('radio', true, title, { artist: shownArtist, album });
+}
+
+function clipRadioText(value: string | null | undefined): string {
+  return (value || '').trim().slice(0, 120);
+}
+
+function artworkMime(url: string): string {
+  const value = (url || '').toLowerCase();
+  if (value.includes('.png')) {
+    return 'image/png';
+  }
+  if (value.includes('.webp')) {
+    return 'image/webp';
+  }
+  return 'image/jpeg';
 }
 
 function getDocumentPipApi(): DocumentPictureInPictureApi | null {
@@ -149,6 +206,10 @@ export async function enterRadioPictureInPicture(
   video: HTMLMediaElement,
   meta: {
     title: string;
+    /** Current song. The window title stays the station name in `title`. */
+    trackTitle?: string | null;
+    artist?: string | null;
+    album?: string | null;
     artworkUrl?: string | null;
     countryLabel?: string | null;
     /** Full radio cabinet panel (`.radio-player-panel`) — moved into the PiP window. */
@@ -158,7 +219,13 @@ export async function enterRadioPictureInPicture(
   },
   options?: { replaceIfOpen?: boolean }
 ): Promise<void> {
-  applyRadioMediaSession(meta);
+  publishRadioTrack(video, {
+    station: meta.title,
+    title: meta.trackTitle,
+    artist: meta.artist,
+    album: meta.album,
+    artworkUrl: meta.artworkUrl
+  });
   await video.play().catch(() => undefined);
 
   const dpi = getDocumentPipApi();

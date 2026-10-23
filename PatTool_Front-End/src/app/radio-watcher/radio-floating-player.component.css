@@ -63,6 +63,22 @@
   font-weight: 600;
 }
 
+.radio-float-title-stack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.radio-float-track {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: #ffe7a3;
+}
+
 .radio-float-title-text {
   overflow: hidden;
   text-overflow: ellipsis;

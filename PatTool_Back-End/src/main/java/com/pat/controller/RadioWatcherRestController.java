@@ -4,11 +4,13 @@ import com.pat.controller.dto.RadioCountryDto;
 import com.pat.controller.dto.RadioFavoritesDto;
 import com.pat.controller.dto.RadioFrancePodcastEpisodeDto;
 import com.pat.controller.dto.RadioFrancePodcastShowDto;
+import com.pat.controller.dto.RadioNowPlayingDto;
 import com.pat.controller.dto.RadioStationDto;
 import com.pat.service.RadioCatalogService;
 import com.pat.service.RadioFavoritesService;
 import com.pat.service.RadioFrancePodcastService;
 import com.pat.service.RadioLastStationService;
+import com.pat.service.RadioNowPlayingService;
 import com.pat.service.RadioSkinService;
 import com.pat.service.RadioStreamProxyService;
 import com.pat.service.TvStreamProxyService;
@@ -49,6 +51,7 @@ import java.util.stream.Collectors;
  *   <li>{@code GET /api/external/radio/countries}</li>
  *   <li>{@code GET /api/external/radio/stations?country=fr&amp;q=...&amp;tag=...}</li>
  *   <li>{@code GET /api/external/radio/stream/{base64url}}</li>
+ *   <li>{@code GET /api/external/radio/now-playing?url=...}</li>
  *   <li>{@code GET /api/external/radio/podcasts/stations}</li>
  *   <li>{@code GET /api/external/radio/podcasts/shows?station=franceinter&amp;q=...}</li>
  *   <li>{@code GET /api/external/radio/podcasts/episodes?station=franceinter&amp;slug=affaires-sensibles}</li>
@@ -70,6 +73,9 @@ public class RadioWatcherRestController {
 
     @Autowired
     private RadioStreamProxyService radioStreamProxyService;
+
+    @Autowired
+    private RadioNowPlayingService radioNowPlayingService;
 
     @Autowired
     private RadioFavoritesService radioFavoritesService;
@@ -178,6 +184,19 @@ public class RadioWatcherRestController {
                         .cacheControl(CacheControl.maxAge(Duration.ofMinutes(30)).cachePublic())
                         .body(st))
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/now-playing")
+    public ResponseEntity<RadioNowPlayingDto> nowPlaying(
+            @RequestParam("url") String url,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String homepage) {
+        if (!StringUtils.hasText(url) || url.length() > 2000) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(radioNowPlayingService.lookup(url, name, homepage));
     }
 
     @GetMapping("/podcasts/stations")

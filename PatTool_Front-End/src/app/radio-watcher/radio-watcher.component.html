@@ -36,6 +36,17 @@
       <i class="fa fa-bars" aria-hidden="true"></i>
       <span class="radio-sidebar-expand-title-label">{{ 'TV.SIDEBAR_EXPAND' | translate }}</span>
     </button>
+    <button
+      type="button"
+      class="radio-sleeve-open-btn"
+      [class.is-active]="sleeveOpen"
+      (click)="toggleSleeve()"
+      [attr.aria-pressed]="sleeveOpen"
+      [attr.title]="(sleeveOpen ? 'RADIO.SLEEVE_HIDE' : 'RADIO.SLEEVE_SHOW') | translate"
+      [attr.aria-label]="(sleeveOpen ? 'RADIO.SLEEVE_HIDE' : 'RADIO.SLEEVE_SHOW') | translate">
+      <i class="fa fa-picture-o" aria-hidden="true"></i>
+      <span class="radio-sleeve-open-label">{{ 'RADIO.SLEEVE' | translate }}</span>
+    </button>
     <span class="radio-skin-picker">
       <button
         type="button"
@@ -499,7 +510,8 @@
 
         <div
           class="radio-face"
-          [class.radio-face--empty]="!selectedStation || isFloatingOpen">
+          [class.radio-face--empty]="!selectedStation || isFloatingOpen"
+          [class.radio-face--sleeve]="sleeveVisible">
           <!-- crossorigin: without CORS mode the equalizer (Web Audio) only receives silence from the API stream proxy. -->
           <audio
             #mediaEl
@@ -571,6 +583,18 @@
             </div>
           </div>
 
+          <div class="radio-sleeve" *ngIf="sleeveVisible" aria-hidden="true">
+            <div class="radio-sleeve-frame">
+              <img
+                *ngFor="let img of trackImages; let i = index; trackBy: trackImageUrl"
+                class="radio-sleeve-photo"
+                [class.is-on]="i === trackImageIndex"
+                [src]="img.url"
+                alt=""
+                (error)="dropTrackImage(i)" />
+            </div>
+          </div>
+
           <div class="radio-screen-fx" aria-hidden="true">
             <span class="radio-screen-fx-a"></span>
             <span class="radio-screen-fx-b"></span>
@@ -578,6 +602,7 @@
 
           <div class="radio-station-badge" *ngIf="selectedStation && !isFloatingOpen && !playError">
             <div class="radio-on-air"><span></span> ON AIR</div>
+            <div class="radio-face-track" *ngIf="nowPlayingLabel">{{ nowPlayingLabel }}</div>
           </div>
 
           <div class="radio-controls-row" aria-hidden="true">
@@ -639,6 +664,10 @@
                 (error)="$any($event.target).style.display='none'" />
               <div class="radio-now-text">
                 <div class="radio-now-name">{{ selectedStation.name }}</div>
+                <div class="radio-now-track" *ngIf="nowPlayingLabel" [attr.aria-label]="('RADIO.NOW_TRACK' | translate) + ' : ' + nowPlayingLabel">
+                  <i class="fa fa-music" aria-hidden="true"></i>
+                  <span>{{ nowPlayingLabel }}</span>
+                </div>
                 <div class="radio-now-meta text-muted small">
                   <span
                     *ngIf="countryFlagCode(selectedStation.country) as flagCode"
@@ -742,6 +771,26 @@
                 <i class="fa" [class.fa-star]="isFavorite(selectedStation!)" [class.fa-star-o]="!isFavorite(selectedStation!)"></i>
               </button>
 
+              <button
+                type="button"
+                class="radio-now-action"
+                [class.is-lit]="focusMode"
+                (click)="toggleFocusMode($event)"
+                [attr.aria-pressed]="focusMode"
+                [attr.title]="(focusMode ? 'RADIO.FOCUS_EXIT_HINT' : 'RADIO.FOCUS_HINT') | translate"
+                [attr.aria-label]="(focusMode ? 'RADIO.FOCUS_EXIT' : 'RADIO.FOCUS') | translate">
+                <i class="fa" [class.fa-compress]="focusMode" [class.fa-desktop]="!focusMode" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="radio-now-action"
+                [class.is-lit]="stageFullscreen"
+                (click)="toggleStageFullscreen($event)"
+                [attr.aria-pressed]="stageFullscreen"
+                [attr.title]="(stageFullscreen ? 'RADIO.FULLSCREEN_EXIT' : 'RADIO.FULLSCREEN') | translate"
+                [attr.aria-label]="(stageFullscreen ? 'RADIO.FULLSCREEN_EXIT' : 'RADIO.FULLSCREEN') | translate">
+                <i class="fa" [class.fa-compress]="stageFullscreen" [class.fa-expand]="!stageFullscreen" aria-hidden="true"></i>
+              </button>
               <button
                 type="button"
                 class="radio-now-action radio-now-action--stop"

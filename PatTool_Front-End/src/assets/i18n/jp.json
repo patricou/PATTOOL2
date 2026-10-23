@@ -5917,8 +5917,15 @@
     "SKIN_SCINTILLE_DESC": "見ていない場所の白い点が瞬いて見える。",
     "SKIN_BARBER": "サインポール",
     "SKIN_BARBER_DESC": "斜めの縞が、終わりなく上っていく。",
+    "SLEEVE": "ジャケット",
+    "SLEEVE_SHOW": "曲の写真を表示",
+    "SLEEVE_HIDE": "曲の写真を隠す",
     "PIP": "ブラウザーの外（PiP）",
     "PIP_EXIT": "PiP を終了",
+    "FOCUS": "全ページ",
+    "FOCUS_HINT": "メニューとタイトルを隠してラジオを表示します。全画面にはしません",
+    "FOCUS_EXIT": "メニューとタイトル",
+    "FOCUS_EXIT_HINT": "メニューとタイトルを再表示",
     "FULLSCREEN": "全画面",
     "FULLSCREEN_EXIT": "全画面を終了",
     "ERR_PIP": "このブラウザーでは Picture-in-Picture を有効にできません。",
@@ -5935,7 +5942,8 @@
     "GLOBAL_FILTER_APPLY_ALL_HINT": "有効にすると、タブを切り替えてもフィルターは有効のままです。",
     "GLOBAL_FILTER_APPLY": "適用",
     "GLOBAL_FILTER_CLEAR": "消去",
-    "GLOBAL_FILTER_STATION_HINT": "局名（またはジャンル）で検索。「すべての国」モードでは 2 文字以上。"
+    "GLOBAL_FILTER_STATION_HINT": "局名（またはジャンル）で検索。「すべての国」モードでは 2 文字以上。",
+    "NOW_TRACK": "再生中の曲"
   },
   "ARCHIVE": {
     "TITLE": "Internet Archive",

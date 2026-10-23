@@ -5891,8 +5891,15 @@
     "SKIN_SCINTILLE_DESC": "सफ़ेद बिंदु वहाँ चमकते लगते हैं जहाँ नज़र नहीं जाती।",
     "SKIN_BARBER": "नाई की तख्ती",
     "SKIN_BARBER_DESC": "तिरछी धारियाँ जो बिना रुके ऊपर चढ़ती लगती हैं।",
+    "SLEEVE": "कवर",
+    "SLEEVE_SHOW": "गाने की तस्वीरें दिखाएँ",
+    "SLEEVE_HIDE": "गाने की तस्वीरें छिपाएँ",
     "PIP": "ब्राउज़र के बाहर (PiP)",
     "PIP_EXIT": "PiP छोड़ें",
+    "FOCUS": "पूरा पेज",
+    "FOCUS_HINT": "मेनू और शीर्षक छिपाकर रेडियो दिखाता है, पूर्ण स्क्रीन के बिना",
+    "FOCUS_EXIT": "मेनू और शीर्षक",
+    "FOCUS_EXIT_HINT": "मेनू और शीर्षक फिर दिखाएँ",
     "FULLSCREEN": "पूर्ण स्क्रीन",
     "FULLSCREEN_EXIT": "पूर्ण स्क्रीन छोड़ें",
     "ERR_PIP": "इस ब्राउज़र में Picture-in-Picture चालू नहीं हो सका।",
@@ -5909,7 +5916,8 @@
     "GLOBAL_FILTER_APPLY_ALL_HINT": "यह विकल्प चालू होने पर टैब बदलने पर फ़िल्टर सक्रिय रहता है।",
     "GLOBAL_FILTER_APPLY": "लागू करें",
     "GLOBAL_FILTER_CLEAR": "मिटाएँ",
-    "GLOBAL_FILTER_STATION_HINT": "स्टेशन नाम (या शैली) से खोज। «सभी देश» मोड में कम से कम 2 अक्षर।"
+    "GLOBAL_FILTER_STATION_HINT": "स्टेशन नाम (या शैली) से खोज। «सभी देश» मोड में कम से कम 2 अक्षर।",
+    "NOW_TRACK": "अभी चल रहा है"
   },
   "ARCHIVE": {
     "TITLE": "Internet Archive",

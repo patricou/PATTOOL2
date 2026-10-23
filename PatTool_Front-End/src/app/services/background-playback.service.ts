@@ -403,7 +403,8 @@ export class BackgroundPlaybackService {
     const title =
       (el.getAttribute('title') || el.getAttribute('data-pat-media-title') || existing?.title || '').trim() ||
       'PATTOOL';
-    const artist = (existing?.artist || 'PATTOOL').trim();
+    const artist = (el.getAttribute('data-pat-media-artist') || existing?.artist || 'PATTOOL').trim();
+    const album = (el.getAttribute('data-pat-media-album') || existing?.album || '').trim();
     const artworkAttr = el.getAttribute('data-pat-media-artwork');
     const artwork =
       artworkAttr
@@ -412,7 +413,7 @@ export class BackgroundPlaybackService {
           ? Array.from(existing.artwork)
           : [];
     try {
-      session.metadata = new MediaMetadata({ title, artist, artwork });
+      session.metadata = new MediaMetadata({ title, artist, album, artwork });
     } catch {
       /* ignore */
     }

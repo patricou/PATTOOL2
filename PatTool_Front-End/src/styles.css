@@ -2316,6 +2316,47 @@ body.tv-focus app-tv-watcher {
   overflow: hidden !important;
 }
 
+/* Radio full page and fullscreen: hide the app chrome, keep the set. */
+body.radio-focus,
+body.radio-stage-fs {
+  overflow: hidden !important;
+}
+
+body.radio-focus app-root > nav.navbar,
+body.radio-focus app-root > app-news-ticker,
+body.radio-focus app-root > app-currency-ticker,
+body.radio-focus app-root > app-stock-ticker,
+body.radio-focus app-root > .pat-div,
+body.radio-focus app-root > .friend-requests-app-banner,
+body.radio-focus app-root > app-assistant-drawer,
+body.radio-stage-fs app-root > nav.navbar,
+body.radio-stage-fs app-root > app-news-ticker,
+body.radio-stage-fs app-root > app-currency-ticker,
+body.radio-stage-fs app-root > app-stock-ticker,
+body.radio-stage-fs app-root > .pat-div,
+body.radio-stage-fs app-root > .friend-requests-app-banner,
+body.radio-stage-fs app-root > app-assistant-drawer {
+  display: none !important;
+}
+
+body.radio-focus app-radio-watcher,
+body.radio-stage-fs app-radio-watcher {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1035 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+body.radio-stage-fs app-radio-watcher {
+  z-index: 2000 !important;
+}
+
 /* Mobile landscape webcam watcher: hide app chrome, lock scroll */
 body.wc-landscape-fs {
   overflow: hidden !important;

@@ -3405,6 +3405,18 @@ export class ApiService {
     return this._http.get<YoutubeSearchPage>(this.API_URL + 'external/youtube/popular', { params });
   }
 
+  /** Absolute URL for an API-relative asset (YouTube thumbnail proxy, etc.). */
+  absoluteApiUrl(url: string | null | undefined): string {
+    const raw = (url || '').trim();
+    if (!raw) {
+      return '';
+    }
+    if (/^https?:\/\//i.test(raw)) {
+      return raw;
+    }
+    return this.API_URL + raw.replace(/^\//, '');
+  }
+
   /** Resolve a YouTube thumbnail through the PatTool proxy (never i.ytimg.com). */
   youtubeThumbUrl(item: YoutubeItem | null | undefined): string | null {
     const raw = item?.thumbnailUrl?.trim();
@@ -4437,6 +4449,18 @@ export class ApiService {
     }
     const b64 = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     return this.API_URL + 'external/radio/stream/' + b64;
+  }
+
+  /** Current song for a live station (ICY or Radio France), plus related photos. */
+  getRadioNowPlaying(station: RadioStation): Observable<RadioNowPlaying> {
+    let params = new HttpParams().set('url', station.streamUrl || '');
+    if (station.name) {
+      params = params.set('name', station.name);
+    }
+    if (station.homepage) {
+      params = params.set('homepage', station.homepage);
+    }
+    return this._http.get<RadioNowPlaying>(this.API_URL + 'external/radio/now-playing', { params });
   }
 
   getRadioFavorites(): Observable<RadioFavorites> {
@@ -6993,6 +7017,20 @@ export interface RadioStation {
   bitrate?: number;
   language?: string;
   homepage?: string;
+}
+
+/** GET /api/external/radio/now-playing */
+export interface RadioTrackImage {
+  url: string;
+  alt?: string;
+}
+
+export interface RadioNowPlaying {
+  title?: string;
+  artist?: string;
+  album?: string;
+  label?: string;
+  images?: RadioTrackImage[];
 }
 
 /** GET/PUT /api/external/radio/favorites — per authenticated user */

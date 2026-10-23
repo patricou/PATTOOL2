@@ -5893,8 +5893,15 @@
     "SKIN_SCINTILLE_DESC": "白点似乎在目光未落处闪烁。",
     "SKIN_BARBER": "理发店招牌",
     "SKIN_BARBER_DESC": "斜条似乎永无止境地向上移动。",
+    "SLEEVE": "封面",
+    "SLEEVE_SHOW": "显示歌曲图片",
+    "SLEEVE_HIDE": "隐藏歌曲图片",
     "PIP": "浏览器外（PiP）",
     "PIP_EXIT": "退出 PiP",
+    "FOCUS": "整页",
+    "FOCUS_HINT": "隐藏菜单和标题来显示收音机，不进入全屏",
+    "FOCUS_EXIT": "菜单和标题",
+    "FOCUS_EXIT_HINT": "重新显示菜单和标题",
     "FULLSCREEN": "全屏",
     "FULLSCREEN_EXIT": "退出全屏",
     "ERR_PIP": "无法在此浏览器中启用 Picture-in-Picture。",
@@ -5911,7 +5918,8 @@
     "GLOBAL_FILTER_APPLY_ALL_HINT": "启用后，切换标签页时筛选保持有效。",
     "GLOBAL_FILTER_APPLY": "应用",
     "GLOBAL_FILTER_CLEAR": "清除",
-    "GLOBAL_FILTER_STATION_HINT": "按电台名称（或类型）搜索。在“所有国家”模式下至少 2 个字符。"
+    "GLOBAL_FILTER_STATION_HINT": "按电台名称（或类型）搜索。在“所有国家”模式下至少 2 个字符。",
+    "NOW_TRACK": "正在播放"
   },
   "ARCHIVE": {
     "TITLE": "Internet Archive",

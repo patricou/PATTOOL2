@@ -6781,8 +6781,15 @@
     "SKIN_SCINTILLE_DESC": "Des points blancs semblent clignoter là où le regard ne se pose pas.",
     "SKIN_BARBER": "Enseigne",
     "SKIN_BARBER_DESC": "Des bandes obliques qui semblent monter sans fin.",
+    "SLEEVE": "Pochette",
+    "SLEEVE_SHOW": "Afficher les photos du morceau",
+    "SLEEVE_HIDE": "Masquer les photos du morceau",
     "PIP": "Hors navigateur (PiP)",
     "PIP_EXIT": "Quitter le PiP",
+    "FOCUS": "Pleine page",
+    "FOCUS_HINT": "Affiche la radio sans le menu ni le titre, sans passer en plein écran",
+    "FOCUS_EXIT": "Menu et titre",
+    "FOCUS_EXIT_HINT": "Réafficher le menu et le titre",
     "FULLSCREEN": "Plein écran",
     "FULLSCREEN_EXIT": "Quitter le plein écran",
     "ERR_PIP": "Impossible d’activer le Picture-in-Picture sur ce navigateur.",
@@ -6810,7 +6817,8 @@
     "GLOBAL_FILTER_APPLY_ALL_HINT": "Quand cette option est activée, le filtre reste actif en changeant d’onglet.",
     "GLOBAL_FILTER_APPLY": "Appliquer",
     "GLOBAL_FILTER_CLEAR": "Effacer",
-    "GLOBAL_FILTER_STATION_HINT": "Recherche par nom de station (ou genre). En mode « tous les pays », 2 caractères minimum."
+    "GLOBAL_FILTER_STATION_HINT": "Recherche par nom de station (ou genre). En mode « tous les pays », 2 caractères minimum.",
+    "NOW_TRACK": "Morceau en cours"
   },
   "BOOK": {
     "TITLE": "Livres — bibliothèque du monde",

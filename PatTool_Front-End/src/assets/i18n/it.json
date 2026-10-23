@@ -5897,8 +5897,15 @@
     "SKIN_SCINTILLE_DESC": "Punti bianchi sembrano lampeggiare dove non si guarda.",
     "SKIN_BARBER": "Palo del barbiere",
     "SKIN_BARBER_DESC": "Bande oblique che sembrano salire senza fine.",
+    "SLEEVE": "Copertina",
+    "SLEEVE_SHOW": "Mostra le foto del brano",
+    "SLEEVE_HIDE": "Nascondi le foto del brano",
     "PIP": "Fuori dal browser (PiP)",
     "PIP_EXIT": "Esci dal PiP",
+    "FOCUS": "Pagina intera",
+    "FOCUS_HINT": "Mostra la radio senza menu né titolo, senza schermo intero",
+    "FOCUS_EXIT": "Menu e titolo",
+    "FOCUS_EXIT_HINT": "Mostra di nuovo menu e titolo",
     "FULLSCREEN": "Schermo intero",
     "FULLSCREEN_EXIT": "Esci da schermo intero",
     "ERR_PIP": "Impossibile attivare Picture-in-Picture in questo browser.",
@@ -5915,7 +5922,8 @@
     "GLOBAL_FILTER_APPLY_ALL_HINT": "Quando questa opzione è attiva, il filtro resta attivo cambiando scheda.",
     "GLOBAL_FILTER_APPLY": "Applica",
     "GLOBAL_FILTER_CLEAR": "Cancella",
-    "GLOBAL_FILTER_STATION_HINT": "Ricerca per nome stazione (o genere). In modalità «tutti i paesi», almeno 2 caratteri."
+    "GLOBAL_FILTER_STATION_HINT": "Ricerca per nome stazione (o genere). In modalità «tutti i paesi», almeno 2 caratteri.",
+    "NOW_TRACK": "Brano in corso"
   },
   "ARCHIVE": {
     "TITLE": "Internet Archive",

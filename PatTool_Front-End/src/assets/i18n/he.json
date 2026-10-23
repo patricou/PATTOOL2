@@ -5892,8 +5892,15 @@
     "SKIN_SCINTILLE_DESC": "נקודות לבנות נדמות כמהבהבות במקום שאליו לא מסתכלים.",
     "SKIN_BARBER": "שלט ספר",
     "SKIN_BARBER_DESC": "פסים אלכסוניים שנדמים כעולים בלי סוף.",
+    "SLEEVE": "עטיפה",
+    "SLEEVE_SHOW": "הצג את תמונות הרצועה",
+    "SLEEVE_HIDE": "הסתר את תמונות הרצועה",
     "PIP": "מחוץ לדפדפן (PiP)",
     "PIP_EXIT": "יציאה מ-PiP",
+    "FOCUS": "עמוד מלא",
+    "FOCUS_HINT": "מציג את הרדיו בלי התפריט והכותרת, בלי מסך מלא",
+    "FOCUS_EXIT": "תפריט וכותרת",
+    "FOCUS_EXIT_HINT": "הצג שוב את התפריט והכותרת",
     "FULLSCREEN": "מסך מלא",
     "FULLSCREEN_EXIT": "יציאה ממסך מלא",
     "ERR_PIP": "לא ניתן להפעיל Picture-in-Picture בדפדפן זה.",
@@ -5910,7 +5917,8 @@
     "GLOBAL_FILTER_APPLY_ALL_HINT": "כשהאפשרות פעילה, המסנן נשאר פעיל במעבר בין לשוניות.",
     "GLOBAL_FILTER_APPLY": "החלה",
     "GLOBAL_FILTER_CLEAR": "ניקוי",
-    "GLOBAL_FILTER_STATION_HINT": "חיפוש לפי שם תחנה (או סגנון). במצב «כל המדינות», לפחות 2 תווים."
+    "GLOBAL_FILTER_STATION_HINT": "חיפוש לפי שם תחנה (או סגנון). במצב «כל המדינות», לפחות 2 תווים.",
+    "NOW_TRACK": "הרצועה הנוכחית"
   },
   "ARCHIVE": {
     "TITLE": "Internet Archive",

@@ -5891,8 +5891,15 @@
     "SKIN_SCINTILLE_DESC": "نقاط بيضاء تبدو وكأنها تومض حيث لا تنظر.",
     "SKIN_BARBER": "لافتة الحلاق",
     "SKIN_BARBER_DESC": "أشرطة مائلة تبدو وكأنها تصعد بلا نهاية.",
+    "SLEEVE": "الغلاف",
+    "SLEEVE_SHOW": "عرض صور المقطع",
+    "SLEEVE_HIDE": "إخفاء صور المقطع",
     "PIP": "خارج المتصفح (PiP)",
     "PIP_EXIT": "الخروج من PiP",
+    "FOCUS": "صفحة كاملة",
+    "FOCUS_HINT": "يعرض الراديو بدون القائمة والعنوان، دون ملء الشاشة",
+    "FOCUS_EXIT": "القائمة والعنوان",
+    "FOCUS_EXIT_HINT": "إظهار القائمة والعنوان من جديد",
     "FULLSCREEN": "ملء الشاشة",
     "FULLSCREEN_EXIT": "الخروج من ملء الشاشة",
     "ERR_PIP": "تعذر تفعيل Picture-in-Picture في هذا المتصفح.",
@@ -5909,7 +5916,8 @@
     "GLOBAL_FILTER_APPLY_ALL_HINT": "عند تفعيل هذا الخيار، تبقى التصفية نشطة عند تغيير علامة التبويب.",
     "GLOBAL_FILTER_APPLY": "تطبيق",
     "GLOBAL_FILTER_CLEAR": "مسح",
-    "GLOBAL_FILTER_STATION_HINT": "بحث باسم المحطة (أو النوع). في وضع «كل البلدان»، حرفان على الأقل."
+    "GLOBAL_FILTER_STATION_HINT": "بحث باسم المحطة (أو النوع). في وضع «كل البلدان»، حرفان على الأقل.",
+    "NOW_TRACK": "المقطع الحالي"
   },
   "ARCHIVE": {
     "TITLE": "Internet Archive",

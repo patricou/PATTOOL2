@@ -4380,3 +4380,76 @@
   to { background-position: 0 -67.88px; }
 }
 
+/* =========================================================================
+   SLEEVE — track photos inside the cabinet, any skin
+   ========================================================================= */
+
+.radio-face.radio-face--sleeve .radio-dial,
+.radio-face.radio-face--sleeve .radio-meter,
+.radio-face.radio-face--sleeve .radio-tubes,
+.radio-face.radio-face--sleeve .radio-speaker,
+.radio-face.radio-face--sleeve .radio-synth-floor,
+.radio-face.radio-face--sleeve .radio-face-track,
+.radio-face.radio-face--sleeve .radio-screen-fx {
+  display: none;
+}
+
+.radio-face.radio-face--sleeve .radio-sleeve {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.radio-face.radio-face--sleeve .radio-station-badge {
+  top: 0.45rem;
+  bottom: auto;
+  z-index: 5;
+}
+
+.radio-face.radio-face--sleeve .radio-controls-row {
+  z-index: 4;
+}
+
+.radio-sleeve-frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #0c0a10;
+  box-shadow: inset 0 0 0 1px rgba(196, 165, 116, 0.45);
+}
+
+.radio-sleeve-photo,
+.radio-sleeve-empty {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.radio-sleeve-photo {
+  object-fit: cover;
+  object-position: center;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+
+.radio-sleeve-photo.is-on {
+  opacity: 1;
+}
+
+.radio-sleeve-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(232, 215, 184, 0.45);
+  font-size: 2rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radio-sleeve-photo {
+    transition: none;
+  }
+}
+

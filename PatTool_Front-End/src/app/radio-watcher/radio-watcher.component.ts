@@ -18,13 +18,14 @@ import { debounceTime, distinctUntilChanged, catchError, filter } from 'rxjs/ope
 import { of } from 'rxjs';
 import Hls from 'hls.js';
 
-import { ApiService, RadioCountry, RadioFrancePodcastEpisode, RadioFrancePodcastShow, RadioStation } from '../services/api.service';
+import { ApiService, RadioCountry, RadioFrancePodcastEpisode, RadioFrancePodcastShow, RadioNowPlaying, RadioStation, RadioTrackImage } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
+import { RadioNowPlayingService } from '../services/radio-now-playing.service';
 import { RadioPlayerService } from '../services/radio-player.service';
 import { createTvHlsConfig, resetTvMediaElement, tryRecoverTvHlsError } from '../tv-watcher/tv-hls-config';
 import { attachRadioPlaybackGuard, bustRadioStreamUrl, RadioPlaybackGuard } from './radio-playback-guard';
 import {
-  applyRadioMediaSession,
+  publishRadioTrack,
   closeRadioDocPip,
   enterRadioPictureInPicture,
   isRadioDocPipOpen,
@@ -116,6 +117,11 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   sidebarFilterQuery = '';
   sidebarCollapsed = false;
   selectedStation: RadioStation | null = null;
+  nowPlayingLabel = '';
+  /** Photos of the current track, inside the cabinet, on any skin. */
+  sleeveOpen = false;
+  trackImages: RadioTrackImage[] = [];
+  trackImageIndex = 0;
   worldwideSearchHint = false;
   countryMenuOpen = false;
   countryFilter = '';
@@ -181,6 +187,10 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostBinding('class.radio-skin--penrose') get skinPenrose(): boolean { return this.radioSkin === 'penrose'; }
   @HostBinding('class.radio-skin--scintille') get skinScintille(): boolean { return this.radioSkin === 'scintille'; }
   @HostBinding('class.radio-skin--barber') get skinBarber(): boolean { return this.radioSkin === 'barber'; }
+  /** Radio filling the page: menu and title hidden, not browser fullscreen. */
+  @HostBinding('class.radio-focus') focusMode = false;
+  /** Browser fullscreen, same idea as the TV stage. */
+  @HostBinding('class.radio-stage-fs') stageFullscreen = false;
   skinMenuOpen = false;
   private skinChosenThisVisit = false;
   private skinLoadSub?: Subscription;
@@ -216,11 +226,19 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   private playGeneration = 0;
   private pageAlive = true;
   private playDeferTimer: ReturnType<typeof setTimeout> | null = null;
+  private nowPlayingSub?: Subscription;
+  private trackSlideTimer: ReturnType<typeof setInterval> | null = null;
+  private nowPlayingTitle = '';
+  private nowPlayingArtist = '';
+  private nowPlayingAlbum = '';
   private static readonly CHROME_HIDE_MS = 4000;
   private static readonly LAST_STATION_STORAGE_KEY = 'pattool.radio.last-station';
   private static readonly KEEP_ALIVE_STORAGE_KEY = 'pattool.radio.keep-alive';
   private static readonly SKIN_STORAGE_KEY = 'pattool.radio.skin';
+  private static readonly SLEEVE_STORAGE_KEY = 'pattool.radio.sleeve';
   private static readonly SIDEBAR_COLLAPSED_STORAGE_KEY = 'pattool.radio.sidebar-collapsed';
+  private static readonly FOCUS_BODY_CLASS = 'radio-focus';
+  private static readonly STAGE_FS_BODY_CLASS = 'radio-stage-fs';
   private static readonly SHARE_STREAM_MAX_LEN = 80;
   private static readonly PRESET_COUNT = 12;
 
@@ -232,7 +250,9 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private translate: TranslateService,
-    readonly equalizer: YoutubeEqualizerService
+    readonly equalizer: YoutubeEqualizerService,
+    private nowPlaying: RadioNowPlayingService,
+    private hostRef: ElementRef<HTMLElement>
   ) {
     this.eqSub = new Subscription();
     this.eqSub.add(this.equalizer.sourceKind$.subscribe((kind) => {
@@ -590,6 +610,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     this.keepAliveOnNavigate = this.readKeepAlivePreference();
+    this.sleeveOpen = this.readSleeveOpen();
     this.restoreSkinPreference();
     this.sidebarCollapsed = this.readSidebarCollapsedPreference();
     this.stationSearchSub = this.stationSearch$
@@ -611,6 +632,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.resumeSub = this.radioPlayer.resumeOnPage$.subscribe((station) => {
       this.resumePagePlayback(station);
     });
+    this.nowPlayingSub = this.nowPlaying.state$.subscribe((state) => this.applyNowPlaying(state));
     const pending = this.radioPlayer.consumePendingResume();
     if (pending) {
       this.restoredLastStation = true;
@@ -661,6 +683,10 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.lastStationSaveSub?.unsubscribe();
     this.skinLoadSub?.unsubscribe();
     this.navLeaveSub?.unsubscribe();
+    this.nowPlayingSub?.unsubscribe();
+    this.clearTrackSlide();
+    this.exitFocusMode();
+    void this.exitStageFullscreen();
     this.applyLeavePagePlaybackPolicy();
     this.destroyPlayer();
   }
@@ -765,7 +791,10 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       await enterRadioPictureInPicture(media, {
         title: this.selectedStation.name || 'Radio',
-        artworkUrl: this.stationLogo(this.selectedStation),
+        trackTitle: this.nowPlayingTitle,
+        artist: this.nowPlayingArtist,
+        album: this.nowPlayingAlbum,
+        artworkUrl: this.trackImages[0]?.url || this.stationLogo(this.selectedStation),
         countryLabel: this.countryLabel(this.selectedStation.country),
         faceEl: this.playerPanelEl?.nativeElement || null,
         labels: {
@@ -918,6 +947,17 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  /** The window only covers the face while at least one photo is ready. */
+  get sleeveVisible(): boolean {
+    return this.sleeveOpen && !this.isFloatingOpen && this.trackImages.length > 0;
+  }
+
+  toggleSleeve(): void {
+    this.sleeveOpen = !this.sleeveOpen;
+    this.writeSleeveOpen(this.sleeveOpen);
+    this.cdr.markForCheck();
+  }
+
   setRadioSkin(skin: RadioSkin): void {
     this.radioSkin = skin;
     this.skinMenuOpen = false;
@@ -929,6 +969,28 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private static isRadioSkin(value: string | null | undefined): value is RadioSkin {
     return !!value && (RADIO_SKINS as readonly string[]).includes(value);
+  }
+
+  private readSleeveOpen(): boolean {
+    try {
+      const skin = localStorage.getItem(RadioWatcherComponent.SKIN_STORAGE_KEY);
+      if (skin === 'sleeve') {
+        localStorage.removeItem(RadioWatcherComponent.SKIN_STORAGE_KEY);
+        localStorage.setItem(RadioWatcherComponent.SLEEVE_STORAGE_KEY, '1');
+        return true;
+      }
+      return localStorage.getItem(RadioWatcherComponent.SLEEVE_STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private writeSleeveOpen(open: boolean): void {
+    try {
+      localStorage.setItem(RadioWatcherComponent.SLEEVE_STORAGE_KEY, open ? '1' : '0');
+    } catch {
+      /* private mode / quota */
+    }
   }
 
   private readLocalSkin(): RadioSkin | null {
@@ -967,6 +1029,12 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
       if (!this.pageAlive || this.skinChosenThisVisit) {
         return;
       }
+      if (remote === 'sleeve') {
+        this.sleeveOpen = true;
+        this.writeSleeveOpen(true);
+        this.cdr.markForCheck();
+        return;
+      }
       if (RadioWatcherComponent.isRadioSkin(remote)) {
         this.radioSkin = remote;
         this.writeLocalSkin(remote);
@@ -982,7 +1050,109 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.skinMenuOpen) {
       this.skinMenuOpen = false;
       this.cdr.markForCheck();
+      return;
     }
+    if (this.stageFullscreen && !this.nativeFullscreenElement()) {
+      void this.exitStageFullscreen();
+      return;
+    }
+    if (this.focusMode && !this.stageFullscreen && !this.globalFilterOpen && !this.eqModal?.isOpen) {
+      this.exitFocusMode();
+    }
+  }
+
+  @HostListener('document:fullscreenchange')
+  @HostListener('document:webkitfullscreenchange')
+  onStageFullscreenChange(): void {
+    const current = this.nativeFullscreenElement();
+    if (current === this.hostRef.nativeElement) {
+      this.stageFullscreen = true;
+      document.body.classList.add(RadioWatcherComponent.STAGE_FS_BODY_CLASS);
+    } else if (!current && this.stageFullscreen) {
+      this.stageFullscreen = false;
+      document.body.classList.remove(RadioWatcherComponent.STAGE_FS_BODY_CLASS);
+    }
+    this.cdr.markForCheck();
+  }
+
+  toggleFocusMode(event?: Event): void {
+    event?.stopPropagation();
+    if (this.focusMode) {
+      this.exitFocusMode();
+      return;
+    }
+    this.enterFocusMode();
+  }
+
+  enterFocusMode(): void {
+    this.focusMode = true;
+    document.body.classList.add(RadioWatcherComponent.FOCUS_BODY_CLASS);
+    if (this.selectedStation) {
+      this.showChrome(false);
+    }
+    this.cdr.markForCheck();
+  }
+
+  exitFocusMode(): void {
+    if (!this.focusMode && !document.body.classList.contains(RadioWatcherComponent.FOCUS_BODY_CLASS)) {
+      return;
+    }
+    this.focusMode = false;
+    document.body.classList.remove(RadioWatcherComponent.FOCUS_BODY_CLASS);
+    this.cdr.markForCheck();
+  }
+
+  async toggleStageFullscreen(event?: Event): Promise<void> {
+    event?.stopPropagation();
+    if (this.stageFullscreen) {
+      await this.exitStageFullscreen();
+      return;
+    }
+    await this.enterStageFullscreen();
+  }
+
+  async enterStageFullscreen(): Promise<void> {
+    const host = this.hostRef.nativeElement as HTMLElement & {
+      webkitRequestFullscreen?: () => Promise<void> | void;
+    };
+    this.stageFullscreen = true;
+    document.body.classList.add(RadioWatcherComponent.STAGE_FS_BODY_CLASS);
+    if (this.selectedStation) {
+      this.showChrome(false);
+    }
+    this.cdr.markForCheck();
+    try {
+      const req = host.requestFullscreen?.bind(host) || host.webkitRequestFullscreen?.bind(host);
+      if (req) {
+        await Promise.resolve(req());
+      }
+    } catch {
+      /* The page still covers the viewport; the same button leaves it. */
+    }
+  }
+
+  async exitStageFullscreen(): Promise<void> {
+    const current = this.nativeFullscreenElement();
+    if (current === this.hostRef.nativeElement) {
+      const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> | void };
+      try {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else {
+          doc.webkitExitFullscreen?.();
+        }
+      } catch {
+        /* already left */
+      }
+    }
+    this.stageFullscreen = false;
+    document.body.classList.remove(RadioWatcherComponent.STAGE_FS_BODY_CLASS);
+    this.cdr.markForCheck();
+  }
+
+  private nativeFullscreenElement(): Element | null {
+    const doc = document as Document & { webkitFullscreenElement?: Element | null };
+    return document.fullscreenElement || doc.webkitFullscreenElement || null;
   }
 
   @HostListener('document:click', ['$event'])
@@ -1020,7 +1190,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onRadioPointerLeave(): void {
     this.clearChromeHideTimer();
-    if (!this.selectedStation) {
+    if (!this.selectedStation || this.focusMode || this.stageFullscreen) {
       return;
     }
     this.shareMenuOpen = false;
@@ -2099,7 +2269,8 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.pageAlive || !media || !station?.streamUrl) {
       return;
     }
-    this.destroyPlayer(false, { keepPip: reason === 'reconnect' });
+    this.destroyPlayer(false, { keepPip: reason === 'reconnect', handoffNowPlaying: true });
+    this.nowPlaying.watch('page', station);
     if (!this.pageAlive) {
       return;
     }
@@ -2110,14 +2281,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     const gen = ++this.playGeneration;
     this.playError = '';
     this.isBuffering = true;
-    media.title = station.name || 'Radio';
-    media.setAttribute('data-pat-media-title', station.name || 'Radio');
-    if (station.logo) {
-      media.setAttribute('data-pat-media-artwork', station.logo);
-    } else {
-      media.removeAttribute('data-pat-media-artwork');
-    }
-    applyRadioMediaSession({ title: station.name || 'Radio', artworkUrl: station.logo });
+    publishRadioTrack(media, { station: station.name, artworkUrl: station.logo });
     this.cdr.markForCheck();
 
     const proxyUrl = bustRadioStreamUrl(this.api.radioStreamProxyUrl(station.streamUrl));
@@ -2273,7 +2437,10 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private destroyPlayer(clearSrc = true, options?: { keepPip?: boolean }): void {
+  private destroyPlayer(clearSrc = true, options?: { keepPip?: boolean; handoffNowPlaying?: boolean }): void {
+    if (!options?.handoffNowPlaying) {
+      this.nowPlaying.release('page');
+    }
     const tearingDown = this.mediaEl?.nativeElement;
     if (tearingDown) {
       tearingDown.dataset['patSkipBackground'] = '1';
@@ -2314,6 +2481,83 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
           // ignore
         }
       }
+    }
+  }
+
+  dropTrackImage(index: number): void {
+    if (index < 0 || index >= this.trackImages.length) {
+      return;
+    }
+    this.trackImages = this.trackImages.filter((_, i) => i !== index);
+    if (this.trackImageIndex >= this.trackImages.length) {
+      this.trackImageIndex = 0;
+    }
+    this.syncTrackSlide();
+    this.cdr.markForCheck();
+  }
+
+  trackImageUrl(_index: number, img: RadioTrackImage): string {
+    return img?.url || '';
+  }
+
+  private applyNowPlaying(state: RadioNowPlaying | null): void {
+    const label = (state?.label || '').trim();
+    const images = (state?.images || []).filter((img) => !!img?.url);
+    const songChanged = label !== this.nowPlayingLabel;
+    const samePics = !songChanged
+      && images.length === this.trackImages.length
+      && images.every((img, i) => img.url === this.trackImages[i]?.url);
+    this.nowPlayingLabel = label;
+    this.nowPlayingTitle = (state?.title || '').trim();
+    this.nowPlayingArtist = (state?.artist || '').trim();
+    this.nowPlayingAlbum = (state?.album || '').trim();
+    if (!samePics) {
+      this.trackImages = images;
+      this.trackImageIndex = 0;
+      this.clearTrackSlide();
+    }
+    this.syncTrackSlide();
+    this.pushNowPlayingSession();
+    this.cdr.markForCheck();
+  }
+
+  private pushNowPlayingSession(): void {
+    if (this.isFloatingOpen || !this.selectedStation || this.playError) {
+      return;
+    }
+    const station = this.selectedStation;
+    publishRadioTrack(this.mediaEl?.nativeElement, {
+      station: station.name,
+      title: this.nowPlayingTitle,
+      artist: this.nowPlayingArtist,
+      album: this.nowPlayingAlbum,
+      artworkUrl: this.trackImages[0]?.url || station.logo
+    });
+  }
+
+  private syncTrackSlide(): void {
+    if (this.trackImages.length < 2) {
+      this.clearTrackSlide();
+      this.trackImageIndex = 0;
+      return;
+    }
+    if (this.trackSlideTimer) {
+      return;
+    }
+    this.trackSlideTimer = setInterval(() => {
+      if (!this.pageAlive || this.trackImages.length < 2) {
+        this.clearTrackSlide();
+        return;
+      }
+      this.trackImageIndex = (this.trackImageIndex + 1) % this.trackImages.length;
+      this.cdr.markForCheck();
+    }, 8000);
+  }
+
+  private clearTrackSlide(): void {
+    if (this.trackSlideTimer) {
+      clearInterval(this.trackSlideTimer);
+      this.trackSlideTimer = null;
     }
   }
 

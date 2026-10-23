@@ -16,7 +16,10 @@
     (mousedown)="startDrag($event)">
     <div class="radio-float-title">
       <i class="fa fa-headphones me-1" aria-hidden="true"></i>
-      <span class="radio-float-title-text">{{ station?.name || ('RADIO.FLOAT_TITLE' | translate) }}</span>
+      <span class="radio-float-title-stack">
+        <span class="radio-float-title-text">{{ station?.name || ('RADIO.FLOAT_TITLE' | translate) }}</span>
+        <span class="radio-float-track" *ngIf="nowPlayingLabel">{{ nowPlayingLabel }}</span>
+      </span>
     </div>
     <div class="radio-float-actions">
       <button
@@ -185,6 +188,7 @@
             <i class="fa fa-rss" aria-hidden="true"></i>
             <span>{{ station.name }}</span>
           </div>
+          <div class="radio-face-track" *ngIf="nowPlayingLabel">{{ nowPlayingLabel }}</div>
           <div class="radio-station-meta">
             <span *ngIf="station.country">{{ countryLabel(station.country) }}</span>
             <span *ngIf="station.codec">{{ station.codec }}</span>

@@ -32,13 +32,15 @@ const STALL_BEFORE_START_MS = 22000;
 
 let audioSessionOwners = 0;
 
-function radioTitle(media: HTMLMediaElement): string {
-  const raw = (media.getAttribute('data-pat-media-title') || media.title || 'Radio').trim();
-  return (raw || 'Radio').slice(0, 80);
-}
-
-function syncNativeRadio(playing: boolean, title?: string): void {
-  setScreenKeepAlive('radio', playing && audioSessionOwners > 0, title);
+function syncNativeRadio(playing: boolean, media?: HTMLMediaElement): void {
+  if (!playing || audioSessionOwners <= 0) {
+    setScreenKeepAlive('radio', false);
+    return;
+  }
+  const title = (media?.getAttribute('data-pat-media-title') || media?.title || 'Radio').trim().slice(0, 120) || 'Radio';
+  const artist = (media?.getAttribute('data-pat-media-artist') || '').trim().slice(0, 120);
+  const album = (media?.getAttribute('data-pat-media-album') || '').trim().slice(0, 120);
+  setScreenKeepAlive('radio', true, title, { artist, album });
 }
 
 export function bustRadioStreamUrl(proxyUrl: string): string {
@@ -269,7 +271,7 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
     }
     clearStall();
     noteProgress();
-    syncNativeRadio(true, radioTitle(media));
+    syncNativeRadio(true, media);
   };
 
   const onMediaPause = (): void => {
@@ -439,7 +441,7 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
 
 function claimRadioAudioSession(media: HTMLMediaElement): void {
   audioSessionOwners += 1;
-  syncNativeRadio(true, radioTitle(media));
+  syncNativeRadio(true, media);
   const session = audioSession();
   if (!session) {
     return;

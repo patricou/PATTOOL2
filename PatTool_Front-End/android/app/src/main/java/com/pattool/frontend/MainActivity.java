@@ -20,6 +20,7 @@ import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import androidx.core.content.ContextCompat;
+import java.lang.ref.WeakReference;
 import java.util.Locale;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -54,9 +55,12 @@ public class MainActivity extends BridgeActivity {
     /** True while radio or YouTube is playing. Set from the page, read on screen off. */
     private volatile boolean radioKeepAlive;
 
+    private static WeakReference<MainActivity> radioActivity;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        radioActivity = new WeakReference<>(this);
         hideNavigationBar();
         installAuthReturnHandler();
     }
@@ -223,6 +227,10 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onDestroy() {
         radioKeepAlive = false;
+        WeakReference<MainActivity> current = radioActivity;
+        if (current != null && current.get() == this) {
+            radioActivity = null;
+        }
         Intent stopRadio = new Intent(this, RadioKeepAliveService.class);
         stopRadio.setAction(RadioKeepAliveService.ACTION_STOP);
         try {
@@ -248,8 +256,26 @@ public class MainActivity extends BridgeActivity {
         return power == null || power.isInteractive();
     }
 
+    /** Headset play and pause, forwarded to the radio element in the page. */
+    static void dispatchRadioTransport(String action) {
+        if (!"play".equals(action) && !"pause".equals(action)) {
+            return;
+        }
+        WeakReference<MainActivity> current = radioActivity;
+        MainActivity activity = current == null ? null : current.get();
+        if (activity == null) {
+            return;
+        }
+        activity.runRadioScript(
+                "(function(){var nodes=document.querySelectorAll('audio[data-pat-radio=\"1\"]');"
+                        + "var el=null;for(var i=0;i<nodes.length;i++){if(!nodes[i].paused){el=nodes[i];break;}}"
+                        + "if(!el&&nodes.length){el=nodes[nodes.length-1];}if(!el)return;"
+                        + "if('" + action + "'==='play'){var p=el.play();if(p&&p.catch){p.catch(function(){});}}"
+                        + "else{el.pause();}})()");
+    }
+
     /** Called from the radio page when a station starts or stops. */
-    void onRadioPlayingFromPage(boolean playing, String title) {
+    void onRadioPlayingFromPage(boolean playing, String title, String artist, String album) {
         radioKeepAlive = playing;
         runOnUiThread(() -> {
             if (!isAppPage()) {
@@ -258,14 +284,10 @@ public class MainActivity extends BridgeActivity {
             }
             if (playing) {
                 applyRadioRendererPriority(true);
-                String safe = title == null ? "Radio" : title.trim();
-                if (safe.isEmpty()) {
-                    safe = "Radio";
-                } else if (safe.length() > 80) {
-                    safe = safe.substring(0, 80);
-                }
                 Intent intent = new Intent(this, RadioKeepAliveService.class);
-                intent.putExtra(RadioKeepAliveService.EXTRA_TITLE, safe);
+                intent.putExtra(RadioKeepAliveService.EXTRA_TITLE, title);
+                intent.putExtra(RadioKeepAliveService.EXTRA_ARTIST, artist);
+                intent.putExtra(RadioKeepAliveService.EXTRA_ALBUM, album);
                 try {
                     ContextCompat.startForegroundService(this, intent);
                 } catch (RuntimeException ignored) {
@@ -452,6 +474,11 @@ class RadioNativeBridge {
 
     @JavascriptInterface
     public void setPlaying(boolean playing, String title) {
-        activity.onRadioPlayingFromPage(playing, title);
+        activity.onRadioPlayingFromPage(playing, title, "", "");
+    }
+
+    @JavascriptInterface
+    public void setNowPlaying(boolean playing, String title, String artist, String album) {
+        activity.onRadioPlayingFromPage(playing, title, artist, album);
     }
 }

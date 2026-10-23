@@ -16,12 +16,13 @@ import { catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 import Hls from 'hls.js';
 
-import { ApiService, RadioStation } from '../services/api.service';
+import { ApiService, RadioNowPlaying, RadioStation } from '../services/api.service';
+import { RadioNowPlayingService } from '../services/radio-now-playing.service';
 import { RadioFloatingState, RadioPlayerService } from '../services/radio-player.service';
 import { createTvHlsConfig, resetTvMediaElement, tryRecoverTvHlsError } from '../tv-watcher/tv-hls-config';
 import { attachRadioPlaybackGuard, bustRadioStreamUrl, RadioPlaybackGuard } from './radio-playback-guard';
 import {
-  applyRadioMediaSession,
+  publishRadioTrack,
   closeRadioDocPip,
   enterRadioPictureInPicture,
   isRadioDocPipOpen,
@@ -48,6 +49,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   /** Stream dropped; playback restarts when the network is back. */
   isReconnecting = false;
   playError = '';
+  nowPlayingLabel = '';
   isPipActive = false;
   pipSupported = supportsRadioPictureInPicture();
   favorites: RadioStation[] = [];
@@ -71,6 +73,11 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   private playbackGuard: RadioPlaybackGuard | null = null;
   private stateSub?: Subscription;
   private favoritesSub?: Subscription;
+  private nowPlayingSub?: Subscription;
+  private nowPlayingTitle = '';
+  private nowPlayingArtist = '';
+  private nowPlayingAlbum = '';
+  private nowPlayingArt = '';
   private lastStationId = '';
   private playGeneration = 0;
   private alive = true;
@@ -81,7 +88,8 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     private radioPlayer: RadioPlayerService,
     private api: ApiService,
     private cdr: ChangeDetectorRef,
-    private translate: TranslateService
+    private translate: TranslateService,
+    private nowPlaying: RadioNowPlayingService
   ) {}
 
   formatPlayError(message: string | null | undefined): string {
@@ -96,6 +104,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     this.placeDefaultPosition();
     this.favorites = this.radioPlayer.favorites;
     this.loadFavorites();
+    this.nowPlayingSub = this.nowPlaying.state$.subscribe((state) => this.applyNowPlaying(state));
     this.stateSub = this.radioPlayer.state$.subscribe((s) => {
       const prevOpen = this.state.open;
       const stationChanged = (s.station?.id || '') !== this.lastStationId;
@@ -122,6 +131,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     this.alive = false;
     this.stateSub?.unsubscribe();
     this.favoritesSub?.unsubscribe();
+    this.nowPlayingSub?.unsubscribe();
     this.destroyPlayer();
   }
 
@@ -376,7 +386,8 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     // Keep Document PiP + World Receiver face open while switching presets or reconnecting.
     const keepDocPip = isRadioDocPipOpen();
     this.suppressPipHostClose = true;
-    this.destroyPlayer(false, { keepDocPip });
+    this.destroyPlayer(false, { keepDocPip, handoffNowPlaying: true });
+    this.nowPlaying.watch('float', station);
     if (!this.alive) {
       return;
     }
@@ -389,14 +400,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     this.isBuffering = true;
     this.cdr.markForCheck();
 
-    media.title = station.name || 'Radio';
-    media.setAttribute('data-pat-media-title', station.name || 'Radio');
-    if (station.logo) {
-      media.setAttribute('data-pat-media-artwork', station.logo);
-    } else {
-      media.removeAttribute('data-pat-media-artwork');
-    }
-    applyRadioMediaSession({ title: station.name || 'Radio', artworkUrl: station.logo });
+    publishRadioTrack(media, { station: station.name, artworkUrl: station.logo });
 
     const proxyUrl = bustRadioStreamUrl(this.api.radioStreamProxyUrl(station.streamUrl));
     this.playbackGuard = attachRadioPlaybackGuard({
@@ -528,7 +532,33 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     }
   }
 
-  private destroyPlayer(clearSrc = true, options?: { keepDocPip?: boolean }): void {
+  private applyNowPlaying(state: RadioNowPlaying | null): void {
+    this.nowPlayingLabel = (state?.label || '').trim();
+    this.nowPlayingTitle = (state?.title || '').trim();
+    this.nowPlayingArtist = (state?.artist || '').trim();
+    this.nowPlayingAlbum = (state?.album || '').trim();
+    this.nowPlayingArt = state?.images?.[0]?.url || '';
+    this.pushNowPlayingSession();
+    this.cdr.markForCheck();
+  }
+
+  private pushNowPlayingSession(): void {
+    if (!this.state.open || !this.station || this.playError) {
+      return;
+    }
+    publishRadioTrack(this.mediaEl?.nativeElement, {
+      station: this.station.name,
+      title: this.nowPlayingTitle,
+      artist: this.nowPlayingArtist,
+      album: this.nowPlayingAlbum,
+      artworkUrl: this.nowPlayingArt || this.station.logo
+    });
+  }
+
+  private destroyPlayer(clearSrc = true, options?: { keepDocPip?: boolean; handoffNowPlaying?: boolean }): void {
+    if (!options?.handoffNowPlaying) {
+      this.nowPlaying.release('float');
+    }
     const tearingDown = this.mediaEl?.nativeElement;
     if (tearingDown) {
       tearingDown.dataset['patSkipBackground'] = '1';
@@ -586,7 +616,10 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
       media,
       {
         title: this.station.name || 'Radio',
-        artworkUrl: this.stationLogo(this.station),
+        trackTitle: this.nowPlayingTitle,
+        artist: this.nowPlayingArtist,
+        album: this.nowPlayingAlbum,
+        artworkUrl: this.nowPlayingArt || this.stationLogo(this.station),
         countryLabel: this.countryLabel(this.station.country),
         faceEl: this.playerPanelEl?.nativeElement || null,
         labels: {
