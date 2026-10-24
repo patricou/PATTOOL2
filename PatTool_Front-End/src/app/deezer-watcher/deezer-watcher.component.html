@@ -2,6 +2,29 @@
   <h2 class="dz-page-title">
     <span class="dz-title-icon" aria-hidden="true"><i class="fa fa-music"></i></span>
     {{ 'DEEZER.TITLE' | translate }}
+    <span class="dz-title-note">{{ 'DEEZER.LIMIT_NOTE' | translate }}</span>
+    <button
+      type="button"
+      class="radio-global-filter-open-btn"
+      [class.is-active]="hasActiveFilter || filterOpen"
+      (click)="toggleFilterPanel($event)"
+      [attr.title]="'RADIO.GLOBAL_FILTER_TITLE' | translate"
+      [attr.aria-label]="'RADIO.GLOBAL_FILTER_TITLE' | translate"
+      [attr.aria-expanded]="filterOpen">
+      <i class="fa fa-filter" aria-hidden="true"></i>
+      <span class="radio-global-filter-open-label">{{ 'RADIO.GLOBAL_FILTER_OPEN' | translate }}</span>
+      <span class="radio-global-filter-open-dot" *ngIf="hasActiveFilter" aria-hidden="true"></span>
+    </button>
+    <button
+      type="button"
+      class="radio-sidebar-expand-title-btn"
+      *ngIf="sidebarCollapsed"
+      (click)="toggleSidebarCollapsed()"
+      [attr.title]="'TV.SIDEBAR_EXPAND' | translate"
+      [attr.aria-label]="'TV.SIDEBAR_EXPAND' | translate">
+      <i class="fa fa-bars" aria-hidden="true"></i>
+      <span class="radio-sidebar-expand-title-label">{{ 'TV.SIDEBAR_EXPAND' | translate }}</span>
+    </button>
     <button
       type="button"
       class="radio-eq-open-btn"
@@ -12,6 +35,17 @@
       <span class="radio-eq-open-label">{{ 'YOUTUBE.EQ.OPEN' | translate }}</span>
       <span class="radio-eq-open-badge" *ngIf="eqActive" aria-hidden="true"></span>
     </button>
+    <label class="dz-yt-search" [attr.title]="'DEEZER.YT_SEARCH_SWITCH_HINT' | translate">
+      <span class="dz-yt-search-label">{{ 'DEEZER.YT_SEARCH_SWITCH' | translate }}</span>
+      <input
+        type="checkbox"
+        class="dz-yt-search-input"
+        role="switch"
+        [ngModel]="youtubeSearchEnabled"
+        (ngModelChange)="setYoutubeSearch($event)"
+        [attr.aria-label]="'DEEZER.YT_SEARCH_SWITCH' | translate" />
+      <span class="dz-yt-search-track" aria-hidden="true"><span class="dz-yt-search-knob"></span></span>
+    </label>
     <button
       type="button"
       class="radio-sleeve-open-btn"
@@ -70,46 +104,96 @@
 </div>
 
 <div class="dz-page radio-page">
-  <div class="dz-layout radio-layout">
-    <aside class="dz-sidebar">
-      <div class="dz-search">
-        <i class="fa fa-search" aria-hidden="true"></i>
-        <label class="visually-hidden" for="dz-search">{{ 'DEEZER.SEARCH_PLACEHOLDER' | translate }}</label>
-        <input
-          id="dz-search"
-          type="search"
-          class="form-control form-control-sm"
-          [ngModel]="query"
-          (ngModelChange)="onQueryChange($event)"
-          [placeholder]="'DEEZER.SEARCH_PLACEHOLDER' | translate"
-          autocomplete="off"
-          spellcheck="false" />
+  <div class="dz-layout radio-layout" [class.radio-layout--sidebar-collapsed]="sidebarCollapsed">
+    <aside class="dz-sidebar radio-sidebar" [ngClass]="'radio-skin--' + radioSkin">
+      <div class="radio-sidebar-filter">
+        <div class="radio-sidebar-filter-row">
+          <i class="fa fa-search radio-sidebar-filter-icon" aria-hidden="true"></i>
+          <label class="visually-hidden" for="dz-search">{{ 'DEEZER.SEARCH_PLACEHOLDER' | translate }}</label>
+          <input
+            id="dz-search"
+            type="search"
+            class="form-control form-control-sm radio-sidebar-filter-input"
+            [ngModel]="query"
+            (ngModelChange)="onQueryChange($event)"
+            [placeholder]="(listMode === 'favorites' ? 'DEEZER.FAV_FILTER' : 'DEEZER.SEARCH_PLACEHOLDER') | translate"
+            autocomplete="off"
+            spellcheck="false" />
+          <button
+            type="button"
+            class="radio-sidebar-filter-clear"
+            *ngIf="query.trim()"
+            (click)="clearQuery()"
+            [attr.aria-label]="'DEEZER.CLEAR_SEARCH' | translate">
+            <i class="fa fa-times" aria-hidden="true"></i>
+          </button>
+        </div>
         <button
           type="button"
-          class="dz-search-clear"
-          *ngIf="query.trim()"
-          (click)="clearQuery()"
-          [attr.aria-label]="'DEEZER.CLEAR_SEARCH' | translate">
-          <i class="fa fa-times" aria-hidden="true"></i>
+          class="radio-sidebar-collapse-btn"
+          (click)="toggleSidebarCollapsed()"
+          aria-expanded="true"
+          [attr.title]="'TV.SIDEBAR_COLLAPSE' | translate"
+          [attr.aria-label]="'TV.SIDEBAR_COLLAPSE' | translate">
+          <i class="fa fa-chevron-left radio-sidebar-collapse-chevron" aria-hidden="true"></i>
         </button>
       </div>
 
-      <div class="dz-genres" *ngIf="!drilled && !searching" role="tablist" [attr.aria-label]="'DEEZER.GENRES' | translate">
+      <div class="radio-mode-tabs" role="tablist">
+        <button type="button" class="radio-mode-tab" [class.active]="listMode === 'browse'" (click)="setListMode('browse')">
+          <i class="fa fa-bar-chart me-1" aria-hidden="true"></i>
+          {{ 'DEEZER.CHART' | translate }}
+        </button>
+        <button type="button" class="radio-mode-tab" [class.active]="listMode === 'favorites'" (click)="setListMode('favorites')">
+          <i class="fa fa-star me-1" aria-hidden="true"></i>
+          {{ 'RADIO.TAB_FAVORITES' | translate }}
+          <span class="badge rounded-pill radio-fav-badge" *ngIf="favoriteCount">{{ favoriteCount }}</span>
+        </button>
+      </div>
+
+      <div class="dz-filter" *ngIf="filterOpen">
+        <label class="dz-filter-row">
+          <input type="checkbox" [ngModel]="hideExplicit" (ngModelChange)="setHideExplicit($event)" />
+          {{ 'DEEZER.FILTER_EXPLICIT' | translate }}
+        </label>
+        <label class="dz-filter-row">
+          <input type="checkbox" [ngModel]="previewOnly" (ngModelChange)="setPreviewOnly($event)" />
+          {{ 'DEEZER.FILTER_PREVIEW' | translate }}
+        </label>
+      </div>
+
+      <div class="dz-genres-wrap" *ngIf="listMode === 'browse' && !drilled && !searching" [class.is-open]="genresOpen">
         <button
           type="button"
-          class="dz-genre"
-          [class.is-on]="genreId === 0"
-          (click)="selectGenre(0)">
-          {{ 'DEEZER.GENRE_ALL' | translate }}
+          class="dz-genres-toggle"
+          (click)="toggleGenres()"
+          [attr.aria-expanded]="genresOpen"
+          [attr.aria-label]="(genresOpen ? 'DEEZER.GENRES_HIDE' : 'DEEZER.GENRES_SHOW') | translate">
+          <span>{{ 'DEEZER.GENRES' | translate }}</span>
+          <span class="dz-genres-current" *ngIf="!genresOpen">{{ genreId === 0 ? ('DEEZER.GENRE_ALL' | translate) : selectedGenreName }}</span>
+          <i class="fa fa-chevron-down" aria-hidden="true"></i>
         </button>
-        <button
-          type="button"
-          class="dz-genre"
-          *ngFor="let genre of genreChoices; trackBy: trackById"
-          [class.is-on]="genreId === genre.id"
-          (click)="selectGenre(genre.id)">
-          {{ genre.name }}
-        </button>
+        <div class="dz-genres-clip">
+          <div class="dz-genres-clip-inner">
+            <div class="dz-genres" role="tablist" [attr.aria-label]="'DEEZER.GENRES' | translate" [attr.aria-hidden]="!genresOpen" [attr.inert]="genresOpen ? null : ''">
+            <button
+              type="button"
+              class="dz-genre"
+              [class.is-on]="genreId === 0"
+              (click)="selectGenre(0)">
+              {{ 'DEEZER.GENRE_ALL' | translate }}
+            </button>
+            <button
+              type="button"
+              class="dz-genre"
+              *ngFor="let genre of genreChoices; trackBy: trackById"
+              [class.is-on]="genreId === genre.id"
+              (click)="selectGenre(genre.id)">
+              {{ genre.name }}
+            </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="dz-list-head">
@@ -120,11 +204,29 @@
         <div class="dz-heading">
           <span class="dz-heading-title">
             <ng-container *ngIf="drilled">{{ drillTitle }}</ng-container>
-            <ng-container *ngIf="!drilled && mode === 'chart'">{{ 'DEEZER.CHART' | translate }}</ng-container>
-            <ng-container *ngIf="!drilled && mode === 'search'">{{ 'DEEZER.SEARCH' | translate }}</ng-container>
+            <ng-container *ngIf="!drilled && listMode === 'favorites'">{{ 'RADIO.TAB_FAVORITES' | translate }}</ng-container>
+            <ng-container *ngIf="!drilled && listMode === 'browse' && mode === 'chart'">{{ 'DEEZER.CHART' | translate }}</ng-container>
+            <ng-container *ngIf="!drilled && listMode === 'browse' && mode === 'search'">{{ 'DEEZER.SEARCH' | translate }}</ng-container>
           </span>
           <span class="dz-heading-sub" *ngIf="drilled && drillSubtitle">{{ drillSubtitle }}</span>
         </div>
+        <button
+          type="button"
+          class="dz-play-all"
+          *ngIf="(view === 'track' || drilled) && shownTracks.length"
+          (click)="playAll()">
+          <i class="fa fa-play" aria-hidden="true"></i>
+          {{ 'DEEZER.PLAY_ALL' | translate }}
+        </button>
+        <button
+          type="button"
+          class="dz-play-all dz-play-all--yt"
+          [class.is-on]="youtubeMode"
+          *ngIf="(view === 'track' || drilled) && shownTracks.length"
+          (click)="playAllOnYoutube()">
+          <i class="fa fa-youtube" aria-hidden="true"></i>
+          {{ 'DEEZER.PLAY_ALL_YT' | translate }}
+        </button>
         <a class="dz-open-link" *ngIf="drilled && drillLink" [href]="drillLink" target="_blank" rel="noopener">
           {{ 'DEEZER.OPEN' | translate }}
         </a>
@@ -133,19 +235,19 @@
       <div class="dz-tabs" *ngIf="!drilled" role="tablist">
         <button type="button" class="dz-tab" [class.is-on]="view === 'track'" (click)="setView('track')">
           {{ 'DEEZER.TAB_TRACKS' | translate }}
-          <span *ngIf="tracks.length">{{ tracks.length }}</span>
+          <span *ngIf="shownTracks.length">{{ shownTracks.length }}</span>
         </button>
         <button type="button" class="dz-tab" [class.is-on]="view === 'album'" (click)="setView('album')">
           {{ 'DEEZER.TAB_ALBUMS' | translate }}
-          <span *ngIf="albums.length">{{ albums.length }}</span>
+          <span *ngIf="shownAlbums.length">{{ shownAlbums.length }}</span>
         </button>
         <button type="button" class="dz-tab" [class.is-on]="view === 'artist'" (click)="setView('artist')">
           {{ 'DEEZER.TAB_ARTISTS' | translate }}
-          <span *ngIf="artists.length">{{ artists.length }}</span>
+          <span *ngIf="shownArtists.length">{{ shownArtists.length }}</span>
         </button>
         <button type="button" class="dz-tab" [class.is-on]="view === 'playlist'" (click)="setView('playlist')">
           {{ 'DEEZER.TAB_PLAYLISTS' | translate }}
-          <span *ngIf="playlists.length">{{ playlists.length }}</span>
+          <span *ngIf="shownPlaylists.length">{{ shownPlaylists.length }}</span>
         </button>
       </div>
 
@@ -157,11 +259,11 @@
 
       <ul class="dz-list" *ngIf="!loading && (view === 'track' || drilled)">
         <li
-          *ngFor="let track of tracks; let i = index; trackBy: trackById"
+          *ngFor="let track of shownTracks; let i = index; trackBy: trackById"
           class="dz-row"
           [class.is-on]="current?.id === track.id"
-          (click)="playTrack(track, i)"
-          (keydown.enter)="playTrack(track, i)"
+          (click)="playListedTrack(track, i)"
+          (keydown.enter)="playListedTrack(track, i)"
           tabindex="0">
           <span class="dz-idx">{{ i + 1 }}</span>
           <img *ngIf="track.coverUrl" class="dz-thumb" [src]="track.coverUrl" alt="" loading="lazy" (error)="$any($event.target).style.display='none'" />
@@ -174,12 +276,28 @@
             <span class="dz-row-sub">{{ track.artistName }}<ng-container *ngIf="track.albumTitle"> · {{ track.albumTitle }}</ng-container></span>
           </span>
           <span class="dz-dur">{{ formatTime(track.durationSec) }}</span>
+          <span
+            class="dz-yt-cache"
+            *ngIf="ytFromCache[track.id]"
+            [attr.title]="'DEEZER.YT_CACHED_HINT' | translate">{{ 'DEEZER.YT_CACHED' | translate }}</span>
+          <button
+            type="button"
+            class="dz-yt-btn"
+            *ngIf="ytLinks[track.id]"
+            (click)="playYoutubeTrack(track, i, $event)"
+            [attr.title]="'DEEZER.YT_PLAY' | translate"
+            [attr.aria-label]="'DEEZER.YT_PLAY' | translate">
+            <i class="fa fa-youtube" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="dz-fav" [class.is-on]="isFavorite('track', track.id)" (click)="toggleTrackFavorite(track, $event)" [attr.aria-label]="(isFavorite('track', track.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
+            <i class="fa" [class.fa-star]="isFavorite('track', track.id)" [class.fa-star-o]="!isFavorite('track', track.id)"></i>
+          </button>
         </li>
-        <li *ngIf="!tracks.length" class="dz-empty">{{ 'DEEZER.EMPTY' | translate }}</li>
+        <li *ngIf="!shownTracks.length" class="dz-empty">{{ (listMode === 'favorites' && !drilled && !favoriteTracks.length ? 'DEEZER.FAVORITES_EMPTY' : 'DEEZER.EMPTY') | translate }}</li>
       </ul>
 
       <ul class="dz-list" *ngIf="!loading && !drilled && view === 'album'">
-        <li *ngFor="let album of albums; trackBy: trackById" class="dz-row" (click)="openAlbum(album)" (keydown.enter)="openAlbum(album)" tabindex="0">
+        <li *ngFor="let album of shownAlbums; trackBy: trackById" class="dz-row" (click)="openAlbum(album)" (keydown.enter)="openAlbum(album)" tabindex="0">
           <img *ngIf="album.coverUrl" class="dz-thumb" [src]="album.coverUrl" alt="" loading="lazy" />
           <span *ngIf="!album.coverUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-circle"></i></span>
           <span class="dz-row-text">
@@ -190,26 +308,32 @@
               <ng-container *ngIf="album.trackCount"> · {{ 'DEEZER.TRACK_COUNT' | translate:{ count: album.trackCount } }}</ng-container>
             </span>
           </span>
+          <button type="button" class="dz-fav" [class.is-on]="isFavorite('album', album.id)" (click)="toggleAlbumFavorite(album, $event)" [attr.aria-label]="(isFavorite('album', album.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
+            <i class="fa" [class.fa-star]="isFavorite('album', album.id)" [class.fa-star-o]="!isFavorite('album', album.id)"></i>
+          </button>
           <i class="fa fa-chevron-right dz-chevron" aria-hidden="true"></i>
         </li>
-        <li *ngIf="!albums.length" class="dz-empty">{{ 'DEEZER.EMPTY' | translate }}</li>
+        <li *ngIf="!shownAlbums.length" class="dz-empty">{{ (listMode === 'favorites' && !favoriteAlbums.length ? 'DEEZER.FAVORITES_EMPTY' : 'DEEZER.EMPTY') | translate }}</li>
       </ul>
 
       <ul class="dz-list" *ngIf="!loading && !drilled && view === 'artist'">
-        <li *ngFor="let artist of artists; trackBy: trackById" class="dz-row" (click)="openArtist(artist)" (keydown.enter)="openArtist(artist)" tabindex="0">
+        <li *ngFor="let artist of shownArtists; trackBy: trackById" class="dz-row" (click)="openArtist(artist)" (keydown.enter)="openArtist(artist)" tabindex="0">
           <img *ngIf="artist.pictureUrl" class="dz-thumb dz-thumb--round" [src]="artist.pictureUrl" alt="" loading="lazy" />
           <span *ngIf="!artist.pictureUrl" class="dz-thumb dz-thumb--empty dz-thumb--round"><i class="fa fa-user"></i></span>
           <span class="dz-row-text">
             <span class="dz-row-title">{{ artist.name }}</span>
             <span class="dz-row-sub" *ngIf="formatFans(artist.fanCount) as fans">{{ 'DEEZER.FANS' | translate:{ count: fans } }}</span>
           </span>
+          <button type="button" class="dz-fav" [class.is-on]="isFavorite('artist', artist.id)" (click)="toggleArtistFavorite(artist, $event)" [attr.aria-label]="(isFavorite('artist', artist.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
+            <i class="fa" [class.fa-star]="isFavorite('artist', artist.id)" [class.fa-star-o]="!isFavorite('artist', artist.id)"></i>
+          </button>
           <i class="fa fa-chevron-right dz-chevron" aria-hidden="true"></i>
         </li>
-        <li *ngIf="!artists.length" class="dz-empty">{{ 'DEEZER.EMPTY' | translate }}</li>
+        <li *ngIf="!shownArtists.length" class="dz-empty">{{ (listMode === 'favorites' && !favoriteArtists.length ? 'DEEZER.FAVORITES_EMPTY' : 'DEEZER.EMPTY') | translate }}</li>
       </ul>
 
       <ul class="dz-list" *ngIf="!loading && !drilled && view === 'playlist'">
-        <li *ngFor="let playlist of playlists; trackBy: trackById" class="dz-row" (click)="openPlaylist(playlist)" (keydown.enter)="openPlaylist(playlist)" tabindex="0">
+        <li *ngFor="let playlist of shownPlaylists; trackBy: trackById" class="dz-row" (click)="openPlaylist(playlist)" (keydown.enter)="openPlaylist(playlist)" tabindex="0">
           <img *ngIf="playlist.pictureUrl" class="dz-thumb" [src]="playlist.pictureUrl" alt="" loading="lazy" />
           <span *ngIf="!playlist.pictureUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-list"></i></span>
           <span class="dz-row-text">
@@ -219,9 +343,12 @@
               <ng-container *ngIf="playlist.trackCount"> · {{ 'DEEZER.TRACK_COUNT' | translate:{ count: playlist.trackCount } }}</ng-container>
             </span>
           </span>
+          <button type="button" class="dz-fav" [class.is-on]="isFavorite('playlist', playlist.id)" (click)="togglePlaylistFavorite(playlist, $event)" [attr.aria-label]="(isFavorite('playlist', playlist.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
+            <i class="fa" [class.fa-star]="isFavorite('playlist', playlist.id)" [class.fa-star-o]="!isFavorite('playlist', playlist.id)"></i>
+          </button>
           <i class="fa fa-chevron-right dz-chevron" aria-hidden="true"></i>
         </li>
-        <li *ngIf="!playlists.length" class="dz-empty">{{ 'DEEZER.EMPTY' | translate }}</li>
+        <li *ngIf="!shownPlaylists.length" class="dz-empty">{{ (listMode === 'favorites' && !favoritePlaylists.length ? 'DEEZER.FAVORITES_EMPTY' : 'DEEZER.EMPTY') | translate }}</li>
       </ul>
     </aside>
 
@@ -232,6 +359,10 @@
       [ngClass]="'radio-skin--' + radioSkin"
       [class.radio-player-panel--on]="!!current && !playErrorKey"
       [class.radio-player-panel--live]="!!current && playing && !playErrorKey"
+      (mouseenter)="onPlayerPointerEnter()"
+      (mousemove)="onPlayerPointerMove()"
+      (mouseleave)="onPlayerPointerLeave()"
+      (touchstart)="onPlayerTouch()"
       aria-label="Deezer">
       <div class="radio-cabinet-handle" aria-hidden="true"><span class="radio-cabinet-handle-grip"></span></div>
       <div class="radio-whip-antenna" aria-hidden="true">
@@ -245,6 +376,7 @@
 
       <div
         class="radio-player-frame"
+        [class.radio-player-frame--chrome-hidden]="!!current && !chromeVisible"
         [class.radio-player-frame--share-open]="shareMenuOpen"
         [class.radio-player-frame--playing]="!!current && !playErrorKey"
         [class.radio-player-frame--live]="!!current && playing && !playErrorKey">
@@ -316,7 +448,17 @@
             <span class="radio-screen-fx-b"></span>
           </div>
           <div class="radio-station-badge" *ngIf="current && !playErrorKey">
-            <div class="radio-on-air"><span></span> {{ 'DEEZER.PREVIEW' | translate }}</div>
+            <div class="radio-on-air">
+              <span></span>
+              <img
+                *ngIf="youtubeEmbed"
+                class="dz-yt-mark"
+                src="assets/images/youtube-logo.svg"
+                alt="" />
+              <ng-container *ngIf="youtubeBusy">{{ 'DEEZER.YT_SEARCHING' | translate }}</ng-container>
+              <ng-container *ngIf="!youtubeBusy && youtubeEmbed">{{ 'DEEZER.YT_BADGE' | translate }}</ng-container>
+              <ng-container *ngIf="!youtubeBusy && !youtubeEmbed">{{ 'DEEZER.PREVIEW' | translate }}</ng-container>
+            </div>
             <div class="radio-face-track">{{ current.artistName }} — {{ current.title }}</div>
           </div>
           <div class="radio-controls-row" aria-hidden="true">
@@ -341,14 +483,32 @@
             <i class="fa fa-spinner fa-spin"></i>
           </div>
           <div class="radio-play-error" *ngIf="playErrorKey" role="alert">{{ playErrorKey | translate }}</div>
+          <iframe
+            #ytFrame
+            *ngIf="youtubeEmbed"
+            class="dz-yt"
+            [src]="youtubeEmbed"
+            [title]="youtubeTitle || 'YouTube'"
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowfullscreen>
+          </iframe>
         </div>
 
-        <div class="radio-chrome" *ngIf="current" [class.radio-chrome--share-open]="shareMenuOpen">
+        <div class="radio-chrome" [class.radio-chrome--hidden]="!chromeVisible" [class.radio-chrome--share-open]="shareMenuOpen">
           <div class="radio-now-playing">
-            <div class="radio-now-info">
+            <div class="radio-now-info" *ngIf="current">
               <img *ngIf="current.coverUrl" class="radio-now-logo" [src]="current.coverUrl" alt="" />
               <div class="radio-now-text">
                 <div class="radio-now-name">
+                  <img
+                    *ngIf="youtubeEmbed"
+                    class="dz-yt-mark"
+                    src="assets/images/youtube-logo.svg"
+                    alt="YouTube" />
+                  <span
+                    class="dz-yt-cache"
+                    *ngIf="youtubeEmbed && ytFromCache[current.id]"
+                    [attr.title]="'DEEZER.YT_CACHED_HINT' | translate">{{ 'DEEZER.YT_CACHED' | translate }}</span>
                   {{ current.title }}
                   <span class="dz-explicit" *ngIf="current.explicit">E</span>
                 </div>
@@ -362,22 +522,16 @@
                 </div>
               </div>
             </div>
-            <div class="radio-now-actions" [class.radio-now-actions--share-open]="shareMenuOpen" role="toolbar">
+            <div class="radio-now-actions" [class.radio-now-actions--share-open]="shareMenuOpen" role="toolbar" [attr.aria-hidden]="!chromeVisible">
               <button type="button" class="radio-now-action" (click)="prev()" [disabled]="atStart" [attr.title]="'DEEZER.PREV' | translate"><i class="fa fa-step-backward"></i></button>
-              <button type="button" class="radio-now-action radio-now-action--accent" (click)="togglePlay()" [attr.title]="(playing ? 'DEEZER.PAUSE' : 'DEEZER.PLAY') | translate">
+              <button type="button" class="radio-now-action radio-now-action--accent" (click)="togglePlay()" [disabled]="!current" [attr.title]="(playing ? 'DEEZER.PAUSE' : 'DEEZER.PLAY') | translate">
                 <i class="fa" [class.fa-pause]="playing" [class.fa-play]="!playing"></i>
               </button>
               <button type="button" class="radio-now-action" (click)="next()" [disabled]="atEnd" [attr.title]="'DEEZER.NEXT' | translate"><i class="fa fa-step-forward"></i></button>
-              <button type="button" class="radio-now-action" [class.is-lit]="!(muted || volume === 0)" (click)="toggleMute()" [attr.title]="(muted || volume === 0 ? 'RADIO.UNMUTE' : 'RADIO.MUTE') | translate">
-                <i class="fa" [class.fa-volume-off]="muted || volume === 0" [class.fa-volume-up]="!(muted || volume === 0)"></i>
-              </button>
               <button type="button" class="radio-now-action radio-now-action--eq" (click)="openEqualizer()" [attr.title]="'YOUTUBE.EQ.OPEN' | translate">
                 <i class="fa fa-sliders"></i>
                 <span class="radio-eq-open-badge" *ngIf="eqActive" aria-hidden="true"></span>
               </button>
-              <label class="radio-volume-slider-wrap">
-                <input type="range" class="radio-volume-slider" min="0" max="100" step="1" [ngModel]="volumePercent" (ngModelChange)="onVolumeSlider($event)" [attr.aria-label]="'RADIO.VOLUME' | translate" />
-              </label>
               <button type="button" class="radio-now-action radio-now-action--accent" [class.is-lit]="docked" (click)="toggleDock()" [attr.title]="'RADIO.FLOAT_OPEN' | translate"><i class="fa fa-window-restore"></i></button>
               <button type="button" class="radio-now-action" [class.is-lit]="isPipActive" *ngIf="pipSupported" (click)="togglePictureInPicture()" [attr.title]="(isPipActive ? 'RADIO.PIP_EXIT' : 'RADIO.PIP') | translate">
                 <i class="fa" [class.fa-compress]="isPipActive" [class.fa-clone]="!isPipActive"></i>
@@ -397,17 +551,17 @@
               <button type="button" class="radio-now-action" [class.is-lit]="stageFullscreen" (click)="toggleStageFullscreen($event)" [attr.title]="(stageFullscreen ? 'RADIO.FULLSCREEN_EXIT' : 'RADIO.FULLSCREEN') | translate">
                 <i class="fa" [class.fa-compress]="stageFullscreen" [class.fa-expand]="!stageFullscreen"></i>
               </button>
-              <button type="button" class="radio-now-action radio-now-action--stop" (click)="stop()" [attr.title]="'RADIO.STOP' | translate"><i class="fa fa-stop"></i></button>
-              <a *ngIf="current.link" class="radio-now-action dz-deezer-link" [href]="current.link" target="_blank" rel="noopener" [attr.title]="'DEEZER.OPEN' | translate"><i class="fa fa-external-link"></i></a>
+              <button type="button" class="radio-now-action radio-now-action--stop" (click)="stop()" [disabled]="!current" [attr.title]="'RADIO.STOP' | translate"><i class="fa fa-stop"></i></button>
+              <a *ngIf="current?.link" class="radio-now-action dz-deezer-link" [href]="current?.link" target="_blank" rel="noopener" [attr.title]="'DEEZER.OPEN' | translate"><i class="fa fa-external-link"></i></a>
               <label class="radio-keep-alive" (click)="$event.stopPropagation()" [attr.title]="'RADIO.KEEP_ALIVE_HINT' | translate">
                 <input class="radio-keep-alive-input" type="checkbox" role="switch" [ngModel]="keepAliveOnNavigate" (ngModelChange)="setKeepAlive($event)" [attr.aria-label]="'RADIO.KEEP_ALIVE' | translate" />
                 <span class="radio-keep-alive-track" aria-hidden="true"><span class="radio-keep-alive-knob"></span></span>
               </label>
             </div>
           </div>
-          <div class="dz-progress">
+          <div class="dz-progress" *ngIf="current">
             <span>{{ formatTime(currentTime) }}</span>
-            <input type="range" min="0" [max]="audioDuration || 30" step="0.1" [value]="currentTime" (input)="seek($event)" [attr.aria-label]="'DEEZER.PREVIEW' | translate" />
+            <input class="radio-volume-slider dz-seek" type="range" min="0" [max]="audioDuration || 30" step="0.1" [value]="currentTime" (input)="seek($event)" [attr.aria-label]="'DEEZER.PREVIEW' | translate" />
             <span>{{ formatTime(audioDuration || 30) }}</span>
           </div>
           <div class="small text-success px-2 pb-1" *ngIf="shareFeedback">{{ shareFeedback | translate }}</div>

@@ -340,6 +340,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/radio/podcasts/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/radio/stream", "/api/external/radio/stream/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/deezer/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/external/deezer/youtube-links").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/book/openlibrary/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/book/gutenberg/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/book/librivox/**").permitAll()

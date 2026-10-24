@@ -1,10 +1,11 @@
 import { Component, ElementRef, HostBinding, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { Subject, Subscription, of } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 
 import {
   ApiService,
@@ -15,7 +16,6 @@ import {
   DeezerSearchType,
   DeezerTrack
 } from '../services/api.service';
-import { KeycloakService } from '../keycloak/keycloak.service';
 import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
 import { YoutubeEqualizerModalComponent } from '../youtube-watcher/youtube-equalizer-modal.component';
 import {
@@ -49,6 +49,16 @@ interface DzShelf {
   playlists: DeezerPlaylist[];
 }
 
+type DzFavKind = 'track' | 'album' | 'artist' | 'playlist';
+
+interface DzFav {
+  kind: DzFavKind;
+  track?: DeezerTrack;
+  album?: DeezerAlbum;
+  artist?: DeezerArtist;
+  playlist?: DeezerPlaylist;
+}
+
 @Component({
   selector: 'app-deezer-watcher',
   standalone: true,
@@ -69,14 +79,34 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   private static readonly PRESET_COUNT = 12;
 
   @ViewChild('audio') audioRef?: ElementRef<HTMLAudioElement>;
+  @ViewChild('ytFrame') ytFrame?: ElementRef<HTMLIFrameElement>;
   @ViewChild('playerPanel') playerPanelEl?: ElementRef<HTMLElement>;
   @ViewChild('eqModal') eqModal?: YoutubeEqualizerModalComponent;
 
   @HostBinding('class.radio-focus') get focusClass(): boolean { return this.focusMode; }
   @HostBinding('class.radio-stage-fs') get stageFsClass(): boolean { return this.stageFullscreen; }
+  @HostBinding('class.radio-skin--classic') get skinClassic(): boolean { return this.radioSkin === 'classic'; }
+  @HostBinding('class.radio-skin--artdeco') get skinArtdeco(): boolean { return this.radioSkin === 'artdeco'; }
+  @HostBinding('class.radio-skin--synthwave') get skinSynthwave(): boolean { return this.radioSkin === 'synthwave'; }
+  @HostBinding('class.radio-skin--spaceage') get skinSpaceage(): boolean { return this.radioSkin === 'spaceage'; }
+  @HostBinding('class.radio-skin--military') get skinMilitary(): boolean { return this.radioSkin === 'military'; }
+  @HostBinding('class.radio-skin--steampunk') get skinSteampunk(): boolean { return this.radioSkin === 'steampunk'; }
+  @HostBinding('class.radio-skin--aurora') get skinAurora(): boolean { return this.radioSkin === 'aurora'; }
+  @HostBinding('class.radio-skin--noir') get skinNoir(): boolean { return this.radioSkin === 'noir'; }
+  @HostBinding('class.radio-skin--bamboo') get skinBamboo(): boolean { return this.radioSkin === 'bamboo'; }
+  @HostBinding('class.radio-skin--porcelain') get skinPorcelain(): boolean { return this.radioSkin === 'porcelain'; }
+  @HostBinding('class.radio-skin--carbon') get skinCarbon(): boolean { return this.radioSkin === 'carbon'; }
+  @HostBinding('class.radio-skin--candy') get skinCandy(): boolean { return this.radioSkin === 'candy'; }
+  @HostBinding('class.radio-skin--espace') get skinEspace(): boolean { return this.radioSkin === 'espace'; }
+  @HostBinding('class.radio-skin--kanizsa') get skinKanizsa(): boolean { return this.radioSkin === 'kanizsa'; }
+  @HostBinding('class.radio-skin--cafewall') get skinCafewall(): boolean { return this.radioSkin === 'cafewall'; }
+  @HostBinding('class.radio-skin--penrose') get skinPenrose(): boolean { return this.radioSkin === 'penrose'; }
+  @HostBinding('class.radio-skin--scintille') get skinScintille(): boolean { return this.radioSkin === 'scintille'; }
+  @HostBinding('class.radio-skin--barber') get skinBarber(): boolean { return this.radioSkin === 'barber'; }
 
   genres: DeezerGenre[] = [];
   genreId = 0;
+  genresOpen = true;
   query = '';
   view: DeezerSearchType = 'track';
   mode: DzMode = 'chart';
@@ -106,13 +136,26 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   focusMode = false;
   stageFullscreen = false;
   shareMenuOpen = false;
+  chromeVisible = false;
   shareFeedback = '';
   keepAliveOnNavigate = false;
   docked = false;
   isPipActive = false;
-  chromeVisible = true;
   trackImageIndex = 0;
   presets: (DeezerTrack | null)[] = [];
+  sidebarCollapsed = false;
+  filterOpen = false;
+  hideExplicit = false;
+  previewOnly = false;
+  listMode: 'browse' | 'favorites' = 'browse';
+  favorites: DzFav[] = [];
+  youtubeMode = false;
+  youtubeSearchEnabled = false;
+  youtubeBusy = false;
+  youtubeEmbed: SafeResourceUrl | null = null;
+  youtubeTitle = '';
+  ytLinks: Record<number, string> = {};
+  ytFromCache: Record<number, boolean> = {};
   loading = false;
   errorKey = '';
   playErrorKey = '';
@@ -125,8 +168,25 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   private previewFresh = false;
   private loadSeq = 0;
   private trackSlideTimer: ReturnType<typeof setInterval> | null = null;
+  private ytSub: Subscription | null = null;
+  private ytPrefetch: Subscription | null = null;
+  private ytScan: Subscription | null = null;
+  private ytScanKey = '';
+  private pointerOverPlayer = false;
+  private chromeHideTimer: ReturnType<typeof setTimeout> | null = null;
+  private ytToken = 0;
+  private ytIgnoreEnd = 0;
+  private ytReplay = 0;
+  private repeatQueue = false;
+  private readonly ytCache = new Map<number, string | null>();
   private readonly search$ = new Subject<string>();
   private readonly destroy$ = new Subject<void>();
+  private static readonly SIDEBAR_KEY = 'pattool.deezer.sidebar';
+  private static readonly YT_SEARCH_KEY = 'pattool.deezer.youtube-search';
+  private static readonly FILTER_KEY = 'pattool.deezer.filter';
+  private static readonly GENRES_KEY = 'pattool.deezer.genres';
+  private static readonly FAV_KEY = 'pattool.deezer.favorites';
+  private static readonly CHROME_HIDE_MS = 4000;
   readonly illusionSkins: readonly DzSkin[] = ['kanizsa', 'cafewall', 'penrose', 'scintille', 'barber'];
   readonly pipSupported = supportsRadioPictureInPicture();
   readonly canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
@@ -137,7 +197,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     private equalizer: YoutubeEqualizerService,
     private router: Router,
     private translate: TranslateService,
-    private keycloak: KeycloakService
+    private sanitizer: DomSanitizer
   ) {}
 
   ngOnInit(): void {
@@ -146,6 +206,11 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.radioSkin = this.readSkin();
     this.keepAliveOnNavigate = this.readKeepAlive();
     this.presets = this.readPresets();
+    this.sidebarCollapsed = this.readSidebar();
+    this.readFilter();
+    this.genresOpen = this.readGenresOpen();
+    this.favorites = this.readFavorites();
+    this.youtubeSearchEnabled = this.readYoutubeSearch();
     this.parkKeptAudio();
     this.search$.pipe(
       debounceTime(320),
@@ -163,6 +228,10 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
       clearTimeout(this.sleeveTimer);
     }
     this.clearTrackSlide();
+    this.clearChromeHideTimer();
+    this.ytSub?.unsubscribe();
+    this.ytPrefetch?.unsubscribe();
+    this.ytScan?.unsubscribe();
     this.sleeveSub?.unsubscribe();
     document.body.classList.remove('radio-focus', 'radio-stage-fs');
     const audio = this.audioRef?.nativeElement;
@@ -184,6 +253,13 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     return this.genres.filter((genre) => genre.id !== 0);
   }
 
+  get selectedGenreName(): string {
+    if (!this.genreId) {
+      return '';
+    }
+    return this.genres.find((genre) => genre.id === this.genreId)?.name || '';
+  }
+
   get searching(): boolean {
     return this.query.trim().length >= 2 && !this.drilled;
   }
@@ -194,7 +270,54 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
 
   get atEnd(): boolean {
     const index = this.currentIndex();
+    if (this.repeatQueue && this.queue.length > 0) {
+      return index < 0;
+    }
     return index < 0 || index >= this.queue.length - 1;
+  }
+
+  get hasActiveFilter(): boolean {
+    return this.hideExplicit || this.previewOnly;
+  }
+
+  get shownTracks(): DeezerTrack[] {
+    const source = this.listMode === 'favorites' && !this.drilled ? this.favoriteTracks : this.tracks;
+    return source.filter((track) => this.passTrack(track) && this.matchesFavoriteQuery(this.trackHay(track)));
+  }
+
+  get shownAlbums(): DeezerAlbum[] {
+    const source = this.listMode === 'favorites' && !this.drilled ? this.favoriteAlbums : this.albums;
+    return source.filter((album) => this.matchesFavoriteQuery(`${album.title} ${album.artistName}`));
+  }
+
+  get shownArtists(): DeezerArtist[] {
+    const source = this.listMode === 'favorites' && !this.drilled ? this.favoriteArtists : this.artists;
+    return source.filter((artist) => this.matchesFavoriteQuery(artist.name));
+  }
+
+  get shownPlaylists(): DeezerPlaylist[] {
+    const source = this.listMode === 'favorites' && !this.drilled ? this.favoritePlaylists : this.playlists;
+    return source.filter((playlist) => this.matchesFavoriteQuery(`${playlist.title} ${playlist.userName}`));
+  }
+
+  get favoriteTracks(): DeezerTrack[] {
+    return this.favorites.filter((fav) => fav.kind === 'track' && fav.track).map((fav) => fav.track!);
+  }
+
+  get favoriteAlbums(): DeezerAlbum[] {
+    return this.favorites.filter((fav) => fav.kind === 'album' && fav.album).map((fav) => fav.album!);
+  }
+
+  get favoriteArtists(): DeezerArtist[] {
+    return this.favorites.filter((fav) => fav.kind === 'artist' && fav.artist).map((fav) => fav.artist!);
+  }
+
+  get favoritePlaylists(): DeezerPlaylist[] {
+    return this.favorites.filter((fav) => fav.kind === 'playlist' && fav.playlist).map((fav) => fav.playlist!);
+  }
+
+  get favoriteCount(): number {
+    return this.favorites.length;
   }
 
   onQueryChange(value: string): void {
@@ -207,6 +330,135 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.search$.next('');
   }
 
+  toggleSidebarCollapsed(): void {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+    try {
+      localStorage.setItem(DeezerWatcherComponent.SIDEBAR_KEY, this.sidebarCollapsed ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }
+
+  toggleFilterPanel(event?: Event): void {
+    event?.stopPropagation();
+    this.filterOpen = !this.filterOpen;
+  }
+
+  setHideExplicit(enabled: boolean): void {
+    this.hideExplicit = !!enabled;
+    this.writeFilter();
+    this.refreshQueue();
+    this.syncYoutubeButtons();
+  }
+
+  setYoutubeSearch(enabled: boolean): void {
+    this.youtubeSearchEnabled = !!enabled;
+    try {
+      localStorage.setItem(DeezerWatcherComponent.YT_SEARCH_KEY, this.youtubeSearchEnabled ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+    this.ytScan?.unsubscribe();
+    this.ytScanKey = '';
+    this.syncYoutubeButtons();
+  }
+
+  setPreviewOnly(enabled: boolean): void {
+    this.previewOnly = !!enabled;
+    this.writeFilter();
+    this.refreshQueue();
+    this.syncYoutubeButtons();
+  }
+
+  setListMode(mode: 'browse' | 'favorites'): void {
+    if (this.listMode === mode) {
+      return;
+    }
+    this.listMode = mode;
+    this.exitDrill();
+    if (mode === 'favorites') {
+      this.loading = false;
+      this.errorKey = '';
+      this.refreshQueue();
+      this.ytScanKey = '';
+      this.syncYoutubeButtons();
+      return;
+    }
+    const q = this.query.trim();
+    if (q.length >= 2) {
+      this.loadSearch(q);
+    } else {
+      this.loadChart();
+    }
+  }
+
+  playAll(): void {
+    const tracks = this.shownTracks;
+    const first = tracks[0];
+    if (!first) {
+      return;
+    }
+    this.youtubeMode = false;
+    this.clearYoutube();
+    this.repeatQueue = true;
+    this.queue = tracks;
+    this.current = null;
+    this.playTrack(first, 0);
+  }
+
+  playYoutubeTrack(track: DeezerTrack, index: number, event?: Event): void {
+    event?.stopPropagation();
+    if (!this.ytLinks[track.id]) {
+      return;
+    }
+    this.youtubeMode = true;
+    this.repeatQueue = false;
+    this.queue = this.shownTracks;
+    if (this.current?.id === track.id && this.youtubeEmbed) {
+      return;
+    }
+    this.current = null;
+    this.playTrack(track, index);
+  }
+
+  playAllOnYoutube(): void {
+    const tracks = this.shownTracks;
+    const first = tracks[0];
+    if (!first) {
+      return;
+    }
+    this.youtubeMode = true;
+    this.clearYoutube();
+    this.repeatQueue = true;
+    this.queue = tracks;
+    this.current = null;
+    this.playTrack(first, 0);
+  }
+
+  isFavorite(kind: DzFavKind, id: number | null | undefined): boolean {
+    return !!id && this.favorites.some((fav) => fav.kind === kind && this.favId(fav) === id);
+  }
+
+  toggleTrackFavorite(track: DeezerTrack, event?: Event): void {
+    event?.stopPropagation();
+    this.toggleFavorite({ kind: 'track', track });
+  }
+
+  toggleAlbumFavorite(album: DeezerAlbum, event?: Event): void {
+    event?.stopPropagation();
+    this.toggleFavorite({ kind: 'album', album });
+  }
+
+  toggleArtistFavorite(artist: DeezerArtist, event?: Event): void {
+    event?.stopPropagation();
+    this.toggleFavorite({ kind: 'artist', artist });
+  }
+
+  togglePlaylistFavorite(playlist: DeezerPlaylist, event?: Event): void {
+    event?.stopPropagation();
+    this.toggleFavorite({ kind: 'playlist', playlist });
+  }
+
   selectGenre(id: number): void {
     this.genreId = id;
     this.query = '';
@@ -214,17 +466,32 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.loadChart();
   }
 
+  toggleGenres(): void {
+    this.genresOpen = !this.genresOpen;
+    try {
+      localStorage.setItem(DeezerWatcherComponent.GENRES_KEY, this.genresOpen ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }
+
   setView(view: DeezerSearchType): void {
     if (this.drilled) {
       return;
     }
     this.view = view;
+    if (this.listMode === 'favorites') {
+      this.refreshQueue();
+      this.syncYoutubeButtons();
+      return;
+    }
     if (this.query.trim().length >= 2) {
       this.loadSearch(this.query.trim());
       return;
     }
     if (view === 'track') {
-      this.queue = this.tracks;
+      this.queue = this.shownTracks;
+      this.syncYoutubeButtons();
     }
   }
 
@@ -242,17 +509,25 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.genreId = saved.genreId;
     this.view = saved.view;
     this.tracks = saved.tracks;
+    this.syncYoutubeButtons();
     this.albums = saved.albums;
     this.artists = saved.artists;
     this.playlists = saved.playlists;
-    this.queue = saved.view === 'track' ? saved.tracks : [];
+    this.queue = saved.view === 'track' ? this.shownTracks : [];
   }
 
-  playTrack(track: DeezerTrack, index: number): void {
-    if (this.current?.id === track.id) {
+  playListedTrack(track: DeezerTrack, index: number): void {
+    this.repeatQueue = false;
+    this.playTrack(track, index);
+  }
+
+  playTrack(track: DeezerTrack, index: number, restart = false): void {
+    const same = this.current?.id === track.id;
+    if (!restart && same) {
       this.togglePlay();
       return;
     }
+    this.ytReplay = restart && same ? Date.now() : 0;
     this.current = track;
     this.queueIndexHint = index;
     this.trackImageIndex = 0;
@@ -263,15 +538,26 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.audioDuration = 0;
     this.related = this.drilled ? this.related : [];
     this.scheduleSleeve(track.artistId || 0);
-    const preview = (track.previewUrl || '').trim();
-    if (!preview) {
-      this.refreshPreview(track, true);
+    this.chromeVisible = this.pointerOverPlayer || this.focusMode || this.stageFullscreen;
+    if (this.youtubeMode) {
+      this.pausePreview();
+      if (restart && same) {
+        this.youtubeEmbed = null;
+        this.youtubeTitle = '';
+      }
+      this.resolveYoutube(track);
       return;
     }
-    this.startAudio(preview);
+    this.clearYoutube();
+    this.playPreview(track);
   }
 
   togglePlay(): void {
+    if (this.youtubeEmbed) {
+      this.postYoutube(this.playing ? 'pauseVideo' : 'playVideo');
+      this.playing = !this.playing;
+      return;
+    }
     const audio = this.audioRef?.nativeElement;
     if (!this.current) {
       const first = this.queue[0];
@@ -305,29 +591,27 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     const idx = this.currentIndex();
     if (idx >= 0 && idx < this.queue.length - 1) {
       this.playTrack(this.queue[idx + 1], idx + 1);
+      return;
+    }
+    if (this.repeatQueue && this.queue.length > 0) {
+      this.playTrack(this.queue[0], 0, true);
     }
   }
 
   stop(): void {
+    this.youtubeMode = false;
+    this.repeatQueue = false;
+    this.clearYoutube();
     const audio = this.audioRef?.nativeElement;
     if (!audio) {
+      this.currentTime = 0;
+      this.playing = false;
       return;
     }
     audio.pause();
     audio.currentTime = 0;
     this.currentTime = 0;
     this.playing = false;
-  }
-
-  onVolume(value: number): void {
-    this.volume = Math.min(1, Math.max(0, Number(value) || 0));
-    this.muted = this.volume === 0;
-    this.applyVolume();
-    try {
-      localStorage.setItem(DeezerWatcherComponent.VOLUME_KEY, String(this.volume));
-    } catch {
-      /* ignore */
-    }
   }
 
   seek(event: Event): void {
@@ -366,9 +650,10 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
         const tracks = page?.tracks || [];
         this.enterDrill(page?.album?.title || album.title, page?.album?.artistName || album.artistName || '', page?.album?.link || album.link || '');
         this.tracks = tracks;
-        this.queue = tracks;
-        if (tracks.length) {
-          this.playTrack(tracks[0], 0);
+    this.syncYoutubeButtons();
+        this.queue = this.shownTracks;
+        if (this.queue.length) {
+          this.playTrack(this.queue[0], 0);
         }
       },
       error: () => {
@@ -396,12 +681,13 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
         const name = page?.artist?.name || artist.name;
         this.enterDrill(name, '', page?.artist?.link || artist.link || '');
         this.tracks = tracks;
-        this.queue = tracks;
+    this.syncYoutubeButtons();
+        this.queue = this.shownTracks;
         this.sleeveAlbums = page?.albums || [];
         this.sleeveArtistId = artist.id;
         this.related = page?.related || [];
-        if (tracks.length) {
-          this.playTrack(tracks[0], 0);
+        if (this.queue.length) {
+          this.playTrack(this.queue[0], 0);
         }
       },
       error: () => {
@@ -428,9 +714,10 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
         const tracks = page?.tracks || [];
         this.enterDrill(page?.playlist?.title || playlist.title, page?.playlist?.userName || playlist.userName || '', page?.playlist?.link || playlist.link || '');
         this.tracks = tracks;
-        this.queue = tracks;
-        if (tracks.length) {
-          this.playTrack(tracks[0], 0);
+    this.syncYoutubeButtons();
+        this.queue = this.shownTracks;
+        if (this.queue.length) {
+          this.playTrack(this.queue[0], 0);
         }
       },
       error: () => {
@@ -523,6 +810,9 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   }
 
   private runQuery(query: string): void {
+    if (this.listMode === 'favorites') {
+      return;
+    }
     this.exitDrill();
     if (query.length >= 2) {
       this.loadSearch(query);
@@ -555,11 +845,12 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
         }
         this.loading = false;
         this.tracks = chart?.tracks || [];
+        this.syncYoutubeButtons();
         this.albums = chart?.albums || [];
         this.artists = chart?.artists || [];
         this.playlists = chart?.playlists || [];
-        if (!this.drilled && this.view === 'track') {
-          this.queue = this.tracks;
+        if (!this.drilled && this.view === 'track' && this.listMode === 'browse') {
+          this.queue = this.shownTracks;
         }
       },
       error: () => {
@@ -584,10 +875,11 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
         }
         this.loading = false;
         this.tracks = page?.tracks || [];
+        this.syncYoutubeButtons();
         this.albums = page?.albums || [];
         this.artists = page?.artists || [];
         this.playlists = page?.playlists || [];
-        this.queue = this.view === 'track' ? this.tracks : [];
+        this.queue = this.view === 'track' ? this.shownTracks : [];
       },
       error: () => {
         if (seq !== this.loadSeq) {
@@ -695,6 +987,13 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     audio.crossOrigin = 'anonymous';
     audio.volume = this.muted ? 0 : this.volume;
     audio.src = url;
+    if (audio.ended || audio.currentTime > 0) {
+      try {
+        audio.currentTime = 0;
+      } catch {
+        /* the new source is not seekable yet */
+      }
+    }
     audio.play().then(() => {
       this.playing = true;
       this.playErrorKey = '';
@@ -751,10 +1050,6 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     );
   }
 
-  get volumePercent(): number {
-    return Math.round((this.muted ? 0 : this.volume) * 100);
-  }
-
   get youtubeSearchQuery(): string {
     const artist = (this.current?.artistName || '').trim();
     const title = (this.current?.title || '').trim();
@@ -786,13 +1081,6 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     } catch {
       /* ignore */
     }
-    if (this.keycloak.isLoggedIn()) {
-      this.api.saveRadioSkin(skin).pipe(catchError(() => of(null)), takeUntil(this.destroy$)).subscribe();
-    }
-  }
-
-  onVolumeSlider(percent: number): void {
-    this.onVolume(Math.min(100, Math.max(0, Number(percent) || 0)) / 100);
   }
 
   openEqualizer(): void {
@@ -804,29 +1092,11 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.eqModal?.open();
   }
 
-  toggleMute(): void {
-    const audio = this.audioRef?.nativeElement;
-    if (audio && (audio.muted || this.muted || this.volume <= 0)) {
-      this.muted = false;
-      if (this.volume <= 0) {
-        this.volume = 0.6;
-      }
-      if (audio) {
-        audio.muted = false;
-      }
-    } else {
-      this.muted = true;
-      if (audio) {
-        audio.muted = true;
-      }
-    }
-    this.applyVolume();
-  }
-
   toggleFocusMode(event?: Event): void {
     event?.stopPropagation();
     this.focusMode = !this.focusMode;
     document.body.classList.toggle('radio-focus', this.focusMode);
+    this.chromeVisible = this.focusMode || this.pointerOverPlayer || this.stageFullscreen;
   }
 
   async toggleStageFullscreen(event?: Event): Promise<void> {
@@ -836,6 +1106,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.stageFullscreen = true;
+    this.chromeVisible = true;
     document.body.classList.add('radio-stage-fs');
     const host = this.hostRef.nativeElement as HTMLElement & { webkitRequestFullscreen?: () => void };
     try {
@@ -959,6 +1230,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     const queueIndex = this.queue.findIndex((track) => track.id === slot.id);
+    this.repeatQueue = false;
     this.playTrack(slot, queueIndex >= 0 ? queueIndex : 0);
   }
 
@@ -967,6 +1239,42 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     return name.length > 10 ? name.slice(0, 9) + '…' : name;
   }
 
+  @HostListener('window:message', ['$event'])
+  onYoutubeMessage(event: MessageEvent): void {
+    if (!this.youtubeEmbed) {
+      return;
+    }
+    const origin = (event.origin || '').toLowerCase();
+    if (!origin.includes('youtube.com') && !origin.includes('youtube-nocookie.com')) {
+      return;
+    }
+    let data: unknown = event.data;
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch {
+        return;
+      }
+    }
+    if (!data || typeof data !== 'object') {
+      return;
+    }
+    const payload = data as { event?: string; info?: number | Record<string, unknown> };
+    let state: number | undefined;
+    if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
+      state = payload.info;
+    } else if (payload.info && typeof payload.info === 'object' && typeof payload.info['playerState'] === 'number') {
+      state = payload.info['playerState'] as number;
+    }
+    if (state === 1) {
+      this.playing = true;
+      this.youtubeBusy = false;
+    } else if (state === 2) {
+      this.playing = false;
+    } else if (state === 0 && Date.now() >= this.ytIgnoreEnd && this.youtubeMode) {
+      this.next();
+    }
+  }
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement | null;
@@ -975,6 +1283,53 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     }
     if (this.shareMenuOpen && !target?.closest?.('.radio-share-wrap')) {
       this.shareMenuOpen = false;
+    }
+  }
+
+  onPlayerPointerEnter(): void {
+    this.pointerOverPlayer = true;
+    this.clearChromeHideTimer();
+    this.chromeVisible = true;
+  }
+
+  onPlayerPointerMove(): void {
+    this.onPlayerPointerEnter();
+  }
+
+  onPlayerPointerLeave(): void {
+    this.pointerOverPlayer = false;
+    this.clearChromeHideTimer();
+    if (this.focusMode || this.stageFullscreen) {
+      return;
+    }
+    this.shareMenuOpen = false;
+    this.chromeVisible = false;
+  }
+
+  onPlayerTouch(): void {
+    this.pointerOverPlayer = false;
+    this.chromeVisible = true;
+    this.scheduleChromeHide();
+  }
+
+  private scheduleChromeHide(): void {
+    this.clearChromeHideTimer();
+    if (this.shareMenuOpen || this.focusMode || this.stageFullscreen || this.pointerOverPlayer) {
+      return;
+    }
+    this.chromeHideTimer = setTimeout(() => {
+      this.chromeHideTimer = null;
+      if (this.shareMenuOpen || this.focusMode || this.stageFullscreen || this.pointerOverPlayer) {
+        return;
+      }
+      this.chromeVisible = false;
+    }, DeezerWatcherComponent.CHROME_HIDE_MS);
+  }
+
+  private clearChromeHideTimer(): void {
+    if (this.chromeHideTimer != null) {
+      clearTimeout(this.chromeHideTimer);
+      this.chromeHideTimer = null;
     }
   }
 
@@ -1003,10 +1358,12 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     const host = this.hostRef.nativeElement;
     if (document.fullscreenElement === host) {
       this.stageFullscreen = true;
+      this.chromeVisible = true;
       document.body.classList.add('radio-stage-fs');
     } else if (!document.fullscreenElement && this.stageFullscreen) {
       this.stageFullscreen = false;
       document.body.classList.remove('radio-stage-fs');
+      this.chromeVisible = this.pointerOverPlayer || this.focusMode;
     }
   }
 
@@ -1020,6 +1377,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     }
     this.stageFullscreen = false;
     document.body.classList.remove('radio-stage-fs');
+    this.chromeVisible = this.pointerOverPlayer || this.focusMode;
   }
 
   private shareUrl(): string {
@@ -1125,11 +1483,322 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     return 0.9;
   }
 
+  private playPreview(track: DeezerTrack): void {
+    const preview = (track.previewUrl || '').trim();
+    if (!preview) {
+      this.refreshPreview(track, true);
+      return;
+    }
+    this.startAudio(preview);
+  }
+
+  private pausePreview(): void {
+    const audio = this.audioRef?.nativeElement;
+    if (!audio) {
+      return;
+    }
+    audio.pause();
+  }
+
+  private clearYoutube(): void {
+    this.ytToken++;
+    this.ytSub?.unsubscribe();
+    this.ytSub = null;
+    this.youtubeEmbed = null;
+    this.youtubeTitle = '';
+    this.youtubeBusy = false;
+  }
+
+  private resolveYoutube(track: DeezerTrack): void {
+    const token = ++this.ytToken;
+    const cached = this.ytCache.get(track.id);
+    if (cached !== undefined) {
+      this.applyYoutubeHit(track, cached, token);
+      return;
+    }
+    const q = this.youtubeQuery(track);
+    if (q.length < 2) {
+      this.playPreview(track);
+      return;
+    }
+    this.youtubeBusy = true;
+    this.youtubeEmbed = null;
+    this.ytSub?.unsubscribe();
+    this.ytSub = this.api.resolveDeezerYoutubeLinks([{
+      id: track.id,
+      artist: track.artistName || '',
+      title: track.title || ''
+    }], this.youtubeSearchEnabled).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (page) => {
+        if (token !== this.ytToken) {
+          return;
+        }
+        const link = (page?.links || []).find((item) => item.id === track.id);
+        this.youtubeBusy = false;
+        if (!link) {
+          this.playPreview(track);
+          return;
+        }
+        const id = (link.videoId || '').trim() || null;
+        this.rememberYoutube(track.id, id, !!link.cached);
+        this.applyYoutubeHit(track, id, token);
+        this.prefetchNextYoutube();
+      },
+      error: () => {
+        if (token !== this.ytToken) {
+          return;
+        }
+        this.youtubeBusy = false;
+        this.playPreview(track);
+      }
+    });
+  }
+
+  private applyYoutubeHit(track: DeezerTrack, id: string | null, token: number): void {
+    if (token !== this.ytToken || this.current?.id !== track.id) {
+      return;
+    }
+    if (!id) {
+      this.youtubeEmbed = null;
+      this.playPreview(track);
+      this.prefetchNextYoutube();
+      return;
+    }
+    this.pausePreview();
+    this.youtubeTitle = `${track.artistName || ''} — ${track.title || ''}`.trim();
+    this.ytIgnoreEnd = Date.now() + 1500;
+    const origin = typeof window !== 'undefined' ? `&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}` : '';
+    const replay = this.ytReplay ? `&ts=${this.ytReplay}` : '';
+    this.youtubeEmbed = this.sanitizer.bypassSecurityTrustResourceUrl(
+      `https://www.youtube-nocookie.com/embed/${id}?rel=0&autoplay=1&playsinline=1${origin}${replay}`
+    );
+    this.playing = true;
+    this.playErrorKey = '';
+  }
+
+  private prefetchNextYoutube(): void {
+    if (!this.youtubeMode) {
+      return;
+    }
+    const idx = this.currentIndex();
+    const next = idx >= 0 ? this.queue[idx + 1] : undefined;
+    if (!next || this.ytCache.has(next.id)) {
+      return;
+    }
+    const q = this.youtubeQuery(next);
+    if (q.length < 2) {
+      return;
+    }
+    this.ytPrefetch?.unsubscribe();
+    this.ytPrefetch = this.api.resolveDeezerYoutubeLinks([{
+      id: next.id,
+      artist: next.artistName || '',
+      title: next.title || ''
+    }], this.youtubeSearchEnabled).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (page) => {
+        const link = (page?.links || []).find((item) => item.id === next.id);
+        if (link) {
+          this.rememberYoutube(next.id, (link.videoId || '').trim() || null, !!link.cached);
+        }
+      },
+      error: () => { /* the track will be searched again when it starts */ }
+    });
+  }
+
+  private rememberYoutube(id: number, videoId: string | null, fromCache = false): void {
+    this.ytCache.set(id, videoId);
+    if (fromCache && videoId) {
+      this.ytFromCache = { ...this.ytFromCache, [id]: true };
+    }
+    if (!videoId) {
+      return;
+    }
+    this.ytLinks = { ...this.ytLinks, [id]: videoId };
+  }
+
+  private syncYoutubeButtons(): void {
+    if (this.view !== 'track' && !this.drilled) {
+      return;
+    }
+    const shown = this.shownTracks.filter((track) => track.id && this.youtubeQuery(track).length >= 2);
+    const key = `${this.youtubeSearchEnabled ? '1' : '0'}:${shown.map((track) => track.id).join(',')}`;
+    if (key === this.ytScanKey) {
+      return;
+    }
+    this.ytScanKey = key;
+    this.ytScan?.unsubscribe();
+    const pending = shown.filter((track) => !this.ytCache.has(track.id));
+    this.scanYoutube(pending, 0, key);
+  }
+
+  private scanYoutube(tracks: DeezerTrack[], index: number, key: string): void {
+    if (key !== this.ytScanKey || index >= tracks.length) {
+      return;
+    }
+    const slice = tracks.slice(index, index + 20);
+    this.ytScan = this.api.resolveDeezerYoutubeLinks(slice.map((track) => ({
+      id: track.id,
+      artist: track.artistName || '',
+      title: track.title || ''
+    })), this.youtubeSearchEnabled).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (page) => {
+        if (key !== this.ytScanKey) {
+          return;
+        }
+        this.applyYoutubeLinks(page?.links || []);
+        this.scanYoutube(tracks, index + slice.length, key);
+      },
+      error: () => {
+        if (key === this.ytScanKey) {
+          this.ytScanKey = '';
+        }
+      }
+    });
+  }
+
+  private applyYoutubeLinks(links: { id: number; videoId?: string; cached?: boolean }[]): void {
+    for (const link of links) {
+      this.rememberYoutube(link.id, (link.videoId || '').trim() || null, !!link.cached);
+    }
+  }
+
+  private youtubeQuery(track: DeezerTrack): string {
+    return `${track.artistName || ''} ${track.title || ''}`.replace(/\s+/g, ' ').trim().slice(0, 100);
+  }
+
+  private postYoutube(func: 'playVideo' | 'pauseVideo'): void {
+    const frame = this.ytFrame?.nativeElement?.contentWindow;
+    if (!frame) {
+      return;
+    }
+    frame.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*');
+  }
+
   private readSleeve(): boolean {
     try {
       return localStorage.getItem(DeezerWatcherComponent.SLEEVE_KEY) !== '0';
     } catch {
       return true;
+    }
+  }
+
+  private refreshQueue(): void {
+    if (this.drilled || this.view === 'track') {
+      this.queue = this.shownTracks;
+    }
+  }
+
+  private passTrack(track: DeezerTrack): boolean {
+    if (this.hideExplicit && track.explicit) {
+      return false;
+    }
+    if (this.previewOnly && !(track.previewUrl || '').trim()) {
+      return false;
+    }
+    return true;
+  }
+
+  private matchesFavoriteQuery(text: string): boolean {
+    if (this.listMode !== 'favorites') {
+      return true;
+    }
+    const q = this.query.trim().toLowerCase();
+    return !q || (text || '').toLowerCase().includes(q);
+  }
+
+  private trackHay(track: DeezerTrack): string {
+    return `${track.title || ''} ${track.artistName || ''} ${track.albumTitle || ''}`;
+  }
+
+  private favId(fav: DzFav): number {
+    if (fav.kind === 'track') return fav.track?.id || 0;
+    if (fav.kind === 'album') return fav.album?.id || 0;
+    if (fav.kind === 'artist') return fav.artist?.id || 0;
+    return fav.playlist?.id || 0;
+  }
+
+  private toggleFavorite(next: DzFav): void {
+    const id = this.favId(next);
+    if (!id) {
+      return;
+    }
+    const index = this.favorites.findIndex((fav) => fav.kind === next.kind && this.favId(fav) === id);
+    if (index >= 0) {
+      this.favorites = this.favorites.filter((_, i) => i !== index);
+    } else {
+      this.favorites = [next, ...this.favorites];
+    }
+    this.writeFavorites();
+    this.ytScanKey = '';
+    this.syncYoutubeButtons();
+    if (this.listMode === 'favorites') {
+      this.refreshQueue();
+    }
+  }
+
+  private readYoutubeSearch(): boolean {
+    try {
+      return localStorage.getItem(DeezerWatcherComponent.YT_SEARCH_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private readSidebar(): boolean {
+    try {
+      return localStorage.getItem(DeezerWatcherComponent.SIDEBAR_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private readGenresOpen(): boolean {
+    try {
+      return localStorage.getItem(DeezerWatcherComponent.GENRES_KEY) !== '0';
+    } catch {
+      return true;
+    }
+  }
+
+  private readFilter(): void {
+    try {
+      const raw = JSON.parse(localStorage.getItem(DeezerWatcherComponent.FILTER_KEY) || '{}');
+      this.hideExplicit = !!raw.hideExplicit;
+      this.previewOnly = !!raw.previewOnly;
+    } catch {
+      this.hideExplicit = false;
+      this.previewOnly = false;
+    }
+  }
+
+  private writeFilter(): void {
+    try {
+      localStorage.setItem(DeezerWatcherComponent.FILTER_KEY, JSON.stringify({
+        hideExplicit: this.hideExplicit,
+        previewOnly: this.previewOnly
+      }));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private readFavorites(): DzFav[] {
+    try {
+      const raw = JSON.parse(localStorage.getItem(DeezerWatcherComponent.FAV_KEY) || '[]');
+      if (!Array.isArray(raw)) {
+        return [];
+      }
+      return raw.filter((fav) => fav && fav.kind && this.favId(fav) > 0);
+    } catch {
+      return [];
+    }
+  }
+
+  private writeFavorites(): void {
+    try {
+      localStorage.setItem(DeezerWatcherComponent.FAV_KEY, JSON.stringify(this.favorites));
+    } catch {
+      /* ignore */
     }
   }
 }

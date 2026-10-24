@@ -4581,6 +4581,17 @@ export class ApiService {
     return this._http.get<DeezerPlaylistPage>(this.API_URL + 'external/deezer/playlist/' + id);
   }
 
+  /** Cached YouTube video ids for the tracks on screen. YouTube is queried only when search is true. */
+  resolveDeezerYoutubeLinks(
+    tracks: { id: number; artist: string; title: string }[],
+    search: boolean
+  ): Observable<{ links: { id: number; videoId?: string; cached?: boolean }[] }> {
+    return this._http.post<{ links: { id: number; videoId?: string; cached?: boolean }[] }>(
+      this.API_URL + 'external/deezer/youtube-links',
+      { tracks, search }
+    );
+  }
+
   // --- Book watcher (Open Library / Gutenberg / LibriVox / Archive / Google / Standard Ebooks) ---
 
   searchOpenLibraryBooks(

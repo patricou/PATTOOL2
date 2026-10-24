@@ -1,11 +1,15 @@
 package com.pat.controller;
 
+import com.pat.controller.dto.DeezerYoutubeLookupRequest;
 import com.pat.service.DeezerCatalogService;
+import com.pat.service.DeezerYoutubeLinkService;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,6 +31,7 @@ import java.util.function.Supplier;
  *   <li>{@code GET /api/external/deezer/artist/{id}}</li>
  *   <li>{@code GET /api/external/deezer/artist/{id}/albums}</li>
  *   <li>{@code GET /api/external/deezer/playlist/{id}}</li>
+ *   <li>{@code POST /api/external/deezer/youtube-links}</li>
  * </ul>
  */
 @RestController
@@ -36,9 +41,13 @@ public class DeezerRestController {
     private static final Set<String> SEARCH_TYPES = Set.of("track", "album", "artist", "playlist");
 
     private final DeezerCatalogService deezerCatalogService;
+    private final DeezerYoutubeLinkService deezerYoutubeLinkService;
 
-    public DeezerRestController(DeezerCatalogService deezerCatalogService) {
+    public DeezerRestController(
+            DeezerCatalogService deezerCatalogService,
+            DeezerYoutubeLinkService deezerYoutubeLinkService) {
         this.deezerCatalogService = deezerCatalogService;
+        this.deezerYoutubeLinkService = deezerYoutubeLinkService;
     }
 
     @GetMapping("/genres")
@@ -109,6 +118,17 @@ public class DeezerRestController {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid id"));
         }
         return ok(() -> deezerCatalogService.playlist(id), Duration.ofMinutes(10));
+    }
+
+    @PostMapping("/youtube-links")
+    public ResponseEntity<?> youtubeLinks(@RequestBody DeezerYoutubeLookupRequest body) {
+        if (body == null || body.tracks() == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Missing tracks"));
+        }
+        if (body.tracks().size() > DeezerYoutubeLinkService.MAX_TRACKS) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Too many tracks"));
+        }
+        return ResponseEntity.ok(deezerYoutubeLinkService.resolve(body.tracks(), body.search()));
     }
 
     private ResponseEntity<?> ok(Supplier<?> call, Duration cache) {

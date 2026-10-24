@@ -2,6 +2,7 @@ package com.pat.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pat.controller.dto.YoutubeItemDto;
 import com.pat.controller.dto.YoutubeSearchPageDto;
 import org.slf4j.Logger;
@@ -46,7 +47,8 @@ import java.util.regex.Pattern;
 
 /**
  * YouTube Data API v3 proxy. The browser never calls googleapis.com and never
- * sees {@code app.youtube.api-key}. Thumbnails are rewritten to this API too.
+ * sees {@code app.youtube.api-key}. When that API is out of quota, search falls
+ * back to YouTube's public search endpoint. Thumbnails are rewritten to this API too.
  */
 @Service
 public class YoutubeProxyService {
@@ -73,12 +75,19 @@ public class YoutubeProxyService {
             "fr", "en", "de", "es", "it", "ru", "ja", "zh", "ar", "he", "el", "hi", "pt", "nl", "ko"
     );
     private static final int MAX_THUMB_BYTES = 2 * 1024 * 1024;
+    private static final String INNERTUBE_SEARCH = "https://www.youtube.com/youtubei/v1/search?prettyPrint=false";
+    private static final String INNERTUBE_CLIENT = "2.20251022.01.00";
+    private static final String INNERTUBE_UA =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+    private static final Duration DATA_API_COOLDOWN = Duration.ofMinutes(20);
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final String apiBase;
     private final String apiKey;
     private final ConcurrentHashMap<String, CacheEntry> cache = new ConcurrentHashMap<>();
+    /** Skip the Data API after a quota or rate-limit response so search stays fast. */
+    private volatile Instant dataApiRetryAt = Instant.EPOCH;
 
     public YoutubeProxyService(
             RestTemplateBuilder builder,
@@ -193,9 +202,6 @@ public class YoutubeProxyService {
             Integer maxResults,
             String order,
             String videoCategoryId) {
-        if (!isConfigured()) {
-            return YoutubeSearchPageDto.missingKey();
-        }
         String q = query == null ? "" : query.trim();
         String kind = normalizeType(type);
         String region = normalizeRegion(regionCode);
@@ -239,42 +245,53 @@ public class YoutubeProxyService {
         if (StringUtils.hasText(category)) {
             builder.queryParam("videoCategoryId", category);
         }
-        if (StringUtils.hasText(token)) {
+        if (StringUtils.hasText(token) && !isInnertubeContinuation(token)) {
             builder.queryParam("pageToken", token);
         }
-        JsonNode raw = fetchJson(withKey(builder), "search");
-        if (raw == null) {
-            return YoutubeSearchPageDto.failure("upstream_error", "YouTube search failed");
+        String failureCode = "upstream_error";
+        String failureMessage = "YouTube search failed";
+        if (isConfigured() && !isInnertubeContinuation(token) && !dataApiCoolingDown()) {
+            JsonNode raw = fetchJson(withKey(builder), "search");
+            String apiError = raw == null ? "upstream_error" : apiError(raw);
+            if (raw != null && apiError == null) {
+                List<YoutubeItemDto> items = mapSearchItems(raw.path("items"));
+                if ("video".equals(kind)) {
+                    items = enrichVideos(items);
+                }
+                YoutubeSearchPageDto page = new YoutubeSearchPageDto(
+                        true,
+                        null,
+                        null,
+                        "search",
+                        q,
+                        kind,
+                        region,
+                        textOrNull(raw.path("nextPageToken")),
+                        textOrNull(raw.path("prevPageToken")),
+                        raw.path("pageInfo").path("totalResults").asInt(items.size()),
+                        items
+                );
+                cache.put(cacheKey, new CacheEntry(page, Instant.now().plus(CACHE_TTL)));
+                return page;
+            }
+            failureCode = apiError;
+            failureMessage = raw == null
+                    ? "YouTube search failed"
+                    : textOrEmpty(raw.path("error").path("message"));
+            coolDownDataApi(apiError);
         }
-        String apiError = apiError(raw);
-        if (apiError != null) {
-            return YoutubeSearchPageDto.failure(apiError, textOrEmpty(raw.path("error").path("message")));
+        YoutubeSearchPageDto fallback = searchWithInnertube(q, kind, region, lang, sort, category, token, limit);
+        if (fallback != null) {
+            cache.put(cacheKey, new CacheEntry(fallback, Instant.now().plus(CACHE_TTL)));
+            return fallback;
         }
-        List<YoutubeItemDto> items = mapSearchItems(raw.path("items"));
-        if ("video".equals(kind)) {
-            items = enrichVideos(items);
-        }
-        YoutubeSearchPageDto page = new YoutubeSearchPageDto(
-                true,
-                null,
-                null,
-                "search",
-                q,
-                kind,
-                region,
-                textOrNull(raw.path("nextPageToken")),
-                textOrNull(raw.path("prevPageToken")),
-                raw.path("pageInfo").path("totalResults").asInt(items.size()),
-                items
-        );
-        cache.put(cacheKey, new CacheEntry(page, Instant.now().plus(CACHE_TTL)));
-        return page;
-    }
-
-    public YoutubeSearchPageDto popular(String regionCode, String pageToken, Integer maxResults, String videoCategoryId) {
         if (!isConfigured()) {
             return YoutubeSearchPageDto.missingKey();
         }
+        return YoutubeSearchPageDto.failure(failureCode, failureMessage);
+    }
+
+    public YoutubeSearchPageDto popular(String regionCode, String pageToken, Integer maxResults, String videoCategoryId) {
         String region = normalizeRegion(regionCode);
         if (!StringUtils.hasText(region)) {
             region = "FR";
@@ -295,33 +312,164 @@ public class YoutubeProxyService {
         if (StringUtils.hasText(category)) {
             builder.queryParam("videoCategoryId", category);
         }
-        if (StringUtils.hasText(token)) {
+        if (StringUtils.hasText(token) && !isInnertubeContinuation(token)) {
             builder.queryParam("pageToken", token);
         }
-        JsonNode raw = fetchJson(withKey(builder), "popular");
-        if (raw == null) {
-            return YoutubeSearchPageDto.failure("upstream_error", "YouTube popular failed");
+        String failureCode = "upstream_error";
+        String failureMessage = "YouTube popular failed";
+        if (isConfigured() && !isInnertubeContinuation(token) && !dataApiCoolingDown()) {
+            JsonNode raw = fetchJson(withKey(builder), "popular");
+            String apiError = raw == null ? "upstream_error" : apiError(raw);
+            if (raw != null && apiError == null) {
+                List<YoutubeItemDto> items = mapVideoItems(raw.path("items"));
+                YoutubeSearchPageDto page = new YoutubeSearchPageDto(
+                        true,
+                        null,
+                        null,
+                        "popular",
+                        null,
+                        "video",
+                        region,
+                        textOrNull(raw.path("nextPageToken")),
+                        textOrNull(raw.path("prevPageToken")),
+                        raw.path("pageInfo").path("totalResults").asInt(items.size()),
+                        items
+                );
+                cache.put(cacheKey, new CacheEntry(page, Instant.now().plus(CACHE_TTL)));
+                return page;
+            }
+            failureCode = apiError;
+            failureMessage = raw == null
+                    ? "YouTube popular failed"
+                    : textOrEmpty(raw.path("error").path("message"));
+            coolDownDataApi(apiError);
         }
-        String apiError = apiError(raw);
-        if (apiError != null) {
-            return YoutubeSearchPageDto.failure(apiError, textOrEmpty(raw.path("error").path("message")));
+        YoutubeSearchPageDto fallback = popularWithInnertube(region, category, token, limit);
+        if (fallback != null) {
+            cache.put(cacheKey, new CacheEntry(fallback, Instant.now().plus(CACHE_TTL)));
+            return fallback;
         }
-        List<YoutubeItemDto> items = mapVideoItems(raw.path("items"));
-        YoutubeSearchPageDto page = new YoutubeSearchPageDto(
+        if (!isConfigured()) {
+            return YoutubeSearchPageDto.missingKey();
+        }
+        return YoutubeSearchPageDto.failure(failureCode, failureMessage);
+    }
+
+    private YoutubeSearchPageDto searchWithInnertube(
+            String query,
+            String kind,
+            String region,
+            String lang,
+            String sort,
+            String category,
+            String token,
+            int limit) {
+        String effectiveQuery = query;
+        if (!StringUtils.hasText(effectiveQuery)) {
+            if (!StringUtils.hasText(category)) {
+                return null;
+            }
+            effectiveQuery = YoutubeInnertube.categoryQuery(category, region);
+        }
+        String hl = StringUtils.hasText(lang) ? lang : (YoutubeInnertube.isFrenchRegion(region) ? "fr" : "en");
+        String gl = StringUtils.hasText(region) ? region : "FR";
+        return innertubePage(effectiveQuery, kind, hl, gl, sort, token, limit, "search", query, region);
+    }
+
+    private YoutubeSearchPageDto popularWithInnertube(String region, String category, String token, int limit) {
+        boolean themed = StringUtils.hasText(category);
+        String query = themed ? YoutubeInnertube.categoryQuery(category, region) : "a";
+        String order = themed ? "viewCount" : "date";
+        String hl = YoutubeInnertube.isFrenchRegion(region) ? "fr" : "en";
+        return innertubePage(query, "video", hl, region, order, token, limit, "popular", null, region);
+    }
+
+    private YoutubeSearchPageDto innertubePage(
+            String query,
+            String kind,
+            String hl,
+            String gl,
+            String sort,
+            String token,
+            int limit,
+            String pageKind,
+            String reportedQuery,
+            String region) {
+        JsonNode raw = postInnertube(query, kind, hl, gl, sort, isInnertubeContinuation(token) ? token : "");
+        if (raw == null || raw.has("error")) {
+            return null;
+        }
+        List<YoutubeItemDto> items = YoutubeInnertube.items(raw, kind, limit);
+        String next = YoutubeInnertube.continuation(raw);
+        if (items.isEmpty() && !StringUtils.hasText(next)) {
+            return null;
+        }
+        return new YoutubeSearchPageDto(
                 true,
                 null,
                 null,
-                "popular",
-                null,
-                "video",
+                pageKind,
+                reportedQuery,
+                kind,
                 region,
-                textOrNull(raw.path("nextPageToken")),
-                textOrNull(raw.path("prevPageToken")),
-                raw.path("pageInfo").path("totalResults").asInt(items.size()),
+                next,
+                null,
+                items.size(),
                 items
         );
-        cache.put(cacheKey, new CacheEntry(page, Instant.now().plus(CACHE_TTL)));
-        return page;
+    }
+
+    private JsonNode postInnertube(String query, String type, String hl, String gl, String order, String continuation) {
+        ObjectNode root = objectMapper.createObjectNode();
+        ObjectNode client = root.putObject("context").putObject("client");
+        client.put("hl", StringUtils.hasText(hl) ? hl : "fr");
+        client.put("gl", StringUtils.hasText(gl) ? gl : "FR");
+        client.put("clientName", "WEB");
+        client.put("clientVersion", INNERTUBE_CLIENT);
+        if (StringUtils.hasText(continuation)) {
+            root.put("continuation", continuation);
+        } else {
+            root.put("query", query);
+            root.put("params", YoutubeInnertube.searchParams(type, order));
+        }
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set(HttpHeaders.USER_AGENT, INNERTUBE_UA);
+            headers.set(HttpHeaders.ACCEPT, "application/json");
+            headers.set(HttpHeaders.ACCEPT_LANGUAGE, client.get("hl").asText() + ",en;q=0.5");
+            headers.set("Origin", "https://www.youtube.com");
+            ResponseEntity<String> response = restTemplate.exchange(
+                    URI.create(INNERTUBE_SEARCH),
+                    HttpMethod.POST,
+                    new HttpEntity<>(objectMapper.writeValueAsString(root), headers),
+                    String.class
+            );
+            String body = response.getBody();
+            if (!StringUtils.hasText(body)) {
+                return null;
+            }
+            return objectMapper.readTree(body);
+        } catch (HttpStatusCodeException e) {
+            log.warn("YouTube public search HTTP {}", e.getStatusCode().value());
+            return null;
+        } catch (Exception e) {
+            log.warn("YouTube public search failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean dataApiCoolingDown() {
+        return Instant.now().isBefore(dataApiRetryAt);
+    }
+
+    private void coolDownDataApi(String reason) {
+        Instant now = Instant.now();
+        if (now.isBefore(dataApiRetryAt)) {
+            return;
+        }
+        dataApiRetryAt = now.plus(DATA_API_COOLDOWN);
+        log.warn("YouTube Data API unavailable ({}), public search fallback until {}", reason, dataApiRetryAt);
     }
 
     private List<YoutubeItemDto> enrichVideos(List<YoutubeItemDto> items) {
@@ -501,7 +649,7 @@ public class YoutubeProxyService {
         if (errors.isArray()) {
             for (JsonNode err : errors) {
                 String reason = textOrEmpty(err.path("reason"));
-                if ("quotaExceeded".equals(reason) || "dailyLimitExceeded".equals(reason)) {
+                if ("quotaExceeded".equals(reason) || "dailyLimitExceeded".equals(reason) || "rateLimitExceeded".equals(reason)) {
                     return "quota_exceeded";
                 }
                 if ("keyInvalid".equals(reason) || "badRequest".equals(reason)) {
@@ -510,7 +658,7 @@ public class YoutubeProxyService {
             }
         }
         int code = raw.path("error").path("code").asInt(0);
-        if (code == 403) {
+        if (code == 403 || code == 429) {
             return "quota_exceeded";
         }
         return "upstream_error";
@@ -613,7 +761,17 @@ public class YoutubeProxyService {
             return "";
         }
         String value = token.trim();
-        return SAFE_TOKEN.matcher(value).matches() ? value : "";
+        if (SAFE_TOKEN.matcher(value).matches()) {
+            return value;
+        }
+        if (value.length() <= 4000 && value.chars().allMatch(ch -> ch >= 33 && ch <= 126)) {
+            return value;
+        }
+        return "";
+    }
+
+    private static boolean isInnertubeContinuation(String token) {
+        return token != null && token.length() > 200;
     }
 
     private static String normalizeChannel(String channelId) {
