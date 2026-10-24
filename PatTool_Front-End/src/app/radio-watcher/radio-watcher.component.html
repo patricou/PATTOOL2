@@ -582,6 +582,9 @@
                 (error)="dropTrackImage(i)" />
             </div>
           </div>
+          <div class="radio-sleeve-count" *ngIf="sleeveVisible">
+            {{ trackImageIndex + 1 }} / {{ trackImages.length }}
+          </div>
 
           <div class="radio-screen-fx" aria-hidden="true">
             <span class="radio-screen-fx-a"></span>

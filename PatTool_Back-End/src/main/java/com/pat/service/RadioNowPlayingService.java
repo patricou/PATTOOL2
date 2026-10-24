@@ -56,7 +56,7 @@ public class RadioNowPlayingService {
     private static final int ICY_READ_MS = 6_000;
     private static final int ICY_META_INT_CAP = 64 * 1024;
     private static final int MAX_REDIRECTS = 4;
-    private static final int MAX_IMAGES = 24;
+    private static final int MAX_IMAGES = 40;
     /** Album sleeves shown on the radio face, ahead of stills and portraits. */
     private static final int MAX_ALBUM_COVERS = 18;
     /** Re-read the live title often enough to follow a song change. */
@@ -996,7 +996,7 @@ public class RadioNowPlayingService {
     }
 
     private static String imageKey(Track track) {
-        return "covers2|" + fold(track.artist) + "|" + fold(track.title);
+        return "covers3|" + fold(track.artist) + "|" + fold(track.title);
     }
 
     private static String fold(String value) {

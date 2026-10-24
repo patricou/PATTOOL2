@@ -196,6 +196,9 @@
               (error)="dropTrackImage(i)" />
           </div>
         </div>
+        <div class="radio-sleeve-count" *ngIf="sleeveVisible">
+          {{ trackImageIndex + 1 }} / {{ trackImages.length }}
+        </div>
 
         <div class="radio-station-badge" *ngIf="station && !playError">
           <div class="radio-on-air"><span></span> ON AIR</div>
