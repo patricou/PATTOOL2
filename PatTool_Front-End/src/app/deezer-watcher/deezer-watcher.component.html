@@ -492,7 +492,6 @@
             [src]="youtubeEmbed"
             [title]="youtubeTitle || 'YouTube'"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-            allowfullscreen
             referrerpolicy="strict-origin-when-cross-origin"
             (load)="onYoutubeFrameLoad()">
           </iframe>
@@ -550,10 +549,10 @@
                   <button type="button" class="radio-share-menu-item" (click)="copyShareLink()">{{ 'RADIO.SHARE_COPY' | translate }}</button>
                 </div>
               </div>
-              <button type="button" class="radio-now-action" [class.is-lit]="focusMode" (click)="toggleFocusMode($event)" [attr.title]="(focusMode ? 'RADIO.FOCUS_EXIT' : 'RADIO.FOCUS') | translate">
+              <button type="button" class="radio-now-action dz-hide-mobile" [class.is-lit]="focusMode" (click)="toggleFocusMode($event)" [attr.title]="(focusMode ? 'RADIO.FOCUS_EXIT' : 'RADIO.FOCUS') | translate">
                 <i class="fa" [class.fa-compress]="focusMode" [class.fa-desktop]="!focusMode"></i>
               </button>
-              <button type="button" class="radio-now-action" [class.is-lit]="stageFullscreen" (click)="toggleStageFullscreen($event)" [attr.title]="(stageFullscreen ? 'RADIO.FULLSCREEN_EXIT' : 'RADIO.FULLSCREEN') | translate">
+              <button type="button" class="radio-now-action dz-hide-mobile" [class.is-lit]="stageFullscreen" (click)="toggleStageFullscreen($event)" [attr.title]="(stageFullscreen ? 'RADIO.FULLSCREEN_EXIT' : 'RADIO.FULLSCREEN') | translate">
                 <i class="fa" [class.fa-compress]="stageFullscreen" [class.fa-expand]="!stageFullscreen"></i>
               </button>
               <button type="button" class="radio-now-action radio-now-action--stop dz-hide-mobile" (click)="stop()" [disabled]="!current" [attr.title]="'RADIO.STOP' | translate"><i class="fa fa-stop"></i></button>
@@ -610,4 +609,4 @@
   <p class="dz-footer radio-footer">{{ 'DEEZER.SUBTITLE' | translate }}</p>
 </div>
 
-<app-youtube-equalizer-modal #eqModal theme="radio" [cabinet]="radioSkin" variant="media" [hasYoutubeVideo]="false"></app-youtube-equalizer-modal>
+<app-youtube-equalizer-modal #eqModal theme="radio" [cabinet]="radioSkin" variant="media" [hasYoutubeVideo]="!!youtubeEmbed"></app-youtube-equalizer-modal>

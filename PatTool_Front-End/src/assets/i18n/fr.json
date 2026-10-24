@@ -6676,7 +6676,7 @@
   "DEEZER": {
     "TITLE": "Deezer",
     "SUBTITLE": "Classements, albums et extraits de 30 secondes via l’API publique Deezer. Le morceau entier n’est pas disponible.",
-    "LIMIT_NOTE": "Extraits limités à 30 s : le morceau entier n’est pas fourni.",
+    "LIMIT_NOTE": "Extraits limités à 30 s : le morceau entier n’est pas fourni. Écoutez-le sur YouTube.",
     "SEARCH_PLACEHOLDER": "Titre, album, artiste…",
     "CLEAR_SEARCH": "Effacer la recherche",
     "GENRES": "Genres",

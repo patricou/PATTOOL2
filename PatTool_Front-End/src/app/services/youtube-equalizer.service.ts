@@ -349,6 +349,9 @@ export class YoutubeEqualizerService {
     if (markCustom && this.touchesTone(partial)) {
       next.preset = 'custom';
     }
+    if (partial.enabled !== undefined || partial.bypass !== undefined) {
+      this.writeEngaged(!!next.enabled && !next.bypass);
+    }
     this.settingsSubject.next(next);
     try {
       this.ensureGraph();
@@ -356,6 +359,10 @@ export class YoutubeEqualizerService {
       /* AudioContext unavailable */
     }
     this.applySettings(next);
+    if (next.enabled && !next.bypass) {
+      void this.resume();
+      this.attachAudibleMedia();
+    }
     this.syncEngaged(this.sourceKind);
     this.schedulePersist();
   }
@@ -422,6 +429,32 @@ export class YoutubeEqualizerService {
     const bands = [...this.settings.bands];
     bands[index] = clamp(Number(value) || 0, DB_MIN, DB_MAX);
     this.patch({ bands });
+  }
+
+  /** Playing radio / Deezer element, or the one already routed through the graph. */
+  private attachAudibleMedia(): void {
+    const current = this.mediaElement;
+    if (current && !current.paused && !current.ended && (current.currentSrc || current.src)) {
+      this.attachMediaElement(current);
+      return;
+    }
+    if (typeof document === 'undefined') {
+      return;
+    }
+    const nodes = document.querySelectorAll('audio[data-pat-radio="1"]');
+    for (const node of Array.from(nodes)) {
+      if (!(node instanceof HTMLMediaElement) || node.paused || node.ended) {
+        continue;
+      }
+      if (!node.currentSrc && !node.src) {
+        continue;
+      }
+      this.attachMediaElement(node);
+      return;
+    }
+    if (current && (current.currentSrc || current.src)) {
+      this.attachMediaElement(current);
+    }
   }
 
   /** Route this element through the equalizer when it is enabled, whichever page started it. */
@@ -830,6 +863,10 @@ export class YoutubeEqualizerService {
     analyser.maxDecibels = -18;
     const sum = ctx.createGain();
     const widthMix = ctx.createGain();
+    bypassGain.gain.value = 1;
+    processedGain.gain.value = 0;
+    reverbWet.gain.value = 0;
+    reverbFeedback.gain.value = 0;
 
     input.connect(bypassGain);
     input.connect(preamp);
@@ -859,6 +896,8 @@ export class YoutubeEqualizerService {
     const driveDry = ctx.createGain();
     const driveWet = ctx.createGain();
     const driveMix = ctx.createGain();
+    driveWet.gain.value = 0;
+    driveDry.gain.value = 1;
     node.connect(highpass);
     highpass.connect(lowpass);
     lowpass.connect(driveIn);
@@ -880,6 +919,8 @@ export class YoutubeEqualizerService {
     echoDelay.delayTime.value = 0.28;
     const echoFeedback = ctx.createGain();
     const echoWet = ctx.createGain();
+    echoWet.gain.value = 0;
+    echoFeedback.gain.value = 0;
     limiter.connect(echoDelay);
     echoDelay.connect(echoFeedback);
     echoFeedback.connect(echoDelay);
@@ -895,6 +936,7 @@ export class YoutubeEqualizerService {
     chorusLfo.connect(chorusDepth);
     chorusDepth.connect(chorusDelay.delayTime);
     const chorusWet = ctx.createGain();
+    chorusWet.gain.value = 0;
     limiter.connect(chorusDelay);
     chorusDelay.connect(chorusWet);
     chorusWet.connect(sum);
@@ -1194,14 +1236,19 @@ export class YoutubeEqualizerService {
   }
 
   private setNumber(param: AudioParam | undefined, value: number, when: number): void {
-    if (!param) {
+    if (!param || !Number.isFinite(value)) {
       return;
     }
     try {
       param.cancelScheduledValues(when);
       param.setValueAtTime(value, when);
     } catch {
+      /* fall through to the immediate assignment */
+    }
+    try {
       param.value = value;
+    } catch {
+      /* ignore */
     }
   }
 
