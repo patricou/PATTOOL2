@@ -408,13 +408,13 @@ export class BackgroundPlaybackService {
     }
     const session = navigator.mediaSession;
     const existing = session.metadata;
-    const stationName = (el.getAttribute('data-pat-media-station') || '').trim();
     const title = withBluetoothAppName(
-      (el.getAttribute('data-pat-media-title') || el.getAttribute('title') || existing?.title || '').trim(),
-      stationName
+      (el.getAttribute('data-pat-media-title') || el.getAttribute('title') || existing?.title || '').trim()
     );
-    const artist = (el.getAttribute('data-pat-media-artist') || existing?.artist || 'PATTOOL').trim();
-    const album = (el.getAttribute('data-pat-media-album') || existing?.album || '').trim();
+    const artistAttr = el.getAttribute('data-pat-media-artist');
+    const albumAttr = el.getAttribute('data-pat-media-album');
+    const artist = cleanBluetoothArtist(artistAttr !== null ? artistAttr : existing?.artist || '');
+    const album = (albumAttr !== null ? albumAttr : existing?.album || '').trim();
     const artworkAttr = el.getAttribute('data-pat-media-artwork');
     const artwork =
       artworkAttr
@@ -555,7 +555,8 @@ export class BackgroundPlaybackService {
       this.youtubeExplicitPause = false;
       this.applyYoutubeMediaSession();
       this.setPlaybackState('playing');
-      setScreenKeepAlive('youtube', true, this.youtubeTitle());
+      const track = this.youtubeTrack();
+      setScreenKeepAlive('youtube', true, track.title, { artist: track.artist, album: track.album });
       return;
     }
     if (state === 0) {
@@ -604,7 +605,8 @@ export class BackgroundPlaybackService {
     if (this.youtubeUserPaused && justMarked && !this.youtubeExplicitPause) {
       this.youtubePlaying = true;
       this.youtubeUserPaused = false;
-      setScreenKeepAlive('youtube', true, this.youtubeTitle());
+      const track = this.youtubeTrack();
+      setScreenKeepAlive('youtube', true, track.title, { artist: track.artist, album: track.album });
     }
     if (!this.youtubePlaying || this.youtubeUserPaused) {
       return;
@@ -642,9 +644,12 @@ export class BackgroundPlaybackService {
     }
   }
 
-  private youtubeTitle(): string {
+  private youtubeTrack(): { title: string; artist: string; album: string } {
     const iframe = this.collectYoutubeIframes()[0];
-    return (iframe?.getAttribute('title') || '').trim() || 'YouTube';
+    const title = withBluetoothAppName((iframe?.getAttribute('title') || '').trim() || 'YouTube');
+    const artist = cleanBluetoothArtist(iframe?.getAttribute('data-pat-media-artist') || '');
+    const album = (iframe?.getAttribute('data-pat-media-album') || '').trim();
+    return { title, artist, album };
   }
 
   private readYoutubePlayerState(raw: unknown): number | undefined {
@@ -693,7 +698,7 @@ export class BackgroundPlaybackService {
     if (!iframe || typeof navigator === 'undefined' || !('mediaSession' in navigator)) {
       return;
     }
-    const title = withBluetoothAppName((iframe.getAttribute('title') || '').trim() || 'YouTube');
+    const track = this.youtubeTrack();
     const src = iframe.getAttribute('src') || '';
     const idMatch = /\/embed\/([a-zA-Z0-9_-]{11})/.exec(src);
     const artwork = idMatch
@@ -701,8 +706,9 @@ export class BackgroundPlaybackService {
       : [];
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
-        title,
-        artist: 'PATTOOL YouTube',
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
         artwork
       });
     } catch {
@@ -712,7 +718,7 @@ export class BackgroundPlaybackService {
       this.youtubePlaying = true;
       this.youtubeUserPaused = false;
       this.youtubeExplicitPause = false;
-      setScreenKeepAlive('youtube', true, this.youtubeTitle());
+      setScreenKeepAlive('youtube', true, track.title, { artist: track.artist, album: track.album });
       this.resumeYoutubeIframes();
     });
     this.safeSetHandler('pause', () => {
@@ -805,4 +811,13 @@ export class BackgroundPlaybackService {
       /* ignore */
     }
   }
+}
+
+/** Drops the old app label so it does not take a line on the car screen. */
+function cleanBluetoothArtist(value: string): string {
+  const text = value.trim().replace(/^pattool\s*-\s*/i, '');
+  if (!text || /^pattool$/i.test(text) || /^pattool youtube$/i.test(text) || /^pattool radio$/i.test(text)) {
+    return '';
+  }
+  return text;
 }

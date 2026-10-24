@@ -49,12 +49,12 @@ public class RadioKeepAliveService extends Service {
             shutdown();
             return START_NOT_STICKY;
         }
-        String title = clip(intent == null ? null : intent.getStringExtra(EXTRA_TITLE), "Radio");
-        String artist = clip(intent == null ? null : intent.getStringExtra(EXTRA_ARTIST), "");
-        String album = clip(intent == null ? null : intent.getStringExtra(EXTRA_ALBUM), "");
-        String shownTitle = bluetoothTitle(title, artist, album);
-        publishTrack(shownTitle, artist, album);
-        startInForeground(shownTitle, artist);
+        String title = clip(withoutAppPrefix(intent == null ? null : intent.getStringExtra(EXTRA_TITLE)), "Radio");
+        String artist = clip(withoutAppPrefix(intent == null ? null : intent.getStringExtra(EXTRA_ARTIST)), "");
+        String album = clip(withoutAppPrefix(intent == null ? null : intent.getStringExtra(EXTRA_ALBUM)), "");
+        publishTrack(title, artist, album);
+        String notice = !artist.isEmpty() ? artist : album;
+        startInForeground(title, notice);
         acquireWakeLock();
         return START_NOT_STICKY;
     }
@@ -206,42 +206,27 @@ public class RadioKeepAliveService extends Service {
     }
 
     /**
-     * The page already builds "PATTOOL - Station - Artist - Song". Keep that line.
-     * A bare song title still gets the artist in front, then the app name.
-     * The station name used as a stand-in artist (same text as the album) is not repeated.
+     * Title, artist and album stay in their own Bluetooth fields.
+     * A leftover "PATTOOL - " prefix is dropped so the car screen can show the track.
      */
-    static String bluetoothTitle(String title, String artist, String album) {
-        return withAppName(composeBluetoothTitle(title, artist, album));
-    }
-
-    private static String composeBluetoothTitle(String title, String artist, String album) {
-        String safeTitle = title == null || title.isEmpty() ? "Radio" : title;
-        if (safeTitle.contains(" - ")) {
-            return clip(safeTitle, "Radio");
+    static String withoutAppPrefix(String value) {
+        if (value == null || value.isEmpty()) {
+            return "";
         }
-        String safeArtist = artist == null ? "" : artist;
-        if (safeArtist.isEmpty() || safeArtist.equalsIgnoreCase(safeTitle)) {
-            return safeTitle;
+        String safe = value;
+        if (safe.regionMatches(true, 0, "PATTOOL - ", 0, 10)) {
+            safe = safe.substring(10);
+        } else if (safe.regionMatches(true, 0, "PATTOOL-", 0, 8)) {
+            safe = safe.substring(8);
         }
-        String safeAlbum = album == null ? "" : album;
-        if (!safeAlbum.isEmpty() && safeArtist.equalsIgnoreCase(safeAlbum)) {
-            return safeTitle;
+        String trimmed = safe.trim();
+        if (trimmed.isEmpty()
+                || trimmed.equalsIgnoreCase("PATTOOL")
+                || trimmed.equalsIgnoreCase("PatTool Radio")
+                || trimmed.equalsIgnoreCase("PATTOOL YouTube")) {
+            return "";
         }
-        return clip(safeArtist + " - " + safeTitle, "Radio");
-    }
-
-    /** Bluetooth lines start with the app name. */
-    private static String withAppName(String line) {
-        String safe = line == null ? "" : line;
-        if (safe.regionMatches(true, 0, "PATTOOL", 0, 7)) {
-            return safe;
-        }
-        String body = safe.trim();
-        if (body.isEmpty()) {
-            return "PATTOOL";
-        }
-        boolean trailing = safe.endsWith(" ");
-        return clip("PATTOOL - " + body + (trailing ? " " : ""), "PATTOOL");
+        return safe;
     }
 
     private static String clip(String value, String fallback) {

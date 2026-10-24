@@ -29,7 +29,7 @@ export function setScreenKeepAlive(
     const fallback = owner === 'radio' ? 'Radio' : 'YouTube';
     const station = clipScreenText(extra?.station);
     owners.set(owner, {
-      title: withBluetoothAppName(title || fallback, station),
+      title: withBluetoothAppName(title || fallback),
       artist: clipScreenText(extra?.artist),
       album: clipScreenText(extra?.album),
       station
@@ -129,7 +129,7 @@ function publishScreenKeepAlive(playing: boolean, track: ScreenKeepAliveTrack): 
     return;
   }
   try {
-    const title = withBluetoothAppName(track.title, track.station);
+    const title = withBluetoothAppName(track.title);
     if (typeof bridge.setNowPlaying === 'function') {
       bridge.setNowPlaying(playing, title, track.artist, track.album);
     } else if (typeof bridge.setPlaying === 'function') {
@@ -140,31 +140,19 @@ function publishScreenKeepAlive(playing: boolean, track: ScreenKeepAliveTrack): 
   }
 }
 
-/** Bluetooth lines start with PATTOOL, then the radio station, then the rest. */
-export function withBluetoothAppName(value: string, station?: string): string {
+/**
+ * Bluetooth title line. The station, the artist and the song travel in their own fields,
+ * so this only drops a leftover "PATTOOL - " prefix.
+ */
+export function withBluetoothAppName(value: string): string {
   const text = clipScreenText(value);
   const keepEnd = /\s$/.test(text);
   let body = text.replace(/\s+$/, '').replace(/^pattool\s*-\s*/i, '');
-  const radio = clipScreenText(station).replace(/\s+$/, '');
-  if (radio) {
-    const rest = stripLeadingLabel(body, radio);
-    body = rest ? `${radio} - ${rest}` : radio;
+  if (/^pattool$/i.test(body)) {
+    body = '';
   }
-  const line = body ? `PATTOOL - ${body}` : 'PATTOOL';
-  return clipScreenText(keepEnd ? `${line} ` : line);
-}
-
-function stripLeadingLabel(value: string, label: string): string {
-  const text = value.trim();
-  const name = label.trim();
-  if (!text || !name) {
-    return text;
-  }
-  if (text.toLowerCase() === name.toLowerCase()) {
+  if (!body) {
     return '';
   }
-  if (text.toLowerCase().startsWith(`${name.toLowerCase()} - `)) {
-    return text.slice(name.length).replace(/^\s*-\s*/, '');
-  }
-  return text;
+  return clipScreenText(keepEnd ? `${body} ` : body);
 }

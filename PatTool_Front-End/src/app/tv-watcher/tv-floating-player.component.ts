@@ -491,6 +491,8 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
     this.isBuffering = true;
     video.title = channel.name || 'TV';
     video.setAttribute('data-pat-media-title', channel.name || 'TV');
+    video.setAttribute('data-pat-media-artist', '');
+    video.setAttribute('data-pat-media-album', '');
     const streamUrl = resolveTvStreamUrl(channel);
     let proxyUrl = this.api.tvStreamProxyUrl(streamUrl);
     const keepAlive = virtualLiveKeepAliveFromUrl(streamUrl, this.api);

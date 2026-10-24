@@ -89,6 +89,8 @@
           class="yt-pip-embed"
           [src]="embedUrl"
           [title]="item?.title || ''"
+          [attr.data-pat-media-artist]="item?.channelTitle || ''"
+          data-pat-media-album="YouTube"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowfullscreen
           referrerpolicy="strict-origin-when-cross-origin"

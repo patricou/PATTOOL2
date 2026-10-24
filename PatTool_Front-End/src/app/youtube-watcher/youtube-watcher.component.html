@@ -321,6 +321,8 @@
         class="yt-page-embed"
         [src]="embedUrl"
         [title]="selected?.title || ''"
+        [attr.data-pat-media-artist]="selected?.channelTitle || ''"
+        data-pat-media-album="YouTube"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowfullscreen
         referrerpolicy="strict-origin-when-cross-origin"

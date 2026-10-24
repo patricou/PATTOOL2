@@ -1,6 +1,6 @@
 /** Document Picture-in-Picture for Radio — World Receiver face in an always-on-top window. */
 
-import { clipScreenText, setScreenKeepAlive, withBluetoothAppName } from '../services/media-screen-keepalive';
+import { clipScreenText, setScreenKeepAlive } from '../services/media-screen-keepalive';
 
 export interface RadioDocPipLabels {
   fullscreen: string;
@@ -123,7 +123,7 @@ export function applyRadioMediaSession(meta: {
       : [];
     navigator.mediaSession.metadata = new MediaMetadata({
       title: meta.title || 'Radio',
-      artist: meta.artist || 'PatTool Radio',
+      artist: meta.artist || '',
       album: meta.album || '',
       artwork
     });
@@ -134,9 +134,9 @@ export function applyRadioMediaSession(meta: {
 }
 
 /**
- * Song title, artist and station, for the lock screen and a Bluetooth device.
- * Many head units only draw the title line, so that line is
- * "PATTOOL - Station - Artist - Song". A blank or repeated spaces at the end stay a single space.
+ * Song, artist and station, each in its own Bluetooth field.
+ * Title is the song, artist is the performer, album is the radio station.
+ * A blank or repeated spaces at the end stay a single space.
  */
 export function publishRadioTrack(
   media: HTMLMediaElement | null | undefined,
@@ -151,9 +151,9 @@ export function publishRadioTrack(
   const station = clipRadioText(meta.station) || 'Radio';
   const song = clipRadioText(meta.title);
   const artist = clipRadioText(meta.artist);
-  const album = clipRadioText(meta.album) || station;
-  const shownArtist = artist || (song ? station : 'PatTool Radio');
-  const title = withBluetoothAppName(bluetoothTrackTitle(station, artist, song), station);
+  const title = song || station;
+  const shownArtist = distinctRadioLabel(artist, station, title);
+  const album = distinctRadioLabel(station, title);
   if (media) {
     media.title = title;
     media.setAttribute('data-pat-media-title', title);
@@ -269,28 +269,17 @@ function clipRadioText(value: string | null | undefined): string {
   return clipScreenText(value);
 }
 
-/** "PATTOOL - Station - Artist - Song", clipped at the Bluetooth text limit. */
-function bluetoothTrackTitle(station: string, artist: string, song: string): string {
-  const radio = station.trim() || 'Radio';
-  const performer = artist.trim();
-  const track = song.trim();
-  const parts = ['PATTOOL', radio];
-  let tail = station;
-  if (performer && performer.toLowerCase() !== radio.toLowerCase()) {
-    parts.push(performer);
-    tail = artist;
+/** Hides a label that repeats the station or the song already shown on another line. */
+function distinctRadioLabel(value: string, ...others: string[]): string {
+  const text = value.replace(/\s+$/, '');
+  if (!text) {
+    return '';
   }
-  if (
-    track &&
-    track.toLowerCase() !== performer.toLowerCase() &&
-    track.toLowerCase() !== radio.toLowerCase()
-  ) {
-    parts.push(track);
-    tail = song;
+  const low = text.toLowerCase();
+  if (others.some((other) => other.replace(/\s+$/, '').toLowerCase() === low)) {
+    return '';
   }
-  const line = parts.join(' - ');
-  const spaced = /[\s\u00a0]$/.test(tail || '') ? `${line} ` : line;
-  return clipScreenText(spaced);
+  return value;
 }
 
 function artworkMime(url: string): string {

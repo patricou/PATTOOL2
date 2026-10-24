@@ -148,6 +148,8 @@ export class TvPipCarrier {
     this.channel = opts.channel;
     carrier.title = opts.channel.name || 'TV';
     carrier.setAttribute('data-pat-media-title', opts.channel.name || 'TV');
+    carrier.setAttribute('data-pat-media-artist', '');
+    carrier.setAttribute('data-pat-media-album', '');
 
     // Close any prior PiP surface before opening a fresh one.
     if (this.isDocPipOpen() || document.pictureInPictureElement === carrier) {
