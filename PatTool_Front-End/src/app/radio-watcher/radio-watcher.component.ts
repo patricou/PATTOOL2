@@ -22,9 +22,12 @@ import { ApiService, RadioCountry, RadioFrancePodcastEpisode, RadioFrancePodcast
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { RadioNowPlayingService } from '../services/radio-now-playing.service';
 import { RadioPlayerService } from '../services/radio-player.service';
+import { setDeviceMediaVolume, activeScreenKeepAliveOwner } from '../services/media-screen-keepalive';
 import { createTvHlsConfig, resetTvMediaElement, tryRecoverTvHlsError } from '../tv-watcher/tv-hls-config';
 import { attachRadioPlaybackGuard, bustRadioStreamUrl, RadioPlaybackGuard } from './radio-playback-guard';
 import {
+  adjacentRadioStation,
+  claimRadioTune,
   publishRadioTrack,
   closeRadioDocPip,
   enterRadioPictureInPicture,
@@ -158,11 +161,14 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   favoritesError = '';
   favoritesHint = '';
   isMuted = false;
+  private followDeviceVolume = false;
+
   volumePercent = 100;
   isBuffering = false;
   /** Stream dropped; playback restarts when the network is back. */
   isReconnecting = false;
-  chromeVisible = true;
+  chromeVisible = false;
+  private pointerOverRadio = false;
   shareMenuOpen = false;
   shareFeedback = '';
   /** When true, leaving the page with keep-alive keeps World Receiver playing. */
@@ -609,6 +615,8 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    window.addEventListener('patradiotransport', this.onBluetoothTune);
+    window.addEventListener('patmediavolumeui', this.onDeviceVolumeUi);
     this.keepAliveOnNavigate = this.readKeepAlivePreference();
     this.sleeveOpen = this.readSleeveOpen();
     this.restoreSkinPreference();
@@ -666,6 +674,8 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    window.removeEventListener('patradiotransport', this.onBluetoothTune);
+    window.removeEventListener('patmediavolumeui', this.onDeviceVolumeUi);
     this.pageAlive = false;
     this.eqSub?.unsubscribe();
     this.clearPlaybackGesture();
@@ -1177,18 +1187,20 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onRadioPointerEnter(): void {
-    this.showChrome(true);
-  }
-
-  onRadioPointerMove(): void {
+    this.pointerOverRadio = true;
+    this.clearChromeHideTimer();
     if (!this.chromeVisible) {
-      this.showChrome(true);
-    } else {
-      this.scheduleChromeHide();
+      this.chromeVisible = true;
+      this.cdr.markForCheck();
     }
   }
 
+  onRadioPointerMove(): void {
+    this.onRadioPointerEnter();
+  }
+
   onRadioPointerLeave(): void {
+    this.pointerOverRadio = false;
     this.clearChromeHideTimer();
     if (!this.selectedStation || this.focusMode || this.stageFullscreen) {
       return;
@@ -1201,10 +1213,15 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  onRadioTouch(): void {
+    this.pointerOverRadio = false;
+    this.showChrome(true);
+  }
+
   private showChrome(scheduleHide: boolean): void {
     this.chromeVisible = true;
     this.cdr.markForCheck();
-    if (scheduleHide) {
+    if (scheduleHide && !this.pointerOverRadio) {
       this.scheduleChromeHide();
     } else {
       this.clearChromeHideTimer();
@@ -1213,7 +1230,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private scheduleChromeHide(delayMs = RadioWatcherComponent.CHROME_HIDE_MS): void {
     this.clearChromeHideTimer();
-    if (!this.selectedStation || this.isMuted || this.shareMenuOpen) {
+    if (!this.selectedStation || this.shareMenuOpen || this.focusMode || this.stageFullscreen || this.pointerOverRadio) {
       return;
     }
     this.chromeHideTimer = setTimeout(() => {
@@ -1723,6 +1740,35 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.translate.instant('RADIO.PRESET_EMPTY', { n });
   }
 
+  private readonly onDeviceVolumeUi = (event: Event): void => {
+    const raw = Number((event as CustomEvent<number>).detail);
+    if (!Number.isFinite(raw)) {
+      return;
+    }
+    this.followDeviceVolume = true;
+    this.volumePercent = Math.max(0, Math.min(100, Math.round(raw)));
+    this.isMuted = this.volumePercent === 0;
+    this.cdr.markForCheck();
+  };
+
+  private readonly onBluetoothTune = (event: Event): void => {
+    if (!this.pageAlive || this.radioPlayer.isOpen || activeScreenKeepAliveOwner() === 'youtube') {
+      return;
+    }
+    const action = (event as CustomEvent<string>).detail;
+    if (action !== 'next' && action !== 'previous') {
+      return;
+    }
+    if (!claimRadioTune()) {
+      return;
+    }
+    const station = adjacentRadioStation(action, this.selectedStation, this.favorites, this.stations);
+    if (!station) {
+      return;
+    }
+    this.selectStation(station as RadioStation);
+  };
+
   selectStation(station: RadioStation): void {
     if (!station) {
       return;
@@ -1736,7 +1782,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.selectedStation = station;
     this.playError = '';
-    this.chromeVisible = true;
+    this.chromeVisible = this.pointerOverRadio || this.focusMode || this.stageFullscreen;
     this.persistLastStation(station);
     this.playStation(station);
   }
@@ -1789,6 +1835,16 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     const media = this.mediaEl?.nativeElement;
     const p = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
     this.volumePercent = p;
+    if (setDeviceMediaVolume(p)) {
+      this.followDeviceVolume = true;
+      if (media) {
+        media.muted = p === 0;
+        media.volume = p === 0 ? 0 : 1;
+        this.isMuted = media.muted;
+      }
+      this.showChrome(true);
+      return;
+    }
     if (media) {
       media.volume = p / 100;
       media.muted = p === 0;
@@ -1798,6 +1854,9 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onMediaVolumeChange(): void {
+    if (this.followDeviceVolume) {
+      return;
+    }
     const media = this.mediaEl?.nativeElement;
     if (!media) {
       return;

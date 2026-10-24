@@ -19,9 +19,12 @@ import Hls from 'hls.js';
 import { ApiService, RadioNowPlaying, RadioStation } from '../services/api.service';
 import { RadioNowPlayingService } from '../services/radio-now-playing.service';
 import { RadioFloatingState, RadioPlayerService } from '../services/radio-player.service';
+import { setDeviceMediaVolume, activeScreenKeepAliveOwner } from '../services/media-screen-keepalive';
 import { createTvHlsConfig, resetTvMediaElement, tryRecoverTvHlsError } from '../tv-watcher/tv-hls-config';
 import { attachRadioPlaybackGuard, bustRadioStreamUrl, RadioPlaybackGuard } from './radio-playback-guard';
 import {
+  adjacentRadioStation,
+  claimRadioTune,
   publishRadioTrack,
   closeRadioDocPip,
   enterRadioPictureInPicture,
@@ -45,6 +48,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   state: RadioFloatingState = { open: false, minimized: false, station: null };
   isMuted = false;
   volumePercent = 100;
+  private followDeviceVolume = false;
   isBuffering = false;
   /** Stream dropped; playback restarts when the network is back. */
   isReconnecting = false;
@@ -101,6 +105,8 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    window.addEventListener('patradiotransport', this.onBluetoothTune);
+    window.addEventListener('patmediavolumeui', this.onDeviceVolumeUi);
     this.placeDefaultPosition();
     this.favorites = this.radioPlayer.favorites;
     this.loadFavorites();
@@ -128,6 +134,8 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    window.removeEventListener('patradiotransport', this.onBluetoothTune);
+    window.removeEventListener('patmediavolumeui', this.onDeviceVolumeUi);
     this.alive = false;
     this.stateSub?.unsubscribe();
     this.favoritesSub?.unsubscribe();
@@ -201,6 +209,35 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     return this.translate.instant('RADIO.PRESET_EMPTY', { n });
   }
 
+  private readonly onDeviceVolumeUi = (event: Event): void => {
+    const raw = Number((event as CustomEvent<number>).detail);
+    if (!Number.isFinite(raw)) {
+      return;
+    }
+    this.followDeviceVolume = true;
+    this.volumePercent = Math.max(0, Math.min(100, Math.round(raw)));
+    this.isMuted = this.volumePercent === 0;
+    this.cdr.markForCheck();
+  };
+
+  private readonly onBluetoothTune = (event: Event): void => {
+    if (!this.alive || !this.state.open || activeScreenKeepAliveOwner() === 'youtube') {
+      return;
+    }
+    const action = (event as CustomEvent<string>).detail;
+    if (action !== 'next' && action !== 'previous') {
+      return;
+    }
+    if (!claimRadioTune()) {
+      return;
+    }
+    const station = adjacentRadioStation(action, this.station, this.favorites, []);
+    if (!station) {
+      return;
+    }
+    this.radioPlayer.setStation(station as RadioStation);
+  };
+
   playPreset(station: RadioStation | null, event?: Event): void {
     event?.stopPropagation();
     if (!station) {
@@ -271,6 +308,15 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     const media = this.mediaEl?.nativeElement;
     const p = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
     this.volumePercent = p;
+    if (setDeviceMediaVolume(p)) {
+      this.followDeviceVolume = true;
+      if (media) {
+        media.muted = p === 0;
+        media.volume = p === 0 ? 0 : 1;
+        this.isMuted = media.muted;
+      }
+      return;
+    }
     if (media) {
       media.volume = p / 100;
       media.muted = p === 0;
@@ -279,6 +325,9 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   }
 
   onMediaVolumeChange(): void {
+    if (this.followDeviceVolume) {
+      return;
+    }
     const media = this.mediaEl?.nativeElement;
     if (!media) {
       return;

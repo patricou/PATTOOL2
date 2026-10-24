@@ -1,6 +1,6 @@
 /** Document Picture-in-Picture for Radio — World Receiver face in an always-on-top window. */
 
-import { clipScreenText, setScreenKeepAlive } from '../services/media-screen-keepalive';
+import { clipScreenText, setScreenKeepAlive, withBluetoothAppName } from '../services/media-screen-keepalive';
 
 export interface RadioDocPipLabels {
   fullscreen: string;
@@ -88,7 +88,7 @@ export function applyRadioMediaSession(meta: {
 /**
  * Song title, artist and station, for the lock screen and a Bluetooth device.
  * Many head units only draw the title line, so that line is
- * "Station - Artist - Song". A blank or repeated spaces at the end stay a single space.
+ * "PATTOOL - Station - Artist - Song". A blank or repeated spaces at the end stay a single space.
  */
 export function publishRadioTrack(
   media: HTMLMediaElement | null | undefined,
@@ -105,12 +105,13 @@ export function publishRadioTrack(
   const artist = clipRadioText(meta.artist);
   const album = clipRadioText(meta.album) || station;
   const shownArtist = artist || (song ? station : 'PatTool Radio');
-  const title = bluetoothTrackTitle(station, artist, song);
+  const title = withBluetoothAppName(bluetoothTrackTitle(station, artist, song), station);
   if (media) {
     media.title = title;
     media.setAttribute('data-pat-media-title', title);
     media.setAttribute('data-pat-media-artist', shownArtist);
     media.setAttribute('data-pat-media-album', album);
+    media.setAttribute('data-pat-media-station', station);
     if (meta.artworkUrl) {
       media.setAttribute('data-pat-media-artwork', meta.artworkUrl);
     } else {
@@ -123,19 +124,109 @@ export function publishRadioTrack(
     album,
     artworkUrl: meta.artworkUrl
   });
-  setScreenKeepAlive('radio', true, title, { artist: shownArtist, album });
+  setScreenKeepAlive('radio', true, title, { artist: shownArtist, album, station });
+  bindRadioSkipHandlers();
+}
+
+export interface RadioTuneStation {
+  id?: string;
+  streamUrl?: string;
+}
+
+/** Next or previous station for a Bluetooth skip button. Favorites win when the current one is saved. */
+export function adjacentRadioStation(
+  direction: 'next' | 'previous',
+  current: RadioTuneStation | null,
+  favorites: RadioTuneStation[],
+  catalog: RadioTuneStation[]
+): RadioTuneStation | null {
+  const favs = playableStations(favorites);
+  const browsed = playableStations(catalog);
+  const onFavorite = !!current && favs.some((station) => sameTuneStation(station, current));
+  const pool =
+    onFavorite && favs.length > 1 ? favs : browsed.length > 1 ? browsed : favs.length > 1 ? favs : browsed.length ? browsed : favs;
+  if (!pool.length) {
+    return null;
+  }
+  const index = pool.findIndex((station) => sameTuneStation(station, current));
+  if (index < 0) {
+    return direction === 'next' ? pool[0] : pool[pool.length - 1];
+  }
+  if (pool.length < 2) {
+    return null;
+  }
+  const step = direction === 'next' ? 1 : -1;
+  return pool[(index + step + pool.length) % pool.length];
+}
+
+let lastRadioTuneAt = 0;
+
+/** One skip, even if the headset and the native session both report it. */
+export function claimRadioTune(): boolean {
+  const now = Date.now();
+  if (now - lastRadioTuneAt < 600) {
+    return false;
+  }
+  lastRadioTuneAt = now;
+  return true;
+}
+
+function playableStations(list: RadioTuneStation[]): RadioTuneStation[] {
+  const out: RadioTuneStation[] = [];
+  const seen = new Set<string>();
+  for (const station of list || []) {
+    const url = (station?.streamUrl || '').trim();
+    if (!url) {
+      continue;
+    }
+    const key = (station.id || '').trim() || url;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    out.push(station);
+  }
+  return out;
+}
+
+function sameTuneStation(a: RadioTuneStation | null | undefined, b: RadioTuneStation | null | undefined): boolean {
+  if (!a || !b) {
+    return false;
+  }
+  const aId = (a.id || '').trim();
+  const bId = (b.id || '').trim();
+  if (aId && bId && aId === bId) {
+    return true;
+  }
+  const aUrl = (a.streamUrl || '').trim();
+  return !!aUrl && aUrl === (b.streamUrl || '').trim();
+}
+
+function bindRadioSkipHandlers(): void {
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator) || typeof window === 'undefined') {
+    return;
+  }
+  const send = (action: 'next' | 'previous') => {
+    window.dispatchEvent(new CustomEvent('patradiotransport', { detail: action }));
+  };
+  try {
+    navigator.mediaSession.setActionHandler('nexttrack', () => send('next'));
+    navigator.mediaSession.setActionHandler('previoustrack', () => send('previous'));
+  } catch {
+    /* unsupported */
+  }
 }
 
 function clipRadioText(value: string | null | undefined): string {
   return clipScreenText(value);
 }
 
-/** "Station - Artist - Song", clipped at the Bluetooth text limit. */
+/** "PATTOOL - Station - Artist - Song", clipped at the Bluetooth text limit. */
 function bluetoothTrackTitle(station: string, artist: string, song: string): string {
   const radio = station.trim() || 'Radio';
   const performer = artist.trim();
   const track = song.trim();
-  const parts = [radio];
+  const parts = ['PATTOOL', radio];
   let tail = station;
   if (performer && performer.toLowerCase() !== radio.toLowerCase()) {
     parts.push(performer);

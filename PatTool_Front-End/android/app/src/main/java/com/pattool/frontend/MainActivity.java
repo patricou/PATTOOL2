@@ -1,7 +1,9 @@
 package com.pattool.frontend;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Color;
 import android.media.AudioManager;
 import android.net.ConnectivityManager;
@@ -13,6 +15,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
 import android.webkit.JavascriptInterface;
@@ -57,12 +60,15 @@ public class MainActivity extends BridgeActivity {
 
     private static WeakReference<MainActivity> radioActivity;
 
+    private BroadcastReceiver musicVolumeReceiver;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         radioActivity = new WeakReference<>(this);
         hideNavigationBar();
         installAuthReturnHandler();
+        registerMusicVolumeReceiver();
     }
 
     @Override
@@ -243,7 +249,23 @@ public class MainActivity extends BridgeActivity {
             pendingRadioOffline = null;
         }
         unregisterRadioNetworkCallback();
+        unregisterMusicVolumeReceiver();
         super.onDestroy();
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (radioKeepAlive && (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            if (audio != null) {
+                audio.adjustStreamVolume(
+                        AudioManager.STREAM_MUSIC,
+                        keyCode == KeyEvent.KEYCODE_VOLUME_UP ? AudioManager.ADJUST_RAISE : AudioManager.ADJUST_LOWER,
+                        AudioManager.FLAG_SHOW_UI);
+                return true;
+            }
+        }
+        return super.onKeyDown(keyCode, event);
     }
 
     private boolean isMusicActive() {
@@ -256,14 +278,19 @@ public class MainActivity extends BridgeActivity {
         return power == null || power.isInteractive();
     }
 
-    /** Headset play and pause, forwarded to the radio element in the page. */
+    /** Headset play, pause, and station skip, forwarded to the radio page. */
     static void dispatchRadioTransport(String action) {
-        if (!"play".equals(action) && !"pause".equals(action)) {
+        if (!"play".equals(action) && !"pause".equals(action) && !"next".equals(action) && !"previous".equals(action)) {
             return;
         }
         WeakReference<MainActivity> current = radioActivity;
         MainActivity activity = current == null ? null : current.get();
         if (activity == null) {
+            return;
+        }
+        if ("next".equals(action) || "previous".equals(action)) {
+            activity.runRadioScript(
+                    "window.dispatchEvent(new CustomEvent('patradiotransport',{detail:'" + action + "'}))");
             return;
         }
         activity.runRadioScript(
@@ -284,6 +311,8 @@ public class MainActivity extends BridgeActivity {
             }
             if (playing) {
                 applyRadioRendererPriority(true);
+                setVolumeControlStream(AudioManager.STREAM_MUSIC);
+                publishMusicVolume();
                 Intent intent = new Intent(this, RadioKeepAliveService.class);
                 intent.putExtra(RadioKeepAliveService.EXTRA_TITLE, title);
                 intent.putExtra(RadioKeepAliveService.EXTRA_ARTIST, artist);
@@ -296,6 +325,7 @@ public class MainActivity extends BridgeActivity {
                 return;
             }
             applyRadioRendererPriority(false);
+            setVolumeControlStream(AudioManager.USE_DEFAULT_STREAM_TYPE);
             Intent intent = new Intent(this, RadioKeepAliveService.class);
             intent.setAction(RadioKeepAliveService.ACTION_STOP);
             try {
@@ -447,6 +477,71 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    private void registerMusicVolumeReceiver() {
+        if (musicVolumeReceiver != null) {
+            return;
+        }
+        musicVolumeReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent == null) {
+                    return;
+                }
+                int stream = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_TYPE", -1);
+                if (stream != AudioManager.STREAM_MUSIC) {
+                    return;
+                }
+                publishMusicVolume();
+            }
+        };
+        IntentFilter filter = new IntentFilter("android.media.VOLUME_CHANGED_ACTION");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(musicVolumeReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(musicVolumeReceiver, filter);
+        }
+    }
+
+    private void unregisterMusicVolumeReceiver() {
+        BroadcastReceiver receiver = musicVolumeReceiver;
+        musicVolumeReceiver = null;
+        if (receiver == null) {
+            return;
+        }
+        try {
+            unregisterReceiver(receiver);
+        } catch (RuntimeException ignored) {
+            // Already unregistered.
+        }
+    }
+
+    void setMusicVolumePercent(int percent) {
+        AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        if (audio == null) {
+            return;
+        }
+        int max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        if (max <= 0) {
+            return;
+        }
+        int level = Math.max(0, Math.min(100, percent));
+        int value = Math.round(level / 100f * max);
+        audio.setStreamVolume(AudioManager.STREAM_MUSIC, value, 0);
+    }
+
+    private void publishMusicVolume() {
+        AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        if (audio == null) {
+            return;
+        }
+        int max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        if (max <= 0) {
+            return;
+        }
+        int percent = Math.round(audio.getStreamVolume(AudioManager.STREAM_MUSIC) * 100f / max);
+        runRadioScript("window.dispatchEvent(new CustomEvent('patmediavolume',{detail:" + percent + "}))");
+    }
+
     private void runRadioScript(String script) {
         Bridge bridge = getBridge();
         if (bridge == null || bridge.getWebView() == null) {
@@ -480,5 +575,10 @@ class RadioNativeBridge {
     @JavascriptInterface
     public void setNowPlaying(boolean playing, String title, String artist, String album) {
         activity.onRadioPlayingFromPage(playing, title, artist, album);
+    }
+
+    @JavascriptInterface
+    public void setMediaVolume(int percent) {
+        activity.runOnUiThread(() -> activity.setMusicVolumePercent(percent));
     }
 }

@@ -40,7 +40,8 @@ function syncNativeRadio(playing: boolean, media?: HTMLMediaElement): void {
   const title = clipScreenText(media?.getAttribute('data-pat-media-title') || media?.title) || 'Radio';
   const artist = clipScreenText(media?.getAttribute('data-pat-media-artist'));
   const album = clipScreenText(media?.getAttribute('data-pat-media-album'));
-  setScreenKeepAlive('radio', true, title, { artist, album });
+  const station = clipScreenText(media?.getAttribute('data-pat-media-station'));
+  setScreenKeepAlive('radio', true, title, { artist, album, station });
 }
 
 export function bustRadioStreamUrl(proxyUrl: string): string {

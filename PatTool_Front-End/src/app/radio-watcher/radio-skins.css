@@ -435,8 +435,11 @@
 .radio-skin--military .radio-brand-model::after,
 .radio-skin--steampunk .radio-brand-model::after,
 .radio-skin--aurora .radio-brand-model::after {
+  display: block;
   font-size: 0.58rem;
+  line-height: 1.35;
   letter-spacing: 0.28em;
+  padding-bottom: 0.12rem;
 }
 
 .radio-skin--artdeco .radio-brand-model::after {
@@ -4394,6 +4397,242 @@
   display: none;
 }
 
+/* Keep the model line (under PatTool) fully above the screen. */
+.radio-player-frame {
+  padding-top: 2.35rem;
+}
+
+.radio-brand-plate {
+  z-index: 8;
+}
+
+/* Same cabinet height with or without a cover. The screen fills the space
+   left above the presets; the track line sits under the photo only. */
+.radio-player-panel {
+  --sleeve-reserve: 12rem;
+  margin-top: 2.4rem;
+  margin-bottom: 0.2rem;
+  height: calc(100dvh - var(--navbar-offset, 60px) - var(--sleeve-reserve));
+  max-height: calc(100dvh - var(--navbar-offset, 60px) - var(--sleeve-reserve));
+  min-height: 0;
+}
+
+:host-context(.pat-div--with-news-ticker) .radio-player-panel {
+  --sleeve-reserve: calc(12rem + var(--news-ticker-height, 64px));
+}
+
+:host-context(.pat-div--with-currency-ticker) .radio-player-panel {
+  --sleeve-reserve: calc(12rem + var(--currency-ticker-height, 40px));
+}
+
+:host-context(.pat-div--with-stock-ticker) .radio-player-panel {
+  --sleeve-reserve: calc(12rem + var(--stock-ticker-height, 40px));
+}
+
+:host-context(.pat-div--with-news-ticker.pat-div--with-currency-ticker) .radio-player-panel {
+  --sleeve-reserve: calc(12rem + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px));
+}
+
+:host-context(.pat-div--with-news-ticker.pat-div--with-stock-ticker) .radio-player-panel {
+  --sleeve-reserve: calc(12rem + var(--news-ticker-height, 64px) + var(--stock-ticker-height, 40px));
+}
+
+:host-context(.pat-div--with-currency-ticker.pat-div--with-stock-ticker) .radio-player-panel {
+  --sleeve-reserve: calc(12rem + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px));
+}
+
+:host-context(.pat-div--with-news-ticker.pat-div--with-currency-ticker.pat-div--with-stock-ticker) .radio-player-panel {
+  --sleeve-reserve: calc(12rem + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px));
+}
+
+:host.radio-focus .radio-player-panel,
+:host.radio-stage-fs .radio-player-panel,
+:host:fullscreen .radio-player-panel {
+  height: 100%;
+  max-height: 100%;
+  margin-top: 0.35rem;
+  margin-bottom: 0;
+}
+
+.radio-player-panel .radio-player-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.radio-player-panel .radio-player-frame .radio-face {
+  aspect-ratio: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+}
+
+.radio-player-panel .radio-presets {
+  flex: 0 0 auto;
+}
+
+/* Info strip and the bars around a cover follow the skin, with readable ink. */
+.radio-player-panel {
+  --radio-well: #141c22;
+  --radio-well-ink: #f4efe4;
+  --radio-well-muted: #b7c0c8;
+  --radio-well-track: #ffe7a3;
+}
+
+.radio-player-panel.radio-skin--artdeco {
+  --radio-well: #24160c;
+  --radio-well-ink: #f6ead0;
+  --radio-well-muted: #d4c4a4;
+  --radio-well-track: #ffcf6e;
+}
+
+.radio-player-panel.radio-skin--synthwave {
+  --radio-well: #1a0b28;
+  --radio-well-ink: #fdf0ff;
+  --radio-well-muted: #e0c4f2;
+  --radio-well-track: #5ef6ff;
+}
+
+.radio-player-panel.radio-skin--spaceage {
+  --radio-well: #f6f1e8;
+  --radio-well-ink: #2b1a0a;
+  --radio-well-muted: #6f5c48;
+  --radio-well-track: #c2410c;
+}
+
+.radio-player-panel.radio-skin--military {
+  --radio-well: #1c2214;
+  --radio-well-ink: #e9e2b0;
+  --radio-well-muted: #c5c9a4;
+  --radio-well-track: #b6ff9a;
+}
+
+.radio-player-panel.radio-skin--steampunk {
+  --radio-well: #2c180e;
+  --radio-well-ink: #f5deb0;
+  --radio-well-muted: #dcc6a0;
+  --radio-well-track: #ffc56a;
+}
+
+.radio-player-panel.radio-skin--aurora {
+  --radio-well: #102838;
+  --radio-well-ink: #f2fbff;
+  --radio-well-muted: #c5e4ea;
+  --radio-well-track: #8dffd4;
+}
+
+.radio-player-panel.radio-skin--noir {
+  --radio-well: #16161a;
+  --radio-well-ink: #f2f3f5;
+  --radio-well-muted: #b8bcc4;
+  --radio-well-track: #ff8a94;
+}
+
+.radio-player-panel.radio-skin--bamboo {
+  --radio-well: #3a2916;
+  --radio-well-ink: #f6ecd4;
+  --radio-well-muted: #e4d2ae;
+  --radio-well-track: #ffd56a;
+}
+
+.radio-player-panel.radio-skin--porcelain {
+  --radio-well: #f7f4ef;
+  --radio-well-ink: #14365f;
+  --radio-well-muted: #3d6494;
+  --radio-well-track: #1d4e89;
+}
+
+.radio-player-panel.radio-skin--carbon {
+  --radio-well: #161616;
+  --radio-well-ink: #e8f1ff;
+  --radio-well-muted: #a9bdd8;
+  --radio-well-track: #8eb8ff;
+}
+
+.radio-player-panel.radio-skin--candy {
+  --radio-well: #4a1230;
+  --radio-well-ink: #fff5f8;
+  --radio-well-muted: #f3c2d4;
+  --radio-well-track: #ffd0e0;
+}
+
+.radio-player-panel.radio-skin--espace {
+  --radio-well: #10183a;
+  --radio-well-ink: #eef6ff;
+  --radio-well-muted: #b7c7e6;
+  --radio-well-track: #9aefff;
+}
+
+.radio-player-panel.radio-skin--kanizsa {
+  --radio-well: #f7f4ec;
+  --radio-well-ink: #161616;
+  --radio-well-muted: #4a4a4a;
+  --radio-well-track: #161616;
+}
+
+.radio-player-panel.radio-skin--cafewall {
+  --radio-well: #1c1c1c;
+  --radio-well-ink: #f4f4f4;
+  --radio-well-muted: #c8c8c8;
+  --radio-well-track: #ffffff;
+}
+
+.radio-player-panel.radio-skin--penrose {
+  --radio-well: #12141c;
+  --radio-well-ink: #f8e7b0;
+  --radio-well-muted: #d4c48a;
+  --radio-well-track: #ffe08a;
+}
+
+.radio-player-panel.radio-skin--scintille {
+  --radio-well: #16161c;
+  --radio-well-ink: #f4f4f8;
+  --radio-well-muted: #c8c8d0;
+  --radio-well-track: #ffffff;
+}
+
+.radio-player-panel.radio-skin--barber {
+  --radio-well: #1d4e89;
+  --radio-well-ink: #ffffff;
+  --radio-well-muted: #d6e4f5;
+  --radio-well-track: #ffe08a;
+}
+
+.radio-player-frame:has(.radio-face--sleeve) .radio-chrome {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  flex: 0 0 auto;
+  z-index: 6;
+  margin-top: 0.4rem;
+  padding: 0.45rem 0.65rem 0.5rem;
+  border-radius: 0.45rem;
+  background: var(--radio-well);
+  color: var(--radio-well-ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--radio-well-ink) 22%, transparent);
+}
+
+.radio-player-frame:has(.radio-face--sleeve) .radio-now-playing,
+.radio-player-frame:has(.radio-face--sleeve) .radio-now-name {
+  color: var(--radio-well-ink);
+}
+
+.radio-player-frame:has(.radio-face--sleeve) .radio-now-track,
+.radio-player-frame:has(.radio-face--sleeve) .radio-now-track .fa {
+  color: var(--radio-well-track);
+  text-shadow: none;
+}
+
+.radio-player-frame:has(.radio-face--sleeve) .radio-now-meta {
+  color: var(--radio-well-muted) !important;
+}
+
+.radio-player-frame:has(.radio-face--sleeve) .radio-now-logo {
+  background: color-mix(in srgb, var(--radio-well-ink) 14%, var(--radio-well));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--radio-well-ink) 40%, transparent);
+}
+
 .radio-face.radio-face--sleeve .radio-sleeve {
   display: block;
   position: absolute;
@@ -4416,8 +4655,8 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: #0c0a10;
-  box-shadow: inset 0 0 0 1px rgba(196, 165, 116, 0.45);
+  background: var(--radio-well, #141c22);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--radio-well-ink, #f4efe4) 28%, transparent);
 }
 
 .radio-sleeve-photo,
@@ -4429,7 +4668,7 @@
 }
 
 .radio-sleeve-photo {
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   opacity: 0;
   transition: opacity 0.9s ease;

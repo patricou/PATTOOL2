@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { screenIsOff, setScreenKeepAlive } from './media-screen-keepalive';
+import { screenIsOff, setScreenKeepAlive, withBluetoothAppName } from './media-screen-keepalive';
 
 /**
  * Keeps TV / radio / YouTube / archive / book (any HTML media) playing when the
@@ -52,6 +52,13 @@ export class BackgroundPlaybackService {
   private readonly onVisibility = (): void => this.handleVisibility();
   private readonly onYoutubeMessage = (event: MessageEvent): void => this.handleYoutubeMessage(event);
   private readonly onScreenPower = (): void => this.handleScreenPower();
+  private readonly onDeviceVolume = (event: Event): void => {
+    const raw = Number((event as CustomEvent<number>).detail);
+    if (!Number.isFinite(raw)) {
+      return;
+    }
+    this.applyDeviceVolume(Math.max(0, Math.min(100, Math.round(raw))));
+  };
 
   /** Call once from the app shell so capture is active on every route. */
   start(): void {
@@ -71,6 +78,7 @@ export class BackgroundPlaybackService {
     window.addEventListener('pageshow', this.onVisibility);
     window.addEventListener('message', this.onYoutubeMessage);
     window.addEventListener('patradioscreen', this.onScreenPower);
+    window.addEventListener('patmediavolume', this.onDeviceVolume);
   }
 
   /** Watch a media element that is not in the DOM (e.g. {@code new Audio()}). */
@@ -400,9 +408,11 @@ export class BackgroundPlaybackService {
     }
     const session = navigator.mediaSession;
     const existing = session.metadata;
-    const title =
-      (el.getAttribute('title') || el.getAttribute('data-pat-media-title') || existing?.title || '').trim() ||
-      'PATTOOL';
+    const stationName = (el.getAttribute('data-pat-media-station') || '').trim();
+    const title = withBluetoothAppName(
+      (el.getAttribute('data-pat-media-title') || el.getAttribute('title') || existing?.title || '').trim(),
+      stationName
+    );
     const artist = (el.getAttribute('data-pat-media-artist') || existing?.artist || 'PATTOOL').trim();
     const album = (el.getAttribute('data-pat-media-album') || existing?.album || '').trim();
     const artworkAttr = el.getAttribute('data-pat-media-artwork');
@@ -683,7 +693,7 @@ export class BackgroundPlaybackService {
     if (!iframe || typeof navigator === 'undefined' || !('mediaSession' in navigator)) {
       return;
     }
-    const title = (iframe.getAttribute('title') || '').trim() || 'YouTube';
+    const title = withBluetoothAppName((iframe.getAttribute('title') || '').trim() || 'YouTube');
     const src = iframe.getAttribute('src') || '';
     const idMatch = /\/embed\/([a-zA-Z0-9_-]{11})/.exec(src);
     const artwork = idMatch
@@ -720,6 +730,11 @@ export class BackgroundPlaybackService {
         this.resumeYoutubeIframes();
       }
     });
+    const skip = (action: 'next' | 'previous') => {
+      window.dispatchEvent(new CustomEvent('patradiotransport', { detail: action }));
+    };
+    this.safeSetHandler('nexttrack', () => skip('next'));
+    this.safeSetHandler('previoustrack', () => skip('previous'));
   }
 
   private collectYoutubeIframes(): HTMLIFrameElement[] {
@@ -756,6 +771,28 @@ export class BackgroundPlaybackService {
 
   private postYoutubeCommand(iframe: HTMLIFrameElement, func: string, args: unknown[] = []): void {
     this.postYoutubePayload(iframe, { event: 'command', func, args });
+  }
+
+  /**
+   * Bluetooth volume is the phone media volume. Keep the players fully open
+   * so that level is the only gain, for the radio element and the YouTube player.
+   */
+  private applyDeviceVolume(percent: number): void {
+    window.dispatchEvent(new CustomEvent('patmediavolumeui', { detail: percent }));
+    if (typeof document !== 'undefined') {
+      document.querySelectorAll('audio[data-pat-radio="1"]').forEach((node) => {
+        if (!(node instanceof HTMLMediaElement)) {
+          return;
+        }
+        node.muted = percent === 0;
+        node.volume = percent === 0 ? 0 : 1;
+        node.dispatchEvent(new Event('volumechange'));
+      });
+    }
+    for (const iframe of this.collectYoutubeIframes()) {
+      this.postYoutubeCommand(iframe, percent === 0 ? 'mute' : 'unMute');
+      this.postYoutubeCommand(iframe, 'setVolume', [percent === 0 ? 0 : 100]);
+    }
   }
 
   private postYoutubePayload(iframe: HTMLIFrameElement, payload: object): void {

@@ -16,7 +16,7 @@ export interface YoutubePlayerOpenOptions {
   keepMinimized?: boolean;
 }
 
-export type YoutubePlayerCommand = 'play' | 'pause';
+export type YoutubePlayerCommand = 'play' | 'pause' | 'next' | 'previous';
 
 @Injectable({ providedIn: 'root' })
 export class YoutubePlayerService {

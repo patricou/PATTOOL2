@@ -56,7 +56,9 @@ public class RadioNowPlayingService {
     private static final int ICY_READ_MS = 6_000;
     private static final int ICY_META_INT_CAP = 64 * 1024;
     private static final int MAX_REDIRECTS = 4;
-    private static final int MAX_IMAGES = 12;
+    private static final int MAX_IMAGES = 24;
+    /** Album sleeves shown on the radio face, ahead of stills and portraits. */
+    private static final int MAX_ALBUM_COVERS = 18;
     /** Re-read the live title often enough to follow a song change. */
     private static final long META_HIT_MS = 6_000;
     private static final long META_MISS_MS = 12_000;
@@ -540,11 +542,15 @@ public class RadioNowPlayingService {
             }
             artistId = hit.path("artist").path("id").asLong(0);
         }
-        addYoutubeStills(images, track);
-        addItunesArtwork(images, track);
+        if (artistId <= 0 && !track.artist.isBlank()) {
+            artistId = findDeezerArtistId(track.artist);
+        }
         if (artistId > 0) {
             addAlbumCovers(images, artistId, track.artist.isEmpty() ? alt : track.artist);
         }
+        addItunesArtwork(images, track);
+        addItunesAlbums(images, track);
+        addYoutubeStills(images, track);
         if (!artistForWiki.isBlank()) {
             addWikipediaPhotos(images, artistForWiki);
         }
@@ -593,7 +599,7 @@ public class RadioNowPlayingService {
             return;
         }
         String term = (track.artist.isBlank() ? track.title : track.artist + " " + track.title).trim();
-        String url = "https://itunes.apple.com/search?entity=song&limit=4&country=FR&term="
+        String url = "https://itunes.apple.com/search?entity=song&limit=10&country=FR&term="
                 + URLEncoder.encode(term, StandardCharsets.UTF_8);
         JsonNode root = fetchJson(url, USER_AGENT);
         if (root == null || !root.path("results").isArray()) {
@@ -601,7 +607,7 @@ public class RadioNowPlayingService {
         }
         int added = 0;
         for (JsonNode hit : root.path("results")) {
-            if (added >= 2 || images.size() >= MAX_IMAGES) {
+            if (added >= 6 || images.size() >= MAX_IMAGES) {
                 return;
             }
             if (!itunesMatches(track, hit)) {
@@ -677,12 +683,79 @@ public class RadioNowPlayingService {
         return titleOk;
     }
 
+    private long findDeezerArtistId(String artistName) {
+        String name = clean(artistName);
+        if (name.length() < 2) {
+            return 0;
+        }
+        JsonNode root = fetchJson(
+                "https://api.deezer.com/search/artist?limit=5&q=" + URLEncoder.encode(name, StandardCharsets.UTF_8),
+                USER_AGENT);
+        if (root == null || !root.path("data").isArray()) {
+            return 0;
+        }
+        String wanted = fold(name);
+        long fallback = 0;
+        for (JsonNode hit : root.path("data")) {
+            long id = hit.path("id").asLong(0);
+            String hitName = fold(hit.path("name").asText(""));
+            if (id <= 0 || hitName.isEmpty()) {
+                continue;
+            }
+            if (hitName.equals(wanted)) {
+                return id;
+            }
+            if (fallback == 0 && wanted.length() >= 4 && hitName.length() >= 4
+                    && (hitName.contains(wanted) || wanted.contains(hitName))) {
+                fallback = id;
+            }
+        }
+        return fallback;
+    }
+
+    private void addItunesAlbums(List<RadioTrackImageDto> images, Track track) {
+        if (images.size() >= MAX_IMAGES) {
+            return;
+        }
+        String term = (track.artist.isBlank() ? track.title : track.artist).trim();
+        if (term.length() < 2) {
+            return;
+        }
+        String url = "https://itunes.apple.com/search?entity=album&limit=16&country=FR&term="
+                + URLEncoder.encode(term, StandardCharsets.UTF_8);
+        JsonNode root = fetchJson(url, USER_AGENT);
+        if (root == null || !root.path("results").isArray()) {
+            return;
+        }
+        String artist = fold(track.artist);
+        int added = 0;
+        for (JsonNode hit : root.path("results")) {
+            if (added >= 10 || images.size() >= MAX_IMAGES) {
+                return;
+            }
+            String hitArtist = fold(hit.path("artistName").asText(""));
+            if (!artist.isEmpty()) {
+                boolean artistOk = hitArtist.length() >= 2 && (hitArtist.contains(artist) || artist.contains(hitArtist));
+                if (!artistOk) {
+                    continue;
+                }
+            }
+            String art = itunesLarge(hit.path("artworkUrl100").asText(""));
+            int before = images.size();
+            String alt = clean(hit.path("collectionName").asText(track.label()));
+            addImage(images, art, alt.isEmpty() ? track.label() : alt);
+            if (images.size() > before) {
+                added++;
+            }
+        }
+    }
+
     private void addAlbumCovers(List<RadioTrackImageDto> images, long artistId, String alt) {
         if (images.size() >= MAX_IMAGES) {
             return;
         }
         JsonNode root = fetchJson(
-                "https://api.deezer.com/artist/" + artistId + "/albums?limit=6", USER_AGENT);
+                "https://api.deezer.com/artist/" + artistId + "/albums?limit=40", USER_AGENT);
         if (root == null) {
             return;
         }
@@ -690,19 +763,31 @@ public class RadioNowPlayingService {
         if (!data.isArray()) {
             return;
         }
-        int added = 0;
+        List<JsonNode> albums = new ArrayList<>();
+        List<JsonNode> others = new ArrayList<>();
         for (JsonNode album : data) {
-            if (added >= 3 || images.size() >= MAX_IMAGES) {
-                return;
+            String type = album.path("record_type").asText("");
+            if ("album".equalsIgnoreCase(type) || "ep".equalsIgnoreCase(type)) {
+                albums.add(album);
+            } else {
+                others.add(album);
             }
-            String cover = httpsImage(album.path("cover_xl").asText(""));
-            if (cover.isEmpty()) {
-                cover = httpsImage(album.path("cover_big").asText(""));
-            }
-            int before = images.size();
-            addImage(images, cover, alt);
-            if (images.size() > before) {
-                added++;
+        }
+        int added = 0;
+        for (List<JsonNode> group : List.of(albums, others)) {
+            for (JsonNode album : group) {
+                if (added >= MAX_ALBUM_COVERS || images.size() >= MAX_IMAGES) {
+                    return;
+                }
+                String cover = httpsImage(album.path("cover_xl").asText(""));
+                if (cover.isEmpty()) {
+                    cover = httpsImage(album.path("cover_big").asText(""));
+                }
+                int before = images.size();
+                addImage(images, cover, alt);
+                if (images.size() > before) {
+                    added++;
+                }
             }
         }
     }
@@ -911,7 +996,7 @@ public class RadioNowPlayingService {
     }
 
     private static String imageKey(Track track) {
-        return fold(track.artist) + "|" + fold(track.title);
+        return "covers2|" + fold(track.artist) + "|" + fold(track.title);
     }
 
     private static String fold(String value) {

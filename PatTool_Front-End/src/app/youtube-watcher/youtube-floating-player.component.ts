@@ -124,7 +124,9 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
         return;
       }
       this.handshakeYoutubePlayer();
-      this.sendYoutubeCommand(command === 'pause' ? 'pauseVideo' : 'playVideo');
+      const func =
+        command === 'pause' ? 'pauseVideo' : command === 'next' ? 'nextVideo' : command === 'previous' ? 'previousVideo' : 'playVideo';
+      this.sendYoutubeCommand(func);
     });
     this.ngZone.runOutsideAngular(() => {
       window.addEventListener('message', this.onWindowYtMessage);

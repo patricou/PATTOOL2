@@ -40,6 +40,8 @@ import {
 } from '../shared/videoshow-modal/videoshow-modal.component';
 import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
 import { YoutubeEqualizerModalComponent } from './youtube-equalizer-modal.component';
+import { activeScreenKeepAliveOwner } from '../services/media-screen-keepalive';
+import { claimRadioTune } from '../radio-watcher/radio-pip.util';
 
 interface YoutubeRegionOption {
   code: string;
@@ -302,6 +304,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    window.addEventListener('patradiotransport', this.onBluetoothTune);
     const params = this.route.snapshot.queryParamMap;
     this.regionCode = this.normalizeRegion(
       params.get('region') || this.regionFromUiLang(this.translate.currentLang)
@@ -377,6 +380,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroyed = true;
+    window.removeEventListener('patradiotransport', this.onBluetoothTune);
     this.searchSub?.unsubscribe();
     this.favoritesSub?.unsubscribe();
     this.subs.forEach((s) => s.unsubscribe());
@@ -1689,6 +1693,46 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     const idx = this.queueIndexOf(this.selected);
     const next = list[(idx < 0 ? 0 : idx + 1) % list.length];
     this.playQueueItem(next);
+  }
+
+  private readonly onBluetoothTune = (event: Event): void => {
+    if (this.destroyed || activeScreenKeepAliveOwner() === 'radio') {
+      return;
+    }
+    const action = (event as CustomEvent<string>).detail;
+    if (action !== 'next' && action !== 'previous') {
+      return;
+    }
+    if (!claimRadioTune()) {
+      return;
+    }
+    this.skipFromBluetooth(action);
+  };
+
+  private skipFromBluetooth(action: 'next' | 'previous'): void {
+    const playing = this.selected || this.youtubePlayer.currentItem;
+    if (playing?.kind === 'playlist') {
+      this.sendPlayerSkip(action);
+      return;
+    }
+    if (this.queueItems().length > 1) {
+      if (action === 'next') {
+        this.playQueueNext();
+      } else {
+        this.playQueuePrev();
+      }
+      return;
+    }
+    this.sendPlayerSkip(action);
+  }
+
+  private sendPlayerSkip(action: 'next' | 'previous'): void {
+    if (this.playerOpen) {
+      this.youtubePlayer.sendCommand(action);
+      return;
+    }
+    this.handshakeYoutubePlayer();
+    this.sendYoutubeCommand(action === 'next' ? 'nextVideo' : 'previousVideo');
   }
 
   togglePlaybackPause(): void {

@@ -475,6 +475,10 @@
     <section
       #playerPanel
       class="radio-player-panel"
+      (mouseenter)="onRadioPointerEnter()"
+      (mousemove)="onRadioPointerMove()"
+      (mouseleave)="onRadioPointerLeave()"
+      (touchstart)="onRadioTouch()"
       [ngClass]="'radio-skin--' + radioSkin"
       [class.radio-player-panel--on]="!!selectedStation && !isFloatingOpen && !playError"
       [class.radio-player-panel--live]="!!selectedStation && !isBuffering && !playError && !isFloatingOpen"
@@ -498,11 +502,7 @@
         [class.radio-player-frame--chrome-hidden]="selectedStation && !chromeVisible"
         [class.radio-player-frame--share-open]="shareMenuOpen"
         [class.radio-player-frame--playing]="!!selectedStation && !isFloatingOpen && !playError"
-        [class.radio-player-frame--live]="!!selectedStation && !isBuffering && !playError && !isFloatingOpen"
-        (mouseenter)="onRadioPointerEnter()"
-        (mousemove)="onRadioPointerMove()"
-        (mouseleave)="onRadioPointerLeave()"
-        (touchstart)="onRadioPointerEnter()">
+        [class.radio-player-frame--live]="!!selectedStation && !isBuffering && !playError && !isFloatingOpen">
         <div class="radio-brand-plate" aria-hidden="true">
           <span class="radio-brand-name">PatTool</span>
           <span class="radio-brand-model">World Receiver</span>

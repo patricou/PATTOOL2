@@ -137,7 +137,12 @@ public class RadioKeepAliveService extends Service {
             return;
         }
         session.setPlaybackState(new PlaybackState.Builder()
-                .setActions(PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE | PlaybackState.ACTION_STOP)
+                .setActions(
+                        PlaybackState.ACTION_PLAY
+                                | PlaybackState.ACTION_PAUSE
+                                | PlaybackState.ACTION_STOP
+                                | PlaybackState.ACTION_SKIP_TO_NEXT
+                                | PlaybackState.ACTION_SKIP_TO_PREVIOUS)
                 .setState(state, PlaybackState.PLAYBACK_POSITION_UNKNOWN, state == PlaybackState.STATE_PLAYING ? 1f : 0f)
                 .build());
     }
@@ -171,6 +176,16 @@ public class RadioKeepAliveService extends Service {
                 setPlaybackState(PlaybackState.STATE_PAUSED);
                 MainActivity.dispatchRadioTransport("pause");
             }
+
+            @Override
+            public void onSkipToNext() {
+                MainActivity.dispatchRadioTransport("next");
+            }
+
+            @Override
+            public void onSkipToPrevious() {
+                MainActivity.dispatchRadioTransport("previous");
+            }
         });
         mediaSession = session;
         return session;
@@ -191,11 +206,15 @@ public class RadioKeepAliveService extends Service {
     }
 
     /**
-     * The page already builds "Station - Artist - Song". Keep that line.
-     * A bare song title still gets the artist in front. The station name used as a
-     * stand-in artist (same text as the album) is not repeated.
+     * The page already builds "PATTOOL - Station - Artist - Song". Keep that line.
+     * A bare song title still gets the artist in front, then the app name.
+     * The station name used as a stand-in artist (same text as the album) is not repeated.
      */
     static String bluetoothTitle(String title, String artist, String album) {
+        return withAppName(composeBluetoothTitle(title, artist, album));
+    }
+
+    private static String composeBluetoothTitle(String title, String artist, String album) {
         String safeTitle = title == null || title.isEmpty() ? "Radio" : title;
         if (safeTitle.contains(" - ")) {
             return clip(safeTitle, "Radio");
@@ -209,6 +228,20 @@ public class RadioKeepAliveService extends Service {
             return safeTitle;
         }
         return clip(safeArtist + " - " + safeTitle, "Radio");
+    }
+
+    /** Bluetooth lines start with the app name. */
+    private static String withAppName(String line) {
+        String safe = line == null ? "" : line;
+        if (safe.regionMatches(true, 0, "PATTOOL", 0, 7)) {
+            return safe;
+        }
+        String body = safe.trim();
+        if (body.isEmpty()) {
+            return "PATTOOL";
+        }
+        boolean trailing = safe.endsWith(" ");
+        return clip("PATTOOL - " + body + (trailing ? " " : ""), "PATTOOL");
     }
 
     private static String clip(String value, String fallback) {

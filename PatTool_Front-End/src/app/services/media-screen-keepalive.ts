@@ -10,6 +10,7 @@ export interface ScreenKeepAliveTrack {
   title: string;
   artist: string;
   album: string;
+  station: string;
 }
 
 /** Bluetooth and lock-screen text. Long enough for station, artist and song. */
@@ -22,14 +23,16 @@ export function setScreenKeepAlive(
   owner: ScreenKeepAliveOwner,
   playing: boolean,
   title?: string,
-  extra?: { artist?: string; album?: string }
+  extra?: { artist?: string; album?: string; station?: string }
 ): void {
   if (playing) {
     const fallback = owner === 'radio' ? 'Radio' : 'YouTube';
+    const station = clipScreenText(extra?.station);
     owners.set(owner, {
-      title: clipScreenText(title) || fallback,
+      title: withBluetoothAppName(title || fallback, station),
       artist: clipScreenText(extra?.artist),
-      album: clipScreenText(extra?.album)
+      album: clipScreenText(extra?.album),
+      station
     });
   } else {
     owners.delete(owner);
@@ -43,10 +46,25 @@ export function setScreenKeepAlive(
     const track = owners.get('youtube') || owners.get('clip') || owners.get('radio') || {
       title: 'Lecture',
       artist: '',
-      album: ''
+      album: '',
+      station: ''
     };
     publishScreenKeepAlive(active, track);
   }, 50);
+}
+
+/** Which player currently owns the lock screen and the Bluetooth controls. */
+export function activeScreenKeepAliveOwner(): ScreenKeepAliveOwner | null {
+  if (owners.has('youtube')) {
+    return 'youtube';
+  }
+  if (owners.has('clip')) {
+    return 'clip';
+  }
+  if (owners.has('radio')) {
+    return 'radio';
+  }
+  return null;
 }
 
 /** Trims the start. Several spaces or a blank tail at the end become one space. */
@@ -77,6 +95,26 @@ export function screenIsOff(): boolean {
   return (window as Window & { __patRadioScreenOff?: boolean }).__patRadioScreenOff === true;
 }
 
+/** Phone media volume, used by the radio slider when a Bluetooth device is connected. */
+export function setDeviceMediaVolume(percent: number): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  const bridge = (window as Window & {
+    PatRadioNative?: { setMediaVolume?: (percent: number) => void };
+  }).PatRadioNative;
+  if (!bridge || typeof bridge.setMediaVolume !== 'function') {
+    return false;
+  }
+  const level = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+  try {
+    bridge.setMediaVolume(level);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function publishScreenKeepAlive(playing: boolean, track: ScreenKeepAliveTrack): void {
   if (typeof window === 'undefined') {
     return;
@@ -91,15 +129,42 @@ function publishScreenKeepAlive(playing: boolean, track: ScreenKeepAliveTrack): 
     return;
   }
   try {
+    const title = withBluetoothAppName(track.title, track.station);
     if (typeof bridge.setNowPlaying === 'function') {
-      bridge.setNowPlaying(playing, track.title, track.artist, track.album);
-      return;
-    }
-    if (typeof bridge.setPlaying === 'function') {
-      const line = track.artist ? `${track.artist} — ${track.title}` : track.title;
-      bridge.setPlaying(playing, line);
+      bridge.setNowPlaying(playing, title, track.artist, track.album);
+    } else if (typeof bridge.setPlaying === 'function') {
+      bridge.setPlaying(playing, title);
     }
   } catch {
     /* browser build, or the bridge was removed */
   }
+}
+
+/** Bluetooth lines start with PATTOOL, then the radio station, then the rest. */
+export function withBluetoothAppName(value: string, station?: string): string {
+  const text = clipScreenText(value);
+  const keepEnd = /\s$/.test(text);
+  let body = text.replace(/\s+$/, '').replace(/^pattool\s*-\s*/i, '');
+  const radio = clipScreenText(station).replace(/\s+$/, '');
+  if (radio) {
+    const rest = stripLeadingLabel(body, radio);
+    body = rest ? `${radio} - ${rest}` : radio;
+  }
+  const line = body ? `PATTOOL - ${body}` : 'PATTOOL';
+  return clipScreenText(keepEnd ? `${line} ` : line);
+}
+
+function stripLeadingLabel(value: string, label: string): string {
+  const text = value.trim();
+  const name = label.trim();
+  if (!text || !name) {
+    return text;
+  }
+  if (text.toLowerCase() === name.toLowerCase()) {
+    return '';
+  }
+  if (text.toLowerCase().startsWith(`${name.toLowerCase()} - `)) {
+    return text.slice(name.length).replace(/^\s*-\s*/, '');
+  }
+  return text;
 }
