@@ -351,10 +351,20 @@
   cursor: pointer;
 }
 
+.dz-play-actions {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
 .dz-play-all {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
+  white-space: nowrap;
   gap: 0.3rem;
   border: 1px solid var(--menu-accent, #7c3aed);
   background: var(--menu-accent, #7c3aed);
@@ -386,6 +396,12 @@
   height: 100%;
   border: 0;
   background: #000;
+}
+
+.dz-yt-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
 }
 
 .dz-yt-btn {
@@ -911,6 +927,21 @@
 
 .radio-now-actions {
   max-height: none;
+}
+
+.radio-player-panel.dz-video .radio-presets {
+  max-height: 8rem;
+  transition: opacity 0.28s ease, max-height 0.28s ease, margin 0.28s ease;
+}
+
+.radio-player-panel.dz-video .radio-player-frame--chrome-hidden ~ .radio-presets {
+  max-height: 0;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .radio-chrome--hidden .dz-progress,

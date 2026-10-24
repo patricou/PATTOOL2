@@ -4592,6 +4592,43 @@ export class ApiService {
     );
   }
 
+  /** GET/PUT /api/external/deezer/favorites — per authenticated user */
+  getDeezerFavorites(): Observable<DeezerFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<DeezerFavorites>(this.API_URL + 'external/deezer/favorites', { headers })
+      )
+    );
+  }
+
+  saveDeezerFavorites(body: DeezerFavorites): Observable<DeezerFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<DeezerFavorites>(this.API_URL + 'external/deezer/favorites', body, { headers })
+      )
+    );
+  }
+
+  addDeezerFavorite(item: DeezerFavorite): Observable<DeezerFavorites> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<DeezerFavorites>(this.API_URL + 'external/deezer/favorites/item', item, { headers })
+      )
+    );
+  }
+
+  removeDeezerFavorite(id: number, kind: DeezerSearchType): Observable<DeezerFavorites> {
+    const params = new HttpParams().set('id', String(id)).set('kind', kind);
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.delete<DeezerFavorites>(this.API_URL + 'external/deezer/favorites/item', {
+          headers,
+          params
+        })
+      )
+    );
+  }
+
   // --- Book watcher (Open Library / Gutenberg / LibriVox / Archive / Google / Standard Ebooks) ---
 
   searchOpenLibraryBooks(
@@ -7171,6 +7208,19 @@ export interface DeezerArtistPage {
 export interface DeezerPlaylistPage {
   playlist: DeezerPlaylist;
   tracks: DeezerTrack[];
+}
+
+/** GET/PUT /api/external/deezer/favorites — per authenticated user */
+export interface DeezerFavorite {
+  kind: DeezerSearchType;
+  track?: DeezerTrack;
+  album?: DeezerAlbum;
+  artist?: DeezerArtist;
+  playlist?: DeezerPlaylist;
+}
+
+export interface DeezerFavorites {
+  items: DeezerFavorite[];
 }
 
 /** GET/PUT /api/external/radio/favorites — per authenticated user */

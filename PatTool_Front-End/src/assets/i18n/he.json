@@ -5825,6 +5825,9 @@
     "FAV_REMOVE": "הסרה מהמועדפים",
     "FAVORITES_EMPTY": "אין מועדפים בלשונית זו.",
     "FAV_FILTER": "סינון מועדפים…",
+    "FAVORITES_LOGIN": "התחברו כדי לשמור ולסנכרן את המועדפים ב-Deezer.",
+    "ERR_FAVORITES_LOAD": "לא ניתן לטעון את המועדפים.",
+    "ERR_FAVORITES_SAVE": "לא ניתן לשמור מועדף זה.",
     "FILTER_EXPLICIT": "הסתרת שירים עם תוכן בוטה",
     "FILTER_PREVIEW": "רק שירים עם קטע"
   },

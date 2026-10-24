@@ -5850,6 +5850,9 @@
     "FAV_REMOVE": "お気に入りから外す",
     "FAVORITES_EMPTY": "このタブにお気に入りはありません。",
     "FAV_FILTER": "お気に入りを絞り込む…",
+    "FAVORITES_LOGIN": "ログインすると Deezer のお気に入りを保存して同期できます。",
+    "ERR_FAVORITES_LOAD": "お気に入りを読み込めませんでした。",
+    "ERR_FAVORITES_SAVE": "このお気に入りを保存できませんでした。",
     "FILTER_EXPLICIT": "露骨な歌詞の曲を隠す",
     "FILTER_PREVIEW": "試聴できる曲のみ"
   },

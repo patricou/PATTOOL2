@@ -1,14 +1,23 @@
 package com.pat.controller;
 
+import com.pat.controller.dto.DeezerFavoriteItemDto;
+import com.pat.controller.dto.DeezerFavoritesDto;
 import com.pat.controller.dto.DeezerYoutubeLookupRequest;
 import com.pat.service.DeezerCatalogService;
+import com.pat.service.DeezerFavoritesService;
 import com.pat.service.DeezerYoutubeLinkService;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -32,6 +41,8 @@ import java.util.function.Supplier;
  *   <li>{@code GET /api/external/deezer/artist/{id}/albums}</li>
  *   <li>{@code GET /api/external/deezer/playlist/{id}}</li>
  *   <li>{@code POST /api/external/deezer/youtube-links}</li>
+ *   <li>{@code GET/PUT /api/external/deezer/favorites}</li>
+ *   <li>{@code PUT/DELETE /api/external/deezer/favorites/item}</li>
  * </ul>
  */
 @RestController
@@ -42,12 +53,15 @@ public class DeezerRestController {
 
     private final DeezerCatalogService deezerCatalogService;
     private final DeezerYoutubeLinkService deezerYoutubeLinkService;
+    private final DeezerFavoritesService deezerFavoritesService;
 
     public DeezerRestController(
             DeezerCatalogService deezerCatalogService,
-            DeezerYoutubeLinkService deezerYoutubeLinkService) {
+            DeezerYoutubeLinkService deezerYoutubeLinkService,
+            DeezerFavoritesService deezerFavoritesService) {
         this.deezerCatalogService = deezerCatalogService;
         this.deezerYoutubeLinkService = deezerYoutubeLinkService;
+        this.deezerFavoritesService = deezerFavoritesService;
     }
 
     @GetMapping("/genres")
@@ -129,6 +143,69 @@ public class DeezerRestController {
             return ResponseEntity.badRequest().body(Map.of("error", "Too many tracks"));
         }
         return ResponseEntity.ok(deezerYoutubeLinkService.resolve(body.tracks(), body.search()));
+    }
+
+    @GetMapping("/favorites")
+    public ResponseEntity<DeezerFavoritesDto> getFavorites() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(deezerFavoritesService.findForSubject(sub));
+    }
+
+    @PutMapping("/favorites")
+    public ResponseEntity<?> putFavorites(@RequestBody DeezerFavoritesDto body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.noStore())
+                    .body(deezerFavoritesService.saveForSubject(sub, body));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/favorites/item")
+    public ResponseEntity<?> addFavorite(@RequestBody DeezerFavoriteItemDto item) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.noStore())
+                    .body(deezerFavoritesService.addFavorite(sub, item));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/favorites/item")
+    public ResponseEntity<DeezerFavoritesDto> removeFavorite(
+            @RequestParam("id") long id,
+            @RequestParam("kind") String kind) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(deezerFavoritesService.removeFavorite(sub, id, kind));
+    }
+
+    private String currentJwtSubject() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof Jwt jwt)) {
+            return null;
+        }
+        String sub = jwt.getSubject();
+        return StringUtils.hasText(sub) ? sub.trim() : null;
     }
 
     private ResponseEntity<?> ok(Supplier<?> call, Duration cache) {

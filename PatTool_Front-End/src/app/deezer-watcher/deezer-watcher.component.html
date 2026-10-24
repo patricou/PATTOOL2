@@ -151,6 +151,13 @@
         </button>
       </div>
 
+      <div *ngIf="favoritesError" class="alert alert-warning py-2 px-2 small mb-2 mx-2" role="alert">
+        {{ favoritesError | translate }}
+      </div>
+      <div *ngIf="favoritesHint && listMode === 'favorites'" class="alert alert-info py-2 px-2 small mb-2 mx-2" role="status">
+        {{ favoritesHint | translate }}
+      </div>
+
       <div class="dz-filter" *ngIf="filterOpen">
         <label class="dz-filter-row">
           <input type="checkbox" [ngModel]="hideExplicit" (ngModelChange)="setHideExplicit($event)" />
@@ -210,23 +217,23 @@
           </span>
           <span class="dz-heading-sub" *ngIf="drilled && drillSubtitle">{{ drillSubtitle }}</span>
         </div>
-        <button
-          type="button"
-          class="dz-play-all"
-          *ngIf="(view === 'track' || drilled) && shownTracks.length"
-          (click)="playAll()">
-          <i class="fa fa-play" aria-hidden="true"></i>
-          {{ 'DEEZER.PLAY_ALL' | translate }}
-        </button>
-        <button
-          type="button"
-          class="dz-play-all dz-play-all--yt"
-          [class.is-on]="youtubeMode"
-          *ngIf="(view === 'track' || drilled) && shownTracks.length"
-          (click)="playAllOnYoutube()">
-          <i class="fa fa-youtube" aria-hidden="true"></i>
-          {{ 'DEEZER.PLAY_ALL_YT' | translate }}
-        </button>
+        <div class="dz-play-actions" *ngIf="(view === 'track' || drilled) && shownTracks.length">
+          <button
+            type="button"
+            class="dz-play-all"
+            (click)="playAll()">
+            <i class="fa fa-play" aria-hidden="true"></i>
+            {{ 'DEEZER.PLAY_ALL' | translate }}
+          </button>
+          <button
+            type="button"
+            class="dz-play-all dz-play-all--yt"
+            [class.is-on]="youtubeMode"
+            (click)="playAllOnYoutube()">
+            <i class="fa fa-youtube" aria-hidden="true"></i>
+            {{ 'DEEZER.PLAY_ALL_YT' | translate }}
+          </button>
+        </div>
         <a class="dz-open-link" *ngIf="drilled && drillLink" [href]="drillLink" target="_blank" rel="noopener">
           {{ 'DEEZER.OPEN' | translate }}
         </a>
@@ -291,7 +298,7 @@
               <span class="dz-yt-dot dz-yt-dot--miss" *ngIf="ytMiss[track.id]" aria-hidden="true"></span>
             </span>
           </button>
-          <button type="button" class="dz-fav" [class.is-on]="isFavorite('track', track.id)" (click)="toggleTrackFavorite(track, $event)" [attr.aria-label]="(isFavorite('track', track.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
+          <button type="button" class="dz-fav" [class.is-on]="isFavorite('track', track.id)" [disabled]="favoriteBusyKey === 'track|' + track.id" (click)="toggleTrackFavorite(track, $event)" [attr.aria-label]="(isFavorite('track', track.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
             <i class="fa" [class.fa-star]="isFavorite('track', track.id)" [class.fa-star-o]="!isFavorite('track', track.id)"></i>
           </button>
         </li>
@@ -310,7 +317,7 @@
               <ng-container *ngIf="album.trackCount"> · {{ 'DEEZER.TRACK_COUNT' | translate:{ count: album.trackCount } }}</ng-container>
             </span>
           </span>
-          <button type="button" class="dz-fav" [class.is-on]="isFavorite('album', album.id)" (click)="toggleAlbumFavorite(album, $event)" [attr.aria-label]="(isFavorite('album', album.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
+          <button type="button" class="dz-fav" [class.is-on]="isFavorite('album', album.id)" [disabled]="favoriteBusyKey === 'album|' + album.id" (click)="toggleAlbumFavorite(album, $event)" [attr.aria-label]="(isFavorite('album', album.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
             <i class="fa" [class.fa-star]="isFavorite('album', album.id)" [class.fa-star-o]="!isFavorite('album', album.id)"></i>
           </button>
           <i class="fa fa-chevron-right dz-chevron" aria-hidden="true"></i>
@@ -326,7 +333,7 @@
             <span class="dz-row-title">{{ artist.name }}</span>
             <span class="dz-row-sub" *ngIf="formatFans(artist.fanCount) as fans">{{ 'DEEZER.FANS' | translate:{ count: fans } }}</span>
           </span>
-          <button type="button" class="dz-fav" [class.is-on]="isFavorite('artist', artist.id)" (click)="toggleArtistFavorite(artist, $event)" [attr.aria-label]="(isFavorite('artist', artist.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
+          <button type="button" class="dz-fav" [class.is-on]="isFavorite('artist', artist.id)" [disabled]="favoriteBusyKey === 'artist|' + artist.id" (click)="toggleArtistFavorite(artist, $event)" [attr.aria-label]="(isFavorite('artist', artist.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
             <i class="fa" [class.fa-star]="isFavorite('artist', artist.id)" [class.fa-star-o]="!isFavorite('artist', artist.id)"></i>
           </button>
           <i class="fa fa-chevron-right dz-chevron" aria-hidden="true"></i>
@@ -345,7 +352,7 @@
               <ng-container *ngIf="playlist.trackCount"> · {{ 'DEEZER.TRACK_COUNT' | translate:{ count: playlist.trackCount } }}</ng-container>
             </span>
           </span>
-          <button type="button" class="dz-fav" [class.is-on]="isFavorite('playlist', playlist.id)" (click)="togglePlaylistFavorite(playlist, $event)" [attr.aria-label]="(isFavorite('playlist', playlist.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
+          <button type="button" class="dz-fav" [class.is-on]="isFavorite('playlist', playlist.id)" [disabled]="favoriteBusyKey === 'playlist|' + playlist.id" (click)="togglePlaylistFavorite(playlist, $event)" [attr.aria-label]="(isFavorite('playlist', playlist.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
             <i class="fa" [class.fa-star]="isFavorite('playlist', playlist.id)" [class.fa-star-o]="!isFavorite('playlist', playlist.id)"></i>
           </button>
           <i class="fa fa-chevron-right dz-chevron" aria-hidden="true"></i>
@@ -359,11 +366,12 @@
       class="radio-player-panel"
       [class.dz-docked]="docked"
       [ngClass]="'radio-skin--' + radioSkin"
+      [class.dz-video]="!!youtubeEmbed"
       [class.radio-player-panel--on]="!!current && !playErrorKey"
       [class.radio-player-panel--live]="!!current && playing && !playErrorKey"
       (mouseenter)="onPlayerPointerEnter()"
-      (mousemove)="onPlayerPointerMove()"
-      (mouseleave)="onPlayerPointerLeave()"
+      (mousemove)="onPlayerPointerMove($event)"
+      (mouseleave)="onPlayerPointerLeave($event)"
       (touchstart)="onPlayerTouch()"
       aria-label="Deezer">
       <div class="radio-cabinet-handle" aria-hidden="true"><span class="radio-cabinet-handle-grip"></span></div>
@@ -495,6 +503,12 @@
             referrerpolicy="strict-origin-when-cross-origin"
             (load)="onYoutubeFrameLoad()">
           </iframe>
+          <div
+            class="dz-yt-hit"
+            *ngIf="youtubeEmbed"
+            (mouseenter)="onVideoSurface($event)"
+            (mousemove)="onVideoSurface($event)">
+          </div>
         </div>
 
         <div class="radio-chrome" [class.radio-chrome--hidden]="!chromeVisible" [class.radio-chrome--share-open]="shareMenuOpen">
@@ -549,9 +563,6 @@
                   <button type="button" class="radio-share-menu-item" (click)="copyShareLink()">{{ 'RADIO.SHARE_COPY' | translate }}</button>
                 </div>
               </div>
-              <button type="button" class="radio-now-action dz-hide-mobile" [class.is-lit]="focusMode" (click)="toggleFocusMode($event)" [attr.title]="(focusMode ? 'RADIO.FOCUS_EXIT' : 'RADIO.FOCUS') | translate">
-                <i class="fa" [class.fa-compress]="focusMode" [class.fa-desktop]="!focusMode"></i>
-              </button>
               <button type="button" class="radio-now-action dz-hide-mobile" [class.is-lit]="stageFullscreen" (click)="toggleStageFullscreen($event)" [attr.title]="(stageFullscreen ? 'RADIO.FULLSCREEN_EXIT' : 'RADIO.FULLSCREEN') | translate">
                 <i class="fa" [class.fa-compress]="stageFullscreen" [class.fa-expand]="!stageFullscreen"></i>
               </button>
@@ -563,7 +574,7 @@
               </label>
             </div>
           </div>
-          <div class="dz-progress" *ngIf="current">
+          <div class="dz-progress" *ngIf="current && !youtubeEmbed">
             <span>{{ formatTime(currentTime) }}</span>
             <input class="radio-volume-slider dz-seek" type="range" min="0" [max]="audioDuration || 30" step="0.1" [value]="currentTime" (input)="seek($event)" [attr.aria-label]="'DEEZER.PREVIEW' | translate" />
             <span>{{ formatTime(audioDuration || 30) }}</span>

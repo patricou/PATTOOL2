@@ -54,6 +54,14 @@
     border-radius: 4px;
 }
 
+.navbar-topbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    min-width: 0;
+    flex: 0 1 auto;
+}
+
 .nav-header-actions {
     display: inline-flex;
     align-items: center;
@@ -197,6 +205,11 @@
 @media (min-width: 992px) {
     .navbar {
         height: var(--navbar-height);
+    }
+
+    /* Desktop: the bar is one flex row (brand, shortcuts, links). */
+    .navbar-topbar {
+        display: contents;
     }
 
     .navbar-brand,
@@ -671,8 +684,36 @@
         overflow-x: hidden;
     }
     
+    .navbar-topbar {
+        flex: 1 0 100%;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .navbar-brand {
+        flex: 0 0 auto;
+        margin-left: 0.45rem;
+        margin-right: 0.35rem;
+        font-size: 1.05rem;
+        white-space: nowrap;
+    }
+
+    .nav-header-actions {
+        margin-left: 0;
+        gap: 0.22rem;
+    }
+
+    .nav-map-badge,
+    .nav-back-badge {
+        min-width: 2.05rem;
+        padding: 0.16rem 0.38rem;
+        font-size: 0.72rem;
+    }
+
     .navbar-toggler {
-        margin-right: 0.5rem;
+        flex: 0 0 auto;
+        margin-left: auto;
+        margin-right: 0.4rem;
     }
     
     .navbar .container-fluid,

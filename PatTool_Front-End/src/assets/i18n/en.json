@@ -6722,6 +6722,9 @@
     "FAV_REMOVE": "Remove from favorites",
     "FAVORITES_EMPTY": "No favorites in this tab.",
     "FAV_FILTER": "Filter favorites…",
+    "FAVORITES_LOGIN": "Sign in to save and sync your Deezer favorites.",
+    "ERR_FAVORITES_LOAD": "Could not load your favorites.",
+    "ERR_FAVORITES_SAVE": "Could not update favorites. Please try again.",
     "FILTER_EXPLICIT": "Hide explicit tracks",
     "FILTER_PREVIEW": "Only tracks with a preview"
   },

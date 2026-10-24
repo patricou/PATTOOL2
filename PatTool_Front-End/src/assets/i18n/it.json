@@ -5830,6 +5830,9 @@
     "FAV_REMOVE": "Rimuovi dai preferiti",
     "FAVORITES_EMPTY": "Nessun preferito in questa scheda.",
     "FAV_FILTER": "Filtra i preferiti…",
+    "FAVORITES_LOGIN": "Accedi per salvare e sincronizzare i preferiti Deezer.",
+    "ERR_FAVORITES_LOAD": "Impossibile caricare i preferiti.",
+    "ERR_FAVORITES_SAVE": "Impossibile salvare questo preferito.",
     "FILTER_EXPLICIT": "Nascondi i brani espliciti",
     "FILTER_PREVIEW": "Solo brani con anteprima"
   },

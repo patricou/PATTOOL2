@@ -5824,6 +5824,9 @@
     "FAV_REMOVE": "إزالة من المفضلة",
     "FAVORITES_EMPTY": "لا توجد مفضلات في هذا التبويب.",
     "FAV_FILTER": "تصفية المفضلة…",
+    "FAVORITES_LOGIN": "سجّل الدخول لحفظ مفضلات ديزر ومزامنتها.",
+    "ERR_FAVORITES_LOAD": "تعذر تحميل المفضلة.",
+    "ERR_FAVORITES_SAVE": "تعذر حفظ هذا المفضل.",
     "FILTER_EXPLICIT": "إخفاء المقاطع الصريحة",
     "FILTER_PREVIEW": "المقاطع التي لها مقتطف فقط"
   },

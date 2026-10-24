@@ -5826,6 +5826,9 @@
     "FAV_REMOVE": "移出收藏",
     "FAVORITES_EMPTY": "此标签页没有收藏。",
     "FAV_FILTER": "筛选收藏…",
+    "FAVORITES_LOGIN": "登录后即可保存并同步 Deezer 收藏。",
+    "ERR_FAVORITES_LOAD": "无法加载收藏。",
+    "ERR_FAVORITES_SAVE": "无法保存此收藏。",
     "FILTER_EXPLICIT": "隐藏含露骨内容的曲目",
     "FILTER_PREVIEW": "仅显示有试听的曲目"
   },

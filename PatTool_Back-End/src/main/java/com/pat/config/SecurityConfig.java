@@ -339,6 +339,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/radio/now-playing").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/radio/podcasts/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/radio/stream", "/api/external/radio/stream/**").permitAll()
+                // Favorites (GET/PUT/DELETE /api/external/deezer/favorites**) stay authenticated.
+                .requestMatchers("/api/external/deezer/favorites", "/api/external/deezer/favorites/**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/external/deezer/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/external/deezer/youtube-links").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/book/openlibrary/**").permitAll()

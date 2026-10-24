@@ -11,11 +11,13 @@ import {
   ApiService,
   DeezerAlbum,
   DeezerArtist,
+  DeezerFavorite,
   DeezerGenre,
   DeezerPlaylist,
   DeezerSearchType,
   DeezerTrack
 } from '../services/api.service';
+import { KeycloakService } from '../keycloak/keycloak.service';
 import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
 import { YoutubeEqualizerModalComponent } from '../youtube-watcher/youtube-equalizer-modal.component';
 import {
@@ -49,15 +51,7 @@ interface DzShelf {
   playlists: DeezerPlaylist[];
 }
 
-type DzFavKind = 'track' | 'album' | 'artist' | 'playlist';
-
-interface DzFav {
-  kind: DzFavKind;
-  track?: DeezerTrack;
-  album?: DeezerAlbum;
-  artist?: DeezerArtist;
-  playlist?: DeezerPlaylist;
-}
+type DzFav = DeezerFavorite;
 
 @Component({
   selector: 'app-deezer-watcher',
@@ -149,6 +143,9 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   previewOnly = false;
   listMode: 'browse' | 'favorites' = 'browse';
   favorites: DzFav[] = [];
+  favoritesHint = '';
+  favoritesError = '';
+  favoriteBusyKey = '';
   youtubeMode = false;
   youtubeSearchEnabled = false;
   youtubeBusy = false;
@@ -175,6 +172,8 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   private ytScan: Subscription | null = null;
   private ytScanKey = '';
   private pointerOverPlayer = false;
+  /** Video just took the stage under the cursor: stay hidden until the pointer leaves and comes back. */
+  private suppressChromeUntilLeave = false;
   private chromeHideTimer: ReturnType<typeof setTimeout> | null = null;
   private ytToken = 0;
   private ytIgnoreEnd = 0;
@@ -187,6 +186,8 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   private readonly ytCache = new Map<number, string | null>();
   private readonly search$ = new Subject<string>();
   private readonly destroy$ = new Subject<void>();
+  private favoritesSub?: Subscription;
+  private favoritesReady = false;
   private static readonly SIDEBAR_KEY = 'pattool.deezer.sidebar';
   private static readonly YT_SEARCH_KEY = 'pattool.deezer.youtube-search';
   private static readonly FILTER_KEY = 'pattool.deezer.filter';
@@ -203,7 +204,8 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     private equalizer: YoutubeEqualizerService,
     private router: Router,
     private translate: TranslateService,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private keycloak: KeycloakService
   ) {}
 
   ngOnInit(): void {
@@ -215,8 +217,8 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.sidebarCollapsed = this.readSidebar();
     this.readFilter();
     this.genresOpen = this.readGenresOpen();
-    this.favorites = this.readFavorites();
     this.youtubeSearchEnabled = this.readYoutubeSearch();
+    this.loadFavorites();
     this.parkKeptAudio();
     this.search$.pipe(
       debounceTime(320),
@@ -238,6 +240,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.ytSub?.unsubscribe();
     this.ytPrefetch?.unsubscribe();
     this.ytScan?.unsubscribe();
+    this.favoritesSub?.unsubscribe();
     this.stopYoutubeHandshake();
     this.sleeveSub?.unsubscribe();
     document.body.classList.remove('radio-focus', 'radio-stage-fs');
@@ -386,6 +389,9 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     if (mode === 'favorites') {
       this.loading = false;
       this.errorKey = '';
+      if (!this.keycloak.isLoggedIn()) {
+        this.favoritesHint = 'DEEZER.FAVORITES_LOGIN';
+      }
       this.view = this.firstFavoriteView();
       this.refreshQueue();
       this.ytScanKey = '';
@@ -468,7 +474,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.playTrack(first, 0);
   }
 
-  isFavorite(kind: DzFavKind, id: number | null | undefined): boolean {
+  isFavorite(kind: DeezerSearchType, id: number | null | undefined): boolean {
     return !!id && this.favorites.some((fav) => fav.kind === kind && this.favId(fav) === id);
   }
 
@@ -571,7 +577,12 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.audioDuration = 0;
     this.related = this.drilled ? this.related : [];
     this.scheduleSleeve(track.artistId || 0);
-    this.chromeVisible = this.pointerOverPlayer || this.focusMode || this.stageFullscreen;
+    if (this.youtubeMode) {
+      this.armCleanVideoChrome();
+    } else {
+      this.suppressChromeUntilLeave = false;
+      this.chromeVisible = this.pointerOverPlayer || this.focusMode || this.stageFullscreen;
+    }
     if (this.youtubeMode) {
       this.pausePreview();
       if (restart && same) {
@@ -1136,7 +1147,12 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     event?.stopPropagation();
     this.focusMode = !this.focusMode;
     document.body.classList.toggle('radio-focus', this.focusMode);
-    this.chromeVisible = this.focusMode || this.pointerOverPlayer || this.stageFullscreen;
+    if (this.focusMode && this.youtubeEmbed) {
+      this.armCleanVideoChrome();
+    } else {
+      this.suppressChromeUntilLeave = false;
+      this.chromeVisible = this.focusMode || this.pointerOverPlayer || this.stageFullscreen;
+    }
   }
 
   async toggleStageFullscreen(event?: Event): Promise<void> {
@@ -1146,7 +1162,11 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.stageFullscreen = true;
-    this.chromeVisible = true;
+    if (this.youtubeEmbed) {
+      this.armCleanVideoChrome();
+    } else {
+      this.chromeVisible = true;
+    }
     document.body.classList.add('radio-stage-fs');
     const host = this.hostRef.nativeElement as HTMLElement & { webkitRequestFullscreen?: () => void };
     try {
@@ -1343,17 +1363,41 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   onPlayerPointerEnter(): void {
     this.pointerOverPlayer = true;
     this.clearChromeHideTimer();
+    if (this.youtubeEmbed || this.suppressChromeUntilLeave) {
+      return;
+    }
     this.chromeVisible = true;
   }
 
-  onPlayerPointerMove(): void {
-    this.onPlayerPointerEnter();
+  onPlayerPointerMove(event?: MouseEvent): void {
+    if (!this.youtubeEmbed) {
+      this.suppressChromeUntilLeave = false;
+      this.onPlayerPointerEnter();
+      return;
+    }
+    this.onVideoSurface(event);
   }
 
-  onPlayerPointerLeave(): void {
-    this.pointerOverPlayer = false;
+  onVideoSurface(event?: MouseEvent): void {
+    this.pointerOverPlayer = true;
     this.clearChromeHideTimer();
-    if (this.focusMode || this.stageFullscreen) {
+    if (this.suppressChromeUntilLeave) {
+      if (event?.type !== 'mousemove') {
+        return;
+      }
+      this.suppressChromeUntilLeave = false;
+    }
+    this.chromeVisible = true;
+  }
+
+  onPlayerPointerLeave(event?: MouseEvent): void {
+    if (event && this.pointerStillOverPanel(event)) {
+      return;
+    }
+    this.pointerOverPlayer = false;
+    this.suppressChromeUntilLeave = false;
+    this.clearChromeHideTimer();
+    if (this.holdsChromeOpen()) {
       return;
     }
     this.shareMenuOpen = false;
@@ -1362,18 +1406,19 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
 
   onPlayerTouch(): void {
     this.pointerOverPlayer = false;
+    this.suppressChromeUntilLeave = false;
     this.chromeVisible = true;
     this.scheduleChromeHide();
   }
 
   private scheduleChromeHide(): void {
     this.clearChromeHideTimer();
-    if (this.shareMenuOpen || this.focusMode || this.stageFullscreen || this.pointerOverPlayer) {
+    if (this.shareMenuOpen || this.holdsChromeOpen() || this.pointerOverPlayer || this.suppressChromeUntilLeave) {
       return;
     }
     this.chromeHideTimer = setTimeout(() => {
       this.chromeHideTimer = null;
-      if (this.shareMenuOpen || this.focusMode || this.stageFullscreen || this.pointerOverPlayer) {
+      if (this.shareMenuOpen || this.holdsChromeOpen() || this.pointerOverPlayer || this.suppressChromeUntilLeave) {
         return;
       }
       this.chromeVisible = false;
@@ -1412,11 +1457,16 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     const host = this.hostRef.nativeElement;
     if (document.fullscreenElement === host) {
       this.stageFullscreen = true;
-      this.chromeVisible = true;
+      if (this.youtubeEmbed) {
+        this.armCleanVideoChrome();
+      } else {
+        this.chromeVisible = true;
+      }
       document.body.classList.add('radio-stage-fs');
     } else if (!document.fullscreenElement && this.stageFullscreen) {
       this.stageFullscreen = false;
       document.body.classList.remove('radio-stage-fs');
+      this.suppressChromeUntilLeave = false;
       this.chromeVisible = this.pointerOverPlayer || this.focusMode;
     }
   }
@@ -1431,7 +1481,33 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     }
     this.stageFullscreen = false;
     document.body.classList.remove('radio-stage-fs');
+    this.suppressChromeUntilLeave = false;
     this.chromeVisible = this.pointerOverPlayer || this.focusMode;
+  }
+
+  /** Preview chrome stays up in focus. A YouTube clip hides every button until the pointer returns. */
+  private holdsChromeOpen(): boolean {
+    return !this.youtubeEmbed && (this.focusMode || this.stageFullscreen);
+  }
+
+  private armCleanVideoChrome(): void {
+    this.chromeVisible = false;
+    this.suppressChromeUntilLeave = this.pointerOverPlayer;
+  }
+
+  private pointerStillOverPanel(event: MouseEvent): boolean {
+    const panel = this.playerPanelEl?.nativeElement;
+    if (!panel) {
+      return false;
+    }
+    const rect = panel.getBoundingClientRect();
+    return event.clientX >= rect.left && event.clientX <= rect.right
+      && event.clientY >= rect.top && event.clientY <= rect.bottom;
+  }
+
+  private pointerOverPlayerChrome(event?: MouseEvent): boolean {
+    const target = event?.target;
+    return target instanceof Element && !!target.closest('.radio-chrome, .radio-presets, .radio-player-frame');
   }
 
   private shareUrl(): string {
@@ -1565,6 +1641,10 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.youtubeEmbed = null;
     this.youtubeTitle = '';
     this.youtubeBusy = false;
+    this.suppressChromeUntilLeave = false;
+    if (this.pointerOverPlayer || this.focusMode || this.stageFullscreen) {
+      this.chromeVisible = true;
+    }
     this.stopYoutubeHandshake();
     this.ytApiListening = false;
     this.ytSoundArmed = false;
@@ -1631,8 +1711,9 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     const origin = typeof window !== 'undefined' ? `&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}` : '';
     const replay = this.ytReplay ? `&ts=${this.ytReplay}` : '';
     this.youtubeEmbed = this.sanitizer.bypassSecurityTrustResourceUrl(
-      `https://www.youtube-nocookie.com/embed/${id}?rel=0&autoplay=1&playsinline=1${origin}${replay}`
+      `https://www.youtube-nocookie.com/embed/${id}?rel=0&autoplay=1&playsinline=1&controls=0&fs=0&iv_load_policy=3&modestbranding=1${origin}${replay}`
     );
+    this.armCleanVideoChrome();
     this.playing = true;
     this.playErrorKey = '';
     this.armYoutubeSound();
@@ -1901,18 +1982,39 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     if (!id) {
       return;
     }
-    const index = this.favorites.findIndex((fav) => fav.kind === next.kind && this.favId(fav) === id);
-    if (index >= 0) {
-      this.favorites = this.favorites.filter((_, i) => i !== index);
-    } else {
-      this.favorites = [next, ...this.favorites];
+    if (!this.keycloak.isLoggedIn()) {
+      this.favoritesHint = 'DEEZER.FAVORITES_LOGIN';
+      if (this.listMode !== 'favorites') {
+        this.setListMode('favorites');
+      }
+      return;
     }
-    this.writeFavorites();
-    this.ytScanKey = '';
-    this.syncYoutubeButtons();
-    if (this.listMode === 'favorites') {
-      this.refreshQueue();
+    if (!this.favoritesReady || this.favoriteBusyKey) {
+      return;
     }
+    const key = `${next.kind}|${id}`;
+    this.favoriteBusyKey = key;
+    this.favoritesError = '';
+    this.favoritesHint = '';
+    const removing = this.isFavorite(next.kind, id);
+    const req$ = removing
+      ? this.api.removeDeezerFavorite(id, next.kind)
+      : this.api.addDeezerFavorite(next);
+    this.favoritesSub?.unsubscribe();
+    this.favoritesSub = req$.subscribe({
+      next: (fav) => {
+        if (this.favoriteBusyKey === key) {
+          this.favoriteBusyKey = '';
+        }
+        this.applyFavorites(fav?.items || []);
+      },
+      error: () => {
+        if (this.favoriteBusyKey === key) {
+          this.favoriteBusyKey = '';
+        }
+        this.favoritesError = 'DEEZER.ERR_FAVORITES_SAVE';
+      }
+    });
   }
 
   private readYoutubeSearch(): boolean {
@@ -1961,21 +2063,114 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
-  private readFavorites(): DzFav[] {
+  private loadFavorites(): void {
+    if (!this.keycloak.isLoggedIn()) {
+      this.favorites = [];
+      this.favoritesReady = true;
+      this.favoritesHint = 'DEEZER.FAVORITES_LOGIN';
+      return;
+    }
+    const local = this.readLocalFavorites();
+    this.favoritesReady = false;
+    this.favoritesError = '';
+    this.favoritesSub?.unsubscribe();
+    this.favoritesSub = this.api.getDeezerFavorites().subscribe({
+      next: (fav) => {
+        const remote = this.cleanFavorites(fav?.items || []);
+        if (this.localMissingOnServer(local, remote)) {
+          const merged = this.mergeFavorites(local, remote);
+          this.favoritesSub = this.api.saveDeezerFavorites({ items: merged }).subscribe({
+            next: (saved) => {
+              this.clearLocalFavorites();
+              this.favoritesReady = true;
+              this.applyFavorites(saved?.items || merged);
+            },
+            error: () => {
+              this.favoritesReady = true;
+              this.favoritesError = 'DEEZER.ERR_FAVORITES_SAVE';
+              this.applyFavorites(remote.length ? remote : local);
+            }
+          });
+          return;
+        }
+        if (local.length) {
+          this.clearLocalFavorites();
+        }
+        this.favoritesReady = true;
+        this.applyFavorites(remote);
+      },
+      error: () => {
+        this.favoritesReady = true;
+        this.favoritesError = 'DEEZER.ERR_FAVORITES_LOAD';
+        if (local.length) {
+          this.applyFavorites(local);
+        }
+      }
+    });
+  }
+
+  private applyFavorites(items: DzFav[]): void {
+    this.favorites = this.cleanFavorites(items);
+    if (this.keycloak.isLoggedIn()) {
+      this.favoritesHint = '';
+    }
+    if (this.listMode !== 'favorites') {
+      return;
+    }
+    const still = this.view === 'track' ? this.favoriteTracks.length
+      : this.view === 'album' ? this.favoriteAlbums.length
+        : this.view === 'artist' ? this.favoriteArtists.length
+          : this.favoritePlaylists.length;
+    if (!still) {
+      this.view = this.firstFavoriteView();
+    }
+    this.refreshQueue();
+    this.ytScanKey = '';
+    this.syncYoutubeButtons();
+  }
+
+  private cleanFavorites(items: DzFav[]): DzFav[] {
+    return (items || []).filter((fav) => fav && fav.kind && this.favId(fav) > 0);
+  }
+
+  private mergeFavorites(local: DzFav[], remote: DzFav[]): DzFav[] {
+    const out: DzFav[] = [];
+    const seen = new Set<string>();
+    for (const fav of [...local, ...remote]) {
+      const id = this.favId(fav);
+      if (!fav?.kind || !id) {
+        continue;
+      }
+      const key = `${fav.kind}|${id}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      out.push(fav);
+    }
+    return out;
+  }
+
+  private localMissingOnServer(local: DzFav[], remote: DzFav[]): boolean {
+    const keys = new Set(remote.map((fav) => `${fav.kind}|${this.favId(fav)}`));
+    return local.some((fav) => !keys.has(`${fav.kind}|${this.favId(fav)}`));
+  }
+
+  private readLocalFavorites(): DzFav[] {
     try {
       const raw = JSON.parse(localStorage.getItem(DeezerWatcherComponent.FAV_KEY) || '[]');
       if (!Array.isArray(raw)) {
         return [];
       }
-      return raw.filter((fav) => fav && fav.kind && this.favId(fav) > 0);
+      return this.cleanFavorites(raw);
     } catch {
       return [];
     }
   }
 
-  private writeFavorites(): void {
+  private clearLocalFavorites(): void {
     try {
-      localStorage.setItem(DeezerWatcherComponent.FAV_KEY, JSON.stringify(this.favorites));
+      localStorage.removeItem(DeezerWatcherComponent.FAV_KEY);
     } catch {
       /* ignore */
     }

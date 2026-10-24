@@ -5824,6 +5824,9 @@
     "FAV_REMOVE": "पसंदीदा से हटाएँ",
     "FAVORITES_EMPTY": "इस टैब में कोई पसंदीदा नहीं।",
     "FAV_FILTER": "पसंदीदा छानें…",
+    "FAVORITES_LOGIN": "Deezer पसंदीदा सहेजने और सिंक करने के लिए साइन इन करें।",
+    "ERR_FAVORITES_LOAD": "पसंदीदा लोड नहीं हो सके।",
+    "ERR_FAVORITES_SAVE": "यह पसंदीदा सहेजा नहीं जा सका।",
     "FILTER_EXPLICIT": "स्पष्ट गीत छिपाएँ",
     "FILTER_PREVIEW": "केवल वे गाने जिनका अंश है"
   },

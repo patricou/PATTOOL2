@@ -6726,6 +6726,9 @@
     "FAV_REMOVE": "Retirer des favoris",
     "FAVORITES_EMPTY": "Aucun favori dans cet onglet.",
     "FAV_FILTER": "Filtrer les favoris…",
+    "FAVORITES_LOGIN": "Connectez-vous pour enregistrer et synchroniser vos favoris Deezer.",
+    "ERR_FAVORITES_LOAD": "Impossible de charger vos favoris.",
+    "ERR_FAVORITES_SAVE": "Impossible d’enregistrer ce favori.",
     "FILTER_EXPLICIT": "Masquer les titres explicites",
     "FILTER_PREVIEW": "Uniquement les titres avec extrait"
   },
