@@ -149,10 +149,14 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   videoEl?: ElementRef<HTMLVideoElement>;
   private boundEqVideo: HTMLVideoElement | null = null;
   private readonly onEqVideoPlaying = (): void => {
-    const el = this.boundEqVideo;
+    const el = this.boundEqVideo || this.videoEl?.nativeElement || null;
     if (!el || this.isFloatingOpen) {
       return;
     }
+    if (!this.selectedChannel && !this.playingRecording) {
+      return;
+    }
+    void this.equalizer.resume();
     this.equalizer.engageMedia(el);
   };
   @ViewChild('eqModal') eqModal?: YoutubeEqualizerModalComponent;
@@ -494,7 +498,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.eqSourceLive = kind !== 'none';
       this.refreshEqIndicator();
     }));
-    this.eqSub.add(this.equalizer.settings$.subscribe(() => this.refreshEqIndicator()));
+    this.eqSub.add(this.equalizer.settings$.subscribe(() => {
+      this.refreshEqIndicator();
+      this.onEqVideoPlaying();
+    }));
   }
 
   /** Pastille : le réglage enregistré est actif, même juste après un rechargement. */
@@ -902,6 +909,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    document.addEventListener('pointerdown', this.unlockSoundFromGesture, true);
     this.keepAliveOnNavigate = this.readKeepAlivePreference();
     this.restoreSkinPreference();
     this.sidebarCollapsed = this.readSidebarCollapsedPreference();
@@ -972,6 +980,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    document.removeEventListener('pointerdown', this.unlockSoundFromGesture, true);
     this.pageAlive = false;
     if (this.boundEqVideo) {
       this.boundEqVideo.removeEventListener('playing', this.onEqVideoPlaying);
@@ -4515,6 +4524,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       if (p && typeof p.then === 'function') {
         p.then(() => {
           this.isBuffering = false;
+          this.onEqVideoPlaying();
           this.syncMuteFromVideo();
           this.cdr.markForCheck();
         }).catch((err: unknown) => {
@@ -4910,6 +4920,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (!video || !channel?.streamUrl) {
       return;
     }
+    if (!this.isFloatingOpen && this.equalizer.wantsProcessing) {
+      void this.equalizer.resume();
+      this.equalizer.engageMedia(video);
+    }
 
     this.playingRecording = null;
 
@@ -5003,7 +5017,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       if (playGen !== this.playGeneration) {
         return;
       }
-      this.applyAudioToVideo(video, { muted: this.isMuted, ensureVolume: true });
+      // First try with sound. The retry is muted so a blocked autoplay still starts the picture.
+      this.applyAudioToVideo(video, { muted: !allowMuteFallback, ensureVolume: true });
       const p = video.play();
       if (p && typeof p.then === 'function') {
         p.then(() => {
@@ -5011,7 +5026,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
             return;
           }
           this.isBuffering = false;
-          this.syncMuteFromVideo();
+          this.playError = '';
+          this.onEqVideoPlaying();
+          this.liftMuteIfAllowed(video, playGen);
           this.cdr.markForCheck();
         }).catch((err: unknown) => {
           if (playGen !== this.playGeneration) {
@@ -5023,7 +5040,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           if (name === 'AbortError') {
             return;
           }
-          if (allowMuteFallback && !this.isMuted) {
+          if (allowMuteFallback) {
             // Autoplay with sound blocked (async HLS loses user gesture) — start muted.
             // Still auto-hide chrome: unmute uses the on-video hint, not a sticky bar.
             this.applyAudioToVideo(video, { muted: true, ensureVolume: true });
@@ -5381,6 +5398,80 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * After a reload the browser often only allows a muted start. Turn sound on
+   * without a second play() when the picture is already running — a new play()
+   * is rejected and was putting the mute back.
+   */
+  private liftMuteIfAllowed(video: HTMLVideoElement, playGen: number): void {
+    if (playGen !== this.playGeneration || !video.muted) {
+      this.syncMuteFromVideo();
+      return;
+    }
+    video.muted = false;
+    this.isMuted = false;
+    if (video.volume <= 0) {
+      this.volumePercent = 100;
+      video.volume = 1;
+    }
+    if (!video.paused) {
+      requestAnimationFrame(() => {
+        if (playGen !== this.playGeneration) {
+          return;
+        }
+        if (video.paused) {
+          this.applyAudioToVideo(video, { muted: true, ensureVolume: true });
+          void video.play().catch(() => undefined);
+        }
+        this.syncMuteFromVideo();
+        this.cdr.markForCheck();
+      });
+      return;
+    }
+    const audible = video.play();
+    if (audible && typeof audible.then === 'function') {
+      audible.then(() => {
+        if (playGen !== this.playGeneration) {
+          return;
+        }
+        this.syncMuteFromVideo();
+        this.cdr.markForCheck();
+      }).catch((err: unknown) => {
+        if (playGen !== this.playGeneration) {
+          return;
+        }
+        const name = err && typeof err === 'object' && 'name' in err ? String((err as { name: string }).name) : '';
+        if (name === 'AbortError') {
+          return;
+        }
+        this.applyAudioToVideo(video, { muted: true, ensureVolume: true });
+        void video.play().catch(() => undefined);
+        this.cdr.markForCheck();
+      });
+    }
+  }
+
+  /** First click after a reload is a user gesture: open the sound without a banner. */
+  private readonly unlockSoundFromGesture = (): void => {
+    const video = this.videoEl?.nativeElement;
+    if (!this.pageAlive || !video || this.isFloatingOpen) {
+      return;
+    }
+    if (!video.muted && video.volume > 0 && !this.isMuted && this.volumePercent > 0) {
+      document.removeEventListener('pointerdown', this.unlockSoundFromGesture, true);
+      return;
+    }
+    this.applyAudioToVideo(video, { muted: false, ensureVolume: true });
+    const pending = video.play();
+    if (pending && typeof pending.then === 'function') {
+      pending.then(() => {
+        this.syncMuteFromVideo();
+        document.removeEventListener('pointerdown', this.unlockSoundFromGesture, true);
+        this.cdr.markForCheck();
+      }).catch(() => undefined);
+    }
+  };
+
+  /**
    * Force audible playback after a user gesture (required by browser autoplay rules
    * once HLS has loaded asynchronously).
    */
@@ -5390,6 +5481,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (!video || !this.selectedChannel || this.isFloatingOpen) {
       return;
     }
+    this.onEqVideoPlaying();
     // Already audible — do nothing (avoids fighting the mute button).
     if (!video.muted && video.volume > 0 && !this.isMuted && this.volumePercent > 0) {
       return;

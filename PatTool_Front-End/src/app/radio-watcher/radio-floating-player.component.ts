@@ -97,6 +97,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   private hls: Hls | null = null;
   private playbackGuard: RadioPlaybackGuard | null = null;
   private stateSub?: Subscription;
+  private eqSub?: Subscription;
   private favoritesSub?: Subscription;
   private nowPlayingSub?: Subscription;
   private nowPlayingTitle = '';
@@ -131,6 +132,9 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.liveAudio.addEventListener('volumechange', this.onLiveVolume);
+    this.liveAudio.addEventListener('playing', this.onEqAudioPlaying);
+    this.eqSub = this.equalizer.settings$.subscribe(() => this.onEqAudioPlaying());
+    this.onEqAudioPlaying();
     this.readRadioLook();
     window.addEventListener('patradiotransport', this.onBluetoothTune);
     window.addEventListener('patmediavolumeui', this.onDeviceVolumeUi);
@@ -168,6 +172,8 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     this.clearTrackSlide();
     this.alive = false;
     this.liveAudio.removeEventListener('volumechange', this.onLiveVolume);
+    this.liveAudio.removeEventListener('playing', this.onEqAudioPlaying);
+    this.eqSub?.unsubscribe();
     this.stateSub?.unsubscribe();
     this.favoritesSub?.unsubscribe();
     this.nowPlayingSub?.unsubscribe();
@@ -553,6 +559,10 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
 
   private playStation(station: RadioStation, reason: 'user' | 'reconnect' = 'user'): void {
     const media = this.liveAudio;
+    if (this.alive && media && this.equalizer.wantsProcessing) {
+      void this.equalizer.resume();
+      this.equalizer.engageMedia(media);
+    }
     if (!this.alive || !media || !station?.streamUrl) {
       return;
     }
@@ -662,10 +672,17 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
                 : '';
             if (name === 'NotAllowedError') {
               media.muted = true;
-              this.isMuted = true;
               void media
                 .play()
-                .then(() => afterPlaying())
+                .then(() => {
+                  media.muted = false;
+                  this.isMuted = false;
+                  if (media.volume <= 0) {
+                    this.volumePercent = this.volumePercent > 0 ? this.volumePercent : 80;
+                    media.volume = this.volumePercent / 100;
+                  }
+                  afterPlaying();
+                })
                 .catch(() => onError('RADIO.ERR_PLAY'));
               return;
             }
@@ -802,15 +819,23 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     });
   }
 
+  private readonly onEqAudioPlaying = (): void => {
+    if (!this.alive || !this.state.open) {
+      return;
+    }
+    const media = this.liveAudio;
+    if (!media || media.paused) {
+      return;
+    }
+    void this.engageEqualizer(media);
+  };
+
   private async engageEqualizer(media: HTMLMediaElement): Promise<void> {
     if (!this.alive || !this.equalizer.wantsProcessing) {
       return;
     }
-    const running = await this.equalizer.resume();
-    if (!running || !this.alive) {
-      return;
-    }
-    this.equalizer.attachMediaElement(media);
+    void this.equalizer.resume();
+    this.equalizer.engageMedia(media);
     this.cdr.markForCheck();
   }
 

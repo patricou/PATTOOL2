@@ -70,6 +70,7 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
 
   private playback: TvHlsPlaybackHandle | null = null;
   private stateSub?: Subscription;
+  private eqSub?: Subscription;
   private lastChannelId = '';
   /** Avoid closing pip-host when we briefly tear down the video to restart/handoff. */
   private suppressPipHostClose = false;
@@ -86,7 +87,12 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
   ) {}
 
   engageEqualizer(): void {
-    this.equalizer.engageMedia(this.videoEl?.nativeElement);
+    const el = this.videoEl?.nativeElement;
+    if (!el || !this.state.open || !this.state.channel) {
+      return;
+    }
+    void this.equalizer.resume();
+    this.equalizer.engageMedia(el);
   }
 
   formatPlayError(message: string | null | undefined): string {
@@ -95,6 +101,7 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.placeDefaultPosition();
+    this.eqSub = this.equalizer.settings$.subscribe(() => this.engageEqualizer());
     this.stateSub = this.tvPlayer.state$.subscribe((s) => {
       const prevOpen = this.state.open;
       const channelChanged = (s.channel?.id || '') !== this.lastChannelId;
@@ -137,6 +144,7 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.clearPlayTimer();
+    this.eqSub?.unsubscribe();
     this.stateSub?.unsubscribe();
     this.destroyPlayer();
   }
@@ -221,6 +229,7 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
     if (!video) {
       return;
     }
+    this.engageEqualizer();
     if (!video.muted && video.volume > 0 && !this.isMuted && this.volumePercent > 0) {
       return;
     }
@@ -578,6 +587,7 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
           : undefined
       });
       video.volume = Math.min(1, Math.max(0, this.volumePercent / 100));
+      this.engageEqualizer();
       this.suppressPipHostClose = false;
     })();
   }

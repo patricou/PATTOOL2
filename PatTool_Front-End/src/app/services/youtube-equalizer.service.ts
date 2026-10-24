@@ -1,5 +1,7 @@
 import { Injectable, NgZone } from '@angular/core';
+import { NavigationStart, Router } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import { TranslateService } from '@ngx-translate/core';
 import { ApiService } from './api.service';
 
@@ -149,9 +151,39 @@ export class YoutubeEqualizerService {
   constructor(
     private ngZone: NgZone,
     private translate: TranslateService,
-    private api: ApiService
+    private api: ApiService,
+    router: Router
   ) {
     this.hydrateFromServer();
+    router.events.pipe(filter((e): e is NavigationStart => e instanceof NavigationStart)).subscribe((e) => {
+      this.onMediaPageEnter(e.url);
+    });
+  }
+
+  /** Navigation click: unlock the graph and unmute players before the new page finishes loading. */
+  private onMediaPageEnter(url: string): void {
+    const path = (url || '').toLowerCase();
+    if (!path.includes('/tools/radio-watcher') && !path.includes('/tools/tv-watcher')) {
+      return;
+    }
+    void this.resume();
+    if (typeof document === 'undefined') {
+      return;
+    }
+    document.querySelectorAll('audio[data-pat-radio="1"]').forEach((node) => {
+      const el = node as HTMLMediaElement;
+      if (el.dataset['patUserPaused'] === '1' || (!el.currentSrc && !el.src)) {
+        return;
+      }
+      el.muted = false;
+      if (el.volume <= 0) {
+        el.volume = 1;
+      }
+      const pending = el.play();
+      if (pending && typeof pending.catch === 'function') {
+        pending.catch(() => undefined);
+      }
+    });
   }
 
   private readonly settingsSubject = new BehaviorSubject<YoutubeEqualizerSettings>(this.loadSettings());
@@ -206,8 +238,13 @@ export class YoutubeEqualizerService {
   private mediaSource: MediaElementAudioSourceNode | null = null;
   private mediaElement: HTMLMediaElement | null = null;
   private readonly mediaSourceCache = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>();
+  /** Elements currently routed through the graph. WeakMap cannot be iterated. */
+  private readonly engagedMedia = new Set<HTMLMediaElement>();
   private streamSource: MediaStreamAudioSourceNode | null = null;
   private captureStream: MediaStream | null = null;
+  private captureStarting = false;
+  private pendingMedia: HTMLMediaElement | null = null;
+  private mediaUnlock: (() => void) | null = null;
   private persistTimer: ReturnType<typeof setTimeout> | undefined;
   private hydratingFromServer = false;
   private serverPersistSub: { unsubscribe(): void } | null = null;
@@ -392,7 +429,50 @@ export class YoutubeEqualizerService {
     if (!el || !this.wantsProcessing) {
       return;
     }
+    void this.engageMediaNow(el);
+  }
+
+  private async engageMediaNow(el: HTMLMediaElement): Promise<void> {
+    if (!this.wantsProcessing) {
+      return;
+    }
+    const running = await this.resume();
+    if (!this.wantsProcessing) {
+      return;
+    }
+    if (!running) {
+      this.pendingMedia = el;
+      this.armMediaUnlock();
+      return;
+    }
+    this.clearMediaUnlock();
+    this.pendingMedia = null;
     this.attachMediaElement(el);
+  }
+
+  /** The audio graph is still locked. Attach on the next click instead of silencing the element. */
+  private armMediaUnlock(): void {
+    if (this.mediaUnlock || typeof document === 'undefined') {
+      return;
+    }
+    const kick = () => {
+      this.clearMediaUnlock();
+      const pending = this.pendingMedia;
+      this.pendingMedia = null;
+      if (pending && this.wantsProcessing) {
+        void this.engageMediaNow(pending);
+      }
+    };
+    this.mediaUnlock = kick;
+    document.addEventListener('pointerdown', kick, true);
+  }
+
+  private clearMediaUnlock(): void {
+    if (!this.mediaUnlock || typeof document === 'undefined') {
+      return;
+    }
+    document.removeEventListener('pointerdown', this.mediaUnlock, true);
+    this.mediaUnlock = null;
   }
 
   /** Keep an already-granted YouTube tab capture on the equalizer. Does not ask again. */
@@ -422,6 +502,7 @@ export class YoutubeEqualizerService {
     if (cached) {
       this.mediaSource = cached;
       this.mediaElement = el;
+      this.engagedMedia.add(el);
       try {
         cached.disconnect();
       } catch {
@@ -435,6 +516,7 @@ export class YoutubeEqualizerService {
       return;
     }
     if (this.mediaElement === el && this.mediaSource) {
+      this.engagedMedia.add(el);
       this.routeAnalyser('media');
       this.emitSource('media');
       this.applySettings(this.settings);
@@ -444,6 +526,7 @@ export class YoutubeEqualizerService {
     try {
       const src = ctx.createMediaElementSource(el);
       this.mediaSourceCache.set(el, src);
+      this.engagedMedia.add(el);
       this.mediaSource = src;
       this.mediaElement = el;
       src.connect(this.input!);
@@ -470,6 +553,7 @@ export class YoutubeEqualizerService {
       return;
     }
     const src = this.mediaSourceCache.get(target);
+    this.engagedMedia.delete(target);
     if (src) {
       try {
         src.disconnect();
@@ -484,8 +568,17 @@ export class YoutubeEqualizerService {
     this.mediaElement = null;
     const input = this.input;
     if (input) {
-      for (const [other, node] of this.mediaSourceCache) {
-        if (other === target || other.paused || other.ended) {
+      for (const other of this.engagedMedia) {
+        if (other === target || !other.isConnected) {
+          this.engagedMedia.delete(other);
+          continue;
+        }
+        if (other.paused || other.ended) {
+          continue;
+        }
+        const node = this.mediaSourceCache.get(other);
+        if (!node) {
+          this.engagedMedia.delete(other);
           continue;
         }
         try {
@@ -508,6 +601,9 @@ export class YoutubeEqualizerService {
   }
 
   async startTabCapture(): Promise<boolean> {
+    if (this.captureStarting) {
+      return false;
+    }
     this.emitCaptureError('');
     const outputWin = this.openOutputWindow();
     if (!outputWin) {
@@ -531,6 +627,7 @@ export class YoutubeEqualizerService {
     this.routeAnalyser('capture');
     this.bindOutputWindow();
     void this.resume();
+    this.captureStarting = true;
     try {
       const captureOpts: DisplayMediaStreamOptions & {
         preferCurrentTab?: boolean;
@@ -595,6 +692,8 @@ export class YoutubeEqualizerService {
       this.stopTabCapture();
       this.emitCaptureError('YOUTUBE.EQ.CAPTURE_DENIED');
       return false;
+    } finally {
+      this.captureStarting = false;
     }
   }
 
@@ -606,9 +705,41 @@ export class YoutubeEqualizerService {
       this.emitSource('media');
       return;
     }
+    if (this.reconnectEngagedMedia()) {
+      return;
+    }
     if (this.sourceKindSubject.value === 'capture') {
       this.emitSource('none');
     }
+  }
+
+  /** Put a player that is still running back on the graph after a tab capture ends. */
+  private reconnectEngagedMedia(): boolean {
+    const input = this.input;
+    if (!input) {
+      return false;
+    }
+    for (const other of this.engagedMedia) {
+      if (!other.isConnected || other.paused || other.ended) {
+        continue;
+      }
+      const node = this.mediaSourceCache.get(other);
+      if (!node) {
+        continue;
+      }
+      try {
+        node.connect(input);
+      } catch {
+        /* already connected */
+      }
+      this.mediaSource = node;
+      this.mediaElement = other;
+      this.routeAnalyser('media');
+      this.emitSource('media');
+      this.applySettings(this.settings);
+      return true;
+    }
+    return false;
   }
 
   release(): void {

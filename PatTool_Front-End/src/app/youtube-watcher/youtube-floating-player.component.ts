@@ -67,6 +67,7 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
   private resizeStartPosY = 0;
   private positioned = false;
   private lastEmbedKey = '';
+  private ytSoundOnId = '';
   private stateSub?: Subscription;
   private commandSub?: Subscription;
   private ytProgressTimer?: ReturnType<typeof setInterval>;
@@ -110,6 +111,7 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
       const key = `${s.item.kind || 'video'}:${s.item.id}:${s.loadSeq || 0}`;
       if (key !== this.lastEmbedKey) {
         this.lastEmbedKey = key;
+        this.ytSoundOnId = '';
         this.embedUrl = this.buildEmbedUrl(s.item);
       }
       this.syncPipWindowTitle(s.item.title);
@@ -588,7 +590,20 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
     if (!this.ytApiListening) {
       this.sendYoutubeCommand('addEventListener', ['onStateChange']);
       this.sendYoutubeCommand('addEventListener', ['onError']);
+      this.sendYoutubeCommand('addEventListener', ['onReady']);
     }
+    this.activateYoutubeSound();
+  }
+
+  private activateYoutubeSound(): void {
+    const id = this.state.item?.id || '';
+    if (!this.state.open || !id || this.ytSoundOnId === id || !this.getYoutubeIframe()) {
+      return;
+    }
+    this.ytSoundOnId = id;
+    this.sendYoutubeCommand('unMute');
+    this.sendYoutubeCommand('setVolume', [100]);
+    this.sendYoutubeCommand('playVideo');
   }
 
   private getYoutubeIframe(): HTMLIFrameElement | null {
@@ -652,6 +667,9 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
       return;
     }
     let state: number | undefined;
+    if (payload.event === 'onReady') {
+      this.ngZone.run(() => this.activateYoutubeSound());
+    }
     if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
       state = payload.info;
     } else if (payload.info && typeof payload.info === 'object' && !Array.isArray(payload.info)) {
@@ -667,6 +685,9 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
     this.ngZone.run(() => {
       if (!this.state.open || !this.embedUrl) {
         return;
+      }
+      if (state === 1 || state === 5) {
+        this.activateYoutubeSound();
       }
       if (state === 1 || state === 3) {
         this.youtubePlayer.setPaused(false);

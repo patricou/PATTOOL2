@@ -409,7 +409,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.stopPlayAll();
     this.abortClientRecording(false);
     this.stopClipPlayback();
-    this.equalizer.release();
+    this.equalizer.stopTabCapture();
   }
 
   onQueryChanged(): void {
@@ -979,7 +979,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
 
   onClipVideoReady(video: HTMLVideoElement): void {
     this.clipVideoEl = video;
-    this.equalizer.engageMedia(video);
+    if (this.youtubeEqFromPage) {
+      this.equalizer.engageMedia(video);
+    }
     this.clipLoading = false;
     if (this.clipAutoplayDone) {
       return;
@@ -1188,6 +1190,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   }
 
   openEqualizer(): void {
+    this.youtubeEqFromPage = true;
     const clip = this.clipVideoEl || this.clipPlayer?.nativeElement;
     if (clip) {
       this.equalizer.attachMediaElement(clip);
@@ -1572,6 +1575,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.selected = this.decodeYoutubeItem(item);
+    this.ytSoundOnId = '';
     this.resetPlaybackClock(this.selected);
     this.playbackPaused = false;
     if (this.playerOpen) {
@@ -3043,7 +3047,21 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     if (!this.ytApiListening) {
       this.sendYoutubeCommand('addEventListener', ['onStateChange']);
       this.sendYoutubeCommand('addEventListener', ['onError']);
+      this.sendYoutubeCommand('addEventListener', ['onReady']);
     }
+    this.activateYoutubeSound();
+  }
+
+  /** YouTube autoplay is often muted. Turn the player sound on once it can take commands. */
+  private activateYoutubeSound(): void {
+    const id = this.selected?.id || '';
+    if (this.destroyed || !id || this.ytSoundOnId === id || !this.getYoutubeIframe()) {
+      return;
+    }
+    this.ytSoundOnId = id;
+    this.sendYoutubeCommand('unMute');
+    this.sendYoutubeCommand('setVolume', [100]);
+    this.sendYoutubeCommand('playVideo');
   }
 
   /**
@@ -3100,6 +3118,10 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.postToYoutube({ event: 'command', func, args, id: 'yt-page-embed' });
   }
 
+  private ytSoundOnId = '';
+  /** Set only when the user opens the equalizer on this page. */
+  private youtubeEqFromPage = false;
+
   private onYoutubeProgressMessage(event: MessageEvent): void {
     if (this.destroyed || this.playerOpen || !this.embedUrl) {
       return;
@@ -3132,9 +3154,12 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       });
       return;
     }
+    if (payload.event === 'onReady') {
+      this.activateYoutubeSound();
+    }
     if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
-      if (payload.info === 1) {
-        this.equalizer.resumeCaptureIfLive();
+      if (payload.info === 1 || payload.info === 5) {
+        this.activateYoutubeSound();
       }
       this.scheduleYoutubeProgress({ playerState: payload.info });
       return;
@@ -3149,9 +3174,6 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     const update: { currentTime?: number; duration?: number; playerState?: number } = {};
     if (typeof playerState === 'number') {
       update.playerState = playerState;
-      if (playerState === 1) {
-        this.equalizer.resumeCaptureIfLive();
-      }
     }
     if (typeof currentTime === 'number' && Number.isFinite(currentTime)) {
       update.currentTime = Math.max(0, currentTime);

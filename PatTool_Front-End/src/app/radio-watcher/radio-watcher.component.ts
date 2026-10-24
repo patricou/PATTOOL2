@@ -268,7 +268,10 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
       this.eqSourceLive = kind !== 'none';
       this.refreshEqIndicator();
     }));
-    this.eqSub.add(this.equalizer.settings$.subscribe(() => this.refreshEqIndicator()));
+    this.eqSub.add(this.equalizer.settings$.subscribe(() => {
+      this.refreshEqIndicator();
+      this.onEqAudioPlaying();
+    }));
   }
 
   get isAllCountries(): boolean {
@@ -305,15 +308,23 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  private readonly onEqAudioPlaying = (): void => {
+    if (!this.pageAlive || this.isFloatingOpen) {
+      return;
+    }
+    const media = this.liveAudio;
+    if (!media || media.paused) {
+      return;
+    }
+    void this.engageEqualizer(media);
+  };
+
   private async engageEqualizer(media: HTMLMediaElement): Promise<void> {
     if (!this.pageAlive || this.isFloatingOpen || !this.equalizer.wantsProcessing) {
       return;
     }
-    const running = await this.equalizer.resume();
-    if (!running || !this.pageAlive || this.isFloatingOpen) {
-      return;
-    }
-    this.equalizer.attachMediaElement(media);
+    void this.equalizer.resume();
+    this.equalizer.engageMedia(media);
   }
 
   private armPlaybackGesture(station: RadioStation, gen: number, reload: boolean): void {
@@ -616,6 +627,8 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit(): void {
     this.liveAudio.addEventListener('volumechange', this.onLiveVolume);
+    this.liveAudio.addEventListener('playing', this.onEqAudioPlaying);
+    this.onEqAudioPlaying();
     window.addEventListener('patradiotransport', this.onBluetoothTune);
     window.addEventListener('patmediavolumeui', this.onDeviceVolumeUi);
     this.keepAliveOnNavigate = this.readKeepAlivePreference();
@@ -679,6 +692,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     window.removeEventListener('patmediavolumeui', this.onDeviceVolumeUi);
     this.pageAlive = false;
     this.liveAudio.removeEventListener('volumechange', this.onLiveVolume);
+    this.liveAudio.removeEventListener('playing', this.onEqAudioPlaying);
     this.eqSub?.unsubscribe();
     this.clearPlaybackGesture();
     this.eqModal?.close();
@@ -1873,6 +1887,17 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  private forceAudible(media: HTMLMediaElement): void {
+    media.muted = false;
+    this.isMuted = false;
+    if (media.volume === 0 || this.volumePercent <= 0) {
+      this.volumePercent = 80;
+      media.volume = 0.8;
+      return;
+    }
+    media.volume = this.volumePercent / 100;
+  }
+
   ensureSound(event?: Event): void {
     event?.stopPropagation();
     const media = this.liveAudio;
@@ -2353,11 +2378,18 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.isBuffering = false;
     this.playError = '';
+    this.forceAudible(media);
+    void media.play().catch(() => undefined);
+    void this.engageEqualizer(media);
     this.cdr.markForCheck();
   }
 
   private playStation(station: RadioStation, reason: 'user' | 'reconnect' | 'restore' = 'user'): void {
     const media = this.liveAudio;
+    if (this.pageAlive && media && this.equalizer.wantsProcessing && !this.radioPlayer.isOpen) {
+      void this.equalizer.resume();
+      this.equalizer.engageMedia(media);
+    }
     if (!this.pageAlive || !media || !station?.streamUrl || this.radioPlayer.isOpen) {
       return;
     }
@@ -2408,11 +2440,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
       if (gen !== this.playGeneration) {
         return;
       }
-      media.muted = false;
-      this.isMuted = false;
-      if (media.volume === 0) {
-        media.volume = this.volumePercent / 100 || 1;
-      }
+      this.forceAudible(media);
       void media.play().then(() => {
         if (gen !== this.playGeneration) {
           return;
@@ -2428,17 +2456,16 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
         const name = err && typeof err === 'object' && 'name' in err ? String((err as { name: string }).name) : '';
         if (name === 'NotAllowedError') {
           media.muted = true;
-          this.isMuted = true;
           void media.play().then(() => {
             if (gen !== this.playGeneration) {
               return;
             }
+            this.forceAudible(media);
             this.isBuffering = false;
             this.isReconnecting = false;
             this.playError = '';
-            if (reason === 'user') {
-              void this.engageEqualizer(media);
-            } else {
+            void this.engageEqualizer(media);
+            if (media.muted || media.paused) {
               this.armPlaybackGesture(station, gen, false);
             }
             this.cdr.markForCheck();

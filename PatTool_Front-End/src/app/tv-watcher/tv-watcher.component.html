@@ -763,13 +763,6 @@
             </div>
           </div>
           <div
-            class="tv-unmute-hint"
-            *ngIf="selectedChannel && (isMuted || volumePercent === 0) && !isFloatingOpen && !playError"
-            (click)="ensureSound($event)">
-            <i class="fa fa-volume-up" aria-hidden="true"></i>
-            {{ 'TV.UNMUTE' | translate }}
-          </div>
-          <div
             class="tv-play-error"
             *ngIf="playError"
             role="alert">
