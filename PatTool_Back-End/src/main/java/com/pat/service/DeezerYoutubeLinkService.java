@@ -8,7 +8,6 @@ import com.pat.repo.DeezerYoutubeLinkRepository;
 import com.pat.repo.domain.DeezerYoutubeLink;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -25,7 +24,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DeezerYoutubeLinkService {
 
     public static final int MAX_TRACKS = 20;
-    private static final Duration MISS_TTL = Duration.ofDays(7);
 
     private final DeezerYoutubeLinkRepository repository;
     private final YoutubeProxyService youtubeProxyService;
@@ -106,14 +104,9 @@ public class DeezerYoutubeLinkService {
     }
 
     static boolean fresh(DeezerYoutubeLink stored, String query) {
-        if (stored == null || stored.getUpdatedAt() == null || !query.equals(stored.getQuery())) {
-            return false;
-        }
-        String videoId = stored.getVideoId() == null ? "" : stored.getVideoId().trim();
-        if (!videoId.isEmpty()) {
-            return true;
-        }
-        return stored.getUpdatedAt().isAfter(Instant.now().minus(MISS_TTL));
+        return stored != null
+                && stored.getUpdatedAt() != null
+                && query.equals(stored.getQuery());
     }
 
     static String queryOf(String artist, String title) {

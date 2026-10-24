@@ -156,6 +156,8 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   youtubeTitle = '';
   ytLinks: Record<number, string> = {};
   ytFromCache: Record<number, boolean> = {};
+  ytMiss: Record<number, boolean> = {};
+  ytPending: Record<number, boolean> = {};
   loading = false;
   errorKey = '';
   playErrorKey = '';
@@ -177,6 +179,10 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   private ytToken = 0;
   private ytIgnoreEnd = 0;
   private ytReplay = 0;
+  private ytHandshakeTimer: ReturnType<typeof setInterval> | null = null;
+  private ytHandshakeTries = 0;
+  private ytApiListening = false;
+  private ytSoundArmed = false;
   private repeatQueue = false;
   private readonly ytCache = new Map<number, string | null>();
   private readonly search$ = new Subject<string>();
@@ -232,6 +238,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.ytSub?.unsubscribe();
     this.ytPrefetch?.unsubscribe();
     this.ytScan?.unsubscribe();
+    this.stopYoutubeHandshake();
     this.sleeveSub?.unsubscribe();
     document.body.classList.remove('radio-focus', 'radio-stage-fs');
     const audio = this.audioRef?.nativeElement;
@@ -379,6 +386,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     if (mode === 'favorites') {
       this.loading = false;
       this.errorKey = '';
+      this.view = this.firstFavoriteView();
       this.refreshQueue();
       this.ytScanKey = '';
       this.syncYoutubeButtons();
@@ -404,6 +412,31 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.queue = tracks;
     this.current = null;
     this.playTrack(first, 0);
+  }
+
+  onYoutubeIcon(track: DeezerTrack, index: number, event?: Event): void {
+    event?.stopPropagation();
+    if (this.ytPending[track.id] || this.ytMiss[track.id]) {
+      return;
+    }
+    if (this.ytLinks[track.id]) {
+      this.playYoutubeTrack(track, index);
+      return;
+    }
+    this.lookupYoutubeLink(track, index);
+  }
+
+  ytIconLabel(track: DeezerTrack): string {
+    if (this.ytPending[track.id]) {
+      return this.translate.instant('DEEZER.YT_SEARCHING');
+    }
+    if (this.ytMiss[track.id]) {
+      return this.translate.instant('DEEZER.YT_MISS_HINT');
+    }
+    if (this.ytLinks[track.id]) {
+      return this.translate.instant(this.ytFromCache[track.id] ? 'DEEZER.YT_CACHED_HINT' : 'DEEZER.YT_PLAY');
+    }
+    return this.translate.instant('DEEZER.YT_LOOKUP');
   }
 
   playYoutubeTrack(track: DeezerTrack, index: number, event?: Event): void {
@@ -554,7 +587,12 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
 
   togglePlay(): void {
     if (this.youtubeEmbed) {
-      this.postYoutube(this.playing ? 'pauseVideo' : 'playVideo');
+      const func = this.playing ? 'pauseVideo' : 'playVideo';
+      this.handshakeYoutube();
+      this.postYoutubeCommand(func);
+      if (func === 'playVideo') {
+        this.pushYoutubeSound();
+      }
       this.playing = !this.playing;
       return;
     }
@@ -985,7 +1023,8 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     }
     this.hushOthers(audio);
     audio.crossOrigin = 'anonymous';
-    audio.volume = this.muted ? 0 : this.volume;
+    audio.muted = false;
+    audio.volume = this.volume;
     audio.src = url;
     if (audio.ended || audio.currentTime > 0) {
       try {
@@ -1010,7 +1049,8 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   private applyVolume(): void {
     const audio = this.audioRef?.nativeElement;
     if (audio) {
-      audio.volume = this.muted ? 0 : this.volume;
+      audio.muted = false;
+      audio.volume = this.volume;
     }
   }
 
@@ -1266,6 +1306,14 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     } else if (payload.info && typeof payload.info === 'object' && typeof payload.info['playerState'] === 'number') {
       state = payload.info['playerState'] as number;
     }
+    this.ytApiListening = true;
+    if (payload.event === 'onReady' || state === 5) {
+      this.pushYoutubeSound();
+    }
+    if (state === 1 && this.ytFrame?.nativeElement?.contentWindow) {
+      this.pushYoutubeSound();
+      this.ytSoundArmed = true;
+    }
     if (state === 1) {
       this.playing = true;
       this.youtubeBusy = false;
@@ -1274,6 +1322,12 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     } else if (state === 0 && Date.now() >= this.ytIgnoreEnd && this.youtubeMode) {
       this.next();
     }
+  }
+
+  onYoutubeFrameLoad(): void {
+    this.ytApiListening = false;
+    this.handshakeYoutube();
+    this.pushYoutubeSound();
   }
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
@@ -1473,8 +1527,12 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
 
   private readVolume(): number {
     try {
-      const raw = Number(localStorage.getItem(DeezerWatcherComponent.VOLUME_KEY));
-      if (Number.isFinite(raw) && raw >= 0 && raw <= 1) {
+      const stored = localStorage.getItem(DeezerWatcherComponent.VOLUME_KEY);
+      if (stored == null || stored.trim() === '') {
+        return 0.9;
+      }
+      const raw = Number(stored);
+      if (Number.isFinite(raw) && raw > 0 && raw <= 1) {
         return raw;
       }
     } catch {
@@ -1507,6 +1565,9 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.youtubeEmbed = null;
     this.youtubeTitle = '';
     this.youtubeBusy = false;
+    this.stopYoutubeHandshake();
+    this.ytApiListening = false;
+    this.ytSoundArmed = false;
   }
 
   private resolveYoutube(track: DeezerTrack): void {
@@ -1540,7 +1601,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
           return;
         }
         const id = (link.videoId || '').trim() || null;
-        this.rememberYoutube(track.id, id, !!link.cached);
+        this.rememberYoutube(track.id, id);
         this.applyYoutubeHit(track, id, token);
         this.prefetchNextYoutube();
       },
@@ -1574,6 +1635,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     );
     this.playing = true;
     this.playErrorKey = '';
+    this.armYoutubeSound();
   }
 
   private prefetchNextYoutube(): void {
@@ -1598,22 +1660,67 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
       next: (page) => {
         const link = (page?.links || []).find((item) => item.id === next.id);
         if (link) {
-          this.rememberYoutube(next.id, (link.videoId || '').trim() || null, !!link.cached);
+          this.rememberYoutube(next.id, (link.videoId || '').trim() || null);
         }
       },
       error: () => { /* the track will be searched again when it starts */ }
     });
   }
 
-  private rememberYoutube(id: number, videoId: string | null, fromCache = false): void {
-    this.ytCache.set(id, videoId);
-    if (fromCache && videoId) {
-      this.ytFromCache = { ...this.ytFromCache, [id]: true };
-    }
-    if (!videoId) {
+  private lookupYoutubeLink(track: DeezerTrack, index: number): void {
+    if (this.youtubeQuery(track).length < 2) {
       return;
     }
-    this.ytLinks = { ...this.ytLinks, [id]: videoId };
+    this.ytPending = { ...this.ytPending, [track.id]: true };
+    this.api.resolveDeezerYoutubeLinks([{
+      id: track.id,
+      artist: track.artistName || '',
+      title: track.title || ''
+    }], true).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (page) => {
+        this.clearYoutubePending(track.id);
+        const link = (page?.links || []).find((item) => item.id === track.id);
+        if (!link) {
+          return;
+        }
+        const videoId = (link.videoId || '').trim() || null;
+        this.rememberYoutube(track.id, videoId);
+        if (videoId) {
+          this.playYoutubeTrack(track, index);
+        }
+      },
+      error: () => this.clearYoutubePending(track.id)
+    });
+  }
+
+  private clearYoutubePending(id: number): void {
+    if (!this.ytPending[id]) {
+      return;
+    }
+    const next = { ...this.ytPending };
+    delete next[id];
+    this.ytPending = next;
+  }
+
+  private rememberYoutube(id: number, videoId: string | null): void {
+    this.ytCache.set(id, videoId);
+    if (videoId) {
+      this.ytLinks = { ...this.ytLinks, [id]: videoId };
+      this.ytFromCache = { ...this.ytFromCache, [id]: true };
+      if (this.ytMiss[id]) {
+        const miss = { ...this.ytMiss };
+        delete miss[id];
+        this.ytMiss = miss;
+      }
+      return;
+    }
+    const links = { ...this.ytLinks };
+    delete links[id];
+    this.ytLinks = links;
+    const cached = { ...this.ytFromCache };
+    delete cached[id];
+    this.ytFromCache = cached;
+    this.ytMiss = { ...this.ytMiss, [id]: true };
   }
 
   private syncYoutubeButtons(): void {
@@ -1658,7 +1765,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
 
   private applyYoutubeLinks(links: { id: number; videoId?: string; cached?: boolean }[]): void {
     for (const link of links) {
-      this.rememberYoutube(link.id, (link.videoId || '').trim() || null, !!link.cached);
+      this.rememberYoutube(link.id, (link.videoId || '').trim() || null);
     }
   }
 
@@ -1666,12 +1773,67 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     return `${track.artistName || ''} ${track.title || ''}`.replace(/\s+/g, ' ').trim().slice(0, 100);
   }
 
-  private postYoutube(func: 'playVideo' | 'pauseVideo'): void {
+  /** YouTube autoplay starts muted. Ask the player to turn the sound on once it accepts commands. */
+  private armYoutubeSound(): void {
+    this.stopYoutubeHandshake();
+    this.ytApiListening = false;
+    this.ytSoundArmed = false;
+    this.ytHandshakeTries = 0;
+    this.handshakeYoutube();
+    this.pushYoutubeSound();
+    this.ytHandshakeTimer = setInterval(() => {
+      if (!this.youtubeEmbed || this.ytSoundArmed || this.ytHandshakeTries++ > 20) {
+        this.stopYoutubeHandshake();
+        return;
+      }
+      this.handshakeYoutube();
+      this.pushYoutubeSound();
+    }, 400);
+  }
+
+  private stopYoutubeHandshake(): void {
+    if (this.ytHandshakeTimer != null) {
+      clearInterval(this.ytHandshakeTimer);
+      this.ytHandshakeTimer = null;
+    }
+  }
+
+  private handshakeYoutube(): void {
     const frame = this.ytFrame?.nativeElement?.contentWindow;
     if (!frame) {
       return;
     }
-    frame.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*');
+    try {
+      frame.postMessage(JSON.stringify({ event: 'listening', id: 'dz-yt' }), '*');
+    } catch {
+      return;
+    }
+    if (!this.ytApiListening) {
+      this.postYoutubeCommand('addEventListener', ['onReady']);
+      this.postYoutubeCommand('addEventListener', ['onStateChange']);
+      this.postYoutubeCommand('addEventListener', ['onError']);
+    }
+  }
+
+  private pushYoutubeSound(): void {
+    if (this.ytSoundArmed || !this.youtubeEmbed || !this.ytFrame?.nativeElement?.contentWindow) {
+      return;
+    }
+    this.postYoutubeCommand('unMute');
+    this.postYoutubeCommand('setVolume', [100]);
+    this.postYoutubeCommand('playVideo');
+  }
+
+  private postYoutubeCommand(func: string, args: unknown[] = []): void {
+    const frame = this.ytFrame?.nativeElement?.contentWindow;
+    if (!frame) {
+      return;
+    }
+    try {
+      frame.postMessage(JSON.stringify({ event: 'command', func, args, id: 'dz-yt' }), '*');
+    } catch {
+      /* the frame is already gone */
+    }
   }
 
   private readSleeve(): boolean {
@@ -1708,6 +1870,23 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
 
   private trackHay(track: DeezerTrack): string {
     return `${track.title || ''} ${track.artistName || ''} ${track.albumTitle || ''}`;
+  }
+
+  /** The catalog tab that actually holds starred items. Titles first. */
+  private firstFavoriteView(): DeezerSearchType {
+    if (this.favoriteTracks.length) {
+      return 'track';
+    }
+    if (this.favoriteAlbums.length) {
+      return 'album';
+    }
+    if (this.favoriteArtists.length) {
+      return 'artist';
+    }
+    if (this.favoritePlaylists.length) {
+      return 'playlist';
+    }
+    return 'track';
   }
 
   private favId(fav: DzFav): number {

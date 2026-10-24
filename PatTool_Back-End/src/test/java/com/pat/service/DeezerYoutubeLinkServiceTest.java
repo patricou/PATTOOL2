@@ -118,10 +118,8 @@ class DeezerYoutubeLinkServiceTest {
     }
 
     @Test
-    void oldMissIsSearchedAgain() {
-        DeezerYoutubeLink stored = hit(9L, "Daft Punk Within", "");
-        stored.setUpdatedAt(Instant.now().minus(8, ChronoUnit.DAYS));
-        when(repository.findById("9")).thenReturn(Optional.of(stored));
+    void emptySearchIsStored() {
+        when(repository.findById("9")).thenReturn(Optional.empty());
         when(youtubeProxyService.isConfigured()).thenReturn(true);
         when(youtubeProxyService.search(eq("Daft Punk Within"), eq("video"), isNull(), isNull(), isNull(), isNull(), eq(5), isNull(), isNull()))
                 .thenReturn(new YoutubeSearchPageDto(
@@ -135,7 +133,26 @@ class DeezerYoutubeLinkServiceTest {
 
         assertEquals("", response.links().get(0).videoId());
         assertFalse(response.links().get(0).cached());
-        verify(repository).save(any());
+        ArgumentCaptor<DeezerYoutubeLink> saved = ArgumentCaptor.forClass(DeezerYoutubeLink.class);
+        verify(repository).save(saved.capture());
+        assertEquals("", saved.getValue().getVideoId());
+    }
+
+    @Test
+    void storedMissSkipsYoutube() {
+        DeezerYoutubeLink stored = hit(9L, "Daft Punk Within", "");
+        stored.setUpdatedAt(Instant.now().minus(8, ChronoUnit.DAYS));
+        when(repository.findById("9")).thenReturn(Optional.of(stored));
+        DeezerYoutubeLinkService service = new DeezerYoutubeLinkService(repository, youtubeProxyService);
+
+        DeezerYoutubeLookupResponse response = service.resolve(List.of(
+                new DeezerYoutubeLookupRequest.Track(9L, "Daft Punk", "Within")
+        ), true);
+
+        assertEquals("", response.links().get(0).videoId());
+        assertTrue(response.links().get(0).cached());
+        verifyNoInteractions(youtubeProxyService);
+        verify(repository, never()).save(any());
     }
 
     private static DeezerYoutubeLink hit(long id, String query, String videoId) {

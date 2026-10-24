@@ -713,7 +713,7 @@
 
               <button
                 type="button"
-                class="radio-now-action radio-now-action--accent"
+                class="radio-now-action radio-now-action--accent radio-hide-mobile"
                 *ngIf="!isFloatingOpen"
                 (click)="openFloatingWindow()"
                 [attr.title]="'RADIO.FLOAT_OPEN' | translate">
@@ -722,7 +722,7 @@
 
               <button
                 type="button"
-                class="radio-now-action"
+                class="radio-now-action radio-hide-mobile"
                 [class.is-lit]="isPipActive"
                 *ngIf="pipSupported && !isFloatingOpen"
                 (click)="togglePictureInPicture()"
@@ -785,14 +785,14 @@
               </button>
               <button
                 type="button"
-                class="radio-now-action radio-now-action--stop"
+                class="radio-now-action radio-now-action--stop radio-hide-mobile"
                 (click)="stopPlayback()"
                 [attr.title]="'RADIO.STOP' | translate">
                 <i class="fa fa-stop"></i>
               </button>
 
               <label
-                class="radio-keep-alive"
+                class="radio-keep-alive radio-hide-mobile"
                 (click)="$event.stopPropagation()"
                 [attr.title]="'RADIO.KEEP_ALIVE_HINT' | translate">
                 <input

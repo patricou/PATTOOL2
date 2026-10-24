@@ -235,19 +235,19 @@
       <div class="dz-tabs" *ngIf="!drilled" role="tablist">
         <button type="button" class="dz-tab" [class.is-on]="view === 'track'" (click)="setView('track')">
           {{ 'DEEZER.TAB_TRACKS' | translate }}
-          <span *ngIf="shownTracks.length">{{ shownTracks.length }}</span>
+          <span *ngIf="(listMode === 'favorites' ? favoriteTracks.length : shownTracks.length) as tabCount">{{ tabCount }}</span>
         </button>
         <button type="button" class="dz-tab" [class.is-on]="view === 'album'" (click)="setView('album')">
           {{ 'DEEZER.TAB_ALBUMS' | translate }}
-          <span *ngIf="shownAlbums.length">{{ shownAlbums.length }}</span>
+          <span *ngIf="(listMode === 'favorites' ? favoriteAlbums.length : shownAlbums.length) as tabCount">{{ tabCount }}</span>
         </button>
         <button type="button" class="dz-tab" [class.is-on]="view === 'artist'" (click)="setView('artist')">
           {{ 'DEEZER.TAB_ARTISTS' | translate }}
-          <span *ngIf="shownArtists.length">{{ shownArtists.length }}</span>
+          <span *ngIf="(listMode === 'favorites' ? favoriteArtists.length : shownArtists.length) as tabCount">{{ tabCount }}</span>
         </button>
         <button type="button" class="dz-tab" [class.is-on]="view === 'playlist'" (click)="setView('playlist')">
           {{ 'DEEZER.TAB_PLAYLISTS' | translate }}
-          <span *ngIf="shownPlaylists.length">{{ shownPlaylists.length }}</span>
+          <span *ngIf="(listMode === 'favorites' ? favoritePlaylists.length : shownPlaylists.length) as tabCount">{{ tabCount }}</span>
         </button>
       </div>
 
@@ -276,18 +276,20 @@
             <span class="dz-row-sub">{{ track.artistName }}<ng-container *ngIf="track.albumTitle"> · {{ track.albumTitle }}</ng-container></span>
           </span>
           <span class="dz-dur">{{ formatTime(track.durationSec) }}</span>
-          <span
-            class="dz-yt-cache"
-            *ngIf="ytFromCache[track.id]"
-            [attr.title]="'DEEZER.YT_CACHED_HINT' | translate">{{ 'DEEZER.YT_CACHED' | translate }}</span>
           <button
             type="button"
             class="dz-yt-btn"
-            *ngIf="ytLinks[track.id]"
-            (click)="playYoutubeTrack(track, i, $event)"
-            [attr.title]="'DEEZER.YT_PLAY' | translate"
-            [attr.aria-label]="'DEEZER.YT_PLAY' | translate">
-            <i class="fa fa-youtube" aria-hidden="true"></i>
+            [class.is-miss]="ytMiss[track.id]"
+            [class.is-busy]="ytPending[track.id]"
+            (click)="onYoutubeIcon(track, i, $event)"
+            [attr.title]="ytIconLabel(track)"
+            [attr.aria-label]="ytIconLabel(track)">
+            <span class="dz-yt-ico">
+              <i class="fa fa-spinner fa-spin" *ngIf="ytPending[track.id]" aria-hidden="true"></i>
+              <i class="fa fa-youtube" *ngIf="!ytPending[track.id]" aria-hidden="true"></i>
+              <span class="dz-yt-dot" *ngIf="ytFromCache[track.id] && !ytPending[track.id]" aria-hidden="true"></span>
+              <span class="dz-yt-dot dz-yt-dot--miss" *ngIf="ytMiss[track.id]" aria-hidden="true"></span>
+            </span>
           </button>
           <button type="button" class="dz-fav" [class.is-on]="isFavorite('track', track.id)" (click)="toggleTrackFavorite(track, $event)" [attr.aria-label]="(isFavorite('track', track.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
             <i class="fa" [class.fa-star]="isFavorite('track', track.id)" [class.fa-star-o]="!isFavorite('track', track.id)"></i>
@@ -489,8 +491,10 @@
             class="dz-yt"
             [src]="youtubeEmbed"
             [title]="youtubeTitle || 'YouTube'"
-            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-            allowfullscreen>
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+            allowfullscreen
+            referrerpolicy="strict-origin-when-cross-origin"
+            (load)="onYoutubeFrameLoad()">
           </iframe>
         </div>
 
@@ -500,15 +504,16 @@
               <img *ngIf="current.coverUrl" class="radio-now-logo" [src]="current.coverUrl" alt="" />
               <div class="radio-now-text">
                 <div class="radio-now-name">
-                  <img
-                    *ngIf="youtubeEmbed"
-                    class="dz-yt-mark"
-                    src="assets/images/youtube-logo.svg"
-                    alt="YouTube" />
                   <span
-                    class="dz-yt-cache"
-                    *ngIf="youtubeEmbed && ytFromCache[current.id]"
-                    [attr.title]="'DEEZER.YT_CACHED_HINT' | translate">{{ 'DEEZER.YT_CACHED' | translate }}</span>
+                    class="dz-yt-logo"
+                    *ngIf="youtubeEmbed"
+                    [attr.title]="ytFromCache[current.id] ? ('DEEZER.YT_CACHED_HINT' | translate) : null">
+                    <img
+                      class="dz-yt-mark"
+                      src="assets/images/youtube-logo.svg"
+                      alt="YouTube" />
+                    <span class="dz-yt-dot" *ngIf="ytFromCache[current.id]" aria-hidden="true"></span>
+                  </span>
                   {{ current.title }}
                   <span class="dz-explicit" *ngIf="current.explicit">E</span>
                 </div>
@@ -532,8 +537,8 @@
                 <i class="fa fa-sliders"></i>
                 <span class="radio-eq-open-badge" *ngIf="eqActive" aria-hidden="true"></span>
               </button>
-              <button type="button" class="radio-now-action radio-now-action--accent" [class.is-lit]="docked" (click)="toggleDock()" [attr.title]="'RADIO.FLOAT_OPEN' | translate"><i class="fa fa-window-restore"></i></button>
-              <button type="button" class="radio-now-action" [class.is-lit]="isPipActive" *ngIf="pipSupported" (click)="togglePictureInPicture()" [attr.title]="(isPipActive ? 'RADIO.PIP_EXIT' : 'RADIO.PIP') | translate">
+              <button type="button" class="radio-now-action radio-now-action--accent dz-hide-mobile" [class.is-lit]="docked" (click)="toggleDock()" [attr.title]="'RADIO.FLOAT_OPEN' | translate"><i class="fa fa-window-restore"></i></button>
+              <button type="button" class="radio-now-action dz-hide-mobile" [class.is-lit]="isPipActive" *ngIf="pipSupported" (click)="togglePictureInPicture()" [attr.title]="(isPipActive ? 'RADIO.PIP_EXIT' : 'RADIO.PIP') | translate">
                 <i class="fa" [class.fa-compress]="isPipActive" [class.fa-clone]="!isPipActive"></i>
               </button>
               <button type="button" class="radio-now-action" [disabled]="!youtubeSearchQuery" (click)="openOnYoutube()" [attr.title]="'RADIO.YOUTUBE_SEARCH' | translate"><i class="fa fa-youtube"></i></button>
@@ -551,9 +556,9 @@
               <button type="button" class="radio-now-action" [class.is-lit]="stageFullscreen" (click)="toggleStageFullscreen($event)" [attr.title]="(stageFullscreen ? 'RADIO.FULLSCREEN_EXIT' : 'RADIO.FULLSCREEN') | translate">
                 <i class="fa" [class.fa-compress]="stageFullscreen" [class.fa-expand]="!stageFullscreen"></i>
               </button>
-              <button type="button" class="radio-now-action radio-now-action--stop" (click)="stop()" [disabled]="!current" [attr.title]="'RADIO.STOP' | translate"><i class="fa fa-stop"></i></button>
+              <button type="button" class="radio-now-action radio-now-action--stop dz-hide-mobile" (click)="stop()" [disabled]="!current" [attr.title]="'RADIO.STOP' | translate"><i class="fa fa-stop"></i></button>
               <a *ngIf="current?.link" class="radio-now-action dz-deezer-link" [href]="current?.link" target="_blank" rel="noopener" [attr.title]="'DEEZER.OPEN' | translate"><i class="fa fa-external-link"></i></a>
-              <label class="radio-keep-alive" (click)="$event.stopPropagation()" [attr.title]="'RADIO.KEEP_ALIVE_HINT' | translate">
+              <label class="radio-keep-alive dz-hide-mobile" (click)="$event.stopPropagation()" [attr.title]="'RADIO.KEEP_ALIVE_HINT' | translate">
                 <input class="radio-keep-alive-input" type="checkbox" role="switch" [ngModel]="keepAliveOnNavigate" (ngModelChange)="setKeepAlive($event)" [attr.aria-label]="'RADIO.KEEP_ALIVE' | translate" />
                 <span class="radio-keep-alive-track" aria-hidden="true"><span class="radio-keep-alive-knob"></span></span>
               </label>

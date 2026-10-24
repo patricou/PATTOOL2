@@ -390,6 +390,9 @@
 
 .dz-yt-btn {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 1.7rem;
   height: 1.7rem;
   border: 0;
@@ -400,28 +403,60 @@
   font-size: 1.05rem;
 }
 
+.dz-yt-ico,
+.dz-yt-logo {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  line-height: 1;
+}
+
+.dz-yt-dot {
+  position: absolute;
+  top: -0.14rem;
+  right: -0.18rem;
+  width: 0.46rem;
+  height: 0.46rem;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.72), transparent 46%),
+    var(--menu-accent, #7c3aed);
+  border: 1.5px solid var(--menu-accent-fg, #fff);
+  box-shadow:
+    0 0 0 1px var(--menu-border, transparent),
+    0 0 6px color-mix(in srgb, var(--menu-accent, #7c3aed) 55%, transparent);
+  pointer-events: none;
+}
+
+.dz-yt-btn.is-miss {
+  cursor: default;
+}
+
+.dz-yt-btn.is-busy {
+  cursor: progress;
+}
+
+.dz-yt-dot--miss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.68rem;
+  height: 0.68rem;
+  top: -0.22rem;
+  right: -0.24rem;
+  color: var(--menu-accent-fg, #fff);
+  font-size: 0.55rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.dz-yt-dot--miss::before {
+  content: "×";
+}
+
 .dz-yt-btn:hover,
 .dz-yt-btn:focus-visible {
   color: #ff4d47;
-}
-
-.dz-yt-cache {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  height: 1.15rem;
-  padding: 0 0.42rem;
-  border-radius: 999px;
-  border: 1px solid var(--menu-accent, #7c3aed);
-  background: var(--menu-accent, #7c3aed);
-  color: var(--menu-accent-fg, #fff);
-  font-family: "Open Sans", sans-serif;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  line-height: 1;
-  white-space: nowrap;
 }
 
 .dz-fav {
@@ -983,5 +1018,15 @@ a.radio-now-action.dz-deezer-link {
 
   .dz-cover {
     width: min(100%, 16rem);
+  }
+}
+
+@media (max-width: 640px) {
+  .radio-now-actions > .dz-hide-mobile {
+    display: none !important;
+  }
+
+  a.radio-now-action.dz-deezer-link {
+    margin-left: 0;
   }
 }
