@@ -582,9 +582,6 @@
                 (error)="dropTrackImage(i)" />
             </div>
           </div>
-          <div class="radio-sleeve-count" *ngIf="sleeveVisible">
-            {{ trackImageIndex + 1 }} / {{ trackImages.length }}
-          </div>
 
           <div class="radio-screen-fx" aria-hidden="true">
             <span class="radio-screen-fx-a"></span>
@@ -669,6 +666,10 @@
                   <span *ngIf="primaryTag(selectedStation) && selectedStation.codec"> · </span>
                   <span *ngIf="selectedStation.codec">{{ selectedStation.codec }}</span>
                   <span *ngIf="formatBitrate(selectedStation)"> · {{ formatBitrate(selectedStation) }}</span>
+                  <span class="radio-sleeve-count" *ngIf="sleeveVisible">
+                    <i class="fa fa-picture-o" aria-hidden="true"></i>
+                    {{ trackImageIndex + 1 }} / {{ trackImages.length }}
+                  </span>
                 </div>
               </div>
             </div>

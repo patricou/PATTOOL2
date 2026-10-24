@@ -4538,6 +4538,49 @@ export class ApiService {
     );
   }
 
+  // ===================================================================
+  // Deezer page — public catalog, 30-second previews only
+  // Backend: /api/external/deezer/*
+  // ===================================================================
+
+  getDeezerGenres(): Observable<DeezerGenre[]> {
+    return this._http.get<DeezerGenre[]>(this.API_URL + 'external/deezer/genres');
+  }
+
+  getDeezerChart(genreId: number): Observable<DeezerChart> {
+    const params = new HttpParams().set('genre', String(genreId || 0));
+    return this._http.get<DeezerChart>(this.API_URL + 'external/deezer/chart', { params });
+  }
+
+  getDeezerSearch(q: string, type: DeezerSearchType): Observable<DeezerSearch> {
+    const params = new HttpParams().set('q', q).set('type', type);
+    return this._http.get<DeezerSearch>(this.API_URL + 'external/deezer/search', { params });
+  }
+
+  getDeezerTrack(id: number, fresh = false): Observable<DeezerTrack> {
+    let params = new HttpParams();
+    if (fresh) {
+      params = params.set('fresh', 'true');
+    }
+    return this._http.get<DeezerTrack>(this.API_URL + 'external/deezer/track/' + id, { params });
+  }
+
+  getDeezerAlbum(id: number): Observable<DeezerAlbumPage> {
+    return this._http.get<DeezerAlbumPage>(this.API_URL + 'external/deezer/album/' + id);
+  }
+
+  getDeezerArtist(id: number): Observable<DeezerArtistPage> {
+    return this._http.get<DeezerArtistPage>(this.API_URL + 'external/deezer/artist/' + id);
+  }
+
+  getDeezerArtistAlbums(id: number): Observable<DeezerAlbum[]> {
+    return this._http.get<DeezerAlbum[]>(this.API_URL + 'external/deezer/artist/' + id + '/albums');
+  }
+
+  getDeezerPlaylist(id: number): Observable<DeezerPlaylistPage> {
+    return this._http.get<DeezerPlaylistPage>(this.API_URL + 'external/deezer/playlist/' + id);
+  }
+
   // --- Book watcher (Open Library / Gutenberg / LibriVox / Archive / Google / Standard Ebooks) ---
 
   searchOpenLibraryBooks(
@@ -7031,6 +7074,92 @@ export interface RadioNowPlaying {
   album?: string;
   label?: string;
   images?: RadioTrackImage[];
+}
+
+export type DeezerSearchType = 'track' | 'album' | 'artist' | 'playlist';
+
+export interface DeezerTrack {
+  id: number;
+  title: string;
+  artistName?: string;
+  artistId?: number;
+  albumTitle?: string;
+  albumId?: number;
+  coverUrl?: string;
+  previewUrl?: string;
+  durationSec?: number;
+  explicit?: boolean;
+  link?: string;
+}
+
+export interface DeezerAlbum {
+  id: number;
+  title: string;
+  artistName?: string;
+  artistId?: number;
+  coverUrl?: string;
+  releaseDate?: string;
+  trackCount?: number;
+  recordType?: string;
+  link?: string;
+}
+
+export interface DeezerArtist {
+  id: number;
+  name: string;
+  pictureUrl?: string;
+  albumCount?: number;
+  fanCount?: number;
+  link?: string;
+}
+
+export interface DeezerPlaylist {
+  id: number;
+  title: string;
+  userName?: string;
+  pictureUrl?: string;
+  trackCount?: number;
+  link?: string;
+}
+
+export interface DeezerGenre {
+  id: number;
+  name: string;
+  pictureUrl?: string;
+}
+
+export interface DeezerChart {
+  genreId: number;
+  tracks: DeezerTrack[];
+  albums: DeezerAlbum[];
+  artists: DeezerArtist[];
+  playlists: DeezerPlaylist[];
+}
+
+export interface DeezerSearch {
+  type: DeezerSearchType;
+  query: string;
+  tracks: DeezerTrack[];
+  albums: DeezerAlbum[];
+  artists: DeezerArtist[];
+  playlists: DeezerPlaylist[];
+}
+
+export interface DeezerAlbumPage {
+  album: DeezerAlbum;
+  tracks: DeezerTrack[];
+}
+
+export interface DeezerArtistPage {
+  artist: DeezerArtist;
+  tracks: DeezerTrack[];
+  albums: DeezerAlbum[];
+  related: DeezerArtist[];
+}
+
+export interface DeezerPlaylistPage {
+  playlist: DeezerPlaylist;
+  tracks: DeezerTrack[];
 }
 
 /** GET/PUT /api/external/radio/favorites — per authenticated user */

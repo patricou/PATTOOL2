@@ -287,6 +287,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./radio-watcher/radio-watcher.component').then(m => m.RadioWatcherComponent)
 			},
 			{
+				path: 'tools/deezer',
+				loadComponent: () => import('./deezer-watcher/deezer-watcher.component').then(m => m.DeezerWatcherComponent)
+			},
+			{
 				path: 'tools/book-watcher',
 				loadComponent: () => import('./book-watcher/book-watcher.component').then(m => m.BookWatcherComponent)
 			},

@@ -280,6 +280,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     readonly navMediaRaw: NavRouteMenuItem[] = [
         { routerLink: ['tools/tv-watcher'], icon: 'fa fa-television', labelKey: 'MENU.TV', logoSrc: 'assets/images/menu-tv.svg' },
         { routerLink: ['tools/radio-watcher'], icon: 'fa fa-headphones', labelKey: 'MENU.RADIO', logoSrc: 'assets/images/radio-mark.svg' },
+        { routerLink: ['tools/deezer'], icon: 'fa fa-music', labelKey: 'MENU.DEEZER' },
         { routerLink: ['tools/book-watcher'], icon: 'fa fa-book', labelKey: 'MENU.BOOK', logoSrc: 'assets/images/menu-book.svg' },
         { routerLink: ['tools/archive-watcher'], icon: 'fa fa-university', labelKey: 'MENU.ARCHIVE', logoSrc: 'assets/images/internet-archive-logo.svg' },
         { routerLink: ['tools/webcam'], icon: 'fa fa-video-camera', labelKey: 'MENU.WEBCAM', logoSrc: 'assets/images/menu-webcam.svg' },

@@ -163,7 +163,7 @@ export class YoutubeEqualizerService {
   /** Navigation click: unlock the graph and unmute players before the new page finishes loading. */
   private onMediaPageEnter(url: string): void {
     const path = (url || '').toLowerCase();
-    if (!path.includes('/tools/radio-watcher') && !path.includes('/tools/tv-watcher')) {
+    if (!path.includes('/tools/radio-watcher') && !path.includes('/tools/deezer') && !path.includes('/tools/tv-watcher')) {
       return;
     }
     void this.resume();

@@ -170,6 +170,7 @@ export class AboutComponent {
       links: [
         { route: '/tools/tv-watcher', icon: 'fa-television', labelKey: 'MENU.TV', descKey: 'ABOUT.FEAT_TV' },
         { route: '/tools/radio-watcher', icon: 'fa-headphones', labelKey: 'MENU.RADIO', descKey: 'ABOUT.FEAT_RADIO', logoSrc: 'assets/images/radio-mark.svg' },
+        { route: '/tools/deezer', icon: 'fa-music', labelKey: 'MENU.DEEZER', descKey: 'ABOUT.FEAT_DEEZER' },
         { route: '/tools/book-watcher', icon: 'fa-book', labelKey: 'MENU.BOOK', descKey: 'ABOUT.FEAT_BOOK' },
         { route: '/tools/archive-watcher', icon: 'fa-university', labelKey: 'MENU.ARCHIVE', descKey: 'ABOUT.FEAT_ARCHIVE', logoSrc: 'assets/images/internet-archive-logo.svg' },
         { route: '/tools/webcam', icon: 'fa-video-camera', labelKey: 'MENU.WEBCAM', descKey: 'ABOUT.FEAT_WEBCAM' },
