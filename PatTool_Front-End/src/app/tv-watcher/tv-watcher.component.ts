@@ -142,6 +142,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   videoEl?: ElementRef<HTMLVideoElement>;
   @ViewChild('eqModal') eqModal?: YoutubeEqualizerModalComponent;
   eqLive = false;
+  private eqSourceLive = false;
   private eqSub?: Subscription;
 
   countries: TvCountry[] = [];
@@ -473,10 +474,22 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     private membersService: MembersService,
     readonly equalizer: YoutubeEqualizerService
   ) {
-    this.eqSub = this.equalizer.sourceKind$.subscribe((kind) => {
-      this.eqLive = kind !== 'none';
-      this.cdr.markForCheck();
-    });
+    this.eqSub = new Subscription();
+    this.eqSub.add(this.equalizer.sourceKind$.subscribe((kind) => {
+      this.eqSourceLive = kind !== 'none';
+      this.refreshEqIndicator();
+    }));
+    this.eqSub.add(this.equalizer.settings$.subscribe(() => this.refreshEqIndicator()));
+  }
+
+  /** Pastille : le réglage enregistré est actif, même juste après un rechargement. */
+  get eqActive(): boolean {
+    return this.equalizer.wantsProcessing && (this.eqSourceLive || !!this.selectedChannel);
+  }
+
+  private refreshEqIndicator(): void {
+    this.eqLive = this.eqSourceLive;
+    this.cdr.markForCheck();
   }
 
   get isAllCountries(): boolean {

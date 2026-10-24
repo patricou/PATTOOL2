@@ -30,6 +30,8 @@ public class RadioKeepAliveService extends Service {
 
     private static final String CHANNEL_ID = "pattool_radio";
     private static final int NOTIFICATION_ID = 4701;
+    /** Same cap as the page (station, artist and song on one Bluetooth line). */
+    private static final int METADATA_LIMIT = 512;
 
     private PowerManager.WakeLock wakeLock;
 
@@ -50,8 +52,9 @@ public class RadioKeepAliveService extends Service {
         String title = clip(intent == null ? null : intent.getStringExtra(EXTRA_TITLE), "Radio");
         String artist = clip(intent == null ? null : intent.getStringExtra(EXTRA_ARTIST), "");
         String album = clip(intent == null ? null : intent.getStringExtra(EXTRA_ALBUM), "");
-        publishTrack(title, artist, album);
-        startInForeground(title, artist);
+        String shownTitle = bluetoothTitle(title, artist, album);
+        publishTrack(shownTitle, artist, album);
+        startInForeground(shownTitle, artist);
         acquireWakeLock();
         return START_NOT_STICKY;
     }
@@ -117,6 +120,8 @@ public class RadioKeepAliveService extends Service {
         session.setMetadata(new MediaMetadata.Builder()
                 .putString(MediaMetadata.METADATA_KEY_TITLE, title)
                 .putString(MediaMetadata.METADATA_KEY_ARTIST, artist)
+                .putString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST, artist)
+                .putString(MediaMetadata.METADATA_KEY_AUTHOR, artist)
                 .putString(MediaMetadata.METADATA_KEY_ALBUM, album)
                 .putString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE, title)
                 .putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, artist)
@@ -185,12 +190,64 @@ public class RadioKeepAliveService extends Service {
         }
     }
 
-    private static String clip(String value, String fallback) {
-        String safe = value == null ? "" : value.trim();
-        if (safe.isEmpty()) {
-            return fallback;
+    /**
+     * The page already builds "Station - Artist - Song". Keep that line.
+     * A bare song title still gets the artist in front. The station name used as a
+     * stand-in artist (same text as the album) is not repeated.
+     */
+    static String bluetoothTitle(String title, String artist, String album) {
+        String safeTitle = title == null || title.isEmpty() ? "Radio" : title;
+        if (safeTitle.contains(" - ")) {
+            return clip(safeTitle, "Radio");
         }
-        return safe.length() > 120 ? safe.substring(0, 120) : safe;
+        String safeArtist = artist == null ? "" : artist;
+        if (safeArtist.isEmpty() || safeArtist.equalsIgnoreCase(safeTitle)) {
+            return safeTitle;
+        }
+        String safeAlbum = album == null ? "" : album;
+        if (!safeAlbum.isEmpty() && safeArtist.equalsIgnoreCase(safeAlbum)) {
+            return safeTitle;
+        }
+        return clip(safeArtist + " - " + safeTitle, "Radio");
+    }
+
+    private static String clip(String value, String fallback) {
+        String safe = value == null ? "" : value.replace('\u00a0', ' ');
+        int start = 0;
+        while (start < safe.length() && safe.charAt(start) == ' ') {
+            start++;
+        }
+        if (start > 0) {
+            safe = safe.substring(start);
+        }
+        boolean trailing = !safe.isEmpty() && safe.charAt(safe.length() - 1) == ' ';
+        if (safe.length() > METADATA_LIMIT) {
+            safe = safe.substring(0, trailing ? METADATA_LIMIT - 1 : METADATA_LIMIT);
+        }
+        safe = oneTrailingSpace(safe);
+        return safe.trim().isEmpty() ? fallback : safe;
+    }
+
+    /** Several trailing spaces, or a blank " -" tail, become a single space. */
+    private static String oneTrailingSpace(String value) {
+        int end = value.length();
+        int i = end;
+        while (i > 0 && value.charAt(i - 1) == ' ') {
+            i--;
+        }
+        if (i > 0 && value.charAt(i - 1) == '-') {
+            int j = i - 1;
+            while (j > 0 && value.charAt(j - 1) == ' ') {
+                j--;
+            }
+            if (j > 0 && j < i - 1) {
+                return value.substring(0, j) + " ";
+            }
+        }
+        if (i == end || i == 0) {
+            return i == 0 ? "" : value;
+        }
+        return value.substring(0, i) + " ";
     }
 
     private void ensureChannel() {

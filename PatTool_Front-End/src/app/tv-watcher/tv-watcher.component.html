@@ -31,10 +31,11 @@
       class="tv-eq-open-btn"
       [class.is-live]="eqLive"
       (click)="openEqualizer()"
-      [attr.title]="'YOUTUBE.EQ.OPEN' | translate"
-      [attr.aria-label]="'YOUTUBE.EQ.OPEN' | translate">
+      [attr.title]="(eqActive ? 'YOUTUBE.EQ.MEDIA_ACTIVE' : 'YOUTUBE.EQ.OPEN') | translate"
+      [attr.aria-label]="(eqActive ? 'YOUTUBE.EQ.MEDIA_ACTIVE' : 'YOUTUBE.EQ.OPEN') | translate">
       <i class="fa fa-sliders" aria-hidden="true"></i>
       <span class="tv-eq-open-label">{{ 'YOUTUBE.EQ.OPEN' | translate }}</span>
+      <span class="tv-eq-open-badge" *ngIf="eqActive" aria-hidden="true"></span>
     </button>
     <button
       type="button"
@@ -860,13 +861,14 @@
                 </button>
                 <button
                   type="button"
-                  class="tv-now-action"
+                  class="tv-now-action tv-now-action--eq"
                   [class.is-lit]="eqLive"
                   (click)="openEqualizer()"
                   [disabled]="isFloatingOpen"
-                  [attr.title]="'YOUTUBE.EQ.OPEN' | translate"
-                  [attr.aria-label]="'YOUTUBE.EQ.OPEN' | translate">
+                  [attr.title]="(eqActive ? 'YOUTUBE.EQ.MEDIA_ACTIVE' : 'YOUTUBE.EQ.OPEN') | translate"
+                  [attr.aria-label]="(eqActive ? 'YOUTUBE.EQ.MEDIA_ACTIVE' : 'YOUTUBE.EQ.OPEN') | translate">
                   <i class="fa fa-sliders" aria-hidden="true"></i>
+                  <span class="tv-eq-open-badge" *ngIf="eqActive" aria-hidden="true"></span>
                 </button>
                 <label class="tv-volume-slider-wrap" *ngIf="!isFloatingOpen">
                   <span class="visually-hidden">{{ 'TV.VOLUME_LEVEL' | translate:{ percent: isMuted ? 0 : volumePercent } }}</span>

@@ -7,7 +7,7 @@
  * WebView is not frozen when the screen turns off.
  */
 
-import { screenIsOff, setScreenKeepAlive } from '../services/media-screen-keepalive';
+import { clipScreenText, screenIsOff, setScreenKeepAlive } from '../services/media-screen-keepalive';
 
 export interface RadioPlaybackGuard {
   requestReconnect(): void;
@@ -37,9 +37,9 @@ function syncNativeRadio(playing: boolean, media?: HTMLMediaElement): void {
     setScreenKeepAlive('radio', false);
     return;
   }
-  const title = (media?.getAttribute('data-pat-media-title') || media?.title || 'Radio').trim().slice(0, 120) || 'Radio';
-  const artist = (media?.getAttribute('data-pat-media-artist') || '').trim().slice(0, 120);
-  const album = (media?.getAttribute('data-pat-media-album') || '').trim().slice(0, 120);
+  const title = clipScreenText(media?.getAttribute('data-pat-media-title') || media?.title) || 'Radio';
+  const artist = clipScreenText(media?.getAttribute('data-pat-media-artist'));
+  const album = clipScreenText(media?.getAttribute('data-pat-media-album'));
   setScreenKeepAlive('radio', true, title, { artist, album });
 }
 

@@ -12,6 +12,9 @@ export interface ScreenKeepAliveTrack {
   album: string;
 }
 
+/** Bluetooth and lock-screen text. Long enough for station, artist and song. */
+export const SCREEN_KEEP_ALIVE_TEXT_LIMIT = 512;
+
 const owners = new Map<ScreenKeepAliveOwner, ScreenKeepAliveTrack>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -24,9 +27,9 @@ export function setScreenKeepAlive(
   if (playing) {
     const fallback = owner === 'radio' ? 'Radio' : 'YouTube';
     owners.set(owner, {
-      title: clipKeepAlive(title) || fallback,
-      artist: clipKeepAlive(extra?.artist),
-      album: clipKeepAlive(extra?.album)
+      title: clipScreenText(title) || fallback,
+      artist: clipScreenText(extra?.artist),
+      album: clipScreenText(extra?.album)
     });
   } else {
     owners.delete(owner);
@@ -46,8 +49,25 @@ export function setScreenKeepAlive(
   }, 50);
 }
 
-function clipKeepAlive(value: string | null | undefined): string {
-  return (value || '').trim().slice(0, 120);
+/** Trims the start. Several spaces or a blank tail at the end become one space. */
+export function clipScreenText(value: string | null | undefined): string {
+  let text = (value || '').replace(/\u00a0/g, ' ').replace(/^\s+/, '');
+  const keepEndSpace = /\s$/.test(text);
+  if (text.length > SCREEN_KEEP_ALIVE_TEXT_LIMIT) {
+    text = text.slice(0, keepEndSpace ? SCREEN_KEEP_ALIVE_TEXT_LIMIT - 1 : SCREEN_KEEP_ALIVE_TEXT_LIMIT);
+  }
+  const dangling = text.match(/^(.*\S)\s+-\s*$/);
+  if (dangling) {
+    return `${dangling[1]} `;
+  }
+  const core = text.replace(/\s+$/, '');
+  if (!core) {
+    return '';
+  }
+  if (keepEndSpace || core.length !== text.length) {
+    return `${core} `;
+  }
+  return core;
 }
 
 export function screenIsOff(): boolean {

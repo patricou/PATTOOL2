@@ -1,6 +1,6 @@
 /** Document Picture-in-Picture for Radio — World Receiver face in an always-on-top window. */
 
-import { setScreenKeepAlive } from '../services/media-screen-keepalive';
+import { clipScreenText, setScreenKeepAlive } from '../services/media-screen-keepalive';
 
 export interface RadioDocPipLabels {
   fullscreen: string;
@@ -85,7 +85,11 @@ export function applyRadioMediaSession(meta: {
   }
 }
 
-/** Song title, artist and station, for the lock screen and a Bluetooth device. */
+/**
+ * Song title, artist and station, for the lock screen and a Bluetooth device.
+ * Many head units only draw the title line, so that line is
+ * "Station - Artist - Song". A blank or repeated spaces at the end stay a single space.
+ */
 export function publishRadioTrack(
   media: HTMLMediaElement | null | undefined,
   meta: {
@@ -100,8 +104,8 @@ export function publishRadioTrack(
   const song = clipRadioText(meta.title);
   const artist = clipRadioText(meta.artist);
   const album = clipRadioText(meta.album) || station;
-  const title = song || station;
   const shownArtist = artist || (song ? station : 'PatTool Radio');
+  const title = bluetoothTrackTitle(station, artist, song);
   if (media) {
     media.title = title;
     media.setAttribute('data-pat-media-title', title);
@@ -123,7 +127,31 @@ export function publishRadioTrack(
 }
 
 function clipRadioText(value: string | null | undefined): string {
-  return (value || '').trim().slice(0, 120);
+  return clipScreenText(value);
+}
+
+/** "Station - Artist - Song", clipped at the Bluetooth text limit. */
+function bluetoothTrackTitle(station: string, artist: string, song: string): string {
+  const radio = station.trim() || 'Radio';
+  const performer = artist.trim();
+  const track = song.trim();
+  const parts = [radio];
+  let tail = station;
+  if (performer && performer.toLowerCase() !== radio.toLowerCase()) {
+    parts.push(performer);
+    tail = artist;
+  }
+  if (
+    track &&
+    track.toLowerCase() !== performer.toLowerCase() &&
+    track.toLowerCase() !== radio.toLowerCase()
+  ) {
+    parts.push(track);
+    tail = song;
+  }
+  const line = parts.join(' - ');
+  const spaced = /[\s\u00a0]$/.test(tail || '') ? `${line} ` : line;
+  return clipScreenText(spaced);
 }
 
 function artworkMime(url: string): string {
