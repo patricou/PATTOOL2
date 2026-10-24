@@ -387,6 +387,30 @@ export class YoutubeEqualizerService {
     this.patch({ bands });
   }
 
+  /** Route this element through the equalizer when it is enabled, whichever page started it. */
+  engageMedia(el: HTMLMediaElement | null | undefined): void {
+    if (!el || !this.wantsProcessing) {
+      return;
+    }
+    this.attachMediaElement(el);
+  }
+
+  /** Keep an already-granted YouTube tab capture on the equalizer. Does not ask again. */
+  resumeCaptureIfLive(): boolean {
+    if (!this.wantsProcessing) {
+      return false;
+    }
+    const live = !!this.streamSource && !!this.captureStream?.getAudioTracks().some((t) => t.readyState === 'live');
+    if (!live) {
+      return false;
+    }
+    this.routeAnalyser('capture');
+    this.emitSource('capture');
+    this.bindOutputWindow();
+    void this.resume();
+    return true;
+  }
+
   attachMediaElement(el: HTMLMediaElement): void {
     if (!el) {
       return;
@@ -394,13 +418,6 @@ export class YoutubeEqualizerService {
     this.emitCaptureError('');
     const ctx = this.ensureGraph();
     this.disconnectStreamSource();
-    if (this.mediaElement && this.mediaElement !== el && this.mediaSource) {
-      try {
-        this.mediaSource.disconnect();
-      } catch {
-        /* ignore */
-      }
-    }
     const cached = this.mediaSourceCache.get(el);
     if (cached) {
       this.mediaSource = cached;
@@ -424,7 +441,6 @@ export class YoutubeEqualizerService {
       void this.resume();
       return;
     }
-    this.disconnectMediaSource();
     try {
       const src = ctx.createMediaElementSource(el);
       this.mediaSourceCache.set(el, src);
@@ -443,10 +459,47 @@ export class YoutubeEqualizerService {
   }
 
   detachMediaElement(el?: HTMLMediaElement): void {
-    if (el && this.mediaElement && el !== this.mediaElement) {
+    const target = el || this.mediaElement;
+    if (!target) {
+      this.disconnectMediaSource();
+      if (this.streamSource) {
+        this.emitSource('capture');
+        return;
+      }
+      this.emitSource('none');
       return;
     }
-    this.disconnectMediaSource();
+    const src = this.mediaSourceCache.get(target);
+    if (src) {
+      try {
+        src.disconnect();
+      } catch {
+        /* ignore */
+      }
+    }
+    if (this.mediaElement !== target) {
+      return;
+    }
+    this.mediaSource = null;
+    this.mediaElement = null;
+    const input = this.input;
+    if (input) {
+      for (const [other, node] of this.mediaSourceCache) {
+        if (other === target || other.paused || other.ended) {
+          continue;
+        }
+        try {
+          node.connect(input);
+        } catch {
+          /* already connected */
+        }
+        this.mediaSource = node;
+        this.mediaElement = other;
+        this.emitSource('media');
+        this.applySettings(this.settings);
+        return;
+      }
+    }
     if (this.streamSource) {
       this.emitSource('capture');
       return;

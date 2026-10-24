@@ -11,6 +11,8 @@ export interface RadioDocPipLabels {
 export interface RadioDocPipHandle {
   window: Window;
   close: () => void;
+  /** Drop listeners without closing the window or moving the cabinet. */
+  park: () => void;
 }
 
 interface DocumentPictureInPictureApi {
@@ -28,13 +30,27 @@ let faceHome: {
 } | null = null;
 
 export function supportsRadioPictureInPicture(): boolean {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-  if ('documentPictureInPicture' in window) {
-    return true;
-  }
-  return !!(document as Document & { pictureInPictureEnabled?: boolean }).pictureInPictureEnabled;
+  return typeof window !== 'undefined';
+}
+
+function radioOutsideSize(face: HTMLElement | null | undefined): { width: number; height: number } {
+  const rect = face?.getBoundingClientRect();
+  const maxW = Math.max(420, (window.screen?.availWidth || 1280) - 48);
+  const maxH = Math.max(520, (window.screen?.availHeight || 900) - 80);
+  return {
+    width: Math.round(Math.max(420, Math.min(maxW, rect?.width || 560))),
+    height: Math.round(Math.max(520, Math.min(maxH, rect?.height || 680)))
+  };
+}
+
+/** Separate window the user can drag off the tab. Must run inside the click. */
+function openOutsideRadioWindow(width: number, height: number): Window | null {
+  const win = window.open(
+    '',
+    'pattool-radio-outside',
+    `popup=yes,width=${width},height=${height},left=72,top=48`
+  );
+  return win && !win.closed ? win : null;
 }
 
 export function supportsRadioDocumentPip(): boolean {
@@ -58,6 +74,38 @@ export function closeRadioDocPip(): void {
     return;
   }
   handle.close();
+}
+
+/** Browser Document PiP window, even after the in-app session was parked. */
+export function getBrowserDocPipWindow(): Window | null {
+  const win = getDocumentPipApi()?.window || null;
+  return win && !win.closed ? win : null;
+}
+
+/**
+ * Put the cabinet back on the page and keep the Picture-in-Picture window open.
+ * A second requestWindow() after navigation loses the click, so the floating
+ * player refills this same window.
+ */
+export function parkRadioDocPipWindow(): Window | null {
+  const handle = activeDocPip;
+  const win =
+    (handle?.window && !handle.window.closed ? handle.window : null) || getBrowserDocPipWindow();
+  if (handle) {
+    handle.park();
+  }
+  restoreFaceHome();
+  restoreMediaHome();
+  activeDocPip = null;
+  if (!win || win.closed) {
+    return null;
+  }
+  try {
+    win.document.body.replaceChildren();
+  } catch {
+    /* ignore */
+  }
+  return win;
 }
 
 export function applyRadioMediaSession(meta: {
@@ -345,26 +393,54 @@ export async function enterRadioPictureInPicture(
     album: meta.album,
     artworkUrl: meta.artworkUrl
   });
-  await video.play().catch(() => undefined);
 
   const dpi = getDocumentPipApi();
+  if (!dpi) {
+    // This browser has no Document Picture-in-Picture (radio is audio, not video).
+    // A popup opened in this click can still sit outside the tab, with the same cabinet.
+    if (isRadioDocPipOpen() && !options?.replaceIfOpen) {
+      closeRadioDocPip();
+      return;
+    }
+    const parked = options?.replaceIfOpen && isRadioDocPipOpen() ? parkRadioDocPipWindow() : null;
+    const size = radioOutsideSize(meta.faceEl);
+    const outside = parked || openOutsideRadioWindow(size.width, size.height);
+    if (!outside) {
+      throw new Error('unsupported');
+    }
+    await openDocumentPip(video, meta, null, outside);
+    void video.play().catch(() => undefined);
+    return;
+  }
   if (dpi) {
+    // requestWindow must run in this click. Awaiting play() first consumes it.
     if (dpi.window && !dpi.window.closed) {
       if (options?.replaceIfOpen) {
-        // Tear down previous face/media homes, keep the window, then rebuild content.
-        closeRadioDocPip();
-        // closeRadioDocPip closes the window — reopen below.
-      } else {
-        // Toggle off via shared teardown (restores face/media + one onClose).
-        closeRadioDocPip();
+        const existing = activeDocPip ? parkRadioDocPipWindow() : dpi.window;
+        await openDocumentPip(video, meta, dpi, existing);
+        void video.play().catch(() => undefined);
         return;
       }
+      // Toggle off via shared teardown (restores face/media + one onClose).
+      closeRadioDocPip();
+      return;
     }
-    await openDocumentPip(video, meta, dpi);
+    try {
+      await openDocumentPip(video, meta, dpi, null);
+    } catch (err) {
+      const size = radioOutsideSize(meta.faceEl);
+      const outside = openOutsideRadioWindow(size.width, size.height);
+      if (!outside) {
+        throw err;
+      }
+      await openDocumentPip(video, meta, null, outside);
+    }
+    void video.play().catch(() => undefined);
     return;
   }
 
   // Fallback: classic video PiP (no custom radio face). Audio keeps playing without it.
+  await video.play().catch(() => undefined);
   if (!(video instanceof HTMLVideoElement)) {
     throw new Error('unsupported');
   }
@@ -389,18 +465,30 @@ async function openDocumentPip(
     labels: RadioDocPipLabels;
     onClose?: () => void;
   },
-  dpi: DocumentPictureInPictureApi
+  dpi: DocumentPictureInPictureApi | null,
+  existing: Window | null
 ): Promise<void> {
   const face = meta.faceEl || null;
-  const width = face
-    ? Math.max(480, Math.min(720, Math.round(face.getBoundingClientRect().width || 560)))
-    : 520;
-  const height = face
-    ? Math.max(360, Math.min(640, Math.round(face.getBoundingClientRect().height || 420)))
-    : 400;
-
-  const pipWindow = await dpi.requestWindow({ width, height });
+  let pipWindow = existing && !existing.closed ? existing : null;
+  if (!pipWindow) {
+    if (!dpi) {
+      throw new Error('unsupported');
+    }
+    const size = radioOutsideSize(face);
+    // First await: still inside the click that opened Picture-in-Picture.
+    pipWindow = await dpi.requestWindow(size);
+  } else if (face && face.getRootNode() === pipWindow.document) {
+    face.remove();
+  }
   const doc = pipWindow.document;
+  if (existing && !existing.closed) {
+    try {
+      doc.body.replaceChildren();
+      doc.head.querySelectorAll('style, link[rel="stylesheet"]').forEach((node) => node.remove());
+    } catch {
+      /* ignore */
+    }
+  }
   doc.title = `${meta.title || 'Radio'} — PatTool`;
 
   const style = doc.createElement('style');
@@ -435,25 +523,41 @@ async function openDocumentPip(
       background: rgba(13,110,253,0.88);
       border-color: rgba(110,168,254,0.55);
     }
+    /* Keep the skin (dome, wood, sunburst). Only give the cabinet a real height
+       so the cover or the dial still fills the screen. */
     .radio-player-panel--in-pip {
       width: 100% !important;
       max-width: none !important;
-      height: auto !important;
-      min-height: 100% !important;
+      height: 100dvh !important;
+      max-height: 100dvh !important;
+      min-height: 0 !important;
       margin: 0 !important;
-      border-radius: 0 !important;
       box-sizing: border-box;
-      overflow: auto !important;
+      display: flex !important;
+      flex-direction: column !important;
     }
-    .radio-player-panel--in-pip .radio-chrome {
-      display: none !important;
+    .radio-player-panel--in-pip .radio-player-frame {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
     }
-    .radio-player-panel--in-pip .radio-whip-antenna,
-    .radio-player-panel--in-pip .radio-cabinet-handle {
-      display: none !important;
+    .radio-player-panel--in-pip .radio-face {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      height: auto !important;
+      max-height: none !important;
+      aspect-ratio: auto !important;
+    }
+    .radio-player-panel--in-pip .radio-now-actions {
+      opacity: 1 !important;
+      max-height: 8rem !important;
+      overflow: visible !important;
+      pointer-events: auto !important;
     }
     .radio-player-panel--in-pip .radio-presets {
       display: grid !important;
+      flex: 0 0 auto !important;
     }
     .radio-doc-pip-media {
       position: absolute !important;
@@ -532,8 +636,8 @@ async function openDocumentPip(
     body:fullscreen:hover .radio-doc-pip-bar,
     body:-webkit-full-screen:hover .radio-doc-pip-bar { opacity: 1; }
   `;
-  doc.head.appendChild(style);
   copyStylesToPip(doc);
+  doc.head.appendChild(style);
 
   const shell = doc.createElement('div');
   shell.className = 'radio-doc-pip-shell';
@@ -581,26 +685,28 @@ async function openDocumentPip(
   bar.appendChild(closeBtn);
   shell.appendChild(bar);
 
-  if (face && face.parentNode) {
-    const placeholder = document.createElement('div');
-    placeholder.className = 'radio-pip-page-slot';
-    placeholder.setAttribute('aria-hidden', 'true');
-    placeholder.style.cssText =
-      'min-height: 12rem; border-radius: 1.25rem; background: rgba(18,51,48,0.35); border: 1px dashed rgba(212,168,75,0.35); display:flex; align-items:center; justify-content:center; color: rgba(243,230,200,0.7); font-size: 0.85rem;';
-    placeholder.textContent = 'PiP';
-    faceHome = {
-      parent: face.parentNode,
-      next: face.nextSibling,
-      face,
-      placeholder
-    };
-    face.parentNode.replaceChild(placeholder, face);
+  if (face) {
+    if (face.parentNode && face.ownerDocument === document) {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'radio-pip-page-slot';
+      placeholder.setAttribute('aria-hidden', 'true');
+      placeholder.style.cssText =
+        'min-height: 12rem; border-radius: 1.25rem; background: rgba(18,51,48,0.35); border: 1px dashed rgba(212,168,75,0.35); display:flex; align-items:center; justify-content:center; color: rgba(243,230,200,0.7); font-size: 0.85rem;';
+      placeholder.textContent = 'PiP';
+      faceHome = {
+        parent: face.parentNode,
+        next: face.nextSibling,
+        face,
+        placeholder
+      };
+      face.parentNode.replaceChild(placeholder, face);
+    }
     face.classList.add('radio-player-panel--in-pip');
     shell.appendChild(face);
     // Media stays inside the moved face — keep a home bookmark only if it was detached.
-    if (!face.contains(video)) {
+    if (!face.contains(video) && video.parentNode) {
       mediaHome = {
-        parent: video.parentNode as Node,
+        parent: video.parentNode,
         next: video.nextSibling,
         media: video
       };
@@ -623,11 +729,7 @@ async function openDocumentPip(
   video.play().catch(() => undefined);
 
   let tornDown = false;
-  const teardown = () => {
-    if (tornDown) {
-      return;
-    }
-    tornDown = true;
+  const detachListeners = () => {
     try {
       pipWindow.removeEventListener('pagehide', teardown);
     } catch {
@@ -638,6 +740,13 @@ async function openDocumentPip(
     } catch {
       /* ignore */
     }
+  };
+  const teardown = () => {
+    if (tornDown) {
+      return;
+    }
+    tornDown = true;
+    detachListeners();
     restoreFaceHome();
     restoreMediaHome();
     activeDocPip = null;
@@ -664,6 +773,14 @@ async function openDocumentPip(
       }
       // pagehide usually already ran; guard makes a second call a no-op.
       teardown();
+    },
+    park: () => {
+      if (tornDown) {
+        return;
+      }
+      tornDown = true;
+      detachListeners();
+      activeDocPip = null;
     }
   };
 }

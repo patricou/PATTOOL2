@@ -98,8 +98,47 @@
 }
 
 .radio-float-banner {
-  border-radius: 0.65rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
   margin-bottom: 1rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.65rem;
+  background: var(--radio-well, #141c22);
+  color: var(--radio-well-ink, #f4efe4);
+  border: 1px solid color-mix(in srgb, var(--radio-well-track, #ffe7a3) 55%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--radio-well-ink, #f4efe4) 18%, transparent),
+    0 8px 18px rgba(0, 0, 0, 0.18);
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.radio-float-banner > .fa {
+  color: var(--radio-well-track, #ffe7a3);
+}
+
+.radio-float-banner-text {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.radio-float-banner-close {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--radio-well-track, #ffe7a3);
+  font: inherit;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+}
+
+.radio-float-banner-close:hover {
+  color: var(--radio-well-ink, #f4efe4);
 }
 
 .radio-keep-alive {

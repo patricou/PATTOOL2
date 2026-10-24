@@ -21,7 +21,16 @@
         <span class="radio-float-track" *ngIf="nowPlayingLabel">{{ nowPlayingLabel }}</span>
       </span>
     </div>
-    <div class="radio-float-actions">
+    <div class="radio-float-actions" (mousedown)="$event.stopPropagation()">
+      <button
+        type="button"
+        class="radio-float-btn"
+        [class.radio-float-btn--on]="eqActive"
+        (click)="openEqualizer()"
+        [attr.title]="'YOUTUBE.EQ.OPEN' | translate"
+        [attr.aria-label]="'YOUTUBE.EQ.OPEN' | translate">
+        <i class="fa fa-sliders" aria-hidden="true"></i>
+      </button>
       <button
         type="button"
         class="radio-float-btn"
@@ -45,15 +54,24 @@
         class="radio-float-btn"
         *ngIf="pipSupported"
         (click)="togglePictureInPicture()"
-        [attr.title]="(isPipActive ? 'RADIO.PIP_EXIT' : 'RADIO.PIP') | translate"
-        [attr.aria-label]="(isPipActive ? 'RADIO.PIP_EXIT' : 'RADIO.PIP') | translate">
-        <i class="fa" [class.fa-compress]="isPipActive" [class.fa-clone]="!isPipActive"></i>
+        [attr.title]="(isPipActive ? 'RADIO.PIP_EXIT' : 'RADIO.FLOAT_LEAVE_BROWSER') | translate"
+        [attr.aria-label]="(isPipActive ? 'RADIO.PIP_EXIT' : 'RADIO.FLOAT_LEAVE_BROWSER') | translate">
+        <i class="fa" [class.fa-compress]="isPipActive" [class.fa-expand]="!isPipActive"></i>
       </button>
       <a
         routerLink="/tools/radio-watcher"
         class="radio-float-btn"
         [attr.title]="'RADIO.FLOAT_OPEN_PAGE' | translate">
         <i class="fa fa-external-link"></i>
+      </a>
+      <a
+        *ngIf="youtubeSearchQuery"
+        class="radio-float-btn"
+        [routerLink]="['/tools/youtube']"
+        [queryParams]="{ q: youtubeSearchQuery }"
+        [attr.title]="'RADIO.YOUTUBE_SEARCH_HINT' | translate:{ query: youtubeSearchQuery }"
+        [attr.aria-label]="'RADIO.YOUTUBE_SEARCH' | translate">
+        <i class="fa fa-youtube" aria-hidden="true"></i>
       </a>
       <button
         type="button"
@@ -84,9 +102,9 @@
   <section
     #playerPanel
     class="radio-player-panel radio-float-cabinet"
+    [ngClass]="'radio-skin--' + radioSkin"
     [class.radio-player-panel--on]="!!station && !playError"
     [class.radio-player-panel--live]="!!station && !isBuffering && !playError"
-    [class.radio-float-cabinet--collapsed]="state.minimized && !state.pipHostOnly"
     aria-label="Radio">
     <div class="radio-cabinet-handle" aria-hidden="true">
       <span class="radio-cabinet-handle-grip"></span>
@@ -110,16 +128,7 @@
         <span class="radio-brand-model">World Receiver</span>
       </div>
 
-      <div class="radio-face" [class.radio-face--empty]="!station">
-        <audio
-          #mediaEl
-          class="radio-video radio-audio-el radio-video--hidden"
-          preload="none"
-          playsinline
-          webkit-playsinline
-          data-pat-radio="1"
-          (volumechange)="onMediaVolumeChange()"></audio>
-
+      <div class="radio-face" [class.radio-face--empty]="!station" [class.radio-face--sleeve]="sleeveVisible">
         <div class="radio-ambient" aria-hidden="true"></div>
         <div class="radio-synth-floor" aria-hidden="true">
           <div class="radio-synth-tilt">
@@ -176,6 +185,18 @@
           </div>
         </div>
 
+        <div class="radio-sleeve" *ngIf="sleeveVisible" aria-hidden="true">
+          <div class="radio-sleeve-frame">
+            <img
+              *ngFor="let img of trackImages; let i = index; trackBy: trackImageUrl"
+              class="radio-sleeve-photo"
+              [class.is-on]="i === trackImageIndex"
+              [src]="img.url"
+              alt=""
+              (error)="dropTrackImage(i)" />
+          </div>
+        </div>
+
         <div class="radio-station-badge" *ngIf="station && !playError">
           <div class="radio-on-air"><span></span> ON AIR</div>
           <img
@@ -216,6 +237,35 @@
           {{ formatPlayError(playError) }}
         </div>
       </div>
+
+      <div class="radio-chrome" *ngIf="station && !playError">
+        <div class="radio-now-playing">
+          <div class="radio-now-info">
+            <img
+              *ngIf="stationLogo(station) as logo"
+              class="radio-now-logo"
+              [src]="logo"
+              alt=""
+              (error)="$any($event.target).style.display='none'" />
+            <div class="radio-now-text">
+              <div class="radio-now-name">{{ station.name }}</div>
+              <div class="radio-now-track" *ngIf="nowPlayingLabel">
+                <i class="fa fa-music" aria-hidden="true"></i>
+                <span>{{ nowPlayingLabel }}</span>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="radio-now-action radio-now-action--eq"
+            (click)="openEqualizer()"
+            [attr.title]="'YOUTUBE.EQ.OPEN' | translate"
+            [attr.aria-label]="'YOUTUBE.EQ.OPEN' | translate">
+            <i class="fa fa-sliders" aria-hidden="true"></i>
+            <span class="radio-eq-open-badge" *ngIf="eqActive" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="radio-presets" role="toolbar" [attr.aria-label]="'RADIO.PRESETS' | translate">
@@ -234,4 +284,10 @@
       </button>
     </div>
   </section>
+  <app-youtube-equalizer-modal
+    #eqModal
+    theme="radio"
+    [cabinet]="radioSkin"
+    variant="media"
+    [hasYoutubeVideo]="false"></app-youtube-equalizer-modal>
 </div>

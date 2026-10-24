@@ -116,10 +116,10 @@
 </app-radio-global-filter-modal>
 
 <div class="radio-page">
-  <div class="alert alert-info py-2 px-3 small radio-float-banner" *ngIf="isFloatingOpen" role="status">
-    <i class="fa fa-window-restore me-1"></i>
-    {{ 'RADIO.FLOAT_ACTIVE_BANNER' | translate }}
-    <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline" (click)="closeFloatingWindow()">
+  <div class="radio-float-banner" *ngIf="isFloatingOpen" role="status">
+    <i class="fa fa-window-restore" aria-hidden="true"></i>
+    <span class="radio-float-banner-text">{{ 'RADIO.FLOAT_ACTIVE_BANNER' | translate }}</span>
+    <button type="button" class="radio-float-banner-close" (click)="closeFloatingWindow()">
       {{ 'RADIO.FLOAT_CLOSE' | translate }}
     </button>
   </div>
@@ -513,18 +513,6 @@
           [class.radio-face--empty]="!selectedStation || isFloatingOpen"
           [class.radio-face--sleeve]="sleeveVisible">
           <!-- crossorigin: without CORS mode the equalizer (Web Audio) only receives silence from the API stream proxy. -->
-          <audio
-            #mediaEl
-            class="radio-video radio-audio-el"
-            preload="none"
-            crossorigin="anonymous"
-            playsinline
-            webkit-playsinline
-            data-pat-radio="1"
-            [class.radio-video--hidden]="!selectedStation || isFloatingOpen"
-            [class.radio-video--error]="!!playError"
-            (volumechange)="onMediaVolumeChange()"></audio>
-
           <div class="radio-ambient" aria-hidden="true"></div>
           <div class="radio-synth-floor" aria-hidden="true">
             <div class="radio-synth-tilt">
@@ -739,6 +727,16 @@
                 <i class="fa" [class.fa-compress]="isPipActive" [class.fa-clone]="!isPipActive"></i>
               </button>
 
+              <button
+                type="button"
+                class="radio-now-action"
+                [disabled]="!youtubeSearchQuery"
+                (click)="openOnYoutube()"
+                [attr.title]="(youtubeSearchQuery ? 'RADIO.YOUTUBE_SEARCH_HINT' : 'RADIO.YOUTUBE_SEARCH') | translate:{ query: youtubeSearchQuery }"
+                [attr.aria-label]="'RADIO.YOUTUBE_SEARCH' | translate">
+                <i class="fa fa-youtube" aria-hidden="true"></i>
+              </button>
+
               <div class="radio-share-wrap">
                 <button
                   type="button"
@@ -760,16 +758,6 @@
                   </button>
                 </div>
               </div>
-
-              <button
-                type="button"
-                class="radio-now-action"
-                [class.is-lit]="isFavorite(selectedStation!)"
-                [class.radio-now-action--fav]="isFavorite(selectedStation!)"
-                (click)="toggleFavorite(selectedStation!, $event)"
-                [attr.title]="(isFavorite(selectedStation!) ? 'RADIO.UNFAVORITE' : 'RADIO.FAVORITE') | translate">
-                <i class="fa" [class.fa-star]="isFavorite(selectedStation!)" [class.fa-star-o]="!isFavorite(selectedStation!)"></i>
-              </button>
 
               <button
                 type="button"

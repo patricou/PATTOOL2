@@ -19,6 +19,7 @@ import { isCanalGroupVirtual, isCapTerreChannel, isFranceTvVirtual, isArteReplay
 import { formatTvPlayErrorDisplay } from './tv-stream-error.util';
 import { startTvHlsPlayback, TvHlsPlaybackHandle } from './tv-hls-playback';
 import { bustVirtualLiveCache, preflightVirtualLive, virtualLiveKeepAliveFromUrl } from './tv-virtual-live-keepalive';
+import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
 
 type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
@@ -80,8 +81,13 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
     private api: ApiService,
     private router: Router,
     private cdr: ChangeDetectorRef,
-    private translate: TranslateService
+    private translate: TranslateService,
+    private equalizer: YoutubeEqualizerService
   ) {}
+
+  engageEqualizer(): void {
+    this.equalizer.engageMedia(this.videoEl?.nativeElement);
+  }
 
   formatPlayError(message: string | null | undefined): string {
     return formatTvPlayErrorDisplay(message, (key) => this.translate.instant(key));

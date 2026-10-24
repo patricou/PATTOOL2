@@ -939,15 +939,18 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   private syncEqualizerSource(): void {
-    if (!this.eqModal?.isOpen && !this.equalizer.isLive) {
+    if (this.isCurrentYoutube()) {
+      if (this.equalizer.wantsProcessing) {
+        this.equalizer.resumeCaptureIfLive();
+      }
       return;
     }
-    if (this.isCurrentYoutube()) {
+    if (!this.equalizer.wantsProcessing) {
       return;
     }
     const video = this.getVideoElement();
     if (video) {
-      this.equalizer.attachMediaElement(video);
+      this.equalizer.engageMedia(video);
     }
   }
 

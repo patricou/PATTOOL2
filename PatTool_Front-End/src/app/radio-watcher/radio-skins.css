@@ -4471,7 +4471,8 @@
   flex: 0 0 auto;
 }
 
-/* Info strip and the bars around a cover follow the skin, with readable ink. */
+/* Info strip, the floating-radio notice, and the bars around a cover follow the skin. */
+:host,
 .radio-player-panel {
   --radio-well: #141c22;
   --radio-well-ink: #f4efe4;
@@ -4479,6 +4480,7 @@
   --radio-well-track: #ffe7a3;
 }
 
+:host.radio-skin--artdeco,
 .radio-player-panel.radio-skin--artdeco {
   --radio-well: #24160c;
   --radio-well-ink: #f6ead0;
@@ -4486,6 +4488,7 @@
   --radio-well-track: #ffcf6e;
 }
 
+:host.radio-skin--synthwave,
 .radio-player-panel.radio-skin--synthwave {
   --radio-well: #1a0b28;
   --radio-well-ink: #fdf0ff;
@@ -4493,6 +4496,7 @@
   --radio-well-track: #5ef6ff;
 }
 
+:host.radio-skin--spaceage,
 .radio-player-panel.radio-skin--spaceage {
   --radio-well: #f6f1e8;
   --radio-well-ink: #2b1a0a;
@@ -4500,6 +4504,7 @@
   --radio-well-track: #c2410c;
 }
 
+:host.radio-skin--military,
 .radio-player-panel.radio-skin--military {
   --radio-well: #1c2214;
   --radio-well-ink: #e9e2b0;
@@ -4507,6 +4512,7 @@
   --radio-well-track: #b6ff9a;
 }
 
+:host.radio-skin--steampunk,
 .radio-player-panel.radio-skin--steampunk {
   --radio-well: #2c180e;
   --radio-well-ink: #f5deb0;
@@ -4514,6 +4520,7 @@
   --radio-well-track: #ffc56a;
 }
 
+:host.radio-skin--aurora,
 .radio-player-panel.radio-skin--aurora {
   --radio-well: #102838;
   --radio-well-ink: #f2fbff;
@@ -4521,6 +4528,7 @@
   --radio-well-track: #8dffd4;
 }
 
+:host.radio-skin--noir,
 .radio-player-panel.radio-skin--noir {
   --radio-well: #16161a;
   --radio-well-ink: #f2f3f5;
@@ -4528,6 +4536,7 @@
   --radio-well-track: #ff8a94;
 }
 
+:host.radio-skin--bamboo,
 .radio-player-panel.radio-skin--bamboo {
   --radio-well: #3a2916;
   --radio-well-ink: #f6ecd4;
@@ -4535,6 +4544,7 @@
   --radio-well-track: #ffd56a;
 }
 
+:host.radio-skin--porcelain,
 .radio-player-panel.radio-skin--porcelain {
   --radio-well: #f7f4ef;
   --radio-well-ink: #14365f;
@@ -4542,6 +4552,7 @@
   --radio-well-track: #1d4e89;
 }
 
+:host.radio-skin--carbon,
 .radio-player-panel.radio-skin--carbon {
   --radio-well: #161616;
   --radio-well-ink: #e8f1ff;
@@ -4549,6 +4560,7 @@
   --radio-well-track: #8eb8ff;
 }
 
+:host.radio-skin--candy,
 .radio-player-panel.radio-skin--candy {
   --radio-well: #4a1230;
   --radio-well-ink: #fff5f8;
@@ -4556,6 +4568,7 @@
   --radio-well-track: #ffd0e0;
 }
 
+:host.radio-skin--espace,
 .radio-player-panel.radio-skin--espace {
   --radio-well: #10183a;
   --radio-well-ink: #eef6ff;
@@ -4563,6 +4576,7 @@
   --radio-well-track: #9aefff;
 }
 
+:host.radio-skin--kanizsa,
 .radio-player-panel.radio-skin--kanizsa {
   --radio-well: #f7f4ec;
   --radio-well-ink: #161616;
@@ -4570,6 +4584,7 @@
   --radio-well-track: #161616;
 }
 
+:host.radio-skin--cafewall,
 .radio-player-panel.radio-skin--cafewall {
   --radio-well: #1c1c1c;
   --radio-well-ink: #f4f4f4;
@@ -4577,6 +4592,7 @@
   --radio-well-track: #ffffff;
 }
 
+:host.radio-skin--penrose,
 .radio-player-panel.radio-skin--penrose {
   --radio-well: #12141c;
   --radio-well-ink: #f8e7b0;
@@ -4584,6 +4600,7 @@
   --radio-well-track: #ffe08a;
 }
 
+:host.radio-skin--scintille,
 .radio-player-panel.radio-skin--scintille {
   --radio-well: #16161c;
   --radio-well-ink: #f4f4f8;
@@ -4591,6 +4608,7 @@
   --radio-well-track: #ffffff;
 }
 
+:host.radio-skin--barber,
 .radio-player-panel.radio-skin--barber {
   --radio-well: #1d4e89;
   --radio-well-ink: #ffffff;

@@ -16,18 +16,28 @@ import { catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 import Hls from 'hls.js';
 
-import { ApiService, RadioNowPlaying, RadioStation } from '../services/api.service';
+import { ApiService, RadioNowPlaying, RadioStation, RadioTrackImage } from '../services/api.service';
 import { RadioNowPlayingService } from '../services/radio-now-playing.service';
 import { RadioFloatingState, RadioPlayerService } from '../services/radio-player.service';
+import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
+import { YoutubeEqualizerModalComponent } from '../youtube-watcher/youtube-equalizer-modal.component';
 import { setDeviceMediaVolume, activeScreenKeepAliveOwner } from '../services/media-screen-keepalive';
 import { createTvHlsConfig, resetTvMediaElement, tryRecoverTvHlsError } from '../tv-watcher/tv-hls-config';
 import { attachRadioPlaybackGuard, bustRadioStreamUrl, RadioPlaybackGuard } from './radio-playback-guard';
+
+const RADIO_SKIN_IDS = [
+  'classic', 'artdeco', 'synthwave', 'spaceage', 'military', 'steampunk', 'aurora',
+  'noir', 'bamboo', 'porcelain', 'carbon', 'candy', 'espace', 'kanizsa', 'cafewall',
+  'penrose', 'scintille', 'barber'
+] as const;
+type RadioSkinId = (typeof RADIO_SKIN_IDS)[number];
 import {
   adjacentRadioStation,
   claimRadioTune,
   publishRadioTrack,
   closeRadioDocPip,
   enterRadioPictureInPicture,
+  getBrowserDocPipWindow,
   isRadioDocPipOpen,
   stopRadioPipCarrier,
   supportsRadioDocumentPip,
@@ -37,13 +47,18 @@ import {
 @Component({
   selector: 'app-radio-floating-player',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, TranslateModule],
+  imports: [CommonModule, FormsModule, RouterModule, TranslateModule, YoutubeEqualizerModalComponent],
   templateUrl: './radio-floating-player.component.html',
-  styleUrls: ['./radio-watcher.component.css', './radio-floating-player.component.css']
+  styleUrls: ['./radio-watcher.component.css', './radio-skins.css', './radio-floating-player.component.css']
 })
 export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
-  @ViewChild('mediaEl') mediaEl?: ElementRef<HTMLAudioElement>;
+  private readonly onLiveVolume = (): void => this.onMediaVolumeChange();
+
+  private get liveAudio(): HTMLAudioElement {
+    return this.radioPlayer.audio;
+  }
   @ViewChild('playerPanel') playerPanelEl?: ElementRef<HTMLElement>;
+  @ViewChild('eqModal') eqModal?: YoutubeEqualizerModalComponent;
 
   state: RadioFloatingState = { open: false, minimized: false, station: null };
   isMuted = false;
@@ -54,6 +69,10 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   isReconnecting = false;
   playError = '';
   nowPlayingLabel = '';
+  radioSkin: RadioSkinId = 'classic';
+  sleeveOpen = false;
+  trackImages: RadioTrackImage[] = [];
+  trackImageIndex = 0;
   isPipActive = false;
   pipSupported = supportsRadioPictureInPicture();
   favorites: RadioStation[] = [];
@@ -72,6 +91,8 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   private dragOffsetY = 0;
   private dragging = false;
   private positioned = false;
+  /** The bar stays bottom-left until the user drags it. */
+  private userMoved = false;
 
   private hls: Hls | null = null;
   private playbackGuard: RadioPlaybackGuard | null = null;
@@ -83,6 +104,9 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   private nowPlayingAlbum = '';
   private nowPlayingArt = '';
   private lastStationId = '';
+  private trackSlideTimer: ReturnType<typeof setInterval> | null = null;
+  /** User moved the in-page float out of the browser. Closing that window brings it back. */
+  private userPoppedOut = false;
   private playGeneration = 0;
   private alive = true;
   private suppressPipHostClose = false;
@@ -93,7 +117,8 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     private api: ApiService,
     private cdr: ChangeDetectorRef,
     private translate: TranslateService,
-    private nowPlaying: RadioNowPlayingService
+    private nowPlaying: RadioNowPlayingService,
+    private equalizer: YoutubeEqualizerService
   ) {}
 
   formatPlayError(message: string | null | undefined): string {
@@ -105,8 +130,11 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.liveAudio.addEventListener('volumechange', this.onLiveVolume);
+    this.readRadioLook();
     window.addEventListener('patradiotransport', this.onBluetoothTune);
     window.addEventListener('patmediavolumeui', this.onDeviceVolumeUi);
+    window.addEventListener('patradiolook', this.onRadioLook);
     this.placeDefaultPosition();
     this.favorites = this.radioPlayer.favorites;
     this.loadFavorites();
@@ -120,7 +148,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
       }
       this.cdr.markForCheck();
       if (!s.open) {
-        this.destroyPlayer();
+        this.destroyPlayer(true, { releaseEqualizer: true });
         this.lastStationId = '';
         return;
       }
@@ -136,15 +164,54 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     window.removeEventListener('patradiotransport', this.onBluetoothTune);
     window.removeEventListener('patmediavolumeui', this.onDeviceVolumeUi);
+    window.removeEventListener('patradiolook', this.onRadioLook);
+    this.clearTrackSlide();
     this.alive = false;
+    this.liveAudio.removeEventListener('volumechange', this.onLiveVolume);
     this.stateSub?.unsubscribe();
     this.favoritesSub?.unsubscribe();
     this.nowPlayingSub?.unsubscribe();
-    this.destroyPlayer();
+    this.destroyPlayer(true, { releaseEqualizer: true });
   }
 
   get station(): RadioStation | null {
     return this.state.station;
+  }
+
+  get eqActive(): boolean {
+    return this.equalizer.wantsProcessing && (this.equalizer.sourceKind === 'media' || !!this.station);
+  }
+
+  /** Artist and title of the track on air, for a YouTube search. */
+  get youtubeSearchQuery(): string {
+    const artist = this.nowPlayingArtist.trim();
+    const title = this.nowPlayingTitle.trim();
+    if (artist && title) {
+      return title.toLowerCase().includes(artist.toLowerCase()) ? title : `${artist} ${title}`;
+    }
+    return artist || title;
+  }
+
+  /** Cover on the face only when the user left pochette mode on and a photo exists. */
+  get sleeveVisible(): boolean {
+    return this.sleeveOpen && this.trackImages.length > 0;
+  }
+
+  trackImageUrl(_index: number, img: RadioTrackImage): string {
+    return img.url;
+  }
+
+  dropTrackImage(index: number): void {
+    if (index < 0 || index >= this.trackImages.length) {
+      return;
+    }
+    this.trackImages = this.trackImages.filter((_, i) => i !== index);
+    if (this.trackImageIndex >= this.trackImages.length) {
+      this.trackImageIndex = 0;
+    }
+    this.nowPlayingArt = this.trackImages[0]?.url || '';
+    this.syncTrackSlide();
+    this.cdr.markForCheck();
   }
 
   get presetSlots(): (RadioStation | null)[] {
@@ -238,6 +305,16 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     this.radioPlayer.setStation(station as RadioStation);
   };
 
+  openEqualizer(): void {
+    const el = this.liveAudio;
+    if (el) {
+      this.equalizer.attachMediaElement(el);
+    } else {
+      void this.equalizer.resume();
+    }
+    this.eqModal?.open();
+  }
+
   playPreset(station: RadioStation | null, event?: Event): void {
     event?.stopPropagation();
     if (!station) {
@@ -247,7 +324,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   }
 
   async togglePictureInPicture(): Promise<void> {
-    const media = this.mediaEl?.nativeElement;
+    const media = this.liveAudio;
     if (!media || !this.pipSupported || !this.station) {
       return;
     }
@@ -276,8 +353,14 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
           return;
         }
       }
+      const fromVisibleFloat = !this.state.pipHostOnly;
       await this.openDocPip(media);
+      this.playError = '';
       this.isPipActive = true;
+      if (fromVisibleFloat && isRadioDocPipOpen()) {
+        this.userPoppedOut = true;
+        this.radioPlayer.presentOutside();
+      }
       this.cdr.markForCheck();
     } catch {
       this.playError = 'RADIO.ERR_PIP';
@@ -286,7 +369,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   }
 
   toggleMute(): void {
-    const media = this.mediaEl?.nativeElement;
+    const media = this.liveAudio;
     if (!media) {
       return;
     }
@@ -305,7 +388,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   }
 
   onVolumeSlider(percent: number): void {
-    const media = this.mediaEl?.nativeElement;
+    const media = this.liveAudio;
     const p = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
     this.volumePercent = p;
     if (setDeviceMediaVolume(p)) {
@@ -328,7 +411,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     if (this.followDeviceVolume) {
       return;
     }
-    const media = this.mediaEl?.nativeElement;
+    const media = this.liveAudio;
     if (!media) {
       return;
     }
@@ -338,9 +421,14 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   }
 
   startDrag(event: MouseEvent): void {
-    if (event.button !== 0 || this.state.minimized || this.state.pipHostOnly) {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('button, a, input, label')) {
       return;
     }
+    if (event.button !== 0 || this.state.pipHostOnly) {
+      return;
+    }
+    this.userMoved = true;
     this.dragging = true;
     this.dragOffsetX = event.clientX - this.posX;
     this.dragOffsetY = event.clientY - this.posY;
@@ -367,7 +455,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     const pip = document.pictureInPictureElement;
     this.isPipActive =
       isRadioDocPipOpen() ||
-      pip === this.mediaEl?.nativeElement ||
+      pip === this.liveAudio ||
       pip === document.getElementById('pattool-radio-pip-carrier');
     this.cdr.markForCheck();
   }
@@ -386,7 +474,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
       return;
     }
     stopRadioPipCarrier();
-    const media = this.mediaEl?.nativeElement;
+    const media = this.liveAudio;
     if (media && this.state.open) {
       media.muted = false;
       media.play().catch(() => undefined);
@@ -410,12 +498,22 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
       });
   }
 
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    if (this.userMoved) {
+      this.clampToViewport();
+    } else {
+      this.placeDefaultPosition();
+    }
+    this.cdr.markForCheck();
+  }
+
   private placeDefaultPosition(): void {
-    if (this.positioned || typeof window === 'undefined') {
+    if (this.userMoved || typeof window === 'undefined') {
       return;
     }
-    this.posX = Math.max(16, window.innerWidth - this.widthPx - 24);
-    this.posY = Math.max(16, window.innerHeight - 520);
+    this.posX = 16;
+    this.posY = Math.max(16, window.innerHeight - 72);
     this.positioned = true;
   }
 
@@ -427,9 +525,39 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     this.posY = Math.max(0, Math.min(this.posY, window.innerHeight - this.headerH));
   }
 
+  /** The shared element is already playing this station. Keep the socket open. */
+  private continueFloatLive(station: RadioStation, media: HTMLAudioElement): void {
+    const gen = ++this.playGeneration;
+    delete media.dataset['patSkipBackground'];
+    this.isBuffering = false;
+    this.isReconnecting = false;
+    this.playError = '';
+    this.suppressPipHostClose = false;
+    this.nowPlaying.watch('float', station);
+    publishRadioTrack(media, { station: station.name, artworkUrl: station.logo });
+    this.playbackGuard?.dispose();
+    this.playbackGuard = attachRadioPlaybackGuard({
+      media,
+      isCurrent: () => this.alive && gen === this.playGeneration,
+      reload: () => {
+        if (!this.alive || gen !== this.playGeneration) {
+          return;
+        }
+        this.playStation(station, 'reconnect');
+      },
+      onReconnecting: () => this.noteRadioReconnect(gen)
+    });
+    void this.engageEqualizer(media);
+    this.cdr.markForCheck();
+  }
+
   private playStation(station: RadioStation, reason: 'user' | 'reconnect' = 'user'): void {
-    const media = this.mediaEl?.nativeElement;
+    const media = this.liveAudio;
     if (!this.alive || !media || !station?.streamUrl) {
+      return;
+    }
+    if (reason !== 'reconnect' && this.radioPlayer.isLive(media, station)) {
+      this.continueFloatLive(station, media);
       return;
     }
     // Keep Document PiP + World Receiver face open while switching presets or reconnecting.
@@ -441,6 +569,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
       return;
     }
     delete media.dataset['patSkipBackground'];
+    media.dataset['patStationId'] = this.radioPlayer.stationKey(station);
     if (reason !== 'reconnect') {
       this.isReconnecting = false;
     }
@@ -471,6 +600,11 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
       codec.includes('m3u8') ||
       codec.includes('hls');
     const wantPip = !!this.state.pipHostOnly || !!this.state.autoPip;
+    // The page already opened the window during the click. Fill it now;
+    // waiting for the stream to start is too late for a new requestWindow().
+    if (wantPip && getBrowserDocPipWindow() && !isRadioDocPipOpen()) {
+      void this.openDocPip(media);
+    }
 
     const onError = (message: string) => {
       if (gen !== this.playGeneration) {
@@ -489,8 +623,14 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
       this.isBuffering = false;
       this.isReconnecting = false;
       this.playError = '';
+      void this.engageEqualizer(media);
       this.cdr.markForCheck();
-      if (wantPip && supportsRadioDocumentPip() && !isRadioDocPipOpen()) {
+      if (
+        wantPip &&
+        supportsRadioDocumentPip() &&
+        !isRadioDocPipOpen() &&
+        !getBrowserDocPipWindow()
+      ) {
         void this.enterPipForHost(media).finally(() => {
           this.suppressPipHostClose = false;
         });
@@ -508,25 +648,30 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
       }
       media.muted = false;
       this.isMuted = false;
-      void media
-        .play()
-        .then(() => afterPlaying())
-        .catch((err: unknown) => {
-          const name =
-            err && typeof err === 'object' && 'name' in err
-              ? String((err as { name: string }).name)
-              : '';
-          if (name === 'NotAllowedError') {
-            media.muted = true;
-            this.isMuted = true;
-            void media
-              .play()
-              .then(() => afterPlaying())
-              .catch(() => onError('RADIO.ERR_PLAY'));
-            return;
-          }
-          this.playbackGuard?.requestReconnect();
-        });
+      void this.engageEqualizer(media).finally(() => {
+        if (gen !== this.playGeneration) {
+          return;
+        }
+        void media
+          .play()
+          .then(() => afterPlaying())
+          .catch((err: unknown) => {
+            const name =
+              err && typeof err === 'object' && 'name' in err
+                ? String((err as { name: string }).name)
+                : '';
+            if (name === 'NotAllowedError') {
+              media.muted = true;
+              this.isMuted = true;
+              void media
+                .play()
+                .then(() => afterPlaying())
+                .catch(() => onError('RADIO.ERR_PLAY'));
+              return;
+            }
+            this.playbackGuard?.requestReconnect();
+          });
+      });
     };
 
     media.onwaiting = () => {
@@ -581,21 +726,74 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     }
   }
 
+  private readonly onRadioLook = (): void => {
+    this.readRadioLook();
+    this.cdr.markForCheck();
+  };
+
+  private readRadioLook(): void {
+    try {
+      const skin = localStorage.getItem('pattool.radio.skin');
+      this.radioSkin = (RADIO_SKIN_IDS as readonly string[]).includes(skin || '')
+        ? (skin as RadioSkinId)
+        : 'classic';
+      this.sleeveOpen = localStorage.getItem('pattool.radio.sleeve') === '1';
+    } catch {
+      this.radioSkin = 'classic';
+      this.sleeveOpen = false;
+    }
+  }
+
   private applyNowPlaying(state: RadioNowPlaying | null): void {
     this.nowPlayingLabel = (state?.label || '').trim();
     this.nowPlayingTitle = (state?.title || '').trim();
     this.nowPlayingArtist = (state?.artist || '').trim();
     this.nowPlayingAlbum = (state?.album || '').trim();
-    this.nowPlayingArt = state?.images?.[0]?.url || '';
+    const images = state?.images || [];
+    const same =
+      images.length === this.trackImages.length &&
+      images.every((img, i) => img.url === this.trackImages[i]?.url);
+    if (!same) {
+      this.trackImages = images;
+      this.trackImageIndex = 0;
+    }
+    this.nowPlayingArt = this.trackImages[0]?.url || '';
+    this.syncTrackSlide();
     this.pushNowPlayingSession();
     this.cdr.markForCheck();
+  }
+
+  private syncTrackSlide(): void {
+    if (this.trackImages.length < 2) {
+      this.clearTrackSlide();
+      this.trackImageIndex = 0;
+      return;
+    }
+    if (this.trackSlideTimer) {
+      return;
+    }
+    this.trackSlideTimer = setInterval(() => {
+      if (!this.alive || this.trackImages.length < 2) {
+        this.clearTrackSlide();
+        return;
+      }
+      this.trackImageIndex = (this.trackImageIndex + 1) % this.trackImages.length;
+      this.cdr.markForCheck();
+    }, 8000);
+  }
+
+  private clearTrackSlide(): void {
+    if (this.trackSlideTimer) {
+      clearInterval(this.trackSlideTimer);
+      this.trackSlideTimer = null;
+    }
   }
 
   private pushNowPlayingSession(): void {
     if (!this.state.open || !this.station || this.playError) {
       return;
     }
-    publishRadioTrack(this.mediaEl?.nativeElement, {
+    publishRadioTrack(this.liveAudio, {
       station: this.station.name,
       title: this.nowPlayingTitle,
       artist: this.nowPlayingArtist,
@@ -604,11 +802,29 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     });
   }
 
-  private destroyPlayer(clearSrc = true, options?: { keepDocPip?: boolean; handoffNowPlaying?: boolean }): void {
+  private async engageEqualizer(media: HTMLMediaElement): Promise<void> {
+    if (!this.alive || !this.equalizer.wantsProcessing) {
+      return;
+    }
+    const running = await this.equalizer.resume();
+    if (!running || !this.alive) {
+      return;
+    }
+    this.equalizer.attachMediaElement(media);
+    this.cdr.markForCheck();
+  }
+
+  private destroyPlayer(
+    clearSrc = true,
+    options?: { keepDocPip?: boolean; handoffNowPlaying?: boolean; releaseEqualizer?: boolean }
+  ): void {
+    if (options?.releaseEqualizer) {
+      this.equalizer.detachMediaElement(this.liveAudio);
+    }
     if (!options?.handoffNowPlaying) {
       this.nowPlaying.release('float');
     }
-    const tearingDown = this.mediaEl?.nativeElement;
+    const tearingDown = this.liveAudio;
     if (tearingDown) {
       tearingDown.dataset['patSkipBackground'] = '1';
     }
@@ -619,7 +835,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
       closeRadioDocPip();
       const pip = document.pictureInPictureElement;
       if (
-        pip === this.mediaEl?.nativeElement ||
+        pip === this.liveAudio ||
         pip === document.getElementById('pattool-radio-pip-carrier')
       ) {
         document.exitPictureInPicture().catch(() => undefined);
@@ -635,7 +851,7 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
       }
       this.hls = null;
     }
-    const media = this.mediaEl?.nativeElement;
+    const media = this.liveAudio;
     if (media) {
       media.onwaiting = null;
       media.onplaying = null;
@@ -683,6 +899,12 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
           this.isPipActive = false;
           // Ignore teardown while we intentionally restart the stream / re-enter PiP.
           if (this.suppressPipHostClose) {
+            this.cdr.markForCheck();
+            return;
+          }
+          if (this.userPoppedOut) {
+            this.userPoppedOut = false;
+            this.radioPlayer.restore();
             this.cdr.markForCheck();
             return;
           }

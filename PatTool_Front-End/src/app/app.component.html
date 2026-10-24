@@ -16,14 +16,22 @@
                 [attr.aria-label]="'MENU.MAP_TRACE_VIEWER' | translate">
             <span class="nav-map-badge">{{ 'MENU.MAP_BADGE' | translate }}</span>
         </button>
-        <a class="nav-sos-link"
-           [routerLink]="['sos']"
-           routerLinkActive="nav-sos-link-active"
-           (click)="closeMenu()"
-           [attr.title]="'MENU.SOS' | translate"
-           [attr.aria-label]="'MENU.SOS' | translate">
-            <span class="nav-sos-badge">SOS</span>
-        </a>
+        <button type="button"
+                class="nav-back-link"
+                (click)="goBack()"
+                [disabled]="!canNavBack"
+                [attr.title]="'MENU.BACK' | translate"
+                [attr.aria-label]="'MENU.BACK' | translate">
+            <span class="nav-back-badge" aria-hidden="true">←</span>
+        </button>
+        <button type="button"
+                class="nav-back-link"
+                (click)="goForward()"
+                [disabled]="!canNavForward"
+                [attr.title]="'MENU.FORWARD' | translate"
+                [attr.aria-label]="'MENU.FORWARD' | translate">
+            <span class="nav-back-badge" aria-hidden="true">→</span>
+        </button>
     </div>
 
     <!-- Mobile toggle button -->

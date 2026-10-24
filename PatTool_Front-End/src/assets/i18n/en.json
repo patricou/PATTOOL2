@@ -116,6 +116,8 @@
     "ARTISANAT": "Trades",
     "JEUX_ARGENT": "Gambling",
     "SOS": "SOS",
+    "BACK": "Previous page",
+    "FORWARD": "Next page",
     "MAP_TRACE_VIEWER": "Map (Trace viewer)",
     "APK_DOWNLOAD": "Android app",
     "MAP_BADGE": "MAP"
@@ -6781,6 +6783,9 @@
     "SLEEVE_SHOW": "Show the track photos",
     "SLEEVE_HIDE": "Hide the track photos",
     "PIP": "Outside browser (PiP)",
+    "FLOAT_LEAVE_BROWSER": "Leave the browser",
+    "YOUTUBE_SEARCH": "Search this track on YouTube",
+    "YOUTUBE_SEARCH_HINT": "Open YouTube and search for “{{query}}”",
     "PIP_EXIT": "Exit PiP",
     "FOCUS": "Full page",
     "FOCUS_HINT": "Show the radio without the menu or the title, without going fullscreen",

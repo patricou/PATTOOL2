@@ -279,13 +279,32 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
     if (disposed || !options.isCurrent() || userHold() || naturalEnd()) {
       return;
     }
+    if (media.dataset['patSkipBackground'] === '1') {
+      return;
+    }
     const asleep =
       screenIsOff() || (typeof document !== 'undefined' && document.visibilityState === 'hidden');
     if (asleep) {
       keepPlayingThroughSleep();
       return;
     }
-    planReload(700);
+    // Route changes can pause the element without dropping the socket.
+    // Resume that same stream. Reopen it only if it stays paused.
+    void media.play().then(() => {
+      if (disposed || !options.isCurrent() || userHold() || naturalEnd()) {
+        return;
+      }
+      if (!media.paused && !media.error) {
+        noteProgress();
+        return;
+      }
+      planReload(700);
+    }).catch(() => {
+      if (disposed || !options.isCurrent() || userHold() || naturalEnd()) {
+        return;
+      }
+      planReload(700);
+    });
   };
 
   const onScreen = (): void => {
@@ -454,7 +473,28 @@ function claimRadioAudioSession(media: HTMLMediaElement): void {
   }
 }
 
+function radioElementStillPlaying(): boolean {
+  if (typeof document === 'undefined') {
+    return false;
+  }
+  const nodes = document.querySelectorAll('audio[data-pat-radio="1"]');
+  for (const node of Array.from(nodes)) {
+    if (!(node instanceof HTMLMediaElement)) {
+      continue;
+    }
+    if (node.src && !node.paused && !node.ended && !node.error) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function releaseRadioAudioSession(): void {
+  // Dropping the last claim sets the audio session back to "auto", which
+  // makes the browser pause a live stream when the radio page is destroyed.
+  if (audioSessionOwners <= 1 && radioElementStillPlaying()) {
+    return;
+  }
   audioSessionOwners = Math.max(0, audioSessionOwners - 1);
   if (audioSessionOwners > 0) {
     return;

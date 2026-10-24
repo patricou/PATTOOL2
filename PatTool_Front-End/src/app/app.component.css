@@ -62,7 +62,7 @@
 }
 
 .nav-map-link,
-.nav-sos-link {
+.nav-back-link {
     display: inline-flex;
     align-items: center;
     align-self: center;
@@ -106,37 +106,48 @@
     outline-offset: 2px;
 }
 
-.nav-sos-badge {
+.nav-back-link {
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+.nav-back-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     min-width: 2.65rem;
     padding: 0.22rem 0.55rem;
     border-radius: 0.4rem;
-    background: #dc2626;
+    background: #2563eb;
     color: #fff;
     font-weight: 800;
     font-size: 0.8rem;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.04em;
     line-height: 1.2;
-    border: 1px solid rgba(254, 202, 202, 0.85);
-    box-shadow: 0 0 0 1px rgba(127, 29, 29, 0.35);
+    border: 1px solid rgba(191, 219, 254, 0.85);
+    box-shadow: 0 0 0 1px rgba(30, 58, 138, 0.35);
 }
 
-.nav-sos-link:hover .nav-sos-badge,
-.nav-sos-link:focus-visible .nav-sos-badge {
-    background: #b91c1c;
+.nav-back-link:hover:not(:disabled) .nav-back-badge,
+.nav-back-link:focus-visible .nav-back-badge {
+    background: #1d4ed8;
     color: #fff;
 }
 
-.nav-sos-link:focus-visible {
-    outline: 2px solid #fecaca;
-    outline-offset: 2px;
+.nav-back-link:disabled {
+    cursor: default;
+    opacity: 0.4;
 }
 
-.nav-sos-link.nav-sos-link-active .nav-sos-badge {
-    background: #991b1b;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+.nav-back-link:disabled .nav-back-badge {
+    background: #2563eb;
+}
+
+.nav-back-link:focus-visible {
+    outline: 2px solid #bfdbfe;
+    outline-offset: 2px;
 }
 
 .navbar-nav .nav-link {

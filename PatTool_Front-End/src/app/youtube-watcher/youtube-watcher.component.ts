@@ -979,9 +979,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
 
   onClipVideoReady(video: HTMLVideoElement): void {
     this.clipVideoEl = video;
-    if (this.equalizer.getAnalyser()) {
-      this.equalizer.attachMediaElement(video);
-    }
+    this.equalizer.engageMedia(video);
     this.clipLoading = false;
     if (this.clipAutoplayDone) {
       return;
@@ -3135,6 +3133,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
+      if (payload.info === 1) {
+        this.equalizer.resumeCaptureIfLive();
+      }
       this.scheduleYoutubeProgress({ playerState: payload.info });
       return;
     }
@@ -3148,6 +3149,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     const update: { currentTime?: number; duration?: number; playerState?: number } = {};
     if (typeof playerState === 'number') {
       update.playerState = playerState;
+      if (playerState === 1) {
+        this.equalizer.resumeCaptureIfLive();
+      }
     }
     if (typeof currentTime === 'number' && Number.isFinite(currentTime)) {
       update.currentTime = Math.max(0, currentTime);

@@ -116,6 +116,8 @@
     "ARTISANAT": "Artisanat",
     "JEUX_ARGENT": "Jeux d'argent",
     "SOS": "SOS",
+    "BACK": "Page précédente",
+    "FORWARD": "Page suivante",
     "MAP_TRACE_VIEWER": "Carte (traceViewer)",
     "APK_DOWNLOAD": "Application Android",
     "MAP_BADGE": "CARTE"
@@ -6785,6 +6787,9 @@
     "SLEEVE_SHOW": "Afficher les photos du morceau",
     "SLEEVE_HIDE": "Masquer les photos du morceau",
     "PIP": "Hors navigateur (PiP)",
+    "FLOAT_LEAVE_BROWSER": "Sortir du navigateur",
+    "YOUTUBE_SEARCH": "Chercher ce morceau sur YouTube",
+    "YOUTUBE_SEARCH_HINT": "Ouvre YouTube et cherche « {{query}} »",
     "PIP_EXIT": "Quitter le PiP",
     "FOCUS": "Pleine page",
     "FOCUS_HINT": "Affiche la radio sans le menu ni le titre, sans passer en plein écran",

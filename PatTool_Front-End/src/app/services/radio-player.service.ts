@@ -44,6 +44,41 @@ export class RadioPlayerService {
     return this.stateSubject.value.open;
   }
 
+  /**
+   * One audio element for the page and the floating bar.
+   * It lives outside any route view, so changing pages does not drop the stream.
+   */
+  private liveAudio: HTMLAudioElement | null = null;
+
+  get audio(): HTMLAudioElement {
+    if (!this.liveAudio && typeof document !== 'undefined') {
+      const el = document.createElement('audio');
+      el.preload = 'none';
+      el.crossOrigin = 'anonymous';
+      el.setAttribute('playsinline', '');
+      el.setAttribute('webkit-playsinline', '');
+      el.dataset['patRadio'] = '1';
+      el.dataset['patKeepAlive'] = '1';
+      el.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:0;bottom:0;';
+      document.body.appendChild(el);
+      this.liveAudio = el;
+    }
+    return this.liveAudio as HTMLAudioElement;
+  }
+
+  stationKey(station: { id?: string; streamUrl?: string } | null | undefined): string {
+    return (station?.id || station?.streamUrl || '').trim();
+  }
+
+  /** True when this element is already playing that station. Do not reopen the socket. */
+  isLive(el: HTMLAudioElement | null | undefined, station: { id?: string; streamUrl?: string } | null | undefined): boolean {
+    if (!el || !el.src || el.paused || el.ended || el.error) {
+      return false;
+    }
+    const key = this.stationKey(station);
+    return !!key && (el.dataset['patStationId'] || '') === key;
+  }
+
   /** Favorites used as preset buttons on the floating World Receiver. */
   get favorites(): RadioStation[] {
     return this.favoritesSnapshot;
@@ -101,6 +136,19 @@ export class RadioPlayerService {
       ...this.stateSubject.value,
       minimized: false,
       pipHostOnly: false,
+      autoPip: false
+    });
+  }
+
+  /** Hide the in-page shell while the cabinet lives in the outside-browser window. */
+  presentOutside(): void {
+    if (!this.stateSubject.value.open) {
+      return;
+    }
+    this.stateSubject.next({
+      ...this.stateSubject.value,
+      minimized: false,
+      pipHostOnly: true,
       autoPip: false
     });
   }

@@ -133,13 +133,28 @@ const TV_SKINS: readonly TvSkin[] = [
 export class TvWatcherComponent implements OnInit, OnDestroy {
   @ViewChild('videoEl')
   set videoElRef(ref: ElementRef<HTMLVideoElement> | undefined) {
+    if (this.boundEqVideo) {
+      this.boundEqVideo.removeEventListener('playing', this.onEqVideoPlaying);
+    }
     this.videoEl = ref;
     this.bindLandscapeVideoFsListener(ref?.nativeElement || null);
-    if (ref?.nativeElement && this.eqModal?.isOpen) {
-      this.equalizer.attachMediaElement(ref.nativeElement);
+    this.boundEqVideo = ref?.nativeElement || null;
+    if (this.boundEqVideo) {
+      this.boundEqVideo.addEventListener('playing', this.onEqVideoPlaying);
+      if (!this.boundEqVideo.paused) {
+        this.onEqVideoPlaying();
+      }
     }
   }
   videoEl?: ElementRef<HTMLVideoElement>;
+  private boundEqVideo: HTMLVideoElement | null = null;
+  private readonly onEqVideoPlaying = (): void => {
+    const el = this.boundEqVideo;
+    if (!el || this.isFloatingOpen) {
+      return;
+    }
+    this.equalizer.engageMedia(el);
+  };
   @ViewChild('eqModal') eqModal?: YoutubeEqualizerModalComponent;
   eqLive = false;
   private eqSourceLive = false;
@@ -958,6 +973,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.pageAlive = false;
+    if (this.boundEqVideo) {
+      this.boundEqVideo.removeEventListener('playing', this.onEqVideoPlaying);
+      this.boundEqVideo = null;
+    }
     this.eqSub?.unsubscribe();
     this.eqModal?.close();
     this.equalizer.detachMediaElement(this.videoEl?.nativeElement);

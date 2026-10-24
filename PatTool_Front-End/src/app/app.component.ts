@@ -355,6 +355,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { kind: 'route', routerLink: ['maps'], icon: 'fa fa-map', labelKey: 'MENU.MAPS', logoSrc: 'assets/images/menu-map.svg' },
         { kind: 'upload', icon: 'fa fa-cloud-upload', labelKey: 'UPLOADFILE.MENU', logoSrc: 'assets/images/menu-upload.svg' },
         { kind: 'share', icon: 'fa fa-share-alt', labelKey: 'SHAREFILE.MENU', logoSrc: 'assets/images/menu-share.svg' },
+        { kind: 'route', routerLink: ['sos'], icon: 'fa fa-life-ring', labelKey: 'MENU.SOS' },
         { kind: 'doc-submenu' },
         { kind: 'lang-submenu' }
     ];
@@ -482,6 +483,7 @@ export class AppComponent implements OnInit, AfterViewInit {
             this.cdr.markForCheck();
         });
         this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe((e) => {
+            this.rememberNavStep(e.urlAfterRedirects || e.url);
             this.updateTvPopoutMode();
             this.updateStarrySkyPage();
             this.updatePageTitleWash();
@@ -2618,6 +2620,83 @@ export class AppComponent implements OnInit, AfterViewInit {
     closeMenu(): void {
         this.isMenuCollapsed = true;
         this.closeDropdowns();
+    }
+
+    /** Last 10 pages visited in this session, for the header arrows. */
+    private readonly navTrailLimit = 10;
+    private navTrail: string[] = [];
+    private navIndex = -1;
+    private navFromArrows = false;
+
+    get canNavBack(): boolean {
+        return this.navIndex > 0;
+    }
+
+    get canNavForward(): boolean {
+        return this.navIndex >= 0 && this.navIndex < this.navTrail.length - 1;
+    }
+
+    /** Header arrow: previous page among the last 10. */
+    goBack(): void {
+        this.closeMenu();
+        if (!this.canNavBack) {
+            return;
+        }
+        this.navIndex -= 1;
+        this.navFromArrows = true;
+        void this.router.navigateByUrl(this.navTrail[this.navIndex]);
+    }
+
+    /** Header arrow: next page, after a back, among the last 10. */
+    goForward(): void {
+        this.closeMenu();
+        if (!this.canNavForward) {
+            return;
+        }
+        this.navIndex += 1;
+        this.navFromArrows = true;
+        void this.router.navigateByUrl(this.navTrail[this.navIndex]);
+    }
+
+    private rememberNavStep(url: string): void {
+        const next = (url || '/').trim() || '/';
+        if (this.navFromArrows) {
+            this.navFromArrows = false;
+            this.cdr.markForCheck();
+            this.scrollPageToTop();
+            return;
+        }
+        if (this.navTrail[this.navIndex] === next) {
+            return;
+        }
+        this.navTrail = this.navTrail.slice(0, this.navIndex + 1);
+        this.navTrail.push(next);
+        const extra = this.navTrail.length - this.navTrailLimit;
+        if (extra > 0) {
+            this.navTrail.splice(0, extra);
+        }
+        this.navIndex = this.navTrail.length - 1;
+        this.cdr.markForCheck();
+    }
+
+    /** Back and forward always open the page at the top. */
+    private scrollPageToTop(): void {
+        const scroll = () => {
+            try {
+                window.scrollTo(0, 0);
+                document.documentElement.scrollTop = 0;
+                document.body.scrollTop = 0;
+                const host = document.querySelector('app-root > router-outlet + *') as HTMLElement | null;
+                if (host) {
+                    host.scrollTop = 0;
+                }
+            } catch {
+                /* ignore */
+            }
+        };
+        scroll();
+        requestAnimationFrame(() => requestAnimationFrame(scroll));
+        setTimeout(scroll, 0);
     }
 
     /** Monde → Terre : ouvre le trace viewer centré sur la position, ou sur un point par défaut. */
