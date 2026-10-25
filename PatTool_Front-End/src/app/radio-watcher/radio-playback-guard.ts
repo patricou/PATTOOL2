@@ -2,7 +2,7 @@
  * Keeps a live radio stream alive across a screen lock and a dropped network.
  * The element must be an {@code <audio>} (a {@code <video>} is paused when the
  * phone sleeps). When the socket dies, the same station is reopened — including
- * after the network returns — until the listener stops it.
+ * after a multi-minute outage, once the network returns — until the listener stops it.
  * On Android, a playing station also holds a playback foreground service so the
  * WebView is not frozen when the screen turns off.
  */
@@ -28,6 +28,13 @@ const PROGRESS_STALE_MS = 8000;
 const OFFLINE_STALE_MS = 2500;
 /** Probe interval while the browser still says offline, so a missed online event still recovers. */
 const OFFLINE_PROBE_MS = 4000;
+/**
+ * Probes kept on the same player before a real reopen. A multi-minute outage
+ * must not tear the guard down on every failure: the {@code online} listener
+ * has to still be the one that was playing when the network comes back.
+ * 8 probes (about 30s), so a stuck {@code navigator.onLine} still retries.
+ */
+const OFFLINE_RELOAD_EVERY = 8;
 const STALL_BEFORE_START_MS = 22000;
 
 let audioSessionOwners = 0;
@@ -98,6 +105,11 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
       return true;
     }
     if (!seenPlaying) {
+      // Offline from the start (the previous attempt already failed): do not
+      // wait out the startup grace. The network-return path must reopen now.
+      if (saysOffline() || recoverSoon) {
+        return true;
+      }
       return Date.now() - startedAt >= STALL_BEFORE_START_MS;
     }
     if (media.paused || media.ended) {
@@ -167,28 +179,39 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
       }
       clearRetry();
     }
-    const wait = Math.max(300, delay);
-    retryTimer = setTimeout(() => {
+    const attempt = (): void => {
       retryTimer = null;
       if (disposed || !options.isCurrent() || userHold() || naturalEnd()) {
         return;
       }
-      if (!stalled()) {
+      // force is the network-return path. A guard recreated during the outage
+      // has never reached "playing", so stalled() would still be false and the
+      // reopen would be dropped for up to STALL_BEFORE_START_MS.
+      if (!force && !stalled()) {
         retryDelay = MIN_RETRY_MS;
         armProgress();
         return;
       }
-      if (!force && saysOffline() && offlineWaits < 1) {
+      if (!force && saysOffline()) {
         offline = true;
         offlineWaits += 1;
-        planReload(OFFLINE_PROBE_MS);
-        return;
+        if (offlineWaits < OFFLINE_RELOAD_EVERY) {
+          planReload(OFFLINE_PROBE_MS);
+          return;
+        }
       }
       offlineWaits = 0;
       offline = false;
       retryDelay = Math.min(MAX_RETRY_MS, Math.round(retryDelay * 1.6));
       options.reload();
-    }, wait);
+    };
+    // The phone wakes the page with an `online` event after a long cut, while
+    // WebView timers may still be frozen. Reopen in this turn, not on a timer.
+    if (force) {
+      attempt();
+      return;
+    }
+    retryTimer = setTimeout(attempt, Math.max(300, delay));
   };
 
   const armStartWatch = (): void => {
@@ -361,9 +384,13 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
       return;
     }
     const quiet = Date.now() - lastProgressAt;
-    const needsRestart =
-      seenPlaying && (media.paused || !!media.error || quiet >= OFFLINE_STALE_MS || stalled());
-    if (!needsRestart) {
+    // Still hearing the station (buffer survived the drop): keep that element.
+    // Anything else — including a guard that never reached playing because every
+    // reopen during a long outage failed — must reopen now. Waiting on seenPlaying
+    // left Bluetooth silent after the WebView woke only for this event.
+    const audible =
+      seenPlaying && !media.paused && !media.ended && !media.error && quiet < OFFLINE_STALE_MS;
+    if (audible) {
       armProgress();
       return;
     }
@@ -375,7 +402,11 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
   const onOffline = (): void => {
     offline = true;
     recoverSoon = true;
-    if (disposed || !options.isCurrent() || userHold() || naturalEnd() || !seenPlaying) {
+    if (disposed || !options.isCurrent() || userHold() || naturalEnd()) {
+      return;
+    }
+    if (!seenPlaying) {
+      planReload(OFFLINE_PROBE_MS);
       return;
     }
     const quiet = Date.now() - lastProgressAt;
@@ -429,7 +460,10 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
 
   return {
     requestReconnect(): void {
-      planReload(retryDelay);
+      if (!seenPlaying) {
+        startedAt = 0;
+      }
+      planReload(saysOffline() ? OFFLINE_PROBE_MS : retryDelay);
     },
     dispose(): void {
       if (disposed) {

@@ -683,7 +683,13 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
                   }
                   afterPlaying();
                 })
-                .catch(() => onError('RADIO.ERR_PLAY'));
+                .catch(() => {
+                  if (reason === 'user') {
+                    onError('RADIO.ERR_PLAY');
+                    return;
+                  }
+                  this.playbackGuard?.requestReconnect();
+                });
               return;
             }
             this.playbackGuard?.requestReconnect();

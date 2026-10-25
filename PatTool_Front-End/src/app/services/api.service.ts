@@ -4629,6 +4629,82 @@ export class ApiService {
     );
   }
 
+  /** GET/POST /api/external/deezer/user-playlists — per authenticated user */
+  getDeezerUserPlaylists(): Observable<DeezerUserPlaylists> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<DeezerUserPlaylists>(this.API_URL + 'external/deezer/user-playlists', { headers })
+      )
+    );
+  }
+
+  createDeezerUserPlaylist(name: string, track?: DeezerTrack): Observable<DeezerUserPlaylists> {
+    const body = track ? { name, track } : { name };
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.post<DeezerUserPlaylists>(this.API_URL + 'external/deezer/user-playlists', body, { headers })
+      )
+    );
+  }
+
+  renameDeezerUserPlaylist(id: string, name: string): Observable<DeezerUserPlaylists> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<DeezerUserPlaylists>(
+          this.API_URL + 'external/deezer/user-playlists/' + encodeURIComponent(id),
+          { name },
+          { headers }
+        )
+      )
+    );
+  }
+
+  deleteDeezerUserPlaylist(id: string): Observable<DeezerUserPlaylists> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.delete<DeezerUserPlaylists>(
+          this.API_URL + 'external/deezer/user-playlists/' + encodeURIComponent(id),
+          { headers }
+        )
+      )
+    );
+  }
+
+  addDeezerUserPlaylistTrack(id: string, track: DeezerTrack): Observable<DeezerUserPlaylists> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<DeezerUserPlaylists>(
+          this.API_URL + 'external/deezer/user-playlists/' + encodeURIComponent(id) + '/tracks',
+          track,
+          { headers }
+        )
+      )
+    );
+  }
+
+  removeDeezerUserPlaylistTrack(id: string, trackId: number): Observable<DeezerUserPlaylists> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.delete<DeezerUserPlaylists>(
+          this.API_URL + 'external/deezer/user-playlists/' + encodeURIComponent(id) + '/tracks/' + trackId,
+          { headers }
+        )
+      )
+    );
+  }
+
+  reorderDeezerUserPlaylist(id: string, trackIds: number[]): Observable<DeezerUserPlaylists> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<DeezerUserPlaylists>(
+          this.API_URL + 'external/deezer/user-playlists/' + encodeURIComponent(id) + '/order',
+          { trackIds },
+          { headers }
+        )
+      )
+    );
+  }
+
   // --- Book watcher (Open Library / Gutenberg / LibriVox / Archive / Google / Standard Ebooks) ---
 
   searchOpenLibraryBooks(
@@ -7221,6 +7297,17 @@ export interface DeezerFavorite {
 
 export interface DeezerFavorites {
   items: DeezerFavorite[];
+}
+
+/** GET/POST /api/external/deezer/user-playlists — per authenticated user */
+export interface DeezerUserPlaylist {
+  id: string;
+  name: string;
+  tracks: DeezerTrack[];
+}
+
+export interface DeezerUserPlaylists {
+  playlists: DeezerUserPlaylist[];
 }
 
 /** GET/PUT /api/external/radio/favorites — per authenticated user */

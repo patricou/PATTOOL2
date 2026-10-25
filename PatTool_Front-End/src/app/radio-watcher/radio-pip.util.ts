@@ -1,6 +1,6 @@
 /** Document Picture-in-Picture for Radio — World Receiver face in an always-on-top window. */
 
-import { clipScreenText, setScreenKeepAlive } from '../services/media-screen-keepalive';
+import { activeScreenKeepAliveOwner, clipScreenText, setScreenKeepAlive } from '../services/media-screen-keepalive';
 
 export interface RadioDocPipLabels {
   fullscreen: string;
@@ -133,9 +133,96 @@ export function applyRadioMediaSession(meta: {
   }
 }
 
+/** End of the station line: `(3/4)` or `(Orange 3/4)`. */
+const RECEPTION_SUFFIX = /\s*\((?:[^()]{1,32} )?[0-4]\/4\)\s*$/;
+const RECEPTION_MARK = /^(?:[^()]{1,32} )?[0-4]\/4$/;
+
+function phoneReceptionMark(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const bridge = (window as Window & { PatRadioNative?: { receptionMark?: () => string } }).PatRadioNative;
+  if (!bridge || typeof bridge.receptionMark !== 'function') {
+    return null;
+  }
+  try {
+    const mark = String(bridge.receptionMark() ?? '').trim();
+    return RECEPTION_MARK.test(mark) ? mark : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Puts `(Orange 3/4)` after the station. A previous mark is replaced. */
+function withPhoneReception(value: string, mark: string | null = phoneReceptionMark()): string {
+  const stripped = (value || '').replace(RECEPTION_SUFFIX, '');
+  if (!mark) {
+    return stripped;
+  }
+  const base = stripped.replace(/\s+$/, '');
+  const suffix = ` (${mark})`;
+  const room = 512 - suffix.length;
+  const cut = base.length > room ? base.slice(0, Math.max(0, room)).replace(/\s+$/, '') : base;
+  return cut ? `${cut}${suffix}` : suffix.trim();
+}
+
+let receptionListenerInstalled = false;
+
+function installRadioReceptionListener(): void {
+  if (receptionListenerInstalled || typeof window === 'undefined') {
+    return;
+  }
+  receptionListenerInstalled = true;
+  window.addEventListener('patradioreception', (event) => {
+    if (activeScreenKeepAliveOwner() !== 'radio') {
+      return;
+    }
+    const raw = String((event as CustomEvent).detail ?? '').trim();
+    patchRadioReception(RECEPTION_MARK.test(raw) ? raw : null);
+  });
+}
+
+function patchRadioReception(mark: string | null): void {
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) {
+    return;
+  }
+  const current = navigator.mediaSession.metadata;
+  if (!current) {
+    return;
+  }
+  const album = current.album || '';
+  const title = current.title || '';
+  const nextAlbum = album.trim() ? withPhoneReception(album, mark) : album;
+  const nextTitle = album.trim() ? title : withPhoneReception(title, mark);
+  if (nextAlbum === album && nextTitle === title) {
+    return;
+  }
+  const artwork: MediaImage[] = [];
+  const images = current.artwork;
+  if (images) {
+    for (let i = 0; i < images.length; i++) {
+      const image = images[i];
+      if (image?.src) {
+        artwork.push({ src: image.src, sizes: image.sizes || '', type: image.type || '' });
+      }
+    }
+  }
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: nextTitle || 'Radio',
+      artist: current.artist || '',
+      album: nextAlbum,
+      artwork
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Song, artist and station, each in its own Bluetooth field.
  * Title is the song, artist is the performer, album is the radio station.
+ * The station field ends with the network name and bars, for example `(Orange 3/4)`.
  * A blank or repeated spaces at the end stay a single space.
  */
 export function publishRadioTrack(
@@ -154,6 +241,7 @@ export function publishRadioTrack(
   const title = song || station;
   const shownArtist = distinctRadioLabel(artist, station, title);
   const album = distinctRadioLabel(station, title);
+  const receptionOnTitle = !album.trim();
   if (media) {
     media.title = title;
     media.setAttribute('data-pat-media-title', title);
@@ -167,12 +255,13 @@ export function publishRadioTrack(
     }
   }
   applyRadioMediaSession({
-    title,
+    title: receptionOnTitle ? withPhoneReception(title) : title,
     artist: shownArtist,
-    album,
+    album: receptionOnTitle ? album : withPhoneReception(album),
     artworkUrl: meta.artworkUrl
   });
   setScreenKeepAlive('radio', true, title, { artist: shownArtist, album, station });
+  installRadioReceptionListener();
   bindRadioSkipHandlers();
 }
 

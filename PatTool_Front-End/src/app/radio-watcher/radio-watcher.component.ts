@@ -200,6 +200,8 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostBinding('class.radio-focus') focusMode = false;
   /** Browser fullscreen, same idea as the TV stage. */
   @HostBinding('class.radio-stage-fs') stageFullscreen = false;
+  /** Phone turned sideways: the receiver screen fills the display. */
+  @HostBinding('class.radio-landscape-fs') landscapeFullscreen = false;
   skinMenuOpen = false;
   private skinChosenThisVisit = false;
   private skinLoadSub?: Subscription;
@@ -248,6 +250,15 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   private static readonly SIDEBAR_COLLAPSED_STORAGE_KEY = 'pattool.radio.sidebar-collapsed';
   private static readonly FOCUS_BODY_CLASS = 'radio-focus';
   private static readonly STAGE_FS_BODY_CLASS = 'radio-stage-fs';
+  private static readonly LANDSCAPE_FS_BODY_CLASS = 'radio-landscape-fs';
+  private landscapeOrientationMql: MediaQueryList | null = null;
+  private landscapeFsUserDismissed = false;
+  /** User asked for the cover or video on a phone, including in portrait. */
+  private mediaFsPinned = false;
+  private readonly onLandscapeOrientationMedia = (): void => {
+    this.syncLandscapeFullscreen();
+    this.cdr.detectChanges();
+  };
   private static readonly SHARE_STREAM_MAX_LEN = 80;
   private static readonly PRESET_COUNT = 12;
 
@@ -683,11 +694,15 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.tryOpenSharedStationFromQuery()) {
       this.restoreLastPlayedStation();
     }
+    this.setupLandscapeFullscreenWatchers();
+    this.syncLandscapeFullscreen();
     // Tags + catalog stations: deferred — worldwide mode needs a search/tag first,
     // and tags are only useful once the filters panel is opened.
   }
 
   ngOnDestroy(): void {
+    this.teardownLandscapeFullscreenWatchers();
+    this.exitLandscapeFullscreen(false);
     window.removeEventListener('patradiotransport', this.onBluetoothTune);
     window.removeEventListener('patmediavolumeui', this.onDeviceVolumeUi);
     this.pageAlive = false;
@@ -949,9 +964,9 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  /** The window only covers the face while at least one photo is ready. */
+  /** The window covers the face while a photo is ready. Full screen always shows it. */
   get sleeveVisible(): boolean {
-    return this.sleeveOpen && !this.isFloatingOpen && this.trackImages.length > 0;
+    return !this.isFloatingOpen && this.trackImages.length > 0 && (this.sleeveOpen || this.landscapeFullscreen);
   }
 
   toggleSleeve(): void {
@@ -1060,6 +1075,10 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onEscapeKey(): void {
+    if (this.landscapeFullscreen) {
+      this.exitLandscapeFullscreen(true);
+      return;
+    }
     if (this.skinMenuOpen) {
       this.skinMenuOpen = false;
       this.cdr.markForCheck();
@@ -1098,6 +1117,9 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   enterFocusMode(): void {
+    if (this.landscapeFullscreen) {
+      this.exitLandscapeFullscreen(true);
+    }
     this.focusMode = true;
     document.body.classList.add(RadioWatcherComponent.FOCUS_BODY_CLASS);
     if (this.selectedStation) {
@@ -1113,6 +1135,144 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.focusMode = false;
     document.body.classList.remove(RadioWatcherComponent.FOCUS_BODY_CLASS);
     this.cdr.markForCheck();
+    this.syncLandscapeFullscreen();
+  }
+
+  /** Leave the phone-landscape screen. Portrait clears the dismiss so the next turn fills the screen again. */
+  exitLandscapeFullscreen(markDismissed = true, event?: Event): void {
+    event?.stopPropagation();
+    if (markDismissed && this.landscapeFullscreen) {
+      this.landscapeFsUserDismissed = true;
+    }
+    if (!this.landscapeFullscreen && !document.body.classList.contains(RadioWatcherComponent.LANDSCAPE_FS_BODY_CLASS)) {
+      return;
+    }
+    this.landscapeFullscreen = false;
+    this.mediaFsPinned = false;
+    document.body.classList.remove(RadioWatcherComponent.LANDSCAPE_FS_BODY_CLASS);
+    this.cdr.markForCheck();
+  }
+
+  @HostListener('window:orientationchange')
+  @HostListener('window:resize')
+  onViewportOrientationMaybeChanged(): void {
+    this.syncLandscapeFullscreen();
+  }
+
+  private setupLandscapeFullscreenWatchers(): void {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+    this.landscapeOrientationMql = window.matchMedia('(orientation: landscape)');
+    const mql = this.landscapeOrientationMql as MediaQueryList & {
+      addListener?: (cb: () => void) => void;
+    };
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', this.onLandscapeOrientationMedia);
+    } else {
+      mql.addListener?.(this.onLandscapeOrientationMedia);
+    }
+  }
+
+  private teardownLandscapeFullscreenWatchers(): void {
+    const mql = this.landscapeOrientationMql as (MediaQueryList & {
+      removeListener?: (cb: () => void) => void;
+    }) | null;
+    if (mql) {
+      if (typeof mql.removeEventListener === 'function') {
+        mql.removeEventListener('change', this.onLandscapeOrientationMedia);
+      } else {
+        mql.removeListener?.(this.onLandscapeOrientationMedia);
+      }
+      this.landscapeOrientationMql = null;
+    }
+  }
+
+  private isMobileLikeViewport(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    const coarse = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    const narrow = window.matchMedia('(max-width: 900px)').matches;
+    const touch = (navigator.maxTouchPoints || 0) > 0;
+    return coarse || (narrow && touch);
+  }
+
+  private isLandscapeOrientation(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    if (this.landscapeOrientationMql) {
+      return this.landscapeOrientationMql.matches;
+    }
+    return window.matchMedia('(orientation: landscape)').matches;
+  }
+
+  private hasLandscapeScreen(): boolean {
+    return !!this.selectedStation && !this.isFloatingOpen;
+  }
+
+  private canEnterLandscapeFullscreen(): boolean {
+    return (
+      this.isMobileLikeViewport()
+      && this.isLandscapeOrientation()
+      && this.hasLandscapeScreen()
+      && !this.landscapeFsUserDismissed
+      && !this.focusMode
+      && !this.stageFullscreen
+    );
+  }
+
+  private syncLandscapeFullscreen(): void {
+    if (!this.isLandscapeOrientation()) {
+      this.landscapeFsUserDismissed = false;
+      if (!this.mediaFsPinned) {
+        this.exitLandscapeFullscreen(false);
+      }
+      return;
+    }
+    if (this.canEnterLandscapeFullscreen()) {
+      this.enterLandscapeFullscreen();
+      return;
+    }
+    if (this.landscapeFullscreen && !this.hasLandscapeScreen()) {
+      this.exitLandscapeFullscreen(false);
+    }
+  }
+
+  private enterLandscapeFullscreen(): void {
+    const already = this.landscapeFullscreen;
+    this.landscapeFullscreen = true;
+    document.body.classList.add(RadioWatcherComponent.LANDSCAPE_FS_BODY_CLASS);
+    if (!already) {
+      this.chromeVisible = false;
+      this.clearChromeHideTimer();
+      this.cdr.markForCheck();
+    }
+  }
+
+  get mobileLayout(): boolean {
+    return this.isMobileLikeViewport();
+  }
+
+  /** Phone: one control, and it shows only the cover. Desktop keeps the receiver fullscreen. */
+  onFullscreenButton(event?: Event): void {
+    if (this.isMobileLikeViewport()) {
+      this.toggleMediaFullscreen(event);
+      return;
+    }
+    void this.toggleStageFullscreen(event);
+  }
+
+  toggleMediaFullscreen(event?: Event): void {
+    event?.stopPropagation();
+    if (this.landscapeFullscreen) {
+      this.exitLandscapeFullscreen(true);
+      return;
+    }
+    this.mediaFsPinned = true;
+    this.landscapeFsUserDismissed = false;
+    this.enterLandscapeFullscreen();
   }
 
   async toggleStageFullscreen(event?: Event): Promise<void> {
@@ -1754,6 +1914,19 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   };
 
+  canTune(direction: 'next' | 'previous'): boolean {
+    return !!adjacentRadioStation(direction, this.selectedStation, this.favorites, this.stations);
+  }
+
+  tuneAdjacent(direction: 'next' | 'previous', event?: Event): void {
+    event?.stopPropagation();
+    const station = adjacentRadioStation(direction, this.selectedStation, this.favorites, this.stations);
+    if (!station) {
+      return;
+    }
+    this.selectStation(station as RadioStation);
+  }
+
   private readonly onBluetoothTune = (event: Event): void => {
     if (!this.pageAlive || this.radioPlayer.isOpen || activeScreenKeepAliveOwner() === 'youtube') {
       return;
@@ -1780,6 +1953,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
       this.radioPlayer.setStation(station);
       this.selectedStation = station;
       this.persistLastStation(station);
+      this.syncLandscapeFullscreen();
       this.cdr.markForCheck();
       return;
     }
@@ -1788,6 +1962,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.chromeVisible = this.pointerOverRadio || this.focusMode || this.stageFullscreen;
     this.persistLastStation(station);
     this.playStation(station);
+    this.syncLandscapeFullscreen();
   }
 
   stopPlayback(): void {
@@ -1796,6 +1971,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedStation = null;
     this.playError = '';
     this.isBuffering = false;
+    this.syncLandscapeFullscreen();
     this.cdr.markForCheck();
   }
 
@@ -1825,11 +2001,14 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.playbackGuard?.dispose();
     this.playbackGuard = null;
     this.radioPlayer.openFloating(station);
+    this.syncLandscapeFullscreen();
     this.cdr.markForCheck();
   }
 
   closeFloatingWindow(): void {
     this.radioPlayer.close();
+    this.syncLandscapeFullscreen();
+    this.cdr.markForCheck();
   }
 
   toggleMute(): void {
@@ -2057,6 +2236,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
         this.playStation(station, 'restore');
       }
     }, 0);
+    this.syncLandscapeFullscreen();
     this.cdr.markForCheck();
   }
 
@@ -2300,6 +2480,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
           this.playStation(local, 'restore');
         }
       }, 0);
+      this.syncLandscapeFullscreen();
     }
     if (this.isLoggedIn) {
       this.api.getRadioLastStation().pipe(catchError(() => of(null))).subscribe((st) => {
@@ -2314,6 +2495,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
               this.playStation(st, 'restore');
             }
           }, 0);
+          this.syncLandscapeFullscreen();
           this.cdr.markForCheck();
         } else if (st) {
           this.writeLocalLastStation(st);
@@ -2445,6 +2627,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
         if (gen !== this.playGeneration) {
           return;
         }
+        this.clearPlaybackGesture();
         this.isBuffering = false;
         this.isReconnecting = false;
         void this.engageEqualizer(media);
@@ -2477,11 +2660,15 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
               onError('RADIO.ERR_PLAY');
               return;
             }
+            // Bluetooth / lock screen: a tap may never come. Keep reopening
+            // until the network is back, and also arm a tap as a backup.
+            this.playbackGuard?.requestReconnect();
             this.armPlaybackGesture(station, gen, true);
           });
           return;
         }
         if (reason === 'restore' || reason === 'reconnect') {
+          this.playbackGuard?.requestReconnect();
           this.armPlaybackGesture(station, gen, true);
           return;
         }
@@ -2497,6 +2684,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     };
     media.onplaying = () => {
       if (gen === this.playGeneration) {
+        this.clearPlaybackGesture();
         this.isBuffering = false;
         this.isReconnecting = false;
         this.playError = '';

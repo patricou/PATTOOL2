@@ -1595,127 +1595,127 @@ html:not(.pat-starry-sky):not(.pat-page-no-wash) body {
    :not() matches the light wash above so these rules win on specificity. */
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher)),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher)) body {
     background-color: #1c1612;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--artdeco),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--artdeco) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--artdeco),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--artdeco) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--artdeco),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--artdeco) body {
     background-color: #140c08;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--synthwave),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--synthwave) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--synthwave),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--synthwave) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--synthwave),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--synthwave) body {
     background-color: #0d0221;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--spaceage),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--spaceage) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--spaceage),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--spaceage) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--spaceage),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--spaceage) body {
     background-color: #e85a00;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--military),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--military) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--military),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--military) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--military),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--military) body {
     background-color: #1a1e10;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--steampunk),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--steampunk) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--steampunk),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--steampunk) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--steampunk),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--steampunk) body {
     background-color: #2a140c;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--aurora),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--aurora) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--aurora),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--aurora) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--aurora),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--aurora) body {
     background-color: #070d1c;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--noir),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--noir) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--noir),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--noir) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--noir),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--noir) body {
     background-color: #070709;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--bamboo),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--bamboo) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--bamboo),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--bamboo) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--bamboo),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--bamboo) body {
     background-color: #1a1208;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--porcelain),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--porcelain) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--porcelain),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--porcelain) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--porcelain),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--porcelain) body {
     background-color: #eef3f8;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--carbon),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--carbon) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--carbon),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--carbon) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--carbon),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--carbon) body {
     background-color: #07090d;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--espace),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--espace) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--espace),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--espace) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--espace),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--espace) body {
     background-color: #02040c;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--candy),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--candy) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--candy),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--candy) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--candy),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--candy) body {
     background-color: #ff6fa3;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--kanizsa),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--kanizsa) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--kanizsa),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--kanizsa) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--kanizsa),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--kanizsa) body {
     background-color: #f3efe4;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--cafewall),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--cafewall) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--cafewall),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--cafewall) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--cafewall),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--cafewall) body {
     background-color: #6e6e6e;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--penrose),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--penrose) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--penrose),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--penrose) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--penrose),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--penrose) body {
     background-color: #12141c;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--scintille),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--scintille) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--scintille),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--scintille) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--scintille),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--scintille) body {
     background-color: #8e8e98;
 }
 
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--barber),
 html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-tv-watcher.tv-skin--barber) body,
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--barber),
-html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-radio-watcher.radio-skin--barber) body {
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--barber),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(:is(app-radio-watcher, app-deezer-watcher).radio-skin--barber) body {
     background-color: #1d4e89;
 }
 
@@ -1741,9 +1741,10 @@ app-root > router-outlet + * {
     background-color: var(--pat-page-bg, color-mix(in srgb, var(--pat-title-accent, #64748b) 18%, #ffffff));
 }
 
-/* Radio / TV: the skin must cover the viewport bottom while scrolling, not the flat page color. */
+/* Radio / TV / Deezer: the skin must cover the viewport bottom while scrolling, not the flat page color. */
 app-root > router-outlet + app-radio-watcher,
-app-root > router-outlet + app-tv-watcher {
+app-root > router-outlet + app-tv-watcher,
+app-root > router-outlet + app-deezer-watcher {
     min-height: 100dvh;
 }
 
@@ -2355,6 +2356,36 @@ body.radio-stage-fs app-radio-watcher {
 
 body.radio-stage-fs app-radio-watcher {
   z-index: 2000 !important;
+}
+
+/* Mobile landscape Radio and Deezer: the receiver screen covers the phone. */
+body.radio-landscape-fs {
+  overflow: hidden !important;
+}
+
+body.radio-landscape-fs app-root > app-assistant-drawer,
+body.radio-landscape-fs app-root > nav.navbar,
+body.radio-landscape-fs app-root > app-news-ticker,
+body.radio-landscape-fs app-root > app-currency-ticker,
+body.radio-landscape-fs app-root > app-stock-ticker,
+body.radio-landscape-fs app-root > .pat-div,
+body.radio-landscape-fs app-root > .friend-requests-app-banner {
+  display: none !important;
+}
+
+body.radio-landscape-fs app-radio-watcher,
+body.radio-landscape-fs app-deezer-watcher {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2000 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: #000 !important;
 }
 
 /* Mobile landscape webcam watcher: hide app chrome, lock scroll */

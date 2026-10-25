@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostBinding, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, HostBinding, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -15,7 +15,8 @@ import {
   DeezerGenre,
   DeezerPlaylist,
   DeezerSearchType,
-  DeezerTrack
+  DeezerTrack,
+  DeezerUserPlaylist
 } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
@@ -79,6 +80,8 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
 
   @HostBinding('class.radio-focus') get focusClass(): boolean { return this.focusMode; }
   @HostBinding('class.radio-stage-fs') get stageFsClass(): boolean { return this.stageFullscreen; }
+  /** Phone turned sideways: only the cover or the video fills the display. */
+  @HostBinding('class.radio-landscape-fs') landscapeFullscreen = false;
   @HostBinding('class.radio-skin--classic') get skinClassic(): boolean { return this.radioSkin === 'classic'; }
   @HostBinding('class.radio-skin--artdeco') get skinArtdeco(): boolean { return this.radioSkin === 'artdeco'; }
   @HostBinding('class.radio-skin--synthwave') get skinSynthwave(): boolean { return this.radioSkin === 'synthwave'; }
@@ -100,7 +103,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
 
   genres: DeezerGenre[] = [];
   genreId = 0;
-  genresOpen = true;
+  genresOpen = false;
   query = '';
   view: DeezerSearchType = 'track';
   mode: DzMode = 'chart';
@@ -141,11 +144,21 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   filterOpen = false;
   hideExplicit = false;
   previewOnly = false;
-  listMode: 'browse' | 'favorites' = 'browse';
+  listMode: 'browse' | 'favorites' | 'playlists' = 'browse';
   favorites: DzFav[] = [];
   favoritesHint = '';
   favoritesError = '';
   favoriteBusyKey = '';
+  userPlaylists: DeezerUserPlaylist[] = [];
+  activeUserPlaylist: DeezerUserPlaylist | null = null;
+  playlistNameDraft = '';
+  renameDraft = '';
+  renamingPlaylistId = '';
+  confirmDeletePlaylistId = '';
+  playlistMenuTrack: DeezerTrack | null = null;
+  playlistsHint = '';
+  playlistsError = '';
+  playlistBusy = '';
   youtubeMode = false;
   youtubeSearchEnabled = false;
   youtubeBusy = false;
@@ -188,12 +201,24 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private favoritesSub?: Subscription;
   private favoritesReady = false;
+  private playlistsSub?: Subscription;
+  private playlistsReady = false;
   private static readonly SIDEBAR_KEY = 'pattool.deezer.sidebar';
   private static readonly YT_SEARCH_KEY = 'pattool.deezer.youtube-search';
   private static readonly FILTER_KEY = 'pattool.deezer.filter';
   private static readonly GENRES_KEY = 'pattool.deezer.genres';
   private static readonly FAV_KEY = 'pattool.deezer.favorites';
   private static readonly CHROME_HIDE_MS = 4000;
+  private static readonly CHROME_IDLE_MS = 1200;
+  private static readonly LANDSCAPE_FS_BODY_CLASS = 'radio-landscape-fs';
+  private landscapeOrientationMql: MediaQueryList | null = null;
+  private landscapeFsUserDismissed = false;
+  /** User asked for the cover or video on a phone, including in portrait. */
+  private mediaFsPinned = false;
+  private readonly onLandscapeOrientationMedia = (): void => {
+    this.syncLandscapeFullscreen();
+    this.cdr.detectChanges();
+  };
   readonly illusionSkins: readonly DzSkin[] = ['kanizsa', 'cafewall', 'penrose', 'scintille', 'barber'];
   readonly pipSupported = supportsRadioPictureInPicture();
   readonly canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
@@ -205,7 +230,8 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     private router: Router,
     private translate: TranslateService,
     private sanitizer: DomSanitizer,
-    private keycloak: KeycloakService
+    private keycloak: KeycloakService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -216,9 +242,15 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.presets = this.readPresets();
     this.sidebarCollapsed = this.readSidebar();
     this.readFilter();
-    this.genresOpen = this.readGenresOpen();
+    this.genresOpen = false;
+    try {
+      localStorage.setItem(DeezerWatcherComponent.GENRES_KEY, '0');
+    } catch {
+      /* ignore */
+    }
     this.youtubeSearchEnabled = this.readYoutubeSearch();
     this.loadFavorites();
+    this.loadUserPlaylists();
     this.parkKeptAudio();
     this.search$.pipe(
       debounceTime(320),
@@ -227,9 +259,13 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     ).subscribe((q) => this.runQuery(q));
     this.loadGenres();
     this.loadChart();
+    this.setupLandscapeFullscreenWatchers();
+    this.syncLandscapeFullscreen();
   }
 
   ngOnDestroy(): void {
+    this.teardownLandscapeFullscreenWatchers();
+    this.exitLandscapeFullscreen(false);
     this.destroy$.next();
     this.destroy$.complete();
     if (this.sleeveTimer) {
@@ -241,9 +277,10 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.ytPrefetch?.unsubscribe();
     this.ytScan?.unsubscribe();
     this.favoritesSub?.unsubscribe();
+    this.playlistsSub?.unsubscribe();
     this.stopYoutubeHandshake();
     this.sleeveSub?.unsubscribe();
-    document.body.classList.remove('radio-focus', 'radio-stage-fs');
+    document.body.classList.remove('radio-focus', 'radio-stage-fs', 'radio-landscape-fs');
     const audio = this.audioRef?.nativeElement;
     if (audio && this.keepAliveOnNavigate && this.playing) {
       audio.dataset['patDeezerKeep'] = '1';
@@ -291,8 +328,39 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   }
 
   get shownTracks(): DeezerTrack[] {
-    const source = this.listMode === 'favorites' && !this.drilled ? this.favoriteTracks : this.tracks;
+    const source = this.activeUserPlaylist
+      ? (this.activeUserPlaylist.tracks || [])
+      : (this.listMode === 'favorites' && !this.drilled ? this.favoriteTracks : this.tracks);
     return source.filter((track) => this.passTrack(track) && this.matchesFavoriteQuery(this.trackHay(track)));
+  }
+
+  get showTrackList(): boolean {
+    if (this.listMode === 'playlists') {
+      return !!this.activeUserPlaylist;
+    }
+    return this.view === 'track' || this.drilled;
+  }
+
+  get shownUserPlaylists(): DeezerUserPlaylist[] {
+    const q = this.listMode === 'playlists' && !this.activeUserPlaylist ? this.query.trim().toLowerCase() : '';
+    if (!q) {
+      return this.userPlaylists;
+    }
+    return this.userPlaylists.filter((playlist) => (playlist.name || '').toLowerCase().includes(q));
+  }
+
+  get playlistCount(): number {
+    return this.userPlaylists.length;
+  }
+
+  get trackEmptyKey(): string {
+    if (this.activeUserPlaylist && !(this.activeUserPlaylist.tracks || []).length) {
+      return 'DEEZER.PLAYLIST_EMPTY_TRACKS';
+    }
+    if (this.listMode === 'favorites' && !this.drilled && !this.favoriteTracks.length) {
+      return 'DEEZER.FAVORITES_EMPTY';
+    }
+    return 'DEEZER.EMPTY';
   }
 
   get shownAlbums(): DeezerAlbum[] {
@@ -380,12 +448,26 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.syncYoutubeButtons();
   }
 
-  setListMode(mode: 'browse' | 'favorites'): void {
+  setListMode(mode: 'browse' | 'favorites' | 'playlists'): void {
     if (this.listMode === mode) {
       return;
     }
     this.listMode = mode;
+    this.loadSeq++;
+    this.activeUserPlaylist = null;
+    this.playlistMenuTrack = null;
+    this.renamingPlaylistId = '';
+    this.confirmDeletePlaylistId = '';
     this.exitDrill();
+    if (mode === 'playlists') {
+      this.loading = false;
+      this.errorKey = '';
+      if (!this.keycloak.isLoggedIn()) {
+        this.playlistsHint = 'DEEZER.PLAYLISTS_LOGIN';
+      }
+      this.refreshQueue();
+      return;
+    }
     if (mode === 'favorites') {
       this.loading = false;
       this.errorKey = '';
@@ -498,6 +580,216 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.toggleFavorite({ kind: 'playlist', playlist });
   }
 
+  toggleTrackPlaylistMenu(track: DeezerTrack, event?: Event): void {
+    event?.stopPropagation();
+    if (!this.ensurePlaylistsLogin()) {
+      return;
+    }
+    this.playlistMenuTrack = this.playlistMenuTrack?.id === track.id ? null : track;
+  }
+
+  closePlaylistMenu(event?: Event): void {
+    event?.stopPropagation();
+    this.playlistMenuTrack = null;
+  }
+
+  playlistHasTrack(playlist: DeezerUserPlaylist, trackId: number): boolean {
+    return !!playlist?.tracks?.some((track) => track.id === trackId);
+  }
+
+  toggleTrackInPlaylist(playlist: DeezerUserPlaylist, track: DeezerTrack | null, event?: Event): void {
+    event?.stopPropagation();
+    if (!playlist?.id || !track?.id || this.playlistBusy || !this.playlistsReady) {
+      return;
+    }
+    if (!this.ensurePlaylistsLogin()) {
+      return;
+    }
+    const removing = this.playlistHasTrack(playlist, track.id);
+    this.playlistBusy = (removing ? 'out:' : 'in:') + playlist.id;
+    this.playlistsError = '';
+    const req$ = removing
+      ? this.api.removeDeezerUserPlaylistTrack(playlist.id, track.id)
+      : this.api.addDeezerUserPlaylistTrack(playlist.id, track);
+    this.playlistsSub?.unsubscribe();
+    this.playlistsSub = req$.subscribe({
+      next: (saved) => {
+        this.playlistBusy = '';
+        this.applyUserPlaylists(saved?.playlists || []);
+      },
+      error: () => {
+        this.playlistBusy = '';
+        this.playlistsError = 'DEEZER.ERR_PLAYLISTS_SAVE';
+      }
+    });
+  }
+
+  createPlaylist(track?: DeezerTrack | null): void {
+    const name = this.playlistNameDraft.trim();
+    if (!name || this.playlistBusy || !this.playlistsReady) {
+      return;
+    }
+    if (!this.ensurePlaylistsLogin()) {
+      return;
+    }
+    const attached = track?.id ? track : undefined;
+    this.playlistBusy = 'create';
+    this.playlistsError = '';
+    const previous = new Set(this.userPlaylists.map((playlist) => playlist.id));
+    const openAfter = !attached && this.listMode === 'playlists';
+    this.playlistsSub?.unsubscribe();
+    this.playlistsSub = this.api.createDeezerUserPlaylist(name, attached).subscribe({
+      next: (saved) => {
+        this.playlistBusy = '';
+        this.playlistNameDraft = '';
+        const created = (saved?.playlists || []).find((playlist) => playlist?.id && !previous.has(playlist.id));
+        this.applyUserPlaylists(saved?.playlists || [], openAfter ? created?.id : undefined);
+      },
+      error: () => {
+        this.playlistBusy = '';
+        this.playlistsError = 'DEEZER.ERR_PLAYLISTS_SAVE';
+      }
+    });
+  }
+
+  openSavedPlaylist(playlist: DeezerUserPlaylist): void {
+    if (!playlist?.id || this.renamingPlaylistId === playlist.id) {
+      return;
+    }
+    this.activeUserPlaylist = playlist;
+    this.playlistMenuTrack = null;
+    this.confirmDeletePlaylistId = '';
+    this.refreshQueue();
+    this.ytScanKey = '';
+    this.syncYoutubeButtons();
+  }
+
+  playSavedPlaylist(playlist: DeezerUserPlaylist, event?: Event): void {
+    event?.stopPropagation();
+    if (!playlist?.tracks?.length || this.renamingPlaylistId === playlist.id) {
+      return;
+    }
+    this.openSavedPlaylist(playlist);
+    this.playAll();
+  }
+
+  startRenamePlaylist(playlist: DeezerUserPlaylist, event?: Event): void {
+    event?.stopPropagation();
+    this.confirmDeletePlaylistId = '';
+    if (this.renamingPlaylistId === playlist.id) {
+      this.renamingPlaylistId = '';
+      return;
+    }
+    this.renamingPlaylistId = playlist.id;
+    this.renameDraft = playlist.name || '';
+  }
+
+  commitRenamePlaylist(playlist: DeezerUserPlaylist, event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+    const name = this.renameDraft.trim();
+    if (!playlist?.id || !name || this.playlistBusy || !this.playlistsReady) {
+      return;
+    }
+    if (name === playlist.name) {
+      this.renamingPlaylistId = '';
+      return;
+    }
+    if (!this.ensurePlaylistsLogin()) {
+      return;
+    }
+    this.playlistBusy = 'rename:' + playlist.id;
+    this.playlistsError = '';
+    this.playlistsSub?.unsubscribe();
+    this.playlistsSub = this.api.renameDeezerUserPlaylist(playlist.id, name).subscribe({
+      next: (saved) => {
+        this.playlistBusy = '';
+        this.renamingPlaylistId = '';
+        this.applyUserPlaylists(saved?.playlists || []);
+      },
+      error: () => {
+        this.playlistBusy = '';
+        this.playlistsError = 'DEEZER.ERR_PLAYLISTS_SAVE';
+      }
+    });
+  }
+
+  askDeletePlaylist(playlist: DeezerUserPlaylist, event?: Event): void {
+    event?.stopPropagation();
+    this.renamingPlaylistId = '';
+    this.confirmDeletePlaylistId = this.confirmDeletePlaylistId === playlist.id ? '' : playlist.id;
+  }
+
+  deletePlaylist(playlist: DeezerUserPlaylist, event?: Event): void {
+    event?.stopPropagation();
+    if (!playlist?.id || this.playlistBusy || !this.playlistsReady) {
+      return;
+    }
+    if (!this.ensurePlaylistsLogin()) {
+      return;
+    }
+    this.playlistBusy = 'delete:' + playlist.id;
+    this.playlistsError = '';
+    this.playlistsSub?.unsubscribe();
+    this.playlistsSub = this.api.deleteDeezerUserPlaylist(playlist.id).subscribe({
+      next: (saved) => {
+        this.playlistBusy = '';
+        this.confirmDeletePlaylistId = '';
+        if (this.activeUserPlaylist?.id === playlist.id) {
+          this.activeUserPlaylist = null;
+        }
+        this.applyUserPlaylists(saved?.playlists || []);
+      },
+      error: () => {
+        this.playlistBusy = '';
+        this.playlistsError = 'DEEZER.ERR_PLAYLISTS_SAVE';
+      }
+    });
+  }
+
+  removeTrackFromPlaylist(track: DeezerTrack, event?: Event): void {
+    event?.stopPropagation();
+    const playlist = this.activeUserPlaylist;
+    if (!playlist?.id || !track?.id) {
+      return;
+    }
+    this.toggleTrackInPlaylist(playlist, track, event);
+  }
+
+  movePlaylistTrack(track: DeezerTrack, delta: number, event?: Event): void {
+    event?.stopPropagation();
+    const playlist = this.activeUserPlaylist;
+    if (!playlist?.id || !track?.id || !delta || this.playlistBusy || !this.playlistsReady) {
+      return;
+    }
+    const ids = (playlist.tracks || []).map((item) => item.id);
+    const index = ids.indexOf(track.id);
+    const next = index + delta;
+    if (index < 0 || next < 0 || next >= ids.length) {
+      return;
+    }
+    const moved = ids[index];
+    ids[index] = ids[next];
+    ids[next] = moved;
+    this.playlistBusy = 'order:' + playlist.id;
+    this.playlistsError = '';
+    this.playlistsSub?.unsubscribe();
+    this.playlistsSub = this.api.reorderDeezerUserPlaylist(playlist.id, ids).subscribe({
+      next: (saved) => {
+        this.playlistBusy = '';
+        this.applyUserPlaylists(saved?.playlists || []);
+      },
+      error: () => {
+        this.playlistBusy = '';
+        this.playlistsError = 'DEEZER.ERR_PLAYLISTS_SAVE';
+      }
+    });
+  }
+
+  trackByPlaylistId(_index: number, playlist: DeezerUserPlaylist): string {
+    return playlist.id;
+  }
+
   selectGenre(id: number): void {
     this.genreId = id;
     this.query = '';
@@ -535,6 +827,13 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   }
 
   back(): void {
+    if (this.activeUserPlaylist) {
+      this.activeUserPlaylist = null;
+      this.renamingPlaylistId = '';
+      this.playlistMenuTrack = null;
+      this.refreshQueue();
+      return;
+    }
     const saved = this.shelf;
     this.loadSeq++;
     this.loading = false;
@@ -560,6 +859,20 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.playTrack(track, index);
   }
 
+  /** Force the 30 s Deezer preview, even if this title is already playing from YouTube. */
+  playDeezerTrack(track: DeezerTrack, index: number, event?: Event): void {
+    event?.stopPropagation();
+    const wasYoutube = this.youtubeMode || !!this.youtubeEmbed;
+    this.youtubeMode = false;
+    this.repeatQueue = false;
+    this.queue = this.shownTracks;
+    if (wasYoutube && this.current?.id === track.id) {
+      this.clearYoutube();
+      this.current = null;
+    }
+    this.playTrack(track, index);
+  }
+
   playTrack(track: DeezerTrack, index: number, restart = false): void {
     const same = this.current?.id === track.id;
     if (!restart && same) {
@@ -582,6 +895,9 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     } else {
       this.suppressChromeUntilLeave = false;
       this.chromeVisible = this.pointerOverPlayer || this.focusMode || this.stageFullscreen;
+      if (this.chromeVisible && !this.focusMode && !this.stageFullscreen) {
+        this.scheduleChromeHide();
+      }
     }
     if (this.youtubeMode) {
       this.pausePreview();
@@ -590,10 +906,12 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
         this.youtubeTitle = '';
       }
       this.resolveYoutube(track);
+      this.syncLandscapeFullscreen();
       return;
     }
     this.clearYoutube();
     this.playPreview(track);
+    this.syncLandscapeFullscreen();
   }
 
   togglePlay(): void {
@@ -859,7 +1177,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   }
 
   private runQuery(query: string): void {
-    if (this.listMode === 'favorites') {
+    if (this.listMode === 'favorites' || this.listMode === 'playlists') {
       return;
     }
     this.exitDrill();
@@ -1070,7 +1388,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   }
 
   get sleeveVisible(): boolean {
-    return this.sleeveOpen && this.trackImages.length > 0;
+    return this.trackImages.length > 0 && (this.sleeveOpen || this.landscapeFullscreen);
   }
 
   get trackImages(): { url: string; alt: string }[] {
@@ -1145,6 +1463,9 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
 
   toggleFocusMode(event?: Event): void {
     event?.stopPropagation();
+    if (!this.focusMode && this.landscapeFullscreen) {
+      this.exitLandscapeFullscreen(true);
+    }
     this.focusMode = !this.focusMode;
     document.body.classList.toggle('radio-focus', this.focusMode);
     if (this.focusMode && this.youtubeEmbed) {
@@ -1155,11 +1476,39 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
+  get mobileLayout(): boolean {
+    return this.isMobileLikeViewport();
+  }
+
+  /** Phone: one control, and it shows only the cover or the video. */
+  onFullscreenButton(event?: Event): void {
+    if (this.isMobileLikeViewport()) {
+      this.toggleMediaFullscreen(event);
+      return;
+    }
+    void this.toggleStageFullscreen(event);
+  }
+
+  toggleMediaFullscreen(event?: Event): void {
+    event?.stopPropagation();
+    if (this.landscapeFullscreen) {
+      this.exitLandscapeFullscreen(true);
+      return;
+    }
+    this.mediaFsPinned = true;
+    this.landscapeFsUserDismissed = false;
+    this.enterLandscapeFullscreen();
+  }
+
   async toggleStageFullscreen(event?: Event): Promise<void> {
     event?.stopPropagation();
     if (this.stageFullscreen) {
       await this.exitStageFullscreen();
+      this.syncLandscapeFullscreen();
       return;
+    }
+    if (this.landscapeFullscreen) {
+      this.exitLandscapeFullscreen(true);
     }
     this.stageFullscreen = true;
     if (this.youtubeEmbed) {
@@ -1209,9 +1558,11 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
         onClose: () => {
           this.isPipActive = false;
           this.docked = false;
+          this.syncLandscapeFullscreen();
         }
       });
       this.isPipActive = true;
+      this.syncLandscapeFullscreen();
     } catch {
       this.playErrorKey = 'RADIO.ERR_PIP';
     }
@@ -1219,6 +1570,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
 
   toggleDock(): void {
     this.docked = !this.docked;
+    this.syncLandscapeFullscreen();
   }
 
   openOnYoutube(): void {
@@ -1358,6 +1710,9 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     if (this.shareMenuOpen && !target?.closest?.('.radio-share-wrap')) {
       this.shareMenuOpen = false;
     }
+    if (this.playlistMenuTrack && !target?.closest?.('.dz-pl-panel') && !target?.closest?.('.dz-pl-btn')) {
+      this.playlistMenuTrack = null;
+    }
   }
 
   onPlayerPointerEnter(): void {
@@ -1366,13 +1721,14 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     if (this.youtubeEmbed || this.suppressChromeUntilLeave) {
       return;
     }
-    this.chromeVisible = true;
+    this.revealDeezerChrome(false);
   }
 
   onPlayerPointerMove(event?: MouseEvent): void {
     if (!this.youtubeEmbed) {
       this.suppressChromeUntilLeave = false;
-      this.onPlayerPointerEnter();
+      this.pointerOverPlayer = true;
+      this.revealDeezerChrome(this.pointerOverChrome(event));
       return;
     }
     this.onVideoSurface(event);
@@ -1411,18 +1767,33 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.scheduleChromeHide();
   }
 
-  private scheduleChromeHide(): void {
+  /** Deezer preview: show the caption and buttons, and keep them only while the pointer is on that bar. */
+  private revealDeezerChrome(overChrome: boolean): void {
+    this.chromeVisible = true;
     this.clearChromeHideTimer();
-    if (this.shareMenuOpen || this.holdsChromeOpen() || this.pointerOverPlayer || this.suppressChromeUntilLeave) {
+    if (overChrome || this.shareMenuOpen || this.holdsChromeOpen()) {
+      return;
+    }
+    this.scheduleChromeHide(DeezerWatcherComponent.CHROME_IDLE_MS);
+  }
+
+  private pointerOverChrome(event?: MouseEvent): boolean {
+    const target = event?.target;
+    return target instanceof Element && !!target.closest('.radio-chrome');
+  }
+
+  private scheduleChromeHide(delay = DeezerWatcherComponent.CHROME_HIDE_MS): void {
+    this.clearChromeHideTimer();
+    if (this.shareMenuOpen || this.holdsChromeOpen() || this.suppressChromeUntilLeave) {
       return;
     }
     this.chromeHideTimer = setTimeout(() => {
       this.chromeHideTimer = null;
-      if (this.shareMenuOpen || this.holdsChromeOpen() || this.pointerOverPlayer || this.suppressChromeUntilLeave) {
+      if (this.shareMenuOpen || this.holdsChromeOpen() || this.suppressChromeUntilLeave) {
         return;
       }
       this.chromeVisible = false;
-    }, DeezerWatcherComponent.CHROME_HIDE_MS);
+    }, delay);
   }
 
   private clearChromeHideTimer(): void {
@@ -1434,6 +1805,18 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    if (this.landscapeFullscreen) {
+      this.exitLandscapeFullscreen(true);
+      return;
+    }
+    if (this.playlistMenuTrack) {
+      this.playlistMenuTrack = null;
+      return;
+    }
+    if (this.renamingPlaylistId) {
+      this.renamingPlaylistId = '';
+      return;
+    }
     if (this.skinMenuOpen) {
       this.skinMenuOpen = false;
       return;
@@ -1483,6 +1866,121 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     document.body.classList.remove('radio-stage-fs');
     this.suppressChromeUntilLeave = false;
     this.chromeVisible = this.pointerOverPlayer || this.focusMode;
+    this.syncLandscapeFullscreen();
+  }
+
+  /** Leave the phone-landscape screen. Portrait clears the dismiss so the next turn fills the screen again. */
+  exitLandscapeFullscreen(markDismissed = true, event?: Event): void {
+    event?.stopPropagation();
+    if (markDismissed && this.landscapeFullscreen) {
+      this.landscapeFsUserDismissed = true;
+    }
+    if (!this.landscapeFullscreen && !document.body.classList.contains(DeezerWatcherComponent.LANDSCAPE_FS_BODY_CLASS)) {
+      return;
+    }
+    this.landscapeFullscreen = false;
+    this.mediaFsPinned = false;
+    document.body.classList.remove(DeezerWatcherComponent.LANDSCAPE_FS_BODY_CLASS);
+    this.cdr.markForCheck();
+  }
+
+  @HostListener('window:orientationchange')
+  @HostListener('window:resize')
+  onViewportOrientationMaybeChanged(): void {
+    this.syncLandscapeFullscreen();
+  }
+
+  private setupLandscapeFullscreenWatchers(): void {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+    this.landscapeOrientationMql = window.matchMedia('(orientation: landscape)');
+    const mql = this.landscapeOrientationMql as MediaQueryList & {
+      addListener?: (cb: () => void) => void;
+    };
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', this.onLandscapeOrientationMedia);
+    } else {
+      mql.addListener?.(this.onLandscapeOrientationMedia);
+    }
+  }
+
+  private teardownLandscapeFullscreenWatchers(): void {
+    const mql = this.landscapeOrientationMql as (MediaQueryList & {
+      removeListener?: (cb: () => void) => void;
+    }) | null;
+    if (mql) {
+      if (typeof mql.removeEventListener === 'function') {
+        mql.removeEventListener('change', this.onLandscapeOrientationMedia);
+      } else {
+        mql.removeListener?.(this.onLandscapeOrientationMedia);
+      }
+      this.landscapeOrientationMql = null;
+    }
+  }
+
+  private isMobileLikeViewport(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    const coarse = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    const narrow = window.matchMedia('(max-width: 900px)').matches;
+    const touch = (navigator.maxTouchPoints || 0) > 0;
+    return coarse || (narrow && touch);
+  }
+
+  private isLandscapeOrientation(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    if (this.landscapeOrientationMql) {
+      return this.landscapeOrientationMql.matches;
+    }
+    return window.matchMedia('(orientation: landscape)').matches;
+  }
+
+  /** Landscape is the cover or the clip. With neither, the screen stays blank — not the receiver. */
+  private hasLandscapeScreen(): boolean {
+    return !this.docked && !this.isPipActive;
+  }
+
+  private canEnterLandscapeFullscreen(): boolean {
+    return (
+      this.isMobileLikeViewport()
+      && this.isLandscapeOrientation()
+      && this.hasLandscapeScreen()
+      && !this.landscapeFsUserDismissed
+      && !this.focusMode
+      && !this.stageFullscreen
+    );
+  }
+
+  private syncLandscapeFullscreen(): void {
+    if (!this.isLandscapeOrientation()) {
+      this.landscapeFsUserDismissed = false;
+      if (!this.mediaFsPinned) {
+        this.exitLandscapeFullscreen(false);
+      }
+      return;
+    }
+    if (this.canEnterLandscapeFullscreen()) {
+      this.enterLandscapeFullscreen();
+      return;
+    }
+    if (this.landscapeFullscreen && !this.hasLandscapeScreen()) {
+      this.exitLandscapeFullscreen(false);
+    }
+  }
+
+  private enterLandscapeFullscreen(): void {
+    const already = this.landscapeFullscreen;
+    this.landscapeFullscreen = true;
+    document.body.classList.add(DeezerWatcherComponent.LANDSCAPE_FS_BODY_CLASS);
+    if (!already) {
+      this.chromeVisible = false;
+      this.clearChromeHideTimer();
+      this.cdr.markForCheck();
+    }
   }
 
   /** Preview chrome stays up in focus. A YouTube clip hides every button until the pointer returns. */
@@ -1711,7 +2209,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     const origin = typeof window !== 'undefined' ? `&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}` : '';
     const replay = this.ytReplay ? `&ts=${this.ytReplay}` : '';
     this.youtubeEmbed = this.sanitizer.bypassSecurityTrustResourceUrl(
-      `https://www.youtube-nocookie.com/embed/${id}?rel=0&autoplay=1&playsinline=1&controls=0&fs=0&iv_load_policy=3&modestbranding=1${origin}${replay}`
+      `https://www.youtube-nocookie.com/embed/${id}?rel=0&autoplay=1&playsinline=1&controls=1&fs=1&iv_load_policy=3${origin}${replay}`
     );
     this.armCleanVideoChrome();
     this.playing = true;
@@ -1926,7 +2424,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   }
 
   private refreshQueue(): void {
-    if (this.drilled || this.view === 'track') {
+    if (this.drilled || this.view === 'track' || this.activeUserPlaylist) {
       this.queue = this.shownTracks;
     }
   }
@@ -1942,7 +2440,9 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   }
 
   private matchesFavoriteQuery(text: string): boolean {
-    if (this.listMode !== 'favorites') {
+    const filtering = this.listMode === 'favorites'
+      || (this.listMode === 'playlists' && !!this.activeUserPlaylist);
+    if (!filtering) {
       return true;
     }
     const q = this.query.trim().toLowerCase();
@@ -2033,14 +2533,6 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
-  private readGenresOpen(): boolean {
-    try {
-      return localStorage.getItem(DeezerWatcherComponent.GENRES_KEY) !== '0';
-    } catch {
-      return true;
-    }
-  }
-
   private readFilter(): void {
     try {
       const raw = JSON.parse(localStorage.getItem(DeezerWatcherComponent.FILTER_KEY) || '{}');
@@ -2061,6 +2553,68 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     } catch {
       /* ignore */
     }
+  }
+
+  private ensurePlaylistsLogin(): boolean {
+    if (this.keycloak.isLoggedIn()) {
+      return true;
+    }
+    this.playlistsHint = 'DEEZER.PLAYLISTS_LOGIN';
+    if (this.listMode !== 'playlists') {
+      this.setListMode('playlists');
+    }
+    return false;
+  }
+
+  private loadUserPlaylists(): void {
+    if (!this.keycloak.isLoggedIn()) {
+      this.userPlaylists = [];
+      this.activeUserPlaylist = null;
+      this.playlistsReady = true;
+      return;
+    }
+    this.playlistsReady = false;
+    this.playlistsError = '';
+    this.playlistsSub?.unsubscribe();
+    this.playlistsSub = this.api.getDeezerUserPlaylists().subscribe({
+      next: (page) => {
+        this.playlistsReady = true;
+        this.applyUserPlaylists(page?.playlists || []);
+      },
+      error: () => {
+        this.playlistsReady = true;
+        this.playlistsError = 'DEEZER.ERR_PLAYLISTS_LOAD';
+      }
+    });
+  }
+
+  private applyUserPlaylists(items: DeezerUserPlaylist[], openId?: string): void {
+    this.userPlaylists = this.cleanUserPlaylists(items);
+    const targetId = openId || this.activeUserPlaylist?.id || '';
+    this.activeUserPlaylist = targetId
+      ? (this.userPlaylists.find((playlist) => playlist.id === targetId) || null)
+      : null;
+    if (this.keycloak.isLoggedIn()) {
+      this.playlistsHint = '';
+    }
+    if (this.renamingPlaylistId && !this.userPlaylists.some((playlist) => playlist.id === this.renamingPlaylistId)) {
+      this.renamingPlaylistId = '';
+    }
+    this.refreshQueue();
+    if (this.listMode === 'playlists' || this.activeUserPlaylist) {
+      this.ytScanKey = '';
+      this.syncYoutubeButtons();
+    }
+  }
+
+  private cleanUserPlaylists(items: DeezerUserPlaylist[]): DeezerUserPlaylist[] {
+    return (items || [])
+      .filter((playlist) => !!playlist?.id && !!(playlist.name || '').trim())
+      .map((playlist) => ({
+        id: playlist.id,
+        name: playlist.name,
+        tracks: (playlist.tracks || []).filter((track) => !!track?.id && !!(track.title || '').trim())
+      }));
   }
 
   private loadFavorites(): void {

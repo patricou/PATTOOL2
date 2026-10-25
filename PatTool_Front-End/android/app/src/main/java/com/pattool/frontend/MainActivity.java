@@ -278,6 +278,36 @@ public class MainActivity extends BridgeActivity {
         return power == null || power.isInteractive();
     }
 
+    /** Asks the page to refresh the radio Bluetooth line after the network name or the bars move. */
+    static void dispatchRadioReception(String mark) {
+        WeakReference<MainActivity> current = radioActivity;
+        MainActivity activity = current == null ? null : current.get();
+        if (activity == null) {
+            return;
+        }
+        activity.runRadioScript(
+                "window.dispatchEvent(new CustomEvent('patradioreception',{detail:" + jsQuote(mark) + "}))");
+    }
+
+    /** A JavaScript string literal. Network names can contain quotes. */
+    private static String jsQuote(String value) {
+        String safe = value == null ? "" : value;
+        StringBuilder out = new StringBuilder(safe.length() + 2);
+        out.append('"');
+        for (int i = 0; i < safe.length(); i++) {
+            char c = safe.charAt(i);
+            if (c == '\\' || c == '"') {
+                out.append('\\').append(c);
+            } else if (c < 0x20 || c == '\u2028' || c == '\u2029') {
+                out.append(' ');
+            } else {
+                out.append(c);
+            }
+        }
+        out.append('"');
+        return out.toString();
+    }
+
     /** Headset play, pause, and station skip, forwarded to the radio page. */
     static void dispatchRadioTransport(String action) {
         if (!"play".equals(action) && !"pause".equals(action) && !"next".equals(action) && !"previous".equals(action)) {
@@ -302,7 +332,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     /** Called from the radio page when a station starts or stops. */
-    void onRadioPlayingFromPage(boolean playing, String title, String artist, String album) {
+    void onRadioPlayingFromPage(boolean playing, String title, String artist, String album, boolean radio) {
         radioKeepAlive = playing;
         runOnUiThread(() -> {
             if (!isAppPage()) {
@@ -317,6 +347,7 @@ public class MainActivity extends BridgeActivity {
                 intent.putExtra(RadioKeepAliveService.EXTRA_TITLE, title);
                 intent.putExtra(RadioKeepAliveService.EXTRA_ARTIST, artist);
                 intent.putExtra(RadioKeepAliveService.EXTRA_ALBUM, album);
+                intent.putExtra(RadioKeepAliveService.EXTRA_RADIO, radio);
                 try {
                     ContextCompat.startForegroundService(this, intent);
                 } catch (RuntimeException ignored) {
@@ -407,9 +438,10 @@ public class MainActivity extends BridgeActivity {
             return;
         }
         radioNetworkValidated = true;
-        if (radioKeepAlive) {
-            resumeWebViewForRadio();
-        }
+        // A long outage stops the audible stream and can clear the keepalive
+        // flag. Timers stay paused until the WebView is resumed, so the page
+        // would receive "online" and then never reopen the station.
+        resumeWebViewForRadio();
         runRadioScript("window.dispatchEvent(new Event('online'))");
     }
 
@@ -569,12 +601,28 @@ class RadioNativeBridge {
 
     @JavascriptInterface
     public void setPlaying(boolean playing, String title) {
-        activity.onRadioPlayingFromPage(playing, title, "", "");
+        activity.onRadioPlayingFromPage(playing, title, "", "", false);
     }
 
     @JavascriptInterface
     public void setNowPlaying(boolean playing, String title, String artist, String album) {
-        activity.onRadioPlayingFromPage(playing, title, artist, album);
+        activity.onRadioPlayingFromPage(playing, title, artist, album, false);
+    }
+
+    /** Radio only: the service appends the phone network bars after the station. */
+    @JavascriptInterface
+    public void setRadioNowPlaying(boolean playing, String title, String artist, String album) {
+        activity.onRadioPlayingFromPage(playing, title, artist, album, true);
+    }
+
+    /** Network name and bars inside the parentheses, such as {@code Orange 3/4}. Empty if unknown. */
+    @JavascriptInterface
+    public String receptionMark() {
+        try {
+            return MobileReception.mark(activity);
+        } catch (RuntimeException ex) {
+            return "";
+        }
     }
 
     @JavascriptInterface

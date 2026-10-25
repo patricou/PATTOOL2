@@ -4730,3 +4730,119 @@
   }
 }
 
+/* Mobile landscape: the screen (cover or video) is the whole display. */
+:host.radio-landscape-fs .pat-title,
+:host.radio-landscape-fs .radio-float-banner,
+:host.radio-landscape-fs .radio-sidebar,
+:host.radio-landscape-fs .dz-sidebar,
+:host.radio-landscape-fs .radio-footer,
+:host.radio-landscape-fs .dz-footer,
+:host.radio-landscape-fs .radio-presets,
+:host.radio-landscape-fs .radio-brand-plate,
+:host.radio-landscape-fs .radio-cabinet-handle,
+:host.radio-landscape-fs .radio-whip-antenna,
+:host.radio-landscape-fs .radio-feet {
+  display: none !important;
+}
+
+:host.radio-landscape-fs .radio-player-panel::before,
+:host.radio-landscape-fs .radio-player-panel::after,
+:host.radio-landscape-fs .radio-player-frame::before,
+:host.radio-landscape-fs .radio-player-frame::after,
+:host.radio-landscape-fs .radio-face::before,
+:host.radio-landscape-fs .radio-face::after {
+  display: none !important;
+}
+
+:host.radio-landscape-fs .radio-page,
+:host.radio-landscape-fs .radio-layout,
+:host.radio-landscape-fs .radio-layout--sidebar-collapsed {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  display: block;
+  overflow: hidden;
+}
+
+:host.radio-landscape-fs .radio-player-panel,
+:host.radio-landscape-fs .radio-player-panel.dz-docked {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: #000 !important;
+  overflow: hidden !important;
+  animation: none !important;
+  filter: none !important;
+}
+
+:host.radio-landscape-fs .radio-player-panel .radio-player-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: #000 !important;
+  overflow: hidden !important;
+}
+
+:host.radio-landscape-fs .radio-player-panel .radio-player-frame .radio-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-height: none !important;
+  min-height: 0 !important;
+  aspect-ratio: auto !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: #000;
+}
+
+:host.radio-landscape-fs .radio-dial,
+:host.radio-landscape-fs .radio-meter,
+:host.radio-landscape-fs .radio-tubes,
+:host.radio-landscape-fs .radio-speaker,
+:host.radio-landscape-fs .radio-synth-floor,
+:host.radio-landscape-fs .radio-ambient,
+:host.radio-landscape-fs .radio-controls-row,
+:host.radio-landscape-fs .radio-station-badge,
+:host.radio-landscape-fs .radio-screen-fx,
+:host.radio-landscape-fs .radio-placeholder,
+:host.radio-landscape-fs .radio-unmute-hint,
+:host.radio-landscape-fs .radio-chrome,
+:host.radio-landscape-fs .radio-face > .radio-sleeve-count,
+:host.radio-landscape-fs .radio-player-panel.dz-video .radio-sleeve {
+  display: none !important;
+}
+
+:host.radio-landscape-fs .radio-sleeve-frame {
+  background: #000;
+  box-shadow: none;
+}
+
+:host.radio-landscape-fs .radio-sleeve-photo {
+  object-fit: cover;
+}
+
+:host.radio-landscape-fs .dz-yt {
+  border-radius: 0;
+}
+

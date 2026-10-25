@@ -5,7 +5,6 @@
   --dz-ink: var(--menu-fg, #1a1024);
   --dz-violet: var(--menu-accent, #7c3aed);
   display: block;
-  min-height: calc(100dvh - var(--navbar-offset, 60px));
 }
 
 :host .pat-title h2.dz-page-title {
@@ -25,6 +24,16 @@
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
+}
+
+.dz-title-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.dz-title-tools {
+  display: contents;
 }
 
 .dz-title-icon {
@@ -398,12 +407,7 @@
   background: #000;
 }
 
-.dz-yt-hit {
-  position: absolute;
-  inset: 0;
-  z-index: 6;
-}
-
+.dz-preview-btn,
 .dz-yt-btn {
   flex: 0 0 auto;
   display: inline-flex;
@@ -414,8 +418,29 @@
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: #c4302b;
   cursor: pointer;
+}
+
+.dz-preview-mark {
+  display: block;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.dz-preview-btn.is-on,
+.dz-preview-btn:hover,
+.dz-preview-btn:focus-visible {
+  background: #111;
+}
+
+.dz-preview-btn.is-on .dz-preview-mark,
+.dz-preview-btn:hover .dz-preview-mark,
+.dz-preview-btn:focus-visible .dz-preview-mark {
+  filter: invert(1);
+}
+
+.dz-yt-btn {
+  color: #c4302b;
   font-size: 1.05rem;
 }
 
@@ -944,6 +969,8 @@
   pointer-events: none;
 }
 
+.radio-chrome--hidden .radio-now-info,
+.radio-chrome--hidden .radio-now-actions,
 .radio-chrome--hidden .dz-progress,
 .radio-chrome--hidden .dz-related {
   max-height: 0;
@@ -953,6 +980,20 @@
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
+}
+
+.radio-player-frame--chrome-hidden .radio-chrome,
+.radio-player-frame:has(.radio-face--sleeve) .radio-chrome.radio-chrome--hidden,
+.radio-player-panel.dz-video .radio-chrome.radio-chrome--hidden {
+  max-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .radio-chrome .dz-progress {
@@ -1052,12 +1093,217 @@ a.radio-now-action.dz-deezer-link {
   }
 }
 
+:host.radio-landscape-fs .radio-buffering,
+:host.radio-landscape-fs .radio-play-error {
+  display: none !important;
+}
+
+:host.radio-landscape-fs .radio-face,
+:host.radio-landscape-fs .radio-player-panel,
+:host.radio-landscape-fs .radio-player-frame {
+  background: #000 !important;
+}
+
+@media (max-width: 900px), ((hover: none) and (pointer: coarse)) {
+  .radio-now-actions > .dz-hide-mobile,
+  .dz-hide-mobile.radio-keep-alive {
+    display: none !important;
+  }
+}
+
 @media (max-width: 640px) {
-  .radio-now-actions > .dz-hide-mobile {
+  .radio-player-panel .radio-brand-model::after {
+    display: block;
+    white-space: nowrap;
+    letter-spacing: 0.06em;
+    font-size: 0.46rem;
+    line-height: 1.2;
+  }
+
+  .radio-player-panel.dz-video {
+    height: auto;
+    max-height: none;
+  }
+
+  .radio-player-panel.dz-video .radio-player-frame {
+    flex: 0 0 auto;
+  }
+
+  .radio-player-panel.dz-video .radio-player-frame .radio-face {
+    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: 16 / 9;
+  }
+
+  :host .pat-title h2.dz-page-title {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .dz-title-note {
+    display: none;
+  }
+
+  .dz-title-tools {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .dz-title-tools .radio-global-filter-open-btn,
+  .dz-title-tools .radio-eq-open-btn,
+  .dz-title-tools .radio-sleeve-open-btn,
+  .dz-title-tools .radio-sidebar-expand-title-btn,
+  .dz-title-tools .radio-skin-open-btn,
+  .dz-title-tools .radio-skin-picker,
+  .dz-title-tools .dz-yt-search {
+    margin-left: 0;
+    flex: 0 0 auto;
+  }
+
+  .dz-title-tools .radio-global-filter-open-btn,
+  .dz-title-tools .radio-eq-open-btn,
+  .dz-title-tools .radio-sleeve-open-btn,
+  .dz-title-tools .radio-sidebar-expand-title-btn,
+  .dz-title-tools .radio-skin-open-btn,
+  .dz-title-tools .dz-yt-search {
+    padding: 0.28rem 0.4rem;
+  }
+
+  .radio-now-actions > .dz-hide-mobile,
+  .dz-hide-mobile.radio-keep-alive {
     display: none !important;
   }
 
   a.radio-now-action.dz-deezer-link {
     margin-left: 0;
   }
+
+  .dz-yt-search-label {
+    display: none;
+  }
+
+  .dz-yt-search {
+    gap: 0;
+    padding: 0.28rem 0.4rem;
+  }
+}
+
+.dz-page .radio-mode-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 0.74rem;
+  padding: 0.55rem 0.15rem;
+}
+
+.dz-mode-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dz-pl-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 18rem;
+  overflow: auto;
+  margin: 0.45rem 0.6rem;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--menu-fg, #000) 16%, transparent);
+  border-radius: 0.65rem;
+  background: var(--menu-meta-bg, rgba(255, 255, 255, 0.92));
+  color: var(--menu-fg, inherit);
+}
+
+.dz-pl-panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+}
+
+.dz-pl-panel-head strong {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dz-pl-close {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.dz-pl-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  padding: 0.28rem 0.1rem;
+  cursor: pointer;
+}
+
+.dz-pl-choice span:nth-child(2) {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dz-pl-choice.is-on {
+  color: var(--menu-accent, #7c3aed);
+  font-weight: 700;
+}
+
+.dz-pl-count,
+.dz-pl-empty {
+  color: var(--menu-muted, #64748b);
+  font-size: 0.75rem;
+}
+
+.dz-pl-empty {
+  margin: 0;
+}
+
+.dz-pl-create {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.7rem 0.15rem;
+}
+
+.dz-pl-create--menu {
+  padding: 0.35rem 0 0;
+  position: sticky;
+  bottom: 0;
+  background: var(--menu-meta-bg, #fff);
+}
+
+.dz-pl-create .form-control {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dz-pl-rename {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
 }

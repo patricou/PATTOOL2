@@ -2,9 +2,14 @@ package com.pat.controller;
 
 import com.pat.controller.dto.DeezerFavoriteItemDto;
 import com.pat.controller.dto.DeezerFavoritesDto;
+import com.pat.controller.dto.DeezerPlaylistOrderRequest;
+import com.pat.controller.dto.DeezerPlaylistWriteRequest;
+import com.pat.controller.dto.DeezerTrackDto;
+import com.pat.controller.dto.DeezerUserPlaylistsDto;
 import com.pat.controller.dto.DeezerYoutubeLookupRequest;
 import com.pat.service.DeezerCatalogService;
 import com.pat.service.DeezerFavoritesService;
+import com.pat.service.DeezerPlaylistsService;
 import com.pat.service.DeezerYoutubeLinkService;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -43,6 +48,10 @@ import java.util.function.Supplier;
  *   <li>{@code POST /api/external/deezer/youtube-links}</li>
  *   <li>{@code GET/PUT /api/external/deezer/favorites}</li>
  *   <li>{@code PUT/DELETE /api/external/deezer/favorites/item}</li>
+ *   <li>{@code GET/POST /api/external/deezer/user-playlists}</li>
+ *   <li>{@code PUT/DELETE /api/external/deezer/user-playlists/{id}}</li>
+ *   <li>{@code PUT/DELETE /api/external/deezer/user-playlists/{id}/tracks}</li>
+ *   <li>{@code PUT /api/external/deezer/user-playlists/{id}/order}</li>
  * </ul>
  */
 @RestController
@@ -54,14 +63,17 @@ public class DeezerRestController {
     private final DeezerCatalogService deezerCatalogService;
     private final DeezerYoutubeLinkService deezerYoutubeLinkService;
     private final DeezerFavoritesService deezerFavoritesService;
+    private final DeezerPlaylistsService deezerPlaylistsService;
 
     public DeezerRestController(
             DeezerCatalogService deezerCatalogService,
             DeezerYoutubeLinkService deezerYoutubeLinkService,
-            DeezerFavoritesService deezerFavoritesService) {
+            DeezerFavoritesService deezerFavoritesService,
+            DeezerPlaylistsService deezerPlaylistsService) {
         this.deezerCatalogService = deezerCatalogService;
         this.deezerYoutubeLinkService = deezerYoutubeLinkService;
         this.deezerFavoritesService = deezerFavoritesService;
+        this.deezerPlaylistsService = deezerPlaylistsService;
     }
 
     @GetMapping("/genres")
@@ -197,6 +209,99 @@ public class DeezerRestController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(deezerFavoritesService.removeFavorite(sub, id, kind));
+    }
+
+    @GetMapping("/user-playlists")
+    public ResponseEntity<DeezerUserPlaylistsDto> getUserPlaylists() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(deezerPlaylistsService.findForSubject(sub));
+    }
+
+    @PostMapping("/user-playlists")
+    public ResponseEntity<?> createUserPlaylist(@RequestBody DeezerPlaylistWriteRequest body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "invalid name"));
+        }
+        return playlists(() -> deezerPlaylistsService.create(sub, body.getName(), body.getTrack()));
+    }
+
+    @PutMapping("/user-playlists/{id}")
+    public ResponseEntity<?> renameUserPlaylist(
+            @PathVariable String id,
+            @RequestBody DeezerPlaylistWriteRequest body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "invalid name"));
+        }
+        return playlists(() -> deezerPlaylistsService.rename(sub, id, body.getName()));
+    }
+
+    @DeleteMapping("/user-playlists/{id}")
+    public ResponseEntity<?> deleteUserPlaylist(@PathVariable String id) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return playlists(() -> deezerPlaylistsService.delete(sub, id));
+    }
+
+    @PutMapping("/user-playlists/{id}/tracks")
+    public ResponseEntity<?> addUserPlaylistTrack(
+            @PathVariable String id,
+            @RequestBody DeezerTrackDto track) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return playlists(() -> deezerPlaylistsService.addTrack(sub, id, track));
+    }
+
+    @DeleteMapping("/user-playlists/{id}/tracks/{trackId}")
+    public ResponseEntity<?> removeUserPlaylistTrack(
+            @PathVariable String id,
+            @PathVariable long trackId) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return playlists(() -> deezerPlaylistsService.removeTrack(sub, id, trackId));
+    }
+
+    @PutMapping("/user-playlists/{id}/order")
+    public ResponseEntity<?> reorderUserPlaylist(
+            @PathVariable String id,
+            @RequestBody DeezerPlaylistOrderRequest body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return playlists(() -> deezerPlaylistsService.reorder(sub, id, body));
+    }
+
+    private ResponseEntity<?> playlists(Supplier<DeezerUserPlaylistsDto> call) {
+        try {
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.noStore())
+                    .body(call.get());
+        } catch (IllegalArgumentException e) {
+            if ("not found".equals(e.getMessage())) {
+                return ResponseEntity.notFound().build();
+            }
+            String message = StringUtils.hasText(e.getMessage()) ? e.getMessage() : "invalid playlist";
+            return ResponseEntity.badRequest().body(Map.of("error", message));
+        }
     }
 
     private String currentJwtSubject() {

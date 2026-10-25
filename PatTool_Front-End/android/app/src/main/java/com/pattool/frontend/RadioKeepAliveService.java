@@ -11,8 +11,13 @@ import android.media.AudioAttributes;
 import android.media.MediaMetadata;
 import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.PowerManager;
 import androidx.core.app.NotificationCompat;
 
@@ -27,6 +32,8 @@ public class RadioKeepAliveService extends Service {
     public static final String EXTRA_TITLE = "title";
     public static final String EXTRA_ARTIST = "artist";
     public static final String EXTRA_ALBUM = "album";
+    /** True when the track is a radio station, so the signal bars follow the station name. */
+    public static final String EXTRA_RADIO = "radio";
 
     private static final String CHANNEL_ID = "pattool_radio";
     private static final int NOTIFICATION_ID = 4701;
@@ -37,6 +44,30 @@ public class RadioKeepAliveService extends Service {
 
     /** What a connected Bluetooth device shows for the current track. */
     private MediaSession mediaSession;
+
+    private String trackTitle = "";
+    private String trackArtist = "";
+    private String trackAlbum = "";
+    private boolean trackIsRadio;
+    /** Last parentheses text sent to Bluetooth, such as {@code Orange 3/4}. */
+    private String publishedMark;
+
+    private ConnectivityManager.NetworkCallback receptionCallback;
+    private final Handler receptionHandler = new Handler(Looper.getMainLooper());
+    private boolean receptionRefreshQueued;
+    private final Runnable receptionRefresh = () -> {
+        receptionRefreshQueued = false;
+        refreshReception();
+    };
+    private final Runnable receptionPoll = new Runnable() {
+        @Override
+        public void run() {
+            refreshReception();
+            if (trackIsRadio) {
+                receptionHandler.postDelayed(this, 8000);
+            }
+        }
+    };
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -49,24 +80,34 @@ public class RadioKeepAliveService extends Service {
             shutdown();
             return START_NOT_STICKY;
         }
-        String title = clip(withoutAppPrefix(intent == null ? null : intent.getStringExtra(EXTRA_TITLE)), "Radio");
-        String artist = clip(withoutAppPrefix(intent == null ? null : intent.getStringExtra(EXTRA_ARTIST)), "");
-        String album = clip(withoutAppPrefix(intent == null ? null : intent.getStringExtra(EXTRA_ALBUM)), "");
-        publishTrack(title, artist, album);
-        String notice = !artist.isEmpty() ? artist : album;
-        startInForeground(title, notice);
+        trackTitle = clip(withoutAppPrefix(intent == null ? null : intent.getStringExtra(EXTRA_TITLE)), "Radio");
+        trackArtist = clip(withoutAppPrefix(intent == null ? null : intent.getStringExtra(EXTRA_ARTIST)), "");
+        trackAlbum = clip(withoutAppPrefix(intent == null ? null : intent.getStringExtra(EXTRA_ALBUM)), "");
+        trackIsRadio = intent != null && intent.getBooleanExtra(EXTRA_RADIO, false);
+        publishCurrentTrack();
+        String notice = !trackArtist.isEmpty() ? trackArtist : trackAlbum;
+        startInForeground(trackTitle, notice);
         acquireWakeLock();
+        if (trackIsRadio) {
+            ensureReceptionWatch();
+        } else {
+            stopReceptionWatch();
+        }
         return START_NOT_STICKY;
     }
 
     @Override
     public void onDestroy() {
+        trackIsRadio = false;
+        stopReceptionWatch();
         releaseWakeLock();
         releaseMediaSession();
         super.onDestroy();
     }
 
     private void shutdown() {
+        trackIsRadio = false;
+        stopReceptionWatch();
         releaseWakeLock();
         releaseMediaSession();
         stopForeground(STOP_FOREGROUND_REMOVE);
@@ -115,20 +156,115 @@ public class RadioKeepAliveService extends Service {
     }
 
     @SuppressWarnings("deprecation")
-    private void publishTrack(String title, String artist, String album) {
-        MediaSession session = mediaSession();
+    private void publishCurrentTrack() {
+        String mark = trackIsRadio ? MobileReception.mark(this) : "";
+        applyMetadata(mediaSession(), mark);
+    }
+
+    /** Rewrites the station line when the network name or the bars change. */
+    private void refreshReception() {
+        if (!trackIsRadio) {
+            return;
+        }
+        MediaSession session = mediaSession;
+        if (session == null) {
+            return;
+        }
+        String mark = MobileReception.mark(this);
+        if (publishedMark != null && publishedMark.equals(mark)) {
+            return;
+        }
+        applyMetadata(session, mark);
+    }
+
+    private void applyMetadata(MediaSession session, String mark) {
+        String title = trackTitle;
+        String album = trackAlbum;
+        if (trackIsRadio) {
+            if (!album.trim().isEmpty()) {
+                album = MobileReception.decorate(album, mark);
+            } else {
+                title = MobileReception.decorate(title, mark);
+            }
+        }
         session.setMetadata(new MediaMetadata.Builder()
                 .putString(MediaMetadata.METADATA_KEY_TITLE, title)
-                .putString(MediaMetadata.METADATA_KEY_ARTIST, artist)
-                .putString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST, artist)
-                .putString(MediaMetadata.METADATA_KEY_AUTHOR, artist)
+                .putString(MediaMetadata.METADATA_KEY_ARTIST, trackArtist)
+                .putString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST, trackArtist)
+                .putString(MediaMetadata.METADATA_KEY_AUTHOR, trackArtist)
                 .putString(MediaMetadata.METADATA_KEY_ALBUM, album)
                 .putString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE, title)
-                .putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, artist)
+                .putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, trackArtist)
                 .putString(MediaMetadata.METADATA_KEY_DISPLAY_DESCRIPTION, album)
                 .build());
         setPlaybackState(PlaybackState.STATE_PLAYING);
         session.setActive(true);
+        boolean changed = publishedMark == null || !publishedMark.equals(mark);
+        publishedMark = mark;
+        if (trackIsRadio && changed) {
+            MainActivity.dispatchRadioReception(mark);
+        }
+    }
+
+    private void ensureReceptionWatch() {
+        ConnectivityManager connectivity =
+                (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        if (connectivity != null && receptionCallback == null) {
+            ConnectivityManager.NetworkCallback callback = new ConnectivityManager.NetworkCallback() {
+                @Override
+                public void onAvailable(Network network) {
+                    receptionHandler.post(RadioKeepAliveService.this::refreshReception);
+                }
+
+                @Override
+                public void onLost(Network network) {
+                    receptionHandler.post(RadioKeepAliveService.this::refreshReception);
+                }
+
+                @Override
+                public void onCapabilitiesChanged(Network network, NetworkCapabilities capabilities) {
+                    queueReceptionRefresh();
+                }
+            };
+            try {
+                connectivity.registerDefaultNetworkCallback(callback);
+                receptionCallback = callback;
+            } catch (RuntimeException ignored) {
+                // Some devices reject the callback when no network is registered.
+            }
+        }
+        receptionHandler.removeCallbacks(receptionPoll);
+        receptionHandler.postDelayed(receptionPoll, 8000);
+    }
+
+    private void queueReceptionRefresh() {
+        if (!trackIsRadio || receptionRefreshQueued) {
+            return;
+        }
+        receptionRefreshQueued = true;
+        receptionHandler.postDelayed(receptionRefresh, 3000);
+    }
+
+    private void stopReceptionWatch() {
+        receptionHandler.removeCallbacks(receptionPoll);
+        receptionHandler.removeCallbacks(receptionRefresh);
+        receptionRefreshQueued = false;
+        publishedMark = null;
+        ConnectivityManager.NetworkCallback callback = receptionCallback;
+        receptionCallback = null;
+        if (callback == null) {
+            return;
+        }
+        ConnectivityManager connectivity =
+                (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        if (connectivity == null) {
+            return;
+        }
+        try {
+            connectivity.unregisterNetworkCallback(callback);
+        } catch (RuntimeException ignored) {
+            // Already unregistered.
+        }
     }
 
     private void setPlaybackState(int state) {

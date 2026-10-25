@@ -123,6 +123,7 @@ function publishScreenKeepAlive(playing: boolean, track: ScreenKeepAliveTrack): 
     PatRadioNative?: {
       setPlaying?: (playing: boolean, title: string) => void;
       setNowPlaying?: (playing: boolean, title: string, artist: string, album: string) => void;
+      setRadioNowPlaying?: (playing: boolean, title: string, artist: string, album: string) => void;
     };
   }).PatRadioNative;
   if (!bridge) {
@@ -130,7 +131,10 @@ function publishScreenKeepAlive(playing: boolean, track: ScreenKeepAliveTrack): 
   }
   try {
     const title = withBluetoothAppName(track.title);
-    if (typeof bridge.setNowPlaying === 'function') {
+    const radio = playing && activeScreenKeepAliveOwner() === 'radio';
+    if (radio && typeof bridge.setRadioNowPlaying === 'function') {
+      bridge.setRadioNowPlaying(playing, title, track.artist, track.album);
+    } else if (typeof bridge.setNowPlaying === 'function') {
       bridge.setNowPlaying(playing, title, track.artist, track.album);
     } else if (typeof bridge.setPlaying === 'function') {
       bridge.setPlaying(playing, title);
