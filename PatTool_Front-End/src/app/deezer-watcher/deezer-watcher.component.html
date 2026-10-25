@@ -167,47 +167,11 @@
       <div *ngIf="favoritesHint && listMode === 'favorites'" class="alert alert-info py-2 px-2 small mb-2 mx-2" role="status">
         {{ favoritesHint | translate }}
       </div>
-      <div *ngIf="playlistsError && (listMode === 'playlists' || playlistMenuTrack)" class="alert alert-warning py-2 px-2 small mb-2 mx-2" role="alert">
+      <div *ngIf="playlistsError && listMode === 'playlists' && !playlistMenuTrack" class="alert alert-warning py-2 px-2 small mb-2 mx-2" role="alert">
         {{ playlistsError | translate }}
       </div>
       <div *ngIf="playlistsHint && listMode === 'playlists'" class="alert alert-info py-2 px-2 small mb-2 mx-2" role="status">
         {{ playlistsHint | translate }}
-      </div>
-
-      <div class="dz-pl-panel" *ngIf="playlistMenuTrack" (click)="$event.stopPropagation()">
-        <div class="dz-pl-panel-head">
-          <span>{{ 'DEEZER.PLAYLIST_ADD' | translate }}</span>
-          <strong>{{ playlistMenuTrack.title }}</strong>
-          <button type="button" class="dz-pl-close" (click)="closePlaylistMenu($event)" [attr.aria-label]="'DEEZER.CLEAR_SEARCH' | translate">
-            <i class="fa fa-times" aria-hidden="true"></i>
-          </button>
-        </div>
-        <button
-          type="button"
-          class="dz-pl-choice"
-          *ngFor="let playlist of userPlaylists; trackBy: trackByPlaylistId"
-          [class.is-on]="playlistHasTrack(playlist, playlistMenuTrack.id)"
-          [disabled]="!!playlistBusy"
-          (click)="toggleTrackInPlaylist(playlist, playlistMenuTrack, $event)">
-          <i class="fa" [class.fa-check-square]="playlistHasTrack(playlist, playlistMenuTrack.id)" [class.fa-square-o]="!playlistHasTrack(playlist, playlistMenuTrack.id)" aria-hidden="true"></i>
-          <span>{{ playlist.name }}</span>
-          <span class="dz-pl-count">{{ playlist.tracks.length }}</span>
-        </button>
-        <p class="dz-pl-empty" *ngIf="!userPlaylists.length">{{ 'DEEZER.PLAYLISTS_EMPTY' | translate }}</p>
-        <form class="dz-pl-create dz-pl-create--menu" (ngSubmit)="createPlaylist(playlistMenuTrack)">
-          <label class="visually-hidden" for="dz-pl-add-name">{{ 'DEEZER.PLAYLIST_NAME' | translate }}</label>
-          <input
-            id="dz-pl-add-name"
-            class="form-control form-control-sm"
-            name="playlistNameDraftAdd"
-            [(ngModel)]="playlistNameDraft"
-            [placeholder]="'DEEZER.PLAYLIST_NAME' | translate"
-            maxlength="80"
-            autocomplete="off" />
-          <button type="submit" class="dz-play-all" [disabled]="!!playlistBusy || !playlistNameDraft.trim()">
-            {{ 'DEEZER.PLAYLIST_CREATE_ADD' | translate }}
-          </button>
-        </form>
       </div>
 
       <div class="dz-filter" *ngIf="filterOpen">
@@ -470,12 +434,12 @@
           <span class="dz-idx">{{ i + 1 }}</span>
           <img *ngIf="track.coverUrl" class="dz-thumb" [src]="track.coverUrl" alt="" loading="lazy" (error)="$any($event.target).style.display='none'" />
           <span *ngIf="!track.coverUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-music"></i></span>
-          <span class="dz-row-text">
-            <span class="dz-row-title">
+          <span class="dz-row-text dz-track-text">
+            <span class="dz-track-artist">{{ track.artistName }}</span>
+            <span class="dz-track-title">
               {{ track.title }}
               <span class="dz-explicit" *ngIf="track.explicit">E</span>
             </span>
-            <span class="dz-row-sub">{{ track.artistName }}<ng-container *ngIf="track.albumTitle"> · {{ track.albumTitle }}</ng-container></span>
           </span>
           <span class="dz-dur">{{ formatTime(track.durationSec) }}</span>
           <button
@@ -515,30 +479,19 @@
             type="button"
             class="dz-fav"
             *ngIf="activeUserPlaylist"
-            [disabled]="!!playlistBusy || i === 0"
-            (click)="movePlaylistTrack(track, -1, $event)"
-            [attr.aria-label]="'DEEZER.PLAYLIST_MOVE_UP' | translate">
-            <i class="fa fa-chevron-up" aria-hidden="true"></i>
-          </button>
-          <button
-            type="button"
-            class="dz-fav"
-            *ngIf="activeUserPlaylist"
-            [disabled]="!!playlistBusy || i + 1 >= shownTracks.length"
-            (click)="movePlaylistTrack(track, 1, $event)"
-            [attr.aria-label]="'DEEZER.PLAYLIST_MOVE_DOWN' | translate">
-            <i class="fa fa-chevron-down" aria-hidden="true"></i>
-          </button>
-          <button
-            type="button"
-            class="dz-fav"
-            *ngIf="activeUserPlaylist"
             [disabled]="!!playlistBusy"
             (click)="removeTrackFromPlaylist(track, $event)"
             [attr.aria-label]="'DEEZER.PLAYLIST_REMOVE_TRACK' | translate">
             <i class="fa fa-times" aria-hidden="true"></i>
           </button>
-          <button type="button" class="dz-fav" [class.is-on]="isFavorite('track', track.id)" [disabled]="favoriteBusyKey === 'track|' + track.id" (click)="toggleTrackFavorite(track, $event)" [attr.aria-label]="(isFavorite('track', track.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
+          <button
+            type="button"
+            class="dz-fav"
+            *ngIf="!activeUserPlaylist"
+            [class.is-on]="isFavorite('track', track.id)"
+            [disabled]="favoriteBusyKey === 'track|' + track.id"
+            (click)="toggleTrackFavorite(track, $event)"
+            [attr.aria-label]="(isFavorite('track', track.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
             <i class="fa" [class.fa-star]="isFavorite('track', track.id)" [class.fa-star-o]="!isFavorite('track', track.id)"></i>
           </button>
         </li>
@@ -799,7 +752,7 @@
                 <i class="fa" [class.fa-compress]="isPipActive" [class.fa-clone]="!isPipActive"></i>
               </button>
               <button type="button" class="radio-now-action" [disabled]="!youtubeSearchQuery" (click)="openOnYoutube()" [attr.title]="'RADIO.YOUTUBE_SEARCH' | translate"><i class="fa fa-youtube"></i></button>
-              <div class="radio-share-wrap">
+              <div class="radio-share-wrap dz-hide-mobile">
                 <button type="button" class="radio-now-action" [class.is-lit]="shareMenuOpen" (click)="toggleShareMenu($event)" [attr.title]="'RADIO.SHARE' | translate"><i class="fa fa-share-alt"></i></button>
                 <div class="radio-share-menu" *ngIf="shareMenuOpen">
                   <button type="button" class="radio-share-menu-item" *ngIf="canNativeShare" (click)="shareNative()">{{ 'RADIO.SHARE_NATIVE' | translate }}</button>
@@ -811,7 +764,7 @@
                 <i class="fa" [class.fa-compress]="mobileLayout ? landscapeFullscreen : stageFullscreen" [class.fa-expand]="!(mobileLayout ? landscapeFullscreen : stageFullscreen)"></i>
               </button>
               <button type="button" class="radio-now-action radio-now-action--stop dz-hide-mobile" (click)="stop()" [disabled]="!current" [attr.title]="'RADIO.STOP' | translate"><i class="fa fa-stop"></i></button>
-              <a *ngIf="current?.link" class="radio-now-action dz-deezer-link" [href]="current?.link" target="_blank" rel="noopener" [attr.title]="'DEEZER.OPEN' | translate"><i class="fa fa-external-link"></i></a>
+              <a *ngIf="current?.link" class="radio-now-action dz-deezer-link dz-hide-mobile" [href]="current?.link" target="_blank" rel="noopener" [attr.title]="'DEEZER.OPEN' | translate"><i class="fa fa-external-link"></i></a>
               <label class="radio-keep-alive dz-hide-mobile" (click)="$event.stopPropagation()" [attr.title]="'RADIO.KEEP_ALIVE_HINT' | translate">
                 <input class="radio-keep-alive-input" type="checkbox" role="switch" [ngModel]="keepAliveOnNavigate" (ngModelChange)="setKeepAlive($event)" [attr.aria-label]="'RADIO.KEEP_ALIVE' | translate" />
                 <span class="radio-keep-alive-track" aria-hidden="true"><span class="radio-keep-alive-knob"></span></span>
@@ -865,3 +818,74 @@
 </div>
 
 <app-youtube-equalizer-modal #eqModal theme="radio" [cabinet]="radioSkin" variant="media" [hasYoutubeVideo]="!!youtubeEmbed"></app-youtube-equalizer-modal>
+
+<div class="dz-pl-backdrop" *ngIf="playlistMenuTrack" (click)="closePlaylistMenu()"></div>
+<div
+  class="dz-pl-modal"
+  *ngIf="playlistMenuTrack"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'DEEZER.PLAYLIST_ADD' | translate"
+  (click)="$event.stopPropagation()">
+  <div class="dz-pl-modal-head">
+    <div class="dz-pl-track">
+      <img *ngIf="playlistMenuTrack.coverUrl" class="dz-pl-cover" [src]="playlistMenuTrack.coverUrl" alt="" />
+      <span *ngIf="!playlistMenuTrack.coverUrl" class="dz-pl-cover dz-pl-cover--empty"><i class="fa fa-music" aria-hidden="true"></i></span>
+      <span class="dz-pl-track-text">
+        <span class="dz-pl-kicker">{{ 'DEEZER.PLAYLIST_ADD' | translate }}</span>
+        <strong>{{ playlistMenuTrack.title }}</strong>
+        <span class="dz-pl-artist" *ngIf="playlistMenuTrack.artistName">{{ playlistMenuTrack.artistName }}</span>
+      </span>
+    </div>
+    <button type="button" class="dz-pl-close" (click)="closePlaylistMenu($event)" [attr.aria-label]="'DEEZER.CLEAR_SEARCH' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
+
+  <div class="dz-pl-modal-body">
+    <label class="visually-hidden" for="dz-pl-pick-filter">{{ 'DEEZER.PLAYLIST_FILTER' | translate }}</label>
+    <input
+      id="dz-pl-pick-filter"
+      type="search"
+      class="form-control"
+      name="playlistPickerQuery"
+      [(ngModel)]="playlistPickerQuery"
+      [placeholder]="'DEEZER.PLAYLIST_FILTER' | translate"
+      autocomplete="off"
+      spellcheck="false"
+      *ngIf="userPlaylists.length" />
+    <div class="dz-pl-choices" role="list">
+      <button
+        type="button"
+        class="dz-pl-choice"
+        role="listitem"
+        *ngFor="let playlist of playlistPickerChoices; trackBy: trackByPlaylistId"
+        [class.is-on]="playlistHasTrack(playlist, playlistMenuTrack.id)"
+        [disabled]="!!playlistBusy"
+        (click)="toggleTrackInPlaylist(playlist, playlistMenuTrack, $event)">
+        <i class="fa" [class.fa-check-square]="playlistHasTrack(playlist, playlistMenuTrack.id)" [class.fa-square-o]="!playlistHasTrack(playlist, playlistMenuTrack.id)" aria-hidden="true"></i>
+        <span class="dz-pl-choice-name">{{ playlist.name }}</span>
+        <span class="dz-pl-count">{{ 'DEEZER.TRACK_COUNT' | translate:{ count: playlist.tracks.length } }}</span>
+      </button>
+    </div>
+    <p class="dz-pl-empty" *ngIf="!userPlaylists.length">{{ 'DEEZER.PLAYLISTS_EMPTY' | translate }}</p>
+    <p class="dz-pl-empty" *ngIf="userPlaylists.length && !playlistPickerChoices.length">{{ 'DEEZER.EMPTY' | translate }}</p>
+    <p class="dz-pl-error" *ngIf="playlistsError" role="alert">{{ playlistsError | translate }}</p>
+  </div>
+
+  <form class="dz-pl-modal-foot" (ngSubmit)="createPlaylist(playlistMenuTrack)">
+    <label class="visually-hidden" for="dz-pl-add-name">{{ 'DEEZER.PLAYLIST_NAME' | translate }}</label>
+    <input
+      id="dz-pl-add-name"
+      class="form-control"
+      name="playlistNameDraftAdd"
+      [(ngModel)]="playlistNameDraft"
+      [placeholder]="'DEEZER.PLAYLIST_NAME' | translate"
+      maxlength="80"
+      autocomplete="off"
+      [attr.autofocus]="userPlaylists.length ? null : ''" />
+    <button type="submit" class="dz-play-all" [disabled]="!!playlistBusy || !playlistNameDraft.trim()">
+      {{ 'DEEZER.PLAYLIST_CREATE_ADD' | translate }}
+    </button>
+  </form>
+</div>

@@ -156,6 +156,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   renamingPlaylistId = '';
   confirmDeletePlaylistId = '';
   playlistMenuTrack: DeezerTrack | null = null;
+  playlistPickerQuery = '';
   playlistsHint = '';
   playlistsError = '';
   playlistBusy = '';
@@ -351,6 +352,14 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
 
   get playlistCount(): number {
     return this.userPlaylists.length;
+  }
+
+  get playlistPickerChoices(): DeezerUserPlaylist[] {
+    const q = this.playlistPickerQuery.trim().toLowerCase();
+    if (!q) {
+      return this.userPlaylists;
+    }
+    return this.userPlaylists.filter((playlist) => (playlist.name || '').toLowerCase().includes(q));
   }
 
   get trackEmptyKey(): string {
@@ -585,12 +594,18 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     if (!this.ensurePlaylistsLogin()) {
       return;
     }
-    this.playlistMenuTrack = this.playlistMenuTrack?.id === track.id ? null : track;
+    if (this.playlistMenuTrack?.id === track.id) {
+      this.closePlaylistMenu();
+      return;
+    }
+    this.playlistPickerQuery = '';
+    this.playlistMenuTrack = track;
   }
 
   closePlaylistMenu(event?: Event): void {
     event?.stopPropagation();
     this.playlistMenuTrack = null;
+    this.playlistPickerQuery = '';
   }
 
   playlistHasTrack(playlist: DeezerUserPlaylist, trackId: number): boolean {
@@ -754,36 +769,6 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.toggleTrackInPlaylist(playlist, track, event);
-  }
-
-  movePlaylistTrack(track: DeezerTrack, delta: number, event?: Event): void {
-    event?.stopPropagation();
-    const playlist = this.activeUserPlaylist;
-    if (!playlist?.id || !track?.id || !delta || this.playlistBusy || !this.playlistsReady) {
-      return;
-    }
-    const ids = (playlist.tracks || []).map((item) => item.id);
-    const index = ids.indexOf(track.id);
-    const next = index + delta;
-    if (index < 0 || next < 0 || next >= ids.length) {
-      return;
-    }
-    const moved = ids[index];
-    ids[index] = ids[next];
-    ids[next] = moved;
-    this.playlistBusy = 'order:' + playlist.id;
-    this.playlistsError = '';
-    this.playlistsSub?.unsubscribe();
-    this.playlistsSub = this.api.reorderDeezerUserPlaylist(playlist.id, ids).subscribe({
-      next: (saved) => {
-        this.playlistBusy = '';
-        this.applyUserPlaylists(saved?.playlists || []);
-      },
-      error: () => {
-        this.playlistBusy = '';
-        this.playlistsError = 'DEEZER.ERR_PLAYLISTS_SAVE';
-      }
-    });
   }
 
   trackByPlaylistId(_index: number, playlist: DeezerUserPlaylist): string {
@@ -1710,8 +1695,8 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     if (this.shareMenuOpen && !target?.closest?.('.radio-share-wrap')) {
       this.shareMenuOpen = false;
     }
-    if (this.playlistMenuTrack && !target?.closest?.('.dz-pl-panel') && !target?.closest?.('.dz-pl-btn')) {
-      this.playlistMenuTrack = null;
+    if (this.playlistMenuTrack && !target?.closest?.('.dz-pl-modal') && !target?.closest?.('.dz-pl-btn')) {
+      this.closePlaylistMenu();
     }
   }
 
@@ -1810,7 +1795,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.playlistMenuTrack) {
-      this.playlistMenuTrack = null;
+      this.closePlaylistMenu();
       return;
     }
     if (this.renamingPlaylistId) {

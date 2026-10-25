@@ -169,8 +169,10 @@
           [class.active]="listMode === 'catalog'"
           [attr.aria-selected]="listMode === 'catalog'"
           (click)="setListMode('catalog')">
-          <i class="fa fa-globe me-1"></i>
-          {{ 'RADIO.TAB_CATALOG' | translate }}
+          <span class="radio-mode-tab-title">
+            <i class="fa fa-globe" aria-hidden="true"></i>
+            {{ 'RADIO.TAB_CATALOG' | translate }}
+          </span>
           <span
             class="badge rounded-pill radio-count-badge"
             *ngIf="catalogTabCount > 0 || isLoadingCatalogCount"
@@ -186,8 +188,10 @@
           [class.active]="listMode === 'favorites'"
           [attr.aria-selected]="listMode === 'favorites'"
           (click)="setListMode('favorites')">
-          <i class="fa fa-star me-1"></i>
-          {{ 'RADIO.TAB_FAVORITES' | translate }}
+          <span class="radio-mode-tab-title">
+            <i class="fa fa-star" aria-hidden="true"></i>
+            {{ 'RADIO.TAB_FAVORITES' | translate }}
+          </span>
           <span
             class="badge rounded-pill radio-fav-badge"
             *ngIf="listMode === 'favorites' ? filteredStationCount >= 0 && !isLoadingFavorites : favorites.length > 0">
@@ -201,8 +205,10 @@
           [class.active]="listMode === 'podcasts'"
           [attr.aria-selected]="listMode === 'podcasts'"
           (click)="setListMode('podcasts')">
-          <i class="fa fa-microphone me-1"></i>
-          {{ 'RADIO.TAB_PODCASTS' | translate }}
+          <span class="radio-mode-tab-title">
+            <i class="fa fa-microphone" aria-hidden="true"></i>
+            {{ 'RADIO.TAB_PODCASTS' | translate }}
+          </span>
           <span
             class="badge rounded-pill radio-count-badge"
             *ngIf="listMode === 'podcasts' && filteredStationCount > 0">

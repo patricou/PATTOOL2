@@ -440,6 +440,7 @@
   line-height: 1.35;
   letter-spacing: 0.28em;
   padding-bottom: 0.12rem;
+  white-space: nowrap;
 }
 
 .radio-skin--artdeco .radio-brand-model::after {
@@ -3094,6 +3095,19 @@
 
   .radio-player-panel.radio-skin--artdeco {
     padding-top: 2.9rem;
+  }
+
+  .radio-player-panel .radio-brand-model {
+    white-space: nowrap;
+    letter-spacing: 0.12em;
+  }
+
+  .radio-player-panel .radio-brand-model::after {
+    display: block;
+    white-space: nowrap;
+    letter-spacing: 0.06em;
+    font-size: 0.46rem;
+    line-height: 1.2;
   }
 }
 

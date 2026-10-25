@@ -566,20 +566,31 @@
 }
 
 .radio-mode-tab {
-  flex: 1 1 50%;
+  flex: 1 1 0;
   border: none;
   background: transparent;
-  padding: 0.65rem 0.4rem;
+  padding: 0.4rem 0.3rem 0.35rem;
   font-size: 0.8rem;
   font-weight: 600;
   color: #6c757d;
   cursor: pointer;
   display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.2rem;
+  line-height: 1.15;
+  min-width: 0;
+}
+
+.radio-mode-tab-title {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.3rem;
+  gap: 0.28rem;
+  max-width: 100%;
+  text-align: center;
   white-space: nowrap;
-  min-width: 0;
 }
 
 .radio-mode-tab.active {
@@ -590,10 +601,11 @@
 
 .radio-fav-badge,
 .radio-count-badge {
-  margin-left: 0.35rem;
+  margin-left: 0;
   font-size: 0.7rem;
   font-weight: 700;
-  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
   background: #0d6efd;
   color: #fff;
 }
@@ -1367,6 +1379,7 @@
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: rgba(212, 168, 75, 0.85);
+  white-space: nowrap;
 }
 
 .radio-face {
