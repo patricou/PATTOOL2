@@ -40,7 +40,7 @@ import {
 } from '../shared/videoshow-modal/videoshow-modal.component';
 import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
 import { YoutubeEqualizerModalComponent } from './youtube-equalizer-modal.component';
-import { activeScreenKeepAliveOwner } from '../services/media-screen-keepalive';
+import { activeScreenKeepAliveOwner, screenIsOff, setScreenKeepAlive } from '../services/media-screen-keepalive';
 import { claimRadioTune } from '../radio-watcher/radio-pip.util';
 
 interface YoutubeRegionOption {
@@ -221,6 +221,14 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   playbackDurationSec = 0;
   playAllActive = false;
   playbackPaused = false;
+  /** Android playback service stays up for the whole video, playlist or play-all queue. */
+  private screenHold = false;
+  /** Pause asked by the listener, not by the screen turning off. */
+  private userHold = false;
+  private audioSessionClaimed = false;
+  /** The message handler already advanced the queue; the later frame must not do it again. */
+  private endedHandledSync = false;
+  private readonly onScreenPower = (): void => this.keepScreenAwake();
   recordings: TvRecording[] = [];
   recordingsError = '';
   recordingsLoading = false;
@@ -305,6 +313,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     window.addEventListener('patradiotransport', this.onBluetoothTune);
+    window.addEventListener('patradioscreen', this.onScreenPower);
+    document.addEventListener('visibilitychange', this.onScreenPower);
     const params = this.route.snapshot.queryParamMap;
     this.regionCode = this.normalizeRegion(
       params.get('region') || this.regionFromUiLang(this.translate.currentLang)
@@ -381,6 +391,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     window.removeEventListener('patradiotransport', this.onBluetoothTune);
+    window.removeEventListener('patradioscreen', this.onScreenPower);
+    document.removeEventListener('visibilitychange', this.onScreenPower);
     this.searchSub?.unsubscribe();
     this.favoritesSub?.unsubscribe();
     this.subs.forEach((s) => s.unsubscribe());
@@ -407,6 +419,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     }
     this.unloadPageEmbed();
     this.stopPlayAll();
+    if (!this.playerOpen) {
+      this.releaseScreenHold();
+    }
     this.abortClientRecording(false);
     this.stopClipPlayback();
     this.equalizer.stopTabCapture();
@@ -987,6 +1002,11 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.clipAutoplayDone = true;
+    const title = (this.playingRecording?.channelName || this.playingRecording?.fileName || 'YouTube').trim();
+    video.setAttribute('data-pat-media-title', title);
+    video.setAttribute('data-pat-media-artist', (this.playingRecording?.channelName || '').trim());
+    video.setAttribute('data-pat-media-album', 'YouTube');
+    video.title = title;
     const attempt = (muted: boolean) => {
       video.muted = muted;
       const play = video.play();
@@ -1017,6 +1037,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.equalizer.detachMediaElement(video);
     if (video) {
       try {
+        video.dataset['patUserPaused'] = '1';
         video.pause();
         video.removeAttribute('src');
       } catch {
@@ -1043,6 +1064,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       this.youtubePlayer.close();
     }
     this.dismissRecordingsModal();
+    this.userHold = true;
+    this.releaseScreenHold();
     this.sendYoutubeCommand('pauseVideo');
     this.playbackPaused = true;
     this.scrollPageToTop();
@@ -1585,6 +1608,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     } else if (!this.loadInFullscreenEmbed(this.selected)) {
       this.embedUrl = this.buildEmbedUrl(this.selected, true);
     }
+    this.holdScreen();
     this.revealPlayerIfHidden();
     void this.syncUrl().then(() => {
       if (!this.destroyed) {
@@ -1744,6 +1768,12 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     }
     const pause = !this.queuePaused;
     this.playbackPaused = pause;
+    if (pause) {
+      this.userHold = true;
+      this.releaseScreenHold();
+    } else {
+      this.holdScreen();
+    }
     if (this.playerOpen) {
       this.youtubePlayer.sendCommand(pause ? 'pause' : 'play');
       return;
@@ -1840,6 +1870,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.queueUnavailableStreak++;
     if (this.queueUnavailableStreak >= this.queueItems().length) {
       this.stopPlayAll();
+      this.releaseScreenHold();
       return;
     }
     this.playNextQueueItem(true);
@@ -1849,13 +1880,16 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     const list = this.queueItems();
     if (!list.length) {
       this.stopPlayAll();
+      this.releaseScreenHold();
       return;
     }
     const idx = this.queueIndexOf(this.selected);
     if (auto && !this.loopQueue && idx >= list.length - 1) {
       this.stopPlayAll();
+      this.releaseScreenHold();
       return;
     }
+    this.holdScreen();
     const next = list[(idx < 0 ? 0 : idx + 1) % list.length];
     this.playQueueItem(next);
   }
@@ -2879,6 +2913,153 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.startYoutubeProgressWatch();
   }
 
+  /** Keeps the phone process awake so the current video, a playlist or play-all can outlast the screen. */
+  private holdScreen(): void {
+    if (this.playingRecording) {
+      return;
+    }
+    this.userHold = false;
+    this.screenHold = true;
+    const item = this.selected || this.youtubePlayer.currentItem;
+    setScreenKeepAlive('youtube', true, (item?.title || '').trim() || 'YouTube', {
+      artist: (item?.channelTitle || '').trim(),
+      album: 'YouTube'
+    });
+    this.claimAudioSession();
+  }
+
+  private releaseScreenHold(): void {
+    this.screenHold = false;
+    setScreenKeepAlive('youtube', false);
+    this.releaseAudioSession();
+  }
+
+  private asleep(): boolean {
+    return screenIsOff() || (typeof document !== 'undefined' && document.visibilityState === 'hidden');
+  }
+
+  /** The foreground service must already be running when the screen turns off. */
+  private keepScreenAwake(): void {
+    if (!this.screenHold || this.userHold || this.playingRecording || !this.asleep()) {
+      return;
+    }
+    this.holdScreen();
+  }
+
+  private queueWillContinue(): boolean {
+    if (!this.playAllActive || this.userHold) {
+      return false;
+    }
+    const list = this.queueItems();
+    if (!list.length) {
+      return false;
+    }
+    const idx = this.queueIndexOf(this.selected);
+    return this.loopQueue || idx < 0 || idx < list.length - 1;
+  }
+
+  /**
+   * Applied in the YouTube message, not on the next frame: a locked screen
+   * does not run animation frames, and the phone will not start the playback
+   * service again once the display is already off.
+   */
+  private noteSleepState(state: number): void {
+    if (this.destroyed || this.playerOpen || this.playingRecording) {
+      return;
+    }
+    if (state === 1 || state === 3) {
+      this.holdScreen();
+      return;
+    }
+    if (state !== 0) {
+      return;
+    }
+    if (Date.now() < this.ignoreQueueEndedUntil) {
+      this.holdScreen();
+      return;
+    }
+    this.endedHandledSync = true;
+    if (this.selected?.kind === 'playlist') {
+      this.holdScreen();
+      if (this.asleep()) {
+        this.handshakeYoutubePlayer();
+        this.sendYoutubeCommand('playVideo');
+      }
+      return;
+    }
+    if (this.queueWillContinue()) {
+      this.holdScreen();
+      this.ngZone.run(() => {
+        if (!this.destroyed) {
+          this.onQueueVideoEnded();
+        }
+      });
+      return;
+    }
+    this.ngZone.run(() => {
+      if (!this.destroyed) {
+        this.onQueueVideoEnded();
+      }
+    });
+    this.releaseScreenHold();
+  }
+
+  private claimAudioSession(): void {
+    const session = this.audioSession();
+    if (!session) {
+      return;
+    }
+    try {
+      session.type = 'playback';
+      this.audioSessionClaimed = true;
+    } catch {
+      /* the browser has no audio session */
+    }
+  }
+
+  private releaseAudioSession(): void {
+    if (!this.audioSessionClaimed) {
+      return;
+    }
+    this.audioSessionClaimed = false;
+    if (this.radioStillPlaying()) {
+      return;
+    }
+    const session = this.audioSession();
+    if (!session) {
+      return;
+    }
+    try {
+      session.type = 'auto';
+    } catch {
+      /* unsupported */
+    }
+  }
+
+  private radioStillPlaying(): boolean {
+    if (typeof document === 'undefined') {
+      return false;
+    }
+    const nodes = document.querySelectorAll('audio[data-pat-radio="1"]');
+    for (const node of Array.from(nodes)) {
+      if (!(node instanceof HTMLMediaElement)) {
+        continue;
+      }
+      if (node.src && !node.paused && !node.ended && !node.error) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private audioSession(): { type: string } | null {
+    if (typeof navigator === 'undefined') {
+      return null;
+    }
+    const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+    return session || null;
+  }
+
   onPlaybackSeek(event: MouseEvent): void {
     if (this.playbackDurationSec <= 0) {
       return;
@@ -3158,6 +3339,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       this.activateYoutubeSound();
     }
     if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
+      this.noteSleepState(payload.info);
       if (payload.info === 1 || payload.info === 5) {
         this.activateYoutubeSound();
       }
@@ -3174,6 +3356,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     const update: { currentTime?: number; duration?: number; playerState?: number } = {};
     if (typeof playerState === 'number') {
       update.playerState = playerState;
+      this.noteSleepState(playerState);
     }
     if (typeof currentTime === 'number' && Number.isFinite(currentTime)) {
       update.currentTime = Math.max(0, currentTime);
@@ -3210,6 +3393,10 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     if (this.playbackDurationSec > 0) {
       this.playbackCurrentSec = this.playbackDurationSec;
     }
+    if (this.endedHandledSync) {
+      this.endedHandledSync = false;
+      return;
+    }
     this.onQueueVideoEnded();
   }
 
@@ -3226,6 +3413,8 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.exitLandscapeFullscreen(false);
     this.videoshowRestorePip = this.playerOpen;
     this.stopPlayAll();
+    this.userHold = true;
+    this.releaseScreenHold();
     if (this.clientRecordingActive) {
       this.stopActiveRecording();
     }

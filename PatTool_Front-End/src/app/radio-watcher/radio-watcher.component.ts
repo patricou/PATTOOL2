@@ -1928,7 +1928,8 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private readonly onBluetoothTune = (event: Event): void => {
-    if (!this.pageAlive || this.radioPlayer.isOpen || activeScreenKeepAliveOwner() === 'youtube') {
+    const owner = activeScreenKeepAliveOwner();
+    if (!this.pageAlive || this.radioPlayer.isOpen || owner === 'youtube' || owner === 'deezer' || owner === 'clip') {
       return;
     }
     const action = (event as CustomEvent<string>).detail;

@@ -17,6 +17,7 @@ import { Subscription } from 'rxjs';
 import { YoutubeItem } from '../services/api.service';
 import { YoutubeFloatingState, YoutubePlayerService } from '../services/youtube-player.service';
 import { openWhatsAppTextShare } from '../shared/share-whatsapp-image.util';
+import { setScreenKeepAlive, screenIsOff } from '../services/media-screen-keepalive';
 
 type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
@@ -698,6 +699,17 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
         this.youtubePlayer.setPaused(true);
       }
       if (state === 0) {
+        const item = this.youtubePlayer.currentItem;
+        const asleep = screenIsOff() || (typeof document !== 'undefined' && document.visibilityState === 'hidden');
+        if (item?.kind === 'playlist' && asleep) {
+          setScreenKeepAlive('youtube', true, (item.title || '').trim() || 'YouTube', {
+            artist: (item.channelTitle || '').trim(),
+            album: 'YouTube'
+          });
+          this.handshakeYoutubePlayer();
+          this.sendYoutubeCommand('playVideo');
+          return;
+        }
         this.youtubePlayer.setPaused(true);
         this.youtubePlayer.notifyEnded();
       }

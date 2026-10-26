@@ -294,7 +294,8 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   };
 
   private readonly onBluetoothTune = (event: Event): void => {
-    if (!this.alive || !this.state.open || activeScreenKeepAliveOwner() === 'youtube') {
+    const owner = activeScreenKeepAliveOwner();
+    if (!this.alive || !this.state.open || owner === 'youtube' || owner === 'deezer' || owner === 'clip') {
       return;
     }
     const action = (event as CustomEvent<string>).detail;

@@ -22,12 +22,14 @@ import { KeycloakService } from '../keycloak/keycloak.service';
 import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
 import { YoutubeEqualizerModalComponent } from '../youtube-watcher/youtube-equalizer-modal.component';
 import {
+  claimRadioTune,
   closeRadioDocPip,
   enterRadioPictureInPicture,
   isRadioDocPipOpen,
   stopRadioPipCarrier,
   supportsRadioPictureInPicture
 } from '../radio-watcher/radio-pip.util';
+import { activeScreenKeepAliveOwner, screenIsOff, setScreenKeepAlive } from '../services/media-screen-keepalive';
 
 type DzMode = 'chart' | 'search';
 type DzSkin =
@@ -136,6 +138,14 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   chromeVisible = false;
   shareFeedback = '';
   keepAliveOnNavigate = false;
+  /** Android playback service stays up for the whole queue, including between tracks. */
+  private screenHold = false;
+  /** Pause or stop asked by the listener, not by the screen turning off. */
+  private userHold = false;
+  private audioSessionClaimed = false;
+  private sleepKickTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly onScreenPower = (): void => this.keepPlayingThroughSleep();
+  private readonly onBluetoothTune = (event: Event): void => this.onLockScreenTune(event);
   docked = false;
   isPipActive = false;
   trackImageIndex = 0;
@@ -262,11 +272,18 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.loadChart();
     this.setupLandscapeFullscreenWatchers();
     this.syncLandscapeFullscreen();
+    window.addEventListener('patradioscreen', this.onScreenPower);
+    window.addEventListener('patradiotransport', this.onBluetoothTune);
+    document.addEventListener('visibilitychange', this.onScreenPower);
   }
 
   ngOnDestroy(): void {
     this.teardownLandscapeFullscreenWatchers();
     this.exitLandscapeFullscreen(false);
+    window.removeEventListener('patradioscreen', this.onScreenPower);
+    window.removeEventListener('patradiotransport', this.onBluetoothTune);
+    document.removeEventListener('visibilitychange', this.onScreenPower);
+    this.clearSleepKick();
     this.destroy$.next();
     this.destroy$.complete();
     if (this.sleeveTimer) {
@@ -283,15 +300,18 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.sleeveSub?.unsubscribe();
     document.body.classList.remove('radio-focus', 'radio-stage-fs', 'radio-landscape-fs');
     const audio = this.audioRef?.nativeElement;
-    if (audio && this.keepAliveOnNavigate && this.playing) {
+    const parkAudio = !!(audio && this.keepAliveOnNavigate && this.playing && !this.youtubeEmbed && !audio.paused);
+    if (parkAudio && audio) {
       audio.dataset['patDeezerKeep'] = '1';
       document.body.appendChild(audio);
       return;
     }
     if (audio) {
+      audio.dataset['patUserPaused'] = '1';
       audio.pause();
       audio.removeAttribute('src');
     }
+    this.releaseScreenHold();
     if (this.isPipActive) {
       closeRadioDocPip();
     }
@@ -902,6 +922,12 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   togglePlay(): void {
     if (this.youtubeEmbed) {
       const func = this.playing ? 'pauseVideo' : 'playVideo';
+      if (func === 'pauseVideo') {
+        this.userHold = true;
+        this.releaseScreenHold();
+      } else {
+        this.holdScreen();
+      }
       this.handshakeYoutube();
       this.postYoutubeCommand(func);
       if (func === 'playVideo') {
@@ -922,13 +948,18 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     if (audio.paused) {
+      this.holdScreen();
       this.hushOthers(audio);
       audio.play().catch(() => {
         this.playErrorKey = 'DEEZER.ERR_PLAY';
         this.playing = false;
+        this.releaseScreenHold();
       });
     } else {
+      this.userHold = true;
+      audio.dataset['patUserPaused'] = '1';
       audio.pause();
+      this.releaseScreenHold();
     }
   }
 
@@ -951,6 +982,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   }
 
   stop(): void {
+    this.userHold = true;
     this.youtubeMode = false;
     this.repeatQueue = false;
     this.clearYoutube();
@@ -958,12 +990,15 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     if (!audio) {
       this.currentTime = 0;
       this.playing = false;
+      this.releaseScreenHold();
       return;
     }
+    audio.dataset['patUserPaused'] = '1';
     audio.pause();
     audio.currentTime = 0;
     this.currentTime = 0;
     this.playing = false;
+    this.releaseScreenHold();
   }
 
   seek(event: Event): void {
@@ -1099,11 +1134,21 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.playing = true;
     this.buffering = false;
     this.playErrorKey = '';
+    if (!this.userHold) {
+      this.holdScreen();
+    }
   }
 
   onAudioPause(): void {
     this.playing = false;
     this.buffering = false;
+    const audio = this.audioRef?.nativeElement;
+    if (this.userHold || audio?.dataset['patUserPaused'] === '1' || !this.screenHold) {
+      return;
+    }
+    if (this.asleep()) {
+      this.keepPlayingThroughSleep();
+    }
   }
 
   onAudioWaiting(): void {
@@ -1113,7 +1158,11 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
   onAudioEnded(): void {
     this.playing = false;
     this.buffering = false;
-    this.next();
+    if (this.queueContinues()) {
+      this.next();
+      return;
+    }
+    this.releaseScreenHold();
   }
 
   onAudioError(): void {
@@ -1336,6 +1385,8 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.hushOthers(audio);
+    delete audio.dataset['patUserPaused'];
+    this.holdScreen();
     audio.crossOrigin = 'anonymous';
     audio.muted = false;
     audio.volume = this.volume;
@@ -1356,7 +1407,12 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
       this.syncTrackSlide();
     }).catch(() => {
       this.playing = false;
+      if (this.screenHold && this.asleep() && !audio.ended) {
+        this.keepPlayingThroughSleep();
+        return;
+      }
       this.playErrorKey = 'DEEZER.ERR_PLAY';
+      this.releaseScreenHold();
     });
   }
 
@@ -1674,10 +1730,17 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     if (state === 1) {
       this.playing = true;
       this.youtubeBusy = false;
+      if (!this.userHold) {
+        this.holdScreen();
+      }
     } else if (state === 2) {
       this.playing = false;
     } else if (state === 0 && Date.now() >= this.ytIgnoreEnd && this.youtubeMode) {
-      this.next();
+      if (this.queueContinues()) {
+        this.next();
+      } else {
+        this.releaseScreenHold();
+      }
     }
   }
 
@@ -2067,13 +2130,195 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Keeps the phone process awake so a queue can advance after the screen turns off. */
+  private holdScreen(): void {
+    this.userHold = false;
+    this.screenHold = true;
+    const audio = this.audioRef?.nativeElement;
+    if (audio && !this.youtubeMode && !this.youtubeEmbed) {
+      delete audio.dataset['patUserPaused'];
+    }
+    this.tagNowPlaying(audio);
+    this.tagNowPlaying(this.ytFrame?.nativeElement);
+    const track = this.current;
+    setScreenKeepAlive('deezer', true, track?.title || 'Deezer', {
+      artist: track?.artistName || '',
+      album: track?.albumTitle || ''
+    });
+    this.claimAudioSession();
+  }
+
+  private releaseScreenHold(): void {
+    this.screenHold = false;
+    this.clearSleepKick();
+    setScreenKeepAlive('deezer', false);
+    this.releaseAudioSession(false);
+  }
+
+  private queueContinues(): boolean {
+    const idx = this.currentIndex();
+    return (idx >= 0 && idx < this.queue.length - 1) || (this.repeatQueue && this.queue.length > 0);
+  }
+
+  private asleep(): boolean {
+    return screenIsOff() || (typeof document !== 'undefined' && document.visibilityState === 'hidden');
+  }
+
+  /** Screen off pauses an audio element. Start it again, the way the radio does. */
+  private keepPlayingThroughSleep(): void {
+    if (!this.screenHold || this.userHold || this.youtubeEmbed || this.sleepKickTimer != null) {
+      return;
+    }
+    if (!this.asleep()) {
+      return;
+    }
+    const audio = this.audioRef?.nativeElement;
+    if (!audio || audio.dataset['patUserPaused'] === '1' || audio.ended) {
+      return;
+    }
+    if (!audio.paused && !audio.error) {
+      return;
+    }
+    const kick = (attempt: number): void => {
+      this.sleepKickTimer = null;
+      if (!this.screenHold || this.userHold || this.youtubeEmbed || !this.asleep()) {
+        return;
+      }
+      const el = this.audioRef?.nativeElement;
+      if (!el || el.dataset['patUserPaused'] === '1' || el.ended) {
+        return;
+      }
+      if (!el.paused && !el.error) {
+        return;
+      }
+      void el.play().then(() => {
+        if (!this.screenHold || this.userHold || !this.asleep()) {
+          return;
+        }
+        if ((el.paused || el.error) && attempt < 5) {
+          this.sleepKickTimer = setTimeout(() => kick(attempt + 1), 450);
+        }
+      }).catch(() => {
+        if (!this.screenHold || this.userHold || attempt >= 5) {
+          return;
+        }
+        this.sleepKickTimer = setTimeout(() => kick(attempt + 1), 450);
+      });
+    };
+    kick(0);
+  }
+
+  private clearSleepKick(): void {
+    if (this.sleepKickTimer != null) {
+      clearTimeout(this.sleepKickTimer);
+      this.sleepKickTimer = null;
+    }
+  }
+
+  private onLockScreenTune(event: Event): void {
+    if (activeScreenKeepAliveOwner() === 'radio') {
+      return;
+    }
+    if (!this.screenHold && !this.playing) {
+      return;
+    }
+    const action = (event as CustomEvent<string>).detail;
+    if (action !== 'next' && action !== 'previous') {
+      return;
+    }
+    if (!claimRadioTune()) {
+      return;
+    }
+    if (action === 'next') {
+      this.next();
+    } else {
+      this.prev();
+    }
+  }
+
+  private tagNowPlaying(el?: HTMLElement | null): void {
+    const track = this.current;
+    if (!el || !track) {
+      return;
+    }
+    el.setAttribute('data-pat-media-title', track.title || '');
+    el.setAttribute('data-pat-media-artist', track.artistName || '');
+    el.setAttribute('data-pat-media-album', track.albumTitle || '');
+    if (track.coverUrl) {
+      el.setAttribute('data-pat-media-artwork', track.coverUrl);
+    }
+  }
+
+  private claimAudioSession(): void {
+    const session = this.audioSession();
+    if (!session) {
+      return;
+    }
+    try {
+      session.type = 'playback';
+      this.audioSessionClaimed = true;
+    } catch {
+      /* the browser has no audio session */
+    }
+  }
+
+  private releaseAudioSession(force: boolean): void {
+    if (!force && !this.audioSessionClaimed) {
+      return;
+    }
+    this.audioSessionClaimed = false;
+    if (this.radioStillPlaying()) {
+      return;
+    }
+    const session = this.audioSession();
+    if (!session) {
+      return;
+    }
+    try {
+      session.type = 'auto';
+    } catch {
+      /* unsupported */
+    }
+  }
+
+  private radioStillPlaying(): boolean {
+    if (typeof document === 'undefined') {
+      return false;
+    }
+    const nodes = document.querySelectorAll('audio[data-pat-radio="1"]');
+    for (const node of Array.from(nodes)) {
+      if (!(node instanceof HTMLMediaElement)) {
+        continue;
+      }
+      if (node.src && !node.paused && !node.ended && !node.error) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private audioSession(): { type: string } | null {
+    if (typeof navigator === 'undefined') {
+      return null;
+    }
+    const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+    return session || null;
+  }
+
   private parkKeptAudio(): void {
+    let parked = false;
     document.querySelectorAll('audio[data-pat-deezer-keep="1"]').forEach((node) => {
+      parked = true;
       if (node instanceof HTMLMediaElement) {
+        node.dataset['patUserPaused'] = '1';
         node.pause();
       }
       node.remove();
     });
+    if (parked) {
+      setScreenKeepAlive('deezer', false);
+      this.releaseAudioSession(true);
+    }
   }
 
   private hushOthers(mine: HTMLAudioElement): void {
@@ -2114,6 +2359,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     if (!audio) {
       return;
     }
+    audio.dataset['patUserPaused'] = '1';
     audio.pause();
   }
 
@@ -2131,6 +2377,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
     this.stopYoutubeHandshake();
     this.ytApiListening = false;
     this.ytSoundArmed = false;
+    setScreenKeepAlive('youtube', false);
   }
 
   private resolveYoutube(track: DeezerTrack): void {
@@ -2189,6 +2436,7 @@ export class DeezerWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.pausePreview();
+    this.holdScreen();
     this.youtubeTitle = `${track.artistName || ''} — ${track.title || ''}`.trim();
     this.ytIgnoreEnd = Date.now() + 1500;
     const origin = typeof window !== 'undefined' ? `&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}` : '';

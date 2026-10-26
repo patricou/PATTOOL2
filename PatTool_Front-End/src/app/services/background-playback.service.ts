@@ -145,7 +145,7 @@ export class BackgroundPlaybackService {
       return;
     }
     if (this.isDocumentHidden()) {
-      if (!this.userPaused.get(el)) {
+      if (!this.userStopped(el)) {
         this.resumeElement(el);
       }
       return;
@@ -158,7 +158,7 @@ export class BackgroundPlaybackService {
         return;
       }
       if (this.isDocumentHidden() || screenIsOff()) {
-        if (!this.userPaused.get(el)) {
+        if (!this.userStopped(el)) {
           this.resumeElement(el);
         }
         return;
@@ -213,7 +213,7 @@ export class BackgroundPlaybackService {
       return;
     }
     const el = this.active;
-    if (el && !this.userPaused.get(el) && el.paused && !el.ended) {
+    if (el && !this.userStopped(el) && el.paused && !el.ended) {
       this.resumeElement(el);
     }
     this.resumeKeepAlives();
@@ -226,11 +226,11 @@ export class BackgroundPlaybackService {
       return true;
     }
     const el = this.active;
-    if (el && !this.userPaused.get(el) && !el.ended) {
+    if (el && !this.userStopped(el) && !el.ended) {
       return true;
     }
     for (const keep of this.keepAlives) {
-      if (this.releasedKeepAlives.has(keep) || keep.ended || this.userPaused.get(keep)) {
+      if (this.releasedKeepAlives.has(keep) || keep.ended || this.userStopped(keep)) {
         continue;
       }
       return true;
@@ -240,7 +240,7 @@ export class BackgroundPlaybackService {
 
   private keepHtmlMediaAlive(): void {
     const el = this.active;
-    if (el && !this.userPaused.get(el) && !el.ended) {
+    if (el && !this.userStopped(el) && !el.ended) {
       if (el instanceof HTMLVideoElement) {
         this.enableAutoPictureInPicture(el);
         void this.tryEnterPictureInPicture(el);
@@ -278,7 +278,7 @@ export class BackgroundPlaybackService {
       if (this.isKeepAlive(node) || node.dataset['patSkipBackground'] === '1') {
         return;
       }
-      if (this.userPaused.get(node) || node.ended || node.paused) {
+      if (this.userStopped(node) || node.ended || node.paused) {
         return;
       }
       if (!this.active || this.active.paused || this.isKeepAlive(this.active)) {
@@ -454,7 +454,7 @@ export class BackgroundPlaybackService {
       if (el instanceof HTMLVideoElement) {
         await this.tryEnterPictureInPicture(el);
       }
-      if (!this.userPaused.get(el) && el.paused && !el.ended) {
+      if (!this.userStopped(el) && el.paused && !el.ended) {
         this.resumeElement(el);
       }
       if (this.youtubePlaying && !this.youtubeUserPaused) {
@@ -520,6 +520,11 @@ export class BackgroundPlaybackService {
 
   private isKeepAlive(el: HTMLMediaElement): boolean {
     return el.dataset['patKeepAlive'] === '1';
+  }
+
+  /** In-app pause and the lock-screen pause both set this before the element stops. */
+  private userStopped(el: HTMLMediaElement): boolean {
+    return this.userPaused.get(el) === true || el.dataset['patUserPaused'] === '1';
   }
 
   private pickFallbackActive(except: HTMLMediaElement): HTMLMediaElement | null {
@@ -598,7 +603,7 @@ export class BackgroundPlaybackService {
       return;
     }
     const el = this.active;
-    if (el && !this.userPaused.get(el) && !el.ended && el.paused) {
+    if (el && !this.userStopped(el) && !el.ended && el.paused) {
       this.resumeElement(el);
     }
     const justMarked = this.youtubePauseMarkedAt > 0 && Date.now() - this.youtubePauseMarkedAt < 1200;
@@ -646,7 +651,9 @@ export class BackgroundPlaybackService {
 
   private youtubeTrack(): { title: string; artist: string; album: string } {
     const iframe = this.collectYoutubeIframes()[0];
-    const title = withBluetoothAppName((iframe?.getAttribute('title') || '').trim() || 'YouTube');
+    const title = withBluetoothAppName(
+      (iframe?.getAttribute('data-pat-media-title') || iframe?.getAttribute('title') || '').trim() || 'YouTube'
+    );
     const artist = cleanBluetoothArtist(iframe?.getAttribute('data-pat-media-artist') || '');
     const album = (iframe?.getAttribute('data-pat-media-album') || '').trim();
     return { title, artist, album };

@@ -1,10 +1,10 @@
 /**
- * Tells the Android app to keep the WebView awake while radio or YouTube is playing,
- * so the stream continues after the screen turns off.
+ * Tells the Android app to keep the WebView awake while radio, YouTube or Deezer
+ * is playing, so the stream continues after the screen turns off.
  * Several players can be active; the phone stays awake until the last one stops.
  */
 
-export type ScreenKeepAliveOwner = 'radio' | 'youtube' | 'clip';
+export type ScreenKeepAliveOwner = 'radio' | 'youtube' | 'deezer' | 'clip';
 
 export interface ScreenKeepAliveTrack {
   title: string;
@@ -26,7 +26,7 @@ export function setScreenKeepAlive(
   extra?: { artist?: string; album?: string; station?: string }
 ): void {
   if (playing) {
-    const fallback = owner === 'radio' ? 'Radio' : 'YouTube';
+    const fallback = owner === 'radio' ? 'Radio' : owner === 'deezer' ? 'Deezer' : 'YouTube';
     const station = clipScreenText(extra?.station);
     owners.set(owner, {
       title: withBluetoothAppName(title || fallback),
@@ -43,7 +43,7 @@ export function setScreenKeepAlive(
   flushTimer = setTimeout(() => {
     flushTimer = null;
     const active = owners.size > 0;
-    const track = owners.get('youtube') || owners.get('clip') || owners.get('radio') || {
+    const track = owners.get('youtube') || owners.get('deezer') || owners.get('clip') || owners.get('radio') || {
       title: 'Lecture',
       artist: '',
       album: '',
@@ -57,6 +57,9 @@ export function setScreenKeepAlive(
 export function activeScreenKeepAliveOwner(): ScreenKeepAliveOwner | null {
   if (owners.has('youtube')) {
     return 'youtube';
+  }
+  if (owners.has('deezer')) {
+    return 'deezer';
   }
   if (owners.has('clip')) {
     return 'clip';
