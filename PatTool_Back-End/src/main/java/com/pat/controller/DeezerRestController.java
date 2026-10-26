@@ -10,6 +10,7 @@ import com.pat.controller.dto.DeezerYoutubeLookupRequest;
 import com.pat.service.DeezerCatalogService;
 import com.pat.service.DeezerFavoritesService;
 import com.pat.service.DeezerPlaylistsService;
+import com.pat.service.DeezerSkinService;
 import com.pat.service.DeezerYoutubeLinkService;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -52,6 +53,7 @@ import java.util.function.Supplier;
  *   <li>{@code PUT/DELETE /api/external/deezer/user-playlists/{id}}</li>
  *   <li>{@code PUT/DELETE /api/external/deezer/user-playlists/{id}/tracks}</li>
  *   <li>{@code PUT /api/external/deezer/user-playlists/{id}/order}</li>
+ *   <li>{@code GET/PUT /api/external/deezer/skin}</li>
  * </ul>
  */
 @RestController
@@ -64,16 +66,19 @@ public class DeezerRestController {
     private final DeezerYoutubeLinkService deezerYoutubeLinkService;
     private final DeezerFavoritesService deezerFavoritesService;
     private final DeezerPlaylistsService deezerPlaylistsService;
+    private final DeezerSkinService deezerSkinService;
 
     public DeezerRestController(
             DeezerCatalogService deezerCatalogService,
             DeezerYoutubeLinkService deezerYoutubeLinkService,
             DeezerFavoritesService deezerFavoritesService,
-            DeezerPlaylistsService deezerPlaylistsService) {
+            DeezerPlaylistsService deezerPlaylistsService,
+            DeezerSkinService deezerSkinService) {
         this.deezerCatalogService = deezerCatalogService;
         this.deezerYoutubeLinkService = deezerYoutubeLinkService;
         this.deezerFavoritesService = deezerFavoritesService;
         this.deezerPlaylistsService = deezerPlaylistsService;
+        this.deezerSkinService = deezerSkinService;
     }
 
     @GetMapping("/genres")
@@ -288,6 +293,33 @@ public class DeezerRestController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return playlists(() -> deezerPlaylistsService.reorder(sub, id, body));
+    }
+
+    @GetMapping("/skin")
+    public ResponseEntity<Map<String, String>> getSkin() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String skin = deezerSkinService.findForSubject(sub);
+        if (skin == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(Map.of("skin", skin));
+    }
+
+    @PutMapping("/skin")
+    public ResponseEntity<Map<String, String>> putSkin(@RequestBody Map<String, String> body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            String raw = body == null ? null : body.get("skin");
+            return ResponseEntity.ok(Map.of("skin", deezerSkinService.saveForSubject(sub, raw)));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     private ResponseEntity<?> playlists(Supplier<DeezerUserPlaylistsDto> call) {

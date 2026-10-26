@@ -1,7 +1,7 @@
 <div class="pat-title" [class.radio-title--menu-open]="skinMenuOpen">
   <h2 class="dz-page-title">
     <span class="dz-title-heading">
-      <span class="dz-title-icon" aria-hidden="true"><i class="fa fa-music"></i></span>
+      <span class="dz-title-icon" aria-hidden="true"><img src="assets/images/deezer-logo.svg" alt="" /></span>
       {{ 'DEEZER.TITLE' | translate }}
       <span class="dz-title-note">{{ 'DEEZER.LIMIT_NOTE' | translate }}</span>
     </span>
@@ -38,6 +38,17 @@
       <span class="radio-eq-open-label">{{ 'YOUTUBE.EQ.OPEN' | translate }}</span>
       <span class="radio-eq-open-badge" *ngIf="eqActive" aria-hidden="true"></span>
     </button>
+    <label class="dz-yt-search" [attr.title]="'DEEZER.KEEP_ALIVE_HINT' | translate">
+      <span class="dz-yt-search-label">{{ 'DEEZER.KEEP_ALIVE' | translate }}</span>
+      <input
+        type="checkbox"
+        class="dz-yt-search-input"
+        role="switch"
+        [ngModel]="keepAliveOnNavigate"
+        (ngModelChange)="setKeepAlive($event)"
+        [attr.aria-label]="'DEEZER.KEEP_ALIVE' | translate" />
+      <span class="dz-yt-search-track" aria-hidden="true"><span class="dz-yt-search-knob"></span></span>
+    </label>
     <label class="dz-yt-search" [attr.title]="'DEEZER.YT_SEARCH_SWITCH_HINT' | translate">
       <span class="dz-yt-search-label">{{ 'DEEZER.YT_SEARCH_SWITCH' | translate }}</span>
       <input
@@ -289,21 +300,44 @@
             </button>
           </ng-container>
           <ng-container *ngIf="showTrackList && shownTracks.length">
-          <button
-            type="button"
-            class="dz-play-all"
-            (click)="playAll()">
-            <i class="fa fa-play" aria-hidden="true"></i>
-            {{ 'DEEZER.PLAY_ALL' | translate }}
-          </button>
-          <button
-            type="button"
-            class="dz-play-all dz-play-all--yt"
-            [class.is-on]="youtubeMode"
-            (click)="playAllOnYoutube()">
-            <i class="fa fa-youtube" aria-hidden="true"></i>
-            {{ 'DEEZER.PLAY_ALL_YT' | translate }}
-          </button>
+          <div class="dz-list-transport" role="group">
+            <button
+              type="button"
+              (click)="prev()"
+              [disabled]="atStart"
+              [attr.aria-label]="'DEEZER.PREV' | translate"
+              [attr.title]="'DEEZER.PREV' | translate">
+              <i class="fa fa-step-backward" aria-hidden="true"></i>
+            </button>
+            <button
+              type="button"
+              class="is-main"
+              [class.is-live]="playing"
+              [class.is-yt]="playAllSource === 'youtube'"
+              (click)="playPauseListed()"
+              [attr.aria-label]="(playing ? 'DEEZER.PAUSE' : 'DEEZER.PLAY') | translate"
+              [attr.title]="(playing ? 'DEEZER.PAUSE' : 'DEEZER.PLAY') | translate">
+              <span>{{ (playing ? 'DEEZER.PAUSE' : 'DEEZER.PLAY') | translate }}</span>
+              <img
+                *ngIf="playAllSource === 'youtube'"
+                class="dz-transport-mark"
+                src="assets/images/youtube-logo.svg"
+                alt="" />
+              <img
+                *ngIf="playAllSource === 'deezer'"
+                class="dz-transport-mark dz-transport-mark--dz"
+                src="assets/images/deezer-logo.svg"
+                alt="" />
+            </button>
+            <button
+              type="button"
+              (click)="next()"
+              [disabled]="atEnd"
+              [attr.aria-label]="'DEEZER.NEXT' | translate"
+              [attr.title]="'DEEZER.NEXT' | translate">
+              <i class="fa fa-step-forward" aria-hidden="true"></i>
+            </button>
+          </div>
           </ng-container>
         </div>
         <a class="dz-open-link" *ngIf="drilled && drillLink" [href]="drillLink" target="_blank" rel="noopener">
@@ -686,9 +720,10 @@
             <i class="fa fa-spinner fa-spin"></i>
           </div>
           <div class="radio-play-error" *ngIf="playErrorKey" role="alert">{{ playErrorKey | translate }}</div>
+          <div #keptYtHost class="dz-yt-kept" *ngIf="keptFrameActive"></div>
           <iframe
             #ytFrame
-            *ngIf="youtubeEmbed"
+            *ngIf="youtubeEmbed && !keptFrameActive"
             class="dz-yt"
             [src]="youtubeEmbed"
             [title]="youtubeTitle || 'YouTube'"
@@ -743,7 +778,7 @@
             </div>
             <div class="radio-now-actions" [class.radio-now-actions--share-open]="shareMenuOpen" role="toolbar" [attr.aria-hidden]="!chromeVisible">
               <button type="button" class="radio-now-action" (click)="prev()" [disabled]="atStart" [attr.title]="'DEEZER.PREV' | translate"><i class="fa fa-step-backward"></i></button>
-              <button type="button" class="radio-now-action radio-now-action--accent" (click)="togglePlay()" [disabled]="!current" [attr.title]="(playing ? 'DEEZER.PAUSE' : 'DEEZER.PLAY') | translate">
+              <button type="button" class="radio-now-action radio-now-action--accent" (click)="playPauseListed()" [disabled]="!current && !tabHasTracks" [attr.title]="(playing ? 'DEEZER.PAUSE' : 'DEEZER.PLAY') | translate">
                 <i class="fa" [class.fa-pause]="playing" [class.fa-play]="!playing"></i>
               </button>
               <button type="button" class="radio-now-action" (click)="next()" [disabled]="atEnd" [attr.title]="'DEEZER.NEXT' | translate"><i class="fa fa-step-forward"></i></button>
@@ -769,10 +804,6 @@
               </button>
               <button type="button" class="radio-now-action radio-now-action--stop dz-hide-mobile" (click)="stop()" [disabled]="!current" [attr.title]="'RADIO.STOP' | translate"><i class="fa fa-stop"></i></button>
               <a *ngIf="current?.link" class="radio-now-action dz-deezer-link dz-hide-mobile" [href]="current?.link" target="_blank" rel="noopener" [attr.title]="'DEEZER.OPEN' | translate"><i class="fa fa-external-link"></i></a>
-              <label class="radio-keep-alive dz-hide-mobile" (click)="$event.stopPropagation()" [attr.title]="'RADIO.KEEP_ALIVE_HINT' | translate">
-                <input class="radio-keep-alive-input" type="checkbox" role="switch" [ngModel]="keepAliveOnNavigate" (ngModelChange)="setKeepAlive($event)" [attr.aria-label]="'RADIO.KEEP_ALIVE' | translate" />
-                <span class="radio-keep-alive-track" aria-hidden="true"><span class="radio-keep-alive-knob"></span></span>
-              </label>
             </div>
           </div>
           <div class="dz-progress" *ngIf="current && !youtubeEmbed">

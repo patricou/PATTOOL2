@@ -152,6 +152,11 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
       }
       this.cdr.markForCheck();
       if (!s.open) {
+        const keep = this.radioPlayer.takeKeepStream();
+        if (keep) {
+          this.destroyPlayer(false, { keepLive: true });
+          return;
+        }
         this.destroyPlayer(true, { releaseEqualizer: true });
         this.lastStationId = '';
         return;
@@ -848,8 +853,14 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
 
   private destroyPlayer(
     clearSrc = true,
-    options?: { keepDocPip?: boolean; handoffNowPlaying?: boolean; releaseEqualizer?: boolean }
+    options?: { keepDocPip?: boolean; handoffNowPlaying?: boolean; releaseEqualizer?: boolean; keepLive?: boolean }
   ): void {
+    if (options?.keepLive) {
+      this.playbackGuard?.dispose();
+      this.playbackGuard = null;
+      this.playGeneration++;
+      return;
+    }
     if (options?.releaseEqualizer) {
       this.equalizer.detachMediaElement(this.liveAudio);
     }

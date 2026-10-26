@@ -10,10 +10,10 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, NavigationStart, Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subject, Subscription, forkJoin, of, firstValueFrom } from 'rxjs';
-import { debounceTime, distinctUntilChanged, catchError } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, catchError, filter } from 'rxjs/operators';
 import Hls from 'hls.js';
 
 import { ApiService, ArteProgram, ArteSection, IaProgram, IaSection, TvChannel, TvCountry, TvEpgBrowseChannel, TvEpgNow, TvEpgProgramme, TvEpgSearchHit, TvFilterPreference, TvRecording, TvRecordingStatus, TvStreamDiagnoseResult } from '../services/api.service';
@@ -356,6 +356,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private tokenRenewedToastTimer: ReturnType<typeof setTimeout> | null = null;
   /** When true, leaving the page keeps playback in the floating player. */
   keepAliveOnNavigate = true;
+  /** Off by default. When on, the current channel keeps playing on other PatTool pages. */
+  continueOnNavigate = false;
+  /** VOD offset to restore when the floating player is put back on the page. */
+  private pendingResumeSec = 0;
   readonly tvSkins = TV_SKINS;
   tvSkin: TvSkin = 'classic';
   @HostBinding('class.tv-skin--classic') get skinClassic(): boolean { return this.tvSkin === 'classic'; }
@@ -379,6 +383,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   skinMenuOpen = false;
   private skinChosenThisVisit = false;
   private skinLoadSub?: Subscription;
+  private navLeaveSub?: Subscription;
+  private leavePolicyApplied = false;
   private skinSaveSub?: Subscription;
   readonly canNativeShare =
     typeof navigator !== 'undefined' && typeof (navigator as Navigator).share === 'function';
@@ -462,6 +468,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private static readonly CHROME_HIDE_MS = 2000;
   private static readonly LAST_CHANNEL_STORAGE_KEY = 'pattool.tv.last-channel';
   private static readonly KEEP_ALIVE_STORAGE_KEY = 'pattool.tv.keep-alive';
+  private static readonly CONTINUE_STORAGE_KEY = 'pattool.tv.continue';
   private static readonly SIDEBAR_COLLAPSED_STORAGE_KEY = 'pattool.tv.sidebar-collapsed';
   private static readonly SKIN_STORAGE_KEY = 'pattool.tv.skin';
   private static readonly CATALOG_COUNT_STORAGE_KEY = 'pattool.tv.catalog-count';
@@ -491,7 +498,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     private translate: TranslateService,
     private friendsService: FriendsService,
     private membersService: MembersService,
-    readonly equalizer: YoutubeEqualizerService
+    readonly equalizer: YoutubeEqualizerService,
+    private router: Router
   ) {
     this.eqSub = new Subscription();
     this.eqSub.add(this.equalizer.sourceKind$.subscribe((kind) => {
@@ -911,6 +919,16 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     document.addEventListener('pointerdown', this.unlockSoundFromGesture, true);
     this.keepAliveOnNavigate = this.readKeepAlivePreference();
+    this.continueOnNavigate = this.readContinuePreference();
+    this.navLeaveSub = this.router.events
+      .pipe(filter((e): e is NavigationStart => e instanceof NavigationStart))
+      .subscribe((e) => {
+        const next = (e.url || '').toLowerCase();
+        if (next.includes('tv-watcher')) {
+          return;
+        }
+        this.applyLeavePagePlaybackPolicy();
+      });
     this.restoreSkinPreference();
     this.sidebarCollapsed = this.readSidebarCollapsedPreference();
     this.channelSearchSub = this.channelSearch$
@@ -952,8 +970,14 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       this.restoredLastChannel = true;
       this.resumePagePlayback(pending);
     } else if (this.tvPlayer.isOpen && this.tvPlayer.snapshot.channel) {
-      this.selectedChannel = this.tvPlayer.snapshot.channel;
+      const channel = this.tvPlayer.snapshot.channel;
+      this.selectedChannel = channel;
       this.restoredLastChannel = true;
+      const pos = this.tvPlayer.playbackPosition();
+      if (!pos.live && pos.seconds > 1) {
+        this.pendingResumeSec = pos.seconds;
+        this.tvPlayer.close({ resumeOnPage: true });
+      }
     }
 
     this.loadCountries();
@@ -1017,6 +1041,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.resumeSub?.unsubscribe();
     this.lastChannelSaveSub?.unsubscribe();
     this.skinLoadSub?.unsubscribe();
+    this.navLeaveSub?.unsubscribe();
     this.applyLeavePagePlaybackPolicy();
     this.destroyPlayer();
     for (const t of this.downloadTimers) {
@@ -1033,8 +1058,24 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
    * Keep-alive ON + OS PiP active: hand the stream to a hidden shell host so PiP survives navigation.
    * Keep-alive OFF: stop page + floating playback (PiP ends with the page video).
    * Keep-alive ON without PiP: do not open the floating window — playback simply stops.
+   * Continuer, when on, opens the floating window for the channel that is playing.
    */
   private applyLeavePagePlaybackPolicy(): void {
+    if (this.leavePolicyApplied) {
+      return;
+    }
+    this.leavePolicyApplied = true;
+    if (this.continueOnNavigate && !this.tvPlayer.isPopoutActive) {
+      const video = this.videoEl?.nativeElement;
+      const playing = !!video && !video.paused && !video.ended && !this.playError;
+      if (!this.tvPlayer.isOpen && this.selectedChannel && playing) {
+        this.persistLastWatchedChannel(this.selectedChannel);
+        this.tvPlayer.openFloating(this.selectedChannel);
+      }
+      if (this.tvPlayer.isOpen || this.tvPlayer.isPopoutActive) {
+        return;
+      }
+    }
     if (!this.keepAliveOnNavigate) {
       if (this.tvPlayer.isOpen) {
         this.tvPlayer.close({ resumeOnPage: false });
@@ -1350,6 +1391,25 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     // User left native FS while still landscape → don't auto-reenter until portrait.
     if (this.isLandscapeOrientation() && this.landscapeFullscreen) {
       this.exitLandscapeFullscreen(true);
+    }
+  }
+
+  setContinueOnNavigate(enabled: boolean): void {
+    this.continueOnNavigate = !!enabled;
+    try {
+      localStorage.setItem(TvWatcherComponent.CONTINUE_STORAGE_KEY, this.continueOnNavigate ? '1' : '0');
+    } catch {
+      /* private mode / quota */
+    }
+    this.cdr.markForCheck();
+  }
+
+  private readContinuePreference(): boolean {
+    try {
+      const raw = localStorage.getItem(TvWatcherComponent.CONTINUE_STORAGE_KEY);
+      return raw === '1' || raw === 'true';
+    } catch {
+      return false;
     }
   }
 
@@ -2126,6 +2186,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
     // If floating window is already open, switch channel there and keep navigating freely.
     if (this.tvPlayer.isOpen) {
+      const playingId = this.tvPlayer.snapshot.channel?.id || '';
+      if (playingId && playingId === (channel.id || '')) {
+        this.isBuffering = false;
+        this.cdr.markForCheck();
+        return;
+      }
       this.destroyPlayer();
       this.isBuffering = false;
       this.tvPlayer.setChannel(channel);
@@ -4915,6 +4981,33 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     );
   }
 
+  /** After a floating VOD is put back on the page, jump to where it was. */
+  private seekResumeIfNeeded(video: HTMLVideoElement): void {
+    const target = this.pendingResumeSec;
+    if (target <= 1) {
+      return;
+    }
+    const apply = (): void => {
+      if (this.pendingResumeSec <= 1) {
+        return;
+      }
+      if (!Number.isFinite(video.duration) || video.duration === Infinity) {
+        return;
+      }
+      try {
+        video.currentTime = Math.min(target, Math.max(0, video.duration - 0.5));
+      } catch {
+        /* not seekable yet */
+      }
+      this.pendingResumeSec = 0;
+    };
+    if (video.readyState >= 1 && Number.isFinite(video.duration)) {
+      apply();
+    } else {
+      video.addEventListener('loadedmetadata', apply, { once: true });
+    }
+  }
+
   private playChannel(channel: TvChannel): void {
     const video = this.videoEl?.nativeElement;
     if (!video || !channel?.streamUrl) {
@@ -5027,6 +5120,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           if (playGen !== this.playGeneration) {
             return;
           }
+          this.seekResumeIfNeeded(video);
           this.isBuffering = false;
           this.playError = '';
           this.onEqVideoPlaying();

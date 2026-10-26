@@ -41,7 +41,7 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
   @ViewChild('floatHome') floatHome?: ElementRef<HTMLElement>;
   @ViewChild('floatRoot') floatRoot?: ElementRef<HTMLElement>;
 
-  state: YoutubeFloatingState = { open: false, minimized: false, item: null, loadSeq: 0 };
+  state: YoutubeFloatingState = { open: false, minimized: false, item: null, loadSeq: 0, startSec: 0 };
   embedUrl: SafeResourceUrl | null = null;
   osPipActive = false;
 
@@ -539,8 +539,9 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
       );
     }
     if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
+      const start = (this.state.startSec || 0) > 1 ? `&start=${Math.floor(this.state.startSec)}` : '';
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/${id}?rel=0&autoplay=1&playsinline=1${origin}${seq}`
+        `https://www.youtube-nocookie.com/embed/${id}?rel=0&autoplay=1&playsinline=1${start}${origin}${seq}`
       );
     }
     return null;
@@ -559,12 +560,11 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
           this.stopYoutubeProgressWatch();
           return;
         }
-        if (this.ytApiListening) {
-          this.stopYoutubeProgressWatch();
-          return;
+        if (!this.ytApiListening) {
+          this.handshakeYoutubePlayer();
         }
-        this.handshakeYoutubePlayer();
-      }, 400);
+        this.sendYoutubeCommand('getCurrentTime');
+      }, 1000);
     });
   }
 
@@ -658,6 +658,12 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
       event?: string;
       info?: number | Record<string, unknown>;
     };
+    if (payload.info && typeof payload.info === 'object' && !Array.isArray(payload.info)) {
+      const current = payload.info['currentTime'];
+      if (typeof current === 'number') {
+        this.youtubePlayer.noteProgress(current);
+      }
+    }
     if (payload.event === 'onError') {
       this.ytApiListening = true;
       this.ngZone.run(() => {

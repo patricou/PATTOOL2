@@ -13,10 +13,11 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, NavigationStart, Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 
 import {
   ApiService,
@@ -164,6 +165,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private static readonly THEATER_BODY_CLASS = 'yt-theater';
   private static readonly PAGE_THEME_BODY_CLASS = 'yt-page-theme';
   private static readonly TICKER_STORAGE_KEY = 'pattool.youtube.ticker-enabled';
+  private static readonly CONTINUE_STORAGE_KEY = 'pattool.youtube.continue';
   private static readonly LOOP_STORAGE_KEY = 'pattool.youtube.loop-queue';
   private static readonly RECENT_SEARCHES_KEY = 'pattool.youtube.recent-searches';
   private static readonly RECENT_SEARCHES_MAX = 8;
@@ -221,6 +223,10 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   playbackDurationSec = 0;
   playAllActive = false;
   playbackPaused = false;
+  /** Off by default. When on, the current video keeps playing on other PatTool pages. */
+  continueOnNavigate = false;
+  /** Video already playing in the float; the next list load must not restart it. */
+  private preservePlaybackId = '';
   /** Android playback service stays up for the whole video, playlist or play-all queue. */
   private screenHold = false;
   /** Pause asked by the listener, not by the screen turning off. */
@@ -324,6 +330,18 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.query = (params.get('q') || '').trim();
     this.channelId = (params.get('channel') || '').trim();
     this.tickerEnabled = this.readTickerPreference();
+    this.continueOnNavigate = this.readContinuePreference();
+    this.subs.push(
+      this.router.events
+        .pipe(filter((e): e is NavigationStart => e instanceof NavigationStart))
+        .subscribe((e) => {
+          const next = (e.url || '').toLowerCase();
+          if (next.includes('/tools/youtube')) {
+            return;
+          }
+          this.handOffContinue();
+        })
+    );
     this.recentSearches = this.readRecentSearches();
     this.sortKey = this.normalizeSort(params.get('sort'));
     this.sortDir = this.normalizeSortDir(params.get('dir'), this.sortKey);
@@ -375,6 +393,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.ngZone.runOutsideAngular(() => {
       window.addEventListener('message', this.onWindowYtMessage);
     });
+    this.adoptFloatingPlayback();
     this.loadRecordingCapability();
     if (this.isLoggedIn) {
       this.loadRecordings();
@@ -417,6 +436,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       clearTimeout(this.recentBlurTimer);
       this.recentBlurTimer = undefined;
     }
+    this.handOffContinue();
     this.unloadPageEmbed();
     this.stopPlayAll();
     if (!this.playerOpen) {
@@ -1597,6 +1617,12 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       this.runSearch();
       return;
     }
+    if (this.preservePlaybackId && item.id === this.preservePlaybackId) {
+      this.preservePlaybackId = '';
+      this.selected = this.decodeYoutubeItem(item);
+      return;
+    }
+    this.preservePlaybackId = '';
     this.selected = this.decodeYoutubeItem(item);
     this.ytSoundOnId = '';
     this.resetPlaybackClock(this.selected);
@@ -2317,8 +2343,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
-  private buildEmbedUrl(item: YoutubeItem, autoplay = false): SafeResourceUrl | null {
+  private buildEmbedUrl(item: YoutubeItem, autoplay = false, startSec = 0): SafeResourceUrl | null {
     const id = item.id || '';
+    const start = item.kind !== 'playlist' && startSec > 1 ? `&start=${Math.floor(startSec)}` : '';
     const extra = autoplay ? '&autoplay=1&playsinline=1' : '&playsinline=1';
     const origin =
       typeof window !== 'undefined'
@@ -2332,10 +2359,69 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     }
     if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/${id}?rel=0${extra}${origin}${gen}`
+        `https://www.youtube-nocookie.com/embed/${id}?rel=0${extra}${start}${origin}${gen}`
       );
     }
     return null;
+  }
+
+  setContinueOnNavigate(enabled: boolean): void {
+    this.continueOnNavigate = !!enabled;
+    try {
+      localStorage.setItem(YoutubeWatcherComponent.CONTINUE_STORAGE_KEY, this.continueOnNavigate ? '1' : '0');
+    } catch {
+      /* private mode / quota */
+    }
+  }
+
+  private readContinuePreference(): boolean {
+    try {
+      const raw = localStorage.getItem(YoutubeWatcherComponent.CONTINUE_STORAGE_KEY);
+      return raw === '1' || raw === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Back on the YouTube page: take the floating video onto the page at the same time.
+   * The list load must not open a second player from the beginning.
+   */
+  private adoptFloatingPlayback(): void {
+    const snap = this.youtubePlayer.snapshot;
+    const item = snap.item;
+    if (!snap.open || !item || item.kind === 'channel') {
+      return;
+    }
+    const startSec = Math.max(this.youtubePlayer.playbackSeconds, snap.startSec || 0);
+    const paused = this.youtubePlayer.paused;
+    this.selected = this.decodeYoutubeItem(item);
+    this.playbackCurrentSec = startSec;
+    this.playbackDurationSec = this.durationSeconds(item.duration);
+    this.playbackPaused = paused;
+    this.preservePlaybackId = item.id || '';
+    this.youtubePlayer.close();
+    this.playbackPaused = paused;
+    if (paused) {
+      this.embedUrl = this.buildEmbedUrl(this.selected, false, startSec);
+      return;
+    }
+    this.embedUrl = this.buildEmbedUrl(this.selected, true, startSec);
+    this.holdScreen();
+  }
+
+  /** Leave the current video on the floating player when Continuer is on. */
+  private handOffContinue(): void {
+    if (!this.continueOnNavigate || !this.selected || this.selected.kind === 'channel' || this.playbackPaused) {
+      return;
+    }
+    if (!this.embedUrl && !this.playerOpen) {
+      return;
+    }
+    if (!this.playerOpen) {
+      const startSec = this.playbackCurrentSec > 1 ? this.playbackCurrentSec : 0;
+      this.youtubePlayer.open(this.selected, startSec > 0 ? { startSec } : undefined);
+    }
   }
 
   private readTickerPreference(): boolean {

@@ -5,21 +5,35 @@
     </span>
     {{ 'YOUTUBE.TITLE' | translate }}
   </h2>
-  <label
-    class="yt-ticker-switch"
-    for="ytTickerSwitch"
-    [attr.title]="'YOUTUBE.TICKER_ENABLED_HINT' | translate">
-    <span class="yt-ticker-switch-label">{{ 'YOUTUBE.TICKER_ENABLED' | translate }}</span>
-    <span class="form-check form-switch mb-0">
-      <input
-        class="form-check-input"
-        type="checkbox"
-        id="ytTickerSwitch"
-        name="ytTickerEnabled"
-        [(ngModel)]="tickerEnabled"
-        (ngModelChange)="onTickerToggle()" />
-    </span>
-  </label>
+  <div class="yt-title-tools">
+    <label class="yt-ticker-switch" [attr.title]="'YOUTUBE.CONTINUE_HINT' | translate">
+      <span class="yt-ticker-switch-label">{{ 'YOUTUBE.CONTINUE' | translate }}</span>
+      <span class="form-check form-switch mb-0">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          [ngModel]="continueOnNavigate"
+          (ngModelChange)="setContinueOnNavigate($event)"
+          [attr.aria-label]="'YOUTUBE.CONTINUE' | translate" />
+      </span>
+    </label>
+    <label
+      class="yt-ticker-switch"
+      for="ytTickerSwitch"
+      [attr.title]="'YOUTUBE.TICKER_ENABLED_HINT' | translate">
+      <span class="yt-ticker-switch-label">{{ 'YOUTUBE.TICKER_ENABLED' | translate }}</span>
+      <span class="form-check form-switch mb-0">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          id="ytTickerSwitch"
+          name="ytTickerEnabled"
+          [(ngModel)]="tickerEnabled"
+          (ngModelChange)="onTickerToggle()" />
+      </span>
+    </label>
+  </div>
 </div>
 
 <div

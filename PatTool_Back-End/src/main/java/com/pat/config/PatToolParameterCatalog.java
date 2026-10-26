@@ -63,6 +63,8 @@ public final class PatToolParameterCatalog {
             "trace.viewer.",
             "gps.follow-user.",
             "gps.slope-coef.",
+            "clock.preferences.",
+            "deezer.skin.",
             "telegram.connection.",
             "telegram.inbox."
     );
@@ -81,6 +83,9 @@ public final class PatToolParameterCatalog {
             section("files", "PATTOOL_PARAMS.SECTION.FILES",
                     def("spring.servlet.multipart.max-file-size", false),
                     def("spring.servlet.multipart.max-request-size", false),
+                    def("spring.servlet.multipart.file-size-threshold", false),
+                    def("server.tomcat.max-swallow-size", false),
+                    def("server.tomcat.max-http-form-post-size", false),
                     def("app.uploaddir", false),
                     def("file.storage.base-path", false),
                     def("app.imagemaxsizekb", false)
@@ -186,6 +191,7 @@ public final class PatToolParameterCatalog {
                     def("globe.iss.trace.sample-interval.seconds", false),
                     def("globe.iss.trace.max-display-points", false),
                     def("globe.iss.trace.display.limit.points", false),
+                    def("globe.iss.trace.display.limit.enabled-default", false),
                     defMongo("globe.iss.trace.display.limit.enabled", false),
                     def("globe.iss.trace.background.enabled-default", false),
                     defMongo("globe.iss.trace.background.enabled", false),
@@ -194,7 +200,9 @@ public final class PatToolParameterCatalog {
                     def("globe.iss.trace.background.fixed-rate-ms", false),
                     def("globe.iss.alert.lead-minutes", false),
                     def("globe.iss.alert.zone", false),
-                    def("globe.iss.alert.reminder-mail.ui-base-url", false)
+                    def("globe.iss.alert.reminder-mail.ui-base-url", false),
+                    def("globe.iss.alert.check.fixed-rate-ms", false),
+                    def("globe.iss.alert.check.initial-delay-ms", false)
             ),
             section("iot", "PATTOOL_PARAMS.SECTION.IOT",
                     def("app.arduino.ip", false),
@@ -218,7 +226,9 @@ public final class PatToolParameterCatalog {
                     def("app.macvendor.api.url", false),
                     def("app.network.scan.scheduler.enabled", false),
                     def("app.network.scan.scheduler.cron", false),
-                    defMongo("local.network.global.prefs", false)
+                    defMongo("local.network.global.prefs", false),
+                    defMongo("network.sentinel.prefs", false),
+                    defMongo("network.sentinel.baseline", false)
             ),
             section("weather-maps", "PATTOOL_PARAMS.SECTION.WEATHER_MAPS",
                     defSensitive("openweathermap.api.key"),
@@ -245,8 +255,26 @@ public final class PatToolParameterCatalog {
                     def("meteofrance.obs.base.url", false),
                     def("meteofrance.aromepi.base.url", false),
                     def("meteofrance.aromepi.wms.service", false),
+                    def("meteofrance.aromepi.wms.max.concurrent", false),
+                    def("meteofrance.aromepi.wms.min-interval-ms", false),
+                    defMongo("meteofrance.aromepi.playback.prefetch", false),
                     def("meteofrance.arpege.base.url", false),
                     def("meteofrance.arpege.wms.service", false),
+                    def("meteofrance.arpege.wms.max.concurrent", false),
+                    def("meteofrance.arpege.wms.min-interval-ms", false),
+                    def("meteofrance.clim.http.connect-timeout-seconds", false),
+                    def("meteofrance.clim.http.read-timeout-seconds", false),
+                    defMongo("meteofrance.forecast.horizon.hours", false),
+                    defMongo("meteofrance.forecast.step.minutes", false),
+                    defMongo("meteofrance.history.cache.days", false),
+                    defMongo("meteofrance.map.show-radar", false),
+                    defMongo("meteofrance.map.show-cloud-layer", false),
+                    defMongo("meteofrance.map.show-temperature-map", false),
+                    defMongo("meteofrance.map.cloud-opacity", false),
+                    defMongo("meteofrance.map.cloud-intensity", false),
+                    def("meteoswiss.forecast.enabled", false),
+                    def("meteoswiss.forecast.refresh.cron", false),
+                    def("meteoswiss.obs.enabled", false),
                     defSensitive("thunderforest.api.key"),
                     defSensitive("ign.api.key")
             ),
@@ -265,7 +293,10 @@ public final class PatToolParameterCatalog {
                     def("opensky.all-states-cache-seconds", false),
                     def("opensky.all-states-stale-max-seconds", false),
                     def("flight.adsbdb.enabled", false),
-                    def("flight.adsbdb.base-url", false)
+                    def("flight.adsbdb.base-url", false),
+                    def("flight.flightaware.enabled", false),
+                    def("flight.flightaware.base-url", false),
+                    def("flight.flightaware.cache-seconds", false)
             ),
             section("external-proxies", "PATTOOL_PARAMS.SECTION.EXTERNAL_PROXIES",
                     def("app.cern.opendata-api-base", false),
@@ -323,7 +354,30 @@ public final class PatToolParameterCatalog {
                     defSensitive("app.youtube.api-key"),
                     def("app.tmdb.api-base", false),
                     defSensitive("app.tmdb.api-key"),
-                    def("app.telegram.api-base", false)
+                    def("app.telegram.api-base", false),
+                    def("artisans.overpass-urls", false),
+                    def("relief.finder.terrarium-url", false),
+                    def("relief.finder.overpass-urls", false)
+            ),
+            section("media", "PATTOOL_PARAMS.SECTION.MEDIA",
+                    def("app.tv.playlist-base-url", false),
+                    def("app.tv.catalog-cache-minutes", false),
+                    def("app.tv.epg.base-url", false),
+                    def("app.tv.epg.cache-minutes", false),
+                    def("app.tv.proxy-referrer", false),
+                    def("app.tv.tf1.email", false),
+                    defSensitive("app.tv.tf1.password"),
+                    def("app.tv.rts.netplus-proxy", false),
+                    def("app.tv.recording.enabled", false),
+                    def("app.tv.recording.max-duration-sec", false),
+                    def("app.radio.api-base-url", false),
+                    def("app.radio.api-base-urls", false),
+                    def("app.radio.catalog-cache-minutes", false),
+                    def("app.media.catalog.refresh-cron", false)
+            ),
+            section("code-repos", "PATTOOL_PARAMS.SECTION.CODE",
+                    defSensitive("code.github.token"),
+                    defSensitive("code.gitlab.token")
             ),
             section("electricity", "PATTOOL_PARAMS.SECTION.ELECTRICITY",
                     defSensitive("app.electricity.entsoe-token"),
@@ -366,11 +420,14 @@ public final class PatToolParameterCatalog {
                     def("app.video.compression.enabled", false),
                     def("app.video.compression.tempdir", false),
                     def("app.video.compression.max-concurrency", false),
+                    def("app.video.montage.max-concurrency", false),
+                    def("app.video.montage.timeout-sec", false),
                     def("app.exception.tracking.retention-hours", false),
                     def("app.exception.tracking.max-entries-per-ip", false)
             ),
             section("calendar-discussion", "PATTOOL_PARAMS.SECTION.CALENDAR_DISCUSSION",
                     def("app.calendar.morning-reminder.enabled", false),
+                    def("app.calendar.morning-reminder.cron", false),
                     def("app.calendar.morning-reminder.zone", false),
                     def("app.calendar.reminder-mail.ui-base-url", false),
                     def("app.holiday-ui-translate.enabled", false),
@@ -428,8 +485,13 @@ public final class PatToolParameterCatalog {
                 || key.startsWith("newsdata.")
                 || key.startsWith("openweathermap.")
                 || key.startsWith("meteofrance.")
+                || key.startsWith("meteoswiss.")
                 || key.startsWith("thunderforest.")
-                || key.startsWith("ign.");
+                || key.startsWith("ign.")
+                || key.startsWith("artisans.")
+                || key.startsWith("relief.")
+                || key.startsWith("code.")
+                || key.startsWith("network.");
     }
 
     private static SectionDef section(String id, String labelKey, ParameterDef... parameters) {

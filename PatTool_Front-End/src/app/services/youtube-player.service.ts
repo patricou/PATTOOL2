@@ -9,11 +9,15 @@ export interface YoutubeFloatingState {
   item: YoutubeItem | null;
   /** Bumps on every open so the PiP iframe reloads even for the same video. */
   loadSeq: number;
+  /** Resume offset in seconds when handing the page player to the float. */
+  startSec: number;
 }
 
 export interface YoutubePlayerOpenOptions {
   /** Keep the PiP window minimized when it is already open. */
   keepMinimized?: boolean;
+  /** Seconds into the video when opening the floating player. */
+  startSec?: number;
 }
 
 export type YoutubePlayerCommand = 'play' | 'pause' | 'next' | 'previous';
@@ -24,12 +28,14 @@ export class YoutubePlayerService {
     open: false,
     minimized: false,
     item: null,
-    loadSeq: 0
+    loadSeq: 0,
+    startSec: 0
   });
   private readonly endedSubject = new Subject<void>();
   private readonly unavailableSubject = new Subject<void>();
   private readonly commandSubject = new Subject<YoutubePlayerCommand>();
   private readonly pausedSubject = new BehaviorSubject<boolean>(false);
+  private playbackSec = 0;
 
   readonly state$ = this.stateSubject.asObservable();
   readonly ended$ = this.endedSubject.asObservable();
@@ -49,6 +55,17 @@ export class YoutubePlayerService {
     return this.pausedSubject.value;
   }
 
+  /** Latest position reported by the floating player, in seconds. */
+  get playbackSeconds(): number {
+    return this.playbackSec;
+  }
+
+  noteProgress(seconds: number): void {
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      this.playbackSec = seconds;
+    }
+  }
+
   sendCommand(command: YoutubePlayerCommand): void {
     this.commandSubject.next(command);
   }
@@ -66,11 +83,13 @@ export class YoutubePlayerService {
     }
     const prev = this.stateSubject.value;
     this.setPaused(false);
+    const startSec = Math.max(0, Math.floor(options?.startSec || 0));
     this.stateSubject.next({
       open: true,
       minimized: options?.keepMinimized && prev.open ? prev.minimized : false,
       item: { ...item },
-      loadSeq: (prev.loadSeq || 0) + 1
+      loadSeq: (prev.loadSeq || 0) + 1,
+      startSec
     });
   }
 
@@ -99,11 +118,13 @@ export class YoutubePlayerService {
   close(): void {
     const prev = this.stateSubject.value;
     this.setPaused(false);
+    this.playbackSec = 0;
     this.stateSubject.next({
       open: false,
       minimized: false,
       item: null,
-      loadSeq: prev.loadSeq || 0
+      loadSeq: prev.loadSeq || 0,
+      startSec: 0
     });
   }
 }

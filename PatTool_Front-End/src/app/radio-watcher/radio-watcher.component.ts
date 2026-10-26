@@ -176,6 +176,8 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   shareFeedback = '';
   /** When true, leaving the page with keep-alive keeps World Receiver playing. */
   keepAliveOnNavigate = true;
+  /** Off by default. When on, the current station keeps playing on other PatTool pages. */
+  continueOnNavigate = false;
   readonly radioSkins = RADIO_SKINS;
   radioSkin: RadioSkin = 'classic';
   @HostBinding('class.radio-skin--classic') get skinClassic(): boolean { return this.radioSkin === 'classic'; }
@@ -245,6 +247,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   private static readonly CHROME_HIDE_MS = 4000;
   private static readonly LAST_STATION_STORAGE_KEY = 'pattool.radio.last-station';
   private static readonly KEEP_ALIVE_STORAGE_KEY = 'pattool.radio.keep-alive';
+  private static readonly CONTINUE_STORAGE_KEY = 'pattool.radio.continue';
   private static readonly SKIN_STORAGE_KEY = 'pattool.radio.skin';
   private static readonly SLEEVE_STORAGE_KEY = 'pattool.radio.sleeve';
   private static readonly SIDEBAR_COLLAPSED_STORAGE_KEY = 'pattool.radio.sidebar-collapsed';
@@ -643,6 +646,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     window.addEventListener('patradiotransport', this.onBluetoothTune);
     window.addEventListener('patmediavolumeui', this.onDeviceVolumeUi);
     this.keepAliveOnNavigate = this.readKeepAlivePreference();
+    this.continueOnNavigate = this.readContinuePreference();
     this.sleeveOpen = this.readSleeveOpen();
     this.restoreSkinPreference();
     this.sidebarCollapsed = this.readSidebarCollapsedPreference();
@@ -671,8 +675,14 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
       this.restoredLastStation = true;
       this.resumePagePlayback(pending);
     } else if (this.radioPlayer.isOpen && this.radioPlayer.snapshot.station) {
-      this.selectedStation = this.radioPlayer.snapshot.station;
+      const station = this.radioPlayer.snapshot.station;
+      this.selectedStation = station;
       this.restoredLastStation = true;
+      const media = this.liveAudio;
+      if (media && this.radioPlayer.isLive(media, station)) {
+        this.radioPlayer.close({ resumeOnPage: false, keepStream: true });
+        this.continuePageLive(station, media);
+      }
     }
 
     // Hand off during NavigationStart (still in the click gesture) so Document PiP
@@ -711,6 +721,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.eqSub?.unsubscribe();
     this.clearPlaybackGesture();
     this.eqModal?.close();
+    this.handOffContinue();
     const keepLive = this.liveShouldSurviveLeave();
     this.clearChromeHideTimer();
     this.clearShareFeedbackTimer();
@@ -736,14 +747,18 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * The floating bar stays only if the user already opened it.
-   * Leaving the radio page never opens that bar by itself.
+   * The floating bar stays if the user already opened it.
+   * Continuer, when on, opens that bar for the station that is playing.
    */
   private applyLeavePagePlaybackPolicy(): void {
     if (this.leavePolicyApplied) {
       return;
     }
     this.leavePolicyApplied = true;
+    if (this.radioPlayer.isOpen) {
+      return;
+    }
+    this.handOffContinue();
     if (this.radioPlayer.isOpen) {
       return;
     }
@@ -853,6 +868,37 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
       stopRadioPipCarrier();
       this.cdr.markForCheck();
     }
+  }
+
+  setContinueOnNavigate(enabled: boolean): void {
+    this.continueOnNavigate = !!enabled;
+    try {
+      localStorage.setItem(RadioWatcherComponent.CONTINUE_STORAGE_KEY, this.continueOnNavigate ? '1' : '0');
+    } catch {
+      /* private mode / quota */
+    }
+    this.cdr.markForCheck();
+  }
+
+  private readContinuePreference(): boolean {
+    try {
+      const raw = localStorage.getItem(RadioWatcherComponent.CONTINUE_STORAGE_KEY);
+      return raw === '1' || raw === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  /** Leave the live station on the floating receiver when Continuer is on. */
+  private handOffContinue(): void {
+    if (!this.continueOnNavigate || this.radioPlayer.isOpen || !this.selectedStation) {
+      return;
+    }
+    const media = this.liveAudio;
+    if (!media?.src || media.paused || media.ended || media.error) {
+      return;
+    }
+    this.radioPlayer.openFloating(this.selectedStation, { minimized: true });
   }
 
   setKeepAliveOnNavigate(enabled: boolean): void {

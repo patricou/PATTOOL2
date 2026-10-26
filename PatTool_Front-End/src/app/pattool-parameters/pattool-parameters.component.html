@@ -3,27 +3,60 @@
     <i class="fa fa-sliders pp-title-icon" aria-hidden="true"></i>
     {{ 'PATTOOL_PARAMS.TITLE' | translate }}
   </h2>
-  <p class="pat-title-subtitle">{{ 'PATTOOL_PARAMS.SUBTITLE' | translate }}</p>
+  <p class="pat-title-subtitle">{{ scopeSubtitleKey | translate }}</p>
 </div>
 
 <div class="pp-page">
-  <div *ngIf="loading" class="pp-state pp-state--load">
+  <div class="pp-head">
+  <div class="pp-scopes" role="tablist">
+    <button
+      *ngIf="isAdmin"
+      type="button"
+      class="pp-scope"
+      role="tab"
+      [class.pp-scope--on]="scope === 'application'"
+      [attr.aria-selected]="scope === 'application'"
+      (click)="setScope('application')">
+      <i class="fa fa-server" aria-hidden="true"></i>
+      <span class="pp-scope-text">
+        <span class="pp-scope-title">{{ 'PATTOOL_PARAMS.SCOPE_APP' | translate }}</span>
+        <span class="pp-scope-hint">{{ 'PATTOOL_PARAMS.SCOPE_APP_HINT' | translate }}</span>
+      </span>
+    </button>
+    <button
+      type="button"
+      class="pp-scope"
+      role="tab"
+      [class.pp-scope--on]="scope === 'user'"
+      [attr.aria-selected]="scope === 'user'"
+      (click)="setScope('user')">
+      <i class="fa fa-user" aria-hidden="true"></i>
+      <span class="pp-scope-text">
+        <span class="pp-scope-title">{{ 'PATTOOL_PARAMS.SCOPE_USER' | translate }}</span>
+        <span class="pp-scope-hint">{{ 'PATTOOL_PARAMS.SCOPE_USER_HINT' | translate }}</span>
+      </span>
+    </button>
+  </div>
+  </div>
+
+  <div *ngIf="scope === 'application' && loading" class="pp-state pp-state--load">
     <i class="fa fa-spinner fa-spin pp-state-icon" aria-hidden="true"></i>
     <span>{{ 'PATTOOL_PARAMS.LOADING' | translate }}</span>
   </div>
 
-  <div *ngIf="!loading && errorMessage" class="pp-state pp-state--error" role="alert">
+  <div *ngIf="scope === 'application' && !loading && errorMessage" class="pp-state pp-state--error" role="alert">
     <i class="fa fa-lock pp-state-icon" aria-hidden="true"></i>
     <span>{{ errorMessage | translate }}</span>
   </div>
 
-  <ng-container *ngIf="!loading && !errorMessage">
+  <ng-container *ngIf="scope === 'application' && !loading && !errorMessage">
     <div class="pp-kpi-row">
       <button
         *ngFor="let kpi of kpiCards"
         type="button"
         class="pp-kpi"
         [class.pp-kpi--active]="originFilter === kpi.filter"
+        [class.pp-kpi--zero]="kpi.filter !== 'all' && countByOrigin(kpi.filter) === 0"
         [ngClass]="kpi.tone"
         (click)="setOriginFilter(kpi.filter)">
         <span class="pp-kpi-top">
@@ -362,5 +395,74 @@
         </div>
       </div>
     </div>
+  </ng-container>
+
+  <ng-container *ngIf="scope === 'user'">
+    <div *ngIf="userLoading" class="pp-state pp-state--load">
+      <i class="fa fa-spinner fa-spin pp-state-icon" aria-hidden="true"></i>
+      <span>{{ 'PATTOOL_PARAMS.USER_LOADING' | translate }}</span>
+    </div>
+
+    <div *ngIf="!userLoading && userError" class="pp-state pp-state--error" role="alert">
+      <i class="fa fa-lock pp-state-icon" aria-hidden="true"></i>
+      <span>{{ userError | translate }}</span>
+    </div>
+
+    <ng-container *ngIf="!userLoading && !userError">
+      <div class="pp-user-banner">
+        <i class="fa fa-database" aria-hidden="true"></i>
+        <span>{{ 'PATTOOL_PARAMS.SOURCE_HINT_USER' | translate }}</span>
+        <span class="pp-pill pill-mongo">{{ 'PATTOOL_PARAMS.ORIGIN.MONGODB' | translate }}</span>
+      </div>
+
+      <div class="pp-card pp-toolbar">
+        <div class="pp-toolbar-main">
+          <label class="pp-search">
+            <i class="fa fa-search" aria-hidden="true"></i>
+            <input
+              type="search"
+              [(ngModel)]="userSearch"
+              [placeholder]="'PATTOOL_PARAMS.FILTER.SEARCH_PLACEHOLDER' | translate"
+              autocomplete="off" />
+          </label>
+          <span class="pp-counter">
+            <strong>{{ filteredUserRows.length }}</strong>
+            <span class="pp-counter-sep">/</span>
+            {{ userRows.length }}
+          </span>
+        </div>
+      </div>
+
+      <div *ngIf="filteredUserRows.length === 0" class="pp-empty">
+        <i class="fa fa-user pp-empty-icon" aria-hidden="true"></i>
+        <p>{{ (userRows.length === 0 ? 'PATTOOL_PARAMS.USER_EMPTY' : 'PATTOOL_PARAMS.FILTER.NO_RESULTS') | translate }}</p>
+      </div>
+
+      <article
+        *ngFor="let row of filteredUserRows; trackBy: trackUserRow"
+        class="pp-card pp-user-row">
+        <div class="pp-user-head">
+          <span class="pp-pill" [ngClass]="isUserStored(row) ? 'pill-mongo' : 'pill-none'">
+            <i class="fa" [ngClass]="isUserStored(row) ? 'fa-database' : 'fa-circle-o'" aria-hidden="true"></i>
+            <span class="pp-pill-text">{{ (isUserStored(row) ? 'PATTOOL_PARAMS.ORIGIN.MONGODB' : 'PATTOOL_PARAMS.ORIGIN.NOT_STORED') | translate }}</span>
+          </span>
+          <span *ngIf="row.valueType" class="pp-user-type">{{ row.valueType }}</span>
+          <span *ngIf="row.dateModification" class="pp-user-date">{{ row.dateModification | date: 'short' }}</span>
+        </div>
+        <h3 class="pp-user-title">{{ userParamLabel(row) }}</h3>
+        <code class="pp-key">{{ row.featureKey || row.paramKey }}</code>
+        <p *ngIf="row.description" class="pp-item-desc">{{ row.description }}</p>
+        <pre
+          class="pp-user-value"
+          [class.pp-user-value--collapsed]="isUserStored(row) && isUserValueLong(row) && expandedUserKey !== row.paramKey">{{ isUserStored(row) ? formatUserValue(row) : ('PATTOOL_PARAMS.VALUE.NOT_SET' | translate) }}</pre>
+        <button
+          *ngIf="isUserStored(row) && isUserValueLong(row)"
+          type="button"
+          class="pp-user-more"
+          (click)="toggleUserExpand(row.paramKey)">
+          {{ (expandedUserKey === row.paramKey ? 'USERINFO.COLLAPSE_VALUE' : 'USERINFO.EXPAND_VALUE') | translate }}
+        </button>
+      </article>
+    </ng-container>
   </ng-container>
 </div>

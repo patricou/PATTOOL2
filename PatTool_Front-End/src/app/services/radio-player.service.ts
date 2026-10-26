@@ -153,13 +153,24 @@ export class RadioPlayerService {
     });
   }
 
+  private keepStreamOnClose = false;
+
+  /** True once, when the page is taking the live element back without reopening the socket. */
+  takeKeepStream(): boolean {
+    const keep = this.keepStreamOnClose;
+    this.keepStreamOnClose = false;
+    return keep;
+  }
+
   /**
    * Close the floating radio.
    * By default asks the radio page to resume the last station.
+   * keepStream leaves the shared audio element playing.
    */
-  close(options?: { resumeOnPage?: boolean }): void {
+  close(options?: { resumeOnPage?: boolean; keepStream?: boolean }): void {
     const station = this.stateSubject.value.station;
     const wasOpen = this.stateSubject.value.open;
+    this.keepStreamOnClose = !!options?.keepStream;
     this.stateSubject.next({
       open: false,
       minimized: false,

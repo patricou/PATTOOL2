@@ -4543,6 +4543,27 @@ export class ApiService {
   // Backend: /api/external/deezer/*
   // ===================================================================
 
+  getDeezerSkin(): Observable<string | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<{ skin: string }>(this.API_URL + 'external/deezer/skin', {
+          headers,
+          observe: 'response'
+        }).pipe(
+          map((res) => (res.status === 204 ? null : res.body?.skin || null))
+        )
+      )
+    );
+  }
+
+  saveDeezerSkin(skin: string): Observable<{ skin: string }> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<{ skin: string }>(this.API_URL + 'external/deezer/skin', { skin }, { headers })
+      )
+    );
+  }
+
   getDeezerGenres(): Observable<DeezerGenre[]> {
     return this._http.get<DeezerGenre[]>(this.API_URL + 'external/deezer/genres');
   }
@@ -5435,12 +5456,18 @@ export class ApiService {
     );
   }
 
-  /** GET all appParameters rows owned by the current JWT subject. */
-  getUserAppParameters(owner?: 'all' | 'sub' | 'username' | string): Observable<UserAppParameter[]> {
-    const params =
-      owner && owner !== 'all'
-        ? new HttpParams().set('owner', owner)
-        : undefined;
+  /** GET appParameters rows owned by the current user. includeMissing adds known keys not stored yet. */
+  getUserAppParameters(
+    owner?: 'all' | 'sub' | 'username' | string,
+    includeMissing = false
+  ): Observable<UserAppParameter[]> {
+    let params: HttpParams | undefined;
+    if (owner && owner !== 'all') {
+      params = (params ?? new HttpParams()).set('owner', owner);
+    }
+    if (includeMissing) {
+      params = (params ?? new HttpParams()).set('includeMissing', 'true');
+    }
     return this.getHeaderWithToken().pipe(
       switchMap((headers) =>
         this._http.get<UserAppParameter[]>(this.API_URL + 'external/app/user-parameters', {

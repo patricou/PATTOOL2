@@ -16,6 +16,16 @@
       <span class="radio-global-filter-open-label">{{ 'RADIO.GLOBAL_FILTER_OPEN' | translate }}</span>
       <span class="radio-global-filter-open-dot" *ngIf="hasActiveGlobalFilter" aria-hidden="true"></span>
     </button>
+    <label class="pat-continue-switch" [attr.title]="'RADIO.CONTINUE_HINT' | translate">
+      <span class="pat-continue-switch-label">{{ 'RADIO.CONTINUE' | translate }}</span>
+      <input
+        type="checkbox"
+        role="switch"
+        [ngModel]="continueOnNavigate"
+        (ngModelChange)="setContinueOnNavigate($event)"
+        [attr.aria-label]="'RADIO.CONTINUE' | translate" />
+      <span class="pat-continue-switch-track" aria-hidden="true"><span class="pat-continue-switch-knob"></span></span>
+    </label>
     <button
       type="button"
       class="radio-eq-open-btn"

@@ -2585,3 +2585,81 @@ body.tv-popout-mode app-root {
     grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr) !important;
   }
 }
+
+.pat-continue-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0 0.15rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--title-btn-border, rgba(0, 0, 0, 0.12));
+  border-radius: 0.4rem;
+  background: var(--title-btn-bg, #fff);
+  color: var(--title-btn-fg, #0f766e);
+  box-shadow: var(--title-btn-shadow, none);
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-transform: none;
+  text-shadow: none;
+  cursor: pointer;
+  position: relative;
+  vertical-align: middle;
+}
+
+.pat-continue-switch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pat-continue-switch-track {
+  position: relative;
+  width: 1.7rem;
+  height: 0.95rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--title-btn-fg, #0f766e) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--title-btn-border, rgba(0, 0, 0, 0.2)) 65%, transparent);
+  flex: 0 0 auto;
+}
+
+.pat-continue-switch-knob {
+  position: absolute;
+  top: 0.07rem;
+  left: 0.08rem;
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 50%;
+  background: var(--title-btn-fg, #fff);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  transition: transform 0.16s ease;
+}
+
+.pat-continue-switch:has(input:checked) {
+  background: var(--title-btn-active-bg, var(--title-btn-bg, #fff));
+  color: var(--title-btn-active-fg, var(--title-btn-fg, #0f766e));
+  font-weight: 600;
+}
+
+.pat-continue-switch input:checked + .pat-continue-switch-track {
+  background: color-mix(in srgb, var(--title-btn-active-fg, #0f766e) 22%, transparent);
+}
+
+.pat-continue-switch input:checked + .pat-continue-switch-track .pat-continue-switch-knob {
+  transform: translateX(0.74rem);
+  background: var(--title-btn-active-fg, #fff);
+}
+
+@media (max-width: 640px) {
+  .pat-continue-switch-label {
+    display: none;
+  }
+
+  .pat-continue-switch {
+    gap: 0;
+    padding: 0.28rem 0.4rem;
+  }
+}

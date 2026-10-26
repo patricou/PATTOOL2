@@ -280,7 +280,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     readonly navMediaRaw: NavRouteMenuItem[] = [
         { routerLink: ['tools/tv-watcher'], icon: 'fa fa-television', labelKey: 'MENU.TV', logoSrc: 'assets/images/menu-tv.svg' },
         { routerLink: ['tools/radio-watcher'], icon: 'fa fa-headphones', labelKey: 'MENU.RADIO', logoSrc: 'assets/images/radio-mark.svg' },
-        { routerLink: ['tools/deezer'], icon: 'fa fa-music', labelKey: 'MENU.DEEZER' },
+        { routerLink: ['tools/deezer'], icon: 'fa fa-music', labelKey: 'MENU.DEEZER', logoSrc: 'assets/images/deezer-logo.svg' },
         { routerLink: ['tools/book-watcher'], icon: 'fa fa-book', labelKey: 'MENU.BOOK', logoSrc: 'assets/images/menu-book.svg' },
         { routerLink: ['tools/archive-watcher'], icon: 'fa fa-university', labelKey: 'MENU.ARCHIVE', logoSrc: 'assets/images/internet-archive-logo.svg' },
         { routerLink: ['tools/webcam'], icon: 'fa fa-video-camera', labelKey: 'MENU.WEBCAM', logoSrc: 'assets/images/menu-webcam.svg' },
@@ -352,7 +352,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { kind: 'route', routerLink: ['tools/pdf-converter'], icon: 'fa fa-file-pdf-o', labelKey: 'MENU.PDF_CONVERTER', logoSrc: 'assets/images/menu-pdf.svg' },
         { kind: 'route', routerLink: ['tools/ods-editor'], icon: 'fa fa-table', labelKey: 'MENU.ODS_EDITOR', logoSrc: 'assets/images/menu-sheet.svg' },
         { kind: 'route', routerLink: ['system'], icon: 'fa fa-cog', labelKey: 'MENU.SYSTEM', authOnly: true, logoSrc: 'assets/images/menu-cog.svg' },
-        { kind: 'route', routerLink: ['tools/pattool-parameters'], icon: 'fa fa-sliders', labelKey: 'MENU.PATTOOL_PARAMETERS', authOnly: true, adminOnly: true, logoSrc: 'assets/images/menu-sliders.svg' },
+        { kind: 'route', routerLink: ['tools/pattool-parameters'], icon: 'fa fa-sliders', labelKey: 'MENU.PATTOOL_PARAMETERS', authOnly: true, logoSrc: 'assets/images/menu-sliders.svg' },
         { kind: 'route', routerLink: ['maps'], icon: 'fa fa-map', labelKey: 'MENU.MAPS', logoSrc: 'assets/images/menu-map.svg' },
         { kind: 'upload', icon: 'fa fa-cloud-upload', labelKey: 'UPLOADFILE.MENU', logoSrc: 'assets/images/menu-upload.svg' },
         { kind: 'share', icon: 'fa fa-share-alt', labelKey: 'SHAREFILE.MENU', logoSrc: 'assets/images/menu-share.svg' },

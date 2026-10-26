@@ -489,6 +489,13 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
     this.destroyPlayer();
     this.playError = '';
     this.isBuffering = true;
+    if (!video.dataset['patPos']) {
+      video.dataset['patPos'] = '1';
+      video.addEventListener('timeupdate', () => {
+        const live = !Number.isFinite(video.duration) || video.duration === Infinity;
+        this.tvPlayer.notePlayback(video.currentTime || 0, live);
+      });
+    }
     video.title = channel.name || 'TV';
     video.setAttribute('data-pat-media-title', channel.name || 'TV');
     video.setAttribute('data-pat-media-artist', '');

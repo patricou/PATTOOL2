@@ -1,6 +1,7 @@
 package com.pat.controller;
 
 import com.pat.controller.dto.LastRouteDto;
+import com.pat.config.PatToolParameterCatalog;
 import com.pat.controller.dto.UserAppParameterDto;
 import com.pat.repo.domain.AppParameter;
 import com.pat.service.AppParameterService;
@@ -89,10 +90,12 @@ public class AppLastRouteRestController {
      * JWT {@code sub}, and legacy Keycloak ids.
      * <p>
      * Optional {@code owner=sub|username|&lt;exactKey&gt;} filters to one owner suffix.
+     * {@code includeMissing=true} also returns every known per-user key that is not stored yet.
      */
     @GetMapping("/user-parameters")
     public ResponseEntity<List<UserAppParameterDto>> listUserParameters(
-            @RequestParam(value = "owner", required = false) String ownerFilter) {
+            @RequestParam(value = "owner", required = false) String ownerFilter,
+            @RequestParam(value = "includeMissing", defaultValue = "false") boolean includeMissing) {
         Jwt jwt = currentJwt();
         if (jwt == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -150,6 +153,32 @@ public class AppLastRouteRestController {
                         row.getDescription(),
                         row.getDateModification(),
                         owner));
+            }
+        }
+        if (includeMissing) {
+            String primary = username != null ? username : sub;
+            if (primary != null) {
+                java.util.Set<String> present = new java.util.HashSet<>();
+                for (UserAppParameterDto row : out) {
+                    if (row.getFeatureKey() != null) {
+                        present.add(row.getFeatureKey());
+                    }
+                }
+                java.util.List<String> prefixes = new java.util.ArrayList<>(PatToolParameterCatalog.MONGO_USER_KEY_PREFIXES);
+                prefixes.sort(String.CASE_INSENSITIVE_ORDER);
+                for (String prefix : prefixes) {
+                    if (prefix == null || prefix.isBlank()) {
+                        continue;
+                    }
+                    String feature = prefix.endsWith(".")
+                            ? prefix.substring(0, prefix.length() - 1)
+                            : prefix;
+                    if (present.contains(feature)) {
+                        continue;
+                    }
+                    out.add(new UserAppParameterDto(
+                            prefix + primary, feature, null, null, null, null, primary));
+                }
             }
         }
         out.sort((a, b) -> {

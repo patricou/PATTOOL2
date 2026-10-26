@@ -156,8 +156,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{
 				path: 'tools/pattool-parameters',
 				loadComponent: () =>
-					import('./pattool-parameters/pattool-parameters.component').then(m => m.PattoolParametersComponent),
-				canActivate: [AdminRoleGuard]
+					import('./pattool-parameters/pattool-parameters.component').then(m => m.PattoolParametersComponent)
 			},
 			{ 
 				path: 'api/openweathermap', 

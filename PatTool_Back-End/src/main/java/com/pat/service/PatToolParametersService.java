@@ -41,6 +41,7 @@ public class PatToolParametersService {
 
     public static final String ORIGIN_MONGODB = "mongodb";
     public static final String ORIGIN_APPLICATION_PROPERTIES = "application_properties";
+    public static final String ORIGIN_APPLICATION_YML = "application_yml";
     public static final String ORIGIN_ENVIRONMENT = "environment";
     public static final String ORIGIN_COMMAND_LINE = "command_line";
     public static final String ORIGIN_CODE_DEFAULT = "code_default";
@@ -298,6 +299,12 @@ public class PatToolParametersService {
             return ORIGIN_NOT_CONFIGURED;
         }
         String lower = sourceName.toLowerCase();
+        if (lower.contains("application.yml")
+                || lower.contains("application.yaml")
+                || lower.contains(".yml")
+                || lower.contains(".yaml")) {
+            return ORIGIN_APPLICATION_YML;
+        }
         if (lower.contains("application.properties")
                 || lower.contains("application-")
                 || lower.contains("config resource")

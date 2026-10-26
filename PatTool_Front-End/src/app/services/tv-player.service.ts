@@ -34,6 +34,9 @@ export class TvPlayerService {
     pipHostOnly: false
   });
 
+  private playbackSec = 0;
+  private playbackLive = true;
+
   /** Emitted when detached playback ends and the in-page player should resume. */
   private readonly resumeOnPageSubject = new Subject<TvChannel>();
   readonly resumeOnPage$ = this.resumeOnPageSubject.asObservable();
@@ -164,6 +167,17 @@ export class TvPlayerService {
 
   get snapshot(): TvFloatingState {
     return this.stateSubject.value;
+  }
+
+  notePlayback(seconds: number, live: boolean): void {
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      this.playbackSec = seconds;
+    }
+    this.playbackLive = live;
+  }
+
+  playbackPosition(): { seconds: number; live: boolean } {
+    return { seconds: this.playbackSec, live: this.playbackLive };
   }
 
   get isOpen(): boolean {

@@ -3,18 +3,70 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
-import { ApiService, PatToolParameterItem, PatToolParameterSection } from '../services/api.service';
+import { ApiService, PatToolParameterItem, PatToolParameterSection, UserAppParameter } from '../services/api.service';
+import { KeycloakService } from '../keycloak/keycloak.service';
+
+/** featureKey → i18n label (USERINFO.PARAM_LABELS.*). */
+const USER_PARAM_LABEL_KEYS: Record<string, string> = {
+  'app.last-route': 'USERINFO.PARAM_LABELS.APP_LAST_ROUTE',
+  'assistant.routing': 'USERINFO.PARAM_LABELS.ASSISTANT_ROUTING',
+  'tv.favorites': 'USERINFO.PARAM_LABELS.TV_FAVORITES',
+  'tv.last-channel': 'USERINFO.PARAM_LABELS.TV_LAST_CHANNEL',
+  'tv.skin': 'USERINFO.PARAM_LABELS.TV_SKIN',
+  'radio.last-station': 'USERINFO.PARAM_LABELS.RADIO_LAST_STATION',
+  'radio.skin': 'USERINFO.PARAM_LABELS.RADIO_SKIN',
+  'webcam.favorites': 'USERINFO.PARAM_LABELS.WEBCAM_FAVORITES',
+  'webcam.last': 'USERINFO.PARAM_LABELS.WEBCAM_LAST',
+  'archive.recent': 'USERINFO.PARAM_LABELS.ARCHIVE_RECENT',
+  'archive.audioPlaylist': 'USERINFO.PARAM_LABELS.ARCHIVE_AUDIO_PLAYLIST',
+  'globe.flight.tracking': 'USERINFO.PARAM_LABELS.GLOBE_FLIGHT_TRACKING',
+  'globe.iss.alert': 'USERINFO.PARAM_LABELS.GLOBE_ISS_ALERT',
+  'globe.iss.compass.calibration': 'USERINFO.PARAM_LABELS.GLOBE_ISS_COMPASS',
+  'globe.astro.last-target': 'USERINFO.PARAM_LABELS.GLOBE_ASTRO_LAST_TARGET',
+  'globe.astro.finder-trail': 'USERINFO.PARAM_LABELS.GLOBE_ASTRO_FINDER_TRAIL',
+  'globe.astro.max-magnitude': 'USERINFO.PARAM_LABELS.GLOBE_ASTRO_MAX_MAGNITUDE',
+  'globe.astro.align-cue': 'USERINFO.PARAM_LABELS.GLOBE_ASTRO_ALIGN_CUE',
+  'globe.astro.ticker': 'USERINFO.PARAM_LABELS.GLOBE_ASTRO_TICKER',
+  'globe.satellite.overlays': 'USERINFO.PARAM_LABELS.GLOBE_SATELLITE_OVERLAYS',
+  'globe.iss.compass.heading-mode': 'USERINFO.PARAM_LABELS.GLOBE_ISS_HEADING_MODE',
+  'gps.follow-user': 'USERINFO.PARAM_LABELS.GPS_FOLLOW_USER',
+  'clock.preferences': 'USERINFO.PARAM_LABELS.CLOCK_PREFERENCES',
+  'gps.slope-coef': 'USERINFO.PARAM_LABELS.GPS_SLOPE_COEF',
+  'news.ticker': 'USERINFO.PARAM_LABELS.NEWS_TICKER',
+  'news.source': 'USERINFO.PARAM_LABELS.NEWS_SOURCE',
+  'tv.filter-preferences': 'USERINFO.PARAM_LABELS.TV_FILTER_PREFERENCES',
+  'radio.favorites': 'USERINFO.PARAM_LABELS.RADIO_FAVORITES',
+  'meteofrance.forecast.horizon': 'USERINFO.PARAM_LABELS.METEO_FORECAST_HORIZON',
+  'meteofrance.forecast.step': 'USERINFO.PARAM_LABELS.METEO_FORECAST_STEP',
+  'meteofrance.forecast.cache': 'USERINFO.PARAM_LABELS.METEO_FORECAST_CACHE',
+  'meteofrance.temperature.cache': 'USERINFO.PARAM_LABELS.METEO_TEMPERATURE_CACHE',
+  'meteofrance.history.cache': 'USERINFO.PARAM_LABELS.METEO_HISTORY_CACHE',
+  'meteofrance.aromepi.playback.prefetch': 'USERINFO.PARAM_LABELS.METEO_AROMEPI_PREFETCH',
+  'trace.viewer': 'USERINFO.PARAM_LABELS.TRACE_VIEWER',
+  'telegram.connection': 'USERINFO.PARAM_LABELS.TELEGRAM_CONNECTION',
+  'telegram.inbox': 'USERINFO.PARAM_LABELS.TELEGRAM_INBOX',
+  'artisans.favorites': 'USERINFO.PARAM_LABELS.ARTISANS_FAVORITES',
+  'artisans.preferences': 'USERINFO.PARAM_LABELS.ARTISANS_PREFERENCES',
+  'youtube.favorites': 'USERINFO.PARAM_LABELS.YOUTUBE_FAVORITES',
+  'deezer.favorites': 'USERINFO.PARAM_LABELS.DEEZER_FAVORITES',
+  'deezer.playlists': 'USERINFO.PARAM_LABELS.DEEZER_PLAYLISTS',
+  'deezer.skin': 'USERINFO.PARAM_LABELS.DEEZER_SKIN',
+  'audio.equalizer': 'USERINFO.PARAM_LABELS.AUDIO_EQUALIZER'
+};
 
 export interface FlatParameterRow extends PatToolParameterItem {
   sectionId: string;
   sectionLabelKey: string;
 }
 
+export type ParamScope = 'application' | 'user';
+
 export type OriginFilter =
   | 'all'
   | 'not_configured'
   | 'required'
   | 'application_properties'
+  | 'application_yml'
   | 'code_default'
   | 'mongodb'
   | 'environment'
@@ -67,6 +119,15 @@ export class PattoolParametersComponent implements OnInit {
   totalItems = 0;
   loading = true;
   errorMessage = '';
+  isAdmin = false;
+  loggedIn = false;
+  scope: ParamScope = 'user';
+
+  userRows: UserAppParameter[] = [];
+  userLoading = true;
+  userError = '';
+  userSearch = '';
+  expandedUserKey: string | null = null;
 
   searchText = '';
   originFilter: OriginFilter = 'all';
@@ -86,31 +147,46 @@ export class PattoolParametersComponent implements OnInit {
 
   readonly kpiCards: KpiCard[] = [
     { filter: 'all', icon: 'fa-th-large', tone: 'kpi-all' },
-    { filter: 'application_properties', icon: 'fa-file-text-o', tone: 'kpi-props' },
-    { filter: 'not_configured', icon: 'fa-circle-o', tone: 'kpi-warn' },
-    { filter: 'required', icon: 'fa-exclamation-triangle', tone: 'kpi-danger' },
+    { filter: 'mongodb', icon: 'fa-database', tone: 'kpi-mongo' },
     { filter: 'code_default', icon: 'fa-code', tone: 'kpi-code' },
-    { filter: 'mongodb', icon: 'fa-database', tone: 'kpi-mongo' }
+    { filter: 'application_properties', icon: 'fa-file-text-o', tone: 'kpi-props' },
+    { filter: 'application_yml', icon: 'fa-file-code-o', tone: 'kpi-yml' }
   ];
 
   readonly originFilters: OriginFilter[] = [
     'all',
-    'not_configured',
-    'required',
-    'application_properties',
-    'code_default',
     'mongodb',
+    'code_default',
+    'application_properties',
+    'application_yml',
     'environment',
-    'command_line'
+    'command_line',
+    'required',
+    'not_configured'
   ];
 
   constructor(
     private readonly api: ApiService,
-    private readonly translate: TranslateService
+    private readonly translate: TranslateService,
+    private readonly keycloak: KeycloakService
   ) {}
 
   ngOnInit(): void {
     this.loadColumnWidths();
+    this.loggedIn = this.keycloak.isLoggedIn();
+    this.isAdmin = this.loggedIn && this.keycloak.hasAdminRole();
+    this.scope = this.isAdmin ? 'application' : 'user';
+    if (!this.loggedIn) {
+      this.loading = false;
+      this.userLoading = false;
+      this.userError = 'PATTOOL_PARAMS.LOGIN_REQUIRED';
+      return;
+    }
+    this.loadUserParameters();
+    if (!this.isAdmin) {
+      this.loading = false;
+      return;
+    }
     this.api.getPatToolParameters().subscribe({
       next: (response) => {
         this.sections = (response?.sections ?? []).map((section) => ({
@@ -130,6 +206,90 @@ export class PattoolParametersComponent implements OnInit {
       error: () => {
         this.errorMessage = 'PATTOOL_PARAMS.LOAD_ERROR';
         this.loading = false;
+      }
+    });
+  }
+
+  get scopeSubtitleKey(): string {
+    return this.scope === 'application' ? 'PATTOOL_PARAMS.SUBTITLE_APP' : 'PATTOOL_PARAMS.SUBTITLE_USER';
+  }
+
+  setScope(scope: ParamScope): void {
+    if (scope === 'application' && !this.isAdmin) {
+      return;
+    }
+    this.scope = scope;
+  }
+
+  get filteredUserRows(): UserAppParameter[] {
+    const q = this.userSearch.trim().toLowerCase();
+    const rows = this.userRows || [];
+    if (!q) {
+      return rows;
+    }
+    return rows.filter((row) => {
+      const label = this.userParamLabel(row).toLowerCase();
+      return (
+        label.includes(q) ||
+        (row.featureKey || '').toLowerCase().includes(q) ||
+        (row.paramKey || '').toLowerCase().includes(q) ||
+        (row.paramValue || '').toLowerCase().includes(q) ||
+        (row.description || '').toLowerCase().includes(q)
+      );
+    });
+  }
+
+  userParamLabel(row: UserAppParameter): string {
+    const feature = (row.featureKey || '').trim().toLowerCase();
+    const i18nKey = USER_PARAM_LABEL_KEYS[feature];
+    if (i18nKey) {
+      const translated = this.translate.instant(i18nKey);
+      if (translated && translated !== i18nKey) {
+        return translated;
+      }
+    }
+    return feature || (row.paramKey || '').trim() || '—';
+  }
+
+  formatUserValue(row: UserAppParameter): string {
+    const raw = row.paramValue ?? '';
+    if ((row.valueType || '').toUpperCase() === 'JSON') {
+      try {
+        return JSON.stringify(JSON.parse(raw), null, 2);
+      } catch {
+        return raw;
+      }
+    }
+    return raw;
+  }
+
+  isUserStored(row: UserAppParameter): boolean {
+    return row.dateModification != null || (row.paramValue != null && row.paramValue !== '');
+  }
+
+  isUserValueLong(row: UserAppParameter): boolean {
+    return (row.paramValue || '').length > 160 || (row.valueType || '').toUpperCase() === 'JSON';
+  }
+
+  toggleUserExpand(key: string): void {
+    this.expandedUserKey = this.expandedUserKey === key ? null : key;
+  }
+
+  trackUserRow(_index: number, row: UserAppParameter): string {
+    return (row.paramKey || '') + '::' + (row.ownerKey || '');
+  }
+
+  private loadUserParameters(): void {
+    this.userLoading = true;
+    this.userError = '';
+    this.api.getUserAppParameters('all', true).subscribe({
+      next: (rows) => {
+        this.userRows = rows || [];
+        this.userLoading = false;
+      },
+      error: () => {
+        this.userError = 'PATTOOL_PARAMS.USER_LOAD_ERROR';
+        this.userLoading = false;
       }
     });
   }
@@ -336,6 +496,8 @@ export class PattoolParametersComponent implements OnInit {
     switch (origin) {
       case 'application_properties':
         return 'fa-file-text-o';
+      case 'application_yml':
+        return 'fa-file-code-o';
       case 'mongodb':
         return 'fa-database';
       case 'code_default':
@@ -473,6 +635,8 @@ export class PattoolParametersComponent implements OnInit {
         return 'PATTOOL_PARAMS.ORIGIN.MONGODB';
       case 'application_properties':
         return 'PATTOOL_PARAMS.ORIGIN.APPLICATION_PROPERTIES';
+      case 'application_yml':
+        return 'PATTOOL_PARAMS.ORIGIN.APPLICATION_YML';
       case 'environment':
         return 'PATTOOL_PARAMS.ORIGIN.ENVIRONMENT';
       case 'command_line':
@@ -492,6 +656,8 @@ export class PattoolParametersComponent implements OnInit {
     switch (origin) {
       case 'application_properties':
         return 'pill-props';
+      case 'application_yml':
+        return 'pill-yml';
       case 'mongodb':
         return 'pill-mongo';
       case 'code_default':
