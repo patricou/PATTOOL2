@@ -19,9 +19,9 @@ export type TvHlsConfigOptions = {
    */
   slowMirror?: boolean;
   /**
-   * Mezzo on otcnet: each 5 s segment is ~3.5 MiB. The CDN stays at ~5 MB/s for two
-   * segments, then falls under realtime if a third starts immediately. Keep a
-   * two-segment cushion and do not prefetch further.
+   * Mezzo on otcnet: each 5 s segment is ~3.5 MiB. Three serial fetches stay fast;
+   * a fourth with no pause sits on a ~9 s TTFB. The proxy fills the two newest
+   * segments into RAM, so the player may hold them without opening more CDN connections.
    */
   pacedLive?: boolean;
 };
@@ -42,11 +42,11 @@ export function createTvHlsConfig(
     // Live IPTV (TF1/TMC on slow mirrors): deep buffer + stay behind the live edge
     // so startup can fill before realtime catch-up pressure.
     // Cap Terre playlist ≈ 20 s — cannot buffer more than the sliding window.
-    // Mezzo: hls.js refills as soon as the forward buffer drops under this cap.
-    // 6 s keeps two 5 s segments (5 < 6), then waits ~4 s of playback before a third
-    // download. A cap of 10 s would request that third immediately and trip otcnet.
-    maxBufferLength: vod ? 30 : paced ? 6 : slow ? 18 : 45,
-    maxMaxBufferLength: vod ? 60 : paced ? 6 : slow ? 30 : 90,
+    // Mezzo: the playlist's forward window is ~10 s (live sync sits two segments
+    // behind the edge). 15 s takes those two as soon as they are cached and the next
+    // one when the playlist slides, instead of waiting until only one segment remains.
+    maxBufferLength: vod ? 30 : paced ? 15 : slow ? 18 : 45,
+    maxMaxBufferLength: vod ? 60 : paced ? 15 : slow ? 30 : 90,
     backBufferLength: vod ? 30 : paced ? 4 : slow ? 6 : 30,
     // Cap Terre / Mezzo: stay near the *newest* edge. Syncing to the back of a
     // 4-segment window loads segments that 404 while downloading.
@@ -66,7 +66,8 @@ export function createTvHlsConfig(
     nudgeOffset: 0.1,
     nudgeMaxRetry: slow ? 8 : 5,
     maxFragLookUpTolerance: 0.25,
-    // Mezzo: a third in-flight segment is what drops otcnet under realtime.
+    // Mezzo segments are filled by the proxy. Don't open a second fragment fetch
+    // before the first has been appended.
     startFragPrefetch: !paced,
     // Slow IPTV segments (TF1 HD ~4 MiB / 12–20 s) — default 20 s aborts mid-download.
     // Cap Terre 404s on expired frags: fail fast and skip (don't retry a dead .ts).

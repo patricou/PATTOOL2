@@ -7,8 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Short live windows: trim only the slow M6/W9 mirror. Mezzo on otcnet is fast
- * enough to keep its full playlist. Dailymotion DVR (Public Sénat) is trimmed.
+ * Short live windows: trim only the slow M6/W9 mirror. Mezzo keeps its playlist
+ * and is not pulled by the parallel prefetcher. Dailymotion DVR (Public Sénat) is trimmed.
  */
 class TvStreamProxyMezzoPlaylistTest {
 
@@ -86,10 +86,13 @@ class TvStreamProxyMezzoPlaylistTest {
                 "https://live-3.otcnet.ru/Mezzo/tracks-v1a1/mono.ts.m3u8"));
         assertTrue(TvStreamProxyService.shouldPrefetchShortWindow(
                 "http://145.239.5.177/359a/index.m3u8"));
+        assertEquals(2, TvStreamProxyService.MEZZO_PREFETCH_SEGMENTS);
         assertEquals(0, TvStreamProxyService.mezzoSlotWaitMs(0, 0));
         assertEquals(0, TvStreamProxyService.mezzoSlotWaitMs(1, 200));
-        assertEquals(4_800, TvStreamProxyService.mezzoSlotWaitMs(2, 200));
-        assertEquals(0, TvStreamProxyService.mezzoSlotWaitMs(2, 5_000));
+        assertEquals(0, TvStreamProxyService.mezzoSlotWaitMs(2, 200));
+        assertEquals(3_800, TvStreamProxyService.mezzoSlotWaitMs(3, 200));
+        assertEquals(0, TvStreamProxyService.mezzoSlotWaitMs(3, 4_000));
+        assertEquals(0, TvStreamProxyService.mezzoSlotWaitMs(1, 5_000));
         assertTrue(TvStreamProxyService.isDailymotionCdnUpstream(
                 "https://live2.eu-north-1a.cf.dmcdn.net/sec2(abc)/cloud/3/xkxbzc/d/live-480.m3u8"));
         assertFalse(TvStreamProxyService.isDailymotionCdnUpstream(

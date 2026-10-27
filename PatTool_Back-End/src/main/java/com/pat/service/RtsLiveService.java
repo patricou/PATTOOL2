@@ -70,6 +70,8 @@ public class RtsLiveService {
     /** Netplus often accepts TLS then never replies outside CH — keep probes short. */
     private static final Duration NETPLUS_TIMEOUT = Duration.ofSeconds(4);
     private static final Duration DEFAULT_FETCH_TIMEOUT = Duration.ofSeconds(10);
+    /** Retired RTS Info MediaPackage path — Akamai answers 403; iptv-org has not caught up. */
+    private static final String RTSINFO_DEAD_PATH = "/2b7ae2e1ba3f43c6aba15bced153baf5/";
 
     private static final Map<String, ChannelDef> CHANNELS = new LinkedHashMap<>();
 
@@ -97,7 +99,9 @@ public class RtsLiveService {
                 "https://raw.githubusercontent.com/tv-logo/tv-logos/refs/heads/main/countries/switzerland/rts-info-ch.png",
                 "rtsinfo.ch",
                 List.of(
-                        "https://rtsinfo-d.akamaized.net/out/v1/2b7ae2e1ba3f43c6aba15bced153baf5/index.m3u8",
+                        // MediaPackage lsvs/cmaf (clear AVC+AAC). The old UUID index 403s;
+                        // iptv-org CH still publishes that dead URL.
+                        "https://rtsinfo-d.akamaized.net/out/v1/lsvs/rts-info/cmaf/hls-index.m3u8",
                         "https://viamotionhsi.netplus.ch/live/eds/rtsinfohd/browser-HLS8/rtsinfohd.m3u8"
                 )));
     }
@@ -446,6 +450,9 @@ public class RtsLiveService {
             return;
         }
         String trimmed = url.trim();
+        if (trimmed.contains(RTSINFO_DEAD_PATH)) {
+            return;
+        }
         if (isNetplusTokenHost(hostOf(trimmed))) {
             // Skip raw viamotionhsi URLs that failed to mint a JWT — they tarpit outside CH.
             expandNetplusSeed(trimmed).ifPresent(ordered::add);

@@ -535,7 +535,7 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
     const seq = `&cb=${this.state.loadSeq || 0}`;
     if (item.kind === 'playlist' && /^[a-zA-Z0-9_-]{10,64}$/.test(id)) {
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0&autoplay=1&playsinline=1${origin}${seq}`
+        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0&loop=1&autoplay=1&playsinline=1${origin}${seq}`
       );
     }
     if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
@@ -602,6 +602,9 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
       return;
     }
     this.ytSoundOnId = id;
+    if (this.state.item?.kind === 'playlist') {
+      this.sendYoutubeCommand('setLoop', [true]);
+    }
     this.sendYoutubeCommand('unMute');
     this.sendYoutubeCommand('setVolume', [100]);
     this.sendYoutubeCommand('playVideo');
@@ -713,7 +716,8 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
             album: 'YouTube'
           });
           this.handshakeYoutubePlayer();
-          this.sendYoutubeCommand('playVideo');
+          this.sendYoutubeCommand('setLoop', [true]);
+          this.sendYoutubeCommand('nextVideo');
           return;
         }
         this.youtubePlayer.setPaused(true);

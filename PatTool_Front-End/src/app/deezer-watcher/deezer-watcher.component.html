@@ -337,6 +337,15 @@
               [attr.title]="'DEEZER.NEXT' | translate">
               <i class="fa fa-step-forward" aria-hidden="true"></i>
             </button>
+            <button
+              type="button"
+              (click)="openSimilarArtists()"
+              [disabled]="!current?.artistId"
+              [attr.aria-label]="'DEEZER.SIMILAR' | translate"
+              [attr.title]="'DEEZER.SIMILAR' | translate"
+              aria-haspopup="dialog">
+              <i class="fa fa-users" aria-hidden="true"></i>
+            </button>
           </div>
           </ng-container>
         </div>
@@ -465,7 +474,10 @@
           (click)="playListedTrack(track, i)"
           (keydown.enter)="playListedTrack(track, i)"
           tabindex="0">
-          <span class="dz-idx">{{ i + 1 }}</span>
+          <span class="dz-idx" *ngIf="!(playing && current?.id === track.id)">{{ i + 1 }}</span>
+          <span class="dz-live" *ngIf="playing && current?.id === track.id" aria-hidden="true">
+            <span></span><span></span><span></span><span></span>
+          </span>
           <img *ngIf="track.coverUrl" class="dz-thumb" [src]="track.coverUrl" alt="" loading="lazy" (error)="$any($event.target).style.display='none'" />
           <span *ngIf="!track.coverUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-music"></i></span>
           <span class="dz-row-text dz-track-text">
@@ -753,6 +765,9 @@
               <img *ngIf="current.coverUrl" class="radio-now-logo" [src]="current.coverUrl" alt="" />
               <div class="radio-now-text">
                 <div class="radio-now-name">
+                  <span class="dz-live dz-live--now" *ngIf="playing" aria-hidden="true">
+                    <span></span><span></span><span></span><span></span>
+                  </span>
                   <span
                     class="dz-yt-logo"
                     *ngIf="youtubeEmbed"
@@ -927,4 +942,78 @@
       {{ 'DEEZER.PLAYLIST_CREATE_ADD' | translate }}
     </button>
   </form>
+</div>
+
+<div class="dz-pl-backdrop" *ngIf="similarOpen" (click)="closeSimilarArtists()"></div>
+<div
+  class="dz-pl-modal dz-similar-modal"
+  *ngIf="similarOpen"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'DEEZER.SIMILAR' | translate"
+  (click)="$event.stopPropagation()">
+  <div class="dz-pl-modal-head">
+    <div class="dz-pl-track">
+      <img *ngIf="current?.coverUrl" class="dz-pl-cover" [src]="current?.coverUrl" alt="" />
+      <span *ngIf="!current?.coverUrl" class="dz-pl-cover dz-pl-cover--empty"><i class="fa fa-users" aria-hidden="true"></i></span>
+      <span class="dz-pl-track-text">
+        <span class="dz-pl-kicker">{{ 'DEEZER.SIMILAR' | translate }}</span>
+        <strong>{{ 'DEEZER.SIMILAR_OF' | translate:{ name: similarName } }}</strong>
+      </span>
+    </div>
+    <button type="button" class="dz-pl-close" (click)="closeSimilarArtists($event)" [attr.aria-label]="'DEEZER.CLEAR_SEARCH' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
+  <div class="dz-pl-modal-body">
+    <p class="dz-pl-empty" *ngIf="similarLoading">{{ 'DEEZER.LOADING' | translate }}</p>
+    <p class="dz-pl-error" *ngIf="similarError" role="alert">{{ similarError | translate }}</p>
+    <div class="dz-similar-sort" *ngIf="!similarLoading && similarArtists.length">
+      <div class="dz-similar-sort-menu">
+        <button
+          type="button"
+          class="dz-similar-sort-btn"
+          (click)="toggleSimilarSortMenu($event)"
+          [attr.aria-expanded]="similarSortOpen"
+          [attr.aria-label]="'DEEZER.SIMILAR_SORT' | translate">
+          <span>{{ similarSortLabelKey | translate }}</span>
+          <i class="fa" [class.fa-chevron-up]="similarSortOpen" [class.fa-chevron-down]="!similarSortOpen" aria-hidden="true"></i>
+        </button>
+        <div class="dz-similar-sort-list" *ngIf="similarSortOpen" role="listbox" [attr.aria-label]="'DEEZER.SIMILAR_SORT' | translate">
+          <button
+            type="button"
+            role="option"
+            *ngFor="let option of similarSortOptions"
+            [class.is-on]="similarSort === option.id"
+            [attr.aria-selected]="similarSort === option.id"
+            (click)="setSimilarSort(option.id)">
+            {{ option.key | translate }}
+          </button>
+        </div>
+      </div>
+      <button
+        type="button"
+        class="dz-similar-sort-dir"
+        *ngIf="similarSort !== 'relevance'"
+        (click)="toggleSimilarSortDir()"
+        [attr.title]="(similarSortDesc ? 'DEEZER.SIMILAR_SORT_DESC' : 'DEEZER.SIMILAR_SORT_ASC') | translate"
+        [attr.aria-label]="(similarSortDesc ? 'DEEZER.SIMILAR_SORT_DESC' : 'DEEZER.SIMILAR_SORT_ASC') | translate">
+        <i class="fa" [ngClass]="similarSortIcon" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="dz-pl-choices" role="list" *ngIf="!similarLoading && similarArtists.length">
+      <button
+        type="button"
+        class="dz-pl-choice dz-similar-choice"
+        role="listitem"
+        *ngFor="let artist of sortedSimilarArtists; trackBy: trackById"
+        (click)="pickSimilarArtist(artist)">
+        <img *ngIf="artist.pictureUrl" class="dz-similar-photo" [src]="artist.pictureUrl" alt="" />
+        <span *ngIf="!artist.pictureUrl" class="dz-similar-photo dz-similar-photo--empty"><i class="fa fa-user" aria-hidden="true"></i></span>
+        <span class="dz-pl-choice-name">{{ artist.name }}</span>
+        <span class="dz-pl-count" *ngIf="formatFans(artist.fanCount) as fans">{{ 'DEEZER.FANS' | translate:{ count: fans } }}</span>
+      </button>
+    </div>
+    <p class="dz-pl-empty" *ngIf="!similarLoading && !similarError && !similarArtists.length">{{ 'DEEZER.SIMILAR_EMPTY' | translate }}</p>
+  </div>
 </div>

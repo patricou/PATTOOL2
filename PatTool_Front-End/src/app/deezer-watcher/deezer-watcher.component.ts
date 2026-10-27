@@ -179,6 +179,19 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   confirmDeletePlaylistId = '';
   playlistMenuTrack: DeezerTrack | null = null;
   playlistPickerQuery = '';
+  similarOpen = false;
+  similarLoading = false;
+  similarError = '';
+  similarName = '';
+  similarArtists: DeezerArtist[] = [];
+  similarSort: 'relevance' | 'name' | 'fans' = 'relevance';
+  similarSortDesc = false;
+  similarSortOpen = false;
+  readonly similarSortOptions: ReadonlyArray<{ id: 'relevance' | 'name' | 'fans'; key: string }> = [
+    { id: 'relevance', key: 'DEEZER.SIMILAR_BY_RELEVANCE' },
+    { id: 'name', key: 'DEEZER.SIMILAR_BY_NAME' },
+    { id: 'fans', key: 'DEEZER.SIMILAR_BY_FANS' }
+  ];
   playlistsHint = '';
   playlistsError = '';
   playlistBusy = '';
@@ -229,6 +242,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private favoritesSub?: Subscription;
   private favoritesReady = false;
   private playlistsSub?: Subscription;
+  private similarSub?: Subscription;
+  private similarForId = 0;
+  private readonly similarCache = new Map<number, DeezerArtist[]>();
   private playlistsReady = false;
   private static readonly SIDEBAR_KEY = 'pattool.deezer.sidebar';
   private static readonly YT_SEARCH_KEY = 'pattool.deezer.youtube-search';
@@ -316,6 +332,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.ytScan?.unsubscribe();
     this.favoritesSub?.unsubscribe();
     this.playlistsSub?.unsubscribe();
+    this.similarSub?.unsubscribe();
     this.skinLoadSub?.unsubscribe();
     this.skinSaveSub?.unsubscribe();
     this.stopYoutubeClock();
@@ -956,6 +973,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   playListedTrack(track: DeezerTrack, index: number): void {
     this.repeatQueue = true;
+    this.playbackFollowsList = true;
+    this.queue = this.shownTracks;
     this.playTrack(track, index);
   }
 
@@ -1140,6 +1159,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         this.tracks = tracks;
     this.syncYoutubeButtons();
         this.queue = this.shownTracks;
+        this.repeatQueue = true;
+        this.playbackFollowsList = true;
         if (this.queue.length) {
           this.playTrack(this.queue[0], 0);
         }
@@ -1174,6 +1195,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         this.sleeveAlbums = page?.albums || [];
         this.sleeveArtistId = artist.id;
         this.related = page?.related || [];
+        this.repeatQueue = true;
+        this.playbackFollowsList = true;
         if (this.queue.length) {
           this.playTrack(this.queue[0], 0);
         }
@@ -1204,6 +1227,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         this.tracks = tracks;
     this.syncYoutubeButtons();
         this.queue = this.shownTracks;
+        this.repeatQueue = true;
+        this.playbackFollowsList = true;
         if (this.queue.length) {
           this.playTrack(this.queue[0], 0);
         }
@@ -1220,6 +1245,122 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   openRelated(artist: DeezerArtist): void {
     this.openArtist(artist);
+  }
+
+  openSimilarArtists(): void {
+    const artistId = this.current?.artistId || 0;
+    if (!artistId) {
+      return;
+    }
+    this.similarOpen = true;
+    this.similarName = (this.current?.artistName || '').trim();
+    this.similarError = '';
+    this.similarForId = artistId;
+    const cached = this.similarCache.get(artistId);
+    if (cached) {
+      this.similarArtists = cached;
+      this.similarLoading = false;
+      return;
+    }
+    this.similarArtists = [];
+    this.similarLoading = true;
+    this.similarSub?.unsubscribe();
+    this.similarSub = this.api.getDeezerArtist(artistId).subscribe({
+      next: (page) => {
+        if (this.similarForId !== artistId) {
+          return;
+        }
+        const list = page?.related || [];
+        this.similarCache.set(artistId, list);
+        this.similarArtists = list;
+        this.similarLoading = false;
+      },
+      error: () => {
+        if (this.similarForId !== artistId) {
+          return;
+        }
+        this.similarLoading = false;
+        this.similarArtists = [];
+        this.similarError = 'DEEZER.ERR_LOAD';
+      }
+    });
+  }
+
+  closeSimilarArtists(event?: Event): void {
+    event?.stopPropagation();
+    this.similarOpen = false;
+    this.similarSortOpen = false;
+  }
+
+  toggleSimilarSortMenu(event: Event): void {
+    event.stopPropagation();
+    this.similarSortOpen = !this.similarSortOpen;
+  }
+
+  setSimilarSort(value: string): void {
+    const sort = value === 'name' || value === 'fans' ? value : 'relevance';
+    this.similarSortOpen = false;
+    if (sort === this.similarSort) {
+      return;
+    }
+    this.similarSort = sort;
+    this.similarSortDesc = sort === 'fans';
+  }
+
+  get similarSortLabelKey(): string {
+    return this.similarSortOptions.find((option) => option.id === this.similarSort)?.key || 'DEEZER.SIMILAR_BY_RELEVANCE';
+  }
+
+  toggleSimilarSortDir(): void {
+    if (this.similarSort === 'relevance') {
+      return;
+    }
+    this.similarSortDesc = !this.similarSortDesc;
+  }
+
+  get sortedSimilarArtists(): DeezerArtist[] {
+    const list = this.similarArtists.slice();
+    if (this.similarSort === 'relevance') {
+      return list;
+    }
+    const dir = this.similarSortDesc ? -1 : 1;
+    if (this.similarSort === 'fans') {
+      list.sort((a, b) => dir * ((a.fanCount || 0) - (b.fanCount || 0)) || this.compareSimilarName(a.name, b.name));
+    } else {
+      list.sort((a, b) => dir * this.compareSimilarName(a.name, b.name));
+    }
+    return list;
+  }
+
+  get similarSortIcon(): string {
+    if (this.similarSort === 'fans') {
+      return this.similarSortDesc ? 'fa-sort-amount-desc' : 'fa-sort-amount-asc';
+    }
+    return this.similarSortDesc ? 'fa-sort-alpha-desc' : 'fa-sort-alpha-asc';
+  }
+
+  private compareSimilarName(a: string, b: string): number {
+    return (a || '').localeCompare(b || '', this.translate.currentLang || 'fr', { sensitivity: 'base' });
+  }
+
+  pickSimilarArtist(artist: DeezerArtist): void {
+    const name = (artist.name || '').trim();
+    this.closeSimilarArtists();
+    if (name.length < 2) {
+      return;
+    }
+    this.stop();
+    const needsSearch = this.listMode !== 'browse' || this.drilled || this.query.trim() !== name || this.mode !== 'search';
+    this.listMode = 'browse';
+    this.activeUserPlaylist = null;
+    this.exitDrill();
+    if (this.query.trim() === name) {
+      if (needsSearch) {
+        this.loadSearch(name);
+      }
+      return;
+    }
+    this.onQueryChange(name);
   }
 
   onAudioTime(): void {
@@ -1868,6 +2009,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (this.shareMenuOpen && !target?.closest?.('.radio-share-wrap')) {
       this.shareMenuOpen = false;
     }
+    if (this.similarSortOpen && !target?.closest?.('.dz-similar-sort-menu')) {
+      this.similarSortOpen = false;
+    }
     if (this.playlistMenuTrack && !target?.closest?.('.dz-pl-modal') && !target?.closest?.('.dz-pl-btn')) {
       this.closePlaylistMenu();
     }
@@ -1965,6 +2109,14 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   onEscape(): void {
     if (this.landscapeFullscreen) {
       this.exitLandscapeFullscreen(true);
+      return;
+    }
+    if (this.similarOpen) {
+      if (this.similarSortOpen) {
+        this.similarSortOpen = false;
+        return;
+      }
+      this.closeSimilarArtists();
       return;
     }
     if (this.playlistMenuTrack) {
@@ -2520,6 +2672,14 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
     frame.className = 'dz-yt';
     frame.style.cssText = '';
+    // The parked frame is created outside the page, so the component styles do not apply to it.
+    frame.style.position = 'absolute';
+    frame.style.inset = '0';
+    frame.style.width = '100%';
+    frame.style.height = '100%';
+    frame.style.border = '0';
+    frame.style.zIndex = '5';
+    frame.style.background = '#000';
     delete frame.dataset['patDeezerKeep'];
     let seeks = 0;
     const seekBack = (): void => {

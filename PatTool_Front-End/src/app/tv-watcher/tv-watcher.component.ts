@@ -5208,7 +5208,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
         },
         channel.name,
-        slowMirror ? 2_500 : 0
+        slowMirror ? 2_500 : pacedLive ? 1_500 : 0
       );
       try {
         this.detachSlowMirrorPace?.();

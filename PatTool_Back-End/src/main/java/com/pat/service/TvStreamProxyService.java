@@ -93,6 +93,15 @@ public class TvStreamProxyService {
         t.setDaemon(true);
         return t;
     });
+    /**
+     * Mezzo on otcnet: one origin fetch at a time. A burst of four ~3.5 MiB segments
+     * makes the CDN hold the next response for ~9 s, which is slower than the 5 s segment.
+     */
+    private final ExecutorService mezzoPrefetchExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "mezzo-prefetch");
+        t.setDaemon(true);
+        return t;
+    });
     private final ConcurrentHashMap<String, CompletableFuture<CapTerreCachedSegment>> segmentSingleFlight =
             new ConcurrentHashMap<>();
 
@@ -289,7 +298,7 @@ public class TvStreamProxyService {
 
         // Cap Terre / Mezzo / M6 mirrors: serve a .ts from RAM when it was already fetched
         // (player otherwise waits out a sliding window of only ~4 segments and the oldest 404).
-        // Mezzo is cached on demand only — see shouldPrefetchShortWindow.
+        // Mezzo is filled by scheduleMezzoPrefetch (two newest, serial) — not the parallel prefetcher.
         if (isShortWindowPrefetchUpstream(upstreamUrl) && rangeHeader == null) {
             CapTerreCachedSegment cached = getCapTerreCachedSegment(upstreamUrl);
             if (cached != null) {
@@ -304,11 +313,23 @@ public class TvStreamProxyService {
             }
         }
 
-        // Mezzo otcnet serves ~3.5 MiB / 5 s. Two segments back-to-back stay at ~5 MB/s;
-        // a third with no pause drops under realtime and playback stalls. Cache hits
-        // returned above do not take a slot.
+        // Mezzo: one shared origin fetch per segment (player and prefetch). Cache hits
+        // returned above do not take a CDN slot. A fourth back-to-back fetch is what
+        // drops otcnet under realtime — see awaitMezzoSegmentSlot.
         if (isMezzoOtcnetUpstream(upstreamUrl) && isTransportStreamUrl(upstreamUrl) && rangeHeader == null) {
-            awaitMezzoSegmentSlot();
+            CapTerreCachedSegment seg = loadMezzoSegment(upstreamUrl, referer);
+            if (seg == null || seg.body() == null || seg.body().length == 0) {
+                return jsonError(HttpStatus.BAD_GATEWAY, "upstream_unreachable",
+                        "Segment Mezzo indisponible (" + host + ")", host, null);
+            }
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.CONTENT_TYPE,
+                    seg.contentType() != null
+                            ? seg.contentType()
+                            : MediaType.APPLICATION_OCTET_STREAM_VALUE);
+            headers.set(HttpHeaders.CACHE_CONTROL, "no-store");
+            headers.set("X-PatTool-CapTerre-Cache", "HIT");
+            return ResponseEntity.ok().headers(headers).body(seg.body());
         }
 
         FetchResult fetched = fetch(upstreamUrl, rangeHeader, referer);
@@ -348,8 +369,8 @@ public class TvStreamProxyService {
             if (isShortWindowTrimUpstream(upstreamUrl) || isShortWindowTrimUpstream(playlistBase)) {
                 // M6/W9 on 151.80: ~4×6 s window and ~2 MiB segments that take longer
                 // to download than they stay on the origin. The fast 5.180 mirror is
-                // left intact. Mezzo keeps its full ~20 s window (trimming it caused
-                // stalls); the otcnet throttle is handled by not bulk-prefetching.
+                // left intact. Mezzo keeps its full ~20 s window (trimming it made the
+                // player restart on every slide); segments are filled serially instead.
                 rawPlaylist = keepNewestLiveSegments(rawPlaylist, 2);
             }
             if ((isDailymotionCdnUpstream(upstreamUrl) || isDailymotionCdnUpstream(playlistBase))
@@ -360,6 +381,9 @@ public class TvStreamProxyService {
             }
             if (shouldPrefetchShortWindow(upstreamUrl) || shouldPrefetchShortWindow(playlistBase)) {
                 scheduleCapTerrePrefetch(rawPlaylist, playlistBase, referer);
+            }
+            if (isMezzoOtcnetUpstream(upstreamUrl) || isMezzoOtcnetUpstream(playlistBase)) {
+                scheduleMezzoPrefetch(rawPlaylist, playlistBase, referer);
             }
             String rewritten = rewritePlaylist(rawPlaylist, playlistBase, proxyBase);
             body = rewritten.getBytes(StandardCharsets.UTF_8);
@@ -625,63 +649,93 @@ public class TvStreamProxyService {
     }
 
     /**
-     * Cap Terre and the slow M6 mirror need the whole playlist pulled into RAM.
-     * Mezzo must not: prefetching its four segments is what trips the otcnet throttle.
-     * Segments the player actually requests are still cached on the way through.
+     * Cap Terre and the slow M6 mirror need the whole playlist pulled into RAM in parallel.
+     * Mezzo must not use that path: four segments at once is what trips the otcnet throttle.
+     * {@link #scheduleMezzoPrefetch} pulls the two newest, one after another.
      */
     static boolean shouldPrefetchShortWindow(String url) {
         return isShortWindowPrefetchUpstream(url) && !isMezzoOtcnetUpstream(url);
     }
 
-    /** Two Mezzo segments may start in the same window; a third waits so the CDN recovers. */
-    static final int MEZZO_BURST_MAX = 2;
-    static final long MEZZO_BURST_WINDOW_MS = 5_000L;
+    /**
+     * Three Mezzo segments back-to-back stay fast (~1 s each). The fourth, with no
+     * pause, sits on a ~9 s TTFB. After the burst, wait out this gap before another
+     * origin fetch. A steady one-every-5 s live cadence is longer than the gap, so
+     * playback does not wait.
+     */
+    static final int MEZZO_BURST_MAX = 3;
+    static final long MEZZO_MIN_GAP_MS = 4_000L;
+    /** How many of the newest media segments to pull into RAM per playlist. */
+    static final int MEZZO_PREFETCH_SEGMENTS = 2;
 
     private final Object mezzoFetchPace = new Object();
     private int mezzoBurstCount;
-    private long mezzoBurstWindowStartMs;
+    private long mezzoLastStartMs;
+    private boolean mezzoFetchInFlight;
 
     /**
-     * @param countInWindow fetches already started in the current window
-     * @param elapsedInWindowMs time since the window opened; a negative or expired window yields 0
+     * @param countInBurst origin fetches started since the last satisfied gap
+     * @param msSinceLastStart time since the previous origin fetch started; negative if none
      * @return milliseconds to wait before another origin fetch; 0 means it may start now
      */
-    static int mezzoSlotWaitMs(int countInWindow, long elapsedInWindowMs) {
-        if (elapsedInWindowMs < 0
-                || elapsedInWindowMs >= MEZZO_BURST_WINDOW_MS
-                || countInWindow < MEZZO_BURST_MAX) {
+    static int mezzoSlotWaitMs(int countInBurst, long msSinceLastStart) {
+        if (countInBurst <= 0 || msSinceLastStart < 0 || msSinceLastStart >= MEZZO_MIN_GAP_MS) {
             return 0;
         }
-        long wait = MEZZO_BURST_WINDOW_MS - elapsedInWindowMs;
+        if (countInBurst < MEZZO_BURST_MAX) {
+            return 0;
+        }
+        long wait = MEZZO_MIN_GAP_MS - msSinceLastStart;
         if (wait > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
         }
         return (int) wait;
     }
 
-    private void awaitMezzoSegmentSlot() {
+    /**
+     * One Mezzo origin fetch at a time. The first three may start as soon as the previous
+     * one finishes; a fourth waits {@link #MEZZO_MIN_GAP_MS} after the previous start.
+     *
+     * @return false when the wait is interrupted and no slot was taken
+     */
+    private boolean awaitMezzoSegmentSlot() {
         synchronized (mezzoFetchPace) {
             for (;;) {
+                if (mezzoFetchInFlight) {
+                    try {
+                        mezzoFetchPace.wait(500);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return false;
+                    }
+                    continue;
+                }
                 long now = System.currentTimeMillis();
-                long elapsed = mezzoBurstWindowStartMs == 0
-                        ? MEZZO_BURST_WINDOW_MS
-                        : now - mezzoBurstWindowStartMs;
-                int wait = mezzoSlotWaitMs(mezzoBurstCount, elapsed);
+                long since = mezzoLastStartMs == 0 ? Long.MAX_VALUE : now - mezzoLastStartMs;
+                int wait = mezzoSlotWaitMs(mezzoBurstCount, since);
                 if (wait <= 0) {
-                    if (elapsed >= MEZZO_BURST_WINDOW_MS) {
+                    if (since >= MEZZO_MIN_GAP_MS) {
                         mezzoBurstCount = 0;
-                        mezzoBurstWindowStartMs = now;
                     }
                     mezzoBurstCount++;
-                    return;
+                    mezzoLastStartMs = now;
+                    mezzoFetchInFlight = true;
+                    return true;
                 }
                 try {
                     mezzoFetchPace.wait(wait);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    return;
+                    return false;
                 }
             }
+        }
+    }
+
+    private void releaseMezzoSegmentSlot() {
+        synchronized (mezzoFetchPace) {
+            mezzoFetchInFlight = false;
+            mezzoFetchPace.notifyAll();
         }
     }
 
@@ -814,10 +868,72 @@ public class TvStreamProxyService {
     }
 
     /**
+     * Mezzo media playlist: pull the two newest {@code .ts} into RAM, oldest of those first
+     * (that is the segment hls.js starts on). One executor task so a slow fetch cannot
+     * queue a parallel one. Cache hits return without touching otcnet.
+     */
+    private void scheduleMezzoPrefetch(String rawPlaylist, String playlistBase, String referer) {
+        if (rawPlaylist == null || playlistBase == null) {
+            return;
+        }
+        URI base;
+        try {
+            base = URI.create(playlistBase);
+        } catch (Exception e) {
+            return;
+        }
+        java.util.ArrayList<String> segments = new java.util.ArrayList<>();
+        for (String line : rawPlaylist.split("\\R", -1)) {
+            if (line == null) {
+                continue;
+            }
+            String trimmed = line.trim();
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                continue;
+            }
+            URI absolute = resolveUri(base, trimmed);
+            if (absolute == null) {
+                continue;
+            }
+            String path = absolute.getPath();
+            if (path == null || !path.toLowerCase(Locale.ROOT).endsWith(".ts")) {
+                continue;
+            }
+            if (!isMezzoOtcnetUpstream(absolute.toString())) {
+                continue;
+            }
+            segments.add(absolute.toString());
+        }
+        if (segments.isEmpty()) {
+            return;
+        }
+        int from = Math.max(0, segments.size() - MEZZO_PREFETCH_SEGMENTS);
+        java.util.ArrayList<String> newest = new java.util.ArrayList<>(segments.subList(from, segments.size()));
+        final String refererFinal = referer;
+        mezzoPrefetchExecutor.execute(() -> {
+            for (String segUrl : newest) {
+                try {
+                    loadMezzoSegment(segUrl, refererFinal);
+                } catch (Exception e) {
+                    log.debug("Mezzo prefetch failed {}: {}", segUrl, e.toString());
+                }
+            }
+        });
+    }
+
+    private CapTerreCachedSegment loadMezzoSegment(String url, String referer) {
+        return loadSingleFlightSegment(url, referer, true);
+    }
+
+    /**
      * One in-flight download per segment URL. Callers (player request and prefetch) share it.
      * Bodies that are not MPEG-TS (Flussonic "Not found", 10 bytes) are not cached.
      */
     private CapTerreCachedSegment loadSingleFlightSegment(String url, String referer) {
+        return loadSingleFlightSegment(url, referer, false);
+    }
+
+    private CapTerreCachedSegment loadSingleFlightSegment(String url, String referer, boolean paceMezzo) {
         CapTerreCachedSegment hit = getCapTerreCachedSegment(url);
         if (hit != null) {
             return hit;
@@ -835,7 +951,20 @@ public class TvStreamProxyService {
             }
             return getCapTerreCachedSegment(url);
         }
+        boolean paced = false;
         try {
+            CapTerreCachedSegment again = getCapTerreCachedSegment(url);
+            if (again != null) {
+                created.complete(again);
+                return again;
+            }
+            if (paceMezzo) {
+                if (!awaitMezzoSegmentSlot()) {
+                    created.complete(null);
+                    return null;
+                }
+                paced = true;
+            }
             FetchResult fetched = fetch(url, null, referer);
             if (fetched == null || fetched.status < 200 || fetched.status >= 300
                     || fetched.body == null || !isMpegTransportStream(fetched.body)) {
@@ -851,9 +980,12 @@ public class TvStreamProxyService {
             return stored;
         } catch (Exception e) {
             created.complete(null);
-            log.debug("M6 single-flight fetch failed {}: {}", url, e.toString());
+            log.debug("single-flight fetch failed {}: {}", url, e.toString());
             return null;
         } finally {
+            if (paced) {
+                releaseMezzoSegmentSlot();
+            }
             segmentSingleFlight.remove(url, created);
         }
     }

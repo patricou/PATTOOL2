@@ -21,6 +21,7 @@ import { filter } from 'rxjs/operators';
 
 import {
   ApiService,
+  DeezerArtist,
   TvRecording,
   TvRecordingStatus,
   YoutubeItem,
@@ -132,6 +133,19 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   searching = false;
   loadingMore = false;
   searched = false;
+  similarOpen = false;
+  similarLoading = false;
+  similarError = '';
+  similarName = '';
+  similarArtists: DeezerArtist[] = [];
+  similarSort: 'relevance' | 'name' | 'fans' = 'relevance';
+  similarSortDesc = false;
+  similarSortOpen = false;
+  readonly similarSortOptions: ReadonlyArray<{ id: 'relevance' | 'name' | 'fans'; key: string }> = [
+    { id: 'relevance', key: 'DEEZER.SIMILAR_BY_RELEVANCE' },
+    { id: 'name', key: 'DEEZER.SIMILAR_BY_NAME' },
+    { id: 'fans', key: 'DEEZER.SIMILAR_BY_FANS' }
+  ];
   errorMessage = '';
   missingKey = false;
 
@@ -157,6 +171,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
 
   private searchSub?: Subscription;
   private favoritesSub?: Subscription;
+  private similarSub?: Subscription;
+  private similarForKey = '';
+  private readonly similarCache = new Map<string, DeezerArtist[]>();
   private readonly subs: Subscription[] = [];
   private readonly itemSourceOrder = new WeakMap<YoutubeItem, number>();
   private itemSourceSeq = 0;
@@ -414,6 +431,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     document.removeEventListener('visibilitychange', this.onScreenPower);
     this.searchSub?.unsubscribe();
     this.favoritesSub?.unsubscribe();
+    this.similarSub?.unsubscribe();
     this.subs.forEach((s) => s.unsubscribe());
     if (typeof window !== 'undefined') {
       window.removeEventListener('message', this.onWindowYtMessage);
@@ -1627,6 +1645,12 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.ytSoundOnId = '';
     this.resetPlaybackClock(this.selected);
     this.playbackPaused = false;
+    if (item.kind !== 'playlist' && this.playingLoopedList()) {
+      this.playAllActive = true;
+      if (!this.loopQueue) {
+        this.setLoopQueue(true);
+      }
+    }
     if (this.playerOpen) {
       this.embedUrl = null;
       this.stopYoutubeProgressWatch();
@@ -1747,6 +1771,181 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.playQueueItem(next);
   }
 
+  get similarArtistName(): string {
+    return this.selected ? this.artistSong(this.selected).artist.trim() : '';
+  }
+
+  get similarThumb(): string | null {
+    return this.api.youtubeThumbUrl(this.selected);
+  }
+
+  openSimilarArtists(): void {
+    const name = this.similarArtistName;
+    if (name.length < 2) {
+      return;
+    }
+    const key = this.similarKey(name);
+    this.similarOpen = true;
+    this.similarName = name;
+    this.similarError = '';
+    this.similarForKey = key;
+    const cached = this.similarCache.get(key);
+    if (cached) {
+      this.similarArtists = cached;
+      this.similarLoading = false;
+      return;
+    }
+    this.similarArtists = [];
+    this.similarLoading = true;
+    this.similarSub?.unsubscribe();
+    this.similarSub = this.api.getDeezerSearch(name, 'artist').subscribe({
+      next: (page) => {
+        if (this.destroyed || this.similarForKey !== key) {
+          return;
+        }
+        const match = this.matchDeezerArtist(name, page?.artists || []);
+        if (!match) {
+          this.similarCache.set(key, []);
+          this.similarArtists = [];
+          this.similarLoading = false;
+          return;
+        }
+        this.similarSub = this.api.getDeezerArtist(match.id).subscribe({
+          next: (artistPage) => {
+            if (this.destroyed || this.similarForKey !== key) {
+              return;
+            }
+            const list = artistPage?.related || [];
+            this.similarCache.set(key, list);
+            this.similarArtists = list;
+            this.similarLoading = false;
+          },
+          error: () => this.failSimilar(key)
+        });
+      },
+      error: () => this.failSimilar(key)
+    });
+  }
+
+  closeSimilarArtists(event?: Event): void {
+    event?.stopPropagation();
+    this.similarOpen = false;
+    this.similarSortOpen = false;
+  }
+
+  toggleSimilarSortMenu(event: Event): void {
+    event.stopPropagation();
+    this.similarSortOpen = !this.similarSortOpen;
+  }
+
+  onSimilarModalClick(event: Event): void {
+    event.stopPropagation();
+    const target = event.target as HTMLElement | null;
+    if (!target?.closest('.yt-similar-sort-menu')) {
+      this.similarSortOpen = false;
+    }
+  }
+
+  get similarSortLabelKey(): string {
+    return this.similarSortOptions.find((option) => option.id === this.similarSort)?.key || 'DEEZER.SIMILAR_BY_RELEVANCE';
+  }
+
+  pickSimilarArtist(artist: DeezerArtist): void {
+    const name = (artist.name || '').trim();
+    this.closeSimilarArtists();
+    if (name.length < 2) {
+      return;
+    }
+    this.query = name;
+    this.clearChannelFilter();
+    this.listMode = 'catalog';
+    this.recentOpen = false;
+    this.submitSearch();
+  }
+
+  setSimilarSort(value: string): void {
+    const sort = value === 'name' || value === 'fans' ? value : 'relevance';
+    this.similarSortOpen = false;
+    if (sort === this.similarSort) {
+      return;
+    }
+    this.similarSort = sort;
+    this.similarSortDesc = sort === 'fans';
+  }
+
+  toggleSimilarSortDir(): void {
+    if (this.similarSort === 'relevance') {
+      return;
+    }
+    this.similarSortDesc = !this.similarSortDesc;
+  }
+
+  get sortedSimilarArtists(): DeezerArtist[] {
+    const list = this.similarArtists.slice();
+    if (this.similarSort === 'relevance') {
+      return list;
+    }
+    const dir = this.similarSortDesc ? -1 : 1;
+    if (this.similarSort === 'fans') {
+      list.sort((a, b) => dir * ((a.fanCount || 0) - (b.fanCount || 0)) || this.compareSimilarName(a.name, b.name));
+    } else {
+      list.sort((a, b) => dir * this.compareSimilarName(a.name, b.name));
+    }
+    return list;
+  }
+
+  get similarSortIcon(): string {
+    if (this.similarSort === 'fans') {
+      return this.similarSortDesc ? 'fa-sort-amount-desc' : 'fa-sort-amount-asc';
+    }
+    return this.similarSortDesc ? 'fa-sort-alpha-desc' : 'fa-sort-alpha-asc';
+  }
+
+  formatSimilarFans(count: number | null | undefined): string {
+    const n = Number(count) || 0;
+    if (n >= 1_000_000) {
+      return (n / 1_000_000).toFixed(1).replace('.0', '') + ' M';
+    }
+    if (n >= 1_000) {
+      return Math.round(n / 1000) + ' k';
+    }
+    return n > 0 ? String(n) : '';
+  }
+
+  trackSimilarArtist(_index: number, artist: DeezerArtist): number {
+    return artist.id;
+  }
+
+  private failSimilar(key: string): void {
+    if (this.destroyed || this.similarForKey !== key) {
+      return;
+    }
+    this.similarLoading = false;
+    this.similarArtists = [];
+    this.similarError = 'DEEZER.ERR_LOAD';
+  }
+
+  private matchDeezerArtist(name: string, artists: DeezerArtist[]): DeezerArtist | null {
+    const key = this.similarKey(name);
+    if (!key) {
+      return null;
+    }
+    return artists.find((artist) => this.similarKey(artist.name) === key) || artists[0] || null;
+  }
+
+  private similarKey(name: string): string {
+    return name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }
+
+  private compareSimilarName(a: string, b: string): number {
+    return (a || '').localeCompare(b || '', this.translate.currentLang || 'fr', { sensitivity: 'base' });
+  }
+
   private readonly onBluetoothTune = (event: Event): void => {
     if (this.destroyed || activeScreenKeepAliveOwner() === 'radio') {
       return;
@@ -1820,6 +2019,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     const list = this.queueItems();
     if (!list.length) {
       return;
+    }
+    if (this.playingLoopedList() && !this.loopQueue) {
+      this.setLoopQueue(true);
     }
     this.playAllActive = true;
     this.playbackPaused = false;
@@ -1960,7 +2162,19 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown', ['$event'])
   onTheaterEscape(event: KeyboardEvent): void {
-    if (event.key !== 'Escape' || event.defaultPrevented || !this.theaterMode) {
+    if (event.key !== 'Escape' || event.defaultPrevented) {
+      return;
+    }
+    if (this.similarOpen) {
+      event.preventDefault();
+      if (this.similarSortOpen) {
+        this.similarSortOpen = false;
+        return;
+      }
+      this.closeSimilarArtists();
+      return;
+    }
+    if (!this.theaterMode) {
       return;
     }
     if (this.linkModalRef || this.recordingsModalRef) {
@@ -2354,7 +2568,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     const gen = `&cb=${++this.embedGeneration}`;
     if (item.kind === 'playlist' && /^[a-zA-Z0-9_-]{10,64}$/.test(id)) {
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0${extra}${origin}${gen}`
+        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0&loop=1${extra}${origin}${gen}`
       );
     }
     if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
@@ -3032,6 +3246,14 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.holdScreen();
   }
 
+  /** Favorites and the popular chart play as one loop, like a playlist. */
+  private playingLoopedList(): boolean {
+    if (this.listMode === 'favorites') {
+      return true;
+    }
+    return this.resultKind === 'popular' && !this.query.trim() && !this.channelId;
+  }
+
   private queueWillContinue(): boolean {
     if (!this.playAllActive || this.userHold) {
       return false;
@@ -3067,9 +3289,10 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.endedHandledSync = true;
     if (this.selected?.kind === 'playlist') {
       this.holdScreen();
+      this.handshakeYoutubePlayer();
+      this.sendYoutubeCommand('setLoop', [true]);
       if (this.asleep()) {
-        this.handshakeYoutubePlayer();
-        this.sendYoutubeCommand('playVideo');
+        this.sendYoutubeCommand('nextVideo');
       }
       return;
     }
@@ -3326,6 +3549,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.ytSoundOnId = id;
+    if (this.selected?.kind === 'playlist') {
+      this.sendYoutubeCommand('setLoop', [true]);
+    }
     this.sendYoutubeCommand('unMute');
     this.sendYoutubeCommand('setVolume', [100]);
     this.sendYoutubeCommand('playVideo');

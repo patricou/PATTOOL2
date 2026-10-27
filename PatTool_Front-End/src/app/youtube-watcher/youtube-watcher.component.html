@@ -129,6 +129,17 @@
         <i class="fa fa-step-forward" aria-hidden="true"></i>
       </button>
     </div>
+    <button
+      type="button"
+      class="yt-btn yt-similar-open"
+      (click)="openSimilarArtists()"
+      [disabled]="similarArtistName.length < 2"
+      [attr.title]="'DEEZER.SIMILAR' | translate"
+      [attr.aria-label]="'DEEZER.SIMILAR' | translate"
+      aria-haspopup="dialog">
+      <i class="fa fa-users" aria-hidden="true"></i>
+      {{ 'DEEZER.SIMILAR' | translate }}
+    </button>
     <label class="yt-loop-switch" [attr.title]="'YOUTUBE.PLAY_LOOP_HINT' | translate">
       <span class="form-check form-switch mb-0">
         <input
@@ -1121,6 +1132,77 @@
     </ul>
   </div>
 </ng-template>
+
+<div class="yt-similar-backdrop" *ngIf="similarOpen" (click)="closeSimilarArtists()"></div>
+<div
+  class="yt-similar-modal"
+  *ngIf="similarOpen"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'DEEZER.SIMILAR' | translate"
+  (click)="onSimilarModalClick($event)">
+  <div class="yt-similar-head">
+    <img *ngIf="similarThumb" class="yt-similar-cover" [src]="similarThumb" alt="" />
+    <span *ngIf="!similarThumb" class="yt-similar-cover yt-similar-cover--empty"><i class="fa fa-users" aria-hidden="true"></i></span>
+    <span class="yt-similar-title">
+      <span>{{ 'DEEZER.SIMILAR' | translate }}</span>
+      <strong>{{ 'DEEZER.SIMILAR_OF' | translate:{ name: similarName } }}</strong>
+    </span>
+    <button type="button" class="yt-btn yt-btn--icon" (click)="closeSimilarArtists($event)" [attr.aria-label]="'YOUTUBE.CLEAR' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
+  <div class="yt-similar-body">
+    <p class="yt-similar-note" *ngIf="similarLoading">{{ 'DEEZER.LOADING' | translate }}</p>
+    <p class="yt-similar-note yt-similar-note--error" *ngIf="similarError" role="alert">{{ similarError | translate }}</p>
+    <div class="yt-similar-sort" *ngIf="!similarLoading && similarArtists.length">
+      <div class="yt-similar-sort-menu" (click)="$event.stopPropagation()">
+        <button
+          type="button"
+          class="yt-similar-sort-btn"
+          (click)="toggleSimilarSortMenu($event)"
+          [attr.aria-expanded]="similarSortOpen"
+          [attr.aria-label]="'DEEZER.SIMILAR_SORT' | translate">
+          <span>{{ similarSortLabelKey | translate }}</span>
+          <i class="fa" [class.fa-chevron-up]="similarSortOpen" [class.fa-chevron-down]="!similarSortOpen" aria-hidden="true"></i>
+        </button>
+        <div class="yt-similar-sort-list" *ngIf="similarSortOpen" role="listbox" [attr.aria-label]="'DEEZER.SIMILAR_SORT' | translate">
+          <button
+            type="button"
+            role="option"
+            *ngFor="let option of similarSortOptions"
+            [class.is-on]="similarSort === option.id"
+            [attr.aria-selected]="similarSort === option.id"
+            (click)="setSimilarSort(option.id)">
+            {{ option.key | translate }}
+          </button>
+        </div>
+      </div>
+      <button
+        type="button"
+        class="yt-btn yt-btn--icon"
+        *ngIf="similarSort !== 'relevance'"
+        (click)="toggleSimilarSortDir()"
+        [attr.title]="(similarSortDesc ? 'DEEZER.SIMILAR_SORT_DESC' : 'DEEZER.SIMILAR_SORT_ASC') | translate"
+        [attr.aria-label]="(similarSortDesc ? 'DEEZER.SIMILAR_SORT_DESC' : 'DEEZER.SIMILAR_SORT_ASC') | translate">
+        <i class="fa" [ngClass]="similarSortIcon" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="yt-similar-list" *ngIf="!similarLoading && similarArtists.length">
+      <button
+        type="button"
+        class="yt-similar-choice"
+        *ngFor="let artist of sortedSimilarArtists; trackBy: trackSimilarArtist"
+        (click)="pickSimilarArtist(artist)">
+        <img *ngIf="artist.pictureUrl" class="yt-similar-photo" [src]="artist.pictureUrl" alt="" />
+        <span *ngIf="!artist.pictureUrl" class="yt-similar-photo yt-similar-photo--empty"><i class="fa fa-user" aria-hidden="true"></i></span>
+        <span class="yt-similar-name">{{ artist.name }}</span>
+        <span class="yt-similar-fans" *ngIf="formatSimilarFans(artist.fanCount) as fans">{{ 'DEEZER.FANS' | translate:{ count: fans } }}</span>
+      </button>
+    </div>
+    <p class="yt-similar-note" *ngIf="!similarLoading && !similarError && !similarArtists.length">{{ 'DEEZER.SIMILAR_EMPTY' | translate }}</p>
+  </div>
+</div>
 
 <app-videoshow-modal #videoshowModalComponent headerTheme="youtube" (closed)="onVideoshowClosed()"></app-videoshow-modal>
 <app-youtube-equalizer-modal

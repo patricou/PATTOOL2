@@ -54,7 +54,7 @@ export interface TvHlsPlaybackCallbacks {
    */
   slowMirror?: boolean;
   /**
-   * Mezzo: buffer only ~2 segments. A longer burst makes otcnet throttle.
+   * Mezzo: hold the segments the proxy has already cached. Do not burst the CDN.
    */
   pacedLive?: boolean;
   /**
@@ -333,7 +333,7 @@ export function startTvHlsPlayback(
       video,
       (buffering) => setBuffering(buffering),
       channelLabel,
-      slowMirror ? 2_500 : 0
+      slowMirror ? 2_500 : pacedLive ? 1_500 : 0
     );
     detachSlowPace = callbacks.paceBelowRealtime
       ? attachTvSlowMirrorPaceGuard(video, channelLabel, (buffering) => setBuffering(buffering))

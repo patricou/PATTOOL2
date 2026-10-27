@@ -109,8 +109,8 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   }
   // Mezzo: the iptv-org country playlist still points at str2.iptvhd.ru, which
   // answers HTTP 403 (deny_token). Mezzo Live stays on its own mirror.
-  // The otcnet window is only ~20 s. The player keeps two segments, not the whole window:
-  // a third back-to-back download makes the CDN fall under realtime.
+  // The otcnet window is only ~20 s. The proxy downloads the two newest segments
+  // one at a time — a fourth immediate fetch makes the CDN slower than realtime.
   if (isMezzoChannel(channel)) {
     return MEZZO_PUBLIC_HLS;
   }
@@ -314,8 +314,9 @@ export function usesTightLiveWindow(
 }
 
 /**
- * Mezzo on otcnet. Two ~3.5 MiB segments stay fast; a third immediate download
- * drops the pipe under the 5 s realtime budget and the picture stalls.
+ * Mezzo on otcnet. The proxy serves the newest segments from RAM so a slow
+ * origin fetch does not empty the player. The CDN itself stalls if four
+ * segments are pulled back to back.
  */
 export function usesPacedLiveWindow(
   channelOrUrl:
