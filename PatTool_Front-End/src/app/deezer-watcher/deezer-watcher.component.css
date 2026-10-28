@@ -344,6 +344,37 @@
   padding: 0.35rem 0.75rem;
 }
 
+.dz-now-jump {
+  display: flex;
+  flex: 1 0 100%;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+
+.dz-now-jump button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 1.7rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--menu-accent, #7c3aed);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--menu-fg, inherit);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.dz-now-jump button:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
 .dz-layout.radio-layout--sidebar-collapsed {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -415,6 +446,7 @@
 .dz-list-transport button.is-main.is-live {
   background: #111;
   border-color: #111;
+  color: #fff;
 }
 
 .dz-transport-mark {
@@ -1107,6 +1139,18 @@
   }
 }
 
+.radio-player-panel.dz-video {
+  width: min(100%, 76rem, calc((100dvh - 15rem) * 16 / 9));
+}
+
+.radio-player-panel.dz-video .radio-face {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+}
+
 .radio-player-panel.dz-video .radio-presets {
   max-height: 8rem;
   transition: opacity 0.28s ease, max-height 0.28s ease, margin 0.28s ease;
@@ -1621,6 +1665,41 @@ a.radio-now-action.dz-deezer-link {
   display: flex;
   align-items: flex-start;
   gap: 0.4rem;
+}
+
+.dz-album-sort {
+  align-items: center;
+  padding: 0.15rem 0.7rem 0.05rem;
+}
+
+.dz-album-sort .dz-similar-sort-menu {
+  flex: 0 1 auto;
+  max-width: 9rem;
+}
+
+.dz-album-sort .dz-similar-sort-btn {
+  width: auto;
+  min-height: 1.35rem;
+  padding: 0.08rem 0.5rem;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  border-radius: 999px;
+}
+
+.dz-album-sort .dz-similar-sort-list {
+  min-width: 8.5rem;
+  right: auto;
+}
+
+.dz-album-sort .dz-similar-sort-list button {
+  padding: 0.28rem 0.5rem;
+  font-size: 0.72rem;
+}
+
+.dz-album-sort .dz-similar-sort-dir {
+  width: 1.35rem;
+  height: 1.35rem;
+  font-size: 0.72rem;
 }
 
 .dz-similar-sort-menu {

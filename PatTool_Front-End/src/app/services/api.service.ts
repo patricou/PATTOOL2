@@ -4155,6 +4155,7 @@ export class ApiService {
     );
   }
 
+  /** Cabinet style for this user. The same value is stored for TV, radio and Deezer. */
   getTvSkin(): Observable<string | null> {
     return this.getHeaderWithToken().pipe(
       switchMap((headers) =>
@@ -4517,6 +4518,7 @@ export class ApiService {
     );
   }
 
+  /** Cabinet style for this user. The same value is stored for TV, radio and Deezer. */
   getRadioSkin(): Observable<string | null> {
     return this.getHeaderWithToken().pipe(
       switchMap((headers) =>
@@ -4543,6 +4545,7 @@ export class ApiService {
   // Backend: /api/external/deezer/*
   // ===================================================================
 
+  /** Cabinet style for this user. The same value is stored for TV, radio and Deezer. */
   getDeezerSkin(): Observable<string | null> {
     return this.getHeaderWithToken().pipe(
       switchMap((headers) =>

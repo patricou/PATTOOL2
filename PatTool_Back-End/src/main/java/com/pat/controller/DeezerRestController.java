@@ -53,7 +53,7 @@ import java.util.function.Supplier;
  *   <li>{@code PUT/DELETE /api/external/deezer/user-playlists/{id}}</li>
  *   <li>{@code PUT/DELETE /api/external/deezer/user-playlists/{id}/tracks}</li>
  *   <li>{@code PUT /api/external/deezer/user-playlists/{id}/order}</li>
- *   <li>{@code GET/PUT /api/external/deezer/skin}</li>
+ *   <li>{@code GET/PUT /api/external/deezer/skin} — cabinet style shared with TV and radio</li>
  * </ul>
  */
 @RestController

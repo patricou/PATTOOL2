@@ -61,7 +61,7 @@ import java.util.stream.Collectors;
  *   <li>{@code GET/PUT /api/external/radio/favorites}</li>
  *   <li>{@code PUT/DELETE /api/external/radio/favorites/item}</li>
  *   <li>{@code GET/PUT /api/external/radio/last-station}</li>
- *   <li>{@code GET/PUT /api/external/radio/skin}</li>
+ *   <li>{@code GET/PUT /api/external/radio/skin} — cabinet style shared with TV and Deezer</li>
  * </ul>
  */
 @RestController

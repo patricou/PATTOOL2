@@ -21,6 +21,7 @@ import { RadioNowPlayingService } from '../services/radio-now-playing.service';
 import { RadioFloatingState, RadioPlayerService } from '../services/radio-player.service';
 import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
 import { YoutubeEqualizerModalComponent } from '../youtube-watcher/youtube-equalizer-modal.component';
+import { isMediaSkin, MEDIA_SKIN_STORAGE_KEY } from '../services/media-skin';
 import { setDeviceMediaVolume, activeScreenKeepAliveOwner } from '../services/media-screen-keepalive';
 import { createTvHlsConfig, resetTvMediaElement, tryRecoverTvHlsError } from '../tv-watcher/tv-hls-config';
 import { attachRadioPlaybackGuard, bustRadioStreamUrl, RadioPlaybackGuard } from './radio-playback-guard';
@@ -762,7 +763,8 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
 
   private readRadioLook(): void {
     try {
-      const skin = localStorage.getItem('pattool.radio.skin');
+      const shared = localStorage.getItem(MEDIA_SKIN_STORAGE_KEY);
+      const skin = isMediaSkin(shared) ? shared : localStorage.getItem('pattool.radio.skin');
       this.radioSkin = (RADIO_SKIN_IDS as readonly string[]).includes(skin || '')
         ? (skin as RadioSkinId)
         : 'classic';

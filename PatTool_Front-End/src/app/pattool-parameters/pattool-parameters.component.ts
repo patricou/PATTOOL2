@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { ApiService, PatToolParameterItem, PatToolParameterSection, UserAppParameter } from '../services/api.service';
+import { collapseMediaSkinParameters } from '../services/media-skin';
 import { KeycloakService } from '../keycloak/keycloak.service';
 
 /** featureKey → i18n label (USERINFO.PARAM_LABELS.*). */
@@ -12,9 +13,8 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
   'assistant.routing': 'USERINFO.PARAM_LABELS.ASSISTANT_ROUTING',
   'tv.favorites': 'USERINFO.PARAM_LABELS.TV_FAVORITES',
   'tv.last-channel': 'USERINFO.PARAM_LABELS.TV_LAST_CHANNEL',
-  'tv.skin': 'USERINFO.PARAM_LABELS.TV_SKIN',
+  'media.skin': 'USERINFO.PARAM_LABELS.MEDIA_SKIN',
   'radio.last-station': 'USERINFO.PARAM_LABELS.RADIO_LAST_STATION',
-  'radio.skin': 'USERINFO.PARAM_LABELS.RADIO_SKIN',
   'webcam.favorites': 'USERINFO.PARAM_LABELS.WEBCAM_FAVORITES',
   'webcam.last': 'USERINFO.PARAM_LABELS.WEBCAM_LAST',
   'archive.recent': 'USERINFO.PARAM_LABELS.ARCHIVE_RECENT',
@@ -50,7 +50,6 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
   'youtube.favorites': 'USERINFO.PARAM_LABELS.YOUTUBE_FAVORITES',
   'deezer.favorites': 'USERINFO.PARAM_LABELS.DEEZER_FAVORITES',
   'deezer.playlists': 'USERINFO.PARAM_LABELS.DEEZER_PLAYLISTS',
-  'deezer.skin': 'USERINFO.PARAM_LABELS.DEEZER_SKIN',
   'audio.equalizer': 'USERINFO.PARAM_LABELS.AUDIO_EQUALIZER'
 };
 
@@ -284,7 +283,7 @@ export class PattoolParametersComponent implements OnInit {
     this.userError = '';
     this.api.getUserAppParameters('all', true).subscribe({
       next: (rows) => {
-        this.userRows = rows || [];
+        this.userRows = collapseMediaSkinParameters(rows || []);
         this.userLoading = false;
       },
       error: () => {

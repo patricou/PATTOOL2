@@ -35,6 +35,7 @@ import { GpsRecordingService } from './services/gps-recording.service';
 import { TraceViewerModalComponent } from './shared/trace-viewer-modal/trace-viewer-modal.component';
 import { GpsOfflinePackComponent } from './shared/gps-offline-pack.component';
 import { ApiService, AstroGroundPosition, UserAppParameter } from './services/api.service';
+import { collapseMediaSkinParameters } from './services/media-skin';
 import { buildIssTopViewIconDataUrl } from './shared/globe-iss-icon.util';
 
 type UserInfoTabId = 'profile' | 'account' | 'tv' | 'news' | 'globe' | 'meteo' | 'assistant' | 'other';
@@ -91,9 +92,8 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     'assistant.routing': 'USERINFO.PARAM_LABELS.ASSISTANT_ROUTING',
     'tv.favorites': 'USERINFO.PARAM_LABELS.TV_FAVORITES',
     'tv.last-channel': 'USERINFO.PARAM_LABELS.TV_LAST_CHANNEL',
-    'tv.skin': 'USERINFO.PARAM_LABELS.TV_SKIN',
+    'media.skin': 'USERINFO.PARAM_LABELS.MEDIA_SKIN',
     'radio.last-station': 'USERINFO.PARAM_LABELS.RADIO_LAST_STATION',
-    'radio.skin': 'USERINFO.PARAM_LABELS.RADIO_SKIN',
     'webcam.favorites': 'USERINFO.PARAM_LABELS.WEBCAM_FAVORITES',
     'webcam.last': 'USERINFO.PARAM_LABELS.WEBCAM_LAST',
     'archive.recent': 'USERINFO.PARAM_LABELS.ARCHIVE_RECENT',
@@ -1255,7 +1255,7 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     private categorizeUserParam(p: UserAppParameter): UserInfoTabId {
         const key = ((p.featureKey || p.paramKey || '') as string).toLowerCase();
-        if (key.startsWith('tv.') || key.startsWith('radio.') || key.startsWith('webcam.') || key.includes('.tv.')) {
+        if (key.startsWith('tv.') || key.startsWith('radio.') || key.startsWith('media.skin') || key.startsWith('webcam.') || key.includes('.tv.')) {
             return 'tv';
         }
         if (key.startsWith('news.') || key.includes('news.ticker')) {
@@ -1312,7 +1312,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.userInfoTabsCacheKey = '';
         this.userParamsSub = this.api.getUserAppParameters('all').subscribe({
             next: (rows) => {
-                this.userAppParameters = rows || [];
+                this.userAppParameters = collapseMediaSkinParameters(rows || []);
                 this.isLoadingUserParams = false;
                 this.userInfoTabsCacheKey = '';
                 this.cdr.detectChanges();

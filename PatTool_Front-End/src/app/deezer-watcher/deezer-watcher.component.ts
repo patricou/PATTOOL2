@@ -29,6 +29,7 @@ import {
   stopRadioPipCarrier,
   supportsRadioPictureInPicture
 } from '../radio-watcher/radio-pip.util';
+import { readMediaSkin, writeMediaSkin } from '../services/media-skin';
 import { activeScreenKeepAliveOwner, screenIsOff, setScreenKeepAlive } from '../services/media-screen-keepalive';
 import { DeezerKeepAliveService } from './deezer-keep-alive.service';
 
@@ -123,6 +124,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   queue: DeezerTrack[] = [];
   /** False after Classement / Favoris / Playlists: the next Lecture starts that tab. */
   private playbackFollowsList = true;
+  /** Tab that started the list now heard. Other tabs keep their own Lecture button. */
+  private playbackListMode: 'browse' | 'favorites' | 'playlists' | null = null;
   private playPendingList = false;
   sleeveAlbums: DeezerAlbum[] = [];
   related: DeezerArtist[] = [];
@@ -167,6 +170,22 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   hideExplicit = false;
   previewOnly = false;
   listMode: 'browse' | 'favorites' | 'playlists' = 'browse';
+  /** Album tracks, or the playing artist's albums, opened from any tab without taking over playback. */
+  nowBrowse: 'album' | 'artist-albums' | null = null;
+  nowBrowseTitle = '';
+  nowBrowseSubtitle = '';
+  nowBrowseTracks: DeezerTrack[] = [];
+  nowBrowseAlbums: DeezerAlbum[] = [];
+  albumSort: 'year' | 'name' | 'tracks' = 'year';
+  albumSortDesc = true;
+  albumSortOpen = false;
+  readonly albumSortOptions: ReadonlyArray<{ id: 'year' | 'name' | 'tracks'; key: string }> = [
+    { id: 'year', key: 'DEEZER.ALBUM_BY_YEAR' },
+    { id: 'name', key: 'DEEZER.SIMILAR_BY_NAME' },
+    { id: 'tracks', key: 'DEEZER.ALBUM_BY_TRACKS' }
+  ];
+  private nowBrowseFrom: 'artist-albums' | null = null;
+  private nowArtistName = '';
   favorites: DzFav[] = [];
   favoritesHint = '';
   favoritesError = '';
@@ -412,6 +431,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   get shownTracks(): DeezerTrack[] {
+    if (this.nowBrowse === 'album') {
+      return this.nowBrowseTracks.filter((track) => this.passTrack(track));
+    }
     const source = this.activeUserPlaylist
       ? (this.activeUserPlaylist.tracks || [])
       : (this.listMode === 'favorites' && !this.drilled ? this.favoriteTracks : this.tracks);
@@ -427,6 +449,12 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   get showTrackList(): boolean {
+    if (this.nowBrowse === 'artist-albums') {
+      return false;
+    }
+    if (this.nowBrowse === 'album') {
+      return true;
+    }
     if (this.listMode === 'playlists') {
       return !!this.activeUserPlaylist;
     }
@@ -553,9 +581,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       return;
     }
     this.listMode = mode;
-    this.playbackFollowsList = false;
+    this.playbackFollowsList = this.playbackListMode === mode;
     this.playPendingList = false;
     this.loadSeq++;
+    this.clearNowBrowse();
     this.activeUserPlaylist = null;
     this.playlistMenuTrack = null;
     this.renamingPlaylistId = '';
@@ -599,14 +628,11 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
    * from the first one, instead of resuming whatever was already loaded.
    */
   private playListedFromStart(): void {
-    if (this.listMode === 'browse' && this.loading) {
+    if (this.listMode === 'browse' && this.loading && !this.nowBrowse) {
       this.playPendingList = true;
       return;
     }
-    const tracks = this.listMode === 'playlists' && !this.activeUserPlaylist
-      ? this.playlistTabTracks()
-      : this.shownTracks;
-    this.startListedQueue(tracks);
+    this.startListedQueue(this.listedTracks());
   }
 
   private startListedQueue(tracks: DeezerTrack[]): void {
@@ -614,6 +640,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (!first) {
       return;
     }
+    this.claimPlaybackTab();
     this.playbackFollowsList = true;
     this.playPendingList = false;
     this.youtubeMode = true;
@@ -646,15 +673,64 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   /**
-   * Lecture starts the visible list from the first title and, at the end, goes back to the first.
-   * A second click pauses that session; Lecture again resumes it.
+   * Lecture starts the list on screen from its first title.
+   * Pause only while that same list is the one already playing.
    */
   playPauseListed(): void {
-    if (this.playbackFollowsList && this.repeatQueue && this.current) {
+    if (this.playing && this.current) {
       this.togglePlay();
       return;
     }
     this.playListedFromStart();
+  }
+
+  /** Pause only while the list on screen is the one playing. Any other list shows Lecture. */
+  get tabListPlaying(): boolean {
+    if (!this.playing || !this.current) {
+      return false;
+    }
+    const listed = this.listedTracks();
+    return this.sameTrackList(this.queue, listed) && listed.some((track) => track.id === this.current!.id);
+  }
+
+  /** List button: pause this list, or start its first title from any tab. */
+  playPauseThisTab(): void {
+    if (this.tabListPlaying) {
+      this.playbackFollowsList = true;
+      this.togglePlay();
+      return;
+    }
+    this.playListedFromStart();
+  }
+
+  /** Tracks the Lecture button controls: the album on screen, this playlist, or this tab. */
+  private listedTracks(): DeezerTrack[] {
+    if (this.nowBrowse === 'album') {
+      return this.shownTracks;
+    }
+    if (this.nowBrowse === 'artist-albums') {
+      return [];
+    }
+    if (this.listMode === 'playlists' && !this.activeUserPlaylist && !this.drilled) {
+      return this.playlistTabTracks();
+    }
+    return this.shownTracks;
+  }
+
+  private sameTrackList(queue: DeezerTrack[], listed: DeezerTrack[]): boolean {
+    if (!queue.length || queue.length !== listed.length) {
+      return false;
+    }
+    for (let i = 0; i < queue.length; i++) {
+      if (queue[i]?.id !== listed[i]?.id) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private claimPlaybackTab(): void {
+    this.playbackListMode = this.listMode;
   }
 
   onYoutubeIcon(track: DeezerTrack, index: number, event?: Event): void {
@@ -687,6 +763,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (!this.ytLinks[track.id]) {
       return;
     }
+    this.claimPlaybackTab();
     this.youtubeMode = true;
     this.repeatQueue = true;
     this.queue = this.shownTracks;
@@ -937,13 +1014,182 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.loadSearch(this.query.trim());
       return;
     }
-    if (view === 'track') {
+    if (view === 'track' && !this.nowBrowse) {
       this.queue = this.shownTracks;
       this.syncYoutubeButtons();
     }
   }
 
+  /** Tracks of the album that is playing. The current title keeps playing. */
+  showPlayingAlbum(): void {
+    const albumId = this.current?.albumId;
+    if (!albumId) {
+      return;
+    }
+    this.loadAlbumTracks(albumId, this.current?.albumTitle || '', this.current?.artistName || '', null);
+  }
+
+  /** Albums of the artist that is playing. The current title keeps playing. */
+  showPlayingArtistAlbums(): void {
+    const artistId = this.current?.artistId;
+    if (!artistId) {
+      return;
+    }
+    const name = (this.current?.artistName || '').trim();
+    const seq = ++this.loadSeq;
+    this.loading = true;
+    this.errorKey = '';
+    this.nowBrowse = 'artist-albums';
+    this.nowBrowseFrom = null;
+    this.nowArtistName = name;
+    this.nowBrowseTitle = name;
+    this.nowBrowseSubtitle = '';
+    this.nowBrowseTracks = [];
+    this.api.getDeezerArtistAlbums(artistId).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (albums) => {
+        if (seq !== this.loadSeq) {
+          return;
+        }
+        this.loading = false;
+        this.nowBrowseAlbums = albums || [];
+      },
+      error: () => {
+        if (seq !== this.loadSeq) {
+          return;
+        }
+        this.loading = false;
+        this.nowBrowseAlbums = [];
+        this.errorKey = 'DEEZER.ERR_LOAD';
+      }
+    });
+  }
+
+  showAlbumTracks(album: DeezerAlbum): void {
+    const from = this.nowBrowse === 'artist-albums' ? 'artist-albums' : null;
+    this.loadAlbumTracks(album.id, album.title, album.artistName || this.nowArtistName, from);
+  }
+
+  private loadAlbumTracks(albumId: number, title: string, artist: string, from: 'artist-albums' | null): void {
+    const seq = ++this.loadSeq;
+    this.loading = true;
+    this.errorKey = '';
+    this.nowBrowse = 'album';
+    this.nowBrowseFrom = from;
+    this.nowBrowseTitle = title;
+    this.nowBrowseSubtitle = artist;
+    this.api.getDeezerAlbum(albumId).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (page) => {
+        if (seq !== this.loadSeq) {
+          return;
+        }
+        this.loading = false;
+        this.nowBrowseTitle = page?.album?.title || title;
+        this.nowBrowseSubtitle = page?.album?.artistName || artist;
+        this.nowBrowseTracks = page?.tracks || [];
+        this.ytScanKey = '';
+        this.syncYoutubeButtons();
+      },
+      error: () => {
+        if (seq !== this.loadSeq) {
+          return;
+        }
+        this.loading = false;
+        this.nowBrowseTracks = [];
+        this.errorKey = 'DEEZER.ERR_LOAD';
+      }
+    });
+  }
+
+  private clearNowBrowse(): void {
+    this.nowBrowse = null;
+    this.nowBrowseFrom = null;
+    this.nowArtistName = '';
+    this.nowBrowseTitle = '';
+    this.nowBrowseSubtitle = '';
+    this.nowBrowseTracks = [];
+    this.nowBrowseAlbums = [];
+    this.albumSortOpen = false;
+  }
+
+  toggleAlbumSortMenu(event: Event): void {
+    event.stopPropagation();
+    this.albumSortOpen = !this.albumSortOpen;
+  }
+
+  setAlbumSort(value: string): void {
+    const sort = value === 'name' || value === 'tracks' ? value : 'year';
+    this.albumSortOpen = false;
+    if (sort === this.albumSort) {
+      return;
+    }
+    this.albumSort = sort;
+    this.albumSortDesc = sort !== 'name';
+  }
+
+  toggleAlbumSortDir(): void {
+    this.albumSortDesc = !this.albumSortDesc;
+  }
+
+  get albumSortLabelKey(): string {
+    return this.albumSortOptions.find((option) => option.id === this.albumSort)?.key || 'DEEZER.ALBUM_BY_YEAR';
+  }
+
+  get albumSortIcon(): string {
+    if (this.albumSort === 'name') {
+      return this.albumSortDesc ? 'fa-sort-alpha-desc' : 'fa-sort-alpha-asc';
+    }
+    return this.albumSortDesc ? 'fa-sort-amount-desc' : 'fa-sort-amount-asc';
+  }
+
+  get sortedArtistAlbums(): DeezerAlbum[] {
+    const list = this.nowBrowseAlbums.slice();
+    const dir = this.albumSortDesc ? -1 : 1;
+    list.sort((a, b) => {
+      if (this.albumSort === 'name') {
+        return dir * (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' });
+      }
+      if (this.albumSort === 'tracks') {
+        const diff = (a.trackCount || 0) - (b.trackCount || 0);
+        if (diff !== 0) {
+          return dir * diff;
+        }
+      } else {
+        const ay = this.yearOf(a.releaseDate);
+        const by = this.yearOf(b.releaseDate);
+        if (ay !== by) {
+          if (!ay) {
+            return 1;
+          }
+          if (!by) {
+            return -1;
+          }
+          return dir * ay.localeCompare(by);
+        }
+      }
+      return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' });
+    });
+    return list;
+  }
+
   back(): void {
+    if (this.nowBrowse === 'album' && this.nowBrowseFrom === 'artist-albums') {
+      this.loadSeq++;
+      this.loading = false;
+      this.errorKey = '';
+      this.nowBrowse = 'artist-albums';
+      this.nowBrowseFrom = null;
+      this.nowBrowseTitle = this.nowArtistName;
+      this.nowBrowseSubtitle = '';
+      this.nowBrowseTracks = [];
+      return;
+    }
+    if (this.nowBrowse) {
+      this.loadSeq++;
+      this.loading = false;
+      this.errorKey = '';
+      this.clearNowBrowse();
+      return;
+    }
     if (this.activeUserPlaylist) {
       this.activeUserPlaylist = null;
       this.renamingPlaylistId = '';
@@ -972,6 +1218,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   playListedTrack(track: DeezerTrack, index: number): void {
+    this.claimPlaybackTab();
     this.repeatQueue = true;
     this.playbackFollowsList = true;
     this.queue = this.shownTracks;
@@ -982,6 +1229,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   playDeezerTrack(track: DeezerTrack, index: number, event?: Event): void {
     event?.stopPropagation();
     const wasYoutube = this.youtubeMode || !!this.youtubeEmbed;
+    this.claimPlaybackTab();
     this.youtubeMode = false;
     this.repeatQueue = true;
     this.queue = this.shownTracks;
@@ -998,7 +1246,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.togglePlay();
       return;
     }
-    this.playbackFollowsList = true;
+    if (this.playbackListMode == null || this.playbackListMode === this.listMode) {
+      this.claimPlaybackTab();
+      this.playbackFollowsList = true;
+    }
     this.ytReplay = restart && same ? Date.now() : 0;
     this.current = track;
     this.queueIndexHint = index;
@@ -1160,6 +1411,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.syncYoutubeButtons();
         this.queue = this.shownTracks;
         this.repeatQueue = true;
+        this.claimPlaybackTab();
         this.playbackFollowsList = true;
         if (this.queue.length) {
           this.playTrack(this.queue[0], 0);
@@ -1196,6 +1448,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         this.sleeveArtistId = artist.id;
         this.related = page?.related || [];
         this.repeatQueue = true;
+        this.claimPlaybackTab();
         this.playbackFollowsList = true;
         if (this.queue.length) {
           this.playTrack(this.queue[0], 0);
@@ -1228,6 +1481,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.syncYoutubeButtons();
         this.queue = this.shownTracks;
         this.repeatQueue = true;
+        this.claimPlaybackTab();
         this.playbackFollowsList = true;
         if (this.queue.length) {
           this.playTrack(this.queue[0], 0);
@@ -2012,6 +2266,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (this.similarSortOpen && !target?.closest?.('.dz-similar-sort-menu')) {
       this.similarSortOpen = false;
     }
+    if (this.albumSortOpen && !target?.closest?.('.dz-album-sort')) {
+      this.albumSortOpen = false;
+    }
     if (this.playlistMenuTrack && !target?.closest?.('.dz-pl-modal') && !target?.closest?.('.dz-pl-btn')) {
       this.closePlaylistMenu();
     }
@@ -2109,6 +2366,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   onEscape(): void {
     if (this.landscapeFullscreen) {
       this.exitLandscapeFullscreen(true);
+      return;
+    }
+    if (this.albumSortOpen) {
+      this.albumSortOpen = false;
       return;
     }
     if (this.similarOpen) {
@@ -2371,26 +2632,19 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         this.writeLocalSkin(remote);
         this.cdr.markForCheck();
       } else if (local) {
+        this.writeLocalSkin(local);
         this.saveRemoteSkin(local);
       }
     });
   }
 
   private readSkin(): DzSkin | null {
-    try {
-      const raw = localStorage.getItem(DeezerWatcherComponent.SKIN_KEY);
-      return DeezerWatcherComponent.isDzSkin(raw) ? raw : null;
-    } catch {
-      return null;
-    }
+    const raw = readMediaSkin(DeezerWatcherComponent.SKIN_KEY);
+    return DeezerWatcherComponent.isDzSkin(raw) ? raw : null;
   }
 
   private writeLocalSkin(skin: DzSkin): void {
-    try {
-      localStorage.setItem(DeezerWatcherComponent.SKIN_KEY, skin);
-    } catch {
-      /* private mode / quota */
-    }
+    writeMediaSkin(skin);
   }
 
   private saveRemoteSkin(skin: DzSkin): void {
@@ -2639,6 +2893,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.queue = kept.queue;
     this.queueIndexHint = kept.index;
     this.repeatQueue = kept.repeat;
+    this.claimPlaybackTab();
     this.playbackFollowsList = true;
     this.ytLinks = { ...this.ytLinks, ...kept.youtubeIds };
     this.volume = kept.volume;
@@ -2942,7 +3197,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   private syncYoutubeButtons(): void {
-    if (this.view !== 'track' && !this.drilled) {
+    if (this.nowBrowse !== 'album' && this.view !== 'track' && !this.drilled) {
       return;
     }
     const shown = this.shownTracks.filter((track) => track.id && this.youtubeQuery(track).length >= 2);
@@ -3097,6 +3352,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   private refreshQueue(): void {
+    if (this.nowBrowse || (this.playing && this.current)) {
+      return;
+    }
     if (this.drilled || this.view === 'track' || this.activeUserPlaylist) {
       this.queue = this.shownTracks;
     }

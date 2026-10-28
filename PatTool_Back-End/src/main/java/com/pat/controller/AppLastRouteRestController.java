@@ -6,6 +6,7 @@ import com.pat.controller.dto.UserAppParameterDto;
 import com.pat.repo.domain.AppParameter;
 import com.pat.service.AppParameterService;
 import com.pat.service.LastRouteService;
+import com.pat.service.MediaSkinService;
 import com.pat.service.TelegramService;
 import com.pat.service.UserOwnerService;
 import org.slf4j.Logger;
@@ -45,14 +46,17 @@ public class AppLastRouteRestController {
     private final LastRouteService lastRouteService;
     private final AppParameterService appParameterService;
     private final UserOwnerService userOwnerService;
+    private final MediaSkinService mediaSkinService;
 
     public AppLastRouteRestController(
             LastRouteService lastRouteService,
             AppParameterService appParameterService,
-            UserOwnerService userOwnerService) {
+            UserOwnerService userOwnerService,
+            MediaSkinService mediaSkinService) {
         this.lastRouteService = lastRouteService;
         this.appParameterService = appParameterService;
         this.userOwnerService = userOwnerService;
+        this.mediaSkinService = mediaSkinService;
     }
 
     @GetMapping("/last-route")
@@ -103,6 +107,14 @@ public class AppLastRouteRestController {
         String sub = trimToNull(jwt.getSubject());
         UserOwnerService.Owner identity = userOwnerService.resolve(jwt, sub);
         String username = identity.username();
+        String skinOwner = sub != null ? sub : username;
+        if (skinOwner != null) {
+            try {
+                mediaSkinService.collapseLegacySkins(skinOwner);
+            } catch (RuntimeException e) {
+                log.warn("Could not collapse legacy media skins for '{}': {}", skinOwner, e.getMessage());
+            }
+        }
 
         LinkedHashSet<String> owners = new LinkedHashSet<>(identity.aliases());
         if (owners.isEmpty()) {
@@ -141,6 +153,9 @@ public class AppLastRouteRestController {
                 String feature = key != null && key.endsWith(suffix)
                         ? key.substring(0, key.length() - suffix.length())
                         : key;
+                if (isLegacyMediaSkin(feature)) {
+                    continue;
+                }
                 String value = row.getParamValue();
                 if (key != null && key.startsWith("telegram.connection.")) {
                     value = TelegramService.redactStoredConnection(value);
@@ -203,6 +218,12 @@ public class AppLastRouteRestController {
             return null;
         }
         return jwt;
+    }
+
+    private static boolean isLegacyMediaSkin(String feature) {
+        return "tv.skin".equals(feature)
+                || "radio.skin".equals(feature)
+                || "deezer.skin".equals(feature);
     }
 
     private static String trimToNull(String value) {

@@ -28,10 +28,9 @@ public final class PatToolParameterCatalog {
             "tv.favorites.",
             "tv.filter-preferences.",
             "tv.last-channel.",
-            "tv.skin.",
+            "media.skin.",
             "radio.favorites.",
             "radio.last-station.",
-            "radio.skin.",
             "webcam.favorites.",
             "webcam.last.",
             "artisans.favorites.",
@@ -64,7 +63,6 @@ public final class PatToolParameterCatalog {
             "gps.follow-user.",
             "gps.slope-coef.",
             "clock.preferences.",
-            "deezer.skin.",
             "telegram.connection.",
             "telegram.inbox."
     );

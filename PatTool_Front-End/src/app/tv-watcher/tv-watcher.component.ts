@@ -77,6 +77,7 @@ import { bustVirtualLiveCache, preflightVirtualLive, virtualLiveKeepAliveFromUrl
 import { MediaCatalogCacheToolbarComponent } from '../shared/media-catalog-cache-toolbar/media-catalog-cache-toolbar.component';
 import { TvEpgBrowserComponent } from './tv-epg-browser.component';
 import { TvGlobalFilterModalComponent } from './tv-global-filter-modal.component';
+import { readMediaSkin, writeMediaSkin } from '../services/media-skin';
 import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
 import { YoutubeEqualizerModalComponent } from '../youtube-watcher/youtube-equalizer-modal.component';
 
@@ -1516,20 +1517,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   private readLocalSkin(): TvSkin | null {
-    try {
-      const raw = localStorage.getItem(TvWatcherComponent.SKIN_STORAGE_KEY);
-      return TvWatcherComponent.isTvSkin(raw) ? raw : null;
-    } catch {
-      return null;
-    }
+    const raw = readMediaSkin(TvWatcherComponent.SKIN_STORAGE_KEY);
+    return TvWatcherComponent.isTvSkin(raw) ? raw : null;
   }
 
   private writeLocalSkin(skin: TvSkin): void {
-    try {
-      localStorage.setItem(TvWatcherComponent.SKIN_STORAGE_KEY, skin);
-    } catch {
-      /* private mode / quota */
-    }
+    writeMediaSkin(skin);
   }
 
   private saveRemoteSkin(skin: TvSkin): void {
@@ -1556,6 +1549,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         this.writeLocalSkin(remote);
         this.cdr.markForCheck();
       } else if (local) {
+        this.writeLocalSkin(local);
         this.saveRemoteSkin(local);
       }
     });

@@ -41,6 +41,7 @@ import {
   RadioFilterPreference,
   RadioGlobalFilterModalComponent
 } from './radio-global-filter-modal.component';
+import { readMediaSkin, writeMediaSkin } from '../services/media-skin';
 import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
 import { YoutubeEqualizerModalComponent } from '../youtube-watcher/youtube-equalizer-modal.component';
 
@@ -1058,21 +1059,12 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private readLocalSkin(): RadioSkin | null {
-    try {
-      const raw = localStorage.getItem(RadioWatcherComponent.SKIN_STORAGE_KEY);
-      return RadioWatcherComponent.isRadioSkin(raw) ? raw : null;
-    } catch {
-      return null;
-    }
+    const raw = readMediaSkin(RadioWatcherComponent.SKIN_STORAGE_KEY);
+    return RadioWatcherComponent.isRadioSkin(raw) ? raw : null;
   }
 
   private writeLocalSkin(skin: RadioSkin): void {
-    try {
-      localStorage.setItem(RadioWatcherComponent.SKIN_STORAGE_KEY, skin);
-    } catch {
-      /* private mode / quota */
-    }
-    this.publishRadioLook();
+    writeMediaSkin(skin);
   }
 
   /** The outside-browser window and the in-app float read the same look. */
@@ -1114,6 +1106,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
         this.writeLocalSkin(remote);
         this.cdr.markForCheck();
       } else if (local) {
+        this.writeLocalSkin(local);
         this.saveRemoteSkin(local);
       }
     });

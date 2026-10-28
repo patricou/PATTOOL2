@@ -88,7 +88,7 @@ import java.util.stream.Collectors;
  *   <li>{@code DELETE /api/external/tv/favorites/item?id=...}</li>
  *   <li>{@code GET/PUT /api/external/tv/filter-preferences} — global filter across tabs</li>
  *   <li>{@code GET/PUT /api/external/tv/last-channel} — last watched channel</li>
- *   <li>{@code GET/PUT /api/external/tv/skin} — TV cabinet style</li>
+ *   <li>{@code GET/PUT /api/external/tv/skin} — cabinet style shared with radio and Deezer</li>
  *   <li>{@code GET/POST /api/external/tv/recordings} — browser DVR upload (GridFS)</li>
  *   <li>{@code PATCH /api/external/tv/recordings/{id}} — rename</li>
  *   <li>{@code DELETE /api/external/tv/recordings/{id}}</li>
@@ -590,7 +590,7 @@ public class TvWatcherRestController {
         }
     }
 
-    /** TV cabinet style for the current user (empty body when none). */
+    /** Cabinet style for the current user, shared with radio and Deezer. */
     @GetMapping("/skin")
     public ResponseEntity<Map<String, String>> getSkin() {
         String sub = currentJwtSubject();
@@ -604,7 +604,7 @@ public class TvWatcherRestController {
         return ResponseEntity.ok(Map.of("skin", skin));
     }
 
-    /** Persist the TV cabinet style for the current user. */
+    /** Persist the cabinet style for the current user. Radio and Deezer read the same value. */
     @PutMapping("/skin")
     public ResponseEntity<Map<String, String>> putSkin(@RequestBody Map<String, String> body) {
         String sub = currentJwtSubject();
