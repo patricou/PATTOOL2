@@ -1693,6 +1693,37 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.refreshPreview(this.current, true);
   }
 
+  itemTitle(primary?: string | null, secondary?: string | null): string {
+    const main = (primary || '').trim();
+    const extra = (secondary || '').trim();
+    if (main && extra && main !== extra) {
+      return `${main} — ${extra}`;
+    }
+    return main || extra;
+  }
+
+  get headingTitle(): string {
+    if (this.nowBrowse) {
+      return this.nowBrowseTitle;
+    }
+    if (this.drilled) {
+      return this.drillTitle;
+    }
+    if (this.activeUserPlaylist && this.renamingPlaylistId !== this.activeUserPlaylist.id) {
+      return this.activeUserPlaylist.name;
+    }
+    if (this.listMode === 'favorites') {
+      return this.translate.instant('RADIO.TAB_FAVORITES');
+    }
+    if (this.listMode === 'playlists') {
+      return this.translate.instant('DEEZER.MY_PLAYLISTS');
+    }
+    if (this.mode === 'search') {
+      return this.translate.instant('DEEZER.SEARCH');
+    }
+    return this.translate.instant('DEEZER.CHART');
+  }
+
   formatTime(value: number | null | undefined): string {
     const sec = Math.max(0, Math.floor(Number(value) || 0));
     const mins = Math.floor(sec / 60);

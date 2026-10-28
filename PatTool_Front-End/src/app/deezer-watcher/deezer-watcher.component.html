@@ -266,7 +266,7 @@
           </button>
         </div>
         <div class="dz-heading">
-          <span class="dz-heading-title">
+          <span class="dz-heading-title" [attr.title]="headingTitle || null">
             <ng-container *ngIf="nowBrowse">{{ nowBrowseTitle }}</ng-container>
             <ng-container *ngIf="!nowBrowse && drilled">{{ drillTitle }}</ng-container>
             <ng-container *ngIf="!nowBrowse && !drilled && listMode === 'favorites'">{{ 'RADIO.TAB_FAVORITES' | translate }}</ng-container>
@@ -421,6 +421,7 @@
         <li
           *ngFor="let playlist of shownUserPlaylists; trackBy: trackByPlaylistId"
           class="dz-row"
+          [attr.title]="itemTitle(playlist.name)"
           (click)="openSavedPlaylist(playlist)"
           (keydown.enter)="openSavedPlaylist(playlist)"
           tabindex="0">
@@ -494,6 +495,7 @@
           *ngFor="let track of shownTracks; let i = index; trackBy: trackById"
           class="dz-row"
           [class.is-on]="current?.id === track.id"
+          [attr.title]="itemTitle(track.artistName, track.title)"
           (click)="playListedTrack(track, i)"
           (keydown.enter)="playListedTrack(track, i)"
           tabindex="0">
@@ -559,6 +561,7 @@
           <button
             type="button"
             class="dz-fav dz-pl-btn"
+            [class.is-covered]="ytOffer?.trackId === track.id && !ytNextBusy[track.id]"
             [class.is-on]="playlistMenuTrack?.id === track.id"
             (click)="toggleTrackPlaylistMenu(track, $event)"
             [attr.aria-label]="'DEEZER.PLAYLIST_ADD' | translate"
@@ -622,7 +625,7 @@
       </div>
 
       <ul class="dz-list" *ngIf="!loading && nowBrowse === 'artist-albums'">
-        <li *ngFor="let album of sortedArtistAlbums; trackBy: trackById" class="dz-row" (click)="showAlbumTracks(album)" (keydown.enter)="showAlbumTracks(album)" tabindex="0">
+        <li *ngFor="let album of sortedArtistAlbums; trackBy: trackById" class="dz-row" [attr.title]="itemTitle(album.title, album.artistName)" (click)="showAlbumTracks(album)" (keydown.enter)="showAlbumTracks(album)" tabindex="0">
           <img *ngIf="album.coverUrl" class="dz-thumb" [src]="album.coverUrl" alt="" loading="lazy" />
           <span *ngIf="!album.coverUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-circle"></i></span>
           <span class="dz-row-text">
@@ -642,7 +645,7 @@
       </ul>
 
       <ul class="dz-list" *ngIf="!nowBrowse && !loading && !drilled && view === 'album' && listMode !== 'playlists'">
-        <li *ngFor="let album of shownAlbums; trackBy: trackById" class="dz-row" (click)="openAlbum(album)" (keydown.enter)="openAlbum(album)" tabindex="0">
+        <li *ngFor="let album of shownAlbums; trackBy: trackById" class="dz-row" [attr.title]="itemTitle(album.title, album.artistName)" (click)="openAlbum(album)" (keydown.enter)="openAlbum(album)" tabindex="0">
           <img *ngIf="album.coverUrl" class="dz-thumb" [src]="album.coverUrl" alt="" loading="lazy" />
           <span *ngIf="!album.coverUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-circle"></i></span>
           <span class="dz-row-text">
@@ -662,7 +665,7 @@
       </ul>
 
       <ul class="dz-list" *ngIf="!nowBrowse && !loading && !drilled && view === 'artist' && listMode !== 'playlists'">
-        <li *ngFor="let artist of shownArtists; trackBy: trackById" class="dz-row" (click)="openArtist(artist)" (keydown.enter)="openArtist(artist)" tabindex="0">
+        <li *ngFor="let artist of shownArtists; trackBy: trackById" class="dz-row" [attr.title]="itemTitle(artist.name)" (click)="openArtist(artist)" (keydown.enter)="openArtist(artist)" tabindex="0">
           <img *ngIf="artist.pictureUrl" class="dz-thumb dz-thumb--round" [src]="artist.pictureUrl" alt="" loading="lazy" />
           <span *ngIf="!artist.pictureUrl" class="dz-thumb dz-thumb--empty dz-thumb--round"><i class="fa fa-user"></i></span>
           <span class="dz-row-text">
@@ -678,7 +681,7 @@
       </ul>
 
       <ul class="dz-list" *ngIf="!nowBrowse && !loading && !drilled && view === 'playlist' && listMode !== 'playlists'">
-        <li *ngFor="let playlist of shownPlaylists; trackBy: trackById" class="dz-row" (click)="openPlaylist(playlist)" (keydown.enter)="openPlaylist(playlist)" tabindex="0">
+        <li *ngFor="let playlist of shownPlaylists; trackBy: trackById" class="dz-row" [attr.title]="itemTitle(playlist.title, playlist.userName)" (click)="openPlaylist(playlist)" (keydown.enter)="openPlaylist(playlist)" tabindex="0">
           <img *ngIf="playlist.pictureUrl" class="dz-thumb" [src]="playlist.pictureUrl" alt="" loading="lazy" />
           <span *ngIf="!playlist.pictureUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-list"></i></span>
           <span class="dz-row-text">
@@ -805,7 +808,7 @@
               <ng-container *ngIf="!youtubeBusy && youtubeEmbed">{{ 'DEEZER.YT_BADGE' | translate }}</ng-container>
               <ng-container *ngIf="!youtubeBusy && !youtubeEmbed">{{ 'DEEZER.PREVIEW' | translate }}</ng-container>
             </div>
-            <div class="radio-face-track">{{ current.artistName }} — {{ current.title }}</div>
+            <div class="radio-face-track" [attr.title]="itemTitle(current.artistName, current.title)">{{ current.artistName }} — {{ current.title }}</div>
           </div>
           <div class="radio-controls-row" aria-hidden="true">
             <div class="radio-power">
@@ -861,7 +864,7 @@
             <div class="radio-now-info" *ngIf="current">
               <img *ngIf="current.coverUrl" class="radio-now-logo" [src]="current.coverUrl" alt="" />
               <div class="radio-now-text">
-                <div class="radio-now-name">
+                <div class="radio-now-name" [attr.title]="itemTitle(current.artistName, current.title)">
                   <span class="dz-live dz-live--now" *ngIf="playing" aria-hidden="true">
                     <span></span><span></span><span></span><span></span>
                   </span>
@@ -946,7 +949,7 @@
           <div class="small text-success px-2 pb-1" *ngIf="shareFeedback">{{ shareFeedback | translate }}</div>
           <div class="dz-related" *ngIf="related.length">
             <span>{{ 'DEEZER.RELATED' | translate }}</span>
-            <button type="button" *ngFor="let artist of related; trackBy: trackById" (click)="openRelated(artist)">{{ artist.name }}</button>
+            <button type="button" *ngFor="let artist of related; trackBy: trackById" [attr.title]="itemTitle(artist.name)" (click)="openRelated(artist)">{{ artist.name }}</button>
           </div>
         </div>
       </div>
@@ -1033,6 +1036,7 @@
         *ngFor="let playlist of playlistPickerChoices; trackBy: trackByPlaylistId"
         [class.is-on]="playlistHasTrack(playlist, playlistMenuTrack.id)"
         [disabled]="!!playlistBusy"
+        [attr.title]="itemTitle(playlist.name)"
         (click)="toggleTrackInPlaylist(playlist, playlistMenuTrack, $event)">
         <i class="fa" [class.fa-check-square]="playlistHasTrack(playlist, playlistMenuTrack.id)" [class.fa-square-o]="!playlistHasTrack(playlist, playlistMenuTrack.id)" aria-hidden="true"></i>
         <span class="dz-pl-choice-name">{{ playlist.name }}</span>
@@ -1124,6 +1128,7 @@
         class="dz-pl-choice dz-similar-choice"
         role="listitem"
         *ngFor="let artist of sortedSimilarArtists; trackBy: trackById"
+        [attr.title]="itemTitle(artist.name)"
         (click)="pickSimilarArtist(artist)">
         <img *ngIf="artist.pictureUrl" class="dz-similar-photo" [src]="artist.pictureUrl" alt="" />
         <span *ngIf="!artist.pictureUrl" class="dz-similar-photo dz-similar-photo--empty"><i class="fa fa-user" aria-hidden="true"></i></span>
