@@ -223,6 +223,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   ytFromCache: Record<number, boolean> = {};
   ytMiss: Record<number, boolean> = {};
   ytPending: Record<number, boolean> = {};
+  /** Spinner on the pastille while the next YouTube result is loading. */
+  ytNextBusy: Record<number, boolean> = {};
+  /** Candidate video, not saved until the green control is used. */
+  ytOffer: { trackId: number; videoId: string; savedId: string } | null = null;
   loading = false;
   errorKey = '';
   playErrorKey = '';
@@ -735,10 +739,25 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   onYoutubeIcon(track: DeezerTrack, index: number, event?: Event): void {
     event?.stopPropagation();
-    if (this.ytPending[track.id] || this.ytMiss[track.id]) {
+    if (this.ytPending[track.id] || this.ytNextBusy[track.id] || this.ytMiss[track.id]) {
       return;
     }
     if (this.ytLinks[track.id]) {
+      const onThisVideo = this.playing && this.current?.id === track.id && !!this.youtubeEmbed;
+      if (onThisVideo) {
+        const skip = this.ytOffer?.trackId === track.id ? this.ytOffer.videoId : this.ytLinks[track.id];
+        this.lookupNextYoutubeLink(track, index, skip);
+        return;
+      }
+      const offered = this.ytOffer?.trackId === track.id;
+      if (offered) {
+        this.ytOffer = null;
+        this.youtubeEmbed = null;
+        this.current = null;
+      } else if (this.current?.id === track.id && this.youtubeEmbed) {
+        this.togglePlay();
+        return;
+      }
       this.playYoutubeTrack(track, index);
       return;
     }
@@ -746,13 +765,16 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   ytIconLabel(track: DeezerTrack): string {
-    if (this.ytPending[track.id]) {
+    if (this.ytPending[track.id] || this.ytNextBusy[track.id]) {
       return this.translate.instant('DEEZER.YT_SEARCHING');
     }
     if (this.ytMiss[track.id]) {
       return this.translate.instant('DEEZER.YT_MISS_HINT');
     }
     if (this.ytLinks[track.id]) {
+      if (this.playing && this.current?.id === track.id && this.youtubeEmbed) {
+        return this.translate.instant('DEEZER.YT_NEXT');
+      }
       return this.translate.instant(this.ytFromCache[track.id] ? 'DEEZER.YT_CACHED_HINT' : 'DEEZER.YT_PLAY');
     }
     return this.translate.instant('DEEZER.YT_LOOKUP');
@@ -3042,6 +3064,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   private resolveYoutube(track: DeezerTrack): void {
     const token = ++this.ytToken;
+    if (this.ytOffer?.trackId === track.id && this.ytOffer.videoId) {
+      this.applyYoutubeHit(track, this.ytOffer.videoId, token);
+      return;
+    }
     const cached = this.ytCache.get(track.id);
     if (cached !== undefined) {
       this.applyYoutubeHit(track, cached, token);
@@ -3141,29 +3167,124 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   private lookupYoutubeLink(track: DeezerTrack, index: number): void {
-    if (this.youtubeQuery(track).length < 2) {
+    this.fetchYoutubeLink(track, index, '');
+  }
+
+  /** Plays the next search result. The saved link changes only if the green control is used. */
+  private lookupNextYoutubeLink(track: DeezerTrack, index: number, skipVideoId?: string): void {
+    const skip = (skipVideoId || this.ytLinks[track.id] || '').trim();
+    if (!skip) {
       return;
     }
-    this.ytPending = { ...this.ytPending, [track.id]: true };
+    this.fetchYoutubeLink(track, index, skip);
+  }
+
+  keepYoutubeOffer(track: DeezerTrack, event?: Event): void {
+    event?.stopPropagation();
+    const offer = this.ytOffer;
+    if (!offer || offer.trackId !== track.id || this.ytNextBusy[track.id]) {
+      return;
+    }
+    this.ytNextBusy = { ...this.ytNextBusy, [track.id]: true };
     this.api.resolveDeezerYoutubeLinks([{
       id: track.id,
       artist: track.artistName || '',
-      title: track.title || ''
+      title: track.title || '',
+      saveVideoId: offer.videoId
+    }], false).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (page) => {
+        this.clearYoutubeNext(track.id);
+        const link = (page?.links || []).find((item) => item.id === track.id);
+        const videoId = (link?.videoId || '').trim();
+        if (!videoId || videoId !== offer.videoId) {
+          return;
+        }
+        this.rememberYoutube(track.id, videoId);
+        if (this.ytOffer?.trackId === track.id) {
+          this.ytOffer = null;
+        }
+      },
+      error: () => this.clearYoutubeNext(track.id)
+    });
+  }
+
+  dropYoutubeOffer(track: DeezerTrack, index: number, event?: Event): void {
+    event?.stopPropagation();
+    if (this.ytOffer?.trackId !== track.id) {
+      return;
+    }
+    this.ytOffer = null;
+    if (this.current?.id !== track.id) {
+      return;
+    }
+    const at = index >= 0 ? index : Math.max(0, this.queue.findIndex((item) => item.id === track.id));
+    this.youtubeEmbed = null;
+    this.current = null;
+    this.playYoutubeTrack(track, at);
+  }
+
+  private fetchYoutubeLink(track: DeezerTrack, index: number, skipVideoId: string): void {
+    if (this.youtubeQuery(track).length < 2) {
+      return;
+    }
+    if (skipVideoId) {
+      this.ytNextBusy = { ...this.ytNextBusy, [track.id]: true };
+    } else {
+      this.ytPending = { ...this.ytPending, [track.id]: true };
+    }
+    this.api.resolveDeezerYoutubeLinks([{
+      id: track.id,
+      artist: track.artistName || '',
+      title: track.title || '',
+      skipVideoId: skipVideoId || undefined
     }], true).pipe(takeUntil(this.destroy$)).subscribe({
       next: (page) => {
-        this.clearYoutubePending(track.id);
+        if (skipVideoId) {
+          this.clearYoutubeNext(track.id);
+        } else {
+          this.clearYoutubePending(track.id);
+        }
         const link = (page?.links || []).find((item) => item.id === track.id);
         if (!link) {
           return;
         }
         const videoId = (link.videoId || '').trim() || null;
+        if (skipVideoId) {
+          if (!videoId || videoId === skipVideoId) {
+            return;
+          }
+          this.ytOffer = {
+            trackId: track.id,
+            videoId,
+            savedId: this.ytLinks[track.id] || skipVideoId
+          };
+          this.youtubeEmbed = null;
+          this.current = null;
+          this.playYoutubeTrack(track, index);
+          return;
+        }
         this.rememberYoutube(track.id, videoId);
         if (videoId) {
           this.playYoutubeTrack(track, index);
         }
       },
-      error: () => this.clearYoutubePending(track.id)
+      error: () => {
+        if (skipVideoId) {
+          this.clearYoutubeNext(track.id);
+        } else {
+          this.clearYoutubePending(track.id);
+        }
+      }
     });
+  }
+
+  private clearYoutubeNext(id: number): void {
+    if (!this.ytNextBusy[id]) {
+      return;
+    }
+    const next = { ...this.ytNextBusy };
+    delete next[id];
+    this.ytNextBusy = next;
   }
 
   private clearYoutubePending(id: number): void {

@@ -8,6 +8,17 @@ import java.util.List;
  */
 public record DeezerYoutubeLookupRequest(List<Track> tracks, boolean search) {
 
-    public record Track(long id, String artist, String title) {
+    /**
+     * {@code skipVideoId} asks for the next result without writing it.
+     * {@code saveVideoId} stores that one id and replaces the previous link.
+     */
+    public record Track(long id, String artist, String title, String skipVideoId, String saveVideoId) {
+        public Track(long id, String artist, String title) {
+            this(id, artist, title, null, null);
+        }
+
+        public Track(long id, String artist, String title, String skipVideoId) {
+            this(id, artist, title, skipVideoId, null);
+        }
     }
 }

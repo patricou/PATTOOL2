@@ -79,7 +79,14 @@ public class DeezerYoutubeLinkService {
         String query = queryOf(track.artist(), track.title());
         String key = Long.toString(track.id());
         DeezerYoutubeLink stored = repository.findById(key).orElse(null);
-        if (fresh(stored, query)) {
+        String commit = saveVideoId(track);
+        if (!commit.isEmpty()) {
+            if (!commit.matches("^[a-zA-Z0-9_-]{11}$")) {
+                return null;
+            }
+            return store(track, stored, key, query, commit, true);
+        }
+        if (skipVideoId(track).isEmpty() && fresh(stored, query)) {
             return new DeezerYoutubeLookupResponse.Link(
                     track.id(),
                     stored.getVideoId() == null ? "" : stored.getVideoId(),
@@ -92,15 +99,18 @@ public class DeezerYoutubeLinkService {
         if (page == null || page.error() != null) {
             return null;
         }
-        String videoId = pickVideoId(page.items(), track.title());
-        DeezerYoutubeLink row = stored == null ? new DeezerYoutubeLink() : stored;
-        row.setId(key);
-        row.setTrackId(track.id());
-        row.setVideoId(videoId);
-        row.setQuery(query);
-        row.setUpdatedAt(Instant.now());
-        repository.save(row);
-        return new DeezerYoutubeLookupResponse.Link(track.id(), videoId, false);
+        String skip = skipVideoId(track);
+        String videoId = pickVideoId(page.items(), track.title(), skip);
+        if (!skip.isEmpty()) {
+            if (videoId.isEmpty() || videoId.equals(skip)) {
+                if (stored != null && stored.getVideoId() != null && !stored.getVideoId().isBlank()) {
+                    return new DeezerYoutubeLookupResponse.Link(track.id(), stored.getVideoId(), true);
+                }
+                return null;
+            }
+            return new DeezerYoutubeLookupResponse.Link(track.id(), videoId, false);
+        }
+        return store(track, stored, key, query, videoId, false);
     }
 
     static boolean fresh(DeezerYoutubeLink stored, String query) {
@@ -120,6 +130,11 @@ public class DeezerYoutubeLinkService {
     }
 
     static String pickVideoId(List<YoutubeItemDto> items, String title) {
+        return pickVideoId(items, title, "");
+    }
+
+    /** The next video after {@code skipVideoId}, or the best title match when nothing is skipped. */
+    static String pickVideoId(List<YoutubeItemDto> items, String title, String skipVideoId) {
         if (items == null || items.isEmpty()) {
             return "";
         }
@@ -137,6 +152,25 @@ public class DeezerYoutubeLinkService {
         if (videos.isEmpty()) {
             return "";
         }
+        String skip = skipVideoId == null ? "" : skipVideoId.trim();
+        if (!skip.isEmpty()) {
+            int at = -1;
+            for (int i = 0; i < videos.size(); i++) {
+                if (skip.equals(videos.get(i).id())) {
+                    at = i;
+                    break;
+                }
+            }
+            if (at >= 0) {
+                return videos.size() == 1 ? skip : videos.get((at + 1) % videos.size()).id();
+            }
+            for (YoutubeItemDto item : videos) {
+                if (!skip.equals(item.id())) {
+                    return item.id();
+                }
+            }
+            return "";
+        }
         String[] words = (title == null ? "" : title).toLowerCase(Locale.ROOT).split("\\s+");
         for (YoutubeItemDto item : videos) {
             String hay = item.title() == null ? "" : item.title().toLowerCase(Locale.ROOT);
@@ -147,5 +181,30 @@ public class DeezerYoutubeLinkService {
             }
         }
         return videos.get(0).id();
+    }
+
+    private DeezerYoutubeLookupResponse.Link store(
+            DeezerYoutubeLookupRequest.Track track,
+            DeezerYoutubeLink stored,
+            String key,
+            String query,
+            String videoId,
+            boolean cached) {
+        DeezerYoutubeLink row = stored == null ? new DeezerYoutubeLink() : stored;
+        row.setId(key);
+        row.setTrackId(track.id());
+        row.setVideoId(videoId);
+        row.setQuery(query);
+        row.setUpdatedAt(Instant.now());
+        repository.save(row);
+        return new DeezerYoutubeLookupResponse.Link(track.id(), videoId, cached);
+    }
+
+    private static String skipVideoId(DeezerYoutubeLookupRequest.Track track) {
+        return track.skipVideoId() == null ? "" : track.skipVideoId().trim();
+    }
+
+    private static String saveVideoId(DeezerYoutubeLookupRequest.Track track) {
+        return track.saveVideoId() == null ? "" : track.saveVideoId().trim();
     }
 }

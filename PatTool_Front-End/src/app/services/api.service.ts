@@ -4607,7 +4607,7 @@ export class ApiService {
 
   /** Cached YouTube video ids for the tracks on screen. YouTube is queried only when search is true. */
   resolveDeezerYoutubeLinks(
-    tracks: { id: number; artist: string; title: string }[],
+    tracks: { id: number; artist: string; title: string; skipVideoId?: string; saveVideoId?: string }[],
     search: boolean
   ): Observable<{ links: { id: number; videoId?: string; cached?: boolean }[] }> {
     return this._http.post<{ links: { id: number; videoId?: string; cached?: boolean }[] }>(

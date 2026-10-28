@@ -155,6 +155,46 @@ class DeezerYoutubeLinkServiceTest {
         verify(repository, never()).save(any());
     }
 
+    @Test
+    void skipReturnsTheNextVideoWithoutSaving() {
+        DeezerYoutubeLink stored = hit(9L, "Daft Punk Within", "aaaaaaaaaaa");
+        when(repository.findById("9")).thenReturn(Optional.of(stored));
+        when(youtubeProxyService.isConfigured()).thenReturn(true);
+        when(youtubeProxyService.search(eq("Daft Punk Within"), eq("video"), isNull(), isNull(), isNull(), isNull(), eq(5), isNull(), isNull()))
+                .thenReturn(new YoutubeSearchPageDto(
+                        true, null, null, "search", "Daft Punk Within", "video", "", null, null, 2,
+                        List.of(video("aaaaaaaaaaa", "Within"), video("bbbbbbbbbbb", "Within live"))
+                ));
+        DeezerYoutubeLinkService service = new DeezerYoutubeLinkService(repository, youtubeProxyService);
+
+        DeezerYoutubeLookupResponse response = service.resolve(List.of(
+                new DeezerYoutubeLookupRequest.Track(9L, "Daft Punk", "Within", "aaaaaaaaaaa")
+        ), true);
+
+        assertEquals("bbbbbbbbbbb", response.links().get(0).videoId());
+        assertFalse(response.links().get(0).cached());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void saveVideoIdReplacesTheSingleStoredLink() {
+        DeezerYoutubeLink stored = hit(9L, "Daft Punk Within", "aaaaaaaaaaa");
+        when(repository.findById("9")).thenReturn(Optional.of(stored));
+        DeezerYoutubeLinkService service = new DeezerYoutubeLinkService(repository, youtubeProxyService);
+
+        DeezerYoutubeLookupResponse response = service.resolve(List.of(
+                new DeezerYoutubeLookupRequest.Track(9L, "Daft Punk", "Within", null, "bbbbbbbbbbb")
+        ), false);
+
+        assertEquals("bbbbbbbbbbb", response.links().get(0).videoId());
+        assertTrue(response.links().get(0).cached());
+        ArgumentCaptor<DeezerYoutubeLink> saved = ArgumentCaptor.forClass(DeezerYoutubeLink.class);
+        verify(repository).save(saved.capture());
+        assertEquals("bbbbbbbbbbb", saved.getValue().getVideoId());
+        assertEquals(9L, saved.getValue().getTrackId());
+        verifyNoInteractions(youtubeProxyService);
+    }
+
     private static DeezerYoutubeLink hit(long id, String query, String videoId) {
         DeezerYoutubeLink link = new DeezerYoutubeLink();
         link.setId(Long.toString(id));
