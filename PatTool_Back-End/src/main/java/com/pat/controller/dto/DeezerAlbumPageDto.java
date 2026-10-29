@@ -4,6 +4,10 @@ import java.util.List;
 
 public record DeezerAlbumPageDto(
         DeezerAlbumDto album,
-        List<DeezerTrackDto> tracks
+        List<DeezerTrackDto> tracks,
+        int durationSec,
+        long fanCount,
+        String label,
+        List<String> genres
 ) {
 }

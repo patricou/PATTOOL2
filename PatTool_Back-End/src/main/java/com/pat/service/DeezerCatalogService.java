@@ -131,7 +131,44 @@ public class DeezerCatalogService {
         if (album == null) {
             return null;
         }
-        return new DeezerAlbumPageDto(album, mapTracks(root.path("tracks"), album));
+        return new DeezerAlbumPageDto(
+                album,
+                mapTracks(root.path("tracks"), album),
+                albumDuration(root),
+                albumFans(root),
+                albumLabel(root),
+                albumGenres(root));
+    }
+
+    static int albumDuration(JsonNode root) {
+        return root == null ? 0 : Math.max(0, root.path("duration").asInt(0));
+    }
+
+    static long albumFans(JsonNode root) {
+        return root == null ? 0L : Math.max(0L, root.path("fans").asLong(0));
+    }
+
+    static String albumLabel(JsonNode root) {
+        return root == null ? "" : clean(root.path("label").asText(""));
+    }
+
+    /** Genre names from a Deezer album payload. Search hits often omit this block. */
+    static List<String> albumGenres(JsonNode root) {
+        if (root == null) {
+            return List.of();
+        }
+        List<String> names = new ArrayList<>();
+        for (JsonNode genre : arrayOf(root.path("genres"))) {
+            String name = clean(genre.path("name").asText(""));
+            if (name.isEmpty() || names.contains(name)) {
+                continue;
+            }
+            names.add(name);
+            if (names.size() >= 8) {
+                break;
+            }
+        }
+        return List.copyOf(names);
     }
 
     public List<DeezerAlbumDto> artistAlbums(long artistId) {

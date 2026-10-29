@@ -9,7 +9,9 @@ import { catchError, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/
 
 import {
   ApiService,
+  AudioDbDossier,
   DeezerAlbum,
+  DeezerAlbumPage,
   DeezerArtist,
   DeezerFavorite,
   DeezerGenre,
@@ -206,6 +208,13 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   similarSort: 'relevance' | 'name' | 'fans' = 'relevance';
   similarSortDesc = false;
   similarSortOpen = false;
+  albumInfoOpen = false;
+  albumInfoLoading = false;
+  albumInfoError = '';
+  albumInfo: DeezerAlbumPage | null = null;
+  audioDbLoading = false;
+  audioDbError = '';
+  audioDb: AudioDbDossier | null = null;
   readonly similarSortOptions: ReadonlyArray<{ id: 'relevance' | 'name' | 'fans'; key: string }> = [
     { id: 'relevance', key: 'DEEZER.SIMILAR_BY_RELEVANCE' },
     { id: 'name', key: 'DEEZER.SIMILAR_BY_NAME' },
@@ -272,6 +281,12 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private similarSub?: Subscription;
   private similarForId = 0;
   private readonly similarCache = new Map<number, DeezerArtist[]>();
+  private albumInfoForId = 0;
+  private albumInfoSub?: Subscription;
+  private readonly albumInfoCache = new Map<number, DeezerAlbumPage>();
+  private audioDbSub?: Subscription;
+  private audioDbForKey = '';
+  private readonly audioDbCache = new Map<string, AudioDbDossier>();
   private playlistsReady = false;
   private static readonly SIDEBAR_KEY = 'pattool.deezer.sidebar';
   private static readonly YT_SEARCH_KEY = 'pattool.deezer.youtube-search';
@@ -360,6 +375,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.favoritesSub?.unsubscribe();
     this.playlistsSub?.unsubscribe();
     this.similarSub?.unsubscribe();
+    this.albumInfoSub?.unsubscribe();
+    this.audioDbSub?.unsubscribe();
     this.skinLoadSub?.unsubscribe();
     this.skinSaveSub?.unsubscribe();
     this.stopYoutubeClock();
@@ -1095,6 +1112,188 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.queue = this.shownTracks;
       this.syncYoutubeButtons();
     }
+  }
+
+  /** Deezer album page for the track that is playing, shown in a dialog. */
+  openAlbumInfo(): void {
+    const albumId = this.current?.albumId || 0;
+    if (!albumId) {
+      return;
+    }
+    this.shareMenuOpen = false;
+    this.albumInfoOpen = true;
+    this.albumInfoError = '';
+    this.albumInfoForId = albumId;
+    const cached = this.albumInfoCache.get(albumId);
+    if (cached) {
+      this.albumInfo = cached;
+      this.albumInfoLoading = false;
+    } else {
+      this.albumInfo = null;
+      this.albumInfoLoading = true;
+      this.albumInfoSub?.unsubscribe();
+      this.albumInfoSub = this.api.getDeezerAlbum(albumId).subscribe({
+        next: (page) => {
+          if (this.albumInfoForId !== albumId) {
+            return;
+          }
+          if (!page?.album?.id) {
+            this.albumInfo = null;
+            this.albumInfoLoading = false;
+            this.albumInfoError = 'DEEZER.ALBUM_INFO_EMPTY';
+            return;
+          }
+          this.albumInfoCache.set(albumId, page);
+          this.albumInfo = page;
+          this.albumInfoLoading = false;
+        },
+        error: (err: { status?: number }) => {
+          if (this.albumInfoForId !== albumId) {
+            return;
+          }
+          this.albumInfo = null;
+          this.albumInfoLoading = false;
+          this.albumInfoError = err?.status === 404 ? 'DEEZER.ALBUM_INFO_EMPTY' : 'DEEZER.ERR_LOAD';
+        }
+      });
+    }
+    this.loadAudioDb();
+  }
+
+  closeAlbumInfo(event?: Event): void {
+    event?.stopPropagation();
+    this.albumInfoOpen = false;
+  }
+
+  private loadAudioDb(): void {
+    const artist = (this.albumInfo?.album?.artistName || this.current?.artistName || '').trim();
+    const album = (this.albumInfo?.album?.title || this.current?.albumTitle || '').trim();
+    if (!artist) {
+      this.audioDb = null;
+      this.audioDbLoading = false;
+      this.audioDbError = '';
+      return;
+    }
+    this.audioDbError = '';
+    const key = `${this.wikipediaLang()}|${artist}|${album}`;
+    this.audioDbForKey = key;
+    const cached = this.audioDbCache.get(key);
+    if (cached) {
+      this.audioDb = cached;
+      this.audioDbLoading = false;
+      return;
+    }
+    this.audioDb = null;
+    this.audioDbLoading = true;
+    this.audioDbSub?.unsubscribe();
+    this.audioDbSub = this.api.getAudioDbDossier(artist, album, this.wikipediaLang()).subscribe({
+      next: (dossier) => {
+        if (this.audioDbForKey !== key) {
+          return;
+        }
+        const page = dossier || { artist: null, album: null };
+        this.audioDbCache.set(key, page);
+        this.audioDb = page;
+        this.audioDbLoading = false;
+      },
+      error: () => {
+        if (this.audioDbForKey !== key) {
+          return;
+        }
+        this.audioDb = null;
+        this.audioDbLoading = false;
+        this.audioDbError = 'DEEZER.AUDIODB_ERROR';
+      }
+    });
+  }
+
+  openArtistFromAlbumInfo(): void {
+    const album = this.albumInfo?.album;
+    if (!album?.artistId) {
+      return;
+    }
+    this.closeAlbumInfo();
+    this.openArtist({ id: album.artistId, name: album.artistName || '' });
+  }
+
+  showTracksFromAlbumInfo(): void {
+    const album = this.albumInfo?.album;
+    if (!album?.id) {
+      return;
+    }
+    this.closeAlbumInfo();
+    this.loadAlbumTracks(album.id, album.title || '', album.artistName || '', null);
+  }
+
+  /** Wikipedia search that opens the article when the title matches. */
+  wikiSearchUrl(kind: 'artist' | 'album'): string | null {
+    const artist = (this.albumInfo?.album?.artistName || this.current?.artistName || '').trim();
+    const album = (this.albumInfo?.album?.title || this.current?.albumTitle || '').trim();
+    const parts = kind === 'artist' ? [artist] : [album, artist];
+    const query = parts.filter((part, index) => part && parts.indexOf(part) === index).join(' ');
+    if (!query) {
+      return null;
+    }
+    const lang = this.wikipediaLang();
+    return `https://${lang}.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(query)}&go=Go`;
+  }
+
+  private wikipediaLang(): string {
+    const raw = (this.translate.currentLang || 'fr').trim().toLowerCase();
+    const mapped = raw.startsWith('jp') ? 'ja'
+      : raw.startsWith('cn') ? 'zh'
+        : raw.startsWith('in') ? 'hi'
+          : raw.slice(0, 2);
+    const known = ['fr', 'en', 'de', 'es', 'it', 'ru', 'ja', 'zh', 'ar', 'he', 'el', 'hi'];
+    return known.includes(mapped) ? mapped : 'en';
+  }
+
+  albumTypeLabel(type: string | null | undefined): string {
+    const value = (type || '').trim().toLowerCase();
+    if (value === 'album') {
+      return this.translate.instant('DEEZER.ALBUM_TYPE_ALBUM');
+    }
+    if (value === 'single') {
+      return this.translate.instant('DEEZER.ALBUM_TYPE_SINGLE');
+    }
+    if (value === 'ep') {
+      return this.translate.instant('DEEZER.ALBUM_TYPE_EP');
+    }
+    return (type || '').trim();
+  }
+
+  albumInfoGenreText(): string {
+    return (this.albumInfo?.genres || []).map((name) => (name || '').trim()).filter(Boolean).join(', ');
+  }
+
+  albumInfoDurationSec(): number {
+    const listed = this.albumInfo?.durationSec || 0;
+    if (listed > 0) {
+      return listed;
+    }
+    return (this.albumInfo?.tracks || []).reduce((sum, track) => sum + (track.durationSec || 0), 0);
+  }
+
+  albumInfoTrackCount(): number {
+    const listed = this.albumInfo?.album?.trackCount || 0;
+    if (listed > 0) {
+      return listed;
+    }
+    return this.albumInfo?.tracks?.length || 0;
+  }
+
+  formatDuration(value: number | null | undefined): string {
+    const sec = Math.max(0, Math.floor(Number(value) || 0));
+    if (!sec) {
+      return '';
+    }
+    const hours = Math.floor(sec / 3600);
+    const mins = Math.floor((sec % 3600) / 60);
+    const rest = sec % 60;
+    if (hours > 0) {
+      return hours + ':' + String(mins).padStart(2, '0') + ':' + String(rest).padStart(2, '0');
+    }
+    return mins + ':' + String(rest).padStart(2, '0');
   }
 
   /** Tracks of the album that is playing. The current title keeps playing. */
@@ -2494,6 +2693,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
     if (this.albumSortOpen) {
       this.albumSortOpen = false;
+      return;
+    }
+    if (this.albumInfoOpen) {
+      this.closeAlbumInfo();
       return;
     }
     if (this.similarOpen) {

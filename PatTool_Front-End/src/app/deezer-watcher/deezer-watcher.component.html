@@ -264,6 +264,17 @@
             <i class="fa fa-users" aria-hidden="true"></i>
             <span>{{ 'DEEZER.SIMILAR' | translate }}</span>
           </button>
+          <button
+            type="button"
+            (click)="openAlbumInfo()"
+            [disabled]="!current?.albumId"
+            [class.is-lit]="albumInfoOpen"
+            [attr.title]="current?.albumTitle || ('DEEZER.ALBUM_INFO' | translate)"
+            [attr.aria-label]="'DEEZER.ALBUM_INFO' | translate"
+            aria-haspopup="dialog">
+            <i class="fa fa-info-circle" aria-hidden="true"></i>
+            <span>{{ 'DEEZER.ALBUM_INFO' | translate }}</span>
+          </button>
         </div>
         <div class="dz-heading">
           <span class="dz-heading-title" [attr.title]="headingTitle || null">
@@ -925,6 +936,7 @@
               <button type="button" class="radio-now-action dz-hide-mobile" [class.is-lit]="isPipActive" *ngIf="pipSupported" (click)="togglePictureInPicture()" [attr.title]="(isPipActive ? 'RADIO.PIP_EXIT' : 'RADIO.PIP') | translate">
                 <i class="fa" [class.fa-compress]="isPipActive" [class.fa-clone]="!isPipActive"></i>
               </button>
+              <button type="button" class="radio-now-action" [class.is-lit]="albumInfoOpen" [disabled]="!current?.albumId" (click)="openAlbumInfo()" [attr.title]="'DEEZER.ALBUM_INFO' | translate" [attr.aria-label]="'DEEZER.ALBUM_INFO' | translate" aria-haspopup="dialog"><i class="fa fa-info-circle"></i></button>
               <button type="button" class="radio-now-action" [disabled]="!youtubeSearchQuery" (click)="openOnYoutube()" [attr.title]="'RADIO.YOUTUBE_SEARCH' | translate"><i class="fa fa-youtube"></i></button>
               <div class="radio-share-wrap dz-hide-mobile">
                 <button type="button" class="radio-now-action" [class.is-lit]="shareMenuOpen" (click)="toggleShareMenu($event)" [attr.title]="'RADIO.SHARE' | translate"><i class="fa fa-share-alt"></i></button>
@@ -1137,5 +1149,108 @@
       </button>
     </div>
     <p class="dz-pl-empty" *ngIf="!similarLoading && !similarError && !similarArtists.length">{{ 'DEEZER.SIMILAR_EMPTY' | translate }}</p>
+  </div>
+</div>
+
+<div class="dz-pl-backdrop" *ngIf="albumInfoOpen" (click)="closeAlbumInfo()"></div>
+<div
+  class="dz-pl-modal dz-album-info-modal"
+  *ngIf="albumInfoOpen"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'DEEZER.ALBUM_INFO' | translate"
+  (click)="$event.stopPropagation()">
+  <div class="dz-pl-modal-head">
+    <div class="dz-pl-track">
+      <img *ngIf="albumInfo?.album?.coverUrl || current?.coverUrl" class="dz-pl-cover" [src]="albumInfo?.album?.coverUrl || current?.coverUrl" alt="" />
+      <span *ngIf="!(albumInfo?.album?.coverUrl || current?.coverUrl)" class="dz-pl-cover dz-pl-cover--empty"><i class="fa fa-circle" aria-hidden="true"></i></span>
+      <span class="dz-pl-track-text">
+        <span class="dz-pl-kicker">{{ 'DEEZER.ALBUM_INFO' | translate }}</span>
+        <strong>{{ albumInfo?.album?.title || current?.albumTitle }}</strong>
+        <button type="button" class="dz-album-info-artist" *ngIf="albumInfo?.album?.artistId" (click)="openArtistFromAlbumInfo()">{{ albumInfo?.album?.artistName }}</button>
+        <span class="dz-pl-artist" *ngIf="!albumInfo?.album?.artistId && (albumInfo?.album?.artistName || current?.artistName)">{{ albumInfo?.album?.artistName || current?.artistName }}</span>
+      </span>
+    </div>
+    <button type="button" class="dz-pl-close" (click)="closeAlbumInfo($event)" [attr.aria-label]="'DEEZER.CLEAR_SEARCH' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
+  <div class="dz-pl-modal-body dz-album-info-body">
+    <section class="dz-info-part" *ngIf="audioDbLoading || audioDbError || audioDb" [attr.aria-label]="'DEEZER.AUDIODB' | translate">
+      <h3 class="dz-info-part-head"><i class="fa fa-book" aria-hidden="true"></i>{{ 'DEEZER.AUDIODB' | translate }}</h3>
+      <p class="dz-pl-empty" *ngIf="audioDbLoading">{{ 'DEEZER.LOADING' | translate }}</p>
+      <p class="dz-pl-error" *ngIf="audioDbError" role="alert">{{ audioDbError | translate }}</p>
+      <p class="dz-pl-empty" *ngIf="!audioDbLoading && !audioDbError && !audioDb?.artist && !audioDb?.album">{{ 'DEEZER.AUDIODB_EMPTY' | translate }}</p>
+      <div class="dz-audiodb" *ngIf="audioDb?.artist || audioDb?.album">
+      <article class="dz-audiodb-card" *ngIf="audioDb?.album as album">
+        <img *ngIf="album.thumbUrl" class="dz-audiodb-photo" [src]="album.thumbUrl" alt="" />
+        <span *ngIf="!album.thumbUrl" class="dz-audiodb-photo dz-audiodb-photo--empty"><i class="fa fa-circle" aria-hidden="true"></i></span>
+        <div class="dz-audiodb-head">
+          <span class="dz-audiodb-kicker">{{ 'DEEZER.AUDIODB_ALBUM' | translate }}</span>
+          <strong>{{ album.title }}</strong>
+        </div>
+        <ul class="dz-info-pills">
+          <li *ngIf="album.year"><span>{{ 'DEEZER.ALBUM_BY_YEAR' | translate }}</span><strong>{{ album.year }}</strong></li>
+          <li *ngIf="album.label"><span>{{ 'DEEZER.ALBUM_LABEL' | translate }}</span><strong>{{ album.label }}</strong></li>
+          <li *ngIf="album.genre"><span>{{ 'DEEZER.ALBUM_GENRES' | translate }}</span><strong>{{ album.genre }}</strong></li>
+          <li *ngIf="album.style"><span>{{ 'DEEZER.AUDIODB_STYLE' | translate }}</span><strong>{{ album.style }}</strong></li>
+          <li *ngIf="album.mood"><span>{{ 'DEEZER.AUDIODB_MOOD' | translate }}</span><strong>{{ album.mood }}</strong></li>
+        </ul>
+        <p class="dz-audiodb-bio" *ngIf="album.description">{{ album.description }}</p>
+      </article>
+      <article class="dz-audiodb-card" *ngIf="audioDb?.artist as artist">
+        <img *ngIf="artist.thumbUrl" class="dz-audiodb-photo" [src]="artist.thumbUrl" alt="" />
+        <span *ngIf="!artist.thumbUrl" class="dz-audiodb-photo dz-audiodb-photo--empty"><i class="fa fa-user" aria-hidden="true"></i></span>
+        <div class="dz-audiodb-head">
+          <span class="dz-audiodb-kicker">{{ 'DEEZER.AUDIODB_ARTIST' | translate }}</span>
+          <strong>{{ artist.name }}</strong>
+        </div>
+        <ul class="dz-info-pills">
+          <li *ngIf="artist.formedYear"><span>{{ 'DEEZER.AUDIODB_FORMED' | translate }}</span><strong>{{ artist.formedYear }}</strong></li>
+          <li *ngIf="artist.country"><span>{{ 'DEEZER.AUDIODB_COUNTRY' | translate }}</span><strong>{{ artist.country }}</strong></li>
+          <li *ngIf="artist.members"><span>{{ 'DEEZER.AUDIODB_MEMBERS' | translate }}</span><strong>{{ artist.members }}</strong></li>
+          <li *ngIf="artist.genre"><span>{{ 'DEEZER.ALBUM_GENRES' | translate }}</span><strong>{{ artist.genre }}</strong></li>
+          <li *ngIf="artist.style"><span>{{ 'DEEZER.AUDIODB_STYLE' | translate }}</span><strong>{{ artist.style }}</strong></li>
+          <li *ngIf="artist.mood"><span>{{ 'DEEZER.AUDIODB_MOOD' | translate }}</span><strong>{{ artist.mood }}</strong></li>
+          <li *ngIf="artist.website"><span>{{ 'DEEZER.AUDIODB_WEBSITE' | translate }}</span><strong><a class="dz-audiodb-site" [href]="artist.website" target="_blank" rel="noopener noreferrer">{{ artist.website }}</a></strong></li>
+        </ul>
+        <p class="dz-audiodb-bio" *ngIf="artist.biography">{{ artist.biography }}</p>
+      </article>
+      </div>
+    </section>
+    <section class="dz-info-part" *ngIf="albumInfoLoading || albumInfoError || albumInfo?.album" [attr.aria-label]="'DEEZER.TITLE' | translate">
+      <h3 class="dz-info-part-head"><img src="assets/images/deezer-logo.svg" alt="" />{{ 'DEEZER.TITLE' | translate }}</h3>
+      <p class="dz-pl-empty" *ngIf="albumInfoLoading">{{ 'DEEZER.LOADING' | translate }}</p>
+      <p class="dz-pl-error" *ngIf="albumInfoError" role="alert">{{ albumInfoError | translate }}</p>
+      <ul class="dz-info-pills" *ngIf="albumInfo?.album && !albumInfoLoading">
+        <li *ngIf="albumTypeLabel(albumInfo?.album?.recordType) as kind"><span>{{ 'DEEZER.ALBUM_TYPE' | translate }}</span><strong>{{ kind }}</strong></li>
+        <li *ngIf="albumInfo?.album?.releaseDate"><span>{{ 'DEEZER.ALBUM_RELEASE' | translate }}</span><strong>{{ albumInfo?.album?.releaseDate }}</strong></li>
+        <li *ngIf="albumInfo?.label"><span>{{ 'DEEZER.ALBUM_LABEL' | translate }}</span><strong>{{ albumInfo?.label }}</strong></li>
+        <li *ngIf="albumInfoGenreText() as genres"><span>{{ 'DEEZER.ALBUM_GENRES' | translate }}</span><strong>{{ genres }}</strong></li>
+        <li *ngIf="albumInfoTrackCount() as tracks"><span>{{ 'DEEZER.TAB_TRACKS' | translate }}</span><strong>{{ 'DEEZER.TRACK_COUNT' | translate:{ count: tracks } }}</strong></li>
+        <li *ngIf="formatDuration(albumInfoDurationSec()) as length"><span>{{ 'DEEZER.ALBUM_DURATION' | translate }}</span><strong>{{ length }}</strong></li>
+        <li *ngIf="formatFans(albumInfo?.fanCount) as fans"><span>{{ 'DEEZER.SIMILAR_BY_FANS' | translate }}</span><strong>{{ 'DEEZER.FANS' | translate:{ count: fans } }}</strong></li>
+      </ul>
+    </section>
+    <div class="dz-info-part dz-info-part--actions dz-album-info-actions" *ngIf="!albumInfoLoading && (albumInfo?.album || wikiSearchUrl('artist') || wikiSearchUrl('album'))">
+      <button type="button" class="dz-play-all" *ngIf="albumInfo?.album" (click)="showTracksFromAlbumInfo()" [attr.title]="'DEEZER.NOW_ALBUM' | translate" [attr.aria-label]="'DEEZER.NOW_ALBUM' | translate">
+        <i class="fa fa-list" aria-hidden="true"></i>
+        <span class="dz-album-info-label">{{ 'DEEZER.NOW_ALBUM' | translate }}</span>
+      </button>
+      <a class="dz-play-all dz-play-all--yt dz-album-info-link" *ngIf="albumInfo?.album?.link" [href]="albumInfo?.album?.link" target="_blank" rel="noopener" [attr.title]="'DEEZER.OPEN' | translate" [attr.aria-label]="'DEEZER.OPEN' | translate">
+        <i class="fa fa-external-link" aria-hidden="true"></i>
+        <span class="dz-album-info-label">{{ 'DEEZER.OPEN' | translate }}</span>
+      </a>
+      <a class="dz-play-all dz-play-all--yt dz-album-info-link" *ngIf="wikiSearchUrl('artist') as artistWiki" [href]="artistWiki" target="_blank" rel="noopener noreferrer" [attr.title]="'DEEZER.WIKI_ARTIST' | translate" [attr.aria-label]="'DEEZER.WIKI_ARTIST' | translate">
+        <i class="fa fa-wikipedia-w" aria-hidden="true"></i>
+        <span class="dz-album-info-label">{{ 'DEEZER.WIKI_ARTIST' | translate }}</span>
+        <span class="dz-album-info-short">Art</span>
+      </a>
+      <a class="dz-play-all dz-play-all--yt dz-album-info-link" *ngIf="wikiSearchUrl('album') as albumWiki" [href]="albumWiki" target="_blank" rel="noopener noreferrer" [attr.title]="'DEEZER.WIKI_ALBUM' | translate" [attr.aria-label]="'DEEZER.WIKI_ALBUM' | translate">
+        <i class="fa fa-wikipedia-w" aria-hidden="true"></i>
+        <span class="dz-album-info-label">{{ 'DEEZER.WIKI_ALBUM' | translate }}</span>
+        <span class="dz-album-info-short">Alb</span>
+      </a>
+    </div>
   </div>
 </div>

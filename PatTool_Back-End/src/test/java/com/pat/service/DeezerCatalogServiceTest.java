@@ -5,6 +5,8 @@ import com.pat.controller.dto.DeezerAlbumDto;
 import com.pat.controller.dto.DeezerTrackDto;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -65,6 +67,22 @@ class DeezerCatalogServiceTest {
         assertEquals("Random Access Memories", track.albumTitle());
         assertEquals(6575789L, track.albumId());
         assertTrue(track.coverUrl().contains("dzcdn.net"));
+    }
+
+    @Test
+    void readsAlbumFactsFromDeezerPayload() throws Exception {
+        String json = """
+                {"id":302127,"title":"Discovery","duration":3612,"fans":123456,
+                 "label":"Parlophone","release_date":"2001-03-12","record_type":"album",
+                 "genres":{"data":[{"id":113,"name":"Dance"},{"id":132,"name":"Pop"},{"id":1,"name":""}]},
+                 "artist":{"id":27,"name":"Daft Punk"}}
+                """;
+        var root = mapper.readTree(json);
+        assertEquals(3612, DeezerCatalogService.albumDuration(root));
+        assertEquals(123456L, DeezerCatalogService.albumFans(root));
+        assertEquals("Parlophone", DeezerCatalogService.albumLabel(root));
+        assertEquals(List.of("Dance", "Pop"), DeezerCatalogService.albumGenres(root));
+        assertEquals("Discovery", DeezerCatalogService.mapAlbum(root).title());
     }
 
     @Test

@@ -4593,6 +4593,18 @@ export class ApiService {
     return this._http.get<DeezerAlbumPage>(this.API_URL + 'external/deezer/album/' + id);
   }
 
+  /** TheAudioDB biography and album description. Backend: /api/external/audiodb/dossier */
+  getAudioDbDossier(artist: string, album: string, lang: string): Observable<AudioDbDossier> {
+    let params = new HttpParams().set('artist', artist);
+    if (album) {
+      params = params.set('album', album);
+    }
+    if (lang) {
+      params = params.set('lang', lang);
+    }
+    return this._http.get<AudioDbDossier>(this.API_URL + 'external/audiodb/dossier', { params });
+  }
+
   getDeezerArtist(id: number): Observable<DeezerArtistPage> {
     return this._http.get<DeezerArtistPage>(this.API_URL + 'external/deezer/artist/' + id);
   }
@@ -7299,9 +7311,43 @@ export interface DeezerSearch {
   playlists: DeezerPlaylist[];
 }
 
+export interface AudioDbArtist {
+  name: string;
+  biography?: string;
+  genre?: string;
+  style?: string;
+  mood?: string;
+  country?: string;
+  formedYear?: string;
+  website?: string;
+  members?: number;
+  thumbUrl?: string;
+}
+
+export interface AudioDbAlbum {
+  title: string;
+  artistName?: string;
+  description?: string;
+  genre?: string;
+  style?: string;
+  mood?: string;
+  label?: string;
+  year?: string;
+  thumbUrl?: string;
+}
+
+export interface AudioDbDossier {
+  artist?: AudioDbArtist | null;
+  album?: AudioDbAlbum | null;
+}
+
 export interface DeezerAlbumPage {
   album: DeezerAlbum;
   tracks: DeezerTrack[];
+  durationSec?: number;
+  fanCount?: number;
+  label?: string;
+  genres?: string[];
 }
 
 export interface DeezerArtistPage {

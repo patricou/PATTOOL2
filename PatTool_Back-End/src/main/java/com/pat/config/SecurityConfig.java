@@ -381,6 +381,7 @@ public class SecurityConfig {
                 // Sky-Map.org — DSS2 survey cutouts (img src has no Authorization header)
                 .requestMatchers(HttpMethod.GET, "/api/external/skymap/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/wiki/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/audiodb/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/artisans/nearby", "/api/external/artisans/website", "/api/external/artisans/cache").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/external/artisans/cache/clear").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/foncier/**").permitAll()
