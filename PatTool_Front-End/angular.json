@@ -54,6 +54,11 @@
                 "output": "/assets"
               },
               {
+                "glob": "pdf.worker.min.mjs",
+                "input": "node_modules/pdfjs-dist/build",
+                "output": "/assets"
+              },
+              {
                 "glob": "flag-icons.min.css",
                 "input": "node_modules/flag-icons/css",
                 "output": "/assets/vendor/flag-icons/css"
@@ -169,6 +174,11 @@
                   "output": "/assets"
                 },
                 {
+                  "glob": "pdf.worker.min.mjs",
+                  "input": "node_modules/pdfjs-dist/build",
+                  "output": "/assets"
+                },
+                {
                   "glob": "flag-icons.min.css",
                   "input": "node_modules/flag-icons/css",
                   "output": "/assets/vendor/flag-icons/css"
@@ -263,6 +273,11 @@
               {
                 "glob": "maplibre-gl-shared.mjs",
                 "input": "node_modules/maplibre-gl/dist",
+                "output": "/assets"
+              },
+              {
+                "glob": "pdf.worker.min.mjs",
+                "input": "node_modules/pdfjs-dist/build",
                 "output": "/assets"
               }
             ],

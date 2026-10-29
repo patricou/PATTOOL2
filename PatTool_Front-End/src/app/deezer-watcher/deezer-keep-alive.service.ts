@@ -130,12 +130,16 @@ export class DeezerKeepAliveService {
 
   private adoptFrame(frame: HTMLIFrameElement): void {
     frame.dataset['patDeezerKeep'] = '1';
+    // Stay inside the viewport. A frame parked off-screen is frozen, so the
+    // same video is still there when the page comes back.
     frame.style.position = 'fixed';
-    frame.style.left = '-9999px';
-    frame.style.top = '0';
     frame.style.inset = 'auto';
-    frame.style.width = '320px';
-    frame.style.height = '180px';
+    frame.style.left = '0';
+    frame.style.bottom = '0';
+    frame.style.width = '180px';
+    frame.style.height = '100px';
+    frame.style.opacity = '0';
+    frame.style.pointerEvents = 'none';
     frame.style.border = '0';
     this.ignoreEndUntil = Date.now() + 4000;
     frame.addEventListener('load', () => this.armFrame(frame));

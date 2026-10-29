@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  HostListener,
   OnDestroy,
   ViewChild,
   ViewEncapsulation,
@@ -24,6 +25,13 @@ import {
   removeSelectedImage,
   selectedImageIndex
 } from './pdf-converter-quill-export';
+import {
+  clampPreviewZoom,
+  PdfDocumentPreview,
+  PREVIEW_ZOOM_MAX,
+  PREVIEW_ZOOM_MIN,
+  PreviewZoomAnchor
+} from './pdf-converter-preview';
 
 import {
   AssistantPdfExportRequest,
@@ -85,6 +93,9 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
   @ViewChild(QuillEditorComponent) quillEditor?: QuillEditorComponent;
   @ViewChild('quillImageInput') quillImageInput?: ElementRef<HTMLInputElement>;
   @ViewChild('imagePasteZone') imagePasteZone?: ElementRef<HTMLElement>;
+  @ViewChild('previewDialog') previewDialog?: ElementRef<HTMLElement>;
+  @ViewChild('previewStage') previewStage?: ElementRef<HTMLElement>;
+  @ViewChild('previewPages') previewPages?: ElementRef<HTMLElement>;
 
   /** PDF file name without extension. */
   pdfFileName = '';
@@ -108,6 +119,12 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
   deleting = false;
   exporting = false;
   sharingWhatsApp = false;
+  previewOpen = false;
+  previewLoading = false;
+  previewErrorKey = '';
+  previewZoom = 1;
+  readonly previewZoomMinPercent = PREVIEW_ZOOM_MIN * 100;
+  readonly previewZoomMaxPercent = PREVIEW_ZOOM_MAX * 100;
   errorKey = '';
   saveMessageKey = '';
   shareMessageKey = '';
@@ -121,6 +138,17 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
   private imageDragMove?: ImageDragMove;
   private imageRemove?: ImageRemove;
   private applyingEditorHtml = false;
+  private readonly pdfPreview = new PdfDocumentPreview();
+  private previewRenderTimer: ReturnType<typeof setTimeout> | null = null;
+  private previewBound = false;
+  private previewResizeObserver: ResizeObserver | null = null;
+  private lastPreviewStageWidth = 0;
+  private previewZoomAnchor: PreviewZoomAnchor | null = null;
+  private readonly previewPointers = new Map<number, { x: number; y: number }>();
+  private pinchBaseDistance = 0;
+  private pinchBaseZoom = 1;
+  private destroyed = false;
+  private previewSession = 0;
 
   private readonly onQuillTextChange = (): void => {
     if (this.applyingEditorHtml) {
@@ -272,6 +300,8 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
+    this.closePreview();
     const quill = this.quillEditor?.quillEditor;
     if (quill) {
       quill.off('text-change', this.onQuillTextChange);
@@ -284,7 +314,15 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
   }
 
   get isBusy(): boolean {
-    return this.exporting || this.sharingWhatsApp;
+    return this.exporting || this.sharingWhatsApp || this.previewLoading;
+  }
+
+  get previewReady(): boolean {
+    return this.previewOpen && this.pdfPreview.ready && !this.previewLoading && !this.previewErrorKey;
+  }
+
+  get previewZoomPercent(): number {
+    return Math.round(this.previewZoom * 100);
   }
 
   get canGenerate(): boolean {
@@ -555,6 +593,112 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
 
   clearAll(): void {
     this.newDocument();
+  }
+
+  previewDocument(): void {
+    if (this.previewLoading || this.isBusy) {
+      return;
+    }
+    const validated = this.validateForExport();
+    if (!validated) {
+      return;
+    }
+    this.errorKey = '';
+    this.shareMessageKey = '';
+    this.previewErrorKey = '';
+    this.previewZoom = 1;
+    this.previewZoomAnchor = null;
+    this.previewOpen = true;
+    this.previewLoading = true;
+    const session = ++this.previewSession;
+    document.body.classList.add('pdf-converter-preview-open');
+    setTimeout(() => {
+      const dialog = this.previewDialog?.nativeElement;
+      if (!dialog || !this.previewOpen) {
+        return;
+      }
+      if (dialog.parentElement !== document.body) {
+        document.body.appendChild(dialog);
+      }
+      dialog.focus();
+    }, 0);
+    this.exportPdfBlob$(validated)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (blob) => {
+          void this.showPreviewBlob(blob, session);
+        },
+        error: (err) => {
+          console.error('pdf-converter preview', err);
+          this.previewLoading = false;
+          this.previewErrorKey = 'PDF_CONVERTER.ERR_PREVIEW';
+        }
+      });
+  }
+
+  closePreview(): void {
+    this.previewSession++;
+    this.previewOpen = false;
+    this.previewLoading = false;
+    this.previewErrorKey = '';
+    this.previewZoomAnchor = null;
+    if (this.previewRenderTimer != null) {
+      clearTimeout(this.previewRenderTimer);
+      this.previewRenderTimer = null;
+    }
+    this.unbindPreviewSurface();
+    void this.pdfPreview.destroy();
+    document.body.classList.remove('pdf-converter-preview-open');
+  }
+
+  zoomPreviewBy(factor: number): void {
+    this.setPreviewZoom(this.previewZoom * factor, null);
+  }
+
+  fitPreviewWidth(): void {
+    if (!this.previewReady) {
+      return;
+    }
+    if (this.previewRenderTimer != null) {
+      clearTimeout(this.previewRenderTimer);
+      this.previewRenderTimer = null;
+    }
+    this.previewZoom = 1;
+    this.previewZoomAnchor = null;
+    void this.renderPreviewPages();
+  }
+
+  onPreviewZoomInput(ev: Event): void {
+    const value = Number((ev.target as HTMLInputElement).value);
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    this.setPreviewZoom(value / 100, null);
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onPreviewKeydown(ev: KeyboardEvent): void {
+    if (!this.previewOpen) {
+      return;
+    }
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
+      this.closePreview();
+      return;
+    }
+    if (!this.previewReady) {
+      return;
+    }
+    if (ev.key === '+' || ev.key === '=') {
+      ev.preventDefault();
+      this.zoomPreviewBy(1.25);
+    } else if (ev.key === '-' || ev.key === '_') {
+      ev.preventDefault();
+      this.zoomPreviewBy(1 / 1.25);
+    } else if (ev.key === '0') {
+      ev.preventDefault();
+      this.fitPreviewWidth();
+    }
   }
 
   generatePdf(): void {
@@ -1050,5 +1194,189 @@ export class PdfConverterComponent implements AfterViewInit, OnDestroy {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  }
+
+  private async showPreviewBlob(blob: Blob, session: number): Promise<void> {
+    try {
+      if (session !== this.previewSession || this.destroyed) {
+        return;
+      }
+      const loaded = await this.pdfPreview.load(
+        blob,
+        () => session === this.previewSession && !this.destroyed && this.previewOpen
+      );
+      if (!loaded || session !== this.previewSession || this.destroyed || !this.previewOpen) {
+        return;
+      }
+      this.bindPreviewSurface();
+      await this.renderPreviewPages();
+    } catch (err) {
+      if (session !== this.previewSession || this.destroyed) {
+        return;
+      }
+      console.error('pdf-converter preview render', err);
+      this.previewErrorKey = 'PDF_CONVERTER.ERR_PREVIEW';
+    } finally {
+      if (session === this.previewSession) {
+        this.previewLoading = false;
+      }
+    }
+  }
+
+  private async renderPreviewPages(): Promise<void> {
+    const host = this.previewPages?.nativeElement;
+    const stage = this.previewStage?.nativeElement;
+    if (!host || !stage || !this.pdfPreview.ready) {
+      return;
+    }
+    const anchor = this.previewZoomAnchor;
+    this.previewZoomAnchor = null;
+    this.lastPreviewStageWidth = stage.clientWidth;
+    await this.pdfPreview.render(host, stage, this.previewZoom, anchor);
+  }
+
+  private setPreviewZoom(next: number, client: { x: number; y: number } | null): void {
+    if (!this.previewReady) {
+      return;
+    }
+    const clamped = clampPreviewZoom(next);
+    if (Math.abs(clamped - this.previewZoom) < 0.001) {
+      return;
+    }
+    this.previewZoomAnchor = this.capturePreviewAnchor(client);
+    this.previewZoom = clamped;
+    this.schedulePreviewRender();
+  }
+
+  private schedulePreviewRender(): void {
+    if (this.previewRenderTimer != null) {
+      clearTimeout(this.previewRenderTimer);
+    }
+    this.previewRenderTimer = setTimeout(() => {
+      this.previewRenderTimer = null;
+      void this.renderPreviewPages();
+    }, 80);
+  }
+
+  private capturePreviewAnchor(client: { x: number; y: number } | null): PreviewZoomAnchor | null {
+    const host = this.previewPages?.nativeElement;
+    const stage = this.previewStage?.nativeElement;
+    if (!host || !stage) {
+      return null;
+    }
+    const rect = host.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) {
+      return null;
+    }
+    const point = client ?? {
+      x: rect.left + rect.width / 2,
+      y: Math.min(rect.bottom - 8, rect.top + stage.clientHeight / 2)
+    };
+    return {
+      fx: (point.x - rect.left) / rect.width,
+      fy: (point.y - rect.top) / rect.height,
+      clientX: point.x,
+      clientY: point.y
+    };
+  }
+
+  private bindPreviewSurface(): void {
+    const stage = this.previewStage?.nativeElement;
+    if (!stage || this.previewBound) {
+      return;
+    }
+    this.previewBound = true;
+    this.lastPreviewStageWidth = stage.clientWidth;
+    stage.addEventListener('wheel', this.onPreviewWheel, { passive: false });
+    stage.addEventListener('pointerdown', this.onPreviewPointerDown);
+    stage.addEventListener('pointermove', this.onPreviewPointerMove, { passive: false });
+    stage.addEventListener('pointerup', this.onPreviewPointerEnd);
+    stage.addEventListener('pointercancel', this.onPreviewPointerEnd);
+    this.previewResizeObserver = new ResizeObserver(() => {
+      const width = stage.clientWidth;
+      if (Math.abs(width - this.lastPreviewStageWidth) < 8 || !this.previewReady) {
+        return;
+      }
+      this.lastPreviewStageWidth = width;
+      this.previewZoomAnchor = null;
+      this.schedulePreviewRender();
+    });
+    this.previewResizeObserver.observe(stage);
+  }
+
+  private unbindPreviewSurface(): void {
+    const stage = this.previewStage?.nativeElement;
+    if (stage && this.previewBound) {
+      stage.removeEventListener('wheel', this.onPreviewWheel);
+      stage.removeEventListener('pointerdown', this.onPreviewPointerDown);
+      stage.removeEventListener('pointermove', this.onPreviewPointerMove);
+      stage.removeEventListener('pointerup', this.onPreviewPointerEnd);
+      stage.removeEventListener('pointercancel', this.onPreviewPointerEnd);
+    }
+    this.previewResizeObserver?.disconnect();
+    this.previewResizeObserver = null;
+    this.previewBound = false;
+    this.previewPointers.clear();
+    this.pinchBaseDistance = 0;
+  }
+
+  private readonly onPreviewWheel = (ev: WheelEvent): void => {
+    if (!this.previewReady || (!ev.ctrlKey && !ev.metaKey)) {
+      return;
+    }
+    ev.preventDefault();
+    const factor = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
+    this.setPreviewZoom(this.previewZoom * factor, { x: ev.clientX, y: ev.clientY });
+  };
+
+  private readonly onPreviewPointerDown = (ev: PointerEvent): void => {
+    if (ev.pointerType === 'mouse') {
+      return;
+    }
+    this.previewPointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (this.previewPointers.size === 2) {
+      this.pinchBaseDistance = this.previewPointerDistance();
+      this.pinchBaseZoom = this.previewZoom;
+    }
+  };
+
+  private readonly onPreviewPointerMove = (ev: PointerEvent): void => {
+    if (!this.previewPointers.has(ev.pointerId)) {
+      return;
+    }
+    this.previewPointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (this.previewPointers.size < 2 || this.pinchBaseDistance <= 0) {
+      return;
+    }
+    ev.preventDefault();
+    const distance = this.previewPointerDistance();
+    const mid = this.previewPointerMidpoint();
+    this.setPreviewZoom(this.pinchBaseZoom * (distance / this.pinchBaseDistance), mid);
+  };
+
+  private readonly onPreviewPointerEnd = (ev: PointerEvent): void => {
+    this.previewPointers.delete(ev.pointerId);
+    if (this.previewPointers.size < 2) {
+      this.pinchBaseDistance = 0;
+    }
+  };
+
+  private previewPointerDistance(): number {
+    const points = [...this.previewPointers.values()];
+    if (points.length < 2) {
+      return 0;
+    }
+    return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+  }
+
+  private previewPointerMidpoint(): { x: number; y: number } | null {
+    const points = [...this.previewPointers.values()];
+    if (points.length < 2) {
+      return null;
+    }
+    return {
+      x: (points[0].x + points[1].x) / 2,
+      y: (points[0].y + points[1].y) / 2
+    };
   }
 }

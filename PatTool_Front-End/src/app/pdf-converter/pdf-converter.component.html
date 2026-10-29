@@ -286,6 +286,25 @@
         </button>
         <button
           type="button"
+          class="btn btn-outline-secondary btn-sm pdf-converter-action-btn"
+          [disabled]="!canGenerate"
+          [title]="'PDF_CONVERTER.PREVIEW_ZOOM_HINT' | translate"
+          (click)="previewDocument()">
+          <span
+            *ngIf="previewLoading"
+            class="spinner-border spinner-border-sm me-1"
+            role="status"
+            aria-hidden="true"></span>
+          <i *ngIf="!previewLoading" class="fa fa-eye me-1" aria-hidden="true"></i>
+          <span class="pdf-converter-action-label pdf-converter-action-label--long">{{
+            'PDF_CONVERTER.PREVIEW_BTN' | translate
+          }}</span>
+          <span class="pdf-converter-action-label pdf-converter-action-label--short">{{
+            'PDF_CONVERTER.PREVIEW_BTN_SHORT' | translate
+          }}</span>
+        </button>
+        <button
+          type="button"
           class="btn btn-primary btn-sm pdf-converter-action-btn"
           [disabled]="!canGenerate"
           (click)="generatePdf()">
@@ -330,5 +349,79 @@
         </button>
       </div>
     </div>
+  </div>
+</div>
+
+<div
+  *ngIf="previewOpen"
+  #previewDialog
+  class="pdf-converter-preview"
+  role="dialog"
+  aria-modal="true"
+  tabindex="-1"
+  [attr.aria-label]="'PDF_CONVERTER.PREVIEW_BTN' | translate">
+  <div class="pdf-converter-preview-bar">
+    <div class="pdf-converter-preview-title" [title]="pdfFileName + '.pdf'">
+      {{ pdfFileName }}.pdf
+    </div>
+    <div class="pdf-converter-preview-zoom">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-light"
+        [disabled]="!previewReady || previewZoom <= previewZoomMinPercent / 100"
+        [attr.aria-label]="'PDF_CONVERTER.PREVIEW_ZOOM_OUT' | translate"
+        [title]="'PDF_CONVERTER.PREVIEW_ZOOM_OUT' | translate"
+        (click)="zoomPreviewBy(1 / 1.25)">
+        <i class="fa fa-search-minus" aria-hidden="true"></i>
+      </button>
+      <input
+        class="pdf-converter-preview-slider"
+        type="range"
+        [min]="previewZoomMinPercent"
+        [max]="previewZoomMaxPercent"
+        step="5"
+        [value]="previewZoomPercent"
+        [disabled]="!previewReady"
+        [attr.aria-label]="'PDF_CONVERTER.PREVIEW_ZOOM_LEVEL' | translate: { percent: previewZoomPercent }"
+        [title]="'PDF_CONVERTER.PREVIEW_ZOOM_HINT' | translate"
+        (input)="onPreviewZoomInput($event)" />
+      <span class="pdf-converter-preview-zoom-label">{{ previewZoomPercent }}%</span>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-light"
+        [disabled]="!previewReady || previewZoom >= previewZoomMaxPercent / 100"
+        [attr.aria-label]="'PDF_CONVERTER.PREVIEW_ZOOM_IN' | translate"
+        [title]="'PDF_CONVERTER.PREVIEW_ZOOM_IN' | translate"
+        (click)="zoomPreviewBy(1.25)">
+        <i class="fa fa-search-plus" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-light"
+        [disabled]="!previewReady"
+        [attr.aria-label]="'PDF_CONVERTER.PREVIEW_FIT' | translate"
+        [title]="'PDF_CONVERTER.PREVIEW_FIT' | translate"
+        (click)="fitPreviewWidth()">
+        <i class="fa fa-arrows-h" aria-hidden="true"></i>
+      </button>
+    </div>
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-light pdf-converter-preview-close"
+      [attr.aria-label]="'PDF_CONVERTER.PREVIEW_CLOSE' | translate"
+      [title]="'PDF_CONVERTER.PREVIEW_CLOSE' | translate"
+      (click)="closePreview()">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
+  <div *ngIf="previewLoading" class="pdf-converter-preview-status" role="status">
+    <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+    {{ 'PDF_CONVERTER.PREVIEW_LOADING' | translate }}
+  </div>
+  <div *ngIf="previewErrorKey" class="alert alert-danger m-3" role="alert">
+    {{ previewErrorKey | translate }}
+  </div>
+  <div #previewStage class="pdf-converter-preview-stage">
+    <div #previewPages class="pdf-converter-preview-pages"></div>
   </div>
 </div>
