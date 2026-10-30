@@ -4,13 +4,13 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
  * Valeurs par défaut côté serveur : libellés + routage ({@code openai}, {@code anthropic}, {@code gemini},
- * {@code mistral} ou {@code spacexai}, selon {@code assistant.provider}).
+ * {@code mistral}, {@code spacexai}, {@code deepseek}, {@code qwen}, {@code glm} ou {@code kimi}, selon {@code assistant.provider}).
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record AssistantClientConfigDto(
         String provider,
         String model,
-        /** {@code openai}, {@code anthropic}, {@code gemini}, {@code mistral} ou {@code spacexai} — état configuré dans application.properties. */
+        /** Slug configuré dans application.properties ({@code assistant.provider}). */
         String routingDefault,
         /** Préférence utilisateur persistée (Mongo {@code appParameters}) ; absent si jamais enregistrée. */
         AssistantRoutingPreferenceDto persistedRouting,
@@ -41,4 +41,20 @@ public record AssistantClientConfigDto(
         /** {@code assistant.billing.spacexai-url}. */
         String billingSpacexaiUrl,
         /** {@code gemini.image-generation-model} (non sensible). */
-        String geminiImageGenerationModel) {}
+        String geminiImageGenerationModel,
+        /** Valeur {@code deepseek.model} (non sensible). */
+        String deepseekDefaultModel,
+        /** Valeur {@code qwen.model} (non sensible). */
+        String qwenDefaultModel,
+        /** Valeur {@code glm.model} (non sensible). */
+        String glmDefaultModel,
+        /** Valeur {@code kimi.model} (non sensible). */
+        String kimiDefaultModel,
+        /** {@code assistant.billing.deepseek-url}. */
+        String billingDeepseekUrl,
+        /** {@code assistant.billing.qwen-url}. */
+        String billingQwenUrl,
+        /** {@code assistant.billing.glm-url}. */
+        String billingGlmUrl,
+        /** {@code assistant.billing.kimi-url}. */
+        String billingKimiUrl) {}

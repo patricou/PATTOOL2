@@ -3,6 +3,7 @@ import { AssistantModelGuideRow } from './assistant-model-guide.types';
 /**
  * Tools help modal “Which model for which task?” — Anthropic (Claude) guide.
  * Copy in i18n (ASSISTANT.TOOLS_HELP_ANTHROPIC_*).
+ * Current API ids (October 2026): Fable 5.1, Opus 5.5, Sonnet 5.5, Haiku 5.5.
  */
 export type AssistantAnthropicModelGuideRow = AssistantModelGuideRow;
 
@@ -19,7 +20,7 @@ export const ASSISTANT_ANTHROPIC_MODEL_GUIDE_ROWS: readonly AssistantAnthropicMo
   },
   {
     modelNameKey: 'ASSISTANT.TOOLS_HELP_ANTHROPIC_OPUS5_NAME',
-    apiModelId: 'claude-opus-5',
+    apiModelId: 'claude-opus-5-5',
     useKeys: [
       'ASSISTANT.TOOLS_HELP_ANTHROPIC_OPUS5_U1',
       'ASSISTANT.TOOLS_HELP_ANTHROPIC_OPUS5_U2',
@@ -28,7 +29,7 @@ export const ASSISTANT_ANTHROPIC_MODEL_GUIDE_ROWS: readonly AssistantAnthropicMo
   },
   {
     modelNameKey: 'ASSISTANT.TOOLS_HELP_ANTHROPIC_SONNET5_NAME',
-    apiModelId: 'claude-sonnet-5',
+    apiModelId: 'claude-sonnet-5-5',
     useKeys: [
       'ASSISTANT.TOOLS_HELP_ANTHROPIC_SONNET5_U1',
       'ASSISTANT.TOOLS_HELP_ANTHROPIC_SONNET5_U2',
@@ -37,7 +38,7 @@ export const ASSISTANT_ANTHROPIC_MODEL_GUIDE_ROWS: readonly AssistantAnthropicMo
   },
   {
     modelNameKey: 'ASSISTANT.TOOLS_HELP_ANTHROPIC_HAIKU45_NAME',
-    apiModelId: 'claude-haiku-4-5-20251001',
+    apiModelId: 'claude-haiku-5-5',
     useKeys: [
       'ASSISTANT.TOOLS_HELP_ANTHROPIC_HAIKU45_U1',
       'ASSISTANT.TOOLS_HELP_ANTHROPIC_HAIKU45_U2',

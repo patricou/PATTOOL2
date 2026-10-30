@@ -108,6 +108,10 @@ public class AssistantController {
         String gem = routingAssistantService.getDefaultModelForRoutingSlug("gemini");
         String mis = routingAssistantService.getDefaultModelForRoutingSlug("mistral");
         String sxa = routingAssistantService.getDefaultModelForRoutingSlug("spacexai");
+        String dsk = routingAssistantService.getDefaultModelForRoutingSlug("deepseek");
+        String qwen = routingAssistantService.getDefaultModelForRoutingSlug("qwen");
+        String glm = routingAssistantService.getDefaultModelForRoutingSlug("glm");
+        String kimi = routingAssistantService.getDefaultModelForRoutingSlug("kimi");
         String gemImg = routingAssistantService.getGeminiImageGenerationModel();
         return ResponseEntity.ok(new AssistantClientConfigDto(
                 p.isEmpty() ? null : p,
@@ -126,7 +130,15 @@ public class AssistantController {
                 emptyToNull(assistantBillingLinks.getGeminiApiKeysUrl()),
                 emptyToNull(assistantBillingLinks.getMistralUrl()),
                 emptyToNull(assistantBillingLinks.getSpacexaiUrl()),
-                gemImg.isEmpty() ? null : gemImg));
+                gemImg.isEmpty() ? null : gemImg,
+                dsk.isEmpty() ? null : dsk,
+                qwen.isEmpty() ? null : qwen,
+                glm.isEmpty() ? null : glm,
+                kimi.isEmpty() ? null : kimi,
+                emptyToNull(assistantBillingLinks.getDeepseekUrl()),
+                emptyToNull(assistantBillingLinks.getQwenUrl()),
+                emptyToNull(assistantBillingLinks.getGlmUrl()),
+                emptyToNull(assistantBillingLinks.getKimiUrl())));
     }
 
     /**
@@ -141,7 +153,8 @@ public class AssistantController {
                 && !"anthropic".equals(p)
                 && !"gemini".equals(p)
                 && !"mistral".equals(p)
-                && !"spacexai".equals(p)) {
+                && !"spacexai".equals(p)
+                && !com.pat.service.ChineseLabAssistantService.isChineseLab(p)) {
             return ResponseEntity.badRequest().build();
         }
         return ResponseEntity.ok(
@@ -329,7 +342,11 @@ public class AssistantController {
                             || result.error().contains("mistral.key")
                             || result.error().contains("configurez mistral.key")
                             || result.error().contains("spacexai.key")
-                            || result.error().contains("configurez spacexai.key");
+                            || result.error().contains("configurez spacexai.key")
+                            || result.error().contains("configurez deepseek.key")
+                            || result.error().contains("configurez qwen.key")
+                            || result.error().contains("configurez glm.key")
+                            || result.error().contains("configurez kimi.key");
             HttpStatus status = configMissingKey ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_GATEWAY;
             return ResponseEntity.status(status).body(result);
         }

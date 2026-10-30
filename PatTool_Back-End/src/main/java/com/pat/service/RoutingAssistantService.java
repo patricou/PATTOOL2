@@ -10,7 +10,8 @@ import org.springframework.stereotype.Service;
 /**
  * Routage de l’assistant latéral selon {@code assistant.provider} ({@code openai} par défaut,
  * {@code anthropic} pour Claude, {@code gemini} pour Google Gemini, {@code mistral} pour Mistral AI,
- * {@code spacexai} pour SpaceXAI / Grok).
+ * {@code spacexai} pour SpaceXAI / Grok, {@code deepseek}, {@code qwen}, {@code glm} ou {@code kimi}
+ * pour les laboratoires chinois).
  */
 @Service
 public class RoutingAssistantService {
@@ -25,18 +26,21 @@ public class RoutingAssistantService {
     private final GeminiAssistantService geminiAssistantService;
     private final MistralAssistantService mistralAssistantService;
     private final SpaceXaiAssistantService spaceXaiAssistantService;
+    private final ChineseLabAssistantService chineseLabAssistantService;
 
     public RoutingAssistantService(
             OpenAiAssistantService openAiAssistantService,
             AnthropicAssistantService anthropicAssistantService,
             GeminiAssistantService geminiAssistantService,
             MistralAssistantService mistralAssistantService,
-            SpaceXaiAssistantService spaceXaiAssistantService) {
+            SpaceXaiAssistantService spaceXaiAssistantService,
+            ChineseLabAssistantService chineseLabAssistantService) {
         this.openAiAssistantService = openAiAssistantService;
         this.anthropicAssistantService = anthropicAssistantService;
         this.geminiAssistantService = geminiAssistantService;
         this.mistralAssistantService = mistralAssistantService;
         this.spaceXaiAssistantService = spaceXaiAssistantService;
+        this.chineseLabAssistantService = chineseLabAssistantService;
     }
 
     public AssistantChatResponseDto complete(AssistantChatRequestDto request) {
@@ -46,6 +50,9 @@ public class RoutingAssistantService {
                 slug,
                 request != null ? request.provider() : null,
                 assistantProvider);
+        if (ChineseLabAssistantService.isChineseLab(slug)) {
+            return chineseLabAssistantService.complete(slug, request);
+        }
         return switch (slug) {
             case "anthropic" -> anthropicAssistantService.complete(request);
             case "gemini" -> geminiAssistantService.complete(request);
@@ -56,7 +63,11 @@ public class RoutingAssistantService {
     }
 
     public String getConfiguredProviderLabel() {
-        return switch (configuredServerSlug()) {
+        String slug = configuredServerSlug();
+        if (ChineseLabAssistantService.isChineseLab(slug)) {
+            return chineseLabAssistantService.getConfiguredProviderLabel(slug);
+        }
+        return switch (slug) {
             case "anthropic" -> anthropicAssistantService.getConfiguredProviderLabel();
             case "gemini" -> geminiAssistantService.getConfiguredProviderLabel();
             case "mistral" -> mistralAssistantService.getConfiguredProviderLabel();
@@ -66,7 +77,11 @@ public class RoutingAssistantService {
     }
 
     public String getConfiguredModel() {
-        return switch (configuredServerSlug()) {
+        String slug = configuredServerSlug();
+        if (ChineseLabAssistantService.isChineseLab(slug)) {
+            return chineseLabAssistantService.getConfiguredModel(slug);
+        }
+        return switch (slug) {
             case "anthropic" -> anthropicAssistantService.getConfiguredModel();
             case "gemini" -> geminiAssistantService.getConfiguredModel();
             case "mistral" -> mistralAssistantService.getConfiguredModel();
@@ -75,7 +90,7 @@ public class RoutingAssistantService {
         };
     }
 
-    /** {@code openai}, {@code anthropic}, {@code gemini}, {@code mistral} ou {@code spacexai}, jamais vide (défaut {@code openai}). */
+    /** Slug serveur, jamais vide (défaut {@code openai}). */
     public String getConfiguredRoutingSlug() {
         return configuredServerSlug();
     }
@@ -88,6 +103,9 @@ public class RoutingAssistantService {
         String s = normalizeRoutingSlug(slug);
         if (s == null) {
             s = "openai";
+        }
+        if (ChineseLabAssistantService.isChineseLab(s)) {
+            return chineseLabAssistantService.getConfiguredModel(s);
         }
         return switch (s) {
             case "anthropic" -> anthropicAssistantService.getConfiguredModel();
@@ -117,38 +135,32 @@ public class RoutingAssistantService {
 
     /**
      * Valeur de {@code assistant.provider} : {@code openai} (défaut), {@code anthropic}/{@code claude},
-     * {@code gemini}/{@code google}, {@code mistral}, {@code spacexai}/{@code xai}/{@code grok}.
+     * {@code gemini}/{@code google}, {@code mistral}, {@code spacexai}/{@code xai}/{@code grok},
+     * {@code deepseek}, {@code qwen}, {@code glm}/{@code zai}, {@code kimi}/{@code moonshot}.
      */
     static String normalizeAssistantProviderProperty(String assistantProvider) {
         if (assistantProvider == null || assistantProvider.isBlank()) {
             return "openai";
         }
         String p = assistantProvider.trim().toLowerCase();
-        if ("anthropic".equals(p) || "claude".equals(p)) {
-            return "anthropic";
-        }
-        if ("gemini".equals(p) || "google".equals(p)) {
-            return "gemini";
-        }
-        if ("mistral".equals(p)) {
-            return "mistral";
-        }
-        if ("spacexai".equals(p) || "xai".equals(p) || "grok".equals(p)) {
-            return "spacexai";
-        }
-        return "openai";
+        String known = canonicalSlug(p);
+        return known != null ? known : "openai";
     }
 
     /**
      * Valeur reconnue pour le corps de requête : {@code openai}, {@code anthropic}, {@code claude}
      * (alias), {@code gemini}, {@code google} (alias), {@code mistral}, {@code spacexai}, {@code xai},
-     * {@code grok}. Toute autre valeur est ignorée pour retomber sur la config serveur.
+     * {@code grok}, {@code deepseek}, {@code qwen}/{@code alibaba}, {@code glm}/{@code zai}/{@code zhipu},
+     * {@code kimi}/{@code moonshot}. Toute autre valeur est ignorée pour retomber sur la config serveur.
      */
     static String normalizeRoutingSlug(String provider) {
         if (provider == null || provider.isBlank()) {
             return null;
         }
-        String p = provider.trim().toLowerCase();
+        return canonicalSlug(provider.trim().toLowerCase());
+    }
+
+    private static String canonicalSlug(String p) {
         if ("claude".equals(p) || "anthropic".equals(p)) {
             return "anthropic";
         }
@@ -163,6 +175,18 @@ public class RoutingAssistantService {
         }
         if ("openai".equals(p)) {
             return "openai";
+        }
+        if ("deepseek".equals(p)) {
+            return "deepseek";
+        }
+        if ("qwen".equals(p) || "alibaba".equals(p)) {
+            return "qwen";
+        }
+        if ("glm".equals(p) || "zai".equals(p) || "zhipu".equals(p)) {
+            return "glm";
+        }
+        if ("kimi".equals(p) || "moonshot".equals(p)) {
+            return "kimi";
         }
         return null;
     }

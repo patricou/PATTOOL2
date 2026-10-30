@@ -3,14 +3,24 @@ import { AssistantModelGuideRow } from './assistant-model-guide.types';
 /**
  * Tools help modal “Which model for which task?” — SpaceXAI (Grok) guide.
  * Copy in i18n (ASSISTANT.TOOLS_HELP_SPACEXAI_*).
+ * Flagship since September 2026: {@code grok-4.7}.
  */
 export type AssistantSpaceXaiModelGuideRow = AssistantModelGuideRow;
 
 export const ASSISTANT_SPACEXAI_MODEL_GUIDE_ROWS: readonly AssistantSpaceXaiModelGuideRow[] = [
   {
+    modelNameKey: 'ASSISTANT.TOOLS_HELP_SPACEXAI_GROK47_NAME',
+    apiModelId: 'grok-4.7',
+    badgeKey: 'ASSISTANT.TOOLS_HELP_SPACEXAI_GROK47_BADGE',
+    useKeys: [
+      'ASSISTANT.TOOLS_HELP_SPACEXAI_GROK47_U1',
+      'ASSISTANT.TOOLS_HELP_SPACEXAI_GROK47_U2',
+      'ASSISTANT.TOOLS_HELP_SPACEXAI_GROK47_U3'
+    ]
+  },
+  {
     modelNameKey: 'ASSISTANT.TOOLS_HELP_SPACEXAI_GROK46_NAME',
     apiModelId: 'grok-4.6',
-    badgeKey: 'ASSISTANT.TOOLS_HELP_SPACEXAI_GROK46_BADGE',
     useKeys: [
       'ASSISTANT.TOOLS_HELP_SPACEXAI_GROK46_U1',
       'ASSISTANT.TOOLS_HELP_SPACEXAI_GROK46_U2',

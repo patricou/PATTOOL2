@@ -4,7 +4,8 @@ import {
   AssistantChatMeta,
   AssistantChatTurn,
   AssistantRoutingStored,
-  AssistantToolFlagsRequest
+  AssistantToolFlagsRequest,
+  isAssistantProviderSlug
 } from './assistant.service';
 
 interface StoredShape {
@@ -61,8 +62,8 @@ export class AssistantSessionStore {
       return undefined;
     }
     const o = raw as Record<string, unknown>;
-    const p = o['provider'];
-    if (p !== 'openai' && p !== 'anthropic' && p !== 'gemini' && p !== 'mistral' && p !== 'spacexai') {
+    const p = typeof o['provider'] === 'string' ? o['provider'] : undefined;
+    if (!isAssistantProviderSlug(p)) {
       return undefined;
     }
     const modelPreset =

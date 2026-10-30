@@ -1972,12 +1972,13 @@ a.radio-now-action.dz-deezer-link {
 }
 
 .dz-album-info-modal {
-  width: min(32rem, calc(100vw - 2rem));
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: min(94vh, 60rem);
 }
 
 @media (min-width: 901px) and (hover: hover) and (pointer: fine) {
   .dz-album-info-modal {
-    width: min(64rem, calc(100vw - 2rem));
+    width: min(68rem, calc(100vw - 2rem));
   }
 }
 
@@ -2122,7 +2123,11 @@ a.radio-now-action.dz-deezer-link {
   .dz-audiodb {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    align-items: start;
+    align-items: stretch;
+  }
+
+  .dz-audiodb-card:only-child {
+    grid-column: 1 / -1;
   }
 }
 
@@ -2160,6 +2165,8 @@ a.radio-now-action.dz-deezer-link {
 }
 
 .dz-audiodb-head strong {
+  font-size: 1.25rem;
+  line-height: 1.25;
   overflow-wrap: anywhere;
 }
 
@@ -2177,14 +2184,14 @@ a.radio-now-action.dz-deezer-link {
 }
 
 .dz-audiodb-bio {
-  max-height: 11rem;
+  max-height: min(46vh, 26rem);
   margin: 0;
-  padding: 0.65rem 0.7rem;
+  padding: 0.95rem 1.05rem;
   overflow: auto;
   border-radius: 0.55rem;
   background: color-mix(in srgb, var(--menu-fg, #000) 7%, transparent);
-  font-size: 0.88rem;
-  line-height: 1.45;
+  font-size: 1.2rem;
+  line-height: 1.65;
   white-space: pre-wrap;
 }
 

@@ -51,7 +51,7 @@ public class SpaceXaiAssistantService {
     @Value("${spacexai.api:https://api.x.ai/v1/chat/completions}")
     private String apiUrl;
 
-    @Value("${spacexai.model:grok-4.6}")
+    @Value("${spacexai.model:grok-4.7}")
     private String model;
 
     @Value("${spacexai.max-tokens:8192}")
@@ -125,7 +125,7 @@ public class SpaceXaiAssistantService {
         if (imageAttach.dataUrl() != null && !isSpaceXaiVisionModel(requestModel)) {
             return AssistantChatResponseDto.err(
                     "Ce modèle SpaceXAI ne prend pas en charge l’analyse d’images. "
-                            + "Choisissez grok-4.6 (ou un modèle Grok multimodal).");
+                            + "Choisissez grok-4.7 (ou un modèle Grok multimodal).");
         }
 
         List<Object> chatMessages = buildChatCompletionMessages(turns, imageAttach, request.system());

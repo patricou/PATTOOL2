@@ -10,7 +10,7 @@ export interface AssistantChatMeta {
   elapsedMs?: number;
   inputTokens?: number;
   outputTokens?: number;
-  /** Modèle effectif renvoyé par l’API (ex. gpt-4o) */
+  /** Modèle effectif renvoyé par l’API (ex. gpt-6-astra) */
   model?: string;
   /** Libellé fournisseur exposé par le backend */
   provider?: string;
@@ -82,25 +82,36 @@ export interface AssistantOpenAiCredits {
 }
 
 /** Fournisseurs IA supportés par l’assistant PatTool. */
-export type AssistantProviderSlug = 'openai' | 'anthropic' | 'gemini' | 'mistral' | 'spacexai';
+export const ASSISTANT_PROVIDER_SLUGS = [
+  'openai',
+  'anthropic',
+  'gemini',
+  'mistral',
+  'spacexai',
+  'deepseek',
+  'qwen',
+  'glm',
+  'kimi'
+] as const;
+
+export type AssistantProviderSlug = (typeof ASSISTANT_PROVIDER_SLUGS)[number];
 
 export function isAssistantProviderSlug(
   p: string | undefined | null
 ): p is AssistantProviderSlug {
-  return (
-    p === 'openai' ||
-    p === 'anthropic' ||
-    p === 'gemini' ||
-    p === 'mistral' ||
-    p === 'spacexai'
-  );
+  return !!p && (ASSISTANT_PROVIDER_SLUGS as readonly string[]).includes(p);
+}
+
+/** DeepSeek, Qwen, GLM et Kimi : chat compatible OpenAI, sans recherche web ni images PatTool. */
+export function isChineseLabProvider(p: string | undefined | null): boolean {
+  return p === 'deepseek' || p === 'qwen' || p === 'glm' || p === 'kimi';
 }
 
 /** Libellés + routage par défaut côté serveur (GET /assistant/config). */
 export interface AssistantClientConfig {
   provider?: string | null;
   model?: string | null;
-  /** openai | anthropic | gemini | mistral | spacexai — valeur de assistant.provider côté Spring. */
+  /** Slug assistant.provider côté Spring (y compris deepseek, qwen, glm, kimi). */
   routingDefault?: string | null;
   /** Préférence persistée (Mongo appParameters), si l’utilisateur en a déjà enregistré une. */
   persistedRouting?: AssistantRoutingStored | null;
@@ -110,6 +121,10 @@ export interface AssistantClientConfig {
   geminiDefaultModel?: string | null;
   mistralDefaultModel?: string | null;
   spacexaiDefaultModel?: string | null;
+  deepseekDefaultModel?: string | null;
+  qwenDefaultModel?: string | null;
+  glmDefaultModel?: string | null;
+  kimiDefaultModel?: string | null;
   /** Liens bandeau facturation / usage (assistant.billing.* côté serveur). */
   billingOpenaiBillingUrl?: string | null;
   billingOpenaiUsageUrl?: string | null;
@@ -118,6 +133,10 @@ export interface AssistantClientConfig {
   billingGeminiApiKeysUrl?: string | null;
   billingMistralUrl?: string | null;
   billingSpacexaiUrl?: string | null;
+  billingDeepseekUrl?: string | null;
+  billingQwenUrl?: string | null;
+  billingGlmUrl?: string | null;
+  billingKimiUrl?: string | null;
   /** gemini.image-generation-model côté serveur (non sensible). */
   geminiImageGenerationModel?: string | null;
 }

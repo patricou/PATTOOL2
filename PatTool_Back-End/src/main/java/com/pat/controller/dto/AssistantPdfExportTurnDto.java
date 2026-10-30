@@ -17,7 +17,7 @@ public record AssistantPdfExportTurnDto(
         @Size(max = 16_000_000) String imageDataUrl,
         /** Images embedded in the PDF ({@code data:image/...;base64,...}), order preserved. */
         List<String> embeddedImageDataUrls,
-        /** Client-localized line (e.g. "Model: OpenAI · gpt-4o"). */
+        /** Client-localized line (e.g. "Model: OpenAI · gpt-6-astra"). */
         @Size(max = 2000) String providerModelLine,
         /** Client-localized stats/tokens line. */
         @Size(max = 2000) String statsLine,

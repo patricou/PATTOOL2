@@ -19,6 +19,10 @@ public class AssistantBillingLinksProperties {
     private String geminiApiKeysUrl = "https://aistudio.google.com/app/apikey";
     private String mistralUrl = "https://console.mistral.ai/billing";
     private String spacexaiUrl = "https://console.x.ai";
+    private String deepseekUrl = "https://platform.deepseek.com";
+    private String qwenUrl = "https://modelstudio.console.alibabacloud.com";
+    private String glmUrl = "https://z.ai";
+    private String kimiUrl = "https://platform.kimi.ai";
 
     public String getOpenaiBillingUrl() {
         return openaiBillingUrl;
@@ -74,5 +78,37 @@ public class AssistantBillingLinksProperties {
 
     public void setSpacexaiUrl(String spacexaiUrl) {
         this.spacexaiUrl = spacexaiUrl;
+    }
+
+    public String getDeepseekUrl() {
+        return deepseekUrl;
+    }
+
+    public void setDeepseekUrl(String deepseekUrl) {
+        this.deepseekUrl = deepseekUrl;
+    }
+
+    public String getQwenUrl() {
+        return qwenUrl;
+    }
+
+    public void setQwenUrl(String qwenUrl) {
+        this.qwenUrl = qwenUrl;
+    }
+
+    public String getGlmUrl() {
+        return glmUrl;
+    }
+
+    public void setGlmUrl(String glmUrl) {
+        this.glmUrl = glmUrl;
+    }
+
+    public String getKimiUrl() {
+        return kimiUrl;
+    }
+
+    public void setKimiUrl(String kimiUrl) {
+        this.kimiUrl = kimiUrl;
     }
 }

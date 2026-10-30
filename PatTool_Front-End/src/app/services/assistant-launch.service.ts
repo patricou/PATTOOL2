@@ -24,10 +24,10 @@ export interface AssistantLaunchAttachedImage {
 }
 
 /**
- * Photo / vision: slideshow, camera, or gallery/file picker → Google Gemini image-capable flash.
+ * Photo / vision: slideshow, camera, or gallery/file picker → Gemini 3.8 Flash.
  * Keep in sync with models enabled on the backend / {@code GET /api/assistant/models?provider=gemini}.
  */
-export const ASSISTANT_VISION_GEMINI_MODEL_ID = 'gemini-3.1-flash-image';
+export const ASSISTANT_VISION_GEMINI_MODEL_ID = 'gemini-3.8-flash';
 
 export const ASSISTANT_VISION_IMAGE_LAUNCH_ROUTING: AssistantLaunchRouting = {
   provider: 'gemini',
@@ -47,11 +47,11 @@ export const ASSISTANT_NEWS_LAUNCH_ROUTING: AssistantLaunchRouting = {
 };
 
 /**
- * Activities / events UI ({@code element-evenement}, home list, detail page) → Anthropic Claude Opus 5.
+ * Activities / events UI ({@code element-evenement}, home list, detail page) → Anthropic Claude Opus 5.5.
  */
 export const ASSISTANT_EVENT_ELEMENT_LAUNCH_ROUTING: AssistantLaunchRouting = {
   provider: 'anthropic',
-  modelPreset: 'claude-opus-5'
+  modelPreset: 'claude-opus-5-5'
 };
 
 export interface AssistantLaunchPayload {

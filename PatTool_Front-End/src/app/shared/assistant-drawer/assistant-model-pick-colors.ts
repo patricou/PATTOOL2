@@ -5,6 +5,12 @@ import { ASSISTANT_MISTRAL_MODEL_GUIDE_ROWS } from './assistant-mistral-model-gu
 import { ASSISTANT_MODEL_PICK_ROUTING } from './assistant-model-pick-routing';
 import { ASSISTANT_OPENAI_MODEL_GUIDE_ROWS } from './assistant-openai-model-guide';
 import { ASSISTANT_SPACEXAI_MODEL_GUIDE_ROWS } from './assistant-spacexai-model-guide';
+import {
+  ASSISTANT_DEEPSEEK_MODEL_GUIDE_ROWS,
+  ASSISTANT_GLM_MODEL_GUIDE_ROWS,
+  ASSISTANT_KIMI_MODEL_GUIDE_ROWS,
+  ASSISTANT_QWEN_MODEL_GUIDE_ROWS
+} from './assistant-chinese-model-guides';
 
 export interface AssistantModelPickColor {
   readonly bg: string;
@@ -20,7 +26,11 @@ const ASSISTANT_MODEL_GUIDES_BY_PROVIDER: readonly {
   { provider: 'anthropic', rows: ASSISTANT_ANTHROPIC_MODEL_GUIDE_ROWS },
   { provider: 'gemini', rows: ASSISTANT_GEMINI_MODEL_GUIDE_ROWS },
   { provider: 'mistral', rows: ASSISTANT_MISTRAL_MODEL_GUIDE_ROWS },
-  { provider: 'spacexai', rows: ASSISTANT_SPACEXAI_MODEL_GUIDE_ROWS }
+  { provider: 'spacexai', rows: ASSISTANT_SPACEXAI_MODEL_GUIDE_ROWS },
+  { provider: 'deepseek', rows: ASSISTANT_DEEPSEEK_MODEL_GUIDE_ROWS },
+  { provider: 'qwen', rows: ASSISTANT_QWEN_MODEL_GUIDE_ROWS },
+  { provider: 'glm', rows: ASSISTANT_GLM_MODEL_GUIDE_ROWS },
+  { provider: 'kimi', rows: ASSISTANT_KIMI_MODEL_GUIDE_ROWS }
 ];
 
 /** Stable key: same provider + API id → same color everywhere in the tools help modal. */

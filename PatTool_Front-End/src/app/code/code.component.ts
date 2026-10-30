@@ -17,6 +17,10 @@ import {
   ASSISTANT_GEMINI_MODEL_PRESETS,
   ASSISTANT_MISTRAL_MODEL_PRESETS,
   ASSISTANT_OPENAI_MODEL_PRESETS,
+  ASSISTANT_DEEPSEEK_MODEL_PRESETS,
+  ASSISTANT_GLM_MODEL_PRESETS,
+  ASSISTANT_KIMI_MODEL_PRESETS,
+  ASSISTANT_QWEN_MODEL_PRESETS,
   ASSISTANT_SPACEXAI_MODEL_PRESETS
 } from '../shared/assistant-drawer/assistant-model-presets';
 import {
@@ -878,6 +882,14 @@ export class CodeComponent implements OnInit, OnDestroy {
         return [...ASSISTANT_MISTRAL_MODEL_PRESETS];
       case 'spacexai':
         return [...ASSISTANT_SPACEXAI_MODEL_PRESETS];
+      case 'deepseek':
+        return [...ASSISTANT_DEEPSEEK_MODEL_PRESETS];
+      case 'qwen':
+        return [...ASSISTANT_QWEN_MODEL_PRESETS];
+      case 'glm':
+        return [...ASSISTANT_GLM_MODEL_PRESETS];
+      case 'kimi':
+        return [...ASSISTANT_KIMI_MODEL_PRESETS];
       default:
         return [...ASSISTANT_OPENAI_MODEL_PRESETS];
     }

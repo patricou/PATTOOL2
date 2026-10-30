@@ -66,7 +66,7 @@ public class GeminiAssistantService {
     private String assistantProviderLabel;
 
     /** Modèle utilisé lorsque la génération d’images est demandée (texte + image). */
-    @Value("${gemini.image-generation-model:gemini-3.1-flash-image}")
+    @Value("${gemini.image-generation-model:gemini-nano-banana-2.1}")
     private String imageGenerationModel;
 
     /**

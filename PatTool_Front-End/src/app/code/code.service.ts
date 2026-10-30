@@ -309,5 +309,9 @@ export const CODE_PROVIDERS: { slug: AssistantProviderSlug; labelKey: string }[]
   { slug: 'gemini', labelKey: 'ASSISTANT.PROVIDER_GEMINI' },
   { slug: 'mistral', labelKey: 'ASSISTANT.PROVIDER_MISTRAL' },
   { slug: 'openai', labelKey: 'ASSISTANT.PROVIDER_OPENAI' },
-  { slug: 'spacexai', labelKey: 'ASSISTANT.PROVIDER_SPACEXAI' }
+  { slug: 'spacexai', labelKey: 'ASSISTANT.PROVIDER_SPACEXAI' },
+  { slug: 'deepseek', labelKey: 'ASSISTANT.PROVIDER_DEEPSEEK' },
+  { slug: 'qwen', labelKey: 'ASSISTANT.PROVIDER_QWEN' },
+  { slug: 'glm', labelKey: 'ASSISTANT.PROVIDER_GLM' },
+  { slug: 'kimi', labelKey: 'ASSISTANT.PROVIDER_KIMI' }
 ];

@@ -69,7 +69,7 @@
                     <li>Cliquez en dehors du panneau (zone grisée) ou sur <span class="doc-kbd">×</span> pour fermer.</li>
                 </ul>
                 <div class="doc-tip">
-                    <strong>Sécurité :</strong> vos messages ne partent jamais directement du navigateur vers OpenAI, Anthropic, Google, Mistral ou SpaceXAI. Tout transite par le <strong>serveur PatTool</strong>, qui détient les clés API.
+                    <strong>Sécurité :</strong> vos messages ne partent jamais directement du navigateur vers OpenAI, Anthropic, Google, Mistral, SpaceXAI, DeepSeek, Qwen, GLM ou Kimi. Tout transite par le <strong>serveur PatTool</strong>, qui détient les clés API.
                 </div>
             </section>
 
@@ -78,7 +78,7 @@
                 <table class="doc-table">
                     <thead><tr><th>Élément</th><th>Rôle</th></tr></thead>
                     <tbody>
-                        <tr><td>Sélecteur <strong>Fournisseur</strong></td><td>OpenAI, Anthropic (Claude), Google (Gemini), Mistral AI, SpaceXAI (Grok)</td></tr>
+                        <tr><td>Sélecteur <strong>Fournisseur</strong></td><td>OpenAI, Anthropic (Claude), Google (Gemini), Mistral AI, SpaceXAI (Grok), DeepSeek, Qwen, GLM, Kimi</td></tr>
                         <tr><td>Sélecteur <strong>Modèle</strong></td><td>Liste des modèles du fournisseur + option « Modèle personnalisé… » (id API libre)</td></tr>
                         <tr><td><strong>Guide modèles</strong> (ⓘ)</td><td>Tableaux « quel modèle pour quelle tâche » — cliquer un modèle l'applique dans le panneau</td></tr>
                         <tr><td><strong>Brave Search</strong></td><td>Ouvre search.brave.com dans un nouvel onglet (recherche manuelle)</td></tr>
@@ -96,13 +96,17 @@
 
             <section class="doc-section" id="fr-fournisseurs">
                 <h2>Fournisseur, modèle et guide</h2>
-                <h3>Les cinq fournisseurs</h3>
+                <h3>Les fournisseurs</h3>
                 <div class="doc-cards">
-                    <div class="doc-card"><h4>OpenAI</h4><p>GPT-6 Astra, GPT-5.6 (Sol / Terra / Luna), GPT-5.5, GPT-4o. Seul fournisseur avec <strong>MCP</strong> et génération d'images OpenAI.</p></div>
-                    <div class="doc-card"><h4>Anthropic</h4><p>Claude (Fable 5.1, Opus 5, Sonnet 5, Haiku 4.5). Recommandé pour les <strong>activités</strong> (lancement auto).</p></div>
-                    <div class="doc-card"><h4>Google Gemini</h4><p>Texte, long contexte, vision et génération d'images Gemini. Utilisé pour les <strong>photos</strong> et les <strong>actualités</strong>.</p></div>
-                    <div class="doc-card"><h4>Mistral AI</h4><p>Medium 3.5 (phare), Large 3, Small 4, Codestral (code), Ministral 3 (léger). Vision sur Medium / Large / Small.</p></div>
-                    <div class="doc-card"><h4>SpaceXAI</h4><p>Grok 4.6 (phare), 4.5, 4.3, 4.20 Reasoning, 4.20 Multi-agent, Grok Build (code). Vision et recherche web Live Search.</p></div>
+                    <div class="doc-card"><h4>OpenAI</h4><p>GPT-6 Astra, GPT-6.1 Sol, GPT-6.1 Terra, GPT-6 Luna. Seul fournisseur avec <strong>MCP</strong> et génération d'images OpenAI.</p></div>
+                    <div class="doc-card"><h4>Anthropic</h4><p>Claude (Fable 5.1, Opus 5.5, Sonnet 5.5, Haiku 5.5). Recommandé pour les <strong>activités</strong> (lancement auto).</p></div>
+                    <div class="doc-card"><h4>Google Gemini</h4><p>Gemini 4 Argon, 3.8 Flash, 3.5 Flash-Lite, Nano Banana 2.1 (images). Utilisé pour les <strong>photos</strong> et les <strong>actualités</strong>.</p></div>
+                    <div class="doc-card"><h4>Mistral AI</h4><p>Large 4 (phare), Small 4, Codestral (code), Ministral 3 8B. Vision sur Large et Small.</p></div>
+                    <div class="doc-card"><h4>SpaceXAI</h4><p>Grok 4.7 (phare), 4.6, 4.5, 4.3, 4.20 Reasoning, 4.20 Multi-agent, Grok Build (code). Vision et recherche web Live Search.</p></div>
+                    <div class="doc-card"><h4>DeepSeek</h4><p>V4 Pro (défaut), V4 Flash, V4.1 Flash (vision). Chat uniquement : pas de recherche web ni d’images PatTool.</p></div>
+                    <div class="doc-card"><h4>Qwen</h4><p>Qwen 3.8 Max (défaut), 3.8 Flash, 3.7 Plus. Endpoint international DashScope, surchargeable.</p></div>
+                    <div class="doc-card"><h4>GLM</h4><p>GLM 5.3 (texte, défaut) et GLM 5.3 Flash (vision). API internationale Z.ai.</p></div>
+                    <div class="doc-card"><h4>Kimi</h4><p>Kimi K3.1 Pro (défaut, vision, long contexte), K3, K2.7 Code. API internationale Moonshot.</p></div>
                 </div>
                 <h3>Choisir un modèle</h3>
                 <ol>
@@ -138,7 +142,7 @@
                         <tr><td><strong>MCP</strong></td><td>Oui*</td><td>Non</td><td>Non</td><td>Non</td><td>Non</td></tr>
                     </tbody>
                 </table>
-                <p class="doc-warn" style="margin-top:0.75rem;">* MCP : nécessite un serveur MCP configuré sur le backend (<code class="doc-code">openai.mcp.*</code>). Si aucun serveur n'est configuré, la case est grisée.</p>
+                <p class="doc-warn" style="margin-top:0.75rem;">* MCP : nécessite un serveur MCP configuré sur le backend (<code class="doc-code">openai.mcp.*</code>). Si aucun serveur n'est configuré, la case est grisée. DeepSeek, Qwen, GLM et Kimi n’exposent ni recherche web, ni génération d’images, ni MCP dans PatTool.</p>
                 <ul>
                     <li><strong>Recherche web</strong> : actualités, météo du jour, cours boursiers, infos récentes. Idéal avec Gemini ou Claude + case cochée.</li>
                     <li><strong>Génération d'images</strong> : demandez une illustration dans le message (« dessine… », « génère une image de… »). Gemini peut basculer sur un modèle image dédié côté serveur.</li>
@@ -219,16 +223,16 @@
                 <table class="doc-table">
                     <thead><tr><th>Depuis</th><th>Bouton</th><th>Comportement typique</th></tr></thead>
                     <tbody>
-                        <tr><td>Carte activité (grille)</td><td><strong>IA</strong> / baguette</td><td>Titre de l'activité ; nouvelle conversation ; <strong>Anthropic Claude Opus 5</strong></td></tr>
-                        <tr><td>Fiche détail activité</td><td>Baguette en tête</td><td>Même routage Opus 5 + titre</td></tr>
+                        <tr><td>Carte activité (grille)</td><td><strong>IA</strong> / baguette</td><td>Titre de l'activité ; nouvelle conversation ; <strong>Anthropic Claude Opus 5.5</strong></td></tr>
+                        <tr><td>Fiche détail activité</td><td>Baguette en tête</td><td>Même routage Opus 5.5 + titre</td></tr>
                         <tr><td>Vue compacte (titre seul)</td><td>Baguette sur la carte</td><td>Même logique (titre de l'activité)</td></tr>
-                        <tr><td>Vue liste activités</td><td>Baguette</td><td>Titre ; Opus 5</td></tr>
+                        <tr><td>Vue liste activités</td><td>Baguette</td><td>Titre ; Opus 5.5</td></tr>
                         <tr><td>Mur de photos</td><td>Baguette sur un bloc</td><td>Nom de l'activité ; nouvelle conversation ; <em>conserve votre routage habituel</em></td></tr>
-                        <tr><td>Diaporama</td><td>Envoyer à l'assistant</td><td>Image courante jointe ; champ vide + placeholder ; <strong>Gemini 3.1 Flash Image</strong> ; ferme le diaporama</td></tr>
+                        <tr><td>Diaporama</td><td>Envoyer à l'assistant</td><td>Image courante jointe ; champ vide + placeholder ; <strong>Gemini 3.8 Flash</strong> ; ferme le diaporama</td></tr>
                         <tr><td>Actualités (menu Monde)</td><td>Assistant sur un article</td><td>Titre ; <strong>Gemini 3.8 Flash</strong> + recherche web cochée</td></tr>
                         <tr><td>Météo (OpenWeatherMap)</td><td>Baguette sur une ville</td><td>Texte « ville, pays » prérempli</td></tr>
                         <tr><td>Loto national</td><td>Analyse IA</td><td>Prompt i18n + JSON des tirages ; nouvelle conversation ; outils désactivés</td></tr>
-                        <tr><td>EuroMillions</td><td>Analyse IA</td><td>Stats + méthodes choisies en JSON ; <strong>Claude Opus 5</strong> ; outils désactivés</td></tr>
+                        <tr><td>EuroMillions</td><td>Analyse IA</td><td>Stats + méthodes choisies en JSON ; <strong>Claude Opus 5.5</strong> ; outils désactivés</td></tr>
                     </tbody>
                 </table>
             </section>
@@ -238,21 +242,22 @@
                 <ul>
                     <li>Bouton <strong>graphique</strong> en tête : ouvre la console facturation du fournisseur sélectionné (URL configurée côté serveur)</li>
                     <li><strong>OpenAI</strong> : PatTool peut afficher le solde prépayé (USD) si l'API billing est configurée</li>
-                    <li><strong>Anthropic, Gemini, Mistral, SpaceXAI</strong> : pas de solde dans PatTool — lien vers la console du fournisseur</li>
+                    <li><strong>Anthropic, Gemini, Mistral, SpaceXAI, DeepSeek, Qwen, GLM, Kimi</strong> : pas de solde dans PatTool — lien vers la console du fournisseur</li>
                 </ul>
             </section>
 
             <section class="doc-section" id="fr-conseils">
                 <h2>Conseils d'utilisation</h2>
                 <ul>
-                    <li><strong>Activité / rédaction</strong> : Claude Fable 5.1 ou Sonnet 5, ou GPT-6 Astra — lancez depuis la carte activité pour un routage adapté</li>
-                    <li><strong>Photo / diaporama</strong> : Gemini Flash Image avec l'image déjà jointe</li>
-                    <li><strong>Actualité</strong> : Gemini 3.8 Flash + case Recherche web (Grok 4.6 en alternative)</li>
-                    <li><strong>Code</strong> : Claude Fable 5.1, GPT-6 Astra, Grok 4.6 (rapport qualité/prix) ; Codestral pour la complétion rapide</li>
-                    <li><strong>Rapide et pas cher</strong> : Gemini 3.5 Flash-Lite, GPT-5.6 Luna, Haiku</li>
-                    <li><strong>Traduction / français</strong> : Mistral Medium 3.5</li>
-                    <li><strong>Raisonnement / docs longs</strong> : GPT-6 Astra, Gemini 3.1 Pro</li>
-                    <li><strong>Jeux de réflexion</strong> : Gemini 3.1 Pro, Grok 4.20 Reasoning, Claude Sonnet 5</li>
+                    <li><strong>Activité / rédaction</strong> : Claude Fable 5.1 ou Sonnet 5.5, ou GPT-6 Astra — lancez depuis la carte activité pour un routage adapté</li>
+                    <li><strong>Photo / diaporama</strong> : Gemini 3.8 Flash avec l'image déjà jointe</li>
+                    <li><strong>Actualité</strong> : Gemini 3.8 Flash + case Recherche web (Grok 4.7 en alternative)</li>
+                    <li><strong>Code</strong> : Claude Fable 5.1, GPT-6 Astra, Grok 4.7 ; Codestral pour la complétion rapide</li>
+                    <li><strong>Rapide et pas cher</strong> : Gemini 3.5 Flash-Lite, GPT-6 Luna, Haiku 5.5</li>
+                    <li><strong>Traduction / français</strong> : Mistral Large 4</li>
+                    <li><strong>Raisonnement / docs longs</strong> : Gemini 4 Argon, GPT-6 Astra</li>
+                    <li><strong>Jeux de réflexion</strong> : Gemini 4 Argon, Grok 4.7, Claude Opus 5.5</li>
+                    <li><strong>Chinois</strong> : Qwen 3.8 Max, Kimi K3.1 Pro, DeepSeek V4 Pro</li>
                     <li><strong>Illustration</strong> : cocher Génération d'images + OpenAI ou Gemini</li>
                     <li>Utilisez la <strong>gomme</strong> entre deux sujets différents pour éviter de mélanger les contextes</li>
                     <li>Consultez le <strong>Guide modèles</strong> intégré pour le tableau comparatif par type de tâche</li>
@@ -289,7 +294,7 @@
                     <li>Click the dimmed backdrop or <span class="doc-kbd">×</span> to close.</li>
                 </ul>
                 <div class="doc-tip">
-                    <strong>Security:</strong> messages never go directly from the browser to OpenAI, Anthropic, Google, Mistral or SpaceXAI. Everything goes through the <strong>PatTool server</strong>, which holds API keys.
+                    <strong>Security:</strong> messages never go directly from the browser to OpenAI, Anthropic, Google, Mistral, SpaceXAI, DeepSeek, Qwen, GLM or Kimi. Everything goes through the <strong>PatTool server</strong>, which holds API keys.
                 </div>
             </section>
 
@@ -298,7 +303,7 @@
                 <table class="doc-table">
                     <thead><tr><th>Element</th><th>Purpose</th></tr></thead>
                     <tbody>
-                        <tr><td><strong>Provider</strong> selector</td><td>OpenAI, Anthropic (Claude), Google (Gemini), Mistral AI, SpaceXAI (Grok)</td></tr>
+                        <tr><td><strong>Provider</strong> selector</td><td>OpenAI, Anthropic (Claude), Google (Gemini), Mistral AI, SpaceXAI (Grok), DeepSeek, Qwen, GLM, Kimi</td></tr>
                         <tr><td><strong>Model</strong> selector</td><td>Provider models + “Custom model…” (free API id)</td></tr>
                         <tr><td><strong>Model guide</strong> (ⓘ)</td><td>“Which model for which task” tables — click a model to apply it</td></tr>
                         <tr><td><strong>Brave Search</strong></td><td>Opens search.brave.com in a new tab</td></tr>
@@ -316,13 +321,17 @@
 
             <section class="doc-section" id="en-providers">
                 <h2>Provider, model and guide</h2>
-                <h3>Five providers</h3>
+                <h3>Providers</h3>
                 <div class="doc-cards">
-                    <div class="doc-card"><h4>OpenAI</h4><p>GPT-6 Astra, GPT-5.6 (Sol / Terra / Luna), GPT-5.5, GPT-4o. Only provider with <strong>MCP</strong> and OpenAI image generation.</p></div>
-                    <div class="doc-card"><h4>Anthropic</h4><p>Claude (Fable 5.1, Opus 5, Sonnet 5, Haiku 4.5). Default for <strong>activity</strong> launches.</p></div>
-                    <div class="doc-card"><h4>Google Gemini</h4><p>Text, long context, vision and Gemini images. Used for <strong>photos</strong> and <strong>news</strong>.</p></div>
-                    <div class="doc-card"><h4>Mistral AI</h4><p>Medium 3.5 (flagship), Large 3, Small 4, Codestral (code), Ministral 3 (lightweight). Vision on Medium / Large / Small.</p></div>
-                    <div class="doc-card"><h4>SpaceXAI</h4><p>Grok 4.6 (flagship), 4.5, 4.3, 4.20 Reasoning, 4.20 Multi-agent, Grok Build (code). Vision and Live Search web search.</p></div>
+                    <div class="doc-card"><h4>OpenAI</h4><p>GPT-6 Astra, GPT-6.1 Sol, GPT-6.1 Terra, GPT-6 Luna. Only provider with <strong>MCP</strong> and OpenAI image generation.</p></div>
+                    <div class="doc-card"><h4>Anthropic</h4><p>Claude (Fable 5.1, Opus 5.5, Sonnet 5.5, Haiku 5.5). Default for <strong>activity</strong> launches.</p></div>
+                    <div class="doc-card"><h4>Google Gemini</h4><p>Gemini 4 Argon, 3.8 Flash, 3.5 Flash-Lite, Nano Banana 2.1 (images). Used for <strong>photos</strong> and <strong>news</strong>.</p></div>
+                    <div class="doc-card"><h4>Mistral AI</h4><p>Large 4 (flagship), Small 4, Codestral (code), Ministral 3 8B. Vision on Large and Small.</p></div>
+                    <div class="doc-card"><h4>SpaceXAI</h4><p>Grok 4.7 (flagship), 4.6, 4.5, 4.3, 4.20 Reasoning, 4.20 Multi-agent, Grok Build (code). Vision and Live Search web search.</p></div>
+                    <div class="doc-card"><h4>DeepSeek</h4><p>V4 Pro (default), V4 Flash, V4.1 Flash (vision). Chat only: no PatTool web search or image generation.</p></div>
+                    <div class="doc-card"><h4>Qwen</h4><p>Qwen 3.8 Max (default), 3.8 Flash, 3.7 Plus. International DashScope endpoint, overridable.</p></div>
+                    <div class="doc-card"><h4>GLM</h4><p>GLM 5.3 (text, default) and GLM 5.3 Flash (vision). Z.ai international API.</p></div>
+                    <div class="doc-card"><h4>Kimi</h4><p>Kimi K3.1 Pro (default, vision, long context), K3, K2.7 Code. Moonshot international API.</p></div>
                 </div>
                 <h3>Choosing a model</h3>
                 <ol>
@@ -353,7 +362,7 @@
                         <tr><td><strong>MCP</strong></td><td>Yes*</td><td>No</td><td>No</td><td>No</td><td>No</td></tr>
                     </tbody>
                 </table>
-                <p class="doc-warn" style="margin-top:0.75rem;">* MCP requires a server configured on the backend (<code class="doc-code">openai.mcp.*</code>). Checkbox is disabled if none is set up.</p>
+                <p class="doc-warn" style="margin-top:0.75rem;">* MCP requires a server configured on the backend (<code class="doc-code">openai.mcp.*</code>). Checkbox is disabled if none is set up. DeepSeek, Qwen, GLM and Kimi have no web search, image generation or MCP in PatTool.</p>
                 <ul>
                     <li><strong>Web search</strong>: news, weather, stocks, recent facts — ideal with Gemini or Claude + checkbox on</li>
                     <li><strong>Image generation</strong>: ask for an illustration in the message; Gemini may switch to a dedicated image model server-side</li>
@@ -418,16 +427,16 @@
                 <table class="doc-table">
                     <thead><tr><th>From</th><th>Button</th><th>Typical behavior</th></tr></thead>
                     <tbody>
-                        <tr><td>Activity card (grid)</td><td><strong>AI</strong> / wand</td><td>Activity title; new thread; <strong>Anthropic Claude Opus 5</strong></td></tr>
-                        <tr><td>Activity detail page</td><td>Wand in header</td><td>Same Opus 5 routing + title</td></tr>
+                        <tr><td>Activity card (grid)</td><td><strong>AI</strong> / wand</td><td>Activity title; new thread; <strong>Anthropic Claude Opus 5.5</strong></td></tr>
+                        <tr><td>Activity detail page</td><td>Wand in header</td><td>Same Opus 5.5 routing + title</td></tr>
                         <tr><td>Title-only compact view</td><td>Wand on card</td><td>Activity title</td></tr>
-                        <tr><td>Activity list view</td><td>Wand</td><td>Title; Opus 5</td></tr>
+                        <tr><td>Activity list view</td><td>Wand</td><td>Title; Opus 5.5</td></tr>
                         <tr><td>Photo wall</td><td>Wand on block</td><td>Activity name; new thread; <em>keeps your usual routing</em></td></tr>
-                        <tr><td>Slideshow</td><td>Send to assistant</td><td>Current image attached; empty field + placeholder; <strong>Gemini 3.1 Flash Image</strong>; closes slideshow</td></tr>
+                        <tr><td>Slideshow</td><td>Send to assistant</td><td>Current image attached; empty field + placeholder; <strong>Gemini 3.8 Flash</strong>; closes slideshow</td></tr>
                         <tr><td>News (World menu)</td><td>Assistant on article</td><td>Title; <strong>Gemini 3.8 Flash</strong> + web search on</td></tr>
                         <tr><td>Weather (OpenWeatherMap)</td><td>Wand on city</td><td>Prefilled “city, country” text</td></tr>
                         <tr><td>National Loto</td><td>AI analysis</td><td>i18n prompt + draws JSON; new thread; tools off</td></tr>
-                        <tr><td>EuroMillions</td><td>AI analysis</td><td>Stats + selected methods as JSON; <strong>Claude Opus 5</strong>; tools off</td></tr>
+                        <tr><td>EuroMillions</td><td>AI analysis</td><td>Stats + selected methods as JSON; <strong>Claude Opus 5.5</strong>; tools off</td></tr>
                     </tbody>
                 </table>
             </section>
@@ -437,21 +446,22 @@
                 <ul>
                     <li><strong>Chart</strong> button opens the provider billing console (server-configured URL)</li>
                     <li><strong>OpenAI</strong>: prepaid balance may show in PatTool when billing API is configured</li>
-                    <li><strong>Anthropic, Gemini, Mistral, SpaceXAI</strong>: balance not shown in PatTool — external console link</li>
+                    <li><strong>Anthropic, Gemini, Mistral, SpaceXAI, DeepSeek, Qwen, GLM, Kimi</strong>: balance not shown in PatTool — external console link</li>
                 </ul>
             </section>
 
             <section class="doc-section" id="en-tips">
                 <h2>Usage tips</h2>
                 <ul>
-                    <li><strong>Activities / writing</strong>: Claude Fable 5.1 or Sonnet 5, or GPT-6 Astra — launch from the activity card when routing applies</li>
-                    <li><strong>Photos / slideshow</strong>: Gemini Flash Image with image attached</li>
-                    <li><strong>News</strong>: Gemini 3.8 Flash + web search checkbox (Grok 4.6 as alternative)</li>
-                    <li><strong>Code</strong>: Claude Fable 5.1, GPT-6 Astra, Grok 4.6 (value); Codestral for fast completion</li>
-                    <li><strong>Fast / cheap</strong>: Gemini 3.5 Flash-Lite, GPT-5.6 Luna, Haiku</li>
-                    <li><strong>Translation / French</strong>: Mistral Medium 3.5</li>
-                    <li><strong>Reasoning / long docs</strong>: GPT-6 Astra, Gemini 3.1 Pro</li>
-                    <li><strong>Logic puzzles</strong>: Gemini 3.1 Pro, Grok 4.20 Reasoning, Claude Sonnet 5</li>
+                    <li><strong>Activities / writing</strong>: Claude Fable 5.1 or Sonnet 5.5, or GPT-6 Astra — launch from the activity card when routing applies</li>
+                    <li><strong>Photos / slideshow</strong>: Gemini 3.8 Flash with the image already attached</li>
+                    <li><strong>News</strong>: Gemini 3.8 Flash + web search checkbox (Grok 4.7 as alternative)</li>
+                    <li><strong>Code</strong>: Claude Fable 5.1, GPT-6 Astra, Grok 4.7; Codestral for fast completion</li>
+                    <li><strong>Fast / cheap</strong>: Gemini 3.5 Flash-Lite, GPT-6 Luna, Haiku 5.5</li>
+                    <li><strong>Translation / French</strong>: Mistral Large 4</li>
+                    <li><strong>Reasoning / long docs</strong>: Gemini 4 Argon, GPT-6 Astra</li>
+                    <li><strong>Logic puzzles</strong>: Gemini 4 Argon, Grok 4.7, Claude Opus 5.5</li>
+                    <li><strong>Chinese</strong>: Qwen 3.8 Max, Kimi K3.1 Pro, DeepSeek V4 Pro</li>
                     <li><strong>Illustration</strong>: check Image generation + OpenAI or Gemini</li>
                     <li>Use the <strong>eraser</strong> between unrelated topics</li>
                     <li>Built-in <strong>Model guide</strong> for the full comparison table</li>

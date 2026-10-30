@@ -45,5 +45,33 @@ export const ASSISTANT_TOOLS_HELP_PROVIDER_MATRIX: readonly AssistantToolsHelpPr
     webSearch: true,
     imageGeneration: false,
     mcp: false
+  },
+  {
+    sectionId: 'deepseek',
+    providerLabelKey: 'ASSISTANT.PROVIDER_DEEPSEEK',
+    webSearch: false,
+    imageGeneration: false,
+    mcp: false
+  },
+  {
+    sectionId: 'qwen',
+    providerLabelKey: 'ASSISTANT.PROVIDER_QWEN',
+    webSearch: false,
+    imageGeneration: false,
+    mcp: false
+  },
+  {
+    sectionId: 'glm',
+    providerLabelKey: 'ASSISTANT.PROVIDER_GLM',
+    webSearch: false,
+    imageGeneration: false,
+    mcp: false
+  },
+  {
+    sectionId: 'kimi',
+    providerLabelKey: 'ASSISTANT.PROVIDER_KIMI',
+    webSearch: false,
+    imageGeneration: false,
+    mcp: false
   }
 ];

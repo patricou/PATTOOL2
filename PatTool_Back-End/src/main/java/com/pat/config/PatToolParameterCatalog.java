@@ -124,7 +124,11 @@ public final class PatToolParameterCatalog {
                     def("assistant.billing.gemini-rate-limit-url", false),
                     def("assistant.billing.gemini-api-keys-url", false),
                     def("assistant.billing.mistral-url", false),
-                    def("assistant.billing.spacexai-url", false)
+                    def("assistant.billing.spacexai-url", false),
+                    def("assistant.billing.deepseek-url", false),
+                    def("assistant.billing.qwen-url", false),
+                    def("assistant.billing.glm-url", false),
+                    def("assistant.billing.kimi-url", false)
             ),
             section("openai", "PATTOOL_PARAMS.SECTION.OPENAI",
                     def("openai.api", false),
@@ -181,6 +185,38 @@ public final class PatToolParameterCatalog {
                     def("spacexai.provider-label", false),
                     def("spacexai.http.connect-timeout-seconds", false),
                     def("spacexai.http.read-timeout-seconds", false)
+            ),
+            section("deepseek", "PATTOOL_PARAMS.SECTION.DEEPSEEK",
+                    defSensitive("deepseek.key"),
+                    def("deepseek.api", false),
+                    def("deepseek.model", false),
+                    def("deepseek.max-tokens", false),
+                    def("deepseek.provider-label", false)
+            ),
+            section("qwen", "PATTOOL_PARAMS.SECTION.QWEN",
+                    defSensitive("qwen.key"),
+                    def("qwen.api", false),
+                    def("qwen.model", false),
+                    def("qwen.max-tokens", false),
+                    def("qwen.provider-label", false)
+            ),
+            section("glm", "PATTOOL_PARAMS.SECTION.GLM",
+                    defSensitive("glm.key"),
+                    def("glm.api", false),
+                    def("glm.model", false),
+                    def("glm.max-tokens", false),
+                    def("glm.provider-label", false)
+            ),
+            section("kimi", "PATTOOL_PARAMS.SECTION.KIMI",
+                    defSensitive("kimi.key"),
+                    def("kimi.api", false),
+                    def("kimi.model", false),
+                    def("kimi.max-tokens", false),
+                    def("kimi.provider-label", false)
+            ),
+            section("chinese-http", "PATTOOL_PARAMS.SECTION.CHINESE_HTTP",
+                    def("chinese.http.connect-timeout-seconds", false),
+                    def("chinese.http.read-timeout-seconds", false)
             ),
             section("globe", "PATTOOL_PARAMS.SECTION.GLOBE",
                     def("globe.proxy.http.connect-timeout-seconds", false),

@@ -158,5 +158,11 @@ export const ASSISTANT_MODEL_RANKING_ROWS: readonly AssistantModelRankingRowDef[
     goldKey: 'ASSISTANT.TOOLS_HELP_RANK_T24_G',
     silverKey: 'ASSISTANT.TOOLS_HELP_RANK_T24_S',
     bronzeKey: 'ASSISTANT.TOOLS_HELP_RANK_T24_B'
+  },
+  {
+    taskKey: 'ASSISTANT.TOOLS_HELP_RANK_T25_TASK',
+    goldKey: 'ASSISTANT.TOOLS_HELP_RANK_T25_G',
+    silverKey: 'ASSISTANT.TOOLS_HELP_RANK_T25_S',
+    bronzeKey: 'ASSISTANT.TOOLS_HELP_RANK_T25_B'
   }
 ];

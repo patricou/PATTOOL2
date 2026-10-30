@@ -202,10 +202,11 @@ public class AssistantConversationService {
                 && !"anthropic".equals(rp)
                 && !"gemini".equals(rp)
                 && !"mistral".equals(rp)
-                && !"spacexai".equals(rp)) {
+                && !"spacexai".equals(rp)
+                && !ChineseLabAssistantService.isChineseLab(rp)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "routingProvider must be openai, anthropic, gemini, mistral or spacexai");
+                    "routingProvider must be openai, anthropic, gemini, mistral, spacexai, deepseek, qwen, glm or kimi");
         }
         if (req.turns().size() > MAX_TURNS) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Too many turns");

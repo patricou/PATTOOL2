@@ -36,6 +36,8 @@ public class AssistantModelsCatalogService {
     private final RestTemplate geminiRestTemplate;
     private final RestTemplate mistralRestTemplate;
     private final RestTemplate spaceXaiRestTemplate;
+    private final RestTemplate chineseLabRestTemplate;
+    private final ChineseLabAssistantService chineseLabAssistantService;
     private final ObjectMapper objectMapper;
 
     @Value("${openai.key:}")
@@ -77,12 +79,16 @@ public class AssistantModelsCatalogService {
             @Qualifier("geminiRestTemplate") RestTemplate geminiRestTemplate,
             @Qualifier("mistralRestTemplate") RestTemplate mistralRestTemplate,
             @Qualifier("spaceXaiRestTemplate") RestTemplate spaceXaiRestTemplate,
+            @Qualifier("chineseLabRestTemplate") RestTemplate chineseLabRestTemplate,
+            ChineseLabAssistantService chineseLabAssistantService,
             ObjectMapper objectMapper) {
         this.openAiRestTemplate = openAiRestTemplate;
         this.anthropicRestTemplate = anthropicRestTemplate;
         this.geminiRestTemplate = geminiRestTemplate;
         this.mistralRestTemplate = mistralRestTemplate;
         this.spaceXaiRestTemplate = spaceXaiRestTemplate;
+        this.chineseLabRestTemplate = chineseLabRestTemplate;
+        this.chineseLabAssistantService = chineseLabAssistantService;
         this.objectMapper = objectMapper;
     }
 
@@ -95,6 +101,7 @@ public class AssistantModelsCatalogService {
                     case "gemini" -> listGeminiModelIds();
                     case "mistral" -> listMistralModelIds();
                     case "spacexai" -> listSpaceXaiModelIds();
+                    case "deepseek", "qwen", "glm", "kimi" -> listChineseLabModelIds(p);
                     default -> List.of();
                 };
         return sortModelIds(ids);
@@ -521,6 +528,90 @@ public class AssistantModelsCatalogService {
         } catch (Exception e) {
             log.debug("spacexai.api parse failed ({}), defaulting to /v1/models", e.getMessage());
             return "https://api.x.ai/v1/models";
+        }
+    }
+
+    private List<String> listChineseLabModelIds(String slug) {
+        String key = chineseLabAssistantService.apiKey(slug);
+        if (key.isBlank()) {
+            return List.of();
+        }
+        String url = openAiCompatibleModelsEndpoint(chineseLabAssistantService.apiUrl(slug), slug);
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(key);
+            ResponseEntity<String> res =
+                    chineseLabRestTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            if (!res.getStatusCode().is2xxSuccessful() || res.getBody() == null) {
+                return List.of();
+            }
+            JsonNode root = objectMapper.readTree(res.getBody());
+            JsonNode data = root.get("data");
+            if (data == null || !data.isArray()) {
+                return List.of();
+            }
+            Set<String> ids = new LinkedHashSet<>();
+            for (JsonNode n : data) {
+                JsonNode idNode = n.get("id");
+                if (idNode == null || !idNode.isTextual()) {
+                    continue;
+                }
+                String id = idNode.asText().trim();
+                if (isChineseChatLikeModelId(slug, id)) {
+                    ids.add(id);
+                }
+            }
+            return new ArrayList<>(ids);
+        } catch (RestClientException e) {
+            log.debug("{} models list failed: {}", slug, e.getMessage());
+            return List.of();
+        } catch (Exception e) {
+            log.debug("{} models list parse failed: {}", slug, e.getMessage());
+            return List.of();
+        }
+    }
+
+    static boolean isChineseChatLikeModelId(String slug, String id) {
+        if (id == null || id.isBlank() || !ChineseLabAssistantService.isChineseLab(slug)) {
+            return false;
+        }
+        String s = id.trim().toLowerCase(Locale.ROOT);
+        if (s.contains("embed")
+                || s.contains("tts")
+                || s.contains("asr")
+                || s.contains("whisper")
+                || s.contains("image")
+                || s.contains("video")) {
+            return false;
+        }
+        return switch (slug) {
+            case "deepseek" -> s.startsWith("deepseek-");
+            case "qwen" -> s.startsWith("qwen");
+            case "glm" -> s.startsWith("glm-");
+            case "kimi" -> s.startsWith("kimi-");
+            default -> false;
+        };
+    }
+
+    private String openAiCompatibleModelsEndpoint(String apiUrl, String slug) {
+        String u = apiUrl == null ? "" : apiUrl.trim();
+        if (u.isEmpty()) {
+            return "";
+        }
+        try {
+            UriComponentsBuilder b = UriComponentsBuilder.fromHttpUrl(u);
+            String path = b.build().getPath();
+            if (path == null || path.isEmpty()) {
+                b.replacePath("/models");
+            } else if (path.endsWith("/chat/completions")) {
+                b.replacePath(path.substring(0, path.length() - "/chat/completions".length()) + "/models");
+            } else if (!path.endsWith("/models")) {
+                b.replacePath(path.endsWith("/") ? path + "models" : path + "/models");
+            }
+            return b.build().encode().toUriString();
+        } catch (Exception e) {
+            log.debug("{}.api parse failed ({})", slug, e.getMessage());
+            return u;
         }
     }
 }

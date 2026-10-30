@@ -51,7 +51,7 @@ public class AnthropicAssistantService {
     @Value("${anthropic.api:https://api.anthropic.com/v1/messages}")
     private String apiUrl;
 
-    @Value("${anthropic.model:claude-sonnet-5}")
+    @Value("${anthropic.model:claude-sonnet-5-5}")
     private String model;
 
     @Value("${anthropic.max-tokens:8192}")

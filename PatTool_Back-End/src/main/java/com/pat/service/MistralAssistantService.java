@@ -50,7 +50,7 @@ public class MistralAssistantService {
     @Value("${mistral.api:https://api.mistral.ai/v1/chat/completions}")
     private String apiUrl;
 
-    @Value("${mistral.model:mistral-medium-latest}")
+    @Value("${mistral.model:mistral-large-4}")
     private String model;
 
     @Value("${mistral.max-tokens:8192}")
@@ -124,7 +124,7 @@ public class MistralAssistantService {
         if (imageAttach.dataUrl() != null && !isMistralVisionModel(requestModel)) {
             return AssistantChatResponseDto.err(
                     "Ce modèle Mistral ne prend pas en charge l’analyse d’images. "
-                            + "Choisissez mistral-medium-latest, mistral-large-latest ou mistral-small-latest.");
+                            + "Choisissez mistral-large-4, mistral-small-2603 ou ministral-8b-2512.");
         }
 
         boolean wantWeb = tf != null && Boolean.TRUE.equals(tf.webSearch());

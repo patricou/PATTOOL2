@@ -52,7 +52,8 @@ public class AssistantRoutingPreferenceService {
                     && !"anthropic".equals(dto.provider())
                     && !"gemini".equals(dto.provider())
                     && !"mistral".equals(dto.provider())
-                    && !"spacexai".equals(dto.provider())) {
+                    && !"spacexai".equals(dto.provider())
+                    && !ChineseLabAssistantService.isChineseLab(dto.provider())) {
                 return Optional.empty();
             }
             return Optional.of(new AssistantRoutingPreferenceDto(

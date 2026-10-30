@@ -232,4 +232,18 @@ public class RestTemplateConfig {
                 .setReadTimeout(Duration.ofSeconds(readSeconds))
                 .build();
     }
+
+    /**
+     * Client HTTP partagé par DeepSeek, Qwen, GLM et Kimi (Chat Completions compatible OpenAI).
+     */
+    @Bean("chineseLabRestTemplate")
+    public RestTemplate chineseLabRestTemplate(
+            RestTemplateBuilder builder,
+            @Value("${chinese.http.connect-timeout-seconds:300}") int connectSeconds,
+            @Value("${chinese.http.read-timeout-seconds:300}") int readSeconds) {
+        return builder
+                .setConnectTimeout(Duration.ofSeconds(connectSeconds))
+                .setReadTimeout(Duration.ofSeconds(readSeconds))
+                .build();
+    }
 }
