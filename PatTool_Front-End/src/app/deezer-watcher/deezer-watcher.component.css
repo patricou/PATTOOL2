@@ -235,6 +235,84 @@
   box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--menu-accent, #7c3aed) 28%, transparent);
 }
 
+.dz-sidebar .radio-sidebar-filter.is-recent-open {
+  position: relative;
+  z-index: 8;
+}
+
+.dz-recent {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 0.28rem);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  background: var(--menu-input-bg, #1a1024);
+  color: var(--menu-input-fg, #f4f4f5);
+  border: 1px solid var(--menu-input-border, rgba(255, 255, 255, 0.14));
+  border-radius: 0.45rem;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  max-height: 14rem;
+  overflow: auto;
+}
+
+.dz-recent-label {
+  padding: 0.2rem 0.75rem 0.35rem;
+  color: var(--menu-muted, #94a3b8);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dz-recent-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.35rem 0.4rem 0.35rem 0.75rem;
+  cursor: pointer;
+}
+
+.dz-recent-item:hover,
+.dz-recent-item.active {
+  background: var(--menu-hover, rgba(255, 255, 255, 0.08));
+}
+
+.dz-recent-item .fa-history {
+  color: var(--menu-muted, #94a3b8);
+  width: 1rem;
+  text-align: center;
+  flex: 0 0 auto;
+}
+
+.dz-recent-term {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dz-recent-forget {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--menu-muted, #94a3b8);
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dz-recent-forget:hover {
+  color: var(--menu-fg, #fff);
+  background: var(--menu-active, rgba(255, 255, 255, 0.12));
+}
+
 .dz-genres-wrap {
   background: var(--menu-meta-bg, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--menu-fg, #000) 12%, transparent);
@@ -509,6 +587,11 @@
   position: absolute;
   inset: 0;
   z-index: 5;
+}
+
+/* Phone: horizontal swipe on the picture changes track. The bottom strip stays free for the player bar. */
+.dz-yt-swipe {
+  display: none;
 }
 
 .dz-yt-kept .dz-yt {
@@ -1382,6 +1465,15 @@ a.radio-now-action.dz-deezer-link {
 }
 
 @media (max-width: 900px), ((hover: none) and (pointer: coarse)) {
+  .dz-yt-swipe {
+    display: block;
+    position: absolute;
+    z-index: 6;
+    inset: 0 0 3rem 0;
+    touch-action: pan-y;
+    background: transparent;
+  }
+
   .radio-now-actions > .dz-hide-mobile,
   .dz-hide-mobile.radio-keep-alive {
     display: none !important;

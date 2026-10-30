@@ -32,6 +32,15 @@ export class BackgroundPlaybackService {
   private youtubePauseTimer: ReturnType<typeof setTimeout> | null = null;
   private youtubeSleepKick: ReturnType<typeof setTimeout> | null = null;
   private youtubeResumeAt = 0;
+  /**
+   * A clip just finished while the screen is off. The page starts the next title
+   * in that same moment. The playback service must stay up: Android will not
+   * start it again once the display is already off. playVideo is held back until
+   * the iframe src changes, so the finished clip is not started over.
+   */
+  private youtubeHandoffUntil = 0;
+  private youtubeHandoffSrc = '';
+  private youtubeHandoffTimer: ReturnType<typeof setTimeout> | null = null;
   private lastVisibleAt = 0;
   private pauseClassifyTimer: ReturnType<typeof setTimeout> | null = null;
   private hiddenResumeTimer: ReturnType<typeof setInterval> | null = null;
@@ -555,6 +564,8 @@ export class BackgroundPlaybackService {
     }
     if (state === 1 || state === 3) {
       this.clearYoutubePauseTimer();
+      this.clearYoutubeSleepKick();
+      this.clearYoutubeHandoff();
       this.youtubePlaying = true;
       this.youtubeUserPaused = false;
       this.youtubeExplicitPause = false;
@@ -566,6 +577,13 @@ export class BackgroundPlaybackService {
     }
     if (state === 0) {
       this.clearYoutubePauseTimer();
+      if (!this.youtubeExplicitPause && !this.youtubeMarkedUserPause() && (screenIsOff() || this.isDocumentHidden())) {
+        this.youtubePlaying = true;
+        this.youtubeUserPaused = false;
+        this.armYoutubeHandoff();
+        return;
+      }
+      this.clearYoutubeHandoff();
       this.youtubePlaying = false;
       this.youtubeUserPaused = true;
       this.youtubeExplicitPause = false;
@@ -576,25 +594,25 @@ export class BackgroundPlaybackService {
     if (state !== 2) {
       return;
     }
-    this.clearYoutubePauseTimer();
-    this.youtubePauseTimer = setTimeout(() => {
-      this.youtubePauseTimer = null;
-      if (!this.youtubePlaying || this.youtubeExplicitPause) {
-        return;
-      }
-      const systemPause =
-        screenIsOff() || this.isDocumentHidden() || Date.now() - this.lastVisibleAt < 700;
-      if (!this.youtubeUserPaused && systemPause) {
-        this.resumeYoutubeIframes();
-        this.scheduleYoutubeSleepKick();
-        return;
-      }
+    if (this.youtubeMarkedUserPause()) {
+      this.clearYoutubePauseTimer();
+      this.clearYoutubeSleepKick();
+      this.clearYoutubeHandoff();
       this.youtubePlaying = false;
       this.youtubeUserPaused = true;
-      this.youtubePauseMarkedAt = Date.now();
+      this.youtubeExplicitPause = true;
       this.setPlaybackState('paused');
       setScreenKeepAlive('youtube', false);
-    }, 450);
+      return;
+    }
+    // The WebView pauses the clip before the screen-off flag exists.
+    // Do not treat that as the listener stopping the song.
+    this.clearYoutubePauseTimer();
+    this.youtubePlaying = true;
+    this.youtubeUserPaused = false;
+    this.youtubeExplicitPause = false;
+    this.resumeYoutubeIframes();
+    this.scheduleYoutubeSleepKick();
   }
 
   /** Screen off: keep a video that was already playing, and undo a pause the phone just caused. */
@@ -625,21 +643,36 @@ export class BackgroundPlaybackService {
       return;
     }
     let attempt = 0;
+    const started = Date.now();
     const tick = (): void => {
       this.youtubeSleepKick = null;
-      if (!this.youtubePlaying || this.youtubeUserPaused || this.youtubeExplicitPause) {
+      if (!this.youtubePlaying || this.youtubeUserPaused || this.youtubeExplicitPause || this.youtubeMarkedUserPause()) {
         return;
       }
-      if (!screenIsOff() && !this.isDocumentHidden()) {
+      const asleep = screenIsOff() || this.isDocumentHidden();
+      const grace = Date.now() - started < 4000;
+      if (!asleep && !grace) {
+        this.youtubePlaying = false;
+        this.youtubeUserPaused = true;
+        this.youtubePauseMarkedAt = Date.now();
+        this.setPlaybackState('paused');
+        setScreenKeepAlive('youtube', false);
         return;
       }
       this.resumeYoutubeIframes();
       attempt += 1;
-      if (attempt < 5) {
-        this.youtubeSleepKick = setTimeout(tick, 450);
+      if (attempt < 24) {
+        this.youtubeSleepKick = setTimeout(tick, attempt < 8 ? 400 : 1500);
       }
     };
-    this.youtubeSleepKick = setTimeout(tick, 450);
+    this.youtubeSleepKick = setTimeout(tick, 200);
+  }
+
+  private clearYoutubeSleepKick(): void {
+    if (this.youtubeSleepKick != null) {
+      clearTimeout(this.youtubeSleepKick);
+      this.youtubeSleepKick = null;
+    }
   }
 
   private clearYoutubePauseTimer(): void {
@@ -685,18 +718,63 @@ export class BackgroundPlaybackService {
   }
 
   private resumeYoutubeIframes(): void {
-    if (!this.youtubePlaying || this.youtubeUserPaused) {
+    if (!this.youtubePlaying || this.youtubeUserPaused || this.youtubeExplicitPause) {
       return;
     }
     const now = Date.now();
     if (now - this.youtubeResumeAt < 250) {
       return;
     }
+    const handoff = now < this.youtubeHandoffUntil;
     this.youtubeResumeAt = now;
     for (const iframe of this.collectYoutubeIframes()) {
+      if (iframe.dataset['patUserPaused'] === '1') {
+        continue;
+      }
+      if (handoff && iframe.src === this.youtubeHandoffSrc) {
+        continue;
+      }
       this.postYoutubePayload(iframe, { event: 'listening', id: 'yt-bg' });
       this.postYoutubeCommand(iframe, 'addEventListener', ['onStateChange']);
       this.postYoutubeCommand(iframe, 'playVideo');
+    }
+  }
+
+  /** The listener paused. A pause caused by the screen turning off does not set this. */
+  private youtubeMarkedUserPause(): boolean {
+    return this.collectYoutubeIframes().some((frame) => frame.dataset['patUserPaused'] === '1');
+  }
+
+  private armYoutubeHandoff(): void {
+    const frame = this.collectYoutubeIframes().find((item) => item.dataset['patUserPaused'] !== '1');
+    this.youtubeHandoffSrc = frame?.src || '';
+    this.youtubeHandoffUntil = Date.now() + 20000;
+    if (this.youtubeHandoffTimer != null) {
+      clearTimeout(this.youtubeHandoffTimer);
+    }
+    this.youtubeHandoffTimer = setTimeout(() => {
+      this.youtubeHandoffTimer = null;
+      if (Date.now() < this.youtubeHandoffUntil) {
+        return;
+      }
+      this.youtubeHandoffSrc = '';
+      this.youtubeHandoffUntil = 0;
+      if (this.youtubeExplicitPause || this.youtubeUserPaused || !this.youtubePlaying) {
+        return;
+      }
+      this.youtubePlaying = false;
+      this.youtubeUserPaused = true;
+      this.setPlaybackState('none');
+      setScreenKeepAlive('youtube', false);
+    }, 20000);
+  }
+
+  private clearYoutubeHandoff(): void {
+    this.youtubeHandoffUntil = 0;
+    this.youtubeHandoffSrc = '';
+    if (this.youtubeHandoffTimer != null) {
+      clearTimeout(this.youtubeHandoffTimer);
+      this.youtubeHandoffTimer = null;
     }
   }
 

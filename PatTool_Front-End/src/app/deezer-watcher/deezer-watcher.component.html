@@ -122,7 +122,7 @@
 <div class="dz-page radio-page">
   <div class="dz-layout radio-layout" [class.radio-layout--sidebar-collapsed]="sidebarCollapsed">
     <aside class="dz-sidebar radio-sidebar" [ngClass]="'radio-skin--' + radioSkin">
-      <div class="radio-sidebar-filter">
+      <div class="radio-sidebar-filter" [class.is-recent-open]="recentOpen && filteredRecentSearches().length">
         <div class="radio-sidebar-filter-row">
           <i class="fa fa-search radio-sidebar-filter-icon" aria-hidden="true"></i>
           <label class="visually-hidden" for="dz-search">{{ 'DEEZER.SEARCH_PLACEHOLDER' | translate }}</label>
@@ -132,9 +132,19 @@
             class="form-control form-control-sm radio-sidebar-filter-input"
             [ngModel]="query"
             (ngModelChange)="onQueryChange($event)"
+            (focus)="onQueryFocus()"
+            (blur)="onQueryBlur()"
+            (keydown)="onQueryKeydown($event)"
             [placeholder]="(listMode === 'favorites' ? 'DEEZER.FAV_FILTER' : listMode === 'playlists' ? 'DEEZER.PLAYLIST_FILTER' : 'DEEZER.SEARCH_PLACEHOLDER') | translate"
             autocomplete="off"
-            spellcheck="false" />
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-controls="dz-recent-list"
+            [attr.aria-expanded]="recentOpen && filteredRecentSearches().length > 0"
+            [attr.aria-activedescendant]="recentActiveIndex >= 0 ? 'dz-recent-' + recentActiveIndex : null" />
           <button
             type="button"
             class="radio-sidebar-filter-clear"
@@ -143,6 +153,33 @@
             [attr.aria-label]="'DEEZER.CLEAR_SEARCH' | translate">
             <i class="fa fa-times" aria-hidden="true"></i>
           </button>
+          <ul
+            class="dz-recent"
+            id="dz-recent-list"
+            role="listbox"
+            *ngIf="recentOpen && filteredRecentSearches().length"
+            [attr.aria-label]="'DEEZER.RECENT_SEARCHES' | translate">
+            <li class="dz-recent-label" role="presentation">{{ 'DEEZER.RECENT_SEARCHES' | translate }}</li>
+            <li
+              *ngFor="let term of filteredRecentSearches(); let i = index"
+              class="dz-recent-item"
+              role="option"
+              [id]="'dz-recent-' + i"
+              [class.active]="i === recentActiveIndex"
+              [attr.aria-selected]="i === recentActiveIndex"
+              (mousedown)="$event.preventDefault(); applyRecentSearch(term)">
+              <i class="fa fa-history" aria-hidden="true"></i>
+              <span class="dz-recent-term">{{ term }}</span>
+              <button
+                type="button"
+                class="dz-recent-forget"
+                (mousedown)="removeRecentSearch(term, $event)"
+                [attr.title]="'DEEZER.RECENT_REMOVE' | translate"
+                [attr.aria-label]="'DEEZER.RECENT_REMOVE' | translate">
+                <i class="fa fa-times" aria-hidden="true"></i>
+              </button>
+            </li>
+          </ul>
         </div>
         <button
           type="button"
@@ -858,6 +895,13 @@
             referrerpolicy="strict-origin-when-cross-origin"
             (load)="onYoutubeFrameLoad()">
           </iframe>
+          <div
+            *ngIf="youtubeEmbed && mobileLayout"
+            class="dz-yt-swipe"
+            (touchstart)="onVideoSwipeStart($event)"
+            (touchend)="onVideoSwipeEnd($event)"
+            (touchcancel)="onVideoSwipeCancel()"
+            aria-hidden="true"></div>
           <button
             *ngIf="landscapeFullscreen"
             type="button"

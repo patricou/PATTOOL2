@@ -5796,6 +5796,8 @@
     "SUBTITLE": "Listas, álbumes y avances de 30 segundos mediante la API pública de Deezer. La canción completa no está disponible.",
     "LIMIT_NOTE": "Avances limitados a 30 s: la canción completa no se ofrece. Escúchala en YouTube.",
     "SEARCH_PLACEHOLDER": "Canción, álbum, artista…",
+    "RECENT_SEARCHES": "Últimas búsquedas",
+    "RECENT_REMOVE": "Quitar del historial",
     "CLEAR_SEARCH": "Borrar la búsqueda",
     "GENRES": "Géneros",
     "GENRES_SHOW": "Mostrar géneros",

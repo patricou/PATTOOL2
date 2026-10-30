@@ -5797,6 +5797,8 @@
     "SUBTITLE": "Charts, Alben und 30-Sekunden-Ausschnitte über die öffentliche Deezer-API. Der ganze Titel ist nicht verfügbar.",
     "LIMIT_NOTE": "Ausschnitte auf 30 s begrenzt: der ganze Titel wird nicht bereitgestellt. Hören Sie ihn auf YouTube.",
     "SEARCH_PLACEHOLDER": "Titel, Album, Künstler…",
+    "RECENT_SEARCHES": "Letzte Suchen",
+    "RECENT_REMOVE": "Aus dem Verlauf entfernen",
     "CLEAR_SEARCH": "Suche löschen",
     "GENRES": "Genres",
     "GENRES_SHOW": "Genres anzeigen",

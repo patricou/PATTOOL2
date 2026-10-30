@@ -5793,6 +5793,8 @@
     "SUBTITLE": "Classifiche, album e anteprime di 30 secondi tramite l’API pubblica di Deezer. Il brano intero non è disponibile.",
     "LIMIT_NOTE": "Anteprime limitate a 30 s: il brano intero non è fornito. Ascoltalo su YouTube.",
     "SEARCH_PLACEHOLDER": "Brano, album, artista…",
+    "RECENT_SEARCHES": "Ultime ricerche",
+    "RECENT_REMOVE": "Rimuovi dalla cronologia",
     "CLEAR_SEARCH": "Cancella la ricerca",
     "GENRES": "Generi",
     "GENRES_SHOW": "Mostra i generi",

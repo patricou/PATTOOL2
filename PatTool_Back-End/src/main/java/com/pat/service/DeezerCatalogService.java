@@ -49,6 +49,9 @@ public class DeezerCatalogService {
     private static final long STALE_MS = Duration.ofHours(6).toMillis();
     private static final int MAX_BODY = 2_000_000;
     private static final int MAX_CACHE = 300;
+    /** Deezer list endpoints accept at most 100 items per call. */
+    private static final int TRACK_PAGE = 100;
+    private static final int TRACK_PAGE_DEFAULT = 50;
 
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -87,10 +90,10 @@ public class DeezerCatalogService {
 
     public DeezerChartDto chart(long genreId) {
         String base = "/chart/" + genreId;
-        JsonNode tracks = fetchOk(base + "/tracks?limit=40", CHART_TTL);
+        JsonNode tracks = fetchOk(base + "/tracks?limit=" + TRACK_PAGE, CHART_TTL);
         return new DeezerChartDto(
                 genreId,
-                mapTracks(tracks, null),
+                mapTracks(tracks, null, TRACK_PAGE),
                 mapAlbums(optional(base + "/albums?limit=18", CHART_TTL), false),
                 mapArtists(optional(base + "/artists?limit=18", CHART_TTL)),
                 mapPlaylists(optional(base + "/playlists?limit=18", CHART_TTL))
@@ -101,10 +104,10 @@ public class DeezerCatalogService {
         String q = clean(query);
         String kind = normalizeType(type);
         String path = "track".equals(kind)
-                ? "/search?limit=30&q=" + encode(q)
+                ? "/search?limit=" + TRACK_PAGE + "&q=" + encode(q)
                 : "/search/" + kind + "?limit=30&q=" + encode(q);
         JsonNode root = fetchOk(path, SEARCH_TTL);
-        List<DeezerTrackDto> tracks = "track".equals(kind) ? mapTracks(root, null) : List.of();
+        List<DeezerTrackDto> tracks = "track".equals(kind) ? mapTracks(root, null, TRACK_PAGE) : List.of();
         List<DeezerAlbumDto> albums = "album".equals(kind) ? mapAlbums(root, false) : List.of();
         List<DeezerArtistDto> artists = "artist".equals(kind) ? mapArtists(root) : List.of();
         List<DeezerPlaylistDto> playlists = "playlist".equals(kind) ? mapPlaylists(root) : List.of();
@@ -327,9 +330,14 @@ public class DeezerCatalogService {
     }
 
     private List<DeezerTrackDto> mapTracks(JsonNode root, DeezerAlbumDto albumFallback) {
+        return mapTracks(root, albumFallback, TRACK_PAGE_DEFAULT);
+    }
+
+    private List<DeezerTrackDto> mapTracks(JsonNode root, DeezerAlbumDto albumFallback, int max) {
         List<DeezerTrackDto> tracks = new ArrayList<>();
+        int cap = Math.max(0, max);
         for (JsonNode hit : arrayOf(root)) {
-            if (tracks.size() >= 50) {
+            if (tracks.size() >= cap) {
                 break;
             }
             DeezerTrackDto track = mapTrack(hit, albumFallback);

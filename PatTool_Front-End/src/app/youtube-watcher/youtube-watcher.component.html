@@ -353,6 +353,13 @@
         allowfullscreen
         referrerpolicy="strict-origin-when-cross-origin"
         (load)="onYoutubeEmbedLoad()"></iframe>
+      <div
+        *ngIf="embedUrl && !playingRecording && !clipLoading && mobileLayout"
+        class="yt-video-swipe"
+        (touchstart)="onVideoSwipeStart($event)"
+        (touchend)="onVideoSwipeEnd($event)"
+        (touchcancel)="onVideoSwipeCancel()"
+        aria-hidden="true"></div>
       <video
         *ngIf="playingRecordingSafeUrl"
         #clipPlayer

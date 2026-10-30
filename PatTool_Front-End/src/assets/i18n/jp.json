@@ -5813,6 +5813,8 @@
     "SUBTITLE": "公開 Deezer API によるチャート、アルバム、30 秒の試聴です。曲の全体は提供されません。",
     "LIMIT_NOTE": "試聴は 30 秒までです。曲の全体は提供されません。YouTube でお聴きください。",
     "SEARCH_PLACEHOLDER": "曲、アルバム、アーティスト…",
+    "RECENT_SEARCHES": "最近の検索",
+    "RECENT_REMOVE": "履歴から削除",
     "CLEAR_SEARCH": "検索をクリア",
     "GENRES": "ジャンル",
     "GENRES_SHOW": "ジャンルを表示",

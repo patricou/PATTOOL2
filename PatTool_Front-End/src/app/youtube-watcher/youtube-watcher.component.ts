@@ -248,6 +248,10 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private screenHold = false;
   /** Pause asked by the listener, not by the screen turning off. */
   private userHold = false;
+  private sleepKickTimer: ReturnType<typeof setTimeout> | null = null;
+  private videoSwipeOn = false;
+  private videoSwipeX = 0;
+  private videoSwipeY = 0;
   private audioSessionClaimed = false;
   /** The message handler already advanced the queue; the later frame must not do it again. */
   private endedHandledSync = false;
@@ -449,6 +453,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       this.linkFeedbackTimer = undefined;
     }
     this.clearLandscapeTimers();
+    this.clearSleepKick();
     this.clearScrollTopTimers();
     if (this.recentBlurTimer !== undefined) {
       clearTimeout(this.recentBlurTimer);
@@ -1771,6 +1776,51 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.playQueueItem(next);
   }
 
+  /** Finger on the video. Left goes to the next title, right goes back. */
+  onVideoSwipeStart(event: TouchEvent): void {
+    if (event.touches.length !== 1 || this.playingRecording) {
+      this.videoSwipeOn = false;
+      return;
+    }
+    this.videoSwipeOn = true;
+    this.videoSwipeX = event.touches[0].clientX;
+    this.videoSwipeY = event.touches[0].clientY;
+  }
+
+  onVideoSwipeEnd(event: TouchEvent): void {
+    if (!this.videoSwipeOn) {
+      return;
+    }
+    this.videoSwipeOn = false;
+    const touch = event.changedTouches[0];
+    if (!touch || !this.selected) {
+      return;
+    }
+    const dx = touch.clientX - this.videoSwipeX;
+    const dy = touch.clientY - this.videoSwipeY;
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy)) {
+      return;
+    }
+    this.stepFromSwipe(dx < 0 ? 'next' : 'previous');
+  }
+
+  onVideoSwipeCancel(): void {
+    this.videoSwipeOn = false;
+  }
+
+  private stepFromSwipe(action: 'next' | 'previous'): void {
+    if (this.selected?.kind === 'playlist') {
+      this.handshakeYoutubePlayer();
+      this.sendYoutubeCommand(action === 'next' ? 'nextVideo' : 'previousVideo');
+      return;
+    }
+    if (action === 'next') {
+      this.playQueueNext();
+    } else {
+      this.playQueuePrev();
+    }
+  }
+
   get similarArtistName(): string {
     return this.selected ? this.artistSong(this.selected).artist.trim() : '';
   }
@@ -1995,8 +2045,10 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.playbackPaused = pause;
     if (pause) {
       this.userHold = true;
+      this.markYoutubeUserPause(true);
       this.releaseScreenHold();
     } else {
+      this.markYoutubeUserPause(false);
       this.holdScreen();
     }
     if (this.playerOpen) {
@@ -2830,6 +2882,10 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     return coarse || (narrow && touch);
   }
 
+  get mobileLayout(): boolean {
+    return this.isMobileLikeViewport();
+  }
+
   private isLandscapeOrientation(): boolean {
     if (typeof window === 'undefined') {
       return false;
@@ -3230,6 +3286,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
 
   private releaseScreenHold(): void {
     this.screenHold = false;
+    this.clearSleepKick();
     setScreenKeepAlive('youtube', false);
     this.releaseAudioSession();
   }
@@ -3244,6 +3301,46 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     this.holdScreen();
+    this.kickPlaybackThroughSleep();
+  }
+
+  /** Screen off pauses the player. Start the same video again, and let a list move on. */
+  private kickPlaybackThroughSleep(): void {
+    if (this.sleepKickTimer != null || this.playerOpen || this.playingRecording || !this.embedUrl) {
+      return;
+    }
+    const kick = (attempt: number): void => {
+      this.sleepKickTimer = null;
+      if (this.destroyed || !this.screenHold || this.userHold || this.playingRecording || !this.asleep()) {
+        return;
+      }
+      this.handshakeYoutubePlayer();
+      this.sendYoutubeCommand('playVideo');
+      if (attempt < 12) {
+        this.sleepKickTimer = setTimeout(() => kick(attempt + 1), attempt < 6 ? 500 : 1500);
+      }
+    };
+    kick(0);
+  }
+
+  private clearSleepKick(): void {
+    if (this.sleepKickTimer != null) {
+      clearTimeout(this.sleepKickTimer);
+      this.sleepKickTimer = null;
+    }
+  }
+
+  /** Tells the shared playback watcher that this pause came from the listener. */
+  private markYoutubeUserPause(paused: boolean): void {
+    const frame = this.getYoutubeIframe();
+    if (!frame) {
+      return;
+    }
+    if (paused) {
+      frame.dataset['patUserPaused'] = '1';
+    } else {
+      delete frame.dataset['patUserPaused'];
+    }
   }
 
   /** Favorites and the popular chart play as one loop, like a playlist. */
@@ -3276,6 +3373,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     if (state === 1 || state === 3) {
+      if (state === 1 && Date.now() >= this.ignoreQueueEndedUntil) {
+        this.clearSleepKick();
+      }
       this.holdScreen();
       return;
     }
@@ -3293,6 +3393,12 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       this.sendYoutubeCommand('setLoop', [true]);
       if (this.asleep()) {
         this.sendYoutubeCommand('nextVideo');
+        if (this.sleepKickTimer == null) {
+          this.sleepKickTimer = setTimeout(() => {
+            this.sleepKickTimer = null;
+            this.kickPlaybackThroughSleep();
+          }, 600);
+        }
       }
       return;
     }
@@ -3301,6 +3407,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       this.ngZone.run(() => {
         if (!this.destroyed) {
           this.onQueueVideoEnded();
+          if (this.asleep()) {
+            this.kickPlaybackThroughSleep();
+          }
         }
       });
       return;
@@ -3693,6 +3802,13 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
         this.queueUnavailableStreak = 0;
       }
     } else if (state === 2) {
+      if (!this.userHold && this.asleep()) {
+        this.holdScreen();
+        this.handshakeYoutubePlayer();
+        this.sendYoutubeCommand('playVideo');
+        this.kickPlaybackThroughSleep();
+        return;
+      }
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
         return;
       }

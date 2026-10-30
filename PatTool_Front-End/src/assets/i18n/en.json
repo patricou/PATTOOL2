@@ -6709,6 +6709,8 @@
     "SUBTITLE": "Charts, albums and 30-second previews from the public Deezer API. The full track is not available.",
     "LIMIT_NOTE": "Previews limited to 30 s: the full track is not provided. Listen to it on YouTube.",
     "SEARCH_PLACEHOLDER": "Track, album, artist…",
+    "RECENT_SEARCHES": "Recent searches",
+    "RECENT_REMOVE": "Remove from history",
     "CLEAR_SEARCH": "Clear search",
     "GENRES": "Genres",
     "GENRES_SHOW": "Show genres",
