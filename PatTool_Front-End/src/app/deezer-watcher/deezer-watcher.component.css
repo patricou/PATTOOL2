@@ -1322,6 +1322,11 @@
   opacity: 0 !important;
 }
 
+/* Decorations under the picture keep animating and make the embed rebuffer. */
+.radio-player-panel.dz-video .radio-face > :not(.dz-yt):not(.dz-yt-kept):not(.dz-yt-swipe):not(.radio-landscape-fs-exit):not(.radio-play-error) {
+  display: none !important;
+}
+
 .radio-player-panel--on .radio-player-frame::after {
   content: none !important;
   animation: none !important;

@@ -25,6 +25,8 @@ export class BackgroundPlaybackService {
   private active: HTMLMediaElement | null = null;
   /** True only after a YouTube iframe reported playing/buffering. */
   private youtubePlaying = false;
+  /** Embed address last written to the lock screen. Repeated buffering must not rewrite it. */
+  private youtubeMediaSrc = '';
   private youtubeUserPaused = true;
   /** Lock-screen or in-app pause button, not a pause caused by the screen turning off. */
   private youtubeExplicitPause = false;
@@ -574,13 +576,24 @@ export class BackgroundPlaybackService {
     if (state === undefined) {
       return;
     }
-    if (state === 1 || state === 3) {
+    if (state === 3) {
+      return;
+    }
+    if (state === 1) {
       this.clearYoutubePauseTimer();
       this.clearYoutubeSleepKick();
       this.clearYoutubeHandoff();
+      const frame = this.collectYoutubeIframes()[0];
+      const src = `${frame?.src || ''}|${frame?.dataset['patVideoId'] || ''}`;
+      const already = this.youtubePlaying && !this.youtubeUserPaused && !this.youtubeExplicitPause
+        && src.length > 1 && src === this.youtubeMediaSrc;
       this.youtubePlaying = true;
       this.youtubeUserPaused = false;
       this.youtubeExplicitPause = false;
+      if (already) {
+        return;
+      }
+      this.youtubeMediaSrc = src;
       this.applyYoutubeMediaSession();
       this.setPlaybackState('playing');
       const track = this.youtubeTrack();
@@ -934,6 +947,12 @@ export class BackgroundPlaybackService {
   private postYoutubePayload(iframe: HTMLIFrameElement, payload: object): void {
     if (!iframe.contentWindow) {
       return;
+    }
+    const record = payload as { event?: string; func?: string };
+    if (record.func && record.func !== 'getCurrentTime') {
+      console.log(`[YT service] ${record.event || 'commande'} ${record.func}`);
+    } else if (record.event === 'listening') {
+      console.log('[YT service] listening');
     }
     try {
       iframe.contentWindow.postMessage(JSON.stringify(payload), '*');
