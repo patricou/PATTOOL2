@@ -1,0 +1,69 @@
+diff --git a/node_modules/@capacitor/android/capacitor/src/main/java/com/getcapacitor/CapacitorWebView.java b/node_modules/@capacitor/android/capacitor/src/main/java/com/getcapacitor/CapacitorWebView.java
+index 22f6f97..b6d3c36 100644
+--- a/node_modules/@capacitor/android/capacitor/src/main/java/com/getcapacitor/CapacitorWebView.java
++++ b/node_modules/@capacitor/android/capacitor/src/main/java/com/getcapacitor/CapacitorWebView.java
+@@ -5,6 +5,7 @@ import android.os.Build;
+ import android.util.AttributeSet;
+ import android.util.TypedValue;
+ import android.view.KeyEvent;
++import android.view.View;
+ import android.view.inputmethod.BaseInputConnection;
+ import android.view.inputmethod.EditorInfo;
+ import android.view.inputmethod.InputConnection;
+@@ -15,6 +16,15 @@ import androidx.core.view.WindowInsetsCompat;
+ 
+ public class CapacitorWebView extends WebView {
+ 
++    /**
++     * While a track is playing, screen-off must not mark the page hidden.
++     * Chromium then suspends every iframe. A Deezer preview is an audio element
++     * in the page and can be started again. A YouTube embed refuses playVideo
++     * until the page is visible, so the clip stays silent.
++     */
++    private static volatile boolean keepVisible;
++
++    private boolean forcingVisible;
+     private BaseInputConnection capInputConnection;
+     private Bridge bridge;
+ 
+@@ -22,6 +32,40 @@ public class CapacitorWebView extends WebView {
+         super(context, attrs);
+     }
+ 
++    public static void setKeepVisible(boolean keep) {
++        keepVisible = keep;
++    }
++
++    /** Tell Chromium the window is still on screen, after the display has turned off. */
++    public void reassertVisible() {
++        if (!keepVisible) {
++            return;
++        }
++        super.onWindowVisibilityChanged(View.VISIBLE);
++    }
++
++    /** Playback stopped. Pass the real window state through so a hidden page can sleep. */
++    public void releaseVisibilityHold() {
++        int actual = getWindowVisibility();
++        if (actual != View.VISIBLE) {
++            super.onWindowVisibilityChanged(actual);
++        }
++    }
++
++    @Override
++    protected void onWindowVisibilityChanged(int visibility) {
++        if (keepVisible && visibility != View.VISIBLE && visibility != View.GONE && !forcingVisible) {
++            forcingVisible = true;
++            try {
++                super.onWindowVisibilityChanged(View.VISIBLE);
++            } finally {
++                forcingVisible = false;
++            }
++            return;
++        }
++        super.onWindowVisibilityChanged(visibility);
++    }
++
+     public void setBridge(Bridge bridge) {
+         this.bridge = bridge;
+     }

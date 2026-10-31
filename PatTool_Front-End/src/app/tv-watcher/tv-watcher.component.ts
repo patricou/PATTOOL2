@@ -80,6 +80,8 @@ import { TvGlobalFilterModalComponent } from './tv-global-filter-modal.component
 import { readMediaSkin, writeMediaSkin } from '../services/media-skin';
 import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
 import { YoutubeEqualizerModalComponent } from '../youtube-watcher/youtube-equalizer-modal.component';
+import { clipNowTickerText, NowTickerComponent, NowTickerItem } from '../shared/now-ticker.component';
+import { VideoshowCloseState, VideoshowModalComponent, VideoshowVideoSource } from '../shared/videoshow-modal/videoshow-modal.component';
 
 type TvListMode = 'catalog' | 'favorites' | 'recordings' | 'arte' | 'ia';
 type RecordingVisibilityPreset = 'private' | 'public' | 'friends' | 'friendGroups';
@@ -127,7 +129,7 @@ const TV_SKINS: readonly TvSkin[] = [
 @Component({
   selector: 'app-tv-watcher',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, TvEpgBrowserComponent, TvGlobalFilterModalComponent, YoutubeEqualizerModalComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, TvEpgBrowserComponent, TvGlobalFilterModalComponent, YoutubeEqualizerModalComponent, NowTickerComponent, VideoshowModalComponent],
   templateUrl: './tv-watcher.component.html',
   styleUrls: ['./tv-watcher.component.css', './tv-skins.css']
 })
@@ -161,6 +163,9 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.equalizer.engageMedia(el);
   };
   @ViewChild('eqModal') eqModal?: YoutubeEqualizerModalComponent;
+  @ViewChild('videoshowModalComponent') videoshowModalComponent?: VideoshowModalComponent;
+  videoshowAccent = '';
+  private videoshowPageAt = 0;
   eqLive = false;
   private eqSourceLive = false;
   private eqSub?: Subscription;
@@ -183,6 +188,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   /** Filter by EPG programme title (server-side search). */
   programQuery = '';
   selectedChannel: TvChannel | null = null;
+  tickerEnabled = false;
+  private static readonly TICKER_KEY = 'pattool.tv.ticker-enabled';
   /** Playback of a finished recording (mutually exclusive with live channel stream). */
   playingRecording: TvRecording | null = null;
   /** Hint when « all countries » is selected but the query is too short. */
@@ -500,7 +507,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     private friendsService: FriendsService,
     private membersService: MembersService,
     readonly equalizer: YoutubeEqualizerService,
-    private router: Router
+    private router: Router,
+    private hostRef: ElementRef<HTMLElement>
   ) {
     this.eqSub = new Subscription();
     this.eqSub.add(this.equalizer.sourceKind$.subscribe((kind) => {
@@ -919,6 +927,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     document.addEventListener('pointerdown', this.unlockSoundFromGesture, true);
+    this.tickerEnabled = this.readTickerEnabled();
     this.keepAliveOnNavigate = this.readKeepAlivePreference();
     this.continueOnNavigate = this.readContinuePreference();
     this.navLeaveSub = this.router.events
@@ -2196,6 +2205,107 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
     this.playChannel(channel);
     this.syncLandscapeFullscreen();
+  }
+
+  get canOpenVideoshow(): boolean {
+    return !!(this.playingRecording || this.selectedChannel?.streamUrl);
+  }
+
+  async openInVideoshow(): Promise<void> {
+    if (!this.videoshowModalComponent || !this.canOpenVideoshow) {
+      return;
+    }
+    this.videoshowAccent = this.readSkinAccent();
+    this.videoshowModalComponent.headerColor = this.videoshowAccent;
+    if (this.playingRecording) {
+      const token = this.keycloak.getTokenSync();
+      const url = this.api.tvRecordingMediaUrl(this.playingRecording, token || undefined);
+      if (!url) {
+        return;
+      }
+      const name = this.playingRecording.channelName || this.playingRecording.fileName || 'TV';
+      const pageAt = this.videoEl?.nativeElement?.currentTime || 0;
+      this.videoshowPageAt = pageAt;
+      this.releasePagePlayback();
+      this.videoshowModalComponent.open(
+        [{ streamUrl: url, fileName: name, stream: { progressive: true }, startSec: pageAt > 1 ? pageAt : 0 }],
+        name
+      );
+      return;
+    }
+    const channel = this.selectedChannel;
+    if (!channel?.streamUrl) {
+      return;
+    }
+    const streamUrl = resolveTvStreamUrl(channel);
+    let playUrl = this.api.tvStreamProxyUrl(streamUrl);
+    let progressive = isProgressiveVod(streamUrl);
+    if (isInternetArchiveVirtual(streamUrl)) {
+      const identifier = internetArchiveIdFromVirtualUrl(streamUrl);
+      if (!identifier) {
+        return;
+      }
+      try {
+        const resolved = await firstValueFrom(this.api.resolveInternetArchiveItem(identifier));
+        if (!resolved?.streamUrl) {
+          return;
+        }
+        playUrl = resolved.streamUrl;
+        progressive = true;
+      } catch {
+        return;
+      }
+    }
+    if (isKeepAliveVirtualLive(streamUrl)) {
+      const pre = await preflightVirtualLive(streamUrl, this.api);
+      if (!pre.ok) {
+        return;
+      }
+    }
+    const name = channel.name || 'TV';
+    this.releasePagePlayback();
+    const source: VideoshowVideoSource = {
+      streamUrl: playUrl,
+      fileName: name,
+      stream: {
+        progressive,
+        vod: isArteReplayVod(streamUrl),
+        skipLiveEdgeWatchdog: shouldSkipTvLiveEdgeWatchdog(streamUrl, channel),
+        slowMirror: usesTightLiveWindow(channel) || usesTightLiveWindow(streamUrl),
+        pacedLive: usesPacedLiveWindow(channel) || usesPacedLiveWindow(streamUrl),
+        paceBelowRealtime: isCapTerreChannel(channel) || isCapTerreChannel(streamUrl),
+        adaptivePace: isM6GroupVirtual(streamUrl)
+      }
+    };
+    this.videoshowModalComponent.open([source], name);
+  }
+
+  onVideoshowClosed(info?: VideoshowCloseState): void {
+    if (this.playingRecording) {
+      const viewerAt = info?.timeKnown ? Math.max(0, info.currentTime || 0) : -1;
+      const at = viewerAt > 0.4 ? viewerAt : this.videoshowPageAt;
+      if (at > 1) {
+        this.pendingResumeSec = at;
+      }
+      this.playRecording(this.playingRecording);
+      return;
+    }
+    if (this.selectedChannel?.streamUrl) {
+      this.playChannel(this.selectedChannel);
+    }
+  }
+
+  private releasePagePlayback(): void {
+    if (this.isFloatingOpen) {
+      this.tvPlayer.close();
+    }
+    this.destroyPlayer();
+    this.isBuffering = false;
+  }
+
+  private readSkinAccent(): string {
+    const accent = getComputedStyle(this.hostRef.nativeElement).getPropertyValue('--pat-title-accent').trim();
+    return accent || '#1f6feb';
   }
 
   /** Detach playback into a floating window that survives route changes. */
@@ -3560,6 +3670,101 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     return (this.epgFor(channel)?.next?.title || '').trim();
   }
 
+  setTickerEnabled(enabled: boolean): void {
+    this.tickerEnabled = !!enabled;
+    try {
+      localStorage.setItem(TvWatcherComponent.TICKER_KEY, this.tickerEnabled ? '1' : '0');
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }
+
+  get tickerItems(): NowTickerItem[] {
+    const items: NowTickerItem[] = [];
+    const push = (key: string, value: string | null | undefined): void => {
+      const text = (value || '').trim();
+      if (text) {
+        items.push({ key, value: text });
+      }
+    };
+    const label = (key: string): string => this.translate.instant(key);
+    const recording = this.playingRecording;
+    if (recording) {
+      push(label('NOW_TICKER.RECORDING'), recording.channelName || recording.fileName);
+      push(label('NOW_TICKER.COUNTRY'), this.countryLabel(recording.country));
+      push(label('NOW_TICKER.DURATION'), this.formatTickerClock(recording.actualDurationSec || recording.durationSec));
+      push(label('NOW_TICKER.SCHEDULE'), this.formatEpgClock(recording.startedAt));
+      return items;
+    }
+    const channel = this.selectedChannel;
+    if (!channel) {
+      return items;
+    }
+    push(label('NOW_TICKER.CHANNEL'), channel.name);
+    push(label('NOW_TICKER.COUNTRY'), this.countryLabel(channel.country));
+    const groupKey = this.groupLabelKey(channel.group);
+    if (groupKey && groupKey !== 'TV.GROUP_ALL') {
+      push(label('NOW_TICKER.GROUP'), this.translate.instant(groupKey));
+    }
+    push(label('NOW_TICKER.QUALITY'), channel.quality);
+    const arte = this.arteMetaFor(channel);
+    const ia = this.iaMetaFor(channel);
+    if (arte) {
+      push(label('NOW_TICKER.SUBTITLE'), arte.subtitle);
+      push(label('NOW_TICKER.GENRE'), arte.genre);
+      push(label('NOW_TICKER.DURATION'), arte.durationLabel);
+      push(label('NOW_TICKER.SHOW'), arte.availabilityLabel);
+      push(label('NOW_TICKER.DESCRIPTION'), clipNowTickerText(arte.description));
+    }
+    if (ia) {
+      push(label('NOW_TICKER.SUBTITLE'), ia.subtitle);
+      push(label('NOW_TICKER.GENRE'), ia.genre);
+      push(label('NOW_TICKER.DURATION'), ia.durationLabel);
+      push(label('NOW_TICKER.DESCRIPTION'), clipNowTickerText(ia.description));
+    }
+    const epg = this.epgFor(channel);
+    if (epg?.now) {
+      push(label('NOW_TICKER.NOW'), epg.now.title);
+      push(label('NOW_TICKER.SCHEDULE'), this.formatTickerRange(epg.now.start, epg.now.stop));
+      push(label('NOW_TICKER.DESCRIPTION'), clipNowTickerText(epg.now.description));
+    }
+    if (epg?.next) {
+      push(label('NOW_TICKER.NEXT'), epg.next.title);
+      push(label('NOW_TICKER.SCHEDULE'), this.formatTickerRange(epg.next.start, epg.next.stop));
+    }
+    return items;
+  }
+
+  private readTickerEnabled(): boolean {
+    try {
+      return localStorage.getItem(TvWatcherComponent.TICKER_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private formatTickerClock(sec: number | null | undefined): string {
+    const total = Math.floor(Number(sec) || 0);
+    if (total <= 0) {
+      return '';
+    }
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    const mm = String(minutes).padStart(2, '0');
+    const ss = String(seconds).padStart(2, '0');
+    return hours > 0 ? `${hours}:${mm}:${ss}` : `${minutes}:${ss}`;
+  }
+
+  private formatTickerRange(start: string | null | undefined, stop: string | null | undefined): string {
+    const from = this.formatEpgClock(start);
+    const until = this.formatEpgClock(stop);
+    if (from && until) {
+      return `${from} – ${until}`;
+    }
+    return from || until;
+  }
+
   formatEpgClock(iso: string | null | undefined): string {
     if (!iso) {
       return '';
@@ -4578,6 +4783,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.applyAudioToVideo(video, { muted: false, ensureVolume: true });
     video.src = url;
     video.load();
+    this.seekResumeIfNeeded(video);
     const tryPlay = (allowMuteFallback = true) => {
       this.applyAudioToVideo(video, { muted: allowMuteFallback ? false : true, ensureVolume: true });
       const p = video.play();

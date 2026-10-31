@@ -60,6 +60,27 @@
         [attr.aria-label]="'DEEZER.YT_SEARCH_SWITCH' | translate" />
       <span class="dz-yt-search-track" aria-hidden="true"><span class="dz-yt-search-knob"></span></span>
     </label>
+    <label class="dz-yt-search" [attr.title]="'NOW_TICKER.ENABLED_HINT' | translate">
+      <span class="dz-yt-search-label">{{ 'NOW_TICKER.ENABLED' | translate }}</span>
+      <input
+        type="checkbox"
+        class="dz-yt-search-input"
+        role="switch"
+        [ngModel]="tickerEnabled"
+        (ngModelChange)="setTickerEnabled($event)"
+        [attr.aria-label]="'NOW_TICKER.ENABLED' | translate" />
+      <span class="dz-yt-search-track" aria-hidden="true"><span class="dz-yt-search-knob"></span></span>
+    </label>
+    <button
+      type="button"
+      class="radio-eq-open-btn"
+      (click)="openInVideoshow()"
+      [disabled]="!canOpenVideoshow"
+      [attr.title]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate"
+      [attr.aria-label]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate">
+      <i class="fa fa-film" aria-hidden="true"></i>
+      <span class="radio-eq-open-label">{{ 'YOUTUBE.OPEN_VIDEOSHOW' | translate }}</span>
+    </button>
     <button
       type="button"
       class="radio-sleeve-open-btn"
@@ -117,6 +138,14 @@
     </span>
     </span>
   </h2>
+  <app-now-ticker
+    *ngIf="tickerEnabled"
+    [label]="'DEEZER.TITLE' | translate"
+    icon="fa-music"
+    [idle]="'NOW_TICKER.IDLE' | translate"
+    [ariaLabel]="'NOW_TICKER.ARIA' | translate"
+    [items]="tickerItems">
+  </app-now-ticker>
 </div>
 
 <div class="dz-page radio-page">
@@ -564,7 +593,7 @@
           <button
             type="button"
             class="dz-preview-btn"
-            [class.is-on]="current?.id === track.id && !youtubeEmbed"
+            [class.is-on]="current?.id === track.id && !clipOnStage"
             (click)="playDeezerTrack(track, i, $event)"
             [attr.title]="'DEEZER.DZ_PLAY' | translate"
             [attr.aria-label]="'DEEZER.DZ_PLAY' | translate">
@@ -753,7 +782,9 @@
       class="radio-player-panel"
       [class.dz-docked]="docked"
       [ngClass]="'radio-skin--' + radioSkin"
-      [class.dz-video]="!!youtubeEmbed"
+      [class.dz-video]="clipOnStage"
+      [style.--dz-video-w]="clipAspectW"
+      [style.--dz-video-h]="clipAspectH"
       [class.radio-player-panel--on]="!!current && !playErrorKey"
       [class.radio-player-panel--live]="!!current && playing && !playErrorKey"
       (mouseenter)="onPlayerPointerEnter()"
@@ -843,18 +874,19 @@
           <div class="radio-screen-fx" aria-hidden="true">
             <span class="radio-screen-fx-a"></span>
             <span class="radio-screen-fx-b"></span>
+            <span class="radio-screen-fx-c"></span>
           </div>
           <div class="radio-station-badge" *ngIf="current && !playErrorKey">
             <div class="radio-on-air">
               <span></span>
               <img
-                *ngIf="youtubeEmbed"
+                *ngIf="clipOnStage"
                 class="dz-yt-mark"
                 src="assets/images/youtube-logo.svg"
                 alt="" />
               <ng-container *ngIf="youtubeBusy">{{ 'DEEZER.YT_SEARCHING' | translate }}</ng-container>
-              <ng-container *ngIf="!youtubeBusy && youtubeEmbed">{{ 'DEEZER.YT_BADGE' | translate }}</ng-container>
-              <ng-container *ngIf="!youtubeBusy && !youtubeEmbed">{{ 'DEEZER.PREVIEW' | translate }}</ng-container>
+              <ng-container *ngIf="!youtubeBusy && clipOnStage">{{ 'DEEZER.YT_BADGE' | translate }}</ng-container>
+              <ng-container *ngIf="!youtubeBusy && !clipOnStage">{{ 'DEEZER.PREVIEW' | translate }}</ng-container>
             </div>
             <div class="radio-face-track" [attr.title]="itemTitle(current.artistName, current.title)">{{ current.artistName }} — {{ current.title }}</div>
           </div>
@@ -880,11 +912,12 @@
             <i class="fa fa-spinner fa-spin"></i>
           </div>
           <div class="radio-play-error" *ngIf="playErrorKey" role="alert">{{ playErrorKey | translate }}</div>
-          <div #keptYtHost class="dz-yt-kept" *ngIf="keptFrameActive"></div>
+          <div #keptYtHost class="dz-yt-kept" *ngIf="keptFrameActive" [class.is-parked]="!clipOnStage"></div>
           <iframe
             #ytFrame
             *ngIf="youtubeEmbed && !keptFrameActive"
             class="dz-yt"
+            [class.is-parked]="!clipOnStage"
             [src]="youtubeEmbed"
             [title]="youtubeTitle || 'YouTube'"
             [attr.data-pat-media-title]="current?.title || ''"
@@ -896,7 +929,7 @@
             (load)="onYoutubeFrameLoad()">
           </iframe>
           <div
-            *ngIf="youtubeEmbed && mobileLayout"
+            *ngIf="clipOnStage && mobileLayout"
             class="dz-yt-swipe"
             (touchstart)="onVideoSwipeStart($event)"
             (touchend)="onVideoSwipeEnd($event)"
@@ -926,7 +959,7 @@
                   <span
                     class="dz-yt-logo"
                     [class.has-offer]="ytOffer?.trackId === current.id && !ytNextBusy[current.id]"
-                    *ngIf="youtubeEmbed"
+                    *ngIf="clipOnStage"
                     [attr.title]="ytNextBusy[current.id] ? ('DEEZER.YT_SEARCHING' | translate) : (ytOffer?.trackId === current.id ? ('DEEZER.YT_NEXT' | translate) : (ytFromCache[current.id] ? ('DEEZER.YT_CACHED_HINT' | translate) : null))">
                     <img
                       class="dz-yt-mark"
@@ -982,6 +1015,7 @@
               </button>
               <button type="button" class="radio-now-action" [class.is-lit]="albumInfoOpen" [disabled]="!current?.albumId" (click)="openAlbumInfo()" [attr.title]="'DEEZER.ALBUM_INFO' | translate" [attr.aria-label]="'DEEZER.ALBUM_INFO' | translate" aria-haspopup="dialog"><i class="fa fa-info-circle"></i></button>
               <button type="button" class="radio-now-action" [disabled]="!youtubeSearchQuery" (click)="openOnYoutube()" [attr.title]="'RADIO.YOUTUBE_SEARCH' | translate"><i class="fa fa-youtube"></i></button>
+              <button type="button" class="radio-now-action" *ngIf="canOpenVideoshow" (click)="openInVideoshow()" [attr.title]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate" [attr.aria-label]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate"><i class="fa fa-film" aria-hidden="true"></i></button>
               <div class="radio-share-wrap dz-hide-mobile">
                 <button type="button" class="radio-now-action" [class.is-lit]="shareMenuOpen" (click)="toggleShareMenu($event)" [attr.title]="'RADIO.SHARE' | translate"><i class="fa fa-share-alt"></i></button>
                 <div class="radio-share-menu" *ngIf="shareMenuOpen">
@@ -997,7 +1031,7 @@
               <a *ngIf="current?.link" class="radio-now-action dz-deezer-link dz-hide-mobile" [href]="current?.link" target="_blank" rel="noopener" [attr.title]="'DEEZER.OPEN' | translate"><i class="fa fa-external-link"></i></a>
             </div>
           </div>
-          <div class="dz-progress" *ngIf="current && !youtubeEmbed">
+          <div class="dz-progress" *ngIf="current && !clipOnStage">
             <span>{{ formatTime(currentTime) }}</span>
             <input class="radio-volume-slider dz-seek" type="range" min="0" [max]="audioDuration || 30" step="0.1" [value]="currentTime" (input)="seek($event)" [attr.aria-label]="'DEEZER.PREVIEW' | translate" />
             <span>{{ formatTime(audioDuration || 30) }}</span>
@@ -1043,11 +1077,9 @@
       </audio>
     </section>
   </div>
-
-  <p class="dz-footer radio-footer">{{ 'DEEZER.SUBTITLE' | translate }}</p>
 </div>
 
-<app-youtube-equalizer-modal #eqModal theme="radio" [cabinet]="radioSkin" variant="media" [hasYoutubeVideo]="!!youtubeEmbed"></app-youtube-equalizer-modal>
+<app-youtube-equalizer-modal #eqModal theme="radio" [cabinet]="radioSkin" variant="media" [hasYoutubeVideo]="clipOnStage"></app-youtube-equalizer-modal>
 
 <div class="dz-pl-backdrop" *ngIf="playlistMenuTrack" (click)="closePlaylistMenu()"></div>
 <div
@@ -1298,3 +1330,5 @@
     </div>
   </div>
 </div>
+
+<app-videoshow-modal #videoshowModalComponent [headerColor]="videoshowAccent" (closed)="onVideoshowClosed($event)"></app-videoshow-modal>

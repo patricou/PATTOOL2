@@ -26,7 +26,7 @@
                 (load)="onYoutubeIframeLoad()"></iframe>
         <video #videoshowVideoEl
                *ngIf="isCurrentSlotReady() && !isCurrentYoutube()"
-               [src]="getCurrentVideoshowVideo()"
+               [attr.src]="boundVideoSrc() || null"
                class="videoshow-video"
                controls
                autoplay
@@ -88,7 +88,8 @@
       <div *ngIf="videos.length > 1 && showThumbnails" 
            class="thumbnails-strip" 
            [class.thumbnails-fullscreen]="isFullscreen"
-           #thumbnailsStrip>
+           #thumbnailsStrip
+           (wheel)="onThumbnailsWheel($event)">
         <div class="thumbnails-container">
           <div *ngFor="let video of videos; let i = index" 
                class="thumbnail-item"

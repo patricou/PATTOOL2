@@ -39,6 +39,12 @@
   </div>
   </div>
 
+  <div class="pp-yt-count" *ngIf="loggedIn && deezerYoutubeLinkCount !== null">
+    <i class="fa fa-youtube-play" aria-hidden="true"></i>
+    <strong>{{ 'PATTOOL_PARAMS.DEEZER_YT_LINKS' | translate:{ count: deezerYoutubeLinkCount } }}</strong>
+    <span>{{ 'PATTOOL_PARAMS.DEEZER_YT_LINKS_HINT' | translate }}</span>
+  </div>
+
   <div *ngIf="scope === 'application' && loading" class="pp-state pp-state--load">
     <i class="fa fa-spinner fa-spin pp-state-icon" aria-hidden="true"></i>
     <span>{{ 'PATTOOL_PARAMS.LOADING' | translate }}</span>

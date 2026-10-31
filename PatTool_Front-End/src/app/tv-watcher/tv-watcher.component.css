@@ -32,6 +32,7 @@
 }
 
 :host.tv-landscape-fs .pat-title,
+:host.tv-landscape-fs app-now-ticker,
 :host.tv-landscape-fs .tv-float-banner,
 :host.tv-landscape-fs .tv-sidebar,
 :host.tv-landscape-fs .tv-footer,
@@ -285,6 +286,7 @@
 
 /* Page stage: menu and title hidden, TV set kept (not fullscreen). */
 :host.tv-focus .pat-title,
+:host.tv-focus app-now-ticker,
 :host.tv-focus .tv-float-banner,
 :host.tv-focus .tv-sidebar,
 :host.tv-focus .tv-footer {

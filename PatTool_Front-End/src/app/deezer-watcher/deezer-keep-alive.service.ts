@@ -36,6 +36,7 @@ export class DeezerKeepAliveService {
   private readonly onMessage = (event: MessageEvent): void => this.readYoutubeState(event);
 
   private playedSeconds = 0;
+  private clipId = '';
   private clockTimer: ReturnType<typeof setInterval> | null = null;
 
   handoff(opts: {
@@ -58,7 +59,8 @@ export class DeezerKeepAliveService {
     this.youtubeIds = opts.youtubeIds || {};
     this.volume = opts.volume;
     this.playedSeconds = opts.mediaTime > 0 ? opts.mediaTime : 0;
-    const videoId = (opts.videoId || '').trim();
+    this.clipId = (opts.videoId || '').trim();
+    const videoId = this.clipId;
     if (videoId) {
       this.playVideo(videoId, this.playedSeconds);
     } else if (opts.frame && !opts.copyMedia) {
@@ -231,6 +233,7 @@ export class DeezerKeepAliveService {
     frame.allow = 'autoplay; encrypted-media; picture-in-picture';
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
     frame.src = `https://www.youtube-nocookie.com/embed/${id}?rel=0&autoplay=1&playsinline=1&controls=0&fs=0&iv_load_policy=3${start}${origin}`;
+    this.clipId = id;
     this.frame = frame;
     this.playedSeconds = startSec;
     this.adoptFrame(frame);
@@ -256,18 +259,20 @@ export class DeezerKeepAliveService {
       return;
     }
     const payload = data as { event?: string; info?: number | Record<string, unknown> };
+    const infoRecord =
+      payload.info && typeof payload.info === 'object' && !Array.isArray(payload.info) ? payload.info : null;
+    let state: number | undefined;
+    if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
+      state = payload.info;
+    } else if (infoRecord && typeof infoRecord['playerState'] === 'number') {
+      state = infoRecord['playerState'] as number;
+    }
     if (payload.event === 'infoDelivery' && typeof payload.info === 'number' && payload.info >= 0) {
       this.playedSeconds = payload.info;
       return;
     }
-    if (payload.info && typeof payload.info === 'object' && typeof payload.info['currentTime'] === 'number') {
-      this.playedSeconds = payload.info['currentTime'] as number;
-    }
-    let state: number | undefined;
-    if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
-      state = payload.info;
-    } else if (payload.info && typeof payload.info === 'object' && typeof payload.info['playerState'] === 'number') {
-      state = payload.info['playerState'] as number;
+    if (infoRecord && typeof infoRecord['currentTime'] === 'number') {
+      this.playedSeconds = infoRecord['currentTime'] as number;
     }
     if (state === 0 && Date.now() >= this.ignoreEndUntil) {
       this.advance(0);

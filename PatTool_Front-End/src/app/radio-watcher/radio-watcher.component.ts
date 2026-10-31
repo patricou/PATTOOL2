@@ -44,6 +44,7 @@ import {
 import { readMediaSkin, writeMediaSkin } from '../services/media-skin';
 import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
 import { YoutubeEqualizerModalComponent } from '../youtube-watcher/youtube-equalizer-modal.component';
+import { NowTickerComponent, NowTickerItem } from '../shared/now-ticker.component';
 
 type RadioListMode = 'catalog' | 'favorites' | 'podcasts';
 type PodcastBrowseLevel = 'shows' | 'episodes';
@@ -91,7 +92,7 @@ const RADIO_SKINS: readonly RadioSkin[] = [
 @Component({
   selector: 'app-radio-watcher',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, RadioGlobalFilterModalComponent, YoutubeEqualizerModalComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, RadioGlobalFilterModalComponent, YoutubeEqualizerModalComponent, NowTickerComponent],
   templateUrl: './radio-watcher.component.html',
   styleUrls: ['./radio-watcher.component.css', './radio-skins.css']
 })
@@ -124,6 +125,8 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   sidebarFilterQuery = '';
   sidebarCollapsed = false;
   selectedStation: RadioStation | null = null;
+  tickerEnabled = false;
+  private static readonly TICKER_KEY = 'pattool.radio.ticker-enabled';
   nowPlayingLabel = '';
   /** Photos of the current track, inside the cabinet, on any skin. */
   sleeveOpen = false;
@@ -165,6 +168,14 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   favoritesError = '';
   favoritesHint = '';
   isMuted = false;
+  /** Browser blocked sound on reload. The slider stays put until a click opens it. */
+  private autoplayMuted = false;
+  /** True only after unmuted playback has stayed up. A brief start must not drop the unlock. */
+  private soundConfirmed = false;
+  /** Ignore a range control that reports 0 while it is being created. */
+  private volumeSliderArmed = false;
+  private audibleRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private audibleAttempt = 0;
   private followDeviceVolume = false;
 
   volumePercent = 100;
@@ -356,17 +367,28 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
       if (reload || media.error) {
+        this.autoplayMuted = false;
+        this.audibleAttempt = -1;
+        this.clearAudibleRetry();
         this.playStation(station, 'user');
         return;
       }
+      this.autoplayMuted = false;
+      this.audibleAttempt = -1;
+      this.clearAudibleRetry();
       media.muted = false;
       this.isMuted = false;
+      if (this.volumePercent <= 0) {
+        this.volumePercent = 80;
+      }
+      media.volume = this.volumePercent / 100;
       const pending = media.play();
       void this.engageEqualizer(media);
       void pending.then(() => {
         if (gen !== this.playGeneration) {
           return;
         }
+        this.soundConfirmed = true;
         this.isBuffering = false;
         this.isReconnecting = false;
         this.playError = '';
@@ -646,6 +668,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.onEqAudioPlaying();
     window.addEventListener('patradiotransport', this.onBluetoothTune);
     window.addEventListener('patmediavolumeui', this.onDeviceVolumeUi);
+    this.tickerEnabled = this.readTickerEnabled();
     this.keepAliveOnNavigate = this.readKeepAlivePreference();
     this.continueOnNavigate = this.readContinuePreference();
     this.sleeveOpen = this.readSleeveOpen();
@@ -1453,6 +1476,17 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  armVolumeSlider(): void {
+    this.volumeSliderArmed = true;
+  }
+
+  private clearAudibleRetry(): void {
+    if (this.audibleRetryTimer != null) {
+      clearTimeout(this.audibleRetryTimer);
+      this.audibleRetryTimer = null;
+    }
+  }
+
   private clearPlayDeferTimer(): void {
     if (this.playDeferTimer != null) {
       clearTimeout(this.playDeferTimer);
@@ -1786,6 +1820,51 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     return found?.name || c.toUpperCase();
   }
 
+  setTickerEnabled(enabled: boolean): void {
+    this.tickerEnabled = !!enabled;
+    try {
+      localStorage.setItem(RadioWatcherComponent.TICKER_KEY, this.tickerEnabled ? '1' : '0');
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }
+
+  get tickerItems(): NowTickerItem[] {
+    const station = this.selectedStation;
+    if (!station) {
+      return [];
+    }
+    const items: NowTickerItem[] = [];
+    const push = (key: string, value: string | null | undefined): void => {
+      const text = (value || '').trim();
+      if (text) {
+        items.push({ key, value: text });
+      }
+    };
+    const label = (key: string): string => this.translate.instant(key);
+    push(label('NOW_TICKER.STATION'), station.name);
+    push(label('NOW_TICKER.TITLE'), this.nowPlayingTitle);
+    push(label('NOW_TICKER.ARTIST'), this.nowPlayingArtist);
+    push(label('NOW_TICKER.ALBUM'), this.nowPlayingAlbum);
+    if (!this.nowPlayingTitle && !this.nowPlayingArtist && this.nowPlayingLabel) {
+      push(label('NOW_TICKER.NOW'), this.nowPlayingLabel);
+    }
+    push(label('NOW_TICKER.COUNTRY'), this.countryLabel(station.country));
+    push(label('NOW_TICKER.LANGUAGE'), station.language);
+    push(label('NOW_TICKER.CODEC'), station.codec);
+    push(label('NOW_TICKER.BITRATE'), station.bitrate ? `${station.bitrate} kb/s` : '');
+    push(label('NOW_TICKER.TAGS'), station.tags);
+    return items;
+  }
+
+  private readTickerEnabled(): boolean {
+    try {
+      return localStorage.getItem(RadioWatcherComponent.TICKER_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
   onTagChange(): void {
     this.catalogPage = 1;
     this.loadStations();
@@ -2056,13 +2135,19 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!media) {
       return;
     }
+    this.autoplayMuted = false;
+    this.audibleAttempt = -1;
+    this.clearAudibleRetry();
+    this.clearPlaybackGesture();
     if (media.muted || this.isMuted || this.volumePercent <= 0) {
       media.muted = false;
       this.isMuted = false;
       if (this.volumePercent <= 0) {
-        this.volumePercent = 60;
-        media.volume = 0.6;
+        this.volumePercent = 80;
       }
+      media.volume = this.volumePercent / 100;
+      this.soundConfirmed = true;
+      void media.play().catch(() => undefined);
     } else {
       media.muted = true;
       this.isMuted = true;
@@ -2074,6 +2159,14 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   onVolumeSlider(percent: number): void {
     const media = this.liveAudio;
     const p = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+    if (!this.volumeSliderArmed && p === 0) {
+      return;
+    }
+    this.volumeSliderArmed = true;
+    this.autoplayMuted = false;
+    this.audibleAttempt = -1;
+    this.clearAudibleRetry();
+    this.clearPlaybackGesture();
     this.volumePercent = p;
     if (setDeviceMediaVolume(p)) {
       this.followDeviceVolume = true;
@@ -2101,6 +2194,11 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!media) {
       return;
     }
+    if (this.autoplayMuted && media.muted) {
+      this.isMuted = true;
+      this.cdr.markForCheck();
+      return;
+    }
     this.isMuted = !!media.muted;
     this.volumePercent = Math.round((media.muted ? 0 : media.volume) * 100);
     this.cdr.markForCheck();
@@ -2117,12 +2215,140 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     media.volume = this.volumePercent / 100;
   }
 
+  /**
+   * A reload often rejects the first play() before the tab is allowed to make
+   * sound. Muting at that moment sticks: Chrome then refuses to open the sound
+   * again. Retry with the volume up, and only fall back to mute at the end.
+   */
+  private scheduleAudibleRetry(
+    media: HTMLMediaElement,
+    gen: number,
+    station: RadioStation,
+    reason: 'user' | 'reconnect' | 'restore',
+    attempt: number
+  ): void {
+    if (!this.pageAlive || gen !== this.playGeneration) {
+      return;
+    }
+    if (attempt >= 5) {
+      this.holdMutedUntilGesture(media, gen, station, reason);
+      return;
+    }
+    this.armPlaybackGesture(station, gen, false);
+    const delay = [120, 280, 600, 1200, 2000][attempt] ?? 2000;
+    this.clearAudibleRetry();
+    this.audibleRetryTimer = setTimeout(() => {
+      this.audibleRetryTimer = null;
+      this.tryAudiblePlay(media, gen, station, reason, attempt + 1);
+    }, delay);
+  }
+
+  private tryAudiblePlay(
+    media: HTMLMediaElement,
+    gen: number,
+    station: RadioStation,
+    reason: 'user' | 'reconnect' | 'restore',
+    attempt: number
+  ): void {
+    if (!this.pageAlive || gen !== this.playGeneration) {
+      return;
+    }
+    this.audibleAttempt = attempt;
+    this.autoplayMuted = false;
+    media.muted = false;
+    this.isMuted = false;
+    if (this.volumePercent <= 0) {
+      this.volumePercent = 100;
+    }
+    media.volume = this.volumePercent / 100;
+    void media.play().then(() => {
+      if (gen !== this.playGeneration || this.audibleAttempt !== attempt) {
+        return;
+      }
+      this.clearAudibleRetry();
+      this.audibleRetryTimer = setTimeout(() => {
+        this.audibleRetryTimer = null;
+        if (!this.pageAlive || gen !== this.playGeneration) {
+          return;
+        }
+        if (!media.paused && !media.muted && media.volume > 0) {
+          this.soundConfirmed = true;
+          this.audibleAttempt = -1;
+          this.autoplayMuted = false;
+          this.clearPlaybackGesture();
+          this.isMuted = false;
+          this.isBuffering = false;
+          this.isReconnecting = false;
+          this.playError = '';
+          void this.engageEqualizer(media);
+          this.cdr.markForCheck();
+          return;
+        }
+        this.scheduleAudibleRetry(media, gen, station, reason, attempt);
+      }, 400);
+    }).catch((err: unknown) => {
+      if (gen !== this.playGeneration || this.audibleAttempt !== attempt) {
+        return;
+      }
+      const name = err && typeof err === 'object' && 'name' in err ? String((err as { name: string }).name) : '';
+      if (name === 'NotAllowedError' || name === 'AbortError') {
+        this.scheduleAudibleRetry(media, gen, station, reason, attempt);
+        return;
+      }
+      if (reason === 'restore' || reason === 'reconnect') {
+        this.playbackGuard?.requestReconnect();
+        this.armPlaybackGesture(station, gen, true);
+        return;
+      }
+      this.playbackGuard?.requestReconnect();
+    });
+  }
+
+  private holdMutedUntilGesture(
+    media: HTMLMediaElement,
+    gen: number,
+    station: RadioStation,
+    reason: 'user' | 'reconnect' | 'restore'
+  ): void {
+    if (!this.pageAlive || gen !== this.playGeneration) {
+      return;
+    }
+    this.autoplayMuted = true;
+    media.muted = true;
+    this.isMuted = true;
+    void media.play().then(() => {
+      if (gen !== this.playGeneration) {
+        return;
+      }
+      this.isBuffering = false;
+      this.isReconnecting = false;
+      this.playError = '';
+      void this.engageEqualizer(media);
+      this.armPlaybackGesture(station, gen, false);
+      this.cdr.markForCheck();
+    }).catch(() => {
+      if (gen !== this.playGeneration) {
+        return;
+      }
+      if (reason === 'user') {
+        this.playError = 'RADIO.ERR_PLAY';
+        this.isBuffering = false;
+        this.cdr.markForCheck();
+        return;
+      }
+      this.playbackGuard?.requestReconnect();
+      this.armPlaybackGesture(station, gen, true);
+    });
+  }
+
   ensureSound(event?: Event): void {
     event?.stopPropagation();
     const media = this.liveAudio;
     if (!media) {
       return;
     }
+    this.autoplayMuted = false;
+    this.clearPlaybackGesture();
     media.muted = false;
     this.isMuted = false;
     if (media.volume === 0 || this.volumePercent === 0) {
@@ -2649,71 +2875,13 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
       onReconnecting: () => this.noteRadioReconnect(gen)
     });
 
-    const onError = (message: string) => {
-      if (gen !== this.playGeneration) {
-        return;
-      }
-      this.playError = message || 'RADIO.ERR_STREAM';
-      this.isBuffering = false;
-      this.cdr.markForCheck();
-    };
-
     const tryPlay = () => {
       if (gen !== this.playGeneration) {
         return;
       }
-      this.forceAudible(media);
-      void media.play().then(() => {
-        if (gen !== this.playGeneration) {
-          return;
-        }
-        this.clearPlaybackGesture();
-        this.isBuffering = false;
-        this.isReconnecting = false;
-        void this.engageEqualizer(media);
-        this.cdr.markForCheck();
-      }).catch((err: unknown) => {
-        if (gen !== this.playGeneration) {
-          return;
-        }
-        const name = err && typeof err === 'object' && 'name' in err ? String((err as { name: string }).name) : '';
-        if (name === 'NotAllowedError') {
-          media.muted = true;
-          void media.play().then(() => {
-            if (gen !== this.playGeneration) {
-              return;
-            }
-            this.forceAudible(media);
-            this.isBuffering = false;
-            this.isReconnecting = false;
-            this.playError = '';
-            void this.engageEqualizer(media);
-            if (media.muted || media.paused) {
-              this.armPlaybackGesture(station, gen, false);
-            }
-            this.cdr.markForCheck();
-          }).catch(() => {
-            if (gen !== this.playGeneration) {
-              return;
-            }
-            if (reason === 'user') {
-              onError('RADIO.ERR_PLAY');
-              return;
-            }
-            // Bluetooth / lock screen: a tap may never come. Keep reopening
-            // until the network is back, and also arm a tap as a backup.
-            this.playbackGuard?.requestReconnect();
-            this.armPlaybackGesture(station, gen, true);
-          });
-          return;
-        }
-        if (reason === 'restore' || reason === 'reconnect') {
-          this.playbackGuard?.requestReconnect();
-          this.armPlaybackGesture(station, gen, true);
-          return;
-        }
-        this.playbackGuard?.requestReconnect();
-      });
+      this.soundConfirmed = false;
+      this.autoplayMuted = false;
+      this.tryAudiblePlay(media, gen, station, reason, 0);
     };
 
     media.onwaiting = () => {
@@ -2724,7 +2892,9 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     };
     media.onplaying = () => {
       if (gen === this.playGeneration) {
-        this.clearPlaybackGesture();
+        if (this.soundConfirmed) {
+          this.clearPlaybackGesture();
+        }
         this.isBuffering = false;
         this.isReconnecting = false;
         this.playError = '';
@@ -2790,6 +2960,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private destroyPlayer(clearSrc = true, options?: { keepPip?: boolean; handoffNowPlaying?: boolean; keepLive?: boolean }): void {
+    this.clearAudibleRetry();
     if (options?.keepLive) {
       this.playbackGuard?.dispose();
       this.playbackGuard = null;

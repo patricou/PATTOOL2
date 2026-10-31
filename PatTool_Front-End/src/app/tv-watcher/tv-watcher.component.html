@@ -36,6 +36,26 @@
         [attr.aria-label]="'TV.CONTINUE' | translate" />
       <span class="pat-continue-switch-track" aria-hidden="true"><span class="pat-continue-switch-knob"></span></span>
     </label>
+    <label class="pat-continue-switch" [attr.title]="'NOW_TICKER.ENABLED_HINT' | translate">
+      <span class="pat-continue-switch-label">{{ 'NOW_TICKER.ENABLED' | translate }}</span>
+      <input
+        type="checkbox"
+        role="switch"
+        [ngModel]="tickerEnabled"
+        (ngModelChange)="setTickerEnabled($event)"
+        [attr.aria-label]="'NOW_TICKER.ENABLED' | translate" />
+      <span class="pat-continue-switch-track" aria-hidden="true"><span class="pat-continue-switch-knob"></span></span>
+    </label>
+    <button
+      type="button"
+      class="tv-eq-open-btn"
+      (click)="openInVideoshow()"
+      [disabled]="!canOpenVideoshow"
+      [attr.title]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate"
+      [attr.aria-label]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate">
+      <i class="fa fa-film" aria-hidden="true"></i>
+      <span class="tv-eq-open-label">{{ 'YOUTUBE.OPEN_VIDEOSHOW' | translate }}</span>
+    </button>
     <button
       type="button"
       class="tv-eq-open-btn"
@@ -112,6 +132,14 @@
       </span>
     </span>
   </h2>
+  <app-now-ticker
+    *ngIf="tickerEnabled"
+    [label]="'TV.TITLE' | translate"
+    icon="fa-television"
+    [idle]="'NOW_TICKER.IDLE' | translate"
+    [ariaLabel]="'NOW_TICKER.ARIA' | translate"
+    [items]="tickerItems">
+  </app-now-ticker>
 </div>
 
 <app-tv-epg-browser
@@ -963,6 +991,15 @@
                 <button
                   type="button"
                   class="tv-now-action"
+                  *ngIf="canOpenVideoshow"
+                  (click)="openInVideoshow()"
+                  [attr.title]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate"
+                  [attr.aria-label]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate">
+                  <i class="fa fa-film" aria-hidden="true"></i>
+                </button>
+                <button
+                  type="button"
+                  class="tv-now-action"
                   [class.is-lit]="isPipActive"
                   *ngIf="pipSupported && !isFloatingOpen"
                   (click)="togglePictureInPicture()"
@@ -1280,3 +1317,4 @@
 </div>
 
 <app-youtube-equalizer-modal #eqModal theme="tv" [cabinet]="tvSkin" variant="media" [hasYoutubeVideo]="false"></app-youtube-equalizer-modal>
+<app-videoshow-modal #videoshowModalComponent [headerColor]="videoshowAccent" (closed)="onVideoshowClosed($event)"></app-videoshow-modal>

@@ -558,6 +558,18 @@ export class BackgroundPlaybackService {
     if (!origin.includes('youtube.com') && !origin.includes('youtube-nocookie.com')) {
       return;
     }
+    let raw: unknown = event.data;
+    if (typeof raw === 'string') {
+      try {
+        raw = JSON.parse(raw);
+      } catch {
+        return;
+      }
+    }
+    const eventName = raw && typeof raw === 'object' ? (raw as { event?: string }).event : undefined;
+    if (eventName !== 'onStateChange') {
+      return;
+    }
     const state = this.readYoutubePlayerState(event.data);
     if (state === undefined) {
       return;
@@ -605,14 +617,37 @@ export class BackgroundPlaybackService {
       setScreenKeepAlive('youtube', false);
       return;
     }
-    // The WebView pauses the clip before the screen-off flag exists.
-    // Do not treat that as the listener stopping the song.
+    if (screenIsOff() || this.isDocumentHidden()) {
+      this.clearYoutubePauseTimer();
+      this.youtubePlaying = true;
+      this.youtubeUserPaused = false;
+      this.youtubeExplicitPause = false;
+      this.resumeYoutubeIframes();
+      this.scheduleYoutubeSleepKick();
+      return;
+    }
+    // A pause while the page is visible is the listener. Do not start the clip again.
+    this.clearYoutubeSleepKick();
     this.clearYoutubePauseTimer();
-    this.youtubePlaying = true;
-    this.youtubeUserPaused = false;
-    this.youtubeExplicitPause = false;
-    this.resumeYoutubeIframes();
-    this.scheduleYoutubeSleepKick();
+    this.youtubePauseTimer = setTimeout(() => {
+      this.youtubePauseTimer = null;
+      if (this.youtubeMarkedUserPause()) {
+        return;
+      }
+      if (screenIsOff() || this.isDocumentHidden()) {
+        this.youtubePlaying = true;
+        this.youtubeUserPaused = false;
+        this.youtubeExplicitPause = false;
+        this.resumeYoutubeIframes();
+        this.scheduleYoutubeSleepKick();
+        return;
+      }
+      this.youtubePlaying = false;
+      this.youtubeUserPaused = true;
+      this.youtubeExplicitPause = true;
+      this.setPlaybackState('paused');
+      setScreenKeepAlive('youtube', false);
+    }, 450);
   }
 
   /** Screen off: keep a video that was already playing, and undo a pause the phone just caused. */
@@ -718,6 +753,9 @@ export class BackgroundPlaybackService {
   }
 
   private resumeYoutubeIframes(): void {
+    if (!screenIsOff() && !this.isDocumentHidden()) {
+      return;
+    }
     if (!this.youtubePlaying || this.youtubeUserPaused || this.youtubeExplicitPause) {
       return;
     }
@@ -731,13 +769,19 @@ export class BackgroundPlaybackService {
       if (iframe.dataset['patUserPaused'] === '1') {
         continue;
       }
-      if (handoff && iframe.src === this.youtubeHandoffSrc) {
+      if (handoff && iframe.src === this.youtubeHandoffSrc && !this.youtubeClipChanged(iframe)) {
         continue;
       }
       this.postYoutubePayload(iframe, { event: 'listening', id: 'yt-bg' });
       this.postYoutubeCommand(iframe, 'addEventListener', ['onStateChange']);
       this.postYoutubeCommand(iframe, 'playVideo');
     }
+  }
+
+  /** The same iframe can load the next title without changing its address. */
+  private youtubeClipChanged(iframe: HTMLIFrameElement): boolean {
+    const marked = (iframe.dataset['patVideoId'] || '').trim();
+    return !!marked && !this.youtubeHandoffSrc.includes(`/embed/${marked}`);
   }
 
   /** The listener paused. A pause caused by the screen turning off does not set this. */
@@ -757,9 +801,10 @@ export class BackgroundPlaybackService {
       if (Date.now() < this.youtubeHandoffUntil) {
         return;
       }
+      const movedOn = this.collectYoutubeIframes().some((frame) => this.youtubeClipChanged(frame));
       this.youtubeHandoffSrc = '';
       this.youtubeHandoffUntil = 0;
-      if (this.youtubeExplicitPause || this.youtubeUserPaused || !this.youtubePlaying) {
+      if (movedOn || this.youtubeExplicitPause || this.youtubeUserPaused || !this.youtubePlaying) {
         return;
       }
       this.youtubePlaying = false;

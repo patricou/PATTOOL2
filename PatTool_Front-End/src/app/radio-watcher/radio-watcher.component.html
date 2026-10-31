@@ -26,6 +26,16 @@
         [attr.aria-label]="'RADIO.CONTINUE' | translate" />
       <span class="pat-continue-switch-track" aria-hidden="true"><span class="pat-continue-switch-knob"></span></span>
     </label>
+    <label class="pat-continue-switch" [attr.title]="'NOW_TICKER.ENABLED_HINT' | translate">
+      <span class="pat-continue-switch-label">{{ 'NOW_TICKER.ENABLED' | translate }}</span>
+      <input
+        type="checkbox"
+        role="switch"
+        [ngModel]="tickerEnabled"
+        (ngModelChange)="setTickerEnabled($event)"
+        [attr.aria-label]="'NOW_TICKER.ENABLED' | translate" />
+      <span class="pat-continue-switch-track" aria-hidden="true"><span class="pat-continue-switch-knob"></span></span>
+    </label>
     <button
       type="button"
       class="radio-eq-open-btn"
@@ -113,6 +123,14 @@
       </span>
     </span>
   </h2>
+  <app-now-ticker
+    *ngIf="tickerEnabled"
+    [label]="'RADIO.TITLE' | translate"
+    icon="fa-headphones"
+    [idle]="'NOW_TICKER.IDLE' | translate"
+    [ariaLabel]="'NOW_TICKER.ARIA' | translate"
+    [items]="tickerItems">
+  </app-now-ticker>
 </div>
 
 <app-radio-global-filter-modal
@@ -603,6 +621,7 @@
           <div class="radio-screen-fx" aria-hidden="true">
             <span class="radio-screen-fx-a"></span>
             <span class="radio-screen-fx-b"></span>
+            <span class="radio-screen-fx-c"></span>
           </div>
 
           <div class="radio-station-badge" *ngIf="selectedStation && !isFloatingOpen && !playError">
@@ -733,6 +752,7 @@
                   max="100"
                   step="1"
                   [ngModel]="volumePercent"
+                  (pointerdown)="armVolumeSlider()"
                   (ngModelChange)="onVolumeSlider($event)"
                   [attr.aria-label]="'RADIO.VOLUME' | translate"
                   [attr.title]="'RADIO.VOLUME_LEVEL' | translate:{ percent: volumePercent }" />

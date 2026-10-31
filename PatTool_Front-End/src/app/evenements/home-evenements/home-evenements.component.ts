@@ -78,6 +78,15 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public user: Member = new Member("", "", "", "", "", [], "");
 	public dataFIlter: string = this._commonValuesService.getDataFilter();
 	public selectedVisibilityFilter: string = 'all'; // 'all', 'public', 'private', 'friends', or friend group id
+	public visibilityMenuOpen = false;
+	public visibilityMenuStyle: { [key: string]: string } = {};
+	private visibilityMenuScrollY = 0;
+	public readonly visibilityPresets: Array<{ value: string; labelKey: string; icon: string }> = [
+		{ value: 'all', labelKey: 'EVENTHOME.FILTER_ALL', icon: 'fa-th-large' },
+		{ value: 'public', labelKey: 'EVENTCREATION.PUBLIC', icon: 'fa-globe' },
+		{ value: 'private', labelKey: 'EVENTCREATION.PRIVATE', icon: 'fa-lock' },
+		{ value: 'friends', labelKey: 'EVENTCREATION.FRIENDS', icon: 'fa-users' }
+	];
 	public adminOverride: boolean = false; // Admin override to see all events regardless of visibility
 	public filteredEvents: Evenement[] = []; // Filtered events (computed property)
 	private lastFilterValue: string = 'all'; // Track last filter value to avoid unnecessary recalculations
@@ -622,6 +631,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	onWindowResize(event: UIEvent): void {
 		const width = (event.target as Window)?.innerWidth ?? this.nativeWindow.innerWidth;
 		this.updateResponsiveState(width);
+		this.closeVisibilityMenu();
 	}
 
 	/** True when user has scrolled enough that the filter bar should stick under the navbar */
@@ -629,6 +639,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	@HostListener('window:scroll', ['$event'])
 	onWindowScroll(event: Event): void {
+		if (this.visibilityMenuOpen && Math.abs(window.scrollY - this.visibilityMenuScrollY) > 8) {
+			this.closeVisibilityMenu();
+		}
 		this.checkScrollForLoadMore();
 	}
 
@@ -707,6 +720,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	@HostListener('window:keydown', ['$event'])
 	onKeyDown(event: KeyboardEvent): void {
+		if (event.key === 'Escape' && this.visibilityMenuOpen) {
+			event.preventDefault();
+			this.closeVisibilityMenu();
+			return;
+		}
 		// Toggle debug info panel with Ctrl+I (or Cmd+I on Mac)
 		// Use toLowerCase() to handle both 'i' and 'I' cases (case-insensitive)
 		if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'i') {
@@ -1786,6 +1804,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				} else {
 					this.friendGroups = [];
 				}
+				this.cdr.markForCheck();
 			},
 			error => {
 				console.error('Error loading friend groups:', error);
@@ -4103,6 +4122,81 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		return this.filteredEvents;
 	}
 	
+	public get visibilityFilterLabel(): string {
+		const preset = this.visibilityPresets.find(option => option.value === this.selectedVisibilityFilter);
+		if (preset) {
+			return this.translateService.instant(preset.labelKey);
+		}
+		const group = this.friendGroups.find(item => item.id === this.selectedVisibilityFilter);
+		return group?.name || this.translateService.instant('EVENTHOME.FILTER_ALL');
+	}
+
+	public trackFriendGroup(_index: number, group: FriendGroup): string {
+		return group.id;
+	}
+
+	public toggleVisibilityMenu(event: Event, trigger: HTMLElement): void {
+		event.stopPropagation();
+		if (this.visibilityMenuOpen) {
+			this.closeVisibilityMenu();
+			return;
+		}
+		this.visibilityMenuOpen = true;
+		this.visibilityMenuScrollY = window.scrollY;
+		this.positionVisibilityMenu(trigger);
+		this.cdr.markForCheck();
+	}
+
+	public closeVisibilityMenu(): void {
+		if (!this.visibilityMenuOpen) {
+			return;
+		}
+		this.visibilityMenuOpen = false;
+		this.cdr.markForCheck();
+	}
+
+	public selectVisibilityFilter(value: string): void {
+		const changed = this.selectedVisibilityFilter !== value;
+		this.selectedVisibilityFilter = value;
+		this.closeVisibilityMenu();
+		if (changed) {
+			this.onVisibilityFilterChange();
+		}
+	}
+
+	private positionVisibilityMenu(trigger: HTMLElement): void {
+		const rect = trigger.getBoundingClientRect();
+		const gap = 6;
+		const margin = 8;
+		const menuWidth = Math.min(300, window.innerWidth - margin * 2);
+		let left = rect.left;
+		if (left + menuWidth > window.innerWidth - margin) {
+			left = window.innerWidth - margin - menuWidth;
+		}
+		if (left < margin) {
+			left = margin;
+		}
+		const spaceBelow = window.innerHeight - rect.bottom - gap - margin;
+		const spaceAbove = rect.top - gap - margin;
+		const openUp = spaceBelow < 220 && spaceAbove > spaceBelow;
+		const maxHeight = Math.max(160, Math.min(440, openUp ? spaceAbove : spaceBelow));
+		this.visibilityMenuStyle = openUp
+			? {
+				top: 'auto',
+				bottom: `${window.innerHeight - rect.top + gap}px`,
+				left: `${left}px`,
+				width: `${menuWidth}px`,
+				maxHeight: `${maxHeight}px`
+			}
+			: {
+				top: `${rect.bottom + gap}px`,
+				bottom: 'auto',
+				left: `${left}px`,
+				width: `${menuWidth}px`,
+				maxHeight: `${maxHeight}px`
+			};
+	}
+
 	// Handle visibility filter change
 	public onVisibilityFilterChange(): void {
 		// Reset cache to force recalculation

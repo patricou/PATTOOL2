@@ -4617,6 +4617,11 @@ export class ApiService {
     return this._http.get<DeezerPlaylistPage>(this.API_URL + 'external/deezer/playlist/' + id);
   }
 
+  /** Shared Deezer → YouTube clips stored in MongoDB (not per user). */
+  getDeezerYoutubeLinkCount(): Observable<{ count: number }> {
+    return this._http.get<{ count: number }>(this.API_URL + 'external/deezer/youtube-links/count');
+  }
+
   /** Cached YouTube video ids for the tracks on screen. YouTube is queried only when search is true. */
   resolveDeezerYoutubeLinks(
     tracks: { id: number; artist: string; title: string; skipVideoId?: string; saveVideoId?: string }[],

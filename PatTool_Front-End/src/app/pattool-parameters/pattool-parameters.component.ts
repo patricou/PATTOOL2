@@ -120,6 +120,7 @@ export class PattoolParametersComponent implements OnInit {
   errorMessage = '';
   isAdmin = false;
   loggedIn = false;
+  deezerYoutubeLinkCount: number | null = null;
   scope: ParamScope = 'user';
 
   userRows: UserAppParameter[] = [];
@@ -182,6 +183,7 @@ export class PattoolParametersComponent implements OnInit {
       return;
     }
     this.loadUserParameters();
+    this.loadDeezerYoutubeLinkCount();
     if (!this.isAdmin) {
       this.loading = false;
       return;
@@ -276,6 +278,18 @@ export class PattoolParametersComponent implements OnInit {
 
   trackUserRow(_index: number, row: UserAppParameter): string {
     return (row.paramKey || '') + '::' + (row.ownerKey || '');
+  }
+
+  private loadDeezerYoutubeLinkCount(): void {
+    this.api.getDeezerYoutubeLinkCount().subscribe({
+      next: (body) => {
+        const count = Number(body?.count);
+        this.deezerYoutubeLinkCount = Number.isFinite(count) ? count : 0;
+      },
+      error: () => {
+        this.deezerYoutubeLinkCount = null;
+      }
+    });
   }
 
   private loadUserParameters(): void {

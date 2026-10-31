@@ -20,6 +20,7 @@ import { DOCUMENT } from '@angular/common';
 import { CommonModule } from '@angular/common';
 import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { Capacitor } from '@capacitor/core';
 import { Subscription } from 'rxjs';
 
 export interface SheetSelectOption {
@@ -31,6 +32,15 @@ export interface SheetSelectOption {
 }
 
 const MOBILE_MQ = '(max-width: 800px)';
+
+function nativeMobilePlatform(): boolean {
+  try {
+    const platform = Capacitor.getPlatform();
+    return platform === 'android' || platform === 'ios';
+  } catch {
+    return false;
+  }
+}
 
 @Component({
   selector: 'app-sheet-select',
@@ -81,7 +91,7 @@ export class SheetSelectComponent implements ControlValueAccessor, OnInit, OnDes
 
   private readonly onMediaChange = (event: MediaQueryListEvent): void => {
     this.ngZone.run(() => {
-      this.isMobile = event.matches;
+      this.isMobile = nativeMobilePlatform() || event.matches;
       if (!this.isMobile) {
         this.close();
       }
@@ -96,7 +106,9 @@ export class SheetSelectComponent implements ControlValueAccessor, OnInit, OnDes
     private readonly ngZone: NgZone,
     private readonly cdr: ChangeDetectorRef
   ) {
-    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    if (nativeMobilePlatform()) {
+      this.isMobile = true;
+    } else if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
       this.isMobile = window.matchMedia(MOBILE_MQ).matches;
     }
   }
@@ -107,7 +119,7 @@ export class SheetSelectComponent implements ControlValueAccessor, OnInit, OnDes
       return;
     }
     this.media = window.matchMedia(MOBILE_MQ);
-    this.isMobile = this.media.matches;
+    this.isMobile = nativeMobilePlatform() || this.media.matches;
     this.media.addEventListener('change', this.onMediaChange);
   }
 

@@ -37,6 +37,7 @@ import { GpsOfflinePackComponent } from './shared/gps-offline-pack.component';
 import { ApiService, AstroGroundPosition, UserAppParameter } from './services/api.service';
 import { collapseMediaSkinParameters } from './services/media-skin';
 import { buildIssTopViewIconDataUrl } from './shared/globe-iss-icon.util';
+import { NativeSelectSheetService } from './shared/native-select-sheet.service';
 
 type UserInfoTabId = 'profile' | 'account' | 'tv' | 'news' | 'globe' | 'meteo' | 'assistant' | 'other';
 
@@ -464,10 +465,12 @@ export class AppComponent implements OnInit, AfterViewInit {
         private api: ApiService,
         backgroundPlayback: BackgroundPlaybackService,
         _gpsRecording: GpsRecordingService,
-        private sanitizer: DomSanitizer) {
+        private sanitizer: DomSanitizer,
+        nativeSelectSheet: NativeSelectSheetService) {
         this.selectedFiles = [];
         this.lastRoute.beginSession();
         backgroundPlayback.start();
+        nativeSelectSheet.start();
         this._newsTicker.enabled$.subscribe((v) => {
             this.newsTickerEnabled = v;
             this.updateTickerBodyClasses();

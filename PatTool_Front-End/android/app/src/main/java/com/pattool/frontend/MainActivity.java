@@ -31,6 +31,7 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
+import com.getcapacitor.CapacitorWebView;
 
 /**
  * After Keycloak login, Android follows the redirect to the in-app host
@@ -194,8 +195,9 @@ public class MainActivity extends BridgeActivity {
     }
 
     /**
-     * Screen off pauses the WebView on some phones. If radio or YouTube is playing,
-     * keep the page timers running and tell the page to resume the stream.
+     * Screen off pauses the WebView on some phones. If radio, Deezer or YouTube is
+     * playing, keep the page timers running and tell Chromium the window is still
+     * visible, so a YouTube iframe is not suspended with the display.
      */
     @Override
     public void onPause() {
@@ -233,6 +235,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onDestroy() {
         radioKeepAlive = false;
+        CapacitorWebView.setKeepVisible(false);
         WeakReference<MainActivity> current = radioActivity;
         if (current != null && current.get() == this) {
             radioActivity = null;
@@ -334,9 +337,16 @@ public class MainActivity extends BridgeActivity {
     /** Called from the radio page when a station starts or stops. */
     void onRadioPlayingFromPage(boolean playing, String title, String artist, String album, boolean radio) {
         radioKeepAlive = playing;
+        // Set before the display turns off. The visibility callback reads this flag.
+        CapacitorWebView.setKeepVisible(playing);
         runOnUiThread(() -> {
+            if (!playing) {
+                releaseWebViewVisibilityHold();
+            }
             if (!isAppPage()) {
                 radioKeepAlive = false;
+                CapacitorWebView.setKeepVisible(false);
+                releaseWebViewVisibilityHold();
                 return;
             }
             if (playing) {
@@ -409,8 +419,19 @@ public class MainActivity extends BridgeActivity {
             return;
         }
         WebView webView = bridge.getWebView();
+        if (webView instanceof CapacitorWebView) {
+            ((CapacitorWebView) webView).reassertVisible();
+        }
         webView.onResume();
         webView.resumeTimers();
+    }
+
+    private void releaseWebViewVisibilityHold() {
+        Bridge bridge = getBridge();
+        if (bridge == null || !(bridge.getWebView() instanceof CapacitorWebView)) {
+            return;
+        }
+        ((CapacitorWebView) bridge.getWebView()).releaseVisibilityHold();
     }
 
     /** Internet is usable. Wake the page timers and tell the radio to reopen the stream. */

@@ -1,4 +1,4 @@
 /**
  * Stamped by build-and-deploy.ps1 for this deployment.
  */
-export const APP_VERSION = '2026.10.30.224708';
+export const APP_VERSION = '2026.10.31.181534';

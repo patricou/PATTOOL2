@@ -46,6 +46,7 @@ import java.util.function.Supplier;
  *   <li>{@code GET /api/external/deezer/artist/{id}}</li>
  *   <li>{@code GET /api/external/deezer/artist/{id}/albums}</li>
  *   <li>{@code GET /api/external/deezer/playlist/{id}}</li>
+ *   <li>{@code GET /api/external/deezer/youtube-links/count}</li>
  *   <li>{@code POST /api/external/deezer/youtube-links}</li>
  *   <li>{@code GET/PUT /api/external/deezer/favorites}</li>
  *   <li>{@code PUT/DELETE /api/external/deezer/favorites/item}</li>
@@ -149,6 +150,11 @@ public class DeezerRestController {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid id"));
         }
         return ok(() -> deezerCatalogService.playlist(id), Duration.ofMinutes(10));
+    }
+
+    @GetMapping("/youtube-links/count")
+    public ResponseEntity<Map<String, Long>> youtubeLinkCount() {
+        return ResponseEntity.ok(Map.of("count", deezerYoutubeLinkService.countStoredLinks()));
     }
 
     @PostMapping("/youtube-links")

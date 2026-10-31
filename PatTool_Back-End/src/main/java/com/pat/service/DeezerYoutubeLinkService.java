@@ -36,6 +36,10 @@ public class DeezerYoutubeLinkService {
         this.youtubeProxyService = youtubeProxyService;
     }
 
+    public long countStoredLinks() {
+        return repository.countWithVideo();
+    }
+
     public DeezerYoutubeLookupResponse resolve(List<DeezerYoutubeLookupRequest.Track> tracks, boolean search) {
         List<DeezerYoutubeLookupResponse.Link> links = new ArrayList<>();
         if (tracks == null || tracks.isEmpty()) {

@@ -192,21 +192,19 @@
                                     <i class="fa fa-times"></i>
                                 </button>
                             </div>
-                            <div class="filter-input-container visibility-filter-mobile">
-                                <i class="fa fa-filter search-icon"></i>
-                                <select class="filter-input filter-select" 
-                                    [(ngModel)]="selectedVisibilityFilter"
-                                    (ngModelChange)="onVisibilityFilterChange()"
-                                    [title]="'EVENTCREATION.VISIBILITY' | translate">
-                                    <option value="all">{{ 'EVENTHOME.FILTER_ALL' | translate }}</option>
-                                    <option value="public">{{ 'EVENTCREATION.PUBLIC' | translate }}</option>
-                                    <option value="private">{{ 'EVENTCREATION.PRIVATE' | translate }}</option>
-                                    <option value="friends">{{ 'EVENTCREATION.FRIENDS' | translate }}</option>
-                                    <option *ngFor="let group of getSortedFriendGroups()" [value]="group.id">
-                                        {{ group.name }}
-                                    </option>
-                                </select>
-                            </div>
+                            <button type="button"
+                                class="visibility-filter-trigger visibility-filter-trigger-mobile"
+                                [class.active]="selectedVisibilityFilter !== 'all'"
+                                [class.open]="visibilityMenuOpen"
+                                (click)="toggleVisibilityMenu($event, visTriggerMobile)"
+                                #visTriggerMobile
+                                [attr.aria-expanded]="visibilityMenuOpen"
+                                aria-haspopup="listbox"
+                                [title]="'EVENTCREATION.VISIBILITY' | translate">
+                                <i class="fa fa-filter" aria-hidden="true"></i>
+                                <span class="visibility-filter-label">{{ visibilityFilterLabel }}</span>
+                                <i class="fa fa-chevron-down visibility-filter-chevron" aria-hidden="true"></i>
+                            </button>
                             <a class="mobile-photos-btn btn flex-shrink-0 me-2"
                                 routerLink="/photos"
                                 [ngbTooltip]="'MENU.PHOTOS' | translate"
@@ -240,21 +238,19 @@
 
                     <!-- Visibility Filter Section (includes friend groups) -->
                     <div class="filter-section-redesigned me-2" style="flex: 0 0 auto;">
-                        <div class="filter-input-container-desktop visibility-filter-container">
-                            <i class="fa fa-filter search-icon"></i>
-                            <select class="filter-input filter-select" 
-                                [(ngModel)]="selectedVisibilityFilter"
-                                (ngModelChange)="onVisibilityFilterChange()"
-                                [title]="'EVENTCREATION.VISIBILITY' | translate">
-                                <option value="all">{{ 'EVENTHOME.FILTER_ALL' | translate }}</option>
-                                <option value="public">{{ 'EVENTCREATION.PUBLIC' | translate }}</option>
-                                <option value="private">{{ 'EVENTCREATION.PRIVATE' | translate }}</option>
-                                <option value="friends">{{ 'EVENTCREATION.FRIENDS' | translate }}</option>
-                                <option *ngFor="let group of getSortedFriendGroups()" [value]="group.id">
-                                    {{ group.name }}
-                                </option>
-                            </select>
-                        </div>
+                        <button type="button"
+                            class="visibility-filter-trigger visibility-filter-trigger-desktop"
+                            [class.active]="selectedVisibilityFilter !== 'all'"
+                            [class.open]="visibilityMenuOpen"
+                            (click)="toggleVisibilityMenu($event, visTriggerDesktop)"
+                            #visTriggerDesktop
+                            [attr.aria-expanded]="visibilityMenuOpen"
+                            aria-haspopup="listbox"
+                            [title]="'EVENTCREATION.VISIBILITY' | translate">
+                            <i class="fa fa-filter" aria-hidden="true"></i>
+                            <span class="visibility-filter-label">{{ visibilityFilterLabel }}</span>
+                            <i class="fa fa-chevron-down visibility-filter-chevron" aria-hidden="true"></i>
+                        </button>
                     </div>
 
                     <!-- Admin Override Switch (only visible for admin users) -->
@@ -947,4 +943,40 @@
         </button>
     </div>
 </ng-template>
+
+<div class="visibility-filter-backdrop" *ngIf="visibilityMenuOpen" (click)="closeVisibilityMenu()"></div>
+<div class="visibility-filter-menu"
+    *ngIf="visibilityMenuOpen"
+    role="listbox"
+    [attr.aria-label]="'EVENTCREATION.VISIBILITY' | translate"
+    [ngStyle]="visibilityMenuStyle"
+    (click)="$event.stopPropagation()">
+    <div class="visibility-filter-section-title">{{ 'EVENTCREATION.VISIBILITY' | translate }}</div>
+    <div class="visibility-filter-chips">
+        <button type="button"
+            class="visibility-filter-chip"
+            *ngFor="let preset of visibilityPresets"
+            role="option"
+            [attr.aria-selected]="selectedVisibilityFilter === preset.value"
+            [class.selected]="selectedVisibilityFilter === preset.value"
+            (click)="selectVisibilityFilter(preset.value)">
+            <i class="fa" [ngClass]="preset.icon" aria-hidden="true"></i>
+            <span>{{ preset.labelKey | translate }}</span>
+        </button>
+    </div>
+    <div class="visibility-filter-groups" *ngIf="getSortedFriendGroups().length">
+        <div class="visibility-filter-section-title">{{ 'EVENTCREATION.FRIEND_GROUPS' | translate }}</div>
+        <button type="button"
+            class="visibility-filter-group"
+            *ngFor="let group of getSortedFriendGroups(); trackBy: trackFriendGroup"
+            role="option"
+            [attr.aria-selected]="selectedVisibilityFilter === group.id"
+            [class.selected]="selectedVisibilityFilter === group.id"
+            (click)="selectVisibilityFilter(group.id)">
+            <i class="fa fa-users" aria-hidden="true"></i>
+            <span>{{ group.name }}</span>
+            <i class="fa fa-check" *ngIf="selectedVisibilityFilter === group.id" aria-hidden="true"></i>
+        </button>
+    </div>
+</div>
 </div>

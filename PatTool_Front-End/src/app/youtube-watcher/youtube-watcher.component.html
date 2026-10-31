@@ -34,71 +34,15 @@
       </span>
     </label>
   </div>
+  <app-now-ticker
+    *ngIf="tickerEnabled"
+    [label]="'YOUTUBE.TICKER_LABEL' | translate"
+    icon="fa-youtube-play"
+    [idle]="'YOUTUBE.TICKER_IDLE' | translate"
+    [ariaLabel]="'YOUTUBE.TICKER_ARIA' | translate"
+    [items]="tickerItems">
+  </app-now-ticker>
 </div>
-
-<div
-  class="yt-ticker"
-  *ngIf="tickerEnabled"
-  role="marquee"
-  [attr.aria-label]="'YOUTUBE.TICKER_ARIA' | translate">
-  <div class="yt-ticker__label" aria-hidden="true">
-    <i class="fa fa-youtube-play"></i>
-    <span>{{ 'YOUTUBE.TICKER_LABEL' | translate }}</span>
-  </div>
-  <div class="yt-ticker__rows">
-    <div class="yt-ticker__idle" *ngIf="!tickerItem">
-      {{ 'YOUTUBE.TICKER_IDLE' | translate }}
-    </div>
-    <div class="yt-ticker__row" *ngIf="tickerItem">
-      <div class="yt-ticker__track" [style.animationDuration.s]="tickerDurationSec">
-        <div class="yt-ticker__loop-half">
-          <ng-container *ngFor="let _ of tickerRepeats">
-            <ng-container *ngTemplateOutlet="ytTickerItemsTpl"></ng-container>
-          </ng-container>
-        </div>
-        <div class="yt-ticker__loop-half" aria-hidden="true">
-          <ng-container *ngFor="let _ of tickerRepeats">
-            <ng-container *ngTemplateOutlet="ytTickerItemsTpl"></ng-container>
-          </ng-container>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<ng-template #ytTickerItemsTpl>
-  <span class="yt-ticker__item" *ngIf="isLive(tickerItem)">
-    <span class="yt-ticker__key">{{ 'YOUTUBE.TICKER_LIVE' | translate }}</span>
-  </span>
-  <span class="yt-ticker__item">
-    <span class="yt-ticker__key">{{ 'YOUTUBE.TICKER_NOW' | translate }}</span>
-    <span class="yt-ticker__val">{{ tickerItem?.title }}</span>
-  </span>
-  <span class="yt-ticker__item" *ngIf="tickerItem?.channelTitle">
-    <span class="yt-ticker__key">{{ 'YOUTUBE.TICKER_CHANNEL' | translate }}</span>
-    <span class="yt-ticker__val">{{ tickerItem?.channelTitle }}</span>
-  </span>
-  <span class="yt-ticker__item" *ngIf="durationLabel(tickerItem?.duration)">
-    <span class="yt-ticker__key">{{ 'YOUTUBE.TICKER_DURATION' | translate }}</span>
-    <span class="yt-ticker__val">{{ durationLabel(tickerItem?.duration) }}</span>
-  </span>
-  <span class="yt-ticker__item" *ngIf="viewsLabel(tickerItem?.viewCount)">
-    <span class="yt-ticker__val">{{ 'YOUTUBE.VIEWS' | translate:{ count: viewsLabel(tickerItem?.viewCount) } }}</span>
-  </span>
-  <span class="yt-ticker__item" *ngIf="publishedLabel(tickerItem?.publishedAt)">
-    <span class="yt-ticker__val">{{ publishedLabel(tickerItem?.publishedAt) }}</span>
-  </span>
-  <span class="yt-ticker__item">
-    <span class="yt-ticker__key">{{ 'YOUTUBE.TICKER_MODE' | translate }}</span>
-    <span class="yt-ticker__val">{{ tickerModeLabelKey() | translate }}</span>
-  </span>
-  <span class="yt-ticker__item" *ngIf="playAllActive">
-    <span class="yt-ticker__key">{{ 'YOUTUBE.TICKER_PLAY_ALL' | translate }}</span>
-    <span class="yt-ticker__val" *ngIf="playAllIndex() >= 0">
-      {{ 'YOUTUBE.PLAY_ALL_PLAYING' | translate:{ index: playAllIndex() + 1, count: playAllCount() } }}
-    </span>
-  </span>
-</ng-template>
 
 <ng-template #ytQueueBar>
   <div class="yt-queue-bar" *ngIf="canPlayAll">

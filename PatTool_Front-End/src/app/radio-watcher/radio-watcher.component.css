@@ -2979,14 +2979,17 @@
 }
 
 :host.radio-focus .pat-title,
+:host.radio-focus app-now-ticker,
 :host.radio-focus .radio-float-banner,
 :host.radio-focus .radio-sidebar,
 :host.radio-focus .radio-footer,
 :host.radio-stage-fs .pat-title,
+:host.radio-stage-fs app-now-ticker,
 :host.radio-stage-fs .radio-float-banner,
 :host.radio-stage-fs .radio-sidebar,
 :host.radio-stage-fs .radio-footer,
 :host:fullscreen .pat-title,
+:host:fullscreen app-now-ticker,
 :host:fullscreen .radio-float-banner,
 :host:fullscreen .radio-sidebar,
 :host:fullscreen .radio-footer {

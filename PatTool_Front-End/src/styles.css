@@ -1940,6 +1940,10 @@ input#message {
     box-sizing: border-box;
 }
 
+.pat-title:has(app-now-ticker) {
+    padding-bottom: 0;
+}
+
 .pat-title::before {
     content: '';
     position: absolute;
@@ -2662,4 +2666,9 @@ body.tv-popout-mode app-root {
     gap: 0;
     padding: 0.28rem 0.4rem;
   }
+}
+
+/* On phone / Android, native <select> stays visible but does not open the OS picker. */
+select.pat-select-sheet-target {
+  pointer-events: none !important;
 }

@@ -583,6 +583,23 @@
   background: #000;
 }
 
+/* Stay inside the viewport. A frame parked off-screen is frozen and cannot start the next clip. */
+.dz-yt.is-parked,
+.dz-yt-kept.is-parked,
+:host.radio-landscape-fs .dz-yt.is-parked,
+:host.radio-landscape-fs .dz-yt-kept.is-parked {
+  position: fixed;
+  inset: auto;
+  left: 0;
+  bottom: 0;
+  width: 180px;
+  height: 100px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+  border: 0;
+}
+
 .dz-yt-kept {
   position: absolute;
   inset: 0;
@@ -1287,6 +1304,29 @@
   max-height: none;
 }
 
+/* Skin motion stays on the cabinet. Nothing is drawn over the Deezer screen. */
+.radio-screen-fx {
+  display: none !important;
+}
+
+/* A moving blur or transform on the face repaints the YouTube iframe and makes the clip stutter. */
+.radio-player-panel.dz-video,
+.radio-player-panel.dz-video.radio-player-panel--on {
+  animation: none !important;
+}
+
+.radio-player-panel.dz-video .radio-face::before,
+.radio-player-panel.dz-video .radio-face::after {
+  animation: none !important;
+  filter: none !important;
+  opacity: 0 !important;
+}
+
+.radio-player-panel--on .radio-player-frame::after {
+  content: none !important;
+  animation: none !important;
+}
+
 /* Space Age cabinet is very round; keep the transport above the bottom curve. */
 .radio-player-panel.radio-skin--spaceage .radio-chrome {
   bottom: 1.15rem;
@@ -1303,15 +1343,42 @@
 }
 
 .radio-player-panel.dz-video {
-  width: min(100%, 76rem, calc((100dvh - 15rem) * 16 / 9));
+  width: min(100%, 76rem, calc((100dvh - 15rem) * var(--dz-video-w, 16) / var(--dz-video-h, 9)));
 }
 
 .radio-player-panel.dz-video .radio-face {
-  aspect-ratio: 16 / 9;
+  aspect-ratio: var(--dz-video-w, 16) / var(--dz-video-h, 9);
   width: 100%;
   height: auto;
   min-height: 0;
   max-height: none;
+  flex: 0 0 auto;
+}
+
+/* YouTube draws its bar and settings on the picture. Keep PatTool buttons under it. */
+.radio-player-panel.dz-video .radio-chrome {
+  position: static;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+  flex: 0 0 auto;
+  z-index: 6;
+  margin-top: 0.45rem;
+  border-radius: 0.45rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .radio-player-panel.dz-video .radio-chrome {
+    background: rgba(5, 5, 5, 0.94);
+  }
+}
+
+:host.radio-focus .radio-player-panel.dz-video .radio-face,
+:host.radio-stage-fs .radio-player-panel.dz-video .radio-face,
+:host:fullscreen .radio-player-panel.dz-video .radio-face {
+  flex: 1 1 auto;
+  max-height: calc(100dvh - 14rem);
 }
 
 .radio-player-panel.dz-video .radio-presets {
@@ -1513,7 +1580,7 @@ a.radio-now-action.dz-deezer-link {
     height: auto;
     min-height: 0;
     max-height: none;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: var(--dz-video-w, 16) / var(--dz-video-h, 9);
   }
 
   :host .pat-title h2.dz-page-title {

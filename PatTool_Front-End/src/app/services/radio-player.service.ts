@@ -59,7 +59,8 @@ export class RadioPlayerService {
       el.setAttribute('webkit-playsinline', '');
       el.dataset['patRadio'] = '1';
       el.dataset['patKeepAlive'] = '1';
-      el.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:0;bottom:0;';
+      // opacity:0 makes Chrome treat the element as hidden and refuse sound after a reload.
+      el.style.cssText = 'position:fixed;width:8px;height:8px;opacity:0.02;pointer-events:none;left:0;bottom:0;';
       document.body.appendChild(el);
       this.liveAudio = el;
     }

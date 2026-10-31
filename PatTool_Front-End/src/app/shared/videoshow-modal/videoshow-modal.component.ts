@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, Input, Output, EventEmitter, TemplateRef, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, AfterViewChecked, ViewChild, ElementRef, Input, Output, EventEmitter, TemplateRef, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpHeaders } from '@angular/common/http';
@@ -8,6 +8,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
 import { YoutubeEqualizerService } from '../../services/youtube-equalizer.service';
 import { YoutubeEqualizerModalComponent } from '../../youtube-watcher/youtube-equalizer-modal.component';
+import { startTvHlsPlayback, TvHlsPlaybackHandle } from '../../tv-watcher/tv-hls-playback';
 import { Observable, Subscription, Subject } from 'rxjs';
 import { map, takeUntil, finalize } from 'rxjs/operators';
 
@@ -23,11 +24,35 @@ export interface VideoshowVideoSource {
   patMetadata?: PatMetadata;
   /** YouTube watch id — played in an embed, not fetched from GridFS. */
   youtubeVideoId?: string;
+  /** Seconds to start this clip at, the first time it is opened. */
+  startSec?: number;
+  /** Direct media or proxied HLS/MP4 (TV channel, recording). */
+  streamUrl?: string;
+  stream?: VideoshowStreamHints;
+}
+
+export interface VideoshowStreamHints {
+  progressive?: boolean;
+  vod?: boolean;
+  skipLiveEdgeWatchdog?: boolean;
+  slowMirror?: boolean;
+  pacedLive?: boolean;
+  paceBelowRealtime?: boolean;
+  adaptivePace?: boolean;
 }
 
 /** Photo wall listens to these so inline YouTube tiles stop while the videoshow is open. */
 export const VIDEOSHOW_OPEN_EVENT = 'pattool-videoshow-open';
 export const VIDEOSHOW_CLOSE_EVENT = 'pattool-videoshow-close';
+
+/** Where playback was when the viewer closed, so the page can continue there. */
+export interface VideoshowCloseState {
+  currentTime: number;
+  /** True once a YouTube time sample arrived. Otherwise the page keeps its own position. */
+  timeKnown: boolean;
+  youtubeVideoId: string;
+  index: number;
+}
 
 interface PatMetadata {
   originalSizeBytes?: number;
@@ -48,14 +73,16 @@ interface PatMetadata {
     YoutubeEqualizerModalComponent
   ]
 })
-export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy {
+export class VideoshowModalComponent implements OnInit, AfterViewInit, AfterViewChecked, OnDestroy {
   @Input() videos: VideoshowVideoSource[] = [];
   @Input() eventName: string = '';
   @Input() loadFromFileService: boolean = false; // If true, use fileId to load videos via FileService
   /** When 'youtube', the title bar uses the YouTube page red instead of the default green. */
   @Input() headerTheme: 'default' | 'youtube' = 'default';
+  /** Skin accent. When set, the viewer chrome uses this color instead of the default green. */
+  @Input() headerColor = '';
   
-  @Output() closed = new EventEmitter<void>();
+  @Output() closed = new EventEmitter<VideoshowCloseState>();
   
   @ViewChild('videoshowModal') videoshowModal!: TemplateRef<any>;
   @ViewChild('videoshowContainer') videoshowContainerRef!: ElementRef;
@@ -65,6 +92,9 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   @ViewChild('eqModal') eqModal?: YoutubeEqualizerModalComponent;
   eqLive = false;
   private eqSub?: Subscription;
+  private hlsHandle: TvHlsPlaybackHandle | null = null;
+  private boundStreamVideo: HTMLVideoElement | null = null;
+  private boundStreamKey = '';
   
   // Videoshow state
   public videoshowVideos: string[] = [];
@@ -125,6 +155,15 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private videoPatMetadata: Map<string, PatMetadata> = new Map();
   private youtubeEmbedSafeCache = new Map<string, SafeResourceUrl>();
   private youtubeEmbedGeneration = 0;
+  private youtubeStartSec = 0;
+  private youtubeStartIndex = -1;
+  private youtubeTimeKnown = false;
+  private youtubeClock?: ReturnType<typeof setInterval>;
+  private youtubeSoundArm?: ReturnType<typeof setInterval>;
+  private youtubeSoundTries = 0;
+  /** True only after the mute button in this viewer. YouTube's autoplay mute is not a user choice. */
+  private userWantsMute = false;
+  private youtubePlayerMuted = false;
   private ignoreYoutubeEndedUntil = 0;
   private static readonly LOOP_STORAGE_KEY = 'pattool.videoshow.loop-playlist';
   /** Restart from the first video once the last one has finished. */
@@ -153,6 +192,10 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   ngAfterViewInit(): void {
     // ViewChild is now available
   }
+
+  ngAfterViewChecked(): void {
+    this.attachStreamIfNeeded();
+  }
   
   ngOnDestroy(): void {
     this.eqSub?.unsubscribe();
@@ -163,6 +206,7 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Centralized method to clean up all memory used by the videoshow
   private cleanupAllMemory(): void {
+    this.destroyStreamPlayback();
     // Remove fullscreen class from body
     document.body.classList.remove('videoshow-fullscreen-active');
     
@@ -211,6 +255,8 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.videoPatMetadata.clear();
     this.youtubeEmbedSafeCache.clear();
     this.removeYoutubeMessageListener();
+    this.stopYoutubeClock();
+    this.stopYoutubeSoundArm();
   }
   
   // Setup fullscreen listener
@@ -256,8 +302,8 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.removeResizeListener();
     this.resizeHandler = () => {
       this.ngZone.run(() => {
-        // Handle resize if needed
         this.cdr.detectChanges();
+        this.scrollToActiveThumbnail();
       });
     };
     window.addEventListener('resize', this.resizeHandler);
@@ -307,9 +353,16 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       ? 0
       : Math.min(Math.max(0, startIndex), videos.length - 1);
     this.isPlaying = false;
+    this.isMuted = false;
+    this.userWantsMute = false;
+    this.youtubePlayerMuted = false;
+    this.volume = 1;
     this.currentTime = 0;
     this.duration = 0;
     this.youtubeEmbedGeneration = 0;
+    this.youtubeStartIndex = this.currentVideoshowIndex;
+    this.youtubeStartSec = Math.max(0, Math.floor(videos[this.currentVideoshowIndex]?.startSec || 0));
+    this.youtubeTimeKnown = false;
     this.ignoreYoutubeEndedUntil = 0;
     this.showThumbnails = videos.length > 1;
     this.userToggledThumbnails = false;
@@ -354,6 +407,7 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         keyboard: false,
         windowClass: 'modal-smooth-animation videoshow-modal-wide'
       });
+      this.applyHeaderColor();
       
       this.isVideoshowModalOpen = true;
       
@@ -372,12 +426,14 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       // Handle modal close event
       this.modalRef.result.then(
         () => {
+          const where = this.captureCloseState();
           this.cleanupAllMemory();
-          this.emitVideoshowClosed();
+          this.emitVideoshowClosed(where);
         },
         () => {
+          const where = this.captureCloseState();
           this.cleanupAllMemory();
-          this.emitVideoshowClosed();
+          this.emitVideoshowClosed(where);
         }
       );
       
@@ -395,11 +451,29 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
-  private emitVideoshowClosed(): void {
+  private captureCloseState(): VideoshowCloseState {
+    const source = this.videos[this.currentVideoshowIndex];
+    const youtubeVideoId = this.resolveYoutubeVideoId(source) || '';
+    let currentTime = this.currentTime;
+    if (!youtubeVideoId) {
+      const video = this.videoshowVideoElRef?.nativeElement;
+      if (video && Number.isFinite(video.currentTime)) {
+        currentTime = video.currentTime;
+      }
+    }
+    return {
+      currentTime: Math.max(0, currentTime || 0),
+      timeKnown: youtubeVideoId ? this.youtubeTimeKnown : Number.isFinite(currentTime),
+      youtubeVideoId,
+      index: this.currentVideoshowIndex
+    };
+  }
+
+  private emitVideoshowClosed(where?: VideoshowCloseState): void {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(VIDEOSHOW_CLOSE_EVENT));
     }
-    this.closed.emit();
+    this.closed.emit(where || this.captureCloseState());
   }
   
   // Queue video loading
@@ -418,6 +492,8 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     let baseKey: string | null = null;
     if (videoSource.youtubeVideoId) {
       baseKey = `youtube:${videoSource.youtubeVideoId}`;
+    } else if (videoSource.streamUrl) {
+      baseKey = `stream:${videoSource.streamUrl}`;
     } else if (videoSource.fileId) {
       baseKey = `fileId:${videoSource.fileId}`;
     } else if (videoSource.relativePath && videoSource.fileName) {
@@ -470,6 +546,16 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       }
       
       const startRequest = () => {
+        const streamUrl = (videoSource.streamUrl || '').trim();
+        if (streamUrl) {
+          this.settleStreamSource(streamUrl, videoIndex);
+          if (cacheKey) {
+            this.loadingVideoKeys.delete(cacheKey);
+          }
+          this.activeVideoLoads--;
+          this.processVideoLoadQueue();
+          return;
+        }
         const youtubeId = this.resolveYoutubeVideoId(videoSource);
         if (youtubeId) {
           this.settleYoutubeSource(youtubeId, videoSource, videoIndex);
@@ -743,19 +829,35 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     return !!this.getCurrentVideoshowVideo();
   }
 
+  /** Blob/file URL for the video tag. Stream playback is attached separately so HLS is not assigned as src. */
+  public boundVideoSrc(): string {
+    const source = this.videos[this.currentVideoshowIndex];
+    if (this.isCurrentYoutube()) {
+      return '';
+    }
+    if (source?.streamUrl) {
+      return source.stream?.progressive ? source.streamUrl : '';
+    }
+    return this.getCurrentVideoshowVideo();
+  }
+
   public getCurrentYoutubeEmbedUrl(): SafeResourceUrl | null {
     const id = this.resolveYoutubeVideoId(this.videos[this.currentVideoshowIndex]);
     if (!id) {
       return null;
     }
-    const cacheKey = `${id}:${this.youtubeEmbedGeneration}`;
+    const start = this.youtubeStartIndex === this.currentVideoshowIndex && this.youtubeStartSec > 1
+      ? this.youtubeStartSec
+      : 0;
+    const cacheKey = `${id}:${this.youtubeEmbedGeneration}:${start}`;
     const cached = this.youtubeEmbedSafeCache.get(cacheKey);
     if (cached) {
       return cached;
     }
     const origin = encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '');
+    const startQuery = start > 1 ? `&start=${start}` : '';
     const safe = this.sanitizer.bypassSecurityTrustResourceUrl(
-      `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0&playsinline=1&autoplay=1&fs=0&enablejsapi=1&origin=${origin}&ts=${this.youtubeEmbedGeneration}`
+      `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0&playsinline=1&autoplay=1&fs=0&enablejsapi=1&origin=${origin}&ts=${this.youtubeEmbedGeneration}${startQuery}`
     );
     this.youtubeEmbedSafeCache.set(cacheKey, safe);
     return safe;
@@ -794,6 +896,66 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
     this.thumbnails[videoIndex] = `https://img.youtube.com/vi/${encodeURIComponent(id)}/mqdefault.jpg`;
     this.cdr.detectChanges();
+  }
+
+  private settleStreamSource(url: string, videoIndex: number): void {
+    if (videoIndex >= this.videoshowVideos.length) {
+      this.videoshowVideos = [
+        ...this.videoshowVideos,
+        ...new Array(videoIndex + 1 - this.videoshowVideos.length).fill('')
+      ];
+    }
+    this.videoshowVideos[videoIndex] = url;
+    this.assignVideoFileName(videoIndex, url);
+    this.cdr.detectChanges();
+  }
+
+  private attachStreamIfNeeded(): void {
+    const source = this.videos[this.currentVideoshowIndex];
+    const url = (source?.streamUrl || '').trim();
+    if (!url || source?.stream?.progressive) {
+      return;
+    }
+    const video = this.videoshowVideoElRef?.nativeElement;
+    if (!video || (this.boundStreamVideo === video && this.boundStreamKey === url && this.hlsHandle)) {
+      return;
+    }
+    this.destroyStreamPlayback();
+    this.boundStreamVideo = video;
+    this.boundStreamKey = url;
+    const hints = source?.stream || {};
+    this.hlsHandle = startTvHlsPlayback(video, url, {
+      progressive: !!hints.progressive,
+      vod: !!hints.vod,
+      skipLiveEdgeWatchdog: !!hints.skipLiveEdgeWatchdog,
+      slowMirror: !!hints.slowMirror,
+      pacedLive: !!hints.pacedLive,
+      paceBelowRealtime: !!hints.paceBelowRealtime,
+      adaptivePace: !!hints.adaptivePace,
+      channelLabel: source?.fileName
+    });
+  }
+
+  private destroyStreamPlayback(): void {
+    this.hlsHandle?.destroy();
+    this.hlsHandle = null;
+    this.boundStreamVideo = null;
+    this.boundStreamKey = '';
+  }
+
+  private applyHeaderColor(): void {
+    const root = document.querySelector('.videoshow-modal-wide .modal-content') as HTMLElement | null;
+    if (!root) {
+      return;
+    }
+    const color = (this.headerColor || '').trim();
+    if (!color) {
+      root.style.removeProperty('--videoshow-accent');
+      root.classList.remove('videoshow-tinted');
+      return;
+    }
+    root.style.setProperty('--videoshow-accent', color);
+    root.classList.add('videoshow-tinted');
   }
   
   // Change video quality
@@ -890,8 +1052,12 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
     this.ignoreYoutubeEndedUntil = Date.now() + 1500;
     this.stopVideo();
+    this.stopYoutubeClock();
+    this.youtubeStartSec = 0;
     this.youtubeEmbedGeneration++;
     this.currentVideoshowIndex = index;
+    this.currentTime = 0;
+    this.youtubeTimeKnown = false;
     if (this.isCurrentYoutube()) {
       this.isPlaying = true;
     }
@@ -984,9 +1150,29 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public onYoutubeIframeLoad(): void {
     this.postToYoutube({ event: 'listening', id: 'videoshow-yt' });
     this.sendYoutubeCommand('addEventListener', ['onStateChange']);
-    this.applyYoutubeAudioState();
+    this.armYoutubeSound();
     this.isPlaying = true;
+    this.startYoutubeClock();
     this.cdr.detectChanges();
+  }
+
+  private startYoutubeClock(): void {
+    this.stopYoutubeClock();
+    const tick = (): void => {
+      if (!this.isVideoshowModalOpen || !this.isCurrentYoutube()) {
+        return;
+      }
+      this.sendYoutubeCommand('getCurrentTime');
+    };
+    tick();
+    this.youtubeClock = setInterval(tick, 400);
+  }
+
+  private stopYoutubeClock(): void {
+    if (this.youtubeClock) {
+      clearInterval(this.youtubeClock);
+      this.youtubeClock = undefined;
+    }
   }
 
   private setupYoutubeMessageListener(): void {
@@ -1026,8 +1212,14 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
     const payload = data as {
       event?: string;
-      info?: number | { playerState?: number; muted?: boolean; volume?: number };
+      info?: number | { playerState?: number; muted?: boolean; volume?: number; currentTime?: number; duration?: number };
     };
+    if (payload.event === 'infoDelivery' && typeof payload.info === 'number' && payload.info >= 0) {
+      this.ngZone.run(() => {
+        this.currentTime = payload.info as number;
+        this.youtubeTimeKnown = true;
+      });
+    }
     let state: number | undefined;
     if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
       state = payload.info;
@@ -1039,16 +1231,34 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       if (typeof info.muted === 'boolean') {
         const muted = info.muted;
         this.ngZone.run(() => {
-          this.isMuted = muted;
+          this.youtubePlayerMuted = muted;
+          if (!muted) {
+            this.isMuted = false;
+            this.stopYoutubeSoundArm();
+          } else if (this.userWantsMute || !this.youtubeSoundArm) {
+            this.isMuted = true;
+          }
           this.cdr.detectChanges();
         });
       }
       if (typeof info.volume === 'number') {
         const volume = Math.max(0, Math.min(1, info.volume / 100));
+        const ignoreAutoplayZero = volume === 0 && !this.userWantsMute && !!this.youtubeSoundArm;
+        if (!ignoreAutoplayZero) {
+          this.ngZone.run(() => {
+            this.volume = volume > 0 || this.userWantsMute ? volume : this.volume;
+            this.cdr.detectChanges();
+          });
+        }
+      }
+      if (typeof info.currentTime === 'number' && info.currentTime >= 0) {
         this.ngZone.run(() => {
-          this.volume = volume;
-          this.cdr.detectChanges();
+          this.currentTime = info.currentTime as number;
+          this.youtubeTimeKnown = true;
         });
+      }
+      if (typeof info.duration === 'number' && info.duration > 0) {
+        this.duration = info.duration;
       }
     }
     if (state === undefined) {
@@ -1136,8 +1346,14 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public setVolume(volume: number): void {
     this.volume = Math.max(0, Math.min(1, volume));
     this.isMuted = this.volume === 0;
+    this.userWantsMute = this.isMuted;
     if (this.isCurrentYoutube()) {
-      this.applyYoutubeAudioState();
+      if (this.userWantsMute) {
+        this.stopYoutubeSoundArm();
+        this.applyYoutubeAudioState();
+      } else {
+        this.armYoutubeSound();
+      }
       this.cdr.detectChanges();
       return;
     }
@@ -1152,8 +1368,17 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   public toggleMute(): void {
     this.isMuted = !this.isMuted;
+    this.userWantsMute = this.isMuted;
+    if (!this.isMuted && this.volume <= 0) {
+      this.volume = 1;
+    }
     if (this.isCurrentYoutube()) {
-      this.sendYoutubeCommand(this.isMuted ? 'mute' : 'unMute');
+      if (this.userWantsMute) {
+        this.stopYoutubeSoundArm();
+        this.sendYoutubeCommand('mute');
+      } else {
+        this.armYoutubeSound();
+      }
       this.cdr.detectChanges();
       return;
     }
@@ -1166,8 +1391,53 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   private applyYoutubeAudioState(): void {
-    this.sendYoutubeCommand('setVolume', [Math.round(this.volume * 100)]);
-    this.sendYoutubeCommand(this.isMuted || this.volume === 0 ? 'mute' : 'unMute');
+    this.sendYoutubeCommand('setVolume', [Math.round((this.volume > 0 ? this.volume : 1) * 100)]);
+    this.sendYoutubeCommand(this.userWantsMute ? 'mute' : 'unMute');
+  }
+
+  /** YouTube autoplay often starts muted once the click that opened the viewer has expired. */
+  private armYoutubeSound(): void {
+    this.stopYoutubeSoundArm();
+    if (!this.isCurrentYoutube()) {
+      return;
+    }
+    if (this.userWantsMute) {
+      this.applyYoutubeAudioState();
+      return;
+    }
+    this.isMuted = false;
+    this.youtubePlayerMuted = false;
+    if (this.volume <= 0) {
+      this.volume = 1;
+    }
+    this.youtubeSoundTries = 0;
+    const push = (): void => {
+      if (!this.isVideoshowModalOpen || !this.isCurrentYoutube() || this.userWantsMute) {
+        this.stopYoutubeSoundArm();
+        return;
+      }
+      if (this.youtubeSoundTries++ > 12) {
+        this.stopYoutubeSoundArm();
+        if (this.youtubePlayerMuted) {
+          this.isMuted = true;
+          this.cdr.detectChanges();
+        }
+        return;
+      }
+      this.postToYoutube({ event: 'listening', id: 'videoshow-yt' });
+      this.sendYoutubeCommand('setVolume', [Math.round(this.volume * 100)]);
+      this.sendYoutubeCommand('unMute');
+      this.sendYoutubeCommand('playVideo');
+    };
+    push();
+    this.youtubeSoundArm = setInterval(push, 400);
+  }
+
+  private stopYoutubeSoundArm(): void {
+    if (this.youtubeSoundArm) {
+      clearInterval(this.youtubeSoundArm);
+      this.youtubeSoundArm = undefined;
+    }
   }
   
   public seekTo(time: number): void {
@@ -1186,7 +1456,22 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (!video) return;
     
     this.duration = video.duration;
-    
+    if (!this.userWantsMute) {
+      video.muted = false;
+      if (video.volume <= 0) {
+        video.volume = this.volume > 0 ? this.volume : 1;
+      }
+    }
+    const start = this.videos[this.currentVideoshowIndex]?.startSec || 0;
+    if (start > 1 && video.currentTime < 1 && Number.isFinite(video.duration)) {
+      try {
+        video.currentTime = Math.min(start, Math.max(0, video.duration - 0.5));
+        this.videos[this.currentVideoshowIndex].startSec = 0;
+      } catch {
+        /* not seekable yet */
+      }
+    }
+
     // Auto-play video when metadata is loaded
     if (video.paused) {
       video.play().then(() => {
@@ -1341,6 +1626,9 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.showThumbnails = !this.showThumbnails;
     this.userToggledThumbnails = true;
     this.cdr.detectChanges();
+    if (this.showThumbnails) {
+      this.scrollToActiveThumbnail();
+    }
   }
   
   public isCurrentThumbnail(index: number): boolean {
@@ -1351,6 +1639,29 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (index === this.currentVideoshowIndex) return;
     this.goToVideoIndex(index);
   }
+
+  /** Vertical wheel over the strip scrolls the thumbnails sideways. */
+  public onThumbnailsWheel(event: WheelEvent): void {
+    const strip = this.thumbnailsStripRef?.nativeElement;
+    if (!strip || strip.scrollWidth <= strip.clientWidth + 1) {
+      return;
+    }
+    let delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
+      delta *= 16;
+    } else if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+      delta *= strip.clientWidth;
+    }
+    if (!delta) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const previous = strip.style.scrollBehavior;
+    strip.style.scrollBehavior = 'auto';
+    strip.scrollLeft += delta;
+    strip.style.scrollBehavior = previous;
+  }
   
   public getThumbnailUrl(index: number): string {
     // For now, return empty - thumbnails can be generated later
@@ -1358,15 +1669,29 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   private scrollToActiveThumbnail(): void {
-    if (!this.thumbnailsStripRef || !this.showThumbnails) return;
-    
+    if (!this.thumbnailsStripRef || !this.showThumbnails) {
+      return;
+    }
     setTimeout(() => {
-      const strip = this.thumbnailsStripRef.nativeElement;
-      const activeThumbnail = strip.querySelector(`.thumbnail-item.active`);
-      if (activeThumbnail) {
-        activeThumbnail.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      const strip = this.thumbnailsStripRef?.nativeElement;
+      const container = strip?.querySelector('.thumbnails-container') as HTMLElement | null;
+      const item = strip?.querySelector('.thumbnail-item.active') as HTMLElement | null;
+      if (!strip || !container || !item) {
+        return;
       }
-    }, 100);
+      const pad = Math.max(0, (strip.clientWidth - item.offsetWidth) / 2);
+      container.style.paddingLeft = `${pad}px`;
+      container.style.paddingRight = `${pad}px`;
+      requestAnimationFrame(() => {
+        const stripRect = strip.getBoundingClientRect();
+        const itemRect = item.getBoundingClientRect();
+        const delta = (itemRect.left + itemRect.width / 2) - (stripRect.left + stripRect.width / 2);
+        const previous = strip.style.scrollBehavior;
+        strip.style.scrollBehavior = 'auto';
+        strip.scrollLeft += delta;
+        strip.style.scrollBehavior = previous;
+      });
+    }, 0);
   }
   
   // Keyboard listener

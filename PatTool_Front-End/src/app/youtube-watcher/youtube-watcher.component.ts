@@ -35,6 +35,7 @@ import { KeycloakService } from '../keycloak/keycloak.service';
 import { Evenement } from '../model/evenement';
 import { UrlEvent } from '../model/url-event';
 import { isYoutubeVideoId, parseYoutubeVideoId, youtubeWatchUrl } from '../shared/youtube-video-id.util';
+import { youtubeDesktopQualityQuery, youtubeSuggestedQuality, YoutubeQualityPin } from '../shared/youtube-desktop-quality';
 import { openWhatsAppTextShare } from '../shared/share-whatsapp-image.util';
 import {
   VideoshowModalComponent,
@@ -42,6 +43,7 @@ import {
 } from '../shared/videoshow-modal/videoshow-modal.component';
 import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
 import { YoutubeEqualizerModalComponent } from './youtube-equalizer-modal.component';
+import { clipNowTickerText, NowTickerComponent, NowTickerItem } from '../shared/now-ticker.component';
 import { activeScreenKeepAliveOwner, screenIsOff, setScreenKeepAlive } from '../services/media-screen-keepalive';
 import { claimRadioTune } from '../radio-watcher/radio-pip.util';
 
@@ -57,7 +59,7 @@ type YoutubeListMode = 'catalog' | 'favorites';
 @Component({
   selector: 'app-youtube-watcher',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, VideoshowModalComponent, YoutubeEqualizerModalComponent],
+  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, VideoshowModalComponent, YoutubeEqualizerModalComponent, NowTickerComponent],
   providers: [EvenementsService],
   templateUrl: './youtube-watcher.component.html',
   styleUrls: ['./youtube-watcher.component.css']
@@ -149,9 +151,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   errorMessage = '';
   missingKey = false;
 
-  tickerEnabled = true;
-  readonly tickerRepeats = [0, 1, 2, 3, 4, 5];
-  tickerDurationSec = 40;
+  tickerEnabled = false;
   sortKey: YoutubeSortKey = 'relevance';
   sortDir: YoutubeSortDir = 'asc';
 
@@ -299,6 +299,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private recordDidFinalize = false;
   private destroyed = false;
   private ytApiListening = false;
+  private readonly youtubeQualityPin = new YoutubeQualityPin();
   private ytProgressTimer?: ReturnType<typeof setInterval>;
   /** Coalesced YouTube infoDelivery sample. Applied once per frame so it never mutates bindings mid-check. */
   private ytProgressRaf = 0;
@@ -1712,12 +1713,42 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     this.syncUrl();
   }
 
-  get tickerItem(): YoutubeItem | null {
-    return this.selected;
-  }
-
-    tickerModeLabelKey(): string {
-    return this.playerOpen ? 'YOUTUBE.TICKER_MODE_PIP' : 'YOUTUBE.TICKER_MODE_PAGE';
+  get tickerItems(): NowTickerItem[] {
+    const item = this.selected;
+    if (!item) {
+      return [];
+    }
+    const items: NowTickerItem[] = [];
+    const push = (key: string, value: string | null | undefined): void => {
+      const text = (value || '').trim();
+      if (text) {
+        items.push({ key, value: text });
+      }
+    };
+    if (this.isLive(item)) {
+      items.push({ value: this.translate.instant('YOUTUBE.TICKER_LIVE') });
+    }
+    push(this.translate.instant('YOUTUBE.TICKER_NOW'), item.title);
+    push(this.translate.instant('YOUTUBE.TICKER_CHANNEL'), item.channelTitle);
+    push(this.translate.instant('NOW_TICKER.KIND'), item.kind === 'playlist' ? 'Playlist' : item.kind === 'video' ? '' : item.kind);
+    push(this.translate.instant('YOUTUBE.TICKER_DURATION'), this.durationLabel(item.duration));
+    push(this.translate.instant('NOW_TICKER.VIEWS'), item.viewCount ? this.viewsLabel(item.viewCount) : '');
+    push(this.translate.instant('NOW_TICKER.PUBLISHED'), this.publishedLabel(item.publishedAt));
+    push(this.translate.instant('NOW_TICKER.DESCRIPTION'), clipNowTickerText(item.description));
+    push(
+      this.translate.instant('YOUTUBE.TICKER_MODE'),
+      this.translate.instant(this.playerOpen ? 'YOUTUBE.TICKER_MODE_PIP' : 'YOUTUBE.TICKER_MODE_PAGE')
+    );
+    if (this.playAllActive && this.playAllIndex() >= 0) {
+      push(
+        this.translate.instant('YOUTUBE.TICKER_PLAY_ALL'),
+        this.translate.instant('YOUTUBE.PLAY_ALL_PLAYING', {
+          index: this.playAllIndex() + 1,
+          count: this.playAllCount()
+        })
+      );
+    }
+    return items;
   }
 
   get canPlayAll(): boolean {
@@ -2610,6 +2641,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   }
 
   private buildEmbedUrl(item: YoutubeItem, autoplay = false, startSec = 0): SafeResourceUrl | null {
+    this.youtubeQualityPin.reset();
     const id = item.id || '';
     const start = item.kind !== 'playlist' && startSec > 1 ? `&start=${Math.floor(startSec)}` : '';
     const extra = autoplay ? '&autoplay=1&playsinline=1' : '&playsinline=1';
@@ -2617,15 +2649,16 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       typeof window !== 'undefined'
         ? `&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
         : '';
+    const quality = youtubeDesktopQualityQuery();
     const gen = `&cb=${++this.embedGeneration}`;
     if (item.kind === 'playlist' && /^[a-zA-Z0-9_-]{10,64}$/.test(id)) {
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0&loop=1${extra}${origin}${gen}`
+        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0&loop=1${extra}${origin}${quality}${gen}`
       );
     }
     if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/${id}?rel=0${extra}${start}${origin}${gen}`
+        `https://www.youtube-nocookie.com/embed/${id}?rel=0${extra}${start}${origin}${quality}${gen}`
       );
     }
     return null;
@@ -2693,12 +2726,9 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private readTickerPreference(): boolean {
     try {
       const raw = localStorage.getItem(YoutubeWatcherComponent.TICKER_STORAGE_KEY);
-      if (raw == null) {
-        return true;
-      }
-      return raw !== '0' && raw !== 'false';
+      return raw === '1' || raw === 'true';
     } catch {
-      return true;
+      return false;
     }
   }
 
@@ -3681,12 +3711,20 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       return false;
     }
     const id = item.id || '';
+    const suggestedQuality = youtubeSuggestedQuality();
     if (item.kind === 'playlist' && /^[a-zA-Z0-9_-]{10,64}$/.test(id)) {
-      this.sendYoutubeCommand('loadPlaylist', [{ list: id, listType: 'playlist' }]);
+      this.sendYoutubeCommand('loadPlaylist', [{
+        list: id,
+        listType: 'playlist',
+        ...(suggestedQuality ? { suggestedQuality } : {})
+      }]);
       return true;
     }
     if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
-      this.sendYoutubeCommand('loadVideoById', [id]);
+      this.sendYoutubeCommand(
+        'loadVideoById',
+        suggestedQuality ? [{ videoId: id, suggestedQuality }] : [id]
+      );
       return true;
     }
     return false;
@@ -3718,6 +3756,14 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
 
   private sendYoutubeCommand(func: string, args: unknown[] = []): void {
     this.postToYoutube({ event: 'command', func, args, id: 'yt-page-embed' });
+  }
+
+  /** Desktop only: keep the embed on the highest rendition the video offers. */
+  private pinDesktopYoutubeQuality(info?: Record<string, unknown> | null, playerState?: number): void {
+    const key = this.selected?.id || '';
+    for (const command of this.youtubeQualityPin.commands(key, info, playerState)) {
+      this.sendYoutubeCommand(command.func, command.args);
+    }
   }
 
   private ytSoundOnId = '';
@@ -3758,12 +3804,14 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
     }
     if (payload.event === 'onReady') {
       this.activateYoutubeSound();
+      this.pinDesktopYoutubeQuality();
     }
     if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
       this.noteSleepState(payload.info);
       if (payload.info === 1 || payload.info === 5) {
         this.activateYoutubeSound();
       }
+      this.pinDesktopYoutubeQuality(null, payload.info);
       this.scheduleYoutubeProgress({ playerState: payload.info });
       return;
     }
@@ -3772,6 +3820,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     const playerState = info['playerState'];
+    this.pinDesktopYoutubeQuality(info, typeof playerState === 'number' ? playerState : undefined);
     const currentTime = info['currentTime'];
     const duration = info['duration'];
     const update: { currentTime?: number; duration?: number; playerState?: number } = {};

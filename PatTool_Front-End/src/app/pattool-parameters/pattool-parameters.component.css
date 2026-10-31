@@ -237,6 +237,28 @@
   text-align: center;
 }
 
+.pp-yt-count {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.7rem;
+  margin-bottom: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--pp-radius);
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+
+.pp-yt-count .fa {
+  color: #dc2626;
+}
+
+.pp-yt-count span {
+  color: var(--pp-muted);
+  font-size: 0.82rem;
+}
+
 .pp-user-banner {
   display: flex;
   flex-wrap: wrap;

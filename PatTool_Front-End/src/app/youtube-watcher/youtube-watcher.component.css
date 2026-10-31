@@ -58,6 +58,7 @@
 
 :host.yt-landscape-fs .pat-title,
 :host.yt-landscape-fs .yt-ticker,
+:host.yt-landscape-fs app-now-ticker,
 :host.yt-landscape-fs .yt-lead,
 :host.yt-landscape-fs .yt-search-bar,
 :host.yt-landscape-fs .yt-channel-filter,
@@ -76,6 +77,7 @@
 :host.yt-landscape-fs .yt-more,
 :host.yt-theater .pat-title,
 :host.yt-theater .yt-ticker,
+:host.yt-theater app-now-ticker,
 :host.yt-theater .yt-lead,
 :host.yt-theater .yt-search-bar,
 :host.yt-theater .yt-channel-filter,
@@ -238,8 +240,7 @@
 }
 
 :host .pat-title.yt-title--ticker {
-  margin-bottom: 0;
-  box-shadow: none;
+  padding-bottom: 0;
 }
 
 .yt-ticker-switch {

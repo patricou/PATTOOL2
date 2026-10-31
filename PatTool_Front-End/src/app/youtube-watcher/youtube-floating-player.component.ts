@@ -18,6 +18,7 @@ import { YoutubeItem } from '../services/api.service';
 import { YoutubeFloatingState, YoutubePlayerService } from '../services/youtube-player.service';
 import { openWhatsAppTextShare } from '../shared/share-whatsapp-image.util';
 import { setScreenKeepAlive, screenIsOff } from '../services/media-screen-keepalive';
+import { youtubeDesktopQualityQuery, YoutubeQualityPin } from '../shared/youtube-desktop-quality';
 
 type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
@@ -69,6 +70,7 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
   private positioned = false;
   private lastEmbedKey = '';
   private ytSoundOnId = '';
+  private readonly youtubeQualityPin = new YoutubeQualityPin();
   private stateSub?: Subscription;
   private commandSub?: Subscription;
   private ytProgressTimer?: ReturnType<typeof setInterval>;
@@ -527,21 +529,23 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
   }
 
   private buildEmbedUrl(item: YoutubeItem): SafeResourceUrl | null {
+    this.youtubeQualityPin.reset();
     const id = item.id || '';
     const origin =
       typeof window !== 'undefined'
         ? `&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
         : '';
+    const quality = youtubeDesktopQualityQuery();
     const seq = `&cb=${this.state.loadSeq || 0}`;
     if (item.kind === 'playlist' && /^[a-zA-Z0-9_-]{10,64}$/.test(id)) {
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0&loop=1&autoplay=1&playsinline=1${origin}${seq}`
+        `https://www.youtube-nocookie.com/embed/videoseries?list=${encodeURIComponent(id)}&rel=0&loop=1&autoplay=1&playsinline=1${origin}${quality}${seq}`
       );
     }
     if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
       const start = (this.state.startSec || 0) > 1 ? `&start=${Math.floor(this.state.startSec)}` : '';
       return this.sanitizer.bypassSecurityTrustResourceUrl(
-        `https://www.youtube-nocookie.com/embed/${id}?rel=0&autoplay=1&playsinline=1${start}${origin}${seq}`
+        `https://www.youtube-nocookie.com/embed/${id}?rel=0&autoplay=1&playsinline=1${start}${origin}${quality}${seq}`
       );
     }
     return null;
@@ -677,16 +681,21 @@ export class YoutubeFloatingPlayerComponent implements OnInit, OnDestroy {
       return;
     }
     let state: number | undefined;
+    let infoRecord: Record<string, unknown> | null = null;
     if (payload.event === 'onReady') {
       this.ngZone.run(() => this.activateYoutubeSound());
     }
     if (payload.event === 'onStateChange' && typeof payload.info === 'number') {
       state = payload.info;
     } else if (payload.info && typeof payload.info === 'object' && !Array.isArray(payload.info)) {
-      const playerState = payload.info['playerState'];
+      infoRecord = payload.info;
+      const playerState = infoRecord['playerState'];
       if (typeof playerState === 'number') {
         state = playerState;
       }
+    }
+    for (const command of this.youtubeQualityPin.commands(this.state.item?.id || '', infoRecord, state)) {
+      this.sendYoutubeCommand(command.func, command.args);
     }
     this.ytApiListening = true;
     if (state === undefined) {

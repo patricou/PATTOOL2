@@ -167,6 +167,35 @@
     background: linear-gradient(135deg, #ff0000 0%, #cc0000 50%, #8a0000 100%);
 }
 
+::ng-deep .modal-content.videoshow-tinted {
+    background: color-mix(in srgb, var(--videoshow-accent) 34%, transparent) !important;
+    background-color: transparent !important;
+    border: 2px solid var(--videoshow-accent) !important;
+}
+
+::ng-deep .videoshow-tinted .videoshow-header {
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--videoshow-accent) 70%, #fff) 0%,
+        var(--videoshow-accent) 46%,
+        color-mix(in srgb, var(--videoshow-accent) 42%, #000) 100%
+    ) !important;
+}
+
+::ng-deep .videoshow-tinted .videoshow-footer {
+    background: color-mix(in srgb, var(--videoshow-accent) 48%, #111) !important;
+    border-top-color: color-mix(in srgb, var(--videoshow-accent) 62%, #000) !important;
+}
+
+::ng-deep .videoshow-tinted .videoshow-footer .btn {
+    background: color-mix(in srgb, var(--videoshow-accent) 36%, transparent) !important;
+    border-color: color-mix(in srgb, var(--videoshow-accent) 72%, #fff) !important;
+}
+
+::ng-deep .videoshow-tinted .videoshow-counter {
+    background: color-mix(in srgb, var(--videoshow-accent) 72%, #000);
+}
+
 .videoshow-header .btn {
     position: relative;
     z-index: 20001;
@@ -835,7 +864,7 @@ body.videoshow-fullscreen-active .videoshow-footer,
     width: 100%;
     display: block;
     flex-shrink: 0;
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
     -webkit-overflow-scrolling: touch;
 }
 
