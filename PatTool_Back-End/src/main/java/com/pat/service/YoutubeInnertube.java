@@ -216,6 +216,14 @@ final class YoutubeInnertube {
                         }
                     }
                 }
+                case "videoWithContextRenderer" -> {
+                    if ("video".equals(type)) {
+                        YoutubeItemDto item = contextVideoItem(value);
+                        if (item != null) {
+                            items.add(item);
+                        }
+                    }
+                }
                 case "playlistRenderer" -> {
                     if ("playlist".equals(type)) {
                         YoutubeItemDto item = playlistItem(value);
@@ -264,6 +272,36 @@ final class YoutubeInnertube {
                 collectContinuations(field.getValue(), tokens);
             }
         }
+    }
+
+    /** Mobile search rows. The id sits on the watch endpoint and the title on {@code headline}. */
+    private static YoutubeItemDto contextVideoItem(JsonNode video) {
+        String id = text(video, "videoId");
+        if (id.isBlank()) {
+            id = video.path("navigationEndpoint").path("watchEndpoint").path("videoId").asText("").trim();
+        }
+        if (!id.matches("[A-Za-z0-9_-]{11}")) {
+            return null;
+        }
+        String title = runs(video.get("headline"));
+        if (title.isBlank()) {
+            title = runs(video.get("title"));
+        }
+        String length = runs(video.get("lengthText"));
+        boolean live = length.isBlank() && looksLive(video);
+        return new YoutubeItemDto(
+                id,
+                "video",
+                blankToNull(title),
+                blankToNull(runs(video.get("descriptionSnippet"))),
+                blankToNull(firstNonBlank(runs(video.get("shortBylineText")), runs(video.get("longBylineText")), runs(video.get("ownerText")))),
+                blankToNull(firstNonBlank(browseId(video.get("shortBylineText")), browseId(video.get("longBylineText")), browseId(video.get("ownerText")))),
+                relativeToIso(runs(video.get("publishedTimeText")), Instant.now()),
+                proxiedThumb("https://i.ytimg.com/vi/" + id + "/hqdefault.jpg"),
+                live ? null : clockToIso(length),
+                views(firstNonBlank(runs(video.get("shortViewCountText")), runs(video.get("viewCountText")))),
+                live ? "live" : "none"
+        );
     }
 
     private static YoutubeItemDto videoItem(JsonNode video) {

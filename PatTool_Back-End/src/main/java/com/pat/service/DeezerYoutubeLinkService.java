@@ -99,7 +99,7 @@ public class DeezerYoutubeLinkService {
         if (!search || youtubeProxyService == null || !youtubeProxyService.isConfigured()) {
             return null;
         }
-        YoutubeSearchPageDto page = youtubeProxyService.search(query, "video", null, null, null, null, 5, null, null, false);
+        YoutubeSearchPageDto page = youtubeProxyService.search(query, "video", "FR", "fr", null, null, 5, null, null, false);
         if (page == null || page.error() != null) {
             return null;
         }

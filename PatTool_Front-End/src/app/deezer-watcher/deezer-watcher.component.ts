@@ -723,6 +723,20 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     } catch {
       /* ignore */
     }
+    if (!this.sidebarCollapsed && this.current?.id) {
+      setTimeout(() => this.placePlayingTrackFirst());
+    }
+  }
+
+  /** After the menu comes back, the title on stage is the first row in view. */
+  private placePlayingTrackFirst(): void {
+    const row = this.hostRef.nativeElement.querySelector('.dz-list .dz-row.is-on') as HTMLElement | null;
+    const list = row?.parentElement;
+    if (!row || !list) {
+      return;
+    }
+    const top = row.getBoundingClientRect().top - list.getBoundingClientRect().top;
+    list.scrollTop += top;
   }
 
   toggleFilterPanel(event?: Event): void {

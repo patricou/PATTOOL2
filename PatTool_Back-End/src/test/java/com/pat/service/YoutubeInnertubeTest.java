@@ -66,6 +66,24 @@ class YoutubeInnertubeTest {
     }
 
     @Test
+    void readsMobileVideoWithContext() throws Exception {
+        String json = """
+                {"videoWithContextRenderer":{
+                  "headline":{"runs":[{"text":"Daft Punk - Get Lucky"}]},
+                  "shortBylineText":{"runs":[{"text":"Daft Punk","navigationEndpoint":{"browseEndpoint":{"browseId":"UC_kRDKYrUlrbtrSiyu5Tflg"}}}]},
+                  "lengthText":{"runs":[{"text":"4:09"}]},
+                  "navigationEndpoint":{"watchEndpoint":{"videoId":"5NV6Rdv1a3I"}}
+                }}
+                """;
+        List<YoutubeItemDto> items = YoutubeInnertube.items(mapper.readTree(json), "video", 5);
+        assertEquals(1, items.size());
+        assertEquals("5NV6Rdv1a3I", items.get(0).id());
+        assertEquals("Daft Punk - Get Lucky", items.get(0).title());
+        assertEquals("Daft Punk", items.get(0).channelTitle());
+        assertEquals("PT4M9S", items.get(0).duration());
+    }
+
+    @Test
     @EnabledIfEnvironmentVariable(named = "YOUTUBE_LIVE", matches = "true")
     void publicSearchWorksWhenDataApiKeyIsRejected() {
         YoutubeProxyService service = new YoutubeProxyService(

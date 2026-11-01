@@ -42,7 +42,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
 /**
@@ -79,7 +85,16 @@ public class YoutubeProxyService {
     private static final String INNERTUBE_CLIENT = "2.20251022.01.00";
     private static final String INNERTUBE_UA =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+    /** Mobile web search answers in about a second. The desktop client is several times larger. */
+    private static final String INNERTUBE_MWEB_UA =
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
     private static final Duration DATA_API_COOLDOWN = Duration.ofMinutes(20);
+    private static final Duration CLIP_SEARCH_BUDGET = Duration.ofSeconds(5);
+    private static final ExecutorService CLIP_POOL = Executors.newFixedThreadPool(8, runnable -> {
+        Thread thread = new Thread(runnable, "yt-clip-search");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     private final RestTemplate restTemplate;
     /** Shorter wait for a title lookup, so a slow Data API falls through to public search sooner. */
@@ -249,6 +264,17 @@ public class YoutubeProxyService {
         if (cached != null) {
             return cached;
         }
+        if (!enrich && "video".equals(kind) && !isInnertubeContinuation(token)) {
+            YoutubeSearchPageDto clip = searchClip(q, region, lang, limit);
+            if (clip != null) {
+                cache.put(cacheKey, new CacheEntry(clip, Instant.now().plus(CACHE_TTL)));
+                return clip;
+            }
+            if (!isConfigured()) {
+                return YoutubeSearchPageDto.missingKey();
+            }
+            return YoutubeSearchPageDto.failure("upstream_error", "YouTube search failed");
+        }
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(apiBase + "/search")
                 .queryParam("part", "snippet")
                 .queryParam("type", kind)
@@ -385,6 +411,129 @@ public class YoutubeProxyService {
         return YoutubeSearchPageDto.failure(failureCode, failureMessage);
     }
 
+    /**
+     * A clip id does not need the desktop search page. The Data API and the smaller mobile
+     * search run together; the first answer with videos is kept.
+     */
+    private YoutubeSearchPageDto searchClip(String query, String region, String lang, int limit) {
+        CompletableFuture<YoutubeSearchPageDto> dataApi = CompletableFuture.supplyAsync(
+                () -> clipDataApi(query, limit), CLIP_POOL);
+        CompletableFuture<YoutubeSearchPageDto> mobile = CompletableFuture.supplyAsync(
+                () -> clipPublic(query, region, lang, limit), CLIP_POOL);
+        YoutubeSearchPageDto ready = firstWithVideos(dataApi, mobile, CLIP_SEARCH_BUDGET);
+        if (hasVideos(ready)) {
+            return ready;
+        }
+        YoutubeSearchPageDto data = quiet(dataApi);
+        if (data != null && data.error() == null) {
+            return data;
+        }
+        return quiet(mobile);
+    }
+
+    private YoutubeSearchPageDto clipDataApi(String query, int limit) {
+        if (!isConfigured() || dataApiCoolingDown()) {
+            return null;
+        }
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(apiBase + "/search")
+                .queryParam("part", "snippet")
+                .queryParam("type", "video")
+                .queryParam("maxResults", limit)
+                .queryParam("safeSearch", "moderate")
+                .queryParam("q", query);
+        JsonNode raw = fetchJson(quickRestTemplate, withKey(builder), "search");
+        String apiError = raw == null ? "upstream_error" : apiError(raw);
+        if (raw != null && apiError == null) {
+            List<YoutubeItemDto> items = mapSearchItems(raw.path("items"));
+            return new YoutubeSearchPageDto(
+                    true,
+                    null,
+                    null,
+                    "search",
+                    query,
+                    "video",
+                    "",
+                    textOrNull(raw.path("nextPageToken")),
+                    textOrNull(raw.path("prevPageToken")),
+                    raw.path("pageInfo").path("totalResults").asInt(items.size()),
+                    items
+            );
+        }
+        if ("quota_exceeded".equals(apiError) || "invalid_key".equals(apiError)) {
+            coolDownDataApi(apiError);
+        }
+        return null;
+    }
+
+    private YoutubeSearchPageDto clipPublic(String query, String region, String lang, int limit) {
+        String hl = StringUtils.hasText(lang) ? lang : (YoutubeInnertube.isFrenchRegion(region) ? "fr" : "en");
+        String gl = StringUtils.hasText(region) ? region : "FR";
+        JsonNode raw = postInnertube(
+                query, "video", hl, gl, "", "", "MWEB", INNERTUBE_CLIENT, INNERTUBE_MWEB_UA, quickRestTemplate);
+        if (raw == null || raw.has("error")) {
+            return null;
+        }
+        List<YoutubeItemDto> items = YoutubeInnertube.items(raw, "video", limit);
+        if (items.isEmpty()) {
+            return null;
+        }
+        return new YoutubeSearchPageDto(
+                true,
+                null,
+                null,
+                "search",
+                query,
+                "video",
+                gl,
+                null,
+                null,
+                items.size(),
+                items
+        );
+    }
+
+    private YoutubeSearchPageDto firstWithVideos(
+            CompletableFuture<YoutubeSearchPageDto> primary,
+            CompletableFuture<YoutubeSearchPageDto> secondary,
+            Duration budget) {
+        CompletableFuture<YoutubeSearchPageDto> gate = new CompletableFuture<>();
+        Runnable look = () -> {
+            YoutubeSearchPageDto first = quiet(primary);
+            YoutubeSearchPageDto second = quiet(secondary);
+            if (hasVideos(first)) {
+                gate.complete(first);
+            } else if (hasVideos(second)) {
+                gate.complete(second);
+            } else if (primary.isDone() && secondary.isDone()) {
+                gate.complete(null);
+            }
+        };
+        primary.whenComplete((page, error) -> look.run());
+        secondary.whenComplete((page, error) -> look.run());
+        try {
+            return gate.get(budget.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (TimeoutException timeout) {
+            look.run();
+            return gate.getNow(null);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (ExecutionException failed) {
+            return null;
+        }
+    }
+
+    private static YoutubeSearchPageDto quiet(CompletableFuture<YoutubeSearchPageDto> future) {
+        if (!future.isDone() || future.isCompletedExceptionally() || future.isCancelled()) {
+            return null;
+        }
+        return future.getNow(null);
+    }
+
+    private static boolean hasVideos(YoutubeSearchPageDto page) {
+        return page != null && page.error() == null && page.items() != null && !page.items().isEmpty();
+    }
+
     private YoutubeSearchPageDto searchWithInnertube(
             String query,
             String kind,
@@ -450,12 +599,26 @@ public class YoutubeProxyService {
     }
 
     private JsonNode postInnertube(String query, String type, String hl, String gl, String order, String continuation) {
+        return postInnertube(query, type, hl, gl, order, continuation, "WEB", INNERTUBE_CLIENT, INNERTUBE_UA, restTemplate);
+    }
+
+    private JsonNode postInnertube(
+            String query,
+            String type,
+            String hl,
+            String gl,
+            String order,
+            String continuation,
+            String clientName,
+            String clientVersion,
+            String userAgent,
+            RestTemplate http) {
         ObjectNode root = objectMapper.createObjectNode();
         ObjectNode client = root.putObject("context").putObject("client");
         client.put("hl", StringUtils.hasText(hl) ? hl : "fr");
         client.put("gl", StringUtils.hasText(gl) ? gl : "FR");
-        client.put("clientName", "WEB");
-        client.put("clientVersion", INNERTUBE_CLIENT);
+        client.put("clientName", clientName);
+        client.put("clientVersion", clientVersion);
         if (StringUtils.hasText(continuation)) {
             root.put("continuation", continuation);
         } else {
@@ -465,11 +628,11 @@ public class YoutubeProxyService {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set(HttpHeaders.USER_AGENT, INNERTUBE_UA);
+            headers.set(HttpHeaders.USER_AGENT, userAgent);
             headers.set(HttpHeaders.ACCEPT, "application/json");
             headers.set(HttpHeaders.ACCEPT_LANGUAGE, client.get("hl").asText() + ",en;q=0.5");
             headers.set("Origin", "https://www.youtube.com");
-            ResponseEntity<String> response = restTemplate.exchange(
+            ResponseEntity<String> response = http.exchange(
                     URI.create(INNERTUBE_SEARCH),
                     HttpMethod.POST,
                     new HttpEntity<>(objectMapper.writeValueAsString(root), headers),
