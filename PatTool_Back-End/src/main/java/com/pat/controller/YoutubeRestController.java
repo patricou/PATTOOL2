@@ -78,6 +78,16 @@ public class YoutubeRestController {
         return youtubeProxyService.proxyThumbnail(imageUrl);
     }
 
+    /** Picture size for a clip. The browser must not call YouTube or noembed (CSP connect-src). */
+    @GetMapping("/oembed")
+    public ResponseEntity<Map<String, Integer>> oembed(@RequestParam("v") String videoId) {
+        int[] size = youtubeProxyService.clipSize(videoId);
+        if (size == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(Map.of("width", size[0], "height", size[1]));
+    }
+
     @GetMapping("/favorites")
     public ResponseEntity<YoutubeFavoritesDto> getFavorites() {
         String sub = currentJwtSubject();

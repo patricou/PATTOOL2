@@ -65,6 +65,7 @@ public class YoutubeProxyService {
     private static final int MAX_LIMIT = 25;
     private static final Duration CACHE_TTL = Duration.ofMinutes(8);
     private static final Pattern SAFE_QUERY = Pattern.compile("^[\\p{L}\\p{N}\\p{P}\\p{S}\\p{Z}_]{1,100}$");
+    private static final Pattern VIDEO_ID = Pattern.compile("^[a-zA-Z0-9_-]{11}$");
     private static final Pattern SAFE_TOKEN = Pattern.compile("^[A-Za-z0-9_-]{1,200}$");
     private static final Pattern SAFE_CHANNEL = Pattern.compile("^[A-Za-z0-9_-]{1,64}$");
     private static final Set<String> SAFE_TYPES = Set.of("video", "playlist", "channel");
@@ -103,6 +104,7 @@ public class YoutubeProxyService {
     private final String apiBase;
     private final String apiKey;
     private final ConcurrentHashMap<String, CacheEntry> cache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, int[]> oembedSizes = new ConcurrentHashMap<>();
     /** Skip the Data API after a quota or rate-limit response so search stays fast. */
     private volatile Instant dataApiRetryAt = Instant.EPOCH;
 
@@ -126,6 +128,32 @@ public class YoutubeProxyService {
 
     public boolean isConfigured() {
         return StringUtils.hasText(apiKey);
+    }
+
+    /** Official oEmbed width and height. The id is fixed here so the call cannot be turned into an open fetch. */
+    public int[] clipSize(String videoId) {
+        String id = videoId == null ? "" : videoId.trim();
+        if (!VIDEO_ID.matcher(id).matches()) {
+            return null;
+        }
+        int[] cached = oembedSizes.get(id);
+        if (cached != null) {
+            return cached;
+        }
+        URI uri = URI.create("https://www.youtube.com/oembed?format=json&url="
+                + URLEncoder.encode("https://www.youtube.com/watch?v=" + id, StandardCharsets.UTF_8));
+        JsonNode raw = fetchJson(uri, "oembed");
+        if (raw == null || !raw.path("width").canConvertToInt() || !raw.path("height").canConvertToInt()) {
+            return null;
+        }
+        int width = raw.path("width").asInt(0);
+        int height = raw.path("height").asInt(0);
+        if (width < 16 || height < 16) {
+            return null;
+        }
+        int[] size = new int[] { width, height };
+        oembedSizes.put(id, size);
+        return size;
     }
 
     /**

@@ -3388,6 +3388,12 @@ export class ApiService {
     return this._http.get<YoutubeSearchPage>(this.API_URL + 'external/youtube/search', { params });
   }
 
+  /** Picture size of a YouTube clip, via this API (the page CSP blocks noembed.com). */
+  getYoutubeClipSize(videoId: string): Observable<{ width?: number; height?: number }> {
+    const params = new HttpParams().set('v', videoId);
+    return this._http.get<{ width?: number; height?: number }>(this.API_URL + 'external/youtube/oembed', { params });
+  }
+
   getYoutubePopular(options: YoutubePopularOptions = {}): Observable<YoutubeSearchPage> {
     let params = new HttpParams();
     if (options.regionCode) {

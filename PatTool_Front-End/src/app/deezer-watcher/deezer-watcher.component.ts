@@ -4580,10 +4580,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.clipAspectId = videoId;
     this.clipAspectW = 16;
     this.clipAspectH = 9;
-    const endpoint = 'https://noembed.com/embed?url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + videoId);
-    fetch(endpoint)
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: { width?: number; height?: number } | null) => {
+    const endpoint = this.api.getYoutubeClipSize(videoId);
+    endpoint.pipe(takeUntil(this.destroy$)).subscribe({
+      next: (data) => {
         if (!data || this.clipAspectId !== videoId) {
           return;
         }
@@ -4605,8 +4604,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         this.clipAspectW = w;
         this.clipAspectH = h;
         this.cdr.markForCheck();
-      })
-      .catch(() => undefined);
+      },
+      error: () => undefined
+    });
   }
 
   private currentYoutubeId(): string {
