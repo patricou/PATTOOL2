@@ -128,7 +128,11 @@
         <span class="radio-brand-model">World Receiver</span>
       </div>
 
-      <div class="radio-face" [class.radio-face--empty]="!station" [class.radio-face--sleeve]="sleeveVisible">
+      <div
+        class="radio-face"
+        [class.radio-face--empty]="!station"
+        [class.radio-face--sleeve]="sleeveVisible"
+        [class.radio-face--sleeve-front]="sleeveFront">
         <div class="radio-ambient" aria-hidden="true"></div>
         <div class="radio-synth-floor" aria-hidden="true">
           <div class="radio-synth-tilt">
@@ -191,7 +195,17 @@
           <span class="radio-screen-fx-c"></span>
         </div>
 
-        <div class="radio-sleeve" *ngIf="sleeveVisible" aria-hidden="true">
+        <div
+          class="radio-sleeve"
+          *ngIf="sleeveVisible"
+          role="button"
+          tabindex="0"
+          [attr.aria-pressed]="sleeveFront"
+          [attr.aria-label]="(sleeveFront ? 'RADIO.SLEEVE_BACK' : 'RADIO.SLEEVE_FRONT') | translate"
+          [attr.title]="(sleeveFront ? 'RADIO.SLEEVE_BACK' : 'RADIO.SLEEVE_FRONT') | translate"
+          (click)="toggleSleeveFront($event)"
+          (keydown.enter)="toggleSleeveFront($event)"
+          (keydown.space)="toggleSleeveFront($event)">
           <div class="radio-sleeve-frame">
             <img
               *ngFor="let img of trackImages; let i = index; trackBy: trackImageUrl"

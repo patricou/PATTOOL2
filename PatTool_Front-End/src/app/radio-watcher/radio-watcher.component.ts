@@ -130,6 +130,8 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   nowPlayingLabel = '';
   /** Photos of the current track, inside the cabinet, on any skin. */
   sleeveOpen = false;
+  /** Cover sits over the dial, speaker and screen motion. */
+  sleeveFront = false;
   trackImages: RadioTrackImage[] = [];
   trackImageIndex = 0;
   worldwideSearchHint = false;
@@ -262,6 +264,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   private static readonly CONTINUE_STORAGE_KEY = 'pattool.radio.continue';
   private static readonly SKIN_STORAGE_KEY = 'pattool.radio.skin';
   private static readonly SLEEVE_STORAGE_KEY = 'pattool.radio.sleeve';
+  private static readonly SLEEVE_FRONT_KEY = 'pattool.radio.sleeveFront';
   private static readonly SIDEBAR_COLLAPSED_STORAGE_KEY = 'pattool.radio.sidebar-collapsed';
   private static readonly FOCUS_BODY_CLASS = 'radio-focus';
   private static readonly STAGE_FS_BODY_CLASS = 'radio-stage-fs';
@@ -672,6 +675,8 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.keepAliveOnNavigate = this.readKeepAlivePreference();
     this.continueOnNavigate = this.readContinuePreference();
     this.sleeveOpen = this.readSleeveOpen();
+    this.sleeveFront = this.readSleeveFront();
+    window.addEventListener('patradiolook', this.onSleeveFrontLook);
     this.restoreSkinPreference();
     this.sidebarCollapsed = this.readSidebarCollapsedPreference();
     this.stationSearchSub = this.stationSearch$
@@ -739,6 +744,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.exitLandscapeFullscreen(false);
     window.removeEventListener('patradiotransport', this.onBluetoothTune);
     window.removeEventListener('patmediavolumeui', this.onDeviceVolumeUi);
+    window.removeEventListener('patradiolook', this.onSleeveFrontLook);
     this.pageAlive = false;
     this.liveAudio.removeEventListener('volumechange', this.onLiveVolume);
     this.liveAudio.removeEventListener('playing', this.onEqAudioPlaying);
@@ -1045,6 +1051,24 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  /** Clicking the cover puts it in front of the cabinet animations. Click again to restore them. */
+  toggleSleeveFront(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.sleeveFront = !this.sleeveFront;
+    this.writeSleeveFront(this.sleeveFront);
+    this.cdr.markForCheck();
+  }
+
+  private readonly onSleeveFrontLook = (): void => {
+    const front = this.readSleeveFront();
+    if (front === this.sleeveFront) {
+      return;
+    }
+    this.sleeveFront = front;
+    this.cdr.markForCheck();
+  };
+
   setRadioSkin(skin: RadioSkin): void {
     this.radioSkin = skin;
     this.skinMenuOpen = false;
@@ -1075,6 +1099,23 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   private writeSleeveOpen(open: boolean): void {
     try {
       localStorage.setItem(RadioWatcherComponent.SLEEVE_STORAGE_KEY, open ? '1' : '0');
+    } catch {
+      /* private mode / quota */
+    }
+    this.publishRadioLook();
+  }
+
+  private readSleeveFront(): boolean {
+    try {
+      return localStorage.getItem(RadioWatcherComponent.SLEEVE_FRONT_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private writeSleeveFront(front: boolean): void {
+    try {
+      localStorage.setItem(RadioWatcherComponent.SLEEVE_FRONT_KEY, front ? '1' : '0');
     } catch {
       /* private mode / quota */
     }

@@ -156,6 +156,25 @@ public class YoutubeProxyService {
         return size;
     }
 
+    /** Official oEmbed title. Empty when YouTube has no public title for this id. */
+    public String clipTitle(String videoId) {
+        String id = videoId == null ? "" : videoId.trim();
+        if (!VIDEO_ID.matcher(id).matches()) {
+            return null;
+        }
+        URI uri = URI.create("https://www.youtube.com/oembed?format=json&url="
+                + URLEncoder.encode("https://www.youtube.com/watch?v=" + id, StandardCharsets.UTF_8));
+        JsonNode raw = fetchJson(uri, "oembed");
+        if (raw == null) {
+            return null;
+        }
+        String title = raw.path("title").asText("").replaceAll("[\\p{Cntrl}]", "").trim();
+        if (!StringUtils.hasText(title)) {
+            return null;
+        }
+        return title.length() > 120 ? title.substring(0, 120) : title;
+    }
+
     /**
      * Proxy a YouTube CDN thumbnail. Host allow-list + SSRF guard; the browser
      * never talks to i.ytimg.com / ggpht directly.

@@ -72,6 +72,8 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   nowPlayingLabel = '';
   radioSkin: RadioSkinId = 'classic';
   sleeveOpen = false;
+  /** Cover sits over the dial, speaker and screen motion. */
+  sleeveFront = false;
   trackImages: RadioTrackImage[] = [];
   trackImageIndex = 0;
   isPipActive = false;
@@ -207,6 +209,20 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   /** Cover on the face only when the user left pochette mode on and a photo exists. */
   get sleeveVisible(): boolean {
     return this.sleeveOpen && this.trackImages.length > 0;
+  }
+
+  /** Clicking the cover puts it in front of the cabinet animations. Click again to restore them. */
+  toggleSleeveFront(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.sleeveFront = !this.sleeveFront;
+    try {
+      localStorage.setItem('pattool.radio.sleeveFront', this.sleeveFront ? '1' : '0');
+      window.dispatchEvent(new CustomEvent('patradiolook'));
+    } catch {
+      /* private mode / quota */
+    }
+    this.cdr.markForCheck();
   }
 
   trackImageUrl(_index: number, img: RadioTrackImage): string {
@@ -769,9 +785,11 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
         ? (skin as RadioSkinId)
         : 'classic';
       this.sleeveOpen = localStorage.getItem('pattool.radio.sleeve') === '1';
+      this.sleeveFront = localStorage.getItem('pattool.radio.sleeveFront') === '1';
     } catch {
       this.radioSkin = 'classic';
       this.sleeveOpen = false;
+      this.sleeveFront = false;
     }
   }
 

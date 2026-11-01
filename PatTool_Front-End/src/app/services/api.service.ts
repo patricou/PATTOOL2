@@ -4752,6 +4752,61 @@ export class ApiService {
     );
   }
 
+  /** GET/POST /api/external/deezer/concert — YouTube clips kept by the signed-in user */
+  getDeezerConcert(): Observable<DeezerConcert> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<DeezerConcert>(this.API_URL + 'external/deezer/concert', { headers })
+      )
+    );
+  }
+
+  addDeezerConcertTrack(track: DeezerTrack, name: string, videoId?: string): Observable<DeezerConcert> {
+    const body: { track: DeezerTrack; name: string; videoId?: string } = { track, name };
+    const clip = (videoId || '').trim();
+    if (clip) {
+      body.videoId = clip;
+    }
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.post<DeezerConcert>(this.API_URL + 'external/deezer/concert', body, { headers })
+      )
+    );
+  }
+
+  renameDeezerConcertTrack(id: string, name: string): Observable<DeezerConcert> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<DeezerConcert>(
+          this.API_URL + 'external/deezer/concert/' + encodeURIComponent(id),
+          { name },
+          { headers }
+        )
+      )
+    );
+  }
+
+  deleteDeezerConcertTrack(id: string): Observable<DeezerConcert> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.delete<DeezerConcert>(
+          this.API_URL + 'external/deezer/concert/' + encodeURIComponent(id),
+          { headers }
+        )
+      )
+    );
+  }
+
+  /** YouTube poster through the PatTool proxy (the page never calls i.ytimg.com). */
+  youtubeVideoThumbUrl(videoId: string | null | undefined): string {
+    const id = (videoId || '').trim();
+    if (!/^[a-zA-Z0-9_-]{11}$/.test(id)) {
+      return '';
+    }
+    const raw = `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
+    return this.API_URL + 'external/youtube/image?u=' + encodeURIComponent(raw);
+  }
+
   // --- Book watcher (Open Library / Gutenberg / LibriVox / Archive / Google / Standard Ebooks) ---
 
   searchOpenLibraryBooks(
@@ -7395,6 +7450,19 @@ export interface DeezerUserPlaylist {
 
 export interface DeezerUserPlaylists {
   playlists: DeezerUserPlaylist[];
+}
+
+/** GET/POST /api/external/deezer/concert — per authenticated user */
+export interface DeezerConcertTrack {
+  id: string;
+  playId: number;
+  videoId?: string;
+  name: string;
+  track?: DeezerTrack;
+}
+
+export interface DeezerConcert {
+  tracks: DeezerConcertTrack[];
 }
 
 /** GET/PUT /api/external/radio/favorites — per authenticated user */

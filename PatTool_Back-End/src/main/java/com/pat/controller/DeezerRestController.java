@@ -1,5 +1,7 @@
 package com.pat.controller;
 
+import com.pat.controller.dto.DeezerConcertDto;
+import com.pat.controller.dto.DeezerConcertWriteRequest;
 import com.pat.controller.dto.DeezerFavoriteItemDto;
 import com.pat.controller.dto.DeezerFavoritesDto;
 import com.pat.controller.dto.DeezerPlaylistOrderRequest;
@@ -8,6 +10,7 @@ import com.pat.controller.dto.DeezerTrackDto;
 import com.pat.controller.dto.DeezerUserPlaylistsDto;
 import com.pat.controller.dto.DeezerYoutubeLookupRequest;
 import com.pat.service.DeezerCatalogService;
+import com.pat.service.DeezerConcertService;
 import com.pat.service.DeezerFavoritesService;
 import com.pat.service.DeezerPlaylistsService;
 import com.pat.service.DeezerSkinService;
@@ -54,6 +57,8 @@ import java.util.function.Supplier;
  *   <li>{@code PUT/DELETE /api/external/deezer/user-playlists/{id}}</li>
  *   <li>{@code PUT/DELETE /api/external/deezer/user-playlists/{id}/tracks}</li>
  *   <li>{@code PUT /api/external/deezer/user-playlists/{id}/order}</li>
+ *   <li>{@code GET/POST /api/external/deezer/concert}</li>
+ *   <li>{@code PUT/DELETE /api/external/deezer/concert/{id}}</li>
  *   <li>{@code GET/PUT /api/external/deezer/skin} — cabinet style shared with TV and radio</li>
  * </ul>
  */
@@ -67,6 +72,7 @@ public class DeezerRestController {
     private final DeezerYoutubeLinkService deezerYoutubeLinkService;
     private final DeezerFavoritesService deezerFavoritesService;
     private final DeezerPlaylistsService deezerPlaylistsService;
+    private final DeezerConcertService deezerConcertService;
     private final DeezerSkinService deezerSkinService;
 
     public DeezerRestController(
@@ -74,11 +80,13 @@ public class DeezerRestController {
             DeezerYoutubeLinkService deezerYoutubeLinkService,
             DeezerFavoritesService deezerFavoritesService,
             DeezerPlaylistsService deezerPlaylistsService,
+            DeezerConcertService deezerConcertService,
             DeezerSkinService deezerSkinService) {
         this.deezerCatalogService = deezerCatalogService;
         this.deezerYoutubeLinkService = deezerYoutubeLinkService;
         this.deezerFavoritesService = deezerFavoritesService;
         this.deezerPlaylistsService = deezerPlaylistsService;
+        this.deezerConcertService = deezerConcertService;
         this.deezerSkinService = deezerSkinService;
     }
 
@@ -301,6 +309,52 @@ public class DeezerRestController {
         return playlists(() -> deezerPlaylistsService.reorder(sub, id, body));
     }
 
+    @GetMapping("/concert")
+    public ResponseEntity<DeezerConcertDto> getConcert() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(deezerConcertService.findForSubject(sub));
+    }
+
+    @PostMapping("/concert")
+    public ResponseEntity<?> addConcert(@RequestBody DeezerConcertWriteRequest body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "invalid track"));
+        }
+        return concert(() -> deezerConcertService.add(sub, body.getTrack(), body.getName(), body.getVideoId()));
+    }
+
+    @PutMapping("/concert/{id}")
+    public ResponseEntity<?> renameConcert(
+            @PathVariable String id,
+            @RequestBody DeezerConcertWriteRequest body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (body == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "invalid name"));
+        }
+        return concert(() -> deezerConcertService.rename(sub, id, body.getName()));
+    }
+
+    @DeleteMapping("/concert/{id}")
+    public ResponseEntity<?> deleteConcert(@PathVariable String id) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return concert(() -> deezerConcertService.delete(sub, id));
+    }
+
     @GetMapping("/skin")
     public ResponseEntity<Map<String, String>> getSkin() {
         String sub = currentJwtSubject();
@@ -325,6 +379,20 @@ public class DeezerRestController {
             return ResponseEntity.ok(Map.of("skin", deezerSkinService.saveForSubject(sub, raw)));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    private ResponseEntity<?> concert(Supplier<DeezerConcertDto> call) {
+        try {
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.noStore())
+                    .body(call.get());
+        } catch (IllegalArgumentException e) {
+            if ("not found".equals(e.getMessage())) {
+                return ResponseEntity.notFound().build();
+            }
+            String message = StringUtils.hasText(e.getMessage()) ? e.getMessage() : "invalid concert";
+            return ResponseEntity.badRequest().body(Map.of("error", message));
         }
     }
 

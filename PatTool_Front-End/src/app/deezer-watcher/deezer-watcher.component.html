@@ -164,7 +164,7 @@
             (focus)="onQueryFocus()"
             (blur)="onQueryBlur()"
             (keydown)="onQueryKeydown($event)"
-            [placeholder]="(listMode === 'favorites' ? 'DEEZER.FAV_FILTER' : listMode === 'playlists' ? 'DEEZER.PLAYLIST_FILTER' : 'DEEZER.SEARCH_PLACEHOLDER') | translate"
+            [placeholder]="searchPlaceholderKey | translate"
             autocomplete="off"
             autocorrect="off"
             autocapitalize="off"
@@ -236,6 +236,11 @@
           <span class="dz-mode-label">{{ 'DEEZER.MY_PLAYLISTS' | translate }}</span>
           <span class="badge rounded-pill radio-fav-badge" *ngIf="playlistCount">{{ playlistCount }}</span>
         </button>
+        <button type="button" class="radio-mode-tab" [class.active]="listMode === 'concert'" (click)="setListMode('concert')">
+          <i class="fa fa-microphone me-1" aria-hidden="true"></i>
+          <span class="dz-mode-label">{{ 'DEEZER.CONCERT' | translate }}</span>
+          <span class="badge rounded-pill radio-fav-badge" *ngIf="concertCount">{{ concertCount }}</span>
+        </button>
       </div>
 
       <div *ngIf="favoritesError" class="alert alert-warning py-2 px-2 small mb-2 mx-2" role="alert">
@@ -249,6 +254,12 @@
       </div>
       <div *ngIf="playlistsHint && listMode === 'playlists'" class="alert alert-info py-2 px-2 small mb-2 mx-2" role="status">
         {{ playlistsHint | translate }}
+      </div>
+      <div *ngIf="concertError && listMode === 'concert'" class="alert alert-warning py-2 px-2 small mb-2 mx-2" role="alert">
+        {{ concertError | translate }}
+      </div>
+      <div *ngIf="concertHint && listMode === 'concert'" class="alert alert-info py-2 px-2 small mb-2 mx-2" role="status">
+        {{ concertHint | translate }}
       </div>
 
       <div class="dz-filter" *ngIf="filterOpen">
@@ -348,11 +359,15 @@
             <ng-container *ngIf="!nowBrowse && drilled">{{ drillTitle }}</ng-container>
             <ng-container *ngIf="!nowBrowse && !drilled && listMode === 'favorites'">{{ 'RADIO.TAB_FAVORITES' | translate }}</ng-container>
             <ng-container *ngIf="!nowBrowse && !drilled && listMode === 'playlists' && !activeUserPlaylist">{{ 'DEEZER.MY_PLAYLISTS' | translate }}</ng-container>
+            <ng-container *ngIf="!nowBrowse && !drilled && listMode === 'concert'">{{ 'DEEZER.CONCERT' | translate }}</ng-container>
             <ng-container *ngIf="!nowBrowse && !drilled && activeUserPlaylist && renamingPlaylistId !== activeUserPlaylist.id">{{ activeUserPlaylist.name }}</ng-container>
             <ng-container *ngIf="!nowBrowse && !drilled && listMode === 'browse' && mode === 'chart'">{{ 'DEEZER.CHART' | translate }}</ng-container>
             <ng-container *ngIf="!nowBrowse && !drilled && listMode === 'browse' && mode === 'search'">{{ 'DEEZER.SEARCH' | translate }}</ng-container>
           </span>
           <span class="dz-heading-sub" *ngIf="nowBrowse && nowBrowseSubtitle">{{ nowBrowseSubtitle }}</span>
+          <span class="dz-heading-sub" *ngIf="!nowBrowse && !drilled && listMode === 'concert'">
+            {{ 'DEEZER.TRACK_COUNT' | translate:{ count: concertCount } }}
+          </span>
           <span class="dz-heading-sub" *ngIf="!nowBrowse && activeUserPlaylist && renamingPlaylistId !== activeUserPlaylist.id">
             {{ 'DEEZER.TRACK_COUNT' | translate:{ count: activeUserPlaylist.tracks.length } }}
           </span>
@@ -372,7 +387,7 @@
           </form>
           <span class="dz-heading-sub" *ngIf="!nowBrowse && drilled && drillSubtitle && !activeUserPlaylist">{{ drillSubtitle }}</span>
         </div>
-        <div class="dz-play-actions" *ngIf="(activeUserPlaylist && !nowBrowse) || (showTrackList && shownTracks.length)">
+        <div class="dz-play-actions" *ngIf="(activeUserPlaylist && !nowBrowse) || transportTracks">
           <ng-container *ngIf="activeUserPlaylist && !nowBrowse">
             <button
               type="button"
@@ -408,7 +423,7 @@
               {{ 'DEEZER.PLAYLIST_DELETE_CONFIRM' | translate }}
             </button>
           </ng-container>
-          <ng-container *ngIf="showTrackList && shownTracks.length">
+          <ng-container *ngIf="transportTracks">
           <div class="dz-list-transport" role="group">
             <button
               type="button"
@@ -454,7 +469,7 @@
         </a>
       </div>
 
-      <div class="dz-tabs" *ngIf="!nowBrowse && !drilled && listMode !== 'playlists'" role="tablist">
+      <div class="dz-tabs" *ngIf="!nowBrowse && !drilled && listMode !== 'playlists' && listMode !== 'concert'" role="tablist">
         <button type="button" class="dz-tab" [class.is-on]="view === 'track'" (click)="setView('track')">
           {{ 'DEEZER.TAB_TRACKS' | translate }}
           <span *ngIf="(listMode === 'favorites' ? favoriteTracks.length : shownTracks.length) as tabCount">{{ tabCount }}</span>
@@ -567,6 +582,89 @@
         <li *ngIf="!shownUserPlaylists.length" class="dz-empty">{{ 'DEEZER.PLAYLISTS_EMPTY' | translate }}</li>
       </ul>
 
+      <ul class="dz-list" *ngIf="!nowBrowse && !loading && listMode === 'concert'">
+        <li
+          *ngFor="let item of shownConcert; let i = index; trackBy: trackByConcertId"
+          class="dz-row"
+          [class.is-on]="current?.id === item.playId"
+          [attr.title]="itemTitle(item.name)"
+          (click)="playConcert(item, i)"
+          (keydown.enter)="playConcert(item, i)"
+          tabindex="0">
+          <span class="dz-idx" *ngIf="!(playing && current?.id === item.playId)">{{ i + 1 }}</span>
+          <span class="dz-live" *ngIf="playing && current?.id === item.playId" aria-hidden="true">
+            <span></span><span></span><span></span><span></span>
+          </span>
+          <img
+            *ngIf="concertThumb(item)"
+            class="dz-thumb"
+            [src]="concertThumb(item)"
+            alt=""
+            loading="lazy"
+            (error)="$any($event.target).style.display='none'" />
+          <span *ngIf="!concertThumb(item)" class="dz-thumb dz-thumb--empty"><i class="fa fa-music" aria-hidden="true"></i></span>
+          <span class="dz-row-text" *ngIf="renamingConcertId !== item.id">
+            <span class="dz-row-title">{{ item.name }}</span>
+            <span class="dz-row-sub" *ngIf="item.track?.artistName || item.track?.title">
+              {{ item.track?.artistName }}
+              <ng-container *ngIf="item.track?.title && item.track?.title !== item.name"> · {{ item.track?.title }}</ng-container>
+            </span>
+          </span>
+          <form
+            class="dz-pl-rename"
+            *ngIf="renamingConcertId === item.id"
+            (ngSubmit)="commitRenameConcert(item, $event)"
+            (click)="$event.stopPropagation()">
+            <label class="visually-hidden" [attr.for]="'dz-concert-rename-' + item.id">{{ 'DEEZER.CONCERT_NAME' | translate }}</label>
+            <input
+              class="form-control form-control-sm"
+              [id]="'dz-concert-rename-' + item.id"
+              name="concertRenameDraft"
+              [(ngModel)]="concertRenameDraft"
+              maxlength="120"
+              autocomplete="off" />
+          </form>
+          <button
+            type="button"
+            class="dz-fav"
+            *ngIf="renamingConcertId !== item.id"
+            (click)="startRenameConcert(item, $event)"
+            [attr.aria-label]="'DEEZER.CONCERT_RENAME' | translate"
+            [attr.title]="'DEEZER.CONCERT_RENAME' | translate">
+            <i class="fa fa-pencil" aria-hidden="true"></i>
+          </button>
+          <button
+            type="button"
+            class="dz-fav is-on"
+            *ngIf="renamingConcertId === item.id"
+            [disabled]="!!concertBusy || !concertRenameDraft.trim()"
+            (click)="commitRenameConcert(item, $event)"
+            [attr.aria-label]="'DEEZER.CONCERT_SAVE' | translate">
+            <i class="fa fa-check" aria-hidden="true"></i>
+          </button>
+          <button
+            type="button"
+            class="dz-fav"
+            *ngIf="confirmDeleteConcertId !== item.id"
+            (click)="askDeleteConcert(item, $event)"
+            [attr.aria-label]="'DEEZER.CONCERT_DELETE' | translate"
+            [attr.title]="'DEEZER.CONCERT_DELETE' | translate">
+            <i class="fa fa-trash" aria-hidden="true"></i>
+          </button>
+          <button
+            type="button"
+            class="dz-play-all"
+            *ngIf="confirmDeleteConcertId === item.id"
+            [disabled]="!!concertBusy"
+            (click)="deleteConcert(item, $event)">
+            {{ 'DEEZER.CONCERT_DELETE_CONFIRM' | translate }}
+          </button>
+        </li>
+        <li *ngIf="!shownConcert.length" class="dz-empty">
+          {{ (concertItems.length ? 'DEEZER.EMPTY' : 'DEEZER.CONCERT_EMPTY') | translate }}
+        </li>
+      </ul>
+
       <ul class="dz-list" *ngIf="!loading && showTrackList">
         <li
           *ngFor="let track of shownTracks; let i = index; trackBy: trackById"
@@ -635,6 +733,16 @@
               </button>
             </span>
           </span>
+          <button
+            type="button"
+            class="dz-fav"
+            [class.is-on]="concertHas(track.id)"
+            [disabled]="!!concertBusy"
+            (click)="openConcertName(track, $event)"
+            [attr.aria-label]="'DEEZER.CONCERT_ADD_TRACK' | translate"
+            [attr.title]="'DEEZER.CONCERT_ADD_TRACK' | translate">
+            <i class="fa fa-microphone" aria-hidden="true"></i>
+          </button>
           <button
             type="button"
             class="dz-fav dz-pl-btn"
@@ -721,7 +829,7 @@
         <li *ngIf="!nowBrowseAlbums.length" class="dz-empty">{{ 'DEEZER.EMPTY' | translate }}</li>
       </ul>
 
-      <ul class="dz-list" *ngIf="!nowBrowse && !loading && !drilled && view === 'album' && listMode !== 'playlists'">
+      <ul class="dz-list" *ngIf="!nowBrowse && !loading && !drilled && view === 'album' && listMode !== 'playlists' && listMode !== 'concert'">
         <li *ngFor="let album of shownAlbums; trackBy: trackById" class="dz-row" [attr.title]="itemTitle(album.title, album.artistName)" (click)="openAlbum(album)" (keydown.enter)="openAlbum(album)" tabindex="0">
           <img *ngIf="album.coverUrl" class="dz-thumb" [src]="album.coverUrl" alt="" loading="lazy" />
           <span *ngIf="!album.coverUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-circle"></i></span>
@@ -741,7 +849,7 @@
         <li *ngIf="!shownAlbums.length" class="dz-empty">{{ (listMode === 'favorites' && !favoriteAlbums.length ? 'DEEZER.FAVORITES_EMPTY' : 'DEEZER.EMPTY') | translate }}</li>
       </ul>
 
-      <ul class="dz-list" *ngIf="!nowBrowse && !loading && !drilled && view === 'artist' && listMode !== 'playlists'">
+      <ul class="dz-list" *ngIf="!nowBrowse && !loading && !drilled && view === 'artist' && listMode !== 'playlists' && listMode !== 'concert'">
         <li *ngFor="let artist of shownArtists; trackBy: trackById" class="dz-row" [attr.title]="itemTitle(artist.name)" (click)="openArtist(artist)" (keydown.enter)="openArtist(artist)" tabindex="0">
           <img *ngIf="artist.pictureUrl" class="dz-thumb dz-thumb--round" [src]="artist.pictureUrl" alt="" loading="lazy" />
           <span *ngIf="!artist.pictureUrl" class="dz-thumb dz-thumb--empty dz-thumb--round"><i class="fa fa-user"></i></span>
@@ -757,7 +865,7 @@
         <li *ngIf="!shownArtists.length" class="dz-empty">{{ (listMode === 'favorites' && !favoriteArtists.length ? 'DEEZER.FAVORITES_EMPTY' : 'DEEZER.EMPTY') | translate }}</li>
       </ul>
 
-      <ul class="dz-list" *ngIf="!nowBrowse && !loading && !drilled && view === 'playlist' && listMode !== 'playlists'">
+      <ul class="dz-list" *ngIf="!nowBrowse && !loading && !drilled && view === 'playlist' && listMode !== 'playlists' && listMode !== 'concert'">
         <li *ngFor="let playlist of shownPlaylists; trackBy: trackById" class="dz-row" [attr.title]="itemTitle(playlist.title, playlist.userName)" (click)="openPlaylist(playlist)" (keydown.enter)="openPlaylist(playlist)" tabindex="0">
           <img *ngIf="playlist.pictureUrl" class="dz-thumb" [src]="playlist.pictureUrl" alt="" loading="lazy" />
           <span *ngIf="!playlist.pictureUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-list"></i></span>
@@ -813,7 +921,11 @@
           <span class="radio-brand-model">Deezer</span>
         </div>
 
-        <div class="radio-face" [class.radio-face--empty]="!current" [class.radio-face--sleeve]="sleeveVisible">
+        <div
+          class="radio-face"
+          [class.radio-face--empty]="!current"
+          [class.radio-face--sleeve]="sleeveVisible"
+          [class.radio-face--sleeve-front]="sleeveFront">
           <div class="radio-ambient" aria-hidden="true"></div>
           <div class="radio-synth-floor" aria-hidden="true">
             <div class="radio-synth-tilt">
@@ -861,7 +973,17 @@
               </div>
             </div>
           </div>
-          <div class="radio-sleeve" *ngIf="sleeveVisible" aria-hidden="true">
+          <div
+            class="radio-sleeve"
+            *ngIf="sleeveVisible"
+            role="button"
+            tabindex="0"
+            [attr.aria-pressed]="sleeveFront"
+            [attr.aria-label]="(sleeveFront ? 'RADIO.SLEEVE_BACK' : 'RADIO.SLEEVE_FRONT') | translate"
+            [attr.title]="(sleeveFront ? 'RADIO.SLEEVE_BACK' : 'RADIO.SLEEVE_FRONT') | translate"
+            (click)="toggleSleeveFront($event)"
+            (keydown.enter)="toggleSleeveFront($event)"
+            (keydown.space)="toggleSleeveFront($event)">
             <div class="radio-sleeve-frame">
               <img
                 *ngFor="let img of trackImages; let i = index"
@@ -888,7 +1010,7 @@
               <ng-container *ngIf="!youtubeBusy && clipOnStage">{{ 'DEEZER.YT_BADGE' | translate }}</ng-container>
               <ng-container *ngIf="!youtubeBusy && !clipOnStage">{{ 'DEEZER.PREVIEW' | translate }}</ng-container>
             </div>
-            <div class="radio-face-track" [attr.title]="itemTitle(current.artistName, current.title)">{{ current.artistName }} — {{ current.title }}</div>
+            <div class="radio-face-track" [attr.title]="trackCaption(current)">{{ trackCaption(current) }}</div>
           </div>
           <div class="radio-controls-row" aria-hidden="true">
             <div class="radio-power">
@@ -989,9 +1111,9 @@
                   {{ current.title }}
                   <span class="dz-explicit" *ngIf="current.explicit">E</span>
                 </div>
-                <div class="radio-now-track">
+                <div class="radio-now-track" *ngIf="current.artistName || current.albumTitle">
                   <button type="button" class="dz-linkish" *ngIf="current.artistId" (click)="openArtist({ id: current.artistId!, name: current.artistName || '' })">{{ current.artistName }}</button>
-                  <span *ngIf="!current.artistId">{{ current.artistName }}</span>
+                  <span *ngIf="!current.artistId && current.artistName">{{ current.artistName }}</span>
                   <ng-container *ngIf="current.albumTitle">
                     ·
                     <button type="button" class="dz-linkish" *ngIf="current.albumId" (click)="openAlbum({ id: current.albumId!, title: current.albumTitle || '' })">{{ current.albumTitle }}</button>
@@ -1080,6 +1202,46 @@
 </div>
 
 <app-youtube-equalizer-modal #eqModal theme="radio" [cabinet]="radioSkin" variant="media" [hasYoutubeVideo]="clipOnStage"></app-youtube-equalizer-modal>
+
+<div class="dz-pl-backdrop" *ngIf="concertNameTrack" (click)="closeConcertName()"></div>
+<div
+  class="dz-pl-modal"
+  *ngIf="concertNameTrack"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'DEEZER.CONCERT_ADD_TRACK' | translate"
+  (click)="$event.stopPropagation()">
+  <div class="dz-pl-modal-head">
+    <div class="dz-pl-track">
+      <img *ngIf="concertNameTrack.coverUrl" class="dz-pl-cover" [src]="concertNameTrack.coverUrl" alt="" />
+      <span *ngIf="!concertNameTrack.coverUrl" class="dz-pl-cover dz-pl-cover--empty"><i class="fa fa-microphone" aria-hidden="true"></i></span>
+      <span class="dz-pl-track-text">
+        <span class="dz-pl-kicker">{{ 'DEEZER.CONCERT_ADD_TRACK' | translate }}</span>
+        <strong>{{ concertNameTrack.title }}</strong>
+        <span class="dz-pl-artist" *ngIf="concertNameTrack.artistName">{{ concertNameTrack.artistName }}</span>
+      </span>
+    </div>
+    <button type="button" class="dz-pl-close" (click)="closeConcertName($event)" [attr.aria-label]="'DEEZER.CLEAR_SEARCH' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
+  <form class="dz-pl-modal-foot dz-concert-name-form" (ngSubmit)="addConcert()">
+    <label class="visually-hidden" for="dz-concert-name">{{ 'DEEZER.CONCERT_NAME' | translate }}</label>
+    <input
+      id="dz-concert-name"
+      class="form-control"
+      name="concertNameDraft"
+      [(ngModel)]="concertNameDraft"
+      [placeholder]="'DEEZER.CONCERT_NAME' | translate"
+      maxlength="120"
+      autocomplete="off"
+      autofocus />
+    <button type="submit" class="dz-play-all" [disabled]="!!concertBusy || !concertNameDraft.trim()">
+      {{ 'DEEZER.CONCERT_ADD' | translate }}
+    </button>
+    <p class="dz-pl-error" *ngIf="concertError" role="alert">{{ concertError | translate }}</p>
+  </form>
+</div>
 
 <div class="dz-pl-backdrop" *ngIf="playlistMenuTrack" (click)="closePlaylistMenu()"></div>
 <div

@@ -1651,8 +1651,8 @@ a.radio-now-action.dz-deezer-link {
 .dz-page .radio-mode-tab {
   flex: 1 1 0;
   min-width: 0;
-  font-size: 0.74rem;
-  padding: 0.55rem 0.15rem;
+  font-size: 0.68rem;
+  padding: 0.45rem 0.08rem;
 }
 
 .dz-mode-label {
@@ -1881,6 +1881,37 @@ a.radio-now-action.dz-deezer-link {
 .dz-pl-create .form-control {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.dz-concert-add {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.45rem 0.7rem 0.15rem;
+}
+
+.dz-concert-add-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dz-concert-add-row .form-control {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dz-concert-add .dz-play-all {
+  flex: 0 0 auto;
+}
+
+.dz-concert-name-form {
+  flex-wrap: wrap;
+}
+
+.dz-concert-name-form .dz-pl-error {
+  flex: 1 0 100%;
+  margin: 0;
 }
 
 .dz-pl-rename {

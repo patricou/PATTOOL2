@@ -342,6 +342,7 @@ public class SecurityConfig {
                 // Favorites, user playlists and the cabinet skin stay authenticated.
                 .requestMatchers("/api/external/deezer/favorites", "/api/external/deezer/favorites/**").authenticated()
                 .requestMatchers("/api/external/deezer/user-playlists", "/api/external/deezer/user-playlists/**").authenticated()
+                .requestMatchers("/api/external/deezer/concert", "/api/external/deezer/concert/**").authenticated()
                 .requestMatchers("/api/external/deezer/skin").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/external/deezer/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/external/deezer/youtube-links").permitAll()

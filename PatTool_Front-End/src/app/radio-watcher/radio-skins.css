@@ -5105,7 +5105,20 @@
   position: absolute;
   inset: 0;
   z-index: 2;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* A click on the cover lifts it over the dial, speaker and screen motion. */
+.radio-face.radio-face--sleeve-front .radio-sleeve {
+  z-index: 6;
+}
+
+.radio-face.radio-face--sleeve-front .radio-station-badge,
+.radio-face.radio-face--sleeve-front .radio-play-error,
+.radio-face.radio-face--sleeve-front .radio-unmute-hint,
+.radio-face.radio-face--sleeve-front .radio-buffering {
+  z-index: 7;
 }
 
 .radio-face.radio-face--sleeve .radio-station-badge {
@@ -5149,6 +5162,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.28rem;
+  pointer-events: none;
   margin-left: 0.45rem;
   font-weight: 600;
   letter-spacing: 0.03em;
