@@ -83,7 +83,10 @@
 
 :host.tv-landscape-fs .tv-video {
   border-radius: 0;
-  object-fit: cover;
+  /* Phone landscape is wider than 16:9. Cover fills the width and crops
+     the picture; contain keeps the whole frame and its proportions. */
+  object-fit: contain;
+  object-position: center;
 }
 
 .tv-landscape-fs-exit {

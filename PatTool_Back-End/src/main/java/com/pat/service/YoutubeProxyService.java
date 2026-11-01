@@ -82,6 +82,8 @@ public class YoutubeProxyService {
     private static final Duration DATA_API_COOLDOWN = Duration.ofMinutes(20);
 
     private final RestTemplate restTemplate;
+    /** Shorter wait for a title lookup, so a slow Data API falls through to public search sooner. */
+    private final RestTemplate quickRestTemplate;
     private final ObjectMapper objectMapper;
     private final String apiBase;
     private final String apiKey;
@@ -97,6 +99,10 @@ public class YoutubeProxyService {
         this.restTemplate = builder
                 .setConnectTimeout(Duration.ofSeconds(5))
                 .setReadTimeout(Duration.ofSeconds(12))
+                .build();
+        this.quickRestTemplate = builder
+                .setConnectTimeout(Duration.ofSeconds(3))
+                .setReadTimeout(Duration.ofSeconds(4))
                 .build();
         this.objectMapper = objectMapper;
         this.apiBase = trimSlash(apiBase);
@@ -202,6 +208,23 @@ public class YoutubeProxyService {
             Integer maxResults,
             String order,
             String videoCategoryId) {
+        return search(query, type, regionCode, relevanceLanguage, channelId, pageToken, maxResults, order, videoCategoryId, true);
+    }
+
+    /**
+     * @param enrich when false, skip the extra {@code videos.list} call. A clip lookup only needs the id and the title.
+     */
+    public YoutubeSearchPageDto search(
+            String query,
+            String type,
+            String regionCode,
+            String relevanceLanguage,
+            String channelId,
+            String pageToken,
+            Integer maxResults,
+            String order,
+            String videoCategoryId,
+            boolean enrich) {
         String q = query == null ? "" : query.trim();
         String kind = normalizeType(type);
         String region = normalizeRegion(regionCode);
@@ -217,8 +240,12 @@ public class YoutubeProxyService {
         if (StringUtils.hasText(q) && !SAFE_QUERY.matcher(q).matches()) {
             return YoutubeSearchPageDto.failure("invalid_query", "invalid_query");
         }
-        String cacheKey = "search|" + q + "|" + kind + "|" + region + "|" + lang + "|" + channel + "|" + sort + "|" + category + "|" + token + "|" + limit;
+        String cacheBase = "search|" + q + "|" + kind + "|" + region + "|" + lang + "|" + channel + "|" + sort + "|" + category + "|" + token + "|" + limit + "|";
+        String cacheKey = cacheBase + (enrich ? "full" : "lite");
         YoutubeSearchPageDto cached = fromCache(cacheKey);
+        if (cached == null && !enrich) {
+            cached = fromCache(cacheBase + "full");
+        }
         if (cached != null) {
             return cached;
         }
@@ -251,11 +278,11 @@ public class YoutubeProxyService {
         String failureCode = "upstream_error";
         String failureMessage = "YouTube search failed";
         if (isConfigured() && !isInnertubeContinuation(token) && !dataApiCoolingDown()) {
-            JsonNode raw = fetchJson(withKey(builder), "search");
+            JsonNode raw = fetchJson(enrich ? restTemplate : quickRestTemplate, withKey(builder), "search");
             String apiError = raw == null ? "upstream_error" : apiError(raw);
             if (raw != null && apiError == null) {
                 List<YoutubeItemDto> items = mapSearchItems(raw.path("items"));
-                if ("video".equals(kind)) {
+                if (enrich && "video".equals(kind)) {
                     items = enrichVideos(items);
                 }
                 YoutubeSearchPageDto page = new YoutubeSearchPageDto(
@@ -278,7 +305,10 @@ public class YoutubeProxyService {
             failureMessage = raw == null
                     ? "YouTube search failed"
                     : textOrEmpty(raw.path("error").path("message"));
-            coolDownDataApi(apiError);
+            // A short timeout on a title lookup must not park the Data API for the whole app.
+            if (enrich || "quota_exceeded".equals(apiError) || "invalid_key".equals(apiError)) {
+                coolDownDataApi(apiError);
+            }
         }
         YoutubeSearchPageDto fallback = searchWithInnertube(q, kind, region, lang, sort, category, token, limit);
         if (fallback != null) {
@@ -606,11 +636,15 @@ public class YoutubeProxyService {
     }
 
     private JsonNode fetchJson(URI uri, String label) {
+        return fetchJson(restTemplate, uri, label);
+    }
+
+    private JsonNode fetchJson(RestTemplate http, URI uri, String label) {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.set(HttpHeaders.USER_AGENT, USER_AGENT);
             headers.set(HttpHeaders.ACCEPT, "application/json");
-            ResponseEntity<String> response = restTemplate.exchange(
+            ResponseEntity<String> response = http.exchange(
                     uri,
                     HttpMethod.GET,
                     new HttpEntity<>(headers),
