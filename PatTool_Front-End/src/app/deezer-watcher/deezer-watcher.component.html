@@ -237,7 +237,7 @@
           <span class="badge rounded-pill radio-fav-badge" *ngIf="playlistCount">{{ playlistCount }}</span>
         </button>
         <button type="button" class="radio-mode-tab" [class.active]="listMode === 'concert'" (click)="setListMode('concert')">
-          <i class="fa fa-microphone me-1" aria-hidden="true"></i>
+          <i class="fa fa-ticket me-1" aria-hidden="true"></i>
           <span class="dz-mode-label">{{ 'DEEZER.CONCERT' | translate }}</span>
           <span class="badge rounded-pill radio-fav-badge" *ngIf="concertCount">{{ concertCount }}</span>
         </button>
@@ -587,7 +587,7 @@
           *ngFor="let item of shownConcert; let i = index; trackBy: trackByConcertId"
           class="dz-row"
           [class.is-on]="current?.id === item.playId"
-          [attr.title]="itemTitle(item.name)"
+          [attr.title]="itemTitle(itemTitle(itemTitle(item.track?.artistName, item.track?.albumTitle), item.name), item.track?.title)"
           (click)="playConcert(item, i)"
           (keydown.enter)="playConcert(item, i)"
           tabindex="0">
@@ -603,12 +603,11 @@
             loading="lazy"
             (error)="$any($event.target).style.display='none'" />
           <span *ngIf="!concertThumb(item)" class="dz-thumb dz-thumb--empty"><i class="fa fa-music" aria-hidden="true"></i></span>
-          <span class="dz-row-text" *ngIf="renamingConcertId !== item.id">
-            <span class="dz-row-title">{{ item.name }}</span>
-            <span class="dz-row-sub" *ngIf="item.track?.artistName || item.track?.title">
-              {{ item.track?.artistName }}
-              <ng-container *ngIf="item.track?.title && item.track?.title !== item.name"> · {{ item.track?.title }}</ng-container>
-            </span>
+          <span class="dz-row-text dz-track-text" *ngIf="renamingConcertId !== item.id">
+            <span class="dz-track-artist">{{ item.track?.artistName }}</span>
+            <span class="dz-track-album" *ngIf="item.track?.albumTitle">{{ item.track?.albumTitle }}</span>
+            <span class="dz-track-title">{{ item.name || item.track?.title }}</span>
+            <span class="dz-track-album" *ngIf="item.track?.title && item.name && item.track?.title !== item.name">{{ item.track?.title }}</span>
           </span>
           <form
             class="dz-pl-rename"
@@ -670,7 +669,7 @@
           *ngFor="let track of shownTracks; let i = index; trackBy: trackById"
           class="dz-row"
           [class.is-on]="current?.id === track.id"
-          [attr.title]="itemTitle(track.artistName, track.title)"
+          [attr.title]="itemTitle(itemTitle(track.artistName, track.albumTitle), track.title)"
           (click)="playListedTrack(track, i)"
           (keydown.enter)="playListedTrack(track, i)"
           tabindex="0">
@@ -682,6 +681,7 @@
           <span *ngIf="!track.coverUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-music"></i></span>
           <span class="dz-row-text dz-track-text">
             <span class="dz-track-artist">{{ track.artistName }}</span>
+            <span class="dz-track-album" *ngIf="track.albumTitle">{{ track.albumTitle }}</span>
             <span class="dz-track-title">
               {{ track.title }}
               <span class="dz-explicit" *ngIf="track.explicit">E</span>
@@ -736,17 +736,17 @@
           <button
             type="button"
             class="dz-fav"
+            [class.is-covered]="ytOffer?.trackId === track.id && !ytNextBusy[track.id]"
             [class.is-on]="concertHas(track.id)"
             [disabled]="!!concertBusy"
             (click)="openConcertName(track, $event)"
             [attr.aria-label]="'DEEZER.CONCERT_ADD_TRACK' | translate"
             [attr.title]="'DEEZER.CONCERT_ADD_TRACK' | translate">
-            <i class="fa fa-microphone" aria-hidden="true"></i>
+            <i class="fa fa-ticket" aria-hidden="true"></i>
           </button>
           <button
             type="button"
             class="dz-fav dz-pl-btn"
-            [class.is-covered]="ytOffer?.trackId === track.id && !ytNextBusy[track.id]"
             [class.is-on]="playlistMenuTrack?.id === track.id"
             (click)="toggleTrackPlaylistMenu(track, $event)"
             [attr.aria-label]="'DEEZER.PLAYLIST_ADD' | translate"
@@ -1214,7 +1214,7 @@
   <div class="dz-pl-modal-head">
     <div class="dz-pl-track">
       <img *ngIf="concertNameTrack.coverUrl" class="dz-pl-cover" [src]="concertNameTrack.coverUrl" alt="" />
-      <span *ngIf="!concertNameTrack.coverUrl" class="dz-pl-cover dz-pl-cover--empty"><i class="fa fa-microphone" aria-hidden="true"></i></span>
+      <span *ngIf="!concertNameTrack.coverUrl" class="dz-pl-cover dz-pl-cover--empty"><i class="fa fa-ticket" aria-hidden="true"></i></span>
       <span class="dz-pl-track-text">
         <span class="dz-pl-kicker">{{ 'DEEZER.CONCERT_ADD_TRACK' | translate }}</span>
         <strong>{{ concertNameTrack.title }}</strong>

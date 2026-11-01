@@ -796,7 +796,7 @@
   color: var(--menu-accent, #e0b85a);
 }
 
-.dz-pl-btn.is-covered {
+.dz-fav.is-covered {
   visibility: hidden;
   pointer-events: none;
 }
@@ -995,6 +995,15 @@
 }
 
 .dz-track-title {
+  font-weight: 500;
+  font-size: 0.75rem;
+  color: var(--menu-muted, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dz-track-album {
   font-weight: 500;
   font-size: 0.86rem;
   color: var(--menu-muted, #64748b);
