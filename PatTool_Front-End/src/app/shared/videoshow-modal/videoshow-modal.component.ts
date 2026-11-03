@@ -81,6 +81,8 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, AfterView
   @Input() headerTheme: 'default' | 'youtube' = 'default';
   /** Skin accent. When set, the viewer chrome uses this color instead of the default green. */
   @Input() headerColor = '';
+  /** Paint the chrome with headerColor as a surface, instead of washing it like a button accent. */
+  @Input() headerSurface = false;
   
   @Output() closed = new EventEmitter<VideoshowCloseState>();
   
@@ -951,11 +953,27 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, AfterView
     const color = (this.headerColor || '').trim();
     if (!color) {
       root.style.removeProperty('--videoshow-accent');
-      root.classList.remove('videoshow-tinted');
+      root.style.removeProperty('--videoshow-ink');
+      root.classList.remove('videoshow-tinted', 'videoshow-surface');
       return;
     }
     root.style.setProperty('--videoshow-accent', color);
+    root.style.setProperty('--videoshow-ink', this.inkOn(color));
     root.classList.add('videoshow-tinted');
+    root.classList.toggle('videoshow-surface', this.headerSurface);
+  }
+
+  private inkOn(color: string): string {
+    const hex = color.replace('#', '').trim();
+    const full = hex.length === 3 ? hex.split('').map((part) => part + part).join('') : hex;
+    if (!/^[0-9a-fA-F]{6}$/.test(full)) {
+      return '#fff';
+    }
+    const red = parseInt(full.slice(0, 2), 16);
+    const green = parseInt(full.slice(2, 4), 16);
+    const blue = parseInt(full.slice(4, 6), 16);
+    const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
+    return luminance > 0.62 ? '#1a120c' : '#fff';
   }
   
   // Change video quality

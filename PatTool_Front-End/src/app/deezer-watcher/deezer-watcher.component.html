@@ -1487,7 +1487,7 @@
   </div>
 </div>
 
-<app-videoshow-modal #videoshowModalComponent [headerColor]="videoshowAccent" (closed)="onVideoshowClosed($event)"></app-videoshow-modal>
+<app-videoshow-modal #videoshowModalComponent [headerColor]="videoshowAccent" [headerSurface]="true" (closed)="onVideoshowClosed($event)"></app-videoshow-modal>
 
 <ng-template #dzPager>
   <nav class="dz-pager" [attr.aria-label]="'DEEZER.PAGE_NEXT' | translate">

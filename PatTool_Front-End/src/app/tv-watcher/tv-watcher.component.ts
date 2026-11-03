@@ -2304,8 +2304,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   private readSkinAccent(): string {
-    const accent = getComputedStyle(this.hostRef.nativeElement).getPropertyValue('--pat-title-accent').trim();
-    return accent || '#1f6feb';
+    const background = getComputedStyle(this.hostRef.nativeElement).getPropertyValue('--pat-page-bg').trim();
+    return background || '#14110f';
   }
 
   /** Detach playback into a floating window that survives route changes. */

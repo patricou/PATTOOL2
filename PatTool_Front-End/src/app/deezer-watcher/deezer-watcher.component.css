@@ -1528,27 +1528,44 @@
   border-radius: 0.45rem;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .radio-player-panel.dz-video .radio-now-actions {
-    opacity: 0;
-    max-height: 0;
-    overflow: hidden;
-    pointer-events: none;
-  }
+/* Names and buttons share one show/hide. A max-height ease made the buttons arrive later. */
+.radio-player-panel .radio-now-info,
+.radio-player-panel .radio-now-actions {
+  transition: none;
+}
 
-  .radio-player-panel.dz-video .radio-chrome:hover .radio-now-actions,
-  .radio-player-panel.dz-video .radio-now-actions:focus-within,
-  .radio-player-panel.dz-video .radio-now-actions--share-open {
-    opacity: 1;
-    max-height: 8rem;
-    overflow: visible;
-    pointer-events: auto;
-  }
+.radio-player-panel .radio-now-playing {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
+.radio-player-panel .radio-now-info {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+.radio-player-panel .radio-now-actions {
+  justify-content: center;
+  width: 100%;
+  flex: 0 0 auto;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .radio-player-panel.dz-video .radio-chrome {
     background: rgba(5, 5, 5, 0.94);
+  }
+
+  /* Light-cabinet skins paint the title dark. The video bar is black, so keep it light. */
+  .radio-player-panel.dz-video .radio-chrome .radio-now-playing,
+  .radio-player-panel.dz-video .radio-chrome .radio-now-name {
+    color: #f6f3ea;
+  }
+
+  .radio-player-panel.dz-video .radio-chrome .radio-now-track,
+  .radio-player-panel.dz-video .radio-chrome .radio-now-track .fa,
+  .radio-player-panel.dz-video .radio-chrome .radio-now-track .dz-linkish {
+    color: #ffe7a3;
   }
 }
 

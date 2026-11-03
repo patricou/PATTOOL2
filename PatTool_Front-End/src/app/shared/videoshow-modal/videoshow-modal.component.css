@@ -196,6 +196,40 @@
     background: color-mix(in srgb, var(--videoshow-accent) 72%, #000);
 }
 
+::ng-deep .modal-content.videoshow-tinted.videoshow-surface {
+    background: var(--videoshow-accent) !important;
+    background-color: var(--videoshow-accent) !important;
+    border-color: color-mix(in srgb, var(--videoshow-accent) 55%, var(--videoshow-ink, #fff)) !important;
+}
+
+::ng-deep .videoshow-tinted.videoshow-surface .videoshow-header {
+    background: var(--videoshow-accent) !important;
+    color: var(--videoshow-ink, #fff) !important;
+}
+
+::ng-deep .videoshow-tinted.videoshow-surface .videoshow-header .modal-title,
+::ng-deep .videoshow-tinted.videoshow-surface .videoshow-header .btn {
+    color: var(--videoshow-ink, #fff) !important;
+}
+
+::ng-deep .videoshow-tinted.videoshow-surface .videoshow-footer {
+    background: var(--videoshow-accent) !important;
+    border-top-color: color-mix(in srgb, var(--videoshow-accent) 55%, var(--videoshow-ink, #fff)) !important;
+    color: var(--videoshow-ink, #fff) !important;
+}
+
+::ng-deep .videoshow-tinted.videoshow-surface .videoshow-footer .btn {
+    background: color-mix(in srgb, var(--videoshow-accent) 82%, var(--videoshow-ink, #fff)) !important;
+    background-color: color-mix(in srgb, var(--videoshow-accent) 82%, var(--videoshow-ink, #fff)) !important;
+    border-color: color-mix(in srgb, var(--videoshow-accent) 45%, var(--videoshow-ink, #fff)) !important;
+    color: var(--videoshow-ink, #fff) !important;
+}
+
+::ng-deep .videoshow-tinted.videoshow-surface .videoshow-counter {
+    background: color-mix(in srgb, var(--videoshow-accent) 72%, #000);
+    color: #fff;
+}
+
 .videoshow-header .btn {
     position: relative;
     z-index: 20001;
@@ -722,29 +756,8 @@ body.videoshow-fullscreen-active .videoshow-footer,
     font-size: 0.85rem;
 }
 
-.videoshow-loop-switch {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.65rem 0.3rem 2.6rem;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 0.375rem;
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 0.85rem;
-    white-space: nowrap;
-}
-
-.videoshow-loop-switch .form-check-input {
-    cursor: pointer;
-}
-
-.videoshow-loop-switch .form-check-input:checked {
-    background-color: #28a745;
-    border-color: #28a745;
-}
-
-.videoshow-loop-switch .form-check-label {
-    cursor: pointer;
+.videoshow-footer .btn.is-on {
+    box-shadow: inset 0 0 0 1px currentColor;
 }
 
 .videoshow-footer .btn i {

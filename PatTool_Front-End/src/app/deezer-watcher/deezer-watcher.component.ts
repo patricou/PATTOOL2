@@ -3162,8 +3162,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   private readSkinAccent(): string {
-    const accent = getComputedStyle(this.hostRef.nativeElement).getPropertyValue('--pat-title-accent').trim();
-    return accent || '#7c3aed';
+    const background = getComputedStyle(this.hostRef.nativeElement).getPropertyValue('--pat-page-bg').trim();
+    return background || '#1a1024';
   }
 
   setTickerEnabled(enabled: boolean): void {
