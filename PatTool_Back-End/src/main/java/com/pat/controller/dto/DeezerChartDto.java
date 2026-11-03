@@ -7,6 +7,10 @@ public record DeezerChartDto(
         List<DeezerTrackDto> tracks,
         List<DeezerAlbumDto> albums,
         List<DeezerArtistDto> artists,
-        List<DeezerPlaylistDto> playlists
+        List<DeezerPlaylistDto> playlists,
+        DeezerSliceDto tracksPage,
+        DeezerSliceDto albumsPage,
+        DeezerSliceDto artistsPage,
+        DeezerSliceDto playlistsPage
 ) {
 }

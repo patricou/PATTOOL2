@@ -345,7 +345,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/external/deezer/concert", "/api/external/deezer/concert/**").authenticated()
                 .requestMatchers("/api/external/deezer/skin").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/external/deezer/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/external/deezer/youtube-links").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/external/deezer/youtube-links", "/api/external/deezer/youtube-links/stored").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/book/openlibrary/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/book/gutenberg/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/book/librivox/**").permitAll()

@@ -796,6 +796,12 @@
   color: var(--menu-accent, #e0b85a);
 }
 
+.dz-fav.is-saved,
+.dz-fav.is-saved:hover,
+.dz-fav.is-saved:focus-visible {
+  color: #f5c518;
+}
+
 .dz-fav.is-covered {
   visibility: hidden;
   pointer-events: none;
@@ -840,6 +846,10 @@
 
 .dz-tab {
   flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.18rem;
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
@@ -849,9 +859,9 @@
   cursor: pointer;
 }
 
-.dz-tab span {
-  margin-left: 0.2rem;
+.dz-tab > span:not(.dz-live) {
   color: var(--menu-accent, #7c3aed);
+  white-space: nowrap;
 }
 
 .dz-tab.is-on {
@@ -884,12 +894,64 @@
   flex: 1 1 auto;
 }
 
+.dz-pager-row {
+  list-style: none;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--menu-bg, #1a1024);
+}
+
+.dz-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.45rem 0.7rem 0.55rem;
+  border-top: 1px solid var(--menu-border, rgba(0, 0, 0, 0.08));
+  background: var(--menu-bg, #1a1024);
+}
+
+.dz-pager button {
+  border: 1px solid var(--menu-accent, #7c3aed);
+  background: transparent;
+  color: var(--menu-fg, inherit);
+  border-radius: 999px;
+  padding: 0.28rem 0.7rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.dz-pager button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.dz-pager-range {
+  font-size: 0.75rem;
+  color: var(--menu-muted, #64748b);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .dz-row {
   display: flex;
   align-items: center;
   gap: 0.55rem;
   padding: 0.38rem 0.7rem;
   cursor: pointer;
+}
+
+.dz-row--track {
+  align-items: flex-start;
+  padding-top: 0.48rem;
+  padding-bottom: 0.4rem;
+}
+
+.dz-row--track > .dz-idx,
+.dz-row--track > .dz-live,
+.dz-row--track > .dz-thumb {
+  margin-top: 0.12rem;
 }
 
 .dz-row:hover,
@@ -949,6 +1011,25 @@
   height: 0.85rem;
 }
 
+.dz-live--tab {
+  width: 0.92rem;
+  height: 0.68rem;
+  padding: 0.08rem 0.1rem 0.07rem;
+  gap: 1px;
+  border-radius: 0.2rem;
+}
+
+.dz-live--tab > span {
+  width: 2px;
+}
+
+.dz-page .radio-mode-tab .dz-live--tab {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  z-index: 1;
+}
+
 .dz-live--now > span {
   background: #ffb020;
   box-shadow: 0 0 6px rgba(255, 176, 32, 0.55);
@@ -986,7 +1067,30 @@
   flex-direction: column;
 }
 
+.dz-track-body {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+}
+
+.dz-track-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.dz-track-sep {
+  flex: 0 0 auto;
+  color: var(--menu-muted, #64748b);
+  font-weight: 500;
+}
+
 .dz-track-artist {
+  flex: 0 1 auto;
+  max-width: 48%;
   font-weight: 700;
   color: var(--menu-fg, var(--dz-ink));
   white-space: nowrap;
@@ -994,23 +1098,57 @@
   text-overflow: ellipsis;
 }
 
+.dz-track-line > .dz-track-artist:only-child {
+  max-width: none;
+  flex: 1 1 auto;
+}
+
 .dz-track-title {
-  font-weight: 500;
-  font-size: 0.75rem;
-  color: var(--menu-muted, #64748b);
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--menu-fg, var(--dz-ink));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .dz-track-album {
-  font-weight: 500;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 700;
   font-size: 0.86rem;
-  color: var(--menu-muted, #64748b);
+  color: var(--menu-fg, var(--dz-ink));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.dz-track-meta {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  color: var(--menu-muted, #64748b);
+  white-space: nowrap;
+}
+
+.dz-track-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.05rem;
+  min-height: 1.7rem;
+  width: 100%;
+}
+
+.dz-track-facts {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  margin-left: 0.35rem;
+  min-width: 0;
+}
+
 
 .dz-row-title,
 .dz-now-title {
@@ -1313,9 +1451,17 @@
   max-height: none;
 }
 
-/* Skin motion stays on the cabinet. Nothing is drawn over the Deezer screen. */
-.radio-screen-fx {
-  display: none !important;
+/* The preset row is gone, so keep the screen as tall as on the radio page.
+   Otherwise the speaker and skin motion sit too low in the cabinet. */
+.dz-page .radio-player-panel:not(.dz-video) {
+  padding-bottom: 5.75rem;
+}
+
+:host.radio-focus .dz-page .radio-player-panel,
+:host.radio-stage-fs .dz-page .radio-player-panel,
+:host.radio-landscape-fs .dz-page .radio-player-panel,
+:host:fullscreen .dz-page .radio-player-panel {
+  padding-bottom: 0.85rem;
 }
 
 /* A moving blur or transform on the face repaints the YouTube iframe and makes the clip stutter. */
@@ -1336,7 +1482,7 @@
   display: none !important;
 }
 
-.radio-player-panel--on .radio-player-frame::after {
+.radio-player-panel.dz-video .radio-player-frame::after {
   content: none !important;
   animation: none !important;
 }
@@ -1380,6 +1526,24 @@
   z-index: 6;
   margin-top: 0.45rem;
   border-radius: 0.45rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .radio-player-panel.dz-video .radio-now-actions {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .radio-player-panel.dz-video .radio-chrome:hover .radio-now-actions,
+  .radio-player-panel.dz-video .radio-now-actions:focus-within,
+  .radio-player-panel.dz-video .radio-now-actions--share-open {
+    opacity: 1;
+    max-height: 8rem;
+    overflow: visible;
+    pointer-events: auto;
+  }
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -1478,6 +1642,11 @@
 .radio-player-frame:has(.radio-face--sleeve) .dz-progress,
 .radio-player-frame:has(.radio-face--sleeve) .dz-related {
   color: var(--radio-well-muted, inherit);
+}
+
+.radio-face.radio-face--sleeve .radio-play-error,
+.radio-face.radio-face--sleeve .radio-buffering {
+  z-index: 7;
 }
 
 .dz-related button {
@@ -1658,6 +1827,7 @@ a.radio-now-action.dz-deezer-link {
 }
 
 .dz-page .radio-mode-tab {
+  position: relative;
   flex: 1 1 0;
   min-width: 0;
   font-size: 0.68rem;
@@ -1967,7 +2137,7 @@ a.radio-now-action.dz-deezer-link {
 
 .dz-album-sort .dz-similar-sort-menu {
   flex: 0 1 auto;
-  max-width: 9rem;
+  max-width: 12rem;
 }
 
 .dz-album-sort .dz-similar-sort-btn {
@@ -1980,7 +2150,7 @@ a.radio-now-action.dz-deezer-link {
 }
 
 .dz-album-sort .dz-similar-sort-list {
-  min-width: 8.5rem;
+  min-width: 11.5rem;
   right: auto;
 }
 
@@ -2080,12 +2250,21 @@ a.radio-now-action.dz-deezer-link {
 
 .dz-now-jump button.is-lit {
   background: var(--menu-accent, #7c3aed);
+  border-color: var(--menu-accent, #7c3aed);
   color: var(--menu-accent-fg, #fff);
 }
 
 .dz-album-info-modal {
   width: min(36rem, calc(100vw - 2rem));
-  max-height: min(94vh, 60rem);
+  top: calc(var(--navbar-offset, 60px) + 2.75rem);
+  transform: translateX(-50%);
+  max-height: calc(100dvh - var(--navbar-offset, 60px) - 3.5rem);
+}
+
+.dz-album-info-modal .dz-pl-modal-head {
+  flex-shrink: 0;
+  background: var(--menu-bg, #fff8f1);
+  z-index: 2;
 }
 
 @media (min-width: 901px) and (hover: hover) and (pointer: fine) {

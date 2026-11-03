@@ -11,6 +11,7 @@ import com.pat.controller.dto.DeezerGenreDto;
 import com.pat.controller.dto.DeezerPlaylistDto;
 import com.pat.controller.dto.DeezerPlaylistPageDto;
 import com.pat.controller.dto.DeezerSearchDto;
+import com.pat.controller.dto.DeezerSliceDto;
 import com.pat.controller.dto.DeezerTrackDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,9 +26,15 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Public Deezer catalog (no API key). Audio is limited to the 30-second {@code preview} MP3.
@@ -88,30 +95,75 @@ public class DeezerCatalogService {
         return List.copyOf(genres);
     }
 
-    public DeezerChartDto chart(long genreId) {
+    public DeezerChartDto chart(long genreId, int trackIndex, int albumIndex, int artistIndex, int playlistIndex) {
         String base = "/chart/" + genreId;
-        JsonNode tracks = fetchOk(base + "/tracks?limit=" + TRACK_PAGE, CHART_TTL);
+        JsonNode tracks = fetchOk(base + pageQuery("/tracks", trackIndex), CHART_TTL);
+        JsonNode albums = optional(base + pageQuery("/albums", albumIndex), CHART_TTL);
+        JsonNode artists = optional(base + pageQuery("/artists", artistIndex), CHART_TTL);
+        JsonNode playlists = optional(base + pageQuery("/playlists", playlistIndex), CHART_TTL);
+        List<DeezerArtistDto> artistList = mapArtists(artists, TRACK_PAGE);
+        List<DeezerTrackDto> trackList = attachFans(mapTracks(tracks, null, TRACK_PAGE), artistList);
+        List<DeezerAlbumDto> albumList = mapAlbums(albums, false, TRACK_PAGE);
+        List<DeezerPlaylistDto> playlistList = mapPlaylists(playlists, TRACK_PAGE);
         return new DeezerChartDto(
                 genreId,
-                mapTracks(tracks, null, TRACK_PAGE),
-                mapAlbums(optional(base + "/albums?limit=18", CHART_TTL), false),
-                mapArtists(optional(base + "/artists?limit=18", CHART_TTL)),
-                mapPlaylists(optional(base + "/playlists?limit=18", CHART_TTL))
+                trackList,
+                albumList,
+                artistList,
+                playlistList,
+                sliceOf(tracks, trackIndex, trackList.size()),
+                sliceOf(albums, albumIndex, albumList.size()),
+                sliceOf(artists, artistIndex, artistList.size()),
+                sliceOf(playlists, playlistIndex, playlistList.size())
         );
     }
 
-    public DeezerSearchDto search(String query, String type) {
+    public DeezerSearchDto search(String query, String type, int index) {
         String q = clean(query);
         String kind = normalizeType(type);
-        String path = "track".equals(kind)
-                ? "/search?limit=" + TRACK_PAGE + "&q=" + encode(q)
-                : "/search/" + kind + "?limit=30&q=" + encode(q);
+        int start = pageIndex(index);
+        String path = ("track".equals(kind) ? "/search" : "/search/" + kind) + pageQuery("", start) + "&q=" + encode(q);
         JsonNode root = fetchOk(path, SEARCH_TTL);
-        List<DeezerTrackDto> tracks = "track".equals(kind) ? mapTracks(root, null, TRACK_PAGE) : List.of();
-        List<DeezerAlbumDto> albums = "album".equals(kind) ? mapAlbums(root, false) : List.of();
-        List<DeezerArtistDto> artists = "artist".equals(kind) ? mapArtists(root) : List.of();
-        List<DeezerPlaylistDto> playlists = "playlist".equals(kind) ? mapPlaylists(root) : List.of();
-        return new DeezerSearchDto(kind, q, tracks, albums, artists, playlists);
+        List<DeezerTrackDto> tracks = "track".equals(kind) ? attachFans(mapTracks(root, null, TRACK_PAGE), List.of()) : List.of();
+        List<DeezerAlbumDto> albums = "album".equals(kind) ? mapAlbums(root, false, TRACK_PAGE) : List.of();
+        List<DeezerArtistDto> artists = "artist".equals(kind) ? mapArtists(root, TRACK_PAGE) : List.of();
+        List<DeezerPlaylistDto> playlists = "playlist".equals(kind) ? mapPlaylists(root, TRACK_PAGE) : List.of();
+        int count = switch (kind) {
+            case "album" -> albums.size();
+            case "artist" -> artists.size();
+            case "playlist" -> playlists.size();
+            default -> tracks.size();
+        };
+        DeezerSliceDto slice = sliceOf(root, start, count);
+        return new DeezerSearchDto(kind, q, tracks, albums, artists, playlists, slice.index(), slice.total(), slice.hasNext());
+    }
+
+    /** Deezer pages are 100 items. Anything else is refused by the controller. */
+    public static int pageIndex(int index) {
+        if (index < 0 || index > 10_000 || index % TRACK_PAGE != 0) {
+            return -1;
+        }
+        return index;
+    }
+
+    static DeezerSliceDto sliceOf(JsonNode root, int index, int count) {
+        int total = 0;
+        boolean next = false;
+        if (root != null && !root.isMissingNode() && !root.isNull()) {
+            total = Math.max(0, root.path("total").asInt(0));
+            next = !root.path("next").asText("").isBlank();
+        }
+        // Charts report total equal to this page and omit next, but index + 100 still returns rows.
+        boolean full = count >= TRACK_PAGE - 5;
+        boolean hasNext = count > 0 && (next || total > index + count || full);
+        if (!full && total > 0 && index + count >= total) {
+            hasNext = false;
+        }
+        return new DeezerSliceDto(index, total, hasNext);
+    }
+
+    private static String pageQuery(String path, int index) {
+        return path + "?limit=" + TRACK_PAGE + "&index=" + index;
     }
 
     public DeezerTrackDto track(long id, boolean fresh) {
@@ -122,7 +174,12 @@ public class DeezerCatalogService {
         if (root == null || root.path("id").asLong(0) <= 0) {
             return null;
         }
-        return mapTrack(root, null);
+        DeezerTrackDto mapped = mapTrack(root, null);
+        if (mapped == null) {
+            return null;
+        }
+        List<DeezerTrackDto> filled = attachFans(List.of(mapped), List.of());
+        return filled.isEmpty() ? mapped : filled.get(0);
     }
 
     public DeezerAlbumPageDto album(long id) {
@@ -136,7 +193,7 @@ public class DeezerCatalogService {
         }
         return new DeezerAlbumPageDto(
                 album,
-                mapTracks(root.path("tracks"), album),
+                attachFans(mapTracks(root.path("tracks"), album), List.of()),
                 albumDuration(root),
                 albumFans(root),
                 albumLabel(root),
@@ -186,7 +243,7 @@ public class DeezerCatalogService {
         }
         return new DeezerArtistPageDto(
                 artist,
-                mapTracks(optional("/artist/" + artistId + "/top?limit=25", PAGE_TTL), null),
+                attachFans(mapTracks(optional("/artist/" + artistId + "/top?limit=25", PAGE_TTL), null), List.of(artist)),
                 mapAlbums(optional("/artist/" + artistId + "/albums?limit=30", PAGE_TTL), true),
                 mapArtists(optional("/artist/" + artistId + "/related?limit=12", PAGE_TTL))
         );
@@ -201,7 +258,100 @@ public class DeezerCatalogService {
         if (playlist == null) {
             return null;
         }
-        return new DeezerPlaylistPageDto(playlist, mapTracks(root.path("tracks"), null));
+        return new DeezerPlaylistPageDto(playlist, attachFans(mapTracks(root.path("tracks"), null), List.of()));
+    }
+
+    /**
+     * Track lists omit the artist's follower count. Reuse counts already loaded, then look up the rest.
+     */
+    private List<DeezerTrackDto> attachFans(List<DeezerTrackDto> tracks, List<DeezerArtistDto> known) {
+        if (tracks == null || tracks.isEmpty()) {
+            return tracks == null ? List.of() : tracks;
+        }
+        Map<Long, Long> fans = new HashMap<>();
+        if (known != null) {
+            for (DeezerArtistDto artist : known) {
+                if (artist != null && artist.id() > 0) {
+                    fans.put(artist.id(), Math.max(0L, artist.fanCount()));
+                }
+            }
+        }
+        List<Long> missing = new ArrayList<>();
+        for (DeezerTrackDto track : tracks) {
+            long artistId = track.artistId();
+            if (artistId <= 0) {
+                continue;
+            }
+            if (track.fanCount() > 0) {
+                fans.putIfAbsent(artistId, track.fanCount());
+            }
+            if (!fans.containsKey(artistId) && !missing.contains(artistId)) {
+                missing.add(artistId);
+            }
+        }
+        if (!missing.isEmpty()) {
+            fans.putAll(loadArtistFans(missing));
+        }
+        return applyFans(tracks, fans);
+    }
+
+    private Map<Long, Long> loadArtistFans(List<Long> ids) {
+        Map<Long, Long> found = new ConcurrentHashMap<>();
+        Semaphore gate = new Semaphore(8);
+        List<Callable<Void>> tasks = new ArrayList<>();
+        for (Long id : ids) {
+            tasks.add(() -> {
+                if (!gate.tryAcquire(8, TimeUnit.SECONDS)) {
+                    return null;
+                }
+                try {
+                    found.put(id, lookupArtistFans(id));
+                } finally {
+                    gate.release();
+                }
+                return null;
+            });
+        }
+        try (var pool = Executors.newVirtualThreadPerTaskExecutor()) {
+            pool.invokeAll(tasks, 8, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return found;
+    }
+
+    private long lookupArtistFans(long artistId) {
+        JsonNode root = optional("/artist/" + artistId, PAGE_TTL);
+        return root == null ? 0L : fanCount(root);
+    }
+
+    static List<DeezerTrackDto> applyFans(List<DeezerTrackDto> tracks, Map<Long, Long> fans) {
+        if (tracks == null || tracks.isEmpty() || fans == null || fans.isEmpty()) {
+            return tracks == null ? List.of() : tracks;
+        }
+        List<DeezerTrackDto> filled = new ArrayList<>(tracks.size());
+        boolean changed = false;
+        for (DeezerTrackDto track : tracks) {
+            Long count = fans.get(track.artistId());
+            if (count != null && count > 0 && count != track.fanCount()) {
+                filled.add(track.withFanCount(count));
+                changed = true;
+            } else {
+                filled.add(track);
+            }
+        }
+        return changed ? List.copyOf(filled) : tracks;
+    }
+
+    static long fanCount(JsonNode hit) {
+        if (hit == null || hit.isMissingNode()) {
+            return 0L;
+        }
+        long fans = hit.path("fans").asLong(0);
+        if (fans <= 0) {
+            fans = hit.path("nb_fan").asLong(0);
+        }
+        return Math.max(0L, fans);
     }
 
     static String normalizeType(String type) {
@@ -245,6 +395,13 @@ public class DeezerCatalogService {
                 cover = albumFallback.coverUrl();
             }
         }
+        String release = clean(hit.path("release_date").asText(""));
+        if (release.isEmpty()) {
+            release = clean(album.path("release_date").asText(""));
+        }
+        if (release.isEmpty() && albumFallback != null && albumFallback.releaseDate() != null) {
+            release = albumFallback.releaseDate();
+        }
         return new DeezerTrackDto(
                 id,
                 title,
@@ -256,7 +413,9 @@ public class DeezerCatalogService {
                 mediaUrl(hit.path("preview").asText("")),
                 Math.max(0, hit.path("duration").asInt(0)),
                 hit.path("explicit_lyrics").asBoolean(false) || hit.path("explicit_content_lyrics").asInt(0) == 1,
-                pageLink(hit.path("link").asText(""))
+                pageLink(hit.path("link").asText("")),
+                release,
+                fanCount(artist)
         );
     }
 
@@ -349,9 +508,14 @@ public class DeezerCatalogService {
     }
 
     private List<DeezerAlbumDto> mapAlbums(JsonNode root, boolean discography) {
+        return mapAlbums(root, discography, 40);
+    }
+
+    private List<DeezerAlbumDto> mapAlbums(JsonNode root, boolean discography, int max) {
         List<DeezerAlbumDto> albums = new ArrayList<>();
+        int cap = Math.max(0, max);
         for (JsonNode hit : arrayOf(root)) {
-            if (albums.size() >= 40) {
+            if (albums.size() >= cap) {
                 break;
             }
             DeezerAlbumDto album = mapAlbum(hit);
@@ -388,14 +552,20 @@ public class DeezerCatalogService {
                 clean(hit.path("release_date").asText("")),
                 Math.max(0, tracks),
                 clean(hit.path("record_type").asText("")),
-                pageLink(hit.path("link").asText(""))
+                pageLink(hit.path("link").asText("")),
+                fanCount(hit)
         );
     }
 
     private List<DeezerArtistDto> mapArtists(JsonNode root) {
+        return mapArtists(root, 30);
+    }
+
+    private List<DeezerArtistDto> mapArtists(JsonNode root, int max) {
         List<DeezerArtistDto> artists = new ArrayList<>();
+        int cap = Math.max(0, max);
         for (JsonNode hit : arrayOf(root)) {
-            if (artists.size() >= 30) {
+            if (artists.size() >= cap) {
                 break;
             }
             DeezerArtistDto artist = mapArtist(hit);
@@ -426,9 +596,14 @@ public class DeezerCatalogService {
     }
 
     private List<DeezerPlaylistDto> mapPlaylists(JsonNode root) {
+        return mapPlaylists(root, 30);
+    }
+
+    private List<DeezerPlaylistDto> mapPlaylists(JsonNode root, int max) {
         List<DeezerPlaylistDto> playlists = new ArrayList<>();
+        int cap = Math.max(0, max);
         for (JsonNode hit : arrayOf(root)) {
-            if (playlists.size() >= 30) {
+            if (playlists.size() >= cap) {
                 break;
             }
             DeezerPlaylistDto playlist = mapPlaylist(hit);
@@ -462,7 +637,8 @@ public class DeezerCatalogService {
                 user,
                 mediaUrl(firstText(hit, "picture_xl", "picture_big", "picture_medium", "picture")),
                 Math.max(0, tracks),
-                pageLink(hit.path("link").asText(""))
+                pageLink(hit.path("link").asText("")),
+                fanCount(hit)
         );
     }
 

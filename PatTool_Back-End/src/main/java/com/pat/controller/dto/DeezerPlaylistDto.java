@@ -6,6 +6,7 @@ public record DeezerPlaylistDto(
         String userName,
         String pictureUrl,
         int trackCount,
-        String link
+        String link,
+        long fanCount
 ) {
 }

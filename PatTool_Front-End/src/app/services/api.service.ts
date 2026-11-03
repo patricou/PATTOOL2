@@ -4577,13 +4577,21 @@ export class ApiService {
     return this._http.get<DeezerGenre[]>(this.API_URL + 'external/deezer/genres');
   }
 
-  getDeezerChart(genreId: number): Observable<DeezerChart> {
-    const params = new HttpParams().set('genre', String(genreId || 0));
+  getDeezerChart(
+    genreId: number,
+    pages: { track: number; album: number; artist: number; playlist: number } = { track: 0, album: 0, artist: 0, playlist: 0 }
+  ): Observable<DeezerChart> {
+    const params = new HttpParams()
+      .set('genre', String(genreId || 0))
+      .set('trackIndex', String(pages.track || 0))
+      .set('albumIndex', String(pages.album || 0))
+      .set('artistIndex', String(pages.artist || 0))
+      .set('playlistIndex', String(pages.playlist || 0));
     return this._http.get<DeezerChart>(this.API_URL + 'external/deezer/chart', { params });
   }
 
-  getDeezerSearch(q: string, type: DeezerSearchType): Observable<DeezerSearch> {
-    const params = new HttpParams().set('q', q).set('type', type);
+  getDeezerSearch(q: string, type: DeezerSearchType, index = 0): Observable<DeezerSearch> {
+    const params = new HttpParams().set('q', q).set('type', type).set('index', String(index || 0));
     return this._http.get<DeezerSearch>(this.API_URL + 'external/deezer/search', { params });
   }
 
@@ -4636,6 +4644,16 @@ export class ApiService {
     return this._http.post<{ links: { id: number; videoId?: string; cached?: boolean }[] }>(
       this.API_URL + 'external/deezer/youtube-links',
       { tracks, search }
+    );
+  }
+
+  /** Stored YouTube ids for Deezer tracks already saved. Does not search YouTube. */
+  getStoredDeezerYoutubeLinks(
+    ids: number[]
+  ): Observable<{ links: { id: number; videoId?: string; cached?: boolean }[] }> {
+    return this._http.post<{ links: { id: number; videoId?: string; cached?: boolean }[] }>(
+      this.API_URL + 'external/deezer/youtube-links/stored',
+      { ids }
     );
   }
 
@@ -7322,6 +7340,8 @@ export interface DeezerTrack {
   durationSec?: number;
   explicit?: boolean;
   link?: string;
+  releaseDate?: string;
+  fanCount?: number;
 }
 
 export interface DeezerAlbum {
@@ -7334,6 +7354,7 @@ export interface DeezerAlbum {
   trackCount?: number;
   recordType?: string;
   link?: string;
+  fanCount?: number;
 }
 
 export interface DeezerArtist {
@@ -7352,6 +7373,7 @@ export interface DeezerPlaylist {
   pictureUrl?: string;
   trackCount?: number;
   link?: string;
+  fanCount?: number;
 }
 
 export interface DeezerGenre {
@@ -7360,12 +7382,22 @@ export interface DeezerGenre {
   pictureUrl?: string;
 }
 
+export interface DeezerSlice {
+  index: number;
+  total: number;
+  hasNext: boolean;
+}
+
 export interface DeezerChart {
   genreId: number;
   tracks: DeezerTrack[];
   albums: DeezerAlbum[];
   artists: DeezerArtist[];
   playlists: DeezerPlaylist[];
+  tracksPage?: DeezerSlice;
+  albumsPage?: DeezerSlice;
+  artistsPage?: DeezerSlice;
+  playlistsPage?: DeezerSlice;
 }
 
 export interface DeezerSearch {
@@ -7375,6 +7407,9 @@ export interface DeezerSearch {
   albums: DeezerAlbum[];
   artists: DeezerArtist[];
   playlists: DeezerPlaylist[];
+  index?: number;
+  total?: number;
+  hasNext?: boolean;
 }
 
 export interface AudioDbArtist {

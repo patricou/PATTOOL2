@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DeezerYoutubeLinkService {
 
     public static final int MAX_TRACKS = 20;
+    public static final int MAX_STORED = 400;
 
     private final DeezerYoutubeLinkRepository repository;
     private final YoutubeProxyService youtubeProxyService;
@@ -38,6 +39,38 @@ public class DeezerYoutubeLinkService {
 
     public long countStoredLinks() {
         return repository.countWithVideo();
+    }
+
+    /** Video ids already stored for these Deezer tracks. Empty misses are omitted. */
+    public DeezerYoutubeLookupResponse stored(List<Long> ids) {
+        List<DeezerYoutubeLookupResponse.Link> links = new ArrayList<>();
+        if (ids == null || ids.isEmpty()) {
+            return new DeezerYoutubeLookupResponse(links);
+        }
+        List<String> keys = new ArrayList<>();
+        for (Long id : ids) {
+            if (id == null || id <= 0) {
+                continue;
+            }
+            keys.add(Long.toString(id));
+            if (keys.size() >= MAX_STORED) {
+                break;
+            }
+        }
+        if (keys.isEmpty()) {
+            return new DeezerYoutubeLookupResponse(links);
+        }
+        for (DeezerYoutubeLink row : repository.findAllById(keys)) {
+            if (row == null || row.getTrackId() <= 0) {
+                continue;
+            }
+            String videoId = row.getVideoId() == null ? "" : row.getVideoId().trim();
+            if (videoId.isEmpty()) {
+                continue;
+            }
+            links.add(new DeezerYoutubeLookupResponse.Link(row.getTrackId(), videoId, true));
+        }
+        return new DeezerYoutubeLookupResponse(links);
     }
 
     public DeezerYoutubeLookupResponse resolve(List<DeezerYoutubeLookupRequest.Track> tracks, boolean search) {

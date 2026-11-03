@@ -8,6 +8,9 @@ public record DeezerSearchDto(
         List<DeezerTrackDto> tracks,
         List<DeezerAlbumDto> albums,
         List<DeezerArtistDto> artists,
-        List<DeezerPlaylistDto> playlists
+        List<DeezerPlaylistDto> playlists,
+        int index,
+        int total,
+        boolean hasNext
 ) {
 }

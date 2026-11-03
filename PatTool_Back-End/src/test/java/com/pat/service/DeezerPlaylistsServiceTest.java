@@ -137,7 +137,7 @@ class DeezerPlaylistsServiceTest {
                 11, "Rick", "Artist", 3, "Album", 4,
                 "javascript:alert(1)",
                 "https://evil.example/preview.mp3",
-                30, false, "https://www.deezer.com/track/11");
+                30, false, "https://www.deezer.com/track/11", null, 0L);
         DeezerUserPlaylistDto playlist = stored("66666666-6666-6666-6666-666666666666", "Safe", raw);
         AppParameter row = new AppParameter();
         row.setParamValue(objectMapper.writeValueAsString(new DeezerUserPlaylistsDto(List.of(playlist))));
@@ -178,6 +178,8 @@ class DeezerPlaylistsServiceTest {
                 "https://cdnt-preview.dzcdn.net/api/1/1/1.mp3",
                 180,
                 false,
-                "https://www.deezer.com/track/" + id);
+                "https://www.deezer.com/track/" + id,
+                null,
+                0L);
     }
 }

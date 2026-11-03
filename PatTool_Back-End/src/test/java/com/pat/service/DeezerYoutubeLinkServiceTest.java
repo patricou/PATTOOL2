@@ -47,6 +47,22 @@ class DeezerYoutubeLinkServiceTest {
     }
 
     @Test
+    void storedLinksReturnTheSavedVideoWithoutCallingYoutube() {
+        DeezerYoutubeLink stored = hit(9L, "Daft Punk Within", "aaaaaaaaaaa");
+        DeezerYoutubeLink empty = hit(8L, "Daft Punk Touch", "");
+        when(repository.findAllById(List.of("9", "8"))).thenReturn(List.of(stored, empty));
+        DeezerYoutubeLinkService service = new DeezerYoutubeLinkService(repository, youtubeProxyService);
+
+        DeezerYoutubeLookupResponse response = service.stored(List.of(9L, 8L, 0L));
+
+        assertEquals(1, response.links().size());
+        assertEquals(9L, response.links().get(0).id());
+        assertEquals("aaaaaaaaaaa", response.links().get(0).videoId());
+        assertTrue(response.links().get(0).cached());
+        verifyNoInteractions(youtubeProxyService);
+    }
+
+    @Test
     void storedHitSkipsYoutube() {
         DeezerYoutubeLink stored = hit(3135556L, "Daft Punk Get Lucky", "ccccccccccc");
         when(repository.findById("3135556")).thenReturn(Optional.of(stored));

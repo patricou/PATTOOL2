@@ -222,7 +222,9 @@ public class DeezerFavoritesService {
                 media(track.previewUrl()),
                 clamp(track.durationSec(), 0, MAX_DURATION_SEC),
                 track.explicit(),
-                page(track.link())
+                page(track.link()),
+                releaseDate(track.releaseDate()),
+                clampFans(track.fanCount())
         );
     }
 
@@ -243,7 +245,8 @@ public class DeezerFavoritesService {
                 releaseDate(album.releaseDate()),
                 clamp(album.trackCount(), 0, MAX_TRACK_COUNT),
                 recordType(album.recordType()),
-                page(album.link())
+                page(album.link()),
+                clampFans(album.fanCount())
         );
     }
 
@@ -255,12 +258,7 @@ public class DeezerFavoritesService {
         if (!StringUtils.hasText(name)) {
             return null;
         }
-        long fans = artist.fanCount();
-        if (fans < 0) {
-            fans = 0;
-        } else if (fans > MAX_FAN_COUNT) {
-            fans = MAX_FAN_COUNT;
-        }
+        long fans = clampFans(artist.fanCount());
         return new DeezerArtistDto(
                 artist.id(),
                 name,
@@ -285,7 +283,8 @@ public class DeezerFavoritesService {
                 trimTo(playlist.userName(), MAX_TEXT),
                 media(playlist.pictureUrl()),
                 clamp(playlist.trackCount(), 0, MAX_TRACK_COUNT),
-                page(playlist.link())
+                page(playlist.link()),
+                clampFans(playlist.fanCount())
         );
     }
 
@@ -325,6 +324,13 @@ public class DeezerFavoritesService {
             return null;
         }
         return value;
+    }
+
+    private static long clampFans(long fans) {
+        if (fans < 0) {
+            return 0L;
+        }
+        return Math.min(fans, MAX_FAN_COUNT);
     }
 
     private static int clamp(int value, int min, int max) {

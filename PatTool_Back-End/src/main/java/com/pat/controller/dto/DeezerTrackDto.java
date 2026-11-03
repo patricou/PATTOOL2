@@ -14,6 +14,13 @@ public record DeezerTrackDto(
         String previewUrl,
         int durationSec,
         boolean explicit,
-        String link
+        String link,
+        String releaseDate,
+        long fanCount
 ) {
+    public DeezerTrackDto withFanCount(long fanCount) {
+        return new DeezerTrackDto(
+                id, title, artistName, artistId, albumTitle, albumId,
+                coverUrl, previewUrl, durationSec, explicit, link, releaseDate, fanCount);
+    }
 }

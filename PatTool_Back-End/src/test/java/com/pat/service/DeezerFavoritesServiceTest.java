@@ -123,7 +123,9 @@ class DeezerFavoritesServiceTest {
                 "https://evil.example/preview.mp3",
                 30,
                 false,
-                "https://www.deezer.com/track/11");
+                "https://www.deezer.com/track/11",
+                "2013-04-19",
+                0L);
         DeezerFavoriteItemDto item = new DeezerFavoriteItemDto();
         item.setKind("TRACK");
         item.setTrack(raw);
@@ -150,7 +152,9 @@ class DeezerFavoritesServiceTest {
                 "https://cdnt-preview.dzcdn.net/api/1/1/1.mp3",
                 180,
                 false,
-                "https://www.deezer.com/track/" + id));
+                "https://www.deezer.com/track/" + id,
+                null,
+                0L));
         return item;
     }
 
@@ -166,7 +170,8 @@ class DeezerFavoritesServiceTest {
                 "2020-01-01",
                 12,
                 "album",
-                "https://www.deezer.com/album/" + id));
+                "https://www.deezer.com/album/" + id,
+                0L));
         return item;
     }
 }

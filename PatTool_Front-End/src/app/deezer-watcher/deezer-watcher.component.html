@@ -223,20 +223,25 @@
 
       <div class="radio-mode-tabs" role="tablist">
         <button type="button" class="radio-mode-tab" [class.active]="listMode === 'browse'" (click)="setListMode('browse')">
+          <ng-container *ngIf="modeHasLive('browse')" [ngTemplateOutlet]="dzLive" [ngTemplateOutletContext]="{ compact: true }"></ng-container>
           <i class="fa fa-bar-chart me-1" aria-hidden="true"></i>
-          {{ 'DEEZER.CHART' | translate }}
+          <span class="dz-mode-label">{{ 'DEEZER.CHART' | translate }}</span>
+          <span class="badge rounded-pill radio-fav-badge" *ngIf="chartCount">{{ chartCount }}</span>
         </button>
         <button type="button" class="radio-mode-tab" [class.active]="listMode === 'favorites'" (click)="setListMode('favorites')">
+          <ng-container *ngIf="modeHasLive('favorites')" [ngTemplateOutlet]="dzLive" [ngTemplateOutletContext]="{ compact: true }"></ng-container>
           <i class="fa fa-star me-1" aria-hidden="true"></i>
           <span class="dz-mode-label">{{ 'RADIO.TAB_FAVORITES' | translate }}</span>
           <span class="badge rounded-pill radio-fav-badge" *ngIf="favoriteCount">{{ favoriteCount }}</span>
         </button>
         <button type="button" class="radio-mode-tab" [class.active]="listMode === 'playlists'" (click)="setListMode('playlists')">
+          <ng-container *ngIf="modeHasLive('playlists')" [ngTemplateOutlet]="dzLive" [ngTemplateOutletContext]="{ compact: true }"></ng-container>
           <i class="fa fa-list me-1" aria-hidden="true"></i>
           <span class="dz-mode-label">{{ 'DEEZER.MY_PLAYLISTS' | translate }}</span>
           <span class="badge rounded-pill radio-fav-badge" *ngIf="playlistCount">{{ playlistCount }}</span>
         </button>
         <button type="button" class="radio-mode-tab" [class.active]="listMode === 'concert'" (click)="setListMode('concert')">
+          <ng-container *ngIf="modeHasLive('concert')" [ngTemplateOutlet]="dzLive" [ngTemplateOutletContext]="{ compact: true }"></ng-container>
           <i class="fa fa-ticket me-1" aria-hidden="true"></i>
           <span class="dz-mode-label">{{ 'DEEZER.CONCERT' | translate }}</span>
           <span class="badge rounded-pill radio-fav-badge" *ngIf="concertCount">{{ concertCount }}</span>
@@ -317,6 +322,8 @@
             type="button"
             (click)="showPlayingAlbum()"
             [disabled]="!current?.albumId"
+            [class.is-lit]="nowBrowse === 'album'"
+            [attr.aria-pressed]="nowBrowse === 'album'"
             [attr.title]="current?.albumTitle || ('DEEZER.NOW_ALBUM' | translate)"
             [attr.aria-label]="'DEEZER.NOW_ALBUM' | translate">
             <i class="fa fa-circle" aria-hidden="true"></i>
@@ -326,6 +333,8 @@
             type="button"
             (click)="showPlayingArtistAlbums()"
             [disabled]="!current?.artistId"
+            [class.is-lit]="nowBrowse === 'artist-albums'"
+            [attr.aria-pressed]="nowBrowse === 'artist-albums'"
             [attr.title]="current?.artistName || ('DEEZER.NOW_ARTIST_ALBUMS' | translate)"
             [attr.aria-label]="'DEEZER.NOW_ARTIST_ALBUMS' | translate">
             <i class="fa fa-user" aria-hidden="true"></i>
@@ -335,6 +344,8 @@
             type="button"
             (click)="openSimilarArtists()"
             [disabled]="!current?.artistId"
+            [class.is-lit]="similarOpen"
+            [attr.aria-pressed]="similarOpen"
             [attr.title]="current?.artistName || ('DEEZER.SIMILAR' | translate)"
             [attr.aria-label]="'DEEZER.SIMILAR' | translate"
             aria-haspopup="dialog">
@@ -346,6 +357,7 @@
             (click)="openAlbumInfo()"
             [disabled]="!current?.albumId"
             [class.is-lit]="albumInfoOpen"
+            [attr.aria-pressed]="albumInfoOpen"
             [attr.title]="current?.albumTitle || ('DEEZER.ALBUM_INFO' | translate)"
             [attr.aria-label]="'DEEZER.ALBUM_INFO' | translate"
             aria-haspopup="dialog">
@@ -471,20 +483,23 @@
 
       <div class="dz-tabs" *ngIf="!nowBrowse && !drilled && listMode !== 'playlists' && listMode !== 'concert'" role="tablist">
         <button type="button" class="dz-tab" [class.is-on]="view === 'track'" (click)="setView('track')">
+          <ng-container *ngIf="viewHasLive('track')" [ngTemplateOutlet]="dzLive" [ngTemplateOutletContext]="{ compact: true }"></ng-container>
           {{ 'DEEZER.TAB_TRACKS' | translate }}
-          <span *ngIf="(listMode === 'favorites' ? favoriteTracks.length : shownTracks.length) as tabCount">{{ tabCount }}</span>
+          <span *ngIf="favoriteTabCount(favoriteTracks.length) as tabCount">{{ tabCount }}</span>
         </button>
         <button type="button" class="dz-tab" [class.is-on]="view === 'album'" (click)="setView('album')">
+          <ng-container *ngIf="viewHasLive('album')" [ngTemplateOutlet]="dzLive" [ngTemplateOutletContext]="{ compact: true }"></ng-container>
           {{ 'DEEZER.TAB_ALBUMS' | translate }}
-          <span *ngIf="(listMode === 'favorites' ? favoriteAlbums.length : shownAlbums.length) as tabCount">{{ tabCount }}</span>
+          <span *ngIf="favoriteTabCount(favoriteAlbums.length) as tabCount">{{ tabCount }}</span>
         </button>
         <button type="button" class="dz-tab" [class.is-on]="view === 'artist'" (click)="setView('artist')">
+          <ng-container *ngIf="viewHasLive('artist')" [ngTemplateOutlet]="dzLive" [ngTemplateOutletContext]="{ compact: true }"></ng-container>
           {{ 'DEEZER.TAB_ARTISTS' | translate }}
-          <span *ngIf="(listMode === 'favorites' ? favoriteArtists.length : shownArtists.length) as tabCount">{{ tabCount }}</span>
+          <span *ngIf="favoriteTabCount(favoriteArtists.length) as tabCount">{{ tabCount }}</span>
         </button>
         <button type="button" class="dz-tab" [class.is-on]="view === 'playlist'" (click)="setView('playlist')">
           {{ 'DEEZER.TAB_PLAYLISTS' | translate }}
-          <span *ngIf="(listMode === 'favorites' ? favoritePlaylists.length : shownPlaylists.length) as tabCount">{{ tabCount }}</span>
+          <span *ngIf="favoriteTabCount(favoritePlaylists.length) as tabCount">{{ tabCount }}</span>
         </button>
       </div>
 
@@ -509,14 +524,17 @@
         </button>
       </form>
 
+      <ng-container *ngIf="!nowBrowse && !loading && listMode === 'playlists' && !activeUserPlaylist" [ngTemplateOutlet]="dzSort"></ng-container>
       <ul class="dz-list" *ngIf="!nowBrowse && !loading && listMode === 'playlists' && !activeUserPlaylist">
         <li
           *ngFor="let playlist of shownUserPlaylists; trackBy: trackByPlaylistId"
           class="dz-row"
+          [class.is-on]="playlistIsCurrent(playlist)"
           [attr.title]="itemTitle(playlist.name)"
           (click)="openSavedPlaylist(playlist)"
           (keydown.enter)="openSavedPlaylist(playlist)"
           tabindex="0">
+          <ng-container *ngIf="playlistIsLive(playlist)" [ngTemplateOutlet]="dzLive"></ng-container>
           <span class="dz-thumb dz-thumb--empty"><i class="fa fa-list" aria-hidden="true"></i></span>
           <span class="dz-row-text" *ngIf="renamingPlaylistId !== playlist.id">
             <span class="dz-row-title">{{ playlist.name }}</span>
@@ -582,19 +600,18 @@
         <li *ngIf="!shownUserPlaylists.length" class="dz-empty">{{ 'DEEZER.PLAYLISTS_EMPTY' | translate }}</li>
       </ul>
 
+      <ng-container *ngIf="!nowBrowse && !loading && listMode === 'concert'" [ngTemplateOutlet]="dzSort"></ng-container>
       <ul class="dz-list" *ngIf="!nowBrowse && !loading && listMode === 'concert'">
         <li
           *ngFor="let item of shownConcert; let i = index; trackBy: trackByConcertId"
           class="dz-row"
-          [class.is-on]="current?.id === item.playId"
+          [class.is-on]="rowIsCurrent(item.playId)"
           [attr.title]="itemTitle(itemTitle(itemTitle(item.track?.artistName, item.track?.albumTitle), item.name), item.track?.title)"
           (click)="playConcert(item, i)"
           (keydown.enter)="playConcert(item, i)"
           tabindex="0">
-          <span class="dz-idx" *ngIf="!(playing && current?.id === item.playId)">{{ i + 1 }}</span>
-          <span class="dz-live" *ngIf="playing && current?.id === item.playId" aria-hidden="true">
-            <span></span><span></span><span></span><span></span>
-          </span>
+          <span class="dz-idx" *ngIf="!rowIsLive(item.playId)">{{ i + 1 }}</span>
+          <ng-container *ngIf="rowIsLive(item.playId)" [ngTemplateOutlet]="dzLive"></ng-container>
           <img
             *ngIf="concertThumb(item)"
             class="dz-thumb"
@@ -664,33 +681,36 @@
         </li>
       </ul>
 
+      <ng-container *ngIf="!loading && showTrackList" [ngTemplateOutlet]="dzSort"></ng-container>
       <ul class="dz-list" *ngIf="!loading && showTrackList">
         <li
           *ngFor="let track of shownTracks; let i = index; trackBy: trackById"
-          class="dz-row"
-          [class.is-on]="current?.id === track.id"
+          class="dz-row dz-row--track"
+          [class.is-on]="rowIsCurrent(track.id)"
           [attr.title]="itemTitle(itemTitle(track.artistName, track.albumTitle), track.title)"
           (click)="playListedTrack(track, i)"
           (keydown.enter)="playListedTrack(track, i)"
           tabindex="0">
-          <span class="dz-idx" *ngIf="!(playing && current?.id === track.id)">{{ i + 1 }}</span>
-          <span class="dz-live" *ngIf="playing && current?.id === track.id" aria-hidden="true">
-            <span></span><span></span><span></span><span></span>
-          </span>
+          <span class="dz-idx" *ngIf="!rowIsLive(track.id)">{{ trackRowNumber(i) }}</span>
+          <ng-container *ngIf="rowIsLive(track.id)" [ngTemplateOutlet]="dzLive"></ng-container>
           <img *ngIf="track.coverUrl" class="dz-thumb" [src]="track.coverUrl" alt="" loading="lazy" (error)="$any($event.target).style.display='none'" />
           <span *ngIf="!track.coverUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-music"></i></span>
-          <span class="dz-row-text dz-track-text">
-            <span class="dz-track-artist">{{ track.artistName }}</span>
-            <span class="dz-track-album" *ngIf="track.albumTitle">{{ track.albumTitle }}</span>
-            <span class="dz-track-title">
-              {{ track.title }}
-              <span class="dz-explicit" *ngIf="track.explicit">E</span>
+          <span class="dz-track-body">
+            <span class="dz-track-line">
+              <span class="dz-track-artist">{{ track.artistName }}</span>
+              <span class="dz-track-sep" *ngIf="track.artistName && track.albumTitle" aria-hidden="true">/</span>
+              <span class="dz-track-album" *ngIf="track.albumTitle">{{ track.albumTitle }}</span>
             </span>
-          </span>
-          <span class="dz-dur">{{ formatTime(track.durationSec) }}</span>
-          <button
-            type="button"
-            class="dz-preview-btn"
+            <span class="dz-track-line">
+              <span class="dz-track-title">
+                {{ track.title }}
+                <span class="dz-explicit" *ngIf="track.explicit">E</span>
+              </span>
+            </span>
+            <span class="dz-track-actions" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="dz-preview-btn"
             [class.is-on]="current?.id === track.id && !clipOnStage"
             (click)="playDeezerTrack(track, i, $event)"
             [attr.title]="'DEEZER.DZ_PLAY' | translate"
@@ -737,7 +757,7 @@
             type="button"
             class="dz-fav"
             [class.is-covered]="ytOffer?.trackId === track.id && !ytNextBusy[track.id]"
-            [class.is-on]="concertHas(track.id)"
+            [class.is-saved]="concertHas(track.id)"
             [disabled]="!!concertBusy"
             (click)="openConcertName(track, $event)"
             [attr.aria-label]="'DEEZER.CONCERT_ADD_TRACK' | translate"
@@ -748,6 +768,7 @@
             type="button"
             class="dz-fav dz-pl-btn"
             [class.is-on]="playlistMenuTrack?.id === track.id"
+            [class.is-saved]="trackInUserPlaylist(track.id)"
             (click)="toggleTrackPlaylistMenu(track, $event)"
             [attr.aria-label]="'DEEZER.PLAYLIST_ADD' | translate"
             [attr.title]="'DEEZER.PLAYLIST_ADD' | translate">
@@ -766,51 +787,30 @@
             type="button"
             class="dz-fav"
             *ngIf="!activeUserPlaylist"
-            [class.is-on]="isFavorite('track', track.id)"
+            [class.is-saved]="trackFavoriteByVideo(track.id)"
             [disabled]="favoriteBusyKey === 'track|' + track.id"
             (click)="toggleTrackFavorite(track, $event)"
             [attr.aria-label]="(isFavorite('track', track.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
             <i class="fa" [class.fa-star]="isFavorite('track', track.id)" [class.fa-star-o]="!isFavorite('track', track.id)"></i>
           </button>
+              <span class="dz-track-facts">
+                <span class="dz-track-meta" *ngIf="yearOf(track.releaseDate) as year">{{ year }}</span>
+                <span class="dz-track-sep" *ngIf="yearOf(track.releaseDate) && formatFans(track.fanCount)" aria-hidden="true">/</span>
+                <span class="dz-track-meta" *ngIf="formatFans(track.fanCount) as fans">{{ 'DEEZER.FANS' | translate:{ count: fans } }}</span>
+                <span class="dz-track-sep" *ngIf="yearOf(track.releaseDate) || formatFans(track.fanCount)" aria-hidden="true">/</span>
+                <span class="dz-track-meta dz-dur">{{ formatTime(track.durationSec) }}</span>
+              </span>
+            </span>
+          </span>
         </li>
         <li *ngIf="!shownTracks.length" class="dz-empty">{{ trackEmptyKey | translate }}</li>
+        <li class="dz-pager-row" *ngIf="showCatalogPager && view === 'track'"><ng-container *ngTemplateOutlet="dzPager"></ng-container></li>
       </ul>
 
-      <div class="dz-similar-sort dz-album-sort" *ngIf="!loading && nowBrowse === 'artist-albums' && nowBrowseAlbums.length">
-        <div class="dz-similar-sort-menu">
-          <button
-            type="button"
-            class="dz-similar-sort-btn"
-            (click)="toggleAlbumSortMenu($event)"
-            [attr.aria-expanded]="albumSortOpen"
-            [attr.aria-label]="'DEEZER.SIMILAR_SORT' | translate">
-            <span>{{ albumSortLabelKey | translate }}</span>
-            <i class="fa" [class.fa-chevron-up]="albumSortOpen" [class.fa-chevron-down]="!albumSortOpen" aria-hidden="true"></i>
-          </button>
-          <div class="dz-similar-sort-list" *ngIf="albumSortOpen" role="listbox" [attr.aria-label]="'DEEZER.SIMILAR_SORT' | translate">
-            <button
-              type="button"
-              role="option"
-              *ngFor="let option of albumSortOptions"
-              [class.is-on]="albumSort === option.id"
-              [attr.aria-selected]="albumSort === option.id"
-              (click)="setAlbumSort(option.id)">
-              {{ option.key | translate }}
-            </button>
-          </div>
-        </div>
-        <button
-          type="button"
-          class="dz-similar-sort-dir"
-          (click)="toggleAlbumSortDir()"
-          [attr.title]="(albumSortDesc ? 'DEEZER.SIMILAR_SORT_DESC' : 'DEEZER.SIMILAR_SORT_ASC') | translate"
-          [attr.aria-label]="(albumSortDesc ? 'DEEZER.SIMILAR_SORT_DESC' : 'DEEZER.SIMILAR_SORT_ASC') | translate">
-          <i class="fa" [ngClass]="albumSortIcon" aria-hidden="true"></i>
-        </button>
-      </div>
-
+      <ng-container *ngIf="!loading && nowBrowse === 'artist-albums'" [ngTemplateOutlet]="dzSort"></ng-container>
       <ul class="dz-list" *ngIf="!loading && nowBrowse === 'artist-albums'">
-        <li *ngFor="let album of sortedArtistAlbums; trackBy: trackById" class="dz-row" [attr.title]="itemTitle(album.title, album.artistName)" (click)="showAlbumTracks(album)" (keydown.enter)="showAlbumTracks(album)" tabindex="0">
+        <li *ngFor="let album of sortedArtistAlbums; trackBy: trackById" class="dz-row" [class.is-on]="albumIsCurrent(album.id)" [attr.title]="itemTitle(album.title, album.artistName)" (click)="showAlbumTracks(album)" (keydown.enter)="showAlbumTracks(album)" tabindex="0">
+          <ng-container *ngIf="albumIsLive(album.id)" [ngTemplateOutlet]="dzLive"></ng-container>
           <img *ngIf="album.coverUrl" class="dz-thumb" [src]="album.coverUrl" alt="" loading="lazy" />
           <span *ngIf="!album.coverUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-circle"></i></span>
           <span class="dz-row-text">
@@ -829,8 +829,10 @@
         <li *ngIf="!nowBrowseAlbums.length" class="dz-empty">{{ 'DEEZER.EMPTY' | translate }}</li>
       </ul>
 
+      <ng-container *ngIf="!nowBrowse && !loading && !drilled && view === 'album' && listMode !== 'playlists' && listMode !== 'concert'" [ngTemplateOutlet]="dzSort"></ng-container>
       <ul class="dz-list" *ngIf="!nowBrowse && !loading && !drilled && view === 'album' && listMode !== 'playlists' && listMode !== 'concert'">
-        <li *ngFor="let album of shownAlbums; trackBy: trackById" class="dz-row" [attr.title]="itemTitle(album.title, album.artistName)" (click)="openAlbum(album)" (keydown.enter)="openAlbum(album)" tabindex="0">
+        <li *ngFor="let album of shownAlbums; trackBy: trackById" class="dz-row" [class.is-on]="albumIsCurrent(album.id)" [attr.title]="itemTitle(album.title, album.artistName)" (click)="openAlbum(album)" (keydown.enter)="openAlbum(album)" tabindex="0">
+          <ng-container *ngIf="albumIsLive(album.id)" [ngTemplateOutlet]="dzLive"></ng-container>
           <img *ngIf="album.coverUrl" class="dz-thumb" [src]="album.coverUrl" alt="" loading="lazy" />
           <span *ngIf="!album.coverUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-circle"></i></span>
           <span class="dz-row-text">
@@ -847,10 +849,13 @@
           <i class="fa fa-chevron-right dz-chevron" aria-hidden="true"></i>
         </li>
         <li *ngIf="!shownAlbums.length" class="dz-empty">{{ (listMode === 'favorites' && !favoriteAlbums.length ? 'DEEZER.FAVORITES_EMPTY' : 'DEEZER.EMPTY') | translate }}</li>
+        <li class="dz-pager-row" *ngIf="showCatalogPager && view === 'album'"><ng-container *ngTemplateOutlet="dzPager"></ng-container></li>
       </ul>
 
+      <ng-container *ngIf="!nowBrowse && !loading && !drilled && view === 'artist' && listMode !== 'playlists' && listMode !== 'concert'" [ngTemplateOutlet]="dzSort"></ng-container>
       <ul class="dz-list" *ngIf="!nowBrowse && !loading && !drilled && view === 'artist' && listMode !== 'playlists' && listMode !== 'concert'">
-        <li *ngFor="let artist of shownArtists; trackBy: trackById" class="dz-row" [attr.title]="itemTitle(artist.name)" (click)="openArtist(artist)" (keydown.enter)="openArtist(artist)" tabindex="0">
+        <li *ngFor="let artist of shownArtists; trackBy: trackById" class="dz-row" [class.is-on]="artistIsCurrent(artist.id)" [attr.title]="itemTitle(artist.name)" (click)="openArtist(artist)" (keydown.enter)="openArtist(artist)" tabindex="0">
+          <ng-container *ngIf="artistIsLive(artist.id)" [ngTemplateOutlet]="dzLive"></ng-container>
           <img *ngIf="artist.pictureUrl" class="dz-thumb dz-thumb--round" [src]="artist.pictureUrl" alt="" loading="lazy" />
           <span *ngIf="!artist.pictureUrl" class="dz-thumb dz-thumb--empty dz-thumb--round"><i class="fa fa-user"></i></span>
           <span class="dz-row-text">
@@ -863,8 +868,10 @@
           <i class="fa fa-chevron-right dz-chevron" aria-hidden="true"></i>
         </li>
         <li *ngIf="!shownArtists.length" class="dz-empty">{{ (listMode === 'favorites' && !favoriteArtists.length ? 'DEEZER.FAVORITES_EMPTY' : 'DEEZER.EMPTY') | translate }}</li>
+        <li class="dz-pager-row" *ngIf="showCatalogPager && view === 'artist'"><ng-container *ngTemplateOutlet="dzPager"></ng-container></li>
       </ul>
 
+      <ng-container *ngIf="!nowBrowse && !loading && !drilled && view === 'playlist' && listMode !== 'playlists' && listMode !== 'concert'" [ngTemplateOutlet]="dzSort"></ng-container>
       <ul class="dz-list" *ngIf="!nowBrowse && !loading && !drilled && view === 'playlist' && listMode !== 'playlists' && listMode !== 'concert'">
         <li *ngFor="let playlist of shownPlaylists; trackBy: trackById" class="dz-row" [attr.title]="itemTitle(playlist.title, playlist.userName)" (click)="openPlaylist(playlist)" (keydown.enter)="openPlaylist(playlist)" tabindex="0">
           <img *ngIf="playlist.pictureUrl" class="dz-thumb" [src]="playlist.pictureUrl" alt="" loading="lazy" />
@@ -882,6 +889,7 @@
           <i class="fa fa-chevron-right dz-chevron" aria-hidden="true"></i>
         </li>
         <li *ngIf="!shownPlaylists.length" class="dz-empty">{{ (listMode === 'favorites' && !favoritePlaylists.length ? 'DEEZER.FAVORITES_EMPTY' : 'DEEZER.EMPTY') | translate }}</li>
+        <li class="dz-pager-row" *ngIf="showCatalogPager && view === 'playlist'"><ng-container *ngTemplateOutlet="dzPager"></ng-container></li>
       </ul>
     </aside>
 
@@ -1164,20 +1172,6 @@
             <button type="button" *ngFor="let artist of related; trackBy: trackById" [attr.title]="itemTitle(artist.name)" (click)="openRelated(artist)">{{ artist.name }}</button>
           </div>
         </div>
-      </div>
-
-      <div class="radio-presets" role="toolbar" [attr.aria-label]="'RADIO.PRESETS' | translate">
-        <button
-          *ngFor="let slot of presets; let i = index"
-          type="button"
-          class="radio-preset"
-          [class.is-active]="!!slot && current?.id === slot.id"
-          [class.is-empty]="!slot"
-          (click)="playPreset(slot, i, $event)"
-          [attr.title]="slot ? slot.title : ('RADIO.PRESET_EMPTY' | translate:{ n: i + 1 })">
-          <span class="radio-preset-num">{{ i + 1 }}</span>
-          <span class="radio-preset-label">{{ slot ? shortPresetName(slot) : '—' }}</span>
-        </button>
       </div>
 
       <audio
@@ -1494,3 +1488,56 @@
 </div>
 
 <app-videoshow-modal #videoshowModalComponent [headerColor]="videoshowAccent" (closed)="onVideoshowClosed($event)"></app-videoshow-modal>
+
+<ng-template #dzPager>
+  <nav class="dz-pager" [attr.aria-label]="'DEEZER.PAGE_NEXT' | translate">
+    <button type="button" (click)="pageCatalog(-1)" [disabled]="loading || catalogAtStart">
+      {{ 'DEEZER.PAGE_PREV' | translate }}
+    </button>
+    <span class="dz-pager-range">{{ catalogPageShown }}/{{ catalogReached }}</span>
+    <button type="button" (click)="pageCatalog(1)" [disabled]="loading || !catalogHasNext">
+      {{ 'DEEZER.PAGE_NEXT' | translate }}
+    </button>
+  </nav>
+</ng-template>
+
+<ng-template #dzSort>
+  <div class="dz-similar-sort dz-album-sort" *ngIf="listSortCount">
+    <div class="dz-similar-sort-menu">
+      <button
+        type="button"
+        class="dz-similar-sort-btn"
+        (click)="toggleListSort($event)"
+        [attr.aria-expanded]="listSortOpen"
+        [attr.aria-label]="'DEEZER.SIMILAR_SORT' | translate">
+        <span>{{ listSortLabelKey | translate }}</span>
+        <i class="fa" [class.fa-chevron-up]="listSortOpen" [class.fa-chevron-down]="!listSortOpen" aria-hidden="true"></i>
+      </button>
+      <div class="dz-similar-sort-list" *ngIf="listSortOpen" role="listbox" [attr.aria-label]="'DEEZER.SIMILAR_SORT' | translate">
+        <button
+          type="button"
+          role="option"
+          *ngFor="let option of listSortOptions"
+          [class.is-on]="listSortKey === option.id"
+          [attr.aria-selected]="listSortKey === option.id"
+          (click)="setListSort(option.id)">
+          {{ option.key | translate }}
+        </button>
+      </div>
+    </div>
+    <button
+      type="button"
+      class="dz-similar-sort-dir"
+      (click)="toggleListSortDir()"
+      [attr.title]="(listSortDesc ? 'DEEZER.SIMILAR_SORT_DESC' : 'DEEZER.SIMILAR_SORT_ASC') | translate"
+      [attr.aria-label]="(listSortDesc ? 'DEEZER.SIMILAR_SORT_DESC' : 'DEEZER.SIMILAR_SORT_ASC') | translate">
+      <i class="fa" [ngClass]="listSortIcon" aria-hidden="true"></i>
+    </button>
+  </div>
+</ng-template>
+
+<ng-template #dzLive let-compact="compact">
+  <span class="dz-live" [class.dz-live--tab]="!!compact" aria-hidden="true">
+    <span></span><span></span><span></span><span></span>
+  </span>
+</ng-template>

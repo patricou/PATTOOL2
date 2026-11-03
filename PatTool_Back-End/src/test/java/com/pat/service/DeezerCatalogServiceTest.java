@@ -2,6 +2,7 @@ package com.pat.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pat.controller.dto.DeezerAlbumDto;
+import com.pat.controller.dto.DeezerSliceDto;
 import com.pat.controller.dto.DeezerTrackDto;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +20,7 @@ class DeezerCatalogServiceTest {
     void mapsTrackCoverPreviewAndLink() throws Exception {
         String json = """
                 {"id":3135556,"title":"Get Lucky","duration":248,"explicit_lyrics":false,
+                 "release_date":"2013-04-19",
                  "preview":"https://cdnt-preview.dzcdn.net/api/1/1/0/0/0/0/0/0/0/0/0/0/0/0/0/0.mp3",
                  "link":"https://www.deezer.com/track/3135556",
                  "artist":{"id":27,"name":"Daft Punk"},
@@ -35,6 +37,24 @@ class DeezerCatalogServiceTest {
         assertTrue(track.link().contains("deezer.com/track/"));
         assertFalse(track.explicit());
         assertEquals(248, track.durationSec());
+        assertEquals("2013-04-19", track.releaseDate());
+        assertEquals(0L, track.fanCount());
+    }
+
+    @Test
+    void mapsArtistFanCountOntoTrack() throws Exception {
+        String json = """
+                {"id":5,"title":"One","duration":90,
+                 "artist":{"id":27,"name":"Daft Punk","nb_fan":4200},
+                 "album":{"id":8,"title":"Album"}}
+                """;
+        DeezerTrackDto track = DeezerCatalogService.mapTrack(mapper.readTree(json), null);
+        assertEquals(4200L, track.fanCount());
+        DeezerTrackDto filled = DeezerCatalogService.applyFans(List.of(track), java.util.Map.of(99L, 7L)).get(0);
+        assertEquals(4200L, filled.fanCount());
+        DeezerTrackDto replaced = DeezerCatalogService.applyFans(
+                List.of(track.withFanCount(0)), java.util.Map.of(27L, 9000L)).get(0);
+        assertEquals(9000L, replaced.fanCount());
     }
 
     @Test
@@ -61,12 +81,13 @@ class DeezerCatalogServiceTest {
         DeezerAlbumDto album = new DeezerAlbumDto(
                 6575789L, "Random Access Memories", "Daft Punk", 27L,
                 "https://e-cdns-images.dzcdn.net/images/cover/abc/500x500.jpg",
-                "2013-05-17", 13, "album", "https://www.deezer.com/album/6575789");
+                "2013-05-17", 13, "album", "https://www.deezer.com/album/6575789", 0L);
         DeezerTrackDto track = DeezerCatalogService.mapTrack(mapper.readTree(json), album);
         assertEquals("Daft Punk", track.artistName());
         assertEquals("Random Access Memories", track.albumTitle());
         assertEquals(6575789L, track.albumId());
         assertTrue(track.coverUrl().contains("dzcdn.net"));
+        assertEquals("2013-05-17", track.releaseDate());
     }
 
     @Test
@@ -83,6 +104,24 @@ class DeezerCatalogServiceTest {
         assertEquals("Parlophone", DeezerCatalogService.albumLabel(root));
         assertEquals(List.of("Dance", "Pop"), DeezerCatalogService.albumGenres(root));
         assertEquals("Discovery", DeezerCatalogService.mapAlbum(root).title());
+        assertEquals(123456L, DeezerCatalogService.mapAlbum(root).fanCount());
+    }
+
+    @Test
+    void pageOfOneHundredKnowsWhenAnotherPageExists() throws Exception {
+        var more = mapper.readTree("{\"total\":842,\"next\":\"https://api.deezer.com/search?index=100\"}");
+        DeezerSliceDto first = DeezerCatalogService.sliceOf(more, 0, 100);
+        assertEquals(842, first.total());
+        assertTrue(first.hasNext());
+
+        var last = mapper.readTree("{\"total\":842,\"next\":\"\"}");
+        assertFalse(DeezerCatalogService.sliceOf(last, 800, 42).hasNext());
+
+        var chart = mapper.readTree("{\"total\":100}");
+        assertTrue(DeezerCatalogService.sliceOf(chart, 0, 100).hasNext());
+        assertFalse(DeezerCatalogService.sliceOf(chart, 0, 0).hasNext());
+        assertEquals(-1, DeezerCatalogService.pageIndex(50));
+        assertEquals(100, DeezerCatalogService.pageIndex(100));
     }
 
     @Test

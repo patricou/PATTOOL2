@@ -9,6 +9,7 @@ public record DeezerAlbumDto(
         String releaseDate,
         int trackCount,
         String recordType,
-        String link
+        String link,
+        long fanCount
 ) {
 }

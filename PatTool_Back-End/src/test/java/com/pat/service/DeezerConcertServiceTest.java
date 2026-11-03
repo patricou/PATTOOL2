@@ -131,6 +131,6 @@ class DeezerConcertServiceTest {
     }
 
     private static DeezerTrackDto song(long id, String title) {
-        return new DeezerTrackDto(id, title, "Artist", 3L, "Album", 4L, null, null, 180, false, null);
+        return new DeezerTrackDto(id, title, "Artist", 3L, "Album", 4L, null, null, 180, false, null, null, 0L);
     }
 }

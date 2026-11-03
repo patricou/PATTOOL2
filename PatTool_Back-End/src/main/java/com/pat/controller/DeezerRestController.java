@@ -9,6 +9,7 @@ import com.pat.controller.dto.DeezerPlaylistWriteRequest;
 import com.pat.controller.dto.DeezerTrackDto;
 import com.pat.controller.dto.DeezerUserPlaylistsDto;
 import com.pat.controller.dto.DeezerYoutubeLookupRequest;
+import com.pat.controller.dto.DeezerYoutubeStoredRequest;
 import com.pat.service.DeezerCatalogService;
 import com.pat.service.DeezerConcertService;
 import com.pat.service.DeezerFavoritesService;
@@ -51,6 +52,7 @@ import java.util.function.Supplier;
  *   <li>{@code GET /api/external/deezer/playlist/{id}}</li>
  *   <li>{@code GET /api/external/deezer/youtube-links/count}</li>
  *   <li>{@code POST /api/external/deezer/youtube-links}</li>
+ *   <li>{@code POST /api/external/deezer/youtube-links/stored}</li>
  *   <li>{@code GET/PUT /api/external/deezer/favorites}</li>
  *   <li>{@code PUT/DELETE /api/external/deezer/favorites/item}</li>
  *   <li>{@code GET/POST /api/external/deezer/user-playlists}</li>
@@ -96,17 +98,29 @@ public class DeezerRestController {
     }
 
     @GetMapping("/chart")
-    public ResponseEntity<?> chart(@RequestParam(defaultValue = "0") long genre) {
+    public ResponseEntity<?> chart(
+            @RequestParam(defaultValue = "0") long genre,
+            @RequestParam(defaultValue = "0") int trackIndex,
+            @RequestParam(defaultValue = "0") int albumIndex,
+            @RequestParam(defaultValue = "0") int artistIndex,
+            @RequestParam(defaultValue = "0") int playlistIndex) {
         if (genre < 0 || genre > 1_000_000L) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid genre"));
         }
-        return ok(() -> deezerCatalogService.chart(genre), Duration.ofMinutes(10));
+        if (DeezerCatalogService.pageIndex(trackIndex) < 0
+                || DeezerCatalogService.pageIndex(albumIndex) < 0
+                || DeezerCatalogService.pageIndex(artistIndex) < 0
+                || DeezerCatalogService.pageIndex(playlistIndex) < 0) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid index"));
+        }
+        return ok(() -> deezerCatalogService.chart(genre, trackIndex, albumIndex, artistIndex, playlistIndex), Duration.ofMinutes(10));
     }
 
     @GetMapping("/search")
     public ResponseEntity<?> search(
             @RequestParam(defaultValue = "") String q,
-            @RequestParam(defaultValue = "track") String type) {
+            @RequestParam(defaultValue = "track") String type,
+            @RequestParam(defaultValue = "0") int index) {
         String query = q == null ? "" : q.trim();
         if (query.length() < 2 || query.length() > 120) {
             return ResponseEntity.badRequest().body(Map.of("error", "Query must be 2 to 120 characters"));
@@ -115,7 +129,10 @@ public class DeezerRestController {
         if (!SEARCH_TYPES.contains(kind)) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid type"));
         }
-        return ok(() -> deezerCatalogService.search(query, kind), Duration.ofMinutes(2));
+        if (DeezerCatalogService.pageIndex(index) < 0) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid index"));
+        }
+        return ok(() -> deezerCatalogService.search(query, kind, index), Duration.ofMinutes(2));
     }
 
     @GetMapping("/track/{id}")
@@ -174,6 +191,17 @@ public class DeezerRestController {
             return ResponseEntity.badRequest().body(Map.of("error", "Too many tracks"));
         }
         return ResponseEntity.ok(deezerYoutubeLinkService.resolve(body.tracks(), body.search()));
+    }
+
+    @PostMapping("/youtube-links/stored")
+    public ResponseEntity<?> storedYoutubeLinks(@RequestBody DeezerYoutubeStoredRequest body) {
+        if (body == null || body.ids() == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Missing ids"));
+        }
+        if (body.ids().size() > DeezerYoutubeLinkService.MAX_STORED) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Too many tracks"));
+        }
+        return ResponseEntity.ok(deezerYoutubeLinkService.stored(body.ids()));
     }
 
     @GetMapping("/favorites")
