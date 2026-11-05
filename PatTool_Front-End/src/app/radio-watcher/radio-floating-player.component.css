@@ -116,6 +116,13 @@
   color: #fff;
 }
 
+.radio-float-btn .radio-deezer-mark {
+  width: 0.95rem;
+  height: 0.95rem;
+  display: block;
+  flex: 0 0 auto;
+}
+
 .radio-float-btn--close:hover {
   background: rgba(220, 53, 69, 0.35);
   color: #fff;

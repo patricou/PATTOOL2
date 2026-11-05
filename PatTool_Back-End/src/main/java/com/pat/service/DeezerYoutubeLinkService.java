@@ -25,6 +25,8 @@ public class DeezerYoutubeLinkService {
 
     public static final int MAX_TRACKS = 20;
     public static final int MAX_STORED = 400;
+    /** One search page. Later clicks walk this list instead of calling YouTube again. */
+    static final int SEARCH_RESULTS = 10;
 
     private final DeezerYoutubeLinkRepository repository;
     private final YoutubeProxyService youtubeProxyService;
@@ -68,7 +70,7 @@ public class DeezerYoutubeLinkService {
             if (videoId.isEmpty()) {
                 continue;
             }
-            links.add(new DeezerYoutubeLookupResponse.Link(row.getTrackId(), videoId, true));
+            links.add(new DeezerYoutubeLookupResponse.Link(row.getTrackId(), videoId, true, idsOf(row)));
         }
         return new DeezerYoutubeLookupResponse(links);
     }
@@ -121,33 +123,45 @@ public class DeezerYoutubeLinkService {
             if (!commit.matches("^[a-zA-Z0-9_-]{11}$")) {
                 return null;
             }
-            return store(track, stored, key, query, commit, true);
+            return store(track, stored, key, query, commit, idsOf(stored), true);
         }
-        if (skipVideoId(track).isEmpty() && fresh(stored, query)) {
+        String skip = skipVideoId(track);
+        List<String> known = fresh(stored, query) ? idsOf(stored) : List.of();
+        if (!skip.isEmpty()) {
+            String next = nextCandidate(known, skip);
+            if (!next.isEmpty()) {
+                return new DeezerYoutubeLookupResponse.Link(track.id(), next, true, known);
+            }
+        } else if (fresh(stored, query)) {
             return new DeezerYoutubeLookupResponse.Link(
                     track.id(),
                     stored.getVideoId() == null ? "" : stored.getVideoId(),
-                    true);
+                    true,
+                    known);
         }
         if (!search || youtubeProxyService == null || !youtubeProxyService.isConfigured()) {
             return null;
         }
-        YoutubeSearchPageDto page = youtubeProxyService.search(query, "video", "FR", "fr", null, null, 5, null, null, false);
+        YoutubeSearchPageDto page = youtubeProxyService.search(
+                query, "video", "FR", "fr", null, null, SEARCH_RESULTS, null, null, false);
         if (page == null || page.error() != null) {
             return null;
         }
-        String skip = skipVideoId(track);
+        List<String> found = candidateIds(page.items());
         String videoId = pickVideoId(page.items(), track.title(), skip);
         if (!skip.isEmpty()) {
             if (videoId.isEmpty() || videoId.equals(skip)) {
                 if (stored != null && stored.getVideoId() != null && !stored.getVideoId().isBlank()) {
-                    return new DeezerYoutubeLookupResponse.Link(track.id(), stored.getVideoId(), true);
+                    List<String> kept = found.isEmpty() ? idsOf(stored) : found;
+                    rememberCandidates(track, stored, key, query, kept);
+                    return new DeezerYoutubeLookupResponse.Link(track.id(), stored.getVideoId(), true, kept);
                 }
                 return null;
             }
-            return new DeezerYoutubeLookupResponse.Link(track.id(), videoId, false);
+            rememberCandidates(track, stored, key, query, found);
+            return new DeezerYoutubeLookupResponse.Link(track.id(), videoId, false, found);
         }
-        return store(track, stored, key, query, videoId, false);
+        return store(track, stored, key, query, videoId, found, false);
     }
 
     static boolean fresh(DeezerYoutubeLink stored, String query) {
@@ -220,21 +234,102 @@ public class DeezerYoutubeLinkService {
         return videos.get(0).id();
     }
 
+    /** The following id in a result list already fetched for this track. Empty when the list cannot answer. */
+    static String nextCandidate(List<String> ids, String skipVideoId) {
+        if (ids == null || ids.size() < 2) {
+            return "";
+        }
+        String skip = skipVideoId == null ? "" : skipVideoId.trim();
+        if (skip.isEmpty()) {
+            return "";
+        }
+        int at = ids.indexOf(skip);
+        if (at >= 0) {
+            String next = ids.get((at + 1) % ids.size());
+            return skip.equals(next) ? "" : next;
+        }
+        for (String id : ids) {
+            if (!skip.equals(id)) {
+                return id;
+            }
+        }
+        return "";
+    }
+
+    static List<String> candidateIds(List<YoutubeItemDto> items) {
+        List<String> ids = new ArrayList<>();
+        if (items == null) {
+            return ids;
+        }
+        for (YoutubeItemDto item : items) {
+            if (item == null || item.id() == null || !item.id().matches("^[a-zA-Z0-9_-]{11}$")) {
+                continue;
+            }
+            String kind = item.kind() == null ? "" : item.kind();
+            if ("channel".equals(kind) || "playlist".equals(kind)) {
+                continue;
+            }
+            if (!ids.contains(item.id())) {
+                ids.add(item.id());
+            }
+            if (ids.size() >= SEARCH_RESULTS) {
+                break;
+            }
+        }
+        return ids;
+    }
+
     private DeezerYoutubeLookupResponse.Link store(
             DeezerYoutubeLookupRequest.Track track,
             DeezerYoutubeLink stored,
             String key,
             String query,
             String videoId,
+            List<String> candidates,
             boolean cached) {
         DeezerYoutubeLink row = stored == null ? new DeezerYoutubeLink() : stored;
         row.setId(key);
         row.setTrackId(track.id());
         row.setVideoId(videoId);
+        row.setVideoIds(candidates == null ? List.of() : candidates);
         row.setQuery(query);
         row.setUpdatedAt(Instant.now());
         repository.save(row);
-        return new DeezerYoutubeLookupResponse.Link(track.id(), videoId, cached);
+        return new DeezerYoutubeLookupResponse.Link(track.id(), videoId, cached, idsOf(row));
+    }
+
+    /** Keeps the saved clip and writes the result list, so the next click does not search again. */
+    private void rememberCandidates(
+            DeezerYoutubeLookupRequest.Track track,
+            DeezerYoutubeLink stored,
+            String key,
+            String query,
+            List<String> candidates) {
+        if (stored == null || candidates == null || candidates.isEmpty()) {
+            return;
+        }
+        stored.setId(key);
+        stored.setTrackId(track.id());
+        stored.setQuery(query);
+        stored.setVideoIds(candidates);
+        stored.setUpdatedAt(Instant.now());
+        repository.save(stored);
+    }
+
+    private static List<String> idsOf(DeezerYoutubeLink stored) {
+        if (stored == null || stored.getVideoIds() == null) {
+            return List.of();
+        }
+        List<String> ids = new ArrayList<>();
+        for (String id : stored.getVideoIds()) {
+            if (id != null && id.matches("^[a-zA-Z0-9_-]{11}$") && !ids.contains(id)) {
+                ids.add(id);
+            }
+            if (ids.size() >= SEARCH_RESULTS) {
+                break;
+            }
+        }
+        return ids;
     }
 
     private static String skipVideoId(DeezerYoutubeLookupRequest.Track track) {

@@ -5,6 +5,8 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * YouTube video chosen for a Deezer track. Shared across sessions so the
@@ -21,6 +23,9 @@ public class DeezerYoutubeLink {
 
     /** Empty when a search ran and no usable video was found. */
     private String videoId = "";
+
+    /** Other clips from the same search, in result order. The chosen id stays {@link #videoId}. */
+    private List<String> videoIds = new ArrayList<>();
 
     private String query = "";
 
@@ -48,6 +53,14 @@ public class DeezerYoutubeLink {
 
     public void setVideoId(String videoId) {
         this.videoId = videoId;
+    }
+
+    public List<String> getVideoIds() {
+        return videoIds;
+    }
+
+    public void setVideoIds(List<String> videoIds) {
+        this.videoIds = videoIds == null ? new ArrayList<>() : new ArrayList<>(videoIds);
     }
 
     public String getQuery() {

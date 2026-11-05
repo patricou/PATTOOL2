@@ -2,7 +2,7 @@ import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostBinding, H
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { of, Subject, Subscription } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
@@ -326,11 +326,16 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   youtubeEmbed: SafeResourceUrl | null = null;
   youtubeTitle = '';
   ytLinks: Record<number, string> = {};
+  /** Result list for a track, so the next YouTube click does not search again. */
+  private readonly ytChoices = new Map<number, string[]>();
   ytFromCache: Record<number, boolean> = {};
   ytMiss: Record<number, boolean> = {};
   ytPending: Record<number, boolean> = {};
   /** Spinner on the pastille while the next YouTube result is loading. */
   ytNextBusy: Record<number, boolean> = {};
+  /** Spinner kept visible on a click that already has its clip, so the button still turns. */
+  private ytSpin: Record<number, boolean> = {};
+  private readonly ytSpinGen = new Map<number, number>();
   /** Candidate video, not saved until the green control is used. */
   ytOffer: { trackId: number; videoId: string; savedId: string } | null = null;
   loading = false;
@@ -443,6 +448,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     private hostRef: ElementRef<HTMLElement>,
     private equalizer: YoutubeEqualizerService,
     private router: Router,
+    private route: ActivatedRoute,
     private translate: TranslateService,
     private sanitizer: DomSanitizer,
     private keycloak: KeycloakService,
@@ -478,7 +484,18 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       takeUntil(this.destroy$)
     ).subscribe((q) => this.runQuery(q));
     this.loadGenres();
-    this.loadChart();
+    const params = this.route.snapshot.queryParamMap;
+    const incomingQuery = (params.get('q') || '').trim();
+    const incomingView = params.get('view');
+    if (incomingView === 'track' || incomingView === 'album' || incomingView === 'artist' || incomingView === 'playlist') {
+      this.view = incomingView;
+    }
+    if (incomingQuery.length >= 2) {
+      this.query = incomingQuery;
+      this.loadSearch(incomingQuery);
+    } else {
+      this.loadChart();
+    }
     this.setupLandscapeFullscreenWatchers();
     this.syncLandscapeFullscreen();
     window.addEventListener('patradioscreen', this.onScreenPower);
@@ -1549,23 +1566,52 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (this.ytLinks[track.id]) {
       const onThisVideo = this.playing && this.current?.id === track.id && this.clipOnStage;
       if (onThisVideo) {
-        const skip = this.ytOffer?.trackId === track.id ? this.ytOffer.videoId : this.ytLinks[track.id];
-        this.lookupNextYoutubeLink(track, index, skip);
+        const savedId = (this.ytLinks[track.id] || '').trim();
+        const skip = this.ytOffer?.trackId === track.id ? this.ytOffer.videoId : savedId;
+        if (this.playNextYoutubeChoice(track, index, skip, savedId)) {
+          this.pulseYoutubeButton(track.id);
+        } else {
+          this.lookupNextYoutubeLink(track, index, skip);
+        }
         return;
       }
       const offered = this.ytOffer?.trackId === track.id;
       if (offered) {
         this.ytOffer = null;
-        this.youtubeEmbed = null;
         this.current = null;
       } else if (this.current?.id === track.id && this.clipOnStage) {
         this.togglePlay();
         return;
       }
+      this.pulseYoutubeButton(track.id);
       this.playYoutubeTrack(track, index);
       return;
     }
     this.lookupYoutubeLink(track, index);
+  }
+
+  /** True while this title's YouTube button should show the spinning icon. */
+  youtubeButtonBusy(id: number): boolean {
+    return !!this.ytPending[id] || !!this.ytNextBusy[id] || !!this.ytSpin[id];
+  }
+
+  /**
+   * Short spin for a click that needs no search (clip already known). A real search shows the
+   * spinner through ytPending / ytNextBusy and stops as soon as the answer arrives.
+   */
+  private pulseYoutubeButton(id: number): void {
+    const gen = (this.ytSpinGen.get(id) || 0) + 1;
+    this.ytSpinGen.set(id, gen);
+    this.ytSpin = { ...this.ytSpin, [id]: true };
+    setTimeout(() => {
+      if (this.ytSpinGen.get(id) !== gen || !this.ytSpin[id]) {
+        return;
+      }
+      const next = { ...this.ytSpin };
+      delete next[id];
+      this.ytSpin = next;
+      this.cdr.markForCheck();
+    }, 350);
   }
 
   ytIconLabel(track: DeezerTrack): string {
@@ -5090,6 +5136,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
           return;
         }
         const id = (link.videoId || '').trim() || null;
+        this.rememberYoutubeChoices(track.id, link.videoIds);
         this.rememberYoutube(track.id, id);
         this.applyYoutubeHit(track, id, token);
         this.prefetchNextYoutube();
@@ -5190,6 +5237,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       next: (page) => {
         const link = (page?.links || []).find((item) => item.id === next.id);
         if (link) {
+          this.rememberYoutubeChoices(next.id, link.videoIds);
           this.rememberYoutube(next.id, (link.videoId || '').trim() || null);
         }
       },
@@ -5199,6 +5247,38 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   private lookupYoutubeLink(track: DeezerTrack, index: number): void {
     this.fetchYoutubeLink(track, index, '');
+  }
+
+  /** Plays the next result already in hand. The saved link changes only if the green control is used. */
+  private playNextYoutubeChoice(track: DeezerTrack, index: number, skip: string, savedId: string): boolean {
+    const nextId = this.nextYoutubeChoice(this.ytChoices.get(track.id) || [], skip);
+    if (!nextId) {
+      return false;
+    }
+    const kept = (savedId || '').trim();
+    this.ytOffer = !kept || nextId === kept ? null : { trackId: track.id, videoId: nextId, savedId: kept };
+    this.current = null;
+    this.playYoutubeTrack(track, index);
+    return true;
+  }
+
+  private nextYoutubeChoice(choices: string[], skip: string): string {
+    const ids: string[] = [];
+    for (const id of choices) {
+      const videoId = (id || '').trim();
+      if (/^[a-zA-Z0-9_-]{11}$/.test(videoId) && !ids.includes(videoId)) {
+        ids.push(videoId);
+      }
+    }
+    if (ids.length < 2 || !skip) {
+      return '';
+    }
+    const at = ids.indexOf(skip);
+    if (at >= 0) {
+      const next = ids[(at + 1) % ids.length];
+      return next === skip ? '' : next;
+    }
+    return ids.find((id) => id !== skip) || '';
   }
 
   /** Plays the next search result. The saved link changes only if the green control is used. */
@@ -5249,7 +5329,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       return;
     }
     const at = index >= 0 ? index : Math.max(0, this.queue.findIndex((item) => item.id === track.id));
-    this.youtubeEmbed = null;
     this.current = null;
     this.playYoutubeTrack(track, at);
   }
@@ -5280,6 +5359,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
           return;
         }
         const videoId = (link.videoId || '').trim() || null;
+        this.rememberYoutubeChoices(track.id, link.videoIds);
         if (skipVideoId) {
           if (!videoId || videoId === skipVideoId) {
             return;
@@ -5289,7 +5369,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
             videoId,
             savedId: this.ytLinks[track.id] || skipVideoId
           };
-          this.youtubeEmbed = null;
           this.current = null;
           this.playYoutubeTrack(track, index);
           return;
@@ -5345,8 +5424,22 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       delete cached[id];
       this.ytFromCache = cached;
       this.ytMiss = { ...this.ytMiss, [id]: true };
+      this.ytChoices.delete(id);
     }
     this.rebuildMembershipVideos();
+  }
+
+  private rememberYoutubeChoices(id: number, videoIds: string[] | undefined): void {
+    const ids: string[] = [];
+    for (const raw of videoIds || []) {
+      const videoId = (raw || '').trim();
+      if (/^[a-zA-Z0-9_-]{11}$/.test(videoId) && !ids.includes(videoId)) {
+        ids.push(videoId);
+      }
+    }
+    if (ids.length > 1) {
+      this.ytChoices.set(id, ids);
+    }
   }
 
   private syncYoutubeButtons(): void {
@@ -5393,8 +5486,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     });
   }
 
-  private applyYoutubeLinks(links: { id: number; videoId?: string; cached?: boolean }[]): void {
+  private applyYoutubeLinks(links: { id: number; videoId?: string; cached?: boolean; videoIds?: string[] }[]): void {
     for (const link of links) {
+      this.rememberYoutubeChoices(link.id, link.videoIds);
       this.rememberYoutube(link.id, (link.videoId || '').trim() || null);
     }
   }
@@ -5905,6 +5999,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         for (const link of page?.links || []) {
           const videoId = (link.videoId || '').trim();
           if (videoId) {
+            this.rememberYoutubeChoices(link.id, link.videoIds);
             this.rememberYoutube(link.id, videoId);
           }
         }

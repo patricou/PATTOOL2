@@ -2458,6 +2458,13 @@
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
+.radio-deezer-mark {
+  width: 1.05rem;
+  height: 1.05rem;
+  display: block;
+  flex: 0 0 auto;
+}
+
 .radio-now-fav {
   flex: 0 0 auto;
 }
@@ -2722,6 +2729,11 @@
 
   .radio-now-actions .radio-now-action .fa {
     font-size: 0.82rem;
+  }
+
+  .radio-now-actions .radio-deezer-mark {
+    width: 0.95rem;
+    height: 0.95rem;
   }
 
   .radio-keep-alive {

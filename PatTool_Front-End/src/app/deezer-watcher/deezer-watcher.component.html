@@ -722,16 +722,15 @@
               type="button"
               class="dz-yt-btn"
               [class.is-miss]="ytMiss[track.id]"
-              [class.is-busy]="ytPending[track.id] || ytNextBusy[track.id]"
+              [class.is-busy]="youtubeButtonBusy(track.id)"
               (click)="onYoutubeIcon(track, i, $event)"
               [attr.title]="ytIconLabel(track)"
               [attr.aria-label]="ytIconLabel(track)">
               <span class="dz-yt-ico">
-                <i class="fa fa-spinner fa-spin" *ngIf="ytPending[track.id]" aria-hidden="true"></i>
-                <i class="fa fa-youtube" *ngIf="!ytPending[track.id]" aria-hidden="true"></i>
-                <span class="dz-yt-dot dz-yt-dot--spin" *ngIf="ytNextBusy[track.id]" aria-hidden="true"></span>
-                <span class="dz-yt-dot" *ngIf="ytFromCache[track.id] && !ytPending[track.id] && !ytNextBusy[track.id] && ytOffer?.trackId !== track.id" aria-hidden="true"></span>
-                <span class="dz-yt-dot dz-yt-dot--miss" *ngIf="ytMiss[track.id] && !ytNextBusy[track.id]" aria-hidden="true"></span>
+                <i class="fa fa-spinner fa-spin dz-yt-spinner" *ngIf="youtubeButtonBusy(track.id)" aria-hidden="true"></i>
+                <i class="fa fa-youtube" *ngIf="!youtubeButtonBusy(track.id)" aria-hidden="true"></i>
+                <span class="dz-yt-dot" *ngIf="ytFromCache[track.id] && !youtubeButtonBusy(track.id) && ytOffer?.trackId !== track.id" aria-hidden="true"></span>
+                <span class="dz-yt-dot dz-yt-dot--miss" *ngIf="ytMiss[track.id] && !youtubeButtonBusy(track.id)" aria-hidden="true"></span>
               </span>
             </button>
             <span class="dz-yt-pick" *ngIf="ytOffer?.trackId === track.id && !ytNextBusy[track.id]">
@@ -1090,12 +1089,13 @@
                     class="dz-yt-logo"
                     [class.has-offer]="ytOffer?.trackId === current.id && !ytNextBusy[current.id]"
                     *ngIf="clipOnStage"
-                    [attr.title]="ytNextBusy[current.id] ? ('DEEZER.YT_SEARCHING' | translate) : (ytOffer?.trackId === current.id ? ('DEEZER.YT_NEXT' | translate) : (ytFromCache[current.id] ? ('DEEZER.YT_CACHED_HINT' | translate) : null))">
+                    [attr.title]="youtubeButtonBusy(current.id) ? ('DEEZER.YT_SEARCHING' | translate) : (ytOffer?.trackId === current.id ? ('DEEZER.YT_NEXT' | translate) : (ytFromCache[current.id] ? ('DEEZER.YT_CACHED_HINT' | translate) : null))">
+                    <i class="fa fa-spinner fa-spin dz-yt-spinner" *ngIf="youtubeButtonBusy(current.id)" aria-hidden="true"></i>
                     <img
+                      *ngIf="!youtubeButtonBusy(current.id)"
                       class="dz-yt-mark"
                       src="assets/images/youtube-logo.svg"
                       alt="YouTube" />
-                    <span class="dz-yt-dot dz-yt-dot--spin" *ngIf="ytNextBusy[current.id]" aria-hidden="true"></span>
                     <span class="dz-yt-pick" *ngIf="ytOffer?.trackId === current.id && !ytNextBusy[current.id]" (click)="$event.stopPropagation()">
                       <button
                         type="button"
@@ -1114,7 +1114,7 @@
                         <i class="fa fa-times" aria-hidden="true"></i>
                       </button>
                     </span>
-                    <span class="dz-yt-dot" *ngIf="ytFromCache[current.id] && !ytNextBusy[current.id] && ytOffer?.trackId !== current.id" aria-hidden="true"></span>
+                    <span class="dz-yt-dot" *ngIf="ytFromCache[current.id] && !youtubeButtonBusy(current.id) && ytOffer?.trackId !== current.id" aria-hidden="true"></span>
                   </span>
                   {{ current.title }}
                   <span class="dz-explicit" *ngIf="current.explicit">E</span>

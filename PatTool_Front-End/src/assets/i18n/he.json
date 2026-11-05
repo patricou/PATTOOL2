@@ -6152,6 +6152,8 @@
     "FLOAT_LEAVE_BROWSER": "הוצאה מהדפדפן",
     "YOUTUBE_SEARCH": "חיפוש הרצועה ב-YouTube",
     "YOUTUBE_SEARCH_HINT": "פותח את YouTube ומחפש « {{query}} »",
+    "DEEZER_SEARCH": "חיפוש האמן ב-Deezer",
+    "DEEZER_SEARCH_HINT": "פותח את Deezer ומחפש את האמן « {{query}} »",
     "PIP_EXIT": "יציאה מ-PiP",
     "FOCUS": "עמוד מלא",
     "FOCUS_HINT": "מציג את הרדיו בלי התפריט והכותרת, בלי מסך מלא",

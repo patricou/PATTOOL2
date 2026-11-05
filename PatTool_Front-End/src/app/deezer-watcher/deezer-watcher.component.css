@@ -686,6 +686,18 @@
   cursor: progress;
 }
 
+.dz-yt-btn .dz-yt-spinner,
+.dz-yt-logo .dz-yt-spinner {
+  display: inline-block;
+  animation: dz-yt-spin 0.7s linear infinite;
+}
+
+.dz-yt-logo .dz-yt-spinner {
+  width: 1.15rem;
+  font-size: 1.05rem;
+  text-align: center;
+}
+
 .dz-yt-dot--miss {
   display: flex;
   align-items: center;

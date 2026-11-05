@@ -45,8 +45,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
@@ -90,12 +88,8 @@ public class YoutubeProxyService {
     private static final String INNERTUBE_MWEB_UA =
             "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
     private static final Duration DATA_API_COOLDOWN = Duration.ofMinutes(20);
-    private static final Duration CLIP_SEARCH_BUDGET = Duration.ofSeconds(5);
-    private static final ExecutorService CLIP_POOL = Executors.newFixedThreadPool(8, runnable -> {
-        Thread thread = new Thread(runnable, "yt-clip-search");
-        thread.setDaemon(true);
-        return thread;
-    });
+    /** Stop waiting once this elapses. The faster of the two searches is used as soon as it has videos. */
+    private static final Duration CLIP_SEARCH_BUDGET = Duration.ofSeconds(4);
 
     private final RestTemplate restTemplate;
     /** Shorter wait for a title lookup, so a slow Data API falls through to public search sooner. */
@@ -460,13 +454,13 @@ public class YoutubeProxyService {
 
     /**
      * A clip id does not need the desktop search page. The Data API and the smaller mobile
-     * search run together; the first answer with videos is kept.
+     * search run together; the first answer with videos is kept. They share the common pool
+     * so one slow lookup cannot queue the next click.
      */
     private YoutubeSearchPageDto searchClip(String query, String region, String lang, int limit) {
-        CompletableFuture<YoutubeSearchPageDto> dataApi = CompletableFuture.supplyAsync(
-                () -> clipDataApi(query, limit), CLIP_POOL);
+        CompletableFuture<YoutubeSearchPageDto> dataApi = CompletableFuture.supplyAsync(() -> clipDataApi(query, limit));
         CompletableFuture<YoutubeSearchPageDto> mobile = CompletableFuture.supplyAsync(
-                () -> clipPublic(query, region, lang, limit), CLIP_POOL);
+                () -> clipPublic(query, region, lang, limit));
         YoutubeSearchPageDto ready = firstWithVideos(dataApi, mobile, CLIP_SEARCH_BUDGET);
         if (hasVideos(ready)) {
             return ready;

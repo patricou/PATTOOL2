@@ -817,6 +817,18 @@
                 <i class="fa fa-youtube" aria-hidden="true"></i>
               </button>
 
+              <button
+                type="button"
+                class="radio-now-action"
+                [disabled]="!deezerArtistQuery"
+                (click)="openOnDeezer()"
+                [attr.title]="(deezerArtistQuery ? 'RADIO.DEEZER_SEARCH_HINT' : 'RADIO.DEEZER_SEARCH') | translate:{ query: deezerArtistQuery }"
+                [attr.aria-label]="'RADIO.DEEZER_SEARCH' | translate">
+                <svg class="radio-deezer-mark" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="currentColor" d="M18.81 4.16h5.19v3.03h-5.19zM6.27 8.38h5.189v3.027H6.27zm12.54 0h5.19v3.027h-5.19zM6.27 12.594h5.189v3.027H6.27zm6.271 0h5.19v3.027h-5.19zm6.27 0h5.19v3.027h-5.19zM0 16.81h5.19v3.029H0zm6.27 0h5.189v3.029H6.27zm6.271 0h5.19v3.029h-5.19zm6.27 0h5.19v3.029h-5.19z"/>
+                </svg>
+              </button>
+
               <div class="radio-share-wrap">
                 <button
                   type="button"

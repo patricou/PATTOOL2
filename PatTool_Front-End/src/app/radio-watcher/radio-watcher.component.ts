@@ -2145,12 +2145,25 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     return artist || title;
   }
 
+  /** Artist of the track on air, for a Deezer artist search. */
+  get deezerArtistQuery(): string {
+    return this.nowPlayingArtist.trim();
+  }
+
   openOnYoutube(): void {
     const q = this.youtubeSearchQuery;
     if (!q) {
       return;
     }
     void this.router.navigate(['/tools/youtube'], { queryParams: { q } });
+  }
+
+  openOnDeezer(): void {
+    const q = this.deezerArtistQuery;
+    if (!q) {
+      return;
+    }
+    void this.router.navigate(['/tools/deezer'], { queryParams: { q, view: 'artist' } });
   }
 
   openFloatingWindow(): void {

@@ -4640,8 +4640,8 @@ export class ApiService {
   resolveDeezerYoutubeLinks(
     tracks: { id: number; artist: string; title: string; skipVideoId?: string; saveVideoId?: string }[],
     search: boolean
-  ): Observable<{ links: { id: number; videoId?: string; cached?: boolean }[] }> {
-    return this._http.post<{ links: { id: number; videoId?: string; cached?: boolean }[] }>(
+  ): Observable<{ links: { id: number; videoId?: string; cached?: boolean; videoIds?: string[] }[] }> {
+    return this._http.post<{ links: { id: number; videoId?: string; cached?: boolean; videoIds?: string[] }[] }>(
       this.API_URL + 'external/deezer/youtube-links',
       { tracks, search }
     );
@@ -4650,8 +4650,8 @@ export class ApiService {
   /** Stored YouTube ids for Deezer tracks already saved. Does not search YouTube. */
   getStoredDeezerYoutubeLinks(
     ids: number[]
-  ): Observable<{ links: { id: number; videoId?: string; cached?: boolean }[] }> {
-    return this._http.post<{ links: { id: number; videoId?: string; cached?: boolean }[] }>(
+  ): Observable<{ links: { id: number; videoId?: string; cached?: boolean; videoIds?: string[] }[] }> {
+    return this._http.post<{ links: { id: number; videoId?: string; cached?: boolean; videoIds?: string[] }[] }>(
       this.API_URL + 'external/deezer/youtube-links/stored',
       { ids }
     );

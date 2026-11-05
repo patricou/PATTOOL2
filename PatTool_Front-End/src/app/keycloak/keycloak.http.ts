@@ -72,6 +72,26 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
             return next.handle(req);
         }
 
+        // Deezer catalog and the Deezer → YouTube clip lookup are permitAll. A YouTube click that waited on
+        // getToken() sent the page to Keycloak and stopped the clip. The per-user routes stay authenticated.
+        const isDeezerPublicApi =
+            (req.method === 'GET'
+                && /\/api\/external\/deezer\//i.test(req.url)
+                && !/\/api\/external\/deezer\/(favorites|user-playlists|concert|skin)(\/|$|\?)/i.test(req.url))
+            || (req.method === 'POST'
+                && /\/api\/external\/deezer\/youtube-links(\/stored)?(\?|$)/i.test(req.url));
+        if (isDeezerPublicApi) {
+            return next.handle(req);
+        }
+
+        // YouTube search, clip size and thumbnails are permitAll. Favorites stay authenticated.
+        const isYoutubePublicApiGet =
+            req.method === 'GET'
+            && /\/api\/external\/youtube\/(status|search|popular|image|oembed)(\?|$|\/)/i.test(req.url);
+        if (isYoutubePublicApiGet) {
+            return next.handle(req);
+        }
+
         // Stellarium, Sky-Map and Wikipedia are permitAll. Waiting on getToken()
         // redirected to login when the ISS fiche loaded (Noctua Sky 502 + session not ready).
         const isPublicSkyCatalogGet =
