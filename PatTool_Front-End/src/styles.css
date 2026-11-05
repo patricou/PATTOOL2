@@ -1733,6 +1733,13 @@ html:has(app-nasa) body {
     background-color: #050814;
 }
 
+/* Globe : le léger dépassement sous le menu ne doit pas révéler le lavis clair de la page. */
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-world-globe),
+html:not(.pat-starry-sky):not(.pat-page-no-wash):has(app-world-globe) body {
+    background-color: #070b16;
+    overflow: hidden;
+}
+
 app-root > router-outlet + * {
     display: block;
     box-sizing: border-box;

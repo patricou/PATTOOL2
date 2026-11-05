@@ -454,7 +454,7 @@
     "FULLSCREEN_ENTER": "全画面表示",
     "FULLSCREEN_EXIT": "全画面を終了",
     "ROADMAP_HINT": "今後：気象画像、オプションの衛星地図など。",
-    "TEXTURE_LOAD_ERROR": "PatTool API 経由で地球のテクスチャを読み込めませんでした。バックエンドが起動・到達可能であることを確認して再試行してください。",
+    "TEXTURE_LOAD_ERROR": "地球のテクスチャを読み込めませんでした。画像の提供元が応答しません。しばらくしてから再試行してください。",
     "MARKER_PARIS": "パリ",
     "MARKER_NYC": "ニューヨーク",
     "MARKER_TOKYO": "東京",

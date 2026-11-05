@@ -1163,7 +1163,7 @@
     "FULLSCREEN_EXIT": "Exit",
     "FULLSCREEN_EXIT_TITLE": "Exit fullscreen",
     "ROADMAP_HINT": "Next steps: weather imagery (infrared / clouds), optional satellite basemaps.",
-    "TEXTURE_LOAD_ERROR": "Could not load globe textures via the PatTool API. Ensure the backend is running and reachable, and try again.",
+    "TEXTURE_LOAD_ERROR": "Could not load globe textures: the image source did not respond. Try again in a moment.",
     "MARKER_PARIS": "Paris",
     "MARKER_NYC": "New York",
     "MARKER_TOKYO": "Tokyo",

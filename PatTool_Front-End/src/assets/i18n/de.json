@@ -458,7 +458,7 @@
     "FULLSCREEN_EXIT": "Beenden",
     "FULLSCREEN_EXIT_TITLE": "Vollbild beenden",
     "ROADMAP_HINT": "Geplant: Wetterbilder, optionale Satelliten-Hintergründe.",
-    "TEXTURE_LOAD_ERROR": "Globus-Texturen konnten nicht Über die PatTool-API geladen werden. Stellen Sie sicher, dass das Backend l?uft und erreichbar ist, und versuchen Sie es erneut.",
+    "TEXTURE_LOAD_ERROR": "Globus-Texturen konnten nicht geladen werden: die Bildquelle antwortet nicht. Versuchen Sie es gleich erneut.",
     "MARKER_PARIS": "Paris",
     "MARKER_NYC": "New York",
     "MARKER_TOKYO": "Tokio",

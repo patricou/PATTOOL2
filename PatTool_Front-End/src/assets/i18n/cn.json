@@ -454,7 +454,7 @@
     "FULLSCREEN_ENTER": "全屏",
     "FULLSCREEN_EXIT": "退出全屏",
     "ROADMAP_HINT": "后续计划：气象图像、可选卫星底图等。",
-    "TEXTURE_LOAD_ERROR": "无法通过 PatTool API 加载地球纹理。请确认后端已启动且可访问后重试。",
+    "TEXTURE_LOAD_ERROR": "无法加载地球纹理：图像源无响应。请稍后重试。",
     "MARKER_PARIS": "巴黎",
     "MARKER_NYC": "纽约",
     "MARKER_TOKYO": "东京",

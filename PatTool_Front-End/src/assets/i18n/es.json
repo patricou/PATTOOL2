@@ -458,7 +458,7 @@
     "FULLSCREEN_EXIT": "Salir",
     "FULLSCREEN_EXIT_TITLE": "Salir de pantalla completa",
     "ROADMAP_HINT": "Próximos pasos: imágenes meteorolágicas, fondos satelitales opcionales.",
-    "TEXTURE_LOAD_ERROR": "No se pudieron cargar las texturas del globo vía la API de PatTool. Compruebe que el backend está en marcha y accesible e inténtelo de nuevo.",
+    "TEXTURE_LOAD_ERROR": "No se pudieron cargar las texturas del globo: la fuente de imágenes no responde. Inténtelo de nuevo en un momento.",
     "MARKER_PARIS": "Parás",
     "MARKER_NYC": "Nueva York",
     "MARKER_TOKYO": "Tokio",

@@ -3,7 +3,7 @@
   --pat-title-bg: linear-gradient(135deg, #0c4a6e 0%, #115e59 45%, #052e16 100%);
   --pat-title-accent: #0c4a6e;
   --pat-page-wash: 0;
-  --pat-page-bg: transparent;
+  --pat-page-bg: #070b16;
   --pat-title-shadow: 0 4px 18px rgba(5, 46, 22, 0.55);
   --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Ccircle cx='12' cy='18' r='1.1' fill='white' opacity='0.35'/%3E%3Ccircle cx='48' cy='10' r='0.8' fill='white' opacity='0.25'/%3E%3Ccircle cx='66' cy='42' r='1.2' fill='white' opacity='0.3'/%3E%3Ccircle cx='28' cy='58' r='0.9' fill='white' opacity='0.22'/%3E%3C/svg%3E");
   display: flex;
@@ -11,18 +11,48 @@
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
-  /* overflow-x sur .wg-fs-root, pas sur :host (sinon coupe la marge négative du titre) */
+  /* Même réserve que .pat-div (barre mesurée + 20px). overflow visible : le titre remonte dans cet espace ; le couper laissait voir le fond clair. */
+  --wg-chrome-gap: calc(var(--navbar-offset, 60px) + 20px);
   overflow: visible;
-  /* Sous la barre fixe de l’app (~pat-div 80px) : une seule page sans scroll vertical */
-  height: calc(100vh - 5rem);
-  max-height: calc(100vh - 5rem);
+  background: #070b16;
+  min-height: 0;
+  height: calc(100vh - var(--wg-chrome-gap));
+  max-height: calc(100vh - var(--wg-chrome-gap));
 }
 
 @supports (height: 100dvh) {
   :host {
-    height: calc(100dvh - 5rem);
-    max-height: calc(100dvh - 5rem);
+    height: calc(100dvh - var(--wg-chrome-gap));
+    max-height: calc(100dvh - var(--wg-chrome-gap));
   }
+}
+
+:host-context(body.pat-has-news-ticker:not(.pat-has-currency-ticker):not(.pat-has-stock-ticker)) {
+  --wg-chrome-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + 12px);
+}
+
+:host-context(body:not(.pat-has-news-ticker).pat-has-currency-ticker:not(.pat-has-stock-ticker)) {
+  --wg-chrome-gap: calc(var(--navbar-offset, 60px) + var(--currency-ticker-height, 40px) + 12px);
+}
+
+:host-context(body:not(.pat-has-news-ticker):not(.pat-has-currency-ticker).pat-has-stock-ticker) {
+  --wg-chrome-gap: calc(var(--navbar-offset, 60px) + var(--stock-ticker-height, 40px) + 12px);
+}
+
+:host-context(body.pat-has-news-ticker.pat-has-currency-ticker:not(.pat-has-stock-ticker)) {
+  --wg-chrome-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px) + 12px);
+}
+
+:host-context(body.pat-has-news-ticker:not(.pat-has-currency-ticker).pat-has-stock-ticker) {
+  --wg-chrome-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--stock-ticker-height, 40px) + 12px);
+}
+
+:host-context(body:not(.pat-has-news-ticker).pat-has-currency-ticker.pat-has-stock-ticker) {
+  --wg-chrome-gap: calc(var(--navbar-offset, 60px) + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px) + 12px);
+}
+
+:host-context(body.pat-has-news-ticker.pat-has-currency-ticker.pat-has-stock-ticker) {
+  --wg-chrome-gap: calc(var(--navbar-offset, 60px) + var(--news-ticker-height, 64px) + var(--currency-ticker-height, 40px) + var(--stock-ticker-height, 40px) + 12px);
 }
 
 /* Plein écran (API ou repli viewport) : occuper tout l’écran, pas de scroll page */
@@ -2611,7 +2641,7 @@ body:has(.wg-fs-root--viewport-locked) {
     --wg-shell-gap: 0.4rem;
     padding: var(--wg-shell-pad);
     gap: var(--wg-shell-gap);
-    min-height: min(70vh, 730px);
+    min-height: 0;
     border-radius: 0.4rem;
   }
 

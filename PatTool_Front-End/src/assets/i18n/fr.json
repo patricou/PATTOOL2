@@ -1163,7 +1163,7 @@
     "FULLSCREEN_EXIT": "Quitter",
     "FULLSCREEN_EXIT_TITLE": "Quitter le plein écran",
     "ROADMAP_HINT": "Suite prévue : imagerie météo, fonds satellite optionnels.",
-    "TEXTURE_LOAD_ERROR": "Impossible de charger les textures du globe via l’API PatTool. Vérifiez que le backend est démarré et joignable, puis réessayez.",
+    "TEXTURE_LOAD_ERROR": "Impossible de charger les textures du globe : la source d’images ne répond pas. Réessayez dans un moment.",
     "MARKER_PARIS": "Paris",
     "MARKER_NYC": "New York",
     "MARKER_TOKYO": "Tokyo",

@@ -13,12 +13,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -60,8 +62,24 @@ public class GlobeProxyService {
         THREE_JS_PLANET_URLS.put(PlanetTextureAsset.CLOUDS, base + "earth_clouds_1024.png");
     }
 
+    /**
+     * Blue Marble Next Generation with topography (5400×2700).
+     * eoimages.gsfc.nasa.gov often connect-times-out from this host.
+     */
     private static final String NASA_BMNG_JPG =
             "https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73909/world.topo.bathy.200412.3x5400x2700.jpg";
+
+    /**
+     * Equirectangular day maps used when NASA is unreachable.
+     * jsDelivr / unpkg serve the three-globe Blue Marble; Three.js atmos is the last resort.
+     */
+    private static final List<String> SATELLITE_BASEMAP_MIRRORS = List.of(
+            "https://cdn.jsdelivr.net/npm/three-globe@2.45.0/example/img/earth-blue-marble.jpg",
+            "https://unpkg.com/three-globe@2.45.0/example/img/earth-blue-marble.jpg",
+            "https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg");
+
+    /** One NASA timeout opens this skip window so later globe loads do not each wait on connect. */
+    private static final long NASA_BMNG_CIRCUIT_MS = 30 * 60_000L;
 
     /** Public-domain land-boundary linework (Natural Earth 110m). */
     private static final String NATURAL_EARTH_110M_BOUNDARIES_LAND_GEOJSON =
@@ -238,6 +256,9 @@ public class GlobeProxyService {
     private final AtomicLong celestrakSkipUntilMs = new AtomicLong(0);
     private final AtomicBoolean celestrakAttemptInFlight = new AtomicBoolean(false);
     private final AtomicLong retlectorSkipUntilMs = new AtomicLong(0);
+    private final AtomicLong nasaBmngSkipUntilMs = new AtomicLong(0);
+    /** Short connect timeout: a dead NASA host must not block a Tomcat thread for the shared 10 s. */
+    private final RestTemplate nasaBmngRestTemplate = buildNasaBmngRestTemplate();
     /** BMNG and Three.js planet maps are static; avoid re-downloading NASA / threejs.org on every page open. */
     private static final long STATIC_GLOBE_IMAGE_CACHE_MS = 12L * 60L * 60L * 1000L;
     private final ConcurrentHashMap<String, CachedGlobeImage> staticGlobeImageCache = new ConcurrentHashMap<>();
@@ -318,11 +339,74 @@ public class GlobeProxyService {
         });
     }
 
+    /**
+     * Satellite day map. Prefers the NASA Blue Marble JPEG, then public CDN mirrors.
+     * A connect timeout to eoimages.gsfc.nasa.gov opens a skip window and does not fail the request.
+     */
     public FetchedImage fetchSatelliteBasemap() {
-        return fetchStaticGlobeImage("bmng", () -> {
-            byte[] bytes = fetchBytes(NASA_BMNG_JPG, MAX_BYTES_TEXTURE);
-            return new FetchedImage(bytes, MediaType.IMAGE_JPEG);
-        });
+        return fetchStaticGlobeImage("bmng", this::loadSatelliteBasemap);
+    }
+
+    private FetchedImage loadSatelliteBasemap() {
+        byte[] nasa = tryNasaBmng();
+        if (nasa != null) {
+            return new FetchedImage(nasa, MediaType.IMAGE_JPEG);
+        }
+        Exception last = null;
+        for (String url : SATELLITE_BASEMAP_MIRRORS) {
+            try {
+                byte[] bytes = fetchBytes(url, MAX_BYTES_TEXTURE, false);
+                if (!isJpeg(bytes)) {
+                    throw new IllegalStateException("Mirror payload is not a JPEG");
+                }
+                log.info("Globe satellite basemap served from mirror {}", url);
+                return new FetchedImage(bytes, MediaType.IMAGE_JPEG);
+            } catch (Exception e) {
+                last = e;
+                log.debug("Globe satellite basemap mirror failed for {}: {}", url, e.getMessage());
+            }
+        }
+        throw new IllegalStateException(
+                "Satellite basemap unavailable",
+                last);
+    }
+
+    /**
+     * NASA BMNG with a 3 s connect timeout. Any failure (timeout, HTTP, bad payload) opens the circuit
+     * and returns null so the caller can use a mirror immediately.
+     */
+    private byte[] tryNasaBmng() {
+        if (System.currentTimeMillis() < nasaBmngSkipUntilMs.get()) {
+            return null;
+        }
+        try {
+            byte[] bytes = fetchBytes(nasaBmngRestTemplate, NASA_BMNG_JPG, MAX_BYTES_TEXTURE, false, UA, "image/jpeg");
+            if (!isJpeg(bytes)) {
+                throw new IllegalStateException("NASA BMNG payload is not a JPEG");
+            }
+            return bytes;
+        } catch (Exception e) {
+            nasaBmngSkipUntilMs.set(System.currentTimeMillis() + NASA_BMNG_CIRCUIT_MS);
+            log.warn(
+                    "Globe BMNG NASA unreachable ({}), skipping for {} min and using a mirror",
+                    e.getMessage(),
+                    NASA_BMNG_CIRCUIT_MS / 60_000L);
+            return null;
+        }
+    }
+
+    private static RestTemplate buildNasaBmngRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(3));
+        factory.setReadTimeout(Duration.ofSeconds(25));
+        return new RestTemplate(factory);
+    }
+
+    private static boolean isJpeg(byte[] body) {
+        return body != null
+                && body.length > 2
+                && (body[0] & 0xFF) == 0xFF
+                && (body[1] & 0xFF) == 0xD8;
     }
 
     private FetchedImage fetchStaticGlobeImage(String cacheKey, Supplier<FetchedImage> loader) {
@@ -336,11 +420,19 @@ public class GlobeProxyService {
             if (cached != null && cached.isFresh(STATIC_GLOBE_IMAGE_CACHE_MS)) {
                 return new FetchedImage(cached.body(), cached.contentType());
             }
-            FetchedImage fresh = loader.get();
-            staticGlobeImageCache.put(
-                    cacheKey,
-                    new CachedGlobeImage(fresh.body(), fresh.contentType(), System.currentTimeMillis()));
-            return fresh;
+            try {
+                FetchedImage fresh = loader.get();
+                staticGlobeImageCache.put(
+                        cacheKey,
+                        new CachedGlobeImage(fresh.body(), fresh.contentType(), System.currentTimeMillis()));
+                return fresh;
+            } catch (RuntimeException e) {
+                if (cached != null && cached.body() != null && cached.body().length > 0) {
+                    log.info("Globe image {} upstream failed; serving stale cache.", cacheKey);
+                    return new FetchedImage(cached.body(), cached.contentType());
+                }
+                throw e;
+            }
         }
     }
 
@@ -1146,11 +1238,21 @@ public class GlobeProxyService {
 
     private byte[] fetchBytes(
             String url, int maxBytes, boolean warnOnFailure, String userAgent, String accept) {
+        return fetchBytes(this.restTemplate, url, maxBytes, warnOnFailure, userAgent, accept);
+    }
+
+    private byte[] fetchBytes(
+            RestTemplate client,
+            String url,
+            int maxBytes,
+            boolean warnOnFailure,
+            String userAgent,
+            String accept) {
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.USER_AGENT, userAgent != null && !userAgent.isBlank() ? userAgent : UA);
         headers.set(HttpHeaders.ACCEPT, accept != null && !accept.isBlank() ? accept : "*/*");
         try {
-            ResponseEntity<byte[]> response = restTemplate.exchange(
+            ResponseEntity<byte[]> response = client.exchange(
                     url,
                     HttpMethod.GET,
                     new HttpEntity<>(headers),

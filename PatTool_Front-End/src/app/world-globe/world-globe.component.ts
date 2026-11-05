@@ -7589,8 +7589,10 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         earthMap.colorSpace = THREE.SRGBColorSpace;
         earthMap.anisotropy = aniso;
         this.standardEarthTextures = { map: earthMap, spec: null, bump: null };
-        if (!this.basemapSatellite) {
+        if (!this.basemapSatellite || !this.satelliteTexture) {
           this.applyClassicTexturesToEarth();
+          this.textureLoadError = false;
+          this.cdr.markForCheck();
         }
         this.markBasemapImagerySettled();
         loader.load(
@@ -7599,7 +7601,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
             specMap.colorSpace = THREE.NoColorSpace;
             if (this.standardEarthTextures) {
               this.standardEarthTextures.spec = specMap;
-              if (!this.basemapSatellite) {
+              if (!this.basemapSatellite || !this.satelliteTexture) {
                 this.applyClassicTexturesToEarth();
               }
             } else {
@@ -7617,7 +7619,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
             bumpMap.colorSpace = THREE.NoColorSpace;
             if (this.standardEarthTextures) {
               this.standardEarthTextures.bump = bumpMap;
-              if (!this.basemapSatellite) {
+              if (!this.basemapSatellite || !this.satelliteTexture) {
                 this.applyClassicTexturesToEarth();
               }
             } else {
@@ -7633,7 +7635,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       undefined,
       () => {
         this.classicEarthLoadStarted = false;
-        if (!this.basemapSatellite && !this.satelliteTexture) {
+        if (!this.satelliteTexture && !this.standardEarthTextures) {
           this.textureLoadError = true;
           this.cdr.markForCheck();
         }
@@ -7803,7 +7805,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private applyClassicTexturesToEarth(): void {
     const st = this.standardEarthTextures;
-    if (!this.earthMesh || !st || this.basemapSatellite) {
+    if (!this.earthMesh || !st || (this.basemapSatellite && this.satelliteTexture)) {
       return;
     }
     const m = this.earthMesh.material;
@@ -7852,6 +7854,7 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.anisotropy = this.renderer?.capabilities.getMaxAnisotropy?.() ?? 1;
         this.satelliteTexture = tex;
+        this.textureLoadError = false;
         if (this.basemapSatellite) {
           this.applySatelliteTextureToEarth(tex);
         }
@@ -7861,7 +7864,12 @@ export class WorldGlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       undefined,
       () => {
         this.satelliteBasemapLoadStarted = false;
-        this.textureLoadError = true;
+        if (!this.standardEarthTextures) {
+          this.loadClassicEarthTextures();
+        } else {
+          this.applyClassicTexturesToEarth();
+          this.textureLoadError = false;
+        }
         this.markBasemapImagerySettled();
         this.cdr.markForCheck();
       }
