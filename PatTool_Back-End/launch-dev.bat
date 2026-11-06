@@ -18,10 +18,10 @@ REM ===================================================================
 REM Lower memory settings for development machines
 REM Adjust -Xmx if you experience OutOfMemoryError during development
 
-set JAVA_OPTS=-Xms512m ^
-    -Xmx2048m ^
-    -XX:MaxMetaspaceSize=512m ^
-    -XX:MaxDirectMemorySize=512m ^
+set JAVA_OPTS=-Xms256m ^
+    -Xmx1536m ^
+    -XX:MaxMetaspaceSize=256m ^
+    -XX:MaxDirectMemorySize=256m ^
     -XX:+UseG1GC ^
     -XX:MaxGCPauseMillis=200 ^
     -XX:+HeapDumpOnOutOfMemoryError ^

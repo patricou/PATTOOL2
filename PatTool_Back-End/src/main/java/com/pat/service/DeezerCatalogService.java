@@ -32,9 +32,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Public Deezer catalog (no API key). Audio is limited to the 30-second {@code preview} MP3.
@@ -235,17 +238,39 @@ public class DeezerCatalogService {
         return mapAlbums(fetchOk("/artist/" + artistId + "/albums?limit=30", PAGE_TTL), true);
     }
 
+    /** Similar artists only. The full artist page also loads tops and albums. */
+    public List<DeezerArtistDto> relatedArtists(long artistId) {
+        if (artistId <= 0) {
+            return List.of();
+        }
+        return mapArtists(optional("/artist/" + artistId + "/related?limit=12", PAGE_TTL));
+    }
+
     public DeezerArtistPageDto artist(long artistId) {
-        JsonNode root = fetchOk("/artist/" + artistId, PAGE_TTL);
+        String base = "/artist/" + artistId;
+        JsonNode root;
+        JsonNode top;
+        JsonNode albums;
+        JsonNode related;
+        try (var pool = Executors.newVirtualThreadPerTaskExecutor()) {
+            Future<JsonNode> rootTask = pool.submit(() -> fetchOk(base, PAGE_TTL));
+            Future<JsonNode> topTask = pool.submit(() -> optional(base + "/top?limit=25", PAGE_TTL));
+            Future<JsonNode> albumsTask = pool.submit(() -> optional(base + "/albums?limit=30", PAGE_TTL));
+            Future<JsonNode> relatedTask = pool.submit(() -> optional(base + "/related?limit=12", PAGE_TTL));
+            root = await(rootTask);
+            top = await(topTask);
+            albums = await(albumsTask);
+            related = await(relatedTask);
+        }
         DeezerArtistDto artist = root == null ? null : mapArtist(root);
         if (artist == null) {
             return null;
         }
         return new DeezerArtistPageDto(
                 artist,
-                attachFans(mapTracks(optional("/artist/" + artistId + "/top?limit=25", PAGE_TTL), null), List.of(artist)),
-                mapAlbums(optional("/artist/" + artistId + "/albums?limit=30", PAGE_TTL), true),
-                mapArtists(optional("/artist/" + artistId + "/related?limit=12", PAGE_TTL))
+                attachFans(mapTracks(top, null), List.of(artist)),
+                mapAlbums(albums, true),
+                mapArtists(related)
         );
     }
 
@@ -417,6 +442,25 @@ public class DeezerCatalogService {
                 release,
                 fanCount(artist)
         );
+    }
+
+    private static <T> T await(Future<T> task) {
+        try {
+            return task.get(8, TimeUnit.SECONDS);
+        } catch (ExecutionException failed) {
+            if (failed.getCause() instanceof UpstreamException upstream) {
+                throw upstream;
+            }
+            if (failed.getCause() instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            throw new UpstreamException();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new UpstreamException();
+        } catch (TimeoutException timedOut) {
+            throw new UpstreamException();
+        }
     }
 
     private JsonNode optional(String path, Duration ttl) {

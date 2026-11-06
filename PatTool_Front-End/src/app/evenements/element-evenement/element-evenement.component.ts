@@ -13,7 +13,7 @@ import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/vide
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 // Removed ng2-file-upload - using native HTML file input
-import * as JSZip from 'jszip';
+import JSZip from 'jszip';
 
 import { Observable, firstValueFrom, Subscription, of } from 'rxjs';
 import { map, take, catchError, switchMap, tap } from 'rxjs/operators';

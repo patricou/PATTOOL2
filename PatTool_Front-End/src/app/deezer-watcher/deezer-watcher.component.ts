@@ -4,8 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { of, Subject, Subscription } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
+import { Observable, of, Subject, Subscription } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, finalize, shareReplay, takeUntil, tap } from 'rxjs/operators';
 
 import {
   ApiService,
@@ -377,6 +377,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private ytPrefetch: Subscription | null = null;
   private ytScan: Subscription | null = null;
   private ytScanKey = '';
+  /** Clicks search one title. The list scan waits so it does not occupy YouTube at the same time. */
+  private ytScanHold = 0;
+  private ytScanRest: { tracks: DeezerTrack[]; index: number; key: string } | null = null;
   private pointerOverPlayer = false;
   private videoSwipeOn = false;
   private videoSwipeX = 0;
@@ -415,6 +418,13 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private similarSub?: Subscription;
   private similarForId = 0;
   private readonly similarCache = new Map<number, DeezerArtist[]>();
+  private readonly artistAlbumsCache = new Map<number, DeezerAlbum[]>();
+  private readonly artistAlbumRequests = new Map<number, Observable<DeezerAlbum[]>>();
+  private readonly relatedRequests = new Map<number, Observable<DeezerArtist[]>>();
+  private readonly albumRequests = new Map<number, Observable<DeezerAlbumPage>>();
+  private readonly audioRequests = new Map<string, Observable<AudioDbDossier>>();
+  private warmTimer: ReturnType<typeof setTimeout> | null = null;
+  private warmKey = '';
   private albumInfoForId = 0;
   private albumInfoSub?: Subscription;
   private readonly albumInfoCache = new Map<number, DeezerAlbumPage>();
@@ -527,6 +537,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.destroy$.complete();
     if (this.sleeveTimer) {
       clearTimeout(this.sleeveTimer);
+    }
+    if (this.warmTimer) {
+      clearTimeout(this.warmTimer);
+      this.warmTimer = null;
     }
     this.clearTrackSlide();
     this.clearChromeHideTimer();
@@ -1614,6 +1628,26 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }, 350);
   }
 
+  /** "2 / 10" while this title walks its YouTube result list. Empty otherwise. */
+  ytPlace(trackId: number): string {
+    const ids = this.ytChoices.get(trackId) || [];
+    if (ids.length < 2) {
+      return '';
+    }
+    const offered = this.ytOffer?.trackId === trackId ? (this.ytOffer.videoId || '').trim() : '';
+    const onThisClip = this.current?.id === trackId && (this.clipOnStage || !!this.ytNextBusy[trackId]);
+    const videoId = offered || (onThisClip ? (this.ytLinks[trackId] || '').trim() : '');
+    if (!videoId) {
+      return '';
+    }
+    const at = ids.indexOf(videoId);
+    if (at < 0) {
+      return '';
+    }
+    const walking = !!offered || !!this.ytNextBusy[trackId] || onThisClip;
+    return walking ? `${at + 1} / ${ids.length}` : '';
+  }
+
   ytIconLabel(track: DeezerTrack): string {
     if (this.ytPending[track.id] || this.ytNextBusy[track.id]) {
       return this.translate.instant('DEEZER.YT_SEARCHING');
@@ -2083,7 +2117,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.albumInfo = null;
       this.albumInfoLoading = true;
       this.albumInfoSub?.unsubscribe();
-      this.albumInfoSub = this.api.getDeezerAlbum(albumId).subscribe({
+      this.albumInfoSub = this.albumPage(albumId).subscribe({
         next: (page) => {
           if (this.albumInfoForId !== albumId) {
             return;
@@ -2094,7 +2128,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
             this.albumInfoError = 'DEEZER.ALBUM_INFO_EMPTY';
             return;
           }
-          this.albumInfoCache.set(albumId, page);
           this.albumInfo = page;
           this.albumInfoLoading = false;
         },
@@ -2137,14 +2170,12 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.audioDb = null;
     this.audioDbLoading = true;
     this.audioDbSub?.unsubscribe();
-    this.audioDbSub = this.api.getAudioDbDossier(artist, album, this.wikipediaLang()).subscribe({
+    this.audioDbSub = this.audioDossier(artist, album).subscribe({
       next: (dossier) => {
         if (this.audioDbForKey !== key) {
           return;
         }
-        const page = dossier || { artist: null, album: null };
-        this.audioDbCache.set(key, page);
-        this.audioDb = page;
+        this.audioDb = dossier || { artist: null, album: null };
         this.audioDbLoading = false;
       },
       error: () => {
@@ -2264,7 +2295,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
     const name = (this.current?.artistName || '').trim();
     const seq = ++this.loadSeq;
-    this.loading = true;
     this.errorKey = '';
     this.nowBrowse = 'artist-albums';
     this.nowBrowseFrom = null;
@@ -2272,7 +2302,14 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.nowBrowseTitle = name;
     this.nowBrowseSubtitle = '';
     this.nowBrowseTracks = [];
-    this.api.getDeezerArtistAlbums(artistId).pipe(takeUntil(this.destroy$)).subscribe({
+    const cached = this.artistAlbumsCache.get(artistId);
+    if (cached) {
+      this.loading = false;
+      this.nowBrowseAlbums = cached;
+      return;
+    }
+    this.loading = true;
+    this.artistAlbums(artistId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (albums) => {
         if (seq !== this.loadSeq) {
           return;
@@ -2304,17 +2341,19 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.nowBrowseFrom = from;
     this.nowBrowseTitle = title;
     this.nowBrowseSubtitle = artist;
-    this.api.getDeezerAlbum(albumId).pipe(takeUntil(this.destroy$)).subscribe({
+    const cached = this.albumInfoCache.get(albumId);
+    if (cached) {
+      this.loading = false;
+      this.applyAlbumBrowse(cached, title, artist);
+      return;
+    }
+    this.albumPage(albumId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (page) => {
         if (seq !== this.loadSeq) {
           return;
         }
         this.loading = false;
-        this.nowBrowseTitle = page?.album?.title || title;
-        this.nowBrowseSubtitle = page?.album?.artistName || artist;
-        this.nowBrowseTracks = page?.tracks || [];
-        this.ytScanKey = '';
-        this.syncYoutubeButtons();
+        this.applyAlbumBrowse(page, title, artist);
       },
       error: () => {
         if (seq !== this.loadSeq) {
@@ -2325,6 +2364,129 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         this.errorKey = 'DEEZER.ERR_LOAD';
       }
     });
+  }
+
+  private applyAlbumBrowse(page: DeezerAlbumPage, title: string, artist: string): void {
+    this.nowBrowseTitle = page?.album?.title || title;
+    this.nowBrowseSubtitle = page?.album?.artistName || artist;
+    this.nowBrowseTracks = page?.tracks || [];
+    this.ytScanKey = '';
+    this.syncYoutubeButtons();
+  }
+
+  /** One album request shared by the info dialog, the track list, and the warm-up. */
+  private albumPage(albumId: number): Observable<DeezerAlbumPage> {
+    const cached = this.albumInfoCache.get(albumId);
+    if (cached) {
+      return of(cached);
+    }
+    const pending = this.albumRequests.get(albumId);
+    if (pending) {
+      return pending;
+    }
+    const request = this.api.getDeezerAlbum(albumId).pipe(
+      tap((page) => {
+        if (page?.album?.id) {
+          this.albumInfoCache.set(albumId, page);
+        }
+      }),
+      finalize(() => this.albumRequests.delete(albumId)),
+      shareReplay(1)
+    );
+    this.albumRequests.set(albumId, request);
+    return request;
+  }
+
+  private artistAlbums(artistId: number): Observable<DeezerAlbum[]> {
+    const cached = this.artistAlbumsCache.get(artistId);
+    if (cached) {
+      return of(cached);
+    }
+    const pending = this.artistAlbumRequests.get(artistId);
+    if (pending) {
+      return pending;
+    }
+    const request = this.api.getDeezerArtistAlbums(artistId).pipe(
+      tap((albums) => this.artistAlbumsCache.set(artistId, albums || [])),
+      finalize(() => this.artistAlbumRequests.delete(artistId)),
+      shareReplay(1)
+    );
+    this.artistAlbumRequests.set(artistId, request);
+    return request;
+  }
+
+  private relatedArtists(artistId: number): Observable<DeezerArtist[]> {
+    const cached = this.similarCache.get(artistId);
+    if (cached) {
+      return of(cached);
+    }
+    const pending = this.relatedRequests.get(artistId);
+    if (pending) {
+      return pending;
+    }
+    const request = this.api.getDeezerRelatedArtists(artistId).pipe(
+      tap((artists) => this.similarCache.set(artistId, artists || [])),
+      finalize(() => this.relatedRequests.delete(artistId)),
+      shareReplay(1)
+    );
+    this.relatedRequests.set(artistId, request);
+    return request;
+  }
+
+  private audioDossier(artist: string, album: string): Observable<AudioDbDossier> {
+    const key = `${this.wikipediaLang()}|${artist}|${album}`;
+    const cached = this.audioDbCache.get(key);
+    if (cached) {
+      return of(cached);
+    }
+    const pending = this.audioRequests.get(key);
+    if (pending) {
+      return pending;
+    }
+    const request = this.api.getAudioDbDossier(artist, album, this.wikipediaLang()).pipe(
+      tap((dossier) => this.audioDbCache.set(key, dossier || { artist: null, album: null })),
+      finalize(() => this.audioRequests.delete(key)),
+      shareReplay(1)
+    );
+    this.audioRequests.set(key, request);
+    return request;
+  }
+
+  /** Fetch the four panel lookups while the title plays, so the buttons open at once. */
+  private warmNowPlaying(track: DeezerTrack): void {
+    const albumId = track.albumId || 0;
+    const artistId = track.artistId || 0;
+    const artist = (track.artistName || '').trim();
+    const album = (track.albumTitle || '').trim();
+    const key = `${albumId}|${artistId}|${artist}|${album}`;
+    if (key === this.warmKey) {
+      return;
+    }
+    if (this.warmTimer) {
+      clearTimeout(this.warmTimer);
+    }
+    this.warmTimer = setTimeout(() => {
+      this.warmTimer = null;
+      if ((this.current?.albumId || 0) !== albumId || (this.current?.artistId || 0) !== artistId) {
+        return;
+      }
+      this.warmKey = key;
+      if (albumId && !this.albumInfoCache.has(albumId)) {
+        this.albumPage(albumId).pipe(takeUntil(this.destroy$)).subscribe({
+          error: () => { /* the button loads it again */ }
+        });
+      }
+      if (artistId && !this.similarCache.has(artistId)) {
+        this.relatedArtists(artistId).pipe(takeUntil(this.destroy$)).subscribe({
+          error: () => { /* the button loads it again */ }
+        });
+      }
+      if (artist && !this.audioDbCache.has(`${this.wikipediaLang()}|${artist}|${album}`)) {
+        this.audioDossier(artist, album).pipe(takeUntil(this.destroy$)).subscribe({
+          error: () => { /* the dialog loads it again */ }
+        });
+      }
+    }, 450);
   }
 
   private clearNowBrowse(): void {
@@ -2540,6 +2702,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
     this.ytReplay = restart && same ? Date.now() : 0;
     this.current = track;
+    this.warmNowPlaying(track);
     this.queueIndexHint = index;
     this.trackImageIndex = 0;
     this.syncTrackSlide();
@@ -2741,7 +2904,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     const seq = ++this.loadSeq;
     this.loading = true;
     this.errorKey = '';
-    this.api.getDeezerAlbum(album.id).pipe(takeUntil(this.destroy$)).subscribe({
+    this.albumPage(album.id).pipe(takeUntil(this.destroy$)).subscribe({
       next: (page) => {
         if (seq !== this.loadSeq) {
           return;
@@ -2861,14 +3024,12 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.similarArtists = [];
     this.similarLoading = true;
     this.similarSub?.unsubscribe();
-    this.similarSub = this.api.getDeezerArtist(artistId).subscribe({
-      next: (page) => {
+    this.similarSub = this.relatedArtists(artistId).subscribe({
+      next: (artists) => {
         if (this.similarForId !== artistId) {
           return;
         }
-        const list = page?.related || [];
-        this.similarCache.set(artistId, list);
-        this.similarArtists = list;
+        this.similarArtists = artists || [];
         this.similarLoading = false;
       },
       error: () => {
@@ -3480,7 +3641,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.sleeveTimer = null;
       this.sleeveSub?.unsubscribe();
       this.sleeveArtistId = artistId;
-      this.sleeveSub = this.api.getDeezerArtistAlbums(artistId).subscribe({
+      this.sleeveSub = this.artistAlbums(artistId).subscribe({
         next: (albums) => {
           if (this.current?.artistId === artistId) {
             this.sleeveAlbums = albums || [];
@@ -4843,6 +5004,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.ytLinks = { ...this.ytLinks, ...kept.youtubeIds };
     this.volume = kept.volume;
     this.current = track;
+    this.warmNowPlaying(track);
     this.playing = kept.playing;
     this.youtubeMode = !!kept.frame;
     if (kept.frame) {
@@ -5342,6 +5504,15 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     } else {
       this.ytPending = { ...this.ytPending, [track.id]: true };
     }
+    this.holdYoutubeScan();
+    let released = false;
+    const release = () => {
+      if (released) {
+        return;
+      }
+      released = true;
+      this.releaseYoutubeScan();
+    };
     this.api.resolveDeezerYoutubeLinks([{
       id: track.id,
       artist: track.artistName || '',
@@ -5349,40 +5520,48 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       skipVideoId: skipVideoId || undefined
     }], true).pipe(takeUntil(this.destroy$)).subscribe({
       next: (page) => {
-        if (skipVideoId) {
-          this.clearYoutubeNext(track.id);
-        } else {
-          this.clearYoutubePending(track.id);
-        }
-        const link = (page?.links || []).find((item) => item.id === track.id);
-        if (!link) {
-          return;
-        }
-        const videoId = (link.videoId || '').trim() || null;
-        this.rememberYoutubeChoices(track.id, link.videoIds);
-        if (skipVideoId) {
-          if (!videoId || videoId === skipVideoId) {
+        try {
+          if (skipVideoId) {
+            this.clearYoutubeNext(track.id);
+          } else {
+            this.clearYoutubePending(track.id);
+          }
+          const link = (page?.links || []).find((item) => item.id === track.id);
+          if (!link) {
             return;
           }
-          this.ytOffer = {
-            trackId: track.id,
-            videoId,
-            savedId: this.ytLinks[track.id] || skipVideoId
-          };
-          this.current = null;
-          this.playYoutubeTrack(track, index);
-          return;
-        }
-        this.rememberYoutube(track.id, videoId);
-        if (videoId) {
-          this.playYoutubeTrack(track, index);
+          const videoId = (link.videoId || '').trim() || null;
+          this.rememberYoutubeChoices(track.id, link.videoIds);
+          if (skipVideoId) {
+            if (!videoId || videoId === skipVideoId) {
+              return;
+            }
+            this.ytOffer = {
+              trackId: track.id,
+              videoId,
+              savedId: this.ytLinks[track.id] || skipVideoId
+            };
+            this.current = null;
+            this.playYoutubeTrack(track, index);
+            return;
+          }
+          this.rememberYoutube(track.id, videoId);
+          if (videoId) {
+            this.playYoutubeTrack(track, index);
+          }
+        } finally {
+          release();
         }
       },
       error: () => {
-        if (skipVideoId) {
-          this.clearYoutubeNext(track.id);
-        } else {
-          this.clearYoutubePending(track.id);
+        try {
+          if (skipVideoId) {
+            this.clearYoutubeNext(track.id);
+          } else {
+            this.clearYoutubePending(track.id);
+          }
+        } finally {
+          release();
         }
       }
     });
@@ -5461,11 +5640,41 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.scanYoutube(pending, 0, key);
   }
 
-  private scanYoutube(tracks: DeezerTrack[], index: number, key: string): void {
-    if (key !== this.ytScanKey || index >= tracks.length) {
+  /** The list scan stops launching YouTube calls until the title the user asked for has an answer. */
+  private holdYoutubeScan(): void {
+    this.ytScanHold++;
+    this.ytPrefetch?.unsubscribe();
+    this.ytPrefetch = null;
+    this.ytScan?.unsubscribe();
+    this.ytScan = null;
+  }
+
+  private releaseYoutubeScan(): void {
+    if (this.ytScanHold > 0) {
+      this.ytScanHold--;
+    }
+    if (this.ytScanHold > 0 || !this.ytScanRest) {
       return;
     }
-    const slice = tracks.slice(index, index + 20);
+    const rest = this.ytScanRest;
+    this.scanYoutube(rest.tracks, rest.index, rest.key);
+  }
+
+  private scanYoutube(tracks: DeezerTrack[], index: number, key: string): void {
+    if (key !== this.ytScanKey || index >= tracks.length) {
+      if (this.ytScanRest?.key === key) {
+        this.ytScanRest = null;
+      }
+      return;
+    }
+    if (this.ytScanHold > 0) {
+      this.ytScanRest = { tracks, index, key };
+      return;
+    }
+    // One title at a time while YouTube is actually queried, so a click is not stuck behind a whole page.
+    const batch = this.youtubeSearchEnabled ? 1 : 20;
+    const slice = tracks.slice(index, index + batch);
+    this.ytScanRest = { tracks, index, key };
     this.ytScan = this.api.resolveDeezerYoutubeLinks(slice.map((track) => ({
       id: track.id,
       artist: track.artistName || '',

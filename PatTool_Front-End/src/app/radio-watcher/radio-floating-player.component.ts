@@ -206,9 +206,9 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     return artist || title;
   }
 
-  /** Artist of the track on air, for a Deezer artist search. */
-  get deezerArtistQuery(): string {
-    return this.nowPlayingArtist.trim();
+  /** Artist and title of the track on air, for a Deezer track search. */
+  get deezerSearchQuery(): string {
+    return this.youtubeSearchQuery;
   }
 
   /** Cover on the face only when the user left pochette mode on and a photo exists. */

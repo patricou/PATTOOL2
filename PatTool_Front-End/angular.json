@@ -215,6 +215,106 @@
           },
           "defaultConfiguration": "production"
         },
+        "build-esbuild": {
+          "builder": "@angular-devkit/build-angular:browser-esbuild",
+          "options": {
+            "outputPath": "../PatTool_Back-End/src/main/resources/static",
+            "deleteOutputPath": false,
+            "index": "src/index.html",
+            "main": "src/main.ts",
+            "polyfills": [
+              "zone.js",
+              "src/polyfills.ts"
+            ],
+            "tsConfig": "tsconfig.app.json",
+            "assets": [
+              "src/favicon.ico",
+              "src/assets",
+              {
+                "glob": "manifest.webmanifest",
+                "input": "src",
+                "output": "/"
+              },
+              {
+                "glob": "robots.txt",
+                "input": "src/assets",
+                "output": "/"
+              },
+              {
+                "glob": "**/*",
+                "input": "src/assets/.well-known",
+                "output": "/.well-known"
+              },
+              {
+                "glob": "maplibre-gl-worker.mjs",
+                "input": "node_modules/maplibre-gl/dist",
+                "output": "/assets"
+              },
+              {
+                "glob": "maplibre-gl-shared.mjs",
+                "input": "node_modules/maplibre-gl/dist",
+                "output": "/assets"
+              },
+              {
+                "glob": "pdf.worker.min.mjs",
+                "input": "node_modules/pdfjs-dist/build",
+                "output": "/assets"
+              },
+              {
+                "glob": "flag-icons.min.css",
+                "input": "node_modules/flag-icons/css",
+                "output": "/assets/vendor/flag-icons/css"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/flag-icons/flags",
+                "output": "/assets/vendor/flag-icons/flags"
+              }
+            ],
+            "styles": [
+              "node_modules/bootstrap/dist/css/bootstrap.min.css",
+              "node_modules/leaflet/dist/leaflet.css",
+              "node_modules/maplibre-gl/dist/maplibre-gl.css",
+              "node_modules/ag-grid-community/styles/ag-grid.css",
+              "node_modules/ag-grid-community/styles/ag-theme-alpine.css",
+              "node_modules/quill/dist/quill.snow.css",
+              "src/styles.css",
+              "src/app/shared/sheet-select/sheet-select.component.css"
+            ],
+            "scripts": [
+              "node_modules/jquery/dist/jquery.js",
+              "node_modules/bootstrap/dist/js/bootstrap.bundle.min.js",
+              "node_modules/exif-js/exif.js",
+              "src/app/js/keycloak.js"
+            ],
+            "allowedCommonJsDependencies": [
+              "leaflet",
+              "leaflet-rotate",
+              "maplibre-gl",
+              "jszip",
+              "piexifjs",
+              "typed-function",
+              "seedrandom",
+              "javascript-natural-sort",
+              "escape-latex",
+              "quill-delta",
+              "satellite.js"
+            ]
+          },
+          "configurations": {
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": {
+                "scripts": true,
+                "styles": false,
+                "vendor": false
+              },
+              "namedChunks": true
+            }
+          },
+          "defaultConfiguration": "development"
+        },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
@@ -228,7 +328,7 @@
               "buildTarget": "PatTool_Front-End:build:production"
             },
             "development": {
-              "buildTarget": "PatTool_Front-End:build:development"
+              "buildTarget": "PatTool_Front-End:build-esbuild:development"
             }
           },
           "defaultConfiguration": "development"

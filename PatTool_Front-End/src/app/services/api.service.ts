@@ -4623,6 +4623,13 @@ export class ApiService {
     return this._http.get<DeezerArtistPage>(this.API_URL + 'external/deezer/artist/' + id);
   }
 
+  /** Similar artists only. Does not load the artist's top tracks or albums. */
+  getDeezerRelatedArtists(id: number): Observable<DeezerArtist[]> {
+    return this._http.get<DeezerArtist[]>(this.API_URL + 'external/deezer/artist/' + id + '/related').pipe(
+      catchError(() => this.getDeezerArtist(id).pipe(map((page) => page?.related || [])))
+    );
+  }
+
   getDeezerArtistAlbums(id: number): Observable<DeezerAlbum[]> {
     return this._http.get<DeezerAlbum[]>(this.API_URL + 'external/deezer/artist/' + id + '/albums');
   }

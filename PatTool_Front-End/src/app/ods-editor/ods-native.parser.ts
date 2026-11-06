@@ -1,4 +1,4 @@
-import * as JSZip from 'jszip';
+import JSZip from 'jszip';
 
 import type { OdsCellStyle } from './ods-cell-style.model';
 import { OdsStyleRegistry } from './ods-style-registry';

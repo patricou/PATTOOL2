@@ -11,7 +11,7 @@ import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { Observable, Subscription, fromEvent, firstValueFrom, forkJoin, of, Subject, from } from 'rxjs';
 import { debounceTime, map, catchError, switchMap, take } from 'rxjs/operators';
-import * as JSZip from 'jszip';
+import JSZip from 'jszip';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 
 import { Evenement } from '../../model/evenement';

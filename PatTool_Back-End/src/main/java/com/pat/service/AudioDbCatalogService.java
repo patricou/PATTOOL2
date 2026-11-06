@@ -18,6 +18,11 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
 /**
@@ -77,19 +82,28 @@ public class AudioDbCatalogService {
         UpstreamException failure = null;
         AudioDbArtistDto artistDto = null;
         AudioDbAlbumDto albumDto = null;
-        try {
-            JsonNode root = fetch("search.php?s=" + encode(artistName));
-            artistDto = mapArtist(pick(root, "artists", "strArtist", artistName), code);
-        } catch (UpstreamException e) {
-            failure = e;
-        }
-        if (!albumTitle.isEmpty()) {
+        try (var pool = Executors.newVirtualThreadPerTaskExecutor()) {
+            Future<AudioDbArtistDto> artistTask = pool.submit(() -> findArtist(artistName, code));
+            Future<AudioDbAlbumDto> albumTask = albumTitle.isEmpty()
+                    ? null
+                    : pool.submit(() -> findAlbum(artistName, albumTitle, code));
             try {
-                JsonNode root = fetch("searchalbum.php?s=" + encode(artistName) + "&a=" + encode(albumTitle));
-                albumDto = mapAlbum(pick(root, "album", "strAlbum", albumTitle), code);
-            } catch (UpstreamException e) {
-                failure = e;
+                artistDto = artistTask.get(9, TimeUnit.SECONDS);
+            } catch (ExecutionException failed) {
+                failure = failureOf(failed);
             }
+            if (albumTask != null) {
+                try {
+                    albumDto = albumTask.get(9, TimeUnit.SECONDS);
+                } catch (ExecutionException failed) {
+                    failure = failureOf(failed);
+                }
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new UpstreamException();
+        } catch (TimeoutException timedOut) {
+            throw new UpstreamException();
         }
         if (artistDto == null && albumDto == null && failure != null) {
             throw failure;
@@ -101,6 +115,23 @@ public class AudioDbCatalogService {
         }
         cache.put(key, new Cached(dossier, System.currentTimeMillis() + ttl));
         return dossier;
+    }
+
+    private AudioDbArtistDto findArtist(String artistName, String lang) {
+        JsonNode root = fetch("search.php?s=" + encode(artistName));
+        return mapArtist(pick(root, "artists", "strArtist", artistName), lang);
+    }
+
+    private AudioDbAlbumDto findAlbum(String artistName, String albumTitle, String lang) {
+        JsonNode root = fetch("searchalbum.php?s=" + encode(artistName) + "&a=" + encode(albumTitle));
+        return mapAlbum(pick(root, "album", "strAlbum", albumTitle), lang);
+    }
+
+    private static UpstreamException failureOf(ExecutionException failed) {
+        if (failed.getCause() instanceof UpstreamException upstream) {
+            return upstream;
+        }
+        return new UpstreamException();
     }
 
     static AudioDbArtistDto mapArtist(JsonNode node, String lang) {

@@ -1,4 +1,4 @@
-import * as JSZip from 'jszip';
+import JSZip from 'jszip';
 
 import type { OdsSheetData, OdsWorkbookModel } from './ods-editor-workbook.util';
 import { serializeOdfXml, writeCellText } from './ods-xml.util';

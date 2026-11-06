@@ -1,12 +1,12 @@
 {
     "java.compile.nullAnalysis.mode": "automatic",
     "terminal.integrated.env.windows": {
-        "NODE_OPTIONS": "--max-old-space-size=8192"
+        "NODE_OPTIONS": "--max-old-space-size=3072"
     },
     "terminal.integrated.env.linux": {
-        "NODE_OPTIONS": "--max-old-space-size=8192"
+        "NODE_OPTIONS": "--max-old-space-size=3072"
     },
     "terminal.integrated.env.osx": {
-        "NODE_OPTIONS": "--max-old-space-size=8192"
+        "NODE_OPTIONS": "--max-old-space-size=3072"
     }
 }

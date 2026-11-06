@@ -729,6 +729,7 @@
               <span class="dz-yt-ico">
                 <i class="fa fa-spinner fa-spin dz-yt-spinner" *ngIf="youtubeButtonBusy(track.id)" aria-hidden="true"></i>
                 <i class="fa fa-youtube" *ngIf="!youtubeButtonBusy(track.id)" aria-hidden="true"></i>
+                <span class="dz-yt-pos" *ngIf="ytPlace(track.id) as place">{{ place }}</span>
                 <span class="dz-yt-dot" *ngIf="ytFromCache[track.id] && !youtubeButtonBusy(track.id) && ytOffer?.trackId !== track.id" aria-hidden="true"></span>
                 <span class="dz-yt-dot dz-yt-dot--miss" *ngIf="ytMiss[track.id] && !youtubeButtonBusy(track.id)" aria-hidden="true"></span>
               </span>
@@ -768,6 +769,7 @@
             class="dz-fav dz-pl-btn"
             [class.is-on]="playlistMenuTrack?.id === track.id"
             [class.is-saved]="trackInUserPlaylist(track.id)"
+            [class.is-covered]="ytOffer?.trackId === track.id && !ytNextBusy[track.id]"
             (click)="toggleTrackPlaylistMenu(track, $event)"
             [attr.aria-label]="'DEEZER.PLAYLIST_ADD' | translate"
             [attr.title]="'DEEZER.PLAYLIST_ADD' | translate">
@@ -1096,6 +1098,7 @@
                       class="dz-yt-mark"
                       src="assets/images/youtube-logo.svg"
                       alt="YouTube" />
+                    <span class="dz-yt-pos" *ngIf="ytPlace(current.id) as place">{{ place }}</span>
                     <span class="dz-yt-pick" *ngIf="ytOffer?.trackId === current.id && !ytNextBusy[current.id]" (click)="$event.stopPropagation()">
                       <button
                         type="button"

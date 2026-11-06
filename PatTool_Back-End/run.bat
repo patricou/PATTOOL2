@@ -15,10 +15,10 @@ REM -XX:MaxGCPauseMillis: Target max GC pause time
 REM -XX:+HeapDumpOnOutOfMemoryError: Create heap dump on OOM
 REM -XX:HeapDumpPath: Location for heap dumps
 
-set JAVA_OPTS=-Xms512m ^
-    -Xmx2048m ^
-    -XX:MaxMetaspaceSize=512m ^
-    -XX:MaxDirectMemorySize=512m ^
+set JAVA_OPTS=-Xms256m ^
+    -Xmx1536m ^
+    -XX:MaxMetaspaceSize=256m ^
+    -XX:MaxDirectMemorySize=256m ^
     -XX:+UseG1GC ^
     -XX:MaxGCPauseMillis=200 ^
     -XX:+HeapDumpOnOutOfMemoryError ^

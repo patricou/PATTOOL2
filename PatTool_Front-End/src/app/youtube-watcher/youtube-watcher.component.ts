@@ -1891,12 +1891,12 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
           this.similarLoading = false;
           return;
         }
-        this.similarSub = this.api.getDeezerArtist(match.id).subscribe({
-          next: (artistPage) => {
+        this.similarSub = this.api.getDeezerRelatedArtists(match.id).subscribe({
+          next: (artists) => {
             if (this.destroyed || this.similarForKey !== key) {
               return;
             }
-            const list = artistPage?.related || [];
+            const list = artists || [];
             this.similarCache.set(key, list);
             this.similarArtists = list;
             this.similarLoading = false;

@@ -49,6 +49,7 @@ import java.util.function.Supplier;
  *   <li>{@code GET /api/external/deezer/album/{id}}</li>
  *   <li>{@code GET /api/external/deezer/artist/{id}}</li>
  *   <li>{@code GET /api/external/deezer/artist/{id}/albums}</li>
+ *   <li>{@code GET /api/external/deezer/artist/{id}/related}</li>
  *   <li>{@code GET /api/external/deezer/playlist/{id}}</li>
  *   <li>{@code GET /api/external/deezer/youtube-links/count}</li>
  *   <li>{@code POST /api/external/deezer/youtube-links}</li>
@@ -159,6 +160,14 @@ public class DeezerRestController {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid id"));
         }
         return ok(() -> deezerCatalogService.artistAlbums(id), Duration.ofMinutes(10));
+    }
+
+    @GetMapping("/artist/{id}/related")
+    public ResponseEntity<?> relatedArtists(@PathVariable long id) {
+        if (id <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid id"));
+        }
+        return ok(() -> deezerCatalogService.relatedArtists(id), Duration.ofMinutes(10));
     }
 
     @GetMapping("/artist/{id}")

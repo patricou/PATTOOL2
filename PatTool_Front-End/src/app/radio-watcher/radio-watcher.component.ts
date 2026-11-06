@@ -2145,9 +2145,9 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     return artist || title;
   }
 
-  /** Artist of the track on air, for a Deezer artist search. */
-  get deezerArtistQuery(): string {
-    return this.nowPlayingArtist.trim();
+  /** Artist and title of the track on air, for a Deezer track search. */
+  get deezerSearchQuery(): string {
+    return this.youtubeSearchQuery;
   }
 
   openOnYoutube(): void {
@@ -2159,11 +2159,11 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   openOnDeezer(): void {
-    const q = this.deezerArtistQuery;
+    const q = this.deezerSearchQuery;
     if (!q) {
       return;
     }
-    void this.router.navigate(['/tools/deezer'], { queryParams: { q, view: 'artist' } });
+    void this.router.navigate(['/tools/deezer'], { queryParams: { q, view: 'track' } });
   }
 
   openFloatingWindow(): void {
