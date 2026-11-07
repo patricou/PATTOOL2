@@ -5649,6 +5649,7 @@
   },
   "TV": {
     "TITLE": "TV — 無料チャンネル",
+    "TITLE_SHORT": "TV",
     "SUBTITLE": "世界中の無料公共 IPTV チャンネルを視聴（デフォルトはフランス TV）。ストリームは PatTool バックエンドでプロキシされます。",
     "COUNTRY": "国",
     "COUNTRY_ALL": "すべての国",
@@ -5966,6 +5967,7 @@
   },
   "DEEZER": {
     "TITLE": "Deezer",
+    "TITLE_SHORT": "Deezer",
     "SUBTITLE": "公開 Deezer API によるチャート、アルバム、30 秒の試聴です。曲の全体は提供されません。",
     "LIMIT_NOTE": "試聴は 30 秒までです。曲の全体は提供されません。YouTube でお聴きください。",
     "SEARCH_PLACEHOLDER": "曲、アルバム、アーティスト…",
@@ -6113,6 +6115,7 @@
   },
   "RADIO": {
     "TITLE": "ラジオ — 世界の局",
+    "TITLE_SHORT": "Radio",
     "SUBTITLE": "Listen to free internet radio stations worldwide (France by default). Streams are proxied by the PatTool backend.",
     "COUNTRY": "国",
     "COUNTRY_ALL": "すべての国",

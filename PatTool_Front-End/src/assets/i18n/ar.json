@@ -5623,6 +5623,7 @@
   },
   "TV": {
     "TITLE": "تلفاز — قنوات مجانية",
+    "TITLE_SHORT": "TV",
     "SUBTITLE": "شاهد قنوات IPTV العامة المجانية في جميع أنحاء العالم (التلفزيون الفرنسي افتراضيًا). يتم توجيه البث عبر خادم PatTool.",
     "COUNTRY": "البلد",
     "COUNTRY_ALL": "كل البلدان",
@@ -5940,6 +5941,7 @@
   },
   "DEEZER": {
     "TITLE": "Deezer",
+    "TITLE_SHORT": "Deezer",
     "SUBTITLE": "قوائم التصنيف والألبومات ومقتطفات من 30 ثانية عبر واجهة Deezer العامة. المقطع الكامل غير متاح.",
     "LIMIT_NOTE": "المقتطفات محدودة بـ 30 ث: المقطع الكامل غير متوفر. استمع إليه على YouTube.",
     "SEARCH_PLACEHOLDER": "مقطع أو ألبوم أو فنان…",
@@ -6087,6 +6089,7 @@
   },
   "RADIO": {
     "TITLE": "راديو — محطات العالم",
+    "TITLE_SHORT": "Radio",
     "SUBTITLE": "Listen to free internet radio stations worldwide (France by default). Streams are proxied by the PatTool backend.",
     "COUNTRY": "البلد",
     "COUNTRY_ALL": "كل البلدان",

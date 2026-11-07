@@ -2,7 +2,7 @@ import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostBinding, H
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Observable, of, Subject, Subscription } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, shareReplay, takeUntil, tap } from 'rxjs/operators';
@@ -68,7 +68,7 @@ type DzFav = DeezerFavorite;
 @Component({
   selector: 'app-deezer-watcher',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, YoutubeEqualizerModalComponent, NowTickerComponent, VideoshowModalComponent],
+  imports: [CommonModule, FormsModule, RouterLink, TranslateModule, YoutubeEqualizerModalComponent, NowTickerComponent, VideoshowModalComponent],
   templateUrl: './deezer-watcher.component.html',
   styleUrls: [
     '../radio-watcher/radio-watcher.component.css',
@@ -2872,8 +2872,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
   }
 
-  toggleSleeve(): void {
-    this.sleeveOpen = !this.sleeveOpen;
+  setSleeve(enabled: boolean): void {
+    this.sleeveOpen = !!enabled;
     try {
       localStorage.setItem(DeezerWatcherComponent.SLEEVE_KEY, this.sleeveOpen ? '1' : '0');
     } catch {

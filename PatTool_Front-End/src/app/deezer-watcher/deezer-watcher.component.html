@@ -2,10 +2,27 @@
   <h2 class="dz-page-title">
     <span class="dz-title-heading">
       <span class="dz-title-icon" aria-hidden="true"><img src="assets/images/deezer-logo.svg" alt="" /></span>
-      {{ 'DEEZER.TITLE' | translate }}
+      <span class="pat-title-long">{{ 'DEEZER.TITLE' | translate }}</span>
+      <span class="pat-title-short">{{ 'DEEZER.TITLE_SHORT' | translate }}</span>
       <span class="dz-title-note">{{ 'DEEZER.LIMIT_NOTE' | translate }}</span>
     </span>
     <span class="dz-title-tools">
+    <a
+      class="radio-eq-open-btn dz-page-jump"
+      routerLink="/tools/radio-watcher"
+      [attr.title]="'MENU.RADIO' | translate"
+      [attr.aria-label]="'MENU.RADIO' | translate">
+      <i class="fa fa-headphones" aria-hidden="true"></i>
+      <span class="radio-eq-open-label">{{ 'MENU.RADIO' | translate }}</span>
+    </a>
+    <a
+      class="radio-eq-open-btn dz-page-jump"
+      routerLink="/tools/tv-watcher"
+      [attr.title]="'MENU.TV' | translate"
+      [attr.aria-label]="'MENU.TV' | translate">
+      <i class="fa fa-television" aria-hidden="true"></i>
+      <span class="radio-eq-open-label">{{ 'MENU.TV' | translate }}</span>
+    </a>
     <button
       type="button"
       class="radio-global-filter-open-btn"
@@ -49,17 +66,6 @@
         [attr.aria-label]="'DEEZER.KEEP_ALIVE' | translate" />
       <span class="dz-yt-search-track" aria-hidden="true"><span class="dz-yt-search-knob"></span></span>
     </label>
-    <label class="dz-yt-search" [attr.title]="'DEEZER.YT_SEARCH_SWITCH_HINT' | translate">
-      <span class="dz-yt-search-label">{{ 'DEEZER.YT_SEARCH_SWITCH' | translate }}</span>
-      <input
-        type="checkbox"
-        class="dz-yt-search-input"
-        role="switch"
-        [ngModel]="youtubeSearchEnabled"
-        (ngModelChange)="setYoutubeSearch($event)"
-        [attr.aria-label]="'DEEZER.YT_SEARCH_SWITCH' | translate" />
-      <span class="dz-yt-search-track" aria-hidden="true"><span class="dz-yt-search-knob"></span></span>
-    </label>
     <label class="dz-yt-search" [attr.title]="'NOW_TICKER.ENABLED_HINT' | translate">
       <span class="dz-yt-search-label">{{ 'NOW_TICKER.ENABLED' | translate }}</span>
       <input
@@ -81,17 +87,17 @@
       <i class="fa fa-film" aria-hidden="true"></i>
       <span class="radio-eq-open-label">{{ 'YOUTUBE.OPEN_VIDEOSHOW' | translate }}</span>
     </button>
-    <button
-      type="button"
-      class="radio-sleeve-open-btn"
-      [class.is-active]="sleeveOpen"
-      (click)="toggleSleeve()"
-      [attr.aria-pressed]="sleeveOpen"
-      [attr.title]="(sleeveOpen ? 'DEEZER.SLEEVE_HIDE' : 'DEEZER.SLEEVE_SHOW') | translate">
-      <i class="fa fa-picture-o" aria-hidden="true"></i>
-      <span class="radio-sleeve-open-label">{{ 'RADIO.SLEEVE' | translate }}</span>
-      <span class="radio-eq-open-badge" *ngIf="sleeveOpen" aria-hidden="true"></span>
-    </button>
+    <label class="dz-yt-search" [attr.title]="(sleeveOpen ? 'DEEZER.SLEEVE_HIDE' : 'DEEZER.SLEEVE_SHOW') | translate">
+      <span class="dz-yt-search-label">{{ 'RADIO.SLEEVE' | translate }}</span>
+      <input
+        type="checkbox"
+        class="dz-yt-search-input"
+        role="switch"
+        [ngModel]="sleeveOpen"
+        (ngModelChange)="setSleeve($event)"
+        [attr.aria-label]="'RADIO.SLEEVE' | translate" />
+      <span class="dz-yt-search-track" aria-hidden="true"><span class="dz-yt-search-knob"></span></span>
+    </label>
     <span class="radio-skin-picker">
       <button
         type="button"
@@ -141,6 +147,7 @@
   <app-now-ticker
     *ngIf="tickerEnabled"
     [label]="'DEEZER.TITLE' | translate"
+    [shortLabel]="'DEEZER.TITLE_SHORT' | translate"
     icon="fa-music"
     [idle]="'NOW_TICKER.IDLE' | translate"
     [ariaLabel]="'NOW_TICKER.ARIA' | translate"

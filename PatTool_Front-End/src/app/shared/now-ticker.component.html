@@ -5,7 +5,8 @@
   [style.--now-ticker-accent]="accent">
   <div class="now-ticker__label" aria-hidden="true">
     <i class="fa" [ngClass]="icon"></i>
-    <span>{{ label }}</span>
+    <span class="now-ticker__label-long" [class.now-ticker__label-long--has-short]="!!shortLabel">{{ label }}</span>
+    <span class="now-ticker__label-short" *ngIf="shortLabel">{{ shortLabel }}</span>
   </div>
   <div class="now-ticker__rows">
     <div class="now-ticker__idle" *ngIf="!items.length">{{ idle }}</div>

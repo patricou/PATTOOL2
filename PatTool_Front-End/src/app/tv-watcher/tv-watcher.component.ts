@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, NavigationStart, Router } from '@angular/router';
+import { ActivatedRoute, NavigationStart, Router, RouterLink } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subject, Subscription, forkJoin, of, firstValueFrom } from 'rxjs';
 import { debounceTime, distinctUntilChanged, catchError, filter } from 'rxjs/operators';
@@ -74,7 +74,6 @@ import {
   startFranceTvTokenKeeper
 } from './tv-francetv-refresh';
 import { bustVirtualLiveCache, preflightVirtualLive, virtualLiveKeepAliveFromUrl } from './tv-virtual-live-keepalive';
-import { MediaCatalogCacheToolbarComponent } from '../shared/media-catalog-cache-toolbar/media-catalog-cache-toolbar.component';
 import { TvEpgBrowserComponent } from './tv-epg-browser.component';
 import { TvGlobalFilterModalComponent } from './tv-global-filter-modal.component';
 import { readMediaSkin, writeMediaSkin } from '../services/media-skin';
@@ -129,7 +128,7 @@ const TV_SKINS: readonly TvSkin[] = [
 @Component({
   selector: 'app-tv-watcher',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, TvEpgBrowserComponent, TvGlobalFilterModalComponent, YoutubeEqualizerModalComponent, NowTickerComponent, VideoshowModalComponent],
+  imports: [CommonModule, FormsModule, RouterLink, TranslateModule, TvEpgBrowserComponent, TvGlobalFilterModalComponent, YoutubeEqualizerModalComponent, NowTickerComponent, VideoshowModalComponent],
   templateUrl: './tv-watcher.component.html',
   styleUrls: ['./tv-watcher.component.css', './tv-skins.css']
 })

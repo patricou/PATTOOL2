@@ -5629,6 +5629,7 @@
   },
   "TV": {
     "TITLE": "TV — kostenlose Sender",
+    "TITLE_SHORT": "TV",
     "SUBTITLE": "Kostenlose öffentliche IPTV-Sender weltweit ansehen (französisches TV standardmäßig). Streams werden vom PatTool-Backend weitergeleitet.",
     "COUNTRY": "Land",
     "COUNTRY_ALL": "Alle Länder",
@@ -5950,6 +5951,7 @@
   },
   "DEEZER": {
     "TITLE": "Deezer",
+    "TITLE_SHORT": "Deezer",
     "SUBTITLE": "Charts, Alben und 30-Sekunden-Ausschnitte über die öffentliche Deezer-API. Der ganze Titel ist nicht verfügbar.",
     "LIMIT_NOTE": "Ausschnitte auf 30 s begrenzt: der ganze Titel wird nicht bereitgestellt. Hören Sie ihn auf YouTube.",
     "SEARCH_PLACEHOLDER": "Titel, Album, Künstler…",
@@ -6097,6 +6099,7 @@
   },
   "RADIO": {
     "TITLE": "Radio — Sender weltweit",
+    "TITLE_SHORT": "Radio",
     "SUBTITLE": "Listen to free internet radio stations worldwide (France by default). Streams are proxied by the PatTool backend.",
     "COUNTRY": "Land",
     "COUNTRY_ALL": "Alle Länder",

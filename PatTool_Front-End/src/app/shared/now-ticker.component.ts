@@ -16,6 +16,7 @@ export interface NowTickerItem {
 })
 export class NowTickerComponent {
   @Input() label = '';
+  @Input() shortLabel = '';
   @Input() icon = 'fa-music';
   @Input() accent = '#1f6feb';
   @Input() idle = '';

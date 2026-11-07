@@ -108,6 +108,18 @@ export function parkRadioDocPipWindow(): Window | null {
   return win;
 }
 
+/** Image URLs on an HTTPS page. Chrome upgrades leftover http artwork and logs mixed content. */
+export function secureAssetUrl(url: string | null | undefined): string {
+  const value = (url || '').trim();
+  if (!value || value === 'null' || value === 'undefined') {
+    return '';
+  }
+  if (value.startsWith('http://')) {
+    return `https://${value.slice('http://'.length)}`;
+  }
+  return value;
+}
+
 export function applyRadioMediaSession(meta: {
   title: string;
   artist?: string | null;
@@ -118,8 +130,9 @@ export function applyRadioMediaSession(meta: {
     return;
   }
   try {
-    const artwork = meta.artworkUrl
-      ? [{ src: meta.artworkUrl, sizes: '512x512', type: artworkMime(meta.artworkUrl) }]
+    const artworkUrl = secureAssetUrl(meta.artworkUrl);
+    const artwork = artworkUrl
+      ? [{ src: artworkUrl, sizes: '512x512', type: artworkMime(artworkUrl) }]
       : [];
     navigator.mediaSession.metadata = new MediaMetadata({
       title: meta.title || 'Radio',
@@ -248,8 +261,9 @@ export function publishRadioTrack(
     media.setAttribute('data-pat-media-artist', shownArtist);
     media.setAttribute('data-pat-media-album', album);
     media.setAttribute('data-pat-media-station', station);
-    if (meta.artworkUrl) {
-      media.setAttribute('data-pat-media-artwork', meta.artworkUrl);
+    const artworkUrl = secureAssetUrl(meta.artworkUrl);
+    if (artworkUrl) {
+      media.setAttribute('data-pat-media-artwork', artworkUrl);
     } else {
       media.removeAttribute('data-pat-media-artwork');
     }
@@ -258,7 +272,7 @@ export function publishRadioTrack(
     title: receptionOnTitle ? withPhoneReception(title) : title,
     artist: shownArtist,
     album: receptionOnTitle ? album : withPhoneReception(album),
-    artworkUrl: meta.artworkUrl
+    artworkUrl: secureAssetUrl(meta.artworkUrl)
   });
   setScreenKeepAlive('radio', true, title, { artist: shownArtist, album, station });
   installRadioReceptionListener();
@@ -895,11 +909,12 @@ function buildFallbackFace(
   onAir.innerHTML = '<i aria-hidden="true"></i> ON AIR';
   screen.appendChild(onAir);
 
-  if (meta.artworkUrl) {
+  const artworkUrl = secureAssetUrl(meta.artworkUrl);
+  if (artworkUrl) {
     const img = doc.createElement('img');
     img.className = 'radio-doc-pip-logo';
     img.alt = meta.title || 'Radio';
-    img.src = meta.artworkUrl;
+    img.src = artworkUrl;
     img.addEventListener('error', () => img.remove());
     screen.appendChild(img);
   }

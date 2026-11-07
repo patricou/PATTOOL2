@@ -3,8 +3,24 @@
     <span class="radio-title-icon" aria-hidden="true">
       <i class="fa fa-headphones"></i>
     </span>
-    {{ 'RADIO.TITLE' | translate }}
-    <app-media-catalog-cache-toolbar></app-media-catalog-cache-toolbar>
+    <span class="pat-title-long">{{ 'RADIO.TITLE' | translate }}</span>
+    <span class="pat-title-short">{{ 'RADIO.TITLE_SHORT' | translate }}</span>
+    <a
+      class="radio-eq-open-btn"
+      routerLink="/tools/deezer"
+      [attr.title]="'MENU.DEEZER' | translate"
+      [attr.aria-label]="'MENU.DEEZER' | translate">
+      <i class="fa fa-music" aria-hidden="true"></i>
+      <span class="radio-eq-open-label">{{ 'MENU.DEEZER' | translate }}</span>
+    </a>
+    <a
+      class="radio-eq-open-btn"
+      routerLink="/tools/tv-watcher"
+      [attr.title]="'MENU.TV' | translate"
+      [attr.aria-label]="'MENU.TV' | translate">
+      <i class="fa fa-television" aria-hidden="true"></i>
+      <span class="radio-eq-open-label">{{ 'MENU.TV' | translate }}</span>
+    </a>
     <button
       type="button"
       class="radio-global-filter-open-btn"
@@ -126,6 +142,7 @@
   <app-now-ticker
     *ngIf="tickerEnabled"
     [label]="'RADIO.TITLE' | translate"
+    [shortLabel]="'RADIO.TITLE_SHORT' | translate"
     icon="fa-headphones"
     [idle]="'NOW_TICKER.IDLE' | translate"
     [ariaLabel]="'NOW_TICKER.ARIA' | translate"
@@ -461,13 +478,13 @@
           tabindex="0">
           <span class="radio-channel-index" aria-hidden="true">{{ listItemNumber(i) }}</span>
           <img
-            *ngIf="ep.image"
+            *ngIf="assetUrl(ep.image) as image"
             class="radio-channel-logo"
-            [src]="ep.image"
+            [src]="image"
             alt=""
             loading="lazy"
             (error)="$any($event.target).style.display='none'" />
-          <span *ngIf="!ep.image" class="radio-channel-logo radio-channel-logo--placeholder">
+          <span *ngIf="!assetUrl(ep.image)" class="radio-channel-logo radio-channel-logo--placeholder">
             <i class="fa fa-play"></i>
           </span>
           <span class="radio-channel-text">

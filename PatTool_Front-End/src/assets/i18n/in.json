@@ -5623,6 +5623,7 @@
   },
   "TV": {
     "TITLE": "टीवी — मुफ़्त चैनल",
+    "TITLE_SHORT": "TV",
     "SUBTITLE": "दुनिया भर में मुफ़्त सार्वजनिक IPTV चैनल देखें (डिफ़ॉल्ट फ्रांसीसी TV)। स्ट्रीम PatTool बैकएंड द्वारा प्रॉक्सी की जाती हैं।",
     "COUNTRY": "देश",
     "COUNTRY_ALL": "सभी देश",
@@ -5940,6 +5941,7 @@
   },
   "DEEZER": {
     "TITLE": "Deezer",
+    "TITLE_SHORT": "Deezer",
     "SUBTITLE": "सार्वजनिक Deezer API से चार्ट, एल्बम और 30 सेकंड के अंश। पूरा गाना उपलब्ध नहीं है।",
     "LIMIT_NOTE": "अंश 30 सेकंड तक सीमित हैं: पूरा गाना नहीं दिया जाता। इसे YouTube पर सुनें।",
     "SEARCH_PLACEHOLDER": "गाना, एल्बम, कलाकार…",
@@ -6087,6 +6089,7 @@
   },
   "RADIO": {
     "TITLE": "रेडियो — विश्व के स्टेशन",
+    "TITLE_SHORT": "Radio",
     "SUBTITLE": "Listen to free internet radio stations worldwide (France by default). Streams are proxied by the PatTool backend.",
     "COUNTRY": "देश",
     "COUNTRY_ALL": "सभी देश",

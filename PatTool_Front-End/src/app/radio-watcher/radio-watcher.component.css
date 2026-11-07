@@ -277,6 +277,10 @@
   font-weight: 600;
 }
 
+a.radio-eq-open-btn {
+  text-decoration: none;
+}
+
 .radio-eq-open-btn {
   display: inline-flex;
   align-items: center;

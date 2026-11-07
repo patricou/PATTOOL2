@@ -61,7 +61,9 @@
                             {{ categoryLabelKey(cat) | translate }}
                         </button>
                     </div>
-                    <div class="registry-actions" *ngIf="isClearCacheAuthorized">
+                    <div class="registry-actions">
+                        <app-media-catalog-cache-toolbar></app-media-catalog-cache-toolbar>
+                        <ng-container *ngIf="isClearCacheAuthorized">
                         <button type="button"
                                 class="btn-small btn-registry-refresh"
                                 (click)="refreshMediaCatalogFromRegistry()"
@@ -84,6 +86,7 @@
                             <i class="fa" [class.fa-trash]="!isClearingAllCaches" [class.fa-spinner]="isClearingAllCaches" [class.fa-spin]="isClearingAllCaches"></i>
                             <span>{{ 'SYSTEM.CACHE_REGISTRY.CLEAR_ALL' | translate }}</span>
                         </button>
+                        </ng-container>
                     </div>
                 </div>
 

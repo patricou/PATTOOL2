@@ -272,7 +272,6 @@
 .yt-eq-vslider {
   writing-mode: vertical-lr;
   direction: rtl;
-  appearance: slider-vertical;
   width: 1.4rem;
   height: 4.6rem;
   accent-color: var(--eq-accent, #cc0000);

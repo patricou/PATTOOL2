@@ -5646,6 +5646,7 @@
   },
   "TV": {
     "TITLE": "TV — δωρεάν κανάλια",
+    "TITLE_SHORT": "TV",
     "SUBTITLE": "Παρακολουθήστε δωρεάν δημόσια κανάλια IPTV παγκοσμίως (γαλλική TV από προεπιλογή). Τα streams προωθούνται από το backend PatTool.",
     "COUNTRY": "Χώρα",
     "COUNTRY_ALL": "Όλες οι χώρες",
@@ -5963,6 +5964,7 @@
   },
   "DEEZER": {
     "TITLE": "Deezer",
+    "TITLE_SHORT": "Deezer",
     "SUBTITLE": "Κατατάξεις, άλμπουμ και αποσπάσματα 30 δευτερολέπτων μέσω του δημόσιου API της Deezer. Το πλήρες κομμάτι δεν είναι διαθέσιμο.",
     "LIMIT_NOTE": "Αποσπάσματα έως 30 δευτ.: το πλήρες κομμάτι δεν παρέχεται. Ακούστε το στο YouTube.",
     "SEARCH_PLACEHOLDER": "Κομμάτι, άλμπουμ, καλλιτέχνης…",
@@ -6110,6 +6112,7 @@
   },
   "RADIO": {
     "TITLE": "Ραδιόφωνο — σταθμοί του κόσμου",
+    "TITLE_SHORT": "Radio",
     "SUBTITLE": "Listen to free internet radio stations worldwide (France by default). Streams are proxied by the PatTool backend.",
     "COUNTRY": "Χώρα",
     "COUNTRY_ALL": "Όλες οι χώρες",

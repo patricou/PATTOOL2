@@ -36,6 +36,10 @@
   display: contents;
 }
 
+a.dz-page-jump {
+  text-decoration: none;
+}
+
 .dz-title-icon {
   display: inline-flex;
   align-items: center;

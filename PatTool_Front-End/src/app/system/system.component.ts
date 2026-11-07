@@ -17,6 +17,7 @@ import { environment } from '../../environments/environment';
 import { Observable, from, of } from 'rxjs';
 import { switchMap, catchError } from 'rxjs/operators';
 import { DiscussionService } from '../services/discussion.service';
+import { MediaCatalogCacheToolbarComponent } from '../shared/media-catalog-cache-toolbar/media-catalog-cache-toolbar.component';
 
 @Component({
   selector: 'app-system',
@@ -29,7 +30,8 @@ import { DiscussionService } from '../services/discussion.service';
     HttpClientModule,
     TranslateModule,
     NgbModule,
-    NavigationButtonsModule
+    NavigationButtonsModule,
+    MediaCatalogCacheToolbarComponent
   ]
 })
 export class SystemComponent implements OnInit {

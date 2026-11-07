@@ -36,6 +36,7 @@ import {
   adjacentRadioStation,
   claimRadioTune,
   publishRadioTrack,
+  secureAssetUrl,
   closeRadioDocPip,
   enterRadioPictureInPicture,
   getBrowserDocPipWindow,
@@ -268,11 +269,8 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
   }
 
   stationLogo(station: RadioStation | null | undefined): string | null {
-    const logo = (station?.logo || '').trim();
-    if (!logo || logo === 'null' || logo === 'undefined') {
-      return null;
-    }
-    if (!(logo.startsWith('http://') || logo.startsWith('https://'))) {
+    const logo = secureAssetUrl(station?.logo);
+    if (!logo.startsWith('https://') && !logo.startsWith('http://')) {
       return null;
     }
     return logo;
@@ -803,7 +801,9 @@ export class RadioFloatingPlayerComponent implements OnInit, OnDestroy {
     this.nowPlayingTitle = (state?.title || '').trim();
     this.nowPlayingArtist = (state?.artist || '').trim();
     this.nowPlayingAlbum = (state?.album || '').trim();
-    const images = state?.images || [];
+    const images = (state?.images || [])
+      .map((img) => ({ ...img, url: secureAssetUrl(img?.url) }))
+      .filter((img) => !!img.url);
     const same =
       images.length === this.trackImages.length &&
       images.every((img, i) => img.url === this.trackImages[i]?.url);

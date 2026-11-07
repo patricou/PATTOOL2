@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, NavigationStart, Router } from '@angular/router';
+import { ActivatedRoute, NavigationStart, Router, RouterLink } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, catchError, filter } from 'rxjs/operators';
@@ -29,13 +29,13 @@ import {
   adjacentRadioStation,
   claimRadioTune,
   publishRadioTrack,
+  secureAssetUrl,
   closeRadioDocPip,
   enterRadioPictureInPicture,
   isRadioDocPipOpen,
   stopRadioPipCarrier,
   supportsRadioPictureInPicture
 } from './radio-pip.util';
-import { MediaCatalogCacheToolbarComponent } from '../shared/media-catalog-cache-toolbar/media-catalog-cache-toolbar.component';
 import { buildRadioShareLink } from '../shared/share-deep-link.util';
 import {
   RadioFilterPreference,
@@ -92,7 +92,7 @@ const RADIO_SKINS: readonly RadioSkin[] = [
 @Component({
   selector: 'app-radio-watcher',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, MediaCatalogCacheToolbarComponent, RadioGlobalFilterModalComponent, YoutubeEqualizerModalComponent, NowTickerComponent],
+  imports: [CommonModule, FormsModule, RouterLink, TranslateModule, RadioGlobalFilterModalComponent, YoutubeEqualizerModalComponent, NowTickerComponent],
   templateUrl: './radio-watcher.component.html',
   styleUrls: ['./radio-watcher.component.css', './radio-skins.css']
 })
@@ -2002,14 +2002,16 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   stationLogo(station: RadioStation | null | undefined): string | null {
-    const logo = (station?.logo || '').trim();
-    if (!logo || logo === 'null' || logo === 'undefined') {
-      return null;
-    }
-    if (!(logo.startsWith('http://') || logo.startsWith('https://'))) {
+    const logo = secureAssetUrl(station?.logo);
+    if (!logo.startsWith('https://') && !logo.startsWith('http://')) {
       return null;
     }
     return logo;
+  }
+
+  assetUrl(url: string | null | undefined): string | null {
+    const secure = secureAssetUrl(url);
+    return secure || null;
   }
 
   isFavorite(station: RadioStation): boolean {
@@ -3088,7 +3090,9 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private applyNowPlaying(state: RadioNowPlaying | null): void {
     const label = (state?.label || '').trim();
-    const images = (state?.images || []).filter((img) => !!img?.url);
+    const images = (state?.images || [])
+      .map((img) => ({ ...img, url: secureAssetUrl(img?.url) }))
+      .filter((img) => !!img.url);
     const songChanged = label !== this.nowPlayingLabel;
     const samePics = !songChanged
       && images.length === this.trackImages.length

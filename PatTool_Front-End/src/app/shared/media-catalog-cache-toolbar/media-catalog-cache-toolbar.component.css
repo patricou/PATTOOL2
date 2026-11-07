@@ -1,32 +1,32 @@
+:host {
+  display: inline-flex;
+}
+
 .media-cache-toolbar {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  margin-left: 0.75rem;
+  gap: 0.4rem;
   flex-wrap: wrap;
-  vertical-align: middle;
 }
 
 .media-cache-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  border: 1px solid var(--title-btn-border, rgba(0, 0, 0, 0.12));
-  background: var(--title-btn-bg, #fff);
-  color: var(--title-btn-fg, #334155);
-  border-radius: 0.4rem;
-  padding: 0.25rem 0.55rem;
-  font-size: 0.8rem;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  border-radius: 4px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
   line-height: 1.2;
   cursor: pointer;
-  box-shadow: var(--title-btn-shadow, none);
-  text-shadow: none;
 }
 
 .media-cache-btn:hover:not(:disabled) {
-  background: var(--title-btn-hover-bg, #f1f5f9);
-  color: var(--title-btn-fg, #334155);
-  border-color: var(--title-btn-border, rgba(0, 0, 0, 0.12));
+  background: #1d4ed8;
+  color: #fff;
 }
 
 .media-cache-btn:disabled {
@@ -35,7 +35,13 @@
 }
 
 .media-cache-btn--help {
-  color: var(--title-btn-fg, #1d4ed8);
+  background: #475569;
+  color: #fff;
+}
+
+.media-cache-btn--help:hover:not(:disabled) {
+  background: #334155;
+  color: #fff;
 }
 
 .media-cache-btn-label {
@@ -167,12 +173,3 @@
   filter: brightness(1.06);
 }
 
-@media (max-width: 640px) {
-  .media-cache-btn-label {
-    display: none;
-  }
-
-  .media-cache-toolbar {
-    margin-left: 0.4rem;
-  }
-}

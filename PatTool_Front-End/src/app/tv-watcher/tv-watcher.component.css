@@ -190,6 +190,10 @@
   font-weight: 600;
 }
 
+a.tv-eq-open-btn {
+  text-decoration: none;
+}
+
 .tv-eq-open-btn {
   display: inline-flex;
   align-items: center;

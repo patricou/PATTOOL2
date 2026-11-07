@@ -4,8 +4,24 @@
       <i class="fa fa-television"></i>
       <span class="tv-title-antenna"></span>
     </span>
-    {{ 'TV.TITLE' | translate }}
-    <app-media-catalog-cache-toolbar></app-media-catalog-cache-toolbar>
+    <span class="pat-title-long">{{ 'TV.TITLE' | translate }}</span>
+    <span class="pat-title-short">{{ 'TV.TITLE_SHORT' | translate }}</span>
+    <a
+      class="tv-eq-open-btn"
+      routerLink="/tools/deezer"
+      [attr.title]="'MENU.DEEZER' | translate"
+      [attr.aria-label]="'MENU.DEEZER' | translate">
+      <i class="fa fa-music" aria-hidden="true"></i>
+      <span class="tv-eq-open-label">{{ 'MENU.DEEZER' | translate }}</span>
+    </a>
+    <a
+      class="tv-eq-open-btn"
+      routerLink="/tools/radio-watcher"
+      [attr.title]="'MENU.RADIO' | translate"
+      [attr.aria-label]="'MENU.RADIO' | translate">
+      <i class="fa fa-headphones" aria-hidden="true"></i>
+      <span class="tv-eq-open-label">{{ 'MENU.RADIO' | translate }}</span>
+    </a>
     <button
       type="button"
       class="tv-epg-browser-open-btn"
@@ -135,6 +151,7 @@
   <app-now-ticker
     *ngIf="tickerEnabled"
     [label]="'TV.TITLE' | translate"
+    [shortLabel]="'TV.TITLE_SHORT' | translate"
     icon="fa-television"
     [idle]="'NOW_TICKER.IDLE' | translate"
     [ariaLabel]="'NOW_TICKER.ARIA' | translate"

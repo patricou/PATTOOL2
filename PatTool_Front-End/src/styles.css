@@ -1567,6 +1567,27 @@ html.modal-open[class*=""]:has(.upload-logs-modal) {
     }
 }
 
+.pat-title-short,
+.now-ticker__label-short {
+    display: none;
+}
+
+@media (max-width: 900px), ((hover: none) and (pointer: coarse)) {
+    .pat-title .pat-title-long,
+    .now-ticker__label-long--has-short {
+        display: none;
+    }
+
+    .pat-title .pat-title-short,
+    .now-ticker__label-short {
+        display: inline;
+    }
+
+    .pat-title .dz-title-note {
+        display: none;
+    }
+}
+
 :root {
     --navbar-height: 60px;
     /* Actual measured bar height (AppComponent). Tickers sit just under this. */

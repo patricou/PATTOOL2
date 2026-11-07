@@ -5625,6 +5625,7 @@
   },
   "TV": {
     "TITLE": "电视 — 免费频道",
+    "TITLE_SHORT": "TV",
     "SUBTITLE": "观看全球免费公共 IPTV 频道（默认法国电视）。流由 PatTool 后端代理。",
     "COUNTRY": "国家",
     "COUNTRY_ALL": "所有国家",
@@ -5942,6 +5943,7 @@
   },
   "DEEZER": {
     "TITLE": "Deezer",
+    "TITLE_SHORT": "Deezer",
     "SUBTITLE": "通过 Deezer 公开接口浏览排行榜、专辑和 30 秒试听。不提供完整曲目。",
     "LIMIT_NOTE": "试听最长 30 秒，不提供完整曲目。请在 YouTube 上收听。",
     "SEARCH_PLACEHOLDER": "曲目、专辑、艺人…",
@@ -6089,6 +6091,7 @@
   },
   "RADIO": {
     "TITLE": "广播 — 世界电台",
+    "TITLE_SHORT": "Radio",
     "SUBTITLE": "Listen to free internet radio stations worldwide (France by default). Streams are proxied by the PatTool backend.",
     "COUNTRY": "国家",
     "COUNTRY_ALL": "所有国家",

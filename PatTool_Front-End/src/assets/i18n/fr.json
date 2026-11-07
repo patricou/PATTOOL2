@@ -6556,6 +6556,7 @@
   },
   "TV": {
     "TITLE": "TV — chaînes gratuites",
+    "TITLE_SHORT": "TV",
     "SUBTITLE": "Regardez des chaînes IPTV publiques gratuites dans le monde (TV française par défaut). Les flux sont proxifiés par le backend PatTool.",
     "COUNTRY": "Pays",
     "COUNTRY_ALL": "Tous les pays",
@@ -6942,6 +6943,7 @@
   },
   "DEEZER": {
     "TITLE": "Deezer",
+    "TITLE_SHORT": "Deezer",
     "SUBTITLE": "Classements, albums et extraits de 30 secondes via l’API publique Deezer. Le morceau entier n’est pas disponible.",
     "LIMIT_NOTE": "Extraits limités à 30 s : le morceau entier n’est pas fourni. Écoutez-le sur YouTube.",
     "SEARCH_PLACEHOLDER": "Titre, album, artiste…",
@@ -7089,6 +7091,7 @@
   },
   "RADIO": {
     "TITLE": "Radio — stations du monde",
+    "TITLE_SHORT": "Radio",
     "SUBTITLE": "Écoutez des radios internet gratuites du monde entier. Les flux passent par le backend PatTool.",
     "COUNTRY": "Pays",
     "COUNTRY_ALL": "Tous les pays",

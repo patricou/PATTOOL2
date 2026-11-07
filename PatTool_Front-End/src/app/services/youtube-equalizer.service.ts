@@ -328,6 +328,13 @@ export class YoutubeEqualizerService {
   }
 
   async resume(): Promise<boolean> {
+    const gesture = this.userGestureActive();
+    if (!this.ctx && !gesture) {
+      return false;
+    }
+    if (this.ctx?.state === 'suspended' && !gesture) {
+      return false;
+    }
     const ctx = this.ensureGraph();
     if (ctx.state === 'suspended') {
       try {
@@ -338,6 +345,18 @@ export class YoutubeEqualizerService {
     }
     this.bindOutputWindow();
     return ctx.state === 'running';
+  }
+
+  /** Chrome logs a warning and refuses to start the graph outside a click or key press. */
+  private userGestureActive(): boolean {
+    if (typeof navigator === 'undefined') {
+      return false;
+    }
+    const activation = navigator.userActivation;
+    if (!activation) {
+      return true;
+    }
+    return activation.isActive;
   }
 
   patch(partial: Partial<YoutubeEqualizerSettings>, markCustom = true): void {
@@ -810,6 +829,9 @@ export class YoutubeEqualizerService {
       }
       const el = this.mediaElement;
       if (!el || el.paused || el.ended || el.dataset['patUserPaused'] === '1') {
+        return;
+      }
+      if (!this.userGestureActive()) {
         return;
       }
       void ctx.resume().catch(() => undefined);

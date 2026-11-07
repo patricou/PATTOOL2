@@ -5624,6 +5624,7 @@
   },
   "TV": {
     "TITLE": "טלוויזיה — ערוצים חינמיים",
+    "TITLE_SHORT": "TV",
     "SUBTITLE": "צפו בערוצי IPTV ציבוריים חינמיים ברחבי העולם (טלוויזיה צרפתית כברירת מחדל). הזרמים מועברים דרך שרת PatTool.",
     "COUNTRY": "מדינה",
     "COUNTRY_ALL": "כל המדינות",
@@ -5941,6 +5942,7 @@
   },
   "DEEZER": {
     "TITLE": "Deezer",
+    "TITLE_SHORT": "Deezer",
     "SUBTITLE": "מצעדים, אלבומים וקטעים של 30 שניות דרך ה-API הציבורי של Deezer. השיר המלא אינו זמין.",
     "LIMIT_NOTE": "קטעים מוגבלים ל-30 שנ׳: השיר המלא אינו מסופק. האזינו לו ב-YouTube.",
     "SEARCH_PLACEHOLDER": "שיר, אלבום, אמן…",
@@ -6088,6 +6090,7 @@
   },
   "RADIO": {
     "TITLE": "רדיו — תחנות העולם",
+    "TITLE_SHORT": "Radio",
     "SUBTITLE": "Listen to free internet radio stations worldwide (France by default). Streams are proxied by the PatTool backend.",
     "COUNTRY": "מדינה",
     "COUNTRY_ALL": "כל המדינות",
