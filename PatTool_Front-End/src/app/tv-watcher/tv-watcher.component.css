@@ -6,14 +6,10 @@
   --pat-title-shadow: 0 4px 15px rgba(59, 7, 100, 0.4);
   --pat-title-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='6'%3E%3Cpath d='M0 0h4' stroke='white' stroke-opacity='0.12'/%3E%3C/svg%3E");
   display: block;
-  /* Cover the viewport below the fixed navbar, so scrolling never reveals the light page wash. */
+  /* Cover the viewport below the fixed navbar, so scrolling never reveals the light page wash.
+     The skin (tv-skins.css) paints the page, the same way radio and Deezer do. */
   min-height: 100vh;
   min-height: 100dvh;
-  /* One warm light behind the set. Sides stay an even dark, with no color bands. */
-  background-color: #14110f;
-  background-image: radial-gradient(ellipse 68% 58% at 50% 44%, #3d2e26 0%, #241c18 46%, #14110f 74%);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
 }
 
 /* Mobile landscape: immersive TV stage covering the viewport. */
