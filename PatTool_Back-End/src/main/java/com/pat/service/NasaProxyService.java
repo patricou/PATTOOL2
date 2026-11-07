@@ -95,6 +95,18 @@ public class NasaProxyService {
         this.objectMapper = objectMapper;
     }
 
+    public int cacheEntryCount() {
+        return cache.size() + failures.size() + imageCache.size();
+    }
+
+    public int clearCache() {
+        int n = cacheEntryCount();
+        cache.clear();
+        failures.clear();
+        imageCache.clear();
+        return n;
+    }
+
     @PostConstruct
     void logApiKeyMode() {
         String key = apiKey == null ? "" : apiKey.trim();

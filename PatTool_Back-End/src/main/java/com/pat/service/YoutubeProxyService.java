@@ -118,6 +118,17 @@ public class YoutubeProxyService {
         return StringUtils.hasText(apiKey);
     }
 
+    public int cacheEntryCount() {
+        return cache.size() + oembedSizes.size();
+    }
+
+    public int clearCache() {
+        int n = cacheEntryCount();
+        cache.clear();
+        oembedSizes.clear();
+        return n;
+    }
+
     /** Official oEmbed width and height. The id is fixed here so the call cannot be turned into an open fetch. */
     public int[] clipSize(String videoId) {
         String id = videoId == null ? "" : videoId.trim();

@@ -55,11 +55,32 @@
     font-weight: 400;
 }
 
+.section-explainer {
+    margin: 0 0 0.7rem;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: #4b5563;
+}
+
+.system-page-col {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
 .registry-toolbar {
     display: flex;
     flex-direction: column;
     gap: 0.55rem;
     margin-bottom: 0.65rem;
+}
+
+.registry-search {
+    width: 100%;
+    max-width: 28rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.85rem;
 }
 
 .registry-summary {
@@ -206,6 +227,31 @@
     border-bottom-width: 1px;
 }
 
+.registry-sort-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.registry-sort-btn:hover,
+.registry-sort-btn:focus-visible {
+    color: #1d4ed8;
+}
+
+.db-section-title {
+    margin: 0.85rem 0 0.4rem;
+    font-size: 0.95rem;
+    font-weight: 650;
+    color: #1f2937;
+}
+
 .registry-desc {
     font-size: 0.75rem;
     color: #6b7280;
@@ -285,6 +331,48 @@
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.5rem;
+}
+
+.section-toggle {
+    cursor: pointer;
+}
+
+.section-toggle:focus-visible {
+    outline: 2px solid #93c5fd;
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+.section-toggle::after {
+    content: "\f054";
+    font-family: FontAwesome;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 0.72rem;
+    line-height: 1;
+    color: #6b7280;
+    margin-left: 0.35rem;
+    flex-shrink: 0;
+}
+
+.section-open > .section-toggle::after {
+    content: "\f078";
+}
+
+.section-collapsed > :not(.stats-header):not(.action-header):not(.action-header-compact) {
+    display: none !important;
+}
+
+.section-collapsed > .stats-header,
+.section-collapsed > .action-header,
+.section-collapsed > .action-header-compact {
+    margin-bottom: 0;
+}
+
+.section-collapsed .registry-subtitle,
+.section-collapsed .action-info p,
+.section-collapsed .action-info-compact p {
+    display: none;
 }
 
 .stats-header-compact {

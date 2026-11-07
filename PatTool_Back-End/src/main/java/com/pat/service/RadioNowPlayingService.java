@@ -121,6 +121,17 @@ public class RadioNowPlayingService {
         this.youtubeProxyService = youtubeProxyService;
     }
 
+    public int cacheEntryCount() {
+        return metaCache.size() + imageCache.size();
+    }
+
+    public int clearCache() {
+        int n = cacheEntryCount();
+        metaCache.clear();
+        imageCache.clear();
+        return n;
+    }
+
     @PreDestroy
     public void shutdownImagePool() {
         imagePool.shutdownNow();

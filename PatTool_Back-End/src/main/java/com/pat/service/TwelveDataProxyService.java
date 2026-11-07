@@ -495,7 +495,7 @@ public class TwelveDataProxyService {
     }
 
     public int cacheEntryCount() {
-        return cache.size();
+        return cache.size() + errorCache.size();
     }
 
     // ===================================================================

@@ -352,7 +352,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { kind: 'route', routerLink: ['tools/apk'], icon: 'fa fa-android', labelKey: 'MENU.APK_DOWNLOAD', logoSrc: 'assets/images/menu-android.svg' },
         { kind: 'route', routerLink: ['tools/pdf-converter'], icon: 'fa fa-file-pdf-o', labelKey: 'MENU.PDF_CONVERTER', logoSrc: 'assets/images/menu-pdf.svg' },
         { kind: 'route', routerLink: ['tools/ods-editor'], icon: 'fa fa-table', labelKey: 'MENU.ODS_EDITOR', logoSrc: 'assets/images/menu-sheet.svg' },
-        { kind: 'route', routerLink: ['system'], icon: 'fa fa-cog', labelKey: 'MENU.SYSTEM', authOnly: true, logoSrc: 'assets/images/menu-cog.svg' },
+        { kind: 'route', routerLink: ['system'], icon: 'fa fa-cog', labelKey: 'MENU.SYSTEM', authOnly: true, adminOnly: true, logoSrc: 'assets/images/menu-cog.svg' },
         { kind: 'route', routerLink: ['tools/pattool-parameters'], icon: 'fa fa-sliders', labelKey: 'MENU.PATTOOL_PARAMETERS', authOnly: true, logoSrc: 'assets/images/menu-sliders.svg' },
         { kind: 'route', routerLink: ['maps'], icon: 'fa fa-map', labelKey: 'MENU.MAPS', logoSrc: 'assets/images/menu-map.svg' },
         { kind: 'upload', icon: 'fa fa-cloud-upload', labelKey: 'UPLOADFILE.MENU', logoSrc: 'assets/images/menu-upload.svg' },

@@ -65,6 +65,16 @@ public class ArtisansWebsiteLookupService {
         this.restTemplate = restTemplate;
     }
 
+    public int cacheEntryCount() {
+        return cache.size();
+    }
+
+    public int clearCache() {
+        int n = cache.size();
+        cache.clear();
+        return n;
+    }
+
     public String lookup(String name, String city, String postalCode, String activity) {
         String query = searchQuery(name, city, postalCode, activity);
         if (!StringUtils.hasText(query)) {

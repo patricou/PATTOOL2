@@ -954,6 +954,16 @@ public class BookCatalogService {
         return null;
     }
 
+    public int cacheEntryCount() {
+        return searchCache.size() + detailCache.size();
+    }
+
+    public int clearCache() {
+        int n = cacheEntryCount();
+        invalidateCaches();
+        return n;
+    }
+
     public void invalidateCaches() {
         searchCache.clear();
         detailCache.clear();

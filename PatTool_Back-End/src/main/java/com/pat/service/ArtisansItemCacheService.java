@@ -120,6 +120,27 @@ public class ArtisansItemCacheService {
         return map == null ? 0 : map.size();
     }
 
+    public int cacheEntryCount() {
+        int n = 0;
+        for (ConcurrentHashMap<String, ObjectNode> map : store.values()) {
+            n += map.size();
+        }
+        return n;
+    }
+
+    public int clearAll() {
+        int n = 0;
+        for (ConcurrentHashMap<String, ObjectNode> map : store.values()) {
+            n += map.size();
+            map.clear();
+        }
+        if (n > 0) {
+            generation.incrementAndGet();
+            persist();
+        }
+        return n;
+    }
+
     public ObjectNode snapshot(String source) {
         String key = normalizeSource(source);
         ObjectNode root = objectMapper.createObjectNode();

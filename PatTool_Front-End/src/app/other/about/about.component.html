@@ -106,10 +106,11 @@
         <h4>{{ 'ABOUT.FEATURES_TITLE' | translate }}</h4>
         <p class="about-section-desc">{{ 'ABOUT.FEATURES_DESC' | translate }}</p>
         <div class="about-feature-group" *ngFor="let group of featureGroups">
+          <ng-container *ngIf="visibleLinks(group).length">
           <h5>{{ group.titleKey | translate }}</h5>
           <div class="about-feature-grid">
             <a
-              *ngFor="let feat of group.links"
+              *ngFor="let feat of visibleLinks(group)"
               [routerLink]="feat.route"
               class="about-feature-tile">
               <span class="about-feature-icon">
@@ -123,6 +124,7 @@
               <i class="fa fa-angle-right about-feature-chevron"></i>
             </a>
           </div>
+          </ng-container>
         </div>
       </section>
     </div>

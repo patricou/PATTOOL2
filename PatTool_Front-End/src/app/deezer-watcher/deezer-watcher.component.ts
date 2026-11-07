@@ -328,6 +328,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   ytLinks: Record<number, string> = {};
   /** Result list for a track, so the next YouTube click does not search again. */
   private readonly ytChoices = new Map<number, string[]>();
+  /** Titles whose "2 / 10" badge was dismissed by keep or drop. */
+  private readonly ytPlaceOff = new Set<number>();
   ytFromCache: Record<number, boolean> = {};
   ytMiss: Record<number, boolean> = {};
   ytPending: Record<number, boolean> = {};
@@ -1580,6 +1582,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (this.ytLinks[track.id]) {
       const onThisVideo = this.playing && this.current?.id === track.id && this.clipOnStage;
       if (onThisVideo) {
+        this.ytPlaceOff.delete(track.id);
         const savedId = (this.ytLinks[track.id] || '').trim();
         const skip = this.ytOffer?.trackId === track.id ? this.ytOffer.videoId : savedId;
         if (this.playNextYoutubeChoice(track, index, skip, savedId)) {
@@ -1628,8 +1631,11 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }, 350);
   }
 
-  /** "2 / 10" while this title walks its YouTube result list. Empty otherwise. */
+  /** "2 / 10" while this title walks its YouTube result list. Empty after keep or drop. */
   ytPlace(trackId: number): string {
+    if (this.ytPlaceOff.has(trackId)) {
+      return '';
+    }
     const ids = this.ytChoices.get(trackId) || [];
     if (ids.length < 2) {
       return '';
@@ -5458,6 +5464,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (!offer || offer.trackId !== track.id || this.ytNextBusy[track.id]) {
       return;
     }
+    this.ytPlaceOff.add(track.id);
     this.ytNextBusy = { ...this.ytNextBusy, [track.id]: true };
     this.api.resolveDeezerYoutubeLinks([{
       id: track.id,
@@ -5470,6 +5477,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         const link = (page?.links || []).find((item) => item.id === track.id);
         const videoId = (link?.videoId || '').trim();
         if (!videoId || videoId !== offer.videoId) {
+          this.ytPlaceOff.delete(track.id);
           return;
         }
         this.rememberYoutube(track.id, videoId);
@@ -5477,7 +5485,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
           this.ytOffer = null;
         }
       },
-      error: () => this.clearYoutubeNext(track.id)
+      error: () => {
+        this.ytPlaceOff.delete(track.id);
+        this.clearYoutubeNext(track.id);
+      }
     });
   }
 
@@ -5486,6 +5497,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (this.ytOffer?.trackId !== track.id) {
       return;
     }
+    this.ytPlaceOff.add(track.id);
     this.ytOffer = null;
     if (this.current?.id !== track.id) {
       return;

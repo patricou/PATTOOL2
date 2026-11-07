@@ -68,6 +68,16 @@ public class FlightAwareLiveService {
         this.cacheTtlMs = Math.max(15, cacheSeconds) * 1000L;
     }
 
+    public int cacheEntryCount() {
+        return cache != null ? 1 : 0;
+    }
+
+    public int clearCache() {
+        int n = cache != null ? 1 : 0;
+        cache = null;
+        return n;
+    }
+
     public Optional<FlightStateDto> fetchByCallsign(String callsign) {
         return snapshot(callsign).map(CachedFlight::state);
     }

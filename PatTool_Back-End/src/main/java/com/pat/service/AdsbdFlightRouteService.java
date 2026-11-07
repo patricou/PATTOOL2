@@ -50,6 +50,16 @@ public class AdsbdFlightRouteService {
         this.baseUrl = baseUrl.replaceAll("/+$", "");
     }
 
+    public int cacheEntryCount() {
+        return cache.size();
+    }
+
+    public int clearCache() {
+        int n = cache.size();
+        cache.clear();
+        return n;
+    }
+
     /**
      * Destination airport when adsbdb's planned origin matches {@code departureIcao}
      * (or when no departure is known yet).

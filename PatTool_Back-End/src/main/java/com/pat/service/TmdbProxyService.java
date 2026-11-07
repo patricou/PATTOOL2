@@ -982,6 +982,16 @@ public class TmdbProxyService {
         return trimmed;
     }
 
+    public int cacheEntryCount() {
+        return cache.size();
+    }
+
+    public int clearCache() {
+        int n = cache.size();
+        cache.clear();
+        return n;
+    }
+
     private TmdbPageDto fromCache(String key) {
         CacheEntry hit = cache.get(key);
         if (hit == null || hit.page == null || !hit.expiresAt.isAfter(Instant.now())) {

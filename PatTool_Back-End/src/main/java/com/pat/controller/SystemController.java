@@ -3,6 +3,7 @@ package com.pat.controller;
 import com.pat.repo.UserConnectionLogRepository;
 import com.pat.service.MemoryMonitoringService;
 import com.pat.service.ImageCompressionService;
+import com.pat.service.PatToolDatabaseStatsService;
 import com.pat.service.UserConnectionLogPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +60,9 @@ public class SystemController {
 
     @Autowired
     private MongoTemplate mongoTemplate;
+
+    @Autowired
+    private PatToolDatabaseStatsService databaseStatsService;
     
     @Autowired
     private UserConnectionLogPolicy userConnectionLogPolicy;
@@ -79,7 +83,51 @@ public class SystemController {
                 .anyMatch(authority -> authority.equalsIgnoreCase("ROLE_Admin") || 
                                      authority.equalsIgnoreCase("ROLE_admin"));
     }
-    
+
+    /**
+     * Record count of every MongoDB collection, and per-user counts when rows belong to a member.
+     */
+    @GetMapping("/database")
+    public ResponseEntity<Map<String, Object>> databaseStats() {
+        if (!hasAdminRole()) {
+            Map<String, Object> denied = new HashMap<>();
+            denied.put("success", false);
+            denied.put("message", "Admin role required");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(denied);
+        }
+        try {
+            return ResponseEntity.ok(databaseStatsService.collectionCounts());
+        } catch (Exception e) {
+            log.error("Error summarizing database collections", e);
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("message", e.getMessage() != null ? e.getMessage() : e.toString());
+            return ResponseEntity.internalServerError().body(error);
+        }
+    }
+
+    /**
+     * Per-user record counts. Separate from the collection list so the totals can render immediately.
+     */
+    @GetMapping("/database/users")
+    public ResponseEntity<Map<String, Object>> databaseUserStats() {
+        if (!hasAdminRole()) {
+            Map<String, Object> denied = new HashMap<>();
+            denied.put("success", false);
+            denied.put("message", "Admin role required");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(denied);
+        }
+        try {
+            return ResponseEntity.ok(databaseStatsService.userBreakdown());
+        } catch (Exception e) {
+            log.error("Error summarizing database users", e);
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("message", e.getMessage() != null ? e.getMessage() : e.toString());
+            return ResponseEntity.internalServerError().body(error);
+        }
+    }
+
     /**
      * Get JVM memory information
      * Returns detailed memory usage statistics

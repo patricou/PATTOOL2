@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { APP_VERSION } from '../../../environments/app-version';
 import { environment } from '../../../environments/environment';
+import { KeycloakService } from '../../keycloak/keycloak.service';
 
 export type AboutTab = 'overview' | 'stack' | 'streaming' | 'resources';
 
@@ -14,6 +15,8 @@ export interface AboutFeatureLink {
   labelKey: string;
   descKey: string;
   logoSrc?: string;
+  /** Hidden unless the signed-in user has the Admin role. */
+  adminOnly?: boolean;
 }
 
 export interface AboutFeatureGroup {
@@ -237,7 +240,7 @@ export class AboutComponent {
         { route: '/tools/apk', icon: 'fa-android', labelKey: 'MENU.APK_DOWNLOAD', descKey: 'ABOUT.FEAT_APK' },
         { route: '/tools/pdf-converter', icon: 'fa-file-pdf-o', labelKey: 'MENU.PDF_CONVERTER', descKey: 'ABOUT.FEAT_PDF' },
         { route: '/tools/ods-editor', icon: 'fa-table', labelKey: 'MENU.ODS_EDITOR', descKey: 'ABOUT.FEAT_ODS' },
-        { route: '/system', icon: 'fa-cog', labelKey: 'MENU.SYSTEM', descKey: 'ABOUT.FEAT_SYSTEM' },
+        { route: '/system', icon: 'fa-cog', labelKey: 'MENU.SYSTEM', descKey: 'ABOUT.FEAT_SYSTEM', adminOnly: true },
         { route: '/tools/pattool-parameters', icon: 'fa-sliders', labelKey: 'MENU.PATTOOL_PARAMETERS', descKey: 'ABOUT.FEAT_PARAMETERS' }
       ]
     }
@@ -258,9 +261,13 @@ export class AboutComponent {
   copyFeedback = '';
   private copyTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor() {
+  constructor(private readonly keycloak: KeycloakService) {
     this.swaggerUrl = this.buildSwaggerUrl(environment.API_URL);
     this.keycloakDevUrl = this.normalizeKeycloakAdminUrl(environment.keykloakBaseUrl);
+  }
+
+  visibleLinks(group: AboutFeatureGroup): AboutFeatureLink[] {
+    return group.links.filter((link) => !link.adminOnly || this.keycloak.hasAdminRole());
   }
 
   setTab(tab: AboutTab): void {

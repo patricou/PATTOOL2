@@ -5139,6 +5139,39 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--radio-well-ink, #f4efe4) 28%, transparent);
 }
 
+/* Radio: with a cover on the glass, every cabinet animation stays behind the photo
+   and shows in the space around it. */
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-ambient,
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-dial,
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-meter,
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-tubes,
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-speaker,
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-synth-floor,
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-screen-fx,
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-controls-row,
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve::before,
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve::after {
+  z-index: 1;
+}
+
+.radio-player-panel.radio-page .radio-player-frame:has(.radio-face--sleeve) .radio-face {
+  z-index: 2;
+}
+
+.radio-player-panel.radio-page.radio-player-panel--on .radio-player-frame:has(.radio-face--sleeve)::after {
+  z-index: 1;
+}
+
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-sleeve,
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve-front .radio-sleeve {
+  z-index: 4;
+}
+
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-sleeve-frame {
+  background: transparent;
+  box-shadow: none;
+}
+
 .radio-sleeve-photo,
 .radio-sleeve-empty {
   position: absolute;

@@ -150,7 +150,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <jvmArguments>-Dfile.encoding=UTF-8 -Dconsole.encoding=UTF-8 -Xms256m -Xmx1536m -XX:MaxMetaspaceSize=256m -XX:MaxDirectMemorySize=256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=./logs/heapdump.hprof</jvmArguments>
+                    <jvmArguments>-Dfile.encoding=UTF-8 -Dconsole.encoding=UTF-8 -Xms256m -Xmx2048m -XX:MaxMetaspaceSize=256m -XX:MaxDirectMemorySize=256m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=./logs/heapdump.hprof</jvmArguments>
                 </configuration>
             </plugin>
             <plugin>

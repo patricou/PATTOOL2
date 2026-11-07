@@ -54,6 +54,22 @@ public class FoncierGeoService {
         this.objectMapper = objectMapper;
     }
 
+    public int cacheEntryCount() {
+        return banCache.size()
+                + inseeCache.size()
+                + departmentCommunesCache.size()
+                + departmentCodesNearCache.size();
+    }
+
+    public int clearCache() {
+        int n = cacheEntryCount();
+        banCache.clear();
+        inseeCache.clear();
+        departmentCommunesCache.clear();
+        departmentCodesNearCache.clear();
+        return n;
+    }
+
     public JsonNode searchCommunes(String query) {
         String trimmed = query == null ? "" : query.trim();
         ObjectNode root = objectMapper.createObjectNode();

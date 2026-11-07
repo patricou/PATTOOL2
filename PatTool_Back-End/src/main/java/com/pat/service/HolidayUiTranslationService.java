@@ -42,6 +42,16 @@ public class HolidayUiTranslationService {
         return enabled;
     }
 
+    public int cacheEntryCount() {
+        return cache.size();
+    }
+
+    public int clearCache() {
+        int n = cache.size();
+        cache.clear();
+        return n;
+    }
+
     /**
      * Code cible pour la paire {@code en|…} (MyMemory), ou {@code null} si pas de traduction.
      */

@@ -739,6 +739,16 @@ public class TvStreamProxyService {
         }
     }
 
+    public int cacheEntryCount() {
+        return capTerreSegmentCache.size();
+    }
+
+    public int clearCache() {
+        int n = capTerreSegmentCache.size();
+        capTerreSegmentCache.clear();
+        return n;
+    }
+
     /** Cap Terre iptv-org FR entry: {@code http://145.239.5.177/359a/…}. */
     static boolean isCapTerreUpstream(String url) {
         if (url == null || url.isBlank()) {

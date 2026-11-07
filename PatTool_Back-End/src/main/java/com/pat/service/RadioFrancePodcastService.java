@@ -207,8 +207,12 @@ public class RadioFrancePodcastService {
         return episodes;
     }
 
+    public int cacheEntryCount() {
+        return showCache.size() + episodeCache.size() + showMetaCache.size();
+    }
+
     public int invalidateAll() {
-        int n = showCache.size() + episodeCache.size() + showMetaCache.size();
+        int n = cacheEntryCount();
         showCache.clear();
         episodeCache.clear();
         showMetaCache.clear();

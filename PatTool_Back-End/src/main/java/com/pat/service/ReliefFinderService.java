@@ -83,6 +83,17 @@ public class ReliefFinderService {
         this.overpassUrls = parseCsv(overpassUrlsCsv);
     }
 
+    public int cacheEntryCount() {
+        return tileCache.size() + resultCache.size();
+    }
+
+    public int clearCache() {
+        int n = cacheEntryCount();
+        tileCache.clear();
+        resultCache.clear();
+        return n;
+    }
+
     @PreDestroy
     void shutdown() {
         pool.shutdownNow();

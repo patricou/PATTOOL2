@@ -56,14 +56,23 @@ public class OpenWeatherService {
         this.geocodeService = geocodeService;
         this.openWeatherApiBaseUrl = openWeatherApiBaseUrl;
         this.openWeatherApiKey = openWeatherApiKey;
-        // Log API key status (only first 4 chars for security)
         if (openWeatherApiKey != null && !openWeatherApiKey.trim().isEmpty()) {
-            log.info("OpenWeatherMap API key loaded (length: {}, starts with: {})", 
-                    openWeatherApiKey.length(), 
+            log.info("OpenWeatherMap API key loaded (length: {}, starts with: {})",
+                    openWeatherApiKey.length(),
                     openWeatherApiKey.length() > 4 ? openWeatherApiKey.substring(0, 4) + "..." : "***");
         } else {
             log.warn("OpenWeatherMap API key is empty or not configured!");
         }
+    }
+
+    public int cacheEntryCount() {
+        return elevationCache.size();
+    }
+
+    public int clearCache() {
+        int n = elevationCache.size();
+        elevationCache.clear();
+        return n;
     }
 
     /**

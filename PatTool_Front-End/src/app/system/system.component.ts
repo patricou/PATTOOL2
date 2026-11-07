@@ -72,6 +72,24 @@ export class SystemComponent implements OnInit {
   registryMessage: string = '';
   registryMessageVisible: boolean = false;
   selectedRegistryCategory: string = 'all';
+  registrySearch: string = '';
+  openSection: string | null = null;
+  registrySortColumn: 'category' | 'name' | 'records' | '' = '';
+  registrySortDirection: 'asc' | 'desc' = 'asc';
+
+  dbCollections: any[] = [];
+  dbUserRows: any[] = [];
+  dbCollectionCount = 0;
+  dbRecordCount = 0;
+  isLoadingDb = false;
+  isLoadingDbUsers = false;
+  dbError = '';
+  dbUserError = '';
+  dbSearch = '';
+  dbCollectionSortColumn: 'name' | 'count' | '' = 'name';
+  dbCollectionSortDirection: 'asc' | 'desc' = 'asc';
+  dbUserSortColumn: 'user' | 'collection' | 'count' | '' = 'user';
+  dbUserSortDirection: 'asc' | 'desc' = 'asc';
   selectedCacheIds: string[] = [];
   isClearingSelectedCaches: boolean = false;
 
@@ -152,6 +170,7 @@ export class SystemComponent implements OnInit {
     this.checkAuthorizations();
     this.loadCacheStats();
     this.loadCacheRegistry();
+    this.loadDatabaseStats();
     this.pageLoadStartTime = performance.now();
     this.collectPerformanceStats();
     this.loadAdditionalDebugInfo();
@@ -645,9 +664,122 @@ export class SystemComponent implements OnInit {
   refreshAllStats(): void {
     this.loadCacheStats();
     this.loadCacheRegistry();
+    this.loadDatabaseStats();
     this.calculateFrontendCacheStats();
     this.collectPerformanceStats();
     this.loadAdditionalDebugInfo();
+  }
+
+  loadDatabaseStats(): void {
+    this.isLoadingDb = true;
+    this.isLoadingDbUsers = true;
+    this.dbError = '';
+    this.dbUserError = '';
+    this._cacheService.getDatabaseStats().subscribe({
+      next: (response: any) => {
+        const data = response?._body
+          ? (typeof response._body === 'string' ? JSON.parse(response._body) : response._body)
+          : response;
+        if (data?.success) {
+          this.dbCollections = Array.isArray(data.collections) ? data.collections : [];
+          this.dbCollectionCount = Number(data.collectionCount ?? this.dbCollections.length);
+          this.dbRecordCount = Number(data.recordCount ?? 0);
+        } else {
+          this.dbCollections = [];
+          this.dbCollectionCount = 0;
+          this.dbRecordCount = 0;
+          this.dbError = data?.message || 'Failed to load database statistics';
+        }
+        this.isLoadingDb = false;
+        this.cdr.detectChanges();
+      },
+      error: (error: any) => {
+        this.dbCollections = [];
+        this.dbError = error?.error?.message || error?.message || 'Error loading database statistics';
+        this.isLoadingDb = false;
+        this.cdr.detectChanges();
+      }
+    });
+    this._cacheService.getDatabaseUserStats().subscribe({
+      next: (response: any) => {
+        const data = response?._body
+          ? (typeof response._body === 'string' ? JSON.parse(response._body) : response._body)
+          : response;
+        if (data?.success) {
+          this.dbUserRows = Array.isArray(data.userRows) ? data.userRows : [];
+        } else {
+          this.dbUserRows = [];
+          this.dbUserError = data?.message || 'Failed to load per-user database statistics';
+        }
+        this.isLoadingDbUsers = false;
+        this.cdr.detectChanges();
+      },
+      error: (error: any) => {
+        this.dbUserRows = [];
+        this.dbUserError = error?.error?.message || error?.message || 'Error loading per-user database statistics';
+        this.isLoadingDbUsers = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  get filteredDbCollections(): any[] {
+    const query = (this.dbSearch || '').trim().toLowerCase();
+    const rows = this.dbCollections.filter(row => !query || String(row?.name || '').toLowerCase().includes(query));
+    return this.sortDbRows(rows, this.dbCollectionSortColumn, this.dbCollectionSortDirection);
+  }
+
+  get filteredDbUserRows(): any[] {
+    const query = (this.dbSearch || '').trim().toLowerCase();
+    const rows = this.dbUserRows.filter(row => {
+      if (!query) {
+        return true;
+      }
+      const haystack = `${row?.user || ''} ${row?.collection || ''}`.toLowerCase();
+      return haystack.includes(query);
+    });
+    return this.sortDbRows(rows, this.dbUserSortColumn, this.dbUserSortDirection);
+  }
+
+  toggleDbCollectionSort(column: 'name' | 'count'): void {
+    if (this.dbCollectionSortColumn === column) {
+      this.dbCollectionSortDirection = this.dbCollectionSortDirection === 'asc' ? 'desc' : 'asc';
+      return;
+    }
+    this.dbCollectionSortColumn = column;
+    this.dbCollectionSortDirection = column === 'count' ? 'desc' : 'asc';
+  }
+
+  toggleDbUserSort(column: 'user' | 'collection' | 'count'): void {
+    if (this.dbUserSortColumn === column) {
+      this.dbUserSortDirection = this.dbUserSortDirection === 'asc' ? 'desc' : 'asc';
+      return;
+    }
+    this.dbUserSortColumn = column;
+    this.dbUserSortDirection = column === 'count' ? 'desc' : 'asc';
+  }
+
+  dbSortIcon(active: string, column: string, direction: 'asc' | 'desc'): string {
+    if (active !== column) {
+      return 'fa-sort';
+    }
+    return direction === 'asc' ? 'fa-sort-asc' : 'fa-sort-desc';
+  }
+
+  private sortDbRows(rows: any[], column: string, direction: 'asc' | 'desc'): any[] {
+    if (!column) {
+      return rows;
+    }
+    const sign = direction === 'desc' ? -1 : 1;
+    const locale = this.translate.currentLang || 'fr';
+    return [...rows].sort((a, b) => {
+      if (column === 'count') {
+        return (Number(a?.count) - Number(b?.count)) * sign;
+      }
+      const left = column === 'name' ? a?.name : a?.[column];
+      const right = column === 'name' ? b?.name : b?.[column];
+      return String(left || '').localeCompare(String(right || ''), locale, { sensitivity: 'base' }) * sign;
+    });
   }
 
   loadCacheRegistry(): void {
@@ -687,10 +819,68 @@ export class SystemComponent implements OnInit {
   }
 
   get filteredCacheRegistry(): any[] {
-    if (this.selectedRegistryCategory === 'all') {
-      return this.cacheRegistry;
+    const query = (this.registrySearch || '').trim().toLowerCase();
+    const rows = this.cacheRegistry.filter(cache => {
+      if (this.selectedRegistryCategory !== 'all' && cache.category !== this.selectedRegistryCategory) {
+        return false;
+      }
+      if (!query) {
+        return true;
+      }
+      const name = this.translate.instant(cache.nameKey || '');
+      const description = this.translate.instant(cache.descriptionKey || '');
+      const haystack = `${cache.id || ''} ${cache.category || ''} ${name} ${description}`.toLowerCase();
+      return haystack.includes(query);
+    });
+    if (!this.registrySortColumn) {
+      return rows;
     }
-    return this.cacheRegistry.filter(c => c.category === this.selectedRegistryCategory);
+    const direction = this.registrySortDirection === 'desc' ? -1 : 1;
+    const column = this.registrySortColumn;
+    return [...rows].sort((a, b) => this.compareRegistryRows(a, b, column) * direction);
+  }
+
+  toggleSection(id: string): void {
+    this.openSection = this.openSection === id ? null : id;
+  }
+
+  toggleRegistrySort(column: 'category' | 'name' | 'records'): void {
+    if (this.registrySortColumn === column) {
+      this.registrySortDirection = this.registrySortDirection === 'asc' ? 'desc' : 'asc';
+      return;
+    }
+    this.registrySortColumn = column;
+    this.registrySortDirection = column === 'records' ? 'desc' : 'asc';
+  }
+
+  registrySortIcon(column: 'category' | 'name' | 'records'): string {
+    if (this.registrySortColumn !== column) {
+      return 'fa-sort';
+    }
+    return this.registrySortDirection === 'asc' ? 'fa-sort-asc' : 'fa-sort-desc';
+  }
+
+  registryAriaSort(column: 'category' | 'name' | 'records'): 'ascending' | 'descending' | 'none' {
+    if (this.registrySortColumn !== column) {
+      return 'none';
+    }
+    return this.registrySortDirection === 'asc' ? 'ascending' : 'descending';
+  }
+
+  private compareRegistryRows(a: any, b: any, column: 'category' | 'name' | 'records'): number {
+    if (column === 'records') {
+      const left = Number(a?.recordCount ?? a?.entryCount ?? 0);
+      const right = Number(b?.recordCount ?? b?.entryCount ?? 0);
+      return left - right;
+    }
+    const locale = this.translate.currentLang || 'fr';
+    const left = column === 'category'
+      ? this.translate.instant(this.categoryLabelKey(a?.category))
+      : this.translate.instant(a?.nameKey || a?.id || '');
+    const right = column === 'category'
+      ? this.translate.instant(this.categoryLabelKey(b?.category))
+      : this.translate.instant(b?.nameKey || b?.id || '');
+    return String(left).localeCompare(String(right), locale, { sensitivity: 'base' });
   }
 
   get registryTotalEntries(): number {
@@ -699,7 +889,14 @@ export class SystemComponent implements OnInit {
 
   selectRegistryCategory(category: string): void {
     this.selectedRegistryCategory = category;
-    // Keep only selections still visible in the new filter
+    this.keepVisibleCacheSelection();
+  }
+
+  onRegistrySearchChange(): void {
+    this.keepVisibleCacheSelection();
+  }
+
+  private keepVisibleCacheSelection(): void {
     const visible = new Set(this.filteredCacheRegistry.map(c => c.id));
     this.selectedCacheIds = this.selectedCacheIds.filter(id => visible.has(id));
   }

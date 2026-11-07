@@ -710,10 +710,34 @@ public class GlobeProxyService {
         return n;
     }
 
+    public int issNowCacheEntryCount() {
+        return issNowMemoryCache != null ? 1 : 0;
+    }
+
+    public int tleCacheEntryCount() {
+        return (starlinkTleCache != null ? 1 : 0) + satTleMemoryCache.size();
+    }
+
+    public int clearTleCache() {
+        int n = tleCacheEntryCount();
+        starlinkTleCache = null;
+        satTleMemoryCache.clear();
+        satTleFailUntilMs.clear();
+        return n;
+    }
+
+    public int staticImageCacheEntryCount() {
+        return staticGlobeImageCache.size();
+    }
+
+    public int clearStaticImageCache() {
+        int n = staticGlobeImageCache.size();
+        staticGlobeImageCache.clear();
+        return n;
+    }
+
     public int cacheEntryCount() {
-        return (issNowMemoryCache != null ? 1 : 0)
-                + (starlinkTleCache != null ? 1 : 0)
-                + satTleMemoryCache.size();
+        return issNowCacheEntryCount() + tleCacheEntryCount() + staticImageCacheEntryCount();
     }
 
     /**

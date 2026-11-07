@@ -43,6 +43,14 @@ public class DeezerYoutubeLinkService {
         return repository.countWithVideo();
     }
 
+    /** Drops every saved Deezer → YouTube choice, including empty misses. */
+    public int clearStoredLinks() {
+        long links = repository.countWithVideo();
+        repository.deleteAll();
+        locks.clear();
+        return links > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) links;
+    }
+
     /** Video ids already stored for these Deezer tracks. Empty misses are omitted. */
     public DeezerYoutubeLookupResponse stored(List<Long> ids) {
         List<DeezerYoutubeLookupResponse.Link> links = new ArrayList<>();

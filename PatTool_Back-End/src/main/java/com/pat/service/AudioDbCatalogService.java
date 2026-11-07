@@ -59,6 +59,16 @@ public class AudioDbCatalogService {
         this.objectMapper = objectMapper;
     }
 
+    public int cacheEntryCount() {
+        return cache.size();
+    }
+
+    public int clearCache() {
+        int n = cache.size();
+        cache.clear();
+        return n;
+    }
+
     /** TheAudioDB rejected or missed the call. A missing artist is an empty dossier, not this. */
     public static class UpstreamException extends RuntimeException {
         public UpstreamException() {

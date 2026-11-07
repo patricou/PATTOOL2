@@ -57,6 +57,29 @@ public class PatToolCacheAdminService {
     private final OpenSkyService openSkyService;
     private final GlobeProxyService globeProxyService;
     private final AgendaSocialGraphCache agendaSocialGraphCache;
+    private final DeezerCatalogService deezerCatalogService;
+    private final DeezerYoutubeLinkService deezerYoutubeLinkService;
+    private final AudioDbCatalogService audioDbCatalogService;
+    private final RadioFrancePodcastService radioFrancePodcastService;
+    private final RadioNowPlayingService radioNowPlayingService;
+    private final YoutubeProxyService youtubeProxyService;
+    private final TmdbProxyService tmdbProxyService;
+    private final BookCatalogService bookCatalogService;
+    private final NasaProxyService nasaProxyService;
+    private final WindyWebcamCatalogService windyWebcamCatalogService;
+    private final NapspanWebcamCatalogService napspanWebcamCatalogService;
+    private final Road511WebcamCatalogService road511WebcamCatalogService;
+    private final FoncierItemCacheService foncierItemCacheService;
+    private final FoncierGeoService foncierGeoService;
+    private final ArtisansItemCacheService artisansItemCacheService;
+    private final ArtisansWebsiteLookupService artisansWebsiteLookupService;
+    private final CodeRepoWorldService codeRepoWorldService;
+    private final ReliefFinderService reliefFinderService;
+    private final AdsbdFlightRouteService adsbdFlightRouteService;
+    private final FlightAwareLiveService flightAwareLiveService;
+    private final OpenWeatherService openWeatherService;
+    private final HolidayUiTranslationService holidayUiTranslationService;
+    private final TvStreamProxyService tvStreamProxyService;
 
     public PatToolCacheAdminService(
             ImageCompressionService imageCompressionService,
@@ -93,7 +116,30 @@ public class PatToolCacheAdminService {
             IpGeolocationService ipGeolocationService,
             OpenSkyService openSkyService,
             GlobeProxyService globeProxyService,
-            AgendaSocialGraphCache agendaSocialGraphCache) {
+            AgendaSocialGraphCache agendaSocialGraphCache,
+            DeezerCatalogService deezerCatalogService,
+            DeezerYoutubeLinkService deezerYoutubeLinkService,
+            AudioDbCatalogService audioDbCatalogService,
+            RadioFrancePodcastService radioFrancePodcastService,
+            RadioNowPlayingService radioNowPlayingService,
+            YoutubeProxyService youtubeProxyService,
+            TmdbProxyService tmdbProxyService,
+            BookCatalogService bookCatalogService,
+            NasaProxyService nasaProxyService,
+            WindyWebcamCatalogService windyWebcamCatalogService,
+            NapspanWebcamCatalogService napspanWebcamCatalogService,
+            Road511WebcamCatalogService road511WebcamCatalogService,
+            FoncierItemCacheService foncierItemCacheService,
+            FoncierGeoService foncierGeoService,
+            ArtisansItemCacheService artisansItemCacheService,
+            ArtisansWebsiteLookupService artisansWebsiteLookupService,
+            CodeRepoWorldService codeRepoWorldService,
+            ReliefFinderService reliefFinderService,
+            AdsbdFlightRouteService adsbdFlightRouteService,
+            FlightAwareLiveService flightAwareLiveService,
+            OpenWeatherService openWeatherService,
+            HolidayUiTranslationService holidayUiTranslationService,
+            TvStreamProxyService tvStreamProxyService) {
         this.imageCompressionService = imageCompressionService;
         this.cachePersistenceService = cachePersistenceService;
         this.mediaCatalogCacheService = mediaCatalogCacheService;
@@ -129,6 +175,29 @@ public class PatToolCacheAdminService {
         this.openSkyService = openSkyService;
         this.globeProxyService = globeProxyService;
         this.agendaSocialGraphCache = agendaSocialGraphCache;
+        this.deezerCatalogService = deezerCatalogService;
+        this.deezerYoutubeLinkService = deezerYoutubeLinkService;
+        this.audioDbCatalogService = audioDbCatalogService;
+        this.radioFrancePodcastService = radioFrancePodcastService;
+        this.radioNowPlayingService = radioNowPlayingService;
+        this.youtubeProxyService = youtubeProxyService;
+        this.tmdbProxyService = tmdbProxyService;
+        this.bookCatalogService = bookCatalogService;
+        this.nasaProxyService = nasaProxyService;
+        this.windyWebcamCatalogService = windyWebcamCatalogService;
+        this.napspanWebcamCatalogService = napspanWebcamCatalogService;
+        this.road511WebcamCatalogService = road511WebcamCatalogService;
+        this.foncierItemCacheService = foncierItemCacheService;
+        this.foncierGeoService = foncierGeoService;
+        this.artisansItemCacheService = artisansItemCacheService;
+        this.artisansWebsiteLookupService = artisansWebsiteLookupService;
+        this.codeRepoWorldService = codeRepoWorldService;
+        this.reliefFinderService = reliefFinderService;
+        this.adsbdFlightRouteService = adsbdFlightRouteService;
+        this.flightAwareLiveService = flightAwareLiveService;
+        this.openWeatherService = openWeatherService;
+        this.holidayUiTranslationService = holidayUiTranslationService;
+        this.tvStreamProxyService = tvStreamProxyService;
     }
 
     public Map<String, Object> listAll() {
@@ -546,7 +615,10 @@ public class PatToolCacheAdminService {
         list.add(def("archive-catalog", "media",
                 "SYSTEM.CACHE_REGISTRY.ARCHIVE_CATALOG", "SYSTEM.CACHE_REGISTRY.ARCHIVE_CATALOG_DESC",
                 true, false,
-                () -> (long) internetArchiveCatalogService.catalogEntryCount(),
+                () -> {
+                    Object n = internetArchiveCatalogService.cacheStats().get("archiveItemCache");
+                    return n instanceof Number ? ((Number) n).longValue() : 0L;
+                },
                 internetArchiveCatalogService::invalidateAll,
                 () -> {
                     Map<String, Object> d = new LinkedHashMap<>(internetArchiveCatalogService.cacheStats());
@@ -763,9 +835,23 @@ public class PatToolCacheAdminService {
         list.add(def("globe-iss", "geo",
                 "SYSTEM.CACHE_REGISTRY.GLOBE_ISS", "SYSTEM.CACHE_REGISTRY.GLOBE_ISS_DESC",
                 true, false,
-                () -> (long) globeProxyService.cacheEntryCount(),
+                () -> (long) globeProxyService.issNowCacheEntryCount(),
                 globeProxyService::clearIssNowCache,
                 unit("records")));
+
+        list.add(def("globe-tle", "geo",
+                "SYSTEM.CACHE_REGISTRY.GLOBE_TLE", "SYSTEM.CACHE_REGISTRY.GLOBE_TLE_DESC",
+                true, false,
+                () -> (long) globeProxyService.tleCacheEntryCount(),
+                globeProxyService::clearTleCache,
+                unit("records")));
+
+        list.add(def("globe-images", "geo",
+                "SYSTEM.CACHE_REGISTRY.GLOBE_IMAGES", "SYSTEM.CACHE_REGISTRY.GLOBE_IMAGES_DESC",
+                true, false,
+                () -> (long) globeProxyService.staticImageCacheEntryCount(),
+                globeProxyService::clearStaticImageCache,
+                unit("images")));
 
         list.add(def("agenda-social", "other",
                 "SYSTEM.CACHE_REGISTRY.AGENDA_SOCIAL", "SYSTEM.CACHE_REGISTRY.AGENDA_SOCIAL_DESC",
@@ -777,6 +863,167 @@ public class PatToolCacheAdminService {
                     return (int) n;
                 },
                 unit("edges")));
+
+        list.add(def("deezer", "media",
+                "SYSTEM.CACHE_REGISTRY.DEEZER", "SYSTEM.CACHE_REGISTRY.DEEZER_DESC",
+                true, false,
+                () -> (long) deezerCatalogService.cacheEntryCount(),
+                deezerCatalogService::clearCache,
+                unit("responses")));
+
+        list.add(def("deezer-youtube", "media",
+                "SYSTEM.CACHE_REGISTRY.DEEZER_YOUTUBE", "SYSTEM.CACHE_REGISTRY.DEEZER_YOUTUBE_DESC",
+                true, false,
+                deezerYoutubeLinkService::countStoredLinks,
+                deezerYoutubeLinkService::clearStoredLinks,
+                unit("links")));
+
+        list.add(def("audiodb", "media",
+                "SYSTEM.CACHE_REGISTRY.AUDIODB", "SYSTEM.CACHE_REGISTRY.AUDIODB_DESC",
+                true, false,
+                () -> (long) audioDbCatalogService.cacheEntryCount(),
+                audioDbCatalogService::clearCache,
+                unit("responses")));
+
+        list.add(def("radio-france-podcasts", "media",
+                "SYSTEM.CACHE_REGISTRY.RADIO_FRANCE_PODCASTS", "SYSTEM.CACHE_REGISTRY.RADIO_FRANCE_PODCASTS_DESC",
+                true, false,
+                () -> (long) radioFrancePodcastService.cacheEntryCount(),
+                radioFrancePodcastService::invalidateAll,
+                unit("responses")));
+
+        list.add(def("radio-now-playing", "media",
+                "SYSTEM.CACHE_REGISTRY.RADIO_NOW_PLAYING", "SYSTEM.CACHE_REGISTRY.RADIO_NOW_PLAYING_DESC",
+                true, false,
+                () -> (long) radioNowPlayingService.cacheEntryCount(),
+                radioNowPlayingService::clearCache,
+                unit("responses")));
+
+        list.add(def("youtube", "media",
+                "SYSTEM.CACHE_REGISTRY.YOUTUBE", "SYSTEM.CACHE_REGISTRY.YOUTUBE_DESC",
+                true, false,
+                () -> (long) youtubeProxyService.cacheEntryCount(),
+                youtubeProxyService::clearCache,
+                unit("responses")));
+
+        list.add(def("tmdb", "media",
+                "SYSTEM.CACHE_REGISTRY.TMDB", "SYSTEM.CACHE_REGISTRY.TMDB_DESC",
+                true, false,
+                () -> (long) tmdbProxyService.cacheEntryCount(),
+                tmdbProxyService::clearCache,
+                unit("responses")));
+
+        list.add(def("books", "media",
+                "SYSTEM.CACHE_REGISTRY.BOOKS", "SYSTEM.CACHE_REGISTRY.BOOKS_DESC",
+                true, false,
+                () -> (long) bookCatalogService.cacheEntryCount(),
+                bookCatalogService::clearCache,
+                unit("items")));
+
+        list.add(def("tv-segments", "media",
+                "SYSTEM.CACHE_REGISTRY.TV_SEGMENTS", "SYSTEM.CACHE_REGISTRY.TV_SEGMENTS_DESC",
+                true, false,
+                () -> (long) tvStreamProxyService.cacheEntryCount(),
+                tvStreamProxyService::clearCache,
+                unit("records")));
+
+        list.add(def("nasa", "other",
+                "SYSTEM.CACHE_REGISTRY.NASA", "SYSTEM.CACHE_REGISTRY.NASA_DESC",
+                true, false,
+                () -> (long) nasaProxyService.cacheEntryCount(),
+                nasaProxyService::clearCache,
+                unit("responses")));
+
+        list.add(def("webcam-windy", "geo",
+                "SYSTEM.CACHE_REGISTRY.WEBCAM_WINDY", "SYSTEM.CACHE_REGISTRY.WEBCAM_WINDY_DESC",
+                true, false,
+                () -> (long) windyWebcamCatalogService.cacheEntryCount(),
+                windyWebcamCatalogService::clearCache,
+                unit("responses")));
+
+        list.add(def("webcam-napspan", "geo",
+                "SYSTEM.CACHE_REGISTRY.WEBCAM_NAPSPAN", "SYSTEM.CACHE_REGISTRY.WEBCAM_NAPSPAN_DESC",
+                true, false,
+                () -> (long) napspanWebcamCatalogService.cacheEntryCount(),
+                napspanWebcamCatalogService::clearCache,
+                unit("responses")));
+
+        list.add(def("webcam-road511", "geo",
+                "SYSTEM.CACHE_REGISTRY.WEBCAM_ROAD511", "SYSTEM.CACHE_REGISTRY.WEBCAM_ROAD511_DESC",
+                true, false,
+                () -> (long) road511WebcamCatalogService.cacheEntryCount(),
+                road511WebcamCatalogService::clearCache,
+                unit("responses")));
+
+        list.add(def("foncier-items", "geo",
+                "SYSTEM.CACHE_REGISTRY.FONCIER_ITEMS", "SYSTEM.CACHE_REGISTRY.FONCIER_ITEMS_DESC",
+                true, false,
+                () -> (long) foncierItemCacheService.cacheEntryCount(),
+                foncierItemCacheService::clearAll,
+                unit("items")));
+
+        list.add(def("foncier-geo", "geo",
+                "SYSTEM.CACHE_REGISTRY.FONCIER_GEO", "SYSTEM.CACHE_REGISTRY.FONCIER_GEO_DESC",
+                true, false,
+                () -> (long) foncierGeoService.cacheEntryCount(),
+                foncierGeoService::clearCache,
+                unit("records")));
+
+        list.add(def("artisans-items", "geo",
+                "SYSTEM.CACHE_REGISTRY.ARTISANS_ITEMS", "SYSTEM.CACHE_REGISTRY.ARTISANS_ITEMS_DESC",
+                true, false,
+                () -> (long) artisansItemCacheService.cacheEntryCount(),
+                artisansItemCacheService::clearAll,
+                unit("items")));
+
+        list.add(def("artisans-websites", "geo",
+                "SYSTEM.CACHE_REGISTRY.ARTISANS_WEBSITES", "SYSTEM.CACHE_REGISTRY.ARTISANS_WEBSITES_DESC",
+                true, false,
+                () -> (long) artisansWebsiteLookupService.cacheEntryCount(),
+                artisansWebsiteLookupService::clearCache,
+                unit("records")));
+
+        list.add(def("relief", "geo",
+                "SYSTEM.CACHE_REGISTRY.RELIEF", "SYSTEM.CACHE_REGISTRY.RELIEF_DESC",
+                true, false,
+                () -> (long) reliefFinderService.cacheEntryCount(),
+                reliefFinderService::clearCache,
+                unit("tiles")));
+
+        list.add(def("adsbdb", "geo",
+                "SYSTEM.CACHE_REGISTRY.ADSBDB", "SYSTEM.CACHE_REGISTRY.ADSBDB_DESC",
+                true, false,
+                () -> (long) adsbdFlightRouteService.cacheEntryCount(),
+                adsbdFlightRouteService::clearCache,
+                unit("records")));
+
+        list.add(def("flightaware", "geo",
+                "SYSTEM.CACHE_REGISTRY.FLIGHTAWARE", "SYSTEM.CACHE_REGISTRY.FLIGHTAWARE_DESC",
+                true, false,
+                () -> (long) flightAwareLiveService.cacheEntryCount(),
+                flightAwareLiveService::clearCache,
+                unit("records")));
+
+        list.add(def("elevation", "weather",
+                "SYSTEM.CACHE_REGISTRY.ELEVATION", "SYSTEM.CACHE_REGISTRY.ELEVATION_DESC",
+                true, false,
+                () -> (long) openWeatherService.cacheEntryCount(),
+                openWeatherService::clearCache,
+                unit("records")));
+
+        list.add(def("code-repos", "other",
+                "SYSTEM.CACHE_REGISTRY.CODE_REPOS", "SYSTEM.CACHE_REGISTRY.CODE_REPOS_DESC",
+                true, false,
+                () -> (long) codeRepoWorldService.cacheEntryCount(),
+                codeRepoWorldService::clearCache,
+                unit("records")));
+
+        list.add(def("holiday-ui", "other",
+                "SYSTEM.CACHE_REGISTRY.HOLIDAY_UI", "SYSTEM.CACHE_REGISTRY.HOLIDAY_UI_DESC",
+                true, false,
+                () -> (long) holidayUiTranslationService.cacheEntryCount(),
+                holidayUiTranslationService::clearCache,
+                unit("responses")));
 
         return list;
     }

@@ -170,6 +170,22 @@ export class CacheService {
     );
   }
 
+  getDatabaseStats(): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(this.API_URL + "system/database", { headers: headers })
+      )
+    );
+  }
+
+  getDatabaseUserStats(): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(this.API_URL + "system/database/users", { headers: headers })
+      )
+    );
+  }
+
   getConnectionLogs(startDate?: Date, endDate?: Date, page: number = 0, size: number = 100, includeUsernames: boolean = false): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {

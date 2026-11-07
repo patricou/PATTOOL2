@@ -4,9 +4,9 @@
         <h2>{{ 'SYSTEM.TITLE' | translate }}</h2>
         <button (click)="refreshAllStats()" 
                 class="btn btn-sm btn-outline-primary btn-refresh-all-stats" 
-                [disabled]="isLoadingStats || isLoadingRegistry"
+                [disabled]="isLoadingStats || isLoadingRegistry || isLoadingDb || isLoadingDbUsers"
                 [title]="'SYSTEM.REFRESH_ALL_STATS' | translate">
-            <i class="fa" [class.fa-refresh]="!(isLoadingStats || isLoadingRegistry)" [class.fa-spinner]="isLoadingStats || isLoadingRegistry" [class.fa-spin]="isLoadingStats || isLoadingRegistry"></i>
+            <i class="fa" [class.fa-refresh]="!(isLoadingStats || isLoadingRegistry || isLoadingDb || isLoadingDbUsers)" [class.fa-spinner]="isLoadingStats || isLoadingRegistry || isLoadingDb || isLoadingDbUsers" [class.fa-spin]="isLoadingStats || isLoadingRegistry || isLoadingDb || isLoadingDbUsers"></i>
             <span>{{ 'SYSTEM.REFRESH_ALL_STATS' | translate }}</span>
         </button>
     </div>
@@ -15,11 +15,11 @@
 <!-- Main Content -->
 <div class="container mt-0">
     <div class="row justify-content-center">
-        <div class="col-12" style="max-width: 75%; margin: 0 auto;">
+        <div class="col-12 system-page-col">
 
             <!-- PatTool cache registry -->
-            <div class="cache-stats-card cache-registry-card">
-                <div class="stats-header">
+            <div class="cache-stats-card cache-registry-card" [class.section-open]="openSection === 'caches'" [class.section-collapsed]="openSection !== 'caches'">
+                <div class="stats-header section-toggle" (click)="toggleSection('caches')" (keydown.enter)="toggleSection('caches')" (keydown.space)="$event.preventDefault(); toggleSection('caches')" tabindex="0" role="button" [attr.aria-expanded]="openSection === 'caches'">
                     <div class="stats-icon">
                         <i class="fa fa-database"></i>
                     </div>
@@ -27,7 +27,7 @@
                         <h4>{{ 'SYSTEM.CACHE_REGISTRY.TITLE' | translate }}</h4>
                         <p class="registry-subtitle">{{ 'SYSTEM.CACHE_REGISTRY.SUBTITLE' | translate }}</p>
                     </div>
-                    <button (click)="loadCacheRegistry()"
+                    <button (click)="$event.stopPropagation(); loadCacheRegistry()"
                             class="btn-refresh-stats"
                             [disabled]="isLoadingRegistry"
                             [title]="'SYSTEM.CACHE_STATS.REFRESH' | translate">
@@ -37,9 +37,15 @@
 
                 <div class="registry-toolbar" *ngIf="!isLoadingRegistry && !registryError">
                     <div class="registry-summary">
-                        <span class="registry-chip">{{ cacheRegistry.length }} {{ 'SYSTEM.CACHE_REGISTRY.CACHES' | translate }}</span>
+                        <span class="registry-chip">{{ filteredCacheRegistry.length }}/{{ cacheRegistry.length }} {{ 'SYSTEM.CACHE_REGISTRY.CACHES' | translate }}</span>
                         <span class="registry-chip">{{ registryTotalEntries }} {{ 'SYSTEM.CACHE_STATS.ENTRIES' | translate }}</span>
                     </div>
+                    <input type="search"
+                           class="registry-search"
+                           [(ngModel)]="registrySearch"
+                           (ngModelChange)="onRegistrySearchChange()"
+                           [placeholder]="'SYSTEM.CACHE_REGISTRY.SEARCH' | translate"
+                           [attr.aria-label]="'SYSTEM.CACHE_REGISTRY.SEARCH' | translate">
                     <div class="registry-filters">
                         <button type="button"
                                 class="registry-filter-btn"
@@ -104,9 +110,24 @@
                                            [disabled]="!isClearCacheAuthorized || filteredCacheRegistry.length === 0"
                                            [title]="'SYSTEM.CACHE_REGISTRY.SELECT_ALL' | translate">
                                 </th>
-                                <th>{{ 'SYSTEM.CACHE_REGISTRY.COL_CATEGORY' | translate }}</th>
-                                <th>{{ 'SYSTEM.CACHE_REGISTRY.COL_NAME' | translate }}</th>
-                                <th>{{ 'SYSTEM.CACHE_REGISTRY.COL_RECORDS' | translate }}</th>
+                                <th [attr.aria-sort]="registryAriaSort('category')">
+                                    <button type="button" class="registry-sort-btn" (click)="toggleRegistrySort('category')">
+                                        <span>{{ 'SYSTEM.CACHE_REGISTRY.COL_CATEGORY' | translate }}</span>
+                                        <i class="fa" [ngClass]="registrySortIcon('category')" aria-hidden="true"></i>
+                                    </button>
+                                </th>
+                                <th [attr.aria-sort]="registryAriaSort('name')">
+                                    <button type="button" class="registry-sort-btn" (click)="toggleRegistrySort('name')">
+                                        <span>{{ 'SYSTEM.CACHE_REGISTRY.COL_NAME' | translate }}</span>
+                                        <i class="fa" [ngClass]="registrySortIcon('name')" aria-hidden="true"></i>
+                                    </button>
+                                </th>
+                                <th [attr.aria-sort]="registryAriaSort('records')">
+                                    <button type="button" class="registry-sort-btn" (click)="toggleRegistrySort('records')">
+                                        <span>{{ 'SYSTEM.CACHE_REGISTRY.COL_RECORDS' | translate }}</span>
+                                        <i class="fa" [ngClass]="registrySortIcon('records')" aria-hidden="true"></i>
+                                    </button>
+                                </th>
                                 <th>{{ 'SYSTEM.CACHE_REGISTRY.COL_ACTIONS' | translate }}</th>
                             </tr>
                         </thead>
@@ -172,17 +193,17 @@
                     </table>
                 </div>
             </div>
-            
+
             <!-- Backend Cache Statistics Section -->
-            <div class="cache-stats-card">
-                <div class="stats-header">
+            <div class="cache-stats-card" [class.section-open]="openSection === 'backend'" [class.section-collapsed]="openSection !== 'backend'">
+                <div class="stats-header section-toggle" (click)="toggleSection('backend')" (keydown.enter)="toggleSection('backend')" (keydown.space)="$event.preventDefault(); toggleSection('backend')" tabindex="0" role="button" [attr.aria-expanded]="openSection === 'backend'">
                     <div class="stats-icon">
                         <i class="fa fa-server"></i>
                     </div>
                     <div class="stats-title">
                         <h4>{{ 'SYSTEM.CACHE_STATS.BACKEND_TITLE' | translate }}</h4>
                     </div>
-                    <button (click)="loadCacheStats()" 
+                    <button (click)="$event.stopPropagation(); loadCacheStats()" 
                             class="btn-refresh-stats" 
                             [disabled]="isLoadingStats"
                             [title]="'SYSTEM.CACHE_STATS.REFRESH' | translate">
@@ -190,6 +211,7 @@
                     </button>
                 </div>
                 <div class="stats-content" *ngIf="!isLoadingStats && cacheStats && !statsError">
+                    <p class="section-explainer">{{ 'SYSTEM.CACHE_STATS.BACKEND_EXPLAIN' | translate }}</p>
                     <div class="stats-grid">
                         <div class="stat-item">
                             <div class="stat-label">{{ 'SYSTEM.CACHE_STATS.ENABLED' | translate }}</div>
@@ -220,21 +242,22 @@
             </div>
 
             <!-- Frontend Cache Statistics Section -->
-            <div class="cache-stats-card" *ngIf="frontendCacheStats">
-                <div class="stats-header">
+            <div class="cache-stats-card" *ngIf="frontendCacheStats" [class.section-open]="openSection === 'frontend'" [class.section-collapsed]="openSection !== 'frontend'">
+                <div class="stats-header section-toggle" (click)="toggleSection('frontend')" (keydown.enter)="toggleSection('frontend')" (keydown.space)="$event.preventDefault(); toggleSection('frontend')" tabindex="0" role="button" [attr.aria-expanded]="openSection === 'frontend'">
                     <div class="stats-icon frontend-icon">
                         <i class="fa fa-desktop"></i>
                     </div>
                     <div class="stats-title">
                         <h4>{{ 'SYSTEM.CACHE_STATS.FRONTEND_TITLE' | translate }}</h4>
                     </div>
-                    <button (click)="calculateFrontendCacheStats()" 
+                    <button (click)="$event.stopPropagation(); calculateFrontendCacheStats()" 
                             class="btn-refresh-stats" 
                             [title]="'SYSTEM.CACHE_STATS.REFRESH' | translate">
                         <i class="fa fa-refresh"></i>
                     </button>
                 </div>
                 <div class="stats-content" *ngIf="frontendCacheStats && !frontendCacheStats.error">
+                    <p class="section-explainer">{{ 'SYSTEM.CACHE_STATS.FRONTEND_EXPLAIN' | translate }}</p>
                     <div class="stats-grid">
                         <div class="stat-item">
                             <div class="stat-label">{{ 'SYSTEM.CACHE_STATS.LOCAL_STORAGE' | translate }}</div>
@@ -309,16 +332,208 @@
                 </div>
             </div>
 
+            <!-- Compact Cache Controls -->
+            <div class="cache-controls">
+                
+                <!-- Save Cache -->
+                <div class="cache-action-card compact" [class.section-open]="openSection === 'save'" [class.section-collapsed]="openSection !== 'save'">
+                    <div class="action-header-compact section-toggle" (click)="toggleSection('save')" (keydown.enter)="toggleSection('save')" (keydown.space)="$event.preventDefault(); toggleSection('save')" tabindex="0" role="button" [attr.aria-expanded]="openSection === 'save'">
+                        <div class="action-icon-small save-icon">
+                            <i class="fa fa-save"></i>
+                        </div>
+                        <div class="action-info-compact">
+                            <h5>{{ 'SYSTEM.SAVE_CACHE.TITLE' | translate }}</h5>
+                            <p>{{ 'SYSTEM.SAVE_CACHE.DESC' | translate }}</p>
+                        </div>
+                        <button (click)="$event.stopPropagation(); openSection = 'save'; saveCache()" 
+                                class="btn-small btn-save" 
+                                [disabled]="!isSaveCacheAuthorized || isSaving || saveMessageVisible"
+                                [title]="!isSaveCacheAuthorized ? ('SYSTEM.SAVE_CACHE.NOT_AUTHORIZED' | translate) : ''">
+                            <i class="fa" [class.fa-save]="!isSaving" [class.fa-spinner]="isSaving" [class.fa-spin]="isSaving"></i>
+                            <span>{{ isSaving ? ('SYSTEM.SAVE_CACHE.SAVING' | translate) : ('SYSTEM.SAVE_CACHE.BUTTON' | translate) }}</span>
+                        </button>
+                    </div>
+                    <div *ngIf="saveMessageVisible" class="action-message save-message">
+                        <i class="fa fa-info-circle"></i>
+                        <span>{{ saveMessage }}</span>
+                    </div>
+                </div>
+
+                <!-- Load Cache -->
+                <div class="cache-action-card compact" [class.section-open]="openSection === 'load'" [class.section-collapsed]="openSection !== 'load'">
+                    <div class="action-header-compact section-toggle" (click)="toggleSection('load')" (keydown.enter)="toggleSection('load')" (keydown.space)="$event.preventDefault(); toggleSection('load')" tabindex="0" role="button" [attr.aria-expanded]="openSection === 'load'">
+                        <div class="action-icon-small load-icon">
+                            <i class="fa fa-upload"></i>
+                        </div>
+                        <div class="action-info-compact">
+                            <h5>{{ 'SYSTEM.LOAD_CACHE.TITLE' | translate }}</h5>
+                            <p>{{ 'SYSTEM.LOAD_CACHE.DESC' | translate }}</p>
+                        </div>
+                        <button (click)="$event.stopPropagation(); openSection = 'load'; loadCache()" 
+                                class="btn-small btn-load" 
+                                [disabled]="!isLoadCacheAuthorized || isLoading || loadMessageVisible"
+                                [title]="!isLoadCacheAuthorized ? ('SYSTEM.LOAD_CACHE.NOT_AUTHORIZED' | translate) : ''">
+                            <i class="fa" [class.fa-upload]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
+                            <span>{{ isLoading ? ('SYSTEM.LOAD_CACHE.LOADING' | translate) : ('SYSTEM.LOAD_CACHE.BUTTON' | translate) }}</span>
+                        </button>
+                    </div>
+                    <div *ngIf="loadMessageVisible" class="action-message load-message">
+                        <i class="fa fa-info-circle"></i>
+                        <span>{{ loadMessage }}</span>
+                    </div>
+                </div>
+
+                <!-- Clear Cache -->
+                <div class="cache-action-card compact" [class.section-open]="openSection === 'clear'" [class.section-collapsed]="openSection !== 'clear'">
+                    <div class="action-header-compact section-toggle" (click)="toggleSection('clear')" (keydown.enter)="toggleSection('clear')" (keydown.space)="$event.preventDefault(); toggleSection('clear')" tabindex="0" role="button" [attr.aria-expanded]="openSection === 'clear'">
+                        <div class="action-icon-small clear-icon">
+                            <i class="fa fa-trash"></i>
+                        </div>
+                        <div class="action-info-compact">
+                            <h5>{{ 'SYSTEM.CLEAR_CACHE.TITLE' | translate }}</h5>
+                            <p>{{ 'SYSTEM.CLEAR_CACHE.DESC' | translate }}</p>
+                        </div>
+                        <button (click)="$event.stopPropagation(); openSection = 'clear'; clearCache()" 
+                                class="btn-small btn-clear"
+                                [disabled]="!isClearCacheAuthorized || isClearing || clearMessageVisible"
+                                [title]="!isClearCacheAuthorized ? ('SYSTEM.CLEAR_CACHE.NOT_AUTHORIZED' | translate) : ''">
+                            <i class="fa" [class.fa-trash]="!isClearing" [class.fa-spinner]="isClearing" [class.fa-spin]="isClearing"></i>
+                            <span>{{ isClearing ? ('SYSTEM.CLEAR_CACHE.CLEARING' | translate) : ('SYSTEM.CLEAR_CACHE.BUTTON' | translate) }}</span>
+                        </button>
+                    </div>
+                    <div *ngIf="clearMessageVisible" class="action-message clear-message">
+                        <i class="fa fa-info-circle"></i>
+                        <span>{{ clearMessage }}</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="cache-stats-card cache-registry-card" [class.section-open]="openSection === 'db'" [class.section-collapsed]="openSection !== 'db'">
+                <div class="stats-header section-toggle" (click)="toggleSection('db')" (keydown.enter)="toggleSection('db')" (keydown.space)="$event.preventDefault(); toggleSection('db')" tabindex="0" role="button" [attr.aria-expanded]="openSection === 'db'">
+                    <div class="stats-icon">
+                        <i class="fa fa-table"></i>
+                    </div>
+                    <div class="stats-title">
+                        <h4>{{ 'SYSTEM.DB.TITLE' | translate }}</h4>
+                        <p class="registry-subtitle">{{ 'SYSTEM.DB.SUBTITLE' | translate }}</p>
+                    </div>
+                    <button (click)="$event.stopPropagation(); loadDatabaseStats()"
+                            class="btn-refresh-stats"
+                            [disabled]="isLoadingDb || isLoadingDbUsers"
+                            [title]="'SYSTEM.CACHE_STATS.REFRESH' | translate">
+                        <i class="fa" [class.fa-refresh]="!(isLoadingDb || isLoadingDbUsers)" [class.fa-spinner]="isLoadingDb || isLoadingDbUsers" [class.fa-spin]="isLoadingDb || isLoadingDbUsers"></i>
+                    </button>
+                </div>
+
+                <div class="registry-toolbar" *ngIf="!isLoadingDb && !dbError">
+                    <div class="registry-summary">
+                        <span class="registry-chip">{{ dbCollectionCount | number }} {{ 'SYSTEM.DB.COLLECTIONS' | translate }}</span>
+                        <span class="registry-chip">{{ dbRecordCount | number }} {{ 'SYSTEM.DB.RECORDS' | translate }}</span>
+                        <span class="registry-chip" *ngIf="!isLoadingDbUsers">{{ filteredDbUserRows.length | number }} {{ 'SYSTEM.DB.USER_ROWS' | translate }}</span>
+                    </div>
+                    <input type="search"
+                           class="registry-search"
+                           [(ngModel)]="dbSearch"
+                           [placeholder]="'SYSTEM.DB.SEARCH' | translate"
+                           [attr.aria-label]="'SYSTEM.DB.SEARCH' | translate">
+                    <p class="registry-subtitle">{{ 'SYSTEM.DB.PER_USER_HINT' | translate }}</p>
+                </div>
+
+                <div class="stats-loading" *ngIf="isLoadingDb">
+                    <i class="fa fa-spinner fa-spin"></i> {{ 'SYSTEM.DB.LOADING' | translate }}
+                </div>
+                <div class="stats-error" *ngIf="dbError && !isLoadingDb">
+                    <i class="fa fa-exclamation-triangle"></i> {{ dbError }}
+                </div>
+
+                <div class="registry-table-wrap" *ngIf="!isLoadingDb && !dbError">
+                    <h5 class="db-section-title">{{ 'SYSTEM.DB.COLLECTIONS' | translate }}</h5>
+                    <table class="table table-sm table-hover registry-table">
+                        <thead>
+                            <tr>
+                                <th [attr.aria-sort]="dbCollectionSortColumn === 'name' ? (dbCollectionSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+                                    <button type="button" class="registry-sort-btn" (click)="toggleDbCollectionSort('name')">
+                                        <span>{{ 'SYSTEM.DB.COL_TABLE' | translate }}</span>
+                                        <i class="fa" [ngClass]="dbSortIcon(dbCollectionSortColumn, 'name', dbCollectionSortDirection)" aria-hidden="true"></i>
+                                    </button>
+                                </th>
+                                <th [attr.aria-sort]="dbCollectionSortColumn === 'count' ? (dbCollectionSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+                                    <button type="button" class="registry-sort-btn" (click)="toggleDbCollectionSort('count')">
+                                        <span>{{ 'SYSTEM.DB.COL_RECORDS' | translate }}</span>
+                                        <i class="fa" [ngClass]="dbSortIcon(dbCollectionSortColumn, 'count', dbCollectionSortDirection)" aria-hidden="true"></i>
+                                    </button>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let row of filteredDbCollections">
+                                <td>
+                                    <div class="registry-name">{{ row.name }}</div>
+                                    <div class="registry-desc" *ngIf="row.perUser">{{ 'SYSTEM.DB.HAS_USERS' | translate }}</div>
+                                </td>
+                                <td class="registry-entries">{{ (row.count || 0) | number }}</td>
+                            </tr>
+                            <tr *ngIf="filteredDbCollections.length === 0">
+                                <td colspan="2" class="text-center text-muted">{{ 'SYSTEM.DB.EMPTY' | translate }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h5 class="db-section-title">{{ 'SYSTEM.DB.BY_USER' | translate }}</h5>
+                    <div class="stats-loading" *ngIf="isLoadingDbUsers">
+                        <i class="fa fa-spinner fa-spin"></i> {{ 'SYSTEM.DB.LOADING_USERS' | translate }}
+                    </div>
+                    <div class="stats-error" *ngIf="dbUserError && !isLoadingDbUsers">
+                        <i class="fa fa-exclamation-triangle"></i> {{ dbUserError }}
+                    </div>
+                    <table class="table table-sm table-hover registry-table" *ngIf="!isLoadingDbUsers && !dbUserError">
+                        <thead>
+                            <tr>
+                                <th [attr.aria-sort]="dbUserSortColumn === 'user' ? (dbUserSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+                                    <button type="button" class="registry-sort-btn" (click)="toggleDbUserSort('user')">
+                                        <span>{{ 'SYSTEM.DB.COL_USER' | translate }}</span>
+                                        <i class="fa" [ngClass]="dbSortIcon(dbUserSortColumn, 'user', dbUserSortDirection)" aria-hidden="true"></i>
+                                    </button>
+                                </th>
+                                <th [attr.aria-sort]="dbUserSortColumn === 'collection' ? (dbUserSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+                                    <button type="button" class="registry-sort-btn" (click)="toggleDbUserSort('collection')">
+                                        <span>{{ 'SYSTEM.DB.COL_TABLE' | translate }}</span>
+                                        <i class="fa" [ngClass]="dbSortIcon(dbUserSortColumn, 'collection', dbUserSortDirection)" aria-hidden="true"></i>
+                                    </button>
+                                </th>
+                                <th [attr.aria-sort]="dbUserSortColumn === 'count' ? (dbUserSortDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+                                    <button type="button" class="registry-sort-btn" (click)="toggleDbUserSort('count')">
+                                        <span>{{ 'SYSTEM.DB.COL_RECORDS' | translate }}</span>
+                                        <i class="fa" [ngClass]="dbSortIcon(dbUserSortColumn, 'count', dbUserSortDirection)" aria-hidden="true"></i>
+                                    </button>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let row of filteredDbUserRows">
+                                <td class="registry-name">{{ row.user }}</td>
+                                <td>{{ row.collection }}</td>
+                                <td class="registry-entries">{{ (row.count || 0) | number }}</td>
+                            </tr>
+                            <tr *ngIf="filteredDbUserRows.length === 0">
+                                <td colspan="3" class="text-center text-muted">{{ 'SYSTEM.DB.EMPTY_USERS' | translate }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
             <!-- Memory Statistics Section -->
-            <div class="cache-stats-card">
-                <div class="stats-header">
+            <div class="cache-stats-card" [class.section-open]="openSection === 'memory'" [class.section-collapsed]="openSection !== 'memory'">
+                <div class="stats-header section-toggle" (click)="toggleSection('memory')" (keydown.enter)="toggleSection('memory')" (keydown.space)="$event.preventDefault(); toggleSection('memory')" tabindex="0" role="button" [attr.aria-expanded]="openSection === 'memory'">
                     <div class="stats-icon performance-icon">
                         <i class="fa fa-microchip"></i>
                     </div>
                     <div class="stats-title">
                         <h4>{{ 'SYSTEM.MEMORY_STATS.TITLE' | translate }}</h4>
                     </div>
-                    <button (click)="loadAdditionalDebugInfo()" 
+                    <button (click)="$event.stopPropagation(); loadAdditionalDebugInfo()" 
                             class="btn-refresh-stats" 
                             [disabled]="isLoadingAdditionalStats"
                             [title]="'SYSTEM.CACHE_STATS.REFRESH' | translate">
@@ -326,9 +541,10 @@
                     </button>
                 </div>
                 <div class="stats-content" *ngIf="!isLoadingAdditionalStats">
+                    <p class="section-explainer">{{ 'SYSTEM.MEMORY_STATS.EXPLAIN' | translate }}</p>
                     <div class="stats-grid">
                         <div class="stat-item">
-                            <div class="stat-label">{{ 'SYSTEM.MEMORY_STATS.HOST_MEMORY' | translate }} (System RAM):</div>
+                            <div class="stat-label">{{ 'SYSTEM.MEMORY_STATS.HOST_MEMORY' | translate }}</div>
                             <div class="stat-value" 
                                  [class.text-success]="hostMemoryUsagePercent < 50" 
                                  [class.text-warning]="hostMemoryUsagePercent >= 50 && hostMemoryUsagePercent < 80"
@@ -337,7 +553,7 @@
                             </div>
                         </div>
                         <div class="stat-item">
-                            <div class="stat-label">{{ 'SYSTEM.MEMORY_STATS.JVM_MEMORY' | translate }} (Backend):</div>
+                            <div class="stat-label">{{ 'SYSTEM.MEMORY_STATS.JVM_MEMORY' | translate }}</div>
                             <div class="stat-value" 
                                  [class.text-success]="jvmMemoryUsagePercent < 50" 
                                  [class.text-warning]="jvmMemoryUsagePercent >= 50 && jvmMemoryUsagePercent < 85"
@@ -359,15 +575,15 @@
             </div>
 
             <!-- Performance Statistics Section -->
-            <div class="cache-stats-card" *ngIf="performanceStats">
-                <div class="stats-header">
+            <div class="cache-stats-card" *ngIf="performanceStats" [class.section-open]="openSection === 'performance'" [class.section-collapsed]="openSection !== 'performance'">
+                <div class="stats-header section-toggle" (click)="toggleSection('performance')" (keydown.enter)="toggleSection('performance')" (keydown.space)="$event.preventDefault(); toggleSection('performance')" tabindex="0" role="button" [attr.aria-expanded]="openSection === 'performance'">
                     <div class="stats-icon performance-icon">
                         <i class="fa fa-tachometer"></i>
                     </div>
                     <div class="stats-title">
                         <h4>{{ 'SYSTEM.PERFORMANCE_STATS.TITLE' | translate }}</h4>
                     </div>
-                    <button (click)="collectPerformanceStats()" 
+                    <button (click)="$event.stopPropagation(); collectPerformanceStats()" 
                             class="btn-refresh-stats" 
                             [title]="'SYSTEM.CACHE_STATS.REFRESH' | translate">
                         <i class="fa fa-refresh"></i>
@@ -403,110 +619,34 @@
                 </div>
             </div>
 
-            <!-- Compact Cache Controls -->
-            <div class="cache-controls">
-                
-                <!-- Save Cache -->
-                <div class="cache-action-card compact">
-                    <div class="action-header-compact">
-                        <div class="action-icon-small save-icon">
-                            <i class="fa fa-save"></i>
-                        </div>
-                        <div class="action-info-compact">
-                            <h5>{{ 'SYSTEM.SAVE_CACHE.TITLE' | translate }}</h5>
-                            <p>{{ 'SYSTEM.SAVE_CACHE.DESC' | translate }}</p>
-                        </div>
-                        <button (click)="saveCache()" 
-                                class="btn-small btn-save" 
-                                [disabled]="!isSaveCacheAuthorized || isSaving || saveMessageVisible"
-                                [title]="!isSaveCacheAuthorized ? ('SYSTEM.SAVE_CACHE.NOT_AUTHORIZED' | translate) : ''">
-                            <i class="fa" [class.fa-save]="!isSaving" [class.fa-spinner]="isSaving" [class.fa-spin]="isSaving"></i>
-                            <span>{{ isSaving ? ('SYSTEM.SAVE_CACHE.SAVING' | translate) : ('SYSTEM.SAVE_CACHE.BUTTON' | translate) }}</span>
-                        </button>
+            <!-- Shutdown Application -->
+            <div class="cache-action-card compact shutdown-card" [class.section-open]="openSection === 'shutdown'" [class.section-collapsed]="openSection !== 'shutdown'">
+                <div class="action-header-compact section-toggle" (click)="toggleSection('shutdown')" (keydown.enter)="toggleSection('shutdown')" (keydown.space)="$event.preventDefault(); toggleSection('shutdown')" tabindex="0" role="button" [attr.aria-expanded]="openSection === 'shutdown'">
+                    <div class="action-icon-small shutdown-icon">
+                        <i class="fa fa-power-off"></i>
                     </div>
-                    <div *ngIf="saveMessageVisible" class="action-message save-message">
-                        <i class="fa fa-info-circle"></i>
-                        <span>{{ saveMessage }}</span>
+                    <div class="action-info-compact">
+                        <h5>{{ 'SYSTEM.SHUTDOWN.TITLE' | translate }}</h5>
+                        <p>{{ 'SYSTEM.SHUTDOWN.DESC' | translate }}</p>
                     </div>
+                    <button (click)="$event.stopPropagation(); openSection = 'shutdown'; shutdownApplication()" 
+                            class="btn-small btn-shutdown" 
+                            [disabled]="!isShutdownAuthorized || isShuttingDown || shutdownMessageVisible"
+                            [title]="!isShutdownAuthorized ? ('SYSTEM.SHUTDOWN.NOT_AUTHORIZED' | translate) : ''">
+                        <i class="fa" [class.fa-power-off]="!isShuttingDown" [class.fa-spinner]="isShuttingDown" [class.fa-spin]="isShuttingDown"></i>
+                        <span>{{ isShuttingDown ? ('SYSTEM.SHUTDOWN.SHUTTING_DOWN' | translate) : ('SYSTEM.SHUTDOWN.BUTTON' | translate) }}</span>
+                    </button>
                 </div>
-
-                <!-- Load Cache -->
-                <div class="cache-action-card compact">
-                    <div class="action-header-compact">
-                        <div class="action-icon-small load-icon">
-                            <i class="fa fa-upload"></i>
-                        </div>
-                        <div class="action-info-compact">
-                            <h5>{{ 'SYSTEM.LOAD_CACHE.TITLE' | translate }}</h5>
-                            <p>{{ 'SYSTEM.LOAD_CACHE.DESC' | translate }}</p>
-                        </div>
-                        <button (click)="loadCache()" 
-                                class="btn-small btn-load" 
-                                [disabled]="!isLoadCacheAuthorized || isLoading || loadMessageVisible"
-                                [title]="!isLoadCacheAuthorized ? ('SYSTEM.LOAD_CACHE.NOT_AUTHORIZED' | translate) : ''">
-                            <i class="fa" [class.fa-upload]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
-                            <span>{{ isLoading ? ('SYSTEM.LOAD_CACHE.LOADING' | translate) : ('SYSTEM.LOAD_CACHE.BUTTON' | translate) }}</span>
-                        </button>
-                    </div>
-                    <div *ngIf="loadMessageVisible" class="action-message load-message">
-                        <i class="fa fa-info-circle"></i>
-                        <span>{{ loadMessage }}</span>
-                    </div>
+                <div *ngIf="shutdownMessageVisible" class="action-message shutdown-message">
+                    <i class="fa fa-info-circle"></i>
+                    <span>{{ shutdownMessage }}</span>
                 </div>
-
-                <!-- Clear Cache -->
-                <div class="cache-action-card compact">
-                    <div class="action-header-compact">
-                        <div class="action-icon-small clear-icon">
-                            <i class="fa fa-trash"></i>
-                        </div>
-                        <div class="action-info-compact">
-                            <h5>{{ 'SYSTEM.CLEAR_CACHE.TITLE' | translate }}</h5>
-                            <p>{{ 'SYSTEM.CLEAR_CACHE.DESC' | translate }}</p>
-                        </div>
-                        <button (click)="clearCache()" 
-                                class="btn-small btn-clear"
-                                [disabled]="!isClearCacheAuthorized || isClearing || clearMessageVisible"
-                                [title]="!isClearCacheAuthorized ? ('SYSTEM.CLEAR_CACHE.NOT_AUTHORIZED' | translate) : ''">
-                            <i class="fa" [class.fa-trash]="!isClearing" [class.fa-spinner]="isClearing" [class.fa-spin]="isClearing"></i>
-                            <span>{{ isClearing ? ('SYSTEM.CLEAR_CACHE.CLEARING' | translate) : ('SYSTEM.CLEAR_CACHE.BUTTON' | translate) }}</span>
-                        </button>
-                    </div>
-                    <div *ngIf="clearMessageVisible" class="action-message clear-message">
-                        <i class="fa fa-info-circle"></i>
-                        <span>{{ clearMessage }}</span>
-                    </div>
-                </div>
-
-                <!-- Shutdown Application -->
-                <div class="cache-action-card compact shutdown-card">
-                    <div class="action-header-compact">
-                        <div class="action-icon-small shutdown-icon">
-                            <i class="fa fa-power-off"></i>
-                        </div>
-                        <div class="action-info-compact">
-                            <h5>{{ 'SYSTEM.SHUTDOWN.TITLE' | translate }}</h5>
-                            <p>{{ 'SYSTEM.SHUTDOWN.DESC' | translate }}</p>
-                        </div>
-                        <button (click)="shutdownApplication()" 
-                                class="btn-small btn-shutdown" 
-                                [disabled]="!isShutdownAuthorized || isShuttingDown || shutdownMessageVisible"
-                                [title]="!isShutdownAuthorized ? ('SYSTEM.SHUTDOWN.NOT_AUTHORIZED' | translate) : ''">
-                            <i class="fa" [class.fa-power-off]="!isShuttingDown" [class.fa-spinner]="isShuttingDown" [class.fa-spin]="isShuttingDown"></i>
-                            <span>{{ isShuttingDown ? ('SYSTEM.SHUTDOWN.SHUTTING_DOWN' | translate) : ('SYSTEM.SHUTDOWN.BUTTON' | translate) }}</span>
-                        </button>
-                    </div>
-                    <div *ngIf="shutdownMessageVisible" class="action-message shutdown-message">
-                        <i class="fa fa-info-circle"></i>
-                        <span>{{ shutdownMessage }}</span>
-                    </div>
-                </div>
-
             </div>
 
+
             <!-- Exception Report Section -->
-            <div class="cache-action-card exception-report-card">
-                <div class="action-header">
+            <div class="cache-action-card exception-report-card" [class.section-open]="openSection === 'exceptions'" [class.section-collapsed]="openSection !== 'exceptions'">
+                <div class="action-header section-toggle" (click)="toggleSection('exceptions')" (keydown.enter)="toggleSection('exceptions')" (keydown.space)="$event.preventDefault(); toggleSection('exceptions')" tabindex="0" role="button" [attr.aria-expanded]="openSection === 'exceptions'">
                     <div class="action-icon report-icon">
                         <i class="fa fa-bug"></i>
                     </div>
@@ -550,8 +690,8 @@
             </div>
 
             <!-- Connection Logs Section -->
-            <div class="cache-action-card connection-logs-card">
-                <div class="action-header">
+            <div class="cache-action-card connection-logs-card" [class.section-open]="openSection === 'connection-logs'" [class.section-collapsed]="openSection !== 'connection-logs'">
+                <div class="action-header section-toggle" (click)="toggleSection('connection-logs')" (keydown.enter)="toggleSection('connection-logs')" (keydown.space)="$event.preventDefault(); toggleSection('connection-logs')" tabindex="0" role="button" [attr.aria-expanded]="openSection === 'connection-logs'">
                     <div class="action-icon connection-logs-icon">
                         <i class="fa fa-users"></i>
                     </div>
@@ -580,15 +720,15 @@
             </div>
 
             <!-- Active Discussion Connections Section -->
-            <div class="cache-stats-card">
-                <div class="stats-header">
+            <div class="cache-stats-card" [class.section-open]="openSection === 'discussions'" [class.section-collapsed]="openSection !== 'discussions'">
+                <div class="stats-header section-toggle" (click)="toggleSection('discussions')" (keydown.enter)="toggleSection('discussions')" (keydown.space)="$event.preventDefault(); toggleSection('discussions')" tabindex="0" role="button" [attr.aria-expanded]="openSection === 'discussions'">
                     <div class="stats-icon">
                         <i class="fa fa-comments"></i>
                     </div>
                     <div class="stats-title">
                         <h4>{{ 'SYSTEM.ACTIVE_DISCUSSION_CONNECTIONS.TITLE' | translate }}</h4>
                     </div>
-                    <button (click)="loadActiveDiscussionConnections()" 
+                    <button (click)="$event.stopPropagation(); loadActiveDiscussionConnections()" 
                             class="btn-refresh-stats" 
                             [disabled]="isLoadingActiveConnections"
                             [title]="'SYSTEM.CACHE_STATS.REFRESH' | translate">

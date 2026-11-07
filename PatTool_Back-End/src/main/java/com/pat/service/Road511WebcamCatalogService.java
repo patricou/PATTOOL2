@@ -110,6 +110,18 @@ public class Road511WebcamCatalogService {
         return StringUtils.hasText(apiKey);
     }
 
+    public int cacheEntryCount() {
+        return metaCache.size() + listCache.size() + detailCache.size();
+    }
+
+    public int clearCache() {
+        int n = cacheEntryCount();
+        metaCache.clear();
+        listCache.clear();
+        detailCache.clear();
+        return n;
+    }
+
     public List<WebcamCodeLabelDto> jurisdictions() {
         if (!isConfigured()) {
             return List.copyOf(FALLBACK_JURISDICTIONS);

@@ -151,7 +151,8 @@ export function HttpLoaderFactory(http: HttpClient) {
 			},
 			{ 
 				path: 'system', 
-				loadComponent: () => import('./system/system.component').then(m => m.SystemComponent)
+				loadComponent: () => import('./system/system.component').then(m => m.SystemComponent),
+				canActivate: [AdminRoleGuard]
 			},
 			{
 				path: 'tools/pattool-parameters',

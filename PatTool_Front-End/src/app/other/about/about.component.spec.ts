@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 import { TranslateModule } from '@ngx-translate/core';
 
 import { AboutComponent } from './about.component';
+import { KeycloakService } from '../../keycloak/keycloak.service';
 
 describe('HomeMapsComponent', () => {
   let component: AboutComponent;
@@ -9,7 +10,8 @@ describe('HomeMapsComponent', () => {
 
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
-      imports: [AboutComponent, TranslateModule.forRoot()]
+      imports: [AboutComponent, TranslateModule.forRoot()],
+      providers: [{ provide: KeycloakService, useValue: { hasAdminRole: () => true } }]
     })
       .compileComponents();
   }));

@@ -166,6 +166,26 @@ public class FoncierItemCacheService {
         return map == null ? 0 : map.size();
     }
 
+    public int cacheEntryCount() {
+        int n = 0;
+        for (ConcurrentHashMap<String, ObjectNode> map : store.values()) {
+            n += map.size();
+        }
+        return n;
+    }
+
+    public int clearAll() {
+        int n = 0;
+        for (ConcurrentHashMap<String, ObjectNode> map : store.values()) {
+            n += map.size();
+            map.clear();
+        }
+        if (n > 0) {
+            persist();
+        }
+        return n;
+    }
+
     public ObjectNode snapshot(String provider) {
         String key = normalizeProvider(provider);
         ObjectNode root = objectMapper.createObjectNode();

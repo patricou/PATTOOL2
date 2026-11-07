@@ -111,6 +111,18 @@ public class CodeRepoWorldService {
         this.gitlabToken = gitlabToken != null ? gitlabToken.trim() : "";
     }
 
+    public int cacheEntryCount() {
+        return githubTreeCache.size() + githubDirCache.size() + githubDirSha.size();
+    }
+
+    public int clearCache() {
+        int n = cacheEntryCount();
+        githubTreeCache.clear();
+        githubDirCache.clear();
+        githubDirSha.clear();
+        return n;
+    }
+
     public CodeRepoAnalyzeResponse analyze(String rawUrl, String branchHint) {
         ParsedRepo parsed = parse(rawUrl);
         if ("github".equals(parsed.host)) {

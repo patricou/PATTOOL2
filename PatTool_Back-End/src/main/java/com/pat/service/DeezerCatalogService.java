@@ -74,6 +74,16 @@ public class DeezerCatalogService {
         this.objectMapper = objectMapper;
     }
 
+    public int cacheEntryCount() {
+        return cache.size();
+    }
+
+    public int clearCache() {
+        int n = cache.size();
+        cache.clear();
+        return n;
+    }
+
     /** Deezer rejected the call (quota, outage). Distinct from a missing id. */
     public static class UpstreamException extends RuntimeException {
         public UpstreamException() {
