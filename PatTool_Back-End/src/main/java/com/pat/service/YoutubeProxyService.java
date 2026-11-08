@@ -37,6 +37,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -93,6 +94,7 @@ public class YoutubeProxyService {
     private final String apiKey;
     private final ConcurrentHashMap<String, CacheEntry> cache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, int[]> oembedSizes = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Map<String, String>> oembedCards = new ConcurrentHashMap<>();
     /** Skip the Data API after a quota or rate-limit response so search stays fast. */
     private volatile Instant dataApiRetryAt = Instant.EPOCH;
 
@@ -126,6 +128,7 @@ public class YoutubeProxyService {
         int n = cacheEntryCount();
         cache.clear();
         oembedSizes.clear();
+        oembedCards.clear();
         return n;
     }
 
@@ -172,6 +175,44 @@ public class YoutubeProxyService {
             return null;
         }
         return title.length() > 120 ? title.substring(0, 120) : title;
+    }
+
+    /** Title and channel from the official oEmbed card. Empty when YouTube has nothing public. */
+    public Map<String, String> clipCard(String videoId) {
+        String id = videoId == null ? "" : videoId.trim();
+        if (!VIDEO_ID.matcher(id).matches()) {
+            return null;
+        }
+        Map<String, String> cached = oembedCards.get(id);
+        if (cached != null) {
+            return cached;
+        }
+        URI uri = URI.create("https://www.youtube.com/oembed?format=json&url="
+                + URLEncoder.encode("https://www.youtube.com/watch?v=" + id, StandardCharsets.UTF_8));
+        JsonNode raw = fetchJson(uri, "oembed");
+        if (raw == null) {
+            return null;
+        }
+        String title = raw.path("title").asText("").replaceAll("[\\p{Cntrl}]", "").trim();
+        String author = raw.path("author_name").asText("").replaceAll("[\\p{Cntrl}]", "").trim();
+        if (title.length() > 180) {
+            title = title.substring(0, 180).trim();
+        }
+        if (author.length() > 80) {
+            author = author.substring(0, 80).trim();
+        }
+        if (title.isEmpty() && author.isEmpty()) {
+            return null;
+        }
+        Map<String, String> card = new LinkedHashMap<>();
+        if (!title.isEmpty()) {
+            card.put("title", title);
+        }
+        if (!author.isEmpty()) {
+            card.put("author", author);
+        }
+        oembedCards.put(id, card);
+        return card;
     }
 
     /**
@@ -310,8 +351,8 @@ public class YoutubeProxyService {
         if (cached != null) {
             return cached;
         }
-        if (!enrich && "video".equals(kind) && !isInnertubeContinuation(token)) {
-            YoutubeSearchPageDto clip = searchClip(q, region, lang, limit);
+        if (!enrich && "video".equals(kind)) {
+            YoutubeSearchPageDto clip = searchClip(q, region, lang, limit, token);
             if (clip != null) {
                 cache.put(cacheKey, new CacheEntry(clip, Instant.now().plus(CACHE_TTL)));
                 return clip;
@@ -462,15 +503,21 @@ public class YoutubeProxyService {
      * and runs on the caller thread, so a click is not queued behind the Data API. The Data API
      * is used only when that public search returns nothing.
      */
-    private YoutubeSearchPageDto searchClip(String query, String region, String lang, int limit) {
-        YoutubeSearchPageDto mobile = clipPublic(query, region, lang, limit);
+    private YoutubeSearchPageDto searchClip(String query, String region, String lang, int limit, String token) {
+        if (isInnertubeContinuation(token)) {
+            return clipPublic(query, region, lang, limit, token);
+        }
+        if (StringUtils.hasText(token)) {
+            return clipDataApi(query, limit, token);
+        }
+        YoutubeSearchPageDto mobile = clipPublic(query, region, lang, limit, "");
         if (hasVideos(mobile)) {
             return mobile;
         }
-        return clipDataApi(query, limit);
+        return clipDataApi(query, limit, "");
     }
 
-    private YoutubeSearchPageDto clipDataApi(String query, int limit) {
+    private YoutubeSearchPageDto clipDataApi(String query, int limit, String pageToken) {
         if (!isConfigured() || dataApiCoolingDown()) {
             return null;
         }
@@ -480,6 +527,9 @@ public class YoutubeProxyService {
                 .queryParam("maxResults", limit)
                 .queryParam("safeSearch", "moderate")
                 .queryParam("q", query);
+        if (StringUtils.hasText(pageToken) && !isInnertubeContinuation(pageToken)) {
+            builder.queryParam("pageToken", pageToken);
+        }
         JsonNode raw = fetchJson(quickRestTemplate, withKey(builder), "search");
         String apiError = raw == null ? "upstream_error" : apiError(raw);
         if (raw != null && apiError == null) {
@@ -504,16 +554,18 @@ public class YoutubeProxyService {
         return null;
     }
 
-    private YoutubeSearchPageDto clipPublic(String query, String region, String lang, int limit) {
+    private YoutubeSearchPageDto clipPublic(String query, String region, String lang, int limit, String token) {
         String hl = StringUtils.hasText(lang) ? lang : (YoutubeInnertube.isFrenchRegion(region) ? "fr" : "en");
         String gl = StringUtils.hasText(region) ? region : "FR";
+        String continuation = isInnertubeContinuation(token) ? token : "";
         JsonNode raw = postInnertube(
-                query, "video", hl, gl, "", "", "MWEB", INNERTUBE_CLIENT, INNERTUBE_MWEB_UA, quickRestTemplate);
+                query, "video", hl, gl, "", continuation, "MWEB", INNERTUBE_CLIENT, INNERTUBE_MWEB_UA, quickRestTemplate);
         if (raw == null || raw.has("error")) {
             return null;
         }
         List<YoutubeItemDto> items = YoutubeInnertube.items(raw, "video", limit);
-        if (items.isEmpty()) {
+        String next = YoutubeInnertube.continuation(raw);
+        if (items.isEmpty() && !StringUtils.hasText(next)) {
             return null;
         }
         return new YoutubeSearchPageDto(
@@ -524,7 +576,7 @@ public class YoutubeProxyService {
                 query,
                 "video",
                 gl,
-                null,
+                StringUtils.hasText(next) ? next : null,
                 null,
                 items.size(),
                 items

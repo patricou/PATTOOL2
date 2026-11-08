@@ -79,7 +79,9 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
                 && /\/api\/external\/deezer\//i.test(req.url)
                 && !/\/api\/external\/deezer\/(favorites|user-playlists|concert|skin)(\/|$|\?)/i.test(req.url))
             || (req.method === 'POST'
-                && /\/api\/external\/deezer\/youtube-links(\/stored)?(\?|$)/i.test(req.url));
+                && /\/api\/external\/deezer\/youtube-links(\/stored)?(\?|$)/i.test(req.url))
+            || (req.method === 'DELETE'
+                && /\/api\/external\/deezer\/youtube-links\/\d+(\?|$)/i.test(req.url));
         if (isDeezerPublicApi) {
             return next.handle(req);
         }
@@ -87,7 +89,7 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
         // YouTube search, clip size and thumbnails are permitAll. Favorites stay authenticated.
         const isYoutubePublicApiGet =
             req.method === 'GET'
-            && /\/api\/external\/youtube\/(status|search|popular|image|oembed)(\?|$|\/)/i.test(req.url);
+            && /\/api\/external\/youtube\/(status|search|popular|image|oembed|clip)(\?|$|\/)/i.test(req.url);
         if (isYoutubePublicApiGet) {
             return next.handle(req);
         }

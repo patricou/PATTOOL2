@@ -335,6 +335,19 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   ytPending: Record<number, boolean> = {};
   /** Spinner on the pastille while the next YouTube result is loading. */
   ytNextBusy: Record<number, boolean> = {};
+  /** Spinner on the “+10” button while the next page of clips is loading. */
+  ytMoreBusy: Record<number, boolean> = {};
+  /** Spinner on the button that drops one clip from this title's list. */
+  ytDropBusy: Record<string, boolean> = {};
+  /** Spinner on the button that drops this title's stored YouTube list. */
+  ytClearBusy: Record<number, boolean> = {};
+  /** Title and channel already loaded for the clips shown in the list modal. */
+  ytClipInfo: Record<string, { title?: string; author?: string }> = {};
+  private readonly ytClipAsked = new Set<string>();
+  /** Track whose stored YouTube links are open in the list modal. */
+  ytListTrack: DeezerTrack | null = null;
+  /** Titles whose YouTube list has no further page. */
+  private readonly ytMoreOff = new Set<number>();
   /** Spinner kept visible on a click that already has its clip, so the button still turns. */
   private ytSpin: Record<number, boolean> = {};
   private readonly ytSpinGen = new Map<number, number>();
@@ -1612,6 +1625,260 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     return !!this.ytPending[id] || !!this.ytNextBusy[id] || !!this.ytSpin[id];
   }
 
+  /** True when this title already has clips and another page of ten can still be loaded. */
+  canLoadMoreYoutube(id: number): boolean {
+    if (this.ytMoreOff.has(id) || this.ytMiss[id]) {
+      return false;
+    }
+    return this.hasYoutubeList(id);
+  }
+
+  /** True when this title has a stored YouTube list that can be opened or dropped. */
+  hasYoutubeList(id: number): boolean {
+    return this.youtubeListIds(id).length > 0 && !this.ytMiss[id];
+  }
+
+  youtubeListIds(id: number): string[] {
+    const saved = (this.ytLinks[id] || '').trim();
+    const ids: string[] = [];
+    for (const raw of this.ytChoices.get(id) || []) {
+      const videoId = (raw || '').trim();
+      if (/^[a-zA-Z0-9_-]{11}$/.test(videoId) && !ids.includes(videoId)) {
+        ids.push(videoId);
+      }
+    }
+    if (/^[a-zA-Z0-9_-]{11}$/.test(saved) && !ids.includes(saved)) {
+      ids.unshift(saved);
+    }
+    return ids;
+  }
+
+  openYoutubeList(track: DeezerTrack, event?: Event): void {
+    event?.stopPropagation();
+    if (!this.hasYoutubeList(track.id)) {
+      return;
+    }
+    this.ytListTrack = track;
+    this.loadYoutubeClipCards(this.youtubeListIds(track.id));
+  }
+
+  private loadYoutubeClipCards(ids: string[]): void {
+    for (const raw of ids) {
+      const id = (raw || '').trim();
+      if (!/^[a-zA-Z0-9_-]{11}$/.test(id) || this.ytClipInfo[id] || this.ytClipAsked.has(id)) {
+        continue;
+      }
+      this.ytClipAsked.add(id);
+      this.api.getYoutubeClipCard(id).pipe(takeUntil(this.destroy$)).subscribe({
+        next: (card) => {
+          this.ytClipInfo = {
+            ...this.ytClipInfo,
+            [id]: { title: (card?.title || '').trim(), author: (card?.author || '').trim() }
+          };
+        },
+        error: () => {
+          this.ytClipAsked.delete(id);
+        }
+      });
+    }
+  }
+
+  closeYoutubeList(event?: Event): void {
+    event?.stopPropagation();
+    this.ytListTrack = null;
+  }
+
+  youtubeClipPlaying(track: DeezerTrack, videoId: string): boolean {
+    if (!this.playing || !this.clipOnStage || this.current?.id !== track?.id) {
+      return false;
+    }
+    return this.currentYoutubeId() === (videoId || '').trim();
+  }
+
+  playYoutubeChoice(track: DeezerTrack, videoId: string, event?: Event): void {
+    event?.stopPropagation();
+    const id = (videoId || '').trim();
+    if (!/^[a-zA-Z0-9_-]{11}$/.test(id)) {
+      return;
+    }
+    this.ytCache.set(track.id, id);
+    this.ytLinks = { ...this.ytLinks, [track.id]: id };
+    this.ytFromCache = { ...this.ytFromCache, [track.id]: true };
+    this.ytOffer = null;
+    const index = Math.max(0, this.shownTracks.findIndex((item) => item.id === track.id));
+    this.claimPlaybackTab();
+    this.youtubeMode = true;
+    this.repeatQueue = true;
+    this.queue = this.shownTracks.slice();
+    if (this.current?.id === track.id && (this.clipOnStage || this.youtubeEmbed || this.keptFrameActive)) {
+      this.applyYoutubeHit(track, id, this.ytToken);
+    } else {
+      this.current = null;
+      this.playYoutubeTrack(track, index);
+    }
+    this.api.resolveDeezerYoutubeLinks([{
+      id: track.id,
+      artist: track.artistName || '',
+      title: track.title || '',
+      saveVideoId: id
+    }], false).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (page) => {
+        const link = (page?.links || []).find((item) => item.id === track.id);
+        if (link?.videoIds?.length) {
+          this.rememberYoutubeChoices(track.id, link.videoIds);
+        }
+      },
+      error: () => { /* the clip is already playing from the list kept on screen */ }
+    });
+  }
+
+  dropYoutubeClip(track: DeezerTrack, videoId: string, event?: Event): void {
+    event?.stopPropagation();
+    const clip = (videoId || '').trim();
+    const busyKey = track.id + '|' + clip;
+    if (!/^[a-zA-Z0-9_-]{11}$/.test(clip) || this.ytDropBusy[busyKey]) {
+      return;
+    }
+    this.ytDropBusy = { ...this.ytDropBusy, [busyKey]: true };
+    this.holdYoutubeScan();
+    let released = false;
+    const release = () => {
+      if (released) {
+        return;
+      }
+      released = true;
+      this.releaseYoutubeScan();
+    };
+    this.api.clearDeezerYoutubeLink(track.id, clip).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => {
+        try {
+          this.clearYoutubeDrop(busyKey);
+          const remaining = this.youtubeListIds(track.id).filter((id) => id !== clip);
+          if (remaining.length > 1) {
+            this.ytChoices.set(track.id, remaining);
+          } else {
+            this.ytChoices.delete(track.id);
+          }
+          if ((this.ytLinks[track.id] || '') === clip) {
+            if (remaining[0]) {
+              this.ytLinks = { ...this.ytLinks, [track.id]: remaining[0] };
+              this.ytCache.set(track.id, remaining[0]);
+              this.ytFromCache = { ...this.ytFromCache, [track.id]: true };
+            } else {
+              this.forgetYoutubeList(track.id);
+            }
+          } else if (!remaining.length) {
+            this.forgetYoutubeList(track.id);
+          }
+          if (!this.hasYoutubeList(track.id) && this.ytListTrack?.id === track.id) {
+            this.ytListTrack = null;
+          }
+          this.rebuildMembershipVideos();
+        } finally {
+          release();
+        }
+      },
+      error: () => {
+        try {
+          this.clearYoutubeDrop(busyKey);
+        } finally {
+          release();
+        }
+      }
+    });
+  }
+
+  private clearYoutubeDrop(key: string): void {
+    if (!this.ytDropBusy[key]) {
+      return;
+    }
+    const next = { ...this.ytDropBusy };
+    delete next[key];
+    this.ytDropBusy = next;
+  }
+
+  clearYoutubeList(track: DeezerTrack, event?: Event): void {
+    event?.stopPropagation();
+    if (!this.hasYoutubeList(track.id) || this.ytClearBusy[track.id]) {
+      return;
+    }
+    this.ytClearBusy = { ...this.ytClearBusy, [track.id]: true };
+    this.holdYoutubeScan();
+    let released = false;
+    const release = () => {
+      if (released) {
+        return;
+      }
+      released = true;
+      this.releaseYoutubeScan();
+    };
+    this.api.clearDeezerYoutubeLink(track.id).pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => {
+        try {
+          this.forgetYoutubeList(track.id);
+          this.clearYoutubeClear(track.id);
+          if (this.ytListTrack?.id === track.id) {
+            this.ytListTrack = null;
+          }
+        } finally {
+          release();
+        }
+      },
+      error: () => {
+        try {
+          this.clearYoutubeClear(track.id);
+        } finally {
+          release();
+        }
+      }
+    });
+  }
+
+  loadMoreYoutube(track: DeezerTrack, event?: Event): void {
+    event?.stopPropagation();
+    if (!this.canLoadMoreYoutube(track.id) || this.ytMoreBusy[track.id] || this.youtubeQuery(track).length < 2) {
+      return;
+    }
+    this.ytMoreBusy = { ...this.ytMoreBusy, [track.id]: true };
+    this.holdYoutubeScan();
+    let released = false;
+    const release = () => {
+      if (released) {
+        return;
+      }
+      released = true;
+      this.releaseYoutubeScan();
+    };
+    this.api.resolveDeezerYoutubeLinks([{
+      id: track.id,
+      artist: track.artistName || '',
+      title: track.title || '',
+      more: true
+    }], true).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (page) => {
+        try {
+          this.clearYoutubeMore(track.id);
+          const link = (page?.links || []).find((item) => item.id === track.id);
+          if (!link) {
+            return;
+          }
+          this.rememberYoutubeChoices(track.id, link.videoIds);
+          this.noteYoutubePage(track.id, link.more, this.trackHasYoutubeLinks(track.id, link.videoIds, link.videoId));
+          this.loadYoutubeClipCards(this.youtubeListIds(track.id));
+        } finally {
+          release();
+        }
+      },
+      error: () => {
+        try {
+          this.clearYoutubeMore(track.id);
+        } finally {
+          release();
+        }
+      }
+    });
+  }
+
   /**
    * Short spin for a click that needs no search (clip already known). A real search shows the
    * spinner through ytPending / ytNextBusy and stops as soon as the answer arrives.
@@ -1631,7 +1898,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }, 350);
   }
 
-  /** "2 / 10" while this title walks its YouTube result list. Empty after keep or drop. */
+  /** "2 / 7" while this title walks the clips stored for it. Empty after keep or drop. */
   ytPlace(trackId: number): string {
     if (this.ytPlaceOff.has(trackId)) {
       return '';
@@ -2612,6 +2879,39 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   get sortedArtistAlbums(): DeezerAlbum[] {
     return this.sortAlbums(this.nowBrowseAlbums, 'artistAlbums');
+  }
+
+  /** Names the list this button returns to, instead of a bare "Back". */
+  get backLabel(): string {
+    if (this.nowBrowse === 'album' && this.nowBrowseFrom === 'artist-albums') {
+      const name = this.nowArtistName.trim();
+      return name
+        ? this.translate.instant('DEEZER.BACK_ARTIST_ALBUMS', { name })
+        : this.translate.instant('DEEZER.BACK_ALBUMS');
+    }
+    if (this.nowBrowse && this.activeUserPlaylist) {
+      return this.translate.instant('DEEZER.BACK_PLAYLIST', { name: this.activeUserPlaylist.name });
+    }
+    if (!this.nowBrowse && this.activeUserPlaylist) {
+      return this.translate.instant('DEEZER.BACK_PLAYLISTS');
+    }
+    return this.translate.instant(this.listBackKey());
+  }
+
+  private listBackKey(): string {
+    if (this.listMode === 'favorites') {
+      return 'DEEZER.BACK_FAVORITES';
+    }
+    if (this.listMode === 'playlists') {
+      return 'DEEZER.BACK_PLAYLISTS';
+    }
+    if (this.listMode === 'concert') {
+      return 'DEEZER.BACK_CONCERT';
+    }
+    if (this.mode === 'search' || this.shelf?.mode === 'search') {
+      return 'DEEZER.BACK_SEARCH';
+    }
+    return 'DEEZER.BACK_CHART';
   }
 
   back(): void {
@@ -5306,6 +5606,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         const id = (link.videoId || '').trim() || null;
         this.rememberYoutubeChoices(track.id, link.videoIds);
         this.rememberYoutube(track.id, id);
+        this.noteYoutubePage(track.id, link.more, this.trackHasYoutubeLinks(track.id, link.videoIds, link.videoId));
         this.applyYoutubeHit(track, id, token);
         this.prefetchNextYoutube();
       },
@@ -5407,6 +5708,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         if (link) {
           this.rememberYoutubeChoices(next.id, link.videoIds);
           this.rememberYoutube(next.id, (link.videoId || '').trim() || null);
+          this.noteYoutubePage(next.id, link.more, this.trackHasYoutubeLinks(next.id, link.videoIds, link.videoId));
         }
       },
       error: () => { /* the track will be searched again when it starts */ }
@@ -5544,6 +5846,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
           }
           const videoId = (link.videoId || '').trim() || null;
           this.rememberYoutubeChoices(track.id, link.videoIds);
+          this.noteYoutubePage(track.id, link.more, this.trackHasYoutubeLinks(track.id, link.videoIds, link.videoId));
           if (skipVideoId) {
             if (!videoId || videoId === skipVideoId) {
               return;
@@ -5683,15 +5986,15 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.ytScanRest = { tracks, index, key };
       return;
     }
-    // One title at a time while YouTube is actually queried, so a click is not stuck behind a whole page.
-    const batch = this.youtubeSearchEnabled ? 1 : 20;
-    const slice = tracks.slice(index, index + batch);
+    // Titles on screen only read the stored cache. YouTube itself is queried when a title
+    // starts (that title, then the next one) and when its YouTube icon is clicked.
+    const slice = tracks.slice(index, index + 20);
     this.ytScanRest = { tracks, index, key };
     this.ytScan = this.api.resolveDeezerYoutubeLinks(slice.map((track) => ({
       id: track.id,
       artist: track.artistName || '',
       title: track.title || ''
-    })), this.youtubeSearchEnabled).pipe(takeUntil(this.destroy$)).subscribe({
+    })), false).pipe(takeUntil(this.destroy$)).subscribe({
       next: (page) => {
         if (key !== this.ytScanKey) {
           return;
@@ -5707,11 +6010,70 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     });
   }
 
-  private applyYoutubeLinks(links: { id: number; videoId?: string; cached?: boolean; videoIds?: string[] }[]): void {
+  private applyYoutubeLinks(links: { id: number; videoId?: string; cached?: boolean; videoIds?: string[]; more?: boolean }[]): void {
     for (const link of links) {
       this.rememberYoutubeChoices(link.id, link.videoIds);
       this.rememberYoutube(link.id, (link.videoId || '').trim() || null);
+      this.noteYoutubePage(link.id, link.more, this.trackHasYoutubeLinks(link.id, link.videoIds, link.videoId));
     }
+  }
+
+  private trackHasYoutubeLinks(id: number, videoIds: string[] | undefined, videoId: string | undefined): boolean {
+    if ((videoId || '').trim() || (this.ytLinks[id] || '').trim()) {
+      return true;
+    }
+    return (videoIds || []).some((raw) => /^[a-zA-Z0-9_-]{11}$/.test((raw || '').trim()));
+  }
+
+  private noteYoutubePage(id: number, more: boolean | undefined, hasLinks: boolean): void {
+    if (more === false || !hasLinks) {
+      this.ytMoreOff.add(id);
+      return;
+    }
+    if (more === true) {
+      this.ytMoreOff.delete(id);
+    }
+  }
+
+  private clearYoutubeMore(id: number): void {
+    if (!this.ytMoreBusy[id]) {
+      return;
+    }
+    const next = { ...this.ytMoreBusy };
+    delete next[id];
+    this.ytMoreBusy = next;
+  }
+
+  private clearYoutubeClear(id: number): void {
+    if (!this.ytClearBusy[id]) {
+      return;
+    }
+    const next = { ...this.ytClearBusy };
+    delete next[id];
+    this.ytClearBusy = next;
+  }
+
+  /** Forgets the stored clips for one title without recording a miss. */
+  private forgetYoutubeList(id: number): void {
+    this.ytCache.delete(id);
+    this.ytChoices.delete(id);
+    this.ytMoreOff.delete(id);
+    this.ytPlaceOff.delete(id);
+    const links = { ...this.ytLinks };
+    delete links[id];
+    this.ytLinks = links;
+    const cached = { ...this.ytFromCache };
+    delete cached[id];
+    this.ytFromCache = cached;
+    if (this.ytMiss[id]) {
+      const miss = { ...this.ytMiss };
+      delete miss[id];
+      this.ytMiss = miss;
+    }
+    if (this.ytOffer?.trackId === id) {
+      this.ytOffer = null;
+    }
+    this.rebuildMembershipVideos();
   }
 
   private youtubeQuery(track: DeezerTrack): string {
@@ -6222,6 +6584,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
           if (videoId) {
             this.rememberYoutubeChoices(link.id, link.videoIds);
             this.rememberYoutube(link.id, videoId);
+            this.noteYoutubePage(link.id, link.more, true);
           }
         }
         this.fetchMembershipBatch(ids, index + slice.length, epoch);

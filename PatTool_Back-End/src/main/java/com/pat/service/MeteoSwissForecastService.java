@@ -119,10 +119,11 @@ public class MeteoSwissForecastService {
                     + MAX_NEAREST_KM + " km)");
         }
 
-        List<Map<String, Object>> rawList = active.listByPointId().get(nearest.point().id());
-        if (rawList == null || rawList.isEmpty()) {
+        CompactSeries series = active.seriesByPointId().get(nearest.point().id());
+        if (series == null || series.size() == 0) {
             return error("No forecast steps for the nearest MeteoSwiss point");
         }
+        List<Map<String, Object>> rawList = series.toForecastList();
 
         List<Map<String, Object>> filtered = ForecastHorizonFilter.filterList(rawList, horizonHours, stepMinutes);
         if (filtered.isEmpty()) {
@@ -214,8 +215,7 @@ public class MeteoSwissForecastService {
         if (cache != null) {
             status.put("itemId", cache.itemId());
             status.put("loadedAt", cache.loadedAt().toString());
-            status.put("stepCountSample", cache.listByPointId().values().stream()
-                    .findFirst().map(List::size).orElse(0));
+            status.put("stepCountSample", cache.sampleStepCount());
         }
         if (precipMapCache != null) {
             status.put("precipFrameCount", precipMapCache.epochs().size());
@@ -272,8 +272,8 @@ public class MeteoSwissForecastService {
             lastError = null;
             lastSuccessfulRefresh = Instant.now();
             log.info("MeteoSwiss forecast cache refreshed: item={}, points={}, sampleSteps={}, precipFrames={}",
-                    itemId, built.forecast().listByPointId().size(),
-                    built.forecast().listByPointId().values().stream().findFirst().map(List::size).orElse(0),
+                    itemId, built.forecast().pointCount(),
+                    built.forecast().sampleStepCount(),
                     precipMapCache != null ? precipMapCache.epochs().size() : 0);
         } catch (Exception e) {
             lastError = e.getMessage() != null ? e.getMessage() : "MeteoSwiss refresh failed";
@@ -379,49 +379,42 @@ public class MeteoSwissForecastService {
             mergeParameterCsv(entry.getKey(), entry.getValue(), merged);
         }
 
-        Map<Integer, List<Map<String, Object>>> listByPoint = new HashMap<>(merged.size());
         long nowEpoch = Instant.now().getEpochSecond();
+        long minEpoch = nowEpoch - 7200;
+        Map<Integer, CompactSeries> seriesByPoint = new HashMap<>(merged.size());
+        Map<Long, Map<Integer, Double>> precipByEpoch = new LinkedHashMap<>();
         for (Map.Entry<Integer, Map<Long, StepBuilder>> pointEntry : merged.entrySet()) {
-            List<Map<String, Object>> steps = new ArrayList<>();
+            List<Map.Entry<Long, StepBuilder>> kept = new ArrayList<>();
             for (Map.Entry<Long, StepBuilder> stepEntry : pointEntry.getValue().entrySet()) {
-                if (stepEntry.getKey() < nowEpoch - 7200) {
+                if (stepEntry.getKey() < minEpoch) {
                     continue;
                 }
-                Map<String, Object> itemMap = stepEntry.getValue().toForecastItem(stepEntry.getKey());
-                if (itemMap != null) {
-                    steps.add(itemMap);
+                StepBuilder step = stepEntry.getValue();
+                if (step.tempC != null) {
+                    kept.add(stepEntry);
+                }
+                Double mm = step.precipMm;
+                if (mm != null && mm >= 0) {
+                    precipByEpoch
+                            .computeIfAbsent(stepEntry.getKey(), k -> new HashMap<>())
+                            .put(pointEntry.getKey(), mm);
                 }
             }
-            steps.sort(Comparator.comparingLong(step -> ((Number) step.get("dt")).longValue()));
-            if (!steps.isEmpty()) {
-                listByPoint.put(pointEntry.getKey(), steps);
+            if (!kept.isEmpty()) {
+                kept.sort(Comparator.comparingLong(Map.Entry::getKey));
+                seriesByPoint.put(pointEntry.getKey(), CompactSeries.fromSteps(kept));
             }
         }
-        if (listByPoint.isEmpty()) {
+        merged.clear();
+        if (seriesByPoint.isEmpty()) {
             return null;
         }
-        ForecastCache forecast = new ForecastCache(itemId, Instant.now(), listByPoint);
-        PrecipMapCache precip = buildPrecipMapCache(itemId, merged);
+        ForecastCache forecast = new ForecastCache(itemId, Instant.now(), seriesByPoint);
+        PrecipMapCache precip = buildPrecipMapCache(itemId, precipByEpoch);
         return new CacheBuildResult(forecast, precip);
     }
 
-    private PrecipMapCache buildPrecipMapCache(String itemId, Map<Integer, Map<Long, StepBuilder>> merged) {
-        Map<Long, Map<Integer, Double>> precipByEpoch = new LinkedHashMap<>();
-        long nowEpoch = Instant.now().getEpochSecond();
-        for (Map.Entry<Integer, Map<Long, StepBuilder>> pointEntry : merged.entrySet()) {
-            for (Map.Entry<Long, StepBuilder> stepEntry : pointEntry.getValue().entrySet()) {
-                if (stepEntry.getKey() < nowEpoch - 7200) {
-                    continue;
-                }
-                Double mm = stepEntry.getValue().precipMm;
-                if (mm == null || mm < 0) {
-                    continue;
-                }
-                precipByEpoch
-                        .computeIfAbsent(stepEntry.getKey(), k -> new HashMap<>())
-                        .put(pointEntry.getKey(), mm);
-            }
-        }
+    private PrecipMapCache buildPrecipMapCache(String itemId, Map<Long, Map<Integer, Double>> precipByEpoch) {
         if (precipByEpoch.isEmpty()) {
             log.warn("MeteoSwiss precip map: no hourly precipitation values in cache");
             return null;
@@ -444,6 +437,7 @@ public class MeteoSwissForecastService {
                         CH_MIN_LAT, CH_MAX_LAT, CH_MIN_LON, CH_MAX_LON,
                         points, byPoint);
                 pngByEpoch.put(epoch, png);
+                precipByEpoch.remove(epoch);
             }
         } catch (Exception e) {
             log.warn("MeteoSwiss precip raster failed: {}", e.getMessage());
@@ -504,7 +498,7 @@ public class MeteoSwissForecastService {
                         if (value == null) {
                             continue;
                         }
-                        Map<Long, StepBuilder> byTime = merged.computeIfAbsent(pointId, k -> new HashMap<>(256));
+                        Map<Long, StepBuilder> byTime = merged.computeIfAbsent(pointId, k -> new HashMap<>(64));
                         StepBuilder step = byTime.computeIfAbsent(epoch, k -> new StepBuilder());
                         step.apply(paramSuffix, value);
                     }
@@ -657,8 +651,110 @@ public class MeteoSwissForecastService {
 
     private record NearestPoint(PointRecord point, double distanceKm) {}
 
+    /**
+     * One series per grid point, stored as primitive columns.
+     * Materialising an OpenWeather-style map for every point (about 5700 × 160 steps)
+     * exhausts a 2 GB heap; maps are built only for the point a request actually needs.
+     */
     private record ForecastCache(
-            String itemId, Instant loadedAt, Map<Integer, List<Map<String, Object>>> listByPointId) {}
+            String itemId, Instant loadedAt, Map<Integer, CompactSeries> seriesByPointId) {
+
+        int pointCount() {
+            return seriesByPointId.size();
+        }
+
+        int sampleStepCount() {
+            return seriesByPointId.values().stream().findFirst().map(CompactSeries::size).orElse(0);
+        }
+    }
+
+    static final class CompactSeries {
+        private static final int NO_WEATHER = Integer.MIN_VALUE;
+
+        final long[] epoch;
+        final double[] tempC;
+        final double[] windSpeedMs;
+        final double[] windDeg;
+        final double[] precipMm;
+        final double[] pop;
+        final int[] weatherCode;
+
+        private CompactSeries(int size) {
+            epoch = new long[size];
+            tempC = new double[size];
+            windSpeedMs = new double[size];
+            windDeg = new double[size];
+            precipMm = new double[size];
+            pop = new double[size];
+            weatherCode = new int[size];
+        }
+
+        int size() {
+            return epoch.length;
+        }
+
+        static CompactSeries fromSteps(List<Map.Entry<Long, StepBuilder>> steps) {
+            CompactSeries series = new CompactSeries(steps.size());
+            for (int i = 0; i < steps.size(); i++) {
+                Map.Entry<Long, StepBuilder> entry = steps.get(i);
+                StepBuilder step = entry.getValue();
+                series.epoch[i] = entry.getKey();
+                series.tempC[i] = step.tempC;
+                series.windSpeedMs[i] = step.windSpeedMs != null ? step.windSpeedMs : Double.NaN;
+                series.windDeg[i] = step.windDeg != null ? step.windDeg : Double.NaN;
+                series.precipMm[i] = step.precipMm != null ? step.precipMm : Double.NaN;
+                series.pop[i] = step.pop != null ? step.pop : Double.NaN;
+                series.weatherCode[i] = step.weatherCode != null ? step.weatherCode : NO_WEATHER;
+            }
+            return series;
+        }
+
+        List<Map<String, Object>> toForecastList() {
+            List<Map<String, Object>> steps = new ArrayList<>(epoch.length);
+            for (int i = 0; i < epoch.length; i++) {
+                steps.add(toForecastItem(i));
+            }
+            return steps;
+        }
+
+        private Map<String, Object> toForecastItem(int i) {
+            Map<String, Object> main = new LinkedHashMap<>();
+            main.put("temp", tempC[i]);
+            main.put("temp_min", tempC[i]);
+            main.put("temp_max", tempC[i]);
+
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("dt", epoch[i]);
+            item.put("main", main);
+
+            if (weatherCode[i] != NO_WEATHER) {
+                int code = weatherCode[i];
+                item.put("weather", List.of(Map.of(
+                        "id", code,
+                        "description", weatherSymbolDescription(code),
+                        "icon", weatherSymbolIcon(code))));
+            }
+            boolean hasSpeed = !Double.isNaN(windSpeedMs[i]);
+            boolean hasDeg = !Double.isNaN(windDeg[i]);
+            if (hasSpeed || hasDeg) {
+                Map<String, Object> wind = new LinkedHashMap<>();
+                if (hasSpeed) {
+                    wind.put("speed", windSpeedMs[i]);
+                }
+                if (hasDeg) {
+                    wind.put("deg", (int) Math.round(windDeg[i]));
+                }
+                item.put("wind", wind);
+            }
+            if (!Double.isNaN(precipMm[i]) && precipMm[i] > 0) {
+                item.put("rain", Map.of("1h", precipMm[i]));
+            }
+            if (!Double.isNaN(pop[i])) {
+                item.put("pop", pop[i]);
+            }
+            return item;
+        }
+    }
 
     private record CacheBuildResult(ForecastCache forecast, PrecipMapCache precip) {}
 
@@ -689,43 +785,6 @@ public class MeteoSwissForecastService {
             }
         }
 
-        Map<String, Object> toForecastItem(long epoch) {
-            if (tempC == null) {
-                return null;
-            }
-            Map<String, Object> main = new LinkedHashMap<>();
-            main.put("temp", tempC);
-            main.put("temp_min", tempC);
-            main.put("temp_max", tempC);
-
-            Map<String, Object> item = new LinkedHashMap<>();
-            item.put("dt", epoch);
-            item.put("main", main);
-
-            if (weatherCode != null) {
-                item.put("weather", List.of(Map.of(
-                        "id", weatherCode,
-                        "description", weatherSymbolDescription(weatherCode),
-                        "icon", weatherSymbolIcon(weatherCode))));
-            }
-            if (windSpeedMs != null || windDeg != null) {
-                Map<String, Object> wind = new LinkedHashMap<>();
-                if (windSpeedMs != null) {
-                    wind.put("speed", windSpeedMs);
-                }
-                if (windDeg != null) {
-                    wind.put("deg", (int) Math.round(windDeg));
-                }
-                item.put("wind", wind);
-            }
-            if (precipMm != null && precipMm > 0) {
-                item.put("rain", Map.of("1h", precipMm));
-            }
-            if (pop != null) {
-                item.put("pop", pop);
-            }
-            return item;
-        }
     }
 
     private static String weatherSymbolDescription(int code) {

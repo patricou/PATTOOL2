@@ -320,9 +320,9 @@
       </div>
 
       <div class="dz-list-head">
-        <button type="button" class="dz-back" *ngIf="nowBrowse || drilled || activeUserPlaylist" (click)="back()">
-          <i class="fa fa-chevron-left" aria-hidden="true"></i>
-          {{ 'DEEZER.BACK' | translate }}
+        <button type="button" class="dz-back" *ngIf="nowBrowse || drilled || activeUserPlaylist" (click)="back()" [attr.aria-label]="backLabel">
+          <i class="fa fa-arrow-left" aria-hidden="true"></i>
+          <span>{{ backLabel }}</span>
         </button>
         <div class="dz-now-jump" role="group">
           <button
@@ -461,11 +461,10 @@
               [attr.aria-label]="(tabListPlaying ? 'DEEZER.PAUSE' : 'DEEZER.PLAY') | translate"
               [attr.title]="(tabListPlaying ? 'DEEZER.PAUSE' : 'DEEZER.PLAY') | translate">
               <span>{{ (tabListPlaying ? 'DEEZER.PAUSE' : 'DEEZER.PLAY') | translate }}</span>
-              <img
+              <i
                 *ngIf="tabListPlaying && playAllSource === 'youtube'"
-                class="dz-transport-mark"
-                src="assets/images/youtube-logo.svg"
-                alt="" />
+                class="fa fa-youtube dz-transport-yt"
+                aria-hidden="true"></i>
               <img
                 *ngIf="tabListPlaying && playAllSource === 'deezer'"
                 class="dz-transport-mark dz-transport-mark--dz"
@@ -482,6 +481,20 @@
             </button>
           </div>
           </ng-container>
+          <label
+            class="dz-yt-lookup"
+            *ngIf="showTrackList"
+            [attr.title]="'DEEZER.YT_SEARCH_SWITCH_HINT' | translate">
+            <i class="fa fa-youtube dz-yt-lookup-mark" aria-hidden="true"></i>
+            <span class="dz-yt-lookup-label">{{ 'DEEZER.YT_SEARCH_SWITCH' | translate }}</span>
+            <input
+              type="checkbox"
+              role="switch"
+              [ngModel]="youtubeSearchEnabled"
+              (ngModelChange)="setYoutubeSearch($event)"
+              [attr.aria-label]="'DEEZER.YT_SEARCH_SWITCH' | translate" />
+            <span class="dz-yt-lookup-track" aria-hidden="true"><span class="dz-yt-lookup-knob"></span></span>
+          </label>
         </div>
         <a class="dz-open-link" *ngIf="drilled && drillLink" [href]="drillLink" target="_blank" rel="noopener">
           {{ 'DEEZER.OPEN' | translate }}
@@ -700,9 +713,11 @@
           tabindex="0">
           <span class="dz-idx" *ngIf="!rowIsLive(track.id)">{{ trackRowNumber(i) }}</span>
           <ng-container *ngIf="rowIsLive(track.id)" [ngTemplateOutlet]="dzLive"></ng-container>
-          <img *ngIf="track.coverUrl" class="dz-thumb" [src]="track.coverUrl" alt="" loading="lazy" (error)="$any($event.target).style.display='none'" />
-          <span *ngIf="!track.coverUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-music"></i></span>
+          <img *ngIf="ytLinks[track.id] as yt" class="dz-thumb dz-thumb--yt" [src]="'https://i.ytimg.com/vi/' + yt + '/mqdefault.jpg'" alt="" loading="lazy" />
+          <img *ngIf="!ytLinks[track.id] && track.coverUrl" class="dz-thumb" [src]="track.coverUrl" alt="" loading="lazy" (error)="$any($event.target).style.display='none'" />
+          <span *ngIf="!ytLinks[track.id] && !track.coverUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-music"></i></span>
           <span class="dz-track-body">
+            <span class="dz-track-copy">
             <span class="dz-track-line">
               <span class="dz-track-artist">{{ track.artistName }}</span>
               <span class="dz-track-sep" *ngIf="track.artistName && track.albumTitle" aria-hidden="true">/</span>
@@ -713,8 +728,18 @@
                 {{ track.title }}
                 <span class="dz-explicit" *ngIf="track.explicit">E</span>
               </span>
+              <span class="dz-track-facts">
+                <span class="dz-track-meta" *ngIf="yearOf(track.releaseDate) as year">{{ year }}</span>
+                <span class="dz-track-sep" *ngIf="yearOf(track.releaseDate) && formatFans(track.fanCount)" aria-hidden="true">/</span>
+                <span class="dz-track-meta" *ngIf="formatFans(track.fanCount) as fans">{{ 'DEEZER.FANS' | translate:{ count: fans } }}</span>
+                <span class="dz-track-sep" *ngIf="yearOf(track.releaseDate) || formatFans(track.fanCount)" aria-hidden="true">/</span>
+                <span class="dz-track-meta dz-dur">{{ formatTime(track.durationSec) }}</span>
+              </span>
             </span>
+            </span>
+          </span>
             <span class="dz-track-actions" (click)="$event.stopPropagation()">
+              <span class="dz-track-tools">
               <button
                 type="button"
                 class="dz-preview-btn"
@@ -722,7 +747,7 @@
             (click)="playDeezerTrack(track, i, $event)"
             [attr.title]="'DEEZER.DZ_PLAY' | translate"
             [attr.aria-label]="'DEEZER.DZ_PLAY' | translate">
-            <img class="dz-preview-mark" src="assets/images/deezer-logo.svg" alt="" />
+            <span class="dz-preview-mark" aria-hidden="true"></span>
           </button>
           <span class="dz-yt-slot" [class.has-offer]="ytOffer?.trackId === track.id && !ytNextBusy[track.id]" (click)="$event.stopPropagation()">
             <button
@@ -760,6 +785,15 @@
               </button>
             </span>
           </span>
+          <button
+            type="button"
+            class="dz-yt-list"
+            *ngIf="hasYoutubeList(track.id)"
+            (click)="openYoutubeList(track, $event)"
+            [attr.title]="'DEEZER.YT_LIST' | translate"
+            [attr.aria-label]="'DEEZER.YT_LIST' | translate">
+            <i class="fa fa-th-list" aria-hidden="true"></i>
+          </button>
           <button
             type="button"
             class="dz-fav"
@@ -800,16 +834,9 @@
             (click)="toggleTrackFavorite(track, $event)"
             [attr.aria-label]="(isFavorite('track', track.id) ? 'DEEZER.FAV_REMOVE' : 'DEEZER.FAV_ADD') | translate">
             <i class="fa" [class.fa-star]="isFavorite('track', track.id)" [class.fa-star-o]="!isFavorite('track', track.id)"></i>
-          </button>
-              <span class="dz-track-facts">
-                <span class="dz-track-meta" *ngIf="yearOf(track.releaseDate) as year">{{ year }}</span>
-                <span class="dz-track-sep" *ngIf="yearOf(track.releaseDate) && formatFans(track.fanCount)" aria-hidden="true">/</span>
-                <span class="dz-track-meta" *ngIf="formatFans(track.fanCount) as fans">{{ 'DEEZER.FANS' | translate:{ count: fans } }}</span>
-                <span class="dz-track-sep" *ngIf="yearOf(track.releaseDate) || formatFans(track.fanCount)" aria-hidden="true">/</span>
-                <span class="dz-track-meta dz-dur">{{ formatTime(track.durationSec) }}</span>
-              </span>
+            </button>
             </span>
-          </span>
+            </span>
         </li>
         <li *ngIf="!shownTracks.length" class="dz-empty">{{ trackEmptyKey | translate }}</li>
         <li class="dz-pager-row" *ngIf="showCatalogPager && view === 'track'"><ng-container *ngTemplateOutlet="dzPager"></ng-container></li>
@@ -1245,6 +1272,87 @@
     </button>
     <p class="dz-pl-error" *ngIf="concertError" role="alert">{{ concertError | translate }}</p>
   </form>
+</div>
+
+<div class="dz-pl-backdrop dz-yt-list-backdrop" *ngIf="ytListTrack" (click)="closeYoutubeList()"></div>
+<div
+  class="dz-pl-modal dz-yt-list-modal"
+  *ngIf="ytListTrack"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'DEEZER.YT_LIST' | translate"
+  (click)="$event.stopPropagation()"
+  (keydown.escape)="closeYoutubeList()">
+  <div class="dz-pl-modal-head">
+    <div class="dz-pl-track">
+      <img *ngIf="ytListTrack.coverUrl" class="dz-pl-cover" [src]="ytListTrack.coverUrl" alt="" />
+      <span *ngIf="!ytListTrack.coverUrl" class="dz-pl-cover dz-pl-cover--empty"><i class="fa fa-youtube" aria-hidden="true"></i></span>
+      <span class="dz-pl-track-text">
+        <span class="dz-pl-kicker">{{ 'DEEZER.YT_LIST' | translate }}</span>
+        <strong>{{ ytListTrack.title }}</strong>
+        <span class="dz-pl-artist" *ngIf="ytListTrack.artistName">{{ ytListTrack.artistName }}</span>
+        <span class="dz-yt-list-count">{{ 'DEEZER.YT_LIST_COUNT' | translate:{ count: youtubeListIds(ytListTrack.id).length } }}</span>
+      </span>
+    </div>
+    <button type="button" class="dz-pl-close" (click)="closeYoutubeList($event)" [attr.aria-label]="'DEEZER.CLEAR_SEARCH' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
+  <div class="dz-pl-modal-body dz-yt-list-body">
+    <div
+      class="dz-yt-link"
+      *ngFor="let videoId of youtubeListIds(ytListTrack.id); let n = index"
+      [class.is-on]="ytLinks[ytListTrack.id] === videoId">
+      <button
+        type="button"
+        class="dz-yt-link-play"
+        (click)="playYoutubeChoice(ytListTrack, videoId, $event)"
+        [attr.aria-label]="'DEEZER.YT_LIST_PLAY' | translate">
+        <img class="dz-yt-link-thumb" [src]="'https://i.ytimg.com/vi/' + videoId + '/mqdefault.jpg'" alt="" />
+        <span class="dz-yt-link-text">
+          <strong class="dz-yt-link-title">{{ n + 1 }}. {{ ytClipInfo[videoId]?.title || videoId }}</strong>
+          <span class="dz-yt-link-author" *ngIf="ytClipInfo[videoId]?.author">{{ ytClipInfo[videoId].author }}</span>
+          <span class="dz-yt-link-url">youtube.com/watch?v={{ videoId }}</span>
+        </span>
+        <span class="dz-live dz-live--now" *ngIf="youtubeClipPlaying(ytListTrack, videoId)" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </span>
+        <i class="fa fa-play" *ngIf="!youtubeClipPlaying(ytListTrack, videoId)" aria-hidden="true"></i>
+      </button>
+      <button
+        type="button"
+        class="dz-yt-link-drop"
+        [disabled]="!!ytDropBusy[ytListTrack.id + '|' + videoId]"
+        (click)="dropYoutubeClip(ytListTrack, videoId, $event)"
+        [attr.title]="'DEEZER.YT_LIST_DROP' | translate"
+        [attr.aria-label]="'DEEZER.YT_LIST_DROP' | translate">
+        <i class="fa fa-spinner fa-spin" *ngIf="ytDropBusy[ytListTrack.id + '|' + videoId]" aria-hidden="true"></i>
+        <i class="fa fa-times" *ngIf="!ytDropBusy[ytListTrack.id + '|' + videoId]" aria-hidden="true"></i>
+      </button>
+    </div>
+  </div>
+  <div class="dz-yt-list-foot">
+    <button
+      type="button"
+      class="dz-yt-more-list"
+      *ngIf="canLoadMoreYoutube(ytListTrack.id)"
+      [disabled]="!!ytMoreBusy[ytListTrack.id]"
+      (click)="loadMoreYoutube(ytListTrack, $event)"
+      [attr.title]="'DEEZER.YT_MORE' | translate"
+      [attr.aria-label]="'DEEZER.YT_MORE' | translate">
+      <i class="fa fa-spinner fa-spin" *ngIf="ytMoreBusy[ytListTrack.id]" aria-hidden="true"></i>
+      <span *ngIf="!ytMoreBusy[ytListTrack.id]">+10</span>
+    </button>
+    <button
+      type="button"
+      class="dz-yt-clear-list"
+      [disabled]="!!ytClearBusy[ytListTrack.id]"
+      (click)="clearYoutubeList(ytListTrack, $event)">
+      <i class="fa fa-spinner fa-spin" *ngIf="ytClearBusy[ytListTrack.id]" aria-hidden="true"></i>
+      <i class="fa fa-trash" *ngIf="!ytClearBusy[ytListTrack.id]" aria-hidden="true"></i>
+      {{ 'DEEZER.YT_CLEAR' | translate }}
+    </button>
+  </div>
 </div>
 
 <div class="dz-pl-backdrop" *ngIf="playlistMenuTrack" (click)="closePlaylistMenu()"></div>

@@ -5,13 +5,18 @@ import java.util.List;
 /** Resolved YouTube ids. {@code videoId} is empty when the search found nothing. {@code cached} is true when the id was read from the stored links. {@code videoIds} is the result list, so the next clip does not search again. */
 public record DeezerYoutubeLookupResponse(List<Link> links) {
 
-    public record Link(long id, String videoId, boolean cached, List<String> videoIds) {
+    /** {@code more} is true while another page of clips can still be loaded for this title. */
+    public record Link(long id, String videoId, boolean cached, List<String> videoIds, boolean more) {
         public Link {
             videoIds = videoIds == null ? List.of() : List.copyOf(videoIds);
         }
 
+        public Link(long id, String videoId, boolean cached, List<String> videoIds) {
+            this(id, videoId, cached, videoIds, false);
+        }
+
         public Link(long id, String videoId, boolean cached) {
-            this(id, videoId, cached, List.of());
+            this(id, videoId, cached, List.of(), false);
         }
     }
 }

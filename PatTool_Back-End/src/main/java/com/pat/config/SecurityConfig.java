@@ -346,6 +346,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/external/deezer/skin").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/external/deezer/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/external/deezer/youtube-links", "/api/external/deezer/youtube-links/stored").permitAll()
+                .requestMatchers(HttpMethod.DELETE, "/api/external/deezer/youtube-links/*").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/book/openlibrary/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/book/gutenberg/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/book/librivox/**").permitAll()
@@ -395,6 +396,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/youtube/popular").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/youtube/image").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/youtube/oembed").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/youtube/clip").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tmdb/**").permitAll()
                 // Telegram Bot API — always authenticated (per-user BotFather token in Mongo)
 

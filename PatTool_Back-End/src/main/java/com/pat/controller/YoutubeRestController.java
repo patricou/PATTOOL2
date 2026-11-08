@@ -88,6 +88,16 @@ public class YoutubeRestController {
         return ResponseEntity.ok(Map.of("width", size[0], "height", size[1]));
     }
 
+    /** Title and channel for one clip. The browser must not call YouTube (CSP connect-src). */
+    @GetMapping("/clip")
+    public ResponseEntity<Map<String, String>> clip(@RequestParam("v") String videoId) {
+        Map<String, String> card = youtubeProxyService.clipCard(videoId);
+        if (card == null || card.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(card);
+    }
+
     @GetMapping("/favorites")
     public ResponseEntity<YoutubeFavoritesDto> getFavorites() {
         String sub = currentJwtSubject();

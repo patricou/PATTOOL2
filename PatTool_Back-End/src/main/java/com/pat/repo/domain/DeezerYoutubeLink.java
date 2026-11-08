@@ -27,6 +27,9 @@ public class DeezerYoutubeLink {
     /** Other clips from the same search, in result order. The chosen id stays {@link #videoId}. */
     private List<String> videoIds = new ArrayList<>();
 
+    /** Token for the next page of ten. {@code -} means the last page was already loaded. */
+    private String nextToken;
+
     private String query = "";
 
     private Instant updatedAt;
@@ -61,6 +64,14 @@ public class DeezerYoutubeLink {
 
     public void setVideoIds(List<String> videoIds) {
         this.videoIds = videoIds == null ? new ArrayList<>() : new ArrayList<>(videoIds);
+    }
+
+    public String getNextToken() {
+        return nextToken;
+    }
+
+    public void setNextToken(String nextToken) {
+        this.nextToken = nextToken;
     }
 
     public String getQuery() {

@@ -25,8 +25,11 @@ public class DeezerYoutubeLinkService {
 
     public static final int MAX_TRACKS = 20;
     public static final int MAX_STORED = 400;
-    /** One search page. Later clicks walk this list instead of calling YouTube again. */
+    /** How many clips one YouTube search may ask for. The badge uses the stored list, not this cap. */
     static final int SEARCH_RESULTS = 10;
+    /** Stored when a search page has no following page. */
+    static final String NO_MORE = "-";
+    private static final int MAX_CANDIDATES = 200;
 
     private final DeezerYoutubeLinkRepository repository;
     private final YoutubeProxyService youtubeProxyService;
@@ -49,6 +52,56 @@ public class DeezerYoutubeLinkService {
         repository.deleteAll();
         locks.clear();
         return links > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) links;
+    }
+
+    /** Drops the stored clip list for one Deezer track. */
+    public boolean clearStoredLink(long trackId) {
+        if (trackId <= 0) {
+            return false;
+        }
+        String key = Long.toString(trackId);
+        if (!repository.existsById(key)) {
+            locks.remove(trackId);
+            return false;
+        }
+        repository.deleteById(key);
+        locks.remove(trackId);
+        return true;
+    }
+
+    /** Drops one clip from a title's stored list. The row goes away when nothing remains. */
+    public boolean dropStoredClip(long trackId, String videoId) {
+        String clip = videoId == null ? "" : videoId.trim();
+        if (trackId <= 0 || !clip.matches("^[a-zA-Z0-9_-]{11}$")) {
+            return false;
+        }
+        String key = Long.toString(trackId);
+        DeezerYoutubeLink row = repository.findById(key).orElse(null);
+        if (row == null) {
+            return false;
+        }
+        List<String> ids = new ArrayList<>(idsOf(row));
+        String chosen = row.getVideoId() == null ? "" : row.getVideoId().trim();
+        if (ids.isEmpty() && chosen.matches("^[a-zA-Z0-9_-]{11}$")) {
+            ids.add(chosen);
+        }
+        if (!ids.remove(clip)) {
+            return false;
+        }
+        if (clip.equals(chosen)) {
+            chosen = ids.isEmpty() ? "" : ids.get(0);
+        }
+        if (chosen.isEmpty() && ids.isEmpty()) {
+            repository.deleteById(key);
+            locks.remove(trackId);
+            return true;
+        }
+        row.setVideoId(chosen);
+        row.setVideoIds(ids);
+        row.setUpdatedAt(Instant.now());
+        repository.save(row);
+        locks.remove(trackId);
+        return true;
     }
 
     /** Video ids already stored for these Deezer tracks. Empty misses are omitted. */
@@ -78,7 +131,7 @@ public class DeezerYoutubeLinkService {
             if (videoId.isEmpty()) {
                 continue;
             }
-            links.add(new DeezerYoutubeLookupResponse.Link(row.getTrackId(), videoId, true, idsOf(row)));
+            links.add(new DeezerYoutubeLookupResponse.Link(row.getTrackId(), videoId, true, idsOf(row), hasMore(row)));
         }
         return new DeezerYoutubeLookupResponse(links);
     }
@@ -133,25 +186,28 @@ public class DeezerYoutubeLinkService {
             }
             return store(track, stored, key, query, commit, idsOf(stored), true);
         }
+        if (track.more()) {
+            return fetchMore(track, stored, key, query);
+        }
         String skip = skipVideoId(track);
         List<String> known = fresh(stored, query) ? idsOf(stored) : List.of();
         if (!skip.isEmpty()) {
             String next = nextCandidate(known, skip);
             if (!next.isEmpty()) {
-                return new DeezerYoutubeLookupResponse.Link(track.id(), next, true, known);
+                return new DeezerYoutubeLookupResponse.Link(track.id(), next, true, known, hasMore(stored));
             }
         } else if (fresh(stored, query)) {
             return new DeezerYoutubeLookupResponse.Link(
                     track.id(),
                     stored.getVideoId() == null ? "" : stored.getVideoId(),
                     true,
-                    known);
+                    known,
+                    hasMore(stored));
         }
         if (!search || youtubeProxyService == null || !youtubeProxyService.isConfigured()) {
             return null;
         }
-        YoutubeSearchPageDto page = youtubeProxyService.search(
-                query, "video", "FR", "fr", null, null, SEARCH_RESULTS, null, null, false);
+        YoutubeSearchPageDto page = searchPage(query, null);
         if (page == null || page.error() != null) {
             return null;
         }
@@ -161,15 +217,82 @@ public class DeezerYoutubeLinkService {
             if (videoId.isEmpty() || videoId.equals(skip)) {
                 if (stored != null && stored.getVideoId() != null && !stored.getVideoId().isBlank()) {
                     List<String> kept = found.isEmpty() ? idsOf(stored) : found;
-                    rememberCandidates(track, stored, key, query, kept);
-                    return new DeezerYoutubeLookupResponse.Link(track.id(), stored.getVideoId(), true, kept);
+                    rememberCandidates(track, stored, key, query, kept, page.nextPageToken(), true);
+                    return new DeezerYoutubeLookupResponse.Link(
+                            track.id(), stored.getVideoId(), true, idsOf(stored), hasMore(stored));
                 }
                 return null;
             }
-            rememberCandidates(track, stored, key, query, found);
-            return new DeezerYoutubeLookupResponse.Link(track.id(), videoId, false, found);
+            rememberCandidates(track, stored, key, query, found, page.nextPageToken(), true);
+            List<String> listed = stored == null ? found : idsOf(stored);
+            return new DeezerYoutubeLookupResponse.Link(
+                    track.id(), videoId, false, listed, stored != null && hasMore(stored));
         }
-        return store(track, stored, key, query, videoId, found, false);
+        return store(track, stored, key, query, videoId, found, false, page.nextPageToken(), true);
+    }
+
+    /** Appends the next page of clips. The chosen video stays the one already saved. */
+    private DeezerYoutubeLookupResponse.Link fetchMore(
+            DeezerYoutubeLookupRequest.Track track,
+            DeezerYoutubeLink stored,
+            String key,
+            String query) {
+        if (stored == null || !fresh(stored, query)) {
+            return null;
+        }
+        String chosen = stored.getVideoId() == null ? "" : stored.getVideoId().trim();
+        if (chosen.isEmpty() && idsOf(stored).isEmpty()) {
+            return null;
+        }
+        if (NO_MORE.equals(stored.getNextToken())) {
+            return new DeezerYoutubeLookupResponse.Link(track.id(), chosen, true, idsOf(stored), false);
+        }
+        if (youtubeProxyService == null || !youtubeProxyService.isConfigured()) {
+            return new DeezerYoutubeLookupResponse.Link(track.id(), chosen, true, idsOf(stored), hasMore(stored));
+        }
+        String token = stored.getNextToken() == null ? "" : stored.getNextToken().trim();
+        List<String> known = idsOf(stored);
+        if (token.isEmpty()) {
+            YoutubeSearchPageDto first = searchPage(query, null);
+            if (first == null || first.error() != null) {
+                return new DeezerYoutubeLookupResponse.Link(track.id(), chosen, true, known, true);
+            }
+            known = merge(known, candidateIds(first.items()));
+            token = first.nextPageToken() == null ? "" : first.nextPageToken().trim();
+            if (token.isEmpty()) {
+                stored.setVideoIds(known);
+                stored.setNextToken(NO_MORE);
+                stored.setUpdatedAt(Instant.now());
+                repository.save(stored);
+                return new DeezerYoutubeLookupResponse.Link(track.id(), chosen, true, idsOf(stored), false);
+            }
+        }
+        YoutubeSearchPageDto page = searchPage(query, token);
+        if (page == null || page.error() != null) {
+            stored.setVideoIds(known);
+            stored.setNextToken(token);
+            stored.setUpdatedAt(Instant.now());
+            repository.save(stored);
+            return new DeezerYoutubeLookupResponse.Link(track.id(), chosen, true, idsOf(stored), true);
+        }
+        List<String> extra = candidateIds(page.items());
+        known = merge(known, extra);
+        String next = page.nextPageToken() == null ? "" : page.nextPageToken().trim();
+        boolean exhausted = extra.isEmpty() || next.isEmpty() || next.equals(token) || known.size() >= MAX_CANDIDATES;
+        stored.setId(key);
+        stored.setTrackId(track.id());
+        stored.setQuery(query);
+        stored.setVideoIds(known);
+        stored.setNextToken(exhausted ? NO_MORE : next);
+        stored.setUpdatedAt(Instant.now());
+        repository.save(stored);
+        return new DeezerYoutubeLookupResponse.Link(track.id(), chosen, true, idsOf(stored), hasMore(stored));
+    }
+
+    private YoutubeSearchPageDto searchPage(String query, String pageToken) {
+        String token = pageToken == null || pageToken.isBlank() || NO_MORE.equals(pageToken.trim()) ? null : pageToken.trim();
+        return youtubeProxyService.search(
+                query, "video", "FR", "fr", null, token, SEARCH_RESULTS, null, null, false);
     }
 
     static boolean fresh(DeezerYoutubeLink stored, String query) {
@@ -280,9 +403,6 @@ public class DeezerYoutubeLinkService {
             if (!ids.contains(item.id())) {
                 ids.add(item.id());
             }
-            if (ids.size() >= SEARCH_RESULTS) {
-                break;
-            }
         }
         return ids;
     }
@@ -295,15 +415,31 @@ public class DeezerYoutubeLinkService {
             String videoId,
             List<String> candidates,
             boolean cached) {
+        return store(track, stored, key, query, videoId, candidates, cached, null, false);
+    }
+
+    private DeezerYoutubeLookupResponse.Link store(
+            DeezerYoutubeLookupRequest.Track track,
+            DeezerYoutubeLink stored,
+            String key,
+            String query,
+            String videoId,
+            List<String> candidates,
+            boolean cached,
+            String nextToken,
+            boolean replaceToken) {
         DeezerYoutubeLink row = stored == null ? new DeezerYoutubeLink() : stored;
         row.setId(key);
         row.setTrackId(track.id());
         row.setVideoId(videoId);
         row.setVideoIds(candidates == null ? List.of() : candidates);
+        if (replaceToken) {
+            row.setNextToken(tokenOrNone(nextToken));
+        }
         row.setQuery(query);
         row.setUpdatedAt(Instant.now());
         repository.save(row);
-        return new DeezerYoutubeLookupResponse.Link(track.id(), videoId, cached, idsOf(row));
+        return new DeezerYoutubeLookupResponse.Link(track.id(), videoId, cached, idsOf(row), hasMore(row));
     }
 
     /** Keeps the saved clip and writes the result list, so the next click does not search again. */
@@ -312,16 +448,63 @@ public class DeezerYoutubeLinkService {
             DeezerYoutubeLink stored,
             String key,
             String query,
-            List<String> candidates) {
+            List<String> candidates,
+            String nextToken,
+            boolean replaceToken) {
         if (stored == null || candidates == null || candidates.isEmpty()) {
             return;
         }
         stored.setId(key);
         stored.setTrackId(track.id());
         stored.setQuery(query);
-        stored.setVideoIds(candidates);
+        stored.setVideoIds(merge(idsOf(stored), candidates));
+        if (replaceToken) {
+            stored.setNextToken(tokenOrNone(nextToken));
+        }
         stored.setUpdatedAt(Instant.now());
         repository.save(stored);
+    }
+
+    /** A blank token means the next page is unknown. {@link #NO_MORE} means it was already loaded. */
+    static boolean hasMore(DeezerYoutubeLink row) {
+        if (row == null) {
+            return false;
+        }
+        String token = row.getNextToken() == null ? "" : row.getNextToken().trim();
+        if (NO_MORE.equals(token)) {
+            return false;
+        }
+        if (!token.isEmpty()) {
+            return true;
+        }
+        String video = row.getVideoId() == null ? "" : row.getVideoId().trim();
+        return !video.isEmpty() || !idsOf(row).isEmpty();
+    }
+
+    private static String tokenOrNone(String token) {
+        if (token == null || token.isBlank() || NO_MORE.equals(token.trim())) {
+            return NO_MORE;
+        }
+        String value = token.trim();
+        return value.length() > 4000 ? NO_MORE : value;
+    }
+
+    private static List<String> merge(List<String> base, List<String> extra) {
+        List<String> ids = new ArrayList<>();
+        if (base != null) {
+            ids.addAll(base);
+        }
+        if (extra != null) {
+            for (String id : extra) {
+                if (id != null && !ids.contains(id)) {
+                    ids.add(id);
+                }
+            }
+        }
+        if (ids.size() > MAX_CANDIDATES) {
+            return new ArrayList<>(ids.subList(0, MAX_CANDIDATES));
+        }
+        return ids;
     }
 
     private static List<String> idsOf(DeezerYoutubeLink stored) {
@@ -332,9 +515,6 @@ public class DeezerYoutubeLinkService {
         for (String id : stored.getVideoIds()) {
             if (id != null && id.matches("^[a-zA-Z0-9_-]{11}$") && !ids.contains(id)) {
                 ids.add(id);
-            }
-            if (ids.size() >= SEARCH_RESULTS) {
-                break;
             }
         }
         return ids;

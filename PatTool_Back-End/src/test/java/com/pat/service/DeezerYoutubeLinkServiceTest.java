@@ -117,6 +117,8 @@ class DeezerYoutubeLinkServiceTest {
         assertEquals("ddddddddddd", saved.getValue().getVideoId());
         assertEquals(List.of("ddddddddddd"), saved.getValue().getVideoIds());
         assertEquals("Daft Punk Within", saved.getValue().getQuery());
+        assertEquals(DeezerYoutubeLinkService.NO_MORE, saved.getValue().getNextToken());
+        assertFalse(response.links().get(0).more());
     }
 
     @Test
@@ -217,6 +219,25 @@ class DeezerYoutubeLinkServiceTest {
     }
 
     @Test
+    void storedCandidatesAreNotCutAtTheSearchPageSize() {
+        List<String> storedIds = List.of(
+                "aaaaaaaaaaa", "bbbbbbbbbbb", "ccccccccccc", "ddddddddddd", "eeeeeeeeeee",
+                "fffffffffff", "ggggggggggg", "hhhhhhhhhhh", "iiiiiiiiiii", "jjjjjjjjjjj",
+                "kkkkkkkkkkk", "lllllllllll");
+        DeezerYoutubeLink stored = hit(9L, "Daft Punk Within", "aaaaaaaaaaa");
+        stored.setVideoIds(storedIds);
+        when(repository.findById("9")).thenReturn(Optional.of(stored));
+        DeezerYoutubeLinkService service = new DeezerYoutubeLinkService(repository, youtubeProxyService);
+
+        DeezerYoutubeLookupResponse response = service.resolve(List.of(
+                new DeezerYoutubeLookupRequest.Track(9L, "Daft Punk", "Within", "aaaaaaaaaaa")
+        ), true);
+
+        assertEquals(storedIds, response.links().get(0).videoIds());
+        verifyNoInteractions(youtubeProxyService);
+    }
+
+    @Test
     void saveVideoIdReplacesTheSingleStoredLink() {
         DeezerYoutubeLink stored = hit(9L, "Daft Punk Within", "aaaaaaaaaaa");
         when(repository.findById("9")).thenReturn(Optional.of(stored));
@@ -233,6 +254,114 @@ class DeezerYoutubeLinkServiceTest {
         assertEquals("bbbbbbbbbbb", saved.getValue().getVideoId());
         assertEquals(9L, saved.getValue().getTrackId());
         verifyNoInteractions(youtubeProxyService);
+    }
+
+    @Test
+    void moreAppendsTheNextPageAndKeepsTheChosenClip() {
+        DeezerYoutubeLink stored = hit(9L, "Daft Punk Within", "aaaaaaaaaaa");
+        stored.setVideoIds(List.of("aaaaaaaaaaa", "bbbbbbbbbbb"));
+        stored.setNextToken("page-2");
+        when(repository.findById("9")).thenReturn(Optional.of(stored));
+        when(youtubeProxyService.isConfigured()).thenReturn(true);
+        when(youtubeProxyService.search(eq("Daft Punk Within"), eq("video"), eq("FR"), eq("fr"), isNull(), eq("page-2"), eq(DeezerYoutubeLinkService.SEARCH_RESULTS), isNull(), isNull(), eq(false)))
+                .thenReturn(new YoutubeSearchPageDto(
+                        true, null, null, "search", "Daft Punk Within", "video", "", "page-3", null, 2,
+                        List.of(video("bbbbbbbbbbb", "dup"), video("ccccccccccc", "next"))
+                ));
+        DeezerYoutubeLinkService service = new DeezerYoutubeLinkService(repository, youtubeProxyService);
+
+        DeezerYoutubeLookupResponse response = service.resolve(List.of(
+                new DeezerYoutubeLookupRequest.Track(9L, "Daft Punk", "Within", null, null, true)
+        ), true);
+
+        assertEquals("aaaaaaaaaaa", response.links().get(0).videoId());
+        assertEquals(List.of("aaaaaaaaaaa", "bbbbbbbbbbb", "ccccccccccc"), response.links().get(0).videoIds());
+        assertTrue(response.links().get(0).more());
+        ArgumentCaptor<DeezerYoutubeLink> saved = ArgumentCaptor.forClass(DeezerYoutubeLink.class);
+        verify(repository).save(saved.capture());
+        assertEquals("page-3", saved.getValue().getNextToken());
+        assertEquals("aaaaaaaaaaa", saved.getValue().getVideoId());
+    }
+
+    @Test
+    void moreWithoutAStoredTokenLoadsTheFollowingPage() {
+        DeezerYoutubeLink stored = hit(9L, "Daft Punk Within", "aaaaaaaaaaa");
+        stored.setVideoIds(List.of("aaaaaaaaaaa", "bbbbbbbbbbb"));
+        when(repository.findById("9")).thenReturn(Optional.of(stored));
+        when(youtubeProxyService.isConfigured()).thenReturn(true);
+        when(youtubeProxyService.search(eq("Daft Punk Within"), eq("video"), eq("FR"), eq("fr"), isNull(), isNull(), eq(DeezerYoutubeLinkService.SEARCH_RESULTS), isNull(), isNull(), eq(false)))
+                .thenReturn(new YoutubeSearchPageDto(
+                        true, null, null, "search", "Daft Punk Within", "video", "", "page-2", null, 2,
+                        List.of(video("aaaaaaaaaaa", "Within"), video("bbbbbbbbbbb", "Within live"))
+                ));
+        when(youtubeProxyService.search(eq("Daft Punk Within"), eq("video"), eq("FR"), eq("fr"), isNull(), eq("page-2"), eq(DeezerYoutubeLinkService.SEARCH_RESULTS), isNull(), isNull(), eq(false)))
+                .thenReturn(new YoutubeSearchPageDto(
+                        true, null, null, "search", "Daft Punk Within", "video", "", null, null, 1,
+                        List.of(video("ccccccccccc", "Within 2"))
+                ));
+        DeezerYoutubeLinkService service = new DeezerYoutubeLinkService(repository, youtubeProxyService);
+
+        DeezerYoutubeLookupResponse response = service.resolve(List.of(
+                new DeezerYoutubeLookupRequest.Track(9L, "Daft Punk", "Within", null, null, true)
+        ), true);
+
+        assertEquals(List.of("aaaaaaaaaaa", "bbbbbbbbbbb", "ccccccccccc"), response.links().get(0).videoIds());
+        assertFalse(response.links().get(0).more());
+        ArgumentCaptor<DeezerYoutubeLink> saved = ArgumentCaptor.forClass(DeezerYoutubeLink.class);
+        verify(repository).save(saved.capture());
+        assertEquals(DeezerYoutubeLinkService.NO_MORE, saved.getValue().getNextToken());
+    }
+
+    @Test
+    void clearStoredLinkDeletesThatTitleOnly() {
+        when(repository.existsById("9")).thenReturn(true);
+        DeezerYoutubeLinkService service = new DeezerYoutubeLinkService(repository, youtubeProxyService);
+
+        assertTrue(service.clearStoredLink(9L));
+        verify(repository).deleteById("9");
+        verify(repository, never()).deleteAll();
+    }
+
+    @Test
+    void dropStoredClipRemovesThatIdAndKeepsTheChosenOne() {
+        DeezerYoutubeLink stored = hit(9L, "Daft Punk Within", "aaaaaaaaaaa");
+        stored.setVideoIds(List.of("aaaaaaaaaaa", "bbbbbbbbbbb", "ccccccccccc"));
+        when(repository.findById("9")).thenReturn(Optional.of(stored));
+        DeezerYoutubeLinkService service = new DeezerYoutubeLinkService(repository, youtubeProxyService);
+
+        assertTrue(service.dropStoredClip(9L, "bbbbbbbbbbb"));
+
+        ArgumentCaptor<DeezerYoutubeLink> saved = ArgumentCaptor.forClass(DeezerYoutubeLink.class);
+        verify(repository).save(saved.capture());
+        assertEquals("aaaaaaaaaaa", saved.getValue().getVideoId());
+        assertEquals(List.of("aaaaaaaaaaa", "ccccccccccc"), saved.getValue().getVideoIds());
+        verify(repository, never()).deleteById("9");
+    }
+
+    @Test
+    void dropStoredClipOfTheChosenLinkMovesToTheNext() {
+        DeezerYoutubeLink stored = hit(9L, "Daft Punk Within", "aaaaaaaaaaa");
+        stored.setVideoIds(List.of("aaaaaaaaaaa", "bbbbbbbbbbb"));
+        when(repository.findById("9")).thenReturn(Optional.of(stored));
+        DeezerYoutubeLinkService service = new DeezerYoutubeLinkService(repository, youtubeProxyService);
+
+        assertTrue(service.dropStoredClip(9L, "aaaaaaaaaaa"));
+
+        ArgumentCaptor<DeezerYoutubeLink> saved = ArgumentCaptor.forClass(DeezerYoutubeLink.class);
+        verify(repository).save(saved.capture());
+        assertEquals("bbbbbbbbbbb", saved.getValue().getVideoId());
+        assertEquals(List.of("bbbbbbbbbbb"), saved.getValue().getVideoIds());
+    }
+
+    @Test
+    void dropLastStoredClipDeletesTheRow() {
+        DeezerYoutubeLink stored = hit(9L, "Daft Punk Within", "aaaaaaaaaaa");
+        when(repository.findById("9")).thenReturn(Optional.of(stored));
+        DeezerYoutubeLinkService service = new DeezerYoutubeLinkService(repository, youtubeProxyService);
+
+        assertTrue(service.dropStoredClip(9L, "aaaaaaaaaaa"));
+        verify(repository).deleteById("9");
+        verify(repository, never()).save(any());
     }
 
     private static DeezerYoutubeLink hit(long id, String query, String videoId) {

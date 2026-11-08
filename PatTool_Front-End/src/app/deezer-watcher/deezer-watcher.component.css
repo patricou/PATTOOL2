@@ -489,14 +489,21 @@ a.dz-page-jump {
   flex: 1 0 100%;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.35rem;
+  gap: 0.85rem;
 }
 
 .dz-list-transport {
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
-  gap: 0.25rem;
+  gap: 0.28rem;
+  padding: 0.28rem 0.38rem;
+  border: 1px solid color-mix(in srgb, var(--menu-fg, #fff) 42%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--menu-toolbar, #111) 82%, var(--menu-fg, #fff));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--menu-accent, #7c3aed) 45%, transparent),
+    0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .dz-list-transport button {
@@ -540,6 +547,12 @@ a.dz-page-jump {
   height: 1.15rem;
 }
 
+.dz-transport-yt {
+  font-size: 1.05rem;
+  line-height: 1;
+  color: #ff0000;
+}
+
 .dz-transport-mark--dz {
   filter: invert(1);
 }
@@ -547,6 +560,113 @@ a.dz-page-jump {
 .dz-list-transport button:disabled {
   opacity: 0.38;
   cursor: default;
+}
+
+.dz-yt-lookup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.22rem 0.55rem 0.22rem 0.4rem;
+  border: 1px solid var(--menu-accent, #7c3aed);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--menu-fg, inherit);
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-transform: none;
+  text-shadow: none;
+  cursor: pointer;
+  position: relative;
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+
+.dz-yt-lookup-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: 0 0 auto;
+  color: #ff0000;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.dz-yt-lookup-label {
+  min-width: 0;
+}
+
+.dz-yt-lookup input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dz-yt-lookup-track {
+  position: relative;
+  width: 1.7rem;
+  height: 0.95rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--menu-fg, #fff) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--menu-fg, #fff) 45%, transparent);
+  flex: 0 0 auto;
+}
+
+.dz-yt-lookup-knob {
+  position: absolute;
+  top: 0.07rem;
+  left: 0.08rem;
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 50%;
+  background: var(--menu-fg, #fff);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  transition: transform 0.16s ease, background 0.16s ease;
+}
+
+.dz-yt-lookup:has(input:checked) {
+  background: color-mix(in srgb, var(--menu-accent, #7c3aed) 28%, transparent);
+}
+
+.dz-yt-lookup input:checked + .dz-yt-lookup-track {
+  background: var(--menu-accent, #7c3aed);
+  border-color: var(--menu-accent, #7c3aed);
+}
+
+.dz-yt-lookup input:checked + .dz-yt-lookup-track .dz-yt-lookup-knob {
+  transform: translateX(0.74rem);
+  background: var(--menu-accent-fg, #fff);
+}
+
+.dz-yt-lookup input:focus-visible + .dz-yt-lookup-track {
+  outline: 2px solid var(--menu-accent, #7c3aed);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px), ((hover: none) and (pointer: coarse)) {
+  .dz-yt-lookup-label,
+  .dz-yt-lookup-track {
+    display: none;
+  }
+
+  .dz-yt-lookup {
+    gap: 0;
+    width: 1.85rem;
+    height: 1.85rem;
+    padding: 0;
+    justify-content: center;
+    border-radius: 999px;
+  }
+
+  .dz-yt-lookup:has(input:checked) {
+    background: color-mix(in srgb, var(--menu-accent, #7c3aed) 55%, transparent);
+  }
 }
 
 .dz-play-all {
@@ -638,18 +758,21 @@ a.dz-page-jump {
   display: block;
   width: 1.15rem;
   height: 1.15rem;
+  background-color: var(--menu-fg, #e8f1ff);
+  -webkit-mask: url("/assets/images/deezer-logo.svg") center / contain no-repeat;
+  mask: url("/assets/images/deezer-logo.svg") center / contain no-repeat;
 }
 
 .dz-preview-btn.is-on,
 .dz-preview-btn:hover,
 .dz-preview-btn:focus-visible {
-  background: #111;
+  background: var(--menu-accent, #7c3aed);
 }
 
 .dz-preview-btn.is-on .dz-preview-mark,
 .dz-preview-btn:hover .dz-preview-mark,
 .dz-preview-btn:focus-visible .dz-preview-mark {
-  filter: invert(1);
+  background-color: #fff;
 }
 
 .dz-yt-btn {
@@ -754,6 +877,222 @@ a.dz-page-jump {
   to { transform: rotate(360deg); }
 }
 
+.dz-yt-list {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--menu-fg, #e2e8f0);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dz-yt-list:hover,
+.dz-yt-list:focus-visible {
+  background: var(--menu-accent, #7c3aed);
+  border-color: var(--menu-accent, #7c3aed);
+  color: var(--menu-accent-fg, #fff);
+}
+
+.dz-yt-list-backdrop {
+  background: transparent;
+  pointer-events: none;
+}
+
+.dz-yt-list-body {
+  min-height: 0;
+  gap: 0.45rem;
+}
+
+.dz-yt-link {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--menu-fg, #000) 14%, transparent);
+  border-radius: calc(var(--menu-radius, 0.7rem) * 0.6);
+  background: color-mix(in srgb, var(--menu-fg, #000) 5%, transparent);
+  color: var(--menu-fg, inherit);
+}
+
+.dz-yt-link-play {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dz-yt-link-drop {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  margin-right: 0.15rem;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--menu-fg, #000) 22%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--menu-muted, #94a3b8);
+  cursor: pointer;
+}
+
+.dz-yt-link-drop:hover,
+.dz-yt-link-drop:focus-visible {
+  background: #c4302b;
+  border-color: #c4302b;
+  color: #fff;
+  outline: none;
+}
+
+.dz-yt-link-drop:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.dz-yt-link.is-on {
+  border-color: var(--menu-accent, #7c3aed);
+  box-shadow: inset 3px 0 0 var(--menu-accent, #7c3aed);
+}
+
+.dz-yt-link:hover,
+.dz-yt-link:focus-visible {
+  background: var(--menu-hover, rgba(0, 0, 0, 0.06));
+  outline: none;
+}
+
+.dz-yt-link-thumb {
+  width: 7.2rem;
+  height: 4.6rem;
+  object-fit: cover;
+  border-radius: 0.35rem;
+  flex: 0 0 auto;
+  background: var(--menu-logo-bg, #111);
+}
+
+.dz-yt-link-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.dz-yt-link-text strong,
+.dz-yt-link-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dz-yt-link-author {
+  color: var(--menu-fg, inherit);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dz-yt-link-url {
+  color: var(--menu-muted, #94a3b8);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dz-yt-list-count {
+  color: var(--menu-accent, #7c3aed);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.dz-yt-link .fa-play {
+  flex: 0 0 auto;
+  margin-right: 0.45rem;
+  color: var(--menu-accent, #7c3aed);
+}
+
+.dz-yt-list-foot {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1.1rem 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--menu-fg, #000) 12%, transparent);
+  background: var(--menu-toolbar, transparent);
+}
+
+.dz-yt-more-list,
+.dz-yt-clear-list {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  min-height: 2.6rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+}
+
+.dz-yt-more-list {
+  border: 1px solid color-mix(in srgb, #c4302b 55%, var(--menu-border, transparent));
+  background: color-mix(in srgb, #c4302b 16%, transparent);
+  color: var(--menu-fg, inherit);
+}
+
+.dz-yt-more-list:hover,
+.dz-yt-more-list:focus-visible {
+  background: #c4302b;
+  color: #fff;
+  outline: none;
+}
+
+.dz-yt-more-list:disabled,
+.dz-yt-clear-list:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.dz-yt-clear-list {
+  border: 1px solid color-mix(in srgb, #c4302b 55%, var(--menu-border, transparent));
+  background: color-mix(in srgb, #c4302b 16%, transparent);
+  color: var(--menu-fg, inherit);
+}
+
+.dz-yt-clear-list:hover,
+.dz-yt-clear-list:focus-visible {
+  background: #c4302b;
+  color: #fff;
+  outline: none;
+}
+
 .dz-yt-slot {
   position: relative;
   display: inline-flex;
@@ -812,7 +1151,8 @@ a.dz-page-jump {
 
 .dz-yt-btn:hover,
 .dz-yt-btn:focus-visible {
-  color: #ff4d47;
+  background: var(--menu-accent, #7c3aed);
+  color: var(--menu-accent-fg, #fff);
 }
 
 .dz-fav {
@@ -826,6 +1166,12 @@ a.dz-page-jump {
   cursor: pointer;
 }
 
+.dz-fav:hover:not(:disabled),
+.dz-fav:focus-visible:not(:disabled) {
+  background: var(--menu-accent, #7c3aed);
+  color: var(--menu-accent-fg, #fff);
+}
+
 .dz-fav.is-on {
   color: var(--menu-accent, #e0b85a);
 }
@@ -833,7 +1179,14 @@ a.dz-page-jump {
 .dz-fav.is-saved,
 .dz-fav.is-saved:hover,
 .dz-fav.is-saved:focus-visible {
+  background: transparent;
   color: #f5c518;
+}
+
+.dz-fav.is-saved:hover:not(:disabled),
+.dz-fav.is-saved:focus-visible:not(:disabled) {
+  background: var(--menu-accent, #7c3aed);
+  color: #fff;
 }
 
 .dz-fav.is-covered {
@@ -861,7 +1214,6 @@ a.dz-page-jump {
   font-size: 0.78rem;
 }
 
-.dz-back,
 .dz-open-link {
   flex: 0 0 auto;
   border: 0;
@@ -870,6 +1222,46 @@ a.dz-page-jump {
   font-size: 0.78rem;
   cursor: pointer;
   text-decoration: none;
+}
+
+.dz-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1 0 100%;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--menu-fg, #fff) 46%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--menu-accent, #7c3aed) 28%, var(--menu-toolbar, #111));
+  color: var(--menu-fg, inherit);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  text-align: left;
+}
+
+.dz-back .fa {
+  color: var(--menu-accent-fg, #fff);
+  background: var(--menu-accent, #7c3aed);
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  flex: 0 0 auto;
+}
+
+.dz-back span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dz-tabs {
@@ -978,6 +1370,8 @@ a.dz-page-jump {
 
 .dz-row--track {
   align-items: flex-start;
+  flex-wrap: wrap;
+  row-gap: 0.08rem;
   padding-top: 0.48rem;
   padding-bottom: 0.4rem;
 }
@@ -1083,6 +1477,10 @@ a.dz-page-jump {
   background: var(--menu-logo-bg, #f1f5f9);
 }
 
+.dz-thumb--yt {
+  width: 4.4rem;
+}
+
 .dz-thumb--round {
   border-radius: 999px;
 }
@@ -1102,6 +1500,14 @@ a.dz-page-jump {
 }
 
 .dz-track-body {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+}
+
+.dz-track-copy {
   min-width: 0;
   flex: 1 1 auto;
   display: flex;
@@ -1166,21 +1572,29 @@ a.dz-page-jump {
   white-space: nowrap;
 }
 
-.dz-track-actions {
+.dz-row--track > .dz-track-actions {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.05rem;
-  min-height: 1.7rem;
+  flex: 0 0 100%;
   width: 100%;
+  min-height: 1.7rem;
+}
+
+.dz-track-tools {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.32rem;
+  max-width: 100%;
 }
 
 .dz-track-facts {
   display: inline-flex;
   align-items: baseline;
+  flex: 0 0 auto;
   gap: 0.28rem;
-  margin-left: 0.35rem;
-  min-width: 0;
+  margin-left: 0.45rem;
 }
 
 
@@ -1897,6 +2311,11 @@ a.radio-now-action.dz-deezer-link {
   background: rgba(4, 6, 12, 0.62);
 }
 
+.dz-pl-backdrop.dz-yt-list-backdrop {
+  background: transparent;
+  pointer-events: none;
+}
+
 .dz-pl-modal {
   position: fixed;
   z-index: 1201;
@@ -1913,6 +2332,18 @@ a.radio-now-action.dz-deezer-link {
   border-radius: var(--menu-radius, 0.9rem);
   box-shadow: 0 22px 50px rgba(15, 23, 42, 0.35);
   overflow: hidden;
+}
+
+/* Sits on the track column. The player is the next grid cell, so the clip stays visible. */
+.dz-pl-modal.dz-yt-list-modal {
+  left: max(1rem, calc((100vw - 1680px) / 2 + 1rem));
+  right: auto;
+  top: calc(var(--navbar-offset, 60px) + 4.6rem);
+  bottom: 0.75rem;
+  transform: none;
+  width: min(420px, calc(100vw - 2rem));
+  max-height: none;
+  margin: 0;
 }
 
 .dz-pl-modal-head {

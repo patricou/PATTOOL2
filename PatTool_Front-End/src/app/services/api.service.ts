@@ -3388,7 +3388,11 @@ export class ApiService {
     return this._http.get<YoutubeSearchPage>(this.API_URL + 'external/youtube/search', { params });
   }
 
-  /** Picture size of a YouTube clip, via this API (the page CSP blocks noembed.com). */
+  /** Title and channel of one YouTube clip, via this API (the page CSP blocks YouTube). */
+  getYoutubeClipCard(videoId: string): Observable<{ title?: string; author?: string }> {
+    const params = new HttpParams().set('v', videoId);
+    return this._http.get<{ title?: string; author?: string }>(this.API_URL + 'external/youtube/clip', { params });
+  }
   getYoutubeClipSize(videoId: string): Observable<{ width?: number; height?: number }> {
     const params = new HttpParams().set('v', videoId);
     return this._http.get<{ width?: number; height?: number }>(this.API_URL + 'external/youtube/oembed', { params });
@@ -4645,20 +4649,29 @@ export class ApiService {
 
   /** Cached YouTube video ids for the tracks on screen. YouTube is queried only when search is true. */
   resolveDeezerYoutubeLinks(
-    tracks: { id: number; artist: string; title: string; skipVideoId?: string; saveVideoId?: string }[],
+    tracks: { id: number; artist: string; title: string; skipVideoId?: string; saveVideoId?: string; more?: boolean }[],
     search: boolean
-  ): Observable<{ links: { id: number; videoId?: string; cached?: boolean; videoIds?: string[] }[] }> {
-    return this._http.post<{ links: { id: number; videoId?: string; cached?: boolean; videoIds?: string[] }[] }>(
+  ): Observable<{ links: { id: number; videoId?: string; cached?: boolean; videoIds?: string[]; more?: boolean }[] }> {
+    return this._http.post<{ links: { id: number; videoId?: string; cached?: boolean; videoIds?: string[]; more?: boolean }[] }>(
       this.API_URL + 'external/deezer/youtube-links',
       { tracks, search }
     );
   }
 
+  /** Drops the stored YouTube list for one Deezer track, or one clip when videoId is set. */
+  clearDeezerYoutubeLink(id: number, videoId?: string): Observable<{ removed: boolean }> {
+    let params = new HttpParams();
+    if (videoId) {
+      params = params.set('videoId', videoId);
+    }
+    return this._http.delete<{ removed: boolean }>(this.API_URL + 'external/deezer/youtube-links/' + id, { params });
+  }
+
   /** Stored YouTube ids for Deezer tracks already saved. Does not search YouTube. */
   getStoredDeezerYoutubeLinks(
     ids: number[]
-  ): Observable<{ links: { id: number; videoId?: string; cached?: boolean; videoIds?: string[] }[] }> {
-    return this._http.post<{ links: { id: number; videoId?: string; cached?: boolean; videoIds?: string[] }[] }>(
+  ): Observable<{ links: { id: number; videoId?: string; cached?: boolean; videoIds?: string[]; more?: boolean }[] }> {
+    return this._http.post<{ links: { id: number; videoId?: string; cached?: boolean; videoIds?: string[]; more?: boolean }[] }>(
       this.API_URL + 'external/deezer/youtube-links/stored',
       { ids }
     );

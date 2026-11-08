@@ -202,6 +202,19 @@ public class DeezerRestController {
         return ResponseEntity.ok(deezerYoutubeLinkService.resolve(body.tracks(), body.search()));
     }
 
+    @DeleteMapping("/youtube-links/{id}")
+    public ResponseEntity<Map<String, Boolean>> clearYoutubeLink(
+            @PathVariable long id,
+            @RequestParam(value = "videoId", required = false) String videoId) {
+        if (id <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("removed", false));
+        }
+        boolean removed = videoId == null || videoId.isBlank()
+                ? deezerYoutubeLinkService.clearStoredLink(id)
+                : deezerYoutubeLinkService.dropStoredClip(id, videoId);
+        return ResponseEntity.ok(Map.of("removed", removed));
+    }
+
     @PostMapping("/youtube-links/stored")
     public ResponseEntity<?> storedYoutubeLinks(@RequestBody DeezerYoutubeStoredRequest body) {
         if (body == null || body.ids() == null) {
