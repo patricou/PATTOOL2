@@ -444,6 +444,18 @@
           </ng-container>
           <ng-container *ngIf="transportTracks">
           <div class="dz-list-transport" role="group">
+            <label class="dz-yt-search" [attr.title]="'DEEZER.YT_SEARCH_SWITCH_HINT' | translate">
+              <img class="dz-yt-search-mark" src="assets/images/youtube-logo.svg" alt="" />
+              <span class="dz-yt-search-label">{{ 'DEEZER.YT_SEARCH_SWITCH' | translate }}</span>
+              <input
+                type="checkbox"
+                class="dz-yt-search-input"
+                role="switch"
+                [ngModel]="youtubeSearchEnabled"
+                (ngModelChange)="setYoutubeSearch($event)"
+                [attr.aria-label]="'DEEZER.YT_SEARCH_SWITCH' | translate" />
+              <span class="dz-yt-search-track" aria-hidden="true"><span class="dz-yt-search-knob"></span></span>
+            </label>
             <button
               type="button"
               (click)="prev()"

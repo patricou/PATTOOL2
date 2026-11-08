@@ -549,6 +549,41 @@ a.dz-page-jump {
   cursor: default;
 }
 
+.dz-list-transport .dz-yt-search {
+  height: 1.85rem;
+  margin: 0 0.2rem 0 0;
+  padding: 0 0.45rem 0 0.35rem;
+  border-radius: 999px;
+  border-color: var(--menu-accent, #7c3aed);
+  background: transparent;
+  color: var(--menu-fg, inherit);
+  box-shadow: none;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.dz-list-transport .dz-yt-search-mark {
+  display: block;
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: 0 0 auto;
+}
+
+.dz-list-transport .dz-yt-search:has(.dz-yt-search-input:checked) {
+  background: #c4302b;
+  border-color: #c4302b;
+  color: #fff;
+}
+
+.dz-list-transport .dz-yt-search-input:checked + .dz-yt-search-track {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+.dz-list-transport .dz-yt-search-input:checked + .dz-yt-search-track .dz-yt-search-knob {
+  background: #fff;
+}
+
 .dz-play-all {
   flex: 0 0 auto;
   display: inline-flex;
@@ -1867,11 +1902,11 @@ a.radio-now-action.dz-deezer-link {
     margin-left: 0;
   }
 
-  .dz-yt-search-label {
+  .dz-title-tools .dz-yt-search-label {
     display: none;
   }
 
-  .dz-yt-search {
+  .dz-title-tools .dz-yt-search {
     gap: 0;
     padding: 0.28rem 0.4rem;
   }
