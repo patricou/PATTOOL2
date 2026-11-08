@@ -6,9 +6,13 @@ $front = Split-Path -Parent $PSScriptRoot
 Set-Location $front
 
 # Gradle 8.14 cannot run on the Android Studio JBR when that JBR is Java 25.
-$jdk21 = "C:\Program Files\Java\jdk-21"
+$jdk21Candidates = @(
+  "C:\Program Files\Java\jdk-21",
+  "C:\Program Files\Amazon Corretto\jdk21.0.13_0"
+)
+$jdk21 = $jdk21Candidates | Where-Object { Test-Path (Join-Path $_ "bin\java.exe") } | Select-Object -First 1
 $studioJbr = "C:\Program Files\Android\Android Studio\jbr"
-if (Test-Path (Join-Path $jdk21 "bin\java.exe")) {
+if ($jdk21) {
   $env:JAVA_HOME = $jdk21
 } elseif (Test-Path (Join-Path $studioJbr "bin\java.exe")) {
   $env:JAVA_HOME = $studioJbr

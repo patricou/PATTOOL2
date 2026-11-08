@@ -22,6 +22,10 @@ $MavenHome = ""   # e.g. "C:\Program Files\Apache\maven" or "C:\tools\apache-mav
 # Java 21 is required to build the back end. Set this if the build fails with "invalid target release: 21":
 #
 $JavaHome = "C:\Program Files\Java\jdk-21"   # folder that contains bin\java.exe
+if (-not (Test-Path "$JavaHome\bin\java.exe")) {
+    $corretto = "C:\Program Files\Amazon Corretto\jdk21.0.13_0"
+    if (Test-Path "$corretto\bin\java.exe") { $JavaHome = $corretto }
+}
 #
 # ===================================================================
 
