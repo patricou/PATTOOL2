@@ -667,6 +667,30 @@ a.dz-page-jump {
   .dz-yt-lookup:has(input:checked) {
     background: color-mix(in srgb, var(--menu-accent, #7c3aed) 55%, transparent);
   }
+
+  .dz-loop-switch,
+  .dz-loop-switch .dz-yt-lookup-label,
+  .dz-loop-switch .dz-yt-lookup-track {
+    display: inline-flex;
+  }
+
+  .dz-loop-switch {
+    gap: 0.4rem;
+    width: auto;
+    height: auto;
+    padding: 0.22rem 0.55rem 0.22rem 0.45rem;
+    justify-content: flex-start;
+  }
+
+  .dz-loop-switch--modal {
+    display: inline-flex;
+    width: auto;
+    flex: 1 1 auto;
+    justify-content: flex-start;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
 }
 
 .dz-play-all {
@@ -1034,62 +1058,176 @@ a.dz-page-jump {
   color: var(--menu-accent, #7c3aed);
 }
 
-.dz-yt-list-foot {
+.dz-yt-list-tools {
   display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem 1.1rem 1rem;
-  border-top: 1px solid color-mix(in srgb, var(--menu-fg, #000) 12%, transparent);
-  background: var(--menu-toolbar, transparent);
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.85rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--menu-fg, #fff) 12%, transparent);
 }
 
-.dz-yt-more-list,
-.dz-yt-clear-list {
+.dz-yt-list-tools .dz-yt-play-list,
+.dz-yt-list-tools .dz-yt-step,
+.dz-yt-list-tools .dz-yt-more-list,
+.dz-yt-list-tools .dz-yt-clear-list {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
-  flex: 1 1 0;
-  width: 0;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  width: auto;
   min-width: 0;
-  min-height: 2.6rem;
-  padding: 0.45rem 0.7rem;
+  height: 1.85rem;
+  min-height: 0;
+  padding: 0 0.7rem;
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  line-height: 1.2;
-  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.dz-yt-more-list {
-  border: 1px solid color-mix(in srgb, #c4302b 55%, var(--menu-border, transparent));
-  background: color-mix(in srgb, #c4302b 16%, transparent);
+.dz-yt-list-tools .dz-loop-switch--modal {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 650;
+  gap: 0.4rem;
+}
+
+.dz-yt-list-tools .dz-loop-switch--modal:has(input:checked) {
+  background: transparent;
+}
+
+.dz-yt-list-tools .dz-yt-step,
+.dz-yt-list-tools .dz-yt-more-list,
+.dz-yt-list-tools .dz-yt-clear-list {
+  margin-left: 0;
+  border: 1px solid color-mix(in srgb, var(--menu-fg, #fff) 22%, transparent);
+  background: transparent;
   color: var(--menu-fg, inherit);
 }
 
-.dz-yt-more-list:hover,
-.dz-yt-more-list:focus-visible {
-  background: #c4302b;
-  color: #fff;
+.dz-yt-list-tools .dz-yt-step {
+  width: 1.85rem;
+  padding: 0;
+}
+
+.dz-yt-list-tools .dz-loop-switch--modal + .dz-yt-more-list,
+.dz-yt-list-tools .dz-loop-switch--modal + .dz-yt-clear-list {
+  margin-left: auto;
+}
+
+.dz-yt-list-tools .dz-yt-step:hover,
+.dz-yt-list-tools .dz-yt-step:focus-visible,
+.dz-yt-list-tools .dz-yt-more-list:hover,
+.dz-yt-list-tools .dz-yt-more-list:focus-visible,
+.dz-yt-list-tools .dz-yt-clear-list:hover,
+.dz-yt-list-tools .dz-yt-clear-list:focus-visible {
+  background: color-mix(in srgb, var(--menu-fg, #fff) 10%, transparent);
+  color: var(--menu-fg, inherit);
   outline: none;
 }
 
-.dz-yt-more-list:disabled,
-.dz-yt-clear-list:disabled {
+.dz-yt-list-tools .dz-yt-clear-list:hover,
+.dz-yt-list-tools .dz-yt-clear-list:focus-visible {
+  background: #c4302b;
+  border-color: #c4302b;
+  color: #fff;
+}
+
+.dz-yt-list-tools .dz-yt-play-list {
+  border: 1px solid var(--menu-accent, #7c3aed);
+  background: var(--menu-accent, #7c3aed);
+  color: var(--menu-accent-fg, #fff);
+}
+
+.dz-yt-list-tools .dz-yt-play-list:hover,
+.dz-yt-list-tools .dz-yt-play-list:focus-visible,
+.dz-yt-list-tools .dz-yt-play-list.is-on {
+  filter: brightness(1.12);
+  outline: none;
+}
+
+.dz-yt-list-tools .dz-yt-play-list:disabled,
+.dz-yt-list-tools .dz-yt-more-list:disabled,
+.dz-yt-list-tools .dz-yt-clear-list:disabled {
   cursor: progress;
   opacity: 0.7;
 }
 
-.dz-yt-clear-list {
-  border: 1px solid color-mix(in srgb, #c4302b 55%, var(--menu-border, transparent));
-  background: color-mix(in srgb, #c4302b 16%, transparent);
+.dz-yt-list-tools .dz-yt-step:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.dz-yt-clear-backdrop {
+  z-index: 1210;
+  background: rgba(4, 6, 12, 0.45);
+  pointer-events: auto;
+}
+
+.dz-yt-clear-dialog {
+  position: fixed;
+  z-index: 1211;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 1.1rem 1.15rem 1rem;
+  border-radius: var(--menu-radius, 0.9rem);
+  border: var(--menu-border-width, 1px) solid var(--menu-border, rgba(255, 255, 255, 0.14));
+  background: var(--menu-bg, #1a1028);
+  color: var(--menu-fg, #f8f5ff);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.dz-yt-clear-dialog p {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.dz-yt-clear-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.dz-yt-clear-cancel,
+.dz-yt-clear-yes {
+  flex: 1 1 0;
+  min-height: 2.4rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dz-yt-clear-cancel {
+  border: 1px solid color-mix(in srgb, var(--menu-fg, #fff) 28%, transparent);
+  background: transparent;
   color: var(--menu-fg, inherit);
 }
 
-.dz-yt-clear-list:hover,
-.dz-yt-clear-list:focus-visible {
+.dz-yt-clear-yes {
+  border: 1px solid #c4302b;
   background: #c4302b;
   color: #fff;
+}
+
+.dz-yt-clear-cancel:hover,
+.dz-yt-clear-cancel:focus-visible,
+.dz-yt-clear-yes:hover,
+.dz-yt-clear-yes:focus-visible {
+  filter: brightness(1.12);
   outline: none;
 }
 
@@ -1369,8 +1507,9 @@ a.dz-page-jump {
 }
 
 .dz-row--track {
-  align-items: flex-start;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: start;
   row-gap: 0.08rem;
   padding-top: 0.48rem;
   padding-bottom: 0.4rem;
@@ -1501,7 +1640,7 @@ a.dz-page-jump {
 
 .dz-track-body {
   min-width: 0;
-  flex: 1 1 auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 0.08rem;
@@ -1573,10 +1712,10 @@ a.dz-page-jump {
 }
 
 .dz-row--track > .dz-track-actions {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 100%;
   width: 100%;
   min-height: 1.7rem;
 }

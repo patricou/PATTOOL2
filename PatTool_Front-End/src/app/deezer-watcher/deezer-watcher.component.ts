@@ -346,6 +346,16 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private readonly ytClipAsked = new Set<string>();
   /** Track whose stored YouTube links are open in the list modal. */
   ytListTrack: DeezerTrack | null = null;
+  /** Restart the track list from the first title when it reaches the end. */
+  listLoop = true;
+  /** Restart the open YouTube link list from the first clip when it reaches the end. */
+  ytListLoop = true;
+  /** Clips of one title playing in order from the list's play-all button. */
+  private ytListRun: { trackId: number; ids: string[]; index: number } | null = null;
+  /** Clip asked by play-all, played once without replacing the menu's saved link. */
+  private ytListPlayId = '';
+  /** True while play-all itself starts the next clip, so that start does not cancel the run. */
+  private ytListAdvancing = false;
   /** Titles whose YouTube list has no further page. */
   private readonly ytMoreOff = new Set<number>();
   /** Spinner kept visible on a click that already has its clip, so the button still turns. */
@@ -411,7 +421,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private ytSoundArmed = false;
   /** Last state reported by the YouTube player. 1 is playing, 2 is paused. */
   private youtubePlayerState = -1;
-  private repeatQueue = false;
+  private repeatQueue = true;
   private readonly ytCache = new Map<number, string | null>();
   private readonly search$ = new Subject<string>();
   private readonly destroy$ = new Subject<void>();
@@ -1191,7 +1201,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.resumedKeep = false;
     this.youtubeMode = true;
     this.clearYoutube();
-    this.repeatQueue = true;
+    this.repeatQueue = this.listLoop;
     this.queue = tracks;
     this.current = null;
     this.playTrack(first, 0);
@@ -1538,9 +1548,11 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   /** Resume the restored title, or the following one when that title has already finished. */
   private resumeRestored(): void {
     const audio = this.pageAudio();
-    if ((this.youtubeEnded || !!audio?.ended) && this.queueContinues()) {
+    if ((this.youtubeEnded || !!audio?.ended) && (this.takeNextYoutubeListClip() || this.queueContinues())) {
       this.youtubeEnded = false;
-      this.next();
+      if (!this.ytListRun) {
+        this.next();
+      }
       return;
     }
     this.playbackFollowsList = true;
@@ -1685,36 +1697,276 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   closeYoutubeList(event?: Event): void {
     event?.stopPropagation();
+    this.ytClearAskId = null;
     this.ytListTrack = null;
+  }
+
+  /** Track waiting for the clear-links confirmation. */
+  ytClearAskId: number | null = null;
+
+  askClearYoutubeList(track: DeezerTrack, event?: Event): void {
+    event?.stopPropagation();
+    if (!this.hasYoutubeList(track.id) || this.ytClearBusy[track.id]) {
+      return;
+    }
+    this.ytClearAskId = track.id;
+  }
+
+  cancelClearYoutubeList(event?: Event): void {
+    event?.stopPropagation();
+    this.ytClearAskId = null;
+  }
+
+  confirmClearYoutubeList(event?: Event): void {
+    event?.stopPropagation();
+    const track = this.ytListTrack;
+    this.ytClearAskId = null;
+    if (!track) {
+      return;
+    }
+    this.clearYoutubeList(track, event);
   }
 
   youtubeClipPlaying(track: DeezerTrack, videoId: string): boolean {
     if (!this.playing || !this.clipOnStage || this.current?.id !== track?.id) {
       return false;
     }
-    return this.currentYoutubeId() === (videoId || '').trim();
+    const frameId = (this.youtubeFrame()?.dataset['patVideoId'] || '').trim();
+    return (frameId || this.currentYoutubeId()) === (videoId || '').trim();
+  }
+
+  /** Play every stored clip of this title, one after another. */
+  playYoutubeList(track: DeezerTrack, event?: Event): void {
+    event?.stopPropagation();
+    const ids = this.youtubeListIds(track.id);
+    if (!ids.length) {
+      return;
+    }
+    this.ytListRun = { trackId: track.id, ids: ids.slice(), index: 0 };
+    this.ytListAdvancing = true;
+    try {
+      this.playYoutubeChoice(track, ids[0], event);
+    } finally {
+      this.ytListAdvancing = false;
+    }
+  }
+
+  youtubeListRunning(trackId: number | null | undefined): boolean {
+    return !!trackId && this.ytListRun?.trackId === trackId;
+  }
+
+  /** True while play-all is actually playing this title, so the button can show Pause. */
+  youtubeListPlaying(trackId: number | null | undefined): boolean {
+    return this.youtubeListRunning(trackId)
+      && this.current?.id === trackId
+      && !this.userHold
+      && (this.playing || this.youtubeBusy);
+  }
+
+  setListLoop(enabled: boolean): void {
+    this.listLoop = !!enabled;
+    this.repeatQueue = this.listLoop;
+  }
+
+  setYoutubeListLoop(enabled: boolean): void {
+    this.ytListLoop = !!enabled;
+  }
+
+  /** Pause the running list, resume it, or start it from the first clip. */
+  toggleYoutubeList(track: DeezerTrack, event?: Event): void {
+    event?.stopPropagation();
+    if (this.youtubeListRunning(track.id) && this.current?.id === track.id && (this.clipOnStage || this.youtubeEmbed)) {
+      this.togglePlay();
+      return;
+    }
+    this.playYoutubeList(track, event);
+  }
+
+  /** Play the previous or next clip of this title without replacing the menu's saved link. */
+  stepYoutubeListClip(track: DeezerTrack, delta: number, event?: Event): void {
+    event?.stopPropagation();
+    const ids = this.youtubeListStepIds(track.id);
+    const next = this.youtubeListStepIndex(track.id, ids, delta);
+    if (next < 0) {
+      return;
+    }
+    const run = this.ytListRun?.trackId === track.id ? this.ytListRun : null;
+    if (run) {
+      this.ytListRun = { trackId: run.trackId, ids: run.ids, index: next };
+    }
+    this.lastQueueAdvanceAt = Date.now();
+    this.ytListAdvancing = true;
+    try {
+      this.playYoutubeChoice(track, ids[next], event);
+    } finally {
+      this.ytListAdvancing = false;
+    }
+  }
+
+  canStepYoutubeList(track: DeezerTrack | null, delta: number): boolean {
+    if (!track) {
+      return false;
+    }
+    const ids = this.youtubeListStepIds(track.id);
+    return this.youtubeListStepIndex(track.id, ids, delta) >= 0;
+  }
+
+  private youtubeListStepIds(trackId: number): string[] {
+    const run = this.ytListRun?.trackId === trackId ? this.ytListRun : null;
+    return run ? run.ids : this.youtubeListIds(trackId);
+  }
+
+  private youtubeListStepIndex(trackId: number, ids: string[], delta: number): number {
+    if (ids.length < 2) {
+      return -1;
+    }
+    const frameId = (this.youtubeFrame()?.dataset['patVideoId'] || '').trim();
+    const onThis = this.current?.id === trackId && (this.clipOnStage || !!this.youtubeEmbed);
+    const currentId = onThis ? (frameId || this.currentYoutubeId()) : (this.ytLinks[trackId] || '').trim();
+    let at = ids.indexOf(currentId);
+    if (at < 0 && this.ytListRun?.trackId === trackId) {
+      at = this.ytListRun.index;
+    }
+    let next = at + delta;
+    if (this.ytListLoop) {
+      next = (next % ids.length + ids.length) % ids.length;
+    }
+    if (next < 0 || next >= ids.length || next === at) {
+      return -1;
+    }
+    return next;
+  }
+
+  /** Start the following clip of the play-all run. False leaves the normal queue to move on. */
+  private takeNextYoutubeListClip(): boolean {
+    const run = this.ytListRun;
+    if (!run || this.current?.id !== run.trackId) {
+      return false;
+    }
+    const nextIndex = run.index + 1;
+    if (nextIndex >= run.ids.length) {
+      if (this.ytListLoop && run.ids.length) {
+        return this.restartYoutubeList(run);
+      }
+      this.ytListRun = null;
+      return false;
+    }
+    const track = this.trackForYoutubeList(run.trackId);
+    const videoId = run.ids[nextIndex];
+    if (!track || !videoId) {
+      this.ytListRun = null;
+      return false;
+    }
+    this.ytListRun = { trackId: run.trackId, ids: run.ids, index: nextIndex };
+    this.lastQueueAdvanceAt = Date.now();
+    this.youtubeEnded = false;
+    this.ytListAdvancing = true;
+    try {
+      this.playYoutubeChoice(track, videoId);
+    } finally {
+      this.ytListAdvancing = false;
+    }
+    this.cdr.markForCheck();
+    return true;
+  }
+
+  /** Play the first clip of a finished YouTube list again. */
+  private restartYoutubeList(run: { trackId: number; ids: string[]; index: number }): boolean {
+    const track = this.trackForYoutubeList(run.trackId);
+    const videoId = run.ids[0];
+    if (!track || !videoId) {
+      this.ytListRun = null;
+      return false;
+    }
+    const already = (this.youtubeFrame()?.dataset['patVideoId'] || '').trim();
+    this.ytListRun = { trackId: run.trackId, ids: run.ids, index: 0 };
+    this.lastQueueAdvanceAt = Date.now();
+    this.youtubeEnded = false;
+    this.ytListAdvancing = true;
+    try {
+      this.playYoutubeChoice(track, videoId);
+    } finally {
+      this.ytListAdvancing = false;
+    }
+    if (already === videoId) {
+      this.youtubeEnded = false;
+      this.youtubePlayerState = -1;
+      this.userHold = false;
+      this.playing = true;
+      this.ytIgnoreEnd = Date.now() + 4000;
+      this.holdScreen();
+      this.handshakeYoutube();
+      this.postYoutubeCommand('seekTo', [0, true]);
+      this.postYoutubeCommand('playVideo');
+    }
+    this.cdr.markForCheck();
+    return true;
+  }
+
+  private trackForYoutubeList(id: number): DeezerTrack | null {
+    if (this.ytListTrack?.id === id) {
+      return this.ytListTrack;
+    }
+    if (this.current?.id === id) {
+      return this.current;
+    }
+    return this.shownTracks.find((track) => track.id === id)
+      || this.queue.find((track) => track.id === id)
+      || null;
+  }
+
+  /** Drop a clip from the running list without restarting the one that is playing. */
+  private syncYoutubeListRun(trackId: number, removedId: string): void {
+    const run = this.ytListRun;
+    if (!run || run.trackId !== trackId) {
+      return;
+    }
+    const at = run.ids.indexOf(removedId);
+    if (at < 0) {
+      return;
+    }
+    const ids = run.ids.filter((id) => id !== removedId);
+    if (!ids.length) {
+      this.ytListRun = null;
+      return;
+    }
+    const index = at <= run.index ? run.index - 1 : run.index;
+    this.ytListRun = { trackId, ids, index };
   }
 
   playYoutubeChoice(track: DeezerTrack, videoId: string, event?: Event): void {
     event?.stopPropagation();
+    if (!this.ytListAdvancing) {
+      this.ytListRun = null;
+    }
     const id = (videoId || '').trim();
     if (!/^[a-zA-Z0-9_-]{11}$/.test(id)) {
       return;
     }
-    this.ytCache.set(track.id, id);
-    this.ytLinks = { ...this.ytLinks, [track.id]: id };
-    this.ytFromCache = { ...this.ytFromCache, [track.id]: true };
+    const fromList = this.ytListAdvancing;
+    if (!fromList) {
+      this.ytCache.set(track.id, id);
+      this.ytLinks = { ...this.ytLinks, [track.id]: id };
+      this.ytFromCache = { ...this.ytFromCache, [track.id]: true };
+    }
     this.ytOffer = null;
     const index = Math.max(0, this.shownTracks.findIndex((item) => item.id === track.id));
     this.claimPlaybackTab();
     this.youtubeMode = true;
-    this.repeatQueue = true;
+    this.repeatQueue = this.listLoop;
     this.queue = this.shownTracks.slice();
     if (this.current?.id === track.id && (this.clipOnStage || this.youtubeEmbed || this.keptFrameActive)) {
       this.applyYoutubeHit(track, id, this.ytToken);
+    } else if (fromList) {
+      this.ytListPlayId = id;
+      this.current = null;
+      this.playTrack(track, index);
     } else {
       this.current = null;
       this.playYoutubeTrack(track, index);
+    }
+    if (fromList) {
+      return;
     }
     this.api.resolveDeezerYoutubeLinks([{
       id: track.id,
@@ -1773,6 +2025,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
           if (!this.hasYoutubeList(track.id) && this.ytListTrack?.id === track.id) {
             this.ytListTrack = null;
           }
+          this.syncYoutubeListRun(track.id, clip);
           this.rebuildMembershipVideos();
         } finally {
           release();
@@ -1817,6 +2070,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         try {
           this.forgetYoutubeList(track.id);
           this.clearYoutubeClear(track.id);
+          if (this.ytListRun?.trackId === track.id) {
+            this.ytListRun = null;
+          }
           if (this.ytListTrack?.id === track.id) {
             this.ytListTrack = null;
           }
@@ -1944,7 +2200,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
     this.claimPlaybackTab();
     this.youtubeMode = true;
-    this.repeatQueue = true;
+    this.repeatQueue = this.listLoop;
     this.queue = this.shownTracks;
     if (this.current?.id === track.id && this.clipOnStage) {
       return;
@@ -2250,7 +2506,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     const track = this.concertTrack(item);
     this.claimPlaybackTab();
     this.youtubeMode = true;
-    this.repeatQueue = true;
+    this.repeatQueue = this.listLoop;
     this.playbackFollowsList = true;
     this.queue = this.concertAsTracks();
     if (this.current?.id === track.id && !this.clipOnStage) {
@@ -2966,7 +3222,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   playListedTrack(track: DeezerTrack, index: number): void {
     this.claimPlaybackTab();
-    this.repeatQueue = true;
+    this.repeatQueue = this.listLoop;
     this.playbackFollowsList = true;
     this.queue = this.shownTracks;
     const hasYoutube = !!(this.ytLinks[track.id] || '').trim();
@@ -2983,7 +3239,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     const wasYoutube = this.youtubeMode || !!this.youtubeEmbed;
     this.claimPlaybackTab();
     this.youtubeMode = false;
-    this.repeatQueue = true;
+    this.repeatQueue = this.listLoop;
     this.queue = this.shownTracks;
     if (wasYoutube && this.current?.id === track.id) {
       this.clearYoutube();
@@ -2993,6 +3249,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   playTrack(track: DeezerTrack, index: number, restart = false): void {
+    if (!this.ytListAdvancing) {
+      this.ytListRun = null;
+    }
     const same = this.current?.id === track.id;
     this.ytLog(`playTrack ${track.id} same=${same} restart=${restart} ${this.ytCaller()}`);
     if (!restart && same) {
@@ -3061,9 +3320,11 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       if (!this.youtubeEmbed) {
         return;
       }
-      if (!this.playing && this.youtubeEnded && this.queueContinues()) {
+      if (!this.playing && this.youtubeEnded && (this.takeNextYoutubeListClip() || this.queueContinues())) {
         this.youtubeEnded = false;
-        this.next();
+        if (!this.ytListRun) {
+          this.next();
+        }
         return;
       }
       const func = this.playing ? 'pauseVideo' : 'playVideo';
@@ -3136,6 +3397,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   stop(): void {
+    this.ytListRun = null;
     this.userHold = true;
     this.markYoutubeUserPause(true);
     this.youtubeMode = false;
@@ -3221,7 +3483,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         this.tracks = tracks;
     this.syncYoutubeButtons();
         this.queue = this.shownTracks;
-        this.repeatQueue = true;
+        this.repeatQueue = this.listLoop;
         this.claimPlaybackTab();
         this.playbackFollowsList = true;
         if (this.queue.length) {
@@ -3258,7 +3520,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         this.sleeveAlbums = page?.albums || [];
         this.sleeveArtistId = artist.id;
         this.related = page?.related || [];
-        this.repeatQueue = true;
+        this.repeatQueue = this.listLoop;
         this.claimPlaybackTab();
         this.playbackFollowsList = true;
         if (this.queue.length) {
@@ -3291,7 +3553,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         this.tracks = tracks;
     this.syncYoutubeButtons();
         this.queue = this.shownTracks;
-        this.repeatQueue = true;
+        this.repeatQueue = this.listLoop;
         this.claimPlaybackTab();
         this.playbackFollowsList = true;
         if (this.queue.length) {
@@ -4427,6 +4689,14 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         return;
       }
       this.youtubeEnded = true;
+      if (this.takeNextYoutubeListClip()) {
+        this.holdScreen();
+        this.clearSleepKick();
+        if (this.playbackInterrupted()) {
+          this.keepPlayingThroughSleep();
+        }
+        return;
+      }
       if (this.queueContinues()) {
         this.holdScreen();
         this.clearSleepKick();
@@ -5040,10 +5310,16 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         }
         return;
       }
-      if (this.youtubePlayerState === 0 && this.queueContinues() && Date.now() - this.lastQueueAdvanceAt > 1500) {
-        this.holdScreen();
-        this.next();
-        return;
+      if (this.youtubePlayerState === 0 && Date.now() - this.lastQueueAdvanceAt > 1500) {
+        if (this.takeNextYoutubeListClip()) {
+          this.holdScreen();
+          return;
+        }
+        if (this.queueContinues()) {
+          this.holdScreen();
+          this.next();
+          return;
+        }
       }
       this.handshakeYoutube();
       this.postYoutubeCommand('playVideo');
@@ -5305,6 +5581,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.queue = kept.queue;
     this.queueIndexHint = kept.index;
     this.repeatQueue = kept.repeat;
+    this.listLoop = kept.repeat;
     this.claimPlaybackTab();
     this.playbackFollowsList = true;
     this.ytLinks = { ...this.ytLinks, ...kept.youtubeIds };
@@ -5565,6 +5842,13 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   private resolveYoutube(track: DeezerTrack): void {
     const token = ++this.ytToken;
+    if (this.ytListPlayId) {
+      const id = this.ytListPlayId;
+      this.ytListPlayId = '';
+      this.ytLog(`resolve liste ${id}`);
+      this.applyYoutubeHit(track, id, token);
+      return;
+    }
     if (this.ytOffer?.trackId === track.id && this.ytOffer.videoId) {
       this.ytLog(`resolve offre ${this.ytOffer.videoId}`);
       this.applyYoutubeHit(track, this.ytOffer.videoId, token);

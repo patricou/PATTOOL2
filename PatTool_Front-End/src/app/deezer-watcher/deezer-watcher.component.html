@@ -480,6 +480,18 @@
               <i class="fa fa-step-forward" aria-hidden="true"></i>
             </button>
           </div>
+          <label
+            class="dz-yt-lookup dz-loop-switch"
+            [attr.title]="'DEEZER.LOOP_HINT' | translate">
+            <span class="dz-yt-lookup-label">{{ 'DEEZER.LOOP' | translate }}</span>
+            <input
+              type="checkbox"
+              role="switch"
+              [ngModel]="listLoop"
+              (ngModelChange)="setListLoop($event)"
+              [attr.aria-label]="'DEEZER.LOOP' | translate" />
+            <span class="dz-yt-lookup-track" aria-hidden="true"><span class="dz-yt-lookup-knob"></span></span>
+          </label>
           </ng-container>
           <label
             class="dz-yt-lookup"
@@ -1282,7 +1294,7 @@
   aria-modal="true"
   [attr.aria-label]="'DEEZER.YT_LIST' | translate"
   (click)="$event.stopPropagation()"
-  (keydown.escape)="closeYoutubeList()">
+  (keydown.escape)="ytClearAskId != null ? cancelClearYoutubeList($event) : closeYoutubeList()">
   <div class="dz-pl-modal-head">
     <div class="dz-pl-track">
       <img *ngIf="ytListTrack.coverUrl" class="dz-pl-cover" [src]="ytListTrack.coverUrl" alt="" />
@@ -1296,6 +1308,70 @@
     </div>
     <button type="button" class="dz-pl-close" (click)="closeYoutubeList($event)" [attr.aria-label]="'DEEZER.CLEAR_SEARCH' | translate">
       <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
+  <div class="dz-yt-list-tools">
+    <button
+      type="button"
+      class="dz-yt-step"
+      [disabled]="!canStepYoutubeList(ytListTrack, -1)"
+      (click)="stepYoutubeListClip(ytListTrack, -1, $event)"
+      [attr.title]="'DEEZER.PREV' | translate"
+      [attr.aria-label]="'DEEZER.PREV' | translate">
+      <i class="fa fa-step-backward" aria-hidden="true"></i>
+    </button>
+    <button
+      type="button"
+      class="dz-yt-play-list"
+      [class.is-on]="youtubeListPlaying(ytListTrack.id)"
+      [disabled]="!youtubeListIds(ytListTrack.id).length"
+      (click)="toggleYoutubeList(ytListTrack, $event)"
+      [attr.title]="(youtubeListPlaying(ytListTrack.id) ? 'DEEZER.PAUSE' : 'DEEZER.YT_LIST_PLAY_ALL') | translate"
+      [attr.aria-label]="(youtubeListPlaying(ytListTrack.id) ? 'DEEZER.PAUSE' : 'DEEZER.YT_LIST_PLAY_ALL') | translate">
+      <i class="fa" [class.fa-pause]="youtubeListPlaying(ytListTrack.id)" [class.fa-play]="!youtubeListPlaying(ytListTrack.id)" aria-hidden="true"></i>
+      {{ (youtubeListPlaying(ytListTrack.id) ? 'DEEZER.PAUSE' : 'DEEZER.YT_LIST_PLAY_ALL') | translate }}
+    </button>
+    <button
+      type="button"
+      class="dz-yt-step"
+      [disabled]="!canStepYoutubeList(ytListTrack, 1)"
+      (click)="stepYoutubeListClip(ytListTrack, 1, $event)"
+      [attr.title]="'DEEZER.NEXT' | translate"
+      [attr.aria-label]="'DEEZER.NEXT' | translate">
+      <i class="fa fa-step-forward" aria-hidden="true"></i>
+    </button>
+    <label
+      class="dz-yt-lookup dz-loop-switch dz-loop-switch--modal"
+      [attr.title]="'DEEZER.LOOP_HINT' | translate">
+      <span class="dz-yt-lookup-label">{{ 'DEEZER.LOOP' | translate }}</span>
+      <input
+        type="checkbox"
+        role="switch"
+        [ngModel]="ytListLoop"
+        (ngModelChange)="setYoutubeListLoop($event)"
+        [attr.aria-label]="'DEEZER.LOOP' | translate" />
+      <span class="dz-yt-lookup-track" aria-hidden="true"><span class="dz-yt-lookup-knob"></span></span>
+    </label>
+    <button
+      type="button"
+      class="dz-yt-more-list"
+      *ngIf="canLoadMoreYoutube(ytListTrack.id)"
+      [disabled]="!!ytMoreBusy[ytListTrack.id]"
+      (click)="loadMoreYoutube(ytListTrack, $event)"
+      [attr.title]="'DEEZER.YT_MORE' | translate"
+      [attr.aria-label]="'DEEZER.YT_MORE' | translate">
+      <i class="fa fa-spinner fa-spin" *ngIf="ytMoreBusy[ytListTrack.id]" aria-hidden="true"></i>
+      <span *ngIf="!ytMoreBusy[ytListTrack.id]">+10</span>
+    </button>
+    <button
+      type="button"
+      class="dz-yt-clear-list"
+      [disabled]="!!ytClearBusy[ytListTrack.id]"
+      (click)="askClearYoutubeList(ytListTrack, $event)"
+      [attr.title]="'DEEZER.YT_CLEAR' | translate"
+      [attr.aria-label]="'DEEZER.YT_CLEAR' | translate">
+      <i class="fa fa-spinner fa-spin" *ngIf="ytClearBusy[ytListTrack.id]" aria-hidden="true"></i>
+      <i class="fa fa-trash" *ngIf="!ytClearBusy[ytListTrack.id]" aria-hidden="true"></i>
     </button>
   </div>
   <div class="dz-pl-modal-body dz-yt-list-body">
@@ -1331,26 +1407,24 @@
       </button>
     </div>
   </div>
-  <div class="dz-yt-list-foot">
-    <button
-      type="button"
-      class="dz-yt-more-list"
-      *ngIf="canLoadMoreYoutube(ytListTrack.id)"
-      [disabled]="!!ytMoreBusy[ytListTrack.id]"
-      (click)="loadMoreYoutube(ytListTrack, $event)"
-      [attr.title]="'DEEZER.YT_MORE' | translate"
-      [attr.aria-label]="'DEEZER.YT_MORE' | translate">
-      <i class="fa fa-spinner fa-spin" *ngIf="ytMoreBusy[ytListTrack.id]" aria-hidden="true"></i>
-      <span *ngIf="!ytMoreBusy[ytListTrack.id]">+10</span>
+</div>
+
+<div class="dz-pl-backdrop dz-yt-clear-backdrop" *ngIf="ytClearAskId != null" (click)="cancelClearYoutubeList()"></div>
+<div
+  class="dz-yt-clear-dialog"
+  *ngIf="ytClearAskId != null"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-label]="'DEEZER.YT_CLEAR_ASK' | translate"
+  (click)="$event.stopPropagation()"
+  (keydown.escape)="cancelClearYoutubeList($event)">
+  <p>{{ 'DEEZER.YT_CLEAR_ASK' | translate }}</p>
+  <div class="dz-yt-clear-actions">
+    <button type="button" class="dz-yt-clear-cancel" (click)="cancelClearYoutubeList($event)">
+      {{ 'DEEZER.YT_CLEAR_CANCEL' | translate }}
     </button>
-    <button
-      type="button"
-      class="dz-yt-clear-list"
-      [disabled]="!!ytClearBusy[ytListTrack.id]"
-      (click)="clearYoutubeList(ytListTrack, $event)">
-      <i class="fa fa-spinner fa-spin" *ngIf="ytClearBusy[ytListTrack.id]" aria-hidden="true"></i>
-      <i class="fa fa-trash" *ngIf="!ytClearBusy[ytListTrack.id]" aria-hidden="true"></i>
-      {{ 'DEEZER.YT_CLEAR' | translate }}
+    <button type="button" class="dz-yt-clear-yes" (click)="confirmClearYoutubeList($event)">
+      {{ 'DEEZER.YT_CLEAR_YES' | translate }}
     </button>
   </div>
 </div>
