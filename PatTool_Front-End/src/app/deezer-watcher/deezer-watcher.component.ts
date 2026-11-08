@@ -351,6 +351,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private resumedKeep = false;
   /** YouTube reported the current video as finished, so Lecture must not start it again. */
   private youtubeEnded = false;
+  /** The Deezer preview button asked for this one title, even if the YouTube switch is on. */
+  private forceDeezerPreview = false;
   /** Ignore the pause a moved frame emits while it is put back on the page. */
   private resumeHoldUntil = 0;
   keptFrameActive = false;
@@ -1077,9 +1079,24 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     } catch {
       /* ignore */
     }
-    this.ytScan?.unsubscribe();
-    this.ytScanKey = '';
-    this.syncYoutubeButtons();
+    if (!this.youtubeSearchEnabled || !this.playingTrackList() || !this.current) {
+      return;
+    }
+    this.youtubeMode = true;
+    if (this.clipOnStage || this.youtubeAlreadyResolved(this.current.id)) {
+      return;
+    }
+    this.resolveYoutube(this.current);
+  }
+
+  /** Lecture is walking a list, so the YouTube switch applies to each title as it starts. */
+  private playingTrackList(): boolean {
+    return this.repeatQueue && this.queue.length > 0;
+  }
+
+  /** A clip or a stored miss is already known, so this title must not be searched again. */
+  private youtubeAlreadyResolved(trackId: number): boolean {
+    return this.ytCache.has(trackId) || !!(this.ytLinks[trackId] || '').trim();
   }
 
   setPreviewOnly(enabled: boolean): void {
@@ -2682,6 +2699,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     event?.stopPropagation();
     const wasYoutube = this.youtubeMode || !!this.youtubeEmbed;
     this.claimPlaybackTab();
+    this.forceDeezerPreview = true;
     this.youtubeMode = false;
     this.repeatQueue = true;
     this.queue = this.shownTracks;
@@ -2693,11 +2711,16 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   playTrack(track: DeezerTrack, index: number, restart = false): void {
+    const forcePreview = this.forceDeezerPreview;
+    this.forceDeezerPreview = false;
     const same = this.current?.id === track.id;
     this.ytLog(`playTrack ${track.id} same=${same} restart=${restart} ${this.ytCaller()}`);
     if (!restart && same) {
       this.togglePlay();
       return;
+    }
+    if (!forcePreview && this.youtubeSearchEnabled && this.playingTrackList()) {
+      this.youtubeMode = true;
     }
     this.lastQueueAdvanceAt = Date.now();
     this.youtubeEnded = false;
@@ -3711,6 +3734,12 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     audio.crossOrigin = 'anonymous';
     audio.muted = false;
     audio.volume = this.volume;
+    const currentSrc = audio.currentSrc || audio.src;
+    if (currentSrc && currentSrc === url && !audio.paused && !audio.ended) {
+      this.playing = true;
+      this.playErrorKey = '';
+      return;
+    }
     audio.src = url;
     if (audio.ended || audio.currentTime > 0) {
       try {
@@ -5276,6 +5305,13 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.applyYoutubeHit(track, cached, token);
       return;
     }
+    const known = (this.ytLinks[track.id] || '').trim();
+    if (known) {
+      this.ytCache.set(track.id, known);
+      this.ytLog(`resolve lien déjà là ${known}`);
+      this.applyYoutubeHit(track, known, token);
+      return;
+    }
     this.ytLog('resolve réseau');
     const q = this.youtubeQuery(track);
     if (q.length < 2) {
@@ -5389,7 +5425,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
     const idx = this.currentIndex();
     const next = idx >= 0 ? this.queue[idx + 1] : undefined;
-    if (!next || this.ytCache.has(next.id)) {
+    if (!next || this.ytCache.has(next.id) || this.youtubeAlreadyResolved(next.id)) {
       return;
     }
     const q = this.youtubeQuery(next);
@@ -5397,11 +5433,12 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       return;
     }
     this.ytPrefetch?.unsubscribe();
+    // Stored links only. A missing link is searched when that track is about to start.
     this.ytPrefetch = this.api.resolveDeezerYoutubeLinks([{
       id: next.id,
       artist: next.artistName || '',
       title: next.title || ''
-    }], this.youtubeSearchEnabled).pipe(takeUntil(this.destroy$)).subscribe({
+    }], false).pipe(takeUntil(this.destroy$)).subscribe({
       next: (page) => {
         const link = (page?.links || []).find((item) => item.id === next.id);
         if (link) {
@@ -5642,7 +5679,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       return;
     }
     const shown = this.shownTracks.filter((track) => track.id && this.youtubeQuery(track).length >= 2);
-    const key = `${this.youtubeSearchEnabled ? '1' : '0'}:${shown.map((track) => track.id).join(',')}`;
+    const key = shown.map((track) => track.id).join(',');
     if (key === this.ytScanKey) {
       return;
     }
@@ -5683,15 +5720,15 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.ytScanRest = { tracks, index, key };
       return;
     }
-    // One title at a time while YouTube is actually queried, so a click is not stuck behind a whole page.
-    const batch = this.youtubeSearchEnabled ? 1 : 20;
+    // The list only reads links already stored. YouTube itself is queried when a title starts.
+    const batch = 20;
     const slice = tracks.slice(index, index + batch);
     this.ytScanRest = { tracks, index, key };
     this.ytScan = this.api.resolveDeezerYoutubeLinks(slice.map((track) => ({
       id: track.id,
       artist: track.artistName || '',
       title: track.title || ''
-    })), this.youtubeSearchEnabled).pipe(takeUntil(this.destroy$)).subscribe({
+    })), false).pipe(takeUntil(this.destroy$)).subscribe({
       next: (page) => {
         if (key !== this.ytScanKey) {
           return;
