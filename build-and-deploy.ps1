@@ -1,10 +1,12 @@
 # ===================================================================
 # PATTOOL Build and Deploy Script
 # ===================================================================
-# 1. Stamp the About-page version, then build the Android APK
-# 2. Build front end (Angular) with the same version — the APK is copied into the site
-# 3. Build back end with Maven (clean, compile, package) — the JAR contains the APK
-# 4. Copy JAR to X:\pattool (network drive mapped to server)
+# 1. Stamp the About-page version
+# 2. In parallel: Android APK (mobile Angular build + Gradle) and the production web build.
+#    They write to different folders (www vs the backend static tree) and do not share a Webpack cache.
+# 3. Copy the new APK into the web assets after the web build, so that build cannot overwrite it
+# 4. Maven clean package — only after those assets are final, because the JAR embeds them
+# 5. Copy JAR to X:\pattool (network drive mapped to server)
 #
 # The About page reads PatTool_Front-End/src/environments/app-version.ts.
 # Each run stamps APP_VERSION = yyyy.MM.dd.HHmmss before the APK and the web build
@@ -124,31 +126,103 @@ export const APP_VERSION = '$DeployVersion';
 
 try {
     # -----------------------------------------------------------------------
-    # Step 1: Android APK (build:mobile compiles the stamped version)
+    # Step 1: APK and web build at the same time. The APK is not copied into
+    # the web tree yet: ng build wipes that tree and would put the old APK back.
     # -----------------------------------------------------------------------
-    Write-Host "[1/4] Building Android APK..." -ForegroundColor Yellow
-    Push-Location $FrontEndDir
-    try {
-        npm run apk
-        if ($LASTEXITCODE -ne 0) { throw "APK build failed with exit code $LASTEXITCODE" }
-    } finally {
-        Pop-Location
+    Write-Host "[1/4] Building Android APK and web front end in parallel..." -ForegroundColor Yellow
+    $apkScript = Join-Path $FrontEndDir "scripts\build-android-apk.ps1"
+    $logDir = Join-Path $env:TEMP "pattool-deploy"
+    New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+    $apkLog = Join-Path $logDir "apk.log"
+    $webLog = Join-Path $logDir "web.log"
+    $runners = @(
+        @{
+            Name = "apk"
+            Bat = Join-Path $logDir "apk.cmd"
+            Log = $apkLog
+            Body = "@echo off`r`ncd /d `"$FrontEndDir`"`r`npowershell -NoProfile -ExecutionPolicy Bypass -File `"$apkScript`" -Stage build > `"$apkLog`" 2>&1`r`nexit /b %ERRORLEVEL%`r`n"
+        },
+        @{
+            Name = "web"
+            Bat = Join-Path $logDir "web.cmd"
+            Log = $webLog
+            Body = "@echo off`r`ncd /d `"$FrontEndDir`"`r`ncall npm.cmd run build > `"$webLog`" 2>&1`r`nexit /b %ERRORLEVEL%`r`n"
+        }
+    )
+    $running = @()
+    foreach ($runner in $runners) {
+        [System.IO.File]::WriteAllText($runner.Bat, $runner.Body)
+        Remove-Item $runner.Log -ErrorAction SilentlyContinue
+        # cmd.exe owns the log file. Do not also redirect from Start-Process.
+        $proc = Start-Process -FilePath "cmd.exe" -ArgumentList @("/d", "/c", "`"$($runner.Bat)`"") -WorkingDirectory $FrontEndDir -PassThru -WindowStyle Hidden
+        $running += [pscustomobject]@{
+            Name = $runner.Name
+            Process = $proc
+            Log = $runner.Log
+            Started = Get-Date
+        }
+        Write-Host ("  started {0}" -f $runner.Name) -ForegroundColor Gray
     }
-    Write-Host "Android APK published for download." -ForegroundColor Green
-    Write-Host ""
+
+    while ($true) {
+        foreach ($job in $running) {
+            $job.Process.Refresh()
+            if ($job.Process.HasExited) { $null = $job.Process.WaitForExit() }
+        }
+        $alive = @($running | Where-Object { -not $_.Process.HasExited })
+        $justFailed = @($running | Where-Object { $_.Process.HasExited -and $_.Process.ExitCode -ne 0 })
+        if ($justFailed.Count -gt 0) {
+            foreach ($job in $alive) {
+                & taskkill.exe /PID $job.Process.Id /T /F 2>$null | Out-Null
+            }
+            Start-Sleep -Seconds 1
+            foreach ($job in $running) {
+                $job.Process.Refresh()
+                if ($job.Process.HasExited) { $null = $job.Process.WaitForExit() }
+            }
+            break
+        }
+        if ($alive.Count -eq 0) { break }
+        foreach ($job in $alive) {
+            $line = ""
+            if (Test-Path $job.Log) {
+                $line = (Get-Content $job.Log -Tail 1 -ErrorAction SilentlyContinue)
+            }
+            $stamp = ([int]((Get-Date) - $job.Started).TotalSeconds).ToString() + "s"
+            if ($line) {
+                Write-Host ("  [{0} {1}] {2}" -f $job.Name, $stamp, $line)
+            } else {
+                Write-Host ("  [{0} {1}] running" -f $job.Name, $stamp) -ForegroundColor Gray
+            }
+        }
+        Start-Sleep -Seconds 15
+    }
+
+    $failed = $false
+    foreach ($job in $running) {
+        if (-not $job.Process.HasExited) { $null = $job.Process.WaitForExit() }
+        $elapsed = (Get-Date) - $job.Started
+        $code = $job.Process.ExitCode
+        if ($code -ne 0) {
+            $failed = $true
+            Write-Host ("{0} failed (exit {1}) after {2:mm\:ss}" -f $job.Name, $code, $elapsed) -ForegroundColor Red
+            if (Test-Path $job.Log) {
+                Write-Host ("--- {0} ---" -f $job.Log) -ForegroundColor Red
+                Get-Content $job.Log -Tail 40
+            }
+        } else {
+            Write-Host ("{0} finished in {1:mm\:ss}" -f $job.Name, $elapsed) -ForegroundColor Green
+        }
+    }
+    if ($failed) { throw "Parallel front-end build failed." }
 
     # -----------------------------------------------------------------------
-    # Step 2: Web front end, same version as the APK
+    # Step 2: the web build has finished writing static/. Drop the new APK in.
     # -----------------------------------------------------------------------
-    Write-Host "[2/4] Building front end..." -ForegroundColor Yellow
-    Push-Location $FrontEndDir
-    try {
-        npm run build
-        if ($LASTEXITCODE -ne 0) { throw "Front end build failed with exit code $LASTEXITCODE" }
-    } finally {
-        Pop-Location
-    }
-    Write-Host "Front end build completed (version $DeployVersion)." -ForegroundColor Green
+    Write-Host "[2/4] Publishing Android APK into the site..." -ForegroundColor Yellow
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $apkScript -Stage publish
+    if ($LASTEXITCODE -ne 0) { throw "APK publish failed with exit code $LASTEXITCODE" }
+    Write-Host "Front end and APK ready (version $DeployVersion)." -ForegroundColor Green
     Write-Host ""
 } finally {
     [System.IO.File]::WriteAllBytes($AppVersionFile, $OriginalVersionBytes)

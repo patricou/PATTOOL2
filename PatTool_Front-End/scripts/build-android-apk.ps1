@@ -1,10 +1,19 @@
 # Builds the Android release APK and publishes it for the Outils download page.
 # A debug APK is marked debuggable and Play Protect blocks the install.
 # Output: src/assets/downloads/pattool.apk (picked up by ng build / ng serve).
+#
+# -Stage build   stops once app-release.apk exists (no copy into the web tree)
+# -Stage publish copies that APK into the web assets
+# -Stage all     does both (default, used by npm run apk)
+param(
+    [ValidateSet('all', 'build', 'publish')]
+    [string]$Stage = 'all'
+)
 $ErrorActionPreference = "Stop"
 $front = Split-Path -Parent $PSScriptRoot
 Set-Location $front
 
+if ($Stage -ne 'publish') {
 # Gradle 8.14 cannot run on the Android Studio JBR when that JBR is Java 25.
 $jdk21Candidates = @(
   "C:\Program Files\Java\jdk-21",
@@ -57,6 +66,17 @@ try {
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 } finally {
   Pop-Location
+}
+
+$apk = Join-Path $front "android\app\build\outputs\apk\release\app-release.apk"
+if (-not (Test-Path $apk)) {
+  Write-Error "APK not found: $apk"
+}
+}
+
+if ($Stage -eq 'build') {
+  Write-Host "APK built: $apk"
+  exit 0
 }
 
 $apk = Join-Path $front "android\app\build\outputs\apk\release\app-release.apk"
