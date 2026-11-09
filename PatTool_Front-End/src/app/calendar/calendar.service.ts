@@ -15,6 +15,7 @@ export interface CalendarEntry {
     thumbnailFileId?: string | null;
     notes?: string | null;
     ownerMemberId?: string | null;
+    ownerName?: string | null;
     visibility?: string | null;
     friendGroupId?: string | null;
     friendGroupIds?: string[] | null;

@@ -79,6 +79,28 @@ export class DeezerKeepAliveService {
     this.watchPlayback();
   }
 
+  /** Track currently heard after the Deezer page was left. Null when nothing is playing. */
+  currentTrack(): { title: string; artist: string; coverUrl: string; videoId: string } | null {
+    const track = this.queue[this.index];
+    const title = (track?.title || '').trim();
+    if (!title) {
+      return null;
+    }
+    const playing = this.frame != null
+      || !!(this.audio && this.audio.src && !this.audio.paused && !this.audio.ended && !this.audio.error);
+    if (!playing) {
+      return null;
+    }
+    const linked = (track.id != null ? this.youtubeIds[track.id] : '') || '';
+    const videoId = ((this.frame ? this.clipId : '') || linked).trim();
+    return {
+      title,
+      artist: (track.artistName || '').trim(),
+      coverUrl: (track.coverUrl || '').trim(),
+      videoId
+    };
+  }
+
   /** Hand the live preview or video back to the page without pausing it. */
   reclaim(): DeezerKeptPlayback | null {
     if (!this.audio && !this.frame) {

@@ -3803,3 +3803,175 @@
 .swatch .u-sw-case { fill: #27272a; }
 .swatch .u-sw-dial { fill: #09090b; }
 .swatch .u-sw-hand { stroke: #f97316; stroke-width: 1.4; stroke-linecap: round; }
+
+/* Home dashboard: the face only, without taking over the page. */
+:host.clock-embed {
+  display: block;
+  width: var(--home-clock-width, var(--home-clock-size, 7.25rem));
+  height: auto;
+  max-height: none;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  overflow: visible;
+  background: transparent;
+}
+
+:host.clock-embed .clock-page {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  background: transparent;
+}
+
+:host.clock-embed .stage-metal,
+:host.clock-embed .pat-title,
+:host.clock-embed .dock,
+:host.clock-embed .look-bar,
+:host.clock-embed .banner,
+:host.clock-embed .fill-exit {
+  display: none;
+}
+
+:host.clock-embed .clock-body {
+  display: block;
+  width: var(--home-clock-width, var(--home-clock-size, 7.25rem));
+  margin: 0 auto;
+  padding: 0;
+  overflow: visible;
+  grid-template-columns: none;
+}
+
+:host.clock-embed .clock-stage {
+  display: grid;
+  place-items: center;
+  width: var(--home-clock-width, var(--home-clock-size, 7.25rem));
+  height: var(--home-clock-height, var(--home-clock-size, 7.25rem));
+  margin: 0 auto;
+  padding: 0 !important;
+  overflow: hidden;
+  container-type: size;
+}
+
+:host.clock-embed .watch,
+:host.clock-embed .lcd,
+:host.clock-embed .board,
+:host.clock-embed .smart,
+:host.clock-embed .nixie,
+:host.clock-embed .round-dig,
+:host.clock-embed .resin,
+:host.clock-embed .ultra {
+  width: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  height: auto;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+:host.clock-embed .watch {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+:host.clock-embed .watch svg.watch-face,
+:host.clock-embed .watch svg.watch-hands {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+:host.clock-embed .lcd,
+:host.clock-embed .nixie {
+  padding: 0.28rem 0.32rem 0.22rem;
+  gap: 0.12rem;
+  border-width: 2px;
+  border-radius: 10px;
+}
+
+:host.clock-embed .lcd-brand,
+:host.clock-embed .lcd-sub,
+:host.clock-embed .nixie-brand,
+:host.clock-embed .nixie-sub,
+:host.clock-embed .sharp-modes,
+:host.clock-embed .mod-day {
+  font-size: 0.48rem;
+  gap: 0.2rem;
+}
+
+:host.clock-embed .lcd .seg-digit,
+:host.clock-embed .board .seg-digit,
+:host.clock-embed .resin .seg-digit,
+:host.clock-embed .round-dig .seg-digit {
+  width: 0.72rem;
+  max-width: 0.72rem;
+}
+
+:host.clock-embed .lcd .colon,
+:host.clock-embed .board .colon,
+:host.clock-embed .resin .colon,
+:host.clock-embed .round-dig .colon {
+  width: 0.22rem;
+  height: 1.35rem;
+  gap: 0.16rem;
+}
+
+:host.clock-embed .lcd .colon i,
+:host.clock-embed .board .colon i,
+:host.clock-embed .resin .colon i,
+:host.clock-embed .round-dig .colon i {
+  width: 0.18rem;
+  height: 0.18rem;
+}
+
+:host.clock-embed .lcd-frac,
+:host.clock-embed .nixie-frac {
+  font-size: 0.62rem;
+  margin-bottom: 0;
+}
+
+:host.clock-embed .board {
+  grid-template-columns: minmax(0, 1fr) 1.85rem;
+  gap: 0.22rem;
+  padding: 0.28rem 0.32rem;
+  border-width: 3px;
+  border-radius: 10px;
+}
+
+:host.clock-embed .board .mini-analog {
+  width: 1.85rem;
+  max-width: 1.85rem;
+}
+
+:host.clock-embed .board-sub {
+  gap: 0.2rem;
+  margin-top: 0.08rem;
+  font-size: 0.42rem;
+}
+
+:host.clock-embed .nixie-tube {
+  width: 0.85rem;
+  height: 1.25rem;
+  font-size: 0.85rem;
+}
+
+:host.clock-embed .smart {
+  aspect-ratio: 1;
+  border-width: 4px;
+}
+
+:host.clock-embed .resin-case,
+:host.clock-embed .round-case {
+  width: 100%;
+  max-width: 100%;
+  border-width: 3px;
+  padding: 0.2rem 0.28rem;
+}
+
+:host.clock-embed .ultra svg {
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  filter: none;
+}

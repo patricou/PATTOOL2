@@ -219,7 +219,9 @@
             <ul class="todolists-items-list" *ngIf="list.items.length; else noItems">
                 <li *ngFor="let item of list.items; let idx = index; trackBy: trackById"
                     class="todolists-item"
+                    [id]="item.id ? 'todo-item-' + item.id : null"
                     [class.todolists-item--done]="item.status === 'done'"
+                    [class.todolists-item--focus]="item.id === focusItemId"
                     [class.todolists-item--high]="item.priority === 'high'"
                     [class.todolists-item--low]="item.priority === 'low'">
 

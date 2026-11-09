@@ -112,7 +112,7 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 				Criteria.where("beginEventDate").lte(rangeEnd),
 				dateOverlap
 		));
-		// Agenda: strip DBRefs / large arrays — avoids resolving author, members, files per row.
+		// Agenda: keep the author ref (shown as the owner) and skip members, files, commentaries.
 		query.fields()
 				.include("_id")
 				.include("evenementName")
@@ -122,7 +122,8 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 				.include("thumbnail")
 				.include("visibility")
 				.include("friendGroupId")
-				.include("friendGroupIds");
+				.include("friendGroupIds")
+				.include("author");
 		List<Evenement> events = mongoTemplate.find(query, Evenement.class);
 		events.sort(Comparator
 				.comparing(Evenement::getBeginEventDate, Comparator.nullsLast(Comparator.naturalOrder()))

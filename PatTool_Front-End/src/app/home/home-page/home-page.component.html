@@ -1,33 +1,245 @@
-<div>
-    <div class="pat-display">
-        <div>
-            <!-- Sources are injected in ngAfterViewInit so the shell paints first; avoids competing with preload=auto on every navigation/refresh. -->
-            <video #videoDesktop autoplay muted loop playsinline preload="none"
-                id="pat-bg-video-desktop"
-                class="d-none d-md-block fullscreen-video">
-            </video>
+<div class="pat-title" [class.radio-title--menu-open]="skinMenuOpen || langOpen">
+	<div class="home-title-bar">
+		<div class="home-lang">
+			<button type="button" class="home-lang-btn" (click)="toggleLang($event)"
+			        [attr.aria-expanded]="langOpen" aria-haspopup="listbox">
+				<span class="fi" [ngClass]="'fi-' + flagCode(currentLang)" aria-hidden="true"></span>
+				{{ ('LANGUAGE.' + currentLang.toUpperCase()) | translate }}
+				<i class="fa fa-caret-down" aria-hidden="true"></i>
+			</button>
+			<div class="home-lang-menu" *ngIf="langOpen" role="listbox">
+				<button type="button" *ngFor="let lang of langs" (click)="chooseLang(lang)"
+				        [class.is-current]="lang === currentLang">
+					<span class="fi" [ngClass]="'fi-' + flagCode(lang)" aria-hidden="true"></span>
+					{{ ('LANGUAGE.' + lang.toUpperCase()) | translate }}
+				</button>
+			</div>
+		</div>
+		<div class="home-title-copy">
+			<h2 class="home-title">
+				<i class="fa fa-home" aria-hidden="true"></i>
+				{{ 'HOME.DASHBOARD.TITLE' | translate }}
+			</h2>
+			<p class="pat-title-subtitle mb-0">{{ nowLabel }}</p>
+		</div>
+		<div class="home-tools">
+		<span class="radio-skin-picker">
+			<button type="button" class="radio-skin-open-btn" [class.is-open]="skinMenuOpen"
+			        (click)="toggleSkinMenu($event)" aria-haspopup="menu" [attr.aria-expanded]="skinMenuOpen"
+			        [attr.title]="'RADIO.SKIN_TITLE' | translate" [attr.aria-label]="'RADIO.SKIN_TITLE' | translate">
+				<span class="radio-skin-swatch radio-skin-swatch--mini" [ngClass]="'radio-skin-swatch--' + radioSkin" aria-hidden="true"></span>
+				<span class="radio-skin-open-label">{{ 'RADIO.SKIN_OPEN' | translate }}</span>
+				<i class="fa fa-caret-down" aria-hidden="true"></i>
+			</button>
+			<span class="radio-skin-menu" *ngIf="skinMenuOpen" role="menu" [attr.aria-label]="'RADIO.SKIN_TITLE' | translate">
+				<span class="radio-skin-menu-title">
+					<i class="fa fa-paint-brush" aria-hidden="true"></i>
+					{{ 'RADIO.SKIN_GROUP_ILLUSION' | translate }}
+				</span>
+				<button type="button" *ngFor="let skin of illusionSkins; trackBy: trackSkin"
+				        class="radio-skin-option" role="menuitemradio"
+				        [class.active]="skin === radioSkin" [attr.aria-checked]="skin === radioSkin"
+				        (click)="setSkin(skin)">
+					<span class="radio-skin-swatch" [ngClass]="'radio-skin-swatch--' + skin" aria-hidden="true"></span>
+					<span class="radio-skin-option-text">
+						<span class="radio-skin-option-name">{{ skinNameKey(skin) | translate }}</span>
+						<span class="radio-skin-option-desc">{{ skinDescKey(skin) | translate }}</span>
+					</span>
+					<i class="fa fa-check radio-skin-option-check" *ngIf="skin === radioSkin" aria-hidden="true"></i>
+				</button>
+				<span class="radio-skin-menu-title radio-skin-menu-title--next">{{ 'RADIO.SKIN_TITLE' | translate }}</span>
+				<button type="button" *ngFor="let skin of sortedSkins; trackBy: trackSkin"
+				        class="radio-skin-option" role="menuitemradio"
+				        [class.active]="skin === radioSkin" [attr.aria-checked]="skin === radioSkin"
+				        (click)="setSkin(skin)">
+					<span class="radio-skin-swatch" [ngClass]="'radio-skin-swatch--' + skin" aria-hidden="true"></span>
+					<span class="radio-skin-option-text">
+						<span class="radio-skin-option-name">{{ skinNameKey(skin) | translate }}</span>
+						<span class="radio-skin-option-desc">{{ skinDescKey(skin) | translate }}</span>
+					</span>
+					<i class="fa fa-check radio-skin-option-check" *ngIf="skin === radioSkin" aria-hidden="true"></i>
+				</button>
+			</span>
+		</span>
+		<button type="button" class="home-tool-btn" (click)="refresh()" [disabled]="refreshing">
+			<i class="fa fa-refresh" [class.fa-spin]="refreshing" aria-hidden="true"></i>
+			{{ 'HOME.DASHBOARD.REFRESH' | translate }}
+		</button>
+		</div>
+	</div>
+</div>
 
-            <!-- Video for smartphones (< 992px) -->
-            <video #videoMobile autoplay muted loop playsinline preload="none"
-                id="pat-bg-video-mobile"
-                class="d-block d-md-none fullscreen-video">
-            </video>
-        </div>
-        <div>
-            <section>
-                <div class="jumbotron pat-jumbotron enter-vertically">
-                    <h3 class="text-center">{{"HOME.HOMETITLE" | translate }}</h3>
-                    <p class="text-center">{{"HOME.HOMESUBTITLE" | translate }}</p>
-                </div>
-                <div class="banner">
-                    <div class="container">
-                        <h2 class="text-center pat-banner">{{"HOME.CITATION" | translate }}
-                        </h2>
-                        <!--        <p class="text-right">{{"HOME.AUTHOR" | translate }}</p>  -->
-                    </div>
-                </div>
-                <small>v2</small>
-            </section>
-        </div>
-    </div>
+<div class="home-dash">
+	<div class="home-hero">
+	<section class="home-weather" [class.home-weather--quiet]="weatherState !== 'ready'">
+		<a class="home-weather-main" routerLink="/api/meteo-france" *ngIf="weatherState === 'ready'">
+			<span class="home-weather-temp">{{ weatherTemp }}</span>
+			<span class="home-weather-copy">
+				<span class="home-weather-place" *ngIf="weatherPlace">{{ weatherPlace }}</span>
+				<span class="home-weather-desc" *ngIf="weatherDesc">{{ weatherDesc }}</span>
+				<span class="home-weather-meta" *ngIf="weatherFeels || weatherHumidity">
+					{{ weatherFeels }}<span *ngIf="weatherFeels && weatherHumidity"> · </span>{{ weatherHumidity }}
+				</span>
+			</span>
+		</a>
+		<div class="home-weather-main" *ngIf="weatherState !== 'ready'">
+			<span class="home-weather-kicker">{{ 'HOME.DASHBOARD.WEATHER' | translate }}</span>
+			<span class="home-weather-quiet-text" *ngIf="weatherState === 'loading'">{{ 'HOME.DASHBOARD.LOADING' | translate }}</span>
+			<span class="home-weather-quiet-text" *ngIf="weatherState === 'error'">{{ 'HOME.DASHBOARD.UNAVAILABLE' | translate }}</span>
+			<span class="home-weather-quiet-text" *ngIf="weatherState === 'empty'">{{ 'HOME.DASHBOARD.WEATHER_EMPTY' | translate }}</span>
+		</div>
+		<a class="home-user" routerLink="/profile" *ngIf="userLabel">
+			<span class="home-user-name">{{ userLabel }}</span>
+			<span class="home-user-meta" *ngIf="userLogin">{{ 'USERINFO.USERNAME' | translate }} {{ userLogin }}</span>
+			<span class="home-user-meta" *ngIf="userSeen">{{ 'USERINFO.LAST_CONNECTION' | translate }} · {{ userSeen }}</span>
+		</a>
+	</section>
+	<button type="button" class="home-clock" (click)="nextClock()" [attr.aria-label]="clockLabelKey | translate">
+		<app-clock [embedFace]="clockFace"></app-clock>
+	</button>
+	</div>
+
+	<div class="home-grid">
+		<div class="home-col">
+		<section class="home-card home-card--grow">
+			<a class="home-kicker" routerLink="/calendrier">
+				<i class="fa fa-calendar" aria-hidden="true"></i>
+				{{ 'HOME.DASHBOARD.AGENDA' | translate }}
+			</a>
+			<p class="home-muted" *ngIf="agendaState === 'loading'">{{ 'HOME.DASHBOARD.LOADING' | translate }}</p>
+			<p class="home-muted" *ngIf="agendaState === 'error'">{{ 'HOME.DASHBOARD.UNAVAILABLE' | translate }}</p>
+			<p class="home-muted" *ngIf="agendaState === 'empty'">{{ 'HOME.DASHBOARD.AGENDA_EMPTY' | translate }}</p>
+			<div class="home-card-scroll" *ngIf="agendaState === 'ready'">
+				<p class="home-subhead" *ngIf="activities.length">{{ 'HOME.DASHBOARD.ACTIVITIES' | translate }}</p>
+				<a class="home-row home-row--activity" *ngFor="let item of activities" [routerLink]="item.route" [queryParams]="item.queryParams">
+					<img *ngIf="item.thumb" class="home-activity-photo" [src]="item.thumb" alt="">
+					<span class="home-activity-copy">
+						<span class="home-row-title">{{ item.title }}</span>
+						<span class="home-row-meta">
+							<span class="home-row-owner" *ngIf="item.owner">{{ item.owner }}</span>
+							<span *ngIf="item.owner && item.when"> · </span>{{ item.when }}
+						</span>
+					</span>
+					<span class="home-days" *ngIf="item.daysLeft != null">
+						<ng-container *ngIf="item.daysLeft > 1">{{ 'HOME.DASHBOARD.DAYS_LEFT' | translate:{ count: item.daysLeft } }}</ng-container>
+						<ng-container *ngIf="item.daysLeft === 1">{{ 'HOME.DASHBOARD.DAYS_LEFT_ONE' | translate }}</ng-container>
+						<ng-container *ngIf="item.daysLeft === 0">{{ 'HOME.DASHBOARD.DAYS_TODAY' | translate }}</ng-container>
+						<ng-container *ngIf="item.daysLeft < 0">{{ 'HOME.DASHBOARD.DAYS_ONGOING' | translate }}</ng-container>
+					</span>
+				</a>
+				<p class="home-subhead" *ngIf="appointments.length">{{ 'HOME.DASHBOARD.APPOINTMENTS' | translate }}</p>
+				<a class="home-row home-row--activity" *ngFor="let item of appointments" [routerLink]="item.route">
+					<span class="home-activity-copy">
+						<span class="home-row-title">{{ item.title }}</span>
+						<span class="home-row-meta">
+							<span class="home-row-owner" *ngIf="item.owner">{{ item.owner }}</span>
+							<span *ngIf="item.owner && item.when"> · </span>{{ item.when }}
+						</span>
+					</span>
+					<span class="home-days" *ngIf="item.daysLeft != null">
+						<ng-container *ngIf="item.daysLeft > 1">{{ 'HOME.DASHBOARD.DAYS_LEFT' | translate:{ count: item.daysLeft } }}</ng-container>
+						<ng-container *ngIf="item.daysLeft === 1">{{ 'HOME.DASHBOARD.DAYS_LEFT_ONE' | translate }}</ng-container>
+						<ng-container *ngIf="item.daysLeft === 0">{{ 'HOME.DASHBOARD.DAYS_TODAY' | translate }}</ng-container>
+						<ng-container *ngIf="item.daysLeft < 0">{{ 'HOME.DASHBOARD.DAYS_ONGOING' | translate }}</ng-container>
+					</span>
+				</a>
+				<a class="home-more" *ngIf="agendaExtra > 0" routerLink="/calendrier">
+					{{ 'HOME.DASHBOARD.AGENDA_MORE' | translate:{ count: agendaExtra } }}
+				</a>
+			</div>
+		</section>
+
+		<section class="home-card home-card--grow">
+			<a class="home-kicker" routerLink="/todolists">
+				<i class="fa fa-check-square-o" aria-hidden="true"></i>
+				{{ 'HOME.DASHBOARD.TASKS' | translate }}
+			</a>
+			<p class="home-muted" *ngIf="taskState === 'loading'">{{ 'HOME.DASHBOARD.LOADING' | translate }}</p>
+			<p class="home-muted" *ngIf="taskState === 'error'">{{ 'HOME.DASHBOARD.UNAVAILABLE' | translate }}</p>
+			<p class="home-muted" *ngIf="taskState === 'empty'">{{ 'HOME.DASHBOARD.TASKS_EMPTY' | translate }}</p>
+			<div class="home-card-scroll" *ngIf="taskState === 'ready'">
+				<a class="home-row" *ngFor="let item of tasks" routerLink="/todolists"
+				   [queryParams]="item.listId ? { list: item.listId, item: item.itemId } : null">
+					<span class="home-row-title">{{ item.title }}</span>
+					<span class="home-row-meta">
+						<span class="home-badge" *ngIf="item.overdue">{{ 'HOME.DASHBOARD.OVERDUE' | translate }}</span>
+						<span *ngIf="item.assignee">{{ 'HOME.DASHBOARD.TASK_ASSIGNEE' | translate }} {{ item.assignee }}</span>
+						<span *ngIf="item.assignee && item.owner"> · </span>
+						<span *ngIf="item.owner">{{ 'HOME.DASHBOARD.TASK_OWNER' | translate }} {{ item.owner }}</span>
+						<span *ngIf="item.listName && (item.assignee || item.owner)"> · </span>
+						<span *ngIf="item.listName">{{ item.listName }}</span>
+						<span *ngIf="item.when"> · {{ item.when }}</span>
+					</span>
+				</a>
+			</div>
+		</section>
+		</div>
+
+		<div class="home-col">
+		<section class="home-card home-card--grow">
+			<div class="home-kicker home-kicker--news">
+				<a routerLink="/api/news">
+					<i class="fa fa-newspaper-o" aria-hidden="true"></i>
+					{{ 'HOME.DASHBOARD.NEWS' | translate }}
+				</a>
+				<span class="home-news-picks">
+					<button type="button" *ngFor="let id of newsProviders" class="home-news-pick"
+					        [class.is-current]="id === newsProvider" (click)="chooseNewsProvider(id)">
+						{{ newsProviderLabel(id) | translate }}
+					</button>
+				</span>
+			</div>
+			<p class="home-muted" *ngIf="newsState === 'loading'">{{ 'HOME.DASHBOARD.LOADING' | translate }}</p>
+			<p class="home-muted" *ngIf="newsState === 'error'">{{ 'HOME.DASHBOARD.UNAVAILABLE' | translate }}</p>
+			<p class="home-muted" *ngIf="newsState === 'empty'">{{ 'HOME.DASHBOARD.NEWS_EMPTY' | translate }}</p>
+			<div class="home-card-scroll" *ngIf="newsState === 'ready'">
+				<a class="home-row home-row--news" *ngFor="let item of news" [href]="item.url" target="_blank" rel="noopener noreferrer">
+					<img *ngIf="item.image" class="home-news-photo" [src]="item.image" alt="" (error)="hideNewsImage(item)">
+					<span class="home-news-copy">
+						<span class="home-row-title">{{ item.title }}</span>
+						<span class="home-row-meta">
+							<span *ngIf="item.source">{{ item.source }}</span>
+							<span *ngIf="item.source && item.when"> · </span>
+							<span *ngIf="item.when">{{ item.when }}</span>
+						</span>
+					</span>
+				</a>
+			</div>
+		</section>
+
+		<section class="home-card home-card--fit">
+			<a class="home-kicker" [routerLink]="playing?.route || '/tools/deezer'">
+				<i class="fa fa-music" aria-hidden="true"></i>
+				{{ 'HOME.DASHBOARD.PLAYING' | translate }}
+			</a>
+			<div *ngIf="playing as track; else playingEmpty">
+				<a class="home-row home-row--activity" [routerLink]="track.route">
+					<span class="home-tv" *ngIf="track.sourceKey === 'HOME.DASHBOARD.SOURCE_TV'">
+						<span class="home-tv-screen">
+							<img *ngIf="track.logo" [src]="track.logo" alt="" (error)="hidePlayingLogo()">
+							<i *ngIf="!track.logo" class="fa fa-television" aria-hidden="true"></i>
+						</span>
+					</span>
+					<img *ngIf="track.logo && track.sourceKey !== 'HOME.DASHBOARD.SOURCE_TV'" class="home-activity-photo" [src]="track.logo" alt="" (error)="hidePlayingLogo()">
+					<span class="home-activity-copy">
+						<span class="home-row-title">{{ track.title }}</span>
+						<span class="home-row-meta">
+							{{ track.sourceKey | translate }}<span *ngIf="track.detail && track.detail !== track.title"> · {{ track.detail }}</span>
+						</span>
+					</span>
+				</a>
+			</div>
+			<ng-template #playingEmpty>
+				<p class="home-muted">{{ 'HOME.DASHBOARD.PLAYING_EMPTY' | translate }}</p>
+				<div class="home-links">
+					<a routerLink="/tools/deezer">{{ 'HOME.DASHBOARD.OPEN_DEEZER' | translate }}</a>
+					<a routerLink="/tools/radio-watcher">{{ 'HOME.DASHBOARD.OPEN_RADIO' | translate }}</a>
+					<a routerLink="/tools/tv-watcher">{{ 'HOME.DASHBOARD.OPEN_TV' | translate }}</a>
+				</div>
+			</ng-template>
+		</section>
+		</div>
+	</div>
+
+	<p class="home-cite">{{ 'HOME.CITATION' | translate }}</p>
 </div>

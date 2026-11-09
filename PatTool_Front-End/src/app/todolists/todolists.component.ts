@@ -178,6 +178,9 @@ export class TodolistsComponent implements OnInit, OnDestroy {
 
     // Details state
     detailsList: TodoList | null = null;
+    /** Task highlighted when the page is opened from the home dashboard. */
+    focusItemId = '';
+    private pendingFocusItemId = '';
     detailsRecipients: TodoVisibilityRecipient[] = [];
     detailsAssigneeMap = new Map<string, string>();
     private detailsModalRef: NgbModalRef | null = null;
@@ -240,22 +243,24 @@ export class TodolistsComponent implements OnInit, OnDestroy {
      */
     private subscribeTodoListDeepLink(): void {
         this.subs.push(this.route.queryParams.pipe(
-            map(p => {
-                const v = p['list'];
-                if (typeof v === 'string') {
-                    return v.trim();
-                }
-                if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'string') {
-                    return v[0].trim();
-                }
-                return '';
-            }),
-            distinctUntilChanged()
-        ).subscribe(listId => {
-            if (listId) {
-                this.tryOpenListFromDeepLink(listId);
+            map(p => ({ list: this.queryValue(p['list']), item: this.queryValue(p['item']) })),
+            distinctUntilChanged((a, b) => a.list === b.list && a.item === b.item)
+        ).subscribe(({ list, item }) => {
+            this.pendingFocusItemId = item;
+            if (list) {
+                this.tryOpenListFromDeepLink(list);
             }
         }));
+    }
+
+    private queryValue(value: unknown): string {
+        if (typeof value === 'string') {
+            return value.trim();
+        }
+        if (Array.isArray(value) && typeof value[0] === 'string') {
+            return value[0].trim();
+        }
+        return '';
     }
 
     private tryOpenListFromDeepLink(listId: string): void {
@@ -751,6 +756,8 @@ export class TodolistsComponent implements OnInit, OnDestroy {
 
     openDetails(list: TodoList): void {
         this.detailsList = JSON.parse(JSON.stringify(list)) as TodoList;
+        this.focusItemId = this.pendingFocusItemId;
+        this.pendingFocusItemId = '';
         this.detailsRecipients = [];
         this.detailsAssigneeMap = new Map();
         this.detailsModalRef = this.modal.open(this.detailsModal, {
@@ -758,6 +765,9 @@ export class TodolistsComponent implements OnInit, OnDestroy {
             scrollable: true,
             windowClass: 'todolists-modal'
         });
+        if (this.focusItemId) {
+            setTimeout(() => this.scrollToFocusedItem(), 50);
+        }
         if (list.id) {
             this.subs.push(this.todoService.getVisibilityRecipients(list.id).pipe(
                 catchError(() => of([] as TodoVisibilityRecipient[]))
@@ -771,6 +781,14 @@ export class TodolistsComponent implements OnInit, OnDestroy {
                 this.cdr.markForCheck();
             }));
         }
+    }
+
+    private scrollToFocusedItem(): void {
+        if (!this.focusItemId) {
+            return;
+        }
+        const el = document.getElementById('todo-item-' + this.focusItemId);
+        el?.scrollIntoView({ block: 'center' });
     }
 
     assigneeLabel(memberId?: string | null): string {

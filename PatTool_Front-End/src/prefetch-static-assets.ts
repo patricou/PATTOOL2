@@ -1,9 +1,5 @@
 import { environment } from './environments/environment';
 
-export const PAT_HOME_VIDEO_DESKTOP = 'assets/video/auroreboreale.mp4';
-export const PAT_HOME_VIDEO_MOBILE =
-  'assets/video/240_F_554249302_yxUSqtMZs3HPEjrGEHLGCU5rMXgtPOHD_ST.mp4';
-
 function i18nJsonUrls(): string[] {
   return environment.langs.map((lang) => `assets/i18n/${lang}.json`);
 }
@@ -13,8 +9,6 @@ function i18nJsonUrls(): string[] {
  */
 export function buildPatPrefetchUrlList(): readonly string[] {
   return [
-    PAT_HOME_VIDEO_DESKTOP,
-    PAT_HOME_VIDEO_MOBILE,
     ...i18nJsonUrls(),
     'assets/images/pat.png',
     'manifest.webmanifest',

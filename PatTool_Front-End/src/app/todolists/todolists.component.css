@@ -413,6 +413,12 @@
     color: #6c757d;
 }
 
+.todolists-item--focus {
+    background: #e8f1ff;
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.35);
+}
+
 .todolists-item--high {
     border-left: 4px solid #dc3545;
 }

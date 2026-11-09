@@ -7,11 +7,13 @@ import com.pat.controller.dto.CalendarVisibilityPreviewRequest;
 import com.pat.controller.dto.CalendarVisibilityRecipientDTO;
 import com.pat.repo.CalendarAppointmentRepository;
 import com.pat.repo.EvenementsRepository;
+import com.pat.repo.MembersRepository;
 import com.pat.repo.NoteRepository;
 import com.pat.repo.TodoListRepository;
 import com.pat.repo.domain.CalendarAppointment;
 import com.pat.repo.domain.Evenement;
 import com.pat.repo.domain.FileUploaded;
+import com.pat.repo.domain.Member;
 import com.pat.repo.domain.Note;
 import com.pat.repo.domain.TodoList;
 import com.pat.service.CalendarAppointmentReminderMailService;
@@ -30,9 +32,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -48,6 +52,9 @@ public class CalendarRestController {
 
     @Autowired
     private EvenementsRepository evenementsRepository;
+
+    @Autowired
+    private MembersRepository membersRepository;
 
     @Autowired
     private TodoListRepository todoListRepository;
@@ -187,6 +194,7 @@ public class CalendarRestController {
         Map<String, String> appointmentIdToTodoListId = appointmentTodosFuture.join();
         Map<String, String> eventIdToNoteId = eventNotesFuture.join();
         Map<String, String> appointmentIdToNoteId = appointmentNotesFuture.join();
+        Map<String, String> ownerNames = ownerNames(events, loadAppointments ? appointments : List.of());
 
         for (Evenement ev : events) {
             CalendarEntryDTO row = new CalendarEntryDTO();
@@ -200,6 +208,9 @@ public class CalendarRestController {
             if (thumb != null && StringUtils.hasText(thumb.getFieldId())) {
                 row.setThumbnailFileId(thumb.getFieldId());
             }
+            String authorId = ev.getAuthor() != null ? ev.getAuthor().getId() : null;
+            row.setOwnerMemberId(authorId);
+            row.setOwnerName(authorId != null ? ownerNames.get(authorId) : null);
             row.setTodoListId(eventIdToTodoListId.get(ev.getId()));
             row.setNoteId(eventIdToNoteId.get(ev.getId()));
             out.add(row);
@@ -216,6 +227,7 @@ public class CalendarRestController {
                 row.setNotes(a.getNotes());
                 row.setThumbnailFileId(null);
                 row.setOwnerMemberId(a.getOwnerMemberId());
+                row.setOwnerName(a.getOwnerMemberId() != null ? ownerNames.get(a.getOwnerMemberId()) : null);
                 row.setVisibility(a.getVisibility());
                 row.setFriendGroupId(a.getFriendGroupId());
                 row.setFriendGroupIds(a.getFriendGroupIds());
@@ -427,6 +439,68 @@ public class CalendarRestController {
             entity.setFriendGroupId(null);
         }
         entity.setFriendGroupIds(null);
+    }
+
+    /** First and last name, otherwise the username. Broken author refs are skipped. */
+    private Map<String, String> ownerNames(List<Evenement> events, List<CalendarAppointment> appointments) {
+        Map<String, String> names = new HashMap<>();
+        Set<String> wanted = new HashSet<>();
+        for (Evenement ev : events) {
+            Member author = ev.getAuthor();
+            String id = memberId(author);
+            if (!StringUtils.hasText(id)) {
+                continue;
+            }
+            wanted.add(id);
+            String label = memberLabel(author);
+            if (label != null) {
+                names.put(id, label);
+            }
+        }
+        for (CalendarAppointment appointment : appointments) {
+            if (StringUtils.hasText(appointment.getOwnerMemberId())) {
+                wanted.add(appointment.getOwnerMemberId().trim());
+            }
+        }
+        wanted.removeAll(names.keySet());
+        if (!wanted.isEmpty()) {
+            membersRepository.findAllById(wanted).forEach(member -> {
+                String id = memberId(member);
+                String label = memberLabel(member);
+                if (StringUtils.hasText(id) && label != null) {
+                    names.put(id, label);
+                }
+            });
+        }
+        return names;
+    }
+
+    private static String memberId(Member member) {
+        if (member == null) {
+            return null;
+        }
+        try {
+            return StringUtils.hasText(member.getId()) ? member.getId().trim() : null;
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
+
+    private static String memberLabel(Member member) {
+        if (member == null) {
+            return null;
+        }
+        try {
+            String first = member.getFirstName() == null ? "" : member.getFirstName().trim();
+            String last = member.getLastName() == null ? "" : member.getLastName().trim();
+            String name = (first + " " + last).trim();
+            if (!name.isEmpty()) {
+                return name;
+            }
+            return StringUtils.hasText(member.getUserName()) ? member.getUserName().trim() : null;
+        } catch (RuntimeException ex) {
+            return null;
+        }
     }
 
     private static List<String> normalizeIdList(List<String> ids) {

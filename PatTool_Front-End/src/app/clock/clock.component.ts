@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostListener, Input, NgZone, OnChanges, OnDestroy, OnInit, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -101,7 +101,7 @@ interface StageMotif {
   path: string;
 }
 
-const FACES: ClockFace[] = [
+export const CLOCK_FACES: ClockFace[] = [
   { id: 'classic', labelKey: 'CLOCK.FACE_CLASSIC' },
   { id: 'roman', labelKey: 'CLOCK.FACE_ROMAN' },
   { id: 'noir', labelKey: 'CLOCK.FACE_NOIR' },
@@ -236,7 +236,7 @@ const FACES: ClockFace[] = [
   { id: 'nixie', labelKey: 'CLOCK.FACE_NIXIE' }
 ];
 
-const FACE_IDS = new Set(FACES.map((f) => f.id));
+const FACE_IDS = new Set(CLOCK_FACES.map((f) => f.id));
 
 const TYPED_QUARTZ = new Set([
   'quartz-serif', 'quartz-mono', 'quartz-script', 'quartz-narrow', 'quartz-gothic', 'quartz-heavy'
@@ -345,11 +345,15 @@ function defaultLook(): ClockLook {
   templateUrl: './clock.component.html',
   styleUrls: ['./clock.component.css'],
   host: {
-    '[attr.data-face]': 'faceId'
+    '[attr.data-face]': 'faceId',
+    '[class.clock-embed]': '!!embedFace'
   }
 })
-export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
-  readonly faces = FACES;
+export class ClockComponent implements OnInit, OnChanges, AfterViewInit, OnDestroy {
+  /** When set, only the face is shown and the saved preference is left untouched. */
+  @Input() embedFace: string | null = null;
+
+  readonly faces = CLOCK_FACES;
   readonly lookKeys: LookKey[] = ['contrast', 'brightness', 'reflection', 'glare', 'intensity', 'brilliance'];
   readonly sunRays = Array.from({ length: 72 }, (_, i) => i * 5);
   readonly subTicks = [0, 90, 180, 270];
@@ -460,8 +464,23 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly cdr: ChangeDetectorRef
   ) {}
 
+  ngOnChanges(changes: SimpleChanges): void {
+    const next = changes['embedFace']?.currentValue;
+    if (typeof next === 'string' && FACE_IDS.has(next) && next !== this.faceId) {
+      this.faceId = next;
+      this.refreshNumerals();
+    }
+  }
+
   ngOnInit(): void {
     this.browserZone = this.readBrowserZone();
+    if (this.embedFace && FACE_IDS.has(this.embedFace)) {
+      this.faceId = this.embedFace;
+      this.refreshNumerals();
+      this.tick();
+      this.zone.runOutsideAngular(() => this.paint());
+      return;
+    }
     this.zones = this.loadZones();
     this.loggedIn = this.keycloak.isLoggedIn();
     this.restoreLocal();
@@ -479,7 +498,9 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    this.syncPageBg();
+    if (!this.embedFace) {
+      this.syncPageBg();
+    }
   }
 
   ngOnDestroy(): void {
@@ -925,7 +946,7 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   setFace(id: string): void {
-    if (!FACE_IDS.has(id) || id === this.faceId) {
+    if (this.embedFace || !FACE_IDS.has(id) || id === this.faceId) {
       return;
     }
     this.faceId = id;
@@ -948,6 +969,9 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('document:keydown', ['$event'])
   onFaceArrow(event: KeyboardEvent): void {
+    if (this.embedFace) {
+      return;
+    }
     const forward = event.key === 'ArrowRight' || event.key === 'ArrowDown';
     const backward = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
     if (!forward && !backward) {
@@ -963,6 +987,10 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('touchstart', ['$event'])
   onFaceSwipeStart(event: TouchEvent): void {
+    if (this.embedFace) {
+      this.swipeActive = false;
+      return;
+    }
     if (event.touches.length !== 1) {
       this.swipeActive = false;
       return;
@@ -1001,8 +1029,8 @@ export class ClockComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private stepFace(step: number): void {
-    const index = FACES.findIndex((face) => face.id === this.faceId);
-    const next = FACES[(index + step + FACES.length) % FACES.length];
+    const index = CLOCK_FACES.findIndex((face) => face.id === this.faceId);
+    const next = CLOCK_FACES[(index + step + CLOCK_FACES.length) % CLOCK_FACES.length];
     if (!next) {
       return;
     }

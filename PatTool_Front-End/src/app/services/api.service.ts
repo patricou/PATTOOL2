@@ -4550,6 +4550,37 @@ export class ApiService {
     );
   }
 
+  /** Saved clock face, zone, look and alarms for this user. */
+  getClockPreferences(): Observable<{ faceId?: string } | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<{ faceId?: string }>(this.API_URL + 'external/clock/preferences', { headers }).pipe(
+          catchError(() => of(null))
+        )
+      )
+    );
+  }
+
+  /**
+   * Stores the face in the same document as the clock page.
+   * The current preferences are read first so alarms and the look are kept.
+   */
+  saveClockFace(faceId: string): Observable<unknown> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<Record<string, unknown>>(this.API_URL + 'external/clock/preferences', { headers }).pipe(
+          catchError(() => of(null)),
+          switchMap((prefs) => {
+            if (!prefs) {
+              return of(null);
+            }
+            return this._http.put(this.API_URL + 'external/clock/preferences', { ...prefs, faceId }, { headers });
+          })
+        )
+      )
+    );
+  }
+
   // ===================================================================
   // Deezer page — public catalog, 30-second previews only
   // Backend: /api/external/deezer/*

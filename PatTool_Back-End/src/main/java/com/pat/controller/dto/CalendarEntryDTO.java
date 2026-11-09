@@ -20,8 +20,11 @@ public class CalendarEntryDTO {
     private String thumbnailFileId;
     private String notes;
 
-    /** Set for {@link #KIND_APPOINTMENT} rows: creator id (for edit vs read-only in UI). */
+    /** Creator id. Appointments, and activities when the author ref is loaded. */
     private String ownerMemberId;
+
+    /** Display name of {@link #ownerMemberId}: first and last name, otherwise the username. */
+    private String ownerName;
 
     /** Appointment sharing; null for activities. */
     private String visibility;
@@ -104,6 +107,14 @@ public class CalendarEntryDTO {
 
     public void setOwnerMemberId(String ownerMemberId) {
         this.ownerMemberId = ownerMemberId;
+    }
+
+    public String getOwnerName() {
+        return ownerName;
+    }
+
+    public void setOwnerName(String ownerName) {
+        this.ownerName = ownerName;
     }
 
     public String getVisibility() {
