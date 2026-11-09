@@ -1294,7 +1294,7 @@
   aria-modal="true"
   [attr.aria-label]="'DEEZER.YT_LIST' | translate"
   (click)="$event.stopPropagation()"
-  (keydown.escape)="ytClearAskId != null ? cancelClearYoutubeList($event) : closeYoutubeList()">
+  (keydown.escape)="onYoutubeListEscape($event)">
   <div class="dz-pl-modal-head">
     <div class="dz-pl-track">
       <img *ngIf="ytListTrack.coverUrl" class="dz-pl-cover" [src]="ytListTrack.coverUrl" alt="" />
@@ -1303,7 +1303,8 @@
         <span class="dz-pl-kicker">{{ 'DEEZER.YT_LIST' | translate }}</span>
         <strong>{{ ytListTrack.title }}</strong>
         <span class="dz-pl-artist" *ngIf="ytListTrack.artistName">{{ ytListTrack.artistName }}</span>
-        <span class="dz-yt-list-count">{{ 'DEEZER.YT_LIST_COUNT' | translate:{ count: youtubeListIds(ytListTrack.id).length } }}</span>
+        <span class="dz-yt-list-count" *ngIf="!ytListQuery.trim()">{{ 'DEEZER.YT_LIST_COUNT' | translate:{ count: youtubeListIds(ytListTrack.id).length } }}</span>
+        <span class="dz-yt-list-count" *ngIf="ytListQuery.trim()">{{ 'DEEZER.YT_LIST_COUNT_FILTER' | translate:{ shown: filteredYoutubeListIds(ytListTrack.id).length, count: youtubeListIds(ytListTrack.id).length } }}</span>
       </span>
     </div>
     <button type="button" class="dz-pl-close" (click)="closeYoutubeList($event)" [attr.aria-label]="'DEEZER.CLEAR_SEARCH' | translate">
@@ -1324,7 +1325,7 @@
       type="button"
       class="dz-yt-play-list"
       [class.is-on]="youtubeListPlaying(ytListTrack.id)"
-      [disabled]="!youtubeListIds(ytListTrack.id).length"
+      [disabled]="!filteredYoutubeListIds(ytListTrack.id).length"
       (click)="toggleYoutubeList(ytListTrack, $event)"
       [attr.title]="(youtubeListPlaying(ytListTrack.id) ? 'DEEZER.PAUSE' : 'DEEZER.YT_LIST_PLAY_ALL') | translate"
       [attr.aria-label]="(youtubeListPlaying(ytListTrack.id) ? 'DEEZER.PAUSE' : 'DEEZER.YT_LIST_PLAY_ALL') | translate">
@@ -1374,10 +1375,36 @@
       <i class="fa fa-trash" *ngIf="!ytClearBusy[ytListTrack.id]" aria-hidden="true"></i>
     </button>
   </div>
+  <div class="dz-yt-list-filter">
+    <i class="fa fa-search" aria-hidden="true"></i>
+    <label class="visually-hidden" for="dz-yt-list-filter">{{ 'DEEZER.YT_LIST_FILTER' | translate }}</label>
+    <input
+      id="dz-yt-list-filter"
+      type="search"
+      class="form-control"
+      name="ytListQuery"
+      [(ngModel)]="ytListQuery"
+      [placeholder]="'DEEZER.YT_LIST_FILTER' | translate"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false" />
+    <button
+      type="button"
+      class="dz-yt-list-filter-clear"
+      *ngIf="ytListQuery.trim()"
+      (click)="ytListQuery = ''"
+      [attr.aria-label]="'DEEZER.CLEAR_SEARCH' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+    </button>
+  </div>
   <div class="dz-pl-modal-body dz-yt-list-body">
+    <p class="dz-pl-empty dz-yt-list-empty" *ngIf="ytListQuery.trim() && !filteredYoutubeListIds(ytListTrack.id).length">
+      {{ 'DEEZER.YT_LIST_FILTER_EMPTY' | translate }}
+    </p>
     <div
       class="dz-yt-link"
-      *ngFor="let videoId of youtubeListIds(ytListTrack.id); let n = index"
+      *ngFor="let videoId of filteredYoutubeListIds(ytListTrack.id)"
       [class.is-on]="ytLinks[ytListTrack.id] === videoId">
       <button
         type="button"
@@ -1386,7 +1413,7 @@
         [attr.aria-label]="'DEEZER.YT_LIST_PLAY' | translate">
         <img class="dz-yt-link-thumb" [src]="'https://i.ytimg.com/vi/' + videoId + '/mqdefault.jpg'" alt="" />
         <span class="dz-yt-link-text">
-          <strong class="dz-yt-link-title">{{ n + 1 }}. {{ ytClipInfo[videoId]?.title || videoId }}</strong>
+          <strong class="dz-yt-link-title">{{ youtubeListNumber(ytListTrack.id, videoId) }}. {{ ytClipInfo[videoId]?.title || videoId }}</strong>
           <span class="dz-yt-link-author" *ngIf="ytClipInfo[videoId]?.author">{{ ytClipInfo[videoId].author }}</span>
           <span class="dz-yt-link-url">youtube.com/watch?v={{ videoId }}</span>
         </span>

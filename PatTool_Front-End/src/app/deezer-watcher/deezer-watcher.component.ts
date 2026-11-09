@@ -346,6 +346,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private readonly ytClipAsked = new Set<string>();
   /** Track whose stored YouTube links are open in the list modal. */
   ytListTrack: DeezerTrack | null = null;
+  /** Narrows the open YouTube link list by title, channel, or video id. */
+  ytListQuery = '';
   /** Restart the track list from the first title when it reaches the end. */
   listLoop = true;
   /** Restart the open YouTube link list from the first clip when it reaches the end. */
@@ -1665,11 +1667,32 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     return ids;
   }
 
+  /** Clips still shown once the modal filter is applied. */
+  filteredYoutubeListIds(id: number): string[] {
+    const ids = this.youtubeListIds(id);
+    const parts = this.foldSearch(this.ytListQuery).split(/\s+/).filter(Boolean);
+    if (!parts.length) {
+      return ids;
+    }
+    return ids.filter((videoId) => {
+      const info = this.ytClipInfo[videoId];
+      const hay = this.foldSearch(`${info?.title || ''} ${info?.author || ''} ${videoId}`);
+      return parts.every((part) => hay.includes(part));
+    });
+  }
+
+  /** Position in the full list, so a filter does not renumber the clips. */
+  youtubeListNumber(id: number, videoId: string): number {
+    const at = this.youtubeListIds(id).indexOf(videoId);
+    return at < 0 ? 0 : at + 1;
+  }
+
   openYoutubeList(track: DeezerTrack, event?: Event): void {
     event?.stopPropagation();
     if (!this.hasYoutubeList(track.id)) {
       return;
     }
+    this.ytListQuery = '';
     this.ytListTrack = track;
     this.loadYoutubeClipCards(this.youtubeListIds(track.id));
   }
@@ -1698,7 +1721,22 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   closeYoutubeList(event?: Event): void {
     event?.stopPropagation();
     this.ytClearAskId = null;
+    this.ytListQuery = '';
     this.ytListTrack = null;
+  }
+
+  /** Escape clears the filter first, then closes the list. */
+  onYoutubeListEscape(event?: Event): void {
+    if (this.ytClearAskId != null) {
+      this.cancelClearYoutubeList(event);
+      return;
+    }
+    if (this.ytListQuery.trim()) {
+      event?.stopPropagation();
+      this.ytListQuery = '';
+      return;
+    }
+    this.closeYoutubeList(event);
   }
 
   /** Track waiting for the clear-links confirmation. */
@@ -1738,7 +1776,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   /** Play every stored clip of this title, one after another. */
   playYoutubeList(track: DeezerTrack, event?: Event): void {
     event?.stopPropagation();
-    const ids = this.youtubeListIds(track.id);
+    const ids = this.ytListTrack?.id === track.id
+      ? this.filteredYoutubeListIds(track.id)
+      : this.youtubeListIds(track.id);
     if (!ids.length) {
       return;
     }
@@ -1813,7 +1853,13 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   private youtubeListStepIds(trackId: number): string[] {
     const run = this.ytListRun?.trackId === trackId ? this.ytListRun : null;
-    return run ? run.ids : this.youtubeListIds(trackId);
+    if (run) {
+      return run.ids;
+    }
+    if (this.ytListTrack?.id === trackId) {
+      return this.filteredYoutubeListIds(trackId);
+    }
+    return this.youtubeListIds(trackId);
   }
 
   private youtubeListStepIndex(trackId: number, ids: string[], delta: number): number {

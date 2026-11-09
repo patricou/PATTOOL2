@@ -1052,6 +1052,75 @@ a.dz-page-jump {
   font-weight: 700;
 }
 
+.dz-yt-list-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.85rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--menu-fg, #fff) 12%, transparent);
+}
+
+.dz-yt-list-filter .fa-search {
+  flex: 0 0 auto;
+  color: var(--menu-muted, #94a3b8);
+  font-size: 0.8rem;
+}
+
+.dz-yt-list-filter .form-control {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 1.85rem;
+  min-height: 1.85rem;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.82rem;
+  background-color: var(--menu-input-bg, transparent);
+  color: var(--menu-input-fg, inherit);
+  border-color: var(--menu-input-border, color-mix(in srgb, var(--menu-fg, #fff) 22%, transparent));
+}
+
+.dz-yt-list-filter .form-control::placeholder {
+  color: var(--menu-muted, #94a3b8);
+}
+
+.dz-yt-list-filter .form-control:focus {
+  background-color: var(--menu-input-bg, transparent);
+  color: var(--menu-input-fg, inherit);
+  border-color: var(--menu-accent, #7c3aed);
+  box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--menu-accent, #7c3aed) 28%, transparent);
+}
+
+.dz-yt-list-filter input[type="search"]::-webkit-search-cancel-button,
+.dz-yt-list-filter input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.dz-yt-list-filter-clear {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--menu-muted, #94a3b8);
+  cursor: pointer;
+}
+
+.dz-yt-list-filter-clear:hover,
+.dz-yt-list-filter-clear:focus-visible {
+  background: color-mix(in srgb, var(--menu-fg, #fff) 10%, transparent);
+  color: var(--menu-fg, inherit);
+  outline: none;
+}
+
+.dz-yt-list-empty {
+  padding: 0.35rem 0.15rem;
+}
+
 .dz-yt-link .fa-play {
   flex: 0 0 auto;
   margin-right: 0.45rem;
