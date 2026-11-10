@@ -2,10 +2,11 @@
 	<div class="home-title-bar">
 		<div class="home-lang">
 			<button type="button" class="home-lang-btn" (click)="toggleLang($event)"
-			        [attr.aria-expanded]="langOpen" aria-haspopup="listbox">
+			        [attr.aria-expanded]="langOpen" aria-haspopup="listbox"
+			        [attr.aria-label]="('LANGUAGE.' + currentLang.toUpperCase()) | translate">
 				<span class="fi" [ngClass]="'fi-' + flagCode(currentLang)" aria-hidden="true"></span>
-				{{ ('LANGUAGE.' + currentLang.toUpperCase()) | translate }}
-				<i class="fa fa-caret-down" aria-hidden="true"></i>
+				<span class="home-lang-label">{{ ('LANGUAGE.' + currentLang.toUpperCase()) | translate }}</span>
+				<i class="fa fa-caret-down home-lang-caret" aria-hidden="true"></i>
 			</button>
 			<div class="home-lang-menu" *ngIf="langOpen" role="listbox">
 				<button type="button" *ngFor="let lang of langs" (click)="chooseLang(lang)"
@@ -20,7 +21,7 @@
 				<i class="fa fa-home" aria-hidden="true"></i>
 				{{ 'HOME.DASHBOARD.TITLE' | translate }}
 			</h2>
-			<p class="pat-title-subtitle mb-0">{{ nowLabel }}</p>
+			<p class="pat-title-subtitle mb-0" #dashNow></p>
 		</div>
 		<div class="home-tools">
 		<span class="radio-skin-picker">
@@ -61,16 +62,18 @@
 				</button>
 			</span>
 		</span>
-		<button type="button" class="home-tool-btn" (click)="refresh()" [disabled]="refreshing">
-			<i class="fa fa-refresh" [class.fa-spin]="refreshing" aria-hidden="true"></i>
-			{{ 'HOME.DASHBOARD.REFRESH' | translate }}
+		<button type="button" class="home-tool-btn" #dashRefresh (click)="refresh()"
+		        [attr.aria-label]="'HOME.DASHBOARD.REFRESH' | translate"
+		        [attr.title]="'HOME.DASHBOARD.REFRESH' | translate">
+			<i class="fa fa-refresh" aria-hidden="true"></i>
+			<span class="home-refresh-label">{{ 'HOME.DASHBOARD.REFRESH' | translate }}</span>
 		</button>
 		</div>
 	</div>
 </div>
 
 <div class="home-dash">
-	<div class="home-hero">
+	<div class="home-hero home-hero--bar">
 	<section class="home-weather" [class.home-weather--quiet]="weatherState !== 'ready'">
 		<a class="home-weather-main" routerLink="/api/meteo-france" *ngIf="weatherState === 'ready'">
 			<span class="home-weather-temp">{{ weatherTemp }}</span>
@@ -84,17 +87,37 @@
 		</a>
 		<div class="home-weather-main" *ngIf="weatherState !== 'ready'">
 			<span class="home-weather-kicker">{{ 'HOME.DASHBOARD.WEATHER' | translate }}</span>
-			<span class="home-weather-quiet-text" *ngIf="weatherState === 'loading'">{{ 'HOME.DASHBOARD.LOADING' | translate }}</span>
+			<span class="home-weather-quiet-text home-loading" *ngIf="weatherState === 'loading'">
+				<i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+				{{ 'HOME.DASHBOARD.LOADING' | translate }}
+			</span>
 			<span class="home-weather-quiet-text" *ngIf="weatherState === 'error'">{{ 'HOME.DASHBOARD.UNAVAILABLE' | translate }}</span>
 			<span class="home-weather-quiet-text" *ngIf="weatherState === 'empty'">{{ 'HOME.DASHBOARD.WEATHER_EMPTY' | translate }}</span>
 		</div>
-		<a class="home-user" routerLink="/profile" *ngIf="userLabel">
-			<span class="home-user-name">{{ userLabel }}</span>
-			<span class="home-user-meta" *ngIf="userLogin">{{ 'USERINFO.USERNAME' | translate }} {{ userLogin }}</span>
-			<span class="home-user-meta" *ngIf="userSeen">{{ 'USERINFO.LAST_CONNECTION' | translate }} · {{ userSeen }}</span>
-		</a>
+		<button type="button" class="home-card-refresh" (click)="refreshWeather()" [disabled]="weatherRefreshing"
+		        [attr.aria-label]="'HOME.DASHBOARD.REFRESH' | translate"
+		        [attr.title]="'HOME.DASHBOARD.REFRESH' | translate">
+			<i class="fa fa-refresh" [class.fa-spin]="weatherRefreshing" aria-hidden="true"></i>
+		</button>
+		<div class="home-user" *ngIf="userLabel">
+			<button type="button" class="home-user-name" (click)="openUserInfo()">{{ userLabel }}</button>
+			<button type="button" class="home-user-meta home-user-login" *ngIf="userLogin" (click)="openUserInfo()">{{ 'USERINFO.USERNAME' | translate }} {{ userLogin }}</button>
+			<a class="home-user-address" routerLink="/profile" *ngIf="userAddress" [attr.title]="userAddress">
+				<i class="fa fa-map-marker" aria-hidden="true"></i>
+				{{ userAddress }}
+			</a>
+			<div class="home-user-gps" *ngIf="weatherLat != null && weatherLon != null">
+				<span class="home-user-meta">{{ weatherCoordsLabel }}</span>
+				<button type="button" class="home-card-refresh" (click)="openUserMap()"
+				        [attr.aria-label]="'MENU.MAP_TRACE_VIEWER' | translate"
+				        [attr.title]="'MENU.MAP_TRACE_VIEWER' | translate">
+					<i class="fa fa-map" aria-hidden="true"></i>
+				</button>
+			</div>
+			<a class="home-user-meta" routerLink="/profile" *ngIf="userSeen">{{ 'USERINFO.LAST_CONNECTION' | translate }} · {{ userSeen }}</a>
+		</div>
 	</section>
-	<button type="button" class="home-clock" (click)="nextClock()" [attr.aria-label]="clockLabelKey | translate">
+	<button type="button" class="home-clock" (click)="onClockClick($event)" [attr.aria-label]="clockLabelKey | translate">
 		<app-clock [embedFace]="clockFace"></app-clock>
 	</button>
 	</div>
@@ -102,11 +125,21 @@
 	<div class="home-grid">
 		<div class="home-col">
 		<section class="home-card home-card--grow">
-			<a class="home-kicker" routerLink="/calendrier">
-				<i class="fa fa-calendar" aria-hidden="true"></i>
-				{{ 'HOME.DASHBOARD.AGENDA' | translate }}
-			</a>
-			<p class="home-muted" *ngIf="agendaState === 'loading'">{{ 'HOME.DASHBOARD.LOADING' | translate }}</p>
+			<div class="home-kicker home-kicker--bar">
+				<a routerLink="/calendrier">
+					<i class="fa fa-calendar" aria-hidden="true"></i>
+					{{ 'HOME.DASHBOARD.AGENDA' | translate }}
+				</a>
+				<button type="button" class="home-card-refresh" (click)="refreshAgenda()" [disabled]="agendaRefreshing"
+				        [attr.aria-label]="'HOME.DASHBOARD.REFRESH' | translate"
+				        [attr.title]="'HOME.DASHBOARD.REFRESH' | translate">
+					<i class="fa fa-refresh" [class.fa-spin]="agendaRefreshing" aria-hidden="true"></i>
+				</button>
+			</div>
+			<p class="home-muted home-loading" *ngIf="agendaState === 'loading'">
+				<i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+				{{ 'HOME.DASHBOARD.LOADING' | translate }}
+			</p>
 			<p class="home-muted" *ngIf="agendaState === 'error'">{{ 'HOME.DASHBOARD.UNAVAILABLE' | translate }}</p>
 			<p class="home-muted" *ngIf="agendaState === 'empty'">{{ 'HOME.DASHBOARD.AGENDA_EMPTY' | translate }}</p>
 			<div class="home-card-scroll" *ngIf="agendaState === 'ready'">
@@ -149,12 +182,22 @@
 			</div>
 		</section>
 
-		<section class="home-card home-card--grow">
-			<a class="home-kicker" routerLink="/todolists">
-				<i class="fa fa-check-square-o" aria-hidden="true"></i>
-				{{ 'HOME.DASHBOARD.TASKS' | translate }}
-			</a>
-			<p class="home-muted" *ngIf="taskState === 'loading'">{{ 'HOME.DASHBOARD.LOADING' | translate }}</p>
+		<section class="home-card home-card--grow home-card--tasks">
+			<div class="home-kicker home-kicker--bar">
+				<a routerLink="/todolists">
+					<i class="fa fa-check-square-o" aria-hidden="true"></i>
+					{{ 'HOME.DASHBOARD.TASKS' | translate }}
+				</a>
+				<button type="button" class="home-card-refresh" (click)="refreshTasks()" [disabled]="taskRefreshing"
+				        [attr.aria-label]="'HOME.DASHBOARD.REFRESH' | translate"
+				        [attr.title]="'HOME.DASHBOARD.REFRESH' | translate">
+					<i class="fa fa-refresh" [class.fa-spin]="taskRefreshing" aria-hidden="true"></i>
+				</button>
+			</div>
+			<p class="home-muted home-loading" *ngIf="taskState === 'loading'">
+				<i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+				{{ 'HOME.DASHBOARD.LOADING' | translate }}
+			</p>
 			<p class="home-muted" *ngIf="taskState === 'error'">{{ 'HOME.DASHBOARD.UNAVAILABLE' | translate }}</p>
 			<p class="home-muted" *ngIf="taskState === 'empty'">{{ 'HOME.DASHBOARD.TASKS_EMPTY' | translate }}</p>
 			<div class="home-card-scroll" *ngIf="taskState === 'ready'">
@@ -176,7 +219,7 @@
 		</div>
 
 		<div class="home-col">
-		<section class="home-card home-card--grow">
+		<section class="home-card home-card--grow home-card--news">
 			<div class="home-kicker home-kicker--news">
 				<a routerLink="/api/news">
 					<i class="fa fa-newspaper-o" aria-hidden="true"></i>
@@ -188,11 +231,19 @@
 						{{ newsProviderLabel(id) | translate }}
 					</button>
 				</span>
+				<button type="button" class="home-news-refresh" (click)="refreshNews()" [disabled]="newsRefreshing"
+				        [attr.aria-label]="'HOME.DASHBOARD.REFRESH' | translate"
+				        [attr.title]="'HOME.DASHBOARD.REFRESH' | translate">
+					<i class="fa fa-refresh" [class.fa-spin]="newsRefreshing" aria-hidden="true"></i>
+				</button>
 			</div>
-			<p class="home-muted" *ngIf="newsState === 'loading'">{{ 'HOME.DASHBOARD.LOADING' | translate }}</p>
-			<p class="home-muted" *ngIf="newsState === 'error'">{{ 'HOME.DASHBOARD.UNAVAILABLE' | translate }}</p>
-			<p class="home-muted" *ngIf="newsState === 'empty'">{{ 'HOME.DASHBOARD.NEWS_EMPTY' | translate }}</p>
-			<div class="home-card-scroll" *ngIf="newsState === 'ready'">
+			<p class="home-muted home-loading" *ngIf="newsViewState === 'loading'">
+				<i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+				{{ 'HOME.DASHBOARD.LOADING' | translate }}
+			</p>
+			<p class="home-muted" *ngIf="newsViewState === 'error'">{{ 'HOME.DASHBOARD.UNAVAILABLE' | translate }}</p>
+			<p class="home-muted" *ngIf="newsViewState === 'empty'">{{ 'HOME.DASHBOARD.NEWS_EMPTY' | translate }}</p>
+			<div class="home-card-scroll" *ngIf="newsViewState === 'ready'">
 				<a class="home-row home-row--news" *ngFor="let item of news" [href]="item.url" target="_blank" rel="noopener noreferrer">
 					<img *ngIf="item.image" class="home-news-photo" [src]="item.image" alt="" (error)="hideNewsImage(item)">
 					<span class="home-news-copy">
@@ -207,11 +258,18 @@
 			</div>
 		</section>
 
-		<section class="home-card home-card--fit">
-			<a class="home-kicker" [routerLink]="playing?.route || '/tools/deezer'">
-				<i class="fa fa-music" aria-hidden="true"></i>
-				{{ 'HOME.DASHBOARD.PLAYING' | translate }}
-			</a>
+		<section class="home-card home-card--fit home-card--playing">
+			<div class="home-kicker home-kicker--bar">
+				<a [routerLink]="playing?.route || '/tools/deezer'">
+					<i class="fa fa-music" aria-hidden="true"></i>
+					{{ 'HOME.DASHBOARD.PLAYING' | translate }}
+				</a>
+				<button type="button" class="home-card-refresh" (click)="refreshPlaying()" [disabled]="playingRefreshing"
+				        [attr.aria-label]="'HOME.DASHBOARD.REFRESH' | translate"
+				        [attr.title]="'HOME.DASHBOARD.REFRESH' | translate">
+					<i class="fa fa-refresh" [class.fa-spin]="playingRefreshing" aria-hidden="true"></i>
+				</button>
+			</div>
 			<div *ngIf="playing as track; else playingEmpty">
 				<a class="home-row home-row--activity" [routerLink]="track.route">
 					<span class="home-tv" *ngIf="track.sourceKey === 'HOME.DASHBOARD.SOURCE_TV'">
@@ -232,14 +290,41 @@
 			<ng-template #playingEmpty>
 				<p class="home-muted">{{ 'HOME.DASHBOARD.PLAYING_EMPTY' | translate }}</p>
 				<div class="home-links">
-					<a routerLink="/tools/deezer">{{ 'HOME.DASHBOARD.OPEN_DEEZER' | translate }}</a>
-					<a routerLink="/tools/radio-watcher">{{ 'HOME.DASHBOARD.OPEN_RADIO' | translate }}</a>
-					<a routerLink="/tools/tv-watcher">{{ 'HOME.DASHBOARD.OPEN_TV' | translate }}</a>
+					<a routerLink="/tools/deezer">
+						<img class="home-link-logo home-link-logo--deezer" src="assets/images/deezer-logo.svg" alt="">
+						{{ 'HOME.DASHBOARD.OPEN_DEEZER' | translate }}
+					</a>
+					<a routerLink="/tools/radio-watcher">
+						<img class="home-link-logo home-link-logo--radio" src="assets/images/radio-mark.svg" alt="">
+						{{ 'HOME.DASHBOARD.OPEN_RADIO' | translate }}
+					</a>
+					<a routerLink="/tools/tv-watcher">
+						<img class="home-link-logo" src="assets/images/menu-tv.svg" alt="">
+						{{ 'HOME.DASHBOARD.OPEN_TV' | translate }}
+					</a>
 				</div>
 			</ng-template>
 		</section>
 		</div>
 	</div>
 
+	<section class="home-meteo" *ngIf="weatherLat != null && weatherLon != null"
+	         [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_BTN' | translate">
+		<app-weather-point-timeline
+			overlayMode="panel"
+			[visible]="true"
+			[lat]="weatherLat"
+			[lon]="weatherLon"
+			[title]="weatherPlace"
+			[altitudeM]="weatherAltitude"
+			[region]="weatherRegion"
+			[climEnabled]="weatherClim"
+			[openMeteoTempC]="weatherTempC"
+			[openMeteoObservedAt]="weatherObservedAt || null"
+			temperatureUnit="celsius">
+		</app-weather-point-timeline>
+	</section>
+
 	<p class="home-cite">{{ 'HOME.CITATION' | translate }}</p>
 </div>
+<app-trace-viewer-modal></app-trace-viewer-modal>

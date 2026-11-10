@@ -86,6 +86,15 @@ export function createTvHlsConfig(
   };
 }
 
+/**
+ * Subtitle playlist failures must not tear down a playing picture.
+ * france.tv marks a default WebVTT track; a 503 on that playlist is fatal in
+ * hls.js and was hard-restarting France 2 into the offline banner.
+ */
+export function isTvHlsSubtitleError(data?: { details?: string } | null): boolean {
+  return (data?.details || '').toLowerCase().includes('subtitle');
+}
+
 /** Disable HLS + native text tracks (default on every channel / stream change). */
 export function disableTvSubtitles(hls?: Hls | null, video?: HTMLVideoElement | null): void {
   if (hls) {

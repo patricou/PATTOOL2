@@ -20,6 +20,25 @@ export interface TodoItem {
     completedAt?: string | null;
 }
 
+/** Home dashboard payload: open tasks, no cover image and no descriptions. */
+export interface TodoDashboardItem {
+    id?: string;
+    title: string;
+    status: TodoStatus;
+    dueDate?: string | null;
+    assigneeMemberId?: string | null;
+    assigneeName?: string | null;
+}
+
+export interface TodoDashboardList {
+    id?: string;
+    ownerMemberId?: string;
+    ownerName?: string | null;
+    name: string;
+    status?: TodoStatus;
+    items: TodoDashboardItem[];
+}
+
 export interface TodoList {
     id?: string;
     ownerMemberId?: string;
@@ -119,6 +138,15 @@ export class TodoListService {
         return this.withUserHeaders().pipe(
             switchMap(headers =>
                 this.http.get<TodoList[]>(`${environment.API_URL}todolists`, { headers })
+            )
+        );
+    }
+
+    /** Open tasks for the home card. Skips cover images and the full member directory. */
+    listDashboard(): Observable<TodoDashboardList[]> {
+        return this.withUserHeaders().pipe(
+            switchMap(headers =>
+                this.http.get<TodoDashboardList[]>(`${environment.API_URL}todolists/summary`, { headers })
             )
         );
     }

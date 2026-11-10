@@ -1,6 +1,7 @@
 package com.pat.controller;
 
 import com.pat.controller.dto.CalendarVisibilityRecipientDTO;
+import com.pat.controller.dto.TodoDashboardListDto;
 import com.pat.controller.dto.TodoListAssignmentRequest;
 import com.pat.controller.dto.TodoListRequest;
 import com.pat.repo.CalendarAppointmentRepository;
@@ -81,6 +82,18 @@ public class TodoListRestController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(todoListRepository.findAccessibleByMember(userId));
+    }
+
+    /**
+     * Home dashboard: open tasks only, with display names and without cover images.
+     */
+    @GetMapping("/summary")
+    public ResponseEntity<List<TodoDashboardListDto>> listDashboard(
+            @RequestHeader(value = "user-id", required = false) String userId) {
+        if (!StringUtils.hasText(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(todoListRepository.findDashboardByMember(userId));
     }
 
     @GetMapping("/{id}")

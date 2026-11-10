@@ -3741,3 +3741,55 @@
 ::ng-deep .trace-viewer-offline-traces-modal .tv-offline-trace-row:last-child {
 	border-bottom: none;
 }
+
+::ng-deep .modal.show .modal-content.trace-viewer-skin:has(.trace-viewer-body) {
+	background: var(--menu-bg) !important;
+	color: var(--menu-fg) !important;
+	border: var(--menu-border-width, 1px) solid var(--menu-border, transparent) !important;
+	box-shadow: var(--menu-shadow, none) !important;
+}
+
+::ng-deep .modal.show .modal-content.trace-viewer-skin:has(.trace-viewer-body) .slideshow-header {
+	background-color: var(--slideshow-header-solid, #1c1612) !important;
+	background-image: var(--slideshow-header-image, none) !important;
+	background-repeat: no-repeat !important;
+	color: var(--menu-fg) !important;
+	border-bottom: 1px solid var(--menu-border, transparent) !important;
+}
+
+::ng-deep .modal.show .modal-content.trace-viewer-skin:has(.trace-viewer-body) .slideshow-header .modal-title,
+::ng-deep .modal.show .modal-content.trace-viewer-skin:has(.trace-viewer-body) .slideshow-header .btn {
+	color: var(--menu-fg) !important;
+	border-color: var(--menu-border, transparent) !important;
+}
+
+::ng-deep .modal.show .modal-content.trace-viewer-skin:has(.trace-viewer-body) .slideshow-body {
+	background: var(--menu-bg) !important;
+}
+
+::ng-deep .modal.show .modal-content.trace-viewer-skin:has(.trace-viewer-body) .slideshow-footer,
+::ng-deep .modal.show .modal-content.trace-viewer-skin:has(.trace-viewer-body) .trace-viewer-footer-toolbar {
+	background: var(--menu-bg) !important;
+	color: var(--menu-fg) !important;
+	border-color: var(--menu-border, transparent) !important;
+}
+
+::ng-deep .modal.show .modal-content.trace-viewer-skin:has(.trace-viewer-body) .slideshow-footer .btn,
+::ng-deep .modal.show .modal-content.trace-viewer-skin:has(.trace-viewer-body) .slideshow-footer select,
+::ng-deep .modal.show .modal-content.trace-viewer-skin:has(.trace-viewer-body) .slideshow-footer #trace-base-layer {
+	background: var(--menu-input-bg, transparent) !important;
+	color: var(--menu-input-fg, var(--menu-fg)) !important;
+	border-color: var(--menu-input-border, var(--menu-border)) !important;
+}
+
+::ng-deep .modal.show .modal-content.trace-viewer-skin:has(.trace-viewer-body) .slideshow-footer .btn:hover:not(:disabled),
+::ng-deep .modal.show .modal-content.trace-viewer-skin:has(.trace-viewer-body) .slideshow-header .btn:hover {
+	background: var(--menu-hover, transparent) !important;
+	color: var(--menu-fg) !important;
+}
+
+::ng-deep .modal.show .modal-content.trace-viewer-skin:has(.trace-viewer-body) .slideshow-footer .form-check-label,
+::ng-deep .modal.show .modal-content.trace-viewer-skin:has(.trace-viewer-body) .slideshow-footer .trace-stats {
+	background: transparent !important;
+	color: var(--menu-fg) !important;
+}

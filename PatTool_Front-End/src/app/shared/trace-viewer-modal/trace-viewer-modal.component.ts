@@ -6760,6 +6760,124 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
+	/** Paint the open map viewer with the skin variables of a page host. */
+	public applyHostSkin(source: HTMLElement): void {
+		const names = [
+			'--menu-bg', '--menu-fg', '--menu-muted', '--menu-border', '--menu-border-width',
+			'--menu-accent', '--menu-accent-fg', '--menu-toolbar', '--menu-input-bg',
+			'--menu-input-fg', '--menu-input-border', '--menu-hover', '--menu-active',
+			'--menu-radius', '--menu-shadow'
+		];
+		const paint = (attempt = 0): void => {
+			const modal = this.findTraceViewerModalContent();
+			if (!modal) {
+				if (attempt < 8) {
+					setTimeout(() => paint(attempt + 1), 60);
+				}
+				return;
+			}
+			const style = getComputedStyle(source);
+			for (const name of names) {
+				const value = style.getPropertyValue(name).trim();
+				if (value) {
+					modal.style.setProperty(name, value);
+				}
+			}
+			const toolbar = style.getPropertyValue('--menu-toolbar').trim();
+			const bg = style.getPropertyValue('--menu-bg').trim();
+			const fg = style.getPropertyValue('--menu-fg').trim();
+			const border = style.getPropertyValue('--menu-border').trim();
+			const header = this.opaqueHeaderPaint(toolbar, bg);
+			modal.style.setProperty('--slideshow-header-solid', header.solid);
+			modal.style.setProperty('--slideshow-header-image', header.image);
+			modal.style.setProperty('--slideshow-header-bg', header.solid);
+			if (fg) {
+				modal.style.setProperty('--slideshow-header-text', fg);
+				modal.style.setProperty('--slideshow-button-text', fg);
+				modal.style.setProperty('--slideshow-footer-button-text', fg);
+			}
+			if (bg) {
+				modal.style.setProperty('--slideshow-footer-bg', bg);
+				modal.style.setProperty('--tv-modal-body-bg', bg);
+			}
+			if (border) {
+				modal.style.setProperty('--slideshow-border', border);
+				modal.style.setProperty('--slideshow-footer-border', border);
+				modal.style.setProperty('--slideshow-button-border', border);
+			}
+			modal.classList.add('trace-viewer-skin');
+		};
+		paint();
+	}
+
+	/**
+	 * Title bar paint. A plain color cannot sit in front of a gradient in one
+	 * `background` value: the declaration is dropped and the bar turns transparent.
+	 */
+	private opaqueHeaderPaint(toolbar: string, bg: string): { solid: string; image: string } {
+		const solid = this.firstOpaqueColor(toolbar) || this.firstOpaqueColor(bg) || '#1c1612';
+		if (!toolbar || (this.isPlainCssColor(toolbar) && !this.colorHasAlpha(toolbar))) {
+			return { solid: this.isPlainCssColor(toolbar) ? toolbar : solid, image: 'none' };
+		}
+		const image = this.isPlainCssColor(toolbar)
+			? `linear-gradient(${toolbar}, ${toolbar})`
+			: toolbar;
+		return { solid, image };
+	}
+
+	private isPlainCssColor(value: string): boolean {
+		return !!value && !/gradient\(|url\(|image\(/i.test(value);
+	}
+
+	private colorHasAlpha(value: string): boolean {
+		const v = value.trim();
+		if (/^transparent$/i.test(v)) {
+			return true;
+		}
+		const hex = v.match(/^#([0-9a-f]{4}|[0-9a-f]{8})$/i);
+		if (hex) {
+			const alpha = hex[1].length === 4 ? hex[1].charAt(3) : hex[1].slice(6);
+			return !/^f+$/i.test(alpha);
+		}
+		const slash = v.match(/\/\s*([0-9.]+%?)/);
+		if (slash) {
+			return !this.alphaIsOpaque(slash[1]);
+		}
+		if (/rgba|hsla/i.test(v)) {
+			const parts = v.match(/[\d.]+%?/g) || [];
+			return parts.length < 4 || !this.alphaIsOpaque(parts[3]);
+		}
+		return false;
+	}
+
+	private alphaIsOpaque(token: string): boolean {
+		if (token.endsWith('%')) {
+			return parseFloat(token) >= 100;
+		}
+		return parseFloat(token) >= 1;
+	}
+
+	/** Last opaque color token, so a translucent toolbar still sits on a solid bar. */
+	private firstOpaqueColor(value: string): string {
+		if (!value) {
+			return '';
+		}
+		if (this.isPlainCssColor(value)) {
+			return this.colorHasAlpha(value) ? '' : value.trim();
+		}
+		const tokens = value.match(/#[0-9a-f]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)/gi) || [];
+		for (let i = tokens.length - 1; i >= 0; i--) {
+			if (!this.colorHasAlpha(tokens[i])) {
+				return tokens[i];
+			}
+		}
+		return '';
+	}
+
+	private findTraceViewerModalContent(): HTMLElement | null {
+		return document.querySelector('.modal.show .modal-content:has(.trace-viewer-body)');
+	}
+
 	// Apply event color to trace viewer styling (similar to slideshow)
 	private applyEventColorToTraceViewer(): void {
 		if (!this.eventColor) {

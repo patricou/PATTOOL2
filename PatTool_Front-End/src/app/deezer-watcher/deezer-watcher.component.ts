@@ -166,6 +166,13 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private youtubeSeconds = 0;
   private youtubeClock?: ReturnType<typeof setInterval>;
   private adoptedAudio: HTMLAudioElement | null = null;
+  private clipSeekTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly onKeptAudioTime = (): void => this.onAudioTime();
+  private readonly onKeptAudioPlay = (): void => this.onAudioPlay();
+  private readonly onKeptAudioPause = (): void => this.onAudioPause();
+  private readonly onKeptAudioWaiting = (): void => this.onAudioWaiting();
+  private readonly onKeptAudioEnded = (): void => this.onAudioEnded();
+  private readonly onKeptAudioError = (): void => this.onAudioError();
   audioDuration = 0;
   sleeveOpen = true;
   /** Cover sits over the dial, speaker and screen motion. */
@@ -586,6 +593,11 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.stopYoutubeClock();
     this.stopYoutubeHandshake();
     this.sleeveSub?.unsubscribe();
+    if (this.clipSeekTimer != null) {
+      clearTimeout(this.clipSeekTimer);
+      this.clipSeekTimer = null;
+    }
+    this.unbindKeptAudio(this.adoptedAudio);
     document.body.classList.remove('radio-focus', 'radio-stage-fs', 'radio-landscape-fs');
     const audio = this.pageAudio();
     const frame = this.youtubeFrame();
@@ -594,6 +606,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (this.keepAliveOnNavigate && this.playing && (keepAudio || keepVideo)) {
       const copyVideo = keepVideo && frame === this.ytFrame?.nativeElement;
       const copyMedia = keepVideo ? copyVideo : !this.adoptedAudio;
+      this.releaseEqualizerMedia(keepAudio && !copyMedia ? audio : null);
       const videoId = copyVideo ? this.currentYoutubeId() : '';
       const mediaTime = keepVideo ? this.youtubeSeconds : audio?.currentTime || 0;
       this.keepAlive.handoff({
@@ -617,11 +630,13 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       }
       return;
     }
+    this.releaseEqualizerMedia(null);
     if (audio) {
       audio.dataset['patUserPaused'] = '1';
       audio.pause();
       audio.removeAttribute('src');
     }
+    this.releaseKeptMedia();
     this.releaseScreenHold();
     if (this.isPipActive) {
       closeRadioDocPip();
@@ -3299,7 +3314,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.ytListRun = null;
     }
     const same = this.current?.id === track.id;
-    this.ytLog(`playTrack ${track.id} same=${same} restart=${restart} ${this.ytCaller()}`);
     if (!restart && same) {
       this.togglePlay();
       return;
@@ -4666,13 +4680,11 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     // A clip that is already playing must be left alone. Touching it on every buffer blink cuts the picture.
     if (state === 3 && this.clipArmed) {
       this.youtubePlayerState = 3;
-      this.ytLog('état chargement');
       return;
     }
     if (state === 1 && this.clipArmed && this.playing && this.screenHold && !this.userHold && !this.youtubeBusy) {
       this.youtubePlayerState = 1;
       this.ytSoundArmed = true;
-      this.ytLog('état lecture');
       return;
     }
     this.zone.run(() => this.applyYoutubePlayerEvent(payload, state));
@@ -4684,8 +4696,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   ): void {
     if (state !== undefined && this.clipArmed) {
       this.youtubePlayerState = state;
-      const labels: Record<number, string> = { 0: 'fin', 1: 'lecture', 2: 'pause', 3: 'chargement', 5: 'prêt' };
-      this.ytLog(`état ${labels[state] || String(state)}`);
     }
     this.ytApiListening = true;
     if (!this.clipArmed) {
@@ -4697,7 +4707,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       return;
     }
     if (payload.event === 'onReady') {
-      this.ytLog('lecteur prêt');
       this.tryApplyClipSeek();
       this.pushYoutubeSound();
       return;
@@ -5685,7 +5694,13 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.holdScreen();
     }
     this.handshakeYoutube();
-    window.setTimeout(() => this.tryApplyClipSeek(true), 1200);
+    if (this.clipSeekTimer != null) {
+      clearTimeout(this.clipSeekTimer);
+    }
+    this.clipSeekTimer = setTimeout(() => {
+      this.clipSeekTimer = null;
+      this.tryApplyClipSeek(true);
+    }, 1200);
   }
 
   private mountKeptAudio(kept: HTMLAudioElement, time: number, playing: boolean): void {
@@ -5708,13 +5723,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       }
       this.holdScreen();
     }
-    kept.addEventListener('timeupdate', () => this.onAudioTime());
-    kept.addEventListener('play', () => this.onAudioPlay());
-    kept.addEventListener('pause', () => this.onAudioPause());
-    kept.addEventListener('waiting', () => this.onAudioWaiting());
-    kept.addEventListener('playing', () => this.onAudioPlay());
-    kept.addEventListener('ended', () => this.onAudioEnded());
-    kept.addEventListener('error', () => this.onAudioError());
+    this.bindKeptAudio(kept);
     if (kept.ended && this.queueContinues()) {
       this.next();
     }
@@ -5733,10 +5742,46 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     const kept = this.adoptedAudio;
     this.adoptedAudio = null;
     if (kept) {
+      this.unbindKeptAudio(kept);
+      this.equalizer.detachMediaElement(kept);
       kept.dataset['patUserPaused'] = '1';
       kept.pause();
       kept.removeAttribute('src');
       kept.remove();
+    }
+  }
+
+  private bindKeptAudio(kept: HTMLAudioElement): void {
+    this.unbindKeptAudio(kept);
+    kept.addEventListener('timeupdate', this.onKeptAudioTime);
+    kept.addEventListener('play', this.onKeptAudioPlay);
+    kept.addEventListener('pause', this.onKeptAudioPause);
+    kept.addEventListener('waiting', this.onKeptAudioWaiting);
+    kept.addEventListener('playing', this.onKeptAudioPlay);
+    kept.addEventListener('ended', this.onKeptAudioEnded);
+    kept.addEventListener('error', this.onKeptAudioError);
+  }
+
+  private unbindKeptAudio(kept: HTMLAudioElement | null): void {
+    if (!kept) {
+      return;
+    }
+    kept.removeEventListener('timeupdate', this.onKeptAudioTime);
+    kept.removeEventListener('play', this.onKeptAudioPlay);
+    kept.removeEventListener('pause', this.onKeptAudioPause);
+    kept.removeEventListener('waiting', this.onKeptAudioWaiting);
+    kept.removeEventListener('playing', this.onKeptAudioPlay);
+    kept.removeEventListener('ended', this.onKeptAudioEnded);
+    kept.removeEventListener('error', this.onKeptAudioError);
+  }
+
+  /** Drop the Web Audio hook so a destroyed <audio> is not kept by the equalizer. */
+  private releaseEqualizerMedia(except: HTMLMediaElement | null): void {
+    const nodes = [this.adoptedAudio, this.audioRef?.nativeElement];
+    for (const node of nodes) {
+      if (node && node !== except) {
+        this.equalizer.detachMediaElement(node);
+      }
     }
   }
 
@@ -5867,7 +5912,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (audio) {
       audio.muted = false;
     }
-    this.ytLog('iframe retirée');
     this.releaseKeptMedia();
     this.ytToken++;
     this.ytSub?.unsubscribe();
@@ -5891,22 +5935,18 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (this.ytListPlayId) {
       const id = this.ytListPlayId;
       this.ytListPlayId = '';
-      this.ytLog(`resolve liste ${id}`);
       this.applyYoutubeHit(track, id, token);
       return;
     }
     if (this.ytOffer?.trackId === track.id && this.ytOffer.videoId) {
-      this.ytLog(`resolve offre ${this.ytOffer.videoId}`);
       this.applyYoutubeHit(track, this.ytOffer.videoId, token);
       return;
     }
     const cached = this.ytCache.get(track.id);
     if (cached !== undefined) {
-      this.ytLog(`resolve cache ${cached || 'aucun'}`);
       this.applyYoutubeHit(track, cached, token);
       return;
     }
-    this.ytLog('resolve réseau');
     const q = this.youtubeQuery(track);
     if (q.length < 2) {
       this.playPreview(track);
@@ -5971,9 +6011,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.ytIgnoreEnd = Date.now() + 4000;
     const frame = this.youtubeFrame();
     const already = (frame?.dataset['patVideoId'] || '').trim();
-    this.ytLog(`apply ${id} déjà=${already || 'non'} écoute=${this.ytApiListening} ${this.ytCaller()}`);
     if (already === id && (this.youtubeEmbed || this.keptFrameActive)) {
-      this.ytLog('même clip, pas de rechargement');
       return;
     }
     if (this.ytApiListening && frame?.contentWindow && (this.youtubeEmbed || this.keptFrameActive)) {
@@ -6000,7 +6038,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     const replay = this.ytReplay ? `&ts=${this.ytReplay}` : '';
     const startSeconds = this.takeVideoshowSeek();
     const startQuery = startSeconds > 1 ? `&start=${Math.floor(startSeconds)}` : '';
-    this.ytLog(`nouvelle iframe ${id}`);
     this.youtubeEmbed = this.sanitizer.bypassSecurityTrustResourceUrl(
       `https://www.youtube-nocookie.com/embed/${id}?rel=0&autoplay=1&playsinline=1&controls=1&fs=1&iv_load_policy=3${origin}${replay}${startQuery}`
     );
@@ -6472,9 +6509,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
           return;
         }
         this.clipAspectCache.set(videoId, { w, h });
-        this.ytLog(`format image ${w}×${h}`);
         if (this.youtubePlayerState === 1 || this.youtubePlayerState === 3) {
-          this.ytLog('format ignoré, le clip joue déjà');
           return;
         }
         this.clipAspectW = w;
@@ -6534,16 +6569,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.postYoutubeCommand('setVolume', [100]);
   }
 
-  private ytCaller(): string {
-    const stack = new Error().stack || '';
-    return stack.split('\n').slice(2, 5).map((line) => line.trim().replace(/^at /, '')).join(' <- ');
-  }
-
-  private ytLog(message: string): void {
-    const sec = Number.isFinite(this.youtubeSeconds) ? `${this.youtubeSeconds.toFixed(1)}s` : '?';
-    console.log(`[Deezer YT ${sec}] ${message}`);
-  }
-
   private postYoutubeCommand(func: string, args: unknown[] = []): void {
     const frame = this.youtubeFrame()?.contentWindow;
     if (!frame) {
@@ -6551,9 +6576,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
     if (func === 'playVideo') {
       this.youtubeCommandPlayAt = Date.now();
-    }
-    if (func !== 'getCurrentTime') {
-      this.ytLog(`ordre ${func}${args.length ? ' ' + JSON.stringify(args) : ''}`);
     }
     try {
       frame.postMessage(JSON.stringify({ event: 'command', func, args }), '*');

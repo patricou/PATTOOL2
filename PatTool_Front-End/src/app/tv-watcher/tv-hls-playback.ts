@@ -8,6 +8,7 @@ import {
   createTvHlsConfig,
   disableTvSubtitles,
   isTvHlsForbiddenError,
+  isTvHlsSubtitleError,
   resetTvMediaElement,
   tryRecoverTvHlsError,
   type TvHlsRecoverAttempts
@@ -156,6 +157,21 @@ export function startTvHlsPlayback(
     });
     instance.on(Hls.Events.ERROR, (_e, data) => {
       if (!data?.fatal) {
+        return;
+      }
+      if (isTvHlsSubtitleError(data)) {
+        disableTvSubtitles(instance, video);
+        tvPlayLog('erreur sous-titres ignorée — la vidéo continue (float/popout)', {
+          channel: channelLabel,
+          what: 'playlist sous-titres en échec, piste coupée, pas de hard restart',
+          details: data.details,
+          http: data.response?.code ?? data.networkDetails?.status ?? null
+        });
+        try {
+          instance.startLoad();
+        } catch {
+          /* ignore */
+        }
         return;
       }
       tvPlayLog('erreur HLS fatale détectée (float/popout)', {

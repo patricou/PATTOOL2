@@ -38,7 +38,13 @@ const REFRESH_BEFORE_EXP_SEC = 90;
 const MIN_DELAY_MS = 20_000;
 /** Fallback cadence when expiry is unknown (~5 min mirror / token window). */
 const FALLBACK_REFRESH_MS = 4 * 60 * 1000;
-const PRELOAD_TIMEOUT_MS = 20_000;
+/**
+ * france.tv Akamai tokens last ~10 minutes. Do not cap a known expiry down to the
+ * fallback cadence — a MediaSource swap every 4 minutes reloads the live playlist
+ * and is what cuts France 2. Still refresh before a token that outlives this cap.
+ */
+const MAX_KNOWN_EXPIRY_DELAY_MS = 8 * 60 * 1000;
+const PRELOAD_TIMEOUT_MS = 30_000;
 
 /**
  * Keeps france.tv live playback alive by preloading a fresh signed HLS on a
@@ -71,7 +77,7 @@ export function startFranceTvTokenKeeper(options: FranceTvTokenKeeperOptions): F
     if (!Number.isFinite(delayMs) || delayMs < MIN_DELAY_MS) {
       delayMs = MIN_DELAY_MS;
     }
-    delayMs = Math.min(delayMs, FALLBACK_REFRESH_MS);
+    delayMs = Math.min(delayMs, MAX_KNOWN_EXPIRY_DELAY_MS);
     timer = setTimeout(() => {
       timer = null;
       void runRefresh();

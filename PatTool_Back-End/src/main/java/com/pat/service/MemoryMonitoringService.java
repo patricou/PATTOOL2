@@ -51,6 +51,14 @@ public class MemoryMonitoringService {
     
     // Minimum interval between critical alerts (1 minute)
     private static final long CRITICAL_INTERVAL_MS = 60 * 1000;
+
+    /**
+     * Reject only when the heap is both above the critical percent and actually
+     * short on free space. At -Xmx1536m, 91% still leaves ~130 MB: enough for a
+     * live segment. Rejecting there turned France 2 (and the token renew) into
+     * HTTP 503 and the offline banner while the picture was still playing.
+     */
+    static final long MIN_FREE_BYTES_BEFORE_REJECT = 96L * 1024 * 1024;
     
     @PostConstruct
     public void init() {
@@ -93,15 +101,18 @@ public class MemoryMonitoringService {
             long currentTime = System.currentTimeMillis();
             
             // Check critical threshold
-            if (usagePercent >= criticalThresholdPercent) {
+            long availableMemory = Math.max(0L, maxMemory - usedMemory);
+            if (usagePercent >= criticalThresholdPercent
+                    && availableMemory < MIN_FREE_BYTES_BEFORE_REJECT) {
                 long lastCritical = lastCriticalTime.get();
                 if (currentTime - lastCritical > CRITICAL_INTERVAL_MS) {
                     if (lastCriticalTime.compareAndSet(lastCritical, currentTime)) {
-                        log.error("CRITICAL: Memory usage at {}% ({} MB / {} MB). " +
+                        log.error("CRITICAL: Memory usage at {}% ({} MB / {} MB, {} MB free). " +
                                 "Server may reject requests to prevent OutOfMemoryError.",
                                 String.format("%.1f", usagePercent),
                                 usedMemory / (1024 * 1024),
-                                maxMemory / (1024 * 1024));
+                                maxMemory / (1024 * 1024),
+                                availableMemory / (1024 * 1024));
                         
                         // Suggest garbage collection asynchronously to avoid race conditions
                         // This runs in a separate thread so it doesn't affect the current memory check

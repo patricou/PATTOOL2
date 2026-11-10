@@ -564,7 +564,7 @@
 
 <!-- Modal window for user information -->
 <ng-template #usercontent let-c="close" let-d="dismiss">
-    <div class="user-modal-container">
+    <div class="user-modal-container" [class.user-modal-container--skin]="userInfoSkinned">
         <div class="user-modal-header">
             <div class="user-modal-title-section">
                 <i class="fa fa-user-circle user-modal-icon"></i>

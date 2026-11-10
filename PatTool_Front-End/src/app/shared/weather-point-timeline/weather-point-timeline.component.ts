@@ -94,7 +94,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   @Input() region: 'france' | 'switzerland' = 'france';
   @Input() temperatureUnit: TemperatureUnit = 'celsius';
   @Input() enableRevealAnimation = true;
-  @Input() overlayMode: 'fixed' | 'embedded' = 'fixed';
+  @Input() overlayMode: 'fixed' | 'embedded' | 'panel' = 'fixed';
   @Input() registerChartFullscreen = false;
 
   @Output() visibleChange = new EventEmitter<boolean>();
@@ -207,6 +207,11 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   private chartReadyLogged = false;
   private activeLoadCancel$?: Subject<void>;
   private loadDataTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Label shown beside the current temperature. Never read from `new Date()` during a template check. */
+  private nowLabelKey = 'METEO_FRANCE.POINT_TIMELINE_CURRENT';
+  private nowLabelParams: Record<string, string> = {};
+  private cachedNowIso: string | null = null;
+  private nowLabelTimer: ReturnType<typeof setInterval> | null = null;
   private static readonly LOAD_LOG_MAX = 120;
 
   constructor(
@@ -226,9 +231,10 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
         this.resetInternalState();
       }
     }
-    if (this.visible && (changes['lat'] || changes['lon'])
-      && changes['lat']?.previousValue !== undefined
-      && changes['lon']?.previousValue !== undefined) {
+    const moved = (!!changes['lat'] && changes['lat'].previousValue !== undefined)
+      || (!!changes['lon'] && changes['lon'].previousValue !== undefined)
+      || (!!changes['region'] && changes['region'].previousValue !== undefined);
+    if (this.visible && moved) {
       this.scheduleLoadData(true);
     }
     const tempChanged = changes['temperatureUnit'] || changes['mfTempC']
@@ -236,15 +242,25 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     if (this.visible && this.dataLoaded && !this.loadInProgress && tempChanged) {
       this.refreshFromCaches(false);
     }
+    if (changes['mfObservedAt'] || changes['msObservedAt'] || changes['openMeteoObservedAt']
+      || changes['openWeatherObservedAt'] || changes['mfTempC'] || changes['msTempC']
+      || changes['openMeteoTempC'] || changes['openWeatherTempC'] || changes['visible']) {
+      this.syncNowLabel();
+    }
   }
 
   ngAfterViewInit(): void {
+    this.armNowLabel();
     if (this.visible && !this.dataLoaded && this.loadDataTimer == null) {
       this.scheduleLoadData();
     }
   }
 
   ngOnDestroy(): void {
+    if (this.nowLabelTimer != null) {
+      clearInterval(this.nowLabelTimer);
+      this.nowLabelTimer = null;
+    }
     this.resetInternalState();
     this.destroy$.next();
     this.destroy$.complete();
@@ -261,40 +277,28 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   }
 
   get currentTempC(): number | null {
-    switch (this.activeTab) {
-      case 'meteoswiss':
-        return this.msTempC;
-      case 'open-meteo':
-        return this.openMeteoTempC;
-      case 'openweathermap':
-        return this.openWeatherTempC;
-      default:
-        return this.mfTempC;
+    const input = this.inputCurrentTempC();
+    if (input != null) {
+      return input;
     }
+    const displayed = this.nowSlotTemp();
+    return displayed == null ? null : this.displayToCelsius(displayed);
   }
 
   get currentObservedAtRaw(): string | null {
-    switch (this.activeTab) {
-      case 'meteoswiss':
-        return this.msObservedAt;
-      case 'open-meteo':
-        return this.openMeteoObservedAt;
-      case 'openweathermap':
-        return this.openWeatherObservedAt;
-      default:
-        return this.mfObservedAt;
+    const input = this.inputObservedAt();
+    if (input) {
+      return input;
     }
+    return this.nowLabelParams['time'] ? this.cachedNowIso : null;
   }
 
   get currentTempLabelKey(): string {
-    return this.formatObservedTime(this.currentObservedAtRaw)
-      ? 'METEO_FRANCE.POINT_TIMELINE_CURRENT_AT'
-      : 'METEO_FRANCE.POINT_TIMELINE_CURRENT';
+    return this.nowLabelKey;
   }
 
   get currentTempLabelParams(): Record<string, string> {
-    const time = this.formatObservedTime(this.currentObservedAtRaw);
-    return time ? { time } : {};
+    return this.nowLabelParams;
   }
 
   get showCompareNow(): boolean {
@@ -419,6 +423,32 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     return `${value}${unit}`;
   }
 
+  /** Keeps the "now" caption stable for the whole change-detection pass. */
+  private syncNowLabel(): void {
+    const input = this.inputObservedAt();
+    let raw: string | null = input && input.trim() ? input.trim() : null;
+    if (!raw && this.nowSlotTemp() != null) {
+      const now = new Date();
+      now.setSeconds(0, 0);
+      raw = now.toISOString();
+    }
+    this.cachedNowIso = raw;
+    const time = this.formatObservedTime(raw);
+    const key = time ? 'METEO_FRANCE.POINT_TIMELINE_CURRENT_AT' : 'METEO_FRANCE.POINT_TIMELINE_CURRENT';
+    if (this.nowLabelKey === key && (this.nowLabelParams['time'] || '') === (time || '')) {
+      return;
+    }
+    this.nowLabelKey = key;
+    this.nowLabelParams = time ? { time } : {};
+  }
+
+  private armNowLabel(): void {
+    if (this.nowLabelTimer != null) {
+      return;
+    }
+    this.nowLabelTimer = setInterval(() => this.syncNowLabel(), 30_000);
+  }
+
   formatObservedTime(value: string | null | undefined): string | null {
     if (!value) {
       return null;
@@ -472,6 +502,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     this.activeTab = tab;
     this.tabErrorKey = '';
     this.infoKey = '';
+    this.syncNowLabel();
     this.renderChart();
   }
 
@@ -1060,6 +1091,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     this.loadInProgressUi = false;
     this.slots = [];
     this.dailySlots = [];
+    this.syncNowLabel();
     this.loadLogPanelOpen = false;
     this.loadLogEntries = [];
     this.loadDoneLogged = false;
@@ -1149,6 +1181,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     this.slots = [...slotMap.values()].sort((a, b) => a.ts - b.ts);
     this.dailySlots = [];
     this.fillNowValues();
+    this.syncNowLabel();
   }
 
   private shouldUseIncremental(incremental: boolean): boolean {
@@ -1402,6 +1435,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
 
     this.slots = [...slotMap.values()].sort((a, b) => a.ts - b.ts);
     this.fillNowValues();
+    this.syncNowLabel();
   }
 
   private mergeForecastListIntoSlotMap(
@@ -1464,7 +1498,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       return;
     }
     const nowSlot = slots[nowIndex];
-    const params: Array<'humidity' | 'wind' | 'precip'> = ['humidity', 'wind', 'precip'];
+    const params: Array<'temp' | 'humidity' | 'wind' | 'precip'> = ['temp', 'humidity', 'wind', 'precip'];
     const sources: TimelineSourceKey[] = this.compareSourceKeys();
     for (const source of sources) {
       for (const param of params) {
@@ -2158,6 +2192,49 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       return valueCelsius * 9 / 5 + 32;
     }
     return valueCelsius;
+  }
+
+  private displayToCelsius(value: number): number {
+    if (this.temperatureUnit === 'fahrenheit') {
+      return (value - 32) * 5 / 9;
+    }
+    return value;
+  }
+
+  private inputCurrentTempC(): number | null {
+    switch (this.activeTab) {
+      case 'meteoswiss':
+        return this.msTempC;
+      case 'open-meteo':
+        return this.openMeteoTempC;
+      case 'openweathermap':
+        return this.openWeatherTempC;
+      default:
+        return this.mfTempC;
+    }
+  }
+
+  private inputObservedAt(): string | null {
+    switch (this.activeTab) {
+      case 'meteoswiss':
+        return this.msObservedAt;
+      case 'open-meteo':
+        return this.openMeteoObservedAt;
+      case 'openweathermap':
+        return this.openWeatherObservedAt;
+      default:
+        return this.mfObservedAt;
+    }
+  }
+
+  /** Temperature already stored on the "now" slot, in the display unit. */
+  private nowSlotTemp(): number | null {
+    if (this.activeTab === 'compare') {
+      return null;
+    }
+    const now = this.slots.find((slot) => slot.kind === 'now');
+    const value = now?.values[this.activeTab]?.temp;
+    return value != null && Number.isFinite(value) ? value : null;
   }
 
   private resolveClimPrecipColumn(rows: any[]): string | null {

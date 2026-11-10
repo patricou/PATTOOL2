@@ -948,12 +948,6 @@ export class BackgroundPlaybackService {
     if (!iframe.contentWindow) {
       return;
     }
-    const record = payload as { event?: string; func?: string };
-    if (record.func && record.func !== 'getCurrentTime') {
-      console.log(`[YT service] ${record.event || 'commande'} ${record.func}`);
-    } else if (record.event === 'listening') {
-      console.log('[YT service] listening');
-    }
     try {
       iframe.contentWindow.postMessage(JSON.stringify(payload), '*');
     } catch {

@@ -1830,6 +1830,22 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
   min-width: 9.5rem;
 }
 
+.pat-assistant-rank-task-filter {
+  margin-top: 0.3rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 16rem;
+  font-size: 0.76rem;
+  font-weight: 400;
+}
+
+.pat-assistant-rank-filter-empty {
+  padding: 0.9rem 0.5rem !important;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--asst-muted, #64748b);
+}
+
 .pat-assistant-rank-task {
   font-size: 0.78rem;
   font-weight: 550 !important;
@@ -2128,6 +2144,13 @@ a.pat-assistant-brave-search.pat-assistant-header-btn .fa {
   .pat-assistant-rank-task {
     font-size: 0.66rem;
     line-height: 1.2;
+  }
+
+  .pat-assistant-rank-task-filter {
+    margin-top: 0.2rem;
+    padding: 0.12rem 0.3rem;
+    min-height: 0;
+    font-size: 0.64rem;
   }
 
   .pat-assistant-rank-col {

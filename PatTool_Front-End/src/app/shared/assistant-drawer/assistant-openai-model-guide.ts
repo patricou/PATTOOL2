@@ -3,7 +3,7 @@ import { AssistantModelGuideRow } from './assistant-model-guide.types';
 /**
  * Tools help modal “Which model for which task?” — OpenAI guide.
  * Copy in i18n (ASSISTANT.TOOLS_HELP_OPENAI_*).
- * Flagship lineup as of October 2026: Astra, Sol 6.1, Terra 6.1, Luna.
+ * Flagship lineup as of November 2026: Astra, Sol 6.1, Terra 6.1, Luna.
  */
 export const ASSISTANT_OPENAI_MODEL_GUIDE_ROWS: readonly AssistantModelGuideRow[] = [
   {

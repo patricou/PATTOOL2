@@ -38,6 +38,9 @@ import { ApiService, AstroGroundPosition, UserAppParameter } from './services/ap
 import { collapseMediaSkinParameters } from './services/media-skin';
 import { buildIssTopViewIconDataUrl } from './shared/globe-iss-icon.util';
 import { NativeSelectSheetService } from './shared/native-select-sheet.service';
+import { UserInfoModalService } from './services/user-info-modal.service';
+import { HomeDashboardCacheService } from './home/home-dashboard-cache.service';
+import { PositionService } from './services/position.service';
 
 type UserInfoTabId = 'profile' | 'account' | 'tv' | 'news' | 'globe' | 'meteo' | 'assistant' | 'other';
 
@@ -146,6 +149,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     public isLoadingRoles: boolean = false; // Loading state for roles
     /** Active tab inside the user-info modal. */
     public userInfoTab: UserInfoTabId = 'profile';
+    /** Home title uses the cabinet skin. The Pattool navbar title does not. */
+    public userInfoSkinned = false;
     public userAppParameters: UserAppParameter[] = [];
     public isLoadingUserParams = false;
     public userParamsError = '';
@@ -466,11 +471,15 @@ export class AppComponent implements OnInit, AfterViewInit {
         backgroundPlayback: BackgroundPlaybackService,
         _gpsRecording: GpsRecordingService,
         private sanitizer: DomSanitizer,
-        nativeSelectSheet: NativeSelectSheetService) {
+        nativeSelectSheet: NativeSelectSheetService,
+        private userInfoModal: UserInfoModalService,
+        private homeDash: HomeDashboardCacheService,
+        private position: PositionService) {
         this.selectedFiles = [];
         this.lastRoute.beginSession();
         backgroundPlayback.start();
         nativeSelectSheet.start();
+        userInfoModal.open$.subscribe((skinned) => this.openUserInfoModal(skinned));
         this._newsTicker.enabled$.subscribe((v) => {
             this.newsTickerEnabled = v;
             this.updateTickerBodyClasses();
@@ -1098,7 +1107,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     public closeResult: string = "";
 
     /** Open the user-info modal and load Mongo appParameters for this account. */
-    openUserInfoModal(): void {
+    openUserInfoModal(skinned = false): void {
+        this.userInfoSkinned = skinned;
         this.userInfoTab = 'profile';
         this.userParamExpandedKey = null;
         this.userInfoCopyFeedback = '';
@@ -1117,6 +1127,10 @@ export class AppComponent implements OnInit, AfterViewInit {
         }, (reason) => {
             this.closeResult = `Dismissed ${this.getDismissReason(reason)}`;
         });
+        if (skinned) {
+            this.userInfoModal.paint();
+            requestAnimationFrame(() => this.userInfoModal.paint());
+        }
     }
 
     public open(content: any) {
@@ -1391,13 +1405,11 @@ export class AppComponent implements OnInit, AfterViewInit {
                 this.userRoles = rolesStr.split(',').map((r: string) => r.trim()).filter((r: string) => 
                     r.length > 0 && r !== 'uma_protection' && r !== 'uma_authorization'
                 );
-                console.log("Roles loaded from member:", this.userRoles);
             } else if (Array.isArray(rolesStr)) {
                 // If it's already an array, filter out UMA-related roles
                 this.userRoles = rolesStr.filter((r: string) => 
                     r && r !== 'uma_protection' && r !== 'uma_authorization'
                 );
-                console.log("Roles loaded from member (array):", this.userRoles);
             }
         }
         
@@ -2703,7 +2715,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         setTimeout(scroll, 0);
     }
 
-    /** Monde → Terre : ouvre le trace viewer centré sur la position, ou sur un point par défaut. */
+    /** Monde → Terre : ouvre le trace viewer sur la position déjà affichée à l'accueil. */
     openMapTraceViewer(): void {
         const request = ++this.mapTraceViewerRequest;
         let settled = false;
@@ -2713,17 +2725,22 @@ export class AppComponent implements OnInit, AfterViewInit {
             }
             settled = true;
             const label = this._translate.instant('MENU.MAP_TRACE_VIEWER');
-			this.mapTraceViewer?.openAtLocation(lat, lng, label, undefined, false, false, { zoom: 13, hidePin: true });
+            this.mapTraceViewer?.openAtLocation(lat, lng, label, undefined, false, false, { zoom: 13, hidePin: true });
         };
-        if (typeof navigator === 'undefined' || !navigator.geolocation) {
-            open(46.2, 6.15);
+        const snap = this.homeDash.snapshot;
+        const shownLat = snap?.weatherLat;
+        const shownLon = snap?.weatherLon;
+        if (shownLat != null && shownLon != null && Number.isFinite(shownLat) && Number.isFinite(shownLon)) {
+            open(shownLat, shownLon);
             return;
         }
-        navigator.geolocation.getCurrentPosition(
-            (pos) => open(pos.coords.latitude, pos.coords.longitude),
-            () => open(46.2, 6.15),
-            { enableHighAccuracy: false, timeout: 1500, maximumAge: 300000 }
-        );
+        this.position.getCurrentPosition().pipe(take(1)).subscribe((coords) => {
+            if (coords) {
+                open(coords.latitude, coords.longitude);
+                return;
+            }
+            open(46.2, 6.15);
+        });
     }
 
     closeMenuOnly(): void {

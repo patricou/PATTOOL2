@@ -557,4 +557,129 @@
   .mf-point-timeline-chart-box--combined {
     height: 200px;
   }
+
+  .mf-point-timeline-overlay--panel .mf-point-timeline-chart-box--combined {
+    height: auto;
+    min-height: 11rem;
+  }
+}
+
+:host:has(.mf-point-timeline-overlay--panel) {
+  display: block;
+  height: auto;
+}
+
+.mf-point-timeline-overlay--panel {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  display: block;
+  height: auto;
+  padding: 0;
+  pointer-events: auto;
+}
+
+.mf-point-timeline-overlay--panel.mf-point-timeline-overlay--fullscreen,
+.mf-point-timeline-overlay--panel:fullscreen,
+.mf-point-timeline-overlay--panel:-webkit-full-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  padding: 0;
+  background: var(--menu-bg, #0f172a);
+}
+
+.mf-point-timeline-overlay--panel .mf-point-timeline-card {
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  height: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  border-radius: var(--menu-radius, 14px);
+  border: var(--menu-border-width, 1px) solid var(--menu-border, rgba(148, 163, 184, 0.45));
+  background: var(--menu-bg, #fff);
+  color: var(--menu-fg, inherit);
+  box-shadow: var(--menu-shadow, none);
+}
+
+.mf-point-timeline-overlay--panel .mf-point-timeline-header {
+  border-radius: 0;
+  border-bottom: 1px solid var(--menu-border, rgba(148, 163, 184, 0.35));
+  background: var(--menu-toolbar, var(--menu-accent, #1d4ed8));
+  color: var(--menu-fg, #fff);
+}
+
+.mf-point-timeline-overlay--panel .mf-point-timeline-header-btn {
+  background: color-mix(in srgb, var(--menu-fg, #fff) 14%, transparent);
+  color: var(--menu-fg, #fff);
+}
+
+.mf-point-timeline-overlay--panel .mf-point-timeline-header-btn:hover,
+.mf-point-timeline-overlay--panel .mf-point-timeline-header-btn--active {
+  background: var(--menu-active, rgba(255, 255, 255, 0.32));
+}
+
+.mf-point-timeline-overlay--panel .mf-point-timeline-body {
+  flex: none;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  color: var(--menu-fg, inherit);
+}
+
+.mf-point-timeline-overlay--panel .mf-point-timeline-section {
+  flex: none;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mf-point-timeline-overlay--panel .mf-point-timeline-tab,
+.mf-point-timeline-overlay--panel .mf-point-timeline-param,
+.mf-point-timeline-overlay--panel .mf-point-timeline-zoom-reset {
+  background: var(--menu-input-bg, #fff);
+  color: var(--menu-input-fg, #475569);
+  border-color: var(--menu-input-border, rgba(148, 163, 184, 0.45));
+}
+
+.mf-point-timeline-overlay--panel .mf-point-timeline-tab.active,
+.mf-point-timeline-overlay--panel .mf-point-timeline-param.active {
+  background: var(--menu-active, #eff6ff);
+  color: var(--menu-fg, #1d4ed8);
+  border-color: var(--menu-accent, #2563eb);
+}
+
+.mf-point-timeline-overlay--panel .mf-point-timeline-section-label,
+.mf-point-timeline-overlay--panel .mf-point-timeline-source,
+.mf-point-timeline-overlay--panel .mf-point-timeline-zoom-hint,
+.mf-point-timeline-overlay--panel .mf-point-timeline-loading,
+.mf-point-timeline-overlay--panel .mf-point-timeline-station {
+  color: var(--menu-muted, #64748b);
+}
+
+.mf-point-timeline-overlay--panel .mf-point-timeline-chart-box,
+.mf-point-timeline-overlay--panel .mf-point-timeline-chart-box--combined {
+  flex: none;
+  height: 18rem;
+  min-height: 18rem;
+  background: #fffdf8;
+  border-radius: 8px;
+}
+
+.mf-point-timeline-overlay--panel.mf-point-timeline-overlay--fullscreen .mf-point-timeline-card,
+.mf-point-timeline-overlay--panel:fullscreen .mf-point-timeline-card,
+.mf-point-timeline-overlay--panel:-webkit-full-screen .mf-point-timeline-card {
+  height: 100%;
+  overflow: hidden;
+}
+
+.mf-point-timeline-overlay--panel.mf-point-timeline-overlay--fullscreen .mf-point-timeline-body,
+.mf-point-timeline-overlay--panel:fullscreen .mf-point-timeline-body,
+.mf-point-timeline-overlay--panel:-webkit-full-screen .mf-point-timeline-body {
+  flex: 1 1 auto;
+  overflow: auto;
 }

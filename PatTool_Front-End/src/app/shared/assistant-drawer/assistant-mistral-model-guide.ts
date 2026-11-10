@@ -4,6 +4,7 @@ import { AssistantModelGuideRow } from './assistant-model-guide.types';
  * Tools help modal “Which model for which task?” — Mistral AI guide.
  * Copy in i18n (ASSISTANT.TOOLS_HELP_MISTRAL_*).
  * Medium 3.5 and Large 3 are deprecated (31 Oct 2026); Large 4 replaces them.
+ * Codestral’s current API id is {@code codestral-2508} (not the {@code -latest} alias).
  */
 export type AssistantMistralModelGuideRow = AssistantModelGuideRow;
 
@@ -29,7 +30,7 @@ export const ASSISTANT_MISTRAL_MODEL_GUIDE_ROWS: readonly AssistantMistralModelG
   },
   {
     modelNameKey: 'ASSISTANT.TOOLS_HELP_MISTRAL_CODESTRAL_NAME',
-    apiModelId: 'codestral-latest',
+    apiModelId: 'codestral-2508',
     useKeys: [
       'ASSISTANT.TOOLS_HELP_MISTRAL_CODESTRAL_U1',
       'ASSISTANT.TOOLS_HELP_MISTRAL_CODESTRAL_U2',

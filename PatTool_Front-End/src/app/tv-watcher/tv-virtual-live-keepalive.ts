@@ -113,9 +113,15 @@ export async function preflightVirtualLive(
       || rtsSlugFromVirtual(streamUrl)) {
     return { ok: true };
   }
+  const franceTv = !!franceTvSlugFromVirtualUrl(streamUrl);
   try {
     let meta = await keep.resolveMeta(false);
     if (!meta?.streamUrl) {
+      meta = await keep.resolveMeta(true);
+    }
+    // A token renew that collides with an in-flight resolve often fails once.
+    if (!meta?.streamUrl && franceTv) {
+      await new Promise((resolve) => setTimeout(resolve, 700));
       meta = await keep.resolveMeta(true);
     }
     if (meta?.streamUrl) {
@@ -126,7 +132,8 @@ export async function preflightVirtualLive(
   }
   return {
     ok: false,
-    detail:
-      'Aucun miroir IPTV joignable pour cette chaîne (souvent temporaire). Réessayez dans quelques secondes.'
+    detail: franceTv
+      ? 'Impossible de renouveler le flux officiel france.tv pour le moment. Réessayez dans quelques secondes.'
+      : 'Aucun miroir IPTV joignable pour cette chaîne (souvent temporaire). Réessayez dans quelques secondes.'
   };
 }

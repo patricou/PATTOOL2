@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable, from, of } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
@@ -45,7 +45,10 @@ export class PositionService {
                     observer.complete();
                 },
                 (error) => {
-                    console.warn('Error getting GPS position:', error.message);
+                    // A refused permission is expected: callers fall back to the network location.
+                    if (error?.code !== 1) {
+                        console.warn('Error getting GPS position:', error.message);
+                    }
                     observer.next(null);
                     observer.complete();
                 },
@@ -84,9 +87,30 @@ export class PositionService {
      * @returns Observable with coordinates or null if both fail
      */
     getCurrentPosition(): Observable<PositionCoordinates | null> {
-        return this.getGpsPosition().pipe(
-            switchMap((gps) => gps ? of(gps) : this.getIpPosition()),
-            catchError(() => this.getIpPosition())
+        return from(this.geolocationPermission()).pipe(
+            switchMap((state) => {
+                if (state === 'denied') {
+                    return this.getIpPosition();
+                }
+                return this.getGpsPosition().pipe(
+                    switchMap((gps) => gps ? of(gps) : this.getIpPosition()),
+                    catchError(() => this.getIpPosition())
+                );
+            })
+        );
+    }
+
+    /** `unknown` when the browser has no Permissions API. */
+    private geolocationPermission(): Promise<'granted' | 'prompt' | 'denied' | 'unknown'> {
+        const query = navigator.permissions?.query;
+        if (!query) {
+            return Promise.resolve('unknown');
+        }
+        return query.call(navigator.permissions, { name: 'geolocation' }).then(
+            (status) => (status.state === 'granted' || status.state === 'prompt' || status.state === 'denied')
+                ? status.state
+                : 'unknown',
+            () => 'unknown'
         );
     }
 }

@@ -379,6 +379,15 @@ public class TvStreamProxyService {
                 // starts hours behind live. Keep a short sliding window.
                 rawPlaylist = keepNewestLiveSegments(rawPlaylist, 12);
             }
+            if ((isFranceTvDvrUpstream(upstreamUrl) || isFranceTvDvrUpstream(playlistBase))
+                    && (rawPlaylist == null || !rawPlaylist.contains("#EXT-X-ENDLIST"))) {
+                // France 2/3/4/5 SSAI media playlists are a ~4 h DVR (~2 000 AES-128
+                // segments, ~640 KB) reloaded every few seconds. hls.js stalls, the
+                // Akamai token swap fails, and the channel drops to the offline banner.
+                // Keep a short live window; each segment keeps the EXT-X-KEY (IV) in
+                // effect for it.
+                rawPlaylist = keepNewestLiveSegments(rawPlaylist, 16);
+            }
             if (shouldPrefetchShortWindow(upstreamUrl) || shouldPrefetchShortWindow(playlistBase)) {
                 scheduleCapTerrePrefetch(rawPlaylist, playlistBase, referer);
             }
@@ -536,10 +545,14 @@ public class TvStreamProxyService {
     }
 
     /**
-     * Mezzo's otcnet media playlist is only ~4×5 s. Drop the oldest segments so the
-     * player starts on media that is still on the origin when the request arrives.
+     * Drop the oldest segments so the player starts on media that is still on the origin.
      * Master playlists are returned unchanged. {@code #EXT-X-PROGRAM-DATE-TIME} is
      * removed because it describes the dropped head.
+     * <p>
+     * Per-segment {@code EXT-X-KEY} / {@code EXT-X-MAP} / {@code EXT-X-DISCONTINUITY}
+     * stay with the segment they apply to. A key or map that was in effect before the
+     * first kept segment is repeated, so france.tv AES-128 (one IV per segment) still
+     * decrypts after the DVR head is dropped.
      */
     static String keepNewestLiveSegments(String playlist, int keep) {
         if (playlist == null || playlist.isBlank() || keep < 1) {
@@ -564,8 +577,13 @@ public class TvStreamProxyService {
             return playlist;
         }
         java.util.ArrayList<String> headers = new java.util.ArrayList<>();
-        java.util.ArrayList<String[]> pairs = new java.util.ArrayList<>();
+        java.util.ArrayList<String> trailer = new java.util.ArrayList<>();
+        java.util.ArrayList<SegmentBlock> blocks = new java.util.ArrayList<>();
+        java.util.ArrayList<String> scoped = new java.util.ArrayList<>();
         String pendingInf = null;
+        String keyInEffect = null;
+        String mapInEffect = null;
+        boolean sawSegment = false;
         for (String line : lines) {
             if (line == null) {
                 continue;
@@ -574,23 +592,47 @@ public class TvStreamProxyService {
             if (t.isEmpty() || t.startsWith("#EXT-X-PROGRAM-DATE-TIME")) {
                 continue;
             }
+            if (t.startsWith("#EXT-X-KEY:")) {
+                keyInEffect = line;
+                scoped.add(line);
+                continue;
+            }
+            if (t.startsWith("#EXT-X-MAP:")) {
+                mapInEffect = line;
+                scoped.add(line);
+                continue;
+            }
+            if (isSegmentScopedTag(t)) {
+                scoped.add(line);
+                continue;
+            }
             if (t.startsWith("#EXTINF")) {
                 pendingInf = line;
                 continue;
             }
             if (pendingInf != null && !t.startsWith("#")) {
-                pairs.add(new String[] { pendingInf, line });
+                blocks.add(new SegmentBlock(keyInEffect, mapInEffect, scoped, pendingInf, line));
+                scoped = new java.util.ArrayList<>();
                 pendingInf = null;
+                sawSegment = true;
                 continue;
             }
-            headers.add(line);
+            if (!sawSegment) {
+                headers.add(line);
+            } else {
+                trailer.add(line);
+            }
             pendingInf = null;
         }
-        if (pairs.size() <= keep) {
+        if (blocks.size() <= keep) {
             return playlist;
         }
-        int drop = pairs.size() - keep;
-        StringBuilder out = new StringBuilder(playlist.length());
+        int drop = blocks.size() - keep;
+        int droppedDiscontinuities = 0;
+        for (int i = 0; i < drop; i++) {
+            droppedDiscontinuities += blocks.get(i).discontinuityCount();
+        }
+        StringBuilder out = new StringBuilder(Math.min(playlist.length(), 16 * 1024));
         boolean first = true;
         for (String header : headers) {
             String trimmed = header.trim();
@@ -602,6 +644,14 @@ public class TvStreamProxyService {
                 } catch (NumberFormatException ignored) {
                     // keep the original tag
                 }
+            } else if (trimmed.startsWith("#EXT-X-DISCONTINUITY-SEQUENCE:") && droppedDiscontinuities > 0) {
+                String raw = trimmed.substring("#EXT-X-DISCONTINUITY-SEQUENCE:".length()).trim();
+                try {
+                    long seq = Long.parseLong(raw);
+                    header = "#EXT-X-DISCONTINUITY-SEQUENCE:" + (seq + droppedDiscontinuities);
+                } catch (NumberFormatException ignored) {
+                    // keep the original tag
+                }
             }
             if (!first) {
                 out.append('\n');
@@ -609,11 +659,84 @@ public class TvStreamProxyService {
             out.append(header);
             first = false;
         }
-        for (int i = drop; i < pairs.size(); i++) {
-            out.append('\n').append(pairs.get(i)[0]);
-            out.append('\n').append(pairs.get(i)[1]);
+        String emittedKey = null;
+        String emittedMap = null;
+        for (int i = drop; i < blocks.size(); i++) {
+            SegmentBlock block = blocks.get(i);
+            if (block.keyInEffect != null && !block.keyInEffect.equals(emittedKey)
+                    && !block.scopedContainsPrefix("#EXT-X-KEY:")) {
+                out.append('\n').append(block.keyInEffect);
+                emittedKey = block.keyInEffect;
+            }
+            if (block.mapInEffect != null && !block.mapInEffect.equals(emittedMap)
+                    && !block.scopedContainsPrefix("#EXT-X-MAP:")) {
+                out.append('\n').append(block.mapInEffect);
+                emittedMap = block.mapInEffect;
+            }
+            for (String tag : block.scoped) {
+                out.append('\n').append(tag);
+                String trimmed = tag.trim();
+                if (trimmed.startsWith("#EXT-X-KEY:")) {
+                    emittedKey = tag;
+                } else if (trimmed.startsWith("#EXT-X-MAP:")) {
+                    emittedMap = tag;
+                }
+            }
+            out.append('\n').append(block.extinf);
+            out.append('\n').append(block.uri);
+        }
+        for (String line : trailer) {
+            out.append('\n').append(line);
         }
         return out.toString();
+    }
+
+    /** Tags that apply to the next media segment rather than to the whole playlist. */
+    private static boolean isSegmentScopedTag(String trimmed) {
+        if (trimmed.startsWith("#EXT-X-DISCONTINUITY-SEQUENCE:")) {
+            return false;
+        }
+        return trimmed.startsWith("#EXT-X-DISCONTINUITY")
+                || trimmed.startsWith("#EXT-X-BYTERANGE:")
+                || trimmed.startsWith("#EXT-X-GAP");
+    }
+
+    private static final class SegmentBlock {
+        private final String keyInEffect;
+        private final String mapInEffect;
+        private final java.util.List<String> scoped;
+        private final String extinf;
+        private final String uri;
+
+        private SegmentBlock(String keyInEffect, String mapInEffect, java.util.List<String> scoped,
+                             String extinf, String uri) {
+            this.keyInEffect = keyInEffect;
+            this.mapInEffect = mapInEffect;
+            this.scoped = scoped;
+            this.extinf = extinf;
+            this.uri = uri;
+        }
+
+        private boolean scopedContainsPrefix(String prefix) {
+            for (String tag : scoped) {
+                if (tag.trim().startsWith(prefix)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private int discontinuityCount() {
+            int n = 0;
+            for (String tag : scoped) {
+                String trimmed = tag.trim();
+                if (trimmed.startsWith("#EXT-X-DISCONTINUITY")
+                        && !trimmed.startsWith("#EXT-X-DISCONTINUITY-SEQUENCE:")) {
+                    n++;
+                }
+            }
+            return n;
+        }
     }
 
     /**
@@ -632,6 +755,18 @@ public class TvStreamProxyService {
     /** Origins whose media playlist must be trimmed to the newest segments. */
     static boolean isShortWindowTrimUpstream(String url) {
         return isM6ShortWindowUpstream(url);
+    }
+
+    /**
+     * france.tv live SSAI (France 2/3/4/5, franceinfo). Media playlists on this host
+     * are a multi-hour DVR, not a short sliding window.
+     */
+    static boolean isFranceTvDvrUpstream(String url) {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        String u = url.toLowerCase(Locale.ROOT);
+        return u.contains("live-ssai") || (u.contains("ftven.fr") && u.contains("/dai/"));
     }
 
     /** Dailymotion live CDN ({@code *.dmcdn.net}), including Public Sénat DVR playlists. */

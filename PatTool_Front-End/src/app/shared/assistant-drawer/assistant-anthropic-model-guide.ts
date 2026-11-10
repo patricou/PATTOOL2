@@ -3,14 +3,15 @@ import { AssistantModelGuideRow } from './assistant-model-guide.types';
 /**
  * Tools help modal “Which model for which task?” — Anthropic (Claude) guide.
  * Copy in i18n (ASSISTANT.TOOLS_HELP_ANTHROPIC_*).
- * Current API ids (October 2026): Fable 5.1, Opus 5.5, Sonnet 5.5, Haiku 5.5.
+ * Current API ids (November 2026): Fable 5.2, Opus 5.5, Sonnet 5.5, Haiku 5.5.
+ * Fable 5.1 stays available at Anthropic but is no longer the current line.
  */
 export type AssistantAnthropicModelGuideRow = AssistantModelGuideRow;
 
 export const ASSISTANT_ANTHROPIC_MODEL_GUIDE_ROWS: readonly AssistantAnthropicModelGuideRow[] = [
   {
     modelNameKey: 'ASSISTANT.TOOLS_HELP_ANTHROPIC_FABLE51_NAME',
-    apiModelId: 'claude-fable-5-1',
+    apiModelId: 'claude-fable-5-2',
     badgeKey: 'ASSISTANT.TOOLS_HELP_ANTHROPIC_FABLE51_BADGE',
     useKeys: [
       'ASSISTANT.TOOLS_HELP_ANTHROPIC_FABLE51_U1',

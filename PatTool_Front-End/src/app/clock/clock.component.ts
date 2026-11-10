@@ -445,6 +445,8 @@ export class ClockComponent implements OnInit, OnChanges, AfterViewInit, OnDestr
   private alive = true;
   private dateKey = '';
   private dateLang = '';
+  private stageMotifFace = '';
+  private stageMotifCache: StageMotif | null = null;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private emailTimer: ReturnType<typeof setTimeout> | null = null;
   private chimeTimer: ReturnType<typeof setInterval> | null = null;
@@ -645,6 +647,10 @@ export class ClockComponent implements OnInit, OnChanges, AfterViewInit, OnDestr
   }
 
   get stageMotif(): StageMotif {
+    if (this.stageMotifCache && this.stageMotifFace === this.faceId) {
+      return this.stageMotifCache;
+    }
+    this.stageMotifFace = this.faceId;
     const index = Math.max(0, this.faces.findIndex((face) => face.id === this.faceId));
     const kind = index % 12;
     const step = 36 + (index % 8) * 7;
@@ -698,7 +704,8 @@ export class ClockComponent implements OnInit, OnChanges, AfterViewInit, OnDestr
       const o = 2 + (index % 3);
       path = `M${c} ${o} L${c + o} ${c} L${c} ${step - o} L${c - o} ${c} Z`;
     }
-    return { w: step, h: step, angle, weight, lines, dots, path };
+    this.stageMotifCache = { w: step, h: step, angle, weight, lines, dots, path };
+    return this.stageMotifCache;
   }
 
   get showLineTicks(): boolean {

@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -30,6 +31,53 @@ import java.util.Set;
 public class AssistantModelsCatalogService {
 
     private static final Logger log = LoggerFactory.getLogger(AssistantModelsCatalogService.class);
+
+    /**
+     * Chat models offered in the assistant as of November 2026. Provider list endpoints still return
+     * retired ids and aliases; those stay out of the selector.
+     */
+    static final Map<String, Set<String>> CURRENT_ASSISTANT_MODEL_IDS =
+            Map.of(
+                    "openai",
+                    Set.of("gpt-6-astra", "gpt-6-luna", "gpt-6.1-sol", "gpt-6.1-terra"),
+                    "anthropic",
+                    Set.of(
+                            "claude-fable-5-2",
+                            "claude-haiku-5-5",
+                            "claude-opus-5-5",
+                            "claude-sonnet-5-5"),
+                    "gemini",
+                    Set.of(
+                            "gemini-3.5-flash-lite",
+                            "gemini-3.8-flash",
+                            "gemini-4-argon",
+                            "gemini-4-carbon",
+                            "gemini-nano-banana-2.1"),
+                    "mistral",
+                    Set.of(
+                            "codestral-2508",
+                            "ministral-14b-2512",
+                            "ministral-3b-2512",
+                            "ministral-8b-2512",
+                            "mistral-large-4",
+                            "mistral-small-2603"),
+                    "spacexai",
+                    Set.of(
+                            "grok-4.20-0309-reasoning",
+                            "grok-4.20-multi-agent-0309",
+                            "grok-4.3",
+                            "grok-4.5",
+                            "grok-4.6",
+                            "grok-4.7",
+                            "grok-build-0.1"),
+                    "deepseek",
+                    Set.of("deepseek-v4-flash", "deepseek-v4-pro", "deepseek-v4.1-flash"),
+                    "qwen",
+                    Set.of("qwen3.7-plus", "qwen3.8-flash", "qwen3.8-max"),
+                    "glm",
+                    Set.of("glm-5.3", "glm-5.3-flash"),
+                    "kimi",
+                    Set.of("kimi-k2.7-code", "kimi-k3", "kimi-k3.1-pro"));
 
     private final RestTemplate openAiRestTemplate;
     private final RestTemplate anthropicRestTemplate;
@@ -104,7 +152,30 @@ public class AssistantModelsCatalogService {
                     case "deepseek", "qwen", "glm", "kimi" -> listChineseLabModelIds(p);
                     default -> List.of();
                 };
-        return sortModelIds(ids);
+        return sortModelIds(retainCurrentAssistantModelIds(p, ids));
+    }
+
+    /** Keeps only the November 2026 chat ids for this provider. */
+    static List<String> retainCurrentAssistantModelIds(String providerSlug, List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        String p = providerSlug == null ? "" : providerSlug.trim().toLowerCase(Locale.ROOT);
+        Set<String> allowed = CURRENT_ASSISTANT_MODEL_IDS.get(p);
+        if (allowed == null || allowed.isEmpty()) {
+            return List.of();
+        }
+        List<String> kept = new ArrayList<>();
+        for (String id : ids) {
+            if (id == null) {
+                continue;
+            }
+            String trimmed = id.trim();
+            if (allowed.contains(trimmed)) {
+                kept.add(trimmed);
+            }
+        }
+        return kept;
     }
 
     private static List<String> sortModelIds(List<String> ids) {

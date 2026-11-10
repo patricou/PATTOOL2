@@ -764,6 +764,7 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     this.resumeSub?.unsubscribe();
     this.lastStationSaveSub?.unsubscribe();
     this.skinLoadSub?.unsubscribe();
+    this.skinSaveSub?.unsubscribe();
     this.navLeaveSub?.unsubscribe();
     this.nowPlayingSub?.unsubscribe();
     this.clearTrackSlide();

@@ -1,9 +1,9 @@
-import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subscription, forkJoin, from, of } from 'rxjs';
-import { catchError, switchMap, take } from 'rxjs/operators';
+import { catchError, map, switchMap, take } from 'rxjs/operators';
 
 import { environment } from '../../../environments/environment';
 import { CalendarEntry, CalendarService } from '../../calendar/calendar.service';
@@ -12,7 +12,6 @@ import { isMediaSkin, MEDIA_SKIN_IDS, MediaSkinId, readMediaSkin, writeMediaSkin
 import { secureAssetUrl } from '../../radio-watcher/radio-pip.util';
 import { DeezerKeepAliveService } from '../../deezer-watcher/deezer-keep-alive.service';
 import { ApiService, NewsSourcePreference, RadioStation, TvChannel } from '../../services/api.service';
-import { Member } from '../../model/member';
 import { MembersService } from '../../services/members.service';
 import { FileService } from '../../services/file.service';
 import { PositionService } from '../../services/position.service';
@@ -20,7 +19,12 @@ import { RadioPlayerService } from '../../services/radio-player.service';
 import { TvPlayerService } from '../../services/tv-player.service';
 import { YoutubePlayerService } from '../../services/youtube-player.service';
 import { NewsTickerService } from '../../services/news-ticker.service';
-import { TodoList, TodoListService } from '../../todolists/todolist.service';
+import { TodoDashboardList, TodoListService } from '../../todolists/todolist.service';
+import { HomeDashboardCacheService } from '../home-dashboard-cache.service';
+import { UserInfoModalService } from '../../services/user-info-modal.service';
+import { WeatherPointTimelineComponent } from '../../shared/weather-point-timeline/weather-point-timeline.component';
+import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { resolveWeatherStationProvider } from '../../shared/weather-station-map.util';
 
 type CardState = 'loading' | 'ready' | 'empty' | 'error';
 
@@ -93,7 +97,7 @@ const LANG_FLAGS: Record<string, string> = {
 @Component({
 	selector: 'app-home-page',
 	standalone: true,
-	imports: [CommonModule, TranslateModule, RouterLink, ClockComponent],
+	imports: [CommonModule, TranslateModule, RouterLink, ClockComponent, WeatherPointTimelineComponent, TraceViewerModalComponent],
 	templateUrl: './home-page.component.html',
 	styleUrls: ['../../radio-watcher/radio-skins.css', './home-page.component.css'],
 	host: {
@@ -117,10 +121,12 @@ const LANG_FLAGS: Record<string, string> = {
 		'[class.radio-skin--barber]': 'radioSkin === "barber"'
 	}
 })
-export class HomePageComponent implements OnInit, OnDestroy {
+export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 
-	nowLabel = '';
-	refreshing = false;
+	@ViewChild('dashNow') dashNow?: ElementRef<HTMLElement>;
+	@ViewChild('dashRefresh') dashRefresh?: ElementRef<HTMLButtonElement>;
+	@ViewChild(TraceViewerModalComponent) mapViewer?: TraceViewerModalComponent;
+
 	langOpen = false;
 	skinMenuOpen = false;
 	radioSkin: MediaSkinId = 'classic';
@@ -134,9 +140,20 @@ export class HomePageComponent implements OnInit, OnDestroy {
 	weatherDesc = '';
 	weatherFeels = '';
 	weatherHumidity = '';
+	weatherLat: number | null = null;
+	weatherLon: number | null = null;
+	weatherAltitude: number | null = null;
+	weatherRegion: 'france' | 'switzerland' = 'france';
+	weatherClim = false;
+	weatherTempC: number | null = null;
+	weatherObservedAt = '';
 	userLabel = '';
 	userLogin = '';
 	userSeen = '';
+	/** Street address from the device GPS, or the postal place when only the network location is known. */
+	userAddress = '';
+	private weatherFromGps = false;
+	private weatherFix = 0;
 
 	agendaState: CardState = 'loading';
 	activities: DashAgendaItem[] = [];
@@ -150,10 +167,18 @@ export class HomePageComponent implements OnInit, OnDestroy {
 	tvLogo = '';
 
 	newsState: CardState = 'loading';
+	/** Bound in the template. Updated after the current check so a late news result cannot throw NG0100. */
+	newsViewState: CardState = 'loading';
 	news: DashNewsItem[] = [];
 	readonly newsProviders: NewsProviderId[] = ['newsdata', 'newsapi', 'rss'];
 	newsProvider: NewsProviderId = 'newsdata';
+	newsRefreshing = false;
+	weatherRefreshing = false;
+	agendaRefreshing = false;
+	taskRefreshing = false;
+	playingRefreshing = false;
 	private newsProviderPinned: NewsProviderId | null = null;
+	private newsRequest = 0;
 
 	private loadGen = 0;
 	private inflight = 0;
@@ -162,9 +187,14 @@ export class HomePageComponent implements OnInit, OnDestroy {
 	private skinLoadSub?: Subscription;
 	private radioTrackKey = '';
 	private radioNowSub?: Subscription;
-	private clockTimer: ReturnType<typeof setInterval> | null = null;
+	private clockTimer: ReturnType<typeof setTimeout> | null = null;
+	private destroyed = false;
 	private readonly subs = new Subscription();
-	private readonly activityThumbs = new Map<string, string>();
+	private cacheEpoch = 0;
+
+	private get activityThumbs(): Map<string, string> {
+		return this.cache.activityThumbs;
+	}
 
 	constructor(
 		private api: ApiService,
@@ -178,23 +208,57 @@ export class HomePageComponent implements OnInit, OnDestroy {
 		private youtube: YoutubePlayerService,
 		private deezer: DeezerKeepAliveService,
 		private translate: TranslateService,
-		private ticker: NewsTickerService
+		private ticker: NewsTickerService,
+		private cache: HomeDashboardCacheService,
+		private zone: NgZone,
+		private userInfoModal: UserInfoModalService,
+		private hostEl: ElementRef<HTMLElement>
 	) { }
 
+	get weatherCoordsLabel(): string {
+		if (this.weatherLat == null || this.weatherLon == null) {
+			return '';
+		}
+		const fmt = (value: number) => value.toLocaleString(this.localeTag(), {
+			minimumFractionDigits: 5,
+			maximumFractionDigits: 5
+		});
+		return `${fmt(this.weatherLat)}°, ${fmt(this.weatherLon)}°`;
+	}
+
+	/** Map viewer centered on the same position as the weather. */
+	openUserMap(): void {
+		const lat = this.weatherLat;
+		const lon = this.weatherLon;
+		if (lat == null || lon == null || !this.mapViewer) {
+			return;
+		}
+		const label = this.userAddress || this.weatherPlace;
+		this.mapViewer.openAtLocation(lat, lon, label, undefined, false, false, { zoom: 14 });
+		this.mapViewer.applyHostSkin(this.hostEl.nativeElement);
+	}
+
+	/** Same dialog as the surname in the navbar. */
+	openUserInfo(): void {
+		this.userInfoModal.open();
+	}
+
 	ngOnInit(): void {
-		this.tick();
-		this.clockTimer = setInterval(() => this.tick(), 30_000);
 		this.subs.add(this.radio.state$.subscribe(() => this.applyPlayback()));
 		this.subs.add(this.youtube.state$.subscribe(() => this.applyPlayback()));
 		this.subs.add(this.tv.state$.subscribe(() => this.applyPlayback()));
 		this.subs.add(this.translate.onLangChange.subscribe(() => {
-			this.tick();
+			this.writeNowLabel();
 			this.refresh(false);
 		}));
 		this.restoreClock();
 		this.restoreSkin();
 		window.addEventListener('patradiolook', this.onSharedSkin);
-		this.refresh(false);
+		if (this.restoreFromCache()) {
+			this.fillMissing();
+		} else {
+			this.refresh(false);
+		}
 	}
 
 	@HostListener('document:click', ['$event'])
@@ -229,9 +293,6 @@ export class HomePageComponent implements OnInit, OnDestroy {
 	}
 
 	chooseNewsProvider(provider: NewsProviderId): void {
-		if (provider === this.newsProvider) {
-			return;
-		}
 		this.newsProvider = provider;
 		this.newsProviderPinned = provider;
 		const local = this.readNewsFilters();
@@ -242,7 +303,7 @@ export class HomePageComponent implements OnInit, OnDestroy {
 			rssFeedUrl: feed
 		}).pipe(take(1)).subscribe({ error: () => undefined }));
 		this.ticker.notifyFiltersChanged();
-		this.loadNews(this.loadGen);
+		this.loadNews(this.loadGen, false, provider);
 	}
 
 	get clockLabelKey(): string {
@@ -306,17 +367,14 @@ export class HomePageComponent implements OnInit, OnDestroy {
 	}
 
 	ngOnDestroy(): void {
+		this.destroyed = true;
 		if (this.clockTimer) {
-			clearInterval(this.clockTimer);
+			clearTimeout(this.clockTimer);
 		}
 		window.removeEventListener('patradiolook', this.onSharedSkin);
 		this.skinLoadSub?.unsubscribe();
 		this.radioNowSub?.unsubscribe();
 		this.subs.unsubscribe();
-		for (const url of this.activityThumbs.values()) {
-			URL.revokeObjectURL(url);
-		}
-		this.activityThumbs.clear();
 	}
 
 	private readonly onSharedSkin = (): void => {
@@ -341,7 +399,7 @@ export class HomePageComponent implements OnInit, OnDestroy {
 				writeMediaSkin(remote);
 			} else if (local) {
 				writeMediaSkin(local);
-				this.api.saveRadioSkin(local).pipe(catchError(() => of(null))).subscribe();
+				this.subs.add(this.api.saveRadioSkin(local).pipe(catchError(() => of(null))).subscribe());
 			}
 		});
 	}
@@ -352,9 +410,10 @@ export class HomePageComponent implements OnInit, OnDestroy {
 			this.pickClock();
 		}
 		const gen = ++this.loadGen;
+		this.cacheEpoch = ++this.cache.epoch;
 		this.inflight = 0;
-		this.refreshing = true;
-		this.tick();
+		this.paintRefreshing();
+		this.writeNowLabel();
 		this.loadWeather(gen);
 		this.loadUser();
 		this.loadAgenda(gen);
@@ -363,13 +422,74 @@ export class HomePageComponent implements OnInit, OnDestroy {
 		this.applyPlayback();
 	}
 
+	/** Reload only the headlines. The title-bar refresh still reloads the whole page from the server. */
+	refreshNews(): void {
+		if (this.newsRefreshing) {
+			return;
+		}
+		this.loadNews(this.loadGen, false);
+	}
+
+	refreshWeather(): void {
+		if (this.weatherRefreshing) {
+			return;
+		}
+		this.loadUser();
+		this.loadWeather(this.loadGen, true);
+	}
+
+	refreshAgenda(): void {
+		if (this.agendaRefreshing) {
+			return;
+		}
+		this.loadAgenda(this.loadGen, true);
+	}
+
+	refreshTasks(): void {
+		if (this.taskRefreshing) {
+			return;
+		}
+		this.loadTasks(this.loadGen, true);
+	}
+
+	refreshPlaying(): void {
+		if (this.playingRefreshing) {
+			return;
+		}
+		this.playingRefreshing = true;
+		this.radioTrackKey = '';
+		this.radioNowSub?.unsubscribe();
+		this.radioNowSub = undefined;
+		this.applyPlayback();
+		if (!this.radioNowSub) {
+			this.playingRefreshing = false;
+		}
+	}
+
 	hideNewsImage(item: DashNewsItem): void {
 		item.image = '';
 	}
 
-	nextClock(): void {
+	onClockClick(event: MouseEvent): void {
+		const host = event.currentTarget as HTMLElement | null;
+		const face = host?.querySelector('app-clock') as HTMLElement | null;
+		const rect = (face ?? host)?.getBoundingClientRect();
+		if (!rect || rect.width <= 0) {
+			return;
+		}
+		const fromKeyboard = event.detail === 0;
+		const step = fromKeyboard || event.clientX >= rect.left + rect.width / 2 ? 1 : -1;
+		this.stepClock(step);
+	}
+
+	private stepClock(delta: number): void {
+		const ids = CLOCK_FACES.map((face) => face.id);
+		if (!ids.length) {
+			return;
+		}
 		this.clockLocked = true;
-		this.pickClock();
+		const index = Math.max(0, ids.indexOf(this.clockFace));
+		this.clockFace = ids[(index + delta + ids.length) % ids.length];
 		this.persistClockFace();
 	}
 
@@ -439,18 +559,44 @@ export class HomePageComponent implements OnInit, OnDestroy {
 		this.clockFace = next;
 	}
 
-	private tick(): void {
-		this.nowLabel = new Intl.DateTimeFormat(this.localeTag(), {
+	ngAfterViewInit(): void {
+		this.writeNowLabel();
+		this.paintRefreshing();
+		this.zone.runOutsideAngular(() => this.armNowLabel());
+	}
+
+	/** The minute string is written on the node. A template binding changes during the dev-mode check and throws NG0100. */
+	private writeNowLabel(): void {
+		const el = this.dashNow?.nativeElement;
+		if (!el || this.destroyed) {
+			return;
+		}
+		const next = new Intl.DateTimeFormat(this.localeTag(), {
 			weekday: 'long',
 			day: 'numeric',
 			month: 'long',
 			hour: '2-digit',
 			minute: '2-digit'
 		}).format(new Date());
+		if (el.textContent !== next) {
+			el.textContent = next;
+		}
+	}
+
+	private armNowLabel(): void {
+		const wait = 60_000 - (Date.now() % 60_000) + 50;
+		this.clockTimer = setTimeout(() => {
+			this.clockTimer = null;
+			if (this.destroyed) {
+				return;
+			}
+			this.writeNowLabel();
+			this.armNowLabel();
+		}, wait);
 	}
 
 	private loadUser(): void {
-		this.members.getUserId({ skipGeolocation: true }).pipe(take(1)).subscribe((member) => {
+		this.subs.add(this.members.getUserId({ skipGeolocation: true }).pipe(take(1)).subscribe((member) => {
 			const name = `${member?.firstName || ''} ${member?.lastName || ''}`.trim();
 			const login = (member?.userName || '').trim();
 			this.userLabel = name || login;
@@ -459,86 +605,187 @@ export class HomePageComponent implements OnInit, OnDestroy {
 			this.userSeen = seen instanceof Date && !Number.isNaN(seen.getTime())
 				? this.formatWhen(seen.toISOString(), true)
 				: '';
-		});
+			this.store();
+		}));
 	}
 
-	private loadWeather(gen: number): void {
-		this.weatherState = 'loading';
-		this.begin();
-		this.weatherPosition().pipe(take(1)).subscribe({
-			next: (pos) => {
-				if (gen !== this.loadGen) {
-					return;
-				}
-				if (!pos) {
-					this.weatherState = 'empty';
-					this.end();
-					return;
-				}
-				const lang = (this.translate.currentLang || 'fr').split('-')[0];
-				forkJoin({
-					weather: this.api.getCurrentWeatherByCoordinates(pos.latitude, pos.longitude, null, 'open-meteo').pipe(
-						catchError(() => of(null))
-					),
-					place: this.api.geocodeReverse(pos.latitude, pos.longitude, lang).pipe(
-						catchError(() => of(null))
-					)
-				}).pipe(take(1)).subscribe({
-						next: ({ weather, place }) => {
-							if (gen !== this.loadGen) {
-								return;
-							}
-							const res = weather as any;
-							const temp = Number(res?.main?.temp);
-							if (!res || res.error || !Number.isFinite(temp)) {
-								this.weatherState = 'error';
-								this.end();
-								return;
-							}
-							const feels = Number(res?.main?.feels_like);
-							const humidity = Number(res?.main?.humidity);
-							this.weatherTemp = this.formatDegrees(temp);
-							this.weatherPlace = this.placeLabel(place) || this.coordLabel(pos.latitude, pos.longitude);
-							this.weatherDesc = String(res?.weather?.[0]?.description || '').trim();
-							this.weatherFeels = Number.isFinite(feels)
-								? this.translate.instant('HOME.DASHBOARD.FEELS', { temp: this.formatDegrees(feels) })
-								: '';
-							this.weatherHumidity = Number.isFinite(humidity)
-								? this.translate.instant('HOME.DASHBOARD.HUMIDITY', {
-									value: Math.round(humidity).toLocaleString(this.localeTag())
-								})
-								: '';
-							this.weatherState = 'ready';
-							this.end();
-						},
-						error: () => {
-							if (gen !== this.loadGen) {
-								return;
-							}
-							this.weatherState = 'error';
-							this.end();
-						}
-					});
-			},
+	private weatherQuiet = false;
+
+	private loadWeather(gen: number, quiet = false): void {
+		this.weatherQuiet = quiet;
+		this.weatherRefreshing = quiet;
+		this.weatherFromGps = false;
+		if (this.weatherState === 'loading') {
+			this.userAddress = '';
+		}
+		if (!quiet) {
+			this.begin();
+		}
+		this.subs.add(this.weatherPosition().pipe(take(1)).subscribe({
+			next: (pos) => this.applyWeatherAt(gen, pos, false, quiet),
 			error: () => {
 				if (gen !== this.loadGen) {
+					if (quiet) {
+						this.weatherRefreshing = false;
+					}
 					return;
 				}
-				this.weatherState = 'error';
-				this.end();
+				if (this.weatherState === 'loading') {
+					this.weatherState = 'error';
+				}
+				this.finish(quiet ? 'weather' : false);
 			}
-		});
+		}));
+		this.refineAddressFromDeviceGps(gen);
 	}
 
-	private loadAgenda(gen: number): void {
-		this.agendaState = 'loading';
-		this.begin();
+	/** Ask the browser for GPS when it has not been decided yet, then replace the place with that fix. */
+	private refineAddressFromDeviceGps(gen: number): void {
+		this.subs.add(from(this.gpsPermissionState()).pipe(take(1)).subscribe((state) => {
+			if (gen !== this.loadGen || state === 'granted' || state === 'denied') {
+				return;
+			}
+			this.subs.add(this.position.getGpsPosition().pipe(take(1)).subscribe((gps) => {
+				if (!gps || gen !== this.loadGen) {
+					return;
+				}
+				this.weatherFromGps = true;
+				this.applyWeatherAt(gen, { ...gps, gps: true }, true, this.weatherQuiet);
+			}));
+		}));
+	}
+
+	private applyWeatherAt(
+		gen: number,
+		pos: { latitude: number; longitude: number; gps: boolean } | null,
+		fromGps: boolean,
+		quiet = false
+	): void {
+		if (gen !== this.loadGen) {
+			if (quiet) {
+				this.weatherRefreshing = false;
+			}
+			return;
+		}
+		if (fromGps) {
+			this.weatherFromGps = true;
+		} else if (this.weatherFromGps) {
+			this.finish(quiet ? 'weather' : false);
+			return;
+		}
+		if (!pos) {
+			if (!fromGps) {
+				if (this.weatherState === 'loading') {
+					this.weatherState = 'empty';
+					this.userAddress = '';
+				}
+				this.finish(quiet ? 'weather' : false);
+			}
+			return;
+		}
+		const lang = (this.translate.currentLang || 'fr').split('-')[0];
+		this.subs.add(forkJoin({
+			weather: this.api.getCurrentWeatherByCoordinates(pos.latitude, pos.longitude, null, 'open-meteo').pipe(
+				catchError(() => of(null))
+			),
+			place: this.api.geocodeReverse(pos.latitude, pos.longitude, lang).pipe(
+				catchError(() => of(null))
+			)
+		}).pipe(take(1)).subscribe({
+			next: ({ weather, place }) => {
+				if (gen !== this.loadGen) {
+					if (quiet) {
+						this.weatherRefreshing = false;
+					}
+					return;
+				}
+				if (!fromGps && this.weatherFromGps) {
+					this.finish(quiet ? 'weather' : false);
+					return;
+				}
+				const city = this.cityLabel(place);
+				const street = this.streetAddressLabel(place);
+				if (city || street) {
+					this.userAddress = street && street.toLowerCase() !== city.toLowerCase() ? street : '';
+				}
+				const res = weather as any;
+				const temp = Number(res?.main?.temp);
+				if (!res || res.error || !Number.isFinite(temp)) {
+					if (!fromGps) {
+						if (this.weatherState === 'loading') {
+							this.weatherState = 'error';
+						}
+						this.finish(quiet ? 'weather' : false);
+					} else if (quiet) {
+						this.weatherRefreshing = false;
+					}
+					return;
+				}
+				const feels = Number(res?.main?.feels_like);
+				const humidity = Number(res?.main?.humidity);
+				const provider = this.weatherProvider(place, pos.latitude, pos.longitude);
+				this.weatherTemp = this.formatDegrees(temp);
+				this.weatherTempC = temp;
+				this.weatherObservedAt = this.weatherObservedAtOf(res);
+				this.weatherLat = pos.latitude;
+				this.weatherLon = pos.longitude;
+				this.weatherRegion = provider === 'ms' ? 'switzerland' : 'france';
+				this.weatherClim = provider === 'mf';
+				this.weatherPlace = city || street || this.coordLabel(pos.latitude, pos.longitude);
+				this.loadWeatherAltitude(pos.latitude, pos.longitude);
+				this.weatherDesc = String(res?.weather?.[0]?.description || '').trim();
+				this.weatherFeels = Number.isFinite(feels)
+					? this.translate.instant('HOME.DASHBOARD.FEELS', { temp: this.formatDegrees(feels) })
+					: '';
+				this.weatherHumidity = Number.isFinite(humidity)
+					? this.translate.instant('HOME.DASHBOARD.HUMIDITY', {
+						value: Math.round(humidity).toLocaleString(this.localeTag())
+					})
+					: '';
+				this.weatherState = 'ready';
+				if (quiet) {
+					this.weatherRefreshing = false;
+				}
+				if (!fromGps) {
+					this.finish(quiet ? 'weather' : false);
+				} else {
+					this.store();
+				}
+			},
+			error: () => {
+				if (gen !== this.loadGen || fromGps) {
+					if (quiet) {
+						this.weatherRefreshing = false;
+					}
+					return;
+				}
+				if (this.weatherFromGps) {
+					this.finish(quiet ? 'weather' : false);
+					return;
+				}
+				if (this.weatherState === 'loading') {
+					this.weatherState = 'error';
+				}
+				this.finish(quiet ? 'weather' : false);
+			}
+		}));
+	}
+
+	private loadAgenda(gen: number, quiet = false): void {
+		const visible = this.agendaState !== 'loading';
+		this.agendaRefreshing = quiet;
+		if (!quiet) {
+			this.begin();
+		}
 		const from = startOfToday();
 		const to = new Date(from.getTime() + AGENDA_DAYS * 24 * 60 * 60 * 1000);
 		this.calendar.invalidateEntriesCache();
-		this.calendar.getEntries(from, to).pipe(take(1)).subscribe({
+		this.subs.add(this.calendar.getEntries(from, to).pipe(take(1)).subscribe({
 			next: (entries) => {
 				if (gen !== this.loadGen) {
+					if (quiet) {
+						this.agendaRefreshing = false;
+					}
 					return;
 				}
 				const now = Date.now();
@@ -552,63 +799,99 @@ export class HomePageComponent implements OnInit, OnDestroy {
 				this.loadActivityThumbs();
 				this.agendaExtra = Math.max(0, appointments.length - APPOINTMENT_LIMIT);
 				this.agendaState = this.activities.length || this.appointments.length ? 'ready' : 'empty';
-				this.end();
+				this.agendaRefreshing = false;
+				this.finish(quiet ? 'agenda' : false);
 			},
 			error: () => {
 				if (gen !== this.loadGen) {
+					if (quiet) {
+						this.agendaRefreshing = false;
+					}
 					return;
 				}
-				this.activities = [];
-				this.appointments = [];
-				this.loadActivityThumbs();
-				this.agendaExtra = 0;
-				this.agendaState = 'error';
-				this.end();
+				if (!visible) {
+					this.activities = [];
+					this.appointments = [];
+					this.loadActivityThumbs();
+					this.agendaExtra = 0;
+					this.agendaState = 'error';
+				}
+				this.agendaRefreshing = false;
+				this.finish(quiet ? 'agenda' : false);
 			}
-		});
+		}));
 	}
 
-	private loadTasks(gen: number): void {
-		this.taskState = 'loading';
-		this.begin();
-		forkJoin({
-			lists: this.todos.listAccessible().pipe(catchError(() => of([] as TodoList[]))),
-			members: this.members.getListMembers().pipe(catchError(() => of([] as Member[])))
-		}).pipe(take(1)).subscribe({
-			next: ({ lists, members }) => {
+	private loadTasks(gen: number, quiet = false): void {
+		const visible = this.taskState !== 'loading';
+		this.taskRefreshing = quiet;
+		if (!quiet) {
+			this.begin();
+		}
+		this.subs.add(this.todos.listDashboard().pipe(
+			take(1),
+			catchError(() => of([] as TodoDashboardList[]))
+		).subscribe({
+			next: (lists) => {
 				if (gen !== this.loadGen) {
+					if (quiet) {
+						this.taskRefreshing = false;
+					}
 					return;
 				}
 				const today = startOfToday().getTime();
-				const rows = this.openTasks(lists || [], today, this.memberNames(members || []));
+				const rows = this.openTasks(lists || [], today);
 				this.tasks = rows.slice(0, TASK_LIMIT);
 				this.taskState = this.tasks.length ? 'ready' : 'empty';
-				this.end();
+				this.taskRefreshing = false;
+				this.finish(quiet ? 'tasks' : false);
 			},
 			error: () => {
 				if (gen !== this.loadGen) {
+					if (quiet) {
+						this.taskRefreshing = false;
+					}
 					return;
 				}
-				this.tasks = [];
-				this.taskState = 'error';
-				this.end();
+				if (!visible) {
+					this.tasks = [];
+					this.taskState = 'error';
+				}
+				this.taskRefreshing = false;
+				this.finish(quiet ? 'tasks' : false);
 			}
-		});
+		}));
 	}
 
-	private loadNews(gen: number): void {
-		this.newsState = 'loading';
-		this.begin();
+	private loadNews(gen: number, replace = true, forcedProvider?: NewsProviderId): void {
+		const request = ++this.newsRequest;
+		const switching = !!forcedProvider;
+		const visible = !switching && this.newsState !== 'loading';
+		if (switching) {
+			this.newsRefreshing = true;
+			this.publishNewsState('loading', true);
+			this.news = [];
+		} else if (replace) {
+			this.begin();
+		} else {
+			this.newsRefreshing = true;
+		}
 		const local = this.readNewsFilters();
 		let choice = local;
-		this.api.getNewsSourcePreference().pipe(
+		this.subs.add(this.api.getNewsSourcePreference().pipe(
 			take(1),
 			catchError(() => of(null)),
 			switchMap((remote) => {
 				choice = this.mergeNewsChoice(local, remote);
-				if (this.newsProviderPinned) {
+				if (forcedProvider) {
+					const feeds = forcedProvider === 'rss' ? (choice.feeds.length ? choice.feeds : local.feeds) : [];
+					choice = { ...choice, provider: forcedProvider, feeds };
+				} else if (this.newsProviderPinned) {
 					choice = { ...choice, provider: this.newsProviderPinned };
 					this.newsProviderPinned = null;
+				}
+				if (request !== this.newsRequest) {
+					return of(null);
 				}
 				this.newsProvider = choice.provider;
 				const feeds = choice.provider === 'rss' ? choice.feeds : undefined;
@@ -646,7 +929,11 @@ export class HomePageComponent implements OnInit, OnDestroy {
 			})
 		).subscribe({
 			next: (resp: any) => {
-				if (gen !== this.loadGen) {
+				if (request !== this.newsRequest) {
+					return;
+				}
+				this.newsRefreshing = false;
+				if (!switching && gen !== this.loadGen) {
 					return;
 				}
 				const articles = Array.isArray(resp?.articles) ? resp.articles : [];
@@ -660,17 +947,53 @@ export class HomePageComponent implements OnInit, OnDestroy {
 						when: this.formatWhen(article?.publishedAt, true)
 					};
 				}).filter((item: DashNewsItem) => item.title && item.url);
-				this.newsState = this.news.length ? 'ready' : 'empty';
-				this.end();
+				this.publishNewsState(this.news.length ? 'ready' : 'empty', false);
+				if (replace && !switching) {
+					this.end();
+				} else {
+					this.store();
+				}
 			},
 			error: () => {
-				if (gen !== this.loadGen) {
+				if (request !== this.newsRequest) {
+					return;
+				}
+				this.newsRefreshing = false;
+				if (switching) {
+					this.news = [];
+					this.publishNewsState('error', false);
+					this.store();
+					return;
+				}
+				if (visible) {
+					if (replace) {
+						this.end();
+					}
+					return;
+				}
+				if (!replace || gen !== this.loadGen) {
 					return;
 				}
 				this.news = [];
-				this.newsState = 'error';
+				this.publishNewsState('error', false);
 				this.end();
 			}
+		}));
+	}
+
+	/** `immediate` is only for updates that happen before the view is checked. */
+	private publishNewsState(state: CardState, immediate: boolean): void {
+		this.newsState = state;
+		if (immediate || this.newsViewState === state) {
+			this.newsViewState = state;
+			return;
+		}
+		this.zone.run(() => {
+			setTimeout(() => {
+				if (!this.destroyed) {
+					this.newsViewState = this.newsState;
+				}
+			});
 		});
 	}
 
@@ -861,6 +1184,7 @@ export class HomePageComponent implements OnInit, OnDestroy {
 		this.radioNowSub?.unsubscribe();
 		this.radioNowSub = this.api.getRadioNowPlaying(station).pipe(take(1)).subscribe({
 			next: (res) => {
+				this.playingRefreshing = false;
 				if ((this.radio.snapshot.station?.streamUrl || '') !== (station.streamUrl || '')) {
 					return;
 				}
@@ -875,29 +1199,52 @@ export class HomePageComponent implements OnInit, OnDestroy {
 					logo: this.radioLogo(station)
 				};
 			},
-			error: () => { /* the station name already fills the card */ }
+			error: () => {
+				this.playingRefreshing = false;
+			}
 		});
 	}
 
-	/** GPS only when already allowed, so opening the home page does not raise a permission prompt. */
+	/** Device GPS when the browser already allows it. Otherwise the network location, so the page still opens immediately. */
 	private weatherPosition() {
 		return from(this.gpsAlreadyGranted()).pipe(
-			switchMap((granted) => granted ? this.position.getGpsPosition() : of(null)),
-			switchMap((gps) => gps ? of(gps) : this.position.getIpPosition()),
-			catchError(() => this.position.getIpPosition())
+			switchMap((granted) => {
+				const ip = this.position.getIpPosition().pipe(
+					map((coords) => coords ? { ...coords, gps: false } : null),
+					catchError(() => of(null))
+				);
+				if (!granted) {
+					return ip;
+				}
+				return this.position.getGpsPosition().pipe(
+					switchMap((coords) => coords ? of({ ...coords, gps: true }) : ip)
+				);
+			}),
+			catchError(() => this.position.getIpPosition().pipe(
+				map((coords) => coords ? { ...coords, gps: false } : null),
+				catchError(() => of(null))
+			))
 		);
 	}
 
 	private async gpsAlreadyGranted(): Promise<boolean> {
+		return (await this.gpsPermissionState()) === 'granted';
+	}
+
+	/** `unknown` when the browser has no Permissions API (typical on mobile Safari). */
+	private async gpsPermissionState(): Promise<'granted' | 'prompt' | 'denied' | 'unknown'> {
 		const query = navigator.permissions?.query;
 		if (!query) {
-			return false;
+			return 'unknown';
 		}
 		try {
 			const status = await query.call(navigator.permissions, { name: 'geolocation' });
-			return status.state === 'granted';
+			if (status.state === 'granted' || status.state === 'prompt' || status.state === 'denied') {
+				return status.state;
+			}
+			return 'unknown';
 		} catch {
-			return false;
+			return 'unknown';
 		}
 	}
 
@@ -974,27 +1321,13 @@ export class HomePageComponent implements OnInit, OnDestroy {
 		}
 	}
 
-	private memberNames(members: Member[]): Map<string, string> {
-		const names = new Map<string, string>();
-		for (const member of members) {
-			const id = (member?.id || '').trim();
-			if (!id) {
-				continue;
-			}
-			const full = `${member.firstName || ''} ${member.lastName || ''}`.trim();
-			names.set(id, full || (member.userName || '').trim());
-		}
-		return names;
-	}
-
-	private openTasks(lists: TodoList[], today: number, names: Map<string, string>): DashTaskItem[] {
+	private openTasks(lists: TodoDashboardList[], today: number): DashTaskItem[] {
 		const rows: Array<DashTaskItem & { due: number | null }> = [];
-		const label = (id: string | null | undefined) => names.get((id || '').trim()) || '';
 		for (const list of lists) {
 			if (list.status === 'done' || list.status === 'archived') {
 				continue;
 			}
-			const owner = label(list.ownerMemberId);
+			const owner = (list.ownerName || '').trim();
 			for (const item of list.items || []) {
 				if (!item || item.status === 'done' || item.status === 'archived') {
 					continue;
@@ -1011,7 +1344,7 @@ export class HomePageComponent implements OnInit, OnDestroy {
 					listId: (list.id || '').trim(),
 					itemId: (item.id || '').trim(),
 					when: due == null ? '' : this.formatDue(item.dueDate || ''),
-					assignee: label(item.assigneeMemberId),
+					assignee: (item.assigneeName || '').trim(),
 					owner,
 					overdue,
 					due
@@ -1081,21 +1414,90 @@ export class HomePageComponent implements OnInit, OnDestroy {
 		return `${value.toLocaleString(this.localeTag(), { maximumFractionDigits: 1 })}°`;
 	}
 
-	private placeLabel(body: any): string {
+	/** City name shown beside the temperature. */
+	private cityLabel(body: any): string {
 		const address = body?.address && typeof body.address === 'object' ? body.address : {};
-		const locality = ['city', 'town', 'village', 'municipality', 'hamlet', 'suburb']
-			.map((key) => String(address[key] || '').trim())
-			.find((value) => value.length > 0) || '';
-		const area = String(address.county || address.state || address.country || '').trim();
-		if (locality && area && locality.toLowerCase() !== area.toLowerCase()) {
-			return `${locality}, ${area}`;
-		}
+		const locality = this.firstAddressText(address, [
+			'city', 'town', 'village', 'municipality', 'hamlet', 'suburb', 'locality'
+		]);
 		if (locality) {
 			return locality;
 		}
 		const display = String(body?.displayName || body?.display_name || '').trim();
-		const parts = display.split(',').map((part) => part.trim()).filter((part) => part && !/^\d+$/.test(part));
-		return parts.slice(0, 2).join(', ');
+		const part = display.split(',')
+			.map((item) => item.trim())
+			.find((item) => item.length > 0 && !/^\d/.test(item));
+		return part || '';
+	}
+
+	/** Number, street, postcode and city for the profile line. */
+	private streetAddressLabel(body: any): string {
+		const address = body?.address && typeof body.address === 'object' ? body.address : {};
+		const house = this.firstAddressText(address, ['house_number', 'housenumber']);
+		const road = this.firstAddressText(address, ['road', 'street', 'pedestrian', 'footway', 'path', 'residential']);
+		const postcode = this.firstAddressText(address, ['postcode', 'postcodes']);
+		const locality = this.cityLabel(body);
+		const street = [house, road].filter((part) => part.length > 0).join(' ');
+		const city = [postcode, locality].filter((part) => part.length > 0).join(' ');
+		return [street, city].filter((part, index, all) =>
+			part.length > 0 && all.findIndex((other) => other.toLowerCase() === part.toLowerCase()) === index
+		).join(', ');
+	}
+
+	private firstAddressText(address: any, keys: string[]): string {
+		for (const key of keys) {
+			const raw = address?.[key];
+			const value = Array.isArray(raw) ? raw[0] : raw;
+			const text = String(value || '').trim();
+			if (text) {
+				return text;
+			}
+		}
+		return '';
+	}
+
+	private weatherProvider(place: any, lat: number, lon: number): 'mf' | 'ms' | null {
+		const address = place?.address && typeof place.address === 'object' ? place.address : {};
+		let code = String(
+			address.country_code ?? address.countryCode ?? place?.country_code ?? place?.countryCode ?? ''
+		).trim().toUpperCase();
+		if (code === 'CHE') {
+			code = 'CH';
+		} else if (code === 'FRA') {
+			code = 'FR';
+		}
+		if (!code) {
+			const country = String(address.country || '').trim().toLowerCase();
+			if (/suisse|switzerland|schweiz|svizzera/.test(country)) {
+				code = 'CH';
+			} else if (country === 'france' || country.startsWith('france ')) {
+				code = 'FR';
+			}
+		}
+		return resolveWeatherStationProvider(lat, lon, code);
+	}
+
+	private weatherObservedAtOf(weather: any): string {
+		const raw = weather?.dt ?? weather?.time ?? weather?.current?.time;
+		if (raw == null || raw === '') {
+			return '';
+		}
+		return String(raw);
+	}
+
+	private loadWeatherAltitude(lat: number, lon: number): void {
+		const fix = ++this.weatherFix;
+		this.subs.add(this.api.getStationElevation(lat, lon).pipe(
+			take(1),
+			catchError(() => of(null))
+		).subscribe((res) => {
+			if (fix !== this.weatherFix) {
+				return;
+			}
+			const alt = Number(res?.altitudeM);
+			this.weatherAltitude = Number.isFinite(alt) ? alt : null;
+			this.store();
+		}));
 	}
 
 	private coordLabel(lat: number, lon: number): string {
@@ -1129,12 +1531,150 @@ export class HomePageComponent implements OnInit, OnDestroy {
 
 	private begin(): void {
 		this.inflight++;
-		this.refreshing = true;
+		this.paintRefreshing();
 	}
 
 	private end(): void {
 		this.inflight = Math.max(0, this.inflight - 1);
-		this.refreshing = this.inflight > 0;
+		this.paintRefreshing();
+		this.store();
+	}
+
+	/** The refresh button is updated on the node. A template binding changes during the dev-mode check and throws NG0100. */
+	private paintRefreshing(): void {
+		if (this.destroyed) {
+			return;
+		}
+		const spinning = this.inflight > 0;
+		const button = this.dashRefresh?.nativeElement;
+		if (!button) {
+			return;
+		}
+		button.disabled = spinning;
+		button.querySelector('i')?.classList.toggle('fa-spin', spinning);
+	}
+
+	/** A card refresh updates the cache without spinning the title-bar button. */
+	private finish(quiet: false | 'weather' | 'agenda' | 'tasks'): void {
+		if (quiet === 'weather') {
+			this.weatherRefreshing = false;
+		} else if (quiet === 'agenda') {
+			this.agendaRefreshing = false;
+		} else if (quiet === 'tasks') {
+			this.taskRefreshing = false;
+		}
+		if (quiet) {
+			this.store();
+			return;
+		}
+		this.end();
+	}
+
+	/** Show the previous visit immediately. Returns false when this language has never been loaded. */
+	private restoreFromCache(): boolean {
+		const snap = this.cache.snapshot;
+		if (!snap || snap.lang !== this.currentLang) {
+			return false;
+		}
+		const settled = [snap.weatherState, snap.agendaState, snap.taskState, snap.newsState]
+			.some((state) => state !== 'loading');
+		if (!settled && !snap.userLabel) {
+			return false;
+		}
+		this.cacheEpoch = this.cache.epoch;
+		this.weatherState = snap.weatherState;
+		this.weatherTemp = snap.weatherTemp;
+		this.weatherPlace = snap.weatherPlace;
+		this.weatherDesc = snap.weatherDesc;
+		this.weatherFeels = snap.weatherFeels;
+		this.weatherHumidity = snap.weatherHumidity;
+		this.weatherLat = snap.weatherLat ?? null;
+		this.weatherLon = snap.weatherLon ?? null;
+		this.weatherAltitude = snap.weatherAltitude ?? null;
+		this.weatherRegion = snap.weatherRegion === 'switzerland' ? 'switzerland' : 'france';
+		this.weatherClim = snap.weatherClim === true;
+		this.weatherTempC = snap.weatherTempC ?? null;
+		this.weatherObservedAt = snap.weatherObservedAt ?? '';
+		this.userAddress = snap.userAddress;
+		this.userLabel = snap.userLabel;
+		this.userLogin = snap.userLogin;
+		this.userSeen = snap.userSeen;
+		this.agendaState = snap.agendaState;
+		this.activities = snap.activities;
+		this.appointments = snap.appointments;
+		this.agendaExtra = snap.agendaExtra;
+		for (const item of this.activities) {
+			if (item.thumbId) {
+				item.thumb = this.activityThumbs.get(item.thumbId) || item.thumb;
+			}
+		}
+		this.taskState = snap.taskState;
+		this.tasks = snap.tasks;
+		this.publishNewsState(snap.newsState, true);
+		this.news = snap.news;
+		this.newsProvider = snap.newsProvider;
+		this.paintRefreshing();
+		return true;
+	}
+
+	/** Finish any section that was still in flight when the page was left. */
+	private fillMissing(): void {
+		const gen = this.loadGen;
+		if (this.weatherState === 'loading') {
+			this.loadWeather(gen);
+		}
+		if (this.agendaState === 'loading') {
+			this.loadAgenda(gen);
+		}
+		if (this.taskState === 'loading') {
+			this.loadTasks(gen);
+		}
+		if (this.newsState === 'loading') {
+			this.loadNews(gen);
+		}
+		if (!this.userLabel) {
+			this.loadUser();
+		}
+	}
+
+	private store(): void {
+		if (this.cacheEpoch !== this.cache.epoch) {
+			return;
+		}
+		const prev = this.cache.snapshot?.lang === this.currentLang ? this.cache.snapshot : null;
+		const weatherReady = this.weatherState !== 'loading';
+		const agendaReady = this.agendaState !== 'loading';
+		const tasksReady = this.taskState !== 'loading';
+		const newsReady = this.newsState !== 'loading';
+		this.cache.snapshot = {
+			lang: this.currentLang,
+			weatherState: weatherReady ? this.weatherState : (prev?.weatherState ?? 'loading'),
+			weatherTemp: weatherReady ? this.weatherTemp : (prev?.weatherTemp ?? ''),
+			weatherPlace: weatherReady ? this.weatherPlace : (prev?.weatherPlace ?? ''),
+			weatherDesc: weatherReady ? this.weatherDesc : (prev?.weatherDesc ?? ''),
+			weatherFeels: weatherReady ? this.weatherFeels : (prev?.weatherFeels ?? ''),
+			weatherHumidity: weatherReady ? this.weatherHumidity : (prev?.weatherHumidity ?? ''),
+			weatherLat: weatherReady ? this.weatherLat : (prev?.weatherLat ?? null),
+			weatherLon: weatherReady ? this.weatherLon : (prev?.weatherLon ?? null),
+			weatherAltitude: weatherReady ? this.weatherAltitude : (prev?.weatherAltitude ?? null),
+			weatherRegion: weatherReady ? this.weatherRegion : (prev?.weatherRegion ?? 'france'),
+			weatherClim: weatherReady ? this.weatherClim : (prev?.weatherClim ?? false),
+			weatherTempC: weatherReady ? this.weatherTempC : (prev?.weatherTempC ?? null),
+			weatherObservedAt: weatherReady ? this.weatherObservedAt : (prev?.weatherObservedAt ?? ''),
+			userAddress: weatherReady ? this.userAddress : (prev?.userAddress ?? ''),
+			userLabel: this.userLabel || prev?.userLabel || '',
+			userLogin: this.userLabel ? this.userLogin : (prev?.userLogin ?? ''),
+			userSeen: this.userLabel ? this.userSeen : (prev?.userSeen ?? ''),
+			agendaState: agendaReady ? this.agendaState : (prev?.agendaState ?? 'loading'),
+			activities: agendaReady ? this.activities : (prev?.activities ?? []),
+			appointments: agendaReady ? this.appointments : (prev?.appointments ?? []),
+			agendaExtra: agendaReady ? this.agendaExtra : (prev?.agendaExtra ?? 0),
+			taskState: tasksReady ? this.taskState : (prev?.taskState ?? 'loading'),
+			tasks: tasksReady ? this.tasks : (prev?.tasks ?? []),
+			newsState: newsReady ? this.newsState : (prev?.newsState ?? 'loading'),
+			news: newsReady ? this.news : (prev?.news ?? []),
+			newsProvider: newsReady ? this.newsProvider : (prev?.newsProvider ?? this.newsProvider)
+		};
 	}
 }
 

@@ -41,6 +41,76 @@ class TvStreamProxyMezzoPlaylistTest {
     }
 
     @Test
+    void keepsPerSegmentAesKeyWithTheNewestSegments() {
+        String playlist = """
+                #EXTM3U
+                #EXT-X-VERSION:6
+                #EXT-X-TARGETDURATION:7
+                #EXT-X-MEDIA-SEQUENCE:100
+                #EXT-X-DISCONTINUITY-SEQUENCE:2
+                #EXT-X-KEY:METHOD=AES-128,URI="k",IV=0x01
+                #EXTINF:6.72,
+                a.ts
+                #EXT-X-DISCONTINUITY
+                #EXT-X-KEY:METHOD=AES-128,URI="k",IV=0x02
+                #EXTINF:6.72,
+                b.ts
+                #EXT-X-KEY:METHOD=AES-128,URI="k",IV=0x03
+                #EXTINF:6.72,
+                c.ts
+                """;
+        String trimmed = TvStreamProxyService.keepNewestLiveSegments(playlist, 2);
+        assertTrue(trimmed.contains("#EXT-X-MEDIA-SEQUENCE:101"));
+        // The discontinuity sits on a kept segment, so the sequence header stays put.
+        assertTrue(trimmed.contains("#EXT-X-DISCONTINUITY-SEQUENCE:2"));
+        assertTrue(trimmed.contains("#EXT-X-DISCONTINUITY\n") || trimmed.contains("#EXT-X-DISCONTINUITY\r\n"));
+        assertFalse(trimmed.contains("IV=0x01"));
+        assertFalse(trimmed.contains("a.ts"));
+        assertTrue(trimmed.contains("IV=0x02"));
+        assertTrue(trimmed.contains("b.ts"));
+        assertTrue(trimmed.contains("IV=0x03"));
+        assertTrue(trimmed.contains("c.ts"));
+        int key2 = trimmed.indexOf("IV=0x02");
+        int segB = trimmed.indexOf("b.ts");
+        int key3 = trimmed.indexOf("IV=0x03");
+        int segC = trimmed.indexOf("c.ts");
+        assertTrue(key2 >= 0 && key2 < segB && segB < key3 && key3 < segC);
+    }
+
+    @Test
+    void repeatsLeadingAesKeyOnTheFirstKeptSegment() {
+        String playlist = """
+                #EXTM3U
+                #EXT-X-TARGETDURATION:6
+                #EXT-X-MEDIA-SEQUENCE:10
+                #EXT-X-KEY:METHOD=AES-128,URI="k",IV=0xaa
+                #EXTINF:6.0,
+                a.ts
+                #EXTINF:6.0,
+                b.ts
+                #EXTINF:6.0,
+                c.ts
+                """;
+        String trimmed = TvStreamProxyService.keepNewestLiveSegments(playlist, 1);
+        assertTrue(trimmed.contains("#EXT-X-MEDIA-SEQUENCE:12"));
+        assertTrue(trimmed.contains("IV=0xaa"));
+        assertTrue(trimmed.contains("c.ts"));
+        assertFalse(trimmed.contains("a.ts"));
+        assertFalse(trimmed.contains("b.ts"));
+        assertTrue(trimmed.indexOf("IV=0xaa") < trimmed.indexOf("c.ts"));
+    }
+
+    @Test
+    void detectsFranceTvSaiDvrHost() {
+        assertTrue(TvStreamProxyService.isFranceTvDvrUpstream(
+                "https://live-ssai-p.ftven.fr/token/dai/manifest/session/0.m3u8"));
+        assertFalse(TvStreamProxyService.isFranceTvDvrUpstream(
+                "https://hdfauth.ftven.fr/esi/TA?format=json"));
+        assertFalse(TvStreamProxyService.isFranceTvDvrUpstream(
+                "https://live2.eu-north-1a.cf.dmcdn.net/sec/live.m3u8"));
+    }
+
+    @Test
     void leavesMasterPlaylistsUntouched() {
         String master = """
                 #EXTM3U

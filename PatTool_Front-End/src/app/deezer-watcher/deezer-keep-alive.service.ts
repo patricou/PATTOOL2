@@ -38,6 +38,7 @@ export class DeezerKeepAliveService {
   private playedSeconds = 0;
   private clipId = '';
   private clockTimer: ReturnType<typeof setInterval> | null = null;
+  private frameLoad: (() => void) | null = null;
 
   handoff(opts: {
     audio: HTMLAudioElement | null;
@@ -52,7 +53,18 @@ export class DeezerKeepAliveService {
     youtubeIds: Record<number, string>;
     volume: number;
   }): void {
+    const previousAudio = this.audio;
+    const previousFrame = this.frame;
     this.detach();
+    if (previousAudio && previousAudio !== opts.audio) {
+      previousAudio.dataset['patUserPaused'] = '1';
+      previousAudio.pause();
+      previousAudio.remove();
+    }
+    if (previousFrame && previousFrame !== opts.frame) {
+      previousFrame.src = 'about:blank';
+      previousFrame.remove();
+    }
     this.queue = opts.queue || [];
     this.index = opts.index;
     this.repeat = opts.repeat;
@@ -166,7 +178,8 @@ export class DeezerKeepAliveService {
     frame.style.pointerEvents = 'none';
     frame.style.border = '0';
     this.ignoreEndUntil = Date.now() + 4000;
-    frame.addEventListener('load', () => this.armFrame(frame));
+    this.frameLoad = () => this.armFrame(frame);
+    frame.addEventListener('load', this.frameLoad);
     if (frame.parentElement !== document.body) {
       document.body.appendChild(frame);
     }
@@ -373,6 +386,10 @@ export class DeezerKeepAliveService {
       this.audio.removeEventListener('ended', this.onEnded);
       this.audio.removeEventListener('error', this.onEnded);
     }
+    if (this.frame && this.frameLoad) {
+      this.frame.removeEventListener('load', this.frameLoad);
+    }
+    this.frameLoad = null;
     this.audio = null;
     this.frame = null;
     if (this.listening) {

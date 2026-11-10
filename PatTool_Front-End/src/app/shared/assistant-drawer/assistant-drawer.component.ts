@@ -126,6 +126,7 @@ import { ASSISTANT_OPENAI_MODEL_GUIDE_ROWS } from './assistant-openai-model-guid
 import {
   ASSISTANT_MODEL_RANKING_ROWS,
   AssistantModelRankingRowDef,
+  filterAssistantModelRankingRows,
   sortAssistantModelRankingRows
 } from './assistant-model-ranking-table';
 import {
@@ -560,6 +561,10 @@ export class AssistantDrawerComponent
 
   /** Model / task catalogue for the tools help modal (ℹ️ next to MCP), A–Z by translated task. */
   assistantModelRankingRows: AssistantModelRankingRowDef[] = [...ASSISTANT_MODEL_RANKING_ROWS];
+  /** Text typed in the "Task" column filter of the tools help modal. */
+  assistantRankTaskFilter = '';
+  /** {@link assistantModelRankingRows} narrowed by {@link assistantRankTaskFilter} (rows shown in the table). */
+  assistantModelRankingRowsFiltered: AssistantModelRankingRowDef[] = [...ASSISTANT_MODEL_RANKING_ROWS];
   /** Optional tool checkboxes × provider matrix (tools help modal). */
   readonly assistantToolsHelpProviderMatrix = ASSISTANT_TOOLS_HELP_PROVIDER_MATRIX;
   /** Per-provider model guide sections in the same tools help modal. */
@@ -829,6 +834,21 @@ export class AssistantDrawerComponent
       (taskKey) => this.translate.instant(taskKey),
       this.translate.currentLang
     );
+    this.applyAssistantRankTaskFilter();
+  }
+
+  private applyAssistantRankTaskFilter(): void {
+    this.assistantModelRankingRowsFiltered = filterAssistantModelRankingRows(
+      this.assistantModelRankingRows,
+      (taskKey) => this.translate.instant(taskKey),
+      this.assistantRankTaskFilter
+    );
+  }
+
+  /** Tools help modal: typing in the "Task" column filter. */
+  onAssistantRankTaskFilterChange(): void {
+    this.applyAssistantRankTaskFilter();
+    this.cdr.markForCheck();
   }
 
   ngOnInit(): void {
@@ -1366,10 +1386,8 @@ export class AssistantDrawerComponent
   }
 
   private rebuildModelOptionsList(): void {
-    const merged = new Set<string>();
-    for (const x of this.presetsForRoutingProvider(this.routingProvider)) {
-      merged.add(x);
-    }
+    const allowed = new Set<string>(this.presetsForRoutingProvider(this.routingProvider));
+    const merged = new Set<string>(allowed);
     const srv = this.serverDefaultForActiveProvider().trim();
     if (srv) {
       merged.add(srv);
@@ -1379,13 +1397,13 @@ export class AssistantDrawerComponent
       merged.add(cur);
     } else if (this.modelPreset !== this.MODEL_PRESET_CUSTOM) {
       const presetId = (this.modelPreset ?? '').trim();
-      if (presetId) {
+      if (presetId && allowed.has(presetId)) {
         merged.add(presetId);
       }
     }
     for (const id of this.remoteCatalogModelIds) {
       const t = (id ?? '').trim();
-      if (t) {
+      if (t && allowed.has(t)) {
         merged.add(t);
       }
     }
@@ -2648,6 +2666,8 @@ export class AssistantDrawerComponent
 
   openAssistantToolsHelpModal(): void {
     this.assistantToolsHelpFullscreen = false;
+    this.assistantRankTaskFilter = '';
+    this.applyAssistantRankTaskFilter();
     const ref = this.modalService.open(this.assistantToolsHelpModal, {
       centered: true,
       scrollable: true,

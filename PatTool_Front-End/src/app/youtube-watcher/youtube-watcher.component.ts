@@ -288,6 +288,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
   private mediaRecorder: MediaRecorder | null = null;
   private recordedChunks: Blob[] = [];
   private displayStream: MediaStream | null = null;
+  private recordTrackEnded: (() => void) | null = null;
   private recordOutputStream: MediaStream | null = null;
   private recordCropVideo: HTMLVideoElement | null = null;
   private recordCropRaf?: number;
@@ -943,11 +944,15 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
       this.recordErrorKey = 'TV.ERR_RECORD_UNAVAILABLE';
       return;
     }
-    this.displayStream?.getVideoTracks()[0]?.addEventListener('ended', () => {
-      if (this.clientRecordingActive && !this.recordFinalizing) {
-        this.stopActiveRecording();
-      }
-    });
+    const track = this.displayStream?.getVideoTracks()[0];
+    if (track) {
+      this.recordTrackEnded = () => {
+        if (this.clientRecordingActive && !this.recordFinalizing) {
+          this.stopActiveRecording();
+        }
+      };
+      track.addEventListener('ended', this.recordTrackEnded);
+    }
     this.mediaRecorder.ondataavailable = (ev: BlobEvent) => {
       if (ev.data && ev.data.size > 0) {
         this.recordedChunks.push(ev.data);
@@ -1426,6 +1431,7 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
         }
         this.mediaRecorder.onstop = null;
         this.mediaRecorder.onerror = null;
+        this.mediaRecorder.ondataavailable = null;
         this.mediaRecorder.stop();
       }
     } catch {
@@ -1444,6 +1450,13 @@ export class YoutubeWatcherComponent implements OnInit, OnDestroy {
 
   private releaseRecordingCapture(): void {
     this.stopRecordCropLoop();
+    const ended = this.recordTrackEnded;
+    this.recordTrackEnded = null;
+    this.displayStream?.getVideoTracks().forEach((track) => {
+      if (ended) {
+        track.removeEventListener('ended', ended);
+      }
+    });
     this.displayStream?.getTracks().forEach((track) => {
       try {
         track.stop();

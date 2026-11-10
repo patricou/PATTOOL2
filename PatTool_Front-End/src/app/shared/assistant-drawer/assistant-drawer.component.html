@@ -747,7 +747,15 @@
           <thead>
             <tr>
               <th scope="col" class="pat-assistant-rank-col-task">
-                {{ 'ASSISTANT.TOOLS_HELP_RANK_COL_TASK' | translate }}
+                <span class="d-block">{{ 'ASSISTANT.TOOLS_HELP_RANK_COL_TASK' | translate }}</span>
+                <input
+                  type="search"
+                  autocomplete="off"
+                  class="form-control form-control-sm pat-assistant-rank-task-filter"
+                  [(ngModel)]="assistantRankTaskFilter"
+                  (ngModelChange)="onAssistantRankTaskFilterChange()"
+                  [placeholder]="'ASSISTANT.TOOLS_HELP_RANK_TASK_FILTER' | translate"
+                  [attr.aria-label]="'ASSISTANT.TOOLS_HELP_RANK_TASK_FILTER' | translate" />
               </th>
               <th scope="col" class="text-center text-nowrap pat-assistant-rank-col pat-assistant-rank-col--gold">
                 {{ 'ASSISTANT.TOOLS_HELP_RANK_COL_GOLD' | translate }}
@@ -761,7 +769,12 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let row of assistantModelRankingRows">
+            <tr *ngIf="assistantModelRankingRowsFiltered.length === 0">
+              <td colspan="4" class="text-center pat-assistant-rank-filter-empty">
+                {{ 'ASSISTANT.TOOLS_HELP_RANK_TASK_FILTER_EMPTY' | translate }}
+              </td>
+            </tr>
+            <tr *ngFor="let row of assistantModelRankingRowsFiltered">
               <th scope="row" class="pat-assistant-rank-task">{{ row.taskKey | translate }}</th>
               <td class="text-center pat-assistant-rank-col pat-assistant-rank-col--gold">
                 <ng-container

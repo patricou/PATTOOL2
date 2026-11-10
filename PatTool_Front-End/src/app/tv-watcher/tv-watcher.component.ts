@@ -63,6 +63,7 @@ import {
   createTvHlsConfig,
   disableTvSubtitles,
   isTvHlsForbiddenError,
+  isTvHlsSubtitleError,
   resetTvMediaElement,
   resyncTvHlsAv,
   tryRecoverTvHlsError,
@@ -1050,6 +1051,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.resumeSub?.unsubscribe();
     this.lastChannelSaveSub?.unsubscribe();
     this.skinLoadSub?.unsubscribe();
+    this.skinSaveSub?.unsubscribe();
     this.navLeaveSub?.unsubscribe();
     this.applyLeavePagePlaybackPolicy();
     this.destroyPlayer();
@@ -2474,7 +2476,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       return;
     }
     const apply = (channel: TvChannel | null | undefined) => {
-      if (this.restoredLastChannel || this.selectedChannel || this.tvPlayer.isOpen) {
+      if (!this.pageAlive || this.restoredLastChannel || this.selectedChannel || this.tvPlayer.isOpen) {
         return;
       }
       if (!channel?.name || (!channel.streamUrl && !channel.id)) {
@@ -4606,6 +4608,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
         this.mediaRecorder.onstop = null;
         this.mediaRecorder.onerror = null;
+        this.mediaRecorder.ondataavailable = null;
         this.mediaRecorder.stop();
       }
     } catch {
@@ -5476,8 +5479,24 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
       if (!data?.fatal) {
         return;
       }
-      const streamUrl = resolveTvStreamUrl(channel);
       const videoEl = this.videoEl?.nativeElement || null;
+      if (isTvHlsSubtitleError(data)) {
+        disableTvSubtitles(instance, videoEl);
+        tvPlayLog('erreur sous-titres ignorée — la vidéo continue', {
+          channel: channel.name,
+          channelId: channel.id,
+          what: 'playlist sous-titres en échec, piste coupée, pas de hard restart',
+          details: data.details,
+          http: data.response?.code ?? data.networkDetails?.status ?? null
+        });
+        try {
+          instance.startLoad();
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+      const streamUrl = resolveTvStreamUrl(channel);
       const canHardRestart =
         playGen === this.playGeneration &&
         isKeepAliveVirtualLive(streamUrl) &&

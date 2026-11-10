@@ -20,6 +20,33 @@ export function sortAssistantModelRankingRows(
   );
 }
 
+/** Lower-cased, accent-stripped text so that "generation" matches "Génération". */
+function normalizeAssistantRankingFilterText(text: string): string {
+  return text
+    .toLocaleLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Rows whose translated task label contains every word of the query
+ * (case and accent insensitive). An empty query keeps all rows.
+ */
+export function filterAssistantModelRankingRows(
+  rows: readonly AssistantModelRankingRowDef[],
+  labelOf: (taskKey: string) => string,
+  query: string
+): AssistantModelRankingRowDef[] {
+  const words = normalizeAssistantRankingFilterText(query).split(/\s+/).filter(Boolean);
+  if (words.length === 0) {
+    return [...rows];
+  }
+  return rows.filter((row) => {
+    const label = normalizeAssistantRankingFilterText(labelOf(row.taskKey));
+    return words.every((word) => label.includes(word));
+  });
+}
+
 export const ASSISTANT_MODEL_RANKING_ROWS: readonly AssistantModelRankingRowDef[] = [
   {
     taskKey: 'ASSISTANT.TOOLS_HELP_RANK_T01_TASK',

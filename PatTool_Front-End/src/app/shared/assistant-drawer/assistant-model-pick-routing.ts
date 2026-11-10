@@ -13,10 +13,10 @@ export interface AssistantModelPickRouting {
 /**
  * i18n keys ASSISTANT.TOOLS_HELP_RANK_* (_G / _S / _B) → provider + PatTool API id.
  * Rankings use models actually selectable in PatTool (not market-only ids).
- * Lineup: October 2026 (GPT-6.1, Claude 5.5, Gemini 4 Argon, Grok 4.7, Mistral Large 4).
+ * Lineup: November 2026 (GPT-6.1, Claude Fable 5.2, Gemini 4 Carbon, Grok 4.7, Mistral Large 4).
  */
 export const ASSISTANT_MODEL_PICK_ROUTING: Readonly<Record<string, AssistantModelPickRouting>> = {
-  'ASSISTANT.TOOLS_HELP_RANK_T01_G': { provider: 'anthropic', apiModelId: 'claude-fable-5-1' },
+  'ASSISTANT.TOOLS_HELP_RANK_T01_G': { provider: 'anthropic', apiModelId: 'claude-fable-5-2' },
   'ASSISTANT.TOOLS_HELP_RANK_T01_S': { provider: 'openai', apiModelId: 'gpt-6-astra' },
   'ASSISTANT.TOOLS_HELP_RANK_T01_B': { provider: 'anthropic', apiModelId: 'claude-opus-5-5' },
 
@@ -62,12 +62,12 @@ export const ASSISTANT_MODEL_PICK_ROUTING: Readonly<Record<string, AssistantMode
     enableImageGeneration: true
   },
 
-  'ASSISTANT.TOOLS_HELP_RANK_T06_G': { provider: 'anthropic', apiModelId: 'claude-fable-5-1' },
+  'ASSISTANT.TOOLS_HELP_RANK_T06_G': { provider: 'anthropic', apiModelId: 'claude-fable-5-2' },
   'ASSISTANT.TOOLS_HELP_RANK_T06_S': { provider: 'openai', apiModelId: 'gpt-6-astra' },
   'ASSISTANT.TOOLS_HELP_RANK_T06_B': { provider: 'spacexai', apiModelId: 'grok-4.7' },
 
-  'ASSISTANT.TOOLS_HELP_RANK_T07_G': { provider: 'gemini', apiModelId: 'gemini-4-argon' },
-  'ASSISTANT.TOOLS_HELP_RANK_T07_S': { provider: 'anthropic', apiModelId: 'claude-fable-5-1' },
+  'ASSISTANT.TOOLS_HELP_RANK_T07_G': { provider: 'gemini', apiModelId: 'gemini-4-carbon' },
+  'ASSISTANT.TOOLS_HELP_RANK_T07_S': { provider: 'anthropic', apiModelId: 'claude-fable-5-2' },
   'ASSISTANT.TOOLS_HELP_RANK_T07_B': { provider: 'openai', apiModelId: 'gpt-6-astra' },
 
   'ASSISTANT.TOOLS_HELP_RANK_T08_G': { provider: 'gemini', apiModelId: 'gemini-3.8-flash' },
@@ -78,24 +78,24 @@ export const ASSISTANT_MODEL_PICK_ROUTING: Readonly<Record<string, AssistantMode
   'ASSISTANT.TOOLS_HELP_RANK_T09_S': { provider: 'openai', apiModelId: 'gpt-6-luna' },
   'ASSISTANT.TOOLS_HELP_RANK_T09_B': { provider: 'anthropic', apiModelId: 'claude-haiku-5-5' },
 
-  'ASSISTANT.TOOLS_HELP_RANK_T10_G': { provider: 'gemini', apiModelId: 'gemini-4-argon' },
+  'ASSISTANT.TOOLS_HELP_RANK_T10_G': { provider: 'gemini', apiModelId: 'gemini-4-carbon' },
   'ASSISTANT.TOOLS_HELP_RANK_T10_S': { provider: 'gemini', apiModelId: 'gemini-3.8-flash' },
 
   'ASSISTANT.TOOLS_HELP_RANK_T11_G': { provider: 'gemini', apiModelId: '', unavailable: true },
 
-  'ASSISTANT.TOOLS_HELP_RANK_T12_G': { provider: 'gemini', apiModelId: 'gemini-4-argon' },
+  'ASSISTANT.TOOLS_HELP_RANK_T12_G': { provider: 'gemini', apiModelId: 'gemini-4-carbon' },
   'ASSISTANT.TOOLS_HELP_RANK_T12_S': { provider: 'openai', apiModelId: 'gpt-6-astra' },
-  'ASSISTANT.TOOLS_HELP_RANK_T12_B': { provider: 'anthropic', apiModelId: 'claude-fable-5-1' },
+  'ASSISTANT.TOOLS_HELP_RANK_T12_B': { provider: 'anthropic', apiModelId: 'claude-fable-5-2' },
 
   'ASSISTANT.TOOLS_HELP_RANK_T13_G': { provider: 'mistral', apiModelId: 'mistral-large-4' },
   'ASSISTANT.TOOLS_HELP_RANK_T13_S': { provider: 'openai', apiModelId: 'gpt-6-astra' },
   'ASSISTANT.TOOLS_HELP_RANK_T13_B': { provider: 'anthropic', apiModelId: 'claude-sonnet-5-5' },
 
-  'ASSISTANT.TOOLS_HELP_RANK_T14_G': { provider: 'gemini', apiModelId: 'gemini-4-argon' },
-  'ASSISTANT.TOOLS_HELP_RANK_T14_S': { provider: 'anthropic', apiModelId: 'claude-fable-5-1' },
+  'ASSISTANT.TOOLS_HELP_RANK_T14_G': { provider: 'gemini', apiModelId: 'gemini-4-carbon' },
+  'ASSISTANT.TOOLS_HELP_RANK_T14_S': { provider: 'anthropic', apiModelId: 'claude-fable-5-2' },
   'ASSISTANT.TOOLS_HELP_RANK_T14_B': { provider: 'openai', apiModelId: 'gpt-6-astra' },
 
-  'ASSISTANT.TOOLS_HELP_RANK_T15_G': { provider: 'anthropic', apiModelId: 'claude-fable-5-1' },
+  'ASSISTANT.TOOLS_HELP_RANK_T15_G': { provider: 'anthropic', apiModelId: 'claude-fable-5-2' },
   'ASSISTANT.TOOLS_HELP_RANK_T15_S': { provider: 'openai', apiModelId: 'gpt-6.1-terra' },
   'ASSISTANT.TOOLS_HELP_RANK_T15_B': { provider: 'spacexai', apiModelId: 'grok-4.7' },
 
@@ -122,15 +122,15 @@ export const ASSISTANT_MODEL_PICK_ROUTING: Readonly<Record<string, AssistantMode
   'ASSISTANT.TOOLS_HELP_RANK_T21_S': { provider: 'anthropic', apiModelId: 'claude-sonnet-5-5' },
   'ASSISTANT.TOOLS_HELP_RANK_T21_B': { provider: 'openai', apiModelId: 'gpt-6-astra' },
 
-  'ASSISTANT.TOOLS_HELP_RANK_T22_G': { provider: 'gemini', apiModelId: 'gemini-4-argon' },
+  'ASSISTANT.TOOLS_HELP_RANK_T22_G': { provider: 'gemini', apiModelId: 'gemini-4-carbon' },
   'ASSISTANT.TOOLS_HELP_RANK_T22_S': { provider: 'openai', apiModelId: 'gpt-6-astra' },
-  'ASSISTANT.TOOLS_HELP_RANK_T22_B': { provider: 'anthropic', apiModelId: 'claude-fable-5-1' },
+  'ASSISTANT.TOOLS_HELP_RANK_T22_B': { provider: 'anthropic', apiModelId: 'claude-fable-5-2' },
 
-  'ASSISTANT.TOOLS_HELP_RANK_T23_G': { provider: 'mistral', apiModelId: 'codestral-latest' },
+  'ASSISTANT.TOOLS_HELP_RANK_T23_G': { provider: 'mistral', apiModelId: 'codestral-2508' },
   'ASSISTANT.TOOLS_HELP_RANK_T23_S': { provider: 'anthropic', apiModelId: 'claude-haiku-5-5' },
   'ASSISTANT.TOOLS_HELP_RANK_T23_B': { provider: 'openai', apiModelId: 'gpt-6-luna' },
 
-  'ASSISTANT.TOOLS_HELP_RANK_T24_G': { provider: 'gemini', apiModelId: 'gemini-4-argon' },
+  'ASSISTANT.TOOLS_HELP_RANK_T24_G': { provider: 'gemini', apiModelId: 'gemini-4-carbon' },
   'ASSISTANT.TOOLS_HELP_RANK_T24_S': { provider: 'spacexai', apiModelId: 'grok-4.7' },
   'ASSISTANT.TOOLS_HELP_RANK_T24_B': { provider: 'anthropic', apiModelId: 'claude-opus-5-5' },
 

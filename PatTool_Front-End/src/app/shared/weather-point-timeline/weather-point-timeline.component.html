@@ -3,12 +3,14 @@
      [class.mf-point-timeline-overlay--fullscreen]="timelineFullscreen"
      [class.mf-point-timeline-overlay--embedded]="overlayMode === 'embedded'"
      [class.mf-point-timeline-overlay--fixed]="overlayMode === 'fixed'"
+     [class.mf-point-timeline-overlay--panel]="overlayMode === 'panel'"
      *ngIf="visible">
-  <div class="mf-point-timeline-backdrop" (click)="close()"></div>
+  <div class="mf-point-timeline-backdrop" *ngIf="overlayMode !== 'panel'" (click)="close()"></div>
   <div #timelineCard
        class="mf-point-timeline-card"
        [class.mf-point-timeline-card--fullscreen]="timelineFullscreen"
-       role="dialog" aria-modal="true"
+       [attr.role]="overlayMode === 'panel' ? 'region' : 'dialog'"
+       [attr.aria-modal]="overlayMode === 'panel' ? null : 'true'"
        [attr.aria-labelledby]="'weather-point-timeline-title'">
     <header class="mf-point-timeline-header">
       <div class="mf-point-timeline-header-main">
@@ -41,6 +43,7 @@
           <i class="fa" [class.fa-compress]="timelineFullscreen" [class.fa-expand]="!timelineFullscreen"></i>
         </button>
         <button type="button" class="mf-point-timeline-close"
+                *ngIf="overlayMode !== 'panel'"
                 (click)="close()"
                 [attr.aria-label]="'METEO_FRANCE.POINT_TIMELINE_CLOSE' | translate">
           <i class="fa fa-times" aria-hidden="true"></i>

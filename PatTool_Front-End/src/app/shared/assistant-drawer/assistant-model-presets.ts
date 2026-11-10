@@ -1,7 +1,7 @@
 /**
- * Short preset models shown at the top of the selector (offline fallback).
- * The full list is loaded via GET /api/assistant/models?provider=… (API keys on the server).
- * Sorted alphabetically (case-insensitive). Ids are the current provider API ids (October 2026).
+ * Current chat models shown in the selector (also the allowlist for the provider catalog).
+ * GET /api/assistant/models?provider=… is filtered to these ids so retired aliases stay out.
+ * Sorted alphabetically (case-insensitive). Ids are the current provider API ids (November 2026).
  */
 export const ASSISTANT_OPENAI_MODEL_PRESETS = [
   'gpt-6-astra',
@@ -14,7 +14,7 @@ export const ASSISTANT_OPENAI_MODEL_PRESETS = [
 export const ASSISTANT_OPENAI_DEFAULT_MODEL = 'gpt-6-astra';
 
 export const ASSISTANT_ANTHROPIC_MODEL_PRESETS = [
-  'claude-fable-5-1',
+  'claude-fable-5-2',
   'claude-haiku-5-5',
   'claude-opus-5-5',
   'claude-sonnet-5-5'
@@ -27,6 +27,7 @@ export const ASSISTANT_GEMINI_MODEL_PRESETS = [
   'gemini-3.5-flash-lite',
   'gemini-3.8-flash',
   'gemini-4-argon',
+  'gemini-4-carbon',
   'gemini-nano-banana-2.1'
 ] as const;
 
@@ -34,7 +35,9 @@ export const ASSISTANT_GEMINI_MODEL_PRESETS = [
 export const ASSISTANT_GEMINI_DEFAULT_MODEL = 'gemini-3.8-flash';
 
 export const ASSISTANT_MISTRAL_MODEL_PRESETS = [
-  'codestral-latest',
+  'codestral-2508',
+  'ministral-14b-2512',
+  'ministral-3b-2512',
   'ministral-8b-2512',
   'mistral-large-4',
   'mistral-small-2603'
