@@ -133,8 +133,30 @@ public class AudioDbCatalogService {
     }
 
     private AudioDbAlbumDto findAlbum(String artistName, String albumTitle, String lang) {
+        AudioDbAlbumDto found = searchAlbum(artistName, albumTitle, lang);
+        if (found != null) {
+            return found;
+        }
+        String shorter = albumCore(albumTitle);
+        if (!shorter.isEmpty() && !shorter.equalsIgnoreCase(cleanQuery(albumTitle))) {
+            return searchAlbum(artistName, shorter, lang);
+        }
+        return null;
+    }
+
+    private AudioDbAlbumDto searchAlbum(String artistName, String albumTitle, String lang) {
         JsonNode root = fetch("searchalbum.php?s=" + encode(artistName) + "&a=" + encode(albumTitle));
         return mapAlbum(pick(root, "album", "strAlbum", albumTitle), lang);
+    }
+
+    /** Drop a featured-artist or edition suffix so a short catalog title can still match. */
+    static String albumCore(String title) {
+        String value = cleanQuery(title);
+        value = value.replaceAll("(?i)\\s*\\((?:feat\\.?|featuring|with)\\b[^)]*\\)", "");
+        value = value.replaceAll("(?i)\\s*\\[(?:feat\\.?|featuring|with)\\b[^\\]]*\\]", "");
+        value = value.replaceAll("\\s*\\([^)]{0,40}\\)", "");
+        value = value.replaceAll("\\s*\\[[^\\]]{0,40}\\]", "");
+        return cleanQuery(value);
     }
 
     private static UpstreamException failureOf(ExecutionException failed) {

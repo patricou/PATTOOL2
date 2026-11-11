@@ -1,4 +1,4 @@
-/** Cabinet style shared by the TV, radio and Deezer pages. */
+/** Cabinet style shared by the home page, TV, radio and Deezer. */
 
 export const MEDIA_SKIN_FEATURE = 'media.skin';
 
@@ -67,11 +67,21 @@ export const MEDIA_SKIN_IDS = [
   'carbon',
   'candy',
   'espace',
+  'jazz',
+  'sakura',
+  'dune',
+  'lagoon',
+  'ember',
   'kanizsa',
   'cafewall',
   'penrose',
   'scintille',
-  'barber'
+  'barber',
+  'ebbinghaus',
+  'zollner',
+  'necker',
+  'ouchi',
+  'ehrenstein'
 ] as const;
 
 export type MediaSkinId = (typeof MEDIA_SKIN_IDS)[number];

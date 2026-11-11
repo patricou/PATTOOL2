@@ -83,6 +83,12 @@
 				<span class="home-weather-meta" *ngIf="weatherFeels || weatherHumidity">
 					{{ weatherFeels }}<span *ngIf="weatherFeels && weatherHumidity"> · </span>{{ weatherHumidity }}
 				</span>
+				<span class="home-weather-sun" *ngIf="weatherSunriseAt || weatherSunsetAt">
+					<i class="fa fa-sun-o" aria-hidden="true"></i>
+					<ng-container *ngIf="weatherSunriseAt">{{ 'HOME.DASHBOARD.SUNRISE' | translate:{ time: sunClock(weatherSunriseAt) } }}</ng-container>
+					<span *ngIf="weatherSunriseAt && weatherSunsetAt"> · </span>
+					<ng-container *ngIf="weatherSunsetAt">{{ 'HOME.DASHBOARD.SUNSET' | translate:{ time: sunClock(weatherSunsetAt) } }}</ng-container>
+				</span>
 			</span>
 		</a>
 		<div class="home-weather-main" *ngIf="weatherState !== 'ready'">

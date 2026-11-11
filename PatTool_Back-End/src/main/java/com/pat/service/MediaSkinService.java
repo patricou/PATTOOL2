@@ -30,7 +30,9 @@ public class MediaSkinService {
     public static final Set<String> ALLOWED_SKINS = Set.of(
             "classic", "artdeco", "synthwave", "spaceage", "military", "steampunk", "aurora",
             "noir", "bamboo", "porcelain", "carbon", "candy", "espace",
-            "kanizsa", "cafewall", "penrose", "scintille", "barber");
+            "jazz", "sakura", "dune", "lagoon", "ember",
+            "kanizsa", "cafewall", "penrose", "scintille", "barber",
+            "ebbinghaus", "zollner", "necker", "ouchi", "ehrenstein");
 
     private static final String DESCRIPTION =
             "Cabinet style (skin) shared by TV, radio and Deezer, per user.";

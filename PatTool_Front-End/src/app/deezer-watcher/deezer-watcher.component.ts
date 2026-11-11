@@ -5,7 +5,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Observable, of, Subject, Subscription } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, finalize, shareReplay, takeUntil, tap } from 'rxjs/operators';
+import { catchError, debounceTime, distinctUntilChanged, finalize, map, shareReplay, switchMap, takeUntil, tap } from 'rxjs/operators';
 
 import {
   ApiService,
@@ -19,7 +19,8 @@ import {
   DeezerPlaylist,
   DeezerSearchType,
   DeezerTrack,
-  DeezerUserPlaylist
+  DeezerUserPlaylist,
+  WikipediaSummary
 } from '../services/api.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { YoutubeEqualizerService } from '../services/youtube-equalizer.service';
@@ -44,12 +45,16 @@ type DzListSortId = 'tracks' | 'concert' | 'playlists' | 'albums' | 'artistAlbum
 type DzSkin =
   | 'classic' | 'artdeco' | 'synthwave' | 'spaceage' | 'military' | 'steampunk'
   | 'aurora' | 'noir' | 'bamboo' | 'porcelain' | 'carbon' | 'candy' | 'espace'
-  | 'kanizsa' | 'cafewall' | 'penrose' | 'scintille' | 'barber';
+  | 'jazz' | 'sakura' | 'dune' | 'lagoon' | 'ember'
+  | 'kanizsa' | 'cafewall' | 'penrose' | 'scintille' | 'barber'
+  | 'ebbinghaus' | 'zollner' | 'necker' | 'ouchi' | 'ehrenstein';
 
 const DZ_SKINS: readonly DzSkin[] = [
   'classic', 'artdeco', 'synthwave', 'spaceage', 'military', 'steampunk',
   'aurora', 'noir', 'bamboo', 'porcelain', 'carbon', 'candy', 'espace',
-  'kanizsa', 'cafewall', 'penrose', 'scintille', 'barber'
+  'jazz', 'sakura', 'dune', 'lagoon', 'ember',
+  'kanizsa', 'cafewall', 'penrose', 'scintille', 'barber',
+  'ebbinghaus', 'zollner', 'necker', 'ouchi', 'ehrenstein'
 ];
 
 interface DzShelf {
@@ -114,11 +119,21 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   @HostBinding('class.radio-skin--carbon') get skinCarbon(): boolean { return this.radioSkin === 'carbon'; }
   @HostBinding('class.radio-skin--candy') get skinCandy(): boolean { return this.radioSkin === 'candy'; }
   @HostBinding('class.radio-skin--espace') get skinEspace(): boolean { return this.radioSkin === 'espace'; }
+  @HostBinding('class.radio-skin--jazz') get skinJazz(): boolean { return this.radioSkin === 'jazz'; }
+  @HostBinding('class.radio-skin--sakura') get skinSakura(): boolean { return this.radioSkin === 'sakura'; }
+  @HostBinding('class.radio-skin--dune') get skinDune(): boolean { return this.radioSkin === 'dune'; }
+  @HostBinding('class.radio-skin--lagoon') get skinLagoon(): boolean { return this.radioSkin === 'lagoon'; }
+  @HostBinding('class.radio-skin--ember') get skinEmber(): boolean { return this.radioSkin === 'ember'; }
   @HostBinding('class.radio-skin--kanizsa') get skinKanizsa(): boolean { return this.radioSkin === 'kanizsa'; }
   @HostBinding('class.radio-skin--cafewall') get skinCafewall(): boolean { return this.radioSkin === 'cafewall'; }
   @HostBinding('class.radio-skin--penrose') get skinPenrose(): boolean { return this.radioSkin === 'penrose'; }
   @HostBinding('class.radio-skin--scintille') get skinScintille(): boolean { return this.radioSkin === 'scintille'; }
   @HostBinding('class.radio-skin--barber') get skinBarber(): boolean { return this.radioSkin === 'barber'; }
+  @HostBinding('class.radio-skin--ebbinghaus') get skinEbbinghaus(): boolean { return this.radioSkin === 'ebbinghaus'; }
+  @HostBinding('class.radio-skin--zollner') get skinZollner(): boolean { return this.radioSkin === 'zollner'; }
+  @HostBinding('class.radio-skin--necker') get skinNecker(): boolean { return this.radioSkin === 'necker'; }
+  @HostBinding('class.radio-skin--ouchi') get skinOuchi(): boolean { return this.radioSkin === 'ouchi'; }
+  @HostBinding('class.radio-skin--ehrenstein') get skinEhrenstein(): boolean { return this.radioSkin === 'ehrenstein'; }
 
   genres: DeezerGenre[] = [];
   genreId = 0;
@@ -319,6 +334,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   audioDbLoading = false;
   audioDbError = '';
   audioDb: AudioDbDossier | null = null;
+  albumWikiLoading = false;
+  albumWiki: WikipediaSummary | null = null;
+  albumWikiAbout: 'album' | 'artist' | '' = '';
   readonly similarSortOptions: ReadonlyArray<{ id: 'relevance' | 'name' | 'fans'; key: string }> = [
     { id: 'relevance', key: 'DEEZER.SIMILAR_BY_RELEVANCE' },
     { id: 'name', key: 'DEEZER.SIMILAR_BY_NAME' },
@@ -464,6 +482,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private readonly albumInfoCache = new Map<number, DeezerAlbumPage>();
   private audioDbSub?: Subscription;
   private audioDbForKey = '';
+  private albumWikiSub?: Subscription;
+  private albumWikiForKey = '';
+  private readonly albumWikiCache = new Map<string, { summary: WikipediaSummary; about: 'album' | 'artist' }>();
   private readonly audioDbCache = new Map<string, AudioDbDossier>();
   private static readonly SIDEBAR_KEY = 'pattool.deezer.sidebar';
   private static readonly YT_SEARCH_KEY = 'pattool.deezer.youtube-search';
@@ -483,7 +504,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.syncLandscapeFullscreen();
     this.cdr.detectChanges();
   };
-  readonly illusionSkins: readonly DzSkin[] = ['kanizsa', 'cafewall', 'penrose', 'scintille', 'barber'];
+  readonly illusionSkins: readonly DzSkin[] = [
+    'kanizsa', 'cafewall', 'penrose', 'scintille', 'barber',
+    'ebbinghaus', 'zollner', 'necker', 'ouchi', 'ehrenstein'
+  ];
   readonly pipSupported = supportsRadioPictureInPicture();
   readonly canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
@@ -588,6 +612,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.similarSub?.unsubscribe();
     this.albumInfoSub?.unsubscribe();
     this.audioDbSub?.unsubscribe();
+    this.albumWikiSub?.unsubscribe();
     this.skinLoadSub?.unsubscribe();
     this.skinSaveSub?.unsubscribe();
     this.stopYoutubeClock();
@@ -1735,6 +1760,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   closeYoutubeList(event?: Event): void {
     event?.stopPropagation();
+    this.ytDropAsk = null;
     this.ytClearAskId = null;
     this.ytListQuery = '';
     this.ytListTrack = null;
@@ -1742,6 +1768,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   /** Escape clears the filter first, then closes the list. */
   onYoutubeListEscape(event?: Event): void {
+    if (this.ytDropAsk) {
+      this.cancelDropYoutubeClip(event);
+      return;
+    }
     if (this.ytClearAskId != null) {
       this.cancelClearYoutubeList(event);
       return;
@@ -1754,14 +1784,49 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.closeYoutubeList(event);
   }
 
+  /** One link waiting for the remove confirmation. */
+  ytDropAsk: { trackId: number; videoId: string } | null = null;
+
   /** Track waiting for the clear-links confirmation. */
   ytClearAskId: number | null = null;
+
+  askDropYoutubeClip(track: DeezerTrack, videoId: string, event?: Event): void {
+    event?.stopPropagation();
+    const clip = (videoId || '').trim();
+    if (!track?.id || !/^[a-zA-Z0-9_-]{11}$/.test(clip) || this.ytDropBusy[track.id + '|' + clip]) {
+      return;
+    }
+    this.ytClearAskId = null;
+    this.ytDropAsk = { trackId: track.id, videoId: clip };
+  }
+
+  cancelDropYoutubeClip(event?: Event): void {
+    event?.stopPropagation();
+    this.ytDropAsk = null;
+  }
+
+  confirmDropYoutubeClip(event?: Event): void {
+    event?.stopPropagation();
+    const ask = this.ytDropAsk;
+    const track = this.ytListTrack;
+    this.ytDropAsk = null;
+    if (!ask || !track || track.id !== ask.trackId) {
+      return;
+    }
+    this.dropYoutubeClip(track, ask.videoId);
+  }
+
+  youtubeDropAskTitle(): string {
+    const id = this.ytDropAsk?.videoId || '';
+    return (this.ytClipInfo[id]?.title || '').trim() || id;
+  }
 
   askClearYoutubeList(track: DeezerTrack, event?: Event): void {
     event?.stopPropagation();
     if (!this.hasYoutubeList(track.id) || this.ytClearBusy[track.id]) {
       return;
     }
+    this.ytDropAsk = null;
     this.ytClearAskId = track.id;
   }
 
@@ -2215,6 +2280,14 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }, 350);
   }
 
+  /** Badge on the YouTube icon whenever this title has at least one stored clip. */
+  hasYoutubeLink(trackId: number): boolean {
+    if ((this.ytLinks[trackId] || '').trim()) {
+      return true;
+    }
+    return (this.ytChoices.get(trackId) || []).some((id) => /^[a-zA-Z0-9_-]{11}$/.test((id || '').trim()));
+  }
+
   /** "2 / 7" while this title walks the clips stored for it. Empty after keep or drop. */
   ytPlace(trackId: number): string {
     if (this.ytPlaceOff.has(trackId)) {
@@ -2447,8 +2520,31 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   askDeletePlaylist(playlist: DeezerUserPlaylist, event?: Event): void {
     event?.stopPropagation();
+    if (!playlist?.id || this.playlistBusy) {
+      return;
+    }
     this.renamingPlaylistId = '';
-    this.confirmDeletePlaylistId = this.confirmDeletePlaylistId === playlist.id ? '' : playlist.id;
+    this.confirmDeletePlaylistId = playlist.id;
+  }
+
+  cancelDeletePlaylist(event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+    if (this.playlistBusy) {
+      return;
+    }
+    this.confirmDeletePlaylistId = '';
+  }
+
+  playlistPendingDelete(): DeezerUserPlaylist | null {
+    const id = this.confirmDeletePlaylistId;
+    if (!id) {
+      return null;
+    }
+    if (this.activeUserPlaylist?.id === id) {
+      return this.activeUserPlaylist;
+    }
+    return this.userPlaylists.find((playlist) => playlist.id === id) || null;
   }
 
   deletePlaylist(playlist: DeezerUserPlaylist, event?: Event): void {
@@ -2720,6 +2816,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
           }
           this.albumInfo = page;
           this.albumInfoLoading = false;
+          this.loadAudioDb();
+          this.loadAlbumWiki();
         },
         error: (err: { status?: number }) => {
           if (this.albumInfoForId !== albumId) {
@@ -2732,6 +2830,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       });
     }
     this.loadAudioDb();
+    this.loadAlbumWiki();
   }
 
   closeAlbumInfo(event?: Event): void {
@@ -2777,6 +2876,136 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         this.audioDbError = 'DEEZER.AUDIODB_ERROR';
       }
     });
+  }
+
+  private loadAlbumWiki(): void {
+    const artist = (this.albumInfo?.album?.artistName || this.current?.artistName || '').trim();
+    const album = (this.albumInfo?.album?.title || this.current?.albumTitle || '').trim();
+    if (!artist && !album) {
+      this.albumWiki = null;
+      this.albumWikiAbout = '';
+      this.albumWikiLoading = false;
+      return;
+    }
+    const key = `${this.wikipediaLang()}|${artist}|${album}`;
+    this.albumWikiForKey = key;
+    const cached = this.albumWikiCache.get(key);
+    if (cached) {
+      this.albumWiki = cached.summary;
+      this.albumWikiAbout = cached.about;
+      this.albumWikiLoading = false;
+      return;
+    }
+    this.albumWiki = null;
+    this.albumWikiAbout = '';
+    this.albumWikiLoading = true;
+    const lang = this.wikipediaLang();
+    this.albumWikiSub?.unsubscribe();
+    const albumQuery = [album, artist].filter(Boolean).join(' ');
+    this.albumWikiSub = this.api.searchWikipedia(albumQuery, lang, 5).pipe(
+      switchMap((found) => {
+        const albumHit = this.pickAlbumWikiPage(found?.pages, album, artist);
+        if (albumHit?.title) {
+          return this.api.getWikipediaSummary(albumHit.title, lang).pipe(
+            map((summary) => this.usableWiki(summary) ? { summary, about: 'album' as const } : null),
+            catchError(() => of(null))
+          );
+        }
+        if (!artist) {
+          return of(null);
+        }
+        return this.api.searchWikipedia(artist, lang, 4).pipe(
+          switchMap((artistFound) => {
+            const artistHit = this.pickArtistWikiPage(artistFound?.pages, artist);
+            if (!artistHit?.title) {
+              return of(null);
+            }
+            return this.api.getWikipediaSummary(artistHit.title, lang).pipe(
+              map((summary) => this.usableWiki(summary) ? { summary, about: 'artist' as const } : null),
+              catchError(() => of(null))
+            );
+          }),
+          catchError(() => of(null))
+        );
+      }),
+      catchError(() => of(null))
+    ).subscribe((hit) => {
+      if (this.albumWikiForKey !== key) {
+        return;
+      }
+      this.albumWikiLoading = false;
+      if (!hit?.summary?.extract) {
+        this.albumWiki = null;
+        this.albumWikiAbout = '';
+        return;
+      }
+      this.albumWiki = hit.summary;
+      this.albumWikiAbout = hit.about;
+      this.albumWikiCache.set(key, { summary: hit.summary, about: hit.about });
+    });
+  }
+
+  private usableWiki(summary: WikipediaSummary | null | undefined): boolean {
+    const extract = (summary?.extract || '').trim();
+    return !!extract && summary?.type !== 'disambiguation' && !/peut désigner|disambiguation/i.test(extract);
+  }
+
+  private pickAlbumWikiPage(
+    pages: { title?: string; description?: string; excerpt?: string }[] | undefined,
+    album: string,
+    artist: string
+  ): { title?: string } | null {
+    const albumWords = this.wikiWords(album);
+    if (!albumWords.length) {
+      return null;
+    }
+    for (const page of pages || []) {
+      const title = (page?.title || '').trim();
+      if (!title) {
+        continue;
+      }
+      const blob = this.foldSearch(`${title} ${page.description || ''} ${page.excerpt || ''}`);
+      if (/desambigu|disambigu|peut designer/.test(blob)) {
+        continue;
+      }
+      const titleFold = this.foldSearch(title);
+      const titleHits = albumWords.filter((word) => titleFold.includes(word)).length;
+      const blobHits = albumWords.filter((word) => blob.includes(word)).length;
+      const aboutAlbum = /album|single|ep\b|extended play/.test(blob);
+      const needed = Math.min(2, albumWords.length);
+      if (titleHits >= needed || (titleHits >= 1 && aboutAlbum && blobHits >= needed)) {
+        return page;
+      }
+    }
+    return null;
+  }
+
+  private pickArtistWikiPage(
+    pages: { title?: string; description?: string; excerpt?: string }[] | undefined,
+    artist: string
+  ): { title?: string } | null {
+    const words = this.wikiWords(artist);
+    for (const page of pages || []) {
+      const title = (page?.title || '').trim();
+      if (!title) {
+        continue;
+      }
+      const blob = this.foldSearch(`${title} ${page.description || ''}`);
+      if (/desambigu|disambigu|peut designer/.test(blob)) {
+        continue;
+      }
+      if (words.length && words.every((word) => blob.includes(word))) {
+        return page;
+      }
+    }
+    return null;
+  }
+
+  private wikiWords(value: string): string[] {
+    return this.foldSearch(value)
+      .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
+      .split(/[^a-z0-9]+/)
+      .filter((word) => word.length >= 4 && !['feat', 'with', 'from', 'the'].includes(word));
   }
 
   openArtistFromAlbumInfo(): void {
@@ -3287,8 +3516,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.playbackFollowsList = true;
     this.queue = this.shownTracks;
     const hasYoutube = !!(this.ytLinks[track.id] || '').trim();
-    this.youtubeMode = hasYoutube;
-    if (hasYoutube && this.current?.id === track.id && !this.clipOnStage) {
+    // The switch means "search when this title plays", including a row that has no pill yet.
+    this.youtubeMode = this.youtubeSearchEnabled || hasYoutube;
+    if (this.youtubeMode && this.current?.id === track.id && !this.clipOnStage) {
       this.current = null;
     }
     this.playTrack(track, index);
@@ -4930,6 +5160,14 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    if (this.ytDropAsk) {
+      this.ytDropAsk = null;
+      return;
+    }
+    if (this.confirmDeletePlaylistId) {
+      this.confirmDeletePlaylistId = '';
+      return;
+    }
     if (this.landscapeFullscreen) {
       this.exitLandscapeFullscreen(true);
       return;
@@ -5640,6 +5878,14 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.claimPlaybackTab();
     this.playbackFollowsList = true;
     this.ytLinks = { ...this.ytLinks, ...kept.youtubeIds };
+    const restored: Record<number, boolean> = { ...this.ytFromCache };
+    for (const id of Object.keys(kept.youtubeIds || {})) {
+      const trackId = Number(id);
+      if (trackId && (kept.youtubeIds[trackId] || '').trim()) {
+        restored[trackId] = true;
+      }
+    }
+    this.ytFromCache = restored;
     this.volume = kept.volume;
     this.current = track;
     this.warmNowPlaying(track);

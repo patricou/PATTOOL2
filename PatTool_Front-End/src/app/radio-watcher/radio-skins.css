@@ -258,6 +258,43 @@
   box-shadow: inset 0 0 0 1px #7ee7ff, 0 0 8px rgba(126, 231, 255, 0.45);
 }
 
+.radio-skin-swatch--jazz {
+  background:
+    radial-gradient(circle at 62% 42%, #e8a317 0 14%, transparent 15%),
+    linear-gradient(160deg, #1a2744, #0c1220);
+  box-shadow: inset 0 0 0 2px #d4b483;
+}
+
+.radio-skin-swatch--sakura {
+  background:
+    radial-gradient(circle at 30% 35%, #f7c1cb 0 10%, transparent 11%),
+    radial-gradient(circle at 68% 62%, #e8899a 0 8%, transparent 9%),
+    linear-gradient(160deg, #fff7f4, #f3d5dc);
+  box-shadow: inset 0 0 0 2px #4a3038;
+}
+
+.radio-skin-swatch--dune {
+  background:
+    radial-gradient(circle at 70% 28%, #f3ddb0 0 16%, #c46a3a 17% 22%, transparent 23%),
+    linear-gradient(180deg, #f0d7a8, #c4a574 55%, #2c241c);
+  box-shadow: inset 0 0 0 2px #8a5a32;
+}
+
+.radio-skin-swatch--lagoon {
+  background:
+    radial-gradient(ellipse at 50% 70%, #e7d7b8 0 28%, transparent 29%),
+    radial-gradient(circle at 30% 35%, rgba(255, 255, 255, 0.7), transparent 40%),
+    linear-gradient(180deg, #7ed4cf, #0e6e6a);
+  box-shadow: inset 0 0 0 2px #f4fffc;
+}
+
+.radio-skin-swatch--ember {
+  background:
+    radial-gradient(ellipse at 50% 80%, #ff6a1a 0 30%, transparent 55%),
+    linear-gradient(180deg, #3a241c, #1a100c);
+  box-shadow: inset 0 0 0 2px #ff6a1a, 0 0 8px rgba(255, 106, 26, 0.45);
+}
+
 .radio-skin-swatch--kanizsa {
   background:
     radial-gradient(circle at 50% 22%, #161616 0 16%, transparent 17%),
@@ -316,6 +353,60 @@
 .radio-skin-swatch--barber {
   background: repeating-linear-gradient(45deg, #c8102e 0 6px, #f4f4f4 6px 12px, #1d4e89 12px 18px);
   box-shadow: inset 0 0 0 2px #f4f4f4;
+}
+
+.radio-skin-swatch--ebbinghaus {
+  background:
+    radial-gradient(circle at 28% 50%, #d64545 0 11%, transparent 12%),
+    radial-gradient(circle at 28% 18%, #1c2430 0 9%, transparent 10%),
+    radial-gradient(circle at 12% 50%, #1c2430 0 9%, transparent 10%),
+    radial-gradient(circle at 44% 50%, #1c2430 0 9%, transparent 10%),
+    radial-gradient(circle at 28% 82%, #1c2430 0 9%, transparent 10%),
+    radial-gradient(circle at 74% 50%, #d64545 0 11%, transparent 12%),
+    radial-gradient(circle at 66% 36%, #1c2430 0 4%, transparent 5%),
+    radial-gradient(circle at 82% 36%, #1c2430 0 4%, transparent 5%),
+    radial-gradient(circle at 66% 64%, #1c2430 0 4%, transparent 5%),
+    radial-gradient(circle at 82% 64%, #1c2430 0 4%, transparent 5%),
+    #f6f1e6;
+  box-shadow: inset 0 0 0 2px #1c2430;
+}
+
+.radio-skin-swatch--zollner {
+  background:
+    linear-gradient(#1a1208, #1a1208) 22% 0 / 2px 100% no-repeat,
+    linear-gradient(#1a1208, #1a1208) 50% 0 / 2px 100% no-repeat,
+    linear-gradient(#1a1208, #1a1208) 78% 0 / 2px 100% no-repeat,
+    repeating-linear-gradient(28deg, transparent 0 5px, #c45c26 5px 7px, transparent 7px 11px),
+    #f4ecd8;
+  box-shadow: inset 0 0 0 2px #1a1208;
+}
+
+.radio-skin-swatch--necker {
+  background:
+    linear-gradient(#d7e7ff, #d7e7ff) 18% 34% / 34% 2px no-repeat,
+    linear-gradient(#d7e7ff, #d7e7ff) 18% 72% / 34% 2px no-repeat,
+    linear-gradient(#d7e7ff, #d7e7ff) 18% 34% / 2px 38% no-repeat,
+    linear-gradient(#d7e7ff, #d7e7ff) 50% 34% / 2px 38% no-repeat,
+    linear-gradient(#7eb6ff, #7eb6ff) 40% 16% / 34% 2px no-repeat,
+    linear-gradient(#7eb6ff, #7eb6ff) 40% 54% / 34% 2px no-repeat,
+    linear-gradient(#7eb6ff, #7eb6ff) 40% 16% / 2px 38% no-repeat,
+    linear-gradient(#7eb6ff, #7eb6ff) 72% 16% / 2px 38% no-repeat,
+    #0c1018;
+  box-shadow: inset 0 0 0 2px #7eb6ff;
+}
+
+.radio-skin-swatch--ouchi {
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 34%, #f4f4f4 35%),
+    repeating-linear-gradient(#111 0 4px, #f4f4f4 4px 8px) center / 62% 62% no-repeat,
+    repeating-linear-gradient(90deg, #111 0 4px, #f4f4f4 4px 8px);
+  box-shadow: inset 0 0 0 2px #111;
+}
+
+.radio-skin-swatch--ehrenstein {
+  background:
+    repeating-conic-gradient(from 0deg at 50% 50%, #161616 0 2deg, #f7f7f7 2deg 14deg);
+  box-shadow: inset 0 0 0 2px #161616;
 }
 
 @media (max-width: 640px) {
@@ -2333,7 +2424,17 @@
 .radio-skin--scintille .radio-face::before,
 .radio-skin--scintille .radio-face::after,
 .radio-skin--barber .radio-face::before,
-.radio-skin--barber .radio-face::after {
+.radio-skin--barber .radio-face::after,
+.radio-skin--ebbinghaus .radio-face::before,
+.radio-skin--ebbinghaus .radio-face::after,
+.radio-skin--zollner .radio-face::before,
+.radio-skin--zollner .radio-face::after,
+.radio-skin--necker .radio-face::before,
+.radio-skin--necker .radio-face::after,
+.radio-skin--ouchi .radio-face::before,
+.radio-skin--ouchi .radio-face::after,
+.radio-skin--ehrenstein .radio-face::before,
+.radio-skin--ehrenstein .radio-face::after {
   content: none;
   display: none;
   animation: none;
@@ -4176,6 +4277,472 @@
 }
 
 /* =========================================================================
+   Cabinets — jazz, sakura, dune, lagoon, ember
+   ========================================================================= */
+
+.radio-player-panel.radio-skin--jazz {
+  --radio-shell-edge: #d4b483;
+  --radio-brass: #d4b483;
+  --radio-brass-dark: #8a6a32;
+  --radio-cream: #f6ecd4;
+  --radio-accent: #e8a317;
+  background:
+    radial-gradient(ellipse at 70% 0%, rgba(232, 163, 23, 0.35), transparent 46%),
+    linear-gradient(165deg, #1a2744, #0c1220);
+  border: 2px solid #d4b483;
+  border-radius: 1.15rem;
+  box-shadow: 0 16px 32px rgba(8, 12, 24, 0.45);
+}
+
+.radio-skin--jazz .radio-player-frame,
+.radio-skin--jazz .radio-face {
+  background: #101828;
+  border-color: #d4b483;
+}
+
+.radio-skin--jazz .radio-brand-name,
+.radio-skin--jazz .radio-preset {
+  color: #f6ecd4;
+}
+
+.radio-skin--jazz .radio-knob,
+.radio-skin--jazz .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #fff6d8, #d4b483 46%, #8a6a32);
+}
+
+.radio-skin--jazz .radio-knob::after,
+.radio-skin--jazz .radio-power-led.is-on,
+.radio-skin--jazz .radio-eq-bar {
+  background: #e8a317;
+}
+
+.radio-skin--jazz .radio-power-led.is-on {
+  box-shadow: 0 0 12px #e8a317;
+}
+
+.radio-skin--jazz .radio-preset {
+  border: 1px solid #d4b483;
+  background: #0c1220;
+}
+
+.radio-skin--jazz .radio-preset.is-active {
+  color: #0c1220;
+  background: #e8a317;
+  border-color: #e8a317;
+}
+
+.radio-skin--jazz .radio-screen-fx-a {
+  display: block;
+  left: -20%;
+  top: 8%;
+  width: 70%;
+  height: 78%;
+  background: radial-gradient(ellipse at 50% 50%, rgba(255, 214, 120, 0.9), rgba(232, 163, 23, 0.35) 42%, transparent 70%);
+  animation: radio-skin-lamp 6.5s ease-in-out infinite alternate;
+}
+
+.radio-player-panel.radio-skin--sakura {
+  --radio-shell-edge: #4a3038;
+  --radio-brass: #f7c1cb;
+  --radio-brass-dark: #a85a68;
+  --radio-cream: #fff7f4;
+  --radio-accent: #e8899a;
+  background: linear-gradient(165deg, #fff7f4, #f3d5dc);
+  border: 3px solid #4a3038;
+  border-radius: 1.35rem;
+  box-shadow: 0 16px 32px rgba(74, 48, 56, 0.22);
+}
+
+.radio-skin--sakura .radio-player-frame,
+.radio-skin--sakura .radio-face {
+  background:
+    radial-gradient(circle at 30% 30%, rgba(247, 193, 203, 0.45), transparent 42%),
+    #fff7f4;
+  border-color: #4a3038;
+}
+
+.radio-skin--sakura .radio-brand-name,
+.radio-skin--sakura .radio-preset {
+  color: #2c2428;
+}
+
+.radio-skin--sakura .radio-knob,
+.radio-skin--sakura .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #fff, #f7c1cb 48%, #4a3038);
+}
+
+.radio-skin--sakura .radio-knob::after,
+.radio-skin--sakura .radio-power-led.is-on,
+.radio-skin--sakura .radio-eq-bar {
+  background: #e8899a;
+}
+
+.radio-skin--sakura .radio-preset {
+  border: 1px solid #4a3038;
+  background: #fff7f4;
+}
+
+.radio-skin--sakura .radio-preset.is-active {
+  color: #fff7f4;
+  background: #e8899a;
+  border-color: #e8899a;
+}
+
+.radio-skin--sakura .radio-screen-fx-a {
+  display: block;
+  inset: 0;
+  background:
+    radial-gradient(circle at 22% 80%, #f7c1cb 0 7px, transparent 8px),
+    radial-gradient(circle at 58% 88%, #fff 0 4px, transparent 5px),
+    radial-gradient(circle at 78% 72%, #e8899a 0 6px, transparent 7px);
+  background-size: 100% 150%;
+  animation: media-page-rise 12s linear infinite;
+}
+
+.radio-player-panel.radio-skin--dune {
+  --radio-shell-edge: #8a5a32;
+  --radio-brass: #e7d3a8;
+  --radio-brass-dark: #8a5a32;
+  --radio-cream: #f8ecd4;
+  --radio-accent: #c46a3a;
+  background: linear-gradient(180deg, #f0d7a8, #c4a574 58%, #2c241c);
+  border: 3px solid #8a5a32;
+  border-radius: 1.1rem;
+  box-shadow: 0 16px 32px rgba(44, 36, 28, 0.35);
+}
+
+.radio-skin--dune .radio-player-frame,
+.radio-skin--dune .radio-face {
+  background: #2c241c;
+  border-color: #c4a574;
+}
+
+.radio-skin--dune .radio-brand-name,
+.radio-skin--dune .radio-preset {
+  color: #f8ecd4;
+}
+
+.radio-skin--dune .radio-knob,
+.radio-skin--dune .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #fff6d8, #e7d3a8 46%, #8a5a32);
+}
+
+.radio-skin--dune .radio-knob::after,
+.radio-skin--dune .radio-power-led.is-on,
+.radio-skin--dune .radio-eq-bar {
+  background: #c46a3a;
+}
+
+.radio-skin--dune .radio-preset {
+  border: 1px solid #c4a574;
+  background: #2c241c;
+}
+
+.radio-skin--dune .radio-preset.is-active {
+  color: #2c241c;
+  background: #e7d3a8;
+  border-color: #e7d3a8;
+}
+
+.radio-skin--dune .radio-screen-fx-a {
+  display: block;
+  left: 16%;
+  top: 18%;
+  width: 42%;
+  height: 48%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #fff6d8, #e7a04a 55%, transparent 72%);
+  animation: radio-skin-search 8s ease-in-out infinite alternate;
+}
+
+.radio-player-panel.radio-skin--lagoon {
+  --radio-shell-edge: #f4fffc;
+  --radio-brass: #f4fffc;
+  --radio-brass-dark: #0e6e6a;
+  --radio-cream: #f4fffc;
+  --radio-accent: #14b8a6;
+  background:
+    radial-gradient(ellipse at 50% 110%, #e7d7b8 0 28%, transparent 46%),
+    linear-gradient(180deg, #9ee0da, #0e6e6a);
+  border: 3px solid #f4fffc;
+  border-radius: 1.4rem;
+  box-shadow: 0 16px 32px rgba(14, 110, 106, 0.3);
+}
+
+.radio-skin--lagoon .radio-player-frame,
+.radio-skin--lagoon .radio-face {
+  background: #0c4f4c;
+  border-color: #f4fffc;
+}
+
+.radio-skin--lagoon .radio-brand-name,
+.radio-skin--lagoon .radio-preset {
+  color: #f4fffc;
+}
+
+.radio-skin--lagoon .radio-knob,
+.radio-skin--lagoon .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #fff, #d7f3ee 48%, #0e6e6a);
+}
+
+.radio-skin--lagoon .radio-knob::after,
+.radio-skin--lagoon .radio-power-led.is-on,
+.radio-skin--lagoon .radio-eq-bar {
+  background: #7ed4cf;
+}
+
+.radio-skin--lagoon .radio-preset {
+  border: 1px solid #f4fffc;
+  background: #0e6e6a;
+}
+
+.radio-skin--lagoon .radio-preset.is-active {
+  color: #0c3a38;
+  background: #f4fffc;
+  border-color: #f4fffc;
+}
+
+.radio-skin--lagoon .radio-screen-fx-a {
+  display: block;
+  top: 0;
+  bottom: 0;
+  width: 28%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.42), transparent);
+  animation: radio-skin-sweep 4.4s ease-in-out infinite alternate;
+}
+
+.radio-player-panel.radio-skin--ember {
+  --radio-shell-edge: #ff6a1a;
+  --radio-brass: #ffb07a;
+  --radio-brass-dark: #8a3010;
+  --radio-cream: #ffe6d2;
+  --radio-accent: #ff6a1a;
+  background:
+    radial-gradient(ellipse at 50% 120%, rgba(255, 106, 26, 0.55), transparent 55%),
+    linear-gradient(180deg, #3a241c, #1a100c);
+  border: 2px solid #ff6a1a;
+  border-radius: 0.9rem;
+  box-shadow: 0 0 18px rgba(255, 106, 26, 0.28), 0 16px 32px rgba(0, 0, 0, 0.45);
+}
+
+.radio-skin--ember .radio-player-frame,
+.radio-skin--ember .radio-face {
+  background: #140c0a;
+  border-color: #ff6a1a;
+}
+
+.radio-skin--ember .radio-brand-name,
+.radio-skin--ember .radio-preset {
+  color: #ffe6d2;
+}
+
+.radio-skin--ember .radio-knob,
+.radio-skin--ember .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #fff, #ffb07a 42%, #8a3010);
+}
+
+.radio-skin--ember .radio-knob::after,
+.radio-skin--ember .radio-power-led.is-on,
+.radio-skin--ember .radio-eq-bar {
+  background: #ff6a1a;
+}
+
+.radio-skin--ember .radio-power-led.is-on {
+  box-shadow: 0 0 12px #ff6a1a;
+}
+
+.radio-skin--ember .radio-preset {
+  border: 1px solid #ff6a1a;
+  background: #1a100c;
+}
+
+.radio-skin--ember .radio-preset.is-active {
+  color: #1a100c;
+  background: #ff6a1a;
+  border-color: #ff6a1a;
+}
+
+.radio-skin--ember .radio-screen-fx-a {
+  display: block;
+  left: 8%;
+  right: 8%;
+  bottom: 6%;
+  height: 48%;
+  background: radial-gradient(ellipse at 50% 100%, rgba(255, 106, 26, 0.85), transparent 70%);
+  animation: radio-skin-search 3.4s ease-in-out infinite alternate;
+}
+
+:host.radio-skin--jazz {
+  --pat-title-accent: #e8a317;
+  --pat-title-shadow: 0 8px 22px rgba(8, 12, 24, 0.45);
+  --pat-title-bg: linear-gradient(180deg, #f6ecd4 0%, #d4b483 12%, #1a2744 100%);
+  --pat-page-bg: #0e1428;
+  --title-btn-bg: #1a2744;
+  --title-btn-fg: #f6ecd4;
+  --title-btn-border: #d4b483;
+  --title-btn-hover-bg: #243656;
+  --title-btn-active-bg: #e8a317;
+  --title-btn-active-fg: #0c1220;
+  --title-btn-shadow: 0 0 0 1px #8a6a32;
+  --menu-bg: #1a2744;
+  --menu-fg: #f6ecd4;
+  --menu-muted: #d4b483;
+  --menu-border: #d4b483;
+  --menu-border-width: 1px;
+  --menu-accent: #e8a317;
+  --menu-accent-fg: #0c1220;
+  --menu-toolbar: rgba(232, 163, 23, 0.1);
+  --menu-input-bg: #0c1220;
+  --menu-input-fg: #f6ecd4;
+  --menu-input-border: #d4b483;
+  --menu-hover: rgba(232, 163, 23, 0.12);
+  --menu-active: rgba(232, 163, 23, 0.22);
+  --menu-meta-bg: rgba(232, 163, 23, 0.1);
+  --menu-shadow: 0 12px 28px rgba(8, 12, 24, 0.4);
+  --menu-radius: 0.8rem;
+  --menu-logo-bg: #0c1220;
+  background-color: #0e1428;
+  background-image: radial-gradient(ellipse at 80% 0%, rgba(232, 163, 23, 0.22), transparent 42%);
+  background-attachment: fixed;
+}
+
+:host.radio-skin--sakura {
+  --pat-title-accent: #e8899a;
+  --pat-title-shadow: 0 8px 22px rgba(74, 48, 56, 0.2);
+  --pat-title-bg: linear-gradient(180deg, #fff7f4 0%, #f7c1cb 16%, #4a3038 100%);
+  --pat-page-bg: #f6e4e8;
+  --title-btn-bg: #fff7f4;
+  --title-btn-fg: #2c2428;
+  --title-btn-border: #4a3038;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #e8899a;
+  --title-btn-active-fg: #fff7f4;
+  --title-btn-shadow: 0 0 0 1px #4a3038;
+  --menu-bg: #fff7f4;
+  --menu-fg: #2c2428;
+  --menu-muted: #6a4a52;
+  --menu-border: #4a3038;
+  --menu-border-width: 2px;
+  --menu-accent: #e8899a;
+  --menu-accent-fg: #fff7f4;
+  --menu-toolbar: rgba(74, 48, 56, 0.06);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #2c2428;
+  --menu-input-border: #4a3038;
+  --menu-hover: rgba(232, 137, 154, 0.16);
+  --menu-active: rgba(232, 137, 154, 0.28);
+  --menu-meta-bg: rgba(74, 48, 56, 0.06);
+  --menu-shadow: 0 12px 28px rgba(74, 48, 56, 0.16);
+  --menu-radius: 1rem;
+  --menu-logo-bg: #fff;
+  background-color: #f6e4e8;
+  background-image: linear-gradient(180deg, #fff7f4, #f3d5dc);
+  background-attachment: fixed;
+}
+
+:host.radio-skin--dune {
+  --pat-title-accent: #c46a3a;
+  --pat-title-shadow: 0 8px 22px rgba(44, 36, 28, 0.35);
+  --pat-title-bg: linear-gradient(180deg, #f8ecd4 0%, #c4a574 16%, #2c241c 100%);
+  --pat-page-bg: #c4a574;
+  --title-btn-bg: #f8ecd4;
+  --title-btn-fg: #2c241c;
+  --title-btn-border: #8a5a32;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #c46a3a;
+  --title-btn-active-fg: #fff6d8;
+  --title-btn-shadow: 0 0 0 1px #8a5a32;
+  --menu-bg: #f8ecd4;
+  --menu-fg: #2c241c;
+  --menu-muted: #6a5340;
+  --menu-border: #8a5a32;
+  --menu-border-width: 2px;
+  --menu-accent: #c46a3a;
+  --menu-accent-fg: #fff6d8;
+  --menu-toolbar: rgba(44, 36, 28, 0.06);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #2c241c;
+  --menu-input-border: #8a5a32;
+  --menu-hover: rgba(196, 106, 58, 0.12);
+  --menu-active: rgba(196, 106, 58, 0.22);
+  --menu-meta-bg: rgba(44, 36, 28, 0.06);
+  --menu-shadow: 0 12px 28px rgba(44, 36, 28, 0.2);
+  --menu-radius: 0.8rem;
+  --menu-logo-bg: #fff;
+  background-color: #c4a574;
+  background-image: linear-gradient(180deg, #f0d7a8, #c4a574 55%, #8a5a32);
+  background-attachment: fixed;
+}
+
+:host.radio-skin--lagoon {
+  --pat-title-accent: #0e6e6a;
+  --pat-title-shadow: 0 8px 22px rgba(14, 110, 106, 0.28);
+  --pat-title-bg: linear-gradient(180deg, #f4fffc 0%, #7ed4cf 16%, #0e6e6a 100%);
+  --pat-page-bg: #7ed4cf;
+  --title-btn-bg: #f4fffc;
+  --title-btn-fg: #0c3a38;
+  --title-btn-border: #0e6e6a;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #0e6e6a;
+  --title-btn-active-fg: #f4fffc;
+  --title-btn-shadow: 0 0 0 1px #0e6e6a;
+  --menu-bg: #f4fffc;
+  --menu-fg: #0c3a38;
+  --menu-muted: #3d6e6a;
+  --menu-border: #0e6e6a;
+  --menu-border-width: 2px;
+  --menu-accent: #0e6e6a;
+  --menu-accent-fg: #f4fffc;
+  --menu-toolbar: rgba(14, 110, 106, 0.08);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #0c3a38;
+  --menu-input-border: #0e6e6a;
+  --menu-hover: rgba(14, 110, 106, 0.1);
+  --menu-active: rgba(14, 110, 106, 0.18);
+  --menu-meta-bg: rgba(14, 110, 106, 0.08);
+  --menu-shadow: 0 12px 28px rgba(14, 110, 106, 0.18);
+  --menu-radius: 1.1rem;
+  --menu-logo-bg: #fff;
+  background-color: #7ed4cf;
+  background-image: linear-gradient(180deg, #d7f3ee, #7ed4cf 40%, #0e6e6a);
+  background-attachment: fixed;
+}
+
+:host.radio-skin--ember {
+  --pat-title-accent: #ff6a1a;
+  --pat-title-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  --pat-title-bg: linear-gradient(180deg, #ffe6d2 0%, #ff6a1a 18%, #1a100c 100%);
+  --pat-page-bg: #1a100c;
+  --title-btn-bg: #2a1812;
+  --title-btn-fg: #ffe6d2;
+  --title-btn-border: #ff6a1a;
+  --title-btn-hover-bg: #3a241c;
+  --title-btn-active-bg: #ff6a1a;
+  --title-btn-active-fg: #1a100c;
+  --title-btn-shadow: 0 0 10px rgba(255, 106, 26, 0.4);
+  --menu-bg: #2a1812;
+  --menu-fg: #ffe6d2;
+  --menu-muted: #e0b090;
+  --menu-border: #ff6a1a;
+  --menu-border-width: 1px;
+  --menu-accent: #ff6a1a;
+  --menu-accent-fg: #1a100c;
+  --menu-toolbar: rgba(255, 106, 26, 0.1);
+  --menu-input-bg: #1a100c;
+  --menu-input-fg: #ffe6d2;
+  --menu-input-border: #ff6a1a;
+  --menu-hover: rgba(255, 106, 26, 0.12);
+  --menu-active: rgba(255, 106, 26, 0.22);
+  --menu-meta-bg: rgba(255, 106, 26, 0.1);
+  --menu-shadow: 0 0 18px rgba(255, 106, 26, 0.22);
+  --menu-radius: 0.7rem;
+  --menu-logo-bg: #1a100c;
+  background-color: #1a100c;
+  background-image: radial-gradient(ellipse at 50% 100%, rgba(255, 106, 26, 0.35), transparent 55%);
+  background-attachment: fixed;
+}
+
+/* =========================================================================
    Optical illusions — original CSS drawings of classic principles
    ========================================================================= */
 
@@ -4183,7 +4750,12 @@
 .radio-player-panel.radio-skin--cafewall,
 .radio-player-panel.radio-skin--penrose,
 .radio-player-panel.radio-skin--scintille,
-.radio-player-panel.radio-skin--barber {
+.radio-player-panel.radio-skin--barber,
+.radio-player-panel.radio-skin--ebbinghaus,
+.radio-player-panel.radio-skin--zollner,
+.radio-player-panel.radio-skin--necker,
+.radio-player-panel.radio-skin--ouchi,
+.radio-player-panel.radio-skin--ehrenstein {
   border-radius: 1.15rem;
 }
 
@@ -4832,6 +5404,586 @@
   to { background-position: 0 -67.88px; }
 }
 
+.radio-player-panel.radio-skin--ebbinghaus {
+  --radio-shell-edge: #1c2430;
+  --radio-brass: #f6f1e6;
+  --radio-brass-dark: #1c2430;
+  --radio-cream: #fff;
+  --radio-accent: #d64545;
+  background: #f6f1e6;
+  border: 3px solid #1c2430;
+  box-shadow: 0 16px 32px rgba(28, 36, 48, 0.22);
+}
+
+.radio-skin--ebbinghaus .radio-player-frame,
+.radio-skin--ebbinghaus .radio-face {
+  background: #f8f4ea;
+  border-color: #1c2430;
+}
+
+.radio-skin--ebbinghaus .radio-brand-name,
+.radio-skin--ebbinghaus .radio-preset {
+  color: #1c2430;
+}
+
+.radio-skin--ebbinghaus .radio-knob,
+.radio-skin--ebbinghaus .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #fff, #e7dcc8 48%, #1c2430);
+}
+
+.radio-skin--ebbinghaus .radio-knob::after,
+.radio-skin--ebbinghaus .radio-power-led.is-on,
+.radio-skin--ebbinghaus .radio-eq-bar {
+  background: #d64545;
+}
+
+.radio-skin--ebbinghaus .radio-preset {
+  border: 1px solid #1c2430;
+  background: #f6f1e6;
+}
+
+.radio-skin--ebbinghaus .radio-preset.is-active {
+  color: #fff;
+  background: #d64545;
+  border-color: #d64545;
+}
+
+.radio-skin--ebbinghaus .radio-screen-fx-a {
+  display: block;
+  left: 50%;
+  top: 54%;
+  z-index: 2;
+  width: 2.15rem;
+  height: 2.15rem;
+  margin: -1.075rem 0 0 -1.075rem;
+  border-radius: 50%;
+  background: #d64545;
+  box-shadow: 0 0 0 2px #f6f1e6;
+}
+
+.radio-skin--ebbinghaus .radio-screen-fx-b,
+.radio-skin--ebbinghaus .radio-screen-fx-c {
+  display: block;
+  left: 50%;
+  top: 54%;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin: -0.225rem 0 0 -0.225rem;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.radio-skin--ebbinghaus .radio-screen-fx-b {
+  box-shadow:
+    0 -3.15rem 0 0.82rem #1c2430,
+    2.73rem -1.58rem 0 0.82rem #1c2430,
+    2.73rem 1.58rem 0 0.82rem #1c2430,
+    0 3.15rem 0 0.82rem #1c2430,
+    -2.73rem 1.58rem 0 0.82rem #1c2430,
+    -2.73rem -1.58rem 0 0.82rem #1c2430;
+  animation: illusion-ebbing-large 5.6s ease-in-out infinite;
+}
+
+.radio-skin--ebbinghaus .radio-screen-fx-c {
+  box-shadow:
+    0 -2.05rem 0 0.16rem #1c2430,
+    1.78rem -1.02rem 0 0.16rem #1c2430,
+    1.78rem 1.02rem 0 0.16rem #1c2430,
+    0 2.05rem 0 0.16rem #1c2430,
+    -1.78rem 1.02rem 0 0.16rem #1c2430,
+    -1.78rem -1.02rem 0 0.16rem #1c2430;
+  animation: illusion-ebbing-small 5.6s ease-in-out infinite;
+}
+
+.radio-player-panel.radio-skin--zollner {
+  --radio-shell-edge: #1a1208;
+  --radio-brass: #f4ecd8;
+  --radio-brass-dark: #1a1208;
+  --radio-cream: #fff8ea;
+  --radio-accent: #c45c26;
+  background: #f4ecd8;
+  border: 3px solid #1a1208;
+  box-shadow: 0 16px 32px rgba(26, 18, 8, 0.22);
+}
+
+.radio-skin--zollner .radio-player-frame,
+.radio-skin--zollner .radio-face {
+  background: #f7f0dc;
+  border-color: #1a1208;
+}
+
+.radio-skin--zollner .radio-brand-name,
+.radio-skin--zollner .radio-preset {
+  color: #1a1208;
+}
+
+.radio-skin--zollner .radio-knob,
+.radio-skin--zollner .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #fff, #e7d3b0 46%, #c45c26);
+}
+
+.radio-skin--zollner .radio-knob::after,
+.radio-skin--zollner .radio-power-led.is-on,
+.radio-skin--zollner .radio-eq-bar {
+  background: #c45c26;
+}
+
+.radio-skin--zollner .radio-preset {
+  border: 1px solid #1a1208;
+  background: #f4ecd8;
+}
+
+.radio-skin--zollner .radio-preset.is-active {
+  color: #fff8ea;
+  background: #c45c26;
+  border-color: #c45c26;
+}
+
+.radio-skin--zollner .radio-screen-fx-a {
+  display: block;
+  left: 50%;
+  top: 54%;
+  width: min(68%, 14.5rem);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid #1a1208;
+  background-color: #f4ecd8;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='32'%3E%3Crect width='72' height='32' fill='%23f4ecd8'/%3E%3Cline x1='6' y1='0' x2='6' y2='32' stroke='%231a1208' stroke-width='2.5'/%3E%3Cline x1='42' y1='0' x2='42' y2='32' stroke='%231a1208' stroke-width='2.5'/%3E%3Cg stroke='%23c45c26' stroke-width='2.2'%3E%3Cline x1='6' y1='8' x2='20' y2='2'/%3E%3Cline x1='6' y1='22' x2='20' y2='16'/%3E%3Cline x1='42' y1='8' x2='28' y2='2'/%3E%3Cline x1='42' y1='22' x2='28' y2='16'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 72px 32px;
+  animation: illusion-zollner-climb 1.5s linear infinite;
+}
+
+.radio-player-panel.radio-skin--necker {
+  --radio-shell-edge: #7eb6ff;
+  --radio-brass: #d7e7ff;
+  --radio-brass-dark: #3d6ea8;
+  --radio-cream: #d7e7ff;
+  --radio-accent: #7eb6ff;
+  background: #0c1018;
+  border: 3px solid #7eb6ff;
+  box-shadow: 0 0 0 1px #3d6ea8, 0 16px 32px rgba(0, 0, 0, 0.45);
+}
+
+.radio-skin--necker .radio-player-frame,
+.radio-skin--necker .radio-face {
+  background: #101622;
+  border-color: #7eb6ff;
+}
+
+.radio-skin--necker .radio-brand-name,
+.radio-skin--necker .radio-preset {
+  color: #d7e7ff;
+}
+
+.radio-skin--necker .radio-knob,
+.radio-skin--necker .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #fff, #d7e7ff 42%, #3d6ea8);
+}
+
+.radio-skin--necker .radio-knob::after,
+.radio-skin--necker .radio-power-led.is-on,
+.radio-skin--necker .radio-eq-bar {
+  background: #7eb6ff;
+}
+
+.radio-skin--necker .radio-power-led.is-on {
+  box-shadow: 0 0 12px #7eb6ff;
+}
+
+.radio-skin--necker .radio-preset {
+  border: 1px solid #7eb6ff;
+  background: #0c1018;
+}
+
+.radio-skin--necker .radio-preset.is-active {
+  color: #0c1018;
+  background: #7eb6ff;
+}
+
+.radio-skin--necker .radio-screen-fx-a,
+.radio-skin--necker .radio-screen-fx-b,
+.radio-skin--necker .radio-screen-fx-c {
+  display: block;
+  left: 50%;
+  top: 54%;
+  width: min(72%, 15rem);
+  aspect-ratio: 140 / 120;
+  transform: translate(-50%, -50%);
+}
+
+.radio-skin--necker .radio-screen-fx-a {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='120'%3E%3Crect width='140' height='120' fill='none'/%3E%3Cg fill='none' stroke='%23d7e7ff' stroke-width='2.4'%3E%3Cpolygon points='18,42 74,42 74,98 18,98'/%3E%3Cpolygon points='46,16 102,16 102,72 46,72'/%3E%3Cline x1='18' y1='42' x2='46' y2='16'/%3E%3Cline x1='74' y1='42' x2='102' y2='16'/%3E%3Cline x1='74' y1='98' x2='102' y2='72'/%3E%3Cline x1='18' y1='98' x2='46' y2='72'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.radio-skin--necker .radio-screen-fx-b {
+  background: rgba(126, 182, 255, 0.38);
+  clip-path: polygon(12.9% 35%, 52.9% 35%, 52.9% 81.7%, 12.9% 81.7%);
+  animation: illusion-necker-a 4.8s ease-in-out infinite;
+}
+
+.radio-skin--necker .radio-screen-fx-c {
+  background: rgba(215, 231, 255, 0.28);
+  clip-path: polygon(32.9% 13.3%, 72.9% 13.3%, 72.9% 60%, 32.9% 60%);
+  animation: illusion-necker-b 4.8s ease-in-out infinite;
+}
+
+.radio-player-panel.radio-skin--ouchi {
+  --radio-shell-edge: #111;
+  --radio-brass: #f4f4f4;
+  --radio-brass-dark: #111;
+  --radio-cream: #f4f4f4;
+  --radio-accent: #111;
+  background: #f4f4f4;
+  border: 3px solid #111;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+}
+
+.radio-skin--ouchi .radio-player-frame,
+.radio-skin--ouchi .radio-face {
+  background: #f4f4f4;
+  border-color: #111;
+}
+
+.radio-skin--ouchi .radio-brand-name,
+.radio-skin--ouchi .radio-preset {
+  color: #111;
+}
+
+.radio-skin--ouchi .radio-knob,
+.radio-skin--ouchi .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #fff, #d0d0d0 48%, #111);
+}
+
+.radio-skin--ouchi .radio-knob::after,
+.radio-skin--ouchi .radio-power-led.is-on,
+.radio-skin--ouchi .radio-eq-bar {
+  background: #111;
+}
+
+.radio-skin--ouchi .radio-preset {
+  border: 1px solid #111;
+  background: #f4f4f4;
+}
+
+.radio-skin--ouchi .radio-preset.is-active {
+  color: #f4f4f4;
+  background: #111;
+}
+
+.radio-skin--ouchi .radio-screen-fx-a {
+  display: block;
+  inset: 8% 10%;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid #111;
+  background-color: #f4f4f4;
+  background-image:
+    repeating-linear-gradient(90deg, #111 0 7px, transparent 7px 14px),
+    repeating-linear-gradient(#111 0 14px, #f4f4f4 14px 28px);
+}
+
+.radio-skin--ouchi .radio-screen-fx-b {
+  display: block;
+  left: 50%;
+  top: 54%;
+  width: min(42%, 8.2rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid #111;
+  background-color: #f4f4f4;
+  background-image:
+    repeating-linear-gradient(#111 0 7px, transparent 7px 14px),
+    repeating-linear-gradient(90deg, #111 0 14px, #f4f4f4 14px 28px);
+  animation: illusion-ouchi-slide 3.4s ease-in-out infinite;
+}
+
+.radio-player-panel.radio-skin--ehrenstein {
+  --radio-shell-edge: #161616;
+  --radio-brass: #f7f7f7;
+  --radio-brass-dark: #161616;
+  --radio-cream: #fff;
+  --radio-accent: #161616;
+  background: #f7f7f7;
+  border: 3px solid #161616;
+  box-shadow: 0 16px 32px rgba(22, 22, 22, 0.2);
+}
+
+.radio-skin--ehrenstein .radio-player-frame,
+.radio-skin--ehrenstein .radio-face {
+  background: #f7f7f7;
+  border-color: #161616;
+}
+
+.radio-skin--ehrenstein .radio-brand-name,
+.radio-skin--ehrenstein .radio-preset {
+  color: #161616;
+}
+
+.radio-skin--ehrenstein .radio-knob,
+.radio-skin--ehrenstein .radio-speaker-hub {
+  background: radial-gradient(circle at 35% 30%, #fff, #d9d9d9 46%, #161616);
+}
+
+.radio-skin--ehrenstein .radio-knob::after,
+.radio-skin--ehrenstein .radio-power-led.is-on,
+.radio-skin--ehrenstein .radio-eq-bar {
+  background: #161616;
+}
+
+.radio-skin--ehrenstein .radio-preset {
+  border: 1px solid #161616;
+  background: #fff;
+}
+
+.radio-skin--ehrenstein .radio-preset.is-active {
+  color: #fff;
+  background: #161616;
+}
+
+.radio-skin--ehrenstein .radio-screen-fx-a,
+.radio-skin--ehrenstein .radio-screen-fx-b {
+  display: block;
+  left: 50%;
+  top: 54%;
+  width: min(74%, 15.5rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.radio-skin--ehrenstein .radio-screen-fx-a {
+  background: repeating-conic-gradient(#161616 0 1.5deg, #f7f7f7 1.5deg 12deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 18%, #000 20%);
+  mask: radial-gradient(circle, transparent 0 18%, #000 20%);
+  animation: radio-skin-fan 26s linear infinite;
+}
+
+.radio-skin--ehrenstein .radio-screen-fx-b {
+  background: repeating-conic-gradient(#161616 0 1.5deg, transparent 1.5deg 12deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 42%, #000 44% 68%, transparent 70%);
+  mask: radial-gradient(circle, transparent 0 42%, #000 44% 68%, transparent 70%);
+  animation: radio-skin-fan 16s linear infinite reverse;
+}
+
+:host.radio-skin--ebbinghaus {
+  --pat-title-accent: #d64545;
+  --pat-title-shadow: 0 8px 22px rgba(28, 36, 48, 0.18);
+  --pat-title-bg: linear-gradient(180deg, #fff 0%, #f6f1e6 16%, #1c2430 100%);
+  --pat-page-bg: #f6f1e6;
+  --title-btn-bg: #f6f1e6;
+  --title-btn-fg: #1c2430;
+  --title-btn-border: #1c2430;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #d64545;
+  --title-btn-active-fg: #fff;
+  --title-btn-shadow: 0 0 0 1px #1c2430;
+  --menu-bg: #f8f4ea;
+  --menu-fg: #1c2430;
+  --menu-muted: #5c5348;
+  --menu-border: #1c2430;
+  --menu-border-width: 2px;
+  --menu-accent: #d64545;
+  --menu-accent-fg: #fff;
+  --menu-toolbar: rgba(28, 36, 48, 0.06);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #1c2430;
+  --menu-input-border: #1c2430;
+  --menu-hover: rgba(214, 69, 69, 0.08);
+  --menu-active: rgba(214, 69, 69, 0.16);
+  --menu-meta-bg: rgba(28, 36, 48, 0.06);
+  --menu-shadow: 0 12px 28px rgba(28, 36, 48, 0.16);
+  --menu-radius: 1rem;
+  --menu-logo-bg: #fff;
+  background-color: #f6f1e6;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='140'%3E%3Crect width='280' height='140' fill='%23f6f1e6'/%3E%3Ccircle cx='110' cy='70' r='20' fill='%231c2430'/%3E%3Ccircle cx='90' cy='105' r='20' fill='%231c2430'/%3E%3Ccircle cx='50' cy='105' r='20' fill='%231c2430'/%3E%3Ccircle cx='30' cy='70' r='20' fill='%231c2430'/%3E%3Ccircle cx='50' cy='35' r='20' fill='%231c2430'/%3E%3Ccircle cx='90' cy='35' r='20' fill='%231c2430'/%3E%3Ccircle cx='70' cy='70' r='16' fill='%23d64545'/%3E%3Ccircle cx='238' cy='70' r='7' fill='%231c2430'/%3E%3Ccircle cx='224' cy='94' r='7' fill='%231c2430'/%3E%3Ccircle cx='196' cy='94' r='7' fill='%231c2430'/%3E%3Ccircle cx='182' cy='70' r='7' fill='%231c2430'/%3E%3Ccircle cx='196' cy='46' r='7' fill='%231c2430'/%3E%3Ccircle cx='224' cy='46' r='7' fill='%231c2430'/%3E%3Ccircle cx='210' cy='70' r='16' fill='%23d64545'/%3E%3C/svg%3E");
+  background-size: 280px 140px;
+  animation: illusion-ebbing-page 8s ease-in-out infinite;
+}
+
+:host.radio-skin--zollner {
+  --pat-title-accent: #c45c26;
+  --pat-title-shadow: 0 8px 22px rgba(26, 18, 8, 0.2);
+  --pat-title-bg: linear-gradient(180deg, #fff8ea 0%, #e7d3b0 16%, #1a1208 100%);
+  --pat-page-bg: #f4ecd8;
+  --title-btn-bg: #f4ecd8;
+  --title-btn-fg: #1a1208;
+  --title-btn-border: #1a1208;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #c45c26;
+  --title-btn-active-fg: #fff8ea;
+  --title-btn-shadow: 0 0 0 1px #1a1208;
+  --menu-bg: #f8f1df;
+  --menu-fg: #1a1208;
+  --menu-muted: #6a5340;
+  --menu-border: #1a1208;
+  --menu-border-width: 2px;
+  --menu-accent: #c45c26;
+  --menu-accent-fg: #fff8ea;
+  --menu-toolbar: rgba(26, 18, 8, 0.06);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #1a1208;
+  --menu-input-border: #1a1208;
+  --menu-hover: rgba(196, 92, 38, 0.1);
+  --menu-active: rgba(196, 92, 38, 0.18);
+  --menu-meta-bg: rgba(26, 18, 8, 0.06);
+  --menu-shadow: 0 12px 28px rgba(26, 18, 8, 0.16);
+  --menu-radius: 0.75rem;
+  --menu-logo-bg: #fff;
+  background-color: #f4ecd8;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='32'%3E%3Crect width='72' height='32' fill='%23f4ecd8'/%3E%3Cline x1='6' y1='0' x2='6' y2='32' stroke='%231a1208' stroke-width='2.5'/%3E%3Cline x1='42' y1='0' x2='42' y2='32' stroke='%231a1208' stroke-width='2.5'/%3E%3Cg stroke='%23c45c26' stroke-width='2.2'%3E%3Cline x1='6' y1='8' x2='20' y2='2'/%3E%3Cline x1='6' y1='22' x2='20' y2='16'/%3E%3Cline x1='42' y1='8' x2='28' y2='2'/%3E%3Cline x1='42' y1='22' x2='28' y2='16'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 72px 32px;
+  animation: illusion-zollner-page 2.4s linear infinite;
+}
+
+:host.radio-skin--necker {
+  --pat-title-accent: #7eb6ff;
+  --pat-title-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  --pat-title-bg: linear-gradient(180deg, #d7e7ff 0%, #3d6ea8 16%, #0c1018 100%);
+  --pat-page-bg: #0c1018;
+  --title-btn-bg: #161c2c;
+  --title-btn-fg: #d7e7ff;
+  --title-btn-border: #7eb6ff;
+  --title-btn-hover-bg: #222a40;
+  --title-btn-active-bg: #7eb6ff;
+  --title-btn-active-fg: #0c1018;
+  --title-btn-shadow: 0 0 0 1px #3d6ea8;
+  --menu-bg: #161c2c;
+  --menu-fg: #d7e7ff;
+  --menu-muted: #9eb0cc;
+  --menu-border: #7eb6ff;
+  --menu-border-width: 1px;
+  --menu-accent: #7eb6ff;
+  --menu-accent-fg: #0c1018;
+  --menu-toolbar: rgba(126, 182, 255, 0.08);
+  --menu-input-bg: #0c1018;
+  --menu-input-fg: #d7e7ff;
+  --menu-input-border: #7eb6ff;
+  --menu-hover: rgba(126, 182, 255, 0.12);
+  --menu-active: rgba(126, 182, 255, 0.22);
+  --menu-meta-bg: rgba(126, 182, 255, 0.08);
+  --menu-shadow: 0 0 18px rgba(126, 182, 255, 0.2);
+  --menu-radius: 0.8rem;
+  --menu-logo-bg: #0c1018;
+  background-color: #0c1018;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='120'%3E%3Crect width='140' height='120' fill='%230c1018'/%3E%3Cg fill='none' stroke='%23d7e7ff' stroke-width='2'%3E%3Cpolygon points='18,42 74,42 74,98 18,98'/%3E%3Cpolygon points='46,16 102,16 102,72 46,72'/%3E%3Cline x1='18' y1='42' x2='46' y2='16'/%3E%3Cline x1='74' y1='42' x2='102' y2='16'/%3E%3Cline x1='74' y1='98' x2='102' y2='72'/%3E%3Cline x1='18' y1='98' x2='46' y2='72'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 140px 120px;
+  animation: illusion-necker-field 18s linear infinite;
+}
+
+:host.radio-skin--ouchi {
+  --pat-title-accent: #111;
+  --pat-title-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+  --pat-title-bg: linear-gradient(180deg, #fff 0%, #d0d0d0 16%, #111 100%);
+  --pat-page-bg: #f4f4f4;
+  --title-btn-bg: #f4f4f4;
+  --title-btn-fg: #111;
+  --title-btn-border: #111;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #111;
+  --title-btn-active-fg: #f4f4f4;
+  --title-btn-shadow: 0 0 0 1px #111;
+  --menu-bg: #f7f7f7;
+  --menu-fg: #111;
+  --menu-muted: #4a4a4a;
+  --menu-border: #111;
+  --menu-border-width: 2px;
+  --menu-accent: #111;
+  --menu-accent-fg: #f4f4f4;
+  --menu-toolbar: rgba(0, 0, 0, 0.05);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #111;
+  --menu-input-border: #111;
+  --menu-hover: rgba(0, 0, 0, 0.06);
+  --menu-active: rgba(0, 0, 0, 0.12);
+  --menu-meta-bg: rgba(0, 0, 0, 0.05);
+  --menu-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  --menu-radius: 0.7rem;
+  --menu-logo-bg: #fff;
+  background-color: #f4f4f4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' shape-rendering='crispEdges'%3E%3Crect width='100' height='100' fill='%23f4f4f4'/%3E%3Crect x='0' y='0' width='10' height='10' fill='%23111'/%3E%3Crect x='20' y='0' width='10' height='10' fill='%23111'/%3E%3Crect x='40' y='0' width='10' height='10' fill='%23111'/%3E%3Crect x='60' y='0' width='10' height='10' fill='%23111'/%3E%3Crect x='80' y='0' width='10' height='10' fill='%23111'/%3E%3Crect x='0' y='10' width='10' height='10' fill='%23111'/%3E%3Crect x='20' y='10' width='10' height='10' fill='%23111'/%3E%3Crect x='40' y='10' width='10' height='10' fill='%23111'/%3E%3Crect x='60' y='10' width='10' height='10' fill='%23111'/%3E%3Crect x='80' y='10' width='10' height='10' fill='%23111'/%3E%3Crect x='10' y='20' width='10' height='10' fill='%23111'/%3E%3Crect x='40' y='20' width='10' height='10' fill='%23111'/%3E%3Crect x='50' y='20' width='10' height='10' fill='%23111'/%3E%3Crect x='70' y='20' width='10' height='10' fill='%23111'/%3E%3Crect x='90' y='20' width='10' height='10' fill='%23111'/%3E%3Crect x='10' y='30' width='10' height='10' fill='%23111'/%3E%3Crect x='20' y='30' width='10' height='10' fill='%23111'/%3E%3Crect x='30' y='30' width='10' height='10' fill='%23111'/%3E%3Crect x='60' y='30' width='10' height='10' fill='%23111'/%3E%3Crect x='70' y='30' width='10' height='10' fill='%23111'/%3E%3Crect x='90' y='30' width='10' height='10' fill='%23111'/%3E%3Crect x='0' y='40' width='10' height='10' fill='%23111'/%3E%3Crect x='40' y='40' width='10' height='10' fill='%23111'/%3E%3Crect x='50' y='40' width='10' height='10' fill='%23111'/%3E%3Crect x='80' y='40' width='10' height='10' fill='%23111'/%3E%3Crect x='0' y='50' width='10' height='10' fill='%23111'/%3E%3Crect x='20' y='50' width='10' height='10' fill='%23111'/%3E%3Crect x='30' y='50' width='10' height='10' fill='%23111'/%3E%3Crect x='60' y='50' width='10' height='10' fill='%23111'/%3E%3Crect x='70' y='50' width='10' height='10' fill='%23111'/%3E%3Crect x='80' y='50' width='10' height='10' fill='%23111'/%3E%3Crect x='10' y='60' width='10' height='10' fill='%23111'/%3E%3Crect x='40' y='60' width='10' height='10' fill='%23111'/%3E%3Crect x='50' y='60' width='10' height='10' fill='%23111'/%3E%3Crect x='90' y='60' width='10' height='10' fill='%23111'/%3E%3Crect x='10' y='70' width='10' height='10' fill='%23111'/%3E%3Crect x='30' y='70' width='10' height='10' fill='%23111'/%3E%3Crect x='60' y='70' width='10' height='10' fill='%23111'/%3E%3Crect x='70' y='70' width='10' height='10' fill='%23111'/%3E%3Crect x='90' y='70' width='10' height='10' fill='%23111'/%3E%3Crect x='0' y='80' width='10' height='10' fill='%23111'/%3E%3Crect x='20' y='80' width='10' height='10' fill='%23111'/%3E%3Crect x='40' y='80' width='10' height='10' fill='%23111'/%3E%3Crect x='60' y='80' width='10' height='10' fill='%23111'/%3E%3Crect x='80' y='80' width='10' height='10' fill='%23111'/%3E%3Crect x='0' y='90' width='10' height='10' fill='%23111'/%3E%3Crect x='20' y='90' width='10' height='10' fill='%23111'/%3E%3Crect x='40' y='90' width='10' height='10' fill='%23111'/%3E%3Crect x='60' y='90' width='10' height='10' fill='%23111'/%3E%3Crect x='80' y='90' width='10' height='10' fill='%23111'/%3E%3C/svg%3E");
+  background-size: 100px 100px;
+}
+
+:host.radio-skin--ehrenstein {
+  --pat-title-accent: #161616;
+  --pat-title-shadow: 0 8px 22px rgba(22, 22, 22, 0.16);
+  --pat-title-bg: linear-gradient(180deg, #fff 0%, #e4e4e4 16%, #161616 100%);
+  --pat-page-bg: #f7f7f7;
+  --title-btn-bg: #fff;
+  --title-btn-fg: #161616;
+  --title-btn-border: #161616;
+  --title-btn-hover-bg: #f7f7f7;
+  --title-btn-active-bg: #161616;
+  --title-btn-active-fg: #fff;
+  --title-btn-shadow: 0 0 0 1px #161616;
+  --menu-bg: #fff;
+  --menu-fg: #161616;
+  --menu-muted: #4a4a4a;
+  --menu-border: #161616;
+  --menu-border-width: 2px;
+  --menu-accent: #161616;
+  --menu-accent-fg: #fff;
+  --menu-toolbar: rgba(0, 0, 0, 0.04);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #161616;
+  --menu-input-border: #161616;
+  --menu-hover: rgba(0, 0, 0, 0.05);
+  --menu-active: rgba(0, 0, 0, 0.1);
+  --menu-meta-bg: rgba(0, 0, 0, 0.04);
+  --menu-shadow: 0 12px 28px rgba(22, 22, 22, 0.14);
+  --menu-radius: 1rem;
+  --menu-logo-bg: #fff;
+  background-color: #f7f7f7;
+  background-image:
+    repeating-conic-gradient(from 0deg at 18% 28%, #161616 0 1.15deg, transparent 1.15deg 13deg),
+    repeating-conic-gradient(from 6deg at 74% 62%, #161616 0 1.15deg, transparent 1.15deg 13deg),
+    repeating-conic-gradient(from 3deg at 42% 84%, #161616 0 1.15deg, transparent 1.15deg 13deg);
+}
+
+@keyframes illusion-ebbing-large {
+  0%, 40% { opacity: 1; transform: scale(1); }
+  55%, 100% { opacity: 0; transform: scale(0.78); }
+}
+
+@keyframes illusion-ebbing-small {
+  0%, 40% { opacity: 0; transform: scale(1.15); }
+  55%, 100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes illusion-ebbing-page {
+  0%, 100% { background-size: 280px 140px; }
+  50% { background-size: 320px 160px; }
+}
+
+@keyframes illusion-zollner-climb {
+  to { background-position: 0 -32px; }
+}
+
+@keyframes illusion-zollner-page {
+  to { background-position: 0 32px; }
+}
+
+@keyframes illusion-necker-a {
+  0%, 42% { opacity: 0.9; }
+  58%, 100% { opacity: 0; }
+}
+
+@keyframes illusion-necker-b {
+  0%, 42% { opacity: 0; }
+  58%, 100% { opacity: 0.9; }
+}
+
+@keyframes illusion-necker-field {
+  to { background-position: 140px 0; }
+}
+
+@keyframes illusion-ouchi-slide {
+  0%, 100% { transform: translate(-50%, -50%); }
+  50% { transform: translate(calc(-50% + 0.7rem), calc(-50% - 0.4rem)); }
+}
+
 /* =========================================================================
    SLEEVE — track photos inside the cabinet, any skin
    ========================================================================= */
@@ -5025,6 +6177,46 @@
   --radio-well-track: #9aefff;
 }
 
+:host.radio-skin--jazz,
+.radio-player-panel.radio-skin--jazz {
+  --radio-well: #0c1220;
+  --radio-well-ink: #f6ecd4;
+  --radio-well-muted: #d4b483;
+  --radio-well-track: #e8a317;
+}
+
+:host.radio-skin--sakura,
+.radio-player-panel.radio-skin--sakura {
+  --radio-well: #fff7f4;
+  --radio-well-ink: #2c2428;
+  --radio-well-muted: #6a4a52;
+  --radio-well-track: #e8899a;
+}
+
+:host.radio-skin--dune,
+.radio-player-panel.radio-skin--dune {
+  --radio-well: #2c241c;
+  --radio-well-ink: #f8ecd4;
+  --radio-well-muted: #e7d3a8;
+  --radio-well-track: #c46a3a;
+}
+
+:host.radio-skin--lagoon,
+.radio-player-panel.radio-skin--lagoon {
+  --radio-well: #0c4f4c;
+  --radio-well-ink: #f4fffc;
+  --radio-well-muted: #c9ebe7;
+  --radio-well-track: #7ed4cf;
+}
+
+:host.radio-skin--ember,
+.radio-player-panel.radio-skin--ember {
+  --radio-well: #1a100c;
+  --radio-well-ink: #ffe6d2;
+  --radio-well-muted: #e0b090;
+  --radio-well-track: #ff6a1a;
+}
+
 :host.radio-skin--kanizsa,
 .radio-player-panel.radio-skin--kanizsa {
   --radio-well: #f7f4ec;
@@ -5063,6 +6255,46 @@
   --radio-well-ink: #ffffff;
   --radio-well-muted: #d6e4f5;
   --radio-well-track: #ffe08a;
+}
+
+:host.radio-skin--ebbinghaus,
+.radio-player-panel.radio-skin--ebbinghaus {
+  --radio-well: #f8f4ea;
+  --radio-well-ink: #1c2430;
+  --radio-well-muted: #5c5348;
+  --radio-well-track: #d64545;
+}
+
+:host.radio-skin--zollner,
+.radio-player-panel.radio-skin--zollner {
+  --radio-well: #f4ecd8;
+  --radio-well-ink: #1a1208;
+  --radio-well-muted: #6a5340;
+  --radio-well-track: #c45c26;
+}
+
+:host.radio-skin--necker,
+.radio-player-panel.radio-skin--necker {
+  --radio-well: #0c1018;
+  --radio-well-ink: #d7e7ff;
+  --radio-well-muted: #9eb0cc;
+  --radio-well-track: #7eb6ff;
+}
+
+:host.radio-skin--ouchi,
+.radio-player-panel.radio-skin--ouchi {
+  --radio-well: #111111;
+  --radio-well-ink: #f4f4f4;
+  --radio-well-muted: #c8c8c8;
+  --radio-well-track: #ffffff;
+}
+
+:host.radio-skin--ehrenstein,
+.radio-player-panel.radio-skin--ehrenstein {
+  --radio-well: #f7f7f7;
+  --radio-well-ink: #161616;
+  --radio-well-muted: #4a4a4a;
+  --radio-well-track: #161616;
 }
 
 .radio-player-frame:has(.radio-face--sleeve) .radio-chrome {
@@ -5114,6 +6346,9 @@
   z-index: 6;
 }
 
+.radio-face.radio-face--sleeve .radio-play-error,
+.radio-face.radio-face--sleeve .radio-unmute-hint,
+.radio-face.radio-face--sleeve .radio-buffering,
 .radio-face.radio-face--sleeve-front .radio-station-badge,
 .radio-face.radio-face--sleeve-front .radio-play-error,
 .radio-face.radio-face--sleeve-front .radio-unmute-hint,
@@ -5122,9 +6357,21 @@
 }
 
 .radio-face.radio-face--sleeve .radio-station-badge {
-  top: 0.45rem;
+  top: 0.4rem;
   bottom: auto;
-  z-index: 5;
+  z-index: 6;
+  gap: 0;
+}
+
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-face-track,
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-audio-logo,
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-audio-label,
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-station-meta {
+  display: none;
+}
+
+.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-on-air {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
 }
 
 .radio-face.radio-face--sleeve .radio-controls-row {
@@ -5139,8 +6386,7 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--radio-well-ink, #f4efe4) 28%, transparent);
 }
 
-/* Radio: with a cover on the glass, every cabinet animation stays behind the photo
-   and shows in the space around it. */
+/* Pochette: the glass is a photo screen. Dial, meter, lamps and motion stay off it. */
 .radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-ambient,
 .radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-dial,
 .radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-meter,
@@ -5151,7 +6397,7 @@
 .radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-controls-row,
 .radio-player-panel.radio-page .radio-face.radio-face--sleeve::before,
 .radio-player-panel.radio-page .radio-face.radio-face--sleeve::after {
-  z-index: 1;
+  display: none;
 }
 
 .radio-player-panel.radio-page .radio-player-frame:has(.radio-face--sleeve) .radio-face {
@@ -5162,14 +6408,34 @@
   z-index: 1;
 }
 
-.radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-sleeve,
-.radio-player-panel.radio-page .radio-face.radio-face--sleeve-front .radio-sleeve {
+:host:not(.radio-landscape-fs) .radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-sleeve,
+:host:not(.radio-landscape-fs) .radio-player-panel.radio-page .radio-face.radio-face--sleeve-front .radio-sleeve {
+  inset: 0.85rem;
   z-index: 4;
 }
 
 .radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-sleeve-frame {
   background: transparent;
   box-shadow: none;
+  overflow: visible;
+}
+
+/* The print hugs the picture. The skin mat shows around it, under the ON AIR pill. */
+:host:not(.radio-landscape-fs) .radio-player-panel.radio-page .radio-face.radio-face--sleeve .radio-sleeve-photo {
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  width: auto;
+  height: auto;
+  max-width: calc(100% - 1.15rem);
+  max-height: calc(100% - 1.15rem);
+  transform: translate(-50%, -50%);
+  border-radius: 0.15rem;
+  background: #f7f4ee;
+  box-shadow:
+    0 0 0 0.42rem #f7f4ee,
+    0 0 0 0.5rem rgba(0, 0, 0, 0.22),
+    0 16px 34px rgba(0, 0, 0, 0.28);
 }
 
 .radio-sleeve-photo,
@@ -5355,7 +6621,12 @@
 :host.radio-skin--bamboo,
 :host.radio-skin--porcelain,
 :host.radio-skin--carbon,
-:host.radio-skin--candy {
+:host.radio-skin--candy,
+:host.radio-skin--jazz,
+:host.radio-skin--sakura,
+:host.radio-skin--dune,
+:host.radio-skin--lagoon,
+:host.radio-skin--ember {
   position: relative;
   isolation: isolate;
 }
@@ -5371,7 +6642,12 @@
 :host.radio-skin--bamboo::before,
 :host.radio-skin--porcelain::before,
 :host.radio-skin--carbon::before,
-:host.radio-skin--candy::before {
+:host.radio-skin--candy::before,
+:host.radio-skin--jazz::before,
+:host.radio-skin--sakura::before,
+:host.radio-skin--dune::before,
+:host.radio-skin--lagoon::before,
+:host.radio-skin--ember::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -5463,6 +6739,40 @@
   animation: media-page-rise 9s linear infinite;
 }
 
+:host.radio-skin--jazz::before {
+  background: radial-gradient(ellipse 32% 24% at 78% 12%, rgba(232, 163, 23, 0.4), transparent 70%);
+  animation: media-page-drift 14s ease-in-out infinite alternate;
+}
+
+:host.radio-skin--sakura::before {
+  background:
+    radial-gradient(circle at 18% 80%, #f7c1cb 0 6px, transparent 7px),
+    radial-gradient(circle at 62% 88%, #fff 0 4px, transparent 5px),
+    radial-gradient(circle at 84% 70%, #e8899a 0 5px, transparent 6px);
+  background-size: 180px 220px;
+  animation: media-page-rise 13s linear infinite;
+}
+
+:host.radio-skin--dune::before {
+  background: radial-gradient(circle at 82% 18%, rgba(255, 246, 216, 0.55) 0 8%, rgba(196, 106, 58, 0.28) 9% 18%, transparent 19%);
+  animation: media-page-drift 18s ease-in-out infinite alternate;
+}
+
+:host.radio-skin--lagoon::before {
+  background: linear-gradient(100deg, transparent 0 30%, rgba(255, 255, 255, 0.35) 48%, transparent 62%);
+  background-size: 180% 100%;
+  animation: media-page-scroll 9s linear infinite;
+}
+
+:host.radio-skin--ember::before {
+  background:
+    radial-gradient(circle at 20% 90%, #ff6a1a 0 3px, transparent 4px),
+    radial-gradient(circle at 55% 80%, #ffb07a 0 2px, transparent 3px),
+    radial-gradient(circle at 80% 92%, #ff6a1a 0 3px, transparent 4px);
+  background-size: 140px 180px;
+  animation: media-page-rise 7s linear infinite;
+}
+
 :host.radio-landscape-fs.radio-skin--classic::before,
 :host.radio-landscape-fs.radio-skin--artdeco::before,
 :host.radio-landscape-fs.radio-skin--synthwave::before,
@@ -5474,7 +6784,12 @@
 :host.radio-landscape-fs.radio-skin--bamboo::before,
 :host.radio-landscape-fs.radio-skin--porcelain::before,
 :host.radio-landscape-fs.radio-skin--carbon::before,
-:host.radio-landscape-fs.radio-skin--candy::before {
+:host.radio-landscape-fs.radio-skin--candy::before,
+:host.radio-landscape-fs.radio-skin--jazz::before,
+:host.radio-landscape-fs.radio-skin--sakura::before,
+:host.radio-landscape-fs.radio-skin--dune::before,
+:host.radio-landscape-fs.radio-skin--lagoon::before,
+:host.radio-landscape-fs.radio-skin--ember::before {
   display: none;
 }
 

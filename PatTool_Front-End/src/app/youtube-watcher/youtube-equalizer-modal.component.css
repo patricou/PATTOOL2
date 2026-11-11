@@ -699,6 +699,156 @@
   filter: invert(1);
 }
 
+::ng-deep .yt-eq-modal:has([data-cabinet='jazz']) {
+  --eq-header: linear-gradient(180deg, #f6ecd4 0%, #d4b483 14%, #1a2744 100%);
+  --eq-header-text: #f6ecd4;
+  --eq-header-border: #d4b483;
+  --eq-radius: 0.8rem;
+  --eq-accent: #e8a317;
+  --eq-body: #0e1428;
+  --eq-text: #f6ecd4;
+  --eq-muted: #d4b483;
+  --eq-label: #f6ecd4;
+  --eq-value: #e8a317;
+  --eq-footer: #0c1220;
+  --eq-footer-border: #d4b483;
+  --eq-frame: #d4b483;
+  --eq-content-bg: #1a2744;
+  --eq-spectrum-bg: #0c1220;
+  --eq-spectrum-fill: rgba(12, 18, 32, 0.94);
+  --eq-spectrum-border: #e8a317;
+  --eq-spectrum-glow: 0 0 14px rgba(232, 163, 23, 0.35);
+  --eq-bar-hi: #fff6d8;
+  --eq-bar-mid: #e8a317;
+  --eq-bar-lo: #8a6a32;
+  --eq-status-bg: #0c1220;
+  --eq-status-border: #d4b483;
+  --eq-status-text: #f6ecd4;
+  --eq-preset-bg: #0c1220;
+  --eq-preset-border: #d4b483;
+  --eq-preset-text: #f6ecd4;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='sakura']) {
+  --eq-header: linear-gradient(180deg, #fff7f4 0%, #f7c1cb 16%, #4a3038 100%);
+  --eq-header-text: #fff7f4;
+  --eq-header-border: #4a3038;
+  --eq-radius: 1rem;
+  --eq-accent: #e8899a;
+  --eq-body: #f6e4e8;
+  --eq-text: #2c2428;
+  --eq-muted: #6a4a52;
+  --eq-label: #2c2428;
+  --eq-value: #a85a68;
+  --eq-footer: #4a3038;
+  --eq-footer-border: #f7c1cb;
+  --eq-frame: #4a3038;
+  --eq-content-bg: #fff7f4;
+  --eq-spectrum-bg: #f3d5dc;
+  --eq-spectrum-fill: rgba(255, 247, 244, 0.94);
+  --eq-spectrum-border: #e8899a;
+  --eq-spectrum-glow: none;
+  --eq-bar-hi: #e8899a;
+  --eq-bar-mid: #a85a68;
+  --eq-bar-lo: #4a3038;
+  --eq-status-bg: #fff;
+  --eq-status-border: #4a3038;
+  --eq-status-text: #2c2428;
+  --eq-preset-bg: #fff;
+  --eq-preset-border: #4a3038;
+  --eq-preset-text: #2c2428;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='dune']) {
+  --eq-header: linear-gradient(180deg, #f8ecd4 0%, #c4a574 16%, #2c241c 100%);
+  --eq-header-text: #f8ecd4;
+  --eq-header-border: #8a5a32;
+  --eq-radius: 0.8rem;
+  --eq-accent: #c46a3a;
+  --eq-body: #e7d3a8;
+  --eq-text: #2c241c;
+  --eq-muted: #6a5340;
+  --eq-label: #2c241c;
+  --eq-value: #c46a3a;
+  --eq-footer: #2c241c;
+  --eq-footer-border: #c4a574;
+  --eq-frame: #8a5a32;
+  --eq-content-bg: #f8ecd4;
+  --eq-spectrum-bg: #c4a574;
+  --eq-spectrum-fill: rgba(248, 236, 212, 0.94);
+  --eq-spectrum-border: #8a5a32;
+  --eq-spectrum-glow: none;
+  --eq-bar-hi: #c46a3a;
+  --eq-bar-mid: #8a5a32;
+  --eq-bar-lo: #2c241c;
+  --eq-status-bg: #fff;
+  --eq-status-border: #8a5a32;
+  --eq-status-text: #2c241c;
+  --eq-preset-bg: #fff;
+  --eq-preset-border: #8a5a32;
+  --eq-preset-text: #2c241c;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='lagoon']) {
+  --eq-header: linear-gradient(180deg, #f4fffc 0%, #7ed4cf 16%, #0e6e6a 100%);
+  --eq-header-text: #f4fffc;
+  --eq-header-border: #0e6e6a;
+  --eq-radius: 1.1rem;
+  --eq-accent: #0e6e6a;
+  --eq-body: #d7f3ee;
+  --eq-text: #0c3a38;
+  --eq-muted: #3d6e6a;
+  --eq-label: #0c3a38;
+  --eq-value: #0e6e6a;
+  --eq-footer: #0e6e6a;
+  --eq-footer-border: #f4fffc;
+  --eq-frame: #0e6e6a;
+  --eq-content-bg: #f4fffc;
+  --eq-spectrum-bg: #7ed4cf;
+  --eq-spectrum-fill: rgba(244, 255, 252, 0.94);
+  --eq-spectrum-border: #0e6e6a;
+  --eq-spectrum-glow: none;
+  --eq-bar-hi: #0e6e6a;
+  --eq-bar-mid: #14b8a6;
+  --eq-bar-lo: #d7f3ee;
+  --eq-status-bg: #fff;
+  --eq-status-border: #0e6e6a;
+  --eq-status-text: #0c3a38;
+  --eq-preset-bg: #fff;
+  --eq-preset-border: #0e6e6a;
+  --eq-preset-text: #0c3a38;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='ember']) {
+  --eq-header: linear-gradient(180deg, #ffe6d2 0%, #ff6a1a 18%, #1a100c 100%);
+  --eq-header-text: #ffe6d2;
+  --eq-header-border: #ff6a1a;
+  --eq-radius: 0.7rem;
+  --eq-accent: #ff6a1a;
+  --eq-body: #1a100c;
+  --eq-text: #ffe6d2;
+  --eq-muted: #e0b090;
+  --eq-label: #ffe6d2;
+  --eq-value: #ff6a1a;
+  --eq-footer: #140c0a;
+  --eq-footer-border: #ff6a1a;
+  --eq-frame: #ff6a1a;
+  --eq-content-bg: #2a1812;
+  --eq-spectrum-bg: #140c0a;
+  --eq-spectrum-fill: rgba(20, 12, 10, 0.94);
+  --eq-spectrum-border: #ff6a1a;
+  --eq-spectrum-glow: 0 0 16px rgba(255, 106, 26, 0.4);
+  --eq-bar-hi: #fff6d8;
+  --eq-bar-mid: #ff6a1a;
+  --eq-bar-lo: #8a3010;
+  --eq-status-bg: #1a100c;
+  --eq-status-border: #ff6a1a;
+  --eq-status-text: #ffe6d2;
+  --eq-preset-bg: #1a100c;
+  --eq-preset-border: #ff6a1a;
+  --eq-preset-text: #ffe6d2;
+}
+
 ::ng-deep .yt-eq-modal:has([data-cabinet='espace']) {
   --eq-header: linear-gradient(180deg, #6d8cff 0%, #141c3a 16%, #02040c 100%);
   --eq-header-border: #7ee7ff;
@@ -900,6 +1050,156 @@
   --eq-preset-bg: #102a52;
   --eq-preset-border: #fff;
   --eq-preset-text: #fff;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='ebbinghaus']) {
+  --eq-header: linear-gradient(180deg, #fff 0%, #f6f1e6 18%, #1c2430 100%);
+  --eq-header-text: #fff;
+  --eq-header-border: #1c2430;
+  --eq-radius: 1rem;
+  --eq-accent: #d64545;
+  --eq-body: #f6f1e6;
+  --eq-text: #1c2430;
+  --eq-muted: #5c5348;
+  --eq-label: #1c2430;
+  --eq-value: #d64545;
+  --eq-footer: #1c2430;
+  --eq-footer-border: #d64545;
+  --eq-frame: #1c2430;
+  --eq-content-bg: #f8f4ea;
+  --eq-spectrum-bg: #f6f1e6;
+  --eq-spectrum-fill: rgba(246, 241, 230, 0.94);
+  --eq-spectrum-border: #1c2430;
+  --eq-spectrum-glow: none;
+  --eq-bar-hi: #d64545;
+  --eq-bar-mid: #1c2430;
+  --eq-bar-lo: #8a3030;
+  --eq-status-bg: #fff;
+  --eq-status-border: #1c2430;
+  --eq-status-text: #1c2430;
+  --eq-preset-bg: #fff;
+  --eq-preset-border: #1c2430;
+  --eq-preset-text: #1c2430;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='zollner']) {
+  --eq-header: linear-gradient(180deg, #fff8ea 0%, #e7d3b0 18%, #1a1208 100%);
+  --eq-header-text: #fff8ea;
+  --eq-header-border: #1a1208;
+  --eq-radius: 0.75rem;
+  --eq-accent: #c45c26;
+  --eq-body: #f4ecd8;
+  --eq-text: #1a1208;
+  --eq-muted: #6a5340;
+  --eq-label: #1a1208;
+  --eq-value: #c45c26;
+  --eq-footer: #1a1208;
+  --eq-footer-border: #c45c26;
+  --eq-frame: #1a1208;
+  --eq-content-bg: #f8f1df;
+  --eq-spectrum-bg: #f4ecd8;
+  --eq-spectrum-fill: rgba(244, 236, 216, 0.94);
+  --eq-spectrum-border: #c45c26;
+  --eq-spectrum-glow: none;
+  --eq-bar-hi: #c45c26;
+  --eq-bar-mid: #1a1208;
+  --eq-bar-lo: #8a4018;
+  --eq-status-bg: #fff;
+  --eq-status-border: #1a1208;
+  --eq-status-text: #1a1208;
+  --eq-preset-bg: #fff;
+  --eq-preset-border: #1a1208;
+  --eq-preset-text: #1a1208;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='necker']) {
+  --eq-header: linear-gradient(180deg, #d7e7ff 0%, #3d6ea8 16%, #0c1018 100%);
+  --eq-header-text: #d7e7ff;
+  --eq-header-border: #7eb6ff;
+  --eq-radius: 0.8rem;
+  --eq-accent: #7eb6ff;
+  --eq-body: #0c1018;
+  --eq-text: #d7e7ff;
+  --eq-muted: #9eb0cc;
+  --eq-label: #d7e7ff;
+  --eq-value: #7eb6ff;
+  --eq-footer: #101622;
+  --eq-footer-border: #7eb6ff;
+  --eq-frame: #7eb6ff;
+  --eq-content-bg: #161c2c;
+  --eq-spectrum-bg: #0c1018;
+  --eq-spectrum-fill: rgba(12, 16, 24, 0.94);
+  --eq-spectrum-border: #7eb6ff;
+  --eq-spectrum-glow: 0 0 14px rgba(126, 182, 255, 0.35);
+  --eq-bar-hi: #fff;
+  --eq-bar-mid: #7eb6ff;
+  --eq-bar-lo: #3d6ea8;
+  --eq-status-bg: #0c1018;
+  --eq-status-border: #7eb6ff;
+  --eq-status-text: #d7e7ff;
+  --eq-preset-bg: #0c1018;
+  --eq-preset-border: #7eb6ff;
+  --eq-preset-text: #d7e7ff;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='ouchi']) {
+  --eq-header: linear-gradient(180deg, #fff 0%, #d0d0d0 18%, #111 100%);
+  --eq-header-text: #f4f4f4;
+  --eq-header-border: #111;
+  --eq-radius: 0.7rem;
+  --eq-accent: #111;
+  --eq-body: #ececec;
+  --eq-text: #111;
+  --eq-muted: #4a4a4a;
+  --eq-label: #111;
+  --eq-value: #111;
+  --eq-footer: #111;
+  --eq-footer-border: #f4f4f4;
+  --eq-frame: #111;
+  --eq-content-bg: #f7f7f7;
+  --eq-spectrum-bg: #f4f4f4;
+  --eq-spectrum-fill: rgba(244, 244, 244, 0.94);
+  --eq-spectrum-border: #111;
+  --eq-spectrum-glow: none;
+  --eq-bar-hi: #111;
+  --eq-bar-mid: #555;
+  --eq-bar-lo: #bbb;
+  --eq-status-bg: #fff;
+  --eq-status-border: #111;
+  --eq-status-text: #111;
+  --eq-preset-bg: #fff;
+  --eq-preset-border: #111;
+  --eq-preset-text: #111;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='ehrenstein']) {
+  --eq-header: linear-gradient(180deg, #fff 0%, #e4e4e4 16%, #161616 100%);
+  --eq-header-text: #fff;
+  --eq-header-border: #161616;
+  --eq-radius: 1rem;
+  --eq-accent: #161616;
+  --eq-body: #f7f7f7;
+  --eq-text: #161616;
+  --eq-muted: #4a4a4a;
+  --eq-label: #161616;
+  --eq-value: #161616;
+  --eq-footer: #161616;
+  --eq-footer-border: #fff;
+  --eq-frame: #161616;
+  --eq-content-bg: #fff;
+  --eq-spectrum-bg: #f7f7f7;
+  --eq-spectrum-fill: rgba(247, 247, 247, 0.94);
+  --eq-spectrum-border: #161616;
+  --eq-spectrum-glow: none;
+  --eq-bar-hi: #161616;
+  --eq-bar-mid: #4a4a4a;
+  --eq-bar-lo: #bdbdbd;
+  --eq-status-bg: #fff;
+  --eq-status-border: #161616;
+  --eq-status-text: #161616;
+  --eq-preset-bg: #fff;
+  --eq-preset-border: #161616;
+  --eq-preset-text: #161616;
 }
 
 ::ng-deep .yt-eq-modal-backdrop {

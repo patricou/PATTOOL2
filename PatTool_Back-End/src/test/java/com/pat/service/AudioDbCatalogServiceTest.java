@@ -54,5 +54,7 @@ class AudioDbCatalogServiceTest {
         assertNull(AudioDbCatalogService.mapArtist(mapper.readTree("{\"strArtist\":\"\"}"), "en"));
         assertNull(AudioDbCatalogService.mapAlbum(mapper.readTree("{\"strAlbum\":\"null\"}"), "en"));
         assertEquals("", AudioDbCatalogService.cleanQuery("  \n "));
+        assertEquals("Se dire au revoir", AudioDbCatalogService.albumCore("Se dire au revoir (feat. Voyou)"));
+        assertEquals("Discovery", AudioDbCatalogService.albumCore("Discovery (Deluxe Edition)"));
     }
 }

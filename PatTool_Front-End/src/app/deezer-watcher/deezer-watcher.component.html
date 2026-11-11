@@ -320,10 +320,39 @@
       </div>
 
       <div class="dz-list-head">
-        <button type="button" class="dz-back" *ngIf="nowBrowse || drilled || activeUserPlaylist" (click)="back()" [attr.aria-label]="backLabel">
-          <i class="fa fa-arrow-left" aria-hidden="true"></i>
-          <span>{{ backLabel }}</span>
-        </button>
+        <div class="dz-back-row" *ngIf="nowBrowse || drilled || activeUserPlaylist">
+          <button type="button" class="dz-back" (click)="back()" [attr.aria-label]="backLabel">
+            <i class="fa fa-arrow-left" aria-hidden="true"></i>
+            <span>{{ backLabel }}</span>
+          </button>
+          <div class="dz-head-tools" *ngIf="activeUserPlaylist && !nowBrowse">
+            <button
+              type="button"
+              class="dz-play-all dz-play-all--yt dz-back-rename"
+              *ngIf="renamingPlaylistId !== activeUserPlaylist.id"
+              (click)="startRenamePlaylist(activeUserPlaylist, $event)"
+              [attr.aria-label]="'DEEZER.PLAYLIST_RENAME' | translate">
+              <i class="fa fa-pencil" aria-hidden="true"></i>
+              {{ 'DEEZER.PLAYLIST_RENAME' | translate }}
+            </button>
+            <button
+              type="button"
+              class="dz-play-all dz-back-rename"
+              *ngIf="renamingPlaylistId === activeUserPlaylist.id"
+              [disabled]="!!playlistBusy || !renameDraft.trim()"
+              (click)="commitRenamePlaylist(activeUserPlaylist, $event)">
+              {{ 'DEEZER.PLAYLIST_SAVE_NAME' | translate }}
+            </button>
+            <button
+              type="button"
+              class="dz-play-all dz-play-all--yt dz-back-rename dz-back-trash"
+              (click)="askDeletePlaylist(activeUserPlaylist, $event)"
+              [attr.aria-label]="'DEEZER.PLAYLIST_DELETE' | translate"
+              aria-haspopup="dialog">
+              <i class="fa fa-trash" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
         <div class="dz-now-jump" role="group">
           <button
             type="button"
@@ -406,42 +435,7 @@
           </form>
           <span class="dz-heading-sub" *ngIf="!nowBrowse && drilled && drillSubtitle && !activeUserPlaylist">{{ drillSubtitle }}</span>
         </div>
-        <div class="dz-play-actions" *ngIf="(activeUserPlaylist && !nowBrowse) || transportTracks">
-          <ng-container *ngIf="activeUserPlaylist && !nowBrowse">
-            <button
-              type="button"
-              class="dz-play-all dz-play-all--yt"
-              *ngIf="renamingPlaylistId !== activeUserPlaylist.id"
-              (click)="startRenamePlaylist(activeUserPlaylist, $event)"
-              [attr.aria-label]="'DEEZER.PLAYLIST_RENAME' | translate">
-              <i class="fa fa-pencil" aria-hidden="true"></i>
-              {{ 'DEEZER.PLAYLIST_RENAME' | translate }}
-            </button>
-            <button
-              type="button"
-              class="dz-play-all"
-              *ngIf="renamingPlaylistId === activeUserPlaylist.id"
-              [disabled]="!!playlistBusy || !renameDraft.trim()"
-              (click)="commitRenamePlaylist(activeUserPlaylist, $event)">
-              {{ 'DEEZER.PLAYLIST_SAVE_NAME' | translate }}
-            </button>
-            <button
-              type="button"
-              class="dz-play-all dz-play-all--yt"
-              *ngIf="confirmDeletePlaylistId !== activeUserPlaylist.id"
-              (click)="askDeletePlaylist(activeUserPlaylist, $event)"
-              [attr.aria-label]="'DEEZER.PLAYLIST_DELETE' | translate">
-              <i class="fa fa-trash" aria-hidden="true"></i>
-            </button>
-            <button
-              type="button"
-              class="dz-play-all"
-              *ngIf="confirmDeletePlaylistId === activeUserPlaylist.id"
-              [disabled]="!!playlistBusy"
-              (click)="deletePlaylist(activeUserPlaylist, $event)">
-              {{ 'DEEZER.PLAYLIST_DELETE_CONFIRM' | translate }}
-            </button>
-          </ng-container>
+        <div class="dz-play-actions" *ngIf="transportTracks || showTrackList">
           <ng-container *ngIf="transportTracks">
           <div class="dz-list-transport" role="group">
             <button
@@ -483,14 +477,13 @@
           <label
             class="dz-yt-lookup dz-loop-switch"
             [attr.title]="'DEEZER.LOOP_HINT' | translate">
-            <span class="dz-yt-lookup-label">{{ 'DEEZER.LOOP' | translate }}</span>
+            <i class="fa fa-repeat dz-loop-mark" aria-hidden="true"></i>
             <input
               type="checkbox"
               role="switch"
               [ngModel]="listLoop"
               (ngModelChange)="setListLoop($event)"
               [attr.aria-label]="'DEEZER.LOOP' | translate" />
-            <span class="dz-yt-lookup-track" aria-hidden="true"><span class="dz-yt-lookup-knob"></span></span>
           </label>
           </ng-container>
           <label
@@ -498,14 +491,12 @@
             *ngIf="showTrackList"
             [attr.title]="'DEEZER.YT_SEARCH_SWITCH_HINT' | translate">
             <i class="fa fa-youtube dz-yt-lookup-mark" aria-hidden="true"></i>
-            <span class="dz-yt-lookup-label">{{ 'DEEZER.YT_SEARCH_SWITCH' | translate }}</span>
             <input
               type="checkbox"
               role="switch"
               [ngModel]="youtubeSearchEnabled"
               (ngModelChange)="setYoutubeSearch($event)"
               [attr.aria-label]="'DEEZER.YT_SEARCH_SWITCH' | translate" />
-            <span class="dz-yt-lookup-track" aria-hidden="true"><span class="dz-yt-lookup-knob"></span></span>
           </label>
         </div>
         <a class="dz-open-link" *ngIf="drilled && drillLink" [href]="drillLink" target="_blank" rel="noopener">
@@ -614,18 +605,10 @@
           <button
             type="button"
             class="dz-fav"
-            *ngIf="confirmDeletePlaylistId !== playlist.id"
             (click)="askDeletePlaylist(playlist, $event)"
-            [attr.aria-label]="'DEEZER.PLAYLIST_DELETE' | translate">
+            [attr.aria-label]="'DEEZER.PLAYLIST_DELETE' | translate"
+            aria-haspopup="dialog">
             <i class="fa fa-trash" aria-hidden="true"></i>
-          </button>
-          <button
-            type="button"
-            class="dz-play-all"
-            *ngIf="confirmDeletePlaylistId === playlist.id"
-            [disabled]="!!playlistBusy"
-            (click)="deletePlaylist(playlist, $event)">
-            {{ 'DEEZER.PLAYLIST_DELETE_CONFIRM' | translate }}
           </button>
           <i class="fa fa-chevron-right dz-chevron" aria-hidden="true"></i>
         </li>
@@ -774,7 +757,7 @@
                 <i class="fa fa-spinner fa-spin dz-yt-spinner" *ngIf="youtubeButtonBusy(track.id)" aria-hidden="true"></i>
                 <i class="fa fa-youtube" *ngIf="!youtubeButtonBusy(track.id)" aria-hidden="true"></i>
                 <span class="dz-yt-pos" *ngIf="ytPlace(track.id) as place">{{ place }}</span>
-                <span class="dz-yt-dot" *ngIf="ytFromCache[track.id] && !youtubeButtonBusy(track.id) && ytOffer?.trackId !== track.id" aria-hidden="true"></span>
+                <span class="dz-yt-dot" *ngIf="hasYoutubeLink(track.id)" aria-hidden="true"></span>
                 <span class="dz-yt-dot dz-yt-dot--miss" *ngIf="ytMiss[track.id] && !youtubeButtonBusy(track.id)" aria-hidden="true"></span>
               </span>
             </button>
@@ -1163,7 +1146,7 @@
                         <i class="fa fa-times" aria-hidden="true"></i>
                       </button>
                     </span>
-                    <span class="dz-yt-dot" *ngIf="ytFromCache[current.id] && !youtubeButtonBusy(current.id) && ytOffer?.trackId !== current.id" aria-hidden="true"></span>
+                    <span class="dz-yt-dot" *ngIf="hasYoutubeLink(current.id)" aria-hidden="true"></span>
                   </span>
                   {{ current.title }}
                   <span class="dz-explicit" *ngIf="current.explicit">E</span>
@@ -1405,7 +1388,8 @@
     <div
       class="dz-yt-link"
       *ngFor="let videoId of filteredYoutubeListIds(ytListTrack.id)"
-      [class.is-on]="ytLinks[ytListTrack.id] === videoId">
+      [class.is-on]="ytLinks[ytListTrack.id] === videoId"
+      [class.is-ask]="ytDropAsk?.videoId === videoId">
       <button
         type="button"
         class="dz-yt-link-play"
@@ -1426,7 +1410,8 @@
         type="button"
         class="dz-yt-link-drop"
         [disabled]="!!ytDropBusy[ytListTrack.id + '|' + videoId]"
-        (click)="dropYoutubeClip(ytListTrack, videoId, $event)"
+        (click)="askDropYoutubeClip(ytListTrack, videoId, $event)"
+        aria-haspopup="dialog"
         [attr.title]="'DEEZER.YT_LIST_DROP' | translate"
         [attr.aria-label]="'DEEZER.YT_LIST_DROP' | translate">
         <i class="fa fa-spinner fa-spin" *ngIf="ytDropBusy[ytListTrack.id + '|' + videoId]" aria-hidden="true"></i>
@@ -1435,6 +1420,52 @@
     </div>
   </div>
 </div>
+
+<ng-container *ngIf="playlistPendingDelete() as playlist">
+  <div class="dz-pl-backdrop dz-yt-clear-backdrop" (click)="cancelDeletePlaylist()"></div>
+  <div
+    class="dz-yt-clear-dialog"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="'DEEZER.PLAYLIST_DELETE' | translate"
+    (click)="$event.stopPropagation()"
+    (keydown.escape)="cancelDeletePlaylist($event)">
+    <p>{{ 'DEEZER.PLAYLIST_DELETE_ASK' | translate:{ name: playlist.name } }}</p>
+    <div class="dz-yt-clear-actions">
+      <button type="button" class="dz-yt-clear-cancel" autofocus (click)="cancelDeletePlaylist($event)">
+        {{ 'DEEZER.YT_CLEAR_CANCEL' | translate }}
+      </button>
+      <button
+        type="button"
+        class="dz-yt-clear-yes"
+        [disabled]="!!playlistBusy"
+        (click)="deletePlaylist(playlist, $event)">
+        {{ 'DEEZER.PLAYLIST_DELETE_CONFIRM' | translate }}
+      </button>
+    </div>
+  </div>
+</ng-container>
+
+<ng-container *ngIf="ytDropAsk">
+  <div class="dz-pl-backdrop dz-yt-clear-backdrop" (click)="cancelDropYoutubeClip()"></div>
+  <div
+    class="dz-yt-clear-dialog"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="'DEEZER.YT_LIST_DROP' | translate"
+    (click)="$event.stopPropagation()"
+    (keydown.escape)="cancelDropYoutubeClip($event)">
+    <p>{{ 'DEEZER.YT_LIST_DROP_ASK' | translate:{ title: youtubeDropAskTitle() } }}</p>
+    <div class="dz-yt-clear-actions">
+      <button type="button" class="dz-yt-clear-cancel" autofocus (click)="cancelDropYoutubeClip($event)">
+        {{ 'DEEZER.YT_CLEAR_CANCEL' | translate }}
+      </button>
+      <button type="button" class="dz-yt-clear-yes" (click)="confirmDropYoutubeClip($event)">
+        {{ 'DEEZER.YT_LIST_DROP_YES' | translate }}
+      </button>
+    </div>
+  </div>
+</ng-container>
 
 <div class="dz-pl-backdrop dz-yt-clear-backdrop" *ngIf="ytClearAskId != null" (click)="cancelClearYoutubeList()"></div>
 <div
@@ -1669,6 +1700,14 @@
       </article>
       </div>
     </section>
+    <section
+      class="dz-info-part"
+      *ngIf="albumWikiLoading || (albumWiki?.extract && !(albumWikiAbout === 'artist' && audioDb?.artist?.biography))"
+      [attr.aria-label]="(albumWikiAbout === 'artist' ? 'DEEZER.WIKI_ARTIST' : 'DEEZER.WIKI_ALBUM') | translate">
+      <h3 class="dz-info-part-head"><i class="fa fa-wikipedia-w" aria-hidden="true"></i>{{ (albumWikiAbout === 'artist' ? 'DEEZER.WIKI_ARTIST' : 'DEEZER.WIKI_ALBUM') | translate }}</h3>
+      <p class="dz-pl-empty" *ngIf="albumWikiLoading && !albumWiki?.extract">{{ 'DEEZER.LOADING' | translate }}</p>
+      <p class="dz-audiodb-bio" *ngIf="albumWiki?.extract">{{ albumWiki?.extract }}</p>
+    </section>
     <section class="dz-info-part" *ngIf="albumInfoLoading || albumInfoError || albumInfo?.album" [attr.aria-label]="'DEEZER.TITLE' | translate">
       <h3 class="dz-info-part-head"><img src="assets/images/deezer-logo.svg" alt="" />{{ 'DEEZER.TITLE' | translate }}</h3>
       <p class="dz-pl-empty" *ngIf="albumInfoLoading">{{ 'DEEZER.LOADING' | translate }}</p>
@@ -1682,6 +1721,13 @@
         <li *ngIf="formatDuration(albumInfoDurationSec()) as length"><span>{{ 'DEEZER.ALBUM_DURATION' | translate }}</span><strong>{{ length }}</strong></li>
         <li *ngIf="formatFans(albumInfo?.fanCount) as fans"><span>{{ 'DEEZER.SIMILAR_BY_FANS' | translate }}</span><strong>{{ 'DEEZER.FANS' | translate:{ count: fans } }}</strong></li>
       </ul>
+      <ol class="dz-album-tracks" *ngIf="albumInfo?.tracks?.length">
+        <li *ngFor="let track of albumInfo?.tracks; let i = index">
+          <span class="dz-album-tracks-idx">{{ i + 1 }}</span>
+          <span class="dz-album-tracks-title">{{ track.title }}</span>
+          <span class="dz-album-tracks-len">{{ formatDuration(track.durationSec) }}</span>
+        </li>
+      </ol>
     </section>
     <div class="dz-info-part dz-info-part--actions dz-album-info-actions" *ngIf="!albumInfoLoading && (albumInfo?.album || wikiSearchUrl('artist') || wikiSearchUrl('album'))">
       <button type="button" class="dz-play-all" *ngIf="albumInfo?.album" (click)="showTracksFromAlbumInfo()" [attr.title]="'DEEZER.NOW_ALBUM' | translate" [attr.aria-label]="'DEEZER.NOW_ALBUM' | translate">

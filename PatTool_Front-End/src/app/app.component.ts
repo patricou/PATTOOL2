@@ -90,6 +90,10 @@ type GeoWorldMenuRow =
   | ({ kind: 'route' } & NavRouteMenuItem)
   | { kind: 'sky-submenu'; labelKey: string };
 
+type GeoEarthMenuRow =
+  | ({ kind: 'route' } & NavRouteMenuItem)
+  | { kind: 'other-submenu'; labelKey: string };
+
 /** Mongo featureKey → i18n label (USERINFO.PARAM_LABELS.*). */
 const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     'app.last-route': 'USERINFO.PARAM_LABELS.APP_LAST_ROUTE',
@@ -194,6 +198,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     public showDocumentationSubmenu: boolean = false;
     /** Sous-menu Astronomie (Ciel, éclipses, NASA, système solaire, univers futur). */
     public showSkySubmenu: boolean = false;
+    /** Sous-menu Autres (Relief finder, Électricité, Détection d’erreur). */
+    public showOtherSubmenu: boolean = false;
     public isDragOver: boolean = false;
     public compressImages: boolean = true; // Toggle for image compression (enabled by default)
     public isCompressing: boolean = false; // Track if compression is in progress
@@ -265,22 +271,28 @@ export class AppComponent implements OnInit, AfterViewInit {
         { routerLink: ['todolists'], icon: 'fa fa-tasks', labelKey: 'MENU.TODOLISTS', logoSrc: 'assets/images/menu-tasks.svg' },
         { routerLink: ['notes'], icon: 'fa fa-sticky-note', labelKey: 'MENU.NOTES', logoSrc: 'assets/images/menu-note.svg' }
     ];
-    readonly navGeoLocalRaw: NavRouteMenuItem[] = [
+    /** Terre : outils géo, plus le sous-menu Autres. */
+    readonly navGeoLocalRaw: GeoEarthMenuRow[] = [
         {
+            kind: 'route',
             routerLink: ['api/meteo-france'],
             icon: 'fa fa-umbrella',
             labelKey: 'MENU.METEO_FRANCE',
             logoSrc: 'assets/images/meteofrance-logo.svg'
         },
-        { routerLink: ['api/openweathermap'], icon: 'fa fa-cloud', labelKey: 'MENU.POSITION_METEO', logoSrc: 'assets/images/openweathermap-logo.svg' },
-        { routerLink: ['api/address-geocode'], icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP', logoSrc: 'assets/images/menu-pin.svg' },
-        { routerLink: ['api/gps-routing'], icon: 'fa fa-road', labelKey: 'MENU.GPS_ROUTING', logoSrc: 'assets/images/menu-road.svg' },
-        { routerLink: ['api/gps'], icon: 'fa fa-location-arrow', labelKey: 'MENU.GPS', logoSrc: 'assets/images/menu-gps.svg' },
-        { routerLink: ['api/gpx-trace'], icon: 'fa fa-map-signs', labelKey: 'MENU.GPX_TRACE', logoSrc: 'assets/images/menu-gpx.svg' },
-        { action: 'trace-viewer', icon: 'fa fa-map', labelKey: 'MENU.MAP_TRACE_VIEWER', logoSrc: 'assets/images/menu-map.svg' },
+        { kind: 'route', routerLink: ['api/openweathermap'], icon: 'fa fa-cloud', labelKey: 'MENU.POSITION_METEO', logoSrc: 'assets/images/openweathermap-logo.svg' },
+        { kind: 'route', routerLink: ['api/address-geocode'], icon: 'fa fa-map-marker', labelKey: 'MENU.ADDRESS_TO_MAP', logoSrc: 'assets/images/menu-pin.svg' },
+        { kind: 'route', routerLink: ['api/gps-routing'], icon: 'fa fa-road', labelKey: 'MENU.GPS_ROUTING', logoSrc: 'assets/images/menu-road.svg' },
+        { kind: 'route', routerLink: ['api/gps'], icon: 'fa fa-location-arrow', labelKey: 'MENU.GPS', logoSrc: 'assets/images/menu-gps.svg' },
+        { kind: 'route', routerLink: ['api/gpx-trace'], icon: 'fa fa-map-signs', labelKey: 'MENU.GPX_TRACE', logoSrc: 'assets/images/menu-gpx.svg' },
+        { kind: 'route', action: 'trace-viewer', icon: 'fa fa-map', labelKey: 'MENU.MAP_TRACE_VIEWER', logoSrc: 'assets/images/menu-map.svg' },
+        { kind: 'route', routerLink: ['api/timezone-converter'], icon: 'fa fa-clock-o', labelKey: 'MENU.TIME_ZONES', logoSrc: 'assets/images/menu-clock.svg' },
+        { kind: 'other-submenu', labelKey: 'MENU.OTHER' }
+    ];
+    /** Relief finder, électricité et détection d’erreur. */
+    readonly navGeoOtherRaw: NavRouteMenuItem[] = [
         { routerLink: ['tools/relief-finder'], icon: 'fa fa-area-chart', labelKey: 'MENU.RELIEF_FINDER', logoSrc: 'assets/images/relief-mark.svg' },
         { routerLink: ['tools/detection-error'], icon: 'fa fa-crosshairs', labelKey: 'MENU.DETECTION_ERROR', logoSrc: 'assets/images/menu-target.svg' },
-        { routerLink: ['api/timezone-converter'], icon: 'fa fa-clock-o', labelKey: 'MENU.TIME_ZONES', logoSrc: 'assets/images/menu-clock.svg' },
         { routerLink: ['api/electricite'], icon: 'fa fa-bolt', labelKey: 'MENU.ELECTRICITE', logoSrc: 'assets/images/menu-bolt.svg' }
     ];
     readonly navMediaRaw: NavRouteMenuItem[] = [
@@ -321,11 +333,12 @@ export class AppComponent implements OnInit, AfterViewInit {
         { kind: 'route', routerLink: ['tools/direction'], icon: 'fa fa-crosshairs', labelKey: 'MENU.DIRECTION', logoSrc: 'assets/images/menu-calibrate.svg' },
         { kind: 'sky-submenu', labelKey: 'MENU.ASTRONOMY' }
     ];
-    /** Ciel, éclipses, NASA, système solaire et univers futur. */
+    /** Ciel, éclipses, NASA, système solaire, univers futur et espace-temps. */
     readonly navGeoSkyRaw: NavRouteMenuItem[] = [
         { routerLink: ['tools/solar-system'], icon: 'fa fa-sun-o', labelKey: 'MENU.SOLAR_SYSTEM', logoSrc: 'assets/images/menu-sun.svg' },
         { routerLink: ['tools/ciel'], icon: 'fa fa-star', labelKey: 'MENU.SKY', logoSrc: 'assets/images/menu-sky.svg' },
         { routerLink: ['tools/univers-futur'], icon: 'fa fa-hourglass-half', labelKey: 'MENU.FUTURE_UNIVERSE', logoSrc: 'assets/images/menu-universe.svg' },
+        { routerLink: ['tools/espace-temps'], icon: 'fa fa-th', labelKey: 'MENU.SPACETIME', logoSrc: 'assets/images/menu-spacetime.svg' },
         { routerLink: ['tools/eclipse'], icon: 'fa fa-moon-o', labelKey: 'MENU.ECLIPSE', logoSrc: 'assets/images/eclipse-mark.svg' },
         { routerLink: ['tools/nasa'], icon: 'fa fa-rocket', labelKey: 'MENU.NASA', logoSrc: 'assets/images/nasa-meatball.svg' }
     ];
@@ -849,8 +862,12 @@ export class AppComponent implements OnInit, AfterViewInit {
         return this.sortMenuByLabel(this.navOrganisationRaw);
     }
 
-    get sortedNavGeoLocal(): NavRouteMenuItem[] {
+    get sortedNavGeoLocal(): GeoEarthMenuRow[] {
         return this.sortMenuByLabel(this.navGeoLocalRaw);
+    }
+
+    get sortedNavGeoOther(): NavRouteMenuItem[] {
+        return this.sortMenuByLabel(this.navGeoOtherRaw);
     }
 
     get sortedNavGeoWorldRows(): GeoWorldMenuRow[] {
@@ -2263,6 +2280,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.showApiDropdown = !this.showApiDropdown;
         if (!this.showApiDropdown) {
             this.showSkySubmenu = false;
+            this.showOtherSubmenu = false;
         }
         this.showEventsDropdown = false; // Close other dropdown
         this.showToolsDropdown = false; // Close other dropdown
@@ -2609,6 +2627,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
         this.showSkySubmenu = false;
+        this.showOtherSubmenu = false;
     }
 
     closeDropdowns(): void {
@@ -2624,13 +2643,23 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
         this.showSkySubmenu = false;
+        this.showOtherSubmenu = false;
     }
 
     toggleSkySubmenu(event: Event): void {
         event.preventDefault();
         event.stopPropagation();
         this.showApiDropdown = true;
+        this.showOtherSubmenu = false;
         this.showSkySubmenu = !this.showSkySubmenu;
+    }
+
+    toggleOtherSubmenu(event: Event): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.showApiDropdown = true;
+        this.showSkySubmenu = false;
+        this.showOtherSubmenu = !this.showOtherSubmenu;
     }
 
     closeMenu(): void {

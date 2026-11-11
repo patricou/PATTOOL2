@@ -271,6 +271,47 @@
   box-shadow: inset 0 0 0 1px #7ee7ff, 0 0 8px rgba(126, 231, 255, 0.4);
 }
 
+.tv-skin-swatch--jazz {
+  background:
+    linear-gradient(#0c1220, #0c1220) 50% 58% / 62% 40% no-repeat,
+    radial-gradient(circle at 62% 32%, #e8a317 0 12%, transparent 13%),
+    linear-gradient(160deg, #1a2744, #0c1220);
+  box-shadow: inset 0 0 0 2px #d4b483;
+}
+
+.tv-skin-swatch--sakura {
+  background:
+    linear-gradient(#fff7f4, #fff7f4) 50% 58% / 62% 40% no-repeat,
+    radial-gradient(circle at 28% 28%, #f7c1cb 0 9%, transparent 10%),
+    radial-gradient(circle at 72% 30%, #e8899a 0 7%, transparent 8%),
+    linear-gradient(160deg, #fff7f4, #f3d5dc);
+  box-shadow: inset 0 0 0 2px #4a3038;
+}
+
+.tv-skin-swatch--dune {
+  background:
+    linear-gradient(#2c241c, #2c241c) 50% 58% / 62% 40% no-repeat,
+    radial-gradient(circle at 72% 26%, #f3ddb0 0 12%, #c46a3a 13% 18%, transparent 19%),
+    linear-gradient(180deg, #f0d7a8, #c4a574);
+  box-shadow: inset 0 0 0 2px #8a5a32;
+}
+
+.tv-skin-swatch--lagoon {
+  background:
+    linear-gradient(#0c4f4c, #0c4f4c) 50% 58% / 62% 40% no-repeat,
+    radial-gradient(ellipse at 50% 78%, #e7d7b8 0 22%, transparent 23%),
+    linear-gradient(180deg, #9ee0da, #0e6e6a);
+  box-shadow: inset 0 0 0 2px #f4fffc;
+}
+
+.tv-skin-swatch--ember {
+  background:
+    linear-gradient(#140c0a, #140c0a) 50% 58% / 62% 40% no-repeat,
+    radial-gradient(ellipse at 50% 82%, #ff6a1a 0 24%, transparent 46%),
+    linear-gradient(180deg, #3a241c, #1a100c);
+  box-shadow: inset 0 0 0 2px #ff6a1a;
+}
+
 .tv-skin-swatch--kanizsa {
   background:
     radial-gradient(circle at 50% 28%, #161616 0 11%, transparent 12%),
@@ -317,6 +358,56 @@
     linear-gradient(#07070c, #07070c) 50% 58% / 62% 40% no-repeat,
     repeating-linear-gradient(45deg, #c8102e 0 5px, #f4f4f4 5px 10px, #1d4e89 10px 15px);
   box-shadow: inset 0 0 0 2px #f4f4f4;
+}
+
+.tv-skin-swatch--ebbinghaus {
+  background:
+    linear-gradient(#1c2430, #1c2430) 50% 58% / 58% 34% no-repeat,
+    radial-gradient(circle at 30% 32%, #d64545 0 8%, transparent 9%),
+    radial-gradient(circle at 22% 18%, #1c2430 0 6%, transparent 7%),
+    radial-gradient(circle at 38% 18%, #1c2430 0 6%, transparent 7%),
+    radial-gradient(circle at 72% 32%, #d64545 0 8%, transparent 9%),
+    radial-gradient(circle at 66% 22%, #1c2430 0 3%, transparent 4%),
+    radial-gradient(circle at 78% 22%, #1c2430 0 3%, transparent 4%),
+    #f6f1e6;
+  box-shadow: inset 0 0 0 2px #1c2430;
+}
+
+.tv-skin-swatch--zollner {
+  background:
+    linear-gradient(#1a1208, #1a1208) 50% 58% / 58% 34% no-repeat,
+    linear-gradient(#1a1208, #1a1208) 28% 0 / 2px 100% no-repeat,
+    linear-gradient(#1a1208, #1a1208) 72% 0 / 2px 100% no-repeat,
+    repeating-linear-gradient(28deg, transparent 0 5px, #c45c26 5px 7px, transparent 7px 11px),
+    #f4ecd8;
+  box-shadow: inset 0 0 0 2px #1a1208;
+}
+
+.tv-skin-swatch--necker {
+  background:
+    linear-gradient(#0c1018, #0c1018) 50% 58% / 58% 34% no-repeat,
+    linear-gradient(#d7e7ff, #d7e7ff) 22% 24% / 28% 2px no-repeat,
+    linear-gradient(#d7e7ff, #d7e7ff) 22% 42% / 28% 2px no-repeat,
+    linear-gradient(#d7e7ff, #d7e7ff) 22% 24% / 2px 18% no-repeat,
+    linear-gradient(#7eb6ff, #7eb6ff) 48% 24% / 2px 18% no-repeat,
+    linear-gradient(#7eb6ff, #7eb6ff) 36% 16% / 28% 2px no-repeat,
+    #0c1018;
+  box-shadow: inset 0 0 0 2px #7eb6ff;
+}
+
+.tv-skin-swatch--ouchi {
+  background:
+    linear-gradient(#111, #111) 50% 58% / 58% 34% no-repeat,
+    repeating-linear-gradient(#111 0 3px, #f4f4f4 3px 6px) 50% 28% / 34% 22% no-repeat,
+    repeating-linear-gradient(90deg, #111 0 4px, #f4f4f4 4px 8px);
+  box-shadow: inset 0 0 0 2px #111;
+}
+
+.tv-skin-swatch--ehrenstein {
+  background:
+    linear-gradient(#161616, #161616) 50% 58% / 58% 34% no-repeat,
+    repeating-conic-gradient(from 0deg at 50% 32%, #161616 0 3deg, #f7f7f7 3deg 16deg);
+  box-shadow: inset 0 0 0 2px #161616;
 }
 
 @media (max-width: 640px) {
@@ -2290,6 +2381,359 @@
   background-attachment: fixed;
 }
 
+.tv-player-panel.tv-skin--jazz {
+  --tv-wood-edge: #d4b483;
+  --tv-bezel: #101828;
+  background:
+    radial-gradient(ellipse at 70% 0%, rgba(232, 163, 23, 0.35), transparent 46%),
+    linear-gradient(165deg, #1a2744, #0c1220);
+  border: 2px solid #d4b483;
+  border-radius: 1.05rem;
+  box-shadow: 0 16px 32px rgba(8, 12, 24, 0.45);
+}
+
+.tv-skin--jazz .tv-player-frame,
+.tv-skin--jazz .tv-video-wrap {
+  background: #101828;
+  border-color: #d4b483;
+}
+
+.tv-skin--jazz .tv-placeholder,
+.tv-skin--jazz .tv-placeholder-icon {
+  color: #f6ecd4;
+}
+
+.tv-skin--jazz .tv-antenna-base,
+.tv-skin--jazz .tv-antenna-mast,
+.tv-skin--jazz .tv-antenna-ear {
+  background: linear-gradient(180deg, #f6ecd4, #8a6a32);
+}
+
+.tv-skin--jazz .tv-antenna-ball {
+  background: #e8a317;
+  box-shadow: 0 0 8px #e8a317;
+}
+
+.tv-skin--jazz .tv-volume-slider,
+.tv-skin--jazz .tv-volume-slider::-moz-range-track {
+  background: linear-gradient(90deg, #0c1220, #e8a317);
+}
+
+.tv-player-panel.tv-skin--sakura {
+  --tv-wood-edge: #4a3038;
+  --tv-bezel: #fff7f4;
+  background: linear-gradient(165deg, #fff7f4, #f3d5dc);
+  border: 3px solid #4a3038;
+  border-radius: 1.2rem;
+  box-shadow: 0 16px 32px rgba(74, 48, 56, 0.22);
+}
+
+.tv-skin--sakura .tv-player-frame,
+.tv-skin--sakura .tv-video-wrap {
+  background: #2c2428;
+  border-color: #f7c1cb;
+}
+
+.tv-skin--sakura .tv-placeholder,
+.tv-skin--sakura .tv-placeholder-icon {
+  color: #fff7f4;
+}
+
+.tv-skin--sakura .tv-antenna-base,
+.tv-skin--sakura .tv-antenna-mast,
+.tv-skin--sakura .tv-antenna-ear {
+  background: #4a3038;
+}
+
+.tv-skin--sakura .tv-antenna-ball {
+  background: #e8899a;
+}
+
+.tv-skin--sakura .tv-volume-slider,
+.tv-skin--sakura .tv-volume-slider::-moz-range-track {
+  background: linear-gradient(90deg, #f7c1cb, #4a3038);
+}
+
+.tv-player-panel.tv-skin--dune {
+  --tv-wood-edge: #8a5a32;
+  --tv-bezel: #2c241c;
+  background: linear-gradient(180deg, #f0d7a8, #c4a574 58%, #2c241c);
+  border: 3px solid #8a5a32;
+  border-radius: 1rem;
+  box-shadow: 0 16px 32px rgba(44, 36, 28, 0.35);
+}
+
+.tv-skin--dune .tv-player-frame,
+.tv-skin--dune .tv-video-wrap {
+  background: #2c241c;
+  border-color: #c4a574;
+}
+
+.tv-skin--dune .tv-placeholder,
+.tv-skin--dune .tv-placeholder-icon {
+  color: #f8ecd4;
+}
+
+.tv-skin--dune .tv-antenna-base,
+.tv-skin--dune .tv-antenna-mast,
+.tv-skin--dune .tv-antenna-ear {
+  background: linear-gradient(180deg, #f8ecd4, #8a5a32);
+}
+
+.tv-skin--dune .tv-antenna-ball {
+  background: #c46a3a;
+}
+
+.tv-skin--dune .tv-volume-slider,
+.tv-skin--dune .tv-volume-slider::-moz-range-track {
+  background: linear-gradient(90deg, #2c241c, #c46a3a);
+}
+
+.tv-player-panel.tv-skin--lagoon {
+  --tv-wood-edge: #f4fffc;
+  --tv-bezel: #0c4f4c;
+  background:
+    radial-gradient(ellipse at 50% 110%, #e7d7b8 0 28%, transparent 46%),
+    linear-gradient(180deg, #9ee0da, #0e6e6a);
+  border: 3px solid #f4fffc;
+  border-radius: 1.25rem;
+  box-shadow: 0 16px 32px rgba(14, 110, 106, 0.3);
+}
+
+.tv-skin--lagoon .tv-player-frame,
+.tv-skin--lagoon .tv-video-wrap {
+  background: #0c4f4c;
+  border-color: #f4fffc;
+}
+
+.tv-skin--lagoon .tv-placeholder,
+.tv-skin--lagoon .tv-placeholder-icon {
+  color: #f4fffc;
+}
+
+.tv-skin--lagoon .tv-antenna-base,
+.tv-skin--lagoon .tv-antenna-mast,
+.tv-skin--lagoon .tv-antenna-ear {
+  background: linear-gradient(180deg, #f4fffc, #0e6e6a);
+}
+
+.tv-skin--lagoon .tv-antenna-ball {
+  background: #7ed4cf;
+}
+
+.tv-skin--lagoon .tv-volume-slider,
+.tv-skin--lagoon .tv-volume-slider::-moz-range-track {
+  background: linear-gradient(90deg, #0e6e6a, #7ed4cf);
+}
+
+.tv-player-panel.tv-skin--ember {
+  --tv-wood-edge: #ff6a1a;
+  --tv-bezel: #140c0a;
+  background:
+    radial-gradient(ellipse at 50% 120%, rgba(255, 106, 26, 0.55), transparent 55%),
+    linear-gradient(180deg, #3a241c, #1a100c);
+  border: 2px solid #ff6a1a;
+  border-radius: 0.9rem;
+  box-shadow: 0 0 18px rgba(255, 106, 26, 0.28), 0 16px 32px rgba(0, 0, 0, 0.45);
+}
+
+.tv-skin--ember .tv-player-frame,
+.tv-skin--ember .tv-video-wrap {
+  background: #140c0a;
+  border-color: #ff6a1a;
+}
+
+.tv-skin--ember .tv-placeholder,
+.tv-skin--ember .tv-placeholder-icon {
+  color: #ffe6d2;
+}
+
+.tv-skin--ember .tv-antenna-base,
+.tv-skin--ember .tv-antenna-mast,
+.tv-skin--ember .tv-antenna-ear {
+  background: linear-gradient(180deg, #ffb07a, #8a3010);
+}
+
+.tv-skin--ember .tv-antenna-ball {
+  background: #ff6a1a;
+  box-shadow: 0 0 10px #ff6a1a;
+}
+
+.tv-skin--ember .tv-volume-slider,
+.tv-skin--ember .tv-volume-slider::-moz-range-track {
+  background: linear-gradient(90deg, #1a100c, #ff6a1a);
+}
+
+:host.tv-skin--jazz {
+  --pat-title-accent: #e8a317;
+  --pat-title-shadow: 0 8px 22px rgba(8, 12, 24, 0.45);
+  --pat-title-bg: linear-gradient(180deg, #f6ecd4 0%, #d4b483 12%, #1a2744 100%);
+  --pat-page-bg: #0e1428;
+  --title-btn-bg: #1a2744;
+  --title-btn-fg: #f6ecd4;
+  --title-btn-border: #d4b483;
+  --title-btn-hover-bg: #243656;
+  --title-btn-active-bg: #e8a317;
+  --title-btn-active-fg: #0c1220;
+  --title-btn-shadow: 0 0 0 1px #8a6a32;
+  --menu-bg: #1a2744;
+  --menu-fg: #f6ecd4;
+  --menu-muted: #d4b483;
+  --menu-border: #d4b483;
+  --menu-border-width: 1px;
+  --menu-accent: #e8a317;
+  --menu-accent-fg: #0c1220;
+  --menu-toolbar: rgba(232, 163, 23, 0.1);
+  --menu-input-bg: #0c1220;
+  --menu-input-fg: #f6ecd4;
+  --menu-input-border: #d4b483;
+  --menu-hover: rgba(232, 163, 23, 0.12);
+  --menu-active: rgba(232, 163, 23, 0.22);
+  --menu-meta-bg: rgba(232, 163, 23, 0.1);
+  --menu-shadow: 0 12px 28px rgba(8, 12, 24, 0.4);
+  --menu-radius: 0.8rem;
+  --menu-logo-bg: #0c1220;
+  background-color: #0e1428;
+  background-image: radial-gradient(ellipse at 80% 0%, rgba(232, 163, 23, 0.22), transparent 42%);
+  background-attachment: fixed;
+}
+
+:host.tv-skin--sakura {
+  --pat-title-accent: #e8899a;
+  --pat-title-shadow: 0 8px 22px rgba(74, 48, 56, 0.2);
+  --pat-title-bg: linear-gradient(180deg, #fff7f4 0%, #f7c1cb 16%, #4a3038 100%);
+  --pat-page-bg: #f6e4e8;
+  --title-btn-bg: #fff7f4;
+  --title-btn-fg: #2c2428;
+  --title-btn-border: #4a3038;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #e8899a;
+  --title-btn-active-fg: #fff7f4;
+  --title-btn-shadow: 0 0 0 1px #4a3038;
+  --menu-bg: #fff7f4;
+  --menu-fg: #2c2428;
+  --menu-muted: #6a4a52;
+  --menu-border: #4a3038;
+  --menu-border-width: 2px;
+  --menu-accent: #e8899a;
+  --menu-accent-fg: #fff7f4;
+  --menu-toolbar: rgba(74, 48, 56, 0.06);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #2c2428;
+  --menu-input-border: #4a3038;
+  --menu-hover: rgba(232, 137, 154, 0.16);
+  --menu-active: rgba(232, 137, 154, 0.28);
+  --menu-meta-bg: rgba(74, 48, 56, 0.06);
+  --menu-shadow: 0 12px 28px rgba(74, 48, 56, 0.16);
+  --menu-radius: 1rem;
+  --menu-logo-bg: #fff;
+  background-color: #f6e4e8;
+  background-image: linear-gradient(180deg, #fff7f4, #f3d5dc);
+  background-attachment: fixed;
+}
+
+:host.tv-skin--dune {
+  --pat-title-accent: #c46a3a;
+  --pat-title-shadow: 0 8px 22px rgba(44, 36, 28, 0.35);
+  --pat-title-bg: linear-gradient(180deg, #f8ecd4 0%, #c4a574 16%, #2c241c 100%);
+  --pat-page-bg: #c4a574;
+  --title-btn-bg: #f8ecd4;
+  --title-btn-fg: #2c241c;
+  --title-btn-border: #8a5a32;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #c46a3a;
+  --title-btn-active-fg: #fff6d8;
+  --title-btn-shadow: 0 0 0 1px #8a5a32;
+  --menu-bg: #f8ecd4;
+  --menu-fg: #2c241c;
+  --menu-muted: #6a5340;
+  --menu-border: #8a5a32;
+  --menu-border-width: 2px;
+  --menu-accent: #c46a3a;
+  --menu-accent-fg: #fff6d8;
+  --menu-toolbar: rgba(44, 36, 28, 0.06);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #2c241c;
+  --menu-input-border: #8a5a32;
+  --menu-hover: rgba(196, 106, 58, 0.12);
+  --menu-active: rgba(196, 106, 58, 0.22);
+  --menu-meta-bg: rgba(44, 36, 28, 0.06);
+  --menu-shadow: 0 12px 28px rgba(44, 36, 28, 0.2);
+  --menu-radius: 0.8rem;
+  --menu-logo-bg: #fff;
+  background-color: #c4a574;
+  background-image: linear-gradient(180deg, #f0d7a8, #c4a574 55%, #8a5a32);
+  background-attachment: fixed;
+}
+
+:host.tv-skin--lagoon {
+  --pat-title-accent: #0e6e6a;
+  --pat-title-shadow: 0 8px 22px rgba(14, 110, 106, 0.28);
+  --pat-title-bg: linear-gradient(180deg, #f4fffc 0%, #7ed4cf 16%, #0e6e6a 100%);
+  --pat-page-bg: #7ed4cf;
+  --title-btn-bg: #f4fffc;
+  --title-btn-fg: #0c3a38;
+  --title-btn-border: #0e6e6a;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #0e6e6a;
+  --title-btn-active-fg: #f4fffc;
+  --title-btn-shadow: 0 0 0 1px #0e6e6a;
+  --menu-bg: #f4fffc;
+  --menu-fg: #0c3a38;
+  --menu-muted: #3d6e6a;
+  --menu-border: #0e6e6a;
+  --menu-border-width: 2px;
+  --menu-accent: #0e6e6a;
+  --menu-accent-fg: #f4fffc;
+  --menu-toolbar: rgba(14, 110, 106, 0.08);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #0c3a38;
+  --menu-input-border: #0e6e6a;
+  --menu-hover: rgba(14, 110, 106, 0.1);
+  --menu-active: rgba(14, 110, 106, 0.18);
+  --menu-meta-bg: rgba(14, 110, 106, 0.08);
+  --menu-shadow: 0 12px 28px rgba(14, 110, 106, 0.18);
+  --menu-radius: 1.1rem;
+  --menu-logo-bg: #fff;
+  background-color: #7ed4cf;
+  background-image: linear-gradient(180deg, #d7f3ee, #7ed4cf 40%, #0e6e6a);
+  background-attachment: fixed;
+}
+
+:host.tv-skin--ember {
+  --pat-title-accent: #ff6a1a;
+  --pat-title-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  --pat-title-bg: linear-gradient(180deg, #ffe6d2 0%, #ff6a1a 18%, #1a100c 100%);
+  --pat-page-bg: #1a100c;
+  --title-btn-bg: #2a1812;
+  --title-btn-fg: #ffe6d2;
+  --title-btn-border: #ff6a1a;
+  --title-btn-hover-bg: #3a241c;
+  --title-btn-active-bg: #ff6a1a;
+  --title-btn-active-fg: #1a100c;
+  --title-btn-shadow: 0 0 10px rgba(255, 106, 26, 0.4);
+  --menu-bg: #2a1812;
+  --menu-fg: #ffe6d2;
+  --menu-muted: #e0b090;
+  --menu-border: #ff6a1a;
+  --menu-border-width: 1px;
+  --menu-accent: #ff6a1a;
+  --menu-accent-fg: #1a100c;
+  --menu-toolbar: rgba(255, 106, 26, 0.1);
+  --menu-input-bg: #1a100c;
+  --menu-input-fg: #ffe6d2;
+  --menu-input-border: #ff6a1a;
+  --menu-hover: rgba(255, 106, 26, 0.12);
+  --menu-active: rgba(255, 106, 26, 0.22);
+  --menu-meta-bg: rgba(255, 106, 26, 0.1);
+  --menu-shadow: 0 0 18px rgba(255, 106, 26, 0.22);
+  --menu-radius: 0.7rem;
+  --menu-logo-bg: #1a100c;
+  background-color: #1a100c;
+  background-image: radial-gradient(ellipse at 50% 100%, rgba(255, 106, 26, 0.35), transparent 55%);
+  background-attachment: fixed;
+}
+
 /* Optical illusions — same principles as the radio, drawn on the page and the bezel. */
 
 .tv-player-panel.tv-skin--kanizsa {
@@ -2469,6 +2913,185 @@
 .tv-skin--barber .tv-antenna-ball {
   background: #c8102e;
   box-shadow: 0 0 0 2px #fff;
+}
+
+.tv-player-panel.tv-skin--ebbinghaus {
+  --tv-wood-edge: #1c2430;
+  --tv-bezel: #f6f1e6;
+  background: #f6f1e6;
+  border: 3px solid #1c2430;
+  border-radius: 1rem;
+  box-shadow: 0 16px 32px rgba(28, 36, 48, 0.22);
+}
+
+.tv-skin--ebbinghaus .tv-player-frame {
+  background: #f8f4ea;
+  background-image: none;
+  border-color: #1c2430;
+}
+
+.tv-skin--ebbinghaus .tv-video-wrap {
+  background: #1c2430;
+  border-color: #1c2430;
+}
+
+.tv-skin--ebbinghaus .tv-placeholder,
+.tv-skin--ebbinghaus .tv-placeholder-icon {
+  color: #d64545;
+}
+
+.tv-skin--ebbinghaus .tv-antenna-base,
+.tv-skin--ebbinghaus .tv-antenna-mast,
+.tv-skin--ebbinghaus .tv-antenna-ear {
+  background: #1c2430;
+}
+
+.tv-skin--ebbinghaus .tv-antenna-ball {
+  background: #d64545;
+  box-shadow: 0 0 0 2px #1c2430;
+}
+
+.tv-player-panel.tv-skin--zollner {
+  --tv-wood-edge: #1a1208;
+  --tv-bezel: #f4ecd8;
+  background: #f4ecd8;
+  border: 3px solid #1a1208;
+  border-radius: 0.9rem;
+  box-shadow: 0 16px 32px rgba(26, 18, 8, 0.22);
+}
+
+.tv-skin--zollner .tv-player-frame {
+  background: #f7f0dc;
+  background-image: none;
+  border-color: #1a1208;
+}
+
+.tv-skin--zollner .tv-video-wrap {
+  background: #1a1208;
+  border-color: #c45c26;
+}
+
+.tv-skin--zollner .tv-placeholder,
+.tv-skin--zollner .tv-placeholder-icon {
+  color: #c45c26;
+}
+
+.tv-skin--zollner .tv-antenna-base,
+.tv-skin--zollner .tv-antenna-mast,
+.tv-skin--zollner .tv-antenna-ear {
+  background: #1a1208;
+}
+
+.tv-skin--zollner .tv-antenna-ball {
+  background: #c45c26;
+}
+
+.tv-player-panel.tv-skin--necker {
+  --tv-wood-edge: #7eb6ff;
+  --tv-bezel: #0c1018;
+  background: #0c1018;
+  border: 3px solid #7eb6ff;
+  border-radius: 0.9rem;
+  box-shadow: 0 0 0 1px #3d6ea8, 0 16px 32px rgba(0, 0, 0, 0.45);
+}
+
+.tv-skin--necker .tv-player-frame {
+  background: #101622;
+  background-image: none;
+  border-color: #7eb6ff;
+}
+
+.tv-skin--necker .tv-video-wrap {
+  background: #070a10;
+  border-color: #7eb6ff;
+}
+
+.tv-skin--necker .tv-placeholder,
+.tv-skin--necker .tv-placeholder-icon {
+  color: #d7e7ff;
+}
+
+.tv-skin--necker .tv-antenna-base,
+.tv-skin--necker .tv-antenna-mast,
+.tv-skin--necker .tv-antenna-ear {
+  background: linear-gradient(180deg, #d7e7ff, #3d6ea8);
+}
+
+.tv-skin--necker .tv-antenna-ball {
+  background: #7eb6ff;
+  box-shadow: 0 0 10px #7eb6ff;
+}
+
+.tv-player-panel.tv-skin--ouchi {
+  --tv-wood-edge: #111;
+  --tv-bezel: #f4f4f4;
+  background: #f4f4f4;
+  border: 3px solid #111;
+  border-radius: 0.85rem;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+}
+
+.tv-skin--ouchi .tv-player-frame {
+  background: #fff;
+  background-image: none;
+  border-color: #111;
+}
+
+.tv-skin--ouchi .tv-video-wrap {
+  background: #111;
+  border-color: #111;
+}
+
+.tv-skin--ouchi .tv-placeholder,
+.tv-skin--ouchi .tv-placeholder-icon {
+  color: #f4f4f4;
+}
+
+.tv-skin--ouchi .tv-antenna-base,
+.tv-skin--ouchi .tv-antenna-mast,
+.tv-skin--ouchi .tv-antenna-ear {
+  background: #111;
+}
+
+.tv-skin--ouchi .tv-antenna-ball {
+  background: #f4f4f4;
+  box-shadow: 0 0 0 2px #111;
+}
+
+.tv-player-panel.tv-skin--ehrenstein {
+  --tv-wood-edge: #161616;
+  --tv-bezel: #f7f7f7;
+  background: #f7f7f7;
+  border: 3px solid #161616;
+  border-radius: 1rem;
+  box-shadow: 0 16px 32px rgba(22, 22, 22, 0.18);
+}
+
+.tv-skin--ehrenstein .tv-player-frame {
+  background: #fff;
+  background-image: none;
+  border-color: #161616;
+}
+
+.tv-skin--ehrenstein .tv-video-wrap {
+  background: #161616;
+  border-color: #161616;
+}
+
+.tv-skin--ehrenstein .tv-placeholder,
+.tv-skin--ehrenstein .tv-placeholder-icon {
+  color: #f7f7f7;
+}
+
+.tv-skin--ehrenstein .tv-antenna-base,
+.tv-skin--ehrenstein .tv-antenna-mast,
+.tv-skin--ehrenstein .tv-antenna-ear {
+  background: #161616;
+}
+
+.tv-skin--ehrenstein .tv-antenna-ball {
+  background: #fff;
+  box-shadow: 0 0 0 2px #161616;
 }
 
 :host.tv-skin--kanizsa {
@@ -2663,6 +3286,181 @@
   animation: illusion-tv-barber-page 1.1s linear infinite;
 }
 
+:host.tv-skin--ebbinghaus {
+  --pat-title-accent: #d64545;
+  --pat-title-shadow: 0 8px 22px rgba(28, 36, 48, 0.18);
+  --pat-title-bg: linear-gradient(180deg, #fff 0%, #f6f1e6 16%, #1c2430 100%);
+  --pat-page-bg: #f6f1e6;
+  --title-btn-bg: #f6f1e6;
+  --title-btn-fg: #1c2430;
+  --title-btn-border: #1c2430;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #d64545;
+  --title-btn-active-fg: #fff;
+  --title-btn-shadow: 0 0 0 1px #1c2430;
+  --menu-bg: #f8f4ea;
+  --menu-fg: #1c2430;
+  --menu-muted: #5c5348;
+  --menu-border: #1c2430;
+  --menu-border-width: 2px;
+  --menu-accent: #d64545;
+  --menu-accent-fg: #fff;
+  --menu-toolbar: rgba(28, 36, 48, 0.06);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #1c2430;
+  --menu-input-border: #1c2430;
+  --menu-hover: rgba(214, 69, 69, 0.08);
+  --menu-active: rgba(214, 69, 69, 0.16);
+  --menu-meta-bg: rgba(28, 36, 48, 0.06);
+  --menu-shadow: 0 12px 28px rgba(28, 36, 48, 0.16);
+  --menu-radius: 1rem;
+  --menu-logo-bg: #fff;
+  background-color: #f6f1e6;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='140'%3E%3Crect width='280' height='140' fill='%23f6f1e6'/%3E%3Ccircle cx='110' cy='70' r='20' fill='%231c2430'/%3E%3Ccircle cx='90' cy='105' r='20' fill='%231c2430'/%3E%3Ccircle cx='50' cy='105' r='20' fill='%231c2430'/%3E%3Ccircle cx='30' cy='70' r='20' fill='%231c2430'/%3E%3Ccircle cx='50' cy='35' r='20' fill='%231c2430'/%3E%3Ccircle cx='90' cy='35' r='20' fill='%231c2430'/%3E%3Ccircle cx='70' cy='70' r='16' fill='%23d64545'/%3E%3Ccircle cx='238' cy='70' r='7' fill='%231c2430'/%3E%3Ccircle cx='224' cy='94' r='7' fill='%231c2430'/%3E%3Ccircle cx='196' cy='94' r='7' fill='%231c2430'/%3E%3Ccircle cx='182' cy='70' r='7' fill='%231c2430'/%3E%3Ccircle cx='196' cy='46' r='7' fill='%231c2430'/%3E%3Ccircle cx='224' cy='46' r='7' fill='%231c2430'/%3E%3Ccircle cx='210' cy='70' r='16' fill='%23d64545'/%3E%3C/svg%3E");
+  background-size: 280px 140px;
+  animation: illusion-tv-ebbing 8s ease-in-out infinite;
+}
+
+:host.tv-skin--zollner {
+  --pat-title-accent: #c45c26;
+  --pat-title-shadow: 0 8px 22px rgba(26, 18, 8, 0.2);
+  --pat-title-bg: linear-gradient(180deg, #fff8ea 0%, #e7d3b0 16%, #1a1208 100%);
+  --pat-page-bg: #f4ecd8;
+  --title-btn-bg: #f4ecd8;
+  --title-btn-fg: #1a1208;
+  --title-btn-border: #1a1208;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #c45c26;
+  --title-btn-active-fg: #fff8ea;
+  --title-btn-shadow: 0 0 0 1px #1a1208;
+  --menu-bg: #f8f1df;
+  --menu-fg: #1a1208;
+  --menu-muted: #6a5340;
+  --menu-border: #1a1208;
+  --menu-border-width: 2px;
+  --menu-accent: #c45c26;
+  --menu-accent-fg: #fff8ea;
+  --menu-toolbar: rgba(26, 18, 8, 0.06);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #1a1208;
+  --menu-input-border: #1a1208;
+  --menu-hover: rgba(196, 92, 38, 0.1);
+  --menu-active: rgba(196, 92, 38, 0.18);
+  --menu-meta-bg: rgba(26, 18, 8, 0.06);
+  --menu-shadow: 0 12px 28px rgba(26, 18, 8, 0.16);
+  --menu-radius: 0.75rem;
+  --menu-logo-bg: #fff;
+  background-color: #f4ecd8;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='32'%3E%3Crect width='72' height='32' fill='%23f4ecd8'/%3E%3Cline x1='6' y1='0' x2='6' y2='32' stroke='%231a1208' stroke-width='2.5'/%3E%3Cline x1='42' y1='0' x2='42' y2='32' stroke='%231a1208' stroke-width='2.5'/%3E%3Cg stroke='%23c45c26' stroke-width='2.2'%3E%3Cline x1='6' y1='8' x2='20' y2='2'/%3E%3Cline x1='6' y1='22' x2='20' y2='16'/%3E%3Cline x1='42' y1='8' x2='28' y2='2'/%3E%3Cline x1='42' y1='22' x2='28' y2='16'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 72px 32px;
+  animation: illusion-tv-zollner 2.4s linear infinite;
+}
+
+:host.tv-skin--necker {
+  --pat-title-accent: #7eb6ff;
+  --pat-title-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  --pat-title-bg: linear-gradient(180deg, #d7e7ff 0%, #3d6ea8 16%, #0c1018 100%);
+  --pat-page-bg: #0c1018;
+  --title-btn-bg: #161c2c;
+  --title-btn-fg: #d7e7ff;
+  --title-btn-border: #7eb6ff;
+  --title-btn-hover-bg: #222a40;
+  --title-btn-active-bg: #7eb6ff;
+  --title-btn-active-fg: #0c1018;
+  --title-btn-shadow: 0 0 0 1px #3d6ea8;
+  --menu-bg: #161c2c;
+  --menu-fg: #d7e7ff;
+  --menu-muted: #9eb0cc;
+  --menu-border: #7eb6ff;
+  --menu-border-width: 1px;
+  --menu-accent: #7eb6ff;
+  --menu-accent-fg: #0c1018;
+  --menu-toolbar: rgba(126, 182, 255, 0.08);
+  --menu-input-bg: #0c1018;
+  --menu-input-fg: #d7e7ff;
+  --menu-input-border: #7eb6ff;
+  --menu-hover: rgba(126, 182, 255, 0.12);
+  --menu-active: rgba(126, 182, 255, 0.22);
+  --menu-meta-bg: rgba(126, 182, 255, 0.08);
+  --menu-shadow: 0 0 18px rgba(126, 182, 255, 0.2);
+  --menu-radius: 0.8rem;
+  --menu-logo-bg: #0c1018;
+  background-color: #0c1018;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='120'%3E%3Crect width='140' height='120' fill='%230c1018'/%3E%3Cg fill='none' stroke='%23d7e7ff' stroke-width='2'%3E%3Cpolygon points='18,42 74,42 74,98 18,98'/%3E%3Cpolygon points='46,16 102,16 102,72 46,72'/%3E%3Cline x1='18' y1='42' x2='46' y2='16'/%3E%3Cline x1='74' y1='42' x2='102' y2='16'/%3E%3Cline x1='74' y1='98' x2='102' y2='72'/%3E%3Cline x1='18' y1='98' x2='46' y2='72'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 140px 120px;
+  animation: illusion-tv-necker 18s linear infinite;
+}
+
+:host.tv-skin--ouchi {
+  --pat-title-accent: #111;
+  --pat-title-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+  --pat-title-bg: linear-gradient(180deg, #fff 0%, #d0d0d0 16%, #111 100%);
+  --pat-page-bg: #f4f4f4;
+  --title-btn-bg: #f4f4f4;
+  --title-btn-fg: #111;
+  --title-btn-border: #111;
+  --title-btn-hover-bg: #fff;
+  --title-btn-active-bg: #111;
+  --title-btn-active-fg: #f4f4f4;
+  --title-btn-shadow: 0 0 0 1px #111;
+  --menu-bg: #f7f7f7;
+  --menu-fg: #111;
+  --menu-muted: #4a4a4a;
+  --menu-border: #111;
+  --menu-border-width: 2px;
+  --menu-accent: #111;
+  --menu-accent-fg: #f4f4f4;
+  --menu-toolbar: rgba(0, 0, 0, 0.05);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #111;
+  --menu-input-border: #111;
+  --menu-hover: rgba(0, 0, 0, 0.06);
+  --menu-active: rgba(0, 0, 0, 0.12);
+  --menu-meta-bg: rgba(0, 0, 0, 0.05);
+  --menu-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  --menu-radius: 0.7rem;
+  --menu-logo-bg: #fff;
+  background-color: #f4f4f4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' shape-rendering='crispEdges'%3E%3Crect width='100' height='100' fill='%23f4f4f4'/%3E%3Crect x='0' y='0' width='10' height='10' fill='%23111'/%3E%3Crect x='20' y='0' width='10' height='10' fill='%23111'/%3E%3Crect x='40' y='0' width='10' height='10' fill='%23111'/%3E%3Crect x='60' y='0' width='10' height='10' fill='%23111'/%3E%3Crect x='80' y='0' width='10' height='10' fill='%23111'/%3E%3Crect x='0' y='10' width='10' height='10' fill='%23111'/%3E%3Crect x='20' y='10' width='10' height='10' fill='%23111'/%3E%3Crect x='40' y='10' width='10' height='10' fill='%23111'/%3E%3Crect x='60' y='10' width='10' height='10' fill='%23111'/%3E%3Crect x='80' y='10' width='10' height='10' fill='%23111'/%3E%3Crect x='10' y='20' width='10' height='10' fill='%23111'/%3E%3Crect x='40' y='20' width='10' height='10' fill='%23111'/%3E%3Crect x='50' y='20' width='10' height='10' fill='%23111'/%3E%3Crect x='70' y='20' width='10' height='10' fill='%23111'/%3E%3Crect x='90' y='20' width='10' height='10' fill='%23111'/%3E%3Crect x='10' y='30' width='10' height='10' fill='%23111'/%3E%3Crect x='20' y='30' width='10' height='10' fill='%23111'/%3E%3Crect x='30' y='30' width='10' height='10' fill='%23111'/%3E%3Crect x='60' y='30' width='10' height='10' fill='%23111'/%3E%3Crect x='70' y='30' width='10' height='10' fill='%23111'/%3E%3Crect x='90' y='30' width='10' height='10' fill='%23111'/%3E%3Crect x='0' y='40' width='10' height='10' fill='%23111'/%3E%3Crect x='40' y='40' width='10' height='10' fill='%23111'/%3E%3Crect x='50' y='40' width='10' height='10' fill='%23111'/%3E%3Crect x='80' y='40' width='10' height='10' fill='%23111'/%3E%3Crect x='0' y='50' width='10' height='10' fill='%23111'/%3E%3Crect x='20' y='50' width='10' height='10' fill='%23111'/%3E%3Crect x='30' y='50' width='10' height='10' fill='%23111'/%3E%3Crect x='60' y='50' width='10' height='10' fill='%23111'/%3E%3Crect x='70' y='50' width='10' height='10' fill='%23111'/%3E%3Crect x='80' y='50' width='10' height='10' fill='%23111'/%3E%3Crect x='10' y='60' width='10' height='10' fill='%23111'/%3E%3Crect x='40' y='60' width='10' height='10' fill='%23111'/%3E%3Crect x='50' y='60' width='10' height='10' fill='%23111'/%3E%3Crect x='90' y='60' width='10' height='10' fill='%23111'/%3E%3Crect x='10' y='70' width='10' height='10' fill='%23111'/%3E%3Crect x='30' y='70' width='10' height='10' fill='%23111'/%3E%3Crect x='60' y='70' width='10' height='10' fill='%23111'/%3E%3Crect x='70' y='70' width='10' height='10' fill='%23111'/%3E%3Crect x='90' y='70' width='10' height='10' fill='%23111'/%3E%3Crect x='0' y='80' width='10' height='10' fill='%23111'/%3E%3Crect x='20' y='80' width='10' height='10' fill='%23111'/%3E%3Crect x='40' y='80' width='10' height='10' fill='%23111'/%3E%3Crect x='60' y='80' width='10' height='10' fill='%23111'/%3E%3Crect x='80' y='80' width='10' height='10' fill='%23111'/%3E%3Crect x='0' y='90' width='10' height='10' fill='%23111'/%3E%3Crect x='20' y='90' width='10' height='10' fill='%23111'/%3E%3Crect x='40' y='90' width='10' height='10' fill='%23111'/%3E%3Crect x='60' y='90' width='10' height='10' fill='%23111'/%3E%3Crect x='80' y='90' width='10' height='10' fill='%23111'/%3E%3C/svg%3E");
+  background-size: 100px 100px;
+}
+
+:host.tv-skin--ehrenstein {
+  --pat-title-accent: #161616;
+  --pat-title-shadow: 0 8px 22px rgba(22, 22, 22, 0.16);
+  --pat-title-bg: linear-gradient(180deg, #fff 0%, #e4e4e4 16%, #161616 100%);
+  --pat-page-bg: #f7f7f7;
+  --title-btn-bg: #fff;
+  --title-btn-fg: #161616;
+  --title-btn-border: #161616;
+  --title-btn-hover-bg: #f7f7f7;
+  --title-btn-active-bg: #161616;
+  --title-btn-active-fg: #fff;
+  --title-btn-shadow: 0 0 0 1px #161616;
+  --menu-bg: #fff;
+  --menu-fg: #161616;
+  --menu-muted: #4a4a4a;
+  --menu-border: #161616;
+  --menu-border-width: 2px;
+  --menu-accent: #161616;
+  --menu-accent-fg: #fff;
+  --menu-toolbar: rgba(0, 0, 0, 0.04);
+  --menu-input-bg: #fff;
+  --menu-input-fg: #161616;
+  --menu-input-border: #161616;
+  --menu-hover: rgba(0, 0, 0, 0.05);
+  --menu-active: rgba(0, 0, 0, 0.1);
+  --menu-meta-bg: rgba(0, 0, 0, 0.04);
+  --menu-shadow: 0 12px 28px rgba(22, 22, 22, 0.14);
+  --menu-radius: 1rem;
+  --menu-logo-bg: #fff;
+  background-color: #f7f7f7;
+  background-image:
+    repeating-conic-gradient(from 0deg at 18% 28%, #161616 0 1.15deg, transparent 1.15deg 13deg),
+    repeating-conic-gradient(from 6deg at 74% 62%, #161616 0 1.15deg, transparent 1.15deg 13deg),
+    repeating-conic-gradient(from 3deg at 42% 84%, #161616 0 1.15deg, transparent 1.15deg 13deg);
+}
+
 @keyframes illusion-tv-kanizsa {
   0%, 100% { background-size: 200px 176px; }
   50% { background-size: 248px 218px; }
@@ -2699,6 +3497,19 @@
   to { background-position: 0 -120px; }
 }
 
+@keyframes illusion-tv-ebbing {
+  0%, 100% { background-size: 280px 140px; }
+  50% { background-size: 320px 160px; }
+}
+
+@keyframes illusion-tv-zollner {
+  to { background-position: 0 32px; }
+}
+
+@keyframes illusion-tv-necker {
+  to { background-position: 140px 0; }
+}
+
 /* Page wallpaper only. Stays behind the set, never on the picture. */
 :host.tv-skin--classic,
 :host.tv-skin--artdeco,
@@ -2711,7 +3522,12 @@
 :host.tv-skin--bamboo,
 :host.tv-skin--porcelain,
 :host.tv-skin--carbon,
-:host.tv-skin--candy {
+:host.tv-skin--candy,
+:host.tv-skin--jazz,
+:host.tv-skin--sakura,
+:host.tv-skin--dune,
+:host.tv-skin--lagoon,
+:host.tv-skin--ember {
   position: relative;
   isolation: isolate;
 }
@@ -2727,7 +3543,12 @@
 :host.tv-skin--bamboo::before,
 :host.tv-skin--porcelain::before,
 :host.tv-skin--carbon::before,
-:host.tv-skin--candy::before {
+:host.tv-skin--candy::before,
+:host.tv-skin--jazz::before,
+:host.tv-skin--sakura::before,
+:host.tv-skin--dune::before,
+:host.tv-skin--lagoon::before,
+:host.tv-skin--ember::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -2826,6 +3647,40 @@
   animation: media-page-rise 9s linear infinite;
 }
 
+:host.tv-skin--jazz::before {
+  background: radial-gradient(ellipse 32% 24% at 78% 12%, rgba(232, 163, 23, 0.4), transparent 70%);
+  animation: media-page-drift 14s ease-in-out infinite alternate;
+}
+
+:host.tv-skin--sakura::before {
+  background:
+    radial-gradient(circle at 18% 80%, #f7c1cb 0 6px, transparent 7px),
+    radial-gradient(circle at 62% 88%, #fff 0 4px, transparent 5px),
+    radial-gradient(circle at 84% 70%, #e8899a 0 5px, transparent 6px);
+  background-size: 180px 220px;
+  animation: media-page-rise 13s linear infinite;
+}
+
+:host.tv-skin--dune::before {
+  background: radial-gradient(circle at 82% 18%, rgba(255, 246, 216, 0.55) 0 8%, rgba(196, 106, 58, 0.28) 9% 18%, transparent 19%);
+  animation: media-page-drift 18s ease-in-out infinite alternate;
+}
+
+:host.tv-skin--lagoon::before {
+  background: linear-gradient(100deg, transparent 0 30%, rgba(255, 255, 255, 0.35) 48%, transparent 62%);
+  background-size: 180% 100%;
+  animation: media-page-scroll 9s linear infinite;
+}
+
+:host.tv-skin--ember::before {
+  background:
+    radial-gradient(circle at 20% 90%, #ff6a1a 0 3px, transparent 4px),
+    radial-gradient(circle at 55% 80%, #ffb07a 0 2px, transparent 3px),
+    radial-gradient(circle at 80% 92%, #ff6a1a 0 3px, transparent 4px);
+  background-size: 140px 180px;
+  animation: media-page-rise 7s linear infinite;
+}
+
 :host.tv-landscape-fs.tv-skin--classic::before,
 :host.tv-landscape-fs.tv-skin--artdeco::before,
 :host.tv-landscape-fs.tv-skin--synthwave::before,
@@ -2837,7 +3692,12 @@
 :host.tv-landscape-fs.tv-skin--bamboo::before,
 :host.tv-landscape-fs.tv-skin--porcelain::before,
 :host.tv-landscape-fs.tv-skin--carbon::before,
-:host.tv-landscape-fs.tv-skin--candy::before {
+:host.tv-landscape-fs.tv-skin--candy::before,
+:host.tv-landscape-fs.tv-skin--jazz::before,
+:host.tv-landscape-fs.tv-skin--sakura::before,
+:host.tv-landscape-fs.tv-skin--dune::before,
+:host.tv-landscape-fs.tv-skin--lagoon::before,
+:host.tv-landscape-fs.tv-skin--ember::before {
   display: none;
 }
 

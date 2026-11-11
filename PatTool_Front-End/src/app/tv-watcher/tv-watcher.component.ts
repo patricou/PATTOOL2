@@ -99,11 +99,21 @@ export type TvSkin =
   | 'carbon'
   | 'candy'
   | 'espace'
+  | 'jazz'
+  | 'sakura'
+  | 'dune'
+  | 'lagoon'
+  | 'ember'
   | 'kanizsa'
   | 'cafewall'
   | 'penrose'
   | 'scintille'
-  | 'barber';
+  | 'barber'
+  | 'ebbinghaus'
+  | 'zollner'
+  | 'necker'
+  | 'ouchi'
+  | 'ehrenstein';
 
 const TV_SKINS: readonly TvSkin[] = [
   'classic',
@@ -119,11 +129,21 @@ const TV_SKINS: readonly TvSkin[] = [
   'carbon',
   'candy',
   'espace',
+  'jazz',
+  'sakura',
+  'dune',
+  'lagoon',
+  'ember',
   'kanizsa',
   'cafewall',
   'penrose',
   'scintille',
-  'barber'
+  'barber',
+  'ebbinghaus',
+  'zollner',
+  'necker',
+  'ouchi',
+  'ehrenstein'
 ];
 
 @Component({
@@ -383,11 +403,21 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   @HostBinding('class.tv-skin--carbon') get skinCarbon(): boolean { return this.tvSkin === 'carbon'; }
   @HostBinding('class.tv-skin--candy') get skinCandy(): boolean { return this.tvSkin === 'candy'; }
   @HostBinding('class.tv-skin--espace') get skinEspace(): boolean { return this.tvSkin === 'espace'; }
+  @HostBinding('class.tv-skin--jazz') get skinJazz(): boolean { return this.tvSkin === 'jazz'; }
+  @HostBinding('class.tv-skin--sakura') get skinSakura(): boolean { return this.tvSkin === 'sakura'; }
+  @HostBinding('class.tv-skin--dune') get skinDune(): boolean { return this.tvSkin === 'dune'; }
+  @HostBinding('class.tv-skin--lagoon') get skinLagoon(): boolean { return this.tvSkin === 'lagoon'; }
+  @HostBinding('class.tv-skin--ember') get skinEmber(): boolean { return this.tvSkin === 'ember'; }
   @HostBinding('class.tv-skin--kanizsa') get skinKanizsa(): boolean { return this.tvSkin === 'kanizsa'; }
   @HostBinding('class.tv-skin--cafewall') get skinCafewall(): boolean { return this.tvSkin === 'cafewall'; }
   @HostBinding('class.tv-skin--penrose') get skinPenrose(): boolean { return this.tvSkin === 'penrose'; }
   @HostBinding('class.tv-skin--scintille') get skinScintille(): boolean { return this.tvSkin === 'scintille'; }
   @HostBinding('class.tv-skin--barber') get skinBarber(): boolean { return this.tvSkin === 'barber'; }
+  @HostBinding('class.tv-skin--ebbinghaus') get skinEbbinghaus(): boolean { return this.tvSkin === 'ebbinghaus'; }
+  @HostBinding('class.tv-skin--zollner') get skinZollner(): boolean { return this.tvSkin === 'zollner'; }
+  @HostBinding('class.tv-skin--necker') get skinNecker(): boolean { return this.tvSkin === 'necker'; }
+  @HostBinding('class.tv-skin--ouchi') get skinOuchi(): boolean { return this.tvSkin === 'ouchi'; }
+  @HostBinding('class.tv-skin--ehrenstein') get skinEhrenstein(): boolean { return this.tvSkin === 'ehrenstein'; }
   skinMenuOpen = false;
   private skinChosenThisVisit = false;
   private skinLoadSub?: Subscription;
@@ -1478,7 +1508,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     'cafewall',
     'penrose',
     'scintille',
-    'barber'
+    'barber',
+    'ebbinghaus',
+    'zollner',
+    'necker',
+    'ouchi',
+    'ehrenstein'
   ];
 
   readonly illusionSkins = TvWatcherComponent.ILLUSION_SKINS;

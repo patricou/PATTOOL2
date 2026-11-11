@@ -1,0 +1,381 @@
+<div class="pat-title st-page-title px-3">
+  <h2>
+    <i class="fa fa-th me-2"></i>
+    {{ 'ESPACE_TEMPS.TITLE' | translate }}
+  </h2>
+</div>
+
+<div class="st-root container-fluid px-3 px-lg-4 pb-4">
+  <p class="text-secondary small mb-2">{{ 'ESPACE_TEMPS.SUBTITLE' | translate }}</p>
+
+  <div class="st-idea mb-3">
+    <div class="fw-semibold">{{ ideaTitleKey | translate }}</div>
+    <div class="small mt-1">{{ ideaBodyKey | translate }}</div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-4">
+      <div class="card shadow-sm border-0 st-panel">
+        <div class="card-body">
+          <ng-container *ngIf="view === 'grid'">
+            <label class="form-label fw-semibold small mb-1" for="stMass">{{ 'ESPACE_TEMPS.MASS' | translate }}</label>
+            <input
+              id="stMass"
+              type="range"
+              class="form-range"
+              min="0"
+              [max]="rsMax"
+              step="0.05"
+              [ngModel]="massRs"
+              (ngModelChange)="onMassChange($event)" />
+            <p class="small text-secondary mb-3">
+              {{ 'ESPACE_TEMPS.COMPACTNESS' | translate: { percent: (compactnessPercent | number: '1.0-0'), sun: (sunCompactnessPercent | number: '1.4-4') } }}
+            </p>
+
+            <label class="form-label fw-semibold small mb-1" for="stSpeed">{{ 'ESPACE_TEMPS.LAUNCH_SPEED' | translate }}</label>
+            <input
+              id="stSpeed"
+              type="range"
+              class="form-range"
+              min="0"
+              [max]="launchSpeedMax"
+              step="0.001"
+              [ngModel]="launchSpeed"
+              (ngModelChange)="onLaunchSpeedChange($event)" />
+            <div class="d-flex justify-content-between small text-secondary mb-2">
+              <span>0</span>
+              <span>{{ launchSpeed | number: '1.3-3' }} c</span>
+              <span>{{ launchSpeedMax | number: '1.2-2' }} c</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="!hasMass" (click)="setCircularOrbit()">
+                {{ 'ESPACE_TEMPS.CIRCULAR_BTN' | translate }}
+              </button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="relaunch()">
+                <i class="fa fa-repeat me-1"></i>{{ 'ESPACE_TEMPS.RELAUNCH' | translate }}
+              </button>
+            </div>
+
+            <div class="form-check mb-1">
+              <input
+                id="stNewton"
+                type="checkbox"
+                class="form-check-input"
+                [ngModel]="showNewton"
+                (ngModelChange)="onShowNewtonChange($event)" />
+              <label class="form-check-label small" for="stNewton">{{ 'ESPACE_TEMPS.NEWTON' | translate }}</label>
+            </div>
+            <p class="small text-secondary mb-3">{{ 'ESPACE_TEMPS.NEWTON_HINT' | translate }}</p>
+
+            <div class="st-stats small mb-3">
+              <div class="st-status" [class.st-status-alert]="planetStatus !== 'orbit'">{{ planetStatusKey | translate }}</div>
+              <div>
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.V_CIRC' | translate }}</span>
+                <ng-container *ngIf="hasMass; else noValue">{{ circularSpeedValue | number: '1.3-3' }} c</ng-container>
+              </div>
+              <div>
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.V_ESC' | translate }}</span>
+                <ng-container *ngIf="hasMass; else noValue">{{ escapeSpeedValue | number: '1.3-3' }} c</ng-container>
+              </div>
+              <div>
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.TIME_SURFACE' | translate }}</span>
+                {{ surfaceClockPercent | number: '1.1-1' }} %
+              </div>
+              <div>
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.TIME_PLANET' | translate }}</span>
+                {{ planetClockPercent | number: '1.1-1' }} %
+              </div>
+            </div>
+
+            <div class="st-legend small">
+              <span>{{ 'ESPACE_TEMPS.LEGEND_FAST' | translate }}</span>
+              <span class="st-legend-bar"></span>
+              <span>{{ 'ESPACE_TEMPS.LEGEND_SLOW' | translate }}</span>
+            </div>
+          </ng-container>
+
+          <ng-container *ngIf="view === 'apple'">
+            <label class="form-label fw-semibold small mb-1" for="stGravity">{{ 'ESPACE_TEMPS.GRAVITY' | translate }}</label>
+            <input
+              id="stGravity"
+              type="range"
+              class="form-range"
+              min="0"
+              [max]="gravityMax"
+              step="0.01"
+              [ngModel]="gravityG"
+              (ngModelChange)="onGravityChange($event)" />
+            <div class="d-flex justify-content-between small text-secondary mb-3">
+              <span>0</span>
+              <span>{{ gravityG | number: '1.2-2' }} g</span>
+              <span>{{ gravityMax | number: '1.1-1' }} g</span>
+            </div>
+
+            <label class="form-label fw-semibold small mb-1" for="stViewpoint">{{ 'ESPACE_TEMPS.VIEWPOINT' | translate }}</label>
+            <div class="btn-group w-100 mb-2" role="group">
+              <button
+                type="button"
+                class="btn btn-sm"
+                [class.btn-info]="fromApple"
+                [class.btn-outline-secondary]="!fromApple"
+                (click)="goToViewpoint(0)">
+                {{ 'ESPACE_TEMPS.VIEW_FROM_APPLE' | translate }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm"
+                [class.btn-info]="!fromApple"
+                [class.btn-outline-secondary]="fromApple"
+                (click)="goToViewpoint(1)">
+                {{ 'ESPACE_TEMPS.VIEW_FROM_GROUND' | translate }}
+              </button>
+            </div>
+            <input
+              id="stViewpoint"
+              type="range"
+              class="form-range mb-3"
+              min="0"
+              max="1"
+              step="0.01"
+              [ngModel]="viewpoint"
+              (ngModelChange)="onViewpointChange($event)" />
+
+            <div class="fw-semibold small mb-1">{{ 'ESPACE_TEMPS.CLOCKS_TITLE' | translate }}</div>
+            <div class="st-stats small mb-3">
+              <div>
+                <span class="st-dot st-dot-shelf"></span>
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.CLOCK_SHELF' | translate }}</span>
+                {{ clockShelf | number: '1.3-3' }}
+              </div>
+              <div>
+                <span class="st-dot st-dot-apple"></span>
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.CLOCK_APPLE' | translate }}</span>
+                {{ clockApple | number: '1.3-3' }}
+              </div>
+              <div>
+                <span class="st-dot st-dot-ground"></span>
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.CLOCK_GROUND' | translate }}</span>
+                {{ clockGround | number: '1.3-3' }}
+              </div>
+            </div>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="restartApple()">
+              <i class="fa fa-repeat me-1"></i>{{ 'ESPACE_TEMPS.RESTART' | translate }}
+            </button>
+          </ng-container>
+
+          <ng-container *ngIf="view === 'clocks'">
+            <ng-container *ngIf="clockReadout as r">
+              <label class="form-label fw-semibold small mb-1" for="stBody">{{ 'ESPACE_TEMPS.BODY' | translate }}</label>
+              <select
+                id="stBody"
+                class="form-select form-select-sm mb-3"
+                [ngModel]="clockBodyId"
+                (ngModelChange)="onClockBodyChange($event)">
+                <option *ngFor="let b of clockBodies" [value]="b.id">{{ b.labelKey | translate }}</option>
+              </select>
+
+              <label class="form-label fw-semibold small mb-1" for="stAltitude">{{ 'ESPACE_TEMPS.ALTITUDE' | translate }}</label>
+              <input
+                id="stAltitude"
+                type="range"
+                class="form-range"
+                min="0"
+                max="1"
+                step="0.001"
+                [ngModel]="clockSlider"
+                (ngModelChange)="onClockSliderChange($event)" />
+              <div class="small text-secondary mb-2">{{ r.altitude }}</div>
+              <div class="d-flex flex-wrap gap-2 mb-3" *ngIf="clockBody.presets.length">
+                <button
+                  type="button"
+                  class="btn btn-sm"
+                  *ngFor="let p of clockBody.presets"
+                  [class.btn-info]="isClockPresetActive(p)"
+                  [class.btn-outline-secondary]="!isClockPresetActive(p)"
+                  (click)="setClockPreset(p)">
+                  {{ p.labelKey | translate }}
+                </button>
+              </div>
+
+              <div class="form-label fw-semibold small mb-1">{{ 'ESPACE_TEMPS.CLOCK_MODE' | translate }}</div>
+              <div class="btn-group w-100 mb-3" role="group">
+                <button
+                  type="button"
+                  class="btn btn-sm"
+                  [class.btn-info]="clockOrbiting"
+                  [class.btn-outline-secondary]="!clockOrbiting"
+                  (click)="setClockOrbiting(true)">
+                  {{ 'ESPACE_TEMPS.MODE_ORBIT' | translate }}
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm"
+                  [class.btn-info]="!clockOrbiting"
+                  [class.btn-outline-secondary]="clockOrbiting"
+                  (click)="setClockOrbiting(false)">
+                  {{ 'ESPACE_TEMPS.MODE_TOWER' | translate }}
+                </button>
+              </div>
+
+              <div class="st-stats small mb-3">
+                <div>
+                  <span class="text-secondary">{{ 'ESPACE_TEMPS.ORBIT_SPEED' | translate }}</span>
+                  <ng-container *ngIf="clockOrbiting; else noValue">{{ r.speed }}</ng-container>
+                </div>
+                <div>
+                  <span class="st-dot st-dot-altitude"></span>
+                  <span class="text-secondary">{{ 'ESPACE_TEMPS.EFFECT_ALTITUDE' | translate }}</span>
+                  {{ r.effectAltitude }} {{ 'ESPACE_TEMPS.PER_DAY' | translate }}
+                </div>
+                <div>
+                  <span class="st-dot st-dot-speed"></span>
+                  <span class="text-secondary">{{ 'ESPACE_TEMPS.EFFECT_SPEED' | translate }}</span>
+                  <ng-container *ngIf="clockOrbiting; else noValue">
+                    {{ r.effectSpeed }} {{ 'ESPACE_TEMPS.PER_DAY' | translate }}
+                  </ng-container>
+                </div>
+                <div class="fw-semibold">
+                  <span class="st-dot st-dot-total"></span>
+                  <span class="text-secondary">{{ 'ESPACE_TEMPS.EFFECT_TOTAL' | translate }}</span>
+                  {{ r.effectTotal }} {{ 'ESPACE_TEMPS.PER_DAY' | translate }}
+                </div>
+              </div>
+
+              <div class="st-stats small mb-3">
+                <div>
+                  <span class="text-secondary">{{ 'ESPACE_TEMPS.ELAPSED_GROUND' | translate }}</span>
+                  {{ r.days }}
+                </div>
+                <div class="st-status">{{ r.gapKey | translate: { value: r.gap } }}</div>
+                <div class="text-secondary" *ngIf="r.positionError">
+                  {{ 'ESPACE_TEMPS.GPS_ERROR' | translate: { value: r.positionError } }}
+                </div>
+              </div>
+
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="restartClocks()">
+                <i class="fa fa-repeat me-1"></i>{{ 'ESPACE_TEMPS.RESTART' | translate }}
+              </button>
+            </ng-container>
+          </ng-container>
+
+          <ng-container *ngIf="view === 'light'">
+            <label class="form-label fw-semibold small mb-1" for="stLightMass">{{ 'ESPACE_TEMPS.LIGHT_MASS' | translate }}</label>
+            <input
+              id="stLightMass"
+              type="range"
+              class="form-range"
+              min="0"
+              [max]="lightRsMax"
+              step="0.1"
+              [ngModel]="lightRs"
+              (ngModelChange)="onLightRsChange($event)" />
+            <div class="st-threshold small text-secondary">
+              <span class="st-threshold-mark" [style.left.%]="lightCollapsePercent">▲ {{ 'ESPACE_TEMPS.LIGHT_COLLAPSE_MARK' | translate }}</span>
+            </div>
+            <div class="st-status" [class.st-status-alert]="lightIsBlackHole">{{ lightStateKey | translate }}</div>
+            <p class="small text-secondary mb-3">
+              <ng-container *ngIf="lightHasMass && !lightIsBlackHole">
+                {{ 'ESPACE_TEMPS.LIGHT_COMPACTNESS' | translate: { percent: (lightCompactnessPercent | number: '1.0-0') } }}
+              </ng-container>
+              {{ 'ESPACE_TEMPS.LIGHT_COLLAPSE_HINT' | translate: { limit: (lightCollapseCompactnessPercent | number: '1.0-0') } }}
+            </p>
+
+            <label class="form-label fw-semibold small mb-1" for="stAim">{{ 'ESPACE_TEMPS.AIM' | translate }}</label>
+            <input
+              id="stAim"
+              type="range"
+              class="form-range"
+              [min]="lightAimMin"
+              [max]="lightAimMax"
+              step="0.5"
+              [ngModel]="lightAim"
+              (ngModelChange)="onLightAimChange($event)" />
+            <div class="small text-secondary mb-3">
+              <ng-container *ngIf="lightHasMass; else noValue">
+                {{ 'ESPACE_TEMPS.AIM_VALUE' | translate: { value: (lightAimInRs | number: '1.1-1') } }}
+              </ng-container>
+            </div>
+
+            <div class="st-stats small mb-2">
+              <div class="fw-semibold">
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.DEFLECTION' | translate }}</span>
+                <ng-container *ngIf="!lightDeflectionResult.captured">{{ lightDeflectionDegrees | number: '1.1-1' }}°</ng-container>
+                <span class="st-status-alert" *ngIf="lightDeflectionResult.captured">
+                  {{ (lightIsBlackHole ? 'ESPACE_TEMPS.RAY_CAPTURED' : 'ESPACE_TEMPS.RAY_ABSORBED') | translate }}
+                </span>
+              </div>
+            </div>
+            <p class="small text-secondary mb-3" *ngIf="lightIsBlackHole">
+              {{ 'ESPACE_TEMPS.CAPTURE_BELOW' | translate: { value: (lightCaptureInRs | number: '1.1-1') } }}
+            </p>
+
+            <div class="st-ray-legend small">
+              <div><span class="st-swatch st-swatch-pass"></span>{{ 'ESPACE_TEMPS.LEGEND_RAY_PASS' | translate }}</div>
+              <div><span class="st-swatch st-swatch-lost"></span>{{ 'ESPACE_TEMPS.LEGEND_RAY_LOST' | translate }}</div>
+              <div><span class="st-swatch st-swatch-aim"></span>{{ 'ESPACE_TEMPS.LEGEND_RAY_AIM' | translate }}</div>
+              <div><span class="st-swatch st-swatch-straight"></span>{{ 'ESPACE_TEMPS.LEGEND_RAY_STRAIGHT' | translate }}</div>
+            </div>
+          </ng-container>
+
+          <ng-template #noValue>–</ng-template>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <div #fsRoot class="card shadow-sm border-0 st-canvas-card st-fs-root">
+        <div class="card-body p-2 st-fs-body">
+          <div class="d-flex flex-wrap gap-1 mb-2 align-items-center">
+            <button
+              type="button"
+              class="btn btn-sm"
+              *ngFor="let v of views"
+              [class.btn-info]="view === v.id"
+              [class.btn-outline-secondary]="view !== v.id"
+              (click)="setView(v.id)">
+              <i class="fa me-1" [ngClass]="v.icon"></i>{{ v.labelKey | translate }}
+            </button>
+            <div class="ms-auto d-flex flex-wrap gap-1">
+              <button type="button" class="btn btn-primary btn-sm" (click)="togglePlay()">
+                <i class="fa" [ngClass]="playing ? 'fa-pause' : 'fa-play'"></i>
+                <span class="d-none d-sm-inline ms-1">{{
+                  (playing ? 'ESPACE_TEMPS.PAUSE' : 'ESPACE_TEMPS.PLAY') | translate
+                }}</span>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                *ngIf="view === 'grid'"
+                (click)="resetCamera()"
+                [attr.title]="'ESPACE_TEMPS.RESET_VIEW' | translate">
+                <i class="fa fa-crosshairs"></i>
+                <span class="d-none d-md-inline ms-1">{{ 'ESPACE_TEMPS.RESET_VIEW' | translate }}</span>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-light"
+                (click)="toggleFullscreen()"
+                [attr.aria-pressed]="fullscreen"
+                [attr.title]="(fullscreen ? 'ESPACE_TEMPS.FULLSCREEN_EXIT' : 'ESPACE_TEMPS.FULLSCREEN_ENTER') | translate">
+                <i class="fa" [class.fa-expand]="!fullscreen" [class.fa-compress]="fullscreen"></i>
+                <span class="d-none d-md-inline ms-1">{{
+                  (fullscreen ? 'ESPACE_TEMPS.FULLSCREEN_EXIT' : 'ESPACE_TEMPS.FULLSCREEN_ENTER') | translate
+                }}</span>
+              </button>
+            </div>
+          </div>
+          <p class="small text-secondary mb-2 st-view-hint">{{ hintKey | translate }}</p>
+          <div class="st-canvas-wrap" #canvasWrap>
+            <canvas #gridCanvas class="st-canvas-grid" [class.d-none]="view !== 'grid'"></canvas>
+            <canvas #flatCanvas [class.d-none]="view === 'grid'"></canvas>
+            <div class="st-webgl-error small" *ngIf="webglError && view === 'grid'">
+              {{ 'ESPACE_TEMPS.WEBGL_ERROR' | translate }}
+            </div>
+          </div>
+          <p class="small text-secondary mt-2 mb-0 st-limit">{{ limitKey | translate }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -161,6 +161,7 @@ export class AboutComponent {
         { route: '/tools/solar-system', icon: 'fa-sun-o', labelKey: 'MENU.SOLAR_SYSTEM', descKey: 'ABOUT.FEAT_SOLAR' },
         { route: '/tools/ciel', icon: 'fa-star', labelKey: 'MENU.SKY', descKey: 'ABOUT.FEAT_SKY' },
         { route: '/tools/univers-futur', icon: 'fa-hourglass-half', labelKey: 'MENU.FUTURE_UNIVERSE', descKey: 'ABOUT.FEAT_FUTURE_UNIVERSE' },
+        { route: '/tools/espace-temps', icon: 'fa-th', labelKey: 'MENU.SPACETIME', descKey: 'ABOUT.FEAT_SPACETIME', logoSrc: 'assets/images/menu-spacetime.svg' },
         { route: '/tools/eclipse', icon: 'fa-moon-o', labelKey: 'MENU.ECLIPSE', descKey: 'ABOUT.FEAT_ECLIPSE', logoSrc: 'assets/images/eclipse-mark.svg' },
         { route: '/tools/nasa', icon: 'fa-rocket', labelKey: 'MENU.NASA', descKey: 'ABOUT.FEAT_NASA', logoSrc: 'assets/images/nasa-meatball.svg' },
         { route: '/tools/astro-compass', icon: 'fa-binoculars', labelKey: 'MENU.ASTRO_COMPASS', descKey: 'ABOUT.FEAT_ASTRO' },

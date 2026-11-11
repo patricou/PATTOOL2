@@ -37,11 +37,21 @@ export type YoutubeEqCabinet =
   | 'carbon'
   | 'candy'
   | 'espace'
+  | 'jazz'
+  | 'sakura'
+  | 'dune'
+  | 'lagoon'
+  | 'ember'
   | 'kanizsa'
   | 'cafewall'
   | 'penrose'
   | 'scintille'
-  | 'barber';
+  | 'barber'
+  | 'ebbinghaus'
+  | 'zollner'
+  | 'necker'
+  | 'ouchi'
+  | 'ehrenstein';
 
 type SpectrumShape = 'bars' | 'curve' | 'line' | 'dots';
 type SpectrumPalette = 'skin' | 'rainbow' | 'fire' | 'ocean' | 'violet' | 'gold';

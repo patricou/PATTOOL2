@@ -169,20 +169,42 @@
                     </ng-container>
                     <li><hr class="dropdown-divider"></li>
                     <li><h6 class="dropdown-header">{{ 'MENU.GEO_EARTH' | translate }}</h6></li>
-                    <li *ngFor="let item of sortedNavGeoLocal">
-                        <a *ngIf="item.action === 'trace-viewer'"
-                           class="dropdown-item"
-                           href="#"
-                           (click)="openMapTraceViewer(); closeMenu(); $event.preventDefault()">
-                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
-                        </a>
-                        <a *ngIf="item.routerLink"
-                           class="dropdown-item"
-                           [routerLink]="item.routerLink"
-                           (click)="closeMenu()">
-                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
-                        </a>
-                    </li>
+                    <ng-container *ngFor="let item of sortedNavGeoLocal">
+                        <li *ngIf="item.kind === 'route'">
+                            <a *ngIf="$any(item).action === 'trace-viewer'"
+                               class="dropdown-item"
+                               href="#"
+                               (click)="openMapTraceViewer(); closeMenu(); $event.preventDefault()">
+                                <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
+                            </a>
+                            <a *ngIf="$any(item).routerLink"
+                               class="dropdown-item"
+                               [routerLink]="$any(item).routerLink"
+                               (click)="closeMenu()">
+                                <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
+                            </a>
+                        </li>
+                        <li *ngIf="item.kind === 'other-submenu'" class="dropdown-submenu">
+                            <a class="dropdown-item other-submenu-toggle"
+                               href="#"
+                               id="otherSubmenu"
+                               (click)="toggleOtherSubmenu($event)"
+                               [attr.aria-expanded]="showOtherSubmenu">
+                                <i class="fa fa-ellipsis-h"></i> {{ 'MENU.OTHER' | translate }}
+                            </a>
+                            <ul class="dropdown-menu"
+                                [class.show]="showOtherSubmenu"
+                                aria-labelledby="otherSubmenu">
+                                <li *ngFor="let other of sortedNavGeoOther">
+                                    <a class="dropdown-item"
+                                       [routerLink]="other.routerLink"
+                                       (click)="closeMenu()">
+                                        <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: other}"></ng-container> {{ other.labelKey | translate }}
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    </ng-container>
                 </ul>
             </li>
 

@@ -5,6 +5,8 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subscription, forkJoin, from, of } from 'rxjs';
 import { catchError, map, switchMap, take } from 'rxjs/operators';
 
+import { Body, Observer, SearchRiseSet } from 'astronomy-engine';
+
 import { environment } from '../../../environments/environment';
 import { CalendarEntry, CalendarService } from '../../calendar/calendar.service';
 import { CLOCK_FACES, ClockComponent } from '../../clock/clock.component';
@@ -77,7 +79,10 @@ const APPOINTMENT_LIMIT = 10;
 const TASK_LIMIT = 24;
 const NEWS_LIMIT = 24;
 
-const ILLUSION_SKINS: readonly MediaSkinId[] = ['kanizsa', 'cafewall', 'penrose', 'scintille', 'barber'];
+const ILLUSION_SKINS: readonly MediaSkinId[] = [
+	'kanizsa', 'cafewall', 'penrose', 'scintille', 'barber',
+	'ebbinghaus', 'zollner', 'necker', 'ouchi', 'ehrenstein'
+];
 
 const LANG_FLAGS: Record<string, string> = {
 	fr: 'fr',
@@ -114,11 +119,21 @@ const LANG_FLAGS: Record<string, string> = {
 		'[class.radio-skin--carbon]': 'radioSkin === "carbon"',
 		'[class.radio-skin--candy]': 'radioSkin === "candy"',
 		'[class.radio-skin--espace]': 'radioSkin === "espace"',
+		'[class.radio-skin--jazz]': 'radioSkin === "jazz"',
+		'[class.radio-skin--sakura]': 'radioSkin === "sakura"',
+		'[class.radio-skin--dune]': 'radioSkin === "dune"',
+		'[class.radio-skin--lagoon]': 'radioSkin === "lagoon"',
+		'[class.radio-skin--ember]': 'radioSkin === "ember"',
 		'[class.radio-skin--kanizsa]': 'radioSkin === "kanizsa"',
 		'[class.radio-skin--cafewall]': 'radioSkin === "cafewall"',
 		'[class.radio-skin--penrose]': 'radioSkin === "penrose"',
 		'[class.radio-skin--scintille]': 'radioSkin === "scintille"',
-		'[class.radio-skin--barber]': 'radioSkin === "barber"'
+		'[class.radio-skin--barber]': 'radioSkin === "barber"',
+		'[class.radio-skin--ebbinghaus]': 'radioSkin === "ebbinghaus"',
+		'[class.radio-skin--zollner]': 'radioSkin === "zollner"',
+		'[class.radio-skin--necker]': 'radioSkin === "necker"',
+		'[class.radio-skin--ouchi]': 'radioSkin === "ouchi"',
+		'[class.radio-skin--ehrenstein]': 'radioSkin === "ehrenstein"'
 	}
 })
 export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -147,6 +162,9 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 	weatherClim = false;
 	weatherTempC: number | null = null;
 	weatherObservedAt = '';
+	weatherSunriseAt: Date | null = null;
+	weatherSunsetAt: Date | null = null;
+	private sunKey = '';
 	userLabel = '';
 	userLogin = '';
 	userSeen = '';
@@ -224,6 +242,16 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 			maximumFractionDigits: 5
 		});
 		return `${fmt(this.weatherLat)}°, ${fmt(this.weatherLon)}°`;
+	}
+
+	/** Local clock time of sunrise or sunset at the weather GPS position. */
+	sunClock(date: Date | null): string {
+		if (!date || Number.isNaN(date.getTime())) {
+			return '';
+		}
+		const hours = date.getHours().toString().padStart(2, '0');
+		const minutes = date.getMinutes().toString().padStart(2, '0');
+		return `${hours}:${minutes}`;
 	}
 
 	/** Map viewer centered on the same position as the weather. */
@@ -581,6 +609,10 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		if (el.textContent !== next) {
 			el.textContent = next;
 		}
+		const day = new Date().toDateString();
+		if (this.sunKey && !this.sunKey.endsWith(`|${day}`)) {
+			this.zone.run(() => this.refreshSunTimes());
+		}
 	}
 
 	private armNowLabel(): void {
@@ -742,6 +774,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 						value: Math.round(humidity).toLocaleString(this.localeTag())
 					})
 					: '';
+				this.refreshSunTimes();
 				this.weatherState = 'ready';
 				if (quiet) {
 					this.weatherRefreshing = false;
@@ -1477,6 +1510,42 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		return resolveWeatherStationProvider(lat, lon, code);
 	}
 
+	/** Today's sunrise and sunset for the GPS fix, including elevation once it is known. */
+	private refreshSunTimes(): void {
+		const lat = this.weatherLat;
+		const lon = this.weatherLon;
+		if (lat == null || lon == null || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+			this.weatherSunriseAt = null;
+			this.weatherSunsetAt = null;
+			this.sunKey = '';
+			return;
+		}
+		const alt = this.weatherAltitude != null && Number.isFinite(this.weatherAltitude) ? this.weatherAltitude : 0;
+		const now = new Date();
+		const key = `${lat.toFixed(5)}|${lon.toFixed(5)}|${Math.round(alt)}|${now.toDateString()}`;
+		if (key === this.sunKey) {
+			return;
+		}
+		this.sunKey = key;
+		const observer = new Observer(lat, lon, alt);
+		const dayStart = this.solarMidnight(now, lon);
+		try {
+			this.weatherSunriseAt = SearchRiseSet(Body.Sun, observer, +1, dayStart, 1.5)?.date ?? null;
+			this.weatherSunsetAt = SearchRiseSet(Body.Sun, observer, -1, dayStart, 1.5)?.date ?? null;
+		} catch {
+			this.weatherSunriseAt = null;
+			this.weatherSunsetAt = null;
+		}
+	}
+
+	/** Approximate local solar midnight at the observer longitude. */
+	private solarMidnight(date: Date, lon: number): Date {
+		const lonMs = (lon / 15) * 3_600_000;
+		const solar = new Date(date.getTime() + lonMs);
+		const startUtc = Date.UTC(solar.getUTCFullYear(), solar.getUTCMonth(), solar.getUTCDate());
+		return new Date(startUtc - lonMs);
+	}
+
 	private weatherObservedAtOf(weather: any): string {
 		const raw = weather?.dt ?? weather?.time ?? weather?.current?.time;
 		if (raw == null || raw === '') {
@@ -1496,6 +1565,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 			}
 			const alt = Number(res?.altitudeM);
 			this.weatherAltitude = Number.isFinite(alt) ? alt : null;
+			this.refreshSunTimes();
 			this.store();
 		}));
 	}
@@ -1595,6 +1665,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		this.weatherClim = snap.weatherClim === true;
 		this.weatherTempC = snap.weatherTempC ?? null;
 		this.weatherObservedAt = snap.weatherObservedAt ?? '';
+		this.refreshSunTimes();
 		this.userAddress = snap.userAddress;
 		this.userLabel = snap.userLabel;
 		this.userLogin = snap.userLogin;

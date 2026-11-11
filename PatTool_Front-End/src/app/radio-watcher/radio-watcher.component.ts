@@ -62,11 +62,21 @@ export type RadioSkin =
   | 'carbon'
   | 'candy'
   | 'espace'
+  | 'jazz'
+  | 'sakura'
+  | 'dune'
+  | 'lagoon'
+  | 'ember'
   | 'kanizsa'
   | 'cafewall'
   | 'penrose'
   | 'scintille'
-  | 'barber';
+  | 'barber'
+  | 'ebbinghaus'
+  | 'zollner'
+  | 'necker'
+  | 'ouchi'
+  | 'ehrenstein';
 
 const RADIO_SKINS: readonly RadioSkin[] = [
   'classic',
@@ -82,11 +92,21 @@ const RADIO_SKINS: readonly RadioSkin[] = [
   'carbon',
   'candy',
   'espace',
+  'jazz',
+  'sakura',
+  'dune',
+  'lagoon',
+  'ember',
   'kanizsa',
   'cafewall',
   'penrose',
   'scintille',
-  'barber'
+  'barber',
+  'ebbinghaus',
+  'zollner',
+  'necker',
+  'ouchi',
+  'ehrenstein'
 ];
 
 @Component({
@@ -207,11 +227,21 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostBinding('class.radio-skin--carbon') get skinCarbon(): boolean { return this.radioSkin === 'carbon'; }
   @HostBinding('class.radio-skin--candy') get skinCandy(): boolean { return this.radioSkin === 'candy'; }
   @HostBinding('class.radio-skin--espace') get skinEspace(): boolean { return this.radioSkin === 'espace'; }
+  @HostBinding('class.radio-skin--jazz') get skinJazz(): boolean { return this.radioSkin === 'jazz'; }
+  @HostBinding('class.radio-skin--sakura') get skinSakura(): boolean { return this.radioSkin === 'sakura'; }
+  @HostBinding('class.radio-skin--dune') get skinDune(): boolean { return this.radioSkin === 'dune'; }
+  @HostBinding('class.radio-skin--lagoon') get skinLagoon(): boolean { return this.radioSkin === 'lagoon'; }
+  @HostBinding('class.radio-skin--ember') get skinEmber(): boolean { return this.radioSkin === 'ember'; }
   @HostBinding('class.radio-skin--kanizsa') get skinKanizsa(): boolean { return this.radioSkin === 'kanizsa'; }
   @HostBinding('class.radio-skin--cafewall') get skinCafewall(): boolean { return this.radioSkin === 'cafewall'; }
   @HostBinding('class.radio-skin--penrose') get skinPenrose(): boolean { return this.radioSkin === 'penrose'; }
   @HostBinding('class.radio-skin--scintille') get skinScintille(): boolean { return this.radioSkin === 'scintille'; }
   @HostBinding('class.radio-skin--barber') get skinBarber(): boolean { return this.radioSkin === 'barber'; }
+  @HostBinding('class.radio-skin--ebbinghaus') get skinEbbinghaus(): boolean { return this.radioSkin === 'ebbinghaus'; }
+  @HostBinding('class.radio-skin--zollner') get skinZollner(): boolean { return this.radioSkin === 'zollner'; }
+  @HostBinding('class.radio-skin--necker') get skinNecker(): boolean { return this.radioSkin === 'necker'; }
+  @HostBinding('class.radio-skin--ouchi') get skinOuchi(): boolean { return this.radioSkin === 'ouchi'; }
+  @HostBinding('class.radio-skin--ehrenstein') get skinEhrenstein(): boolean { return this.radioSkin === 'ehrenstein'; }
   /** Radio filling the page: menu and title hidden, not browser fullscreen. */
   @HostBinding('class.radio-focus') focusMode = false;
   /** Browser fullscreen, same idea as the TV stage. */
@@ -1006,7 +1036,12 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     'cafewall',
     'penrose',
     'scintille',
-    'barber'
+    'barber',
+    'ebbinghaus',
+    'zollner',
+    'necker',
+    'ouchi',
+    'ehrenstein'
   ];
 
   readonly illusionSkins = RadioWatcherComponent.ILLUSION_SKINS;

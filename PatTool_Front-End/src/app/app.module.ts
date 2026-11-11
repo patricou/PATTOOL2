@@ -48,7 +48,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
-	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20261011place2');
+	return new TranslateHttpLoader(http, './assets/i18n/', '.json?v=20261111sun');
 }
 
 @NgModule({
@@ -340,6 +340,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 				path: 'tools/univers-futur',
 				loadComponent: () =>
 					import('./univers-futur/univers-futur.component').then(m => m.UniversFuturComponent)
+			},
+			{
+				path: 'tools/espace-temps',
+				loadComponent: () =>
+					import('./espace-temps/espace-temps.component').then(m => m.EspaceTempsComponent)
 			},
 			{
 				path: 'tools/eclipse',

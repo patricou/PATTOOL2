@@ -390,12 +390,14 @@
     color: rgba(255, 255, 255, 0.6);
 }
 
-.sky-submenu-toggle {
+.sky-submenu-toggle,
+.other-submenu-toggle {
     position: relative;
     padding-right: 28px;
 }
 
-.sky-submenu-toggle::after {
+.sky-submenu-toggle::after,
+.other-submenu-toggle::after {
     content: "▶";
     position: absolute;
     right: 8px;
@@ -779,7 +781,8 @@
     }
     
     .dropdown-submenu .dropdown-toggle::after,
-    .dropdown-submenu .sky-submenu-toggle::after {
+    .dropdown-submenu .sky-submenu-toggle::after,
+    .dropdown-submenu .other-submenu-toggle::after {
         display: none;
     }
     
