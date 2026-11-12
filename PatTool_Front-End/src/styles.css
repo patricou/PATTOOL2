@@ -2109,6 +2109,64 @@ input#message {
     max-height: calc(100vh - 1rem);
 }
 
+/* Detail / share: size to the content (the scrollable dialog is otherwise as tall
+   as the screen, which pins a short list to the top). The editor stays full height. */
+body .modal.todolists-modal .modal-dialog:not(.todolists-editor-dialog) {
+    height: auto !important;
+    max-height: calc(100dvh - 1.5rem) !important;
+    min-height: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+body .modal.todolists-modal .modal-dialog:not(.todolists-editor-dialog) .modal-content {
+    max-height: calc(100dvh - 1.5rem) !important;
+    min-height: 0 !important;
+}
+
+/* Phone: keep every to-do modal inside the screen. 100vw is wider than the
+   visual viewport once the scrollbar or the browser chrome is taken into account,
+   and an unconstrained footer row then spills past both edges. */
+@media (max-width: 767.98px) {
+    /* d-block on ngb-modal-window is display:block !important; this wins on specificity. */
+    body ngb-modal-window.todolists-modal {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center;
+        justify-content: safe center;
+        padding-top: 0.65rem !important;
+        padding-bottom: 0.65rem !important;
+    }
+
+    body .modal.todolists-modal {
+        padding-left: max(0.4rem, env(safe-area-inset-left, 0px)) !important;
+        padding-right: max(0.4rem, env(safe-area-inset-right, 0px)) !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
+    body .modal.todolists-modal .modal-dialog,
+    body .modal.todolists-modal .modal-dialog.modal-lg,
+    body .modal.todolists-modal .modal-dialog.modal-xl,
+    body .modal.todolists-modal .modal-dialog.modal-dialog-scrollable,
+    body .modal.todolists-modal .modal-dialog.todolists-editor-dialog {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    body .modal.todolists-modal .modal-content {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+}
+
 /* Assistant — tools help (providers × tools table); wider than default modal-xl. */
 .modal.assistant-tools-help-modal .modal-dialog:not(.modal-fullscreen) {
     max-width: min(1320px, calc(100vw - 1.5rem)) !important;

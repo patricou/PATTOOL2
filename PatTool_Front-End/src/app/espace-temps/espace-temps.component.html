@@ -318,6 +318,194 @@
             </div>
           </ng-container>
 
+          <ng-container *ngIf="view === 'lightclock'">
+            <label class="form-label fw-semibold small mb-1" for="stTrainSpeed">{{ 'ESPACE_TEMPS.TRAIN_SPEED' | translate }}</label>
+            <input
+              id="stTrainSpeed"
+              type="range"
+              class="form-range"
+              min="0"
+              [max]="trainSpeedMax"
+              step="0.01"
+              [ngModel]="trainSpeed"
+              (ngModelChange)="onTrainSpeedChange($event)" />
+            <div class="small text-secondary mb-2">
+              {{ 'ESPACE_TEMPS.PERCENT_OF_C' | translate: { value: (trainSpeed * 100 | number: '1.0-0') } }}
+            </div>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              <button
+                type="button"
+                class="btn btn-sm"
+                *ngFor="let p of trainPresets"
+                [class.btn-info]="trainSpeed === p"
+                [class.btn-outline-secondary]="trainSpeed !== p"
+                (click)="onTrainSpeedChange(p)">
+                {{ p * 100 | number: '1.0-0' }} %
+              </button>
+            </div>
+
+            <div class="st-stats small mb-2">
+              <div>
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.CLOCK_STILL' | translate }}</span>
+                {{ trainTicks.still }} {{ 'ESPACE_TEMPS.TICKS' | translate }}
+              </div>
+              <div>
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.CLOCK_MOVING' | translate }}</span>
+                {{ trainTicks.moving }} {{ 'ESPACE_TEMPS.TICKS' | translate }}
+              </div>
+              <div class="fw-semibold">
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.MOVING_RATE' | translate }}</span>
+                {{ trainRatePercent | number: '1.1-1' }} %
+              </div>
+            </div>
+            <p class="small text-secondary mb-3">
+              {{ 'ESPACE_TEMPS.ABOARD_ONE_YEAR' | translate: { value: (trainStretch | number: '1.2-2') } }}
+            </p>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="restartTrain()">
+              <i class="fa fa-repeat me-1"></i>{{ 'ESPACE_TEMPS.RESTART' | translate }}
+            </button>
+          </ng-container>
+
+          <ng-container *ngIf="view === 'twins'">
+            <label class="form-label fw-semibold small mb-1" for="stTwinSpeed">{{ 'ESPACE_TEMPS.TWIN_SPEED' | translate }}</label>
+            <input
+              id="stTwinSpeed"
+              type="range"
+              class="form-range"
+              min="0"
+              [max]="twinSpeedMax"
+              step="0.01"
+              [ngModel]="twinSpeed"
+              (ngModelChange)="onTwinSpeedChange($event)" />
+            <div class="small text-secondary mb-3">
+              {{ 'ESPACE_TEMPS.PERCENT_OF_C' | translate: { value: (twinSpeed * 100 | number: '1.0-0') } }}
+            </div>
+
+            <div class="st-stats small mb-2">
+              <div>
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.TWIN_DISTANCE' | translate }}</span>
+                {{ twinDistance | number: '1.1-1' }} {{ 'ESPACE_TEMPS.UNIT_LIGHT_YEARS' | translate }}
+              </div>
+              <div>
+                <span class="st-dot st-dot-ground"></span>
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.TWIN_EARTH_AGE' | translate }}</span>
+                {{ twinTime | number: '1.1-1' }}
+              </div>
+              <div>
+                <span class="st-dot st-dot-traveller"></span>
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.TWIN_TRAVELLER_AGE' | translate }}</span>
+                {{ twinTravellerAge | number: '1.1-1' }}
+              </div>
+            </div>
+            <p class="small st-status mb-3">
+              {{ 'ESPACE_TEMPS.TWIN_RESULT' | translate: { earth: twinTripYears, traveller: (twinFinalAge | number: '1.1-1') } }}
+            </p>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="restartTwins()">
+              <i class="fa fa-repeat me-1"></i>{{ 'ESPACE_TEMPS.RESTART' | translate }}
+            </button>
+          </ng-container>
+
+          <ng-container *ngIf="view === 'lift'">
+            <label class="form-label fw-semibold small mb-1" for="stLift">{{ 'ESPACE_TEMPS.LIFT_STRENGTH' | translate }}</label>
+            <input
+              id="stLift"
+              type="range"
+              class="form-range mb-3"
+              min="0"
+              max="1"
+              step="0.01"
+              [ngModel]="liftStrength"
+              (ngModelChange)="onLiftStrengthChange($event)" />
+
+            <div class="form-label fw-semibold small mb-1">{{ 'ESPACE_TEMPS.LIFT_STATE' | translate }}</div>
+            <div class="btn-group w-100 mb-3" role="group">
+              <button
+                type="button"
+                class="btn btn-sm"
+                [class.btn-info]="!liftFree"
+                [class.btn-outline-secondary]="liftFree"
+                (click)="setLiftFree(false)">
+                {{ 'ESPACE_TEMPS.LIFT_HELD' | translate }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm"
+                [class.btn-info]="liftFree"
+                [class.btn-outline-secondary]="!liftFree"
+                (click)="setLiftFree(true)">
+                {{ 'ESPACE_TEMPS.LIFT_FREE' | translate }}
+              </button>
+            </div>
+
+            <div class="form-label fw-semibold small mb-1">{{ 'ESPACE_TEMPS.VIEWPOINT' | translate }}</div>
+            <div class="btn-group w-100 mb-3" role="group">
+              <button
+                type="button"
+                class="btn btn-sm"
+                [class.btn-info]="!liftOutside"
+                [class.btn-outline-secondary]="liftOutside"
+                (click)="setLiftOutside(false)">
+                {{ 'ESPACE_TEMPS.LIFT_INSIDE' | translate }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm"
+                [class.btn-info]="liftOutside"
+                [class.btn-outline-secondary]="!liftOutside"
+                (click)="setLiftOutside(true)">
+                {{ 'ESPACE_TEMPS.LIFT_OUTSIDE' | translate }}
+              </button>
+            </div>
+
+            <div class="st-ray-legend small mb-3">
+              <div><span class="st-dot st-dot-apple"></span>{{ 'ESPACE_TEMPS.LEGEND_BALL' | translate }}</div>
+              <div><span class="st-swatch st-swatch-pass"></span>{{ 'ESPACE_TEMPS.LEGEND_FLASH' | translate }}</div>
+            </div>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="restartLift()">
+              <i class="fa fa-repeat me-1"></i>{{ 'ESPACE_TEMPS.RESTART' | translate }}
+            </button>
+          </ng-container>
+
+          <ng-container *ngIf="view === 'paths'">
+            <label class="form-label fw-semibold small mb-1" for="stPathGap">{{ 'ESPACE_TEMPS.PATH_SEPARATION' | translate }}</label>
+            <input
+              id="stPathGap"
+              type="range"
+              class="form-range"
+              [min]="pathSeparationMin"
+              [max]="pathSeparationMax"
+              step="100"
+              [ngModel]="pathSeparation"
+              (ngModelChange)="onPathSeparationChange($event)" />
+            <div class="small text-secondary mb-3">{{ pathSeparationText }}</div>
+
+            <div class="st-stats small mb-3">
+              <div>
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.PATH_TRAVELLED' | translate }}</span>
+                {{ pathTravelled }}
+              </div>
+              <div>
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.PATH_GAP_FLAT' | translate }}</span>
+                {{ pathSeparationText }}
+              </div>
+              <div class="fw-semibold">
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.PATH_GAP_SPHERE' | translate }}</span>
+                {{ pathGapSphere }}
+              </div>
+              <div>
+                <span class="text-secondary">{{ 'ESPACE_TEMPS.PATH_GAP_APPLES' | translate }}</span>
+                {{ pathApplePercent | number: '1.0-0' }} %
+              </div>
+            </div>
+
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="restartPaths()">
+              <i class="fa fa-repeat me-1"></i>{{ 'ESPACE_TEMPS.RESTART' | translate }}
+            </button>
+          </ng-container>
+
           <ng-template #noValue>–</ng-template>
         </div>
       </div>

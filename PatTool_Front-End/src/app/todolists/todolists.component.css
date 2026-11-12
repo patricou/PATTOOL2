@@ -294,6 +294,10 @@
     display: flex;
     flex-direction: column;
     max-height: 86vh;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .todolists-details-header.modal-header {
@@ -309,8 +313,8 @@
     align-items: stretch;
     padding: 0;
     border-bottom: 0;
-    min-height: 128px;
-    max-height: 200px;
+    min-height: 176px;
+    max-height: 248px;
     color: #fff;
     overflow: hidden;
 }
@@ -318,18 +322,26 @@
 .todolists-details-header .modal-title {
     color: #fff;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .todolists-details-header .modal-title i {
     margin-right: 0;
 }
 
-.todolists-details-header .btn-close {
+.todolists-details-header .btn-close,
+.todolists-editor-header-top .btn-close {
     filter: none;
+    flex-shrink: 0;
 }
 
 .todolists-details-body {
     overflow-y: auto;
+    overflow-x: hidden;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* Legacy: bannière dans le corps (détail) — conservé si réutilisé ailleurs */
@@ -611,6 +623,9 @@
     gap: 0.75rem;
     padding: 0.55rem 0.75rem 0.35rem;
     flex: 0 0 auto;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .todolists-editor-header-tools {
@@ -1036,6 +1051,8 @@
     font-size: 14px;
     line-height: 1.45;
     color: #495057;
+    max-width: 100%;
+    overflow-wrap: anywhere;
 }
 
 .todolists-rich-text p,
@@ -1215,6 +1232,46 @@
     .todolists-share-list-summary {
         flex-direction: column;
         align-items: flex-start;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .todolists-details-modal > .modal-header,
+    .todolists-details-modal > .modal-body,
+    .todolists-details-modal > .modal-footer,
+    .todolists-share-modal > .modal-header,
+    .todolists-share-modal > .modal-body,
+    .todolists-share-modal > .modal-footer,
+    .todolists-editor > .modal-header,
+    .todolists-editor > .modal-body,
+    .todolists-editor > .modal-footer {
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .todolists-details-modal > .modal-footer,
+    .todolists-share-modal > .modal-footer {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 0.4rem;
+    }
+
+    .todolists-details-modal > .modal-footer > .btn,
+    .todolists-share-modal > .modal-footer > .btn {
+        flex: 1 1 calc(50% - 0.4rem);
+        margin: 0 !important;
+        min-width: 0;
+        white-space: normal;
+    }
+
+    .todolists-item,
+    .todolists-item-title,
+    .todolists-item-desc,
+    .todolists-details-desc,
+    .todolists-details-meta {
+        max-width: 100%;
+        min-width: 0;
     }
 }
 

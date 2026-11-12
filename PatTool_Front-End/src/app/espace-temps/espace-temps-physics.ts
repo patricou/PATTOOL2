@@ -159,6 +159,13 @@ export function impactTime(g: number, z0: number): number {
   return g < FLAT_G ? Infinity : Math.acosh(1 + g * z0) / g;
 }
 
+/* ---------- Vues « horloge de lumière » et « jumeaux » : relativité restreinte, c = 1 ---------- */
+
+/** Rythme d'une horloge qui se déplace à la vitesse v (fraction de c), vu par celui qui la regarde passer. */
+export function movingClockRate(v: number): number {
+  return Math.sqrt(Math.max(0, 1 - v * v));
+}
+
 /* ---------- Vue « horloges » : unités SI ---------- */
 
 export const LIGHT_SPEED_M_S = 299_792_458;

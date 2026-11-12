@@ -34,6 +34,7 @@ import {
   groundFrameToFreeFall,
   impactTime,
   lightDeflection,
+  movingClockRate,
   orbitalSpeed,
   schwarzschildRadius,
   stepOrbit
@@ -61,8 +62,20 @@ import {
   lightAbsorbRadius,
   lightEffectiveRs
 } from './espace-temps-light';
+import { LIGHT_CLOCK_SPEED_MAX, drawLightClockView, lightClockTicks } from './espace-temps-lightclock';
+import { TWIN_SPEED_MAX, TWIN_TRIP_YEARS, drawTwinsView, travellerAge } from './espace-temps-twins';
+import { drawLiftView } from './espace-temps-lift';
+import {
+  PATH_QUARTER_KM,
+  PATH_SEPARATION_MAX_KM,
+  PATH_SEPARATION_MIN_KM,
+  appleGapFraction,
+  drawPathsView,
+  formatKm,
+  sphereGap
+} from './espace-temps-paths';
 
-export type SpacetimeView = 'grid' | 'apple' | 'clocks' | 'light';
+export type SpacetimeView = 'grid' | 'apple' | 'clocks' | 'light' | 'lightclock' | 'twins' | 'lift' | 'paths';
 type PlanetStatus = 'orbit' | 'impact' | 'escaped';
 
 /** Valeurs de la vue « horloges », déjà mises en forme pour l'affichage. */
@@ -103,6 +116,30 @@ const VIEW_TEXT: Record<SpacetimeView, { ideaTitle: string; ideaBody: string; hi
     ideaBody: 'ESPACE_TEMPS.IDEA_LIGHT_BODY',
     hint: 'ESPACE_TEMPS.HINT_LIGHT',
     limit: 'ESPACE_TEMPS.LIMIT_LIGHT'
+  },
+  lightclock: {
+    ideaTitle: 'ESPACE_TEMPS.IDEA_LIGHTCLOCK_TITLE',
+    ideaBody: 'ESPACE_TEMPS.IDEA_LIGHTCLOCK_BODY',
+    hint: 'ESPACE_TEMPS.HINT_LIGHTCLOCK',
+    limit: 'ESPACE_TEMPS.LIMIT_LIGHTCLOCK'
+  },
+  twins: {
+    ideaTitle: 'ESPACE_TEMPS.IDEA_TWINS_TITLE',
+    ideaBody: 'ESPACE_TEMPS.IDEA_TWINS_BODY',
+    hint: 'ESPACE_TEMPS.HINT_TWINS',
+    limit: 'ESPACE_TEMPS.LIMIT_TWINS'
+  },
+  lift: {
+    ideaTitle: 'ESPACE_TEMPS.IDEA_LIFT_TITLE',
+    ideaBody: 'ESPACE_TEMPS.IDEA_LIFT_BODY',
+    hint: 'ESPACE_TEMPS.HINT_LIFT_HELD_INSIDE',
+    limit: 'ESPACE_TEMPS.LIMIT_LIFT'
+  },
+  paths: {
+    ideaTitle: 'ESPACE_TEMPS.IDEA_PATHS_TITLE',
+    ideaBody: 'ESPACE_TEMPS.IDEA_PATHS_BODY',
+    hint: 'ESPACE_TEMPS.HINT_PATHS',
+    limit: 'ESPACE_TEMPS.LIMIT_PATHS'
   }
 };
 
@@ -151,6 +188,15 @@ const VIEWPOINT_TWEEN_S = 1.2;
 const CLOCK_DAYS_PER_S = 1;
 /* Vue « lumière » : unités de temps lointain par seconde réelle. */
 const LIGHT_ANIM_RATE = 22;
+/* Vue « horloge de lumière » : temps du quai par seconde réelle (un tic de l'horloge immobile dure 2). */
+const LIGHT_CLOCK_RATE = 1.3;
+/* Vue « jumeaux » : années terrestres par seconde réelle. */
+const TWIN_RATE = 1.25;
+/* Vues « ascenseur » et « chemins droits » : durée d'un cycle (s). */
+const LIFT_CYCLE_S = 2.6;
+const PATHS_CYCLE_S = 6;
+/** Pause en fin de cycle avant de repartir de zéro. */
+const LOOP_HOLD_MS = 1600;
 
 const READOUT_INTERVAL_MS = 160;
 
@@ -175,8 +221,19 @@ export class EspaceTempsComponent implements AfterViewInit, OnDestroy {
     { id: 'grid', icon: 'fa-th', labelKey: 'ESPACE_TEMPS.VIEW_GRID' },
     { id: 'apple', icon: 'fa-apple', labelKey: 'ESPACE_TEMPS.VIEW_APPLE' },
     { id: 'clocks', icon: 'fa-clock-o', labelKey: 'ESPACE_TEMPS.VIEW_CLOCKS' },
-    { id: 'light', icon: 'fa-lightbulb-o', labelKey: 'ESPACE_TEMPS.VIEW_LIGHT' }
+    { id: 'light', icon: 'fa-lightbulb-o', labelKey: 'ESPACE_TEMPS.VIEW_LIGHT' },
+    { id: 'lightclock', icon: 'fa-train', labelKey: 'ESPACE_TEMPS.VIEW_LIGHTCLOCK' },
+    { id: 'twins', icon: 'fa-users', labelKey: 'ESPACE_TEMPS.VIEW_TWINS' },
+    { id: 'lift', icon: 'fa-rocket', labelKey: 'ESPACE_TEMPS.VIEW_LIFT' },
+    { id: 'paths', icon: 'fa-globe', labelKey: 'ESPACE_TEMPS.VIEW_PATHS' }
   ];
+  readonly trainSpeedMax = LIGHT_CLOCK_SPEED_MAX;
+  /** Vitesses proposées en un clic ; à 87 % de c, l'horloge bat deux fois moins vite. */
+  readonly trainPresets: ReadonlyArray<number> = [0, 0.5, 0.87, LIGHT_CLOCK_SPEED_MAX];
+  readonly twinSpeedMax = TWIN_SPEED_MAX;
+  readonly twinTripYears = TWIN_TRIP_YEARS;
+  readonly pathSeparationMin = PATH_SEPARATION_MIN_KM;
+  readonly pathSeparationMax = PATH_SEPARATION_MAX_KM;
   readonly rsMax = RS_MAX;
   readonly launchSpeedMax = 0.45;
   readonly gravityMax = 1.5;
@@ -218,6 +275,26 @@ export class EspaceTempsComponent implements AfterViewInit, OnDestroy {
   lightAim = 14;
   lightDeflectionResult: LightDeflection = lightDeflection(14, 3, lightAbsorbRadius(3));
 
+  /** Vitesse de l'horloge de lumière en mouvement, en fraction de c. */
+  trainSpeed = 0.6;
+  /** Temps écoulé sur le quai (un tic de l'horloge immobile dure 2). */
+  trainTime = 0;
+
+  /** Vitesse du jumeau voyageur, en fraction de c. */
+  twinSpeed = 0.8;
+  /** Temps écoulé sur Terre depuis le départ (années). */
+  twinTime = 0;
+
+  /** Pesanteur de la planète = accélération de la fusée, de 0 à 1. */
+  liftStrength = 0.8;
+  liftFree = false;
+  liftOutside = false;
+
+  /** Écart de départ entre les deux marcheurs (km). */
+  pathSeparation = 1500;
+  /** Avancement des marcheurs, de 0 (équateur) à 1 (pôle). */
+  pathProgress = 0;
+
   private renderer?: THREE.WebGLRenderer;
   private scene?: THREE.Scene;
   private camera?: THREE.PerspectiveCamera;
@@ -242,6 +319,10 @@ export class EspaceTempsComponent implements AfterViewInit, OnDestroy {
   private satAngle = -Math.PI / 2;
   private lightTime = 0;
   private readonly lightRays = new LightRayCache();
+  private liftProgress = 0;
+  private liftTime = 0;
+  /** Fin de la pause en cours pour les animations en boucle (jumeaux, ascenseur, chemins) ; 0 hors pause. */
+  private loopHoldUntil = 0;
 
   /** Une des vues 2D doit être redessinée. */
   private flatDirty = true;
@@ -430,9 +511,55 @@ export class EspaceTempsComponent implements AfterViewInit, OnDestroy {
     return VIEW_TEXT[this.view].ideaBody;
   }
 
+  get trainTicks(): { still: number; moving: number } {
+    return lightClockTicks(this.trainTime, this.trainSpeed);
+  }
+
+  get trainRatePercent(): number {
+    return movingClockRate(this.trainSpeed) * 100;
+  }
+
+  /** Temps écoulé sur le quai pendant une unité de temps à bord. */
+  get trainStretch(): number {
+    return 1 / movingClockRate(this.trainSpeed);
+  }
+
+  /** Distance du demi-tour (années-lumière). */
+  get twinDistance(): number {
+    return (this.twinSpeed * TWIN_TRIP_YEARS) / 2;
+  }
+
+  get twinTravellerAge(): number {
+    return travellerAge(this.twinSpeed, this.twinTime);
+  }
+
+  get twinFinalAge(): number {
+    return travellerAge(this.twinSpeed, TWIN_TRIP_YEARS);
+  }
+
+  get pathSeparationText(): string {
+    return formatKm(this.pathSeparation);
+  }
+
+  get pathTravelled(): string {
+    return formatKm(this.pathProgress * PATH_QUARTER_KM);
+  }
+
+  get pathGapSphere(): string {
+    return formatKm(sphereGap(this.pathSeparation, this.pathProgress));
+  }
+
+  get pathApplePercent(): number {
+    return appleGapFraction(this.pathProgress) * 100;
+  }
+
   get hintKey(): string {
     if (this.view === 'apple' && this.fromApple) {
       return 'ESPACE_TEMPS.HINT_APPLE_FREEFALL';
+    }
+    if (this.view === 'lift') {
+      const state = this.liftFree ? 'FREE' : 'HELD';
+      return `ESPACE_TEMPS.HINT_LIFT_${state}_${this.liftOutside ? 'OUTSIDE' : 'INSIDE'}`;
     }
     return VIEW_TEXT[this.view].hint;
   }
@@ -445,6 +572,7 @@ export class EspaceTempsComponent implements AfterViewInit, OnDestroy {
 
   setView(v: SpacetimeView): void {
     this.view = v;
+    this.loopHoldUntil = 0;
     this.flatDirty = true;
     requestAnimationFrame(() => this.resize());
   }
@@ -587,6 +715,76 @@ export class EspaceTempsComponent implements AfterViewInit, OnDestroy {
     this.flatDirty = true;
   }
 
+  onTrainSpeedChange(raw: number | string): void {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) {
+      return;
+    }
+    this.trainSpeed = Math.max(0, Math.min(LIGHT_CLOCK_SPEED_MAX, n));
+    /* Les tics déjà comptés l'ont été à l'ancienne vitesse : on repart de zéro. */
+    this.restartTrain();
+  }
+
+  restartTrain(): void {
+    this.trainTime = 0;
+    this.flatDirty = true;
+  }
+
+  onTwinSpeedChange(raw: number | string): void {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) {
+      return;
+    }
+    this.twinSpeed = Math.max(0, Math.min(TWIN_SPEED_MAX, n));
+    this.flatDirty = true;
+  }
+
+  restartTwins(): void {
+    this.twinTime = 0;
+    this.loopHoldUntil = 0;
+    this.flatDirty = true;
+  }
+
+  onLiftStrengthChange(raw: number | string): void {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) {
+      return;
+    }
+    this.liftStrength = Math.max(0, Math.min(1, n));
+    this.flatDirty = true;
+  }
+
+  setLiftFree(free: boolean): void {
+    this.liftFree = free;
+    this.restartLift();
+  }
+
+  setLiftOutside(outside: boolean): void {
+    this.liftOutside = outside;
+    this.restartLift();
+  }
+
+  restartLift(): void {
+    this.liftProgress = 0;
+    this.loopHoldUntil = 0;
+    this.flatDirty = true;
+  }
+
+  onPathSeparationChange(raw: number | string): void {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) {
+      return;
+    }
+    this.pathSeparation = Math.max(PATH_SEPARATION_MIN_KM, Math.min(PATH_SEPARATION_MAX_KM, n));
+    this.flatDirty = true;
+  }
+
+  restartPaths(): void {
+    this.pathProgress = 0;
+    this.loopHoldUntil = 0;
+    this.flatDirty = true;
+  }
+
   @HostListener('document:fullscreenchange')
   @HostListener('document:webkitfullscreenchange')
   onFullscreenChange(): void {
@@ -630,13 +828,7 @@ export class EspaceTempsComponent implements AfterViewInit, OnDestroy {
       this.stepGrid(dt, ts);
       this.renderGrid();
     } else {
-      if (this.view === 'apple') {
-        this.stepApple(dt, ts);
-      } else if (this.view === 'clocks') {
-        this.stepClocks(dt);
-      } else {
-        this.stepLight(dt);
-      }
+      this.stepFlat(dt, ts);
       if (this.flatDirty) {
         this.flatDirty = false;
         this.drawFlat();
@@ -1074,9 +1266,158 @@ export class EspaceTempsComponent implements AfterViewInit, OnDestroy {
           this.lightRays
         );
         break;
+      case 'lightclock':
+        drawLightClockView(
+          ctx,
+          w,
+          h,
+          { speed: this.trainSpeed, time: this.trainTime },
+          {
+            still: tr('ESPACE_TEMPS.CLOCK_STILL'),
+            moving: tr('ESPACE_TEMPS.CLOCK_MOVING'),
+            ticks: tr('ESPACE_TEMPS.TICKS'),
+            dialSpace: tr('ESPACE_TEMPS.DIAL_SPACE'),
+            dialTime: tr('ESPACE_TEMPS.DIAL_TIME')
+          }
+        );
+        break;
+      case 'twins':
+        drawTwinsView(
+          ctx,
+          w,
+          h,
+          { speed: this.twinSpeed, time: this.twinTime },
+          {
+            earth: tr('ESPACE_TEMPS.LBL_TWIN_EARTH'),
+            traveller: tr('ESPACE_TEMPS.LBL_TWIN_TRAVELLER'),
+            light: tr('ESPACE_TEMPS.LBL_LIGHT'),
+            turnaround: tr('ESPACE_TEMPS.LBL_TURNAROUND'),
+            axisTime: tr('ESPACE_TEMPS.AXIS_EARTH_TIME'),
+            axisDistance: tr('ESPACE_TEMPS.AXIS_DISTANCE')
+          }
+        );
+        break;
+      case 'lift':
+        drawLiftView(
+          ctx,
+          w,
+          h,
+          {
+            strength: this.liftStrength,
+            free: this.liftFree,
+            outside: this.liftOutside,
+            progress: this.liftProgress,
+            time: this.liftTime
+          },
+          {
+            planet: tr('ESPACE_TEMPS.LBL_PLANET_CABIN'),
+            rocket: tr('ESPACE_TEMPS.LBL_ROCKET_CABIN'),
+            onGround: tr('ESPACE_TEMPS.LBL_ON_GROUND'),
+            falling: tr('ESPACE_TEMPS.LBL_FALLING'),
+            engineOn: tr('ESPACE_TEMPS.LBL_ENGINE_ON'),
+            engineOff: tr('ESPACE_TEMPS.LBL_ENGINE_OFF')
+          }
+        );
+        break;
+      case 'paths':
+        drawPathsView(
+          ctx,
+          w,
+          h,
+          { separation: this.pathSeparation, progress: this.pathProgress },
+          {
+            flat: tr('ESPACE_TEMPS.LBL_FLAT'),
+            sphere: tr('ESPACE_TEMPS.LBL_SPHERE'),
+            apples: tr('ESPACE_TEMPS.LBL_APPLES'),
+            gap: tr('ESPACE_TEMPS.LBL_GAP'),
+            gapPercent: tr('ESPACE_TEMPS.LBL_GAP_PERCENT'),
+            earthCentre: tr('ESPACE_TEMPS.LBL_EARTH_CENTRE')
+          }
+        );
+        break;
       default:
         break;
     }
+  }
+
+  private stepFlat(dt: number, ts: number): void {
+    switch (this.view) {
+      case 'apple':
+        this.stepApple(dt, ts);
+        break;
+      case 'clocks':
+        this.stepClocks(dt);
+        break;
+      case 'light':
+        this.stepLight(dt);
+        break;
+      case 'lightclock':
+        this.stepTrain(dt);
+        break;
+      case 'twins':
+        this.stepTwins(dt, ts);
+        break;
+      case 'lift':
+        this.stepLift(dt, ts);
+        break;
+      case 'paths':
+        this.stepPaths(dt, ts);
+        break;
+      default:
+        break;
+    }
+  }
+
+  /** Fait avancer une animation en boucle : arrivée à `end`, elle marque une pause puis repart de zéro. */
+  private advanceLoop(value: number, end: number, step: number, ts: number): number {
+    if (value < end) {
+      return Math.min(end, value + step);
+    }
+    if (!this.loopHoldUntil) {
+      this.loopHoldUntil = ts + LOOP_HOLD_MS;
+      return value;
+    }
+    if (ts < this.loopHoldUntil) {
+      return value;
+    }
+    this.loopHoldUntil = 0;
+    return 0;
+  }
+
+  private stepTrain(dt: number): void {
+    if (!this.playing) {
+      return;
+    }
+    this.trainTime += dt * LIGHT_CLOCK_RATE;
+    this.flatDirty = true;
+    this.readoutDirty = true;
+  }
+
+  private stepTwins(dt: number, ts: number): void {
+    if (!this.playing) {
+      return;
+    }
+    this.twinTime = this.advanceLoop(this.twinTime, TWIN_TRIP_YEARS, dt * TWIN_RATE, ts);
+    this.flatDirty = true;
+    this.readoutDirty = true;
+  }
+
+  private stepLift(dt: number, ts: number): void {
+    if (!this.playing) {
+      return;
+    }
+    this.liftTime += dt;
+    this.liftProgress = this.advanceLoop(this.liftProgress, 1, dt / LIFT_CYCLE_S, ts);
+    this.flatDirty = true;
+  }
+
+  private stepPaths(dt: number, ts: number): void {
+    if (!this.playing) {
+      return;
+    }
+    this.pathProgress = this.advanceLoop(this.pathProgress, 1, dt / PATHS_CYCLE_S, ts);
+    this.flatDirty = true;
+    this.readoutDirty = true;
   }
 
   private stepClocks(dt: number): void {

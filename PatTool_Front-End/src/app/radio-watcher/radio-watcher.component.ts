@@ -1212,6 +1212,93 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  /** Left/right walk the station list on screen, across pages. One press, one station. */
+  @HostListener('document:keydown', ['$event'])
+  onListArrow(event: KeyboardEvent): void {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+      return;
+    }
+    if (this.listArrowBlocked(event) || this.listMode === 'podcasts' || !this.unpagedDisplayedStations.length) {
+      return;
+    }
+    event.preventDefault();
+    if (event.repeat) {
+      return;
+    }
+    this.stepStation(event.key === 'ArrowRight' ? 1 : -1);
+  }
+
+  private listArrowBlocked(event: KeyboardEvent): boolean {
+    if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return true;
+    }
+    if (this.arrowFromField(event) || this.eqModal?.isOpen || document.querySelector('ngb-modal-window')) {
+      return true;
+    }
+    return this.skinMenuOpen || this.shareMenuOpen || this.globalFilterOpen;
+  }
+
+  private arrowFromField(event: KeyboardEvent): boolean {
+    for (const node of event.composedPath()) {
+      if (!(node instanceof HTMLElement)) {
+        continue;
+      }
+      const tag = node.tagName;
+      const role = node.getAttribute('role');
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || node.isContentEditable || role === 'slider' || role === 'textbox') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private stepStation(direction: 1 | -1): void {
+    const list = this.unpagedDisplayedStations;
+    if (!list.length) {
+      return;
+    }
+    const key = this.stationListKey(this.selectedStation);
+    const index = key ? list.findIndex((station) => this.stationListKey(station) === key) : -1;
+    let next = index < 0
+      ? (direction > 0 ? 0 : list.length - 1)
+      : index + direction;
+    if (direction > 0 && next >= list.length) {
+      next = 0;
+    }
+    if (direction < 0 && next < 0) {
+      next = list.length - 1;
+    }
+    if (next === index) {
+      return;
+    }
+    const size = Math.max(1, this.listPageSize);
+    const page = Math.floor(next / size) + 1;
+    if (this.listMode === 'favorites') {
+      this.favoritesPage = page;
+    } else {
+      this.catalogPage = page;
+    }
+    this.selectStation(list[next]);
+    this.scrollActiveListRow('.radio-channel-list .radio-channel-item.active');
+  }
+
+  private stationListKey(station: RadioStation | null | undefined): string {
+    if (!station) {
+      return '';
+    }
+    return (station.id || '').trim() || (station.streamUrl || '').trim();
+  }
+
+  private scrollActiveListRow(selector: string): void {
+    setTimeout(() => {
+      if (!this.pageAlive) {
+        return;
+      }
+      const row = this.hostRef.nativeElement.querySelector(selector) as HTMLElement | null;
+      row?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+  }
+
   @HostListener('document:keydown.escape')
   onEscapeKey(): void {
     if (this.landscapeFullscreen) {

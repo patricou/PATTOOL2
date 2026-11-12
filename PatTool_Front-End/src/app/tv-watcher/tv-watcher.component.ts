@@ -492,6 +492,8 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   private downloadTimers: ReturnType<typeof setTimeout>[] = [];
   private recordCaptureStream: MediaStream | null = null;
   private pageAlive = true;
+  /** After a left/right key crosses a server page, play the first or last row of the page that arrives. */
+  private keyboardChannelPick: { edge: 'first' | 'last'; mode: TvListMode } | null = null;
   /** Deep-link channel id waiting for catalog load. */
   private pendingShareChannelId = '';
   private playGeneration = 0;
@@ -1307,6 +1309,243 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.exitFocusMode();
   }
 
+  /** Left/right walk the channel list on screen, across pages. One press, one channel. */
+  @HostListener('document:keydown', ['$event'])
+  onListArrow(event: KeyboardEvent): void {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+      return;
+    }
+    if (this.listArrowBlocked(event) || this.listMode === 'recordings' || !this.channelListForKeys().length) {
+      return;
+    }
+    event.preventDefault();
+    if (event.repeat) {
+      return;
+    }
+    this.stepChannel(event.key === 'ArrowRight' ? 1 : -1);
+  }
+
+  private listArrowBlocked(event: KeyboardEvent): boolean {
+    if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return true;
+    }
+    if (this.arrowFromField(event) || this.eqModal?.isOpen || document.querySelector('ngb-modal-window')) {
+      return true;
+    }
+    return this.skinMenuOpen
+      || this.shareMenuOpen
+      || this.shareRecordingOpen
+      || this.globalFilterOpen
+      || this.epgBrowserOpen
+      || this.guideOpen;
+  }
+
+  private arrowFromField(event: KeyboardEvent): boolean {
+    for (const node of event.composedPath()) {
+      if (!(node instanceof HTMLElement)) {
+        continue;
+      }
+      const tag = node.tagName;
+      const role = node.getAttribute('role');
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || node.isContentEditable || role === 'slider' || role === 'textbox') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Worldwide, ARTE and Archive.org keep one server page in memory. The other lists are filtered locally. */
+  private channelListIsServerPaged(): boolean {
+    return this.listMode === 'arte'
+      || this.listMode === 'ia'
+      || (this.listMode === 'catalog' && this.isAllCountries);
+  }
+
+  private channelListForKeys(): TvChannel[] {
+    if (this.listMode === 'recordings') {
+      return [];
+    }
+    return this.channelListIsServerPaged() ? this.displayedChannels : this.unpagedDisplayedChannels;
+  }
+
+  private stepChannel(direction: 1 | -1): void {
+    const list = this.channelListForKeys();
+    if (!list.length) {
+      return;
+    }
+    const id = (this.selectedChannel?.id || '').trim();
+    const index = id ? list.findIndex((channel) => channel.id === id) : -1;
+    if (index < 0) {
+      const edge = direction > 0 ? 0 : list.length - 1;
+      this.focusChannelInList(list[edge], this.channelListIsServerPaged() ? -1 : edge);
+      return;
+    }
+    const next = index + direction;
+    if (next >= 0 && next < list.length) {
+      this.focusChannelInList(list[next], this.channelListIsServerPaged() ? -1 : next);
+      return;
+    }
+    if (direction > 0) {
+      if (this.shiftServerChannelPage(1)) {
+        return;
+      }
+      // Still on a later page, or that page is loading: don't restart the current page.
+      if (this.channelListIsServerPaged() && (this.serverChannelPage() > 1 || this.serverChannelPageLoading())) {
+        return;
+      }
+      const first = list[0];
+      if (first && first.id !== id) {
+        this.focusChannelInList(first, this.channelListIsServerPaged() ? -1 : 0);
+      }
+      return;
+    }
+    if (this.shiftServerChannelPage(-1)) {
+      return;
+    }
+    if (this.channelListIsServerPaged() && (this.serverChannelPage() < this.serverChannelPages() || this.serverChannelPageLoading())) {
+      return;
+    }
+    const lastIndex = list.length - 1;
+    const last = list[lastIndex];
+    if (last && last.id !== id) {
+      this.focusChannelInList(last, this.channelListIsServerPaged() ? -1 : lastIndex);
+    }
+  }
+
+  private focusChannelInList(channel: TvChannel, unpagedIndex: number): void {
+    if (unpagedIndex >= 0) {
+      const page = Math.floor(unpagedIndex / Math.max(1, this.listPageSize)) + 1;
+      if (this.listMode === 'favorites') {
+        this.favoritesPage = page;
+      } else if (this.listMode === 'catalog') {
+        this.catalogPage = page;
+      }
+    }
+    if (this.selectedChannel?.id !== channel.id) {
+      this.selectChannel(channel);
+    }
+    this.scrollActiveListRow('.tv-channel-list .tv-channel-item.active');
+  }
+
+  private shiftServerChannelPage(direction: 1 | -1): boolean {
+    const edge = direction > 0 ? 'first' : 'last';
+    if (this.listMode === 'arte') {
+      if (this.isLoadingArte) {
+        return false;
+      }
+      if (direction > 0 && this.artePage < this.artePages) {
+        this.artePage += 1;
+      } else if (direction > 0 && this.artePage > 1) {
+        this.artePage = 1;
+      } else if (direction < 0 && this.artePage > 1) {
+        this.artePage -= 1;
+      } else if (direction < 0 && this.artePages > 1) {
+        this.artePage = this.artePages;
+      } else {
+        return false;
+      }
+      this.keyboardChannelPick = { edge, mode: 'arte' };
+      this.loadArtePrograms(true);
+      return true;
+    }
+    if (this.listMode === 'ia') {
+      if (this.isLoadingIa) {
+        return false;
+      }
+      if (direction > 0 && this.iaPage < this.iaPages) {
+        this.iaPage += 1;
+      } else if (direction > 0 && this.iaPage > 1) {
+        this.iaPage = 1;
+      } else if (direction < 0 && this.iaPage > 1) {
+        this.iaPage -= 1;
+      } else if (direction < 0 && this.iaPages > 1) {
+        this.iaPage = this.iaPages;
+      } else {
+        return false;
+      }
+      this.keyboardChannelPick = { edge, mode: 'ia' };
+      this.loadIaPrograms(true);
+      return true;
+    }
+    if (this.listMode === 'catalog' && this.isAllCountries) {
+      if (this.isLoadingChannels) {
+        return false;
+      }
+      if (direction > 0 && this.catalogPage < this.effectiveCatalogPages) {
+        this.catalogPage += 1;
+      } else if (direction > 0 && this.catalogPage > 1) {
+        this.catalogPage = 1;
+      } else if (direction < 0 && this.catalogPage > 1) {
+        this.catalogPage -= 1;
+      } else if (direction < 0 && this.effectiveCatalogPages > 1) {
+        this.catalogPage = this.effectiveCatalogPages;
+      } else {
+        return false;
+      }
+      this.keyboardChannelPick = { edge, mode: 'catalog' };
+      this.loadChannels(true);
+      return true;
+    }
+    return false;
+  }
+
+  private serverChannelPage(): number {
+    if (this.listMode === 'arte') {
+      return this.artePage;
+    }
+    if (this.listMode === 'ia') {
+      return this.iaPage;
+    }
+    return this.catalogPage;
+  }
+
+  private serverChannelPages(): number {
+    if (this.listMode === 'arte') {
+      return this.artePages;
+    }
+    if (this.listMode === 'ia') {
+      return this.iaPages;
+    }
+    return this.effectiveCatalogPages;
+  }
+
+  private serverChannelPageLoading(): boolean {
+    if (this.listMode === 'arte') {
+      return this.isLoadingArte;
+    }
+    if (this.listMode === 'ia') {
+      return this.isLoadingIa;
+    }
+    return this.isLoadingChannels;
+  }
+
+  private applyKeyboardChannelPick(): void {
+    const pick = this.keyboardChannelPick;
+    if (!pick || !this.pageAlive) {
+      return;
+    }
+    this.keyboardChannelPick = null;
+    if (pick.mode !== this.listMode) {
+      return;
+    }
+    const list = this.displayedChannels;
+    const channel = pick.edge === 'first' ? list[0] : list[list.length - 1];
+    if (!channel) {
+      return;
+    }
+    this.focusChannelInList(channel, -1);
+  }
+
+  private scrollActiveListRow(selector: string): void {
+    setTimeout(() => {
+      if (!this.pageAlive) {
+        return;
+      }
+      const row = this.hostRef.nativeElement.querySelector(selector) as HTMLElement | null;
+      row?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+  }
+
   private syncLandscapeFullscreen(): void {
     if (!this.isLandscapeOrientation()) {
       this.landscapeFsUserDismissed = false;
@@ -1713,6 +1952,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   setListMode(mode: TvListMode): void {
+    this.keyboardChannelPick = null;
     this.listMode = mode;
     this.channelsError = '';
     this.favoritesHint = '';
@@ -3535,7 +3775,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     }
   }
 
-  private loadChannels(): void {
+  private loadChannels(keepKeyboardPick = false): void {
+    if (!keepKeyboardPick) {
+      this.keyboardChannelPick = null;
+    }
     this.isLoadingChannels = true;
     this.channelsError = '';
     this.worldwideSearchHint = false;
@@ -3550,6 +3793,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     if (country.toLowerCase() === 'all') {
       if (programQ.length >= 2 && channelQ.length < 2 && !group) {
         // Channel list is filled by runProgramSearch → applyWorldwideProgramHits.
+        this.keyboardChannelPick = null;
         this.isLoadingChannels = this.isLoadingProgramSearch;
         this.cdr.markForCheck();
         return;
@@ -3572,10 +3816,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           }
           this.isLoadingChannels = false;
           this.applyPendingShareChannel();
+          this.applyKeyboardChannelPick();
           this.refreshEpg();
           this.cdr.markForCheck();
         },
         error: () => {
+          this.keyboardChannelPick = null;
           this.channels = [];
           this.searchMatchTotal = null;
           this.searchListTruncated = false;
@@ -3608,10 +3854,12 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         }
         this.isLoadingChannels = false;
         this.applyPendingShareChannel();
+        this.applyKeyboardChannelPick();
         this.refreshEpg();
         this.cdr.markForCheck();
       },
       error: () => {
+        this.keyboardChannelPick = null;
         this.channels = [];
         this.searchMatchTotal = null;
         this.catalogPages = 1;
@@ -4040,7 +4288,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     });
   }
 
-  private loadArtePrograms(): void {
+  private loadArtePrograms(keepKeyboardPick = false): void {
+    if (!keepKeyboardPick) {
+      this.keyboardChannelPick = null;
+    }
     this.isLoadingArte = true;
     this.arteError = '';
     const q = this.replaySearchQuery();
@@ -4064,9 +4315,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           return this.arteProgramToChannel(p);
         });
         this.isLoadingArte = false;
+        this.applyKeyboardChannelPick();
         this.cdr.markForCheck();
       },
       error: () => {
+        this.keyboardChannelPick = null;
         this.channels = [];
         this.arteTotal = 0;
         this.artePages = 1;
@@ -4136,7 +4389,10 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     });
   }
 
-  private loadIaPrograms(): void {
+  private loadIaPrograms(keepKeyboardPick = false): void {
+    if (!keepKeyboardPick) {
+      this.keyboardChannelPick = null;
+    }
     this.isLoadingIa = true;
     this.iaError = '';
     const q = this.replaySearchQuery();
@@ -4160,9 +4416,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
           return this.iaProgramToChannel(p);
         });
         this.isLoadingIa = false;
+        this.applyKeyboardChannelPick();
         this.cdr.markForCheck();
       },
       error: () => {
+        this.keyboardChannelPick = null;
         this.channels = [];
         this.iaTotal = 0;
         this.iaPages = 1;

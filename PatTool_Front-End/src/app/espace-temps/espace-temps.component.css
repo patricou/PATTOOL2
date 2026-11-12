@@ -118,6 +118,10 @@
   background: #ffffff;
 }
 
+.st-dot-traveller {
+  background: #7ef0ff;
+}
+
 .st-stats .st-dot + .text-secondary {
   min-width: 11.5rem;
 }

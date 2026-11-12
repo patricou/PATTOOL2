@@ -1,9 +1,9 @@
-import { AfterViewInit, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { Subscription, forkJoin, from, of } from 'rxjs';
-import { catchError, map, switchMap, take } from 'rxjs/operators';
+import { MonoTypeOperatorFunction, Subscription, forkJoin, from, of } from 'rxjs';
+import { catchError, map, switchMap, take, tap } from 'rxjs/operators';
 
 import { Body, Observer, SearchRiseSet } from 'astronomy-engine';
 
@@ -230,8 +230,18 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		private cache: HomeDashboardCacheService,
 		private zone: NgZone,
 		private userInfoModal: UserInfoModalService,
-		private hostEl: ElementRef<HTMLElement>
+		private hostEl: ElementRef<HTMLElement>,
+		private cdr: ChangeDetectorRef
 	) { }
+
+	/**
+	 * Asks Angular to re-check the view with each async result, so the page does not depend on
+	 * zone.js to notice a late update. Without either one, the next dev-mode verification throws NG0100.
+	 */
+	private checked<T>(): MonoTypeOperatorFunction<T> {
+		const mark = () => this.cdr.markForCheck();
+		return tap({ next: mark, error: mark });
+	}
 
 	get weatherCoordsLabel(): string {
 		if (this.weatherLat == null || this.weatherLon == null) {
@@ -272,10 +282,10 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 	}
 
 	ngOnInit(): void {
-		this.subs.add(this.radio.state$.subscribe(() => this.applyPlayback()));
-		this.subs.add(this.youtube.state$.subscribe(() => this.applyPlayback()));
-		this.subs.add(this.tv.state$.subscribe(() => this.applyPlayback()));
-		this.subs.add(this.translate.onLangChange.subscribe(() => {
+		this.subs.add(this.radio.state$.pipe(this.checked()).subscribe(() => this.applyPlayback()));
+		this.subs.add(this.youtube.state$.pipe(this.checked()).subscribe(() => this.applyPlayback()));
+		this.subs.add(this.tv.state$.pipe(this.checked()).subscribe(() => this.applyPlayback()));
+		this.subs.add(this.translate.onLangChange.pipe(this.checked()).subscribe(() => {
 			this.writeNowLabel();
 			this.refresh(false);
 		}));
@@ -412,13 +422,14 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		const next = readMediaSkin();
 		if (next && next !== this.radioSkin) {
 			this.radioSkin = next;
+			this.cdr.markForCheck();
 		}
 	};
 
 	private restoreSkin(): void {
 		const local = readMediaSkin();
 		this.radioSkin = local ?? 'classic';
-		this.skinLoadSub = this.api.getRadioSkin().pipe(catchError(() => of(null))).subscribe((remote) => {
+		this.skinLoadSub = this.api.getRadioSkin().pipe(catchError(() => of(null)), this.checked()).subscribe((remote) => {
 			if (this.skinChosen) {
 				return;
 			}
@@ -526,7 +537,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		if (local) {
 			this.clockFace = local;
 		}
-		this.subs.add(this.api.getClockPreferences().pipe(take(1)).subscribe((prefs) => {
+		this.subs.add(this.api.getClockPreferences().pipe(take(1), this.checked()).subscribe((prefs) => {
 			if (this.clockLocked) {
 				return;
 			}
@@ -612,6 +623,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		const day = new Date().toDateString();
 		if (this.sunKey && !this.sunKey.endsWith(`|${day}`)) {
 			this.zone.run(() => this.refreshSunTimes());
+			this.cdr.markForCheck();
 		}
 	}
 
@@ -628,7 +640,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 	}
 
 	private loadUser(): void {
-		this.subs.add(this.members.getUserId({ skipGeolocation: true }).pipe(take(1)).subscribe((member) => {
+		this.subs.add(this.members.getUserId({ skipGeolocation: true }).pipe(take(1), this.checked()).subscribe((member) => {
 			const name = `${member?.firstName || ''} ${member?.lastName || ''}`.trim();
 			const login = (member?.userName || '').trim();
 			this.userLabel = name || login;
@@ -653,7 +665,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		if (!quiet) {
 			this.begin();
 		}
-		this.subs.add(this.weatherPosition().pipe(take(1)).subscribe({
+		this.subs.add(this.weatherPosition().pipe(take(1), this.checked()).subscribe({
 			next: (pos) => this.applyWeatherAt(gen, pos, false, quiet),
 			error: () => {
 				if (gen !== this.loadGen) {
@@ -677,7 +689,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 			if (gen !== this.loadGen || state === 'granted' || state === 'denied') {
 				return;
 			}
-			this.subs.add(this.position.getGpsPosition().pipe(take(1)).subscribe((gps) => {
+			this.subs.add(this.position.getGpsPosition().pipe(take(1), this.checked()).subscribe((gps) => {
 				if (!gps || gen !== this.loadGen) {
 					return;
 				}
@@ -723,7 +735,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 			place: this.api.geocodeReverse(pos.latitude, pos.longitude, lang).pipe(
 				catchError(() => of(null))
 			)
-		}).pipe(take(1)).subscribe({
+		}).pipe(take(1), this.checked()).subscribe({
 			next: ({ weather, place }) => {
 				if (gen !== this.loadGen) {
 					if (quiet) {
@@ -813,7 +825,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		const from = startOfToday();
 		const to = new Date(from.getTime() + AGENDA_DAYS * 24 * 60 * 60 * 1000);
 		this.calendar.invalidateEntriesCache();
-		this.subs.add(this.calendar.getEntries(from, to).pipe(take(1)).subscribe({
+		this.subs.add(this.calendar.getEntries(from, to).pipe(take(1), this.checked()).subscribe({
 			next: (entries) => {
 				if (gen !== this.loadGen) {
 					if (quiet) {
@@ -863,7 +875,8 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		}
 		this.subs.add(this.todos.listDashboard().pipe(
 			take(1),
-			catchError(() => of([] as TodoDashboardList[]))
+			catchError(() => of([] as TodoDashboardList[])),
+			this.checked()
 		).subscribe({
 			next: (lists) => {
 				if (gen !== this.loadGen) {
@@ -927,6 +940,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 					return of(null);
 				}
 				this.newsProvider = choice.provider;
+				this.cdr.markForCheck();
 				const feeds = choice.provider === 'rss' ? choice.feeds : undefined;
 				if (choice.mode === 'search' && choice.query) {
 					return this.api.getEverything({
@@ -959,7 +973,8 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 					sortBy: 'publishedAt',
 					pageSize: NEWS_LIMIT
 				});
-			})
+			}),
+			this.checked()
 		).subscribe({
 			next: (resp: any) => {
 				if (request !== this.newsRequest) {
@@ -1025,6 +1040,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 			setTimeout(() => {
 				if (!this.destroyed) {
 					this.newsViewState = this.newsState;
+					this.cdr.markForCheck();
 				}
 			});
 		});
@@ -1215,7 +1231,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		}
 		this.radioTrackKey = key;
 		this.radioNowSub?.unsubscribe();
-		this.radioNowSub = this.api.getRadioNowPlaying(station).pipe(take(1)).subscribe({
+		this.radioNowSub = this.api.getRadioNowPlaying(station).pipe(take(1), this.checked()).subscribe({
 			next: (res) => {
 				this.playingRefreshing = false;
 				if ((this.radio.snapshot.station?.streamUrl || '') !== (station.streamUrl || '')) {
@@ -1334,7 +1350,8 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 			}
 			this.subs.add(this.files.getFileWallPreview(id, 128).pipe(
 				take(1),
-				catchError(() => of(null))
+				catchError(() => of(null)),
+				this.checked()
 			).subscribe((res) => {
 				if (!res) {
 					return;
@@ -1558,7 +1575,8 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		const fix = ++this.weatherFix;
 		this.subs.add(this.api.getStationElevation(lat, lon).pipe(
 			take(1),
-			catchError(() => of(null))
+			catchError(() => of(null)),
+			this.checked()
 		).subscribe((res) => {
 			if (fix !== this.weatherFix) {
 				return;

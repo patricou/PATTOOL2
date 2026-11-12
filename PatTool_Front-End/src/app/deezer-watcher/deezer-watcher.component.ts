@@ -5158,6 +5158,144 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
   }
 
+  /** Left/right walk the title list on screen. One press, one title. */
+  @HostListener('document:keydown', ['$event'])
+  onListArrow(event: KeyboardEvent): void {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+      return;
+    }
+    if (this.listArrowBlocked(event) || !this.listHasArrowTarget()) {
+      return;
+    }
+    event.preventDefault();
+    if (event.repeat) {
+      return;
+    }
+    const direction = event.key === 'ArrowRight' ? 1 : -1;
+    if (this.listMode === 'concert' && !this.nowBrowse && !this.loading) {
+      this.stepConcert(direction);
+      return;
+    }
+    this.stepListedTrack(direction);
+  }
+
+  private listHasArrowTarget(): boolean {
+    if (this.loading) {
+      return false;
+    }
+    if (this.listMode === 'concert' && !this.nowBrowse) {
+      return this.shownConcert.length > 0;
+    }
+    return this.showTrackList && this.shownTracks.length > 0;
+  }
+
+  private listArrowBlocked(event: KeyboardEvent): boolean {
+    if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return true;
+    }
+    if (this.arrowFromField(event) || this.eqModal?.isOpen || document.querySelector('ngb-modal-window')) {
+      return true;
+    }
+    return !!(
+      this.skinMenuOpen
+      || this.shareMenuOpen
+      || this.listSortOpen
+      || this.albumInfoOpen
+      || this.similarOpen
+      || this.playlistMenuTrack
+      || this.ytDropAsk
+      || this.confirmDeletePlaylistId
+      || this.confirmDeleteConcertId
+      || this.renamingPlaylistId
+      || this.renamingConcertId
+    );
+  }
+
+  private arrowFromField(event: KeyboardEvent): boolean {
+    for (const node of event.composedPath()) {
+      if (!(node instanceof HTMLElement)) {
+        continue;
+      }
+      const tag = node.tagName;
+      const role = node.getAttribute('role');
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || node.isContentEditable || role === 'slider' || role === 'textbox') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private stepListedTrack(direction: 1 | -1): void {
+    const list = this.shownTracks;
+    if (!list.length) {
+      return;
+    }
+    const index = list.findIndex((track) => this.rowIsCurrent(track.id));
+    const next = this.adjacentListIndex(index, list.length, direction);
+    if (next === index) {
+      return;
+    }
+    this.playListedTrack(list[next], next);
+    this.scrollCurrentListRow();
+  }
+
+  private stepConcert(direction: 1 | -1): void {
+    const list = this.shownConcert;
+    if (!list.length) {
+      return;
+    }
+    const current = list.findIndex((item) => !!item.playId && this.rowIsCurrent(item.playId));
+    const playable = (i: number): boolean => !!(list[i]?.playId && list[i].track?.id);
+    let next = current < 0 ? (direction > 0 ? 0 : list.length - 1) : current + direction;
+    if (direction > 0 && next >= list.length) {
+      next = 0;
+    }
+    if (direction < 0 && next < 0) {
+      next = list.length - 1;
+    }
+    let guard = 0;
+    while (guard < list.length && next >= 0 && next < list.length && !playable(next)) {
+      next += direction;
+      if (direction > 0 && next >= list.length) {
+        next = 0;
+      }
+      if (direction < 0 && next < 0) {
+        next = list.length - 1;
+      }
+      guard += 1;
+    }
+    if (next < 0 || next >= list.length || next === current || !playable(next)) {
+      return;
+    }
+    this.playConcert(list[next], next);
+    this.scrollCurrentListRow();
+  }
+
+  /** Index in the list. Right past the last title returns to the first. Left before the first returns to the last. */
+  private adjacentListIndex(index: number, length: number, direction: 1 | -1): number {
+    if (index < 0) {
+      return direction > 0 ? 0 : length - 1;
+    }
+    const next = index + direction;
+    if (next >= length) {
+      return 0;
+    }
+    if (next < 0) {
+      return length - 1;
+    }
+    return next;
+  }
+
+  private scrollCurrentListRow(): void {
+    setTimeout(() => {
+      if (this.destroy$.closed) {
+        return;
+      }
+      const row = this.hostRef.nativeElement.querySelector('.dz-list .dz-row.is-on') as HTMLElement | null;
+      row?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+  }
+
   @HostListener('document:keydown.escape')
   onEscape(): void {
     if (this.ytDropAsk) {

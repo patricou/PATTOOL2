@@ -489,6 +489,12 @@ export class NewsComponent implements OnInit, OnDestroy {
    */
   rssFeedId = '';
   rssCatalog: NewsSource[] = [];
+  /**
+   * {@link rssCatalog} split by category for the feed picker. Rebuilt only when the catalogue changes:
+   * handing the template new group objects on every check makes it recreate every option, and each
+   * recreated option makes the select ask for another check, which ends in NG0103.
+   */
+  rssFeedsGrouped: { category: string; feeds: NewsSource[] }[] = [];
   rssAddQuery = '';
   rssSearchResults: NewsSource[] = [];
   rssSearching = false;
@@ -1220,9 +1226,9 @@ export class NewsComponent implements OnInit, OnDestroy {
 
   // ---------------- RSS catalogue ----------------
 
-  get rssFeedsGrouped(): { category: string; feeds: NewsSource[] }[] {
+  private groupRssFeeds(catalog: NewsSource[]): { category: string; feeds: NewsSource[] }[] {
     const groups = new Map<string, NewsSource[]>();
-    for (const feed of this.rssCatalog) {
+    for (const feed of catalog) {
       const cat = feed.custom ? '_custom' : (feed.category || 'general');
       const list = groups.get(cat) || [];
       list.push(feed);
@@ -1398,6 +1404,7 @@ export class NewsComponent implements OnInit, OnDestroy {
       merged.push(f);
     }
     this.rssCatalog = merged;
+    this.rssFeedsGrouped = this.groupRssFeeds(merged);
     this.persistRssCatalog();
   }
 
