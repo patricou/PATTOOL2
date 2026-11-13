@@ -12,6 +12,19 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { BaseChartDirective } from 'ng2-charts';
 import { Chart, ChartConfiguration, ChartOptions, registerables } from 'chart.js';
 import { compile, type EvalFunction } from 'mathjs';
+import { Subscription, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import { isMediaSkin, MEDIA_SKIN_IDS, MediaSkinId, readMediaSkin, writeMediaSkin } from '../services/media-skin';
+import { ApiService } from '../services/api.service';
+
+const ILLUSION_SKINS: readonly MediaSkinId[] = [
+  'kanizsa', 'cafewall', 'penrose', 'scintille', 'barber',
+  'ebbinghaus', 'zollner', 'necker', 'ouchi', 'ehrenstein'
+];
+
+const SCENE_SKINS: readonly MediaSkinId[] = [
+  'atelier', 'glacier', 'encre', 'chaux', 'abysse'
+];
 
 Chart.register(...registerables);
 
@@ -59,10 +72,59 @@ type SciUnaryKind =
   standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, BaseChartDirective],
   templateUrl: './calculator.component.html',
-  styleUrls: ['./calculator.component.css']
+  styleUrls: ['../radio-watcher/radio-skins.css', './calculator.component.css'],
+  host: {
+    '[class.radio-skin--classic]': 'radioSkin === "classic"',
+    '[class.radio-skin--artdeco]': 'radioSkin === "artdeco"',
+    '[class.radio-skin--synthwave]': 'radioSkin === "synthwave"',
+    '[class.radio-skin--spaceage]': 'radioSkin === "spaceage"',
+    '[class.radio-skin--military]': 'radioSkin === "military"',
+    '[class.radio-skin--steampunk]': 'radioSkin === "steampunk"',
+    '[class.radio-skin--aurora]': 'radioSkin === "aurora"',
+    '[class.radio-skin--noir]': 'radioSkin === "noir"',
+    '[class.radio-skin--bamboo]': 'radioSkin === "bamboo"',
+    '[class.radio-skin--porcelain]': 'radioSkin === "porcelain"',
+    '[class.radio-skin--carbon]': 'radioSkin === "carbon"',
+    '[class.radio-skin--candy]': 'radioSkin === "candy"',
+    '[class.radio-skin--espace]': 'radioSkin === "espace"',
+    '[class.radio-skin--jazz]': 'radioSkin === "jazz"',
+    '[class.radio-skin--sakura]': 'radioSkin === "sakura"',
+    '[class.radio-skin--dune]': 'radioSkin === "dune"',
+    '[class.radio-skin--lagoon]': 'radioSkin === "lagoon"',
+    '[class.radio-skin--ember]': 'radioSkin === "ember"',
+    '[class.radio-skin--atelier]': 'radioSkin === "atelier"',
+    '[class.radio-skin--glacier]': 'radioSkin === "glacier"',
+    '[class.radio-skin--encre]': 'radioSkin === "encre"',
+    '[class.radio-skin--chaux]': 'radioSkin === "chaux"',
+    '[class.radio-skin--abysse]': 'radioSkin === "abysse"',
+    '[class.radio-skin--kanizsa]': 'radioSkin === "kanizsa"',
+    '[class.radio-skin--cafewall]': 'radioSkin === "cafewall"',
+    '[class.radio-skin--penrose]': 'radioSkin === "penrose"',
+    '[class.radio-skin--scintille]': 'radioSkin === "scintille"',
+    '[class.radio-skin--barber]': 'radioSkin === "barber"',
+    '[class.radio-skin--ebbinghaus]': 'radioSkin === "ebbinghaus"',
+    '[class.radio-skin--zollner]': 'radioSkin === "zollner"',
+    '[class.radio-skin--necker]': 'radioSkin === "necker"',
+    '[class.radio-skin--ouchi]': 'radioSkin === "ouchi"',
+    '[class.radio-skin--ehrenstein]': 'radioSkin === "ehrenstein"'
+  }
 })
 export class CalculatorComponent implements AfterViewInit, OnDestroy {
-  constructor(private readonly translate: TranslateService) {}
+  constructor(
+    private readonly translate: TranslateService,
+    private readonly api: ApiService,
+    private readonly hostEl: ElementRef<HTMLElement>
+  ) {
+    this.restoreSkin();
+  }
+
+  /** Same cabinet style as TV, radio, Deezer and the home page. */
+  radioSkin: MediaSkinId = readMediaSkin() ?? 'classic';
+  skinMenuOpen = false;
+  readonly illusionSkins = ILLUSION_SKINS;
+  readonly sceneSkins = SCENE_SKINS;
+  private skinChosen = false;
+  private skinSaveSub?: Subscription;
 
   @ViewChild('tapeScroll') tapeScroll?: ElementRef<HTMLDivElement>;
   @ViewChild('calcPanel') calcPanel?: ElementRef<HTMLElement>;
@@ -444,10 +506,111 @@ export class CalculatorComponent implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.refocusKeyboardPanel();
+    this.paintModalFrame();
   }
 
   ngOnDestroy(): void {
+    window.removeEventListener('patradiolook', this.onSharedSkin);
+    this.skinSaveSub?.unsubscribe();
     void this.exitFormulaChartFullscreenIfActive();
+  }
+
+  get sortedSkins(): MediaSkinId[] {
+    const pinned = new Set<string>([...ILLUSION_SKINS, ...SCENE_SKINS]);
+    const lang = this.translate.currentLang || this.translate.getDefaultLang() || 'fr';
+    return MEDIA_SKIN_IDS.filter((skin) => !pinned.has(skin)).sort((a, b) =>
+      this.translate.instant(this.skinNameKey(a)).localeCompare(
+        this.translate.instant(this.skinNameKey(b)),
+        lang,
+        { sensitivity: 'base' }
+      )
+    );
+  }
+
+  trackSkin(_index: number, skin: MediaSkinId): string {
+    return skin;
+  }
+
+  skinNameKey(skin: string): string {
+    return 'RADIO.SKIN_' + skin.toUpperCase();
+  }
+
+  skinDescKey(skin: string): string {
+    return 'RADIO.SKIN_' + skin.toUpperCase() + '_DESC';
+  }
+
+  toggleSkinMenu(event: Event): void {
+    event.stopPropagation();
+    this.skinMenuOpen = !this.skinMenuOpen;
+  }
+
+  /** Writes the shared cabinet style used by TV, radio, Deezer and home. */
+  setSkin(skin: MediaSkinId): void {
+    this.radioSkin = skin;
+    this.skinMenuOpen = false;
+    this.skinChosen = true;
+    writeMediaSkin(skin);
+    this.skinSaveSub?.unsubscribe();
+    this.skinSaveSub = this.api.saveRadioSkin(skin).pipe(catchError(() => of(null))).subscribe();
+    this.paintModalFrame();
+  }
+
+  @HostListener('document:click', ['$event'])
+  onSkinDocumentClick(event: MouseEvent): void {
+    if (!this.skinMenuOpen) {
+      return;
+    }
+    const target = event.target as HTMLElement | null;
+    if (!target?.closest('.radio-skin-picker')) {
+      this.skinMenuOpen = false;
+    }
+  }
+
+  private readonly onSharedSkin = (): void => {
+    const next = readMediaSkin();
+    if (next && next !== this.radioSkin) {
+      this.radioSkin = next;
+    }
+    this.paintModalFrame();
+  };
+
+  /** The modal frame sits outside this component, so it cannot inherit the skin color. */
+  private paintModalFrame(): void {
+    const host = this.hostEl.nativeElement;
+    const frame = host.closest('.modal-content');
+    if (!(frame instanceof HTMLElement)) {
+      return;
+    }
+    const paint = (): void => {
+      const cs = getComputedStyle(host);
+      const color = (cs.getPropertyValue('--menu-accent') || cs.getPropertyValue('--menu-border')).trim();
+      if (color) {
+        frame.style.setProperty('--calc-frame', color);
+        frame.style.setProperty('border-color', color, 'important');
+      }
+    };
+    paint();
+    requestAnimationFrame(paint);
+  }
+
+  private restoreSkin(): void {
+    window.addEventListener('patradiolook', this.onSharedSkin);
+    this.skinSaveSub = this.api.getRadioSkin().pipe(catchError(() => of(null))).subscribe((remote) => {
+      if (this.skinChosen) {
+        return;
+      }
+      if (isMediaSkin(remote)) {
+        this.radioSkin = remote;
+        writeMediaSkin(remote);
+        this.paintModalFrame();
+        return;
+      }
+      const local = readMediaSkin();
+      if (local && local !== this.radioSkin) {
+        this.radioSkin = local;
+      }
+      this.paintModalFrame();
+    });
   }
 
   @HostListener('document:fullscreenchange')

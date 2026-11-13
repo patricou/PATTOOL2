@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, AfterViewInit, ViewChild, HostListener, TemplateRef, ChangeDetectorRef, ApplicationRef } from '@angular/core';
+import { Component, ElementRef, OnInit, AfterViewInit, ViewChild, HostListener, TemplateRef, ChangeDetectorRef, ApplicationRef, Type } from '@angular/core';
 import { of, Subscription } from 'rxjs';
 import { take, catchError, filter } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
@@ -39,6 +39,7 @@ import { collapseMediaSkinParameters } from './services/media-skin';
 import { buildIssTopViewIconDataUrl } from './shared/globe-iss-icon.util';
 import { NativeSelectSheetService } from './shared/native-select-sheet.service';
 import { UserInfoModalService } from './services/user-info-modal.service';
+import { CalculatorModalService } from './services/calculator-modal.service';
 import { HomeDashboardCacheService } from './home/home-dashboard-cache.service';
 import { PositionService } from './services/position.service';
 
@@ -54,7 +55,7 @@ interface UserInfoTabDef {
 interface NavRouteMenuItem {
     routerLink?: unknown[];
     /** Opens the trace viewer instead of navigating. */
-    action?: 'trace-viewer';
+    action?: 'trace-viewer' | 'calculator';
     icon: string;
     labelKey: string;
     /** Optional menu logo (replaces Font Awesome icon when set). */
@@ -145,6 +146,7 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     @ViewChild('usercontent') usercontent!: TemplateRef<any>;
     @ViewChild('doccontent') doccontent!: TemplateRef<any>;
+    @ViewChild('calculatorcontent') calculatorcontent!: TemplateRef<any>;
     @ViewChild(TraceViewerModalComponent) mapTraceViewer?: TraceViewerModalComponent;
     private mapTraceViewerRequest = 0;
 
@@ -358,7 +360,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         }
     ];
     readonly navMathRaw: NavRouteMenuItem[] = [
-        { routerLink: ['tools/calculator'], icon: 'fa fa-calculator', labelKey: 'MENU.CALCULATOR', logoSrc: 'assets/images/menu-calc.svg' },
+        { action: 'calculator', icon: 'fa fa-calculator', labelKey: 'MENU.CALCULATOR', logoSrc: 'assets/images/menu-calc.svg' },
         { routerLink: ['tools/cern'], icon: 'fa fa-flask', labelKey: 'MENU.CERN', logoSrc: 'assets/images/cern-mark.svg' },
         { routerLink: ['tools/chimie'], icon: 'fa fa-flask', labelKey: 'MENU.CHIMIE', logoSrc: 'assets/images/menu-flask.svg' },
         { routerLink: ['tools/code'], icon: 'fa fa-code', labelKey: 'MENU.CODE', logoSrc: 'assets/images/menu-code.svg' }
@@ -489,6 +491,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         private sanitizer: DomSanitizer,
         nativeSelectSheet: NativeSelectSheetService,
         private userInfoModal: UserInfoModalService,
+        private calculatorModal: CalculatorModalService,
         private homeDash: HomeDashboardCacheService,
         private position: PositionService) {
         this.selectedFiles = [];
@@ -496,6 +499,8 @@ export class AppComponent implements OnInit, AfterViewInit {
         backgroundPlayback.start();
         nativeSelectSheet.start();
         userInfoModal.open$.subscribe((skinned) => this.openUserInfoModal(skinned));
+        calculatorModal.open$.subscribe(() => this.openCalculatorModal());
+        calculatorModal.attach();
         this._newsTicker.enabled$.subscribe((v) => {
             this.newsTickerEnabled = v;
             this.updateTickerBodyClasses();
@@ -2780,10 +2785,69 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.closeDropdowns();
     }
 
+    /** Lazy calculator component, created only when the overlay opens. */
+    calculatorComponentType: Type<any> | null = null;
+    calculatorModalOpen = false;
+    private calculatorModalRef: NgbModalRef | null = null;
+    private calculatorModalOpening = false;
+
     /** Safe iframe URL for the documentation modal. Null while the modal is closed. */
     docModalSafeUrl: SafeResourceUrl | null = null;
     docModalFullscreen = false;
     private docModalRef: NgbModalRef | null = null;
+
+    /** Calculator overlay: the page underneath stays mounted. */
+    openCalculatorModal(): void {
+        if (this.calculatorModalRef) {
+            this.calculatorModalRef.dismiss('toggle');
+            return;
+        }
+        if (this.calculatorModalOpening) {
+            return;
+        }
+        this.calculatorModalOpening = true;
+        void import('./calculator/calculator.component')
+            .then((m) => {
+                this.calculatorModalOpening = false;
+                if (this.calculatorModalRef) {
+                    return;
+                }
+                this.calculatorComponentType = m.CalculatorComponent;
+                if (!this.calculatorcontent) {
+                    return;
+                }
+                try {
+                    this.calculatorModalRef = this.modalService.open(this.calculatorcontent, {
+                        backdrop: true,
+                        keyboard: false,
+                        centered: true,
+                        windowClass: 'calculator-modal-window',
+                        modalDialogClass: 'calculator-modal-dialog'
+                    });
+                } catch {
+                    this.calculatorModalRef = null;
+                    this.calculatorModalOpen = false;
+                    return;
+                }
+                this.calculatorModalOpen = true;
+                const closed = () => {
+                    this.calculatorModalRef = null;
+                    this.calculatorModalOpen = false;
+                    this.cdr.markForCheck();
+                };
+                this.calculatorModalRef.result.then(closed, closed);
+                this.cdr.markForCheck();
+                setTimeout(() => {
+                    const panel = document.querySelector('.calculator-modal-window .calculator-page');
+                    if (panel instanceof HTMLElement) {
+                        panel.focus({ preventScroll: true });
+                    }
+                }, 40);
+            })
+            .catch(() => {
+                this.calculatorModalOpening = false;
+            });
+    }
 
     /** Opens a doc page in French when the UI language is French, otherwise English. */
     openDocumentation(page: string, anchor?: string): void {

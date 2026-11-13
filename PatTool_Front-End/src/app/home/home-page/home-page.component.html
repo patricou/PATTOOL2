@@ -48,6 +48,18 @@
 					</span>
 					<i class="fa fa-check radio-skin-option-check" *ngIf="skin === radioSkin" aria-hidden="true"></i>
 				</button>
+				<span class="radio-skin-menu-title radio-skin-menu-title--next">{{ 'RADIO.SKIN_GROUP_SCENE' | translate }}</span>
+				<button type="button" *ngFor="let skin of sceneSkins; trackBy: trackSkin"
+				        class="radio-skin-option" role="menuitemradio"
+				        [class.active]="skin === radioSkin" [attr.aria-checked]="skin === radioSkin"
+				        (click)="setSkin(skin)">
+					<span class="radio-skin-swatch" [ngClass]="'radio-skin-swatch--' + skin" aria-hidden="true"></span>
+					<span class="radio-skin-option-text">
+						<span class="radio-skin-option-name">{{ skinNameKey(skin) | translate }}</span>
+						<span class="radio-skin-option-desc">{{ skinDescKey(skin) | translate }}</span>
+					</span>
+					<i class="fa fa-check radio-skin-option-check" *ngIf="skin === radioSkin" aria-hidden="true"></i>
+				</button>
 				<span class="radio-skin-menu-title radio-skin-menu-title--next">{{ 'RADIO.SKIN_TITLE' | translate }}</span>
 				<button type="button" *ngFor="let skin of sortedSkins; trackBy: trackSkin"
 				        class="radio-skin-option" role="menuitemradio"
@@ -333,4 +345,13 @@
 
 	<p class="home-cite">{{ 'HOME.CITATION' | translate }}</p>
 </div>
+<button type="button" class="home-scroll-grip"
+        (pointerdown)="onScrollGripDown($event)"
+        (pointermove)="onScrollGripMove($event)"
+        (pointerup)="onScrollGripUp($event)"
+        (pointercancel)="onScrollGripUp($event)"
+        [attr.aria-label]="'HOME.DASHBOARD.SCROLL' | translate"
+        [attr.title]="'HOME.DASHBOARD.SCROLL' | translate">
+	<span class="home-scroll-grip-mark" aria-hidden="true"></span>
+</button>
 <app-trace-viewer-modal></app-trace-viewer-modal>

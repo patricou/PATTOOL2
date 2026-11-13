@@ -34,6 +34,17 @@
             <span class="nav-back-badge" aria-hidden="true">→</span>
         </button>
     </div>
+    <div class="nav-calc-slot d-lg-none">
+        <button type="button"
+                class="nav-calc-link"
+                (click)="openCalculatorModal()"
+                [class.nav-calc-link--active]="calculatorModalOpen"
+                [attr.title]="'MENU.CALCULATOR' | translate"
+                [attr.aria-label]="'MENU.CALCULATOR' | translate"
+                [attr.aria-expanded]="calculatorModalOpen">
+            <span class="nav-calc-badge" aria-hidden="true"><i class="fa fa-calculator"></i></span>
+        </button>
+    </div>
 
     <!-- Mobile toggle button -->
     <button class="navbar-toggler" type="button" 
@@ -320,7 +331,14 @@
                     [class.show]="showMathDropdown"
                     aria-labelledby="mathDropdown">
                     <li *ngFor="let item of sortedNavMath">
-                        <a class="dropdown-item"
+                        <a *ngIf="item.action === 'calculator'"
+                           class="dropdown-item"
+                           href="#"
+                           (click)="openCalculatorModal(); closeMenu(); $event.preventDefault()">
+                            <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
+                        </a>
+                        <a *ngIf="item.routerLink"
+                           class="dropdown-item"
                            [routerLink]="item.routerLink"
                            (click)="closeMenu()">
                             <ng-container *ngTemplateOutlet="menuIcon; context: {$implicit: item}"></ng-container> {{ item.labelKey | translate }}
@@ -437,11 +455,12 @@
             <!-- Calculatrice : icône ronde à droite d’Outils -->
             <li class="nav-item d-flex align-items-center ms-1">
                 <a class="nav-link nav-link-calculator-fab px-1 py-1"
-                   [routerLink]="['tools/calculator']"
-                   routerLinkActive="nav-link-calculator-active"
-                   (click)="closeMenu()"
+                   href="#"
+                   [class.nav-link-calculator-active]="calculatorModalOpen"
+                   (click)="openCalculatorModal(); closeMenu(); $event.preventDefault()"
                    [attr.title]="'MENU.CALCULATOR' | translate"
-                   [attr.aria-label]="'MENU.CALCULATOR' | translate">
+                   [attr.aria-label]="'MENU.CALCULATOR' | translate"
+                   [attr.aria-expanded]="calculatorModalOpen">
                     <span class="nav-calculator-icon-wrap rounded-circle" aria-hidden="true">
                         <i class="fa fa-calculator"></i>
                     </span>
@@ -551,6 +570,19 @@
     </div>
   </div>
 </div>
+
+<ng-template #calculatorcontent let-d="dismiss">
+    <div class="calculator-modal-shell">
+        <button type="button"
+                class="calculator-modal-close"
+                (click)="d('close')"
+                [attr.aria-label]="'COMMUN.CLOSE' | translate"
+                [attr.title]="'COMMUN.CLOSE' | translate">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+        <ng-container [ngComponentOutlet]="calculatorComponentType"></ng-container>
+    </div>
+</ng-template>
 
 <ng-template #doccontent let-d="dismiss">
     <div class="doc-modal-container">

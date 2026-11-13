@@ -67,6 +67,11 @@ export type RadioSkin =
   | 'dune'
   | 'lagoon'
   | 'ember'
+  | 'atelier'
+  | 'glacier'
+  | 'encre'
+  | 'chaux'
+  | 'abysse'
   | 'kanizsa'
   | 'cafewall'
   | 'penrose'
@@ -97,6 +102,11 @@ const RADIO_SKINS: readonly RadioSkin[] = [
   'dune',
   'lagoon',
   'ember',
+  'atelier',
+  'glacier',
+  'encre',
+  'chaux',
+  'abysse',
   'kanizsa',
   'cafewall',
   'penrose',
@@ -232,6 +242,11 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostBinding('class.radio-skin--dune') get skinDune(): boolean { return this.radioSkin === 'dune'; }
   @HostBinding('class.radio-skin--lagoon') get skinLagoon(): boolean { return this.radioSkin === 'lagoon'; }
   @HostBinding('class.radio-skin--ember') get skinEmber(): boolean { return this.radioSkin === 'ember'; }
+  @HostBinding('class.radio-skin--atelier') get skinAtelier(): boolean { return this.radioSkin === 'atelier'; }
+  @HostBinding('class.radio-skin--glacier') get skinGlacier(): boolean { return this.radioSkin === 'glacier'; }
+  @HostBinding('class.radio-skin--encre') get skinEncre(): boolean { return this.radioSkin === 'encre'; }
+  @HostBinding('class.radio-skin--chaux') get skinChaux(): boolean { return this.radioSkin === 'chaux'; }
+  @HostBinding('class.radio-skin--abysse') get skinAbysse(): boolean { return this.radioSkin === 'abysse'; }
   @HostBinding('class.radio-skin--kanizsa') get skinKanizsa(): boolean { return this.radioSkin === 'kanizsa'; }
   @HostBinding('class.radio-skin--cafewall') get skinCafewall(): boolean { return this.radioSkin === 'cafewall'; }
   @HostBinding('class.radio-skin--penrose') get skinPenrose(): boolean { return this.radioSkin === 'penrose'; }
@@ -1046,8 +1061,17 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
 
   readonly illusionSkins = RadioWatcherComponent.ILLUSION_SKINS;
 
+  private static readonly SCENE_SKINS: readonly RadioSkin[] = [
+    'atelier', 'glacier', 'encre', 'chaux', 'abysse'
+  ];
+
+  readonly sceneSkins = RadioWatcherComponent.SCENE_SKINS;
+
   get sortedRadioSkins(): RadioSkin[] {
-    const pinned = new Set<RadioSkin>(RadioWatcherComponent.ILLUSION_SKINS);
+    const pinned = new Set<RadioSkin>([
+      ...RadioWatcherComponent.ILLUSION_SKINS,
+      ...RadioWatcherComponent.SCENE_SKINS
+    ]);
     const lang = this.translate.currentLang || this.translate.defaultLang || 'fr';
     return this.radioSkins.filter((skin) => !pinned.has(skin)).sort((a, b) =>
       this.translate.instant(this.skinNameKey(a)).localeCompare(
@@ -1098,11 +1122,20 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private readonly onSleeveFrontLook = (): void => {
     const front = this.readSleeveFront();
-    if (front === this.sleeveFront) {
-      return;
+    const skin = this.readLocalSkin();
+    let changed = false;
+    if (front !== this.sleeveFront) {
+      this.sleeveFront = front;
+      changed = true;
     }
-    this.sleeveFront = front;
-    this.cdr.markForCheck();
+    if (skin && skin !== this.radioSkin) {
+      this.radioSkin = skin;
+      this.skinChosenThisVisit = true;
+      changed = true;
+    }
+    if (changed) {
+      this.cdr.markForCheck();
+    }
   };
 
   setRadioSkin(skin: RadioSkin): void {

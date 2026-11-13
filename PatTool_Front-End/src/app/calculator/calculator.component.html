@@ -1,5 +1,55 @@
 <!-- Même structure que currency-converter / openweathermap : .pat-title plein cadre global, puis contenu -->
-<div class="pat-title">
+<div class="pat-title" [class.radio-title--menu-open]="skinMenuOpen">
+  <span class="radio-skin-picker calculator-skin-picker">
+    <button type="button" class="radio-skin-open-btn" [class.is-open]="skinMenuOpen"
+            (click)="toggleSkinMenu($event)" aria-haspopup="menu" [attr.aria-expanded]="skinMenuOpen"
+            [attr.title]="'CALCULATOR.SKIN_SHARED' | translate" [attr.aria-label]="'CALCULATOR.SKIN_SHARED' | translate">
+      <span class="radio-skin-swatch radio-skin-swatch--mini" [ngClass]="'radio-skin-swatch--' + radioSkin" aria-hidden="true"></span>
+      <span class="radio-skin-open-label">{{ 'RADIO.SKIN_OPEN' | translate }}</span>
+      <i class="fa fa-caret-down" aria-hidden="true"></i>
+    </button>
+    <span class="radio-skin-menu" *ngIf="skinMenuOpen" role="menu" [attr.aria-label]="'CALCULATOR.SKIN_SHARED' | translate">
+      <span class="radio-skin-menu-title">
+        <i class="fa fa-paint-brush" aria-hidden="true"></i>
+        {{ 'RADIO.SKIN_GROUP_ILLUSION' | translate }}
+      </span>
+      <button type="button" *ngFor="let skin of illusionSkins; trackBy: trackSkin"
+              class="radio-skin-option" role="menuitemradio"
+              [class.active]="skin === radioSkin" [attr.aria-checked]="skin === radioSkin"
+              (click)="setSkin(skin)">
+        <span class="radio-skin-swatch" [ngClass]="'radio-skin-swatch--' + skin" aria-hidden="true"></span>
+        <span class="radio-skin-option-text">
+          <span class="radio-skin-option-name">{{ skinNameKey(skin) | translate }}</span>
+          <span class="radio-skin-option-desc">{{ skinDescKey(skin) | translate }}</span>
+        </span>
+        <i class="fa fa-check radio-skin-option-check" *ngIf="skin === radioSkin" aria-hidden="true"></i>
+      </button>
+      <span class="radio-skin-menu-title radio-skin-menu-title--next">{{ 'RADIO.SKIN_GROUP_SCENE' | translate }}</span>
+      <button type="button" *ngFor="let skin of sceneSkins; trackBy: trackSkin"
+              class="radio-skin-option" role="menuitemradio"
+              [class.active]="skin === radioSkin" [attr.aria-checked]="skin === radioSkin"
+              (click)="setSkin(skin)">
+        <span class="radio-skin-swatch" [ngClass]="'radio-skin-swatch--' + skin" aria-hidden="true"></span>
+        <span class="radio-skin-option-text">
+          <span class="radio-skin-option-name">{{ skinNameKey(skin) | translate }}</span>
+          <span class="radio-skin-option-desc">{{ skinDescKey(skin) | translate }}</span>
+        </span>
+        <i class="fa fa-check radio-skin-option-check" *ngIf="skin === radioSkin" aria-hidden="true"></i>
+      </button>
+      <span class="radio-skin-menu-title radio-skin-menu-title--next">{{ 'CALCULATOR.SKIN_SHARED' | translate }}</span>
+      <button type="button" *ngFor="let skin of sortedSkins; trackBy: trackSkin"
+              class="radio-skin-option" role="menuitemradio"
+              [class.active]="skin === radioSkin" [attr.aria-checked]="skin === radioSkin"
+              (click)="setSkin(skin)">
+        <span class="radio-skin-swatch" [ngClass]="'radio-skin-swatch--' + skin" aria-hidden="true"></span>
+        <span class="radio-skin-option-text">
+          <span class="radio-skin-option-name">{{ skinNameKey(skin) | translate }}</span>
+          <span class="radio-skin-option-desc">{{ skinDescKey(skin) | translate }}</span>
+        </span>
+        <i class="fa fa-check radio-skin-option-check" *ngIf="skin === radioSkin" aria-hidden="true"></i>
+      </button>
+    </span>
+  </span>
   <h2>
     {{ 'CALCULATOR.TITLE' | translate }}
   </h2>
@@ -23,10 +73,9 @@
         <div
           class="card-body calculator-card-inner d-flex flex-column min-h-0"
           [class.calculator-card-inner--sci]="scientificMode">
+          <div class="calculator-toggle-slot">
           <div
-            class="d-flex flex-wrap align-items-center calculator-toggle-row mb-2"
-            [class.gap-lg-4]="!scientificMode"
-            [class.gap-2]="scientificMode"
+            class="d-flex flex-nowrap align-items-center calculator-toggle-row mb-2"
             [class.mb-lg-3]="!scientificMode"
             [class.mb-2]="scientificMode">
             <div class="form-check form-switch calculator-tape-toggle mb-0">
@@ -35,9 +84,11 @@
                 type="checkbox"
                 id="calcTapeMode"
                 [(ngModel)]="tapeMode" />
-              <label class="form-check-label" for="calcTapeMode">{{
-                'CALCULATOR.TAPE_MODE_LABEL' | translate
-              }}</label>
+              <label class="form-check-label" for="calcTapeMode"
+                     [attr.title]="'CALCULATOR.TAPE_MODE_LABEL' | translate">
+                <span class="calculator-toggle-full">{{ 'CALCULATOR.TAPE_MODE_LABEL' | translate }}</span>
+                <span class="calculator-toggle-short">{{ 'CALCULATOR.TAPE_MODE_SHORT' | translate }}</span>
+              </label>
             </div>
             <div class="form-check form-switch calculator-tape-toggle mb-0">
               <input
@@ -45,9 +96,11 @@
                 type="checkbox"
                 id="calcScientificMode"
                 [(ngModel)]="scientificMode" />
-              <label class="form-check-label" for="calcScientificMode">{{
-                'CALCULATOR.SCIENTIFIC_MODE_LABEL' | translate
-              }}</label>
+              <label class="form-check-label" for="calcScientificMode"
+                     [attr.title]="'CALCULATOR.SCIENTIFIC_MODE_LABEL' | translate">
+                <span class="calculator-toggle-full">{{ 'CALCULATOR.SCIENTIFIC_MODE_LABEL' | translate }}</span>
+                <span class="calculator-toggle-short">{{ 'CALCULATOR.SCIENTIFIC_MODE_SHORT' | translate }}</span>
+              </label>
             </div>
             <div class="form-check form-switch calculator-tape-toggle mb-0">
               <input
@@ -56,10 +109,13 @@
                 id="calcFormulaMode"
                 [(ngModel)]="formulaMode"
                 (ngModelChange)="onFormulaModeChange($event)" />
-              <label class="form-check-label" for="calcFormulaMode">{{
-                'CALCULATOR.FORMULA_MODE_LABEL' | translate
-              }}</label>
+              <label class="form-check-label" for="calcFormulaMode"
+                     [attr.title]="'CALCULATOR.FORMULA_MODE_LABEL' | translate">
+                <span class="calculator-toggle-full">{{ 'CALCULATOR.FORMULA_MODE_LABEL' | translate }}</span>
+                <span class="calculator-toggle-short">{{ 'CALCULATOR.FORMULA_MODE_SHORT' | translate }}</span>
+              </label>
             </div>
+          </div>
           </div>
 
           <div *ngIf="formulaMode" class="calculator-formula-panel shrink-0 mb-2">

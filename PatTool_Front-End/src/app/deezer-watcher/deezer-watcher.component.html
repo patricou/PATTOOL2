@@ -127,6 +127,19 @@
             <span class="radio-skin-option-desc">{{ skinDescKey(skin) | translate }}</span>
           </span>
         </button>
+        <span class="radio-skin-menu-title radio-skin-menu-title--next">{{ 'RADIO.SKIN_GROUP_SCENE' | translate }}</span>
+        <button
+          *ngFor="let skin of sceneSkins; trackBy: trackRadioSkin"
+          type="button"
+          class="radio-skin-option"
+          [class.active]="skin === radioSkin"
+          (click)="setRadioSkin(skin)">
+          <span class="radio-skin-swatch" [ngClass]="'radio-skin-swatch--' + skin" aria-hidden="true"></span>
+          <span class="radio-skin-option-text">
+            <span class="radio-skin-option-name">{{ skinNameKey(skin) | translate }}</span>
+            <span class="radio-skin-option-desc">{{ skinDescKey(skin) | translate }}</span>
+          </span>
+        </button>
         <span class="radio-skin-menu-title radio-skin-menu-title--next">{{ 'RADIO.SKIN_TITLE' | translate }}</span>
         <button
           *ngFor="let skin of sortedRadioSkins; trackBy: trackRadioSkin"
@@ -219,12 +232,13 @@
         </div>
         <button
           type="button"
-          class="radio-sidebar-collapse-btn"
+          class="radio-sidebar-collapse-btn dz-sidebar-hide"
           (click)="toggleSidebarCollapsed()"
           aria-expanded="true"
           [attr.title]="'TV.SIDEBAR_COLLAPSE' | translate"
           [attr.aria-label]="'TV.SIDEBAR_COLLAPSE' | translate">
           <i class="fa fa-chevron-left radio-sidebar-collapse-chevron" aria-hidden="true"></i>
+          <span class="dz-sidebar-hide-label">{{ 'TV.SIDEBAR_COLLAPSE' | translate }}</span>
         </button>
       </div>
 

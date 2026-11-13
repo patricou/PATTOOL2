@@ -3725,3 +3725,394 @@
   from { background-position: 0 40px; }
   to { background-position: 20px -180px; }
 }
+
+.tv-skin-swatch--atelier {
+  background:
+    radial-gradient(circle at 28% 34%, #d23a2a 0 16%, transparent 17%),
+    radial-gradient(circle at 72% 64%, #1f3f86 0 12%, transparent 13%),
+    radial-gradient(circle at 58% 22%, #e2b13c 0 7%, transparent 8%),
+    linear-gradient(160deg, #f7f1e6, #e4d0ae);
+  box-shadow: inset 0 0 0 2px #2c241c;
+}
+
+.tv-skin-swatch--glacier {
+  background:
+    linear-gradient(118deg, transparent 0 38%, rgba(255, 255, 255, 0.9) 46% 54%, transparent 62%),
+    linear-gradient(180deg, #f7fdff 0%, #9fd8e6 46%, #0e4e66 100%);
+  box-shadow: inset 0 0 0 2px #f4fbfd;
+}
+
+.tv-skin-swatch--encre {
+  background:
+    radial-gradient(circle at 74% 26%, #c4372a 0 11%, transparent 12%),
+    linear-gradient(#1c2a6b, #1c2a6b) 16% 40% / 48% 3px no-repeat,
+    linear-gradient(#1c2a6b, #1c2a6b) 16% 58% / 36% 2px no-repeat,
+    linear-gradient(165deg, #fbf6ea, #e7d3a8);
+  box-shadow: inset 0 0 0 2px #1c2a6b;
+}
+
+.tv-skin-swatch--chaux {
+  background:
+    radial-gradient(ellipse at 72% 38%, #5d6b38 0 18%, transparent 19%),
+    linear-gradient(#c4532a, #c4532a) 0 78% / 100% 22% no-repeat,
+    linear-gradient(180deg, #faf6ee, #e4d8c4);
+  box-shadow: inset 0 0 0 2px #c4532a;
+}
+
+.tv-skin-swatch--abysse {
+  background:
+    radial-gradient(ellipse at 64% 52%, rgba(228, 90, 216, 0.9), transparent 46%),
+    radial-gradient(circle at 26% 28%, #2ee0c6 0 6%, transparent 7%),
+    linear-gradient(180deg, #123044, #061018);
+  box-shadow: inset 0 0 0 2px #2ee0c6, 0 0 8px rgba(46, 224, 198, 0.45);
+}
+
+:host.tv-skin--atelier {
+  --pat-title-accent: #d23a2a;
+  --pat-title-shadow: 0 8px 22px rgba(44, 36, 28, 0.28);
+  --pat-title-bg: linear-gradient(180deg, #f7f1e6 0%, #e7d3b4 62%, #d23a2a 100%);
+  --pat-page-bg: #e7d7be;
+  --title-btn-bg: #2c241c;
+  --title-btn-fg: #f7f1e6;
+  --title-btn-border: #1f3f86;
+  --title-btn-hover-bg: #3d3428;
+  --title-btn-active-bg: #d23a2a;
+  --title-btn-active-fg: #fff8f4;
+  --title-btn-shadow: 0 0 0 1px #1f3f86;
+  --menu-bg: #f7f1e6;
+  --menu-fg: #2c241c;
+  --menu-muted: #6e5840;
+  --menu-border: #1f3f86;
+  --menu-border-width: 2px;
+  --menu-accent: #d23a2a;
+  --menu-accent-fg: #fff8f4;
+  --menu-toolbar: rgba(210, 58, 42, 0.08);
+  --menu-input-bg: #fffaf3;
+  --menu-input-fg: #2c241c;
+  --menu-input-border: #1f3f86;
+  --menu-hover: rgba(31, 63, 134, 0.1);
+  --menu-active: rgba(210, 58, 42, 0.16);
+  --menu-meta-bg: rgba(31, 63, 134, 0.08);
+  --menu-shadow: 0 12px 28px rgba(44, 36, 28, 0.18);
+  --menu-radius: 0.85rem;
+  --menu-logo-bg: #fffaf3;
+  background-color: #e7d7be;
+  background-image:
+    radial-gradient(circle at 12% 78%, rgba(210, 58, 42, 0.28), transparent 18%),
+    radial-gradient(circle at 86% 18%, rgba(31, 63, 134, 0.22), transparent 16%);
+  background-attachment: fixed;
+}
+
+:host.tv-skin--glacier {
+  --pat-title-accent: #0e6e8a;
+  --pat-title-shadow: 0 8px 22px rgba(14, 42, 54, 0.28);
+  --pat-title-bg: linear-gradient(180deg, #f7fdff 0%, #9fd8e6 48%, #0e4e66 100%);
+  --pat-page-bg: #d5eef5;
+  --title-btn-bg: #0e4e66;
+  --title-btn-fg: #f4fbfd;
+  --title-btn-border: #7ec8d8;
+  --title-btn-hover-bg: #145e78;
+  --title-btn-active-bg: #0e6e8a;
+  --title-btn-active-fg: #f4fbfd;
+  --title-btn-shadow: 0 0 0 1px #7ec8d8;
+  --menu-bg: #f4fbfd;
+  --menu-fg: #0c2c3a;
+  --menu-muted: #3d6e80;
+  --menu-border: #7ec8d8;
+  --menu-border-width: 2px;
+  --menu-accent: #0e6e8a;
+  --menu-accent-fg: #f4fbfd;
+  --menu-toolbar: rgba(14, 110, 138, 0.08);
+  --menu-input-bg: #ffffff;
+  --menu-input-fg: #0c2c3a;
+  --menu-input-border: #7ec8d8;
+  --menu-hover: rgba(14, 110, 138, 0.1);
+  --menu-active: rgba(14, 110, 138, 0.18);
+  --menu-meta-bg: rgba(14, 110, 138, 0.08);
+  --menu-shadow: 0 12px 28px rgba(14, 78, 102, 0.18);
+  --menu-radius: 1rem;
+  --menu-logo-bg: #ffffff;
+  background-color: #d5eef5;
+  background-image: linear-gradient(165deg, #f7fdff, #b7e4ef 42%, #7ec8d8);
+  background-attachment: fixed;
+}
+
+:host.tv-skin--encre {
+  --pat-title-accent: #c4372a;
+  --pat-title-shadow: 0 8px 22px rgba(26, 20, 14, 0.28);
+  --pat-title-bg: linear-gradient(180deg, #fbf6ea 0%, #e7d3a8 55%, #1c2a6b 100%);
+  --pat-page-bg: #efe2c8;
+  --title-btn-bg: #1c2a6b;
+  --title-btn-fg: #fbf6ea;
+  --title-btn-border: #c4372a;
+  --title-btn-hover-bg: #2a3a86;
+  --title-btn-active-bg: #c4372a;
+  --title-btn-active-fg: #fbf6ea;
+  --title-btn-shadow: 0 0 0 1px #1c2a6b;
+  --menu-bg: #fbf6ea;
+  --menu-fg: #1a140e;
+  --menu-muted: #5c4a38;
+  --menu-border: #1c2a6b;
+  --menu-border-width: 2px;
+  --menu-accent: #1c2a6b;
+  --menu-accent-fg: #fbf6ea;
+  --menu-toolbar: rgba(28, 42, 107, 0.08);
+  --menu-input-bg: #fffdf8;
+  --menu-input-fg: #1a140e;
+  --menu-input-border: #1c2a6b;
+  --menu-hover: rgba(28, 42, 107, 0.1);
+  --menu-active: rgba(196, 55, 42, 0.14);
+  --menu-meta-bg: rgba(28, 42, 107, 0.08);
+  --menu-shadow: 0 12px 28px rgba(26, 20, 14, 0.16);
+  --menu-radius: 0.4rem;
+  --menu-logo-bg: #fffdf8;
+  background-color: #efe2c8;
+  background-image:
+    radial-gradient(circle at 88% 12%, #c4372a 0 18px, transparent 20px),
+    linear-gradient(180deg, #fbf6ea, #e7d3a8);
+  background-attachment: fixed;
+}
+
+:host.tv-skin--chaux {
+  --pat-title-accent: #c4532a;
+  --pat-title-shadow: 0 8px 22px rgba(58, 46, 36, 0.22);
+  --pat-title-bg: linear-gradient(180deg, #faf6ee 0%, #e4d8c4 58%, #c4532a 100%);
+  --pat-page-bg: #ebe4d6;
+  --title-btn-bg: #3a2e24;
+  --title-btn-fg: #faf6ee;
+  --title-btn-border: #5d6b38;
+  --title-btn-hover-bg: #4c3e32;
+  --title-btn-active-bg: #c4532a;
+  --title-btn-active-fg: #fff8f2;
+  --title-btn-shadow: 0 0 0 1px #5d6b38;
+  --menu-bg: #faf6ee;
+  --menu-fg: #3a2e24;
+  --menu-muted: #6a5a48;
+  --menu-border: #5d6b38;
+  --menu-border-width: 2px;
+  --menu-accent: #c4532a;
+  --menu-accent-fg: #fff8f2;
+  --menu-toolbar: rgba(196, 83, 42, 0.08);
+  --menu-input-bg: #fffdf8;
+  --menu-input-fg: #3a2e24;
+  --menu-input-border: #5d6b38;
+  --menu-hover: rgba(93, 107, 56, 0.12);
+  --menu-active: rgba(196, 83, 42, 0.16);
+  --menu-meta-bg: rgba(93, 107, 56, 0.1);
+  --menu-shadow: 0 12px 28px rgba(58, 46, 36, 0.16);
+  --menu-radius: 0.7rem;
+  --menu-logo-bg: #fffdf8;
+  background-color: #ebe4d6;
+  background-image:
+    radial-gradient(ellipse at 80% 20%, rgba(93, 107, 56, 0.28), transparent 22%),
+    linear-gradient(180deg, #faf6ee, #e4d8c4);
+  background-attachment: fixed;
+}
+
+:host.tv-skin--abysse {
+  color-scheme: dark;
+  --pat-title-accent: #2ee0c6;
+  --pat-title-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+  --pat-title-bg: linear-gradient(180deg, #123044 0%, #061018 68%, #e45ad8 100%);
+  --pat-page-bg: #061018;
+  --title-btn-bg: #0c1c28;
+  --title-btn-fg: #d9fff6;
+  --title-btn-border: #2ee0c6;
+  --title-btn-hover-bg: #143044;
+  --title-btn-active-bg: #2ee0c6;
+  --title-btn-active-fg: #061018;
+  --title-btn-shadow: 0 0 12px rgba(46, 224, 198, 0.35);
+  --menu-bg: #0c1c28;
+  --menu-fg: #d9fff6;
+  --menu-muted: #8ecfc4;
+  --menu-border: #2ee0c6;
+  --menu-border-width: 1px;
+  --menu-accent: #2ee0c6;
+  --menu-accent-fg: #061018;
+  --menu-toolbar: rgba(46, 224, 198, 0.1);
+  --menu-input-bg: #061018;
+  --menu-input-fg: #d9fff6;
+  --menu-input-border: #2ee0c6;
+  --menu-hover: rgba(228, 90, 216, 0.14);
+  --menu-active: rgba(46, 224, 198, 0.18);
+  --menu-meta-bg: rgba(46, 224, 198, 0.1);
+  --menu-shadow: 0 0 18px rgba(46, 224, 198, 0.2);
+  --menu-radius: 1.1rem;
+  --menu-logo-bg: #061018;
+  background-color: #061018;
+  background-image:
+    radial-gradient(ellipse at 70% 60%, rgba(228, 90, 216, 0.35), transparent 42%),
+    radial-gradient(circle at 20% 30%, rgba(46, 224, 198, 0.35), transparent 16%);
+  background-attachment: fixed;
+}
+
+.tv-player-panel.tv-skin--atelier {
+  --tv-wood-edge: #1f3f86;
+  --tv-bezel: #f3ead8;
+  background:
+    radial-gradient(circle at 16% 82%, rgba(210, 58, 42, 0.35), transparent 26%),
+    linear-gradient(165deg, #f7f1e6, #e4d0ae);
+  border: 2px solid #1f3f86;
+  border-radius: 0.9rem;
+  box-shadow: 0 16px 32px rgba(44, 36, 28, 0.28);
+}
+
+.tv-skin--atelier .tv-player-frame,
+.tv-skin--atelier .tv-video-wrap { background: #f3ead8; border-color: #1f3f86; }
+.tv-skin--atelier .tv-placeholder,
+.tv-skin--atelier .tv-placeholder-icon { color: #2c241c; }
+.tv-skin--atelier .tv-antenna-base,
+.tv-skin--atelier .tv-antenna-mast,
+.tv-skin--atelier .tv-antenna-ear { background: linear-gradient(180deg, #e2b13c, #1f3f86); }
+.tv-skin--atelier .tv-antenna-ball { background: #d23a2a; }
+.tv-skin--atelier .tv-volume-slider,
+.tv-skin--atelier .tv-volume-slider::-moz-range-track { background: linear-gradient(90deg, #1f3f86, #d23a2a); }
+
+.tv-player-panel.tv-skin--glacier {
+  --tv-wood-edge: #7ec8d8;
+  --tv-bezel: #e7f6fb;
+  background: linear-gradient(180deg, #f7fdff, #9fd8e6 55%, #0e4e66);
+  border: 2px solid #f4fbfd;
+  border-radius: 1.1rem;
+  box-shadow: 0 16px 32px rgba(14, 78, 102, 0.28);
+}
+
+.tv-skin--glacier .tv-player-frame,
+.tv-skin--glacier .tv-video-wrap { background: #e7f6fb; border-color: #7ec8d8; }
+.tv-skin--glacier .tv-placeholder,
+.tv-skin--glacier .tv-placeholder-icon { color: #0c2c3a; }
+.tv-skin--glacier .tv-antenna-base,
+.tv-skin--glacier .tv-antenna-mast,
+.tv-skin--glacier .tv-antenna-ear { background: linear-gradient(180deg, #f7fdff, #0e6e8a); }
+.tv-skin--glacier .tv-antenna-ball { background: #0e6e8a; }
+.tv-skin--glacier .tv-volume-slider,
+.tv-skin--glacier .tv-volume-slider::-moz-range-track { background: linear-gradient(90deg, #0e4e66, #9fd8e6); }
+
+.tv-player-panel.tv-skin--encre {
+  --tv-wood-edge: #1c2a6b;
+  --tv-bezel: #f7f0df;
+  background:
+    radial-gradient(circle at 88% 14%, #c4372a 0 7%, transparent 8%),
+    linear-gradient(180deg, #fbf6ea, #e7d3a8);
+  border: 2px solid #1c2a6b;
+  border-radius: 0.35rem;
+  box-shadow: 0 16px 32px rgba(26, 20, 14, 0.24);
+}
+
+.tv-skin--encre .tv-player-frame,
+.tv-skin--encre .tv-video-wrap { background: #f7f0df; border-color: #1c2a6b; }
+.tv-skin--encre .tv-placeholder,
+.tv-skin--encre .tv-placeholder-icon { color: #1a140e; }
+.tv-skin--encre .tv-antenna-base,
+.tv-skin--encre .tv-antenna-mast,
+.tv-skin--encre .tv-antenna-ear { background: linear-gradient(180deg, #e7d3a8, #1c2a6b); }
+.tv-skin--encre .tv-antenna-ball { background: #c4372a; }
+.tv-skin--encre .tv-volume-slider,
+.tv-skin--encre .tv-volume-slider::-moz-range-track { background: linear-gradient(90deg, #1c2a6b, #c4372a); }
+
+.tv-player-panel.tv-skin--chaux {
+  --tv-wood-edge: #c4532a;
+  --tv-bezel: #f6f1e6;
+  background:
+    radial-gradient(ellipse at 78% 22%, rgba(93, 107, 56, 0.35), transparent 24%),
+    linear-gradient(180deg, #faf6ee, #e4d8c4);
+  border: 2px solid #c4532a;
+  border-radius: 0.7rem;
+  box-shadow: 0 16px 32px rgba(58, 46, 36, 0.22);
+}
+
+.tv-skin--chaux .tv-player-frame,
+.tv-skin--chaux .tv-video-wrap { background: #f6f1e6; border-color: #5d6b38; }
+.tv-skin--chaux .tv-placeholder,
+.tv-skin--chaux .tv-placeholder-icon { color: #3a2e24; }
+.tv-skin--chaux .tv-antenna-base,
+.tv-skin--chaux .tv-antenna-mast,
+.tv-skin--chaux .tv-antenna-ear { background: linear-gradient(180deg, #e4d8c4, #5d6b38); }
+.tv-skin--chaux .tv-antenna-ball { background: #c4532a; }
+.tv-skin--chaux .tv-volume-slider,
+.tv-skin--chaux .tv-volume-slider::-moz-range-track { background: linear-gradient(90deg, #5d6b38, #c4532a); }
+
+.tv-player-panel.tv-skin--abysse {
+  --tv-wood-edge: #2ee0c6;
+  --tv-bezel: #07141e;
+  background:
+    radial-gradient(ellipse at 68% 58%, rgba(228, 90, 216, 0.45), transparent 46%),
+    linear-gradient(180deg, #123044, #061018);
+  border: 2px solid #2ee0c6;
+  border-radius: 1.15rem;
+  box-shadow: 0 0 18px rgba(46, 224, 198, 0.28), 0 16px 32px rgba(0, 0, 0, 0.45);
+}
+
+.tv-skin--abysse .tv-player-frame,
+.tv-skin--abysse .tv-video-wrap { background: #07141e; border-color: #2ee0c6; }
+.tv-skin--abysse .tv-placeholder,
+.tv-skin--abysse .tv-placeholder-icon { color: #d9fff6; }
+.tv-skin--abysse .tv-antenna-base,
+.tv-skin--abysse .tv-antenna-mast,
+.tv-skin--abysse .tv-antenna-ear { background: linear-gradient(180deg, #7af0ff, #0c1c28); }
+.tv-skin--abysse .tv-antenna-ball { background: #e45ad8; box-shadow: 0 0 10px #e45ad8; }
+.tv-skin--abysse .tv-volume-slider,
+.tv-skin--abysse .tv-volume-slider::-moz-range-track { background: linear-gradient(90deg, #061018, #2ee0c6); }
+
+:host.tv-skin--atelier,
+:host.tv-skin--glacier,
+:host.tv-skin--encre,
+:host.tv-skin--chaux,
+:host.tv-skin--abysse {
+  position: relative;
+  isolation: isolate;
+}
+
+:host.tv-skin--atelier::before,
+:host.tv-skin--glacier::before,
+:host.tv-skin--encre::before,
+:host.tv-skin--chaux::before,
+:host.tv-skin--abysse::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+:host.tv-skin--atelier::before {
+  background:
+    radial-gradient(circle at 18% 80%, #d23a2a 0 7px, transparent 8px),
+    radial-gradient(circle at 74% 24%, #1f3f86 0 5px, transparent 6px);
+  background-size: 220px 180px;
+  animation: media-page-drift 16s ease-in-out infinite alternate;
+}
+
+:host.tv-skin--glacier::before {
+  background: linear-gradient(115deg, transparent 0 28%, rgba(255, 255, 255, 0.72) 46%, transparent 64%);
+  background-size: 180% 100%;
+  animation: media-page-scroll 11s linear infinite;
+}
+
+:host.tv-skin--encre::before {
+  background: repeating-linear-gradient(0deg, transparent 0 18px, rgba(28, 42, 107, 0.16) 18px 19px);
+  animation: media-page-drift 18s ease-in-out infinite alternate;
+}
+
+:host.tv-skin--chaux::before {
+  background:
+    radial-gradient(ellipse at 12% 70%, rgba(93, 107, 56, 0.35), transparent 18%),
+    radial-gradient(ellipse at 84% 30%, rgba(93, 107, 56, 0.28), transparent 16%);
+  animation: media-page-drift 20s ease-in-out infinite alternate;
+}
+
+:host.tv-skin--abysse::before {
+  background:
+    radial-gradient(circle at 22% 78%, #2ee0c6 0 2px, transparent 3px),
+    radial-gradient(circle at 70% 82%, #e45ad8 0 3px, transparent 4px);
+  background-size: 160px 200px;
+  animation: media-page-rise 12s linear infinite;
+}
+
+:host.tv-landscape-fs.tv-skin--atelier::before,
+:host.tv-landscape-fs.tv-skin--glacier::before,
+:host.tv-landscape-fs.tv-skin--encre::before,
+:host.tv-landscape-fs.tv-skin--chaux::before,
+:host.tv-landscape-fs.tv-skin--abysse::before {
+  display: none;
+}

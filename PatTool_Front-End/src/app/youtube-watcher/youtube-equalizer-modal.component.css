@@ -849,6 +849,156 @@
   --eq-preset-text: #ffe6d2;
 }
 
+::ng-deep .yt-eq-modal:has([data-cabinet='atelier']) {
+  --eq-header: linear-gradient(180deg, #f7f1e6 0%, #e7d3b4 62%, #d23a2a 100%);
+  --eq-header-text: #2c241c;
+  --eq-header-border: #1f3f86;
+  --eq-radius: 0.85rem;
+  --eq-accent: #d23a2a;
+  --eq-body: #e7d7be;
+  --eq-text: #2c241c;
+  --eq-muted: #6e5840;
+  --eq-label: #2c241c;
+  --eq-value: #d23a2a;
+  --eq-footer: #f3ead8;
+  --eq-footer-border: #1f3f86;
+  --eq-frame: #1f3f86;
+  --eq-content-bg: #f7f1e6;
+  --eq-spectrum-bg: #f3ead8;
+  --eq-spectrum-fill: rgba(247, 241, 230, 0.94);
+  --eq-spectrum-border: #1f3f86;
+  --eq-spectrum-glow: none;
+  --eq-bar-hi: #1f3f86;
+  --eq-bar-mid: #d23a2a;
+  --eq-bar-lo: #e2b13c;
+  --eq-status-bg: #fffaf3;
+  --eq-status-border: #1f3f86;
+  --eq-status-text: #2c241c;
+  --eq-preset-bg: #fffaf3;
+  --eq-preset-border: #1f3f86;
+  --eq-preset-text: #2c241c;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='glacier']) {
+  --eq-header: linear-gradient(180deg, #f7fdff 0%, #9fd8e6 48%, #0e4e66 100%);
+  --eq-header-text: #0c2c3a;
+  --eq-header-border: #7ec8d8;
+  --eq-radius: 1rem;
+  --eq-accent: #0e6e8a;
+  --eq-body: #d5eef5;
+  --eq-text: #0c2c3a;
+  --eq-muted: #3d6e80;
+  --eq-label: #0c2c3a;
+  --eq-value: #0e6e8a;
+  --eq-footer: #e7f6fb;
+  --eq-footer-border: #7ec8d8;
+  --eq-frame: #0e6e8a;
+  --eq-content-bg: #f4fbfd;
+  --eq-spectrum-bg: #e7f6fb;
+  --eq-spectrum-fill: rgba(244, 251, 253, 0.94);
+  --eq-spectrum-border: #7ec8d8;
+  --eq-spectrum-glow: none;
+  --eq-bar-hi: #0e4e66;
+  --eq-bar-mid: #0e6e8a;
+  --eq-bar-lo: #9fd8e6;
+  --eq-status-bg: #ffffff;
+  --eq-status-border: #7ec8d8;
+  --eq-status-text: #0c2c3a;
+  --eq-preset-bg: #ffffff;
+  --eq-preset-border: #7ec8d8;
+  --eq-preset-text: #0c2c3a;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='encre']) {
+  --eq-header: linear-gradient(180deg, #fbf6ea 0%, #e7d3a8 55%, #1c2a6b 100%);
+  --eq-header-text: #1a140e;
+  --eq-header-border: #1c2a6b;
+  --eq-radius: 0.4rem;
+  --eq-accent: #1c2a6b;
+  --eq-body: #efe2c8;
+  --eq-text: #1a140e;
+  --eq-muted: #5c4a38;
+  --eq-label: #1a140e;
+  --eq-value: #c4372a;
+  --eq-footer: #f7f0df;
+  --eq-footer-border: #1c2a6b;
+  --eq-frame: #1c2a6b;
+  --eq-content-bg: #fbf6ea;
+  --eq-spectrum-bg: #f7f0df;
+  --eq-spectrum-fill: rgba(251, 246, 234, 0.94);
+  --eq-spectrum-border: #1c2a6b;
+  --eq-spectrum-glow: none;
+  --eq-bar-hi: #1c2a6b;
+  --eq-bar-mid: #c4372a;
+  --eq-bar-lo: #e7d3a8;
+  --eq-status-bg: #fffdf8;
+  --eq-status-border: #1c2a6b;
+  --eq-status-text: #1a140e;
+  --eq-preset-bg: #fffdf8;
+  --eq-preset-border: #1c2a6b;
+  --eq-preset-text: #1a140e;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='chaux']) {
+  --eq-header: linear-gradient(180deg, #faf6ee 0%, #e4d8c4 58%, #c4532a 100%);
+  --eq-header-text: #3a2e24;
+  --eq-header-border: #5d6b38;
+  --eq-radius: 0.7rem;
+  --eq-accent: #c4532a;
+  --eq-body: #ebe4d6;
+  --eq-text: #3a2e24;
+  --eq-muted: #6a5a48;
+  --eq-label: #3a2e24;
+  --eq-value: #c4532a;
+  --eq-footer: #f6f1e6;
+  --eq-footer-border: #5d6b38;
+  --eq-frame: #c4532a;
+  --eq-content-bg: #faf6ee;
+  --eq-spectrum-bg: #f6f1e6;
+  --eq-spectrum-fill: rgba(250, 246, 238, 0.94);
+  --eq-spectrum-border: #5d6b38;
+  --eq-spectrum-glow: none;
+  --eq-bar-hi: #5d6b38;
+  --eq-bar-mid: #c4532a;
+  --eq-bar-lo: #e4d8c4;
+  --eq-status-bg: #fffdf8;
+  --eq-status-border: #5d6b38;
+  --eq-status-text: #3a2e24;
+  --eq-preset-bg: #fffdf8;
+  --eq-preset-border: #5d6b38;
+  --eq-preset-text: #3a2e24;
+}
+
+::ng-deep .yt-eq-modal:has([data-cabinet='abysse']) {
+  --eq-header: linear-gradient(180deg, #123044 0%, #061018 68%, #e45ad8 100%);
+  --eq-header-text: #d9fff6;
+  --eq-header-border: #2ee0c6;
+  --eq-radius: 1.1rem;
+  --eq-accent: #2ee0c6;
+  --eq-body: #061018;
+  --eq-text: #d9fff6;
+  --eq-muted: #8ecfc4;
+  --eq-label: #d9fff6;
+  --eq-value: #2ee0c6;
+  --eq-footer: #07141e;
+  --eq-footer-border: #2ee0c6;
+  --eq-frame: #2ee0c6;
+  --eq-content-bg: #0c1c28;
+  --eq-spectrum-bg: #061018;
+  --eq-spectrum-fill: rgba(6, 16, 24, 0.94);
+  --eq-spectrum-border: #2ee0c6;
+  --eq-spectrum-glow: 0 0 16px rgba(46, 224, 198, 0.35);
+  --eq-bar-hi: #e45ad8;
+  --eq-bar-mid: #2ee0c6;
+  --eq-bar-lo: #0c1c28;
+  --eq-status-bg: #061018;
+  --eq-status-border: #2ee0c6;
+  --eq-status-text: #d9fff6;
+  --eq-preset-bg: #061018;
+  --eq-preset-border: #2ee0c6;
+  --eq-preset-text: #d9fff6;
+}
+
 ::ng-deep .yt-eq-modal:has([data-cabinet='espace']) {
   --eq-header: linear-gradient(180deg, #6d8cff 0%, #141c3a 16%, #02040c 100%);
   --eq-header-border: #7ee7ff;

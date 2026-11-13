@@ -84,6 +84,10 @@ const ILLUSION_SKINS: readonly MediaSkinId[] = [
 	'ebbinghaus', 'zollner', 'necker', 'ouchi', 'ehrenstein'
 ];
 
+const SCENE_SKINS: readonly MediaSkinId[] = [
+	'atelier', 'glacier', 'encre', 'chaux', 'abysse'
+];
+
 const LANG_FLAGS: Record<string, string> = {
 	fr: 'fr',
 	en: 'gb',
@@ -124,6 +128,11 @@ const LANG_FLAGS: Record<string, string> = {
 		'[class.radio-skin--dune]': 'radioSkin === "dune"',
 		'[class.radio-skin--lagoon]': 'radioSkin === "lagoon"',
 		'[class.radio-skin--ember]': 'radioSkin === "ember"',
+		'[class.radio-skin--atelier]': 'radioSkin === "atelier"',
+		'[class.radio-skin--glacier]': 'radioSkin === "glacier"',
+		'[class.radio-skin--encre]': 'radioSkin === "encre"',
+		'[class.radio-skin--chaux]': 'radioSkin === "chaux"',
+		'[class.radio-skin--abysse]': 'radioSkin === "abysse"',
 		'[class.radio-skin--kanizsa]': 'radioSkin === "kanizsa"',
 		'[class.radio-skin--cafewall]': 'radioSkin === "cafewall"',
 		'[class.radio-skin--penrose]': 'radioSkin === "penrose"',
@@ -147,6 +156,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 	radioSkin: MediaSkinId = 'classic';
 	readonly langs = environment.langs;
 	readonly illusionSkins = ILLUSION_SKINS;
+	readonly sceneSkins = SCENE_SKINS;
 	clockFace = 'classic';
 
 	weatherState: CardState = 'loading';
@@ -207,6 +217,9 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 	private radioNowSub?: Subscription;
 	private clockTimer: ReturnType<typeof setTimeout> | null = null;
 	private destroyed = false;
+	private scrollGripPointer = -1;
+	private scrollGripLastY = 0;
+	private scrollGripShift = 0;
 	private readonly subs = new Subscription();
 	private cacheEpoch = 0;
 
@@ -359,7 +372,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 	}
 
 	get sortedSkins(): MediaSkinId[] {
-		const pinned = new Set<string>(ILLUSION_SKINS);
+		const pinned = new Set<string>([...ILLUSION_SKINS, ...SCENE_SKINS]);
 		const lang = this.translate.currentLang || this.translate.getDefaultLang() || 'fr';
 		return MEDIA_SKIN_IDS.filter((skin) => !pinned.has(skin)).sort((a, b) =>
 			this.translate.instant(this.skinNameKey(a)).localeCompare(
@@ -404,6 +417,60 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		}
 	}
 
+	/** Side grip: drag scrolls the page, then the grip springs back to mid-screen. */
+	onScrollGripDown(event: PointerEvent): void {
+		if (event.pointerType === 'mouse' && event.button !== 0) {
+			return;
+		}
+		event.preventDefault();
+		const grip = event.currentTarget as HTMLElement;
+		grip.setPointerCapture(event.pointerId);
+		this.scrollGripPointer = event.pointerId;
+		this.scrollGripLastY = event.clientY;
+		this.scrollGripShift = 0;
+		grip.classList.add('is-dragging');
+	}
+
+	onScrollGripMove(event: PointerEvent): void {
+		if (event.pointerId !== this.scrollGripPointer) {
+			return;
+		}
+		event.preventDefault();
+		const dy = event.clientY - this.scrollGripLastY;
+		this.scrollGripLastY = event.clientY;
+		const limit = Math.min(window.innerHeight * 0.34, 200);
+		this.scrollGripShift = Math.max(-limit, Math.min(limit, this.scrollGripShift + dy));
+		this.scrollFromGrip(dy * 2.6);
+		(event.currentTarget as HTMLElement).style.setProperty('--grip-shift', `${this.scrollGripShift}px`);
+	}
+
+	/** Scrolls the home page. The phone ignores window scrolling while a finger is down. */
+	private scrollFromGrip(dy: number): void {
+		const host = this.hostEl.nativeElement;
+		const before = host.scrollTop;
+		host.scrollTop = before + dy;
+		if (host.scrollTop !== before) {
+			return;
+		}
+		const root = (document.scrollingElement || document.documentElement) as HTMLElement;
+		const rootBefore = root.scrollTop;
+		root.scrollTop = rootBefore + dy;
+		if (root.scrollTop === rootBefore) {
+			window.scrollBy(0, dy);
+		}
+	}
+
+	onScrollGripUp(event: PointerEvent): void {
+		if (event.pointerId !== this.scrollGripPointer) {
+			return;
+		}
+		this.scrollGripPointer = -1;
+		this.scrollGripShift = 0;
+		const grip = event.currentTarget as HTMLElement;
+		grip.classList.remove('is-dragging');
+		grip.style.setProperty('--grip-shift', '0px');
+	}
+
 	ngOnDestroy(): void {
 		this.destroyed = true;
 		if (this.clockTimer) {
@@ -416,14 +483,13 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 	}
 
 	private readonly onSharedSkin = (): void => {
-		if (this.skinChosen) {
+		const next = readMediaSkin();
+		if (!next || next === this.radioSkin) {
 			return;
 		}
-		const next = readMediaSkin();
-		if (next && next !== this.radioSkin) {
-			this.radioSkin = next;
-			this.cdr.markForCheck();
-		}
+		this.radioSkin = next;
+		this.skinChosen = true;
+		this.cdr.markForCheck();
 	};
 
 	private restoreSkin(): void {

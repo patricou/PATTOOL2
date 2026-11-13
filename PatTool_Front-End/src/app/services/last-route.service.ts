@@ -14,7 +14,7 @@ import { isBrowserOffline } from '../shared/browser-offline.util';
 export class LastRouteService {
   private static readonly STORAGE_PREFIX = 'pattool.last-route';
   private static readonly MAX_ROUTE_LEN = 500;
-  private static readonly BLOCKED_PREFIXES = ['/tools/tv-popout', '/acces-refuse-evenement', '/profile'];
+  private static readonly BLOCKED_PREFIXES = ['/tools/tv-popout', '/tools/calculator', '/acces-refuse-evenement', '/profile'];
   private static readonly SAVE_DEBOUNCE_MS = 400;
 
   /** True when the browser opened with an empty / default hash (logout / bookmark-less). */

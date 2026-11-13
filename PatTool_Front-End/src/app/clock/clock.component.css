@@ -3845,11 +3845,12 @@
   display: grid;
   place-items: center;
   width: var(--home-clock-width, var(--home-clock-size, 7.25rem));
-  height: var(--home-clock-height, var(--home-clock-size, 7.25rem));
+  height: auto;
+  min-height: 0;
   margin: 0 auto;
   padding: 0 !important;
-  overflow: hidden;
-  container-type: size;
+  overflow: visible;
+  container-type: inline-size;
 }
 
 :host.clock-embed .watch,
@@ -3870,9 +3871,10 @@
 
 :host.clock-embed .watch {
   width: 100% !important;
-  height: 100% !important;
+  height: auto !important;
+  aspect-ratio: 1;
   max-width: 100% !important;
-  max-height: 100% !important;
+  max-height: none !important;
 }
 
 :host.clock-embed .watch svg.watch-face,

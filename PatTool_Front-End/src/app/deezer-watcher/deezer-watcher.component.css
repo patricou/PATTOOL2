@@ -495,6 +495,33 @@ a.dz-page-jump {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.dz-sidebar.radio-sidebar .dz-sidebar-hide {
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  gap: 0.32rem;
+  padding: 0.32rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+  background: var(--menu-accent, #c2410c);
+  color: var(--menu-accent-fg, #fff);
+  border-color: var(--menu-accent, #c2410c);
+}
+
+.dz-sidebar.radio-sidebar .dz-sidebar-hide:hover,
+.dz-sidebar.radio-sidebar .dz-sidebar-hide:focus-visible {
+  background: color-mix(in srgb, var(--menu-accent, #c2410c) 78%, #000);
+  color: var(--menu-accent-fg, #fff);
+  border-color: color-mix(in srgb, var(--menu-accent, #c2410c) 78%, #000);
+  box-shadow: none;
+}
+
+.dz-sidebar .dz-sidebar-hide-label {
+  display: inline;
+}
+
 .dz-filter {
   display: flex;
   flex-direction: column;
@@ -2364,6 +2391,15 @@ a.dz-page-jump {
 
 .radio-player-panel.dz-video {
   width: min(100%, 76rem, calc((100dvh - 15rem) * var(--dz-video-w, 16) / var(--dz-video-h, 9)));
+}
+
+/* Menu hidden: the cabinet can use the width the list no longer takes, and it grows with the screen. */
+.dz-page:has(.radio-layout--sidebar-collapsed) {
+  max-width: 100%;
+}
+
+.dz-layout.radio-layout--sidebar-collapsed .radio-player-panel.dz-video {
+  width: min(100%, calc((100dvh - 12.5rem) * var(--dz-video-w, 16) / var(--dz-video-h, 9)));
 }
 
 .radio-player-panel.dz-video .radio-face {

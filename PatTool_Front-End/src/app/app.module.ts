@@ -32,6 +32,7 @@ import { HashLocationStrategy, LocationStrategy, IMAGE_CONFIG } from '@angular/c
 import { UnsavedChangesGuard } from './guards/unsaved-changes.guard';
 import { IotRoleGuard } from './guards/iot-role.guard';
 import { AdminRoleGuard } from './guards/admin-role.guard';
+import { calculatorModalGuard } from './guards/calculator-modal.guard';
 import { IotService } from './services/iot.service';
 import { LocalNetworkService } from './services/local-network.service';
 import { NavigationButtonsModule } from './shared/navigation-buttons/navigation-buttons.module';
@@ -264,6 +265,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 			},
 			{
 				path: 'tools/calculator',
+				canActivate: [calculatorModalGuard],
 				loadComponent: () => import('./calculator/calculator.component').then(m => m.CalculatorComponent)
 			},
 			{

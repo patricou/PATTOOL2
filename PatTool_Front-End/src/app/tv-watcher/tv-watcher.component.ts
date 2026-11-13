@@ -104,6 +104,11 @@ export type TvSkin =
   | 'dune'
   | 'lagoon'
   | 'ember'
+  | 'atelier'
+  | 'glacier'
+  | 'encre'
+  | 'chaux'
+  | 'abysse'
   | 'kanizsa'
   | 'cafewall'
   | 'penrose'
@@ -134,6 +139,11 @@ const TV_SKINS: readonly TvSkin[] = [
   'dune',
   'lagoon',
   'ember',
+  'atelier',
+  'glacier',
+  'encre',
+  'chaux',
+  'abysse',
   'kanizsa',
   'cafewall',
   'penrose',
@@ -408,6 +418,11 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   @HostBinding('class.tv-skin--dune') get skinDune(): boolean { return this.tvSkin === 'dune'; }
   @HostBinding('class.tv-skin--lagoon') get skinLagoon(): boolean { return this.tvSkin === 'lagoon'; }
   @HostBinding('class.tv-skin--ember') get skinEmber(): boolean { return this.tvSkin === 'ember'; }
+  @HostBinding('class.tv-skin--atelier') get skinAtelier(): boolean { return this.tvSkin === 'atelier'; }
+  @HostBinding('class.tv-skin--glacier') get skinGlacier(): boolean { return this.tvSkin === 'glacier'; }
+  @HostBinding('class.tv-skin--encre') get skinEncre(): boolean { return this.tvSkin === 'encre'; }
+  @HostBinding('class.tv-skin--chaux') get skinChaux(): boolean { return this.tvSkin === 'chaux'; }
+  @HostBinding('class.tv-skin--abysse') get skinAbysse(): boolean { return this.tvSkin === 'abysse'; }
   @HostBinding('class.tv-skin--kanizsa') get skinKanizsa(): boolean { return this.tvSkin === 'kanizsa'; }
   @HostBinding('class.tv-skin--cafewall') get skinCafewall(): boolean { return this.tvSkin === 'cafewall'; }
   @HostBinding('class.tv-skin--penrose') get skinPenrose(): boolean { return this.tvSkin === 'penrose'; }
@@ -972,6 +987,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
         this.applyLeavePagePlaybackPolicy();
       });
     this.restoreSkinPreference();
+    window.addEventListener('patradiolook', this.onSharedSkin);
     this.sidebarCollapsed = this.readSidebarCollapsedPreference();
     this.channelSearchSub = this.channelSearch$
       .pipe(debounceTime(280), distinctUntilChanged())
@@ -1046,6 +1062,7 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    window.removeEventListener('patradiolook', this.onSharedSkin);
     document.removeEventListener('pointerdown', this.unlockSoundFromGesture, true);
     this.pageAlive = false;
     if (this.boundEqVideo) {
@@ -1757,8 +1774,17 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
 
   readonly illusionSkins = TvWatcherComponent.ILLUSION_SKINS;
 
+  private static readonly SCENE_SKINS: readonly TvSkin[] = [
+    'atelier', 'glacier', 'encre', 'chaux', 'abysse'
+  ];
+
+  readonly sceneSkins = TvWatcherComponent.SCENE_SKINS;
+
   get sortedTvSkins(): TvSkin[] {
-    const pinned = new Set<TvSkin>(TvWatcherComponent.ILLUSION_SKINS);
+    const pinned = new Set<TvSkin>([
+      ...TvWatcherComponent.ILLUSION_SKINS,
+      ...TvWatcherComponent.SCENE_SKINS
+    ]);
     const lang = this.translate.currentLang || this.translate.defaultLang || 'fr';
     return this.tvSkins.filter((skin) => !pinned.has(skin)).sort((a, b) =>
       this.translate.instant(this.skinNameKey(a)).localeCompare(
@@ -1816,6 +1842,16 @@ export class TvWatcherComponent implements OnInit, OnDestroy {
     this.skinSaveSub?.unsubscribe();
     this.skinSaveSub = this.api.saveTvSkin(skin).pipe(catchError(() => of(null))).subscribe();
   }
+
+  private readonly onSharedSkin = (): void => {
+    const next = this.readLocalSkin();
+    if (!next || next === this.tvSkin) {
+      return;
+    }
+    this.tvSkin = next;
+    this.skinChosenThisVisit = true;
+    this.cdr.markForCheck();
+  };
 
   /** Local value applies instantly; the account value (if any) wins once loaded, unless the user already picked one. */
   private restoreSkinPreference(): void {

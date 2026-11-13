@@ -31,6 +31,7 @@ public class MediaSkinService {
             "classic", "artdeco", "synthwave", "spaceage", "military", "steampunk", "aurora",
             "noir", "bamboo", "porcelain", "carbon", "candy", "espace",
             "jazz", "sakura", "dune", "lagoon", "ember",
+            "atelier", "glacier", "encre", "chaux", "abysse",
             "kanizsa", "cafewall", "penrose", "scintille", "barber",
             "ebbinghaus", "zollner", "necker", "ouchi", "ehrenstein");
 

@@ -5801,7 +5801,7 @@
     "SIDEBAR_FILTER": "リストを絞り込み",
     "SIDEBAR_FILTER_PLACEHOLDER": "チャンネルや映画を絞り込み…",
     "SIDEBAR_FILTER_CLEAR": "フィルターをクリア",
-    "SIDEBAR_COLLAPSE": "メニューを折りたたむ",
+    "SIDEBAR_COLLAPSE": "メニューを隠す",
     "SIDEBAR_EXPAND": "メニューを表示",
     "SKIN_OPEN": "スタイル",
     "SKIN_TITLE": "テレビのスタイル",

@@ -46,6 +46,7 @@ type DzSkin =
   | 'classic' | 'artdeco' | 'synthwave' | 'spaceage' | 'military' | 'steampunk'
   | 'aurora' | 'noir' | 'bamboo' | 'porcelain' | 'carbon' | 'candy' | 'espace'
   | 'jazz' | 'sakura' | 'dune' | 'lagoon' | 'ember'
+  | 'atelier' | 'glacier' | 'encre' | 'chaux' | 'abysse'
   | 'kanizsa' | 'cafewall' | 'penrose' | 'scintille' | 'barber'
   | 'ebbinghaus' | 'zollner' | 'necker' | 'ouchi' | 'ehrenstein';
 
@@ -53,6 +54,7 @@ const DZ_SKINS: readonly DzSkin[] = [
   'classic', 'artdeco', 'synthwave', 'spaceage', 'military', 'steampunk',
   'aurora', 'noir', 'bamboo', 'porcelain', 'carbon', 'candy', 'espace',
   'jazz', 'sakura', 'dune', 'lagoon', 'ember',
+  'atelier', 'glacier', 'encre', 'chaux', 'abysse',
   'kanizsa', 'cafewall', 'penrose', 'scintille', 'barber',
   'ebbinghaus', 'zollner', 'necker', 'ouchi', 'ehrenstein'
 ];
@@ -124,6 +126,11 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   @HostBinding('class.radio-skin--dune') get skinDune(): boolean { return this.radioSkin === 'dune'; }
   @HostBinding('class.radio-skin--lagoon') get skinLagoon(): boolean { return this.radioSkin === 'lagoon'; }
   @HostBinding('class.radio-skin--ember') get skinEmber(): boolean { return this.radioSkin === 'ember'; }
+  @HostBinding('class.radio-skin--atelier') get skinAtelier(): boolean { return this.radioSkin === 'atelier'; }
+  @HostBinding('class.radio-skin--glacier') get skinGlacier(): boolean { return this.radioSkin === 'glacier'; }
+  @HostBinding('class.radio-skin--encre') get skinEncre(): boolean { return this.radioSkin === 'encre'; }
+  @HostBinding('class.radio-skin--chaux') get skinChaux(): boolean { return this.radioSkin === 'chaux'; }
+  @HostBinding('class.radio-skin--abysse') get skinAbysse(): boolean { return this.radioSkin === 'abysse'; }
   @HostBinding('class.radio-skin--kanizsa') get skinKanizsa(): boolean { return this.radioSkin === 'kanizsa'; }
   @HostBinding('class.radio-skin--cafewall') get skinCafewall(): boolean { return this.radioSkin === 'cafewall'; }
   @HostBinding('class.radio-skin--penrose') get skinPenrose(): boolean { return this.radioSkin === 'penrose'; }
@@ -514,6 +521,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     'kanizsa', 'cafewall', 'penrose', 'scintille', 'barber',
     'ebbinghaus', 'zollner', 'necker', 'ouchi', 'ehrenstein'
   ];
+  readonly sceneSkins: readonly DzSkin[] = [
+    'atelier', 'glacier', 'encre', 'chaux', 'abysse'
+  ];
   readonly pipSupported = supportsRadioPictureInPicture();
   readonly canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
@@ -536,6 +546,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.sleeveOpen = this.readSleeve();
     this.sleeveFront = this.readSleeveFront();
     this.restoreSkinPreference();
+    window.addEventListener('patradiolook', this.onSharedSkin);
     this.tickerEnabled = this.readTickerEnabled();
     this.keepAliveOnNavigate = this.readKeepAlive();
     this.presets = this.readPresets();
@@ -585,6 +596,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   ngOnDestroy(): void {
+    window.removeEventListener('patradiolook', this.onSharedSkin);
     if (this.recentBlurTimer) {
       clearTimeout(this.recentBlurTimer);
       this.recentBlurTimer = null;
@@ -4635,7 +4647,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   get sortedRadioSkins(): DzSkin[] {
-    const pinned = new Set<DzSkin>(this.illusionSkins);
+    const pinned = new Set<DzSkin>([...this.illusionSkins, ...this.sceneSkins]);
     const lang = this.translate.currentLang || this.translate.defaultLang || 'fr';
     return DZ_SKINS.filter((skin) => !pinned.has(skin)).sort((a, b) =>
       this.translate.instant(this.skinNameKey(a)).localeCompare(
@@ -5567,6 +5579,16 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private static isDzSkin(value: string | null | undefined): value is DzSkin {
     return !!value && (DZ_SKINS as readonly string[]).includes(value);
   }
+
+  private readonly onSharedSkin = (): void => {
+    const next = this.readSkin();
+    if (!next || next === this.radioSkin) {
+      return;
+    }
+    this.radioSkin = next;
+    this.skinChosenThisVisit = true;
+    this.cdr.markForCheck();
+  };
 
   /** Local value applies instantly; the account value (if any) wins once loaded, unless the user already picked one. */
   private restoreSkinPreference(): void {
