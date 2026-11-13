@@ -5,7 +5,7 @@ import com.pat.controller.dto.YoutubeItemDto;
 import com.pat.controller.dto.YoutubeSearchPageDto;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.boot.restclient.RestTemplateBuilder;
 
 import java.time.Instant;
 import java.util.List;

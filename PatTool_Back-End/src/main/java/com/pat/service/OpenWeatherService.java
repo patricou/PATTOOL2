@@ -98,7 +98,7 @@ public class OpenWeatherService {
             
             log.debug("Calling OpenWeatherMap API for city: {}, countryCode: {}", city, countryCode);
             
-            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(url)
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(url)
                     .queryParam("q", queryParam)
                     .queryParam("appid", openWeatherApiKey.trim())
                     .queryParam("units", "metric")
@@ -282,7 +282,7 @@ public class OpenWeatherService {
 
     private SeaLevelElevation fetchOpenMeteoElevation(double lat, double lon) {
         try {
-            String url = UriComponentsBuilder.fromHttpUrl(OPEN_METEO_ELEVATION_URL)
+            String url = UriComponentsBuilder.fromUriString(OPEN_METEO_ELEVATION_URL)
                     .queryParam("latitude", lat)
                     .queryParam("longitude", lon)
                     .toUriString();
@@ -455,7 +455,7 @@ public class OpenWeatherService {
                 lats.append(formatCoordinate(coords.get(i)[0]));
                 lons.append(formatCoordinate(coords.get(i)[1]));
             }
-            String url = UriComponentsBuilder.fromHttpUrl(OPEN_METEO_ELEVATION_URL)
+            String url = UriComponentsBuilder.fromUriString(OPEN_METEO_ELEVATION_URL)
                     .queryParam("latitude", lats.toString())
                     .queryParam("longitude", lons.toString())
                     .toUriString();
@@ -630,7 +630,7 @@ public class OpenWeatherService {
         try {
             log.debug("Calling OpenWeatherMap API for coordinates: lat={}, lon={}, alt={}", lat, lon, altitude);
             
-            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(url)
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(url)
                     .queryParam("lat", lat)
                     .queryParam("lon", lon)
                     .queryParam("appid", openWeatherApiKey.trim())
@@ -705,7 +705,7 @@ public class OpenWeatherService {
             
             log.debug("Calling OpenWeatherMap API forecast for city: {}, countryCode: {}", city, countryCode);
             
-            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(url)
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(url)
                     .queryParam("q", queryParam)
                     .queryParam("appid", openWeatherApiKey.trim())
                     .queryParam("units", "metric")
@@ -794,7 +794,7 @@ public class OpenWeatherService {
         try {
             log.debug("Calling OpenWeatherMap API forecast for coordinates: lat={}, lon={}, alt={}", lat, lon, altitude);
             
-            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(url)
+            UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(url)
                     .queryParam("lat", lat)
                     .queryParam("lon", lon)
                     .queryParam("appid", openWeatherApiKey.trim())
@@ -913,7 +913,7 @@ public class OpenWeatherService {
             return ResponseEntity.badRequest().build();
         }
         String url = UriComponentsBuilder
-                .fromHttpUrl("https://tile.openweathermap.org/map/" + layer + "/" + z + "/" + x + "/" + y + ".png")
+                .fromUriString("https://tile.openweathermap.org/map/" + layer + "/" + z + "/" + x + "/" + y + ".png")
                 .queryParam("appid", openWeatherApiKey.trim())
                 .toUriString();
         try {

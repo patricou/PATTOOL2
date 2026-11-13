@@ -88,7 +88,7 @@ public class EclipseProxyService {
     public JsonNode usnoSolarYear(int year) {
         validateYear(year);
         String url = UriComponentsBuilder
-                .fromHttpUrl(normalizeBase(usnoApiBase) + "/eclipses/solar/year")
+                .fromUriString(normalizeBase(usnoApiBase) + "/eclipses/solar/year")
                 .queryParam("year", year)
                 .toUriString();
         return fetchJson(url);
@@ -103,7 +103,7 @@ public class EclipseProxyService {
         // USNO accepts "lat,lon" (with or without space after the comma).
         String coords = String.format(Locale.ROOT, "%.6f,%.6f", lat, lon);
         String url = UriComponentsBuilder
-                .fromHttpUrl(normalizeBase(usnoApiBase) + "/eclipses/solar/date")
+                .fromUriString(normalizeBase(usnoApiBase) + "/eclipses/solar/date")
                 .queryParam("date", date)
                 .queryParam("coords", coords)
                 .queryParam("height", heightMeters)
@@ -138,7 +138,7 @@ public class EclipseProxyService {
         validateBody(body);
         validateDate(date);
         UriComponentsBuilder builder = UriComponentsBuilder
-                .fromHttpUrl(normalizeBase(opaleApiBase) + "/phenomena/eclipses/" + body + "/" + date)
+                .fromUriString(normalizeBase(opaleApiBase) + "/phenomena/eclipses/" + body + "/" + date)
                 .queryParam("format", "json");
         if (lat != null && lon != null) {
             validateCoords(lat, lon);
@@ -494,7 +494,7 @@ public class EclipseProxyService {
     private JsonNode fetchUsnoLocalSoft(String date, double lat, double lon, int heightMeters) {
         String coords = String.format(Locale.ROOT, "%.6f,%.6f", lat, lon);
         String url = UriComponentsBuilder
-                .fromHttpUrl(normalizeBase(usnoApiBase) + "/eclipses/solar/date")
+                .fromUriString(normalizeBase(usnoApiBase) + "/eclipses/solar/date")
                 .queryParam("date", toUsnoDate(date))
                 .queryParam("coords", coords)
                 .queryParam("height", heightMeters)

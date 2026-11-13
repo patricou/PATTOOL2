@@ -1,7 +1,7 @@
 package com.pat.config;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.boot.restclient.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -56,40 +56,40 @@ public class RestTemplateConfig {
     @Primary
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(2))
-                .setReadTimeout(Duration.ofSeconds(3))
+                .connectTimeout(Duration.ofSeconds(2))
+                .readTimeout(Duration.ofSeconds(3))
                 .build();
     }
 
     @Bean(CODE_REPO_REST_TEMPLATE)
     public RestTemplate codeRepoRestTemplate(RestTemplateBuilder builder) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(8))
-                .setReadTimeout(Duration.ofSeconds(20))
+                .connectTimeout(Duration.ofSeconds(8))
+                .readTimeout(Duration.ofSeconds(20))
                 .build();
     }
 
     @Bean(CERN_REST_TEMPLATE)
     public RestTemplate cernRestTemplate(RestTemplateBuilder builder) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(5))
-                .setReadTimeout(Duration.ofSeconds(20))
+                .connectTimeout(Duration.ofSeconds(5))
+                .readTimeout(Duration.ofSeconds(20))
                 .build();
     }
 
     @Bean(CHEM_REST_TEMPLATE)
     public RestTemplate chemRestTemplate(RestTemplateBuilder builder) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(5))
-                .setReadTimeout(Duration.ofSeconds(20))
+                .connectTimeout(Duration.ofSeconds(5))
+                .readTimeout(Duration.ofSeconds(20))
                 .build();
     }
 
     @Bean(NASA_REST_TEMPLATE)
     public RestTemplate nasaRestTemplate(RestTemplateBuilder builder) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(10))
-                .setReadTimeout(Duration.ofSeconds(30))
+                .connectTimeout(Duration.ofSeconds(10))
+                .readTimeout(Duration.ofSeconds(30))
                 .build();
     }
 
@@ -99,8 +99,8 @@ public class RestTemplateConfig {
             @Value("${meteofrance.clim.http.connect-timeout-seconds:5}") int connectSeconds,
             @Value("${meteofrance.clim.http.read-timeout-seconds:15}") int readSeconds) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(Math.max(connectSeconds, 1)))
-                .setReadTimeout(Duration.ofSeconds(Math.max(readSeconds, 1)))
+                .connectTimeout(Duration.ofSeconds(Math.max(connectSeconds, 1)))
+                .readTimeout(Duration.ofSeconds(Math.max(readSeconds, 1)))
                 .build();
     }
 
@@ -110,56 +110,56 @@ public class RestTemplateConfig {
             @Value("${globe.proxy.http.connect-timeout-seconds:10}") int connectSeconds,
             @Value("${globe.proxy.http.read-timeout-seconds:90}") int readSeconds) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(Math.max(connectSeconds, 1)))
-                .setReadTimeout(Duration.ofSeconds(Math.max(readSeconds, 1)))
+                .connectTimeout(Duration.ofSeconds(Math.max(connectSeconds, 1)))
+                .readTimeout(Duration.ofSeconds(Math.max(readSeconds, 1)))
                 .build();
     }
 
     @Bean(ELECTRICITY_REST_TEMPLATE)
     public RestTemplate electricityRestTemplate(RestTemplateBuilder builder) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(5))
-                .setReadTimeout(Duration.ofSeconds(20))
+                .connectTimeout(Duration.ofSeconds(5))
+                .readTimeout(Duration.ofSeconds(20))
                 .build();
     }
 
     @Bean(ECLIPSE_REST_TEMPLATE)
     public RestTemplate eclipseRestTemplate(RestTemplateBuilder builder) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(5))
-                .setReadTimeout(Duration.ofSeconds(60))
+                .connectTimeout(Duration.ofSeconds(5))
+                .readTimeout(Duration.ofSeconds(60))
                 .build();
     }
 
     @Bean(SKYMAP_REST_TEMPLATE)
     public RestTemplate skyMapRestTemplate(RestTemplateBuilder builder) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(5))
-                .setReadTimeout(Duration.ofSeconds(20))
+                .connectTimeout(Duration.ofSeconds(5))
+                .readTimeout(Duration.ofSeconds(20))
                 .build();
     }
 
     @Bean(RELIEF_FINDER_REST_TEMPLATE)
     public RestTemplate reliefFinderRestTemplate(RestTemplateBuilder builder) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(8))
-                .setReadTimeout(Duration.ofSeconds(30))
+                .connectTimeout(Duration.ofSeconds(8))
+                .readTimeout(Duration.ofSeconds(30))
                 .build();
     }
 
     @Bean(ARTISANS_REST_TEMPLATE)
     public RestTemplate artisansRestTemplate(RestTemplateBuilder builder) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(8))
-                .setReadTimeout(Duration.ofSeconds(25))
+                .connectTimeout(Duration.ofSeconds(8))
+                .readTimeout(Duration.ofSeconds(25))
                 .build();
     }
 
     @Bean(FONCIER_REST_TEMPLATE)
     public RestTemplate foncierRestTemplate(RestTemplateBuilder builder) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(8))
-                .setReadTimeout(Duration.ofSeconds(30))
+                .connectTimeout(Duration.ofSeconds(8))
+                .readTimeout(Duration.ofSeconds(30))
                 .build();
     }
 
@@ -172,8 +172,8 @@ public class RestTemplateConfig {
             @Value("${openai.http.connect-timeout-seconds:300}") int connectSeconds,
             @Value("${openai.http.read-timeout-seconds:300}") int readSeconds) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(connectSeconds))
-                .setReadTimeout(Duration.ofSeconds(readSeconds))
+                .connectTimeout(Duration.ofSeconds(connectSeconds))
+                .readTimeout(Duration.ofSeconds(readSeconds))
                 .build();
     }
 
@@ -186,8 +186,8 @@ public class RestTemplateConfig {
             @Value("${anthropic.http.connect-timeout-seconds:300}") int connectSeconds,
             @Value("${anthropic.http.read-timeout-seconds:300}") int readSeconds) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(connectSeconds))
-                .setReadTimeout(Duration.ofSeconds(readSeconds))
+                .connectTimeout(Duration.ofSeconds(connectSeconds))
+                .readTimeout(Duration.ofSeconds(readSeconds))
                 .build();
     }
 
@@ -200,8 +200,8 @@ public class RestTemplateConfig {
             @Value("${gemini.http.connect-timeout-seconds:300}") int connectSeconds,
             @Value("${gemini.http.read-timeout-seconds:300}") int readSeconds) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(connectSeconds))
-                .setReadTimeout(Duration.ofSeconds(readSeconds))
+                .connectTimeout(Duration.ofSeconds(connectSeconds))
+                .readTimeout(Duration.ofSeconds(readSeconds))
                 .build();
     }
 
@@ -214,8 +214,8 @@ public class RestTemplateConfig {
             @Value("${mistral.http.connect-timeout-seconds:300}") int connectSeconds,
             @Value("${mistral.http.read-timeout-seconds:300}") int readSeconds) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(connectSeconds))
-                .setReadTimeout(Duration.ofSeconds(readSeconds))
+                .connectTimeout(Duration.ofSeconds(connectSeconds))
+                .readTimeout(Duration.ofSeconds(readSeconds))
                 .build();
     }
 
@@ -228,8 +228,8 @@ public class RestTemplateConfig {
             @Value("${spacexai.http.connect-timeout-seconds:300}") int connectSeconds,
             @Value("${spacexai.http.read-timeout-seconds:300}") int readSeconds) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(connectSeconds))
-                .setReadTimeout(Duration.ofSeconds(readSeconds))
+                .connectTimeout(Duration.ofSeconds(connectSeconds))
+                .readTimeout(Duration.ofSeconds(readSeconds))
                 .build();
     }
 
@@ -242,8 +242,8 @@ public class RestTemplateConfig {
             @Value("${chinese.http.connect-timeout-seconds:300}") int connectSeconds,
             @Value("${chinese.http.read-timeout-seconds:300}") int readSeconds) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(connectSeconds))
-                .setReadTimeout(Duration.ofSeconds(readSeconds))
+                .connectTimeout(Duration.ofSeconds(connectSeconds))
+                .readTimeout(Duration.ofSeconds(readSeconds))
                 .build();
     }
 }

@@ -319,7 +319,7 @@ public class OpenMeteoService {
             lonBuilder.append(chunk.get(i)[1]);
         }
 
-        String url = UriComponentsBuilder.fromHttpUrl(FORECAST_URL)
+        String url = UriComponentsBuilder.fromUriString(FORECAST_URL)
                 .queryParam("latitude", latBuilder.toString())
                 .queryParam("longitude", lonBuilder.toString())
                 .queryParam("current", "temperature_2m,relative_humidity_2m,wind_speed_10m,"
@@ -439,7 +439,7 @@ public class OpenMeteoService {
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> fetchCurrentWeatherPayload(double lat, double lon, String jwtSubject) {
-        String url = UriComponentsBuilder.fromHttpUrl(FORECAST_URL)
+        String url = UriComponentsBuilder.fromUriString(FORECAST_URL)
                 .queryParam("latitude", lat)
                 .queryParam("longitude", lon)
                 .queryParam("current", "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,"
@@ -509,7 +509,7 @@ public class OpenMeteoService {
     private Map<String, Object> fetchHourlyForecastPayload(
             double lat, double lon, String model, String patSource, int horizonHours) {
         int fetchHours = Math.min(Math.max(MeteoFranceForecastPreferenceService.clampHorizon(horizonHours) + 3, 24), 384);
-        UriComponentsBuilder urlBuilder = UriComponentsBuilder.fromHttpUrl(FORECAST_URL)
+        UriComponentsBuilder urlBuilder = UriComponentsBuilder.fromUriString(FORECAST_URL)
                 .queryParam("latitude", lat)
                 .queryParam("longitude", lon)
                 .queryParam("hourly", "temperature_2m,weather_code,precipitation_probability,"
@@ -604,7 +604,7 @@ public class OpenMeteoService {
             double lat, double lon, String model, String patSource, int horizonHours) {
         int horizon = MeteoFranceForecastPreferenceService.clampHorizon(horizonHours);
         int forecastDays = Math.min(Math.max((horizon + 23) / 24 + 1, 1), 16);
-        UriComponentsBuilder urlBuilder = UriComponentsBuilder.fromHttpUrl(FORECAST_URL)
+        UriComponentsBuilder urlBuilder = UriComponentsBuilder.fromUriString(FORECAST_URL)
                 .queryParam("latitude", lat)
                 .queryParam("longitude", lon)
                 .queryParam("minutely_15", "temperature_2m,weather_code,precipitation_probability,"

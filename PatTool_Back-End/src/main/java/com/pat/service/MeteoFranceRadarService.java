@@ -152,7 +152,7 @@ public class MeteoFranceRadarService {
             return ResponseEntity.badRequest().build();
         }
 
-        String url = UriComponentsBuilder.fromHttpUrl(wmsBaseUrl)
+        String url = UriComponentsBuilder.fromUriString(wmsBaseUrl)
                 .queryParam("SERVICE", "WMS")
                 .queryParam("VERSION", "1.3.0")
                 .queryParam("REQUEST", "GetMap")
@@ -277,7 +277,7 @@ public class MeteoFranceRadarService {
         int resolvedMaille = resolveMaille(maille);
 
         String url = dpradarBaseUrl + "/mosaiques/" + normalizedZone + "/observations/" + normalizedObservation;
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(url)
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(url)
                 .queryParam("maille", resolvedMaille);
         Map<String, Object> meta = getJson(builder.build(true).toUriString());
         if (!meta.containsKey("error")) {
@@ -300,7 +300,7 @@ public class MeteoFranceRadarService {
         String normalizedObservation = normalizeObservation(observation);
         int resolvedMaille = resolveMaille(maille);
 
-        String url = UriComponentsBuilder.fromHttpUrl(
+        String url = UriComponentsBuilder.fromUriString(
                         dpradarBaseUrl + "/mosaiques/" + normalizedZone + "/observations/" + normalizedObservation + "/produit")
                 .queryParam("maille", resolvedMaille)
                 .build(true)

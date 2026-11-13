@@ -107,7 +107,7 @@ public class GeocodeService {
             log.debug("Geocode search cache hit for '{}'", query.trim());
             return cached;
         }
-        String url = UriComponentsBuilder.fromHttpUrl(NOMINATIM_BASE + "/search")
+        String url = UriComponentsBuilder.fromUriString(NOMINATIM_BASE + "/search")
                 .queryParam("format", "json")
                 .queryParam("q", query.trim())
                 .queryParam("limit", 10)
@@ -283,7 +283,7 @@ public class GeocodeService {
     }
 
     private Map<String, Object> reverseViaNominatim(double lat, double lon, String geocodeLang) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(NOMINATIM_BASE + "/reverse")
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(NOMINATIM_BASE + "/reverse")
                 .queryParam("format", "json")
                 .queryParam("lat", lat)
                 .queryParam("lon", lon)
@@ -350,7 +350,7 @@ public class GeocodeService {
     @SuppressWarnings("unchecked")
     private Map<String, Object> reverseViaPhoton(double lat, double lon, String geocodeLang) {
         String photonLang = photonLang(geocodeLang);
-        String url = UriComponentsBuilder.fromHttpUrl(PHOTON_BASE + "/reverse")
+        String url = UriComponentsBuilder.fromUriString(PHOTON_BASE + "/reverse")
                 .queryParam("lat", lat)
                 .queryParam("lon", lon)
                 .queryParam("lang", photonLang)
@@ -401,7 +401,7 @@ public class GeocodeService {
     @SuppressWarnings("unchecked")
     private Map<String, Object> reverseViaOpenMeteo(double lat, double lon, String geocodeLang) {
         String meteoLang = (geocodeLang == null || geocodeLang.isEmpty()) ? "fr" : geocodeLang;
-        String url = UriComponentsBuilder.fromHttpUrl(OPEN_METEO_GEO_REVERSE)
+        String url = UriComponentsBuilder.fromUriString(OPEN_METEO_GEO_REVERSE)
                 .queryParam("latitude", lat)
                 .queryParam("longitude", lon)
                 .queryParam("language", meteoLang)

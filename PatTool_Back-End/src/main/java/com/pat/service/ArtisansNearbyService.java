@@ -821,7 +821,7 @@ public class ArtisansNearbyService {
 
     private JsonNode fetchSireneNearPoint(
             double lat, double lon, double radiusKm, String trade, int page, int perPage) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(SIRENE_BASE + "/near_point")
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(SIRENE_BASE + "/near_point")
                 .queryParam("lat", String.format(Locale.US, "%.6f", lat))
                 .queryParam("long", String.format(Locale.US, "%.6f", lon))
                 .queryParam("radius", String.format(Locale.US, "%.2f", radiusKm))
@@ -833,7 +833,7 @@ public class ArtisansNearbyService {
 
     private JsonNode fetchSireneSearch(
             String text, String trade, int page, int perPage, String departments) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(SIRENE_BASE + "/search")
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(SIRENE_BASE + "/search")
                 .queryParam("q", text)
                 .queryParam("page", page)
                 .queryParam("per_page", perPage)

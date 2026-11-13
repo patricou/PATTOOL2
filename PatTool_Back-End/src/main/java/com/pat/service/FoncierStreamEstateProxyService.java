@@ -70,7 +70,7 @@ public class FoncierStreamEstateProxyService {
         int p = page == null || page < 1 ? 1 : Math.min(page, 50);
         int radius = FoncierGeoService.clampRadiusKm(radiusKm);
         UriComponentsBuilder builder = UriComponentsBuilder
-                .fromHttpUrl(trimBase(apiBase) + "/documents/properties")
+                .fromUriString(trimBase(apiBase) + "/documents/properties")
                 .queryParam("transactionType", 0)
                 .queryParam("itemsPerPage", 20)
                 .queryParam("page", p)

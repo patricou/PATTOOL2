@@ -904,7 +904,7 @@ public class FileRestController {
             Evenement evenement = evenementsRepository.findById(evenementid).orElse(null);
             if (evenement == null) {
                 log.debug("[UPLOAD] Rejected: event not found, evenementid={}", evenementid);
-                return new ResponseEntity<>(null, null, HttpStatus.BAD_REQUEST);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
             }
             
             // CRITICAL: Ensure fileUploadeds list is initialized
@@ -1255,7 +1255,7 @@ public class FileRestController {
             }
         }
 
-        return new ResponseEntity<>(null,null,HttpStatus.INTERNAL_SERVER_ERROR);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
 
     }
 

@@ -830,6 +830,39 @@ a.dz-page-jump {
   background: #000;
 }
 
+/* Fill the glass. The iframe stays at the clip's frame ratio and grows until the
+   picture (letterbox bars excluded) covers the screen. A static size, no animated
+   transform, so the embed is not repainted every frame. */
+.radio-player-panel.dz-video .radio-face {
+  container-type: size;
+  overflow: hidden;
+}
+
+.radio-player-panel.dz-video .dz-yt:not(.is-parked),
+.radio-player-panel.dz-video .dz-yt-kept:not(.is-parked) .dz-yt {
+  --dz-iw: max(
+    calc(100cqw / var(--dz-pic-w, 1)),
+    calc(100cqh * var(--dz-frame-ar, 1.777778) / var(--dz-pic-h, 1))
+  );
+  --dz-ih: calc(var(--dz-iw) / var(--dz-frame-ar, 1.777778));
+  inset: auto;
+  left: calc(50cqw - var(--dz-pic-x, 0.5) * var(--dz-iw));
+  top: calc(50cqh - var(--dz-pic-y, 0.5) * var(--dz-ih));
+  width: var(--dz-iw);
+  height: var(--dz-ih);
+  max-width: none;
+  max-height: none;
+}
+
+/* A vertical clip stays whole. Covering the wide glass would cut almost all of it. */
+.radio-player-panel.dz-video.dz-video--portrait .dz-yt:not(.is-parked),
+.radio-player-panel.dz-video.dz-video--portrait .dz-yt-kept:not(.is-parked) .dz-yt {
+  --dz-iw: min(
+    calc(100cqw / var(--dz-pic-w, 1)),
+    calc(100cqh * var(--dz-frame-ar, 0.5625) / var(--dz-pic-h, 1))
+  );
+}
+
 /* Stay inside the viewport. A frame parked off-screen is frozen and cannot start the next clip. */
 .dz-yt.is-parked,
 .dz-yt-kept.is-parked,

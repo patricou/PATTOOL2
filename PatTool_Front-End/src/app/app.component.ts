@@ -382,6 +382,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     /** Outils → Documentation : une entrée par page, groupée comme les menus. Le texte de la page est FR ou EN. */
     readonly docMenuRaw: DocMenuEntry[] = [
         { kind: 'page', page: 'overview', icon: 'fa fa-book', labelKey: 'MENU.DOC_OVERVIEW', logoSrc: 'assets/images/menu-doc.svg' },
+        { kind: 'page', page: 'overview', anchor: 'accueil', icon: 'fa fa-home', labelKey: 'HOME.DASHBOARD.TITLE', logoSrc: 'assets/images/menu-home.svg' },
         { kind: 'page', page: 'assistant', icon: 'fa fa-magic', labelKey: 'MENU.DOC_ASSISTANT', logoSrc: 'assets/images/menu-magic.svg' },
         { kind: 'header', labelKey: 'MENU.EVENTS' },
         { kind: 'page', page: 'activities', anchor: 'liste', icon: 'fa fa-list', labelKey: 'MENU.EVENTSLIST', logoSrc: 'assets/images/menu-events.svg' },
@@ -403,6 +404,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { kind: 'page', page: 'monde', anchor: 'solaire', icon: 'fa fa-sun-o', labelKey: 'MENU.SOLAR_SYSTEM', logoSrc: 'assets/images/menu-sun.svg' },
         { kind: 'page', page: 'monde', anchor: 'ciel', icon: 'fa fa-star', labelKey: 'MENU.SKY', logoSrc: 'assets/images/menu-sky.svg' },
         { kind: 'page', page: 'monde', anchor: 'univers', icon: 'fa fa-hourglass-half', labelKey: 'MENU.FUTURE_UNIVERSE', logoSrc: 'assets/images/menu-universe.svg' },
+        { kind: 'page', page: 'monde', anchor: 'espace-temps', icon: 'fa fa-th', labelKey: 'MENU.SPACETIME', logoSrc: 'assets/images/menu-spacetime.svg' },
         { kind: 'page', page: 'monde', anchor: 'eclipses', icon: 'fa fa-moon-o', labelKey: 'MENU.ECLIPSE', logoSrc: 'assets/images/eclipse-mark.svg' },
         { kind: 'page', page: 'monde', anchor: 'nasa', icon: 'fa fa-rocket', labelKey: 'MENU.NASA', logoSrc: 'assets/images/nasa-meatball.svg' },
         { kind: 'page', page: 'monde', anchor: 'meteo', icon: 'fa fa-umbrella', labelKey: 'MENU.METEO_FRANCE', logoSrc: 'assets/images/meteofrance-logo.svg' },
@@ -428,6 +430,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { kind: 'header', labelKey: 'MENU.MEDIA' },
         { kind: 'page', page: 'media', anchor: 'tv', icon: 'fa fa-television', labelKey: 'MENU.TV', logoSrc: 'assets/images/menu-tv.svg' },
         { kind: 'page', page: 'media', anchor: 'radio', icon: 'fa fa-headphones', labelKey: 'MENU.RADIO', logoSrc: 'assets/images/radio-mark.svg' },
+        { kind: 'page', page: 'media', anchor: 'deezer', icon: 'fa fa-music', labelKey: 'MENU.DEEZER', logoSrc: 'assets/images/deezer-logo.svg' },
         { kind: 'page', page: 'media', anchor: 'livres', icon: 'fa fa-book', labelKey: 'MENU.BOOK', logoSrc: 'assets/images/menu-book.svg' },
         { kind: 'page', page: 'media', anchor: 'archive', icon: 'fa fa-university', labelKey: 'MENU.ARCHIVE', logoSrc: 'assets/images/internet-archive-logo.svg' },
         { kind: 'page', page: 'media', anchor: 'webcam', icon: 'fa fa-video-camera', labelKey: 'MENU.WEBCAM', logoSrc: 'assets/images/menu-webcam.svg' },

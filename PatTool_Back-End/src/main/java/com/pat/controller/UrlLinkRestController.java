@@ -156,7 +156,7 @@ public class UrlLinkRestController {
             return new ResponseEntity<>(savedUrlLink, HttpStatus.CREATED);
         } catch (Exception e) {
             log.error("Error creating urlLink: ", e);
-            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

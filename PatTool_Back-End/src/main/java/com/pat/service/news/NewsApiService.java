@@ -261,7 +261,7 @@ public class NewsApiService implements NewsProvider {
         Map<String, Object> keyMissing = missingKeys();
         if (keyMissing != null) return keyMissing;
 
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl + "/top-headlines");
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/top-headlines");
         if (notBlank(country))  builder.queryParam("country", country.toLowerCase());
         if (notBlank(category)) builder.queryParam("category", category.toLowerCase());
         if (notBlank(query))    builder.queryParam("q", query);
@@ -289,7 +289,7 @@ public class NewsApiService implements NewsProvider {
             return err;
         }
 
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl + "/everything")
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/everything")
                 .queryParam("q", query);
         if (notBlank(language)) builder.queryParam("language", language.toLowerCase());
         if (notBlank(from))     builder.queryParam("from", from);
@@ -306,7 +306,7 @@ public class NewsApiService implements NewsProvider {
         Map<String, Object> keyMissing = missingKeys();
         if (keyMissing != null) return keyMissing;
 
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl + "/top-headlines/sources");
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/top-headlines/sources");
         if (notBlank(country))  builder.queryParam("country", country.toLowerCase());
         if (notBlank(category)) builder.queryParam("category", category.toLowerCase());
         if (notBlank(language)) builder.queryParam("language", language.toLowerCase());
@@ -402,7 +402,7 @@ public class NewsApiService implements NewsProvider {
             status.put("status", "available");
             return status;
         }
-        String probeUrl = UriComponentsBuilder.fromHttpUrl(baseUrl + "/top-headlines")
+        String probeUrl = UriComponentsBuilder.fromUriString(baseUrl + "/top-headlines")
                 .queryParam("country", "us")
                 .queryParam("pageSize", 1)
                 .toUriString();

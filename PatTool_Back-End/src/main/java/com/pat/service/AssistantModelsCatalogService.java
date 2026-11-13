@@ -271,7 +271,7 @@ public class AssistantModelsCatalogService {
             return "https://api.openai.com/v1/models";
         }
         try {
-            UriComponentsBuilder b = UriComponentsBuilder.fromHttpUrl(u);
+            UriComponentsBuilder b = UriComponentsBuilder.fromUriString(u);
             String path = b.build().getPath();
             if (path == null || path.isEmpty()) {
                 b.replacePath("/v1/models");
@@ -304,7 +304,7 @@ public class AssistantModelsCatalogService {
             Set<String> ids = new LinkedHashSet<>();
             String afterId = null;
             for (int guard = 0; guard < 50; guard++) {
-                UriComponentsBuilder ub = UriComponentsBuilder.fromHttpUrl(baseUrl).queryParam("limit", 1000);
+                UriComponentsBuilder ub = UriComponentsBuilder.fromUriString(baseUrl).queryParam("limit", 1000);
                 if (afterId != null && !afterId.isEmpty()) {
                     ub.queryParam("after_id", afterId);
                 }
@@ -370,7 +370,7 @@ public class AssistantModelsCatalogService {
             String pageToken = null;
             for (int guard = 0; guard < 50; guard++) {
                 UriComponentsBuilder ub =
-                        UriComponentsBuilder.fromHttpUrl(base + "/models")
+                        UriComponentsBuilder.fromUriString(base + "/models")
                                 .queryParam("key", geminiKey.trim())
                                 .queryParam("pageSize", 100);
                 if (pageToken != null && !pageToken.isEmpty()) {
@@ -497,7 +497,7 @@ public class AssistantModelsCatalogService {
             return "https://api.mistral.ai/v1/models";
         }
         try {
-            UriComponentsBuilder b = UriComponentsBuilder.fromHttpUrl(u);
+            UriComponentsBuilder b = UriComponentsBuilder.fromUriString(u);
             String path = b.build().getPath();
             if (path == null || path.isEmpty()) {
                 b.replacePath("/v1/models");
@@ -578,7 +578,7 @@ public class AssistantModelsCatalogService {
             return "https://api.x.ai/v1/models";
         }
         try {
-            UriComponentsBuilder b = UriComponentsBuilder.fromHttpUrl(u);
+            UriComponentsBuilder b = UriComponentsBuilder.fromUriString(u);
             String path = b.build().getPath();
             if (path == null || path.isEmpty()) {
                 b.replacePath("/v1/models");
@@ -670,7 +670,7 @@ public class AssistantModelsCatalogService {
             return "";
         }
         try {
-            UriComponentsBuilder b = UriComponentsBuilder.fromHttpUrl(u);
+            UriComponentsBuilder b = UriComponentsBuilder.fromUriString(u);
             String path = b.build().getPath();
             if (path == null || path.isEmpty()) {
                 b.replacePath("/models");

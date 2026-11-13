@@ -131,7 +131,7 @@ public class IpGeolocationService {
         enforceCacheSizeLimit(isoCountryCache);
 
         try {
-            java.net.URI uri = UriComponentsBuilder.fromHttpUrl("http://ip-api.com/json/")
+            java.net.URI uri = UriComponentsBuilder.fromUriString("http://ip-api.com/json/")
                     .pathSegment(ip)
                     .queryParam("fields", "status,message,countryCode")
                     .encode()

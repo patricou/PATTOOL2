@@ -8,7 +8,7 @@ import com.pat.controller.dto.YoutubeSearchPageDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.boot.restclient.RestTemplateBuilder;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -104,12 +104,12 @@ public class YoutubeProxyService {
             @Value("${app.youtube.api-base:https://www.googleapis.com/youtube/v3}") String apiBase,
             @Value("${app.youtube.api-key:}") String apiKey) {
         this.restTemplate = builder
-                .setConnectTimeout(Duration.ofSeconds(5))
-                .setReadTimeout(Duration.ofSeconds(12))
+                .connectTimeout(Duration.ofSeconds(5))
+                .readTimeout(Duration.ofSeconds(12))
                 .build();
         this.quickRestTemplate = builder
-                .setConnectTimeout(Duration.ofSeconds(3))
-                .setReadTimeout(Duration.ofSeconds(4))
+                .connectTimeout(Duration.ofSeconds(3))
+                .readTimeout(Duration.ofSeconds(4))
                 .build();
         this.objectMapper = objectMapper;
         this.apiBase = trimSlash(apiBase);

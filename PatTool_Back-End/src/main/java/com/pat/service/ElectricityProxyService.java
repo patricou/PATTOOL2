@@ -232,7 +232,7 @@ public class ElectricityProxyService {
     }
 
     private List<ElectricityFrPlantDto> fetchFrPlantsUncached() {
-        String url = UriComponentsBuilder.fromHttpUrl(EDF_PLANTS_URL)
+        String url = UriComponentsBuilder.fromUriString(EDF_PLANTS_URL)
                 .queryParam("size", 100)
                 .encode()
                 .build()
@@ -398,7 +398,7 @@ public class ElectricityProxyService {
 
     private ElectricityCountryNuclearDto fetchEntsoeNuclear(
             String code, String name, String eic, String periodStart, String periodEnd) {
-        String url = UriComponentsBuilder.fromHttpUrl(ENTSOE_API)
+        String url = UriComponentsBuilder.fromUriString(ENTSOE_API)
                 .queryParam("securityToken", entsoeToken.trim())
                 .queryParam("documentType", "A75")
                 .queryParam("processType", "A16")
@@ -455,7 +455,7 @@ public class ElectricityProxyService {
     }
 
     private ElectricityCountryNuclearDto fetchUsNuclearUncached() {
-        String url = UriComponentsBuilder.fromHttpUrl(EIA_FUEL_URL)
+        String url = UriComponentsBuilder.fromUriString(EIA_FUEL_URL)
                 .queryParam("api_key", eiaApiKey.trim())
                 .queryParam("frequency", "hourly")
                 .queryParam("data[0]", "value")

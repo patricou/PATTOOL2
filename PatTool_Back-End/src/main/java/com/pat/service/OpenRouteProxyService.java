@@ -9,7 +9,7 @@ import com.pat.controller.dto.OpenRouteStepDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.boot.restclient.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -75,8 +75,8 @@ public class OpenRouteProxyService {
     public OpenRouteProxyService(RestTemplateBuilder restTemplateBuilder, ObjectMapper objectMapper) {
         // The shared client times out after 3 s; a long driving route needs more.
         this.restTemplate = restTemplateBuilder
-                .setConnectTimeout(Duration.ofSeconds(5))
-                .setReadTimeout(Duration.ofSeconds(25))
+                .connectTimeout(Duration.ofSeconds(5))
+                .readTimeout(Duration.ofSeconds(25))
                 .build();
         this.objectMapper = objectMapper;
     }

@@ -210,7 +210,7 @@ public class SecurityConfig {
                 // ============================================
                 // SECURITY BLOCKS - Explicitly deny access first
                 // ============================================
-                .requestMatchers("/.git/**", "*.php").denyAll()
+                .requestMatchers("/.git/**", "/*.php", "/**/*.php").denyAll()
                 
                 // ============================================
                 // PUBLIC STATIC RESOURCES - Required for app initialization

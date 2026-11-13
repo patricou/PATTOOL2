@@ -295,7 +295,7 @@ public class DiscussionRestController {
             Map<String, Object> payload = new HashMap<>();
             payload.put("discussionId", discussionId);
             payload.put("message", discussionMessage);
-            messagingTemplate.convertAndSend("/topic/discussion/" + discussionId, payload);
+            messagingTemplate.convertAndSend("/topic/discussion/" + discussionId, (Object) payload);
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("Content-Type", "application/json; charset=UTF-8");
@@ -342,7 +342,7 @@ public class DiscussionRestController {
             payload.put("discussionId", discussionId);
             payload.put("message", updatedMessage);
             payload.put("action", "update");
-            messagingTemplate.convertAndSend("/topic/discussion/" + discussionId, payload);
+            messagingTemplate.convertAndSend("/topic/discussion/" + discussionId, (Object) payload);
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("Content-Type", "application/json; charset=UTF-8");
@@ -377,7 +377,7 @@ public class DiscussionRestController {
                 payload.put("discussionId", discussionId);
                 payload.put("messageId", messageId);
                 payload.put("action", "delete");
-                messagingTemplate.convertAndSend("/topic/discussion/" + discussionId, payload);
+                messagingTemplate.convertAndSend("/topic/discussion/" + discussionId, (Object) payload);
                 return ResponseEntity.noContent().build();
             } else {
                 return ResponseEntity.notFound().build();

@@ -373,7 +373,7 @@ public class MeteoFranceArpegeService {
         int wmsWidth = wmsSize[0];
         int wmsHeight = wmsSize[1];
 
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(wmsEndpoint(service, "GetMap"))
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(wmsEndpoint(service, "GetMap"))
                 .queryParam("SERVICE", "WMS")
                 .queryParam("VERSION", "1.3.0")
                 .queryParam("REQUEST", "GetMap")
@@ -918,7 +918,7 @@ public class MeteoFranceArpegeService {
         int i = mapWidth / 2;
         int j = mapHeight / 2;
 
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(wmsEndpoint(service, "GetFeatureInfo"))
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(wmsEndpoint(service, "GetFeatureInfo"))
                 .queryParam("SERVICE", "WMS")
                 .queryParam("VERSION", "1.3.0")
                 .queryParam("REQUEST", "GetFeatureInfo")
@@ -1091,7 +1091,7 @@ public class MeteoFranceArpegeService {
             lastCapabilitiesFromCache.set(true);
             return cached.parsed;
         }
-        String url = UriComponentsBuilder.fromHttpUrl(wmsEndpoint(svc, "GetCapabilities"))
+        String url = UriComponentsBuilder.fromUriString(wmsEndpoint(svc, "GetCapabilities"))
                 .queryParam("SERVICE", "WMS")
                 .queryParam("VERSION", "1.3.0")
                 .queryParam("REQUEST", "GetCapabilities")
@@ -1674,7 +1674,7 @@ public class MeteoFranceArpegeService {
         try {
             Instant start = Instant.parse(startIso);
             Instant end = Instant.parse(endIso);
-            String url = UriComponentsBuilder.fromHttpUrl(OPEN_METEO_FORECAST_URL)
+            String url = UriComponentsBuilder.fromUriString(OPEN_METEO_FORECAST_URL)
                     .queryParam("latitude", lat)
                     .queryParam("longitude", lon)
                     .queryParam("models", model)

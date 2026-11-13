@@ -5,8 +5,8 @@ import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import org.springframework.boot.web.error.ErrorAttributeOptions;
-import org.springframework.boot.web.servlet.error.ErrorAttributes;
-import org.springframework.boot.web.servlet.error.ErrorController;
+import org.springframework.boot.webmvc.error.ErrorAttributes;
+import org.springframework.boot.webmvc.error.ErrorController;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.ServletWebRequest;
 
 /**
- * Replaces Spring Boot {@link org.springframework.boot.autoconfigure.web.servlet.error.BasicErrorController} to serve
+ * Replaces Spring Boot {@link org.springframework.boot.webmvc.autoconfigure.error.BasicErrorController} to serve
  * PatTool HTML directly (avoids Whitelabel and Tomcat’s bare “HTTP Status 500” when MVC error view resolution fails).
  */
 @RestController

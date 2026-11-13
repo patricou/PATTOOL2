@@ -12,7 +12,7 @@ import com.pat.controller.dto.TmdbVideoDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.boot.restclient.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -89,8 +89,8 @@ public class TmdbProxyService {
             @Value("${app.tmdb.api-base:https://api.themoviedb.org/3}") String apiBase,
             @Value("${app.tmdb.api-key:}") String apiKey) {
         this.restTemplate = builder
-                .setConnectTimeout(Duration.ofSeconds(5))
-                .setReadTimeout(Duration.ofSeconds(12))
+                .connectTimeout(Duration.ofSeconds(5))
+                .readTimeout(Duration.ofSeconds(12))
                 .build();
         this.objectMapper = objectMapper;
         this.apiBase = trimSlash(apiBase);

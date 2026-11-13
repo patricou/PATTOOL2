@@ -12,8 +12,9 @@ import org.springframework.stereotype.Component;
  * MongoDB Configuration Verification
  * 
  * This component verifies the MongoDB connection and logs
- * configuration information. Spring Boot 3.3.0 auto-configures
- * MongoDB with the settings from application.properties.
+ * configuration information. Spring Boot auto-configures MongoDB from
+ * application.properties. Boot 4 binds {@code spring.mongodb.*};
+ * spring-boot-properties-migrator still accepts {@code spring.data.mongodb.*}.
  * 
  * Supports both URI-based connections (MongoDB Atlas) and
  * host/port/database configurations (local MongoDB).

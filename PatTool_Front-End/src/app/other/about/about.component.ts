@@ -76,9 +76,9 @@ export class AboutComponent {
 
   readonly backendVersions = {
     java: '21',
-    springBoot: '3.3.0',
-    springdoc: '2.3.0',
-    keycloak: '23.0.7'
+    springBoot: '4.1.2',
+    springdoc: '3.2.0',
+    keycloak: '3.0.0.Final'
   };
 
   readonly frontendTags = [
@@ -101,7 +101,7 @@ export class AboutComponent {
     'Spring Data MongoDB',
     'Spring WebSocket',
     'Spring Security',
-    'Springdoc OpenAPI',
+    'Springdoc OpenAPI 3.2.0',
     'Keycloak',
     'Actuator',
     'Mail'

@@ -222,7 +222,7 @@ public class ArtisansWebsiteLookupService {
     }
 
     private String searchDuckDuckGo(String query, String name, String city) {
-        URI uri = UriComponentsBuilder.fromHttpUrl(DDG_HTML)
+        URI uri = UriComponentsBuilder.fromUriString(DDG_HTML)
                 .queryParam("q", query)
                 .build()
                 .encode()

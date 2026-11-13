@@ -80,7 +80,7 @@ public class CernProxyService {
      */
     public CernOpenDataSearchResultDto searchZenodo(String query, int size, int page) {
         UriComponentsBuilder builder = UriComponentsBuilder
-                .fromHttpUrl(normalizeBase(zenodoApiBase) + "/records")
+                .fromUriString(normalizeBase(zenodoApiBase) + "/records")
                 .queryParam("size", size)
                 .queryParam("page", page)
                 .queryParam("sort", "bestmatch");
@@ -111,7 +111,7 @@ public class CernProxyService {
 
     public CernOpenDataSearchResultDto searchOpenData(String query, int size, int page, String experiment) {
         UriComponentsBuilder builder = UriComponentsBuilder
-                .fromHttpUrl(normalizeBase(openDataApiBase) + "/records/")
+                .fromUriString(normalizeBase(openDataApiBase) + "/records/")
                 .queryParam("size", size)
                 .queryParam("page", page)
                 .queryParam("sort", "mostrecent");
@@ -193,7 +193,7 @@ public class CernProxyService {
 
     public CernRepositorySearchResultDto searchRepository(String query, int size, int page) {
         UriComponentsBuilder builder = UriComponentsBuilder
-                .fromHttpUrl(normalizeBase(repositoryApiBase) + "/records")
+                .fromUriString(normalizeBase(repositoryApiBase) + "/records")
                 .queryParam("size", size)
                 .queryParam("page", page);
         if (StringUtils.hasText(query)) {
@@ -213,7 +213,7 @@ public class CernProxyService {
 
     public CernRepositorySearchResultDto listRepositoryCommunities(int size, int page) {
         UriComponentsBuilder builder = UriComponentsBuilder
-                .fromHttpUrl(normalizeBase(repositoryApiBase) + "/communities")
+                .fromUriString(normalizeBase(repositoryApiBase) + "/communities")
                 .queryParam("size", size)
                 .queryParam("page", page);
         JsonNode root = fetchJson(builder.toUriString());

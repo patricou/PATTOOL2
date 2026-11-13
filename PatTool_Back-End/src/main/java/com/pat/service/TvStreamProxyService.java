@@ -230,7 +230,7 @@ public class TvStreamProxyService {
         }
         response.setStatus(entity.getStatusCode().value());
         HttpHeaders headers = entity.getHeaders();
-        for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+        for (Map.Entry<String, List<String>> entry : headers.headerSet()) {
             String name = entry.getKey();
             if (name == null
                     || HttpHeaders.TRANSFER_ENCODING.equalsIgnoreCase(name)

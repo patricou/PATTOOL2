@@ -92,7 +92,7 @@ public class FrankfurterProxyService {
     public FrankfurterTimeseriesDto fetchTimeseries(String startIso, String endIso, String base, Set<String> symbols) {
         String path = startIso + ".." + (endIso == null ? "" : endIso);
         UriComponentsBuilder builder = UriComponentsBuilder
-                .fromHttpUrl(normalizeBase(apiBase) + "/" + path);
+                .fromUriString(normalizeBase(apiBase) + "/" + path);
         if (base != null && !base.isBlank()) {
             builder.queryParam("base", base.toUpperCase());
         }
@@ -116,7 +116,7 @@ public class FrankfurterProxyService {
 
     private String buildRatesUrl(String pathSegment, String base, Set<String> symbols) {
         UriComponentsBuilder builder = UriComponentsBuilder
-                .fromHttpUrl(normalizeBase(apiBase) + "/" + pathSegment);
+                .fromUriString(normalizeBase(apiBase) + "/" + pathSegment);
         if (base != null && !base.isBlank()) {
             builder.queryParam("base", base.toUpperCase());
         }

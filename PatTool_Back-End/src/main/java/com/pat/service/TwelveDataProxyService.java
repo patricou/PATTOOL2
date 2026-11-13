@@ -125,7 +125,7 @@ public class TwelveDataProxyService {
         TwelveDataQuoteDto cached = (TwelveDataQuoteDto) loadFromCache(key);
         if (cached != null) return cached;
 
-        String url = UriComponentsBuilder.fromHttpUrl(normalizeBase(apiBase) + "/quote")
+        String url = UriComponentsBuilder.fromUriString(normalizeBase(apiBase) + "/quote")
                 .queryParam("symbol", symbol.toUpperCase())
                 .queryParam("apikey", apiKey)
                 .build().toUriString();
@@ -160,7 +160,7 @@ public class TwelveDataProxyService {
         Map<String, TwelveDataQuoteDto> cached = (Map<String, TwelveDataQuoteDto>) loadFromCache(cacheKey);
         if (cached != null) return cached;
 
-        String url = UriComponentsBuilder.fromHttpUrl(normalizeBase(apiBase) + "/quote")
+        String url = UriComponentsBuilder.fromUriString(normalizeBase(apiBase) + "/quote")
                 .queryParam("symbol", joined)
                 .queryParam("apikey", apiKey)
                 .build().toUriString();
@@ -212,7 +212,7 @@ public class TwelveDataProxyService {
         TwelveDataTimeSeriesDto cached = (TwelveDataTimeSeriesDto) loadFromCache(key);
         if (cached != null) return cached;
 
-        String url = UriComponentsBuilder.fromHttpUrl(normalizeBase(apiBase) + "/time_series")
+        String url = UriComponentsBuilder.fromUriString(normalizeBase(apiBase) + "/time_series")
                 .queryParam("symbol", symbol.toUpperCase())
                 .queryParam("interval", interval)
                 .queryParam("outputsize", outputsize)
@@ -237,7 +237,7 @@ public class TwelveDataProxyService {
      * que le tableau {@code data}.
      */
     public List<TwelveDataSymbolDto> fetchSymbols(String country) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(normalizeBase(apiBase) + "/stocks")
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(normalizeBase(apiBase) + "/stocks")
                 .queryParam("apikey", apiKey);
         if (country != null && !country.isBlank()) {
             builder.queryParam("country", country);
@@ -297,7 +297,7 @@ public class TwelveDataProxyService {
                 (List<TwelveDataSymbolSearchDto>) loadFromCache(cacheKey);
         if (cached != null) return cached;
 
-        String url = UriComponentsBuilder.fromHttpUrl(normalizeBase(apiBase) + "/symbol_search")
+        String url = UriComponentsBuilder.fromUriString(normalizeBase(apiBase) + "/symbol_search")
                 .queryParam("symbol", normalized)
                 .queryParam("outputsize", outputsize)
                 .queryParam("apikey", apiKey)

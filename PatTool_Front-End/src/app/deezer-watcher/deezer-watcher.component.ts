@@ -418,8 +418,14 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   /** Video picture size. 16×9 until YouTube reports the real frame. */
   clipAspectW = 16;
   clipAspectH = 9;
+  /** Active picture inside that frame, as a fraction. 1 means no letterbox. */
+  clipPicW = 1;
+  clipPicH = 1;
+  clipPicX = 0.5;
+  clipPicY = 0.5;
   private clipAspectId = '';
   private readonly clipAspectCache = new Map<string, { w: number; h: number }>();
+  private readonly clipPictureCache = new Map<string, { w: number; h: number; x: number; y: number }>();
   /** Resume position for a clip put back on the page. Applied once, when the player can seek. */
   private pendingClipSeek = -1;
   private clipSeekSent = false;
@@ -6859,6 +6865,33 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.clipAspectId = '';
     this.clipAspectW = 16;
     this.clipAspectH = 9;
+    this.resetClipPicture();
+  }
+
+  get clipFrameAr(): number {
+    const w = this.clipAspectW > 0 ? this.clipAspectW : 16;
+    const h = this.clipAspectH > 0 ? this.clipAspectH : 9;
+    return w / h;
+  }
+
+  private resetClipPicture(): void {
+    this.clipPicW = 1;
+    this.clipPicH = 1;
+    this.clipPicX = 0.5;
+    this.clipPicY = 0.5;
+  }
+
+  private applyCachedPicture(videoId: string): void {
+    const pic = this.clipPictureCache.get(videoId);
+    if (!pic) {
+      this.resetClipPicture();
+      this.measureClipPicture(videoId);
+      return;
+    }
+    this.clipPicW = pic.w;
+    this.clipPicH = pic.h;
+    this.clipPicX = pic.x;
+    this.clipPicY = pic.y;
   }
 
   /** YouTube oEmbed width/height matches the picture (4:3, 16:9, vertical, …). */
@@ -6872,11 +6905,13 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.clipAspectId = videoId;
       this.clipAspectW = cached.w;
       this.clipAspectH = cached.h;
+      this.applyCachedPicture(videoId);
       return;
     }
     this.clipAspectId = videoId;
     this.clipAspectW = 16;
     this.clipAspectH = 9;
+    this.applyCachedPicture(videoId);
     const endpoint = this.api.getYoutubeClipSize(videoId);
     endpoint.pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => {
@@ -6902,6 +6937,132 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       },
       error: () => undefined
     });
+  }
+
+  /**
+   * The poster includes the black bars baked into the file. Measuring them lets the
+   * glass show the picture only. maxresdefault is the real frame; mqdefault is the fallback.
+   */
+  private measureClipPicture(videoId: string): void {
+    this.loadClipPoster(videoId, 'maxresdefault', () => this.loadClipPoster(videoId, 'mqdefault'));
+  }
+
+  private loadClipPoster(videoId: string, file: string, fallback?: () => void): void {
+    const mq = this.api.youtubeVideoThumbUrl(videoId);
+    if (!mq || typeof Image === 'undefined') {
+      return;
+    }
+    const img = new Image();
+    img.decoding = 'async';
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (this.clipAspectId !== videoId) {
+        return;
+      }
+      if (file === 'maxresdefault' && (img.naturalWidth < 320 || img.naturalHeight < 180)) {
+        fallback?.();
+        return;
+      }
+      const pic = this.readClipPicture(img);
+      this.clipPictureCache.set(videoId, pic);
+      this.clipPicW = pic.w;
+      this.clipPicH = pic.h;
+      this.clipPicX = pic.x;
+      this.clipPicY = pic.y;
+      this.cdr.markForCheck();
+    };
+    img.onerror = () => fallback?.();
+    img.src = mq.replace('mqdefault.jpg', `${file}.jpg`);
+  }
+
+  /** Fraction of the frame that is not a black bar. A dark scene stays full frame. */
+  private readClipPicture(img: HTMLImageElement): { w: number; h: number; x: number; y: number } {
+    const full = { w: 1, h: 1, x: 0.5, y: 0.5 };
+    const sw = 160;
+    const naturalW = img.naturalWidth || sw;
+    const naturalH = img.naturalHeight || 90;
+    if (naturalW < 16 || naturalH < 16) {
+      return full;
+    }
+    const sh = Math.max(1, Math.round(naturalH * sw / naturalW));
+    const canvas = document.createElement('canvas');
+    canvas.width = sw;
+    canvas.height = sh;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) {
+      return full;
+    }
+    ctx.drawImage(img, 0, 0, sw, sh);
+    let data: Uint8ClampedArray;
+    try {
+      data = ctx.getImageData(0, 0, sw, sh).data;
+    } catch {
+      return full;
+    }
+    const darkAt = (x: number, y: number): boolean => {
+      const i = (y * sw + x) * 4;
+      return data[i] <= 22 && data[i + 1] <= 22 && data[i + 2] <= 22;
+    };
+    const rowBar = (y: number): boolean => {
+      let n = 0;
+      for (let x = 0; x < sw; x++) {
+        if (darkAt(x, y)) {
+          n++;
+        }
+      }
+      return n / sw >= 0.96;
+    };
+    let top = 0;
+    while (top < sh - 1 && rowBar(top)) {
+      top++;
+    }
+    let bottom = sh - 1;
+    while (bottom > top && rowBar(bottom)) {
+      bottom--;
+    }
+    const colBar = (x: number): boolean => {
+      let n = 0;
+      const span = bottom - top + 1;
+      for (let y = top; y <= bottom; y++) {
+        if (darkAt(x, y)) {
+          n++;
+        }
+      }
+      return span > 0 && n / span >= 0.96;
+    };
+    let left = 0;
+    while (left < sw - 1 && colBar(left)) {
+      left++;
+    }
+    let right = sw - 1;
+    while (right > left && colBar(right)) {
+      right--;
+    }
+    let x0 = left / sw;
+    let x1 = (right + 1) / sw;
+    let y0 = top / sh;
+    let y1 = (bottom + 1) / sh;
+    if (x0 < 0.035) {
+      x0 = 0;
+    }
+    if (1 - x1 < 0.035) {
+      x1 = 1;
+    }
+    if (y0 < 0.035) {
+      y0 = 0;
+    }
+    if (1 - y1 < 0.035) {
+      y1 = 1;
+    }
+    if (x0 > 0.4 || y0 > 0.42 || (1 - x1) > 0.4 || (1 - y1) > 0.42) {
+      return full;
+    }
+    const w = x1 - x0;
+    const h = y1 - y0;
+    if (w < 0.45 || h < 0.45) {
+      return full;
+    }
+    return { w, h, x: x0 + w / 2, y: y0 + h / 2 };
   }
 
   private currentYoutubeId(): string {

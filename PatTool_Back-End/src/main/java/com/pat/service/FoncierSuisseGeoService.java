@@ -61,7 +61,7 @@ public class FoncierSuisseGeoService {
         if (!StringUtils.hasText(trimmed) || trimmed.length() < 2 || trimmed.length() > MAX_QUERY_LEN) {
             return root;
         }
-        URI uri = UriComponentsBuilder.fromHttpUrl(trimBase(geoApiBase) + "/rest/services/api/SearchServer")
+        URI uri = UriComponentsBuilder.fromUriString(trimBase(geoApiBase) + "/rest/services/api/SearchServer")
                 .queryParam("searchText", trimmed)
                 .queryParam("type", "locations")
                 .queryParam("origins", "gg25,zipcode")

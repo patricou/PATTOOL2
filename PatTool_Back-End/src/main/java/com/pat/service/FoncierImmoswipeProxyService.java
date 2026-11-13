@@ -86,7 +86,7 @@ public class FoncierImmoswipeProxyService {
             String locale) {
         int p = page == null || page < 1 ? 1 : Math.min(page, 50);
         String deal = normalizePriceType(priceType);
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(trimBase() + "/api/search")
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(trimBase() + "/api/search")
                 .queryParam("per_page", PAGE_SIZE)
                 .queryParam("page", p)
                 .queryParam("locale", normalizeLocale(locale));
@@ -113,7 +113,7 @@ public class FoncierImmoswipeProxyService {
     }
 
     public JsonNode popular(String locale) {
-        URI uri = UriComponentsBuilder.fromHttpUrl(trimBase() + "/api/listings/popular")
+        URI uri = UriComponentsBuilder.fromUriString(trimBase() + "/api/listings/popular")
                 .queryParam("locale", normalizeLocale(locale))
                 .build()
                 .encode()
@@ -142,7 +142,7 @@ public class FoncierImmoswipeProxyService {
         if (!StringUtils.hasText(id)) {
             return null;
         }
-        URI uri = UriComponentsBuilder.fromHttpUrl(trimBase() + "/api/listings/" + id.trim())
+        URI uri = UriComponentsBuilder.fromUriString(trimBase() + "/api/listings/" + id.trim())
                 .queryParam("locale", normalizeLocale(locale))
                 .build()
                 .encode()
@@ -156,7 +156,7 @@ public class FoncierImmoswipeProxyService {
     }
 
     public JsonNode similar(String id, String locale) {
-        URI uri = UriComponentsBuilder.fromHttpUrl(trimBase() + "/api/listings/" + id.trim() + "/similar")
+        URI uri = UriComponentsBuilder.fromUriString(trimBase() + "/api/listings/" + id.trim() + "/similar")
                 .queryParam("locale", normalizeLocale(locale))
                 .build()
                 .encode()
@@ -180,7 +180,7 @@ public class FoncierImmoswipeProxyService {
                 || !StringUtils.hasText(timeframe)) {
             throw new IllegalArgumentException("missing_params");
         }
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(trimBase() + "/api/chances")
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(trimBase() + "/api/chances")
                 .queryParam("location", canonicalCity(location))
                 .queryParam("rooms", rooms.trim())
                 .queryParam("budget", budget.trim())
@@ -201,7 +201,7 @@ public class FoncierImmoswipeProxyService {
     }
 
     public JsonNode guides(String query, String locale) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(trimBase() + "/api/guides")
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(trimBase() + "/api/guides")
                 .queryParam("locale", normalizeLocale(locale));
         if (StringUtils.hasText(query)) {
             builder.queryParam("query", query.trim());
@@ -214,7 +214,7 @@ public class FoncierImmoswipeProxyService {
         if (!StringUtils.hasText(slug)) {
             return null;
         }
-        URI uri = UriComponentsBuilder.fromHttpUrl(trimBase() + "/api/guides/" + slug.trim())
+        URI uri = UriComponentsBuilder.fromUriString(trimBase() + "/api/guides/" + slug.trim())
                 .queryParam("locale", normalizeLocale(locale))
                 .build()
                 .encode()
@@ -223,7 +223,7 @@ public class FoncierImmoswipeProxyService {
     }
 
     public JsonNode faqs(String searchBy, String role, String locale) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(trimBase() + "/api/faqs")
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(trimBase() + "/api/faqs")
                 .queryParam("locale", normalizeLocale(locale));
         if (StringUtils.hasText(searchBy)) {
             builder.queryParam("search_by", searchBy.trim());

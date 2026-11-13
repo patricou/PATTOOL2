@@ -159,7 +159,7 @@ public class OpenSkyService {
             return Optional.empty();
         }
         String hex = icao24.trim().toLowerCase(Locale.ROOT);
-        String url = UriComponentsBuilder.fromHttpUrl(baseUrl + "/states/all")
+        String url = UriComponentsBuilder.fromUriString(baseUrl + "/states/all")
                 .queryParam("icao24", hex)
                 .toUriString();
         JsonNode root = getJson(url);
@@ -213,7 +213,7 @@ public class OpenSkyService {
             return Optional.empty();
         }
         String hex = icao24.trim().toLowerCase(Locale.ROOT);
-        String url = UriComponentsBuilder.fromHttpUrl(baseUrl + "/tracks/all")
+        String url = UriComponentsBuilder.fromUriString(baseUrl + "/tracks/all")
                 .queryParam("icao24", hex)
                 .queryParam("time", time)
                 .toUriString();
@@ -431,7 +431,7 @@ public class OpenSkyService {
         String hex = icao24.trim().toLowerCase(Locale.ROOT);
         long end = Instant.now().getEpochSecond();
         long begin = end - 86_400L;
-        String url = UriComponentsBuilder.fromHttpUrl(baseUrl + "/flights/aircraft")
+        String url = UriComponentsBuilder.fromUriString(baseUrl + "/flights/aircraft")
                 .queryParam("icao24", hex)
                 .queryParam("begin", begin)
                 .queryParam("end", end)
@@ -478,7 +478,7 @@ public class OpenSkyService {
         if (end <= begin) {
             end = begin + 3_600L;
         }
-        String url = UriComponentsBuilder.fromHttpUrl(baseUrl + "/flights/departure")
+        String url = UriComponentsBuilder.fromUriString(baseUrl + "/flights/departure")
                 .queryParam("airport", base.departureAirport())
                 .queryParam("begin", begin)
                 .queryParam("end", end)

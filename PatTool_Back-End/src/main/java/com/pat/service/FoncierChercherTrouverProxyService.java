@@ -109,7 +109,7 @@ public class FoncierChercherTrouverProxyService {
         double lon = center.get("lon").asDouble();
         FoncierGeoService.GeoBbox box = FoncierGeoService.bboxAround(lat, lon, radius);
         UriComponentsBuilder map = UriComponentsBuilder
-                .fromHttpUrl(trimBase(apiBase) + "/api/v1/annonces/map")
+                .fromUriString(trimBase(apiBase) + "/api/v1/annonces/map")
                 .queryParam("transaction", "vente");
         applyListingFilters(map, type, priceMin, priceMax, surfaceMin, surfaceMax);
         String mapUrl = map.build().encode().toUriString() + "&bbox=" + box.chercherTrouver();
@@ -151,7 +151,7 @@ public class FoncierChercherTrouverProxyService {
 
     private UriComponentsBuilder annoncesBuilder(int page) {
         return UriComponentsBuilder
-                .fromHttpUrl(trimBase(apiBase) + "/api/v1/annonces")
+                .fromUriString(trimBase(apiBase) + "/api/v1/annonces")
                 .queryParam("page", page)
                 .queryParam("page_size", 20)
                 .queryParam("transaction", "vente");

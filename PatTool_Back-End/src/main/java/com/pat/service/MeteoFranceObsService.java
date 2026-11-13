@@ -750,7 +750,7 @@ public class MeteoFranceObsService {
         }
 
         String url = UriComponentsBuilder
-                .fromHttpUrl(dpobsBaseUrl + "/station/infrahoraire-6m")
+                .fromUriString(dpobsBaseUrl + "/station/infrahoraire-6m")
                 .queryParam("id_station", station.id())
                 .queryParam("format", "geojson")
                 .toUriString();

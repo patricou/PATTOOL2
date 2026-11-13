@@ -7,7 +7,7 @@ import org.jsoup.nodes.Element;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.boot.restclient.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -52,8 +52,8 @@ public class EuromillionsFdjArchiveService {
                     String historiqueUrlRaw,
             @Value("${euromillions.fdj.archive-download-attribute:euromillions_202002}") String downloadAnchorRaw) {
         this.restTemplate = restTemplateBuilder
-                .setConnectTimeout(Duration.ofSeconds(15))
-                .setReadTimeout(Duration.ofSeconds(120))
+                .connectTimeout(Duration.ofSeconds(15))
+                .readTimeout(Duration.ofSeconds(120))
                 .build();
         this.csvImportService = csvImportService;
         this.historiqueUrl = historiqueUrlRaw == null ? "" : historiqueUrlRaw.trim();

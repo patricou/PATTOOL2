@@ -179,7 +179,7 @@ public class SkyMapProxyService {
         double fov = clampAngle(angle != null ? angle : DEFAULT_ANGLE);
 
         String url = UriComponentsBuilder
-                .fromHttpUrl(normalizeBase(imgcutBase) + "/imgcut")
+                .fromUriString(normalizeBase(imgcutBase) + "/imgcut")
                 .queryParam("survey", resolvedSurvey)
                 .queryParam("ra", formatCoord(clampRaHours(raHours)))
                 .queryParam("de", formatCoord(clampDec(deDeg)))
@@ -241,7 +241,7 @@ public class SkyMapProxyService {
         String resolvedSurvey = normalizeSurvey(survey);
         int z = zoom == null ? DEFAULT_WINDOW_ZOOM : Math.max(1, Math.min(18, zoom));
 
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(normalizeBase(imgcutBase) + "/skywindow");
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(normalizeBase(imgcutBase) + "/skywindow");
         // Coordinates win: a name lookup like "Phecda" often misses and Sky-Map
         // falls back to RA 12h / Dec 0°.
         if (haveCoords) {
@@ -344,7 +344,7 @@ public class SkyMapProxyService {
 
     private SkyObject searchObject(String query) {
         String url = UriComponentsBuilder
-                .fromHttpUrl(normalizeBase(searchBase) + "/search")
+                .fromUriString(normalizeBase(searchBase) + "/search")
                 .queryParam("star", query)
                 .build()
                 .encode()
@@ -410,7 +410,7 @@ public class SkyMapProxyService {
     }
 
     private String buildAtlasUrl(String objectName, double raHours, double deDeg, double angle, String survey) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(normalizeBase(atlasBase) + "/");
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(normalizeBase(atlasBase) + "/");
         if (StringUtils.hasText(objectName)) {
             builder.queryParam("object", objectName);
         }

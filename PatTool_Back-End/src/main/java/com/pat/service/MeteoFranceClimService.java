@@ -377,7 +377,7 @@ public class MeteoFranceClimService {
         String startIso = ISO_UTC.format(start);
         String endIso = ISO_UTC.format(end);
 
-        String orderUrl = UriComponentsBuilder.fromHttpUrl(dpclimBaseUrl + "/commande-station/" + frequency)
+        String orderUrl = UriComponentsBuilder.fromUriString(dpclimBaseUrl + "/commande-station/" + frequency)
                 .queryParam("id-station", id)
                 .queryParam("date-deb-periode", startIso)
                 .queryParam("date-fin-periode", endIso)

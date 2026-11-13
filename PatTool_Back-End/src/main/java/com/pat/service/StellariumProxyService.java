@@ -104,7 +104,7 @@ public class StellariumProxyService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid_query");
         }
         String url = UriComponentsBuilder
-                .fromHttpUrl(normalizeBase(noctuaSkyApiBase) + "/skysources/")
+                .fromUriString(normalizeBase(noctuaSkyApiBase) + "/skysources/")
                 .queryParam("q", trimmed)
                 .toUriString();
         return fetchCatalogueOr(url, objectMapper.createArrayNode());
@@ -184,7 +184,7 @@ public class StellariumProxyService {
 
     private String buildEmbedUrl(double lat, double lon) {
         return UriComponentsBuilder
-                .fromHttpUrl(normalizeBase(stellariumWebBase))
+                .fromUriString(normalizeBase(stellariumWebBase))
                 .queryParam("lat", formatCoord(lat))
                 .queryParam("lng", formatCoord(lon))
                 .build()
@@ -198,7 +198,7 @@ public class StellariumProxyService {
             base = resolveRequestBase(request) + "/api/external/stellarium/viewer";
         }
         return UriComponentsBuilder
-                .fromHttpUrl(normalizeBase(base))
+                .fromUriString(normalizeBase(base))
                 .queryParam("lat", formatCoord(lat))
                 .queryParam("lon", formatCoord(lon))
                 .build()

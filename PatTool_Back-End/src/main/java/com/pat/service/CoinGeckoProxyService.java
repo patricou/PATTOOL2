@@ -181,7 +181,7 @@ public class CoinGeckoProxyService {
     private CryptoPricesDto loadPricesFromApi() {
         String ids = buildIdsParam();
         String url = UriComponentsBuilder
-                .fromHttpUrl(effectiveApiBase() + "/simple/price")
+                .fromUriString(effectiveApiBase() + "/simple/price")
                 .queryParam("ids", ids)
                 .queryParam("vs_currencies", "eur,usd")
                 .queryParam("include_24hr_change", "true")
@@ -223,7 +223,7 @@ public class CoinGeckoProxyService {
 
     private CryptoMarketChartDto loadChartFromApi(CoinDef def, String vs, int days) {
         String url = UriComponentsBuilder
-                .fromHttpUrl(effectiveApiBase() + "/coins/" + def.id() + "/market_chart")
+                .fromUriString(effectiveApiBase() + "/coins/" + def.id() + "/market_chart")
                 .queryParam("vs_currency", vs)
                 .queryParam("days", days)
                 .build()

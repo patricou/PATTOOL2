@@ -114,7 +114,7 @@ public class HolidayUiTranslationService {
 
         try {
             URI uri = UriComponentsBuilder
-                    .fromHttpUrl("https://api.mymemory.translated.net/get")
+                    .fromUriString("https://api.mymemory.translated.net/get")
                     .queryParam("q", englishText)
                     .queryParam("langpair", "en|" + myMemoryTarget)
                     .encode()

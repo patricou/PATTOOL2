@@ -84,12 +84,12 @@ public class FoncierCeremaProxyService {
         int size = pageSize == null ? DEFAULT_PAGE_SIZE : Math.min(Math.max(pageSize, 1), MAX_PAGE_SIZE);
 
         UriComponentsBuilder builder = UriComponentsBuilder
-                .fromHttpUrl(trimBase(apiBase) + "/dvf_opendata/mutations/")
+                .fromUriString(trimBase(apiBase) + "/dvf_opendata/mutations/")
                 .queryParam("page", p)
                 .queryParam("page_size", size);
         URI primary = null;
         URI inseeFallback = insee.matches("\\d{5}")
-                ? UriComponentsBuilder.fromHttpUrl(trimBase(apiBase) + "/dvf_opendata/mutations/")
+                ? UriComponentsBuilder.fromUriString(trimBase(apiBase) + "/dvf_opendata/mutations/")
                     .queryParam("page", p)
                     .queryParam("page_size", size)
                     .queryParam("code_insee", insee)

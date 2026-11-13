@@ -14,7 +14,7 @@ import com.pat.repo.domain.AppParameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.boot.restclient.RestTemplateBuilder;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -85,8 +85,8 @@ public class TelegramService {
             UserOwnerService userOwnerService,
             @Value("${app.telegram.api-base:https://api.telegram.org}") String apiBase) {
         this.restTemplate = builder
-                .setConnectTimeout(Duration.ofSeconds(5))
-                .setReadTimeout(Duration.ofSeconds(20))
+                .connectTimeout(Duration.ofSeconds(5))
+                .readTimeout(Duration.ofSeconds(20))
                 .build();
         this.objectMapper = objectMapper;
         this.appParameterService = appParameterService;
@@ -586,7 +586,7 @@ public class TelegramService {
     }
 
     private JsonNode callGet(String token, String method, Map<String, String> query) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(botUrl(token, method));
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(botUrl(token, method));
         for (Map.Entry<String, String> entry : query.entrySet()) {
             builder.queryParam(entry.getKey(), entry.getValue());
         }

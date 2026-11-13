@@ -104,7 +104,7 @@ public class CategoryLinkRestController {
             return new ResponseEntity<>(savedCategory, HttpStatus.CREATED);
         } catch (Exception e) {
             log.error("Error creating category: ", e);
-            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

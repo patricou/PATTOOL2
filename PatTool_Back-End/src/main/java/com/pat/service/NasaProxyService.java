@@ -147,7 +147,7 @@ public class NasaProxyService {
 
     static URI epicCatalogUri(LocalDate date) {
         String path = date == null ? "/api/natural" : "/api/natural/date/" + date;
-        return UriComponentsBuilder.fromHttpUrl(EPIC_ARCHIVE + path).encode().build().toUri();
+        return UriComponentsBuilder.fromUriString(EPIC_ARCHIVE + path).encode().build().toUri();
     }
 
     public byte[] epicImage(LocalDate date, String name) {
@@ -184,7 +184,7 @@ public class NasaProxyService {
     static URI epicArchiveUri(LocalDate date, String name) {
         String day = date.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
         return UriComponentsBuilder
-                .fromHttpUrl(EPIC_ARCHIVE + "/archive/natural/" + day + "/png/" + name + ".png")
+                .fromUriString(EPIC_ARCHIVE + "/archive/natural/" + day + "/png/" + name + ".png")
                 .encode()
                 .build()
                 .toUri();
@@ -227,7 +227,7 @@ public class NasaProxyService {
     }
 
     static URI marsCatalogUri(Integer sol, LocalDate earthDate, int page) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(MARS_CATALOG + "/api/v1/raw_image_items/")
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(MARS_CATALOG + "/api/v1/raw_image_items/")
                 .queryParam("order", earthDate == null && sol == null ? "sol desc" : "date_taken desc")
                 .queryParam("per_page", MAX_MARS_PHOTOS)
                 .queryParam("page", Math.max(0, page - 1))
@@ -634,7 +634,7 @@ public class NasaProxyService {
             root = root.substring(0, root.length() - 1);
         }
         String key = apiKey == null || apiKey.isBlank() ? "DEMO_KEY" : apiKey.trim();
-        return UriComponentsBuilder.fromHttpUrl(root + path).queryParam("api_key", key);
+        return UriComponentsBuilder.fromUriString(root + path).queryParam("api_key", key);
     }
 
     private <T> T load(String key, Duration ttl, java.util.function.Supplier<T> loader) {

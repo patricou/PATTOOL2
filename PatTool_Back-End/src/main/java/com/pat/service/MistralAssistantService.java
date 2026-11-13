@@ -320,7 +320,7 @@ public class MistralAssistantService {
             return "https://api.mistral.ai/v1/conversations";
         }
         try {
-            UriComponentsBuilder b = UriComponentsBuilder.fromHttpUrl(u);
+            UriComponentsBuilder b = UriComponentsBuilder.fromUriString(u);
             String path = b.build().getPath();
             if (path == null || path.isEmpty()) {
                 b.replacePath("/v1/conversations");

@@ -11,8 +11,8 @@
         <div class="doc-topbar-inner">
             <h1 data-doc-lang="fr">Menu Média</h1>
             <h1 data-doc-lang="en" hidden>Media menu</h1>
-            <p data-doc-lang="fr">TV, radio, livres, web, actualités</p>
-            <p data-doc-lang="en" hidden>TV, radio, books, web, news</p>
+            <p data-doc-lang="fr">TV, radio, Deezer, livres, web, actualités</p>
+            <p data-doc-lang="en" hidden>TV, radio, Deezer, books, web, news</p>
         </div>
     </header>
     <div class="doc-toolbar">
@@ -31,12 +31,26 @@
             <section class="doc-section" id="tv-fr">
                 <h2>TVs</h2>
                 <p>Route : <code class="doc-code">#/tools/tv-watcher</code></p>
-                <p>Chaînes IPTV publiques gratuites (TV française par défaut). Les flux passent par le backend. Lecteur flottant possible.</p>
+                <p>Chaînes IPTV publiques gratuites (TV française par défaut). Les flux passent par le backend. Lecteur flottant possible. Un menu de styles change l'habillage de la page.</p>
             </section>
             <section class="doc-section" id="radio-fr">
                 <h2>Radios</h2>
                 <p>Route : <code class="doc-code">#/tools/radio-watcher</code></p>
-                <p>Radios internet du monde entier, flux proxifiés par PatTool, lecteur flottant.</p>
+                <p>Radios internet du monde entier, flux proxifiés par PatTool, lecteur flottant. Le style visuel se choisit dans le menu (le même que l'accueil et Deezer). Les photos du morceau en cours peuvent s'afficher par-dessus ou derrière les animations.</p>
+                <p>Sur l'application Android, les boutons média du casque ou de la voiture passent à la station suivante ou précédente. Le titre, l'artiste et la station s'affichent sur l'appareil.</p>
+            </section>
+            <section class="doc-section" id="deezer-fr">
+                <h2>Deezer</h2>
+                <p>Route : <code class="doc-code">#/tools/deezer</code></p>
+                <p>Catalogue public Deezer : classements, recherche, genres, albums, artistes et artistes proches. Deezer ne fournit ici que des extraits de 30 secondes. Le morceau entier se lit sur YouTube (recherche au moment de la lecture, cache des liens, autre vidéo, tout lire).</p>
+                <ul>
+                    <li>Favoris, playlists et concert (setlist de liens YouTube) enregistrés sur le compte</li>
+                    <li>Fiche album (label, sortie, genres) et TheAudioDB (formation, style, membres), plus un lien Wikipédia</li>
+                    <li>Filtres : masquer les titres explicites, ne garder que les titres avec extrait</li>
+                    <li><strong>Tout lire</strong>, lecture en boucle, et <strong>Continuer</strong> pour que la liste suive sur une autre page de PatTool</li>
+                    <li>Pochettes affichables ou masquables ; styles visuels partagés avec la radio</li>
+                </ul>
+                <div class="doc-tip">Connexion requise pour synchroniser favoris, playlists et concert.</div>
             </section>
             <section class="doc-section" id="livres-fr">
                 <h2>Livres</h2>
@@ -97,11 +111,25 @@
         <div data-doc-lang="en" hidden>
             <section class="doc-section" id="tv-en">
                 <h2>TV</h2>
-                <p>Route: <code class="doc-code">#/tools/tv-watcher</code>. Free public IPTV (French TV by default). Streams are proxied by the backend. A floating player is available.</p>
+                <p>Route: <code class="doc-code">#/tools/tv-watcher</code>. Free public IPTV (French TV by default). Streams are proxied by the backend. A floating player is available. A style menu changes the page look.</p>
             </section>
             <section class="doc-section" id="radio-en">
                 <h2>Radio</h2>
-                <p>Route: <code class="doc-code">#/tools/radio-watcher</code>. Internet radio stations worldwide, proxied by PatTool, with a floating player.</p>
+                <p>Route: <code class="doc-code">#/tools/radio-watcher</code>. Internet radio stations worldwide, proxied by PatTool, with a floating player. The visual style is chosen in the menu (shared with Home and Deezer). Artwork for the current track can sit in front of or behind the animations.</p>
+                <p>On the Android app, headset or car media buttons skip to the next or previous station. Title, artist and station show on the device.</p>
+            </section>
+            <section class="doc-section" id="deezer-en">
+                <h2>Deezer</h2>
+                <p>Route: <code class="doc-code">#/tools/deezer</code></p>
+                <p>Public Deezer catalogue: charts, search, genres, albums, artists and similar artists. Deezer only supplies 30-second previews here. The full track plays on YouTube (lookup when the track starts, cached links, another video, play all).</p>
+                <ul>
+                    <li>Favorites, playlists and a concert setlist (YouTube links) stored on the account</li>
+                    <li>Album card (label, release, genres) and TheAudioDB (formed, style, members), plus a Wikipedia link</li>
+                    <li>Filters: hide explicit tracks, keep only tracks that have a preview</li>
+                    <li><strong>Play all</strong>, loop, and <strong>Keep going</strong> so the list continues on another PatTool page</li>
+                    <li>Covers can be shown or hidden; visual styles are shared with radio</li>
+                </ul>
+                <div class="doc-tip">Sign-in is required to sync favorites, playlists and the concert list.</div>
             </section>
             <section class="doc-section" id="livres-en">
                 <h2>Books</h2>

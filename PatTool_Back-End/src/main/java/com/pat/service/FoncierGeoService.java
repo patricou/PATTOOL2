@@ -81,7 +81,7 @@ public class FoncierGeoService {
         }
         if (trimmed.matches("\\d{5}")) {
             addUniqueCommune(items, communeByInsee(trimmed));
-            JsonNode byZip = fetchJson(UriComponentsBuilder.fromHttpUrl(trimBase(geoApiBase) + "/communes")
+            JsonNode byZip = fetchJson(UriComponentsBuilder.fromUriString(trimBase(geoApiBase) + "/communes")
                     .queryParam("codePostal", trimmed)
                     .queryParam("fields", COMMUNE_FIELDS)
                     .queryParam("boost", "population")
@@ -92,7 +92,7 @@ public class FoncierGeoService {
             addCommunes(items, byZip);
             return root;
         }
-        URI uri = UriComponentsBuilder.fromHttpUrl(trimBase(geoApiBase) + "/communes")
+        URI uri = UriComponentsBuilder.fromUriString(trimBase(geoApiBase) + "/communes")
                 .queryParam("nom", trimmed)
                 .queryParam("fields", COMMUNE_FIELDS)
                 .queryParam("boost", "population")
@@ -114,7 +114,7 @@ public class FoncierGeoService {
         if (cached != null) {
             return cached.deepCopy();
         }
-        URI uri = UriComponentsBuilder.fromHttpUrl(trimBase(geoApiBase) + "/communes/" + key)
+        URI uri = UriComponentsBuilder.fromUriString(trimBase(geoApiBase) + "/communes/" + key)
                 .queryParam("fields", COMMUNE_FIELDS)
                 .build()
                 .encode()
@@ -133,7 +133,7 @@ public class FoncierGeoService {
         }
         String trimmed = query.trim();
         if (trimmed.matches("\\d{5}")) {
-            URI uri = UriComponentsBuilder.fromHttpUrl(trimBase(geoApiBase) + "/communes")
+            URI uri = UriComponentsBuilder.fromUriString(trimBase(geoApiBase) + "/communes")
                     .queryParam("codePostal", trimmed)
                     .queryParam("fields", COMMUNE_FIELDS)
                     .queryParam("boost", "population")
@@ -226,7 +226,7 @@ public class FoncierGeoService {
         if (cached != null) {
             return cached.deepCopy();
         }
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(BAN_BASE + "/search/")
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(BAN_BASE + "/search/")
                 .queryParam("q", q)
                 .queryParam("limit", 1)
                 .queryParam("autocomplete", 0);
@@ -435,7 +435,7 @@ public class FoncierGeoService {
     }
 
     private ObjectNode communeAt(double lat, double lon) {
-        URI uri = UriComponentsBuilder.fromHttpUrl(trimBase(geoApiBase) + "/communes")
+        URI uri = UriComponentsBuilder.fromUriString(trimBase(geoApiBase) + "/communes")
                 .queryParam("lat", lat)
                 .queryParam("lon", lon)
                 .queryParam("fields", COMMUNE_FIELDS)
@@ -459,7 +459,7 @@ public class FoncierGeoService {
             return cached;
         }
         URI uri = UriComponentsBuilder
-                .fromHttpUrl(trimBase(geoApiBase) + "/departements/" + deptCode + "/communes")
+                .fromUriString(trimBase(geoApiBase) + "/departements/" + deptCode + "/communes")
                 .queryParam("fields", COMMUNE_FIELDS)
                 .build()
                 .encode()

@@ -231,7 +231,7 @@ public class NewsDataService implements NewsProvider {
         Map<String, Object> keyMissing = missingKeys();
         if (keyMissing != null) return keyMissing;
 
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl + "/latest");
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/latest");
         if (notBlank(country))  builder.queryParam("country", country.toLowerCase());
         String mappedCategory = mapCategoryToNewsData(category);
         if (notBlank(mappedCategory)) builder.queryParam("category", mappedCategory);
@@ -257,7 +257,7 @@ public class NewsDataService implements NewsProvider {
             return err;
         }
 
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl + "/latest")
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/latest")
                 .queryParam("q", query);
         if (notBlank(language)) builder.queryParam("language", language.toLowerCase());
         // from/to: the Free plan covers only the last 48h; we keep the
@@ -282,7 +282,7 @@ public class NewsDataService implements NewsProvider {
         Map<String, Object> keyMissing = missingKeys();
         if (keyMissing != null) return keyMissing;
 
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl + "/sources");
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + "/sources");
         if (notBlank(country))  builder.queryParam("country", country.toLowerCase());
         String mappedCategory = mapCategoryToNewsData(category);
         if (notBlank(mappedCategory)) builder.queryParam("category", mappedCategory);
