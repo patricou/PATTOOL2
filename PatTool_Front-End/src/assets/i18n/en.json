@@ -123,7 +123,8 @@
     "FORWARD": "Next page",
     "MAP_TRACE_VIEWER": "Map (Trace viewer)",
     "APK_DOWNLOAD": "Android app",
-    "MAP_BADGE": "MAP"
+    "MAP_BADGE": "MAP",
+    "OPEN_CHATGPT": "Open ChatGPT"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -2036,6 +2037,8 @@
       "HUMIDITY": "Humidity {{value}}%",
       "SUNRISE": "Sunrise {{time}}",
       "SUNSET": "Sunset {{time}}",
+      "ALT_YOU": "you {{alt}}",
+      "ALT_STATION": "station {{alt}}",
       "AGENDA": "Agenda",
       "AGENDA_EMPTY": "Nothing coming up",
       "ACTIVITIES": "Upcoming activities",
@@ -2081,6 +2084,8 @@
     "PROXY_NO_MATCH": "No IoT proxy matches this URL host. Configure a proxy with the same host/IP as the link.",
     "PROXY_PATH_MISMATCH": "This URL path does not match the proxy upstream base.",
     "PROXY_OPEN_FAILED": "Could not open the signed proxy link. Check your IoT role and proxy configuration.",
+    "RECENT_SEARCHES": "Recent searches",
+    "RECENT_REMOVE": "Remove from history",
     "CATEGORIES": {
       "ADMINISTRATIF": "Administrative"
     }
@@ -8388,6 +8393,7 @@
     "OFFLINE_MAP_NEED_POINTS": "Import a track, record some points, or use your position.",
     "OFFLINE_MAP_NEED_VIEW": "The map is not ready: open the window to download.",
     "OFFLINE_MAP_NEED_NET": "A connection is required to download tiles.",
+    "OFFLINE_MAP_VECTOR": "Maptoolkit maps are vector maps and cannot be saved for offline use.",
     "OFFLINE_MAP_USING": "Offline basemap: preloaded OpenStreetMap.",
     "OFFLINE_MAP_ERR": "Some tiles could not be downloaded.",
     "OFFLINE_MAP_DONE": "Offline map is ready.",

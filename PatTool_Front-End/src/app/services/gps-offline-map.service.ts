@@ -218,6 +218,10 @@ export class GpsOfflineMapService {
       this.lastError$.next('GPS.OFFLINE_MAP_NEED_NET');
       return false;
     }
+    if (style === 'maptoolkit-hiking' || style === 'maptoolkit-winter') {
+      this.lastError$.next('GPS.OFFLINE_MAP_VECTOR');
+      return false;
+    }
     const jobs = this.jobsFor(style, tiles);
     if (!jobs.length) {
       this.lastError$.next(emptyKey);

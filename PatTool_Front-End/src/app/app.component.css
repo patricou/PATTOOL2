@@ -90,17 +90,23 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 2.65rem;
-    padding: 0.22rem 0.55rem;
+    width: 2.15rem;
+    min-width: 2.15rem;
+    height: 1.7rem;
+    padding: 0;
     border-radius: 0.4rem;
     background: #16a34a;
     color: #fff;
     font-weight: 800;
-    font-size: 0.8rem;
-    letter-spacing: 0.04em;
-    line-height: 1.2;
+    font-size: 1.05rem;
+    line-height: 1;
     border: 1px solid rgba(187, 247, 208, 0.85);
     box-shadow: 0 0 0 1px rgba(20, 83, 45, 0.35);
+}
+
+.nav-map-badge .fa {
+    margin: 0;
+    line-height: 1;
 }
 
 .nav-map-link:hover .nav-map-badge,
@@ -162,6 +168,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 0.35rem;
     flex: 1 1 auto;
     min-width: 0;
 }
@@ -197,6 +204,14 @@
 
 .nav-calc-badge .fa {
     margin: 0;
+}
+
+.nav-calc-badge svg,
+.nav-link.nav-link-calculator-fab .nav-calculator-icon-wrap svg {
+    display: block;
+    width: 1.05em;
+    height: 1.05em;
+    fill: currentColor;
 }
 
 .nav-calc-link:hover .nav-calc-badge,
@@ -258,12 +273,53 @@
 
 @media (min-width: 992px) {
     .navbar {
+        flex-wrap: nowrap;
         height: var(--navbar-height);
     }
 
     /* Desktop: the bar is one flex row (brand, shortcuts, links). */
     .navbar-topbar {
         display: contents;
+    }
+
+    .navbar-collapse {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .navbar-collapse > .navbar-nav.me-auto {
+        margin-right: 0 !important;
+    }
+
+    .nav-toolbar-fabs {
+        flex: 1 1 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        min-width: 0;
+    }
+
+    .navbar-nav {
+        flex-wrap: nowrap;
+        min-width: 0;
+    }
+
+    .navbar-nav .nav-item {
+        flex-shrink: 0;
+    }
+
+    .navbar-nav .nav-link {
+        white-space: nowrap;
+        padding-left: 0.42rem !important;
+        padding-right: 0.42rem !important;
+        margin-left: 0.08rem;
+        margin-right: 0.08rem;
+        font-size: 0.92rem;
+    }
+
+    .navbar-nav .nav-link i {
+        margin-right: 0.28rem;
     }
 
     .navbar-brand,
@@ -300,8 +356,19 @@
     }
 }
 
-/* Calculatrice : icône seule dans un rond (après « Outils ») */
-.navbar-nav .nav-link.nav-link-calculator-fab .nav-calculator-icon-wrap {
+/* ChatGPT et calculatrice : icône seule dans un rond, au centre de la barre. */
+.nav-toolbar-fabs .nav-link.nav-link-calculator-fab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+    margin: 0;
+    padding: 0.15rem !important;
+    color: #fff !important;
+    background: transparent;
+}
+
+.nav-link.nav-link-calculator-fab .nav-calculator-icon-wrap {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -315,17 +382,17 @@
     transition: background-color 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
 }
 
-.navbar-nav .nav-link.nav-link-calculator-fab .nav-calculator-icon-wrap i.fa {
+.nav-link.nav-link-calculator-fab .nav-calculator-icon-wrap i.fa {
     margin-right: 0 !important;
     width: auto;
 }
 
-.navbar-nav .nav-link.nav-link-calculator-fab:hover .nav-calculator-icon-wrap,
-.navbar-nav .nav-link.nav-link-calculator-fab:focus-visible .nav-calculator-icon-wrap {
+.nav-link.nav-link-calculator-fab:hover .nav-calculator-icon-wrap,
+.nav-link.nav-link-calculator-fab:focus-visible .nav-calculator-icon-wrap {
     background-color: rgba(255, 255, 255, 0.26);
 }
 
-.navbar-nav .nav-link.nav-link-calculator-fab.nav-link-calculator-active .nav-calculator-icon-wrap {
+.nav-link.nav-link-calculator-fab.nav-link-calculator-active .nav-calculator-icon-wrap {
     background-color: rgba(13, 110, 253, 0.55);
     border-color: rgba(255, 255, 255, 0.45);
 }
@@ -759,11 +826,18 @@
         gap: 0.22rem;
     }
 
-    .nav-map-badge,
     .nav-back-badge {
         min-width: 2.05rem;
         padding: 0.16rem 0.38rem;
         font-size: 0.72rem;
+    }
+
+    .nav-map-badge {
+        width: 1.9rem;
+        min-width: 1.9rem;
+        height: 1.55rem;
+        padding: 0;
+        font-size: 0.95rem;
     }
 
     .navbar-toggler {

@@ -88,9 +88,15 @@
 	<div class="home-hero home-hero--bar">
 	<section class="home-weather" [class.home-weather--quiet]="weatherState !== 'ready'">
 		<a class="home-weather-main" routerLink="/api/meteo-france" *ngIf="weatherState === 'ready'">
-			<span class="home-weather-temp">{{ weatherTemp }}</span>
+			<span class="home-weather-temp-block">
+				<img class="home-weather-logo" [src]="weatherLogo" [alt]="weatherSourceName"
+				     [title]="weatherStation ? weatherSourceName + ' — ' + weatherStation : weatherSourceName" width="22" height="22" />
+				<span class="home-weather-temp">{{ weatherTemp }}</span>
+			</span>
 			<span class="home-weather-copy">
 				<span class="home-weather-place" *ngIf="weatherPlace">{{ weatherPlace }}</span>
+				<span class="home-weather-station" *ngIf="weatherStation">{{ 'METEO_FRANCE.TOOLTIP_STATION' | translate }} {{ weatherStation }}</span>
+				<span class="home-weather-station" *ngIf="weatherStationRelief">{{ weatherStationRelief }}</span>
 				<span class="home-weather-desc" *ngIf="weatherDesc">{{ weatherDesc }}</span>
 				<span class="home-weather-meta" *ngIf="weatherFeels || weatherHumidity">
 					{{ weatherFeels }}<span *ngIf="weatherFeels && weatherHumidity"> · </span>{{ weatherHumidity }}
@@ -334,11 +340,16 @@
 			[lat]="weatherLat"
 			[lon]="weatherLon"
 			[title]="weatherPlace"
+			[stationName]="weatherStation"
 			[altitudeM]="weatherAltitude"
 			[region]="weatherRegion"
 			[climEnabled]="weatherClim"
-			[openMeteoTempC]="weatherTempC"
-			[openMeteoObservedAt]="weatherObservedAt || null"
+			[mfTempC]="weatherSource === 'meteofrance' ? weatherTempC : null"
+			[msTempC]="weatherSource === 'meteoswiss' ? weatherTempC : null"
+			[openMeteoTempC]="weatherOmTempC"
+			[mfObservedAt]="weatherSource === 'meteofrance' ? (weatherObservedAt || null) : null"
+			[msObservedAt]="weatherSource === 'meteoswiss' ? (weatherObservedAt || null) : null"
+			[openMeteoObservedAt]="weatherOmObservedAt || null"
 			temperatureUnit="celsius">
 		</app-weather-point-timeline>
 	</section>

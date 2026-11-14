@@ -120,7 +120,8 @@
     "FONCIER_SUISSE": "Ακίνητα Ελβετίας",
     "MAP_TRACE_VIEWER": "Χάρτης (ίχνος)",
     "APK_DOWNLOAD": "Εφαρμογή Android",
-    "MAP_BADGE": "ΧΑΡΤΗΣ"
+    "MAP_BADGE": "ΧΑΡΤΗΣ",
+    "OPEN_CHATGPT": "Άνοιγμα ChatGPT"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -1157,6 +1158,8 @@
     "PROXY_NO_MATCH": "Κανένα IoT proxy δεν ταιριάζει με τον κεντρικό υπολογιστή αυτού του URL. Ρυθμίστε proxy με τον ίδιο κεντρικό υπολογιστή/IP με τον σύνδεσμο.",
     "PROXY_PATH_MISMATCH": "Η διαδρομή αυτού του URL δεν ταιριάζει με τη βάση upstream του proxy.",
     "PROXY_OPEN_FAILED": "Δεν ήταν δυνατό το άνοιγμα του υπογεγραμμένου συνδέσμου proxy. Ελέγξτε τον ρόλο IoT και τη διαμόρφωση proxy.",
+    "RECENT_SEARCHES": "Πρόσφατες αναζητήσεις",
+    "RECENT_REMOVE": "Αφαίρεση από το ιστορικό",
     "CATEGORIES": {
       "ADMINISTRATIF": "Διοικητικό"
     }

@@ -189,7 +189,8 @@ public class SecurityConfig {
                     // Ne pas renvoyer Feature-Policy en parallèle : Chrome ignore alors Permissions-Policy
                     // pour accelerometer / gyroscope / magnetometer. ambient-light-sensor n'est plus un jeton reconnu.
                     .permissionsPolicy(policy -> policy.policy(
-                        "accelerometer=(self), gyroscope=(self), magnetometer=(self)"
+                        "accelerometer=(self), gyroscope=(self), magnetometer=(self), " +
+                        "compute-pressure=(self \"https://www.youtube.com\" \"https://www.youtube-nocookie.com\")"
                     ));
             })
             .oauth2ResourceServer(oauth2 -> oauth2

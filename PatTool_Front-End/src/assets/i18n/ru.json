@@ -655,7 +655,8 @@
     "FONCIER_SUISSE": "Недвижимость Швейцарии",
     "MAP_TRACE_VIEWER": "Карта (трек)",
     "APK_DOWNLOAD": "Приложение Android",
-    "MAP_BADGE": "КАРТА"
+    "MAP_BADGE": "КАРТА",
+    "OPEN_CHATGPT": "Открыть ChatGPT"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -1692,6 +1693,8 @@
     "PROXY_NO_MATCH": "Нет IoT-прокси для хоста этого URL. Настройте прокси с тем же хостом/IP, что и у ссылки.",
     "PROXY_PATH_MISMATCH": "Путь этого URL не совпадает с базой upstream прокси.",
     "PROXY_OPEN_FAILED": "Не удалось открыть подписанную ссылку прокси. Проверьте роль IoT и настройки прокси.",
+    "RECENT_SEARCHES": "Последние поиски",
+    "RECENT_REMOVE": "Удалить из истории",
     "CATEGORIES": {
       "ADMINISTRATIF": "Администрирование"
     }

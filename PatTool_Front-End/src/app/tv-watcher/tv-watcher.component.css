@@ -140,6 +140,17 @@
   gap: 0.55rem;
 }
 
+.tv-title-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+/* Desktop: buttons stay on the same line as the TV title. */
+.tv-title-tools {
+  display: contents;
+}
+
 .tv-epg-browser-open-btn {
   display: inline-flex;
   align-items: center;
@@ -269,7 +280,110 @@ a.tv-eq-open-btn {
   flex: 0 0 auto;
 }
 
+@media (max-width: 991.98px) {
+  /* Mobile: TV centered, buttons on the line underneath. */
+  :host .pat-title h2.tv-page-title {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+
+  .tv-title-heading {
+    align-self: center;
+    justify-content: center;
+  }
+
+  .tv-title-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .tv-title-tools .tv-epg-browser-open-btn,
+  .tv-title-tools .tv-global-filter-open-btn,
+  .tv-title-tools .tv-eq-open-btn,
+  .tv-title-tools .tv-sidebar-expand-title-btn,
+  .tv-title-tools .tv-skin-picker,
+  .tv-title-tools .pat-continue-switch {
+    margin-left: 0;
+  }
+}
+
 @media (max-width: 640px) {
+  :host .pat-title {
+    padding-left: 0.35rem;
+    padding-right: 0.35rem;
+  }
+
+  /* Same control size as Radio and Deezer, still on one line. */
+  .tv-title-tools {
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
+  .tv-title-tools > .tv-eq-open-btn,
+  .tv-title-tools > .tv-epg-browser-open-btn,
+  .tv-title-tools > .tv-global-filter-open-btn,
+  .tv-title-tools > .tv-sidebar-expand-title-btn,
+  .tv-title-tools > .pat-continue-switch,
+  .tv-title-tools > .tv-skin-picker .tv-skin-open-btn {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    height: 1.85rem;
+    min-width: 1.85rem;
+    padding: 0 0.28rem;
+    gap: 0.12rem;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.78rem;
+    line-height: 1;
+  }
+
+  .tv-title-tools > .tv-skin-picker {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 0;
+  }
+
+  .tv-title-tools > .pat-continue-switch {
+    min-width: 0;
+    padding: 0 0.36rem;
+  }
+
+  .tv-title-tools .fa {
+    font-size: 0.78rem;
+    line-height: 1;
+  }
+
+  .tv-title-tools .tv-skin-swatch--mini {
+    width: 0.85rem;
+    height: 0.85rem;
+  }
+
+  .tv-title-tools .pat-continue-switch-track {
+    width: 1.45rem;
+    height: 0.82rem;
+  }
+
+  .tv-title-tools .pat-continue-switch-knob {
+    width: 0.6rem;
+    height: 0.6rem;
+    top: 0.07rem;
+    left: 0.07rem;
+  }
+
+  .tv-title-tools .pat-continue-switch input:checked + .pat-continue-switch-track .pat-continue-switch-knob {
+    transform: translateX(0.64rem);
+  }
+
   .tv-epg-browser-open-label {
     display: none;
   }

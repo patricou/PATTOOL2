@@ -91,7 +91,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   @Input() stationName?: string;
   @Input() departmentCode?: string;
   @Input() climEnabled = true;
-  @Input() region: 'france' | 'switzerland' = 'france';
+  @Input() region: 'france' | 'switzerland' | 'other' = 'france';
   @Input() temperatureUnit: TemperatureUnit = 'celsius';
   @Input() enableRevealAnimation = true;
   @Input() overlayMode: 'fixed' | 'embedded' | 'panel' = 'fixed';
@@ -109,13 +109,23 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   readonly meteoSwissBrandLogo = WeatherPointTimelineComponent.LOGO_MS;
 
   get headerBrandLogo(): string {
-    return this.region === 'switzerland'
-      ? WeatherPointTimelineComponent.LOGO_MS
-      : WeatherPointTimelineComponent.LOGO_MF;
+    if (this.region === 'switzerland') {
+      return WeatherPointTimelineComponent.LOGO_MS;
+    }
+    if (this.region === 'other') {
+      return WeatherPointTimelineComponent.LOGO_OPEN_METEO;
+    }
+    return WeatherPointTimelineComponent.LOGO_MF;
   }
 
   get headerBrandAlt(): string {
-    return this.region === 'switzerland' ? 'MeteoSwiss' : 'Météo-France';
+    if (this.region === 'switzerland') {
+      return 'MeteoSwiss';
+    }
+    if (this.region === 'other') {
+      return 'Open-Meteo';
+    }
+    return 'Météo-France';
   }
 
   timelineFullscreen = false;
@@ -165,6 +175,9 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   }> {
     if (this.region === 'switzerland') {
       return this.timelineTabs.filter((tab) => tab.id !== 'meteofrance');
+    }
+    if (this.region === 'other') {
+      return this.timelineTabs.filter((tab) => tab.id !== 'meteofrance' && tab.id !== 'meteoswiss');
     }
     return this.timelineTabs.filter((tab) => tab.id !== 'meteoswiss');
   }
@@ -308,7 +321,11 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   }
 
   get compareNowMeanTempC(): number | null {
-    const regional = this.region === 'switzerland' ? this.msTempC : this.mfTempC;
+    const regional = this.region === 'switzerland'
+      ? this.msTempC
+      : this.region === 'france'
+        ? this.mfTempC
+        : null;
     return this.meanOfTempsC(regional, this.openMeteoTempC, this.openWeatherTempC);
   }
 
@@ -321,9 +338,13 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       case 'openweathermap':
         return 'METEO_FRANCE.POINT_TIMELINE_SOURCE_OWM';
       case 'compare':
-        return this.region === 'switzerland'
-          ? 'METEO_FRANCE.POINT_TIMELINE_SOURCE_COMPARE_CH'
-          : 'METEO_FRANCE.POINT_TIMELINE_SOURCE_COMPARE';
+        if (this.region === 'switzerland') {
+          return 'METEO_FRANCE.POINT_TIMELINE_SOURCE_COMPARE_CH';
+        }
+        if (this.region === 'other') {
+          return 'METEO_FRANCE.TEMPERATURE_COMPARE_ABROAD';
+        }
+        return 'METEO_FRANCE.POINT_TIMELINE_SOURCE_COMPARE';
       default:
         return 'METEO_FRANCE.POINT_TIMELINE_SOURCE';
     }
@@ -382,7 +403,9 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       case 'compare':
         return (this.region === 'switzerland'
           ? (this.msLoading || this.msHistoryLoading || this.owmLoading || this.omLoading)
-          : (this.mfForecastLoading || this.owmLoading || this.omLoading))
+          : this.region === 'other'
+            ? (this.owmLoading || this.omLoading)
+            : (this.mfForecastLoading || this.owmLoading || this.omLoading))
           && this.getSlotsForTab('compare', param).length === 0;
       default:
         return false;
@@ -684,6 +707,8 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       this.msHistoryLoading = true;
       this.loadMeteoSwissHistory(requestId);
       this.loadMeteoSwissForecast(requestId);
+    } else if (this.region === 'other') {
+      this.activeTab = 'open-meteo';
     } else {
       this.activeTab = 'meteofrance';
     }
@@ -1632,9 +1657,13 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   }
 
   private compareSourceKeys(): TimelineSourceKey[] {
-    return this.region === 'switzerland'
-      ? ['meteoswiss', 'open-meteo', 'openweathermap']
-      : ['meteofrance', 'open-meteo', 'openweathermap'];
+    if (this.region === 'switzerland') {
+      return ['meteoswiss', 'open-meteo', 'openweathermap'];
+    }
+    if (this.region === 'other') {
+      return ['open-meteo', 'openweathermap'];
+    }
+    return ['meteofrance', 'open-meteo', 'openweathermap'];
   }
 
   private meanOfTempsC(...values: Array<number | null | undefined>): number | null {
@@ -1747,7 +1776,9 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       const compareSources: Array<{ key: TimelineSourceKey; labelKey: string; color: string }> = [
         ...(this.region === 'switzerland'
           ? [{ key: 'meteoswiss' as TimelineSourceKey, labelKey: 'METEO_FRANCE.POINT_TIMELINE_LEGEND_MS', color: '#d52b1e' }]
-          : [{ key: 'meteofrance' as TimelineSourceKey, labelKey: 'METEO_FRANCE.POINT_TIMELINE_LEGEND_MF', color: '#2ecc71' }]),
+          : this.region === 'france'
+            ? [{ key: 'meteofrance' as TimelineSourceKey, labelKey: 'METEO_FRANCE.POINT_TIMELINE_LEGEND_MF', color: '#2ecc71' }]
+            : []),
         { key: 'open-meteo', labelKey: 'METEO_FRANCE.POINT_TIMELINE_LEGEND_OM', color: '#3498db' },
         { key: 'openweathermap', labelKey: 'METEO_FRANCE.POINT_TIMELINE_LEGEND_OWM', color: '#e67e22' }
       ];

@@ -2863,3 +2863,103 @@ body.tv-popout-mode app-root {
 select.pat-select-sheet-target {
   pointer-events: none !important;
 }
+
+/*
+ * Smartphone en paysage : la largeur dépasse souvent 768px, donc les règles
+ * « mobile » (max-width) ne s’appliquent plus et la modale reste à 65vw.
+ * Diaporama, trace viewer et visionneuse vidéo occupent alors tout l’écran.
+ */
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  html body ngb-modal-window.modal.show.slideshow-modal-wide:not(.trace-viewer-leaflet-modal):has(.slideshow-container),
+  html body ngb-modal-window.modal.show.videoshow-modal-wide:has(.videoshow-container),
+  html body ngb-modal-window.modal.show.trace-viewer-leaflet-modal:has(.trace-viewer-body) {
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  html body ngb-modal-window.modal.show.slideshow-modal-wide:not(.trace-viewer-leaflet-modal):has(.slideshow-container) > .modal-dialog,
+  html body ngb-modal-window.modal.show.videoshow-modal-wide:has(.videoshow-container) > .modal-dialog,
+  html body ngb-modal-window.modal.show.trace-viewer-leaflet-modal:has(.trace-viewer-body) > .modal-dialog {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: 100% !important;
+    max-height: none !important;
+    min-height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    display: flex !important;
+    align-items: stretch !important;
+    border-radius: 0 !important;
+  }
+
+  html body ngb-modal-window.modal.show.slideshow-modal-wide:not(.trace-viewer-leaflet-modal):has(.slideshow-container) > .modal-dialog > .modal-content,
+  html body ngb-modal-window.modal.show.videoshow-modal-wide:has(.videoshow-container) > .modal-dialog > .modal-content,
+  html body ngb-modal-window.modal.show.trace-viewer-leaflet-modal:has(.trace-viewer-body) > .modal-dialog > .modal-content {
+    width: 100% !important;
+    max-width: none !important;
+    height: 100% !important;
+    max-height: none !important;
+    min-height: 100% !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    padding:
+      env(safe-area-inset-top, 0px)
+      env(safe-area-inset-right, 0px)
+      env(safe-area-inset-bottom, 0px)
+      env(safe-area-inset-left, 0px) !important;
+  }
+
+  html body ngb-modal-window.modal.show.slideshow-modal-wide:not(.trace-viewer-leaflet-modal) .slideshow-header,
+  html body ngb-modal-window.modal.show.videoshow-modal-wide .videoshow-header,
+  html body ngb-modal-window.modal.show.trace-viewer-leaflet-modal .slideshow-header,
+  html body ngb-modal-window.modal.show.slideshow-modal-wide:not(.trace-viewer-leaflet-modal) .slideshow-footer,
+  html body ngb-modal-window.modal.show.videoshow-modal-wide .videoshow-footer,
+  html body ngb-modal-window.modal.show.trace-viewer-leaflet-modal .slideshow-footer {
+    flex-shrink: 0 !important;
+  }
+
+  html body ngb-modal-window.modal.show.slideshow-modal-wide:not(.trace-viewer-leaflet-modal) .slideshow-body,
+  html body ngb-modal-window.modal.show.videoshow-modal-wide .videoshow-body,
+  html body ngb-modal-window.modal.show.trace-viewer-leaflet-modal .slideshow-body,
+  html body ngb-modal-window.modal.show.trace-viewer-leaflet-modal .trace-viewer-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: hidden !important;
+  }
+
+  html body ngb-modal-window.modal.show.slideshow-modal-wide:not(.trace-viewer-leaflet-modal) .slideshow-container,
+  html body ngb-modal-window.modal.show.slideshow-modal-wide:not(.trace-viewer-leaflet-modal) .slideshow-image-wrapper,
+  html body ngb-modal-window.modal.show.videoshow-modal-wide .videoshow-container,
+  html body ngb-modal-window.modal.show.videoshow-modal-wide .videoshow-video-wrapper {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    flex: 1 1 auto !important;
+  }
+
+  html body ngb-modal-window.modal.show.trace-viewer-leaflet-modal .map-wrapper {
+    min-height: 0 !important;
+    height: 100% !important;
+    flex: 1 1 auto !important;
+    border-radius: 0 !important;
+  }
+}

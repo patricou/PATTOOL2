@@ -29,6 +29,8 @@ import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace
 import { resolveWeatherStationProvider } from '../../shared/weather-station-map.util';
 
 type CardState = 'loading' | 'ready' | 'empty' | 'error';
+type HomeWeatherSource = 'meteofrance' | 'meteoswiss' | 'open-meteo';
+type HomeWeatherRegion = 'france' | 'switzerland' | 'other';
 
 interface DashAgendaItem {
 	title: string;
@@ -168,10 +170,17 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 	weatherLat: number | null = null;
 	weatherLon: number | null = null;
 	weatherAltitude: number | null = null;
-	weatherRegion: 'france' | 'switzerland' = 'france';
+	weatherRegion: HomeWeatherRegion = 'france';
 	weatherClim = false;
+	weatherSource: HomeWeatherSource = 'open-meteo';
+	weatherStation = '';
+	weatherStationLat: number | null = null;
+	weatherStationLon: number | null = null;
+	weatherStationAlt: number | null = null;
 	weatherTempC: number | null = null;
 	weatherObservedAt = '';
+	weatherOmTempC: number | null = null;
+	weatherOmObservedAt = '';
 	weatherSunriseAt: Date | null = null;
 	weatherSunsetAt: Date | null = null;
 	private sunKey = '';
@@ -794,15 +803,32 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 			return;
 		}
 		const lang = (this.translate.currentLang || 'fr').split('-')[0];
-		this.subs.add(forkJoin({
-			weather: this.api.getCurrentWeatherByCoordinates(pos.latitude, pos.longitude, null, 'open-meteo').pipe(
-				catchError(() => of(null))
-			),
-			place: this.api.geocodeReverse(pos.latitude, pos.longitude, lang).pipe(
-				catchError(() => of(null))
-			)
-		}).pipe(take(1), this.checked()).subscribe({
-			next: ({ weather, place }) => {
+		const openMeteo$ = this.api.getCurrentWeatherByCoordinates(pos.latitude, pos.longitude, null, 'open-meteo').pipe(
+			catchError(() => of(null))
+		);
+		const place$ = this.api.geocodeReverse(pos.latitude, pos.longitude, lang).pipe(
+			catchError(() => of(null))
+		);
+		this.subs.add(forkJoin({ openMeteo: openMeteo$, place: place$ }).pipe(
+			switchMap(({ openMeteo, place }) => {
+				const provider = this.weatherProvider(place, pos.latitude, pos.longitude);
+				const preferred: HomeWeatherSource = provider === 'mf'
+					? 'meteofrance'
+					: provider === 'ms'
+						? 'meteoswiss'
+						: 'open-meteo';
+				if (preferred === 'open-meteo') {
+					return of({ openMeteo, place, official: null as any, preferred, provider });
+				}
+				return this.api.getCurrentWeatherByCoordinates(pos.latitude, pos.longitude, null, preferred).pipe(
+					catchError(() => of(null)),
+					map((official) => ({ openMeteo, place, official, preferred, provider }))
+				);
+			}),
+			take(1),
+			this.checked()
+		).subscribe({
+			next: ({ openMeteo, place, official, preferred, provider }) => {
 				if (gen !== this.loadGen) {
 					if (quiet) {
 						this.weatherRefreshing = false;
@@ -818,9 +844,12 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 				if (city || street) {
 					this.userAddress = street && street.toLowerCase() !== city.toLowerCase() ? street : '';
 				}
-				const res = weather as any;
-				const temp = Number(res?.main?.temp);
-				if (!res || res.error || !Number.isFinite(temp)) {
+				const officialTemp = this.weatherTempOf(official);
+				const omTemp = this.weatherTempOf(openMeteo);
+				const source: HomeWeatherSource = officialTemp != null ? preferred : 'open-meteo';
+				const reading = source === 'open-meteo' ? openMeteo : official;
+				const temp = source === 'open-meteo' ? omTemp : officialTemp;
+				if (temp == null) {
 					if (!fromGps) {
 						if (this.weatherState === 'loading') {
 							this.weatherState = 'error';
@@ -831,25 +860,34 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 					}
 					return;
 				}
-				const feels = Number(res?.main?.feels_like);
-				const humidity = Number(res?.main?.humidity);
-				const provider = this.weatherProvider(place, pos.latitude, pos.longitude);
+				const feels = Number(openMeteo?.main?.feels_like);
+				const feelsValue = Number.isFinite(feels) ? feels : Number(reading?.main?.feels_like);
+				const humidity = Number(reading?.main?.humidity);
+				const humidityValue = Number.isFinite(humidity) ? humidity : Number(openMeteo?.main?.humidity);
+				this.weatherSource = source;
+				this.weatherStation = this.stationLabelOf(reading, source);
+				const stationCoord = this.stationCoordOf(reading, source);
+				this.weatherStationLat = stationCoord?.lat ?? null;
+				this.weatherStationLon = stationCoord?.lon ?? null;
+				this.weatherStationAlt = null;
 				this.weatherTemp = this.formatDegrees(temp);
 				this.weatherTempC = temp;
-				this.weatherObservedAt = this.weatherObservedAtOf(res);
+				this.weatherObservedAt = this.weatherObservedAtOf(reading);
+				this.weatherOmTempC = omTemp;
+				this.weatherOmObservedAt = omTemp != null ? this.weatherObservedAtOf(openMeteo) : '';
 				this.weatherLat = pos.latitude;
 				this.weatherLon = pos.longitude;
-				this.weatherRegion = provider === 'ms' ? 'switzerland' : 'france';
+				this.weatherRegion = provider === 'ms' ? 'switzerland' : provider === 'mf' ? 'france' : 'other';
 				this.weatherClim = provider === 'mf';
 				this.weatherPlace = city || street || this.coordLabel(pos.latitude, pos.longitude);
 				this.loadWeatherAltitude(pos.latitude, pos.longitude);
-				this.weatherDesc = String(res?.weather?.[0]?.description || '').trim();
-				this.weatherFeels = Number.isFinite(feels)
-					? this.translate.instant('HOME.DASHBOARD.FEELS', { temp: this.formatDegrees(feels) })
+				this.weatherDesc = this.skyDescription(openMeteo) || this.skyDescription(reading);
+				this.weatherFeels = Number.isFinite(feelsValue)
+					? this.translate.instant('HOME.DASHBOARD.FEELS', { temp: this.formatDegrees(feelsValue) })
 					: '';
-				this.weatherHumidity = Number.isFinite(humidity)
+				this.weatherHumidity = Number.isFinite(humidityValue)
 					? this.translate.instant('HOME.DASHBOARD.HUMIDITY', {
-						value: Math.round(humidity).toLocaleString(this.localeTag())
+						value: Math.round(humidityValue).toLocaleString(this.localeTag())
 					})
 					: '';
 				this.refreshSunTimes();
@@ -1572,6 +1610,144 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		return '';
 	}
 
+	get weatherLogo(): string {
+		switch (this.weatherSource) {
+			case 'meteofrance':
+				return 'assets/images/meteofrance-logo.svg';
+			case 'meteoswiss':
+				return 'assets/images/meteoswiss-logo.svg';
+			default:
+				return 'assets/images/open-meteo-logo.svg';
+		}
+	}
+
+	get weatherSourceName(): string {
+		switch (this.weatherSource) {
+			case 'meteofrance':
+				return 'Météo-France';
+			case 'meteoswiss':
+				return 'MeteoSwiss';
+			default:
+				return 'Open-Meteo';
+		}
+	}
+
+	get weatherStationRelief(): string {
+		if (!this.weatherStation) {
+			return '';
+		}
+		const parts: string[] = [];
+		const distance = this.stationDistanceKm();
+		if (distance != null) {
+			parts.push(this.formatDistance(distance));
+		}
+		if (this.weatherAltitude != null) {
+			parts.push(this.translate.instant('HOME.DASHBOARD.ALT_YOU', { alt: this.formatMeters(this.weatherAltitude) }));
+		}
+		if (this.weatherStationAlt != null) {
+			parts.push(this.translate.instant('HOME.DASHBOARD.ALT_STATION', { alt: this.formatMeters(this.weatherStationAlt) }));
+		}
+		if (this.weatherAltitude != null && this.weatherStationAlt != null) {
+			parts.push(this.formatSignedMeters(this.weatherStationAlt - this.weatherAltitude));
+		}
+		return parts.join(' · ');
+	}
+
+	private stationCoordOf(weather: any, source: HomeWeatherSource): { lat: number; lon: number } | null {
+		if (source !== 'meteofrance' && source !== 'meteoswiss') {
+			return null;
+		}
+		const lat = Number(weather?.coord?.lat);
+		const lon = Number(weather?.coord?.lon);
+		if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+			return null;
+		}
+		return { lat, lon };
+	}
+
+	private stationDistanceKm(): number | null {
+		const lat = this.weatherLat;
+		const lon = this.weatherLon;
+		const stationLat = this.weatherStationLat;
+		const stationLon = this.weatherStationLon;
+		if (lat == null || lon == null || stationLat == null || stationLon == null) {
+			return null;
+		}
+		const toRad = (value: number) => value * Math.PI / 180;
+		const dLat = toRad(stationLat - lat);
+		const dLon = toRad(stationLon - lon);
+		const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+			+ Math.cos(toRad(lat)) * Math.cos(toRad(stationLat)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+		return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+	}
+
+	private formatDistance(km: number): string {
+		if (km < 1) {
+			return `${Math.round(km * 1000).toLocaleString(this.localeTag())} m`;
+		}
+		return `${km.toLocaleString(this.localeTag(), { maximumFractionDigits: 1, minimumFractionDigits: 1 })} km`;
+	}
+
+	private formatMeters(value: number): string {
+		return `${Math.round(value).toLocaleString(this.localeTag())} m`;
+	}
+
+	private formatSignedMeters(delta: number): string {
+		const rounded = Math.round(delta);
+		const abs = Math.abs(rounded).toLocaleString(this.localeTag());
+		if (rounded > 0) {
+			return `+${abs} m`;
+		}
+		if (rounded < 0) {
+			return `−${abs} m`;
+		}
+		return '0 m';
+	}
+
+	private stationLabelOf(weather: any, source: HomeWeatherSource): string {
+		if (source !== 'meteofrance' && source !== 'meteoswiss') {
+			return '';
+		}
+		const nested = source === 'meteofrance' ? weather?.mfStation : weather?.msStation;
+		const raw = String(nested?.name || weather?.name || '').trim();
+		return this.readableStationName(raw);
+	}
+
+	/** Official catalogs store station names in capitals. */
+	private readableStationName(raw: string): string {
+		const text = raw.trim();
+		if (!text || text !== text.toLocaleUpperCase('fr-FR')) {
+			return text;
+		}
+		const small = new Set(['sur', 'sous', 'les', 'des', 'de', 'du', 'la', 'le', 'en', 'et', 'au', 'aux']);
+		return text.toLocaleLowerCase('fr-FR').split(/([\s\-'])/).map((part, index) => {
+			if (!part || /[\s\-']/.test(part)) {
+				return part;
+			}
+			if (index > 0 && small.has(part)) {
+				return part;
+			}
+			return part.charAt(0).toLocaleUpperCase('fr-FR') + part.slice(1);
+		}).join('');
+	}
+
+	private weatherTempOf(weather: any): number | null {
+		const temp = Number(weather?.main?.temp);
+		if (!weather || weather.error || !Number.isFinite(temp)) {
+			return null;
+		}
+		return temp;
+	}
+
+	/** Sky condition text. Station labels are not a weather description. */
+	private skyDescription(weather: any): string {
+		const text = String(weather?.weather?.[0]?.description || '').trim();
+		if (!text || /observation station/i.test(text)) {
+			return '';
+		}
+		return text;
+	}
+
 	private weatherProvider(place: any, lat: number, lon: number): 'mf' | 'ms' | null {
 		const address = place?.address && typeof place.address === 'object' ? place.address : {};
 		let code = String(
@@ -1639,7 +1815,13 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 
 	private loadWeatherAltitude(lat: number, lon: number): void {
 		const fix = ++this.weatherFix;
-		this.subs.add(this.api.getStationElevation(lat, lon).pipe(
+		const stationLat = this.weatherStationLat;
+		const stationLon = this.weatherStationLon;
+		const hasStation = stationLat != null && stationLon != null;
+		const locations = hasStation
+			? [{ lat, lon }, { lat: stationLat, lon: stationLon }]
+			: [{ lat, lon }];
+		this.subs.add(this.api.lookupElevationsBatch(locations).pipe(
 			take(1),
 			catchError(() => of(null)),
 			this.checked()
@@ -1647,8 +1829,11 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 			if (fix !== this.weatherFix) {
 				return;
 			}
-			const alt = Number(res?.altitudeM);
-			this.weatherAltitude = Number.isFinite(alt) ? alt : null;
+			const alts = Array.isArray(res?.altitudesM) ? res.altitudesM : [];
+			const user = Number(alts[0]);
+			const station = Number(alts[1]);
+			this.weatherAltitude = Number.isFinite(user) ? user : null;
+			this.weatherStationAlt = hasStation && Number.isFinite(station) ? station : null;
 			this.refreshSunTimes();
 			this.store();
 		}));
@@ -1745,10 +1930,24 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		this.weatherLat = snap.weatherLat ?? null;
 		this.weatherLon = snap.weatherLon ?? null;
 		this.weatherAltitude = snap.weatherAltitude ?? null;
-		this.weatherRegion = snap.weatherRegion === 'switzerland' ? 'switzerland' : 'france';
+		this.weatherRegion = snap.weatherRegion === 'switzerland'
+			? 'switzerland'
+			: snap.weatherRegion === 'other'
+				? 'other'
+				: 'france';
 		this.weatherClim = snap.weatherClim === true;
+		this.weatherSource = snap.weatherSource === 'meteofrance' || snap.weatherSource === 'meteoswiss'
+			? snap.weatherSource
+			: 'open-meteo';
+		this.weatherStation = snap.weatherStation || '';
+		this.weatherStationLat = snap.weatherStationLat ?? null;
+		this.weatherStationLon = snap.weatherStationLon ?? null;
+		this.weatherStationAlt = snap.weatherStationAlt ?? null;
 		this.weatherTempC = snap.weatherTempC ?? null;
 		this.weatherObservedAt = snap.weatherObservedAt ?? '';
+		this.weatherOmTempC = snap.weatherOmTempC ?? (this.weatherSource === 'open-meteo' ? this.weatherTempC : null);
+		this.weatherOmObservedAt = snap.weatherOmObservedAt
+			?? (this.weatherSource === 'open-meteo' ? this.weatherObservedAt : '');
 		this.refreshSunTimes();
 		this.userAddress = snap.userAddress;
 		this.userLabel = snap.userLabel;
@@ -1814,8 +2013,15 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 			weatherAltitude: weatherReady ? this.weatherAltitude : (prev?.weatherAltitude ?? null),
 			weatherRegion: weatherReady ? this.weatherRegion : (prev?.weatherRegion ?? 'france'),
 			weatherClim: weatherReady ? this.weatherClim : (prev?.weatherClim ?? false),
+			weatherSource: weatherReady ? this.weatherSource : (prev?.weatherSource ?? 'open-meteo'),
+			weatherStation: weatherReady ? this.weatherStation : (prev?.weatherStation ?? ''),
+			weatherStationLat: weatherReady ? this.weatherStationLat : (prev?.weatherStationLat ?? null),
+			weatherStationLon: weatherReady ? this.weatherStationLon : (prev?.weatherStationLon ?? null),
+			weatherStationAlt: weatherReady ? this.weatherStationAlt : (prev?.weatherStationAlt ?? null),
 			weatherTempC: weatherReady ? this.weatherTempC : (prev?.weatherTempC ?? null),
 			weatherObservedAt: weatherReady ? this.weatherObservedAt : (prev?.weatherObservedAt ?? ''),
+			weatherOmTempC: weatherReady ? this.weatherOmTempC : (prev?.weatherOmTempC ?? null),
+			weatherOmObservedAt: weatherReady ? this.weatherOmObservedAt : (prev?.weatherOmObservedAt ?? ''),
 			userAddress: weatherReady ? this.userAddress : (prev?.userAddress ?? ''),
 			userLabel: this.userLabel || prev?.userLabel || '',
 			userLogin: this.userLabel ? this.userLogin : (prev?.userLogin ?? ''),

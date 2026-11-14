@@ -120,7 +120,8 @@
     "FONCIER_SUISSE": "瑞士房产",
     "MAP_TRACE_VIEWER": "地图（轨迹）",
     "APK_DOWNLOAD": "Android 应用",
-    "MAP_BADGE": "地图"
+    "MAP_BADGE": "地图",
+    "OPEN_CHATGPT": "打开 ChatGPT"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -1157,6 +1158,8 @@
     "PROXY_NO_MATCH": "没有 IoT 代理与此 URL 的主机匹配。请配置与链接相同主机/IP 的代理。",
     "PROXY_PATH_MISMATCH": "此 URL 路径与代理的上游基础路径不匹配。",
     "PROXY_OPEN_FAILED": "无法打开代理签名链接。请检查 IoT 角色和代理配置。",
+    "RECENT_SEARCHES": "最近的搜索",
+    "RECENT_REMOVE": "从历史记录中移除",
     "CATEGORIES": {
       "ADMINISTRATIF": "行政"
     }

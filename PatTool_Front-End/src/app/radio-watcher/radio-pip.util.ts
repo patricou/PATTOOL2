@@ -108,16 +108,26 @@ export function parkRadioDocPipWindow(): Window | null {
   return win;
 }
 
-/** Image URLs on an HTTPS page. Chrome upgrades leftover http artwork and logs mixed content. */
+/** Image URLs on an HTTPS page. Chrome upgrades leftover http artwork and logs mixed content.
+ *  Localhost stays on http: the dev API has no TLS, so https://localhost:8000 fails. */
 export function secureAssetUrl(url: string | null | undefined): string {
   const value = (url || '').trim();
   if (!value || value === 'null' || value === 'undefined') {
     return '';
   }
-  if (value.startsWith('http://')) {
+  if (value.startsWith('http://') && !isLocalHttp(value)) {
     return `https://${value.slice('http://'.length)}`;
   }
   return value;
+}
+
+function isLocalHttp(url: string): boolean {
+  try {
+    const host = new URL(url).hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+  } catch {
+    return false;
+  }
 }
 
 export function applyRadioMediaSession(meta: {

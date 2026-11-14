@@ -265,7 +265,7 @@ export class DeezerKeepAliveService {
     const start = startSec > 1 ? `&start=${Math.floor(startSec)}` : '';
     const frame = document.createElement('iframe');
     frame.title = 'YouTube';
-    frame.allow = 'autoplay; encrypted-media; picture-in-picture';
+    frame.allow = 'autoplay; encrypted-media; picture-in-picture; compute-pressure';
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
     frame.src = `https://www.youtube-nocookie.com/embed/${id}?rel=0&autoplay=1&playsinline=1&controls=0&fs=0&iv_load_policy=3${start}${origin}`;
     this.clipId = id;

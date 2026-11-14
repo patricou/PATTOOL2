@@ -3793,3 +3793,11 @@
 	background: transparent !important;
 	color: var(--menu-fg) !important;
 }
+
+::ng-deep .leaflet-gl-layer {
+	pointer-events: none;
+}
+
+::ng-deep .leaflet-gl-layer .maplibregl-ctrl-logo {
+	display: none;
+}

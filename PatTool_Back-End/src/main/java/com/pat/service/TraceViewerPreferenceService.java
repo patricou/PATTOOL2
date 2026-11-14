@@ -28,7 +28,13 @@ public class TraceViewerPreferenceService {
             "osm-standard",
             "osm-fr",
             "esri-imagery",
+            "esri-topo",
+            "osm-swiss-style",
             "opentopomap",
+            "opentopomap-r",
+            "openhikingmap",
+            "maptoolkit-hiking",
+            "maptoolkit-winter",
             "cartes-gouv",
             "ign-classic",
             "ign-plan",
@@ -39,7 +45,8 @@ public class TraceViewerPreferenceService {
             "swisstopo-pixelkarte",
             "swisstopo-swissimage",
             "opencyclemap",
-            "thunderforest-outdoors"
+            "thunderforest-outdoors",
+            "thunderforest-landscape"
     );
 
     private final AppParameterService appParameterService;

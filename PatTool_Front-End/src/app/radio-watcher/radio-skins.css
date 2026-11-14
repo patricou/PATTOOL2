@@ -4444,12 +4444,18 @@
   border-color: #e7d3a8;
 }
 
+.radio-skin--dune .radio-screen-fx {
+  container-type: size;
+}
+
+/* Square box: a % width and a % height follow the screen, so a tall phone turns the sun into an egg. */
 .radio-skin--dune .radio-screen-fx-a {
   display: block;
   left: 16%;
   top: 18%;
-  width: 42%;
-  height: 48%;
+  width: min(42cqw, 48cqh);
+  height: auto;
+  aspect-ratio: 1;
   border-radius: 50%;
   background: radial-gradient(circle at 40% 40%, #fff6d8, #e7a04a 55%, transparent 72%);
   animation: radio-skin-search 8s ease-in-out infinite alternate;
@@ -5672,9 +5678,18 @@
   background: #111;
 }
 
+.radio-skin--ouchi .radio-screen-fx {
+  container-type: size;
+}
+
 .radio-skin--ouchi .radio-screen-fx-a {
   display: block;
-  inset: 8% 10%;
+  left: 50%;
+  top: 52%;
+  width: min(84cqw, 80cqh);
+  height: auto;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
   overflow: hidden;
   border: 3px solid #111;
@@ -6066,6 +6081,29 @@
   min-height: 0;
   height: auto;
   max-height: none;
+}
+
+/* Phone column: the panel is as tall as the viewport and much narrower, so the
+   rule above stretches the screen. Circles sized in % of both axes become eggs.
+   Keep the 16/10 screen; the station list stays the full-height block below. */
+@media (max-width: 900px) {
+  :host:not(.radio-focus):not(.radio-stage-fs):not(.radio-landscape-fs):not(:fullscreen) .radio-player-panel {
+    height: auto;
+    max-height: none;
+  }
+
+  :host:not(.radio-focus):not(.radio-stage-fs):not(.radio-landscape-fs):not(:fullscreen) .radio-player-panel .radio-player-frame {
+    flex: 0 0 auto;
+  }
+
+  :host:not(.radio-focus):not(.radio-stage-fs):not(.radio-landscape-fs):not(:fullscreen) .radio-player-panel .radio-player-frame .radio-face {
+    aspect-ratio: 16 / 10;
+    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+  }
 }
 
 .radio-player-panel .radio-presets {

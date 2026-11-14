@@ -70,9 +70,11 @@ export class LeafletBasemapService {
         this.thunderforestApiKey = apiKey.trim();
         this.layerFactories['opencyclemap'] = () => this.createOpenCycleMapLayer();
         this.layerFactories['thunderforest-outdoors'] = () => this.createThunderforestOutdoorsLayer();
+        this.layerFactories['thunderforest-landscape'] = () => this.createThunderforestLandscapeLayer();
         if (!this.availableBaseLayers.some((layer) => layer.id === 'opencyclemap')) {
           this.availableBaseLayers.push({ id: 'opencyclemap', label: 'OpenCycleMap' });
           this.availableBaseLayers.push({ id: 'thunderforest-outdoors', label: 'TF Outdoors' });
+          this.availableBaseLayers.push({ id: 'thunderforest-landscape', label: 'TF Landscape' });
           this.availableBaseLayers.sort((a, b) => a.label.localeCompare(b.label));
         }
       },
@@ -231,6 +233,18 @@ export class LeafletBasemapService {
     );
   }
 
+  private createThunderforestLandscapeLayer(): L.TileLayer {
+    return L.tileLayer(
+      'https://{s}.tile.thunderforest.com/landscape/{z}/{x}/{y}.png?apikey=' + this.thunderforestApiKey,
+      {
+        maxNativeZoom: 18,
+        maxZoom: 20,
+        subdomains: ['a', 'b', 'c'],
+        attribution: '&copy; OpenStreetMap contributors, &copy; Thunderforest',
+      }
+    );
+  }
+
   private createBaseLayers(): void {
     this.layerFactories = {
       'osm-standard': () => L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -261,11 +275,30 @@ export class LeafletBasemapService {
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         { maxNativeZoom: 19, maxZoom: 20, attribution: 'Tiles &copy; Esri' }
       ),
+      'esri-topo': () => L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+        { maxNativeZoom: 19, maxZoom: 20, attribution: 'Tiles &copy; Esri' }
+      ),
+      'osm-swiss-style': () => L.tileLayer('https://tile.osm.ch/osm-swiss-style/{z}/{x}/{y}.png', {
+        maxNativeZoom: 19,
+        maxZoom: 20,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Style: &copy; <a href="https://openstreetmap.ch">SOSM</a>',
+      }),
       'opentopomap': () => L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
         maxNativeZoom: 17,
         maxZoom: 20,
         subdomains: 'abc',
         attribution: 'Map data: &copy; OSM contributors, SRTM',
+      }),
+      'opentopomap-r': () => L.tileLayer('https://tile.openmaps.fr/opentopomap/{z}/{x}/{y}.png', {
+        maxNativeZoom: 18,
+        maxZoom: 20,
+        attribution: '<a href="https://github.com/sletuffe/OpenTopoMap">© OpenTopoMap-R</a> <a href="https://openmaps.fr/donate">Donation</a> <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap</a>',
+      }),
+      'openhikingmap': () => L.tileLayer('https://tile.openmaps.fr/openhikingmap/{z}/{x}/{y}.png', {
+        maxNativeZoom: 18,
+        maxZoom: 20,
+        attribution: '<a href="https://wiki.openstreetmap.org/wiki/OpenHikingMap">© OpenHikingMap</a> <a href="https://openmaps.fr/donate">Donation</a> <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap</a>',
       }),
       'ign-plan': () => L.tileLayer(
         'https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}',
@@ -297,8 +330,12 @@ export class LeafletBasemapService {
     this.availableBaseLayers = [
       { id: 'osm-standard', label: 'OpenStreetMap' },
       { id: 'osm-fr', label: 'OSM France' },
+      { id: 'osm-swiss-style', label: 'OSM Swiss Style' },
       { id: 'esri-imagery', label: 'Esri Satellite' },
+      { id: 'esri-topo', label: 'Esri Topo' },
       { id: 'opentopomap', label: 'OpenTopoMap' },
+      { id: 'opentopomap-r', label: 'OpenTopoMap-R' },
+      { id: 'openhikingmap', label: 'OpenHikingMap' },
       { id: 'ign-classic', label: 'IGN Classique' },
       { id: 'ign-plan', label: 'IGN Plan' },
       { id: 'ign-ortho', label: 'IGN Ortho' },

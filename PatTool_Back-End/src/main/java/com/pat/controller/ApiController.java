@@ -347,6 +347,7 @@ public class ApiController {
         return switch (normalizeWeatherSource(source)) {
             case "open-meteo" -> openMeteoService.getCurrentWeatherByCoordinates(lat, lon, jwtSubject);
             case "meteofrance" -> meteoFranceObsService.getCurrentWeatherByCoordinates(lat, lon, jwtSubject);
+            case "meteoswiss" -> meteoSwissObsService.getCurrentWeatherByCoordinates(lat, lon);
             default -> tagOpenWeatherSource(openWeatherService.getCurrentWeatherByCoordinates(lat, lon, alt));
         };
     }

@@ -47,17 +47,11 @@ export class MarkdownChatRenderService {
     }
     const wrapped = '<div class="pat-assistant-md">' + raw + '</div>';
     /**
-     * Images dans la réponse modèle :
-     * - data URL (réponse live),
-     * - blob: (images rechargées depuis l’historique après GET des assets).
-     * Sinon {@link DomSanitizer.sanitize} vide souvent l’attribut {@code src} → cadre cassé + alt visible (« Generated »).
+     * Toujours assainir. Un court-circuit dès qu’une image data: ou blob: était
+     * présente faisait confiance au HTML brut de marked (balises et onerror inclus).
+     * Le filtre URL d’Angular 21 conserve ces src image ; script, iframe et
+     * gestionnaires d’événements sont retirés. Les images générées restent affichées.
      */
-    if (
-      /<img[^>]*\ssrc=["']data:image\//i.test(wrapped) ||
-      /<img[^>]*\ssrc=["']blob:/i.test(wrapped)
-    ) {
-      return this.sanitizer.bypassSecurityTrustHtml(wrapped);
-    }
     const cleaned = this.sanitizer.sanitize(SecurityContext.HTML, wrapped);
     if (cleaned == null || cleaned === '') {
       return null;

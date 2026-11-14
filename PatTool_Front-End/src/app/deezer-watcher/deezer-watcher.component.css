@@ -857,37 +857,23 @@ a.dz-page-jump {
   background: #000;
 }
 
-/* Fill the glass. The iframe stays at the clip's frame ratio and grows until the
-   picture (letterbox bars excluded) covers the screen. A static size, no animated
-   transform, so the embed is not repainted every frame. */
+/* The player fills the glass. YouTube keeps the whole picture inside that frame. */
 .radio-player-panel.dz-video .radio-face {
-  container-type: size;
   overflow: hidden;
+  background: #000;
 }
 
 .radio-player-panel.dz-video .dz-yt:not(.is-parked),
-.radio-player-panel.dz-video .dz-yt-kept:not(.is-parked) .dz-yt {
-  --dz-iw: max(
-    calc(100cqw / var(--dz-pic-w, 1)),
-    calc(100cqh * var(--dz-frame-ar, 1.777778) / var(--dz-pic-h, 1))
-  );
-  --dz-ih: calc(var(--dz-iw) / var(--dz-frame-ar, 1.777778));
-  inset: auto;
-  left: calc(50cqw - var(--dz-pic-x, 0.5) * var(--dz-iw));
-  top: calc(50cqh - var(--dz-pic-y, 0.5) * var(--dz-ih));
-  width: var(--dz-iw);
-  height: var(--dz-ih);
-  max-width: none;
-  max-height: none;
-}
-
-/* A vertical clip stays whole. Covering the wide glass would cut almost all of it. */
+.radio-player-panel.dz-video .dz-yt-kept:not(.is-parked) .dz-yt,
 .radio-player-panel.dz-video.dz-video--portrait .dz-yt:not(.is-parked),
 .radio-player-panel.dz-video.dz-video--portrait .dz-yt-kept:not(.is-parked) .dz-yt {
-  --dz-iw: min(
-    calc(100cqw / var(--dz-pic-w, 1)),
-    calc(100cqh * var(--dz-frame-ar, 0.5625) / var(--dz-pic-h, 1))
-  );
+  inset: 0;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
 }
 
 /* Stay inside the viewport. A frame parked off-screen is frozen and cannot start the next clip. */
@@ -2389,31 +2375,45 @@ a.dz-page-jump {
   }
 }
 
-.radio-player-panel.dz-video {
-  width: min(100%, 76rem, calc((100dvh - 15rem) * var(--dz-video-w, 16) / var(--dz-video-h, 9)));
+/* The cabinet is only as wide as the clip, and stays inside the page. */
+.radio-player-panel.dz-video,
+.dz-layout.radio-layout--sidebar-collapsed .radio-player-panel.dz-video {
+  --sleeve-reserve: 9.7rem;
+  --dz-screen-max-h: calc(100dvh - var(--navbar-offset, 60px) - 14.5rem);
+  width: min(100%, calc(var(--dz-screen-max-h) * var(--dz-video-w, 16) / var(--dz-video-h, 9) + 3.2rem));
+  height: auto;
+  max-height: calc(100dvh - var(--navbar-offset, 60px) - var(--sleeve-reserve));
 }
 
-/* Menu hidden: the cabinet can use the width the list no longer takes, and it grows with the screen. */
+.radio-player-panel.dz-video:has(.radio-chrome:not(.radio-chrome--hidden)),
+.dz-layout.radio-layout--sidebar-collapsed .radio-player-panel.dz-video:has(.radio-chrome:not(.radio-chrome--hidden)) {
+  --dz-screen-max-h: calc(100dvh - var(--navbar-offset, 60px) - 20.5rem);
+}
+
+/* Menu hidden: the page can use the width the list no longer takes. */
 .dz-page:has(.radio-layout--sidebar-collapsed) {
   max-width: 100%;
 }
 
-.dz-layout.radio-layout--sidebar-collapsed .radio-player-panel.dz-video {
-  width: min(100%, calc((100dvh - 12.5rem) * var(--dz-video-w, 16) / var(--dz-video-h, 9)));
+.radio-player-panel.dz-video .radio-player-frame {
+  flex: 0 1 auto;
+  min-height: 0;
+  height: auto;
 }
 
-.radio-player-panel.dz-video .radio-face {
+.radio-player-panel.dz-video .radio-player-frame .radio-face {
   aspect-ratio: var(--dz-video-w, 16) / var(--dz-video-h, 9);
+  align-self: center;
   width: 100%;
   height: auto;
   min-height: 0;
-  max-height: none;
+  max-height: var(--dz-screen-max-h);
   flex: 0 0 auto;
 }
 
-/* YouTube draws its bar and settings on the picture. Keep PatTool buttons under it. */
-.radio-player-panel.dz-video .radio-chrome {
-  position: static;
+/* YouTube draws its bar on the picture. PatTool's buttons stay under that bar. */
+.radio-player-panel.dz-video .radio-player-frame .radio-chrome {
+  position: relative;
   left: auto;
   right: auto;
   top: auto;
@@ -2465,11 +2465,12 @@ a.dz-page-jump {
   }
 }
 
-:host.radio-focus .radio-player-panel.dz-video .radio-face,
-:host.radio-stage-fs .radio-player-panel.dz-video .radio-face,
-:host:fullscreen .radio-player-panel.dz-video .radio-face {
+:host.radio-focus .radio-player-panel.dz-video .radio-player-frame .radio-face,
+:host.radio-stage-fs .radio-player-panel.dz-video .radio-player-frame .radio-face,
+:host:fullscreen .radio-player-panel.dz-video .radio-player-frame .radio-face {
   flex: 1 1 auto;
-  max-height: calc(100dvh - 14rem);
+  min-height: 0;
+  max-height: none;
 }
 
 .radio-player-panel.dz-video .radio-presets {
@@ -2502,12 +2503,13 @@ a.dz-page-jump {
 
 .radio-player-frame--chrome-hidden .radio-chrome,
 .radio-player-frame:has(.radio-face--sleeve) .radio-chrome.radio-chrome--hidden,
-.radio-player-panel.dz-video .radio-chrome.radio-chrome--hidden {
+.radio-player-panel.dz-video .radio-player-frame .radio-chrome.radio-chrome--hidden {
   max-height: 0;
   margin: 0;
   padding: 0;
   overflow: hidden;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
   border: 0;
   box-shadow: none;
@@ -2661,7 +2663,9 @@ a.radio-now-action.dz-deezer-link {
     line-height: 1.2;
   }
 
-  .radio-player-panel.dz-video {
+  .radio-player-panel.dz-video,
+  .dz-layout.radio-layout--sidebar-collapsed .radio-player-panel.dz-video {
+    width: 100%;
     height: auto;
     max-height: none;
   }
@@ -2695,7 +2699,7 @@ a.radio-now-action.dz-deezer-link {
     flex-wrap: nowrap;
     align-items: center;
     justify-content: center;
-    gap: 0.35rem;
+    gap: 0.2rem;
     width: 100%;
     max-width: 100%;
   }
@@ -2705,19 +2709,55 @@ a.radio-now-action.dz-deezer-link {
   .dz-title-tools .radio-sleeve-open-btn,
   .dz-title-tools .radio-sidebar-expand-title-btn,
   .dz-title-tools .radio-skin-open-btn,
-  .dz-title-tools .radio-skin-picker,
   .dz-title-tools .dz-yt-search {
+    margin-left: 0;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    height: 1.85rem;
+    min-width: 1.85rem;
+    padding: 0 0.28rem;
+    gap: 0.12rem;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.78rem;
+    line-height: 1;
+  }
+
+  .dz-title-tools .radio-skin-picker {
     margin-left: 0;
     flex: 0 0 auto;
   }
 
-  .dz-title-tools .radio-global-filter-open-btn,
-  .dz-title-tools .radio-eq-open-btn,
-  .dz-title-tools .radio-sleeve-open-btn,
-  .dz-title-tools .radio-sidebar-expand-title-btn,
-  .dz-title-tools .radio-skin-open-btn,
   .dz-title-tools .dz-yt-search {
-    padding: 0.28rem 0.4rem;
+    min-width: 0;
+    padding: 0 0.36rem;
+    gap: 0;
+  }
+
+  .dz-title-tools .fa {
+    font-size: 0.78rem;
+    line-height: 1;
+  }
+
+  .dz-title-tools .radio-skin-swatch--mini {
+    width: 0.85rem;
+    height: 0.85rem;
+  }
+
+  .dz-title-tools .dz-yt-search-track {
+    width: 1.45rem;
+    height: 0.82rem;
+  }
+
+  .dz-title-tools .dz-yt-search-knob {
+    width: 0.6rem;
+    height: 0.6rem;
+    top: 0.07rem;
+    left: 0.07rem;
+  }
+
+  .dz-title-tools .dz-yt-search-input:checked + .dz-yt-search-track .dz-yt-search-knob {
+    transform: translateX(0.64rem);
   }
 
   .radio-now-actions > .dz-hide-mobile,

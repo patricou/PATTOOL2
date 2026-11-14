@@ -120,7 +120,8 @@
     "FONCIER_SUISSE": "عقارات سويسرا",
     "MAP_TRACE_VIEWER": "خريطة (عارض المسار)",
     "APK_DOWNLOAD": "تطبيق Android",
-    "MAP_BADGE": "خريطة"
+    "MAP_BADGE": "خريطة",
+    "OPEN_CHATGPT": "فتح ChatGPT"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -1157,6 +1158,8 @@
     "PROXY_NO_MATCH": "لا يوجد وكيل IoT يطابق مضيف هذا الرابط. اضبط وكيلاً بنفس المضيف/IP للرابط.",
     "PROXY_PATH_MISMATCH": "مسار هذا الرابط لا يطابق قاعدة الوكيل الصاعدة.",
     "PROXY_OPEN_FAILED": "تعذّر فتح رابط الوكيل الموقّع. تحقق من دور IoT وإعدادات الوكيل.",
+    "RECENT_SEARCHES": "عمليات البحث الأخيرة",
+    "RECENT_REMOVE": "إزالة من السجل",
     "CATEGORIES": {
       "ADMINISTRATIF": "إداري"
     }

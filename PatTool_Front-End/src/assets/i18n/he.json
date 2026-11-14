@@ -120,7 +120,8 @@
     "FONCIER_SUISSE": "נדל״ן שווייץ",
     "MAP_TRACE_VIEWER": "מפה (מציג מסלול)",
     "APK_DOWNLOAD": "אפליקציית Android",
-    "MAP_BADGE": "מפה"
+    "MAP_BADGE": "מפה",
+    "OPEN_CHATGPT": "פתיחת ChatGPT"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -1157,6 +1158,8 @@
     "PROXY_NO_MATCH": "אין פרוקסי IoT שתואם למארח של כתובת URL זו. הגדר פרוקסי עם אותו מארח/IP כמו הקישור.",
     "PROXY_PATH_MISMATCH": "נתיב כתובת URL זו אינו תואם לבסיס ה-upstream של הפרוקסי.",
     "PROXY_OPEN_FAILED": "לא ניתן לפתוח את הקישור החתום של הפרוקסי. בדוק את תפקיד ה-IoT ואת הגדרות הפרוקסי.",
+    "RECENT_SEARCHES": "חיפושים אחרונים",
+    "RECENT_REMOVE": "הסרה מההיסטוריה",
     "CATEGORIES": {
       "ADMINISTRATIF": "מנהלי"
     }

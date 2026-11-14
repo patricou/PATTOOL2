@@ -1,10 +1,13 @@
 <div class="pat-title" [class.radio-title--menu-open]="skinMenuOpen">
   <h2 class="radio-page-title">
-    <span class="radio-title-icon" aria-hidden="true">
-      <i class="fa fa-headphones"></i>
+    <span class="radio-title-heading">
+      <span class="radio-title-icon" aria-hidden="true">
+        <i class="fa fa-headphones"></i>
+      </span>
+      <span class="pat-title-long">{{ 'RADIO.TITLE' | translate }}</span>
+      <span class="pat-title-short">{{ 'RADIO.TITLE_SHORT' | translate }}</span>
     </span>
-    <span class="pat-title-long">{{ 'RADIO.TITLE' | translate }}</span>
-    <span class="pat-title-short">{{ 'RADIO.TITLE_SHORT' | translate }}</span>
+    <span class="radio-title-tools">
     <a
       class="radio-eq-open-btn"
       routerLink="/tools/deezer"
@@ -155,6 +158,7 @@
           <i class="fa fa-check radio-skin-option-check" *ngIf="skin === radioSkin" aria-hidden="true"></i>
         </button>
       </span>
+    </span>
     </span>
   </h2>
   <app-now-ticker
@@ -773,7 +777,7 @@
               [attr.aria-hidden]="!chromeVisible">
               <button
                 type="button"
-                class="radio-now-action radio-hide-mobile"
+                class="radio-now-action"
                 [class.is-lit]="!(isMuted || volumePercent === 0)"
                 (click)="toggleMute()"
                 [disabled]="isFloatingOpen"

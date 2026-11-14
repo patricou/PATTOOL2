@@ -319,7 +319,7 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
             "headers": {
-              "Permissions-Policy": "accelerometer=(self), gyroscope=(self), magnetometer=(self), ambient-light-sensor=(self), display-capture=(self), speaker-selection=(self)",
+              "Permissions-Policy": "accelerometer=(self), gyroscope=(self), magnetometer=(self), ambient-light-sensor=(self), display-capture=(self), speaker-selection=(self), compute-pressure=(self \"https://www.youtube.com\" \"https://www.youtube-nocookie.com\")",
               "Feature-Policy": "accelerometer 'self'; gyroscope 'self'; magnetometer 'self'; ambient-light-sensor 'self'"
             }
           },

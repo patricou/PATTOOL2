@@ -120,7 +120,8 @@
     "FONCIER_SUISSE": "スイス不動産",
     "MAP_TRACE_VIEWER": "地図（軌跡）",
     "APK_DOWNLOAD": "Androidアプリ",
-    "MAP_BADGE": "地図"
+    "MAP_BADGE": "地図",
+    "OPEN_CHATGPT": "ChatGPTを開く"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -1157,6 +1158,8 @@
     "PROXY_NO_MATCH": "このURLのホストに一致するIoTプロキシがありません。リンクと同じホスト/IPのプロキシを設定してください。",
     "PROXY_PATH_MISMATCH": "このURLのパスはプロキシのアップストリームベースと一致しません。",
     "PROXY_OPEN_FAILED": "プロキシの署名付きリンクを開けませんでした。IoTの権限とプロキシ設定を確認してください。",
+    "RECENT_SEARCHES": "最近の検索",
+    "RECENT_REMOVE": "履歴から削除",
     "CATEGORIES": {
       "ADMINISTRATIF": "管理"
     }

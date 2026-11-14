@@ -174,6 +174,31 @@ public class MeteoSwissObsService {
     }
 
     /**
+     * Nearest SwissMetNet station observation, normalized to an OpenWeatherMap-like payload for the UI.
+     */
+    public Map<String, Object> getCurrentWeatherByCoordinates(double lat, double lon) {
+        if (!enabled) {
+            return error("MeteoSwiss SMN observations are disabled");
+        }
+        if (!isInSwitzerland(lat, lon)) {
+            return error("Coordinates outside Switzerland");
+        }
+        ensureCatalogLoaded();
+        if (catalog.isEmpty()) {
+            return error("MeteoSwiss SMN station catalog is loading, please retry shortly");
+        }
+        SmnStation station = resolveStationForCoordinates(lat, lon, null);
+        if (station == null) {
+            return error("No MeteoSwiss station near this location.");
+        }
+        Map<String, Object> point = fetchStationTemperaturePoint(station);
+        if (point == null || point.get("tempC") == null) {
+            return error("No MeteoSwiss observation available for the nearest station.");
+        }
+        return mapObservationPointToOwmFormat(point, station);
+    }
+
+    /**
      * Nearest SwissMetNet station + hourly archived observations for a map point (ogd-smn h_recent + h_now).
      * Response shape mirrors DPClim horaire for the point timeline modal.
      */
@@ -806,6 +831,84 @@ public class MeteoSwissObsService {
     private static double round(double value, int decimals) {
         double factor = Math.pow(10, decimals);
         return Math.round(value * factor) / factor;
+    }
+
+    private static Map<String, Object> mapObservationPointToOwmFormat(Map<String, Object> point, SmnStation station) {
+        Map<String, Object> main = new LinkedHashMap<>();
+        Object tempC = point.get("tempC");
+        if (tempC instanceof Number tempNum) {
+            main.put("temp", tempNum.doubleValue());
+            main.put("feels_like", tempNum.doubleValue());
+        }
+        putMainNumber(main, "humidity", point.get("humidityPct"));
+        putMainNumber(main, "pressure", point.get("pressureHpa"));
+
+        String stationName = point.get("stationName") != null
+                ? String.valueOf(point.get("stationName")).trim()
+                : station.name();
+        String description = stationName != null && !stationName.isBlank()
+                ? "Observation station · " + stationName
+                : "Observation station MeteoSwiss";
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("patSource", "meteoswiss-smn");
+        result.put("main", main);
+        result.put("weather", List.of(Map.of(
+                "description", description,
+                "icon", ""
+        )));
+        Map<String, Object> wind = new LinkedHashMap<>();
+        putMainNumber(wind, "speed", point.get("windSpeedMs"));
+        putMainNumber(wind, "deg", point.get("windDirectionDeg"));
+        if (!wind.isEmpty()) {
+            result.put("wind", wind);
+        }
+        Object precip = point.get("precipitationMm");
+        if (precip instanceof Number precipNum && precipNum.doubleValue() > 0) {
+            result.put("rain", Map.of("1h", precipNum.doubleValue()));
+        }
+        if (stationName != null && !stationName.isBlank()) {
+            result.put("name", stationName);
+        }
+        result.put("coord", Map.of("lat", station.lat(), "lon", station.lon()));
+        Map<String, Object> msStation = new LinkedHashMap<>();
+        msStation.put("id", station.id());
+        if (stationName != null && !stationName.isBlank()) {
+            msStation.put("name", stationName);
+        }
+        result.put("msStation", msStation);
+        long dt = parseObservedAtEpoch(point.get("observedAt"));
+        if (dt > 0) {
+            result.put("dt", dt);
+        }
+        return result;
+    }
+
+    private static void putMainNumber(Map<String, Object> target, String key, Object raw) {
+        if (raw instanceof Number number) {
+            target.put(key, number.doubleValue());
+        }
+    }
+
+    private static long parseObservedAtEpoch(Object raw) {
+        if (raw == null) {
+            return 0;
+        }
+        String text = String.valueOf(raw).trim();
+        if (text.isEmpty()) {
+            return 0;
+        }
+        if (text.matches("\\d{10}")) {
+            return Long.parseLong(text);
+        }
+        if (text.matches("\\d{13}")) {
+            return Long.parseLong(text) / 1000L;
+        }
+        try {
+            return java.time.OffsetDateTime.parse(text).toInstant().getEpochSecond();
+        } catch (Exception ignored) {
+            return 0;
+        }
     }
 
     private static Map<String, Object> error(String message) {

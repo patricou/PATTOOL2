@@ -123,7 +123,8 @@
     "FORWARD": "Page suivante",
     "MAP_TRACE_VIEWER": "Carte (traceViewer)",
     "APK_DOWNLOAD": "Application Android",
-    "MAP_BADGE": "CARTE"
+    "MAP_BADGE": "CARTE",
+    "OPEN_CHATGPT": "Ouvrir ChatGPT"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -2036,6 +2037,8 @@
       "HUMIDITY": "Humidité {{value}} %",
       "SUNRISE": "Lever {{time}}",
       "SUNSET": "Coucher {{time}}",
+      "ALT_YOU": "vous {{alt}}",
+      "ALT_STATION": "station {{alt}}",
       "AGENDA": "Agenda",
       "AGENDA_EMPTY": "Rien à venir",
       "ACTIVITIES": "Prochaines activités",
@@ -5026,6 +5029,8 @@
     "PROXY_NO_MATCH": "Aucun proxy IoT ne correspond à l’hôte de cette URL. Créez un proxy avec le même hôte/IP que le lien.",
     "PROXY_PATH_MISMATCH": "Le chemin de cette URL ne correspond pas à la base du proxy.",
     "PROXY_OPEN_FAILED": "Impossible d’ouvrir le lien signé du proxy. Vérifiez le rôle IoT et la configuration du proxy.",
+    "RECENT_SEARCHES": "Dernières recherches",
+    "RECENT_REMOVE": "Retirer de l’historique",
     "CATEGORIES": {
       "ADMINISTRATIF": "Administratif"
     }
@@ -8392,6 +8397,7 @@
     "OFFLINE_MAP_NEED_POINTS": "Importez un tracé, enregistrez des points, ou utilisez votre position.",
     "OFFLINE_MAP_NEED_VIEW": "La carte n’est pas prête : ouvrez la fenêtre à télécharger.",
     "OFFLINE_MAP_NEED_NET": "Connexion requise pour télécharger les tuiles.",
+    "OFFLINE_MAP_VECTOR": "Les cartes Maptoolkit sont vectorielles : elles ne se téléchargent pas hors ligne.",
     "OFFLINE_MAP_USING": "Fond hors-ligne : OpenStreetMap préchargé.",
     "OFFLINE_MAP_ERR": "Certaines tuiles n’ont pas pu être téléchargées.",
     "OFFLINE_MAP_DONE": "Carte prête hors-ligne.",

@@ -120,7 +120,8 @@
     "FONCIER_SUISSE": "Immobiliare Svizzera",
     "MAP_TRACE_VIEWER": "Mappa (visualizzatore)",
     "APK_DOWNLOAD": "Applicazione Android",
-    "MAP_BADGE": "MAPPA"
+    "MAP_BADGE": "MAPPA",
+    "OPEN_CHATGPT": "Apri ChatGPT"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -1158,6 +1159,8 @@
     "PROXY_NO_MATCH": "Nessun proxy IoT corrisponde all'host di questo URL. Configura un proxy con lo stesso host/IP del collegamento.",
     "PROXY_PATH_MISMATCH": "Il percorso di questo URL non corrisponde alla base upstream del proxy.",
     "PROXY_OPEN_FAILED": "Impossibile aprire il collegamento firmato del proxy. Controlla il ruolo IoT e la configurazione del proxy.",
+    "RECENT_SEARCHES": "Ultime ricerche",
+    "RECENT_REMOVE": "Rimuovi dalla cronologia",
     "CATEGORIES": {
       "ADMINISTRATIF": "Amministrativo"
     }

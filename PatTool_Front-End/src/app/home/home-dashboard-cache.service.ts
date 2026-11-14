@@ -47,10 +47,17 @@ export interface HomeDashboardSnapshot {
 	weatherLat: number | null;
 	weatherLon: number | null;
 	weatherAltitude: number | null;
-	weatherRegion: 'france' | 'switzerland';
+	weatherRegion: 'france' | 'switzerland' | 'other';
 	weatherClim: boolean;
+	weatherSource: 'meteofrance' | 'meteoswiss' | 'open-meteo';
+	weatherStation: string;
+	weatherStationLat: number | null;
+	weatherStationLon: number | null;
+	weatherStationAlt: number | null;
 	weatherTempC: number | null;
 	weatherObservedAt: string;
+	weatherOmTempC: number | null;
+	weatherOmObservedAt: string;
 	userAddress: string;
 	userLabel: string;
 	userLogin: string;

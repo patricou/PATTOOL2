@@ -29,7 +29,11 @@ export const OFFLINE_BASEMAP_PARTS: Record<string, OfflineBasemapPart[]> = {
   'voyager': [{}],
   'osm-fr': [{}, {}],
   'esri-imagery': [{}],
+  'esri-topo': [{}],
+  'osm-swiss-style': [{}],
   'opentopomap': [{}],
+  'opentopomap-r': [{}],
+  'openhikingmap': [{}],
   'ign-plan': [{}],
   'ign-topo': [{}],
   'ign-classic': [{ maxZ: 12 }, { minZ: 12 }],
@@ -44,7 +48,8 @@ export const OFFLINE_BASEMAP_PARTS: Record<string, OfflineBasemapPart[]> = {
   'swisstopo-pixelkarte': [{}],
   'swisstopo-swissimage': [{}],
   'opencyclemap': [{}],
-  'thunderforest-outdoors': [{}]
+  'thunderforest-outdoors': [{}],
+  'thunderforest-landscape': [{}]
 };
 
 const CARTES_GOUV_STYLE: Record<string, string> = {
@@ -235,9 +240,12 @@ export const GPS_OFFLINE_VIEW_MAX_TILES = 40000;
 /** Native zoom ceiling per catalogue id. Layers omitted here go to 19. */
 const OFFLINE_BASEMAP_MAX_Z: Record<string, number> = {
   'opentopomap': 17,
+  'opentopomap-r': 18,
+  'openhikingmap': 18,
   'cyclosm': 18,
   'opencyclemap': 18,
   'thunderforest-outdoors': 18,
+  'thunderforest-landscape': 18,
   'swisstopo-pixelkarte': 18,
   'ign-scan-regional': 12
 };

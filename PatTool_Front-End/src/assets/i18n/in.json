@@ -655,7 +655,8 @@
     "FONCIER_SUISSE": "स्विस संपत्ति",
     "MAP_TRACE_VIEWER": "मानचित्र (ट्रैक)",
     "APK_DOWNLOAD": "Android ऐप",
-    "MAP_BADGE": "मानचित्र"
+    "MAP_BADGE": "मानचित्र",
+    "OPEN_CHATGPT": "ChatGPT खोलें"
   },
   "SOS": {
     "TITLE": "SOS",
@@ -3912,6 +3913,8 @@
     "PROXY_NO_MATCH": "इस URL की मेज़बानी से मेल खाने वाला कोई IoT प्रॉक्सी नहीं है। लिंक के समान होस्ट/IP वाला प्रॉक्सी कॉन्फ़िगर करें।",
     "PROXY_PATH_MISMATCH": "इस URL का पथ प्रॉक्सी के अपस्ट्रीम आधार से मेल नहीं खाता।",
     "PROXY_OPEN_FAILED": "हस्ताक्षरित प्रॉक्सी लिंक नहीं खोला जा सका। IoT भूमिका और प्रॉक्सी कॉन्फ़िगरेशन देखें।",
+    "RECENT_SEARCHES": "हाल की खोजें",
+    "RECENT_REMOVE": "इतिहास से हटाएँ",
     "CATEGORIES": {
       "ADMINISTRATIF": "प्रशासनिक"
     }

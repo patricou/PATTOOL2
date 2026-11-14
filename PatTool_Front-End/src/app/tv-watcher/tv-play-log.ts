@@ -1,8 +1,7 @@
 /**
- * Browser console diagnostics for TV watcher playback glitches
+ * In-memory diagnostics for TV watcher playback glitches
  * (buffering spinner, soft recovery, live-edge seeks).
- * Filter DevTools with {@code [TV]}.
- * Recent entries also live on {@code window.__PAT_TV_LOGS}.
+ * Recent entries live on {@code window.__PAT_TV_LOGS} (not printed to the console).
  */
 
 export type TvPlayLogEntry = {
@@ -27,7 +26,6 @@ export function tvPlayLog(
   detail?: Record<string, unknown> & { channel?: string | null }
 ): void {
   const channel = (detail?.channel || '').trim() || null;
-  const prefix = channel ? `[TV] ${channel}` : '[TV]';
   const rest = detail ? { ...detail } : undefined;
   if (rest && 'channel' in rest) {
     delete rest.channel;
@@ -42,15 +40,5 @@ export function tvPlayLog(
   buf.push(entry);
   if (buf.length > RING_MAX) {
     buf.splice(0, buf.length - RING_MAX);
-  }
-
-  const line = `${prefix} — ${event}`;
-  // warn + log: some DevTools filters hide one level.
-  if (entry.detail) {
-    console.warn(line, entry.detail);
-    console.log(line, entry.detail);
-  } else {
-    console.warn(line);
-    console.log(line);
   }
 }

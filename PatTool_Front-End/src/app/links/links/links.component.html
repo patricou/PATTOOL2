@@ -44,8 +44,13 @@
                        class="search-input" 
                        [(ngModel)]="searchFilter"
                        (ngModelChange)="onSearchFilterChange()"
-                       (blur)="hideSuggestions()"
-                       (focus)="applySearchFromModel()"
+                       (blur)="onSearchBlur()"
+                       (focus)="onSearchFocus()"
+                       (keydown)="onSearchKeydown($event)"
+                       autocomplete="off"
+                       role="combobox"
+                       aria-autocomplete="list"
+                       [attr.aria-expanded]="showRecentSearches()"
                        placeholder="{{ 'LINKS.SEARCH_PLACEHOLDER' | translate }}">
                 <button class="clear-search" 
                         *ngIf="searchFilter" 
@@ -54,6 +59,32 @@
                     <i class="fa fa-times"></i>
                 </button>
                 
+                <!-- Dernières recherches (localStorage, ce navigateur seulement) -->
+                <div class="suggestions-dropdown recent-searches-dropdown"
+                     *ngIf="showRecentSearches()"
+                     role="listbox"
+                     [attr.aria-label]="'LINKS.RECENT_SEARCHES' | translate">
+                    <div class="recent-searches-label">{{ 'LINKS.RECENT_SEARCHES' | translate }}</div>
+                    <div class="suggestion-item recent-search-item"
+                         *ngFor="let term of recentSearches"
+                         role="option"
+                         (mousedown)="$event.preventDefault(); applyRecentSearch(term)">
+                        <div class="suggestion-icon">
+                            <i class="fa fa-history" aria-hidden="true"></i>
+                        </div>
+                        <div class="suggestion-content">
+                            <div class="suggestion-name">{{ term }}</div>
+                        </div>
+                        <button type="button"
+                                class="recent-search-forget"
+                                (mousedown)="removeRecentSearch(term, $event)"
+                                [attr.title]="'LINKS.RECENT_REMOVE' | translate"
+                                [attr.aria-label]="'LINKS.RECENT_REMOVE' | translate">
+                            <i class="fa fa-times" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Suggestions Dropdown -->
                 <div class="suggestions-dropdown" 
                      *ngIf="showSuggestions && searchSuggestions.length > 0">

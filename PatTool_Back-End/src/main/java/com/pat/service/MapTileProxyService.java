@@ -37,7 +37,12 @@ public class MapTileProxyService {
                     "https://a.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png")),
             Map.entry("esri-imagery", List.of(
                     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}")),
+            Map.entry("esri-topo", List.of(
+                    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}")),
+            Map.entry("osm-swiss-style", List.of("https://tile.osm.ch/osm-swiss-style/{z}/{x}/{y}.png")),
             Map.entry("opentopomap", List.of("https://a.tile.opentopomap.org/{z}/{x}/{y}.png")),
+            Map.entry("opentopomap-r", List.of("https://tile.openmaps.fr/opentopomap/{z}/{x}/{y}.png")),
+            Map.entry("openhikingmap", List.of("https://tile.openmaps.fr/openhikingmap/{z}/{x}/{y}.png")),
             Map.entry("ign-plan", List.of(wmts("GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2", "normal", "image/png"))),
             Map.entry("ign-topo", List.of(wmts("GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2", "normal", "image/png"))),
             Map.entry("ign-classic", List.of(
@@ -103,11 +108,12 @@ public class MapTileProxyService {
     }
 
     private List<String> templatesFor(String style) {
-        if ("opencyclemap".equals(style) || "thunderforest-outdoors".equals(style)) {
+        if ("opencyclemap".equals(style) || "thunderforest-outdoors".equals(style) || "thunderforest-landscape".equals(style)) {
             if (thunderforestApiKey.isEmpty()) {
                 return List.of();
             }
-            String kind = "opencyclemap".equals(style) ? "cycle" : "outdoors";
+            String kind = "opencyclemap".equals(style) ? "cycle"
+                    : "thunderforest-landscape".equals(style) ? "landscape" : "outdoors";
             return List.of("https://a.tile.thunderforest.com/" + kind + "/{z}/{x}/{y}.png?apikey=" + thunderforestApiKey);
         }
         return TEMPLATES.get(style);

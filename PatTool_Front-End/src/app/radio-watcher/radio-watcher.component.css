@@ -38,6 +38,17 @@
   gap: 0.55rem;
 }
 
+.radio-title-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+/* Desktop: buttons stay on the same line as the radio title. */
+.radio-title-tools {
+  display: contents;
+}
+
 .radio-lead {
   margin: 0;
   font-size: 0.82rem;
@@ -365,7 +376,110 @@ a.radio-eq-open-btn {
   flex: 0 0 auto;
 }
 
+@media (max-width: 991.98px) {
+  /* Mobile: Radio centered, buttons on the line underneath. */
+  :host .pat-title h2.radio-page-title {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+
+  .radio-title-heading {
+    align-self: center;
+    justify-content: center;
+  }
+
+  .radio-title-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .radio-title-tools .radio-global-filter-open-btn,
+  .radio-title-tools .radio-eq-open-btn,
+  .radio-title-tools .radio-sleeve-open-btn,
+  .radio-title-tools .radio-sidebar-expand-title-btn,
+  .radio-title-tools .radio-skin-picker,
+  .radio-title-tools .pat-continue-switch {
+    margin-left: 0;
+  }
+}
+
 @media (max-width: 640px) {
+  :host .pat-title {
+    padding-left: 0.35rem;
+    padding-right: 0.35rem;
+  }
+
+  /* Same control size as TV and Deezer, still on one line. */
+  .radio-title-tools {
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
+  .radio-title-tools > .radio-eq-open-btn,
+  .radio-title-tools > .radio-global-filter-open-btn,
+  .radio-title-tools > .radio-sleeve-open-btn,
+  .radio-title-tools > .radio-sidebar-expand-title-btn,
+  .radio-title-tools > .pat-continue-switch,
+  .radio-title-tools > .radio-skin-picker .radio-skin-open-btn {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    height: 1.85rem;
+    min-width: 1.85rem;
+    padding: 0 0.28rem;
+    gap: 0.12rem;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.78rem;
+    line-height: 1;
+  }
+
+  .radio-title-tools > .radio-skin-picker {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 0;
+  }
+
+  .radio-title-tools > .pat-continue-switch {
+    min-width: 0;
+    padding: 0 0.36rem;
+  }
+
+  .radio-title-tools .fa {
+    font-size: 0.78rem;
+    line-height: 1;
+  }
+
+  .radio-title-tools .radio-skin-swatch--mini {
+    width: 0.85rem;
+    height: 0.85rem;
+  }
+
+  .radio-title-tools .pat-continue-switch-track {
+    width: 1.45rem;
+    height: 0.82rem;
+  }
+
+  .radio-title-tools .pat-continue-switch-knob {
+    width: 0.6rem;
+    height: 0.6rem;
+    top: 0.07rem;
+    left: 0.07rem;
+  }
+
+  .radio-title-tools .pat-continue-switch input:checked + .pat-continue-switch-track .pat-continue-switch-knob {
+    transform: translateX(0.64rem);
+  }
+
   .radio-global-filter-open-label {
     display: none;
   }

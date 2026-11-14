@@ -1,11 +1,14 @@
 <div class="pat-title" [class.tv-title--menu-open]="skinMenuOpen">
   <h2 class="tv-page-title">
-    <span class="tv-title-icon" aria-hidden="true">
-      <i class="fa fa-television"></i>
-      <span class="tv-title-antenna"></span>
+    <span class="tv-title-heading">
+      <span class="tv-title-icon" aria-hidden="true">
+        <i class="fa fa-television"></i>
+        <span class="tv-title-antenna"></span>
+      </span>
+      <span class="pat-title-long">{{ 'TV.TITLE' | translate }}</span>
+      <span class="pat-title-short">{{ 'TV.TITLE_SHORT' | translate }}</span>
     </span>
-    <span class="pat-title-long">{{ 'TV.TITLE' | translate }}</span>
-    <span class="pat-title-short">{{ 'TV.TITLE_SHORT' | translate }}</span>
+    <span class="tv-title-tools">
     <a
       class="tv-eq-open-btn"
       routerLink="/tools/deezer"
@@ -164,6 +167,7 @@
           <i class="fa fa-check tv-skin-option-check" *ngIf="skin === tvSkin" aria-hidden="true"></i>
         </button>
       </span>
+    </span>
     </span>
   </h2>
   <app-now-ticker

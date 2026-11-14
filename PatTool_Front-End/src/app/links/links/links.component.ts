@@ -44,6 +44,9 @@ export class LinksComponent implements OnInit, OnDestroy {
   public searchFilter = '';
   public searchSuggestions: urllink[] = [];
   public showSuggestions = false;
+  /** Dernières recherches, uniquement dans ce navigateur (localStorage). */
+  public recentSearches: string[] = [];
+  public searchFocused = false;
   public openUrlOnClick = true;
   public loading = true;
   public statsCategoriesText = '';
@@ -64,6 +67,10 @@ export class LinksComponent implements OnInit, OnDestroy {
   private langChangeSub?: Subscription;
   private searchInput$ = new Subject<void>();
   private searchDebounceSub?: Subscription;
+  private recentBlurTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private static readonly RECENT_SEARCHES_KEY = 'pattool.links.recent-searches';
+  private static readonly RECENT_SEARCHES_MAX = 8;
 
   private static readonly CATEGORY_TITLE_KEYS: Record<string, string> = {
     administratif: 'LINKS.CATEGORIES.ADMINISTRATIF'
@@ -120,6 +127,7 @@ export class LinksComponent implements OnInit, OnDestroy {
     });
 
     this.refreshVisibilityTitles();
+    this.recentSearches = this.readRecentSearches();
 
     this.loading = true;
     const loadLinks = () => {
@@ -157,13 +165,83 @@ export class LinksComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.rememberRecentSearch(this.searchFilter);
     this.langChangeSub?.unsubscribe();
     this.searchDebounceSub?.unsubscribe();
+    if (this.recentBlurTimer) {
+      clearTimeout(this.recentBlurTimer);
+      this.recentBlurTimer = null;
+    }
   }
 
   /** Debounced — fired after ngModel has updated (avoids stale reads vs raw input). */
   onSearchFilterChange(): void {
+    const term = (this.searchFilter ?? '').trim();
+    if (!term) {
+      this.searchSuggestions = [];
+      this.showSuggestions = false;
+    }
     this.searchInput$.next();
+  }
+
+  onSearchFocus(): void {
+    if (this.recentBlurTimer) {
+      clearTimeout(this.recentBlurTimer);
+      this.recentBlurTimer = null;
+    }
+    this.searchFocused = true;
+    this.applySearchFromModel();
+  }
+
+  onSearchBlur(): void {
+    this.rememberRecentSearch(this.searchFilter);
+    this.searchFocused = false;
+    if (this.recentBlurTimer) {
+      clearTimeout(this.recentBlurTimer);
+    }
+    // Laisse le temps au clic sur une suggestion (le blur part avant le click).
+    this.recentBlurTimer = setTimeout(() => {
+      this.recentBlurTimer = null;
+      this.showSuggestions = false;
+      this.cdr.markForCheck();
+    }, 200);
+  }
+
+  onSearchKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Enter') {
+      return;
+    }
+    event.preventDefault();
+    this.rememberRecentSearch(this.searchFilter);
+    this.showSuggestions = false;
+    this.cdr.markForCheck();
+  }
+
+  /** Historique affiché au focus, tant que le champ est vide. */
+  showRecentSearches(): boolean {
+    const term = (this.searchFilter ?? '').trim();
+    return this.searchFocused && !term && !this.showSuggestions && this.recentSearches.length > 0;
+  }
+
+  applyRecentSearch(term: string): void {
+    const value = (term || '').trim();
+    if (!value) {
+      return;
+    }
+    this.searchFocused = true;
+    this.searchFilter = value;
+    this.rememberRecentSearch(value);
+    this.applySearchFromModel();
+    this.cdr.markForCheck();
+  }
+
+  removeRecentSearch(term: string, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const lower = term.toLowerCase();
+    this.recentSearches = this.recentSearches.filter((item) => item.toLowerCase() !== lower);
+    this.writeRecentSearches(this.recentSearches);
+    this.cdr.markForCheck();
   }
 
   /** Immediate — focus, clear, after picking a suggestion. */
@@ -187,9 +265,69 @@ export class LinksComponent implements OnInit, OnDestroy {
   }
 
   clearSearch(): void {
+    if (this.recentBlurTimer) {
+      clearTimeout(this.recentBlurTimer);
+      this.recentBlurTimer = null;
+    }
+    this.rememberRecentSearch(this.searchFilter);
     this.searchFilter = '';
     this.applySearchFromModel();
     this.cdr.markForCheck();
+  }
+
+  private rememberRecentSearch(term: string | null | undefined): void {
+    const value = (term || '').trim().slice(0, 80);
+    if (value.length < 2) {
+      return;
+    }
+    const lower = value.toLowerCase();
+    const next = [
+      value,
+      ...this.recentSearches.filter((item) => item.toLowerCase() !== lower)
+    ].slice(0, LinksComponent.RECENT_SEARCHES_MAX);
+    this.recentSearches = next;
+    this.writeRecentSearches(next);
+  }
+
+  private readRecentSearches(): string[] {
+    try {
+      const raw = localStorage.getItem(LinksComponent.RECENT_SEARCHES_KEY);
+      if (!raw) {
+        return [];
+      }
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+      const seen = new Set<string>();
+      const terms: string[] = [];
+      for (const item of parsed) {
+        if (typeof item !== 'string') {
+          continue;
+        }
+        const value = item.trim().slice(0, 80);
+        const lower = value.toLowerCase();
+        if (value.length < 2 || seen.has(lower)) {
+          continue;
+        }
+        seen.add(lower);
+        terms.push(value);
+        if (terms.length >= LinksComponent.RECENT_SEARCHES_MAX) {
+          break;
+        }
+      }
+      return terms;
+    } catch {
+      return [];
+    }
+  }
+
+  private writeRecentSearches(terms: string[]): void {
+    try {
+      localStorage.setItem(LinksComponent.RECENT_SEARCHES_KEY, JSON.stringify(terms));
+    } catch {
+      /* quota ou navigation privée */
+    }
   }
 
   private refreshAllStaticLabels(): void {
@@ -467,18 +605,12 @@ export class LinksComponent implements OnInit, OnDestroy {
     if (categoryIndex !== -1) {
       this.expandedCategoryIndex = categoryIndex;
       this.searchFilter = '';
+      this.searchFocused = false;
       this.showSuggestions = false;
       this.searchSuggestions = [];
       this.refreshFilteredLinks();
     }
     this.cdr.markForCheck();
-  }
-
-  hideSuggestions(): void {
-    setTimeout(() => {
-      this.showSuggestions = false;
-      this.cdr.markForCheck();
-    }, 200);
   }
 
   getCategoryName(categoryLinkID: string): string {

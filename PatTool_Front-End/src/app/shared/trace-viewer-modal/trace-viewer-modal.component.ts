@@ -29,6 +29,7 @@ import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../../gps-track/gps-of
 import { offlineTraceIdForWall, OfflineTraceSummary, OfflineTracesStore } from '../../gps-track/offline-traces.store';
 import { viewWindowFromMap } from '../../gps-track/gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
+import { createMaptoolkitHikingLayer, createMaptoolkitWinterLayer } from '../maptoolkit-basemap.layer';
 import { isBrowserOffline } from '../browser-offline.util';
 /** Nord = la carte suit la boussole (flèche rouge = nord réel). Marche = cap GPS en haut. Fixe = nord en haut, immobile. */
 type TraceMapOrientation = 'north' | 'heading' | 'fixed';
@@ -426,12 +427,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private orientationMediaQuery: MediaQueryList | null = null;
 	private orientationChangeHandler?: () => void;
 	private mobileViewportResizeHandler?: () => void;
-	private baseLayers: Record<string, L.TileLayer | L.LayerGroup> = {};
+	private baseLayers: Record<string, L.Layer> = {};
 	public availableBaseLayers: Array<{ id: string; label: string; labelKey?: string }> = [];
 	public selectedBaseLayerId: string = '';
 	/** Last base map before opening “All IGN maps” from the list (not the IGN shortcut button). */
 	private lastBaseLayerBeforeCartesGouv: string = 'opentopomap';
-	private activeBaseLayer?: L.TileLayer | L.LayerGroup;
+	private activeBaseLayer?: L.Layer;
 	/** Current map zoom level (shown in the UI corner). */
 	public currentZoom: number = 6;
 	/** True after the map is initialized (enables zoom overlay). */
@@ -4292,12 +4293,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const landscape = this.document.defaultView.matchMedia('(orientation: landscape)');
 		this.orientationMediaQuery = landscape;
 		this.orientationChangeHandler = () => {
-			if (!landscape.matches || !this.modalRef || this.document.fullscreenElement) {
+			if (!this.modalRef) {
 				return;
 			}
-			if (this.computeMobileViewport()) {
-				this.toggleFullscreen();
-			}
+			this.refreshTraceViewerViewportFlags();
+			this.document.defaultView?.setTimeout(() => {
+				if (!this.modalRef) {
+					return;
+				}
+				this.syncMapLayoutCore();
+			}, 80);
 		};
 		landscape.addEventListener('change', this.orientationChangeHandler);
 	}
@@ -4433,10 +4438,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 						subdomains: ['a', 'b', 'c'],
 						attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://www.thunderforest.com">Thunderforest</a>'
 					});
+					this.baseLayers['thunderforest-landscape'] = L.tileLayer('https://{s}.tile.thunderforest.com/landscape/{z}/{x}/{y}.png?apikey=' + this.thunderforestApiKey, {
+						maxNativeZoom: 18,
+						maxZoom: 20,
+						subdomains: ['a', 'b', 'c'],
+						attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://www.thunderforest.com">Thunderforest</a>'
+					});
 					// Add to available layers list and sort alphabetically
 					const openCycleMapEntry = { id: 'opencyclemap', label: 'OpenCycleMap' };
 					this.availableBaseLayers.push(openCycleMapEntry);
 					this.availableBaseLayers.push({ id: 'thunderforest-outdoors', label: 'TF Outdoors' });
+					this.availableBaseLayers.push({ id: 'thunderforest-landscape', label: 'TF Landscape' });
 					this.availableBaseLayers.sort((a, b) => a.label.localeCompare(b.label));
 				}
 			},
@@ -4454,6 +4466,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 				maxNativeZoom: 19,
 				maxZoom: 20,
 				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+			}),
+			'osm-swiss-style': L.tileLayer('https://tile.osm.ch/osm-swiss-style/{z}/{x}/{y}.png', {
+				maxNativeZoom: 19,
+				maxZoom: 20,
+				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Style: &copy; <a href="https://openstreetmap.ch">SOSM</a>'
 			}),
 			'osm-fr': (() => {
 				// Create a layer group with OSM standard as base and OSM France on top
@@ -4483,10 +4500,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 				maxZoom: 20,
 				attribution: 'Tiles &copy; Esri'
 			}),
-			// 'esri-topo': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
-			// 	maxZoom: 19,
-			// 	attribution: 'Tiles &copy; Esri'
-			// }),
+			'esri-topo': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+				maxNativeZoom: 19,
+				maxZoom: 20,
+				attribution: 'Tiles &copy; Esri'
+			}),
 			// 'esri-street': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
 			// 	maxZoom: 19,
 			// 	attribution: 'Tiles &copy; Esri'
@@ -4497,6 +4515,18 @@ export class TraceViewerModalComponent implements OnDestroy {
 				subdomains: 'abc',
 				attribution: 'Map data: &copy; OSM contributors, SRTM'
 			}),
+			'opentopomap-r': L.tileLayer('https://tile.openmaps.fr/opentopomap/{z}/{x}/{y}.png', {
+				maxNativeZoom: 18,
+				maxZoom: 20,
+				attribution: '<a href="https://github.com/sletuffe/OpenTopoMap">© OpenTopoMap-R</a> <a href="https://openmaps.fr/donate">Donation</a> <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap</a>'
+			}),
+			'openhikingmap': L.tileLayer('https://tile.openmaps.fr/openhikingmap/{z}/{x}/{y}.png', {
+				maxNativeZoom: 18,
+				maxZoom: 20,
+				attribution: '<a href="https://wiki.openstreetmap.org/wiki/OpenHikingMap">© OpenHikingMap</a> <a href="https://openmaps.fr/donate">Donation</a> <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap</a>'
+			}),
+			'maptoolkit-hiking': createMaptoolkitHikingLayer(),
+			'maptoolkit-winter': createMaptoolkitWinterLayer(),
 			// 'esri-light-gray': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
 			// 	maxZoom: 16,
 			// 	attribution: 'Tiles &copy; Esri'
@@ -4586,8 +4616,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.availableBaseLayers = [
 			{ id: 'osm-standard', label: 'OpenStreetMap' },
 			{ id: 'osm-fr', label: 'OSM France' },
+			{ id: 'osm-swiss-style', label: 'OSM Swiss Style' },
 			{ id: 'esri-imagery', label: 'Esri Satellite' },
+			{ id: 'esri-topo', label: 'Esri Topo' },
 			{ id: 'opentopomap', label: 'OpenTopoMap' },
+			{ id: 'opentopomap-r', label: 'OpenTopoMap-R' },
+			{ id: 'openhikingmap', label: 'OpenHikingMap' },
+			{ id: 'maptoolkit-hiking', label: 'Maptoolkit Rando' },
+			{ id: 'maptoolkit-winter', label: 'Maptoolkit Ski' },
 			{ id: 'cartes-gouv', label: 'cartes.gouv.fr', labelKey: 'EVENTELEM.CARTES_GOUV_FR' },
 			{ id: 'ign-classic', label: 'IGN Classique' },
 			{ id: 'ign-plan', label: 'IGN Plan' },
@@ -4730,7 +4766,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		const isSwiss = this.isSwisstopoBasemap(this.selectedBaseLayerId);
 		const packStyle = this.offlineMap.displayStyle(this.selectedBaseLayerId, this.selectedCartesGouvLayerId);
-		const nextLayer: L.TileLayer | L.LayerGroup = usePack
+		const nextLayer: L.Layer = usePack
 			? createOfflineBasemapLayer(this.offlineTiles, packStyle)
 			: isSwiss
 			? this.createSwisstopoLayer(this.selectedBaseLayerId)
@@ -4743,7 +4779,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		nextLayer.addTo(this.map);
 		if (nextLayer instanceof L.TileLayer) {
 			nextLayer.bringToBack();
-		} else {
+		} else if (nextLayer instanceof L.LayerGroup) {
 			nextLayer.eachLayer((child) => {
 				if (child instanceof L.TileLayer) {
 					child.bringToBack();

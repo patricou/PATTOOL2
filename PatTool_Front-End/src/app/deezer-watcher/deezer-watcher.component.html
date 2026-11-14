@@ -947,10 +947,6 @@
       [style.--dz-video-w]="clipAspectW"
       [style.--dz-video-h]="clipAspectH"
       [style.--dz-frame-ar]="clipFrameAr"
-      [style.--dz-pic-w]="clipPicW"
-      [style.--dz-pic-h]="clipPicH"
-      [style.--dz-pic-x]="clipPicX"
-      [style.--dz-pic-y]="clipPicY"
       [class.radio-player-panel--on]="!!current && !playErrorKey"
       [class.radio-player-panel--live]="!!current && playing && !playErrorKey"
       (mouseenter)="onPlayerPointerEnter()"
@@ -1104,7 +1100,7 @@
             [attr.data-pat-media-artist]="current?.artistName || ''"
             [attr.data-pat-media-album]="current?.albumTitle || ''"
             [attr.data-pat-media-artwork]="current?.coverUrl || null"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen; compute-pressure"
             referrerpolicy="strict-origin-when-cross-origin"
             (load)="onYoutubeFrameLoad()">
           </iframe>
