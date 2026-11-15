@@ -207,6 +207,9 @@ export class KeycloakService {
       console.warn('[KEYCLOAK SERVICE] skip login redirect while offline (keeps current page, e.g. GPS)');
       return;
     }
+    if (this.holdRadioForNetwork()) {
+      return;
+    }
     console.warn('[KEYCLOAK SERVICE] ⚠️ redirectToLogin() called - Current URL:', window.location.href);
     console.trace('[KEYCLOAK SERVICE] Stack trace for redirectToLogin():');
     
@@ -236,6 +239,27 @@ export class KeycloakService {
         console.warn('[KEYCLOAK SERVICE] Fallback redirect to:', loginUrl);
         window.location.href = loginUrl;
       }
+    }
+  }
+
+  /**
+   * Radio is playing and the phone has no internet.
+   * Stay on the page and let the station wait. Returns false when login may proceed.
+   */
+  private holdRadioForNetwork(): boolean {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    const native = (window as Window & {
+      PatRadioNative?: { holdForNetwork?: () => boolean };
+    }).PatRadioNative;
+    if (!native || typeof native.holdForNetwork !== 'function') {
+      return false;
+    }
+    try {
+      return native.holdForNetwork() === true;
+    } catch {
+      return false;
     }
   }
 

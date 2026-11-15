@@ -312,19 +312,18 @@
 				</a>
 			</div>
 			<ng-template #playingEmpty>
-				<p class="home-muted">{{ 'HOME.DASHBOARD.PLAYING_EMPTY' | translate }}</p>
-				<div class="home-links">
-					<a routerLink="/tools/deezer">
-						<img class="home-link-logo home-link-logo--deezer" src="assets/images/deezer-logo.svg" alt="">
-						{{ 'HOME.DASHBOARD.OPEN_DEEZER' | translate }}
+				<div class="home-screens">
+					<a class="home-screen home-screen--deezer" routerLink="/tools/deezer"
+					   [attr.aria-label]="'HOME.DASHBOARD.OPEN_DEEZER' | translate">
+						<img src="assets/images/deezer-logo.svg" alt="">
 					</a>
-					<a routerLink="/tools/radio-watcher">
-						<img class="home-link-logo home-link-logo--radio" src="assets/images/radio-mark.svg" alt="">
-						{{ 'HOME.DASHBOARD.OPEN_RADIO' | translate }}
+					<a class="home-screen home-screen--radio" routerLink="/tools/radio-watcher"
+					   [attr.aria-label]="'HOME.DASHBOARD.OPEN_RADIO' | translate">
+						<img src="assets/images/radio-mark.svg" alt="">
 					</a>
-					<a routerLink="/tools/tv-watcher">
-						<img class="home-link-logo" src="assets/images/menu-tv.svg" alt="">
-						{{ 'HOME.DASHBOARD.OPEN_TV' | translate }}
+					<a class="home-screen home-screen--tv" routerLink="/tools/tv-watcher"
+					   [attr.aria-label]="'HOME.DASHBOARD.OPEN_TV' | translate">
+						<img src="assets/images/menu-tv.svg" alt="">
 					</a>
 				</div>
 			</ng-template>

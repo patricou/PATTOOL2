@@ -557,11 +557,6 @@
   .mf-point-timeline-chart-box--combined {
     height: 200px;
   }
-
-  .mf-point-timeline-overlay--panel .mf-point-timeline-chart-box--combined {
-    height: auto;
-    min-height: 11rem;
-  }
 }
 
 :host:has(.mf-point-timeline-overlay--panel) {
@@ -664,8 +659,9 @@
 .mf-point-timeline-overlay--panel .mf-point-timeline-chart-box,
 .mf-point-timeline-overlay--panel .mf-point-timeline-chart-box--combined {
   flex: none;
-  height: 18rem;
-  min-height: 18rem;
+  height: 21rem;
+  min-height: 21rem;
+  overflow: visible;
   background: #fffdf8;
   border-radius: 8px;
 }
@@ -682,4 +678,46 @@
 .mf-point-timeline-overlay--panel:-webkit-full-screen .mf-point-timeline-body {
   flex: 1 1 auto;
   overflow: auto;
+}
+
+@media (max-width: 767.98px) {
+  .mf-point-timeline-overlay--panel:not(.mf-point-timeline-overlay--fullscreen) .mf-point-timeline-chart-box,
+  .mf-point-timeline-overlay--panel:not(.mf-point-timeline-overlay--fullscreen) .mf-point-timeline-chart-box--combined {
+    height: 17rem;
+    min-height: 17rem;
+  }
+
+  .mf-point-timeline-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    overflow: visible;
+  }
+
+  .mf-point-timeline-tabs li {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  .mf-point-timeline-tab {
+    width: 100%;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 6px 8px;
+  }
+
+  .mf-point-timeline-param-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .mf-point-timeline-param {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.25;
+    padding: 6px 8px;
+  }
 }

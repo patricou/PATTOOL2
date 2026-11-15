@@ -6076,10 +6076,12 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (this.playing) {
       this.resumeHoldUntil = Date.now() + 2500;
     }
-    this.cdr.detectChanges();
+    // clipOnStage is read while the view refreshes. Arming after detectChanges
+    // makes dz-video flip false → true in the same turn (NG0100).
     this.armClipSound();
     this.pendingClipSeek = resumeSeconds > 1 ? resumeSeconds : -1;
     this.clipSeekSent = false;
+    this.cdr.detectChanges();
     const host = this.keptYtHost?.nativeElement;
     if (!host) {
       return;

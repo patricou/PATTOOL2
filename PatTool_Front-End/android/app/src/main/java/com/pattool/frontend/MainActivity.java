@@ -22,6 +22,7 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import androidx.core.content.ContextCompat;
 import java.lang.ref.WeakReference;
 import java.util.Locale;
@@ -46,11 +47,17 @@ public class MainActivity extends BridgeActivity {
     /** Last URL reloaded locally, so a failed retry does not loop. */
     private String lastLocalReload;
 
+    /** Last page served by the app, so a failed Keycloak load can come back here and wait. */
+    private String lastAppUrl = "https://pattool.local/";
+
     /** Tells the radio page when the phone network drops or returns, even if the screen is off. */
     private ConnectivityManager.NetworkCallback radioNetworkCallback;
 
     /** True after the default network has validated internet. Avoids repeating online events. */
-    private boolean radioNetworkValidated;
+    private volatile boolean radioNetworkValidated;
+
+    /** False until the first network callback. A login redirect must not be blocked before that. */
+    private volatile boolean radioNetworkKnown;
 
     private final Handler radioNetworkHandler = new Handler(Looper.getMainLooper());
 
@@ -58,6 +65,19 @@ public class MainActivity extends BridgeActivity {
 
     /** True while radio or YouTube is playing. Set from the page, read on screen off. */
     private volatile boolean radioKeepAlive;
+
+    /**
+     * A radio station was started and has not been stopped on the app page.
+     * Kept when the WebView leaves for Keycloak, so a failed login page can return
+     * to the radio and wait for internet.
+     */
+    private volatile boolean radioStationOn;
+
+    private final Runnable clearRadioStation = () -> {
+        if (isAppPage() && !radioKeepAlive) {
+            radioStationOn = false;
+        }
+    };
 
     private static WeakReference<MainActivity> radioActivity;
 
@@ -147,6 +167,7 @@ public class MainActivity extends BridgeActivity {
                     return true;
                 }
                 if (isAppHost(request)) {
+                    rememberAppUrl(request.getUrl().toString());
                     reloadFromAppFiles(view, request.getUrl().toString());
                     return true;
                 }
@@ -154,9 +175,21 @@ public class MainActivity extends BridgeActivity {
             }
 
             @Override
+            public void onPageFinished(WebView view, String url) {
+                rememberAppUrl(url);
+                super.onPageFinished(view, url);
+            }
+
+            @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (isAppHost(request)) {
                     reloadFromAppFiles(view, request.getUrl().toString());
+                    return;
+                }
+                // The login page failed because the network is gone. Come back to the
+                // radio page and wait, instead of leaving "Page Web non disponible".
+                if (shouldWaitAfterLoadError(request, error)) {
+                    returnToAppAndWait(view);
                     return;
                 }
                 super.onReceivedError(view, request, error);
@@ -178,6 +211,16 @@ public class MainActivity extends BridgeActivity {
         }
         Uri url = request.getUrl();
         return url != null && APP_HOST.equalsIgnoreCase(url.getHost());
+    }
+
+    private void rememberAppUrl(String url) {
+        if (url == null || url.isEmpty()) {
+            return;
+        }
+        Uri uri = Uri.parse(url);
+        if (uri.getHost() != null && APP_HOST.equalsIgnoreCase(uri.getHost())) {
+            lastAppUrl = url;
+        }
     }
 
     private void reloadFromAppFiles(WebView view, String url) {
@@ -251,6 +294,7 @@ public class MainActivity extends BridgeActivity {
             radioNetworkHandler.removeCallbacks(pendingRadioOffline);
             pendingRadioOffline = null;
         }
+        radioNetworkHandler.removeCallbacks(clearRadioStation);
         unregisterRadioNetworkCallback();
         unregisterMusicVolumeReceiver();
         super.onDestroy();
@@ -336,12 +380,20 @@ public class MainActivity extends BridgeActivity {
 
     /** Called from the radio page when a station starts or stops. */
     void onRadioPlayingFromPage(boolean playing, String title, String artist, String album, boolean radio) {
+        if (radio && playing) {
+            radioNetworkHandler.removeCallbacks(clearRadioStation);
+            radioStationOn = true;
+        }
         radioKeepAlive = playing;
         // Set before the display turns off. The visibility callback reads this flag.
         CapacitorWebView.setKeepVisible(playing);
         runOnUiThread(() -> {
             if (!playing) {
                 releaseWebViewVisibilityHold();
+                // The page may report "stopped" while it is already leaving for Keycloak.
+                // Wait, then clear only if we are still on the app and nothing is playing.
+                radioNetworkHandler.removeCallbacks(clearRadioStation);
+                radioNetworkHandler.postDelayed(clearRadioStation, 1500);
             }
             if (!isAppPage()) {
                 radioKeepAlive = false;
@@ -350,6 +402,7 @@ public class MainActivity extends BridgeActivity {
                 return;
             }
             if (playing) {
+                radioNetworkHandler.removeCallbacks(clearRadioStation);
                 applyRadioRendererPriority(true);
                 setVolumeControlStream(AudioManager.STREAM_MUSIC);
                 publishMusicVolume();
@@ -445,6 +498,7 @@ public class MainActivity extends BridgeActivity {
         boolean validated = caps != null
                 && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+        radioNetworkKnown = true;
         if (!validated) {
             if (radioNetworkValidated) {
                 scheduleRadioOffline();
@@ -474,6 +528,7 @@ public class MainActivity extends BridgeActivity {
         pendingRadioOffline = () -> {
             pendingRadioOffline = null;
             radioNetworkValidated = false;
+            radioNetworkKnown = true;
             runRadioScript("window.dispatchEvent(new Event('offline'))");
         };
         radioNetworkHandler.postDelayed(pendingRadioOffline, 1200);
@@ -595,6 +650,66 @@ public class MainActivity extends BridgeActivity {
         runRadioScript("window.dispatchEvent(new CustomEvent('patmediavolume',{detail:" + percent + "}))");
     }
 
+    /**
+     * True when internet should be treated as available.
+     * Stays true until the first network callback, so opening the app cannot close it.
+     */
+    boolean radioHasNetwork() {
+        return !radioNetworkKnown || radioNetworkValidated;
+    }
+
+    boolean radioStationIsOn() {
+        return radioStationOn;
+    }
+
+    /**
+     * Main-frame load died because the network is gone while a radio station is on.
+     * Showing that error replaces the app with "Page Web non disponible".
+     */
+    private boolean shouldWaitAfterLoadError(WebResourceRequest request, WebResourceError error) {
+        return radioStationOn
+                && request != null
+                && request.isForMainFrame()
+                && isOfflinePageError(error);
+    }
+
+    private boolean isOfflinePageError(WebResourceError error) {
+        if (error == null) {
+            return false;
+        }
+        CharSequence description = error.getDescription();
+        if (description != null) {
+            String text = description.toString();
+            if (text.contains("ERR_INTERNET_DISCONNECTED")
+                    || text.contains("ERR_NAME_NOT_RESOLVED")
+                    || text.contains("ERR_CONNECTION_")
+                    || text.contains("ERR_ADDRESS_UNREACHABLE")
+                    || text.contains("ERR_NETWORK_CHANGED")
+                    || text.contains("ERR_TIMED_OUT")) {
+                return true;
+            }
+        }
+        int code = error.getErrorCode();
+        return code == WebViewClient.ERROR_HOST_LOOKUP
+                || code == WebViewClient.ERROR_CONNECT
+                || code == WebViewClient.ERROR_IO
+                || code == WebViewClient.ERROR_TIMEOUT
+                || code == -106;
+    }
+
+    /** Leaves the failed login page and reopens the radio page, which waits for internet. */
+    private void returnToAppAndWait(WebView view) {
+        if (view == null || isFinishing() || isDestroyed()) {
+            return;
+        }
+        String target = lastAppUrl;
+        view.post(() -> {
+            view.stopLoading();
+            lastLocalReload = null;
+            view.loadUrl(target);
+        });
+    }
+
     private void runRadioScript(String script) {
         Bridge bridge = getBridge();
         if (bridge == null || bridge.getWebView() == null) {
@@ -649,5 +764,20 @@ class RadioNativeBridge {
     @JavascriptInterface
     public void setMediaVolume(int percent) {
         activity.runOnUiThread(() -> activity.setMusicVolumePercent(percent));
+    }
+
+    /** False only after the phone has reported that internet is gone. */
+    @JavascriptInterface
+    public boolean hasNetwork() {
+        return activity.radioHasNetwork();
+    }
+
+    /**
+     * True while a station is on and the phone has no internet.
+     * The page must stay put and wait, instead of opening Keycloak.
+     */
+    @JavascriptInterface
+    public boolean holdForNetwork() {
+        return activity.radioStationIsOn() && !activity.radioHasNetwork();
     }
 }

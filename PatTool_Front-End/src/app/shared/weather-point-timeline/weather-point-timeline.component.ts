@@ -73,6 +73,8 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   private static readonly FORECAST_HOURS = 168;
   private static readonly STEP_MINUTES = 60;
   private static readonly STEP_MINUTES_CH = 60;
+  private static readonly DEFAULT_PAST_SEC = 6 * 60 * 60;
+  private static readonly DEFAULT_FUTURE_SEC = 24 * 60 * 60;
 
   @Input() visible = false;
   @Input({ required: true }) lat!: number;
@@ -129,6 +131,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   }
 
   timelineFullscreen = false;
+  private xAxisTickLimitApplied = 0;
   loading = false;
   errorKey = '';
   tabErrorKey = '';
@@ -370,7 +373,10 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   }
 
   get periodLabel(): string {
-    return this.buildPeriodLabel(this.activeParam, this.getActiveDisplaySlots());
+    const slots = this.getActiveDisplaySlots();
+    const range = this.defaultTimeWindow(slots, this.activeParam);
+    const visible = range ? slots.slice(range.min, range.max + 1) : slots;
+    return this.buildPeriodLabel(this.activeParam, visible);
   }
 
   get infoParams(): Record<string, string> {
@@ -656,6 +662,24 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   @HostListener('document:webkitfullscreenchange')
   onNativeFullscreenChange(): void {
     this.syncNativeFullscreen();
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    if (!this.chartsReady || !this.showXAxisLabels()) {
+      return;
+    }
+    const limit = this.xAxisTickLimit();
+    if (limit === this.xAxisTickLimitApplied) {
+      return;
+    }
+    this.chartOptions = this.buildChartOptions(
+      this.chartPoints,
+      this.activeParam,
+      this.chartType,
+      this.chartData.datasets
+    );
+    this.cdr.markForCheck();
   }
 
   private loadData(isRefresh = false): void {
@@ -1946,7 +1970,7 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       }
     }
 
-    this.chartOptions = this.buildChartOptions(this.chartPoints, param, chartType);
+    this.chartOptions = this.buildChartOptions(this.chartPoints, param, chartType, datasets);
     const chartContent = this.evaluateChartContent(datasets, param, nowLabel);
     if (chartContent === 'empty') {
       this.chartsReady = false;
@@ -2034,7 +2058,8 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
   private buildChartOptions(
     points: Array<{ ts: number; kind: 'history' | 'now' | 'forecast' }> = [],
     param: TimelineParam = 'temp',
-    chartType: ForecastChartKind = 'line'
+    chartType: ForecastChartKind = 'line',
+    datasets: ChartConfiguration<'line' | 'bar'>['data']['datasets'] = []
   ): ChartOptions<'line' | 'bar'> {
     const yUnit = this.timelineYUnit(param);
     const percentParam = param === 'humidity' || param === 'pop';
@@ -2081,13 +2106,27 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       },
       scales: {
         x: {
-          display: this.timelineFullscreen,
+          display: this.showXAxisLabels(),
           ticks: {
-            maxTicksLimit: this.timelineFullscreen ? 14 : 8,
-            maxRotation: 45,
+            display: true,
+            maxTicksLimit: this.xAxisTickLimit(),
+            maxRotation: 0,
             minRotation: 0,
+            autoSkip: true,
+            autoSkipPadding: 10,
             font: { size: 10 },
-            autoSkip: true
+            color: '#3f3a33',
+            padding: 4,
+            callback: (value: string | number) => {
+              const index = Number(value);
+              const point = points[index];
+              if (!point) {
+                return '';
+              }
+              return param === 'precipDaily'
+                ? this.formatDailyAxisTick(point.ts)
+                : this.formatAxisTick(point.ts);
+            }
           }
         },
         y: {
@@ -2107,9 +2146,119 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
         ? { bar: { categoryPercentage: 0.82, barPercentage: 0.9 } }
         : undefined
     };
-    return (chartType === 'bar'
+    const zoomed = (chartType === 'bar'
       ? withMeteoChartZoom<'bar'>(options as ChartOptions<'bar'>)
       : withMeteoChartZoom<'line'>(options as ChartOptions<'line'>)) as ChartOptions<'line' | 'bar'>;
+    return this.applyDefaultTimeWindow(zoomed, points, param, chartType, datasets);
+  }
+
+  /** Home chart opens on the last 6 hours and the next 24 hours. Pan still reaches the full series. */
+  private defaultTimeWindow(
+    points: Array<{ ts: number }>,
+    param: TimelineParam
+  ): { min: number; max: number } | null {
+    if (this.overlayMode !== 'panel' || param === 'precipDaily' || points.length < 2) {
+      return null;
+    }
+    const nowTs = this.nowTs > 0 ? this.nowTs : Math.floor(Date.now() / 1000);
+    const minTs = nowTs - WeatherPointTimelineComponent.DEFAULT_PAST_SEC;
+    const maxTs = nowTs + WeatherPointTimelineComponent.DEFAULT_FUTURE_SEC;
+    let min = 0;
+    for (let i = 0; i < points.length; i++) {
+      if (points[i].ts >= minTs) {
+        min = i > 0 && points[i].ts > minTs ? i - 1 : i;
+        break;
+      }
+      min = i;
+    }
+    let max = points.length - 1;
+    for (let i = 0; i < points.length; i++) {
+      if (points[i].ts >= maxTs) {
+        max = i;
+        break;
+      }
+    }
+    if (max - min < 1) {
+      return null;
+    }
+    return { min, max };
+  }
+
+  private applyDefaultTimeWindow(
+    options: ChartOptions<'line' | 'bar'>,
+    points: Array<{ ts: number }>,
+    param: TimelineParam,
+    chartType: ForecastChartKind,
+    datasets: ChartConfiguration<'line' | 'bar'>['data']['datasets']
+  ): ChartOptions<'line' | 'bar'> {
+    const range = this.defaultTimeWindow(points, param);
+    if (!range) {
+      return options;
+    }
+    const scales = { ...(options.scales ?? {}) };
+    const xScale = { ...(scales['x'] as object), min: range.min, max: range.max };
+    scales['x'] = xScale;
+    const yFit = this.yExtent(datasets, range.min, range.max, param, chartType);
+    const yFull = this.yExtent(datasets, 0, Math.max(0, points.length - 1), param, chartType);
+    if (yFit) {
+      scales['y'] = { ...(scales['y'] as object), min: yFit.min, max: yFit.max };
+    }
+    options.scales = scales;
+    const plugins = options.plugins as {
+      zoom?: { limits?: { x?: { min: number; max: number }; y?: { min: number | 'original'; max: number | 'original' } } }
+    } | undefined;
+    if (plugins?.zoom) {
+      plugins.zoom.limits = {
+        ...(plugins.zoom.limits ?? {}),
+        x: { min: 0, max: Math.max(0, points.length - 1) },
+        y: yFull
+          ? { min: yFull.min, max: yFull.max }
+          : { min: 'original', max: 'original' }
+      };
+    }
+    return options;
+  }
+
+  private yExtent(
+    datasets: ChartConfiguration<'line' | 'bar'>['data']['datasets'],
+    minIndex: number,
+    maxIndex: number,
+    param: TimelineParam,
+    chartType: ForecastChartKind
+  ): { min: number; max: number } | null {
+    if (param === 'humidity' || param === 'pop') {
+      return null;
+    }
+    const values: number[] = [];
+    const end = Math.max(minIndex, maxIndex);
+    for (const dataset of datasets) {
+      const data = dataset.data ?? [];
+      for (let i = Math.max(0, minIndex); i <= end && i < data.length; i++) {
+        const raw = data[i];
+        const value = typeof raw === 'number' ? raw : null;
+        if (value != null && Number.isFinite(value)) {
+          values.push(value);
+        }
+      }
+    }
+    if (!values.length) {
+      return null;
+    }
+    let min = Math.min(...values);
+    let max = Math.max(...values);
+    const zeroBased = chartType === 'bar';
+    if (zeroBased) {
+      min = Math.min(0, min);
+    }
+    if (max <= min) {
+      const pad = zeroBased ? 1 : Math.max(Math.abs(max) * 0.2, 0.5);
+      return { min: zeroBased ? 0 : min - pad, max: max + pad };
+    }
+    const pad = (max - min) * 0.08;
+    return {
+      min: zeroBased ? min : min - pad,
+      max: max + pad
+    };
   }
 
   private evaluateChartContent(
@@ -2436,6 +2585,42 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
     return Math.floor(date.getTime() / 1000);
   }
 
+  /** Home panel and fullscreen keep date/time ticks; the compact map popup stays unlabeled until fullscreen. */
+  private showXAxisLabels(): boolean {
+    return this.timelineFullscreen || this.overlayMode === 'panel';
+  }
+
+  private xAxisTickLimit(): number {
+    const narrow = typeof window !== 'undefined' && window.innerWidth < 768;
+    const limit = this.timelineFullscreen
+      ? (narrow ? 6 : 12)
+      : (narrow ? 5 : 8);
+    this.xAxisTickLimitApplied = limit;
+    return limit;
+  }
+
+  private formatAxisTick(ts: number): string[] {
+    const date = new Date(ts * 1000);
+    if (Number.isNaN(date.getTime())) {
+      return [];
+    }
+    return [
+      date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
+      date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+    ];
+  }
+
+  private formatDailyAxisTick(ts: number): string[] {
+    const date = new Date(ts * 1000);
+    if (Number.isNaN(date.getTime())) {
+      return [];
+    }
+    return [
+      date.toLocaleDateString(undefined, { weekday: 'short' }),
+      date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+    ];
+  }
+
   private formatChartLabel(ts: number | null | undefined): string {
     if (ts == null || !Number.isFinite(Number(ts))) {
       return '';
@@ -2488,7 +2673,12 @@ export class WeatherPointTimelineComponent implements OnChanges, AfterViewInit, 
       this.unregisterFullscreenHandler();
     }
     if (this.chartsReady) {
-      this.chartOptions = this.buildChartOptions(this.chartPoints, this.activeParam, this.chartType);
+      this.chartOptions = this.buildChartOptions(
+        this.chartPoints,
+        this.activeParam,
+        this.chartType,
+        this.chartData.datasets
+      );
     }
     setTimeout(() => this.resizeChart(), fullscreen ? 180 : 120);
   }

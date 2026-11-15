@@ -46,6 +46,18 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
             return next.handle(req);
         }
 
+        // Radio catalog, now-playing and the stream proxy are permitAll.
+        // Waiting on getToken() during a network drop redirected the WebView to Keycloak
+        // and left "Page Web non disponible" in place of the app. Favorites, last station
+        // and the cabinet skin stay authenticated.
+        const isRadioPublicApiGet =
+            req.method === 'GET'
+            && /\/api\/external\/radio\//i.test(req.url)
+            && !/\/api\/external\/radio\/(favorites|last-station|skin)(\/|$|\?)/i.test(req.url);
+        if (isRadioPublicApiGet) {
+            return next.handle(req);
+        }
+
         // Free IPTV catalog / stream proxy is permitAll — skip Keycloak wait.
         // Favorites require JWT: do not skip /favorites.
         const isTvPublicApiGet =
@@ -310,6 +322,11 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
             return true;
         }
         if (req.method === 'GET' && /\/api\/external\/(stellarium|skymap|wiki)\//i.test(url)) {
+            return true;
+        }
+        if (req.method === 'GET'
+            && /\/api\/external\/radio\//i.test(url)
+            && !/\/api\/external\/radio\/(favorites|last-station|skin)(\/|$|\?)/i.test(url)) {
             return true;
         }
         return url.includes('/uploadfile') || url.includes('/uploadondisk');

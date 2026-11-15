@@ -838,35 +838,64 @@ a.home-user-meta {
 	text-transform: uppercase;
 }
 
-.home-more,
-.home-links a {
+.home-more {
 	color: var(--menu-accent, #1a331a);
 	font-size: 0.75rem;
 	font-weight: 650;
 	text-decoration: none;
 }
 
-.home-links a {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.35rem;
+.home-screens {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 0.7rem;
+	margin: 0.45rem 0 0.55rem;
 }
 
-.home-link-logo {
-	flex: none;
-	width: 1.15rem;
-	height: 1.15rem;
+.home-screen {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	aspect-ratio: 4 / 3;
+	min-height: 8.5rem;
+	border-radius: 0.75rem;
+	overflow: hidden;
+	text-decoration: none;
+}
+
+.home-screen img {
+	width: 68%;
+	height: 68%;
 	object-fit: contain;
 }
 
-.home-link-logo--deezer {
-	padding: 0.08rem;
-	border-radius: 0.2rem;
+.home-screen--deezer {
 	background: #fff;
+	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
 }
 
-.home-link-logo--radio {
-	filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.45));
+.home-screen--deezer img {
+	width: 78%;
+	height: 78%;
+}
+
+.home-screen--radio {
+	background: radial-gradient(circle at 50% 38%, #3c3c56, #12121c 74%);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.home-screen--tv {
+	background: radial-gradient(circle at 50% 30%, #243044, #0c1018 72%);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.home-screen--tv img {
+	width: 86%;
+	height: 86%;
+}
+
+.home-screen:hover {
+	filter: brightness(1.08);
 }
 
 .home-more {
@@ -874,8 +903,7 @@ a.home-user-meta {
 	margin: 0.2rem 0 0.45rem;
 }
 
-.home-more:hover,
-.home-links a:hover {
+.home-more:hover {
 	text-decoration: underline;
 }
 
@@ -916,12 +944,6 @@ a.home-user-meta {
 	background: #0c1018;
 }
 
-.home-links {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.9rem;
-	margin: 0.15rem 0 0.45rem;
-}
 
 .home-cite {
 	flex: none;
