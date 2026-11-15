@@ -1462,6 +1462,9 @@ a.dz-page-jump {
 
 .dz-yt-slot.has-offer {
   z-index: 4;
+  width: auto;
+  justify-content: flex-start;
+  gap: 0.18rem;
 }
 
 .dz-yt-pick {
@@ -1473,6 +1476,13 @@ a.dz-page-jump {
   display: inline-flex;
   align-items: center;
   gap: 0.14rem;
+}
+
+.dz-yt-slot.has-offer .dz-yt-pick {
+  position: static;
+  top: auto;
+  left: auto;
+  transform: none;
 }
 
 .dz-yt-pick button {
@@ -1544,11 +1554,6 @@ a.dz-page-jump {
 .dz-fav.is-saved:focus-visible:not(:disabled) {
   background: var(--menu-accent, #7c3aed);
   color: #fff;
-}
-
-.dz-fav.is-covered {
-  visibility: hidden;
-  pointer-events: none;
 }
 
 .dz-heading {

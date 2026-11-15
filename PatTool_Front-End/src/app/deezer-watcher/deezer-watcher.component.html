@@ -806,7 +806,6 @@
           <button
             type="button"
             class="dz-fav"
-            [class.is-covered]="ytOffer?.trackId === track.id && !ytNextBusy[track.id]"
             [class.is-saved]="concertHas(track.id)"
             [disabled]="!!concertBusy"
             (click)="openConcertName(track, $event)"
@@ -819,7 +818,6 @@
             class="dz-fav dz-pl-btn"
             [class.is-on]="playlistMenuTrack?.id === track.id"
             [class.is-saved]="trackInUserPlaylist(track.id)"
-            [class.is-covered]="ytOffer?.trackId === track.id && !ytNextBusy[track.id]"
             (click)="toggleTrackPlaylistMenu(track, $event)"
             [attr.aria-label]="'DEEZER.PLAYLIST_ADD' | translate"
             [attr.title]="'DEEZER.PLAYLIST_ADD' | translate">

@@ -313,15 +313,15 @@
 			</div>
 			<ng-template #playingEmpty>
 				<div class="home-screens">
-					<a class="home-screen home-screen--deezer" routerLink="/tools/deezer"
+					<a class="home-screen" routerLink="/tools/deezer"
 					   [attr.aria-label]="'HOME.DASHBOARD.OPEN_DEEZER' | translate">
-						<img src="assets/images/deezer-logo.svg" alt="">
+						<span class="home-screen-mark home-screen-mark--deezer" aria-hidden="true"></span>
 					</a>
-					<a class="home-screen home-screen--radio" routerLink="/tools/radio-watcher"
+					<a class="home-screen" routerLink="/tools/radio-watcher"
 					   [attr.aria-label]="'HOME.DASHBOARD.OPEN_RADIO' | translate">
-						<img src="assets/images/radio-mark.svg" alt="">
+						<span class="home-screen-mark home-screen-mark--radio" aria-hidden="true"></span>
 					</a>
-					<a class="home-screen home-screen--tv" routerLink="/tools/tv-watcher"
+					<a class="home-screen" routerLink="/tools/tv-watcher"
 					   [attr.aria-label]="'HOME.DASHBOARD.OPEN_TV' | translate">
 						<img src="assets/images/menu-tv.svg" alt="">
 					</a>
