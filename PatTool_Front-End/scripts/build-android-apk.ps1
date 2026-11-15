@@ -62,7 +62,20 @@ if (-not (Test-Path $keystore) -and -not (Test-Path $props)) {
 
 Push-Location $android
 try {
-  & .\gradlew.bat assembleRelease
+  # mergeReleaseAssets stays "UP-TO-DATE" even after cap sync replaces www.
+  # The packaged APK then keeps the previous web bundle. Drop that state
+  # and rerun the release tasks so this APK matches the build just synced.
+  $stale = @(
+    "app\build\intermediates\assets",
+    "app\build\intermediates\incremental\mergeReleaseAssets",
+    "app\build\intermediates\incremental\packageRelease",
+    "app\build\outputs\apk"
+  )
+  foreach ($rel in $stale) {
+    if (Test-Path $rel) { Remove-Item $rel -Recurse -Force }
+  }
+  $gradleStarted = Get-Date
+  & .\gradlew.bat assembleRelease --rerun-tasks
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 } finally {
   Pop-Location
@@ -71,6 +84,10 @@ try {
 $apk = Join-Path $front "android\app\build\outputs\apk\release\app-release.apk"
 if (-not (Test-Path $apk)) {
   Write-Error "APK not found: $apk"
+}
+$apkItem = Get-Item $apk
+if ($apkItem.LastWriteTime -lt $gradleStarted) {
+  Write-Error "APK was not rebuilt ($($apkItem.LastWriteTime)). Refusing to publish a stale package."
 }
 }
 
