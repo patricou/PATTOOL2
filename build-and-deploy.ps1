@@ -133,8 +133,8 @@ try {
     $apkScript = Join-Path $FrontEndDir "scripts\build-android-apk.ps1"
     $logDir = Join-Path $env:TEMP "pattool-deploy"
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-    $apkLog = Join-Path $logDir "apk.log"
-    $webLog = Join-Path $logDir "web.log"
+    $apkLog = Join-Path $logDir "apk-$DeployVersion.log"
+    $webLog = Join-Path $logDir "web-$DeployVersion.log"
     $runners = @(
         @{
             Name = "apk"
@@ -160,6 +160,7 @@ try {
             Process = $proc
             Log = $runner.Log
             Started = Get-Date
+            Finished = $null
         }
         Write-Host ("  started {0}" -f $runner.Name) -ForegroundColor Gray
     }
@@ -167,7 +168,10 @@ try {
     while ($true) {
         foreach ($job in $running) {
             $job.Process.Refresh()
-            if ($job.Process.HasExited) { $null = $job.Process.WaitForExit() }
+            if ($job.Process.HasExited) {
+                if (-not $job.Finished) { $job.Finished = Get-Date }
+                $null = $job.Process.WaitForExit()
+            }
         }
         $alive = @($running | Where-Object { -not $_.Process.HasExited })
         $justFailed = @($running | Where-Object { $_.Process.HasExited -and $_.Process.ExitCode -ne 0 })
@@ -201,7 +205,8 @@ try {
     $failed = $false
     foreach ($job in $running) {
         if (-not $job.Process.HasExited) { $null = $job.Process.WaitForExit() }
-        $elapsed = (Get-Date) - $job.Started
+        if (-not $job.Finished) { $job.Finished = Get-Date }
+        $elapsed = $job.Finished - $job.Started
         $code = $job.Process.ExitCode
         if ($code -ne 0) {
             $failed = $true
@@ -215,6 +220,12 @@ try {
         }
     }
     if ($failed) { throw "Parallel front-end build failed." }
+
+    $builtApk = Join-Path $FrontEndDir "android\app\build\outputs\apk\release\app-release.apk"
+    $apkJob = $running | Where-Object { $_.Name -eq "apk" } | Select-Object -First 1
+    if (-not (Test-Path $builtApk) -or (Get-Item $builtApk).LastWriteTime -lt $apkJob.Started) {
+        throw "APK was not rebuilt. Refusing to publish the previous package."
+    }
 
     # -----------------------------------------------------------------------
     # Step 2: the web build has finished writing static/. Drop the new APK in.

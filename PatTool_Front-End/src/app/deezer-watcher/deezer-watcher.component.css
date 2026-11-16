@@ -2380,19 +2380,17 @@ a.dz-page-jump {
   }
 }
 
-/* The cabinet is only as wide as the clip, and stays inside the page. */
+/* The cabinet is only as wide as the clip, and stays inside the page.
+   The button bar is already counted in this height. Changing it when the
+   pointer arrives shrinks the cabinet under the cursor, the pointer leaves,
+   the bar hides, and the window jitters. */
 .radio-player-panel.dz-video,
 .dz-layout.radio-layout--sidebar-collapsed .radio-player-panel.dz-video {
   --sleeve-reserve: 9.7rem;
-  --dz-screen-max-h: calc(100dvh - var(--navbar-offset, 60px) - 14.5rem);
+  --dz-screen-max-h: calc(100dvh - var(--navbar-offset, 60px) - 20.5rem);
   width: min(100%, calc(var(--dz-screen-max-h) * var(--dz-video-w, 16) / var(--dz-video-h, 9) + 3.2rem));
   height: auto;
   max-height: calc(100dvh - var(--navbar-offset, 60px) - var(--sleeve-reserve));
-}
-
-.radio-player-panel.dz-video:has(.radio-chrome:not(.radio-chrome--hidden)),
-.dz-layout.radio-layout--sidebar-collapsed .radio-player-panel.dz-video:has(.radio-chrome:not(.radio-chrome--hidden)) {
-  --dz-screen-max-h: calc(100dvh - var(--navbar-offset, 60px) - 20.5rem);
 }
 
 /* Menu hidden: the page can use the width the list no longer takes. */

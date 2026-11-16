@@ -215,6 +215,10 @@ export interface TraceViewerPreference {
   keepScreenAwake?: boolean | null;
   showGpsCoordinates?: boolean | null;
   baseLayerId?: string | null;
+  /** Empty = no second basemap. */
+  secondaryBaseLayerId?: string | null;
+  /** 0 = first basemap only, 100 = second basemap only. */
+  basemapBlend?: number | null;
   persisted?: boolean | null;
 }
 

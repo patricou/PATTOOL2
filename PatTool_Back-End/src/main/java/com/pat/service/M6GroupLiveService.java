@@ -53,16 +53,15 @@ public class M6GroupLiveService {
     private static final Map<String, ChannelDef> CHANNELS = new LinkedHashMap<>();
     static {
         // Prefer known clear AVC mirrors. Skip geo-blocked / DRM / HEVC-only hosts as primary seeds.
+        // Flussonic mirrors (151.80, 5.180, 99.27/M6) are dead or return
+        // X-Deny-Reason: wrong_country from France. Same public CDN as 6ter / France 2–5.
         CHANNELS.put("m6", new ChannelDef(
                 "M6",
                 "Entertainment",
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Logo_M6_2015.svg/512px-Logo_M6_2015.svg.png",
                 "m6.fr",
                 List.of(
-                        // ~8 MB/s, AVC 1080p, ~36 s window. The 151.80 mirror still answers
-                        // but a 6 s segment takes ~17 s, so playback cannot stay realtime.
-                        "http://5.180.164.197:8080/M6/index.m3u8",
-                        "http://151.80.18.177:86/M6_HD/index.m3u8"
+                        "https://r.eu.cdn-redge.media/livehls/oeu/mt/live/m6_fr/live.livx/playlist.m3u8"
                 )));
         CHANNELS.put("w9", new ChannelDef(
                 "W9",
@@ -70,8 +69,7 @@ public class M6GroupLiveService {
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/W9_2018.svg/512px-W9_2018.svg.png",
                 "w9.fr",
                 List.of(
-                        "http://151.80.18.177:86/W9_HD/index.m3u8",
-                        "http://145.239.5.177/331a/index.m3u8"
+                        "https://r.eu.cdn-redge.media/livehls/oeu/mt/live/w9_fr/live.livx/playlist.m3u8"
                 )));
         CHANNELS.put("6ter", new ChannelDef(
                 "6ter",
@@ -79,7 +77,7 @@ public class M6GroupLiveService {
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/6ter_2012.svg/512px-6ter_2012.svg.png",
                 "6ter.fr",
                 List.of(
-                        "http://145.239.5.177/314/index.m3u8"
+                        "https://r.eu.cdn-redge.media/livehls/oeu/mt/live/6ter_fr/live.livx/playlist.m3u8"
                 )));
         CHANNELS.put("gulli", new ChannelDef(
                 "Gulli",
@@ -87,8 +85,8 @@ public class M6GroupLiveService {
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Gulli_2017.svg/512px-Gulli_2017.svg.png",
                 "gulli.fr",
                 List.of(
-                        "http://145.239.5.177/318/index.m3u8",
-                        "http://99.27.51.147:8080/Gulli/index.m3u8"
+                        "http://99.27.51.147:8080/Gulli/index.m3u8",
+                        "https://r.eu.cdn-redge.media/livehls/oeu/mt/live/gulli/live.livx/playlist.m3u8"
                 )));
     }
     private final HttpClient httpClient = HttpClient.newBuilder()

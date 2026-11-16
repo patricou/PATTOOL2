@@ -158,7 +158,8 @@ public class SecurityConfig {
                     // font-src: Allow Google Fonts (fonts.gstatic.com) and Font Awesome (maxcdn.bootstrapcdn.com)
                     // img-src: Allow blob: for Angular image handling
                     // media-src: Allow blob: for video compression and playback
-                    // connect-src: Allow source maps, Keycloak, Nominatim (OpenStreetMap), and OpenElevation API connections
+                    // connect-src: source maps, Keycloak, Nominatim, OpenElevation, and Maptoolkit
+                    // (style JSON, vector tiles, glyphs, sprites, terrain DEM). Raster tiles use img-src.
                     // worker-src: MapLibre GL JS GeoJSON tiling (same-origin worker + blob fallback)
                     .contentSecurityPolicy(csp -> csp
                         .policyDirectives("default-src 'self'; " +
@@ -169,7 +170,7 @@ public class SecurityConfig {
                             "img-src 'self' data: https: blob:; " +
                             "media-src 'self' data: https: blob:; " +
                             "font-src 'self' data: https://fonts.gstatic.com https://maxcdn.bootstrapcdn.com; " +
-                            "connect-src 'self' blob: http://localhost:8080 http://localhost:8000 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com https://nominatim.openstreetmap.org https://api.open-elevation.com https://*.basemaps.cartocdn.com https://basemaps.cartocdn.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org ws://localhost:8000 http://localhost:8000/ws; " +
+                            "connect-src 'self' blob: http://localhost:8080 http://localhost:8000 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com https://nominatim.openstreetmap.org https://api.open-elevation.com https://*.basemaps.cartocdn.com https://basemaps.cartocdn.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.maptoolkit.org https://*.maptoolkit.net https://tiles.mapterhorn.com ws://localhost:8000 http://localhost:8000/ws; " +
                             "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://www.google.com https://maps.google.com https://*.google.com https://cartes.gouv.fr https://www.youtube.com https://www.youtube-nocookie.com https://t.me https://telegram.org https://*.telegram.org https://stellarium-web.org https://*.stellarium-web.org https://www.wikisky.org https://*.wikisky.org https://sky-map.org https://*.sky-map.org https://d3ufh70wg9uzo4.cloudfront.net https://webcams.windy.com https://embed.windy.com https://*.windy.com;")
                     )
                     // Disable X-Frame-Options (defaults to DENY in Spring Security); framing is governed by CSP frame-ancestors.

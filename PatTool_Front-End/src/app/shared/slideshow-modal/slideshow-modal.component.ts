@@ -17,6 +17,7 @@ import { KeycloakService } from '../../keycloak/keycloak.service';
 import { Observable, Subscription, Subject } from 'rxjs';
 import { map, takeUntil, finalize } from 'rxjs/operators';
 import { isValidGeoCoordinate } from '../geo-coordinates.util';
+import { paintOpenViewerFromPage } from '../host-skin';
 import { applyMultiplicativeWheelScale, normalizeWheelDeltaPixels } from '../wheel-zoom.util';
 // Note: panzoom library is available but we'll keep using custom implementation for now
 // import panzoom from 'panzoom';
@@ -902,6 +903,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       
       // Set flag that modal is open
       this.isSlideshowModalOpen = true;
+      paintOpenViewerFromPage(
+        '.modal.show .modal-content:has(.slideshow-container)',
+        'viewer-host-skin'
+      );
       this.lastKeyPressTime = 0;
       this.lastKeyCode = 0;
       

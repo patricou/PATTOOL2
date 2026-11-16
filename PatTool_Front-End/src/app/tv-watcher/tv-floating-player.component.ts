@@ -561,7 +561,6 @@ export class TvFloatingPlayerComponent implements OnInit, OnDestroy {
         slowMirror: usesTightLiveWindow(channel) || usesTightLiveWindow(streamUrl),
         pacedLive: usesPacedLiveWindow(channel) || usesPacedLiveWindow(streamUrl),
         paceBelowRealtime: isCapTerreChannel(channel) || isCapTerreChannel(streamUrl),
-        adaptivePace: isM6GroupVirtual(streamUrl),
         onBuffering: (v) => {
           this.isBuffering = v;
           this.cdr.markForCheck();

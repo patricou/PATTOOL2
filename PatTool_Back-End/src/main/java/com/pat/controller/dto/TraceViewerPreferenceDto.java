@@ -17,5 +17,9 @@ public record TraceViewerPreferenceDto(
         Boolean keepScreenAwake,
         Boolean showGpsCoordinates,
         String baseLayerId,
+        /** Empty when the viewer shows a single basemap. */
+        String secondaryBaseLayerId,
+        /** 0 = first basemap only, 100 = second basemap only. */
+        Integer basemapBlend,
         Boolean persisted
 ) {}

@@ -30,6 +30,7 @@ import { offlineTraceIdForWall, OfflineTraceSummary, OfflineTracesStore } from '
 import { viewWindowFromMap } from '../../gps-track/gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
 import { createMaptoolkitHikingLayer, createMaptoolkitWinterLayer } from '../maptoolkit-basemap.layer';
+import { findSkinnedPageHost, paintModalFromHost } from '../host-skin';
 import { isBrowserOffline } from '../browser-offline.util';
 /** Nord = la carte suit la boussole (flèche rouge = nord réel). Marche = cap GPS en haut. Fixe = nord en haut, immobile. */
 type TraceMapOrientation = 'north' | 'heading' | 'fixed';
@@ -430,9 +431,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private baseLayers: Record<string, L.Layer> = {};
 	public availableBaseLayers: Array<{ id: string; label: string; labelKey?: string }> = [];
 	public selectedBaseLayerId: string = '';
+	/** Second basemap drawn above the first. Empty = single basemap. */
+	public secondaryBaseLayerId = '';
+	/** 0 = first basemap only, 100 = second basemap only. */
+	public basemapBlend = 50;
 	/** Last base map before opening “All IGN maps” from the list (not the IGN shortcut button). */
 	private lastBaseLayerBeforeCartesGouv: string = 'opentopomap';
 	private activeBaseLayer?: L.Layer;
+	private activeBlendLayer?: L.Layer;
+	private basemapBlendPersistTimer: number | null = null;
 	/** Current map zoom level (shown in the UI corner). */
 	public currentZoom: number = 6;
 	/** True after the map is initialized (enables zoom overlay). */
@@ -700,6 +707,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (pref.baseLayerId && pref.baseLayerId !== 'cartes-gouv') {
 			this.selectedBaseLayerId = pref.baseLayerId;
 		}
+		if (pref.secondaryBaseLayerId != null && pref.secondaryBaseLayerId !== 'cartes-gouv') {
+			this.secondaryBaseLayerId = pref.secondaryBaseLayerId;
+		}
+		if (pref.basemapBlend != null) {
+			this.basemapBlend = this.clampBasemapBlend(pref.basemapBlend);
+		}
+		if (this.secondaryBaseLayerId === this.selectedBaseLayerId) {
+			this.secondaryBaseLayerId = '';
+		}
 	}
 
 	private persistTraceViewerPreferences(): void {
@@ -720,7 +736,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			followDeviceLocation: this.followDeviceLocation,
 			keepScreenAwake: this.keepScreenAwake,
 			showGpsCoordinates: this.showGpsCoordinates,
-			baseLayerId
+			baseLayerId,
+			secondaryBaseLayerId: this.secondaryBaseLayerId === baseLayerId ? '' : this.secondaryBaseLayerId,
+			basemapBlend: this.clampBasemapBlend(this.basemapBlend)
 		}).pipe(takeUntil(this.destroy$)).subscribe({ error: () => { /* keep local value */ } });
 	}
 
@@ -771,6 +789,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	ngOnDestroy(): void {
+		if (this.basemapBlendPersistTimer != null) {
+			clearTimeout(this.basemapBlendPersistTimer);
+			this.basemapBlendPersistTimer = null;
+		}
 		window.removeEventListener('offline', this.onOffline);
 		window.removeEventListener('online', this.onOnline);
 		this.offlineSub?.unsubscribe();
@@ -2273,6 +2295,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 			typeof HTMLElement !== 'undefined' && hostOpt instanceof HTMLElement ? hostOpt : undefined;
 		this.refreshTraceViewerViewportFlags();
 		this.modalRef = this.modalService.open(this.traceViewerModal, modalOpts);
+		const pageSkin = findSkinnedPageHost();
+		if (pageSkin) {
+			this.applyHostSkin(pageSkin);
+		}
 		this.hasEmittedClosed = false;
 		this.registerMobileViewportListener();
 		// Scrollbar from the opened modal can change innerWidth. Apply that on the next tick
@@ -2712,7 +2738,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		});
 		this.map.on('zoomend', () => {
 			this.forceCrosshairCursor();
-			if (this.isSwisstopoBasemap(this.selectedBaseLayerId) && this.map) {
+			if (this.visibleSwisstopoBasemap() && this.map) {
 				const rounded = Math.round(this.map.getZoom());
 				if (Math.abs(this.map.getZoom() - rounded) > 0.01) {
 					this.snapSwisstopoTiles();
@@ -2776,7 +2802,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/** WMTS Swisstopo : zoom entier obligatoire (zoomSnap 0 → 14,8 ne charge pas les tuiles). */
 	private snapSwisstopoTiles(): void {
-		if (!this.map || !this.isSwisstopoBasemap(this.selectedBaseLayerId)) {
+		if (!this.map || !this.visibleSwisstopoBasemap()) {
 			return;
 		}
 		const c = this.map.getCenter();
@@ -3087,27 +3113,40 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return Math.abs(sw.lat - ne.lat) < 1e-7 && Math.abs(sw.lng - ne.lng) < 1e-7;
 	}
 
-	/** Max zoom supported by the active basemap (fitBounds beyond this shows gray tiles). */
+	/** Max zoom supported by the visible basemaps (fitBounds beyond this shows gray tiles). */
 	private resolveFitBoundsMaxZoom(): number {
 		if (!this.map) {
 			return TraceViewerModalComponent.DEFAULT_LOCATION_ZOOM;
 		}
-		const layer = this.activeBaseLayer;
-		if (layer instanceof L.TileLayer) {
-			return layer.options.maxZoom ?? this.map.getMaxZoom();
+		const caps = [this.layerFitMaxZoom(this.activeBaseLayer)];
+		if (this.basemapBlend > 0) {
+			caps.push(this.layerFitMaxZoom(this.activeBlendLayer));
 		}
-		if (layer && 'getLayers' in layer) {
-			let max = 2;
-			for (const child of (layer as L.LayerGroup).getLayers()) {
-				if (child instanceof L.TileLayer && child.options.maxZoom != null) {
-					max = Math.max(max, child.options.maxZoom);
-				}
-			}
-			if (max > 2) {
-				return max;
-			}
+		const limited = caps.filter((value): value is number => value != null && value > 2);
+		if (limited.length) {
+			return Math.min(...limited);
 		}
 		return Math.min(this.map.getMaxZoom(), 18);
+	}
+
+	private layerFitMaxZoom(layer: L.Layer | undefined): number | null {
+		if (!layer) {
+			return null;
+		}
+		if (layer instanceof L.TileLayer) {
+			return layer.options.maxZoom ?? null;
+		}
+		if (layer instanceof L.LayerGroup) {
+			let max = 0;
+			layer.eachLayer((child) => {
+				const childMax = this.layerFitMaxZoom(child);
+				if (childMax != null) {
+					max = Math.max(max, childMax);
+				}
+			});
+			return max > 0 ? max : null;
+		}
+		return null;
 	}
 
 	/** Centrage trace : fitBounds avec plafond de zoom ; point unique → setView. */
@@ -4411,6 +4450,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 							}
 						);
 						ignClassicGroup.addLayer(scan25Tour);
+						if (this.map && (this.selectedBaseLayerId === 'ign-classic' || this.secondaryBaseLayerId === 'ign-classic')) {
+							this.applySelectedBaseLayer();
+						}
 					},
 					error: (err) => {
 						console.warn('Could not fetch IGN API key:', err);
@@ -4450,6 +4492,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 					this.availableBaseLayers.push({ id: 'thunderforest-outdoors', label: 'TF Outdoors' });
 					this.availableBaseLayers.push({ id: 'thunderforest-landscape', label: 'TF Landscape' });
 					this.availableBaseLayers.sort((a, b) => a.label.localeCompare(b.label));
+					if (this.map && (
+						this.selectedBaseLayerId === 'opencyclemap'
+						|| this.selectedBaseLayerId === 'thunderforest-outdoors'
+						|| this.selectedBaseLayerId === 'thunderforest-landscape'
+						|| this.secondaryBaseLayerId === 'opencyclemap'
+						|| this.secondaryBaseLayerId === 'thunderforest-outdoors'
+						|| this.secondaryBaseLayerId === 'thunderforest-landscape'
+					)) {
+						this.applySelectedBaseLayer();
+					}
 				}
 			},
 			error: (error) => {
@@ -4651,8 +4703,45 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		this.selectedBaseLayerId = layerId;
+		if (this.secondaryBaseLayerId === layerId) {
+			this.secondaryBaseLayerId = '';
+		}
 		this.applySelectedBaseLayer();
 		this.persistTraceViewerPreferences();
+	}
+
+	/** Basemaps that can be stacked. cartes.gouv.fr is an embed, not a tile layer. */
+	get blendBaseLayerChoices(): Array<{ id: string; label: string; labelKey?: string }> {
+		return this.availableBaseLayers.filter((layer) => layer.id !== 'cartes-gouv');
+	}
+
+	public onSecondaryBaseLayerChange(layerId: string): void {
+		const next = (layerId || '').trim();
+		if (!next || next === 'cartes-gouv' || next === this.selectedBaseLayerId) {
+			this.secondaryBaseLayerId = '';
+		} else {
+			this.secondaryBaseLayerId = next;
+		}
+		if (this.secondaryBaseLayerId && this.basemapBlend <= 0) {
+			this.basemapBlend = 50;
+		}
+		this.applySelectedBaseLayer();
+		this.persistTraceViewerPreferences();
+	}
+
+	public onBasemapBlendChange(raw: number | string): void {
+		const next = this.clampBasemapBlend(raw);
+		const prev = this.basemapBlend;
+		if (next === prev) {
+			return;
+		}
+		this.basemapBlend = next;
+		if (this.activeSecondaryBaseLayerId() && !this.activeBlendLayer) {
+			this.applySelectedBaseLayer();
+		} else {
+			this.applyBasemapBlendOpacity();
+		}
+		this.scheduleBasemapBlendPersist();
 	}
 
 	public toggleFullscreenInfo(): void {
@@ -4757,46 +4846,243 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		const usePack = this.usingOfflineDeviceMap;
 		if (!usePack && this.selectedBaseLayerId === 'cartes-gouv') {
+			this.removeBlendLayer();
 			return;
 		}
 
+		this.removeBlendLayer();
 		if (this.activeBaseLayer) {
 			this.map.removeLayer(this.activeBaseLayer);
+			this.activeBaseLayer = undefined;
 		}
 
-		const isSwiss = this.isSwisstopoBasemap(this.selectedBaseLayerId);
-		const packStyle = this.offlineMap.displayStyle(this.selectedBaseLayerId, this.selectedCartesGouvLayerId);
-		const nextLayer: L.Layer = usePack
-			? createOfflineBasemapLayer(this.offlineTiles, packStyle)
-			: isSwiss
-			? this.createSwisstopoLayer(this.selectedBaseLayerId)
-			: (this.baseLayers[this.selectedBaseLayerId] ?? this.baseLayers['osm-standard']);
+		const secondaryId = this.activeSecondaryBaseLayerId();
+		const blend = secondaryId ? this.clampBasemapBlend(this.basemapBlend) : 0;
 
-		if (!nextLayer) {
-			return;
+		const primary = this.buildBasemapLayer(this.selectedBaseLayerId || 'opentopomap', false);
+		if (primary) {
+			primary.addTo(this.map);
+			this.sendBasemapToBack(primary);
+			this.activeBaseLayer = primary;
 		}
 
-		nextLayer.addTo(this.map);
-		if (nextLayer instanceof L.TileLayer) {
-			nextLayer.bringToBack();
-		} else if (nextLayer instanceof L.LayerGroup) {
-			nextLayer.eachLayer((child) => {
-				if (child instanceof L.TileLayer) {
-					child.bringToBack();
-				}
-			});
+		if (secondaryId) {
+			const secondary = this.buildBasemapLayer(secondaryId, true);
+			if (secondary && secondary !== this.activeBaseLayer) {
+				secondary.addTo(this.map);
+				this.raiseBasemapStack(secondary);
+				this.setBasemapOpacity(secondary, blend / 100);
+				this.activeBlendLayer = secondary;
+			}
 		}
-		this.activeBaseLayer = nextLayer;
 
 		this.applyHikingTrailsOverlay();
 		this.applyCyclingTrailsOverlay();
 		this.applyWeatherRadarOverlay();
 
+		const primaryRef = this.activeBaseLayer;
+		const blendRef = this.activeBlendLayer;
 		requestAnimationFrame(() => {
-			if (this.map && this.activeBaseLayer === nextLayer) {
+			if (!this.map) {
+				return;
+			}
+			if (blendRef && this.activeBlendLayer === blendRef) {
+				this.setBasemapOpacity(blendRef, this.clampBasemapBlend(this.basemapBlend) / 100);
+			}
+			if ((primaryRef && this.activeBaseLayer === primaryRef) || (blendRef && this.activeBlendLayer === blendRef)) {
 				this.map.invalidateSize();
 			}
 		});
+	}
+
+	/** True when a Swisstopo sheet is actually on the map (fractional zoom would leave it gray). */
+	private visibleSwisstopoBasemap(): boolean {
+		const primary = this.basemapBlend < 100 && this.isSwisstopoBasemap(this.selectedBaseLayerId);
+		const secondary = this.basemapBlend > 0 && this.isSwisstopoBasemap(this.secondaryBaseLayerId);
+		return primary || secondary;
+	}
+
+	private activeSecondaryBaseLayerId(): string {
+		const id = (this.secondaryBaseLayerId || '').trim();
+		if (!id || id === 'cartes-gouv' || id === this.selectedBaseLayerId || !this.canBuildBasemap(id)) {
+			return '';
+		}
+		return id;
+	}
+
+	private canBuildBasemap(id: string): boolean {
+		if (this.usingOfflineDeviceMap || this.isSwisstopoBasemap(id)) {
+			return true;
+		}
+		if (id === 'maptoolkit-hiking' || id === 'maptoolkit-winter') {
+			return true;
+		}
+		return !!this.baseLayers[id];
+	}
+
+	private clampBasemapBlend(raw: number | string): number {
+		const n = typeof raw === 'number' ? raw : Number(raw);
+		if (!Number.isFinite(n)) {
+			return 50;
+		}
+		return Math.max(0, Math.min(100, Math.round(n)));
+	}
+
+	private scheduleBasemapBlendPersist(): void {
+		if (this.basemapBlendPersistTimer != null) {
+			clearTimeout(this.basemapBlendPersistTimer);
+		}
+		this.basemapBlendPersistTimer = window.setTimeout(() => {
+			this.basemapBlendPersistTimer = null;
+			this.persistTraceViewerPreferences();
+		}, 350);
+	}
+
+	private removeBlendLayer(): void {
+		if (!this.activeBlendLayer) {
+			return;
+		}
+		this.activeBlendLayer.remove();
+		this.activeBlendLayer = undefined;
+	}
+
+	private applyBasemapBlendOpacity(): void {
+		if (!this.activeBlendLayer) {
+			return;
+		}
+		this.setBasemapOpacity(this.activeBlendLayer, this.clampBasemapBlend(this.basemapBlend) / 100);
+	}
+
+	/**
+	 * `independent` builds a fresh layer so the second basemap is not the same Leaflet instance as the first.
+	 */
+	private buildBasemapLayer(layerId: string, independent: boolean): L.Layer | null {
+		if (!layerId || layerId === 'cartes-gouv') {
+			return null;
+		}
+		if (this.usingOfflineDeviceMap) {
+			const packStyle = this.offlineMap.displayStyle(layerId, this.selectedCartesGouvLayerId);
+			return createOfflineBasemapLayer(this.offlineTiles, packStyle);
+		}
+		if (this.isSwisstopoBasemap(layerId)) {
+			return this.createSwisstopoLayer(layerId);
+		}
+		if (layerId === 'maptoolkit-hiking') {
+			return independent
+				? createMaptoolkitHikingLayer()
+				: (this.baseLayers[layerId] ?? createMaptoolkitHikingLayer());
+		}
+		if (layerId === 'maptoolkit-winter') {
+			return independent
+				? createMaptoolkitWinterLayer()
+				: (this.baseLayers[layerId] ?? createMaptoolkitWinterLayer());
+		}
+		const source = this.baseLayers[layerId] ?? this.baseLayers['osm-standard'];
+		if (!source) {
+			return null;
+		}
+		if (!independent) {
+			return source;
+		}
+		const cloned = this.cloneLeafletLayer(source);
+		if (cloned === source) {
+			return null;
+		}
+		if (cloned instanceof L.LayerGroup && cloned.getLayers().length === 0) {
+			return null;
+		}
+		return cloned;
+	}
+
+	private cloneLeafletLayer(source: L.Layer): L.Layer {
+		if (source instanceof L.TileLayer) {
+			const url = (source as L.TileLayer & { _url?: string })._url ?? '';
+			if (!url) {
+				return source;
+			}
+			return L.tileLayer(url, { ...source.options });
+		}
+		if (source instanceof L.LayerGroup) {
+			const children: L.Layer[] = [];
+			source.eachLayer((child) => {
+				const cloned = this.cloneLeafletLayer(child);
+				if (cloned !== child) {
+					children.push(cloned);
+				}
+			});
+			return L.layerGroup(children);
+		}
+		return source;
+	}
+
+	private sendBasemapToBack(layer: L.Layer): void {
+		if (layer instanceof L.TileLayer) {
+			layer.bringToBack();
+			return;
+		}
+		if (layer instanceof L.LayerGroup) {
+			layer.eachLayer((child) => {
+				if (child instanceof L.TileLayer) {
+					child.bringToBack();
+				}
+			});
+		}
+	}
+
+	/** Keep the second basemap above the first and below weather (zIndex 4) and trails. */
+	private raiseBasemapStack(layer: L.Layer): void {
+		if (layer instanceof L.TileLayer) {
+			layer.setZIndex(3);
+			return;
+		}
+		if (layer instanceof L.LayerGroup) {
+			layer.eachLayer((child) => {
+				if (child instanceof L.TileLayer) {
+					child.setZIndex(Math.max(child.options.zIndex ?? 1, 3));
+				} else {
+					this.raiseBasemapStack(child);
+				}
+			});
+			return;
+		}
+		const container = this.basemapContainer(layer);
+		if (container) {
+			container.style.zIndex = '3';
+		}
+	}
+
+	private setBasemapOpacity(layer: L.Layer, opacity: number): void {
+		const clamped = Math.max(0, Math.min(1, opacity));
+		if (layer instanceof L.TileLayer) {
+			const tagged = layer as L.TileLayer & { _blendBaseOpacity?: number };
+			if (tagged._blendBaseOpacity == null) {
+				tagged._blendBaseOpacity = layer.options.opacity ?? 1;
+			}
+			layer.setOpacity(tagged._blendBaseOpacity * clamped);
+			return;
+		}
+		if (layer instanceof L.LayerGroup) {
+			layer.eachLayer((child) => this.setBasemapOpacity(child, clamped));
+			return;
+		}
+		const container = this.basemapContainer(layer);
+		if (container) {
+			container.style.opacity = String(clamped);
+		}
+	}
+
+	private basemapContainer(layer: L.Layer): HTMLElement | null {
+		const anyLayer = layer as L.Layer & {
+			getContainer?: () => HTMLElement | undefined;
+			_container?: HTMLElement;
+		};
+		if (typeof anyLayer.getContainer === 'function') {
+			const el = anyLayer.getContainer();
+			if (el) {
+				return el;
+			}
+		}
+		return anyLayer._container ?? null;
 	}
 
 	/**
@@ -6798,12 +7084,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/** Paint the open map viewer with the skin variables of a page host. */
 	public applyHostSkin(source: HTMLElement): void {
-		const names = [
-			'--menu-bg', '--menu-fg', '--menu-muted', '--menu-border', '--menu-border-width',
-			'--menu-accent', '--menu-accent-fg', '--menu-toolbar', '--menu-input-bg',
-			'--menu-input-fg', '--menu-input-border', '--menu-hover', '--menu-active',
-			'--menu-radius', '--menu-shadow'
-		];
 		const paint = (attempt = 0): void => {
 			const modal = this.findTraceViewerModalContent();
 			if (!modal) {
@@ -6812,102 +7092,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 				return;
 			}
-			const style = getComputedStyle(source);
-			for (const name of names) {
-				const value = style.getPropertyValue(name).trim();
-				if (value) {
-					modal.style.setProperty(name, value);
-				}
-			}
-			const toolbar = style.getPropertyValue('--menu-toolbar').trim();
-			const bg = style.getPropertyValue('--menu-bg').trim();
-			const fg = style.getPropertyValue('--menu-fg').trim();
-			const border = style.getPropertyValue('--menu-border').trim();
-			const header = this.opaqueHeaderPaint(toolbar, bg);
-			modal.style.setProperty('--slideshow-header-solid', header.solid);
-			modal.style.setProperty('--slideshow-header-image', header.image);
-			modal.style.setProperty('--slideshow-header-bg', header.solid);
-			if (fg) {
-				modal.style.setProperty('--slideshow-header-text', fg);
-				modal.style.setProperty('--slideshow-button-text', fg);
-				modal.style.setProperty('--slideshow-footer-button-text', fg);
-			}
-			if (bg) {
-				modal.style.setProperty('--slideshow-footer-bg', bg);
-				modal.style.setProperty('--tv-modal-body-bg', bg);
-			}
-			if (border) {
-				modal.style.setProperty('--slideshow-border', border);
-				modal.style.setProperty('--slideshow-footer-border', border);
-				modal.style.setProperty('--slideshow-button-border', border);
-			}
-			modal.classList.add('trace-viewer-skin');
+			paintModalFromHost(modal, source, 'trace-viewer-skin');
 		};
 		paint();
-	}
-
-	/**
-	 * Title bar paint. A plain color cannot sit in front of a gradient in one
-	 * `background` value: the declaration is dropped and the bar turns transparent.
-	 */
-	private opaqueHeaderPaint(toolbar: string, bg: string): { solid: string; image: string } {
-		const solid = this.firstOpaqueColor(toolbar) || this.firstOpaqueColor(bg) || '#1c1612';
-		if (!toolbar || (this.isPlainCssColor(toolbar) && !this.colorHasAlpha(toolbar))) {
-			return { solid: this.isPlainCssColor(toolbar) ? toolbar : solid, image: 'none' };
-		}
-		const image = this.isPlainCssColor(toolbar)
-			? `linear-gradient(${toolbar}, ${toolbar})`
-			: toolbar;
-		return { solid, image };
-	}
-
-	private isPlainCssColor(value: string): boolean {
-		return !!value && !/gradient\(|url\(|image\(/i.test(value);
-	}
-
-	private colorHasAlpha(value: string): boolean {
-		const v = value.trim();
-		if (/^transparent$/i.test(v)) {
-			return true;
-		}
-		const hex = v.match(/^#([0-9a-f]{4}|[0-9a-f]{8})$/i);
-		if (hex) {
-			const alpha = hex[1].length === 4 ? hex[1].charAt(3) : hex[1].slice(6);
-			return !/^f+$/i.test(alpha);
-		}
-		const slash = v.match(/\/\s*([0-9.]+%?)/);
-		if (slash) {
-			return !this.alphaIsOpaque(slash[1]);
-		}
-		if (/rgba|hsla/i.test(v)) {
-			const parts = v.match(/[\d.]+%?/g) || [];
-			return parts.length < 4 || !this.alphaIsOpaque(parts[3]);
-		}
-		return false;
-	}
-
-	private alphaIsOpaque(token: string): boolean {
-		if (token.endsWith('%')) {
-			return parseFloat(token) >= 100;
-		}
-		return parseFloat(token) >= 1;
-	}
-
-	/** Last opaque color token, so a translucent toolbar still sits on a solid bar. */
-	private firstOpaqueColor(value: string): string {
-		if (!value) {
-			return '';
-		}
-		if (this.isPlainCssColor(value)) {
-			return this.colorHasAlpha(value) ? '' : value.trim();
-		}
-		const tokens = value.match(/#[0-9a-f]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)/gi) || [];
-		for (let i = tokens.length - 1; i >= 0; i--) {
-			if (!this.colorHasAlpha(tokens[i])) {
-				return tokens[i];
-			}
-		}
-		return '';
 	}
 
 	private findTraceViewerModalContent(): HTMLElement | null {

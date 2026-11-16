@@ -25,6 +25,16 @@
     </a>
     <button
       type="button"
+      class="radio-sidebar-expand-title-btn"
+      *ngIf="sidebarCollapsed"
+      (click)="toggleSidebarCollapsed()"
+      [attr.title]="'TV.SIDEBAR_EXPAND' | translate"
+      [attr.aria-label]="'TV.SIDEBAR_EXPAND' | translate">
+      <i class="fa fa-bars" aria-hidden="true"></i>
+      <span class="radio-sidebar-expand-title-label">{{ 'TV.SIDEBAR_EXPAND' | translate }}</span>
+    </button>
+    <button
+      type="button"
       class="radio-global-filter-open-btn"
       [class.is-active]="hasActiveFilter || filterOpen"
       (click)="toggleFilterPanel($event)"
@@ -34,16 +44,6 @@
       <i class="fa fa-filter" aria-hidden="true"></i>
       <span class="radio-global-filter-open-label">{{ 'RADIO.GLOBAL_FILTER_OPEN' | translate }}</span>
       <span class="radio-global-filter-open-dot" *ngIf="hasActiveFilter" aria-hidden="true"></span>
-    </button>
-    <button
-      type="button"
-      class="radio-sidebar-expand-title-btn"
-      *ngIf="sidebarCollapsed"
-      (click)="toggleSidebarCollapsed()"
-      [attr.title]="'TV.SIDEBAR_EXPAND' | translate"
-      [attr.aria-label]="'TV.SIDEBAR_EXPAND' | translate">
-      <i class="fa fa-bars" aria-hidden="true"></i>
-      <span class="radio-sidebar-expand-title-label">{{ 'TV.SIDEBAR_EXPAND' | translate }}</span>
     </button>
     <button
       type="button"
@@ -75,27 +75,6 @@
         [ngModel]="tickerEnabled"
         (ngModelChange)="setTickerEnabled($event)"
         [attr.aria-label]="'NOW_TICKER.ENABLED' | translate" />
-      <span class="dz-yt-search-track" aria-hidden="true"><span class="dz-yt-search-knob"></span></span>
-    </label>
-    <button
-      type="button"
-      class="radio-eq-open-btn"
-      (click)="openInVideoshow()"
-      [disabled]="!canOpenVideoshow"
-      [attr.title]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate"
-      [attr.aria-label]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate">
-      <i class="fa fa-film" aria-hidden="true"></i>
-      <span class="radio-eq-open-label">{{ 'YOUTUBE.OPEN_VIDEOSHOW' | translate }}</span>
-    </button>
-    <label class="dz-yt-search" [attr.title]="(sleeveOpen ? 'DEEZER.SLEEVE_HIDE' : 'DEEZER.SLEEVE_SHOW') | translate">
-      <span class="dz-yt-search-label">{{ 'RADIO.SLEEVE' | translate }}</span>
-      <input
-        type="checkbox"
-        class="dz-yt-search-input"
-        role="switch"
-        [ngModel]="sleeveOpen"
-        (ngModelChange)="setSleeve($event)"
-        [attr.aria-label]="'RADIO.SLEEVE' | translate" />
       <span class="dz-yt-search-track" aria-hidden="true"><span class="dz-yt-search-knob"></span></span>
     </label>
     <span class="radio-skin-picker">
@@ -155,6 +134,27 @@
         </button>
       </span>
     </span>
+    <button
+      type="button"
+      class="radio-eq-open-btn"
+      (click)="openInVideoshow()"
+      [disabled]="!canOpenVideoshow"
+      [attr.title]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate"
+      [attr.aria-label]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate">
+      <i class="fa fa-film" aria-hidden="true"></i>
+      <span class="radio-eq-open-label">{{ 'YOUTUBE.OPEN_VIDEOSHOW' | translate }}</span>
+    </button>
+    <label class="dz-yt-search" [attr.title]="(sleeveOpen ? 'DEEZER.SLEEVE_HIDE' : 'DEEZER.SLEEVE_SHOW') | translate">
+      <span class="dz-yt-search-label">{{ 'RADIO.SLEEVE' | translate }}</span>
+      <input
+        type="checkbox"
+        class="dz-yt-search-input"
+        role="switch"
+        [ngModel]="sleeveOpen"
+        (ngModelChange)="setSleeve($event)"
+        [attr.aria-label]="'RADIO.SLEEVE' | translate" />
+      <span class="dz-yt-search-track" aria-hidden="true"><span class="dz-yt-search-knob"></span></span>
+    </label>
     </span>
   </h2>
   <app-now-ticker
@@ -970,7 +970,7 @@
         [class.radio-player-frame--live]="!!current && playing && !playErrorKey">
         <div class="radio-brand-plate" aria-hidden="true">
           <span class="radio-brand-name">PatTool</span>
-          <span class="radio-brand-model">Deezer</span>
+          <span class="radio-brand-model">Deezer/YouTube</span>
         </div>
 
         <div

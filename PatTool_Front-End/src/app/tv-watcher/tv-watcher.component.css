@@ -646,27 +646,32 @@ a.tv-eq-open-btn {
 }
 
 .tv-sidebar-collapse-btn {
-  flex: 0 0 2.1rem;
-  width: 2.1rem;
-  height: 1.9rem;
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
   margin: 0.4rem 0.45rem 0.35rem 0;
-  padding: 0;
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  gap: 0.32rem;
+  padding: 0.32rem 0.6rem;
+  border: 1px solid var(--menu-accent, #1d4ed8);
   border-radius: 0.4rem;
-  background: #fff;
-  color: #475569;
+  background: var(--menu-accent, #1d4ed8);
+  color: var(--menu-accent-fg, #fff);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.15rem;
   align-self: center;
   cursor: pointer;
 }
 
 .tv-sidebar-collapse-btn:hover {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-color: #93c5fd;
+  background: color-mix(in srgb, var(--menu-accent, #1d4ed8) 78%, #000);
+  color: var(--menu-accent-fg, #fff);
+  border-color: color-mix(in srgb, var(--menu-accent, #1d4ed8) 78%, #000);
+  box-shadow: none;
 }
 
 .tv-sidebar-collapse-btn:focus-visible {
@@ -2961,7 +2966,6 @@ a.tv-eq-open-btn {
   background: var(--menu-meta-bg);
 }
 
-.tv-sidebar .tv-sidebar-collapse-btn,
 .tv-sidebar .form-control,
 .tv-sidebar .form-select {
   background-color: var(--menu-input-bg);
@@ -2974,13 +2978,26 @@ a.tv-eq-open-btn {
   opacity: 0.9;
 }
 
-.tv-sidebar .tv-sidebar-collapse-btn:hover,
 .tv-sidebar .form-control:focus,
 .tv-sidebar .form-select:focus {
   background-color: var(--menu-input-bg);
   color: var(--menu-input-fg);
   border-color: var(--menu-accent);
   box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--menu-accent) 28%, transparent);
+}
+
+.tv-sidebar .tv-sidebar-collapse-btn {
+  background: var(--menu-accent, #1d4ed8);
+  color: var(--menu-accent-fg, #fff);
+  border-color: var(--menu-accent, #1d4ed8);
+}
+
+.tv-sidebar .tv-sidebar-collapse-btn:hover,
+.tv-sidebar .tv-sidebar-collapse-btn:focus-visible {
+  background: color-mix(in srgb, var(--menu-accent, #1d4ed8) 78%, #000);
+  color: var(--menu-accent-fg, #fff);
+  border-color: color-mix(in srgb, var(--menu-accent, #1d4ed8) 78%, #000);
+  box-shadow: none;
 }
 
 .tv-sidebar .tv-sidebar-filter-icon,

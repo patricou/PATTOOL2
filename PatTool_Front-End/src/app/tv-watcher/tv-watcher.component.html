@@ -27,12 +27,13 @@
     </a>
     <button
       type="button"
-      class="tv-epg-browser-open-btn"
-      (click)="openEpgBrowser()"
-      [attr.title]="'TV.EPG_BROWSER_TITLE' | translate"
-      [attr.aria-label]="'TV.EPG_BROWSER_TITLE' | translate">
-      <i class="fa fa-list-alt" aria-hidden="true"></i>
-      <span class="tv-epg-browser-open-label">{{ 'TV.EPG_BROWSER_OPEN' | translate }}</span>
+      class="tv-sidebar-expand-title-btn"
+      *ngIf="sidebarCollapsed"
+      (click)="toggleSidebarCollapsed()"
+      [attr.title]="'TV.SIDEBAR_EXPAND' | translate"
+      [attr.aria-label]="'TV.SIDEBAR_EXPAND' | translate">
+      <i class="fa fa-bars" aria-hidden="true"></i>
+      <span class="tv-sidebar-expand-title-label">{{ 'TV.SIDEBAR_EXPAND' | translate }}</span>
     </button>
     <button
       type="button"
@@ -44,6 +45,17 @@
       <i class="fa fa-filter" aria-hidden="true"></i>
       <span class="tv-global-filter-open-label">{{ 'TV.GLOBAL_FILTER_OPEN' | translate }}</span>
       <span class="tv-global-filter-open-dot" *ngIf="hasActiveGlobalFilter" aria-hidden="true"></span>
+    </button>
+    <button
+      type="button"
+      class="tv-eq-open-btn"
+      [class.is-live]="eqLive"
+      (click)="openEqualizer()"
+      [attr.title]="(eqActive ? 'YOUTUBE.EQ.MEDIA_ACTIVE' : 'YOUTUBE.EQ.OPEN') | translate"
+      [attr.aria-label]="(eqActive ? 'YOUTUBE.EQ.MEDIA_ACTIVE' : 'YOUTUBE.EQ.OPEN') | translate">
+      <i class="fa fa-sliders" aria-hidden="true"></i>
+      <span class="tv-eq-open-label">{{ 'YOUTUBE.EQ.OPEN' | translate }}</span>
+      <span class="tv-eq-open-badge" *ngIf="eqActive" aria-hidden="true"></span>
     </button>
     <label class="pat-continue-switch" [attr.title]="'TV.CONTINUE_HINT' | translate">
       <span class="pat-continue-switch-label">{{ 'TV.CONTINUE' | translate }}</span>
@@ -65,37 +77,6 @@
         [attr.aria-label]="'NOW_TICKER.ENABLED' | translate" />
       <span class="pat-continue-switch-track" aria-hidden="true"><span class="pat-continue-switch-knob"></span></span>
     </label>
-    <button
-      type="button"
-      class="tv-eq-open-btn"
-      (click)="openInVideoshow()"
-      [disabled]="!canOpenVideoshow"
-      [attr.title]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate"
-      [attr.aria-label]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate">
-      <i class="fa fa-film" aria-hidden="true"></i>
-      <span class="tv-eq-open-label">{{ 'YOUTUBE.OPEN_VIDEOSHOW' | translate }}</span>
-    </button>
-    <button
-      type="button"
-      class="tv-eq-open-btn"
-      [class.is-live]="eqLive"
-      (click)="openEqualizer()"
-      [attr.title]="(eqActive ? 'YOUTUBE.EQ.MEDIA_ACTIVE' : 'YOUTUBE.EQ.OPEN') | translate"
-      [attr.aria-label]="(eqActive ? 'YOUTUBE.EQ.MEDIA_ACTIVE' : 'YOUTUBE.EQ.OPEN') | translate">
-      <i class="fa fa-sliders" aria-hidden="true"></i>
-      <span class="tv-eq-open-label">{{ 'YOUTUBE.EQ.OPEN' | translate }}</span>
-      <span class="tv-eq-open-badge" *ngIf="eqActive" aria-hidden="true"></span>
-    </button>
-    <button
-      type="button"
-      class="tv-sidebar-expand-title-btn"
-      *ngIf="sidebarCollapsed"
-      (click)="toggleSidebarCollapsed()"
-      [attr.title]="'TV.SIDEBAR_EXPAND' | translate"
-      [attr.aria-label]="'TV.SIDEBAR_EXPAND' | translate">
-      <i class="fa fa-bars" aria-hidden="true"></i>
-      <span class="tv-sidebar-expand-title-label">{{ 'TV.SIDEBAR_EXPAND' | translate }}</span>
-    </button>
     <span class="tv-skin-picker">
       <button
         type="button"
@@ -168,6 +149,25 @@
         </button>
       </span>
     </span>
+    <button
+      type="button"
+      class="tv-eq-open-btn"
+      (click)="openInVideoshow()"
+      [disabled]="!canOpenVideoshow"
+      [attr.title]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate"
+      [attr.aria-label]="'PHOTO_TIMELINE.OPEN_VIDEOSHOW' | translate">
+      <i class="fa fa-film" aria-hidden="true"></i>
+      <span class="tv-eq-open-label">{{ 'YOUTUBE.OPEN_VIDEOSHOW' | translate }}</span>
+    </button>
+    <button
+      type="button"
+      class="tv-epg-browser-open-btn"
+      (click)="openEpgBrowser()"
+      [attr.title]="'TV.EPG_BROWSER_TITLE' | translate"
+      [attr.aria-label]="'TV.EPG_BROWSER_TITLE' | translate">
+      <i class="fa fa-list-alt" aria-hidden="true"></i>
+      <span class="tv-epg-browser-open-label">{{ 'TV.EPG_BROWSER_OPEN' | translate }}</span>
+    </button>
     </span>
   </h2>
   <app-now-ticker
@@ -247,6 +247,7 @@
           [attr.title]="'TV.SIDEBAR_COLLAPSE' | translate"
           [attr.aria-label]="'TV.SIDEBAR_COLLAPSE' | translate">
           <i class="fa fa-chevron-left tv-sidebar-collapse-chevron" aria-hidden="true"></i>
+          <span class="tv-sidebar-collapse-label">{{ 'TV.SIDEBAR_COLLAPSE' | translate }}</span>
         </button>
       </div>
       <div id="tv-sidebar-body" class="tv-sidebar-body">

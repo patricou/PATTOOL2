@@ -11,6 +11,7 @@ import { YoutubeEqualizerModalComponent } from '../../youtube-watcher/youtube-eq
 import { startTvHlsPlayback, TvHlsPlaybackHandle } from '../../tv-watcher/tv-hls-playback';
 import { Observable, Subscription, Subject } from 'rxjs';
 import { map, takeUntil, finalize } from 'rxjs/operators';
+import { paintOpenViewerFromPage } from '../host-skin';
 
 // Export interface for use in parent components
 export interface VideoshowVideoSource {
@@ -410,6 +411,10 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, AfterView
         windowClass: 'modal-smooth-animation videoshow-modal-wide'
       });
       this.applyHeaderColor();
+      paintOpenViewerFromPage(
+        '.modal.show .modal-content:has(.videoshow-header)',
+        'viewer-host-skin'
+      );
       
       this.isVideoshowModalOpen = true;
       

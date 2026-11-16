@@ -516,14 +516,19 @@ a.radio-eq-open-btn {
 }
 
 .radio-sidebar-collapse-btn {
-  flex: 0 0 2.1rem;
-  width: 2.1rem;
-  height: 1.9rem;
-  padding: 0;
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  gap: 0.32rem;
+  padding: 0.32rem 0.6rem;
+  border: 1px solid var(--menu-accent, #0d9488);
   border-radius: 0.4rem;
-  background: #fff;
-  color: #475569;
+  background: var(--menu-accent, #0d9488);
+  color: var(--menu-accent-fg, #fff);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -531,9 +536,10 @@ a.radio-eq-open-btn {
 }
 
 .radio-sidebar-collapse-btn:hover {
-  background: #f0fdfa;
-  color: #0f766e;
-  border-color: #5eead4;
+  background: color-mix(in srgb, var(--menu-accent, #0d9488) 78%, #000);
+  color: var(--menu-accent-fg, #fff);
+  border-color: color-mix(in srgb, var(--menu-accent, #0d9488) 78%, #000);
+  box-shadow: none;
 }
 
 .radio-sidebar-collapse-btn:focus-visible {
@@ -2929,7 +2935,6 @@ a.radio-eq-open-btn {
   color: var(--menu-accent);
 }
 
-.radio-sidebar .radio-sidebar-collapse-btn,
 .radio-sidebar .form-control,
 .radio-sidebar .form-select {
   background-color: var(--menu-input-bg);
@@ -2942,13 +2947,26 @@ a.radio-eq-open-btn {
   opacity: 0.9;
 }
 
-.radio-sidebar .radio-sidebar-collapse-btn:hover,
 .radio-sidebar .form-control:focus,
 .radio-sidebar .form-select:focus {
   background-color: var(--menu-input-bg);
   color: var(--menu-input-fg);
   border-color: var(--menu-accent);
   box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--menu-accent) 28%, transparent);
+}
+
+.radio-sidebar .radio-sidebar-collapse-btn {
+  background: var(--menu-accent, #0d9488);
+  color: var(--menu-accent-fg, #fff);
+  border-color: var(--menu-accent, #0d9488);
+}
+
+.radio-sidebar .radio-sidebar-collapse-btn:hover,
+.radio-sidebar .radio-sidebar-collapse-btn:focus-visible {
+  background: color-mix(in srgb, var(--menu-accent, #0d9488) 78%, #000);
+  color: var(--menu-accent-fg, #fff);
+  border-color: color-mix(in srgb, var(--menu-accent, #0d9488) 78%, #000);
+  box-shadow: none;
 }
 
 .radio-sidebar .radio-sidebar-filter-icon,

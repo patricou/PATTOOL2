@@ -328,6 +328,22 @@
                   [attr.aria-label]="'EVENTELEM.TRACK_BASEMAP' | translate">
             <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}</option>
           </select>
+          <select class="form-select form-select-sm mt-2"
+                  [ngModel]="secondaryBaseLayerId"
+                  (ngModelChange)="onSecondaryBaseLayerChange($event)"
+                  [attr.aria-label]="'EVENTELEM.TRACK_BASEMAP_SECOND' | translate">
+            <option value="">{{ 'EVENTELEM.TRACK_BASEMAP_NONE' | translate }}</option>
+            <option *ngFor="let layer of blendBaseLayerChoices" [value]="layer.id" [disabled]="layer.id === selectedBaseLayerId">{{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}</option>
+          </select>
+          <label class="trace-basemap-blend" *ngIf="secondaryBaseLayerId">
+            <span aria-hidden="true">1</span>
+            <input type="range" min="0" max="100" step="1"
+                   [ngModel]="basemapBlend"
+                   (ngModelChange)="onBasemapBlendChange($event)"
+                   [attr.aria-label]="'EVENTELEM.TRACK_BASEMAP_BLEND' | translate"
+                   [attr.title]="'EVENTELEM.TRACK_BASEMAP_BLEND' | translate">
+            <span aria-hidden="true">2</span>
+          </label>
           <div class="fullscreen-offline-row d-flex align-items-center flex-wrap gap-2 mt-2">
             <button type="button"
                     class="btn btn-sm btn-outline-secondary"
@@ -556,7 +572,7 @@
 
   <div class="modal-footer slideshow-footer trace-viewer-footer-toolbar">
     <div class="trace-viewer-footer-row trace-viewer-footer-row--primary w-100 d-flex flex-wrap align-items-center gap-2">
-      <div class="trace-viewer-footer-basemap-slot d-flex align-items-center flex-nowrap gap-1 flex-shrink-0">
+      <div class="trace-viewer-footer-basemap-slot d-flex align-items-center flex-wrap gap-1">
         <div class="trace-stats" *ngIf="availableBaseLayers.length > 0 && !isFullscreen">
           <select id="trace-base-layer" class="form-select form-select-sm"
                   [ngModel]="selectedBaseLayerId"
@@ -564,7 +580,23 @@
                   [attr.aria-label]="'EVENTELEM.TRACK_BASEMAP' | translate">
             <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}</option>
           </select>
+          <select id="trace-base-layer-b" class="form-select form-select-sm"
+                  [ngModel]="secondaryBaseLayerId"
+                  (ngModelChange)="onSecondaryBaseLayerChange($event)"
+                  [attr.aria-label]="'EVENTELEM.TRACK_BASEMAP_SECOND' | translate">
+            <option value="">{{ 'EVENTELEM.TRACK_BASEMAP_NONE' | translate }}</option>
+            <option *ngFor="let layer of blendBaseLayerChoices" [value]="layer.id" [disabled]="layer.id === selectedBaseLayerId">{{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}</option>
+          </select>
         </div>
+        <label class="trace-basemap-blend" *ngIf="secondaryBaseLayerId && !isFullscreen">
+            <span aria-hidden="true">1</span>
+            <input id="trace-basemap-blend" type="range" min="0" max="100" step="1"
+                   [ngModel]="basemapBlend"
+                   (ngModelChange)="onBasemapBlendChange($event)"
+                   [attr.aria-label]="'EVENTELEM.TRACK_BASEMAP_BLEND' | translate"
+                   [attr.title]="'EVENTELEM.TRACK_BASEMAP_BLEND' | translate">
+            <span aria-hidden="true">2</span>
+          </label>
         <button type="button"
                 class="btn btn-sm tv-offline-map-btn"
                 (click)="openOfflineTiles()"

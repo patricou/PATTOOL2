@@ -79,6 +79,8 @@ public class TraceViewerPreferenceService {
                 dto.keepScreenAwake(),
                 dto.showGpsCoordinates(),
                 dto.baseLayerId(),
+                dto.secondaryBaseLayerId(),
+                dto.basemapBlend(),
                 true
         );
     }
@@ -113,6 +115,8 @@ public class TraceViewerPreferenceService {
                 normalized.keepScreenAwake(),
                 normalized.showGpsCoordinates(),
                 normalized.baseLayerId(),
+                normalized.secondaryBaseLayerId(),
+                normalized.basemapBlend(),
                 true
         );
     }
@@ -147,6 +151,8 @@ public class TraceViewerPreferenceService {
                 false,
                 false,
                 "opentopomap",
+                "",
+                50,
                 persisted
         );
     }
@@ -165,6 +171,8 @@ public class TraceViewerPreferenceService {
                 patch.keepScreenAwake() != null ? patch.keepScreenAwake() : base.keepScreenAwake(),
                 patch.showGpsCoordinates() != null ? patch.showGpsCoordinates() : base.showGpsCoordinates(),
                 patch.baseLayerId() != null ? patch.baseLayerId() : base.baseLayerId(),
+                patch.secondaryBaseLayerId() != null ? patch.secondaryBaseLayerId() : base.secondaryBaseLayerId(),
+                patch.basemapBlend() != null ? patch.basemapBlend() : base.basemapBlend(),
                 null
         );
     }
@@ -185,6 +193,8 @@ public class TraceViewerPreferenceService {
                 boolOrDefault(dto.keepScreenAwake(), false),
                 boolOrDefault(dto.showGpsCoordinates(), false),
                 baseLayerId,
+                normalizeSecondaryBaseLayerId(dto.secondaryBaseLayerId()),
+                normalizeBasemapBlend(dto.basemapBlend()),
                 null
         ));
     }
@@ -208,5 +218,28 @@ public class TraceViewerPreferenceService {
             return id;
         }
         return "opentopomap";
+    }
+
+    /** Blank clears the second basemap. Unknown ids are dropped. */
+    private static String normalizeSecondaryBaseLayerId(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "";
+        }
+        String id = raw.trim().toLowerCase(Locale.ROOT);
+        if (!BASE_LAYER_ID.matcher(id).matches() || "cartes-gouv".equals(id)) {
+            return "";
+        }
+        if (KNOWN_BASE_LAYERS.contains(id)) {
+            return id;
+        }
+        return "";
+    }
+
+    /** 0 shows only the first basemap, 100 only the second. */
+    private static int normalizeBasemapBlend(Integer raw) {
+        if (raw == null) {
+            return 50;
+        }
+        return Math.max(0, Math.min(100, raw));
     }
 }

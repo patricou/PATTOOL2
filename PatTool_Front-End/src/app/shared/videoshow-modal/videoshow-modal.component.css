@@ -249,6 +249,53 @@
     font-family: "FontAwesome" !important;
 }
 
+/* Page cabinet skin. Beats the single-accent tint and the green frame. The video stays black. */
+::ng-deep .modal.show .modal-dialog .modal-content.viewer-host-skin:has(.videoshow-header) {
+    background: var(--menu-bg) !important;
+    background-color: var(--menu-bg) !important;
+    color: var(--menu-fg, #fff) !important;
+    border: var(--menu-border-width, 4px) solid var(--menu-border, transparent) !important;
+    box-shadow: var(--menu-shadow, none) !important;
+}
+
+::ng-deep .modal.show .modal-content.viewer-host-skin .videoshow-header {
+    background-color: var(--slideshow-header-solid, #1c1612) !important;
+    background-image: var(--slideshow-header-image, none) !important;
+    background-repeat: no-repeat !important;
+    background-size: cover !important;
+    color: var(--menu-fg, #fff) !important;
+    border-bottom: 1px solid var(--menu-border, transparent) !important;
+}
+
+::ng-deep .modal.show .modal-content.viewer-host-skin .videoshow-header .modal-title,
+::ng-deep .modal.show .modal-content.viewer-host-skin .videoshow-header .btn,
+::ng-deep .modal.show .modal-content.viewer-host-skin .videoshow-header .btn i {
+    color: var(--menu-fg, #fff) !important;
+    border-color: var(--menu-border, transparent) !important;
+}
+
+::ng-deep .modal.show .modal-content.viewer-host-skin .videoshow-header .btn:hover {
+    background: var(--menu-hover, transparent) !important;
+    color: var(--menu-fg, #fff) !important;
+}
+
+::ng-deep .modal.show .modal-content.viewer-host-skin .videoshow-footer {
+    background: var(--menu-bg) !important;
+    color: var(--menu-fg, #fff) !important;
+    border-top: 1px solid var(--menu-border, transparent) !important;
+}
+
+::ng-deep .modal.show .modal-content.viewer-host-skin .videoshow-footer .btn {
+    background: var(--menu-input-bg, transparent) !important;
+    color: var(--menu-input-fg, var(--menu-fg, #fff)) !important;
+    border-color: var(--menu-input-border, var(--menu-border, transparent)) !important;
+}
+
+::ng-deep .modal.show .modal-content.viewer-host-skin .videoshow-footer .btn:hover {
+    background: var(--menu-hover, transparent) !important;
+    color: var(--menu-fg, #fff) !important;
+}
+
 .videoshow-body {
     padding: 0;
     background: #000 !important;

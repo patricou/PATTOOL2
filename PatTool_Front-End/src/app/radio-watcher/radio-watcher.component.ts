@@ -1105,8 +1105,11 @@ export class RadioWatcherComponent implements OnInit, AfterViewInit, OnDestroy {
     return !this.isFloatingOpen && this.trackImages.length > 0 && (this.sleeveOpen || this.landscapeFullscreen);
   }
 
-  toggleSleeve(): void {
-    this.sleeveOpen = !this.sleeveOpen;
+  setSleeveOpen(open: boolean): void {
+    if (this.sleeveOpen === open) {
+      return;
+    }
+    this.sleeveOpen = open;
     this.writeSleeveOpen(this.sleeveOpen);
     this.cdr.markForCheck();
   }
