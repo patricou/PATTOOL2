@@ -29,7 +29,8 @@ import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../../gps-track/gps-of
 import { offlineTraceIdForWall, OfflineTraceSummary, OfflineTracesStore } from '../../gps-track/offline-traces.store';
 import { viewWindowFromMap } from '../../gps-track/gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
-import { createMaptoolkitHikingLayer, createMaptoolkitWinterLayer } from '../maptoolkit-basemap.layer';
+import { createVectorBasemapLayer, maptoolkitStyleForBasemap, vectorStyleForBasemap } from '../maptoolkit-basemap.layer';
+import { MaptoolkitTerrainView, ReliefTrace } from '../maptoolkit-terrain-view';
 import { findSkinnedPageHost, paintModalFromHost } from '../host-skin';
 import { isBrowserOffline } from '../browser-offline.util';
 /** Nord = la carte suit la boussole (flèche rouge = nord réel). Marche = cap GPS en haut. Fixe = nord en haut, immobile. */
@@ -429,12 +430,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private orientationChangeHandler?: () => void;
 	private mobileViewportResizeHandler?: () => void;
 	private baseLayers: Record<string, L.Layer> = {};
-	public availableBaseLayers: Array<{ id: string; label: string; labelKey?: string }> = [];
+	public availableBaseLayers: Array<{ id: string; label: string; labelKey?: string; relief?: boolean }> = [];
 	public selectedBaseLayerId: string = '';
 	/** Second basemap drawn above the first. Empty = single basemap. */
 	public secondaryBaseLayerId = '';
 	/** 0 = first basemap only, 100 = second basemap only. */
 	public basemapBlend = 50;
+	/** Pitched MapLibre view for Maptoolkit Rando / Ski. Flat Leaflet stays underneath. */
+	public relief3d = false;
+	/** Camera tilt in degrees, 0 = top-down, 70 = steep. */
+	public reliefPitch = 50;
+	/** Bearing of the 3D view, degrees clockwise from north. */
+	private reliefBearing = 0;
+	private terrainView: MaptoolkitTerrainView | null = null;
 	/** Last base map before opening “All IGN maps” from the list (not the IGN shortcut button). */
 	private lastBaseLayerBeforeCartesGouv: string = 'opentopomap';
 	private activeBaseLayer?: L.Layer;
@@ -976,6 +984,26 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Restore selectionMode and simpleShareMode AFTER open() has reset it
 		this.selectionMode = enableSelection;
 		this.simpleShareMode = simpleShare;
+	}
+
+	/** Recentre le viewer déjà ouvert, sans le refermer (ex. GPS arrivé après l’ouverture du menu). */
+	public focusLocation(lat: number, lng: number, zoom = 13): void {
+		if (!isValidGeoCoordinate(lat, lng)) {
+			return;
+		}
+		const viewZoom = Math.min(19, Math.max(2, Math.round(zoom)));
+		if (!this.map) {
+			if (this.pendingLocation) {
+				this.pendingLocation = { ...this.pendingLocation, lat, lng, zoom: viewZoom };
+			}
+			return;
+		}
+		this.lastRenderedPosition = { lat, lng };
+		this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
+		this.map.setView([lat, lng], viewZoom, { animate: false });
+		this.currentZoom = viewZoom;
+		this.updateDeviceLocationMarker(lat, lng);
+		this.scheduleTraceViewerCdr();
 	}
 
 	public openCiblePair(
@@ -2284,6 +2312,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			centered: true,
 			backdrop: 'static',
 			keyboard: true,
+			// Pas de fondu : ng-bootstrap n’ajoute .show qu’après le rendu, et .fade garde la fenêtre à opacity 0.
+			animation: false,
 			// Pas de modal-smooth-animation : scale/translate sur .modal-dialog casse Leaflet (tuiles grises).
 			windowClass: TraceViewerModalComponent.TRACE_VIEWER_MODAL_WINDOW_CLASS,
 			modalDialogClass: 'modal-xl'
@@ -2682,7 +2712,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!isContainerVisible) {
 			this.mapInitVisibilityAttempts += 1;
 			if (this.mapInitVisibilityAttempts < 100) {
-				setTimeout(() => this.initializeMap(), 100);
+				if (this.mapInitVisibilityAttempts < 4) {
+					requestAnimationFrame(() => this.initializeMap());
+				} else {
+					setTimeout(() => this.initializeMap(), 50);
+				}
 				return;
 			}
 			/*
@@ -3350,6 +3384,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			distanceKm: Math.round(distanceKm * 100) / 100
 		};
 		this.applyMapBearing();
+		this.syncRelief3dOverlays();
+		this.terrainView?.fitTraces();
 		this.cdr.detectChanges();
 	}
 
@@ -3446,6 +3482,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			distanceKm: this.computeDistance(points)
 		};
 		this.applyMapBearing();
+		this.syncRelief3dOverlays();
+		this.terrainView?.fitTraces();
 		this.cdr.detectChanges();
 	}
 
@@ -4056,6 +4094,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private destroyMap(): void {
+		this.stopRelief3d(false);
 		this.teardownMapLayoutObserver();
 		this.clearPendingRenderRetry();
 		this.trackAutoFitUntil = 0;
@@ -4577,8 +4616,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 				maxZoom: 20,
 				attribution: '<a href="https://wiki.openstreetmap.org/wiki/OpenHikingMap">© OpenHikingMap</a> <a href="https://openmaps.fr/donate">Donation</a> <a href="https://www.openstreetmap.org/copyright">© OpenStreetMap</a>'
 			}),
-			'maptoolkit-hiking': createMaptoolkitHikingLayer(),
-			'maptoolkit-winter': createMaptoolkitWinterLayer(),
+			'maptoolkit-hiking': createVectorBasemapLayer('maptoolkit-hiking')!,
+			'maptoolkit-winter': createVectorBasemapLayer('maptoolkit-winter')!,
 			// 'esri-light-gray': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
 			// 	maxZoom: 16,
 			// 	attribution: 'Tiles &copy; Esri'
@@ -4674,8 +4713,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			{ id: 'opentopomap', label: 'OpenTopoMap' },
 			{ id: 'opentopomap-r', label: 'OpenTopoMap-R' },
 			{ id: 'openhikingmap', label: 'OpenHikingMap' },
-			{ id: 'maptoolkit-hiking', label: 'Maptoolkit Rando' },
-			{ id: 'maptoolkit-winter', label: 'Maptoolkit Ski' },
+			{ id: 'maptoolkit-hiking', label: 'Maptoolkit Rando', relief: true },
+			{ id: 'maptoolkit-winter', label: 'Maptoolkit Ski', relief: true },
 			{ id: 'cartes-gouv', label: 'cartes.gouv.fr', labelKey: 'EVENTELEM.CARTES_GOUV_FR' },
 			{ id: 'ign-classic', label: 'IGN Classique' },
 			{ id: 'ign-plan', label: 'IGN Plan' },
@@ -4693,6 +4732,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public onBaseLayerChange(layerId: string): void {
+		const previousBaseLayerId = this.selectedBaseLayerId;
+		if (this.relief3d && !this.isMaptoolkitBasemap(layerId)) {
+			this.stopRelief3d(true);
+		}
 		this.offlineUseDevice = false;
 		const online = typeof navigator === 'undefined' || navigator.onLine;
 		this.offlineFallback = !online && this.offlineMeta.tileCount > 0;
@@ -4708,10 +4751,171 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.applySelectedBaseLayer();
 		this.persistTraceViewerPreferences();
+		if (this.relief3d && this.isMaptoolkitBasemap(layerId) && layerId !== previousBaseLayerId) {
+			this.applyRelief3dStyle();
+		}
+		this.syncRelief3dBlend();
+	}
+
+	get relief3dAvailable(): boolean {
+		return !this.usingOfflineDeviceMap && this.isMaptoolkitBasemap(this.selectedBaseLayerId);
+	}
+
+	public toggleRelief3d(): void {
+		if (this.relief3d) {
+			this.stopRelief3d(true);
+			return;
+		}
+		if (!this.relief3dAvailable || !this.map) {
+			return;
+		}
+		this.relief3d = true;
+		this.cdr.detectChanges();
+		this.startRelief3d();
+	}
+
+	public onReliefPitchChange(value: number | string): void {
+		const n = typeof value === 'number' ? value : Number(value);
+		this.reliefPitch = Number.isFinite(n) ? Math.max(0, Math.min(85, Math.round(n))) : 50;
+		this.terrainView?.setPitch(this.reliefPitch);
+	}
+
+	private isMaptoolkitBasemap(id: string): boolean {
+		return maptoolkitStyleForBasemap(id) != null;
+	}
+
+	/** Keep the current 3D camera and paint the Maptoolkit style selected by the slider. */
+	private applyRelief3dStyle(): void {
+		if (!maptoolkitStyleForBasemap(this.selectedBaseLayerId)) {
+			return;
+		}
+		if (!this.terrainView) {
+			this.startRelief3d();
+			return;
+		}
+		this.syncRelief3dBlend();
+	}
+
+	private startRelief3d(): void {
+		const host = this.reliefHostElement();
+		const style = this.reliefVisibleStyle();
+		if (!this.relief3d || !this.map || !host || !style) {
+			this.relief3d = false;
+			return;
+		}
+		const center = this.map.getCenter();
+		const zoom = this.map.getZoom();
+		this.applySelectedBaseLayer();
+		this.terrainView?.destroy();
+		this.terrainView = new MaptoolkitTerrainView();
+		this.reliefBearing = 0;
+		this.terrainView.mount(host, style, {
+			lng: center.lng,
+			lat: center.lat,
+			zoom: Number.isFinite(zoom) ? zoom : 13,
+			pitch: this.reliefPitch
+		}, {
+			onZoom: (nextZoom) => {
+				this.currentZoom = nextZoom;
+				this.scheduleTraceViewerCdr();
+			},
+			onBearing: (bearing) => {
+				this.reliefBearing = bearing;
+				this.updateCompassRose();
+			},
+			onPitch: (pitch) => {
+				const next = Math.max(0, Math.min(85, Math.round(pitch)));
+				if (next === this.reliefPitch) {
+					return;
+				}
+				this.reliefPitch = next;
+				this.cdr.markForCheck();
+			}
+		});
+		this.syncRelief3dOverlays();
+		this.syncRelief3dBlend();
+		this.updateCompassRose();
+	}
+
+	/** Drop the pitched view. When `syncView` is set, the flat map keeps the 3D center and zoom. */
+	private stopRelief3d(syncView: boolean): void {
+		if (!this.relief3d && !this.terrainView) {
+			return;
+		}
+		const cam = syncView ? this.terrainView?.camera() ?? null : null;
+		this.terrainView?.destroy();
+		this.terrainView = null;
+		this.relief3d = false;
+		if (cam && this.map) {
+			const zoom = Math.max(this.map.getMinZoom(), Math.min(this.map.getMaxZoom(), cam.zoom));
+			this.map.setView([cam.lat, cam.lng], zoom, { animate: false });
+			this.currentZoom = this.map.getZoom();
+		}
+		this.updateCompassRose();
+		this.applySelectedBaseLayer();
+		this.cdr.markForCheck();
+	}
+
+	private reliefHostElement(): HTMLElement | null {
+		const mapEl = this.resolveMapContainerElement();
+		const host = mapEl?.parentElement?.querySelector('.trace-relief3d-host');
+		return host instanceof HTMLElement ? host : null;
+	}
+
+	/** Style shown in 3D: map 2 from the middle of the slider, otherwise map 1. */
+	private reliefVisibleStyle(): string | null {
+		const secondaryId = this.activeSecondaryBaseLayerId();
+		const secondaryStyle = maptoolkitStyleForBasemap(secondaryId);
+		if (secondaryStyle && this.clampBasemapBlend(this.basemapBlend) >= 50) {
+			return secondaryStyle;
+		}
+		return maptoolkitStyleForBasemap(this.selectedBaseLayerId);
+	}
+
+	/** In 3D the slider swaps the single map. A second map underneath shows through while moving. */
+	private syncRelief3dBlend(): void {
+		if (!this.relief3d || !this.terrainView) {
+			return;
+		}
+		const style = this.reliefVisibleStyle();
+		if (!style) {
+			return;
+		}
+		this.terrainView.setBlend(null, 0);
+		this.terrainView.setStyle(style);
+	}
+
+	private syncRelief3dOverlays(): void {
+		if (!this.terrainView) {
+			return;
+		}
+		this.terrainView.setTraces(this.reliefTraces());
+		this.terrainView.setGps(this.deviceLocationLatLng);
+	}
+
+	private reliefTraces(): ReliefTrace[] {
+		if (this.lastRenderedTraces?.length) {
+			const colors = TraceViewerModalComponent.MULTI_TRACE_COLORS;
+			return this.lastRenderedTraces
+				.filter((trace) => trace.points.length >= 2)
+				.map((trace, index) => {
+					const color = colors[index % colors.length];
+					return { color, points: trace.points, startColor: color, endColor: color };
+				});
+		}
+		if ((this.lastRenderedTrackPoints?.length ?? 0) >= 2) {
+			return [{
+				color: '#007bff',
+				points: this.lastRenderedTrackPoints!,
+				startColor: '#28a745',
+				endColor: '#dc3545'
+			}];
+		}
+		return [];
 	}
 
 	/** Basemaps that can be stacked. cartes.gouv.fr is an embed, not a tile layer. */
-	get blendBaseLayerChoices(): Array<{ id: string; label: string; labelKey?: string }> {
+	get blendBaseLayerChoices(): Array<{ id: string; label: string; labelKey?: string; relief?: boolean }> {
 		return this.availableBaseLayers.filter((layer) => layer.id !== 'cartes-gouv');
 	}
 
@@ -4727,6 +4931,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.applySelectedBaseLayer();
 		this.persistTraceViewerPreferences();
+		this.syncRelief3dBlend();
 	}
 
 	public onBasemapBlendChange(raw: number | string): void {
@@ -4741,6 +4946,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		} else {
 			this.applyBasemapBlendOpacity();
 		}
+		this.syncRelief3dBlend();
 		this.scheduleBasemapBlendPersist();
 	}
 
@@ -4781,6 +4987,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	setTraceOfflineSource(useDevice: boolean): void {
+		if (useDevice && this.relief3d) {
+			this.stopRelief3d(true);
+		}
 		this.offlineUseDevice = !!useDevice && this.offlineMeta.tileCount > 0;
 		this.offlineFallback = false;
 		this.applySelectedBaseLayer();
@@ -4856,6 +5065,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.activeBaseLayer = undefined;
 		}
 
+		// The 3D view already draws Maptoolkit. A second WebGL copy under it
+		// can stop the transparent overlay from getting a graphics context.
+		if (this.relief3d && (this.isMaptoolkitBasemap(this.selectedBaseLayerId) || this.isMaptoolkitBasemap(this.secondaryBaseLayerId))) {
+			return;
+		}
+
 		const secondaryId = this.activeSecondaryBaseLayerId();
 		const blend = secondaryId ? this.clampBasemapBlend(this.basemapBlend) : 0;
 
@@ -4914,7 +5129,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (this.usingOfflineDeviceMap || this.isSwisstopoBasemap(id)) {
 			return true;
 		}
-		if (id === 'maptoolkit-hiking' || id === 'maptoolkit-winter') {
+		if (vectorStyleForBasemap(id)) {
 			return true;
 		}
 		return !!this.baseLayers[id];
@@ -4967,15 +5182,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (this.isSwisstopoBasemap(layerId)) {
 			return this.createSwisstopoLayer(layerId);
 		}
-		if (layerId === 'maptoolkit-hiking') {
-			return independent
-				? createMaptoolkitHikingLayer()
-				: (this.baseLayers[layerId] ?? createMaptoolkitHikingLayer());
-		}
-		if (layerId === 'maptoolkit-winter') {
-			return independent
-				? createMaptoolkitWinterLayer()
-				: (this.baseLayers[layerId] ?? createMaptoolkitWinterLayer());
+		const vector = createVectorBasemapLayer(layerId);
+		if (vector) {
+			return independent ? vector : (this.baseLayers[layerId] ?? createVectorBasemapLayer(layerId));
 		}
 		const source = this.baseLayers[layerId] ?? this.baseLayers['osm-standard'];
 		if (!source) {
@@ -5661,6 +5870,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public recenterOnTrack(): void {
+		if (this.relief3d && this.terrainView) {
+			this.terrainView.fitTraces();
+			return;
+		}
 		if (!this.map || !this.trackBounds) {
 			return;
 		}
@@ -5689,6 +5902,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				);
 				this.map.setView([lat, lng], zoom);
 				this.currentZoom = zoom;
+				this.terrainView?.jumpTo(lat, lng, zoom);
 				this.updateDeviceLocationMarker(lat, lng);
 				this.cdr.markForCheck();
 			},
@@ -6122,11 +6336,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.deviceLocationMarker.setIcon(this.deviceLocationIcon());
 			}
 			this.syncDeviceLocationArrows();
+			this.terrainView?.setGps(this.deviceLocationLatLng);
 			return;
 		}
 		this.deviceLocationMarker = L.marker([lat, lng], { icon: this.deviceLocationIcon(), zIndexOffset: 3000 });
 		this.deviceLocationMarker.addTo(this.map);
 		this.syncDeviceLocationArrows();
+		this.terrainView?.setGps(this.deviceLocationLatLng);
 	}
 
 	private deviceLocationIcon(): L.DivIcon {
@@ -6469,7 +6685,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!dial) {
 			return;
 		}
-		dial.style.transform = `rotate(${this.currentMapBearingDeg().toFixed(1)}deg)`;
+		const bearing = this.relief3d ? this.reliefBearing : this.currentMapBearingDeg();
+		dial.style.transform = `rotate(${bearing.toFixed(1)}deg)`;
 	}
 
 	private findCompassRoseDial(): SVGSVGElement | null {
@@ -6487,6 +6704,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.deviceLocationMarker = undefined;
 		}
 		this.deviceLocationLatLng = null;
+		this.terrainView?.setGps(null);
 		this.syncClickDirectionArrow();
 	}
 
@@ -6501,8 +6719,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 				const lat = pos.coords.latitude;
 				const lng = pos.coords.longitude;
-				const zoom = this.map.getZoom();
+				const zoom = this.relief3d && this.terrainView?.camera()
+					? this.terrainView.camera()!.zoom
+					: this.map.getZoom();
 				this.map.setView([lat, lng], zoom);
+				this.terrainView?.jumpTo(lat, lng, zoom);
 				this.updateDeviceLocationMarker(lat, lng);
 				this.cdr.markForCheck();
 			},

@@ -29,6 +29,7 @@
 
       <div class="map-wrapper">
         <div #mapContainer id="trace-viewer-map-container" class="map-container" aria-label="Track map"></div>
+        <div class="trace-relief3d-host" [class.trace-relief3d-host--on]="relief3d" [attr.aria-hidden]="relief3d ? null : true"></div>
 
         <div class="trace-viewer-compass-rose"
              role="img"
@@ -45,6 +46,7 @@
         </div>
 
         <div class="trace-viewer-orient-overlay"
+             *ngIf="!relief3d"
              role="group"
              [attr.aria-label]="'GPS_ROUTING.ORIENT_LABEL' | translate">
           <button type="button"
@@ -313,6 +315,20 @@
                 <i class="fa fa-compress" aria-hidden="true"></i>
               </button>
               <button type="button"
+                      class="btn btn-sm btn-secondary tv-relief3d-fs"
+                      *ngIf="relief3dAvailable"
+                      (click)="toggleRelief3d()"
+                      [attr.title]="'EVENTELEM.TRACK_RELIEF_3D_HINT' | translate"
+                      [attr.aria-pressed]="relief3d"
+                      [attr.aria-label]="relief3d ? '2D' : '3D'">
+                <svg class="tv-relief3d-logo" viewBox="0 0 24 24" aria-hidden="true">
+                  <path class="tv-relief3d-logo-top" d="M12 2.5 21 7.5 12 12.5 3 7.5Z"/>
+                  <path class="tv-relief3d-logo-left" d="M3 7.5 12 12.5 12 21.5 3 16.5Z"/>
+                  <path class="tv-relief3d-logo-right" d="M21 7.5 12 12.5 12 21.5 21 16.5Z"/>
+                </svg>
+                <span>{{ relief3d ? '2D' : '3D' }}</span>
+              </button>
+              <button type="button"
                       class="btn btn-sm btn-outline-secondary fullscreen-selector-collapse-btn"
                       (click)="toggleFullscreenOptions()"
                       [title]="'COMMUN.COLLAPSE' | translate"
@@ -344,6 +360,16 @@
                    [attr.title]="'EVENTELEM.TRACK_BASEMAP_BLEND' | translate">
             <span aria-hidden="true">2</span>
           </label>
+          <div class="trace-relief3d-controls" *ngIf="relief3dAvailable && relief3d">
+            <label class="trace-relief-pitch" *ngIf="relief3d">
+              <span aria-hidden="true">3D</span>
+              <input type="range" min="0" max="85" step="1"
+                     [ngModel]="reliefPitch"
+                     (ngModelChange)="onReliefPitchChange($event)"
+                     [attr.aria-label]="'EVENTELEM.TRACK_RELIEF_PITCH' | translate"
+                     [attr.title]="'EVENTELEM.TRACK_RELIEF_PITCH' | translate">
+            </label>
+          </div>
           <div class="fullscreen-offline-row d-flex align-items-center flex-wrap gap-2 mt-2">
             <button type="button"
                     class="btn btn-sm btn-outline-secondary"
@@ -370,7 +396,10 @@
                      (ngModelChange)="setTraceOfflineSource($event)"
                      [disabled]="offlineDownloading || !offlineMeta.tileCount"
                      [attr.aria-label]="'GPS.OFFLINE_MAP_SOURCE_LABEL' | translate">
-              <label class="form-check-label" for="tv-offline-source-fullscreen">{{ 'GPS.OFFLINE_MAP_BTN' | translate }}</label>
+              <label class="form-check-label" for="tv-offline-source-fullscreen">
+                <span class="tv-offline-label-full">{{ 'GPS.OFFLINE_MAP_BTN' | translate }}</span>
+                <span class="tv-offline-label-short">{{ 'GPS.OFFLINE_MAP_BTN_SHORT' | translate }}</span>
+              </label>
             </div>
           </div>
           <div class="form-check form-switch mt-2">
@@ -597,6 +626,26 @@
                    [attr.title]="'EVENTELEM.TRACK_BASEMAP_BLEND' | translate">
             <span aria-hidden="true">2</span>
           </label>
+        <label class="trace-relief-pitch" *ngIf="relief3dAvailable && relief3d && !isFullscreen">
+            <span aria-hidden="true">3D</span>
+            <input id="trace-relief-pitch" type="range" min="0" max="85" step="1"
+                   [ngModel]="reliefPitch"
+                   (ngModelChange)="onReliefPitchChange($event)"
+                   [attr.aria-label]="'EVENTELEM.TRACK_RELIEF_PITCH' | translate"
+                   [attr.title]="'EVENTELEM.TRACK_RELIEF_PITCH' | translate">
+          </label>
+        <div class="tv-offline-actions">
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary tv-relief3d-btn tv-tip"
+                *ngIf="relief3dAvailable && !isFullscreen"
+                (click)="toggleRelief3d()"
+                [attr.data-tv-tip]="'EVENTELEM.TRACK_RELIEF_3D_HINT' | translate"
+                [attr.title]="'EVENTELEM.TRACK_RELIEF_3D_HINT' | translate"
+                [attr.aria-pressed]="relief3d"
+                [attr.aria-label]="relief3d ? '2D' : '3D'">
+          <i class="fa fa-cube" aria-hidden="true"></i>
+          <span>{{ relief3d ? '2D' : '3D' }}</span>
+        </button>
         <button type="button"
                 class="btn btn-sm tv-offline-map-btn"
                 (click)="openOfflineTiles()"
@@ -622,7 +671,11 @@
                  (ngModelChange)="setTraceOfflineSource($event)"
                  [disabled]="offlineDownloading || !offlineMeta.tileCount"
                  [attr.aria-label]="'GPS.OFFLINE_MAP_SOURCE_LABEL' | translate">
-          <label class="form-check-label" for="tv-offline-source">{{ 'GPS.OFFLINE_MAP_BTN' | translate }}</label>
+          <label class="form-check-label" for="tv-offline-source">
+            <span class="tv-offline-label-full">{{ 'GPS.OFFLINE_MAP_BTN' | translate }}</span>
+            <span class="tv-offline-label-short">{{ 'GPS.OFFLINE_MAP_BTN_SHORT' | translate }}</span>
+          </label>
+        </div>
         </div>
       </div>
       <div class="trace-viewer-footer-stats-inline d-flex flex-wrap align-items-center justify-content-end gap-2 flex-grow-1 ms-auto min-w-0"

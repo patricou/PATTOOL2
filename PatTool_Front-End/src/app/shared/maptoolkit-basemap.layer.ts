@@ -7,9 +7,29 @@ const MAPTOOLKIT_HIKING_STYLE = 'https://styles.maptoolkit.org/hiking.json';
 /** Alpine pistes, nordic trails and lifts. Pistes appear from about zoom 12. */
 const MAPTOOLKIT_WINTER_STYLE = 'https://styles.maptoolkit.org/winter.json';
 
+const VECTOR_STYLES: Record<string, string> = {
+	'maptoolkit-hiking': MAPTOOLKIT_HIKING_STYLE,
+	'maptoolkit-winter': MAPTOOLKIT_WINTER_STYLE
+};
+
 let workerReady = false;
 
-function ensureMaplibreWorker(): void {
+export function vectorStyleForBasemap(id: string): string | null {
+	return VECTOR_STYLES[id] ?? null;
+}
+
+export function maptoolkitStyleForBasemap(id: string): string | null {
+	if (id === 'maptoolkit-hiking' || id === 'maptoolkit-winter') {
+		return VECTOR_STYLES[id];
+	}
+	return null;
+}
+
+export function isVectorBasemapId(id: string): boolean {
+	return vectorStyleForBasemap(id) != null;
+}
+
+export function ensureMaplibreWorker(): void {
 	if (workerReady || typeof document === 'undefined') {
 		return;
 	}
@@ -22,6 +42,28 @@ type GlMap = {
 	getCanvas(): HTMLCanvasElement;
 	on(type: string, fn: () => void): void;
 };
+
+type StyleImageMap = {
+	hasImage(id: string): boolean;
+	addImage(id: string, image: { width: number; height: number; data: Uint8Array }, options?: { sdf?: boolean }): void;
+	setMissingStyleImageResolver(resolver: ((id: string) => void) | null): void;
+};
+
+const EMPTY_ICON = new Uint8Array([0, 0, 0, 0]);
+
+/** Styles such as Maptoolkit reference icons absent from the sprite. A blank icon avoids the console warning. */
+export function ignoreMissingStyleIcons(map: StyleImageMap): void {
+	map.setMissingStyleImageResolver((id) => {
+		if (map.hasImage(id)) {
+			return;
+		}
+		try {
+			map.addImage(id, { width: 1, height: 1, data: EMPTY_ICON }, { sdf: id.startsWith('sdf:') });
+		} catch {
+			/* already added by a parallel tile */
+		}
+	});
+}
 
 /** Plugin layer. The methods are replaced so the WebGL canvas is never CSS-transformed. */
 type GlLayer = L.Layer & {
@@ -86,7 +128,10 @@ function stabilizeMaplibreLayer(layer: L.Layer): L.Layer {
 			return layer;
 		}
 		clearGlCanvasTransform(gl);
-		gl._glMap?.on('load', () => syncGlLayer(gl));
+		if (gl._glMap) {
+			ignoreMissingStyleIcons(gl._glMap as unknown as StyleImageMap);
+			gl._glMap.on('load', () => syncGlLayer(gl));
+		}
 		return layer;
 	};
 	return layer;
@@ -109,6 +154,11 @@ function createMaptoolkitLayer(style: string): L.Layer {
 		}
 	} as unknown as Parameters<typeof maplibreGL>[0]);
 	return stabilizeMaplibreLayer(layer);
+}
+
+export function createVectorBasemapLayer(id: string): L.Layer | null {
+	const style = vectorStyleForBasemap(id);
+	return style ? createMaptoolkitLayer(style) : null;
 }
 
 export function createMaptoolkitHikingLayer(): L.Layer {

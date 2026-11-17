@@ -2752,31 +2752,31 @@ export class AppComponent implements OnInit, AfterViewInit {
         setTimeout(scroll, 0);
     }
 
-    /** Monde → Terre : ouvre le trace viewer sur la position déjà affichée à l'accueil. */
+    /** Monde → Terre : ouvre le trace viewer tout de suite, sur la position déjà connue. */
     openMapTraceViewer(): void {
         const request = ++this.mapTraceViewerRequest;
-        let settled = false;
-        const open = (lat: number, lng: number) => {
-            if (settled || request !== this.mapTraceViewerRequest) {
-                return;
-            }
-            settled = true;
-            const label = this._translate.instant('MENU.MAP_TRACE_VIEWER');
-            this.mapTraceViewer?.openAtLocation(lat, lng, label, undefined, false, false, { zoom: 13, hidePin: true });
-        };
+        const label = this._translate.instant('MENU.MAP_TRACE_VIEWER');
+        const view = { zoom: 13, hidePin: true as const };
         const snap = this.homeDash.snapshot;
         const shownLat = snap?.weatherLat;
         const shownLon = snap?.weatherLon;
+        let lat = 46.2;
+        let lng = 6.15;
+        let hasShown = false;
         if (shownLat != null && shownLon != null && Number.isFinite(shownLat) && Number.isFinite(shownLon)) {
-            open(shownLat, shownLon);
+            lat = shownLat;
+            lng = shownLon;
+            hasShown = true;
+        }
+        this.mapTraceViewer?.openAtLocation(lat, lng, label, undefined, false, false, view);
+        if (hasShown) {
             return;
         }
         this.position.getCurrentPosition().pipe(take(1)).subscribe((coords) => {
-            if (coords) {
-                open(coords.latitude, coords.longitude);
+            if (request !== this.mapTraceViewerRequest || !coords) {
                 return;
             }
-            open(46.2, 6.15);
+            this.mapTraceViewer?.focusLocation(coords.latitude, coords.longitude, 13);
         });
     }
 

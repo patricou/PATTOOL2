@@ -28,10 +28,15 @@
  * Classe dédiée trace-viewer-leaflet-modal (sans modal-smooth-animation) : sécurise tout de même
  * transform/animation sur .modal-dialog (Bootstrap .fade, thèmes globaux).
  */
+::ng-deep ngb-modal-window.trace-viewer-leaflet-modal,
+::ng-deep ngb-modal-window.trace-viewer-leaflet-modal.modal.fade,
 ::ng-deep ngb-modal-window.trace-viewer-leaflet-modal .modal-dialog,
 ::ng-deep .modal.trace-viewer-leaflet-modal .modal-dialog,
 ::ng-deep .trace-viewer-leaflet-modal .modal-dialog {
 	transform: none !important;
+	transition: none !important;
+	animation: none !important;
+	opacity: 1 !important;
 }
 
 ::ng-deep .modal.show:has(.trace-viewer-body) .modal-dialog,
@@ -202,6 +207,18 @@
 	.slideshow-footer .btn span.tv-offline-traces-count {
 		display: inline-flex !important;
 		font-size: 0.68rem !important;
+	}
+	.slideshow-footer .btn.tv-relief3d-btn {
+		font-size: 0.72rem !important;
+		width: auto !important;
+		max-width: none !important;
+		min-width: 2.6rem !important;
+		padding: 0 0.35rem !important;
+	}
+	.slideshow-footer .btn.tv-relief3d-btn span {
+		display: inline-flex !important;
+		font-size: 0.72rem !important;
+		font-weight: 700;
 	}
 	/* Switch labels: icon only on mobile */
 	.slideshow-footer .gps-switch-label {
@@ -478,6 +495,18 @@
 	.slideshow-footer .btn span.tv-offline-traces-count {
 		display: inline-flex !important;
 		font-size: 0.68rem !important;
+	}
+	.slideshow-footer .btn.tv-relief3d-btn {
+		font-size: 0.72rem !important;
+		width: auto !important;
+		max-width: none !important;
+		min-width: 2.6rem !important;
+		padding: 0 0.35rem !important;
+	}
+	.slideshow-footer .btn.tv-relief3d-btn span {
+		display: inline-flex !important;
+		font-size: 0.72rem !important;
+		font-weight: 700;
 	}
 	.slideshow-footer .gps-switch-label {
 		font-size: 0 !important;
@@ -838,7 +867,8 @@
 	padding: 0.45rem 0.65rem;
 	overflow: visible;
 	position: relative;
-	z-index: 30;
+	/* Au-dessus de la carte Leaflet et du relief 3D, sinon la liste ouverte passe dessous. */
+	z-index: 1200;
 	background: #2c3e50;
 	background-color: #2c3e50;
 	border-top: 1px solid #34495e;
@@ -900,6 +930,18 @@
 	cursor: pointer;
 }
 
+.tv-offline-label-short {
+	display: none;
+}
+
+.tv-offline-actions {
+	display: inline-flex;
+	align-items: center;
+	flex-wrap: nowrap;
+	gap: 0.35rem;
+	min-width: 0;
+}
+
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-map-btn {
 	display: inline-flex;
 	align-items: center;
@@ -918,14 +960,34 @@
 }
 
 @media (max-width: 768px), (orientation: landscape) and (max-height: 500px) {
-	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-switch .form-check-label,
-	.fullscreen-selector .fullscreen-offline-switch .form-check-label {
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-actions {
+		display: flex;
+		flex: 1 1 100%;
+		width: 100%;
+		justify-content: space-evenly;
+		align-items: center;
+		gap: 0;
+	}
+
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-switch .tv-offline-label-full,
+	.fullscreen-selector .fullscreen-offline-switch .tv-offline-label-full {
 		display: none !important;
+	}
+
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-switch .tv-offline-label-short,
+	.fullscreen-selector .fullscreen-offline-switch .tv-offline-label-short {
+		display: inline !important;
+		font-size: 0.75rem !important;
+		font-weight: 700;
+		letter-spacing: 0.02em;
 	}
 
 	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-switch.form-check,
 	.fullscreen-offline-row .fullscreen-offline-switch.form-check {
-		margin-left: 0.9rem !important;
+		display: inline-flex !important;
+		align-items: center;
+		margin-left: 0 !important;
+		padding-left: 2.2em;
 	}
 
 	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-viewer-footer-basemap-slot .tv-offline-map-btn,
@@ -941,6 +1003,28 @@
 		align-items: center;
 		justify-content: center;
 		flex: 0 0 2.15rem !important;
+	}
+
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-actions .tv-relief3d-btn {
+		box-sizing: border-box;
+		display: inline-flex !important;
+		align-items: center;
+		justify-content: center;
+		width: auto !important;
+		max-width: none !important;
+		min-width: 2.6rem !important;
+		height: 2.15rem !important;
+		min-height: 2.15rem !important;
+		padding: 0 0.4rem !important;
+		flex: 0 0 auto !important;
+		font-size: 0.72rem !important;
+		gap: 0.2rem;
+	}
+
+	::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-offline-actions .tv-relief3d-btn span {
+		display: inline-flex !important;
+		font-size: 0.72rem !important;
+		font-weight: 700;
 	}
 
 	/* Bouton « traces hors-ligne » : garde le badge compteur à l’intérieur (pas de carré forcé) */
@@ -1316,10 +1400,8 @@
 
 .tv-tip:hover::after,
 .tv-tip:focus-visible::after,
-.tv-tip:focus-within::after,
 ::ng-deep .tv-tip:hover::after,
-::ng-deep .tv-tip:focus-visible::after,
-::ng-deep .tv-tip:focus-within::after {
+::ng-deep .tv-tip:focus-visible::after {
 	opacity: 1;
 	visibility: visible;
 }
@@ -1329,11 +1411,9 @@
 	.tv-tip::after,
 	.tv-tip:hover::after,
 	.tv-tip:focus-visible::after,
-	.tv-tip:focus-within::after,
 	::ng-deep .tv-tip::after,
 	::ng-deep .tv-tip:hover::after,
-	::ng-deep .tv-tip:focus-visible::after,
-	::ng-deep .tv-tip:focus-within::after {
+	::ng-deep .tv-tip:focus-visible::after {
 		content: none !important;
 		display: none !important;
 	}
@@ -1513,8 +1593,8 @@
 }
 
 ::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .trace-stats select,
-::ng-deep .slideshow-footer.trace-viewer-footer-toolbar #trace-base-layer {
-	background: #243342 !important;
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar #trace-base-layer,
+::ng-deep .slideshow-footer.trace-viewer-footer-toolbar .tv-basemap-pick-btn {
 	background-color: #243342 !important;
 	color: #fff !important;
 	border-color: rgba(255, 255, 255, 0.35) !important;
@@ -1624,6 +1704,111 @@
 	inset: 0;
 	width: 100%;
 	height: 100%;
+}
+
+.trace-relief3d-host {
+	display: none;
+	position: absolute;
+	inset: 0;
+	z-index: 800;
+}
+
+.trace-relief3d-host--on {
+	display: block;
+}
+
+.trace-relief3d-host .maplibregl-map,
+.trace-relief3d-blend,
+.trace-relief3d-blend .maplibregl-map {
+	width: 100%;
+	height: 100%;
+}
+
+.trace-relief3d-blend {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+	pointer-events: none;
+}
+
+.trace-relief3d-host .maplibregl-canvas {
+	transform: none !important;
+	max-width: none !important;
+	max-height: none !important;
+}
+
+.trace-relief3d-controls {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.45rem;
+	margin-top: 0.45rem;
+}
+
+.fullscreen-selector .btn.tv-relief3d-fs {
+	box-sizing: border-box;
+	display: inline-flex !important;
+	align-items: center;
+	justify-content: center;
+	gap: 0.28rem;
+	flex: 0 0 auto;
+	width: auto !important;
+	min-width: 2rem !important;
+	height: 2rem !important;
+	min-height: 2rem !important;
+	margin: 0 !important;
+	padding: 0 0.45rem !important;
+	border-radius: 8px !important;
+	color: #fff !important;
+}
+
+.fullscreen-selector .btn.tv-relief3d-fs span {
+	display: inline !important;
+	font-size: 0.75rem;
+	font-weight: 700;
+	line-height: 1;
+	color: #fff !important;
+}
+
+.tv-relief3d-logo {
+	width: 1.15rem;
+	height: 1.15rem;
+	display: block;
+}
+
+.tv-relief3d-logo-top {
+	fill: #ffffff;
+}
+
+.tv-relief3d-logo-left {
+	fill: rgba(255, 255, 255, 0.72);
+}
+
+.tv-relief3d-logo-right {
+	fill: rgba(255, 255, 255, 0.45);
+}
+
+.trace-relief-pitch {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.28rem;
+	width: 8.5rem;
+	margin: 0;
+	color: inherit;
+	font-size: 0.72rem;
+	font-weight: 700;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.trace-relief-pitch input[type="range"] {
+	flex: 1 1 auto;
+	width: 5.5rem;
+	min-width: 4.5rem;
+	height: 1.4rem;
+	margin: 0;
+	accent-color: #5dade2;
+	cursor: pointer;
 }
 
 .fullscreen-info-btn {
@@ -1771,6 +1956,107 @@
 .trace-stats select:focus {
 	box-shadow: 0 0 0 0.25rem rgba(32, 201, 151, 0.25);
 	border-color: #20c997;
+}
+
+.tv-basemap-pick {
+	position: relative;
+	flex: 0 1 auto;
+	min-width: 0;
+}
+
+.tv-basemap-pick-btn.form-select {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	width: auto;
+	min-width: 11rem;
+	max-width: 16rem;
+	text-align: left;
+	padding-right: 1.75rem;
+}
+
+.tv-basemap-pick-label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tv-basemap-cube {
+	flex: 0 0 auto;
+	margin-left: 0.35rem;
+	font-size: 0.95em;
+	line-height: 1;
+	color: currentColor !important;
+}
+
+.tv-basemap-pick-btn .tv-basemap-cube,
+.tv-basemap-pick-item .tv-basemap-cube {
+	margin-left: 0;
+}
+
+.tv-basemap-pick-menu {
+	position: fixed;
+	z-index: 20000;
+	margin: 0;
+	padding: 0.25rem 0;
+	overflow-x: hidden;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
+	background: #1b2836;
+	color: #fff;
+	border-radius: 6px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.55) transparent;
+}
+
+.tv-basemap-pick-menu--up {
+	transform: translateY(-100%);
+}
+
+.tv-basemap-pick-menu::-webkit-scrollbar {
+	width: 8px;
+}
+
+.tv-basemap-pick-menu::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.55);
+	border-radius: 4px;
+}
+
+.tv-basemap-pick-item {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	width: 100%;
+	padding: 0.28rem 0.7rem;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font-size: 0.85rem;
+	text-align: left;
+	white-space: nowrap;
+}
+
+.tv-basemap-pick-item:hover,
+.tv-basemap-pick-item.is-selected {
+	background: #0d6efd;
+	color: #fff;
+}
+
+.tv-basemap-pick-item:disabled {
+	opacity: 0.4;
+}
+
+.fullscreen-selector .tv-basemap-pick,
+.fullscreen-selector .tv-basemap-pick-btn.form-select {
+	width: 100%;
+	max-width: none;
+}
+
+.fullscreen-selector:has(.tv-basemap-pick-btn[aria-expanded='true']),
+.fullscreen-selector-body:has(.tv-basemap-pick-btn[aria-expanded='true']) {
+	overflow: visible;
 }
 
 .trace-viewer-compass-rose {
