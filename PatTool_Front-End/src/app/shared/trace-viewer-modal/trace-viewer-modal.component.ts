@@ -4919,6 +4919,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return this.availableBaseLayers.filter((layer) => layer.id !== 'cartes-gouv');
 	}
 
+	/** Visible name. Relief basemaps are prefixed so the 3D ones are obvious in the list. */
+	public basemapOptionLabel(layer: { label: string; labelKey?: string; relief?: boolean }): string {
+		const name = layer.labelKey ? this.translate(layer.labelKey) : layer.label;
+		return layer.relief ? `3D ${name}` : name;
+	}
+
 	public onSecondaryBaseLayerChange(layerId: string): void {
 		const next = (layerId || '').trim();
 		if (!next || next === 'cartes-gouv' || next === this.selectedBaseLayerId) {
@@ -5871,13 +5877,54 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	public recenterOnTrack(): void {
 		if (this.relief3d && this.terrainView) {
-			this.terrainView.fitTraces();
+			this.recenterReliefView();
 			return;
 		}
 		if (!this.map || !this.trackBounds) {
 			return;
 		}
 		this.fitMapToTrackBounds(this.trackBounds);
+	}
+
+	/**
+	 * Même cible qu’en 2D (trace, ou le point unique du rond rouge).
+	 * La caméra 3D vise l’altitude du terrain, sinon le saut reste sous la pente.
+	 */
+	private recenterReliefView(): void {
+		const view = this.terrainView;
+		if (!view) {
+			return;
+		}
+		view.setGps(this.deviceLocationLatLng);
+		const zoom = this.reliefSinglePointZoom();
+		const bounds = this.trackBounds;
+		if (bounds?.isValid()) {
+			if (this.isDegenerateBounds(bounds)) {
+				const center = bounds.getCenter();
+				view.jumpTo(center.lat, center.lng, zoom);
+				return;
+			}
+			const sw = bounds.getSouthWest();
+			const ne = bounds.getNorthEast();
+			if (view.fitLngLatBounds(sw.lng, sw.lat, ne.lng, ne.lat, this.resolveFitBoundsMaxZoom())) {
+				return;
+			}
+		}
+		const point = this.deviceLocationLatLng ?? this.lastRenderedPosition;
+		if (point) {
+			view.jumpTo(point.lat, point.lng, zoom);
+			return;
+		}
+		view.fitTraces();
+	}
+
+	/** Zoom d’un recentrage sur un seul point : le même qu’en vue à plat. */
+	private reliefSinglePointZoom(): number {
+		const cap = this.map ? this.resolveFitBoundsMaxZoom() : TraceViewerModalComponent.DEFAULT_LOCATION_ZOOM;
+		return Math.min(
+			cap,
+			Math.max(2, this.locationRecenterZoom ?? TraceViewerModalComponent.DEFAULT_LOCATION_ZOOM)
+		);
 	}
 
 	/** One shot: center the map on the device GPS and show the position marker. */

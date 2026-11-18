@@ -1,15 +1,17 @@
-import { Map as MlMap, MercatorCoordinate, NavigationControl, type GeoJSONSource } from 'maplibre-gl';
+import { LngLat, Map as MlMap, Marker, MercatorCoordinate, NavigationControl, type GeoJSONSource } from 'maplibre-gl';
 import { ensureMaplibreWorker, ignoreMissingStyleIcons } from './maptoolkit-basemap.layer';
 
-/** DEM already declared in the Maptoolkit styles (terrarium encoding). */
+/** DEM already declared in the Maptoolkit styles, used by their hillshade. */
 const TERRAIN_SOURCE = 'rgb-tiles';
+/** Separate copy: MapLibre warns and renders worse when hillshade and terrain share one source. */
+const TERRAIN_MESH_SOURCE = 'relief-terrain';
+const TERRAIN_TILEJSON = 'https://tiles.maptoolkit.org/terrainrgb.json';
 const TERRAIN_EXAGGERATION = 1.3;
 const MAX_PITCH = 85;
 const MAX_ZOOM = 20;
 /** Meters kept between the camera and the slope in front of it. */
 const RELIEF_CLEARANCE_M = 35;
 const TRACE_SOURCE = 'relief-traces';
-const GPS_SOURCE = 'relief-gps';
 
 export interface ReliefViewHooks {
 	onZoom?: (zoom: number) => void;
@@ -59,7 +61,10 @@ export class MaptoolkitTerrainView {
 	private controlsAdded = false;
 	private traces: ReliefTrace[] = [];
 	private gps: { lat: number; lng: number } | null = null;
+	private gpsMarker: Marker | null = null;
 	private fitRequested = false;
+	/** Center waiting for a terrain sample so the camera looks at the ground, not sea level. */
+	private pendingGround: { lng: number; lat: number } | null = null;
 
 	mount(
 		host: HTMLElement,
@@ -103,33 +108,38 @@ export class MaptoolkitTerrainView {
 		this.map = map;
 		/* maxSpeed 0 stops the coast after a drag. linearity must stay non-zero or the inertia math becomes NaN. */
 		map.dragPan.enable({ linearity: 0.3, maxSpeed: 0 });
-		const epoch = this.styleEpoch;
-		let reliefQueued = false;
-		let reliefCorrecting = false;
-		const keepAboveRelief = () => {
-			if (reliefQueued || reliefCorrecting || this.map !== map) {
-				return;
+		/*
+		 * Refuse a closer zoom that would put the camera through the slope.
+		 * Applied with the gesture, so the wheel stops on the terrain instead of jumping back afterwards.
+		 */
+		map.setTransformCameraUpdate((next) => {
+			const currentZoom = map.getZoom();
+			if (!Number.isFinite(next.zoom) || next.zoom <= currentZoom + 1e-3) {
+				return {};
 			}
-			reliefQueued = true;
-			requestAnimationFrame(() => {
-				reliefQueued = false;
-				if (reliefCorrecting || this.map !== map) {
-					return;
-				}
-				let zoom: number | null = null;
-				try {
-					zoom = zoomAboveRelief(map);
-				} catch {
-					return;
-				}
-				if (zoom == null || zoom >= map.getZoom() - 0.05) {
-					return;
-				}
-				reliefCorrecting = true;
-				map.jumpTo({ zoom });
-				reliefCorrecting = false;
-			});
-		};
+			let limit: number | null = null;
+			try {
+				limit = zoomAboveRelief(map, {
+					lng: next.center.lng,
+					lat: next.center.lat,
+					pitch: next.pitch,
+					bearing: next.bearing,
+					elevation: next.elevation,
+					zoom: next.zoom
+				});
+			} catch {
+				return {};
+			}
+			if (limit == null || next.zoom <= limit + 0.02) {
+				return {};
+			}
+			const capped = Math.min(next.zoom, Math.max(limit, currentZoom));
+			if (capped >= next.zoom - 0.02) {
+				return {};
+			}
+			return { zoom: capped };
+		});
+		const epoch = this.styleEpoch;
 		map.on('load', () => {
 			if (this.map !== map || epoch !== this.styleEpoch) {
 				return;
@@ -159,7 +169,12 @@ export class MaptoolkitTerrainView {
 				return;
 			}
 			this.syncBlendCamera();
-			keepAboveRelief();
+		});
+		map.on('idle', () => {
+			if (this.map !== map) {
+				return;
+			}
+			this.flushPendingGround();
 		});
 		if (typeof ResizeObserver !== 'undefined') {
 			this.resizeObserver = new ResizeObserver(() => {
@@ -235,13 +250,34 @@ export class MaptoolkitTerrainView {
 	}
 
 	jumpTo(lat: number, lng: number, zoom?: number): void {
-		if (!this.map || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+		const map = this.map;
+		if (!map || !Number.isFinite(lat) || !Number.isFinite(lng)) {
 			return;
 		}
-		this.map.jumpTo({
-			center: [lng, lat],
-			zoom: zoom == null ? this.map.getZoom() : clampZoom(zoom)
+		this.lookAt(lng, lat, zoom == null ? map.getZoom() : zoom);
+	}
+
+	/**
+	 * Frame a box in the pitched view.
+	 * The camera looks at the terrain elevation, otherwise the target stays under the slope.
+	 */
+	fitLngLatBounds(west: number, south: number, east: number, north: number, maxZoom: number): boolean {
+		const map = this.map;
+		if (!map || ![west, south, east, north, maxZoom].every(Number.isFinite)) {
+			return false;
+		}
+		const cam = map.cameraForBounds([[west, south], [east, north]], {
+			padding: 24,
+			maxZoom: clampZoom(maxZoom),
+			pitch: map.getPitch(),
+			bearing: map.getBearing()
 		});
+		if (!cam?.center || cam.zoom == null) {
+			return false;
+		}
+		const center = LngLat.convert(cam.center);
+		this.lookAt(center.lng, center.lat, cam.zoom);
+		return true;
 	}
 
 	camera(): { lat: number; lng: number; zoom: number } | null {
@@ -264,7 +300,10 @@ export class MaptoolkitTerrainView {
 		this.activeStyle = null;
 		this.controlsAdded = false;
 		this.fitRequested = false;
+		this.pendingGround = null;
 		this.destroyBlend();
+		this.gpsMarker?.remove();
+		this.gpsMarker = null;
 		if (this.map) {
 			this.map.remove();
 			this.map = null;
@@ -284,18 +323,19 @@ export class MaptoolkitTerrainView {
 		this.applyTraces();
 		this.applyGps();
 		this.applyFit();
+		this.holdCenterOnGround();
 	}
 
 	private enableTerrain(map: MlMap): void {
 		try {
-			if (!map.getSource(TERRAIN_SOURCE)) {
-				map.addSource(TERRAIN_SOURCE, {
-					type: 'raster-dem',
-					url: 'https://tiles.maptoolkit.org/terrainrgb.json'
-				});
+			if (!map.getSource(TERRAIN_MESH_SOURCE)) {
+				const declared = map.getStyle()?.sources?.[TERRAIN_SOURCE];
+				map.addSource(TERRAIN_MESH_SOURCE, declared?.type === 'raster-dem'
+					? { ...declared }
+					: { type: 'raster-dem', url: TERRAIN_TILEJSON });
 			}
-			if (map.getSource(TERRAIN_SOURCE)) {
-				map.setTerrain({ source: TERRAIN_SOURCE, exaggeration: TERRAIN_EXAGGERATION });
+			if (map.getSource(TERRAIN_MESH_SOURCE)) {
+				map.setTerrain({ source: TERRAIN_MESH_SOURCE, exaggeration: TERRAIN_EXAGGERATION });
 			}
 		} catch (err) {
 			console.error('[Maptoolkit] terrain failed to start', err);
@@ -330,20 +370,6 @@ export class MaptoolkitTerrainView {
 				}
 			});
 		}
-		if (!map.getSource(GPS_SOURCE)) {
-			map.addSource(GPS_SOURCE, { type: 'geojson', data: EMPTY });
-			map.addLayer({
-				id: 'relief-gps',
-				type: 'circle',
-				source: GPS_SOURCE,
-				paint: {
-					'circle-radius': 7,
-					'circle-color': '#e10600',
-					'circle-stroke-width': 2,
-					'circle-stroke-color': '#ffffff'
-				}
-			});
-		}
 	}
 
 	private applyTraces(): void {
@@ -354,22 +380,38 @@ export class MaptoolkitTerrainView {
 		}
 	}
 
+	/** DOM dot: a circle layer is drawn inside the terrain mesh and disappears once the view is pitched. */
 	private applyGps(): void {
+		const map = this.map;
 		const point = this.gps;
-		const data: ReliefFeatureCollection = !point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)
-			? EMPTY
-			: {
-				type: 'FeatureCollection',
-				features: [{
-					type: 'Feature',
-					properties: { color: '#e10600' },
-					geometry: { type: 'Point', coordinates: [point.lng, point.lat] }
-				}]
-			};
-		const payload = data as Parameters<GeoJSONSource['setData']>[0];
-		for (const map of [this.map, this.blendMap]) {
-			const source = map?.getSource(GPS_SOURCE) as GeoJSONSource | undefined;
-			source?.setData(payload);
+		if (!map || !point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
+			this.gpsMarker?.remove();
+			this.gpsMarker = null;
+			return;
+		}
+		if (!this.gpsMarker) {
+			const el = document.createElement('div');
+			el.style.width = '18px';
+			el.style.height = '18px';
+			el.style.boxSizing = 'border-box';
+			el.style.borderRadius = '50%';
+			el.style.background = '#e10600';
+			el.style.border = '2.5px solid #ffffff';
+			el.style.boxShadow = '0 0 0 1px rgba(15, 23, 42, 0.35)';
+			el.style.pointerEvents = 'none';
+			el.style.zIndex = '5';
+			this.gpsMarker = new Marker({
+				element: el,
+				anchor: 'center',
+				pitchAlignment: 'viewport',
+				rotationAlignment: 'viewport',
+				opacityWhenCovered: 1,
+				subpixelPositioning: true
+			});
+		}
+		this.gpsMarker.setLngLat([point.lng, point.lat]);
+		if (!this.gpsMarker.getElement().isConnected) {
+			this.gpsMarker.addTo(map);
 		}
 	}
 
@@ -495,12 +537,94 @@ export class MaptoolkitTerrainView {
 		const lngSpan = Math.max(maxLng - minLng, 0.0008) * Math.cos((centerLat * Math.PI) / 180);
 		const span = Math.max(latSpan, lngSpan);
 		const zoom = clampZoom(Math.log2(360 / span) - 0.8);
+		this.lookAt(centerLng, centerLat, zoom);
+	}
+
+	/** Aim the camera at the terrain under (lng, lat). Sea level hides that point once the view is pitched. */
+	private lookAt(lng: number, lat: number, zoom: number): void {
+		const map = this.map;
+		if (!map) {
+			return;
+		}
+		const elevation = this.groundElevation(lng, lat);
+		this.pendingGround = elevation == null ? { lng, lat } : null;
 		map.jumpTo({
-			center: [centerLng, centerLat],
-			zoom,
+			center: [lng, lat],
+			zoom: clampZoom(zoom),
 			pitch: map.getPitch(),
-			bearing: map.getBearing()
+			bearing: map.getBearing(),
+			...(elevation == null ? {} : { elevation })
 		});
+	}
+
+	/** After a style reload the center drops back to sea level. Lift it once the DEM is available. */
+	private holdCenterOnGround(): void {
+		const map = this.map;
+		if (!map) {
+			return;
+		}
+		const center = map.getCenter();
+		const elevation = this.groundElevation(center.lng, center.lat);
+		if (elevation == null) {
+			this.pendingGround = { lng: center.lng, lat: center.lat };
+			return;
+		}
+		this.pendingGround = null;
+		if (Math.abs(map.getCenterElevation() - elevation) < 2) {
+			return;
+		}
+		map.jumpTo({
+			center,
+			zoom: map.getZoom(),
+			pitch: map.getPitch(),
+			bearing: map.getBearing(),
+			elevation
+		});
+	}
+
+	private flushPendingGround(): void {
+		const pending = this.pendingGround;
+		const map = this.map;
+		if (!pending || !map) {
+			return;
+		}
+		const center = map.getCenter();
+		if (Math.abs(center.lng - pending.lng) > 1e-4 || Math.abs(center.lat - pending.lat) > 1e-4) {
+			this.pendingGround = null;
+			return;
+		}
+		const elevation = this.groundElevation(pending.lng, pending.lat);
+		if (elevation == null) {
+			return;
+		}
+		this.pendingGround = null;
+		if (Math.abs(map.getCenterElevation() - elevation) < 2) {
+			return;
+		}
+		map.jumpTo({
+			center: [pending.lng, pending.lat],
+			zoom: map.getZoom(),
+			pitch: map.getPitch(),
+			bearing: map.getBearing(),
+			elevation
+		});
+	}
+
+	private groundElevation(lng: number, lat: number): number | null {
+		const map = this.map;
+		if (!map?.getTerrain()) {
+			return null;
+		}
+		try {
+			const elevation = map.queryTerrainElevation([lng, lat]);
+			// An empty DEM reports 0 until the tiles arrive. Sea level stays at the default camera height.
+			if (elevation == null || !Number.isFinite(elevation) || elevation < 1) {
+				return null;
+			}
+			return elevation;
+		} catch {
+			return null;
+		}
 	}
 }
 
@@ -546,10 +670,12 @@ function clampZoom(zoom: number): number {
 	return Math.max(0, Math.min(MAX_ZOOM, zoom));
 }
 
-/** Zoom that keeps the camera above the slope. Null when the current view is already clear. */
-function zoomAboveRelief(map: MlMap): number | null {
-	const center = map.getCenter();
-	if (!map.getTerrain() || !Number.isFinite(center.lng) || !Number.isFinite(center.lat)) {
+/** Closest zoom that keeps this camera above the slope. Null when the view cannot be checked. */
+function zoomAboveRelief(
+	map: MlMap,
+	step: { lng: number; lat: number; pitch: number; bearing: number; elevation: number; zoom: number }
+): number | null {
+	if (!map.getTerrain() || !Number.isFinite(step.lng) || !Number.isFinite(step.lat) || !Number.isFinite(step.zoom)) {
 		return null;
 	}
 	const height = map.getContainer()?.clientHeight || 0;
@@ -558,14 +684,7 @@ function zoomAboveRelief(map: MlMap): number | null {
 		return null;
 	}
 	const distancePx = (0.5 / Math.tan((fov * Math.PI) / 360)) * height;
-	const step = {
-		lng: center.lng,
-		lat: center.lat,
-		pitch: map.getPitch(),
-		bearing: map.getBearing(),
-		elevation: map.getCenterElevation()
-	};
-	let zoom = map.getZoom();
+	let zoom = step.zoom;
 	for (let pass = 0; pass < 4; pass++) {
 		const deficit = reliefDeficit(map, step, zoom, distancePx);
 		if (deficit <= 0) {

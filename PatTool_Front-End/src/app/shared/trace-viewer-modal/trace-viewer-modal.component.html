@@ -342,14 +342,14 @@
                   [ngModel]="selectedBaseLayerId"
                   (ngModelChange)="onBaseLayerChange($event)"
                   [attr.aria-label]="'EVENTELEM.TRACK_BASEMAP' | translate">
-            <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}</option>
+            <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ basemapOptionLabel(layer) }}</option>
           </select>
           <select class="form-select form-select-sm mt-2"
                   [ngModel]="secondaryBaseLayerId"
                   (ngModelChange)="onSecondaryBaseLayerChange($event)"
                   [attr.aria-label]="'EVENTELEM.TRACK_BASEMAP_SECOND' | translate">
             <option value="">{{ 'EVENTELEM.TRACK_BASEMAP_NONE' | translate }}</option>
-            <option *ngFor="let layer of blendBaseLayerChoices" [value]="layer.id" [disabled]="layer.id === selectedBaseLayerId">{{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}</option>
+            <option *ngFor="let layer of blendBaseLayerChoices" [value]="layer.id" [disabled]="layer.id === selectedBaseLayerId">{{ basemapOptionLabel(layer) }}</option>
           </select>
           <label class="trace-basemap-blend" *ngIf="secondaryBaseLayerId">
             <span aria-hidden="true">1</span>
@@ -591,7 +591,7 @@
                     *ngFor="let layer of availableBaseLayers"
                     [class.active]="layer.id === selectedBaseLayerId"
                     (click)="onBaseLayerChange(layer.id)">
-              {{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}
+              {{ basemapOptionLabel(layer) }}
             </button>
           </div>
         </div>
@@ -607,14 +607,14 @@
                   [ngModel]="selectedBaseLayerId"
                   (ngModelChange)="onBaseLayerChange($event)"
                   [attr.aria-label]="'EVENTELEM.TRACK_BASEMAP' | translate">
-            <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}</option>
+            <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ basemapOptionLabel(layer) }}</option>
           </select>
           <select id="trace-base-layer-b" class="form-select form-select-sm"
                   [ngModel]="secondaryBaseLayerId"
                   (ngModelChange)="onSecondaryBaseLayerChange($event)"
                   [attr.aria-label]="'EVENTELEM.TRACK_BASEMAP_SECOND' | translate">
             <option value="">{{ 'EVENTELEM.TRACK_BASEMAP_NONE' | translate }}</option>
-            <option *ngFor="let layer of blendBaseLayerChoices" [value]="layer.id" [disabled]="layer.id === selectedBaseLayerId">{{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}</option>
+            <option *ngFor="let layer of blendBaseLayerChoices" [value]="layer.id" [disabled]="layer.id === selectedBaseLayerId">{{ basemapOptionLabel(layer) }}</option>
           </select>
         </div>
         <label class="trace-basemap-blend" *ngIf="secondaryBaseLayerId && !isFullscreen">
