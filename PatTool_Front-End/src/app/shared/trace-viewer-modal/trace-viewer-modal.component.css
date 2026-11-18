@@ -2083,6 +2083,108 @@
 	overflow: visible;
 }
 
+.trace-viewer-axis-gizmo {
+	position: absolute;
+	right: 8px;
+	bottom: 26px;
+	z-index: 1200;
+	width: 72px;
+	height: auto;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	pointer-events: none;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.4);
+	border: 1px solid rgba(15, 23, 42, 0.45);
+	box-shadow: 0 2px 10px rgba(15, 23, 42, 0.22);
+}
+
+.trace-viewer-axis-gizmo--flat {
+	width: auto;
+	min-width: 52px;
+	padding: 6px 8px 5px;
+}
+
+.trace-viewer-axis-mode {
+	font-family: system-ui, sans-serif;
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	line-height: 1;
+	color: #0f172a;
+}
+
+.trace-viewer-axis-gizmo--flat .trace-viewer-axis-heading {
+	margin: 4px 0 0;
+}
+
+.trace-viewer-axis-gizmo svg {
+	display: block;
+	width: 72px;
+	height: 72px;
+	flex: 0 0 auto;
+}
+
+.trace-viewer-axis-heading {
+	margin: -6px 0 4px;
+	font-family: system-ui, sans-serif;
+	font-size: 10px;
+	font-weight: 700;
+	line-height: 1;
+	letter-spacing: 0.02em;
+	color: #0f172a;
+	white-space: nowrap;
+}
+
+.trace-viewer-axis-gizmo line {
+	stroke-width: 2.6;
+	stroke-linecap: round;
+}
+
+.trace-viewer-axis-gizmo text {
+	font-family: system-ui, sans-serif;
+	font-size: 11px;
+	font-weight: 700;
+	text-anchor: middle;
+}
+
+.trace-viewer-axis-gizmo [data-axis="x"] line,
+.trace-viewer-axis-gizmo [data-axis="x"] circle {
+	stroke: #e11d48;
+	fill: #e11d48;
+}
+
+.trace-viewer-axis-gizmo [data-axis="x"] text {
+	fill: #e11d48;
+}
+
+.trace-viewer-axis-gizmo [data-axis="y"] line,
+.trace-viewer-axis-gizmo [data-axis="y"] circle {
+	stroke: #16a34a;
+	fill: #16a34a;
+}
+
+.trace-viewer-axis-gizmo [data-axis="y"] text {
+	fill: #16a34a;
+}
+
+.trace-viewer-axis-gizmo [data-axis="z"] line,
+.trace-viewer-axis-gizmo [data-axis="z"] circle {
+	stroke: #2563eb;
+	fill: #2563eb;
+}
+
+.trace-viewer-axis-gizmo [data-axis="z"] text {
+	fill: #2563eb;
+}
+
+.trace-viewer-axis-gizmo .axis-angle {
+	font-size: 7.5px;
+	font-weight: 600;
+	text-anchor: start;
+}
+
 .trace-viewer-compass-rose {
 	position: absolute;
 	top: var(--tv-compass-top);

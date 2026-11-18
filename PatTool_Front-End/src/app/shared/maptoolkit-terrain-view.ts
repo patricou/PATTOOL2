@@ -64,9 +64,19 @@ export class MaptoolkitTerrainView {
 	private traces: ReliefTrace[] = [];
 	private gps: { lat: number; lng: number } | null = null;
 	private gpsMarker: Marker | null = null;
+	/** Repère du lieu choisi (centrage), distinct du point GPS. */
+	private pin: { lat: number; lng: number } | null = null;
+	private pinMarker: Marker | null = null;
 	private fitRequested = false;
 	/** Center waiting for a terrain sample so the camera looks at the ground, not sea level. */
 	private pendingGround: { lng: number; lat: number } | null = null;
+	/** Camera requested at the 2D → 3D switch, reapplied once the style and the terrain exist. */
+	private openingView: { lng: number; lat: number; zoom: number; bearing: number; pitch: number } | null = null;
+	/**
+	 * While a programmatic jump is running, MapLibre must not change zoom, center or bearing
+	 * to climb out of the terrain. Pitch stays the one asked for.
+	 */
+	private holdView: { lng: number; lat: number; zoom: number; bearing: number; pitch: number } | null = null;
 	/** Terrain and the ground elevation are in place. Until then the canvas stays invisible. */
 	private revealed = false;
 	private revealTimer: number | null = null;
@@ -91,13 +101,23 @@ export class MaptoolkitTerrainView {
 		base.style.opacity = '0';
 		host.appendChild(base);
 		this.baseHost = base;
+		const openingZoom = clampZoom(view.zoom);
+		const openingPitch = clampPitch(view.pitch);
+		const openingBearing = Number.isFinite(view.bearing) ? view.bearing! : 0;
+		this.openingView = {
+			lng: view.lng,
+			lat: view.lat,
+			zoom: openingZoom,
+			bearing: openingBearing,
+			pitch: openingPitch
+		};
 		const map = new MlMap({
 			container: base,
 			style: styleUrl,
 			center: [view.lng, view.lat],
-			zoom: clampZoom(view.zoom),
-			pitch: clampPitch(view.pitch),
-			bearing: Number.isFinite(view.bearing) ? view.bearing! : 0,
+			zoom: openingZoom,
+			pitch: openingPitch,
+			bearing: openingBearing,
 			maxPitch: MAX_PITCH,
 			maxZoom: MAX_ZOOM,
 			/*
@@ -124,6 +144,15 @@ export class MaptoolkitTerrainView {
 		 * Applied with the gesture, so the wheel stops on the terrain instead of jumping back afterwards.
 		 */
 		map.setTransformCameraUpdate((next) => {
+			const hold = this.holdView;
+			if (hold) {
+				return {
+					center: new LngLat(hold.lng, hold.lat),
+					zoom: hold.zoom,
+					bearing: hold.bearing,
+					pitch: hold.pitch
+				};
+			}
 			const currentZoom = map.getZoom();
 			if (!Number.isFinite(next.zoom) || next.zoom <= currentZoom + 1e-3) {
 				return {};
@@ -259,7 +288,19 @@ export class MaptoolkitTerrainView {
 	}
 
 	setPitch(pitch: number): void {
-		this.map?.setPitch(clampPitch(pitch));
+		const map = this.map;
+		if (!map) {
+			return;
+		}
+		const center = map.getCenter();
+		this.jumpLocked({
+			lng: center.lng,
+			lat: center.lat,
+			zoom: map.getZoom(),
+			pitch: clampPitch(pitch),
+			bearing: map.getBearing(),
+			elevation: map.getCenterElevation()
+		});
 	}
 
 	/** MapLibre bearing: the compass direction at the top of the screen. */
@@ -274,13 +315,14 @@ export class MaptoolkitTerrainView {
 		if (Math.abs(delta) < 0.35) {
 			return;
 		}
-		const elevation = map.getCenterElevation();
-		map.jumpTo({
-			center: map.getCenter(),
+		const center = map.getCenter();
+		this.jumpLocked({
+			lng: center.lng,
+			lat: center.lat,
 			zoom: map.getZoom(),
 			pitch: map.getPitch(),
 			bearing,
-			...(Number.isFinite(elevation) ? { elevation } : {})
+			elevation: map.getCenterElevation()
 		});
 	}
 
@@ -294,18 +336,29 @@ export class MaptoolkitTerrainView {
 		this.applyGps();
 	}
 
+	/** Repère rouge du lieu sur lequel la carte vient d’être centrée. */
+	setPin(point: { lat: number; lng: number } | null): void {
+		this.pin = point && Number.isFinite(point.lat) && Number.isFinite(point.lng) ? point : null;
+		this.applyPin();
+	}
+
 	/** Frame the traces. Kept until the style has loaded. */
 	fitTraces(): void {
 		this.fitRequested = true;
 		this.applyFit();
 	}
 
+	/**
+	 * Move the pitched camera.
+	 * `zoom`, when set, is the Leaflet zoom. MapLibre uses 512px tiles, so the same ground scale is one level lower.
+	 */
 	jumpTo(lat: number, lng: number, zoom?: number): void {
 		const map = this.map;
 		if (!map || !Number.isFinite(lat) || !Number.isFinite(lng)) {
 			return;
 		}
-		this.lookAt(lng, lat, zoom == null ? map.getZoom() : zoom);
+		const mlZoom = zoom == null ? map.getZoom() : leafletZoomToMaplibre(zoom);
+		this.lookAt(lng, lat, mlZoom);
 	}
 
 	/**
@@ -343,6 +396,16 @@ export class MaptoolkitTerrainView {
 		return { lat: center.lat, lng: center.lng, zoom };
 	}
 
+	/** MapLibre bearing: the compass direction at the top of the screen. */
+	bearing(): number | null {
+		const map = this.map;
+		if (!map) {
+			return null;
+		}
+		const bearing = map.getBearing();
+		return Number.isFinite(bearing) ? bearing : null;
+	}
+
 	destroy(): void {
 		if (this.revealTimer != null) {
 			window.clearTimeout(this.revealTimer);
@@ -359,9 +422,13 @@ export class MaptoolkitTerrainView {
 		this.controlsAdded = false;
 		this.fitRequested = false;
 		this.pendingGround = null;
+		this.openingView = null;
+		this.holdView = null;
 		this.destroyBlend();
 		this.gpsMarker?.remove();
 		this.gpsMarker = null;
+		this.pinMarker?.remove();
+		this.pinMarker = null;
 		if (this.map) {
 			this.map.remove();
 			this.map = null;
@@ -400,7 +467,9 @@ export class MaptoolkitTerrainView {
 		}
 		this.applyTraces();
 		this.applyGps();
+		this.applyPin();
 		this.applyFit();
+		this.restoreOpeningView();
 		this.holdCenterOnGround();
 	}
 
@@ -490,6 +559,40 @@ export class MaptoolkitTerrainView {
 		this.gpsMarker.setLngLat([point.lng, point.lat]);
 		if (!this.gpsMarker.getElement().isConnected) {
 			this.gpsMarker.addTo(map);
+		}
+	}
+
+	/** Épingle au-dessus du relief : un symbole dans le mesh disparaît dès que la vue est inclinée. */
+	private applyPin(): void {
+		const map = this.map;
+		const point = this.pin;
+		if (!map || !point) {
+			this.pinMarker?.remove();
+			this.pinMarker = null;
+			return;
+		}
+		if (!this.pinMarker) {
+			const el = document.createElement('div');
+			el.style.width = '25px';
+			el.style.height = '41px';
+			el.style.pointerEvents = 'none';
+			el.style.zIndex = '6';
+			el.innerHTML = `<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg" style="display:block">
+				<path d="M12.5 0C5.596 0 0 5.596 0 12.5c0 12.5 12.5 28.5 12.5 28.5s12.5-16 12.5-28.5C25 5.596 19.404 0 12.5 0z" fill="#FF0000" stroke="#FFFFFF" stroke-width="1"/>
+				<circle cx="12.5" cy="12.5" r="5" fill="#FFFFFF"/>
+			</svg>`;
+			this.pinMarker = new Marker({
+				element: el,
+				anchor: 'bottom',
+				pitchAlignment: 'viewport',
+				rotationAlignment: 'viewport',
+				opacityWhenCovered: 1,
+				subpixelPositioning: true
+			});
+		}
+		this.pinMarker.setLngLat([point.lng, point.lat]);
+		if (!this.pinMarker.getElement().isConnected) {
+			this.pinMarker.addTo(map);
 		}
 	}
 
@@ -618,6 +721,26 @@ export class MaptoolkitTerrainView {
 		this.lookAt(centerLng, centerLat, zoom);
 	}
 
+	/** Put back the 2D camera once the terrain mesh exists, before any later move can replace it. */
+	private restoreOpeningView(): void {
+		const view = this.openingView;
+		const map = this.map;
+		if (!view || !map) {
+			return;
+		}
+		this.openingView = null;
+		const elevation = this.groundElevation(view.lng, view.lat);
+		this.pendingGround = elevation == null ? { lng: view.lng, lat: view.lat } : null;
+		this.jumpLocked({
+			lng: view.lng,
+			lat: view.lat,
+			zoom: view.zoom,
+			pitch: view.pitch,
+			bearing: view.bearing,
+			elevation: elevation ?? undefined
+		});
+	}
+
 	/** Aim the camera at the terrain under (lng, lat). Sea level hides that point once the view is pitched. */
 	private lookAt(lng: number, lat: number, zoom: number): void {
 		const map = this.map;
@@ -626,13 +749,44 @@ export class MaptoolkitTerrainView {
 		}
 		const elevation = this.groundElevation(lng, lat);
 		this.pendingGround = elevation == null ? { lng, lat } : null;
-		map.jumpTo({
-			center: [lng, lat],
+		this.jumpLocked({
+			lng,
+			lat,
 			zoom: clampZoom(zoom),
 			pitch: map.getPitch(),
 			bearing: map.getBearing(),
-			...(elevation == null ? {} : { elevation })
+			elevation: elevation ?? undefined
 		});
+	}
+
+	/** Jump without letting the terrain collision change zoom, center, bearing or pitch. */
+	private jumpLocked(options: {
+		lng: number;
+		lat: number;
+		zoom: number;
+		pitch: number;
+		bearing: number;
+		elevation?: number;
+	}): void {
+		const map = this.map;
+		if (!map) {
+			return;
+		}
+		const zoom = clampZoom(options.zoom);
+		const pitch = clampPitch(options.pitch);
+		const bearing = Number.isFinite(options.bearing) ? options.bearing : map.getBearing();
+		this.holdView = { lng: options.lng, lat: options.lat, zoom, bearing, pitch };
+		try {
+			map.jumpTo({
+				center: [options.lng, options.lat],
+				zoom,
+				pitch,
+				bearing,
+				...(options.elevation != null && Number.isFinite(options.elevation) ? { elevation: options.elevation } : {})
+			});
+		} finally {
+			this.holdView = null;
+		}
 	}
 
 	/** After a style reload the center drops back to sea level. Lift it once the DEM is available. */
@@ -651,8 +805,9 @@ export class MaptoolkitTerrainView {
 		if (Math.abs(map.getCenterElevation() - elevation) < 2) {
 			return;
 		}
-		map.jumpTo({
-			center,
+		this.jumpLocked({
+			lng: center.lng,
+			lat: center.lat,
 			zoom: map.getZoom(),
 			pitch: map.getPitch(),
 			bearing: map.getBearing(),
@@ -679,8 +834,9 @@ export class MaptoolkitTerrainView {
 		if (Math.abs(map.getCenterElevation() - elevation) < 2) {
 			return;
 		}
-		map.jumpTo({
-			center: [pending.lng, pending.lat],
+		this.jumpLocked({
+			lng: pending.lng,
+			lat: pending.lat,
 			zoom: map.getZoom(),
 			pitch: map.getPitch(),
 			bearing: map.getBearing(),
@@ -882,6 +1038,21 @@ function clampZoom(zoom: number): number {
 		return 13;
 	}
 	return Math.max(0, Math.min(MAX_ZOOM, zoom));
+}
+
+/**
+ * Leaflet zoom 0 is a 256px world. MapLibre zoom 0 is a 512px world.
+ * The same ground scale is therefore one MapLibre level lower.
+ */
+export function leafletZoomToMaplibre(zoom: number): number {
+	return clampZoom(zoom - 1);
+}
+
+export function maplibreZoomToLeaflet(zoom: number): number {
+	if (!Number.isFinite(zoom)) {
+		return 13;
+	}
+	return zoom + 1;
 }
 
 /** Closest zoom that keeps this camera above the slope. Null when the view cannot be checked. */

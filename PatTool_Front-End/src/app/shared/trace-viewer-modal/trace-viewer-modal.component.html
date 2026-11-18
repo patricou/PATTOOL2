@@ -35,6 +35,32 @@
           <span>3D</span>
         </div>
 
+        <div class="trace-viewer-axis-gizmo"
+             [class.trace-viewer-axis-gizmo--flat]="!relief3d"
+             role="img"
+             aria-label="2D">
+          <svg *ngIf="relief3d" viewBox="0 0 80 80" aria-hidden="true">
+            <g data-axis="z">
+              <line x1="40" y1="40" x2="40" y2="40"></line>
+              <circle cx="40" cy="40" r="3.2"></circle>
+              <text x="48" y="32">Z</text>
+              <text class="axis-angle" x="56" y="32">90°</text>
+            </g>
+            <g data-axis="x">
+              <line x1="40" y1="40" x2="40" y2="18"></line>
+              <circle cx="40" cy="18" r="2.4"></circle>
+              <text x="40" y="12">X</text>
+            </g>
+            <g data-axis="y">
+              <line x1="40" y1="40" x2="20" y2="40"></line>
+              <circle cx="20" cy="40" r="2.4"></circle>
+              <text x="11" y="44">Y</text>
+            </g>
+          </svg>
+          <div class="trace-viewer-axis-mode" *ngIf="!relief3d">2D</div>
+          <div class="trace-viewer-axis-heading">0° N</div>
+        </div>
+
         <div class="trace-viewer-compass-rose"
              role="img"
              [attr.aria-label]="'GPS_ROUTING.ORIENT_NORTH' | translate">

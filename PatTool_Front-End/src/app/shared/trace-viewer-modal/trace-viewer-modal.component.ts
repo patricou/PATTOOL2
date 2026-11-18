@@ -31,7 +31,7 @@ import { offlineTraceIdForWall, OfflineTraceSummary, OfflineTracesStore } from '
 import { viewWindowFromMap } from '../../gps-track/gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
 import { createVectorBasemapLayer, maptoolkitStyleForBasemap, vectorStyleForBasemap } from '../maptoolkit-basemap.layer';
-import { MaptoolkitTerrainView, ReliefTrace } from '../maptoolkit-terrain-view';
+import { MaptoolkitTerrainView, ReliefTrace, leafletZoomToMaplibre, maplibreZoomToLeaflet } from '../maptoolkit-terrain-view';
 import { findSkinnedPageHost, paintModalFromHost } from '../host-skin';
 import { isBrowserOffline } from '../browser-offline.util';
 /** Nord = la carte suit la boussole (flèche rouge = nord réel). Marche = cap GPS en haut. Fixe = pas de rotation auto (Ctrl + glisser tourne quand même). */
@@ -443,8 +443,20 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public relief3d = false;
 	/** True while the pitched view is loading and still hidden. */
 	public relief3dPending = false;
-	/** Camera tilt in degrees, 0 = top-down, 70 = steep. */
-	public reliefPitch = 50;
+	/** Camera tilt in degrees, 0 = straight down, same frame as the flat map. */
+	public reliefPitch = 0;
+
+	/** Angle à côté de Z : 90 quand la vue est verticale, 0 à l'horizon. */
+	public get reliefZAngle(): number {
+		return 90 - this.reliefPitch;
+	}
+	/**
+	 * After 2D → 3D the camera stays vertical and still, matching the flat map,
+	 * until Nord, Marche or Fixe is chosen.
+	 */
+	private reliefOrientationHeld = false;
+	/** The user asked for the flat view; keep it until they pick another 3D map or reopen. */
+	private relief3dDismissed = false;
 	/** Bearing of the 3D view, degrees clockwise from north. */
 	private reliefBearing = 0;
 	private terrainView: MaptoolkitTerrainView | null = null;
@@ -502,6 +514,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private mapLayoutResizeObserver?: ResizeObserver;
 	private mapLayoutSyncDebouncer: number | null = null;
 	private traceViewerCdrTimer: number | null = null;
+	private pendingReliefPitch: number | null = null;
 	/** Séparé de traceViewerCdrTimer : un zoomend ne doit pas annuler l’activation des boutons. */
 	private mapReadyTimer: number | null = null;
 	private mapResizeObservedDims = new Map<HTMLElement, string>();
@@ -686,6 +699,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 					if (this.map) {
 						this.applySelectedBaseLayer();
 						this.applyPersistedSwitchEffects();
+						this.startRelief3dFromFlat();
 					}
 				} finally {
 					this.applyingTraceViewerPrefs = false;
@@ -2020,9 +2034,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 				const lng = pos.coords.longitude;
 				const zoom = Math.min(
 					this.map.getMaxZoom(),
-					Math.max(this.map.getZoom(), TraceViewerModalComponent.USER_POSITION_ZOOM)
+					Math.max(this.visibleLeafletZoom(), TraceViewerModalComponent.USER_POSITION_ZOOM)
 				);
-				this.map.setView([lat, lng], zoom);
+				this.map.setView([lat, lng], zoom, { animate: false });
+				if (this.relief3d) {
+					this.terrainView?.jumpTo(lat, lng, zoom);
+				}
 				this.currentZoom = zoom;
 				this.applyDirectionTarget(picked);
 				this.updateDeviceLocationMarker(lat, lng);
@@ -2084,6 +2101,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.selectionMarker = undefined;
 		}
 		this.gotoTargetActive = false;
+		this.terrainView?.setPin(null);
 		this.closePlaceModal();
 		this.cdr.markForCheck();
 	}
@@ -2109,9 +2127,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 		});
 		const zoom = Math.min(
 			this.map.getMaxZoom(),
-			Math.max(this.map.getZoom(), TraceViewerModalComponent.USER_POSITION_ZOOM)
+			Math.max(this.visibleLeafletZoom(), TraceViewerModalComponent.USER_POSITION_ZOOM)
 		);
-		this.map.setView([lat, lng], zoom);
+		this.map.setView([lat, lng], zoom, { animate: false });
+		if (this.relief3d) {
+			this.terrainView?.jumpTo(lat, lng, zoom);
+			this.terrainView?.setPin({ lat, lng });
+		}
 		this.currentZoom = zoom;
 		this.finalSelectedCoordinates = { lat, lng };
 		this.gotoTargetActive = true;
@@ -2875,6 +2897,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.updateCompassRose();
 			this.applyPersistedSwitchEffects();
 			this.applyWeatherStationsOverlay();
+			this.startRelief3dFromFlat();
 		});
 	}
 
@@ -4184,6 +4207,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.lastGpsFix = null;
 		this.mapOrientation = 'fixed';
 		this.manualMapBearing = null;
+		this.relief3dDismissed = false;
 		this.stopMapOrientationWatch();
 		this.pendingLocation = null;
 		this.pendingPositions = null;
@@ -4885,8 +4909,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.applySelectedBaseLayer();
 		this.persistTraceViewerPreferences();
-		if (this.relief3d && this.isMaptoolkitBasemap(layerId) && layerId !== previousBaseLayerId) {
-			this.applyRelief3dStyle();
+		if (this.isMaptoolkitBasemap(layerId)) {
+			if (layerId !== previousBaseLayerId) {
+				this.relief3dDismissed = false;
+			}
+			if (this.relief3d && layerId !== previousBaseLayerId) {
+				this.applyRelief3dStyle();
+			} else {
+				this.startRelief3dFromFlat();
+			}
 		}
 		this.syncRelief3dBlend();
 	}
@@ -4897,12 +4928,22 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	public toggleRelief3d(): void {
 		if (this.relief3d) {
+			this.relief3dDismissed = true;
 			this.stopRelief3d(true);
 			return;
 		}
-		if (!this.relief3dAvailable || !this.map) {
+		this.relief3dDismissed = false;
+		this.startRelief3dFromFlat();
+	}
+
+	/** Maptoolkit basemaps open in the vertical 3D view unless the user just chose 2D. */
+	private startRelief3dFromFlat(): void {
+		if (this.relief3d || this.relief3dDismissed || !this.relief3dAvailable || !this.map) {
 			return;
 		}
+		this.reliefPitch = 0;
+		this.reliefOrientationHeld = true;
+		this.stopMapBearingGlide();
 		this.relief3d = true;
 		this.relief3dPending = true;
 		this.cdr.detectChanges();
@@ -4911,8 +4952,25 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	public onReliefPitchChange(value: number | string): void {
 		const n = typeof value === 'number' ? value : Number(value);
-		this.reliefPitch = Number.isFinite(n) ? Math.max(0, Math.min(85, Math.round(n))) : 50;
+		this.reliefPitch = Number.isFinite(n) ? Math.max(0, Math.min(85, Math.round(n))) : 0;
 		this.terrainView?.setPitch(this.reliefPitch);
+		this.updateAxisGizmo(this.reliefZAngle);
+	}
+
+	/** Le pitch MapLibre arrive pendant le contrôle de vue : on reporte le modèle au tick suivant. */
+	private deferReliefPitch(next: number): void {
+		this.pendingReliefPitch = next;
+		setTimeout(() => {
+			if (this.pendingReliefPitch !== next) {
+				return;
+			}
+			this.pendingReliefPitch = null;
+			if (this.reliefPitch === next) {
+				return;
+			}
+			this.reliefPitch = next;
+			this.scheduleTraceViewerCdr();
+		}, 0);
 	}
 
 	private isMaptoolkitBasemap(id: string): boolean {
@@ -4940,7 +4998,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		const center = this.map.getCenter();
-		const zoom = this.map.getZoom();
+		const leafletZoom = this.map.getZoom();
+		const zoom = leafletZoomToMaplibre(Number.isFinite(leafletZoom) ? leafletZoom : 13);
 		this.terrainView?.destroy();
 		this.terrainView = new MaptoolkitTerrainView();
 		this.reliefBearing = 0;
@@ -4949,12 +5008,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.terrainView.mount(host, style, {
 			lng: center.lng,
 			lat: center.lat,
-			zoom: Number.isFinite(zoom) ? zoom : 13,
+			zoom,
 			pitch: this.reliefPitch,
 			bearing: initialReliefBearing
 		}, {
 			onZoom: (nextZoom) => {
-				this.currentZoom = nextZoom;
+				this.currentZoom = maplibreZoomToLeaflet(nextZoom);
 				this.scheduleTraceViewerCdr();
 			},
 			onBearing: (bearing) => {
@@ -4974,11 +5033,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 			},
 			onPitch: (pitch) => {
 				const next = Math.max(0, Math.min(85, Math.round(pitch)));
+				this.updateAxisGizmo(90 - next);
 				if (next === this.reliefPitch) {
 					return;
 				}
-				this.reliefPitch = next;
-				this.cdr.markForCheck();
+				this.deferReliefPitch(next);
 			},
 			onReady: () => {
 				this.relief3dPending = false;
@@ -4988,8 +5047,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 		});
 		this.syncRelief3dOverlays();
 		this.syncRelief3dBlend();
-		this.applyMapBearing();
+		this.currentZoom = Number.isFinite(leafletZoom) ? leafletZoom : this.currentZoom;
 		this.updateCompassRose();
+	}
+
+	/** Zoom the user sees. In 3D the MapLibre level is one step lower for the same scale. */
+	private visibleLeafletZoom(): number {
+		const cam = this.relief3d ? this.terrainView?.camera() : null;
+		if (cam) {
+			return maplibreZoomToLeaflet(cam.zoom);
+		}
+		return this.map?.getZoom() ?? TraceViewerModalComponent.DEFAULT_LOCATION_ZOOM;
 	}
 
 	/** Drop the pitched view. When `syncView` is set, the flat map keeps the 3D center and zoom. */
@@ -4997,20 +5065,50 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!this.relief3d && !this.terrainView) {
 			return;
 		}
+		this.reliefOrientationHeld = false;
 		const cam = syncView ? this.terrainView?.camera() ?? null : null;
+		const reliefBearing = syncView ? this.terrainView?.bearing() ?? null : null;
 		this.terrainView?.destroy();
 		this.terrainView = null;
 		this.relief3d = false;
 		this.relief3dPending = false;
 		this.reliefBearingLock = null;
 		if (cam && this.map) {
-			const zoom = Math.max(this.map.getMinZoom(), Math.min(this.map.getMaxZoom(), cam.zoom));
+			const zoom = Math.max(
+				this.map.getMinZoom(),
+				Math.min(this.map.getMaxZoom(), maplibreZoomToLeaflet(cam.zoom))
+			);
 			this.map.setView([cam.lat, cam.lng], zoom, { animate: false });
 			this.currentZoom = this.map.getZoom();
+			if (reliefBearing != null) {
+				this.applyLeafletBearing(this.wrapDeg(-reliefBearing));
+			}
 		}
 		this.updateCompassRose();
 		this.applySelectedBaseLayer();
 		this.cdr.markForCheck();
+	}
+
+	/** Keep the flat map's rotation equal to the pitched view, without changing Nord / Marche / Fixe. */
+	private applyLeafletBearing(bearing: number): void {
+		const map = this.map as RotatableLeafletMap | undefined;
+		if (!map || typeof map.setBearing !== 'function' || !Number.isFinite(bearing)) {
+			return;
+		}
+		if (this.mapOrientation === 'fixed') {
+			this.manualMapBearing = bearing;
+		}
+		if (Math.abs(this.shortestAngleDelta(this.currentMapBearingDeg(), bearing)) < 0.5) {
+			return;
+		}
+		this.applyingMapBearing = true;
+		try {
+			map.setBearing(bearing);
+		} catch {
+			/* plugin not ready */
+		} finally {
+			this.applyingMapBearing = false;
+		}
 	}
 
 	private reliefHostElement(): HTMLElement | null {
@@ -5048,6 +5146,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.terrainView.setTraces(this.reliefTraces());
 		this.terrainView.setGps(this.deviceLocationLatLng);
+		if (this.gotoTargetActive && this.selectionMarker) {
+			const pos = this.selectionMarker.getLatLng();
+			this.terrainView.setPin({ lat: pos.lat, lng: pos.lng });
+		} else {
+			this.terrainView.setPin(null);
+		}
 	}
 
 	private reliefTraces(): ReliefTrace[] {
@@ -6102,7 +6206,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				const lng = pos.coords.longitude;
 				const zoom = Math.min(
 					this.map.getMaxZoom(),
-					Math.max(this.map.getZoom(), TraceViewerModalComponent.USER_POSITION_ZOOM)
+					Math.max(this.visibleLeafletZoom(), TraceViewerModalComponent.USER_POSITION_ZOOM)
 				);
 				this.map.setView([lat, lng], zoom);
 				this.currentZoom = zoom;
@@ -6119,7 +6223,18 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public setMapOrientation(orientation: TraceMapOrientation): void {
+		const held = this.reliefOrientationHeld;
+		this.reliefOrientationHeld = false;
 		const clearManual = this.manualMapBearing != null;
+		if (held && this.mapOrientation === orientation) {
+			if (orientation === 'fixed' && this.manualMapBearing == null) {
+				this.manualMapBearing = this.currentMapBearingDeg();
+			}
+			this.syncMapOrientationWatch();
+			this.applyMapBearing();
+			this.scheduleTraceViewerCdr();
+			return;
+		}
 		if (this.mapOrientation === orientation && !clearManual) {
 			this.ensureDirectionCompass();
 			this.applyMapBearing();
@@ -6366,6 +6481,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private applyMapBearing(): void {
+		if (this.reliefOrientationHeld) {
+			this.syncDeviceLocationArrows();
+			return;
+		}
 		const map = this.map as RotatableLeafletMap | undefined;
 		if (!map || typeof map.setBearing !== 'function') {
 			this.syncDeviceLocationArrows();
@@ -6461,6 +6580,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private commitMapBearing(map: RotatableLeafletMap, bearing: number): void {
+		if (this.reliefOrientationHeld) {
+			return;
+		}
 		const reliefBearing = this.wrapDeg(-bearing);
 		this.reliefBearingLock = reliefBearing;
 		this.applyingMapBearing = true;
@@ -6916,6 +7038,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	 * se trouve donc à l’angle opposé.
 	 */
 	private updateCompassRose(): void {
+		this.updateAxisGizmo();
 		const refEl = this.mapEmbedHostRoot ? undefined : this.compassRoseDialRef?.nativeElement;
 		const dial = refEl?.isConnected ? refEl : this.findCompassRoseDial();
 		if (!dial) {
@@ -6923,6 +7046,96 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		const northAngle = this.relief3d ? -this.reliefBearing : this.currentMapBearingDeg();
 		dial.style.transform = `rotate(${northAngle.toFixed(1)}deg)`;
+	}
+
+	/**
+	 * Repère bas-droite. X rouge = nord, Y vert = ouest, Z bleu = haut.
+	 * Le cap MapLibre est la direction en haut de l’écran ; le pitch 0 regarde à la verticale.
+	 */
+	private updateAxisGizmo(zAngle = this.reliefZAngle): void {
+		const gizmo = this.findAxisGizmoHost();
+		if (!gizmo) {
+			return;
+		}
+		const heading = this.mapHeadingLabel();
+		const headingEl = gizmo.querySelector('.trace-viewer-axis-heading');
+		if (headingEl) {
+			headingEl.textContent = heading;
+		}
+		if (!this.relief3d) {
+			gizmo.setAttribute('aria-label', `2D, ${heading}`);
+			return;
+		}
+		gizmo.setAttribute('aria-label', `X Y Z ${zAngle}°, ${heading}`);
+		const svg = gizmo.querySelector('svg');
+		if (!svg) {
+			return;
+		}
+		const bearing = this.reliefBearing * Math.PI / 180;
+		const pitch = (90 - zAngle) * Math.PI / 180;
+		const cosB = Math.cos(bearing);
+		const sinB = Math.sin(bearing);
+		const cosP = Math.cos(pitch);
+		const sinP = Math.sin(pitch);
+		const cx = 40;
+		const cy = 40;
+		const len = 20;
+		const axes = [
+			{ id: 'x', e: 0, n: 1, u: 0 },
+			{ id: 'y', e: -1, n: 0, u: 0 },
+			{ id: 'z', e: 0, n: 0, u: 1 }
+		].map((axis) => {
+			const right = axis.e * cosB - axis.n * sinB;
+			const forward = axis.e * sinB + axis.n * cosB;
+			const screenX = right;
+			const screenY = cosP * forward + sinP * axis.u;
+			const depth = cosP * axis.u - sinP * forward;
+			return { id: axis.id, screenX, screenY, depth };
+		}).sort((a, b) => a.depth - b.depth);
+		for (const axis of axes) {
+			const group = svg.querySelector(`[data-axis="${axis.id}"]`);
+			if (!group) {
+				continue;
+			}
+			svg.appendChild(group);
+			const line = group.querySelector('line');
+			const tip = group.querySelector('circle');
+			const label = group.querySelector('text:not(.axis-angle)');
+			const x2 = cx + axis.screenX * len;
+			const y2 = cy - axis.screenY * len;
+			const span = Math.hypot(axis.screenX, axis.screenY);
+			line?.setAttribute('x2', x2.toFixed(2));
+			line?.setAttribute('y2', y2.toFixed(2));
+			if (tip) {
+				tip.setAttribute('cx', x2.toFixed(2));
+				tip.setAttribute('cy', y2.toFixed(2));
+				tip.setAttribute('r', span < 0.22 ? '3.4' : '2.3');
+			}
+			if (label) {
+				const labelX = span < 0.22 ? cx + 9 : cx + axis.screenX * (len + 9);
+				const labelY = span < 0.22 ? cy - 8 : cy - axis.screenY * (len + 9) + 4;
+				label.setAttribute('x', labelX.toFixed(2));
+				label.setAttribute('y', labelY.toFixed(2));
+				const angleLabel = group.querySelector('.axis-angle');
+				if (angleLabel) {
+					angleLabel.textContent = `${zAngle}°`;
+					angleLabel.setAttribute('x', (labelX + 7).toFixed(2));
+					angleLabel.setAttribute('y', labelY.toFixed(2));
+				}
+			}
+			group.setAttribute('opacity', '1');
+		}
+	}
+
+	private mapHeadingLabel(): string {
+		const raw = this.relief3d ? this.reliefBearing : -this.currentMapBearingDeg();
+		const deg = Number.isFinite(raw) ? Math.round(this.wrapDeg(raw)) % 360 : 0;
+		return `${deg}° ${this.cardinalLabel(deg)}`;
+	}
+
+	private findAxisGizmoHost(): HTMLElement | null {
+		const wrapper = this.resolveMapContainerElement()?.closest('.map-wrapper');
+		return (wrapper?.querySelector('.trace-viewer-axis-gizmo') as HTMLElement | null) ?? null;
 	}
 
 	private findCompassRoseDial(): SVGSVGElement | null {
@@ -6955,10 +7168,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 				const lat = pos.coords.latitude;
 				const lng = pos.coords.longitude;
-				const zoom = this.relief3d && this.terrainView?.camera()
-					? this.terrainView.camera()!.zoom
-					: this.map.getZoom();
-				this.map.setView([lat, lng], zoom);
+				const zoom = this.visibleLeafletZoom();
+				this.map.setView([lat, lng], zoom, { animate: false });
 				this.terrainView?.jumpTo(lat, lng, zoom);
 				this.updateDeviceLocationMarker(lat, lng);
 				this.cdr.markForCheck();
