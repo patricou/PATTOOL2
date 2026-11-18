@@ -70,6 +70,7 @@ export class MaptoolkitTerrainView {
 	/** Terrain and the ground elevation are in place. Until then the canvas stays invisible. */
 	private revealed = false;
 	private revealTimer: number | null = null;
+	private releaseRotate: (() => void) | null = null;
 
 	mount(
 		host: HTMLElement,
@@ -99,9 +100,12 @@ export class MaptoolkitTerrainView {
 			bearing: Number.isFinite(view.bearing) ? view.bearing! : 0,
 			maxPitch: MAX_PITCH,
 			maxZoom: MAX_ZOOM,
-			/* Ctrl + drag: sideways rotates, upward tilts. */
-			dragRotate: true,
-			pitchWithRotate: true,
+			/*
+			 * MapLibre's dragRotate flips direction around the terrain-projected center.
+			 * A ridge behind the camera sends that point to the other side of the screen,
+			 * so the same drag spins the wrong way. The handler below uses the screen center.
+			 */
+			dragRotate: false,
 			touchPitch: false,
 			/* Recalage du centre au relâchement : à forte inclinaison il décale la carte. */
 			centerClampedToGround: false,
@@ -112,6 +116,7 @@ export class MaptoolkitTerrainView {
 		});
 		ignoreMissingStyleIcons(map);
 		this.map = map;
+		this.releaseRotate = attachScreenCenterDragRotate(map);
 		/* maxSpeed 0 stops the coast after a drag. linearity must stay non-zero or the inertia math becomes NaN. */
 		map.dragPan.enable({ linearity: 0.3, maxSpeed: 0 });
 		/*
@@ -344,6 +349,8 @@ export class MaptoolkitTerrainView {
 			this.revealTimer = null;
 		}
 		this.revealed = false;
+		this.releaseRotate?.();
+		this.releaseRotate = null;
 		this.resizeObserver?.disconnect();
 		this.resizeObserver = null;
 		this.hooks = null;
@@ -725,6 +732,142 @@ function tracesToGeoJson(traces: ReliefTrace[]): ReliefFeatureCollection {
 		});
 	}
 	return { type: 'FeatureCollection', features };
+}
+
+const ROTATE_DEG_PER_PIXEL = 0.8;
+const PITCH_DEG_PER_PIXEL = -0.5;
+const VERTICAL_ORBIT_PX = 100;
+const ROTATE_CLICK_TOLERANCE_PX = 3;
+
+/**
+ * Ctrl + glisser, ou glisser bouton droit : le cap suit la main autour du centre de l'écran.
+ * Le centre projeté sur le MNT bouge quand un relief passe derrière la caméra.
+ */
+function attachScreenCenterDragRotate(map: MlMap): () => void {
+	const canvas = map.getCanvasContainer();
+	let active = false;
+	let moved = false;
+	let button = -1;
+	let lastX = 0;
+	let lastY = 0;
+	let startX = 0;
+	let startY = 0;
+
+	const screenCenter = (): { x: number; y: number } => {
+		const rect = canvas.getBoundingClientRect();
+		return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+	};
+
+	const buttonReleased = (event: MouseEvent): boolean =>
+		button === 0 ? (event.buttons & 1) === 0 : (event.buttons & 2) === 0;
+
+	const end = (): void => {
+		if (!active) {
+			return;
+		}
+		active = false;
+		moved = false;
+		button = -1;
+		window.removeEventListener('mousemove', onMove, true);
+		window.removeEventListener('mouseup', onUp, true);
+		window.removeEventListener('blur', onUp, true);
+	};
+
+	const onMove = (event: MouseEvent): void => {
+		if (!active) {
+			return;
+		}
+		if (buttonReleased(event)) {
+			end();
+			return;
+		}
+		event.preventDefault();
+		const currentX = event.clientX;
+		const currentY = event.clientY;
+		if (!moved) {
+			if (Math.hypot(currentX - startX, currentY - startY) < ROTATE_CLICK_TOLERANCE_PX) {
+				return;
+			}
+			moved = true;
+			lastX = startX;
+			lastY = startY;
+		}
+		const center = screenCenter();
+		const bearingDelta = bearingDeltaDeg(lastX, lastY, currentX, currentY, center);
+		const pitchDelta = (currentY - lastY) * PITCH_DEG_PER_PIXEL;
+		lastX = currentX;
+		lastY = currentY;
+		if (Math.abs(bearingDelta) < 0.01 && Math.abs(pitchDelta) < 0.01) {
+			return;
+		}
+		const elevation = map.getCenterElevation();
+		map.jumpTo({
+			center: map.getCenter(),
+			zoom: map.getZoom(),
+			bearing: map.getBearing() + bearingDelta,
+			pitch: clampPitch(map.getPitch() + pitchDelta),
+			...(Number.isFinite(elevation) ? { elevation } : {})
+		});
+	};
+
+	const onUp = (): void => {
+		end();
+	};
+
+	const onDown = (event: MouseEvent): void => {
+		const rotateButton = (event.button === 0 && event.ctrlKey) || (event.button === 2 && !event.ctrlKey);
+		if (!rotateButton || active) {
+			return;
+		}
+		const target = event.target as Element | null;
+		if (target?.closest('.maplibregl-ctrl')) {
+			return;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		active = true;
+		moved = false;
+		button = event.button;
+		startX = lastX = event.clientX;
+		startY = lastY = event.clientY;
+		window.addEventListener('mousemove', onMove, true);
+		window.addEventListener('mouseup', onUp, true);
+		window.addEventListener('blur', onUp, true);
+	};
+
+	const onContextMenu = (event: Event): void => {
+		event.preventDefault();
+	};
+
+	canvas.addEventListener('mousedown', onDown, true);
+	canvas.addEventListener('contextmenu', onContextMenu);
+
+	return () => {
+		end();
+		canvas.removeEventListener('mousedown', onDown, true);
+		canvas.removeEventListener('contextmenu', onContextMenu);
+	};
+}
+
+function bearingDeltaDeg(
+	lastX: number,
+	lastY: number,
+	currentX: number,
+	currentY: number,
+	center: { x: number; y: number }
+): number {
+	if (Math.abs(center.y - lastY) > VERTICAL_ORBIT_PX) {
+		const cx = currentX - center.x;
+		const cy = currentY - center.y;
+		const lx = lastX - center.x;
+		const ly = currentY - center.y;
+		return Math.atan2(cx * ly - cy * lx, cx * lx + cy * ly) * (180 / Math.PI);
+	}
+	let delta = (currentX - lastX) * ROTATE_DEG_PER_PIXEL;
+	if (currentY < center.y) {
+		delta = -delta;
+	}
+	return delta;
 }
 
 function clampPitch(pitch: number): number {
