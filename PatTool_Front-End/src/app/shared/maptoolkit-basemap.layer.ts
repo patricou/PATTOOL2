@@ -1,15 +1,25 @@
 import { maplibreGL } from '@maplibre/maplibre-gl-leaflet';
 import { setWorkerUrl } from 'maplibre-gl';
-import type * as L from 'leaflet';
+import { L, RotatableLeafletMap } from './leaflet-rotate-setup';
 
 /** Community styles. Vector tiles, no API key. Detail stops at zoom 15. */
 const MAPTOOLKIT_HIKING_STYLE = 'https://styles.maptoolkit.org/hiking.json';
 /** Alpine pistes, nordic trails and lifts. Pistes appear from about zoom 12. */
 const MAPTOOLKIT_WINTER_STYLE = 'https://styles.maptoolkit.org/winter.json';
+const MAPTOOLKIT_SUMMER_STYLE = 'https://styles.maptoolkit.org/summer.json';
+const MAPTOOLKIT_CYCLING_STYLE = 'https://styles.maptoolkit.org/cycling.json';
+const MAPTOOLKIT_STREET_STYLE = 'https://styles.maptoolkit.org/street.json';
+const MAPTOOLKIT_LIGHT_STYLE = 'https://styles.maptoolkit.org/light.json';
+const MAPTOOLKIT_DARK_STYLE = 'https://styles.maptoolkit.org/dark.json';
 
 const VECTOR_STYLES: Record<string, string> = {
 	'maptoolkit-hiking': MAPTOOLKIT_HIKING_STYLE,
-	'maptoolkit-winter': MAPTOOLKIT_WINTER_STYLE
+	'maptoolkit-winter': MAPTOOLKIT_WINTER_STYLE,
+	'maptoolkit-summer': MAPTOOLKIT_SUMMER_STYLE,
+	'maptoolkit-cycling': MAPTOOLKIT_CYCLING_STYLE,
+	'maptoolkit-street': MAPTOOLKIT_STREET_STYLE,
+	'maptoolkit-light': MAPTOOLKIT_LIGHT_STYLE,
+	'maptoolkit-dark': MAPTOOLKIT_DARK_STYLE
 };
 
 let workerReady = false;
@@ -19,10 +29,10 @@ export function vectorStyleForBasemap(id: string): string | null {
 }
 
 export function maptoolkitStyleForBasemap(id: string): string | null {
-	if (id === 'maptoolkit-hiking' || id === 'maptoolkit-winter') {
-		return VECTOR_STYLES[id];
+	if (!id.startsWith('maptoolkit-')) {
+		return null;
 	}
-	return null;
+	return VECTOR_STYLES[id] ?? null;
 }
 
 export function isVectorBasemapId(id: string): boolean {
@@ -41,6 +51,10 @@ type GlMap = {
 	resize(): void;
 	getCanvas(): HTMLCanvasElement;
 	on(type: string, fn: () => void): void;
+	jumpTo?(options: { center: [number, number]; zoom: number; bearing: number }): void;
+	getStyle?(): { layers?: { id: string; type: string }[] } | null | undefined;
+	getLayoutProperty?(layerId: string, name: string): unknown;
+	setLayoutProperty?(layerId: string, name: string, value: unknown): void;
 };
 
 type StyleImageMap = {
@@ -69,14 +83,94 @@ export function ignoreMissingStyleIcons(map: StyleImageMap): void {
 type GlLayer = L.Layer & {
 	_glMap?: GlMap;
 	_zooming?: boolean;
+	_container?: HTMLElement;
+	_offset?: L.Point;
+	_coverKey?: string;
+	options: L.LayerOptions & { padding?: number; updateInterval?: number };
 	_resizeContainer?: () => void;
 	_update?: () => void;
+	_throttledUpdate?: () => void;
 	_transformGL?: (gl: GlMap) => void;
 	_zoomEnd?: () => void;
 	_resize?: () => void;
 	_transitionEnd?: () => void;
 	_animateZoom?: () => void;
+	getEvents?: () => { [name: string]: L.LeafletEventHandlerFn };
 };
+
+/**
+ * The plugin anchors the canvas on the screen's top-left. After a rotation that
+ * point is no longer the pane's top-left, so a pan slides the canvas off the view.
+ * Center it on the screen, then cancel the pane's CSS rotation: MapLibre paints the
+ * bearing itself so place names can stay horizontal.
+ */
+function placeGlCover(layer: GlLayer): void {
+	const map = layer['_map'] as (L.Map & RotatableLeafletMap) | undefined;
+	const container = layer._container;
+	if (!map || !container) {
+		return;
+	}
+	const size = map.getSize();
+	if (!size || size.x < 2 || size.y < 2) {
+		return;
+	}
+	layer._resizeContainer?.();
+	const canvasSize = size.multiplyBy(1 + (layer.options.padding ?? 0) * 2);
+	const center = map.containerPointToLayerPoint(size.divideBy(2));
+	const topLeft = center.subtract(canvasSize.divideBy(2)).round();
+	L.DomUtil.setPosition(container, topLeft);
+	const leafletBearing = map.getBearing?.() ?? 0;
+	const upright = Number.isFinite(leafletBearing) ? -leafletBearing : 0;
+	container.style.transformOrigin = '50% 50%';
+	container.style.transform = `translate3d(${topLeft.x}px, ${topLeft.y}px, 0) rotate(${upright}deg)`;
+	const coverKey = `${Math.round(canvasSize.x)}x${Math.round(canvasSize.y)}`;
+	if (layer._coverKey !== coverKey) {
+		layer._coverKey = coverKey;
+		clearGlCanvasTransform(layer);
+		layer._glMap?.resize();
+	}
+	if (layer._glMap && layer._transformGL) {
+		layer._transformGL(layer._glMap);
+	}
+	clearGlCanvasTransform(layer);
+}
+
+/**
+ * Leaflet rotates the pane clockwise. MapLibre's bearing is the opposite direction,
+ * so -leafletBearing paints the same geography. Viewport alignment keeps names level.
+ */
+function syncGlBearing(layer: GlLayer, glMap: GlMap): void {
+	const map = layer['_map'] as (L.Map & RotatableLeafletMap) | undefined;
+	if (!map || !glMap.jumpTo) {
+		return;
+	}
+	const center = map.getCenter();
+	const leafletBearing = map.getBearing?.() ?? 0;
+	glMap.jumpTo({
+		center: [center.lng, center.lat],
+		zoom: map.getZoom() - 1,
+		bearing: Number.isFinite(leafletBearing) ? -leafletBearing : 0
+	});
+}
+
+function keepLabelsHorizontal(glMap: GlMap): void {
+	const layers = glMap.getStyle?.()?.layers;
+	if (!layers || !glMap.setLayoutProperty || !glMap.getLayoutProperty) {
+		return;
+	}
+	for (const symbol of layers) {
+		if (symbol.type !== 'symbol') {
+			continue;
+		}
+		try {
+			if (glMap.getLayoutProperty(symbol.id, 'text-rotation-alignment') !== 'viewport') {
+				glMap.setLayoutProperty(symbol.id, 'text-rotation-alignment', 'viewport');
+			}
+		} catch {
+			/* icon-only layer, or the style is still loading */
+		}
+	}
+}
 
 /**
  * Chrome on Windows presents a blank WebGL canvas when it carries a CSS transform
@@ -110,6 +204,31 @@ function syncGlLayer(layer: GlLayer): void {
 function stabilizeMaplibreLayer(layer: L.Layer): L.Layer {
 	const gl = layer as GlLayer;
 	const originalOnAdd = layer.onAdd?.bind(layer);
+	const originalGetEvents = gl.getEvents?.bind(gl);
+
+	gl._update = () => {
+		const map = gl['_map'] as L.Map | undefined;
+		if (!map) {
+			return;
+		}
+		gl._offset = map.containerPointToLayerPoint(L.point(0, 0));
+		if (gl._zooming) {
+			return;
+		}
+		placeGlCover(gl);
+	};
+	gl._throttledUpdate = L.Util.throttle(gl._update, gl.options.updateInterval ?? 32, gl);
+	gl._transformGL = (glMap: GlMap) => {
+		syncGlBearing(gl, glMap);
+	};
+	gl.getEvents = () => {
+		const events = originalGetEvents ? originalGetEvents() : {};
+		if (gl._throttledUpdate) {
+			events['move'] = gl._throttledUpdate;
+			events['rotate'] = gl._throttledUpdate;
+		}
+		return events;
+	};
 
 	gl._zoomEnd = () => syncGlLayer(gl);
 	gl._resize = () => syncGlLayer(gl);
@@ -130,7 +249,23 @@ function stabilizeMaplibreLayer(layer: L.Layer): L.Layer {
 		clearGlCanvasTransform(gl);
 		if (gl._glMap) {
 			ignoreMissingStyleIcons(gl._glMap as unknown as StyleImageMap);
-			gl._glMap.on('load', () => syncGlLayer(gl));
+			let aligningLabels = false;
+			const alignLabels = (): void => {
+				if (aligningLabels || !gl._glMap) {
+					return;
+				}
+				aligningLabels = true;
+				try {
+					keepLabelsHorizontal(gl._glMap);
+				} finally {
+					aligningLabels = false;
+				}
+			};
+			gl._glMap.on('load', () => {
+				syncGlLayer(gl);
+				alignLabels();
+			});
+			gl._glMap.on('styledata', alignLabels);
 		}
 		return layer;
 	};
@@ -139,7 +274,8 @@ function stabilizeMaplibreLayer(layer: L.Layer): L.Layer {
 
 /**
  * Maptoolkit basemap drawn by MapLibre inside the Leaflet map.
- * `padding` is a plugin option: a larger canvas so a rotated map still covers the view.
+ * The canvas is counter-rotated against the Leaflet pane and MapLibre receives the
+ * bearing, so the terrain turns while place names stay horizontal.
  */
 function createMaptoolkitLayer(style: string): L.Layer {
 	ensureMaplibreWorker();

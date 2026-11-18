@@ -1717,6 +1717,30 @@
 	display: block;
 }
 
+.trace-relief3d-wait {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	z-index: 860;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	transform: translate(-50%, -50%);
+	padding: 0.45rem 0.8rem;
+	border-radius: 999px;
+	background: rgba(15, 23, 42, 0.78);
+	color: #fff;
+	font-size: 0.85rem;
+	font-weight: 650;
+	letter-spacing: 0.04em;
+	pointer-events: none;
+	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.28);
+}
+
+.trace-relief3d-wait .fa {
+	font-size: 1.15rem;
+}
+
 .trace-relief3d-host .maplibregl-map,
 .trace-relief3d-blend,
 .trace-relief3d-blend .maplibregl-map {
@@ -2205,6 +2229,16 @@
 }
 
 .fullscreen-selector {
+	/*
+	 * ng-bootstrap attache le modal à <body>, hors du :host : les variables --tv-*
+	 * n’y sont pas héritées. Sans elles le panneau n’avait aucun fond et le texte
+	 * prenait le blanc du modal, illisible sur une carte claire.
+	 */
+	--tv-card-bg: rgba(255, 255, 255, 0.72);
+	--tv-card-border: rgba(15, 23, 42, 0.6);
+	--tv-card-shadow: 0 4px 14px rgba(15, 23, 42, 0.22);
+	--tv-text: #1e293b;
+	--tv-text-muted: #475569;
 	position: absolute;
 	bottom: 20px;
 	left: 20px;
@@ -2212,11 +2246,12 @@
 	background: var(--tv-card-bg);
 	padding: 0.65rem 0.75rem;
 	border-radius: 8px;
-	border: 1px solid var(--tv-card-border);
+	border: 2px solid var(--tv-card-border);
 	box-shadow: var(--tv-card-shadow);
 	color: var(--tv-text);
 	min-width: 260px;
 	max-height: calc(100% - 16px);
+	-webkit-backdrop-filter: blur(10px);
 	backdrop-filter: blur(10px);
 	display: flex;
 	flex-direction: column;
@@ -2241,6 +2276,61 @@
 	backdrop-filter: none !important;
 	-webkit-backdrop-filter: none !important;
 	overflow: visible;
+}
+
+/* Libellés courts du menu plein écran : affichés sur mobile uniquement. */
+.tv-fs-label-short {
+	display: none;
+}
+
+/*
+ * Mobile : menu déplié compact — libellés courts et interrupteurs sur deux colonnes.
+ * Les sélecteurs à 0,5,0 passent devant `.map-wrapper:fullscreen .fullscreen-selector .form-check`
+ * et `.map-wrapper:fullscreen .fullscreen-selector .btn` (marges hautes en !important).
+ */
+@media (max-width: 768px), (orientation: landscape) and (max-height: 500px) {
+	.fullscreen-selector .tv-fs-label-full {
+		display: none;
+	}
+
+	.fullscreen-selector .tv-fs-label-short {
+		display: inline;
+	}
+
+	.fullscreen-selector .fullscreen-selector-switches {
+		display: grid;
+		grid-template-columns: repeat(2, auto);
+		align-items: center;
+		column-gap: 0.6rem;
+		row-gap: 0.15rem;
+		margin-top: 0.35rem;
+	}
+
+	/* « Suivre » et « Écran » rejoignent la grille au lieu de former leur propre ligne. */
+	.fullscreen-selector .fullscreen-selector-switches .trace-viewer-footer-switches-group {
+		display: contents !important;
+	}
+
+	.map-wrapper .fullscreen-selector .fullscreen-selector-switches .form-check.form-switch {
+		min-height: 1.35rem;
+		margin: 0 !important;
+		padding-left: 1.9em;
+	}
+
+	.map-wrapper .fullscreen-selector .fullscreen-selector-switches .form-check.form-switch .form-check-input {
+		margin-left: -1.9em;
+	}
+
+	/* Cellule « Auto » : interrupteur et bouton de rafraîchissement côte à côte. */
+	.map-wrapper .fullscreen-selector .fullscreen-selector-switches > .d-flex {
+		flex-wrap: nowrap !important;
+		gap: 0.3rem !important;
+		margin-top: 0 !important;
+	}
+
+	.map-wrapper .fullscreen-selector .fullscreen-selector-switches .btn.tv-radar-refresh-btn {
+		margin-top: 0 !important;
+	}
 }
 
 .fullscreen-selector-collapsed-actions {
@@ -2339,8 +2429,12 @@
 	font-size: 0.85rem;
 }
 
-/* Bouton « replier » du header : 2× plus grand, fond bleu translucide, chevron blanc. */
-.map-wrapper .fullscreen-selector .fullscreen-selector-header .btn.btn-sm.fullscreen-selector-collapse-btn {
+/*
+ * Header déplié : les trois boutons (quitter, 3D, replier) ont la même taille.
+ * En plein écran, `.map-wrapper:fullscreen .fullscreen-selector .btn` ajoute un
+ * margin-top de 0.2rem qui décalait « quitter » et « 3D » vers le bas.
+ */
+.map-wrapper .fullscreen-selector .fullscreen-selector-header .btn.btn-sm {
 	box-sizing: border-box;
 	flex: 0 0 auto;
 	width: 3.5rem !important;
@@ -2352,7 +2446,12 @@
 	display: inline-flex !important;
 	align-items: center;
 	justify-content: center;
+	gap: 0.2rem;
 	border-radius: 8px !important;
+}
+
+/* Bouton « replier » du header : fond bleu translucide, chevron blanc. */
+.map-wrapper .fullscreen-selector .fullscreen-selector-header .btn.btn-sm.fullscreen-selector-collapse-btn {
 	background: rgba(13, 110, 253, 0.82) !important;
 	background-color: rgba(13, 110, 253, 0.82) !important;
 	border: 1px solid rgba(11, 94, 215, 0.9) !important;
@@ -2478,6 +2577,11 @@
 .fullscreen-selector label {
 	font-weight: 600;
 	color: var(--tv-text);
+}
+
+/* Compte à rebours : vert plus soutenu, lisible sur le fond clair du panneau. */
+.fullscreen-selector .device-countdown {
+	color: #0f766e;
 }
 
 .fullscreen-selector select {

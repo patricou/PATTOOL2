@@ -17,6 +17,8 @@ export interface ReliefViewHooks {
 	onZoom?: (zoom: number) => void;
 	onBearing?: (bearing: number) => void;
 	onPitch?: (pitch: number) => void;
+	/** The pitched view has terrain and a stable camera. Safe to cover the flat map. */
+	onReady?: () => void;
 }
 
 export interface ReliefTrace {
@@ -65,11 +67,14 @@ export class MaptoolkitTerrainView {
 	private fitRequested = false;
 	/** Center waiting for a terrain sample so the camera looks at the ground, not sea level. */
 	private pendingGround: { lng: number; lat: number } | null = null;
+	/** Terrain and the ground elevation are in place. Until then the canvas stays invisible. */
+	private revealed = false;
+	private revealTimer: number | null = null;
 
 	mount(
 		host: HTMLElement,
 		styleUrl: string,
-		view: { lng: number; lat: number; zoom: number; pitch: number },
+		view: { lng: number; lat: number; zoom: number; pitch: number; bearing?: number },
 		hooks?: ReliefViewHooks
 	): void {
 		this.destroy();
@@ -82,6 +87,7 @@ export class MaptoolkitTerrainView {
 		base.style.position = 'absolute';
 		base.style.inset = '0';
 		base.style.zIndex = '1';
+		base.style.opacity = '0';
 		host.appendChild(base);
 		this.baseHost = base;
 		const map = new MlMap({
@@ -90,7 +96,7 @@ export class MaptoolkitTerrainView {
 			center: [view.lng, view.lat],
 			zoom: clampZoom(view.zoom),
 			pitch: clampPitch(view.pitch),
-			bearing: 0,
+			bearing: Number.isFinite(view.bearing) ? view.bearing! : 0,
 			maxPitch: MAX_PITCH,
 			maxZoom: MAX_ZOOM,
 			/* Ctrl + drag: sideways rotates, upward tilts. */
@@ -140,12 +146,17 @@ export class MaptoolkitTerrainView {
 			return { zoom: capped };
 		});
 		const epoch = this.styleEpoch;
-		map.on('load', () => {
+		const boot = (): void => {
 			if (this.map !== map || epoch !== this.styleEpoch) {
 				return;
 			}
 			this.applyStyleExtras(map);
-		});
+		};
+		if (map.isStyleLoaded()) {
+			boot();
+		} else {
+			map.once('style.load', boot);
+		}
 		map.on('moveend', () => {
 			if (this.map !== map) {
 				return;
@@ -174,7 +185,19 @@ export class MaptoolkitTerrainView {
 			if (this.map !== map) {
 				return;
 			}
+			const waitingForGround = this.pendingGround != null;
 			this.flushPendingGround();
+			if (this.revealed || !map.isStyleLoaded() || !map.getTerrain()) {
+				return;
+			}
+			if (this.pendingGround) {
+				return;
+			}
+			if (waitingForGround) {
+				map.once('idle', () => this.revealBase());
+				return;
+			}
+			this.revealBase();
 		});
 		if (typeof ResizeObserver !== 'undefined') {
 			this.resizeObserver = new ResizeObserver(() => {
@@ -190,6 +213,7 @@ export class MaptoolkitTerrainView {
 				map.resize();
 			}
 		});
+		this.revealTimer = window.setTimeout(() => this.revealBase(), 1600);
 	}
 
 	/** Swap the Maptoolkit style without resetting center, zoom, bearing or pitch. */
@@ -231,6 +255,28 @@ export class MaptoolkitTerrainView {
 
 	setPitch(pitch: number): void {
 		this.map?.setPitch(clampPitch(pitch));
+	}
+
+	/** MapLibre bearing: the compass direction at the top of the screen. */
+	setBearing(bearing: number): void {
+		const map = this.map;
+		if (!map || !Number.isFinite(bearing)) {
+			return;
+		}
+		const current = map.getBearing();
+		let delta = bearing - current;
+		delta = ((delta + 540) % 360) - 180;
+		if (Math.abs(delta) < 0.35) {
+			return;
+		}
+		const elevation = map.getCenterElevation();
+		map.jumpTo({
+			center: map.getCenter(),
+			zoom: map.getZoom(),
+			pitch: map.getPitch(),
+			bearing,
+			...(Number.isFinite(elevation) ? { elevation } : {})
+		});
 	}
 
 	setTraces(traces: ReliefTrace[]): void {
@@ -293,6 +339,11 @@ export class MaptoolkitTerrainView {
 	}
 
 	destroy(): void {
+		if (this.revealTimer != null) {
+			window.clearTimeout(this.revealTimer);
+			this.revealTimer = null;
+		}
+		this.revealed = false;
 		this.resizeObserver?.disconnect();
 		this.resizeObserver = null;
 		this.hooks = null;
@@ -311,6 +362,26 @@ export class MaptoolkitTerrainView {
 		this.baseHost?.remove();
 		this.baseHost = null;
 		this.host = null;
+	}
+
+	/** Show the pitched map once, after the terrain mesh and the ground altitude are in place. */
+	private revealBase(): void {
+		const base = this.baseHost;
+		if (!base || this.revealed) {
+			return;
+		}
+		this.revealed = true;
+		this.pendingGround = null;
+		if (this.revealTimer != null) {
+			window.clearTimeout(this.revealTimer);
+			this.revealTimer = null;
+		}
+		this.hooks?.onReady?.();
+		requestAnimationFrame(() => {
+			if (this.baseHost === base) {
+				base.style.opacity = '1';
+			}
+		});
 	}
 
 	private applyStyleExtras(map: MlMap): void {

@@ -218,7 +218,7 @@ export class GpsOfflineMapService {
       this.lastError$.next('GPS.OFFLINE_MAP_NEED_NET');
       return false;
     }
-    if (style === 'maptoolkit-hiking' || style === 'maptoolkit-winter') {
+    if (style.startsWith('maptoolkit-')) {
       this.lastError$.next('GPS.OFFLINE_MAP_VECTOR');
       return false;
     }

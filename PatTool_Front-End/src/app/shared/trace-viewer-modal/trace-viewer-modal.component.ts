@@ -22,6 +22,7 @@ import {
 	LEAFLET_SMOOTH_WHEEL_MAP_OPTIONS,
 	LeafletMapWheelZoomHandle
 } from '../leaflet-map-wheel-zoom';
+import { attachLeafletCtrlDragRotate, LeafletCtrlDragRotateHandle } from '../leaflet-ctrl-drag-rotate';
 import { isValidGeoCoordinate } from '../geo-coordinates.util';
 import { requestMotionPermissionIfNeeded } from '../device-motion-permission.util';
 import { GpsOfflineMapProgress, GpsOfflineMapService } from '../../services/gps-offline-map.service';
@@ -33,7 +34,7 @@ import { createVectorBasemapLayer, maptoolkitStyleForBasemap, vectorStyleForBase
 import { MaptoolkitTerrainView, ReliefTrace } from '../maptoolkit-terrain-view';
 import { findSkinnedPageHost, paintModalFromHost } from '../host-skin';
 import { isBrowserOffline } from '../browser-offline.util';
-/** Nord = la carte suit la boussole (flèche rouge = nord réel). Marche = cap GPS en haut. Fixe = nord en haut, immobile. */
+/** Nord = la carte suit la boussole (flèche rouge = nord réel). Marche = cap GPS en haut. Fixe = pas de rotation auto (Ctrl + glisser tourne quand même). */
 type TraceMapOrientation = 'north' | 'heading' | 'fixed';
 import {
 	extractGeocodeCityName,
@@ -397,6 +398,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private compassListening = false;
 	private compassEventName: string | null = null;
 	private applyingMapBearing = false;
+	/** MapLibre bearing last written by Nord / Marche / Fixe. A later rotate event is a user drag. */
+	private reliefBearingLock: number | null = null;
 	private lastGpsFix: { lat: number; lon: number } | null = null;
 	private routeHeadingDeg = 0;
 	private readonly onCompassOrientation = (event: Event): void => {
@@ -436,8 +439,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public secondaryBaseLayerId = '';
 	/** 0 = first basemap only, 100 = second basemap only. */
 	public basemapBlend = 50;
-	/** Pitched MapLibre view for Maptoolkit Rando / Ski. Flat Leaflet stays underneath. */
+	/** Pitched MapLibre view for the Maptoolkit basemaps. Flat Leaflet stays underneath. */
 	public relief3d = false;
+	/** True while the pitched view is loading and still hidden. */
+	public relief3dPending = false;
 	/** Camera tilt in degrees, 0 = top-down, 70 = steep. */
 	public reliefPitch = 50;
 	/** Bearing of the 3D view, degrees clockwise from north. */
@@ -505,8 +510,20 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private modalWindowWheelListenEl?: HTMLElement;
 	/** Molette carte : même zoom fluide que GPS (tuiles + tracé ensemble). */
 	private mapWheelZoom: LeafletMapWheelZoomHandle | null = null;
+	private mapCtrlRotate: LeafletCtrlDragRotateHandle | null = null;
+	/** Cap choisi à la souris. Tant qu’il est défini, Nord / Marche ne le réécrivent pas. */
+	private manualMapBearing: number | null = null;
+	private mapCtrlRotateActive = false;
 	private mapContainerHadLayout = false;
 	private mapInitVisibilityAttempts = 0;
+	private mapInitRetryTimer: number | null = null;
+	private mapInitRetryRaf: number | null = null;
+	private ensureMapInitTimer: number | null = null;
+	private ensureMapInitAttempts = 0;
+	private modalWheelTrapRetryTimer: number | null = null;
+	private modalWheelTrapAttempts = 0;
+	/** Bumped on each altitude fetch and on map destroy so a late response is dropped. */
+	private altitudeFetchGeneration = 0;
 	/** Local GPX is ready before the phone modal has a real height. */
 	private pendingRenderTimer: number | null = null;
 	private pendingRenderAttempts = 0;
@@ -1243,9 +1260,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.teardownModalWheelTrap();
 		const modalWin = this.getModalWindowElement();
 		if (!modalWin) {
-			window.setTimeout(() => this.setupModalWheelTrap(), 50);
+			this.modalWheelTrapAttempts += 1;
+			if (!this.modalRef || this.modalWheelTrapAttempts >= 100) {
+				return;
+			}
+			this.modalWheelTrapRetryTimer = window.setTimeout(() => {
+				this.modalWheelTrapRetryTimer = null;
+				this.setupModalWheelTrap();
+			}, 50);
 			return;
 		}
+		this.modalWheelTrapAttempts = 0;
 		this.modalWindowWheelListenEl = modalWin;
 		this.modalWindowWheelHandler = (event: Event) => {
 			const wheelEvent = event as WheelEvent;
@@ -1269,6 +1294,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private teardownModalWheelTrap(): void {
+		if (this.modalWheelTrapRetryTimer != null) {
+			clearTimeout(this.modalWheelTrapRetryTimer);
+			this.modalWheelTrapRetryTimer = null;
+		}
 		if (this.modalWindowWheelHandler && this.modalWindowWheelListenEl) {
 			try {
 				this.modalWindowWheelListenEl.removeEventListener('wheel', this.modalWindowWheelHandler, {
@@ -2464,7 +2493,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private forceCrosshairCursor(): void {
 		if (this.map && this.map.getContainer()) {
 			const mapContainer = this.map.getContainer();
-			const redCrosshairCursor = 'url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><line x1="16" y1="0" x2="16" y2="12" stroke="red" stroke-width="2" stroke-linecap="round"/><line x1="16" y1="20" x2="16" y2="32" stroke="red" stroke-width="2" stroke-linecap="round"/><line x1="0" y1="16" x2="12" y2="16" stroke="red" stroke-width="2" stroke-linecap="round"/><line x1="20" y1="16" x2="32" y2="16" stroke="red" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="16" r="2" fill="red"/></svg>\') 16 16, crosshair';
+			const redCrosshairCursor = this.mapCtrlRotateActive
+				? 'grabbing'
+				: 'url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><line x1="16" y1="0" x2="16" y2="12" stroke="red" stroke-width="2" stroke-linecap="round"/><line x1="16" y1="20" x2="16" y2="32" stroke="red" stroke-width="2" stroke-linecap="round"/><line x1="0" y1="16" x2="12" y2="16" stroke="red" stroke-width="2" stroke-linecap="round"/><line x1="20" y1="16" x2="32" y2="16" stroke="red" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="16" r="2" fill="red"/></svg>\') 16 16, crosshair';
 			mapContainer.style.cursor = redCrosshairCursor;
 			mapContainer.classList.remove('leaflet-grab');
 
@@ -2687,7 +2718,43 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
+	private cancelMapInitRetry(): void {
+		if (this.mapInitRetryTimer != null) {
+			clearTimeout(this.mapInitRetryTimer);
+			this.mapInitRetryTimer = null;
+		}
+		if (this.mapInitRetryRaf != null) {
+			cancelAnimationFrame(this.mapInitRetryRaf);
+			this.mapInitRetryRaf = null;
+		}
+	}
+
+	/** One pending retry. Returns false once the cap is hit so the caller can stop or fall through. */
+	private scheduleMapInitRetry(): boolean {
+		this.cancelMapInitRetry();
+		this.mapInitVisibilityAttempts += 1;
+		if (!this.modalRef || this.mapInitVisibilityAttempts >= 100) {
+			return false;
+		}
+		if (this.mapInitVisibilityAttempts < 4) {
+			this.mapInitRetryRaf = requestAnimationFrame(() => {
+				this.mapInitRetryRaf = null;
+				this.initializeMap();
+			});
+		} else {
+			this.mapInitRetryTimer = window.setTimeout(() => {
+				this.mapInitRetryTimer = null;
+				this.initializeMap();
+			}, 50);
+		}
+		return true;
+	}
+
 	private initializeMap(): void {
+		this.cancelMapInitRetry();
+		if (!this.modalRef) {
+			return;
+		}
 		if (this.map) {
 			if (this.mapIsBoundToLiveContainer()) {
 				return;
@@ -2697,7 +2764,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		const container = this.resolveMapContainerElement();
 		if (!container) {
-			setTimeout(() => this.initializeMap(), 50);
+			this.scheduleMapInitRetry();
 			return;
 		}
 
@@ -2710,13 +2777,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			container.offsetHeight > 0;
 
 		if (!isContainerVisible) {
-			this.mapInitVisibilityAttempts += 1;
-			if (this.mapInitVisibilityAttempts < 100) {
-				if (this.mapInitVisibilityAttempts < 4) {
-					requestAnimationFrame(() => this.initializeMap());
-				} else {
-					setTimeout(() => this.initializeMap(), 50);
-				}
+			if (this.scheduleMapInitRetry()) {
 				return;
 			}
 			/*
@@ -2754,6 +2815,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		this.registerTraceMapWheelZoom();
+		this.registerTraceMapCtrlRotate();
 		this.setupMapLayoutObserver((container.closest('.map-wrapper') ?? container) as HTMLElement);
 
 		// Force crosshair cursor on map container
@@ -2834,6 +2896,41 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.mapWheelZoom = null;
 	}
 
+	private registerTraceMapCtrlRotate(): void {
+		if (!this.map || this.mapCtrlRotate) {
+			return;
+		}
+		this.mapCtrlRotate = attachLeafletCtrlDragRotate(this.map as RotatableLeafletMap, {
+			enabled: () => !this.relief3d,
+			onRotateStart: () => {
+				this.mapCtrlRotateActive = true;
+				this.manualMapBearing = this.currentMapBearingDeg();
+				this.stopMapBearingGlide();
+				if (this.mapOrientation !== 'fixed') {
+					this.mapOrientation = 'fixed';
+					this.syncMapOrientationWatch();
+					this.scheduleTraceViewerCdr();
+				}
+				this.forceCrosshairCursor();
+			},
+			onRotate: (bearing) => {
+				this.manualMapBearing = this.wrapDeg(bearing);
+				this.syncDeviceLocationArrows();
+			},
+			onRotateEnd: () => {
+				this.mapCtrlRotateActive = false;
+				this.forceCrosshairCursor();
+				this.syncDeviceLocationArrows();
+			}
+		});
+	}
+
+	private unregisterTraceMapCtrlRotate(): void {
+		this.mapCtrlRotate?.detach();
+		this.mapCtrlRotate = null;
+		this.mapCtrlRotateActive = false;
+	}
+
 	/** WMTS Swisstopo : zoom entier obligatoire (zoomSnap 0 → 14,8 ne charge pas les tuiles). */
 	private snapSwisstopoTiles(): void {
 		if (!this.map || !this.visibleSwisstopoBasemap()) {
@@ -2892,20 +2989,40 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return !!bound?.isConnected && !!live && bound === live;
 	}
 
+	private cancelEnsureMapInitRetry(): void {
+		if (this.ensureMapInitTimer != null) {
+			clearTimeout(this.ensureMapInitTimer);
+			this.ensureMapInitTimer = null;
+		}
+	}
+
 	private ensureMapInitialization(): void {
+		this.cancelEnsureMapInitRetry();
+		if (!this.modalRef) {
+			return;
+		}
 		if (this.map && !this.mapIsBoundToLiveContainer()) {
 			this.destroyMap();
 		}
 		if (this.map) {
+			this.ensureMapInitAttempts = 0;
 			return;
 		}
 
 		if (this.resolveMapContainerElement()) {
+			this.ensureMapInitAttempts = 0;
 			this.initializeMap();
 			return;
 		}
 
-		setTimeout(() => this.ensureMapInitialization(), 50);
+		this.ensureMapInitAttempts += 1;
+		if (this.ensureMapInitAttempts >= 100) {
+			return;
+		}
+		this.ensureMapInitTimer = window.setTimeout(() => {
+			this.ensureMapInitTimer = null;
+			this.ensureMapInitialization();
+		}, 50);
 	}
 
 	private loadFromFileId(fileId: string, fileName: string): void {
@@ -4066,6 +4183,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.gpsCourseActive = false;
 		this.lastGpsFix = null;
 		this.mapOrientation = 'fixed';
+		this.manualMapBearing = null;
 		this.stopMapOrientationWatch();
 		this.pendingLocation = null;
 		this.pendingPositions = null;
@@ -4100,6 +4218,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.trackAutoFitUntil = 0;
 		this.trackFitSize = { w: 0, h: 0 };
 		this.mapInitVisibilityAttempts = 0;
+		this.cancelMapInitRetry();
+		this.cancelEnsureMapInitRetry();
+		this.ensureMapInitAttempts = 0;
+		this.altitudeFetchGeneration++;
 		this.mapResizeObservedDims.clear();
 		this.mapContainerHadLayout = false;
 		this.isMapReady = false;
@@ -4109,7 +4231,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.trackBounds = null;
 		this.teardownModalWheelTrap();
+		this.modalWheelTrapAttempts = 0;
 		this.unregisterTraceMapWheelZoom();
+		this.unregisterTraceMapCtrlRotate();
 		if (this.map) {
 			this.cleanupRightClickZoom();
 			this.cleanupLocationSelection();
@@ -4618,6 +4742,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}),
 			'maptoolkit-hiking': createVectorBasemapLayer('maptoolkit-hiking')!,
 			'maptoolkit-winter': createVectorBasemapLayer('maptoolkit-winter')!,
+			'maptoolkit-summer': createVectorBasemapLayer('maptoolkit-summer')!,
+			'maptoolkit-cycling': createVectorBasemapLayer('maptoolkit-cycling')!,
+			'maptoolkit-street': createVectorBasemapLayer('maptoolkit-street')!,
+			'maptoolkit-light': createVectorBasemapLayer('maptoolkit-light')!,
+			'maptoolkit-dark': createVectorBasemapLayer('maptoolkit-dark')!,
 			// 'esri-light-gray': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
 			// 	maxZoom: 16,
 			// 	attribution: 'Tiles &copy; Esri'
@@ -4715,6 +4844,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 			{ id: 'openhikingmap', label: 'OpenHikingMap' },
 			{ id: 'maptoolkit-hiking', label: 'Maptoolkit Rando', relief: true },
 			{ id: 'maptoolkit-winter', label: 'Maptoolkit Ski', relief: true },
+			{ id: 'maptoolkit-summer', label: 'Maptoolkit Été', relief: true },
+			{ id: 'maptoolkit-cycling', label: 'Maptoolkit Vélo', relief: true },
+			{ id: 'maptoolkit-street', label: 'Maptoolkit Rue', relief: true },
+			{ id: 'maptoolkit-light', label: 'Maptoolkit Clair', relief: true },
+			{ id: 'maptoolkit-dark', label: 'Maptoolkit Sombre', relief: true },
 			{ id: 'cartes-gouv', label: 'cartes.gouv.fr', labelKey: 'EVENTELEM.CARTES_GOUV_FR' },
 			{ id: 'ign-classic', label: 'IGN Classique' },
 			{ id: 'ign-plan', label: 'IGN Plan' },
@@ -4770,6 +4904,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		this.relief3d = true;
+		this.relief3dPending = true;
 		this.cdr.detectChanges();
 		this.startRelief3d();
 	}
@@ -4801,19 +4936,22 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const style = this.reliefVisibleStyle();
 		if (!this.relief3d || !this.map || !host || !style) {
 			this.relief3d = false;
+			this.relief3dPending = false;
 			return;
 		}
 		const center = this.map.getCenter();
 		const zoom = this.map.getZoom();
-		this.applySelectedBaseLayer();
 		this.terrainView?.destroy();
 		this.terrainView = new MaptoolkitTerrainView();
 		this.reliefBearing = 0;
+		const initialReliefBearing = this.wrapDeg(-this.currentMapBearingDeg());
+		this.reliefBearingLock = initialReliefBearing;
 		this.terrainView.mount(host, style, {
 			lng: center.lng,
 			lat: center.lat,
 			zoom: Number.isFinite(zoom) ? zoom : 13,
-			pitch: this.reliefPitch
+			pitch: this.reliefPitch,
+			bearing: initialReliefBearing
 		}, {
 			onZoom: (nextZoom) => {
 				this.currentZoom = nextZoom;
@@ -4822,6 +4960,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 			onBearing: (bearing) => {
 				this.reliefBearing = bearing;
 				this.updateCompassRose();
+				if (this.applyingMapBearing) {
+					return;
+				}
+				if (this.reliefBearingLock != null) {
+					const delta = this.shortestAngleDelta(this.wrapDeg(bearing), this.reliefBearingLock);
+					if (Math.abs(delta) < 1.5) {
+						return;
+					}
+					this.reliefBearingLock = null;
+				}
+				this.adoptReliefDrag(bearing);
 			},
 			onPitch: (pitch) => {
 				const next = Math.max(0, Math.min(85, Math.round(pitch)));
@@ -4830,10 +4979,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 				this.reliefPitch = next;
 				this.cdr.markForCheck();
+			},
+			onReady: () => {
+				this.relief3dPending = false;
+				this.cdr.detectChanges();
+				this.applySelectedBaseLayer();
 			}
 		});
 		this.syncRelief3dOverlays();
 		this.syncRelief3dBlend();
+		this.applyMapBearing();
 		this.updateCompassRose();
 	}
 
@@ -4846,6 +5001,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.terrainView?.destroy();
 		this.terrainView = null;
 		this.relief3d = false;
+		this.relief3dPending = false;
+		this.reliefBearingLock = null;
 		if (cam && this.map) {
 			const zoom = Math.max(this.map.getMinZoom(), Math.min(this.map.getMaxZoom(), cam.zoom));
 			this.map.setView([cam.lat, cam.lng], zoom, { animate: false });
@@ -5962,11 +6119,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public setMapOrientation(orientation: TraceMapOrientation): void {
-		if (this.mapOrientation === orientation) {
+		const clearManual = this.manualMapBearing != null;
+		if (this.mapOrientation === orientation && !clearManual) {
 			this.ensureDirectionCompass();
 			this.applyMapBearing();
 			return;
 		}
+		this.manualMapBearing = null;
 		this.mapOrientation = orientation;
 		this.syncMapOrientationWatch();
 		this.applyMapBearing();
@@ -6228,6 +6387,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 				return;
 			}
 			bearing = this.deviceHeadingDeg;
+		} else if (this.manualMapBearing != null) {
+			bearing = this.manualMapBearing;
 		}
 		const next = this.wrapDeg(bearing);
 		const delta = Math.abs(next - this.currentMapBearingDeg());
@@ -6300,15 +6461,41 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private commitMapBearing(map: RotatableLeafletMap, bearing: number): void {
+		const reliefBearing = this.wrapDeg(-bearing);
+		this.reliefBearingLock = reliefBearing;
 		this.applyingMapBearing = true;
 		try {
 			map.setBearing?.(bearing);
+			this.terrainView?.setBearing(reliefBearing);
 		} catch {
 			/* plugin not ready */
 		} finally {
 			this.applyingMapBearing = false;
 		}
+		if (this.relief3d) {
+			this.reliefBearing = reliefBearing;
+			this.updateCompassRose();
+		}
 		this.syncDeviceLocationArrows();
+	}
+
+	/** Ctrl + glisser en 3D : garder l’angle et couper la boussole ou le cap GPS. */
+	private adoptReliefDrag(bearing: number): void {
+		const leafletBearing = this.wrapDeg(-bearing);
+		this.manualMapBearing = leafletBearing;
+		this.stopMapBearingGlide();
+		if (this.mapOrientation !== 'fixed') {
+			this.mapOrientation = 'fixed';
+			this.syncMapOrientationWatch();
+			this.scheduleTraceViewerCdr();
+		}
+		const map = this.map as RotatableLeafletMap | undefined;
+		this.applyingMapBearing = true;
+		try {
+			map?.setBearing?.(leafletBearing);
+		} finally {
+			this.applyingMapBearing = false;
+		}
 	}
 
 	/** Centre du viewport carte Leaflet → page Globe 3D (zoom corrélé au niveau de zoom carte). */
@@ -6723,8 +6910,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/**
 	 * Rosace haut-centre : la pointe rouge reste sur le nord géographique.
-	 * Le pane carte est tourné de `bearing` dans le sens horaire, donc le nord
-	 * apparaît à l’écran avec ce même angle.
+	 * En 2D (leaflet-rotate), le pane carte est tourné de `bearing` dans le sens
+	 * horaire, donc le nord apparaît à l’écran avec ce même angle.
+	 * En 3D (MapLibre), `bearing` est le cap affiché en haut de l’écran : le nord
+	 * se trouve donc à l’angle opposé.
 	 */
 	private updateCompassRose(): void {
 		const refEl = this.mapEmbedHostRoot ? undefined : this.compassRoseDialRef?.nativeElement;
@@ -6732,8 +6921,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!dial) {
 			return;
 		}
-		const bearing = this.relief3d ? this.reliefBearing : this.currentMapBearingDeg();
-		dial.style.transform = `rotate(${bearing.toFixed(1)}deg)`;
+		const northAngle = this.relief3d ? -this.reliefBearing : this.currentMapBearingDeg();
+		dial.style.transform = `rotate(${northAngle.toFixed(1)}deg)`;
 	}
 
 	private findCompassRoseDial(): SVGSVGElement | null {
@@ -8642,8 +8831,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 	 * Fetch altitude for coordinates
 	 */
 	private fetchAltitudeForCoordinates(lat: number, lng: number, type: 'current' | 'clicked'): void {
-		this.apiService.getAllAltitudes(lat, lng, null).subscribe({
+		const generation = ++this.altitudeFetchGeneration;
+		this.apiService.getAllAltitudes(lat, lng, null).pipe(take(1), takeUntil(this.destroy$)).subscribe({
 			next: (response) => {
+				if (generation !== this.altitudeFetchGeneration) {
+					return;
+				}
 				if (response.altitudes && Array.isArray(response.altitudes) && response.altitudes.length > 0) {
 					// Use the first altitude (highest priority)
 					const altitude = response.altitudes[0].altitude;
@@ -8666,6 +8859,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 			},
 			error: (error) => {
+				if (generation !== this.altitudeFetchGeneration) {
+					return;
+				}
 				console.debug('Could not fetch altitude:', error);
 				this.deferWeatherUiUpdate(() => {
 					if (type === 'current') {

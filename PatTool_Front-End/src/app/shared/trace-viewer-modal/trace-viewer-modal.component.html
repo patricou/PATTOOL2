@@ -30,6 +30,10 @@
       <div class="map-wrapper">
         <div #mapContainer id="trace-viewer-map-container" class="map-container" aria-label="Track map"></div>
         <div class="trace-relief3d-host" [class.trace-relief3d-host--on]="relief3d" [attr.aria-hidden]="relief3d ? null : true"></div>
+        <div class="trace-relief3d-wait" *ngIf="relief3dPending" role="status" aria-live="polite" aria-label="3D">
+          <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+          <span>3D</span>
+        </div>
 
         <div class="trace-viewer-compass-rose"
              role="img"
@@ -46,7 +50,6 @@
         </div>
 
         <div class="trace-viewer-orient-overlay"
-             *ngIf="!relief3d"
              role="group"
              [attr.aria-label]="'GPS_ROUTING.ORIENT_LABEL' | translate">
           <button type="button"
@@ -305,7 +308,7 @@
           <ng-container *ngIf="isFullscreenOptionsExpanded">
             <div class="fullscreen-selector-header">
               <span class="fullscreen-selector-title">
-                <i class="fa fa-sliders me-1" aria-hidden="true"></i>{{ 'COMMUN.OPTIONS' | translate }}
+                <i class="fa fa-sliders me-1" aria-hidden="true"></i><span class="tv-fs-label-full">{{ 'COMMUN.OPTIONS' | translate }}</span>
               </span>
               <button type="button"
                       class="btn btn-sm btn-secondary fullscreen-exit-btn tv-tip"
@@ -402,6 +405,7 @@
               </label>
             </div>
           </div>
+          <div class="fullscreen-selector-switches">
           <div class="form-check form-switch mt-2">
             <input class="form-check-input" type="checkbox" id="show-address-switch-fullscreen" 
                    [(ngModel)]="showAddress"
@@ -423,7 +427,7 @@
                    [(ngModel)]="showWeatherStations"
                    (change)="onShowWeatherStationsChange()">
             <label class="form-check-label gps-switch-label" for="show-weather-stations-switch-fullscreen" [title]="showWeatherStationsHintKey | translate">
-              <i class="fa fa-thermometer-half me-1" aria-hidden="true"></i>{{ 'EVENTELEM.SHOW_WEATHER_STATIONS' | translate }}
+              <i class="fa fa-thermometer-half me-1" aria-hidden="true"></i><span class="tv-fs-label-full">{{ 'EVENTELEM.SHOW_WEATHER_STATIONS' | translate }}</span><span class="tv-fs-label-short">{{ 'EVENTELEM.SHOW_WEATHER_STATIONS_SHORT' | translate }}</span>
             </label>
           </div>
           <div class="d-flex align-items-center gap-2 mt-2 flex-wrap">
@@ -450,7 +454,7 @@
                    [(ngModel)]="showHikingTrailsOverlay"
                    (ngModelChange)="onHikingTrailsOverlayChange()">
             <label class="form-check-label gps-switch-label" for="show-hiking-overlay-fullscreen" title="Sentiers randonnée (GR, GRP)">
-              <i class="fa fa-map-signs"></i> Sentiers rando
+              <i class="fa fa-map-signs"></i> <span class="tv-fs-label-full">Sentiers rando</span><span class="tv-fs-label-short">Rando</span>
             </label>
           </div>
           <div class="form-check form-switch mt-2">
@@ -458,7 +462,7 @@
                    [(ngModel)]="showCyclingTrailsOverlay"
                    (ngModelChange)="onCyclingTrailsOverlayChange()">
             <label class="form-check-label gps-switch-label" for="show-cycling-overlay-fullscreen" title="Pistes cyclables (EuroVelo, véloroutes)">
-              <i class="fa fa-bicycle"></i> Pistes vélo
+              <i class="fa fa-bicycle"></i> <span class="tv-fs-label-full">Pistes vélo</span><span class="tv-fs-label-short">Vélo</span>
             </label>
           </div>
           <div class="trace-viewer-footer-switches-group d-flex flex-wrap align-items-center">
@@ -467,7 +471,7 @@
                    [(ngModel)]="followDeviceLocation"
                    (ngModelChange)="onFollowDeviceLocationChange()">
             <label class="form-check-label gps-switch-label" for="follow-device-location-fullscreen" [title]="'EVENTELEM.TRACK_FOLLOW_DEVICE' | translate">
-              <i class="fa fa-location-arrow"></i> {{ 'EVENTELEM.TRACK_FOLLOW_DEVICE' | translate }}
+              <i class="fa fa-location-arrow"></i> <span class="tv-fs-label-full">{{ 'EVENTELEM.TRACK_FOLLOW_DEVICE' | translate }}</span><span class="tv-fs-label-short">{{ 'EVENTELEM.TRACK_FOLLOW_DEVICE_SHORT' | translate }}</span>
               <span *ngIf="followDeviceLocation" class="ms-1 device-countdown">({{ deviceLocationCountdown }} s)</span>
             </label>
           </div>
@@ -476,22 +480,10 @@
                    [(ngModel)]="keepScreenAwake"
                    (ngModelChange)="onKeepScreenAwakeChange()">
             <label class="form-check-label gps-switch-label" for="keep-screen-awake-fullscreen" [title]="'EVENTELEM.TRACK_KEEP_SCREEN_AWAKE' | translate">
-              <i class="fa fa-lightbulb-o" aria-hidden="true"></i> {{ 'EVENTELEM.TRACK_KEEP_SCREEN_AWAKE' | translate }}
+              <i class="fa fa-lightbulb-o" aria-hidden="true"></i> <span class="tv-fs-label-full">{{ 'EVENTELEM.TRACK_KEEP_SCREEN_AWAKE' | translate }}</span><span class="tv-fs-label-short">{{ 'EVENTELEM.TRACK_KEEP_SCREEN_AWAKE_SHORT' | translate }}</span>
             </label>
           </div>
           </div>
-          <div class="fullscreen-selector-orient" role="group" [attr.aria-label]="'GPS_ROUTING.ORIENT_LABEL' | translate">
-            <button type="button"
-                    class="btn btn-sm btn-outline-secondary tv-tip"
-                    *ngFor="let o of mapOrientations"
-                    [class.active]="mapOrientation === o.id"
-                    (click)="setMapOrientation(o.id)"
-                    [attr.data-tv-tip]="o.hintKey | translate"
-                    [attr.aria-label]="o.labelKey | translate"
-                    [attr.aria-pressed]="mapOrientation === o.id">
-              <i class="fa" [ngClass]="o.icon" aria-hidden="true"></i>
-              <span>{{ o.labelKey | translate }}</span>
-            </button>
           </div>
           <div class="fullscreen-selector-icon-actions">
           <button type="button"
@@ -529,13 +521,6 @@
           </button>
           <button type="button"
                   class="btn btn-outline-secondary btn-sm tv-tip"
-                  (click)="sharePosition()"
-                  [attr.data-tv-tip]="'EVENTELEM.TRACK_SHARE_LOCATION' | translate"
-                  [attr.aria-label]="'EVENTELEM.TRACK_SHARE_LOCATION' | translate">
-            <i class="fa fa-share-alt" aria-hidden="true"></i>
-          </button>
-          <button type="button"
-                  class="btn btn-outline-secondary btn-sm tv-tip"
                   *ngIf="gpxAnalysis"
                   (click)="openGpxStatsModal()"
                   [attr.data-tv-tip]="'EVENTELEM.TRACK_GPX_STATS' | translate"
@@ -548,13 +533,6 @@
                   [attr.data-tv-tip]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate"
                   [attr.aria-label]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
             <i class="fa fa-map" aria-hidden="true"></i>
-          </button>
-          <button type="button"
-                  class="btn btn-secondary btn-sm fullscreen-exit-btn tv-tip"
-                  (click)="toggleFullscreen()"
-                  [attr.data-tv-tip]="'EVENTELEM.EXIT_FULLSCREEN' | translate"
-                  [attr.aria-label]="'EVENTELEM.EXIT_FULLSCREEN' | translate">
-            <i class="fa fa-compress" aria-hidden="true"></i>
           </button>
           <button type="button"
                   class="btn btn-secondary btn-sm tv-tip"
