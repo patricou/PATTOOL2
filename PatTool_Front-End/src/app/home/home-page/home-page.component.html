@@ -146,6 +146,32 @@
 	</button>
 	</div>
 
+	<section class="home-card home-notes-card" *ngIf="homeNotes.length">
+		<div class="home-kicker home-kicker--bar">
+			<a routerLink="/notes">
+				<i class="fa fa-sticky-note" aria-hidden="true"></i>
+				{{ 'HOME.DASHBOARD.NOTES' | translate }}
+			</a>
+			<button type="button" class="home-card-refresh" (click)="refreshNotes()" [disabled]="notesRefreshing"
+			        [attr.aria-label]="'HOME.DASHBOARD.REFRESH' | translate"
+			        [attr.title]="'HOME.DASHBOARD.REFRESH' | translate">
+				<i class="fa fa-refresh" [class.fa-spin]="notesRefreshing" aria-hidden="true"></i>
+			</button>
+		</div>
+		<div class="home-notes">
+			<a class="home-note" *ngFor="let item of homeNotes"
+			   [routerLink]="['/notes']" [queryParams]="{ noteId: item.id }"
+			   [style.background-color]="item.color">
+				<span class="home-note-title" *ngIf="item.title">{{ item.title }}</span>
+				<span class="home-note-body" *ngIf="item.content">{{ item.content }}</span>
+				<span class="home-note-meta">
+					<span *ngIf="item.owner">{{ item.owner }}</span>
+					<i class="fa fa-camera" *ngIf="item.hasPhotos" aria-hidden="true"></i>
+				</span>
+			</a>
+		</div>
+	</section>
+
 	<div class="home-grid">
 		<div class="home-col">
 		<section class="home-card home-card--grow">

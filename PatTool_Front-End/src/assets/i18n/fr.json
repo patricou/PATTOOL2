@@ -1877,6 +1877,8 @@
     "CLOSE": "Fermer",
     "SHARED_WITH_YOU": "Partagée",
     "VISIBILITY_LABEL": "Qui peut voir cette note",
+    "SHOW_ON_HOME": "Afficher sur l'accueil",
+    "SHOW_ON_HOME_HINT": "Les personnes qui ont accès à cette note la verront sur leur page d'accueil.",
     "PICK_GROUPS": "Choisir les groupes d'amis",
     "GROUP_REQUIRED": "Choisissez au moins un groupe d'amis.",
     "NO_GROUPS": "Vous n'avez pas encore de groupe d'amis.",
@@ -2064,7 +2066,8 @@
       "OPEN_TV": "Ouvrir la TV",
       "NEWS": "Actus",
       "NEWS_EMPTY": "Pas de titres",
-      "SCROLL": "Faire défiler la page"
+      "SCROLL": "Faire défiler la page",
+      "NOTES": "Notes"
     }
   },
   "IOT": {
@@ -3232,8 +3235,11 @@
     "TRACK_BASEMAP_NONE": "Aucun",
     "TRACK_BASEMAP_BLEND": "Transparence : gauche = premier fond, droite = second fond",
     "TRACK_RELIEF_3D": "Relief 3D",
-    "TRACK_RELIEF_3D_HINT": "Inclinaison et relief pour Maptoolkit Rando et Ski. La trace et le point GPS sont posés sur le terrain. Ctrl + glisser : sur le côté la vue tourne, vers le haut elle s’incline.",
+    "TRACK_RELIEF_3D_HINT": "Inclinaison et relief pour Maptoolkit Rando et Ski. La trace et le point GPS sont posés sur le terrain. Sur mobile : un doigt déplace, pincer zoome, deux doigts vers le haut inclinent. Double tap zoome. Ctrl + glisser : sur le côté la vue tourne, vers le haut elle s’incline.",
     "TRACK_RELIEF_PITCH": "Inclinaison",
+    "TRACK_RELIEF_TILT_FOLLOW": "Incliner la carte avec le téléphone",
+    "TRACK_RELIEF_TILT_FOLLOW_HINT": "En 3D avec Nord, l’inclinaison du téléphone incline la carte",
+    "TRACK_RELIEF_TILT_FOLLOW_NEED_NORTH": "Activez Nord pour incliner la carte avec le téléphone",
     "TRACK_IGN_SCAN25_HINT": "SCAN 25® (détail avec GR) à partir du zoom 13 si clé IGN configurée.",
     "TRACK_RECENTER": "Recentrer (R)",
     "TRACK_RECENTER_SHORT": "Centre",

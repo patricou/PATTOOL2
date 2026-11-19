@@ -257,7 +257,8 @@ export class NotesComponent implements OnInit, OnDestroy {
             friendGroupIds: note.friendGroupIds ? [...note.friendGroupIds] : [],
             imageDataUrls: note.imageDataUrls ? [...note.imageDataUrls] : [],
             calendarAppointmentId: note.calendarAppointmentId || null,
-            evenementId: note.evenementId || null
+            evenementId: note.evenementId || null,
+            showOnHome: !!note.showOnHome
         };
         this.draftHasGps = note.latitude != null && note.longitude != null;
         this.draft.latitude = note.latitude;
@@ -576,7 +577,8 @@ export class NotesComponent implements OnInit, OnDestroy {
                 ? [...this.draft.imageDataUrls]
                 : [],
             calendarAppointmentId: (this.draft.calendarAppointmentId || '').trim() || null,
-            evenementId: (this.draft.evenementId || '').trim() || null
+            evenementId: (this.draft.evenementId || '').trim() || null,
+            showOnHome: !!this.draft.showOnHome
         };
 
         if (!this.editingId) {
@@ -968,7 +970,8 @@ export class NotesComponent implements OnInit, OnDestroy {
             friendGroupIds: [],
             imageDataUrls: [],
             calendarAppointmentId: null,
-            evenementId: null
+            evenementId: null,
+            showOnHome: false
         };
     }
 

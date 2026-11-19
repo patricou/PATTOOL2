@@ -991,6 +991,8 @@
     "CLOSE": "閉じる",
     "SHARED_WITH_YOU": "共有",
     "VISIBILITY_LABEL": "このメモを見られる人",
+    "SHOW_ON_HOME": "ホームに表示",
+    "SHOW_ON_HOME_HINT": "このメモを見られる人のホームに表示します。",
     "PICK_GROUPS": "友達グループを選択",
     "GROUP_REQUIRED": "少なくとも1つの友達グループを選んでください。",
     "NO_GROUPS": "まだ友達グループがありません。",

@@ -27,7 +27,8 @@
         <span>{{ errorMessage }}</span>
       </div>
 
-      <div class="map-wrapper">
+      <div class="map-wrapper"
+           [class.map-has-blend-dock]="isFullscreen && isMobileViewport && !!secondaryBaseLayerId">
         <div #mapContainer id="trace-viewer-map-container" class="map-container" aria-label="Track map"></div>
         <div class="trace-relief3d-host" [class.trace-relief3d-host--on]="relief3d" [attr.aria-hidden]="relief3d ? null : true"></div>
         <div class="trace-relief3d-wait" *ngIf="relief3dPending" role="status" aria-live="polite" aria-label="3D">
@@ -75,9 +76,7 @@
           </svg>
         </div>
 
-        <div class="trace-viewer-orient-overlay"
-             role="group"
-             [attr.aria-label]="'GPS_ROUTING.ORIENT_LABEL' | translate">
+        <ng-template #mapOrientButtons>
           <button type="button"
                   class="trace-viewer-orient-btn"
                   *ngFor="let o of mapOrientations"
@@ -89,6 +88,33 @@
             <i class="fa" [ngClass]="o.icon" aria-hidden="true"></i>
             <span>{{ o.labelKey | translate }}</span>
           </button>
+          <label class="trace-viewer-tilt-switch"
+                 *ngIf="isMobileViewport && relief3d"
+                 [class.active]="reliefTiltFollowDriving"
+                 [attr.title]="(mapOrientation === 'north' ? 'EVENTELEM.TRACK_RELIEF_TILT_FOLLOW_HINT' : 'EVENTELEM.TRACK_RELIEF_TILT_FOLLOW_NEED_NORTH') | translate">
+            <input type="checkbox"
+                   class="trace-viewer-tilt-switch-input"
+                   role="switch"
+                   [ngModel]="reliefTiltFollow"
+                   (ngModelChange)="setReliefTiltFollow($event)"
+                   [disabled]="mapOrientation !== 'north'"
+                   [attr.aria-label]="'EVENTELEM.TRACK_RELIEF_TILT_FOLLOW' | translate">
+            <i class="fa fa-mobile" aria-hidden="true"></i>
+          </label>
+        </ng-template>
+
+        <div class="trace-viewer-orient-dock"
+             *ngIf="!isFullscreen"
+             role="group"
+             [attr.aria-label]="'GPS_ROUTING.ORIENT_LABEL' | translate">
+          <ng-container *ngTemplateOutlet="mapOrientButtons"></ng-container>
+        </div>
+
+        <div class="trace-viewer-orient-overlay"
+             *ngIf="isFullscreen && !orientButtonsDocked"
+             role="group"
+             [attr.aria-label]="'GPS_ROUTING.ORIENT_LABEL' | translate">
+          <ng-container *ngTemplateOutlet="mapOrientButtons"></ng-container>
         </div>
 
         <ul class="trace-viewer-legend" *ngIf="displayedTraces.length > 1">
@@ -323,6 +349,9 @@
                     [attr.aria-expanded]="false">
               <i class="fa fa-sliders" aria-hidden="true"></i>
             </button>
+            <ng-container *ngIf="orientButtonsDocked">
+              <ng-container *ngTemplateOutlet="mapOrientButtons"></ng-container>
+            </ng-container>
             <button type="button"
                     class="btn btn-sm btn-secondary fullscreen-exit-btn tv-tip"
                     (click)="toggleFullscreen()"
@@ -380,7 +409,7 @@
             <option value="">{{ 'EVENTELEM.TRACK_BASEMAP_NONE' | translate }}</option>
             <option *ngFor="let layer of blendBaseLayerChoices" [value]="layer.id" [disabled]="layer.id === selectedBaseLayerId">{{ basemapOptionLabel(layer) }}</option>
           </select>
-          <label class="trace-basemap-blend" *ngIf="secondaryBaseLayerId">
+          <label class="trace-basemap-blend" *ngIf="secondaryBaseLayerId && !isMobileViewport">
             <span aria-hidden="true">1</span>
             <input type="range" min="0" max="100" step="1"
                    [ngModel]="basemapBlend"
@@ -395,6 +424,7 @@
               <input type="range" min="0" max="85" step="1"
                      [ngModel]="reliefPitch"
                      (ngModelChange)="onReliefPitchChange($event)"
+                     [disabled]="reliefTiltFollowDriving"
                      [attr.aria-label]="'EVENTELEM.TRACK_RELIEF_PITCH' | translate"
                      [attr.title]="'EVENTELEM.TRACK_RELIEF_PITCH' | translate">
             </label>
@@ -572,6 +602,17 @@
           </ng-container>
         </div>
 
+        <label class="trace-basemap-blend trace-basemap-blend--map"
+               *ngIf="isFullscreen && isMobileViewport && secondaryBaseLayerId">
+          <span aria-hidden="true">1</span>
+          <input type="range" min="0" max="100" step="1"
+                 [ngModel]="basemapBlend"
+                 (ngModelChange)="onBasemapBlendChange($event)"
+                 [attr.aria-label]="'EVENTELEM.TRACK_BASEMAP_BLEND' | translate"
+                 [attr.title]="'EVENTELEM.TRACK_BASEMAP_BLEND' | translate">
+          <span aria-hidden="true">2</span>
+        </label>
+
         <button *ngIf="isFullscreen"
                 class="btn btn-outline-secondary fullscreen-info-btn"
                 type="button"
@@ -635,6 +676,7 @@
             <input id="trace-relief-pitch" type="range" min="0" max="85" step="1"
                    [ngModel]="reliefPitch"
                    (ngModelChange)="onReliefPitchChange($event)"
+                   [disabled]="reliefTiltFollowDriving"
                    [attr.aria-label]="'EVENTELEM.TRACK_RELIEF_PITCH' | translate"
                    [attr.title]="'EVENTELEM.TRACK_RELIEF_PITCH' | translate">
           </label>

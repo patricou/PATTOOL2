@@ -76,11 +76,18 @@ export class MaptoolkitTerrainView {
 	 * While a programmatic jump is running, MapLibre must not change zoom, center or bearing
 	 * to climb out of the terrain. Pitch stays the one asked for.
 	 */
-	private holdView: { lng: number; lat: number; zoom: number; bearing: number; pitch: number } | null = null;
+	private holdView: { lng: number; lat: number; zoom: number; bearing: number; pitch: number; elevation?: number } | null = null;
 	/** Terrain and the ground elevation are in place. Until then the canvas stays invisible. */
 	private revealed = false;
 	private revealTimer: number | null = null;
 	private releaseRotate: (() => void) | null = null;
+	private releaseTouch: (() => void) | null = null;
+	/** Pinch zoom must not be pulled back by the slope guard mid-gesture. */
+	private freeZoom = false;
+	/** A finger is down: compass and phone-tilt must not jump the camera. */
+	private gesturing = false;
+	private touchBearingLocked = false;
+	private touchPitchLocked = false;
 
 	mount(
 		host: HTMLElement,
@@ -137,8 +144,20 @@ export class MaptoolkitTerrainView {
 		ignoreMissingStyleIcons(map);
 		this.map = map;
 		this.releaseRotate = attachScreenCenterDragRotate(map);
+		/*
+		 * Built-in pinch fights the slope guard and the page zoom on phones.
+		 * The touch handler below owns pinch, twist and two-finger tilt.
+		 */
+		map.touchZoomRotate.disable();
+		map.touchPitch.disable();
+		this.releaseTouch = attachMobileTouchCamera(map, {
+			bearingLocked: () => this.touchBearingLocked,
+			pitchLocked: () => this.touchPitchLocked,
+			setFreeZoom: (on) => { this.freeZoom = on; },
+			setGesturing: (on) => { this.gesturing = on; }
+		});
 		/* maxSpeed 0 stops the coast after a drag. linearity must stay non-zero or the inertia math becomes NaN. */
-		map.dragPan.enable({ linearity: 0.3, maxSpeed: 0 });
+		map.dragPan.enable(RELIEF_DRAG_PAN);
 		/*
 		 * Refuse a closer zoom that would put the camera through the slope.
 		 * Applied with the gesture, so the wheel stops on the terrain instead of jumping back afterwards.
@@ -150,8 +169,12 @@ export class MaptoolkitTerrainView {
 					center: new LngLat(hold.lng, hold.lat),
 					zoom: hold.zoom,
 					bearing: hold.bearing,
-					pitch: hold.pitch
+					pitch: hold.pitch,
+					...(hold.elevation != null && Number.isFinite(hold.elevation) ? { elevation: hold.elevation } : {})
 				};
+			}
+			if (this.freeZoom) {
+				return {};
 			}
 			const currentZoom = map.getZoom();
 			if (!Number.isFinite(next.zoom) || next.zoom <= currentZoom + 1e-3) {
@@ -172,6 +195,27 @@ export class MaptoolkitTerrainView {
 			}
 			if (limit == null || next.zoom <= limit + 0.02) {
 				return {};
+			}
+			try {
+				const height = map.getContainer()?.clientHeight || 0;
+				const fov = map.getVerticalFieldOfView();
+				if (height && Number.isFinite(fov)) {
+					const distancePx = (0.5 / Math.tan((fov * Math.PI) / 360)) * height;
+					const step = {
+						lng: next.center.lng,
+						lat: next.center.lat,
+						pitch: next.pitch,
+						bearing: next.bearing,
+						elevation: next.elevation
+					};
+					const now = reliefDeficit(map, step, currentZoom, distancePx);
+					const later = reliefDeficit(map, step, next.zoom, distancePx);
+					if (later <= now + 22) {
+						return {};
+					}
+				}
+			} catch {
+				/* keep the hard cap */
 			}
 			const capped = Math.min(next.zoom, Math.max(limit, currentZoom));
 			if (capped >= next.zoom - 0.02) {
@@ -303,8 +347,11 @@ export class MaptoolkitTerrainView {
 		});
 	}
 
-	/** MapLibre bearing: the compass direction at the top of the screen. */
-	setBearing(bearing: number): void {
+	/**
+	 * MapLibre bearing: the compass direction at the top of the screen.
+	 * `pitch`, when set, is applied in the same camera jump (phone tilt + north).
+	 */
+	setBearing(bearing: number, pitch?: number): void {
 		const map = this.map;
 		if (!map || !Number.isFinite(bearing)) {
 			return;
@@ -312,7 +359,9 @@ export class MaptoolkitTerrainView {
 		const current = map.getBearing();
 		let delta = bearing - current;
 		delta = ((delta + 540) % 360) - 180;
-		if (Math.abs(delta) < 0.35) {
+		const nextPitch = pitch != null && Number.isFinite(pitch) ? clampPitch(pitch) : map.getPitch();
+		const pitchDelta = Math.abs(nextPitch - map.getPitch());
+		if (Math.abs(delta) < 0.35 && pitchDelta < 0.4) {
 			return;
 		}
 		const center = map.getCenter();
@@ -320,8 +369,8 @@ export class MaptoolkitTerrainView {
 			lng: center.lng,
 			lat: center.lat,
 			zoom: map.getZoom(),
-			pitch: map.getPitch(),
-			bearing,
+			pitch: nextPitch,
+			bearing: Math.abs(delta) < 0.35 ? current : bearing,
 			elevation: map.getCenterElevation()
 		});
 	}
@@ -396,6 +445,20 @@ export class MaptoolkitTerrainView {
 		return { lat: center.lat, lng: center.lng, zoom };
 	}
 
+	/** Nord locks twist. Phone-tilt locks two-finger pitch. Pinch zoom stays available. */
+	setTouchLocks(locks: { bearing?: boolean; pitch?: boolean }): void {
+		if (locks.bearing != null) {
+			this.touchBearingLocked = locks.bearing;
+		}
+		if (locks.pitch != null) {
+			this.touchPitchLocked = locks.pitch;
+		}
+	}
+
+	isUserGesturing(): boolean {
+		return this.gesturing;
+	}
+
 	/** MapLibre bearing: the compass direction at the top of the screen. */
 	bearing(): number | null {
 		const map = this.map;
@@ -414,6 +477,10 @@ export class MaptoolkitTerrainView {
 		this.revealed = false;
 		this.releaseRotate?.();
 		this.releaseRotate = null;
+		this.releaseTouch?.();
+		this.releaseTouch = null;
+		this.gesturing = false;
+		this.freeZoom = false;
 		this.resizeObserver?.disconnect();
 		this.resizeObserver = null;
 		this.hooks = null;
@@ -661,11 +728,13 @@ export class MaptoolkitTerrainView {
 		if (!source || !target) {
 			return;
 		}
+		const elevation = source.getCenterElevation();
 		target.jumpTo({
 			center: source.getCenter(),
 			zoom: source.getZoom(),
 			pitch: source.getPitch(),
-			bearing: source.getBearing()
+			bearing: source.getBearing(),
+			...(Number.isFinite(elevation) ? { elevation } : {})
 		});
 	}
 
@@ -767,15 +836,22 @@ export class MaptoolkitTerrainView {
 		pitch: number;
 		bearing: number;
 		elevation?: number;
-	}): void {
+	}, maxZoom = MAX_ZOOM): void {
 		const map = this.map;
 		if (!map) {
 			return;
 		}
-		const zoom = clampZoom(options.zoom);
+		const zoom = clampZoom(options.zoom, maxZoom);
 		const pitch = clampPitch(options.pitch);
 		const bearing = Number.isFinite(options.bearing) ? options.bearing : map.getBearing();
-		this.holdView = { lng: options.lng, lat: options.lat, zoom, bearing, pitch };
+		this.holdView = {
+			lng: options.lng,
+			lat: options.lat,
+			zoom,
+			bearing,
+			pitch,
+			...(options.elevation != null && Number.isFinite(options.elevation) ? { elevation: options.elevation } : {})
+		};
 		try {
 			map.jumpTo({
 				center: [options.lng, options.lat],
@@ -890,10 +966,290 @@ function tracesToGeoJson(traces: ReliefTrace[]): ReliefFeatureCollection {
 	return { type: 'FeatureCollection', features };
 }
 
+const RELIEF_DRAG_PAN = { linearity: 0.3, maxSpeed: 0 };
+const PINCH_ZOOM_GAIN = 2.4;
+const TAP_DRAG_PX_PER_LEVEL = 78;
+
 const ROTATE_DEG_PER_PIXEL = 0.8;
 const PITCH_DEG_PER_PIXEL = -0.5;
 const VERTICAL_ORBIT_PX = 100;
 const ROTATE_CLICK_TOLERANCE_PX = 3;
+
+type MobileTouchHooks = {
+	bearingLocked: () => boolean;
+	pitchLocked: () => boolean;
+	setFreeZoom: (on: boolean) => void;
+	setGesturing: (on: boolean) => void;
+};
+
+/**
+ * One finger pans (MapLibre drag). Two fingers pinch to zoom around the fingers,
+ * twist to rotate, and a vertical drag tilts. A double tap, or a second tap held
+ * and dragged, zooms with one finger. The page must not steal the pinch.
+ */
+function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => void {
+	const el = map.getCanvasContainer();
+	el.style.touchAction = 'none';
+	let pinch: {
+		dist: number;
+		angle: number;
+		midX: number;
+		midY: number;
+		zoom: number;
+		bearing: number;
+		pitch: number;
+		rotating: boolean;
+		pitching: boolean;
+	} | null = null;
+	let tapZoom: { x: number; y: number; zoom: number; moved: number } | null = null;
+	let finger: { x: number; y: number; lastX: number; lastY: number; moved: number } | null = null;
+	let lastTap = { t: 0, x: 0, y: 0 };
+	let dragPanOff = false;
+
+	const enableDragPan = (): void => {
+		if (!dragPanOff) {
+			return;
+		}
+		dragPanOff = false;
+		map.dragPan.enable(RELIEF_DRAG_PAN);
+	};
+
+	const disableDragPan = (): void => {
+		if (dragPanOff) {
+			return;
+		}
+		dragPanOff = true;
+		map.dragPan.disable();
+	};
+
+	const frame = (zoom: number, bearing: number, pitch: number, clientX: number, clientY: number): void => {
+		const rect = map.getCanvas().getBoundingClientRect();
+		const x = clientX - rect.left;
+		const y = clientY - rect.top;
+		if (!Number.isFinite(x) || !Number.isFinite(y)) {
+			return;
+		}
+		const before = map.unproject([x, y]);
+		const elevation = map.getCenterElevation();
+		const center = map.getCenter();
+		const nextZoom = touchZoomLimit(map, zoom);
+		hooks.setFreeZoom(true);
+		try {
+			map.jumpTo({
+				center,
+				zoom: nextZoom,
+				bearing,
+				pitch,
+				...(Number.isFinite(elevation) ? { elevation } : {})
+			});
+			const after = map.unproject([x, y]);
+			const shifted = map.getCenter();
+			const keptZoom = map.getZoom();
+			const keptElev = map.getCenterElevation();
+			map.jumpTo({
+				center: [shifted.lng + (before.lng - after.lng), shifted.lat + (before.lat - after.lat)],
+				zoom: keptZoom,
+				bearing: map.getBearing(),
+				pitch: map.getPitch(),
+				...(Number.isFinite(keptElev) ? { elevation: keptElev } : {})
+			});
+		} finally {
+			hooks.setFreeZoom(false);
+		}
+	};
+
+	const onStart = (event: TouchEvent): void => {
+		if ((event.target as Element | null)?.closest('.maplibregl-ctrl')) {
+			return;
+		}
+		hooks.setGesturing(true);
+		if (event.touches.length >= 2) {
+			tapZoom = null;
+			disableDragPan();
+			const a = event.touches[0];
+			const b = event.touches[1];
+			pinch = {
+				dist: Math.max(16, Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)),
+				angle: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) * (180 / Math.PI),
+				midX: (a.clientX + b.clientX) / 2,
+				midY: (a.clientY + b.clientY) / 2,
+				zoom: map.getZoom(),
+				bearing: map.getBearing(),
+				pitch: map.getPitch(),
+				rotating: false,
+				pitching: false
+			};
+			finger = null;
+			event.preventDefault();
+			return;
+		}
+		const touch = event.touches[0];
+		if (!touch) {
+			return;
+		}
+		const now = Date.now();
+		const repeat = now - lastTap.t < 300 && Math.hypot(touch.clientX - lastTap.x, touch.clientY - lastTap.y) < 32;
+		if (repeat) {
+			tapZoom = { x: touch.clientX, y: touch.clientY, zoom: map.getZoom(), moved: 0 };
+			disableDragPan();
+			lastTap = { t: 0, x: 0, y: 0 };
+			event.preventDefault();
+			return;
+		}
+		finger = { x: touch.clientX, y: touch.clientY, lastX: touch.clientX, lastY: touch.clientY, moved: 0 };
+		disableDragPan();
+	};
+
+	const onMove = (event: TouchEvent): void => {
+		if (pinch && event.touches.length >= 2) {
+			event.preventDefault();
+			event.stopPropagation();
+			const a = event.touches[0];
+			const b = event.touches[1];
+			const dist = Math.max(16, Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY));
+			const midX = (a.clientX + b.clientX) / 2;
+			const midY = (a.clientY + b.clientY) / 2;
+			let angleDelta = Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) * (180 / Math.PI) - pinch.angle;
+			if (angleDelta > 180) {
+				angleDelta -= 360;
+			} else if (angleDelta < -180) {
+				angleDelta += 360;
+			}
+			if (!pinch.rotating && Math.abs(angleDelta) > 2.5) {
+				pinch.rotating = true;
+			}
+			const vertical = pinch.midY - midY;
+			const horizontal = midX - pinch.midX;
+			if (!pinch.pitching && Math.abs(vertical) > 8 && Math.abs(vertical) > Math.abs(horizontal)) {
+				pinch.pitching = true;
+			}
+			const zoom = clampZoom(pinch.zoom + Math.log2(dist / pinch.dist) * PINCH_ZOOM_GAIN);
+			const bearing = hooks.bearingLocked() || !pinch.rotating
+				? map.getBearing()
+				: pinch.bearing + angleDelta;
+			const pitch = hooks.pitchLocked() || !pinch.pitching
+				? map.getPitch()
+				: clampPitch(pinch.pitch + vertical * 0.42);
+			frame(zoom, bearing, pitch, midX, midY);
+			return;
+		}
+		if (tapZoom && event.touches.length === 1) {
+			event.preventDefault();
+			event.stopPropagation();
+			const touch = event.touches[0];
+			tapZoom.moved = Math.max(tapZoom.moved, Math.hypot(touch.clientX - tapZoom.x, touch.clientY - tapZoom.y));
+			const zoom = clampZoom(tapZoom.zoom + (tapZoom.y - touch.clientY) / TAP_DRAG_PX_PER_LEVEL);
+			frame(zoom, map.getBearing(), map.getPitch(), tapZoom.x, tapZoom.y);
+			return;
+		}
+		if (finger && event.touches.length === 1) {
+			const touch = event.touches[0];
+			const dx = touch.clientX - finger.lastX;
+			const dy = touch.clientY - finger.lastY;
+			finger.lastX = touch.clientX;
+			finger.lastY = touch.clientY;
+			finger.moved = Math.max(finger.moved, Math.hypot(touch.clientX - finger.x, touch.clientY - finger.y));
+			if (finger.moved < 3 || (Math.abs(dx) < 0.2 && Math.abs(dy) < 0.2)) {
+				return;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			map.panBy([-dx, -dy], { animate: false, freezeElevation: true });
+		}
+	};
+
+	const onEnd = (event: TouchEvent): void => {
+		if (event.touches.length >= 2) {
+			return;
+		}
+		if (event.touches.length === 1) {
+			pinch = null;
+			const touch = event.touches[0];
+			finger = {
+				x: touch.clientX,
+				y: touch.clientY,
+				lastX: touch.clientX,
+				lastY: touch.clientY,
+				moved: 24
+			};
+			tapZoom = null;
+			return;
+		}
+		if (tapZoom && tapZoom.moved < 16) {
+			frame(clampZoom(tapZoom.zoom + 1.2), map.getBearing(), map.getPitch(), tapZoom.x, tapZoom.y);
+		} else if (finger && finger.moved < 16) {
+			lastTap = { t: Date.now(), x: finger.x, y: finger.y };
+		}
+		pinch = null;
+		tapZoom = null;
+		finger = null;
+		enableDragPan();
+		hooks.setGesturing(false);
+	};
+
+	const blockGesture = (event: Event): void => {
+		event.preventDefault();
+	};
+
+	el.addEventListener('touchstart', onStart, { capture: true, passive: false });
+	el.addEventListener('touchmove', onMove, { capture: true, passive: false });
+	el.addEventListener('touchend', onEnd, { capture: true, passive: false });
+	el.addEventListener('touchcancel', onEnd, { capture: true, passive: false });
+	el.addEventListener('gesturestart', blockGesture, { passive: false } as AddEventListenerOptions);
+	el.addEventListener('gesturechange', blockGesture, { passive: false } as AddEventListenerOptions);
+
+	return () => {
+		enableDragPan();
+		hooks.setGesturing(false);
+		hooks.setFreeZoom(false);
+		el.removeEventListener('touchstart', onStart, { capture: true } as EventListenerOptions);
+		el.removeEventListener('touchmove', onMove, { capture: true } as EventListenerOptions);
+		el.removeEventListener('touchend', onEnd, { capture: true } as EventListenerOptions);
+		el.removeEventListener('touchcancel', onEnd, { capture: true } as EventListenerOptions);
+		el.removeEventListener('gesturestart', blockGesture);
+		el.removeEventListener('gesturechange', blockGesture);
+	};
+}
+
+/** Zoom in until the slope actually gets closer, not merely because the view is already tilted. */
+function touchZoomLimit(map: MlMap, desired: number): number {
+	const current = map.getZoom();
+	const zoom = clampZoom(desired);
+	if (!(zoom > current + 1e-3) || !map.getTerrain()) {
+		return zoom;
+	}
+	const center = map.getCenter();
+	const step = {
+		lng: center.lng,
+		lat: center.lat,
+		pitch: map.getPitch(),
+		bearing: map.getBearing(),
+		elevation: map.getCenterElevation(),
+		zoom
+	};
+	const height = map.getContainer()?.clientHeight || 0;
+	const fov = map.getVerticalFieldOfView();
+	if (!height || !Number.isFinite(fov)) {
+		return zoom;
+	}
+	const distancePx = (0.5 / Math.tan((fov * Math.PI) / 360)) * height;
+	let now = 0;
+	let later = 0;
+	try {
+		now = reliefDeficit(map, step, current, distancePx);
+		later = reliefDeficit(map, step, zoom, distancePx);
+	} catch {
+		return zoom;
+	}
+	if (later <= now + 28) {
+		return zoom;
+	}
+	const limit = zoomAboveRelief(map, step);
+	if (limit == null) {
+		return zoom;
+	}
+	return clampZoom(Math.max(current, Math.min(zoom, limit + 0.15)));
+}
 
 /**
  * Ctrl + glisser, ou glisser bouton droit : le cap suit la main autour du centre de l'écran.
@@ -1033,11 +1389,11 @@ function clampPitch(pitch: number): number {
 	return Math.max(0, Math.min(MAX_PITCH, pitch));
 }
 
-function clampZoom(zoom: number): number {
+function clampZoom(zoom: number, maxZoom = MAX_ZOOM): number {
 	if (!Number.isFinite(zoom)) {
 		return 13;
 	}
-	return Math.max(0, Math.min(MAX_ZOOM, zoom));
+	return Math.max(0, Math.min(maxZoom, zoom));
 }
 
 /**
@@ -1072,7 +1428,7 @@ function zoomAboveRelief(
 	let zoom = step.zoom;
 	for (let pass = 0; pass < 4; pass++) {
 		const deficit = reliefDeficit(map, step, zoom, distancePx);
-		if (deficit <= 0) {
+		if (deficit <= 18) {
 			break;
 		}
 		const heightM = cameraHeightMeters(step, zoom, distancePx);

@@ -22,6 +22,7 @@ import { TvPlayerService } from '../../services/tv-player.service';
 import { YoutubePlayerService } from '../../services/youtube-player.service';
 import { NewsTickerService } from '../../services/news-ticker.service';
 import { TodoDashboardList, TodoListService } from '../../todolists/todolist.service';
+import { Note, NoteService } from '../../notes/note.service';
 import { HomeDashboardCacheService } from '../home-dashboard-cache.service';
 import { UserInfoModalService } from '../../services/user-info-modal.service';
 import { WeatherPointTimelineComponent } from '../../shared/weather-point-timeline/weather-point-timeline.component';
@@ -62,6 +63,15 @@ interface DashNewsItem {
 	source: string;
 	image: string;
 	when: string;
+}
+
+interface DashHomeNote {
+	id: string;
+	title: string;
+	content: string;
+	color: string;
+	owner: string;
+	hasPhotos: boolean;
 }
 
 interface DashPlaying {
@@ -200,6 +210,9 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 	taskState: CardState = 'loading';
 	tasks: DashTaskItem[] = [];
 
+	notesState: CardState = 'loading';
+	homeNotes: DashHomeNote[] = [];
+
 	playing: DashPlaying | null = null;
 	tvLogo = '';
 
@@ -213,6 +226,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 	weatherRefreshing = false;
 	agendaRefreshing = false;
 	taskRefreshing = false;
+	notesRefreshing = false;
 	playingRefreshing = false;
 	private newsProviderPinned: NewsProviderId | null = null;
 	private newsRequest = 0;
@@ -243,6 +257,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		private files: FileService,
 		private calendar: CalendarService,
 		private todos: TodoListService,
+		private noteService: NoteService,
 		private radio: RadioPlayerService,
 		private tv: TvPlayerService,
 		private youtube: YoutubePlayerService,
@@ -532,6 +547,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		this.loadUser();
 		this.loadAgenda(gen);
 		this.loadTasks(gen);
+		this.loadNotes(gen);
 		this.loadNews(gen);
 		this.applyPlayback();
 	}
@@ -564,6 +580,13 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 			return;
 		}
 		this.loadTasks(this.loadGen, true);
+	}
+
+	refreshNotes(): void {
+		if (this.notesRefreshing) {
+			return;
+		}
+		this.loadNotes(this.loadGen, true);
 	}
 
 	refreshPlaying(): void {
@@ -1011,6 +1034,59 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 				this.finish(quiet ? 'tasks' : false);
 			}
 		}));
+	}
+
+	private loadNotes(gen: number, quiet = false): void {
+		const visible = this.notesState !== 'loading';
+		this.notesRefreshing = quiet;
+		if (!quiet) {
+			this.begin();
+		}
+		this.subs.add(this.noteService.listAccessible().pipe(
+			take(1),
+			catchError(() => of(null as Note[] | null)),
+			this.checked()
+		).subscribe((list) => {
+			if (gen !== this.loadGen) {
+				if (quiet) {
+					this.notesRefreshing = false;
+				}
+				return;
+			}
+			if (list == null) {
+				if (!visible) {
+					this.homeNotes = [];
+					this.notesState = 'error';
+				}
+				this.notesRefreshing = false;
+				this.finish(quiet ? 'notes' : false);
+				return;
+			}
+			this.homeNotes = this.pinnedNotes(list);
+			this.notesState = this.homeNotes.length ? 'ready' : 'empty';
+			this.notesRefreshing = false;
+			this.finish(quiet ? 'notes' : false);
+		}));
+	}
+
+	/** Notes the author marked for the home page. Access is already filtered by the API. */
+	private pinnedNotes(list: Note[]): DashHomeNote[] {
+		return list
+			.filter((note) => note.showOnHome === true && !!(note.id || '').trim())
+			.sort((a, b) => {
+				const left = Date.parse(b.updatedAt || b.createdAt || '') || 0;
+				const right = Date.parse(a.updatedAt || a.createdAt || '') || 0;
+				return left - right;
+			})
+			.slice(0, 12)
+			.map((note) => ({
+				id: (note.id || '').trim(),
+				title: (note.title || '').trim(),
+				content: (note.content || '').trim(),
+				color: note.color || '#ffe066',
+				owner: (note.ownerDisplayName || '').trim(),
+				hasPhotos: !!(note.imageDataUrls && note.imageDataUrls.length)
+			}));
 	}
 
 	private loadNews(gen: number, replace = true, forcedProvider?: NewsProviderId): void {
@@ -1894,13 +1970,15 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 	}
 
 	/** A card refresh updates the cache without spinning the title-bar button. */
-	private finish(quiet: false | 'weather' | 'agenda' | 'tasks'): void {
+	private finish(quiet: false | 'weather' | 'agenda' | 'tasks' | 'notes'): void {
 		if (quiet === 'weather') {
 			this.weatherRefreshing = false;
 		} else if (quiet === 'agenda') {
 			this.agendaRefreshing = false;
 		} else if (quiet === 'tasks') {
 			this.taskRefreshing = false;
+		} else if (quiet === 'notes') {
+			this.notesRefreshing = false;
 		}
 		if (quiet) {
 			this.store();
@@ -1964,6 +2042,8 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		}
 		this.taskState = snap.taskState;
 		this.tasks = snap.tasks;
+		this.notesState = snap.notesState ?? 'loading';
+		this.homeNotes = snap.homeNotes ?? [];
 		this.publishNewsState(snap.newsState, true);
 		this.news = snap.news;
 		this.newsProvider = snap.newsProvider;
@@ -1983,6 +2063,9 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		if (this.taskState === 'loading') {
 			this.loadTasks(gen);
 		}
+		if (this.notesState === 'loading') {
+			this.loadNotes(gen);
+		}
 		if (this.newsState === 'loading') {
 			this.loadNews(gen);
 		}
@@ -1999,6 +2082,7 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		const weatherReady = this.weatherState !== 'loading';
 		const agendaReady = this.agendaState !== 'loading';
 		const tasksReady = this.taskState !== 'loading';
+		const notesReady = this.notesState !== 'loading';
 		const newsReady = this.newsState !== 'loading';
 		this.cache.snapshot = {
 			lang: this.currentLang,
@@ -2032,6 +2116,8 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 			agendaExtra: agendaReady ? this.agendaExtra : (prev?.agendaExtra ?? 0),
 			taskState: tasksReady ? this.taskState : (prev?.taskState ?? 'loading'),
 			tasks: tasksReady ? this.tasks : (prev?.tasks ?? []),
+			notesState: notesReady ? this.notesState : (prev?.notesState ?? 'loading'),
+			homeNotes: notesReady ? this.homeNotes : (prev?.homeNotes ?? []),
 			newsState: newsReady ? this.newsState : (prev?.newsState ?? 'loading'),
 			news: newsReady ? this.news : (prev?.news ?? []),
 			newsProvider: newsReady ? this.newsProvider : (prev?.newsProvider ?? this.newsProvider)

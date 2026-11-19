@@ -992,6 +992,8 @@
     "CLOSE": "Chiudi",
     "SHARED_WITH_YOU": "Condivisa",
     "VISIBILITY_LABEL": "Chi può vedere questa nota",
+    "SHOW_ON_HOME": "Mostra nella pagina iniziale",
+    "SHOW_ON_HOME_HINT": "Chi ha accesso a questa nota la vedrà nella propria pagina iniziale.",
     "PICK_GROUPS": "Scegli i gruppi di amici",
     "GROUP_REQUIRED": "Scegli almeno un gruppo di amici.",
     "NO_GROUPS": "Non hai ancora alcun gruppo di amici.",

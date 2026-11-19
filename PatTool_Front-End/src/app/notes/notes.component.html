@@ -66,6 +66,11 @@
                       [title]="visibilityDisplay(note)">
                     <i class="fa" [ngClass]="visibilityIcon(note.visibility)"></i>
                 </span>
+                <span *ngIf="note.showOnHome"
+                      class="notes-postit-home"
+                      [title]="'NOTES.SHOW_ON_HOME' | translate">
+                    <i class="fa fa-home" aria-hidden="true"></i>
+                </span>
 
                 <h3 class="notes-postit-title" *ngIf="note.title">{{ note.title }}</h3>
                 <p class="notes-postit-body"
@@ -374,10 +379,26 @@
             </div>
         </div>
 
+        <label class="notes-show-on-home" *ngIf="!readOnly" [class.is-on]="!!draft.showOnHome">
+            <input class="notes-show-on-home-check" type="checkbox" id="note-show-on-home"
+                   name="noteShowOnHome"
+                   [(ngModel)]="draft.showOnHome">
+            <span class="notes-show-on-home-logo" aria-hidden="true">
+                <i class="fa fa-home"></i>
+            </span>
+            <span class="notes-show-on-home-copy">
+                <span class="notes-show-on-home-title">{{ 'NOTES.SHOW_ON_HOME' | translate }}</span>
+                <span class="notes-show-on-home-hint">{{ 'NOTES.SHOW_ON_HOME_HINT' | translate }}</span>
+            </span>
+        </label>
+
         <div class="notes-draft-meta text-muted" *ngIf="readOnly">
             <div>
                 <i class="fa me-1" [ngClass]="visibilityIcon(draft.visibility)"></i>
                 {{ visibilityLabelKey(draft.visibility) | translate }}
+            </div>
+            <div *ngIf="draft.showOnHome">
+                <i class="fa fa-home me-1" aria-hidden="true"></i>{{ 'NOTES.SHOW_ON_HOME' | translate }}
             </div>
         </div>
 

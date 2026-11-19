@@ -1877,6 +1877,8 @@
     "CLOSE": "Close",
     "SHARED_WITH_YOU": "Shared",
     "VISIBILITY_LABEL": "Who can see this note",
+    "SHOW_ON_HOME": "Show on the home page",
+    "SHOW_ON_HOME_HINT": "People who can access this note will see it on their home page.",
     "PICK_GROUPS": "Pick the friend groups",
     "GROUP_REQUIRED": "Pick at least one friend group.",
     "NO_GROUPS": "You don't have any friend group yet.",
@@ -2064,7 +2066,8 @@
       "OPEN_TV": "Open TV",
       "NEWS": "News",
       "NEWS_EMPTY": "No headlines",
-      "SCROLL": "Scroll the page"
+      "SCROLL": "Scroll the page",
+      "NOTES": "Notes"
     }
   },
   "LINKS": {
@@ -3147,8 +3150,11 @@
     "TRACK_BASEMAP_NONE": "None",
     "TRACK_BASEMAP_BLEND": "Transparency: left = first basemap, right = second basemap",
     "TRACK_RELIEF_3D": "3D relief",
-    "TRACK_RELIEF_3D_HINT": "Tilt and terrain for Maptoolkit Hike and Ski. The track and GPS point sit on the terrain. Hold Ctrl and drag: sideways rotates, upward tilts.",
+    "TRACK_RELIEF_3D_HINT": "Tilt and terrain for Maptoolkit Hike and Ski. The track and GPS point sit on the terrain. On a phone: one finger pans, pinch zooms, two fingers upward tilt. Double-tap zooms in. Hold Ctrl and drag: sideways rotates, upward tilts.",
     "TRACK_RELIEF_PITCH": "Tilt",
+    "TRACK_RELIEF_TILT_FOLLOW": "Tilt the map with the phone",
+    "TRACK_RELIEF_TILT_FOLLOW_HINT": "In 3D with North on, the phone’s tilt pitches the map",
+    "TRACK_RELIEF_TILT_FOLLOW_NEED_NORTH": "Turn on North to tilt the map with the phone",
     "TRACK_IGN_SCAN25_HINT": "SCAN 25® (detail with GR) from zoom 13 if IGN API key is set.",
     "TRACK_RECENTER": "Recenter (R)",
     "TRACK_RECENTER_SHORT": "Center",

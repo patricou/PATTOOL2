@@ -36,6 +36,9 @@ public class NoteRequest {
     /** Optional activity (evenement) id; mutually exclusive with {@link #calendarAppointmentId}. */
     private String evenementId;
 
+    /** When true, people who can see the note also see it on their home page. */
+    private Boolean showOnHome;
+
     public String getTitle() {
         return title;
     }
@@ -138,5 +141,13 @@ public class NoteRequest {
 
     public void setEvenementId(String evenementId) {
         this.evenementId = evenementId;
+    }
+
+    public Boolean getShowOnHome() {
+        return showOnHome;
+    }
+
+    public void setShowOnHome(Boolean showOnHome) {
+        this.showOnHome = showOnHome;
     }
 }

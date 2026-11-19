@@ -1,6 +1,8 @@
 import {
   attitudeFromLookAndTop,
   cameraFromEarthToDeviceQuat,
+  cameraFromDeviceOrientation,
+  mapBearingFromDeviceOrientation,
   cameraElevationFromBetaGamma,
   cameraElevationFromGravity,
   circularDiff,
@@ -293,6 +295,26 @@ describe('attitudeFromLookAndTop pitch (flat → vertical → zenith)', () => {
     const a = pitch(-1, 148)!;
     expect(a.elevationDeg).toBeGreaterThan(50);
     expect(Math.abs(circularDiff(a.azimuthDeg, 0))).toBeLessThan(8);
+  });
+});
+
+describe('map bearing while the phone goes from flat to vertical', () => {
+  it('matches the flat compass: east at the top of the screen is bearing 270', () => {
+    const flat = cameraFromDeviceOrientation(270, 0, 0)!;
+    expect(flat.azimuthDeg).toBeCloseTo(90, 4);
+    expect(mapBearingFromDeviceOrientation(270, 0, 0, 0)).toBeCloseTo(270, 4);
+    expect(mapBearingFromDeviceOrientation(0, 0, 0, 0)).toBeCloseTo(0, 4);
+    expect(mapBearingFromDeviceOrientation(0, 0, 0, 90)).toBeCloseTo(270, 4);
+  });
+
+  it('keeps that bearing when the phone is raised upright, camera under the phone', () => {
+    const flat = mapBearingFromDeviceOrientation(270, 0, 0, 0)!;
+    for (const beta of [0, 30, 60, 75, 90, 110, 140, 160]) {
+      const bearing = mapBearingFromDeviceOrientation(270, beta, 0, 0)!;
+      expect(Math.abs(circularDiff(bearing, flat)))
+        .withContext(`beta=${beta}`)
+        .toBeLessThan(8);
+    }
   });
 });
 

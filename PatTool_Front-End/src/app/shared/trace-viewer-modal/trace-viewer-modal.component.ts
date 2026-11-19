@@ -34,6 +34,7 @@ import { createVectorBasemapLayer, maptoolkitStyleForBasemap, vectorStyleForBase
 import { MaptoolkitTerrainView, ReliefTrace, leafletZoomToMaplibre, maplibreZoomToLeaflet } from '../maptoolkit-terrain-view';
 import { findSkinnedPageHost, paintModalFromHost } from '../host-skin';
 import { isBrowserOffline } from '../browser-offline.util';
+import { mapBearingFromDeviceOrientation } from '../../direction/direction-attitude';
 /** Nord = la carte suit la boussole (flèche rouge = nord réel). Marche = cap GPS en haut. Fixe = pas de rotation auto (Ctrl + glisser tourne quand même). */
 type TraceMapOrientation = 'north' | 'heading' | 'fixed';
 import {
@@ -292,6 +293,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public followDeviceLocation: boolean = false;
 	/** One-shot geolocation in progress (recenter-on-user button). */
 	public locatingUser = false;
+	/** `modalGeneration` when a live GPS recenter last won — blocks provisional weather snap-back. */
+	private userGpsRecenterGen = 0;
+	/** GPS fix fetched for the current open (may arrive before the Leaflet map exists). */
+	private pendingUserGps: { lat: number; lng: number } | null = null;
+	private userGpsFetchGen = 0;
 	/** Keep the device screen on while the trace viewer is open (mobile). */
 	public keepScreenAwake = false;
 	private screenWakeLock: WakeLockSentinel | null = null;
@@ -445,6 +451,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public relief3dPending = false;
 	/** Camera tilt in degrees, 0 = straight down, same frame as the flat map. */
 	public reliefPitch = 0;
+	/**
+	 * Mobile only: while Nord and the 3D view are on, the phone’s tilt drives `reliefPitch`.
+	 * The choice stays if Nord is left, but the camera stops following until Nord is back.
+	 */
+	public reliefTiltFollow = false;
+	/** Smoothed screen tilt (0° flat, 90° upright) while `reliefTiltFollow` is driving. */
+	private reliefTiltSmoothed: number | null = null;
+	/** Last tilt sent to the 3D camera. */
+	private reliefTiltPitch: number | null = null;
+	private reliefTiltListening = false;
+	private readonly onReliefTilt = (event: Event): void => {
+		this.applyReliefDeviceTilt(event as DeviceOrientationEvent);
+	};
 
 	/** Angle à côté de Z : 90 quand la vue est verticale, 0 à l'horizon. */
 	public get reliefZAngle(): number {
@@ -489,6 +508,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public isFullscreenInfoVisible = false;
 	/** Fullscreen options panel (basemap, switches, actions) — collapsed by default. */
 	public isFullscreenOptionsExpanded = false;
+
+	/** Plein écran replié : Nord / Marche / Fixe entre Options et Quitter. */
+	get orientButtonsDocked(): boolean {
+		return this.isFullscreen && !this.isFullscreenOptionsExpanded;
+	}
 	private trackBounds: L.LatLngBounds | null = null;
 	offlineMeta: GpsOfflinePackMeta = { tileCount: 0, bytes: 0, updatedAt: null };
 	offlineProgress: GpsOfflineMapProgress = { done: 0, total: 0, failed: 0 };
@@ -3964,10 +3988,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.locationRecenterZoom = viewZoom;
 
 		if (hidePin) {
+			// Point provisoire (météo / Genève) uniquement pour l’ouverture :
+			// ne pas le marquer comme position GPS — scheduleRecenterOnUser s’en charge.
+			if (this.userGpsRecenterGen === this.modalGeneration) {
+				this.trackStats = null;
+				this.scheduleTraceViewerCdr();
+				return;
+			}
 			this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
 			this.map.setView([lat, lng], viewZoom, { animate: false });
 			this.currentZoom = viewZoom;
-			this.updateDeviceLocationMarker(lat, lng);
 			this.trackStats = null;
 			this.scheduleTraceViewerCdr();
 			return;
@@ -4185,6 +4215,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.clearDirectionTargetState();
 		this.closeOfflineTracesModal();
 		this.closeGpxStatsModal();
+		this.locatingUser = false;
+		this.userGpsRecenterGen = 0;
+		this.pendingUserGps = null;
+		this.userGpsFetchGen = 0;
 		this.trackBounds = null;
 		this.locationRecenterZoom = null;
 		this.hasError = false;
@@ -4208,6 +4242,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.mapOrientation = 'fixed';
 		this.manualMapBearing = null;
 		this.relief3dDismissed = false;
+		this.reliefTiltFollow = false;
+		this.reliefTiltSmoothed = null;
+		this.reliefTiltPitch = null;
 		this.stopMapOrientationWatch();
 		this.pendingLocation = null;
 		this.pendingPositions = null;
@@ -4414,6 +4451,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const mobile = this.computeMobileViewport();
 		this.isMobileViewport = mobile;
 		this.showKeepScreenAwakeSwitch = mobile && this.screenWakeLockAvailable;
+		if (!mobile && this.reliefTiltFollow) {
+			this.setReliefTiltFollow(false);
+		}
 	}
 
 	private registerMobileViewportListener(): void {
@@ -4951,10 +4991,107 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public onReliefPitchChange(value: number | string): void {
+		if (this.reliefTiltFollow) {
+			this.setReliefTiltFollow(false);
+		}
 		const n = typeof value === 'number' ? value : Number(value);
 		this.reliefPitch = Number.isFinite(n) ? Math.max(0, Math.min(85, Math.round(n))) : 0;
 		this.terrainView?.setPitch(this.reliefPitch);
 		this.updateAxisGizmo(this.reliefZAngle);
+	}
+
+	/** Mobile switch: pitch follows the phone only in 3D with Nord on. */
+	public setReliefTiltFollow(on: boolean): void {
+		this.reliefTiltFollow = !!on;
+		this.reliefTiltSmoothed = null;
+		this.reliefTiltPitch = null;
+		this.syncReliefTouchLocks();
+		if (!this.reliefTiltFollow) {
+			this.syncReliefTiltListener();
+			this.syncReliefTouchLocks();
+			return;
+		}
+		void this.armReliefTiltSensor();
+	}
+
+	public get reliefTiltFollowDriving(): boolean {
+		return this.reliefTiltFollow && this.relief3d && this.mapOrientation === 'north';
+	}
+
+	private async armReliefTiltSensor(): Promise<void> {
+		const permission = await requestMotionPermissionIfNeeded();
+		if (!this.reliefTiltFollow) {
+			this.syncReliefTiltListener();
+			return;
+		}
+		if (permission === 'denied') {
+			this.reliefTiltFollow = false;
+			this.syncReliefTiltListener();
+			this.syncReliefTouchLocks();
+			this.scheduleTraceViewerCdr();
+			return;
+		}
+		this.syncReliefTiltListener();
+	}
+
+	private syncReliefTiltListener(): void {
+		const want = this.reliefTiltFollow && typeof window !== 'undefined' && 'DeviceOrientationEvent' in window;
+		if (want && !this.reliefTiltListening) {
+			window.addEventListener('deviceorientation', this.onReliefTilt, true);
+			this.reliefTiltListening = true;
+			return;
+		}
+		if (!want && this.reliefTiltListening && typeof window !== 'undefined') {
+			window.removeEventListener('deviceorientation', this.onReliefTilt, true);
+			this.reliefTiltListening = false;
+		}
+	}
+
+	private stopReliefTiltListener(): void {
+		this.reliefTiltFollow = false;
+		this.reliefTiltSmoothed = null;
+		this.reliefTiltPitch = null;
+		this.syncReliefTiltListener();
+	}
+
+	/**
+	 * Angle between the screen and the horizontal plane.
+	 * 0° = phone flat, screen toward the sky. 90° = phone upright. Works in portrait and landscape.
+	 */
+	private screenTiltDeg(betaDeg: number, gammaDeg: number): number {
+		const nz = Math.cos((betaDeg * Math.PI) / 180) * Math.cos((gammaDeg * Math.PI) / 180);
+		const clamped = Math.max(-1, Math.min(1, nz));
+		return (Math.acos(clamped) * 180) / Math.PI;
+	}
+
+	/** Drive the 3D pitch from the phone while Nord is on. Heading stays on the compass listener. */
+	private applyReliefDeviceTilt(event: DeviceOrientationEvent): void {
+		if (!this.reliefTiltFollowDriving || !this.terrainView || this.terrainView.isUserGesturing()) {
+			return;
+		}
+		const beta = event.beta;
+		if (beta == null || !Number.isFinite(beta)) {
+			return;
+		}
+		const gamma = event.gamma != null && Number.isFinite(event.gamma) ? event.gamma : 0;
+		const raw = this.screenTiltDeg(beta, gamma);
+		const seed = this.reliefTiltSmoothed ?? this.reliefPitch;
+		const smoothed = seed * 0.62 + raw * 0.38;
+		this.reliefTiltSmoothed = smoothed;
+		const next = Math.max(0, Math.min(85, smoothed));
+		if (this.reliefTiltPitch != null && Math.abs(this.reliefTiltPitch - next) < 0.45) {
+			return;
+		}
+		this.reliefTiltPitch = next;
+		const shown = Math.round(next);
+		if (shown !== this.reliefPitch) {
+			this.reliefPitch = shown;
+			this.scheduleTraceViewerCdr();
+		}
+		this.updateAxisGizmo(90 - next);
+		if (this.mapBearingGlideRaf == null) {
+			this.terrainView.setPitch(next);
+		}
 	}
 
 	/** Le pitch MapLibre arrive pendant le contrôle de vue : on reporte le modèle au tick suivant. */
@@ -5032,6 +5169,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.adoptReliefDrag(bearing);
 			},
 			onPitch: (pitch) => {
+				if (this.reliefTiltFollowDriving) {
+					return;
+				}
 				const next = Math.max(0, Math.min(85, Math.round(pitch)));
 				this.updateAxisGizmo(90 - next);
 				if (next === this.reliefPitch) {
@@ -5043,10 +5183,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.relief3dPending = false;
 				this.cdr.detectChanges();
 				this.applySelectedBaseLayer();
+				// GPS often resolves after 3D mounts on the provisional (weather) center.
+				this.reapplyPendingUserGpsToView();
 			}
 		});
 		this.syncRelief3dOverlays();
 		this.syncRelief3dBlend();
+		this.syncReliefTouchLocks();
 		this.currentZoom = Number.isFinite(leafletZoom) ? leafletZoom : this.currentZoom;
 		this.updateCompassRose();
 	}
@@ -6137,6 +6280,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public recenterOnTrack(): void {
+		// Carte seule / point unique (menu Carte, météo…) : Recentrer = GPS utilisateur,
+		// pas le point provisoire (souvent Genève) stocké dans trackBounds.
+		if (!this.hasMultiPointTrack()) {
+			this.recenterOnUser();
+			return;
+		}
 		if (this.relief3d && this.terrainView) {
 			this.recenterReliefView();
 			return;
@@ -6145,6 +6294,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		this.fitMapToTrackBounds(this.trackBounds);
+	}
+
+	/** Vrai dès qu’un tracé GPX / polyline a au moins 2 points (pas un simple openAtLocation). */
+	private hasMultiPointTrack(): boolean {
+		return (this.gpxAnalysis?.points?.length ?? 0) >= 2
+			|| this.trackOrientationCoords.length >= 2
+			|| (this.pendingTrackPoints?.length ?? 0) >= 2
+			|| (this.pendingTraces?.some((t) => (t.points?.length ?? 0) >= 2) ?? false);
 	}
 
 	/**
@@ -6188,38 +6345,127 @@ export class TraceViewerModalComponent implements OnDestroy {
 		);
 	}
 
+	/**
+	 * After open: start GPS immediately (before the map exists), then keep applying
+	 * the fix until Leaflet (and 3D if any) can show it.
+	 */
+	public scheduleRecenterOnUser(): void {
+		const generation = this.modalGeneration;
+		this.beginUserGpsFetch(generation);
+		const attempt = (n: number): void => {
+			if (generation !== this.modalGeneration || !this.modalRef) {
+				return;
+			}
+			if (this.reapplyPendingUserGpsToView()) {
+				// 3D may mount a moment later on the weather center — re-apply a few times.
+				if (n < 40 && (this.relief3dPending || (this.relief3d && !this.terrainView))) {
+					window.setTimeout(() => attempt(n + 1), 100);
+				}
+				return;
+			}
+			if (n < 100) {
+				window.setTimeout(() => attempt(n + 1), 50);
+			}
+		};
+		attempt(0);
+	}
+
 	/** One shot: center the map on the device GPS and show the position marker. */
 	public recenterOnUser(): void {
-		if (!this.map || !navigator.geolocation || this.locatingUser) {
+		if (!this.map) {
+			this.scheduleRecenterOnUser();
 			return;
 		}
+		if (this.pendingUserGps) {
+			this.applyUserRecenter(this.pendingUserGps.lat, this.pendingUserGps.lng, true);
+		} else if (this.lastGpsFix) {
+			this.applyUserRecenter(this.lastGpsFix.lat, this.lastGpsFix.lon, false);
+		}
+		this.beginUserGpsFetch(this.modalGeneration);
+	}
+
+	/** Fetch GPS for this modal generation; high accuracy first, then network/Wi‑Fi fallback. */
+	private beginUserGpsFetch(generation: number): void {
+		if (!navigator.geolocation) {
+			return;
+		}
+		if (this.userGpsFetchGen === generation && this.locatingUser) {
+			return;
+		}
+		this.userGpsFetchGen = generation;
 		this.locatingUser = true;
 		this.cdr.markForCheck();
+		const onFix = (lat: number, lng: number): void => {
+			if (this.userGpsFetchGen !== generation || generation !== this.modalGeneration) {
+				return;
+			}
+			this.locatingUser = false;
+			this.pendingUserGps = { lat, lng };
+			this.lastGpsFix = { lat, lon: lng };
+			this.reapplyPendingUserGpsToView();
+			this.cdr.markForCheck();
+		};
+		const onFailFinal = (): void => {
+			if (this.userGpsFetchGen !== generation) {
+				return;
+			}
+			this.locatingUser = false;
+			this.cdr.markForCheck();
+		};
 		navigator.geolocation.getCurrentPosition(
-			(pos) => {
-				this.locatingUser = false;
-				if (!this.map) {
-					this.cdr.markForCheck();
-					return;
-				}
-				const lat = pos.coords.latitude;
-				const lng = pos.coords.longitude;
-				const zoom = Math.min(
-					this.map.getMaxZoom(),
-					Math.max(this.visibleLeafletZoom(), TraceViewerModalComponent.USER_POSITION_ZOOM)
-				);
-				this.map.setView([lat, lng], zoom);
-				this.currentZoom = zoom;
-				this.terrainView?.jumpTo(lat, lng, zoom);
-				this.updateDeviceLocationMarker(lat, lng);
-				this.cdr.markForCheck();
-			},
+			(pos) => onFix(pos.coords.latitude, pos.coords.longitude),
 			() => {
-				this.locatingUser = false;
-				this.cdr.markForCheck();
+				navigator.geolocation.getCurrentPosition(
+					(pos) => onFix(pos.coords.latitude, pos.coords.longitude),
+					onFailFinal,
+					{ enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 }
+				);
 			},
-			{ enableHighAccuracy: true, timeout: 8000, maximumAge: 5000 }
+			{ enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
 		);
+	}
+
+	/** Apply pending/live GPS to Leaflet + MapLibre when the view exists. */
+	private reapplyPendingUserGpsToView(): boolean {
+		const fix = this.pendingUserGps
+			?? (this.lastGpsFix && this.userGpsRecenterGen === this.modalGeneration
+				? { lat: this.lastGpsFix.lat, lng: this.lastGpsFix.lon }
+				: null);
+		if (!fix || !this.map || !this.mapContainerIsSized()) {
+			return false;
+		}
+		this.applyUserRecenter(fix.lat, fix.lng, true);
+		return true;
+	}
+
+	/**
+	 * Centre Leaflet + vue 3D sur la position GPS et pose le marqueur.
+	 * `fromLiveGps` : fix frais → bloque un éventuel retour sur le point provisoire.
+	 */
+	private applyUserRecenter(lat: number, lng: number, fromLiveGps = true): void {
+		if (!this.map || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+			return;
+		}
+		if (fromLiveGps) {
+			this.userGpsRecenterGen = this.modalGeneration;
+			this.pendingUserGps = { lat, lng };
+		}
+		const zoom = Math.min(
+			this.map.getMaxZoom(),
+			Math.max(this.visibleLeafletZoom(), TraceViewerModalComponent.USER_POSITION_ZOOM)
+		);
+		this.map.setView([lat, lng], zoom, { animate: false });
+		this.currentZoom = zoom;
+		// Always push to MapLibre when present — even if relief3d flag races the mount.
+		this.terrainView?.jumpTo(lat, lng, zoom);
+		this.updateDeviceLocationMarker(lat, lng);
+		// Hors tracé : le prochain Recentrer (R) doit aussi viser ce point, pas le provisoire.
+		if (!this.hasMultiPointTrack()) {
+			this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
+			this.locationRecenterZoom = zoom;
+			this.lastRenderedPosition = { lat, lng };
+			this.noteTrackFitted();
+		}
 	}
 
 	public setMapOrientation(orientation: TraceMapOrientation): void {
@@ -6254,6 +6500,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.stopGpsOrientationWatch();
 		}
 		this.ensureDirectionCompass();
+		this.syncReliefTouchLocks();
+	}
+
+	/** Pinch stays free. Twist follows Nord, and two-finger tilt yields to the phone switch. */
+	private syncReliefTouchLocks(): void {
+		this.terrainView?.setTouchLocks({
+			bearing: this.mapOrientation === 'north',
+			pitch: this.reliefTiltFollowDriving
+		});
 	}
 
 	/** Mode Nord : la boussole tourne la carte. Sinon elle ne sert qu’à la flèche verte. */
@@ -6286,6 +6541,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.stopGpsOrientationWatch();
 		this.stopCompassHeading();
 		this.stopMapBearingGlide();
+		this.stopReliefTiltListener();
 	}
 
 	private stopGpsOrientationWatch(): void {
@@ -6398,28 +6654,59 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/**
 	 * Angle à passer à setBearing. leaflet-rotate tourne les tuiles dans le sens
 	 * horaire : le cap « nord en haut de l’écran » n’est pas le cap boussole brut.
-	 * Même calcul que le handler CompassBearing du plugin.
+	 * À plat, même résultat que CompassBearing. Téléphone vertical : même lacet
+	 * que astro-compass, caméra arrière sous le téléphone, pour que lever le
+	 * mobile ne retourne pas le Nord.
+	 *
+	 * webkitCompassHeading = déjà le cap du *haut d’écran* → pas de screen angle.
+	 * α/β/γ absolus = repère appareil → on soustrait screen.orientation.angle
+	 * pour que le haut de la carte suive le haut de l’écran (portrait/paysage).
 	 */
 	private compassHeadingDeg(event: DeviceOrientationEvent): number | null {
 		const anyEvent = event as DeviceOrientationEvent & { webkitCompassHeading?: number };
-		let angle: number | null = null;
-		if (typeof anyEvent.webkitCompassHeading === 'number' && Number.isFinite(anyEvent.webkitCompassHeading)) {
-			angle = anyEvent.webkitCompassHeading;
-		} else if (event.alpha != null && Number.isFinite(event.alpha)) {
-			angle = event.alpha;
+		const webkit =
+			typeof anyEvent.webkitCompassHeading === 'number' && Number.isFinite(anyEvent.webkitCompassHeading)
+				? anyEvent.webkitCompassHeading
+				: null;
+		const absolute =
+			event.absolute === true || this.compassEventName === 'deviceorientationabsolute';
+		let alpha: number | null = null;
+		if (webkit != null) {
+			// Cap écran → α appareil (portrait) pour la matrice caméra −Z.
+			alpha = this.wrapDeg(360 - webkit);
+		} else if (event.alpha != null && Number.isFinite(event.alpha) && absolute) {
+			alpha = event.alpha;
 		}
-		if (angle == null) {
+		if (alpha == null) {
 			return null;
 		}
-		if (!event.absolute && typeof anyEvent.webkitCompassHeading === 'number') {
-			angle = 360 - angle;
+		const beta = event.beta != null && Number.isFinite(event.beta) ? event.beta : 0;
+		const gamma = event.gamma != null && Number.isFinite(event.gamma) ? event.gamma : 0;
+		// webkit est déjà calé sur le haut d’écran : ne pas re-soustraire l’orientation.
+		const screen = webkit != null ? 0 : this.currentScreenAngle();
+		const bearing = mapBearingFromDeviceOrientation(alpha, beta, gamma, screen);
+		if (bearing != null) {
+			return bearing;
 		}
-		let deviceOrientation = 0;
-		const legacyOrientation = (window as Window & { orientation?: number }).orientation;
-		if (!event.absolute && typeof legacyOrientation === 'number' && Number.isFinite(legacyOrientation)) {
-			deviceOrientation = legacyOrientation;
+		// Repli : leaflet bearing = −cap écran.
+		if (webkit != null) {
+			return this.wrapDeg(-webkit);
 		}
-		return this.wrapDeg(angle - deviceOrientation);
+		return this.wrapDeg(alpha - screen);
+	}
+
+	/** Angle CSS de l’écran (0 portrait, 90/270 paysage). */
+	private currentScreenAngle(): number {
+		try {
+			const so = screen?.orientation;
+			if (so && typeof so.angle === 'number' && Number.isFinite(so.angle)) {
+				return so.angle;
+			}
+		} catch {
+			/* ignore */
+		}
+		const legacy = (window as Window & { orientation?: number }).orientation;
+		return typeof legacy === 'number' && Number.isFinite(legacy) ? legacy : 0;
 	}
 
 	private wrapDeg(deg: number): number {
@@ -6532,6 +6819,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		const initial = this.shortestAngleDelta(this.mapBearingGlideDisplayed, target);
 		if (Math.abs(initial) < 0.12) {
+			this.applyHeldReliefTilt();
 			this.syncDeviceLocationArrows();
 			return;
 		}
@@ -6569,6 +6857,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.mapBearingGlideRaf = requestAnimationFrame(tick);
 	}
 
+	/** Pitch still has to move when Nord is already aligned and the glide loop is idle. */
+	private applyHeldReliefTilt(): void {
+		if (!this.reliefTiltFollowDriving || this.reliefTiltPitch == null || this.terrainView?.isUserGesturing()) {
+			return;
+		}
+		this.terrainView?.setPitch(this.reliefTiltPitch);
+	}
+
 	private stopMapBearingGlide(): void {
 		if (this.mapBearingGlideRaf != null && typeof cancelAnimationFrame === 'function') {
 			cancelAnimationFrame(this.mapBearingGlideRaf);
@@ -6580,7 +6876,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private commitMapBearing(map: RotatableLeafletMap, bearing: number): void {
-		if (this.reliefOrientationHeld) {
+		if (this.reliefOrientationHeld || this.terrainView?.isUserGesturing()) {
 			return;
 		}
 		const reliefBearing = this.wrapDeg(-bearing);
@@ -6588,7 +6884,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.applyingMapBearing = true;
 		try {
 			map.setBearing?.(bearing);
-			this.terrainView?.setBearing(reliefBearing);
+			const tilt = this.reliefTiltFollowDriving ? this.reliefTiltPitch : null;
+			this.terrainView?.setBearing(reliefBearing, tilt != null ? tilt : undefined);
 		} catch {
 			/* plugin not ready */
 		} finally {

@@ -35,6 +35,15 @@ export interface HomeNewsItem {
 
 export type HomeNewsProvider = 'newsdata' | 'newsapi' | 'rss';
 
+export interface HomePinnedNote {
+	id: string;
+	title: string;
+	content: string;
+	color: string;
+	owner: string;
+	hasPhotos: boolean;
+}
+
 /** Last home dashboard shown in this browser session. Survives leaving the page, not a full reload. */
 export interface HomeDashboardSnapshot {
 	lang: string;
@@ -71,6 +80,8 @@ export interface HomeDashboardSnapshot {
 	newsState: HomeCardState;
 	news: HomeNewsItem[];
 	newsProvider: HomeNewsProvider;
+	notesState?: HomeCardState;
+	homeNotes?: HomePinnedNote[];
 }
 
 @Injectable({ providedIn: 'root' })

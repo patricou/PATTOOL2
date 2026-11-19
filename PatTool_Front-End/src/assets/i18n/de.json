@@ -992,6 +992,8 @@
     "CLOSE": "Schließen",
     "SHARED_WITH_YOU": "Geteilt",
     "VISIBILITY_LABEL": "Wer diese Notiz sehen kann",
+    "SHOW_ON_HOME": "Auf der Startseite anzeigen",
+    "SHOW_ON_HOME_HINT": "Personen mit Zugriff auf diese Notiz sehen sie auf ihrer Startseite.",
     "PICK_GROUPS": "Freundesgruppen wählen",
     "GROUP_REQUIRED": "Wählen Sie mindestens eine Freundesgruppe.",
     "NO_GROUPS": "Sie haben noch keine Freundesgruppe.",

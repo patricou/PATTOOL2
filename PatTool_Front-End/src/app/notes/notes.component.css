@@ -115,6 +115,78 @@
     font-size: 0.85rem;
 }
 
+.notes-postit-home {
+    position: absolute;
+    top: 0.4rem;
+    left: 1.7rem;
+    color: rgba(0, 0, 0, 0.45);
+    font-size: 0.85rem;
+}
+
+.notes-show-on-home {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.35rem 0 0.85rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid #d5e2f2;
+    border-radius: 0.7rem;
+    background: #f3f7fc;
+    cursor: pointer;
+}
+
+.notes-show-on-home.is-on {
+    border-color: #8eb4e8;
+    background: #e7f1fb;
+}
+
+.notes-show-on-home-check {
+    flex: none;
+    width: 1.15rem;
+    height: 1.15rem;
+    margin: 0;
+    accent-color: #1d6fbf;
+}
+
+.notes-show-on-home-logo {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.6rem;
+    background: #fff;
+    color: #1d6fbf;
+    font-size: 1.25rem;
+    box-shadow: 0 1px 2px rgba(22, 52, 92, 0.14);
+}
+
+.notes-show-on-home.is-on .notes-show-on-home-logo {
+    background: #1d6fbf;
+    color: #fff;
+}
+
+.notes-show-on-home-copy {
+    min-width: 0;
+}
+
+.notes-show-on-home-title {
+    display: block;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #16345c;
+}
+
+.notes-show-on-home-hint {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.82rem;
+    font-weight: 400;
+    line-height: 1.35;
+    color: #5c6d80;
+}
+
 .notes-shared-badge {
     display: inline-block;
     margin-left: 0.35rem;

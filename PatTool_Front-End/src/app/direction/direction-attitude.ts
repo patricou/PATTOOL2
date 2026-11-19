@@ -362,6 +362,27 @@ export function cameraFromDeviceOrientation(
 }
 
 /**
+ * Bearing pour une carte qui tourne avec le téléphone (leaflet-rotate, tuiles
+ * dans le sens horaire). Même lacet que la boussole astro-compass : la caméra
+ * arrière est sous le téléphone (−Z). À plat, le cap est le haut de l’écran ;
+ * à la verticale, c’est la direction horizontale de cette caméra. Lever le
+ * téléphone jusqu’au vertical, et au-delà, ne retourne pas le Nord.
+ * `screenAngleDeg` = `window.orientation` (0 en portrait).
+ */
+export function mapBearingFromDeviceOrientation(
+  alphaDeg: number,
+  betaDeg: number,
+  gammaDeg: number,
+  screenAngleDeg = 0
+): number | null {
+  const att = cameraFromDeviceOrientation(alphaDeg, betaDeg, gammaDeg);
+  if (!att) {
+    return null;
+  }
+  return normalizeDeg(-att.azimuthDeg - screenAngleDeg);
+}
+
+/**
  * Repli accéléro + mag = AOSP getRotationMatrix (même algo que Samsung SensorManager).
  */
 export function cameraFromMagAccel(mag: Vec3, accel: Vec3, opt?: AttitudeOptions): CameraAttitude | null {

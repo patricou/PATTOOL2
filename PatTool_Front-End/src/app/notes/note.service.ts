@@ -28,6 +28,8 @@ export interface Note {
     calendarAppointmentId?: string | null;
     /** Activity (evenement) id (mutually exclusive with calendarAppointmentId). */
     evenementId?: string | null;
+    /** When true, people who can see the note also see it on their home page. */
+    showOnHome?: boolean | null;
 }
 
 export interface NotePayload {
@@ -44,6 +46,7 @@ export interface NotePayload {
     imageDataUrls?: string[] | null;
     calendarAppointmentId?: string | null;
     evenementId?: string | null;
+    showOnHome?: boolean | null;
 }
 
 export interface NoteVisibilityRecipient {

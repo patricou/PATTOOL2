@@ -75,6 +75,11 @@ public class Note {
      */
     private String evenementId;
 
+    /**
+     * When true, members who can already see this note also see it on their home page.
+     */
+    private Boolean showOnHome;
+
     public String getId() {
         return id;
     }
@@ -209,5 +214,13 @@ public class Note {
 
     public void setEvenementId(String evenementId) {
         this.evenementId = evenementId;
+    }
+
+    public Boolean getShowOnHome() {
+        return showOnHome;
+    }
+
+    public void setShowOnHome(Boolean showOnHome) {
+        this.showOnHome = showOnHome;
     }
 }

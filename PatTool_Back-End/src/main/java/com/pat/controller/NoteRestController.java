@@ -182,6 +182,7 @@ public class NoteRestController {
         note.setColor(normalizeColor(body.getColor()));
         note.setImageDataUrls(normalizeImages(body.getImageDataUrls()));
         applySharingFields(note, body.getVisibility(), body.getFriendGroupId(), body.getFriendGroupIds());
+        note.setShowOnHome(Boolean.TRUE.equals(body.getShowOnHome()));
         note.setUpdatedAt(new Date());
 
         if (isCreate) {

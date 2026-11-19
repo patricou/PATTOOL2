@@ -148,7 +148,6 @@ export class AppComponent implements OnInit, AfterViewInit {
     @ViewChild('doccontent') doccontent!: TemplateRef<any>;
     @ViewChild('calculatorcontent') calculatorcontent!: TemplateRef<any>;
     @ViewChild(TraceViewerModalComponent) mapTraceViewer?: TraceViewerModalComponent;
-    private mapTraceViewerRequest = 0;
 
     public user: Member = new Member("", "", "", "", "", [], "");
     public userRoles: string[] = []; // User roles from Keycloak
@@ -2752,9 +2751,8 @@ export class AppComponent implements OnInit, AfterViewInit {
         setTimeout(scroll, 0);
     }
 
-    /** Monde → Terre : ouvre le trace viewer tout de suite, sur la position déjà connue. */
+    /** Monde → Terre : ouvre le trace viewer, puis recentre sur la position GPS (comme le bouton recentrer). */
     openMapTraceViewer(): void {
-        const request = ++this.mapTraceViewerRequest;
         const label = this._translate.instant('MENU.MAP_TRACE_VIEWER');
         const view = { zoom: 13, hidePin: true as const };
         const snap = this.homeDash.snapshot;
@@ -2762,22 +2760,12 @@ export class AppComponent implements OnInit, AfterViewInit {
         const shownLon = snap?.weatherLon;
         let lat = 46.2;
         let lng = 6.15;
-        let hasShown = false;
         if (shownLat != null && shownLon != null && Number.isFinite(shownLat) && Number.isFinite(shownLon)) {
             lat = shownLat;
             lng = shownLon;
-            hasShown = true;
         }
         this.mapTraceViewer?.openAtLocation(lat, lng, label, undefined, false, false, view);
-        if (hasShown) {
-            return;
-        }
-        this.position.getCurrentPosition().pipe(take(1)).subscribe((coords) => {
-            if (request !== this.mapTraceViewerRequest || !coords) {
-                return;
-            }
-            this.mapTraceViewer?.focusLocation(coords.latitude, coords.longitude, 13);
-        });
+        this.mapTraceViewer?.scheduleRecenterOnUser();
     }
 
     closeMenuOnly(): void {

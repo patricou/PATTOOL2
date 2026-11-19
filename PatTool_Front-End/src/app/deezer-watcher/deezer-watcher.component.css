@@ -2380,17 +2380,18 @@ a.dz-page-jump {
   }
 }
 
-/* The cabinet is only as wide as the clip, and stays inside the page.
-   The button bar is already counted in this height. Changing it when the
-   pointer arrives shrinks the cabinet under the cursor, the pointer leaves,
-   the bar hides, and the window jitters. */
+/* The cabinet is only as wide as the clip, and its outer box stays put.
+   While the PatTool bar is hidden the picture fills that box. When the bar
+   opens it borrows height from the picture, so the window does not move. */
 .radio-player-panel.dz-video,
 .dz-layout.radio-layout--sidebar-collapsed .radio-player-panel.dz-video {
   --sleeve-reserve: 9.7rem;
-  --dz-screen-max-h: calc(100dvh - var(--navbar-offset, 60px) - 20.5rem);
+  --dz-frame-pad: 4.8rem;
+  --dz-screen-max-h: calc(100dvh - var(--navbar-offset, 60px) - var(--sleeve-reserve) - var(--dz-frame-pad));
   width: min(100%, calc(var(--dz-screen-max-h) * var(--dz-video-w, 16) / var(--dz-video-h, 9) + 3.2rem));
-  height: auto;
+  height: calc(100dvh - var(--navbar-offset, 60px) - var(--sleeve-reserve));
   max-height: calc(100dvh - var(--navbar-offset, 60px) - var(--sleeve-reserve));
+  min-height: 0;
 }
 
 /* Menu hidden: the page can use the width the list no longer takes. */
@@ -2399,22 +2400,27 @@ a.dz-page-jump {
 }
 
 .radio-player-panel.dz-video .radio-player-frame {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-height: 0;
   height: auto;
+  overflow: hidden;
 }
 
+/* The picture takes whatever the bar is not using. A 16:9 lock would keep the
+   small size even after the bar folds away. */
 .radio-player-panel.dz-video .radio-player-frame .radio-face {
-  aspect-ratio: var(--dz-video-w, 16) / var(--dz-video-h, 9);
-  align-self: center;
+  align-self: stretch;
   width: 100%;
   height: auto;
+  min-width: 0;
   min-height: 0;
-  max-height: var(--dz-screen-max-h);
-  flex: 0 0 auto;
+  max-height: none;
+  aspect-ratio: auto;
+  flex: 1 1 0%;
 }
 
-/* YouTube draws its bar on the picture. PatTool's buttons stay under that bar. */
+/* YouTube draws its bar on the picture. PatTool's buttons stay under that bar,
+   at their full size, even when the title or the row wraps. */
 .radio-player-panel.dz-video .radio-player-frame .radio-chrome {
   position: relative;
   left: auto;
@@ -2422,9 +2428,11 @@ a.dz-page-jump {
   top: auto;
   bottom: auto;
   flex: 0 0 auto;
+  align-self: stretch;
   z-index: 6;
   margin-top: 0.45rem;
   border-radius: 0.45rem;
+  overflow: visible;
 }
 
 /* Names and buttons share one show/hide. A max-height ease made the buttons arrive later. */
@@ -2657,6 +2665,30 @@ a.radio-now-action.dz-deezer-link {
   }
 }
 
+/* The shared radio rule below 900px freezes the screen (flex-shrink: 0,
+   max-height: none). On a video that puts the PatTool bar back under the cut. */
+@media (max-width: 900px) {
+  :host:not(.radio-focus):not(.radio-stage-fs):not(.radio-landscape-fs):not(:fullscreen) .radio-player-panel.dz-video {
+    height: calc(100dvh - var(--navbar-offset, 60px) - var(--sleeve-reserve));
+    max-height: calc(100dvh - var(--navbar-offset, 60px) - var(--sleeve-reserve));
+  }
+
+  :host:not(.radio-focus):not(.radio-stage-fs):not(.radio-landscape-fs):not(:fullscreen) .radio-player-panel.dz-video .radio-player-frame {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  :host:not(.radio-focus):not(.radio-stage-fs):not(.radio-landscape-fs):not(:fullscreen) .radio-player-panel.dz-video .radio-player-frame .radio-face {
+    flex: 1 1 0%;
+    min-height: 0;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    aspect-ratio: auto;
+  }
+}
+
 @media (max-width: 640px) {
   .radio-player-panel .radio-brand-model::after {
     display: block;
@@ -2666,18 +2698,18 @@ a.radio-now-action.dz-deezer-link {
     line-height: 1.2;
   }
 
-  .radio-player-panel.dz-video,
-  .dz-layout.radio-layout--sidebar-collapsed .radio-player-panel.dz-video {
+  :host:not(.radio-focus):not(.radio-stage-fs):not(.radio-landscape-fs):not(:fullscreen) .radio-player-panel.dz-video,
+  :host:not(.radio-focus):not(.radio-stage-fs):not(.radio-landscape-fs):not(:fullscreen) .dz-layout.radio-layout--sidebar-collapsed .radio-player-panel.dz-video {
     width: 100%;
     height: auto;
     max-height: none;
   }
 
-  .radio-player-panel.dz-video .radio-player-frame {
+  :host:not(.radio-focus):not(.radio-stage-fs):not(.radio-landscape-fs):not(:fullscreen) .radio-player-panel.dz-video .radio-player-frame {
     flex: 0 0 auto;
   }
 
-  .radio-player-panel.dz-video .radio-player-frame .radio-face {
+  :host:not(.radio-focus):not(.radio-stage-fs):not(.radio-landscape-fs):not(:fullscreen) .radio-player-panel.dz-video .radio-player-frame .radio-face {
     flex: 0 0 auto;
     width: 100%;
     height: auto;

@@ -40,6 +40,9 @@
       <footer class="notes-overlay-postit-meta">
         <span *ngIf="note.ownerDisplayName"><i class="fa fa-user"></i> {{ note.ownerDisplayName }}</span>
         <span *ngIf="note.createdAt"><i class="fa fa-clock-o"></i> {{ formatDate(note.createdAt) }}</span>
+        <span *ngIf="note.showOnHome" [attr.title]="'NOTES.SHOW_ON_HOME_HINT' | translate">
+          <i class="fa fa-home" aria-hidden="true"></i> {{ 'NOTES.SHOW_ON_HOME' | translate }}
+        </span>
       </footer>
     </article>
   </div>
@@ -300,6 +303,19 @@
         </div>
       </div>
     </div>
+
+    <label class="notes-show-on-home" [class.is-on]="!!draft.showOnHome">
+      <input class="notes-show-on-home-check" type="checkbox" id="overlay-note-show-on-home"
+             name="overlayNoteShowOnHome"
+             [(ngModel)]="draft.showOnHome">
+      <span class="notes-show-on-home-logo" aria-hidden="true">
+        <i class="fa fa-home"></i>
+      </span>
+      <span class="notes-show-on-home-copy">
+        <span class="notes-show-on-home-title">{{ 'NOTES.SHOW_ON_HOME' | translate }}</span>
+        <span class="notes-show-on-home-hint">{{ 'NOTES.SHOW_ON_HOME_HINT' | translate }}</span>
+      </span>
+    </label>
 
     <div class="notes-draft-meta text-muted">
       <div *ngIf="draft.ownerDisplayName">

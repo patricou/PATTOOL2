@@ -427,7 +427,8 @@ export class NoteDetailOverlayComponent implements OnInit, OnDestroy {
                 ? [...this.draft.imageDataUrls]
                 : [],
             calendarAppointmentId: (this.draft.calendarAppointmentId || '').trim() || null,
-            evenementId: (this.draft.evenementId || '').trim() || null
+            evenementId: (this.draft.evenementId || '').trim() || null,
+            showOnHome: !!this.draft.showOnHome
         };
         this.subs.push(
             this.noteService.update(this.note.id, payload).pipe(
@@ -462,7 +463,8 @@ export class NoteDetailOverlayComponent implements OnInit, OnDestroy {
             friendGroupIds: doc.friendGroupIds ? [...doc.friendGroupIds] : [],
             imageDataUrls: doc.imageDataUrls ? [...doc.imageDataUrls] : [],
             calendarAppointmentId: doc.calendarAppointmentId || null,
-            evenementId: doc.evenementId || null
+            evenementId: doc.evenementId || null,
+            showOnHome: !!doc.showOnHome
         };
     }
 
