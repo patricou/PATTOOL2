@@ -1,5 +1,7 @@
 package com.pat.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.pat.service.MapPlacesService;
 import com.pat.service.MapTileProxyService;
 import com.pat.util.SlippyMapTileCoords;
 import org.springframework.http.ResponseEntity;
@@ -17,9 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class MapTileRestController {
 
     private final MapTileProxyService mapTileProxyService;
+    private final MapPlacesService mapPlacesService;
 
-    public MapTileRestController(MapTileProxyService mapTileProxyService) {
+    public MapTileRestController(MapTileProxyService mapTileProxyService, MapPlacesService mapPlacesService) {
         this.mapTileProxyService = mapTileProxyService;
+        this.mapPlacesService = mapPlacesService;
     }
 
     @GetMapping(value = "/tile/{z}/{x}/{y}")
@@ -35,5 +39,15 @@ public class MapTileRestController {
                 SlippyMapTileCoords.parse(z),
                 SlippyMapTileCoords.parse(x),
                 SlippyMapTileCoords.parse(y));
+    }
+
+    /** Monuments, sights and airfields inside the visible map. */
+    @GetMapping("/places")
+    public JsonNode places(
+            @RequestParam("south") double south,
+            @RequestParam("west") double west,
+            @RequestParam("north") double north,
+            @RequestParam("east") double east) {
+        return mapPlacesService.places(south, west, north, east);
     }
 }

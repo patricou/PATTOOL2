@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Inject, OnDestroy, Output, TemplateRef, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Inject, NgZone, OnDestroy, Output, TemplateRef, ViewChild } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
@@ -23,6 +23,7 @@ import {
 	LeafletMapWheelZoomHandle
 } from '../leaflet-map-wheel-zoom';
 import { attachLeafletCtrlDragRotate, LeafletCtrlDragRotateHandle } from '../leaflet-ctrl-drag-rotate';
+import { attachLeafletPanInertia, LeafletPanInertiaHandle } from '../leaflet-pan-inertia';
 import { isValidGeoCoordinate } from '../geo-coordinates.util';
 import { requestMotionPermissionIfNeeded } from '../device-motion-permission.util';
 import { GpsOfflineMapProgress, GpsOfflineMapService } from '../../services/gps-offline-map.service';
@@ -30,8 +31,8 @@ import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../../gps-track/gps-of
 import { offlineTraceIdForWall, OfflineTraceSummary, OfflineTracesStore } from '../../gps-track/offline-traces.store';
 import { viewWindowFromMap } from '../../gps-track/gps-offline-tiles.util';
 import { createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
-import { createVectorBasemapLayer, maptoolkitStyleForBasemap, vectorStyleForBasemap } from '../maptoolkit-basemap.layer';
-import { MaptoolkitTerrainView, ReliefTrace, leafletZoomToMaplibre, maplibreZoomToLeaflet } from '../maptoolkit-terrain-view';
+import { createVectorBasemapLayer, maptoolkitStyleForBasemap, vectorStyleForBasemap, applyGlLayerOpacity, FlatMaptoolkitBlend } from '../maptoolkit-basemap.layer';
+import { MaptoolkitTerrainView, ReliefPlaceMark, ReliefTrace, ReliefTrailOverlays, leafletZoomToMaplibre, maplibreZoomToLeaflet } from '../maptoolkit-terrain-view';
 import { findSkinnedPageHost, paintModalFromHost } from '../host-skin';
 import { isBrowserOffline } from '../browser-offline.util';
 import { mapBearingFromDeviceOrientation } from '../../direction/direction-attitude';
@@ -198,6 +199,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private weatherOverlayDismissed = false;
 	/** Météo-France / MeteoSwiss station temperature labels on the map (France / Switzerland). */
 	public showWeatherStations: boolean = false;
+	/** Reload rain radar and clouds while the weather layer is on. Default matches the server. */
+	public autoRefreshRadar = true;
 	/**
 	 * Cached i18n key for the stations-switch tooltip.
 	 * Avoids NG0100: a live getter re-reads selection/geocode mid change-detection.
@@ -263,16 +266,23 @@ export class TraceViewerModalComponent implements OnDestroy {
 	readonly weatherLogoMs = TraceViewerModalComponent.LOGO_MS;
 	readonly weatherLogoOm = TraceViewerModalComponent.LOGO_OPEN_METEO;
 	readonly weatherLogoOwm = TraceViewerModalComponent.LOGO_OWM;
-	/** Show hiking trails overlay (Waymarked Trails) above the base map. */
-	public showHikingTrailsOverlay: boolean = false;
-	private hikingTrailsOverlay?: L.TileLayer;
-	/** Show cycling trails overlay (Waymarked Trails) above the base map. */
-	public showCyclingTrailsOverlay: boolean = false;
-	private cyclingTrailsOverlay?: L.TileLayer;
+	/** Waymarked Trails rasters above the base map. Same switches in 2D and on the relief. */
+	public showHikingTrailsOverlay = false;
+	public showCyclingTrailsOverlay = false;
+	public showMtbTrailsOverlay = false;
+	public showRailwayOverlay = false;
+	public showSlopesOverlay = false;
+	/** Monuments, musées, points de vue et aéroports de la zone affichée. */
+	public showPlacesOverlay = false;
+	private trailOverlayLayers: Partial<Record<keyof ReliefTrailOverlays, L.TileLayer>> = {};
+	private placeMarks: ReliefPlaceMark[] = [];
+	private placesLayer: L.LayerGroup | null = null;
+	private placesTimer: ReturnType<typeof setTimeout> | null = null;
+	private placesAbort: AbortController | null = null;
+	private placesGen = 0;
 	/** RainViewer precipitation radar when weather switch is on (same proxy as Météo-France). */
 	private weatherRadarLayer?: L.TileLayer;
 	private weatherCloudLayer?: L.TileLayer;
-	private weatherRadarRefreshTimer: ReturnType<typeof setInterval> | null = null;
 	private weatherRadarLoadRequestId = 0;
 	private weatherCloudLoadRequestId = 0;
 	private static readonly WEATHER_RADAR_OPACITY = 0.72;
@@ -284,10 +294,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private cloudIntensity = 3.0;
 	private cloudLayerSource: 'openweathermap' | 'rainviewer' = 'openweathermap';
 	private cloudDisplaySource: 'openweathermap' | 'rainviewer' | null = null;
-	/** Global radar auto-refresh (MongoDB, shared with Météo-France). */
-	public autoRefreshRadar = true;
-	public radarRefreshCountdown = 0;
-	private radarRefreshSeconds = 60;
 
 	/** Follow device GPS: recenter the map every 5 s. */
 	public followDeviceLocation: boolean = false;
@@ -333,6 +339,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public placeQuery = '';
 	public placeCoords = '';
 	public placeSearching = false;
+	public placeLocating = false;
 	public placeError = '';
 	public placeResults: Array<{ lat: number; lng: number; label: string }> = [];
 	public placeSelectedIndex: number | null = null;
@@ -341,6 +348,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public placeOrigin: { lat: number; lng: number } | null = null;
 	public placeOriginPending = false;
 	private placeOriginGen = 0;
+	private placeLocateGen = 0;
 	private placeCoordsCache?: { input: string; point: { lat: number; lng: number; label: string } | null };
 	private readonly placeMetricsCache = new Map<string, { distance: string; bearing: number; cardinal: string }>();
 
@@ -443,12 +451,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public selectedBaseLayerId: string = '';
 	/** Second basemap drawn above the first. Empty = single basemap. */
 	public secondaryBaseLayerId = '';
+	/** Mobile list replacing the native select, which needs two taps once its search field is focused. */
+	public basemapMenu: 'primary' | 'secondary' | null = null;
 	/** 0 = first basemap only, 100 = second basemap only. */
 	public basemapBlend = 50;
 	/** Pitched MapLibre view for the Maptoolkit basemaps. Flat Leaflet stays underneath. */
 	public relief3d = false;
 	/** True while the pitched view is loading and still hidden. */
 	public relief3dPending = false;
+	/** Colore le relief du violet au rouge selon l’altitude visible. */
+	public elevationColors = false;
+	public elevationSpan: { min: number; max: number } | null = null;
 	/** Camera tilt in degrees, 0 = straight down, same frame as the flat map. */
 	public reliefPitch = 0;
 	/**
@@ -469,6 +482,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public get reliefZAngle(): number {
 		return 90 - this.reliefPitch;
 	}
+
+	/** Valeur affichée par le curseur, bornée à son max. Le modèle peut aller au-delà avec l’inclinaison du téléphone. */
+	public get reliefPitchView(): number {
+		return Math.max(0, Math.min(85, Math.round(this.reliefPitch)));
+	}
 	/**
 	 * After 2D → 3D the camera stays vertical and still, matching the flat map,
 	 * until Nord, Marche or Fixe is chosen.
@@ -483,9 +501,28 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private lastBaseLayerBeforeCartesGouv: string = 'opentopomap';
 	private activeBaseLayer?: L.Layer;
 	private activeBlendLayer?: L.Layer;
+	/** Second 3D map in the flat view. Leaflet cannot fade a WebGL canvas, so this overlay does. */
+	private flatGlBlend: FlatMaptoolkitBlend | null = null;
+	private flatGlBlendMove?: () => void;
 	private basemapBlendPersistTimer: number | null = null;
 	/** Current map zoom level (shown in the UI corner). */
-	public currentZoom: number = 6;
+	private _currentZoom = 6;
+	/** Valeur affichée. Mise à jour au tick suivant pour éviter NG0100. */
+	public zoomFooterView = 6;
+	private pendingZoomFooter: number | null = null;
+	private zoomFooterTimer: number | null = null;
+
+	get currentZoom(): number {
+		return this._currentZoom;
+	}
+
+	set currentZoom(zoom: number) {
+		if (!Number.isFinite(zoom) || zoom === this._currentZoom) {
+			return;
+		}
+		this._currentZoom = zoom;
+		this.deferZoomFooter(zoom);
+	}
 	/** True after the map is initialized (enables zoom overlay). */
 	public isMapReady = false;
 	/**
@@ -539,6 +576,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private mapLayoutSyncDebouncer: number | null = null;
 	private traceViewerCdrTimer: number | null = null;
 	private pendingReliefPitch: number | null = null;
+	private reliefPitchTimer: number | null = null;
 	/** Séparé de traceViewerCdrTimer : un zoomend ne doit pas annuler l’activation des boutons. */
 	private mapReadyTimer: number | null = null;
 	private mapResizeObservedDims = new Map<HTMLElement, string>();
@@ -548,6 +586,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Molette carte : même zoom fluide que GPS (tuiles + tracé ensemble). */
 	private mapWheelZoom: LeafletMapWheelZoomHandle | null = null;
 	private mapCtrlRotate: LeafletCtrlDragRotateHandle | null = null;
+	private mapPanInertia: LeafletPanInertiaHandle | null = null;
 	/** Cap choisi à la souris. Tant qu’il est défini, Nord / Marche ne le réécrivent pas. */
 	private manualMapBearing: number | null = null;
 	private mapCtrlRotateActive = false;
@@ -659,6 +698,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		private readonly offlineMap: GpsOfflineMapService,
 		private readonly offlineTiles: GpsOfflineTilesStore,
 		private readonly offlineTraces: OfflineTracesStore,
+		private readonly ngZone: NgZone,
 		@Inject(DOCUMENT) private readonly document: Document
 	) {
 		this.configureLeafletIcons();
@@ -668,7 +708,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.cdr.markForCheck();
 		});
 		this.loadTraceViewerPreferences();
-		this.loadRadarRefreshPreferences();
 		this.loadMapLayerCloudPreferences();
 	}
 
@@ -758,6 +797,18 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (pref.showCyclingTrailsOverlay != null) {
 			this.showCyclingTrailsOverlay = pref.showCyclingTrailsOverlay;
 		}
+		if (pref.showMtbTrailsOverlay != null) {
+			this.showMtbTrailsOverlay = pref.showMtbTrailsOverlay;
+		}
+		if (pref.showRailwayOverlay != null) {
+			this.showRailwayOverlay = pref.showRailwayOverlay;
+		}
+		if (pref.showSlopesOverlay != null) {
+			this.showSlopesOverlay = pref.showSlopesOverlay;
+		}
+		if (pref.showPlacesOverlay != null) {
+			this.showPlacesOverlay = pref.showPlacesOverlay;
+		}
 		if (pref.followDeviceLocation != null) {
 			this.followDeviceLocation = pref.followDeviceLocation;
 		}
@@ -796,6 +847,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 			autoRefreshRadar: this.autoRefreshRadar,
 			showHikingTrailsOverlay: this.showHikingTrailsOverlay,
 			showCyclingTrailsOverlay: this.showCyclingTrailsOverlay,
+			showMtbTrailsOverlay: this.showMtbTrailsOverlay,
+			showRailwayOverlay: this.showRailwayOverlay,
+			showSlopesOverlay: this.showSlopesOverlay,
+			showPlacesOverlay: this.showPlacesOverlay,
 			followDeviceLocation: this.followDeviceLocation,
 			keepScreenAwake: this.keepScreenAwake,
 			showGpsCoordinates: this.showGpsCoordinates,
@@ -827,28 +882,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.ensureMfStatusForStationTooltips();
 		}
 		this.applyWeatherStationsOverlay();
-		this.applyHikingTrailsOverlay();
-		this.applyCyclingTrailsOverlay();
+		this.applyTrailOverlays();
+		this.schedulePlaces();
 		if (this.followDeviceLocation) {
 			this.startFollowDeviceLocation();
 		}
 		if (this.keepScreenAwake) {
 			void this.acquireScreenWakeLock();
 		}
-	}
-
-	private loadRadarRefreshPreferences(): void {
-		this.apiService.getMeteoFranceRadarPreferences().pipe(takeUntil(this.destroy$)).subscribe({
-			next: (pref) => {
-				if (pref?.radarRefreshSeconds != null) {
-					this.radarRefreshSeconds = pref.radarRefreshSeconds;
-				}
-				if (this.showWeather) {
-					this.startWeatherRadarRefreshTimer();
-				}
-			},
-			error: () => { /* keep defaults */ }
-		});
 	}
 
 	ngOnDestroy(): void {
@@ -867,6 +908,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 			clearTimeout(this.mapReadyTimer);
 			this.mapReadyTimer = null;
 		}
+		if (this.elevationSpanTimer != null) {
+			clearTimeout(this.elevationSpanTimer);
+			this.elevationSpanTimer = null;
+		}
+		this.clearPlaces();
 		this.stopMapOrientationWatch();
 		this.stopFollowDeviceLocation();
 		void this.releaseScreenWakeLock();
@@ -884,6 +930,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@HostListener('window:keydown.escape', ['$event'])
 	onEscape(event: Event): void {
 		event.preventDefault();
+		if (this.basemapMenu) {
+			this.basemapMenu = null;
+			return;
+		}
 		if (this.placeModalRef) {
 			this.closePlaceModal();
 			return;
@@ -1650,6 +1700,22 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return this.selectedOfflineTraceIds.includes(id);
 	}
 
+	get allOfflineTracesSelected(): boolean {
+		const ids = this.offlineTraceList.map((trace) => trace.id).filter((id): id is string => !!id);
+		return ids.length > 0 && ids.every((id) => this.selectedOfflineTraceIds.includes(id));
+	}
+
+	get someOfflineTracesSelected(): boolean {
+		return this.selectedOfflineTraceIds.length > 0 && !this.allOfflineTracesSelected;
+	}
+
+	toggleAllOfflineTraces(checked: boolean): void {
+		this.selectedOfflineTraceIds = checked
+			? this.offlineTraceList.map((trace) => trace.id).filter((id): id is string => !!id)
+			: [];
+		this.cdr.markForCheck();
+	}
+
 	toggleOfflineTraceSelection(id: string, checked: boolean): void {
 		if (!id) {
 			return;
@@ -1870,6 +1936,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public closePlaceModal(): void {
 		this.directionLocateGen++;
 		this.placeOriginGen++;
+		this.placeLocateGen++;
+		this.placeLocating = false;
 		this.placeOriginPending = false;
 		this.directionLocating = false;
 		this.placeSearchSub?.unsubscribe();
@@ -1884,6 +1952,55 @@ export class TraceViewerModalComponent implements OnDestroy {
 			/* ignore */
 		}
 		this.placeModalRef = undefined;
+	}
+
+	/** Lit le GPS et le propose comme point : centrer ou afficher la direction. */
+	public useMyPositionInPlace(): void {
+		if (!navigator.geolocation) {
+			this.placeError = this.translate('EVENTELEM.TRACK_DIRECTION_GPS_ERROR');
+			this.cdr.markForCheck();
+			return;
+		}
+		const gen = ++this.placeLocateGen;
+		this.placeLocating = true;
+		this.placeError = '';
+		this.cdr.markForCheck();
+		const onFix = (lat: number, lng: number): void => {
+			if (gen !== this.placeLocateGen) {
+				return;
+			}
+			this.placeLocating = false;
+			const label = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+			this.placeMode = 'coords';
+			this.placeCoords = label;
+			this.placeCoordsCache = undefined;
+			this.placeOrigin = { lat, lng };
+			this.placeOriginPending = false;
+			this.pendingUserGps = { lat, lng };
+			this.lastGpsFix = { lat, lon: lng };
+			this.updateDeviceLocationMarker(lat, lng);
+			this.showGotoLocation(lat, lng, label);
+			this.cdr.markForCheck();
+		};
+		const onFail = (): void => {
+			if (gen !== this.placeLocateGen) {
+				return;
+			}
+			this.placeLocating = false;
+			this.placeError = this.translate('EVENTELEM.TRACK_DIRECTION_GPS_ERROR');
+			this.cdr.markForCheck();
+		};
+		navigator.geolocation.getCurrentPosition(
+			(pos) => onFix(pos.coords.latitude, pos.coords.longitude),
+			() => {
+				navigator.geolocation.getCurrentPosition(
+					(pos) => onFix(pos.coords.latitude, pos.coords.longitude),
+					onFail,
+					{ enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 }
+				);
+			},
+			{ enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+		);
 	}
 
 	public setPlaceMode(mode: 'address' | 'coords'): void {
@@ -2582,6 +2699,29 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}, 0);
 	}
 
+	/** Le zoom Leaflet et le zoom 3D arrivent dans le même cycle : l’affichage attend le tick suivant. */
+	private deferZoomFooter(zoom: number): void {
+		const shown = Math.round(zoom * 100) / 100;
+		this.pendingZoomFooter = shown;
+		if (this.zoomFooterTimer != null) {
+			return;
+		}
+		// Hors zone : le setTimeout ne lance pas un rendu pendant lequel un second zoom réécrirait la valeur (NG0100).
+		this.ngZone.runOutsideAngular(() => {
+			this.zoomFooterTimer = window.setTimeout(() => {
+				this.zoomFooterTimer = null;
+				const pending = this.pendingZoomFooter;
+				this.pendingZoomFooter = null;
+				if (pending == null || pending === this.zoomFooterView) {
+					return;
+				}
+				this.ngZone.run(() => {
+					this.zoomFooterView = pending;
+				});
+			}, 0);
+		});
+	}
+
 	/** Reporte une mise à jour météo au tick suivant — évite NG0100 (ex. mfTempC null → 23.6). */
 	private deferWeatherUiUpdate(update: () => void): void {
 		setTimeout(() => {
@@ -2847,6 +2987,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 				// Keep a consistent max zoom across basemaps; basemaps handle over-zoom via maxNativeZoom.
 				maxZoom: 20,
 				doubleClickZoom: false,
+				// Inertie Leaflet (~50 ms) quasi invisible à la souris ; courte glissade custom.
+				inertia: false,
 				rotate: true,
 				bearing: 0,
 				touchRotate: false,
@@ -2862,6 +3004,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		this.registerTraceMapWheelZoom();
 		this.registerTraceMapCtrlRotate();
+		this.registerTraceMapPanInertia();
 		this.setupMapLayoutObserver((container.closest('.map-wrapper') ?? container) as HTMLElement);
 
 		// Force crosshair cursor on map container
@@ -2877,7 +3020,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.map.on('moveend', () => {
 			this.forceCrosshairCursor();
 			this.refreshOrientationAfterMapMove();
+			this.schedulePlaces();
 		});
+		this.schedulePlaces();
 		this.map.on('zoomend', () => {
 			this.forceCrosshairCursor();
 			if (this.visibleSwisstopoBasemap() && this.map) {
@@ -2936,6 +3081,18 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.scheduleTraceViewerCdr();
 			}
 		});
+	}
+
+	private registerTraceMapPanInertia(): void {
+		if (!this.map || this.mapPanInertia) {
+			return;
+		}
+		this.mapPanInertia = attachLeafletPanInertia(this.map);
+	}
+
+	private unregisterTraceMapPanInertia(): void {
+		this.mapPanInertia?.detach();
+		this.mapPanInertia = null;
 	}
 
 	private unregisterTraceMapWheelZoom(): void {
@@ -4273,6 +4430,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private destroyMap(): void {
+		this.destroyFlatGlBlend();
 		this.stopRelief3d(false);
 		this.teardownMapLayoutObserver();
 		this.clearPendingRenderRetry();
@@ -4295,6 +4453,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.modalWheelTrapAttempts = 0;
 		this.unregisterTraceMapWheelZoom();
 		this.unregisterTraceMapCtrlRotate();
+		this.unregisterTraceMapPanInertia();
 		if (this.map) {
 			this.cleanupRightClickZoom();
 			this.cleanupLocationSelection();
@@ -4305,11 +4464,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.releaseLeafletControlPassiveTouchPatch();
 		this.overlayLayer = undefined;
-		this.hikingTrailsOverlay = undefined;
-		this.cyclingTrailsOverlay = undefined;
+		this.trailOverlayLayers = {};
 		this.weatherRadarLoadRequestId++;
 		this.weatherCloudLoadRequestId++;
-		this.clearWeatherRadarRefreshTimer();
 		this.weatherRadarLayer = undefined;
 		this.weatherCloudLayer = undefined;
 		this.weatherStationMapLayer.detach();
@@ -4449,6 +4606,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private refreshTraceViewerViewportFlags(): void {
 		const mobile = this.computeMobileViewport();
+		if (!mobile) {
+			this.basemapMenu = null;
+		}
 		this.isMobileViewport = mobile;
 		this.showKeepScreenAwakeSwitch = mobile && this.screenWakeLockAvailable;
 		if (!mobile && this.reliefTiltFollow) {
@@ -4930,16 +5090,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public onBaseLayerChange(layerId: string): void {
-		const previousBaseLayerId = this.selectedBaseLayerId;
-		if (this.relief3d && !this.isMaptoolkitBasemap(layerId)) {
-			this.stopRelief3d(true);
-		}
+		const previousVisibleId = this.visibleBasemapId();
 		this.offlineUseDevice = false;
 		const online = typeof navigator === 'undefined' || navigator.onLine;
 		this.offlineFallback = !online && this.offlineMeta.tileCount > 0;
 		if (layerId === 'cartes-gouv') {
 			this.lastBaseLayerBeforeCartesGouv = this.selectedBaseLayerId === 'cartes-gouv' ? this.lastBaseLayerBeforeCartesGouv : this.selectedBaseLayerId;
 			this.selectedBaseLayerId = 'cartes-gouv';
+			this.syncVisibleRelief(previousVisibleId);
 			setTimeout(() => this.openCartesGouvEmbed(), 0);
 			return;
 		}
@@ -4949,21 +5107,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.applySelectedBaseLayer();
 		this.persistTraceViewerPreferences();
-		if (this.isMaptoolkitBasemap(layerId)) {
-			if (layerId !== previousBaseLayerId) {
-				this.relief3dDismissed = false;
-			}
-			if (this.relief3d && layerId !== previousBaseLayerId) {
-				this.applyRelief3dStyle();
-			} else {
-				this.startRelief3dFromFlat();
-			}
-		}
-		this.syncRelief3dBlend();
+		this.syncVisibleRelief(previousVisibleId);
 	}
 
 	get relief3dAvailable(): boolean {
-		return !this.usingOfflineDeviceMap && this.isMaptoolkitBasemap(this.selectedBaseLayerId);
+		return !this.usingOfflineDeviceMap && this.isMaptoolkitBasemap(this.visibleBasemapId());
 	}
 
 	public toggleRelief3d(): void {
@@ -4974,6 +5122,39 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.relief3dDismissed = false;
 		this.startRelief3dFromFlat();
+	}
+
+	public toggleElevationColors(): void {
+		this.elevationColors = !this.elevationColors;
+		if (!this.elevationColors) {
+			this.elevationSpan = null;
+		}
+		this.terrainView?.setElevationColors(this.elevationColors && this.relief3d);
+		this.scheduleTraceViewerCdr();
+	}
+
+	private elevationSpanTimer: number | null = null;
+
+	private noteElevationRange(range: { min: number; max: number } | null): void {
+		const next = range
+			? { min: Math.round(range.min), max: Math.round(range.max) }
+			: null;
+		// L’échantillon arrive hors du cycle d’affichage. On applique la valeur au tick suivant,
+		// dans la zone Angular, pour que l’échelle apparaisse sans NG0100.
+		this.ngZone.run(() => {
+			if (this.elevationSpanTimer != null) {
+				clearTimeout(this.elevationSpanTimer);
+			}
+			this.elevationSpanTimer = window.setTimeout(() => {
+				this.elevationSpanTimer = null;
+				const same = this.elevationSpan?.min === next?.min && this.elevationSpan?.max === next?.max;
+				if (same) {
+					return;
+				}
+				this.elevationSpan = next;
+				this.cdr.markForCheck();
+			}, 0);
+		});
 	}
 
 	/** Maptoolkit basemaps open in the vertical 3D view unless the user just chose 2D. */
@@ -4995,8 +5176,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.setReliefTiltFollow(false);
 		}
 		const n = typeof value === 'number' ? value : Number(value);
-		this.reliefPitch = Number.isFinite(n) ? Math.max(0, Math.min(85, Math.round(n))) : 0;
-		this.terrainView?.setPitch(this.reliefPitch);
+		const next = Number.isFinite(n) ? Math.max(0, Math.min(85, Math.round(n))) : 0;
+		if (next === this.reliefPitch) {
+			return;
+		}
+		this.reliefPitch = next;
+		this.terrainView?.setPitch(next);
 		this.updateAxisGizmo(this.reliefZAngle);
 	}
 
@@ -5056,7 +5241,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/**
 	 * Angle between the screen and the horizontal plane.
-	 * 0° = phone flat, screen toward the sky. 90° = phone upright. Works in portrait and landscape.
+	 * 0° = phone flat. 90° = upright, looking at the horizon.
+	 * Past 90° the phone points toward the sky, up to 180°.
 	 */
 	private screenTiltDeg(betaDeg: number, gammaDeg: number): number {
 		const nz = Math.cos((betaDeg * Math.PI) / 180) * Math.cos((gammaDeg * Math.PI) / 180);
@@ -5078,15 +5264,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const seed = this.reliefTiltSmoothed ?? this.reliefPitch;
 		const smoothed = seed * 0.62 + raw * 0.38;
 		this.reliefTiltSmoothed = smoothed;
-		const next = Math.max(0, Math.min(85, smoothed));
+		const next = Math.max(0, Math.min(180, smoothed));
 		if (this.reliefTiltPitch != null && Math.abs(this.reliefTiltPitch - next) < 0.45) {
 			return;
 		}
 		this.reliefTiltPitch = next;
 		const shown = Math.round(next);
 		if (shown !== this.reliefPitch) {
-			this.reliefPitch = shown;
-			this.scheduleTraceViewerCdr();
+			this.deferReliefPitch(shown);
 		}
 		this.updateAxisGizmo(90 - next);
 		if (this.mapBearingGlideRaf == null) {
@@ -5094,18 +5279,20 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
-	/** Le pitch MapLibre arrive pendant le contrôle de vue : on reporte le modèle au tick suivant. */
+	/** Le pitch arrive parfois pendant le contrôle de vue : on reporte le modèle au tick suivant. */
 	private deferReliefPitch(next: number): void {
 		this.pendingReliefPitch = next;
-		setTimeout(() => {
-			if (this.pendingReliefPitch !== next) {
-				return;
-			}
+		if (this.reliefPitchTimer != null) {
+			return;
+		}
+		this.reliefPitchTimer = window.setTimeout(() => {
+			this.reliefPitchTimer = null;
+			const pending = this.pendingReliefPitch;
 			this.pendingReliefPitch = null;
-			if (this.reliefPitch === next) {
+			if (pending == null || pending === this.reliefPitch) {
 				return;
 			}
-			this.reliefPitch = next;
+			this.reliefPitch = pending;
 			this.scheduleTraceViewerCdr();
 		}, 0);
 	}
@@ -5114,9 +5301,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return maptoolkitStyleForBasemap(id) != null;
 	}
 
-	/** Keep the current 3D camera and paint the Maptoolkit style selected by the slider. */
+	/** Keep the current 3D camera and paint the Maptoolkit map that is on screen. */
 	private applyRelief3dStyle(): void {
-		if (!maptoolkitStyleForBasemap(this.selectedBaseLayerId)) {
+		if (!this.reliefVisibleStyle()) {
 			return;
 		}
 		if (!this.terrainView) {
@@ -5183,9 +5370,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.relief3dPending = false;
 				this.cdr.detectChanges();
 				this.applySelectedBaseLayer();
-				// GPS often resolves after 3D mounts on the provisional (weather) center.
-				this.reapplyPendingUserGpsToView();
-			}
+				// Only if the flat map is still on the GPS fix. A basemap change must keep the place on screen.
+				this.catchUpReliefCameraToGps();
+				this.refreshReliefWeatherStations();
+			},
+			onMoveEnd: () => {
+				this.refreshReliefWeatherStations();
+				this.schedulePlaces();
+			},
+			onElevationRange: (range) => this.noteElevationRange(range)
 		});
 		this.syncRelief3dOverlays();
 		this.syncRelief3dBlend();
@@ -5229,6 +5422,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.updateCompassRose();
 		this.applySelectedBaseLayer();
+		if (this.showWeatherStations) {
+			this.weatherStationMapLayer.setIgnoreLeafletMoves(false);
+		}
+		if (!this.relief3d) {
+			this.elevationSpan = null;
+		}
 		this.cdr.markForCheck();
 	}
 
@@ -5260,27 +5459,66 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return host instanceof HTMLElement ? host : null;
 	}
 
-	/** Style shown in 3D: map 2 from the middle of the slider, otherwise map 1. */
-	private reliefVisibleStyle(): string | null {
-		const secondaryId = this.activeSecondaryBaseLayerId();
-		const secondaryStyle = maptoolkitStyleForBasemap(secondaryId);
-		if (secondaryStyle && this.clampBasemapBlend(this.basemapBlend) >= 50) {
-			return secondaryStyle;
+	/**
+	 * Map actually painted. If either chosen basemap is 3D, that one is shown
+	 * and the flat one stays in the other slot.
+	 */
+	private visibleBasemapId(): string {
+		const primary = (this.selectedBaseLayerId || '').trim() || 'opentopomap';
+		const secondary = (this.secondaryBaseLayerId || '').trim();
+		if (this.isMaptoolkitBasemap(primary)) {
+			return primary;
 		}
-		return maptoolkitStyleForBasemap(this.selectedBaseLayerId);
+		if (secondary && secondary !== primary && this.isMaptoolkitBasemap(secondary)) {
+			return secondary;
+		}
+		return primary;
 	}
 
-	/** In 3D the slider swaps the single map. A second map underneath shows through while moving. */
+	/** Open or update the pitched view when the painted map is a 3D basemap. */
+	private syncVisibleRelief(previousVisibleId: string): void {
+		const visible = this.visibleBasemapId();
+		if (!this.isMaptoolkitBasemap(visible)) {
+			if (this.relief3d) {
+				this.stopRelief3d(true);
+			}
+			return;
+		}
+		if (visible !== previousVisibleId) {
+			this.relief3dDismissed = false;
+		}
+		if (this.relief3d) {
+			this.applyRelief3dStyle();
+			return;
+		}
+		this.startRelief3dFromFlat();
+	}
+
+	/** 3D shows the Maptoolkit basemap, even when it sits in the second slot. */
+	private reliefVisibleStyle(): string | null {
+		return maptoolkitStyleForBasemap(this.visibleBasemapId());
+	}
+
+	/** One 3D map fills the view. Two 3D maps stack, with the slider as the top map's opacity. */
 	private syncRelief3dBlend(): void {
 		if (!this.relief3d || !this.terrainView) {
 			return;
 		}
-		const style = this.reliefVisibleStyle();
+		const primaryStyle = maptoolkitStyleForBasemap(this.selectedBaseLayerId);
+		const style = primaryStyle ?? this.reliefVisibleStyle();
 		if (!style) {
 			return;
 		}
-		this.terrainView.setBlend(null, 0);
 		this.terrainView.setStyle(style);
+		const secondary = (this.secondaryBaseLayerId || '').trim();
+		const secondaryStyle = primaryStyle && secondary !== this.selectedBaseLayerId
+			? maptoolkitStyleForBasemap(secondary)
+			: null;
+		if (secondaryStyle) {
+			this.terrainView.setBlend(secondaryStyle, this.clampBasemapBlend(this.basemapBlend) / 100);
+			return;
+		}
+		this.terrainView.setBlend(null, 0);
 	}
 
 	private syncRelief3dOverlays(): void {
@@ -5288,13 +5526,69 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		this.terrainView.setTraces(this.reliefTraces());
+		this.terrainView.setTrailOverlays(this.reliefTrailOverlays());
+		this.terrainView.setElevationColors(this.elevationColors && this.relief3d);
 		this.terrainView.setGps(this.deviceLocationLatLng);
+		this.terrainView.setPlaces(this.placeMarks);
+		this.syncReliefWeatherStations();
 		if (this.gotoTargetActive && this.selectionMarker) {
 			const pos = this.selectionMarker.getLatLng();
 			this.terrainView.setPin({ lat: pos.lat, lng: pos.lng });
 		} else {
 			this.terrainView.setPin(null);
 		}
+	}
+
+	/** Pastilles de stations sur le relief, au-dessus des deux cartes 3D. */
+	private syncReliefWeatherStations(): void {
+		const view = this.terrainView;
+		if (!view) {
+			return;
+		}
+		if (!this.relief3d || !this.showWeatherStations) {
+			view.setWeatherStations([]);
+			return;
+		}
+		view.setWeatherStations(
+			this.weatherStationMapLayer.reliefLabels(),
+			(event) => this.weatherStationMapLayer.handleActionClick(event),
+			(key) => this.weatherStationMapLayer.warmStationAltitude(key)
+		);
+	}
+
+	/** Recharge les stations pour le sol visible, pas pour le cadre Leaflet resté en dessous. */
+	private reliefStationRetry: number | null = null;
+	private reliefStationRetryCount = 0;
+
+	private refreshReliefWeatherStations(): void {
+		if (!this.relief3d || !this.showWeatherStations || !this.terrainView) {
+			return;
+		}
+		this.weatherStationMapLayer.setIgnoreLeafletMoves(true);
+		const box = this.terrainView.groundBounds();
+		if (!box) {
+			if (this.reliefStationRetry != null || this.reliefStationRetryCount >= 15) {
+				return;
+			}
+			this.reliefStationRetryCount += 1;
+			this.reliefStationRetry = window.setTimeout(() => {
+				this.reliefStationRetry = null;
+				this.refreshReliefWeatherStations();
+			}, 200);
+			return;
+		}
+		this.reliefStationRetryCount = 0;
+		if (this.reliefStationRetry != null) {
+			window.clearTimeout(this.reliefStationRetry);
+			this.reliefStationRetry = null;
+		}
+		this.weatherStationMapLayer.loadForGeographicView(
+			box.south,
+			box.north,
+			box.west,
+			box.east,
+			this.visibleLeafletZoom()
+		);
 	}
 
 	private reliefTraces(): ReliefTrace[] {
@@ -5323,6 +5617,57 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return this.availableBaseLayers.filter((layer) => layer.id !== 'cartes-gouv');
 	}
 
+	/**
+	 * Slider 1–2. In the flat view any two maps can be mixed, including a 3D basemap shown flat.
+	 * In the pitched view the slider stays only when both maps are 3D; a single 3D map is shown alone.
+	 */
+	get showBasemapBlend(): boolean {
+		const secondary = (this.secondaryBaseLayerId || '').trim();
+		if (!secondary || secondary === this.selectedBaseLayerId) {
+			return false;
+		}
+		if (!this.relief3d) {
+			return true;
+		}
+		return this.isMaptoolkitBasemap(this.selectedBaseLayerId) && this.isMaptoolkitBasemap(secondary);
+	}
+
+	public toggleBasemapMenu(kind: 'primary' | 'secondary', event: Event): void {
+		event.stopPropagation();
+		this.basemapMenu = this.basemapMenu === kind ? null : kind;
+	}
+
+	public closeBasemapMenu(): void {
+		this.basemapMenu = null;
+	}
+
+	/** One tap selects and closes. The native mobile picker spends the first tap dismissing its search field. */
+	public pickBasemap(kind: 'primary' | 'secondary', layerId: string): void {
+		this.basemapMenu = null;
+		if (kind === 'primary') {
+			if (layerId !== this.selectedBaseLayerId) {
+				this.onBaseLayerChange(layerId);
+			}
+			return;
+		}
+		if (layerId !== this.secondaryBaseLayerId) {
+			this.onSecondaryBaseLayerChange(layerId);
+		}
+	}
+
+	public trackBasemapId(_index: number, layer: { id: string }): string {
+		return layer.id;
+	}
+
+	public basemapTriggerLabel(kind: 'primary' | 'secondary'): string {
+		if (kind === 'secondary') {
+			const layer = this.availableBaseLayers.find((item) => item.id === this.secondaryBaseLayerId);
+			return layer ? this.basemapOptionLabel(layer) : this.translate('EVENTELEM.TRACK_BASEMAP_NONE');
+		}
+		const layer = this.availableBaseLayers.find((item) => item.id === this.selectedBaseLayerId);
+		return layer ? this.basemapOptionLabel(layer) : '';
+	}
+
 	/** Visible name. Relief basemaps are prefixed so the 3D ones are obvious in the list. */
 	public basemapOptionLabel(layer: { label: string; labelKey?: string; relief?: boolean }): string {
 		const name = layer.labelKey ? this.translate(layer.labelKey) : layer.label;
@@ -5330,6 +5675,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public onSecondaryBaseLayerChange(layerId: string): void {
+		const previousVisibleId = this.visibleBasemapId();
 		const next = (layerId || '').trim();
 		if (!next || next === 'cartes-gouv' || next === this.selectedBaseLayerId) {
 			this.secondaryBaseLayerId = '';
@@ -5341,7 +5687,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.applySelectedBaseLayer();
 		this.persistTraceViewerPreferences();
-		this.syncRelief3dBlend();
+		this.syncVisibleRelief(previousVisibleId);
 	}
 
 	public onBasemapBlendChange(raw: number | string): void {
@@ -5351,7 +5697,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		this.basemapBlend = next;
-		if (this.activeSecondaryBaseLayerId() && !this.activeBlendLayer) {
+		if (this.wantsFlatGlBlend()) {
+			this.syncFlatGlBlend();
+		} else if (this.activeSecondaryBaseLayerId() && !this.activeBlendLayer) {
 			this.applySelectedBaseLayer();
 		} else {
 			this.applyBasemapBlendOpacity();
@@ -5459,6 +5807,93 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
+	/**
+	 * Two Maptoolkit maps in the flat view. The second one is a MapLibre overlay:
+	 * the Leaflet WebGL canvas stays opaque, so the slider cannot fade it.
+	 */
+	private wantsFlatGlBlend(): boolean {
+		if (this.relief3d || !this.map || this.usingOfflineDeviceMap) {
+			return false;
+		}
+		const secondary = this.activeSecondaryBaseLayerId();
+		return !!secondary
+			&& this.isMaptoolkitBasemap(this.selectedBaseLayerId)
+			&& this.isMaptoolkitBasemap(secondary);
+	}
+
+	private syncFlatGlBlend(): void {
+		if (!this.wantsFlatGlBlend()) {
+			this.destroyFlatGlBlend();
+			return;
+		}
+		const style = maptoolkitStyleForBasemap(this.activeSecondaryBaseLayerId());
+		const pane = this.ensureBasemapBlendPane();
+		if (!style || !pane) {
+			this.destroyFlatGlBlend();
+			return;
+		}
+		this.bindFlatGlBlendCamera();
+		const opacity = this.clampBasemapBlend(this.basemapBlend) / 100;
+		if (!this.flatGlBlend) {
+			this.flatGlBlend = new FlatMaptoolkitBlend();
+			this.flatGlBlend.mount(pane, style, () => this.syncFlatGlBlendCamera());
+		} else {
+			this.flatGlBlend.setStyle(style, () => this.syncFlatGlBlendCamera());
+		}
+		this.flatGlBlend.setOpacity(opacity);
+		this.syncFlatGlBlendCamera();
+	}
+
+	private bindFlatGlBlendCamera(): void {
+		if (!this.map || this.flatGlBlendMove) {
+			return;
+		}
+		this.flatGlBlendMove = () => this.syncFlatGlBlendCamera();
+		this.map.on('move', this.flatGlBlendMove);
+		this.map.on('zoom', this.flatGlBlendMove);
+		this.map.on('rotate', this.flatGlBlendMove);
+		this.map.on('resize', this.flatGlBlendMove);
+	}
+
+	private syncFlatGlBlendCamera(): void {
+		const overlay = this.flatGlBlend;
+		const map = this.map;
+		if (!overlay || !map) {
+			return;
+		}
+		const size = map.getSize();
+		if (!size || size.x < 2 || size.y < 2) {
+			return;
+		}
+		const centerPt = map.containerPointToLayerPoint(size.divideBy(2));
+		const topLeft = centerPt.subtract(size.divideBy(2));
+		const center = map.getCenter();
+		const leafletBearing = this.currentMapBearingDeg();
+		const upright = Number.isFinite(leafletBearing) ? -leafletBearing : 0;
+		overlay.sync({
+			lng: center.lng,
+			lat: center.lat,
+			zoom: leafletZoomToMaplibre(map.getZoom()),
+			bearing: upright,
+			width: size.x,
+			height: size.y,
+			x: topLeft.x,
+			y: topLeft.y
+		});
+	}
+
+	private destroyFlatGlBlend(): void {
+		if (this.map && this.flatGlBlendMove) {
+			this.map.off('move', this.flatGlBlendMove);
+			this.map.off('zoom', this.flatGlBlendMove);
+			this.map.off('rotate', this.flatGlBlendMove);
+			this.map.off('resize', this.flatGlBlendMove);
+		}
+		this.flatGlBlendMove = undefined;
+		this.flatGlBlend?.destroy();
+		this.flatGlBlend = null;
+	}
+
 	private applySelectedBaseLayer(): void {
 		if (!this.map) {
 			return;
@@ -5466,6 +5901,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const usePack = this.usingOfflineDeviceMap;
 		if (!usePack && this.selectedBaseLayerId === 'cartes-gouv') {
 			this.removeBlendLayer();
+			this.destroyFlatGlBlend();
 			return;
 		}
 
@@ -5478,31 +5914,36 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// The 3D view already draws Maptoolkit. A second WebGL copy under it
 		// can stop the transparent overlay from getting a graphics context.
 		if (this.relief3d && (this.isMaptoolkitBasemap(this.selectedBaseLayerId) || this.isMaptoolkitBasemap(this.secondaryBaseLayerId))) {
+			this.destroyFlatGlBlend();
 			return;
 		}
 
-		const secondaryId = this.activeSecondaryBaseLayerId();
+		const secondaryId = this.showBasemapBlend ? this.activeSecondaryBaseLayerId() : '';
+		const flatGlBlend = this.wantsFlatGlBlend();
 		const blend = secondaryId ? this.clampBasemapBlend(this.basemapBlend) : 0;
+		const shownId = this.showBasemapBlend
+			? (this.selectedBaseLayerId || 'opentopomap')
+			: this.visibleBasemapId();
 
-		const primary = this.buildBasemapLayer(this.selectedBaseLayerId || 'opentopomap', false);
+		const primary = this.buildBasemapLayer(shownId, false);
 		if (primary) {
 			primary.addTo(this.map);
 			this.sendBasemapToBack(primary);
 			this.activeBaseLayer = primary;
 		}
 
-		if (secondaryId) {
+		if (secondaryId && !flatGlBlend) {
 			const secondary = this.buildBasemapLayer(secondaryId, true);
 			if (secondary && secondary !== this.activeBaseLayer) {
-				secondary.addTo(this.map);
-				this.raiseBasemapStack(secondary);
+				this.attachBlendLayer(secondary);
 				this.setBasemapOpacity(secondary, blend / 100);
 				this.activeBlendLayer = secondary;
 			}
 		}
 
-		this.applyHikingTrailsOverlay();
-		this.applyCyclingTrailsOverlay();
+		this.syncFlatGlBlend();
+
+		this.applyTrailOverlays();
 		this.applyWeatherRadarOverlay();
 
 		const primaryRef = this.activeBaseLayer;
@@ -5513,6 +5954,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 			if (blendRef && this.activeBlendLayer === blendRef) {
 				this.setBasemapOpacity(blendRef, this.clampBasemapBlend(this.basemapBlend) / 100);
+			}
+			if (this.flatGlBlend) {
+				this.syncFlatGlBlendCamera();
 			}
 			if ((primaryRef && this.activeBaseLayer === primaryRef) || (blendRef && this.activeBlendLayer === blendRef)) {
 				this.map.invalidateSize();
@@ -5575,7 +6019,31 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!this.activeBlendLayer) {
 			return;
 		}
+		if (this.layerUsesBlendPane(this.activeBlendLayer)) {
+			this.activeBlendLayer.remove();
+			this.activeBlendLayer = undefined;
+			this.applySelectedBaseLayer();
+			return;
+		}
 		this.setBasemapOpacity(this.activeBlendLayer, this.clampBasemapBlend(this.basemapBlend) / 100);
+	}
+
+	/** Layers parked in the blend pane sit above the tiles and no longer fade. */
+	private layerUsesBlendPane(layer: L.Layer): boolean {
+		const pane = (layer as L.Layer & { options?: { pane?: string } }).options?.pane;
+		if (pane === 'basemapBlendPane') {
+			return true;
+		}
+		if (layer instanceof L.LayerGroup) {
+			let found = false;
+			layer.eachLayer((child) => {
+				if (!found && this.layerUsesBlendPane(child)) {
+					found = true;
+				}
+			});
+			return found;
+		}
+		return false;
 	}
 
 	/**
@@ -5643,9 +6111,40 @@ export class TraceViewerModalComponent implements OnDestroy {
 			layer.eachLayer((child) => {
 				if (child instanceof L.TileLayer) {
 					child.bringToBack();
+				} else {
+					this.sendBasemapToBack(child);
 				}
 			});
+			return;
 		}
+		const container = this.basemapContainer(layer);
+		if (container) {
+			container.style.zIndex = '1';
+		}
+	}
+
+	/**
+	 * The second map sits in its own pane, above the tile pane and below markers.
+	 * A WebGL canvas in the same pane as the first map stays opaque on top, so the
+	 * slider never shows through.
+	 */
+	private ensureBasemapBlendPane(): HTMLElement | null {
+		if (!this.map) {
+			return null;
+		}
+		const existing = this.map.getPane('basemapBlendPane');
+		if (existing) {
+			return existing;
+		}
+		const pane = this.map.createPane('basemapBlendPane');
+		pane.style.zIndex = '350';
+		pane.style.pointerEvents = 'none';
+		return pane;
+	}
+
+	private attachBlendLayer(layer: L.Layer): void {
+		layer.addTo(this.map!);
+		this.raiseBasemapStack(layer);
 	}
 
 	/** Keep the second basemap above the first and below weather (zIndex 4) and trails. */
@@ -5684,6 +6183,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 			layer.eachLayer((child) => this.setBasemapOpacity(child, clamped));
 			return;
 		}
+		const gl = layer as L.Layer & { _glMap?: unknown };
+		if (gl._glMap) {
+			applyGlLayerOpacity(layer, clamped);
+			return;
+		}
 		const container = this.basemapContainer(layer);
 		if (container) {
 			container.style.opacity = String(clamped);
@@ -5704,56 +6208,228 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return anyLayer._container ?? null;
 	}
 
+	private reliefTrailOverlays(): ReliefTrailOverlays {
+		return {
+			hiking: this.showHikingTrailsOverlay,
+			cycling: this.showCyclingTrailsOverlay,
+			mtb: this.showMtbTrailsOverlay,
+			railway: this.showRailwayOverlay,
+			slopes: this.showSlopesOverlay
+		};
+	}
+
 	/**
-	 * Affiche ou masque la couche sentiers randonnée (Waymarked Trails) par-dessus le fond de carte.
+	 * Au-dessus du second fond (pane 350) et sous le tracé (pane 400).
+	 * Sans ça, le curseur à fond sur la carte 2 cache les pistes et les itinéraires.
 	 */
-	private applyHikingTrailsOverlay(): void {
+	private ensureTrailOverlayPane(): void {
+		if (!this.map || this.map.getPane('trailOverlayPane')) {
+			return;
+		}
+		const pane = this.map.createPane('trailOverlayPane');
+		pane.style.zIndex = '380';
+		pane.style.pointerEvents = 'none';
+	}
+
+	/**
+	 * Affiche ou masque les couches Waymarked Trails par-dessus les deux fonds.
+	 * Les pistes de ski restent sous les itinéraires.
+	 */
+	private applyTrailOverlays(): void {
 		if (!this.map) {
 			return;
 		}
-		this.hikingTrailsOverlay?.remove();
-		if (this.showHikingTrailsOverlay) {
-			if (!this.hikingTrailsOverlay) {
-				this.hikingTrailsOverlay = L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png', {
+		this.ensureTrailOverlayPane();
+		const specs: { key: keyof ReliefTrailOverlays; url: string; zIndex: number }[] = [
+			{ key: 'slopes', url: 'https://tile.waymarkedtrails.org/slopes/{z}/{x}/{y}.png', zIndex: 9 },
+			{ key: 'hiking', url: 'https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png', zIndex: 10 },
+			{ key: 'cycling', url: 'https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png', zIndex: 11 },
+			{ key: 'mtb', url: 'https://tile.waymarkedtrails.org/mtb/{z}/{x}/{y}.png', zIndex: 12 },
+			{ key: 'railway', url: 'https://a.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', zIndex: 13 }
+		];
+		const flags = this.reliefTrailOverlays();
+		for (const spec of specs) {
+			const current = this.trailOverlayLayers[spec.key];
+			current?.remove();
+			if (!flags[spec.key]) {
+				continue;
+			}
+			if (!current || current.options.pane !== 'trailOverlayPane') {
+				this.trailOverlayLayers[spec.key] = L.tileLayer(spec.url, {
 					maxZoom: 18,
 					opacity: 0.95,
-					zIndex: 10
+					zIndex: spec.zIndex,
+					pane: 'trailOverlayPane'
 				});
 			}
-			this.hikingTrailsOverlay.addTo(this.map);
+			this.trailOverlayLayers[spec.key]!.addTo(this.map);
 		}
 	}
 
-	public onHikingTrailsOverlayChange(): void {
-		this.applyHikingTrailsOverlay();
+	public onTrailOverlayChange(): void {
+		this.applyTrailOverlays();
+		this.terrainView?.setTrailOverlays(this.reliefTrailOverlays());
 		this.cdr.detectChanges();
 		this.persistTraceViewerPreferences();
 	}
 
-	/**
-	 * Affiche ou masque la couche pistes cyclables (Waymarked Trails) par-dessus le fond de carte.
-	 */
-	private applyCyclingTrailsOverlay(): void {
-		if (!this.map) {
+	public onPlacesOverlayChange(): void {
+		if (this.showPlacesOverlay) {
+			this.schedulePlaces();
+		} else {
+			this.clearPlaces();
+		}
+		this.persistTraceViewerPreferences();
+	}
+
+	/** Recharge les lieux quand la carte s’arrête. Une zone trop large n’est pas demandée. */
+	private schedulePlaces(): void {
+		if (this.placesTimer != null) {
+			clearTimeout(this.placesTimer);
+			this.placesTimer = null;
+		}
+		if (!this.showPlacesOverlay) {
 			return;
 		}
-		this.cyclingTrailsOverlay?.remove();
-		if (this.showCyclingTrailsOverlay) {
-			if (!this.cyclingTrailsOverlay) {
-				this.cyclingTrailsOverlay = L.tileLayer('https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png', {
-					maxZoom: 18,
-					opacity: 0.95,
-					zIndex: 11
-				});
+		this.placesTimer = setTimeout(() => {
+			this.placesTimer = null;
+			void this.loadPlaces();
+		}, 450);
+	}
+
+	private clearPlaces(): void {
+		if (this.placesTimer != null) {
+			clearTimeout(this.placesTimer);
+			this.placesTimer = null;
+		}
+		this.placesAbort?.abort();
+		this.placesAbort = null;
+		this.placesGen++;
+		this.placeMarks = [];
+		this.placesLayer?.remove();
+		this.placesLayer = null;
+		this.terrainView?.setPlaces([]);
+	}
+
+	private async loadPlaces(): Promise<void> {
+		if (!this.showPlacesOverlay || !this.map) {
+			return;
+		}
+		const zoom = this.visibleLeafletZoom();
+		const box = this.placesBbox();
+		if (!box || zoom < 11 || box.east - box.west > 0.8 || box.north - box.south > 0.6) {
+			this.placesGen++;
+			this.placesAbort?.abort();
+			this.placesAbort = null;
+			this.placeMarks = [];
+			this.paintPlaces();
+			return;
+		}
+		const gen = ++this.placesGen;
+		this.placesAbort?.abort();
+		const abort = new AbortController();
+		this.placesAbort = abort;
+		try {
+			const payload = await this.fetchPlacesPayload(abort.signal);
+			if (!payload || gen !== this.placesGen || !this.showPlacesOverlay) {
+				return;
 			}
-			this.cyclingTrailsOverlay.addTo(this.map);
+			const marks: ReliefPlaceMark[] = [];
+			for (const element of payload.elements ?? []) {
+				const lat = element.lat ?? element.center?.lat;
+				const lng = element.lon ?? element.center?.lon;
+				if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+					continue;
+				}
+				const tags = element.tags ?? {};
+				const kind: ReliefPlaceMark['kind'] = tags['aeroway'] ? 'airport' : tags['historic'] ? 'historic' : 'sight';
+				const name = (tags['name:fr'] || tags['name'] || tags['ref'] || (kind === 'airport' ? 'Aéroport' : '')).trim();
+				if (!name) {
+					continue;
+				}
+				marks.push({ lat, lng, name, kind });
+				if (marks.length >= 120) {
+					break;
+				}
+			}
+			this.placeMarks = marks;
+			this.paintPlaces();
+		} catch {
+			/* déplacement ou réseau : la prochaine fin de mouvement réessaie */
 		}
 	}
 
-	public onCyclingTrailsOverlayChange(): void {
-		this.applyCyclingTrailsOverlay();
-		this.cdr.detectChanges();
-		this.persistTraceViewerPreferences();
+	/** Le navigateur est refusé par les miroirs Overpass. La requête part du backend. */
+	private async fetchPlacesPayload(
+		signal: AbortSignal
+	): Promise<{
+		elements?: Array<{
+			lat?: number;
+			lon?: number;
+			center?: { lat?: number; lon?: number };
+			tags?: Record<string, string>;
+		}>;
+	} | null> {
+		const box = this.placesBbox();
+		if (!box) {
+			return null;
+		}
+		const params = new URLSearchParams({
+			south: box.south.toFixed(5),
+			west: box.west.toFixed(5),
+			north: box.north.toFixed(5),
+			east: box.east.toFixed(5)
+		});
+		const response = await fetch(`${environment.API_URL}external/map/places?${params}`, { signal });
+		if (!response.ok) {
+			return null;
+		}
+		return await response.json();
+	}
+
+	private placesBbox(): { south: number; west: number; north: number; east: number } | null {
+		if (this.relief3d) {
+			const box = this.terrainView?.bounds();
+			if (box) {
+				return box;
+			}
+		}
+		const bounds = this.map?.getBounds();
+		if (!bounds) {
+			return null;
+		}
+		return {
+			south: bounds.getSouth(),
+			west: bounds.getWest(),
+			north: bounds.getNorth(),
+			east: bounds.getEast()
+		};
+	}
+
+	private paintPlaces(): void {
+		this.placesLayer?.remove();
+		this.placesLayer = null;
+		if (this.map && this.placeMarks.length) {
+			const colors: Record<ReliefPlaceMark['kind'], string> = {
+				historic: '#7b2cbf',
+				sight: '#e67e22',
+				airport: '#1a5276'
+			};
+			const group = L.layerGroup();
+			for (const mark of this.placeMarks) {
+				L.circleMarker([mark.lat, mark.lng], {
+					radius: 6,
+					color: '#ffffff',
+					weight: 2,
+					fillColor: colors[mark.kind],
+					fillOpacity: 1
+				}).bindTooltip(mark.name, { direction: 'top', offset: [0, -8] }).addTo(group);
+			}
+			group.addTo(this.map);
+			this.placesLayer = group;
+		}
+		this.terrainView?.setPlaces(this.placeMarks);
+		this.cdr.markForCheck();
 	}
 
 	private computeShowWeatherStationsHintKey(): string {
@@ -5986,11 +6662,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		if (!this.showWeatherStations) {
+			this.weatherStationMapLayer.setIgnoreLeafletMoves(false);
 			this.weatherStationMapLayer.detach();
+			this.syncReliefWeatherStations();
 			return;
 		}
+		this.ensureStationSelectionForOverlay();
 		if (!this.resolveMapWeatherStationProvider()) {
+			this.weatherStationMapLayer.setIgnoreLeafletMoves(false);
 			this.weatherStationMapLayer.detach();
+			this.syncReliefWeatherStations();
 			return;
 		}
 		this.weatherStationMapLayer.bind(this.map, {
@@ -6019,8 +6700,38 @@ export class TraceViewerModalComponent implements OnDestroy {
 					this.syncWeatherPointFromStationGrid();
 					this.scheduleTraceViewerCdr();
 				}
+				this.syncReliefWeatherStations();
 			},
 		});
+		this.weatherStationMapLayer.setIgnoreLeafletMoves(this.relief3d);
+		if (this.relief3d) {
+			this.refreshReliefWeatherStations();
+		}
+	}
+
+	/** Sans clic préalable, le centre de la carte sert à choisir Météo-France ou MeteoSwiss. */
+	private ensureStationSelectionForOverlay(): void {
+		if (this.stationSelectionLat != null && this.stationSelectionLng != null) {
+			return;
+		}
+		this.seedStationSelectionFromExistingClick();
+		if (this.stationSelectionLat != null && this.stationSelectionLng != null) {
+			return;
+		}
+		const cam = this.relief3d ? this.terrainView?.camera() : null;
+		if (cam && Number.isFinite(cam.lat) && Number.isFinite(cam.lng)) {
+			this.stationSelectionLat = cam.lat;
+			this.stationSelectionLng = cam.lng;
+			this.refreshShowWeatherStationsHintKey();
+			return;
+		}
+		if (!this.map) {
+			return;
+		}
+		const center = this.map.getCenter();
+		this.stationSelectionLat = center.lat;
+		this.stationSelectionLng = center.lng;
+		this.refreshShowWeatherStationsHintKey();
 	}
 
 	private resolveMapWeatherStationProvider(): 'mf' | 'ms' | null {
@@ -6041,14 +6752,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.removeWeatherRadarLayer();
 		this.removeWeatherCloudLayer();
-		this.clearWeatherRadarRefreshTimer();
 		if (!this.showWeather) {
 			return;
 		}
 		this.loadWeatherRainViewerRadar();
 		// Always re-fetch opacity/intensity from Mongo (shared with Météo-France) before drawing clouds.
 		this.loadMapLayerCloudPreferences({ applyClouds: true });
-		this.startWeatherRadarRefreshTimer();
 	}
 
 	private removeWeatherRadarLayer(): void {
@@ -6061,14 +6770,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.weatherCloudLayer?.remove();
 		this.weatherCloudLayer = undefined;
 		this.cloudDisplaySource = null;
-	}
-
-	private clearWeatherRadarRefreshTimer(): void {
-		if (this.weatherRadarRefreshTimer != null) {
-			clearInterval(this.weatherRadarRefreshTimer);
-			this.weatherRadarRefreshTimer = null;
-		}
-		this.radarRefreshCountdown = 0;
 	}
 
 	private loadWeatherRainViewerRadar(): void {
@@ -6226,50 +6927,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 		container.style.setProperty('--mf-cloud-saturate', saturate.toFixed(2));
 	}
 
-	private startWeatherRadarRefreshTimer(): void {
-		this.clearWeatherRadarRefreshTimer();
-		if (!this.showWeather || !this.autoRefreshRadar) {
-			this.radarRefreshCountdown = 0;
-			return;
-		}
-		this.radarRefreshCountdown = this.effectiveRadarRefreshSeconds;
-		this.weatherRadarRefreshTimer = setInterval(() => {
-			this.radarRefreshCountdown = Math.max(0, this.radarRefreshCountdown - 1);
-			if (this.radarRefreshCountdown === 0) {
-				if (this.showWeather && this.autoRefreshRadar && this.map) {
-					this.loadWeatherRainViewerRadar();
-					this.loadMapLayerCloudPreferences({ applyClouds: true });
-				}
-				this.radarRefreshCountdown = this.effectiveRadarRefreshSeconds;
-			}
-			this.scheduleTraceViewerCdr();
-		}, 1000);
-	}
-
-	private get effectiveRadarRefreshSeconds(): number {
-		const sec = Number(this.radarRefreshSeconds);
-		return Number.isFinite(sec) ? Math.max(30, Math.min(600, sec)) : 60;
-	}
-
-	/** Manual radar reload (resets auto-refresh countdown when enabled). */
+	/** Manual reload of radar and cloud tiles. */
 	public onRefreshRadar(): void {
 		if (!this.map || !this.showWeather) {
 			return;
 		}
 		this.loadWeatherRainViewerRadar();
 		this.loadMapLayerCloudPreferences({ applyClouds: true });
-		if (this.autoRefreshRadar) {
-			this.radarRefreshCountdown = this.effectiveRadarRefreshSeconds;
-			this.scheduleTraceViewerCdr();
-		}
-	}
-
-	public onAutoRefreshRadarChange(): void {
-		this.startWeatherRadarRefreshTimer();
-		this.persistTraceViewerPreferences();
-		this.apiService.saveMeteoFranceRadarPreferences({ autoRefreshEnabled: this.autoRefreshRadar })
-			.pipe(takeUntil(this.destroy$))
-			.subscribe({ error: () => { /* keep local value */ } });
 	}
 
 	public toggleSelectionOverlay(): void {
@@ -6423,6 +7087,32 @@ export class TraceViewerModalComponent implements OnDestroy {
 			},
 			{ enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
 		);
+	}
+
+	/**
+	 * 3D can mount before the GPS fix is copied onto its camera.
+	 * If the flat map has since been moved, leave that place alone.
+	 */
+	private catchUpReliefCameraToGps(): void {
+		const fix = this.pendingUserGps;
+		const map = this.map;
+		const view = this.terrainView;
+		if (!fix || !map || !view || this.userGpsRecenterGen !== this.modalGeneration) {
+			return;
+		}
+		const leaflet = map.getCenter();
+		const leafletAtGps = Math.abs(leaflet.lat - fix.lat) < 0.0008 && Math.abs(leaflet.lng - fix.lng) < 0.0008;
+		if (!leafletAtGps) {
+			return;
+		}
+		const cam = view.camera();
+		if (!cam) {
+			return;
+		}
+		const reliefAtGps = Math.abs(cam.lat - fix.lat) < 0.0008 && Math.abs(cam.lng - fix.lng) < 0.0008;
+		if (!reliefAtGps) {
+			view.jumpTo(fix.lat, fix.lng, map.getZoom());
+		}
 	}
 
 	/** Apply pending/live GPS to Leaflet + MapLibre when the view exists. */

@@ -8,6 +8,7 @@ import {
 	WeatherStationBrand,
 	WeatherStationGridPoint,
 	WeatherStationProvider,
+	WeatherStationReliefLabel,
 	WeatherStationTooltipContext,
 	buildWeatherStationLabelHtml,
 	buildWeatherStationTooltipHtml,
@@ -52,6 +53,8 @@ export class WeatherStationMapLayerService {
 	private layer?: L.LayerGroup;
 	private options: WeatherStationMapLayerOptions = { enabled: false, resolveProvider: () => null };
 	private gridPoints: WeatherStationGridPoint[] = [];
+	/** Dernier cadre demandé (Leaflet ou vue 3D). Sert à placer les pastilles sur le relief. */
+	private viewBounds: { south: number; north: number; west: number; east: number } | null = null;
 	private labelSource: 'meteofrance-dpobs' | 'meteoswiss-smn' | null = null;
 	private loadSub?: Subscription;
 	private refreshSub?: Subscription;
@@ -62,6 +65,8 @@ export class WeatherStationMapLayerService {
 	private readonly stationAltitudeInflight = new Map<string, Subscription>();
 	private readonly markersByKey = new Map<string, L.Marker>();
 	private tooltipClickListenerAttached = false;
+	/** Vue 3D : le déplacement Leaflet ne doit pas remplacer le chargement du sol visible. */
+	private ignoreLeafletMoves = false;
 
 	private readonly onTemperatureTooltipClick = (event: MouseEvent): void => {
 		const target = event.target as HTMLElement | null;
@@ -101,11 +106,17 @@ export class WeatherStationMapLayerService {
 	};
 
 	private readonly onMapMoveEnd = (): void => {
+		if (this.ignoreLeafletMoves) {
+			return;
+		}
 		this.render();
 		this.scheduleLoad();
 	};
 
 	private readonly onMapZoomEnd = (): void => {
+		if (this.ignoreLeafletMoves) {
+			return;
+		}
 		this.render();
 		this.scheduleLoad();
 	};
@@ -122,6 +133,17 @@ export class WeatherStationMapLayerService {
 		this.setup();
 	}
 
+	/** En vue 3D, seul le cadre du relief recharge les stations. */
+	setIgnoreLeafletMoves(ignore: boolean): void {
+		if (this.ignoreLeafletMoves === ignore) {
+			return;
+		}
+		this.ignoreLeafletMoves = ignore;
+		if (!ignore && this.options.enabled) {
+			this.scheduleLoad();
+		}
+	}
+
 	updateOptions(patch: Partial<WeatherStationMapLayerOptions>): void {
 		this.options = { ...this.options, ...patch };
 		this.setup();
@@ -133,6 +155,104 @@ export class WeatherStationMapLayerService {
 
 	getGridPoints(): WeatherStationGridPoint[] {
 		return [...this.gridPoints];
+	}
+
+	/** Recharge les stations pour le sol visible en vue 3D, sans bouger la carte Leaflet. */
+	loadForGeographicView(south: number, north: number, west: number, east: number, zoom: number): void {
+		if (!this.map || !this.options.enabled || ![south, north, west, east, zoom].every(Number.isFinite)) {
+			return;
+		}
+		if (south > north) {
+			const swap = south;
+			south = north;
+			north = swap;
+		}
+		this.clearDebounce();
+		const { debounceMs } = computeWeatherStationCapacity(zoom);
+		const view = { south, north, west, east, zoom };
+		this.debounceTimer = setTimeout(() => this.load(view), debounceMs);
+	}
+
+	/** Pastilles à dessiner sur le relief. Le recouvrement écran est filtré par la vue 3D. */
+	reliefLabels(): WeatherStationReliefLabel[] {
+		if (!this.options.enabled || !this.viewBounds) {
+			return [];
+		}
+		const provider = this.options.resolveProvider();
+		if (!provider) {
+			return [];
+		}
+		const brand: WeatherStationBrand = provider === 'ms' ? 'meteoswiss' : 'meteofrance';
+		const logoSrc = brand === 'meteoswiss'
+			? (this.options.brandLogos?.meteoswiss || WeatherStationMapLayerService.LOGO_MS)
+			: (this.options.brandLogos?.meteofrance || WeatherStationMapLayerService.LOGO_MF);
+		const brandAlt = brand === 'meteoswiss'
+			? (this.options.brandAlts?.meteoswiss || 'MeteoSwiss')
+			: (this.options.brandAlts?.meteofrance || 'Météo-France');
+		const box = this.viewBounds;
+		const exclude = this.options.excludeNearPoint?.() ?? null;
+		const labels: WeatherStationReliefLabel[] = [];
+		for (const point of filterStationLabelPoints(this.gridPoints, provider, this.labelSource)) {
+			if (point.tempC == null || !Number.isFinite(point.tempC)) {
+				continue;
+			}
+			const [lat, lon] = stationMarkerLatLng(point);
+			if (lat < box.south || lat > box.north || lon < box.west || lon > box.east) {
+				continue;
+			}
+			if (exclude && this.isNearPoint(lat, lon, exclude.lat, exclude.lng)) {
+				continue;
+			}
+			this.applyCachedStationAltitude(point);
+			const text = formatWeatherStationTemperatureLabel(point.tempC);
+			labels.push({
+				key: weatherStationPointKey(point),
+				lat,
+				lng: lon,
+				html: buildWeatherStationLabelHtml(point.tempC, brand, logoSrc, brandAlt),
+				tooltipHtml: buildWeatherStationTooltipHtml(point, this.buildTooltipContext()),
+				width: estimateWeatherStationLabelWidth(text),
+			});
+		}
+		return labels;
+	}
+
+	handleActionClick(event: MouseEvent): void {
+		this.onTemperatureTooltipClick(event);
+	}
+
+	/** Altitude manquante : au survol en 3D, complète le point puis prévient l’affichage. */
+	warmStationAltitude(key: string): void {
+		const point = this.findPointByKey(key);
+		if (!point || !isObsWeatherStationPoint(point, this.labelSource)) {
+			return;
+		}
+		this.applyCachedStationAltitude(point);
+		if (point.altitudeM != null) {
+			return;
+		}
+		const cacheKey = this.stationAltitudeCacheKey(point.lat, point.lon);
+		if (this.stationAltitudeCache.has(cacheKey) || this.stationAltitudeInflight.has(cacheKey)) {
+			return;
+		}
+		const sub = this.apiService.getStationElevation(point.lat, point.lon).pipe(take(1)).subscribe({
+			next: (response) => {
+				this.stationAltitudeInflight.delete(cacheKey);
+				const raw = response?.altitudeM;
+				const altitudeM = raw != null && Number.isFinite(Number(raw)) ? Math.round(Number(raw)) : null;
+				this.stationAltitudeCache.set(cacheKey, altitudeM);
+				if (altitudeM == null) {
+					return;
+				}
+				point.altitudeM = altitudeM;
+				this.options.onGridPointsUpdated?.();
+			},
+			error: () => {
+				this.stationAltitudeInflight.delete(cacheKey);
+				this.stationAltitudeCache.set(cacheKey, null);
+			},
+		});
+		this.stationAltitudeInflight.set(cacheKey, sub);
 	}
 
 	findNearestGridPoint(lat: number, lon: number): WeatherStationGridPoint | null {
@@ -154,11 +274,13 @@ export class WeatherStationMapLayerService {
 		this.refreshingTemperatureKeys.clear();
 		this.markersByKey.clear();
 		this.gridPoints = [];
+		this.viewBounds = null;
 		this.labelSource = null;
 		this.stationAltitudeInflight.forEach((sub) => sub.unsubscribe());
 		this.stationAltitudeInflight.clear();
 		this.stationAltitudeCache.clear();
 		this.detachTooltipClickListener();
+		this.ignoreLeafletMoves = false;
 		this.map?.off('moveend', this.onMapMoveEnd);
 		this.map?.off('zoomend', this.onMapZoomEnd);
 		if (this.map && this.layer) {
@@ -208,6 +330,7 @@ export class WeatherStationMapLayerService {
 		this.refreshSub = undefined;
 		this.requestId++;
 		this.gridPoints = [];
+		this.viewBounds = null;
 		this.labelSource = null;
 		this.markersByKey.clear();
 		this.map?.off('moveend', this.onMapMoveEnd);
@@ -226,7 +349,7 @@ export class WeatherStationMapLayerService {
 	}
 
 	private scheduleLoad(): void {
-		if (!this.map || !this.options.enabled || !this.layer) {
+		if (this.ignoreLeafletMoves || !this.map || !this.options.enabled || !this.layer) {
 			return;
 		}
 		if (!this.options.resolveProvider()) {
@@ -239,18 +362,31 @@ export class WeatherStationMapLayerService {
 		this.debounceTimer = setTimeout(() => this.load(), debounceMs);
 	}
 
-	private load(): void {
+	private load(view?: { south: number; north: number; west: number; east: number; zoom: number }): void {
 		if (!this.map || !this.options.enabled || !this.layer) {
 			return;
 		}
 		const provider = this.options.resolveProvider();
 		if (!provider) {
 			this.gridPoints = [];
+			this.viewBounds = null;
 			this.render();
 			return;
 		}
-		const bounds = this.map.getBounds();
-		const capacity = computeWeatherStationCapacity(this.map.getZoom());
+		const bounds = view ?? {
+			south: this.map.getBounds().getSouth(),
+			north: this.map.getBounds().getNorth(),
+			west: this.map.getBounds().getWest(),
+			east: this.map.getBounds().getEast(),
+			zoom: this.map.getZoom(),
+		};
+		this.viewBounds = {
+			south: bounds.south,
+			north: bounds.north,
+			west: bounds.west,
+			east: bounds.east,
+		};
+		const capacity = computeWeatherStationCapacity(bounds.zoom);
 		const expectedSourceToken = provider === 'ms' ? 'meteoswiss' : 'meteofrance';
 		const labelSource: 'meteoswiss-smn' | 'meteofrance-dpobs' = provider === 'ms'
 			? 'meteoswiss-smn'
@@ -261,17 +397,17 @@ export class WeatherStationMapLayerService {
 		const requestId = ++this.requestId;
 		const fetch$ = provider === 'ms'
 			? this.apiService.getMeteoSwissObsTemperatureLabels(
-				bounds.getSouth(),
-				bounds.getNorth(),
-				bounds.getWest(),
-				bounds.getEast(),
+				bounds.south,
+				bounds.north,
+				bounds.west,
+				bounds.east,
 				capacity.maxStations
 			)
 			: this.apiService.getMeteoFranceObsTemperatureLabels(
-				bounds.getSouth(),
-				bounds.getNorth(),
-				bounds.getWest(),
-				bounds.getEast(),
+				bounds.south,
+				bounds.north,
+				bounds.west,
+				bounds.east,
 				capacity.maxStations
 			);
 

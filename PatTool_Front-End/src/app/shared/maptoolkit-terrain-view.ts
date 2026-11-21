@@ -1,22 +1,69 @@
-import { LngLat, Map as MlMap, Marker, MercatorCoordinate, NavigationControl, type GeoJSONSource } from 'maplibre-gl';
+import { LngLat, Map as MlMap, MercatorCoordinate, NavigationControl, type GeoJSONSource, type StyleSpecification } from 'maplibre-gl';
 import { ensureMaplibreWorker, ignoreMissingStyleIcons } from './maptoolkit-basemap.layer';
+import type { WeatherStationReliefLabel } from './weather-station-map.util';
 
 /** DEM already declared in the Maptoolkit styles, used by their hillshade. */
 const TERRAIN_SOURCE = 'rgb-tiles';
 /** Separate copy: MapLibre warns and renders worse when hillshade and terrain share one source. */
 const TERRAIN_MESH_SOURCE = 'relief-terrain';
 const TERRAIN_TILEJSON = 'https://tiles.maptoolkit.org/terrainrgb.json';
+/**
+ * Mapterhorn publishes land tiles through zoom 17. The TileJSON omits maxzoom,
+ * so MapLibre defaults to 22 and zoom 18+ comes back 404.
+ */
+const TERRAIN_DATA_MAX_ZOOM = 17;
+/**
+ * Maptoolkit vector tiles stop at 15. Past that, MapLibre drapes overscaled tiles
+ * and cannot sample a DEM with a higher maxzoom: it warns
+ * "cannot calculate elevation if elevation maxzoom > source.maxzoom"
+ * and the elevation matrix is wrong. Hillshade may still use zoom 17.
+ */
+const TERRAIN_MESH_MAX_ZOOM = 15;
 const TERRAIN_EXAGGERATION = 1.3;
+/** Finger and mouse tilt. The phone can go past this, toward the sky. */
 const MAX_PITCH = 85;
+/** MapLibre accepts up to 180°. 90 is the horizon, above that the view looks at the sky. */
+const SKY_PITCH = 180;
 const MAX_ZOOM = 20;
 /** Meters kept between the camera and the slope in front of it. */
 const RELIEF_CLEARANCE_M = 35;
 const TRACE_SOURCE = 'relief-traces';
+/** Waymarked Trails rasters, bottom to top. Slopes sit under the route lines. */
+const TRAIL_RASTERS: { key: keyof ReliefTrailOverlays; id: string; tiles: string }[] = [
+	{ key: 'slopes', id: 'relief-slopes', tiles: 'https://tile.waymarkedtrails.org/slopes/{z}/{x}/{y}.png' },
+	{ key: 'hiking', id: 'relief-hiking-trails', tiles: 'https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png' },
+	{ key: 'cycling', id: 'relief-cycling-trails', tiles: 'https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png' },
+	{ key: 'mtb', id: 'relief-mtb-trails', tiles: 'https://tile.waymarkedtrails.org/mtb/{z}/{x}/{y}.png' },
+	{ key: 'railway', id: 'relief-railway', tiles: 'https://a.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png' }
+];
+const ELEVATION_COLOR_LAYER = 'relief-elevation-colors';
+/** Du violet (bas) au rouge (haut). */
+const ELEVATION_RAINBOW = ['#5b2cff', '#245bff', '#00b4ff', '#2ecc71', '#f1c40f', '#e67e22', '#e10600'];
+
+export interface ReliefTrailOverlays {
+	hiking: boolean;
+	cycling: boolean;
+	mtb: boolean;
+	railway: boolean;
+	slopes: boolean;
+}
+
+/** Point OSM (monument, lieu, aéroport) dessiné au-dessus des deux cartes. */
+export interface ReliefPlaceMark {
+	lat: number;
+	lng: number;
+	name: string;
+	kind: 'historic' | 'sight' | 'airport';
+}
 
 export interface ReliefViewHooks {
 	onZoom?: (zoom: number) => void;
 	onBearing?: (bearing: number) => void;
 	onPitch?: (pitch: number) => void;
+	/** The camera finished a pan, zoom or tilt. Used to reload overlays for the ground in view. */
+	onMoveEnd?: () => void;
+	/** Min/max altitude used by the rainbow tint, or null when the tint is off. */
+	onElevationRange?: (range: { min: number; max: number } | null) => void;
 	/** The pitched view has terrain and a stable camera. Safe to cover the flat map. */
 	onReady?: () => void;
 }
@@ -54,6 +101,9 @@ export class MaptoolkitTerrainView {
 	private blendHost: HTMLDivElement | null = null;
 	private blendStyle: string | null = null;
 	private blendEpoch = 0;
+	/** Opacité demandée par le curseur. Reste à 0 tant que le relief de la 2e carte n’est pas calé. */
+	private blendOpacity = 0;
+	private blendReady = false;
 	private resizeObserver: ResizeObserver | null = null;
 	private hooks: ReliefViewHooks | null = null;
 	/** Style currently requested, so the same URL is not reloaded on every slider tick. */
@@ -63,10 +113,28 @@ export class MaptoolkitTerrainView {
 	private controlsAdded = false;
 	private traces: ReliefTrace[] = [];
 	private gps: { lat: number; lng: number } | null = null;
-	private gpsMarker: Marker | null = null;
+	private markerOverlay: HTMLDivElement | null = null;
+	private gpsMarker: HTMLDivElement | null = null;
 	/** Repère du lieu choisi (centrage), distinct du point GPS. */
 	private pin: { lat: number; lng: number } | null = null;
-	private pinMarker: Marker | null = null;
+	private pinMarker: HTMLDivElement | null = null;
+	private places: ReliefPlaceMark[] = [];
+	private placeNodes: HTMLDivElement[] = [];
+	private stationLabels: WeatherStationReliefLabel[] = [];
+	private stationNodes = new Map<string, HTMLDivElement>();
+	private stationOverlay: HTMLDivElement | null = null;
+	private stationClick: ((event: MouseEvent) => void) | null = null;
+	private stationHover: ((key: string) => void) | null = null;
+	private trailOverlays: ReliefTrailOverlays = {
+		hiking: false,
+		cycling: false,
+		mtb: false,
+		railway: false,
+		slopes: false
+	};
+	private elevationColors = false;
+	private elevationTimer: number | null = null;
+	private elevationTries = 0;
 	private fitRequested = false;
 	/** Center waiting for a terrain sample so the camera looks at the ground, not sea level. */
 	private pendingGround: { lng: number; lat: number } | null = null;
@@ -120,12 +188,12 @@ export class MaptoolkitTerrainView {
 		};
 		const map = new MlMap({
 			container: base,
-			style: styleUrl,
+			style: { version: 8, sources: {}, layers: [] },
 			center: [view.lng, view.lat],
 			zoom: openingZoom,
 			pitch: openingPitch,
 			bearing: openingBearing,
-			maxPitch: MAX_PITCH,
+			maxPitch: SKY_PITCH,
 			maxZoom: MAX_ZOOM,
 			/*
 			 * MapLibre's dragRotate flips direction around the terrain-projected center.
@@ -156,7 +224,7 @@ export class MaptoolkitTerrainView {
 			setFreeZoom: (on) => { this.freeZoom = on; },
 			setGesturing: (on) => { this.gesturing = on; }
 		});
-		/* maxSpeed 0 stops the coast after a drag. linearity must stay non-zero or the inertia math becomes NaN. */
+		/* Short coast after release. linearity must stay non-zero or the inertia math becomes NaN. */
 		map.dragPan.enable(RELIEF_DRAG_PAN);
 		/*
 		 * Refuse a closer zoom that would put the camera through the slope.
@@ -228,18 +296,22 @@ export class MaptoolkitTerrainView {
 			if (this.map !== map || epoch !== this.styleEpoch) {
 				return;
 			}
+			if (Object.keys(map.getStyle()?.sources ?? {}).length === 0) {
+				return;
+			}
 			this.applyStyleExtras(map);
 		};
-		if (map.isStyleLoaded()) {
-			boot();
-		} else {
-			map.once('style.load', boot);
-		}
+		map.setStyle(styleUrl, { diff: false, transformStyle: styleWithoutCamera });
+		map.on('style.load', boot);
 		map.on('moveend', () => {
 			if (this.map !== map) {
 				return;
 			}
 			this.hooks?.onZoom?.(map.getZoom());
+			this.layoutWeatherStations();
+			this.layoutReliefMarkers();
+			this.hooks?.onMoveEnd?.();
+			this.scheduleElevationColors();
 		});
 		map.on('rotate', () => {
 			if (this.map !== map) {
@@ -258,6 +330,8 @@ export class MaptoolkitTerrainView {
 				return;
 			}
 			this.syncBlendCamera();
+			this.layoutWeatherStations();
+			this.layoutReliefMarkers();
 		});
 		map.on('idle', () => {
 			if (this.map !== map) {
@@ -265,6 +339,11 @@ export class MaptoolkitTerrainView {
 			}
 			const waitingForGround = this.pendingGround != null;
 			this.flushPendingGround();
+			this.layoutWeatherStations();
+			this.layoutReliefMarkers();
+			if (this.elevationColors && this.map && !this.map.getLayer(ELEVATION_COLOR_LAYER)) {
+				this.refreshElevationColors();
+			}
 			if (this.revealed || !map.isStyleLoaded() || !map.getTerrain()) {
 				return;
 			}
@@ -300,9 +379,17 @@ export class MaptoolkitTerrainView {
 		if (!map || this.activeStyle === styleUrl) {
 			return;
 		}
+		const center = map.getCenter();
+		this.openingView = {
+			lng: center.lng,
+			lat: center.lat,
+			zoom: map.getZoom(),
+			bearing: map.getBearing(),
+			pitch: map.getPitch()
+		};
 		this.activeStyle = styleUrl;
 		const epoch = ++this.styleEpoch;
-		map.setStyle(styleUrl, { diff: false });
+		map.setStyle(styleUrl, { diff: false, transformStyle: styleWithoutCamera });
 		map.once('style.load', () => {
 			if (this.map !== map || epoch !== this.styleEpoch) {
 				return;
@@ -317,18 +404,20 @@ export class MaptoolkitTerrainView {
 	 */
 	setBlend(styleUrl: string | null, opacity: number): void {
 		const next = Math.max(0, Math.min(1, opacity));
-		if (!styleUrl || next <= 0 || !this.map || !this.host) {
+		if (!styleUrl || !this.map || !this.host) {
 			this.destroyBlend();
 			return;
 		}
+		this.blendOpacity = next;
 		if (this.blendMap && this.blendStyle === styleUrl) {
-			this.setBlendOpacity(next);
+			this.applyBlendOpacity();
 			this.syncBlendCamera();
 			return;
 		}
 		this.destroyBlend();
 		this.blendStyle = styleUrl;
-		this.createBlendMap(styleUrl, next);
+		this.blendOpacity = next;
+		this.createBlendMap(styleUrl);
 	}
 
 	setPitch(pitch: number): void {
@@ -341,7 +430,7 @@ export class MaptoolkitTerrainView {
 			lng: center.lng,
 			lat: center.lat,
 			zoom: map.getZoom(),
-			pitch: clampPitch(pitch),
+			pitch: clampPitch(pitch, SKY_PITCH),
 			bearing: map.getBearing(),
 			elevation: map.getCenterElevation()
 		});
@@ -359,7 +448,7 @@ export class MaptoolkitTerrainView {
 		const current = map.getBearing();
 		let delta = bearing - current;
 		delta = ((delta + 540) % 360) - 180;
-		const nextPitch = pitch != null && Number.isFinite(pitch) ? clampPitch(pitch) : map.getPitch();
+		const nextPitch = pitch != null && Number.isFinite(pitch) ? clampPitch(pitch, SKY_PITCH) : map.getPitch();
 		const pitchDelta = Math.abs(nextPitch - map.getPitch());
 		if (Math.abs(delta) < 0.35 && pitchDelta < 0.4) {
 			return;
@@ -389,6 +478,94 @@ export class MaptoolkitTerrainView {
 	setPin(point: { lat: number; lng: number } | null): void {
 		this.pin = point && Number.isFinite(point.lat) && Number.isFinite(point.lng) ? point : null;
 		this.applyPin();
+	}
+
+	/**
+	 * Temperature labels for the weather-station switch.
+	 * Drawn above both relief maps so a second 3D basemap does not cover them.
+	 */
+	setWeatherStations(
+		labels: WeatherStationReliefLabel[],
+		onAction?: (event: MouseEvent) => void,
+		onHover?: (key: string) => void
+	): void {
+		this.stationLabels = labels;
+		this.stationClick = onAction ?? null;
+		this.stationHover = onHover ?? null;
+		this.syncWeatherStationNodes();
+		this.layoutWeatherStations();
+		requestAnimationFrame(() => this.layoutWeatherStations());
+	}
+
+	/**
+	 * Geographic box of the ground on screen.
+	 * A pitched camera’s full bounds run to the horizon, so only the nearby ground is kept.
+	 */
+	groundBounds(): { south: number; north: number; west: number; east: number } | null {
+		const map = this.map;
+		if (!map) {
+			return null;
+		}
+		const canvas = map.getCanvas();
+		const w = canvas.clientWidth;
+		const h = canvas.clientHeight;
+		if (w < 2 || h < 2) {
+			return null;
+		}
+		const center = map.getCenter();
+		const metersPerPx = 156543.03392 * Math.cos((center.lat * Math.PI) / 180) / Math.pow(2, map.getZoom());
+		const maxM = metersPerPx * Math.hypot(w, h) * 0.72;
+		const pitch = map.getPitch();
+		const top = pitch > 15 ? h * Math.min(0.72, 0.28 + pitch / 140) : 8;
+		const samples: Array<[number, number]> = [
+			[8, h - 8],
+			[w - 8, h - 8],
+			[8, top],
+			[w - 8, top],
+			[w / 2, h * 0.62],
+			[w * 0.25, h * 0.8],
+			[w * 0.75, h * 0.8]
+		];
+		const kept: Array<{ lat: number; lng: number }> = [];
+		for (const [x, y] of samples) {
+			const ll = map.unproject([x, y]);
+			if (!Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)) {
+				continue;
+			}
+			if (metersBetween(center.lat, center.lng, ll.lat, ll.lng) > maxM) {
+				continue;
+			}
+			kept.push({ lat: ll.lat, lng: ll.lng });
+		}
+		if (!kept.length) {
+			const dLat = maxM / 111320;
+			const cos = Math.cos((center.lat * Math.PI) / 180) || 1;
+			const dLng = maxM / (111320 * cos);
+			return {
+				south: center.lat - dLat,
+				north: center.lat + dLat,
+				west: center.lng - dLng,
+				east: center.lng + dLng
+			};
+		}
+		let south = Infinity;
+		let north = -Infinity;
+		let west = Infinity;
+		let east = -Infinity;
+		for (const p of kept) {
+			south = Math.min(south, p.lat);
+			north = Math.max(north, p.lat);
+			west = Math.min(west, p.lng);
+			east = Math.max(east, p.lng);
+		}
+		const padLat = Math.max((north - south) * 0.15, maxM / 111320 * 0.35);
+		const padLng = Math.max((east - west) * 0.15, maxM / (111320 * (Math.cos((center.lat * Math.PI) / 180) || 1)) * 0.35);
+		return {
+			south: Math.min(south, center.lat) - padLat,
+			north: Math.max(north, center.lat) + padLat,
+			west: Math.min(west, center.lng) - padLng,
+			east: Math.max(east, center.lng) + padLng
+		};
 	}
 
 	/** Frame the traces. Kept until the style has loaded. */
@@ -492,10 +669,13 @@ export class MaptoolkitTerrainView {
 		this.openingView = null;
 		this.holdView = null;
 		this.destroyBlend();
-		this.gpsMarker?.remove();
 		this.gpsMarker = null;
-		this.pinMarker?.remove();
 		this.pinMarker = null;
+		this.places = [];
+		this.placeNodes = [];
+		this.markerOverlay?.remove();
+		this.markerOverlay = null;
+		this.clearWeatherStations();
 		if (this.map) {
 			this.map.remove();
 			this.map = null;
@@ -527,6 +707,7 @@ export class MaptoolkitTerrainView {
 
 	private applyStyleExtras(map: MlMap): void {
 		this.enableTerrain(map);
+		this.applyTrailOverlays(map);
 		this.ensureOverlayLayers(map);
 		if (!this.controlsAdded) {
 			map.addControl(new NavigationControl({ showCompass: false, visualizePitch: false }), 'top-left');
@@ -535,6 +716,7 @@ export class MaptoolkitTerrainView {
 		this.applyTraces();
 		this.applyGps();
 		this.applyPin();
+		this.applyElevationColors();
 		this.applyFit();
 		this.restoreOpeningView();
 		this.holdCenterOnGround();
@@ -545,14 +727,270 @@ export class MaptoolkitTerrainView {
 			if (!map.getSource(TERRAIN_MESH_SOURCE)) {
 				const declared = map.getStyle()?.sources?.[TERRAIN_SOURCE];
 				map.addSource(TERRAIN_MESH_SOURCE, declared?.type === 'raster-dem'
-					? { ...declared }
-					: { type: 'raster-dem', url: TERRAIN_TILEJSON });
+					? { ...declared, maxzoom: TERRAIN_MESH_MAX_ZOOM }
+					: {
+						type: 'raster-dem',
+						url: TERRAIN_TILEJSON,
+						encoding: 'terrarium',
+						tileSize: 512,
+						maxzoom: TERRAIN_MESH_MAX_ZOOM
+					});
 			}
-			if (map.getSource(TERRAIN_MESH_SOURCE)) {
-				map.setTerrain({ source: TERRAIN_MESH_SOURCE, exaggeration: TERRAIN_EXAGGERATION });
+			if (!map.getSource(TERRAIN_MESH_SOURCE)) {
+				return;
 			}
+			const terrain = map.getTerrain();
+			if (terrain?.source === TERRAIN_MESH_SOURCE && terrain.exaggeration === TERRAIN_EXAGGERATION) {
+				return;
+			}
+			map.setTerrain({ source: TERRAIN_MESH_SOURCE, exaggeration: TERRAIN_EXAGGERATION });
 		} catch (err) {
 			console.error('[Maptoolkit] terrain failed to start', err);
+		}
+	}
+
+	/**
+	 * Waymarked Trails rasters, draped on the relief. Same switches as the flat map.
+	 * Also drawn on the second map so they stay visible when that one covers the first.
+	 */
+	setTrailOverlays(overlays: ReliefTrailOverlays): void {
+		this.trailOverlays = { ...overlays };
+		this.applyTrailOverlays(this.map);
+		this.applyTrailOverlays(this.blendMap);
+	}
+
+	/** Monuments, lieux et aéroports, au-dessus des deux cartes. */
+	setPlaces(places: ReliefPlaceMark[]): void {
+		this.places = places;
+		this.syncPlaceNodes();
+		this.layoutReliefMarkers();
+	}
+
+	bounds(): { south: number; west: number; north: number; east: number } | null {
+		const box = this.map?.getBounds();
+		if (!box) {
+			return null;
+		}
+		return {
+			south: box.getSouth(),
+			west: box.getWest(),
+			north: box.getNorth(),
+			east: box.getEast()
+		};
+	}
+
+	/**
+	 * Colorie le relief visible : violet en bas, rouge en haut,
+	 * sur l’écart d’altitude de la carte à l’écran.
+	 */
+	setElevationColors(on: boolean): void {
+		if (!on) {
+			if (!this.elevationColors) {
+				return;
+			}
+			this.elevationColors = false;
+			if (this.elevationTimer != null) {
+				window.clearTimeout(this.elevationTimer);
+				this.elevationTimer = null;
+			}
+			this.removeElevationColors();
+			this.hooks?.onElevationRange?.(null);
+			return;
+		}
+		this.elevationColors = true;
+		this.elevationTries = 0;
+		this.refreshElevationColors();
+	}
+
+	private scheduleElevationColors(): void {
+		if (!this.elevationColors || this.elevationTimer != null) {
+			return;
+		}
+		this.elevationTimer = window.setTimeout(() => {
+			this.elevationTimer = null;
+			this.refreshElevationColors();
+		}, 280);
+	}
+
+	private refreshElevationColors(): void {
+		if (!this.elevationColors) {
+			return;
+		}
+		const range = this.sampleVisibleElevation();
+		if (!range) {
+			if (this.elevationTries < 12) {
+				this.elevationTries += 1;
+				this.scheduleElevationColors();
+			}
+			return;
+		}
+		this.elevationTries = 0;
+		this.paintElevationColors(this.map, range);
+		this.paintElevationColors(this.blendMap, range);
+		this.hooks?.onElevationRange?.(range);
+	}
+
+	private applyElevationColors(): void {
+		if (this.elevationColors) {
+			this.refreshElevationColors();
+		}
+	}
+
+	private removeElevationColors(): void {
+		for (const map of [this.map, this.blendMap]) {
+			if (map?.getLayer(ELEVATION_COLOR_LAYER)) {
+				map.removeLayer(ELEVATION_COLOR_LAYER);
+			}
+		}
+	}
+
+	private sampleVisibleElevation(): { min: number; max: number } | null {
+		const map = this.map;
+		if (!map?.getTerrain()) {
+			return null;
+		}
+		const canvas = map.getCanvas();
+		const w = canvas.clientWidth;
+		const h = canvas.clientHeight;
+		if (w < 2 || h < 2) {
+			return null;
+		}
+		const center = map.getCenter();
+		const metersPerPx = 156543.03392 * Math.cos((center.lat * Math.PI) / 180) / Math.pow(2, map.getZoom());
+		const maxM = metersPerPx * Math.hypot(w, h) * 0.85;
+		let min = Infinity;
+		let max = -Infinity;
+		let count = 0;
+		const cols = 8;
+		const rows = 6;
+		for (let row = 0; row < rows; row++) {
+			for (let col = 0; col < cols; col++) {
+				const x = ((col + 0.5) / cols) * w;
+				const y = h * (0.18 + 0.78 * ((row + 0.5) / rows));
+				const ll = map.unproject([x, y]);
+				if (!Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)) {
+					continue;
+				}
+				if (metersBetween(center.lat, center.lng, ll.lat, ll.lng) > maxM) {
+					continue;
+				}
+				const raw = map.queryTerrainElevation([ll.lng, ll.lat]);
+				if (raw == null || !Number.isFinite(raw)) {
+					continue;
+				}
+				const meters = raw / TERRAIN_EXAGGERATION;
+				min = Math.min(min, meters);
+				max = Math.max(max, meters);
+				count += 1;
+			}
+		}
+		if (count < 4 || !Number.isFinite(min) || !Number.isFinite(max)) {
+			return null;
+		}
+		if (max - min < 1) {
+			min -= 1;
+			max += 1;
+		}
+		return { min, max };
+	}
+
+	private paintElevationColors(map: MlMap | null, range: { min: number; max: number }): void {
+		if (!map?.getSource(TERRAIN_MESH_SOURCE)) {
+			return;
+		}
+		const span = range.max - range.min;
+		const ramp: unknown[] = ['interpolate', ['linear'], ['elevation']];
+		ELEVATION_RAINBOW.forEach((color, index) => {
+			const stop = range.min + span * (index / (ELEVATION_RAINBOW.length - 1));
+			ramp.push(stop, color);
+		});
+		const paint = ramp as never;
+		if (map.getLayer(ELEVATION_COLOR_LAYER)) {
+			map.setPaintProperty(ELEVATION_COLOR_LAYER, 'color-relief-color', paint);
+			return;
+		}
+		const before = this.elevationColorAnchor(map);
+		map.addLayer({
+			id: ELEVATION_COLOR_LAYER,
+			type: 'color-relief',
+			source: TERRAIN_MESH_SOURCE,
+			paint: {
+				'color-relief-opacity': 0.72,
+				'color-relief-color': paint
+			}
+		}, before);
+	}
+
+	/** Sous les noms et sous les tracés, au-dessus du fond de carte. */
+	private elevationColorAnchor(map: MlMap): string | undefined {
+		for (const spec of TRAIL_RASTERS) {
+			if (map.getLayer(spec.id)) {
+				return spec.id;
+			}
+		}
+		if (map.getLayer('relief-traces-line')) {
+			return 'relief-traces-line';
+		}
+		return map.getStyle()?.layers?.find((layer) => layer.type === 'symbol')?.id;
+	}
+
+	private applyTrailOverlays(map: MlMap | null): void {
+		if (!map) {
+			return;
+		}
+		if (!map.isStyleLoaded()) {
+			map.once('style.load', () => {
+				if (map === this.map || map === this.blendMap) {
+					this.applyTrailOverlays(map);
+				}
+			});
+			return;
+		}
+		for (const spec of TRAIL_RASTERS) {
+			this.syncRasterTrail(map, spec.id, spec.tiles, this.trailOverlays[spec.key], this.trailAnchor(map, spec.id));
+		}
+	}
+
+	/** Next trail already on the map, else the trace, so a newly enabled layer keeps its order. */
+	private trailAnchor(map: MlMap, id: string): string | undefined {
+		const index = TRAIL_RASTERS.findIndex((spec) => spec.id === id);
+		for (let i = index + 1; i < TRAIL_RASTERS.length; i++) {
+			if (map.getLayer(TRAIL_RASTERS[i].id)) {
+				return TRAIL_RASTERS[i].id;
+			}
+		}
+		return map.getLayer('relief-traces-line') ? 'relief-traces-line' : undefined;
+	}
+
+	private syncRasterTrail(map: MlMap, id: string, tiles: string, visible: boolean, before: string | undefined): void {
+		try {
+			if (!visible) {
+				if (map.getLayer(id)) {
+					map.removeLayer(id);
+				}
+				if (map.getSource(id)) {
+					map.removeSource(id);
+				}
+				return;
+			}
+			if (!map.getSource(id)) {
+				map.addSource(id, { type: 'raster', tiles: [tiles], tileSize: 256, maxzoom: 18 });
+			}
+			if (!map.getLayer(id)) {
+				const layer = {
+					id,
+					type: 'raster' as const,
+					source: id,
+					paint: { 'raster-opacity': 0.95 }
+				};
+				if (before && map.getLayer(before)) {
+					map.addLayer(layer, before);
+				} else {
+					map.addLayer(layer);
+				}
+			}
+		} catch (err) {
+			console.error('[Maptoolkit] trail overlay failed', err);
 		}
 	}
 
@@ -594,102 +1032,266 @@ export class MaptoolkitTerrainView {
 		}
 	}
 
-	/** DOM dot: a circle layer is drawn inside the terrain mesh and disappears once the view is pitched. */
+	/**
+	 * Point rouge et épingle, au-dessus des deux cartes.
+	 * Un marqueur posé sur la première seule disparaît quand le curseur passe sur la seconde.
+	 */
 	private applyGps(): void {
-		const map = this.map;
 		const point = this.gps;
-		if (!map || !point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
+		if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
 			this.gpsMarker?.remove();
 			this.gpsMarker = null;
 			return;
 		}
+		const overlay = this.ensureMarkerOverlay();
+		if (!overlay) {
+			return;
+		}
 		if (!this.gpsMarker) {
 			const el = document.createElement('div');
-			el.style.width = '18px';
-			el.style.height = '18px';
-			el.style.boxSizing = 'border-box';
-			el.style.borderRadius = '50%';
-			el.style.background = '#e10600';
-			el.style.border = '2.5px solid #ffffff';
-			el.style.boxShadow = '0 0 0 1px rgba(15, 23, 42, 0.35)';
-			el.style.pointerEvents = 'none';
-			el.style.zIndex = '5';
-			this.gpsMarker = new Marker({
-				element: el,
-				anchor: 'center',
-				pitchAlignment: 'viewport',
-				rotationAlignment: 'viewport',
-				opacityWhenCovered: 1,
-				subpixelPositioning: true
-			});
+			el.className = 'tv-relief-gps';
+			overlay.appendChild(el);
+			this.gpsMarker = el;
 		}
-		this.gpsMarker.setLngLat([point.lng, point.lat]);
-		if (!this.gpsMarker.getElement().isConnected) {
-			this.gpsMarker.addTo(map);
-		}
+		this.layoutReliefMarkers();
 	}
 
-	/** Épingle au-dessus du relief : un symbole dans le mesh disparaît dès que la vue est inclinée. */
+	/** Épingle au-dessus des deux cartes : un symbole dans le mesh disparaît dès que la vue est inclinée. */
 	private applyPin(): void {
-		const map = this.map;
 		const point = this.pin;
-		if (!map || !point) {
+		if (!point) {
 			this.pinMarker?.remove();
 			this.pinMarker = null;
 			return;
 		}
+		const overlay = this.ensureMarkerOverlay();
+		if (!overlay) {
+			return;
+		}
 		if (!this.pinMarker) {
 			const el = document.createElement('div');
-			el.style.width = '25px';
-			el.style.height = '41px';
-			el.style.pointerEvents = 'none';
-			el.style.zIndex = '6';
+			el.className = 'tv-relief-pin';
 			el.innerHTML = `<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg" style="display:block">
 				<path d="M12.5 0C5.596 0 0 5.596 0 12.5c0 12.5 12.5 28.5 12.5 28.5s12.5-16 12.5-28.5C25 5.596 19.404 0 12.5 0z" fill="#FF0000" stroke="#FFFFFF" stroke-width="1"/>
 				<circle cx="12.5" cy="12.5" r="5" fill="#FFFFFF"/>
 			</svg>`;
-			this.pinMarker = new Marker({
-				element: el,
-				anchor: 'bottom',
-				pitchAlignment: 'viewport',
-				rotationAlignment: 'viewport',
-				opacityWhenCovered: 1,
-				subpixelPositioning: true
-			});
+			overlay.appendChild(el);
+			this.pinMarker = el;
 		}
-		this.pinMarker.setLngLat([point.lng, point.lat]);
-		if (!this.pinMarker.getElement().isConnected) {
-			this.pinMarker.addTo(map);
+		this.layoutReliefMarkers();
+	}
+
+	private ensureMarkerOverlay(): HTMLDivElement | null {
+		if (this.markerOverlay?.isConnected) {
+			return this.markerOverlay;
+		}
+		const parent = this.host;
+		if (!parent) {
+			return null;
+		}
+		const overlay = document.createElement('div');
+		overlay.className = 'trace-relief3d-markers';
+		parent.appendChild(overlay);
+		this.markerOverlay = overlay;
+		return overlay;
+	}
+
+	private layoutReliefMarkers(): void {
+		const map = this.map;
+		if (!map) {
+			return;
+		}
+		this.placeReliefMarker(this.gpsMarker, this.gps, 'center');
+		this.placeReliefMarker(this.pinMarker, this.pin, 'bottom');
+		for (let i = 0; i < this.placeNodes.length; i++) {
+			this.placeReliefMarker(this.placeNodes[i], this.places[i] ?? null, 'center');
 		}
 	}
 
-	private createBlendMap(styleUrl: string, opacity: number): void {
+	private syncPlaceNodes(): void {
+		if (!this.places.length) {
+			for (const el of this.placeNodes) {
+				el.remove();
+			}
+			this.placeNodes = [];
+			return;
+		}
+		const overlay = this.ensureMarkerOverlay();
+		if (!overlay) {
+			return;
+		}
+		while (this.placeNodes.length > this.places.length) {
+			this.placeNodes.pop()?.remove();
+		}
+		for (let i = 0; i < this.places.length; i++) {
+			const place = this.places[i];
+			let el = this.placeNodes[i];
+			if (!el?.isConnected) {
+				el = document.createElement('div');
+				el.className = 'tv-relief-place';
+				overlay.appendChild(el);
+				this.placeNodes[i] = el;
+			}
+			el.dataset['kind'] = place.kind;
+			el.title = place.name;
+		}
+	}
+
+	private placeReliefMarker(
+		el: HTMLDivElement | null,
+		point: { lat: number; lng: number } | null,
+		anchor: 'center' | 'bottom'
+	): void {
+		const map = this.map;
+		if (!el || !map || !point) {
+			return;
+		}
+		const p = map.project([point.lng, point.lat]);
+		if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+			el.style.display = 'none';
+			return;
+		}
+		el.style.display = '';
+		const shift = anchor === 'bottom' ? 'translate(-50%, -100%)' : 'translate(-50%, -50%)';
+		el.style.transform = `translate(${p.x}px, ${p.y}px) ${shift}`;
+	}
+
+	private ensureStationOverlay(): HTMLDivElement | null {
+		if (this.stationOverlay?.isConnected) {
+			return this.stationOverlay;
+		}
+		const parent = this.host;
+		if (!parent) {
+			return null;
+		}
+		const overlay = document.createElement('div');
+		overlay.className = 'trace-relief3d-stations';
+		overlay.addEventListener('click', (event) => {
+			this.stationClick?.(event);
+		});
+		parent.appendChild(overlay);
+		this.stationOverlay = overlay;
+		return overlay;
+	}
+
+	private clearWeatherStations(): void {
+		this.stationLabels = [];
+		this.stationNodes.clear();
+		this.stationClick = null;
+		this.stationHover = null;
+		this.stationOverlay?.remove();
+		this.stationOverlay = null;
+		if (this.elevationTimer != null) {
+			window.clearTimeout(this.elevationTimer);
+			this.elevationTimer = null;
+		}
+		this.elevationColors = false;
+	}
+
+	private syncWeatherStationNodes(): void {
+		if (!this.stationLabels.length) {
+			this.stationNodes.clear();
+			this.stationOverlay?.remove();
+			this.stationOverlay = null;
+			return;
+		}
+		const overlay = this.ensureStationOverlay();
+		if (!overlay) {
+			return;
+		}
+		const next = new Set(this.stationLabels.map((label) => label.key));
+		for (const [key, el] of this.stationNodes) {
+			if (!next.has(key)) {
+				el.remove();
+				this.stationNodes.delete(key);
+			}
+		}
+		for (const label of this.stationLabels) {
+			let el = this.stationNodes.get(label.key);
+			if (!el) {
+				el = document.createElement('div');
+				el.className = 'trace-relief-station';
+				el.addEventListener('mouseenter', () => this.stationHover?.(label.key));
+				overlay.appendChild(el);
+				this.stationNodes.set(label.key, el);
+			}
+			if (el.dataset['stamp'] !== `${label.html}\n${label.tooltipHtml}`) {
+				el.dataset['stamp'] = `${label.html}\n${label.tooltipHtml}`;
+				el.innerHTML =
+					`${label.html}<div class="trace-relief-station-tip mf-temp-tooltip">${label.tooltipHtml}</div>`;
+			}
+			el.dataset['w'] = String(label.width);
+		}
+	}
+
+	private layoutWeatherStations(): void {
+		const map = this.map;
+		if (!map || !this.stationLabels.length) {
+			return;
+		}
+		const canvas = map.getCanvas();
+		const w = canvas.clientWidth;
+		const h = canvas.clientHeight;
+		const placed: Array<{ x: number; y: number; w: number; h: number }> = [];
+		for (const label of this.stationLabels) {
+			const el = this.stationNodes.get(label.key);
+			if (!el) {
+				continue;
+			}
+			const p = map.project([label.lng, label.lat]);
+			if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+				el.style.display = 'none';
+				continue;
+			}
+			const width = label.width;
+			const rect = { x: p.x - width / 2, y: p.y - 10, w: width, h: 20 };
+			const outside = p.x < -48 || p.y < -48 || p.x > w + 48 || p.y > h + 48;
+			if (outside || stationLabelOverlaps(rect, placed)) {
+				el.style.display = 'none';
+				continue;
+			}
+			placed.push(rect);
+			el.style.display = '';
+			el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+		}
+	}
+
+	private createBlendMap(styleUrl: string): void {
 		const source = this.map;
 		const parent = this.host;
 		if (!source || !parent) {
 			return;
 		}
+		this.blendReady = false;
 		const host = document.createElement('div');
 		host.className = 'trace-relief3d-blend';
 		host.style.position = 'absolute';
 		host.style.inset = '0';
 		host.style.zIndex = '4';
 		host.style.pointerEvents = 'none';
-		host.style.opacity = String(opacity);
+		host.style.opacity = '0';
 		parent.appendChild(host);
 		this.blendHost = host;
 		const center = source.getCenter();
+		const elevation = source.getCenterElevation();
 		const map = new MlMap({
 			container: host,
-			style: styleUrl,
+			style: { version: 8, sources: {}, layers: [] },
 			center,
 			zoom: clampZoom(source.getZoom()),
 			pitch: source.getPitch(),
 			bearing: source.getBearing(),
+			roll: source.getRoll(),
+			elevation: Number.isFinite(elevation) ? elevation : 0,
 			interactive: false,
 			attributionControl: false,
-			maxPitch: MAX_PITCH,
+			maxPitch: SKY_PITCH,
 			maxZoom: MAX_ZOOM,
+			/*
+			 * La carte du dessous a déjà désactivé ce recalage. S’il reste actif ici,
+			 * MapLibre repose le centre sur le relief de CE style et les deux vues se décalent dès qu’on incline.
+			 */
+			centerClampedToGround: false,
 			canvasContextAttributes: {
 				powerPreference: 'default',
 				failIfMajorPerformanceCaveat: false
@@ -697,28 +1299,66 @@ export class MaptoolkitTerrainView {
 		});
 		ignoreMissingStyleIcons(map);
 		this.blendMap = map;
+		map.setStyle(styleUrl, { diff: false, transformStyle: styleWithoutCamera });
 		const epoch = ++this.blendEpoch;
-		map.on('load', () => {
+		let terrainOn = false;
+		const syncIfCurrent = (): void => {
+			if (this.blendMap === map && epoch === this.blendEpoch) {
+				this.syncBlendCamera();
+			}
+		};
+		const revealIfSettled = (): void => {
+			if (this.blendMap !== map || epoch !== this.blendEpoch || !terrainOn || this.blendReady) {
+				return;
+			}
+			syncIfCurrent();
+			this.paintBlendOverlays(map);
+			if (!map.getTerrain()) {
+				return;
+			}
+			this.blendReady = true;
+			this.applyBlendOpacity();
+		};
+		map.on('style.load', () => {
 			if (this.blendMap !== map || epoch !== this.blendEpoch) {
 				return;
 			}
-			this.enableTerrain(map);
-			this.ensureOverlayLayers(map);
-			this.applyTraces();
-			this.applyGps();
-			this.syncBlendCamera();
+			this.paintBlendOverlays(map);
+			syncIfCurrent();
 			map.resize();
 		});
+		map.on('terrain', () => {
+			terrainOn = true;
+			syncIfCurrent();
+		});
+		map.on('idle', revealIfSettled);
 		requestAnimationFrame(() => {
 			if (this.blendMap === map) {
 				map.resize();
+				syncIfCurrent();
 			}
 		});
 	}
 
-	private setBlendOpacity(opacity: number): void {
+	/** Trace, sentiers, pistes et couleurs : la 2e carte les redessine, sinon le curseur les cache. */
+	private paintBlendOverlays(map: MlMap): void {
+		if (this.blendMap !== map || !map.isStyleLoaded()) {
+			return;
+		}
+		if (Object.keys(map.getStyle()?.sources ?? {}).length === 0) {
+			return;
+		}
+		this.enableTerrain(map);
+		this.applyTrailOverlays(map);
+		this.ensureOverlayLayers(map);
+		this.applyTraces();
+		this.applyElevationColors();
+	}
+
+	/** Le curseur à 0 garde la 2e carte, invisible, pour qu’elle soit déjà calée au retour. */
+	private applyBlendOpacity(): void {
 		if (this.blendHost) {
-			this.blendHost.style.opacity = String(opacity);
+			this.blendHost.style.opacity = String(this.blendReady ? this.blendOpacity : 0);
 		}
 	}
 
@@ -728,19 +1368,38 @@ export class MaptoolkitTerrainView {
 		if (!source || !target) {
 			return;
 		}
+		const center = source.getCenter();
+		const zoom = source.getZoom();
+		const pitch = source.getPitch();
+		const bearing = source.getBearing();
+		const roll = source.getRoll();
 		const elevation = source.getCenterElevation();
+		const current = target.getCenter();
+		const sameView = Math.abs(current.lng - center.lng) < 1e-8
+			&& Math.abs(current.lat - center.lat) < 1e-8
+			&& Math.abs(target.getZoom() - zoom) < 1e-4
+			&& Math.abs(target.getPitch() - pitch) < 0.02
+			&& Math.abs(target.getBearing() - bearing) < 0.02
+			&& Math.abs(target.getRoll() - roll) < 0.02
+			&& Math.abs(target.getCenterElevation() - elevation) < 0.25;
+		if (sameView) {
+			return;
+		}
 		target.jumpTo({
-			center: source.getCenter(),
-			zoom: source.getZoom(),
-			pitch: source.getPitch(),
-			bearing: source.getBearing(),
-			...(Number.isFinite(elevation) ? { elevation } : {})
+			center,
+			zoom,
+			pitch,
+			bearing,
+			roll,
+			elevation: Number.isFinite(elevation) ? elevation : 0
 		});
 	}
 
 	private destroyBlend(): void {
 		this.blendEpoch++;
 		this.blendStyle = null;
+		this.blendOpacity = 0;
+		this.blendReady = false;
 		if (this.blendMap) {
 			this.blendMap.remove();
 			this.blendMap = null;
@@ -842,7 +1501,7 @@ export class MaptoolkitTerrainView {
 			return;
 		}
 		const zoom = clampZoom(options.zoom, maxZoom);
-		const pitch = clampPitch(options.pitch);
+		const pitch = clampPitch(options.pitch, SKY_PITCH);
 		const bearing = Number.isFinite(options.bearing) ? options.bearing : map.getBearing();
 		this.holdView = {
 			lng: options.lng,
@@ -938,6 +1597,33 @@ export class MaptoolkitTerrainView {
 	}
 }
 
+/** A Maptoolkit style carries its own center. Drop it so the view stays where the user is. */
+function styleWithoutCamera(_previous: StyleSpecification | undefined, next: StyleSpecification): StyleSpecification {
+	const style: StyleSpecification = { ...next, sources: { ...next.sources }, layers: next.layers.slice() };
+	delete style.center;
+	delete style.zoom;
+	delete style.bearing;
+	delete style.pitch;
+	capMapterhornDem(style);
+	return style;
+}
+
+/** Stop hillshade from requesting Mapterhorn zooms that are not published. */
+function capMapterhornDem(style: StyleSpecification): void {
+	for (const [id, source] of Object.entries(style.sources)) {
+		if (source.type !== 'raster-dem') {
+			continue;
+		}
+		const ref = `${source.url ?? ''} ${(source.tiles ?? []).join(' ')}`;
+		if (!ref.includes('terrainrgb.json') && !ref.includes('mapterhorn.com')) {
+			continue;
+		}
+		if (source.maxzoom == null || source.maxzoom > TERRAIN_DATA_MAX_ZOOM) {
+			style.sources[id] = { ...source, maxzoom: TERRAIN_DATA_MAX_ZOOM };
+		}
+	}
+}
+
 function tracesToGeoJson(traces: ReliefTrace[]): ReliefFeatureCollection {
 	const features: ReliefFeatureCollection['features'] = [];
 	for (const trace of traces) {
@@ -966,7 +1652,8 @@ function tracesToGeoJson(traces: ReliefTrace[]): ReliefFeatureCollection {
 	return { type: 'FeatureCollection', features };
 }
 
-const RELIEF_DRAG_PAN = { linearity: 0.3, maxSpeed: 0 };
+/** ~30 px of glide, then it stops. maxSpeed 0 would kill the coast. */
+const RELIEF_DRAG_PAN = { linearity: 0.3, maxSpeed: 240, deceleration: 2800 };
 const PINCH_ZOOM_GAIN = 2.4;
 const TAP_DRAG_PX_PER_LEVEL = 78;
 
@@ -1126,7 +1813,7 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 			const zoom = clampZoom(pinch.zoom + Math.log2(dist / pinch.dist) * PINCH_ZOOM_GAIN);
 			const bearing = hooks.bearingLocked() || !pinch.rotating
 				? map.getBearing()
-				: pinch.bearing + angleDelta;
+				: pinch.bearing - angleDelta;
 			const pitch = hooks.pitchLocked() || !pinch.pitching
 				? map.getPitch()
 				: clampPitch(pinch.pitch + vertical * 0.42);
@@ -1382,11 +2069,11 @@ function bearingDeltaDeg(
 	return delta;
 }
 
-function clampPitch(pitch: number): number {
+function clampPitch(pitch: number, max = MAX_PITCH): number {
 	if (!Number.isFinite(pitch)) {
 		return 50;
 	}
-	return Math.max(0, Math.min(MAX_PITCH, pitch));
+	return Math.max(0, Math.min(max, pitch));
 }
 
 function clampZoom(zoom: number, maxZoom = MAX_ZOOM): number {
@@ -1486,6 +2173,33 @@ function metersPerPixel(lat: number, elevation: number, zoom: number): number {
 		return 0;
 	}
 	return 1 / (512 * Math.pow(2, zoom) * units);
+}
+
+function metersBetween(lat1: number, lng1: number, lat2: number, lng2: number): number {
+	const dLat = ((lat2 - lat1) * Math.PI) / 180;
+	const dLng = ((lng2 - lng1) * Math.PI) / 180;
+	const a = Math.sin(dLat / 2) ** 2
+		+ Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+	return 6378137 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function stationLabelOverlaps(
+	rect: { x: number; y: number; w: number; h: number },
+	placed: Array<{ x: number; y: number; w: number; h: number }>
+): boolean {
+	const gapX = 6;
+	const gapY = 4;
+	for (const other of placed) {
+		if (
+			rect.x < other.x + other.w + gapX
+			&& rect.x + rect.w + gapX > other.x
+			&& rect.y < other.y + other.h + gapY
+			&& rect.y + rect.h + gapY > other.y
+		) {
+			return true;
+		}
+	}
+	return false;
 }
 
 function moveMeters(lng: number, lat: number, distanceM: number, bearingDeg: number): { lng: number; lat: number } {

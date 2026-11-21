@@ -39,6 +39,12 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
             return next.handle(req);
         }
 
+        // Map places (Overpass) is permitAll. Waiting on getToken() left the layer empty.
+        const isMapPlaces = req.method === 'GET' && /\/api\/external\/map\/places(\?|$)/i.test(req.url);
+        if (isMapPlaces) {
+            return next.handle(req);
+        }
+
         // Globe proxy (ISS, textures, GeoJSON…) is permitAll — skip Keycloak wait for faster ISS at open.
         const isGlobePublicApiGet =
             req.method === 'GET' && /\/api\/external\/globe\//i.test(req.url);

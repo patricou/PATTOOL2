@@ -122,6 +122,12 @@ export class BackgroundPlaybackService {
     if (!keepAlive && src.startsWith('data:')) {
       return;
     }
+    // Photo-wall previews are muted. They must not take the radio's media session:
+    // rebinding it pauses the live stream when the wall opens.
+    if (!keepAlive && el instanceof HTMLVideoElement && (el.muted || el.volume === 0 || el.dataset['patPreview'] === '1')) {
+      this.resumeRadioIfPaused();
+      return;
+    }
     this.prepareElement(el);
     this.userPaused.set(el, false);
     delete el.dataset['patUserPaused'];
@@ -136,6 +142,26 @@ export class BackgroundPlaybackService {
     this.active = el;
     this.bindMediaSession(el);
     this.syncClipKeepAlive(el, true);
+  }
+
+  /** A silent preview paused the station. Put the same element back on the air. */
+  private resumeRadioIfPaused(): void {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    document.querySelectorAll('audio[data-pat-radio="1"]').forEach((node) => {
+      if (!(node instanceof HTMLAudioElement)) {
+        return;
+      }
+      if (this.releasedKeepAlives.has(node) || node.ended || this.userStopped(node)) {
+        return;
+      }
+      if (node.dataset['patSkipBackground'] === '1' || (!node.src && !node.currentSrc) || !node.paused) {
+        return;
+      }
+      this.keepAlives.add(node);
+      this.resumeElement(node, node === this.active);
+    });
   }
 
   private handlePause(event: Event): void {
@@ -572,6 +598,9 @@ export class BackgroundPlaybackService {
     if (eventName !== 'onStateChange') {
       return;
     }
+    if (this.isPreviewYoutubeMessage(event)) {
+      return;
+    }
     const state = this.readYoutubePlayerState(event.data);
     if (state === undefined) {
       return;
@@ -886,6 +915,21 @@ export class BackgroundPlaybackService {
     this.safeSetHandler('previoustrack', () => skip('previous'));
   }
 
+  /** Wall tiles are muted previews. Their player must not replace the radio session. */
+  private isPreviewYoutubeMessage(event: MessageEvent): boolean {
+    const source = event.source;
+    if (!source || typeof document === 'undefined') {
+      return false;
+    }
+    const frames = document.querySelectorAll('iframe[data-pat-preview="1"]');
+    for (const node of Array.from(frames)) {
+      if (node instanceof HTMLIFrameElement && node.contentWindow === source) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private collectYoutubeIframes(): HTMLIFrameElement[] {
     const found: HTMLIFrameElement[] = [];
     const seen = new Set<HTMLIFrameElement>();
@@ -898,7 +942,7 @@ export class BackgroundPlaybackService {
         if (!src.includes('youtube.com/embed') && !src.includes('youtube-nocookie.com/embed')) {
           return;
         }
-        if (seen.has(iframe)) {
+        if (seen.has(iframe) || iframe.dataset['patPreview'] === '1') {
           return;
         }
         seen.add(iframe);

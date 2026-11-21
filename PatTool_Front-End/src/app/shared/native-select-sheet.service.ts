@@ -19,7 +19,8 @@ export class NativeSelectSheetService {
   private observer?: MutationObserver;
   private media?: MediaQueryList;
   private root?: HTMLElement;
-  private previousBodyOverflow = '';
+  private lockedHost?: HTMLElement;
+  private previousHostOverflow = '';
   private markQueued = false;
 
   private readonly onMediaChange = (): void => {
@@ -94,6 +95,12 @@ export class NativeSelectSheetService {
 
   constructor(private readonly ngZone: NgZone) {}
 
+  /** A sheet on body is invisible while another element is the fullscreen top layer. */
+  private readonly onFullscreenChange = (): void => {
+    this.syncActive();
+    this.syncSheetHost();
+  };
+
   start(): void {
     if (this.started || typeof document === 'undefined') {
       return;
@@ -106,6 +113,8 @@ export class NativeSelectSheetService {
       document.addEventListener('pointerup', this.onPointerUp, { capture: true, passive: false });
       document.addEventListener('click', this.onClick, true);
       document.addEventListener('keydown', this.onKeyDown, true);
+      document.addEventListener('fullscreenchange', this.onFullscreenChange);
+      document.addEventListener('webkitfullscreenchange', this.onFullscreenChange);
       this.observer = new MutationObserver(() => this.queueMark());
       this.observer.observe(document.body, {
         childList: true,
@@ -118,7 +127,7 @@ export class NativeSelectSheetService {
   }
 
   private syncActive(): void {
-    const next = nativeMobilePlatform() || !!this.media?.matches;
+    const next = nativeMobilePlatform() || !!this.media?.matches || this.fullscreenNeedsSheet();
     if (next === this.active) {
       if (next) {
         this.markSelects();
@@ -331,11 +340,64 @@ export class NativeSelectSheetService {
     sheet.appendChild(list);
     root.appendChild(sheet);
     this.fillOptions(list, select, '');
-    this.previousBodyOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.body.appendChild(root);
+    const host = this.sheetHost();
+    this.lockHost(host);
+    this.placeSheet(root, host);
+    host.appendChild(root);
     this.root = root;
     this.applyViewport(root);
+  }
+
+  /**
+   * Fullscreen paints only its own subtree. Keep the sheet inside that element,
+   * and move it back to body when fullscreen ends.
+   */
+  private syncSheetHost(): void {
+    const root = this.root;
+    if (!root) {
+      return;
+    }
+    const host = this.sheetHost();
+    if (root.parentElement === host) {
+      return;
+    }
+    this.restoreHostOverflow();
+    this.lockHost(host);
+    this.placeSheet(root, host);
+    host.appendChild(root);
+  }
+
+  private sheetHost(): HTMLElement {
+    const fs = fullscreenElement();
+    return fs instanceof HTMLElement ? fs : document.body;
+  }
+
+  /** Phone landscape is often wider than 800px, so the OS picker is used — and it stays invisible in fullscreen. */
+  private fullscreenNeedsSheet(): boolean {
+    if (!fullscreenElement()) {
+      return false;
+    }
+    return window.matchMedia('(pointer: coarse)').matches;
+  }
+
+  private lockHost(host: HTMLElement): void {
+    this.lockedHost = host;
+    this.previousHostOverflow = host.style.overflow;
+    // The map wrapper clips with overflow:hidden. A fixed sheet inside it stays invisible on mobile WebViews.
+    host.style.overflow = host === document.body ? 'hidden' : 'visible';
+  }
+
+  private restoreHostOverflow(): void {
+    if (!this.lockedHost) {
+      return;
+    }
+    this.lockedHost.style.overflow = this.previousHostOverflow;
+    this.lockedHost = undefined;
+  }
+
+  private placeSheet(root: HTMLElement, host: HTMLElement): void {
+    // Above fullscreen overlays mounted in the map (IGN embed is around 10050).
+    root.style.zIndex = host === document.body ? '' : '11000';
   }
 
   private fillOptions(list: HTMLElement, select: HTMLSelectElement, query: string): void {
@@ -420,8 +482,8 @@ export class NativeSelectSheetService {
     this.root = undefined;
     if (root) {
       root.remove();
-      document.body.style.overflow = this.previousBodyOverflow;
     }
+    this.restoreHostOverflow();
   }
 
   private applyViewport(root: HTMLElement): void {
@@ -431,6 +493,14 @@ export class NativeSelectSheetService {
     root.style.height = `${height}px`;
     root.style.bottom = 'auto';
   }
+}
+
+function fullscreenElement(): Element | null {
+  const doc = document as Document & {
+    webkitFullscreenElement?: Element | null;
+    mozFullScreenElement?: Element | null;
+  };
+  return doc.fullscreenElement ?? doc.webkitFullscreenElement ?? doc.mozFullScreenElement ?? null;
 }
 
 function nativeMobilePlatform(): boolean {

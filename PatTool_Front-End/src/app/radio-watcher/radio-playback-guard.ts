@@ -311,23 +311,42 @@ export function attachRadioPlaybackGuard(options: RadioPlaybackGuardOptions): Ra
       keepPlayingThroughSleep();
       return;
     }
-    // Route changes can pause the element without dropping the socket.
+    // Route changes and a muted preview can pause the element without dropping the socket.
     // Resume that same stream. Reopen it only if it stays paused.
-    void media.play().then(() => {
-      if (disposed || !options.isCurrent() || userHold() || naturalEnd()) {
-        return;
-      }
-      if (!media.paused && !media.error) {
-        noteProgress();
-        return;
-      }
-      planReload(700);
-    }).catch(() => {
-      if (disposed || !options.isCurrent() || userHold() || naturalEnd()) {
-        return;
-      }
-      planReload(700);
-    });
+    // Another resume (media session) can reject this play() with AbortError while the
+    // element is already going again — that must not tear the socket down.
+    const resumeSameStream = (attempt: number): void => {
+      void media.play().then(() => {
+        if (disposed || !options.isCurrent() || userHold() || naturalEnd()) {
+          return;
+        }
+        if (!media.paused && !media.error) {
+          noteProgress();
+          return;
+        }
+        if (attempt < 2) {
+          setTimeout(() => resumeSameStream(attempt + 1), 200);
+          return;
+        }
+        planReload(700);
+      }).catch((err: unknown) => {
+        if (disposed || !options.isCurrent() || userHold() || naturalEnd()) {
+          return;
+        }
+        if (!media.paused && !media.error) {
+          noteProgress();
+          return;
+        }
+        const name =
+          err && typeof err === 'object' && 'name' in err ? String((err as { name?: string }).name) : '';
+        if (name === 'AbortError' && attempt < 2) {
+          setTimeout(() => resumeSameStream(attempt + 1), 200);
+          return;
+        }
+        planReload(700);
+      });
+    };
+    resumeSameStream(0);
   };
 
   const onScreen = (): void => {

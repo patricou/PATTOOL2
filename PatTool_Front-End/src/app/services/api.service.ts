@@ -211,6 +211,10 @@ export interface TraceViewerPreference {
   autoRefreshRadar?: boolean | null;
   showHikingTrailsOverlay?: boolean | null;
   showCyclingTrailsOverlay?: boolean | null;
+  showMtbTrailsOverlay?: boolean | null;
+  showRailwayOverlay?: boolean | null;
+  showSlopesOverlay?: boolean | null;
+  showPlacesOverlay?: boolean | null;
   followDeviceLocation?: boolean | null;
   keepScreenAwake?: boolean | null;
   showGpsCoordinates?: boolean | null;

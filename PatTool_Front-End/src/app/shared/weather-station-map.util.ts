@@ -253,6 +253,16 @@ export function buildWeatherStationBrandLogoHtml(
 	return `<img class="mf-temp-source-logo${mfClass}" src="${logoSrc}" alt="${alt}" width="${size}" height="${size}" loading="lazy" />`;
 }
 
+/** Pastille de station projetée sur la vue relief (hors Leaflet). */
+export interface WeatherStationReliefLabel {
+	key: string;
+	lat: number;
+	lng: number;
+	html: string;
+	tooltipHtml: string;
+	width: number;
+}
+
 export interface WeatherStationTooltipContext {
 	translate: (key: string) => string;
 	labelSource: 'meteofrance-dpobs' | 'meteoswiss-smn' | null;

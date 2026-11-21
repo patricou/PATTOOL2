@@ -132,13 +132,39 @@ function getWallThumbMaxEdge(initialBatch: boolean): number {
     return initialBatch ? WALL_INITIAL_THUMB_MAX_EDGE : getAdaptiveThumbMaxEdge();
 }
 
+/** A live Continuer stream shares this origin. Leave it a free connection. */
+function radioStreamIsLive(): boolean {
+    if (typeof document === 'undefined') {
+        return false;
+    }
+    const nodes = document.querySelectorAll('audio[data-pat-radio="1"]');
+    for (const node of Array.from(nodes)) {
+        if (!(node instanceof HTMLAudioElement)) {
+            continue;
+        }
+        if (node.dataset['patUserPaused'] === '1') {
+            continue;
+        }
+        if ((node.src || node.currentSrc) && !node.paused && !node.ended && !node.error) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /** Returns the max concurrent fetch parallelism adapted to the network connection quality. */
 function getAdaptiveMaxParallel(): number {
     const conn = (navigator as any)?.connection;
-    if (!conn) return WALL_MEDIA_MAX_PARALLEL;
-    if (conn.effectiveType === 'slow-2g' || conn.effectiveType === '2g') return 3;
-    if (conn.effectiveType === '3g') return 6;
-    return WALL_MEDIA_MAX_PARALLEL;
+    let cap = WALL_MEDIA_MAX_PARALLEL;
+    if (conn?.effectiveType === 'slow-2g' || conn?.effectiveType === '2g') {
+        cap = 3;
+    } else if (conn?.effectiveType === '3g') {
+        cap = 6;
+    }
+    if (radioStreamIsLive()) {
+        cap = Math.min(cap, 3);
+    }
+    return cap;
 }
 /**
  * Queue wall preview fetches for every photo in a revealed group so late items in `fileUploadeds`
@@ -339,6 +365,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     private wallVideoFetchAttemptCount = new Map<string, number>();
     /** Après {@link WALL_VIDEO_FETCH_MAX_AUTO_RETRIES} échecs : spinner remplacé par un bouton réessayer. */
     private wallVideoHardFailedIds = new Set<string>();
+    /** First silent start of a wall preview. Later calls do not undo a user unmute. */
+    private silencedWallVideos = new WeakSet<HTMLVideoElement>();
 
     userId = '';
     private nextPage = 0;
@@ -656,7 +684,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                         entry.isIntersecting &&
                         entry.intersectionRatio >= WALL_VIDEO_AUTOPLAY_MIN_VISIBLE_RATIO;
                     if (visibleEnough && !suspendPlayback) {
-                        v.play().catch(() => { /* autoplay / politiques navigateur */ });
+                        this.playWallPreview(v);
                     } else if (document.fullscreenElement !== v && document.pictureInPictureElement !== v) {
                         v.pause();
                     }
@@ -693,12 +721,56 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return visibleArea / totalArea >= WALL_VIDEO_AUTOPLAY_MIN_VISIBLE_RATIO - 1e-4;
     }
 
+    /**
+     * Wall tiles are previews. They stay silent so a radio left on Continuer
+     * is not dropped when the activity photo wall opens.
+     */
+    private silenceWallVideo(v: HTMLVideoElement): void {
+        v.dataset['patPreview'] = '1';
+        if (this.silencedWallVideos.has(v)) {
+            return;
+        }
+        this.silencedWallVideos.add(v);
+        v.defaultMuted = true;
+        v.muted = true;
+        v.volume = 0;
+        v.setAttribute('muted', '');
+    }
+
+    private playWallPreview(v: HTMLVideoElement): void {
+        this.silenceWallVideo(v);
+        const kick = (): void => this.keepRadioAudible();
+        void v.play().then(kick).catch(kick);
+        setTimeout(kick, 0);
+        setTimeout(kick, 350);
+    }
+
+    /** A muted preview can still pause the shared radio element. Start that stream again. */
+    private keepRadioAudible(): void {
+        if (this.destroyed || typeof document === 'undefined') {
+            return;
+        }
+        document.querySelectorAll('audio[data-pat-radio="1"]').forEach((node) => {
+            if (!(node instanceof HTMLAudioElement)) {
+                return;
+            }
+            if (node.dataset['patUserPaused'] === '1' || node.dataset['patSkipBackground'] === '1') {
+                return;
+            }
+            if ((!node.src && !node.currentSrc) || node.ended || !node.paused) {
+                return;
+            }
+            void node.play().catch(() => undefined);
+        });
+    }
+
     /** Après chargement des métadonnées / données : empêche toute lecture si la tuile n’est pas visible. */
     onWallVideoLoadedData(ev: Event): void {
         if (this.destroyed) {
             return;
         }
         const v = ev.target as HTMLVideoElement;
+        this.silenceWallVideo(v);
         if (document.fullscreenElement === v || document.pictureInPictureElement === v) {
             return;
         }
@@ -1889,7 +1961,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
         const origin = encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '');
         const safe = this.sanitizer.bypassSecurityTrustResourceUrl(
-            `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0&playsinline=1&enablejsapi=1&origin=${origin}`
+            `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?rel=0&playsinline=1&mute=1&enablejsapi=1&origin=${origin}`
         );
         this.youtubeEmbedSafeCache.set(id, safe);
         return safe;
@@ -1902,6 +1974,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
         this.youtubeEmbedReadyIds.add(id);
         this.scheduleCdr();
+        setTimeout(() => this.keepRadioAudible(), 0);
+        setTimeout(() => this.keepRadioAudible(), 400);
     }
 
     openWallYoutubeFloatingPlayer(video: TimelinePhoto, event?: Event): void {

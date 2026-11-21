@@ -426,10 +426,12 @@
                                 <video #wallTimelineVideo
                                        [src]="getVideoUrl(media.item)"
                                        controls
+                                       muted
                                        [muted]="true"
                                        loop
                                        playsinline
                                        preload="none"
+                                       data-pat-preview="1"
                                        class="photo-img timeline-video"
                                        [attr.alt]="media.item.fileName"
                                        (click)="$event.stopPropagation()"
@@ -463,6 +465,7 @@
                                     #wallYoutubeEmbed
                                     [src]="ytEmbed"
                                     [title]="media.item.fileName || ('PHOTO_TIMELINE.YOUTUBE_VIDEO' | translate)"
+                                    data-pat-preview="1"
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                                     allowfullscreen
                                     referrerpolicy="strict-origin-when-cross-origin"></iframe>

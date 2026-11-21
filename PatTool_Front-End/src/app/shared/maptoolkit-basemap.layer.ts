@@ -1,5 +1,5 @@
 import { maplibreGL } from '@maplibre/maplibre-gl-leaflet';
-import { setWorkerUrl } from 'maplibre-gl';
+import { Map as MlMap, setWorkerUrl } from 'maplibre-gl';
 import { L, RotatableLeafletMap } from './leaflet-rotate-setup';
 
 /** Community styles. Vector tiles, no API key. Detail stops at zoom 15. */
@@ -123,6 +123,10 @@ function placeGlCover(layer: GlLayer): void {
 	const upright = Number.isFinite(leafletBearing) ? -leafletBearing : 0;
 	container.style.transformOrigin = '50% 50%';
 	container.style.transform = `translate3d(${topLeft.x}px, ${topLeft.y}px, 0) rotate(${upright}deg)`;
+	const blendOpacity = (layer as GlLayer & { _blendOpacity?: number })._blendOpacity;
+	if (blendOpacity != null) {
+		applyGlLayerOpacity(layer, blendOpacity);
+	}
 	const coverKey = `${Math.round(canvasSize.x)}x${Math.round(canvasSize.y)}`;
 	if (layer._coverKey !== coverKey) {
 		layer._coverKey = coverKey;
@@ -187,6 +191,57 @@ function clearGlCanvasTransform(layer: GlLayer): void {
 	canvas.style.setProperty('transform', 'none', 'important');
 	canvas.style.setProperty('max-width', 'none', 'important');
 	canvas.style.setProperty('max-height', 'none', 'important');
+	const blendOpacity = (layer as GlLayer & { _blendOpacity?: number })._blendOpacity;
+	if (blendOpacity != null) {
+		paintGlCanvases(layer, blendOpacity);
+	}
+}
+
+/**
+ * Opacity has to be on the WebGL canvas. On phones and on Chrome the canvas is its own
+ * compositor layer, so an opacity on the Leaflet div around it never changes the picture.
+ */
+export function applyGlLayerOpacity(layer: L.Layer, opacity: number): void {
+	const gl = layer as GlLayer & { _blendOpacity?: number; _blendOpacityHooked?: boolean };
+	const clamped = Math.max(0, Math.min(1, opacity));
+	gl._blendOpacity = clamped;
+	paintGlCanvases(gl, clamped);
+	const map = gl._glMap;
+	if (!map || gl._blendOpacityHooked) {
+		return;
+	}
+	gl._blendOpacityHooked = true;
+	const refresh = (): void => {
+		if (gl._blendOpacity == null) {
+			return;
+		}
+		paintGlCanvases(gl, gl._blendOpacity);
+	};
+	map.on?.('load', refresh);
+	map.on?.('idle', refresh);
+}
+
+function paintGlCanvases(layer: GlLayer, opacity: number): void {
+	const css = String(Math.max(0, Math.min(1, opacity)));
+	const paint = (node: Element | null | undefined): void => {
+		if (!(node instanceof HTMLElement)) {
+			return;
+		}
+		node.style.setProperty('opacity', css, 'important');
+	};
+	if (layer._container) {
+		layer._container.style.setProperty('background', 'transparent', 'important');
+	}
+	layer._container?.querySelectorAll('.maplibregl-canvas-container').forEach((node) => {
+		if (node instanceof HTMLElement) {
+			node.style.setProperty('background', 'transparent', 'important');
+		}
+	});
+	const glMap = layer._glMap as (GlMap & { _actualCanvas?: HTMLCanvasElement }) | undefined;
+	paint(glMap?.getCanvas?.());
+	paint(glMap?._actualCanvas);
+	layer._container?.querySelectorAll('canvas').forEach((node) => paint(node));
+	(glMap as { triggerRepaint?: () => void } | undefined)?.triggerRepaint?.();
 }
 
 function syncGlLayer(layer: GlLayer): void {
@@ -303,4 +358,133 @@ export function createMaptoolkitHikingLayer(): L.Layer {
 
 export function createMaptoolkitWinterLayer(): L.Layer {
 	return createMaptoolkitLayer(MAPTOOLKIT_WINTER_STYLE);
+}
+
+/**
+ * Second Maptoolkit map drawn over the flat view.
+ * Opacity sits on a plain div, the same way the pitched view fades its overlay.
+ * A Leaflet WebGL layer ignores that opacity, so the 1–2 slider did nothing.
+ */
+export class FlatMaptoolkitBlend {
+	private map: MlMap | null = null;
+	private host: HTMLDivElement | null = null;
+	private frame: HTMLDivElement | null = null;
+	private styleUrl = '';
+
+	mount(pane: HTMLElement, styleUrl: string, onReady?: () => void): void {
+		this.destroy();
+		ensureMaplibreWorker();
+		const host = document.createElement('div');
+		host.className = 'trace-flat-gl-blend';
+		const frame = document.createElement('div');
+		frame.className = 'trace-flat-gl-blend-frame';
+		host.appendChild(frame);
+		pane.appendChild(host);
+		this.host = host;
+		this.frame = frame;
+		this.styleUrl = styleUrl;
+		const map = new MlMap({
+			container: frame,
+			style: styleUrl,
+			center: [0, 0],
+			zoom: 1,
+			pitch: 0,
+			bearing: 0,
+			interactive: false,
+			attributionControl: false,
+			fadeDuration: 0,
+			canvasContextAttributes: {
+				alpha: true,
+				powerPreference: 'default',
+				failIfMajorPerformanceCaveat: false
+			}
+		});
+		ignoreMissingStyleIcons(map as unknown as StyleImageMap);
+		this.map = map;
+		map.once('load', () => {
+			if (this.map !== map) {
+				return;
+			}
+			map.resize();
+			onReady?.();
+		});
+	}
+
+	setStyle(styleUrl: string, onReady?: () => void): void {
+		const map = this.map;
+		if (!map || this.styleUrl === styleUrl) {
+			return;
+		}
+		this.styleUrl = styleUrl;
+		map.setStyle(styleUrl, { diff: false });
+		map.once('style.load', () => {
+			if (this.map !== map) {
+				return;
+			}
+			ignoreMissingStyleIcons(map as unknown as StyleImageMap);
+			onReady?.();
+		});
+	}
+
+	setOpacity(opacity: number): void {
+		if (!this.host) {
+			return;
+		}
+		const clamped = Math.max(0, Math.min(1, opacity));
+		this.host.style.setProperty('opacity', String(clamped), 'important');
+	}
+
+	sync(view: {
+		lng: number;
+		lat: number;
+		zoom: number;
+		bearing: number;
+		width: number;
+		height: number;
+		x: number;
+		y: number;
+	}): void {
+		const host = this.host;
+		const frame = this.frame;
+		const map = this.map;
+		if (!host || !frame || !map || view.width < 2 || view.height < 2) {
+			return;
+		}
+		const width = `${Math.round(view.width)}px`;
+		const height = `${Math.round(view.height)}px`;
+		if (host.style.width !== width || host.style.height !== height) {
+			host.style.width = width;
+			host.style.height = height;
+			map.resize();
+		}
+		host.style.left = `${Math.round(view.x)}px`;
+		host.style.top = `${Math.round(view.y)}px`;
+		const turn = Math.abs(view.bearing) > 0.05 ? `rotate(${view.bearing}deg)` : 'none';
+		if (frame.style.transform !== turn) {
+			frame.style.transform = turn;
+		}
+		const center = map.getCenter();
+		const same = Math.abs(center.lng - view.lng) < 1e-7
+			&& Math.abs(center.lat - view.lat) < 1e-7
+			&& Math.abs(map.getZoom() - view.zoom) < 1e-3
+			&& Math.abs(map.getBearing() - view.bearing) < 0.05
+			&& Math.abs(map.getPitch()) < 0.05;
+		if (!same) {
+			map.jumpTo({
+				center: [view.lng, view.lat],
+				zoom: view.zoom,
+				bearing: view.bearing,
+				pitch: 0
+			});
+		}
+	}
+
+	destroy(): void {
+		this.map?.remove();
+		this.map = null;
+		this.host?.remove();
+		this.host = null;
+		this.frame = null;
+		this.styleUrl = '';
+	}
 }
