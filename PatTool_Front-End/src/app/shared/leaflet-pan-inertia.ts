@@ -5,17 +5,16 @@ export type LeafletPanInertiaHandle = {
 };
 
 /**
- * Courte glissade après le relâchement.
+ * Glissade visible après le relâchement, sans traverser l’écran.
  * L’inertie Leaflet ne regarde que les ~50 dernières ms : à la souris le pointeur
- * est souvent déjà arrêté, et la carte se fige. Ici on prend ~160 ms, puis on
- * limite la distance pour que ça reste un petit élan.
+ * est souvent déjà arrêté, et la carte se fige. Ici on prend ~220 ms.
  */
 export function attachLeafletPanInertia(map: L.Map): LeafletPanInertiaHandle {
 	const samples: { x: number; y: number; t: number }[] = [];
-	const windowMs = 160;
-	const maxCoastPx = 34;
-	const minCoastPx = 3;
-	const deceleration = 5200;
+	const windowMs = 220;
+	const maxCoastPx = 150;
+	const minCoastPx = 12;
+	const deceleration = 1400;
 	let coastFrame: number | null = null;
 
 	const panePos = (): L.Point | null => {
@@ -68,7 +67,7 @@ export function attachLeafletPanInertia(map: L.Map): LeafletPanInertiaHandle {
 			return;
 		}
 		const speed = dist / dt;
-		const duration = Math.min(0.24, speed / deceleration);
+		const duration = Math.min(0.6, speed / deceleration);
 		let coast = (speed * duration) / 2;
 		if (coast > maxCoastPx) {
 			coast = maxCoastPx;

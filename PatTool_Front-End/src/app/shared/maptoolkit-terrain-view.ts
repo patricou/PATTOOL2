@@ -132,6 +132,10 @@ export class MaptoolkitTerrainView {
 		railway: false,
 		slopes: false
 	};
+	/** Non-zero while a style.load / idle retry for that map is already waiting. */
+	private overlayRetryToken = new WeakMap<MlMap, number>();
+	private overlayRetrySerial = 0;
+	private overlayRetryFailures = new WeakMap<MlMap, number>();
 	private elevationColors = false;
 	private elevationTimer: number | null = null;
 	private elevationTries = 0;
@@ -224,7 +228,7 @@ export class MaptoolkitTerrainView {
 			setFreeZoom: (on) => { this.freeZoom = on; },
 			setGesturing: (on) => { this.gesturing = on; }
 		});
-		/* Short coast after release. linearity must stay non-zero or the inertia math becomes NaN. */
+		/* Glide after release. linearity must stay non-zero or the inertia math becomes NaN. */
 		map.dragPan.enable(RELIEF_DRAG_PAN);
 		/*
 		 * Refuse a closer zoom that would put the camera through the slope.
@@ -344,6 +348,9 @@ export class MaptoolkitTerrainView {
 			if (this.elevationColors && this.map && !this.map.getLayer(ELEVATION_COLOR_LAYER)) {
 				this.refreshElevationColors();
 			}
+			if (this.trailsMissing(map) && (this.overlayRetryFailures.get(map) ?? 0) <= 8) {
+				this.applyTrailOverlays(map);
+			}
 			if (this.revealed || !map.isStyleLoaded() || !map.getTerrain()) {
 				return;
 			}
@@ -412,6 +419,9 @@ export class MaptoolkitTerrainView {
 		if (this.blendMap && this.blendStyle === styleUrl) {
 			this.applyBlendOpacity();
 			this.syncBlendCamera();
+			if (this.trailsMissing(this.blendMap) && (this.overlayRetryFailures.get(this.blendMap) ?? 0) <= 8) {
+				this.paintBlendOverlays(this.blendMap);
+			}
 			return;
 		}
 		this.destroyBlend();
@@ -934,21 +944,83 @@ export class MaptoolkitTerrainView {
 		return map.getStyle()?.layers?.find((layer) => layer.type === 'symbol')?.id;
 	}
 
-	private applyTrailOverlays(map: MlMap | null): void {
-		if (!map) {
-			return;
+	/**
+	 * `isStyleLoaded()` stays false while tiles or sprites are still arriving,
+	 * and `style.load` does not fire again. Waiting on it dropped ski, trails
+	 * and the other switches, above all on the second map once it covers the first.
+	 */
+	private styleDocumentReady(map: MlMap): boolean {
+		try {
+			const style = map.getStyle();
+			return !!style && Object.keys(style.sources ?? {}).length > 0;
+		} catch {
+			return false;
 		}
-		if (!map.isStyleLoaded()) {
-			map.once('style.load', () => {
-				if (map === this.map || map === this.blendMap) {
-					this.applyTrailOverlays(map);
+	}
+
+	private trailsMissing(map: MlMap): boolean {
+		if (!this.styleDocumentReady(map)) {
+			return false;
+		}
+		try {
+			for (const spec of TRAIL_RASTERS) {
+				if (this.trailOverlays[spec.key] && !map.getLayer(spec.id)) {
+					return true;
 				}
-			});
+			}
+			return false;
+		} catch {
+			return true;
+		}
+	}
+
+	private queueOverlayApply(map: MlMap, apply: () => void, failed = false): void {
+		if (map !== this.map && map !== this.blendMap) {
 			return;
 		}
-		for (const spec of TRAIL_RASTERS) {
-			this.syncRasterTrail(map, spec.id, spec.tiles, this.trailOverlays[spec.key], this.trailAnchor(map, spec.id));
+		if (failed) {
+			const attempts = (this.overlayRetryFailures.get(map) ?? 0) + 1;
+			this.overlayRetryFailures.set(map, attempts);
+			if (attempts > 8) {
+				return;
+			}
 		}
+		if ((this.overlayRetryToken.get(map) ?? 0) !== 0) {
+			return;
+		}
+		const token = ++this.overlayRetrySerial;
+		this.overlayRetryToken.set(map, token);
+		const run = (): void => {
+			if (this.overlayRetryToken.get(map) !== token) {
+				return;
+			}
+			this.overlayRetryToken.set(map, 0);
+			if (map !== this.map && map !== this.blendMap) {
+				return;
+			}
+			apply();
+		};
+		map.once('style.load', run);
+		map.once('idle', run);
+	}
+
+	private applyTrailOverlays(map: MlMap | null): void {
+		if (!map || (map !== this.map && map !== this.blendMap)) {
+			return;
+		}
+		if (!this.styleDocumentReady(map)) {
+			this.queueOverlayApply(map, () => this.applyTrailOverlays(map));
+			return;
+		}
+		let ok = true;
+		for (const spec of TRAIL_RASTERS) {
+			ok = this.syncRasterTrail(map, spec.id, spec.tiles, this.trailOverlays[spec.key], this.trailAnchor(map, spec.id)) && ok;
+		}
+		if (!ok) {
+			this.queueOverlayApply(map, () => this.applyTrailOverlays(map), true);
+			return;
+		}
+		this.overlayRetryFailures.set(map, 0);
 	}
 
 	/** Next trail already on the map, else the trace, so a newly enabled layer keeps its order. */
@@ -962,7 +1034,7 @@ export class MaptoolkitTerrainView {
 		return map.getLayer('relief-traces-line') ? 'relief-traces-line' : undefined;
 	}
 
-	private syncRasterTrail(map: MlMap, id: string, tiles: string, visible: boolean, before: string | undefined): void {
+	private syncRasterTrail(map: MlMap, id: string, tiles: string, visible: boolean, before: string | undefined): boolean {
 		try {
 			if (!visible) {
 				if (map.getLayer(id)) {
@@ -971,7 +1043,7 @@ export class MaptoolkitTerrainView {
 				if (map.getSource(id)) {
 					map.removeSource(id);
 				}
-				return;
+				return true;
 			}
 			if (!map.getSource(id)) {
 				map.addSource(id, { type: 'raster', tiles: [tiles], tileSize: 256, maxzoom: 18 });
@@ -989,8 +1061,10 @@ export class MaptoolkitTerrainView {
 					map.addLayer(layer);
 				}
 			}
+			return true;
 		} catch (err) {
 			console.error('[Maptoolkit] trail overlay failed', err);
+			return false;
 		}
 	}
 
@@ -1308,12 +1382,15 @@ export class MaptoolkitTerrainView {
 			}
 		};
 		const revealIfSettled = (): void => {
-			if (this.blendMap !== map || epoch !== this.blendEpoch || !terrainOn || this.blendReady) {
+			if (this.blendMap !== map || epoch !== this.blendEpoch || !terrainOn) {
 				return;
 			}
-			syncIfCurrent();
-			this.paintBlendOverlays(map);
-			if (!map.getTerrain()) {
+			const giveUp = (this.overlayRetryFailures.get(map) ?? 0) > 8;
+			if (!this.blendReady || (this.trailsMissing(map) && !giveUp)) {
+				syncIfCurrent();
+				this.paintBlendOverlays(map);
+			}
+			if (this.blendReady || !map.getTerrain()) {
 				return;
 			}
 			this.blendReady = true;
@@ -1330,6 +1407,9 @@ export class MaptoolkitTerrainView {
 		map.on('terrain', () => {
 			terrainOn = true;
 			syncIfCurrent();
+			if (this.blendMap === map && epoch === this.blendEpoch) {
+				this.paintBlendOverlays(map);
+			}
 		});
 		map.on('idle', revealIfSettled);
 		requestAnimationFrame(() => {
@@ -1342,17 +1422,23 @@ export class MaptoolkitTerrainView {
 
 	/** Trace, sentiers, pistes et couleurs : la 2e carte les redessine, sinon le curseur les cache. */
 	private paintBlendOverlays(map: MlMap): void {
-		if (this.blendMap !== map || !map.isStyleLoaded()) {
+		if (this.blendMap !== map) {
 			return;
 		}
-		if (Object.keys(map.getStyle()?.sources ?? {}).length === 0) {
+		if (!this.styleDocumentReady(map)) {
+			this.queueOverlayApply(map, () => this.paintBlendOverlays(map));
 			return;
 		}
-		this.enableTerrain(map);
-		this.applyTrailOverlays(map);
-		this.ensureOverlayLayers(map);
-		this.applyTraces();
-		this.applyElevationColors();
+		try {
+			this.enableTerrain(map);
+			this.applyTrailOverlays(map);
+			this.ensureOverlayLayers(map);
+			this.applyTraces();
+			this.applyElevationColors();
+		} catch (err) {
+			console.error('[Maptoolkit] blend overlays failed', err);
+			this.queueOverlayApply(map, () => this.paintBlendOverlays(map), true);
+		}
 	}
 
 	/** Le curseur à 0 garde la 2e carte, invisible, pour qu’elle soit déjà calée au retour. */
@@ -1652,8 +1738,16 @@ function tracesToGeoJson(traces: ReliefTrace[]): ReliefFeatureCollection {
 	return { type: 'FeatureCollection', features };
 }
 
-/** ~30 px of glide, then it stops. maxSpeed 0 would kill the coast. */
-const RELIEF_DRAG_PAN = { linearity: 0.3, maxSpeed: 240, deceleration: 2800 };
+/**
+ * Visible glide after the pointer is released, not a long fling.
+ * A fast release coasts about 150 px. maxSpeed 0 would kill the coast.
+ * linearity must stay non-zero or the inertia math becomes NaN.
+ */
+const RELIEF_DRAG_PAN = { linearity: 0.3, maxSpeed: 380, deceleration: 1600 };
+const TOUCH_COAST_WINDOW_MS = 220;
+const TOUCH_COAST_MAX_PX = 150;
+const TOUCH_COAST_MIN_PX = 12;
+const TOUCH_COAST_DECEL = 1400;
 const PINCH_ZOOM_GAIN = 2.4;
 const TAP_DRAG_PX_PER_LEVEL = 78;
 
@@ -1692,6 +1786,53 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 	let finger: { x: number; y: number; lastX: number; lastY: number; moved: number } | null = null;
 	let lastTap = { t: 0, x: 0, y: 0 };
 	let dragPanOff = false;
+	const coastSamples: { x: number; y: number; t: number }[] = [];
+
+	const noteCoast = (x: number, y: number): void => {
+		const now = performance.now();
+		coastSamples.push({ x, y, t: now });
+		const cutoff = now - TOUCH_COAST_WINDOW_MS;
+		while (coastSamples.length > 2 && coastSamples[0].t < cutoff) {
+			coastSamples.shift();
+		}
+	};
+
+	const coastAfterFinger = (): void => {
+		if (coastSamples.length < 2) {
+			coastSamples.length = 0;
+			return;
+		}
+		const first = coastSamples[0];
+		const last = coastSamples[coastSamples.length - 1];
+		coastSamples.length = 0;
+		const dt = (last.t - first.t) / 1000;
+		if (dt < 0.02) {
+			return;
+		}
+		const dx = -(last.x - first.x);
+		const dy = -(last.y - first.y);
+		const dist = Math.hypot(dx, dy);
+		if (dist < 6) {
+			return;
+		}
+		const speed = dist / dt;
+		const duration = Math.min(0.6, speed / TOUCH_COAST_DECEL);
+		let coast = (speed * duration) / 2;
+		if (coast < TOUCH_COAST_MIN_PX) {
+			return;
+		}
+		if (coast > TOUCH_COAST_MAX_PX) {
+			coast = TOUCH_COAST_MAX_PX;
+		}
+		const scale = coast / dist;
+		const offset: [number, number] = [dx * scale, dy * scale];
+		requestAnimationFrame(() => {
+			map.panBy(offset, {
+				duration: duration * 1000,
+				easing: (t) => 1 - (1 - t) * (1 - t)
+			});
+		});
+	};
 
 	const enableDragPan = (): void => {
 		if (!dragPanOff) {
@@ -1752,6 +1893,7 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 		hooks.setGesturing(true);
 		if (event.touches.length >= 2) {
 			tapZoom = null;
+			coastSamples.length = 0;
 			disableDragPan();
 			const a = event.touches[0];
 			const b = event.touches[1];
@@ -1783,7 +1925,9 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 			event.preventDefault();
 			return;
 		}
+		coastSamples.length = 0;
 		finger = { x: touch.clientX, y: touch.clientY, lastX: touch.clientX, lastY: touch.clientY, moved: 0 };
+		noteCoast(touch.clientX, touch.clientY);
 		disableDragPan();
 	};
 
@@ -1841,6 +1985,7 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 			}
 			event.preventDefault();
 			event.stopPropagation();
+			noteCoast(touch.clientX, touch.clientY);
 			map.panBy([-dx, -dy], { animate: false, freezeElevation: true });
 		}
 	};
@@ -1851,6 +1996,7 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 		}
 		if (event.touches.length === 1) {
 			pinch = null;
+			coastSamples.length = 0;
 			const touch = event.touches[0];
 			finger = {
 				x: touch.clientX,
@@ -1862,6 +2008,7 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 			tapZoom = null;
 			return;
 		}
+		const coast = !!(finger && finger.moved >= 16 && !tapZoom);
 		if (tapZoom && tapZoom.moved < 16) {
 			frame(clampZoom(tapZoom.zoom + 1.2), map.getBearing(), map.getPitch(), tapZoom.x, tapZoom.y);
 		} else if (finger && finger.moved < 16) {
@@ -1872,6 +2019,11 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 		finger = null;
 		enableDragPan();
 		hooks.setGesturing(false);
+		if (coast) {
+			coastAfterFinger();
+		} else {
+			coastSamples.length = 0;
+		}
 	};
 
 	const blockGesture = (event: Event): void => {
