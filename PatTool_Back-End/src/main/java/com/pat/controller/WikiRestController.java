@@ -57,9 +57,10 @@ public class WikiRestController {
             @RequestParam(value = "commons", required = false) String commons,
             @RequestParam(value = "image", required = false) String image,
             @RequestParam(value = "source", required = false) String source,
-            @RequestParam(value = "lang", required = false) String lang) {
+            @RequestParam(value = "lang", required = false) String lang,
+            @RequestParam(value = "radius", required = false) Double radius) {
         return ResponseEntity.ok(wikiProxyService.fetchPoiPhoto(
-                id, name, nameEn, lat, lng, wikipedia, commons, image, source, lang));
+                id, name, nameEn, lat, lng, wikipedia, commons, image, source, lang, radius));
     }
 
     /** Mapillary thumbnail bytes for the 360° viewer. The CDN image is not readable from the page. */

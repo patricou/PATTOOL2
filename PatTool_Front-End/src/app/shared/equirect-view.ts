@@ -14,6 +14,7 @@ export class EquirectView {
 	private position = -1;
 	private yaw = 0;
 	private pitch = 0;
+	private fov = 80;
 	private imageUrl = '';
 	private loadToken = 0;
 	private destroyed = false;
@@ -56,6 +57,16 @@ export class EquirectView {
 	setAngles(yaw: number, pitch: number): void {
 		this.yaw = yaw;
 		this.pitch = pitch;
+		this.draw();
+	}
+
+	get fovDeg(): number {
+		return this.fov;
+	}
+
+	/** Vertical field of view in degrees. Smaller means zoomed in. */
+	setFov(fov: number): void {
+		this.fov = Math.max(18, Math.min(110, fov));
 		this.draw();
 	}
 
@@ -194,6 +205,7 @@ export class EquirectView {
 		gl.vertexAttribPointer(this.position, 2, gl.FLOAT, false, 0, 0);
 		gl.uniform1f(gl.getUniformLocation(program, 'uYaw'), this.yaw);
 		gl.uniform1f(gl.getUniformLocation(program, 'uPitch'), this.pitch);
+		gl.uniform1f(gl.getUniformLocation(program, 'uFov'), this.fov);
 		gl.uniform2f(gl.getUniformLocation(program, 'uRes'), this.canvas.width, this.canvas.height);
 		gl.uniform1i(gl.getUniformLocation(program, 'uReady'), this.texture ? 1 : 0);
 		if (this.texture) {
@@ -241,6 +253,7 @@ export class EquirectView {
 			uniform sampler2D uTex;
 			uniform float uYaw;
 			uniform float uPitch;
+			uniform float uFov;
 			uniform vec2 uRes;
 			uniform int uReady;
 			const float PI = 3.14159265;
@@ -251,7 +264,7 @@ export class EquirectView {
 				}
 				vec2 ndc = (gl_FragCoord.xy / uRes) * 2.0 - 1.0;
 				float aspect = uRes.x / max(uRes.y, 1.0);
-				float tanHalf = tan(radians(40.0));
+				float tanHalf = tan(radians(max(uFov, 1.0) * 0.5));
 				vec3 ray = normalize(vec3(ndc.x * aspect * tanHalf, ndc.y * tanHalf, 1.0));
 				float cp = cos(uPitch);
 				float sp = sin(uPitch);

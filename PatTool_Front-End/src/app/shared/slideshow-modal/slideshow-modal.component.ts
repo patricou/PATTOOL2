@@ -45,6 +45,10 @@ export interface SlideshowLocationEvent {
   lng: number;
   label?: string;
   eventColor?: { r: number; g: number; b: number };
+  /** Photo affichée : fichier en base, ou URL déjà chargée pour une photo disque. */
+  photoFileId?: string;
+  photoFileName?: string;
+  photoUrl?: string;
 }
 
 export interface SlideshowAddToDbEvent {
@@ -431,7 +435,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public currentMapUrl: SafeResourceUrl | null = null;
   private imageLocations: Map<string, { lat: number; lng: number }> = new Map();
   private mapUrlCache: Map<string, SafeResourceUrl> = new Map();
-  public locationViewMode: 'google' | 'trace' = 'google';
+  public locationViewMode: 'google' | 'trace' = 'trace';
   private traceViewerOpen: boolean = false;
 
   // Filesystem image variants tracking
@@ -815,7 +819,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.showMapView = false;
     this.currentImageLocation = null;
     this.currentMapUrl = null;
-    this.locationViewMode = 'google';
+    this.locationViewMode = 'trace';
     this.showThumbnails = images.length > 1;
     this.userToggledThumbnails = false;
     this.imageLoadActive = true;
@@ -3974,6 +3978,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       if (!this.isSlideshowModalOpen || !this.modalRef) {
         return;
       }
+
+      // La fenêtre de trace est devant (son en-tête a aussi .slideshow-header).
+      // Ne pas avaler les flèches : elles passent à la photo précédente / suivante.
+      if (
+        (this.traceViewerOpen || !!document.querySelector('.trace-viewer-leaflet-modal.show')) &&
+        (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || event.keyCode === 37 || event.keyCode === 39)
+      ) {
+        return;
+      }
       
       // Check if target is an input or textarea to avoid interfering with form inputs
       const target = event.target as HTMLElement;
@@ -4828,19 +4841,32 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.toggleMapView();
   }
 
+  private currentSlideImageSource(): SlideshowImageSource | undefined {
+    const imageIndex = this.slideshowIndexToImageIndex.get(this.currentSlideshowIndex);
+    if (imageIndex != null && this.images[imageIndex]) {
+      return this.images[imageIndex];
+    }
+    return this.images[this.currentSlideshowIndex];
+  }
+
   private emitTraceViewerLocation(): void {
     if (!this.currentImageLocation) {
       return;
     }
-    const fileName = this.getCurrentImageFileName();
-    const label = fileName && fileName.trim().length > 0
+    const source = this.currentSlideImageSource();
+    const fileName = (source?.fileName || this.getCurrentImageFileName() || '').trim();
+    const label = fileName.length > 0
       ? fileName
       : this.translateService.instant('EVENTELEM.SEE_LOCATION');
+    const photoFileId = source?.fileId?.trim() || undefined;
     this.openLocationInTrace.emit({
       lat: this.currentImageLocation.lat,
       lng: this.currentImageLocation.lng,
       label,
-      eventColor: this.eventColor || undefined
+      eventColor: this.eventColor || undefined,
+      photoFileId,
+      photoFileName: fileName || undefined,
+      photoUrl: photoFileId ? undefined : (this.getCurrentSlideshowImage() || undefined)
     });
   }
 
@@ -4886,10 +4912,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
 
   public setTraceViewerOpen(isOpen: boolean): void {
     this.traceViewerOpen = isOpen;
-    // When trace viewer closes, reapply slideshow colors if slideshow is still open
-    // and reset location view mode to google to show "Photo" button
+    // When trace viewer closes, reapply slideshow colors if slideshow is still open.
+    // The location button stays on Trace.
     if (!isOpen) {
-      this.locationViewMode = 'google';
       this.showMapView = false;
       if (this.eventColor && this.modalRef) {
         setTimeout(() => {
@@ -6735,9 +6760,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.currentMapUrl = null;
         if (this.showMapView) {
           this.showMapView = false;
-        }
-        if (this.locationViewMode === 'trace') {
-          this.locationViewMode = 'google';
         }
         this.cdr.markForCheck();
         return;

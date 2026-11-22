@@ -6,7 +6,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 import { SlideshowModalModule } from '../../shared/slideshow-modal/slideshow-modal.module';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowAddToDbEvent, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
-import { ActivityPhotoMarker, TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { ActivityPhotoMarker, TraceViewerModalComponent, slideshowPhotoMarker } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { isValidGeoCoordinate } from '../../shared/geo-coordinates.util';
 import { hasValidDepartureLocation } from '../../shared/start-location.util';
 import { VideoshowModalModule } from '../../shared/videoshow-modal/videoshow-modal.module';
@@ -3441,7 +3441,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (this.traceViewerModalComponent) {
             this.markWallTraceViewerOpened();
             this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, event.eventColor, false, false, {
-                activityPhoto: this.wallActivityPhoto(this.wallTraceActivity)
+                activityPhoto: slideshowPhotoMarker(event) ?? undefined
             });
         }
     }

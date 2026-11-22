@@ -2489,17 +2489,68 @@
 	box-sizing: border-box;
 }
 
+.tv-poi-photo-full-view {
+	position: relative;
+	z-index: 1;
+	flex: 1 1 auto;
+	align-self: stretch;
+	min-height: 0;
+	width: 100%;
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: zoom-in;
+	touch-action: none;
+}
+
+.tv-poi-photo-full-view.is-zoomed {
+	cursor: grab;
+}
+
+.tv-poi-photo-full-view.is-panning {
+	cursor: grabbing;
+}
+
+.tv-poi-photo-zoom {
+	position: absolute;
+	top: 0.8rem;
+	left: 0.8rem;
+	z-index: 4;
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+}
+
+.tv-poi-photo-zoom button {
+	width: 2.4rem;
+	height: 2.4rem;
+	border: 0;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.16);
+	color: #f8fafc;
+	font-size: 0.95rem;
+	cursor: pointer;
+}
+
+.tv-poi-photo-zoom button:hover {
+	background: rgba(255, 255, 255, 0.28);
+}
+
 .tv-poi-photo-full img,
 .tv-poi-photo-full--on img {
 	display: block;
 	width: auto;
 	max-width: 100%;
 	height: auto;
-	max-height: calc(100% - 3.5rem);
+	max-height: 100%;
 	object-fit: contain;
 	background: transparent;
 	border-radius: 0;
 	cursor: default;
+	transform-origin: center center;
+	user-select: none;
+	pointer-events: none;
 }
 
 .tv-poi-photo-full--on .tv-poi-photo-pano,

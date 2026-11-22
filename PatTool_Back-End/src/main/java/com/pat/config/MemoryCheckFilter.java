@@ -37,7 +37,10 @@ public class MemoryCheckFilter implements Filter {
         "/assets/",
         "/.well-known/",
         // Small raster PNGs for GPS 3D; a burst of tiles must not 503 the map.
-        "/api/external/map/tile"
+        "/api/external/map/tile",
+        // Disk slideshow. The controller streams the file when the heap is already critical,
+        // so a burst of photos must not be turned into 503 before that fallback.
+        "/api/fsphotos/image"
     };
     
     @Override

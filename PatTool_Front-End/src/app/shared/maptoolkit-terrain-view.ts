@@ -88,6 +88,8 @@ export interface ReliefViewHooks {
 	onAttraction?: (poi: ReliefAttraction | null) => void;
 	/** Click on a place dot (monument, viewpoint, airfield). */
 	onPlace?: (place: ReliefPlaceMark) => void;
+	/** Double-click on the ground, in latitude then longitude. */
+	onMapDoubleClick?: (lat: number, lng: number) => void;
 }
 
 export interface ReliefTrace {
@@ -255,7 +257,6 @@ export class MaptoolkitTerrainView {
 			setFreeZoom: (on) => { this.freeZoom = on; },
 			setGesturing: (on) => { this.gesturing = on; }
 		});
-		/* Glide after release. linearity must stay non-zero or the inertia math becomes NaN. */
 		map.dragPan.enable(RELIEF_DRAG_PAN);
 		/*
 		 * Refuse a closer zoom that would put the camera through the slope.
@@ -369,6 +370,12 @@ export class MaptoolkitTerrainView {
 				return;
 			}
 			this.hooks?.onAttraction?.(this.attractionAt(event.point, 10));
+		});
+		map.on('dblclick', (event) => {
+			if (this.map !== map) {
+				return;
+			}
+			this.hooks?.onMapDoubleClick?.(event.lngLat.lat, event.lngLat.lng);
 		});
 		map.on('mousemove', (event) => {
 			if (this.map !== map) {
@@ -821,6 +828,19 @@ export class MaptoolkitTerrainView {
 		const canvas = this.map?.getCanvas();
 		if (canvas) {
 			canvas.style.cursor = on ? 'pointer' : '';
+		}
+	}
+
+	/** Off while a double-click should inspect the point (address, weather, photos) instead of zooming. */
+	setMapDoubleClickZoom(enabled: boolean): void {
+		const map = this.map;
+		if (!map) {
+			return;
+		}
+		if (enabled) {
+			map.doubleClickZoom.enable();
+		} else {
+			map.doubleClickZoom.disable();
 		}
 	}
 
@@ -1941,15 +1961,10 @@ function tracesToGeoJson(traces: ReliefTrace[]): ReliefFeatureCollection {
 }
 
 /**
- * Visible glide after the pointer is released, not a long fling.
- * A fast release coasts about 150 px. maxSpeed 0 would kill the coast.
+ * No coast after release. maxSpeed 0 stops the glide.
  * linearity must stay non-zero or the inertia math becomes NaN.
  */
-const RELIEF_DRAG_PAN = { linearity: 0.3, maxSpeed: 380, deceleration: 1600 };
-const TOUCH_COAST_WINDOW_MS = 220;
-const TOUCH_COAST_MAX_PX = 150;
-const TOUCH_COAST_MIN_PX = 12;
-const TOUCH_COAST_DECEL = 1400;
+const RELIEF_DRAG_PAN = { linearity: 0.3, maxSpeed: 0, deceleration: 1600 };
 const PINCH_ZOOM_GAIN = 2.4;
 const TAP_DRAG_PX_PER_LEVEL = 78;
 
@@ -1988,53 +2003,6 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 	let finger: { x: number; y: number; lastX: number; lastY: number; moved: number } | null = null;
 	let lastTap = { t: 0, x: 0, y: 0 };
 	let dragPanOff = false;
-	const coastSamples: { x: number; y: number; t: number }[] = [];
-
-	const noteCoast = (x: number, y: number): void => {
-		const now = performance.now();
-		coastSamples.push({ x, y, t: now });
-		const cutoff = now - TOUCH_COAST_WINDOW_MS;
-		while (coastSamples.length > 2 && coastSamples[0].t < cutoff) {
-			coastSamples.shift();
-		}
-	};
-
-	const coastAfterFinger = (): void => {
-		if (coastSamples.length < 2) {
-			coastSamples.length = 0;
-			return;
-		}
-		const first = coastSamples[0];
-		const last = coastSamples[coastSamples.length - 1];
-		coastSamples.length = 0;
-		const dt = (last.t - first.t) / 1000;
-		if (dt < 0.02) {
-			return;
-		}
-		const dx = -(last.x - first.x);
-		const dy = -(last.y - first.y);
-		const dist = Math.hypot(dx, dy);
-		if (dist < 6) {
-			return;
-		}
-		const speed = dist / dt;
-		const duration = Math.min(0.6, speed / TOUCH_COAST_DECEL);
-		let coast = (speed * duration) / 2;
-		if (coast < TOUCH_COAST_MIN_PX) {
-			return;
-		}
-		if (coast > TOUCH_COAST_MAX_PX) {
-			coast = TOUCH_COAST_MAX_PX;
-		}
-		const scale = coast / dist;
-		const offset: [number, number] = [dx * scale, dy * scale];
-		requestAnimationFrame(() => {
-			map.panBy(offset, {
-				duration: duration * 1000,
-				easing: (t) => 1 - (1 - t) * (1 - t)
-			});
-		});
-	};
 
 	const enableDragPan = (): void => {
 		if (!dragPanOff) {
@@ -2095,7 +2063,6 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 		hooks.setGesturing(true);
 		if (event.touches.length >= 2) {
 			tapZoom = null;
-			coastSamples.length = 0;
 			disableDragPan();
 			const a = event.touches[0];
 			const b = event.touches[1];
@@ -2127,9 +2094,7 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 			event.preventDefault();
 			return;
 		}
-		coastSamples.length = 0;
 		finger = { x: touch.clientX, y: touch.clientY, lastX: touch.clientX, lastY: touch.clientY, moved: 0 };
-		noteCoast(touch.clientX, touch.clientY);
 		disableDragPan();
 	};
 
@@ -2187,7 +2152,6 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 			}
 			event.preventDefault();
 			event.stopPropagation();
-			noteCoast(touch.clientX, touch.clientY);
 			map.panBy([-dx, -dy], { animate: false, freezeElevation: true });
 		}
 	};
@@ -2198,7 +2162,6 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 		}
 		if (event.touches.length === 1) {
 			pinch = null;
-			coastSamples.length = 0;
 			const touch = event.touches[0];
 			finger = {
 				x: touch.clientX,
@@ -2210,7 +2173,6 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 			tapZoom = null;
 			return;
 		}
-		const coast = !!(finger && finger.moved >= 16 && !tapZoom);
 		if (tapZoom && tapZoom.moved < 16) {
 			frame(clampZoom(tapZoom.zoom + 1.2), map.getBearing(), map.getPitch(), tapZoom.x, tapZoom.y);
 		} else if (finger && finger.moved < 16) {
@@ -2221,11 +2183,6 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 		finger = null;
 		enableDragPan();
 		hooks.setGesturing(false);
-		if (coast) {
-			coastAfterFinger();
-		} else {
-			coastSamples.length = 0;
-		}
 	};
 
 	const blockGesture = (event: Event): void => {

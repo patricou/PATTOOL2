@@ -1,5 +1,6 @@
 package com.pat.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,6 +50,19 @@ class WikiProxyServiceTest {
         assertEquals("col du Sac", WikiProxyService.corePlaceName("Route Sylvo-Pastorale du col du Sac"));
         assertEquals("Tour Eiffel", WikiProxyService.corePlaceName("Tour Eiffel"));
         assertEquals("Vierge", WikiProxyService.corePlaceName("Statue de la Vierge"));
+    }
+
+    @Test
+    void panoramaxSphereIsShownAsATurningPhoto() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        assertTrue(WikiProxyService.panoramaxPano(mapper.readTree(
+                "{\"properties\":{\"pers:interior_orientation\":{\"sensor_array_dimensions\":[3168,1584]}}}")));
+        assertTrue(WikiProxyService.panoramaxPano(mapper.readTree(
+                "{\"properties\":{\"pers:interior_orientation\":{\"field_of_view\":360}}}")));
+        assertTrue(WikiProxyService.equirectFrame(3168, 1584));
+        assertFalse(WikiProxyService.panoramaxPano(mapper.readTree(
+                "{\"properties\":{\"pers:interior_orientation\":{\"sensor_array_dimensions\":[4000,3000]}}}")));
+        assertFalse(WikiProxyService.equirectFrame(4000, 3000));
     }
 
     @Test

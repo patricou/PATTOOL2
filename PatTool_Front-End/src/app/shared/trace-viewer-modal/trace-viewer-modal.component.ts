@@ -24,7 +24,6 @@ import {
 	LeafletMapWheelZoomHandle
 } from '../leaflet-map-wheel-zoom';
 import { attachLeafletCtrlDragRotate, LeafletCtrlDragRotateHandle } from '../leaflet-ctrl-drag-rotate';
-import { attachLeafletPanInertia, LeafletPanInertiaHandle } from '../leaflet-pan-inertia';
 import { isValidGeoCoordinate } from '../geo-coordinates.util';
 import { requestMotionPermissionIfNeeded } from '../device-motion-permission.util';
 import { GpsOfflineMapProgress, GpsOfflineMapService } from '../../services/gps-offline-map.service';
@@ -35,6 +34,7 @@ import { cachedBasemapTileUrl, createOfflineBasemapLayer } from '../leaflet-cach
 import { createVectorBasemapLayer, maptoolkitStyleForBasemap, vectorStyleForBasemap, applyGlLayerOpacity, FlatMaptoolkitBlend } from '../maptoolkit-basemap.layer';
 import { MaptoolkitTerrainView, ReliefAttraction, ReliefPlaceMark, ReliefTrace, ReliefTrailOverlays, leafletZoomToMaplibre, maplibreZoomToLeaflet } from '../maptoolkit-terrain-view';
 import { EquirectView } from '../equirect-view';
+import { applyMultiplicativeWheelScale, normalizeWheelDeltaPixels, wheelScaleFactor } from '../wheel-zoom.util';
 import { findSkinnedPageHost, paintModalFromHost } from '../host-skin';
 import { isBrowserOffline } from '../browser-offline.util';
 import { mapBearingFromDeviceOrientation } from '../../direction/direction-attitude';
@@ -82,7 +82,9 @@ export interface ActivityPhotoMarker {
 	lng?: number;
 	/** Adresse ou « lat, lng » si les coordonnées ne sont pas encore connues. */
 	locationText?: string;
-	fileId: string;
+	fileId?: string;
+	/** URL déjà chargée (photo disque du diaporama). Non révoquée par le viewer. */
+	imageUrl?: string;
 	fileName?: string;
 	label?: string;
 }
@@ -126,6 +128,33 @@ export function mainActivityPhoto(
 		fileId,
 		fileName: image?.fileName,
 		label: event.evenementName
+	};
+}
+
+/** Photo affichée dans le diaporama, placée à ses coordonnées GPS. */
+export function slideshowPhotoMarker(event: {
+	lat: number;
+	lng: number;
+	label?: string;
+	photoFileId?: string;
+	photoFileName?: string;
+	photoUrl?: string;
+}): ActivityPhotoMarker | null {
+	if (!isValidGeoCoordinate(event.lat, event.lng)) {
+		return null;
+	}
+	const fileId = event.photoFileId?.trim() || '';
+	const imageUrl = event.photoUrl?.trim() || '';
+	if (!fileId && !imageUrl) {
+		return null;
+	}
+	return {
+		lat: event.lat,
+		lng: event.lng,
+		fileId: fileId || undefined,
+		imageUrl: fileId ? undefined : imageUrl,
+		fileName: event.photoFileName?.trim() || event.label,
+		label: event.label
 	};
 }
 
@@ -343,6 +372,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public showSlopesOverlay = false;
 	/** Monuments, musées, points de vue et aéroports de la zone affichée. */
 	public showPlacesOverlay = false;
+	/** Double-click opens the same photo search as a place, around the clicked point. */
+	public showMapPhotos = false;
+	/** Radius used only by the photo switch. Places keep the wider server radius. */
+	private readonly mapPhotoRadiusM = 75;
 	/** Lieux actuellement dessinés, triés pour la liste du bouton à côté de 2D. */
 	public visiblePlaces: ReliefPlaceMark[] = [];
 	public placesListOpen = false;
@@ -510,6 +543,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private activityPhoto: ActivityPhotoMarker | null = null;
 	private activityPhotoMarker?: L.Marker;
 	private activityPhotoUrl: string | null = null;
+	/** Vrai seulement pour une URL blob créée ici. L’URL du diaporama ne doit pas être révoquée. */
+	private activityPhotoUrlOwned = false;
 	private activityPhotoLoadGen = 0;
 	private activityPhotoFramed = false;
 	private pendingPositions: Array<{ lat: number; lng: number; type?: string; datetime?: Date; label?: string }> | null = null;
@@ -575,6 +610,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Image URL whose 360° viewer failed, so the flat thumbnail is shown instead. */
 	public panoBrokenUrl = '';
 	public poiPhotoFullscreen = false;
+	/** 1 = photo entière. Au-delà, la molette et le glisser agrandissent l’image. */
+	public poiPhotoZoom = 1;
+	public poiPhotoPanX = 0;
+	public poiPhotoPanY = 0;
+	public poiPhotoPanning = false;
+	private poiPhotoDragMoved = 0;
+	private readonly poiPhotoPointers = new Map<number, { x: number; y: number }>();
+	private poiPhotoPinchDist = 0;
+	private poiPhotoPinchZoom = 1;
+	private static readonly POI_PHOTO_ZOOM_MIN = 1;
+	private static readonly POI_PHOTO_ZOOM_MAX = 8;
 	private reliefPoiPhotoRequest = 0;
 	private poiPhotoCancel$ = new Subject<void>();
 	private poiPhotoPending = new Set<string>();
@@ -714,7 +760,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Molette carte : même zoom fluide que GPS (tuiles + tracé ensemble). */
 	private mapWheelZoom: LeafletMapWheelZoomHandle | null = null;
 	private mapCtrlRotate: LeafletCtrlDragRotateHandle | null = null;
-	private mapPanInertia: LeafletPanInertiaHandle | null = null;
 	/** Cap choisi à la souris. Tant qu’il est défini, Nord / Marche ne le réécrivent pas. */
 	private manualMapBearing: number | null = null;
 	private mapCtrlRotateActive = false;
@@ -938,6 +983,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (pref.showPlacesOverlay != null) {
 			this.showPlacesOverlay = pref.showPlacesOverlay;
 		}
+		if (pref.showMapPhotos != null) {
+			this.showMapPhotos = pref.showMapPhotos;
+		}
 		if (pref.followDeviceLocation != null) {
 			this.followDeviceLocationPref = pref.followDeviceLocation;
 			if (!this.keepOpenedPlace) {
@@ -983,6 +1031,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			showRailwayOverlay: this.showRailwayOverlay,
 			showSlopesOverlay: this.showSlopesOverlay,
 			showPlacesOverlay: this.showPlacesOverlay,
+			showMapPhotos: this.showMapPhotos,
 			followDeviceLocation: this.keepOpenedPlace ? this.followDeviceLocationPref : this.followDeviceLocation,
 			keepScreenAwake: this.keepScreenAwake,
 			showGpsCoordinates: this.showGpsCoordinates,
@@ -1016,6 +1065,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.applyWeatherStationsOverlay();
 		this.applyTrailOverlays();
 		this.schedulePlaces();
+		this.syncReliefDoubleClickZoom();
 		if (this.followDeviceLocation && !this.keepOpenedPlace) {
 			this.startFollowDeviceLocation();
 		}
@@ -1535,6 +1585,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 			if (this.poiPhotoFullscreen) {
 				wheelEvent.preventDefault();
 				wheelEvent.stopPropagation();
+				const stage = this.poiPhotoStageRef?.nativeElement;
+				const rect = stage?.getBoundingClientRect();
+				const overPhoto = !!rect && TraceViewerModalComponent.isPointInClientRect(
+					wheelEvent.clientX,
+					wheelEvent.clientY,
+					rect
+				);
+				if (overPhoto) {
+					this.ngZone.run(() => this.onPoiPhotoWheel(wheelEvent));
+				}
 				return;
 			}
 			const wheelTarget = wheelEvent.target instanceof Element ? wheelEvent.target : null;
@@ -2702,7 +2762,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.pendingPositions = null;
 			this.trackStats = null;
 		}
-		this.activityPhoto = source.activityPhoto?.fileId ? { ...source.activityPhoto } : null;
+		const photo = source.activityPhoto;
+		this.activityPhoto = photo && (photo.fileId || photo.imageUrl) ? { ...photo } : null;
 		this.activityPhotoFramed = false;
 		this.resolveActivityPhotoPosition();
 
@@ -3028,9 +3089,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	/**
-	 * Leaflet registers touchstart as { passive: false } on control bars via DomEvent.disableClickPropagation —
-	 * only stopPropagation matters, not preventDefault, so passive: true removes the Chrome warning.
-	 * We do not alter map drag/pinch ; molette = handler custom type slideshow (1 RAF / frame).
+	 * Leaflet registers every touchstart as { passive: false }. On this map, preventDefault
+	 * happens on touchmove (drag and pinch), and .leaflet-touch-drag.leaflet-touch-zoom
+	 * already sets touch-action: none, so the touchstart listeners can be passive.
+	 * touchmove and wheel stay as Leaflet registered them.
 	 */
 	private holdLeafletControlPassiveTouchPatch(container: HTMLElement): void {
 		if (this.leafletMapPassivePatchContainer === container) {
@@ -3076,16 +3138,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 			options?: boolean | AddEventListenerOptions
 		) {
 			const el = this as HTMLElement;
-			let usePassiveTouchOnControl = false;
-			if (type === 'touchstart' && el.closest('.leaflet-control')) {
+			let usePassiveTouch = false;
+			if (type === 'touchstart') {
 				for (const root of TraceViewerModalComponent.leafletPassiveTouchRoots) {
 					if (root.contains(el)) {
-						usePassiveTouchOnControl = true;
+						usePassiveTouch = true;
 						break;
 					}
 				}
 			}
-			if (usePassiveTouchOnControl) {
+			if (usePassiveTouch) {
 				let opts: boolean | AddEventListenerOptions;
 				if (typeof options === 'object' && options !== null) {
 					opts = {
@@ -3195,7 +3257,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 				// Keep a consistent max zoom across basemaps; basemaps handle over-zoom via maxNativeZoom.
 				maxZoom: 20,
 				doubleClickZoom: false,
-				// Inertie Leaflet (~50 ms) quasi invisible à la souris ; courte glissade custom.
 				inertia: false,
 				rotate: true,
 				bearing: 0,
@@ -3212,7 +3273,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		this.registerTraceMapWheelZoom();
 		this.registerTraceMapCtrlRotate();
-		this.registerTraceMapPanInertia();
 		this.setupMapLayoutObserver((container.closest('.map-wrapper') ?? container) as HTMLElement);
 
 		// Force crosshair cursor on map container
@@ -3296,18 +3356,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.scheduleTraceViewerCdr();
 			}
 		});
-	}
-
-	private registerTraceMapPanInertia(): void {
-		if (!this.map || this.mapPanInertia) {
-			return;
-		}
-		this.mapPanInertia = attachLeafletPanInertia(this.map);
-	}
-
-	private unregisterTraceMapPanInertia(): void {
-		this.mapPanInertia?.detach();
-		this.mapPanInertia = null;
 	}
 
 	private unregisterTraceMapWheelZoom(): void {
@@ -4177,10 +4225,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private revokeActivityPhotoUrl(): void {
-		if (this.activityPhotoUrl) {
+		if (this.activityPhotoUrlOwned && this.activityPhotoUrl) {
 			URL.revokeObjectURL(this.activityPhotoUrl);
-			this.activityPhotoUrl = null;
 		}
+		this.activityPhotoUrl = null;
+		this.activityPhotoUrlOwned = false;
 	}
 
 	private activityPhotoLatLng(): { lat: number; lng: number } | null {
@@ -4202,7 +4251,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Adresse de départ → coordonnées, puis chargement de la miniature. */
 	private resolveActivityPhotoPosition(): void {
 		const photo = this.activityPhoto;
-		if (!photo?.fileId) {
+		if (!photo?.fileId && !photo?.imageUrl) {
 			this.activityPhoto = null;
 			return;
 		}
@@ -4247,7 +4296,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private loadActivityPhotoImage(): void {
 		const photo = this.activityPhoto;
-		if (!photo?.fileId) {
+		if (!photo) {
+			return;
+		}
+		if (!photo.fileId) {
+			if (photo.imageUrl) {
+				this.revokeActivityPhotoUrl();
+				this.activityPhotoUrl = photo.imageUrl;
+				this.placeActivityPhotoMarker();
+			}
 			return;
 		}
 		this.placeActivityPhotoMarker();
@@ -4262,6 +4319,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				const blob = new Blob([res], { type: this.imageMimeFromName(fileName) });
 				this.revokeActivityPhotoUrl();
 				this.activityPhotoUrl = URL.createObjectURL(blob);
+				this.activityPhotoUrlOwned = true;
 				this.placeActivityPhotoMarker();
 			},
 			error: () => {
@@ -4474,7 +4532,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private clearPairMarkers(): void {
 		if (this.map && this.pairClickHandler) {
 			this.map.off('dblclick', this.pairClickHandler);
-			this.map.doubleClickZoom.enable();
+			// The map is created with double-click zoom off: a double-click inspects the point.
+			this.map.doubleClickZoom.disable();
 		}
 		this.pairClickHandler = undefined;
 		if (this.pairUserMarker) {
@@ -4943,7 +5002,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.modalWheelTrapAttempts = 0;
 		this.unregisterTraceMapWheelZoom();
 		this.unregisterTraceMapCtrlRotate();
-		this.unregisterTraceMapPanInertia();
 		if (this.map) {
 			this.cleanupRightClickZoom();
 			this.cleanupLocationSelection();
@@ -5769,22 +5827,29 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
-	/** Le pitch arrive parfois pendant le contrôle de vue : on reporte le modèle au tick suivant. */
+	/**
+	 * Le pitch 3D arrive dans le cycle de détection en cours (21 puis 27).
+	 * Hors zone, le setTimeout n’écrit la valeur qu’au tour suivant, comme le zoom du pied de carte.
+	 */
 	private deferReliefPitch(next: number): void {
 		this.pendingReliefPitch = next;
 		if (this.reliefPitchTimer != null) {
 			return;
 		}
-		this.reliefPitchTimer = window.setTimeout(() => {
-			this.reliefPitchTimer = null;
-			const pending = this.pendingReliefPitch;
-			this.pendingReliefPitch = null;
-			if (pending == null || pending === this.reliefPitch) {
-				return;
-			}
-			this.reliefPitch = pending;
-			this.scheduleTraceViewerCdr();
-		}, 0);
+		this.ngZone.runOutsideAngular(() => {
+			this.reliefPitchTimer = window.setTimeout(() => {
+				this.reliefPitchTimer = null;
+				const pending = this.pendingReliefPitch;
+				this.pendingReliefPitch = null;
+				if (pending == null || pending === this.reliefPitch) {
+					return;
+				}
+				this.ngZone.run(() => {
+					this.reliefPitch = pending;
+					this.cdr.markForCheck();
+				});
+			}, 0);
+		});
 	}
 
 	private isMaptoolkitBasemap(id: string): boolean {
@@ -5878,13 +5943,61 @@ export class TraceViewerModalComponent implements OnDestroy {
 			},
 			onPlace: (place) => {
 				this.ngZone.run(() => this.showPlacePhoto(place));
+			},
+			onMapDoubleClick: (lat, lng) => {
+				this.ngZone.run(() => this.onReliefMapDoubleClick(lat, lng));
 			}
 		});
+		this.syncReliefDoubleClickZoom();
 		this.syncRelief3dOverlays();
 		this.syncRelief3dBlend();
 		this.syncReliefTouchLocks();
 		this.currentZoom = Number.isFinite(leafletZoom) ? leafletZoom : this.currentZoom;
 		this.updateCompassRose();
+	}
+
+	public onShowMapPhotosChange(): void {
+		this.syncReliefDoubleClickZoom();
+		if (!this.showMapPhotos) {
+			this.closeReliefPoiPhoto();
+		}
+		this.persistTraceViewerPreferences();
+	}
+
+	/** Address, weather, stations or photos: the 3D double-click inspects the point instead of zooming. */
+	private reliefDoubleClickInspects(): boolean {
+		return this.showAddress || this.showWeather || this.showWeatherStations || this.showMapPhotos;
+	}
+
+	private syncReliefDoubleClickZoom(): void {
+		this.terrainView?.setMapDoubleClickZoom(!this.reliefDoubleClickInspects());
+	}
+
+	/** Same point actions as the flat map. The relief canvas sits above Leaflet, so it must do this itself. */
+	private onReliefMapDoubleClick(lat: number, lng: number): void {
+		if (this.selectionMode || !this.reliefDoubleClickInspects()) {
+			return;
+		}
+		if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+			return;
+		}
+		this.createClickMarker(lat, lng);
+		this.updateSwitchesForPoint(lat, lng);
+		this.showPhotosAroundPoint(lat, lng);
+	}
+
+	/** Same photo panel as a place, centered on a double-clicked map point. */
+	private showPhotosAroundPoint(lat: number, lng: number): void {
+		if (!this.showMapPhotos || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+			return;
+		}
+		const title = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+		this.ngZone.run(() => this.requestPoiPhoto(title, {
+			name: title,
+			lat,
+			lng,
+			radiusM: this.mapPhotoRadiusM
+		}));
 	}
 
 	/** Camera icon on the 3D map: show the Wikimedia photo when the place has one. */
@@ -6050,7 +6163,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private requestPoiPhoto(
 		title: string,
-		query: { id?: string; name?: string; nameEn?: string; lat?: number; lng?: number; wikipedia?: string; commons?: string; image?: string },
+		query: { id?: string; name?: string; nameEn?: string; lat?: number; lng?: number; wikipedia?: string; commons?: string; image?: string; radiusM?: number },
 		source?: string
 	): void {
 		this.poiPhotoCancel$.next();
@@ -6154,6 +6267,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private syncShownPoiPhoto(): void {
+		const previousUrl = this.reliefPoiPhoto?.imageUrl ?? '';
 		const pending = this.poiPhotoPending.size > 0;
 		if (!this.poiGallery.length) {
 			this.reliefPoiPhoto = {
@@ -6173,6 +6287,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.poiGalleryIndex = this.poiGallery.length - 1;
 		}
 		const current = this.poiGallery[this.poiGalleryIndex];
+		if (current.imageUrl !== previousUrl) {
+			this.resetPoiPhotoZoom();
+		}
 		this.reliefPoiPhoto = { ...current, loading: false };
 		this.syncEquirectImage();
 		this.cdr.markForCheck();
@@ -6231,6 +6348,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.panoImageUrl = url;
 			this.panoYaw = 0;
 			this.panoPitch = 0;
+			this.cardEquirect?.setFov(80);
+			this.fullEquirect?.setFov(80);
 		}
 		for (const view of [this.cardEquirect, this.fullEquirect]) {
 			if (!view || !url) {
@@ -6280,6 +6399,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!this.reliefPoiPhoto?.imageUrl) {
 			return;
 		}
+		if (this.panoBrokenUrl === this.reliefPoiPhoto.imageUrl) {
+			this.panoBrokenUrl = '';
+		}
 		this.poiPhotoFullscreen = true;
 		this.cdr.markForCheck();
 	}
@@ -6302,9 +6424,244 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.openPoiPhotoMapCover();
 	}
 
+	public poiPhotoImageTransform(): string {
+		return `translate(${this.poiPhotoPanX}px, ${this.poiPhotoPanY}px) scale(${this.poiPhotoZoom})`;
+	}
+
+	/** Molette sur la photo agrandie : zoom vers le curseur. Un 360° resserre le champ. */
+	public onPoiPhotoWheel(event: WheelEvent): void {
+		if (this.poiPanoActive()) {
+			const factor = wheelScaleFactor(normalizeWheelDeltaPixels(event));
+			this.setPoiPanoFov(this.currentPanoFov() / (factor || 1));
+			return;
+		}
+		const view = this.poiPhotoViewEl();
+		if (!view) {
+			return;
+		}
+		const oldZoom = this.poiPhotoZoom;
+		const next = applyMultiplicativeWheelScale(
+			oldZoom,
+			normalizeWheelDeltaPixels(event),
+			TraceViewerModalComponent.POI_PHOTO_ZOOM_MIN,
+			TraceViewerModalComponent.POI_PHOTO_ZOOM_MAX
+		);
+		this.applyPoiPhotoZoom(view, next, event.clientX, event.clientY, oldZoom);
+	}
+
+	public zoomPoiPhotoBy(factor: number): void {
+		if (this.poiPanoActive()) {
+			this.setPoiPanoFov(this.currentPanoFov() / factor);
+			return;
+		}
+		const view = this.poiPhotoViewEl();
+		const oldZoom = this.poiPhotoZoom;
+		const next = this.clampPoiPhotoZoom(oldZoom * factor);
+		if (!view) {
+			this.poiPhotoZoom = next <= 1.001 ? 1 : next;
+			if (this.poiPhotoZoom === 1) {
+				this.poiPhotoPanX = 0;
+				this.poiPhotoPanY = 0;
+			}
+			this.cdr.markForCheck();
+			return;
+		}
+		const rect = view.getBoundingClientRect();
+		this.applyPoiPhotoZoom(view, next, rect.left + rect.width / 2, rect.top + rect.height / 2, oldZoom);
+	}
+
+	public onPoiPhotoDoubleClick(event: MouseEvent): void {
+		event.preventDefault();
+		event.stopPropagation();
+		if (this.poiPanoActive()) {
+			this.setPoiPanoFov(this.currentPanoFov() < 78 ? 80 : 42);
+			return;
+		}
+		const view = event.currentTarget as HTMLElement;
+		if (this.poiPhotoZoom > 1.05) {
+			this.resetPoiPhotoZoom();
+			this.cdr.markForCheck();
+			return;
+		}
+		this.applyPoiPhotoZoom(view, 2.5, event.clientX, event.clientY, 1);
+	}
+
+	public onPoiPhotoPointerDown(event: PointerEvent): void {
+		if (event.pointerType === 'mouse' && event.button !== 0) {
+			return;
+		}
+		const view = event.currentTarget as HTMLElement;
+		view.setPointerCapture?.(event.pointerId);
+		this.poiPhotoPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+		if (this.poiPhotoPointers.size >= 2) {
+			this.poiPhotoPanning = false;
+			this.rememberPoiPhotoPinch();
+		} else if (this.poiPhotoZoom > 1) {
+			this.poiPhotoPanning = true;
+			this.poiPhotoDragMoved = 0;
+		}
+		if (this.poiPhotoPointers.size >= 2 || this.poiPhotoZoom > 1) {
+			event.preventDefault();
+		}
+		event.stopPropagation();
+	}
+
+	public onPoiPhotoPointerMove(event: PointerEvent): void {
+		const previous = this.poiPhotoPointers.get(event.pointerId);
+		if (!previous) {
+			return;
+		}
+		const point = { x: event.clientX, y: event.clientY };
+		this.poiPhotoPointers.set(event.pointerId, point);
+		const view = event.currentTarget as HTMLElement;
+		if (this.poiPhotoPointers.size >= 2) {
+			this.applyPoiPhotoPinch(view);
+			event.preventDefault();
+			return;
+		}
+		if (!this.poiPhotoPanning) {
+			return;
+		}
+		const dx = point.x - previous.x;
+		const dy = point.y - previous.y;
+		this.poiPhotoDragMoved += Math.abs(dx) + Math.abs(dy);
+		this.poiPhotoPanX += dx;
+		this.poiPhotoPanY += dy;
+		this.clampPoiPhotoPan(view);
+		this.cdr.markForCheck();
+		event.preventDefault();
+	}
+
+	public onPoiPhotoPointerUp(event: PointerEvent): void {
+		this.poiPhotoPointers.delete(event.pointerId);
+		if (this.poiPhotoPointers.size >= 2) {
+			this.rememberPoiPhotoPinch();
+		} else {
+			this.poiPhotoPinchDist = 0;
+		}
+		if (this.poiPhotoPointers.size === 0) {
+			this.poiPhotoPanning = false;
+		}
+		this.cdr.markForCheck();
+	}
+
+	private applyPoiPhotoZoom(view: HTMLElement, next: number, clientX: number, clientY: number, oldZoom: number): void {
+		if (next <= TraceViewerModalComponent.POI_PHOTO_ZOOM_MIN + 0.001) {
+			this.resetPoiPhotoZoom();
+			this.cdr.markForCheck();
+			return;
+		}
+		const rect = view.getBoundingClientRect();
+		const px = clientX - rect.left - rect.width / 2;
+		const py = clientY - rect.top - rect.height / 2;
+		const safeOld = oldZoom > 0 ? oldZoom : 1;
+		const imageX = (px - this.poiPhotoPanX) / safeOld;
+		const imageY = (py - this.poiPhotoPanY) / safeOld;
+		this.poiPhotoZoom = next;
+		this.poiPhotoPanX = px - imageX * next;
+		this.poiPhotoPanY = py - imageY * next;
+		this.clampPoiPhotoPan(view);
+		this.cdr.markForCheck();
+	}
+
+	private applyPoiPhotoPinch(view: HTMLElement): void {
+		const points = [...this.poiPhotoPointers.values()];
+		if (points.length < 2 || this.poiPhotoPinchDist < 1) {
+			return;
+		}
+		const dist = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+		const next = this.clampPoiPhotoZoom(this.poiPhotoPinchZoom * (dist / this.poiPhotoPinchDist));
+		const midX = (points[0].x + points[1].x) / 2;
+		const midY = (points[0].y + points[1].y) / 2;
+		this.applyPoiPhotoZoom(view, next, midX, midY, this.poiPhotoZoom);
+	}
+
+	private rememberPoiPhotoPinch(): void {
+		const points = [...this.poiPhotoPointers.values()];
+		if (points.length < 2) {
+			return;
+		}
+		this.poiPhotoPinchDist = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y) || 1;
+		this.poiPhotoPinchZoom = this.poiPhotoZoom;
+	}
+
+	private clampPoiPhotoZoom(value: number): number {
+		return Math.min(
+			TraceViewerModalComponent.POI_PHOTO_ZOOM_MAX,
+			Math.max(TraceViewerModalComponent.POI_PHOTO_ZOOM_MIN, value)
+		);
+	}
+
+	private clampPoiPhotoPan(view: HTMLElement): void {
+		const img = view.querySelector('img');
+		if (!img || this.poiPhotoZoom <= 1) {
+			this.poiPhotoPanX = 0;
+			this.poiPhotoPanY = 0;
+			return;
+		}
+		const viewRect = view.getBoundingClientRect();
+		const maxX = Math.max(0, (img.offsetWidth * this.poiPhotoZoom - viewRect.width) / 2);
+		const maxY = Math.max(0, (img.offsetHeight * this.poiPhotoZoom - viewRect.height) / 2);
+		this.poiPhotoPanX = Math.max(-maxX, Math.min(maxX, this.poiPhotoPanX));
+		this.poiPhotoPanY = Math.max(-maxY, Math.min(maxY, this.poiPhotoPanY));
+	}
+
+	private poiPhotoViewEl(): HTMLElement | null {
+		return this.poiPhotoStageRef?.nativeElement.querySelector('.tv-poi-photo-full-view') ?? null;
+	}
+
+	private poiPanoActive(): boolean {
+		const photo = this.reliefPoiPhoto;
+		return !!photo?.pano && !!photo.imageUrl && this.panoBrokenUrl !== photo.imageUrl;
+	}
+
+	private currentPanoFov(): number {
+		return this.fullEquirect?.fovDeg ?? this.cardEquirect?.fovDeg ?? 80;
+	}
+
+	private setPoiPanoFov(fov: number): void {
+		const next = Math.max(18, Math.min(110, fov));
+		this.cardEquirect?.setFov(next);
+		this.fullEquirect?.setFov(next);
+		this.cdr.markForCheck();
+	}
+
+	private resetPoiPhotoZoom(): void {
+		this.poiPhotoZoom = 1;
+		this.poiPhotoPanX = 0;
+		this.poiPhotoPanY = 0;
+		this.poiPhotoPanning = false;
+		this.poiPhotoDragMoved = 0;
+		this.poiPhotoPinchDist = 0;
+		this.cardEquirect?.setFov(80);
+		this.fullEquirect?.setFov(80);
+	}
+
+	public onPoiPhotoViewClick(event: MouseEvent): void {
+		if (this.poiPhotoDragMoved > 5) {
+			this.poiPhotoDragMoved = 0;
+			event.preventDefault();
+			event.stopPropagation();
+			return;
+		}
+		if (this.poiPhotoZoom > 1) {
+			event.stopPropagation();
+			return;
+		}
+		const img = (event.currentTarget as HTMLElement).querySelector('img');
+		const rect = img?.getBoundingClientRect();
+		const onImage = !!rect
+			&& event.clientX >= rect.left && event.clientX <= rect.right
+			&& event.clientY >= rect.top && event.clientY <= rect.bottom;
+		if (onImage) {
+			event.stopPropagation();
+		}
+	}
+
 	public closePoiPhotoFullscreen(): void {
 		const stage = this.poiPhotoStageRef?.nativeElement;
 		this.poiPhotoFullscreen = false;
+		this.resetPoiPhotoZoom();
 		if (stage && document.fullscreenElement === stage) {
 			void document.exitFullscreen().catch(() => undefined);
 		}
@@ -7751,6 +8108,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.clearStationSelection();
 		}
 		this.applyWeatherStationsOverlay();
+		this.syncReliefDoubleClickZoom();
 		this.cdr.detectChanges();
 		this.persistTraceViewerPreferences();
 	}
@@ -9964,6 +10322,36 @@ export class TraceViewerModalComponent implements OnDestroy {
 			if (!this.modalRef) {
 				return;
 			}
+			// Galerie de lieu ouverte : gauche/droite passent à la photo, même si le focus
+			// est resté sur la carte, un select de fond, ou le curseur 3D.
+			const photoDelta = this.poiPhotoArrowDelta(event);
+			if (
+				photoDelta !== 0 &&
+				this.poiGallery.length > 1 &&
+				!!this.reliefPoiPhoto?.imageUrl &&
+				!this.keyTargetIsTextEntry(event.target)
+			) {
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation?.();
+				this.ngZone.run(() => this.stepPoiPhoto(photoDelta));
+				return;
+			}
+			if (
+				this.poiPhotoFullscreen &&
+				!event.altKey && !event.ctrlKey && !event.metaKey &&
+				!this.keyTargetIsTextEntry(event.target)
+			) {
+				const zoomIn = event.key === '+' || event.key === '=' || event.code === 'NumpadAdd';
+				const zoomOut = event.key === '-' || event.key === '_' || event.code === 'NumpadSubtract';
+				if (zoomIn || zoomOut) {
+					event.preventDefault();
+					event.stopPropagation();
+					event.stopImmediatePropagation?.();
+					this.ngZone.run(() => this.zoomPoiPhotoBy(zoomIn ? 1.35 : 1 / 1.35));
+					return;
+				}
+			}
 			if (this.placesListOpen && this.visiblePlaces.length && !this.traceViewerShortcutBlocked(event)) {
 				const arrow = event.key;
 				if (arrow === 'ArrowDown' || arrow === 'ArrowUp' || arrow === 'ArrowRight' || arrow === 'ArrowLeft') {
@@ -9980,15 +10368,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 						event.stopPropagation();
 						this.ngZone.run(() => this.focusVisiblePlace(mark));
 					}
-					return;
-				}
-			}
-			if (this.poiGallery.length > 1 && this.reliefPoiPhoto?.imageUrl && !this.traceViewerShortcutBlocked(event)) {
-				if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-					event.preventDefault();
-					event.stopPropagation();
-					const delta = event.key === 'ArrowRight' ? 1 : -1;
-					this.ngZone.run(() => this.stepPoiPhoto(delta));
 					return;
 				}
 			}
@@ -10012,11 +10391,44 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 		};
 
+		// Capture sur window : avant le diaporama (document) et avant le clavier Leaflet / MapLibre.
+		const view = this.document.defaultView;
+		view?.addEventListener('keydown', this.escapeKeydownListener, true);
 		this.document.addEventListener('keydown', this.escapeKeydownListener, true);
+	}
+
+	/** Gauche = photo précédente, droite = suivante. 0 si ce n’est pas une flèche. */
+	private poiPhotoArrowDelta(event: KeyboardEvent): 1 | -1 | 0 {
+		if (event.altKey || event.ctrlKey || event.metaKey) {
+			return 0;
+		}
+		if (event.key === 'ArrowRight' || event.code === 'ArrowRight') {
+			return 1;
+		}
+		if (event.key === 'ArrowLeft' || event.code === 'ArrowLeft') {
+			return -1;
+		}
+		return 0;
+	}
+
+	/** Champ de saisie : les flèches déplacent le curseur, pas la galerie. */
+	private keyTargetIsTextEntry(target: EventTarget | null): boolean {
+		if (!(target instanceof HTMLElement)) {
+			return false;
+		}
+		if (target.isContentEditable || target.tagName === 'TEXTAREA') {
+			return true;
+		}
+		if (!(target instanceof HTMLInputElement)) {
+			return false;
+		}
+		const type = (target.type || 'text').toLowerCase();
+		return !['button', 'checkbox', 'radio', 'range', 'file', 'color', 'submit', 'reset', 'hidden'].includes(type);
 	}
 
 	private removeEscapeKeydownListener(): void {
 		if (this.escapeKeydownListener) {
+			this.document.defaultView?.removeEventListener('keydown', this.escapeKeydownListener, true);
 			this.document.removeEventListener('keydown', this.escapeKeydownListener, true);
 			this.escapeKeydownListener = undefined;
 		}
@@ -10393,6 +10805,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			const lng = e.latlng.lng;
 			this.createClickMarker(lat, lng);
 			this.updateSwitchesForPoint(lat, lng);
+			this.showPhotosAroundPoint(lat, lng);
 		};
 
 		this.map.on('dblclick', this.mapClickHandler);
@@ -10472,6 +10885,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 		}
 		// Handler is always registered, no need to clean up
+		this.syncReliefDoubleClickZoom();
 		this.persistTraceViewerPreferences();
 	}
 
@@ -10535,6 +10949,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.clearWeatherPointComparison();
 			this.weatherOverlayDismissed = false;
 		}
+		this.syncReliefDoubleClickZoom();
 		this.persistTraceViewerPreferences();
 	}
 

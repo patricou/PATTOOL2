@@ -173,6 +173,20 @@
                   [attr.aria-label]="'EVENTELEM.POI_PHOTO_CLOSE' | translate">
             <i class="fa fa-times" aria-hidden="true"></i>
           </button>
+          <div class="tv-poi-photo-zoom" (click)="$event.stopPropagation()">
+            <button type="button"
+                    (click)="zoomPoiPhotoBy(1.35)"
+                    [attr.aria-label]="'EVENTELEM.ZOOM_IN' | translate"
+                    [attr.title]="'EVENTELEM.ZOOM_IN' | translate">
+              <i class="fa fa-search-plus" aria-hidden="true"></i>
+            </button>
+            <button type="button"
+                    (click)="zoomPoiPhotoBy(1 / 1.35)"
+                    [attr.aria-label]="'EVENTELEM.ZOOM_OUT' | translate"
+                    [attr.title]="'EVENTELEM.ZOOM_OUT' | translate">
+              <i class="fa fa-search-minus" aria-hidden="true"></i>
+            </button>
+          </div>
           <button type="button"
                   class="tv-poi-photo-full-nav tv-poi-photo-full-nav--prev"
                   *ngIf="poiGallery.length > 1"
@@ -180,15 +194,27 @@
                   [attr.aria-label]="'EVENTELEM.POI_PHOTO_PREV' | translate">
             <i class="fa fa-chevron-left" aria-hidden="true"></i>
           </button>
-          <img *ngIf="!reliefPoiPhoto?.pano || panoBrokenUrl === reliefPoiPhoto?.imageUrl"
-               [src]="reliefPoiPhoto?.imageUrl"
-               [alt]="reliefPoiPhoto?.title"
-               (click)="$event.stopPropagation()"
-               (error)="reliefPoiPhotoFailed()" />
+          <div class="tv-poi-photo-full-view"
+               *ngIf="!reliefPoiPhoto?.pano || panoBrokenUrl === reliefPoiPhoto?.imageUrl"
+               [class.is-zoomed]="poiPhotoZoom > 1"
+               [class.is-panning]="poiPhotoPanning"
+               (click)="onPoiPhotoViewClick($event)"
+               (dblclick)="onPoiPhotoDoubleClick($event)"
+               (pointerdown)="onPoiPhotoPointerDown($event)"
+               (pointermove)="onPoiPhotoPointerMove($event)"
+               (pointerup)="onPoiPhotoPointerUp($event)"
+               (pointercancel)="onPoiPhotoPointerUp($event)">
+            <img [src]="reliefPoiPhoto?.imageUrl"
+                 [alt]="reliefPoiPhoto?.title"
+                 draggable="false"
+                 [style.transform]="poiPhotoImageTransform()"
+                 (error)="reliefPoiPhotoFailed()" />
+          </div>
           <canvas #poiPanoFull
                   class="tv-poi-photo-pano"
                   *ngIf="poiPhotoFullscreen && reliefPoiPhoto?.pano && panoBrokenUrl !== reliefPoiPhoto?.imageUrl"
                   (click)="$event.stopPropagation()"
+                  (dblclick)="$event.stopPropagation(); onPoiPhotoDoubleClick($event)"
                   [attr.aria-label]="'EVENTELEM.POI_PHOTO_LOOK' | translate"
                   [attr.title]="'EVENTELEM.POI_PHOTO_LOOK' | translate"></canvas>
           <button type="button"
@@ -200,6 +226,7 @@
           </button>
           <div class="tv-poi-photo-full-caption" (click)="$event.stopPropagation()">
             <span>{{ reliefPoiPhoto?.title }}</span>
+            <span *ngIf="poiGallery.length > 1">{{ poiGalleryIndex + 1 }}/{{ poiGallery.length }}</span>
             <span *ngIf="reliefPoiPhoto?.source as photoSource">{{ poiPhotoSourceKey(photoSource) | translate }}</span>
             <a *ngIf="reliefPoiPhoto?.pageUrl"
                [href]="reliefPoiPhoto?.pageUrl"
@@ -786,6 +813,14 @@
             </label>
           </div>
           <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" id="show-map-photos-fullscreen"
+                   [(ngModel)]="showMapPhotos"
+                   (ngModelChange)="onShowMapPhotosChange()">
+            <label class="form-check-label gps-switch-label" for="show-map-photos-fullscreen" [title]="'EVENTELEM.TRACK_FOOTER_PHOTOS_HINT' | translate">
+              <i class="fa fa-camera"></i> <span class="tv-fs-label-full">{{ 'EVENTELEM.TRACK_FOOTER_PHOTOS_LABEL' | translate }}</span><span class="tv-fs-label-short">{{ 'EVENTELEM.TRACK_FOOTER_PHOTOS_SHORT' | translate }}</span>
+            </label>
+          </div>
+          <div class="form-check form-switch mt-2">
             <input class="form-check-input" type="checkbox" id="show-places-overlay-fullscreen"
                    [(ngModel)]="showPlacesOverlay"
                    (ngModelChange)="onPlacesOverlayChange()">
@@ -1194,6 +1229,17 @@
         <label class="form-check-label ms-1 gps-switch-label" for="show-railway-overlay-switch">
           <i class="fa fa-train" aria-hidden="true"></i>
           <span class="tv-trail-short">{{ 'EVENTELEM.TRACK_FOOTER_RAILWAY_SHORT' | translate }}</span>
+        </label>
+      </div>
+      <div class="form-check form-switch d-flex align-items-center flex-shrink-0 tv-tip"
+           [attr.data-tv-tip]="'EVENTELEM.TRACK_FOOTER_PHOTOS_HINT' | translate">
+        <input class="form-check-input" type="checkbox" id="show-map-photos-switch"
+               [(ngModel)]="showMapPhotos"
+               (ngModelChange)="onShowMapPhotosChange()"
+               [attr.aria-label]="'EVENTELEM.TRACK_FOOTER_PHOTOS_HINT' | translate">
+        <label class="form-check-label ms-1 gps-switch-label" for="show-map-photos-switch">
+          <i class="fa fa-camera" aria-hidden="true"></i>
+          <span class="tv-trail-short">{{ 'EVENTELEM.TRACK_FOOTER_PHOTOS_SHORT' | translate }}</span>
         </label>
       </div>
       <div class="form-check form-switch d-flex align-items-center flex-shrink-0 tv-tip"

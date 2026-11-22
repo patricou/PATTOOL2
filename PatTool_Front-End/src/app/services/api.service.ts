@@ -215,6 +215,8 @@ export interface TraceViewerPreference {
   showRailwayOverlay?: boolean | null;
   showSlopesOverlay?: boolean | null;
   showPlacesOverlay?: boolean | null;
+  /** Double-click the map to show photos around that point. */
+  showMapPhotos?: boolean | null;
   followDeviceLocation?: boolean | null;
   keepScreenAwake?: boolean | null;
   showGpsCoordinates?: boolean | null;
@@ -2977,6 +2979,8 @@ export class ApiService {
     image?: string;
     source?: string;
     lang?: string;
+    /** Search radius in metres. Omitted for a place, which uses the server default. */
+    radiusM?: number;
   }): Observable<PoiPhoto> {
     let params = new HttpParams();
     if (options.id) {
@@ -3008,6 +3012,9 @@ export class ApiService {
     }
     if (options.lang) {
       params = params.set('lang', options.lang);
+    }
+    if (options.radiusM != null && Number.isFinite(options.radiusM)) {
+      params = params.set('radius', String(options.radiusM));
     }
     return this._http.get<PoiPhoto>(this.API_URL + 'external/wiki/poi-photo', { params });
   }

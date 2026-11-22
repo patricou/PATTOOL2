@@ -11,7 +11,7 @@ import { hasValidDepartureLocation, formatStartLocationDisplay, getStartLocation
 import { applyMultiplicativeWheelScale, normalizeWheelDeltaPixels } from '../../shared/wheel-zoom.util';
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
-import { TraceViewerModalComponent, mainActivityPhoto } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { TraceViewerModalComponent, mainActivityPhoto, slideshowPhotoMarker } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 // Removed ng2-file-upload - using native HTML file input
 import JSZip from 'jszip';
 
@@ -1149,7 +1149,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.savedScrollPosition = savedScrollY;
 			
 			this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, finalEventColor, false, false, {
-				activityPhoto: mainActivityPhoto(this.evenement)
+				activityPhoto: slideshowPhotoMarker(event) ?? undefined
 			});
 			
 			// Immediately maintain scroll position after modal opens to prevent any movement

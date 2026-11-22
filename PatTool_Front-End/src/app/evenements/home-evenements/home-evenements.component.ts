@@ -7,7 +7,7 @@ import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { isValidGeoCoordinate } from '../../shared/geo-coordinates.util';
-import { TraceViewerModalComponent, mainActivityPhoto } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { TraceViewerModalComponent, mainActivityPhoto, slideshowPhotoMarker } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { Observable, Subscription, fromEvent, firstValueFrom, forkJoin, of, Subject, from } from 'rxjs';
 import { debounceTime, map, catchError, switchMap, take } from 'rxjs/operators';
@@ -3909,7 +3909,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 		if (this.traceViewerModalComponent) {
 			this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, event.eventColor, false, false, {
-				activityPhoto: mainActivityPhoto(this.slideshowActivity)
+				activityPhoto: slideshowPhotoMarker(event) ?? undefined
 			});
 		}
 	}

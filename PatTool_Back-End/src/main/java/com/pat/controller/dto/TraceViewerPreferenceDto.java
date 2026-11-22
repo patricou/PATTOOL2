@@ -17,6 +17,7 @@ public record TraceViewerPreferenceDto(
         Boolean showRailwayOverlay,
         Boolean showSlopesOverlay,
         Boolean showPlacesOverlay,
+        Boolean showMapPhotos,
         Boolean followDeviceLocation,
         Boolean keepScreenAwake,
         Boolean showGpsCoordinates,
