@@ -34,7 +34,10 @@ public class MapPlacesService {
     private static final int MAX_BYTES = 2_000_000;
     private static final double MAX_LON_SPAN = 1.0;
     private static final double MAX_LAT_SPAN = 0.8;
-    private static final String[] TAGS = {"name", "name:fr", "ref", "historic", "tourism", "aeroway"};
+    private static final String[] TAGS = {
+            "name", "name:fr", "name:en", "ref", "historic", "tourism", "aeroway",
+            "wikidata", "wikipedia", "wikimedia_commons", "image"
+    };
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;

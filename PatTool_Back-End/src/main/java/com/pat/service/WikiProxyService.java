@@ -10,18 +10,26 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -35,19 +43,45 @@ public class WikiProxyService {
     private static final Logger log = LoggerFactory.getLogger(WikiProxyService.class);
     private static final Pattern SAFE_TITLE = Pattern.compile("^[\\p{L}\\p{N}\\p{P}\\p{S}\\p{Z}_]{1,160}$");
     private static final Pattern HTML_TAG = Pattern.compile("<[^>]+>");
+    private static final Pattern WIKIDATA_ID = Pattern.compile("Q\\d{1,12}");
+    private static final Pattern COMMONS_IMAGE = Pattern.compile("(?i)\\.(jpe?g|png|gif|webp|svg|tiff?)$");
     private static final Set<String> SAFE_LANGS = Set.of(
             "fr", "en", "de", "es", "it", "ru", "ja", "zh", "ar", "he", "el", "hi"
     );
     private static final String USER_AGENT = "PatTool/1.0 (wikipedia helper; https://www.patrickdeschamps.com)";
+    private static final Set<String> NAME_STOPWORDS = Set.of(
+            "de", "la", "le", "les", "du", "des", "un", "une", "et", "au", "aux", "sur", "en", "of",
+            "the", "and", "pour", "par", "dans", "avec", "sous", "chez", "von", "van", "di"
+    );
     private static final int DEFAULT_SEARCH_LIMIT = 10;
     private static final int MAX_SEARCH_LIMIT = 20;
 
     private final RestTemplate restTemplate;
+    /** Nominatim and Commons can take longer than the short default client. */
+    private final RestTemplate photoRestTemplate;
     private final ObjectMapper objectMapper;
+    /** Client token from https://www.mapillary.com/dashboard/developers . Empty skips Mapillary. */
+    private final String mapillaryToken;
+    /** Key from https://www.flickr.com/services/apps/create/apply . Empty skips Flickr. */
+    private final String flickrApiKey;
+    /** Access Key from https://unsplash.com/developers . Empty skips Unsplash. */
+    private final String unsplashAccessKey;
 
-    public WikiProxyService(RestTemplate restTemplate, ObjectMapper objectMapper) {
+    public WikiProxyService(
+            RestTemplate restTemplate,
+            ObjectMapper objectMapper,
+            @Value("${app.mapillary.access-token:}") String mapillaryToken,
+            @Value("${app.flickr.api-key:}") String flickrApiKey,
+            @Value("${app.unsplash.access-key:}") String unsplashAccessKey) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
+        this.mapillaryToken = mapillaryToken == null ? "" : mapillaryToken.trim();
+        this.flickrApiKey = flickrApiKey == null ? "" : flickrApiKey.trim();
+        this.unsplashAccessKey = unsplashAccessKey == null ? "" : unsplashAccessKey.trim();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(3));
+        factory.setReadTimeout(Duration.ofSeconds(8));
+        this.photoRestTemplate = new RestTemplate(factory);
     }
 
     public JsonNode search(String query, String lang, Integer limit) {
@@ -124,6 +158,1050 @@ public class WikiProxyService {
         return objectMapper.createObjectNode();
     }
 
+    /**
+     * Image for a map attraction or a place dot. Wikidata and the OpenStreetMap
+     * tags already known for that object come first, then a search around the
+     * click, then a geotagged Commons file whose title shares the place name.
+     */
+    public JsonNode fetchPoiPhoto(
+            String id, String name, String nameEn, Double lat, Double lng,
+            String wikipedia, String commons, String image, String source, String lang) {
+        String qid = normalizeWikidataId(id);
+        String label = clipTitle(name);
+        String english = clipTitle(nameEn);
+        boolean located = isCoord(lat, lng);
+        if (!StringUtils.hasText(qid) && !StringUtils.hasText(label) && !StringUtils.hasText(english)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "missing_poi");
+        }
+        String code = normalizeLang(lang);
+        String only = photoSource(source);
+        ObjectNode out = objectMapper.createObjectNode();
+        out.put("title", StringUtils.hasText(label) ? label : english);
+        out.put("imageUrl", "");
+        out.put("pageUrl", "");
+        out.put("source", "");
+        if (StringUtils.hasText(qid) && (allows(only, "wikidata") || allows(only, "wikipedia"))) {
+            fillFromWikidata(out, qid, code, label, only);
+        }
+        if (!StringUtils.hasText(out.path("imageUrl").asText())) {
+            fillFromOsmTags(out, label, english, wikipedia, commons, image, only);
+        }
+        if (!StringUtils.hasText(out.path("imageUrl").asText()) && located) {
+            fillFromNominatim(out, label, english, lat, lng, code, only);
+        }
+        if (!StringUtils.hasText(out.path("imageUrl").asText()) && allows(only, "wikipedia")) {
+            fillFromMatchingArticle(out, label, code);
+        }
+        if (!StringUtils.hasText(out.path("imageUrl").asText()) && allows(only, "wikipedia") && !english.equalsIgnoreCase(label)) {
+            fillFromMatchingArticle(out, english, "en");
+        }
+        if (!StringUtils.hasText(out.path("imageUrl").asText()) && located && allows(only, "commons")) {
+            fillFromCommonsNearby(out, label, english, lat, lng);
+        }
+        if (!StringUtils.hasText(out.path("imageUrl").asText()) && located && allows(only, "flickr")) {
+            fillFromFlickr(out, label, english, lat, lng);
+        }
+        if (!StringUtils.hasText(out.path("imageUrl").asText()) && allows(only, "openverse")
+                && (specificPlaceName(label) || specificPlaceName(english) || "openverse".equals(only))) {
+            fillFromOpenverse(out, label, english);
+        }
+        if (!StringUtils.hasText(out.path("imageUrl").asText()) && allows(only, "unsplash")
+                && (specificPlaceName(label) || specificPlaceName(english) || "unsplash".equals(only))) {
+            fillFromUnsplash(out, label, english);
+        }
+        if (!StringUtils.hasText(out.path("imageUrl").asText()) && located && allows(only, "mapillary")) {
+            fillFromMapillary(out, lat, lng);
+        }
+        out.put("unsplash", StringUtils.hasText(unsplashAccessKey));
+        return out;
+    }
+
+    private static String photoSource(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return "";
+        }
+        String value = raw.trim().toLowerCase(Locale.ROOT);
+        return switch (value) {
+            case "wikidata", "wikipedia", "commons", "flickr", "openverse", "unsplash", "mapillary", "osm" -> value;
+            default -> "";
+        };
+    }
+
+    /** Empty {@code only} accepts every source. A named source skips the others. */
+    private static boolean allows(String only, String source) {
+        return !StringUtils.hasText(only) || only.equals(source);
+    }
+
+    /** Tags already stored on the OpenStreetMap object (place dot or recovered hit). */
+    private void fillFromOsmTags(
+            ObjectNode out, String label, String english,
+            String wikipedia, String commons, String image, String only) {
+        if (allows(only, "wikipedia")) {
+            String[] wiki = parseWikipediaTag(wikipedia);
+            if (wiki != null) {
+                applyArticleImage(out, fetchOne(wiki[1], wiki[0]), label);
+                if (StringUtils.hasText(out.path("imageUrl").asText())) {
+                    return;
+                }
+            }
+        }
+        if (allows(only, "commons") && applyCommonsTag(out, commons, label, english)) {
+            return;
+        }
+        String direct = osmImageUrl(image);
+        if (allows(only, "osm") && StringUtils.hasText(direct)) {
+            out.put("imageUrl", direct);
+            out.put("pageUrl", direct);
+            out.put("source", "osm");
+        }
+    }
+
+    /**
+     * The vector tile often drops Wikidata. The OpenStreetMap object at the
+     * click still has it, plus wikipedia / image / commons tags.
+     */
+    private void fillFromNominatim(ObjectNode out, String label, String english, double lat, double lng, String lang, String only) {
+        String query = StringUtils.hasText(label) ? label : english;
+        if (!StringUtils.hasText(query)) {
+            return;
+        }
+        double dLat = 0.0045;
+        double dLng = 0.0045 / Math.max(0.25, Math.cos(Math.toRadians(lat)));
+        String viewbox = (lng - dLng) + "," + (lat + dLat) + "," + (lng + dLng) + "," + (lat - dLat);
+        String url = "https://nominatim.openstreetmap.org/search?format=jsonv2&extratags=1&limit=6&bounded=1"
+                + "&q=" + urlEncode(query)
+                + "&viewbox=" + viewbox;
+        JsonNode raw = fetchPhotoJson(url, "nominatim " + query);
+        if (raw == null || !raw.isArray() || raw.isEmpty()) {
+            return;
+        }
+        List<JsonNode> hits = new ArrayList<>();
+        raw.forEach(hits::add);
+        hits.sort(Comparator.comparingDouble(hit -> distanceMeters(lat, lng, hit)));
+        int tried = 0;
+        for (JsonNode hit : hits) {
+            if (tried >= 4 || StringUtils.hasText(out.path("imageUrl").asText())) {
+                return;
+            }
+            double meters = distanceMeters(lat, lng, hit);
+            String hitName = firstText(textOrEmpty(hit.get("name")), textOrEmpty(hit.path("namedetails").path("name")));
+            if (!StringUtils.hasText(hitName)) {
+                hitName = query;
+            }
+            boolean exact = fold(hitName).equals(fold(query)) || fold(hitName).equals(fold(english));
+            if (meters > 280 || !samePlace(query, hitName, meters) && !samePlace(english, hitName, meters)) {
+                continue;
+            }
+            if (skipOsmClass(textOrEmpty(hit.get("category")), meters, exact)) {
+                continue;
+            }
+            tried++;
+            JsonNode tags = hit.get("extratags");
+            if (tags == null || !tags.isObject()) {
+                continue;
+            }
+            String foundId = normalizeWikidataId(textOrEmpty(tags.get("wikidata")));
+            if (StringUtils.hasText(foundId) && (allows(only, "wikidata") || allows(only, "wikipedia"))) {
+                fillFromWikidata(out, foundId, lang, label, only);
+                if (StringUtils.hasText(out.path("imageUrl").asText())) {
+                    return;
+                }
+            }
+            if (allows(only, "wikipedia")) {
+                String[] wiki = parseWikipediaTag(textOrEmpty(tags.get("wikipedia")));
+                if (wiki != null) {
+                    applyArticleImage(out, fetchOne(wiki[1], wiki[0]), label);
+                    if (StringUtils.hasText(out.path("imageUrl").asText())) {
+                        return;
+                    }
+                }
+            }
+            if (allows(only, "commons") && applyCommonsTag(out, textOrEmpty(tags.get("wikimedia_commons")), label, english)) {
+                return;
+            }
+            if (allows(only, "flickr") && applyFlickrTag(out, textOrEmpty(tags.get("flickr")))) {
+                return;
+            }
+            if (allows(only, "mapillary") && applyMapillaryId(out, textOrEmpty(tags.get("mapillary")))) {
+                return;
+            }
+            String image = osmImageUrl(textOrEmpty(tags.get("image")));
+            if (allows(only, "osm") && StringUtils.hasText(image)) {
+                out.put("imageUrl", image);
+                out.put("pageUrl", image);
+                out.put("source", "osm");
+                return;
+            }
+        }
+    }
+
+    /** Geotagged Commons file whose title shares the place name. A nearby street photo is ignored. */
+    private void fillFromCommonsNearby(ObjectNode out, String label, String english, double lat, double lng) {
+        String url = "https://commons.wikimedia.org/w/api.php?action=query&format=json&list=geosearch"
+                + "&gscoord=" + lat + "|" + lng
+                + "&gsradius=250&gsnamespace=6&gslimit=12";
+        JsonNode raw = fetchPhotoJson(url, "commons geo " + label);
+        JsonNode rows = raw == null ? null : raw.path("query").path("geosearch");
+        if (rows == null || !rows.isArray()) {
+            return;
+        }
+        String bestTitle = "";
+        double bestDist = Double.MAX_VALUE;
+        for (JsonNode row : rows) {
+            String title = textOrEmpty(row.get("title"));
+            double dist = row.path("dist").asDouble(Double.MAX_VALUE);
+            if (!StringUtils.hasText(title) || dist > 250) {
+                continue;
+            }
+            if (!samePlace(label, title, dist) && !samePlace(english, title, dist)) {
+                continue;
+            }
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestTitle = title;
+            }
+        }
+        if (!StringUtils.hasText(bestTitle)) {
+            return;
+        }
+        applyCommonsFile(out, bestTitle);
+    }
+
+    /**
+     * Creative Commons photo indexed by Openverse, matched on the place name.
+     * No API key. A title that does not contain the place name is ignored.
+     */
+    private void fillFromOpenverse(ObjectNode out, String label, String english) {
+        if (searchOpenverse(out, label)) {
+            return;
+        }
+        if (StringUtils.hasText(english) && !fold(english).equals(fold(label))) {
+            searchOpenverse(out, english);
+        }
+    }
+
+    private boolean searchOpenverse(ObjectNode out, String name) {
+        String wanted = fold(name);
+        if (wanted.length() < 4) {
+            return false;
+        }
+        String url = "https://api.openverse.org/v1/images/?page_size=12&filter_dead=true&q=" + urlEncode(name);
+        JsonNode raw = fetchPhotoJson(url, "openverse " + name);
+        JsonNode results = raw == null ? null : raw.get("results");
+        if (results == null || !results.isArray()) {
+            return false;
+        }
+        for (JsonNode row : results) {
+            if (!fold(textOrEmpty(row.get("title"))).contains(wanted)) {
+                continue;
+            }
+            String image = openverseImage(textOrEmpty(row.get("url")));
+            if (!StringUtils.hasText(image)) {
+                continue;
+            }
+            String page = textOrEmpty(row.get("foreign_landing_url"));
+            out.put("imageUrl", image);
+            out.put("pageUrl", page.startsWith("https://") ? page : "");
+            out.put("source", "openverse");
+            return true;
+        }
+        return false;
+    }
+
+    /** Short generic names stay out of the automatic search. The button can still ask. */
+    private static boolean specificPlaceName(String name) {
+        return fold(name).length() >= 8;
+    }
+
+    /**
+     * Best Unsplash photo for the place name. The image stays on images.unsplash.com,
+     * which is how Unsplash requires photos to be shown.
+     */
+    private void fillFromUnsplash(ObjectNode out, String label, String english) {
+        if (!StringUtils.hasText(unsplashAccessKey)) {
+            return;
+        }
+        if (searchUnsplash(out, label)) {
+            return;
+        }
+        if (StringUtils.hasText(english) && !fold(english).equals(fold(label))) {
+            searchUnsplash(out, english);
+        }
+    }
+
+    private boolean searchUnsplash(ObjectNode out, String name) {
+        if (fold(name).length() < 4) {
+            return false;
+        }
+        String url = "https://api.unsplash.com/search/photos?per_page=1&content_filter=high&query=" + urlEncode(name);
+        JsonNode raw = fetchUnsplash(url, name);
+        JsonNode results = raw == null ? null : raw.get("results");
+        if (results == null || !results.isArray() || results.isEmpty()) {
+            return false;
+        }
+        return applyUnsplashPhoto(out, results.get(0));
+    }
+
+    private boolean applyUnsplashPhoto(ObjectNode out, JsonNode photo) {
+        if (photo == null || !photo.isObject()) {
+            return false;
+        }
+        String image = unsplashImage(textOrEmpty(photo.path("urls").path("regular")));
+        if (!StringUtils.hasText(image)) {
+            image = unsplashImage(textOrEmpty(photo.path("urls").path("small")));
+        }
+        if (!StringUtils.hasText(image)) {
+            return false;
+        }
+        String page = textOrEmpty(photo.path("links").path("html"));
+        if (page.startsWith("https://unsplash.com/") && !page.contains("utm_source=")) {
+            page = page + (page.contains("?") ? "&" : "?") + "utm_source=pattool&utm_medium=referral";
+        }
+        out.put("imageUrl", image);
+        out.put("pageUrl", page.startsWith("https://") ? page : "");
+        out.put("source", "unsplash");
+        String download = textOrEmpty(photo.path("links").path("download_location"));
+        if (download.startsWith("https://api.unsplash.com/photos/")) {
+            fetchUnsplash(download, "download");
+        }
+        return true;
+    }
+
+    private static String unsplashImage(String url) {
+        if (!StringUtils.hasText(url) || !url.startsWith("https://")) {
+            return "";
+        }
+        try {
+            String host = URI.create(url).getHost();
+            if (host != null && "images.unsplash.com".equals(host.toLowerCase(Locale.ROOT))) {
+                return url;
+            }
+        } catch (IllegalArgumentException e) {
+            return "";
+        }
+        return "";
+    }
+
+    private JsonNode fetchUnsplash(String url, String label) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.USER_AGENT, USER_AGENT);
+            headers.set(HttpHeaders.ACCEPT, "application/json");
+            headers.set(HttpHeaders.AUTHORIZATION, "Client-ID " + unsplashAccessKey);
+            ResponseEntity<String> response = photoRestTemplate.exchange(
+                    URI.create(url),
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    String.class
+            );
+            String body = response.getBody();
+            if (!StringUtils.hasText(body)) {
+                return objectMapper.nullNode();
+            }
+            return objectMapper.readTree(body);
+        } catch (RestClientException e) {
+            log.warn("Unsplash unavailable for {}", label);
+            return objectMapper.nullNode();
+        } catch (Exception e) {
+            log.warn("Unsplash parse failed for {}", label);
+            return objectMapper.nullNode();
+        }
+    }
+
+    private static String openverseImage(String url) {
+        if (!StringUtils.hasText(url) || !url.startsWith("https://") || url.contains("@")) {
+            return "";
+        }
+        try {
+            String host = URI.create(url).getHost();
+            if (!StringUtils.hasText(host)) {
+                return "";
+            }
+            host = host.toLowerCase(Locale.ROOT);
+            if ("localhost".equals(host) || host.endsWith(".local") || host.chars().allMatch(ch -> Character.isDigit(ch) || ch == '.')) {
+                return "";
+            }
+            return url;
+        } catch (IllegalArgumentException e) {
+            return "";
+        }
+    }
+
+    /**
+     * Public Flickr photo whose title matches the place name, within 1 km.
+     * A geotagged photo with an unrelated title is ignored.
+     */
+    private void fillFromFlickr(ObjectNode out, String label, String english, double lat, double lng) {
+        if (!StringUtils.hasText(flickrApiKey)) {
+            return;
+        }
+        if (searchFlickr(out, label, lat, lng)) {
+            return;
+        }
+        if (StringUtils.hasText(english) && !fold(english).equals(fold(label))) {
+            searchFlickr(out, english, lat, lng);
+        }
+    }
+
+    private boolean searchFlickr(ObjectNode out, String name, double lat, double lng) {
+        if (!StringUtils.hasText(name)) {
+            return false;
+        }
+        String url = "https://www.flickr.com/services/rest/?method=flickr.photos.search"
+                + "&api_key=" + urlEncode(flickrApiKey)
+                + "&format=json&nojsoncallback=1"
+                + "&content_type=1&media=photos&safe_search=1&privacy_filter=1"
+                + "&sort=relevance&per_page=8"
+                + "&lat=" + String.format(Locale.US, "%.6f", lat)
+                + "&lon=" + String.format(Locale.US, "%.6f", lng)
+                + "&radius=1&radius_units=km"
+                + "&text=" + urlEncode(name)
+                + "&extras=url_l,url_c,url_z";
+        JsonNode raw = fetchFlickr(url, name);
+        JsonNode photos = raw == null ? null : raw.path("photos").path("photo");
+        if (photos == null || !photos.isArray()) {
+            return false;
+        }
+        String wanted = fold(name);
+        for (JsonNode photo : photos) {
+            String title = textOrEmpty(photo.get("title"));
+            String folded = fold(title);
+            boolean named = samePlace(name, title, 0) || (wanted.length() >= 4 && folded.contains(wanted));
+            if (!named) {
+                continue;
+            }
+            if (applyFlickrPhoto(out, photo)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** OSM tag {@code flickr} is a photo page. The image itself comes from the API. */
+    private boolean applyFlickrTag(ObjectNode out, String tag) {
+        if (!StringUtils.hasText(flickrApiKey) || !StringUtils.hasText(tag)) {
+            return false;
+        }
+        Matcher matcher = Pattern.compile("flickr\\.com/photos/[^/\\s]+/(\\d{5,20})").matcher(tag);
+        if (!matcher.find()) {
+            return false;
+        }
+        String photoId = matcher.group(1);
+        String url = "https://www.flickr.com/services/rest/?method=flickr.photos.getSizes"
+                + "&api_key=" + urlEncode(flickrApiKey)
+                + "&format=json&nojsoncallback=1"
+                + "&photo_id=" + photoId;
+        JsonNode raw = fetchFlickr(url, photoId);
+        JsonNode sizes = raw == null ? null : raw.path("sizes").path("size");
+        if (sizes == null || !sizes.isArray()) {
+            return false;
+        }
+        String image = "";
+        String page = "";
+        for (String wanted : List.of("Large 1024", "Large", "Medium 800", "Medium")) {
+            for (JsonNode size : sizes) {
+                if (!wanted.equals(textOrEmpty(size.get("label"))) || !flickrImageHost(textOrEmpty(size.get("source")))) {
+                    continue;
+                }
+                image = textOrEmpty(size.get("source"));
+                String candidate = textOrEmpty(size.get("url"));
+                if (candidate.startsWith("https://www.flickr.com/photos/")) {
+                    page = candidate;
+                }
+                break;
+            }
+            if (StringUtils.hasText(image)) {
+                break;
+            }
+        }
+        if (!StringUtils.hasText(image)) {
+            return false;
+        }
+        out.put("imageUrl", image);
+        out.put("pageUrl", StringUtils.hasText(page) ? page : "https://www.flickr.com/photos/" + photoId);
+        out.put("source", "flickr");
+        return true;
+    }
+
+    private boolean applyFlickrPhoto(ObjectNode out, JsonNode photo) {
+        if (photo == null || !photo.isObject()) {
+            return false;
+        }
+        String id = textOrEmpty(photo.get("id"));
+        String owner = textOrEmpty(photo.get("owner"));
+        if (!id.matches("\\d{5,20}") || !owner.matches("[A-Za-z0-9@]+")) {
+            return false;
+        }
+        String image = firstText(
+                flickrImage(textOrEmpty(photo.get("url_l"))),
+                flickrImage(textOrEmpty(photo.get("url_c"))),
+                flickrImage(textOrEmpty(photo.get("url_z"))));
+        if (!StringUtils.hasText(image)) {
+            String server = textOrEmpty(photo.get("server"));
+            String secret = textOrEmpty(photo.get("secret"));
+            if (server.matches("\\d{1,12}") && secret.matches("[A-Za-z0-9]+")) {
+                image = flickrImage("https://live.staticflickr.com/" + server + "/" + id + "_" + secret + "_b.jpg");
+            }
+        }
+        if (!StringUtils.hasText(image)) {
+            return false;
+        }
+        out.put("imageUrl", image);
+        out.put("pageUrl", "https://www.flickr.com/photos/" + owner + "/" + id);
+        out.put("source", "flickr");
+        return true;
+    }
+
+    private static String flickrImage(String url) {
+        return flickrImageHost(url) ? url : "";
+    }
+
+    private static boolean flickrImageHost(String url) {
+        if (!StringUtils.hasText(url) || !url.startsWith("https://")) {
+            return false;
+        }
+        try {
+            String host = URI.create(url).getHost();
+            if (!StringUtils.hasText(host)) {
+                return false;
+            }
+            host = host.toLowerCase(Locale.ROOT);
+            return "staticflickr.com".equals(host) || host.endsWith(".staticflickr.com");
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    private JsonNode fetchFlickr(String url, String label) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.USER_AGENT, USER_AGENT);
+            headers.set(HttpHeaders.ACCEPT, "application/json");
+            ResponseEntity<String> response = photoRestTemplate.exchange(
+                    URI.create(url),
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    String.class
+            );
+            String body = response.getBody();
+            if (!StringUtils.hasText(body)) {
+                return objectMapper.nullNode();
+            }
+            JsonNode tree = objectMapper.readTree(body);
+            if (!"ok".equals(textOrEmpty(tree.get("stat")))) {
+                return objectMapper.nullNode();
+            }
+            return tree;
+        } catch (RestClientException e) {
+            log.warn("Flickr unavailable for {}", label);
+            return objectMapper.nullNode();
+        } catch (Exception e) {
+            log.warn("Flickr parse failed for {}", label);
+            return objectMapper.nullNode();
+        }
+    }
+
+    /**
+     * Street-level photo taken within 50 m of the place. Mapillary has no place-name
+     * index, so the name is only used to choose the point that is searched.
+     */
+    private void fillFromMapillary(ObjectNode out, double lat, double lng) {
+        if (!StringUtils.hasText(mapillaryToken)) {
+            return;
+        }
+        String url = "https://graph.mapillary.com/images?fields=id,thumb_1024_url"
+                + "&lat=" + String.format(Locale.US, "%.6f", lat)
+                + "&lng=" + String.format(Locale.US, "%.6f", lng)
+                + "&radius=50&limit=1";
+        JsonNode raw = fetchMapillary(url, "radius");
+        JsonNode rows = raw == null ? null : raw.get("data");
+        if (rows == null || !rows.isArray() || rows.isEmpty()) {
+            return;
+        }
+        applyMapillaryImage(out, rows.get(0));
+    }
+
+    /** OSM tag {@code mapillary} stores the image id linked to that place. */
+    private boolean applyMapillaryId(ObjectNode out, String imageId) {
+        if (!StringUtils.hasText(mapillaryToken) || imageId == null || !imageId.trim().matches("\\d{5,30}")) {
+            return false;
+        }
+        String url = "https://graph.mapillary.com/" + imageId.trim() + "?fields=id,thumb_1024_url";
+        JsonNode image = fetchMapillary(url, imageId.trim());
+        if (image == null || !image.isObject() || image.has("error")) {
+            return false;
+        }
+        applyMapillaryImage(out, image);
+        return StringUtils.hasText(out.path("imageUrl").asText());
+    }
+
+    private void applyMapillaryImage(ObjectNode out, JsonNode image) {
+        if (image == null || !image.isObject()) {
+            return;
+        }
+        String id = textOrEmpty(image.get("id"));
+        String thumb = textOrEmpty(image.get("thumb_1024_url"));
+        if (!id.matches("\\d{5,30}") || !thumb.startsWith("https://")) {
+            return;
+        }
+        out.put("imageUrl", thumb);
+        out.put("pageUrl", "https://www.mapillary.com/app/?focus=photo&pKey=" + id);
+        out.put("source", "mapillary");
+    }
+
+    private JsonNode fetchMapillary(String url, String label) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.USER_AGENT, USER_AGENT);
+            headers.set(HttpHeaders.AUTHORIZATION, "OAuth " + mapillaryToken);
+            headers.set(HttpHeaders.ACCEPT, "application/json");
+            ResponseEntity<String> response = photoRestTemplate.exchange(
+                    URI.create(url),
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    String.class
+            );
+            String body = response.getBody();
+            if (!StringUtils.hasText(body)) {
+                return objectMapper.nullNode();
+            }
+            return objectMapper.readTree(body);
+        } catch (RestClientException e) {
+            log.warn("Mapillary unavailable for {}: {}", label, e.getMessage());
+            return objectMapper.nullNode();
+        } catch (Exception e) {
+            log.warn("Mapillary parse failed for {}: {}", label, e.getMessage());
+            return objectMapper.nullNode();
+        }
+    }
+
+    private boolean applyCommonsTag(ObjectNode out, String tag, String label, String english) {
+        if (!StringUtils.hasText(tag)) {
+            return false;
+        }
+        String value = tag.trim();
+        if (value.regionMatches(true, 0, "category:", 0, 9)) {
+            return applyCommonsCategory(out, value, label, english);
+        }
+        String filename = value;
+        int file = value.toLowerCase(Locale.ROOT).indexOf("file:");
+        if (file >= 0) {
+            filename = value.substring(file + 5).trim();
+        }
+        applyCommonsFile(out, "File:" + filename);
+        return StringUtils.hasText(out.path("imageUrl").asText());
+    }
+
+    private boolean applyCommonsCategory(ObjectNode out, String category, String label, String english) {
+        String title = category.regionMatches(true, 0, "category:", 0, 9) ? category : "Category:" + category;
+        String url = "https://commons.wikimedia.org/w/api.php?action=query&format=json&list=categorymembers"
+                + "&cmtype=file&cmlimit=12&cmtitle=" + urlEncode(title.replace(' ', '_'));
+        JsonNode raw = fetchPhotoJson(url, "commons cat " + title);
+        JsonNode members = raw == null ? null : raw.path("query").path("categorymembers");
+        if (members == null || !members.isArray()) {
+            return false;
+        }
+        String chosen = "";
+        for (JsonNode member : members) {
+            String file = textOrEmpty(member.get("title"));
+            if (!file.toLowerCase(Locale.ROOT).startsWith("file:") || !COMMONS_IMAGE.matcher(file).find()) {
+                continue;
+            }
+            if (samePlace(label, file, 0) || samePlace(english, file, 0)) {
+                chosen = file;
+                break;
+            }
+            if (!StringUtils.hasText(chosen)) {
+                chosen = file;
+            }
+        }
+        if (!StringUtils.hasText(chosen)) {
+            return false;
+        }
+        applyCommonsFile(out, chosen);
+        return StringUtils.hasText(out.path("imageUrl").asText());
+    }
+
+    private void applyCommonsFile(ObjectNode out, String fileTitle) {
+        String filename = fileTitle;
+        if (filename.regionMatches(true, 0, "file:", 0, 5)) {
+            filename = filename.substring(5).trim();
+        }
+        String image = commonsThumbnailUrl(filename, 960);
+        String page = commonsFilePageUrl(filename);
+        if (!StringUtils.hasText(image)) {
+            return;
+        }
+        out.put("imageUrl", image);
+        out.put("source", "commons");
+        if (StringUtils.hasText(page)) {
+            out.put("pageUrl", page);
+        }
+    }
+
+    private void fillFromWikidata(ObjectNode out, String qid, String lang, String label, String only) {
+        String url = "https://www.wikidata.org/w/api.php?action=wbgetentities&format=json"
+                + "&props=claims|labels|sitelinks&ids=" + qid
+                + "&languages=" + lang + "|en|fr"
+                + "&sitefilter=" + lang + "wiki|enwiki|frwiki";
+        JsonNode raw = fetchJson(url, qid, lang);
+        JsonNode entity = raw == null ? null : raw.path("entities").path(qid);
+        if (entity == null || !entity.isObject() || entity.has("missing")) {
+            return;
+        }
+        String titled = firstText(
+                textOrEmpty(entity.path("labels").path(lang).path("value")),
+                textOrEmpty(entity.path("labels").path("en").path("value")),
+                textOrEmpty(entity.path("labels").path("fr").path("value")),
+                label
+        );
+        if (StringUtils.hasText(titled)) {
+            out.put("title", titled);
+        }
+        if (allows(only, "wikidata")) {
+            String filename = preferredClaimString(entity.path("claims").path("P18"));
+            String image = commonsThumbnailUrl(filename, 960);
+            if (StringUtils.hasText(image)) {
+                out.put("imageUrl", image);
+                out.put("pageUrl", commonsFilePageUrl(filename));
+                out.put("source", "wikidata");
+                return;
+            }
+        }
+        if (!allows(only, "wikipedia")) {
+            return;
+        }
+        String article = firstText(
+                textOrEmpty(entity.path("sitelinks").path(lang + "wiki").path("title")),
+                textOrEmpty(entity.path("sitelinks").path("enwiki").path("title")),
+                textOrEmpty(entity.path("sitelinks").path("frwiki").path("title"))
+        );
+        if (!StringUtils.hasText(article)) {
+            return;
+        }
+        String articleLang = entity.path("sitelinks").path(lang + "wiki").path("title").isTextual()
+                ? lang
+                : entity.path("sitelinks").path("enwiki").path("title").isTextual() ? "en" : "fr";
+        applyArticleImage(out, fetchOne(article.replace(' ', '_'), articleLang), titled);
+    }
+
+    private void fillFromMatchingArticle(ObjectNode out, String label, String lang) {
+        if (!StringUtils.hasText(label) || !SAFE_TITLE.matcher(label).matches()) {
+            return;
+        }
+        JsonNode summary = fetchOne(label, lang);
+        if (!titleMatches(label, textOrEmpty(summary == null ? null : summary.get("title")))) {
+            return;
+        }
+        applyArticleImage(out, summary, label);
+    }
+
+    private void applyArticleImage(ObjectNode out, JsonNode summary, String fallbackTitle) {
+        if (!isUsable(summary)) {
+            return;
+        }
+        String image = safeImageUrl(firstText(
+                textOrEmpty(summary.path("originalimage").path("source")),
+                textOrEmpty(summary.path("thumbnail").path("source"))
+        ));
+        if (!StringUtils.hasText(image)) {
+            return;
+        }
+        String page = safePageUrl(textOrEmpty(summary.path("content_urls").path("desktop").path("page")));
+        String title = firstText(textOrEmpty(summary.get("title")), fallbackTitle);
+        if (StringUtils.hasText(title)) {
+            out.put("title", title);
+        }
+        out.put("imageUrl", image);
+        out.put("source", "wikipedia");
+        if (StringUtils.hasText(page)) {
+            out.put("pageUrl", page);
+        }
+    }
+
+    private static String preferredClaimString(JsonNode claims) {
+        if (claims == null || !claims.isArray()) {
+            return "";
+        }
+        String normal = "";
+        for (JsonNode claim : claims) {
+            if (claim == null || !claim.isObject()) {
+                continue;
+            }
+            String rank = textOrEmpty(claim.get("rank"));
+            if ("deprecated".equals(rank)) {
+                continue;
+            }
+            JsonNode value = claim.path("mainsnak").path("datavalue").path("value");
+            if (!value.isTextual() || !StringUtils.hasText(value.asText())) {
+                continue;
+            }
+            String filename = value.asText().trim();
+            if ("preferred".equals(rank)) {
+                return filename;
+            }
+            if (!StringUtils.hasText(normal)) {
+                normal = filename;
+            }
+        }
+        return normal;
+    }
+
+    static String normalizeWikidataId(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return "";
+        }
+        Matcher matcher = WIKIDATA_ID.matcher(raw.toUpperCase(Locale.ROOT));
+        return matcher.find() ? matcher.group() : "";
+    }
+
+    static String commonsThumbnailUrl(String filename, int width) {
+        String encoded = encodeCommonsFile(filename);
+        if (!StringUtils.hasText(encoded)) {
+            return "";
+        }
+        int px = Math.max(120, Math.min(1280, width));
+        return "https://commons.wikimedia.org/wiki/Special:FilePath/" + encoded + "?width=" + px;
+    }
+
+    static String commonsFilePageUrl(String filename) {
+        String encoded = encodeCommonsFile(filename);
+        if (!StringUtils.hasText(encoded)) {
+            return "";
+        }
+        return "https://commons.wikimedia.org/wiki/File:" + encoded;
+    }
+
+    private static boolean isCoord(Double lat, Double lng) {
+        return lat != null && lng != null
+                && lat >= -90 && lat <= 90
+                && lng >= -180 && lng <= 180
+                && !(lat == 0 && lng == 0);
+    }
+
+    private static double distanceMeters(double lat, double lng, JsonNode hit) {
+        double hitLat = hit.path("lat").asDouble(Double.NaN);
+        double hitLng = hit.path("lon").asDouble(Double.NaN);
+        if (!Double.isFinite(hitLat)) {
+            try {
+                hitLat = Double.parseDouble(textOrEmpty(hit.get("lat")));
+                hitLng = Double.parseDouble(textOrEmpty(hit.get("lon")));
+            } catch (NumberFormatException e) {
+                return Double.MAX_VALUE;
+            }
+        }
+        if (!Double.isFinite(hitLat) || !Double.isFinite(hitLng)) {
+            return Double.MAX_VALUE;
+        }
+        return haversineMeters(lat, lng, hitLat, hitLng);
+    }
+
+    private static boolean skipOsmClass(String category, double meters, boolean exactName) {
+        String kind = category == null ? "" : category.toLowerCase(Locale.ROOT);
+        if (kind.equals("highway") || kind.equals("railway") || kind.equals("waterway") || kind.equals("boundary")) {
+            return !(exactName && meters < 40);
+        }
+        return kind.equals("place") && !(exactName && meters < 40);
+    }
+
+    private static String osmImageUrl(String raw) {
+        if (!StringUtils.hasText(raw) || !raw.startsWith("https://") || !COMMONS_IMAGE.matcher(raw).find()) {
+            return "";
+        }
+        String known = safeImageUrl(raw);
+        if (StringUtils.hasText(known)) {
+            return known;
+        }
+        try {
+            String host = URI.create(raw).getHost();
+            return StringUtils.hasText(host) ? raw : "";
+        } catch (IllegalArgumentException e) {
+            return "";
+        }
+    }
+
+    private static String urlEncode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
+    private static List<String> distinctiveTokens(String place) {
+        List<String> tokens = new ArrayList<>();
+        for (String token : fold(place).split(" ")) {
+            if (token.length() >= 4 && !NAME_STOPWORDS.contains(token)) {
+                tokens.add(token);
+            }
+        }
+        return tokens;
+    }
+
+    static boolean samePlace(String place, String candidate, double meters) {
+        if (!StringUtils.hasText(place) || !StringUtils.hasText(candidate)) {
+            return false;
+        }
+        if (fold(place).equals(fold(candidate))) {
+            return true;
+        }
+        List<String> tokens = distinctiveTokens(place);
+        if (tokens.isEmpty()) {
+            return false;
+        }
+        List<String> candidateTokens = distinctiveTokens(candidate);
+        int hits = 0;
+        String longHit = "";
+        for (String token : tokens) {
+            if (!candidateTokens.contains(token)) {
+                continue;
+            }
+            hits++;
+            if (token.length() >= 5) {
+                longHit = token;
+            }
+        }
+        if (hits == 0) {
+            return false;
+        }
+        if (hits == tokens.size() || (tokens.size() >= 2 && hits >= 2)) {
+            return true;
+        }
+        if (!StringUtils.hasText(longHit) || meters > 80) {
+            return false;
+        }
+        for (String extra : candidateTokens) {
+            if (!tokens.contains(extra)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
+        double r = 6_371_000.0;
+        double p1 = Math.toRadians(lat1);
+        double p2 = Math.toRadians(lat2);
+        double dp = Math.toRadians(lat2 - lat1);
+        double dl = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dp / 2) * Math.sin(dp / 2)
+                + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+        return 2 * r * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    /** {@code fr:Title} or a Wikipedia URL. Returns language then title, or null. */
+    static String[] parseWikipediaTag(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return null;
+        }
+        String value = raw.trim();
+        Matcher url = Pattern.compile("https?://([a-z]{2,3})\\.wikipedia\\.org/wiki/([^\\s#]+)").matcher(value);
+        if (url.find()) {
+            String lang = url.group(1).toLowerCase(Locale.ROOT);
+            String title = url.group(2).replace('_', ' ');
+            return SAFE_LANGS.contains(lang) && StringUtils.hasText(title) ? new String[] { lang, title } : null;
+        }
+        int colon = value.indexOf(':');
+        if (colon < 2 || colon > 3) {
+            return null;
+        }
+        String lang = value.substring(0, colon).toLowerCase(Locale.ROOT);
+        String title = value.substring(colon + 1).trim();
+        if (!SAFE_LANGS.contains(lang) || !StringUtils.hasText(title)) {
+            return null;
+        }
+        return new String[] { lang, title };
+    }
+
+    static boolean titleMatches(String query, String title) {
+        String left = fold(query);
+        String right = fold(title);
+        if (left.isEmpty() || right.isEmpty()) {
+            return false;
+        }
+        if (left.equals(right)) {
+            return true;
+        }
+        int shorter = Math.min(left.length(), right.length());
+        if (shorter < 8) {
+            return false;
+        }
+        return left.contains(right) || right.contains(left);
+    }
+
+    private static String encodeCommonsFile(String filename) {
+        if (!StringUtils.hasText(filename)) {
+            return "";
+        }
+        String clean = filename.trim();
+        if (clean.regionMatches(true, 0, "file:", 0, 5)) {
+            clean = clean.substring(5).trim();
+        }
+        if (clean.length() > 240 || clean.contains("/") || clean.contains("\\") || clean.contains("..")
+                || clean.startsWith("http:") || clean.startsWith("https:")
+                || !COMMONS_IMAGE.matcher(clean).find()) {
+            return "";
+        }
+        return URLEncoder.encode(clean.replace(' ', '_'), StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
+    private static String clipTitle(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        String trimmed = value.trim().replace('\n', ' ');
+        return trimmed.length() > 160 ? trimmed.substring(0, 160) : trimmed;
+    }
+
+    private static String firstText(String... values) {
+        if (values == null) {
+            return "";
+        }
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value.trim();
+            }
+        }
+        return "";
+    }
+
+    private static String fold(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        String decomposed = Normalizer.normalize(value, Normalizer.Form.NFD).replaceAll("\\p{M}+", "");
+        return decomposed.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ").trim();
+    }
+
+    private static String safeImageUrl(String url) {
+        return hostAllowed(url, true) ? url : "";
+    }
+
+    private static String safePageUrl(String url) {
+        return hostAllowed(url, false) ? url : "";
+    }
+
+    private static boolean hostAllowed(String url, boolean image) {
+        if (!StringUtils.hasText(url) || !url.startsWith("https://")) {
+            return false;
+        }
+        try {
+            String host = URI.create(url).getHost();
+            if (!StringUtils.hasText(host)) {
+                return false;
+            }
+            host = host.toLowerCase(Locale.ROOT);
+            if ("upload.wikimedia.org".equals(host) || "commons.wikimedia.org".equals(host)
+                    || "thumb.wikimedia.org".equals(host)) {
+                return true;
+            }
+            if (image && (host.endsWith(".wikimedia.org")
+                    || host.endsWith(".wikipedia.org") || "wikipedia.org".equals(host))) {
+                return true;
+            }
+            return !image && (host.endsWith(".wikipedia.org") || "wikipedia.org".equals(host)
+                    || host.endsWith(".wikimedia.org"));
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
     private JsonNode fetchOne(String title, String code) {
         String encoded = encodeTitle(title);
         String url = "https://" + code + ".wikipedia.org/api/rest_v1/page/summary/" + encoded;
@@ -135,14 +1213,22 @@ public class WikiProxyService {
      * accents then become {@code %2528} / {@code %25C3} and Wikipedia REST answers
      * {@code 403 {"type":"Internal error"}}. Pass a prebuilt {@link URI} instead.
      */
+    private JsonNode fetchPhotoJson(String url, String label) {
+        return fetchJson(url, label, "photo", photoRestTemplate);
+    }
+
     private JsonNode fetchJson(String url, String label, String code) {
+        return fetchJson(url, label, code, restTemplate);
+    }
+
+    private JsonNode fetchJson(String url, String label, String code, RestTemplate client) {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.set(HttpHeaders.USER_AGENT, USER_AGENT);
             headers.set("Api-User-Agent", USER_AGENT);
             headers.set(HttpHeaders.ACCEPT, "application/json");
-            ResponseEntity<String> response = restTemplate.exchange(
-                    URI.create(url),
+            ResponseEntity<String> response = client.exchange(
+                    URI.create(url.replace("|", "%7C")),
                     HttpMethod.GET,
                     new HttpEntity<>(headers),
                     String.class

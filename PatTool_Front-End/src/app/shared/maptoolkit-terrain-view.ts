@@ -57,7 +57,21 @@ export interface ReliefPlaceMark {
 	lat: number;
 	lng: number;
 	name: string;
+	nameEn: string;
+	wikidata: string;
+	wikipedia: string;
+	commons: string;
+	image: string;
 	kind: 'historic' | 'sight' | 'airport';
+}
+
+/** Attraction drawn with the camera icon on a Maptoolkit style. */
+export interface ReliefAttraction {
+	name: string;
+	nameEn: string;
+	wikidata: string;
+	lat: number;
+	lng: number;
 }
 
 export interface ReliefViewHooks {
@@ -70,6 +84,10 @@ export interface ReliefViewHooks {
 	onElevationRange?: (range: { min: number; max: number } | null) => void;
 	/** The pitched view has terrain and a stable camera. Safe to cover the flat map. */
 	onReady?: () => void;
+	/** Click on an attraction (camera icon), or null when the click missed one. */
+	onAttraction?: (poi: ReliefAttraction | null) => void;
+	/** Click on a place dot (monument, viewpoint, airfield). */
+	onPlace?: (place: ReliefPlaceMark) => void;
 }
 
 export interface ReliefTrace {
@@ -124,6 +142,7 @@ export class MaptoolkitTerrainView {
 	private pinMarker: HTMLDivElement | null = null;
 	private places: ReliefPlaceMark[] = [];
 	private placeNodes: HTMLDivElement[] = [];
+	private activePlaceKey = '';
 	private stationLabels: WeatherStationReliefLabel[] = [];
 	private stationNodes = new Map<string, HTMLDivElement>();
 	private stationOverlay: HTMLDivElement | null = null;
@@ -158,6 +177,8 @@ export class MaptoolkitTerrainView {
 	private revealTimer: number | null = null;
 	private releaseRotate: (() => void) | null = null;
 	private releaseTouch: (() => void) | null = null;
+	private attractionHoverAt = 0;
+	private attractionCursorOn = false;
 	/** Pinch zoom must not be pulled back by the slope guard mid-gesture. */
 	private freeZoom = false;
 	/** A finger is down: compass and phone-tilt must not jump the camera. */
@@ -340,6 +361,28 @@ export class MaptoolkitTerrainView {
 			this.syncBlendCamera();
 			this.layoutWeatherStations();
 			this.layoutReliefMarkers();
+		});
+		map.on('click', (event) => {
+			if (this.map !== map) {
+				return;
+			}
+			this.hooks?.onAttraction?.(this.attractionAt(event.point, 10));
+		});
+		map.on('mousemove', (event) => {
+			if (this.map !== map) {
+				return;
+			}
+			const now = Date.now();
+			if (now - this.attractionHoverAt < 80) {
+				return;
+			}
+			this.attractionHoverAt = now;
+			this.setAttractionCursor(this.attractionAt(event.point, 8) != null);
+		});
+		map.on('mouseout', () => {
+			if (this.map === map) {
+				this.setAttractionCursor(false);
+			}
 		});
 		map.on('idle', () => {
 			if (this.map !== map) {
@@ -636,6 +679,35 @@ export class MaptoolkitTerrainView {
 		return { lat: center.lat, lng: center.lng, zoom };
 	}
 
+	/** Ground meters covered by `px` horizontal pixels at the middle of the view. */
+	groundMetersAcross(px: number): number | null {
+		const map = this.map;
+		if (!map || !(px > 0)) {
+			return null;
+		}
+		const el = map.getContainer();
+		const w = el.clientWidth;
+		const h = el.clientHeight;
+		const center = map.getCenter();
+		const zoom = map.getZoom();
+		if (w < 8 || h < 8 || map.getPitch() > 80) {
+			const mpp = metersPerPixel(center.lat, 0, zoom);
+			return mpp > 0 ? mpp * px : null;
+		}
+		const y = h / 2;
+		const left = Math.max(0, Math.min(w - px, w / 2 - px / 2));
+		try {
+			const meters = map.unproject([left, y]).distanceTo(map.unproject([left + px, y]));
+			if (Number.isFinite(meters) && meters > 0) {
+				return meters;
+			}
+		} catch {
+			/* style not ready */
+		}
+		const mpp = metersPerPixel(center.lat, 0, zoom);
+		return mpp > 0 ? mpp * px : null;
+	}
+
 	/** Nord locks twist. Phone-tilt locks two-finger pitch. Pinch zoom stays available. */
 	setTouchLocks(locks: { bearing?: boolean; pitch?: boolean }): void {
 		if (locks.bearing != null) {
@@ -660,6 +732,63 @@ export class MaptoolkitTerrainView {
 		return Number.isFinite(bearing) ? bearing : null;
 	}
 
+	/**
+	 * The pink camera is the Maptoolkit symbol for an attraction.
+	 * The topmost attraction under the cursor is the one that can show a photo.
+	 */
+	private attractionAt(point: { x: number; y: number }, pad: number): ReliefAttraction | null {
+		const map = this.map;
+		if (!map || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+			return null;
+		}
+		let features: ReturnType<MlMap['queryRenderedFeatures']> = [];
+		try {
+			features = map.queryRenderedFeatures([
+				[point.x - pad, point.y - pad],
+				[point.x + pad, point.y + pad]
+			]);
+		} catch {
+			return null;
+		}
+		for (const feature of features) {
+			const layer = feature.layer as { 'source-layer'?: string } | undefined;
+			const sourceLayer = feature.sourceLayer || layer?.['source-layer'];
+			if (sourceLayer !== 'poi_label') {
+				continue;
+			}
+			const props = feature.properties || {};
+			if (String(props['type'] ?? '') !== 'attraction') {
+				continue;
+			}
+			const name = poiText(props['name']) || poiText(props['name_fr']) || poiText(props['name_en']) || poiText(props['name_de']);
+			const nameEn = poiText(props['name_en']);
+			const wikidata = poiText(props['wikidata']);
+			if (!name && !wikidata) {
+				continue;
+			}
+			const geometry = feature.geometry;
+			let lng = Number.NaN;
+			let lat = Number.NaN;
+			if (geometry?.type === 'Point' && Array.isArray(geometry.coordinates)) {
+				lng = Number(geometry.coordinates[0]);
+				lat = Number(geometry.coordinates[1]);
+			}
+			return { name, nameEn, wikidata, lat, lng };
+		}
+		return null;
+	}
+
+	private setAttractionCursor(on: boolean): void {
+		if (this.attractionCursorOn === on) {
+			return;
+		}
+		this.attractionCursorOn = on;
+		const canvas = this.map?.getCanvas();
+		if (canvas) {
+			canvas.style.cursor = on ? 'pointer' : '';
+		}
+	}
+
 	destroy(): void {
 		if (this.revealTimer != null) {
 			window.clearTimeout(this.revealTimer);
@@ -670,6 +799,7 @@ export class MaptoolkitTerrainView {
 		this.releaseRotate = null;
 		this.releaseTouch?.();
 		this.releaseTouch = null;
+		this.setAttractionCursor(false);
 		this.gesturing = false;
 		this.freeZoom = false;
 		this.resizeObserver?.disconnect();
@@ -778,6 +908,12 @@ export class MaptoolkitTerrainView {
 		this.places = places;
 		this.syncPlaceNodes();
 		this.layoutReliefMarkers();
+	}
+
+	/** Met en avant le lieu choisi. La clé est `kind|lat|lng|nom`. */
+	setActivePlace(key: string): void {
+		this.activePlaceKey = key;
+		this.applyActivePlace();
 	}
 
 	bounds(): { south: number; west: number; north: number; east: number } | null {
@@ -1207,12 +1343,36 @@ export class MaptoolkitTerrainView {
 			if (!el?.isConnected) {
 				el = document.createElement('div');
 				el.className = 'tv-relief-place';
+				el.addEventListener('click', (event) => {
+					event.stopPropagation();
+					const index = this.placeNodes.indexOf(el as HTMLDivElement);
+					const hit = this.places[index];
+					if (hit) {
+						this.hooks?.onPlace?.(hit);
+					}
+				});
 				overlay.appendChild(el);
 				this.placeNodes[i] = el;
 			}
 			el.dataset['kind'] = place.kind;
 			el.title = place.name;
+			el.classList.toggle('tv-relief-place--on', this.placeKey(place) === this.activePlaceKey);
 		}
+	}
+
+	private applyActivePlace(): void {
+		for (let i = 0; i < this.placeNodes.length; i++) {
+			const el = this.placeNodes[i];
+			const place = this.places[i];
+			if (!el || !place) {
+				continue;
+			}
+			el.classList.toggle('tv-relief-place--on', this.placeKey(place) === this.activePlaceKey);
+		}
+	}
+
+	private placeKey(place: ReliefPlaceMark): string {
+		return `${place.kind}|${place.lat.toFixed(5)}|${place.lng.toFixed(5)}|${place.name}`;
 	}
 
 	private placeReliefMarker(
@@ -2223,6 +2383,10 @@ function bearingDeltaDeg(
 		delta = -delta;
 	}
 	return delta;
+}
+
+function poiText(value: unknown): string {
+	return typeof value === 'string' ? value.trim() : '';
 }
 
 function clampPitch(pitch: number, max = MAX_PITCH): number {

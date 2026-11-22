@@ -39,4 +39,26 @@ public class WikiRestController {
             @RequestParam(value = "lang", required = false) String lang) {
         return ResponseEntity.ok(wikiProxyService.fetchSummary(title, lang));
     }
+
+    /**
+     * Photo of a map attraction (camera icon). Wikidata and Wikipedia first,
+     * then the OpenStreetMap object at the clicked point, then a geotagged
+     * Commons file whose name matches the place.
+     * {@code GET /api/external/wiki/poi-photo?id=Q243&name=Tour%20Eiffel&lat=48.858&lng=2.294&lang=fr}
+     */
+    @GetMapping("/poi-photo")
+    public ResponseEntity<JsonNode> poiPhoto(
+            @RequestParam(value = "id", required = false) String id,
+            @RequestParam(value = "name", required = false) String name,
+            @RequestParam(value = "nameEn", required = false) String nameEn,
+            @RequestParam(value = "lat", required = false) Double lat,
+            @RequestParam(value = "lng", required = false) Double lng,
+            @RequestParam(value = "wikipedia", required = false) String wikipedia,
+            @RequestParam(value = "commons", required = false) String commons,
+            @RequestParam(value = "image", required = false) String image,
+            @RequestParam(value = "source", required = false) String source,
+            @RequestParam(value = "lang", required = false) String lang) {
+        return ResponseEntity.ok(wikiProxyService.fetchPoiPhoto(
+                id, name, nameEn, lat, lng, wikipedia, commons, image, source, lang));
+    }
 }

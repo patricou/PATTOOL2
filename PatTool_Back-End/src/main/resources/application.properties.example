@@ -298,6 +298,15 @@ app.cache.persistence.restore-on-startup=true
 # Default quota is 10 000 units/day (search.list costs 100 units).
 # app.youtube.api-base=https://www.googleapis.com/youtube/v3
 # app.youtube.api-key=
+# Mapillary, photo de lieu dans un rayon de 50 m. Jeton client :
+# https://www.mapillary.com/dashboard/developers
+# app.mapillary.access-token=
+# Flickr, photo de lieu par nom et coordonnées (rayon 1 km). Clé API :
+# https://www.flickr.com/services/apps/create/apply
+# app.flickr.api-key=
+# Unsplash, photo de lieu par nom. Clé d'accès (Access Key), pas le Secret :
+# https://unsplash.com/developers
+# app.unsplash.access-key=
 
 # --- TMDB (Media page, films et séries) — API v3 ---
 # 1) https://www.themoviedb.org/signup

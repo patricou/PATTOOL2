@@ -9,11 +9,11 @@ import { FileService } from '../../services/file.service';
 import { writeGpsHandoff } from '../../gps-track/gps-handoff';
 import { isTrackFileName, nearestTrackIndex, trackHeadingAt } from '../../gps-track/gps-geo.util';
 import { KeycloakService } from '../../keycloak/keycloak.service';
-import { ApiService, TraceViewerPreference } from '../../services/api.service';
+import { ApiService, PoiPhoto, TraceViewerPreference } from '../../services/api.service';
 import { WeatherStationMapLayerService } from '../../services/weather-station-map-layer.service';
 import { resolveWeatherStationProvider, resolveWeatherStationPointBrand, stationMarkerLatLng, WeatherStationGridPoint } from '../weather-station-map.util';
 import { forkJoin, of, Subject, Subscription } from 'rxjs';
-import { catchError, take, takeUntil } from 'rxjs/operators';
+import { catchError, take, takeUntil, timeout } from 'rxjs/operators';
 import { WeatherPointTimelineComponent } from '../weather-point-timeline/weather-point-timeline.component';
 import { environment } from '../../../environments/environment';
 import { L, RotatableLeafletMap } from '../leaflet-rotate-setup';
@@ -32,7 +32,7 @@ import { offlineTraceIdForWall, OfflineTraceSummary, OfflineTracesStore } from '
 import { viewWindowFromMap } from '../../gps-track/gps-offline-tiles.util';
 import { cachedBasemapTileUrl, createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
 import { createVectorBasemapLayer, maptoolkitStyleForBasemap, vectorStyleForBasemap, applyGlLayerOpacity, FlatMaptoolkitBlend } from '../maptoolkit-basemap.layer';
-import { MaptoolkitTerrainView, ReliefPlaceMark, ReliefTrace, ReliefTrailOverlays, leafletZoomToMaplibre, maplibreZoomToLeaflet } from '../maptoolkit-terrain-view';
+import { MaptoolkitTerrainView, ReliefAttraction, ReliefPlaceMark, ReliefTrace, ReliefTrailOverlays, leafletZoomToMaplibre, maplibreZoomToLeaflet } from '../maptoolkit-terrain-view';
 import { findSkinnedPageHost, paintModalFromHost } from '../host-skin';
 import { isBrowserOffline } from '../browser-offline.util';
 import { mapBearingFromDeviceOrientation } from '../../direction/direction-attitude';
@@ -137,6 +137,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@ViewChild('offlineTracesModal') offlineTracesModal!: TemplateRef<any>;
 	@ViewChild('placeModal') placeModal!: TemplateRef<any>;
 	@ViewChild('mapContainer', { static: false }) mapContainerRef?: ElementRef<HTMLDivElement>;
+	@ViewChild('placesList', { static: false }) placesListRef?: ElementRef<HTMLDivElement>;
+	@ViewChild('poiPhotoStage', { static: false }) poiPhotoStageRef?: ElementRef<HTMLDivElement>;
 	@ViewChild('compassRoseDial', { static: false }) compassRoseDialRef?: ElementRef<SVGSVGElement>;
 	@Output() closed = new EventEmitter<void>();
 	@Output() locationSelected = new EventEmitter<{ lat: number; lng: number; alt?: number | null }>();
@@ -274,12 +276,26 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public showSlopesOverlay = false;
 	/** Monuments, musées, points de vue et aéroports de la zone affichée. */
 	public showPlacesOverlay = false;
+	/** Lieux actuellement dessinés, triés pour la liste du bouton à côté de 2D. */
+	public visiblePlaces: ReliefPlaceMark[] = [];
+	public placesListOpen = false;
+	/** Ligne active dans la liste des lieux. -1 tant qu’aucune n’est choisie au clavier ou à la molette. */
+	public placesListIndex = -1;
+	public placesLoading = false;
+	public placesPanelLeft = 8;
+	public placesPanelBottom = 8;
+	public placesPanelMaxHeight = 280;
 	private trailOverlayLayers: Partial<Record<keyof ReliefTrailOverlays, L.TileLayer>> = {};
 	private placeMarks: ReliefPlaceMark[] = [];
 	private placesLayer: L.LayerGroup | null = null;
 	private placesTimer: ReturnType<typeof setTimeout> | null = null;
 	private placesAbort: AbortController | null = null;
 	private placesGen = 0;
+	private placesListKey = '';
+	private placesWheelAccum = 0;
+	/** Clé du lieu choisi dans la liste, pour le point mis en avant sur la carte. */
+	private activePlaceKey = '';
+	private placeMarkers: { key: string; marker: L.CircleMarker }[] = [];
 	/** RainViewer precipitation radar when weather switch is on (same proxy as Météo-France). */
 	private weatherRadarLayer?: L.TileLayer;
 	private weatherCloudLayer?: L.TileLayer;
@@ -459,6 +475,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public relief3d = false;
 	/** True while the pitched view is loading and still hidden. */
 	public relief3dPending = false;
+	/** Photo opened from a camera icon on the 3D map. */
+	public reliefPoiPhoto: { title: string; imageUrl: string; pageUrl: string; source: string; loading: boolean } | null = null;
+	public readonly poiPhotoSources = ['wikidata', 'wikipedia', 'commons', 'openverse', 'unsplash', 'mapillary'] as const;
+	/** Unsplash stays struck out until the server reports an access key. */
+	public unsplashReady = false;
+	public poiPhotoFullscreen = false;
+	private reliefPoiPhotoRequest = 0;
+	private poiPhotoQuery: { id?: string; name?: string; nameEn?: string; lat?: number; lng?: number; wikipedia?: string; commons?: string; image?: string } | null = null;
 	/** Colore le relief du violet au rouge selon l’altitude visible. */
 	public elevationColors = false;
 	public elevationSpan: { min: number; max: number } | null = null;
@@ -509,6 +533,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private _currentZoom = 6;
 	/** Valeur affichée. Mise à jour au tick suivant pour éviter NG0100. */
 	public zoomFooterView = 6;
+	/** Barre d’échelle : km, ou m quand le zoom rend le kilomètre trop long. */
+	public mapScaleLabel = '';
+	public mapScaleWidthPx = 80;
+	private mapScaleFrame: number | null = null;
+	private static readonly MAP_SCALE_MAX_PX = 120;
 	private pendingZoomFooter: number | null = null;
 	private zoomFooterTimer: number | null = null;
 
@@ -893,6 +922,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	ngOnDestroy(): void {
+		if (this.mapScaleFrame != null) {
+			cancelAnimationFrame(this.mapScaleFrame);
+			this.mapScaleFrame = null;
+		}
 		if (this.basemapBlendPersistTimer != null) {
 			clearTimeout(this.basemapBlendPersistTimer);
 			this.basemapBlendPersistTimer = null;
@@ -930,6 +963,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@HostListener('window:keydown.escape', ['$event'])
 	onEscape(event: Event): void {
 		event.preventDefault();
+		if (this.poiPhotoFullscreen) {
+			this.closePoiPhotoFullscreen();
+			return;
+		}
 		if (this.basemapMenu) {
 			this.basemapMenu = null;
 			return;
@@ -950,7 +987,23 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.closeWeatherTimeline();
 			return;
 		}
+		if (this.placesListOpen) {
+			this.placesListOpen = false;
+			return;
+		}
 		this.close();
+	}
+
+	@HostListener('document:click', ['$event'])
+	closePlacesListOnOutsideClick(event: MouseEvent): void {
+		if (!this.placesListOpen) {
+			return;
+		}
+		const target = event.target as HTMLElement | null;
+		if (target?.closest('.tv-places-panel, .tv-places-list-btn')) {
+			return;
+		}
+		this.placesListOpen = false;
 	}
 
 	@HostListener('window:keydown', ['$event'])
@@ -1264,6 +1317,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		} else {
 			this.refitTrackIfLayoutSettling();
 		}
+		this.scheduleMapScale();
 	}
 
 	private hasPendingMapContent(): boolean {
@@ -1362,6 +1416,20 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.modalWindowWheelListenEl = modalWin;
 		this.modalWindowWheelHandler = (event: Event) => {
 			const wheelEvent = event as WheelEvent;
+			if (this.poiPhotoFullscreen) {
+				wheelEvent.preventDefault();
+				wheelEvent.stopPropagation();
+				return;
+			}
+			const wheelTarget = wheelEvent.target instanceof Element ? wheelEvent.target : null;
+			if (wheelTarget?.closest('.tv-places-panel')) {
+				wheelEvent.preventDefault();
+				wheelEvent.stopPropagation();
+				if (this.placesListOpen && this.visiblePlaces.length) {
+					this.ngZone.run(() => this.onPlacesListWheel(wheelEvent));
+				}
+				return;
+			}
 			const mapContainer = this.map?.getContainer();
 			const mapRect = mapContainer?.getBoundingClientRect();
 			const isOverMap =
@@ -1474,6 +1542,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public close(): void {
+		this.placesListOpen = false;
 		this.closePlaceModal();
 		this.closeOfflineTracesModal();
 		this.stopMapOrientationWatch();
@@ -2440,6 +2509,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public toggleFullscreen(): void {
+		this.placesListOpen = false;
 		if (this.document.fullscreenElement) {
 			this.document.exitFullscreen().catch(() => { });
 			return;
@@ -3021,6 +3091,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.forceCrosshairCursor();
 			this.refreshOrientationAfterMapMove();
 			this.schedulePlaces();
+			this.scheduleMapScale();
 		});
 		this.schedulePlaces();
 		this.map.on('zoomend', () => {
@@ -3033,10 +3104,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 			}
 			this.currentZoom = this.map!.getZoom();
+			this.scheduleMapScale();
 			this.scheduleTraceViewerCdr();
 		});
-		this.map.on('rotate' as any, () => this.updateCompassRose());
+		this.map.on('zoom', () => this.scheduleMapScale());
+		this.map.on('rotate' as any, () => {
+			this.updateCompassRose();
+			this.scheduleMapScale();
+		});
 		this.currentZoom = this.map.getZoom();
+		this.scheduleMapScale();
 		this.scheduleTraceViewerCdr();
 
 		this.map.whenReady(() => {
@@ -5338,6 +5415,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}, {
 			onZoom: (nextZoom) => {
 				this.currentZoom = maplibreZoomToLeaflet(nextZoom);
+				this.scheduleMapScale();
 				this.scheduleTraceViewerCdr();
 			},
 			onBearing: (bearing) => {
@@ -5356,6 +5434,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.adoptReliefDrag(bearing);
 			},
 			onPitch: (pitch) => {
+				this.scheduleMapScale();
 				if (this.reliefTiltFollowDriving) {
 					return;
 				}
@@ -5369,6 +5448,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			onReady: () => {
 				this.relief3dPending = false;
 				this.cdr.detectChanges();
+				this.scheduleMapScale();
 				this.applySelectedBaseLayer();
 				// Only if the flat map is still on the GPS fix. A basemap change must keep the place on screen.
 				this.catchUpReliefCameraToGps();
@@ -5377,14 +5457,242 @@ export class TraceViewerModalComponent implements OnDestroy {
 			onMoveEnd: () => {
 				this.refreshReliefWeatherStations();
 				this.schedulePlaces();
+				this.scheduleMapScale();
 			},
-			onElevationRange: (range) => this.noteElevationRange(range)
+			onElevationRange: (range) => this.noteElevationRange(range),
+			onAttraction: (poi) => {
+				this.ngZone.run(() => this.showReliefAttraction(poi));
+			},
+			onPlace: (place) => {
+				this.ngZone.run(() => this.showPlacePhoto(place));
+			}
 		});
 		this.syncRelief3dOverlays();
 		this.syncRelief3dBlend();
 		this.syncReliefTouchLocks();
 		this.currentZoom = Number.isFinite(leafletZoom) ? leafletZoom : this.currentZoom;
 		this.updateCompassRose();
+	}
+
+	/** Camera icon on the 3D map: show the Wikimedia photo when the place has one. */
+	private showReliefAttraction(poi: ReliefAttraction | null): void {
+		if (!poi) {
+			this.closeReliefPoiPhoto();
+			return;
+		}
+		this.requestPoiPhoto(poi.name || poi.nameEn || poi.wikidata, {
+			id: poi.wikidata || undefined,
+			name: poi.name || undefined,
+			nameEn: poi.nameEn || undefined,
+			lat: Number.isFinite(poi.lat) ? poi.lat : undefined,
+			lng: Number.isFinite(poi.lng) ? poi.lng : undefined
+		});
+	}
+
+	/** Pastille lieu (monument, point de vue, aérodrome) : même recherche de photo. */
+	private showPlacePhoto(mark: ReliefPlaceMark): void {
+		this.highlightChosenPlace(mark);
+		const key = this.trackVisiblePlace(0, mark);
+		this.placesListKey = key;
+		const index = this.visiblePlaces.findIndex((item) => this.trackVisiblePlace(0, item) === key);
+		if (index >= 0) {
+			this.placesListIndex = index;
+		}
+		this.requestPoiPhoto(mark.name, {
+			id: mark.wikidata || undefined,
+			name: mark.name || undefined,
+			nameEn: mark.nameEn || undefined,
+			lat: mark.lat,
+			lng: mark.lng,
+			wikipedia: mark.wikipedia || undefined,
+			commons: mark.commons || undefined,
+			image: mark.image || undefined
+		});
+	}
+
+	public poiPhotoSourceKey(source: string): string {
+		return 'EVENTELEM.POI_PHOTO_SOURCE_' + source.toUpperCase();
+	}
+
+	public poiPhotoSourceReady(source: string): boolean {
+		return source !== 'unsplash' || this.unsplashReady;
+	}
+
+	public loadPoiPhotoSource(source: string): void {
+		if (!this.poiPhotoSourceReady(source) || !this.poiPhotoQuery || !this.reliefPoiPhoto || this.reliefPoiPhoto.loading) {
+			return;
+		}
+		if (source === this.reliefPoiPhoto.source) {
+			return;
+		}
+		this.closePoiPhotoFullscreen();
+		this.requestPoiPhoto(this.reliefPoiPhoto.title, this.poiPhotoQuery, source);
+	}
+
+	private requestPoiPhoto(
+		title: string,
+		query: { id?: string; name?: string; nameEn?: string; lat?: number; lng?: number; wikipedia?: string; commons?: string; image?: string },
+		source?: string
+	): void {
+		this.poiPhotoQuery = query;
+		const request = ++this.reliefPoiPhotoRequest;
+		this.reliefPoiPhoto = { title, imageUrl: '', pageUrl: '', source: source || '', loading: true };
+		this.cdr.markForCheck();
+		this.apiService.getPoiPhoto({
+			...query,
+			source: source || undefined,
+			lang: this.translateService.currentLang || 'fr'
+		}).pipe(
+			timeout(15000),
+			catchError(() => of(null)),
+			takeUntil(this.destroy$)
+		).subscribe((photo) => {
+			// Hors du cycle de détection en cours : sinon l’URL change après la vérification (NG0100).
+			setTimeout(() => this.applyReliefPoiPhoto(request, title, photo));
+		});
+	}
+
+	private applyReliefPoiPhoto(request: number, title: string, photo: PoiPhoto | null): void {
+		if (request !== this.reliefPoiPhotoRequest) {
+			return;
+		}
+		const resolved = (photo?.title || title).trim() || title;
+		if (photo && typeof photo.unsplash === 'boolean') {
+			this.unsplashReady = photo.unsplash;
+		}
+		this.reliefPoiPhoto = {
+			title: resolved,
+			imageUrl: this.httpsUrl(photo?.imageUrl),
+			pageUrl: this.httpsUrl(photo?.pageUrl),
+			source: (photo?.source || '').trim(),
+			loading: false
+		};
+		this.cdr.markForCheck();
+	}
+
+	public openPoiPhotoFullscreen(): void {
+		if (!this.reliefPoiPhoto?.imageUrl) {
+			return;
+		}
+		this.poiPhotoFullscreen = true;
+		this.cdr.detectChanges();
+		const stage = this.poiPhotoStageRef?.nativeElement;
+		if (stage && document.fullscreenElement !== stage && stage.requestFullscreen) {
+			void stage.requestFullscreen().catch(() => undefined);
+		}
+	}
+
+	public closePoiPhotoFullscreen(): void {
+		const stage = this.poiPhotoStageRef?.nativeElement;
+		this.poiPhotoFullscreen = false;
+		if (stage && document.fullscreenElement === stage) {
+			void document.exitFullscreen().catch(() => undefined);
+		}
+		this.cdr.markForCheck();
+	}
+
+	@HostListener('document:fullscreenchange')
+	onPoiPhotoFullscreenChange(): void {
+		const stage = this.poiPhotoStageRef?.nativeElement;
+		if (!this.poiPhotoFullscreen || !stage || document.fullscreenElement === stage) {
+			return;
+		}
+		this.poiPhotoFullscreen = false;
+		this.cdr.markForCheck();
+	}
+
+	public closeReliefPoiPhoto(): void {
+		this.closePoiPhotoFullscreen();
+		this.reliefPoiPhotoRequest++;
+		if (!this.reliefPoiPhoto) {
+			return;
+		}
+		this.reliefPoiPhoto = null;
+		this.cdr.markForCheck();
+	}
+
+	public reliefPoiPhotoFailed(): void {
+		this.closePoiPhotoFullscreen();
+		if (!this.reliefPoiPhoto?.imageUrl) {
+			return;
+		}
+		this.reliefPoiPhoto = { ...this.reliefPoiPhoto, imageUrl: '', loading: false };
+		this.cdr.markForCheck();
+	}
+
+	private httpsUrl(value: string | undefined): string {
+		const url = (value || '').trim();
+		return url.startsWith('https://') ? url : '';
+	}
+
+	private scheduleMapScale(): void {
+		if (this.mapScaleFrame != null) {
+			return;
+		}
+		this.mapScaleFrame = requestAnimationFrame(() => {
+			this.mapScaleFrame = null;
+			this.updateMapScale();
+		});
+	}
+
+	/** Barre d’échelle au centre de la vue. km dès 1 km, mètres en dessous. */
+	private updateMapScale(): void {
+		const maxPx = TraceViewerModalComponent.MAP_SCALE_MAX_PX;
+		const meters = this.relief3d
+			? (this.terrainView?.groundMetersAcross(maxPx) ?? this.leafletMetersAcross(maxPx))
+			: this.leafletMetersAcross(maxPx);
+		if (meters == null) {
+			return;
+		}
+		const nice = this.niceScaleMeters(meters);
+		if (nice == null) {
+			return;
+		}
+		const width = Math.max(28, Math.min(maxPx, Math.round(maxPx * nice / meters)));
+		const label = nice >= 1000
+			? `${this.formatScaleNumber(nice / 1000)}\u00a0km`
+			: `${this.formatScaleNumber(nice)}\u00a0m`;
+		if (label === this.mapScaleLabel && width === this.mapScaleWidthPx) {
+			return;
+		}
+		this.mapScaleLabel = label;
+		this.mapScaleWidthPx = width;
+		this.cdr.markForCheck();
+	}
+
+	/** Distance au sol de `px` pixels horizontaux au milieu de la carte à plat. */
+	private leafletMetersAcross(px: number): number | null {
+		const map = this.map;
+		if (!map || !(px > 0)) {
+			return null;
+		}
+		const size = map.getSize();
+		if (!size || size.x < 8 || size.y < 8) {
+			return null;
+		}
+		const y = size.y / 2;
+		const left = Math.max(0, Math.min(size.x - px, size.x / 2 - px / 2));
+		const meters = map.containerPointToLatLng(L.point(left, y))
+			.distanceTo(map.containerPointToLatLng(L.point(left + px, y)));
+		return Number.isFinite(meters) && meters > 0 ? meters : null;
+	}
+
+	/** 1, 2, 3, 5 ou 10 × une puissance de dix, sans dépasser `maxMeters`. */
+	private niceScaleMeters(maxMeters: number): number | null {
+		if (!Number.isFinite(maxMeters) || maxMeters <= 0) {
+			return null;
+		}
+		const pow10 = Math.pow(10, Math.floor(Math.log10(maxMeters)));
+		const d = maxMeters / pow10;
+		const nice = d >= 10 ? 10 : d >= 5 ? 5 : d >= 3 ? 3 : d >= 2 ? 2 : 1;
+		return nice * pow10;
+	}
+
+	private formatScaleNumber(value: number): string {
+		if (Number.isInteger(value)) {
+			return String(value);
+		}
+		return String(Math.round(value * 10) / 10);
 	}
 
 	/** Zoom the user sees. In 3D the MapLibre level is one step lower for the same scale. */
@@ -5408,6 +5716,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.terrainView = null;
 		this.relief3d = false;
 		this.relief3dPending = false;
+		this.closeReliefPoiPhoto();
 		this.reliefBearingLock = null;
 		if (cam && this.map) {
 			const zoom = Math.max(
@@ -6278,9 +6587,196 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (this.showPlacesOverlay) {
 			this.schedulePlaces();
 		} else {
+			this.placesListOpen = false;
 			this.clearPlaces();
 		}
 		this.persistTraceViewerPreferences();
+	}
+
+	/** Ouvre la liste des lieux de la zone affichée, juste au-dessus du bouton. */
+	public togglePlacesList(event: MouseEvent): void {
+		event.stopPropagation();
+		if (this.placesListOpen) {
+			this.placesListOpen = false;
+			return;
+		}
+		const button = event.currentTarget as HTMLElement | null;
+		const mapEl = this.mapContainerRef?.nativeElement?.closest('.map-wrapper') as HTMLElement | null;
+		const mapRect = mapEl?.getBoundingClientRect();
+		const btnRect = button?.getBoundingClientRect();
+		if (mapRect && btnRect) {
+			const panelWidth = 260;
+			let left = btnRect.left - mapRect.left;
+			left = Math.max(8, Math.min(left, mapRect.width - panelWidth - 8));
+			const clearance = this.isFullscreen ? 8 : 58;
+			let bottom = mapRect.bottom - btnRect.top + 6;
+			if (bottom < clearance) {
+				bottom = clearance;
+			}
+			const maxBottom = Math.max(8, mapRect.height - 140);
+			if (bottom > maxBottom) {
+				bottom = maxBottom;
+			}
+			this.placesPanelLeft = left;
+			this.placesPanelBottom = bottom;
+			this.placesPanelMaxHeight = Math.max(120, Math.min(320, mapRect.height - bottom - 8));
+		}
+		this.placesListOpen = true;
+		this.placesListIndex = -1;
+		this.placesListKey = '';
+		this.placesWheelAccum = 0;
+	}
+
+	/** Recentre la carte 2D et le relief sur le lieu choisi. */
+	/** Molette : un cran déplace la ligne active, sans zoomer la carte. */
+	private onPlacesListWheel(event: WheelEvent): void {
+		const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+		if (!delta) {
+			return;
+		}
+		this.placesWheelAccum += delta;
+		if (Math.abs(this.placesWheelAccum) < 50) {
+			return;
+		}
+		const direction: 1 | -1 = this.placesWheelAccum > 0 ? 1 : -1;
+		this.placesWheelAccum = 0;
+		this.stepPlacesList(direction);
+	}
+
+	/** Flèches et molette : la liste reste ouverte et le point est mis en avant, sans déplacer la carte. */
+	private stepPlacesList(direction: 1 | -1, count = 1): void {
+		const total = this.visiblePlaces.length;
+		if (!total || count < 1) {
+			return;
+		}
+		let index = this.placesListIndex;
+		if (index < 0) {
+			index = direction > 0 ? 0 : total - 1;
+			count -= 1;
+		}
+		index = Math.max(0, Math.min(total - 1, index + direction * count));
+		this.placesListIndex = index;
+		const mark = this.visiblePlaces[index];
+		this.placesListKey = mark ? this.trackVisiblePlace(index, mark) : '';
+		this.scrollPlacesListToIndex();
+		if (mark) {
+			this.highlightChosenPlace(mark);
+		}
+		this.cdr.markForCheck();
+	}
+
+	private scrollPlacesListToIndex(): void {
+		const list = this.placesListRef?.nativeElement;
+		const item = list?.children.item(this.placesListIndex) as HTMLElement | null;
+		if (!list || !item) {
+			return;
+		}
+		const listRect = list.getBoundingClientRect();
+		const itemRect = item.getBoundingClientRect();
+		if (itemRect.top < listRect.top) {
+			list.scrollTop -= listRect.top - itemRect.top;
+		} else if (itemRect.bottom > listRect.bottom) {
+			list.scrollTop += itemRect.bottom - listRect.bottom;
+		}
+	}
+
+	private syncPlacesListIndex(): void {
+		if (!this.placesListKey || !this.visiblePlaces.length) {
+			this.placesListIndex = -1;
+			return;
+		}
+		const found = this.visiblePlaces.findIndex((mark, index) => this.trackVisiblePlace(index, mark) === this.placesListKey);
+		this.placesListIndex = found;
+	}
+
+	public focusVisiblePlace(mark: ReliefPlaceMark): void {
+		this.placesListOpen = false;
+		this.placesListKey = this.trackVisiblePlace(0, mark);
+		this.placesListIndex = this.visiblePlaces.findIndex((item) => this.trackVisiblePlace(0, item) === this.placesListKey);
+		this.showChosenPlace(mark, true);
+	}
+
+	/** Met le point en avant, sans toucher à la vue. */
+	private highlightChosenPlace(mark: ReliefPlaceMark): void {
+		this.activePlaceKey = this.trackVisiblePlace(0, mark);
+		this.terrainView?.setActivePlace(this.activePlaceKey);
+		this.paintPlaceHighlight();
+	}
+
+	/** Centre la carte sur le lieu et met son point en avant. La photo s’ouvre au clic ou avec Entrée. */
+	private showChosenPlace(mark: ReliefPlaceMark, openPhoto: boolean): void {
+		if (!Number.isFinite(mark.lat) || !Number.isFinite(mark.lng)) {
+			return;
+		}
+		this.highlightChosenPlace(mark);
+		if (this.followDeviceLocation) {
+			this.followDeviceLocation = false;
+			this.onFollowDeviceLocationChange();
+		}
+		const zoom = this.map ? this.visibleLeafletZoom() : undefined;
+		if (this.map && zoom != null) {
+			this.map.setView([mark.lat, mark.lng], zoom, { animate: false });
+			this.currentZoom = zoom;
+		}
+		this.terrainView?.jumpTo(mark.lat, mark.lng, zoom);
+		if (openPhoto) {
+			this.showPlacePhoto(mark);
+		}
+	}
+
+	private paintPlaceHighlight(): void {
+		for (const item of this.placeMarkers) {
+			const on = item.key === this.activePlaceKey && this.activePlaceKey !== '';
+			item.marker.setStyle({
+				radius: on ? 10 : 6,
+				weight: on ? 3 : 2,
+				color: on ? '#fbbf24' : '#ffffff'
+			});
+			if (on) {
+				item.marker.bringToFront();
+			}
+		}
+	}
+
+	public trackVisiblePlace(_index: number, mark: ReliefPlaceMark): string {
+		return `${mark.kind}|${mark.lat.toFixed(5)}|${mark.lng.toFixed(5)}|${mark.name}`;
+	}
+
+	public placeKindIcon(kind: ReliefPlaceMark['kind']): string {
+		if (kind === 'airport') {
+			return 'fa-plane';
+		}
+		if (kind === 'historic') {
+			return 'fa-university';
+		}
+		return 'fa-eye';
+	}
+
+	public placeMarkColor(kind: ReliefPlaceMark['kind']): string {
+		if (kind === 'historic') {
+			return '#7b2cbf';
+		}
+		if (kind === 'airport') {
+			return '#1a5276';
+		}
+		return '#e67e22';
+	}
+
+	/** Noms uniques de la zone affichée, ordre alphabétique. */
+	private publishVisiblePlaces(marks: ReliefPlaceMark[]): void {
+		const seen = new Set<string>();
+		const unique: ReliefPlaceMark[] = [];
+		for (const mark of marks) {
+			const key = `${mark.name.toLocaleLowerCase()}|${mark.lat.toFixed(4)}|${mark.lng.toFixed(4)}`;
+			if (seen.has(key)) {
+				continue;
+			}
+			seen.add(key);
+			unique.push(mark);
+		}
+		unique.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+		this.visiblePlaces = unique;
+		this.syncPlacesListIndex();
 	}
 
 	/** Recharge les lieux quand la carte s’arrête. Une zone trop large n’est pas demandée. */
@@ -6306,10 +6802,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.placesAbort?.abort();
 		this.placesAbort = null;
 		this.placesGen++;
+		this.placesLoading = false;
 		this.placeMarks = [];
+		this.visiblePlaces = [];
+		this.placesListIndex = -1;
+		this.placesListKey = '';
+		this.activePlaceKey = '';
+		this.placeMarkers = [];
 		this.placesLayer?.remove();
 		this.placesLayer = null;
 		this.terrainView?.setPlaces([]);
+		this.terrainView?.setActivePlace('');
 	}
 
 	private async loadPlaces(): Promise<void> {
@@ -6322,6 +6825,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.placesGen++;
 			this.placesAbort?.abort();
 			this.placesAbort = null;
+			this.placesLoading = false;
 			this.placeMarks = [];
 			this.paintPlaces();
 			return;
@@ -6330,6 +6834,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.placesAbort?.abort();
 		const abort = new AbortController();
 		this.placesAbort = abort;
+		this.placesLoading = true;
+		this.cdr.markForCheck();
 		try {
 			const payload = await this.fetchPlacesPayload(abort.signal);
 			if (!payload || gen !== this.placesGen || !this.showPlacesOverlay) {
@@ -6348,7 +6854,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 				if (!name) {
 					continue;
 				}
-				marks.push({ lat, lng, name, kind });
+				marks.push({
+					lat,
+					lng,
+					name,
+					nameEn: (tags['name:en'] || '').trim(),
+					wikidata: (tags['wikidata'] || '').trim(),
+					wikipedia: (tags['wikipedia'] || '').trim(),
+					commons: (tags['wikimedia_commons'] || '').trim(),
+					image: (tags['image'] || '').trim(),
+					kind
+				});
 				if (marks.length >= 120) {
 					break;
 				}
@@ -6357,6 +6873,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.paintPlaces();
 		} catch {
 			/* déplacement ou réseau : la prochaine fin de mouvement réessaie */
+		} finally {
+			if (gen === this.placesGen) {
+				this.placesLoading = false;
+				this.cdr.markForCheck();
+			}
 		}
 	}
 
@@ -6410,26 +6931,32 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private paintPlaces(): void {
 		this.placesLayer?.remove();
 		this.placesLayer = null;
+		this.placeMarkers = [];
+		this.publishVisiblePlaces(this.placeMarks);
 		if (this.map && this.placeMarks.length) {
-			const colors: Record<ReliefPlaceMark['kind'], string> = {
-				historic: '#7b2cbf',
-				sight: '#e67e22',
-				airport: '#1a5276'
-			};
 			const group = L.layerGroup();
 			for (const mark of this.placeMarks) {
-				L.circleMarker([mark.lat, mark.lng], {
+				const marker = L.circleMarker([mark.lat, mark.lng], {
 					radius: 6,
 					color: '#ffffff',
 					weight: 2,
-					fillColor: colors[mark.kind],
+					fillColor: this.placeMarkColor(mark.kind),
 					fillOpacity: 1
-				}).bindTooltip(mark.name, { direction: 'top', offset: [0, -8] }).addTo(group);
+				});
+				marker.bindTooltip(mark.name, { direction: 'top', offset: [0, -8] });
+				marker.on('click', (event) => {
+					L.DomEvent.stopPropagation(event);
+					this.ngZone.run(() => this.showPlacePhoto(mark));
+				});
+				marker.addTo(group);
+				this.placeMarkers.push({ key: this.trackVisiblePlace(0, mark), marker });
 			}
 			group.addTo(this.map);
 			this.placesLayer = group;
+			this.paintPlaceHighlight();
 		}
 		this.terrainView?.setPlaces(this.placeMarks);
+		this.terrainView?.setActivePlace(this.activePlaceKey);
 		this.cdr.markForCheck();
 	}
 
@@ -8672,7 +9199,33 @@ export class TraceViewerModalComponent implements OnDestroy {
 			if (!this.modalRef) {
 				return;
 			}
+			if (this.placesListOpen && this.visiblePlaces.length && !this.traceViewerShortcutBlocked(event)) {
+				const arrow = event.key;
+				if (arrow === 'ArrowDown' || arrow === 'ArrowUp' || arrow === 'ArrowRight' || arrow === 'ArrowLeft') {
+					event.preventDefault();
+					event.stopPropagation();
+					const direction: 1 | -1 = arrow === 'ArrowDown' || arrow === 'ArrowRight' ? 1 : -1;
+					this.ngZone.run(() => this.stepPlacesList(direction));
+					return;
+				}
+				if (arrow === 'Enter') {
+					const mark = this.visiblePlaces[this.placesListIndex];
+					if (mark) {
+						event.preventDefault();
+						event.stopPropagation();
+						this.ngZone.run(() => this.focusVisiblePlace(mark));
+					}
+					return;
+				}
+			}
 			const key = event.key?.toLowerCase?.() ?? '';
+			if ((key === 'escape' || key === 'esc') && this.poiPhotoFullscreen) {
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation?.();
+				this.ngZone.run(() => this.closePoiPhotoFullscreen());
+				return;
+			}
 			if (key === 'escape' || key === 'esc') {
 				event.preventDefault();
 				event.stopPropagation();

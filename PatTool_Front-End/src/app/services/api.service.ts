@@ -2965,6 +2965,53 @@ export class ApiService {
     return this._http.get<WikipediaSummary>(this.API_URL + 'external/wiki/summary', { params });
   }
 
+  /** Photo for a 3D-map attraction (camera icon). Empty imageUrl when none exists. */
+  getPoiPhoto(options: {
+    id?: string;
+    name?: string;
+    nameEn?: string;
+    lat?: number;
+    lng?: number;
+    wikipedia?: string;
+    commons?: string;
+    image?: string;
+    source?: string;
+    lang?: string;
+  }): Observable<PoiPhoto> {
+    let params = new HttpParams();
+    if (options.id) {
+      params = params.set('id', options.id);
+    }
+    if (options.name) {
+      params = params.set('name', options.name);
+    }
+    if (options.nameEn) {
+      params = params.set('nameEn', options.nameEn);
+    }
+    if (options.lat != null && Number.isFinite(options.lat)) {
+      params = params.set('lat', String(options.lat));
+    }
+    if (options.lng != null && Number.isFinite(options.lng)) {
+      params = params.set('lng', String(options.lng));
+    }
+    if (options.wikipedia) {
+      params = params.set('wikipedia', options.wikipedia);
+    }
+    if (options.commons) {
+      params = params.set('commons', options.commons);
+    }
+    if (options.image) {
+      params = params.set('image', options.image);
+    }
+    if (options.source) {
+      params = params.set('source', options.source);
+    }
+    if (options.lang) {
+      params = params.set('lang', options.lang);
+    }
+    return this._http.get<PoiPhoto>(this.API_URL + 'external/wiki/poi-photo', { params });
+  }
+
   searchArtisansNearby(options: {
     source: ArtisansSource;
     lat?: number;
@@ -6640,6 +6687,15 @@ export interface WikipediaSearchResponse {
 }
 
 /** Wikipedia REST summary (via backend proxy). */
+export interface PoiPhoto {
+  title?: string;
+  imageUrl?: string;
+  pageUrl?: string;
+  source?: string;
+  /** True when the server has an Unsplash access key. */
+  unsplash?: boolean;
+}
+
 export interface WikipediaSummary {
   type?: string;
   title?: string;

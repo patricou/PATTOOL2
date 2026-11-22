@@ -31,6 +31,91 @@
            [class.map-has-blend-dock]="showBasemapBlend && isFullscreen && isMobileViewport">
         <div #mapContainer id="trace-viewer-map-container" class="map-container" aria-label="Track map"></div>
         <div class="trace-relief3d-host" [class.trace-relief3d-host--on]="relief3d" [attr.aria-hidden]="relief3d ? null : true"></div>
+        <div class="tv-map-scale" *ngIf="mapScaleLabel">
+          <span class="tv-map-scale-label">{{ mapScaleLabel }}</span>
+          <span class="tv-map-scale-bar" [style.width.px]="mapScaleWidthPx" aria-hidden="true"></span>
+        </div>
+        <div class="tv-poi-photo" *ngIf="relief3d && reliefPoiPhoto" role="dialog" [attr.aria-label]="reliefPoiPhoto.title">
+          <div class="tv-poi-photo-head">
+            <span class="tv-poi-photo-title">{{ reliefPoiPhoto.title }}</span>
+            <button type="button"
+                    class="tv-poi-photo-close"
+                    *ngIf="!reliefPoiPhoto.loading && reliefPoiPhoto.imageUrl"
+                    (click)="openPoiPhotoFullscreen()"
+                    [attr.aria-label]="'EVENTELEM.POI_PHOTO_FULLSCREEN' | translate"
+                    [attr.title]="'EVENTELEM.POI_PHOTO_FULLSCREEN' | translate">
+              <i class="fa fa-expand" aria-hidden="true"></i>
+            </button>
+            <a class="tv-poi-photo-close"
+               *ngIf="!reliefPoiPhoto.loading && reliefPoiPhoto.imageUrl && reliefPoiPhoto.pageUrl"
+               [href]="reliefPoiPhoto.pageUrl"
+               target="_blank"
+               rel="noopener noreferrer"
+               [attr.aria-label]="'EVENTELEM.POI_PHOTO_PAGE' | translate"
+               [attr.title]="'EVENTELEM.POI_PHOTO_PAGE' | translate">
+              <i class="fa fa-external-link" aria-hidden="true"></i>
+            </a>
+            <button type="button"
+                    class="tv-poi-photo-close"
+                    (click)="closeReliefPoiPhoto()"
+                    [attr.aria-label]="'EVENTELEM.POI_PHOTO_CLOSE' | translate">
+              <i class="fa fa-times" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="tv-poi-photo-status" *ngIf="reliefPoiPhoto.loading">
+            <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+            <span>{{ 'EVENTELEM.POI_PHOTO_LOADING' | translate }}</span>
+          </div>
+          <button type="button"
+                  class="tv-poi-photo-link"
+                  *ngIf="!reliefPoiPhoto.loading && reliefPoiPhoto.imageUrl"
+                  (click)="openPoiPhotoFullscreen()"
+                  [attr.aria-label]="'EVENTELEM.POI_PHOTO_FULLSCREEN' | translate">
+            <img [src]="reliefPoiPhoto.imageUrl"
+                 [alt]="reliefPoiPhoto.title"
+                 (error)="reliefPoiPhotoFailed()" />
+          </button>
+          <p class="tv-poi-photo-empty" *ngIf="!reliefPoiPhoto.loading && !reliefPoiPhoto.imageUrl">
+            {{ 'EVENTELEM.POI_NO_PHOTO' | translate }}
+          </p>
+          <p class="tv-poi-photo-source" *ngIf="!reliefPoiPhoto.loading && reliefPoiPhoto.source">
+            {{ 'EVENTELEM.POI_PHOTO_FROM' | translate }} {{ poiPhotoSourceKey(reliefPoiPhoto.source) | translate }}
+          </p>
+          <div class="tv-poi-photo-sources" *ngIf="!reliefPoiPhoto.loading">
+            <button type="button"
+                    *ngFor="let source of poiPhotoSources"
+                    [class.is-on]="source === reliefPoiPhoto.source"
+                    [class.is-off]="!poiPhotoSourceReady(source)"
+                    [disabled]="!poiPhotoSourceReady(source)"
+                    (click)="loadPoiPhotoSource(source)">
+              {{ poiPhotoSourceKey(source) | translate }}
+            </button>
+          </div>
+        </div>
+        <div #poiPhotoStage
+             class="tv-poi-photo-full"
+             *ngIf="reliefPoiPhoto?.imageUrl"
+             [class.tv-poi-photo-full--on]="poiPhotoFullscreen"
+             (click)="closePoiPhotoFullscreen()">
+          <button type="button"
+                  class="tv-poi-photo-full-close"
+                  (click)="$event.stopPropagation(); closePoiPhotoFullscreen()"
+                  [attr.aria-label]="'EVENTELEM.POI_PHOTO_CLOSE' | translate">
+            <i class="fa fa-times" aria-hidden="true"></i>
+          </button>
+          <img [src]="reliefPoiPhoto?.imageUrl"
+               [alt]="reliefPoiPhoto?.title"
+               (click)="$event.stopPropagation()"
+               (error)="reliefPoiPhotoFailed()" />
+          <div class="tv-poi-photo-full-caption" (click)="$event.stopPropagation()">
+            <span>{{ reliefPoiPhoto?.title }}</span>
+            <span *ngIf="reliefPoiPhoto?.source as photoSource">{{ poiPhotoSourceKey(photoSource) | translate }}</span>
+            <a *ngIf="reliefPoiPhoto?.pageUrl"
+               [href]="reliefPoiPhoto?.pageUrl"
+               target="_blank"
+               rel="noopener noreferrer">{{ 'EVENTELEM.POI_PHOTO_PAGE' | translate }}</a>
+          </div>
+        </div>
         <div class="tv-elev-legend" *ngIf="elevationColors && relief3d && elevationSpan" aria-hidden="true">
           <span>{{ elevationSpan.min }} m</span>
           <span class="tv-elev-legend-bar"></span>
@@ -120,6 +205,50 @@
             <span class="tv-rainbow-swatch" aria-hidden="true"></span>
           </button>
         </ng-template>
+
+        <ng-template #placesListButton>
+          <button type="button"
+                  *ngIf="showPlacesOverlay"
+                  class="btn btn-sm btn-outline-secondary tv-places-list-btn tv-tip"
+                  [class.tv-places-list-btn--on]="placesListOpen"
+                  (click)="togglePlacesList($event)"
+                  [attr.aria-expanded]="placesListOpen"
+                  [attr.data-tv-tip]="'EVENTELEM.TRACK_PLACES_LIST_HINT' | translate"
+                  [attr.title]="'EVENTELEM.TRACK_PLACES_LIST_HINT' | translate"
+                  [attr.aria-label]="'EVENTELEM.TRACK_PLACES_LIST' | translate">
+            <i class="fa fa-list" aria-hidden="true"></i>
+          </button>
+        </ng-template>
+
+        <div class="tv-places-panel"
+             *ngIf="showPlacesOverlay && placesListOpen"
+             role="listbox"
+             [attr.aria-label]="'EVENTELEM.TRACK_PLACES_LIST' | translate"
+             [style.left.px]="placesPanelLeft"
+             [style.bottom.px]="placesPanelBottom"
+             [style.max-height.px]="placesPanelMaxHeight">
+          <div class="tv-places-panel-title">
+            {{ 'EVENTELEM.TRACK_PLACES_LIST' | translate }}<span *ngIf="visiblePlaces.length"> ({{ visiblePlaces.length }})</span>
+          </div>
+          <p class="tv-places-panel-empty" *ngIf="placesLoading && !visiblePlaces.length">
+            {{ 'EVENTELEM.TRACK_PLACES_LIST_LOADING' | translate }}
+          </p>
+          <p class="tv-places-panel-empty" *ngIf="!placesLoading && !visiblePlaces.length">
+            {{ 'EVENTELEM.TRACK_PLACES_LIST_EMPTY' | translate }}
+          </p>
+          <div class="tv-places-panel-list" #placesList *ngIf="visiblePlaces.length">
+            <button type="button"
+                    class="tv-places-panel-item"
+                    [class.tv-places-panel-item--active]="i === placesListIndex"
+                    role="option"
+                    [attr.aria-selected]="i === placesListIndex"
+                    *ngFor="let place of visiblePlaces; let i = index; trackBy: trackVisiblePlace"
+                    (click)="focusVisiblePlace(place)">
+              <i class="fa" [ngClass]="placeKindIcon(place.kind)" [style.color]="placeMarkColor(place.kind)" aria-hidden="true"></i>
+              <span>{{ place.name }}</span>
+            </button>
+          </div>
+        </div>
 
         <div class="trace-viewer-orient-dock"
              *ngIf="!isFullscreen"
@@ -359,6 +488,7 @@
              class="fullscreen-selector"
              [class.fullscreen-selector--collapsed]="!isFullscreenOptionsExpanded">
           <div *ngIf="!isFullscreenOptionsExpanded" class="fullscreen-selector-collapsed-actions">
+            <ng-container *ngTemplateOutlet="placesListButton"></ng-container>
             <button type="button"
                     class="btn btn-sm btn-outline-secondary fullscreen-selector-expand-btn tv-tip"
                     (click)="toggleFullscreenOptions()"
@@ -401,6 +531,7 @@
                       [attr.aria-label]="'EVENTELEM.EXIT_FULLSCREEN' | translate">
                 <i class="fa fa-compress" aria-hidden="true"></i>
               </button>
+              <ng-container *ngTemplateOutlet="placesListButton"></ng-container>
               <button type="button"
                       class="btn btn-sm btn-secondary tv-relief3d-fs"
                       *ngIf="relief3dAvailable"
@@ -747,6 +878,9 @@
           </label>
         <div class="tv-footer-tools">
         <div class="tv-offline-actions">
+        <ng-container *ngIf="!isFullscreen">
+          <ng-container *ngTemplateOutlet="placesListButton"></ng-container>
+        </ng-container>
         <button type="button"
                 class="btn btn-sm btn-outline-secondary tv-relief3d-btn tv-tip"
                 *ngIf="relief3dAvailable && !isFullscreen"
