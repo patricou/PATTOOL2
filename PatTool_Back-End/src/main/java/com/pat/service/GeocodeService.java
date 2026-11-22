@@ -149,14 +149,14 @@ public class GeocodeService {
             return results;
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
-                log.warn("Geocode search rate limited (429) for '{}'", query);
+                log.warn("Geocode search rate limited for '{}'", query);
             } else {
-                log.error("Geocode search failed for query '{}': {}", query, e.getMessage());
+                log.warn("Geocode search unavailable for '{}': HTTP {}", query, e.getStatusCode().value());
             }
             return Collections.emptyList();
         } catch (Exception e) {
-            log.error("Geocode search failed for query '{}': {}", query, e.getMessage());
-            throw new RuntimeException("Geocode search failed: " + e.getMessage(), e);
+            log.warn("Geocode search unavailable for '{}'", query);
+            return Collections.emptyList();
         }
     }
 
@@ -336,11 +336,11 @@ public class GeocodeService {
                         return null;
                     }
                 } else {
-                    log.error("Reverse geocode failed for ({}, {}): {}", lat, lon, e.getMessage());
+                    log.warn("Nominatim reverse unavailable for ({}, {}): HTTP {}", lat, lon, e.getStatusCode().value());
                     return null;
                 }
             } catch (Exception e) {
-                log.error("Reverse geocode failed for ({}, {}): {}", lat, lon, e.getMessage());
+                log.warn("Nominatim reverse unavailable for ({}, {})", lat, lon);
                 return null;
             }
         }

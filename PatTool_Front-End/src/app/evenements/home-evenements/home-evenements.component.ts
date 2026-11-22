@@ -7,7 +7,7 @@ import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { isValidGeoCoordinate } from '../../shared/geo-coordinates.util';
-import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { TraceViewerModalComponent, mainActivityPhoto } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { Observable, Subscription, fromEvent, firstValueFrom, forkJoin, of, Subject, from } from 'rxjs';
 import { debounceTime, map, catchError, switchMap, take } from 'rxjs/operators';
@@ -104,6 +104,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public selectedEventPhotos: string[] = [];
 	public selectedEvent: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], [], undefined);
 	public selectedEventName: string = '';
+	private slideshowActivity: Evenement | null = null;
 	public isLoadingFiles: boolean = false;
 	public selectedImageUrl: SafeUrl | string = '';
 	public selectedImageAlt: string = '';
@@ -3805,6 +3806,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 		
 		// Open modal immediately with empty array (images from FS); pass eventId so "Ajouter dans la DB" is available
+		this.slideshowActivity = evenement;
 		this.slideshowModalComponent.open([], evenement.evenementName, false, 0, undefined, 0, evenement?.id, !!(evenement?.author && this.isAuthor(evenement)));
 		
 		// Then list and load images dynamically
@@ -3870,6 +3872,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}));
 
 		// Open the slideshow modal immediately - images will be loaded dynamically
+		this.slideshowActivity = evenement;
 		if (this.slideshowModalComponent) {
 			this.slideshowModalComponent.open(imageSources, evenement.evenementName, true, 0, undefined, 0, evenement?.id, !!(evenement?.author && this.isAuthor(evenement)));
 		}
@@ -3905,7 +3908,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.slideshowModalComponent.setTraceViewerOpen(true);
 		}
 		if (this.traceViewerModalComponent) {
-			this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, event.eventColor);
+			this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, event.eventColor, false, false, {
+				activityPhoto: mainActivityPhoto(this.slideshowActivity)
+			});
 		}
 	}
 

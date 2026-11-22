@@ -3012,6 +3012,12 @@ export class ApiService {
     return this._http.get<PoiPhoto>(this.API_URL + 'external/wiki/poi-photo', { params });
   }
 
+  /** Mapillary thumbnail bytes. The 360° viewer cannot read the CDN image directly. */
+  fetchPoiImage(url: string): Observable<Blob> {
+    const params = new HttpParams().set('url', url);
+    return this._http.get(this.API_URL + 'external/wiki/image', { params, responseType: 'blob' });
+  }
+
   /** Activities the signed-in user can see. Filter is `*` so the name is not used. */
   listEvenements(userId: string): Observable<{ content?: Array<{ id?: string; evenementName?: string; author?: { id?: string } }> }> {
     return this.authHeaders(true).pipe(
@@ -6715,7 +6721,11 @@ export interface PoiPhoto {
   source?: string;
   /** True when the server has an Unsplash access key. */
   unsplash?: boolean;
-  photos?: Array<{ imageUrl?: string; pageUrl?: string; source?: string; title?: string }>;
+  photos?: Array<{ imageUrl?: string; pageUrl?: string; source?: string; title?: string; pano?: boolean; nearby?: boolean }>;
+  /** Mapillary 360° photo. The viewer can turn it. */
+  pano?: boolean;
+  /** Picture of the surroundings, not a file named after the place. */
+  nearby?: boolean;
 }
 
 export interface WikipediaSummary {

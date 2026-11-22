@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Inject, NgZone, OnDestroy, Output, TemplateRef, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Inject, NgZone, OnDestroy, Output, TemplateRef, ViewChild, ViewRef } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
@@ -34,6 +34,7 @@ import { viewWindowFromMap } from '../../gps-track/gps-offline-tiles.util';
 import { cachedBasemapTileUrl, createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
 import { createVectorBasemapLayer, maptoolkitStyleForBasemap, vectorStyleForBasemap, applyGlLayerOpacity, FlatMaptoolkitBlend } from '../maptoolkit-basemap.layer';
 import { MaptoolkitTerrainView, ReliefAttraction, ReliefPlaceMark, ReliefTrace, ReliefTrailOverlays, leafletZoomToMaplibre, maplibreZoomToLeaflet } from '../maptoolkit-terrain-view';
+import { EquirectView } from '../equirect-view';
 import { findSkinnedPageHost, paintModalFromHost } from '../host-skin';
 import { isBrowserOffline } from '../browser-offline.util';
 import { mapBearingFromDeviceOrientation } from '../../direction/direction-attitude';
@@ -71,6 +72,61 @@ interface TraceViewerSource {
 	traces?: { name: string; points: L.LatLngTuple[] }[];
 	/** When set (e.g. globe embed), selects this base layer id after layers are created. */
 	initialBaseLayerId?: string;
+	/** Activity GPS point, drawn with the activity’s main photo. */
+	activityPhoto?: ActivityPhotoMarker;
+}
+
+/** Point GPS d’une activité, avec la photo principale. */
+export interface ActivityPhotoMarker {
+	lat?: number;
+	lng?: number;
+	/** Adresse ou « lat, lng » si les coordonnées ne sont pas encore connues. */
+	locationText?: string;
+	fileId: string;
+	fileName?: string;
+	label?: string;
+}
+
+/** Photo principale de l’activité (miniature, sinon première image) et son lieu de départ. */
+export function mainActivityPhoto(
+	event: {
+		evenementName?: string;
+		startLocation?: string | null;
+		thumbnail?: { fieldId?: string; fileName?: string } | null;
+		fileUploadeds?: Array<{ fieldId?: string; fileName?: string; fileType?: string }> | null;
+	} | null | undefined,
+	coords?: { lat: number; lng: number } | null
+): ActivityPhotoMarker | null {
+	if (!event) {
+		return null;
+	}
+	const thumb = event.thumbnail?.fieldId ? event.thumbnail : null;
+	const image = thumb ?? event.fileUploadeds?.find((file) => {
+		if (!file.fieldId) {
+			return false;
+		}
+		const type = (file.fileType || '').toLowerCase();
+		const name = (file.fileName || '').toLowerCase();
+		return type.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp)$/.test(name);
+	});
+	const fileId = image?.fieldId?.trim();
+	if (!fileId) {
+		return null;
+	}
+	const locationText = event.startLocation?.trim() || '';
+	const lat = coords && isValidGeoCoordinate(coords.lat, coords.lng) ? coords.lat : undefined;
+	const lng = coords && isValidGeoCoordinate(coords.lat, coords.lng) ? coords.lng : undefined;
+	if (lat == null && !locationText) {
+		return null;
+	}
+	return {
+		lat,
+		lng,
+		locationText: locationText || undefined,
+		fileId,
+		fileName: image?.fileName,
+		label: event.evenementName
+	};
 }
 
 interface TraceStatistics {
@@ -140,6 +196,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@ViewChild('mapContainer', { static: false }) mapContainerRef?: ElementRef<HTMLDivElement>;
 	@ViewChild('placesList', { static: false }) placesListRef?: ElementRef<HTMLDivElement>;
 	@ViewChild('poiPhotoStage', { static: false }) poiPhotoStageRef?: ElementRef<HTMLDivElement>;
+
+	@ViewChild('poiPano')
+	set poiPanoCanvas(ref: ElementRef<HTMLCanvasElement> | undefined) {
+		this.bindEquirect(ref?.nativeElement, false);
+	}
+
+	@ViewChild('poiPanoFull')
+	set poiPanoFullCanvas(ref: ElementRef<HTMLCanvasElement> | undefined) {
+		this.bindEquirect(ref?.nativeElement, true);
+	}
 	@ViewChild('compassRoseDial', { static: false }) compassRoseDialRef?: ElementRef<SVGSVGElement>;
 	@Output() closed = new EventEmitter<void>();
 	@Output() locationSelected = new EventEmitter<{ lat: number; lng: number; alt?: number | null }>();
@@ -314,6 +380,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/** Follow device GPS: recenter the map every 5 s. */
 	public followDeviceLocation: boolean = false;
+	/** Saved follow switch. A place/track open turns the live switch off without writing this back. */
+	private followDeviceLocationPref = false;
+	/** Activity, trace or pinned place: keep that view, do not jump to the device GPS. */
+	private keepOpenedPlace = false;
 	/** One-shot geolocation in progress (recenter-on-user button). */
 	public locatingUser = false;
 	/** `modalGeneration` when a live GPS recenter last won — blocks provisional weather snap-back. */
@@ -437,6 +507,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.consumeCompassOrientation(event as DeviceOrientationEvent);
 	};
 	private pendingLocation: { lat: number; lng: number; label?: string; zoom?: number; hidePin?: boolean } | null = null;
+	private activityPhoto: ActivityPhotoMarker | null = null;
+	private activityPhotoMarker?: L.Marker;
+	private activityPhotoUrl: string | null = null;
+	private activityPhotoLoadGen = 0;
+	private activityPhotoFramed = false;
 	private pendingPositions: Array<{ lat: number; lng: number; type?: string; datetime?: Date; label?: string }> | null = null;
 	private lastRenderedPosition: { lat: number; lng: number } | null = null; // Store the most recent position after rendering
 	private selectionMode: boolean = false;
@@ -477,11 +552,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** True while the pitched view is loading and still hidden. */
 	public relief3dPending = false;
 	/** Photo opened from a camera icon on the 3D map. */
-	public reliefPoiPhoto: { title: string; imageUrl: string; pageUrl: string; source: string; loading: boolean } | null = null;
+	public reliefPoiPhoto: { title: string; imageUrl: string; pageUrl: string; source: string; loading: boolean; pano?: boolean } | null = null;
 	/** Photos already downloaded for the open place, in arrival order. */
-	public poiGallery: Array<{ title: string; imageUrl: string; pageUrl: string; source: string }> = [];
+	public poiGallery: Array<{ title: string; imageUrl: string; pageUrl: string; source: string; pano?: boolean; nearby?: boolean }> = [];
 	public poiGalleryIndex = 0;
-	public readonly poiPhotoSources = ['wikidata', 'wikipedia', 'commons', 'openverse', 'unsplash', 'mapillary'] as const;
+	/** The viewer picked a frame. Later results must not replace it. */
+	private poiGalleryPinned = false;
+	public readonly poiPhotoSources = ['wikidata', 'wikipedia', 'commons', 'openverse', 'unsplash', 'mapillary', 'panoramax'] as const;
 	/** Unsplash stays struck out until the server reports an access key. */
 	public unsplashReady = false;
 	private unsplashKnown = false;
@@ -490,6 +567,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public poiSaveMessage = '';
 	public poiSaveActivities: { id: string; name: string }[] = [];
 	public poiSaveFilter = '';
+	private cardEquirect: EquirectView | null = null;
+	private fullEquirect: EquirectView | null = null;
+	private panoYaw = 0;
+	private panoPitch = 0;
+	private panoImageUrl = '';
+	/** Image URL whose 360° viewer failed, so the flat thumbnail is shown instead. */
+	public panoBrokenUrl = '';
 	public poiPhotoFullscreen = false;
 	private reliefPoiPhotoRequest = 0;
 	private poiPhotoCancel$ = new Subject<void>();
@@ -855,7 +939,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.showPlacesOverlay = pref.showPlacesOverlay;
 		}
 		if (pref.followDeviceLocation != null) {
-			this.followDeviceLocation = pref.followDeviceLocation;
+			this.followDeviceLocationPref = pref.followDeviceLocation;
+			if (!this.keepOpenedPlace) {
+				this.followDeviceLocation = pref.followDeviceLocation;
+			}
 		}
 		if (pref.keepScreenAwake != null) {
 			this.keepScreenAwake = pref.keepScreenAwake;
@@ -896,7 +983,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			showRailwayOverlay: this.showRailwayOverlay,
 			showSlopesOverlay: this.showSlopesOverlay,
 			showPlacesOverlay: this.showPlacesOverlay,
-			followDeviceLocation: this.followDeviceLocation,
+			followDeviceLocation: this.keepOpenedPlace ? this.followDeviceLocationPref : this.followDeviceLocation,
 			keepScreenAwake: this.keepScreenAwake,
 			showGpsCoordinates: this.showGpsCoordinates,
 			baseLayerId,
@@ -929,7 +1016,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.applyWeatherStationsOverlay();
 		this.applyTrailOverlays();
 		this.schedulePlaces();
-		if (this.followDeviceLocation) {
+		if (this.followDeviceLocation && !this.keepOpenedPlace) {
 			this.startFollowDeviceLocation();
 		}
 		if (this.keepScreenAwake) {
@@ -968,10 +1055,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.clearPlaces();
 		this.stopMapOrientationWatch();
 		this.stopFollowDeviceLocation();
+		this.clearActivityPhoto();
 		void this.releaseScreenWakeLock();
 		this.cleanupVisibilityChangeListener();
 		this.destroy$.next();
 		this.destroy$.complete();
+		this.destroyEquirect();
 		this.close();
 		this.destroyMap();
 		this.cleanupFullscreenListener();
@@ -1062,7 +1151,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		fileId: string,
 		fileName: string,
 		eventColor?: { r: number; g: number; b: number },
-		displayTitle?: string | null
+		displayTitle?: string | null,
+		activityPhoto?: ActivityPhotoMarker | null
 	): void {
 		// Store event color if provided
 		if (eventColor) {
@@ -1071,7 +1161,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.eventColor = null;
 		}
 		const trimmedTitle = displayTitle != null && String(displayTitle).trim().length > 0 ? String(displayTitle).trim() : undefined;
-		this.open({ fileId, fileName, titleLabel: trimmedTitle });
+		this.open({
+			fileId,
+			fileName,
+			titleLabel: trimmedTitle,
+			activityPhoto: activityPhoto ?? undefined
+		});
 	}
 
 	public openFromBlob(blob: Blob, fileName: string, eventColor?: { r: number; g: number; b: number }): void {
@@ -1132,7 +1227,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		eventColor?: { r: number; g: number; b: number },
 		enableSelection: boolean = false,
 		simpleShare: boolean = false,
-		viewOptions?: { zoom?: number; initialBaseLayerId?: string; hidePin?: boolean }
+		viewOptions?: { zoom?: number; initialBaseLayerId?: string; hidePin?: boolean; activityPhoto?: ActivityPhotoMarker | null }
 	): void {
 		if (!isValidGeoCoordinate(lat, lng)) {
 			return;
@@ -1156,7 +1251,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.open({
 			fileName,
 			location: { lat, lng, label, zoom: viewOptions?.zoom, hidePin: viewOptions?.hidePin === true },
-			initialBaseLayerId: viewOptions?.initialBaseLayerId
+			initialBaseLayerId: viewOptions?.initialBaseLayerId,
+			activityPhoto: viewOptions?.activityPhoto ?? undefined
 		});
 
 		// Restore selectionMode and simpleShareMode AFTER open() has reset it
@@ -2555,6 +2651,21 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const generation = ++this.modalGeneration;
 		this.dismissTraceViewerModalIfOpen();
 		this.resetState();
+		const loc = source.location;
+		const openedOnPlace = !!(
+			source.fileId
+			|| source.blob
+			|| (source.trackPoints && source.trackPoints.length)
+			|| (source.traces && source.traces.length)
+			|| (source.positions && source.positions.length)
+			|| (loc && loc.hidePin !== true)
+		);
+		this.keepOpenedPlace = openedOnPlace;
+		if (openedOnPlace) {
+			this.followDeviceLocation = false;
+		} else if (this.followDeviceLocationPref) {
+			this.followDeviceLocation = true;
+		}
 		const label = source.titleLabel != null && source.titleLabel.trim().length > 0 ? source.titleLabel.trim() : '';
 		this.trackFileName = label.length > 0 ? label : source.fileName;
 		this.gpsSourceFileId = source.fileId || null;
@@ -2563,7 +2674,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (source.initialBaseLayerId && this.baseLayers[source.initialBaseLayerId]) {
 			this.selectedBaseLayerId = source.initialBaseLayerId;
 		}
-		const loc = source.location;
 		this.pendingLocation =
 			loc != null && isValidGeoCoordinate(loc.lat, loc.lng) ? loc : null;
 		this.pendingPositions = source.positions ?? null;
@@ -2592,6 +2702,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.pendingPositions = null;
 			this.trackStats = null;
 		}
+		this.activityPhoto = source.activityPhoto?.fileId ? { ...source.activityPhoto } : null;
+		this.activityPhotoFramed = false;
+		this.resolveActivityPhotoPosition();
 
 		const defaultModalOpts: NgbModalOptions = {
 			size: 'xl',
@@ -2722,6 +2835,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.tryRenderPendingTrack();
 		this.tryRenderPendingPositions();
 		this.tryRenderPendingLocation();
+		this.placeActivityPhotoMarker();
 	}
 
 	/**
@@ -3794,6 +3908,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.trackOrientationCoords = drawable[0].points.slice();
 		this.updateRouteHeadingFromTrack();
 		const bounds = L.latLngBounds(allPoints);
+		this.extendBoundsWithActivityPhoto(bounds);
 		this.trackBounds = bounds;
 		this.map.invalidateSize({ animate: false });
 		this.fitMapToTrackBounds(bounds);
@@ -3806,8 +3921,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			distanceKm: Math.round(distanceKm * 100) / 100
 		};
 		this.applyMapBearing();
+		this.placeActivityPhotoMarker();
 		this.syncRelief3dOverlays();
-		this.terrainView?.fitTraces();
+		this.fitReliefToTrackBounds();
 		this.cdr.detectChanges();
 	}
 
@@ -3892,6 +4008,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		endMarker.addTo(this.overlayLayer);
 
 		const bounds = L.latLngBounds(points);
+		this.extendBoundsWithActivityPhoto(bounds);
 		this.trackBounds = bounds;
 		this.map.invalidateSize({ animate: false });
 		this.fitMapToTrackBounds(bounds);
@@ -3904,8 +4021,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			distanceKm: this.computeDistance(points)
 		};
 		this.applyMapBearing();
+		this.placeActivityPhotoMarker();
 		this.syncRelief3dOverlays();
-		this.terrainView?.fitTraces();
+		this.fitReliefToTrackBounds();
 		this.cdr.detectChanges();
 	}
 
@@ -4046,6 +4164,274 @@ export class TraceViewerModalComponent implements OnDestroy {
 		};
 
 		this.cdr.detectChanges();
+	}
+
+	private clearActivityPhoto(): void {
+		this.activityPhotoLoadGen++;
+		this.activityPhoto = null;
+		this.activityPhotoFramed = false;
+		this.activityPhotoMarker?.remove();
+		this.activityPhotoMarker = undefined;
+		this.revokeActivityPhotoUrl();
+		this.terrainView?.setPhotoMarker(null);
+	}
+
+	private revokeActivityPhotoUrl(): void {
+		if (this.activityPhotoUrl) {
+			URL.revokeObjectURL(this.activityPhotoUrl);
+			this.activityPhotoUrl = null;
+		}
+	}
+
+	private activityPhotoLatLng(): { lat: number; lng: number } | null {
+		const photo = this.activityPhoto;
+		if (!photo || !isValidGeoCoordinate(photo.lat ?? NaN, photo.lng ?? NaN)) {
+			return null;
+		}
+		return { lat: photo.lat as number, lng: photo.lng as number };
+	}
+
+	private activityPhotoCovers(lat: number, lng: number): boolean {
+		const coords = this.activityPhotoLatLng();
+		if (!coords) {
+			return false;
+		}
+		return L.latLng(lat, lng).distanceTo(L.latLng(coords.lat, coords.lng)) < 40;
+	}
+
+	/** Adresse de départ → coordonnées, puis chargement de la miniature. */
+	private resolveActivityPhotoPosition(): void {
+		const photo = this.activityPhoto;
+		if (!photo?.fileId) {
+			this.activityPhoto = null;
+			return;
+		}
+		if (isValidGeoCoordinate(photo.lat ?? NaN, photo.lng ?? NaN)) {
+			this.loadActivityPhotoImage();
+			return;
+		}
+		const text = (photo.locationText || '').trim();
+		const parsed = text ? this.parseGotoCoordinates(text) : null;
+		if (parsed) {
+			photo.lat = parsed.lat;
+			photo.lng = parsed.lng;
+			this.loadActivityPhotoImage();
+			return;
+		}
+		if (!text) {
+			this.activityPhoto = null;
+			return;
+		}
+		const gen = this.activityPhotoLoadGen;
+		const modalGen = this.modalGeneration;
+		this.apiService.geocodeSearch(text).pipe(take(1), takeUntil(this.destroy$)).subscribe({
+			next: (data: any[]) => {
+				if (gen !== this.activityPhotoLoadGen || modalGen !== this.modalGeneration || !this.activityPhoto) {
+					return;
+				}
+				const first = (data || [])
+					.map((item: any) => ({
+						lat: typeof item.lat === 'number' ? item.lat : parseFloat(item.lat),
+						lng: typeof item.lon === 'number' ? item.lon : parseFloat(item.lon)
+					}))
+					.find((item) => isValidGeoCoordinate(item.lat, item.lng));
+				if (!first) {
+					return;
+				}
+				this.activityPhoto.lat = first.lat;
+				this.activityPhoto.lng = first.lng;
+				this.loadActivityPhotoImage();
+			}
+		});
+	}
+
+	private loadActivityPhotoImage(): void {
+		const photo = this.activityPhoto;
+		if (!photo?.fileId) {
+			return;
+		}
+		this.placeActivityPhotoMarker();
+		const gen = this.activityPhotoLoadGen;
+		const modalGen = this.modalGeneration;
+		const fileName = photo.fileName;
+		this.fileService.getFile(photo.fileId).pipe(take(1), takeUntil(this.destroy$)).subscribe({
+			next: (res: ArrayBuffer) => {
+				if (gen !== this.activityPhotoLoadGen || modalGen !== this.modalGeneration) {
+					return;
+				}
+				const blob = new Blob([res], { type: this.imageMimeFromName(fileName) });
+				this.revokeActivityPhotoUrl();
+				this.activityPhotoUrl = URL.createObjectURL(blob);
+				this.placeActivityPhotoMarker();
+			},
+			error: () => {
+				if (gen !== this.activityPhotoLoadGen || modalGen !== this.modalGeneration) {
+					return;
+				}
+				this.placeActivityPhotoMarker();
+			}
+		});
+	}
+
+	private imageMimeFromName(name?: string): string {
+		const lower = (name || '').toLowerCase();
+		if (lower.endsWith('.png')) {
+			return 'image/png';
+		}
+		if (lower.endsWith('.gif')) {
+			return 'image/gif';
+		}
+		if (lower.endsWith('.webp')) {
+			return 'image/webp';
+		}
+		if (lower.endsWith('.bmp')) {
+			return 'image/bmp';
+		}
+		return 'image/jpeg';
+	}
+
+	private extendBoundsWithActivityPhoto(bounds: L.LatLngBounds): void {
+		const coords = this.activityPhotoLatLng();
+		if (!coords) {
+			return;
+		}
+		bounds.extend([coords.lat, coords.lng]);
+		this.activityPhotoFramed = true;
+	}
+
+	/** Garde la miniature dans le cadre, une fois, sans bouger une vue déjà centrée dessus. */
+	private frameActivityPhoto(): void {
+		if (this.activityPhotoFramed || this.isLoading || !this.map) {
+			return;
+		}
+		const coords = this.activityPhotoLatLng();
+		if (!coords) {
+			return;
+		}
+		const point = L.latLng(coords.lat, coords.lng);
+		if (this.trackOrientationCoords.length >= 2 && this.trackBounds?.isValid() && !this.isDegenerateBounds(this.trackBounds)) {
+			this.activityPhotoFramed = true;
+			this.trackBounds.extend(point);
+			this.fitMapToTrackBounds(this.trackBounds);
+			this.fitReliefToTrackBounds();
+			return;
+		}
+		let center: L.LatLng | null = null;
+		try {
+			center = this.map.getCenter();
+		} catch {
+			center = null;
+		}
+		if (center && center.distanceTo(point) < 80) {
+			this.activityPhotoFramed = true;
+			return;
+		}
+		this.activityPhotoFramed = true;
+		const bounds = center ? L.latLngBounds(center, point) : L.latLngBounds(point, point);
+		this.trackBounds = bounds;
+		this.fitMapToTrackBounds(bounds);
+		this.fitReliefToTrackBounds();
+	}
+
+	private fitReliefToTrackBounds(): void {
+		const view = this.terrainView;
+		const bounds = this.trackBounds;
+		if (!this.relief3d || !view) {
+			return;
+		}
+		if (this.activityPhotoLatLng() && bounds?.isValid() && !this.isDegenerateBounds(bounds)) {
+			const sw = bounds.getSouthWest();
+			const ne = bounds.getNorthEast();
+			if (view.fitLngLatBounds(sw.lng, sw.lat, ne.lng, ne.lat, this.resolveFitBoundsMaxZoom())) {
+				return;
+			}
+		}
+		view.fitTraces();
+	}
+
+	private placeActivityPhotoMarker(): void {
+		const coords = this.activityPhotoLatLng();
+		if (!coords) {
+			return;
+		}
+		if (this.map) {
+			const icon = this.activityPhotoDivIcon(this.activityPhotoUrl);
+			if (!this.activityPhotoMarker) {
+				this.activityPhotoMarker = L.marker([coords.lat, coords.lng], {
+					icon,
+					zIndexOffset: 1300,
+					riseOnHover: true
+				});
+				this.activityPhotoMarker.on('click', (e: L.LeafletMouseEvent) => {
+					L.DomEvent.stopPropagation(e);
+					this.updateSwitchesForPoint(coords.lat, coords.lng);
+				});
+				this.activityPhotoMarker.addTo(this.map);
+			} else {
+				this.activityPhotoMarker.setLatLng([coords.lat, coords.lng]);
+				this.activityPhotoMarker.setIcon(icon);
+			}
+			this.clearActivityPhotoIconChrome();
+			const tip = (this.activityPhoto?.label || '').trim();
+			this.activityPhotoMarker.unbindTooltip();
+			if (tip) {
+				this.activityPhotoMarker.bindTooltip(tip, { direction: 'top', offset: [0, -8] });
+			}
+			this.hidePinUnderActivityPhoto();
+			this.frameActivityPhoto();
+		}
+		this.terrainView?.setPhotoMarker({
+			lat: coords.lat,
+			lng: coords.lng,
+			imageUrl: this.activityPhotoUrl
+		});
+	}
+
+	private hidePinUnderActivityPhoto(): void {
+		const coords = this.activityPhotoLatLng();
+		if (!this.overlayLayer || !coords) {
+			return;
+		}
+		const drop: L.Layer[] = [];
+		this.overlayLayer.eachLayer((layer) => {
+			if (layer instanceof L.Marker) {
+				const at = layer.getLatLng();
+				if (L.latLng(at.lat, at.lng).distanceTo(L.latLng(coords.lat, coords.lng)) < 40) {
+					drop.push(layer);
+				}
+			}
+		});
+		for (const layer of drop) {
+			this.overlayLayer.removeLayer(layer);
+		}
+	}
+
+	private clearActivityPhotoIconChrome(): void {
+		const paint = (): void => {
+			const el = this.activityPhotoMarker?.getElement();
+			if (!el) {
+				return;
+			}
+			el.style.background = 'transparent';
+			el.style.border = 'none';
+		};
+		paint();
+		requestAnimationFrame(paint);
+	}
+
+	private activityPhotoDivIcon(url: string | null): L.DivIcon {
+		const size = 58;
+		const safeUrl = url ? url.replace(/"/g, '%22') : '';
+		const face = safeUrl
+			? `<img src="${safeUrl}" alt="" draggable="false" style="width:52px;height:52px;object-fit:cover;border-radius:10px;display:block;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);background:#e8e8e8"/>`
+			: `<div style="width:52px;height:52px;border-radius:10px;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);background:#d0d0d0"></div>`;
+		return L.divIcon({
+			className: 'activity-photo-marker',
+			html: `<div style="width:${size}px;display:flex;flex-direction:column;align-items:center">${face}<div style="width:0;height:0;margin-top:-1px;border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid #fff;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))"></div></div>`,
+			iconSize: [size, 64],
+			iconAnchor: [size / 2, 64],
+			tooltipAnchor: [0, -60]
+		});
 	}
 
 	/** SVG pin (same shape as friends / selection) — avoids fragile default Leaflet PNG icons. */
@@ -4261,23 +4647,24 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
-		// Normal mode: SVG pin (photo / webcam / address position)
-
-		const markerIcon = this.createPinDivIcon(this.resolveLocationPinColor(), 'custom-location-marker');
-		const marker = L.marker([lat, lng], {
-			icon: markerIcon,
-			zIndexOffset: 1000,
-			riseOnHover: true
-		});
-		marker.on('click', (e: L.LeafletMouseEvent) => {
-			e.originalEvent?.stopPropagation();
-			L.DomEvent.stopPropagation(e);
-			if (e.originalEvent) {
-				L.DomEvent.preventDefault(e.originalEvent);
-			}
-			this.updateSwitchesForPoint(lat, lng);
-		});
-		marker.addTo(this.overlayLayer);
+		// Normal mode: SVG pin, or the activity photo when this point is the activity.
+		if (!this.activityPhotoCovers(lat, lng)) {
+			const markerIcon = this.createPinDivIcon(this.resolveLocationPinColor(), 'custom-location-marker');
+			const marker = L.marker([lat, lng], {
+				icon: markerIcon,
+				zIndexOffset: 1000,
+				riseOnHover: true
+			});
+			marker.on('click', (e: L.LeafletMouseEvent) => {
+				e.originalEvent?.stopPropagation();
+				L.DomEvent.stopPropagation(e);
+				if (e.originalEvent) {
+					L.DomEvent.preventDefault(e.originalEvent);
+				}
+				this.updateSwitchesForPoint(lat, lng);
+			});
+			marker.addTo(this.overlayLayer);
+		}
 
 		this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
 		this.map.setView([lat, lng], viewZoom, { animate: false });
@@ -4287,6 +4674,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.showAddressInOverlay(lat, lng);
 		}
 
+		this.placeActivityPhotoMarker();
 		this.trackStats = null;
 		this.scheduleTraceViewerCdr();
 	}
@@ -4521,6 +4909,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.clickedLng = 0;
 		this.clickedAlt = null;
 		this.stopFollowDeviceLocation();
+		this.clearActivityPhoto();
 		void this.releaseScreenWakeLock();
 		this.cleanupMapMoveHandler();
 		this.cleanupMapMouseMoveHandler();
@@ -5644,6 +6033,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (index < 0) {
 			return;
 		}
+		this.poiGalleryPinned = true;
 		this.poiGalleryIndex = index;
 		this.syncShownPoiPhoto();
 	}
@@ -5652,6 +6042,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (this.poiGallery.length < 2) {
 			return;
 		}
+		this.poiGalleryPinned = true;
 		const size = this.poiGallery.length;
 		this.poiGalleryIndex = (this.poiGalleryIndex + delta + size) % size;
 		this.syncShownPoiPhoto();
@@ -5671,6 +6062,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.poiSaveMessage = '';
 		this.poiGallery = [];
 		this.poiGalleryIndex = 0;
+		this.poiGalleryPinned = false;
 		this.poiPhotoPending.clear();
 		const request = ++this.reliefPoiPhotoRequest;
 		const sources = (source ? [source] : [...this.poiPhotoSources]).filter((item) =>
@@ -5715,17 +6107,35 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.poiGallery.push(hit);
 			}
 		}
-		if (hadNone && this.poiGallery.length) {
+		if (!this.poiGalleryPinned && this.poiGallery.length) {
+			this.poiGalleryIndex = this.preferredPoiIndex();
+		} else if (hadNone && this.poiGallery.length) {
 			this.poiGalleryIndex = 0;
 		}
 		this.syncShownPoiPhoto();
 	}
 
-	private photosFromResponse(photo: PoiPhoto | null, source: string): Array<{ title: string; imageUrl: string; pageUrl: string; source: string }> {
+	/** A named photo of the place stays in front of a picture of the surroundings. */
+	private preferredPoiIndex(): number {
+		const order = ['wikidata', 'wikipedia', 'osm', 'commons', 'flickr', 'openverse', 'unsplash', 'mapillary', 'panoramax'];
+		let best = 0;
+		let bestRank = 1000;
+		this.poiGallery.forEach((photo, index) => {
+			const base = order.indexOf(photo.source);
+			const rank = (base < 0 ? order.length : base) + (photo.nearby ? 20 : 0);
+			if (rank < bestRank) {
+				bestRank = rank;
+				best = index;
+			}
+		});
+		return best;
+	}
+
+	private photosFromResponse(photo: PoiPhoto | null, source: string): Array<{ title: string; imageUrl: string; pageUrl: string; source: string; pano?: boolean; nearby?: boolean }> {
 		const rows = photo?.photos?.length
 			? photo.photos
 			: (photo?.imageUrl ? [photo] : []);
-		const hits: Array<{ title: string; imageUrl: string; pageUrl: string; source: string }> = [];
+		const hits: Array<{ title: string; imageUrl: string; pageUrl: string; source: string; pano?: boolean; nearby?: boolean }> = [];
 		for (const row of rows) {
 			const imageUrl = this.httpsUrl(row.imageUrl);
 			if (!imageUrl) {
@@ -5735,7 +6145,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 				title: (row.title || photo?.title || this.poiPhotoTitle).trim() || this.poiPhotoTitle,
 				imageUrl,
 				pageUrl: this.httpsUrl(row.pageUrl),
-				source: (row.source || photo?.source || source).trim() || source
+				source: (row.source || photo?.source || source).trim() || source,
+				pano: row.pano === true || (!photo?.photos?.length && photo?.pano === true),
+				nearby: row.nearby === true
 			});
 		}
 		return hits;
@@ -5762,10 +6174,118 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		const current = this.poiGallery[this.poiGalleryIndex];
 		this.reliefPoiPhoto = { ...current, loading: false };
+		this.syncEquirectImage();
 		this.cdr.markForCheck();
 	}
 
-	public openPoiPhotoFullscreen(): void {
+	private bindEquirect(canvas: HTMLCanvasElement | undefined, fullscreen: boolean): void {
+		const current = fullscreen ? this.fullEquirect : this.cardEquirect;
+		if (!canvas) {
+			current?.destroy();
+			if (fullscreen) {
+				this.fullEquirect = null;
+			} else {
+				this.cardEquirect = null;
+			}
+			return;
+		}
+		if (current?.canvas === canvas) {
+			this.syncEquirectImage();
+			return;
+		}
+		current?.destroy();
+		const view = new EquirectView(canvas, (url) => this.loadEquirectImage(url));
+		if (!view.supported) {
+			view.destroy();
+			this.panoBrokenUrl = this.reliefPoiPhoto?.imageUrl || 'unsupported';
+			this.cdr.markForCheck();
+			return;
+		}
+		view.onLook = (yaw, pitch) => this.onEquirectLook(yaw, pitch, fullscreen);
+		if (!fullscreen) {
+			view.onTap = () => this.ngZone.run(() => this.openPoiPhotoFullscreen());
+		}
+		view.onError = () => this.ngZone.run(() => {
+			this.panoBrokenUrl = this.reliefPoiPhoto?.imageUrl || '';
+			this.cdr.markForCheck();
+		});
+		if (fullscreen) {
+			this.fullEquirect = view;
+		} else {
+			this.cardEquirect = view;
+		}
+		this.syncEquirectImage();
+	}
+
+	private onEquirectLook(yaw: number, pitch: number, sourceFullscreen: boolean): void {
+		this.panoYaw = yaw;
+		this.panoPitch = pitch;
+		const other = sourceFullscreen ? this.cardEquirect : this.fullEquirect;
+		other?.setAngles(yaw, pitch);
+	}
+
+	private syncEquirectImage(): void {
+		const photo = this.reliefPoiPhoto;
+		const url = photo?.pano && photo.imageUrl && this.panoBrokenUrl !== photo.imageUrl ? photo.imageUrl : '';
+		if (url !== this.panoImageUrl) {
+			this.panoImageUrl = url;
+			this.panoYaw = 0;
+			this.panoPitch = 0;
+		}
+		for (const view of [this.cardEquirect, this.fullEquirect]) {
+			if (!view || !url) {
+				continue;
+			}
+			view.setImage(url);
+			view.setAngles(this.panoYaw, this.panoPitch);
+		}
+	}
+
+	private loadEquirectImage(url: string): Promise<HTMLImageElement> {
+		return new Promise((resolve, reject) => {
+			this.apiService.fetchPoiImage(url).pipe(take(1), takeUntil(this.destroy$)).subscribe({
+				next: (blob) => {
+					if (!(blob instanceof Blob) || blob.size < 32) {
+						reject(new Error('pano'));
+						return;
+					}
+					const objectUrl = URL.createObjectURL(blob);
+					const image = new Image();
+					(image as HTMLImageElement & { objectUrl?: string }).objectUrl = objectUrl;
+					image.onload = () => resolve(image);
+					image.onerror = () => {
+						URL.revokeObjectURL(objectUrl);
+						reject(new Error('pano'));
+					};
+					image.src = objectUrl;
+				},
+				error: () => reject(new Error('pano'))
+			});
+		});
+	}
+
+	private destroyEquirect(): void {
+		this.cardEquirect?.destroy();
+		this.fullEquirect?.destroy();
+		this.cardEquirect = null;
+		this.fullEquirect = null;
+		this.panoImageUrl = '';
+		this.panoYaw = 0;
+		this.panoPitch = 0;
+		this.panoBrokenUrl = '';
+	}
+
+	/** Enlarge the place photo to cover the map area. */
+	public openPoiPhotoMapCover(): void {
+		if (!this.reliefPoiPhoto?.imageUrl) {
+			return;
+		}
+		this.poiPhotoFullscreen = true;
+		this.cdr.markForCheck();
+	}
+
+	/** Browser fullscreen for the place photo. */
+	public openPoiPhotoBrowserFullscreen(): void {
 		if (!this.reliefPoiPhoto?.imageUrl) {
 			return;
 		}
@@ -5775,6 +6295,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (stage && document.fullscreenElement !== stage && stage.requestFullscreen) {
 			void stage.requestFullscreen().catch(() => undefined);
 		}
+	}
+
+	/** @deprecated Prefer map cover or browser fullscreen explicitly. */
+	public openPoiPhotoFullscreen(): void {
+		this.openPoiPhotoMapCover();
 	}
 
 	public closePoiPhotoFullscreen(): void {
@@ -5792,12 +6317,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!this.poiPhotoFullscreen || !stage || document.fullscreenElement === stage) {
 			return;
 		}
-		this.poiPhotoFullscreen = false;
+		// Left browser fullscreen: keep the map-cover overlay unless Esc already closed it.
 		this.cdr.markForCheck();
 	}
 
 	public closeReliefPoiPhoto(): void {
 		this.closePoiPhotoFullscreen();
+		this.destroyEquirect();
 		this.poiPhotoCancel$.next();
 		this.poiPhotoCancel$.complete();
 		this.poiPhotoCancel$ = new Subject<void>();
@@ -5869,18 +6395,23 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (this.mapScaleApplyTimer != null) {
 			return;
 		}
-		this.mapScaleApplyTimer = window.setTimeout(() => {
-			this.mapScaleApplyTimer = null;
-			const pending = this.pendingMapScale;
-			this.pendingMapScale = null;
-			if (!pending || (pending.label === this.mapScaleLabel && pending.width === this.mapScaleWidthPx)) {
-				return;
-			}
-			this.ngZone.run(() => {
+		// Hors zone : le setTimeout d’Angular ne doit pas relire la largeur pendant le même contrôle (NG0100).
+		this.ngZone.runOutsideAngular(() => {
+			this.mapScaleApplyTimer = window.setTimeout(() => {
+				this.mapScaleApplyTimer = null;
+				const pending = this.pendingMapScale;
+				this.pendingMapScale = null;
+				if (!pending || (pending.label === this.mapScaleLabel && pending.width === this.mapScaleWidthPx)) {
+					return;
+				}
 				this.mapScaleLabel = pending.label;
 				this.mapScaleWidthPx = pending.width;
-			});
-		}, 0);
+				if ((this.cdr as ViewRef).destroyed) {
+					return;
+				}
+				this.cdr.detectChanges();
+			}, 0);
+		});
 	}
 
 	/** Distance au sol de `px` pixels horizontaux au milieu de la carte à plat. */
@@ -6062,6 +6593,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.terrainView.setElevationColors(this.elevationColors && this.relief3d);
 		this.terrainView.setGps(this.deviceLocationLatLng);
 		this.terrainView.setPlaces(this.placeMarks);
+		const photo = this.activityPhotoLatLng();
+		this.terrainView.setPhotoMarker(photo
+			? { lat: photo.lat, lng: photo.lng, imageUrl: this.activityPhotoUrl }
+			: null);
 		this.syncReliefWeatherStations();
 		if (this.gotoTargetActive && this.selectionMarker) {
 			const pos = this.selectionMarker.getLatLng();
@@ -7765,6 +8300,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	 * the fix until Leaflet (and 3D if any) can show it.
 	 */
 	public scheduleRecenterOnUser(): void {
+		this.keepOpenedPlace = false;
 		const generation = this.modalGeneration;
 		this.beginUserGpsFetch(generation);
 		const attempt = (n: number): void => {
@@ -7787,6 +8323,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/** One shot: center the map on the device GPS and show the position marker. */
 	public recenterOnUser(): void {
+		this.keepOpenedPlace = false;
 		if (!this.map) {
 			this.scheduleRecenterOnUser();
 			return;
@@ -7884,6 +8421,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 	 * `fromLiveGps` : fix frais → bloque un éventuel retour sur le point provisoire.
 	 */
 	private applyUserRecenter(lat: number, lng: number, fromLiveGps = true): void {
+		if (this.keepOpenedPlace) {
+			return;
+		}
 		if (!this.map || !Number.isFinite(lat) || !Number.isFinite(lng)) {
 			return;
 		}
@@ -8379,6 +8919,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/** Active/désactive le suivi de la position GPS de l'appareil (recentrage carte toutes les 5 s). */
 	public onFollowDeviceLocationChange(): void {
+		this.keepOpenedPlace = false;
+		this.followDeviceLocationPref = this.followDeviceLocation;
 		if (this.followDeviceLocation) {
 			this.startFollowDeviceLocation();
 		} else {
@@ -8896,12 +9438,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private fetchDevicePositionAndRecenter(): void {
-		if (!this.map || !this.followDeviceLocation || !navigator.geolocation) {
+		if (!this.map || !this.followDeviceLocation || this.keepOpenedPlace || !navigator.geolocation) {
 			return;
 		}
 		navigator.geolocation.getCurrentPosition(
 			(pos) => {
-				if (!this.map || !this.followDeviceLocation) {
+				if (!this.map || !this.followDeviceLocation || this.keepOpenedPlace) {
 					return;
 				}
 				const lat = pos.coords.latitude;

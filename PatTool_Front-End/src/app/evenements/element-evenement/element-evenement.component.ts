@@ -11,7 +11,7 @@ import { hasValidDepartureLocation, formatStartLocationDisplay, getStartLocation
 import { applyMultiplicativeWheelScale, normalizeWheelDeltaPixels } from '../../shared/wheel-zoom.util';
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
-import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { TraceViewerModalComponent, mainActivityPhoto } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 // Removed ng2-file-upload - using native HTML file input
 import JSZip from 'jszip';
 
@@ -1148,7 +1148,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				document.body.scrollTop || 0;
 			this.savedScrollPosition = savedScrollY;
 			
-			this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, finalEventColor);
+			this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, finalEventColor, false, false, {
+				activityPhoto: mainActivityPhoto(this.evenement)
+			});
 			
 			// Immediately maintain scroll position after modal opens to prevent any movement
 			requestAnimationFrame(() => {
@@ -1348,7 +1350,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			document.body.scrollTop || 0;
 		this.savedScrollPosition = savedScrollY;
 
-		this.traceViewerModalComponent.openAtLocation(lat, lng, label, finalEventColor);
+		this.traceViewerModalComponent.openAtLocation(lat, lng, label, finalEventColor, false, false, {
+			activityPhoto: mainActivityPhoto(this.evenement, { lat, lng })
+		});
 
 		requestAnimationFrame(() => {
 			requestAnimationFrame(() => {
@@ -7208,7 +7212,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				uploadedFile.fieldId,
 				uploadedFile.fileName,
 				undefined,
-				uploadedFile.displayName
+				uploadedFile.displayName,
+				mainActivityPhoto(this.evenement)
 			);
 			
 			// Immediately maintain scroll position after modal opens to prevent any movement

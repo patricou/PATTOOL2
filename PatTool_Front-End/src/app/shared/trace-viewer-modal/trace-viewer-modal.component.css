@@ -2324,6 +2324,20 @@
 	border-radius: 6px;
 }
 
+.tv-poi-photo-pano {
+	display: block;
+	width: 100%;
+	height: 200px;
+	border-radius: 6px;
+	background: #0f172a;
+	cursor: grab;
+	touch-action: none;
+}
+
+.tv-poi-photo-pano:active {
+	cursor: grabbing;
+}
+
 .tv-poi-photo-source {
 	display: flex;
 	align-items: center;
@@ -2459,11 +2473,12 @@
 	display: none;
 }
 
+/* Covers the map area (.map-wrapper), not the whole browser window. */
 .tv-poi-photo-full--on {
 	display: flex;
-	position: fixed;
+	position: absolute;
 	inset: 0;
-	z-index: 4000;
+	z-index: 2500;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
@@ -2471,6 +2486,7 @@
 	padding: 3.2rem 1.25rem 1.25rem;
 	background: rgba(2, 6, 23, 0.94);
 	cursor: zoom-out;
+	box-sizing: border-box;
 }
 
 .tv-poi-photo-full img,
@@ -2479,11 +2495,20 @@
 	width: auto;
 	max-width: 100%;
 	height: auto;
-	max-height: 100%;
+	max-height: calc(100% - 3.5rem);
 	object-fit: contain;
 	background: transparent;
 	border-radius: 0;
 	cursor: default;
+}
+
+.tv-poi-photo-full--on .tv-poi-photo-pano,
+.tv-poi-photo-full:fullscreen .tv-poi-photo-pano {
+	width: min(100%, 1100px);
+	height: calc(100% - 3.5rem);
+	flex: 1 1 auto;
+	min-height: 240px;
+	border-radius: 0;
 }
 
 .tv-poi-photo-full-close {
@@ -2636,11 +2661,17 @@
 
 ::ng-deep .tv-relief-gps,
 ::ng-deep .tv-relief-pin,
-::ng-deep .tv-relief-place {
+::ng-deep .tv-relief-place,
+::ng-deep .tv-relief-photo {
 	position: absolute;
 	left: 0;
 	top: 0;
 	pointer-events: none;
+}
+
+::ng-deep .tv-relief-photo {
+	width: 58px;
+	height: 64px;
 }
 
 ::ng-deep .tv-relief-gps {

@@ -140,6 +140,8 @@ export class MaptoolkitTerrainView {
 	/** Repère du lieu choisi (centrage), distinct du point GPS. */
 	private pin: { lat: number; lng: number } | null = null;
 	private pinMarker: HTMLDivElement | null = null;
+	private photoMarkerPoint: { lat: number; lng: number; imageUrl?: string | null } | null = null;
+	private photoMarkerEl: HTMLDivElement | null = null;
 	private places: ReliefPlaceMark[] = [];
 	private placeNodes: HTMLDivElement[] = [];
 	private activePlaceKey = '';
@@ -531,6 +533,39 @@ export class MaptoolkitTerrainView {
 		this.applyGps();
 	}
 
+	/** Miniature de la photo principale, au-dessus du relief. */
+	setPhotoMarker(marker: { lat: number; lng: number; imageUrl?: string | null } | null): void {
+		if (!marker || !Number.isFinite(marker.lat) || !Number.isFinite(marker.lng)) {
+			this.photoMarkerPoint = null;
+			this.photoMarkerEl?.remove();
+			this.photoMarkerEl = null;
+			return;
+		}
+		this.photoMarkerPoint = marker;
+		const overlay = this.ensureMarkerOverlay();
+		if (!overlay) {
+			return;
+		}
+		if (!this.photoMarkerEl?.isConnected) {
+			const el = document.createElement('div');
+			el.className = 'tv-relief-photo';
+			el.style.position = 'absolute';
+			el.style.left = '0';
+			el.style.top = '0';
+			el.style.width = '58px';
+			el.style.height = '64px';
+			el.style.pointerEvents = 'none';
+			overlay.appendChild(el);
+			this.photoMarkerEl = el;
+		}
+		const safeUrl = marker.imageUrl ? marker.imageUrl.replace(/"/g, '%22') : '';
+		const face = safeUrl
+			? `<img src="${safeUrl}" alt="" draggable="false" style="width:52px;height:52px;object-fit:cover;border-radius:10px;display:block;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);background:#e8e8e8"/>`
+			: `<div style="width:52px;height:52px;border-radius:10px;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);background:#d0d0d0"></div>`;
+		this.photoMarkerEl.innerHTML = `<div style="width:58px;display:flex;flex-direction:column;align-items:center">${face}<div style="width:0;height:0;margin-top:-1px;border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid #fff;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))"></div></div>`;
+		this.layoutReliefMarkers();
+	}
+
 	/** Repère rouge du lieu sur lequel la carte vient d’être centrée. */
 	setPin(point: { lat: number; lng: number } | null): void {
 		this.pin = point && Number.isFinite(point.lat) && Number.isFinite(point.lng) ? point : null;
@@ -815,6 +850,8 @@ export class MaptoolkitTerrainView {
 		this.destroyBlend();
 		this.gpsMarker = null;
 		this.pinMarker = null;
+		this.photoMarkerEl = null;
+		this.photoMarkerPoint = null;
 		this.places = [];
 		this.placeNodes = [];
 		this.markerOverlay?.remove();
@@ -1317,6 +1354,7 @@ export class MaptoolkitTerrainView {
 		}
 		this.placeReliefMarker(this.gpsMarker, this.gps, 'center');
 		this.placeReliefMarker(this.pinMarker, this.pin, 'bottom');
+		this.placeReliefMarker(this.photoMarkerEl, this.photoMarkerPoint, 'bottom');
 		for (let i = 0; i < this.placeNodes.length; i++) {
 			this.placeReliefMarker(this.placeNodes[i], this.places[i] ?? null, 'center');
 		}

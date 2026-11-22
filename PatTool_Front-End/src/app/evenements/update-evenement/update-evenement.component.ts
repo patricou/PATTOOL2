@@ -9,7 +9,7 @@ import { Evenement } from '../../model/evenement';
 import { EvenementsService } from '../../services/evenements.service';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
-import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { TraceViewerModalComponent, mainActivityPhoto } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 
 // Removed ngx-mydatepicker imports - using native HTML date inputs
@@ -1489,7 +1489,8 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 			uploadedFile.fieldId,
 			uploadedFile.fileName,
 			color ?? undefined,
-			uploadedFile.displayName
+			uploadedFile.displayName,
+			mainActivityPhoto(this.evenement)
 		);
 	}
 

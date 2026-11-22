@@ -5,10 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,9 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -51,7 +56,12 @@ public class WikiProxyService {
     private static final String USER_AGENT = "PatTool/1.0 (wikipedia helper; https://www.patrickdeschamps.com)";
     private static final Set<String> NAME_STOPWORDS = Set.of(
             "de", "la", "le", "les", "du", "des", "un", "une", "et", "au", "aux", "sur", "en", "of",
-            "the", "and", "pour", "par", "dans", "avec", "sous", "chez", "von", "van", "di"
+            "the", "and", "pour", "par", "dans", "avec", "sous", "chez", "von", "van", "di", "d"
+    );
+    /** Road words at the start of an OpenStreetMap name. The place itself follows them. */
+    private static final Set<String> WAY_WORDS = Set.of(
+            "route", "chemin", "sentier", "rue", "avenue", "boulevard", "place", "impasse",
+            "allee", "voie", "road", "street", "path", "track", "trail", "highway", "forestiere", "rte"
     );
     private static final int DEFAULT_SEARCH_LIMIT = 10;
     private static final int MAX_SEARCH_LIMIT = 20;
@@ -196,6 +206,9 @@ public class WikiProxyService {
         if (!StringUtils.hasText(out.path("imageUrl").asText()) && allows(only, "wikipedia") && !english.equalsIgnoreCase(label)) {
             fillFromMatchingArticle(out, english, "en");
         }
+        if (!StringUtils.hasText(out.path("imageUrl").asText()) && located && allows(only, "wikipedia")) {
+            fillFromWikipediaNearby(out, lat, lng, code);
+        }
         if (!StringUtils.hasText(out.path("imageUrl").asText()) && located && allows(only, "commons")) {
             fillFromCommonsNearby(out, label, english, lat, lng);
         }
@@ -213,6 +226,9 @@ public class WikiProxyService {
         if (!StringUtils.hasText(out.path("imageUrl").asText()) && located && allows(only, "mapillary")) {
             fillFromMapillary(out, lat, lng);
         }
+        if (!StringUtils.hasText(out.path("imageUrl").asText()) && located && allows(only, "panoramax")) {
+            fillFromPanoramax(out, lat, lng);
+        }
         out.put("unsplash", StringUtils.hasText(unsplashAccessKey));
         return out;
     }
@@ -223,13 +239,28 @@ public class WikiProxyService {
         }
         String value = raw.trim().toLowerCase(Locale.ROOT);
         return switch (value) {
-            case "wikidata", "wikipedia", "commons", "flickr", "openverse", "unsplash", "mapillary", "osm" -> value;
+            case "wikidata", "wikipedia", "commons", "flickr", "openverse", "unsplash", "mapillary", "panoramax", "osm" -> value;
             default -> "";
         };
     }
 
     /** Keeps every photo already found. The first one stays in {@code imageUrl}. */
     private void rememberPhoto(ObjectNode out, String imageUrl, String pageUrl, String source) {
+        rememberPhoto(out, imageUrl, pageUrl, source, false, "", false);
+    }
+
+    /** {@code pano} is a Mapillary 360° image the viewer can turn. */
+    private void rememberPhoto(ObjectNode out, String imageUrl, String pageUrl, String source, boolean pano) {
+        rememberPhoto(out, imageUrl, pageUrl, source, pano, "", false);
+    }
+
+    /**
+     * {@code title} replaces the place name for this frame (a nearby article or file).
+     * {@code nearby} is a photo of the surroundings, not one named after the place.
+     */
+    private void rememberPhoto(
+            ObjectNode out, String imageUrl, String pageUrl, String source,
+            boolean pano, String title, boolean nearby) {
         if (!StringUtils.hasText(imageUrl) || !imageUrl.startsWith("https://")) {
             return;
         }
@@ -243,14 +274,28 @@ public class WikiProxyService {
             return;
         }
         String page = StringUtils.hasText(pageUrl) && pageUrl.startsWith("https://") ? pageUrl : "";
+        String caption = StringUtils.hasText(title) ? clipTitle(title) : "";
         ObjectNode photo = photos.addObject();
         photo.put("imageUrl", imageUrl);
         photo.put("pageUrl", page);
         photo.put("source", source);
+        if (StringUtils.hasText(caption)) {
+            photo.put("title", caption);
+        }
+        if (pano) {
+            photo.put("pano", true);
+        }
+        if (nearby) {
+            photo.put("nearby", true);
+        }
         if (!StringUtils.hasText(out.path("imageUrl").asText())) {
             out.put("imageUrl", imageUrl);
             out.put("pageUrl", page);
             out.put("source", source);
+            out.put("pano", pano);
+            if (StringUtils.hasText(caption)) {
+                out.put("title", caption);
+            }
         }
     }
 
@@ -368,36 +413,197 @@ public class WikiProxyService {
         }
     }
 
-    /** Geotagged Commons file whose title shares the place name. A nearby street photo is ignored. */
+    /**
+     * Geotagged Commons file. A file named like the place wins, up to 1.5 km.
+     * Otherwise the closest photographs are kept: a mountain road often has a
+     * picture of the viewpoint and none under its own name.
+     */
     private void fillFromCommonsNearby(ObjectNode out, String label, String english, double lat, double lng) {
         String url = "https://commons.wikimedia.org/w/api.php?action=query&format=json&list=geosearch"
                 + "&gscoord=" + lat + "|" + lng
-                + "&gsradius=250&gsnamespace=6&gslimit=12";
+                + "&gsradius=1500&gsnamespace=6&gslimit=20";
         JsonNode raw = fetchPhotoJson(url, "commons geo " + label);
         JsonNode rows = raw == null ? null : raw.path("query").path("geosearch");
         if (rows == null || !rows.isArray()) {
             return;
         }
-        String bestTitle = "";
-        double bestDist = Double.MAX_VALUE;
+        List<JsonNode> named = new ArrayList<>();
+        List<JsonNode> scenic = new ArrayList<>();
         for (JsonNode row : rows) {
             String title = textOrEmpty(row.get("title"));
             double dist = row.path("dist").asDouble(Double.MAX_VALUE);
-            if (!StringUtils.hasText(title) || dist > 250) {
+            if (!scenicCommonsFile(title) || dist > 1500) {
                 continue;
             }
-            if (!samePlace(label, title, dist) && !samePlace(english, title, dist)) {
-                continue;
-            }
-            if (dist < bestDist) {
-                bestDist = dist;
-                bestTitle = title;
+            if (samePlace(label, title, dist) || samePlace(english, title, dist)) {
+                named.add(row);
+            } else {
+                scenic.add(row);
             }
         }
-        if (!StringUtils.hasText(bestTitle)) {
+        Comparator<JsonNode> byDistance = Comparator.comparingDouble(row -> row.path("dist").asDouble(Double.MAX_VALUE));
+        named.sort(byDistance);
+        scenic.sort(byDistance);
+        boolean nearby = named.isEmpty();
+        List<JsonNode> chosen = nearby ? scenic : named;
+        int limit = nearby ? 4 : 6;
+        int added = 0;
+        for (JsonNode row : chosen) {
+            if (added >= limit) {
+                break;
+            }
+            int before = out.withArray("photos").size();
+            applyCommonsFile(out, textOrEmpty(row.get("title")), nearby);
+            if (out.withArray("photos").size() > before) {
+                added++;
+            }
+        }
+    }
+
+    /**
+     * Illustrated Wikipedia article near the point, when the place itself has no page.
+     * A memorial on a ridge then shows the summit or the cave a kilometre away.
+     */
+    private void fillFromWikipediaNearby(ObjectNode out, double lat, double lng, String lang) {
+        if (collectNearbyArticles(out, lat, lng, lang)) {
             return;
         }
-        applyCommonsFile(out, bestTitle);
+        if (!"fr".equals(lang)) {
+            collectNearbyArticles(out, lat, lng, "fr");
+        }
+    }
+
+    private boolean collectNearbyArticles(ObjectNode out, double lat, double lng, String lang) {
+        String url = "https://" + lang + ".wikipedia.org/w/api.php?action=query&format=json&list=geosearch"
+                + "&gscoord=" + lat + "|" + lng
+                + "&gsradius=1600&gslimit=6";
+        JsonNode raw = fetchPhotoJson(url, "wiki geo " + lang);
+        JsonNode rows = raw == null ? null : raw.path("query").path("geosearch");
+        if (rows == null || !rows.isArray()) {
+            return false;
+        }
+        int tried = 0;
+        int added = 0;
+        for (JsonNode row : rows) {
+            if (tried >= 4 || added >= 3) {
+                break;
+            }
+            String title = textOrEmpty(row.get("title"));
+            double dist = row.path("dist").asDouble(Double.MAX_VALUE);
+            if (!StringUtils.hasText(title) || dist > 1600 || skipNearbyArticle(title)) {
+                continue;
+            }
+            tried++;
+            int before = out.withArray("photos").size();
+            rememberArticle(out, fetchOne(title, lang), true);
+            if (out.withArray("photos").size() > before) {
+                added++;
+            }
+        }
+        return added > 0;
+    }
+
+    private static boolean skipNearbyArticle(String title) {
+        String folded = fold(title);
+        return folded.startsWith("canton ")
+                || folded.startsWith("arrondissement ")
+                || folded.startsWith("departement ")
+                || folded.startsWith("department ")
+                || folded.startsWith("liste ")
+                || folded.startsWith("list of ");
+    }
+
+    private void rememberArticle(ObjectNode out, JsonNode summary, boolean nearby) {
+        if (!isUsable(summary)) {
+            return;
+        }
+        String image = safeImageUrl(widerThumb(textOrEmpty(summary.path("thumbnail").path("source"))));
+        if (!StringUtils.hasText(image)) {
+            image = safeImageUrl(textOrEmpty(summary.path("originalimage").path("source")));
+        }
+        if (!StringUtils.hasText(image)) {
+            return;
+        }
+        String page = safePageUrl(textOrEmpty(summary.path("content_urls").path("desktop").path("page")));
+        String title = textOrEmpty(summary.get("title"));
+        rememberPhoto(out, image, page, "wikipedia", false, title, nearby);
+    }
+
+    /** Wikimedia thumb URLs are 330 px. The popup is readable at 960. */
+    private static String widerThumb(String url) {
+        if (!StringUtils.hasText(url)) {
+            return "";
+        }
+        return url.replaceAll("/\\d+px-", "/960px-");
+    }
+
+    /**
+     * Street-level photo from Panoramax, the open coverage used on French roads.
+     * No account is required. A picture farther than 200 m is left out.
+     */
+    private void fillFromPanoramax(ObjectNode out, double lat, double lng) {
+        double dLat = 180.0 / 111_320.0;
+        double dLng = dLat / Math.max(0.2, Math.cos(Math.toRadians(lat)));
+        String url = String.format(Locale.US,
+                "https://api.panoramax.xyz/api/search?limit=8&bbox=%.5f,%.5f,%.5f,%.5f",
+                lng - dLng, lat - dLat, lng + dLng, lat + dLat);
+        JsonNode raw = fetchPhotoJson(url, "panoramax");
+        JsonNode features = raw == null ? null : raw.get("features");
+        if (features == null || !features.isArray() || features.isEmpty()) {
+            return;
+        }
+        List<JsonNode> rows = new ArrayList<>();
+        features.forEach(rows::add);
+        rows.sort(Comparator.comparingDouble(feature -> panoramaxDistance(lat, lng, feature)));
+        int added = 0;
+        for (JsonNode feature : rows) {
+            if (added >= 4 || panoramaxDistance(lat, lng, feature) > 200) {
+                break;
+            }
+            String id = textOrEmpty(feature.get("id"));
+            if (!id.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")) {
+                continue;
+            }
+            String image = panoramaxImage(feature);
+            if (!StringUtils.hasText(image)) {
+                continue;
+            }
+            int before = out.withArray("photos").size();
+            rememberPhoto(out, image, "https://api.panoramax.xyz/#focus=pic&pic=" + id, "panoramax", false, "", true);
+            if (out.withArray("photos").size() > before) {
+                added++;
+            }
+        }
+    }
+
+    private static double panoramaxDistance(double lat, double lng, JsonNode feature) {
+        JsonNode coords = feature.path("geometry").path("coordinates");
+        if (!coords.isArray() || coords.size() < 2) {
+            return Double.MAX_VALUE;
+        }
+        return haversineMeters(lat, lng, coords.get(1).asDouble(), coords.get(0).asDouble());
+    }
+
+    private static String panoramaxImage(JsonNode feature) {
+        String sd = textOrEmpty(feature.path("assets").path("sd").path("href"));
+        String thumb = textOrEmpty(feature.path("assets").path("thumb").path("href"));
+        String chosen = sd.startsWith("https://") ? sd : thumb;
+        if (!chosen.startsWith("https://")) {
+            return "";
+        }
+        try {
+            String host = URI.create(chosen).getHost();
+            if (!StringUtils.hasText(host)) {
+                return "";
+            }
+            host = host.toLowerCase(Locale.ROOT);
+            if (host.contains("panoramax") || host.endsWith(".openstreetmap.fr")) {
+                return chosen;
+            }
+        } catch (IllegalArgumentException e) {
+            return "";
+        }
+        return "";
     }
 
     /**
@@ -408,12 +614,8 @@ public class WikiProxyService {
      */
     private void fillFromOpenverse(ObjectNode out, String label, String english) {
         List<String> names = new ArrayList<>();
-        if (fold(label).length() >= 4) {
-            names.add(label);
-        }
-        if (StringUtils.hasText(english) && fold(english).length() >= 4 && !fold(english).equals(fold(label))) {
-            names.add(english);
-        }
+        addSearchName(names, label);
+        addSearchName(names, english);
         if (names.isEmpty()) {
             return;
         }
@@ -457,9 +659,66 @@ public class WikiProxyService {
         }
     }
 
+    /** The place after a leading road word, and the shortest “du / de la” tail that still names it. */
+    static String corePlaceName(String name) {
+        if (!StringUtils.hasText(name)) {
+            return "";
+        }
+        String[] words = name.trim().split("\\s+");
+        List<String> kept = new ArrayList<>();
+        for (String word : words) {
+            String token = fold(word);
+            if (kept.isEmpty() && (token.isEmpty() || NAME_STOPWORDS.contains(token) || WAY_WORDS.contains(token))) {
+                continue;
+            }
+            kept.add(word);
+        }
+        if (kept.isEmpty()) {
+            return name.trim();
+        }
+        int bestFrom = 0;
+        String bestFolded = fold(String.join(" ", kept));
+        for (int i = 0; i < kept.size(); i++) {
+            String token = fold(kept.get(i));
+            if (!token.equals("de") && !token.equals("du") && !token.equals("des") && !token.equals("of") && !token.equals("d")) {
+                continue;
+            }
+            int from = i + 1;
+            if (token.equals("de") && from < kept.size()) {
+                String next = fold(kept.get(from));
+                if (next.equals("la") || next.equals("le") || next.equals("les") || next.equals("l")) {
+                    from++;
+                }
+            }
+            if (from >= kept.size()) {
+                continue;
+            }
+            String tail = fold(String.join(" ", kept.subList(from, kept.size())));
+            if (tail.length() >= 6 && tail.length() < bestFolded.length()) {
+                bestFrom = from;
+                bestFolded = tail;
+            }
+        }
+        return String.join(" ", kept.subList(bestFrom, kept.size())).trim();
+    }
+
+    /** Query Openverse with the place, not the road designation in front of it. */
+    private static void addSearchName(List<String> names, String raw) {
+        String core = corePlaceName(raw);
+        if (fold(core).length() < 4) {
+            return;
+        }
+        for (String existing : names) {
+            if (fold(existing).equals(fold(core))) {
+                return;
+            }
+        }
+        names.add(core);
+    }
+
     /** Short generic names stay out of the automatic search. The button can still ask. */
     private static boolean specificPlaceName(String name) {
-        return fold(name).length() >= 8;
+        return fold(name).length() >= 8 || fold(corePlaceName(name)).length() >= 8;
     }
 
     /**
@@ -762,18 +1021,20 @@ public class WikiProxyService {
     }
 
     /**
-     * Street-level photo taken within 50 m of the place. Mapillary has no place-name
-     * index, so the name is only used to choose the point that is searched.
+     * Street-level photo within about 200 m. Mapillary rejects a radius above 50 m,
+     * so the search is a bounding box. The place name only chooses the point.
      */
     private void fillFromMapillary(ObjectNode out, double lat, double lng) {
         if (!StringUtils.hasText(mapillaryToken)) {
             return;
         }
-        String url = "https://graph.mapillary.com/images?fields=id,thumb_1024_url"
-                + "&lat=" + String.format(Locale.US, "%.6f", lat)
-                + "&lng=" + String.format(Locale.US, "%.6f", lng)
-                + "&radius=50&limit=6";
-        JsonNode raw = fetchMapillary(url, "radius");
+        double dLat = 200.0 / 111_320.0;
+        double dLng = dLat / Math.max(0.2, Math.cos(Math.toRadians(lat)));
+        String url = String.format(Locale.US,
+                "https://graph.mapillary.com/images?fields=id,thumb_1024_url,thumb_2048_url,is_pano"
+                        + "&bbox=%.6f,%.6f,%.6f,%.6f&limit=6",
+                lng - dLng, lat - dLat, lng + dLng, lat + dLat);
+        JsonNode raw = fetchMapillary(url, "bbox");
         JsonNode rows = raw == null ? null : raw.get("data");
         if (rows == null || !rows.isArray() || rows.isEmpty()) {
             return;
@@ -791,7 +1052,7 @@ public class WikiProxyService {
         if (!StringUtils.hasText(mapillaryToken) || imageId == null || !imageId.trim().matches("\\d{5,30}")) {
             return false;
         }
-        String url = "https://graph.mapillary.com/" + imageId.trim() + "?fields=id,thumb_1024_url";
+        String url = "https://graph.mapillary.com/" + imageId.trim() + "?fields=id,thumb_1024_url,thumb_2048_url,is_pano";
         JsonNode image = fetchMapillary(url, imageId.trim());
         if (image == null || !image.isObject() || image.has("error")) {
             return false;
@@ -805,11 +1066,99 @@ public class WikiProxyService {
             return;
         }
         String id = textOrEmpty(image.get("id"));
+        boolean pano = image.path("is_pano").asBoolean(false);
         String thumb = textOrEmpty(image.get("thumb_1024_url"));
+        if (pano) {
+            String large = textOrEmpty(image.get("thumb_2048_url"));
+            if (large.startsWith("https://")) {
+                thumb = large;
+            }
+        }
         if (!id.matches("\\d{5,30}") || !thumb.startsWith("https://")) {
             return;
         }
-        rememberPhoto(out, thumb, "https://www.mapillary.com/app/?focus=photo&pKey=" + id, "mapillary");
+        rememberPhoto(out, thumb, "https://www.mapillary.com/app/?focus=photo&pKey=" + id, "mapillary", pano);
+    }
+
+    /**
+     * Same-origin bytes for a Mapillary thumbnail. The browser cannot read the
+     * CDN image into a canvas, so the 360° viewer asks the API for it.
+     */
+    public ResponseEntity<byte[]> fetchPublicImage(String url) {
+        if (!mapillaryThumbHost(url)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "image_host");
+        }
+        String current = url.trim();
+        try {
+            for (int hop = 0; hop < 3; hop++) {
+                HttpURLConnection conn = (HttpURLConnection) URI.create(current).toURL().openConnection();
+                conn.setInstanceFollowRedirects(false);
+                conn.setConnectTimeout(4000);
+                conn.setReadTimeout(12000);
+                conn.setRequestProperty("User-Agent", USER_AGENT);
+                conn.setRequestProperty("Accept", "image/*,*/*");
+                int status = conn.getResponseCode();
+                if (status >= 300 && status < 400) {
+                    String location = conn.getHeaderField("Location");
+                    conn.disconnect();
+                    if (!StringUtils.hasText(location)) {
+                        break;
+                    }
+                    current = URI.create(current).resolve(location).toString();
+                    if (!mapillaryThumbHost(current)) {
+                        break;
+                    }
+                    continue;
+                }
+                if (status != 200) {
+                    conn.disconnect();
+                    break;
+                }
+                String contentType = conn.getContentType() == null ? "" : conn.getContentType();
+                int semicolon = contentType.indexOf(';');
+                if (semicolon >= 0) {
+                    contentType = contentType.substring(0, semicolon).trim();
+                }
+                byte[] bytes;
+                try (InputStream input = conn.getInputStream()) {
+                    bytes = input.readNBytes(8_000_001);
+                } finally {
+                    conn.disconnect();
+                }
+                if (bytes.length < 32 || bytes.length > 8_000_000 || !contentType.startsWith("image/")) {
+                    break;
+                }
+                MediaType type = MediaType.IMAGE_JPEG;
+                try {
+                    type = MediaType.parseMediaType(contentType);
+                } catch (Exception ignored) {
+                    type = MediaType.IMAGE_JPEG;
+                }
+                return ResponseEntity.ok()
+                        .contentType(type)
+                        .cacheControl(CacheControl.maxAge(Duration.ofHours(1)))
+                        .body(bytes);
+            }
+        } catch (IOException | IllegalArgumentException e) {
+            log.warn("Mapillary thumbnail download failed");
+        }
+        throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "image_download");
+    }
+
+    private static boolean mapillaryThumbHost(String url) {
+        if (!StringUtils.hasText(url) || !url.startsWith("https://")) {
+            return false;
+        }
+        try {
+            String host = URI.create(url.trim()).getHost();
+            if (!StringUtils.hasText(host)) {
+                return false;
+            }
+            host = host.toLowerCase(Locale.ROOT);
+            return "mapillary.com".equals(host) || host.endsWith(".mapillary.com") || host.endsWith(".fbcdn.net");
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     private JsonNode fetchMapillary(String url, String label) {
@@ -897,13 +1246,29 @@ public class WikiProxyService {
     }
 
     private void applyCommonsFile(ObjectNode out, String fileTitle) {
+        applyCommonsFile(out, fileTitle, false);
+    }
+
+    private void applyCommonsFile(ObjectNode out, String fileTitle, boolean nearby) {
         String filename = fileTitle;
         if (filename.regionMatches(true, 0, "file:", 0, 5)) {
             filename = filename.substring(5).trim();
         }
         String image = commonsThumbnailUrl(filename, 960);
         String page = commonsFilePageUrl(filename);
-        rememberPhoto(out, image, page, "commons");
+        rememberPhoto(out, image, page, "commons", false, nearby ? commonsCaption(fileTitle) : "", nearby);
+    }
+
+    static String commonsCaption(String fileTitle) {
+        String name = fileTitle == null ? "" : fileTitle.trim();
+        if (name.regionMatches(true, 0, "file:", 0, 5)) {
+            name = name.substring(5).trim();
+        }
+        int dot = name.lastIndexOf('.');
+        if (dot > 0) {
+            name = name.substring(0, dot);
+        }
+        return name.replace('_', ' ').replaceAll("\\s+", " ").trim();
     }
 
     private void fillFromWikidata(ObjectNode out, String qid, String lang, String label, String only) {
@@ -1092,11 +1457,30 @@ public class WikiProxyService {
     private static List<String> distinctiveTokens(String place) {
         List<String> tokens = new ArrayList<>();
         for (String token : fold(place).split(" ")) {
-            if (token.length() >= 4 && !NAME_STOPWORDS.contains(token)) {
+            if (token.length() >= 3 && !NAME_STOPWORDS.contains(token)) {
                 tokens.add(token);
             }
         }
         return tokens;
+    }
+
+    /** A photograph, not a locator map, a coat of arms or a diagram. */
+    static boolean scenicCommonsFile(String title) {
+        String folded = fold(title);
+        if (!folded.endsWith(" jpg") && !folded.endsWith(" jpeg") && !folded.endsWith(" png")
+                && !folded.endsWith(" webp") && !folded.endsWith(" gif")) {
+            return false;
+        }
+        return !folded.contains("locator")
+                && !folded.contains("location map")
+                && !folded.contains("carte de")
+                && !folded.contains("plan de")
+                && !folded.contains("blason")
+                && !folded.contains("coat of arms")
+                && !folded.contains("drapeau")
+                && !folded.contains("flag of")
+                && !folded.contains("logo")
+                && !folded.contains("diagram");
     }
 
     static boolean samePlace(String place, String candidate, double meters) {
@@ -1308,13 +1692,13 @@ public class WikiProxyService {
                 log.debug("Wikipedia page missing for {} ({}): {}", label, code, e.getStatusCode());
                 return objectMapper.nullNode();
             }
-            log.warn("Wikipedia HTTP {} for {} ({}): {}", e.getStatusCode().value(), label, code, e.getMessage());
+            log.warn("Wikipedia HTTP {} for {} ({})", e.getStatusCode().value(), label, code);
             return objectMapper.nullNode();
         } catch (RestClientException e) {
-            log.warn("Wikipedia unavailable for {} ({}): {}", label, code, e.getMessage());
+            log.warn("Wikipedia unavailable for {} ({})", label, code);
             return objectMapper.nullNode();
         } catch (Exception e) {
-            log.warn("Wikipedia parse failed for {} ({}): {}", label, code, e.getMessage());
+            log.warn("Wikipedia parse failed for {} ({})", label, code);
             return objectMapper.nullNode();
         }
     }

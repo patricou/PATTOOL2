@@ -61,4 +61,10 @@ public class WikiRestController {
         return ResponseEntity.ok(wikiProxyService.fetchPoiPhoto(
                 id, name, nameEn, lat, lng, wikipedia, commons, image, source, lang));
     }
+
+    /** Mapillary thumbnail bytes for the 360° viewer. The CDN image is not readable from the page. */
+    @GetMapping("/image")
+    public ResponseEntity<byte[]> image(@RequestParam("url") String url) {
+        return wikiProxyService.fetchPublicImage(url);
+    }
 }

@@ -6,7 +6,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 import { SlideshowModalModule } from '../../shared/slideshow-modal/slideshow-modal.module';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowAddToDbEvent, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
-import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { ActivityPhotoMarker, TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { isValidGeoCoordinate } from '../../shared/geo-coordinates.util';
 import { hasValidDepartureLocation } from '../../shared/start-location.util';
 import { VideoshowModalModule } from '../../shared/videoshow-modal/videoshow-modal.module';
@@ -314,6 +314,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     private qualityModalRef: NgbModalRef | null = null;
 
     thumbnailCache: Map<string, string> = new Map();
+    private wallTraceActivity: TimelineGroup | null = null;
     /** Parsed distance / D+ for Mongo-backed tracks (photo wall table), keyed by GridFS id. */
     wallTrackStats: Map<string, {
         loading: boolean;
@@ -2317,6 +2318,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     private openSlideshowWithGroup(group: TimelineGroup, startIndex: number): void {
         if (!this.slideshowModalComponent || !group.photos?.length) return;
+        this.wallTraceActivity = group;
         this.suspendWallVideoPlayback('slideshow');
         const images: SlideshowImageSource[] = group.photos.map(p => ({
             fileId: p.fileId,
@@ -3069,7 +3071,14 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             const displayTitle = descPart && descPart !== pathPart ? descPart : undefined;
             if (this.traceViewerModalComponent) {
                 this.markWallTraceViewerOpened();
-                this.traceViewerModalComponent.openFromFile(fsLink.fieldId, fileName, undefined, displayTitle);
+                this.wallTraceActivity = group;
+                this.traceViewerModalComponent.openFromFile(
+                    fsLink.fieldId,
+                    fileName,
+                    undefined,
+                    displayTitle,
+                    this.wallActivityPhoto(group)
+                );
             }
             return;
         }
@@ -3374,6 +3383,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     openFsSlideshow(fsLink: FsPhotoLink, group: TimelineGroup): void {
         if (!this.slideshowModalComponent) return;
 
+        this.wallTraceActivity = group;
         const eventId = group.eventId;
         const eventName = group.eventName;
         const canAddToDb = this.isTimelineGroupOwner(group);
@@ -3430,7 +3440,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
         if (this.traceViewerModalComponent) {
             this.markWallTraceViewerOpened();
-            this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, event.eventColor);
+            this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, event.eventColor, false, false, {
+                activityPhoto: this.wallActivityPhoto(this.wallTraceActivity)
+            });
         }
     }
 
@@ -3549,6 +3561,31 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return isValidGeoCoordinate(lat, lng) ? { lat, lng } : null;
     }
 
+    /** Photo principale du mur (fichier miniature, sinon première photo) au lieu de départ. */
+    private wallActivityPhoto(
+        group: TimelineGroup | null | undefined,
+        coords?: { lat: number; lng: number } | null
+    ): ActivityPhotoMarker | null {
+        if (!group) {
+            return null;
+        }
+        const photos = group.photos || [];
+        const thumb = photos.find((photo) => (photo.fileName || '').toLowerCase().includes('thumbnail')) || photos[0];
+        const fileId = thumb?.fileId?.trim();
+        const locationText = group.startLocation?.trim() || '';
+        if (!fileId || (!coords && !locationText)) {
+            return null;
+        }
+        return {
+            lat: coords?.lat,
+            lng: coords?.lng,
+            locationText: locationText || undefined,
+            fileId,
+            fileName: thumb?.fileName,
+            label: group.eventName
+        };
+    }
+
     private openTraceViewerAtStartLocation(lat: number, lng: number, locationLabel: string, group: TimelineGroup): void {
         if (!this.traceViewerModalComponent || !isValidGeoCoordinate(lat, lng)) {
             return;
@@ -3576,8 +3613,11 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             }
         }
 
+        this.wallTraceActivity = group;
         this.markWallTraceViewerOpened();
-        this.traceViewerModalComponent.openAtLocation(lat, lng, label, finalEventColor);
+        this.traceViewerModalComponent.openAtLocation(lat, lng, label, finalEventColor, false, false, {
+            activityPhoto: this.wallActivityPhoto(group, { lat, lng })
+        });
     }
 
     onAddToDb(event: SlideshowAddToDbEvent): void {

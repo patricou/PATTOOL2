@@ -10,7 +10,7 @@ import { map, catchError, take } from 'rxjs/operators';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent, SlideshowAddToDbEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { isValidGeoCoordinate } from '../../shared/geo-coordinates.util';
 import { AddToDbLayerService } from '../../services/add-to-db-layer.service';
-import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { TraceViewerModalComponent, mainActivityPhoto } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
 import { ElementEvenementComponent } from '../element-evenement/element-evenement.component';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
@@ -5969,7 +5969,8 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       trackFile.fieldId,
       trackFile.fileName,
       eventColor || undefined,
-      trackFile.displayName
+      trackFile.displayName,
+      mainActivityPhoto(this.evenement)
     );
   }
 
@@ -6461,7 +6462,9 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     }
 
     if (this.traceViewerModalComponent) {
-      this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, eventColor || undefined);
+      this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, eventColor || undefined, false, false, {
+        activityPhoto: mainActivityPhoto(this.evenement)
+      });
     }
   }
 

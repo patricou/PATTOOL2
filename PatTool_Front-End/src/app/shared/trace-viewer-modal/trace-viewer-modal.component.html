@@ -35,7 +35,7 @@
           <span class="tv-map-scale-label">{{ mapScaleLabel }}</span>
           <span class="tv-map-scale-bar" [style.width.px]="mapScaleWidthPx" aria-hidden="true"></span>
         </div>
-        <div class="tv-poi-photo" *ngIf="relief3d && reliefPoiPhoto" role="dialog" [attr.aria-label]="reliefPoiPhoto.title">
+        <div class="tv-poi-photo" *ngIf="reliefPoiPhoto" role="dialog" [attr.aria-label]="reliefPoiPhoto.title">
           <div class="tv-poi-photo-head">
             <span class="tv-poi-photo-title">{{ reliefPoiPhoto.title }}</span>
             <button type="button"
@@ -49,7 +49,15 @@
             <button type="button"
                     class="tv-poi-photo-close"
                     *ngIf="!reliefPoiPhoto.loading && reliefPoiPhoto.imageUrl"
-                    (click)="openPoiPhotoFullscreen()"
+                    (click)="openPoiPhotoMapCover()"
+                    [attr.aria-label]="'EVENTELEM.POI_PHOTO_COVER_MAP' | translate"
+                    [attr.title]="'EVENTELEM.POI_PHOTO_COVER_MAP' | translate">
+              <i class="fa fa-window-maximize" aria-hidden="true"></i>
+            </button>
+            <button type="button"
+                    class="tv-poi-photo-close"
+                    *ngIf="!reliefPoiPhoto.loading && reliefPoiPhoto.imageUrl"
+                    (click)="openPoiPhotoBrowserFullscreen()"
                     [attr.aria-label]="'EVENTELEM.POI_PHOTO_FULLSCREEN' | translate"
                     [attr.title]="'EVENTELEM.POI_PHOTO_FULLSCREEN' | translate">
               <i class="fa fa-expand" aria-hidden="true"></i>
@@ -84,12 +92,18 @@
             </button>
             <button type="button"
                     class="tv-poi-photo-link"
-                    (click)="openPoiPhotoFullscreen()"
-                    [attr.aria-label]="'EVENTELEM.POI_PHOTO_FULLSCREEN' | translate">
+                    *ngIf="!reliefPoiPhoto.pano || panoBrokenUrl === reliefPoiPhoto.imageUrl"
+                    (click)="openPoiPhotoMapCover()"
+                    [attr.aria-label]="'EVENTELEM.POI_PHOTO_COVER_MAP' | translate">
               <img [src]="reliefPoiPhoto.imageUrl"
                    [alt]="reliefPoiPhoto.title"
                    (error)="reliefPoiPhotoFailed()" />
             </button>
+            <canvas #poiPano
+                    class="tv-poi-photo-pano"
+                    *ngIf="reliefPoiPhoto.pano && panoBrokenUrl !== reliefPoiPhoto.imageUrl"
+                    [attr.aria-label]="'EVENTELEM.POI_PHOTO_LOOK' | translate"
+                    [attr.title]="'EVENTELEM.POI_PHOTO_LOOK' | translate"></canvas>
             <button type="button"
                     class="tv-poi-photo-nav tv-poi-photo-nav--next"
                     *ngIf="poiGallery.length > 1"
@@ -166,10 +180,17 @@
                   [attr.aria-label]="'EVENTELEM.POI_PHOTO_PREV' | translate">
             <i class="fa fa-chevron-left" aria-hidden="true"></i>
           </button>
-          <img [src]="reliefPoiPhoto?.imageUrl"
+          <img *ngIf="!reliefPoiPhoto?.pano || panoBrokenUrl === reliefPoiPhoto?.imageUrl"
+               [src]="reliefPoiPhoto?.imageUrl"
                [alt]="reliefPoiPhoto?.title"
                (click)="$event.stopPropagation()"
                (error)="reliefPoiPhotoFailed()" />
+          <canvas #poiPanoFull
+                  class="tv-poi-photo-pano"
+                  *ngIf="poiPhotoFullscreen && reliefPoiPhoto?.pano && panoBrokenUrl !== reliefPoiPhoto?.imageUrl"
+                  (click)="$event.stopPropagation()"
+                  [attr.aria-label]="'EVENTELEM.POI_PHOTO_LOOK' | translate"
+                  [attr.title]="'EVENTELEM.POI_PHOTO_LOOK' | translate"></canvas>
           <button type="button"
                   class="tv-poi-photo-full-nav tv-poi-photo-full-nav--next"
                   *ngIf="poiGallery.length > 1"

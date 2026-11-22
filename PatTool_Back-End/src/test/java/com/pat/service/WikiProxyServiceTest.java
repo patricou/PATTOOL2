@@ -40,6 +40,23 @@ class WikiProxyServiceTest {
         assertFalse(WikiProxyService.samePlace("Statue de la vierge", "Chemin de la Vierge", 40));
         assertFalse(WikiProxyService.samePlace(
                 "Erratic boulder of the Rhone glacier", "Sentier de l'Allondon", 20));
+        assertTrue(WikiProxyService.samePlace(
+                "Route Sylvo-Pastorale du col du Sac", "Col du Sac", 200));
+    }
+
+    @Test
+    void coreNameDropsTheRoadAndKeepsThePlace() {
+        assertEquals("col du Sac", WikiProxyService.corePlaceName("Route Sylvo-Pastorale du col du Sac"));
+        assertEquals("Tour Eiffel", WikiProxyService.corePlaceName("Tour Eiffel"));
+        assertEquals("Vierge", WikiProxyService.corePlaceName("Statue de la Vierge"));
+    }
+
+    @Test
+    void commonsKeepsAPhotographAndDropsAMap() {
+        assertTrue(WikiProxyService.scenicCommonsFile(
+                "File:Scenic view form the Crêt de la Goutte - panoramio (7).jpg"));
+        assertFalse(WikiProxyService.scenicCommonsFile("File:Locator map of Ain.svg"));
+        assertFalse(WikiProxyService.scenicCommonsFile("File:Blason ville.png"));
     }
 
     @Test
