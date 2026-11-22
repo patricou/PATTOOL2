@@ -9,6 +9,7 @@ import com.pat.repo.domain.FileUploaded;
 import com.pat.repo.domain.Member;
 import com.pat.repo.EvenementsRepository;
 import com.pat.repo.MembersRepository;
+import com.pat.service.DiscussionService;
 import com.pat.service.FriendsService;
 import com.pat.service.ImageCompressionService;
 import com.pat.service.MemoryMonitoringService;
@@ -24,13 +25,19 @@ import org.springframework.data.mongodb.gridfs.GridFsTemplate;
 import org.springframework.data.mongodb.gridfs.GridFsResource;
 import org.bson.types.ObjectId;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +49,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -96,6 +104,9 @@ public class FileRestController {
 
     @Autowired
     private FriendsService friendsService;
+
+    @Autowired
+    private DiscussionService discussionService;
 
     private static final Logger log = LoggerFactory.getLogger(FileRestController.class);
     
@@ -1257,6 +1268,120 @@ public class FileRestController {
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
 
+    }
+
+    /**
+     * Copies a place photo already shown on the map into an activity the user can open.
+     * The browser cannot fetch Wikimedia, Flickr or Mapillary (CORS), so the server downloads it
+     * and stores it in GridFS like a normal activity upload.
+     */
+    @PostMapping("/api/file/place-photo/{evenementId}")
+    public ResponseEntity<Map<String, String>> savePlacePhoto(
+            @PathVariable String evenementId,
+            @RequestBody Map<String, String> body) {
+        Member me = friendsService.getCurrentUser(SecurityContextHolder.getContext().getAuthentication());
+        if (me == null || !StringUtils.hasText(me.getId())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Evenement evenement = evenementsRepository.findById(evenementId).orElse(null);
+        if (evenement == null || !discussionService.canUserAccessEventForDetail(evenementId, me.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        String imageUrl = body == null ? "" : text(body.get("imageUrl"));
+        if (!placePhotoHostAllowed(imageUrl)) {
+            return ResponseEntity.badRequest().build();
+        }
+        byte[] bytes;
+        String contentType;
+        try {
+            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+            factory.setConnectTimeout(Duration.ofSeconds(4));
+            factory.setReadTimeout(Duration.ofSeconds(12));
+            RestTemplate client = new RestTemplate(factory);
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.USER_AGENT, "PatTool/1.0 (wikipedia helper; https://www.patrickdeschamps.com)");
+            headers.set(HttpHeaders.ACCEPT, "image/*,*/*");
+            ResponseEntity<byte[]> response = client.exchange(
+                    URI.create(imageUrl), HttpMethod.GET, new HttpEntity<>(headers), byte[].class);
+            bytes = response.getBody();
+            MediaType type = response.getHeaders().getContentType();
+            contentType = type == null ? "image/jpeg" : type.toString();
+        } catch (RestClientException | IllegalArgumentException e) {
+            log.warn("Place photo download failed: {}", e.getClass().getSimpleName());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+        }
+        if (bytes == null || bytes.length < 32 || bytes.length > 8_000_000 || !contentType.startsWith("image/")) {
+            return ResponseEntity.badRequest().build();
+        }
+        String title = text(body.get("title"));
+        String fileName = placePhotoFileName(title, contentType);
+        Document metaData = new Document();
+        metaData.put("evenementId", evenementId);
+        metaData.put("source", text(body.get("source")));
+        String fieldId;
+        try (ByteArrayInputStream input = new ByteArrayInputStream(bytes)) {
+            fieldId = gridFsTemplate.store(input, fileName, contentType, metaData).toString();
+        } catch (Exception e) {
+            log.warn("Place photo store failed for event {}", evenementId);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+        if (evenement.getFileUploadeds() == null) {
+            evenement.setFileUploadeds(new java.util.ArrayList<>());
+        }
+        FileUploaded uploaded = new FileUploaded(fieldId, fileName, contentType, me);
+        if (StringUtils.hasText(title)) {
+            uploaded.setDisplayName(title.length() > 160 ? title.substring(0, 160) : title);
+        }
+        evenement.getFileUploadeds().add(uploaded);
+        evenementsRepository.save(evenement);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "fieldId", fieldId,
+                "fileName", fileName,
+                "evenementId", evenementId));
+    }
+
+    private static String text(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private static boolean placePhotoHostAllowed(String url) {
+        if (!StringUtils.hasText(url) || !url.startsWith("https://")) {
+            return false;
+        }
+        try {
+            String host = URI.create(url).getHost();
+            if (!StringUtils.hasText(host)) {
+                return false;
+            }
+            host = host.toLowerCase(java.util.Locale.ROOT);
+            return host.endsWith(".wikimedia.org") || "wikimedia.org".equals(host)
+                    || host.endsWith(".staticflickr.com") || "staticflickr.com".equals(host)
+                    || "images.unsplash.com".equals(host)
+                    || host.endsWith(".mapillary.com") || "mapillary.com".equals(host)
+                    || host.endsWith(".fbcdn.net");
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    private static String placePhotoFileName(String title, String contentType) {
+        String base = title.replaceAll("[^\\p{L}\\p{N}]+", "-").replaceAll("^-+|-+$", "");
+        if (!StringUtils.hasText(base)) {
+            base = "photo";
+        }
+        if (base.length() > 60) {
+            base = base.substring(0, 60);
+        }
+        String ext = "jpg";
+        String type = contentType.toLowerCase(java.util.Locale.ROOT);
+        if (type.contains("png")) {
+            ext = "png";
+        } else if (type.contains("webp")) {
+            ext = "webp";
+        } else if (type.contains("gif")) {
+            ext = "gif";
+        }
+        return base + "." + ext;
     }
 
     @RequestMapping( value = "/api/file", method = RequestMethod.PUT )

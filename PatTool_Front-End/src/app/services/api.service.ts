@@ -3012,6 +3012,27 @@ export class ApiService {
     return this._http.get<PoiPhoto>(this.API_URL + 'external/wiki/poi-photo', { params });
   }
 
+  /** Activities the signed-in user can see. Filter is `*` so the name is not used. */
+  listEvenements(userId: string): Observable<{ content?: Array<{ id?: string; evenementName?: string; author?: { id?: string } }> }> {
+    return this.authHeaders(true).pipe(
+      switchMap(headers => this._http.get<{ content?: Array<{ id?: string; evenementName?: string; author?: { id?: string } }> }>(
+        this.API_URL + 'even/*/0/200',
+        { headers: headers.set('user-id', userId) }
+      ))
+    );
+  }
+
+  /** Download a shown place photo and attach it to an activity the user authored. */
+  savePlacePhoto(evenementId: string, photo: { imageUrl: string; title?: string; pageUrl?: string; source?: string }): Observable<{ fieldId?: string }> {
+    return this.authHeaders(true).pipe(
+      switchMap(headers => this._http.post<{ fieldId?: string }>(
+        this.API_URL + 'file/place-photo/' + encodeURIComponent(evenementId),
+        photo,
+        { headers }
+      ))
+    );
+  }
+
   searchArtisansNearby(options: {
     source: ArtisansSource;
     lat?: number;
@@ -6694,6 +6715,7 @@ export interface PoiPhoto {
   source?: string;
   /** True when the server has an Unsplash access key. */
   unsplash?: boolean;
+  photos?: Array<{ imageUrl?: string; pageUrl?: string; source?: string; title?: string }>;
 }
 
 export interface WikipediaSummary {

@@ -41,6 +41,14 @@
             <button type="button"
                     class="tv-poi-photo-close"
                     *ngIf="!reliefPoiPhoto.loading && reliefPoiPhoto.imageUrl"
+                    (click)="togglePoiSave()"
+                    [attr.aria-label]="'EVENTELEM.POI_PHOTO_SAVE' | translate"
+                    [attr.title]="'EVENTELEM.POI_PHOTO_SAVE' | translate">
+              <i class="fa fa-download" aria-hidden="true"></i>
+            </button>
+            <button type="button"
+                    class="tv-poi-photo-close"
+                    *ngIf="!reliefPoiPhoto.loading && reliefPoiPhoto.imageUrl"
                     (click)="openPoiPhotoFullscreen()"
                     [attr.aria-label]="'EVENTELEM.POI_PHOTO_FULLSCREEN' | translate"
                     [attr.title]="'EVENTELEM.POI_PHOTO_FULLSCREEN' | translate">
@@ -66,29 +74,77 @@
             <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
             <span>{{ 'EVENTELEM.POI_PHOTO_LOADING' | translate }}</span>
           </div>
-          <button type="button"
-                  class="tv-poi-photo-link"
-                  *ngIf="!reliefPoiPhoto.loading && reliefPoiPhoto.imageUrl"
-                  (click)="openPoiPhotoFullscreen()"
-                  [attr.aria-label]="'EVENTELEM.POI_PHOTO_FULLSCREEN' | translate">
-            <img [src]="reliefPoiPhoto.imageUrl"
-                 [alt]="reliefPoiPhoto.title"
-                 (error)="reliefPoiPhotoFailed()" />
-          </button>
+          <div class="tv-poi-photo-frame" *ngIf="!reliefPoiPhoto.loading && reliefPoiPhoto.imageUrl">
+            <button type="button"
+                    class="tv-poi-photo-nav tv-poi-photo-nav--prev"
+                    *ngIf="poiGallery.length > 1"
+                    (click)="stepPoiPhoto(-1)"
+                    [attr.aria-label]="'EVENTELEM.POI_PHOTO_PREV' | translate">
+              <i class="fa fa-chevron-left" aria-hidden="true"></i>
+            </button>
+            <button type="button"
+                    class="tv-poi-photo-link"
+                    (click)="openPoiPhotoFullscreen()"
+                    [attr.aria-label]="'EVENTELEM.POI_PHOTO_FULLSCREEN' | translate">
+              <img [src]="reliefPoiPhoto.imageUrl"
+                   [alt]="reliefPoiPhoto.title"
+                   (error)="reliefPoiPhotoFailed()" />
+            </button>
+            <button type="button"
+                    class="tv-poi-photo-nav tv-poi-photo-nav--next"
+                    *ngIf="poiGallery.length > 1"
+                    (click)="stepPoiPhoto(1)"
+                    [attr.aria-label]="'EVENTELEM.POI_PHOTO_NEXT' | translate">
+              <i class="fa fa-chevron-right" aria-hidden="true"></i>
+            </button>
+          </div>
           <p class="tv-poi-photo-empty" *ngIf="!reliefPoiPhoto.loading && !reliefPoiPhoto.imageUrl">
             {{ 'EVENTELEM.POI_NO_PHOTO' | translate }}
           </p>
           <p class="tv-poi-photo-source" *ngIf="!reliefPoiPhoto.loading && reliefPoiPhoto.source">
-            {{ 'EVENTELEM.POI_PHOTO_FROM' | translate }} {{ poiPhotoSourceKey(reliefPoiPhoto.source) | translate }}
+            <span>
+              {{ 'EVENTELEM.POI_PHOTO_FROM' | translate }} {{ poiPhotoSourceKey(reliefPoiPhoto.source) | translate }}
+              <span *ngIf="poiGallery.length > 1">{{ poiGalleryIndex + 1 }}/{{ poiGallery.length }}</span>
+            </span>
+            <a class="tv-poi-photo-page"
+               *ngIf="reliefPoiPhoto.pageUrl || reliefPoiPhoto.imageUrl"
+               [href]="reliefPoiPhoto.pageUrl || reliefPoiPhoto.imageUrl"
+               target="_blank"
+               rel="noopener noreferrer">
+              {{ 'EVENTELEM.POI_PHOTO_PAGE' | translate }}
+            </a>
           </p>
-          <div class="tv-poi-photo-sources" *ngIf="!reliefPoiPhoto.loading">
+          <div class="tv-poi-save" *ngIf="poiSaveOpen && !reliefPoiPhoto.loading && reliefPoiPhoto.imageUrl">
+            <p class="tv-poi-save-title">{{ 'EVENTELEM.POI_PHOTO_SAVE_PICK' | translate }}</p>
+            <input class="tv-poi-save-filter"
+                   type="search"
+                   [(ngModel)]="poiSaveFilter"
+                   [placeholder]="'EVENTELEM.POI_PHOTO_SAVE_FILTER' | translate"
+                   [attr.aria-label]="'EVENTELEM.POI_PHOTO_SAVE_FILTER' | translate" />
+            <p class="tv-poi-save-status" *ngIf="poiSaveLoading">{{ 'EVENTELEM.POI_PHOTO_SAVE_LOADING' | translate }}</p>
+            <p class="tv-poi-save-status" *ngIf="poiSaveMessage">{{ poiSaveMessage | translate }}</p>
+            <p class="tv-poi-save-status" *ngIf="!poiSaveLoading && !poiSaveActivities.length && !poiSaveMessage">{{ 'EVENTELEM.POI_PHOTO_SAVE_EMPTY' | translate }}</p>
+            <p class="tv-poi-save-status" *ngIf="!poiSaveLoading && poiSaveActivities.length && !filteredPoiSaveActivities.length">{{ 'EVENTELEM.POI_PHOTO_SAVE_NONE' | translate }}</p>
+            <div class="tv-poi-save-list">
+              <button type="button"
+                      class="tv-poi-save-item"
+                      *ngFor="let activity of filteredPoiSaveActivities"
+                      [disabled]="poiSaveLoading"
+                      (click)="savePoiToActivity(activity.id)">
+                {{ activity.name }}
+              </button>
+            </div>
+          </div>
+          <div class="tv-poi-photo-sources">
             <button type="button"
                     *ngFor="let source of poiPhotoSources"
                     [class.is-on]="source === reliefPoiPhoto.source"
                     [class.is-off]="!poiPhotoSourceReady(source)"
-                    [disabled]="!poiPhotoSourceReady(source)"
+                    [disabled]="!poiPhotoSourceReady(source) || !poiSourceCount(source)"
                     (click)="loadPoiPhotoSource(source)">
+              <i class="fa fa-spinner fa-spin" *ngIf="poiSourcePending(source) && !poiSourceCount(source)" aria-hidden="true"></i>
               {{ poiPhotoSourceKey(source) | translate }}
+              <span class="tv-poi-photo-badge" *ngIf="poiSourceCount(source) as count">{{ count }}</span>
             </button>
           </div>
         </div>
@@ -103,10 +159,24 @@
                   [attr.aria-label]="'EVENTELEM.POI_PHOTO_CLOSE' | translate">
             <i class="fa fa-times" aria-hidden="true"></i>
           </button>
+          <button type="button"
+                  class="tv-poi-photo-full-nav tv-poi-photo-full-nav--prev"
+                  *ngIf="poiGallery.length > 1"
+                  (click)="$event.stopPropagation(); stepPoiPhoto(-1)"
+                  [attr.aria-label]="'EVENTELEM.POI_PHOTO_PREV' | translate">
+            <i class="fa fa-chevron-left" aria-hidden="true"></i>
+          </button>
           <img [src]="reliefPoiPhoto?.imageUrl"
                [alt]="reliefPoiPhoto?.title"
                (click)="$event.stopPropagation()"
                (error)="reliefPoiPhotoFailed()" />
+          <button type="button"
+                  class="tv-poi-photo-full-nav tv-poi-photo-full-nav--next"
+                  *ngIf="poiGallery.length > 1"
+                  (click)="$event.stopPropagation(); stepPoiPhoto(1)"
+                  [attr.aria-label]="'EVENTELEM.POI_PHOTO_NEXT' | translate">
+            <i class="fa fa-chevron-right" aria-hidden="true"></i>
+          </button>
           <div class="tv-poi-photo-full-caption" (click)="$event.stopPropagation()">
             <span>{{ reliefPoiPhoto?.title }}</span>
             <span *ngIf="reliefPoiPhoto?.source as photoSource">{{ poiPhotoSourceKey(photoSource) | translate }}</span>
@@ -1199,7 +1269,7 @@
 <ng-template #placeModal>
   <div class="modal-header tv-direction-modal-header">
     <h5 class="modal-title">
-      <i class="fa fa-map-marker me-2" aria-hidden="true"></i>
+      <i class="fa fa-map-marker" aria-hidden="true"></i>
       {{ 'EVENTELEM.TRACK_PLACE' | translate }}
     </h5>
     <button type="button"
@@ -1208,28 +1278,28 @@
             (click)="closePlaceModal()"></button>
   </div>
   <div class="modal-body tv-direction-modal-body">
-    <p class="small text-muted mb-3">{{ 'EVENTELEM.TRACK_PLACE_HINT' | translate }}</p>
+    <p class="tv-place-hint">{{ 'EVENTELEM.TRACK_PLACE_HINT' | translate }}</p>
     <button type="button"
-            class="btn btn-outline-primary w-100 mb-3"
+            class="btn btn-outline-primary w-100 tv-place-recenter"
             (click)="useMyPositionInPlace()"
             [disabled]="placeLocating">
-      <i class="fa me-1" [ngClass]="placeLocating ? 'fa-spinner fa-spin' : 'fa-location-arrow'" aria-hidden="true"></i>
+      <i class="fa" [ngClass]="placeLocating ? 'fa-spinner fa-spin' : 'fa-location-arrow'" aria-hidden="true"></i>
       {{ 'EVENTELEM.TRACK_RECENTER_USER' | translate }}
     </button>
-    <div class="btn-group w-100 mb-3" role="group" [attr.aria-label]="'EVENTELEM.TRACK_PLACE' | translate">
+    <div class="btn-group w-100 tv-place-modes" role="group" [attr.aria-label]="'EVENTELEM.TRACK_PLACE' | translate">
       <button type="button"
               class="btn btn-outline-primary"
               [class.active]="placeMode === 'address'"
               (click)="setPlaceMode('address')"
               [attr.aria-pressed]="placeMode === 'address'">
-        <i class="fa fa-home me-1" aria-hidden="true"></i>{{ 'EVENTELEM.TRACK_GOTO_MODE_ADDRESS' | translate }}
+        <i class="fa fa-home" aria-hidden="true"></i>{{ 'EVENTELEM.TRACK_GOTO_MODE_ADDRESS' | translate }}
       </button>
       <button type="button"
               class="btn btn-outline-primary"
               [class.active]="placeMode === 'coords'"
               (click)="setPlaceMode('coords')"
               [attr.aria-pressed]="placeMode === 'coords'">
-        <i class="fa fa-crosshairs me-1" aria-hidden="true"></i>{{ 'EVENTELEM.TRACK_GOTO_MODE_COORDS' | translate }}
+        <i class="fa fa-crosshairs" aria-hidden="true"></i>{{ 'EVENTELEM.TRACK_GOTO_MODE_COORDS' | translate }}
       </button>
     </div>
 
@@ -1250,8 +1320,8 @@
         </button>
       </div>
       <ng-container *ngIf="placeResults.length > 1">
-      <div class="small text-muted mt-3 mb-1">{{ 'ADDRESS_GEOCODE.RESULTS' | translate }}</div>
-      <div class="small text-muted mb-2" *ngIf="!placeHasOrigin">
+      <div class="tv-place-hint tv-place-hint--tight">{{ 'ADDRESS_GEOCODE.RESULTS' | translate }}</div>
+      <div class="tv-place-hint tv-place-hint--tight" *ngIf="!placeHasOrigin">
         {{ (placeOriginPending ? 'EVENTELEM.TRACK_DIRECTION_DISTANCE_PENDING' : 'EVENTELEM.TRACK_PLACE_NO_ORIGIN') | translate }}
       </div>
       <div class="list-group tv-direction-results">
@@ -1274,7 +1344,7 @@
     </ng-container>
 
     <ng-container *ngIf="placeMode === 'coords'">
-      <label class="form-label" for="trace-viewer-goto-coords">{{ 'ADDRESS_GEOCODE.ENTER_COORDINATES' | translate }}</label>
+      <label class="form-label tv-place-label" for="trace-viewer-goto-coords">{{ 'ADDRESS_GEOCODE.ENTER_COORDINATES' | translate }}</label>
       <input type="text"
              id="trace-viewer-goto-coords"
              class="form-control"
@@ -1284,7 +1354,7 @@
              [attr.aria-label]="'ADDRESS_GEOCODE.ENTER_COORDINATES' | translate">
     </ng-container>
 
-    <div class="tv-place-selected mt-3" *ngIf="(placeMode === 'coords' || placeResults.length === 1) && placeSelected as sel">
+    <div class="tv-place-selected" *ngIf="(placeMode === 'coords' || placeResults.length === 1) && placeSelected as sel">
       <div class="tv-place-selected-label">
         <i class="fa fa-map-marker me-1" aria-hidden="true"></i>{{ sel.label }}
       </div>
@@ -1308,7 +1378,7 @@
       </ng-template>
     </div>
 
-    <div *ngIf="placeError" class="alert alert-danger mt-3 mb-0 py-2" role="alert">
+    <div *ngIf="placeError" class="alert alert-danger tv-place-error" role="alert">
       {{ placeError }}
     </div>
 
@@ -1336,13 +1406,13 @@
               class="btn btn-primary"
               (click)="confirmGotoLocation()"
               [disabled]="!placeSelected || directionLocating">
-        <i class="fa fa-crosshairs me-1" aria-hidden="true"></i>{{ 'EVENTELEM.TRACK_GOTO_USE' | translate }}
+        <i class="fa fa-crosshairs" aria-hidden="true"></i>{{ 'EVENTELEM.TRACK_GOTO_USE' | translate }}
       </button>
       <button type="button"
               class="btn btn-success"
               (click)="confirmDirectionTarget()"
               [disabled]="!placeSelected || directionLocating">
-        <i class="fa me-1" [ngClass]="directionLocating ? 'fa-spinner fa-spin' : 'fa-location-arrow'" aria-hidden="true"></i>{{ 'EVENTELEM.TRACK_DIRECTION_USE' | translate }}
+        <i class="fa" [ngClass]="directionLocating ? 'fa-spinner fa-spin' : 'fa-location-arrow'" aria-hidden="true"></i>{{ 'EVENTELEM.TRACK_DIRECTION_USE' | translate }}
       </button>
     </div>
   </div>

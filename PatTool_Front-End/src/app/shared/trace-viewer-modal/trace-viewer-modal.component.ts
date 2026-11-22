@@ -10,6 +10,7 @@ import { writeGpsHandoff } from '../../gps-track/gps-handoff';
 import { isTrackFileName, nearestTrackIndex, trackHeadingAt } from '../../gps-track/gps-geo.util';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { ApiService, PoiPhoto, TraceViewerPreference } from '../../services/api.service';
+import { MembersService } from '../../services/members.service';
 import { WeatherStationMapLayerService } from '../../services/weather-station-map-layer.service';
 import { resolveWeatherStationProvider, resolveWeatherStationPointBrand, stationMarkerLatLng, WeatherStationGridPoint } from '../weather-station-map.util';
 import { forkJoin, of, Subject, Subscription } from 'rxjs';
@@ -477,11 +478,23 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public relief3dPending = false;
 	/** Photo opened from a camera icon on the 3D map. */
 	public reliefPoiPhoto: { title: string; imageUrl: string; pageUrl: string; source: string; loading: boolean } | null = null;
+	/** Photos already downloaded for the open place, in arrival order. */
+	public poiGallery: Array<{ title: string; imageUrl: string; pageUrl: string; source: string }> = [];
+	public poiGalleryIndex = 0;
 	public readonly poiPhotoSources = ['wikidata', 'wikipedia', 'commons', 'openverse', 'unsplash', 'mapillary'] as const;
 	/** Unsplash stays struck out until the server reports an access key. */
 	public unsplashReady = false;
+	private unsplashKnown = false;
+	public poiSaveOpen = false;
+	public poiSaveLoading = false;
+	public poiSaveMessage = '';
+	public poiSaveActivities: { id: string; name: string }[] = [];
+	public poiSaveFilter = '';
 	public poiPhotoFullscreen = false;
 	private reliefPoiPhotoRequest = 0;
+	private poiPhotoCancel$ = new Subject<void>();
+	private poiPhotoPending = new Set<string>();
+	private poiPhotoTitle = '';
 	private poiPhotoQuery: { id?: string; name?: string; nameEn?: string; lat?: number; lng?: number; wikipedia?: string; commons?: string; image?: string } | null = null;
 	/** Colore le relief du violet au rouge selon l’altitude visible. */
 	public elevationColors = false;
@@ -537,6 +550,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public mapScaleLabel = '';
 	public mapScaleWidthPx = 80;
 	private mapScaleFrame: number | null = null;
+	private mapScaleApplyTimer: number | null = null;
+	private pendingMapScale: { label: string; width: number } | null = null;
 	private static readonly MAP_SCALE_MAX_PX = 120;
 	private pendingZoomFooter: number | null = null;
 	private zoomFooterTimer: number | null = null;
@@ -721,6 +736,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		private readonly fileService: FileService,
 		private readonly keycloakService: KeycloakService,
 		private readonly apiService: ApiService,
+		private readonly membersService: MembersService,
 		private readonly weatherStationMapLayer: WeatherStationMapLayerService,
 		private readonly sanitizer: DomSanitizer,
 		private readonly router: Router,
@@ -925,6 +941,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (this.mapScaleFrame != null) {
 			cancelAnimationFrame(this.mapScaleFrame);
 			this.mapScaleFrame = null;
+		}
+		if (this.mapScaleApplyTimer != null) {
+			clearTimeout(this.mapScaleApplyTimer);
+			this.mapScaleApplyTimer = null;
 		}
 		if (this.basemapBlendPersistTimer != null) {
 			clearTimeout(this.basemapBlendPersistTimer);
@@ -1422,6 +1442,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 				return;
 			}
 			const wheelTarget = wheelEvent.target instanceof Element ? wheelEvent.target : null;
+			if (wheelTarget?.closest('.tv-poi-save')) {
+				wheelEvent.stopPropagation();
+				return;
+			}
 			if (wheelTarget?.closest('.tv-places-panel')) {
 				wheelEvent.preventDefault();
 				wheelEvent.stopPropagation();
@@ -5518,15 +5542,119 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return source !== 'unsplash' || this.unsplashReady;
 	}
 
+	public togglePoiSave(): void {
+		this.poiSaveMessage = '';
+		this.poiSaveFilter = '';
+		this.poiSaveOpen = !this.poiSaveOpen;
+		if (this.poiSaveOpen && !this.poiSaveActivities.length) {
+			this.loadPoiSaveActivities();
+		}
+	}
+
+	private loadPoiSaveActivities(): void {
+		this.poiSaveLoading = true;
+		this.membersService.getUserId({ skipGeolocation: true }).pipe(take(1), takeUntil(this.destroy$)).subscribe({
+			next: (member) => {
+				const userId = (member?.id || '').trim();
+				if (!userId) {
+					this.poiSaveLoading = false;
+					this.poiSaveMessage = 'EVENTELEM.POI_PHOTO_SAVE_ERROR';
+					this.cdr.markForCheck();
+					return;
+				}
+				this.apiService.listEvenements(userId).pipe(take(1), takeUntil(this.destroy$)).subscribe({
+					next: (page) => {
+						const rows = (page?.content ?? []).filter((row) => !!row?.id);
+						this.poiSaveActivities = rows
+							.map((row) => ({
+								id: row.id as string,
+								name: (row.evenementName || '').trim() || (row.id as string)
+							}))
+							.sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+						this.poiSaveLoading = false;
+						this.cdr.markForCheck();
+					},
+					error: () => {
+						this.poiSaveLoading = false;
+						this.poiSaveMessage = 'EVENTELEM.POI_PHOTO_SAVE_ERROR';
+						this.cdr.markForCheck();
+					}
+				});
+			},
+			error: () => {
+				this.poiSaveLoading = false;
+				this.poiSaveMessage = 'EVENTELEM.POI_PHOTO_SAVE_ERROR';
+				this.cdr.markForCheck();
+			}
+		});
+	}
+
+	public get filteredPoiSaveActivities(): { id: string; name: string }[] {
+		const query = this.foldPlaceName(this.poiSaveFilter);
+		if (!query) {
+			return this.poiSaveActivities;
+		}
+		return this.poiSaveActivities.filter((activity) => this.foldPlaceName(activity.name).includes(query));
+	}
+
+	private foldPlaceName(value: string): string {
+		return (value || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+	}
+
+	public savePoiToActivity(evenementId: string): void {
+		const photo = this.reliefPoiPhoto;
+		if (!photo?.imageUrl || this.poiSaveLoading) {
+			return;
+		}
+		this.poiSaveLoading = true;
+		this.poiSaveMessage = '';
+		this.apiService.savePlacePhoto(evenementId, {
+			imageUrl: photo.imageUrl,
+			title: photo.title,
+			pageUrl: photo.pageUrl,
+			source: photo.source
+		}).pipe(take(1), takeUntil(this.destroy$)).subscribe({
+			next: () => {
+				this.poiSaveLoading = false;
+				this.poiSaveMessage = 'EVENTELEM.POI_PHOTO_SAVED';
+				this.cdr.markForCheck();
+			},
+			error: () => {
+				this.poiSaveLoading = false;
+				this.poiSaveMessage = 'EVENTELEM.POI_PHOTO_SAVE_ERROR';
+				this.cdr.markForCheck();
+			}
+		});
+	}
+
+	public poiSourceCount(source: string): number {
+		return this.poiGallery.reduce((count, photo) => count + (photo.source === source ? 1 : 0), 0);
+	}
+
+	public poiSourcePending(source: string): boolean {
+		return this.poiPhotoPending.has(source);
+	}
+
+	/** Shows the first downloaded photo of that source. The other searches keep running. */
 	public loadPoiPhotoSource(source: string): void {
-		if (!this.poiPhotoSourceReady(source) || !this.poiPhotoQuery || !this.reliefPoiPhoto || this.reliefPoiPhoto.loading) {
+		if (!this.poiPhotoSourceReady(source)) {
 			return;
 		}
-		if (source === this.reliefPoiPhoto.source) {
+		const index = this.poiGallery.findIndex((photo) => photo.source === source);
+		if (index < 0) {
 			return;
 		}
-		this.closePoiPhotoFullscreen();
-		this.requestPoiPhoto(this.reliefPoiPhoto.title, this.poiPhotoQuery, source);
+		this.poiGalleryIndex = index;
+		this.syncShownPoiPhoto();
+	}
+
+	public stepPoiPhoto(delta: number): void {
+		if (this.poiGallery.length < 2) {
+			return;
+		}
+		const size = this.poiGallery.length;
+		this.poiGalleryIndex = (this.poiGalleryIndex + delta + size) % size;
+		this.syncShownPoiPhoto();
 	}
 
 	private requestPoiPhoto(
@@ -5534,39 +5662,106 @@ export class TraceViewerModalComponent implements OnDestroy {
 		query: { id?: string; name?: string; nameEn?: string; lat?: number; lng?: number; wikipedia?: string; commons?: string; image?: string },
 		source?: string
 	): void {
+		this.poiPhotoCancel$.next();
+		this.poiPhotoCancel$.complete();
+		this.poiPhotoCancel$ = new Subject<void>();
 		this.poiPhotoQuery = query;
+		this.poiPhotoTitle = title;
+		this.poiSaveOpen = false;
+		this.poiSaveMessage = '';
+		this.poiGallery = [];
+		this.poiGalleryIndex = 0;
+		this.poiPhotoPending.clear();
 		const request = ++this.reliefPoiPhotoRequest;
-		this.reliefPoiPhoto = { title, imageUrl: '', pageUrl: '', source: source || '', loading: true };
+		const sources = (source ? [source] : [...this.poiPhotoSources]).filter((item) =>
+			item !== 'unsplash' || !this.unsplashKnown || this.unsplashReady
+		);
+		this.reliefPoiPhoto = { title, imageUrl: '', pageUrl: '', source: '', loading: sources.length > 0 };
+		for (const item of sources) {
+			this.poiPhotoPending.add(item);
+		}
 		this.cdr.markForCheck();
-		this.apiService.getPoiPhoto({
-			...query,
-			source: source || undefined,
-			lang: this.translateService.currentLang || 'fr'
-		}).pipe(
-			timeout(15000),
-			catchError(() => of(null)),
-			takeUntil(this.destroy$)
-		).subscribe((photo) => {
-			// Hors du cycle de détection en cours : sinon l’URL change après la vérification (NG0100).
-			setTimeout(() => this.applyReliefPoiPhoto(request, title, photo));
-		});
+		const cancel$ = this.poiPhotoCancel$;
+		for (const item of sources) {
+			this.apiService.getPoiPhoto({
+				...query,
+				source: item,
+				lang: this.translateService.currentLang || 'fr'
+			}).pipe(
+				timeout(20000),
+				catchError(() => of(null)),
+				takeUntil(cancel$),
+				takeUntil(this.destroy$)
+			).subscribe((photo) => {
+				// Hors du cycle de détection en cours : sinon l’URL change après la vérification (NG0100).
+				setTimeout(() => this.applyPoiSourcePhoto(request, item, photo));
+			});
+		}
 	}
 
-	private applyReliefPoiPhoto(request: number, title: string, photo: PoiPhoto | null): void {
+	private applyPoiSourcePhoto(request: number, source: string, photo: PoiPhoto | null): void {
 		if (request !== this.reliefPoiPhotoRequest) {
 			return;
 		}
-		const resolved = (photo?.title || title).trim() || title;
+		this.poiPhotoPending.delete(source);
 		if (photo && typeof photo.unsplash === 'boolean') {
 			this.unsplashReady = photo.unsplash;
+			this.unsplashKnown = true;
 		}
-		this.reliefPoiPhoto = {
-			title: resolved,
-			imageUrl: this.httpsUrl(photo?.imageUrl),
-			pageUrl: this.httpsUrl(photo?.pageUrl),
-			source: (photo?.source || '').trim(),
-			loading: false
-		};
+		const incoming = this.photosFromResponse(photo, source);
+		const hadNone = this.poiGallery.length === 0;
+		for (const hit of incoming) {
+			if (!this.poiGallery.some((item) => item.imageUrl === hit.imageUrl)) {
+				this.poiGallery.push(hit);
+			}
+		}
+		if (hadNone && this.poiGallery.length) {
+			this.poiGalleryIndex = 0;
+		}
+		this.syncShownPoiPhoto();
+	}
+
+	private photosFromResponse(photo: PoiPhoto | null, source: string): Array<{ title: string; imageUrl: string; pageUrl: string; source: string }> {
+		const rows = photo?.photos?.length
+			? photo.photos
+			: (photo?.imageUrl ? [photo] : []);
+		const hits: Array<{ title: string; imageUrl: string; pageUrl: string; source: string }> = [];
+		for (const row of rows) {
+			const imageUrl = this.httpsUrl(row.imageUrl);
+			if (!imageUrl) {
+				continue;
+			}
+			hits.push({
+				title: (row.title || photo?.title || this.poiPhotoTitle).trim() || this.poiPhotoTitle,
+				imageUrl,
+				pageUrl: this.httpsUrl(row.pageUrl),
+				source: (row.source || photo?.source || source).trim() || source
+			});
+		}
+		return hits;
+	}
+
+	private syncShownPoiPhoto(): void {
+		const pending = this.poiPhotoPending.size > 0;
+		if (!this.poiGallery.length) {
+			this.reliefPoiPhoto = {
+				title: this.poiPhotoTitle,
+				imageUrl: '',
+				pageUrl: '',
+				source: '',
+				loading: pending
+			};
+			if (!pending) {
+				this.closePoiPhotoFullscreen();
+			}
+			this.cdr.markForCheck();
+			return;
+		}
+		if (this.poiGalleryIndex >= this.poiGallery.length) {
+			this.poiGalleryIndex = this.poiGallery.length - 1;
+		}
+		const current = this.poiGallery[this.poiGalleryIndex];
+		this.reliefPoiPhoto = { ...current, loading: false };
 		this.cdr.markForCheck();
 	}
 
@@ -5603,7 +5798,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	public closeReliefPoiPhoto(): void {
 		this.closePoiPhotoFullscreen();
+		this.poiPhotoCancel$.next();
+		this.poiPhotoCancel$.complete();
+		this.poiPhotoCancel$ = new Subject<void>();
 		this.reliefPoiPhotoRequest++;
+		this.poiGallery = [];
+		this.poiGalleryIndex = 0;
+		this.poiPhotoPending.clear();
 		if (!this.reliefPoiPhoto) {
 			return;
 		}
@@ -5612,12 +5813,18 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public reliefPoiPhotoFailed(): void {
-		this.closePoiPhotoFullscreen();
-		if (!this.reliefPoiPhoto?.imageUrl) {
+		if (!this.poiGallery.length) {
+			this.closePoiPhotoFullscreen();
 			return;
 		}
-		this.reliefPoiPhoto = { ...this.reliefPoiPhoto, imageUrl: '', loading: false };
-		this.cdr.markForCheck();
+		this.poiGallery.splice(this.poiGalleryIndex, 1);
+		if (this.poiGalleryIndex >= this.poiGallery.length) {
+			this.poiGalleryIndex = Math.max(0, this.poiGallery.length - 1);
+		}
+		if (!this.poiGallery.length) {
+			this.closePoiPhotoFullscreen();
+		}
+		this.syncShownPoiPhoto();
 	}
 
 	private httpsUrl(value: string | undefined): string {
@@ -5629,9 +5836,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (this.mapScaleFrame != null) {
 			return;
 		}
-		this.mapScaleFrame = requestAnimationFrame(() => {
-			this.mapScaleFrame = null;
-			this.updateMapScale();
+		this.ngZone.runOutsideAngular(() => {
+			this.mapScaleFrame = requestAnimationFrame(() => {
+				this.mapScaleFrame = null;
+				this.updateMapScale();
+			});
 		});
 	}
 
@@ -5652,12 +5861,26 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const label = nice >= 1000
 			? `${this.formatScaleNumber(nice / 1000)}\u00a0km`
 			: `${this.formatScaleNumber(nice)}\u00a0m`;
-		if (label === this.mapScaleLabel && width === this.mapScaleWidthPx) {
+		// Un pixel d’écart vient de l’arrondi carte : l’écrire dans le même cycle produit NG0100 (110 → 111).
+		if (label === this.mapScaleLabel && Math.abs(width - this.mapScaleWidthPx) <= 1) {
 			return;
 		}
-		this.mapScaleLabel = label;
-		this.mapScaleWidthPx = width;
-		this.cdr.markForCheck();
+		this.pendingMapScale = { label, width };
+		if (this.mapScaleApplyTimer != null) {
+			return;
+		}
+		this.mapScaleApplyTimer = window.setTimeout(() => {
+			this.mapScaleApplyTimer = null;
+			const pending = this.pendingMapScale;
+			this.pendingMapScale = null;
+			if (!pending || (pending.label === this.mapScaleLabel && pending.width === this.mapScaleWidthPx)) {
+				return;
+			}
+			this.ngZone.run(() => {
+				this.mapScaleLabel = pending.label;
+				this.mapScaleWidthPx = pending.width;
+			});
+		}, 0);
 	}
 
 	/** Distance au sol de `px` pixels horizontaux au milieu de la carte à plat. */
@@ -9215,6 +9438,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 						event.stopPropagation();
 						this.ngZone.run(() => this.focusVisiblePlace(mark));
 					}
+					return;
+				}
+			}
+			if (this.poiGallery.length > 1 && this.reliefPoiPhoto?.imageUrl && !this.traceViewerShortcutBlocked(event)) {
+				if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+					event.preventDefault();
+					event.stopPropagation();
+					const delta = event.key === 'ArrowRight' ? 1 : -1;
+					this.ngZone.run(() => this.stepPoiPhoto(delta));
 					return;
 				}
 			}

@@ -180,13 +180,14 @@ public class WikiProxyService {
         out.put("imageUrl", "");
         out.put("pageUrl", "");
         out.put("source", "");
+        out.putArray("photos");
         if (StringUtils.hasText(qid) && (allows(only, "wikidata") || allows(only, "wikipedia"))) {
             fillFromWikidata(out, qid, code, label, only);
         }
         if (!StringUtils.hasText(out.path("imageUrl").asText())) {
             fillFromOsmTags(out, label, english, wikipedia, commons, image, only);
         }
-        if (!StringUtils.hasText(out.path("imageUrl").asText()) && located) {
+        if (!StringUtils.hasText(out.path("imageUrl").asText()) && located && nominatimCanHelp(only)) {
             fillFromNominatim(out, label, english, lat, lng, code, only);
         }
         if (!StringUtils.hasText(out.path("imageUrl").asText()) && allows(only, "wikipedia")) {
@@ -227,9 +228,41 @@ public class WikiProxyService {
         };
     }
 
+    /** Keeps every photo already found. The first one stays in {@code imageUrl}. */
+    private void rememberPhoto(ObjectNode out, String imageUrl, String pageUrl, String source) {
+        if (!StringUtils.hasText(imageUrl) || !imageUrl.startsWith("https://")) {
+            return;
+        }
+        var photos = out.withArray("photos");
+        for (JsonNode existing : photos) {
+            if (imageUrl.equals(existing.path("imageUrl").asText())) {
+                return;
+            }
+        }
+        if (photos.size() >= 6) {
+            return;
+        }
+        String page = StringUtils.hasText(pageUrl) && pageUrl.startsWith("https://") ? pageUrl : "";
+        ObjectNode photo = photos.addObject();
+        photo.put("imageUrl", imageUrl);
+        photo.put("pageUrl", page);
+        photo.put("source", source);
+        if (!StringUtils.hasText(out.path("imageUrl").asText())) {
+            out.put("imageUrl", imageUrl);
+            out.put("pageUrl", page);
+            out.put("source", source);
+        }
+    }
+
     /** Empty {@code only} accepts every source. A named source skips the others. */
     private static boolean allows(String only, String source) {
         return !StringUtils.hasText(only) || only.equals(source);
+    }
+
+    /** Nominatim only recovers tags used by these sources. Openverse and Unsplash search by name. */
+    private static boolean nominatimCanHelp(String only) {
+        return allows(only, "wikidata") || allows(only, "wikipedia") || allows(only, "commons")
+                || allows(only, "flickr") || allows(only, "mapillary") || allows(only, "osm");
     }
 
     /** Tags already stored on the OpenStreetMap object (place dot or recovered hit). */
@@ -369,30 +402,43 @@ public class WikiProxyService {
 
     /**
      * Creative Commons photo indexed by Openverse, matched on the place name.
-     * No API key. A title that does not contain the place name is ignored.
+     * One request covers the French and English names. Dead-link checks stay off:
+     * Openverse probes each file before answering and that holds the button.
+     * A title that does not contain the place name is ignored.
      */
     private void fillFromOpenverse(ObjectNode out, String label, String english) {
-        if (searchOpenverse(out, label)) {
+        List<String> names = new ArrayList<>();
+        if (fold(label).length() >= 4) {
+            names.add(label);
+        }
+        if (StringUtils.hasText(english) && fold(english).length() >= 4 && !fold(english).equals(fold(label))) {
+            names.add(english);
+        }
+        if (names.isEmpty()) {
             return;
         }
-        if (StringUtils.hasText(english) && !fold(english).equals(fold(label))) {
-            searchOpenverse(out, english);
-        }
-    }
-
-    private boolean searchOpenverse(ObjectNode out, String name) {
-        String wanted = fold(name);
-        if (wanted.length() < 4) {
-            return false;
-        }
-        String url = "https://api.openverse.org/v1/images/?page_size=12&filter_dead=true&q=" + urlEncode(name);
-        JsonNode raw = fetchPhotoJson(url, "openverse " + name);
+        String query = String.join(" OR ", names);
+        String url = "https://api.openverse.org/v1/images/?page_size=12&q=" + urlEncode(query);
+        JsonNode raw = fetchPhotoJson(url, "openverse " + label);
         JsonNode results = raw == null ? null : raw.get("results");
         if (results == null || !results.isArray()) {
-            return false;
+            return;
         }
+        List<String> wanted = new ArrayList<>();
+        for (String name : names) {
+            wanted.add(fold(name));
+        }
+        int added = 0;
         for (JsonNode row : results) {
-            if (!fold(textOrEmpty(row.get("title"))).contains(wanted)) {
+            String title = fold(textOrEmpty(row.get("title")));
+            boolean matches = false;
+            for (String name : wanted) {
+                if (title.contains(name)) {
+                    matches = true;
+                    break;
+                }
+            }
+            if (!matches) {
                 continue;
             }
             String image = openverseImage(textOrEmpty(row.get("url")));
@@ -400,12 +446,15 @@ public class WikiProxyService {
                 continue;
             }
             String page = textOrEmpty(row.get("foreign_landing_url"));
-            out.put("imageUrl", image);
-            out.put("pageUrl", page.startsWith("https://") ? page : "");
-            out.put("source", "openverse");
-            return true;
+            int before = out.withArray("photos").size();
+            rememberPhoto(out, image, page, "openverse");
+            if (out.withArray("photos").size() > before) {
+                added++;
+            }
+            if (added >= 6) {
+                break;
+            }
         }
-        return false;
     }
 
     /** Short generic names stay out of the automatic search. The button can still ask. */
@@ -433,13 +482,22 @@ public class WikiProxyService {
         if (fold(name).length() < 4) {
             return false;
         }
-        String url = "https://api.unsplash.com/search/photos?per_page=1&content_filter=high&query=" + urlEncode(name);
+        String url = "https://api.unsplash.com/search/photos?per_page=6&content_filter=high&query=" + urlEncode(name);
         JsonNode raw = fetchUnsplash(url, name);
         JsonNode results = raw == null ? null : raw.get("results");
         if (results == null || !results.isArray() || results.isEmpty()) {
             return false;
         }
-        return applyUnsplashPhoto(out, results.get(0));
+        int added = 0;
+        for (JsonNode row : results) {
+            if (applyUnsplashPhoto(out, row)) {
+                added++;
+            }
+            if (added >= 6) {
+                break;
+            }
+        }
+        return added > 0;
     }
 
     private boolean applyUnsplashPhoto(ObjectNode out, JsonNode photo) {
@@ -457,9 +515,11 @@ public class WikiProxyService {
         if (page.startsWith("https://unsplash.com/") && !page.contains("utm_source=")) {
             page = page + (page.contains("?") ? "&" : "?") + "utm_source=pattool&utm_medium=referral";
         }
-        out.put("imageUrl", image);
-        out.put("pageUrl", page.startsWith("https://") ? page : "");
-        out.put("source", "unsplash");
+        int before = out.withArray("photos").size();
+        rememberPhoto(out, image, page, "unsplash");
+        if (out.withArray("photos").size() == before) {
+            return false;
+        }
         String download = textOrEmpty(photo.path("links").path("download_location"));
         if (download.startsWith("https://api.unsplash.com/photos/")) {
             fetchUnsplash(download, "download");
@@ -712,13 +772,18 @@ public class WikiProxyService {
         String url = "https://graph.mapillary.com/images?fields=id,thumb_1024_url"
                 + "&lat=" + String.format(Locale.US, "%.6f", lat)
                 + "&lng=" + String.format(Locale.US, "%.6f", lng)
-                + "&radius=50&limit=1";
+                + "&radius=50&limit=6";
         JsonNode raw = fetchMapillary(url, "radius");
         JsonNode rows = raw == null ? null : raw.get("data");
         if (rows == null || !rows.isArray() || rows.isEmpty()) {
             return;
         }
-        applyMapillaryImage(out, rows.get(0));
+        for (JsonNode row : rows) {
+            applyMapillaryImage(out, row);
+            if (out.withArray("photos").size() >= 6) {
+                break;
+            }
+        }
     }
 
     /** OSM tag {@code mapillary} stores the image id linked to that place. */
@@ -744,9 +809,7 @@ public class WikiProxyService {
         if (!id.matches("\\d{5,30}") || !thumb.startsWith("https://")) {
             return;
         }
-        out.put("imageUrl", thumb);
-        out.put("pageUrl", "https://www.mapillary.com/app/?focus=photo&pKey=" + id);
-        out.put("source", "mapillary");
+        rememberPhoto(out, thumb, "https://www.mapillary.com/app/?focus=photo&pKey=" + id, "mapillary");
     }
 
     private JsonNode fetchMapillary(String url, String label) {
@@ -801,25 +864,36 @@ public class WikiProxyService {
         if (members == null || !members.isArray()) {
             return false;
         }
-        String chosen = "";
+        List<String> named = new ArrayList<>();
+        List<String> other = new ArrayList<>();
         for (JsonNode member : members) {
             String file = textOrEmpty(member.get("title"));
             if (!file.toLowerCase(Locale.ROOT).startsWith("file:") || !COMMONS_IMAGE.matcher(file).find()) {
                 continue;
             }
             if (samePlace(label, file, 0) || samePlace(english, file, 0)) {
-                chosen = file;
-                break;
-            }
-            if (!StringUtils.hasText(chosen)) {
-                chosen = file;
+                named.add(file);
+            } else {
+                other.add(file);
             }
         }
-        if (!StringUtils.hasText(chosen)) {
+        List<String> chosen = new ArrayList<>(named);
+        chosen.addAll(other);
+        if (chosen.isEmpty()) {
             return false;
         }
-        applyCommonsFile(out, chosen);
-        return StringUtils.hasText(out.path("imageUrl").asText());
+        int added = 0;
+        for (String file : chosen) {
+            int before = out.withArray("photos").size();
+            applyCommonsFile(out, file);
+            if (out.withArray("photos").size() > before) {
+                added++;
+            }
+            if (added >= 6) {
+                break;
+            }
+        }
+        return added > 0;
     }
 
     private void applyCommonsFile(ObjectNode out, String fileTitle) {
@@ -829,14 +903,7 @@ public class WikiProxyService {
         }
         String image = commonsThumbnailUrl(filename, 960);
         String page = commonsFilePageUrl(filename);
-        if (!StringUtils.hasText(image)) {
-            return;
-        }
-        out.put("imageUrl", image);
-        out.put("source", "commons");
-        if (StringUtils.hasText(page)) {
-            out.put("pageUrl", page);
-        }
+        rememberPhoto(out, image, page, "commons");
     }
 
     private void fillFromWikidata(ObjectNode out, String qid, String lang, String label, String only) {
@@ -859,12 +926,10 @@ public class WikiProxyService {
             out.put("title", titled);
         }
         if (allows(only, "wikidata")) {
-            String filename = preferredClaimString(entity.path("claims").path("P18"));
-            String image = commonsThumbnailUrl(filename, 960);
-            if (StringUtils.hasText(image)) {
-                out.put("imageUrl", image);
-                out.put("pageUrl", commonsFilePageUrl(filename));
-                out.put("source", "wikidata");
+            for (String filename : claimFilenames(entity.path("claims").path("P18"), 6)) {
+                rememberPhoto(out, commonsThumbnailUrl(filename, 960), commonsFilePageUrl(filename), "wikidata");
+            }
+            if (StringUtils.hasText(out.path("imageUrl").asText())) {
                 return;
             }
         }
@@ -919,32 +984,32 @@ public class WikiProxyService {
         }
     }
 
-    private static String preferredClaimString(JsonNode claims) {
-        if (claims == null || !claims.isArray()) {
-            return "";
-        }
-        String normal = "";
-        for (JsonNode claim : claims) {
-            if (claim == null || !claim.isObject()) {
-                continue;
-            }
-            String rank = textOrEmpty(claim.get("rank"));
-            if ("deprecated".equals(rank)) {
-                continue;
-            }
-            JsonNode value = claim.path("mainsnak").path("datavalue").path("value");
-            if (!value.isTextual() || !StringUtils.hasText(value.asText())) {
-                continue;
-            }
-            String filename = value.asText().trim();
-            if ("preferred".equals(rank)) {
-                return filename;
-            }
-            if (!StringUtils.hasText(normal)) {
-                normal = filename;
+    private static List<String> claimFilenames(JsonNode claims, int limit) {
+        List<String> preferred = new ArrayList<>();
+        List<String> normal = new ArrayList<>();
+        if (claims != null && claims.isArray()) {
+            for (JsonNode claim : claims) {
+                if (claim == null || !claim.isObject()) {
+                    continue;
+                }
+                if ("deprecated".equals(textOrEmpty(claim.get("rank")))) {
+                    continue;
+                }
+                JsonNode value = claim.path("mainsnak").path("datavalue").path("value");
+                if (!value.isTextual() || !StringUtils.hasText(value.asText())) {
+                    continue;
+                }
+                String filename = value.asText().trim();
+                if ("preferred".equals(textOrEmpty(claim.get("rank")))) {
+                    preferred.add(filename);
+                } else {
+                    normal.add(filename);
+                }
             }
         }
-        return normal;
+        List<String> all = new ArrayList<>(preferred);
+        all.addAll(normal);
+        return all.size() > limit ? all.subList(0, limit) : all;
     }
 
     static String normalizeWikidataId(String raw) {
