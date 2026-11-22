@@ -30,7 +30,7 @@ import { GpsOfflineMapProgress, GpsOfflineMapService } from '../../services/gps-
 import { GpsOfflinePackMeta, GpsOfflineTilesStore } from '../../gps-track/gps-offline-tiles.store';
 import { offlineTraceIdForWall, OfflineTraceSummary, OfflineTracesStore } from '../../gps-track/offline-traces.store';
 import { viewWindowFromMap } from '../../gps-track/gps-offline-tiles.util';
-import { createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
+import { cachedBasemapTileUrl, createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
 import { createVectorBasemapLayer, maptoolkitStyleForBasemap, vectorStyleForBasemap, applyGlLayerOpacity, FlatMaptoolkitBlend } from '../maptoolkit-basemap.layer';
 import { MaptoolkitTerrainView, ReliefPlaceMark, ReliefTrace, ReliefTrailOverlays, leafletZoomToMaplibre, maplibreZoomToLeaflet } from '../maptoolkit-terrain-view';
 import { findSkinnedPageHost, paintModalFromHost } from '../host-skin';
@@ -6240,12 +6240,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		this.ensureTrailOverlayPane();
-		const specs: { key: keyof ReliefTrailOverlays; url: string; zIndex: number }[] = [
-			{ key: 'slopes', url: 'https://tile.waymarkedtrails.org/slopes/{z}/{x}/{y}.png', zIndex: 9 },
-			{ key: 'hiking', url: 'https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png', zIndex: 10 },
-			{ key: 'cycling', url: 'https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png', zIndex: 11 },
-			{ key: 'mtb', url: 'https://tile.waymarkedtrails.org/mtb/{z}/{x}/{y}.png', zIndex: 12 },
-			{ key: 'railway', url: 'https://a.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', zIndex: 13 }
+		const specs: { key: keyof ReliefTrailOverlays; style: string; zIndex: number }[] = [
+			{ key: 'slopes', style: 'waymarked-slopes', zIndex: 9 },
+			{ key: 'hiking', style: 'waymarked-hiking', zIndex: 10 },
+			{ key: 'cycling', style: 'waymarked-cycling', zIndex: 11 },
+			{ key: 'mtb', style: 'waymarked-mtb', zIndex: 12 },
+			{ key: 'railway', style: 'openrailwaymap', zIndex: 13 }
 		];
 		const flags = this.reliefTrailOverlays();
 		for (const spec of specs) {
@@ -6254,8 +6254,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			if (!flags[spec.key]) {
 				continue;
 			}
+			const url = cachedBasemapTileUrl(spec.style);
 			if (!current || current.options.pane !== 'trailOverlayPane') {
-				this.trailOverlayLayers[spec.key] = L.tileLayer(spec.url, {
+				this.trailOverlayLayers[spec.key] = L.tileLayer(url, {
 					maxZoom: 18,
 					opacity: 0.95,
 					zIndex: spec.zIndex,

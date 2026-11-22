@@ -59,7 +59,14 @@ public class MapTileProxyService {
             Map.entry("swisstopo-pixelkarte", List.of(
                     "https://wmts0.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg")),
             Map.entry("swisstopo-swissimage", List.of(
-                    "https://wmts0.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg"))
+                    "https://wmts0.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg")),
+            // Trace-viewer overlays (Waymarked Trails / OpenRailwayMap). Proxied so prod CSP
+            // connect-src does not block MapLibre raster fetches (ng serve has no Spring CSP).
+            Map.entry("waymarked-slopes", List.of("https://tile.waymarkedtrails.org/slopes/{z}/{x}/{y}.png")),
+            Map.entry("waymarked-hiking", List.of("https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png")),
+            Map.entry("waymarked-cycling", List.of("https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png")),
+            Map.entry("waymarked-mtb", List.of("https://tile.waymarkedtrails.org/mtb/{z}/{x}/{y}.png")),
+            Map.entry("openrailwaymap", List.of("https://a.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png"))
     );
 
     private final RestTemplate restTemplate;

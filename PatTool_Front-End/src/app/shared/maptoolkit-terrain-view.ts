@@ -1,4 +1,5 @@
 import { LngLat, Map as MlMap, MercatorCoordinate, NavigationControl, type GeoJSONSource, type StyleSpecification } from 'maplibre-gl';
+import { cachedBasemapTileUrl } from './leaflet-cached-tile.layer';
 import { ensureMaplibreWorker, ignoreMissingStyleIcons } from './maptoolkit-basemap.layer';
 import type { WeatherStationReliefLabel } from './weather-station-map.util';
 
@@ -28,13 +29,16 @@ const MAX_ZOOM = 20;
 /** Meters kept between the camera and the slope in front of it. */
 const RELIEF_CLEARANCE_M = 35;
 const TRACE_SOURCE = 'relief-traces';
-/** Waymarked Trails rasters, bottom to top. Slopes sit under the route lines. */
+/**
+ * Waymarked Trails / OpenRailwayMap rasters, bottom to top.
+ * Same-origin tile proxy: prod CSP connect-src blocks direct MapLibre fetches to these hosts.
+ */
 const TRAIL_RASTERS: { key: keyof ReliefTrailOverlays; id: string; tiles: string }[] = [
-	{ key: 'slopes', id: 'relief-slopes', tiles: 'https://tile.waymarkedtrails.org/slopes/{z}/{x}/{y}.png' },
-	{ key: 'hiking', id: 'relief-hiking-trails', tiles: 'https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png' },
-	{ key: 'cycling', id: 'relief-cycling-trails', tiles: 'https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png' },
-	{ key: 'mtb', id: 'relief-mtb-trails', tiles: 'https://tile.waymarkedtrails.org/mtb/{z}/{x}/{y}.png' },
-	{ key: 'railway', id: 'relief-railway', tiles: 'https://a.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png' }
+	{ key: 'slopes', id: 'relief-slopes', tiles: cachedBasemapTileUrl('waymarked-slopes') },
+	{ key: 'hiking', id: 'relief-hiking-trails', tiles: cachedBasemapTileUrl('waymarked-hiking') },
+	{ key: 'cycling', id: 'relief-cycling-trails', tiles: cachedBasemapTileUrl('waymarked-cycling') },
+	{ key: 'mtb', id: 'relief-mtb-trails', tiles: cachedBasemapTileUrl('waymarked-mtb') },
+	{ key: 'railway', id: 'relief-railway', tiles: cachedBasemapTileUrl('openrailwaymap') }
 ];
 const ELEVATION_COLOR_LAYER = 'relief-elevation-colors';
 /** Du violet (bas) au rouge (haut). */
