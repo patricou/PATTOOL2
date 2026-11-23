@@ -374,7 +374,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public showPlacesOverlay = false;
 	/** Double-click opens the same photo search as a place, around the clicked point. */
 	public showMapPhotos = false;
-	/** Radius used only by the photo switch. Places keep the wider server radius. */
+	/** First radius of a map double-click. The photo slider can widen it up to 1 km. */
 	private readonly mapPhotoRadiusM = 75;
 	/** Lieux actuellement dessinés, triés pour la liste du bouton à côté de 2D. */
 	public visiblePlaces: ReliefPlaceMark[] = [];
@@ -594,6 +594,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** The viewer picked a frame. Later results must not replace it. */
 	private poiGalleryPinned = false;
 	public readonly poiPhotoSources = ['wikidata', 'wikipedia', 'commons', 'openverse', 'unsplash', 'mapillary', 'panoramax'] as const;
+	/** Photo search slider. 50 m is the short end, 1 km the far end. */
+	public readonly poiPhotoRadiusMinM = 50;
+	public readonly poiPhotoRadiusMaxM = 1000;
+	public poiPhotoRadiusM = 300;
+	/** The user moved the slider or refreshed. Later searches keep that radius. */
+	private poiPhotoRadiusChosen = false;
+	private static readonly POI_PHOTO_RADIUS_DEFAULT_M = 300;
 	/** Unsplash stays struck out until the server reports an access key. */
 	public unsplashReady = false;
 	private unsplashKnown = false;
@@ -625,7 +632,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private poiPhotoCancel$ = new Subject<void>();
 	private poiPhotoPending = new Set<string>();
 	private poiPhotoTitle = '';
-	private poiPhotoQuery: { id?: string; name?: string; nameEn?: string; lat?: number; lng?: number; wikipedia?: string; commons?: string; image?: string } | null = null;
+	private poiPhotoQuery: { id?: string; name?: string; nameEn?: string; lat?: number; lng?: number; wikipedia?: string; commons?: string; image?: string; radiusM?: number } | null = null;
 	/** Colore le relief du violet au rouge selon l’altitude visible. */
 	public elevationColors = false;
 	public elevationSpan: { min: number; max: number } | null = null;
@@ -5709,16 +5716,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 		});
 	}
 
-	/** L’arc-en-ciel d’altitude est inutile quand l’écran ne montre que la mer. */
+	/**
+	 * L’arc-en-ciel suit le relief coloré à l’écran.
+	 * Le voile d’altitude est transparent au niveau de la mer et en dessous,
+	 * donc la barre reste grise quand on ne voit que l’eau.
+	 */
 	get showLandLegend(): boolean {
 		const span = this.elevationSpan;
-		if (!span) {
-			return false;
-		}
-		if (!this.depthSpan) {
-			return true;
-		}
-		return span.max - span.min >= 30;
+		return !!span && span.max > 0.5;
 	}
 
 	get legendLeft(): number | null {
@@ -6207,6 +6212,47 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return this.poiPhotoPending.has(source);
 	}
 
+	public poiPhotoRadiusLabel(): string {
+		const meters = this.clampPoiPhotoRadius(this.poiPhotoRadiusM);
+		return meters >= 1000 ? '1 km' : `${meters} m`;
+	}
+
+	public onPoiPhotoRadiusInput(raw: string): void {
+		const value = Number(raw);
+		if (!Number.isFinite(value)) {
+			return;
+		}
+		this.poiPhotoRadiusM = this.clampPoiPhotoRadius(value);
+		this.poiPhotoRadiusChosen = true;
+	}
+
+	/** Reloads every source with the radius currently shown on the slider. */
+	public refreshPoiPhotos(): void {
+		if (!this.poiPhotoQuery) {
+			return;
+		}
+		this.poiPhotoRadiusM = this.clampPoiPhotoRadius(this.poiPhotoRadiusM);
+		this.requestPoiPhoto(this.poiPhotoTitle, {
+			...this.poiPhotoQuery,
+			radiusM: this.poiPhotoRadiusM
+		});
+	}
+
+	private clampPoiPhotoRadius(value: number): number {
+		const stepped = Math.round(value / 25) * 25;
+		return Math.max(this.poiPhotoRadiusMinM, Math.min(this.poiPhotoRadiusMaxM, stepped));
+	}
+
+	private radiusForPhotoSearch(requested?: number): number {
+		if (this.poiPhotoRadiusChosen) {
+			return this.clampPoiPhotoRadius(this.poiPhotoRadiusM);
+		}
+		if (requested != null && Number.isFinite(requested)) {
+			return this.clampPoiPhotoRadius(requested);
+		}
+		return TraceViewerModalComponent.POI_PHOTO_RADIUS_DEFAULT_M;
+	}
+
 	/** Shows the first downloaded photo of that source. The other searches keep running. */
 	public loadPoiPhotoSource(source: string): void {
 		if (!this.poiPhotoSourceReady(source)) {
@@ -6239,7 +6285,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.poiPhotoCancel$.next();
 		this.poiPhotoCancel$.complete();
 		this.poiPhotoCancel$ = new Subject<void>();
-		this.poiPhotoQuery = query;
+		const radiusM = this.radiusForPhotoSearch(query.radiusM);
+		this.poiPhotoRadiusM = radiusM;
+		const photoQuery = { ...query, radiusM };
+		this.poiPhotoQuery = photoQuery;
 		this.poiPhotoTitle = title;
 		this.poiSaveOpen = false;
 		this.poiSaveMessage = '';
@@ -6251,7 +6300,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const sources = (source ? [source] : [...this.poiPhotoSources]).filter((item) =>
 			item !== 'unsplash' || !this.unsplashKnown || this.unsplashReady
 		);
-		this.reliefPoiPhoto = { title, imageUrl: '', pageUrl: '', source: '', loading: sources.length > 0 };
+		const shown = this.reliefPoiPhoto;
+		if (this.poiPhotoFullscreen && shown?.imageUrl) {
+			this.reliefPoiPhoto = { ...shown, title: title || shown.title, loading: sources.length > 0 };
+		} else {
+			this.reliefPoiPhoto = { title, imageUrl: '', pageUrl: '', source: '', loading: sources.length > 0 };
+		}
 		for (const item of sources) {
 			this.poiPhotoPending.add(item);
 		}
@@ -6259,7 +6313,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const cancel$ = this.poiPhotoCancel$;
 		for (const item of sources) {
 			this.apiService.getPoiPhoto({
-				...query,
+				...photoQuery,
 				source: item,
 				lang: this.translateService.currentLang || 'fr'
 			}).pipe(
@@ -6340,6 +6394,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const previousUrl = this.reliefPoiPhoto?.imageUrl ?? '';
 		const pending = this.poiPhotoPending.size > 0;
 		if (!this.poiGallery.length) {
+			if (pending && this.poiPhotoFullscreen && this.reliefPoiPhoto?.imageUrl) {
+				this.reliefPoiPhoto = { ...this.reliefPoiPhoto, loading: true };
+				this.cdr.markForCheck();
+				return;
+			}
 			this.reliefPoiPhoto = {
 				title: this.poiPhotoTitle,
 				imageUrl: '',

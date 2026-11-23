@@ -67,14 +67,26 @@ public class WikiProxyService {
     );
     private static final int DEFAULT_SEARCH_LIMIT = 10;
     private static final int MAX_SEARCH_LIMIT = 20;
-    /** Place photos stay inside this radius. A map double-click can ask for less. */
+    /** Place photos use this radius unless the viewer asks for another. */
     private static final double PHOTO_RADIUS_M = 300;
+    /** Widest radius the photo slider can ask for. */
+    private static final double PHOTO_RADIUS_MAX_M = 1_000;
 
     private static double photoRadius(Double requested) {
         if (requested == null || !Double.isFinite(requested) || requested < 10) {
             return PHOTO_RADIUS_M;
         }
-        return Math.min(PHOTO_RADIUS_M, requested);
+        return Math.min(PHOTO_RADIUS_MAX_M, requested);
+    }
+
+    /** Today's count up to {@link #PHOTO_RADIUS_M}. A wider search may keep more hits. */
+    private static int widePhotoCap(double radiusM, int base, int max) {
+        if (radiusM <= PHOTO_RADIUS_M || max <= base) {
+            return base;
+        }
+        double span = PHOTO_RADIUS_MAX_M - PHOTO_RADIUS_M;
+        double extra = Math.min(1.0, Math.max(0.0, (radiusM - PHOTO_RADIUS_M) / span));
+        return (int) Math.round(base + (max - base) * extra);
     }
 
     private final RestTemplate restTemplate;
@@ -426,13 +438,14 @@ public class WikiProxyService {
     }
 
     /**
-     * Geotagged Commons file within {@link #PHOTO_RADIUS_M} metres. A file named
+     * Geotagged Commons file within the search radius. A file named
      * like the place wins. Otherwise the closest photographs are kept.
      */
     private void fillFromCommonsNearby(ObjectNode out, String label, String english, double lat, double lng, double radiusM) {
+        int fetch = widePhotoCap(radiusM, 20, 50);
         String url = "https://commons.wikimedia.org/w/api.php?action=query&format=json&list=geosearch"
                 + "&gscoord=" + lat + "|" + lng
-                + "&gsradius=" + (int) radiusM + "&gsnamespace=6&gslimit=20";
+                + "&gsradius=" + (int) radiusM + "&gsnamespace=6&gslimit=" + fetch;
         JsonNode raw = fetchPhotoJson(url, "commons geo " + label);
         JsonNode rows = raw == null ? null : raw.path("query").path("geosearch");
         if (rows == null || !rows.isArray()) {
@@ -457,7 +470,7 @@ public class WikiProxyService {
         scenic.sort(byDistance);
         boolean nearby = named.isEmpty();
         List<JsonNode> chosen = nearby ? scenic : named;
-        int limit = nearby ? 4 : 6;
+        int limit = nearby ? widePhotoCap(radiusM, 4, 12) : widePhotoCap(radiusM, 6, 16);
         int added = 0;
         for (JsonNode row : chosen) {
             if (added >= limit) {
@@ -472,7 +485,7 @@ public class WikiProxyService {
     }
 
     /**
-     * Illustrated Wikipedia article within {@link #PHOTO_RADIUS_M} metres, when the
+     * Illustrated Wikipedia article within the search radius, when the
      * place itself has no page.
      */
     private void fillFromWikipediaNearby(ObjectNode out, double lat, double lng, String lang, double radiusM) {
@@ -485,9 +498,12 @@ public class WikiProxyService {
     }
 
     private boolean collectNearbyArticles(ObjectNode out, double lat, double lng, String lang, double radiusM) {
+        int fetch = widePhotoCap(radiusM, 6, 12);
+        int tryCap = widePhotoCap(radiusM, 4, 8);
+        int addCap = widePhotoCap(radiusM, 3, 6);
         String url = "https://" + lang + ".wikipedia.org/w/api.php?action=query&format=json&list=geosearch"
                 + "&gscoord=" + lat + "|" + lng
-                + "&gsradius=" + (int) radiusM + "&gslimit=6";
+                + "&gsradius=" + (int) radiusM + "&gslimit=" + fetch;
         JsonNode raw = fetchPhotoJson(url, "wiki geo " + lang);
         JsonNode rows = raw == null ? null : raw.path("query").path("geosearch");
         if (rows == null || !rows.isArray()) {
@@ -496,7 +512,7 @@ public class WikiProxyService {
         int tried = 0;
         int added = 0;
         for (JsonNode row : rows) {
-            if (tried >= 4 || added >= 3) {
+            if (tried >= tryCap || added >= addCap) {
                 break;
             }
             String title = textOrEmpty(row.get("title"));
@@ -550,13 +566,16 @@ public class WikiProxyService {
 
     /**
      * Street-level photo from Panoramax, the open coverage used on French roads.
-     * No account is required. A picture farther than {@link #PHOTO_RADIUS_M} metres is left out.
+     * No account is required. A picture farther than the search radius is left out.
      */
     private void fillFromPanoramax(ObjectNode out, double lat, double lng, double radiusM) {
         double dLat = radiusM / 111_320.0;
         double dLng = dLat / Math.max(0.2, Math.cos(Math.toRadians(lat)));
+        int cap = widePhotoCap(radiusM, 4, 12);
+        int fetch = radiusM <= PHOTO_RADIUS_M ? Math.max(8, cap * 2) : Math.min(40, Math.max(16, cap * 3));
         String url = String.format(Locale.US,
-                "https://api.panoramax.xyz/api/search?limit=8&bbox=%.5f,%.5f,%.5f,%.5f",
+                "https://api.panoramax.xyz/api/search?limit=%d&bbox=%.5f,%.5f,%.5f,%.5f",
+                fetch,
                 lng - dLng, lat - dLat, lng + dLng, lat + dLat);
         JsonNode raw = fetchPhotoJson(url, "panoramax");
         JsonNode features = raw == null ? null : raw.get("features");
@@ -568,7 +587,7 @@ public class WikiProxyService {
         rows.sort(Comparator.comparingDouble(feature -> panoramaxDistance(lat, lng, feature)));
         int added = 0;
         for (JsonNode feature : rows) {
-            if (added >= 4 || panoramaxDistance(lat, lng, feature) > radiusM) {
+            if (added >= cap || panoramaxDistance(lat, lng, feature) > radiusM) {
                 break;
             }
             String id = textOrEmpty(feature.get("id"));
@@ -920,7 +939,7 @@ public class WikiProxyService {
     }
 
     /**
-     * Public Flickr photo whose title matches the place name, within {@link #PHOTO_RADIUS_M} metres.
+     * Public Flickr photo whose title matches the place name, within the search radius.
      * A geotagged photo with an unrelated title is ignored.
      */
     private void fillFromFlickr(ObjectNode out, String label, String english, double lat, double lng, double radiusM) {
@@ -1094,8 +1113,9 @@ public class WikiProxyService {
     }
 
     /**
-     * Street-level photo within {@link #PHOTO_RADIUS_M} metres. Mapillary rejects a
-     * radius above 50 m, so the search is a bounding box. The place name only chooses the point.
+     * Street-level photo within the search radius. Mapillary rejects a
+     * radius above 50 m, so the search is a bounding box. One kilometre stays
+     * under the 0.01 square-degree box limit. The place name only chooses the point.
      */
     private void fillFromMapillary(ObjectNode out, double lat, double lng, double radiusM) {
         if (!StringUtils.hasText(mapillaryToken)) {
@@ -1103,21 +1123,35 @@ public class WikiProxyService {
         }
         double dLat = radiusM / 111_320.0;
         double dLng = dLat / Math.max(0.2, Math.cos(Math.toRadians(lat)));
+        int cap = widePhotoCap(radiusM, 6, 18);
+        int fetch = radiusM <= PHOTO_RADIUS_M ? cap : Math.min(100, Math.max(cap * 3, (int) Math.round(radiusM / 12.0)));
         String url = String.format(Locale.US,
                 "https://graph.mapillary.com/images?fields=id,thumb_1024_url,thumb_2048_url,is_pano,computed_geometry"
-                        + "&bbox=%.6f,%.6f,%.6f,%.6f&limit=6",
-                lng - dLng, lat - dLat, lng + dLng, lat + dLat);
+                        + "&bbox=%.6f,%.6f,%.6f,%.6f&limit=%d",
+                lng - dLng, lat - dLat, lng + dLng, lat + dLat, fetch);
         JsonNode raw = fetchMapillary(url, "bbox");
-        JsonNode rows = raw == null ? null : raw.get("data");
-        if (rows == null || !rows.isArray() || rows.isEmpty()) {
+        JsonNode data = raw == null ? null : raw.get("data");
+        if (data == null || !data.isArray() || data.isEmpty()) {
             return;
         }
-        for (JsonNode row : rows) {
-            if (mapillaryDistance(lat, lng, row) > radiusM) {
-                continue;
+        List<JsonNode> rows = new ArrayList<>();
+        data.forEach(rows::add);
+        rows.sort(Comparator.comparingDouble(row -> {
+            JsonNode coords = row.path("computed_geometry").path("coordinates");
+            if (!coords.isArray() || coords.size() < 2) {
+                return radiusM;
             }
+            return mapillaryDistance(lat, lng, row);
+        }));
+        int added = 0;
+        for (JsonNode row : rows) {
+            double distance = mapillaryDistance(lat, lng, row);
+            if (distance > radiusM) {
+                break;
+            }
+            int before = out.withArray("photos").size();
             applyMapillaryImage(out, row);
-            if (out.withArray("photos").size() >= 6) {
+            if (out.withArray("photos").size() > before && ++added >= cap) {
                 break;
             }
         }

@@ -56,6 +56,8 @@ const WATER_DEPTH_LAYER = 'relief-water-depth';
  */
 const BATHYMETRY_TILES = 'https://tiles.openwaters.io/seascape/{z}/{x}/{y}.webp';
 const BATHYMETRY_STEPS = 49;
+/** Détail natif des tuiles. Au-dessus, elles ne font que grossir le même pixel. */
+const BATHYMETRY_MAX_ZOOM = 14;
 
 /** t = 0 en surface (blanc), t = 1 au plus profond (gris foncé, pas noir). */
 function silverDepthColor(t: number): string {
@@ -469,7 +471,16 @@ export class MaptoolkitTerrainView {
 			bearingLocked: () => this.touchBearingLocked,
 			pitchLocked: () => this.touchPitchLocked,
 			setFreeZoom: (on) => { this.freeZoom = on; },
-			setGesturing: (on) => { this.gesturing = on; }
+			setGesturing: (on) => { this.gesturing = on; },
+			doubleTapInspects: () => !map.doubleClickZoom.isEnabled(),
+			onDoubleTap: (clientX, clientY) => {
+				if (this.map !== map) {
+					return;
+				}
+				const rect = map.getCanvas().getBoundingClientRect();
+				const lngLat = map.unproject([clientX - rect.left, clientY - rect.top]);
+				this.hooks?.onMapDoubleClick?.(lngLat.lat, lngLat.lng);
+			}
 		});
 		map.dragPan.enable(RELIEF_DRAG_PAN);
 		/*
@@ -1146,6 +1157,7 @@ export class MaptoolkitTerrainView {
 
 	private applyStyleExtras(map: MlMap): void {
 		this.enableTerrain(map);
+		this.keepBuildingsFlat(map);
 		this.applyTrailOverlays(map);
 		this.ensureOverlayLayers(map);
 		if (!this.controlsAdded) {
@@ -1159,6 +1171,20 @@ export class MaptoolkitTerrainView {
 		this.applyFit();
 		this.restoreOpeningView();
 		this.holdCenterOnGround();
+	}
+
+	/**
+	 * Rue et Été extrudent les bâtiments (15–40 m). Le zoom 3D s’arrête vers cette
+	 * hauteur pour ne pas entrer dans le relief : sur un immeuble la vue bute sur
+	 * le toit, sur la rue elle continue. Les autres styles n’ont que l’empreinte.
+	 */
+	private keepBuildingsFlat(map: MlMap): void {
+		for (const layer of map.getStyle()?.layers ?? []) {
+			if (layer.type !== 'fill-extrusion' || !map.getLayer(layer.id)) {
+				continue;
+			}
+			map.setLayoutProperty(layer.id, 'visibility', 'none');
+		}
 	}
 
 	private enableTerrain(map: MlMap): void {
@@ -1535,12 +1561,16 @@ export class MaptoolkitTerrainView {
 		return { deep, shallow };
 	}
 
-	/** Assez de tuiles pour le fond du lac, sans en charger une grille entière. */
+	/**
+	 * Tuiles du fond visible. Le zoom suit la vue jusqu’au détail natif :
+	 * un aperçu plus grossier aplatit la rade (3 m au lieu du creux réel).
+	 * On recule d’un niveau seulement si la vue demanderait trop de tuiles.
+	 */
 	private depthTilesInView(
 		bounds: { getWest: () => number; getEast: () => number; getSouth: () => number; getNorth: () => number },
 		viewZoom: number
 	): { z: number; x: number; y: number }[] {
-		let zoom = Math.max(0, Math.min(11, Math.floor(viewZoom)));
+		let zoom = Math.max(0, Math.min(BATHYMETRY_MAX_ZOOM, Math.floor(viewZoom)));
 		let tiles = tilesCovering(bounds, zoom);
 		while (tiles.length > 8 && zoom > 0) {
 			zoom -= 1;
@@ -1658,7 +1688,7 @@ export class MaptoolkitTerrainView {
 				tiles: [BATHYMETRY_TILES],
 				tileSize: 512,
 				minzoom: 0,
-				maxzoom: 14,
+				maxzoom: BATHYMETRY_MAX_ZOOM,
 				encoding: 'terrarium',
 				attribution: '© <a href="https://openwaters.io/charts/seascape">Open Waters</a>'
 			});
@@ -2346,6 +2376,7 @@ export class MaptoolkitTerrainView {
 		}
 		try {
 			this.enableTerrain(map);
+			this.keepBuildingsFlat(map);
 			this.applyTrailOverlays(map);
 			this.ensureOverlayLayers(map);
 			this.applyTraces();
@@ -2671,12 +2702,16 @@ type MobileTouchHooks = {
 	pitchLocked: () => boolean;
 	setFreeZoom: (on: boolean) => void;
 	setGesturing: (on: boolean) => void;
+	/** Photos, address or weather: a double tap opens the point instead of zooming. */
+	doubleTapInspects: () => boolean;
+	onDoubleTap: (clientX: number, clientY: number) => void;
 };
 
 /**
  * One finger pans (MapLibre drag). Two fingers pinch to zoom around the fingers,
  * twist to rotate, and a vertical drag tilts. A double tap, or a second tap held
- * and dragged, zooms with one finger. The page must not steal the pinch.
+ * and dragged, zooms with one finger, unless the point should be inspected.
+ * The page must not steal the pinch.
  */
 function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => void {
 	const el = map.getCanvasContainer();
@@ -2693,6 +2728,7 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 		pitching: boolean;
 	} | null = null;
 	let tapZoom: { x: number; y: number; zoom: number; moved: number } | null = null;
+	let tapInspect: { x: number; y: number; moved: number } | null = null;
 	let finger: { x: number; y: number; lastX: number; lastY: number; moved: number } | null = null;
 	let lastTap = { t: 0, x: 0, y: 0 };
 	let dragPanOff = false;
@@ -2756,6 +2792,7 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 		hooks.setGesturing(true);
 		if (event.touches.length >= 2) {
 			tapZoom = null;
+			tapInspect = null;
 			disableDragPan();
 			const a = event.touches[0];
 			const b = event.touches[1];
@@ -2780,6 +2817,14 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 		}
 		const now = Date.now();
 		const repeat = now - lastTap.t < 300 && Math.hypot(touch.clientX - lastTap.x, touch.clientY - lastTap.y) < 32;
+		if (repeat && hooks.doubleTapInspects()) {
+			tapInspect = { x: touch.clientX, y: touch.clientY, moved: 0 };
+			disableDragPan();
+			lastTap = { t: 0, x: 0, y: 0 };
+			event.preventDefault();
+			event.stopPropagation();
+			return;
+		}
 		if (repeat) {
 			tapZoom = { x: touch.clientX, y: touch.clientY, zoom: map.getZoom(), moved: 0 };
 			disableDragPan();
@@ -2824,6 +2869,13 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 			frame(zoom, bearing, pitch, midX, midY);
 			return;
 		}
+		if (tapInspect && event.touches.length === 1) {
+			event.preventDefault();
+			event.stopPropagation();
+			const touch = event.touches[0];
+			tapInspect.moved = Math.max(tapInspect.moved, Math.hypot(touch.clientX - tapInspect.x, touch.clientY - tapInspect.y));
+			return;
+		}
 		if (tapZoom && event.touches.length === 1) {
 			event.preventDefault();
 			event.stopPropagation();
@@ -2864,15 +2916,19 @@ function attachMobileTouchCamera(map: MlMap, hooks: MobileTouchHooks): () => voi
 				moved: 24
 			};
 			tapZoom = null;
+			tapInspect = null;
 			return;
 		}
-		if (tapZoom && tapZoom.moved < 16) {
+		if (tapInspect && tapInspect.moved < 16) {
+			hooks.onDoubleTap(tapInspect.x, tapInspect.y);
+		} else if (tapZoom && tapZoom.moved < 16) {
 			frame(clampZoom(tapZoom.zoom + 1.2), map.getBearing(), map.getPitch(), tapZoom.x, tapZoom.y);
 		} else if (finger && finger.moved < 16) {
 			lastTap = { t: Date.now(), x: finger.x, y: finger.y };
 		}
 		pinch = null;
 		tapZoom = null;
+		tapInspect = null;
 		finger = null;
 		enableDragPan();
 		hooks.setGesturing(false);

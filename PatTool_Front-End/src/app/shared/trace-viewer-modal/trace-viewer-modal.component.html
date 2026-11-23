@@ -35,9 +35,12 @@
           <span class="tv-map-scale-label">{{ mapScaleLabel }}</span>
           <span class="tv-map-scale-bar" [style.width.px]="mapScaleWidthPx" aria-hidden="true"></span>
         </div>
-        <div class="tv-poi-photo" *ngIf="reliefPoiPhoto" role="dialog" [attr.aria-label]="reliefPoiPhoto.title">
+        <div class="tv-poi-photo" *ngIf="reliefPoiPhoto && !poiPhotoFullscreen" role="dialog" [attr.aria-label]="reliefPoiPhoto.title">
           <div class="tv-poi-photo-head">
-            <span class="tv-poi-photo-title">{{ reliefPoiPhoto.title }}</span>
+            <span class="tv-poi-photo-title">
+              <span class="tv-poi-photo-title-text">{{ reliefPoiPhoto.title }}</span>
+              <ng-container *ngIf="reliefPoiPhoto.pano" [ngTemplateOutlet]="poiPhoto360Mark"></ng-container>
+            </span>
             <button type="button"
                     class="tv-poi-photo-close"
                     *ngIf="!reliefPoiPhoto.loading && reliefPoiPhoto.imageUrl"
@@ -115,19 +118,6 @@
           <p class="tv-poi-photo-empty" *ngIf="!reliefPoiPhoto.loading && !reliefPoiPhoto.imageUrl">
             {{ 'EVENTELEM.POI_NO_PHOTO' | translate }}
           </p>
-          <p class="tv-poi-photo-source" *ngIf="!reliefPoiPhoto.loading && reliefPoiPhoto.source">
-            <span>
-              {{ 'EVENTELEM.POI_PHOTO_FROM' | translate }} {{ poiPhotoSourceKey(reliefPoiPhoto.source) | translate }}
-              <span *ngIf="poiGallery.length > 1">{{ poiGalleryIndex + 1 }}/{{ poiGallery.length }}</span>
-            </span>
-            <a class="tv-poi-photo-page"
-               *ngIf="reliefPoiPhoto.pageUrl || reliefPoiPhoto.imageUrl"
-               [href]="reliefPoiPhoto.pageUrl || reliefPoiPhoto.imageUrl"
-               target="_blank"
-               rel="noopener noreferrer">
-              {{ 'EVENTELEM.POI_PHOTO_PAGE' | translate }}
-            </a>
-          </p>
           <div class="tv-poi-save" *ngIf="poiSaveOpen && !reliefPoiPhoto.loading && reliefPoiPhoto.imageUrl">
             <p class="tv-poi-save-title">{{ 'EVENTELEM.POI_PHOTO_SAVE_PICK' | translate }}</p>
             <input class="tv-poi-save-filter"
@@ -149,10 +139,26 @@
               </button>
             </div>
           </div>
+          <ng-container *ngTemplateOutlet="poiPhotoTools"></ng-container>
+        </div>
+        <ng-template #poiPhotoTools>
+          <p class="tv-poi-photo-source" *ngIf="reliefPoiPhoto?.source">
+            <span>
+              {{ 'EVENTELEM.POI_PHOTO_FROM' | translate }} {{ poiPhotoSourceKey(reliefPoiPhoto!.source) | translate }}
+              <span *ngIf="poiGallery.length > 1">{{ poiGalleryIndex + 1 }}/{{ poiGallery.length }}</span>
+            </span>
+            <a class="tv-poi-photo-page"
+               *ngIf="reliefPoiPhoto?.pageUrl || reliefPoiPhoto?.imageUrl"
+               [href]="reliefPoiPhoto?.pageUrl || reliefPoiPhoto?.imageUrl"
+               target="_blank"
+               rel="noopener noreferrer">
+              {{ 'EVENTELEM.POI_PHOTO_PAGE' | translate }}
+            </a>
+          </p>
           <div class="tv-poi-photo-sources">
             <button type="button"
                     *ngFor="let source of poiPhotoSources"
-                    [class.is-on]="source === reliefPoiPhoto.source"
+                    [class.is-on]="source === reliefPoiPhoto?.source"
                     [class.is-off]="!poiPhotoSourceReady(source)"
                     [disabled]="!poiPhotoSourceReady(source) || !poiSourceCount(source)"
                     (click)="loadPoiPhotoSource(source)">
@@ -161,7 +167,26 @@
               <span class="tv-poi-photo-badge" *ngIf="poiSourceCount(source) as count">{{ count }}</span>
             </button>
           </div>
-        </div>
+          <div class="tv-poi-photo-radius">
+            <label>
+              <span>{{ 'EVENTELEM.POI_PHOTO_RADIUS' | translate:{ radius: poiPhotoRadiusLabel() } }}</span>
+              <input type="range"
+                     [min]="poiPhotoRadiusMinM"
+                     [max]="poiPhotoRadiusMaxM"
+                     step="25"
+                     [value]="poiPhotoRadiusM"
+                     (input)="onPoiPhotoRadiusInput($any($event.target).value)"
+                     [attr.aria-label]="'EVENTELEM.POI_PHOTO_RADIUS' | translate:{ radius: poiPhotoRadiusLabel() }" />
+            </label>
+            <button type="button"
+                    class="tv-poi-photo-refresh"
+                    (click)="refreshPoiPhotos()"
+                    [attr.aria-label]="'EVENTELEM.POI_PHOTO_REFRESH' | translate"
+                    [attr.title]="'EVENTELEM.POI_PHOTO_REFRESH' | translate">
+              <i class="fa fa-refresh" [class.fa-spin]="!!reliefPoiPhoto?.loading" aria-hidden="true"></i>
+            </button>
+          </div>
+        </ng-template>
         <div #poiPhotoStage
              class="tv-poi-photo-full"
              *ngIf="reliefPoiPhoto?.imageUrl"
@@ -225,15 +250,24 @@
             <i class="fa fa-chevron-right" aria-hidden="true"></i>
           </button>
           <div class="tv-poi-photo-full-caption" (click)="$event.stopPropagation()">
+            <ng-container *ngIf="reliefPoiPhoto?.pano" [ngTemplateOutlet]="poiPhoto360Mark"></ng-container>
             <span>{{ reliefPoiPhoto?.title }}</span>
-            <span *ngIf="poiGallery.length > 1">{{ poiGalleryIndex + 1 }}/{{ poiGallery.length }}</span>
-            <span *ngIf="reliefPoiPhoto?.source as photoSource">{{ poiPhotoSourceKey(photoSource) | translate }}</span>
-            <a *ngIf="reliefPoiPhoto?.pageUrl"
-               [href]="reliefPoiPhoto?.pageUrl"
-               target="_blank"
-               rel="noopener noreferrer">{{ 'EVENTELEM.POI_PHOTO_PAGE' | translate }}</a>
+          </div>
+          <div class="tv-poi-photo-full-tools" *ngIf="reliefPoiPhoto" (click)="$event.stopPropagation()">
+            <ng-container *ngTemplateOutlet="poiPhotoTools"></ng-container>
           </div>
         </div>
+        <ng-template #poiPhoto360Mark>
+          <span class="tv-poi-photo-360"
+                role="img"
+                [attr.title]="'EVENTELEM.POI_PHOTO_360' | translate"
+                [attr.aria-label]="'EVENTELEM.POI_PHOTO_360' | translate">
+            <svg viewBox="0 0 52 32" aria-hidden="true" focusable="false">
+              <rect x="1.15" y="1.15" width="49.7" height="29.7" rx="14.85" fill="none" stroke="currentColor" stroke-width="1.8"></rect>
+              <text x="26" y="16.8" text-anchor="middle" dominant-baseline="central" fill="currentColor" font-size="13.5" font-weight="700" font-family="Arial, Helvetica, sans-serif">360°</text>
+            </svg>
+          </span>
+        </ng-template>
         <div class="tv-elev-legend" *ngIf="elevationColors && relief3d && legendLeft != null" aria-hidden="true">
           <span>{{ legendLeft }} m</span>
           <span class="tv-elev-legend-scale">

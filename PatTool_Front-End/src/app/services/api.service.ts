@@ -2979,7 +2979,7 @@ export class ApiService {
     image?: string;
     source?: string;
     lang?: string;
-    /** Search radius in metres. Omitted for a place, which uses the server default. */
+    /** Search radius in metres. The photo slider sends 50 to 1000. Omitted values use the server default. */
     radiusM?: number;
   }): Observable<PoiPhoto> {
     let params = new HttpParams();
