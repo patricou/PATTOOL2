@@ -1142,7 +1142,48 @@
     "HOMETITLE": "Sito Privato",
     "HOMESUBTITLE": "©PatrickDeschamps",
     "SECTION2TITLE": " home-page, sezione 2 (fr).",
-    "SECTION3TITLE": " home-page, sezione 3 (fr)."
+    "SECTION3TITLE": " home-page, sezione 3 (fr).",
+    "DASHBOARD": {
+      "TITLE": "Home",
+      "REFRESH": "Aggiorna",
+      "LOADING": "Caricamento…",
+      "UNAVAILABLE": "Non disponibile al momento",
+      "WEATHER": "Meteo",
+      "WEATHER_EMPTY": "Posizione non disponibile",
+      "FEELS": "Percepita {{temp}}",
+      "HUMIDITY": "Umidità {{value}} %",
+      "SUNRISE": "Alba {{time}}",
+      "SUNSET": "Tramonto {{time}}",
+      "ALT_YOU": "tu {{alt}}",
+      "ALT_STATION": "stazione {{alt}}",
+      "AGENDA": "Agenda",
+      "AGENDA_EMPTY": "Niente in programma",
+      "ACTIVITIES": "Prossime attività",
+      "DAYS_LEFT": "{{count}} giorni",
+      "DAYS_LEFT_ONE": "1 giorno",
+      "DAYS_TODAY": "Oggi",
+      "DAYS_ONGOING": "In corso",
+      "APPOINTMENTS": "Prossimi appuntamenti",
+      "TASK_ASSIGNEE": "Assegnata a",
+      "TASK_OWNER": "Proprietario",
+      "AGENDA_MORE": "altri {{count}}",
+      "TASKS": "Attività",
+      "TASKS_EMPTY": "Nessuna attività aperta",
+      "OVERDUE": "In ritardo",
+      "PLAYING": "In riproduzione",
+      "PLAYING_EMPTY": "Nulla in riproduzione",
+      "SOURCE_DEEZER": "Deezer",
+      "SOURCE_RADIO": "Radio",
+      "SOURCE_YOUTUBE": "YouTube",
+      "SOURCE_TV": "TV",
+      "OPEN_DEEZER": "Apri Deezer",
+      "OPEN_RADIO": "Apri la radio",
+      "OPEN_TV": "Apri la TV",
+      "NEWS": "Notizie",
+      "NEWS_EMPTY": "Nessun titolo",
+      "SCROLL": "Scorri la pagina",
+      "NOTES": "Note"
+    }
   },
   "LINKS": {
     "TITLE": "Collegamenti",
@@ -2401,7 +2442,19 @@
     "TRACK_FOOTER_ADDR_SHORT": "Ind.",
     "TRACK_FOOTER_HIKING_SHORT": "Escurs.",
     "TRACK_FOOTER_CYCLING_SHORT": "Bici",
-    "TRACK_FOOTER_FOLLOW_SHORT": "Segui"
+    "TRACK_FOOTER_FOLLOW_SHORT": "Segui",
+    "CONFIRM": "Conferma",
+    "VIDEO_COMPRESSION_TITLE": "Compressione video",
+    "VIDEO_COMPRESSION_MESSAGE": "{{count}} video rilevati. Scegli la qualità di compressione:",
+    "POI_PHOTO_COVER_MAP": "Ingrandisci sulla mappa",
+    "TRACK_BASEMAP_SECOND": "Seconda mappa di base",
+    "TRACK_BASEMAP_NONE": "Nessuno",
+    "TRACK_BASEMAP_BLEND": "Trasparenza: sinistra = prima mappa di base, destra = seconda",
+    "TRACK_RELIEF_PITCH": "Inclinazione",
+    "TRACK_RELIEF_TILT_FOLLOW": "Inclina la mappa con il telefono",
+    "TRACK_RELIEF_3D_HINT": "Inclinazione e rilievo per Maptoolkit Hike e Ski. La traccia e il punto GPS poggiano sul terreno. Sul telefono: un dito sposta, il pizzico zooma, due dita verso l'alto inclinano. Doppio tocco ingrandisce. Ctrl + trascinare: di lato ruota la vista, verso l'alto la inclina.",
+    "TRACK_RELIEF_TILT_FOLLOW_HINT": "In 3D con il Nord attivo, l'inclinazione del telefono inclina la mappa",
+    "TRACK_RELIEF_TILT_FOLLOW_NEED_NORTH": "Attiva il Nord per inclinare la mappa con il telefono"
   },
   "EVENTCREATION": {
     "TITLE": "Creazione di un'Attività",
@@ -2503,7 +2556,8 @@
     "UNSAVED_CHANGES_CONFIRM": "Hai modifiche non salvate. Sei sicuro di voler uscire da questa pagina?",
     "PHOTOFROMFS_UNAUTHORIZED": "Non sei autorizzato a creare o modificare collegamenti di tipo 'Foto dal sistema di file'. Solo l'utente autorizzato può creare o modificare questo tipo di collegamento.",
     "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "Errore: Non sei autorizzato ad aggiornare eventi con collegamenti di tipo 'Foto dal sistema di file'. Solo l'utente autorizzato può modificare questo tipo di collegamento.",
-    "EVENT_UPDATE_UNAUTHORIZED": "Non è autorizzato a modificare questa attività. Solo il proprietario o un amministratore può modificarla."
+    "EVENT_UPDATE_UNAUTHORIZED": "Non è autorizzato a modificare questa attività. Solo il proprietario o un amministratore può modificarla.",
+    "FRIEND_GROUP_UNAUTHORIZED": "Non sei autorizzato ad aggiornare questa attività per i gruppi di amici selezionati."
   },
   "EVENTDEL": {
     "TITLEDELCONF": "Conferma eliminazione dell'Attività:",
@@ -2558,7 +2612,8 @@
     "NEXT_PAGE": "Pagina successiva",
     "EXPAND": "Espandi",
     "COLLAPSE": "Comprimi",
-    "OPTIONS": "Opzioni"
+    "OPTIONS": "Opzioni",
+    "ERROR": "Errore"
   },
   "RESULTS": {
     "TITLE": "WhatsPat",
@@ -5383,7 +5438,8 @@
     "OPEN_VIDEOSHOW": "Apri nel visualizzatore video",
     "ODS_WALL_TABLE_TITLE": "Fogli Calc (.ods)",
     "ODS_TABLE_DOWNLOAD": "Scarica il foglio",
-    "LINK_ACTION_OPEN_ODS": "Apri nell’editor Calc"
+    "LINK_ACTION_OPEN_ODS": "Apri nell’editor Calc",
+    "YOUTUBE_BADGE": "YouTube"
   },
   "NEWS": {
     "PAGE_TITLE": "Notizie",
@@ -6030,7 +6086,18 @@
     "ERR_RECORD_UNAVAILABLE": "Registrazione non supportata da questo browser (è richiesto MediaRecorder).",
     "ERR_RECORD_LIMIT": "Una registrazione è già in corso.",
     "ERR_RECORD_NEED_PLAY": "Avvia prima la riproduzione del canale prima di registrare.",
-    "ERR_RECORD_TOO_LARGE": "Il file della registrazione è troppo grande."
+    "ERR_RECORD_TOO_LARGE": "Il file della registrazione è troppo grande.",
+    "ARTE_COUNT": "{{count}} programma/i",
+    "ARTE_PAGE": "Pagina {{page}} / {{pages}}",
+    "EPG_BROWSER_OPEN": "Programmi",
+    "IA_PAGE": "Pagina {{page}} / {{pages}}",
+    "LIST_PAGE": "Pagina {{page}} / {{pages}}",
+    "SHARE_SOURCE_ARTE": "ARTE Replay",
+    "SHARE_SOURCE_IA": "Archive.org",
+    "SKIN_GROUP_SCENE": "Scene",
+    "TAB_ARTE": "ARTE Replay",
+    "TAB_IA": "Archive.org",
+    "VOLUME": "Volume"
   },
   "DEEZER": {
     "TITLE": "Deezer",
@@ -6386,7 +6453,9 @@
     "GLOBAL_FILTER_APPLY": "Applica",
     "GLOBAL_FILTER_CLEAR": "Cancella",
     "GLOBAL_FILTER_STATION_HINT": "Ricerca per nome stazione (o genere). In modalità «tutti i paesi», almeno 2 caratteri.",
-    "NOW_TRACK": "Brano in corso"
+    "NOW_TRACK": "Brano in corso",
+    "LIST_PAGE": "Pagina {{page}} / {{pages}}",
+    "SKIN_GROUP_SCENE": "Scene"
   },
   "ARCHIVE": {
     "TITLE": "Internet Archive",
@@ -7155,7 +7224,8 @@
     "OFFLINE_MAP_OPEN": "Scarica riquadri",
     "OFFLINE_MAP_SHARED": "Un solo archivio su questo dispositivo, condiviso da trace viewer, GPS, itinerario e traccia GPX.",
     "OFFLINE_MAP_WINDOW": "Finestra {{south}} → {{north}}, {{west}} → {{east}}",
-    "OFFLINE_MAP_ZOOMS": "Zoom {{current}}–{{max}}"
+    "OFFLINE_MAP_ZOOMS": "Zoom {{current}}–{{max}}",
+    "OFFLINE_MAP_BTN_SHORT": "HL"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Ricerca indirizzo non riuscita.",

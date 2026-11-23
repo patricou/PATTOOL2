@@ -1141,7 +1141,48 @@
     "HOMETITLE": "Ιδιωτικός Ιστότοπος",
     "HOMESUBTITLE": "©PatrickDeschamps",
     "SECTION2TITLE": " αρχική σελίδα, ενότητα 2 (fr).",
-    "SECTION3TITLE": " αρχική σελίδα, ενότητα 3 (fr)."
+    "SECTION3TITLE": " αρχική σελίδα, ενότητα 3 (fr).",
+    "DASHBOARD": {
+      "TITLE": "Αρχική",
+      "REFRESH": "Ανανέωση",
+      "LOADING": "Φόρτωση…",
+      "UNAVAILABLE": "Μη διαθέσιμο αυτή τη στιγμή",
+      "WEATHER": "Καιρός",
+      "WEATHER_EMPTY": "Η τοποθεσία δεν είναι διαθέσιμη",
+      "FEELS": "Αίσθηση {{temp}}",
+      "HUMIDITY": "Υγρασία {{value}}%",
+      "SUNRISE": "Ανατολή {{time}}",
+      "SUNSET": "Δύση {{time}}",
+      "ALT_YOU": "εσείς {{alt}}",
+      "ALT_STATION": "σταθμός {{alt}}",
+      "AGENDA": "Ατζέντα",
+      "AGENDA_EMPTY": "Τίποτα προσεχώς",
+      "ACTIVITIES": "Επόμενες δραστηριότητες",
+      "DAYS_LEFT": "{{count}} ημέρες",
+      "DAYS_LEFT_ONE": "1 ημέρα",
+      "DAYS_TODAY": "Σήμερα",
+      "DAYS_ONGOING": "Σε εξέλιξη",
+      "APPOINTMENTS": "Επόμενα ραντεβού",
+      "TASK_ASSIGNEE": "Ανατέθηκε σε",
+      "TASK_OWNER": "Κάτοχος",
+      "AGENDA_MORE": "{{count}} ακόμη",
+      "TASKS": "Εργασίες",
+      "TASKS_EMPTY": "Καμία ανοιχτή εργασία",
+      "OVERDUE": "Εκπρόθεσμη",
+      "PLAYING": "Σε αναπαραγωγή",
+      "PLAYING_EMPTY": "Τίποτα δεν παίζει",
+      "SOURCE_DEEZER": "Deezer",
+      "SOURCE_RADIO": "Radio",
+      "SOURCE_YOUTUBE": "YouTube",
+      "SOURCE_TV": "TV",
+      "OPEN_DEEZER": "Άνοιγμα Deezer",
+      "OPEN_RADIO": "Άνοιγμα ραδιοφώνου",
+      "OPEN_TV": "Άνοιγμα TV",
+      "NEWS": "Ειδήσεις",
+      "NEWS_EMPTY": "Χωρίς τίτλους",
+      "SCROLL": "Κύλιση της σελίδας",
+      "NOTES": "Σημειώσεις"
+    }
   },
   "LINKS": {
     "TITLE": "Σύνδεσμοι",
@@ -1721,14 +1762,14 @@
     "POI_PHOTO_SOURCE_FLICKR": "Flickr",
     "POI_PHOTO_SOURCE_OPENVERSE": "Openverse",
     "POI_PHOTO_SOURCE_UNSPLASH": "Unsplash",
-    "POI_PHOTO_SAVE": "Save to an activity",
-    "POI_PHOTO_SAVE_PICK": "Choose an activity",
-    "POI_PHOTO_SAVE_LOADING": "Saving…",
-    "POI_PHOTO_SAVED": "Photo saved",
-    "POI_PHOTO_SAVE_ERROR": "Could not save the photo",
-    "POI_PHOTO_SAVE_EMPTY": "No activity",
-    "POI_PHOTO_SAVE_FILTER": "Filter",
-    "POI_PHOTO_SAVE_NONE": "No matching activity",
+    "POI_PHOTO_SAVE": "Αποθήκευση σε δραστηριότητα",
+    "POI_PHOTO_SAVE_PICK": "Επιλογή δραστηριότητας",
+    "POI_PHOTO_SAVE_LOADING": "Αποθήκευση…",
+    "POI_PHOTO_SAVED": "Η φωτογραφία αποθηκεύτηκε",
+    "POI_PHOTO_SAVE_ERROR": "Αποτυχία αποθήκευσης της φωτογραφίας",
+    "POI_PHOTO_SAVE_EMPTY": "Καμία δραστηριότητα",
+    "POI_PHOTO_SAVE_FILTER": "Φίλτρο",
+    "POI_PHOTO_SAVE_NONE": "Καμία αντίστοιχη δραστηριότητα",
     "POI_PHOTO_SOURCE_MAPILLARY": "Mapillary",
     "POI_PHOTO_SOURCE_PANORAMAX": "Panoramax",
     "POI_PHOTO_SOURCE_OSM": "OpenStreetMap",
@@ -1933,7 +1974,19 @@
     "TRACK_FOOTER_ADDR_SHORT": "Δ/νση",
     "TRACK_FOOTER_HIKING_SHORT": "Πεζ.",
     "TRACK_FOOTER_CYCLING_SHORT": "Ποδήλ.",
-    "TRACK_FOOTER_FOLLOW_SHORT": "Ακολούθ."
+    "TRACK_FOOTER_FOLLOW_SHORT": "Ακολούθ.",
+    "CONFIRM": "Επιβεβαίωση",
+    "VIDEO_COMPRESSION_TITLE": "Συμπίεση βίντεο",
+    "VIDEO_COMPRESSION_MESSAGE": "Εντοπίστηκαν {{count}} βίντεο. Επιλέξτε την ποιότητα συμπίεσης:",
+    "POI_PHOTO_COVER_MAP": "Μεγέθυνση πάνω στον χάρτη",
+    "TRACK_BASEMAP_SECOND": "Δεύτερος βασικός χάρτης",
+    "TRACK_BASEMAP_NONE": "Κανένα",
+    "TRACK_BASEMAP_BLEND": "Διαφάνεια: αριστερά = πρώτος χάρτης, δεξιά = δεύτερος χάρτης",
+    "TRACK_RELIEF_PITCH": "Κλίση",
+    "TRACK_RELIEF_TILT_FOLLOW": "Κλίση του χάρτη με το τηλέφωνο",
+    "TRACK_RELIEF_3D_HINT": "Κλίση και ανάγλυφο για Maptoolkit Hike και Ski. Η διαδρομή και το σημείο GPS κάθονται στο έδαφος. Στο τηλέφωνο: ένα δάχτυλο μετακινεί, τσίμπημα μεγεθύνει, δύο δάχτυλα προς τα πάνω γέρνουν. Διπλό πάτημα μεγεθύνει. Ctrl + σύρσιμο: στο πλάι περιστρέφει, προς τα πάνω γέρνει.",
+    "TRACK_RELIEF_TILT_FOLLOW_HINT": "Σε 3D με τον Βορρά ενεργό, η κλίση του τηλεφώνου γέρνει τον χάρτη",
+    "TRACK_RELIEF_TILT_FOLLOW_NEED_NORTH": "Ενεργοποιήστε τον Βορρά για να γείρετε τον χάρτη με το τηλέφωνο"
   },
   "EVENTCREATION": {
     "TITLE": "Δημιουργία Δραστηριότητας",
@@ -2031,7 +2084,8 @@
     "UNSAVED_CHANGES_CONFIRM": "Έχετε μη αποθηκευμένες αλλαγές. Είστε σίγουροι ότι θέλετε να φύγετε από αυτή τη σελίδα;",
     "PHOTOFROMFS_UNAUTHORIZED": "Δεν έχετε εξουσιοδότηση να δημιουργήσετε ή να επεξεργαστείτε συνδέσμους τύπου 'Φωτογραφία από το σύστημα αρχείων'. Μόνο ο εξουσιοδοτημένος χρήστης μπορεί να δημιουργήσει ή να επεξεργαστεί συνδέσμους αυτού του τύπου.",
     "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "Σφάλμα: Δεν έχετε εξουσιοδότηση να ενημερώσετε εκδηλώσεις με συνδέσμους τύπου 'Φωτογραφία από το σύστημα αρχείων'. Μόνο ο εξουσιοδοτημένος χρήστης μπορεί να τροποποιήσει συνδέσμους αυτού του τύπου.",
-    "EVENT_UPDATE_UNAUTHORIZED": "Δεν έχετε δικαίωμα να τροποποιήσετε αυτή τη δραστηριότητα. Μόνο ο κάτοχος ή ένας διαχειριστής μπορεί να την τροποποιήσει."
+    "EVENT_UPDATE_UNAUTHORIZED": "Δεν έχετε δικαίωμα να τροποποιήσετε αυτή τη δραστηριότητα. Μόνο ο κάτοχος ή ένας διαχειριστής μπορεί να την τροποποιήσει.",
+    "FRIEND_GROUP_UNAUTHORIZED": "Δεν έχετε δικαίωμα να ενημερώσετε αυτή τη δραστηριότητα για τις επιλεγμένες ομάδες φίλων."
   },
   "EVENTDEL": {
     "TITLEDELCONF": "Επιβεβαίωση διαγραφής της Δραστηριότητας:",
@@ -2086,7 +2140,8 @@
     "NEXT_PAGE": "Επόμενη σελίδα",
     "EXPAND": "Ανάπτυξη",
     "COLLAPSE": "Σύμπτυξη",
-    "OPTIONS": "Επιλογές"
+    "OPTIONS": "Επιλογές",
+    "ERROR": "Σφάλμα"
   },
   "RESULTS": {
     "TITLE": "WhatsPat",
@@ -5400,7 +5455,8 @@
     "OPEN_VIDEOSHOW": "Άνοιγμα στην προβολή βίντεο",
     "ODS_WALL_TABLE_TITLE": "Φύλλα Calc (.ods)",
     "ODS_TABLE_DOWNLOAD": "Λήψη φύλλου",
-    "LINK_ACTION_OPEN_ODS": "Άνοιγμα στον επεξεργαστή Calc"
+    "LINK_ACTION_OPEN_ODS": "Άνοιγμα στον επεξεργαστή Calc",
+    "YOUTUBE_BADGE": "YouTube"
   },
   "NEWS": {
     "PAGE_TITLE": "Ειδήσεις",
@@ -6047,7 +6103,18 @@
     "ERR_RECORD_UNAVAILABLE": "Η εγγραφή δεν υποστηρίζεται από αυτό το πρόγραμμα περιήγησης (απαιτείται MediaRecorder).",
     "ERR_RECORD_LIMIT": "Μια εγγραφή είναι ήδη σε εξέλιξη.",
     "ERR_RECORD_NEED_PLAY": "Ξεκινήστε πρώτα την αναπαραγωγή του καναλιού πριν από την εγγραφή.",
-    "ERR_RECORD_TOO_LARGE": "Το αρχείο εγγραφής είναι πολύ μεγάλο."
+    "ERR_RECORD_TOO_LARGE": "Το αρχείο εγγραφής είναι πολύ μεγάλο.",
+    "ARTE_COUNT": "{{count}} πρόγραμμα/τα",
+    "ARTE_PAGE": "Σελίδα {{page}} / {{pages}}",
+    "EPG_BROWSER_OPEN": "Προγράμματα",
+    "IA_PAGE": "Σελίδα {{page}} / {{pages}}",
+    "LIST_PAGE": "Σελίδα {{page}} / {{pages}}",
+    "SHARE_SOURCE_ARTE": "ARTE Replay",
+    "SHARE_SOURCE_IA": "Archive.org",
+    "SKIN_GROUP_SCENE": "Σκηνές",
+    "TAB_ARTE": "ARTE Replay",
+    "TAB_IA": "Archive.org",
+    "VOLUME": "Ένταση"
   },
   "DEEZER": {
     "TITLE": "Deezer",
@@ -6403,7 +6470,9 @@
     "GLOBAL_FILTER_APPLY": "Εφαρμογή",
     "GLOBAL_FILTER_CLEAR": "Εκκαθάριση",
     "GLOBAL_FILTER_STATION_HINT": "Αναζήτηση με όνομα σταθμού (ή είδος). Στη λειτουργία «όλες οι χώρες», τουλάχιστον 2 χαρακτήρες.",
-    "NOW_TRACK": "Τρέχον κομμάτι"
+    "NOW_TRACK": "Τρέχον κομμάτι",
+    "LIST_PAGE": "Σελίδα {{page}} / {{pages}}",
+    "SKIN_GROUP_SCENE": "Σκηνές"
   },
   "ARCHIVE": {
     "TITLE": "Internet Archive",
@@ -7172,7 +7241,8 @@
     "OFFLINE_MAP_OPEN": "Λήψη πλακιδίων",
     "OFFLINE_MAP_SHARED": "Ένα απόθεμα στη συσκευή, κοινό για trace viewer, GPS, διαδρομή και GPX.",
     "OFFLINE_MAP_WINDOW": "Παράθυρο {{south}} → {{north}}, {{west}} → {{east}}",
-    "OFFLINE_MAP_ZOOMS": "Ζουμ {{current}} έως {{max}}"
+    "OFFLINE_MAP_ZOOMS": "Ζουμ {{current}} έως {{max}}",
+    "OFFLINE_MAP_BTN_SHORT": "HL"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Η αναζήτηση διεύθυνσης απέτυχε.",

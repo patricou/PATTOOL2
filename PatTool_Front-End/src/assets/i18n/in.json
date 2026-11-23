@@ -381,14 +381,14 @@
     "POI_PHOTO_SOURCE_FLICKR": "Flickr",
     "POI_PHOTO_SOURCE_OPENVERSE": "Openverse",
     "POI_PHOTO_SOURCE_UNSPLASH": "Unsplash",
-    "POI_PHOTO_SAVE": "Save to an activity",
-    "POI_PHOTO_SAVE_PICK": "Choose an activity",
-    "POI_PHOTO_SAVE_LOADING": "Saving…",
-    "POI_PHOTO_SAVED": "Photo saved",
-    "POI_PHOTO_SAVE_ERROR": "Could not save the photo",
-    "POI_PHOTO_SAVE_EMPTY": "No activity",
-    "POI_PHOTO_SAVE_FILTER": "Filter",
-    "POI_PHOTO_SAVE_NONE": "No matching activity",
+    "POI_PHOTO_SAVE": "किसी गतिविधि में सहेजें",
+    "POI_PHOTO_SAVE_PICK": "गतिविधि चुनें",
+    "POI_PHOTO_SAVE_LOADING": "सहेजा जा रहा है…",
+    "POI_PHOTO_SAVED": "फ़ोटो सहेजी गई",
+    "POI_PHOTO_SAVE_ERROR": "फ़ोटो सहेजी नहीं जा सकी",
+    "POI_PHOTO_SAVE_EMPTY": "कोई गतिविधि नहीं",
+    "POI_PHOTO_SAVE_FILTER": "फ़िल्टर",
+    "POI_PHOTO_SAVE_NONE": "कोई मेल खाती गतिविधि नहीं",
     "POI_PHOTO_SOURCE_MAPILLARY": "Mapillary",
     "POI_PHOTO_SOURCE_PANORAMAX": "Panoramax",
     "POI_PHOTO_SOURCE_OSM": "OpenStreetMap",
@@ -600,7 +600,19 @@
     "TRACK_FOOTER_ADDR_SHORT": "पता",
     "TRACK_FOOTER_HIKING_SHORT": "पैदल",
     "TRACK_FOOTER_CYCLING_SHORT": "साइकिल",
-    "TRACK_FOOTER_FOLLOW_SHORT": "अनुसरण"
+    "TRACK_FOOTER_FOLLOW_SHORT": "अनुसरण",
+    "CONFIRM": "पुष्टि करें",
+    "VIDEO_COMPRESSION_TITLE": "वीडियो संपीड़न",
+    "VIDEO_COMPRESSION_MESSAGE": "{{count}} वीडियो मिले। संपीड़न गुणवत्ता चुनें:",
+    "POI_PHOTO_COVER_MAP": "मानचित्र पर बड़ा करें",
+    "TRACK_BASEMAP_SECOND": "दूसरा आधार मानचित्र",
+    "TRACK_BASEMAP_NONE": "कोई नहीं",
+    "TRACK_BASEMAP_BLEND": "पारदर्शिता: बायाँ = पहला आधार मानचित्र, दायाँ = दूसरा",
+    "TRACK_RELIEF_PITCH": "झुकाव",
+    "TRACK_RELIEF_TILT_FOLLOW": "फ़ोन से मानचित्र झुकाएँ",
+    "TRACK_RELIEF_3D_HINT": "Maptoolkit हाइक और स्की के लिए झुकाव और भू-आकृति। ट्रैक और GPS बिंदु भू-भाग पर रहते हैं। फ़ोन पर: एक उंगली खिसकाती है, पिंच ज़ूम करता है, दो उंगलियाँ ऊपर झुकाती हैं। डबल-टैप ज़ूम इन करता है। Ctrl दबाकर खींचें: बगल में दृश्य घूमता है, ऊपर झुकता है।",
+    "TRACK_RELIEF_TILT_FOLLOW_HINT": "उत्तर चालू होने पर 3D में फ़ोन का झुकाव मानचित्र को झुकाता है",
+    "TRACK_RELIEF_TILT_FOLLOW_NEED_NORTH": "फ़ोन से मानचित्र झुकाने के लिए उत्तर चालू करें"
   },
   "MENU": {
     "BRAND": "PATTOOL",
@@ -1730,7 +1742,48 @@
     "HOMETITLE": "निजी साइट",
     "HOMESUBTITLE": "©PatrickDeschamps",
     "SECTION2TITLE": " होम-पेज, भाग 2",
-    "SECTION3TITLE": " होम-पेज, भाग 3"
+    "SECTION3TITLE": " होम-पेज, भाग 3",
+    "DASHBOARD": {
+      "TITLE": "होम",
+      "REFRESH": "रीफ़्रेश",
+      "LOADING": "लोड हो रहा है…",
+      "UNAVAILABLE": "अभी उपलब्ध नहीं",
+      "WEATHER": "मौसम",
+      "WEATHER_EMPTY": "स्थान उपलब्ध नहीं",
+      "FEELS": "महसूस {{temp}}",
+      "HUMIDITY": "आर्द्रता {{value}}%",
+      "SUNRISE": "सूर्योदय {{time}}",
+      "SUNSET": "सूर्यास्त {{time}}",
+      "ALT_YOU": "आप {{alt}}",
+      "ALT_STATION": "स्टेशन {{alt}}",
+      "AGENDA": "एजेंडा",
+      "AGENDA_EMPTY": "आगे कुछ नहीं",
+      "ACTIVITIES": "आने वाली गतिविधियाँ",
+      "DAYS_LEFT": "{{count}} दिन",
+      "DAYS_LEFT_ONE": "1 दिन",
+      "DAYS_TODAY": "आज",
+      "DAYS_ONGOING": "चल रहा है",
+      "APPOINTMENTS": "आने वाली मुलाकातें",
+      "TASK_ASSIGNEE": "सौंपा गया",
+      "TASK_OWNER": "स्वामी",
+      "AGENDA_MORE": "और {{count}}",
+      "TASKS": "कार्य",
+      "TASKS_EMPTY": "कोई खुला कार्य नहीं",
+      "OVERDUE": "अतिदेय",
+      "PLAYING": "चल रहा है",
+      "PLAYING_EMPTY": "कुछ नहीं चल रहा",
+      "SOURCE_DEEZER": "Deezer",
+      "SOURCE_RADIO": "Radio",
+      "SOURCE_YOUTUBE": "YouTube",
+      "SOURCE_TV": "TV",
+      "OPEN_DEEZER": "Deezer खोलें",
+      "OPEN_RADIO": "रेडियो खोलें",
+      "OPEN_TV": "टीवी खोलें",
+      "NEWS": "समाचार",
+      "NEWS_EMPTY": "कोई शीर्षक नहीं",
+      "SCROLL": "पृष्ठ स्क्रॉल करें",
+      "NOTES": "नोट्स"
+    }
   },
   "IOT": {
     "TITLE": "घर का नियंत्रण",
@@ -2475,7 +2528,8 @@
     "UNSAVED_CHANGES_CONFIRM": "आपके पास बचाए गए परिवर्तन हैं। क्या आप वाकई इस पृष्ठ को छोड़ना चाहते हैं?",
     "PHOTOFROMFS_UNAUTHORIZED": "आपको 'फ़ाइल सिस्टम से फ़ोटो' प्रकार के लिंक बनाने या संपादित करने की अनुमति नहीं है। केवल अधिकृत उपयोगकर्ता ही इस प्रकार के लिंक बना या संपादित कर सकता है।",
     "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "त्रुटि: आपको 'फ़ाइल सिस्टम से फ़ोटो' प्रकार के लिंक के साथ इवेंट अपडेट करने की अनुमति नहीं है। केवल अधिकृत उपयोगकर्ता ही इस प्रकार के लिंक को संशोधित कर सकता है।",
-    "EVENT_UPDATE_UNAUTHORIZED": "आप इस गतिविधि को बदलने के लिए अधिकृत नहीं हैं। केवल स्वामी या व्यवस्थापक ही इसे बदल सकता है।"
+    "EVENT_UPDATE_UNAUTHORIZED": "आप इस गतिविधि को बदलने के लिए अधिकृत नहीं हैं। केवल स्वामी या व्यवस्थापक ही इसे बदल सकता है।",
+    "FRIEND_GROUP_UNAUTHORIZED": "आप चयनित मित्र समूहों के लिए इस गतिविधि को अपडेट करने के लिए अधिकृत नहीं हैं।"
   },
   "EVENTDEL": {
     "TITLEDELCONF": "गतिविधि हटाने की पुष्टि :",
@@ -2530,7 +2584,8 @@
     "NEXT_PAGE": "अगला पृष्ठ",
     "EXPAND": "विस्तार करें",
     "COLLAPSE": "संकुचित करें",
-    "OPTIONS": "विकल्प"
+    "OPTIONS": "विकल्प",
+    "ERROR": "त्रुटि"
   },
   "RESULTS": {
     "TITLE": "WhatsPat",
@@ -5377,7 +5432,8 @@
     "OPEN_VIDEOSHOW": "वीडियो दर्शक में खोलें",
     "ODS_WALL_TABLE_TITLE": "Calc तालिकाएँ (.ods)",
     "ODS_TABLE_DOWNLOAD": "तालिका डाउनलोड करें",
-    "LINK_ACTION_OPEN_ODS": "Calc संपादक में खोलें"
+    "LINK_ACTION_OPEN_ODS": "Calc संपादक में खोलें",
+    "YOUTUBE_BADGE": "YouTube"
   },
   "NEWS": {
     "PAGE_TITLE": "समाचार",
@@ -6024,7 +6080,18 @@
     "ERR_RECORD_UNAVAILABLE": "यह ब्राउज़र रिकॉर्डिंग का समर्थन नहीं करता (MediaRecorder आवश्यक)।",
     "ERR_RECORD_LIMIT": "एक रिकॉर्डिंग पहले से चल रही है।",
     "ERR_RECORD_NEED_PLAY": "रिकॉर्ड करने से पहले चैनल चलाएँ।",
-    "ERR_RECORD_TOO_LARGE": "रिकॉर्डिंग फ़ाइल बहुत बड़ी है।"
+    "ERR_RECORD_TOO_LARGE": "रिकॉर्डिंग फ़ाइल बहुत बड़ी है।",
+    "ARTE_COUNT": "{{count}} कार्यक्रम",
+    "ARTE_PAGE": "पृष्ठ {{page}} / {{pages}}",
+    "EPG_BROWSER_OPEN": "कार्यक्रम",
+    "IA_PAGE": "पृष्ठ {{page}} / {{pages}}",
+    "LIST_PAGE": "पृष्ठ {{page}} / {{pages}}",
+    "SHARE_SOURCE_ARTE": "ARTE Replay",
+    "SHARE_SOURCE_IA": "Archive.org",
+    "SKIN_GROUP_SCENE": "दृश्य",
+    "TAB_ARTE": "ARTE Replay",
+    "TAB_IA": "Archive.org",
+    "VOLUME": "ध्वनि"
   },
   "DEEZER": {
     "TITLE": "Deezer",
@@ -6380,7 +6447,9 @@
     "GLOBAL_FILTER_APPLY": "लागू करें",
     "GLOBAL_FILTER_CLEAR": "मिटाएँ",
     "GLOBAL_FILTER_STATION_HINT": "स्टेशन नाम (या शैली) से खोज। «सभी देश» मोड में कम से कम 2 अक्षर।",
-    "NOW_TRACK": "अभी चल रहा है"
+    "NOW_TRACK": "अभी चल रहा है",
+    "LIST_PAGE": "पृष्ठ {{page}} / {{pages}}",
+    "SKIN_GROUP_SCENE": "दृश्य"
   },
   "ARCHIVE": {
     "TITLE": "Internet Archive",
@@ -7149,7 +7218,8 @@
     "OFFLINE_MAP_OPEN": "टाइल लोड करें",
     "OFFLINE_MAP_SHARED": "इस डिवाइस पर एक ही भंडार, ट्रेस व्यूअर, GPS, मार्ग और GPX साझा करते हैं।",
     "OFFLINE_MAP_WINDOW": "विंडो {{south}} → {{north}}, {{west}} → {{east}}",
-    "OFFLINE_MAP_ZOOMS": "ज़ूम {{current}} से {{max}}"
+    "OFFLINE_MAP_ZOOMS": "ज़ूम {{current}} से {{max}}",
+    "OFFLINE_MAP_BTN_SHORT": "HL"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "पता खोज विफल रही।",

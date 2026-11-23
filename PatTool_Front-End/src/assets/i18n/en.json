@@ -3339,7 +3339,10 @@
     "PDF_CONVERTER_OPEN": "Open in PDF editor",
     "OPEN_AGENDA": "Open agenda",
     "SHARE_MAIL_PATTOOL_FRIENDS": "PatTool friends",
-    "SHARE_MAIL_FRIENDS_ONLY": "Sharing is only possible with your PatTool friends."
+    "SHARE_MAIL_FRIENDS_ONLY": "Sharing is only possible with your PatTool friends.",
+    "CONFIRM": "Confirm",
+    "VIDEO_COMPRESSION_TITLE": "Video compression",
+    "VIDEO_COMPRESSION_MESSAGE": "{{count}} video(s) detected. Choose the compression quality:"
   },
   "EVENTCREATION": {
     "TITLE": "Activity Creation",
@@ -3438,7 +3441,8 @@
     "UNSAVED_CHANGES_CONFIRM": "You have unsaved changes. Are you sure you want to leave this page?",
     "PHOTOFROMFS_UNAUTHORIZED": "You are not authorized to create or edit links of type 'Photo from File System'. Only the authorized user can create or edit this type of link.",
     "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "Error: You are not authorized to update events with links of type 'Photo from File System'. Only the authorized user can modify this type of link.",
-    "EVENT_UPDATE_UNAUTHORIZED": "You are not authorized to update this event. Only the owner or an administrator can modify it."
+    "EVENT_UPDATE_UNAUTHORIZED": "You are not authorized to update this event. Only the owner or an administrator can modify it.",
+    "FRIEND_GROUP_UNAUTHORIZED": "You are not authorized to update this event for the selected friend groups."
   },
   "EVENTDEL": {
     "TITLEDELCONF": "Activity deletion Confirmation :",
@@ -3493,7 +3497,8 @@
     "PREVIOUS_PAGE": "Previous page",
     "NEXT_PAGE": "Next page",
     "EXPAND": "Expand",
-    "COLLAPSE": "Collapse"
+    "COLLAPSE": "Collapse",
+    "ERROR": "Error"
   },
   "RESULTS": {
     "TITLE": "WhatsPat",

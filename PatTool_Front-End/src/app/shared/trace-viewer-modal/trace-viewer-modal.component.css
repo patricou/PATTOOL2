@@ -2199,6 +2199,17 @@
 	border-top: 0;
 }
 
+/* Plein écran mobile : la barre de boutons occupe le bas de la carte. */
+@media (max-width: 768px), (orientation: landscape) and (max-height: 500px) {
+	.trace-viewer-body.fullscreen .tv-map-scale {
+		bottom: calc(28px + 2.5rem + 8px);
+	}
+
+	.trace-viewer-body.fullscreen .map-has-blend-dock .tv-map-scale {
+		bottom: calc(6px + 2.25rem + 8px + 2.5rem + 8px);
+	}
+}
+
 .tv-poi-photo {
 	position: absolute;
 	right: 12px;
@@ -2624,7 +2635,7 @@
 	width: 1.15rem;
 	height: 1.15rem;
 	border-radius: 3px;
-	background: linear-gradient(90deg, #5b2cff, #245bff, #00b4ff, #2ecc71, #f1c40f, #e67e22, #e10600);
+	background: linear-gradient(90deg, #5b2cff, #3329ff, #2642ff, #2063ff, #1283ff, #04a8ff, #06cef8, #10eeed, #19e3c0, #22d999, #2bcf79, #2ccf5d, #28d33e, #2ed725, #4bdb21, #6bdf1e, #8ee31b, #b3e717, #dbeb14, #efd911, #eeb213, #e98e1e, #eb6615, #e7360a, #e10600);
 	box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.28);
 }
 
@@ -2649,11 +2660,21 @@
 	white-space: nowrap;
 }
 
-.tv-elev-legend-bar {
-	width: 9rem;
+.tv-elev-legend-scale {
+	display: flex;
+	align-items: center;
+	width: 12rem;
+	gap: 0.3rem;
+}
+
+.tv-elev-legend-mid {
+	flex: 0 0 auto;
+}
+
+.tv-elev-legend-seg {
+	min-width: 1.4rem;
 	height: 0.7rem;
 	border-radius: 999px;
-	background: linear-gradient(90deg, #5b2cff, #245bff, #00b4ff, #2ecc71, #f1c40f, #e67e22, #e10600);
 	box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.2);
 }
 

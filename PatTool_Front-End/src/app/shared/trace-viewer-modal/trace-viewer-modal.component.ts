@@ -32,7 +32,7 @@ import { offlineTraceIdForWall, OfflineTraceSummary, OfflineTracesStore } from '
 import { viewWindowFromMap } from '../../gps-track/gps-offline-tiles.util';
 import { cachedBasemapTileUrl, createOfflineBasemapLayer } from '../leaflet-cached-tile.layer';
 import { createVectorBasemapLayer, maptoolkitStyleForBasemap, vectorStyleForBasemap, applyGlLayerOpacity, FlatMaptoolkitBlend } from '../maptoolkit-basemap.layer';
-import { MaptoolkitTerrainView, ReliefAttraction, ReliefPlaceMark, ReliefTrace, ReliefTrailOverlays, leafletZoomToMaplibre, maplibreZoomToLeaflet } from '../maptoolkit-terrain-view';
+import { DEPTH_GRAY_CSS, ELEVATION_RAINBOW_CSS, MaptoolkitTerrainView, ReliefAttraction, ReliefPlaceMark, ReliefTrace, ReliefTrailOverlays, leafletZoomToMaplibre, maplibreZoomToLeaflet } from '../maptoolkit-terrain-view';
 import { EquirectView } from '../equirect-view';
 import { applyMultiplicativeWheelScale, normalizeWheelDeltaPixels, wheelScaleFactor } from '../wheel-zoom.util';
 import { findSkinnedPageHost, paintModalFromHost } from '../host-skin';
@@ -629,6 +629,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Colore le relief du violet au rouge selon l’altitude visible. */
 	public elevationColors = false;
 	public elevationSpan: { min: number; max: number } | null = null;
+	public depthSpan: { deep: number; shallow: number } | null = null;
+	readonly elevationRainbowCss = ELEVATION_RAINBOW_CSS;
+	readonly depthGrayCss = DEPTH_GRAY_CSS;
 	/** Camera tilt in degrees, 0 = straight down, same frame as the flat map. */
 	public reliefPitch = 0;
 	/**
@@ -5676,6 +5679,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.elevationColors = !this.elevationColors;
 		if (!this.elevationColors) {
 			this.elevationSpan = null;
+			this.depthSpan = null;
 		}
 		this.terrainView?.setElevationColors(this.elevationColors && this.relief3d);
 		this.scheduleTraceViewerCdr();
@@ -5702,6 +5706,71 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.elevationSpan = next;
 				this.cdr.markForCheck();
 			}, 0);
+		});
+	}
+
+	/** L’arc-en-ciel d’altitude est inutile quand l’écran ne montre que la mer. */
+	get showLandLegend(): boolean {
+		const span = this.elevationSpan;
+		if (!span) {
+			return false;
+		}
+		if (!this.depthSpan) {
+			return true;
+		}
+		return span.max - span.min >= 30;
+	}
+
+	get legendLeft(): number | null {
+		if (this.depthSpan) {
+			return this.depthSpan.deep;
+		}
+		return this.showLandLegend ? this.elevationSpan?.min ?? null : null;
+	}
+
+	/** Altitude où l’arc-en-ciel commence, entre le gris du fond et les couleurs. */
+	get legendMid(): number | null {
+		if (!this.depthSpan || !this.showLandLegend) {
+			return null;
+		}
+		return this.elevationSpan?.min ?? null;
+	}
+
+	get legendRight(): number | null {
+		if (this.showLandLegend && this.elevationSpan) {
+			return this.elevationSpan.max;
+		}
+		return this.depthSpan?.shallow ?? null;
+	}
+
+	get depthLegendFlex(): number {
+		const depth = this.depthSpan;
+		if (!depth) {
+			return 0;
+		}
+		return Math.max(1, depth.shallow - depth.deep);
+	}
+
+	get landLegendFlex(): number {
+		const span = this.elevationSpan;
+		if (!this.showLandLegend || !span) {
+			return 0;
+		}
+		return Math.max(1, span.max - span.min);
+	}
+
+	private noteDepthRange(range: { deep: number; shallow: number } | null): void {
+		const next = range
+			? { deep: Math.round(range.deep), shallow: Math.round(range.shallow) }
+			: null;
+		this.ngZone.run(() => {
+			const visible = next && next.deep < next.shallow ? next : null;
+			const same = this.depthSpan?.deep === visible?.deep && this.depthSpan?.shallow === visible?.shallow;
+			if (same) {
+				return;
+			}
+			this.depthSpan = visible;
+			this.cdr.markForCheck();
 		});
 	}
 
@@ -5938,6 +6007,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.scheduleMapScale();
 			},
 			onElevationRange: (range) => this.noteElevationRange(range),
+			onDepthRange: (range) => this.noteDepthRange(range),
 			onAttraction: (poi) => {
 				this.ngZone.run(() => this.showReliefAttraction(poi));
 			},
@@ -6847,6 +6917,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		if (!this.relief3d) {
 			this.elevationSpan = null;
+			this.depthSpan = null;
 		}
 		this.cdr.markForCheck();
 	}

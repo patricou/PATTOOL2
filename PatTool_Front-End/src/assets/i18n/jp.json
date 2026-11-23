@@ -1141,7 +1141,48 @@
     "HOMETITLE": "プライベートサイト",
     "HOMESUBTITLE": "©PatrickDeschamps",
     "SECTION2TITLE": " ホームページ、セクション2（fr）。",
-    "SECTION3TITLE": " ホームページ、セクション3（fr）。"
+    "SECTION3TITLE": " ホームページ、セクション3（fr）。",
+    "DASHBOARD": {
+      "TITLE": "ホーム",
+      "REFRESH": "更新",
+      "LOADING": "読み込み中…",
+      "UNAVAILABLE": "現在利用できません",
+      "WEATHER": "天気",
+      "WEATHER_EMPTY": "位置情報を取得できません",
+      "FEELS": "体感 {{temp}}",
+      "HUMIDITY": "湿度 {{value}}%",
+      "SUNRISE": "日の出 {{time}}",
+      "SUNSET": "日の入り {{time}}",
+      "ALT_YOU": "あなた {{alt}}",
+      "ALT_STATION": "観測点 {{alt}}",
+      "AGENDA": "予定",
+      "AGENDA_EMPTY": "これからの予定はありません",
+      "ACTIVITIES": "今後のアクティビティ",
+      "DAYS_LEFT": "{{count}} 日",
+      "DAYS_LEFT_ONE": "1 日",
+      "DAYS_TODAY": "今日",
+      "DAYS_ONGOING": "進行中",
+      "APPOINTMENTS": "今後の予定",
+      "TASK_ASSIGNEE": "担当",
+      "TASK_OWNER": "所有者",
+      "AGENDA_MORE": "ほか {{count}} 件",
+      "TASKS": "タスク",
+      "TASKS_EMPTY": "未完了のタスクはありません",
+      "OVERDUE": "期限超過",
+      "PLAYING": "再生中",
+      "PLAYING_EMPTY": "再生中のものはありません",
+      "SOURCE_DEEZER": "Deezer",
+      "SOURCE_RADIO": "Radio",
+      "SOURCE_YOUTUBE": "YouTube",
+      "SOURCE_TV": "TV",
+      "OPEN_DEEZER": "Deezer を開く",
+      "OPEN_RADIO": "ラジオを開く",
+      "OPEN_TV": "テレビを開く",
+      "NEWS": "ニュース",
+      "NEWS_EMPTY": "見出しはありません",
+      "SCROLL": "ページをスクロール",
+      "NOTES": "メモ"
+    }
   },
   "LINKS": {
     "TITLE": "リンク",
@@ -1722,14 +1763,14 @@
     "POI_PHOTO_SOURCE_FLICKR": "Flickr",
     "POI_PHOTO_SOURCE_OPENVERSE": "Openverse",
     "POI_PHOTO_SOURCE_UNSPLASH": "Unsplash",
-    "POI_PHOTO_SAVE": "Save to an activity",
-    "POI_PHOTO_SAVE_PICK": "Choose an activity",
-    "POI_PHOTO_SAVE_LOADING": "Saving…",
-    "POI_PHOTO_SAVED": "Photo saved",
-    "POI_PHOTO_SAVE_ERROR": "Could not save the photo",
-    "POI_PHOTO_SAVE_EMPTY": "No activity",
-    "POI_PHOTO_SAVE_FILTER": "Filter",
-    "POI_PHOTO_SAVE_NONE": "No matching activity",
+    "POI_PHOTO_SAVE": "アクティビティに保存",
+    "POI_PHOTO_SAVE_PICK": "アクティビティを選ぶ",
+    "POI_PHOTO_SAVE_LOADING": "保存中…",
+    "POI_PHOTO_SAVED": "写真を保存しました",
+    "POI_PHOTO_SAVE_ERROR": "写真を保存できませんでした",
+    "POI_PHOTO_SAVE_EMPTY": "アクティビティがありません",
+    "POI_PHOTO_SAVE_FILTER": "絞り込み",
+    "POI_PHOTO_SAVE_NONE": "一致するアクティビティがありません",
     "POI_PHOTO_SOURCE_MAPILLARY": "Mapillary",
     "POI_PHOTO_SOURCE_PANORAMAX": "Panoramax",
     "POI_PHOTO_SOURCE_OSM": "OpenStreetMap",
@@ -1934,7 +1975,19 @@
     "TRACK_FOOTER_ADDR_SHORT": "住所",
     "TRACK_FOOTER_HIKING_SHORT": "徒歩",
     "TRACK_FOOTER_CYCLING_SHORT": "自転車",
-    "TRACK_FOOTER_FOLLOW_SHORT": "追従"
+    "TRACK_FOOTER_FOLLOW_SHORT": "追従",
+    "CONFIRM": "確認",
+    "VIDEO_COMPRESSION_TITLE": "動画の圧縮",
+    "VIDEO_COMPRESSION_MESSAGE": "{{count}} 本の動画が見つかりました。圧縮品質を選んでください：",
+    "POI_PHOTO_COVER_MAP": "地図の上に拡大",
+    "TRACK_BASEMAP_SECOND": "2つ目の背景地図",
+    "TRACK_BASEMAP_NONE": "なし",
+    "TRACK_BASEMAP_BLEND": "透明度：左が1つ目の背景地図、右が2つ目",
+    "TRACK_RELIEF_PITCH": "傾き",
+    "TRACK_RELIEF_TILT_FOLLOW": "スマホで地図を傾ける",
+    "TRACK_RELIEF_3D_HINT": "Maptoolkit のハイキングとスキー用地図の傾きと地形。軌跡と GPS 地点は地形の上に載ります。スマホでは、1本指で移動、ピンチでズーム、2本指を上に動かすと傾きます。ダブルタップで拡大。Ctrl を押しながらドラッグすると、横で回転、上で傾きます。",
+    "TRACK_RELIEF_TILT_FOLLOW_HINT": "北をオンにした3Dでは、スマホの傾きが地図を傾けます",
+    "TRACK_RELIEF_TILT_FOLLOW_NEED_NORTH": "スマホで地図を傾けるには北をオンにしてください"
   },
   "EVENTCREATION": {
     "TITLE": "活動の作成",
@@ -2033,7 +2086,8 @@
     "UNSAVED_CHANGES_CONFIRM": "保存されていない変更があります。このページを離れてもよろしいですか？",
     "PHOTOFROMFS_UNAUTHORIZED": "「ファイルシステムからの写真」タイプのリンクを作成または編集する権限がありません。承認されたユーザーのみがこのタイプのリンクを作成または編集できます。",
     "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "エラー：「ファイルシステムからの写真」タイプのリンクを含むイベントを更新する権限がありません。承認されたユーザーのみがこのタイプのリンクを変更できます。",
-    "EVENT_UPDATE_UNAUTHORIZED": "この活動を変更する権限がありません。所有者または管理者だけが変更できます。"
+    "EVENT_UPDATE_UNAUTHORIZED": "この活動を変更する権限がありません。所有者または管理者だけが変更できます。",
+    "FRIEND_GROUP_UNAUTHORIZED": "選択した友達グループについて、このアクティビティを更新する権限がありません。"
   },
   "EVENTDEL": {
     "TITLEDELCONF": "活動の削除の確認：",
@@ -2088,7 +2142,8 @@
     "NEXT_PAGE": "次のページ",
     "EXPAND": "展開",
     "COLLAPSE": "折りたたむ",
-    "OPTIONS": "オプション"
+    "OPTIONS": "オプション",
+    "ERROR": "エラー"
   },
   "RESULTS": {
     "TITLE": "WhatsPat",
@@ -5403,7 +5458,8 @@
     "OPEN_VIDEOSHOW": "動画ビューアーで開く",
     "ODS_WALL_TABLE_TITLE": "Calc 表計算（.ods）",
     "ODS_TABLE_DOWNLOAD": "表計算をダウンロード",
-    "LINK_ACTION_OPEN_ODS": "Calc エディターで開く"
+    "LINK_ACTION_OPEN_ODS": "Calc エディターで開く",
+    "YOUTUBE_BADGE": "YouTube"
   },
   "NEWS": {
     "PAGE_TITLE": "ニュース",
@@ -6050,7 +6106,18 @@
     "ERR_RECORD_UNAVAILABLE": "このブラウザーは録画に対応していません（MediaRecorder が必要です）。",
     "ERR_RECORD_LIMIT": "録画はすでに進行中です。",
     "ERR_RECORD_NEED_PLAY": "録画する前に、まずチャンネルを再生してください。",
-    "ERR_RECORD_TOO_LARGE": "録画ファイルが大きすぎます。"
+    "ERR_RECORD_TOO_LARGE": "録画ファイルが大きすぎます。",
+    "ARTE_COUNT": "番組 {{count}} 件",
+    "ARTE_PAGE": "{{page}} / {{pages}} ページ",
+    "EPG_BROWSER_OPEN": "番組",
+    "IA_PAGE": "{{page}} / {{pages}} ページ",
+    "LIST_PAGE": "{{page}} / {{pages}} ページ",
+    "SHARE_SOURCE_ARTE": "ARTE Replay",
+    "SHARE_SOURCE_IA": "Archive.org",
+    "SKIN_GROUP_SCENE": "シーン",
+    "TAB_ARTE": "ARTE Replay",
+    "TAB_IA": "Archive.org",
+    "VOLUME": "音量"
   },
   "DEEZER": {
     "TITLE": "Deezer",
@@ -6406,7 +6473,9 @@
     "GLOBAL_FILTER_APPLY": "適用",
     "GLOBAL_FILTER_CLEAR": "消去",
     "GLOBAL_FILTER_STATION_HINT": "局名（またはジャンル）で検索。「すべての国」モードでは 2 文字以上。",
-    "NOW_TRACK": "再生中の曲"
+    "NOW_TRACK": "再生中の曲",
+    "LIST_PAGE": "{{page}} / {{pages}} ページ",
+    "SKIN_GROUP_SCENE": "シーン"
   },
   "ARCHIVE": {
     "TITLE": "Internet Archive",
@@ -7175,7 +7244,8 @@
     "OFFLINE_MAP_OPEN": "タイルを読み込む",
     "OFFLINE_MAP_SHARED": "この端末の保存は一つ。トレースビューア、GPS、ルート、GPXで共有します。",
     "OFFLINE_MAP_WINDOW": "範囲 {{south}} → {{north}}, {{west}} → {{east}}",
-    "OFFLINE_MAP_ZOOMS": "ズーム {{current}} から {{max}}"
+    "OFFLINE_MAP_ZOOMS": "ズーム {{current}} から {{max}}",
+    "OFFLINE_MAP_BTN_SHORT": "HL"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "住所の検索に失敗しました。",

@@ -1141,7 +1141,48 @@
     "HOMETITLE": "私人网站",
     "HOMESUBTITLE": "©PatrickDeschamps",
     "SECTION2TITLE": " 主页，第2部分 (法语).",
-    "SECTION3TITLE": " 主页，第3部分 (法语)."
+    "SECTION3TITLE": " 主页，第3部分 (法语).",
+    "DASHBOARD": {
+      "TITLE": "首页",
+      "REFRESH": "刷新",
+      "LOADING": "加载中…",
+      "UNAVAILABLE": "暂时不可用",
+      "WEATHER": "天气",
+      "WEATHER_EMPTY": "无法获取位置",
+      "FEELS": "体感 {{temp}}",
+      "HUMIDITY": "湿度 {{value}}%",
+      "SUNRISE": "日出 {{time}}",
+      "SUNSET": "日落 {{time}}",
+      "ALT_YOU": "您 {{alt}}",
+      "ALT_STATION": "站点 {{alt}}",
+      "AGENDA": "日程",
+      "AGENDA_EMPTY": "暂无即将到来的事项",
+      "ACTIVITIES": "即将到来的活动",
+      "DAYS_LEFT": "{{count}} 天",
+      "DAYS_LEFT_ONE": "1 天",
+      "DAYS_TODAY": "今天",
+      "DAYS_ONGOING": "进行中",
+      "APPOINTMENTS": "即将到来的约会",
+      "TASK_ASSIGNEE": "指派给",
+      "TASK_OWNER": "所有者",
+      "AGENDA_MORE": "还有 {{count}} 项",
+      "TASKS": "任务",
+      "TASKS_EMPTY": "没有未完成的任务",
+      "OVERDUE": "已逾期",
+      "PLAYING": "正在播放",
+      "PLAYING_EMPTY": "当前没有播放",
+      "SOURCE_DEEZER": "Deezer",
+      "SOURCE_RADIO": "Radio",
+      "SOURCE_YOUTUBE": "YouTube",
+      "SOURCE_TV": "TV",
+      "OPEN_DEEZER": "打开 Deezer",
+      "OPEN_RADIO": "打开电台",
+      "OPEN_TV": "打开电视",
+      "NEWS": "新闻",
+      "NEWS_EMPTY": "没有标题",
+      "SCROLL": "滚动页面",
+      "NOTES": "笔记"
+    }
   },
   "LINKS": {
     "TITLE": "链接",
@@ -2188,14 +2229,14 @@
     "POI_PHOTO_SOURCE_FLICKR": "Flickr",
     "POI_PHOTO_SOURCE_OPENVERSE": "Openverse",
     "POI_PHOTO_SOURCE_UNSPLASH": "Unsplash",
-    "POI_PHOTO_SAVE": "Save to an activity",
-    "POI_PHOTO_SAVE_PICK": "Choose an activity",
-    "POI_PHOTO_SAVE_LOADING": "Saving…",
-    "POI_PHOTO_SAVED": "Photo saved",
-    "POI_PHOTO_SAVE_ERROR": "Could not save the photo",
-    "POI_PHOTO_SAVE_EMPTY": "No activity",
-    "POI_PHOTO_SAVE_FILTER": "Filter",
-    "POI_PHOTO_SAVE_NONE": "No matching activity",
+    "POI_PHOTO_SAVE": "保存到活动",
+    "POI_PHOTO_SAVE_PICK": "选择一个活动",
+    "POI_PHOTO_SAVE_LOADING": "正在保存…",
+    "POI_PHOTO_SAVED": "照片已保存",
+    "POI_PHOTO_SAVE_ERROR": "无法保存照片",
+    "POI_PHOTO_SAVE_EMPTY": "没有活动",
+    "POI_PHOTO_SAVE_FILTER": "筛选",
+    "POI_PHOTO_SAVE_NONE": "没有匹配的活动",
     "POI_PHOTO_SOURCE_MAPILLARY": "Mapillary",
     "POI_PHOTO_SOURCE_PANORAMAX": "Panoramax",
     "POI_PHOTO_SOURCE_OSM": "OpenStreetMap",
@@ -2400,7 +2441,19 @@
     "TRACK_FOOTER_ADDR_SHORT": "地址",
     "TRACK_FOOTER_HIKING_SHORT": "徒步",
     "TRACK_FOOTER_CYCLING_SHORT": "骑行",
-    "TRACK_FOOTER_FOLLOW_SHORT": "跟随"
+    "TRACK_FOOTER_FOLLOW_SHORT": "跟随",
+    "CONFIRM": "确认",
+    "VIDEO_COMPRESSION_TITLE": "视频压缩",
+    "VIDEO_COMPRESSION_MESSAGE": "检测到 {{count}} 个视频。请选择压缩质量：",
+    "POI_PHOTO_COVER_MAP": "在地图上放大",
+    "TRACK_BASEMAP_SECOND": "第二底图",
+    "TRACK_BASEMAP_NONE": "无",
+    "TRACK_BASEMAP_BLEND": "透明度：左为第一底图，右为第二底图",
+    "TRACK_RELIEF_PITCH": "倾斜",
+    "TRACK_RELIEF_TILT_FOLLOW": "用手机倾斜地图",
+    "TRACK_RELIEF_3D_HINT": "Maptoolkit 徒步与滑雪地图的倾斜与地形。轨迹和 GPS 点贴在地形上。手机上：单指平移，双指缩放，两指上移倾斜。双击放大。按住 Ctrl 拖动：左右旋转，向上倾斜。",
+    "TRACK_RELIEF_TILT_FOLLOW_HINT": "开启北方的 3D 下，手机的倾斜会带动地图倾斜",
+    "TRACK_RELIEF_TILT_FOLLOW_NEED_NORTH": "打开北方后才能用手机倾斜地图"
   },
   "EVENTCREATION": {
     "TITLE": "创建活动",
@@ -2499,7 +2552,8 @@
     "UNSAVED_CHANGES_CONFIRM": "您有未保存的更改。您确定要离开此页面吗？",
     "PHOTOFROMFS_UNAUTHORIZED": "您无权创建或编辑类型为'来自文件系统的照片'的链接。只有授权用户可以创建或编辑此类链接。",
     "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "错误：您无权更新带有'来自文件系统的照片'类型链接的活动。只有授权用户可以修改此类链接。",
-    "EVENT_UPDATE_UNAUTHORIZED": "您无权修改此活动。只有所有者或管理员可以修改。"
+    "EVENT_UPDATE_UNAUTHORIZED": "您无权修改此活动。只有所有者或管理员可以修改。",
+    "FRIEND_GROUP_UNAUTHORIZED": "您无权为所选好友群组更新此活动。"
   },
   "EVENTDEL": {
     "TITLEDELCONF": "确认删除活动：",
@@ -2554,7 +2608,8 @@
     "NEXT_PAGE": "下一页",
     "EXPAND": "展开",
     "COLLAPSE": "折叠",
-    "OPTIONS": "选项"
+    "OPTIONS": "选项",
+    "ERROR": "错误"
   },
   "RESULTS": {
     "TITLE": "WhatsPat",
@@ -5379,7 +5434,8 @@
     "OPEN_VIDEOSHOW": "在视频查看器中打开",
     "ODS_WALL_TABLE_TITLE": "Calc 表格（.ods）",
     "ODS_TABLE_DOWNLOAD": "下载表格",
-    "LINK_ACTION_OPEN_ODS": "在 Calc 编辑器中打开"
+    "LINK_ACTION_OPEN_ODS": "在 Calc 编辑器中打开",
+    "YOUTUBE_BADGE": "YouTube"
   },
   "NEWS": {
     "PAGE_TITLE": "新闻",
@@ -6026,7 +6082,18 @@
     "ERR_RECORD_UNAVAILABLE": "此浏览器不支持录制（需要 MediaRecorder）。",
     "ERR_RECORD_LIMIT": "已有一个录制正在进行。",
     "ERR_RECORD_NEED_PLAY": "请先播放频道，然后再录制。",
-    "ERR_RECORD_TOO_LARGE": "录制文件过大。"
+    "ERR_RECORD_TOO_LARGE": "录制文件过大。",
+    "ARTE_COUNT": "{{count}} 个节目",
+    "ARTE_PAGE": "第 {{page}} / {{pages}} 页",
+    "EPG_BROWSER_OPEN": "节目",
+    "IA_PAGE": "第 {{page}} / {{pages}} 页",
+    "LIST_PAGE": "第 {{page}} / {{pages}} 页",
+    "SHARE_SOURCE_ARTE": "ARTE Replay",
+    "SHARE_SOURCE_IA": "Archive.org",
+    "SKIN_GROUP_SCENE": "场景",
+    "TAB_ARTE": "ARTE Replay",
+    "TAB_IA": "Archive.org",
+    "VOLUME": "音量"
   },
   "DEEZER": {
     "TITLE": "Deezer",
@@ -6382,7 +6449,9 @@
     "GLOBAL_FILTER_APPLY": "应用",
     "GLOBAL_FILTER_CLEAR": "清除",
     "GLOBAL_FILTER_STATION_HINT": "按电台名称（或类型）搜索。在“所有国家”模式下至少 2 个字符。",
-    "NOW_TRACK": "正在播放"
+    "NOW_TRACK": "正在播放",
+    "LIST_PAGE": "第 {{page}} / {{pages}} 页",
+    "SKIN_GROUP_SCENE": "场景"
   },
   "ARCHIVE": {
     "TITLE": "Internet Archive",
@@ -7151,7 +7220,8 @@
     "OFFLINE_MAP_OPEN": "下载图块",
     "OFFLINE_MAP_SHARED": "本机只有一份库存，轨迹查看器、GPS、路线和 GPX 共用。",
     "OFFLINE_MAP_WINDOW": "窗口 {{south}} → {{north}}, {{west}} → {{east}}",
-    "OFFLINE_MAP_ZOOMS": "缩放 {{current}} 至 {{max}}"
+    "OFFLINE_MAP_ZOOMS": "缩放 {{current}} 至 {{max}}",
+    "OFFLINE_MAP_BTN_SHORT": "HL"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "地址搜索失败。",

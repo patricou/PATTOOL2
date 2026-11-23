@@ -1,6 +1,6 @@
 import { LngLat, Map as MlMap, MercatorCoordinate, NavigationControl, type GeoJSONSource, type StyleSpecification } from 'maplibre-gl';
 import { cachedBasemapTileUrl } from './leaflet-cached-tile.layer';
-import { ensureMaplibreWorker, ignoreMissingStyleIcons } from './maptoolkit-basemap.layer';
+import { ensureMaplibreWorker, ignoreMissingStyleIcons, maptoolkitTransformRequest, whenMaptoolkitReady } from './maptoolkit-basemap.layer';
 import type { WeatherStationReliefLabel } from './weather-station-map.util';
 
 /** DEM already declared in the Maptoolkit styles, used by their hillshade. */
@@ -41,8 +41,212 @@ const TRAIL_RASTERS: { key: keyof ReliefTrailOverlays; id: string; tiles: string
 	{ key: 'railway', id: 'relief-railway', tiles: cachedBasemapTileUrl('openrailwaymap') }
 ];
 const ELEVATION_COLOR_LAYER = 'relief-elevation-colors';
-/** Du violet (bas) au rouge (haut). */
-const ELEVATION_RAINBOW = ['#5b2cff', '#245bff', '#00b4ff', '#2ecc71', '#f1c40f', '#e67e22', '#e10600'];
+const WATER_SILVER_LAYER = 'relief-water-silver';
+const WATER_GLINT_LAYER = 'relief-water-glint';
+const WATER_SEA_GLINT_LAYER = 'relief-water-sea-glint';
+/** Argent clair quand la profondeur est inconnue. Le fond mesuré suit un gris proportionnel. */
+const WATER_SILVER = '#d5dce3';
+const WATER_SILVER_LINE = '#8d98a0';
+const WATER_SILVER_LABEL = '#3c4a54';
+const WATER_DEPTH_SOURCE = 'relief-water-depth-dem';
+const WATER_DEPTH_LAYER = 'relief-water-depth';
+/**
+ * Bathymétrie mondiale, lacs compris (Léman via swissBATHY3D).
+ * Une valeur négative est une profondeur en mètres. 0, 1 et 2 sont des codes (eau inconnue, estran, terre).
+ */
+const BATHYMETRY_TILES = 'https://tiles.openwaters.io/seascape/{z}/{x}/{y}.webp';
+const BATHYMETRY_STEPS = 49;
+
+/** t = 0 en surface (blanc), t = 1 au plus profond (gris foncé, pas noir). */
+function silverDepthColor(t: number): string {
+	const clamped = Math.min(1, Math.max(0, t));
+	const hex = Math.round((1 - clamped * 0.72) * 255).toString(16).padStart(2, '0');
+	return `#${hex}${hex}${hex}`;
+}
+
+/** Même échelle que le fond : gris foncé à gauche (profond), blanc à droite (surface). */
+export const DEPTH_GRAY_CSS = `linear-gradient(90deg, ${Array.from({ length: BATHYMETRY_STEPS }, (_, index) =>
+	silverDepthColor(1 - index / (BATHYMETRY_STEPS - 1))
+).join(', ')})`;
+
+/**
+ * Même écart de gris pour le même écart de mètres, entre le fond visible et la surface.
+ * L’altitude 0 reste transparente pour ne pas peindre la terre.
+ */
+function bathymetryGrayRamp(deep: number, shallow: number): unknown[] {
+	let floor = Math.min(deep, shallow);
+	let ceil = Math.min(-0.2, Math.max(deep, shallow));
+	if (floor > ceil - 1) {
+		floor = ceil - 1;
+	}
+	const ramp: unknown[] = ['interpolate', ['linear'], ['elevation']];
+	const span = ceil - floor;
+	for (let index = 0; index < BATHYMETRY_STEPS; index++) {
+		const t = index / (BATHYMETRY_STEPS - 1);
+		ramp.push(floor + span * t, silverDepthColor(1 - t));
+	}
+	ramp.push(0, 'rgba(0,0,0,0)');
+	return ramp;
+}
+/**
+ * Violet (bas) → rouge (haut). La teinte décroît de façon constante,
+ * donc le même écart d’altitude produit le même écart de couleur.
+ * Saturation et luminosité suivent les ancres d’origine le long de cette teinte.
+ */
+const ELEVATION_HUE_ANCHORS: { h: number; s: number; l: number }[] = [
+	{ h: 253.4, s: 1, l: 0.586 },
+	{ h: 224.9, s: 1, l: 0.571 },
+	{ h: 197.6, s: 1, l: 0.5 },
+	{ h: 145.4, s: 0.632, l: 0.49 },
+	{ h: 48.1, s: 0.89, l: 0.502 },
+	{ h: 28.2, s: 0.797, l: 0.518 },
+	{ h: 1.6, s: 1, l: 0.441 }
+];
+const ELEVATION_COLOR_STEPS = 25;
+
+function elevationRampColor(t: number): string {
+	const first = ELEVATION_HUE_ANCHORS[0];
+	const last = ELEVATION_HUE_ANCHORS[ELEVATION_HUE_ANCHORS.length - 1];
+	const hue = first.h + (last.h - first.h) * t;
+	let saturation = last.s;
+	let lightness = last.l;
+	for (let index = 0; index < ELEVATION_HUE_ANCHORS.length - 1; index++) {
+		const left = ELEVATION_HUE_ANCHORS[index];
+		const right = ELEVATION_HUE_ANCHORS[index + 1];
+		if (hue <= left.h && hue >= right.h) {
+			const blend = (left.h - hue) / (left.h - right.h);
+			saturation = left.s + (right.s - left.s) * blend;
+			lightness = left.l + (right.l - left.l) * blend;
+			break;
+		}
+	}
+	const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+	const sector = (((hue % 360) + 360) % 360) / 60;
+	const x = chroma * (1 - Math.abs((sector % 2) - 1));
+	let red = 0;
+	let green = 0;
+	let blue = 0;
+	if (sector < 1) {
+		red = chroma;
+		green = x;
+	} else if (sector < 2) {
+		red = x;
+		green = chroma;
+	} else if (sector < 3) {
+		green = chroma;
+		blue = x;
+	} else if (sector < 4) {
+		green = x;
+		blue = chroma;
+	} else if (sector < 5) {
+		red = x;
+		blue = chroma;
+	} else {
+		red = chroma;
+		blue = x;
+	}
+	const shift = lightness - chroma / 2;
+	const channel = (value: number) => Math.round((value + shift) * 255).toString(16).padStart(2, '0');
+	return `#${channel(red)}${channel(green)}${channel(blue)}`;
+}
+
+const ELEVATION_RAINBOW = Array.from({ length: ELEVATION_COLOR_STEPS }, (_, index) =>
+	elevationRampColor(index / (ELEVATION_COLOR_STEPS - 1))
+);
+/** Même rampe que le relief, pour la légende et le bouton. */
+export const ELEVATION_RAINBOW_CSS = `linear-gradient(90deg, ${ELEVATION_RAINBOW.join(', ')})`;
+
+function bathymetryTileAt(lng: number, lat: number, zoom: number): { z: number; x: number; y: number } {
+	const size = 2 ** zoom;
+	const x = Math.floor(((lng + 180) / 360) * size);
+	const latRad = (lat * Math.PI) / 180;
+	const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * size);
+	return {
+		z: zoom,
+		x: Math.min(size - 1, Math.max(0, x)),
+		y: Math.min(size - 1, Math.max(0, y))
+	};
+}
+
+/** Terrarium : la terre est masquée à 0, la mer est négative. */
+function terrariumSample(image: ImageData, lng: number, lat: number, tile: { z: number; x: number; y: number }): number | null {
+	const size = 2 ** tile.z;
+	const fx = ((lng + 180) / 360) * size;
+	const latRad = (lat * Math.PI) / 180;
+	const fy = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * size;
+	const px = Math.min(image.width - 1, Math.max(0, Math.floor((fx - tile.x) * image.width)));
+	const py = Math.min(image.height - 1, Math.max(0, Math.floor((fy - tile.y) * image.height)));
+	const index = (py * image.width + px) * 4;
+	if (image.data[index + 3] === 0) {
+		return null;
+	}
+	return image.data[index] * 256 + image.data[index + 1] + image.data[index + 2] / 256 - 32768;
+}
+
+function tilesCovering(
+	bounds: { getWest: () => number; getEast: () => number; getSouth: () => number; getNorth: () => number },
+	zoom: number
+): { z: number; x: number; y: number }[] {
+	const west = bounds.getWest();
+	const east = bounds.getEast();
+	const south = bounds.getSouth();
+	const north = bounds.getNorth();
+	if (east < west || north < south) {
+		return [];
+	}
+	const nw = bathymetryTileAt(west, north, zoom);
+	const se = bathymetryTileAt(east, south, zoom);
+	const tiles: { z: number; x: number; y: number }[] = [];
+	for (let x = nw.x; x <= se.x; x++) {
+		for (let y = nw.y; y <= se.y; y++) {
+			tiles.push({ z: zoom, x, y });
+		}
+	}
+	return tiles;
+}
+
+/** Min et max des profondeurs de la tuile qui tombent dans la vue. */
+function depthExtremes(
+	image: ImageData,
+	tile: { z: number; x: number; y: number },
+	bounds: { getWest: () => number; getEast: () => number; getSouth: () => number; getNorth: () => number }
+): { deep: number; shallow: number; count: number } | null {
+	const size = 2 ** tile.z;
+	const west = bounds.getWest();
+	const east = bounds.getEast();
+	const south = bounds.getSouth();
+	const north = bounds.getNorth();
+	let deep = 0;
+	let shallow = -Infinity;
+	let count = 0;
+	const step = 4;
+	for (let py = 0; py < image.height; py += step) {
+		const fy = tile.y + (py + 0.5) / image.height;
+		const lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * fy / size))) * 180 / Math.PI;
+		if (lat < south || lat > north) {
+			continue;
+		}
+		for (let px = 0; px < image.width; px += step) {
+			const fx = tile.x + (px + 0.5) / image.width;
+			const lng = (fx / size) * 360 - 180;
+			if (lng < west || lng > east) {
+				continue;
+			}
+			const index = (py * image.width + px) * 4;
+			if (image.data[index + 3] === 0) {
+				continue;
+			}
+			const elevation = image.data[index] * 256 + image.data[index + 1] + image.data[index + 2] / 256 - 32768;
+			if (elevation >= -0.5) {
+				continue;
+			}
+			deep = Math.min(deep, elevation);
+			shallow = Math.max(shallow, elevation);
+			count += 1;
+		}
+	}
+	return count > 0 ? { deep, shallow, count } : null;
+}
 
 export interface ReliefTrailOverlays {
 	hiking: boolean;
@@ -82,6 +286,8 @@ export interface ReliefViewHooks {
 	onMoveEnd?: () => void;
 	/** Min/max altitude used by the rainbow tint, or null when the tint is off. */
 	onElevationRange?: (range: { min: number; max: number } | null) => void;
+	/** Visible water depth in meters (negative), or null when no measured depth is on screen. */
+	onDepthRange?: (range: { deep: number; shallow: number } | null) => void;
 	/** The pitched view has terrain and a stable camera. Safe to cover the flat map. */
 	onReady?: () => void;
 	/** Click on an attraction (camera icon), or null when the click missed one. */
@@ -166,6 +372,13 @@ export class MaptoolkitTerrainView {
 	private elevationColors = false;
 	private elevationTimer: number | null = null;
 	private elevationTries = 0;
+	/** Hillshade and terrain rasters slid under the tint, put back when the colors go off. */
+	private elevationTerrainMoves = new WeakMap<MlMap, { id: string; before: string | undefined }[]>();
+	/** Couleurs d’eau d’origine, remises quand le voile d’altitude s’éteint. */
+	private waterPaintRestore = new WeakMap<MlMap, { layerId: string; prop: string; value: unknown }[]>();
+	private bathymetryTiles = new Map<string, ImageData | null>();
+	private bathymetrySpan: { deep: number; shallow: number } | null = null;
+	private bathymetryToken = 0;
 	private fitRequested = false;
 	/** Center waiting for a terrain sample so the camera looks at the ground, not sea level. */
 	private pendingGround: { lng: number; lat: number } | null = null;
@@ -222,6 +435,7 @@ export class MaptoolkitTerrainView {
 		const map = new MlMap({
 			container: base,
 			style: { version: 8, sources: {}, layers: [] },
+			transformRequest: maptoolkitTransformRequest,
 			center: [view.lng, view.lat],
 			zoom: openingZoom,
 			pitch: openingPitch,
@@ -331,10 +545,12 @@ export class MaptoolkitTerrainView {
 			if (Object.keys(map.getStyle()?.sources ?? {}).length === 0) {
 				return;
 			}
+			this.elevationTerrainMoves.delete(map);
+			this.waterPaintRestore.delete(map);
 			this.applyStyleExtras(map);
 		};
-		map.setStyle(styleUrl, { diff: false, transformStyle: styleWithoutCamera });
 		map.on('style.load', boot);
+		this.applyActiveStyle(map, epoch);
 		map.on('moveend', () => {
 			if (this.map !== map) {
 				return;
@@ -436,6 +652,16 @@ export class MaptoolkitTerrainView {
 		this.revealTimer = window.setTimeout(() => this.revealBase(), 1600);
 	}
 
+	/** The style request waits until we know whether Maptoolkit answered or refused. */
+	private applyActiveStyle(map: MlMap, epoch: number): void {
+		void whenMaptoolkitReady().then(() => {
+			if (this.map !== map || epoch !== this.styleEpoch) {
+				return;
+			}
+			map.setStyle(this.activeStyle, { diff: false, transformStyle: styleWithoutCamera });
+		});
+	}
+
 	/** Swap the Maptoolkit style without resetting center, zoom, bearing or pitch. */
 	setStyle(styleUrl: string): void {
 		const map = this.map;
@@ -452,13 +678,25 @@ export class MaptoolkitTerrainView {
 		};
 		this.activeStyle = styleUrl;
 		const epoch = ++this.styleEpoch;
-		map.setStyle(styleUrl, { diff: false, transformStyle: styleWithoutCamera });
-		map.once('style.load', () => {
+		void whenMaptoolkitReady().then(() => {
 			if (this.map !== map || epoch !== this.styleEpoch) {
 				return;
 			}
-			this.applyStyleExtras(map);
+			map.setStyle(styleUrl, { diff: false, transformStyle: styleWithoutCamera });
 		});
+		const onStyle = (): void => {
+			if (this.map !== map || epoch !== this.styleEpoch) {
+				return;
+			}
+			if (Object.keys(map.getStyle()?.sources ?? {}).length === 0) {
+				map.once('style.load', onStyle);
+				return;
+			}
+			this.elevationTerrainMoves.delete(map);
+			this.waterPaintRestore.delete(map);
+			this.applyStyleExtras(map);
+		};
+		map.once('style.load', onStyle);
 	}
 
 	/**
@@ -1045,9 +1283,14 @@ export class MaptoolkitTerrainView {
 
 	private removeElevationColors(): void {
 		for (const map of [this.map, this.blendMap]) {
-			if (map?.getLayer(ELEVATION_COLOR_LAYER)) {
+			if (!map) {
+				continue;
+			}
+			if (map.getLayer(ELEVATION_COLOR_LAYER)) {
 				map.removeLayer(ELEVATION_COLOR_LAYER);
 			}
+			this.restoreElevationTerrain(map);
+			this.restoreWaterPaint(map);
 		}
 	}
 
@@ -1105,40 +1348,482 @@ export class MaptoolkitTerrainView {
 		if (!map?.getSource(TERRAIN_MESH_SOURCE)) {
 			return;
 		}
-		const span = range.max - range.min;
-		const ramp: unknown[] = ['interpolate', ['linear'], ['elevation']];
-		ELEVATION_RAINBOW.forEach((color, index) => {
-			const stop = range.min + span * (index / (ELEVATION_RAINBOW.length - 1));
-			ramp.push(stop, color);
-		});
-		const paint = ramp as never;
-		if (map.getLayer(ELEVATION_COLOR_LAYER)) {
+		const paint = this.elevationColorExpression(range) as never;
+		const before = this.elevationColorAnchor(map);
+		if (!map.getLayer(ELEVATION_COLOR_LAYER)) {
+			this.sinkTerrainUnderElevationColors(map, before);
+			map.addLayer({
+				id: ELEVATION_COLOR_LAYER,
+				type: 'color-relief',
+				source: TERRAIN_MESH_SOURCE,
+				paint: {
+					'color-relief-opacity': 0.72,
+					'color-relief-color': paint
+				}
+			}, before);
+		} else {
 			map.setPaintProperty(ELEVATION_COLOR_LAYER, 'color-relief-color', paint);
+			this.moveLayerBefore(map, ELEVATION_COLOR_LAYER, before, false);
+			this.sinkTerrainUnderElevationColors(map, ELEVATION_COLOR_LAYER);
+		}
+		this.paintWaterSilver(map);
+	}
+
+	/**
+	 * Au niveau de la mer et en dessous le voile est transparent :
+	 * l’océan garde l’argent posé sur les calques d’eau, sous la terre.
+	 */
+	private elevationColorExpression(range: { min: number; max: number }): unknown[] {
+		const ramp: unknown[] = ['interpolate', ['linear'], ['elevation']];
+		let low = range.min;
+		let high = range.max;
+		if (range.min <= 0.5) {
+			const floor = Math.min(range.min, 0);
+			ramp.push(floor, 'rgba(0,0,0,0)');
+			if (floor < 0) {
+				ramp.push(0, 'rgba(0,0,0,0)');
+			}
+			low = 0.5;
+			high = Math.max(range.max, low + 1);
+		}
+		const span = high - low;
+		ELEVATION_RAINBOW.forEach((color, index) => {
+			ramp.push(low + span * (index / (ELEVATION_RAINBOW.length - 1)), color);
+		});
+		return ramp;
+	}
+
+	/** Lacs, lagunes et océan en argent. Les noms restent lisibles. */
+	private paintWaterSilver(map: MlMap): void {
+		const layers = map.getStyle()?.layers ?? [];
+		if (!layers.some((layer) => layer.id === 'water_area_ocean' || layer.id === 'water_area_inland' || layer.id === 'water_bathymetry')) {
 			return;
 		}
-		const before = this.elevationColorAnchor(map);
-		map.addLayer({
-			id: ELEVATION_COLOR_LAYER,
-			type: 'color-relief',
-			source: TERRAIN_MESH_SOURCE,
-			paint: {
-				'color-relief-opacity': 0.72,
-				'color-relief-color': paint
+		if (!this.waterPaintRestore.has(map)) {
+			const saved: { layerId: string; prop: string; value: unknown }[] = [];
+			for (const layer of layers) {
+				const prop = this.waterPaintProp(layer.id, layer.type);
+				if (!prop) {
+					continue;
+				}
+				try {
+					saved.push({ layerId: layer.id, prop, value: map.getPaintProperty(layer.id, prop as never) });
+					if (this.waterFillCoversDepth(layer.id, layer.type) && prop !== 'fill-opacity') {
+						const opacity = map.getPaintProperty(layer.id, 'fill-opacity' as never);
+						saved.push({ layerId: layer.id, prop: 'fill-opacity', value: opacity ?? 1 });
+					}
+				} catch {
+					/* calque sans cette peinture */
+				}
 			}
+			this.waterPaintRestore.set(map, saved);
+		}
+		for (const layer of layers) {
+			if (!map.getLayer(layer.id)) {
+				continue;
+			}
+			try {
+				if (layer.id === 'water_bathymetry' || layer.id === 'water_bathymetry_vector') {
+					/* Le dégradé de profondeur est posé ensuite, à partir des fonds visibles. */
+				} else if (layer.id === 'water_area_texture') {
+					map.setPaintProperty(layer.id, 'fill-opacity', 0);
+				} else if (layer.id === 'water_intermittent') {
+					map.setPaintProperty(layer.id, 'fill-color', '#e7ecef');
+					map.setPaintProperty(layer.id, 'fill-opacity', 0);
+				} else if (layer.type === 'fill' && layer.id.startsWith('water_area_')) {
+					const color = layer.id === 'water_area_lagoon' ? 'rgba(213, 220, 227, 0.82)' : WATER_SILVER;
+					map.setPaintProperty(layer.id, 'fill-color', color);
+					if (this.waterFillCoversDepth(layer.id, layer.type)) {
+						map.setPaintProperty(layer.id, 'fill-opacity', 0);
+					}
+				} else if (layer.type === 'line' && layer.id.startsWith('water_')) {
+					map.setPaintProperty(layer.id, 'line-color', WATER_SILVER_LINE);
+				} else if (layer.type === 'symbol' && layer.id.startsWith('water_')) {
+					map.setPaintProperty(layer.id, 'text-color', WATER_SILVER_LABEL);
+				}
+			} catch {
+				/* peinture absente sur ce style */
+			}
+		}
+		this.ensureWaterGlints(map);
+		this.refreshBathymetryRamp(map);
+	}
+
+	/** Gris linéaire sur la profondeur visible. */
+	private refreshBathymetryRamp(map: MlMap): void {
+		const span = this.bathymetrySpan ?? { deep: -400, shallow: -0.2 };
+		this.applyBathymetryRamp(map, span);
+		const token = ++this.bathymetryToken;
+		void this.sampleVisibleDepth(map).then((range) => {
+			if (token !== this.bathymetryToken || !this.elevationColors) {
+				return;
+			}
+			if (!range) {
+				if (this.bathymetrySpan) {
+					this.bathymetrySpan = null;
+					this.hooks?.onDepthRange?.(null);
+				}
+				return;
+			}
+			const previous = this.bathymetrySpan;
+			const same = previous != null
+				&& Math.abs(previous.deep - range.deep) < 1
+				&& Math.abs(previous.shallow - range.shallow) < 1;
+			this.bathymetrySpan = range;
+			if (!same) {
+				for (const target of [this.map, this.blendMap]) {
+					if (target) {
+						this.applyBathymetryRamp(target, range);
+					}
+				}
+				this.hooks?.onDepthRange?.(range);
+			}
+		});
+	}
+
+	private applyBathymetryRamp(map: MlMap, span: { deep: number; shallow: number }): void {
+		const ramp = bathymetryGrayRamp(span.deep, span.shallow) as never;
+		if (map.getLayer(WATER_DEPTH_LAYER)) {
+			map.setPaintProperty(WATER_DEPTH_LAYER, 'color-relief-color', ramp);
+			map.setPaintProperty(WATER_DEPTH_LAYER, 'color-relief-opacity', 1);
+		}
+		if (map.getLayer('water_bathymetry')) {
+			map.setPaintProperty('water_bathymetry', 'color-relief-color', ramp);
+		}
+		if (map.getLayer('water_bathymetry_vector')) {
+			const depth = Math.max(1, -span.deep);
+			const ramp: unknown[] = ['interpolate', ['linear'], ['to-number', ['get', 'depth'], 0]];
+			for (let index = 0; index < BATHYMETRY_STEPS; index++) {
+				const t = index / (BATHYMETRY_STEPS - 1);
+				ramp.push(depth * t, silverDepthColor(t));
+			}
+			map.setPaintProperty('water_bathymetry_vector', 'fill-color', ramp as never);
+		}
+	}
+
+/** Profondeurs visibles, lacs compris. Une valeur négative est une profondeur en mètres. */
+	private async sampleVisibleDepth(map: MlMap): Promise<{ deep: number; shallow: number } | null> {
+		let bounds: { getWest: () => number; getEast: () => number; getSouth: () => number; getNorth: () => number };
+		try {
+			bounds = map.getBounds();
+		} catch {
+			return null;
+		}
+		const tiles = this.depthTilesInView(bounds, map.getZoom());
+		if (!tiles.length) {
+			return null;
+		}
+		const decoded = await Promise.all(tiles.map((tile) => this.loadBathymetryTile(tile.z, tile.x, tile.y)));
+		let deep = 0;
+		let shallow = -Infinity;
+		let count = 0;
+		decoded.forEach((image, index) => {
+			if (!image) {
+				return;
+			}
+			const range = depthExtremes(image, tiles[index], bounds);
+			if (!range) {
+				return;
+			}
+			deep = Math.min(deep, range.deep);
+			shallow = Math.max(shallow, range.shallow);
+			count += range.count;
+		});
+		if (count < 2 || !Number.isFinite(shallow)) {
+			return null;
+		}
+		return { deep, shallow };
+	}
+
+	/** Assez de tuiles pour le fond du lac, sans en charger une grille entière. */
+	private depthTilesInView(
+		bounds: { getWest: () => number; getEast: () => number; getSouth: () => number; getNorth: () => number },
+		viewZoom: number
+	): { z: number; x: number; y: number }[] {
+		let zoom = Math.max(0, Math.min(11, Math.floor(viewZoom)));
+		let tiles = tilesCovering(bounds, zoom);
+		while (tiles.length > 8 && zoom > 0) {
+			zoom -= 1;
+			tiles = tilesCovering(bounds, zoom);
+		}
+		return tiles;
+	}
+
+	private loadBathymetryTile(z: number, x: number, y: number): Promise<ImageData | null> {
+		const key = `${z}/${x}/${y}`;
+		const cached = this.bathymetryTiles.get(key);
+		if (cached !== undefined) {
+			return Promise.resolve(cached);
+		}
+		const url = BATHYMETRY_TILES.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
+		return new Promise((resolve) => {
+			const image = new Image();
+			image.crossOrigin = 'anonymous';
+			image.onload = () => {
+				const canvas = document.createElement('canvas');
+				canvas.width = image.width;
+				canvas.height = image.height;
+				const context = canvas.getContext('2d', { willReadFrequently: true });
+				if (!context) {
+					this.rememberBathymetryTile(key, null);
+					resolve(null);
+					return;
+				}
+				context.drawImage(image, 0, 0);
+				const data = context.getImageData(0, 0, canvas.width, canvas.height);
+				this.rememberBathymetryTile(key, data);
+				resolve(data);
+			};
+			image.onerror = () => {
+				this.rememberBathymetryTile(key, null);
+				resolve(null);
+			};
+			image.src = url;
+		});
+	}
+
+	private rememberBathymetryTile(key: string, data: ImageData | null): void {
+		if (this.bathymetryTiles.size > 32) {
+			const oldest = this.bathymetryTiles.keys().next().value;
+			if (oldest) {
+				this.bathymetryTiles.delete(oldest);
+			}
+		}
+		this.bathymetryTiles.set(key, data);
+	}
+
+	/** Ces aplats sont au-dessus du fond : on les efface, l’argent de repli est dessous. */
+	private waterFillCoversDepth(id: string, type: string): boolean {
+		return type === 'fill' && (id.startsWith('water_area_') || id === 'water_intermittent');
+	}
+
+	private waterPaintProp(id: string, type: string): string | null {
+		if (id === 'water_bathymetry') {
+			return 'color-relief-color';
+		}
+		if (id === 'water_area_texture') {
+			return 'fill-opacity';
+		}
+		if (id === 'water_bathymetry_vector' || id === 'water_intermittent' || (type === 'fill' && id.startsWith('water_area_'))) {
+			return 'fill-color';
+		}
+		if (type === 'line' && id.startsWith('water_')) {
+			return 'line-color';
+		}
+		if (type === 'symbol' && id.startsWith('water_')) {
+			return 'text-color';
+		}
+		return null;
+	}
+
+	private ensureWaterGlints(map: MlMap): void {
+		const ocean = map.getStyle()?.layers?.find((layer) => layer.id === 'water_area_ocean' || layer.id === 'water_area_inland');
+		if (!ocean || ocean.type !== 'fill' || !ocean.source || !map.getSource(ocean.source)) {
+			return;
+		}
+		const sourceLayer = ocean['source-layer'];
+		const inland = ['all', ['==', ['geometry-type'], 'Polygon'], ['!=', ['get', 'type'], 'ocean']];
+		this.ensureWaterFillLayer(map, WATER_SILVER_LAYER, ocean.source, sourceLayer, inland, WATER_SILVER, this.layerAfter(map, ELEVATION_COLOR_LAYER));
+		this.ensureWaterDepthLayer(map);
+		for (const id of [WATER_GLINT_LAYER, WATER_SEA_GLINT_LAYER]) {
+			if (map.getLayer(id)) {
+				map.removeLayer(id);
+			}
+		}
+		this.placeWaterDepthAboveSilver(map);
+	}
+
+	/** Le voile d’altitude reclasse les color-relief : le fond du lac doit rester au-dessus de l’argent. */
+	private placeWaterDepthAboveSilver(map: MlMap): void {
+		if (!map.getLayer(WATER_DEPTH_LAYER)) {
+			return;
+		}
+		const aboveSilver = map.getLayer(WATER_SILVER_LAYER)
+			? this.layerAfter(map, WATER_SILVER_LAYER)
+			: this.layerAfter(map, ELEVATION_COLOR_LAYER);
+		if (aboveSilver && aboveSilver !== WATER_DEPTH_LAYER) {
+			map.moveLayer(WATER_DEPTH_LAYER, aboveSilver);
+		}
+	}
+
+	/**
+	 * Fond mesuré des lacs et de la mer, au-dessus de l’argent uni.
+	 * La terre (code 2) reste transparente, donc le relief terrestre n’est pas recouvert.
+	 * Le calque marin d’origine est masqué : il met les lacs à l’altitude 0.
+	 */
+	private ensureWaterDepthLayer(map: MlMap): void {
+		if (!map.getSource(WATER_DEPTH_SOURCE)) {
+			map.addSource(WATER_DEPTH_SOURCE, {
+				type: 'raster-dem',
+				tiles: [BATHYMETRY_TILES],
+				tileSize: 512,
+				minzoom: 0,
+				maxzoom: 14,
+				encoding: 'terrarium',
+				attribution: '© <a href="https://openwaters.io/charts/seascape">Open Waters</a>'
+			});
+		}
+		if (!map.getLayer(WATER_DEPTH_LAYER)) {
+			const before = map.getLayer(WATER_SILVER_LAYER)
+				? this.layerAfter(map, WATER_SILVER_LAYER)
+				: this.layerAfter(map, ELEVATION_COLOR_LAYER);
+			map.addLayer({
+				id: WATER_DEPTH_LAYER,
+				type: 'color-relief',
+				source: WATER_DEPTH_SOURCE,
+				paint: {
+					'color-relief-opacity': 1,
+					'color-relief-color': bathymetryGrayRamp(-400, -0.2) as never
+				}
+			}, before);
+		}
+		if (!map.getLayer('water_bathymetry')) {
+			return;
+		}
+		const saved = this.waterPaintRestore.get(map);
+		if (saved && !saved.some((item) => item.layerId === 'water_bathymetry' && item.prop === 'color-relief-opacity')) {
+			let opacity: unknown = 1;
+			try {
+				opacity = map.getPaintProperty('water_bathymetry', 'color-relief-opacity' as never);
+			} catch {
+				opacity = 1;
+			}
+			saved.push({ layerId: 'water_bathymetry', prop: 'color-relief-opacity', value: opacity ?? 1 });
+		}
+		map.setPaintProperty('water_bathymetry', 'color-relief-opacity', 0);
+	}
+
+	private ensureWaterFillLayer(map: MlMap, id: string, source: string, sourceLayer: string | undefined, filter: unknown[], color: string, before: string | undefined): void {
+		if (map.getLayer(id) || (before && !map.getLayer(before))) {
+			return;
+		}
+		map.addLayer({
+			id,
+			type: 'fill',
+			source,
+			...(sourceLayer ? { 'source-layer': sourceLayer } : {}),
+			filter: filter as never,
+			paint: { 'fill-color': color }
 		}, before);
 	}
 
-	/** Sous les noms et sous les tracés, au-dessus du fond de carte. */
-	private elevationColorAnchor(map: MlMap): string | undefined {
-		for (const spec of TRAIL_RASTERS) {
-			if (map.getLayer(spec.id)) {
-				return spec.id;
+	private layerAfter(map: MlMap, id: string): string | undefined {
+		const layers = map.getStyle()?.layers ?? [];
+		const index = layers.findIndex((layer) => layer.id === id);
+		return index >= 0 ? layers[index + 1]?.id : undefined;
+	}
+
+	private restoreWaterPaint(map: MlMap): void {
+		for (const id of [WATER_GLINT_LAYER, WATER_SEA_GLINT_LAYER, WATER_DEPTH_LAYER, WATER_SILVER_LAYER]) {
+			if (map.getLayer(id)) {
+				map.removeLayer(id);
 			}
 		}
-		if (map.getLayer('relief-traces-line')) {
-			return 'relief-traces-line';
+		const hadDepth = this.bathymetrySpan != null;
+		this.bathymetrySpan = null;
+		this.bathymetryToken += 1;
+		if (hadDepth) {
+			this.hooks?.onDepthRange?.(null);
 		}
-		return map.getStyle()?.layers?.find((layer) => layer.type === 'symbol')?.id;
+		const saved = this.waterPaintRestore.get(map);
+		this.waterPaintRestore.delete(map);
+		if (!saved) {
+			return;
+		}
+		for (const item of saved) {
+			if (!map.getLayer(item.layerId)) {
+				continue;
+			}
+			try {
+				map.setPaintProperty(item.layerId, item.prop as never, item.value as never);
+			} catch {
+				/* le style a déjà repris la main */
+			}
+		}
+	}
+
+	/**
+	 * Première information du style : courbes, routes, frontières, remontées, textes.
+	 * Le voile se pose juste en dessous, le relief et l’ombrage restent en dessous du voile.
+	 */
+	private elevationColorAnchor(map: MlMap): string | undefined {
+		const layers = map.getStyle()?.layers ?? [];
+		for (const layer of layers) {
+			if (this.staysAboveElevationColor(layer)) {
+				return layer.id;
+			}
+		}
+		return undefined;
+	}
+
+	private staysAboveElevationColor(layer: { id: string; type: string }): boolean {
+		if (layer.id === ELEVATION_COLOR_LAYER) {
+			return false;
+		}
+		if (layer.id === 'relief-traces-line' || layer.id === 'relief-traces-ends') {
+			return true;
+		}
+		if (TRAIL_RASTERS.some((spec) => spec.id === layer.id)) {
+			return true;
+		}
+		if (layer.type === 'line' || layer.type === 'symbol' || layer.type === 'fill-extrusion') {
+			return true;
+		}
+		return layer.type === 'fill' && (layer.id.startsWith('building_') || layer.id.startsWith('road_'));
+	}
+
+	/** Ombrage et rasters de terrain : sous le voile, sinon ils recouvrent les couleurs ou les tracés. */
+	private terrainBelowElevationColor(layer: { id: string; type: string }): boolean {
+		if (layer.id === ELEVATION_COLOR_LAYER || layer.id === WATER_DEPTH_LAYER || this.staysAboveElevationColor(layer)) {
+			return false;
+		}
+		return layer.type === 'hillshade' || layer.type === 'raster' || layer.type === 'color-relief';
+	}
+
+	private sinkTerrainUnderElevationColors(map: MlMap, before: string | undefined): void {
+		const ids = (map.getStyle()?.layers ?? [])
+			.filter((layer) => this.terrainBelowElevationColor(layer))
+			.map((layer) => layer.id);
+		for (const id of ids) {
+			this.moveLayerBefore(map, id, before, true);
+		}
+	}
+
+	private moveLayerBefore(map: MlMap, id: string, before: string | undefined, remember: boolean): void {
+		if (!before || id === before || !map.getLayer(id) || !map.getLayer(before)) {
+			return;
+		}
+		const layers = map.getStyle()?.layers ?? [];
+		const from = layers.findIndex((layer) => layer.id === id);
+		const to = layers.findIndex((layer) => layer.id === before);
+		if (from < 0 || to < 0 || from < to) {
+			return;
+		}
+		if (remember) {
+			const moves = this.elevationTerrainMoves.get(map) ?? [];
+			moves.push({ id, before: layers[from + 1]?.id });
+			this.elevationTerrainMoves.set(map, moves);
+		}
+		map.moveLayer(id, before);
+	}
+
+	private restoreElevationTerrain(map: MlMap): void {
+		const moves = this.elevationTerrainMoves.get(map);
+		if (!moves?.length) {
+			return;
+		}
+		this.elevationTerrainMoves.delete(map);
+		for (let index = moves.length - 1; index >= 0; index--) {
+			const move = moves[index];
+			if (!map.getLayer(move.id)) {
+				continue;
+			}
+			if (move.before && map.getLayer(move.before)) {
+				map.moveLayer(move.id, move.before);
+			} else {
+				map.moveLayer(move.id);
+			}
+		}
 	}
 
 	/**
@@ -1573,6 +2258,7 @@ export class MaptoolkitTerrainView {
 		const map = new MlMap({
 			container: host,
 			style: { version: 8, sources: {}, layers: [] },
+			transformRequest: maptoolkitTransformRequest,
 			center,
 			zoom: clampZoom(source.getZoom()),
 			pitch: source.getPitch(),
@@ -1595,7 +2281,6 @@ export class MaptoolkitTerrainView {
 		});
 		ignoreMissingStyleIcons(map);
 		this.blendMap = map;
-		map.setStyle(styleUrl, { diff: false, transformStyle: styleWithoutCamera });
 		const epoch = ++this.blendEpoch;
 		let terrainOn = false;
 		const syncIfCurrent = (): void => {
@@ -1622,6 +2307,8 @@ export class MaptoolkitTerrainView {
 			if (this.blendMap !== map || epoch !== this.blendEpoch) {
 				return;
 			}
+			this.elevationTerrainMoves.delete(map);
+			this.waterPaintRestore.delete(map);
 			this.paintBlendOverlays(map);
 			syncIfCurrent();
 			map.resize();
@@ -1639,6 +2326,12 @@ export class MaptoolkitTerrainView {
 				map.resize();
 				syncIfCurrent();
 			}
+		});
+		void whenMaptoolkitReady().then(() => {
+			if (this.blendMap !== map || epoch !== this.blendEpoch) {
+				return;
+			}
+			map.setStyle(this.blendStyle, { diff: false, transformStyle: styleWithoutCamera });
 		});
 	}
 

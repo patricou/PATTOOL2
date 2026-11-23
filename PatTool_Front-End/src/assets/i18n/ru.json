@@ -382,14 +382,14 @@
     "POI_PHOTO_SOURCE_FLICKR": "Flickr",
     "POI_PHOTO_SOURCE_OPENVERSE": "Openverse",
     "POI_PHOTO_SOURCE_UNSPLASH": "Unsplash",
-    "POI_PHOTO_SAVE": "Save to an activity",
-    "POI_PHOTO_SAVE_PICK": "Choose an activity",
-    "POI_PHOTO_SAVE_LOADING": "Saving…",
-    "POI_PHOTO_SAVED": "Photo saved",
-    "POI_PHOTO_SAVE_ERROR": "Could not save the photo",
-    "POI_PHOTO_SAVE_EMPTY": "No activity",
-    "POI_PHOTO_SAVE_FILTER": "Filter",
-    "POI_PHOTO_SAVE_NONE": "No matching activity",
+    "POI_PHOTO_SAVE": "Сохранить в мероприятие",
+    "POI_PHOTO_SAVE_PICK": "Выбрать мероприятие",
+    "POI_PHOTO_SAVE_LOADING": "Сохранение…",
+    "POI_PHOTO_SAVED": "Фото сохранено",
+    "POI_PHOTO_SAVE_ERROR": "Не удалось сохранить фото",
+    "POI_PHOTO_SAVE_EMPTY": "Нет мероприятий",
+    "POI_PHOTO_SAVE_FILTER": "Фильтр",
+    "POI_PHOTO_SAVE_NONE": "Нет подходящего мероприятия",
     "POI_PHOTO_SOURCE_MAPILLARY": "Mapillary",
     "POI_PHOTO_SOURCE_PANORAMAX": "Panoramax",
     "POI_PHOTO_SOURCE_OSM": "OpenStreetMap",
@@ -600,7 +600,19 @@
     "TRACK_FOOTER_ADDR_SHORT": "Адр.",
     "TRACK_FOOTER_HIKING_SHORT": "Поход",
     "TRACK_FOOTER_CYCLING_SHORT": "Вело",
-    "TRACK_FOOTER_FOLLOW_SHORT": "След."
+    "TRACK_FOOTER_FOLLOW_SHORT": "След.",
+    "CONFIRM": "Подтвердить",
+    "VIDEO_COMPRESSION_TITLE": "Сжатие видео",
+    "VIDEO_COMPRESSION_MESSAGE": "Обнаружено видео: {{count}}. Выберите качество сжатия:",
+    "POI_PHOTO_COVER_MAP": "Увеличить поверх карты",
+    "TRACK_BASEMAP_SECOND": "Вторая подложка",
+    "TRACK_BASEMAP_NONE": "Нет",
+    "TRACK_BASEMAP_BLEND": "Прозрачность: слева первая подложка, справа вторая",
+    "TRACK_RELIEF_PITCH": "Наклон",
+    "TRACK_RELIEF_TILT_FOLLOW": "Наклонять карту телефоном",
+    "TRACK_RELIEF_3D_HINT": "Наклон и рельеф для Maptoolkit Hike и Ski. Трек и точка GPS лежат на рельефе. На телефоне: один палец сдвигает, щипок масштабирует, два пальца вверх наклоняют. Двойное касание приближает. Ctrl и перетаскивание: вбок вращает, вверх наклоняет.",
+    "TRACK_RELIEF_TILT_FOLLOW_HINT": "В 3D с включённым севером наклон телефона наклоняет карту",
+    "TRACK_RELIEF_TILT_FOLLOW_NEED_NORTH": "Включите север, чтобы наклонять карту телефоном"
   },
   "MENU": {
     "BRAND": "PATTOOL",
@@ -1730,7 +1742,48 @@
     "HOMETITLE": "Частный сайт",
     "HOMESUBTITLE": "©PatrickDeschamps",
     "SECTION2TITLE": " домашняя страница, раздел 2 (фр).",
-    "SECTION3TITLE": " домашняя страница, раздел 3 (фр)."
+    "SECTION3TITLE": " домашняя страница, раздел 3 (фр).",
+    "DASHBOARD": {
+      "TITLE": "Главная",
+      "REFRESH": "Обновить",
+      "LOADING": "Загрузка…",
+      "UNAVAILABLE": "Сейчас недоступно",
+      "WEATHER": "Погода",
+      "WEATHER_EMPTY": "Местоположение недоступно",
+      "FEELS": "Ощущается как {{temp}}",
+      "HUMIDITY": "Влажность {{value}} %",
+      "SUNRISE": "Восход {{time}}",
+      "SUNSET": "Закат {{time}}",
+      "ALT_YOU": "вы {{alt}}",
+      "ALT_STATION": "станция {{alt}}",
+      "AGENDA": "Повестка",
+      "AGENDA_EMPTY": "Ничего не запланировано",
+      "ACTIVITIES": "Ближайшие мероприятия",
+      "DAYS_LEFT": "{{count}} дн.",
+      "DAYS_LEFT_ONE": "1 день",
+      "DAYS_TODAY": "Сегодня",
+      "DAYS_ONGOING": "Идёт",
+      "APPOINTMENTS": "Ближайшие встречи",
+      "TASK_ASSIGNEE": "Назначено",
+      "TASK_OWNER": "Владелец",
+      "AGENDA_MORE": "ещё {{count}}",
+      "TASKS": "Задачи",
+      "TASKS_EMPTY": "Нет открытых задач",
+      "OVERDUE": "Просрочено",
+      "PLAYING": "Сейчас играет",
+      "PLAYING_EMPTY": "Ничего не играет",
+      "SOURCE_DEEZER": "Deezer",
+      "SOURCE_RADIO": "Radio",
+      "SOURCE_YOUTUBE": "YouTube",
+      "SOURCE_TV": "TV",
+      "OPEN_DEEZER": "Открыть Deezer",
+      "OPEN_RADIO": "Открыть радио",
+      "OPEN_TV": "Открыть ТВ",
+      "NEWS": "Новости",
+      "NEWS_EMPTY": "Нет заголовков",
+      "SCROLL": "Прокрутить страницу",
+      "NOTES": "Заметки"
+    }
   },
   "LINKS": {
     "TITLE": "Ссылки",
@@ -2498,7 +2551,8 @@
     "UNSAVED_CHANGES_CONFIRM": "У вас есть несохраненные изменения. Вы уверены, что хотите покинуть эту страницу?",
     "PHOTOFROMFS_UNAUTHORIZED": "Вы не авторизованы для создания или редактирования ссылок типа 'Фото из файловой системы'. Только авторизованный пользователь может создавать или редактировать ссылки этого типа.",
     "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "Ошибка: Вы не авторизованы для обновления событий со ссылками типа 'Фото из файловой системы'. Только авторизованный пользователь может изменять ссылки этого типа.",
-    "EVENT_UPDATE_UNAUTHORIZED": "У вас нет права изменять эту активность. Изменить её может только владелец или администратор."
+    "EVENT_UPDATE_UNAUTHORIZED": "У вас нет права изменять эту активность. Изменить её может только владелец или администратор.",
+    "FRIEND_GROUP_UNAUTHORIZED": "У вас нет прав изменять это мероприятие для выбранных групп друзей."
   },
   "EVENTDEL": {
     "TITLEDELCONF": "Подтверждение удаления мероприятия:",
@@ -2553,7 +2607,8 @@
     "NEXT_PAGE": "Следующая страница",
     "EXPAND": "Развернуть",
     "COLLAPSE": "Свернуть",
-    "OPTIONS": "Параметры"
+    "OPTIONS": "Параметры",
+    "ERROR": "Ошибка"
   },
   "RESULTS": {
     "TITLE": "WhatsPat",
@@ -5378,7 +5433,8 @@
     "OPEN_VIDEOSHOW": "Открыть в просмотре видео",
     "ODS_WALL_TABLE_TITLE": "Таблицы Calc (.ods)",
     "ODS_TABLE_DOWNLOAD": "Скачать таблицу",
-    "LINK_ACTION_OPEN_ODS": "Открыть в редакторе Calc"
+    "LINK_ACTION_OPEN_ODS": "Открыть в редакторе Calc",
+    "YOUTUBE_BADGE": "YouTube"
   },
   "NEWS": {
     "PAGE_TITLE": "Новости",
@@ -6025,7 +6081,18 @@
     "ERR_RECORD_UNAVAILABLE": "Запись не поддерживается этим браузером (нужен MediaRecorder).",
     "ERR_RECORD_LIMIT": "Запись уже выполняется.",
     "ERR_RECORD_NEED_PLAY": "Сначала включите воспроизведение канала, затем начинайте запись.",
-    "ERR_RECORD_TOO_LARGE": "Файл записи слишком большой."
+    "ERR_RECORD_TOO_LARGE": "Файл записи слишком большой.",
+    "ARTE_COUNT": "{{count}} программа(ы)",
+    "ARTE_PAGE": "Страница {{page}} / {{pages}}",
+    "EPG_BROWSER_OPEN": "Программы",
+    "IA_PAGE": "Страница {{page}} / {{pages}}",
+    "LIST_PAGE": "Страница {{page}} / {{pages}}",
+    "SHARE_SOURCE_ARTE": "ARTE Replay",
+    "SHARE_SOURCE_IA": "Archive.org",
+    "SKIN_GROUP_SCENE": "Сцены",
+    "TAB_ARTE": "ARTE Replay",
+    "TAB_IA": "Archive.org",
+    "VOLUME": "Громкость"
   },
   "DEEZER": {
     "TITLE": "Deezer",
@@ -6381,7 +6448,9 @@
     "GLOBAL_FILTER_APPLY": "Применить",
     "GLOBAL_FILTER_CLEAR": "Очистить",
     "GLOBAL_FILTER_STATION_HINT": "Поиск по названию станции (или жанру). В режиме «все страны» — не менее 2 символов.",
-    "NOW_TRACK": "Сейчас играет"
+    "NOW_TRACK": "Сейчас играет",
+    "LIST_PAGE": "Страница {{page}} / {{pages}}",
+    "SKIN_GROUP_SCENE": "Сцены"
   },
   "ARCHIVE": {
     "TITLE": "Internet Archive",
@@ -7150,7 +7219,8 @@
     "OFFLINE_MAP_OPEN": "Загрузить тайлы",
     "OFFLINE_MAP_SHARED": "Одно хранилище на устройстве, общее для просмотра трека, GPS, маршрута и GPX.",
     "OFFLINE_MAP_WINDOW": "Окно {{south}} → {{north}}, {{west}} → {{east}}",
-    "OFFLINE_MAP_ZOOMS": "Масштаб {{current}}–{{max}}"
+    "OFFLINE_MAP_ZOOMS": "Масштаб {{current}}–{{max}}",
+    "OFFLINE_MAP_BTN_SHORT": "HL"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Поиск адреса не удался.",

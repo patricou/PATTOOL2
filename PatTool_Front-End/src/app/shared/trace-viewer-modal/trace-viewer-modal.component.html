@@ -234,10 +234,14 @@
                rel="noopener noreferrer">{{ 'EVENTELEM.POI_PHOTO_PAGE' | translate }}</a>
           </div>
         </div>
-        <div class="tv-elev-legend" *ngIf="elevationColors && relief3d && elevationSpan" aria-hidden="true">
-          <span>{{ elevationSpan.min }} m</span>
-          <span class="tv-elev-legend-bar"></span>
-          <span>{{ elevationSpan.max }} m</span>
+        <div class="tv-elev-legend" *ngIf="elevationColors && relief3d && legendLeft != null" aria-hidden="true">
+          <span>{{ legendLeft }} m</span>
+          <span class="tv-elev-legend-scale">
+            <span *ngIf="depthSpan" class="tv-elev-legend-seg" [style.flex]="depthLegendFlex" [style.background]="depthGrayCss"></span>
+            <span class="tv-elev-legend-mid" *ngIf="legendMid != null">{{ legendMid }} m</span>
+            <span *ngIf="showLandLegend" class="tv-elev-legend-seg" [style.flex]="landLegendFlex" [style.background]="elevationRainbowCss"></span>
+          </span>
+          <span>{{ legendRight }} m</span>
         </div>
         <div class="trace-relief3d-wait" *ngIf="relief3dPending" role="status" aria-live="polite" aria-label="3D">
           <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
@@ -320,7 +324,7 @@
                   [attr.aria-pressed]="elevationColors"
                   data-tv-tip="Couleurs d'altitude"
                   aria-label="Couleurs d'altitude">
-            <span class="tv-rainbow-swatch" aria-hidden="true"></span>
+            <span class="tv-rainbow-swatch" [style.background]="elevationRainbowCss" aria-hidden="true"></span>
           </button>
         </ng-template>
 

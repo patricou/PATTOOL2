@@ -1142,7 +1142,48 @@
     "HOMETITLE": "Private Website",
     "HOMESUBTITLE": "©PatrickDeschamps",
     "SECTION2TITLE": " Startseite, Abschnitt 2 (fr).",
-    "SECTION3TITLE": " Startseite, Abschnitt 3 (fr)."
+    "SECTION3TITLE": " Startseite, Abschnitt 3 (fr).",
+    "DASHBOARD": {
+      "TITLE": "Start",
+      "REFRESH": "Aktualisieren",
+      "LOADING": "Laden…",
+      "UNAVAILABLE": "Zurzeit nicht verfügbar",
+      "WEATHER": "Wetter",
+      "WEATHER_EMPTY": "Standort nicht verfügbar",
+      "FEELS": "Gefühlt {{temp}}",
+      "HUMIDITY": "Luftfeuchtigkeit {{value}} %",
+      "SUNRISE": "Sonnenaufgang {{time}}",
+      "SUNSET": "Sonnenuntergang {{time}}",
+      "ALT_YOU": "Sie {{alt}}",
+      "ALT_STATION": "Station {{alt}}",
+      "AGENDA": "Agenda",
+      "AGENDA_EMPTY": "Nichts anstehend",
+      "ACTIVITIES": "Nächste Aktivitäten",
+      "DAYS_LEFT": "{{count}} Tage",
+      "DAYS_LEFT_ONE": "1 Tag",
+      "DAYS_TODAY": "Heute",
+      "DAYS_ONGOING": "Läuft",
+      "APPOINTMENTS": "Nächste Termine",
+      "TASK_ASSIGNEE": "Zugewiesen an",
+      "TASK_OWNER": "Eigentümer",
+      "AGENDA_MORE": "{{count}} weitere",
+      "TASKS": "Aufgaben",
+      "TASKS_EMPTY": "Keine offenen Aufgaben",
+      "OVERDUE": "Überfällig",
+      "PLAYING": "Wiedergabe",
+      "PLAYING_EMPTY": "Nichts wird abgespielt",
+      "SOURCE_DEEZER": "Deezer",
+      "SOURCE_RADIO": "Radio",
+      "SOURCE_YOUTUBE": "YouTube",
+      "SOURCE_TV": "TV",
+      "OPEN_DEEZER": "Deezer öffnen",
+      "OPEN_RADIO": "Radio öffnen",
+      "OPEN_TV": "TV öffnen",
+      "NEWS": "Nachrichten",
+      "NEWS_EMPTY": "Keine Schlagzeilen",
+      "SCROLL": "Seite scrollen",
+      "NOTES": "Notizen"
+    }
   },
   "LINKS": {
     "TITLE": "Links",
@@ -2401,7 +2442,19 @@
     "TRACK_MANUAL_KM_PH": "z. B. 42.5",
     "TRACK_MANUAL_DPLUS": "Anstieg (m)",
     "TRACK_MANUAL_DPLUS_PH": "z. B. 850",
-    "TRACK_IGN_SCAN25_HINT": "SCAN 25® (Detail mit GR) ab Zoom 13, wenn ein IGN-Schlüssel konfiguriert ist."
+    "TRACK_IGN_SCAN25_HINT": "SCAN 25® (Detail mit GR) ab Zoom 13, wenn ein IGN-Schlüssel konfiguriert ist.",
+    "CONFIRM": "Bestätigen",
+    "VIDEO_COMPRESSION_TITLE": "Videokomprimierung",
+    "VIDEO_COMPRESSION_MESSAGE": "{{count}} Video(s) erkannt. Wählen Sie die Komprimierungsqualität:",
+    "POI_PHOTO_COVER_MAP": "Über der Karte vergrößern",
+    "TRACK_BASEMAP_SECOND": "Zweite Basiskarte",
+    "TRACK_BASEMAP_NONE": "Keine",
+    "TRACK_BASEMAP_BLEND": "Transparenz: links = erste Basiskarte, rechts = zweite Basiskarte",
+    "TRACK_RELIEF_PITCH": "Neigung",
+    "TRACK_RELIEF_TILT_FOLLOW": "Karte mit dem Telefon neigen",
+    "TRACK_RELIEF_3D_HINT": "Neigung und Gelände für Maptoolkit Hike und Ski. Die Spur und der GPS-Punkt liegen auf dem Gelände. Auf dem Telefon: ein Finger verschiebt, Ziehen mit zwei Fingern zoomt, zwei Finger nach oben neigen. Doppeltippen zoomt hinein. Strg gedrückt ziehen: seitlich dreht, nach oben neigt.",
+    "TRACK_RELIEF_TILT_FOLLOW_HINT": "Im 3D-Modus mit Norden kippt die Karte mit dem Telefon",
+    "TRACK_RELIEF_TILT_FOLLOW_NEED_NORTH": "Norden einschalten, um die Karte mit dem Telefon zu neigen"
   },
   "EVENTCREATION": {
     "TITLE": "Veranstaltung erstellen",
@@ -2502,7 +2555,8 @@
     "UNSAVED_CHANGES_CONFIRM": "Sie haben ungespeicherte Änderungen. Mächten Sie diese Seite wirklich verlassen?",
     "PHOTOFROMFS_UNAUTHORIZED": "Sie sind nicht berechtigt, Links vom Typ 'Foto aus dem Dateisystem' zu erstellen oder zu bearbeiten. Nur der autorisierte Benutzer kann diese Art von Link erstellen oder bearbeiten.",
     "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "Fehler: Sie sind nicht berechtigt, Ereignisse mit Links vom Typ 'Foto aus dem Dateisystem' zu aktualisieren. Nur der autorisierte Benutzer kann diese Art von Link ändern.",
-    "EVENT_UPDATE_UNAUTHORIZED": "Sie sind nicht berechtigt, diese Aktivität zu ändern. Nur der Eigentümer oder ein Administrator kann sie ändern."
+    "EVENT_UPDATE_UNAUTHORIZED": "Sie sind nicht berechtigt, diese Aktivität zu ändern. Nur der Eigentümer oder ein Administrator kann sie ändern.",
+    "FRIEND_GROUP_UNAUTHORIZED": "Sie sind nicht berechtigt, diese Aktivität für die ausgewählten Freundesgruppen zu aktualisieren."
   },
   "EVENTDEL": {
     "TITLEDELCONF": "Bestätigung der L?schung der Veranstaltung:",
@@ -2557,7 +2611,8 @@
     "NEXT_PAGE": "Nächste Seite",
     "EXPAND": "Erweitern",
     "COLLAPSE": "Einklappen",
-    "OPTIONS": "Optionen"
+    "OPTIONS": "Optionen",
+    "ERROR": "Fehler"
   },
   "RESULTS": {
     "TITLE": "WhatsPat",
@@ -5383,7 +5438,8 @@
     "OPEN_VIDEOSHOW": "Im Videoplayer öffnen",
     "ODS_WALL_TABLE_TITLE": "Calc-Tabellen (.ods)",
     "ODS_TABLE_DOWNLOAD": "Tabelle herunterladen",
-    "LINK_ACTION_OPEN_ODS": "Im Calc-Editor öffnen"
+    "LINK_ACTION_OPEN_ODS": "Im Calc-Editor öffnen",
+    "YOUTUBE_BADGE": "YouTube"
   },
   "NEWS": {
     "PAGE_TITLE": "Nachrichten",
@@ -6034,7 +6090,15 @@
     "ERR_RECORD_UNAVAILABLE": "Aufnahme wird von diesem Browser nicht unterstützt (MediaRecorder erforderlich).",
     "ERR_RECORD_LIMIT": "Eine Aufnahme läuft bereits.",
     "ERR_RECORD_NEED_PLAY": "Starten Sie zuerst die Wiedergabe des Senders, bevor Sie aufnehmen.",
-    "ERR_RECORD_TOO_LARGE": "Die Aufnahmedatei ist zu groß."
+    "ERR_RECORD_TOO_LARGE": "Die Aufnahmedatei ist zu groß.",
+    "EPG_BROWSER_OPEN": "Programme",
+    "IA_PAGE": "Seite {{page}} / {{pages}}",
+    "LIST_PAGE": "Seite {{page}} / {{pages}}",
+    "SHARE_SOURCE_ARTE": "ARTE Replay",
+    "SHARE_SOURCE_IA": "Archive.org",
+    "SKIN_GROUP_SCENE": "Szenen",
+    "TAB_IA": "Archive.org",
+    "VOLUME": "Lautstärke"
   },
   "DEEZER": {
     "TITLE": "Deezer",
@@ -6391,7 +6455,8 @@
     "FULLSCREEN": "Vollbild",
     "FULLSCREEN_EXIT": "Vollbild verlassen",
     "ERR_PIP": "Picture-in-Picture konnte in diesem Browser nicht aktiviert werden.",
-    "ERR_FULLSCREEN": "Vollbild konnte in diesem Browser nicht aktiviert werden."
+    "ERR_FULLSCREEN": "Vollbild konnte in diesem Browser nicht aktiviert werden.",
+    "SKIN_GROUP_SCENE": "Szenen"
   },
   "BOOK": {
     "TITLE": "Bücher — Weltbibliothek",
@@ -7177,7 +7242,8 @@
     "OFFLINE_MAP_OPEN": "Kacheln laden",
     "OFFLINE_MAP_SHARED": "Ein Speicher auf diesem Gerät, gemeinsam für Trace Viewer, GPS, Route und GPX.",
     "OFFLINE_MAP_WINDOW": "Fenster {{south}} → {{north}}, {{west}} → {{east}}",
-    "OFFLINE_MAP_ZOOMS": "Zoom {{current}} bis {{max}}"
+    "OFFLINE_MAP_ZOOMS": "Zoom {{current}} bis {{max}}",
+    "OFFLINE_MAP_BTN_SHORT": "HL"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "Adresssuche fehlgeschlagen.",

@@ -1141,7 +1141,48 @@
     "HOMETITLE": "موقع خاص",
     "HOMESUBTITLE": "©PatrickDeschamps",
     "SECTION2TITLE": " الصفحة الرئيسية، القسم 2 (فر).",
-    "SECTION3TITLE": " الصفحة الرئيسية، القسم 3 (فر)."
+    "SECTION3TITLE": " الصفحة الرئيسية، القسم 3 (فر).",
+    "DASHBOARD": {
+      "TITLE": "الرئيسية",
+      "REFRESH": "تحديث",
+      "LOADING": "جارٍ التحميل…",
+      "UNAVAILABLE": "غير متاح حالياً",
+      "WEATHER": "الطقس",
+      "WEATHER_EMPTY": "الموقع غير متاح",
+      "FEELS": "المحسوسة {{temp}}",
+      "HUMIDITY": "الرطوبة {{value}}%",
+      "SUNRISE": "الشروق {{time}}",
+      "SUNSET": "الغروب {{time}}",
+      "ALT_YOU": "أنت {{alt}}",
+      "ALT_STATION": "المحطة {{alt}}",
+      "AGENDA": "الأجندة",
+      "AGENDA_EMPTY": "لا شيء قادم",
+      "ACTIVITIES": "الأنشطة القادمة",
+      "DAYS_LEFT": "{{count}} أيام",
+      "DAYS_LEFT_ONE": "يوم واحد",
+      "DAYS_TODAY": "اليوم",
+      "DAYS_ONGOING": "جارٍ",
+      "APPOINTMENTS": "المواعيد القادمة",
+      "TASK_ASSIGNEE": "مُسندة إلى",
+      "TASK_OWNER": "المالك",
+      "AGENDA_MORE": "{{count}} إضافية",
+      "TASKS": "المهام",
+      "TASKS_EMPTY": "لا مهام مفتوحة",
+      "OVERDUE": "متأخرة",
+      "PLAYING": "قيد التشغيل",
+      "PLAYING_EMPTY": "لا شيء يعمل",
+      "SOURCE_DEEZER": "Deezer",
+      "SOURCE_RADIO": "Radio",
+      "SOURCE_YOUTUBE": "YouTube",
+      "SOURCE_TV": "TV",
+      "OPEN_DEEZER": "فتح Deezer",
+      "OPEN_RADIO": "فتح الراديو",
+      "OPEN_TV": "فتح التلفاز",
+      "NEWS": "الأخبار",
+      "NEWS_EMPTY": "لا عناوين",
+      "SCROLL": "تمرير الصفحة",
+      "NOTES": "ملاحظات"
+    }
   },
   "LINKS": {
     "TITLE": "الروابط",
@@ -2192,14 +2233,14 @@
     "POI_PHOTO_SOURCE_FLICKR": "Flickr",
     "POI_PHOTO_SOURCE_OPENVERSE": "Openverse",
     "POI_PHOTO_SOURCE_UNSPLASH": "Unsplash",
-    "POI_PHOTO_SAVE": "Save to an activity",
-    "POI_PHOTO_SAVE_PICK": "Choose an activity",
-    "POI_PHOTO_SAVE_LOADING": "Saving…",
-    "POI_PHOTO_SAVED": "Photo saved",
-    "POI_PHOTO_SAVE_ERROR": "Could not save the photo",
-    "POI_PHOTO_SAVE_EMPTY": "No activity",
-    "POI_PHOTO_SAVE_FILTER": "Filter",
-    "POI_PHOTO_SAVE_NONE": "No matching activity",
+    "POI_PHOTO_SAVE": "حفظ في نشاط",
+    "POI_PHOTO_SAVE_PICK": "اختيار نشاط",
+    "POI_PHOTO_SAVE_LOADING": "جارٍ الحفظ…",
+    "POI_PHOTO_SAVED": "تم حفظ الصورة",
+    "POI_PHOTO_SAVE_ERROR": "تعذر حفظ الصورة",
+    "POI_PHOTO_SAVE_EMPTY": "لا يوجد نشاط",
+    "POI_PHOTO_SAVE_FILTER": "تصفية",
+    "POI_PHOTO_SAVE_NONE": "لا يوجد نشاط مطابق",
     "POI_PHOTO_SOURCE_MAPILLARY": "Mapillary",
     "POI_PHOTO_SOURCE_PANORAMAX": "Panoramax",
     "POI_PHOTO_SOURCE_OSM": "OpenStreetMap",
@@ -2399,7 +2440,19 @@
     "TRACK_FOOTER_ADDR_SHORT": "عن.",
     "TRACK_FOOTER_HIKING_SHORT": "مشي",
     "TRACK_FOOTER_CYCLING_SHORT": "دراجة",
-    "TRACK_FOOTER_FOLLOW_SHORT": "تتبع"
+    "TRACK_FOOTER_FOLLOW_SHORT": "تتبع",
+    "CONFIRM": "تأكيد",
+    "VIDEO_COMPRESSION_TITLE": "ضغط الفيديو",
+    "VIDEO_COMPRESSION_MESSAGE": "تم اكتشاف {{count}} فيديو. اختر جودة الضغط:",
+    "POI_PHOTO_COVER_MAP": "تكبير فوق الخريطة",
+    "TRACK_BASEMAP_SECOND": "خريطة الأساس الثانية",
+    "TRACK_BASEMAP_NONE": "بلا",
+    "TRACK_BASEMAP_BLEND": "الشفافية: اليسار = خريطة الأساس الأولى، اليمين = الثانية",
+    "TRACK_RELIEF_PITCH": "إمالة",
+    "TRACK_RELIEF_TILT_FOLLOW": "إمالة الخريطة بالهاتف",
+    "TRACK_RELIEF_3D_HINT": "إمالة وتضاريس لخرائط Maptoolkit Hike وSki. المسار ونقطة GPS على التضاريس. على الهاتف: إصبع واحد يحرّك، والقرص يكبر، وإصبعان للأعلى يميلان. النقر المزدوج يكبّر. Ctrl مع السحب: جانبياً يدور المشهد، وللأعلى يميل.",
+    "TRACK_RELIEF_TILT_FOLLOW_HINT": "في الوضع ثلاثي الأبعاد مع الشمال، إمالة الهاتف تميل الخريطة",
+    "TRACK_RELIEF_TILT_FOLLOW_NEED_NORTH": "فعّل الشمال لإمالة الخريطة بالهاتف"
   },
   "EVENTCREATION": {
     "TITLE": "إنشاء نشاط",
@@ -2498,7 +2551,8 @@
     "UNSAVED_CHANGES_CONFIRM": "لديك تغييرات غير محفوظة. هل أنت متأكد أنك تريد مغادرة هذه الصفحة؟",
     "PHOTOFROMFS_UNAUTHORIZED": "غير مصرح لك بإنشاء أو تعديل روابط من نوع 'صورة من نظام الملفات'. فقط المستخدم المصرح له يمكنه إنشاء أو تعديل هذا النوع من الروابط.",
     "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "خطأ: غير مصرح لك بتحديث أحداث مع روابط من نوع 'صورة من نظام الملفات'. فقط المستخدم المصرح له يمكنه تعديل هذا النوع من الروابط.",
-    "EVENT_UPDATE_UNAUTHORIZED": "لست مخوّلاً بتعديل هذا النشاط. وحده المالك أو المسؤول يمكنه تعديله."
+    "EVENT_UPDATE_UNAUTHORIZED": "لست مخوّلاً بتعديل هذا النشاط. وحده المالك أو المسؤول يمكنه تعديله.",
+    "FRIEND_GROUP_UNAUTHORIZED": "لست مخولاً بتحديث هذا النشاط لمجموعات الأصدقاء المحددة."
   },
   "EVENTDEL": {
     "TITLEDELCONF": "تأكيد حذف النشاط :",
@@ -2553,7 +2607,8 @@
     "NEXT_PAGE": "الصفحة التالية",
     "EXPAND": "توسيع",
     "COLLAPSE": "طي",
-    "OPTIONS": "خيارات"
+    "OPTIONS": "خيارات",
+    "ERROR": "خطأ"
   },
   "RESULTS": {
     "TITLE": "WhatsPat",
@@ -5377,7 +5432,8 @@
     "OPEN_VIDEOSHOW": "فتح في عارض الفيديو",
     "ODS_WALL_TABLE_TITLE": "جداول Calc‏ (.ods)",
     "ODS_TABLE_DOWNLOAD": "تنزيل الجدول",
-    "LINK_ACTION_OPEN_ODS": "فتح في محرّر Calc"
+    "LINK_ACTION_OPEN_ODS": "فتح في محرّر Calc",
+    "YOUTUBE_BADGE": "YouTube"
   },
   "NEWS": {
     "PAGE_TITLE": "الأخبار",
@@ -6024,7 +6080,18 @@
     "ERR_RECORD_UNAVAILABLE": "التسجيل غير مدعوم في هذا المتصفح (يلزم MediaRecorder).",
     "ERR_RECORD_LIMIT": "يوجد تسجيل قيد التنفيذ بالفعل.",
     "ERR_RECORD_NEED_PLAY": "ابدأ تشغيل القناة أولًا قبل التسجيل.",
-    "ERR_RECORD_TOO_LARGE": "ملف التسجيل كبير جدًا."
+    "ERR_RECORD_TOO_LARGE": "ملف التسجيل كبير جدًا.",
+    "ARTE_COUNT": "{{count}} برنامج",
+    "ARTE_PAGE": "الصفحة {{page}} / {{pages}}",
+    "EPG_BROWSER_OPEN": "البرامج",
+    "IA_PAGE": "الصفحة {{page}} / {{pages}}",
+    "LIST_PAGE": "الصفحة {{page}} / {{pages}}",
+    "SHARE_SOURCE_ARTE": "ARTE Replay",
+    "SHARE_SOURCE_IA": "Archive.org",
+    "SKIN_GROUP_SCENE": "مشاهد",
+    "TAB_ARTE": "ARTE Replay",
+    "TAB_IA": "Archive.org",
+    "VOLUME": "مستوى الصوت"
   },
   "DEEZER": {
     "TITLE": "Deezer",
@@ -6380,7 +6447,9 @@
     "GLOBAL_FILTER_APPLY": "تطبيق",
     "GLOBAL_FILTER_CLEAR": "مسح",
     "GLOBAL_FILTER_STATION_HINT": "بحث باسم المحطة (أو النوع). في وضع «كل البلدان»، حرفان على الأقل.",
-    "NOW_TRACK": "المقطع الحالي"
+    "NOW_TRACK": "المقطع الحالي",
+    "LIST_PAGE": "الصفحة {{page}} / {{pages}}",
+    "SKIN_GROUP_SCENE": "مشاهد"
   },
   "ARCHIVE": {
     "TITLE": "Internet Archive",
@@ -7149,7 +7218,8 @@
     "OFFLINE_MAP_OPEN": "تحميل البلاطات",
     "OFFLINE_MAP_SHARED": "مخزون واحد على هذا الجهاز، مشترك بين العارض وGPS والمسار وGPX.",
     "OFFLINE_MAP_WINDOW": "النافذة {{south}} → {{north}}, {{west}} → {{east}}",
-    "OFFLINE_MAP_ZOOMS": "التكبير {{current}} إلى {{max}}"
+    "OFFLINE_MAP_ZOOMS": "التكبير {{current}} إلى {{max}}",
+    "OFFLINE_MAP_BTN_SHORT": "HL"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "فشل البحث عن العنوان.",

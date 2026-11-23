@@ -1,5 +1,6 @@
 import { maplibreGL } from '@maplibre/maplibre-gl-leaflet';
 import { Map as MlMap, setWorkerUrl } from 'maplibre-gl';
+import { environment } from '../../environments/environment';
 import { L, RotatableLeafletMap } from './leaflet-rotate-setup';
 
 /** Community styles. Vector tiles, no API key. Detail stops at zoom 15. */
@@ -45,6 +46,105 @@ export function ensureMaplibreWorker(): void {
 	}
 	setWorkerUrl(new URL('assets/maplibre-gl-worker.mjs', document.baseURI).href);
 	workerReady = true;
+}
+
+/**
+ * Hosts named by the community styles: the style document, vector tiles, glyphs, sprites,
+ * and the Mapterhorn elevation tiles the terrain sources point at.
+ * Anything else (attribution pages, webfonts CSS) stays on its own URL.
+ */
+const MAPTOOLKIT_ASSET_HOSTS = new Set([
+	'styles.maptoolkit.org',
+	'tiles.maptoolkit.org',
+	'fonts.maptoolkit.org',
+	'icons.maptoolkit.org',
+	'tiles.mapterhorn.com'
+]);
+const MAPTOOLKIT_PROBE_URL = MAPTOOLKIT_HIKING_STYLE;
+const MAPTOOLKIT_PROBE_TIMEOUT_MS = 8000;
+const EMPTY_STYLE = { version: 8 as const, sources: {}, layers: [] };
+
+let maptoolkitRoute: 'direct' | 'proxy' | null = null;
+let maptoolkitRoutePending: Promise<'direct' | 'proxy'> | null = null;
+
+/** A readable 2xx stays direct. 403, or a blocked response the browser cannot read, uses the backend. */
+export function maptoolkitRouteForStatus(status: number): 'direct' | 'proxy' {
+	if (status >= 200 && status < 300) {
+		return 'direct';
+	}
+	if (status === 403) {
+		return 'proxy';
+	}
+	return 'direct';
+}
+
+export function maptoolkitUsesProxy(): boolean {
+	return maptoolkitRoute === 'proxy';
+}
+
+export function whenMaptoolkitReady(): Promise<void> {
+	return resolveMaptoolkitRoute().then(() => undefined);
+}
+
+function resolveMaptoolkitRoute(): Promise<'direct' | 'proxy'> {
+	if (maptoolkitRoute) {
+		return Promise.resolve(maptoolkitRoute);
+	}
+	if (typeof fetch !== 'function') {
+		maptoolkitRoute = 'direct';
+		return Promise.resolve(maptoolkitRoute);
+	}
+	if (!maptoolkitRoutePending) {
+		maptoolkitRoutePending = probeMaptoolkit().then((next) => {
+			maptoolkitRoute = next;
+			return next;
+		});
+	}
+	return maptoolkitRoutePending;
+}
+
+async function probeMaptoolkit(): Promise<'direct' | 'proxy'> {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), MAPTOOLKIT_PROBE_TIMEOUT_MS);
+	try {
+		const response = await fetch(MAPTOOLKIT_PROBE_URL, {
+			method: 'GET',
+			cache: 'default',
+			credentials: 'omit',
+			signal: controller.signal
+		});
+		return maptoolkitRouteForStatus(response.status);
+	} catch {
+		/*
+		 * An office filter answers 403 without CORS headers. fetch() then throws
+		 * instead of exposing the status. The direct style is unusable either way.
+		 */
+		return 'proxy';
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+export function isMaptoolkitAssetUrl(url: string): boolean {
+	try {
+		const parsed = new URL(url);
+		return parsed.protocol === 'https:' && MAPTOOLKIT_ASSET_HOSTS.has(parsed.hostname);
+	} catch {
+		return false;
+	}
+}
+
+export function maptoolkitProxyUrl(absolute: string): string {
+	const base = environment.API_URL.endsWith('/') ? environment.API_URL : `${environment.API_URL}/`;
+	return `${base}external/map/maptoolkit?url=${encodeURIComponent(absolute)}`;
+}
+
+/** MapLibre calls this for the style, the tiles, the glyphs and the sprites. */
+export function maptoolkitTransformRequest(url: string): { url: string } {
+	if (maptoolkitUsesProxy() && isMaptoolkitAssetUrl(url)) {
+		return { url: maptoolkitProxyUrl(url) };
+	}
+	return { url };
 }
 
 type GlMap = {
@@ -332,10 +432,24 @@ function stabilizeMaplibreLayer(layer: L.Layer): L.Layer {
  * The canvas is counter-rotated against the Leaflet pane and MapLibre receives the
  * bearing, so the terrain turns while place names stay horizontal.
  */
+type StyleMap = {
+	setStyle(style: string, options?: { diff?: boolean }): void;
+};
+
+function maplibreMapOf(layer: L.Layer): StyleMap | null {
+	const withGetter = layer as L.Layer & {
+		getMaplibreMap?: () => StyleMap | null;
+		_glMap?: StyleMap | null;
+	};
+	return withGetter.getMaplibreMap?.() ?? withGetter._glMap ?? null;
+}
+
 function createMaptoolkitLayer(style: string): L.Layer {
 	ensureMaplibreWorker();
+	void whenMaptoolkitReady();
 	const layer = maplibreGL({
-		style,
+		style: EMPTY_STYLE,
+		transformRequest: maptoolkitTransformRequest,
 		interactive: false,
 		padding: 0.3,
 		canvasContextAttributes: {
@@ -344,7 +458,22 @@ function createMaptoolkitLayer(style: string): L.Layer {
 			failIfMajorPerformanceCaveat: false
 		}
 	} as unknown as Parameters<typeof maplibreGL>[0]);
-	return stabilizeMaplibreLayer(layer);
+	const stabilized = stabilizeMaplibreLayer(layer);
+	const tracked = stabilized as L.Layer & { _styleGeneration?: number; _map?: unknown };
+	const onAdd = stabilized.onAdd?.bind(stabilized);
+	(stabilized as { onAdd(map: L.Map): L.Layer }).onAdd = (map: L.Map) => {
+		const added = onAdd ? onAdd(map) : stabilized;
+		const generation = (tracked._styleGeneration ?? 0) + 1;
+		tracked._styleGeneration = generation;
+		void whenMaptoolkitReady().then(() => {
+			if (tracked._styleGeneration !== generation || !tracked._map) {
+				return;
+			}
+			maplibreMapOf(stabilized)?.setStyle(style, { diff: false });
+		});
+		return added;
+	};
+	return stabilized;
 }
 
 export function createVectorBasemapLayer(id: string): L.Layer | null {
@@ -370,10 +499,13 @@ export class FlatMaptoolkitBlend {
 	private host: HTMLDivElement | null = null;
 	private frame: HTMLDivElement | null = null;
 	private styleUrl = '';
+	private mountGeneration = 0;
+	private pendingReady: (() => void) | null = null;
 
 	mount(pane: HTMLElement, styleUrl: string, onReady?: () => void): void {
 		this.destroy();
 		ensureMaplibreWorker();
+		const generation = ++this.mountGeneration;
 		const host = document.createElement('div');
 		host.className = 'trace-flat-gl-blend';
 		const frame = document.createElement('div');
@@ -383,9 +515,24 @@ export class FlatMaptoolkitBlend {
 		this.host = host;
 		this.frame = frame;
 		this.styleUrl = styleUrl;
+		this.pendingReady = onReady ?? null;
+		void whenMaptoolkitReady().then(() => {
+			if (generation !== this.mountGeneration || !this.frame) {
+				return;
+			}
+			this.openMap(this.styleUrl);
+		});
+	}
+
+	private openMap(styleUrl: string): void {
+		const frame = this.frame;
+		if (!frame || this.map) {
+			return;
+		}
 		const map = new MlMap({
 			container: frame,
-			style: styleUrl,
+			style: EMPTY_STYLE,
+			transformRequest: maptoolkitTransformRequest,
 			center: [0, 0],
 			zoom: 1,
 			pitch: 0,
@@ -401,28 +548,35 @@ export class FlatMaptoolkitBlend {
 		});
 		ignoreMissingStyleIcons(map as unknown as StyleImageMap);
 		this.map = map;
-		map.once('load', () => {
+		map.setStyle(styleUrl, { diff: false });
+		map.once('style.load', () => {
 			if (this.map !== map) {
 				return;
 			}
 			map.resize();
-			onReady?.();
+			this.pendingReady?.();
 		});
 	}
 
 	setStyle(styleUrl: string, onReady?: () => void): void {
-		const map = this.map;
-		if (!map || this.styleUrl === styleUrl) {
+		if (this.styleUrl === styleUrl && this.map) {
 			return;
 		}
 		this.styleUrl = styleUrl;
+		if (onReady) {
+			this.pendingReady = onReady;
+		}
+		const map = this.map;
+		if (!map) {
+			return;
+		}
 		map.setStyle(styleUrl, { diff: false });
 		map.once('style.load', () => {
 			if (this.map !== map) {
 				return;
 			}
 			ignoreMissingStyleIcons(map as unknown as StyleImageMap);
-			onReady?.();
+			this.pendingReady?.();
 		});
 	}
 
@@ -480,11 +634,13 @@ export class FlatMaptoolkitBlend {
 	}
 
 	destroy(): void {
+		this.mountGeneration += 1;
 		this.map?.remove();
 		this.map = null;
 		this.host?.remove();
 		this.host = null;
 		this.frame = null;
 		this.styleUrl = '';
+		this.pendingReady = null;
 	}
 }

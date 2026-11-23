@@ -1141,7 +1141,48 @@
     "HOMETITLE": "אתר פרטי",
     "HOMESUBTITLE": "©PatrickDeschamps",
     "SECTION2TITLE": " דף הבית, סעיף 2 (עברית).",
-    "SECTION3TITLE": " דף הבית, סעיף 3 (עברית)."
+    "SECTION3TITLE": " דף הבית, סעיף 3 (עברית).",
+    "DASHBOARD": {
+      "TITLE": "בית",
+      "REFRESH": "רענון",
+      "LOADING": "טוען…",
+      "UNAVAILABLE": "לא זמין כרגע",
+      "WEATHER": "מזג אוויר",
+      "WEATHER_EMPTY": "המיקום אינו זמין",
+      "FEELS": "מרגיש כמו {{temp}}",
+      "HUMIDITY": "לחות {{value}}%",
+      "SUNRISE": "זריחה {{time}}",
+      "SUNSET": "שקיעה {{time}}",
+      "ALT_YOU": "אתה {{alt}}",
+      "ALT_STATION": "תחנה {{alt}}",
+      "AGENDA": "יומן",
+      "AGENDA_EMPTY": "אין אירועים קרובים",
+      "ACTIVITIES": "פעילויות קרובות",
+      "DAYS_LEFT": "{{count}} ימים",
+      "DAYS_LEFT_ONE": "יום אחד",
+      "DAYS_TODAY": "היום",
+      "DAYS_ONGOING": "מתבצע",
+      "APPOINTMENTS": "פגישות קרובות",
+      "TASK_ASSIGNEE": "הוקצה ל-",
+      "TASK_OWNER": "בעלים",
+      "AGENDA_MORE": "עוד {{count}}",
+      "TASKS": "משימות",
+      "TASKS_EMPTY": "אין משימות פתוחות",
+      "OVERDUE": "באיחור",
+      "PLAYING": "מתנגן",
+      "PLAYING_EMPTY": "שום דבר לא מתנגן",
+      "SOURCE_DEEZER": "Deezer",
+      "SOURCE_RADIO": "Radio",
+      "SOURCE_YOUTUBE": "YouTube",
+      "SOURCE_TV": "TV",
+      "OPEN_DEEZER": "פתיחת Deezer",
+      "OPEN_RADIO": "פתיחת הרדיו",
+      "OPEN_TV": "פתיחת הטלוויזיה",
+      "NEWS": "חדשות",
+      "NEWS_EMPTY": "אין כותרות",
+      "SCROLL": "גלילת העמוד",
+      "NOTES": "הערות"
+    }
   },
   "LINKS": {
     "TITLE": "קישורים",
@@ -1909,7 +1950,8 @@
     "UNSAVED_CHANGES_CONFIRM": "יש לך שינויים שלא נשמרו. האם אתה בטוח שברצונך לעזוב את הדף הזה?",
     "PHOTOFROMFS_UNAUTHORIZED": "אין לך הרשאה ליצור או לערוך קישורים מסוג 'תמונה ממערכת הקבצים'. רק המשתמש המורשה יכול ליצור או לערוך קישורים מסוג זה.",
     "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "שגיאה: אין לך הרשאה לעדכן אירועים עם קישורים מסוג 'תמונה ממערכת הקבצים'. רק המשתמש המורשה יכול לשנות קישורים מסוג זה.",
-    "EVENT_UPDATE_UNAUTHORIZED": "אין לך הרשאה לשנות פעילות זו. רק הבעלים או מנהל יכולים לשנות אותה."
+    "EVENT_UPDATE_UNAUTHORIZED": "אין לך הרשאה לשנות פעילות זו. רק הבעלים או מנהל יכולים לשנות אותה.",
+    "FRIEND_GROUP_UNAUTHORIZED": "אין לך הרשאה לעדכן פעילות זו עבור קבוצות החברים שנבחרו."
   },
   "EVENTDEL": {
     "TITLEDELCONF": "אישור מחיקת הפעילות:",
@@ -2291,14 +2333,14 @@
     "POI_PHOTO_SOURCE_FLICKR": "Flickr",
     "POI_PHOTO_SOURCE_OPENVERSE": "Openverse",
     "POI_PHOTO_SOURCE_UNSPLASH": "Unsplash",
-    "POI_PHOTO_SAVE": "Save to an activity",
-    "POI_PHOTO_SAVE_PICK": "Choose an activity",
-    "POI_PHOTO_SAVE_LOADING": "Saving…",
-    "POI_PHOTO_SAVED": "Photo saved",
-    "POI_PHOTO_SAVE_ERROR": "Could not save the photo",
-    "POI_PHOTO_SAVE_EMPTY": "No activity",
-    "POI_PHOTO_SAVE_FILTER": "Filter",
-    "POI_PHOTO_SAVE_NONE": "No matching activity",
+    "POI_PHOTO_SAVE": "שמירה בפעילות",
+    "POI_PHOTO_SAVE_PICK": "בחירת פעילות",
+    "POI_PHOTO_SAVE_LOADING": "שומר…",
+    "POI_PHOTO_SAVED": "התמונה נשמרה",
+    "POI_PHOTO_SAVE_ERROR": "לא ניתן לשמור את התמונה",
+    "POI_PHOTO_SAVE_EMPTY": "אין פעילות",
+    "POI_PHOTO_SAVE_FILTER": "סינון",
+    "POI_PHOTO_SAVE_NONE": "אין פעילות תואמת",
     "POI_PHOTO_SOURCE_MAPILLARY": "Mapillary",
     "POI_PHOTO_SOURCE_PANORAMAX": "Panoramax",
     "POI_PHOTO_SOURCE_OSM": "OpenStreetMap",
@@ -2503,7 +2545,19 @@
     "TRACK_FOOTER_ADDR_SHORT": "כת.",
     "TRACK_FOOTER_HIKING_SHORT": "הליכה",
     "TRACK_FOOTER_CYCLING_SHORT": "אופניים",
-    "TRACK_FOOTER_FOLLOW_SHORT": "מעקב"
+    "TRACK_FOOTER_FOLLOW_SHORT": "מעקב",
+    "CONFIRM": "אישור",
+    "VIDEO_COMPRESSION_TITLE": "דחיסת וידאו",
+    "VIDEO_COMPRESSION_MESSAGE": "זוהו {{count}} סרטונים. בחרו את איכות הדחיסה:",
+    "POI_PHOTO_COVER_MAP": "הגדלה מעל המפה",
+    "TRACK_BASEMAP_SECOND": "מפת בסיס שנייה",
+    "TRACK_BASEMAP_NONE": "ללא",
+    "TRACK_BASEMAP_BLEND": "שקיפות: שמאל = מפת הבסיס הראשונה, ימין = השנייה",
+    "TRACK_RELIEF_PITCH": "הטיה",
+    "TRACK_RELIEF_TILT_FOLLOW": "הטיית המפה עם הטלפון",
+    "TRACK_RELIEF_3D_HINT": "הטיה ותבליט עבור Maptoolkit Hike ו-Ski. המסלול ונקודת ה-GPS יושבים על פני השטח. בטלפון: אצבע אחת מזיזה, צביטה מגדילה, שתי אצבעות כלפי מעלה מטות. הקשה כפולה מגדילה. Ctrl וגרירה: לצדדים מסובב, כלפי מעלה מטה.",
+    "TRACK_RELIEF_TILT_FOLLOW_HINT": "בתלת-ממד עם צפון פעיל, הטיית הטלפון מטה את המפה",
+    "TRACK_RELIEF_TILT_FOLLOW_NEED_NORTH": "הפעילו את הצפון כדי להטות את המפה עם הטלפון"
   },
   "CAROUSEL": {
     "START_AUTOPLAY": "התחל גלילה אוטומטית",
@@ -2554,7 +2608,8 @@
     "NEXT_PAGE": "עמוד הבא",
     "EXPAND": "הרחב",
     "COLLAPSE": "כווץ",
-    "OPTIONS": "אפשרויות"
+    "OPTIONS": "אפשרויות",
+    "ERROR": "שגיאה"
   },
   "RESULTS": {
     "TITLE": "WhatsPat",
@@ -5378,7 +5433,8 @@
     "OPEN_VIDEOSHOW": "פתיחה במציג הווידאו",
     "ODS_WALL_TABLE_TITLE": "גיליונות Calc‏ (.ods)",
     "ODS_TABLE_DOWNLOAD": "הורדת הגיליון",
-    "LINK_ACTION_OPEN_ODS": "פתיחה בעורך Calc"
+    "LINK_ACTION_OPEN_ODS": "פתיחה בעורך Calc",
+    "YOUTUBE_BADGE": "YouTube"
   },
   "NEWS": {
     "PAGE_TITLE": "חדשות",
@@ -6025,7 +6081,18 @@
     "ERR_RECORD_UNAVAILABLE": "ההקלטה אינה נתמכת בדפדפן זה (נדרש MediaRecorder).",
     "ERR_RECORD_LIMIT": "הקלטה כבר מתבצעת.",
     "ERR_RECORD_NEED_PLAY": "הפעילו קודם את הערוץ לפני ההקלטה.",
-    "ERR_RECORD_TOO_LARGE": "קובץ ההקלטה גדול מדי."
+    "ERR_RECORD_TOO_LARGE": "קובץ ההקלטה גדול מדי.",
+    "ARTE_COUNT": "{{count}} תוכניות",
+    "ARTE_PAGE": "עמוד {{page}} / {{pages}}",
+    "EPG_BROWSER_OPEN": "תוכניות",
+    "IA_PAGE": "עמוד {{page}} / {{pages}}",
+    "LIST_PAGE": "עמוד {{page}} / {{pages}}",
+    "SHARE_SOURCE_ARTE": "ARTE Replay",
+    "SHARE_SOURCE_IA": "Archive.org",
+    "SKIN_GROUP_SCENE": "סצנות",
+    "TAB_ARTE": "ARTE Replay",
+    "TAB_IA": "Archive.org",
+    "VOLUME": "עוצמת קול"
   },
   "DEEZER": {
     "TITLE": "Deezer",
@@ -6381,7 +6448,9 @@
     "GLOBAL_FILTER_APPLY": "החלה",
     "GLOBAL_FILTER_CLEAR": "ניקוי",
     "GLOBAL_FILTER_STATION_HINT": "חיפוש לפי שם תחנה (או סגנון). במצב «כל המדינות», לפחות 2 תווים.",
-    "NOW_TRACK": "הרצועה הנוכחית"
+    "NOW_TRACK": "הרצועה הנוכחית",
+    "LIST_PAGE": "עמוד {{page}} / {{pages}}",
+    "SKIN_GROUP_SCENE": "סצנות"
   },
   "ARCHIVE": {
     "TITLE": "Internet Archive",
@@ -7150,7 +7219,8 @@
     "OFFLINE_MAP_OPEN": "טעינת אריחים",
     "OFFLINE_MAP_SHARED": "מאגר אחד במכשיר, משותף לצופה, GPS, מסלול ו-GPX.",
     "OFFLINE_MAP_WINDOW": "חלון {{south}} → {{north}}, {{west}} → {{east}}",
-    "OFFLINE_MAP_ZOOMS": "זום {{current}} עד {{max}}"
+    "OFFLINE_MAP_ZOOMS": "זום {{current}} עד {{max}}",
+    "OFFLINE_MAP_BTN_SHORT": "HL"
   },
   "ASTRO_COMPASS": {
     "ADDRESS_ERROR": "חיפוש הכתובת נכשל.",

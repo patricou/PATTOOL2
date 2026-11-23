@@ -305,6 +305,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/timezone/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/openroute/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/map/tile/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/map/maptoolkit").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/map/places").permitAll()
                 // Stock exchange proxy (Twelve Data) — lecture seule + purge du cache ticker,
                 // sans auth (la clé API est côté serveur, aucun secret n'est exposé).
