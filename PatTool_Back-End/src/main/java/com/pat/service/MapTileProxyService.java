@@ -66,7 +66,10 @@ public class MapTileProxyService {
             Map.entry("waymarked-hiking", List.of("https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png")),
             Map.entry("waymarked-cycling", List.of("https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png")),
             Map.entry("waymarked-mtb", List.of("https://tile.waymarkedtrails.org/mtb/{z}/{x}/{y}.png")),
-            Map.entry("openrailwaymap", List.of("https://a.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png"))
+            Map.entry("openrailwaymap", List.of("https://a.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png")),
+            // Bathymétrie (Léman compris). MapLibre charge le raster-dem en fetch :
+            // la CSP prod (connect-src) bloque tiles.openwaters.io.
+            Map.entry("openwaters-seascape", List.of("https://tiles.openwaters.io/seascape/{z}/{x}/{y}.webp"))
     );
 
     private final RestTemplate restTemplate;
@@ -145,7 +148,7 @@ public class MapTileProxyService {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.set(HttpHeaders.USER_AGENT, "PatTool-MapTileProxy/1.0 (GPS 3D nav; contact via patrickdeschamps.com)");
-            headers.set(HttpHeaders.ACCEPT, "image/png,image/jpeg,image/*;q=0.8,*/*;q=0.5");
+            headers.set(HttpHeaders.ACCEPT, "image/webp,image/png,image/jpeg,image/*;q=0.8,*/*;q=0.5");
             headers.set(HttpHeaders.REFERER, "https://www.patrickdeschamps.com/");
 
             ResponseEntity<byte[]> response = restTemplate.exchange(
@@ -160,7 +163,11 @@ public class MapTileProxyService {
             }
             HttpHeaders out = new HttpHeaders();
             MediaType contentType = response.getHeaders().getContentType();
-            out.setContentType(contentType != null ? contentType : MediaType.IMAGE_PNG);
+            if (url.contains(".webp")) {
+                out.setContentType(MediaType.parseMediaType("image/webp"));
+            } else {
+                out.setContentType(contentType != null ? contentType : MediaType.IMAGE_PNG);
+            }
             out.setCacheControl(CacheControl.maxAge(Duration.ofHours(6)).cachePublic());
             return new ResponseEntity<>(body, out, HttpStatus.OK);
         } catch (HttpClientErrorException e) {

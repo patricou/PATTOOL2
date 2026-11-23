@@ -54,7 +54,11 @@ const WATER_DEPTH_LAYER = 'relief-water-depth';
  * Bathymétrie mondiale, lacs compris (Léman via swissBATHY3D).
  * Une valeur négative est une profondeur en mètres. 0, 1 et 2 sont des codes (eau inconnue, estran, terre).
  */
-const BATHYMETRY_TILES = 'https://tiles.openwaters.io/seascape/{z}/{x}/{y}.webp';
+/**
+ * Même origine : MapLibre charge ce raster-dem en fetch, et la CSP prod
+ * refuse tiles.openwaters.io (connect-src). Le proxy relaie le webp.
+ */
+const BATHYMETRY_TILES = cachedBasemapTileUrl('openwaters-seascape');
 const BATHYMETRY_STEPS = 49;
 /** Détail natif des tuiles. Au-dessus, elles ne font que grossir le même pixel. */
 const BATHYMETRY_MAX_ZOOM = 14;
