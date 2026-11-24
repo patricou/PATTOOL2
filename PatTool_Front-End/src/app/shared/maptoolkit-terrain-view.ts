@@ -97,9 +97,12 @@ function bathymetryGrayRamp(deep: number, shallow: number): unknown[] {
 /**
  * Violet (bas) → rouge (haut). La teinte décroît de façon constante,
  * donc le même écart d’altitude produit le même écart de couleur.
- * Saturation et luminosité suivent les ancres d’origine le long de cette teinte.
+ * Le départ est à 280° : 253° est déjà un bleu, et le violet n’y tenait
+ * qu’un cran avant de disparaître dans le dégradé.
+ * Saturation et luminosité suivent les ancres le long de cette teinte.
  */
 const ELEVATION_HUE_ANCHORS: { h: number; s: number; l: number }[] = [
+	{ h: 280, s: 0.9, l: 0.48 },
 	{ h: 253.4, s: 1, l: 0.586 },
 	{ h: 224.9, s: 1, l: 0.571 },
 	{ h: 197.6, s: 1, l: 0.5 },

@@ -35,12 +35,11 @@
           <span class="tv-map-scale-label">{{ mapScaleLabel }}</span>
           <span class="tv-map-scale-bar" [style.width.px]="mapScaleWidthPx" aria-hidden="true"></span>
         </div>
-        <div class="tv-poi-photo" *ngIf="reliefPoiPhoto && !poiPhotoFullscreen" role="dialog" [attr.aria-label]="reliefPoiPhoto.title">
-          <div class="tv-poi-photo-head">
-            <span class="tv-poi-photo-title">
-              <span class="tv-poi-photo-title-text">{{ reliefPoiPhoto.title }}</span>
-              <ng-container *ngIf="reliefPoiPhoto.pano" [ngTemplateOutlet]="poiPhoto360Mark"></ng-container>
-            </span>
+        <div class="tv-poi-photo" *ngIf="reliefPoiPhoto && !poiPhotoFullscreen" role="dialog" [attr.aria-label]="poiPhotoCaption() || null">
+          <div class="tv-poi-photo-head" [class.tv-poi-photo-head--empty]="!reliefPoiPhoto.loading && !reliefPoiPhoto.imageUrl">
+            <p class="tv-poi-photo-empty" *ngIf="!reliefPoiPhoto.loading && !reliefPoiPhoto.imageUrl">
+              {{ 'EVENTELEM.POI_NO_PHOTO' | translate }}
+            </p>
             <button type="button"
                     class="tv-poi-photo-close"
                     *ngIf="!reliefPoiPhoto.loading && reliefPoiPhoto.imageUrl"
@@ -99,7 +98,7 @@
                     (click)="openPoiPhotoMapCover()"
                     [attr.aria-label]="'EVENTELEM.POI_PHOTO_COVER_MAP' | translate">
               <img [src]="reliefPoiPhoto.imageUrl"
-                   [alt]="reliefPoiPhoto.title"
+                   [alt]="poiPhotoCaption()"
                    (error)="reliefPoiPhotoFailed()" />
             </button>
             <canvas #poiPano
@@ -115,40 +114,21 @@
               <i class="fa fa-chevron-right" aria-hidden="true"></i>
             </button>
           </div>
-          <p class="tv-poi-photo-empty" *ngIf="!reliefPoiPhoto.loading && !reliefPoiPhoto.imageUrl">
-            {{ 'EVENTELEM.POI_NO_PHOTO' | translate }}
+          <p class="tv-poi-photo-caption" *ngIf="!reliefPoiPhoto.loading && reliefPoiPhoto.imageUrl && (poiPhotoCaption() || reliefPoiPhoto.pano)">
+            <ng-container *ngIf="reliefPoiPhoto.pano" [ngTemplateOutlet]="poiPhoto360Mark"></ng-container>
+            <span class="tv-poi-photo-caption-text" *ngIf="poiPhotoCaption() as caption">{{ caption }}</span>
           </p>
           <div class="tv-poi-save" *ngIf="poiSaveOpen && !reliefPoiPhoto.loading && reliefPoiPhoto.imageUrl">
-            <p class="tv-poi-save-title">{{ 'EVENTELEM.POI_PHOTO_SAVE_PICK' | translate }}</p>
-            <input class="tv-poi-save-filter"
-                   type="search"
-                   [(ngModel)]="poiSaveFilter"
-                   [placeholder]="'EVENTELEM.POI_PHOTO_SAVE_FILTER' | translate"
-                   [attr.aria-label]="'EVENTELEM.POI_PHOTO_SAVE_FILTER' | translate" />
-            <p class="tv-poi-save-status" *ngIf="poiSaveLoading">{{ 'EVENTELEM.POI_PHOTO_SAVE_LOADING' | translate }}</p>
-            <p class="tv-poi-save-status" *ngIf="poiSaveMessage">{{ poiSaveMessage | translate }}</p>
-            <p class="tv-poi-save-status" *ngIf="!poiSaveLoading && !poiSaveActivities.length && !poiSaveMessage">{{ 'EVENTELEM.POI_PHOTO_SAVE_EMPTY' | translate }}</p>
-            <p class="tv-poi-save-status" *ngIf="!poiSaveLoading && poiSaveActivities.length && !filteredPoiSaveActivities.length">{{ 'EVENTELEM.POI_PHOTO_SAVE_NONE' | translate }}</p>
-            <div class="tv-poi-save-list">
-              <button type="button"
-                      class="tv-poi-save-item"
-                      *ngFor="let activity of filteredPoiSaveActivities"
-                      [disabled]="poiSaveLoading"
-                      (click)="savePoiToActivity(activity.id)">
-                {{ activity.name }}
-              </button>
-            </div>
+            <ng-container *ngTemplateOutlet="poiPhotoSave"></ng-container>
           </div>
           <ng-container *ngTemplateOutlet="poiPhotoTools"></ng-container>
         </div>
         <ng-template #poiPhotoTools>
-          <p class="tv-poi-photo-source" *ngIf="reliefPoiPhoto?.source">
-            <span>
-              {{ 'EVENTELEM.POI_PHOTO_FROM' | translate }} {{ poiPhotoSourceKey(reliefPoiPhoto!.source) | translate }}
-              <span *ngIf="poiGallery.length > 1">{{ poiGalleryIndex + 1 }}/{{ poiGallery.length }}</span>
+          <p class="tv-poi-photo-source" *ngIf="reliefPoiPhoto?.pageUrl || reliefPoiPhoto?.imageUrl || poiGallery.length">
+            <span class="tv-poi-photo-count" *ngIf="poiGallery.length">
+              {{ 'EVENTELEM.POI_PHOTO_COUNT' | translate:{ index: poiGalleryIndex + 1, total: poiGallery.length } }}
             </span>
             <a class="tv-poi-photo-page"
-               *ngIf="reliefPoiPhoto?.pageUrl || reliefPoiPhoto?.imageUrl"
                [href]="reliefPoiPhoto?.pageUrl || reliefPoiPhoto?.imageUrl"
                target="_blank"
                rel="noopener noreferrer">
@@ -164,7 +144,7 @@
                     (click)="loadPoiPhotoSource(source)">
               <i class="fa fa-spinner fa-spin" *ngIf="poiSourcePending(source) && !poiSourceCount(source)" aria-hidden="true"></i>
               {{ poiPhotoSourceKey(source) | translate }}
-              <span class="tv-poi-photo-badge" *ngIf="poiSourceCount(source) as count">{{ count }}</span>
+              <span class="tv-poi-photo-badge" *ngIf="poiSourceBadge(source) as badge">{{ badge }}</span>
             </button>
           </div>
           <div class="tv-poi-photo-radius">
@@ -230,7 +210,7 @@
                (pointerup)="onPoiPhotoPointerUp($event)"
                (pointercancel)="onPoiPhotoPointerUp($event)">
             <img [src]="reliefPoiPhoto?.imageUrl"
-                 [alt]="reliefPoiPhoto?.title"
+                 [alt]="poiPhotoCaption()"
                  draggable="false"
                  [style.transform]="poiPhotoImageTransform()"
                  (error)="reliefPoiPhotoFailed()" />
@@ -249,14 +229,58 @@
                   [attr.aria-label]="'EVENTELEM.POI_PHOTO_NEXT' | translate">
             <i class="fa fa-chevron-right" aria-hidden="true"></i>
           </button>
-          <div class="tv-poi-photo-full-caption" (click)="$event.stopPropagation()">
+          <div class="tv-poi-photo-full-caption" *ngIf="reliefPoiPhoto?.pano || poiPhotoCaption()" (click)="$event.stopPropagation()">
             <ng-container *ngIf="reliefPoiPhoto?.pano" [ngTemplateOutlet]="poiPhoto360Mark"></ng-container>
-            <span>{{ reliefPoiPhoto?.title }}</span>
+            <span *ngIf="poiPhotoCaption() as caption">{{ caption }}</span>
+          </div>
+          <div class="tv-poi-photo-full-save"
+               *ngIf="poiSaveOpen && reliefPoiPhoto?.imageUrl"
+               (click)="$event.stopPropagation()">
+            <ng-container *ngTemplateOutlet="poiPhotoSave"></ng-container>
           </div>
           <div class="tv-poi-photo-full-tools" *ngIf="reliefPoiPhoto" (click)="$event.stopPropagation()">
+            <button type="button"
+                    class="tv-poi-photo-save-btn"
+                    *ngIf="reliefPoiPhoto.imageUrl"
+                    [class.is-on]="poiSaveOpen"
+                    (click)="$event.stopPropagation(); togglePoiSave()"
+                    [attr.aria-label]="'EVENTELEM.POI_PHOTO_SAVE' | translate"
+                    [attr.title]="'EVENTELEM.POI_PHOTO_SAVE' | translate">
+              <i class="fa fa-download" aria-hidden="true"></i>
+            </button>
             <ng-container *ngTemplateOutlet="poiPhotoTools"></ng-container>
           </div>
         </div>
+        <ng-template #poiPhotoSave>
+          <div class="tv-poi-save-head">
+            <p class="tv-poi-save-title">{{ 'EVENTELEM.POI_PHOTO_SAVE_PICK' | translate }}</p>
+            <button type="button"
+                    class="tv-poi-save-close"
+                    (click)="$event.stopPropagation(); poiSaveOpen = false"
+                    [attr.aria-label]="'EVENTELEM.POI_PHOTO_CLOSE' | translate"
+                    [attr.title]="'EVENTELEM.POI_PHOTO_CLOSE' | translate">
+              <i class="fa fa-times" aria-hidden="true"></i>
+            </button>
+          </div>
+          <input class="tv-poi-save-filter"
+                 type="search"
+                 [(ngModel)]="poiSaveFilter"
+                 [placeholder]="'EVENTELEM.POI_PHOTO_SAVE_FILTER' | translate"
+                 [attr.aria-label]="'EVENTELEM.POI_PHOTO_SAVE_FILTER' | translate" />
+          <p class="tv-poi-save-status" *ngIf="poiSaveLoading">{{ 'EVENTELEM.POI_PHOTO_SAVE_LOADING' | translate }}</p>
+          <p class="tv-poi-save-status" *ngIf="poiSaveMessage">{{ poiSaveMessage | translate }}</p>
+          <p class="tv-poi-save-status" *ngIf="!poiSaveLoading && !poiSaveActivities.length && !poiSaveMessage">{{ 'EVENTELEM.POI_PHOTO_SAVE_EMPTY' | translate }}</p>
+          <p class="tv-poi-save-status" *ngIf="!poiSaveLoading && poiSaveActivities.length && !filteredPoiSaveActivities.length">{{ 'EVENTELEM.POI_PHOTO_SAVE_NONE' | translate }}</p>
+          <div class="tv-poi-save-list">
+            <button type="button"
+                    class="tv-poi-save-item"
+                    *ngFor="let activity of filteredPoiSaveActivities"
+                    [disabled]="poiSaveLoading"
+                    (click)="savePoiToActivity(activity.id)">
+              {{ activity.name }}
+            </button>
+          </div>
+        </ng-template>
         <ng-template #poiPhoto360Mark>
           <span class="tv-poi-photo-360"
                 role="img"
@@ -268,15 +292,31 @@
             </svg>
           </span>
         </ng-template>
-        <div class="tv-elev-legend" *ngIf="elevationColors && relief3d && legendLeft != null" aria-hidden="true">
-          <span>{{ legendLeft }} m</span>
+        <div class="tv-elev-legend"
+             [class.tv-elev-legend--labeled]="legendHasTickLabels"
+             *ngIf="elevationColors && relief3d && legendLeft != null"
+             aria-hidden="true">
+          <span class="tv-elev-legend-end">{{ legendLeft }} m</span>
           <span class="tv-elev-legend-scale">
-            <span *ngIf="depthSpan" class="tv-elev-legend-seg" [style.flex]="depthLegendFlex" [style.background]="depthGrayCss"></span>
+            <span *ngIf="depthSpan" class="tv-elev-legend-seg" [style.flex]="depthLegendFlex" [style.background]="depthGrayCss">
+              <ng-container *ngTemplateOutlet="legendTicks; context: { $implicit: depthLegendTicks }"></ng-container>
+            </span>
             <span class="tv-elev-legend-mid" *ngIf="legendMid != null">{{ legendMid }} m</span>
-            <span *ngIf="showLandLegend" class="tv-elev-legend-seg" [style.flex]="landLegendFlex" [style.background]="elevationRainbowCss"></span>
+            <span *ngIf="showLandLegend" class="tv-elev-legend-seg" [style.flex]="landLegendFlex" [style.background]="elevationRainbowCss">
+              <ng-container *ngTemplateOutlet="legendTicks; context: { $implicit: landLegendTicks }"></ng-container>
+            </span>
           </span>
-          <span>{{ legendRight }} m</span>
+          <span class="tv-elev-legend-end">{{ legendRight }} m</span>
         </div>
+        <ng-template #legendTicks let-ticks>
+          <span *ngFor="let tick of ticks; trackBy: trackLegendTick"
+                class="tv-elev-tick"
+                [class.tv-elev-tick--major]="tick.major"
+                [style.left.%]="tick.left">
+            <span class="tv-elev-tick-mark"></span>
+            <span class="tv-elev-tick-label" *ngIf="tick.label != null">{{ tick.label }}</span>
+          </span>
+        </ng-template>
         <div class="trace-relief3d-wait" *ngIf="relief3dPending" role="status" aria-live="polite" aria-label="3D">
           <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
           <span>3D</span>

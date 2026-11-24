@@ -413,6 +413,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   keptFrameActive = false;
   private keptFrame: HTMLIFrameElement | null = null;
   private sleeveTimer: ReturnType<typeof setTimeout> | null = null;
+  private listSlideFrame = 0;
+  private listSlideStop: (() => void) | null = null;
   private sleeveSub: Subscription | null = null;
   private previewFresh = false;
   /** Bumps when a clip takes the sound, so a late preview response cannot start under the video. */
@@ -603,6 +605,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     document.removeEventListener('visibilitychange', this.onScreenPower);
     window.removeEventListener('message', this.onYoutubeWindowMessage);
     this.clearSleepKick();
+    this.stopListSlide();
     this.destroy$.next();
     this.destroy$.complete();
     if (this.sleeveTimer) {
@@ -1111,28 +1114,98 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       /* ignore */
     }
     if (!this.sidebarCollapsed && this.current?.id) {
-      setTimeout(() => this.placePlayingTrackFirst());
+      this.scheduleCenterPlayingThumb();
     }
   }
 
-  /** After the menu or a tab comes back, the title on stage is the first row in view. */
+  /** After the menu or a tab comes back, the cover on stage sits in the middle when the list can fill around it. */
   private revealPlayingRow(): void {
     if (!this.current?.id) {
       return;
     }
-    setTimeout(() => this.placePlayingTrackFirst());
+    this.scheduleCenterPlayingThumb();
   }
 
-  private placePlayingTrackFirst(): void {
-    const row = this.hostRef.nativeElement.querySelector('.dz-list .dz-row.is-on') as HTMLElement | null;
-    const list = row?.parentElement;
-    if (!row || !list) {
+  private scheduleCenterPlayingThumb(): void {
+    setTimeout(() => this.centerPlayingThumb());
+  }
+
+  /**
+   * Scrolls the open list so the cover on stage is in the middle.
+   * Near the start or the end, the rows stay packed against that edge instead of leaving a gap.
+   */
+  private centerPlayingThumb(): void {
+    if (this.destroy$.closed) {
       return;
     }
-    const top = row.getBoundingClientRect().top - list.getBoundingClientRect().top;
-    if (top > 1 || top < -1) {
-      list.scrollTop += top;
+    const host = this.hostRef.nativeElement;
+    host.querySelectorAll('.dz-list-pad').forEach((node) => node.remove());
+    const row = host.querySelector('.dz-list .dz-row.is-on') as HTMLElement | null;
+    const list = row?.closest('.dz-list') as HTMLElement | null;
+    if (!row || !list || list.clientHeight < 40) {
+      return;
     }
+    const thumb = (row.querySelector('.dz-thumb') as HTMLElement | null) || row;
+    const pager = list.querySelector('.dz-pager-row') as HTMLElement | null;
+    const visible = Math.max(thumb.offsetHeight, list.clientHeight - (pager?.offsetHeight || 0));
+    const target = list.getBoundingClientRect().top + visible / 2;
+    const thumbMid = thumb.getBoundingClientRect().top + thumb.offsetHeight / 2;
+    const desired = list.scrollTop + thumbMid - target;
+    const maxScroll = Math.max(0, list.scrollHeight - list.clientHeight);
+    const next = Math.min(maxScroll, Math.max(0, desired));
+    this.slideListTo(list, next);
+  }
+
+  /** Glides the list to the cover instead of jumping there. */
+  private slideListTo(list: HTMLElement, top: number): void {
+    this.stopListSlide();
+    const from = list.scrollTop;
+    const distance = top - from;
+    if (Math.abs(distance) < 2) {
+      return;
+    }
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      list.scrollTop = top;
+      return;
+    }
+    const duration = Math.min(560, Math.max(320, Math.abs(distance) * 0.55));
+    const start = performance.now();
+    const onUser = () => this.stopListSlide();
+    const detach = () => {
+      list.removeEventListener('wheel', onUser);
+      list.removeEventListener('touchstart', onUser);
+      list.removeEventListener('pointerdown', onUser);
+    };
+    this.listSlideStop = detach;
+    list.addEventListener('wheel', onUser, { passive: true });
+    list.addEventListener('touchstart', onUser, { passive: true });
+    list.addEventListener('pointerdown', onUser);
+    const step = (now: number) => {
+      if (this.destroy$.closed) {
+        this.listSlideFrame = 0;
+        return;
+      }
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      list.scrollTop = from + distance * eased;
+      if (t < 1) {
+        this.listSlideFrame = requestAnimationFrame(step);
+      } else {
+        this.stopListSlide();
+      }
+    };
+    this.zone.runOutsideAngular(() => {
+      this.listSlideFrame = requestAnimationFrame(step);
+    });
+  }
+
+  private stopListSlide(): void {
+    if (this.listSlideFrame) {
+      cancelAnimationFrame(this.listSlideFrame);
+      this.listSlideFrame = 0;
+    }
+    this.listSlideStop?.();
+    this.listSlideStop = null;
   }
 
   toggleFilterPanel(event?: Event): void {
@@ -2815,7 +2888,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.albumInfo = null;
       this.albumInfoLoading = true;
       this.albumInfoSub?.unsubscribe();
-      this.albumInfoSub = this.albumPage(albumId).subscribe({
+      this.albumInfoSub = this.albumPage(albumId, this.current?.artistId || 0).subscribe({
         next: (page) => {
           if (this.albumInfoForId !== albumId) {
             return;
@@ -3035,7 +3108,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       return;
     }
     this.closeAlbumInfo();
-    this.loadAlbumTracks(album.id, album.title || '', album.artistName || '', null);
+    this.loadAlbumTracks(album.id, album.title || '', album.artistName || '', album.artistId || 0, null);
   }
 
   /** Wikipedia search that opens the article when the title matches. */
@@ -3115,7 +3188,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (!albumId) {
       return;
     }
-    this.loadAlbumTracks(albumId, this.current?.albumTitle || '', this.current?.artistName || '', null);
+    this.loadAlbumTracks(albumId, this.current?.albumTitle || '', this.current?.artistName || '', this.current?.artistId || 0, null);
   }
 
   /** Albums of the artist that is playing. The current title keeps playing. */
@@ -3161,10 +3234,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   showAlbumTracks(album: DeezerAlbum): void {
     const from = this.nowBrowse === 'artist-albums' ? 'artist-albums' : null;
-    this.loadAlbumTracks(album.id, album.title, album.artistName || this.nowArtistName, from);
+    this.loadAlbumTracks(album.id, album.title, album.artistName || this.nowArtistName, album.artistId || 0, from);
   }
 
-  private loadAlbumTracks(albumId: number, title: string, artist: string, from: 'artist-albums' | null): void {
+  private loadAlbumTracks(albumId: number, title: string, artist: string, artistId: number, from: 'artist-albums' | null): void {
     const seq = ++this.loadSeq;
     this.loading = true;
     this.errorKey = '';
@@ -3178,7 +3251,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.applyAlbumBrowse(cached, title, artist);
       return;
     }
-    this.albumPage(albumId).pipe(takeUntil(this.destroy$)).subscribe({
+    this.albumPage(albumId, artistId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (page) => {
         if (seq !== this.loadSeq) {
           return;
@@ -3206,7 +3279,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   /** One album request shared by the info dialog, the track list, and the warm-up. */
-  private albumPage(albumId: number): Observable<DeezerAlbumPage> {
+  private albumPage(albumId: number, artistId = 0): Observable<DeezerAlbumPage> {
     const cached = this.albumInfoCache.get(albumId);
     if (cached) {
       return of(cached);
@@ -3215,7 +3288,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (pending) {
       return pending;
     }
-    const request = this.api.getDeezerAlbum(albumId).pipe(
+    const request = this.api.getDeezerAlbum(albumId, artistId).pipe(
       tap((page) => {
         if (page?.album?.id) {
           this.albumInfoCache.set(albumId, page);
@@ -3303,7 +3376,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       }
       this.warmKey = key;
       if (albumId && !this.albumInfoCache.has(albumId)) {
-        this.albumPage(albumId).pipe(takeUntil(this.destroy$)).subscribe({
+        this.albumPage(albumId, artistId).pipe(takeUntil(this.destroy$)).subscribe({
           error: () => { /* the button loads it again */ }
         });
       }
@@ -3423,6 +3496,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     const text = id === 'title' || id === 'artist' || id === 'album' || id === 'name' || id === 'user' || id === 'order';
     this.listSorts[list] = { key: id, desc: !text };
     this.realignQueue();
+    this.scheduleCenterPlayingThumb();
   }
 
   toggleListSortDir(): void {
@@ -3433,6 +3507,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
     this.listSorts[list] = { ...this.listSorts[list], desc: !this.listSorts[list].desc };
     this.realignQueue();
+    this.scheduleCenterPlayingThumb();
   }
 
   get sortedArtistAlbums(): DeezerAlbum[] {
@@ -3569,6 +3644,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
     this.ytReplay = restart && same ? Date.now() : 0;
     this.current = track;
+    this.scheduleCenterPlayingThumb();
     this.warmNowPlaying(track);
     this.queueIndexHint = index;
     this.trackImageIndex = 0;
@@ -3774,7 +3850,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     const seq = ++this.loadSeq;
     this.loading = true;
     this.errorKey = '';
-    this.albumPage(album.id).pipe(takeUntil(this.destroy$)).subscribe({
+    this.albumPage(album.id, album.artistId || 0).pipe(takeUntil(this.destroy$)).subscribe({
       next: (page) => {
         if (seq !== this.loadSeq) {
           return;
@@ -5248,7 +5324,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       return;
     }
     this.playListedTrack(list[next], next);
-    this.scrollCurrentListRow();
   }
 
   private stepConcert(direction: 1 | -1): void {
@@ -5280,7 +5355,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       return;
     }
     this.playConcert(list[next], next);
-    this.scrollCurrentListRow();
   }
 
   /** Index in the list. Right past the last title returns to the first. Left before the first returns to the last. */
@@ -5296,16 +5370,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       return length - 1;
     }
     return next;
-  }
-
-  private scrollCurrentListRow(): void {
-    setTimeout(() => {
-      if (this.destroy$.closed) {
-        return;
-      }
-      const row = this.hostRef.nativeElement.querySelector('.dz-list .dz-row.is-on') as HTMLElement | null;
-      row?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    });
   }
 
   @HostListener('document:keydown.escape')

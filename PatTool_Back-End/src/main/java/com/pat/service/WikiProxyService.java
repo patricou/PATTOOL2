@@ -14,6 +14,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
@@ -32,9 +34,11 @@ import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -71,6 +75,12 @@ public class WikiProxyService {
     private static final double PHOTO_RADIUS_M = 300;
     /** Widest radius the photo slider can ask for. */
     private static final double PHOTO_RADIUS_MAX_M = 1_000;
+    /** Frames kept for one source. The viewer shows them as one gallery. */
+    private static final int PHOTO_GALLERY_MAX = 48;
+    /** Half the circumference of the Earth in Web Mercator metres (EPSG:3857). */
+    private static final double WEB_MERCATOR_M = 20_037_508.342789244;
+    /** Dashcam frames closer than this are the same view. */
+    private static final double KARTAVIEW_SPACING_M = 15;
 
     private static double photoRadius(Double requested) {
         if (requested == null || !Double.isFinite(requested) || requested < 10) {
@@ -99,6 +109,8 @@ public class WikiProxyService {
     private final String flickrApiKey;
     /** Access Key from https://unsplash.com/developers . Empty skips Unsplash. */
     private final String unsplashAccessKey;
+    /** One lookup per click, shared by the sources that need the place name. */
+    private final ConcurrentHashMap<String, NearbyPlace> nearbyPlaceCache = new ConcurrentHashMap<>();
 
     public WikiProxyService(
             RestTemplate restTemplate,
@@ -209,6 +221,22 @@ public class WikiProxyService {
         String code = normalizeLang(lang);
         String only = photoSource(source);
         double radius = photoRadius(radiusM);
+        if (located && unnamedPoint(label, english) && placeNameHelps(only)) {
+            NearbyPlace place = nearestNamedPlace(lat, lng, radius);
+            if (place != null) {
+                label = place.name();
+                if (!StringUtils.hasText(qid)) {
+                    qid = place.wikidata();
+                }
+            } else {
+                if (isCoordinateLabel(label)) {
+                    label = "";
+                }
+                if (isCoordinateLabel(english)) {
+                    english = "";
+                }
+            }
+        }
         ObjectNode out = objectMapper.createObjectNode();
         out.put("title", StringUtils.hasText(label) ? label : english);
         out.put("imageUrl", "");
@@ -236,6 +264,12 @@ public class WikiProxyService {
         if (!StringUtils.hasText(out.path("imageUrl").asText()) && located && allows(only, "commons")) {
             fillFromCommonsNearby(out, label, english, lat, lng, radius);
         }
+        if (!StringUtils.hasText(out.path("imageUrl").asText()) && located && allows(only, "camptocamp")) {
+            fillFromCamptocamp(out, label, english, lat, lng, radius);
+        }
+        if (!StringUtils.hasText(out.path("imageUrl").asText()) && located && allows(only, "inaturalist")) {
+            fillFromINaturalist(out, label, lat, lng, code, radius);
+        }
         if (!StringUtils.hasText(out.path("imageUrl").asText()) && located && allows(only, "flickr")) {
             fillFromFlickr(out, label, english, lat, lng, radius);
         }
@@ -253,6 +287,9 @@ public class WikiProxyService {
         if (!StringUtils.hasText(out.path("imageUrl").asText()) && located && allows(only, "panoramax")) {
             fillFromPanoramax(out, lat, lng, radius);
         }
+        if (!StringUtils.hasText(out.path("imageUrl").asText()) && located && allows(only, "kartaview")) {
+            fillFromKartaView(out, lat, lng, radius);
+        }
         out.put("unsplash", StringUtils.hasText(unsplashAccessKey));
         return out;
     }
@@ -263,7 +300,7 @@ public class WikiProxyService {
         }
         String value = raw.trim().toLowerCase(Locale.ROOT);
         return switch (value) {
-            case "wikidata", "wikipedia", "commons", "flickr", "openverse", "unsplash", "mapillary", "panoramax", "osm" -> value;
+            case "wikidata", "wikipedia", "commons", "flickr", "openverse", "unsplash", "mapillary", "panoramax", "kartaview", "camptocamp", "inaturalist", "osm" -> value;
             default -> "";
         };
     }
@@ -294,7 +331,7 @@ public class WikiProxyService {
                 return;
             }
         }
-        if (photos.size() >= 6) {
+        if (photos.size() >= PHOTO_GALLERY_MAX) {
             return;
         }
         String page = StringUtils.hasText(pageUrl) && pageUrl.startsWith("https://") ? pageUrl : "";
@@ -326,6 +363,110 @@ public class WikiProxyService {
     /** Empty {@code only} accepts every source. A named source skips the others. */
     private static boolean allows(String only, String source) {
         return !StringUtils.hasText(only) || only.equals(source);
+    }
+
+    /** A map click sends "46.27094, 5.93987" and no place name. */
+    static boolean isCoordinateLabel(String value) {
+        return StringUtils.hasText(value)
+                && value.trim().matches("-?\\d+(?:\\.\\d+)?\\s*,\\s*-?\\d+(?:\\.\\d+)?");
+    }
+
+    /** Wikidata, Wikipedia, Openverse and Unsplash need a place, not a coordinate pair. */
+    private static boolean placeNameHelps(String only) {
+        return !StringUtils.hasText(only)
+                || "wikidata".equals(only)
+                || "wikipedia".equals(only)
+                || "openverse".equals(only)
+                || "unsplash".equals(only)
+                || "flickr".equals(only);
+    }
+
+    /** No usable place name: blank, or only the clicked coordinates. */
+    private static boolean unnamedPoint(String label, String english) {
+        boolean labelBare = !StringUtils.hasText(label) || isCoordinateLabel(label);
+        boolean englishBare = !StringUtils.hasText(english) || isCoordinateLabel(english);
+        return labelBare && englishBare;
+    }
+
+    /** Name and Wikidata id of the OpenStreetMap feature closest to the click. */
+    record NearbyPlace(String name, String wikidata) {}
+
+    /**
+     * Closest named OpenStreetMap feature inside the radius that carries a
+     * Wikidata id. A coordinate label cannot be matched to "Crêt de la Neige".
+     */
+    private NearbyPlace nearestNamedPlace(double lat, double lng, double radiusM) {
+        int meters = Math.max(10, (int) Math.round(radiusM));
+        String key = String.format(Locale.US, "%.5f,%.5f,%d", lat, lng, meters);
+        NearbyPlace cached = nearbyPlaceCache.get(key);
+        if (cached != null) {
+            return StringUtils.hasText(cached.name()) ? cached : null;
+        }
+        if (nearbyPlaceCache.size() > 200) {
+            nearbyPlaceCache.clear();
+        }
+        String query = String.format(Locale.US, """
+                [out:json][timeout:8];
+                (
+                  node(around:%1$d,%2$.6f,%3$.6f)["name"]["wikidata"];
+                  way(around:%1$d,%2$.6f,%3$.6f)["name"]["wikidata"];
+                );
+                out tags center 20;
+                """, meters, lat, lng);
+        String[] urls = {
+                "https://overpass.openstreetmap.fr/api/interpreter",
+                "https://overpass-api.de/api/interpreter"
+        };
+        for (String url : urls) {
+            MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+            form.add("data", query);
+            JsonNode raw = postPhotoForm(url, form, "nearby place");
+            if (raw == null || !raw.isObject() || !raw.has("elements")) {
+                continue;
+            }
+            NearbyPlace found = closestNamedPlace(raw, lat, lng, radiusM);
+            nearbyPlaceCache.put(key, found == null ? new NearbyPlace("", "") : found);
+            return found;
+        }
+        return null;
+    }
+
+    static NearbyPlace closestNamedPlace(JsonNode raw, double lat, double lng, double radiusM) {
+        JsonNode elements = raw == null ? null : raw.get("elements");
+        if (elements == null || !elements.isArray()) {
+            return null;
+        }
+        NearbyPlace best = null;
+        double bestDistance = radiusM;
+        for (JsonNode element : elements) {
+            JsonNode tags = element.get("tags");
+            if (tags == null || !tags.isObject()) {
+                continue;
+            }
+            if ("administrative".equals(textOrEmpty(tags.get("boundary")))) {
+                continue;
+            }
+            String name = textOrEmpty(tags.get("name"));
+            String wikidata = normalizeWikidataId(textOrEmpty(tags.get("wikidata")));
+            if (!StringUtils.hasText(name) || isCoordinateLabel(name) || !StringUtils.hasText(wikidata)) {
+                continue;
+            }
+            double placeLat = element.path("lat").asDouble(Double.NaN);
+            double placeLng = element.path("lon").asDouble(Double.NaN);
+            if (!Double.isFinite(placeLat) || !Double.isFinite(placeLng)) {
+                placeLat = element.path("center").path("lat").asDouble(Double.NaN);
+                placeLng = element.path("center").path("lon").asDouble(Double.NaN);
+            }
+            if (!Double.isFinite(placeLat) || !Double.isFinite(placeLng)) {
+                continue;
+            }
+            double distance = haversineMeters(lat, lng, placeLat, placeLng);
+            if (distance <= bestDistance) {
+                bestDistance = distance;
+                best = new NearbyPlace(name, wikidata);
+            }
+        }
+        return best;
     }
 
     /** Nominatim only recovers tags used by these sources. Openverse and Unsplash search by name. */
@@ -438,11 +579,11 @@ public class WikiProxyService {
     }
 
     /**
-     * Geotagged Commons file within the search radius. A file named
-     * like the place wins. Otherwise the closest photographs are kept.
+     * Geotagged Commons files within the search radius. Files named like the
+     * place come first. The other photographs around the point stay in the gallery.
      */
     private void fillFromCommonsNearby(ObjectNode out, String label, String english, double lat, double lng, double radiusM) {
-        int fetch = widePhotoCap(radiusM, 20, 50);
+        int fetch = 50;
         String url = "https://commons.wikimedia.org/w/api.php?action=query&format=json&list=geosearch"
                 + "&gscoord=" + lat + "|" + lng
                 + "&gsradius=" + (int) radiusM + "&gsnamespace=6&gslimit=" + fetch;
@@ -468,14 +609,16 @@ public class WikiProxyService {
         Comparator<JsonNode> byDistance = Comparator.comparingDouble(row -> row.path("dist").asDouble(Double.MAX_VALUE));
         named.sort(byDistance);
         scenic.sort(byDistance);
-        boolean nearby = named.isEmpty();
-        List<JsonNode> chosen = nearby ? scenic : named;
-        int limit = nearby ? widePhotoCap(radiusM, 4, 12) : widePhotoCap(radiusM, 6, 16);
+        List<JsonNode> chosen = new ArrayList<>(named.size() + scenic.size());
+        chosen.addAll(named);
+        chosen.addAll(scenic);
+        int limit = widePhotoCap(radiusM, 36, PHOTO_GALLERY_MAX);
         int added = 0;
         for (JsonNode row : chosen) {
             if (added >= limit) {
                 break;
             }
+            boolean nearby = !named.contains(row);
             int before = out.withArray("photos").size();
             applyCommonsFile(out, textOrEmpty(row.get("title")), nearby);
             if (out.withArray("photos").size() > before) {
@@ -571,7 +714,7 @@ public class WikiProxyService {
     private void fillFromPanoramax(ObjectNode out, double lat, double lng, double radiusM) {
         double dLat = radiusM / 111_320.0;
         double dLng = dLat / Math.max(0.2, Math.cos(Math.toRadians(lat)));
-        int cap = widePhotoCap(radiusM, 4, 12);
+        int cap = widePhotoCap(radiusM, 8, PHOTO_GALLERY_MAX);
         int fetch = radiusM <= PHOTO_RADIUS_M ? Math.max(8, cap * 2) : Math.min(40, Math.max(16, cap * 3));
         String url = String.format(Locale.US,
                 "https://api.panoramax.xyz/api/search?limit=%d&bbox=%.5f,%.5f,%.5f,%.5f",
@@ -696,6 +839,291 @@ public class WikiProxyService {
         } catch (IllegalArgumentException e) {
             return false;
         }
+    }
+
+    /**
+     * Geotagged mountain photo from Camptocamp. The bounding box is Web Mercator
+     * metres. A file whose camera position is outside the search radius is left out.
+     * No account is required.
+     */
+    private void fillFromCamptocamp(
+            ObjectNode out, String label, String english, double lat, double lng, double radiusM) {
+        int cap = widePhotoCap(radiusM, 8, PHOTO_GALLERY_MAX);
+        String url = "https://api.camptocamp.org/images?limit=" + Math.min(40, cap * 2)
+                + "&pl=fr&bbox=" + urlEncode(webMercatorBbox(lat, lng, radiusM));
+        JsonNode raw = fetchPhotoJson(url, "camptocamp");
+        JsonNode documents = raw == null ? null : raw.get("documents");
+        if (documents == null || !documents.isArray() || documents.isEmpty()) {
+            return;
+        }
+        List<JsonNode> rows = new ArrayList<>();
+        documents.forEach(rows::add);
+        rows.sort(Comparator.comparingDouble(row -> camptocampDistance(lat, lng, row)));
+        int added = 0;
+        for (JsonNode row : rows) {
+            if (added >= cap) {
+                break;
+            }
+            double distance = camptocampDistance(lat, lng, row);
+            if (distance > radiusM) {
+                break;
+            }
+            String image = camptocampImageUrl(textOrEmpty(row.get("filename")));
+            long id = row.path("document_id").asLong(0);
+            if (!StringUtils.hasText(image) || id <= 0) {
+                continue;
+            }
+            String title = camptocampTitle(row);
+            boolean named = samePlace(label, title, distance) || samePlace(english, title, distance);
+            int before = out.withArray("photos").size();
+            rememberPhoto(
+                    out, image, "https://www.camptocamp.org/images/" + id + "/fr",
+                    "camptocamp", false, title, !named);
+            if (out.withArray("photos").size() > before) {
+                added++;
+            }
+        }
+    }
+
+    private double camptocampDistance(double lat, double lng, JsonNode row) {
+        String geom = textOrEmpty(row.path("geometry").path("geom"));
+        if (!geom.startsWith("{")) {
+            return Double.MAX_VALUE;
+        }
+        try {
+            JsonNode coords = objectMapper.readTree(geom).path("coordinates");
+            if (!coords.isArray() || coords.size() < 2) {
+                return Double.MAX_VALUE;
+            }
+            double[] latLng = mercatorToLatLng(coords.get(0).asDouble(), coords.get(1).asDouble());
+            return haversineMeters(lat, lng, latLng[0], latLng[1]);
+        } catch (Exception e) {
+            return Double.MAX_VALUE;
+        }
+    }
+
+    private static String camptocampTitle(JsonNode row) {
+        String title = "";
+        JsonNode locales = row.path("locales");
+        if (!locales.isArray()) {
+            return "";
+        }
+        for (JsonNode locale : locales) {
+            String value = textOrEmpty(locale.get("title"));
+            if (!StringUtils.hasText(value)) {
+                continue;
+            }
+            title = value;
+            if ("fr".equals(textOrEmpty(locale.get("lang")))) {
+                break;
+            }
+        }
+        return title;
+    }
+
+    /** Big Camptocamp rendition ({@code BI}), still small enough for the popup. */
+    static String camptocampImageUrl(String filename) {
+        if (!StringUtils.hasText(filename)) {
+            return "";
+        }
+        Matcher matcher = Pattern.compile("^(\\d+_\\d+)\\.(jpe?g|png|webp)$", Pattern.CASE_INSENSITIVE)
+                .matcher(filename.trim());
+        if (!matcher.matches()) {
+            return "";
+        }
+        return "https://media.camptocamp.org/c2corg-active/"
+                + matcher.group(1) + "BI." + matcher.group(2).toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Nature photo from iNaturalist within the search radius. The radius is in
+     * kilometres. No account is required. One frame per observation.
+     */
+    private void fillFromINaturalist(
+            ObjectNode out, String label, double lat, double lng, String lang, double radiusM) {
+        int cap = widePhotoCap(radiusM, 8, PHOTO_GALLERY_MAX);
+        String locale = SAFE_LANGS.contains(lang) ? lang : "en";
+        String url = String.format(Locale.US,
+                "https://api.inaturalist.org/v1/observations?photos=true&order_by=votes&order=desc"
+                        + "&per_page=%d&locale=%s&lat=%.6f&lng=%.6f&radius=%.3f",
+                Math.min(30, cap + 4), locale, lat, lng, Math.max(0.05, radiusM / 1000.0));
+        JsonNode raw = fetchPhotoJson(url, "inaturalist " + label);
+        JsonNode results = raw == null ? null : raw.get("results");
+        if (results == null || !results.isArray()) {
+            return;
+        }
+        int added = 0;
+        for (JsonNode row : results) {
+            if (added >= cap) {
+                break;
+            }
+            double distance = inaturalistDistance(lat, lng, row);
+            if (!Double.isFinite(distance) || distance > radiusM) {
+                continue;
+            }
+            String id = row.path("id").asText("");
+            if (!id.matches("\\d{1,12}")) {
+                continue;
+            }
+            JsonNode photos = row.get("photos");
+            if (photos == null || !photos.isArray() || photos.isEmpty()) {
+                continue;
+            }
+            String image = inaturalistImageUrl(textOrEmpty(photos.get(0).get("url")));
+            if (!StringUtils.hasText(image)) {
+                continue;
+            }
+            String title = firstText(
+                    textOrEmpty(row.path("taxon").path("preferred_common_name")),
+                    textOrEmpty(row.get("species_guess")),
+                    textOrEmpty(row.path("taxon").path("name")));
+            int before = out.withArray("photos").size();
+            rememberPhoto(
+                    out, image, "https://www.inaturalist.org/observations/" + id,
+                    "inaturalist", false, title, true);
+            if (out.withArray("photos").size() > before) {
+                added++;
+            }
+        }
+    }
+
+    private static double inaturalistDistance(double lat, double lng, JsonNode row) {
+        JsonNode coords = row.path("geojson").path("coordinates");
+        if (!coords.isArray() || coords.size() < 2) {
+            return Double.NaN;
+        }
+        return haversineMeters(lat, lng, coords.get(1).asDouble(), coords.get(0).asDouble());
+    }
+
+    /** iNaturalist serves a square thumb. The popup uses the large rendition. */
+    static String inaturalistImageUrl(String url) {
+        if (!StringUtils.hasText(url) || !url.startsWith("https://")) {
+            return "";
+        }
+        try {
+            URI uri = URI.create(url.trim());
+            String host = uri.getHost();
+            if (!StringUtils.hasText(host)) {
+                return "";
+            }
+            host = host.toLowerCase(Locale.ROOT);
+            if (!"inaturalist-open-data.s3.amazonaws.com".equals(host) && !"static.inaturalist.org".equals(host)) {
+                return "";
+            }
+            String path = uri.getRawPath();
+            if (!StringUtils.hasText(path) || path.contains("..")) {
+                return "";
+            }
+            String sized = path.replaceFirst("/(square|thumb|small|medium)\\.(jpe?g|png|webp)$", "/large.$2");
+            if (!sized.matches(".*/large\\.(jpe?g|png|webp)$")) {
+                return "";
+            }
+            return "https://" + host + sized;
+        } catch (IllegalArgumentException e) {
+            return "";
+        }
+    }
+
+    /**
+     * Street-level photo from KartaView (OpenStreetCam). No account is required.
+     * Frames a few metres apart are the same drive, so only one of them is kept.
+     */
+    private void fillFromKartaView(ObjectNode out, double lat, double lng, double radiusM) {
+        int cap = widePhotoCap(radiusM, 6, PHOTO_GALLERY_MAX);
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("lat", String.format(Locale.US, "%.6f", lat));
+        form.add("lng", String.format(Locale.US, "%.6f", lng));
+        form.add("radius", Integer.toString((int) Math.round(radiusM)));
+        form.add("page", "1");
+        form.add("ipp", Integer.toString(Math.min(40, cap * 4)));
+        JsonNode raw = postPhotoForm("https://api.kartaview.org/1.0/list/nearby-photos/", form, "kartaview");
+        if (raw == null || raw.path("status").path("apiCode").asInt(0) != 600) {
+            return;
+        }
+        JsonNode rows = raw.get("currentPageItems");
+        if (rows == null || !rows.isArray() || rows.isEmpty()) {
+            return;
+        }
+        List<JsonNode> photos = new ArrayList<>();
+        rows.forEach(photos::add);
+        photos.sort(Comparator.comparingDouble(row -> kartaviewDistance(lat, lng, row)));
+        List<double[]> kept = new ArrayList<>();
+        int added = 0;
+        for (JsonNode row : photos) {
+            if (added >= cap) {
+                break;
+            }
+            double photoLat = jsonDouble(row.get("lat"));
+            double photoLng = jsonDouble(row.get("lng"));
+            double distance = kartaviewDistance(lat, lng, row);
+            if (!Double.isFinite(photoLat) || !Double.isFinite(photoLng) || distance > radiusM) {
+                break;
+            }
+            if (kept.stream().anyMatch(point -> haversineMeters(photoLat, photoLng, point[0], point[1]) < KARTAVIEW_SPACING_M)) {
+                continue;
+            }
+            String image = kartaviewImageUrl(firstText(
+                    textOrEmpty(row.get("lth_name")),
+                    textOrEmpty(row.get("name")),
+                    textOrEmpty(row.get("th_name"))));
+            String sequence = textOrEmpty(row.get("sequence_id"));
+            String index = textOrEmpty(row.get("sequence_index"));
+            if (!StringUtils.hasText(image) || !sequence.matches("\\d{1,12}") || !index.matches("\\d{1,8}")) {
+                continue;
+            }
+            boolean pano = jsonDouble(row.get("field_of_view")) >= 300;
+            int before = out.withArray("photos").size();
+            rememberPhoto(
+                    out, image, "https://kartaview.org/details/" + sequence + "/" + index,
+                    "kartaview", pano, "", true);
+            if (out.withArray("photos").size() > before) {
+                kept.add(new double[] { photoLat, photoLng });
+                added++;
+            }
+        }
+    }
+
+    private static double kartaviewDistance(double lat, double lng, JsonNode row) {
+        double photoLat = jsonDouble(row.get("lat"));
+        double photoLng = jsonDouble(row.get("lng"));
+        if (!Double.isFinite(photoLat) || !Double.isFinite(photoLng)) {
+            return Double.MAX_VALUE;
+        }
+        return haversineMeters(lat, lng, photoLat, photoLng);
+    }
+
+    /**
+     * KartaView returns a storage path. The picture itself is on the CDN, which
+     * wraps the storage URL. The storage host does not answer directly.
+     */
+    static String kartaviewImageUrl(String storagePath) {
+        if (!StringUtils.hasText(storagePath)) {
+            return "";
+        }
+        String path = storagePath.trim();
+        Matcher matcher = Pattern.compile(
+                "^(storage\\d+)/files/photo/(\\d{4}/\\d{1,2}/\\d{1,2}/(?:lth|proc|th)/[A-Za-z0-9_]+\\.jpe?g)$"
+        ).matcher(path);
+        if (!matcher.matches()) {
+            return "";
+        }
+        String direct = "https://" + matcher.group(1) + ".openstreetcam.org/files/photo/" + matcher.group(2);
+        String token = Base64.getEncoder().encodeToString(direct.getBytes(StandardCharsets.UTF_8)).replace("=", "");
+        return "https://cdn.kartaview.org/pr:sharp/" + token;
+    }
+
+    /** West, south, east, north in EPSG:3857 metres, the box Camptocamp expects. */
+    static String webMercatorBbox(double lat, double lng, double radiusM) {
+        double pad = radiusM / Math.max(0.2, Math.cos(Math.toRadians(lat)));
+        double x = lng / 180.0 * WEB_MERCATOR_M;
+        double y = Math.log(Math.tan(Math.PI / 4.0 + Math.toRadians(lat) / 2.0)) / Math.PI * WEB_MERCATOR_M;
+        return String.format(Locale.US, "%.1f,%.1f,%.1f,%.1f", x - pad, y - pad, x + pad, y + pad);
+    }
+
+    static double[] mercatorToLatLng(double x, double y) {
+        double lng = x / WEB_MERCATOR_M * 180.0;
+        double lat = Math.toDegrees(Math.atan(Math.sinh(y * Math.PI / WEB_MERCATOR_M)));
+        return new double[] { lat, lng };
     }
 
     /**
@@ -1788,6 +2216,33 @@ public class WikiProxyService {
      */
     private JsonNode fetchPhotoJson(String url, String label) {
         return fetchJson(url, label, "photo", photoRestTemplate);
+    }
+
+    /** Form POST used by KartaView. A missing picture is an empty body, not an error page. */
+    private JsonNode postPhotoForm(String url, MultiValueMap<String, String> form, String label) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.USER_AGENT, USER_AGENT);
+            headers.set(HttpHeaders.ACCEPT, "application/json");
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+            ResponseEntity<String> response = photoRestTemplate.exchange(
+                    URI.create(url),
+                    HttpMethod.POST,
+                    new HttpEntity<>(form, headers),
+                    String.class
+            );
+            String body = response.getBody();
+            if (!StringUtils.hasText(body)) {
+                return objectMapper.nullNode();
+            }
+            return objectMapper.readTree(body);
+        } catch (RestClientException e) {
+            log.warn("Photo search unavailable for {}", label);
+            return objectMapper.nullNode();
+        } catch (Exception e) {
+            log.warn("Photo search parse failed for {}", label);
+            return objectMapper.nullNode();
+        }
     }
 
     private JsonNode fetchJson(String url, String label, String code) {

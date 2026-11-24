@@ -1,5 +1,6 @@
 package com.pat.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +47,23 @@ class WikiProxyServiceTest {
     }
 
     @Test
+    void coordinateLabelIsNotAPlaceName() throws Exception {
+        assertTrue(WikiProxyService.isCoordinateLabel("46.27094, 5.93987"));
+        assertFalse(WikiProxyService.isCoordinateLabel("Crêt de la Neige"));
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode raw = mapper.readTree("""
+                {"elements":[
+                  {"type":"node","lat":46.2714,"lon":5.9412,"tags":{"name":"Belvédère","wikidata":"Q1"}},
+                  {"type":"node","lat":46.270925,"lon":5.939626,"tags":{"name":"Crêt de la Neige","wikidata":"Q1142554"}},
+                  {"type":"way","tags":{"name":"Lélex","wikidata":"Q24643","boundary":"administrative"},"center":{"lat":46.27093,"lon":5.93987}}
+                ]}
+                """);
+        WikiProxyService.NearbyPlace place = WikiProxyService.closestNamedPlace(raw, 46.2709367, 5.9398659, 75);
+        assertEquals("Crêt de la Neige", place.name());
+        assertEquals("Q1142554", place.wikidata());
+    }
+
+    @Test
     void coreNameDropsTheRoadAndKeepsThePlace() {
         assertEquals("col du Sac", WikiProxyService.corePlaceName("Route Sylvo-Pastorale du col du Sac"));
         assertEquals("Tour Eiffel", WikiProxyService.corePlaceName("Tour Eiffel"));
@@ -71,6 +89,60 @@ class WikiProxyServiceTest {
                 "File:Scenic view form the Crêt de la Goutte - panoramio (7).jpg"));
         assertFalse(WikiProxyService.scenicCommonsFile("File:Locator map of Ain.svg"));
         assertFalse(WikiProxyService.scenicCommonsFile("File:Blason ville.png"));
+    }
+
+    @Test
+    void camptocampKeepsASizedFileAndDropsAnythingElse() {
+        assertEquals(
+                "https://media.camptocamp.org/c2corg-active/1755253183_2074136837BI.jpg",
+                WikiProxyService.camptocampImageUrl("1755253183_2074136837.jpg")
+        );
+        assertEquals("", WikiProxyService.camptocampImageUrl("../secret.jpg"));
+        assertEquals("", WikiProxyService.camptocampImageUrl("https://evil.example/a.jpg"));
+    }
+
+    @Test
+    void camptocampBoxIsWebMercatorAroundThePlace() {
+        double[] summit = WikiProxyService.mercatorToLatLng(660074.8205917277, 5821609.609640827);
+        assertEquals(46.256875, summit[0], 0.00002);
+        assertEquals(5.929553, summit[1], 0.00002);
+        String box = WikiProxyService.webMercatorBbox(summit[0], summit[1], 75);
+        String[] edges = box.split(",");
+        assertEquals(4, edges.length);
+        double west = Double.parseDouble(edges[0]);
+        double south = Double.parseDouble(edges[1]);
+        double east = Double.parseDouble(edges[2]);
+        double north = Double.parseDouble(edges[3]);
+        assertTrue(west < 660074.82 && east > 660074.82);
+        assertTrue(south < 5821609.61 && north > 5821609.61);
+        assertTrue(east - west < 400);
+        assertTrue(north - south < 400);
+    }
+
+    @Test
+    void inaturalistUsesTheLargeRenditionOnItsOwnHosts() {
+        assertEquals(
+                "https://inaturalist-open-data.s3.amazonaws.com/photos/276164011/large.jpeg",
+                WikiProxyService.inaturalistImageUrl(
+                        "https://inaturalist-open-data.s3.amazonaws.com/photos/276164011/square.jpeg")
+        );
+        assertEquals(
+                "https://static.inaturalist.org/photos/12/large.jpg",
+                WikiProxyService.inaturalistImageUrl("https://static.inaturalist.org/photos/12/medium.jpg")
+        );
+        assertEquals("", WikiProxyService.inaturalistImageUrl("https://evil.example/photos/12/square.jpg"));
+        assertEquals("", WikiProxyService.inaturalistImageUrl("https://static.inaturalist.org/photos/12/original.jpg"));
+    }
+
+    @Test
+    void kartaviewBuildsTheCdnUrlFromTheStoragePath() {
+        assertEquals(
+                "https://cdn.kartaview.org/pr:sharp/aHR0cHM6Ly9zdG9yYWdlMTMub3BlbnN0cmVldGNhbS5vcmcvZmlsZXMvcGhvdG8vMjAyMC85LzE0L2x0aC8zMDE5NDc0XzAxYThlXzVmNWY4ZmEyYmE3Y2YuanBn",
+                WikiProxyService.kartaviewImageUrl(
+                        "storage13/files/photo/2020/9/14/lth/3019474_01a8e_5f5f8fa2ba7cf.jpg")
+        );
+        assertEquals("", WikiProxyService.kartaviewImageUrl("https://evil.example/a.jpg"));
+        assertEquals("", WikiProxyService.kartaviewImageUrl("storage13/files/photo/../secret.jpg"));
     }
 
     @Test

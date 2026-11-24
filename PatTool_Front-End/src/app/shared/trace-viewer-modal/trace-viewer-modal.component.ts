@@ -174,6 +174,78 @@ interface CartesGouvEmbedLayerOption {
 	embedLayer: string;
 }
 
+type ElevationLegendTick = {
+	value: number;
+	left: number;
+	major: boolean;
+	label: number | null;
+};
+
+/** Premier multiple de `step` strictement au-dessus de `min`, ou null s’il n’est pas avant `max`. */
+function firstInteriorMultiple(min: number, max: number, step: number): number | null {
+	const first = Math.ceil(min / step) * step;
+	const start = first <= min ? first + step : first;
+	return start < max ? start : null;
+}
+
+/**
+ * Traits intérieurs de la barre d’altitude.
+ * Le pas est 10 m, 100 m ou 1000 m, le plus fin qui reste lisible sur l’écart.
+ * Le nombre est écrit sur ces mêmes multiples, en sautant un cran s’ils se chevaucheraient.
+ */
+function elevationLegendTicks(min: number, max: number, widthShare = 1): ElevationLegendTick[] {
+	const span = max - min;
+	if (!(span > 0)) {
+		return [];
+	}
+	const share = Math.max(0.2, Math.min(1, widthShare));
+	const minor = span <= 160 ? 10 : span <= 1600 ? 100 : 1000;
+	const coarser = minor * 10;
+	const minorCount = countInteriorMultiples(min, max, minor);
+	const labelStep = minorCount > 5 && coarser <= 1000 && firstInteriorMultiple(min, max, coarser) != null
+		? coarser
+		: minor;
+	const start = firstInteriorMultiple(min, max, minor);
+	if (start == null) {
+		return [];
+	}
+	const ticks: ElevationLegendTick[] = [];
+	for (let value = start; value < max; value += minor) {
+		const left = ((value - min) / span) * 100;
+		if (left < 4 || left > 96) {
+			continue;
+		}
+		ticks.push({
+			value,
+			left,
+			major: value % labelStep === 0,
+			label: null
+		});
+	}
+	const edge = Math.min(40, 12 / share);
+	const gap = Math.min(55, 17 / share);
+	let lastLabeledLeft = -100;
+	for (const tick of ticks) {
+		if (!tick.major || tick.left <= edge || tick.left >= 100 - edge) {
+			continue;
+		}
+		if (tick.left - lastLabeledLeft < gap) {
+			continue;
+		}
+		tick.label = tick.value;
+		lastLabeledLeft = tick.left;
+	}
+	return ticks;
+}
+
+function countInteriorMultiples(min: number, max: number, step: number): number {
+	const start = firstInteriorMultiple(min, max, step);
+	if (start == null) {
+		return 0;
+	}
+	return Math.floor((max - start - 1e-9) / step) + 1;
+}
+
 @Component({
 	selector: 'app-trace-viewer-modal',
 	templateUrl: './trace-viewer-modal.component.html',
@@ -593,7 +665,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public poiGalleryIndex = 0;
 	/** The viewer picked a frame. Later results must not replace it. */
 	private poiGalleryPinned = false;
-	public readonly poiPhotoSources = ['wikidata', 'wikipedia', 'commons', 'openverse', 'unsplash', 'mapillary', 'panoramax'] as const;
+	/** Next and previous frames, already requested so the arrow does not wait on the network. */
+	private readonly poiFlatPreloads = new Map<string, HTMLImageElement>();
+	private readonly poiPanoBlobs = new Map<string, Promise<Blob>>();
+	public readonly poiPhotoSources = ['wikidata', 'wikipedia', 'commons', 'camptocamp', 'inaturalist', 'openverse', 'unsplash', 'mapillary', 'panoramax', 'kartaview'] as const;
 	/** Photo search slider. 50 m is the short end, 1 km the far end. */
 	public readonly poiPhotoRadiusMinM = 50;
 	public readonly poiPhotoRadiusMaxM = 1000;
@@ -1569,6 +1644,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return modalRefAny?._windowCmptRef?.location?.nativeElement ?? null;
 	}
 
+	private static canScrollList(list: HTMLElement, deltaY: number): boolean {
+		if (list.scrollHeight <= list.clientHeight + 1) {
+			return false;
+		}
+		if (deltaY < 0) {
+			return list.scrollTop > 0;
+		}
+		if (deltaY > 0) {
+			return list.scrollTop + list.clientHeight < list.scrollHeight - 1;
+		}
+		return false;
+	}
+
 	private static isPointInClientRect(x: number, y: number, rect: DOMRect): boolean {
 		return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 	}
@@ -1593,6 +1681,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.modalWindowWheelHandler = (event: Event) => {
 			const wheelEvent = event as WheelEvent;
 			if (this.poiPhotoFullscreen) {
+				const wheelTarget = wheelEvent.target instanceof Element ? wheelEvent.target : null;
+				const savePanel = wheelTarget?.closest('.tv-poi-photo-full-save, .tv-poi-save');
+				if (savePanel) {
+					wheelEvent.stopPropagation();
+					const list = wheelTarget?.closest('.tv-poi-save-list');
+					const canScroll = list instanceof HTMLElement && TraceViewerModalComponent.canScrollList(list, wheelEvent.deltaY);
+					if (!canScroll) {
+						wheelEvent.preventDefault();
+					}
+					return;
+				}
 				wheelEvent.preventDefault();
 				wheelEvent.stopPropagation();
 				const stage = this.poiPhotoStageRef?.nativeElement;
@@ -5748,6 +5847,47 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return this.depthSpan?.shallow ?? null;
 	}
 
+	/** Traits sur la terre : 10 m, 100 m ou 1000 m selon l’écart visible. */
+	get landLegendTicks(): ElevationLegendTick[] {
+		const span = this.elevationSpan;
+		if (!this.showLandLegend || !span) {
+			return [];
+		}
+		return elevationLegendTicks(span.min, span.max, this.legendWidthShare(span.max - span.min));
+	}
+
+	/** Traits sur le fond : même pas, du plus profond vers la surface. */
+	get depthLegendTicks(): ElevationLegendTick[] {
+		const depth = this.depthSpan;
+		if (!depth) {
+			return [];
+		}
+		return elevationLegendTicks(depth.deep, depth.shallow, this.legendWidthShare(depth.shallow - depth.deep));
+	}
+
+	/** Part de la barre prise par un tronçon, pour espacer les nombres. */
+	private legendWidthShare(segmentSpan: number): number {
+		const land = this.showLandLegend && this.elevationSpan
+			? Math.max(1, this.elevationSpan.max - this.elevationSpan.min)
+			: 0;
+		const depth = this.depthSpan ? Math.max(1, this.depthSpan.shallow - this.depthSpan.deep) : 0;
+		const total = land + depth;
+		if (!(total > 0) || !(segmentSpan > 0)) {
+			return 1;
+		}
+		const share = Math.max(1, segmentSpan) / total;
+		return this.depthSpan && this.showLandLegend ? share * 0.82 : share;
+	}
+
+	get legendHasTickLabels(): boolean {
+		return this.landLegendTicks.some((tick) => tick.label != null)
+			|| this.depthLegendTicks.some((tick) => tick.label != null);
+	}
+
+	trackLegendTick(_index: number, tick: ElevationLegendTick): number {
+		return tick.value;
+	}
+
 	get depthLegendFlex(): number {
 		const depth = this.depthSpan;
 		if (!depth) {
@@ -6111,6 +6251,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 		});
 	}
 
+	/** Place or file name under the picture. A bare GPS pair is not a title. */
+	public poiPhotoCaption(): string {
+		const title = (this.reliefPoiPhoto?.title || '').trim();
+		if (!title || this.looksLikeCoordinates(title)) {
+			return '';
+		}
+		return title;
+	}
+
 	public poiPhotoSourceKey(source: string): string {
 		return 'EVENTELEM.POI_PHOTO_SOURCE_' + source.toUpperCase();
 	}
@@ -6208,6 +6357,33 @@ export class TraceViewerModalComponent implements OnDestroy {
 		return this.poiGallery.reduce((count, photo) => count + (photo.source === source ? 1 : 0), 0);
 	}
 
+	/** 1-based index within the current source's photos (for "1/2" on the active source button). */
+	public poiSourceGalleryIndex(): number {
+		const source = this.reliefPoiPhoto?.source;
+		if (!source) {
+			return 0;
+		}
+		let indexInSource = 0;
+		for (let i = 0; i <= this.poiGalleryIndex && i < this.poiGallery.length; i++) {
+			if (this.poiGallery[i].source === source) {
+				indexInSource++;
+			}
+		}
+		return indexInSource;
+	}
+
+	/** Badge text: "x/y" on the active source when it has several photos, else just the count. */
+	public poiSourceBadge(source: string): string {
+		const count = this.poiSourceCount(source);
+		if (count < 1) {
+			return '';
+		}
+		if (source === this.reliefPoiPhoto?.source && count > 1) {
+			return `${this.poiSourceGalleryIndex()}/${count}`;
+		}
+		return String(count);
+	}
+
 	public poiSourcePending(source: string): boolean {
 		return this.poiPhotoPending.has(source);
 	}
@@ -6296,6 +6472,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.poiGalleryIndex = 0;
 		this.poiGalleryPinned = false;
 		this.poiPhotoPending.clear();
+		this.dropPhotoPreloads();
 		const request = ++this.reliefPoiPhotoRequest;
 		const sources = (source ? [source] : [...this.poiPhotoSources]).filter((item) =>
 			item !== 'unsplash' || !this.unsplashKnown || this.unsplashReady
@@ -6354,7 +6531,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/** A named photo of the place stays in front of a picture of the surroundings. */
 	private preferredPoiIndex(): number {
-		const order = ['wikidata', 'wikipedia', 'osm', 'commons', 'flickr', 'openverse', 'unsplash', 'mapillary', 'panoramax'];
+		const order = ['wikidata', 'wikipedia', 'osm', 'commons', 'camptocamp', 'flickr', 'openverse', 'unsplash', 'inaturalist', 'mapillary', 'panoramax', 'kartaview'];
 		let best = 0;
 		let bestRank = 1000;
 		this.poiGallery.forEach((photo, index) => {
@@ -6421,7 +6598,95 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.reliefPoiPhoto = { ...current, loading: false };
 		this.syncEquirectImage();
+		this.warmNeighborPhotos();
 		this.cdr.markForCheck();
+	}
+
+	/** Downloads the frames just beside the one on screen. The arrow then hits the browser cache. */
+	private warmNeighborPhotos(): void {
+		const gallery = this.poiGallery;
+		const size = gallery.length;
+		if (size < 2) {
+			return;
+		}
+		const keep = new Set<string>();
+		const current = gallery[this.poiGalleryIndex];
+		if (current?.imageUrl) {
+			keep.add(current.imageUrl);
+		}
+		for (const delta of [1, 2, -1]) {
+			const photo = gallery[(this.poiGalleryIndex + delta + size) % size];
+			if (!photo?.imageUrl) {
+				continue;
+			}
+			keep.add(photo.imageUrl);
+			if (photo.pano) {
+				this.warmPanoBlob(photo.imageUrl);
+			} else {
+				this.warmFlatPhoto(photo.imageUrl);
+			}
+		}
+		for (const [url, image] of this.poiFlatPreloads) {
+			if (!keep.has(url)) {
+				image.src = '';
+				this.poiFlatPreloads.delete(url);
+			}
+		}
+		for (const url of this.poiPanoBlobs.keys()) {
+			if (!keep.has(url)) {
+				this.poiPanoBlobs.delete(url);
+			}
+		}
+	}
+
+	private warmFlatPhoto(url: string): void {
+		if (this.poiFlatPreloads.has(url)) {
+			return;
+		}
+		const image = new Image();
+		image.decoding = 'async';
+		image.setAttribute('fetchpriority', 'low');
+		image.src = url;
+		this.poiFlatPreloads.set(url, image);
+	}
+
+	private warmPanoBlob(url: string): void {
+		void this.panoBlob(url);
+	}
+
+	/** One backend download per 360° frame, shared by the preload and the viewer. */
+	private panoBlob(url: string): Promise<Blob> {
+		const existing = this.poiPanoBlobs.get(url);
+		if (existing) {
+			return existing;
+		}
+		const pending = new Promise<Blob>((resolve, reject) => {
+			this.apiService.fetchPoiImage(url).pipe(take(1), takeUntil(this.destroy$)).subscribe({
+				next: (blob) => {
+					if (!(blob instanceof Blob) || blob.size < 32) {
+						reject(new Error('pano'));
+						return;
+					}
+					resolve(blob);
+				},
+				error: () => reject(new Error('pano'))
+			});
+		});
+		this.poiPanoBlobs.set(url, pending);
+		pending.catch(() => {
+			if (this.poiPanoBlobs.get(url) === pending) {
+				this.poiPanoBlobs.delete(url);
+			}
+		});
+		return pending;
+	}
+
+	private dropPhotoPreloads(): void {
+		for (const image of this.poiFlatPreloads.values()) {
+			image.src = '';
+		}
+		this.poiFlatPreloads.clear();
+		this.poiPanoBlobs.clear();
 	}
 
 	private bindEquirect(canvas: HTMLCanvasElement | undefined, fullscreen: boolean): void {
@@ -6490,26 +6755,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private loadEquirectImage(url: string): Promise<HTMLImageElement> {
-		return new Promise((resolve, reject) => {
-			this.apiService.fetchPoiImage(url).pipe(take(1), takeUntil(this.destroy$)).subscribe({
-				next: (blob) => {
-					if (!(blob instanceof Blob) || blob.size < 32) {
-						reject(new Error('pano'));
-						return;
-					}
-					const objectUrl = URL.createObjectURL(blob);
-					const image = new Image();
-					(image as HTMLImageElement & { objectUrl?: string }).objectUrl = objectUrl;
-					image.onload = () => resolve(image);
-					image.onerror = () => {
-						URL.revokeObjectURL(objectUrl);
-						reject(new Error('pano'));
-					};
-					image.src = objectUrl;
-				},
-				error: () => reject(new Error('pano'))
-			});
-		});
+		return this.panoBlob(url).then((blob) => new Promise<HTMLImageElement>((resolve, reject) => {
+			const objectUrl = URL.createObjectURL(blob);
+			const image = new Image();
+			(image as HTMLImageElement & { objectUrl?: string }).objectUrl = objectUrl;
+			image.onload = () => resolve(image);
+			image.onerror = () => {
+				URL.revokeObjectURL(objectUrl);
+				reject(new Error('pano'));
+			};
+			image.src = objectUrl;
+		}));
 	}
 
 	private destroyEquirect(): void {
@@ -6817,6 +7073,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.poiGallery = [];
 		this.poiGalleryIndex = 0;
 		this.poiPhotoPending.clear();
+		this.dropPhotoPreloads();
 		if (!this.reliefPoiPhoto) {
 			return;
 		}

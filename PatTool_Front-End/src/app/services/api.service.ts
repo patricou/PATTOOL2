@@ -4727,8 +4727,12 @@ export class ApiService {
     return this._http.get<DeezerTrack>(this.API_URL + 'external/deezer/track/' + id, { params });
   }
 
-  getDeezerAlbum(id: number): Observable<DeezerAlbumPage> {
-    return this._http.get<DeezerAlbumPage>(this.API_URL + 'external/deezer/album/' + id);
+  getDeezerAlbum(id: number, artistId = 0): Observable<DeezerAlbumPage> {
+    let params = new HttpParams();
+    if (artistId > 0) {
+      params = params.set('artistId', String(artistId));
+    }
+    return this._http.get<DeezerAlbumPage>(this.API_URL + 'external/deezer/album/' + id, { params });
   }
 
   /** TheAudioDB biography and album description. Backend: /api/external/audiodb/dossier */

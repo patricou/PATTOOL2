@@ -107,10 +107,11 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
   if (isKtoLiveChannel(channel)) {
     return KTO_OFFICIAL_HLS;
   }
-  // Mezzo: the iptv-org country playlist still points at str2.iptvhd.ru, which
-  // answers HTTP 403 (deny_token). Mezzo Live stays on its own mirror.
-  // The otcnet window is only ~20 s. The proxy downloads the two newest segments
-  // one at a time — a fourth immediate fetch makes the CDN slower than realtime.
+  // Mezzo: iptv-org now lists 92.180.26.103, which answers HTTP 403. The otcnet
+  // mirror still plays, but only over HTTP — HTTPS to live-3.otcnet.ru never
+  // completes from the public server. Mezzo Live stays on its own mirror.
+  // The window is only ~20 s. The proxy downloads the two newest segments one
+  // at a time — a fourth immediate fetch makes the CDN slower than realtime.
   if (isMezzoChannel(channel)) {
     return MEZZO_PUBLIC_HLS;
   }
@@ -127,8 +128,11 @@ export function resolveTvStreamUrl(channel: TvChannel | null | undefined): strin
 export const KTO_OFFICIAL_HLS =
   'https://livekto.akamaized.net/hls/live/20000018/ktotv/master.m3u8';
 
-/** Public Mezzo HLS. iptv-org countries/fr.m3u still lists the token-denied iptvhd.ru mirror. */
-export const MEZZO_PUBLIC_HLS = 'https://live-3.otcnet.ru/Mezzo/index.m3u8';
+/**
+ * Public Mezzo HLS. Must stay {@code http}: the public server cannot complete
+ * TLS to {@code live-3.otcnet.ru}, while the cleartext playlist and segments do.
+ */
+export const MEZZO_PUBLIC_HLS = 'http://live-3.otcnet.ru/Mezzo/index.m3u8';
 
 /**
  * Mezzo (mezzo.fr) — not Mezzo Live.

@@ -115,6 +115,36 @@
     color: #fff;
 }
 
+/* Cabinet skin: the Map badge takes the skin hue, light at the top, deep at the bottom. */
+:host-context(html.pat-map-skinned) .nav-map-badge {
+    background: linear-gradient(
+        165deg,
+        color-mix(in srgb, var(--pat-map-accent, #16a34a) 58%, #fff) 0%,
+        var(--pat-map-accent, #16a34a) 46%,
+        color-mix(in srgb, var(--pat-map-accent, #16a34a) 64%, #000) 100%
+    );
+    color: var(--pat-map-fg, #fff);
+    border-color: color-mix(in srgb, var(--pat-map-accent, #16a34a) 38%, #fff);
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, #fff 42%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--pat-map-accent, #16a34a) 42%, #000);
+}
+
+:host-context(html.pat-map-skinned) .nav-map-link:hover .nav-map-badge,
+:host-context(html.pat-map-skinned) .nav-map-link:focus-visible .nav-map-badge {
+    background: linear-gradient(
+        165deg,
+        color-mix(in srgb, var(--pat-map-accent, #16a34a) 74%, #fff) 0%,
+        color-mix(in srgb, var(--pat-map-accent, #16a34a) 86%, #fff) 42%,
+        var(--pat-map-accent, #16a34a) 100%
+    );
+    color: var(--pat-map-fg, #fff);
+}
+
+:host-context(html.pat-map-skinned) .nav-map-link:focus-visible {
+    outline-color: color-mix(in srgb, var(--pat-map-accent, #16a34a) 50%, #fff);
+}
+
 .nav-map-link:focus-visible {
     outline: 2px solid #bbf7d0;
     outline-offset: 2px;

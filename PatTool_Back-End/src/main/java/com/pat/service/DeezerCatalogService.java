@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -69,6 +70,8 @@ public class DeezerCatalogService {
             .connectTimeout(TIMEOUT)
             .build();
     private final ConcurrentHashMap<String, Cached> cache = new ConcurrentHashMap<>();
+    /** One Deezer call per path while a request is already on the wire. */
+    private final ConcurrentHashMap<String, CompletableFuture<JsonNode>> inflight = new ConcurrentHashMap<>();
 
     public DeezerCatalogService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
@@ -196,7 +199,29 @@ public class DeezerCatalogService {
     }
 
     public DeezerAlbumPageDto album(long id) {
-        JsonNode root = fetchOk("/album/" + id, PAGE_TTL);
+        return album(id, 0L);
+    }
+
+    /**
+     * Album page. When the caller already knows the artist, the fan count is loaded
+     * at the same time as the album instead of after it.
+     */
+    public DeezerAlbumPageDto album(long id, long artistIdHint) {
+        if (id <= 0) {
+            return null;
+        }
+        JsonNode root;
+        long hintedFans = -1L;
+        if (artistIdHint > 0) {
+            try (var pool = Executors.newVirtualThreadPerTaskExecutor()) {
+                Future<JsonNode> albumTask = pool.submit(() -> fetchOk("/album/" + id, PAGE_TTL));
+                Future<Long> fansTask = pool.submit(() -> lookupArtistFans(artistIdHint));
+                root = await(albumTask);
+                hintedFans = awaitQuietLong(fansTask);
+            }
+        } else {
+            root = fetchOk("/album/" + id, PAGE_TTL);
+        }
         if (root == null || root.path("id").asLong(0) <= 0) {
             return null;
         }
@@ -204,9 +229,15 @@ public class DeezerCatalogService {
         if (album == null) {
             return null;
         }
+        List<DeezerTrackDto> tracks = mapTracks(root.path("tracks"), album);
+        if (artistIdHint > 0 && album.artistId() == artistIdHint && hintedFans > 0) {
+            tracks = applyFans(tracks, Map.of(artistIdHint, hintedFans));
+        } else {
+            tracks = attachFans(tracks, List.of());
+        }
         return new DeezerAlbumPageDto(
                 album,
-                attachFans(mapTracks(root.path("tracks"), album), List.of()),
+                tracks,
                 albumDuration(root),
                 albumFans(root),
                 albumLabel(root),
@@ -245,6 +276,11 @@ public class DeezerCatalogService {
     }
 
     public List<DeezerAlbumDto> artistAlbums(long artistId) {
+        if (artistId <= 0) {
+            return List.of();
+        }
+        // The next album click needs this artist's fan count. Start it now, without holding the list.
+        Thread.startVirtualThread(() -> optional("/artist/" + artistId, PAGE_TTL));
         return mapAlbums(fetchOk("/artist/" + artistId + "/albums?limit=30", PAGE_TTL), true);
     }
 
@@ -454,6 +490,15 @@ public class DeezerCatalogService {
         );
     }
 
+    private static long awaitQuietLong(Future<Long> task) {
+        try {
+            Long value = await(task);
+            return value == null ? -1L : value;
+        } catch (UpstreamException e) {
+            return -1L;
+        }
+    }
+
     private static <T> T await(Future<T> task) {
         try {
             return task.get(8, TimeUnit.SECONDS);
@@ -501,6 +546,41 @@ public class DeezerCatalogService {
         if (cached != null && cached.expiresAt > now) {
             return cached.node;
         }
+        CompletableFuture<JsonNode> created = new CompletableFuture<>();
+        CompletableFuture<JsonNode> running = inflight.putIfAbsent(path, created);
+        if (running != null) {
+            return joinFetch(running, path);
+        }
+        try {
+            Cached again = cache.get(path);
+            long freshNow = System.currentTimeMillis();
+            if (again != null && again.expiresAt > freshNow) {
+                created.complete(again.node);
+                return again.node;
+            }
+            JsonNode node = loadFresh(path, ttl, again, freshNow);
+            created.complete(node);
+            return node;
+        } catch (RuntimeException failed) {
+            created.completeExceptionally(failed);
+            throw failed;
+        } finally {
+            inflight.remove(path, created);
+        }
+    }
+
+    private JsonNode joinFetch(CompletableFuture<JsonNode> running, String path) {
+        try {
+            return running.get(TIMEOUT.toMillis() + 1000, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return stale(cache.get(path), System.currentTimeMillis());
+        } catch (Exception e) {
+            return stale(cache.get(path), System.currentTimeMillis());
+        }
+    }
+
+    private JsonNode loadFresh(String path, Duration ttl, Cached cached, long now) {
         try {
             HttpRequest request = HttpRequest.newBuilder(URI.create(API + path))
                     .timeout(TIMEOUT)

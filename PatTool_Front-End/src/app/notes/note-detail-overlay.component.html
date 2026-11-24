@@ -271,7 +271,7 @@
           {{ 'NOTES.RECIPIENTS_COUNT' | translate:{ count: editorRecipients.length } }}
         </span>
         <button type="button"
-                class="btn btn-sm py-0 px-2"
+                class="btn btn-sm notes-recipients-toggle"
                 [ngClass]="editorRecipientsDetailOpen ? 'btn-outline-secondary' : 'btn-outline-primary'"
                 (click)="toggleEditorRecipientsDetail()"
                 [disabled]="editorRecipientsLoading">

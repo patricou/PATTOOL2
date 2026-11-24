@@ -1358,7 +1358,15 @@ public class FileRestController {
                     || host.endsWith(".staticflickr.com") || "staticflickr.com".equals(host)
                     || "images.unsplash.com".equals(host)
                     || host.endsWith(".mapillary.com") || "mapillary.com".equals(host)
-                    || host.endsWith(".fbcdn.net");
+                    || host.endsWith(".fbcdn.net")
+                    || "media.camptocamp.org".equals(host)
+                    || "inaturalist-open-data.s3.amazonaws.com".equals(host)
+                    || "static.inaturalist.org".equals(host)
+                    || "cdn.kartaview.org".equals(host)
+                    || host.endsWith(".panoramax.xyz") || "panoramax.xyz".equals(host)
+                    || host.endsWith(".panoramax.fr") || "panoramax.fr".equals(host)
+                    || "panoramax.openstreetmap.fr".equals(host)
+                    || host.endsWith(".panoramax.ign.fr") || "panoramax.ign.fr".equals(host);
         } catch (IllegalArgumentException e) {
             return false;
         }

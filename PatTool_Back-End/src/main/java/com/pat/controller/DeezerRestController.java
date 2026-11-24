@@ -147,11 +147,13 @@ public class DeezerRestController {
     }
 
     @GetMapping("/album/{id}")
-    public ResponseEntity<?> album(@PathVariable long id) {
-        if (id <= 0) {
+    public ResponseEntity<?> album(
+            @PathVariable long id,
+            @RequestParam(defaultValue = "0") long artistId) {
+        if (id <= 0 || artistId < 0 || artistId > 1_000_000_000L) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid id"));
         }
-        return ok(() -> deezerCatalogService.album(id), Duration.ofMinutes(10));
+        return ok(() -> deezerCatalogService.album(id, artistId), Duration.ofMinutes(10));
     }
 
     @GetMapping("/artist/{id}/albums")

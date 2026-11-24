@@ -135,6 +135,42 @@ const USER_PARAM_LABEL_KEYS: Record<string, string> = {
     'telegram.inbox': 'USERINFO.PARAM_LABELS.TELEGRAM_INBOX'
 };
 
+/** Icon color for the Map badge: dark ink on a light skin hue, white otherwise. */
+function mapBadgeForeground(accent: string): string {
+    const rgb = parseCssColor(accent);
+    if (!rgb) {
+        return '#fff';
+    }
+    const lin = (channel: number) => {
+        const s = channel / 255;
+        return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    };
+    const luminance = 0.2126 * lin(rgb[0]) + 0.7152 * lin(rgb[1]) + 0.0722 * lin(rgb[2]);
+    return luminance > 0.42 ? '#1a1208' : '#fff';
+}
+
+function parseCssColor(value: string): [number, number, number] | null {
+    const v = value.trim();
+    const hex = v.match(/^#([0-9a-f]{3,8})$/i);
+    if (hex) {
+        let h = hex[1];
+        if (h.length === 3 || h.length === 4) {
+            h = h.slice(0, 3).split('').map((c) => c + c).join('');
+        } else if (h.length === 8) {
+            h = h.slice(0, 6);
+        }
+        if (h.length !== 6) {
+            return null;
+        }
+        return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+    }
+    const rgb = v.match(/^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i);
+    if (!rgb) {
+        return null;
+    }
+    return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+}
+
 @Component({
     selector: 'app-root',
     templateUrl: './app.component.html',
@@ -678,6 +714,7 @@ export class AppComponent implements OnInit, AfterViewInit {
             html.style.removeProperty('--pat-fab-fg');
             html.style.removeProperty('--pat-fab-border');
             html.classList.remove('pat-page-no-wash');
+            this.paintMapButtonSkin(html, null, '');
             return;
         }
         const cs = getComputedStyle(host);
@@ -712,6 +749,21 @@ export class AppComponent implements OnInit, AfterViewInit {
         } else {
             html.style.removeProperty('--pat-fab-border');
         }
+        const mapAccent = accent || cs.getPropertyValue('--menu-accent').trim();
+        this.paintMapButtonSkin(html, host, mapAccent);
+    }
+
+    /** Navbar Map badge follows the cabinet skin hue (radio / TV / Deezer). Green otherwise. */
+    private paintMapButtonSkin(html: HTMLElement, host: HTMLElement | null, accent: string): void {
+        const skinned = !!host && /(?:^|\s)(?:radio-skin|tv-skin)--[a-z0-9-]+/.test(host.className || '');
+        html.classList.toggle('pat-map-skinned', skinned && !!accent);
+        if (!skinned || !accent) {
+            html.style.removeProperty('--pat-map-accent');
+            html.style.removeProperty('--pat-map-fg');
+            return;
+        }
+        html.style.setProperty('--pat-map-accent', accent);
+        html.style.setProperty('--pat-map-fg', mapBadgeForeground(accent));
     }
 
     /**

@@ -53,14 +53,14 @@ public class TvCatalogService {
     private static final String KTO_LOGO = "https://www.ktotv.com/img/logo-ktotv.png";
 
     /**
-     * Public Mezzo HLS. The iptv-org country playlist still lists
-     * {@code http://str2.iptvhd.ru:8080/Mezzo_HD/index.m3u8}, which returns HTTP 403
-     * ({@code deny_token}). The otcnet window is only ~20 s. The proxy keeps it whole
-     * and downloads the two newest segments one at a time: a fourth immediate fetch
-     * makes the CDN slower than realtime.
+     * Public Mezzo HLS. iptv-org now lists {@code http://92.180.26.103/stream/62/index.m3u8},
+     * which returns HTTP 403. The otcnet mirror still plays, but only over HTTP: TLS to
+     * {@code live-3.otcnet.ru} never completes from the public server. The window is only
+     * ~20 s. The proxy keeps it whole and downloads the two newest segments one at a time:
+     * a fourth immediate fetch makes the CDN slower than realtime.
      * Mezzo Live stays on its own mirror.
      */
-    private static final String MEZZO_PUBLIC_HLS = "https://live-3.otcnet.ru/Mezzo/index.m3u8";
+    private static final String MEZZO_PUBLIC_HLS = "http://live-3.otcnet.ru/Mezzo/index.m3u8";
 
     /**
      * Official NextRadioTV HLS. iptv-org 1080p BFM entries use SFR nCDN
