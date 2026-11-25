@@ -138,6 +138,14 @@ export class CalendarService {
         this.entriesCacheExpiryMs = 0;
     }
 
+    getAppointment(id: string): Observable<CalendarEntry> {
+        return this.withUserHeaders().pipe(
+            switchMap(headers =>
+                this.http.get<CalendarEntry>(`${environment.API_URL}calendar/appointments/${id}`, { headers })
+            )
+        );
+    }
+
     createAppointment(body: CalendarAppointmentPayload): Observable<{ id: string }> {
         return this.withUserHeaders().pipe(
             switchMap(headers =>

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
 import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { EventCardOverlayService } from '../event-card-modal/event-card-overlay.service';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Evenement } from '../../model/evenement';
 import { Member } from '../../model/member';
@@ -110,7 +111,8 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges, OnDestro
     private modalService: NgbModal,
     private translateService: TranslateService,
     private router: Router,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private eventCards: EventCardOverlayService
   ) {}
 
   ngOnInit(): void {
@@ -207,6 +209,7 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges, OnDestro
       backdrop: 'static',
       keyboard: false
     });
+    this.eventCards.raiseLatestModalAboveCard('fs-selector-modal');
     
     // Immediately maintain scroll position after modal opens to prevent any movement
     // This is especially important when reopening after closing slideshow

@@ -1,0 +1,50 @@
+.notes-format-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    margin-bottom: 0.3rem;
+}
+
+.notes-format-bar button {
+    border: 1px solid #ced4da;
+    background: #fff;
+    color: #333;
+    border-radius: 0.25rem;
+    width: 1.7rem;
+    height: 1.55rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.notes-format-bar button:hover {
+    background: #e7f1fb;
+    border-color: #8eb4e8;
+}
+
+.notes-content-editor {
+    min-height: 4.5rem;
+    max-height: 12rem;
+    overflow-y: auto;
+    white-space: normal;
+    line-height: 1.4;
+}
+
+.notes-content-editor.is-readonly {
+    background: #f8f9fa;
+}
+
+.notes-content-editor.is-empty:before {
+    content: attr(data-placeholder);
+    color: #6c757d;
+    pointer-events: none;
+}
+
+.notes-content-editor ul,
+.notes-content-editor ol {
+    margin: 0.15rem 0 0.15rem 1.2rem;
+    padding: 0;
+}

@@ -56,6 +56,8 @@ export interface TodoList {
     calendarAppointmentId?: string | null;
     /** MongoDB id of an activity (événement), when this list is linked to it. */
     evenementId?: string | null;
+    /** Note the current user may open, when a note is linked to this list. */
+    linkedNoteId?: string | null;
     items: TodoItem[];
 }
 

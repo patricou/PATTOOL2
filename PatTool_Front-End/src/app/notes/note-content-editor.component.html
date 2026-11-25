@@ -1,0 +1,38 @@
+<div class="notes-format-bar" *ngIf="!readonly">
+    <button type="button" (mousedown)="$event.preventDefault()" (click)="format('bold')"
+            [attr.title]="'NOTES.FORMAT_BOLD' | translate"
+            [attr.aria-label]="'NOTES.FORMAT_BOLD' | translate">
+        <i class="fa fa-bold"></i>
+    </button>
+    <button type="button" (mousedown)="$event.preventDefault()" (click)="format('italic')"
+            [attr.title]="'NOTES.FORMAT_ITALIC' | translate"
+            [attr.aria-label]="'NOTES.FORMAT_ITALIC' | translate">
+        <i class="fa fa-italic"></i>
+    </button>
+    <button type="button" (mousedown)="$event.preventDefault()" (click)="format('underline')"
+            [attr.title]="'NOTES.FORMAT_UNDERLINE' | translate"
+            [attr.aria-label]="'NOTES.FORMAT_UNDERLINE' | translate">
+        <i class="fa fa-underline"></i>
+    </button>
+    <button type="button" (mousedown)="$event.preventDefault()" (click)="format('insertUnorderedList')"
+            [attr.title]="'NOTES.FORMAT_BULLETS' | translate"
+            [attr.aria-label]="'NOTES.FORMAT_BULLETS' | translate">
+        <i class="fa fa-list-ul"></i>
+    </button>
+    <button type="button" (mousedown)="$event.preventDefault()" (click)="format('insertOrderedList')"
+            [attr.title]="'NOTES.FORMAT_NUMBERS' | translate"
+            [attr.aria-label]="'NOTES.FORMAT_NUMBERS' | translate">
+        <i class="fa fa-list-ol"></i>
+    </button>
+</div>
+<div #box
+     class="form-control form-control-sm notes-content-area notes-content-editor"
+     [class.is-empty]="empty"
+     [class.is-readonly]="readonly"
+     [attr.contenteditable]="readonly ? 'false' : 'true'"
+     [attr.data-placeholder]="placeholder"
+     [attr.aria-label]="'NOTES.CONTENT' | translate"
+     role="textbox"
+     [attr.aria-multiline]="true"
+     (input)="onInput()"
+     (paste)="onPaste($event)"></div>

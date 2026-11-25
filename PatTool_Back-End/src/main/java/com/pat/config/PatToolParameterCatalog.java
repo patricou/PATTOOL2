@@ -37,6 +37,7 @@ public final class PatToolParameterCatalog {
             "artisans.preferences.",
             "youtube.favorites.",
             "deezer.favorites.",
+            "deezer.page.",
             "deezer.playlists.",
             "deezer.concert.",
             "audio.equalizer.",

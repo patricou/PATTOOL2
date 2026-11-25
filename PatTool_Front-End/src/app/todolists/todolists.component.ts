@@ -38,6 +38,7 @@ import { Member } from '../model/member';
 import { environment } from '../../environments/environment';
 import { CalendarEntry, CalendarService } from '../calendar/calendar.service';
 import { buildTodolistShareLink } from '../shared/share-deep-link.util';
+import { NoteDetailOverlayService } from '../notes/note-detail-overlay.service';
 
 interface OwnerLabel {
     id: string;
@@ -105,6 +106,7 @@ export class TodolistsComponent implements OnInit, OnDestroy {
     private sanitizer = inject(DomSanitizer);
     private route = inject(ActivatedRoute);
     private router = inject(Router);
+    private noteOverlay = inject(NoteDetailOverlayService);
     private calendarService = inject(CalendarService);
 
     /** Same toolbar as the commentary editor used by events: full font / colour / size / etc. */
@@ -851,6 +853,14 @@ export class TodolistsComponent implements OnInit, OnDestroy {
         this.detailsModalRef?.dismiss();
         this.editorModalRef?.dismiss();
         void this.router.navigate(['/photos'], { queryParams: { eventId } });
+    }
+
+    openLinkedNote(list: TodoList): void {
+        const noteId = (list?.linkedNoteId || '').trim();
+        if (!noteId) {
+            return;
+        }
+        this.noteOverlay.open(noteId);
     }
 
     // ---------- Sharing (email / WhatsApp) ----------------------------------

@@ -154,6 +154,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     private thumbFileIdToEventIds = new Map<string, string[]>();
     private langChangeSub?: Subscription;
     private focusDateQuerySub?: Subscription;
+    private openedAppointmentQueryId = '';
     /** Date from {@code ?date=YYYY-MM-DD} applied as FullCalendar {@code initialDate} / {@code gotoDate}. */
     private focusDateFromQuery: Date | null = null;
     private layoutResizeTimer?: ReturnType<typeof setTimeout>;
@@ -290,6 +291,11 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             this.focusDateFromQuery = next;
             if (next) {
                 this.gotoFocusDate(next);
+            }
+            const appointmentId = (params.get('appointmentId') || '').trim();
+            if (appointmentId && appointmentId !== this.openedAppointmentQueryId && this.isAuthenticated()) {
+                this.openedAppointmentQueryId = appointmentId;
+                this.openAppointmentFromQuery(appointmentId);
             }
         });
         this.langChangeSub = this.translate.onLangChange.subscribe(() => {
@@ -1607,6 +1613,61 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         if (saved && this.isAuthenticated()) {
             queueMicrotask(() => this.openAppointmentEditorFromEvent(saved));
         }
+    }
+
+    private openAppointmentFromQuery(id: string): void {
+        this.calendarService.getAppointment(id).subscribe({
+            next: entry => this.openAppointmentEditorFromEntry(entry),
+            error: () => {
+                this.openedAppointmentQueryId = '';
+                this.errorMessage = 'CALENDAR.LOAD_ERROR';
+                this.cdr.markForCheck();
+            }
+        });
+    }
+
+    private openAppointmentEditorFromEntry(entry: CalendarEntry): void {
+        this.membersService.getUserId({ skipGeolocation: true }).subscribe({
+            next: m => {
+                this.currentMemberId = (m.id || '').trim();
+                this.reminderMailSuccessMessage = '';
+                this.reminderMailErrorMessage = '';
+                this.visibilityRecipientsShown = false;
+                this.visibilityRecipientsList = [];
+                this.hideEventAccessUsersPanel();
+                this.eventAccessUsersList = [];
+                this.eventAccessUsersErrorMessage = '';
+                const owner = (entry.ownerMemberId || '').trim();
+                this.editingId = entry.id;
+                this.formTitle = entry.title || '';
+                this.formNotes = entry.notes || '';
+                const startD = new Date(entry.start);
+                const endD = entry.end ? new Date(entry.end) : new Date(startD.getTime() + 60 * 60 * 1000);
+                this.formStart = this.toDatetimeLocal(startD);
+                this.formEnd = this.toDatetimeLocal(endD);
+                this.focusDateFromQuery = startD;
+                this.gotoFocusDate(startD);
+                this.syncVisibilityFormFromExtendedProps({
+                    visibility: entry.visibility,
+                    friendGroupId: entry.friendGroupId,
+                    friendGroupIds: entry.friendGroupIds
+                });
+                const tl = (entry.todoListId || '').trim();
+                this.appointmentLinkedTodoListId = tl;
+                this.appointmentLinkedTodoListIdInitial = tl;
+                this.appointmentLinkedNoteId = (entry.noteId || '').trim();
+                this.appointmentLinkedEvenementId = (entry.evenementId || '').trim();
+                this.appointmentCanEdit =
+                    this.currentMemberId.length > 0 && owner.length > 0 && owner === this.currentMemberId;
+                this.loadAppointmentTodoListsForModal();
+                this.openAppointmentModalImmediate();
+                this.cdr.markForCheck();
+            },
+            error: () => {
+                this.errorMessage = 'CALENDAR.LOAD_ERROR';
+                this.cdr.markForCheck();
+            }
+        });
     }
 
     private openAppointmentEditorFromEvent(arg: EventClickArg): void {

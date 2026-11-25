@@ -127,6 +127,13 @@
                     <i class="fa fa-eye"></i>
                 </button>
                 <button type="button" class="btn btn-sm btn-outline-primary"
+                        *ngIf="list.linkedNoteId"
+                        (click)="openLinkedNote(list)"
+                        [title]="'TODOLISTS.OPEN_LINKED_NOTE' | translate"
+                        [attr.aria-label]="'TODOLISTS.OPEN_LINKED_NOTE' | translate">
+                    <i class="fa fa-sticky-note-o"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary"
                         *ngIf="hasLinkedActivity(list)"
                         (click)="openLinkedActivityPhotoWall(list)"
                         [title]="'TODOLISTS.OPEN_ACTIVITY_PHOTOS' | translate"
@@ -284,6 +291,13 @@
         </div>
 
         <div class="modal-footer">
+            <button type="button" class="btn btn-sm btn-outline-primary"
+                    *ngIf="list.linkedNoteId"
+                    [class.me-auto]="!hasLinkedActivity(list)"
+                    (click)="openLinkedNote(list)"
+                    [title]="'TODOLISTS.OPEN_LINKED_NOTE' | translate">
+                <i class="fa fa-sticky-note-o"></i> {{ 'TODOLISTS.OPEN_LINKED_NOTE' | translate }}
+            </button>
             <button type="button" class="btn btn-sm btn-outline-primary me-auto"
                     *ngIf="hasLinkedActivity(list)"
                     (click)="openLinkedActivityPhotoWall(list)"
@@ -291,7 +305,7 @@
                 <i class="fa fa-picture-o"></i> {{ 'TODOLISTS.OPEN_ACTIVITY_PHOTOS' | translate }}
             </button>
             <button type="button" class="btn btn-sm btn-outline-success"
-                    [class.me-auto]="!hasLinkedActivity(list)"
+                    [class.me-auto]="!hasLinkedActivity(list) && !list.linkedNoteId"
                     (click)="openShare(list, 'whatsapp')">
                 <i class="fa fa-whatsapp"></i> {{ 'TODOLISTS.SHARE.WHATSAPP' | translate }}
             </button>

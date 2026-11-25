@@ -2,6 +2,7 @@ package com.pat.repo.domain;
 
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.ArrayList;
@@ -80,6 +81,13 @@ public class TodoList {
      * {@link #calendarAppointmentId}; at most one list may reference a given event.
      */
     private String evenementId;
+
+    /**
+     * Id of a note the current reader may open, when a note is linked to this list.
+     * Filled on read; not stored.
+     */
+    @Transient
+    private String linkedNoteId;
 
     public String getId() {
         return id;
@@ -199,5 +207,13 @@ public class TodoList {
 
     public void setEvenementId(String evenementId) {
         this.evenementId = evenementId;
+    }
+
+    public String getLinkedNoteId() {
+        return linkedNoteId;
+    }
+
+    public void setLinkedNoteId(String linkedNoteId) {
+        this.linkedNoteId = linkedNoteId;
     }
 }

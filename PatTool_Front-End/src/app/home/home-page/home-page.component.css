@@ -1001,6 +1001,7 @@ a.home-user-meta {
 }
 
 .home-note {
+	position: relative;
 	flex: 0 0 12.5rem;
 	display: flex;
 	flex-direction: column;
@@ -1013,6 +1014,37 @@ a.home-user-meta {
 	border-radius: 2px;
 	box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.12);
 	overflow: hidden;
+	cursor: pointer;
+}
+
+.home-note-links {
+	position: absolute;
+	top: 0.28rem;
+	right: 0.28rem;
+	display: flex;
+	align-items: center;
+	gap: 0.15rem;
+	z-index: 1;
+}
+
+.home-note-link-btn {
+	border: none;
+	background: rgba(0, 0, 0, 0.12);
+	color: #333;
+	border-radius: 999px;
+	width: 1.35rem;
+	height: 1.35rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	font-size: 0.68rem;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.home-note-link-btn:hover {
+	background: rgba(13, 110, 253, 0.25);
 }
 
 .home-note-title {
@@ -1021,15 +1053,30 @@ a.home-user-meta {
 	line-height: 1.2;
 }
 
+.home-note-title--linked {
+	padding-right: 1.6rem;
+}
+
 .home-note-body {
 	flex: 1 1 auto;
 	font-size: 0.75rem;
 	line-height: 1.3;
-	white-space: pre-wrap;
+	white-space: normal;
 	display: -webkit-box;
 	-webkit-line-clamp: 5;
 	-webkit-box-orient: vertical;
 	overflow: hidden;
+}
+
+.home-note-body b,
+.home-note-body strong {
+	font-weight: 700;
+}
+
+.home-note-body ul,
+.home-note-body ol {
+	margin: 0.1rem 0 0.1rem 1rem;
+	padding: 0;
 }
 
 .home-note-meta {

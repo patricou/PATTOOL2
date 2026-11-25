@@ -50,7 +50,7 @@ import { ElementEvenementComponent } from '../../evenements/element-evenement/el
         :host {
             position: fixed;
             inset: 0;
-            z-index: 1050;
+            z-index: 2000;
             display: flex;
             align-items: center;
             justify-content: center;

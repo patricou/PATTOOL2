@@ -131,6 +131,12 @@
 
   <div class="modal-footer flex-wrap gap-2">
     <button type="button" class="btn btn-sm btn-outline-primary"
+            *ngIf="l.linkedNoteId"
+            (click)="openLinkedNote(l)"
+            [title]="'TODOLISTS.OPEN_LINKED_NOTE' | translate">
+      <i class="fa fa-sticky-note-o me-1" aria-hidden="true"></i>{{ 'TODOLISTS.OPEN_LINKED_NOTE' | translate }}
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-primary"
             *ngIf="hasLinkedActivity(l)"
             (click)="openLinkedActivityPhotoWall()"
             [title]="'TODOLISTS.OPEN_ACTIVITY_PHOTOS' | translate">

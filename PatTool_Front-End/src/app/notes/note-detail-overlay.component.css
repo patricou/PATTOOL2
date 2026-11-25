@@ -49,6 +49,13 @@
     pointer-events: none;
 }
 
+.notes-overlay-postit-links {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.4rem;
+    z-index: 2;
+}
+
 .notes-overlay-postit-title {
     font-family: "Segoe Print", "Comic Sans MS", "Chalkboard SE", cursive, sans-serif;
     font-size: 1.2rem;
@@ -58,15 +65,30 @@
     line-height: 1.25;
 }
 
+.notes-overlay-postit-title--linked {
+    margin-right: 1.8rem;
+}
+
 .notes-overlay-postit-body {
     font-family: "Segoe Print", "Comic Sans MS", "Chalkboard SE", cursive, sans-serif;
     font-size: 1rem;
     color: #333;
     margin: 0 0 0.85rem;
-    white-space: pre-wrap;
+    white-space: normal;
     flex: 1 1 auto;
     line-height: 1.4;
     overflow-wrap: anywhere;
+}
+
+.notes-overlay-postit-body b,
+.notes-overlay-postit-body strong {
+    font-weight: 700;
+}
+
+.notes-overlay-postit-body ul,
+.notes-overlay-postit-body ol {
+    margin: 0.15rem 0 0.15rem 1.15rem;
+    padding: 0;
 }
 
 .notes-overlay-postit-body a {
@@ -117,6 +139,20 @@
 /* Edit form styles (mirrored from notes.component.css) */
 .notes-modal-header {
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.notes-header-links {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-left: auto;
+    flex: 0 0 auto;
+    position: relative;
+    z-index: 2;
+}
+
+.notes-header-links .btn-close {
+    margin: 0 0 0 0.15rem !important;
 }
 
 .notes-modal-body {
@@ -372,4 +408,30 @@
 
 ::ng-deep .notes-modal .modal-dialog {
     max-width: min(960px, 96vw);
+}
+
+.notes-postit-links {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.notes-postit-link-btn {
+    border: none;
+    background: rgba(0, 0, 0, 0.12);
+    color: #333;
+    border-radius: 999px;
+    width: 1.55rem;
+    height: 1.55rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 0.75rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.notes-postit-link-btn:hover {
+    background: rgba(13, 110, 253, 0.25);
 }

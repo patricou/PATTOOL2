@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { NoteDetailOverlayComponent } from './note-detail-overlay.component';
+import { EventCardOverlayService } from '../shared/event-card-modal/event-card-overlay.service';
 
 /**
  * Opens a note in a modal above the current route (event fiche, calendar, photo wall, etc.).
@@ -8,6 +9,7 @@ import { NoteDetailOverlayComponent } from './note-detail-overlay.component';
 @Injectable({ providedIn: 'root' })
 export class NoteDetailOverlayService {
     private readonly modal = inject(NgbModal);
+    private readonly eventCards = inject(EventCardOverlayService);
 
     open(noteId: string): void {
         const id = (noteId || '').trim();
@@ -23,5 +25,8 @@ export class NoteDetailOverlayService {
             windowClass: 'notes-modal'
         });
         ref.componentInstance.noteId = id;
+        if (this.eventCards.isOpen()) {
+            this.eventCards.raiseLatestModalAboveCard('notes-modal');
+        }
     }
 }

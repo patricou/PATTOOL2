@@ -19,4 +19,6 @@ public interface NoteRepository extends MongoRepository<Note, String>, NoteRepos
     Optional<Note> findFirstByEvenementId(String evenementId);
 
     Optional<Note> findFirstByCalendarAppointmentId(String calendarAppointmentId);
+
+    List<Note> findByTodoListIdIn(List<String> todoListIds);
 }

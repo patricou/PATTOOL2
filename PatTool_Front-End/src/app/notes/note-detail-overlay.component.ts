@@ -10,7 +10,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
-import { Subscription, from as fromIterable, of } from 'rxjs';
+import { Router } from '@angular/router';
+import { Subscription, forkJoin, from as fromIterable, of } from 'rxjs';
 import { catchError, finalize, map, mergeMap, reduce } from 'rxjs/operators';
 import {
     Note,
@@ -23,10 +24,15 @@ import { MembersService } from '../services/members.service';
 import { FriendsService } from '../services/friends.service';
 import { ImageCompressionService } from '../services/image-compression.service';
 import { CalendarEntry, CalendarService } from '../calendar/calendar.service';
+import { TodoList, TodoListService } from '../todolists/todolist.service';
+import { TodoListDetailOverlayService } from '../todolists/todo-list-detail-overlay.service';
+import { EventCardOverlayService } from '../shared/event-card-modal/event-card-overlay.service';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { Member } from '../model/member';
 import { FriendGroup } from '../model/friend';
 import { NoteContentHtmlPipe } from './note-content-html.pipe';
+import { NoteContentEditorComponent } from './note-content-editor.component';
+import { storedNoteContent } from './note-content-html';
 
 /** Same curated post-it palette as notes.component (duplicated to avoid circular imports). */
 const NOTE_COLORS: string[] = [
@@ -55,7 +61,7 @@ interface NoteLinkOption {
 @Component({
     selector: 'app-note-detail-overlay',
     standalone: true,
-    imports: [CommonModule, FormsModule, TranslateModule, NoteContentHtmlPipe],
+    imports: [CommonModule, FormsModule, TranslateModule, NoteContentHtmlPipe, NoteContentEditorComponent],
     templateUrl: './note-detail-overlay.component.html',
     styleUrls: ['./note-detail-overlay.component.css'],
     changeDetection: ChangeDetectionStrategy.OnPush
@@ -67,6 +73,10 @@ export class NoteDetailOverlayComponent implements OnInit, OnDestroy {
     private readonly friendsService = inject(FriendsService);
     private readonly imageCompression = inject(ImageCompressionService);
     private readonly calendarService = inject(CalendarService);
+    private readonly todoListService = inject(TodoListService);
+    private readonly todoListOverlay = inject(TodoListDetailOverlayService);
+    private readonly eventCardOverlay = inject(EventCardOverlayService);
+    private readonly router = inject(Router);
     private readonly keycloak = inject(KeycloakService);
     private readonly translate = inject(TranslateService);
     private readonly cdr = inject(ChangeDetectorRef);
@@ -97,12 +107,15 @@ export class NoteDetailOverlayComponent implements OnInit, OnDestroy {
 
     linkPickerAppointments: NoteLinkOption[] = [];
     linkPickerActivities: NoteLinkOption[] = [];
+    linkPickerTasks: NoteLinkOption[] = [];
     filteredLinkPickerAppointments: NoteLinkOption[] = [];
     filteredLinkPickerActivities: NoteLinkOption[] = [];
+    filteredLinkPickerTasks: NoteLinkOption[] = [];
     linkPickerLoading = false;
     linkPickerError = false;
     linkPickerActivityFilter = '';
     linkPickerAppointmentFilter = '';
+    linkPickerTaskFilter = '';
 
     private subs: Subscription[] = [];
 
@@ -269,7 +282,7 @@ export class NoteDetailOverlayComponent implements OnInit, OnDestroy {
             return false;
         }
         const title = (this.draft.title || '').trim();
-        const content = (this.draft.content || '').trim();
+        const content = storedNoteContent(this.draft.content);
         const photos = this.draft.imageDataUrls || [];
         return !!title || !!content || photos.length > 0;
     }
@@ -354,7 +367,9 @@ export class NoteDetailOverlayComponent implements OnInit, OnDestroy {
         this.draft.calendarAppointmentId = v.length > 0 ? v : null;
         if (v.length > 0) {
             this.draft.evenementId = null;
+            this.clearTaskLink();
             this.linkPickerActivityFilter = '';
+            this.linkPickerTaskFilter = '';
             this.refreshFilteredLinkPickers();
         }
         this.cdr.markForCheck();
@@ -365,6 +380,21 @@ export class NoteDetailOverlayComponent implements OnInit, OnDestroy {
         this.draft.evenementId = v.length > 0 ? v : null;
         if (v.length > 0) {
             this.draft.calendarAppointmentId = null;
+            this.clearTaskLink();
+            this.linkPickerAppointmentFilter = '';
+            this.linkPickerTaskFilter = '';
+            this.refreshFilteredLinkPickers();
+        }
+        this.cdr.markForCheck();
+    }
+
+    onTaskLinkSelect(value: string): void {
+        const v = (value || '').trim();
+        this.draft.todoListId = v.length > 0 ? v : null;
+        if (v.length > 0) {
+            this.draft.calendarAppointmentId = null;
+            this.draft.evenementId = null;
+            this.linkPickerActivityFilter = '';
             this.linkPickerAppointmentFilter = '';
             this.refreshFilteredLinkPickers();
         }
@@ -383,12 +413,56 @@ export class NoteDetailOverlayComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
     }
 
+    onLinkPickerTaskFilterChange(value: string): void {
+        this.linkPickerTaskFilter = value || '';
+        this.refreshFilteredLinkPickers();
+        this.cdr.markForCheck();
+    }
+
     linkPickerSelectSize(filteredCount: number): number {
         const rows = filteredCount + 1;
         if (rows <= 1) {
             return 2;
         }
         return Math.min(5, rows);
+    }
+
+    hasLinkedActivity(): boolean {
+        return !!((this.note?.evenementId || this.draft?.evenementId || '')).trim();
+    }
+
+    hasLinkedAppointment(): boolean {
+        return !!((this.note?.calendarAppointmentId || this.draft?.calendarAppointmentId || '')).trim();
+    }
+
+    hasLinkedList(): boolean {
+        return !!((this.note?.todoListId || this.draft?.todoListId || '')).trim();
+    }
+
+    openLinkedActivity(): void {
+        const eventId = (this.note?.evenementId || this.draft?.evenementId || '').trim();
+        if (!eventId) {
+            return;
+        }
+        this.activeModal.dismiss();
+        this.eventCardOverlay.open(eventId);
+    }
+
+    openLinkedAppointment(): void {
+        const appointmentId = (this.note?.calendarAppointmentId || this.draft?.calendarAppointmentId || '').trim();
+        if (!appointmentId) {
+            return;
+        }
+        this.activeModal.dismiss();
+        void this.router.navigate(['/calendrier'], { queryParams: { appointmentId } });
+    }
+
+    openLinkedTodoList(): void {
+        const listId = (this.note?.todoListId || this.draft?.todoListId || '').trim();
+        if (!listId) {
+            return;
+        }
+        this.todoListOverlay.open(listId);
     }
 
     formatDate(value?: string): string {
@@ -417,7 +491,7 @@ export class NoteDetailOverlayComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
         const payload: NotePayload = {
             title: (this.draft.title || '').trim() || null,
-            content: (this.draft.content || '').trim() || null,
+            content: storedNoteContent(this.draft.content),
             color: this.draft.color || NOTE_COLORS[0],
             ownerDisplayName: this.draft.ownerDisplayName || null,
             visibility: this.draft.visibility || 'private',
@@ -428,6 +502,7 @@ export class NoteDetailOverlayComponent implements OnInit, OnDestroy {
                 : [],
             calendarAppointmentId: (this.draft.calendarAppointmentId || '').trim() || null,
             evenementId: (this.draft.evenementId || '').trim() || null,
+            todoListId: (this.draft.todoListId || '').trim() || null,
             showOnHome: !!this.draft.showOnHome
         };
         this.subs.push(
@@ -464,6 +539,7 @@ export class NoteDetailOverlayComponent implements OnInit, OnDestroy {
             imageDataUrls: doc.imageDataUrls ? [...doc.imageDataUrls] : [],
             calendarAppointmentId: doc.calendarAppointmentId || null,
             evenementId: doc.evenementId || null,
+            todoListId: doc.todoListId || null,
             showOnHome: !!doc.showOnHome
         };
     }
@@ -489,6 +565,11 @@ export class NoteDetailOverlayComponent implements OnInit, OnDestroy {
             this.linkPickerAppointments,
             this.linkPickerAppointmentFilter,
             this.draft.calendarAppointmentId
+        );
+        this.filteredLinkPickerTasks = this.filterLinkOptions(
+            this.linkPickerTasks,
+            this.linkPickerTaskFilter,
+            this.draft.todoListId
         );
     }
 
@@ -517,23 +598,20 @@ export class NoteDetailOverlayComponent implements OnInit, OnDestroy {
         this.linkPickerError = false;
         this.linkPickerActivityFilter = '';
         this.linkPickerAppointmentFilter = '';
+        this.linkPickerTaskFilter = '';
         this.cdr.markForCheck();
         const rangeFrom = new Date();
         rangeFrom.setFullYear(rangeFrom.getFullYear() - LINK_PICKER_RANGE_YEARS);
         const rangeTo = new Date();
         rangeTo.setFullYear(rangeTo.getFullYear() + LINK_PICKER_RANGE_YEARS);
         const chunks = this.buildCalendarEntryChunks(rangeFrom, rangeTo);
-        if (chunks.length === 0) {
-            this.linkPickerLoading = false;
-            this.linkPickerAppointments = [];
-            this.linkPickerActivities = [];
-            this.ensureStaleLinkOptions();
-            this.refreshFilteredLinkPickers();
-            this.cdr.markForCheck();
-            return;
-        }
-        this.subs.push(
-            fromIterable(chunks).pipe(
+        const calendar$ = chunks.length === 0
+            ? of({
+                appointments: [] as NoteLinkOption[],
+                activities: [] as NoteLinkOption[],
+                error: false
+            })
+            : fromIterable(chunks).pipe(
                 mergeMap(
                     (ch: { start: Date; end: Date }) => this.calendarService.getEntries(ch.start, ch.end).pipe(
                         map(rows => ({ ok: true as const, rows: rows || [] })),
@@ -558,34 +636,44 @@ export class NoteDetailOverlayComponent implements OnInit, OnDestroy {
                         partCount: 0
                     }
                 ),
+                map(({ merged, okCount, partCount }) => {
+                    const list = Array.from(merged.values());
+                    return {
+                        appointments: list
+                            .filter(e => e.kind === 'APPOINTMENT')
+                            .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
+                            .map(e => ({ id: e.id, label: this.formatCalendarEntryLabel(e) })),
+                        activities: list
+                            .filter(e => e.kind === 'ACTIVITY')
+                            .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
+                            .map(e => ({ id: e.id, label: this.formatCalendarEntryLabel(e) })),
+                        error: partCount > 0 && okCount === 0
+                    };
+                }),
+                catchError(() => of({
+                    appointments: [] as NoteLinkOption[],
+                    activities: [] as NoteLinkOption[],
+                    error: true
+                }))
+            );
+        const tasks$ = this.todoListService.listAccessible().pipe(
+            map(lists => ({ options: this.taskOptionsFromLists(lists || []), error: false })),
+            catchError(() => of({ options: [] as NoteLinkOption[], error: true }))
+        );
+        this.subs.push(
+            forkJoin({ calendar: calendar$, tasks: tasks$ }).pipe(
                 finalize(() => {
                     this.linkPickerLoading = false;
                     this.cdr.markForCheck();
                 })
-            ).subscribe({
-                next: ({ merged, okCount, partCount }) => {
-                    const list = Array.from(merged.values());
-                    this.linkPickerAppointments = list
-                        .filter(e => e.kind === 'APPOINTMENT')
-                        .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
-                        .map(e => ({ id: e.id, label: this.formatCalendarEntryLabel(e) }));
-                    this.linkPickerActivities = list
-                        .filter(e => e.kind === 'ACTIVITY')
-                        .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
-                        .map(e => ({ id: e.id, label: this.formatCalendarEntryLabel(e) }));
-                    this.linkPickerError = partCount > 0 && okCount === 0;
-                    this.ensureStaleLinkOptions();
-                    this.refreshFilteredLinkPickers();
-                    this.cdr.markForCheck();
-                },
-                error: () => {
-                    this.linkPickerAppointments = [];
-                    this.linkPickerActivities = [];
-                    this.linkPickerError = true;
-                    this.ensureStaleLinkOptions();
-                    this.refreshFilteredLinkPickers();
-                    this.cdr.markForCheck();
-                }
+            ).subscribe(({ calendar, tasks }) => {
+                this.linkPickerAppointments = calendar.appointments;
+                this.linkPickerActivities = calendar.activities;
+                this.linkPickerTasks = tasks.options;
+                this.linkPickerError = calendar.error || tasks.error;
+                this.ensureStaleLinkOptions();
+                this.refreshFilteredLinkPickers();
+                this.cdr.markForCheck();
             })
         );
     }
@@ -648,5 +736,32 @@ export class NoteDetailOverlayComponent implements OnInit, OnDestroy {
                 ...this.linkPickerActivities
             ];
         }
+        const taskId = (this.draft.todoListId || '').trim();
+        if (taskId && !this.linkPickerTasks.some(o => o.id === taskId)) {
+            this.linkPickerTasks = [
+                {
+                    id: taskId,
+                    label: this.translate.instant('NOTES.LINK_STALE_TASK', { id: taskId })
+                },
+                ...this.linkPickerTasks
+            ];
+        }
+    }
+
+    private taskOptionsFromLists(lists: TodoList[]): NoteLinkOption[] {
+        const out: NoteLinkOption[] = [];
+        for (const list of lists) {
+            const listId = (list.id || '').trim();
+            if (!listId) {
+                continue;
+            }
+            out.push({ id: listId, label: (list.name || '').trim() || '—' });
+        }
+        out.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+        return out;
+    }
+
+    private clearTaskLink(): void {
+        this.draft.todoListId = null;
     }
 }

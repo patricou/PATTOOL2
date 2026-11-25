@@ -3482,6 +3482,13 @@ export class ApiService {
     const params = new HttpParams().set('v', videoId);
     return this._http.get<{ title?: string; author?: string }>(this.API_URL + 'external/youtube/clip', { params });
   }
+  /** Audio-only stream of one clip. The page plays this URL; the picture is not sent. */
+  youtubeAudioUrl(videoId: string): string {
+    const probe = typeof document !== 'undefined' ? document.createElement('audio') : null;
+    const webm = !!probe && probe.canPlayType('audio/webm; codecs="opus"') !== '';
+    return this.API_URL + 'external/youtube/audio?v=' + encodeURIComponent(videoId) + '&fmt=' + (webm ? 'webm' : 'mp4');
+  }
+
   getYoutubeClipSize(videoId: string): Observable<{ width?: number; height?: number }> {
     const params = new HttpParams().set('v', videoId);
     return this._http.get<{ width?: number; height?: number }>(this.API_URL + 'external/youtube/oembed', { params });
@@ -4693,6 +4700,28 @@ export class ApiService {
     return this.getHeaderWithToken().pipe(
       switchMap((headers) =>
         this._http.put<{ skin: string }>(this.API_URL + 'external/deezer/skin', { skin }, { headers })
+      )
+    );
+  }
+
+  /** Page switches for this user. Null when the account has never saved them. */
+  getDeezerSwitches(): Observable<DeezerPageSwitches | null> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.get<DeezerPageSwitches>(this.API_URL + 'external/deezer/switches', {
+          headers,
+          observe: 'response'
+        }).pipe(
+          map((res) => (res.status === 204 ? null : res.body))
+        )
+      )
+    );
+  }
+
+  saveDeezerSwitches(switches: DeezerPageSwitches): Observable<DeezerPageSwitches> {
+    return this.getHeaderWithToken().pipe(
+      switchMap((headers) =>
+        this._http.put<DeezerPageSwitches>(this.API_URL + 'external/deezer/switches', switches, { headers })
       )
     );
   }
@@ -7485,6 +7514,17 @@ export interface RadioNowPlaying {
 }
 
 export type DeezerSearchType = 'track' | 'album' | 'artist' | 'playlist';
+
+/** Switches of the Deezer page. Style is stored with the shared cabinet skin. */
+export interface DeezerPageSwitches {
+  audioOnly: boolean;
+  keepAlive: boolean;
+  ticker: boolean;
+  sleeve: boolean;
+  youtubeSearch: boolean;
+  listLoop: boolean;
+  youtubeListLoop: boolean;
+}
 
 export interface DeezerTrack {
   id: number;

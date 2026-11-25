@@ -16,6 +16,7 @@ import {
   DeezerConcertTrack,
   DeezerFavorite,
   DeezerGenre,
+  DeezerPageSwitches,
   DeezerPlaylist,
   DeezerSearchType,
   DeezerTrack,
@@ -204,6 +205,11 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private skinChosenThisVisit = false;
   private skinLoadSub?: Subscription;
   private skinSaveSub?: Subscription;
+  /** A switch moved before the account copy arrived, so that copy must not overwrite it. */
+  private switchesTouched = false;
+  private applyingRemoteSwitches = false;
+  private switchesLoadSub?: Subscription;
+  private switchesSaveSub?: Subscription;
   focusMode = false;
   stageFullscreen = false;
   shareMenuOpen = false;
@@ -354,6 +360,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   playlistBusy = '';
   youtubeMode = false;
   youtubeSearchEnabled = false;
+  /** YouTube soundtrack without the picture: the backend forwards audio bytes only. */
+  ytAudioOnly = false;
   youtubeBusy = false;
   youtubeEmbed: SafeResourceUrl | null = null;
   youtubeTitle = '';
@@ -451,6 +459,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private ytToken = 0;
   private ytIgnoreEnd = 0;
   private ytReplay = 0;
+  private ytAudioSeek = -1;
+  /** Reopens of the headphone stream while the screen is off. A live pipe cannot resume mid-song. */
+  private ytAudioReopens = 0;
+  private ytAudioReopenAt = 0;
   private ytHandshakeTimer: ReturnType<typeof setInterval> | null = null;
   private ytHandshakeTries = 0;
   private ytApiListening = false;
@@ -497,6 +509,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private readonly audioDbCache = new Map<string, AudioDbDossier>();
   private static readonly SIDEBAR_KEY = 'pattool.deezer.sidebar';
   private static readonly YT_SEARCH_KEY = 'pattool.deezer.youtube-search';
+  private static readonly YT_AUDIO_KEY = 'pattool.deezer.youtube-audio';
+  private static readonly LOOP_KEY = 'pattool.deezer.list-loop';
+  private static readonly YT_LIST_LOOP_KEY = 'pattool.deezer.youtube-list-loop';
   private static readonly FILTER_KEY = 'pattool.deezer.filter';
   private static readonly RECENT_KEY = 'pattool.deezer.recent-searches';
   private static readonly RECENT_MAX = 8;
@@ -556,6 +571,11 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       /* ignore */
     }
     this.youtubeSearchEnabled = this.readYoutubeSearch();
+    this.ytAudioOnly = this.readYoutubeAudio();
+    this.listLoop = this.readStoredFlag(DeezerWatcherComponent.LOOP_KEY, true);
+    this.repeatQueue = this.listLoop;
+    this.ytListLoop = this.readStoredFlag(DeezerWatcherComponent.YT_LIST_LOOP_KEY, true);
+    this.restoreSwitches();
     this.loadFavorites();
     this.loadUserPlaylists();
     this.loadConcert();
@@ -630,6 +650,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.albumWikiSub?.unsubscribe();
     this.skinLoadSub?.unsubscribe();
     this.skinSaveSub?.unsubscribe();
+    this.switchesLoadSub?.unsubscribe();
+    this.switchesSaveSub?.unsubscribe();
     this.stopYoutubeClock();
     this.stopYoutubeHandshake();
     this.sleeveSub?.unsubscribe();
@@ -1220,13 +1242,24 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.syncYoutubeButtons();
   }
 
+  setYtAudioOnly(enabled: boolean): void {
+    this.ytAudioOnly = !!enabled;
+    this.writeStoredFlag(DeezerWatcherComponent.YT_AUDIO_KEY, this.ytAudioOnly);
+    this.rememberSwitch();
+    if (!this.youtubeMode || !this.current) {
+      return;
+    }
+    this.clipArmed = false;
+    this.youtubeEmbed = null;
+    this.releaseKeptMedia();
+    this.ytReplay = Date.now();
+    this.resolveYoutube(this.current);
+  }
+
   setYoutubeSearch(enabled: boolean): void {
     this.youtubeSearchEnabled = !!enabled;
-    try {
-      localStorage.setItem(DeezerWatcherComponent.YT_SEARCH_KEY, this.youtubeSearchEnabled ? '1' : '0');
-    } catch {
-      /* ignore */
-    }
+    this.writeStoredFlag(DeezerWatcherComponent.YT_SEARCH_KEY, this.youtubeSearchEnabled);
+    this.rememberSwitch();
     this.ytScan?.unsubscribe();
     this.ytScanKey = '';
     this.syncYoutubeButtons();
@@ -1971,10 +2004,14 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   setListLoop(enabled: boolean): void {
     this.listLoop = !!enabled;
     this.repeatQueue = this.listLoop;
+    this.writeStoredFlag(DeezerWatcherComponent.LOOP_KEY, this.listLoop);
+    this.rememberSwitch();
   }
 
   setYoutubeListLoop(enabled: boolean): void {
     this.ytListLoop = !!enabled;
+    this.writeStoredFlag(DeezerWatcherComponent.YT_LIST_LOOP_KEY, this.ytListLoop);
+    this.rememberSwitch();
   }
 
   /** Pause the running list, resume it, or start it from the first clip. */
@@ -3814,11 +3851,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   setSleeve(enabled: boolean): void {
     this.sleeveOpen = !!enabled;
-    try {
-      localStorage.setItem(DeezerWatcherComponent.SLEEVE_KEY, this.sleeveOpen ? '1' : '0');
-    } catch {
-      /* ignore */
-    }
+    this.writeStoredFlag(DeezerWatcherComponent.SLEEVE_KEY, this.sleeveOpen);
+    this.rememberSwitch();
   }
 
   /** Clicking the cover puts it in front of the cabinet animations. Click again to restore them. */
@@ -4077,8 +4111,16 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       }
       return;
     }
+    if (this.ytAudioSeek > 1 && Number.isFinite(audio.duration) && audio.duration > this.ytAudioSeek) {
+      const at = this.ytAudioSeek;
+      this.ytAudioSeek = -1;
+      audio.currentTime = at;
+    }
     this.currentTime = audio.currentTime || 0;
     this.audioDuration = Number.isFinite(audio.duration) ? audio.duration : 0;
+    if (this.headphonesAudio() && this.currentTime > 0.4) {
+      this.ytAudioReopens = 0;
+    }
   }
 
   onAudioPlay(): void {
@@ -4138,6 +4180,21 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   onAudioError(): void {
     if (this.videoOwnsPlayback()) {
       this.silencePreviewUnderVideo();
+      return;
+    }
+    if (this.headphonesAudio()) {
+      const audio = this.pageAudio();
+      // Assigning a new source aborts the previous load. That is not a failure.
+      if (audio?.error?.code === 1) {
+        return;
+      }
+      if (!this.userHold && this.screenHold && this.playbackInterrupted()) {
+        this.reopenYoutubeAudio();
+        return;
+      }
+      this.buffering = false;
+      this.playing = false;
+      this.playErrorKey = 'DEEZER.ERR_PLAY';
       return;
     }
     this.buffering = false;
@@ -4321,11 +4378,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   setTickerEnabled(enabled: boolean): void {
     this.tickerEnabled = !!enabled;
-    try {
-      localStorage.setItem(DeezerWatcherComponent.TICKER_KEY, this.tickerEnabled ? '1' : '0');
-    } catch {
-      /* ignore quota / private mode */
-    }
+    this.writeStoredFlag(DeezerWatcherComponent.TICKER_KEY, this.tickerEnabled);
+    this.rememberSwitch();
   }
 
   get tickerItems(): NowTickerItem[] {
@@ -4374,6 +4428,18 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     } catch {
       return false;
     }
+  }
+
+  /** The file stream has no length. Headphones mode uses the title duration instead of the 30 s preview. */
+  get playbackDuration(): number {
+    if (this.audioDuration > 1) {
+      return this.audioDuration;
+    }
+    const known = this.current?.durationSec || 0;
+    if (this.ytAudioOnly && this.youtubeMode && known > 1) {
+      return known;
+    }
+    return 30;
   }
 
   formatTime(value: number | null | undefined): string {
@@ -4931,11 +4997,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   setKeepAlive(enabled: boolean): void {
     this.keepAliveOnNavigate = !!enabled;
-    try {
-      localStorage.setItem(DeezerWatcherComponent.KEEP_KEY, enabled ? '1' : '0');
-    } catch {
-      /* ignore */
-    }
+    this.writeStoredFlag(DeezerWatcherComponent.KEEP_KEY, this.keepAliveOnNavigate);
+    this.rememberSwitch();
   }
 
   playPreset(slot: DeezerTrack | null, index: number, event?: Event): void {
@@ -5694,6 +5757,111 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     ).subscribe();
   }
 
+  /** Local switches show at once. The account copy replaces them, unless one moved during the load. */
+  private restoreSwitches(): void {
+    if (!this.keycloak.isLoggedIn()) {
+      return;
+    }
+    this.switchesLoadSub?.unsubscribe();
+    this.switchesLoadSub = this.api.getDeezerSwitches().pipe(
+      catchError(() => of(null)),
+      takeUntil(this.destroy$)
+    ).subscribe((remote) => {
+      if (this.switchesTouched) {
+        return;
+      }
+      if (!remote) {
+        this.saveRemoteSwitches();
+        return;
+      }
+      this.applyRemoteSwitches(remote);
+    });
+  }
+
+  private applyRemoteSwitches(remote: DeezerPageSwitches): void {
+    this.applyingRemoteSwitches = true;
+    try {
+      if (remote.audioOnly !== this.ytAudioOnly) {
+        this.setYtAudioOnly(remote.audioOnly);
+      }
+      if (remote.keepAlive !== this.keepAliveOnNavigate) {
+        this.setKeepAlive(remote.keepAlive);
+      }
+      if (remote.ticker !== this.tickerEnabled) {
+        this.setTickerEnabled(remote.ticker);
+      }
+      if (remote.sleeve !== this.sleeveOpen) {
+        this.setSleeve(remote.sleeve);
+      }
+      if (remote.youtubeSearch !== this.youtubeSearchEnabled) {
+        this.setYoutubeSearch(remote.youtubeSearch);
+      }
+      if (remote.listLoop !== this.listLoop) {
+        this.setListLoop(remote.listLoop);
+      }
+      if (remote.youtubeListLoop !== this.ytListLoop) {
+        this.setYoutubeListLoop(remote.youtubeListLoop);
+      }
+    } finally {
+      this.applyingRemoteSwitches = false;
+    }
+  }
+
+  private rememberSwitch(): void {
+    if (this.applyingRemoteSwitches) {
+      return;
+    }
+    this.switchesTouched = true;
+    this.saveRemoteSwitches();
+  }
+
+  private currentSwitches(): DeezerPageSwitches {
+    return {
+      audioOnly: this.ytAudioOnly,
+      keepAlive: this.keepAliveOnNavigate,
+      ticker: this.tickerEnabled,
+      sleeve: this.sleeveOpen,
+      youtubeSearch: this.youtubeSearchEnabled,
+      listLoop: this.listLoop,
+      youtubeListLoop: this.ytListLoop
+    };
+  }
+
+  private saveRemoteSwitches(): void {
+    if (!this.keycloak.isLoggedIn()) {
+      return;
+    }
+    const snapshot = this.currentSwitches();
+    this.switchesSaveSub?.unsubscribe();
+    this.switchesSaveSub = this.api.saveDeezerSwitches(snapshot).pipe(
+      catchError(() => of(null)),
+      takeUntil(this.destroy$)
+    ).subscribe();
+  }
+
+  private writeStoredFlag(key: string, enabled: boolean): void {
+    try {
+      localStorage.setItem(key, enabled ? '1' : '0');
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }
+
+  private readStoredFlag(key: string, fallback: boolean): boolean {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw === '1' || raw === 'true') {
+        return true;
+      }
+      if (raw === '0' || raw === 'false') {
+        return false;
+      }
+    } catch {
+      /* ignore */
+    }
+    return fallback;
+  }
+
   private readKeepAlive(): boolean {
     try {
       const raw = localStorage.getItem(DeezerWatcherComponent.KEEP_KEY);
@@ -5872,6 +6040,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       if (!el.paused && !el.error) {
         return;
       }
+      if (this.headphonesAudio() && el.error) {
+        this.reopenYoutubeAudio();
+        return;
+      }
       const again = (): void => {
         if (!this.screenHold || this.userHold || attempt >= 20) {
           return;
@@ -5883,12 +6055,21 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
           return;
         }
         if ((el.paused || el.error) && this.playbackInterrupted()) {
+          if (this.headphonesAudio() && el.error) {
+            this.reopenYoutubeAudio();
+            return;
+          }
           again();
         }
       }).catch(() => {
-        if (this.playbackInterrupted()) {
-          again();
+        if (!this.playbackInterrupted()) {
+          return;
         }
+        if (this.headphonesAudio() && (el.error || attempt >= 2)) {
+          this.reopenYoutubeAudio();
+          return;
+        }
+        again();
       });
     };
     kick(0);
@@ -6471,6 +6652,11 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.prefetchNextYoutube();
       return;
     }
+    if (this.ytAudioOnly) {
+      this.playYoutubeAudio(track, id);
+      this.prefetchNextYoutube();
+      return;
+    }
     this.clipArmed = true;
     this.loadClipAspect(id);
     this.userHold = false;
@@ -6521,6 +6707,65 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.clearSleepKick();
       this.keepPlayingThroughSleep();
     }
+  }
+
+  /** Play the clip through the page audio element. No iframe, so no picture. */
+  private playYoutubeAudio(track: DeezerTrack, id: string): void {
+    this.clipArmed = false;
+    this.resetClipAspect();
+    this.suppressChromeUntilLeave = false;
+    this.chromeVisible = true;
+    this.youtubeEmbed = null;
+    this.releaseKeptMedia();
+    this.stopYoutubeHandshake();
+    this.stopYoutubeClock();
+    this.userHold = false;
+    this.clearYoutubePauseDecide();
+    this.youtubePlayerState = 1;
+    this.youtubeTitle = `${track.artistName || ''} — ${track.title || ''}`.trim();
+    this.ytIgnoreEnd = Date.now() + 4000;
+    const start = this.takeVideoshowSeek();
+    this.ytAudioSeek = start > 1 ? start : -1;
+    this.ytAudioReopens = 0;
+    this.startAudio(this.api.youtubeAudioUrl(id));
+  }
+
+  private headphonesAudio(): boolean {
+    return this.ytAudioOnly && this.youtubeMode && !this.clipArmed;
+  }
+
+  /**
+   * The headphone stream is one open download. Sleep can cut it, and the player
+   * cannot seek back into it. Open the same title again, as the radio reopens a station.
+   */
+  private reopenYoutubeAudio(): void {
+    if (!this.headphonesAudio() || this.userHold || !this.screenHold) {
+      return;
+    }
+    const now = Date.now();
+    if (now - this.ytAudioReopenAt < 1200) {
+      return;
+    }
+    const track = this.current;
+    const id = this.currentYoutubeId();
+    if (!track || !id) {
+      return;
+    }
+    if (this.ytAudioReopens >= 8) {
+      this.buffering = false;
+      this.playing = false;
+      this.playErrorKey = 'DEEZER.ERR_PLAY';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.ytAudioReopenAt = now;
+    this.ytAudioReopens += 1;
+    this.ytAudioSeek = -1;
+    this.playErrorKey = '';
+    this.holdScreen();
+    const url = this.api.youtubeAudioUrl(id);
+    const join = url.includes('?') ? '&' : '?';
+    this.startAudio(`${url}${join}r=${now}`);
   }
 
   private prefetchNextYoutube(): void {
@@ -7183,6 +7428,14 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         this.favoritesError = 'DEEZER.ERR_FAVORITES_SAVE';
       }
     });
+  }
+
+  private readYoutubeAudio(): boolean {
+    try {
+      return localStorage.getItem(DeezerWatcherComponent.YT_AUDIO_KEY) === '1';
+    } catch {
+      return false;
+    }
   }
 
   private readYoutubeSearch(): boolean {

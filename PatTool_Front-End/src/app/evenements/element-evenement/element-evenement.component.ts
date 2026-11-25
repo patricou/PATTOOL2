@@ -47,6 +47,7 @@ import { NoteDetailOverlayService } from '../../notes/note-detail-overlay.servic
 import { isOdsFile as isOdsSpreadsheetFile } from '../../shared/uploaded-file-types';
 import { OdsEditorLaunchService } from '../../ods-editor/ods-editor-launch.service';
 import { ApiService } from '../../services/api.service';
+import { EventCardOverlayService } from '../../shared/event-card-modal/event-card-overlay.service';
 
 @Component({
 	selector: 'element-evenement',
@@ -71,6 +72,7 @@ import { ApiService } from '../../services/api.service';
 export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges, AfterViewChecked {
 
 	private readonly _keycloakService = inject(KeycloakService);
+	private readonly eventCards = inject(EventCardOverlayService);
 
 	public selectedFiles: File[] = [];
 	public API_URL: string = environment.API_URL;
@@ -383,6 +385,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			// Emit to parent so it can calculate page number
 			this.storeEventForReturn.emit(this.evenement.id);
 		}
+	}
+
+	/** Leaves the card for another page and closes the overlay when this card is the one on screen. */
+	public onLeaveEventCard(): void {
+		this.storeEventIdForReturn();
+		this.eventCards.close();
 	}
 
 	public onPhotoWallClick(): void {
@@ -2061,7 +2069,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				document.documentElement.style.overflow = 'hidden';
 			}
 			
-			this.uploadLogsModalRef = this.modalService.open(this.uploadLogsModal, {
+			this.uploadLogsModalRef = this.openNgbModal(this.uploadLogsModal, {
 				centered: true,
 				backdrop: 'static',
 				keyboard: false,
@@ -2437,7 +2445,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					document.documentElement.style.overflow = 'hidden';
 				}
 				
-				this.qualityModalRef = this.modalService.open(this.qualitySelectionModal, {
+				this.qualityModalRef = this.openNgbModal(this.qualitySelectionModal, {
 					centered: true,
 					backdrop: 'static',
 					keyboard: false,
@@ -2572,7 +2580,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 		return await new Promise<boolean | null>((resolve) => {
 			if (this.imageCompressionModal) {
-				this.imageCompressionModalRef = this.modalService.open(this.imageCompressionModal, {
+				this.imageCompressionModalRef = this.openNgbModal(this.imageCompressionModal, {
 					centered: true,
 					backdrop: 'static',
 					keyboard: false,
@@ -4524,6 +4532,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}).length;
 	}
 
+	/** Opens an Ngb modal and lifts it above the event-card overlay when that is open. */
+	private openNgbModal(content: any, options: any = {}) {
+		const modalRef = this.modalService.open(content, options);
+		const marker = typeof options?.windowClass === 'string' ? options.windowClass : '';
+		queueMicrotask(() => this.eventCards.raiseLatestModalAboveCard(marker));
+		return modalRef;
+	}
+
 	// Helper method to block scroll and preserve position when opening modals
 	private openModalWithScrollPreservation(content: any, options: any = {}) {
 		// Save current scroll position
@@ -4541,7 +4557,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}
 		
 		// Open the modal
-		const modalRef = this.modalService.open(content, options);
+		const modalRef = this.openNgbModal(content, options);
 		
 		// Restore scroll when modal closes
 		modalRef.result.finally(() => {
@@ -4621,7 +4637,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			document.body.scrollTop || 0;
 		
 		// Open the modal - CSS will block scroll automatically
-		const modalRef = this.modalService.open(content, { 
+		const modalRef = this.openNgbModal(content, { 
 			size: 'lg', 
 			centered: true, 
 			backdrop: 'static', 
@@ -4778,7 +4794,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					document.body.scrollTop || 0;
 				
 				// Open the modal - CSS will block scroll automatically
-				const modalRef = this.modalService.open(DiscussionModalComponent, { 
+				const modalRef = this.openNgbModal(DiscussionModalComponent, { 
 					size: 'lg', 
 					centered: true, 
 					backdrop: 'static', 
@@ -4880,7 +4896,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					document.body.scrollTop || 0;
 				
 				// Still open modal with null discussionId (will load default)
-				const modalRef = this.modalService.open(DiscussionModalComponent, { 
+				const modalRef = this.openNgbModal(DiscussionModalComponent, { 
 					size: 'lg', 
 					centered: true, 
 					backdrop: 'static', 
@@ -5031,7 +5047,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				}).length;
 				
 				// Open the confirmation modal after files are loaded
-				const modalRef = this.modalService.open(this.deleteEventModal, {
+				const modalRef = this.openNgbModal(this.deleteEventModal, {
 					centered: true,
 					backdrop: 'static',
 					keyboard: false,
@@ -5049,7 +5065,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				).length;
 				
 				// Open modal anyway with what we have
-				const modalRef = this.modalService.open(this.deleteEventModal, {
+				const modalRef = this.openNgbModal(this.deleteEventModal, {
 					centered: true,
 					backdrop: 'static',
 					keyboard: false,
@@ -5184,7 +5200,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			document.body.scrollTop || 0;
 		
 		// Open the modal - CSS will block scroll automatically (like PhotosSelectorModalComponent)
-		const modalRef = this.modalService.open(content, { 
+		const modalRef = this.openNgbModal(content, { 
 			size: 'xl', 
 			centered: true, 
 			backdrop: 'static', 
@@ -7680,7 +7696,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		// On mobile use fullscreen so the modal fits the screen; on desktop use large size
 		const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767.98;
-		const modalRef = this.modalService.open(this.commentsModal, { 
+		const modalRef = this.openNgbModal(this.commentsModal, { 
 			size: isMobile ? undefined : 'lg',
 			fullscreen: isMobile ? true : false,
 			backdrop: 'static',
@@ -7893,7 +7909,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				document.documentElement.style.overflow = 'hidden';
 			}
 			
-			const modalRef = this.modalService.open(this.loadingStatsModal, {
+			const modalRef = this.openNgbModal(this.loadingStatsModal, {
 				size: 'lg',
 				centered: true,
 				backdrop: 'static',
@@ -8042,7 +8058,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			document.documentElement.style.overflow = 'hidden';
 		}
 		
-		const modalRef = this.modalService.open(this.userModal, {
+		const modalRef = this.openNgbModal(this.userModal, {
 			size: 'md',
 			centered: true,
 			backdrop: 'static',
@@ -9062,7 +9078,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				document.body.scrollTop || 0;
 			
 			// Open the modal - CSS will block scroll automatically
-			const modalRef = this.modalService.open(this.visibilityModal, { 
+			const modalRef = this.openNgbModal(this.visibilityModal, { 
 				size: 'md', 
 				centered: true, 
 				backdrop: 'static', 
@@ -9306,7 +9322,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				document.body.scrollTop || 0;
 			
 			// Open the modal - CSS will block scroll automatically
-			const modalRef = this.modalService.open(this.typeModal, { 
+			const modalRef = this.openNgbModal(this.typeModal, { 
 				size: 'md', 
 				centered: true, 
 				backdrop: 'static', 
@@ -9507,7 +9523,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		this.eventAccessModalSavedScrollPosition = currentScrollY;
 		
 		// Open modal - let Bootstrap handle scroll blocking (same as PhotosSelectorModal)
-		const modalRef = this.modalService.open(this.eventAccessUsersModal, {
+		const modalRef = this.openNgbModal(this.eventAccessUsersModal, {
 			size: 'lg',
 			centered: true,
 			backdrop: 'static',

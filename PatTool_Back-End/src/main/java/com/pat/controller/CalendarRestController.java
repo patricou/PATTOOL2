@@ -244,6 +244,40 @@ public class CalendarRestController {
         return ResponseEntity.ok(out);
     }
 
+    @GetMapping("/appointments/{id}")
+    public ResponseEntity<CalendarEntryDTO> getAppointment(
+            @PathVariable String id,
+            @RequestHeader(value = "user-id", required = false) String userId) {
+        if (!StringUtils.hasText(userId) || !StringUtils.hasText(id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        Optional<CalendarAppointment> opt =
+                calendarAppointmentRepository.findAccessibleByIdAndMember(id.trim(), userId);
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        CalendarAppointment a = opt.get();
+        CalendarEntryDTO row = new CalendarEntryDTO();
+        row.setKind(CalendarEntryDTO.KIND_APPOINTMENT);
+        row.setId(a.getId());
+        row.setTitle(a.getTitle());
+        row.setStart(a.getStartDate());
+        row.setEnd(a.getEndDate());
+        row.setNotes(a.getNotes());
+        row.setOwnerMemberId(a.getOwnerMemberId());
+        Map<String, String> names = ownerNames(List.of(), List.of(a));
+        row.setOwnerName(a.getOwnerMemberId() != null ? names.get(a.getOwnerMemberId()) : null);
+        row.setVisibility(a.getVisibility());
+        row.setFriendGroupId(a.getFriendGroupId());
+        row.setFriendGroupIds(a.getFriendGroupIds());
+        row.setEvenementId(a.getEvenementId());
+        todoListRepository.findFirstByCalendarAppointmentId(a.getId())
+                .ifPresent(tl -> row.setTodoListId(tl.getId()));
+        noteRepository.findFirstByCalendarAppointmentId(a.getId())
+                .ifPresent(n -> row.setNoteId(n.getId()));
+        return ResponseEntity.ok(row);
+    }
+
     @PostMapping("/appointments")
     public ResponseEntity<CalendarAppointment> createAppointment(
             @Valid @RequestBody CalendarAppointmentRequest body,

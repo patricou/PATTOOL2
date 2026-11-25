@@ -23,6 +23,7 @@ import { FriendGroup } from '../model/friend';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { environment } from '../../environments/environment';
 import { buildTodolistShareLink } from '../shared/share-deep-link.util';
+import { NoteDetailOverlayService } from '../notes/note-detail-overlay.service';
 
 interface ListMeta {
     completed: number;
@@ -56,6 +57,7 @@ export class TodoListDetailOverlayComponent implements OnInit, OnDestroy {
     private readonly friendsService = inject(FriendsService);
     private readonly membersService = inject(MembersService);
     private readonly router = inject(Router);
+    private readonly noteOverlay = inject(NoteDetailOverlayService);
     private readonly cdr = inject(ChangeDetectorRef);
 
     /** Set by {@link TodoListDetailOverlayService} before first change detection. */
@@ -325,6 +327,14 @@ export class TodoListDetailOverlayComponent implements OnInit, OnDestroy {
         }
         this.activeModal.close();
         void this.router.navigate(['/photos'], { queryParams: { eventId } });
+    }
+
+    openLinkedNote(list: TodoList): void {
+        const noteId = (list?.linkedNoteId || '').trim();
+        if (!noteId) {
+            return;
+        }
+        this.noteOverlay.open(noteId);
     }
 
     private fetchRecipients(): void {

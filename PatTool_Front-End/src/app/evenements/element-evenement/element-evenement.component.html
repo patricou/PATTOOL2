@@ -417,7 +417,7 @@
        [ngStyle]="getFooterButtonStyles('details')"
        placement="top"
        ngbTooltip="{{ 'EVENTELEM.VIEW_DETAILS' | translate }}"
-       (click)="storeEventIdForReturn()"
+       (click)="onLeaveEventCard()"
        (mouseleave)="onTooltipMouseLeave($event)">
         <i class="fa fa-eye" aria-hidden="true"></i>
     </a>
@@ -516,7 +516,7 @@
        [ngClass]="getEditButtonClass()"
        [ngStyle]="getEditButtonNgStyle()"
        [routerLink]="['/updeven',evenement.id]"
-       (click)="storeEventIdForReturn()"
+       (click)="onLeaveEventCard()"
        [ngbTooltip]="(isAdminEditingOthersEvent() ? 'EVENTELEM.UTE_ADMIN' : 'EVENTELEM.UTE') | translate"
        placement="top"
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>

@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { NgbModule, NgbModal, NgbModalOptions, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Router } from '@angular/router';
+import { EventCardOverlayService } from '../event-card-modal/event-card-overlay.service';
 import { FileService } from '../../services/file.service';
 import { writeGpsHandoff } from '../../gps-track/gps-handoff';
 import { isTrackFileName, nearestTrackIndex, trackHeadingAt } from '../../gps-track/gps-geo.util';
@@ -958,6 +959,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		private readonly offlineTiles: GpsOfflineTilesStore,
 		private readonly offlineTraces: OfflineTracesStore,
 		private readonly ngZone: NgZone,
+		private readonly eventCards: EventCardOverlayService,
 		@Inject(DOCUMENT) private readonly document: Document
 	) {
 		this.configureLeafletIcons();
@@ -2894,6 +2896,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			typeof HTMLElement !== 'undefined' && hostOpt instanceof HTMLElement ? hostOpt : undefined;
 		this.refreshTraceViewerViewportFlags();
 		this.modalRef = this.modalService.open(this.traceViewerModal, modalOpts);
+		this.eventCards.raiseLatestModalAboveCard(
+			TraceViewerModalComponent.TRACE_VIEWER_MODAL_WINDOW_CLASS
+		);
 		const pageSkin = findSkinnedPageHost();
 		if (pageSkin) {
 			this.applyHostSkin(pageSkin);

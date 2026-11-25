@@ -12,6 +12,7 @@ import { startTvHlsPlayback, TvHlsPlaybackHandle } from '../../tv-watcher/tv-hls
 import { Observable, Subscription, Subject } from 'rxjs';
 import { map, takeUntil, finalize } from 'rxjs/operators';
 import { paintOpenViewerFromPage } from '../host-skin';
+import { EventCardOverlayService } from '../event-card-modal/event-card-overlay.service';
 
 // Export interface for use in parent components
 export interface VideoshowVideoSource {
@@ -180,7 +181,8 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, AfterView
     private translateService: TranslateService,
     private fileService: FileService,
     private sanitizer: DomSanitizer,
-    readonly equalizer: YoutubeEqualizerService
+    readonly equalizer: YoutubeEqualizerService,
+    private eventCards: EventCardOverlayService
   ) {
     this.eqSub = this.equalizer.sourceKind$.subscribe((kind) => {
       this.eqLive = kind !== 'none';
@@ -410,6 +412,7 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, AfterView
         keyboard: false,
         windowClass: 'modal-smooth-animation videoshow-modal-wide'
       });
+      this.eventCards.raiseLatestModalAboveCard('videoshow-modal-wide');
       this.applyHeaderColor();
       paintOpenViewerFromPage(
         '.modal.show .modal-content:has(.videoshow-header)',

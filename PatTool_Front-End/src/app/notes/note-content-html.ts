@@ -84,10 +84,98 @@ function linkifyPlain(text: string): string {
 }
 
 export function linkifyNoteContent(content: string | null | undefined): string {
+    return sanitizeNoteContent(content);
+}
+
+/** Stored note body: safe formatting only, or null when there is no text. */
+export function storedNoteContent(content: string | null | undefined): string | null {
+    const clean = sanitizeNoteContent(content);
+    return noteContentIsBlank(clean) ? null : clean;
+}
+
+export function noteContentIsBlank(content: string | null | undefined): boolean {
+    const rendered = sanitizeNoteContent(content);
+    const text = rendered
+        .replace(/<br\s*\/?>/gi, '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .trim();
+    return text.length === 0;
+}
+
+/**
+ * Keeps a small formatting set (bold, italic, underline, lists, line breaks, http links)
+ * and escapes everything else. Plain notes stay plain text with line breaks.
+ */
+export function sanitizeNoteContent(content: string | null | undefined): string {
     const source = content ?? '';
-    if (!source) {
+    if (!source.trim()) {
         return '';
     }
+    if (typeof DOMParser === 'undefined') {
+        return linkifyLegacy(source).replace(/\n/g, '<br>');
+    }
+    const looksFormatted = /<\s*\/?\s*(?:b|strong|i|em|u|ul|ol|li|br|p|div|a)\b/i.test(source);
+    const html = looksFormatted ? source : escapeHtml(source).replace(/\n/g, '<br>');
+    const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
+    const root = doc.body.firstElementChild;
+    if (!root) {
+        return '';
+    }
+    const out = Array.from(root.childNodes).map(node => serializeNode(node)).join('');
+    return out.replace(/(?:<br>)+$/i, '');
+}
+
+function serializeNode(node: Node): string {
+    if (node.nodeType === Node.TEXT_NODE) {
+        return linkifyPlain(node.textContent ?? '').replace(/\n/g, '<br>');
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+        return '';
+    }
+    const el = node as HTMLElement;
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'br') {
+        return '<br>';
+    }
+    if (tag === 'a') {
+        const href = safeHttpHref(el.getAttribute('href') || '');
+        const label = el.textContent || '';
+        return href ? anchorHtml(href, label) : linkifyPlain(label);
+    }
+    if (tag === 'ul' || tag === 'ol') {
+        const items = Array.from(el.children)
+            .filter(child => child.tagName.toLowerCase() === 'li')
+            .map(li => {
+                const inner = Array.from(li.childNodes).map(child => serializeNode(child)).join('').replace(/(?:<br>)+$/i, '');
+                return `<li>${inner}</li>`;
+            })
+            .join('');
+        return items ? `<${tag}>${items}</${tag}>` : '';
+    }
+    const inner = Array.from(el.childNodes).map(child => serializeNode(child)).join('');
+    if (tag === 'b' || tag === 'strong') {
+        return inner ? `<b>${inner}</b>` : '';
+    }
+    if (tag === 'i' || tag === 'em') {
+        return inner ? `<i>${inner}</i>` : '';
+    }
+    if (tag === 'u') {
+        return inner ? `<u>${inner}</u>` : '';
+    }
+    if (tag === 'p' || tag === 'div' || tag === 'li') {
+        if (!inner || inner === '<br>') {
+            return '<br>';
+        }
+        return inner.endsWith('<br>') ? inner : `${inner}<br>`;
+    }
+    return inner;
+}
+
+function linkifyLegacy(source: string): string {
     let html = '';
     let last = 0;
     const re = new RegExp(ANCHOR_RE.source, 'gi');

@@ -12,6 +12,7 @@ import com.pat.repo.domain.Member;
 import com.pat.repo.domain.TodoItem;
 import com.pat.repo.domain.TodoList;
 import com.pat.service.DiscussionService;
+import com.pat.service.TodoItemNoteLinkService;
 import com.pat.service.RichHtmlSanitizer;
 import com.pat.service.TodoListVisibilityService;
 import jakarta.validation.Valid;
@@ -73,6 +74,9 @@ public class TodoListRestController {
     private DiscussionService discussionService;
 
     @Autowired
+    private TodoItemNoteLinkService todoItemNoteLinkService;
+
+    @Autowired
     private com.pat.service.FriendsService friendsService;
 
     @GetMapping
@@ -81,7 +85,9 @@ public class TodoListRestController {
         if (!StringUtils.hasText(userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        return ResponseEntity.ok(todoListRepository.findAccessibleByMember(userId));
+        List<TodoList> lists = todoListRepository.findAccessibleByMember(userId);
+        todoItemNoteLinkService.attach(lists, userId);
+        return ResponseEntity.ok(lists);
     }
 
     /**
@@ -104,7 +110,12 @@ public class TodoListRestController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         Optional<TodoList> opt = todoListRepository.findAccessibleByIdAndMember(id, userId);
-        return opt.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        TodoList list = opt.get();
+        todoItemNoteLinkService.attach(java.util.Collections.singletonList(list), userId);
+        return ResponseEntity.ok(list);
     }
 
     @PostMapping
@@ -125,7 +136,9 @@ public class TodoListRestController {
         if (linkErr.isPresent()) {
             return linkErr.get();
         }
-        return ResponseEntity.status(HttpStatus.CREATED).body(todoListRepository.save(list));
+        TodoList saved = todoListRepository.save(list);
+        todoItemNoteLinkService.attach(java.util.Collections.singletonList(saved), userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     @PutMapping("/{id}")
@@ -149,7 +162,9 @@ public class TodoListRestController {
         if (linkErr.isPresent()) {
             return linkErr.get();
         }
-        return ResponseEntity.ok(todoListRepository.save(list));
+        TodoList saved = todoListRepository.save(list);
+        todoItemNoteLinkService.attach(java.util.Collections.singletonList(saved), userId);
+        return ResponseEntity.ok(saved);
     }
 
     /**
@@ -175,7 +190,9 @@ public class TodoListRestController {
             return err.get();
         }
         list.setUpdatedAt(new Date());
-        return ResponseEntity.ok(todoListRepository.save(list));
+        TodoList saved = todoListRepository.save(list);
+        todoItemNoteLinkService.attach(java.util.Collections.singletonList(saved), userId);
+        return ResponseEntity.ok(saved);
     }
 
     @DeleteMapping("/{id}")
@@ -233,7 +250,9 @@ public class TodoListRestController {
             target.setCompletedAt(null);
         }
         list.setUpdatedAt(new Date());
-        return ResponseEntity.ok(todoListRepository.save(list));
+        TodoList saved = todoListRepository.save(list);
+        todoItemNoteLinkService.attach(java.util.Collections.singletonList(saved), userId);
+        return ResponseEntity.ok(saved);
     }
 
     /** Members who would be able to see this list (owner + visibility recipients). */

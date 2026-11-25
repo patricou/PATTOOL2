@@ -42,6 +42,9 @@ export interface HomePinnedNote {
 	color: string;
 	owner: string;
 	hasPhotos: boolean;
+	evenementId?: string;
+	calendarAppointmentId?: string;
+	todoListId?: string;
 }
 
 /** Last home dashboard shown in this browser session. Survives leaving the page, not a full reload. */

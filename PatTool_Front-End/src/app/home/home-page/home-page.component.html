@@ -159,16 +159,41 @@
 			</button>
 		</div>
 		<div class="home-notes">
-			<a class="home-note" *ngFor="let item of homeNotes"
-			   [routerLink]="['/notes']" [queryParams]="{ noteId: item.id }"
-			   [style.background-color]="item.color">
-				<span class="home-note-title" *ngIf="item.title">{{ item.title }}</span>
-				<span class="home-note-body" *ngIf="item.content">{{ item.content }}</span>
+			<div class="home-note" *ngFor="let item of homeNotes"
+			     role="link" tabindex="0"
+			     (click)="openHomeNote(item)"
+			     (keydown.enter)="openHomeNote(item)"
+			     [style.background-color]="item.color">
+				<div class="home-note-links" *ngIf="item.evenementId || item.calendarAppointmentId || item.todoListId">
+					<button *ngIf="item.evenementId" type="button" class="home-note-link-btn"
+					        (click)="openHomeNoteActivity(item, $event)"
+					        [attr.title]="'NOTES.OPEN_LINKED_ACTIVITY' | translate"
+					        [attr.aria-label]="'NOTES.OPEN_LINKED_ACTIVITY' | translate">
+						<i class="fa fa-id-card"></i>
+					</button>
+					<button *ngIf="item.calendarAppointmentId" type="button" class="home-note-link-btn"
+					        (click)="openHomeNoteAppointment(item, $event)"
+					        [attr.title]="'NOTES.OPEN_LINKED_APPOINTMENT' | translate"
+					        [attr.aria-label]="'NOTES.OPEN_LINKED_APPOINTMENT' | translate">
+						<i class="fa fa-calendar"></i>
+					</button>
+					<button *ngIf="item.todoListId" type="button" class="home-note-link-btn"
+					        (click)="openHomeNoteList(item, $event)"
+					        [attr.title]="'NOTES.OPEN_LINKED_LIST' | translate"
+					        [attr.aria-label]="'NOTES.OPEN_LINKED_LIST' | translate">
+						<i class="fa fa-tasks"></i>
+					</button>
+				</div>
+				<span class="home-note-title" *ngIf="item.title"
+				      [class.home-note-title--linked]="item.evenementId || item.calendarAppointmentId || item.todoListId">{{ item.title }}</span>
+				<span class="home-note-body" *ngIf="item.content"
+				      [innerHTML]="item.content | noteContentHtml"
+				      (click)="onHomeNoteContentClick($event)"></span>
 				<span class="home-note-meta">
 					<span *ngIf="item.owner">{{ item.owner }}</span>
 					<i class="fa fa-camera" *ngIf="item.hasPhotos" aria-hidden="true"></i>
 				</span>
-			</a>
+			</div>
 		</div>
 	</section>
 

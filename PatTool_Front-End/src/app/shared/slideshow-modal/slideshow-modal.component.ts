@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpHeaders } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl, SafeHtml } from '@angular/platform-browser';
 import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { EventCardOverlayService } from '../event-card-modal/event-card-overlay.service';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { DragDropModule, CdkDragDrop, CdkDragMove, CdkDragStart, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ScrollingModule } from '@angular/cdk/scrolling';
@@ -466,7 +467,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     private fileService: FileService,
     private sanitizer: DomSanitizer,
     private assistantLaunch: AssistantLaunchService,
-    private keycloak: KeycloakService
+    private keycloak: KeycloakService,
+    private eventCards: EventCardOverlayService
   ) {}
   
   ngOnInit(): void {
@@ -904,6 +906,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         keyboard: false,
         windowClass: 'modal-smooth-animation slideshow-modal-wide'
       });
+      this.eventCards.raiseLatestModalAboveCard('slideshow-modal-wide');
       
       // Set flag that modal is open
       this.isSlideshowModalOpen = true;

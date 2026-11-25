@@ -1,6 +1,6 @@
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { MonoTypeOperatorFunction, Subscription, forkJoin, from, of } from 'rxjs';
 import { catchError, map, switchMap, take, tap } from 'rxjs/operators';
@@ -23,6 +23,10 @@ import { YoutubePlayerService } from '../../services/youtube-player.service';
 import { NewsTickerService } from '../../services/news-ticker.service';
 import { TodoDashboardList, TodoListService } from '../../todolists/todolist.service';
 import { Note, NoteService } from '../../notes/note.service';
+import { NoteContentHtmlPipe } from '../../notes/note-content-html.pipe';
+import { NoteDetailOverlayService } from '../../notes/note-detail-overlay.service';
+import { TodoListDetailOverlayService } from '../../todolists/todo-list-detail-overlay.service';
+import { EventCardOverlayService } from '../../shared/event-card-modal/event-card-overlay.service';
 import { HomeDashboardCacheService } from '../home-dashboard-cache.service';
 import { UserInfoModalService } from '../../services/user-info-modal.service';
 import { WeatherPointTimelineComponent } from '../../shared/weather-point-timeline/weather-point-timeline.component';
@@ -72,6 +76,9 @@ interface DashHomeNote {
 	color: string;
 	owner: string;
 	hasPhotos: boolean;
+	evenementId?: string;
+	calendarAppointmentId?: string;
+	todoListId?: string;
 }
 
 interface DashPlaying {
@@ -118,7 +125,7 @@ const LANG_FLAGS: Record<string, string> = {
 @Component({
 	selector: 'app-home-page',
 	standalone: true,
-	imports: [CommonModule, TranslateModule, RouterLink, ClockComponent, WeatherPointTimelineComponent, TraceViewerModalComponent],
+	imports: [CommonModule, TranslateModule, RouterLink, ClockComponent, WeatherPointTimelineComponent, TraceViewerModalComponent, NoteContentHtmlPipe],
 	templateUrl: './home-page.component.html',
 	styleUrls: ['../../radio-watcher/radio-skins.css', './home-page.component.css'],
 	host: {
@@ -268,7 +275,11 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		private zone: NgZone,
 		private userInfoModal: UserInfoModalService,
 		private hostEl: ElementRef<HTMLElement>,
-		private cdr: ChangeDetectorRef
+		private cdr: ChangeDetectorRef,
+		private router: Router,
+		private todoListOverlay: TodoListDetailOverlayService,
+		private noteOverlay: NoteDetailOverlayService,
+		private eventCardOverlay: EventCardOverlayService
 	) { }
 
 	/**
@@ -1069,6 +1080,51 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 		}));
 	}
 
+	onHomeNoteContentClick(event: Event): void {
+		const target = event.target as HTMLElement | null;
+		if (target?.closest('a')) {
+			event.stopPropagation();
+		}
+	}
+
+	openHomeNote(item: DashHomeNote): void {
+		const id = (item.id || '').trim();
+		if (!id) {
+			return;
+		}
+		this.noteOverlay.open(id);
+	}
+
+	openHomeNoteActivity(item: DashHomeNote, event: Event): void {
+		event.preventDefault();
+		event.stopPropagation();
+		const eventId = (item.evenementId || '').trim();
+		if (!eventId) {
+			return;
+		}
+		this.eventCardOverlay.open(eventId);
+	}
+
+	openHomeNoteAppointment(item: DashHomeNote, event: Event): void {
+		event.preventDefault();
+		event.stopPropagation();
+		const appointmentId = (item.calendarAppointmentId || '').trim();
+		if (!appointmentId) {
+			return;
+		}
+		void this.router.navigate(['/calendrier'], { queryParams: { appointmentId } });
+	}
+
+	openHomeNoteList(item: DashHomeNote, event: Event): void {
+		event.preventDefault();
+		event.stopPropagation();
+		const listId = (item.todoListId || '').trim();
+		if (!listId) {
+			return;
+		}
+		this.todoListOverlay.open(listId);
+	}
+
 	/** Notes the author marked for the home page. Access is already filtered by the API. */
 	private pinnedNotes(list: Note[]): DashHomeNote[] {
 		return list
@@ -1085,7 +1141,10 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
 				content: (note.content || '').trim(),
 				color: note.color || '#ffe066',
 				owner: (note.ownerDisplayName || '').trim(),
-				hasPhotos: !!(note.imageDataUrls && note.imageDataUrls.length)
+				hasPhotos: !!(note.imageDataUrls && note.imageDataUrls.length),
+				evenementId: (note.evenementId || '').trim(),
+				calendarAppointmentId: (note.calendarAppointmentId || '').trim(),
+				todoListId: (note.todoListId || '').trim()
 			}));
 	}
 

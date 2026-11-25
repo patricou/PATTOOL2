@@ -30,11 +30,14 @@ public class NoteRequest {
 
     private List<String> imageDataUrls;
 
-    /** Optional agenda appointment id; mutually exclusive with {@link #evenementId}. */
+    /** Optional agenda appointment id; mutually exclusive with an activity or a task. */
     private String calendarAppointmentId;
 
-    /** Optional activity (evenement) id; mutually exclusive with {@link #calendarAppointmentId}. */
+    /** Optional activity (evenement) id; mutually exclusive with an appointment or a task. */
     private String evenementId;
+
+    /** To-do list the caller can see. Mutually exclusive with an activity or an appointment. */
+    private String todoListId;
 
     /** When true, people who can see the note also see it on their home page. */
     private Boolean showOnHome;
@@ -141,6 +144,14 @@ public class NoteRequest {
 
     public void setEvenementId(String evenementId) {
         this.evenementId = evenementId;
+    }
+
+    public String getTodoListId() {
+        return todoListId;
+    }
+
+    public void setTodoListId(String todoListId) {
+        this.todoListId = todoListId;
     }
 
     public Boolean getShowOnHome() {

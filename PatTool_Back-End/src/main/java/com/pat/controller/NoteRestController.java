@@ -5,6 +5,7 @@ import com.pat.controller.dto.NoteRequest;
 import com.pat.repo.CalendarAppointmentRepository;
 import com.pat.repo.EvenementsRepository;
 import com.pat.repo.NoteRepository;
+import com.pat.repo.TodoListRepository;
 import com.pat.repo.domain.Note;
 import com.pat.service.DiscussionService;
 import com.pat.service.NoteVisibilityService;
@@ -55,6 +56,9 @@ public class NoteRestController {
     @Autowired
     private DiscussionService discussionService;
 
+    @Autowired
+    private TodoListRepository todoListRepository;
+
     @GetMapping
     public ResponseEntity<List<Note>> listAccessible(
             @RequestHeader(value = "user-id", required = false) String userId) {
@@ -92,8 +96,7 @@ public class NoteRestController {
         note.setOwnerMemberId(userId);
         note.setCreatedAt(new Date());
         applyEditableFields(note, body, true);
-        Optional<ResponseEntity<Note>> linkErr =
-                applyValidatedLinks(note, body.getCalendarAppointmentId(), body.getEvenementId(), userId);
+        Optional<ResponseEntity<Note>> linkErr = applyValidatedLinks(note, body, userId);
         if (linkErr.isPresent()) {
             return linkErr.get();
         }
@@ -120,8 +123,7 @@ public class NoteRestController {
         }
         Note note = existing.get();
         applyEditableFields(note, body, false);
-        Optional<ResponseEntity<Note>> linkErr =
-                applyValidatedLinks(note, body.getCalendarAppointmentId(), body.getEvenementId(), userId);
+        Optional<ResponseEntity<Note>> linkErr = applyValidatedLinks(note, body, userId);
         if (linkErr.isPresent()) {
             return linkErr.get();
         }
@@ -220,16 +222,17 @@ public class NoteRestController {
     }
 
     /**
-     * Validates and sets {@link Note#getCalendarAppointmentId()} / {@link Note#getEvenementId()}
-     * (mutually exclusive). Multiple notes may point at the same target.
+     * Validates and sets one link among appointment, activity, or a to-do list the caller can see.
+     * The three targets are mutually exclusive. Multiple notes may point at the same target.
      *
      * @return empty if OK, or a non-2xx response to return from the controller
      */
-    private Optional<ResponseEntity<Note>> applyValidatedLinks(Note note, String calRaw, String evRaw,
-            String userId) {
-        String calId = StringUtils.hasText(calRaw) ? calRaw.trim() : null;
-        String evId = StringUtils.hasText(evRaw) ? evRaw.trim() : null;
-        if (calId != null && evId != null) {
+    private Optional<ResponseEntity<Note>> applyValidatedLinks(Note note, NoteRequest body, String userId) {
+        String calId = textOrNull(body.getCalendarAppointmentId());
+        String evId = textOrNull(body.getEvenementId());
+        String listId = textOrNull(body.getTodoListId());
+        int chosen = (calId != null ? 1 : 0) + (evId != null ? 1 : 0) + (listId != null ? 1 : 0);
+        if (chosen > 1) {
             return Optional.of(ResponseEntity.badRequest().build());
         }
         if (calId != null) {
@@ -241,6 +244,7 @@ public class NoteRestController {
             }
             note.setCalendarAppointmentId(calId);
             note.setEvenementId(null);
+            note.setTodoListId(null);
             return Optional.empty();
         }
         if (evId != null) {
@@ -252,11 +256,29 @@ public class NoteRestController {
             }
             note.setEvenementId(evId);
             note.setCalendarAppointmentId(null);
+            note.setTodoListId(null);
+            return Optional.empty();
+        }
+        if (listId != null) {
+            if (todoListRepository.findById(listId).isEmpty()) {
+                return Optional.of(ResponseEntity.badRequest().build());
+            }
+            if (todoListRepository.findAccessibleByIdAndMember(listId, userId).isEmpty()) {
+                return Optional.of(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
+            }
+            note.setTodoListId(listId);
+            note.setCalendarAppointmentId(null);
+            note.setEvenementId(null);
             return Optional.empty();
         }
         note.setCalendarAppointmentId(null);
         note.setEvenementId(null);
+        note.setTodoListId(null);
         return Optional.empty();
+    }
+
+    private static String textOrNull(String raw) {
+        return StringUtils.hasText(raw) ? raw.trim() : null;
     }
 
     private void applySharingFields(Note entity, String visibilityRaw, String friendGroupIdRaw,

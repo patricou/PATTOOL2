@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { TodoListDetailOverlayComponent } from './todo-list-detail-overlay.component';
+import { EventCardOverlayService } from '../shared/event-card-modal/event-card-overlay.service';
 
 /**
  * Opens the to-do list detail view in a modal above the current route (calendar, events wall, etc.).
@@ -8,6 +9,7 @@ import { TodoListDetailOverlayComponent } from './todo-list-detail-overlay.compo
 @Injectable({ providedIn: 'root' })
 export class TodoListDetailOverlayService {
     private readonly modal = inject(NgbModal);
+    private readonly eventCards = inject(EventCardOverlayService);
 
     open(listId: string): void {
         const id = (listId || '').trim();
@@ -22,5 +24,6 @@ export class TodoListDetailOverlayService {
             windowClass: 'todolists-modal'
         });
         ref.componentInstance.listId = id;
+        queueMicrotask(() => this.eventCards.raiseLatestModalAboveCard('todolists-modal'));
     }
 }

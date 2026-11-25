@@ -65,15 +65,22 @@ public class Note {
 
     /**
      * Optional link to a personal agenda row in {@code calendar_appointments}. Mutually exclusive
-     * with {@link #evenementId}. Multiple notes may reference the same appointment.
+     * with {@link #evenementId} and with {@link #todoListId}. Multiple notes
+     * may reference the same appointment.
      */
     private String calendarAppointmentId;
 
     /**
      * Optional link to an activity ({@code evenements}). Mutually exclusive with
-     * {@link #calendarAppointmentId}. Multiple notes may reference the same event.
+     * {@link #calendarAppointmentId} and with a task link. Multiple notes may reference the same event.
      */
     private String evenementId;
+
+    /**
+     * Optional link to a to-do list the caller can see. Mutually exclusive with the agenda links.
+     * Multiple notes may reference the same list.
+     */
+    private String todoListId;
 
     /**
      * When true, members who can already see this note also see it on their home page.
@@ -214,6 +221,14 @@ public class Note {
 
     public void setEvenementId(String evenementId) {
         this.evenementId = evenementId;
+    }
+
+    public String getTodoListId() {
+        return todoListId;
+    }
+
+    public void setTodoListId(String todoListId) {
+        this.todoListId = todoListId;
     }
 
     public Boolean getShowOnHome() {

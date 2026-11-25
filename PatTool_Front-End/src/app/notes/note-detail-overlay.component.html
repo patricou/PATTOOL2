@@ -23,13 +23,54 @@
     <h5 class="modal-title mb-0">
       <i class="fa fa-sticky-note me-1" aria-hidden="true"></i>{{ 'NOTES.VIEW_TITLE' | translate }}
     </h5>
-    <button type="button" class="btn-close" (click)="activeModal.dismiss()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+    <div class="notes-header-links">
+      <button *ngIf="hasLinkedActivity()" type="button" class="notes-postit-link-btn"
+              (click)="openLinkedActivity()"
+              [attr.title]="'NOTES.OPEN_LINKED_ACTIVITY' | translate"
+              [attr.aria-label]="'NOTES.OPEN_LINKED_ACTIVITY' | translate">
+        <i class="fa fa-id-card"></i>
+      </button>
+      <button *ngIf="hasLinkedAppointment()" type="button" class="notes-postit-link-btn"
+              (click)="openLinkedAppointment()"
+              [attr.title]="'NOTES.OPEN_LINKED_APPOINTMENT' | translate"
+              [attr.aria-label]="'NOTES.OPEN_LINKED_APPOINTMENT' | translate">
+        <i class="fa fa-calendar"></i>
+      </button>
+      <button *ngIf="hasLinkedList()" type="button" class="notes-postit-link-btn"
+              (click)="openLinkedTodoList()"
+              [attr.title]="'NOTES.OPEN_LINKED_LIST' | translate"
+              [attr.aria-label]="'NOTES.OPEN_LINKED_LIST' | translate">
+        <i class="fa fa-tasks"></i>
+      </button>
+      <button type="button" class="btn-close" (click)="activeModal.dismiss()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+    </div>
   </div>
 
   <div class="modal-body notes-overlay-body notes-overlay-body--postit">
     <article class="notes-overlay-postit"
              [style.background-color]="note.color || '#ffe066'">
-      <h3 class="notes-overlay-postit-title" *ngIf="note.title">{{ note.title }}</h3>
+      <div class="notes-postit-links notes-overlay-postit-links" *ngIf="hasLinkedActivity() || hasLinkedAppointment() || hasLinkedList()">
+        <button *ngIf="hasLinkedActivity()" type="button" class="notes-postit-link-btn"
+                (click)="openLinkedActivity()"
+                [attr.title]="'NOTES.OPEN_LINKED_ACTIVITY' | translate"
+                [attr.aria-label]="'NOTES.OPEN_LINKED_ACTIVITY' | translate">
+          <i class="fa fa-id-card"></i>
+        </button>
+        <button *ngIf="hasLinkedAppointment()" type="button" class="notes-postit-link-btn"
+                (click)="openLinkedAppointment()"
+                [attr.title]="'NOTES.OPEN_LINKED_APPOINTMENT' | translate"
+                [attr.aria-label]="'NOTES.OPEN_LINKED_APPOINTMENT' | translate">
+          <i class="fa fa-calendar"></i>
+        </button>
+        <button *ngIf="hasLinkedList()" type="button" class="notes-postit-link-btn"
+                (click)="openLinkedTodoList()"
+                [attr.title]="'NOTES.OPEN_LINKED_LIST' | translate"
+                [attr.aria-label]="'NOTES.OPEN_LINKED_LIST' | translate">
+          <i class="fa fa-tasks"></i>
+        </button>
+      </div>
+      <h3 class="notes-overlay-postit-title" *ngIf="note.title"
+          [class.notes-overlay-postit-title--linked]="hasLinkedActivity() || hasLinkedAppointment() || hasLinkedList()">{{ note.title }}</h3>
       <p class="notes-overlay-postit-body"
          *ngIf="note.content"
          [innerHTML]="note.content | noteContentHtml"></p>
@@ -64,7 +105,27 @@
 <div class="notes-overlay" *ngIf="!loading && !loadError && note && editing">
   <div class="modal-header notes-modal-header py-2" [style.background-color]="draft.color || '#ffe066'">
     <h5 class="modal-title mb-0">{{ 'NOTES.EDIT_TITLE' | translate }}</h5>
-    <button type="button" class="btn-close" (click)="activeModal.dismiss()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+    <div class="notes-header-links">
+      <button *ngIf="hasLinkedActivity()" type="button" class="notes-postit-link-btn"
+              (click)="openLinkedActivity()"
+              [attr.title]="'NOTES.OPEN_LINKED_ACTIVITY' | translate"
+              [attr.aria-label]="'NOTES.OPEN_LINKED_ACTIVITY' | translate">
+        <i class="fa fa-id-card"></i>
+      </button>
+      <button *ngIf="hasLinkedAppointment()" type="button" class="notes-postit-link-btn"
+              (click)="openLinkedAppointment()"
+              [attr.title]="'NOTES.OPEN_LINKED_APPOINTMENT' | translate"
+              [attr.aria-label]="'NOTES.OPEN_LINKED_APPOINTMENT' | translate">
+        <i class="fa fa-calendar"></i>
+      </button>
+      <button *ngIf="hasLinkedList()" type="button" class="notes-postit-link-btn"
+              (click)="openLinkedTodoList()"
+              [attr.title]="'NOTES.OPEN_LINKED_LIST' | translate"
+              [attr.aria-label]="'NOTES.OPEN_LINKED_LIST' | translate">
+        <i class="fa fa-tasks"></i>
+      </button>
+      <button type="button" class="btn-close" (click)="activeModal.dismiss()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+    </div>
   </div>
 
   <div class="modal-body notes-overlay-body notes-modal-body py-2 px-3">
@@ -82,14 +143,11 @@
     </div>
 
     <div class="notes-field mb-2">
-      <label class="form-label notes-field-label" for="overlay-note-content">{{ 'NOTES.CONTENT' | translate }}</label>
-      <textarea id="overlay-note-content"
-                class="form-control form-control-sm notes-content-area"
-                rows="3"
-                maxlength="8000"
-                [(ngModel)]="draft.content"
-                name="overlay-noteContent"
-                [placeholder]="'NOTES.CONTENT_PLACEHOLDER' | translate"></textarea>
+      <label class="form-label notes-field-label">{{ 'NOTES.CONTENT' | translate }}</label>
+      <app-note-content-editor
+          [(value)]="draft.content"
+          [placeholder]="'NOTES.CONTENT_PLACEHOLDER' | translate">
+      </app-note-content-editor>
     </div>
 
     <div class="notes-field mb-2">
@@ -153,7 +211,7 @@
         {{ 'NOTES.LINK_LOAD_ERROR' | translate }}
       </div>
       <div class="row g-1">
-        <div class="col-12 col-md-6">
+        <div class="col-12 col-md-4">
           <label class="form-label notes-field-label mb-0" for="overlay-note-event-filter">{{ 'NOTES.LINK_PICK_ACTIVITY' | translate }}</label>
           <div class="input-group input-group-sm mb-1">
             <span class="input-group-text py-0"><i class="fa fa-search"></i></span>
@@ -186,7 +244,7 @@
             </ng-template>
           </div>
         </div>
-        <div class="col-12 col-md-6">
+        <div class="col-12 col-md-4">
           <label class="form-label notes-field-label mb-0" for="overlay-note-appt-filter">{{ 'NOTES.LINK_PICK_APPOINTMENT' | translate }}</label>
           <div class="input-group input-group-sm mb-1">
             <span class="input-group-text py-0"><i class="fa fa-search"></i></span>
@@ -216,6 +274,39 @@
             </ng-container>
             <ng-template #overlayApptTotal>
               {{ 'NOTES.LINK_OPTIONS_COUNT_APPT' | translate:{ count: linkPickerAppointments.length } }}
+            </ng-template>
+          </div>
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label notes-field-label mb-0" for="overlay-note-task-filter">{{ 'NOTES.LINK_PICK_TASK' | translate }}</label>
+          <div class="input-group input-group-sm mb-1">
+            <span class="input-group-text py-0"><i class="fa fa-search"></i></span>
+            <input id="overlay-note-task-filter"
+                   type="search"
+                   class="form-control form-control-sm"
+                   name="overlay-noteTaskPickFilter"
+                   autocomplete="off"
+                   [disabled]="linkPickerLoading"
+                   [ngModel]="linkPickerTaskFilter"
+                   (ngModelChange)="onLinkPickerTaskFilterChange($event)"
+                   [placeholder]="'NOTES.LINK_FILTER_PLACEHOLDER' | translate">
+          </div>
+          <select id="overlay-note-task-pick"
+                  class="form-select form-select-sm notes-link-picker-select"
+                  name="overlay-noteTaskPick"
+                  [size]="linkPickerSelectSize(filteredLinkPickerTasks.length)"
+                  [disabled]="linkPickerLoading"
+                  [ngModel]="draft.todoListId || ''"
+                  (ngModelChange)="onTaskLinkSelect($event)">
+            <option value="">{{ 'NOTES.LINK_NONE' | translate }}</option>
+            <option *ngFor="let o of filteredLinkPickerTasks" [value]="o.id">{{ o.label }}</option>
+          </select>
+          <div class="notes-hint mt-1" *ngIf="!linkPickerLoading">
+            <ng-container *ngIf="linkPickerTaskFilter.trim(); else overlayTaskTotal">
+              {{ 'NOTES.LINK_FILTER_COUNT' | translate:{ shown: filteredLinkPickerTasks.length, total: linkPickerTasks.length } }}
+            </ng-container>
+            <ng-template #overlayTaskTotal>
+              {{ 'NOTES.LINK_OPTIONS_COUNT_TASK' | translate:{ count: linkPickerTasks.length } }}
             </ng-template>
           </div>
         </div>

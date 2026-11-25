@@ -2913,39 +2913,6 @@
   animation: radio-skin-planet 16s ease-in-out infinite alternate;
 }
 
-/* Bezel light stays visible when a cover or a clip fills the screen. */
-.radio-player-panel--on .radio-player-frame::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 8%;
-  z-index: 9;
-  height: 10px;
-  pointer-events: none;
-  background: linear-gradient(90deg, transparent, var(--radio-accent, #ffb347), transparent);
-  box-shadow: 0 0 16px 2px var(--radio-accent, #ffb347);
-  animation: radio-skin-jewel-run 2.6s ease-in-out infinite alternate;
-}
-
-.radio-skin--synthwave.radio-player-panel--on .radio-player-frame::after,
-.radio-skin--military.radio-player-panel--on .radio-player-frame::after,
-.radio-skin--carbon.radio-player-panel--on .radio-player-frame::after,
-.radio-skin--barber.radio-player-panel--on .radio-player-frame::after {
-  box-shadow: 0 0 8px var(--radio-accent);
-  animation-duration: 1.6s;
-}
-
-.radio-skin--aurora.radio-player-panel--on .radio-player-frame::after,
-.radio-skin--porcelain.radio-player-panel--on .radio-player-frame::after,
-.radio-skin--espace.radio-player-panel--on .radio-player-frame::after {
-  animation-duration: 7s;
-}
-
-.radio-skin--cafewall.radio-player-panel--on .radio-player-frame::after {
-  background: linear-gradient(90deg, transparent, #f4f4f4, transparent);
-}
-
 /* ---------- Keyframes ---------- */
 
 @keyframes radio-skin-neon-breathe {
@@ -3137,11 +3104,6 @@
 @keyframes radio-skin-gloss {
   from { transform: translate(-50%, -78%); }
   to { transform: translate(-50%, -22%); }
-}
-
-@keyframes radio-skin-jewel-run {
-  from { top: 8%; }
-  to { top: 86%; }
 }
 
 /* =========================================================================

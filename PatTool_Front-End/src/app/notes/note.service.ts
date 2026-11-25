@@ -24,10 +24,12 @@ export interface Note {
     friendGroupIds?: string[] | null;
     /** Compressed photo data URLs (`data:image/...;base64,...`). */
     imageDataUrls?: string[] | null;
-    /** Personal agenda appointment id (mutually exclusive with evenementId). */
+    /** Personal agenda appointment id. Mutually exclusive with an activity or a task. */
     calendarAppointmentId?: string | null;
-    /** Activity (evenement) id (mutually exclusive with calendarAppointmentId). */
+    /** Activity (evenement) id. Mutually exclusive with an appointment or a task. */
     evenementId?: string | null;
+    /** To-do list the user can see. Mutually exclusive with an activity or an appointment. */
+    todoListId?: string | null;
     /** When true, people who can see the note also see it on their home page. */
     showOnHome?: boolean | null;
 }
@@ -46,6 +48,7 @@ export interface NotePayload {
     imageDataUrls?: string[] | null;
     calendarAppointmentId?: string | null;
     evenementId?: string | null;
+    todoListId?: string | null;
     showOnHome?: boolean | null;
 }
 

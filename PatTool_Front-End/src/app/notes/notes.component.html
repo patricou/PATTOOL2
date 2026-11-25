@@ -53,14 +53,42 @@
                      [ngClass]="rotationClass(note)"
                      [style.background-color]="note.color || '#ffe066'"
                      (click)="openEdit(note)">
-                <button *ngIf="canEdit(note)"
-                        type="button"
-                        class="notes-postit-delete"
-                        (click)="deleteNote(note, $event)"
-                        [attr.title]="'NOTES.DELETE' | translate"
-                        [attr.aria-label]="'NOTES.DELETE' | translate">
-                    <i class="fa fa-times"></i>
-                </button>
+                <div class="notes-postit-tools">
+                    <div class="notes-postit-links" *ngIf="hasLinkedActivity(note) || hasLinkedAppointment(note) || hasLinkedTask(note)">
+                        <button *ngIf="hasLinkedActivity(note)"
+                                type="button"
+                                class="notes-postit-link-btn"
+                                (click)="openLinkedActivity(note, $event)"
+                                [attr.title]="'NOTES.OPEN_LINKED_ACTIVITY' | translate"
+                                [attr.aria-label]="'NOTES.OPEN_LINKED_ACTIVITY' | translate">
+                            <i class="fa fa-id-card"></i>
+                        </button>
+                        <button *ngIf="hasLinkedAppointment(note)"
+                                type="button"
+                                class="notes-postit-link-btn"
+                                (click)="openLinkedAppointment(note, $event)"
+                                [attr.title]="'NOTES.OPEN_LINKED_APPOINTMENT' | translate"
+                                [attr.aria-label]="'NOTES.OPEN_LINKED_APPOINTMENT' | translate">
+                            <i class="fa fa-calendar"></i>
+                        </button>
+                        <button *ngIf="hasLinkedTask(note)"
+                                type="button"
+                                class="notes-postit-link-btn"
+                                (click)="openLinkedTodoList(note, $event)"
+                                [attr.title]="'NOTES.OPEN_LINKED_LIST' | translate"
+                                [attr.aria-label]="'NOTES.OPEN_LINKED_LIST' | translate">
+                            <i class="fa fa-tasks"></i>
+                        </button>
+                    </div>
+                    <button *ngIf="canEdit(note)"
+                            type="button"
+                            class="notes-postit-delete"
+                            (click)="deleteNote(note, $event)"
+                            [attr.title]="'NOTES.DELETE' | translate"
+                            [attr.aria-label]="'NOTES.DELETE' | translate">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
 
                 <span class="notes-postit-visibility"
                       [title]="visibilityDisplay(note)">
@@ -72,7 +100,9 @@
                     <i class="fa fa-home" aria-hidden="true"></i>
                 </span>
 
-                <h3 class="notes-postit-title" *ngIf="note.title">{{ note.title }}</h3>
+                <h3 class="notes-postit-title"
+                    *ngIf="note.title"
+                    [class.notes-postit-title--linked]="hasLinkedActivity(note) || hasLinkedAppointment(note) || hasLinkedTask(note)">{{ note.title }}</h3>
                 <p class="notes-postit-body"
                    *ngIf="note.content"
                    [innerHTML]="note.content | noteContentHtml"
@@ -101,20 +131,6 @@
                     </div>
                     <div class="notes-postit-date" *ngIf="note.createdAt">
                         <i class="fa fa-clock-o"></i> {{ formatDate(note.createdAt) }}
-                    </div>
-                    <div class="notes-postit-links" *ngIf="(hasLinkedActivity(note) && photoCount(note) > 0) || hasLinkedAppointment(note)">
-                        <button *ngIf="hasLinkedActivity(note) && photoCount(note) > 0"
-                                type="button"
-                                class="notes-postit-link-btn"
-                                (click)="openLinkedActivityPhotoWall(note, $event)"
-                                [attr.title]="'NOTES.OPEN_ACTIVITY_PHOTOS' | translate">
-                            <i class="fa fa-picture-o"></i>
-                        </button>
-                        <span *ngIf="hasLinkedAppointment(note)"
-                              class="notes-postit-link-badge"
-                              [attr.title]="'NOTES.LINKED_APPOINTMENT' | translate">
-                            <i class="fa fa-calendar"></i>
-                        </span>
                     </div>
                     <a *ngIf="mapsUrl(note) as url"
                        class="notes-postit-gps"
@@ -154,14 +170,12 @@
                    [placeholder]="'NOTES.NOTE_TITLE_PLACEHOLDER' | translate">
         </div>
         <div class="notes-field mb-2">
-            <label class="form-label notes-field-label" for="note-content">{{ 'NOTES.CONTENT' | translate }}</label>
-            <textarea id="note-content"
-                      class="form-control form-control-sm notes-content-area"
-                      rows="3"
-                      maxlength="8000"
-                      [(ngModel)]="draft.content"
-                      [readonly]="readOnly"
-                      [placeholder]="'NOTES.CONTENT_PLACEHOLDER' | translate"></textarea>
+            <label class="form-label notes-field-label">{{ 'NOTES.CONTENT' | translate }}</label>
+            <app-note-content-editor
+                [(value)]="draft.content"
+                [readonly]="readOnly"
+                [placeholder]="'NOTES.CONTENT_PLACEHOLDER' | translate">
+            </app-note-content-editor>
         </div>
 
         <div class="notes-field mb-2">
@@ -226,7 +240,7 @@
                 {{ 'NOTES.LINK_LOAD_ERROR' | translate }}
             </div>
             <div class="row g-1">
-                <div class="col-12 col-md-6">
+                <div class="col-12 col-md-4">
                     <label class="form-label notes-field-label mb-0">{{ 'NOTES.LINK_PICK_ACTIVITY' | translate }}</label>
                     <div class="input-group input-group-sm mb-1">
                         <span class="input-group-text py-0"><i class="fa fa-search"></i></span>
@@ -264,7 +278,7 @@
                         </button>
                     </div>
                 </div>
-                <div class="col-12 col-md-6">
+                <div class="col-12 col-md-4">
                     <label class="form-label notes-field-label mb-0">{{ 'NOTES.LINK_PICK_APPOINTMENT' | translate }}</label>
                     <div class="input-group input-group-sm mb-1">
                         <span class="input-group-text py-0"><i class="fa fa-search"></i></span>
@@ -292,6 +306,37 @@
                         </ng-container>
                         <ng-template #apptTotal>
                             {{ 'NOTES.LINK_OPTIONS_COUNT_APPT' | translate:{ count: linkPickerAppointments.length } }}
+                        </ng-template>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label notes-field-label mb-0">{{ 'NOTES.LINK_PICK_TASK' | translate }}</label>
+                    <div class="input-group input-group-sm mb-1">
+                        <span class="input-group-text py-0"><i class="fa fa-search"></i></span>
+                        <input type="search"
+                               class="form-control form-control-sm"
+                               name="noteTaskPickFilter"
+                               autocomplete="off"
+                               [disabled]="linkPickerLoading"
+                               [ngModel]="linkPickerTaskFilter"
+                               (ngModelChange)="onLinkPickerTaskFilterChange($event)"
+                               [placeholder]="'NOTES.LINK_FILTER_PLACEHOLDER' | translate">
+                    </div>
+                    <select class="form-select form-select-sm notes-link-picker-select"
+                            name="noteTaskPick"
+                            [size]="linkPickerSelectSize(filteredLinkPickerTasks.length)"
+                            [disabled]="linkPickerLoading"
+                            [ngModel]="draft.todoListId || ''"
+                            (ngModelChange)="onTaskLinkSelect($event)">
+                        <option value="">{{ 'NOTES.LINK_NONE' | translate }}</option>
+                        <option *ngFor="let o of filteredLinkPickerTasks" [value]="o.id">{{ o.label }}</option>
+                    </select>
+                    <div class="notes-hint mt-1" *ngIf="!linkPickerLoading">
+                        <ng-container *ngIf="linkPickerTaskFilter.trim(); else taskTotal">
+                            {{ 'NOTES.LINK_FILTER_COUNT' | translate:{ shown: filteredLinkPickerTasks.length, total: linkPickerTasks.length } }}
+                        </ng-container>
+                        <ng-template #taskTotal>
+                            {{ 'NOTES.LINK_OPTIONS_COUNT_TASK' | translate:{ count: linkPickerTasks.length } }}
                         </ng-template>
                     </div>
                 </div>

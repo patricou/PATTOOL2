@@ -1,6 +1,7 @@
 package com.pat.controller;
 
 import com.pat.controller.dto.DeezerConcertDto;
+import com.pat.controller.dto.DeezerPageSwitches;
 import com.pat.controller.dto.DeezerConcertWriteRequest;
 import com.pat.controller.dto.DeezerFavoriteItemDto;
 import com.pat.controller.dto.DeezerFavoritesDto;
@@ -11,6 +12,7 @@ import com.pat.controller.dto.DeezerUserPlaylistsDto;
 import com.pat.controller.dto.DeezerYoutubeLookupRequest;
 import com.pat.controller.dto.DeezerYoutubeStoredRequest;
 import com.pat.service.DeezerCatalogService;
+import com.pat.service.DeezerPageSwitchService;
 import com.pat.service.DeezerConcertService;
 import com.pat.service.DeezerFavoritesService;
 import com.pat.service.DeezerPlaylistsService;
@@ -63,6 +65,7 @@ import java.util.function.Supplier;
  *   <li>{@code GET/POST /api/external/deezer/concert}</li>
  *   <li>{@code PUT/DELETE /api/external/deezer/concert/{id}}</li>
  *   <li>{@code GET/PUT /api/external/deezer/skin} — cabinet style shared with TV and radio</li>
+ *   <li>{@code GET/PUT /api/external/deezer/switches} — page switches for this user</li>
  * </ul>
  */
 @RestController
@@ -77,6 +80,7 @@ public class DeezerRestController {
     private final DeezerPlaylistsService deezerPlaylistsService;
     private final DeezerConcertService deezerConcertService;
     private final DeezerSkinService deezerSkinService;
+    private final DeezerPageSwitchService deezerPageSwitchService;
 
     public DeezerRestController(
             DeezerCatalogService deezerCatalogService,
@@ -84,13 +88,15 @@ public class DeezerRestController {
             DeezerFavoritesService deezerFavoritesService,
             DeezerPlaylistsService deezerPlaylistsService,
             DeezerConcertService deezerConcertService,
-            DeezerSkinService deezerSkinService) {
+            DeezerSkinService deezerSkinService,
+            DeezerPageSwitchService deezerPageSwitchService) {
         this.deezerCatalogService = deezerCatalogService;
         this.deezerYoutubeLinkService = deezerYoutubeLinkService;
         this.deezerFavoritesService = deezerFavoritesService;
         this.deezerPlaylistsService = deezerPlaylistsService;
         this.deezerConcertService = deezerConcertService;
         this.deezerSkinService = deezerSkinService;
+        this.deezerPageSwitchService = deezerPageSwitchService;
     }
 
     @GetMapping("/genres")
@@ -418,6 +424,28 @@ public class DeezerRestController {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.ok(Map.of("skin", skin));
+    }
+
+    @GetMapping("/switches")
+    public ResponseEntity<DeezerPageSwitches> getSwitches() {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        DeezerPageSwitches switches = deezerPageSwitchService.findForSubject(sub);
+        if (switches == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(switches);
+    }
+
+    @PutMapping("/switches")
+    public ResponseEntity<DeezerPageSwitches> putSwitches(@RequestBody DeezerPageSwitches body) {
+        String sub = currentJwtSubject();
+        if (sub == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(deezerPageSwitchService.saveForSubject(sub, body));
     }
 
     @PutMapping("/skin")

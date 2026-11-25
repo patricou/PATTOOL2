@@ -3,6 +3,7 @@ package com.pat.controller;
 import com.pat.controller.dto.YoutubeFavoritesDto;
 import com.pat.controller.dto.YoutubeItemDto;
 import com.pat.controller.dto.YoutubeSearchPageDto;
+import com.pat.service.YoutubeAudioService;
 import com.pat.service.YoutubeFavoritesService;
 import com.pat.service.YoutubeProxyService;
 import org.springframework.http.HttpStatus;
@@ -17,7 +18,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
+
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.LinkedHashMap;
@@ -34,11 +39,15 @@ public class YoutubeRestController {
 
     private final YoutubeProxyService youtubeProxyService;
     private final YoutubeFavoritesService youtubeFavoritesService;
+    private final YoutubeAudioService youtubeAudioService;
 
     public YoutubeRestController(
-            YoutubeProxyService youtubeProxyService, YoutubeFavoritesService youtubeFavoritesService) {
+            YoutubeProxyService youtubeProxyService,
+            YoutubeFavoritesService youtubeFavoritesService,
+            YoutubeAudioService youtubeAudioService) {
         this.youtubeProxyService = youtubeProxyService;
         this.youtubeFavoritesService = youtubeFavoritesService;
+        this.youtubeAudioService = youtubeAudioService;
     }
 
     @GetMapping(value = "/status", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -86,6 +95,16 @@ public class YoutubeRestController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(Map.of("width", size[0], "height", size[1]));
+    }
+
+    /** Audio-only bytes of one clip. The picture is not forwarded. */
+    @GetMapping("/audio")
+    public void audio(
+            @RequestParam("v") String videoId,
+            @RequestParam(value = "fmt", required = false) String format,
+            @RequestHeader(value = "Range", required = false) String range,
+            HttpServletResponse response) throws IOException {
+        youtubeAudioService.stream(videoId, range, format, response);
     }
 
     /** Title and channel for one clip. The browser must not call YouTube (CSP connect-src). */

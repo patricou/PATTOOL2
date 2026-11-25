@@ -348,6 +348,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/external/deezer/user-playlists", "/api/external/deezer/user-playlists/**").authenticated()
                 .requestMatchers("/api/external/deezer/concert", "/api/external/deezer/concert/**").authenticated()
                 .requestMatchers("/api/external/deezer/skin").authenticated()
+                .requestMatchers("/api/external/deezer/switches").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/external/deezer/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/external/deezer/youtube-links", "/api/external/deezer/youtube-links/stored").permitAll()
                 .requestMatchers(HttpMethod.DELETE, "/api/external/deezer/youtube-links/*").permitAll()
@@ -401,6 +402,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/external/youtube/image").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/youtube/oembed").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/youtube/clip").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/youtube/audio").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/tmdb/**").permitAll()
                 // Telegram Bot API — always authenticated (per-user BotFather token in Mongo)
 
