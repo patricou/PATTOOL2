@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { Observable, of, Subject, Subscription } from 'rxjs';
+import { firstValueFrom, Observable, of, Subject, Subscription } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, finalize, map, shareReplay, switchMap, takeUntil, tap } from 'rxjs/operators';
 
 import {
@@ -37,6 +37,7 @@ import {
 import { readMediaSkin, writeMediaSkin } from '../services/media-skin';
 import { activeScreenKeepAliveOwner, screenIsOff, setScreenKeepAlive } from '../services/media-screen-keepalive';
 import { DeezerKeepAliveService } from './deezer-keep-alive.service';
+import { DeezerOfflineAudioStore, DeezerOfflineMeta } from './deezer-offline-audio.store';
 import { NowTickerComponent, NowTickerItem } from '../shared/now-ticker.component';
 import { VideoshowCloseState, VideoshowModalComponent, VideoshowVideoSource } from '../shared/videoshow-modal/videoshow-modal.component';
 
@@ -362,6 +363,21 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   youtubeSearchEnabled = false;
   /** YouTube soundtrack without the picture: the backend forwards audio bytes only. */
   ytAudioOnly = false;
+  offlineBusy = false;
+  offlineDone = 0;
+  offlineTotal = 0;
+  offlineFailed = 0;
+  offlineSaved = 0;
+  offlineNote = '';
+  offlineListOpen = false;
+  offlineItems: DeezerOfflineMeta[] = [];
+  private forceOffline = false;
+  private readonly offlineStore = new DeezerOfflineAudioStore();
+  /** Deezer track id → YouTube id already stored on this device. */
+  private offlineSavedIds = new Map<number, string>();
+  private offlineToken = 0;
+  private offlineObjectUrl = '';
+  private playingOffline = false;
   youtubeBusy = false;
   youtubeEmbed: SafeResourceUrl | null = null;
   youtubeTitle = '';
@@ -572,6 +588,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
     this.youtubeSearchEnabled = this.readYoutubeSearch();
     this.ytAudioOnly = this.readYoutubeAudio();
+    void this.refreshOfflineSaved();
     this.listLoop = this.readStoredFlag(DeezerWatcherComponent.LOOP_KEY, true);
     this.repeatQueue = this.listLoop;
     this.ytListLoop = this.readStoredFlag(DeezerWatcherComponent.YT_LIST_LOOP_KEY, true);
@@ -626,6 +643,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     window.removeEventListener('message', this.onYoutubeWindowMessage);
     this.clearSleepKick();
     this.stopListSlide();
+    this.offlineToken++;
+    this.revokeOfflineUrl();
     this.destroy$.next();
     this.destroy$.complete();
     if (this.sleeveTimer) {
@@ -2402,6 +2421,38 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }, 350);
   }
 
+  /** Favorites, or the playlist that is open. The playlist list itself has no single set. */
+  get offlineInLibrary(): boolean {
+    if (this.nowBrowse || this.drilled) {
+      return false;
+    }
+    if (this.listMode === 'favorites') {
+      return true;
+    }
+    return this.listMode === 'playlists' && !!this.activeUserPlaylist;
+  }
+
+  get offlineScopeCount(): number {
+    return this.offlineLibrary().length;
+  }
+
+  /** Titles in the open list that are not yet saved on this device. */
+  get offlinePendingCount(): number {
+    return this.offlineLibrary().filter((track) => !this.isSavedOffline(track.id)).length;
+  }
+
+  get offlineHintKey(): string {
+    return this.listMode === 'playlists' && this.activeUserPlaylist
+      ? 'DEEZER.OFFLINE_HINT_PLAYLIST'
+      : 'DEEZER.OFFLINE_HINT_FAV';
+  }
+
+  /** Green pill under the YouTube pastille when this title's sound is on the device. */
+  isSavedOffline(trackId: number): boolean {
+    const id = Number(trackId);
+    return Number.isFinite(id) && this.offlineSavedIds.has(id);
+  }
+
   /** Badge on the YouTube icon whenever this title has at least one stored clip. */
   hasYoutubeLink(trackId: number): boolean {
     if ((this.ytLinks[trackId] || '').trim()) {
@@ -3695,6 +3746,12 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.audioDuration = 0;
     this.related = this.drilled ? this.related : [];
     this.scheduleSleeve(track.artistId || 0);
+    this.playingOffline = false;
+    if (this.shouldPlayOffline(track)) {
+      void this.playOfflineTrack(track);
+      this.syncLandscapeFullscreen();
+      return;
+    }
     if (this.youtubeMode) {
       this.armCleanVideoChrome();
     } else if ((track.coverUrl || '').trim() && (this.sleeveOpen || this.landscapeFullscreen)) {
@@ -4182,6 +4239,12 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.silencePreviewUnderVideo();
       return;
     }
+    if (this.playingOffline) {
+      this.buffering = false;
+      this.playing = false;
+      this.playErrorKey = 'DEEZER.ERR_PLAY';
+      return;
+    }
     if (this.headphonesAudio()) {
       const audio = this.pageAudio();
       // Assigning a new source aborts the previous load. That is not a failure.
@@ -4430,7 +4493,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
   }
 
-  /** The file stream has no length. Headphones mode uses the title duration instead of the 30 s preview. */
+  /** Until the file reports its length, headphones mode uses the title duration instead of the 30 s preview. */
   get playbackDuration(): number {
     if (this.audioDuration > 1) {
       return this.audioDuration;
@@ -4717,6 +4780,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     audio.crossOrigin = 'anonymous';
     audio.muted = false;
     audio.volume = this.volume;
+    // A finite file can fill a buffer. preload=none left the phone one underrun from a crackle.
+    audio.preload = 'auto';
     audio.src = url;
     if (audio.ended || audio.currentTime > 0) {
       try {
@@ -6709,8 +6774,221 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
   }
 
+  private shouldPlayOffline(track: DeezerTrack): boolean {
+    const saved = this.offlineSavedIds.get(track.id);
+    if (!saved) {
+      return false;
+    }
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    return this.forceOffline || this.ytAudioOnly || offline;
+  }
+
+  /** Sound kept on this device. No picture, and no server, once the file is here. */
+  private async playOfflineTrack(track: DeezerTrack): Promise<void> {
+    const row = await this.offlineStore.load(track.id);
+    if (!row || this.current?.id !== track.id) {
+      return;
+    }
+    const blob = new Blob([row.data], { type: this.offlineAudioType(row.data) || 'audio/aac' });
+    this.revokeOfflineUrl();
+    this.offlineObjectUrl = URL.createObjectURL(blob);
+    this.playingOffline = true;
+    this.clipArmed = false;
+    this.resetClipAspect();
+    this.youtubeEmbed = null;
+    this.releaseKeptMedia();
+    this.stopYoutubeHandshake();
+    this.stopYoutubeClock();
+    this.userHold = false;
+    this.clearYoutubePauseDecide();
+    this.youtubePlayerState = 1;
+    this.youtubeTitle = `${track.artistName || ''} — ${track.title || ''}`.trim();
+    this.ytIgnoreEnd = Date.now() + 4000;
+    this.ytAudioSeek = -1;
+    this.startAudio(this.offlineObjectUrl);
+  }
+
+  /** WebM, MP4, or ADTS. Anything else is an error page, not a song. */
+  private offlineAudioType(data: ArrayBuffer): string {
+    if (!data || data.byteLength < 12) {
+      return '';
+    }
+    const b = new Uint8Array(data.slice(0, 12));
+    if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) {
+      return 'audio/webm';
+    }
+    if (b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70) {
+      return 'audio/mp4';
+    }
+    if (b[0] === 0xff && (b[1] & 0xf0) === 0xf0) {
+      return 'audio/aac';
+    }
+    return '';
+  }
+
+  private revokeOfflineUrl(): void {
+    if (!this.offlineObjectUrl) {
+      return;
+    }
+    URL.revokeObjectURL(this.offlineObjectUrl);
+    this.offlineObjectUrl = '';
+  }
+
+  private async refreshOfflineSaved(): Promise<void> {
+    try {
+      this.offlineItems = await this.offlineStore.list();
+      this.offlineSavedIds = new Map(this.offlineItems.map((item) => [Number(item.id), item.videoId]));
+      this.offlineSaved = this.offlineItems.length;
+      this.cdr.markForCheck();
+    } catch {
+      this.offlineItems = [];
+      this.offlineSavedIds = new Map();
+      this.offlineSaved = 0;
+    }
+  }
+
+  toggleOfflineList(): void {
+    this.offlineListOpen = !this.offlineListOpen;
+    if (this.offlineListOpen) {
+      void this.refreshOfflineSaved();
+    }
+  }
+
+  playSavedTrack(item: DeezerOfflineMeta, index: number): void {
+    const track: DeezerTrack = {
+      id: item.id,
+      title: item.title,
+      artistName: item.artist,
+      albumTitle: item.album,
+      durationSec: item.durationSec
+    };
+    this.queue = this.offlineItems.map((row) => ({
+      id: row.id,
+      title: row.title,
+      artistName: row.artist,
+      albumTitle: row.album,
+      durationSec: row.durationSec
+    }));
+    this.playbackFollowsList = true;
+    this.repeatQueue = this.listLoop;
+    this.forceOffline = true;
+    try {
+      this.playTrack(track, index, this.current?.id === track.id);
+    } finally {
+      this.forceOffline = false;
+    }
+  }
+
+  /** Save the sound of the open list: favorite tracks, or the tracks of the open playlist. */
+  async downloadOfflineLibrary(): Promise<void> {
+    if (this.offlineBusy) {
+      return;
+    }
+    const tracks = this.offlineLibrary();
+    this.offlineFailed = 0;
+    this.offlineDone = 0;
+    this.offlineNote = '';
+    this.offlineTotal = tracks.length;
+    if (!tracks.length) {
+      this.offlineNote = this.listMode === 'playlists' && this.activeUserPlaylist
+        ? 'DEEZER.OFFLINE_EMPTY_PLAYLIST'
+        : 'DEEZER.OFFLINE_EMPTY_FAV';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.offlineBusy = true;
+    const token = ++this.offlineToken;
+    this.cdr.markForCheck();
+    for (const track of tracks) {
+      if (token !== this.offlineToken) {
+        return;
+      }
+      const videoId = await this.offlineVideoId(track);
+      const already = videoId && this.offlineSavedIds.get(track.id) === videoId;
+      if (!already && videoId) {
+        try {
+          const response = await fetch(this.api.youtubeAudioUrl(videoId));
+          if (!response.ok) {
+            throw new Error(String(response.status));
+          }
+          const data = await response.arrayBuffer();
+          if (data.byteLength < 2048 || !this.offlineAudioType(data)) {
+            throw new Error('audio');
+          }
+          await this.offlineStore.save({
+            id: track.id,
+            videoId,
+            title: track.title || '',
+            artist: track.artistName || '',
+            album: track.albumTitle || '',
+            durationSec: track.durationSec || 0,
+            bytes: data.byteLength,
+            savedAt: Date.now(),
+            data
+          });
+          this.offlineSavedIds.set(Number(track.id), videoId);
+          this.offlineSaved = this.offlineSavedIds.size;
+          void this.refreshOfflineSaved();
+        } catch {
+          this.offlineFailed++;
+        }
+      } else if (!videoId) {
+        this.offlineFailed++;
+      }
+      this.offlineDone++;
+      this.cdr.markForCheck();
+    }
+    if (token === this.offlineToken) {
+      this.offlineBusy = false;
+      await this.refreshOfflineSaved();
+      if (this.offlineFailed > 0) {
+        this.offlineNote = 'DEEZER.OFFLINE_FAIL';
+      } else if (this.offlinePendingCount === 0 && this.offlineTotal > 0) {
+        this.offlineNote = 'DEEZER.OFFLINE_OK';
+      }
+      this.cdr.markForCheck();
+    }
+  }
+
+  private offlineLibrary(): DeezerTrack[] {
+    const source = this.listMode === 'playlists' && this.activeUserPlaylist
+      ? (this.activeUserPlaylist.tracks || [])
+      : this.favoriteTracks;
+    const map = new Map<number, DeezerTrack>();
+    for (const track of source) {
+      if (track?.id && !map.has(track.id)) {
+        map.set(track.id, track);
+      }
+    }
+    return [...map.values()];
+  }
+
+  private async offlineVideoId(track: DeezerTrack): Promise<string> {
+    const known = (this.ytLinks[track.id] || '').trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(known)) {
+      return known;
+    }
+    try {
+      const page = await firstValueFrom(this.api.resolveDeezerYoutubeLinks([{
+        id: track.id,
+        artist: track.artistName || '',
+        title: track.title || ''
+      }], true));
+      const id = (page?.links?.[0]?.videoId || '').trim();
+      if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
+        this.rememberYoutube(track.id, id);
+        return id;
+      }
+    } catch {
+      /* this title stays out of the offline set */
+    }
+    return '';
+  }
+
   /** Play the clip through the page audio element. No iframe, so no picture. */
   private playYoutubeAudio(track: DeezerTrack, id: string): void {
+    this.playingOffline = false;
+    this.revokeOfflineUrl();
     this.clipArmed = false;
     this.resetClipAspect();
     this.suppressChromeUntilLeave = false;

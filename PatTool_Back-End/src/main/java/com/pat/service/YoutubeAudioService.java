@@ -23,13 +23,17 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
- * Plays a YouTube clip as sound only. The backend downloads the whole
- * picture-and-sound file, drops the picture, and forwards the audio.
+ * Plays a YouTube clip as sound only. The picture is never forwarded.
+ * Phones get the audio file itself (Opus in WebM, or AAC in a fragmented MP4).
+ * A raw ADTS stream has no timestamps: the mobile decoder then loses the frame
+ * edges and the sound saturates or crackles.
  */
 @Service
 public class YoutubeAudioService {
@@ -60,6 +64,153 @@ public class YoutubeAudioService {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return;
         }
+        if (wantsWebm(format) && proxy(id, range, response)) {
+            return;
+        }
+        if (response.isCommitted()) {
+            return;
+        }
+        CachedAudio aac = resolve(id, false);
+        if (aac != null && remuxMp4(aac, response)) {
+            return;
+        }
+        if (response.isCommitted()) {
+            return;
+        }
+        streamProgressive(id, response);
+    }
+
+    /**
+     * Opus/WebM is one finite file. The phone can buffer it and keep the sample
+     * clock, which a live AAC pipe cannot do.
+     */
+    private boolean proxy(String id, String clientRange, HttpServletResponse response) throws IOException {
+        CachedAudio audio = fresh(id, true);
+        if (audio == null || !audio.mime().startsWith("audio/webm")) {
+            return false;
+        }
+        HttpURLConnection conn = openAudio(audio, clientRange);
+        int status = conn.getResponseCode();
+        if (status == 403 || status == 410 || status == 400) {
+            conn.disconnect();
+            cache.remove(id + "|webm");
+            audio = fresh(id, true);
+            if (audio == null || !audio.mime().startsWith("audio/webm")) {
+                return false;
+            }
+            conn = openAudio(audio, clientRange);
+            status = conn.getResponseCode();
+        }
+        if (status != 200 && status != 206) {
+            log.warn("YouTube audio upstream HTTP {} for {}", status, id);
+            conn.disconnect();
+            cache.remove(id + "|webm");
+            return false;
+        }
+        boolean partial = partialRequest(clientRange, audio.bytes()) && status == 206;
+        response.setStatus(partial ? HttpServletResponse.SC_PARTIAL_CONTENT : HttpServletResponse.SC_OK);
+        response.setCharacterEncoding((String) null);
+        response.setBufferSize(32 * 1024);
+        response.setHeader(HttpHeaders.CONTENT_TYPE, "audio/webm");
+        response.setHeader(HttpHeaders.CACHE_CONTROL, "private, no-store");
+        response.setHeader(HttpHeaders.ACCEPT_RANGES, "bytes");
+        if (partial) {
+            copyHeader(conn, response, HttpHeaders.CONTENT_RANGE);
+            copyHeader(conn, response, HttpHeaders.CONTENT_LENGTH);
+        } else {
+            long len = conn.getContentLengthLong();
+            if (len <= 0 && !partialRequest(clientRange, audio.bytes())) {
+                len = audio.bytes();
+            }
+            if (len > 0) {
+                response.setContentLengthLong(len);
+            }
+        }
+        try (InputStream in = conn.getInputStream(); OutputStream out = response.getOutputStream()) {
+            copyFlush(in, out, response);
+        } catch (IOException e) {
+            log.debug("YouTube audio pipe closed for {}", id);
+        } finally {
+            conn.disconnect();
+        }
+        return true;
+    }
+
+    /** AAC wrapped as a fragmented MP4, so Safari gets timestamps instead of raw ADTS. */
+    private boolean remuxMp4(CachedAudio audio, HttpServletResponse response) throws IOException {
+        String ffmpeg = ffmpegBin();
+        if (ffmpeg == null || audio.url() == null || audio.url().isBlank()) {
+            return false;
+        }
+        List<String> cmd = new ArrayList<>();
+        cmd.add(ffmpeg);
+        cmd.add("-hide_banner");
+        cmd.add("-loglevel");
+        cmd.add("error");
+        cmd.add("-nostdin");
+        cmd.add("-rw_timeout");
+        cmd.add("20000000");
+        cmd.add("-user_agent");
+        cmd.add(UA);
+        String range = fileRange(null, audio.bytes());
+        if (range != null) {
+            cmd.add("-headers");
+            cmd.add("Range: " + range + "\r\n");
+        }
+        cmd.add("-i");
+        cmd.add(audio.url());
+        cmd.add("-vn");
+        cmd.add("-c:a");
+        cmd.add("copy");
+        cmd.add("-movflags");
+        cmd.add("frag_keyframe+empty_moov+default_base_moof");
+        cmd.add("-frag_duration");
+        cmd.add("1000000");
+        cmd.add("-f");
+        cmd.add("mp4");
+        cmd.add("pipe:1");
+        Process process;
+        try {
+            process = new ProcessBuilder(cmd)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .start();
+        } catch (IOException e) {
+            log.warn("ffmpeg could not remux audio");
+            return false;
+        }
+        try (InputStream in = process.getInputStream()) {
+            byte[] buf = new byte[64 * 1024];
+            int n = in.read(buf);
+            if (n < 0) {
+                process.destroy();
+                return false;
+            }
+            response.setStatus(HttpServletResponse.SC_OK);
+            response.setCharacterEncoding((String) null);
+            response.setBufferSize(32 * 1024);
+            response.setHeader(HttpHeaders.CONTENT_TYPE, "audio/mp4");
+            response.setHeader(HttpHeaders.CACHE_CONTROL, "private, no-store");
+            response.setHeader(HttpHeaders.ACCEPT_RANGES, "none");
+            OutputStream out = response.getOutputStream();
+            out.write(buf, 0, n);
+            response.flushBuffer();
+            copyFlush(in, out, response);
+            return true;
+        } catch (IOException e) {
+            log.debug("YouTube audio remux closed");
+            return true;
+        } finally {
+            if (process.isAlive()) {
+                process.destroy();
+            }
+        }
+    }
+
+    /**
+     * Last resort: the combined picture file, re-encoded to 48 kHz AAC in a
+     * fragmented MP4. 44.1 kHz ADTS is what makes phone decoders crackle.
+     */
+    private void streamProgressive(String id, HttpServletResponse response) throws IOException {
         String ffmpeg = ffmpegBin();
         if (ffmpeg == null) {
             log.warn("ffmpeg is not available, audio-only playback cannot drop the picture");
@@ -97,10 +248,17 @@ public class YoutubeAudioService {
                     ffmpeg,
                     "-hide_banner",
                     "-loglevel", "error",
+                    "-nostdin",
                     "-i", "pipe:0",
                     "-vn",
-                    "-c:a", "copy",
-                    "-f", "adts",
+                    "-af", "aresample=async=1:first_pts=0",
+                    "-c:a", "aac",
+                    "-b:a", "160k",
+                    "-ar", "48000",
+                    "-ac", "2",
+                    "-movflags", "frag_keyframe+empty_moov+default_base_moof",
+                    "-frag_duration", "1000000",
+                    "-f", "mp4",
                     "pipe:1")
                     .redirectError(ProcessBuilder.Redirect.DISCARD)
                     .start();
@@ -126,20 +284,49 @@ public class YoutubeAudioService {
         });
         response.setStatus(HttpServletResponse.SC_OK);
         response.setCharacterEncoding((String) null);
-        response.setHeader(HttpHeaders.CONTENT_TYPE, "audio/aac");
+        response.setBufferSize(32 * 1024);
+        response.setHeader(HttpHeaders.CONTENT_TYPE, "audio/mp4");
         response.setHeader(HttpHeaders.CACHE_CONTROL, "private, no-store");
         response.setHeader(HttpHeaders.ACCEPT_RANGES, "none");
         try (InputStream audio = ffmpegProcess.getInputStream(); OutputStream out = response.getOutputStream()) {
-            audio.transferTo(out);
+            copyFlush(audio, out, response);
         } catch (IOException e) {
             log.debug("YouTube audio pipe closed for {}", id);
             ffmpegProcess.destroy();
         } finally {
+            if (ffmpegProcess.isAlive()) {
+                ffmpegProcess.destroy();
+            }
             try {
                 feeder.join(Duration.ofSeconds(5).toMillis());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
+        }
+    }
+
+    private HttpURLConnection openAudio(CachedAudio audio, String clientRange) throws IOException {
+        String closed = fileRange(clientRange, audio.bytes());
+        HttpURLConnection conn = open(audio.url(), closed);
+        int status = conn.getResponseCode();
+        if (closed != null && (status == 400 || status == 403 || status == 416)) {
+            conn.disconnect();
+            return open(audio.url(), null);
+        }
+        return conn;
+    }
+
+    /** A cached URL, fetched again when the previous one has expired. */
+    private CachedAudio fresh(String id, boolean webm) {
+        return resolve(id, webm);
+    }
+
+    private static void copyFlush(InputStream in, OutputStream out, HttpServletResponse response) throws IOException {
+        byte[] buf = new byte[64 * 1024];
+        int n;
+        while ((n = in.read(buf)) >= 0) {
+            out.write(buf, 0, n);
+            response.flushBuffer();
         }
     }
 
@@ -159,7 +346,7 @@ public class YoutubeAudioService {
             cache.remove(key);
             return null;
         }
-        cache.put(key, new CachedAudio(url, "video/mp4", Instant.now().plus(CACHE_TTL)));
+        cache.put(key, new CachedAudio(url, "video/mp4", Instant.now().plus(CACHE_TTL), -1));
         return url;
     }
 
@@ -327,7 +514,7 @@ public class YoutubeAudioService {
             if (rank > bestRank) {
                 bestRank = rank;
                 String type = mime.split(";")[0].trim().toLowerCase(Locale.ROOT);
-                best = new CachedAudio(url, type, Instant.now().plus(CACHE_TTL));
+                best = new CachedAudio(url, type, Instant.now().plus(CACHE_TTL), contentLength(format));
             }
         }
         return best;
@@ -352,6 +539,108 @@ public class YoutubeAudioService {
             return 2;
         }
         return 1;
+    }
+
+    /** Chrome and the Android WebView ask for webm. Safari asks for mp4. */
+    static boolean wantsWebm(String format) {
+        if (format == null || format.isBlank()) {
+            return true;
+        }
+        String fmt = format.trim().toLowerCase(Locale.ROOT);
+        return !fmt.equals("mp4") && !fmt.equals("m4a") && !fmt.equals("aac");
+    }
+
+    /**
+     * Closed byte range covering the whole file, or the slice the player asked for.
+     * YouTube rejects an open-ended {@code bytes=0-}.
+     */
+    static String fileRange(String clientRange, long total) {
+        if (total <= 0) {
+            return null;
+        }
+        long start = 0;
+        long end = total - 1;
+        if (clientRange != null && clientRange.startsWith("bytes=")) {
+            String spec = clientRange.substring("bytes=".length()).trim();
+            int comma = spec.indexOf(',');
+            if (comma >= 0) {
+                spec = spec.substring(0, comma).trim();
+            }
+            int dash = spec.indexOf('-');
+            if (dash >= 0) {
+                String left = spec.substring(0, dash).trim();
+                String right = spec.substring(dash + 1).trim();
+                if (left.isEmpty()) {
+                    long suffix = 0;
+                    try {
+                        suffix = right.isEmpty() ? 0 : Long.parseLong(right);
+                    } catch (NumberFormatException ignored) {
+                        suffix = 0;
+                    }
+                    if (suffix > 0) {
+                        start = Math.max(0, total - suffix);
+                    }
+                } else {
+                    try {
+                        start = Long.parseLong(left);
+                    } catch (NumberFormatException ignored) {
+                        start = 0;
+                    }
+                    if (!right.isEmpty()) {
+                        try {
+                            end = Long.parseLong(right);
+                        } catch (NumberFormatException ignored) {
+                            end = total - 1;
+                        }
+                    }
+                }
+            }
+        }
+        if (start < 0) {
+            start = 0;
+        }
+        if (start >= total) {
+            start = total - 1;
+        }
+        if (end < start || end >= total) {
+            end = total - 1;
+        }
+        return "bytes=" + start + "-" + end;
+    }
+
+    /** True when the player asked for a slice, not the whole file. */
+    static boolean partialRequest(String clientRange, long total) {
+        if (clientRange == null || !clientRange.startsWith("bytes=") || total <= 0) {
+            return false;
+        }
+        String closed = fileRange(clientRange, total);
+        return closed != null && !closed.equals("bytes=0-" + (total - 1));
+    }
+
+    static long contentLength(JsonNode format) {
+        long len = format == null ? -1 : format.path("contentLength").asLong(-1);
+        if (len > 0) {
+            return len;
+        }
+        String url = format == null ? "" : format.path("url").asText("");
+        int at = url.indexOf("clen=");
+        if (at < 0) {
+            return -1;
+        }
+        int start = at + "clen=".length();
+        int end = start;
+        while (end < url.length() && Character.isDigit(url.charAt(end))) {
+            end++;
+        }
+        if (end == start) {
+            return -1;
+        }
+        try {
+            long parsed = Long.parseLong(url.substring(start, end));
+            return parsed > 0 ? parsed : -1;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 
     /** YouTube rejects an open-ended range. Keep each pull to one megabyte. */
@@ -434,5 +723,5 @@ public class YoutubeAudioService {
         return id.matches("[a-zA-Z0-9_-]{11}") ? id : "";
     }
 
-    record CachedAudio(String url, String mime, Instant expires) {}
+    record CachedAudio(String url, String mime, Instant expires, long bytes) {}
 }

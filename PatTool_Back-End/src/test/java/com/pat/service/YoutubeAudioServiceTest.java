@@ -17,13 +17,23 @@ class YoutubeAudioServiceTest {
         var root = mapper.readTree("""
                 {"streamingData":{"adaptiveFormats":[
                   {"itag":137,"mimeType":"video/mp4; codecs=\\"avc1\\"","url":"https://rr.googlevideo.com/videoplayback?id=v"},
-                  {"itag":251,"mimeType":"audio/webm; codecs=\\"opus\\"","url":"https://rr.googlevideo.com/videoplayback?id=w"},
+                  {"itag":251,"mimeType":"audio/webm; codecs=\\"opus\\"","contentLength":"160000","url":"https://rr.googlevideo.com/videoplayback?id=w"},
                   {"itag":140,"mimeType":"audio/mp4; codecs=\\"mp4a.40.2\\"","url":"https://rr.googlevideo.com/videoplayback?id=a"}
                 ]}}
                 """);
         var audio = YoutubeAudioService.pickAudio(root);
         assertEquals("audio/webm", audio.mime());
+        assertEquals(160000L, audio.bytes());
         assertTrue(audio.url().contains("id=w"));
+        assertTrue(YoutubeAudioService.wantsWebm("webm"));
+        assertTrue(YoutubeAudioService.wantsWebm(null));
+        assertFalse(YoutubeAudioService.wantsWebm("mp4"));
+        assertEquals("bytes=0-4999", YoutubeAudioService.fileRange(null, 5000));
+        assertEquals("bytes=0-4999", YoutubeAudioService.fileRange("bytes=0-", 5000));
+        assertEquals("bytes=100-200", YoutubeAudioService.fileRange("bytes=100-200", 5000));
+        assertEquals("bytes=100-4999", YoutubeAudioService.fileRange("bytes=100-", 5000));
+        assertFalse(YoutubeAudioService.partialRequest("bytes=0-", 5000));
+        assertTrue(YoutubeAudioService.partialRequest("bytes=100-", 5000));
         var aac = YoutubeAudioService.pickAudio(root, false);
         assertEquals("audio/mp4", aac.mime());
     }
