@@ -217,7 +217,8 @@ public class DeezerCatalogService {
                 Future<JsonNode> albumTask = pool.submit(() -> fetchOk("/album/" + id, PAGE_TTL));
                 Future<Long> fansTask = pool.submit(() -> lookupArtistFans(artistIdHint));
                 root = await(albumTask);
-                hintedFans = awaitQuietLong(fansTask);
+                // Album list must not wait on fans: take them only if already ready.
+                hintedFans = peekFans(fansTask);
             }
         } else {
             root = fetchOk("/album/" + id, PAGE_TTL);
@@ -495,6 +496,19 @@ public class DeezerCatalogService {
             Long value = await(task);
             return value == null ? -1L : value;
         } catch (UpstreamException e) {
+            return -1L;
+        }
+    }
+
+    /** Fans if finished; otherwise -1 so the album page returns without waiting. */
+    private static long peekFans(Future<Long> task) {
+        if (task == null || !task.isDone()) {
+            return -1L;
+        }
+        try {
+            Long value = task.get(0, TimeUnit.MILLISECONDS);
+            return value == null ? -1L : value;
+        } catch (Exception e) {
             return -1L;
         }
     }

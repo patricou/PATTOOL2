@@ -55,17 +55,6 @@
       <span class="radio-eq-open-label">{{ 'YOUTUBE.EQ.OPEN' | translate }}</span>
       <span class="radio-eq-open-badge" *ngIf="eqActive" aria-hidden="true"></span>
     </button>
-    <label class="dz-yt-search" [attr.title]="'DEEZER.YT_AUDIO_HINT' | translate">
-      <span class="dz-yt-search-label">{{ 'DEEZER.YT_AUDIO' | translate }}</span>
-      <input
-        type="checkbox"
-        class="dz-yt-search-input"
-        role="switch"
-        [ngModel]="ytAudioOnly"
-        (ngModelChange)="setYtAudioOnly($event)"
-        [attr.aria-label]="'DEEZER.YT_AUDIO' | translate" />
-      <span class="dz-yt-search-track" aria-hidden="true"><span class="dz-yt-search-knob"></span></span>
-    </label>
     <label class="dz-yt-search" [attr.title]="'DEEZER.KEEP_ALIVE_HINT' | translate">
       <span class="dz-yt-search-label">{{ 'DEEZER.KEEP_ALIVE' | translate }}</span>
       <input
@@ -243,6 +232,15 @@
         </div>
         <button
           type="button"
+          class="dz-search-go"
+          (mousedown)="$event.preventDefault()"
+          (click)="submitQuery()"
+          [attr.title]="'DEEZER.SEARCH_GO' | translate"
+          [attr.aria-label]="'DEEZER.SEARCH_GO' | translate">
+          <i class="fa fa-search" aria-hidden="true"></i>
+        </button>
+        <button
+          type="button"
           class="radio-sidebar-collapse-btn dz-sidebar-hide"
           (click)="toggleSidebarCollapsed()"
           aria-expanded="true"
@@ -387,6 +385,7 @@
             [attr.aria-pressed]="nowBrowse === 'album'"
             [attr.title]="current?.albumTitle || ('DEEZER.NOW_ALBUM' | translate)"
             [attr.aria-label]="'DEEZER.NOW_ALBUM' | translate">
+            <ng-container *ngIf="playing && current?.albumId" [ngTemplateOutlet]="dzLive" [ngTemplateOutletContext]="{ compact: true }"></ng-container>
             <i class="fa fa-circle" aria-hidden="true"></i>
             <span>{{ 'DEEZER.NOW_ALBUM' | translate }}</span>
           </button>
@@ -473,23 +472,23 @@
           <button
             type="button"
             class="radio-eq-open-btn"
-            *ngIf="offlineSaved"
+            *ngIf="offlineScopeSaved"
             (click)="toggleOfflineList()"
             [class.is-open]="offlineListOpen"
             [attr.aria-expanded]="offlineListOpen"
             [attr.title]="'DEEZER.OFFLINE_LIST' | translate"
             [attr.aria-label]="'DEEZER.OFFLINE_LIST' | translate">
             <i class="fa fa-mobile" aria-hidden="true"></i>
-            <span class="radio-eq-open-label">{{ offlineSaved }}</span>
+            <span class="radio-eq-open-label">{{ offlineScopeSaved }}</span>
           </button>
           <span class="dz-title-note" *ngIf="offlineNote && !offlineBusy">{{ offlineNote | translate }}</span>
           <div class="dz-offline-panel" *ngIf="offlineListOpen">
             <div class="dz-offline-head">{{ 'DEEZER.OFFLINE_LIST' | translate }}</div>
-            <p class="dz-offline-empty" *ngIf="!offlineItems.length">{{ 'DEEZER.OFFLINE_NONE' | translate }}</p>
+            <p class="dz-offline-empty" *ngIf="!offlineScopeItems.length">{{ 'DEEZER.OFFLINE_NONE' | translate }}</p>
             <button
               type="button"
               class="dz-offline-row"
-              *ngFor="let item of offlineItems; let i = index"
+              *ngFor="let item of offlineScopeItems; let i = index"
               [class.is-on]="current?.id === item.id"
               (click)="playSavedTrack(item, i)">
               <span class="dz-offline-title">{{ item.title }}</span>
@@ -521,6 +520,12 @@
                 *ngIf="tabListPlaying && playAllSource === 'youtube'"
                 class="fa fa-youtube dz-transport-yt"
                 aria-hidden="true"></i>
+              <img
+                *ngIf="tabListPlaying && playAllSource === 'local'"
+                class="dz-transport-mark"
+                src="assets/images/offline-mark.svg"
+                alt=""
+                [attr.title]="'DEEZER.PLAYING_LOCAL' | translate" />
               <img
                 *ngIf="tabListPlaying && playAllSource === 'deezer'"
                 class="dz-transport-mark dz-transport-mark--dz"
@@ -782,9 +787,17 @@
           tabindex="0">
           <span class="dz-idx" *ngIf="!rowIsLive(track.id)">{{ trackRowNumber(i) }}</span>
           <ng-container *ngIf="rowIsLive(track.id)" [ngTemplateOutlet]="dzLive"></ng-container>
-          <img *ngIf="ytLinks[track.id] as yt" class="dz-thumb dz-thumb--yt" [src]="'https://i.ytimg.com/vi/' + yt + '/mqdefault.jpg'" alt="" loading="lazy" />
-          <img *ngIf="!ytLinks[track.id] && track.coverUrl" class="dz-thumb" [src]="track.coverUrl" alt="" loading="lazy" (error)="$any($event.target).style.display='none'" />
-          <span *ngIf="!ytLinks[track.id] && !track.coverUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-music"></i></span>
+          <span class="dz-thumb-wrap">
+            <img *ngIf="ytLinks[track.id] as yt" class="dz-thumb dz-thumb--yt" [src]="'https://i.ytimg.com/vi/' + yt + '/mqdefault.jpg'" alt="" loading="lazy" />
+            <img *ngIf="!ytLinks[track.id] && track.coverUrl" class="dz-thumb" [src]="track.coverUrl" alt="" loading="lazy" (error)="$any($event.target).style.display='none'" />
+            <span *ngIf="!ytLinks[track.id] && !track.coverUrl" class="dz-thumb dz-thumb--empty"><i class="fa fa-music"></i></span>
+            <img
+              *ngIf="isSavedOffline(track.id)"
+              class="dz-yt-local"
+              src="assets/images/offline-mark.svg"
+              alt=""
+              [attr.title]="'DEEZER.OFFLINE_LIST' | translate" />
+          </span>
           <span class="dz-track-body">
             <span class="dz-track-copy">
             <span class="dz-track-line">
@@ -812,7 +825,7 @@
               <button
                 type="button"
                 class="dz-preview-btn"
-            [class.is-on]="current?.id === track.id && !clipOnStage"
+            [class.is-on]="current?.id === track.id && playAllSource === 'deezer'"
             (click)="playDeezerTrack(track, i, $event)"
             [attr.title]="'DEEZER.DZ_PLAY' | translate"
             [attr.aria-label]="'DEEZER.DZ_PLAY' | translate">
@@ -822,6 +835,7 @@
             <button
               type="button"
               class="dz-yt-btn"
+              [class.is-on]="current?.id === track.id && playAllSource === 'youtube'"
               [class.is-miss]="ytMiss[track.id]"
               [class.is-busy]="youtubeButtonBusy(track.id)"
               (click)="onYoutubeIcon(track, i, $event)"
@@ -833,7 +847,6 @@
                 <span class="dz-yt-pos" *ngIf="ytPlace(track.id) as place">{{ place }}</span>
                 <span class="dz-yt-dot" *ngIf="hasYoutubeLink(track.id)" aria-hidden="true"></span>
                 <span class="dz-yt-dot dz-yt-dot--miss" *ngIf="ytMiss[track.id] && !youtubeButtonBusy(track.id)" aria-hidden="true"></span>
-                <span class="dz-yt-local" *ngIf="isSavedOffline(track.id)" [attr.title]="'DEEZER.OFFLINE_LIST' | translate" aria-hidden="true"></span>
               </span>
             </button>
             <span class="dz-yt-pick" *ngIf="ytOffer?.trackId === track.id && !ytNextBusy[track.id]">
@@ -855,6 +868,19 @@
               </button>
             </span>
           </span>
+          <button
+            type="button"
+            class="dz-fav dz-offline-track"
+            *ngIf="offlineInLibrary"
+            [class.is-saved]="isSavedOffline(track.id)"
+            [class.is-on]="current?.id === track.id && playAllSource === 'local'"
+            [disabled]="offlineBusy || isSavedOffline(track.id) || (!!offlineTrackBusy && offlineTrackBusy !== track.id)"
+            (click)="downloadOfflineTrack(track, $event)"
+            [attr.title]="(isSavedOffline(track.id) ? 'DEEZER.OFFLINE_TRACK_DONE' : 'DEEZER.OFFLINE_TRACK') | translate"
+            [attr.aria-label]="(isSavedOffline(track.id) ? 'DEEZER.OFFLINE_TRACK_DONE' : 'DEEZER.OFFLINE_TRACK') | translate">
+            <i class="fa fa-spinner fa-spin" *ngIf="offlineTrackBusy === track.id" aria-hidden="true"></i>
+            <i class="fa fa-download" *ngIf="offlineTrackBusy !== track.id" aria-hidden="true"></i>
+          </button>
           <button
             type="button"
             class="dz-yt-list"
@@ -1115,14 +1141,20 @@
             <div class="radio-on-air">
               <span></span>
               <img
-                *ngIf="clipOnStage"
+                *ngIf="playAllSource === 'local'"
+                class="dz-transport-mark"
+                src="assets/images/offline-mark.svg"
+                alt="" />
+              <img
+                *ngIf="playAllSource === 'youtube'"
                 class="dz-yt-mark"
                 src="assets/images/youtube-logo.svg"
                 alt="" />
               <ng-container *ngIf="youtubeBusy">{{ 'DEEZER.YT_SEARCHING' | translate }}</ng-container>
-              <ng-container *ngIf="!youtubeBusy && clipOnStage">{{ 'DEEZER.YT_BADGE' | translate }}</ng-container>
-              <ng-container *ngIf="!youtubeBusy && !clipOnStage && youtubeMode && ytAudioOnly">{{ 'DEEZER.YT_AUDIO' | translate }}</ng-container>
-              <ng-container *ngIf="!youtubeBusy && !clipOnStage && !(youtubeMode && ytAudioOnly)">{{ 'DEEZER.PREVIEW' | translate }}</ng-container>
+              <ng-container *ngIf="!youtubeBusy && playAllSource === 'local'">{{ 'DEEZER.PLAYING_LOCAL' | translate }}</ng-container>
+              <ng-container *ngIf="!youtubeBusy && playAllSource === 'youtube' && clipOnStage">{{ 'DEEZER.YT_BADGE' | translate }}</ng-container>
+              <ng-container *ngIf="!youtubeBusy && playAllSource === 'youtube' && !clipOnStage">{{ 'DEEZER.YT_AUDIO' | translate }}</ng-container>
+              <ng-container *ngIf="!youtubeBusy && playAllSource === 'deezer'">{{ 'DEEZER.PREVIEW' | translate }}</ng-container>
             </div>
             <div class="radio-face-track" [attr.title]="trackCaption(current)">{{ trackCaption(current) }}</div>
           </div>

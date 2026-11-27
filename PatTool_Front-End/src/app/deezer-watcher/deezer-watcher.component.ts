@@ -43,6 +43,14 @@ import { VideoshowCloseState, VideoshowModalComponent, VideoshowVideoSource } fr
 
 type DzMode = 'chart' | 'search';
 type DzListMode = 'browse' | 'favorites' | 'playlists' | 'concert';
+
+/** Last title heard on this device, so Lecture can start there after the app was closed. */
+interface DeezerListenSpot {
+  listMode: DzListMode;
+  playlistId: string;
+  trackId: number;
+  playing: boolean;
+}
 type DzListSortId = 'tracks' | 'concert' | 'playlists' | 'albums' | 'artistAlbums' | 'artists' | 'deezerPlaylists';
 type DzSkin =
   | 'classic' | 'artdeco' | 'synthwave' | 'spaceage' | 'military' | 'steampunk'
@@ -92,6 +100,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private static readonly SKIN_KEY = 'pattool.deezer.skin';
   private static readonly PRESET_KEY = 'pattool.deezer.presets';
   private static readonly KEEP_KEY = 'pattool.deezer.keep-alive';
+  private static readonly LISTEN_KEY = 'pattool.deezer.listen';
   private static readonly PRESET_COUNT = 12;
 
   @ViewChild('audio') audioRef?: ElementRef<HTMLAudioElement>;
@@ -174,6 +183,12 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private playbackFollowsList = true;
   /** Tab that started the list now heard. Other tabs keep their own Lecture button. */
   private playbackListMode: DzListMode | null = null;
+  /** Playlist to reopen when a kept playback comes back on the Playlists tab. */
+  private restorePlaylistId = '';
+  /** Title to show and play again after the app was closed. */
+  private listenSpot: DeezerListenSpot | null = null;
+  private resumeListen = false;
+  private readonly onPageHide = (): void => this.rememberListenSpot();
   private playPendingList = false;
   sleeveAlbums: DeezerAlbum[] = [];
   related: DeezerArtist[] = [];
@@ -364,6 +379,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   /** YouTube soundtrack without the picture: the backend forwards audio bytes only. */
   ytAudioOnly = false;
   offlineBusy = false;
+  offlineTrackBusy = 0;
   offlineDone = 0;
   offlineTotal = 0;
   offlineFailed = 0;
@@ -386,6 +402,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private readonly ytChoices = new Map<number, string[]>();
   /** Titles whose "2 / 10" badge was dismissed by keep or drop. */
   private readonly ytPlaceOff = new Set<number>();
+  private readonly ytPlaceShown = new Map<number, { key: string; until: number }>();
+  private ytPlaceTimer: ReturnType<typeof setTimeout> | null = null;
   ytFromCache: Record<number, boolean> = {};
   ytMiss: Record<number, boolean> = {};
   ytPending: Record<number, boolean> = {};
@@ -439,6 +457,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private sleeveTimer: ReturnType<typeof setTimeout> | null = null;
   private listSlideFrame = 0;
   private listSlideStop: (() => void) | null = null;
+  private centerTries = 0;
   private sleeveSub: Subscription | null = null;
   private previewFresh = false;
   /** Bumps when a clip takes the sound, so a late preview response cannot start under the video. */
@@ -596,6 +615,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.loadFavorites();
     this.loadUserPlaylists();
     this.loadConcert();
+    this.listenSpot = this.readListenSpot();
     this.search$.pipe(
       debounceTime(320),
       distinctUntilChanged(),
@@ -611,6 +631,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (incomingQuery.length >= 2) {
       this.query = incomingQuery;
       this.loadSearch(incomingQuery);
+    } else if (this.listenSpot) {
+      this.armListenRestore();
     } else {
       this.loadChart();
     }
@@ -619,6 +641,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     window.addEventListener('patradioscreen', this.onScreenPower);
     window.addEventListener('patradiotransport', this.onBluetoothTune);
     document.addEventListener('visibilitychange', this.onScreenPower);
+    window.addEventListener('pagehide', this.onPageHide);
     this.zone.runOutsideAngular(() => {
       window.addEventListener('message', this.onYoutubeWindowMessage);
     });
@@ -629,6 +652,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   ngOnDestroy(): void {
+    if (this.ytPlaceTimer) {
+      clearTimeout(this.ytPlaceTimer);
+      this.ytPlaceTimer = null;
+    }
     window.removeEventListener('patradiolook', this.onSharedSkin);
     if (this.recentBlurTimer) {
       clearTimeout(this.recentBlurTimer);
@@ -640,6 +667,8 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     window.removeEventListener('patradioscreen', this.onScreenPower);
     window.removeEventListener('patradiotransport', this.onBluetoothTune);
     document.removeEventListener('visibilitychange', this.onScreenPower);
+    window.removeEventListener('pagehide', this.onPageHide);
+    this.rememberListenSpot();
     window.removeEventListener('message', this.onYoutubeWindowMessage);
     this.clearSleepKick();
     this.stopListSlide();
@@ -700,7 +729,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         index: Math.max(0, this.currentIndex()),
         repeat: this.repeatQueue,
         youtubeIds: { ...this.ytLinks },
-        volume: this.volume
+        volume: this.volume,
+        listMode: this.playbackListMode || this.listMode,
+        playlistId: this.playingPlaylistId()
       });
       if (keepAudio && copyMedia && audio) {
         audio.pause();
@@ -1134,10 +1165,20 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         this.applyRecentSearch(list[this.recentActiveIndex]);
         return;
       }
-      this.rememberRecentSearch(this.query);
-      this.recentOpen = false;
-      this.recentActiveIndex = -1;
+      this.submitQuery();
     }
+  }
+
+  submitQuery(): void {
+    const value = this.query.trim();
+    this.recentOpen = false;
+    this.recentActiveIndex = -1;
+    this.rememberRecentSearch(value);
+    if (this.listMode === 'favorites' || this.listMode === 'playlists' || this.listMode === 'concert') {
+      this.cdr.markForCheck();
+      return;
+    }
+    this.runQuery(value);
   }
 
   clearQuery(): void {
@@ -1159,7 +1200,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
   }
 
-  /** After the menu or a tab comes back, the cover on stage sits in the middle when the list can fill around it. */
+  /** After the menu or a tab comes back, the title on stage sits in the middle of the list. */
   private revealPlayingRow(): void {
     if (!this.current?.id) {
       return;
@@ -1168,12 +1209,13 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   private scheduleCenterPlayingThumb(): void {
+    this.centerTries = 0;
     setTimeout(() => this.centerPlayingThumb());
   }
 
   /**
-   * Scrolls the open list so the cover on stage is in the middle.
-   * Near the start or the end, the rows stay packed against that edge instead of leaving a gap.
+   * Scrolls the open list so the playing row sits in the middle when enough rows sit above it.
+   * Titles and albums: the first row, or a row without enough rows above it, stays packed at the top.
    */
   private centerPlayingThumb(): void {
     if (this.destroy$.closed) {
@@ -1184,14 +1226,27 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     const row = host.querySelector('.dz-list .dz-row.is-on') as HTMLElement | null;
     const list = row?.closest('.dz-list') as HTMLElement | null;
     if (!row || !list || list.clientHeight < 40) {
+      if (this.current?.id && this.centerTries < 8) {
+        this.centerTries++;
+        setTimeout(() => this.centerPlayingThumb(), 60);
+      }
       return;
     }
-    const thumb = (row.querySelector('.dz-thumb') as HTMLElement | null) || row;
     const pager = list.querySelector('.dz-pager-row') as HTMLElement | null;
-    const visible = Math.max(thumb.offsetHeight, list.clientHeight - (pager?.offsetHeight || 0));
+    const visible = Math.max(row.offsetHeight, list.clientHeight - (pager?.offsetHeight || 0));
+    const listTop = list.getBoundingClientRect().top - list.scrollTop;
+    const above = row.getBoundingClientRect().top - listTop;
+    const needed = Math.max(0, (visible - row.offsetHeight) / 2);
+    const firstRow = list.querySelector('.dz-row') as HTMLElement | null;
+    if (row === firstRow || above < needed - 1) {
+      if (list.scrollTop > 1) {
+        this.slideListTo(list, 0);
+      }
+      return;
+    }
     const target = list.getBoundingClientRect().top + visible / 2;
-    const thumbMid = thumb.getBoundingClientRect().top + thumb.offsetHeight / 2;
-    const desired = list.scrollTop + thumbMid - target;
+    const rowMid = row.getBoundingClientRect().top + row.offsetHeight / 2;
+    const desired = list.scrollTop + rowMid - target;
     const maxScroll = Math.max(0, list.scrollHeight - list.clientHeight);
     const next = Math.min(maxScroll, Math.max(0, desired));
     this.slideListTo(list, next);
@@ -1265,9 +1320,21 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.ytAudioOnly = !!enabled;
     this.writeStoredFlag(DeezerWatcherComponent.YT_AUDIO_KEY, this.ytAudioOnly);
     this.rememberSwitch();
-    if (!this.youtubeMode || !this.current) {
+    if (!this.current || (!this.playing && !this.userHold && !this.clipOnStage)) {
       return;
     }
+    if (enabled && this.shouldPlayOffline(this.current)) {
+      this.clipArmed = false;
+      this.youtubeEmbed = null;
+      this.releaseKeptMedia();
+      this.playingOffline = true;
+      void this.playOfflineTrack(this.current);
+      return;
+    }
+    if (!this.youtubeMode) {
+      return;
+    }
+    this.playingOffline = false;
     this.clipArmed = false;
     this.youtubeEmbed = null;
     this.releaseKeptMedia();
@@ -1282,6 +1349,14 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.ytScan?.unsubscribe();
     this.ytScanKey = '';
     this.syncYoutubeButtons();
+    if (!enabled || !this.current || this.clipOnStage || (!this.playing && !this.userHold)) {
+      return;
+    }
+    this.youtubeMode = true;
+    if (!this.ytCache.get(this.current.id)) {
+      this.ytCache.delete(this.current.id);
+    }
+    this.resolveYoutube(this.current);
   }
 
   setPreviewOnly(enabled: boolean): void {
@@ -1292,6 +1367,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   setListMode(mode: DzListMode): void {
+    this.resumeListen = false;
+    if (mode === 'favorites' || mode === 'playlists') {
+      void this.refreshOfflineSaved();
+    }
     if (this.listMode === mode) {
       return;
     }
@@ -1363,11 +1442,20 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.playPendingList = true;
       return;
     }
-    this.startListedQueue(this.listedTracks());
+    const tracks = this.listedTracks();
+    if (this.resumeListen && this.listenSpot && !this.playing) {
+      const at = tracks.findIndex((track) => track.id === this.listenSpot!.trackId);
+      if (at >= 0) {
+        this.startListedQueue(tracks, at);
+        return;
+      }
+    }
+    this.startListedQueue(tracks);
   }
 
-  private startListedQueue(tracks: DeezerTrack[]): void {
-    const first = tracks[0];
+  private startListedQueue(tracks: DeezerTrack[], index = 0): void {
+    const at = tracks.length ? Math.max(0, Math.min(index, tracks.length - 1)) : -1;
+    const first = at >= 0 ? tracks[at] : undefined;
     if (!first) {
       return;
     }
@@ -1383,7 +1471,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.repeatQueue = this.listLoop;
     this.queue = tracks;
     this.current = null;
-    this.playTrack(first, 0);
+    this.playTrack(first, at);
   }
 
   /** Titles of the playlists currently listed, in playlist order. */
@@ -1399,12 +1487,23 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     return out;
   }
 
-  /** Source of the title on screen: YouTube when a video is up, otherwise the Deezer preview. */
-  get playAllSource(): 'youtube' | 'deezer' | null {
+  /** Where the title on screen is actually heard from. */
+  get playAllSource(): 'local' | 'youtube' | 'deezer' | null {
     if (!this.current) {
       return null;
     }
-    return this.clipOnStage || this.youtubeBusy ? 'youtube' : 'deezer';
+    if (this.playingOffline) {
+      return 'local';
+    }
+    if (this.clipOnStage || this.youtubeBusy || (this.ytAudioOnly && this.youtubeMode)) {
+      return 'youtube';
+    }
+    return 'deezer';
+  }
+
+  /** The sound on screen is the file kept on this device. */
+  get playingLocal(): boolean {
+    return this.playingOffline;
   }
 
   /** The clip is what the listener hears. A parked player can stay up under a Deezer preview. */
@@ -1757,9 +1856,25 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       return this.concertAsTracks();
     }
     if (this.listMode === 'playlists' && !this.activeUserPlaylist && !this.drilled) {
+      if (this.localLibraryPlayback()) {
+        return [];
+      }
       return this.playlistTabTracks();
     }
-    return this.shownTracks;
+    const tracks = this.shownTracks;
+    if (this.deviceOffline() && this.offlineInLibrary) {
+      return tracks.filter((track) => this.isSavedOffline(track.id));
+    }
+    return tracks;
+  }
+
+  /** Headphones or no network: playback stays inside the open favorites or playlist. */
+  private localLibraryPlayback(): boolean {
+    return this.ytAudioOnly || this.deviceOffline();
+  }
+
+  private deviceOffline(): boolean {
+    return typeof navigator !== 'undefined' && navigator.onLine === false;
   }
 
   private sameTrackList(queue: DeezerTrack[], listed: DeezerTrack[]): boolean {
@@ -1778,13 +1893,189 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.playbackListMode = this.listMode;
   }
 
+  /** Playlist that owns the queue, including after stepping back to the playlist index. */
+  private playingPlaylistId(): string {
+    if ((this.playbackListMode || this.listMode) !== 'playlists') {
+      return '';
+    }
+    if (this.activeUserPlaylist?.id) {
+      return this.activeUserPlaylist.id;
+    }
+    const ids = this.queue.map((track) => track.id).join(',');
+    if (!ids) {
+      return '';
+    }
+    const match = this.userPlaylists.find((playlist) =>
+      (playlist.tracks || []).map((track) => track.id).join(',') === ids);
+    return match?.id || '';
+  }
+
+  /** Open the tab of the last title heard on this device. A title that was playing starts again. */
+  private armListenRestore(): void {
+    const spot = this.listenSpot;
+    if (!spot) {
+      this.loadChart();
+      return;
+    }
+    this.playbackListMode = spot.listMode;
+    this.restorePlaylistId = spot.listMode === 'playlists' ? (spot.playlistId || '') : '';
+    if (spot.listMode !== 'browse') {
+      this.setListMode(spot.listMode);
+      if (spot.listMode === 'favorites') {
+        this.view = 'track';
+      }
+    } else {
+      this.loadChart();
+    }
+    this.resumeListen = true;
+    this.playbackFollowsList = true;
+    if (this.restorePlaylistId && this.playlistsReady) {
+      this.openRestoredPlaylist();
+    }
+    this.tryPlaceListenSpot();
+  }
+
+  /** Show the saved title. Start it when it was playing at the moment the app closed. */
+  private tryPlaceListenSpot(): void {
+    const spot = this.listenSpot;
+    if (!spot || !this.resumeListen || this.playing || this.resumedKeep) {
+      return;
+    }
+    if (this.listMode !== spot.listMode) {
+      return;
+    }
+    if (spot.listMode === 'favorites' && !this.favoritesReady) {
+      return;
+    }
+    if (spot.listMode === 'playlists' && (!this.playlistsReady || !this.activeUserPlaylist)) {
+      return;
+    }
+    if (spot.listMode === 'concert' && !this.concertReady) {
+      return;
+    }
+    if (spot.listMode === 'browse' && this.loading) {
+      return;
+    }
+    const tracks = this.listedTracks();
+    const at = tracks.findIndex((track) => track.id === spot.trackId);
+    if (at < 0) {
+      if (tracks.length || spot.listMode === 'browse') {
+        this.resumeListen = false;
+      }
+      return;
+    }
+    this.queue = tracks;
+    this.queueIndexHint = at;
+    this.playbackListMode = spot.listMode;
+    this.playbackFollowsList = true;
+    if (spot.playing) {
+      this.startListedQueue(tracks, at);
+      return;
+    }
+    this.current = tracks[at];
+    this.revealPlayingRow();
+    this.cdr.markForCheck();
+  }
+
+  /** The restored title is really playing, so the next Lecture can follow the list again. */
+  private commitRestoredPlayback(): void {
+    if (!this.resumeListen) {
+      return;
+    }
+    this.resumeListen = false;
+    this.rememberListenSpot(true);
+  }
+
+  private rememberListenSpot(playing = this.playing): void {
+    const track = this.current;
+    if (!track?.id || this.resumeListen) {
+      return;
+    }
+    const spot: DeezerListenSpot = {
+      listMode: this.playbackListMode || this.listMode,
+      playlistId: this.playingPlaylistId(),
+      trackId: track.id,
+      playing: !!playing
+    };
+    this.listenSpot = spot;
+    try {
+      localStorage.setItem(this.listenStorageKey(), JSON.stringify(spot));
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }
+
+  private readListenSpot(): DeezerListenSpot | null {
+    try {
+      const raw = localStorage.getItem(this.listenStorageKey());
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw) as { listMode?: string; playlistId?: string; trackId?: number; playing?: boolean };
+      const mode = parsed.listMode;
+      if (mode !== 'browse' && mode !== 'favorites' && mode !== 'playlists' && mode !== 'concert') {
+        return null;
+      }
+      const trackId = Number(parsed.trackId);
+      if (!Number.isFinite(trackId) || trackId <= 0) {
+        return null;
+      }
+      return {
+        listMode: mode,
+        playlistId: (parsed.playlistId || '').trim(),
+        trackId,
+        playing: parsed.playing === true
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private listenStorageKey(): string {
+    const user = (this.keycloak.getPreferredUsername() || '').trim();
+    return user ? `${DeezerWatcherComponent.LISTEN_KEY}.${user}` : DeezerWatcherComponent.LISTEN_KEY;
+  }
+
+  /** The tab that was playing when Deezer was left. */
+  private restorePlaybackTab(mode: DzListMode | undefined, playlistId: string | undefined): void {
+    const tab: DzListMode = mode === 'favorites' || mode === 'playlists' || mode === 'concert' || mode === 'browse'
+      ? mode
+      : 'browse';
+    this.playbackListMode = tab;
+    this.playbackFollowsList = true;
+    this.restorePlaylistId = tab === 'playlists' ? (playlistId || '') : '';
+    if (tab !== this.listMode) {
+      this.setListMode(tab);
+    }
+    if (this.restorePlaylistId && this.playlistsReady) {
+      this.openRestoredPlaylist();
+    }
+  }
+
+  private openRestoredPlaylist(): void {
+    const id = this.restorePlaylistId;
+    if (!id || this.listMode !== 'playlists') {
+      return;
+    }
+    const playlist = this.userPlaylists.find((item) => item.id === id);
+    if (!playlist) {
+      return;
+    }
+    this.restorePlaylistId = '';
+    this.openSavedPlaylist(playlist);
+  }
+
   onYoutubeIcon(track: DeezerTrack, index: number, event?: Event): void {
     event?.stopPropagation();
     if (this.ytPending[track.id] || this.ytNextBusy[track.id] || this.ytMiss[track.id]) {
       return;
     }
     if (this.ytLinks[track.id]) {
-      const onThisVideo = this.playing && this.current?.id === track.id && this.clipOnStage;
+      const playingThis = this.playing && this.current?.id === track.id;
+      const onThisVideo = playingThis && (this.clipOnStage || (this.ytAudioOnly && !this.deviceOffline()));
+      if (playingThis && this.ytAudioOnly && this.deviceOffline()) {
+        return;
+      }
       if (onThisVideo) {
         this.ytPlaceOff.delete(track.id);
         const savedId = (this.ytLinks[track.id] || '').trim();
@@ -2481,7 +2772,45 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       return '';
     }
     const walking = !!offered || !!this.ytNextBusy[trackId] || onThisClip;
-    return walking ? `${at + 1} / ${ids.length}` : '';
+    if (!walking) {
+      this.ytPlaceShown.delete(trackId);
+      return '';
+    }
+    return this.flashYtPlace(trackId, `${at + 1} / ${ids.length}`);
+  }
+
+  /** The "2 / 7" badge stays up for two seconds, then disappears until the clip changes. */
+  private flashYtPlace(trackId: number, label: string): string {
+    const now = Date.now();
+    let shown = this.ytPlaceShown.get(trackId);
+    if (!shown || shown.key !== label) {
+      shown = { key: label, until: now + 2000 };
+      this.ytPlaceShown.set(trackId, shown);
+      this.armYtPlaceHide();
+    }
+    return now < shown.until ? label : '';
+  }
+
+  private armYtPlaceHide(): void {
+    if (this.ytPlaceTimer) {
+      clearTimeout(this.ytPlaceTimer);
+      this.ytPlaceTimer = null;
+    }
+    const now = Date.now();
+    let wait = 0;
+    for (const shown of this.ytPlaceShown.values()) {
+      const left = shown.until - now;
+      if (left > 0 && (wait === 0 || left < wait)) {
+        wait = left;
+      }
+    }
+    if (wait <= 0) {
+      return;
+    }
+    this.ytPlaceTimer = setTimeout(() => {
+      this.ytPlaceTimer = null;
+      this.cdr.markForCheck();
+    }, wait + 40);
   }
 
   ytIconLabel(track: DeezerTrack): string {
@@ -2505,10 +2834,16 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (!this.ytLinks[track.id]) {
       return;
     }
+    const tracks = this.hearingQueue();
+    const at = tracks.findIndex((item) => item.id === track.id);
+    if (at < 0) {
+      return;
+    }
     this.claimPlaybackTab();
     this.youtubeMode = true;
     this.repeatQueue = this.listLoop;
-    this.queue = this.shownTracks;
+    this.queue = tracks;
+    index = at;
     if (this.current?.id === track.id && this.clipOnStage) {
       return;
     }
@@ -2633,12 +2968,14 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       return;
     }
     this.activeUserPlaylist = playlist;
+    void this.refreshOfflineSaved();
     this.playlistMenuTrack = null;
     this.confirmDeletePlaylistId = '';
     this.refreshQueue();
     this.ytScanKey = '';
     this.syncYoutubeButtons();
     this.revealPlayingRow();
+    this.tryPlaceListenSpot();
   }
 
   playSavedPlaylist(playlist: DeezerUserPlaylist, event?: Event): void {
@@ -3298,6 +3635,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (cached) {
       this.loading = false;
       this.nowBrowseAlbums = cached;
+      this.revealPlayingRow();
       return;
     }
     this.loading = true;
@@ -3308,6 +3646,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         }
         this.loading = false;
         this.nowBrowseAlbums = albums || [];
+        this.revealPlayingRow();
       },
       error: () => {
         if (seq !== this.loadSeq) {
@@ -3327,7 +3666,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   private loadAlbumTracks(albumId: number, title: string, artist: string, artistId: number, from: 'artist-albums' | null): void {
     const seq = ++this.loadSeq;
-    this.loading = true;
     this.errorKey = '';
     this.nowBrowse = 'album';
     this.nowBrowseFrom = from;
@@ -3339,6 +3677,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.applyAlbumBrowse(cached, title, artist);
       return;
     }
+    // Show the playing title immediately while the full album arrives.
+    const seed = this.current?.albumId === albumId ? this.current : null;
+    this.nowBrowseTracks = seed ? [seed] : [];
+    this.loading = !seed;
     this.albumPage(albumId, artistId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (page) => {
         if (seq !== this.loadSeq) {
@@ -3352,7 +3694,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
           return;
         }
         this.loading = false;
-        this.nowBrowseTracks = [];
+        this.nowBrowseTracks = seed ? [seed] : [];
         this.errorKey = 'DEEZER.ERR_LOAD';
       }
     });
@@ -3364,6 +3706,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.nowBrowseTracks = page?.tracks || [];
     this.ytScanKey = '';
     this.syncYoutubeButtons();
+    this.revealPlayingRow();
   }
 
   /** One album request shared by the info dialog, the track list, and the warm-up. */
@@ -3478,7 +3821,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
           error: () => { /* the dialog loads it again */ }
         });
       }
-    }, 450);
+    }, 80);
   }
 
   private clearNowBrowse(): void {
@@ -3658,6 +4001,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
     if (this.activeUserPlaylist) {
       this.activeUserPlaylist = null;
+      void this.refreshOfflineSaved();
       this.renamingPlaylistId = '';
       this.playlistMenuTrack = null;
       this.refreshQueue();
@@ -3686,10 +4030,15 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   playListedTrack(track: DeezerTrack, index: number): void {
+    const tracks = this.hearingQueue();
+    if (this.deviceOffline() && this.offlineInLibrary && !tracks.some((item) => item.id === track.id)) {
+      return;
+    }
     this.claimPlaybackTab();
     this.repeatQueue = this.listLoop;
     this.playbackFollowsList = true;
-    this.queue = this.shownTracks;
+    this.queue = tracks;
+    index = Math.max(0, tracks.findIndex((item) => item.id === track.id));
     const hasYoutube = !!(this.ytLinks[track.id] || '').trim();
     // The switch means "search when this title plays", including a row that has no pill yet.
     this.youtubeMode = this.youtubeSearchEnabled || hasYoutube;
@@ -3719,7 +4068,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.ytListRun = null;
     }
     const same = this.current?.id === track.id;
-    if (!restart && same) {
+    if (!restart && same && (this.playing || this.userHold || this.clipOnStage)) {
       this.togglePlay();
       return;
     }
@@ -3735,6 +4084,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.scheduleCenterPlayingThumb();
     this.warmNowPlaying(track);
     this.queueIndexHint = index;
+    this.rememberListenSpot(true);
     this.trackImageIndex = 0;
     this.syncTrackSlide();
     this.previewFresh = false;
@@ -3748,6 +4098,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.scheduleSleeve(track.artistId || 0);
     this.playingOffline = false;
     if (this.shouldPlayOffline(track)) {
+      this.playingOffline = true;
       void this.playOfflineTrack(track);
       this.syncLandscapeFullscreen();
       return;
@@ -3817,6 +4168,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         this.pushYoutubeSound();
       }
       this.playing = !this.playing;
+      this.rememberListenSpot();
       return;
     }
     const audio = this.pageAudio();
@@ -3840,12 +4192,16 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       audio.play().catch(() => {
         this.playErrorKey = 'DEEZER.ERR_PLAY';
         this.playing = false;
+        this.rememberListenSpot(false);
         this.releaseScreenHold();
       });
+      this.rememberListenSpot(true);
     } else {
       this.userHold = true;
       audio.dataset['patUserPaused'] = '1';
       audio.pause();
+      this.playing = false;
+      this.rememberListenSpot(false);
       this.releaseScreenHold();
     }
   }
@@ -3879,6 +4235,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     if (!audio) {
       this.currentTime = 0;
       this.playing = false;
+      this.rememberListenSpot(false);
       this.releaseScreenHold();
       return;
     }
@@ -3887,6 +4244,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     audio.currentTime = 0;
     this.currentTime = 0;
     this.playing = false;
+    this.rememberListenSpot(false);
     this.releaseScreenHold();
   }
 
@@ -4186,6 +4544,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       return;
     }
     this.playing = true;
+    this.commitRestoredPlayback();
     this.buffering = false;
     this.playErrorKey = '';
     if (!this.userHold) {
@@ -4602,7 +4961,11 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         if (this.playPendingList && this.listMode === 'browse') {
           this.playListedFromStart();
         } else if (!this.drilled && this.view === 'track' && this.listMode === 'browse' && !this.resumedKeep) {
-          this.queue = this.shownTracks;
+          if (this.resumeListen) {
+            this.tryPlaceListenSpot();
+          } else {
+            this.queue = this.shownTracks;
+          }
         }
       },
       error: () => {
@@ -5164,6 +5527,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.silencePreviewUnderVideo();
       this.ytSoundArmed = true;
       this.playing = true;
+      this.commitRestoredPlayback();
       this.youtubeBusy = false;
       this.youtubeEnded = false;
       if (this.youtubeFrameMatchesCurrent()) {
@@ -6345,8 +6709,6 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.queueIndexHint = kept.index;
     this.repeatQueue = kept.repeat;
     this.listLoop = kept.repeat;
-    this.claimPlaybackTab();
-    this.playbackFollowsList = true;
     this.ytLinks = { ...this.ytLinks, ...kept.youtubeIds };
     const restored: Record<number, boolean> = { ...this.ytFromCache };
     for (const id of Object.keys(kept.youtubeIds || {})) {
@@ -6360,6 +6722,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.current = track;
     this.warmNowPlaying(track);
     this.playing = kept.playing;
+    this.restorePlaybackTab(kept.listMode, kept.playlistId);
     this.youtubeMode = !!kept.frame;
     if (kept.frame) {
       this.mountKeptFrame(kept.frame, track, kept.currentTime);
@@ -6367,11 +6730,13 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         kept.audio.pause();
         kept.audio.remove();
       }
+      this.revealPlayingRow();
       return;
     }
     if (kept.audio) {
       this.mountKeptAudio(kept.audio, kept.currentTime, kept.playing);
     }
+    this.revealPlayingRow();
     this.cdr.markForCheck();
   }
 
@@ -6775,18 +7140,28 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   private shouldPlayOffline(track: DeezerTrack): boolean {
-    const saved = this.offlineSavedIds.get(track.id);
+    const saved = this.offlineSavedIds.get(Number(track.id)) || this.offlineSavedIds.get(track.id);
     if (!saved) {
       return false;
     }
-    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
-    return this.forceOffline || this.ytAudioOnly || offline;
+    if (this.forceOffline || this.deviceOffline()) {
+      return true;
+    }
+    if (!this.ytAudioOnly) {
+      return false;
+    }
+    const offered = this.ytOffer?.trackId === track.id ? (this.ytOffer.videoId || '').trim() : '';
+    return !offered || offered === saved;
   }
 
   /** Sound kept on this device. No picture, and no server, once the file is here. */
   private async playOfflineTrack(track: DeezerTrack): Promise<void> {
     const row = await this.offlineStore.load(track.id);
     if (!row || this.current?.id !== track.id) {
+      if (!row && this.current?.id === track.id) {
+        this.playingOffline = false;
+        this.cdr.markForCheck();
+      }
       return;
     }
     const blob = new Blob([row.data], { type: this.offlineAudioType(row.data) || 'audio/aac' });
@@ -6854,6 +7229,26 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
   }
 
+  /** Saved titles of the list on screen, in that list's order. */
+  get offlineScopeItems(): DeezerOfflineMeta[] {
+    const byId = new Map(this.offlineItems.map((item) => [Number(item.id), item]));
+    return this.offlineLibrary()
+      .map((track) => byId.get(Number(track.id)))
+      .filter((item): item is DeezerOfflineMeta => !!item);
+  }
+
+  get offlineScopeSaved(): number {
+    return this.offlineScopeItems.length;
+  }
+
+  private hearingQueue(): DeezerTrack[] {
+    const tracks = this.shownTracks;
+    if (this.deviceOffline() && this.offlineInLibrary) {
+      return tracks.filter((track) => this.isSavedOffline(track.id));
+    }
+    return tracks;
+  }
+
   playSavedTrack(item: DeezerOfflineMeta, index: number): void {
     const track: DeezerTrack = {
       id: item.id,
@@ -6862,13 +7257,9 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       albumTitle: item.album,
       durationSec: item.durationSec
     };
-    this.queue = this.offlineItems.map((row) => ({
-      id: row.id,
-      title: row.title,
-      artistName: row.artist,
-      albumTitle: row.album,
-      durationSec: row.durationSec
-    }));
+    const tracks = this.offlineLibrary().filter((row) => this.isSavedOffline(row.id));
+    this.queue = tracks.length ? tracks : [track];
+    index = Math.max(0, this.queue.findIndex((row) => row.id === item.id));
     this.playbackFollowsList = true;
     this.repeatQueue = this.listLoop;
     this.forceOffline = true;
@@ -6903,36 +7294,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       if (token !== this.offlineToken) {
         return;
       }
-      const videoId = await this.offlineVideoId(track);
-      const already = videoId && this.offlineSavedIds.get(track.id) === videoId;
-      if (!already && videoId) {
-        try {
-          const response = await fetch(this.api.youtubeAudioUrl(videoId));
-          if (!response.ok) {
-            throw new Error(String(response.status));
-          }
-          const data = await response.arrayBuffer();
-          if (data.byteLength < 2048 || !this.offlineAudioType(data)) {
-            throw new Error('audio');
-          }
-          await this.offlineStore.save({
-            id: track.id,
-            videoId,
-            title: track.title || '',
-            artist: track.artistName || '',
-            album: track.albumTitle || '',
-            durationSec: track.durationSec || 0,
-            bytes: data.byteLength,
-            savedAt: Date.now(),
-            data
-          });
-          this.offlineSavedIds.set(Number(track.id), videoId);
-          this.offlineSaved = this.offlineSavedIds.size;
-          void this.refreshOfflineSaved();
-        } catch {
-          this.offlineFailed++;
-        }
-      } else if (!videoId) {
+      if (!await this.saveOfflineTrack(track)) {
         this.offlineFailed++;
       }
       this.offlineDone++;
@@ -6947,6 +7309,62 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         this.offlineNote = 'DEEZER.OFFLINE_OK';
       }
       this.cdr.markForCheck();
+    }
+  }
+
+  async downloadOfflineTrack(track: DeezerTrack, event?: Event): Promise<void> {
+    event?.stopPropagation();
+    event?.preventDefault();
+    if (!track?.id || this.offlineBusy || this.offlineTrackBusy || this.isSavedOffline(track.id)) {
+      return;
+    }
+    this.offlineTrackBusy = track.id;
+    this.offlineNote = '';
+    this.cdr.markForCheck();
+    const ok = await this.saveOfflineTrack(track);
+    if (this.offlineTrackBusy === track.id) {
+      this.offlineTrackBusy = 0;
+    }
+    await this.refreshOfflineSaved();
+    if (!ok && !this.isSavedOffline(track.id)) {
+      this.offlineNote = 'DEEZER.OFFLINE_TRACK_FAIL';
+    }
+    this.cdr.markForCheck();
+  }
+
+  private async saveOfflineTrack(track: DeezerTrack): Promise<boolean> {
+    const videoId = await this.offlineVideoId(track);
+    if (!videoId) {
+      return false;
+    }
+    if (this.offlineSavedIds.get(Number(track.id)) === videoId) {
+      return true;
+    }
+    try {
+      const response = await fetch(this.api.youtubeAudioUrl(videoId));
+      if (!response.ok) {
+        return false;
+      }
+      const data = await response.arrayBuffer();
+      if (data.byteLength < 2048 || !this.offlineAudioType(data)) {
+        return false;
+      }
+      await this.offlineStore.save({
+        id: track.id,
+        videoId,
+        title: track.title || '',
+        artist: track.artistName || '',
+        album: track.albumTitle || '',
+        durationSec: track.durationSec || 0,
+        bytes: data.byteLength,
+        savedAt: Date.now(),
+        data
+      });
+      this.offlineSavedIds.set(Number(track.id), videoId);
+      this.offlineSaved = this.offlineSavedIds.size;
+      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -7834,10 +8252,21 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   private applyUserPlaylists(items: DeezerUserPlaylist[], openId?: string): void {
     this.userPlaylists = this.cleanUserPlaylists(items);
     this.playlistTrackIds = this.collectPlaylistTrackIds(this.userPlaylists);
-    const targetId = openId || this.activeUserPlaylist?.id || '';
+    const targetId = openId
+      || (this.listMode === 'playlists' ? this.restorePlaylistId : '')
+      || this.activeUserPlaylist?.id
+      || '';
     this.activeUserPlaylist = targetId
       ? (this.userPlaylists.find((playlist) => playlist.id === targetId) || null)
       : null;
+    if (this.restorePlaylistId && this.listMode === 'playlists' && !openId) {
+      if (this.activeUserPlaylist?.id === this.restorePlaylistId) {
+        this.restorePlaylistId = '';
+        this.revealPlayingRow();
+      } else if (this.playlistsReady) {
+        this.restorePlaylistId = '';
+      }
+    }
     if (this.keycloak.isLoggedIn()) {
       this.playlistsHint = '';
     }
@@ -7850,6 +8279,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.syncYoutubeButtons();
     }
     this.scheduleMembershipVideos();
+    this.tryPlaceListenSpot();
   }
 
   private collectPlaylistTrackIds(playlists: DeezerUserPlaylist[]): Set<number> {
@@ -8028,6 +8458,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       this.queue = this.concertAsTracks();
     }
     this.refreshQueue();
+    this.tryPlaceListenSpot();
   }
 
   private cleanConcert(items: DeezerConcertTrack[]): DeezerConcertTrack[] {
@@ -8162,6 +8593,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.refreshQueue();
     this.ytScanKey = '';
     this.syncYoutubeButtons();
+    if (this.current && !this.resumeListen) {
+      this.revealPlayingRow();
+    }
+    this.tryPlaceListenSpot();
   }
 
   private cleanFavorites(items: DzFav[]): DzFav[] {

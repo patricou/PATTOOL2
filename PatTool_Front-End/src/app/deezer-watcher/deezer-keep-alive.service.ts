@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 
 import { DeezerTrack } from '../services/api.service';
 
+export type DeezerKeptListMode = 'browse' | 'favorites' | 'playlists' | 'concert';
+
 /** Playback parked while Deezer is left, ready to be put back on the page. */
 export interface DeezerKeptPlayback {
   audio: HTMLAudioElement | null;
@@ -13,6 +15,8 @@ export interface DeezerKeptPlayback {
   volume: number;
   currentTime: number;
   playing: boolean;
+  listMode: DeezerKeptListMode;
+  playlistId: string;
 }
 
 /**
@@ -29,6 +33,8 @@ export class DeezerKeepAliveService {
   private repeat = false;
   private youtubeIds: Record<number, string> = {};
   private volume = 0.9;
+  private listMode: DeezerKeptListMode = 'browse';
+  private playlistId = '';
   private ignoreEndUntil = 0;
   private listening = false;
 
@@ -52,6 +58,8 @@ export class DeezerKeepAliveService {
     repeat: boolean;
     youtubeIds: Record<number, string>;
     volume: number;
+    listMode: DeezerKeptListMode;
+    playlistId: string;
   }): void {
     const previousAudio = this.audio;
     const previousFrame = this.frame;
@@ -70,6 +78,8 @@ export class DeezerKeepAliveService {
     this.repeat = opts.repeat;
     this.youtubeIds = opts.youtubeIds || {};
     this.volume = opts.volume;
+    this.listMode = opts.listMode || 'browse';
+    this.playlistId = opts.playlistId || '';
     this.playedSeconds = opts.mediaTime > 0 ? opts.mediaTime : 0;
     this.clipId = (opts.videoId || '').trim();
     const videoId = this.clipId;
@@ -131,6 +141,8 @@ export class DeezerKeepAliveService {
       repeat: this.repeat,
       youtubeIds: this.youtubeIds,
       volume: this.volume,
+      listMode: this.listMode,
+      playlistId: this.playlistId,
       currentTime: frame
         ? this.playedSeconds
         : audio && Number.isFinite(audio.currentTime)
