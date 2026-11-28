@@ -382,16 +382,29 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   offlineTrackBusy = 0;
   offlineDone = 0;
   offlineTotal = 0;
+  /** 1-based number of the title currently being saved, as shown in the list. */
+  offlineIndex = 0;
+  offlineTrackId = 0;
+  /** 0–100 while bytes arrive. -1 until the file size is known. */
+  offlinePercent = -1;
+  offlineReceived = 0;
+  offlineCurrentLabel = '';
   offlineFailed = 0;
   offlineSaved = 0;
   offlineNote = '';
   offlineListOpen = false;
+  /** Title waiting for a second tap before it leaves this device. */
+  offlineRemoveId = 0;
+  /** The whole saved list is waiting for a second tap. */
+  offlineRemoveAll = false;
   offlineItems: DeezerOfflineMeta[] = [];
   private forceOffline = false;
   private readonly offlineStore = new DeezerOfflineAudioStore();
   /** Deezer track id → YouTube id already stored on this device. */
   private offlineSavedIds = new Map<number, string>();
   private offlineToken = 0;
+  private offlineAbort: AbortController | null = null;
+  private offlineProgressAt = 0;
   private offlineObjectUrl = '';
   private playingOffline = false;
   youtubeBusy = false;
@@ -672,6 +685,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     window.removeEventListener('message', this.onYoutubeWindowMessage);
     this.clearSleepKick();
     this.stopListSlide();
+    this.offlineAbort?.abort();
     this.offlineToken++;
     this.revokeOfflineUrl();
     this.destroy$.next();
@@ -4645,7 +4659,12 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       return this.drillTitle;
     }
     if (this.activeUserPlaylist && this.renamingPlaylistId !== this.activeUserPlaylist.id) {
-      return this.activeUserPlaylist.name;
+      const name = this.activeUserPlaylist.name || '';
+      const count = this.headingTrackCount;
+      if (!count) {
+        return name;
+      }
+      return `${name} — ${this.translate.instant('DEEZER.TRACK_COUNT', { count })}`;
     }
     if (this.listMode === 'favorites') {
       return this.translate.instant('RADIO.TAB_FAVORITES');
@@ -4660,6 +4679,14 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
       return this.translate.instant('DEEZER.SEARCH');
     }
     return this.translate.instant('DEEZER.CHART');
+  }
+
+  /** Tracks in the open playlist, shown beside its name. */
+  get headingTrackCount(): number {
+    if (this.nowBrowse || this.drilled || !this.activeUserPlaylist || this.renamingPlaylistId === this.activeUserPlaylist.id) {
+      return 0;
+    }
+    return (this.activeUserPlaylist.tracks || []).length;
   }
 
   get canOpenVideoshow(): boolean {
@@ -7224,17 +7251,25 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
 
   toggleOfflineList(): void {
     this.offlineListOpen = !this.offlineListOpen;
+    this.offlineRemoveId = 0;
+    this.offlineRemoveAll = false;
     if (this.offlineListOpen) {
       void this.refreshOfflineSaved();
     }
   }
 
-  /** Saved titles of the list on screen, in that list's order. */
+  /** Saved titles of the list on screen, A to Z by title. */
   get offlineScopeItems(): DeezerOfflineMeta[] {
     const byId = new Map(this.offlineItems.map((item) => [Number(item.id), item]));
     return this.offlineLibrary()
       .map((track) => byId.get(Number(track.id)))
-      .filter((item): item is DeezerOfflineMeta => !!item);
+      .filter((item): item is DeezerOfflineMeta => !!item)
+      .sort((a, b) => this.offlineAlpha(a, b));
+  }
+
+  private offlineAlpha(a: DeezerOfflineMeta, b: DeezerOfflineMeta): number {
+    const title = (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' });
+    return title || (a.artist || '').localeCompare(b.artist || '', undefined, { sensitivity: 'base' });
   }
 
   get offlineScopeSaved(): number {
@@ -7250,14 +7285,10 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
   }
 
   playSavedTrack(item: DeezerOfflineMeta, index: number): void {
-    const track: DeezerTrack = {
-      id: item.id,
-      title: item.title,
-      artistName: item.artist,
-      albumTitle: item.album,
-      durationSec: item.durationSec
-    };
-    const tracks = this.offlineLibrary().filter((row) => this.isSavedOffline(row.id));
+    this.offlineRemoveId = 0;
+    this.offlineRemoveAll = false;
+    const track = this.offlineTrackFromMeta(item);
+    const tracks = this.offlineScopeItems.map((row) => this.offlineTrackFromMeta(row));
     this.queue = tracks.length ? tracks : [track];
     index = Math.max(0, this.queue.findIndex((row) => row.id === item.id));
     this.playbackFollowsList = true;
@@ -7270,15 +7301,106 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
   }
 
-  /** Save the sound of the open list: favorite tracks, or the tracks of the open playlist. */
-  async downloadOfflineLibrary(): Promise<void> {
-    if (this.offlineBusy) {
+  /** Forget the sound kept on this device. The title stays in the playlist. A second tap confirms. */
+  async removeSavedTrack(item: DeezerOfflineMeta, event?: Event): Promise<void> {
+    event?.stopPropagation();
+    event?.preventDefault();
+    const id = Number(item?.id);
+    if (!id || this.offlineBusy || this.offlineTrackId === id) {
       return;
     }
-    const tracks = this.offlineLibrary();
+    if (this.offlineRemoveId !== id) {
+      this.offlineRemoveId = id;
+      this.offlineRemoveAll = false;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.offlineRemoveId = 0;
+    const playingThis = this.playingOffline && this.current?.id === id;
+    try {
+      await this.offlineStore.remove(id);
+    } catch {
+      this.cdr.markForCheck();
+      return;
+    }
+    this.offlineSavedIds.delete(id);
+    this.offlineItems = this.offlineItems.filter((row) => Number(row.id) !== id);
+    this.offlineSaved = this.offlineSavedIds.size;
+    if (playingThis) {
+      this.stopOfflinePlayback();
+    }
+    this.cdr.markForCheck();
+  }
+
+  /** Forget every saved title of the list on screen. A second tap confirms. */
+  async removeSavedTracks(event?: Event): Promise<void> {
+    event?.stopPropagation();
+    event?.preventDefault();
+    const ids = this.offlineScopeItems.map((item) => Number(item.id)).filter((id) => id > 0);
+    if (!ids.length || this.offlineBusy) {
+      return;
+    }
+    if (!this.offlineRemoveAll) {
+      this.offlineRemoveAll = true;
+      this.offlineRemoveId = 0;
+      this.cdr.markForCheck();
+      return;
+    }
+    this.offlineRemoveAll = false;
+    const playingThis = this.playingOffline && ids.includes(Number(this.current?.id));
+    try {
+      await this.offlineStore.removeMany(ids);
+    } catch {
+      this.cdr.markForCheck();
+      return;
+    }
+    const drop = new Set(ids);
+    for (const id of ids) {
+      this.offlineSavedIds.delete(id);
+    }
+    this.offlineItems = this.offlineItems.filter((row) => !drop.has(Number(row.id)));
+    this.offlineSaved = this.offlineSavedIds.size;
+    if (playingThis) {
+      this.stopOfflinePlayback();
+    }
+    this.cdr.markForCheck();
+  }
+
+  private offlineTrackFromMeta(item: DeezerOfflineMeta): DeezerTrack {
+    return {
+      id: item.id,
+      title: item.title,
+      artistName: item.artist,
+      albumTitle: item.album,
+      durationSec: item.durationSec
+    };
+  }
+
+  private stopOfflinePlayback(): void {
+    const audio = this.pageAudio();
+    if (audio) {
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+    }
+    this.playingOffline = false;
+    this.playing = false;
+    this.buffering = false;
+    this.revokeOfflineUrl();
+  }
+
+  /** Save the sound of the open list. With force, the titles already on this device are fetched again. */
+  async downloadOfflineLibrary(force = false): Promise<void> {
+    if (this.offlineBusy || this.offlineTrackBusy) {
+      return;
+    }
+    const tracks = force
+      ? this.offlineScopeItems.map((item) => this.offlineTrackFromMeta(item))
+      : this.offlineDownloadOrder();
     this.offlineFailed = 0;
     this.offlineDone = 0;
     this.offlineNote = '';
+    this.clearOfflineProgress();
     this.offlineTotal = tracks.length;
     if (!tracks.length) {
       this.offlineNote = this.listMode === 'playlists' && this.activeUserPlaylist
@@ -7290,11 +7412,17 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     this.offlineBusy = true;
     const token = ++this.offlineToken;
     this.cdr.markForCheck();
-    for (const track of tracks) {
+    for (let i = 0; i < tracks.length; i++) {
       if (token !== this.offlineToken) {
         return;
       }
-      if (!await this.saveOfflineTrack(track)) {
+      const track = tracks[i];
+      this.armOfflineTrack(track, i, token);
+      const ok = await this.saveOfflineTrack(track, token, force);
+      if (token !== this.offlineToken) {
+        return;
+      }
+      if (!ok) {
         this.offlineFailed++;
       }
       this.offlineDone++;
@@ -7302,6 +7430,7 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
     if (token === this.offlineToken) {
       this.offlineBusy = false;
+      this.clearOfflineProgress();
       await this.refreshOfflineSaved();
       if (this.offlineFailed > 0) {
         this.offlineNote = 'DEEZER.OFFLINE_FAIL';
@@ -7312,6 +7441,44 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
   }
 
+  /** Fetch again every title kept on this device for the list on screen. */
+  redownloadSavedTracks(event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+    void this.downloadOfflineLibrary(true);
+  }
+
+  /** Fetch this saved title again. The file already on the device stays until the new one is ready. */
+  async redownloadSavedTrack(item: DeezerOfflineMeta, event?: Event): Promise<void> {
+    event?.stopPropagation();
+    event?.preventDefault();
+    const id = Number(item?.id);
+    if (!id || this.offlineBusy || this.offlineTrackBusy) {
+      return;
+    }
+    this.offlineRemoveId = 0;
+    this.offlineRemoveAll = false;
+    const track = this.offlineTrackFromMeta(item);
+    this.offlineTrackBusy = id;
+    this.offlineNote = '';
+    const token = this.offlineToken;
+    const at = this.shownTracks.findIndex((row) => row.id === id);
+    this.armOfflineTrack(track, at >= 0 ? at : 0, token);
+    const ok = await this.saveOfflineTrack(track, token, true);
+    if (token !== this.offlineToken) {
+      return;
+    }
+    if (this.offlineTrackBusy === id) {
+      this.offlineTrackBusy = 0;
+      this.clearOfflineProgress();
+    }
+    await this.refreshOfflineSaved();
+    if (!ok) {
+      this.offlineNote = 'DEEZER.OFFLINE_TRACK_FAIL';
+    }
+    this.cdr.markForCheck();
+  }
+
   async downloadOfflineTrack(track: DeezerTrack, event?: Event): Promise<void> {
     event?.stopPropagation();
     event?.preventDefault();
@@ -7320,32 +7487,67 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
     }
     this.offlineTrackBusy = track.id;
     this.offlineNote = '';
+    const token = this.offlineToken;
+    const at = this.shownTracks.findIndex((row) => row.id === track.id);
+    this.armOfflineTrack(track, at >= 0 ? at : 0, token);
     this.cdr.markForCheck();
-    const ok = await this.saveOfflineTrack(track);
+    const ok = await this.saveOfflineTrack(track, token);
     if (this.offlineTrackBusy === track.id) {
       this.offlineTrackBusy = 0;
+      this.clearOfflineProgress();
     }
     await this.refreshOfflineSaved();
-    if (!ok && !this.isSavedOffline(track.id)) {
+    if (!ok && !this.isSavedOffline(track.id) && token === this.offlineToken) {
       this.offlineNote = 'DEEZER.OFFLINE_TRACK_FAIL';
     }
     this.cdr.markForCheck();
   }
 
-  private async saveOfflineTrack(track: DeezerTrack): Promise<boolean> {
+  /** The row whose sound is being written to this device. */
+  isOfflineLoading(trackId: number): boolean {
+    return !!trackId && this.offlineTrackId === trackId && (this.offlineBusy || this.offlineTrackBusy === trackId);
+  }
+
+  /** Bytes received so far, when the file size is not known yet. */
+  get offlineReceivedLabel(): string {
+    const bytes = this.offlineReceived;
+    if (bytes < 1024) {
+      return '';
+    }
+    const fr = (this.translate.currentLang || 'fr').toLowerCase().startsWith('fr');
+    if (bytes < 1024 * 1024) {
+      return `${Math.round(bytes / 1024)} ${fr ? 'Ko' : 'KB'}`;
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(1)} ${fr ? 'Mo' : 'MB'}`;
+  }
+
+  private async saveOfflineTrack(track: DeezerTrack, token = this.offlineToken, force = false): Promise<boolean> {
     const videoId = await this.offlineVideoId(track);
+    if (token !== this.offlineToken) {
+      return false;
+    }
     if (!videoId) {
       return false;
     }
-    if (this.offlineSavedIds.get(Number(track.id)) === videoId) {
+    if (!force && this.offlineSavedIds.get(Number(track.id)) === videoId) {
+      this.noteOfflineProgress(1, 1, token);
       return true;
     }
+    const ctrl = new AbortController();
+    this.offlineAbort?.abort();
+    this.offlineAbort = ctrl;
     try {
-      const response = await fetch(this.api.youtubeAudioUrl(videoId));
+      const response = await fetch(this.api.youtubeAudioUrl(videoId), { signal: ctrl.signal });
+      if (token !== this.offlineToken) {
+        return false;
+      }
       if (!response.ok) {
         return false;
       }
-      const data = await response.arrayBuffer();
+      const data = await this.readOfflineBody(response, token);
+      if (!data || token !== this.offlineToken) {
+        return false;
+      }
       if (data.byteLength < 2048 || !this.offlineAudioType(data)) {
         return false;
       }
@@ -7360,12 +7562,130 @@ export class DeezerWatcherComponent implements OnInit, AfterViewInit, OnDestroy 
         savedAt: Date.now(),
         data
       });
+      if (token !== this.offlineToken) {
+        return false;
+      }
       this.offlineSavedIds.set(Number(track.id), videoId);
       this.offlineSaved = this.offlineSavedIds.size;
+      this.noteOfflineProgress(data.byteLength, data.byteLength, token);
       return true;
     } catch {
       return false;
+    } finally {
+      if (this.offlineAbort === ctrl) {
+        this.offlineAbort = null;
+      }
     }
+  }
+
+  /** Visible list order, so the number on screen is the title being saved. */
+  private offlineDownloadOrder(): DeezerTrack[] {
+    const library = this.offlineLibrary();
+    const inLibrary = new Set(library.map((track) => track.id));
+    const shown = this.shownTracks.filter((track) => inLibrary.has(track.id));
+    if (!shown.length) {
+      return library;
+    }
+    const seen = new Set(shown.map((track) => track.id));
+    return [...shown, ...library.filter((track) => !seen.has(track.id))];
+  }
+
+  private armOfflineTrack(track: DeezerTrack, index: number, token: number): void {
+    this.offlineTrackId = track.id;
+    const at = this.shownTracks.findIndex((row) => row.id === track.id);
+    this.offlineIndex = at >= 0 ? this.trackRowNumber(at) : index + 1;
+    this.offlinePercent = -1;
+    this.offlineReceived = 0;
+    this.offlineProgressAt = 0;
+    const artist = (track.artistName || '').trim();
+    const title = (track.title || '').trim();
+    this.offlineCurrentLabel = artist && title ? `${artist} — ${title}` : (title || artist);
+    this.paintOffline();
+    setTimeout(() => {
+      if (token !== this.offlineToken || this.offlineTrackId !== track.id) {
+        return;
+      }
+      const row = document.querySelector('.dz-row.is-offline-loading');
+      if (row instanceof HTMLElement) {
+        row.scrollIntoView({ block: 'nearest' });
+      }
+    });
+  }
+
+  private clearOfflineProgress(): void {
+    this.offlineIndex = 0;
+    this.offlineTrackId = 0;
+    this.offlinePercent = -1;
+    this.offlineReceived = 0;
+    this.offlineCurrentLabel = '';
+    this.offlineProgressAt = 0;
+  }
+
+  private noteOfflineProgress(received: number, total: number, token: number): void {
+    if (token !== this.offlineToken) {
+      return;
+    }
+    const percent = total > 0 ? Math.min(100, Math.round((received * 100) / total)) : -1;
+    const now = Date.now();
+    const same = percent === this.offlinePercent;
+    if (same && (percent >= 0 || (this.offlineReceived > 0 && now - this.offlineProgressAt < 200))) {
+      return;
+    }
+    this.offlineReceived = received;
+    this.offlinePercent = percent;
+    this.offlineProgressAt = now;
+    this.paintOffline();
+  }
+
+  private paintOffline(): void {
+    try {
+      this.cdr.detectChanges();
+    } catch {
+      /* the page can leave while a title is still loading */
+    }
+  }
+
+  private async readOfflineBody(response: Response, token: number): Promise<ArrayBuffer | null> {
+    const header = Number(response.headers.get('Content-Length'));
+    const total = Number.isFinite(header) && header > 0 ? header : 0;
+    const body = response.body;
+    if (!body) {
+      const data = await response.arrayBuffer();
+      this.noteOfflineProgress(data.byteLength, data.byteLength, token);
+      return token === this.offlineToken ? data : null;
+    }
+    const reader = body.getReader();
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    try {
+      while (token === this.offlineToken) {
+        const step = await reader.read();
+        if (step.done) {
+          break;
+        }
+        if (!step.value?.byteLength) {
+          continue;
+        }
+        chunks.push(step.value);
+        received += step.value.byteLength;
+        this.noteOfflineProgress(received, total, token);
+      }
+    } finally {
+      if (token !== this.offlineToken) {
+        await reader.cancel().catch(() => undefined);
+      }
+    }
+    if (token !== this.offlineToken) {
+      return null;
+    }
+    const data = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+      data.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    this.noteOfflineProgress(received, total > 0 ? total : received, token);
+    return data.buffer;
   }
 
   private offlineLibrary(): DeezerTrack[] {

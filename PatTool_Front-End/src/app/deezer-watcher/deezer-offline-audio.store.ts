@@ -133,6 +133,36 @@ export class DeezerOfflineAudioStore {
       db.close();
     }
   }
+
+  /** Drop one saved title from this device. The playlist entry stays. */
+  async remove(id: number): Promise<void> {
+    await this.removeMany([id]);
+  }
+
+  /** Drop several saved titles in one write. The playlist entries stay. */
+  async removeMany(ids: number[]): Promise<void> {
+    const keys = [...new Set(ids.map((id) => Number(id)).filter((id) => id > 0))];
+    if (!keys.length) {
+      return;
+    }
+    const db = await openDb();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction([STORE, META], 'readwrite');
+        const tracks = tx.objectStore(STORE);
+        const meta = tx.objectStore(META);
+        for (const id of keys) {
+          tracks.delete(id);
+          meta.delete(id);
+        }
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error || new Error('idb_abort'));
+      });
+    } finally {
+      db.close();
+    }
+  }
 }
 
 function readMeta(db: IDBDatabase, store: string): Promise<DeezerOfflineMeta[]> {

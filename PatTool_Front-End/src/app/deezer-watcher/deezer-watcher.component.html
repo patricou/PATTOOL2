@@ -426,13 +426,16 @@
           </button>
         </div>
         <div class="dz-heading">
-          <span class="dz-heading-title" [attr.title]="headingTitle || null">
+          <span class="dz-heading-title" [class.has-count]="headingTrackCount > 0" [attr.title]="headingTitle || null">
             <ng-container *ngIf="nowBrowse">{{ nowBrowseTitle }}</ng-container>
             <ng-container *ngIf="!nowBrowse && drilled">{{ drillTitle }}</ng-container>
             <ng-container *ngIf="!nowBrowse && !drilled && listMode === 'favorites'">{{ 'RADIO.TAB_FAVORITES' | translate }}</ng-container>
             <ng-container *ngIf="!nowBrowse && !drilled && listMode === 'playlists' && !activeUserPlaylist">{{ 'DEEZER.MY_PLAYLISTS' | translate }}</ng-container>
             <ng-container *ngIf="!nowBrowse && !drilled && listMode === 'concert'">{{ 'DEEZER.CONCERT' | translate }}</ng-container>
-            <ng-container *ngIf="!nowBrowse && !drilled && activeUserPlaylist && renamingPlaylistId !== activeUserPlaylist.id">{{ activeUserPlaylist.name }}</ng-container>
+            <ng-container *ngIf="!nowBrowse && !drilled && activeUserPlaylist && renamingPlaylistId !== activeUserPlaylist.id">
+              <span class="dz-heading-name">{{ activeUserPlaylist.name }}</span>
+              <span class="dz-heading-count">{{ 'DEEZER.TRACK_COUNT' | translate:{ count: headingTrackCount } }}</span>
+            </ng-container>
             <ng-container *ngIf="!nowBrowse && !drilled && listMode === 'browse' && mode === 'chart'">{{ 'DEEZER.CHART' | translate }}</ng-container>
             <ng-container *ngIf="!nowBrowse && !drilled && listMode === 'browse' && mode === 'search'">{{ 'DEEZER.SEARCH' | translate }}</ng-container>
           </span>
@@ -457,43 +460,132 @@
           <span class="dz-heading-sub" *ngIf="!nowBrowse && drilled && drillSubtitle && !activeUserPlaylist">{{ drillSubtitle }}</span>
         </div>
         <div class="dz-offline-bar" *ngIf="offlineInLibrary">
+          <div class="dz-offline-actions">
           <button
             type="button"
             class="radio-eq-open-btn"
+            *ngIf="offlineBusy || offlinePendingCount"
             (click)="downloadOfflineLibrary()"
             [disabled]="offlineBusy"
             [attr.title]="offlineHintKey | translate"
-            [attr.aria-label]="'DEEZER.OFFLINE' | translate">
+            [attr.aria-label]="'DEEZER.OFFLINE_DOWNLOAD' | translate">
             <i class="fa fa-download" aria-hidden="true"></i>
-            <span class="radio-eq-open-label">{{ 'DEEZER.OFFLINE' | translate }}</span>
+            <span class="radio-eq-open-label">{{ 'DEEZER.OFFLINE_DOWNLOAD' | translate }}</span>
             <span class="radio-eq-open-label" *ngIf="!offlineBusy && offlinePendingCount">{{ offlinePendingCount }}</span>
-            <span class="radio-eq-open-label" *ngIf="offlineBusy">{{ offlineDone }} / {{ offlineTotal }}</span>
+            <span class="radio-eq-open-label" *ngIf="offlineBusy">{{ offlineIndex }} / {{ offlineTotal }}</span>
           </button>
           <button
             type="button"
             class="radio-eq-open-btn"
-            *ngIf="offlineScopeSaved"
+            *ngIf="offlineScopeSaved && !offlineListOpen"
             (click)="toggleOfflineList()"
             [class.is-open]="offlineListOpen"
             [attr.aria-expanded]="offlineListOpen"
             [attr.title]="'DEEZER.OFFLINE_LIST' | translate"
             [attr.aria-label]="'DEEZER.OFFLINE_LIST' | translate">
             <i class="fa fa-mobile" aria-hidden="true"></i>
+            <span class="radio-eq-open-label">{{ 'DEEZER.OFFLINE_LIST' | translate }}</span>
             <span class="radio-eq-open-label">{{ offlineScopeSaved }}</span>
           </button>
+          </div>
+          <div class="dz-offline-progress" *ngIf="offlineBusy && offlineIndex" role="status">
+            <div class="dz-offline-progress-meta">
+              <span>{{ 'DEEZER.OFFLINE_NOW' | translate:{ n: offlineIndex, total: offlineTotal } }}</span>
+              <span *ngIf="offlinePercent >= 0">{{ offlinePercent }} %</span>
+              <span *ngIf="offlinePercent < 0 && offlineReceivedLabel">{{ offlineReceivedLabel }}</span>
+              <span *ngIf="offlinePercent < 0 && !offlineReceivedLabel">{{ 'DEEZER.OFFLINE_LOADING' | translate }}</span>
+            </div>
+            <div
+              class="dz-offline-progress-track"
+              role="progressbar"
+              [attr.aria-valuemin]="0"
+              [attr.aria-valuemax]="100"
+              [attr.aria-valuenow]="offlinePercent >= 0 ? offlinePercent : null"
+              [attr.aria-label]="'DEEZER.OFFLINE_NOW' | translate:{ n: offlineIndex, total: offlineTotal }">
+              <span
+                class="dz-offline-progress-fill"
+                [class.is-unknown]="offlinePercent < 0"
+                [style.width.%]="offlinePercent >= 0 ? offlinePercent : null"></span>
+            </div>
+            <span class="dz-offline-progress-title" *ngIf="offlineCurrentLabel">{{ offlineCurrentLabel }}</span>
+          </div>
           <span class="dz-title-note" *ngIf="offlineNote && !offlineBusy">{{ offlineNote | translate }}</span>
           <div class="dz-offline-panel" *ngIf="offlineListOpen">
-            <div class="dz-offline-head">{{ 'DEEZER.OFFLINE_LIST' | translate }}</div>
+            <div class="dz-offline-head">
+              <div class="dz-offline-head-title">
+                <span>{{ 'DEEZER.OFFLINE_LIST' | translate }}</span>
+                <button
+                  type="button"
+                  class="dz-offline-close"
+                  (click)="toggleOfflineList()"
+                  [attr.title]="'DEEZER.OFFLINE_CLOSE' | translate"
+                  [attr.aria-label]="'DEEZER.OFFLINE_CLOSE' | translate">
+                  <i class="fa fa-times" aria-hidden="true"></i>
+                </button>
+              </div>
+              <span class="dz-offline-head-actions" *ngIf="offlineScopeItems.length">
+                <button
+                  type="button"
+                  class="dz-offline-remove dz-offline-reload"
+                  [disabled]="offlineBusy"
+                  (click)="redownloadSavedTracks($event)"
+                  [attr.title]="'DEEZER.OFFLINE_REDOWNLOAD' | translate"
+                  [attr.aria-label]="'DEEZER.OFFLINE_REDOWNLOAD' | translate">
+                  <i class="fa fa-download" aria-hidden="true"></i>
+                  <span>{{ 'DEEZER.OFFLINE_REDOWNLOAD' | translate }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="dz-offline-remove dz-offline-remove-all"
+                  [class.is-ask]="offlineRemoveAll"
+                  [disabled]="offlineBusy"
+                  (click)="removeSavedTracks($event)"
+                  [attr.title]="'DEEZER.OFFLINE_REMOVE_ALL' | translate"
+                  [attr.aria-label]="(offlineRemoveAll ? 'DEEZER.OFFLINE_REMOVE_CONFIRM' : 'DEEZER.OFFLINE_REMOVE_ALL') | translate">
+                  <i class="fa fa-trash" aria-hidden="true"></i>
+                  <span>{{ (offlineRemoveAll ? 'DEEZER.OFFLINE_REMOVE_CONFIRM' : 'DEEZER.OFFLINE_REMOVE_ALL') | translate }}</span>
+                </button>
+              </span>
+            </div>
             <p class="dz-offline-empty" *ngIf="!offlineScopeItems.length">{{ 'DEEZER.OFFLINE_NONE' | translate }}</p>
-            <button
-              type="button"
+            <div
               class="dz-offline-row"
               *ngFor="let item of offlineScopeItems; let i = index"
-              [class.is-on]="current?.id === item.id"
-              (click)="playSavedTrack(item, i)">
-              <span class="dz-offline-title">{{ item.title }}</span>
-              <span class="dz-offline-artist">{{ item.artist }}</span>
-            </button>
+              [class.is-on]="current?.id === item.id">
+              <button
+                type="button"
+                class="dz-offline-play"
+                (click)="playSavedTrack(item, i)">
+                <span class="dz-offline-title">{{ item.title }}</span>
+                <span class="dz-offline-artist">{{ item.artist }}</span>
+              </button>
+              <button
+                type="button"
+                class="dz-offline-remove dz-offline-reload"
+                [disabled]="offlineBusy || (!!offlineTrackBusy && offlineTrackBusy !== item.id)"
+                (click)="redownloadSavedTrack(item, $event)"
+                [attr.title]="'DEEZER.OFFLINE_REDOWNLOAD_ONE' | translate"
+                [attr.aria-label]="'DEEZER.OFFLINE_REDOWNLOAD_ONE' | translate">
+                <i class="fa fa-spinner fa-spin" *ngIf="offlineTrackBusy === item.id" aria-hidden="true"></i>
+                <i class="fa fa-download" *ngIf="offlineTrackBusy !== item.id" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="dz-offline-remove"
+                [class.is-ask]="offlineRemoveId === item.id"
+                [disabled]="offlineBusy || offlineTrackId === item.id"
+                (click)="removeSavedTrack(item, $event)"
+                [attr.title]="'DEEZER.OFFLINE_REMOVE' | translate"
+                [attr.aria-label]="(offlineRemoveId === item.id ? 'DEEZER.OFFLINE_REMOVE_CONFIRM' : 'DEEZER.OFFLINE_REMOVE') | translate">
+                <i class="fa fa-trash" *ngIf="offlineRemoveId !== item.id" aria-hidden="true"></i>
+                <span *ngIf="offlineRemoveId === item.id">{{ 'DEEZER.OFFLINE_REMOVE_CONFIRM' | translate }}</span>
+              </button>
+              <span class="dz-offline-row-progress" *ngIf="isOfflineLoading(item.id)" aria-hidden="true">
+                <span
+                  [class.is-unknown]="offlinePercent < 0"
+                  [style.width.%]="offlinePercent >= 0 ? offlinePercent : null"></span>
+              </span>
+            </div>
           </div>
         </div>
         <div class="dz-play-actions" *ngIf="transportTracks || showTrackList">
@@ -781,6 +873,7 @@
           *ngFor="let track of shownTracks; let i = index; trackBy: trackById"
           class="dz-row dz-row--track"
           [class.is-on]="rowIsCurrent(track.id)"
+          [class.is-offline-loading]="isOfflineLoading(track.id)"
           [attr.title]="itemTitle(itemTitle(track.artistName, track.albumTitle), track.title)"
           (click)="playListedTrack(track, i)"
           (keydown.enter)="playListedTrack(track, i)"
@@ -931,6 +1024,11 @@
             </button>
             </span>
             </span>
+          <span class="dz-offline-row-progress" *ngIf="isOfflineLoading(track.id)" aria-hidden="true">
+            <span
+              [class.is-unknown]="offlinePercent < 0"
+              [style.width.%]="offlinePercent >= 0 ? offlinePercent : null"></span>
+          </span>
         </li>
         <li *ngIf="!shownTracks.length" class="dz-empty">{{ trackEmptyKey | translate }}</li>
         <li class="dz-pager-row" *ngIf="showCatalogPager && view === 'track'"><ng-container *ngTemplateOutlet="dzPager"></ng-container></li>
